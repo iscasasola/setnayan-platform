@@ -51,6 +51,61 @@ export function gateVerdict(needsJson, prDraft) {
   return { ok: problems.length === 0, rows, problems };
 }
 
+/* ── 1b. a run cancelled because a newer run took its place ─────────────────*/
+
+/**
+ * 📝 2026-11-24 (#8252, run 45266185097). Every pull_request run of ci.yml shares the group `ci-pr-<N>` with
+ * `cancel-in-progress`, so a second run on the SAME commit (`opened` + `ready_for_review` a second apart, `reopened`,
+ * a re-run) cancels the first. The gate is `if: always()`, so it still runs in the cancelled run, finds its jobs
+ * `cancelled`, and posts a FAILED "typecheck + lint" — in that run's own check suite, where nothing newer replaces it.
+ * The PR then sits BLOCKED with every check of the newer run green.
+ *
+ * A cancelled run tested nothing; the run that replaced it tests the same commit and posts its own gate under the
+ * same required name. So the cancelled run's gate DEFERS to it — but only when all of these hold:
+ *   · the red is only "nothing finished": every job it needs is success, cancelled or skipped (never `failure`,
+ *     never unreadable) — a run that found a real failure keeps it, superseded or not;
+ *   · another run of this workflow is WAITING on the same head commit, same branch, pull_request event. Waiting
+ *     (`queued`/`pending`/`waiting`/`requested`), never `in_progress`: the group lets ONE run of a PR be in
+ *     progress at a time — this one — so a waiting run is the one queued to replace it, and its gate decides.
+ *     A run that is not waiting behind this one (or a failed lookup) means no deferral: the gate stays red.
+ * The successor's gate is required too, and it is pending until it finishes honestly, so the PR stays blocked until
+ * then. The chain always ends in a run nothing replaced, and that run's gate never defers.
+ */
+export const WAITING_RUN_STATUSES = ['queued', 'pending', 'waiting', 'requested'];
+
+/** May this red be handed to a successor? Only when nothing FAILED: every needed job is success, cancelled or skipped. */
+export function deferrable(needsJson) {
+  let needs;
+  try {
+    needs = JSON.parse(needsJson ?? '');
+  } catch {
+    return false;
+  }
+  if (!needs || typeof needs !== 'object' || Array.isArray(needs)) return false;
+  const results = Object.values(needs).map((v) => (typeof v?.result === 'string' ? v.result : 'missing'));
+  return results.length > 0 && results.every((r) => r === 'success' || r === 'cancelled' || r === 'skipped');
+}
+
+/**
+ * The run waiting to replace this one, or null.
+ * @param {any[]} runs `workflow_runs` from GET /repos/{repo}/actions/workflows/{file}/runs?head_sha=…
+ * @param {{runId:string|number, headSha:string, headBranch:string, prNumber?:string|number}} me
+ */
+export function supersedingRun(runs, me) {
+  if (!Array.isArray(runs) || !me?.headSha || !me?.headBranch || me.runId == null || me.runId === '') return null;
+  return (
+    runs.find(
+      (r) =>
+        String(r?.id) !== String(me.runId) &&
+        r?.event === 'pull_request' &&
+        r?.head_sha === me.headSha &&
+        r?.head_branch === me.headBranch &&
+        WAITING_RUN_STATUSES.includes(r?.status) &&
+        (!me.prNumber || !Array.isArray(r?.pull_requests) || r.pull_requests.length === 0 || r.pull_requests.some((p) => String(p?.number) === String(me.prNumber))),
+    ) ?? null
+  );
+}
+
 /* ── 2. the workflow's shape ────────────────────────────────────────────────*/
 
 /**
@@ -276,6 +331,19 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
     if (/^\s*#/.test(line)) return;
     if (line.includes('github.event.pull_request.draft')) problems.push(`ci.yml line ${i + 1} reads the event payload's draft flag (\`${line.trim()}\`) — a re-run replays it. Read \`needs.${LIVE_DRAFT_JOB}.outputs.draft\` instead.`);
   });
+  /* j · a cancelled run's gate can see the run replacing it — or a superseded commit stays red forever (see supersedingRun) */
+  if (!/^ {6}actions:\s*read\s*$/m.test(gate.body)) problems.push(`"${GATE_NAME}" must have \`permissions: actions: read\` — without it a run cancelled for a newer run on the same commit cannot see that run, and posts a FAILED gate nothing replaces`);
+  for (const [key, expr] of [
+    ['EVENT_NAME', 'github.event_name'],
+    ['GITHUB_TOKEN', 'github.token'],
+    ['RUN_ID', 'github.run_id'],
+    ['HEAD_SHA', 'github.event.pull_request.head.sha'],
+    ['HEAD_BRANCH', 'github.head_ref'],
+  ]) {
+    const re = new RegExp(`^ {10}${key}:\\s*\\$\\{\\{\\s*${expr.replace(/\./g, '\\.')}\\s*\\}\\}\\s*$`, 'm');
+    if (!re.test(gate.body)) problems.push(`"${GATE_NAME}" must hand the script \`${key}: \${{ ${expr} }}\` — it is how a cancelled run finds the run replacing it on the same commit`);
+  }
+
   for (const j of jobs) {
     if (j.body.includes(`needs.${LIVE_DRAFT_JOB}.outputs`) && !j.needs.includes(LIVE_DRAFT_JOB)) {
       problems.push(`job "${j.id}" reads \`needs.${LIVE_DRAFT_JOB}.outputs\` but does not \`needs: ${LIVE_DRAFT_JOB}\``);

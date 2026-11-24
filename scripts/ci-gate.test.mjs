@@ -14,9 +14,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawnSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { gateVerdict, shapeProblems, parseJobs, summariseTap, parseReportedChecks, reportConclusions, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE, DRAFT_PR_PROBLEM, LIVE_DRAFT_JOB, LIVE_DRAFT_CLAUSE } from './lib/ci-shape.mjs';
+import { gateVerdict, shapeProblems, parseJobs, summariseTap, parseReportedChecks, reportConclusions, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE, DRAFT_PR_PROBLEM, LIVE_DRAFT_JOB, LIVE_DRAFT_CLAUSE, deferrable, supersedingRun } from './lib/ci-shape.mjs';
+import http from 'node:http';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ROOT = path.resolve(HERE, '..');
@@ -161,7 +162,7 @@ test('a NEW job nobody needs is caught', () => {
 
 test('🚨 the gate without `if: always()` is caught — skipped would count as passed', () => {
   mentions(problemsOf(broken('    needs: [pr-state, guards, typecheck, eslint, unit-tests, db-replay]\n    if: ${{ always() }}\n', '    needs: [pr-state, guards, typecheck, eslint, unit-tests, db-replay]\n')), /must be `if: \$\{\{ always\(\) \}\}`/);
-  mentions(problemsOf(broken('    if: ${{ always() }}\n    steps:\n      - uses: actions/checkout@v4\n', '    if: ${{ !cancelled() }}\n    steps:\n      - uses: actions/checkout@v4\n')), /must be `if:/);
+  mentions(problemsOf(broken('    if: ${{ always() }}\n    permissions:\n      contents: read\n      # Only to list', '    if: ${{ !cancelled() }}\n    permissions:\n      contents: read\n      # Only to list')), /must be `if:/);
 });
 
 test('a gate that reads a hand-picked subset, or runs nothing, is caught', () => {
@@ -297,6 +298,105 @@ test('🚨 skipping drafts without `ready_for_review` is caught — a PR marked 
   for (const f of ['e2e.yml', 'lighthouse.yml']) {
     assert.ok(others[f].includes(DRAFT_CLAUSE) && others[f].includes(types), `${f} skips drafts and lists the four types`);
     mentions(problemsOf(CI, webPackage, { ...others, [f]: others[f].replace(types, '') }), new RegExp(`${f.replace('.', '\\.')}: its jobs skip draft PRs`));
+  }
+});
+
+/* ── a run cancelled for a newer run on the SAME commit (#8252, run 45266185097) ───────────────────────────────*/
+
+const ME = { runId: '100', headSha: 'abc123', headBranch: 'feat/x', prNumber: '42' };
+const run = (o) => ({ id: 101, event: 'pull_request', head_sha: 'abc123', head_branch: 'feat/x', status: 'pending', pull_requests: [{ number: 42 }], html_url: 'https://example.test/run/101', ...o });
+
+test('only a red made of "nothing finished" may defer — a real failure never does', () => {
+  assert.equal(deferrable(JSON.stringify({ a: { result: 'success' }, b: { result: 'cancelled' }, c: { result: 'skipped' } })), true);
+  assert.equal(deferrable(JSON.stringify({ a: { result: 'success' }, b: { result: 'skipped' } })), true, 'a draft run: heavy jobs skipped');
+  assert.equal(deferrable(JSON.stringify({ a: { result: 'cancelled' }, b: { result: 'failure' } })), false, 'a failure stays red, superseded or not');
+  assert.equal(deferrable(JSON.stringify({ a: {} })), false, 'a missing result is not "nothing finished"');
+  assert.equal(deferrable('{}'), false);
+  assert.equal(deferrable('not json'), false);
+  assert.equal(deferrable(undefined), false);
+});
+
+test('🚨 the successor must be WAITING on the same commit, branch and PR — anything else is no successor', () => {
+  for (const status of ['queued', 'pending', 'waiting', 'requested']) assert.equal(supersedingRun([run({ status })], ME)?.id, 101, status);
+  assert.equal(supersedingRun([run({ status: 'in_progress' })], ME), null, 'in progress is not waiting behind this run — never defer to it');
+  assert.equal(supersedingRun([run({ status: 'completed' })], ME), null, 'a finished run replaces nothing');
+  assert.equal(supersedingRun([run({ id: 100 })], ME), null, 'this run is not its own successor');
+  assert.equal(supersedingRun([run({ head_sha: 'def456' })], ME), null, 'another commit');
+  assert.equal(supersedingRun([run({ head_branch: 'feat/y' })], ME), null, 'another branch');
+  assert.equal(supersedingRun([run({ event: 'push' })], ME), null, 'not a pull_request run');
+  assert.equal(supersedingRun([run({ pull_requests: [{ number: 7 }] })], ME), null, 'another PR');
+  assert.equal(supersedingRun([run({ pull_requests: [] })], ME)?.id, 101, 'GitHub leaves pull_requests empty on some runs: branch + commit decide');
+  assert.equal(supersedingRun(undefined, ME), null);
+  assert.equal(supersedingRun([run()], { ...ME, runId: '' }), null, 'no run id → no lookup');
+  assert.equal(supersedingRun([run()], { ...ME, headSha: '' }), null);
+});
+
+/** Run the real gate script against a stub GitHub that answers the runs lookup with `answer`. */
+async function gateAgainst(env, answer) {
+  const server = http.createServer((req, res) => {
+    if (typeof answer === 'number') {
+      res.writeHead(answer).end('nope');
+      return;
+    }
+    assert.match(req.url, /^\/repos\/o\/r\/actions\/workflows\/ci\.yml\/runs\?head_sha=abc123&event=pull_request/);
+    res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ workflow_runs: answer }));
+  });
+  await new Promise((r) => server.listen(0, '127.0.0.1', r));
+  const base = {
+    NEEDS: JSON.stringify({ 'pr-state': { result: 'success' }, guards: { result: 'cancelled' }, typecheck: { result: 'cancelled' }, 'db-replay': { result: 'skipped' } }),
+    PR_DRAFT: 'false', EVENT_NAME: 'pull_request', GITHUB_TOKEN: 't', GITHUB_REPOSITORY: 'o/r', RUN_ID: '100', HEAD_SHA: 'abc123', HEAD_BRANCH: 'feat/x', PR_NUMBER: '42',
+    GITHUB_WORKFLOW_REF: 'o/r/.github/workflows/ci.yml@refs/pull/42/merge', GITHUB_API_URL: `http://127.0.0.1:${server.address().port}`, GITHUB_STEP_SUMMARY: '',
+  };
+  const out = await new Promise((resolve) => {
+    const child = spawn(process.execPath, [path.join(HERE, 'ci-gate.mjs')], { env: { PATH: process.env.PATH, ...base, ...env } });
+    let stdout = '';
+    child.stdout.on('data', (d) => (stdout += d));
+    child.on('close', (status) => resolve({ status, stdout }));
+  });
+  server.close();
+  return out;
+}
+
+test('🚨 end to end: a cancelled run with a successor WAITING on the same commit is green and names it', async () => {
+  const r = await gateAgainst({}, [run()]);
+  assert.equal(r.status, 0, r.stdout);
+  assert.match(r.stdout, /Superseded on the same commit[\s\S]*run 101/);
+});
+
+test('🚨 end to end: the gate stays RED when there is no successor, the lookup fails, or something really failed', async () => {
+  assert.equal((await gateAgainst({}, [])).status, 1, 'nothing waiting → red');
+  assert.equal((await gateAgainst({}, [run({ status: 'in_progress' })])).status, 1, 'nothing WAITING → red');
+  const refused = await gateAgainst({}, 500);
+  assert.equal(refused.status, 1, 'a refused lookup → red');
+  assert.match(refused.stdout, /GitHub answered 500 — the gate stays red/);
+  assert.equal((await gateAgainst({ GITHUB_TOKEN: '' }, [run()])).status, 1, 'no token → red');
+  assert.equal((await gateAgainst({ EVENT_NAME: 'push' }, [run()])).status, 1, 'not a pull request → red');
+  const failed = JSON.stringify({ guards: { result: 'failure' }, typecheck: { result: 'cancelled' } });
+  assert.equal((await gateAgainst({ NEEDS: failed }, [run()])).status, 1, 'a real failure is never handed on');
+});
+
+test('a draft run replaced on the same commit defers too — the successor reads the draft flag live and decides', async () => {
+  const draftRun = JSON.stringify({ 'pr-state': { result: 'success' }, guards: { result: 'success' }, typecheck: { result: 'skipped' } });
+  assert.equal((await gateAgainst({ NEEDS: draftRun, PR_DRAFT: 'true' }, [run()])).status, 0);
+  assert.equal((await gateAgainst({ NEEDS: draftRun, PR_DRAFT: 'true' }, [])).status, 1, 'with nobody replacing it a draft is red, as always');
+});
+
+test('🚨 a gate that cannot see the run replacing it is caught', () => {
+  const gateBody = parseJobs(CI).find((j) => j.name === GATE_NAME).body;
+  assert.match(gateBody, /^ {6}actions: read$/m);
+  const gateAt = CI.indexOf('  typecheck-lint:\n');
+  const noActions = CI.slice(0, gateAt) + CI.slice(gateAt).replace('      actions: read\n', '');
+  mentions(problemsOf(noActions), /must have `permissions: actions: read`/);
+  for (const [line, key] of [
+    ['          RUN_ID: ${{ github.run_id }}\n', 'RUN_ID'],
+    ['          HEAD_SHA: ${{ github.event.pull_request.head.sha }}\n', 'HEAD_SHA'],
+    ['          HEAD_BRANCH: ${{ github.head_ref }}\n', 'HEAD_BRANCH'],
+    ['          EVENT_NAME: ${{ github.event_name }}\n', 'EVENT_NAME'],
+    ['          GITHUB_TOKEN: ${{ github.token }}\n', 'GITHUB_TOKEN'],
+  ]) {
+    const cut = CI.slice(0, gateAt) + CI.slice(gateAt).replace(line, '');
+    assert.notEqual(cut, CI, `the gate hands ${key}`);
+    mentions(problemsOf(cut), new RegExp(`must hand the script \`${key}:`));
   }
 });
 

@@ -130,6 +130,26 @@ test('Setnayan AI is quoted at its own catalog price — and no old event-type r
   assert.equal(aiLadder(buildPriceBook(INPUT)).length, 4);
 });
 
+test('the Event Hub single is quoted at its own catalog price, by name, after the plans', () => {
+  /*
+    ⚖ Owner 2026-11-23 (DECISION_LOG "EVENT PLANS ARE PACKAGES; SINGLES ARE THE SECOND CHOICE"; migration
+    20271359355225). The plans lead; the single is the second choice.
+
+    🔑 Its figure is read from the FIXTURE, never typed. It equals Setnayan AI's today, so "every active price is quoted"
+    alone cannot see a missing Event Hub line — this one ties the figure to the Event Hub's own words.
+  */
+  const body = renderLlmsTxt(INPUT);
+  const hub = RETAIL.find((r) => r.service_code === 'EVENT_HUB')!;
+  assert.ok(hub.is_active, 'the fixture keeps EVENT_HUB on sale');
+  const price = peso(Number(hub.retail_price_php)).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const single = new RegExp(`- The whole Event Hub[^\\n]*comes with every plan, and is also sold on its own at ${price} one-time per event`);
+  assert.match(body, single, 'llms.txt does not sell the Event Hub on its own at its catalog price');
+  const plans = body.indexOf('- **Event Ultra**');
+  const singleAt = body.search(single);
+  assert.ok(plans > -1 && singleAt > plans, 'the Event Hub single must come after the plans, never before them');
+  assert.doesNotMatch(body, /Event Pro designs every part of it|designing every part of it comes with Event Pro/, 'llms.txt still says only Event Pro designs the Event Hub — every plan does, and the single');
+});
+
 test('every linked route is in the audit KNOWN_PUBLIC_ROUTES set', () => {
   for (const route of LINKED_ROUTES) {
     assert.ok(

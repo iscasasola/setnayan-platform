@@ -43,6 +43,7 @@ import {
   readCanvasFormSnapshot,
   type CanvasFormSnapshot,
 } from '@/lib/canvas-form-snapshot';
+import { Sk } from '@/components/skeletons';
 import { readSnapshot, type Snapshot } from '@/lib/service-card-snapshot';
 import { audienceGroups, type AudienceOption } from '@/lib/canvas-audience-groups';
 import type { CanvasInitial } from '@/lib/canvas-initial';
@@ -756,6 +757,14 @@ export function CanvasMaker({
     giftPickOf({ includes_setnayan_gift: initial?.includesSetnayanGift ?? false, gift_pack_code: initial?.giftPackCode ?? null }),
   );
   const [snap, setSnap] = useState<CanvasFormSnapshot>(EMPTY_CANVAS_SNAPSHOT);
+  /**
+   * 👻 THE FIRST PAINT IS NOT A READ (supplier walk on live, 24 Nov 2026): `snap` is read off the live form, which only
+   * exists after hydration — so the server render and the first paint said "Photos 0 of 5 · still missing: a cover
+   * photo · a price · what's included" on a COMPLETE card, then corrected 1–2 s later. Until the first read lands the
+   * photo count and the status line draw a skeleton, never the empty snapshot as if it were the card.
+   * 🔒 lib/card-editor-first-paint-is-honest.test.ts
+   */
+  const [snapRead, setSnapRead] = useState(false);
   // New photos stop at 5; a card opened with 6 keeps 6 (Decided Q5) — the SAME rule the gallery counts by, fixed at open.
   const [photoLimit] = useState(() =>
     cardPhotoLimit(cardPhotoOrder(editing?.coverKey ?? initial?.coverPhotoR2Key ?? null, initial?.showcasePhotoR2Keys).length),
@@ -846,6 +855,7 @@ export function CanvasMaker({
           lastKey = key;
           setSnap(next);
         }
+        setSnapRead(true);
         const f = readSnapshot(fd);
         const fk = JSON.stringify(f);
         if (fk !== lastFace) {
@@ -1007,7 +1017,7 @@ export function CanvasMaker({
 
   const [pending, setPending] = useState(false);
   // A card that is LIVE keeps its price (the gate's own rule for a live card) — Save waits while it is blank.
-  const liveNeedsPrice = isEdit && liveOn && editing?.isActive === true && !snap.hasPrice;
+  const liveNeedsPrice = snapRead && isEdit && liveOn && editing?.isActive === true && !snap.hasPrice;
   /**
    * 🃏 FIX BEFORE CREATE (owner 2026-10-26) — claim words · the card matches its service · one photo = one service
    * card. Each open problem is drawn on its row; Create (Save on an edit) waits until none is left. ./card-checks.tsx
@@ -1376,7 +1386,7 @@ export function CanvasMaker({
             <MakerGroup
               id="photos"
               label="Photos"
-              aside={`${formatCount((snap.hasCover ? 1 : 0) + snap.photoCount)} of ${formatCount(photoLimit)}`}
+              aside={snapRead ? `${formatCount((snap.hasCover ? 1 : 0) + snap.photoCount)} of ${formatCount(photoLimit)}` : undefined}
               tip={(snap.hasCover ? 1 : 0) + snap.photoCount >= photoLimit ? cardPhotosFullTip(photoLimit) : CARD_PHOTOS_TIP}
             >
               <div data-maker-row="photos">
@@ -1416,6 +1426,9 @@ export function CanvasMaker({
 
             {/* The status line — on a phone it follows the photos; from 701 up the preview beside it says it. */}
             <div className="tab:hidden">
+              {!snapRead ? (
+                <Sk className="h-11 w-full rounded-2xl" />
+              ) : (
               <p
                 data-maker-status={status.tone}
                 className="flex items-start gap-2.5 rounded-2xl px-3 py-2.5 text-[14px] leading-snug"
@@ -1434,6 +1447,7 @@ export function CanvasMaker({
                   <b className="font-semibold">{status.text}</b>
                 </span>
               </p>
+              )}
               <div className="mt-2">
                 <CardChecksSummary open={checks.open} unread={checks.unread} isEdit={isEdit} />
               </div>
@@ -1929,6 +1943,9 @@ export function CanvasMaker({
               <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink/45">Live</span>
             </div>
             {cardFace}
+            {!snapRead ? (
+              <Sk className="h-5 w-3/4 rounded-full" />
+            ) : (
             <p
               data-maker-status={status.tone}
               className="flex items-start gap-2.5 text-[14px] leading-snug"
@@ -1944,6 +1961,7 @@ export function CanvasMaker({
                 <b className="font-semibold">{status.text}</b>
               </span>
             </p>
+            )}
             <CardChecksSummary open={checks.open} unread={checks.unread} isEdit={isEdit} />
           </div>
         </aside>

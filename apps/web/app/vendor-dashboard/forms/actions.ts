@@ -401,6 +401,7 @@ async function sendFormIntoEvent(
     body: args.again
       ? `I sent you a form again — “${title}”. Your last answers are still ticked; change any you like in your event.`
       : `I sent you a form — “${title}”. Answer it in your event.`,
+    sent_as: 'vendor', // "as the supplier" — never derived couple-first (walk 24 Nov 2026)
   });
   if (msgError) console.error('[formsAction.send] line failed:', msgError.message);
 

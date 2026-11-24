@@ -183,7 +183,8 @@ async function templateOp(formData: FormData, shopId: string): Promise<StoreActi
     const id = (data as { pay_plan_id: string }).pay_plan_id;
     if (!(await writeLayout(withPayInstalled(layout.templates, t.key, id)))) {
       // Keep the two in step: a plan the Toolkit cannot mark installed is taken back out.
-      await supabase.from('vendor_pay_plans').update({ retired_at: new Date().toISOString() }).eq('pay_plan_id', id).eq('vendor_profile_id', shopId);
+      const back = await supabase.from('vendor_pay_plans').update({ retired_at: new Date().toISOString() }).eq('pay_plan_id', id).eq('vendor_profile_id', shopId);
+      if (back.error) logQueryError('storeAction.templateInstallUndo', back.error, { vendor_profile_id: shopId, pay_plan_id: id });
       return err('Couldn’t install that just now. Nothing was changed — try again.');
     }
     revalidateTemplates();

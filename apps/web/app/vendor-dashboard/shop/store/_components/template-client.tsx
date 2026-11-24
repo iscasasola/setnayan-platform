@@ -1,9 +1,9 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { MinusCircle, Plus, Save, Trash2 } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
@@ -22,7 +22,6 @@ import { PlanBar } from './template-bar';
  */
 
 export function TemplateRemove({ of, templateKey, name, cardCount }: { of: TemplateKind; templateKey: string; name: string; cardCount: number }) {
-  const router = useRouter();
   const [gone, setGone] = useState(false);
   const remove = () =>
     deleteWithUndo({
@@ -36,7 +35,6 @@ export function TemplateRemove({ of, templateKey, name, cardCount }: { of: Templ
         fd.set('key', templateKey);
         fd.set('act', 'remove');
         const r = await storeAction({ status: 'idle' }, fd);
-        if (r.status !== 'error') router.refresh();
         return r.status === 'error' ? { ok: false, error: r.message } : { ok: true };
       },
       failed: `Couldn’t remove ${name}. It’s back — try again.`,
@@ -54,7 +52,6 @@ const DUE_OPTIONS: readonly { key: string; label: string }[] = [
 
 export function TemplatePlanEditor({ templateKey, name: startName, parts }: { templateKey: string; name: string; parts: readonly PlanPart[] }) {
   const toast = useToast();
-  const router = useRouter();
   const [busy, start] = useTransition();
   const [name, setName] = useState(startName);
   const [rows, setRows] = useState<Row[]>(() => parts.map((x, i) => ({ ...x, id: i })));
@@ -78,19 +75,15 @@ export function TemplatePlanEditor({ templateKey, name: startName, parts }: { te
     start(async () => {
       const res = await storeAction({ status: 'idle' }, fd);
       if (res.status === 'error') toast.error(res.message);
-      else if (res.status === 'ok') {
-        toast.success(res.message);
-        router.refresh();
-      }
+      else if (res.status === 'ok') toast.success(res.message);
     });
   };
   const adds = total === 100;
   return (
     <div className="sn-frame mt-3 p-4" data-template-editor={templateKey}>
-      <label className="block">
-        <span className="text-sn-base font-semibold text-ink">Plan name</span>
-        <input className="input-field mt-1 w-full" value={name} maxLength={60} onChange={(e) => setName(e.target.value)} data-template-name="" />
-      </label>
+      <FormRows>
+        <TypedRow name="Plan name" value={name} boxed required maxLength={60} autoCapitalize="sentences" onKeep={(t) => setName(t)} data="template-name" />
+      </FormRows>
       <p className="mt-4 text-sn-base font-semibold text-ink">Payments</p>
       <div className="mt-2">
         <PlanBar parts={rows} />
@@ -100,10 +93,11 @@ export function TemplatePlanEditor({ templateKey, name: startName, parts }: { te
           <li key={r.id} className="grid grid-cols-[auto_1fr_auto] items-start gap-x-3 gap-y-2 py-3" data-template-part={i + 1}>
             <span className="mt-2.5 w-5 text-sn-base font-semibold tabular-nums text-[color:var(--m-slate-2)]">{formatCount(i + 1)}</span>
             <span className="grid min-w-0 grid-cols-2 gap-2">
-              <label className="col-span-2 block">
-                <span className="sr-only">Name of payment {i + 1}</span>
-                <input className="input-field w-full" value={r.label} maxLength={60} onChange={(e) => set(r.id, { label: e.target.value })} aria-label={`Name of payment ${i + 1}`} />
-              </label>
+              <span className="col-span-2 block">
+                <FormRows>
+                  <TypedRow name={`Payment ${i + 1}`} value={r.label} boxed required maxLength={60} autoCapitalize="sentences" onKeep={(t) => set(r.id, { label: t })} data={`template-part-name-${i + 1}`} />
+                </FormRows>
+              </span>
               <label className="flex items-center gap-1.5">
                 <input
                   className="input-field w-20 tabular-nums"

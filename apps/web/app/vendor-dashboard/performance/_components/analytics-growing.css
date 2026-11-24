@@ -197,6 +197,9 @@
 [data-growth] .ag-heat .ag-c { height: 20px; border-radius: var(--m-r-xs); border: 0.5px solid var(--m-line); background: var(--m-paper); }
 [data-growth] .ag-heat .ag-l { display: flex; align-items: center; }
 [data-growth] .ag-heat .ag-h { text-align: center; }
+/* The Store's "When couples ask" card: the same heat inside the 144-px picture — 7 rows of 13 px + the head. */
+[data-growth] .ag-heat.ag-heat-sm { margin-top: 0; font-size: 11px; }
+[data-growth] .ag-heat.ag-heat-sm .ag-c { height: 13px; }
 [data-growth] .ag-cap { font-size: 12.5px; color: var(--ag-ink-55); margin-top: 4px; }
 [data-growth] .ag-dist { display: flex; align-items: center; gap: 8px; margin: 4px 0; }
 [data-growth] .ag-dist .ag-s { width: 26px; font-size: 12px; color: var(--ag-ink-62); }

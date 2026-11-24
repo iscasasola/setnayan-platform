@@ -33,14 +33,19 @@ import { PortfolioView } from '@/app/vendor-dashboard/collections/_components/po
 import { LabPortfolioChats } from './portfolio-chats-lab';
 import { BottomDock } from '@/app/_components/nav/bottom-nav';
 import { CoordLabBar } from './coord-lab-bar';
+import { STORE_LAB_STATES, StoreLab, type StoreLabState } from './store-lab';
 import { shopBadges, type TrackerFacts } from '@/lib/shop-badges';
+import { followedBadges, storageMeter } from '@/lib/supplier-store';
+import { routes } from '@/lib/routes';
+import Link from 'next/link';
+import { Plus } from 'lucide-react';
 import { FALLBACK_REWARD_NAMES, type BadgeRewardFacts } from '@/lib/badge-rewards';
 import { shelfNextBadgeLine, shopBadgeShelf } from '@/lib/shop-badge-shelf';
 import type { CollectionsInput } from '@/lib/supplier-collections';
 import type { PageSaved } from '@/lib/supplier-page-draft';
 import { eventAlbums, inspirationAlbums, serviceAlbums, type PortfolioGroups } from '@/lib/portfolio-groups';
 
-export const SHOP_TAB_STATES = ['shop-tab', 'portfolio-tab'] as const;
+export const SHOP_TAB_STATES = ['shop-tab', 'portfolio-tab', ...STORE_LAB_STATES] as const;
 export type ShopTabState = (typeof SHOP_TAB_STATES)[number];
 
 const PHOTOS = [
@@ -99,7 +104,8 @@ function labTemplates(fail: boolean, none: boolean) {
   );
 }
 
-function shopLab(fail: boolean, none: boolean) {
+/** 🏅 The lab shop's facts and badge shelf — one Gold, one Silver, one Bronze, two not yet (all unread on ?unread=1). */
+export function labShelf(fail: boolean, none: boolean) {
   const facts: TrackerFacts | null = fail
     ? null
     : none
@@ -113,6 +119,11 @@ function shopLab(fail: boolean, none: boolean) {
   // 🏅 The approved shelf on lab counts — one Gold, one Silver, one Bronze, two not yet (or all unread on ?fail).
   const tiles = fail ? null : shopBadgeShelf({ counts, verified: facts?.verified ?? null, granted: [], names: FALLBACK_REWARD_NAMES });
 
+  return { facts, tiles };
+}
+
+function shopLab(fail: boolean, none: boolean) {
+  const { facts, tiles } = labShelf(fail, none);
   const cover: CoverData = {
     name: 'SetnaProd',
     initials: 'SP',
@@ -134,7 +145,10 @@ function shopLab(fail: boolean, none: boolean) {
     websiteLive: true,
     slug: 'setnaprod',
     shareUrl: 'https://www.setnayan.com/setnaprod',
+    // 🛍 Store v10: the storage row — 3.2 GB of the plan's space (or "Couldn't load" on ?unread=1).
+    storage: { meter: storageMeter('pro', fail ? { status: 'unread' } : { status: 'ok', bytes: none ? 0 : 3_200_000_000 }), next: 'Ultra' },
   };
+  const top = tiles ? followedBadges(null, tiles).keys.flatMap((k) => tiles.filter((t) => t.key === k)) : null;
 
   // 📷 Build 3 · integration: the Cover and Logo sheets are the REAL one-short-menus (`photo-menus.tsx`), on fixtures.
   const uploadFacts: PortfolioUploadFacts = { vendorProfileId: 'lab-shop', storedRefs: none ? [] : [...PHOTOS], free: 50, allowanceUnread: fail, walletBalance: fail ? null : 0 };
@@ -159,7 +173,6 @@ function shopLab(fail: boolean, none: boolean) {
             />
           }
           promoteBody={null}
-          printsBody={null}
           qrBody={null}
           logoBody={
             <div className="space-y-3" data-shop-logo-view="">
@@ -181,7 +194,10 @@ function shopLab(fail: boolean, none: boolean) {
             )}
           />
         </div>
-        {/* Templates, then Specialized tools, ABOVE the numbers (owner 19 Nov 2026) — the page's own order. */}
+        {/* 📊🎠 Analytics — THE carousel, the one Analytics (owner 11 Nov 2026), on the analytics lab's own fixtures. */}
+        <AnalyticsCarousel {...labCarouselProps({ shop: none ? 'new' : 'sample', fail, locked: false })} addHref={routes.vendorDashboard.shop.store.shelf('graphs')} />
+        <ShopBadgeRow tiles={top} shopName="SetnaProd" seeAllHref={routes.vendorDashboard.shop.badges()} addHref={routes.vendorDashboard.shop.store.shelf('badges')} />
+        {/* Your tools, then Templates — after the numbers and the badges (Store drawing v10, 23 Nov 2026). */}
         <ShopMakers
           scanners={fail ? null : none ? [] : [{ coverageId: 1, label: 'Photography', choice: 'once' }, { coverageId: 2, label: 'Photo booth', choice: 'off' }]}
           formsBody={null}
@@ -190,10 +206,10 @@ function shopLab(fail: boolean, none: boolean) {
           categories={none ? [] : ['Live Band', 'Photo Booth']}
           services={none ? [] : ['live_band']}
           booked={fail ? null : none ? [] : [{ eventId: 'ev-santos', eventName: 'Santos – Dela Cruz wedding', bookedDate: '2026-11-14' }, { eventId: 'ev-cruz', eventName: 'Cruz debut', bookedDate: '2026-11-21' }]}
+          mine={none ? [{ key: 'scanner' }] : [{ key: 'scanner' }, { key: 'headcount' }, { key: 'run_of_show' }, { key: 'cake_tool' }]}
+          addToolHref={routes.vendorDashboard.shop.store.shelf('tools')}
+          plansSaved={fail ? null : none ? 0 : 2}
         />
-        {/* 📊🎠 Analytics — THE carousel, the one Analytics (owner 11 Nov 2026), on the analytics lab's own fixtures. */}
-        <AnalyticsCarousel {...labCarouselProps({ shop: none ? 'new' : 'sample', fail, locked: false })} />
-        <ShopBadgeRow tiles={tiles} shopName="SetnaProd" />
         <section className="px-4 pt-3" id="services" aria-labelledby="shop-services-h" data-shop-services="">
           <ShopServicesHead
             line={none ? 'Bundles first, then every service you do, by category' : 'Bundles first, then every service you do, by category · 1 bundle · 2 cards · 1 live'}
@@ -222,9 +238,13 @@ function shopLab(fail: boolean, none: boolean) {
               </li>
             </ul>
           )}
+          <Link href="#services" className="sn-press mt-3 flex min-h-16 items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[color:var(--m-line)] text-sn-lg font-semibold text-ink" data-shop-service-add="">
+            <Plus aria-hidden className="h-5 w-5 text-[color:var(--m-slate-2)]" strokeWidth={2} />
+            Add a service
+          </Link>
         </section>
       </div>
-      <ShopServicesThumb bundlesOn />
+      <ShopServicesThumb />
       {bar}
     </div>
   );
@@ -326,5 +346,7 @@ function portfolioLab(fail: boolean, none: boolean) {
 }
 
 export function ShopTabLab({ state, fail = false, none = false }: { state: ShopTabState; fail?: boolean; none?: boolean }) {
-  return state === 'shop-tab' ? shopLab(fail, none) : portfolioLab(fail, none);
+  if (state === 'shop-tab') return shopLab(fail, none);
+  if (state === 'portfolio-tab') return portfolioLab(fail, none);
+  return <StoreLab state={state as StoreLabState} fail={fail} none={none} tiles={labShelf(fail, none).tiles} bar={bar} />;
 }

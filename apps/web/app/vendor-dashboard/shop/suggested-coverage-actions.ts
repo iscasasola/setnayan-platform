@@ -59,7 +59,7 @@ async function loadCallerVendorProfile(): Promise<CallerVendorProfile> {
  * so a stale or hand-crafted post can only ever add a trade this shop was
  * actually shown.
  */
-export async function applySuggestedCoverage(
+async function applySuggestedCoverage(
   _prev: SuggestedCoverageActionResult | null,
   formData: FormData,
 ): Promise<SuggestedCoverageActionResult> {
@@ -122,7 +122,7 @@ export async function applySuggestedCoverage(
 }
 
 /** "Not now" — dismisses the current suggestion without touching coverage. */
-export async function dismissSuggestedCoverage(
+async function dismissSuggestedCoverage(
   _prev: SuggestedCoverageActionResult | null,
   formData: FormData,
 ): Promise<SuggestedCoverageActionResult> {
@@ -137,4 +137,15 @@ export async function dismissSuggestedCoverage(
   }
   revalidatePath('/vendor-dashboard/shop');
   return { ok: true, addedLabels: [] };
+}
+
+/**
+ * ONE server action for the Suggested coverage card (folded 23 Nov 2026 so the supplier Store's action fits under the
+ * server-action ceiling without raising it): `op=dismiss` is "Not now"; anything else is "Add" with the picked keys.
+ */
+export async function suggestedCoverage(
+  _prev: SuggestedCoverageActionResult | null,
+  formData: FormData,
+): Promise<SuggestedCoverageActionResult> {
+  return formData.get('op') === 'dismiss' ? dismissSuggestedCoverage(_prev, formData) : applySuggestedCoverage(_prev, formData);
 }

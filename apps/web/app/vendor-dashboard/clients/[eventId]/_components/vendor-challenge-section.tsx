@@ -20,7 +20,11 @@ import { ActionButton } from '@/components/action-button';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
 import { InfoTip } from '@/app/_components/info-tip';
 import { LockedFeature } from '@/app/_components/lock/locked-feature';
-import { PRO_TOOLS_MIN_TIER } from '@/lib/specialized-tools-access';
+import { readPaidWidgetStatus } from '@/lib/supplier-store.server';
+import { widgetLock, type ToolStatus } from '@/lib/supplier-store';
+import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from '@/lib/special-tools';
+import { formatPhp } from '@/lib/php';
+import { routes } from '@/lib/routes';
 import { Trophy, ImageIcon } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -63,14 +67,17 @@ export async function VendorChallengeSection({
 
   // The section is mounted only when the vendor is BOOKED on the event (the host
   // page gates it behind isBooked), so booked = true here.
-  const [challengesRead, entitled, papicActive] = await Promise.all([
+  const [challengesRead, entitled, papicActive, widget] = await Promise.all([
     fetchVendorChallenges(supabase, eventId),
-    // THE DATABASE'S OWN GATE (vendor_papic_challenge_entitled — Pro and up, a legacy paid window, or
-    // grandfathered), so "On" here is exactly what the submit RPC allows. Admin client: service role only.
+    // THE DATABASE'S OWN GATE (vendor_papic_challenge_entitled — the Papic challenge widget bought AND on Plus, Pro or
+    // Ultra, or a legacy paid window), so "On" here is exactly what the submit RPC allows. Admin client: service role only.
     // null = unread → an honest "couldn't check", never the upgrade lock (a Pro shop must not be told to upgrade).
     fetchPhotoChallengeEntitled(admin, eventId, vendorProfileId),
     eventPapicActive(admin, eventId), // needs admin: paparazzi_seats + couple orders are couple-RLS
+    // 🧰 Which door the lock is (owner a02673ac): the Toolkit's own status for the widget.
+    readPaidWidgetStatus(admin, vendorProfileId, 'papic_challenge').catch(() => ({ kind: 'unread' }) as ToolStatus),
   ]);
+  const lock = widgetLock(widget);
 
   // The same pure decision the database re-asks in vendor_papic_challenge_entitled
   // (booked is implied by mount).
@@ -160,14 +167,28 @@ export async function VendorChallengeSection({
           We couldn&rsquo;t check your plan just now. Refresh to try again.
         </p>
       ) : ready.reason === 'not_subscribed' ? (
-        // 🎁 Owner 20 Nov: the photo challenge comes with Pro and up — the shared 🔒 (Problem → Solution → Upgrade),
-        // never a buy link: it is not sold on its own any more. The RPC re-checks (vendor_pro_tools_included).
-        <div className="mt-4" data-challenge-locked="">
-          <LockedFeature
-            lock="photoChallenge"
-            need={{ kind: 'plan', plan: PRO_TOOLS_MIN_TIER, price: null, href: '/vendor-dashboard/subscription' }}
-          />
-        </div>
+        // 🧰 Owner a02673ac (23 Nov): the photo challenge is the Papic challenge widget — bought once in the Toolkit AND on
+        // Plus, Pro or Ultra. The shared 🔒 (Problem → Solution → the one door). The RPC re-checks (vendor_store_tool_open).
+        lock ? (
+          <div className="mt-4" data-challenge-locked="">
+            <LockedFeature
+              lock="photoChallenge"
+              need={{
+                kind: 'widget',
+                owned: lock.owned,
+                subscribed: lock.subscribed,
+                price: lock.price == null ? null : `${formatPhp(lock.price)} · one-time`,
+                toolkitHref: routes.vendorDashboard.shop.store.item('tools', 'papic_challenge'),
+                plansHref: routes.vendorDashboard.subscription(),
+              }}
+              line={lock.owned ? PAID_WIDGET_RESUBSCRIBE_WORDS : PAID_WIDGET_NEEDS_PLAN_WORDS}
+            />
+          </div>
+        ) : (
+          <p className="mt-4 text-xs text-ink/70" data-challenge-unread="">
+            {widget.kind === 'pending' ? 'Your payment for the Papic challenge is in review. It opens once our team confirms it.' : 'We couldn’t check your widget just now. Refresh to try again.'}
+          </p>
+        )
       ) : (
         // Not ready for a reason the shop cannot buy its way past (not booked, Papic off) → the honest reason.
         <div className="mt-4 rounded-lg border border-mulberry/20 bg-mulberry/[0.05] px-3 py-2.5 text-xs text-ink/70">

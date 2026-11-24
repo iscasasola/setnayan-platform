@@ -86,39 +86,66 @@ export async function fetchVendorReputationAnalytics(
     });
   }
 
-  const c = (covRes.error ? null : ((covRes.data ?? []) as Record<string, number | string | null>[])[0]) ?? null;
+  const c = (covRes.error ? null : ((covRes.data ?? []) as CoverageRow[])[0]) ?? null;
 
-  const coverage: ReviewCoverage = c
-    ? {
-        totalReviews: Number(c.total_reviews ?? 0),
-        repliedCount: Number(c.replied_count ?? 0),
-        coveragePct: num(c.coverage_pct),
-        avgReplyHours: num(c.avg_reply_hours),
-        avgRating: num(c.avg_rating),
-        distribution: {
-          five: Number(c.five_star ?? 0),
-          four: Number(c.four_star ?? 0),
-          three: Number(c.three_star ?? 0),
-          two: Number(c.two_star ?? 0),
-          one: Number(c.one_star ?? 0),
-        },
-      }
-    : EMPTY_COVERAGE;
+  const coverage: ReviewCoverage = c ? coverageOf(c) : EMPTY_COVERAGE;
 
-  const monthlyRows = (monRes.error ? [] : (monRes.data ?? [])) as {
-    month_start: string;
-    review_count: number | null;
-    avg_rating: number | string | null;
-  }[];
+  const monthlyRows = (monRes.error ? [] : (monRes.data ?? [])) as MonthRow[];
 
-  const monthly: ReviewMonthPoint[] = monthlyRows.map((r) => ({
-    month: r.month_start,
-    label: monthLabel(r.month_start),
-    count: Number(r.review_count ?? 0),
-    avgRating: num(r.avg_rating),
-  }));
+  const monthly: ReviewMonthPoint[] = monthlyRows.map(monthOf);
 
   return { coverage, monthly };
+}
+
+type CoverageRow = Record<string, number | string | null>;
+type MonthRow = { month_start: string; review_count: number | null; avg_rating: number | string | null };
+
+function coverageOf(c: CoverageRow): ReviewCoverage {
+  return {
+    totalReviews: Number(c.total_reviews ?? 0),
+    repliedCount: Number(c.replied_count ?? 0),
+    coveragePct: num(c.coverage_pct),
+    avgReplyHours: num(c.avg_reply_hours),
+    avgRating: num(c.avg_rating),
+    distribution: {
+      five: Number(c.five_star ?? 0),
+      four: Number(c.four_star ?? 0),
+      three: Number(c.three_star ?? 0),
+      two: Number(c.two_star ?? 0),
+      one: Number(c.one_star ?? 0),
+    },
+  };
+}
+
+const monthOf = (r: MonthRow): ReviewMonthPoint => ({
+  month: r.month_start,
+  label: monthLabel(r.month_start),
+  count: Number(r.review_count ?? 0),
+  avgRating: num(r.avg_rating),
+});
+
+/**
+ * 🔑 THE HONEST SINGLE READS (the Store's review graphs, owner 23 Nov 2026): the same two RPCs as the bundle above,
+ * one at a time, `null` when the RPC refused — never the bundle's empty shape, which a graph would draw as a real zero.
+ */
+export async function fetchReviewCoverage(supabase: SupabaseClient, vendorProfileId: string): Promise<ReviewCoverage | null> {
+  const { data, error } = await supabase.rpc('vendor_review_coverage', { p_vendor_profile_id: vendorProfileId, p_since: null });
+  if (error || !Array.isArray(data)) {
+    console.error('[vendor-reputation-analytics] coverage rpc failed', { vendor_profile_id: vendorProfileId, error: error?.message ?? 'no rows' });
+    return null;
+  }
+  const row = (data as CoverageRow[])[0];
+  return row ? coverageOf(row) : EMPTY_COVERAGE;
+}
+
+/** Reviews per Manila month, the last `months` (zero-filled by the RPC) — `null` when the RPC refused. */
+export async function fetchReviewMonthly(supabase: SupabaseClient, vendorProfileId: string, months = 12): Promise<ReviewMonthPoint[] | null> {
+  const { data, error } = await supabase.rpc('vendor_review_monthly', { p_vendor_profile_id: vendorProfileId, p_months: months });
+  if (error || !Array.isArray(data)) {
+    console.error('[vendor-reputation-analytics] monthly rpc failed', { vendor_profile_id: vendorProfileId, error: error?.message ?? 'no rows' });
+    return null;
+  }
+  return (data as MonthRow[]).map(monthOf);
 }
 
 /** Hours → "3h" / "2.5 days". null → em dash handled by caller. */

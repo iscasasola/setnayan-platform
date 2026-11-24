@@ -17195,7 +17195,6 @@
         "vendor-dashboard/clients/[eventId]/_components/agree-gift-picker.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booking-ask-panel.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booking-money-summary.tsx",
-        "vendor-dashboard/clients/[eventId]/_components/booth-event-buy-form.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-event-section.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx",
         "vendor-dashboard/clients/[eventId]/_components/booth-studio-card.tsx",
@@ -17290,8 +17289,7 @@
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/customers",
         "/vendor-dashboard/lines",
-        "/vendor-dashboard/shop",
-        "/vendor-dashboard/subscription"
+        "/vendor-dashboard/shop"
       ],
       "actions": [
         "action",
@@ -17309,6 +17307,8 @@
         "routes.dashboard.schedule",
         "routes.dashboard.vendors.index",
         "routes.vendorDashboard.clients.detail",
+        "routes.vendorDashboard.shop.store.item",
+        "routes.vendorDashboard.subscription",
         "toggleClientNoteDone",
         "vendorAcknowledgeDeposit",
         "vendorAgreeToLock",
@@ -17341,7 +17341,6 @@
         "BookingFeeNotice",
         "BookingMoneySummary",
         "BoothEventActionState",
-        "BoothEventBuyForm",
         "BoothEventSection",
         "BoothPosterCard",
         "BoothStudioCard",
@@ -17440,7 +17439,6 @@
         "PaymentAsksPanel",
         "PaymentHistoryList",
         "PaymentPage",
-        "PaymentsPausedNote",
         "PayoutMethodNudge",
         "PayoutReadiness",
         "PeekToast",
@@ -19119,11 +19117,13 @@
         "vendor-dashboard/performance/_components/reply-gauge.tsx",
         "vendor-dashboard/performance/_components/source-bars.tsx",
         "vendor-dashboard/performance/_components/stars-fill.tsx",
+        "vendor-dashboard/performance/_components/store-graphs.tsx",
         "vendor-dashboard/performance/_components/three-years.tsx",
         "vendor-dashboard/performance/_components/verified-median-card.tsx",
         "vendor-dashboard/performance/page.tsx"
       ],
       "destinations": [
+        "/vendor-dashboard/collections",
         "/vendor-dashboard/customers",
         "/vendor-dashboard/customers?tab=calendar",
         "/vendor-dashboard/messages",
@@ -19131,12 +19131,16 @@
         "/vendor-dashboard/shop/promote",
         "/vendor-dashboard/website"
       ],
-      "actions": [],
+      "actions": [
+        "routes.vendorDashboard.messages.index",
+        "routes.vendorDashboard.reviews"
+      ],
       "blocks": [
         "ActionButton",
         "ActivityStatsRow",
         "AnalyticsCarousel",
         "AnalyticsLock",
+        "ArrangeEdit",
         "Attribution",
         "Badge",
         "Bars",
@@ -19155,6 +19159,7 @@
         "Fold",
         "FunnelPreviewCard",
         "GhostTrack",
+        "GraphArt",
         "GraphCard",
         "GrowthCard",
         "HTMLDivElement",
@@ -19166,13 +19171,16 @@
         "HeldFill",
         "InfoTip",
         "InvitesPic",
+        "LeadPic",
         "Link",
         "LockedFeature",
         "LostPic",
         "Marker",
         "Needle",
+        "NewThingTile",
         "One",
         "Pct",
+        "PhotoRows",
         "PillSelector",
         "Pillar",
         "PricePositionResult",
@@ -19182,6 +19190,7 @@
         "Reanimate",
         "ReanimateCtx.Provider",
         "RecBox",
+        "RepliedPic",
         "ReplyGauge",
         "ReplyVsPic",
         "RoleLock",
@@ -19200,6 +19209,7 @@
         "ThreeYears",
         "TrackerFacts",
         "Value",
+        "ValueRows",
         "VendorTierGate",
         "VendorTierTeaser",
         "VerifiedMedianCard"
@@ -19343,16 +19353,22 @@
       "destinations": [],
       "actions": [
         "addRepertoireSong",
+        "routes.vendorDashboard.repertoire",
+        "routes.vendorDashboard.shop.store.item",
+        "routes.vendorDashboard.subscription",
         "setPerformanceLink"
       ],
       "blocks": [
+        "ActionButton",
         "AddOwnSong",
         "Fold",
         "GridPageSkeleton",
         "InfoTip",
         "Link",
+        "RepertoireLocked",
         "RepertoireNotMusic",
         "RepertoireSearch",
+        "RepertoireUnread",
         "RepertoireView",
         "SetList",
         "SongLinkForm",
@@ -19768,6 +19784,7 @@
       "files": [
         "vendor-dashboard/shop/_components/autoreply-card.tsx",
         "vendor-dashboard/shop/_components/autoreply-section.tsx",
+        "vendor-dashboard/shop/_components/badges-list.tsx",
         "vendor-dashboard/shop/_components/badges/badge-page-model.ts",
         "vendor-dashboard/shop/_components/badges/badge-sources.ts",
         "vendor-dashboard/shop/_components/branch-panel.tsx",
@@ -19846,7 +19863,10 @@
         "/vendor-dashboard/track-record"
       ],
       "actions": [
-        "formAction"
+        "formAction",
+        "routes.vendorDashboard.shop.badges",
+        "routes.vendorDashboard.shop.store.item",
+        "routes.vendorDashboard.shop.store.shelf"
       ],
       "blocks": [
         "ActionButton",
@@ -19855,12 +19875,14 @@
         "ApplePlanDoor",
         "AppleShopPlanRead",
         "ApplicationStatus",
+        "ArrangeEdit",
         "ArrangementsBody",
         "AutoReplyCard",
         "AutoReplySaveResult",
         "Badge",
         "BadgeArt",
         "BadgeArtLarge",
+        "BadgeCard",
         "BadgeFullscreen",
         "BadgeOpen",
         "BadgePageCard",
@@ -19871,7 +19893,6 @@
         "BranchManager",
         "BundlePreviewSample",
         "CakeArrangement",
-        "CakeDesigner",
         "CakeFigure",
         "CakeMakerEditor",
         "CakeMakerPanel",
@@ -19912,6 +19933,7 @@
         "FittedArt",
         "FlavourList",
         "Fold",
+        "FollowLines",
         "GalleryForm",
         "GetVerifiedLine",
         "HTMLButtonElement",
@@ -19925,7 +19947,6 @@
         "HeldNameClaim",
         "HeldShopNameCard",
         "HqAddressControl",
-        "I",
         "Icon",
         "IdentityFieldSaveResult",
         "ImageBadge",
@@ -19935,6 +19956,7 @@
         "InstagramConnectCard",
         "K",
         "KmStepper",
+        "Ladder",
         "LeafletMap",
         "LeafletMarker",
         "LeafletModule",
@@ -19951,6 +19973,7 @@
         "MakerKey",
         "MapCredit",
         "MenuSettingsButton",
+        "NewThingTile",
         "Note",
         "OfferLockPreview",
         "OfferMaker",
@@ -19968,6 +19991,7 @@
         "PickedIcon",
         "PickedLogoFiles.Provider",
         "PictureFrameControl",
+        "PillSelector",
         "Pin",
         "PinFigures",
         "PinWord",
@@ -19983,7 +20007,6 @@
         "PromoteBody",
         "PublicLineSaveResult",
         "PushToggle",
-        "QuickIcon",
         "ReachMap",
         "RegNumberClaim",
         "RenewalStateCard",
@@ -20037,6 +20060,9 @@
         "StepPill",
         "StepShell",
         "Stepper",
+        "StorageBar",
+        "StorageBody",
+        "StorageRow",
         "SubmitBlock",
         "SubmitButton",
         "SubmitResult",
@@ -20060,6 +20086,7 @@
         "TiersBody",
         "ToggleRow",
         "ToolBody",
+        "ToolFail",
         "TrackerFacts",
         "TrackerRewardInput",
         "TypedForm",
@@ -20082,6 +20109,18 @@
         "VoiceProfile",
         "VoiceSaveResult",
         "VoiceSuggestResult"
+      ]
+    },
+    "/vendor-dashboard/shop/badges": {
+      "files": [
+        "vendor-dashboard/shop/badges/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "BadgesList",
+        "ToolPage",
+        "ToolPin"
       ]
     },
     "/vendor-dashboard/shop/promote": {
@@ -20215,6 +20254,106 @@
         "ToolFail",
         "ToolPage",
         "ToolPin"
+      ]
+    },
+    "/vendor-dashboard/shop/store": {
+      "files": [
+        "vendor-dashboard/shop/store/_components/graph-art.tsx",
+        "vendor-dashboard/shop/store/_components/store-client.tsx",
+        "vendor-dashboard/shop/store/_components/store-data.ts",
+        "vendor-dashboard/shop/store/_components/store-screens.tsx",
+        "vendor-dashboard/shop/store/_components/store-views.tsx",
+        "vendor-dashboard/shop/store/_components/widget-guide.tsx",
+        "vendor-dashboard/shop/store/page.tsx",
+        "vendor-dashboard/shop/store/store-actions.ts"
+      ],
+      "destinations": [],
+      "actions": [
+        "routes.vendorDashboard.performance",
+        "routes.vendorDashboard.shop.badges",
+        "routes.vendorDashboard.shop.index",
+        "routes.vendorDashboard.shop.store.index",
+        "routes.vendorDashboard.shop.store.item",
+        "routes.vendorDashboard.shop.store.shelf",
+        "routes.vendorDashboard.subscription",
+        "routes.vendorDashboard.verify"
+      ],
+      "blocks": [
+        "ActionButton",
+        "BackToShelf",
+        "BadgeArt",
+        "BadgesShelf",
+        "Card",
+        "GraphArt",
+        "GraphBlock",
+        "GraphItem",
+        "GraphShelfRow",
+        "GraphsShelf",
+        "HTMLButtonElement",
+        "HTMLElement",
+        "HTMLUListElement",
+        "Icon",
+        "Image",
+        "ItemSub",
+        "Line",
+        "Link",
+        "OnPage",
+        "Pill",
+        "Sheet",
+        "SortFace",
+        "StoreActionState",
+        "StoreBadgeTile",
+        "StoreChips",
+        "StoreData",
+        "StoreFront",
+        "StoreGraphTile",
+        "StoreOp",
+        "StoreShelfRow",
+        "StoreThumb",
+        "StoreTile",
+        "StoreToolTile",
+        "SupplierThumbRow",
+        "TagChips",
+        "TemplateRows",
+        "ThumbRow",
+        "ToolArt",
+        "ToolChip",
+        "ToolEmpty",
+        "ToolFail",
+        "ToolGroup",
+        "ToolItem",
+        "ToolPage",
+        "ToolPin",
+        "ToolRow",
+        "ToolSection",
+        "ToolShelfRow",
+        "ToolVideo",
+        "ToolsShelf",
+        "WidgetGuideSteps"
+      ]
+    },
+    "/vendor-dashboard/shop/store/[shelf]": {
+      "files": [
+        "vendor-dashboard/shop/store/[shelf]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "StoreShelfScreen",
+        "ToolPage"
+      ]
+    },
+    "/vendor-dashboard/shop/store/[shelf]/[item]": {
+      "files": [
+        "vendor-dashboard/shop/store/[shelf]/[item]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [
+        "routes.vendorDashboard.shop.badges"
+      ],
+      "blocks": [
+        "StoreItemScreen",
+        "ToolPage"
       ]
     },
     "/vendor-dashboard/subscription": {

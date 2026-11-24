@@ -115,11 +115,7 @@ export async function fetchVendorConversionAnalytics(
     total_contract_php: number | string | null;
   }>(dealRes);
 
-  const l = firstRow<{
-    booked_with_date_count: number | null;
-    avg_lead_days: number | string | null;
-    median_lead_days: number | string | null;
-  }>(leadRes);
+  const l = firstRow<LeadRow>(leadRes);
 
   const w = firstRow<{
     bookings_won: number | null;
@@ -147,13 +143,7 @@ export async function fetchVendorConversionAnalytics(
           totalContractPhp: Number(d.total_contract_php ?? 0),
         }
       : EMPTY.deal,
-    lead: l
-      ? {
-          bookedWithDateCount: Number(l.booked_with_date_count ?? 0),
-          avgLeadDays: num(l.avg_lead_days),
-          medianLeadDays: num(l.median_lead_days),
-        }
-      : EMPTY.lead,
+    lead: l ? leadOf(l) : EMPTY.lead,
     winLoss: w
       ? {
           bookingsWon: Number(w.bookings_won ?? 0),
@@ -163,6 +153,28 @@ export async function fetchVendorConversionAnalytics(
         }
       : EMPTY.winLoss,
   };
+}
+
+type LeadRow = { booked_with_date_count: number | null; avg_lead_days: number | string | null; median_lead_days: number | string | null };
+
+const leadOf = (l: LeadRow): LeadTime => ({
+  bookedWithDateCount: Number(l.booked_with_date_count ?? 0),
+  avgLeadDays: num(l.avg_lead_days),
+  medianLeadDays: num(l.median_lead_days),
+});
+
+/**
+ * 🔑 THE HONEST SINGLE READ (the Store's "How far ahead couples book", owner 23 Nov 2026): `vendor_lead_time` alone,
+ * `null` when the RPC refused — never the bundle's empty shape.
+ */
+export async function fetchLeadTime(supabase: SupabaseClient, vendorProfileId: string, sinceIso: string | null): Promise<LeadTime | null> {
+  const { data, error } = await supabase.rpc('vendor_lead_time', { p_vendor_profile_id: vendorProfileId, p_since: sinceIso });
+  if (error || !Array.isArray(data)) {
+    console.error('[vendor-conversion-analytics] lead rpc failed', { vendor_profile_id: vendorProfileId, error: error?.message ?? 'no rows' });
+    return null;
+  }
+  const row = (data as LeadRow[])[0];
+  return row ? leadOf(row) : { ...EMPTY.lead };
 }
 
 /** Hours → "3h" / "2.5 days" / "45m". null → em dash handled by caller. */

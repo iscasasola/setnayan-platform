@@ -1,4 +1,6 @@
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { InfoTip } from '@/app/_components/info-tip';
+import { TemplateFail } from '@/app/_components/template-rows';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
@@ -217,15 +219,12 @@ export async function PapicLadderSurface(_props: Props) {
       <PageMasthead title="Papic credit prices" />
 
       {unreadable && (
-        <div className="mb-6 rounded-2xl border border-danger-300/60 bg-danger-50/80 p-5">
-          <p className="font-mono text-[11px] uppercase tracking-[0.2em] text-danger-900">
-            Prices couldn&apos;t load
-          </p>
-          <p className="mt-1 text-sm text-danger-900">
+        <TemplateFail data="papic-ladder">
+          <InfoTip label="Prices couldn't load" align="start">
             The credit ladder is hidden because it couldn&apos;t be read in full &mdash; saving from
             a partial read would write the gaps over the real prices. Refresh to try again.
-          </p>
-        </div>
+          </InfoTip>
+        </TemplateFail>
       )}
 
       {unreadable ? null : (

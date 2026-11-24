@@ -174,6 +174,7 @@ import {
 import { discoverSupplierHref } from '@/lib/discover-suppliers';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { formatCount } from '@/lib/format-number';
+import { DISCOVER_HREF } from '@/lib/discover-href';
 
 /** Where the view is drawn — see `MarketplaceView`. */
 export type MarketplaceSurface = 'explore' | 'discover';
@@ -5390,7 +5391,7 @@ async function ScopedFolderBanner({ folder }: { folder: WeddingFolder }) {
         only — the other folders are hidden so you can focus.
       </p>
       <Link
-        href="/"
+        href={DISCOVER_HREF}
         className="inline-flex shrink-0 items-center rounded-full border border-ink/20 bg-cream px-3 py-1 text-xs font-medium text-ink/75 hover:border-ink/40 hover:bg-ink/5"
       >
         Browse all folders

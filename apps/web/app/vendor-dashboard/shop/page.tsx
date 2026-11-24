@@ -1,7 +1,7 @@
 import { getCurrentUser } from '@/lib/auth';
 import { readStoreLayout, readStoreToolFacts } from '@/lib/supplier-store.server';
 import { followedBadges, storageMeter, yourTools, type StorageMeter, type StoreLayout } from '@/lib/supplier-store';
-import { readStoredBytesAsMeasured } from '@/lib/supplier-storage.server';
+import { readStoredBytesWithoutMeasuring } from '@/lib/supplier-storage.server';
 import { nextStoragePlan } from '@/lib/supplier-storage';
 import { readPayPlanTemplates } from '@/lib/pay-plan-templates.server';
 import { routes } from '@/lib/routes';
@@ -405,7 +405,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   const storeAdmin = createAdminClient();
   const layoutRead = readStoreLayout(supabase, vendorId);
   const toolFactsRead = layoutRead.then((l) => readStoreToolFacts(supabase, storeAdmin, vendorId, (profile.services ?? []) as string[], l));
-  const storedRead = readStoredBytesAsMeasured(storeAdmin, vendorId);
+  const storedRead = readStoredBytesWithoutMeasuring(storeAdmin, vendorId);
   const plansRead = readPayPlanTemplates(supabase, vendorId).catch((err: unknown) => {
     logQueryError('shop.readPayPlanTemplates', err, { vendor_profile_id: vendorId });
     return { status: 'unread' as const };
@@ -657,7 +657,7 @@ async function ShopHome({
   const publicPath = data.slug ? `/${data.slug}` : null;
   const sp = await searchParams;
   const one = (k: string) => (typeof sp[k] === 'string' ? (sp[k] as string) : undefined);
-  const shareUrl = data.slug ? ownPageUrl(siteOrigin(), data.slug) : null; // 💳 shared BY the supplier: ?src=own
+  const shareUrl = data.slug ? ownPageUrl(siteOrigin(), data.slug, 'link') : null; // 💳 shared BY the supplier: ?src=own · 🏷 via=link
   const cover: CoverData = {
     name: data.businessName,
     initials: data.initials,

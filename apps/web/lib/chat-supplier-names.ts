@@ -11,10 +11,13 @@
  * `tests/db/a-couple-sees-every-suppliers-chat-name.db.test.ts`.
  *
  * ✅ NOW: one definer function, `couple_thread_supplier_names(event)` (migration 20271295352678), returns the
- * anonymity inputs for every thread on the couple's event — the real business name and logo ONLY when the name is
- * revealed (the SQL twin of `isVendorNameRevealed`, parity held by that db test) — and this module turns each row
- * into a label with the SAME `resolveVendorDisplayName` every other surface uses. Pre-reveal that is the screen
- * name or "<Service> · <City>", never the business name. `vendor_profiles` RLS is not widened.
+ * name inputs for every thread on the couple's event, and this module turns each row into a label with the SAME
+ * `resolveVendorDisplayName` every other surface uses. `vendor_profiles` RLS is not widened.
+ *
+ * 🏷 REAL NAME EVERYWHERE (owner ruling 2026-11-16 (15), migration 20271350551812): the function returns the shop's
+ * real business name and logo for EVERY shop, verified or not, and the label is that name. The screen name or
+ * "<Service> · <City>" draws only for a shop with no business name on file. `name_revealed` (the SQL twin of
+ * `isVendorNameRevealed`) is still carried: it decides whether the shop's STAFF names show in read receipts.
  *
  * 🔑 A READ THAT FAILS SAYS SO. When the function errors, or a thread is missing from its answer, the label is
  * `SUPPLIER_NAME_UNREADABLE` — never a generic word that looks like a real name.
@@ -31,9 +34,9 @@ export type CoupleThreadSupplierRow = {
   thread_id: string;
   vendor_profile_id: string;
   name_revealed: boolean;
-  /** NULL unless `name_revealed` — the database never sends an unrevealed shop's real name. */
+  /** The shop's real name — sent for every shop since ruling 2026-11-16 (15); NULL/blank only when none is on file. */
   business_name: string | null;
-  /** NULL unless `name_revealed` — a logo is as identifying as the name. */
+  /** The shop's stored logo — sent for every shop since ruling 2026-11-16 (15). */
   logo_url: string | null;
   screen_name: string | null;
   primary_service: string | null;
@@ -43,9 +46,9 @@ export type CoupleThreadSupplierRow = {
 export type ThreadSupplierName = {
   /** The label to print — already anonymity-safe. */
   name: string;
-  /** The reveal predicate's answer; FALSE when unreadable. Drives logo vs initials and the receipts' member name. */
+  /** The reveal predicate's answer; FALSE when unreadable. Drives only the receipts' STAFF names now. */
   revealed: boolean;
-  /** The stored logo ref, only when revealed. */
+  /** The stored logo ref (any shop that has one). */
   logoUrl: string | null;
   /** FALSE when the read failed or the thread was missing — `name` is then `SUPPLIER_NAME_UNREADABLE`. */
   readable: boolean;
@@ -65,10 +68,10 @@ const UNREADABLE: ThreadSupplierName = {
 export function threadSupplierName(row: CoupleThreadSupplierRow | null | undefined): ThreadSupplierName {
   if (!row) return UNREADABLE;
   const revealed = row.name_revealed === true;
-  const realName = revealed ? (row.business_name ?? '').trim() : '';
-  // Revealed with a real name → the resolver's revealed branch. Pre-reveal, OR revealed with an EMPTY business name
-  // (whose revealed branch would print the bare word 'Supplier') → the resolver's own anonymised branch: the screen
-  // name, else "<Service> · <City>".
+  // 🏷 Ruling 2026-11-16 (15): the real name whenever one is on file, revealed or not.
+  const realName = (row.business_name ?? '').trim();
+  // A real name → the resolver's named branch. No name on file (whose named branch would print the bare word
+  // 'Supplier') → the resolver's stand-in branch: the screen name, else "<Service> · <City>".
   const name = resolveVendorDisplayName(
     realName
       ? {
@@ -93,7 +96,7 @@ export function threadSupplierName(row: CoupleThreadSupplierRow | null | undefin
   return {
     name,
     revealed,
-    logoUrl: revealed ? row.logo_url ?? null : null,
+    logoUrl: row.logo_url ?? null,
     readable: true,
     primaryService: row.primary_service ?? null,
   };

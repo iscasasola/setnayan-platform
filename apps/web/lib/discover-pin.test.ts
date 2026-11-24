@@ -47,7 +47,8 @@ test('D2a · the toggle is one parameter, and its press goes the other way', () 
   assert.equal(discoverFollowingOn({ following: 'yes' }), false);
   assert.equal(discoverFollowingOn({}), false);
   assert.equal(discoverFollowingHref(false), '/?following=1');
-  assert.equal(discoverFollowingHref(true), '/');
+  // Off is Discover's own door (23 Nov 2026) — a signed-in bare `/` opens Home.
+  assert.equal(discoverFollowingHref(true), '/?discover=1');
 });
 
 test('D2a · every part the picker lists is a mark the page draws', () => {

@@ -50,12 +50,13 @@ function barLabels(): { labels: string[]; hrefs: string[] } {
 function drawerEntries(): { label: string; href: string }[] {
   const fd = src('app/_components/frontdoor/front-door-shell.tsx');
   const home = fd.match(/<Link href=\{HOME_HREF\} \{\.\.\.rowProps\('events'\)\} data-home-row="">[\s\S]*?<span className="fd-label-text">([^<]+)<\/span>/);
-  const disc = fd.match(/<Link href="\/" \{\.\.\.rowProps\('home'\)\}>[\s\S]*?<span className="fd-label-text">([^<]+)<\/span>/);
+  // Signed in, the Discover row is Discover's own door (23 Nov 2026 — a signed-in bare `/` opens Home).
+  const disc = fd.match(/<Link href=\{account\.signedIn \? DISCOVER_HREF : '\/'\} \{\.\.\.rowProps\('home'\)\}>[\s\S]*?<span className="fd-label-text">([^<]+)<\/span>/);
   assert.ok(home, 'the ☰ has no Home row (a link to HOME_HREF marked data-home-row)');
   assert.ok(disc, 'the ☰ has no Discover row');
   return [
     { label: home[1]!, href: HOME_HREF, at: home.index! },
-    { label: disc[1]!, href: '/', at: disc.index! },
+    { label: disc[1]!, href: '/?discover=1', at: disc.index! },
   ]
     .sort((a, b) => a.at - b.at)
     .map(({ label, href }) => ({ label, href }));
@@ -73,7 +74,7 @@ test('1 · the bar and the ☰ list the same two entries, in the same order — 
   assert.deepEqual(drawer.map((d) => d.href), bar.hrefs, 'the ☰ and the bar open different places for the same word');
   // Nothing else in the ☰ may be a destination between them: Home's sections are small doors, the rest fine print.
   const fd = src('app/_components/frontdoor/front-door-shell.tsx');
-  const between = fd.slice(fd.indexOf('data-home-row=""'), fd.indexOf(`<Link href="/" {...rowProps('home')}>`));
+  const between = fd.slice(fd.indexOf('data-home-row=""'), fd.indexOf(`<Link href={account.signedIn ? DISCOVER_HREF : '/'} {...rowProps('home')}>`));
   assert.ok(!/rowProps\(/.test(between.slice(20)), 'a full rail row sits between Home and Discover — only section doors belong there');
   for (const seg of ['events', 'people', 'shop', 'memories'])
     assert.match(between, new RegExp(`data-home-door="${seg}"`), `Home's ${seg} door left the ☰`);

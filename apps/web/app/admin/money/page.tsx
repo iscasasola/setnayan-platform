@@ -57,7 +57,7 @@ async function AdminMoneyHub() {
   await requireAdmin();
 
   return (
-    <div className="mx-auto w-full max-w-[760px] px-4 pb-10 pt-1 sm:px-6" data-money-everything="">
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6" data-money-everything="">
       {/* Streamed: each section has its own skeleton, so a slow ledger read
           never holds up the revenue figure above it. */}
       {/* M16 — the page called Money now says what has been earned. It was a

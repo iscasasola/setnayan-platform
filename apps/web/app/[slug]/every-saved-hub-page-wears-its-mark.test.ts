@@ -10,10 +10,11 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 
 import { COPY_VIEWER_ATTR, GUEST_HUB_ROOMS_KEPT } from '@/lib/offline-copies';
+import { stripComments } from '@/lib/strip-comments';
 
 const HERE = import.meta.dirname;
 const read = (p: string) => readFileSync(path.join(HERE, p), 'utf8');
-const code = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const code = (src: string) => stripComments(src);
 
 test('every kept room draws the hub’s saved mark, once, for its own viewer', () => {
   for (const room of GUEST_HUB_ROOMS_KEPT) {

@@ -9,7 +9,7 @@
  *
  * Which controls: (1) every door to an ADDRESS that needs internet, wherever that door is drawn
  * (`NEEDS_INTERNET_ADDRESSES` — the reply and its meal choices, a personal-link hop, the 3D walk and the avatar
- * maker, The Day's Gallery of photos, the Maker, signing in or up), so a new door to one of them greys with no
+ * maker, The Day's photos tab, the Maker, signing in or up), so a new door to one of them greys with no
  * change; and (2) a control marked `data-needs-internet` (Live Watch, the live photo wall, a guest's privacy request,
  * the song request). The Papic camera is NOT here: it already queues its shots offline.
  *
@@ -49,7 +49,7 @@ export const NEEDS_INTERNET_ADDRESSES: ReadonlyArray<{ why: string; re: RegExp }
   { why: 'a personal-link hop', re: /[?&]invite=/ },
   { why: 'a pass hop', re: new RegExp(`^/${APP_AREA}(?:[a-z0-9-]+/)?[a-z0-9-]+/(?:redeem|open-as-pass)(?:[/?#]|$)`) },
   { why: 'the 3D walk and the avatar maker', re: new RegExp(`^/${APP_AREA}(?:[a-z0-9-]+/)?[a-z0-9-]+/(?:venue|avatar)(?:[/?#]|$)`) },
-  { why: 'The Day’s Gallery (the photos)', re: /[?&]tab=gallery(?:&|#|$)/ },
+  { why: 'The Day’s photos tab (Memories)', re: /[?&]tab=gallery(?:&|#|$)/ },
   { why: 'the Maker', re: /^\/dashboard\/[^/?#]+\/launch(?:[/?#]|$)/ },
   { why: 'signing in or up', re: /^\/(?:login|signup)(?:[/?#]|$)/ },
 ];

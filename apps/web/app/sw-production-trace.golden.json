@@ -150,14 +150,10 @@
     },
     {
       "label": "guest navigation",
-      "responded": true,
-      "status": 200,
-      "body": "/maria-and-jose #1",
-      "ops": [
-        "open setnayan-dayof-v4",
-        "put setnayan-dayof-v4 /maria-and-jose",
-        "open setnayan-dayof-v4"
-      ]
+      "responded": false,
+      "status": null,
+      "body": null,
+      "ops": []
     },
     {
       "label": "api",
@@ -208,8 +204,7 @@
       "delete-cache setnayan-v4",
       "delete-cache setnayan-static-v4",
       "delete-cache setnayan-images-v4",
-      "delete-cache setnayan-fonts-v4",
-      "delete-cache setnayan-dayof-v4"
+      "delete-cache setnayan-fonts-v4"
     ],
     "left": []
   }

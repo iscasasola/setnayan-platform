@@ -98,7 +98,7 @@ export const OFFLINE_COPY_SHAPES = [
  *   · its rooms (`GUEST_HUB_ROOMS_KEPT`) — seat and table (`/find-my-table`, `/find-seat`, `/seat`), E-Gifts with the
  *     couple's own numbers (`/pabuya`), and the guest list (`/everyone`);
  *   · the latest announcement's answer (`GUEST_HUB_ANSWER`, what the announcement card asks on every open).
- * Left out on purpose — small data, no albums: The Day's Gallery (`?tab=gallery`, the photos), the 3D walk (`/venue`,
+ * Left out on purpose — small data, no albums: The Day's photos tab (`?tab=gallery`), the 3D walk (`/venue`,
  * whose scene and models load on demand), the reply and its meal choices (`/invite/…`, which need internet — R15) and
  * the door screens. The venue's address, its saved directions and "Open in Maps" are on the hub page itself.
  *

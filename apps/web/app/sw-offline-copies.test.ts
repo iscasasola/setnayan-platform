@@ -763,12 +763,12 @@ test('R18 · the worker and lib agree on every guest address, in BOTH address fo
   assert.equal(isOfflineCopyPath(`${BASE}?tab=gallery`), false, 'the Gallery (photos) is kept');
   assert.equal(isOfflineCopyPath(`${BASE}/venue`), false, 'the 3D walk is kept');
   assert.equal(table.filter((p) => isOfflineCopyPath(p)).length, 16, 'the table no longer exercises the 16 kept guest addresses it lists');
-  // The worker's copies of the lists are the lib's — read out of the running worker, not out of its text.
+  // The worker's copies of the lists are the lib's — read out of the worker's own source (it cannot import lib).
   const src = readFileSync(SW_FILE, 'utf8');
-  const list = (name: string) => {
+  const list = (name: string): string[] => {
     const m = new RegExp(`const ${name} = (?:new Set\\()?\\[([\\s\\S]*?)\\]`).exec(src);
     assert.ok(m, `sw.js no longer declares ${name}`);
-    return [...m[1]!.matchAll(/'([^']+)'/g)].map((x) => x[1]).sort();
+    return [...m[1]!.matchAll(/'([^']+)'/g)].map((x) => x[1]!).sort();
   };
   assert.deepEqual(list('GUEST_HUB_TABS'), [...GUEST_HUB_TABS_KEPT].sort());
   assert.deepEqual(list('GUEST_HUB_ROOMS'), [...GUEST_HUB_ROOMS_KEPT].sort());

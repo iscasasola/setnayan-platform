@@ -257,6 +257,8 @@ test('the guard is mounted on the guest Event Hub and on the couple’s offline 
   // The explicit marks: Live Watch, the photo wall, the privacy requests, the song request.
   const marked = [
     '[slug]/_components/watch-live-block.tsx',
+    '[slug]/_components/watch-live-embed.tsx',
+    '[slug]/_components/roam-watch-picker.tsx',
     '[slug]/_components/live-wall-block.tsx',
     '[slug]/_components/face-data-notice.tsx',
     '[slug]/_components/face-tagging-row.tsx',

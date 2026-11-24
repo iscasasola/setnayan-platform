@@ -106,6 +106,7 @@ export function WatchLiveEmbed({
   return (
     <section
       aria-label={`Watch the ${watchLiveOccasion(occasion)} live`}
+      data-needs-internet=""
       className="overflow-hidden rounded-2xl border-2 border-terracotta/40 bg-ink shadow-sm"
     >
       <div className="flex items-center justify-between gap-3 px-4 py-2.5">

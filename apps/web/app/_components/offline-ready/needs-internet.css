@@ -15,13 +15,17 @@ html[data-sn-offline] [data-sn-ni-grey] {
 html[data-sn-offline] [data-sn-ni-word]:not([data-sn-ni-block])::after {
   content: '\00a0·\00a0' attr(data-sn-ni-word);
 }
-/* …and above a block (the live photo wall, Live Watch's player), as its own quiet line. */
+/* …and above a block (the live photo wall, Live Watch's player), as its own quiet pill — the frame's colours, so it
+   reads on any ground, the dark player included. */
 html[data-sn-offline] [data-sn-ni-block][data-sn-ni-word]::before {
   content: attr(data-sn-ni-word);
   display: block;
-  margin-bottom: 8px;
+  width: fit-content;
+  margin: 8px auto;
+  padding: 4px 12px;
+  border-radius: var(--m-r-full);
+  background: rgb(var(--sn-frame-bg));
+  color: rgb(var(--color-ink));
   font-size: var(--sn-fs-md);
   font-weight: 600;
-  text-align: center;
-  color: rgb(var(--color-ink));
 }

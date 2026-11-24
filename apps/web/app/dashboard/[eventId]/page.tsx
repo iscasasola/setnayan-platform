@@ -1455,8 +1455,6 @@ export default async function EventHomePage({
        line, the Budget tile and payment rows carry `data-money` and every peso
        figure is masked (lib/last-seen). A refused guest read is not kept. */
     <LastSeenCapture page="home" fresh={guestsMeasured}>
-      {/* 📶 R15 — with no signal, the Maker's doors (Home's cards and the menu row) grey out and say "Needs internet". */}
-      <NeedsInternetGuard />
       {/* 🧭 The event menu's first-visit tour (Stage D, owner 2026-09-29) —
           the five places, once, on Home; waits for the couple welcome. */}
       <MiniTour tourKey="customer_event_menu_v1" storeShell={storeShell} after="couple_welcome_v1" />
@@ -1670,6 +1668,9 @@ export default async function EventHomePage({
           guest (owner 14 Nov 2026); an unclaimed one waits as a line at the page's top and in the bell. Asked after
           Home has drawn; it draws no box in the flow (a notice registration and a popup) — Home's own reads never grow for it. */}
       {viewerMemberType === 'couple' ? <GiftMoments url={`/api/unwrap?event=${eventId}`} /> : null}
+      {/* 📶 R15 — with no signal, the Maker's doors (Home's cards and the menu row) grey out and say "Needs internet".
+          It draws nothing (it only marks), so it sits last — never above the cover. */}
+      <NeedsInternetGuard />
     </LastSeenCapture>
   );
 }

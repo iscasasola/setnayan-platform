@@ -3,78 +3,85 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from './strip-comments';
-import * as addon from './vendor-deep-search-addon';
 import {
   deepSearchEligibility,
-  resolveDeepSearchPricePhp,
-  VENDOR_DEEP_SEARCH_FALLBACK_PHP,
+  deepSearchIncluded,
+  deepSearchMonth,
+  deepSearchRunsLeft,
   type DeepSearchEligibilityInput,
 } from './vendor-deep-search-addon';
+
+// ⚖ Owner 2026-11-22 (DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED" + 🔎 "DEEP SEARCH ALLOWANCE = 1 RUN A MONTH"): never sold;
+// Plus, Pro and Ultra include the admin's number of runs each PAID month; Free and Verified none. The never-sold half is
+// lib/deep-search-is-never-sold.test.ts; this file pins the pure decisions.
 
 // ── deepSearchEligibility ────────────────────────────────────────────────────
 
 const OK: DeepSearchEligibilityInput = { tier: 'solo', verification: 'verified' };
 
-test('eligible: any verified PAID tier (Supplier Plus/Pro/Ultra) passes', () => {
+test('eligible: any verified paid plan (Plus, Pro, Ultra) passes', () => {
   for (const tier of ['solo', 'pro', 'enterprise']) {
-    assert.deepEqual(
-      deepSearchEligibility({ tier, verification: 'verified' }),
-      { ok: true },
-      `paid+verified tier ${tier} must be eligible`,
-    );
+    assert.deepEqual(deepSearchEligibility({ ...OK, tier }), { ok: true }, tier);
+    assert.equal(deepSearchIncluded(tier), true, tier);
   }
 });
 
-test('ineligible: free / verified (free) tiers are denied tier_too_low', () => {
+test('ineligible: Free and Verified get no runs — denied tier_too_low', () => {
   for (const tier of ['free', 'verified', null, undefined, 'garbage']) {
-    assert.deepEqual(
-      deepSearchEligibility({ tier, verification: 'verified' }),
-      { ok: false, reason: 'tier_too_low' },
-      `free tier ${String(tier)} must be denied`,
-    );
+    assert.deepEqual(deepSearchEligibility({ tier, verification: 'verified' }), { ok: false, reason: 'tier_too_low' }, String(tier));
+    assert.equal(deepSearchIncluded(tier), false, String(tier));
   }
 });
 
-test('denied: paid tier but unverified → unverified (gate order tier → verification)', () => {
-  assert.deepEqual(deepSearchEligibility({ tier: 'pro', verification: 'pending' }), {
-    ok: false,
-    reason: 'unverified',
-  });
-  assert.deepEqual(deepSearchEligibility({ tier: 'pro', verification: null }), {
-    ok: false,
-    reason: 'unverified',
-  });
-  // tier is checked BEFORE verification: a free unverified vendor surfaces
-  // tier_too_low (matches what the action rejects with first).
-  assert.deepEqual(deepSearchEligibility({ tier: 'free', verification: null }), {
-    ok: false,
-    reason: 'tier_too_low',
-  });
+test('denied: paid plan but unverified → unverified (gate order plan → verification)', () => {
+  assert.deepEqual(deepSearchEligibility({ tier: 'pro', verification: 'pending' }), { ok: false, reason: 'unverified' });
+  assert.deepEqual(deepSearchEligibility({ tier: 'pro', verification: null }), { ok: false, reason: 'unverified' });
+  assert.deepEqual(deepSearchEligibility({ tier: 'free', verification: null }), { ok: false, reason: 'tier_too_low' });
 });
 
-// ── resolveDeepSearchPricePhp — owner 2026-11-09 (DECISION_LOG 🔎💳 "DEEP SEARCH = ₱499, ONE USE, EVERY PLAN — NO
-//    FREE SEARCH ON PRO/ULTRA"): the catalogue price on every run, never ₱0 ──────────────────────────────────────────
+// ── deepSearchMonth — "resets each paid month" ───────────────────────────────
 
-test('price: the catalogue price on every run — never ₱0, the free search is gone', () => {
-  assert.equal(resolveDeepSearchPricePhp({ cyclePricePhp: 499 }), 499);
-  assert.equal(resolveDeepSearchPricePhp({ cyclePricePhp: 750 }), 750, 'an admin reprice flows straight through');
+const at = (iso: string) => new Date(iso).getTime();
+
+test('the paid month runs from one month before the paid-through date', () => {
+  const m = deepSearchMonth('2026-12-10T05:00:00.000Z', at('2026-11-24T00:00:00Z'));
+  assert.deepEqual(m, { startIso: '2026-11-10T05:00:00.000Z', resetsAtIso: '2026-12-10T05:00:00.000Z' });
 });
 
-test('price: missing/invalid catalogue value falls back — and still never ₱0', () => {
-  for (const v of [undefined, null, 0, -5, Number.NaN]) {
-    assert.equal(resolveDeepSearchPricePhp({ cyclePricePhp: v }), VENDOR_DEEP_SEARCH_FALLBACK_PHP, String(v));
+test('paid several months ahead → the EARLIEST unexpired month, stepped from the expiry (a 31st never drifts)', () => {
+  const m = deepSearchMonth('2027-03-31T00:00:00.000Z', at('2026-12-15T00:00:00Z'));
+  assert.deepEqual(m, { startIso: '2026-11-30T00:00:00.000Z', resetsAtIso: '2026-12-31T00:00:00.000Z' });
+  const feb = deepSearchMonth('2027-03-31T00:00:00.000Z', at('2027-03-05T00:00:00Z'));
+  assert.deepEqual(feb, { startIso: '2027-02-28T00:00:00.000Z', resetsAtIso: '2027-03-31T00:00:00.000Z' });
+});
+
+test('the same month key on every read inside one paid month (the claim and the count agree)', () => {
+  const a = deepSearchMonth('2026-12-10T05:00:00.000Z', at('2026-11-10T05:00:00Z'));
+  const b = deepSearchMonth('2026-12-10T05:00:00.000Z', at('2026-12-10T04:59:59Z'));
+  assert.equal(a.startIso, b.startIso);
+  const next = deepSearchMonth('2027-01-10T05:00:00.000Z', at('2026-12-10T05:00:00Z'));
+  assert.equal(next.startIso, '2026-12-10T05:00:00.000Z', 'a renewal does not open the new month at its start');
+});
+
+test('no future expiry (comp plan, lapsed or unread) → the Manila calendar month', () => {
+  for (const exp of [null, undefined, 'not-a-date', '2026-01-01T00:00:00Z']) {
+    const m = deepSearchMonth(exp, at('2026-11-30T17:00:00Z')); // 1 Dec, 01:00 in Manila
+    assert.deepEqual(m, { startIso: '2026-11-30T16:00:00.000Z', resetsAtIso: '2026-12-31T16:00:00.000Z' }, String(exp));
   }
-  assert.ok(VENDOR_DEEP_SEARCH_FALLBACK_PHP > 0);
 });
 
-test('🔒 no free-search allowance survives — no allowance helper, no cycle, no was_free claim in the run action', () => {
-  for (const gone of ['deepSearchHasFreeAllowance', 'deepSearchCycleStartMs', 'countDeepSearchUsesSince', 'VENDOR_DEEP_SEARCH_PERIOD_DAYS']) {
-    assert.equal(gone in addon, false, `${gone} is exported again — the Pro/Ultra free search is back`);
-  }
-  const action = stripComments(
-    readFileSync(fileURLToPath(new URL('../app/vendor-dashboard/deep-search/actions.ts', import.meta.url)), 'utf8'),
-  );
-  assert.doesNotMatch(action, /was_free:\s*true/, 'the run action claims a free search again');
-  assert.doesNotMatch(action, /wasFree:\s*true/, 'the run action runs a free search again');
-  assert.match(action, /requested_total_php:\s*pricePhp/, 'the one order no longer carries the resolved price');
+// ── deepSearchRunsLeft — unused runs don't carry over ────────────────────────
+
+test('runs left: the allowance less this month’s runs, never below 0; not set = none', () => {
+  assert.equal(deepSearchRunsLeft(1, 0), 1);
+  assert.equal(deepSearchRunsLeft(1, 1), 0);
+  assert.equal(deepSearchRunsLeft(3, 1), 2);
+  assert.equal(deepSearchRunsLeft(1, 9), 0);
+  for (const v of [null, 0, -1, Number.NaN]) assert.equal(deepSearchRunsLeft(v, 0), 0, String(v));
+});
+
+test('🔒 no number governs the allowance in code — it is read from platform_settings', () => {
+  const src = stripComments(readFileSync(fileURLToPath(new URL('./vendor-deep-search-addon.ts', import.meta.url)), 'utf8'));
+  assert.doesNotMatch(src, /RUNS_PER_MONTH\s*=\s*\d|perMonth\s*\?\?\s*\d|DEFAULT_RUNS/, 'a typed allowance is back');
+  assert.match(src, /\.select\('deep_search_runs_per_month'\)/);
 });

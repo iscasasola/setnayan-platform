@@ -21,6 +21,7 @@
  */
 import { createAdminClient } from '@/lib/supabase/admin';
 import { renderLlmsTxt, type RetailRow, type VendorRow } from '@/lib/llms-txt';
+import { fetchDeepSearchRunsPerMonth } from '@/lib/vendor-deep-search-addon';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
@@ -64,7 +65,7 @@ export async function GET(): Promise<Response> {
     // through B/C/D rows that are is_active=FALSE by design (price-source only,
     // see lib/setnayan-ai-type-pricing.ts). Filtering here would silently flatten
     // the ladder back to a single price, which is the exact bug this replaces.
-    const [retailRes, vendorRes, articles] = await Promise.all([
+    const [retailRes, vendorRes, articles, deepSearchRuns] = await Promise.all([
       admin
         .from('platform_retail_catalog_v2')
         .select('service_code, title, retail_price_php, is_active'),
@@ -74,6 +75,8 @@ export async function GET(): Promise<Response> {
         .eq('is_active', true),
       // Discover's public articles (owner 17 Nov, Build 3). A refused read lists none — the rest of the file stands.
       readPublicArticles(),
+      // 🔎 Deep Search's monthly searches on the paid plans (owner 2026-11-22) — the admin's number; unread prints "—".
+      fetchDeepSearchRunsPerMonth(admin),
     ]);
 
     if (retailRes.error || vendorRes.error || !retailRes.data || !vendorRes.data) {
@@ -93,6 +96,7 @@ export async function GET(): Promise<Response> {
       // The same flag /for-suppliers draws its plan table with (Build 6 Lane K) — one table, one truth.
       vendorPaywallOn: isVendorFeatureGateEnabled(),
       launchOfferCap,
+      deepSearchRunsPerMonth: deepSearchRuns.read ? deepSearchRuns.perMonth : undefined,
       refreshedOn: new Date().toISOString().slice(0, 10),
       articles: articles.items,
     });

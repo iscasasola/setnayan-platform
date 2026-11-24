@@ -71,9 +71,11 @@ test('every job keeps its door', () => {
   // The Custom plan door went 2026-11-06 with the plan itself (owner: "from the app") — it must not come back.
   assert.doesNotMatch(ROWS, /subscription\/custom/);
   // 💳 2026-11-14 ("SIMPLER SUPPLIER PLANS"): the add-on cards folded into the plans; what is left to buy is a row each.
-  assert.match(ROWS, /title="Deep Search"[\s\S]*?href="\/vendor-dashboard\/deep-search"/);
+  assert.match(ROWS, /title="Deep Search"[\s\S]*?href=\{routes\.vendorDashboard\.deepSearch\(\)\}/);
   assert.match(ROWS, /title="Extra seats and branches"[\s\S]*?href="\/vendor-dashboard\/team"/);
-  assert.match(PAGE, /fetchVendorAddonPricePhp\(supabase, 'deep_search_about_you', currentTier\)/);
+  // 🔎 2026-11-22 ("DEEP SEARCH IS RETIRED" + "1 RUN A MONTH"): the row says what the paid plans include — never a price.
+  assert.match(PAGE, /fetchDeepSearchRunsPerMonth\(createAdminClient\(\)\)/);
+  assert.doesNotMatch(PAGE, /'deep_search_about_you'/, 'the Plans page prices Deep Search again');
   assert.match(PAGE, /<PlanRows/);
   for (const gone of ['AiAddonCard', 'BoothAddonCard', 'PapicChallengeCard', 'UltraAddonsCard']) {
     assert.doesNotMatch(PAGE, new RegExp(`<${gone}\\b`), `${gone} is back — it folded into the plans`);

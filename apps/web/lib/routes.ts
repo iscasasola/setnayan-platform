@@ -535,6 +535,8 @@ export const routes = {
       detail: (contractId: string) => `/vendor-dashboard/contracts/${contractId}`,
       new: () => `/vendor-dashboard/contracts/new`,
     },
+    // 🔎 Deep Search: the shop's included searches and their results (owner 2026-11-22, "Deep Search 1 a month").
+    deepSearch: () => `/vendor-dashboard/deep-search`,
     earnings: () => `/vendor-dashboard/earnings`,
     manpower: () => `/vendor-dashboard/manpower`,
     messages: {

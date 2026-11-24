@@ -34,9 +34,10 @@ import type { CatalogueRow } from '@/lib/feature-pages/price';
 import { FEE_SCOPE } from '@/lib/booking-fee-who-words';
 import { formatCount } from '@/lib/format-number';
 import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
+import { TIER_LABEL } from '@/lib/vendor-tier-caps';
 
 export type RowStatus = 'live' | 'coming';
-export type RowPrice = 'free' | 'free-plus' | 'paid' | 'credits' | 'per-day';
+export type RowPrice = 'free' | 'free-plus' | 'paid' | 'credits' | 'per-day' | 'in-plans';
 export type RowIcon =
   | 'budget' | 'list' | 'seat' | 'cube' | 'cal' | 'palette' | 'grid' | 'store' | 'spark' | 'hub' | 'shirt' | 'gift'
   | 'print' | 'mono' | 'music' | 'crown' | 'camera' | 'live' | 'reel' | 'mem' | 'book' | 'qr' | 'reply' | 'wall'
@@ -197,7 +198,9 @@ export const FEATURE_ROWS = {
   c27: F({ icon: 'chart', name: 'My Performance', line: 'Capacity, conversion, benchmark, price position, ROI.', price: 'free', status: 'live', reg: ['C27'], problem: 'Numbers without a next step.', solution: 'Five cards that say how you are doing.', why: 'Know where you stand.' }),
   c28: F({ icon: 'chart', name: 'Analytics that help', line: 'Tap any graph: our recommendation. Five new graphs.', price: 'paid', status: 'live', reg: ['C28'], problem: 'Graphs that do not tell you what to do.', solution: 'Every graph rises larger with one recommendation in the Problem → Solution shape; dates you lost, which card sells, reply speed, slow months, quotes waiting.', why: 'Growth you can act on.' }),
   c29: F({ icon: 'star', name: 'Reviews, track record, Stories', line: 'Land 24 hours after the event; one public reply.', price: 'free', status: 'live', reg: ['C29'], problem: 'Screenshots of thank-you messages as proof.', solution: 'Reviews from completed events; your track record and recaps grow on their own.', why: 'Proof that cannot be faked.' }),
-  c30: F({ icon: 'search', name: 'Deep Search', line: 'Find the couples whose plans match what you sell.', price: 'paid', status: 'live', reg: ['C30'], problem: 'You wait for inquiries.', solution: 'One search across events looking for your category, date and city.', why: 'Go to the client first.' }),
+  // 🔎 C30 · Deep Search (owner 2026-11-22: retired as a sale, "Deep Search 1 a month" inside the paid plans). It reads the
+  // web about the shop's OWN business (lib/vendor-deep-search.ts) — never other people's events.
+  c30: F({ icon: 'search', name: 'Deep Search', line: 'We read the web about your business and show what we found.', price: 'in-plans', status: 'live', reg: ['C30'], problem: 'You don’t know what couples find when they look you up.', solution: 'Each month your plan includes a search of the web for your shop: its services, prices, where it shows up, and anything to double-check.', why: 'Fix what couples see before they see it.' }),
   c39: F({ icon: 'grid', name: 'Honest empty states', line: 'Today, Clients, Shop, Portfolio and the graphs show greyed examples.', price: 'free', status: 'coming', reg: ['C39'], plan: 'Build 5 · Lane H', problem: 'A new shop looks broken: blank sections.', solution: 'Every empty part draws a greyed preview until there is real content.', why: 'You see what will be there.' }),
   social: F({ icon: 'megaphone', name: 'Your badge gets posted', line: 'A new badge or verification posts to Setnayan’s page; you can opt out.', price: 'free', status: 'coming', reg: [], plan: 'Build 6 · Lane S', problem: 'Your milestones go unseen.', solution: 'When you earn a badge or get verified, Setnayan posts it, public shops only, opt-out any time.', why: 'Free reach.' }),
   // ───────── D · COORDINATORS ─────────
@@ -337,6 +340,9 @@ export const PRICE_WORDS: Readonly<Record<RowPrice, string>> = {
   paid: 'Paid · see the plans',
   credits: 'Free · Papic credits to add',
   'per-day': 'Paid per day',
+  // 🔎 Inside the paid supplier plans, never sold on its own (owner 2026-11-22, DECISION_LOG "SPECIAL TOOLS STAY INSIDE
+  // THE PLANS" · "DEEP SEARCH IS RETIRED"). The plan names are the plan words a person reads (`TIER_LABEL`).
+  'in-plans': `Included in ${TIER_LABEL.solo} · ${TIER_LABEL.pro} · ${TIER_LABEL.enterprise}`,
 };
 
 /* ─── THE PLANS COMPARE ───────────────────────────────────────────────────────────────────────────────────────── */

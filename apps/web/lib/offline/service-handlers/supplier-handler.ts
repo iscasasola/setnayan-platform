@@ -13,7 +13,7 @@
 // sends, or shows, another person's work.
 
 import type { OfflineItem, SyncResult } from '../types';
-import { isFinalOutcome, parseSyncReply, type SupplierQueuedItem, type SyncReply } from '@/lib/supplier-offline/kinds';
+import type { SupplierQueuedItem, SyncReply } from '@/lib/supplier-offline/kinds';
 import type { SupplierOfflineReply } from '@/lib/supplier-offline/replies';
 
 /** An answer that needs a person: kept on this phone until they act on it or dismiss it. */
@@ -139,6 +139,7 @@ export async function syncOne(item: OfflineItem): Promise<SyncResult> {
     recordSupplierOutcome({ member: p.member, shop: p.shop, item: p, reply: { status: 'refused', why: answer.why, itemId: p.itemId, kind: p.kind }, answeredAt: now });
     return { ok: true };
   }
+  const { isFinalOutcome, parseSyncReply } = await import('@/lib/supplier-offline/kinds');
   const reply = parseSyncReply(answer.reply);
   // An answer this phone does not recognise keeps the item — never dropped on a misunderstanding.
   if (!reply) return { ok: false, error: RETRY_WORDS.unread! };

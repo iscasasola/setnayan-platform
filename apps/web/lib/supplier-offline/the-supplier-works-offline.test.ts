@@ -72,6 +72,11 @@ test('1 · one engine: the supplier queue is the shipped daemon, sent only by it
   const daemon = read('lib/offline/sync-daemon.ts');
   assert.match(daemon, /supplier:\s*syncOneSupplier/, 'the daemon has no handler for the supplier queue');
   assert.match(daemon, /supplier:\s*supplierGaveUp/, 'an evicted supplier action would vanish without an answer');
+  // The daemon rides in every page's shared bundle: the supplier handler (and the engine's words) load on use only.
+  assert.doesNotMatch(daemon, /^import[^;]*supplier-handler/m, 'the supplier handler is in every page’s first load');
+  assert.match(daemon, /\(await import\('\.\/service-handlers\/supplier-handler'\)\)\.syncOne\(item\)/);
+  const handler = read('lib/offline/service-handlers/supplier-handler.ts');
+  assert.doesNotMatch(handler, /^import (?!type)[^;]*supplier-offline\//m, 'the supplier handler loads the engine’s modules up front');
 
   const store = new Map<string, string>();
   (globalThis as { window?: unknown }).window = {

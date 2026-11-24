@@ -18,7 +18,8 @@
 //   claimDates · releaseHold · readTeamOffline — expo mode and the teammates' pending line
 //   wipeSupplierOfflineOnThisPhone — sign-out
 
-import { countSupplierCodes, dequeueOfflineItem, enqueueOfflineItem, listOfflineItems, replaceSupplierCodes, takeSupplierCode, wipeSupplierOffline } from './db';
+import { dequeueOfflineItem, enqueueOfflineItem, listOfflineItems } from './db';
+import { countSupplierCodes, replaceSupplierCodes, takeSupplierCode, wipeSupplierOffline } from './supplier-codes';
 import { triggerSyncNow } from './sync-daemon';
 import {
   dismissSupplierOutcome,

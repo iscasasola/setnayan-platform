@@ -36,7 +36,6 @@ import { syncOne as syncOnePatiktok } from './service-handlers/patiktok-handler'
 import { syncOne as syncOneCameraBridge } from './service-handlers/camera-bridge-handler';
 import { syncOne as syncOneLiveWall } from './service-handlers/live-wall-handler';
 import { syncOne as syncOneCheckin, noteGaveUp as checkinGaveUp } from './service-handlers/checkin-handler';
-import { syncOne as syncOneSupplier, noteGaveUp as supplierGaveUp } from './service-handlers/supplier-handler';
 import { ownedByPageUploader } from '../papic-upload/ownership';
 import {
   SERVICE_CODES,
@@ -60,6 +59,15 @@ export const OFFLINE_SYNC_TAG = 'setnayan-offline-sync';
  * post-pilot' }`. Replacing one of these entries with a real upload
  * implementation is the V1.x last-mile job.
  */
+/**
+ * 📶 The supplier queue's handler is loaded on use: this module rides in EVERY page's shared bundle (the root layout's
+ * `OfflineDaemonMount`), and the supplier engine must not add a byte there (`scripts/check-bundle-size.mjs`, 202.3KB).
+ */
+const syncOneSupplier = async (item: OfflineItem): Promise<SyncResult> =>
+  (await import('./service-handlers/supplier-handler')).syncOne(item);
+const supplierGaveUp = (item: OfflineItem): void =>
+  void import('./service-handlers/supplier-handler').then((h) => h.noteGaveUp(item)).catch(() => undefined);
+
 const HANDLERS: Record<ServiceCode, (item: OfflineItem) => Promise<SyncResult>> = {
   papic: syncOnePapic,
   panood: syncOnePanood,

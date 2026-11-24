@@ -80,7 +80,7 @@ function matchOne(e: El, s: string): boolean {
   const [, tag, attrPart, cls] = m;
   if (tag && e.tag !== tag) return false;
   if (cls && !e.classList.contains(cls.slice(1))) return false;
-  for (const a of attrPart.match(/\[[^\]]+\]/g) ?? []) {
+  for (const a of (attrPart ?? '').match(/\[[^\]]+\]/g) ?? []) {
     const am = /^\[([a-z-]+)(?:="([^"]*)")?\]$/i.exec(a);
     if (!am) throw new Error(`the fake document does not know "${a}"`);
     if (!e.hasAttribute(am[1]!)) return false;

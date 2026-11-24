@@ -6,8 +6,9 @@ On 24 Nov #8252, #8259 and #8261 sat BLOCKED with every check green. The cause w
 - **Every heavy job follows it.** typecheck, eslint, the unit shards, the DB replay shards and the production build carry `needs: pr-state` plus `if: needs.pr-state.outputs.draft == 'false'`.
 - **The gate follows it.** It gets `PR_DRAFT: needs.pr-state.outputs.draft` and needs `pr-state`.
 - **What this fixes:**
-  - A run that is created late reads "ready" and tests everything.
-  - "Re-run all jobs" on an old draft run reads the live state and passes on its merits.
+  - A run that is created late reads "ready" and tests everything, so it no longer posts a draft failure on a ready PR.
+  - "Re-run all jobs" on an old draft run reads the live state and passes on its merits (proved on #8274).
+- **What it does not fix:** GitHub keeps the failed attempt 1 counted even after a green attempt 2. On #8274 the attempt-1 check run stayed `isRequired: true` and the PR stayed BLOCKED with all 13 required checks green. A failure that already landed still needs a fresh head commit (merge `origin/main`).
 - **The draft fence is unchanged.** A draft PR is still red on the gate and can never merge.
 - **Fail-closed:**
   - A failed read turns `pr-state` red. The heavy jobs then skip and the gate is red.

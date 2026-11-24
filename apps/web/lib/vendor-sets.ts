@@ -193,7 +193,8 @@ export async function fetchVendorEventSets(
   supabase: SupabaseClient,
   eventId: string,
   vendorProfileId: string,
-): Promise<{ sets: VendorSetRow[]; songs: (SetSong & { setId: string })[] }> {
+): Promise<{ sets: VendorSetRow[]; songs: (SetSong & { setId: string })[]; failed: boolean }> {
+  // `failed` (23 Nov, the Set list hub tool): a refused read is not "no sets yet" — the tool says it could not load.
   const { data: setRows, error } = await supabase
     .from('vendor_event_sets')
     .select('set_id, position, name, slot_type')
@@ -202,11 +203,11 @@ export async function fetchVendorEventSets(
     .order('position', { ascending: true });
   if (error || !setRows || setRows.length === 0) {
     if (error) console.error('fetchVendorEventSets failed:', error.message);
-    return { sets: [], songs: [] };
+    return { sets: [], songs: [], failed: Boolean(error) || !setRows };
   }
   const sets = setRows as VendorSetRow[];
 
-  const { data: songRows } = await supabase
+  const { data: songRows, error: songsError } = await supabase
     .from('vendor_event_set_songs')
     .select('set_song_id, set_id, position, song_id, songs(song_id, title, artist)')
     .in('set_id', sets.map((s) => s.set_id))
@@ -237,7 +238,7 @@ export async function fetchVendorEventSets(
     ];
   });
 
-  return { sets, songs };
+  return { sets, songs, failed: Boolean(songsError) };
 }
 
 /**

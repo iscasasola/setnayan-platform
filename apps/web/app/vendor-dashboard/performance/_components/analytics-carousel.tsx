@@ -27,9 +27,9 @@ import { STORE_GRAPHS, graphWindowWords } from '@/lib/supplier-store';
 import { ArrangeEdit } from '@/app/vendor-dashboard/shop/store/_components/store-client';
 import { GraphArt } from '@/app/vendor-dashboard/shop/store/_components/graph-art';
 import type { InviteMonth } from '@/lib/graph-unlocks';
+import { NewThingTile } from '@/app/_components/collection-card';
 import type { StoreGraphs } from '@/lib/vendor-store-graphs';
 import { storeGraphSpecs } from './store-graphs';
-import { NewThingTile } from '@/app/_components/collection-card';
 
 /**
  * 📊🎠 SHOP › ANALYTICS — ONE LONG CAROUSEL, AND IT IS THE ONLY ANALYTICS (owner 11 Nov 2026: *"Analytics should be the

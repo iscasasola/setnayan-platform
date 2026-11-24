@@ -27,6 +27,8 @@
  */
 import { shopPath } from '@/lib/shop-address';
 import { coldWayBack } from './discover-way-back';
+import { arrivalUtmOf, materialViaOf, VIA_PARAM, type MaterialVia } from './material-tags';
+import { DISCOVER_HREF } from './discover-href';
 import { OWN_LINK_SRC } from './supplier-qr-codes';
 
 /** The arrival tags a door into a shop page may carry. Free text on the view row; these are the ones with a back. */
@@ -82,7 +84,7 @@ export type ShopBackDoor = {
 };
 
 // `/` and never `/explore`: the marketplace moved inside Discover (12 Nov) and `/explore` only forwards there.
-export const SHOP_BACK_COLD: ShopBackDoor = { href: '/', label: 'See more suppliers', back: false };
+export const SHOP_BACK_COLD: ShopBackDoor = { href: DISCOVER_HREF, label: 'See more suppliers', back: false };
 
 /** The one rule. An explicit origin wins over the event, which wins over nothing. */
 export function shopBackDoor({ src, eventId, q, from }: ShopArrival): ShopBackDoor {
@@ -91,12 +93,12 @@ export function shopBackDoor({ src, eventId, q, from }: ShopArrival): ShopBackDo
       // 🧭 The words match where it lands (W1, 15 Nov; DECISION_LOG 2026-11-15 "ONE BACK BUTTON, NAMED FOR WHERE THE
       // VISITOR CAME FROM"): `/explore` forwards to Discover (12 Nov, Find suppliers moved inside Discover), so a card
       // still tagged `explore` goes back to Discover and says so — never "Suppliers" landing on Discover.
-      return { href: '/', label: 'Back to Discover', back: true };
+      return { href: DISCOVER_HREF, label: 'Back to Discover', back: true };
     case SHOP_ARRIVAL_SRC.discover:
-      return { href: '/', label: 'Back to Discover', back: true };
+      return { href: DISCOVER_HREF, label: 'Back to Discover', back: true };
     case SHOP_ARRIVAL_SRC.search:
       // 🔎 SB (W1 SHOP-01): back to the RESULTS they came from (`/?q=`), never a bare "/" that drops their search.
-      return { href: q ? `/?q=${encodeURIComponent(q)}` : '/', label: q ? 'Back to results' : 'Back to Discover', back: true };
+      return { href: q ? `/?q=${encodeURIComponent(q)}` : DISCOVER_HREF, label: q ? 'Back to results' : 'Back to Discover', back: true };
     case SHOP_ARRIVAL_SRC.favorites:
       return { href: '/dashboard?seg=memories&tab=vendors', label: 'Back to saved suppliers', back: true };
     case SHOP_ARRIVAL_SRC.page:
@@ -146,16 +148,36 @@ export function shopTopBack(arrival: ShopArrival, signedIn: boolean): { href: st
 }
 
 /** A tidy arrival from a URL's raw values (the event still UNCHECKED — the caller checks it). */
-export function arrivalParams(search: { src?: unknown; event?: unknown; q?: unknown; from?: unknown }): {
+export function arrivalParams(search: {
+  src?: unknown;
+  event?: unknown;
+  q?: unknown;
+  from?: unknown;
+  via?: unknown;
+  utm?: unknown;
+  utm_source?: unknown;
+  utm_medium?: unknown;
+  utm_campaign?: unknown;
+}): {
   src: string | null;
   event: string | null;
   q: string | null;
   from: string | null;
+  via: MaterialVia | null;
+  utm: string | null;
 } {
   const clean = (v: unknown) => (typeof v === 'string' && /^[\w-]{1,64}$/.test(v.trim()) ? v.trim() : null);
   // The search words: free text, trimmed, one line, at most 120 characters (they only ever go back into `/?q=`).
   const words = typeof search.q === 'string' ? search.q.replace(/\s+/g, ' ').trim().slice(0, 120) : '';
-  return { src: clean(search.src), event: clean(search.event), q: words || null, from: safeFromPath(search.from) };
+  return {
+    src: clean(search.src),
+    event: clean(search.event),
+    q: words || null,
+    from: safeFromPath(search.from),
+    // 🏷 The material tag and the campaign tags (owner 2026-11-16) — only a known piece, only a bounded string.
+    via: materialViaOf(search.via),
+    utm: arrivalUtmOf(search),
+  };
 }
 
 /**
@@ -164,7 +186,15 @@ export function arrivalParams(search: { src?: unknown; event?: unknown; q?: unkn
  */
 export function withShopArrival(
   href: string,
-  arrival: { src: string | null; event?: string | null; eventId?: string | null; q?: string | null; from?: string | null },
+  arrival: {
+    src: string | null;
+    event?: string | null;
+    eventId?: string | null;
+    q?: string | null;
+    from?: string | null;
+    via?: MaterialVia | null;
+    utm?: string | null;
+  },
   extra: Readonly<Record<string, string>> = {},
 ): string {
   const hashAt = href.indexOf('#');
@@ -176,6 +206,11 @@ export function withShopArrival(
   const event = arrival.eventId ?? arrival.event ?? null;
   if (arrival.src && !q.has('src')) q.set('src', arrival.src);
   if (event && !q.has('event')) q.set('event', event);
+  // 🏷 THE PIECE SURVIVES EVERY INNER DOOR (owner 2026-11-16: "Build must keep the tag through the shop page's inner
+  // doors (Check a date, booth, review) the way `?src=own` already survives"). Only a known piece is ever written.
+  const via = materialViaOf(arrival.via);
+  if (via && !q.has(VIA_PARAM)) q.set(VIA_PARAM, via);
+  if (arrival.utm && !q.has('utm') && !q.has('utm_source')) q.set('utm', arrival.utm);
   if (arrival.q && arrival.src === SHOP_ARRIVAL_SRC.search && !q.has('q')) q.set('q', arrival.q);
   const from = arrival.src === SHOP_ARRIVAL_SRC.page ? safeFromPath(arrival.from) : null;
   if (from && !q.has('from')) q.set('from', from);

@@ -1,14 +1,22 @@
-import Link from 'next/link';
-import { Wallet, Clock3, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Banknote, PauseCircle, PlayCircle } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
-import { FormFlash } from '@/app/_components/forms/form-flash';
+import { actionButtonClass } from '@/components/action-button-class';
+import { Badge } from '@/app/_components/badge';
+import {
+  TemplateEmpty,
+  TemplateFail,
+  TemplateRow,
+  TemplateRows,
+  TemplateSection,
+} from '@/app/_components/template-rows';
+import { RecordBack, RecordFacts, RecordHead, RecordSection } from '@/app/admin/_components/record-kit';
+import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 import {
   BIR_WITHHOLDING_BPS,
   PAYOUT_STAGE_LABEL,
-  PAYOUT_STAGE_TONE,
   formatCentavosPhp,
   type PayoutStage,
 } from '@/lib/payouts';
@@ -16,12 +24,20 @@ import { markPayoutPaidAction, holdPayoutAction } from './actions';
 // Lives in payments/actions.ts beside the other money reversals, not in
 // payouts/actions.ts — which is part of why nothing ever imported it.
 import { releasePayoutHoldAction } from '@/app/admin/payments/actions';
+import { PAYOUT_FILTERS, parsePayoutFilter as parseFilter, payoutsHref as makeHref, type PayoutFilterKey as FilterKey } from './payouts-filters';
+import { MarkPaidRows, ReasonRow } from './payout-form-rows';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
-import { PageMasthead } from '@/app/_components/page-masthead';
 export const metadata = { title: 'Supplier payouts · Admin' };
 
-type FilterKey = 'pending' | 'paid' | 'on_hold' | 'all';
+/*
+  📐 ADMIN CLEAN PORT (owner 19 Nov 2026, "ok" on the drawing "Money screens: now and proposed",
+  artifact 6sKA8ofRh49LRdGFgJqLkk; DECISION_LOG 2026-11-19). Reposition only — the same reads, filters, actions and
+  words, on the design template (`booking-fees/page.tsx` is the model): the pinned row "To approve · Payouts ▾" names
+  the page, so there is no page title; the one description sits behind the ⓘ beside "Payouts"; the three tiles are
+  one numbers frame; the four filters live behind the Show & filter round on the thumb row (`payouts-show-sort.tsx`);
+  each payout is ONE row, and a tap opens it (`?open=<payout_id>`) with every field and both forms.
+*/
 
 type Props = {
   searchParams: Promise<{
@@ -29,6 +45,7 @@ type Props = {
     vendor?: string;
     from?: string;
     to?: string;
+    open?: string;
     flash?: string;
     error?: string;
   }>;
@@ -70,13 +87,6 @@ type PayoutRow = {
     public_visibility: string | null;
   } | null;
 };
-
-const FILTER_TABS: Array<{ key: FilterKey; label: string }> = [
-  { key: 'pending', label: 'Pending' },
-  { key: 'paid', label: 'Paid' },
-  { key: 'on_hold', label: 'On hold' },
-  { key: 'all', label: 'All' },
-];
 
 /* F-A-10 (admin walk, round 2): the old escrow stage filters ("Immediate (verified)" · "Stage 1 · at confirmation" …)
    are gone. Setnayan does not hold the couple's money; a row from an older booking still shows its own stage on its
@@ -166,272 +176,200 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
     .filter((r) => r.on_hold)
     .reduce((acc, r) => acc + (r.vendor_net_centavos ?? r.amount_centavos), 0);
 
-  return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
-      <PageMasthead
-        title="Supplier payouts"
-      />
-      {/* 🧾 ONE DESCRIPTION (F-A-10): couples pay suppliers directly (apply-then-pay), so Setnayan makes no new payouts. */}
-      <p className="mb-4 max-w-prose text-sm text-ink/70" data-payouts-what="">
-        Couples pay their suppliers directly, so Setnayan makes no new payouts. This is the record of payouts from older
-        bookings that were paid through Setnayan.
-      </p>
 
+  const back = makeHref({ filter, vendor, from, to });
+  const opened = search.open ? rows.find((r) => r.payout_id === search.open) ?? null : null;
+  const filterLabel = PAYOUT_FILTERS.find((t) => t.key === filter)?.label ?? 'Pending';
+  const count = (n: number) => `${n} payout(s)`;
+
+  return (
+    <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6" data-payouts="">
       <FlashBanner flash={search.flash} error={search.error} />
 
-      <section className="mb-6 grid gap-3 sm:grid-cols-3">
-        <Stat
-          icon={<Clock3 className="h-4 w-4" />}
-          label="Pending (filtered)"
-          value={error ? '—' : formatCentavosPhp(pendingTotal)}
-          tone="bg-warn-100 text-warn-800"
-          help={error ? 'couldn’t read' : `${rows.filter((r) => !r.paid_at && !r.on_hold).length} payout(s)`}
-        />
-        <Stat
-          icon={<CheckCircle2 className="h-4 w-4" />}
-          label="Paid (filtered)"
-          value={error ? '—' : formatCentavosPhp(paidTotal)}
-          tone="bg-success-100 text-success-800"
-          help={error ? 'couldn’t read' : `${rows.filter((r) => !!r.paid_at).length} payout(s)`}
-        />
-        <Stat
-          icon={<AlertTriangle className="h-4 w-4" />}
-          label="On hold (filtered)"
-          value={error ? '—' : formatCentavosPhp(onHoldTotal)}
-          tone="bg-danger-100 text-danger-800"
-          help={error ? 'couldn’t read' : `${rows.filter((r) => r.on_hold).length} payout(s)`}
-        />
-      </section>
-
-      <FilterBar
-        filter={filter}
-        vendor={vendor}
-        from={from}
-        to={to}
-      />
-
-      {error ? (
-        <FormFlash tone="error">
-          Payouts couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment.
-        </FormFlash>
-      ) : null}
-
-      {error ? null : rows.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-ink/15 bg-white/50 p-10 text-center">
-          <Wallet aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
-          <p className="text-sm font-medium text-ink">{supplierNote ?? 'No payouts match this filter.'}</p>
-          <p className="mx-auto mt-1 max-w-md text-xs text-ink/60">
-            Only an older booking paid through Setnayan has a payout. New bookings are paid to the supplier directly.
-          </p>
-        </div>
+      {opened ? (
+        <OpenedPayout row={opened} back={back} />
       ) : (
-        <ul className="space-y-2">
-          {rows.map((row) => (
-            <PayoutCard key={row.payout_id} row={row} />
-          ))}
-        </ul>
+        <>
+          <TemplateSection
+            label="Payouts"
+            first
+            data="payouts"
+            tip={
+              /* 🧾 ONE DESCRIPTION (F-A-10): couples pay suppliers directly (apply-then-pay), so Setnayan makes no new payouts. */
+              <span data-payouts-what="">
+                Couples pay their suppliers directly, so Setnayan makes no new payouts. This is the record of payouts from older
+                bookings that were paid through Setnayan.
+              </span>
+            }
+          >
+            <dl className="sn-frame my-2.5 grid grid-cols-3 gap-1 px-2 py-3 text-center" data-payouts-totals="">
+              <PayoutNum
+                label="Pending (filtered)"
+                value={error ? '—' : formatCentavosPhp(pendingTotal)}
+                help={error ? 'couldn’t read' : count(rows.filter((r) => !r.paid_at && !r.on_hold).length)}
+              />
+              <PayoutNum
+                label="Paid (filtered)"
+                value={error ? '—' : formatCentavosPhp(paidTotal)}
+                help={error ? 'couldn’t read' : count(rows.filter((r) => !!r.paid_at).length)}
+              />
+              <PayoutNum
+                label="On hold (filtered)"
+                value={error ? '—' : formatCentavosPhp(onHoldTotal)}
+                help={error ? 'couldn’t read' : count(rows.filter((r) => r.on_hold).length)}
+              />
+            </dl>
+          </TemplateSection>
+
+          <TemplateSection
+            label={filterLabel}
+            right={error ? undefined : `${rows.length} ${rows.length === 1 ? 'payout' : 'payouts'}`}
+            data="payouts-list"
+          >
+            {error ? (
+              <TemplateFail retryHref={back} data="payouts">
+                Payouts couldn&apos;t load right now. We&apos;ve logged the issue — refresh in a moment.
+              </TemplateFail>
+            ) : null}
+
+            {error ? null : rows.length === 0 ? (
+              <TemplateEmpty data="payouts">
+                {supplierNote ?? 'No payouts match this filter.'} Only an older booking paid through Setnayan has a payout.
+                New bookings are paid to the supplier directly.
+              </TemplateEmpty>
+            ) : (
+              <TemplateRows label="Payouts">
+                {rows.map((row) => (
+                  <PayoutRowLine key={row.payout_id} row={row} href={makeHref({ filter, vendor, from, to, open: row.payout_id })} />
+                ))}
+              </TemplateRows>
+            )}
+          </TemplateSection>
+        </>
       )}
     </div>
   );
 }
 
-function FilterBar({
-  filter,
-  vendor,
-  from,
-  to,
-}: {
-  filter: FilterKey;
-  vendor: string;
-  from: string;
-  to: string;
-}) {
+/** One figure of the numbers frame — the shape of `TemplateNums`' cell, with the count under its label. */
+function PayoutNum({ label, value, help }: { label: string; value: string; help: string }) {
   return (
-    <div className="mb-6 space-y-3">
-      <div className="flex flex-wrap gap-1.5">
-        {FILTER_TABS.map((t) => (
-          <Link
-            key={t.key}
-            href={makeHref({ filter: t.key, vendor, from, to })}
-            className={`rounded-full px-3 py-1 text-xs font-medium ${
-              filter === t.key
-                ? 'bg-ink text-cream'
-                : 'bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink'
-            }`}
-          >
-            {t.label}
-          </Link>
-        ))}
-      </div>
-      <form className="flex flex-wrap items-end gap-2 sn-tile p-3" method="get" action="/admin/payouts">
-        <input type="hidden" name="filter" value={filter} />
-        <label className="block text-xs text-ink/60">
-          <span className="mb-1 block font-mono uppercase tracking-[0.15em]">Supplier (name or ID)</span>
-          <input
-            name="vendor"
-            defaultValue={vendor}
-            placeholder="Business name"
-            className="h-9 w-72 max-w-full rounded-md border border-ink/20 bg-white px-2 text-sm"
-          />
-        </label>
-        <label className="block text-xs text-ink/60">
-          <span className="mb-1 block font-mono uppercase tracking-[0.15em]">From (scheduled)</span>
-          <input
-            type="date"
-            name="from"
-            defaultValue={from}
-            className="h-9 rounded-md border border-ink/20 bg-white px-2 text-sm"
-          />
-        </label>
-        <label className="block text-xs text-ink/60">
-          <span className="mb-1 block font-mono uppercase tracking-[0.15em]">To (scheduled)</span>
-          <input
-            type="date"
-            name="to"
-            defaultValue={to}
-            className="h-9 rounded-md border border-ink/20 bg-white px-2 text-sm"
-          />
-        </label>
-        <button type="submit" className="button-secondary h-9 px-3 text-xs">
-          Apply
-        </button>
-        <Link
-          href={makeHref({ filter, vendor: '', from: '', to: '' })}
-          className="inline-flex h-11 items-center justify-center px-3 text-xs text-ink/60 hover:text-ink"
-        >
-          Reset
-        </Link>
-      </form>
+    <div className="grid min-h-11 content-center gap-0.5">
+      <dt className="order-2 text-[12px] leading-snug text-[color:var(--m-slate-2)]">
+        {label}
+        <span className="block">{help}</span>
+      </dt>
+      <dd className="order-1 text-[20px] font-bold leading-none tabular-nums text-ink">{value}</dd>
     </div>
   );
 }
 
-function PayoutCard({ row }: { row: PayoutRow }) {
-  const stage: PayoutStage = (row.payout_stage ??
-    legacyStageToPayoutStage(row.stage)) as PayoutStage;
-  const stageTone = PAYOUT_STAGE_TONE[stage];
-  const stageLabel = PAYOUT_STAGE_LABEL[stage];
+function stageOf(row: PayoutRow): PayoutStage {
+  return (row.payout_stage ?? legacyStageToPayoutStage(row.stage)) as PayoutStage;
+}
+
+function StateBadge({ row }: { row: PayoutRow }) {
+  if (row.paid_at) return <Badge tone="ok">Paid</Badge>;
+  if (row.on_hold) return <Badge tone="no">On hold</Badge>;
+  return <Badge tone="wait">Scheduled</Badge>;
+}
+
+/** ONE row per payout: who · how much, when · which payout, and its state. A tap opens it. */
+function PayoutRowLine({ row, href }: { row: PayoutRow; href: string }) {
+  const net = formatCentavosPhp(row.vendor_net_centavos ?? row.amount_centavos);
+  const when = row.paid_at ? `Paid ${formatTimestamp(row.paid_at)}` : `Scheduled ${formatTimestamp(row.scheduled_at) ?? '—'}`;
+  return (
+    <TemplateRow
+      data={row.payout_id}
+      href={href}
+      edge={row.on_hold ? 'late' : row.paid_at ? undefined : 'due'}
+      title={`${row.vendor?.business_name ?? '(unknown supplier)'} · ${net}`}
+      line={`${when} · Payout ${row.public_id}`}
+      right={<StateBadge row={row} />}
+    />
+  );
+}
+
+/** A tapped payout, on its own: everything the old card carried, and its forms. */
+function OpenedPayout({ row, back }: { row: PayoutRow; back: string }) {
   const isPaid = !!row.paid_at;
   const isHeld = !!row.on_hold;
-
   return (
-    <li className="sn-tile p-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1 space-y-1">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <span className={`rounded-full px-2 py-0.5 text-[10px] font-mono uppercase tracking-[0.15em] ${stageTone}`}>
-              {stageLabel}
-            </span>
-            {isPaid ? (
-              <span className="rounded-full bg-success-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-success-800">
-                Paid
-              </span>
-            ) : isHeld ? (
-              <span className="rounded-full bg-danger-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-danger-800">
-                On hold
-              </span>
-            ) : (
-              <span className="rounded-full bg-warn-100 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-warn-800">
-                Scheduled
-              </span>
-            )}
-            {row.vendor?.public_visibility ? (
-              <span className="rounded-full bg-ink/5 px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.15em] text-ink/60">
-                {row.vendor.public_visibility}
-              </span>
-            ) : null}
-          </div>
-          <p className="text-sm font-semibold text-ink">
-            {row.vendor?.business_name ?? '(unknown supplier)'}
-          </p>
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-            Order {row.order?.reference_code ?? row.order?.public_id ?? '—'} ·{' '}
-            Payout {row.public_id}
-          </p>
-          <p className="line-clamp-1 text-xs text-ink/65">
-            {row.order?.description ?? '—'}
-          </p>
-        </div>
-        <div className="space-y-0.5 text-right">
-          <p className="font-mono text-base font-semibold text-ink">
-            {formatCentavosPhp(row.vendor_net_centavos ?? row.amount_centavos)}
-          </p>
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
-            Stage {row.stage_pct}% of net
-          </p>
-        </div>
+    <div data-payout-open={row.payout_id}>
+      <RecordBack href={back} label="Payouts" />
+      <RecordHead
+        small={`Order ${row.order?.reference_code ?? row.order?.public_id ?? '—'} · Payout ${row.public_id}`}
+        name={`${row.vendor?.business_name ?? '(unknown supplier)'} · ${formatCentavosPhp(row.vendor_net_centavos ?? row.amount_centavos)}`}
+        line={row.order?.description ?? '—'}
+        badges={
+          <>
+            <StateBadge row={row} />
+            {PAYOUT_STAGE_LABEL[stageOf(row)] ? <Badge tone="quiet">{PAYOUT_STAGE_LABEL[stageOf(row)]}</Badge> : null}
+            <Badge tone="quiet">Stage {row.stage_pct}% of net</Badge>
+            {row.vendor?.public_visibility ? <Badge tone="quiet">{row.vendor.public_visibility}</Badge> : null}
+          </>
+        }
+      />
+
+      <div className={`${ADMIN_FRAME} px-4`}>
+        <RecordFacts
+          label="Payout"
+          items={[
+            ['Scheduled', formatTimestamp(row.scheduled_at) ?? '—'],
+            ['Paid at', formatTimestamp(row.paid_at) ?? '—'],
+            ['Dispute window', formatTimestamp(row.dispute_window_ends_at) ?? '—'],
+            ['Rail', row.payment_method ?? row.payout_method ?? '—'],
+            ['Gross', formatCentavosPhp(row.gross_centavos)],
+            ['Gateway', formatCentavosPhp(row.gateway_fee_centavos)],
+            [`BIR ${BIR_WITHHOLDING_BPS / 100}%`, formatCentavosPhp(row.bir_withholding_centavos)],
+            ['Disburse fee', `${formatCentavosPhp(row.disbursement_fee_centavos)} · Absorbed`],
+          ]}
+        />
       </div>
 
-      <dl className="mt-3 grid grid-cols-2 gap-x-4 gap-y-1 text-xs text-ink/65 sm:grid-cols-4">
-        <Field label="Scheduled" value={formatTimestamp(row.scheduled_at)} />
-        <Field label="Paid at" value={formatTimestamp(row.paid_at)} />
-        <Field label="Dispute window" value={formatTimestamp(row.dispute_window_ends_at)} />
-        <Field label="Rail" value={row.payment_method ?? row.payout_method ?? '—'} />
-        <Field label="Gross" value={formatCentavosPhp(row.gross_centavos)} />
-        <Field label="Gateway" value={formatCentavosPhp(row.gateway_fee_centavos)} />
-        <Field label={`BIR ${BIR_WITHHOLDING_BPS / 100}%`} value={formatCentavosPhp(row.bir_withholding_centavos)} />
-        <Field
-          label="Disburse fee"
-          value={formatCentavosPhp(row.disbursement_fee_centavos)}
-          help="Absorbed"
-        />
-      </dl>
-
       {row.hold_reason ? (
-        <p className="mt-2 rounded-md border border-danger-200 bg-danger-50 px-2 py-1 text-xs text-danger-900">
-          <span className="font-medium">On hold:</span> {row.hold_reason}
+        <p className="mt-3 text-[14px]" style={{ color: 'rgb(var(--color-danger))' }}>
+          <span className="font-semibold">On hold:</span> {row.hold_reason}
         </p>
       ) : null}
 
       {!isPaid ? (
-        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">
-          <ConfirmForm
-            action={markPayoutPaidAction}
-            title="Mark this payout as paid?"
-            confirmLabel="Mark paid"
-            destructive={false}
-            message="This records the supplier's payout as sent (rail + reference) and emails them a payment confirmation. Do this only after the money has actually left your account."
-            className="flex flex-wrap items-center gap-2"
-          >
-            <input type="hidden" name="payout_id" value={row.payout_id} />
-            <select
-              name="payment_method"
-              defaultValue={row.payout_method ?? 'maya'}
-              className="h-8 rounded-md border border-ink/20 bg-white px-2 text-xs"
-            >
-              <option value="maya">Maya</option>
-              <option value="gcash">GCash</option>
-              <option value="bdo_transfer">BDO transfer</option>
-              <option value="check">Check</option>
-            </select>
-            <input
-              name="payout_reference"
-              placeholder="Reference #"
-              className="h-8 w-40 rounded-md border border-ink/20 bg-white px-2 text-xs"
-            />
-            <SubmitButton className="button-primary h-8 px-3 text-xs">
-              Mark paid
-            </SubmitButton>
-          </ConfirmForm>
-          {!isHeld ? (
+        <>
+          <RecordSection label="Mark paid">
             <ConfirmForm
-              action={holdPayoutAction}
-              title="Place this payout on hold?"
-              confirmLabel="Place on hold"
-              message="This freezes the supplier's pending payout. There's no automatic release in V1 — it stays held until you lift it manually."
-              className="flex flex-wrap items-center gap-2"
+              action={markPayoutPaidAction}
+              title="Mark this payout as paid?"
+              confirmLabel="Mark paid"
+              destructive={false}
+              message="This records the supplier's payout as sent (rail + reference) and emails them a payment confirmation. Do this only after the money has actually left your account."
+              className={`${ADMIN_FRAME} block px-4 pb-3`}
             >
               <input type="hidden" name="payout_id" value={row.payout_id} />
-              <input
-                name="reason"
-                placeholder="Hold reason"
-                required
-                className="h-8 w-48 rounded-md border border-ink/20 bg-white px-2 text-xs"
-              />
-              <SubmitButton className="button-secondary h-8 px-3 text-xs">
-                Place on hold
+              <MarkPaidRows defaultRail={row.payout_method ?? 'maya'} />
+              <SubmitButton className={actionButtonClass('brand', { main: true, extra: 'mt-2 w-full justify-center' })}>
+                <Banknote aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+                Mark paid
               </SubmitButton>
             </ConfirmForm>
+          </RecordSection>
+
+          {!isHeld ? (
+            <RecordSection label="Place on hold">
+              <ConfirmForm
+                action={holdPayoutAction}
+                title="Place this payout on hold?"
+                confirmLabel="Place on hold"
+                message="This freezes the supplier's pending payout. There's no automatic release in V1 — it stays held until you lift it manually."
+                className={`${ADMIN_FRAME} block px-4 pb-3`}
+              >
+                <input type="hidden" name="payout_id" value={row.payout_id} />
+                <ReasonRow name="Hold reason" placeholder="Hold reason" required />
+                <SubmitButton className={actionButtonClass('neutral', { extra: 'mt-2 w-full justify-center' })}>
+                  <PauseCircle aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+                  Place on hold
+                </SubmitButton>
+              </ConfirmForm>
+            </RecordSection>
           ) : (
             /* 🚨 THE WAY BACK. Holding was fully wired and releasing was not:
              * `releasePayoutHoldAction` existed, was audit-logged, and NO PAGE
@@ -443,67 +381,25 @@ function PayoutCard({ row }: { row: PayoutRow }) {
              * the absence invisible: the screen said the lever existed.
              * A forward primitive with no inverse, and a promise the product
              * could not keep. */
-            <ConfirmForm
-              action={releasePayoutHoldAction}
-              title="Release this hold?"
-              confirmLabel="Release hold"
-              message="The payout goes back to its normal schedule and the supplier can be paid again. The release is recorded against your account."
-              className="flex flex-wrap items-center gap-2"
-            >
-              <input type="hidden" name="payout_id" value={row.payout_id} />
-              <input
-                name="reason"
-                placeholder="Why release? (optional)"
-                className="h-8 w-48 rounded-md border border-ink/20 bg-white px-2 text-xs"
-              />
-              <SubmitButton className="button-secondary h-8 px-3 text-xs">
-                Release hold
-              </SubmitButton>
-            </ConfirmForm>
+            <RecordSection label="Release hold">
+              <ConfirmForm
+                action={releasePayoutHoldAction}
+                title="Release this hold?"
+                confirmLabel="Release hold"
+                message="The payout goes back to its normal schedule and the supplier can be paid again. The release is recorded against your account."
+                className={`${ADMIN_FRAME} block px-4 pb-3`}
+              >
+                <input type="hidden" name="payout_id" value={row.payout_id} />
+                <ReasonRow name="Why release? (optional)" placeholder="Why release? (optional)" />
+                <SubmitButton className={actionButtonClass('neutral', { extra: 'mt-2 w-full justify-center' })}>
+                  <PlayCircle aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+                  Release hold
+                </SubmitButton>
+              </ConfirmForm>
+            </RecordSection>
           )}
-        </div>
+        </>
       ) : null}
-    </li>
-  );
-}
-
-function Field({ label, value, help }: { label: string; value: string | null; help?: string }) {
-  return (
-    <div>
-      <dt className="font-mono text-[9px] uppercase tracking-[0.15em] text-ink/50">{label}</dt>
-      <dd className="font-mono text-xs text-ink">
-        {value ?? '—'}
-        {help ? <span className="ml-1 text-ink/45">· {help}</span> : null}
-      </dd>
-    </div>
-  );
-}
-
-function Stat({
-  icon,
-  label,
-  value,
-  help,
-  tone,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-  help: string;
-  tone: string;
-}) {
-  return (
-    <div className="sn-tile p-4">
-      <div className="flex items-center gap-2">
-        <span className={`inline-flex h-7 w-7 items-center justify-center rounded-full ${tone}`}>
-          {icon}
-        </span>
-        <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">
-          {label}
-        </p>
-      </div>
-      <p className="mt-2 text-xl font-semibold tracking-tight text-ink">{value}</p>
-      <p className="mt-0.5 text-xs text-ink/55">{help}</p>
     </div>
   );
 }
@@ -527,31 +423,6 @@ function FlashBanner({ flash, error }: { flash?: string; error?: string }) {
       ) : null}
     </div>
   );
-}
-
-function makeHref({
-  filter,
-  vendor,
-  from,
-  to,
-}: {
-  filter: FilterKey;
-  vendor: string;
-  from: string;
-  to: string;
-}): string {
-  const params = new URLSearchParams();
-  params.set('filter', filter);
-  if (vendor) params.set('vendor', vendor);
-  if (from) params.set('from', from);
-  if (to) params.set('to', to);
-  const qs = params.toString();
-  return qs ? `/admin/payouts?${qs}` : '/admin/payouts';
-}
-
-function parseFilter(raw: string | undefined): FilterKey {
-  if (raw === 'paid' || raw === 'on_hold' || raw === 'all') return raw;
-  return 'pending';
 }
 
 function legacyStageToPayoutStage(legacy: string): PayoutStage {

@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react';
 import type { RowActionState } from '@/app/admin/pricing/actions';
-import { InfoTip } from '@/app/_components/info-tip';
+import { TemplateSection } from '@/app/_components/template-rows';
 import { ActionButton } from '@/components/action-button';
 import { Save } from 'lucide-react';
 
@@ -23,16 +23,19 @@ export function GiftLimitForm({
   const [pct, setPct] = useState(String(giftLimitPct));
 
   return (
-    <form action={formAction} className="mb-6 pt-1" data-admin-gift-limit="">
-      <InfoTip
-        label="Gift limit · % of the booking fee"
-        labelClassName="font-mono text-[10px] font-bold uppercase tracking-[0.15em] text-gold-text"
-        align="start"
-      >
-        Applies to the Setnayan gift and to shop gifts on new quotes. Badge rewards are outside it. Gifts already locked
-        on a booking do not move.
-      </InfoTip>
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+    // 📐 Admin clean port (19 Nov 2026): the label is a section label with its ⓘ — no mono capitals. Same field, same save.
+    <TemplateSection
+      label="Gift limit · % of the booking fee"
+      tip={
+        <>
+          Applies to the Setnayan gift and to shop gifts on new quotes. Badge rewards are outside it. Gifts already locked
+          on a booking do not move.
+        </>
+      }
+      data="gift-limit"
+    >
+    <form action={formAction} className="pt-1" data-admin-gift-limit="">
+      <div className="flex flex-wrap items-center gap-2">
         <label className="relative block w-28">
           <span className="sr-only">Gift limit, percent of the booking fee</span>
           <input
@@ -58,5 +61,6 @@ export function GiftLimitForm({
         )}
       </div>
     </form>
+    </TemplateSection>
   );
 }

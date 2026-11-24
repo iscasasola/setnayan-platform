@@ -19,6 +19,8 @@
  */
 import { isBot } from '@/lib/visits/visit-capture';
 import { hashViewer } from '@/lib/viewer-hash';
+import { materialViaOf, utmOf, viewCountsAsSignup } from '@/lib/material-tags';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 // The readers live beside the funnel they feed (one import direction: this file → the funnel).
 
@@ -30,6 +32,8 @@ export type ShopViewContext = {
   anonCookie: string | null;
   userAgent: string | null;
   ip: string | null;
+  /** 📝 When the signed-in (non-anonymous) account was made, or null — for the sign-up a piece brought (`material-tags`). */
+  accountCreatedAt?: string | null;
 };
 
 /** A bot, a crawler, a link previewer, curl — never a couple. */
@@ -75,6 +79,8 @@ export type ShopViewRow = {
   vendorProfileId: string;
   source?: string | null;
   utm?: string | null;
+  /** 🏷 The material tag (`?via=card`, … — `lib/material-tags.ts`): which piece brought this open. */
+  via?: string | null;
   eventId?: string | null;
 };
 
@@ -87,13 +93,35 @@ export async function recordShopViewWith(admin: ShopViewAdmin, input: ShopViewRo
     if (!input.vendorProfileId) return false;
     if (shopViewIsBot(ctx.userAgent)) return false;
     if (ctx.userId && (await viewerIsShopPeople(admin, input.vendorProfileId, ctx.userId))) return false;
+    const via = materialViaOf(input.via);
+    const utm = utmOf(input.utm);
     const { error } = await admin.from('vendor_profile_views').insert({
       vendor_profile_id: input.vendorProfileId,
       event_id: input.eventId ?? null,
       source: input.source ?? null,
       utm: input.utm ?? null,
+      via,
       viewer_hash: shopViewerHash(ctx),
     });
+
+    // 📝 THE SIGN-UP A PIECE BROUGHT (owner 2026-11-16; the QR-stats "Registered" column). Signing up from the shop —
+    // the sign-in sheet over it, or the Google return — lands back on the same tagged address, so the first tagged
+    // view of a just-made account names the piece. First one wins (primary key on the user; a later piece never
+    // rewrites it). Service role only — no browser role may write the table (a person may only read their own row).
+    if (ctx.userId && viewCountsAsSignup({ accountCreatedAt: ctx.accountCreatedAt, via, utm }, Date.now())) {
+      const { error: signupError } = await admin.from('signup_attributions').upsert(
+        {
+          user_id: ctx.userId,
+          vendor_profile_id: input.vendorProfileId,
+          via,
+          src: typeof input.source === 'string' ? input.source.slice(0, 64) : null,
+          utm,
+        },
+        { onConflict: 'user_id', ignoreDuplicates: true },
+      );
+      // Best-effort like the view itself, but never silent: a lost sign-up attribution is reported.
+      if (signupError) logQueryError('recordShopViewWith.signupAttribution', signupError, { vendorProfileId: input.vendorProfileId }, 'graceful_degrade');
+    }
     return !error;
   } catch {
     return false;

@@ -27,7 +27,6 @@ import { HUB_TOOLS_SEED, nameKey } from './hub-tools';
 import { isCakeKind } from './cake-maker';
 import { isMusicToolCategory } from './songs';
 import { CARD_ORDER, DEFAULT_INSTALLED_GRAPHS, FIXED_WINDOW, type CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
-import { STORE_GRAPH_TITLE } from './vendor-store-graphs';
 import { BADGE_GRAPHS, BADGE_NAME, type GraphUnlocks, type UnlockBadge } from './graph-unlocks';
 import { SHOP_BADGE_KEYS, type ShopBadgeKey } from './badge-tiers';
 import type { ShelfTile } from './shop-badge-shelf';
@@ -418,7 +417,7 @@ export const GRAPH_GROUPS = [
 export type GraphGroup = (typeof GRAPH_GROUPS)[number];
 
 /**
- * Every graph as the Store names them (the 17 shipped, then #8206's 12). Titles are the carousel's own (🔒 the test reads them from the carousel
+ * The 17 shipped graphs as the Store names them. Titles are the carousel's own (🔒 the test reads them from the carousel
  * source, so the two cannot drift); `asks` is the drawing's question; `counts` what one point is.
  */
 export const STORE_GRAPHS: Readonly<Record<CardKey, { title: string; group: GraphGroup; asks: string; counts: string }>> = {
@@ -439,20 +438,19 @@ export const STORE_GRAPHS: Readonly<Record<CardKey, { title: string; group: Grap
   price: { title: 'Where your price sits', group: 'Your market', asks: 'Is my price low, middle or high for my area?', counts: 'Your starting price against your area’s' },
   gifts: { title: 'Gifts given → bookings', group: 'Opened by a badge', asks: 'Do my gifts turn into bookings?', counts: 'Couples who asked and booked, with and without a gift' },
   invites: { title: 'Suppliers you invited', group: 'Opened by a badge', asks: 'What became of the suppliers I brought in?', counts: 'Suppliers you invited: booked, completed an event' },
-  // The drawing's 12 new graphs (#8206). Titles are #8206's own (`STORE_GRAPH_TITLE`), never typed twice; the groups are
-  // #8206's (Reach · Inquiries · Money · Reputation) on the shelf's existing groups.
-  followers: { title: STORE_GRAPH_TITLE.followers, group: 'Being found', asks: 'Are couples following my shop?', counts: 'Couples who follow your shop' },
-  saved: { title: STORE_GRAPH_TITLE.saved, group: 'Being found', asks: 'Are guests saving my shop?', counts: 'Guests who saved your shop' },
-  photos: { title: STORE_GRAPH_TITLE.photos, group: 'Being found', asks: 'Which of my photos do couples look at?', counts: 'Views of each photo on your page' },
-  whenask: { title: STORE_GRAPH_TITLE.whenask, group: 'Inquiries and replies', asks: 'When do couples ask me?', counts: 'Inquiries by weekday and time of day' },
-  missed: { title: STORE_GRAPH_TITLE.missed, group: 'Inquiries and replies', asks: 'Which inquiries am I missing?', counts: 'Inquiries declined, unanswered or waitlisted' },
-  value: { title: STORE_GRAPH_TITLE.value, group: 'Quotes, bookings and money', asks: 'How much am I booking each month?', counts: 'The agreed price of your bookings, by month' },
-  owed: { title: STORE_GRAPH_TITLE.owed, group: 'Quotes, bookings and money', asks: 'What is paid and what is still owed?', counts: 'Your open bookings: received, to come, overdue' },
-  lead: { title: STORE_GRAPH_TITLE.lead, group: 'Quotes, bookings and money', asks: 'How far ahead do couples book me?', counts: 'Days from booking to the event' },
-  types: { title: STORE_GRAPH_TITLE.types, group: 'What couples say', asks: 'Which kinds of event do I do most?', counts: 'Events you completed, by kind' },
-  revmonth: { title: STORE_GRAPH_TITLE.revmonth, group: 'What couples say', asks: 'Are reviews coming in?', counts: 'Reviews couples left you, by month' },
-  substars: { title: STORE_GRAPH_TITLE.substars, group: 'What couples say', asks: 'Which part of my work do couples rate best?', counts: 'Your four part ratings, averaged' },
-  replied: { title: STORE_GRAPH_TITLE.replied, group: 'What couples say', asks: 'Do I answer my reviews?', counts: 'Reviews you answered, of every review' },
+  // The Supplier Store drawing's new graphs (#8206) — title = STORE_GRAPH_TITLE, asks = the drawing's question verbatim, group = the drawing's group.
+  followers: { title: 'New followers', group: 'Being found', asks: 'Is my following growing?', counts: 'Couples who followed your shop' },
+  saved: { title: 'Saved by guests', group: 'Being found', asks: 'Do guests at my events keep my shop for later?', counts: 'Guests who saved your shop' },
+  photos: { title: 'Your most viewed photos', group: 'Being found', asks: 'Which photos pull people in?', counts: 'Views of each photo on your page' },
+  whenask: { title: 'When couples ask', group: 'Inquiries and replies', asks: 'Which days and hours should I be online?', counts: 'Inquiries by weekday and time of day' },
+  missed: { title: 'Inquiries you missed', group: 'Inquiries and replies', asks: 'How many couples did I never answer?', counts: 'Inquiries declined, unanswered or waitlisted' },
+  value: { title: 'Booked value, month by month', group: 'Quotes, bookings and money', asks: 'How much work did I book each month?', counts: 'The agreed price of your bookings, by month' },
+  owed: { title: 'Paid and still owed', group: 'Quotes, bookings and money', asks: 'How much has been paid, and how much is still coming?', counts: 'Received, still to come in, overdue' },
+  lead: { title: 'How far ahead couples book', group: 'Quotes, bookings and money', asks: 'How early should I open my calendar?', counts: 'Days from booking to the event' },
+  types: { title: 'What you celebrate', group: 'Your calendar', asks: 'Which kinds of events do I really do?', counts: 'Events you completed, by kind' },
+  revmonth: { title: 'Reviews, month by month', group: 'What couples say', asks: 'Am I still collecting reviews?', counts: 'Reviews couples left you, by month' },
+  substars: { title: 'Your stars, part by part', group: 'What couples say', asks: 'Where exactly do couples mark me down?', counts: 'The four part ratings on every review' },
+  replied: { title: 'Reviews you replied to', group: 'What couples say', asks: 'Do I answer the people who reviewed me?', counts: 'Reviews you answered, of every review' },
 };
 
 export function isGraphKey(v: unknown): v is CardKey {

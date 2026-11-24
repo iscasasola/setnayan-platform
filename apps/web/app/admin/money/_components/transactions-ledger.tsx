@@ -248,20 +248,22 @@ export async function TransactionsLedger() {
     <Badge tone={STATUS_BADGE[r.status] ?? 'quiet'}>{ORDER_STATUS_LABEL[r.status] ?? r.status}</Badge>
   );
 
+  const waitingLine = anyUnmeasured
+    ? 'Some money queues couldn’t be checked just now — not the same as none'
+    : waitingTotal === 0
+      ? 'Nothing is waiting for you'
+      : `${formatCount(waitingTotal)} ${waitingTotal === 1 ? 'thing needs' : 'things need'} you`;
+
   // 📐 THE DESIGN TEMPLATE (owner-approved 2026-11-14, "Admin · Money, everything"). The page is named in the
   // layout's pinned row ("Money · Everything ▾"); the paragraph and the card of queue chips go — each queue is
   // already a ▾ view with its count. The three numbers sit between hairlines, not in cards. On a phone each
   // purchase is ONE row (who · what · when · amount + chip) and a tap opens the rest; on a computer the table
   // stays a table, inside the one 760 column.
   return (
-    <section className="mx-auto w-full max-w-[760px] px-4 pt-2 sm:px-6">
+    <section className="pt-2">
       {/* One honest line in place of the queue card: what needs you, or that it could not be checked. */}
       <p className={`py-1 ${TEMPLATE_SUBLINE}`} data-money-waiting="">
-        {anyUnmeasured
-          ? 'Some money queues couldn’t be checked just now — not the same as none'
-          : waitingTotal === 0
-            ? 'Nothing is waiting for you'
-            : `${formatCount(waitingTotal)} ${waitingTotal === 1 ? 'thing needs' : 'things need'} you`}
+        {waitingLine}
       </p>
 
       <TemplateNums

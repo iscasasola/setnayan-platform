@@ -130,6 +130,7 @@ export async function offerServiceCore(
     vendor_profile_id: thread.vendor_profile_id,
     body: `Offered: ${offeredName}`,
     offered_service_id: vendorServiceId,
+    sent_as: 'vendor', // the supplier's line, even on an account that also hosts the event (walk 24 Nov 2026)
   });
   if (cardError) {
     console.error('[offerServiceCore] offer card insert failed:', cardError.message);

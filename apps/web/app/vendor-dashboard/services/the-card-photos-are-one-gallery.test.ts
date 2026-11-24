@@ -82,7 +82,7 @@ test('deleting the primary is said in one line with Undo, through the shipped Un
 
 test('every help line is in the section ⓘ, none printed under the grid', () => {
   assert.match(MAKER, /tip=\{[^}]*>= photoLimit \? cardPhotosFullTip\(photoLimit\) : CARD_PHOTOS_TIP\}/);
-  assert.match(MAKER, /aside=\{`[^`]*of \$\{formatCount\(photoLimit\)\}`\}/, 'the group count reads against the same limit as the grid');
+  assert.match(MAKER, /aside=\{snapRead \? `[^`]*of \$\{formatCount\(photoLimit\)\}` : undefined\}/, 'the group count reads against the same limit as the grid');
   assert.doesNotMatch(GALLERY, /\bhelp=/);
 });
 

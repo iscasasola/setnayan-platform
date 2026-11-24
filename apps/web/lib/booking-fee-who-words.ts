@@ -72,5 +72,13 @@ export const FEE_SCOPE = 'unless you are the first to bring the event';
 /** The same, third person ("…a supplier pays a booking fee, unless…"). */
 export const FEE_SCOPE_THIRD = 'unless the supplier is the first to bring the event';
 
+/**
+ * The /for-suppliers fee part's rule line, in the owner-approved redesign's words (DECISION_LOG 2026-11-23 "a full
+ * shop, one shop name, a timed fee scene, fewer words": the five-supplier example "is replaced by 'Free only for the
+ * supplier who brings the couple in first.'"; the redesign APPROVED the same day). One event, one free slot — the
+ * first supplier to bring it (`booking_fee_attribution_for`). No duration, like every public line here.
+ */
+export const FEE_FIRST_SUPPLIER_LINE = 'Free only for the supplier who brings the couple in first.';
+
 /** The short chip — the owner's own words F1 (DECISION_LOG 2026-11-16 "yes to all", item 7). */
 export const FEE_FREE_CHIP = 'Be the first to bring the event — your booking is free';

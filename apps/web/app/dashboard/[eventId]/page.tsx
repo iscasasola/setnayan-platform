@@ -13,6 +13,8 @@ import { readHubViewers } from '@/lib/whos-here.server';
 import { hubViewsEnabled } from '@/lib/whos-here';
 import { HomeWhosHereCard } from './_components/home-cards/home-whos-here-card';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
+import { readEventPlanHeld } from '@/lib/event-services.server';
+import { eventServicesTodayLine } from '@/lib/event-services';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { AccessRequestsDoorway, accessAsksWaiting, readAccessAsks } from './_components/access-requests-doorway';
@@ -905,6 +907,7 @@ export default async function EventHomePage({
     homeSuppliers,
     homeChecklist,
     homeHub,
+    eventPlanHeld,
     homeSchedule,
   ] = await Promise.all([
     guestsRead,
@@ -921,6 +924,8 @@ export default async function EventHomePage({
     homeSuppliersRead,
     homeChecklistRead,
     homeHubRead,
+    // 🛒 The door on Today (Event services, owner 2026-11-23): the plan held, for its one row.
+    readEventPlanHeld(eventId),
     homeScheduleRead,
   ]);
 
@@ -1233,6 +1238,7 @@ export default async function EventHomePage({
       control={homeControl}
       services={homeServiceRowAll}
       papicLeft={papicNow.count}
+      eventServices={storeShell && !appleFacts ? null : eventServicesTodayLine(eventPlanHeld, papicNow.count)}
       papicInMemories={papicInMemories}
       whosHere={whosHereCard}
       serviceCards={serviceCards}
@@ -1547,6 +1553,7 @@ export default async function EventHomePage({
               services={homeServiceRowAll.filter((s) => s.key !== 'papic')}
               papicLeft={papicNow.count}
               cards={serviceCards}
+              eventServices={storeShell && !appleFacts ? null : eventServicesTodayLine(eventPlanHeld, papicNow.count)}
             />
           </div>
 
@@ -1612,6 +1619,7 @@ export default async function EventHomePage({
               services={homeServiceRowAll.filter((s) => !(papicInMemories && s.key === 'papic'))}
               papicLeft={papicNow.count}
               cards={serviceCards}
+              eventServices={storeShell && !appleFacts ? null : eventServicesTodayLine(eventPlanHeld, papicNow.count)}
             />
           </div>
 

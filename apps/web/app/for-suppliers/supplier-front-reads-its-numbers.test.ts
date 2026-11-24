@@ -42,10 +42,6 @@ const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8')
 const PAGE_FILES = [
   'app/for-suppliers/_components/supplier-front-page.tsx',
   'app/for-suppliers/_components/supplier-front-client.tsx',
-  'app/for-suppliers/_components/supplier-live-cards.tsx',
-  'app/for-suppliers/_components/supplier-front-info.tsx',
-  'app/for-suppliers/_components/supplier-how-we-earn.tsx',
-  'app/for-suppliers/_components/supplier-how-we-earn-data.ts',
   'app/(shell)/for-suppliers/page.tsx',
 ];
 
@@ -57,16 +53,19 @@ test('no peso figure is typed into the page', () => {
 });
 
 test('the fee is read and computed, never typed as a rate', () => {
+  // Redesign 23 Nov (v4.3.1): the timed fee steps and the fee rows are `feeSteps` / `feeRowWords`, handed the LIVE schedule.
   const page = code('app/for-suppliers/_components/supplier-front-page.tsx');
-  assert.match(page, /bookingFeeFigures\(fee\.schedule\)/, 'the fee sentence does not place the live figures');
-  assert.doesNotMatch(page, /\b\d+(\.\d+)?%\s*(on the first|after|booking fee)/i, 'a fee rate is typed into the page');
-  const client = code('app/for-suppliers/_components/supplier-front-client.tsx');
-  // The ruler's stops (with the 🔒 lock point) are built by `feeRulerStops(schedule)` in the data file since the lock landed.
-  assert.match(client, /feeRulerStops\(schedule\)/, 'the slider does not build its stops from the schedule it was handed');
+  assert.match(page, /const schedule = fee\.enabled \? fee\.schedule : null;/, 'the fee part does not read the schedule the route handed in');
+  assert.match(page, /feeSteps\(schedule, /, 'the fee steps are not built from the live schedule');
+  assert.match(page, /feeRowWords\(schedule\)/, 'the fee rows are not built from the live schedule');
+  assert.doesNotMatch(page, /\b\d+(\.\d+)?%\s*(on the first|after|booking fee|above)/i, 'a fee rate is typed into the page');
   const data = code('app/for-suppliers/_components/supplier-front-data.ts');
-  assert.match(data, /bookingFeePhp\(v, schedule\)/, 'the ruler stops do not compute the fee from the schedule they were handed');
-  assert.doesNotMatch(data, /BOOKING_FEE\b(?!_)/, 'the ruler stops can fall back to the code default schedule');
-  assert.doesNotMatch(client, /BOOKING_FEE\b(?!_)/, 'the slider can fall back to the code default schedule');
+  assert.match(data, /bookingFeePhp\(usual, schedule\)/, 'the usual step does not compute its fee from the schedule it was handed');
+  assert.match(data, /bookingFeePhp\(big, schedule\)/, 'the big step does not compute its fee from the schedule it was handed');
+  assert.match(data, /bookingFeeFigures\(schedule\)/, 'the fee words do not place the live figures');
+  for (const src of [data, page, code('app/for-suppliers/_components/supplier-front-client.tsx')]) {
+    assert.doesNotMatch(src, /BOOKING_FEE\b(?!_)/, 'the fee part can fall back to the code default schedule');
+  }
   assert.match(code('app/(shell)/for-suppliers/page.tsx'), /getLiveBookingFeeSchedule\(\)/);
 });
 
@@ -156,9 +155,10 @@ test('owner via controller 22 Nov: a plan is never its size alone — Free and V
     assert.equal(planStair(t).clients, clientsKeptWords(t), `${t}: the card's headline is not the helper's`);
     assert.equal(planStair(t).sizeLine, planStorageLine(t), `${t}: the line under it is not the helper's`);
   }
+  // The redesign's plan card (v4.3.1, `PlanPicker`): its "keep" line is the clients kept, its size line under it.
   const client = code('app/for-suppliers/_components/supplier-front-client.tsx');
-  assert.match(client, /<b>\{p\.clients \?\? p\.size\}<\/b>/, 'the plan card does not lead with the clients it keeps');
-  assert.match(client, /\{p\.sizeLine\}/, 'the plan card lost its size line');
+  assert.match(page, /keep: step\.clients \?\? step\.role, size: step\.sizeLine \?\? `\$\{step\.size\} storage`/, 'the plan card does not lead with the clients it keeps');
+  assert.match(client, /<p className=\{s\.keep\}>\{p\.keep\}<\/p>\s*<p className=\{s\.size\}>\{p\.size\}<\/p>/, 'the plan card lost its clients line or its size line');
   assert.match(page, /\{CLIENTS_FOOTNOTE\}/, 'the asterisk has no footnote under the plans');
   assert.match(code('app/(shell)/for-coordinators/page.tsx'), /\{CLIENTS_FOOTNOTE\}/, '/for-coordinators shows the asterisk without its footnote');
   assert.ok(CLIENTS_FOOTNOTE.startsWith('*'));
@@ -168,9 +168,9 @@ test('owner via controller 22 Nov: a plan is never its size alone — Free and V
 });
 
 test('owner 23 Nov "this is not our agreed service card": the samples wear Card 14, the mall face (approved 20 Nov, #8070)', () => {
-  // /for-suppliers draws its samples in the live cards (redraw 23 Nov); /for-coordinators still draws the still row.
+  // /for-suppliers shows its samples as clips of the real Card 14 since the 23 Nov redesign (v4.3.1, `FRONT_MEDIA.beats`);
+  // /for-coordinators still draws the still row.
   const SLOTS: Record<string, readonly string[]> = {
-    'app/for-suppliers/_components/supplier-live-cards.tsx': ['city=', 'rating=', 'mallPrice={band}', 'medals=', 'lines={<SampleDateFit fit={fit} />}', 'distance={km}', 'aboutKmLine(', 'mallPrice({'],
     'app/(shell)/for-coordinators/page.tsx': ['city=', 'rating=', 'price=', 'priceNote=', 'medals=', 'lines={<SampleDateFit />}', 'distance={aboutKmLine('],
   };
   for (const [rel, slots] of Object.entries(SLOTS)) {

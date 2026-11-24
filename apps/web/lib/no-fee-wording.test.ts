@@ -16,7 +16,7 @@ import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { bookingFeeForecast } from './booking-fee-disclosure';
-import { FEE_FREE_CHIP, FEE_FREE_RULE, SUPPLIER_FREE_BOOKING_LINE } from './booking-fee-who-words';
+import { FEE_FIRST_SUPPLIER_LINE, FEE_FREE_CHIP, FEE_FREE_RULE, SUPPLIER_FREE_BOOKING_LINE } from './booking-fee-who-words';
 
 const ROOT = join(__dirname, '..');
 const NEW = FEE_FREE_RULE;
@@ -62,9 +62,12 @@ test('the client card says the owner-approved sentence', () => {
 /**
  * 19 Nov (DECISION_LOG "PROMOTION PAGES", item 4; controller ruling 20 Nov): no number of months on a public page. The
  * public pages say SUPPLIER_FREE_BOOKING_LINE; FEE_FREE_RULE ("…free for a year") is the in-app client card's only.
- * Both public pages (/for-suppliers #8050, /for-coordinators #8051) are on the line.
+ * /for-coordinators (#8051) is on the line. /for-suppliers moved to the owner-APPROVED redesign of 23 Nov (v4.3.1, specs
+ * `prototypes/for_suppliers_redesign_2026-11-23/`), whose ruling replaced its fee words with ONE rule line,
+ * `FEE_FIRST_SUPPLIER_LINE` ("a timed fee scene, fewer words") — held below, with the same no-months rule.
  */
-const PUBLIC_PAGES = ['app/for-suppliers/_components/supplier-front-page.tsx', 'app/(shell)/for-coordinators/page.tsx'];
+const PUBLIC_PAGES = ['app/(shell)/for-coordinators/page.tsx'];
+const SUPPLIER_FRONT = 'app/for-suppliers/_components/supplier-front-page.tsx';
 
 test('the public pages say the 19 Nov free-booking line, and never a number of months', () => {
   assert.equal(SUPPLIER_FREE_BOOKING_LINE, "New to Setnayan, or you're the first to bring their event? They book you free.");
@@ -77,4 +80,10 @@ test('the public pages say the 19 Nov free-booking line, and never a number of m
     assert.doesNotMatch(s.replace(/\s+/g, ' '), /for a year|12 months|for one year/i, `${p} names a number of months`);
   }
   assert.match(FEE_FREE_CHIP, /first to bring the event/);
+  // /for-suppliers (redesign 23 Nov): the one rule line, from the one home of these words — never a number of months.
+  const front = readFileSync(join(ROOT, SUPPLIER_FRONT), 'utf8');
+  assert.ok(front.includes('{FEE_FIRST_SUPPLIER_LINE}'), `${SUPPLIER_FRONT} lost the redesign's rule line`);
+  assert.doesNotMatch(FEE_FIRST_SUPPLIER_LINE, /month|year|\d/i, 'the rule line names a period');
+  assert.doesNotMatch(front, /\bFEE_FREE_RULE\b/, `${SUPPLIER_FRONT} quotes the in-app rule, which names a year`);
+  assert.doesNotMatch(front.replace(/\s+/g, ' '), /for a year|12 months|for one year/i, `${SUPPLIER_FRONT} names a number of months`);
 });

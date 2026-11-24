@@ -240,7 +240,7 @@ test('R4 · the sign-out controls say it BEFORE the tap — in the owner’s wor
   const without = renderToStaticMarkup(React.createElement(NotYouSwitch, { slug: 'ana' }));
   assert.ok(!without.includes('face-tagging selfie'), 'a guest with no selfie is told one will be erased');
   const body = code('app/[slug]/_components/site-body.tsx');
-  const foot = body.slice(body.indexOf('action={`/${event.slug}/sign-out`}'), body.indexOf('Sign out of this invitation'));
+  const foot = body.slice(body.indexOf('action={`${publicEventPath(event.slug)}/sign-out`}'), body.indexOf('Sign out of this invitation'));
   assert.match(foot, /\{SIGN_OUT_ERASES_SELFIE\}/, 'the footer sign-out erases the selfie without saying so');
   assert.match(body, /selfieLine=\{guest\.photo_source === 'selfie' \? SELFIE_LIFETIME_LINE : null\}/, '"Photos of you" lost the selfie-lifetime line');
   // Me's own "Not you? Switch" left on 2026-10-03 (owner: one place per control

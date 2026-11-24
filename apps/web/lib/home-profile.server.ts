@@ -12,6 +12,7 @@
  */
 import 'server-only';
 
+import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { fetchUserEventsOrReconnect, userEventsReadRefused } from '@/lib/events';
 import {
@@ -42,37 +43,85 @@ export async function readHomeEventCounts(userId: string): Promise<HomeEventCoun
   }
 }
 
-export type HomeHandle = { slug: string | null; publicOn: boolean | null };
+export type HomeHandle = {
+  slug: string | null;
+  publicOn: boolean | null;
+  /**
+   * 🔗 THE ADDRESS MOVE (owner 2026-11-15: "a username is made automatically from the person's name and shown once,
+   * changeable"). True on the ONE Home render that first shows a username Setnayan made (`users.username_minted_at`
+   * set, `username_minted_seen_at` not yet) — that render stamps it seen, after the response, so the line is said once.
+   */
+  justMade?: boolean;
+};
 
 /** The @handle and whether the public twin is switched on. */
 export async function readHomeHandle(userId: string): Promise<HomeHandle> {
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase.from('users').select('slug, public_profile_enabled').eq('user_id', userId).maybeSingle();
+    const { data, error } = await supabase
+      .from('users')
+      .select('slug, public_profile_enabled, username_minted_at, username_minted_seen_at')
+      .eq('user_id', userId)
+      .maybeSingle();
     if (error || !data) {
       if (error) logQueryError('Home.readHomeHandle', error, {}, 'graceful_degrade');
       return { slug: null, publicOn: null };
     }
-    const row = data as { slug: string | null; public_profile_enabled: boolean | null };
-    return { slug: row.slug ?? null, publicOn: row.public_profile_enabled ?? null };
+    const row = data as {
+      slug: string | null;
+      public_profile_enabled: boolean | null;
+      username_minted_at?: string | null;
+      username_minted_seen_at?: string | null;
+    };
+    const justMade = Boolean(row.slug && row.username_minted_at && !row.username_minted_seen_at);
+    if (justMade) {
+      // Said once: stamped after this response is on its way (the person's own row, their own session).
+      after(async () => {
+        try {
+          const db = await createClient();
+          const { error: stampError } = await db
+            .from('users')
+            .update({ username_minted_seen_at: new Date().toISOString() })
+            .eq('user_id', userId)
+            .is('username_minted_seen_at', null);
+          if (stampError) logQueryError('Home.readHomeHandle · seen stamp', stampError, {}, 'graceful_degrade');
+        } catch {
+          // A missed stamp shows the line once more — never an error.
+        }
+      });
+    }
+    return { slug: row.slug ?? null, publicOn: row.public_profile_enabled ?? null, justMade };
   } catch {
     return { slug: null, publicOn: null };
   }
 }
 
-export type HomeCardCounts = { cards: number; online: number };
+export type HomeCardCounts = {
+  cards: number;
+  online: number;
+  /**
+   * The first Online card's photo (`primary_photo_r2_key`, oldest card first — the shop page's own order). Unihome v5's
+   * shop quick view wears it as the cover when the shop has chosen no cover of its own. Null = no Online card has one.
+   */
+  topPhotoKey: string | null;
+};
 
-/** The shop's service cards and how many are Online. null = refused. */
+/** The shop's service cards and how many are Online — ONE read. null = refused. */
 export async function readHomeCardCounts(vendorProfileId: string): Promise<HomeCardCounts | null> {
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase.from('vendor_services').select('is_active').eq('vendor_profile_id', vendorProfileId);
+    const { data, error } = await supabase
+      .from('vendor_services')
+      .select('is_active, primary_photo_r2_key')
+      .eq('vendor_profile_id', vendorProfileId)
+      .order('created_at', { ascending: true });
     if (error) {
       logQueryError('Home.readHomeCardCounts', error, {}, 'graceful_degrade');
       return null;
     }
-    const rows = (data ?? []) as { is_active: boolean | null }[];
-    return { cards: rows.length, online: rows.filter((r) => r.is_active !== false).length };
+    const rows = (data ?? []) as { is_active: boolean | null; primary_photo_r2_key: string | null }[];
+    const online = rows.filter((r) => r.is_active !== false);
+    return { cards: rows.length, online: online.length, topPhotoKey: online.find((r) => r.primary_photo_r2_key)?.primary_photo_r2_key ?? null };
   } catch {
     return null;
   }

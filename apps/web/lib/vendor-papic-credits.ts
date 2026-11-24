@@ -42,9 +42,10 @@
  * them."* Read as: there is ONE credit meter per (vendor, event) and it is the
  * supplier's own — fed by this rule and by the pack, never by anything the host
  * hands out (the couple's pool, `papic_event_point_grants`, is a different
- * ledger and a db test proves the two cannot see each other). The on-the-day
- * capture allowance (`allowancePointsFor` in lib/vendor-papic-tier.ts) therefore
- * reads THIS ledger where it used to read the booking fee. Nothing host-side
+ * ledger and a db test proves the two cannot see each other). 🔁 Since
+ * 2026-11-23 the on-the-day CAMERA no longer reads this ledger — its limit is
+ * the shop's plan (TIER_CAPS: Free · Verified 10 photos, no videos; Plus and up
+ * no limit). The ledger now funds the portfolio-import album (G3). Nothing host-side
  * changed: host approval and per-photo guest consent are a data-protection
  * ruling, not a rate.
  *
@@ -106,8 +107,8 @@ export const VENDOR_PAPIC_PORTFOLIO_PACK_SKU_CODE = 'vendor_papic_portfolio_pack
  * 🔑 IT ALSO PUTS THE VIDEO THRESHOLD BACK WHERE IT WAS PRICED. 800 credits
  * was set on 2026-08-26 against the retired ₱5/point rate — a ₱4,000 spend. At
  * ₱20/credit it had silently become ₱16,000. At ₱5/credit it is ₱4,000 again,
- * exactly. The threshold in lib/vendor-papic-tier.ts was never wrong; the
- * credit under it got four times dearer. That is why 800 is UNCHANGED.
+ * exactly. (🔁 That 800-credit video threshold was RETIRED 2026-11-23: video
+ * at an event is the plan's — Plus and up, `TIER_CAPS.eventVideos`.)
  */
 export const VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS = 100;
 

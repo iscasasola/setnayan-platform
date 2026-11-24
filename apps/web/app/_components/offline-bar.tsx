@@ -16,7 +16,12 @@ import { MOTION_TABLE } from '@/lib/motion-table';
  * page that loaded offline says so through its own offline copy. Mounted once, in the root layout.
  * The look and the motion are `.sn-m-offline` in globals.css. 🔒 lib/the-moments-move-by-the-standard.test.ts
  */
-export const OFFLINE_WORDS = "You're offline — changes will save when you're back";
+/**
+ * The bar says only that the connection dropped. It promises nothing about saving: most pages do not save offline
+ * (owner; specs DECISION_LOG cfd9bbdf "Not parked: the offline bar's false words" and 9366a4d3 "Offline is LIMITED").
+ * 🔒 lib/the-moments-move-by-the-standard.test.ts holds these exact words and bars a save promise from coming back.
+ */
+export const OFFLINE_WORDS = "You're offline";
 export const BACK_ONLINE_WORDS = 'Back online ✓';
 
 type Phase = 'hidden' | 'off' | 'back' | 'leaving';

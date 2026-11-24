@@ -9,6 +9,8 @@ import {
   type OAuthResolveSpec,
 } from '@/lib/integrations/registry';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { mayaEnvironment } from '@/lib/maya-checkout';
+import { stagingRefusesMoney } from '@/lib/staging-locks';
 import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from '@/lib/global-settings-cache';
 
 // Integration Activation Console — PR1 (email slice).
@@ -514,7 +516,7 @@ export async function resolveMayaConfig(): Promise<MayaConfig> {
   } catch {
     // DB unreachable / columns absent → env fallback below.
   }
-  return {
+  const resolved: MayaConfig = {
     publicKey: publicKey || process.env.MAYA_PUBLIC_API_KEY || '',
     secretKey: secretKey || process.env.MAYA_SECRET_API_KEY || '',
     checkoutEndpoint:
@@ -522,4 +524,12 @@ export async function resolveMayaConfig(): Promise<MayaConfig> {
       process.env.MAYA_CHECKOUT_ENDPOINT ||
       MAYA_CHECKOUT_ENDPOINT_DEFAULT,
   };
+  // 🔒 STAGING LOCK (b) — a staging copy (STAGING=1) takes test money only. An endpoint that is not Maya's sandbox
+  // (`mayaEnvironment`, the one sandbox-or-real rule) is real money, so its keys are refused here, at the one place
+  // they are read: the rail then reads as having no keys (closed), and no call is ever made with a live key.
+  if (stagingRefusesMoney(mayaEnvironment(resolved.checkoutEndpoint), process.env)) {
+    console.error('[maya] staging copy: a live Maya endpoint is configured — keys refused, the rail is closed');
+    return { publicKey: '', secretKey: '', checkoutEndpoint: resolved.checkoutEndpoint };
+  }
+  return resolved;
 }

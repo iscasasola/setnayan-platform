@@ -73,6 +73,16 @@ export function doorSignInHref(door: Door, origin: string): string {
   return `${origin.replace(/\/+$/, '')}/login?${DOOR_PARAM}=${door}`;
 }
 
+/**
+ * A site page as an ABSOLUTE link (`https://<site>/open-shop`) for a page that is also drawn on a door host. On a door
+ * a relative `/open-shop` is a 308 to the site first (`doorRoute`), about a quarter second lost on the way in (re-walk
+ * 24 Nov, fault 5). On the site itself the link is same-origin, so Next still navigates it in the page.
+ * `origin` is `siteOrigin()`; `path` starts with "/" and keeps its query (`?as=coordinator`, `?plan=…`).
+ */
+export function onSiteHref(path: string, origin: string): string {
+  return `${origin.replace(/\/+$/, '')}${path}`;
+}
+
 /** The pages that open INSIDE a door (drawing: "one legal line … that opens inside this same door"). */
 const PAGES_INSIDE_A_DOOR: ReadonlySet<string> = new Set(POLICY_LINKS.map((p) => p.href));
 

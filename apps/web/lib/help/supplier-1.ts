@@ -19,6 +19,7 @@
  *
  * lib/help.ts appends this file's topics after topics-existing.ts, in slot order.
  */
+import { NOTHING_RENEWS } from '@/lib/plan-renewal-words';
 import type { HelpTopic } from '@/lib/help';
 import { HELP_NOT_IN_THE_APP } from './not-in-the-app';
 import { SHOP_NAME_MAX } from '@/lib/business-slug';
@@ -303,7 +304,7 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         // plan-rows.tsx title="Cancel the plan" 'Nothing renews by itself'; lib/plan-sheet.ts 'starts after'; lib/vendor-tier-lapse.ts `endedPlanReadsFree`; limits-sheet.tsx
         slug: 'supplier-lower-or-end-plan',
         title: 'Suppliers: how do I move to a lower plan or stop paying?',
-        body: 'Nothing renews by itself. To stop, simply skip the next payment: when the plan ends you are on Free (or Free · Verified). A lower plan starts when your current one ends, and before you choose it Setnayan shows what the lower plan will not hold.',
+        body: `${NOTHING_RENEWS}. To stop, simply skip the next payment: when the plan ends you are on Free (or Free · Verified). A lower plan starts when your current one ends, and before you choose it Setnayan shows what the lower plan will not hold.`,
         appBody: HELP_NOT_IN_THE_APP,
       },
       {

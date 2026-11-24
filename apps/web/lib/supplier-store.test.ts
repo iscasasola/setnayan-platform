@@ -417,7 +417,8 @@ test('5ae3fbb2 · the live count, from the ONE Toolkit list — unique items, ga
   // /for-suppliers: its Toolkit sheet is the same list, by name; its ONE number is `toolkitClaim` (the adaptive "N+ tools
   // and templates", lib/supplier-toolkit-count.ts — held by app/for-suppliers/the-toolkit-claim-is-true.test.ts).
   const frontData = readFileSync(join(WEB, 'app/for-suppliers/_components/supplier-front-data.ts'), 'utf8');
-  assert.match(frontData, /toolkitItems\(\{ papicCapture, badges: SHOP_BADGE_KEYS \}\)/);
+  // …and its badges are the shelf's one list, the same the Toolkit counts (walk 24 Nov, fix 5 · lib/one-badge-list.test.ts).
+  assert.match(frontData, /toolkitItems\(\{ papicCapture, badges: SHELF_BADGE_KEYS \}\)/);
   const front = readFileSync(join(WEB, 'app/for-suppliers/_components/supplier-front-page.tsx'), 'utf8');
   assert.match(front, /const shelves = toolkitShelves\(papicCapture\);/);
 });

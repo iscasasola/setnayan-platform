@@ -16,6 +16,10 @@
  *      re-typed here, and through tokens declared on `:root` so they resolve wherever the card renders.
  *   2. No top stripe — not on the card, not in dark.
  *   3. All three cards wear the one class that carries the shape.
+ *   4. CONCENTRIC CORNERS on the two simple cards (owner 24 Nov 2026, DECISION_LOG "Sign in and Create account:
+ *      simple, dark, a forming logo"): the sign-in and create-account cards (`.sn-signin-simple`) sit 8 in, and every
+ *      box inside them — Google / Apple, the fields, "Use email", the ✕ — wears card radius − padding (22 − 8 = 14).
+ *      The You card keeps the app's field radius (property 1).
  *
  * Comments stripped before matching, so the explanation of the fix is never the finding.
  */
@@ -62,10 +66,12 @@ function roundedKey(classes: string, what: string): string {
 }
 
 /** The radius a `.hr-ov-card.sn-signin-terra` / `.sn-signin-terra .hr-si-input` rule sets — the LAST one wins. */
-function radiusOf(selectorTest: (sel: string) => boolean): string | null {
+function radiusOf(selectorTest: (sel: string) => boolean, simple = false): string | null {
   let last: string | null = null;
   for (const [sel, body] of rules(CSS, 'sn-signin-terra')) {
     if (sel.startsWith('html.dark')) continue;
+    // The simple cards (24 Nov) are read by their own test below; the base rules are what the You card wears.
+    if (sel.includes('.sn-signin-simple') !== simple) continue;
     if (!sel.split(',').some((s) => selectorTest(s.trim()))) continue;
     const m = body.match(/(?:^|;|\s)border-radius:\s*([^;]+);?/);
     if (m) last = m[1]!.trim();
@@ -122,13 +128,59 @@ test('all three cards wear the class that carries the shape', () => {
   }
 });
 
-// SABOTAGE: delete the `scrollIntoView` from termsFirst → RED (the box is below the buttons now; off screen on a phone).
+/** A `--m-r-*` radius token's px value, read from :root in globals.css. */
+function tokenPx(token: string): number {
+  const m = GLOBALS.match(new RegExp(`:root\\s*\\{[^}]*${token}:\\s*(\\d+)px`));
+  assert.ok(m, `${token} is not declared in px on :root — this guard is pointed at nothing`);
+  return Number(m[1]);
+}
+/** The last plain (light) declaration of `prop` in a rule whose selector list has a selector passing `selectorTest`. */
+function lastDecl(selectorTest: (sel: string) => boolean, prop: string): string | null {
+  let last: string | null = null;
+  for (const m of CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
+    const sel = m[1]!.trim();
+    if (sel.startsWith('html.dark') || sel.includes('sn-dark-scope')) continue;
+    if (!sel.split(',').some((x) => selectorTest(x.trim()))) continue;
+    const d = m[2]!.match(new RegExp(`(?:^|;|\\s)${prop}:\\s*([^;]+);?`));
+    if (d) last = d[1]!.trim();
+  }
+  return last;
+}
+
+// SABOTAGE: set the simple fields back to the field token (`var(--m-r-sm)`) → RED (not concentric with the card).
+// SABOTAGE: change the simple card's padding to 12px → RED (22 − 12 is no token the boxes wear).
+// SABOTAGE: drop the ✕'s 14 radius → RED.
+test('the simple cards have concentric corners: every box inside is card radius − padding', () => {
+  const pad = lastDecl((x) => /^\.home-reskin-ov\.sn-signin-simple \.hr-ov-card\.sn-signin-terra$/.test(x), 'padding');
+  assert.equal(pad, '8px', 'the simple card sits 8 in (the drawing)');
+  const inner = tokenPx(POPUP_TOKEN) - 8;
+  const boxes: Array<[string, RegExp]> = [
+    ['the fields', /^\.home-reskin-ov\.sn-signin-simple \.sn-signin-terra \.hr-si-input$/],
+    ['Google / Apple', /^\.home-reskin-ov\.sn-signin-simple \.hr-si-oauth button$/],
+    ['"Use email"', /^\.home-reskin-ov \.hr-si-use-email$/],
+    ['the ✕', /^\.home-reskin-ov\.sn-signin-simple \.sn-signin-terra \.hr-ov-x$/],
+  ];
+  for (const [what, sel] of boxes) {
+    const r = lastDecl((x) => sel.test(x), 'border-radius');
+    const token = r?.match(/^var\((--m-r-[\w-]+)\)$/)?.[1];
+    assert.ok(token, `${what} must wear a --m-r-* radius token (got ${r})`);
+    assert.equal(tokenPx(token!), inner, `${what} must be ${inner}px round — the card's ${tokenPx(POPUP_TOKEN)} less its 8 padding`);
+  }
+  // The simple card's own radius is still the popup's (property 1) — no simple rule may change it.
+  assert.equal(radiusOf((x) => /\.hr-ov-card\.sn-signin-terra$/.test(x), true), null, 'the simple card keeps the popup radius');
+  for (const rel of ['app/signup/page.tsx', 'app/login/_components/sign-in-card-modal.tsx', 'app/_components/auth/sign-in-here-panel.tsx']) {
+    assert.match(stripComments(read(rel)), /home-reskin-ov[^"`]*\bsn-signin-simple\b/, `${rel} does not wear the simple card`);
+  }
+  assert.doesNotMatch(stripComments(read('app/signup/you/_components/you-card.tsx')), /sn-signin-simple/, 'the You card keeps its own shape');
+});
+
+// SABOTAGE: delete the `scrollIntoView` from termsFirst → RED (an unticked press must bring the box into view).
 // SABOTAGE: make the dim `pointer-events: none` → RED (a press must land, so it can nudge the box).
-test('the tick below Google / Apple still gates them — dimmed, pressable, and the press brings the box into view', () => {
+test('the tick still gates Google / Apple — dimmed, pressable, and the press brings the box into view', () => {
   const gate = stripComments(read('app/_components/auth/terms-first.tsx'));
   const branch = gate.slice(gate.indexOf('if (!box.checked)'), gate.indexOf('return false;', gate.indexOf('if (!box.checked)')));
   assert.ok(branch.length > 0, 'the unticked branch moved — this guard is pointed at nothing');
-  assert.match(branch, /\.scrollIntoView\(/, 'an unticked press must bring the box (now below the buttons) into view');
+  assert.match(branch, /\.scrollIntoView\(/, 'an unticked press must bring the box into view');
   assert.match(branch, /box\.focus\(/, 'and focus it');
   const dim = rules(CSS, '[data-terms-first]').filter(([sel]) => /:has\(\[data-terms-box\]:not\(:checked\)\)/.test(sel));
   assert.ok(dim.length > 0, 'Google / Apple are no longer dimmed while the box is empty');

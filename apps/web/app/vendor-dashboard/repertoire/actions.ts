@@ -7,6 +7,11 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { findOrCreateSongId, isMusicToolCategory } from '@/lib/songs';
 import { parseVideoLink } from '@/lib/video-embed';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { readShopSpecialToolOpen } from '@/lib/paid-widget-open.server';
+import { readPaidWidgetStatus } from '@/lib/supplier-store.server';
+import type { ToolStatus } from '@/lib/supplier-store';
+import { PAID_WIDGET_RESUBSCRIBE_WORDS } from '@/lib/special-tools';
 
 const BASE = '/vendor-dashboard/repertoire';
 
@@ -33,6 +38,25 @@ async function ensureProfile() {
 }
 
 /**
+ * 🔒 Song bank is a paid widget (owner a02673ac, 23 Nov): a write goes through only while it is open — bought once in
+ * the Toolkit AND on Plus, Pro or Ultra. The page hides the tools when it is shut; a server action is a POST target of
+ * its own, so it asks again. null = open; else the sentence to show — an owner off-plan hears "Works again when you
+ * subscribe", never "Get it", the same two locks the page draws.
+ */
+async function songBankRefusal(vendorProfileId: string): Promise<string | null> {
+  const admin = createAdminClient();
+  const open = await readShopSpecialToolOpen(admin, vendorProfileId, 'song_bank');
+  if (open.status === 'unread') return SONG_BANK_UNREAD;
+  if (open.status === 'ok' && open.data) return null;
+  const widget = await readPaidWidgetStatus(admin, vendorProfileId, 'song_bank').catch((): ToolStatus => ({ kind: 'unread' }));
+  if (widget.kind === 'unread') return SONG_BANK_UNREAD;
+  if (widget.kind === 'resubscribe') return `Your Song bank is kept. ${PAID_WIDGET_RESUBSCRIBE_WORDS}. Nothing was changed.`;
+  return 'Song bank is not open for your shop. Get it once in the Toolkit.';
+}
+
+const SONG_BANK_UNREAD = 'We couldn’t check your Song bank just now. Nothing was changed — try again.';
+
+/**
  * Add a song to the vendor's repertoire. Accepts either an existing master
  * `song_id` (a pick from search / curated) or a typed `title` + `artist` (a new
  * song → find-or-create in the master catalogue). The vendor_songs upsert is
@@ -52,6 +76,8 @@ export async function addRepertoireSong(formData: FormData) {
   if (!isMusicToolCategory(profile.services)) {
     back({ q, error: 'Song bank is for music performers only.' });
   }
+  const shut = await songBankRefusal(profile.vendor_profile_id);
+  if (shut) back({ q, error: shut });
 
   const rawId = String(formData.get('song_id') ?? '').trim();
   let songId: number | null = null;
@@ -84,6 +110,8 @@ export async function addRepertoireSong(formData: FormData) {
 export async function removeRepertoireSong(songId: number): Promise<{ ok: true } | { ok: false; error: string }> {
   const { supabase, profile } = await ensureProfile();
   if (!Number.isInteger(songId) || songId <= 0) return { ok: false, error: 'Missing song.' };
+  const shut = await songBankRefusal(profile.vendor_profile_id);
+  if (shut) return { ok: false, error: shut };
 
   const { error } = await supabase
     .from('vendor_songs')
@@ -124,6 +152,8 @@ export async function setPerformanceLink(formData: FormData) {
   const q = String(formData.get('q') ?? '').trim();
 
   if (!Number.isInteger(songId) || songId <= 0) back({ q, error: 'Missing song.' });
+  const shut = await songBankRefusal(profile.vendor_profile_id);
+  if (shut) back({ q, error: shut });
 
   // Empty clears the link — removing a video must be as easy as adding one.
   let value: string | null = null;

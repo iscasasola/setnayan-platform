@@ -8,7 +8,7 @@
  *   · which plan a Solo / Pro / Ultra line sits under                 → the Plans page's own rows,
  *                                                                       `VENDOR_TIER_SECTIONS` (vendor-benefits.ts)
  *   · which plan first has a fold line ("Pro+")                       → the same rows, or `firstPlanWith(TIER_CAPS)`
- *   · the 3D seat-plan logo                                           → `PRO_TOOLS_MIN_TIER` (specialized-tools-access, owner 20 Nov)
+ *   · the 3D seat-plan logo                                           → a paid widget, bought in the Toolkit (owner a02673ac, not a plan line)
  *   · plan prices, the year price, the branch + seat add-ons          → the catalog, read by the page (getVendorPrices)
  *   · the booking fee                                                  → the live schedule, read by the page
  *
@@ -17,7 +17,6 @@
 import { VENDOR_TIER_SECTIONS } from '@/app/_components/home/vendor-benefits';
 import { bookingFeeCapAmount, bookingFeeFigures, bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { formatPhpRounded } from '@/lib/php';
-import { CARD_ORDER } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import { SHOP_BADGE_KEYS, type ShopBadgeKey } from '@/lib/badge-tiers';
 import { BADGE_NAME } from '@/lib/graph-unlocks';
 import { BADGE_ART_H, BADGE_ART_W, SHELF_FAMILY, badgeArtSrc } from '@/lib/shop-badge-shelf';
@@ -35,6 +34,7 @@ const sizeWords = (bytes: number | null): string => (bytes == null ? 'Your stora
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
 import { SPECIALIZED_TOOLS, type SpecializedToolKey } from '@/lib/specialized-tools';
+import { isBuiltInWidget, isPaidStoreTool, toolkitCounts } from '@/lib/supplier-store';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
   PORTFOLIO_FREE_BASE,
@@ -162,7 +162,7 @@ export const GROW_LINES: ReadonlyArray<{ text: string; tail?: string; lead?: tru
   { text: 'Your own reply and booking metrics', row: /^Your own funnel metrics$/ },
   { text: 'Earnings dashboard', row: /^Earnings dashboard$/ },
   { text: 'Recap sharing to your Facebook Page', row: /^Recap sharing$/ },
-  { text: 'Your logo on your booth in the couple’s 3D seat plan', row: /3D seat plan/ },
+  // (The 3D seat-plan logo left the plan lines: it is the 3D plan widget, bought in the Toolkit — owner a02673ac.)
   { text: 'Premium two-column page', tail: ' with a sticky Inquire rail', lead: true, row: /^Premium two-column page$/ },
   { text: 'One business identity for your whole crew', row: /^One clean business identity$/ },
   { text: 'Demand Radar', row: /^Demand Radar$/ },
@@ -192,15 +192,10 @@ export function foldedLines(t: GrowTier): GrowLine[] {
   const firstBasic = (['verified', ...GROW_TIERS] as const).find((g) => PLAN_CHATBOT_LEVEL[g] === 'basic') ?? null;
   const firstAdvanced = GROW_TIERS.find((g) => PLAN_CHATBOT_LEVEL[g] === 'advanced') ?? null;
   const out: GrowLine[] = [];
-  if (firstTools === t) {
-    out.push(
-      firstTools === PRO_TOOLS_MIN_TIER
-        ? { text: 'All specialized tools, included', lead: true }
-        : { text: 'Specialized tools, included', tail: ': Papic Challenges and the branded 3D booth come with Pro', lead: true },
-    );
-  }
-  // 🎁 Owner 20 Nov: the photo challenge comes with Pro and up (the booth line rides GROW_LINES' 3D row).
-  if (t === PRO_TOOLS_MIN_TIER && firstTools !== t) out.push({ text: 'Papic Challenges at your events', lead: true });
+  if (firstTools === t) out.push({ text: 'Every free widget, included', lead: true });
+  // 🧰 Owner a02673ac (23 Nov): a paid widget is bought once in the Toolkit and works only on a paid plan — so the plan
+  // says it lets them work, never that it includes them.
+  if (t === PRO_TOOLS_MIN_TIER) out.push({ text: 'Paid widgets work here', tail: ': buy each once in the Toolkit', lead: true });
   if (firstBasic === t) out.push({ text: 'AI chatbot, included', tail: ': answers price, dates and what’s included', lead: true });
   if (firstAdvanced === t) {
     out.push({ text: 'The smarter AI chatbot', tail: ': writes in your voice, replies in the couple’s language', lead: true });
@@ -220,16 +215,11 @@ export function foldedLines(t: GrowTier): GrowLine[] {
 
 /**
  * The lines shown under one paid plan. A line whose Plans-page row is gone is dropped (never shown under a guess);
- * the 3D seat-plan line additionally sits under the plan `PRO_TOOLS_MIN_TIER` names (owner 20 Nov: Pro and up), so the gate and the page
- * cannot disagree.
+ * the 3D seat-plan line is not a plan line any more (a paid widget, bought in the Toolkit — owner a02673ac).
  */
 export function growLines(t: GrowTier): GrowLine[] {
-  // 🎁 Owner 20 Nov: the branded booth comes with Pro and up — anchored to the same tier the database gate opens it on.
-  const firstBooth = GROW_TIERS.find((g) => g === PRO_TOOLS_MIN_TIER) ?? null;
-  return [...foldedLines(t), ...GROW_LINES.filter((l) => {
-    const at = l.row.source.includes('3D') ? firstBooth : tierOfPlansRow(l.row);
-    return at === t;
-  }).map((l) => ({ text: l.text, tail: l.tail, lead: l.lead === true }))];
+  // 🧰 Owner a02673ac (23 Nov): the branded 3D booth is a paid widget bought in the Toolkit, no longer a plan line.
+  return [...foldedLines(t), ...GROW_LINES.filter((l) => tierOfPlansRow(l.row) === t).map((l) => ({ text: l.text, tail: l.tail, lead: l.lead === true }))];
 }
 
 /** The papers Verified asks for, as the step says them. `REQUIRED_DOC_COUNT` holds the count (see the test). */
@@ -407,7 +397,7 @@ export type PlanStair = {
   branches: StairFact;
   /** On Discover and Find — every verified shop, on every plan (`marketplaceSearchable`, gated on verification). */
   marketplace: boolean;
-  /** Every specialized tool — the plans the two gates both open (`specialTools`, `PRO_TOOLS_MIN_TIER`). */
+  /** A bought paid widget works on this plan (`specialTools`, `PRO_TOOLS_MIN_TIER` — owner a02673ac). */
   tools: boolean;
 };
 
@@ -419,7 +409,7 @@ function stairRole(t: VendorTier): string {
   return t === 'verified' ? 'Get found' : 'Run your own clients';
 }
 
-/** Do this plan's shops have every specialized tool? Both gates, read — never a list typed here. */
+/** Does a bought paid widget work on this plan? The gates, read — never a list typed here (owner a02673ac). */
 export function stairHasTools(t: VendorTier): boolean {
   return TIER_CAPS[t].specialTools && isTierAtLeast(t, PRO_TOOLS_MIN_TIER);
 }
@@ -612,36 +602,31 @@ export type ToolkitRow = { key: string; name: string; line: string | null; tag: 
 export type ToolkitShelf = { key: 'tools' | 'graphs' | 'badges'; title: string; count: number; rows: ToolkitRow[] };
 
 /**
- * 🧾 THE TOOLKIT, AS MAIN HOLDS IT TODAY: the tools (`SPECIALIZED_TOOLS`), the graphs (`CARD_ORDER`, the Analytics
- * carousel's one list) and the badges (`SHOP_BADGE_KEYS`). The count IS these lists' lengths — never typed.
+ * 🧾 THE TOOLKIT: the tools (`SPECIALIZED_TOOLS`), the graphs (`CARD_ORDER`, the Analytics carousel's one list) and
+ * the badges (`SHOP_BADGE_KEYS`). The counts are the ONE Toolkit list's (`toolkitCounts`, lib/supplier-store.ts —
+ * DECISION_LOG 5ae3fbb2, the same count the Toolkit masthead reads) — never typed.
  *
- * ⏭ TODO(#8231, Toolkit v19 PR 2): the one Toolkit list (`toolkitItems` / `toolkitCounts` / `toolkitCountWords` in
- * lib/supplier-store.ts) and the graphs' names (`STORE_GRAPHS`) are not on main yet. When it lands, this reads
- * `toolkitCounts({ papicCapture, badges: SHOP_BADGE_KEYS })` and the graph rows get their names; until then the graph
- * shelf shows its count only (its names would be a second copy). Noted in STATUS.md.
+ * ⏭ The graph rows stay count-only: their Store names (`STORE_GRAPHS`) are not drawn in this sheet yet.
  *
- * A tool's tag is its live gate: the plan-gated tools are Paid; the Cake Maker reads the special tools' start date
- * (`specialOpen`, null = unread → no tag); every other tool is Free on every plan. A badge is earned, never sold.
+ * A tool's tag is the Toolkit's own (owner a02673ac, 23 Nov): the paid widgets (`PAID_STORE_TOOLS`, each bought once
+ * in the Toolkit, working only on a paid plan) are Paid; the built-in widgets (`BUILT_IN_WIDGETS`) are Built in; every
+ * other tool is Free. There is no start date to read any more. A badge is earned, never sold.
  */
-export function toolkitShelves(specialOpen: boolean | null): ToolkitShelf[] {
-  const toolTag = (k: SpecializedToolKey): ToolkitTag | null => {
-    const gate = PAID_TOOL_GATES[k];
-    if (gate === 'plan') return 'paid';
-    if (gate === 'special') return specialOpen === null ? null : specialOpen ? 'free' : 'paid';
-    return 'free';
-  };
+export function toolkitShelves(): ToolkitShelf[] {
+  const counts = toolkitCounts(SHOP_BADGE_KEYS);
+  const toolTag = (k: SpecializedToolKey): ToolkitTag => (isPaidStoreTool(k) ? 'paid' : isBuiltInWidget(k) ? 'built' : 'free');
   return [
     {
       key: 'tools',
       title: 'Tools',
-      count: SPECIALIZED_TOOLS.length,
+      count: counts.tools ?? 0,
       rows: SPECIALIZED_TOOLS.map((t) => ({ key: t.key, name: t.title, line: t.line, tag: toolTag(t.key) })),
     },
-    { key: 'graphs', title: 'Graphs', count: CARD_ORDER.length, rows: [] },
+    { key: 'graphs', title: 'Graphs', count: counts.graphs ?? 0, rows: [] },
     {
       key: 'badges',
       title: 'Badges',
-      count: SHOP_BADGE_KEYS.length,
+      count: counts.badges ?? 0,
       rows: SHOP_BADGE_KEYS.map((k) => ({ key: k, name: BADGE_NAME[k], line: null, tag: 'built' as const })),
     },
   ];
@@ -654,26 +639,14 @@ export function toolkitCountLine(shelves: readonly ToolkitShelf[]): { total: num
   return { total, parts };
 }
 
-/**
- * What makes a tool Paid, by its gate (the gate that really holds it):
- *   · `special` — the Cake Maker: open to every plan until the admin's start date (`special_tools_paid_from`,
- *     `specialToolsOpenToAll`), then `TIER_CAPS[t].specialTools`;
- *   · `plan` — the Papic challenge and the 3D plan: `PRO_INCLUDED_TOOLS`, from `PRO_TOOLS_MIN_TIER` up, always.
- */
-export const PAID_TOOL_GATES: Readonly<Partial<Record<SpecializedToolKey, 'special' | 'plan'>>> = {
-  cake_tool: 'special',
-  papic_challenge: 'plan',
-  plan_3d: 'plan',
-};
-
 /* ── #plans · the rail and the plan cards ────────────────────────────────────────────────────────────────────────── */
 
 /**
- * The words a plan card says about the paid tools, on main's gate: from `PRO_TOOLS_MIN_TIER` up the paid tools come
- * with the plan (`stairHasTools`); below it they are locked. ⏭ TODO(#8231): the drawing's "Paid tools: buy each once.
- * They work while you’re subscribed." is the buy-once model #8231 ships; these words follow it the day it lands.
+ * The words a plan card says about the paid tools (owner a02673ac, 23 Nov: bought AND subscribed): from
+ * `PRO_TOOLS_MIN_TIER` up a bought paid widget works (`stairHasTools`) — the drawing's "Paid tools: buy each once. They
+ * work while you’re subscribed." A plan never says it includes a paid widget. Below it they are locked.
  */
-export const PLAN_PAID_TOOLS_OK = 'Paid tools included';
+export const PLAN_PAID_TOOLS_OK = 'Paid tools: buy each once. They work while you’re subscribed.';
 export const PLAN_PAID_TOOLS_LOCKED = `Paid tools need ${planName(PRO_TOOLS_MIN_TIER)} or higher`;
 
 /* ── #gift · what a supplier can hand a couple ───────────────────────────────────────────────────────────────────── */

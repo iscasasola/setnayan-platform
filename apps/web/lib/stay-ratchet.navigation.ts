@@ -75,6 +75,7 @@ export const STAY_NAVIGATION: Readonly<Record<string, string>> = {
   "app/vendor-dashboard/subscription/ai-addon-actions.ts › activateVendorAiAddon": "checkout → /pay",
   "app/vendor-dashboard/subscription/booth-addon-actions.ts › activateVendor3dBooth": "checkout → /pay",
   "app/vendor-dashboard/subscription/photo-challenge-actions.ts › sponsorPhotoChallenge": "checkout → /pay",
+  "app/vendor-dashboard/shop/store/store-actions.ts › storeAction": "Toolkit buy → /pay (apply-then-pay checkout); the layout op (add, remove, reorder) returns its state in place and never redirects",
   "app/vendor-dashboard/team/actions.ts › buyExtraSeat": "checkout → /pay",
   "app/vendor-invite/[slug]/actions.ts › claimVendorInviteToEvent": "add supplier → event Suppliers",
   "app/vendor/fit/[ref]/actions.ts › addVendorFromFit": "add to shortlist → event Suppliers",

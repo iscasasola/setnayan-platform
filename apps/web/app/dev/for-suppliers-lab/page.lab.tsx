@@ -11,8 +11,8 @@
  *     `platform_retail_catalog_v2` on 23 Nov 2026 so the shot matches what production draws. Labs may carry sample data
  *     (`no-typed-price-on-a-customer-screen.test.ts` leaves `app/dev` out); the live page never reads this file.
  *
- * States: `?gifts=unread` (the gift read failed) · `?fee=unread` (the fee schedule could not be read) ·
- * `?tools=paid` / `?tools=unread` (the special tools' start date passed / unread).
+ * States: `?gifts=unread` (the gift read failed) · `?fee=unread` (the fee schedule could not be read). (No `?tools=`
+ * state any more: the special tools' start date opens nothing since owner a02673ac, so there is nothing to vary.)
  */
 import { notFound } from 'next/navigation';
 import '@/app/_components/frontdoor/front-door.css';
@@ -43,15 +43,9 @@ const LAB_GIFTS: SupplierFrontGifts = {
 };
 const UNREAD_GIFTS: SupplierFrontGifts = { packs: null, bundles: null, credits: { plusCredits: null, proCredits: null } };
 
-export default async function ForSuppliersLabPage({ searchParams }: { searchParams: Promise<{ gifts?: string; fee?: string; tools?: string }> }) {
+export default async function ForSuppliersLabPage({ searchParams }: { searchParams: Promise<{ gifts?: string; fee?: string }> }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
-  const specialTools =
-    q.tools === 'paid'
-      ? ({ status: 'ok', paidFrom: new Date(0).toISOString() } as const)
-      : q.tools === 'unread'
-        ? ({ status: 'unread' } as const)
-        : ({ status: 'ok', paidFrom: null } as const);
   return (
     // `.fd` + front-door.css: the shell's tokens and Discover's button, as the real route wears them inside the shell.
     <main className="fd" style={{ ['--fd-bar' as string]: '0px' }}>
@@ -60,7 +54,6 @@ export default async function ForSuppliersLabPage({ searchParams }: { searchPara
         fee={{ schedule: q.fee === 'unread' ? null : BOOKING_FEE, enabled: true }}
         gifts={q.gifts === 'unread' ? UNREAD_GIFTS : LAB_GIFTS}
         paywallOn={false}
-        specialTools={specialTools}
       />
     </main>
   );

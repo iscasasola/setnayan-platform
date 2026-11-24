@@ -48,6 +48,8 @@ const PAID_PATHS = [
   'app/vendor-dashboard/subscription/photo-challenge-actions.ts',
   // ⬇ ADDED 2026-11-08 (Build 4). The Specialized tools unlock — ₱499 / 4 weeks or ₱4,990 / year.
   'app/vendor-dashboard/subscription/specialized-tools-purchase.ts',
+  // ⬇ ADDED 2026-11-23 (the Store, drawing v10). The one-time tools — Cake Maker · Song bank · Papic challenge · 3D plan.
+  'app/vendor-dashboard/shop/store/store-actions.ts',
   // ⬇ ADDED 2026-09-06 (G3). A vendor buying a Papic portfolio-credit pack
   // (₱500/100 credits, per booked event) pays real money and must land on the
   // same one screen as every other paid buy button.

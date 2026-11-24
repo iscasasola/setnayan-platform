@@ -32,10 +32,16 @@ const GEAR = read('_components/shop-settings.tsx');
 test('1 · a cover sheet opens and closes without asking the server', () => {
   assert.doesNotMatch(COVER, /\brouter\.(replace|push|refresh)\s*\(|\buseRouter\b/, 'a cover sheet re-runs the whole Shop page again');
   assert.match(COVER, /window\.history\.replaceState\(null, '',/, 'the cover no longer writes its address in place');
-  for (const id of ['promote', 'qr', 'logo', 'cover'] as const) {
+  // 🛍 Store drawing v10 (owner 23 Nov 2026): Promote and QR are ONE sheet with two tabs; a tab is local state + the
+  // address, like any sheet. The plan chip opens the storage sheet the same way.
+  assert.match(COVER, /onClick=\{\(\) => openSheet\('promote'\)\}/, 'the promote tap no longer opens its sheet locally');
+  assert.match(COVER, /<ParamSheet\s+open=\{promoteOpen\}/, 'the promote sheet is not driven by the local state');
+  assert.match(COVER, /replaceAddressParam\('sheet', k === 'qr' \? 'qr' : 'promote'\);\s*setSheet\(k === 'qr' \? 'qr' : 'promote'\);/, 'a Promote tab asks the server');
+  assert.match(COVER, /onOpen=\{\(\) => openSheet\('storage'\)\}/, 'the plan chip no longer opens the storage sheet locally');
+  for (const id of ['logo', 'cover', 'storage'] as const) {
     // 🔁 RE-AIMED 2026-11-19 (owner: "cover photo should not be an icon but the actual cover photo tap that"): the Cover
     // door is gone — a tap on the photo opens the picker. Its screen stays for the addresses that name it (`?view=cover`).
-    if (id !== 'cover') assert.match(COVER, new RegExp(`onClick=\\{\\(\\) => openSheet\\('${id}'\\)\\}`), `the ${id} tap no longer opens its sheet locally`);
+    if (id === 'logo') assert.match(COVER, new RegExp(`onClick=\\{\\(\\) => openSheet\\('${id}'\\)\\}`), `the ${id} tap no longer opens its sheet locally`);
     assert.match(COVER, new RegExp(`<ParamSheet open=\\{sheet === '${id}'\\} onClose=\\{\\(\\) => closeSheet\\('${id}'\\)\\}`), `the ${id} sheet is not driven by the local state`);
   }
   assert.match(COVER, /const openSheet = \(id: CoverSheet\) => \{\s*setSheet\(id\);\s*replaceAddressParam\(/, 'opening does not set the state first');
@@ -45,7 +51,7 @@ test('1 · a cover sheet opens and closes without asking the server', () => {
 });
 
 test('2 · the address still opens a sheet on arrival', () => {
-  assert.match(COVER, /promote: \['sheet', 'promote'\],\s*prints: \['sheet', 'prints'\],\s*qr: \['sheet', 'qr'\],\s*logo: \['view', 'logo'\],\s*cover: \['view', 'cover'\],/, 'a sheet lost its address');
+  assert.match(COVER, /promote: \['sheet', 'promote'\],\s*prints: \['sheet', 'prints'\],\s*qr: \['sheet', 'qr'\],\s*storage: \['sheet', 'storage'\],\s*logo: \['view', 'logo'\],\s*cover: \['view', 'cover'\],/, 'a sheet lost its address');
   assert.match(COVER, /const inAddress = sheetInAddress\(params\);\s*const \[sheet, setSheet\] = useState<CoverSheet \| null>\(inAddress\);/, 'a deep link no longer opens its sheet');
   assert.match(COVER, /useEffect\(\(\) => setSheet\(inAddress\), \[inAddress\]\);/, 'the sheet no longer follows its address');
 });

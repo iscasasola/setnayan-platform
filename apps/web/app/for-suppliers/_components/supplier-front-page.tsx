@@ -15,7 +15,7 @@
  *   · the fee steps, fee rows and cap line → `feeSteps` / `feeRowWords` on `fee.schedule`, the LIVE schedule;
  *   · the gifts and "from ₱…" → `gifts.packs` (the shop-gift packs on sale, `platform_retail_catalog_v2`), the plans'
  *     included credits, the 10+1 bundle — `giftRows` / `giftFromPrice` / `giftBundleLine`;
- *   · the Toolkit count → `toolkitShelves` (`SPECIALIZED_TOOLS` · `CARD_ORDER` · `SHOP_BADGE_KEYS`);
+ *   · the Toolkit count → `toolkitShelves` (the one Toolkit list, `toolkitCounts`); its tags → `PAID_STORE_TOOLS`;
  *   · the plans → `planStair` (`TIER_CAPS`) and `prices` (`getVendorPrices`, "—" when unread);
  *   · the badges → `BADGE_ROW` (`SHOP_BADGE_KEYS`, `BADGE_NAME`, the v84 art).
  * A part whose read failed says so ("Couldn't read the gifts.") — never ₱0, never empty.
@@ -32,7 +32,6 @@ import type { ReactNode } from 'react';
 import { CreditCard, LogOut } from 'lucide-react';
 import type { BookingFeeSchedule } from '@/lib/booking-fee';
 import { FEE_FIRST_SUPPLIER_LINE } from '@/lib/booking-fee-who-words';
-import { specialToolsOpenToAll } from '@/lib/special-tools';
 import { SPECIALIZED_TOOLS } from '@/lib/specialized-tools';
 import { openShopWithPlanHref } from '@/lib/supplier-plan-offer';
 import { formatPhpRounded } from '@/lib/php';
@@ -77,8 +76,6 @@ export type SupplierFrontPrices = {
 };
 /** The booking fee as the page read it: the live schedule (null when unreadable) and whether the fee is switched on. */
 export type SupplierFrontFee = { schedule: BookingFeeSchedule | null; enabled: boolean };
-/** The special tools' start date as the page read it (`readSpecialToolsPaidFrom`, the reader the gate itself uses). */
-export type SupplierFrontSpecialTools = { status: 'ok'; paidFrom: string | null } | { status: 'unread' };
 /** The gifts as the page read them: the packs on sale and the 10+1 bundles (null = unread), and the plans' credits. */
 export type SupplierFrontGifts = {
   packs: readonly ShopGiftPack[] | null;
@@ -119,17 +116,11 @@ export function SupplierFrontPage({
   fee,
   gifts = { packs: null, bundles: null, credits: { plusCredits: null, proCredits: null } },
   afterPlans,
-  specialTools = { status: 'unread' },
-  nowMs = Date.now(),
 }: {
   prices: SupplierFrontPrices;
   fee: SupplierFrontFee;
   /** The gifts' read; absent = unread (the gift part then says it could not read them). */
   gifts?: SupplierFrontGifts;
-  /** The special tools' start date; unread → the Cake Maker's Toolkit tag says nothing (never Free, never Paid). */
-  specialTools?: SupplierFrontSpecialTools;
-  /** The server's clock, for the special tools' gate. */
-  nowMs?: number;
   /** The supplier feature paywall's state (`isVendorFeatureGateEnabled`). Kept for the callers; the page draws no paywall line. */
   paywallOn: boolean;
   /** Drawn under the plans — the page passes the "Couple pricing" return leg (`/pricing` ↔ `/for-suppliers`). */
@@ -143,9 +134,8 @@ export function SupplierFrontPage({
   const rows = schedule ? feeRowWords(schedule) : null;
   const bundle = giftBundleLine(gifts.packs, gifts.bundles);
 
-  /** The Cake Maker's live gate: open to every plan before the admin's date; null when the date could not be read. */
-  const specialOpen = specialTools.status === 'ok' ? specialToolsOpenToAll(specialTools.paidFrom, nowMs) : null;
-  const shelves = toolkitShelves(specialOpen);
+  /** The Toolkit's shelves: counts from the one Toolkit list, tags from the paid list (owner a02673ac — no start date). */
+  const shelves = toolkitShelves();
   const count = toolkitCountLine(shelves);
 
   /** The plan cards: every fact `planStair` (TIER_CAPS), every price the catalog's, one real door each. */

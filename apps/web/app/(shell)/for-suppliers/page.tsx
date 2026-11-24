@@ -42,7 +42,6 @@ function createAdminClientOrNull() {
     return null;
   }
 }
-import { readSpecialToolsPaidFrom } from '@/lib/special-tools.server';
 
 type VendorPrices = Awaited<ReturnType<typeof getVendorPrices>>;
 
@@ -197,12 +196,12 @@ export default async function ForSuppliersPage() {
   // ONE batched read (house G2). 🎁 The gifts a shop can hand a couple — the shop-gift packs on sale (title + LIST price,
   // `platform_retail_catalog_v2`), then their 10+1 bundles — chained inside the batch; the plans' included Papic
   // credits from the customer catalogue. A refused read is null and the gift part says so, never ₱0.
-  // 🧰 The special tools' start date, read by the SAME reader the Cake Maker's gate uses (`readSpecialToolsPaidFrom`):
-  // before it the Toolkit tags the Cake Maker free; a refused read tags nothing either way.
+  // 🧰 No special-tools start date any more (owner a02673ac, 23 Nov): a paid widget is bought once in the Toolkit and
+  // works only on a paid plan, so the Toolkit's tags are the one paid list (`PAID_STORE_TOOLS`), with nothing to read.
   const admin = createAdminClientOrNull();
   // 🚪 On the supplier door (supplier.setnayan.com — lib/doors.ts) the page draws no way to the couple side.
   const door = await requestDoor();
-  const [p, fee, giftRead, catalog, specialTools] = await Promise.all([
+  const [p, fee, giftRead, catalog] = await Promise.all([
     getVendorPrices(),
     getLiveBookingFeeSchedule(),
     admin
@@ -211,7 +210,6 @@ export default async function ForSuppliersPage() {
           .catch(() => ({ packs: null, bundles: null }))
       : Promise.resolve({ packs: null, bundles: null }),
     fetchV2CustomerCatalog(),
-    admin ? readSpecialToolsPaidFrom(admin).catch(() => ({ status: 'unread' as const })) : Promise.resolve({ status: 'unread' as const }),
   ]);
   const credits = planCreditsFrom(catalog);
   return (
@@ -231,8 +229,6 @@ export default async function ForSuppliersPage() {
             bySku: p.bySku,
           }}
           gifts={{ packs: giftRead.packs, bundles: giftRead.bundles, credits: { plusCredits: credits.plusCredits, proCredits: credits.proCredits } }}
-          specialTools={specialTools}
-          nowMs={Date.now()}
           paywallOn={isVendorFeatureGateEnabled()}
           fee={{ schedule: fee, enabled: isBookingFeeEnabled() }}
           afterPlans={

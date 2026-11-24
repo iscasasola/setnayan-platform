@@ -36,6 +36,14 @@
   .sn-cols-list {
     min-width: 0;
   }
+  /* ✂ A DAY HEADING BLEEDS TO THE PAGE EDGE, NEVER INTO THE PANE (supplier walk on live, 24 Nov 2026): the list's sticky
+     day heading bleeds both ways (`-mx-4 … lg:-mx-8`) and rides z 3, so from 1024 its right 32 px painted over the pane
+     beside it — "obile bar by Setnaprod", "roduction sheet". In two columns it bleeds left only.
+     🔒 lib/clients-day-heading-stays-in-its-column.test.ts */
+  .sn-cols-list [data-customers-group-heading],
+  .sn-cols-list [data-dates-day-heading] {
+    margin-right: 0;
+  }
   .sn-cols-pane {
     display: flex;
     flex-direction: column;

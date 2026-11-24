@@ -45,19 +45,20 @@ test('💸 offer FIRST, then the typed discount — in the total and on the coup
 });
 
 test('👥 pax follows their guest list: no guests stepper, ONE "Bill at least", billed = max of the two', () => {
-  assert.match(maker, /const pax = billedPax\(seedPax, minPax\);/);
+  assert.match(maker, /const pax = billedPax\(seedPax \?\? 0, minPax\);/); // no count → 0, never a guess (walk 24 Nov)
   assert.doesNotMatch(maker, /setPax\b/, 'the supplier can type the guest count again');
   assert.doesNotMatch(maker, /Ten (more|fewer) guests/, 'the guests stepper is back');
   assert.doesNotMatch(maker, /aria-label="Minimum pax"/, 'a per-line minimum is back');
   const guests = section('guests');
   assert.match(guests, /Bill at least/);
   assert.match(guests, /data-quote-billed-pax=""/);
-  assert.match(maker, /pax: \{ live: seedPax, min: minPax, billed: pax \}/, 'the send no longer says what it billed');
+  assert.match(maker, /pax: \{ live: seedPax \?\? 0, min: minPax, billed: pax \}/, 'the send no longer says what it billed');
 });
 
 test('📅 Send is the ONE submit and exists only once Valid until is set; early, it nudges the row', () => {
   assert.equal((maker.match(/<SubmitButton\b/g) ?? []).length, 1);
-  assert.match(maker, /\{sendGate\(validUntil\)\.ready \? \(\s*<SubmitButton/, 'Send is live without Valid until');
+  // 👥 A per-guest quote that bills nobody waits FIRST (walk 24 Nov 2026), then the Valid until gate as before.
+  assert.match(maker, /\{guestCountMissing \? \([\s\S]{0,900}?\) : sendGate\(validUntil\)\.ready \? \(\s*<SubmitButton/, 'Send is live without Valid until');
   assert.match(maker, /onClick=\{nudgeValidUntil\}/);
   assert.match(maker, /data-quote-valid-required=/);
 });

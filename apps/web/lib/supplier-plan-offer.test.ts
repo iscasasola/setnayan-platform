@@ -51,7 +51,8 @@ test('/for-suppliers paid-plan buttons carry the plan; the picker uses each card
   assert.ok(at > 0, 'anti-vacuity: the plan cards are no longer built from STAIR_TIERS');
   const grow = front.slice(at, front.indexOf('return (', front.indexOf('Start on ', at)));
   assert.match(grow, /cta: `Start on \$\{step\.name\}`/, 'anti-vacuity: the paid stairs moved');
-  assert.match(grow, /href: openShopWithPlanHref\(t\)/, 'a "Start on <plan>" card is back to a bare /open-shop');
+  // Re-walk 24 Nov, fault 5: the card's door is absolute (no 308 hop on supplier.setnayan.com) and still carries the plan.
+  assert.match(grow, /href: onSiteHref\(openShopWithPlanHref\(t\), SITE\)/, 'a "Start on <plan>" card is back to a bare /open-shop');
   const client = readFileSync('app/for-suppliers/_components/supplier-front-client.tsx', 'utf8');
   assert.match(client, /href=\{p\.href\}/, 'the plan card’s door ignores the card’s own href');
 });

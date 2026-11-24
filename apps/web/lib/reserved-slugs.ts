@@ -23,6 +23,8 @@
 // added tomorrow is protected the moment its folder exists.
 // ============================================================================
 
+import { DOOR_LABELS } from './door-map';
+
 /**
  * The hand-authored half. This is the set MIRRORED BY THE DATABASE
  * (`public.business_slug_is_reserved`, migration 20271117527966) and compared
@@ -270,6 +272,9 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
 export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   ...DB_MIRRORED_RESERVED_SLUGS,
   ...ROUTE_RESERVED_SLUGS,
+  // 🚪 The business doors' host labels (supplier · coordinator · business — the ONE map, lib/doors.ts): no event or
+  // shop address may take one, so `<label>.setnayan.com` is always the door. None was taken on prod (checked 24 Nov).
+  ...DOOR_LABELS,
 ]);
 
 /**

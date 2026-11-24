@@ -33,6 +33,7 @@ import {
   forMenuSubjects,
   forTriggerHint,
   forWhomHiddenTypes,
+  forWhomModeOf,
   groupHiddenTypes,
   openingSubject,
   selfCelebrantName,
@@ -509,6 +510,9 @@ export function EventTypePicker({
         >
           <input type="hidden" name="event_type" value={selected.key} />
           {communityId ? <input type="hidden" name="community_id" value={communityId} /> : null}
+          {/* ⚖ The "For ▾" answer travels with the event (owner 2026-11-23): only "For you" lets a booking fee be
+              waived, and it locks once a supplier joins. The server re-checks it against the honoree it writes. */}
+          {subject ? <input type="hidden" name="for_whom" value={forWhomModeOf(subject)} /> : null}
           {next ? <input type="hidden" name="next" value={next} /> : null}
 
           <div className="space-y-1.5">

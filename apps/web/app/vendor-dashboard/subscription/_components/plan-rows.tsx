@@ -1,3 +1,4 @@
+import { routes } from '@/lib/routes';
 import type { ReactNode } from 'react';
 import { BadgeCheck, Camera, CircleX, Images, ReceiptText, Search, Star, Store, Users, type LucideIcon } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
@@ -20,7 +21,7 @@ import { CLIENTS_FOOTNOTE } from '@/lib/supplier-client-room';
  *   Booking fee — the live schedule · "N of 5 used" / Waived   (`bookingFeeRow`)
  *   What <plan> gives you ▾ — read from the plan table         (`planGivesLines`)
  *   Receipts ▾ — paid plan orders, each to /receipts/<id>
- *   Deep Search › (every plan) · Extra seats and branches › (Ultra) · what was bought before the 2026-11-14 fold,
+ *   Deep Search › (what the paid plans include — never a price since 2026-11-22) · Extra seats and branches › (Ultra) · what was bought before the 2026-11-14 fold,
  *   while it runs · Papic credits › (Event Hub) · Featured by Setnayan ·
  *   Cancel the plan (nothing renews by itself). (The "Custom plan ›" row went 2026-11-06 with the Custom plan.)
  *
@@ -76,7 +77,7 @@ export function PlanRows({
    * Files · Records. null = the plan has no allowance and the block is not drawn.
    */
   storage?: StorageBreakdownRead | null;
-  /** 💳 Deep Search, the one thing every plan still buys (2026-11-14): its catalogue price; null = not drawn. */
+  /** 🔎 Deep Search: what Plus, Pro and Ultra include each month (owner 2026-11-22 — not sold); null = not drawn. */
   deepSearch?: { line: string } | null;
   /** 💳 Ultra's extra seats and branches (2026-11-14); null on every other plan. */
   extras?: { line: string } | null;
@@ -160,10 +161,11 @@ export function PlanRows({
         </div>
 
         {/* 💳 The "Add-ons" row became what is left to buy (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS",
-            drawing § 3): Deep Search on every plan; on Ultra, extra seats and branches. The chatbot, specialized tools,
-            3D booth and Papic Challenges are not bought any more — they are under "What <plan> gives you". */}
+            drawing § 3): Deep Search's monthly searches (included, never sold — 2026-11-22); on Ultra, extra seats and
+            branches. The chatbot, specialized tools, 3D booth and Papic Challenges are not bought any more — they are
+            under "What <plan> gives you". */}
         {deepSearch ? (
-          <DatesRow data="plan-deep-search" lead={ic(Search)} title="Deep Search" line={deepSearch.line} href="/vendor-dashboard/deep-search" />
+          <DatesRow data="plan-deep-search" lead={ic(Search)} title="Deep Search" line={deepSearch.line} href={routes.vendorDashboard.deepSearch()} />
         ) : null}
         {extras ? (
           <DatesRow data="plan-extras" lead={ic(Users)} title="Extra seats and branches" line={extras.line} href="/vendor-dashboard/team" />

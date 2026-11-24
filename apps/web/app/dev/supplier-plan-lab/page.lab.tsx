@@ -268,7 +268,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
       }
       papicPackPrice={99}
       featured={shop.tier === 'pro'}
-      deepSearch={{ line: 'Lab price a search · on every plan' }}
+      deepSearch={{ line: 'Included in Plus, Pro and Ultra: 1 search each paid month. Unused searches don’t carry over.' }}
       extras={shop.tier === 'enterprise' ? { line: '1 extra seat · lab price each, every 4 weeks' } : null}
     />
   );

@@ -9,10 +9,14 @@ import {
  * vendor-deep-search-run.ts — the ONE server-side seam that RUNS a vendor-facing
  * Deep Search and RECORDS it. Shared by both entry points so the search only
  * ever runs one way:
- *   • the free-search run action (apps/web/app/vendor-dashboard/deep-search/
- *     actions.ts) — was_free=true, no order.
+ *   • the run action (apps/web/app/vendor-dashboard/deep-search/actions.ts) —
+ *     one of the paid month's INCLUDED runs (owner 2026-11-22, "Deep Search 1 a
+ *     month"): was_free=true, no order, claimed first by
+ *     {@link claimIncludedDeepSearchRun}.
  *   • the paid-order sku-activation hook (lib/sku-activation.ts ·
- *     'vendor_deep_search') — was_free=false, linked to the paid order.
+ *     'vendor_deep_search') — was_free=false, linked to the paid order. Nothing
+ *     is sold any more (the ₱499 row retired 2026-11-22); it only runs searches
+ *     bought before that.
  *
  * It REUSES the admin deep-search engine (lib/vendor-deep-search.ts ·
  * runDeepSearchOrLite: the AI dossier when ANTHROPIC_API_KEY is set, else the
@@ -64,13 +68,13 @@ export type RunVendorDeepSearchArgs = {
   /** The vendor user who initiated the search (stored as requested_by). */
   requestedByUserId: string | null;
   inputs: DeepSearchInputs;
-  /** TRUE = consumed the free per-cycle allowance; FALSE = a paid ₱500 run. */
+  /** TRUE = one of the paid month's included runs; FALSE = a run an order paid for (bought before 2026-11-24). */
   wasFree: boolean;
-  /** The paid order that funded a ₱500 run (NULL for the free run). */
+  /** The paid order that funded the run (NULL for an included run). */
   orderId: string | null;
   /**
-   * The id of a usage row PRE-CLAIMED by the caller BEFORE the run (the free-run
-   * atomic-claim path). When set, the finished dossier is linked to THIS row
+   * The id of a usage row PRE-CLAIMED by the caller BEFORE the run (the included
+   * run's atomic claim, {@link claimIncludedDeepSearchRun}). When set, the finished dossier is linked to THIS row
    * instead of inserting a new usage row — so the allowance is claimed exactly
    * once, at claim time, not after the run. NULL/omitted = the legacy behavior
    * (insert a fresh usage row on success — used by the paid-order activation hook).
@@ -162,4 +166,60 @@ export async function runAndRecordVendorDeepSearch(
   }
 
   return { status: 'complete', dossierId, dossier, model };
+}
+
+// ── The paid month's included runs (owner 2026-11-22, "Deep Search 1 a month") ─────────────────────────────────────
+
+export type ClaimIncludedRunResult =
+  | { claimed: true; useId: number; slot: number }
+  /** Every included run of this month is taken (or none is included). */
+  | { claimed: false; reason: 'used_up' }
+  /** The claim could not be written — nothing was taken; say so, never run. */
+  | { claimed: false; reason: 'failed' };
+
+/** Postgres unique_violation — another press already holds that slot. */
+const UNIQUE_VIOLATION = '23505';
+
+/**
+ * CLAIM one of this paid month's included runs BEFORE the search runs, so the allowance can never be overspent. Tries
+ * slot 1, then 2, … up to `perMonth`; the partial unique index `vendor_deep_search_uses_month_slot_uidx`
+ * (vendor, month start, slot) makes each insert atomic, so a burst of presses serialises and at most `perMonth` rows
+ * land. The row carries no dossier yet: {@link runAndRecordVendorDeepSearch} links it (`claimUseId`) on success, and the
+ * caller hands it back with {@link releaseIncludedDeepSearchRun} on failure — a failed run never spends a run.
+ */
+export async function claimIncludedDeepSearchRun(
+  admin: SupabaseClient,
+  input: { vendorProfileId: string; monthStartIso: string; perMonth: number | null },
+): Promise<ClaimIncludedRunResult> {
+  const max = input.perMonth === null ? 0 : Math.min(31, Math.max(0, Math.trunc(input.perMonth)));
+  for (let slot = 1; slot <= max; slot++) {
+    const { data, error } = await admin
+      .from('vendor_deep_search_uses')
+      .insert({
+        vendor_profile_id: input.vendorProfileId,
+        was_free: true,
+        order_id: null,
+        dossier_id: null,
+        free_cycle_start: input.monthStartIso,
+        allowance_slot: slot,
+      })
+      .select('id')
+      .maybeSingle();
+    if (!error && data) return { claimed: true, useId: (data as { id: number }).id, slot };
+    if (error && (error as { code?: string }).code === UNIQUE_VIOLATION) continue;
+    console.error('[supabase-error] vendor-deep-search-run: claim', error);
+    return { claimed: false, reason: 'failed' };
+  }
+  return { claimed: false, reason: 'used_up' };
+}
+
+/** Hand a claimed run back (the search failed), so the month still has it. Only ever an unlinked claim row. */
+export async function releaseIncludedDeepSearchRun(admin: SupabaseClient, useId: number): Promise<void> {
+  const { error } = await admin
+    .from('vendor_deep_search_uses')
+    .delete()
+    .eq('id', useId)
+    .eq('was_free', true)
+    .is('dossier_id', null);
+  if (error) console.error('[supabase-error] vendor-deep-search-run: release', error);
 }

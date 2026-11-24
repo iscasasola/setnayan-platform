@@ -73,8 +73,8 @@ type Props = {
   /** The vendor layout's open shop, so its row (of several) wears the ✓. */
   activeShopId?: string | null;
   /**
-   * ⚙ UNIHOME v5 (owner-approved 23 Nov 2026, DECISION_LOG "UNIHOME v5 APPROVED"): on Home the round photo at the top
-   * right is gone and THIS sheet opens from ⚙ beside your name instead. `gear` draws that ⚙ (the shipped `ActionButton`)
+   * ⚙ UNIHOME v5 (owner-approved 23 Nov 2026, DECISION_LOG "UNIHOME v5 APPROVED"): on Home THIS sheet also opens from ⚙
+   * beside your name (the round photo at the top right is back on Home too — owner 24 Nov 2026). `gear` draws that ⚙ (the shipped `ActionButton`)
    * and opens the sheet WITHOUT its place rows: Your events is Home itself, each shop and Create your shop are Home's
    * Shop part, Setnayan HQ is the ☰ menu. What stays is the drawing's list — Profile & settings, other accounts on this
    * phone, Billing & receipts, Appearance, Help, Show me around, Sign out. Default `pill`: every other bar unchanged.

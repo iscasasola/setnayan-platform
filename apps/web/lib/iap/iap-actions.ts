@@ -67,7 +67,7 @@ export async function startAppStorePurchase(input: {
    */
   quantity?: number;
 }): Promise<IapStartResult> {
-  const { iap, iapQuantity } = await getIapGate();
+  const { iap, iapQuantity, iapSubscriptions } = await getIapGate();
   if (!iap) return startRefusal('unavailable');
   const quantity = input.quantity ?? 1;
 
@@ -83,8 +83,11 @@ export async function startAppStorePurchase(input: {
 
   // 🏪 A SHOP's plan (auto-renewable): the server issues the token for the shop the caller manages and keeps the
   // pairing, so Apple's notifications grant only to that shop (lib/iap/supplier-plan-confirm.server.ts).
+  // Only a build whose app version carries the "Supplier plans" subscriptions (`SetnayanIAP/4`+) sells one: 1.0 (build
+  // 9) does not, so the server refuses it there even if a stale page still drew the door.
   const plan = supplierPlanProductById(input.productId);
   if (plan) {
+    if (!iapSubscriptions) return startRefusal('unavailable');
     const userId = await signedInUserId();
     if (!userId) return startRefusal('sign_in');
     return startSupplierPlanForUser(userId, plan);

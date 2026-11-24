@@ -19,7 +19,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import vm from 'node:vm';
 
@@ -41,8 +41,8 @@ import {
   staleFor,
   supplierSchedulePath,
 } from '@/lib/offline-copies';
+import { DB_MIRRORED_RESERVED_SLUGS, RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import {
-  EVENT_PAGE_FOLDERS,
   HUB_PAGE_WORDS,
   guestHubAddress,
   guestMePath,
@@ -775,12 +775,19 @@ test('R18 · the worker and lib agree on every guest address, in BOTH address fo
   assert.match(src, new RegExp(`const GUEST_HUB_ANSWER = '${GUEST_HUB_ANSWER}';`));
   assert.deepEqual(list('HUB_PAGE_WORDS'), [...HUB_PAGE_WORDS].sort());
   assert.match(src, new RegExp(`const OFFLINE_MAX_PAGES = ${OFFLINE_MAX_PAGES};`), 'the page cap in sw.js is not lib’s');
-  // …and the event's own pages are the folders on disk: a new event page joins the list or this fails.
-  const onDisk = readdirSync(path.join(import.meta.dirname, '[slug]'), { withFileTypes: true })
-    .filter((d) => d.isDirectory() && !d.name.startsWith('_') && !d.name.startsWith('['))
-    .map((d) => d.name)
-    .sort();
-  assert.deepEqual([...EVENT_PAGE_FOLDERS].sort(), onDisk, 'EVENT_PAGE_FOLDERS is not the folders under app/[slug]/');
+  // (The event's own pages are the address move's `EVENT_SUB_ROUTES`, which `lib/u-nesting.test.ts` holds to the folders.)
+  // ⚖ The reserved words: the worker asks the route half (`RESERVED`), lib the whole pool. Every slug-shaped word only
+  // lib reserves must be one the database refuses as an event's word — so no real event's address can differ.
+  const swReserved = list('RESERVED');
+  const libOnly = [...RESERVED_SLUGS].filter((w) => /^[a-z0-9-]{3,32}$/.test(w) && !swReserved.includes(w));
+  assert.ok(libOnly.length > 0, 'the two lists are equal now — tighten this to deepEqual');
+  for (const w of libOnly) {
+    assert.ok(DB_MIRRORED_RESERVED_SLUGS.has(w), `"${w}" is reserved only in lib and an event may still take it — the worker would read /${w} differently`);
+  }
+  for (const w of swReserved.filter((x) => /^[a-z0-9-]{3,32}$/.test(x))) {
+    assert.ok(RESERVED_SLUGS.has(w), `"${w}" is reserved only in the worker`);
+    assert.equal(guestHubAddress(`/${w}`), null);
+  }
   assert.equal(OFFLINE_MAX_PAGES, 12, 'the cap is the hub’s real page count: arrival + 5 pages + 5 rooms + the announcement');
 });
 

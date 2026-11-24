@@ -10,27 +10,16 @@
  */
 import { GUEST_HUB_ANSWER, GUEST_HUB_ROOMS_KEPT, GUEST_HUB_TABS_KEPT, OFFLINE_COPY_SHAPES } from './offline-copies';
 import { RESERVED_SLUGS } from './reserved-slugs';
-import { SHOP_SUB_PAGES } from './shop-address';
-import { U_SUBPATH_ROUTES } from './u-nesting';
+import { EVENT_SUB_ROUTES, SHOP_SUB_ROUTES, U_SUBPATH_ROUTES, isNotANestedEvent } from './u-nesting';
 
 /**
- * An event's own pages — the folders under `app/[slug]/` that serve a URL. The address move (PR #7868) keeps the same
- * list as `EVENT_SUB_ROUTES` in `lib/u-nesting.ts`; until it merges it lives here, and `app/sw-offline-copies.test.ts`
- * holds it equal to the folders on disk, so a new event page cannot be added without joining it.
+ * 🔗 THE SECOND WORDS THAT ARE NEVER AN EVENT UNDER A PERSON — the address move's own rule (`isNotANestedEvent`,
+ * `lib/u-nesting.ts`, held against the `app/[slug]/` folders by `u-nesting.test.ts`): in `/{a}/{b}`, a `{b}` that is
+ * one of an event's pages, a shop's page or a person's chapter means `/{a}` is the event (or shop) and `{b}` its page;
+ * any other `{b}` is an event under the person `{a}`. Names are one pool, so the second word alone decides. This union
+ * is exported for one reason: `public/sw.js` holds a COPY (`HUB_PAGE_WORDS`), and the guard compares the two.
  */
-export const EVENT_PAGE_FOLDERS: readonly string[] = [
-  'announcement', 'avatar', 'cached', 'everyone', 'find-my-table', 'find-seat', 'hub', 'icon', 'invite',
-  'live-pulse', 'live-wall', 'manifest.webmanifest', 'open-as-pass', 'pabuya', 'print', 'recap', 'redeem',
-  'request', 'seat', 'sign-out', 'venue', 'welcome',
-];
-
-/**
- * 🔗 THE SECOND WORDS THAT ARE NEVER AN EVENT UNDER A PERSON (the address move's rule, `isNotANestedEvent` in #7868):
- * in `/{a}/{b}`, a `{b}` that is one of an event's pages, a shop's page under its bare address (`SHOP_SUB_PAGES`) or a
- * person's chapter (`U_SUBPATH_ROUTES`) means `/{a}` is the event (or shop) and `{b}` its page. Any other `{b}` is an
- * event under the person `{a}`. Names are one pool, so the second word alone decides — no database question.
- */
-export const HUB_PAGE_WORDS: ReadonlySet<string> = new Set([...EVENT_PAGE_FOLDERS, ...SHOP_SUB_PAGES, ...U_SUBPATH_ROUTES]);
+export const HUB_PAGE_WORDS: ReadonlySet<string> = new Set([...EVENT_SUB_ROUTES, ...SHOP_SUB_ROUTES, ...U_SUBPATH_ROUTES]);
 
 /** An event's word and a username, as they stand in an address (`lib/slugs.ts`, `users_slug_format`). */
 const WORD = /^[a-z0-9-]{3,32}$/;
@@ -46,6 +35,9 @@ export type GuestHubAddress = { event: string; suffix: string; key: string; nest
  *   `/<event>` · `/<event>?tab=<kept tab>` · `/<event>/<kept room>` · `/<event>/announcement`
  *   `/{username}/<event>` · `/{username}/<event>?tab=<kept tab>` · `/{username}/<event>/<kept room>` · …/announcement
  * Never a reserved first word (an app page), never an event that is a page word, never any other query or page.
+ * ⚖ The reserved words are the ONE pool (`RESERVED_SLUGS`). The worker's copy asks only the route half (`RESERVED` in
+ * sw.js, the folders under `app/`); every slug-shaped word only this side reserves is one the database refuses as an
+ * event's word (`DB_MIRRORED_RESERVED_SLUGS`), so the two never differ on a real event's address — held by the guard.
  */
 export function guestHubAddress(path: string): GuestHubAddress | null {
   const q = path.indexOf('?');
@@ -68,11 +60,11 @@ export function guestHubAddress(path: string): GuestHubAddress | null {
   if (parts.length === 2) {
     if (!word(a)) return null;
     if (KEPT_ROOMS.has(b!)) return search === '' ? read(a, `/${b}`, false) : null;
-    if (HUB_PAGE_WORDS.has(b!) || !word(b)) return null;
+    if (isNotANestedEvent(b!) || !word(b)) return null;
     return read(b, search, true);
   }
   if (parts.length === 3) {
-    if (search !== '' || !word(a) || !word(b) || HUB_PAGE_WORDS.has(b) || !KEPT_ROOMS.has(c!)) return null;
+    if (search !== '' || !word(a) || !word(b) || isNotANestedEvent(b) || !KEPT_ROOMS.has(c!)) return null;
     return read(b, `/${c}`, true);
   }
   return null;

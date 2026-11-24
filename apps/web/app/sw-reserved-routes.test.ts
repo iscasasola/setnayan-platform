@@ -9,6 +9,8 @@
  * so a guest whose personal slug never collides was fine, but any of those three
  * pages, opened offline-first, would have been served the stale DAYOF cache
  * instead of the real page.
+ * 📶 Since R18 (24 Nov 2026) the day-of cache is retired and the same set is asked by `guestHubAddress` /
+ * `isGuestWord`, which decide whether an address is a guest's saved Event Hub page — so it still must match `app/`.
  *
  * The root cause was never "three routes forgotten" — it is that the set is
  * hand-typed and nothing re-checks it against the routes that actually exist.
@@ -95,7 +97,7 @@ function actualReservedRoutes(): string[] {
     start,
     -1,
     'public/sw.js no longer declares `const RESERVED = new Set([...])` — ' +
-      'isDayOfGuestNavigation was rewritten; update this guard to match its new shape.',
+      'the guest-address check (`guestHubAddress` / `isGuestWord`, R18) was rewritten; update this guard to match its new shape.',
   );
   const open = src.indexOf('[', start);
   const close = src.indexOf(']', open);

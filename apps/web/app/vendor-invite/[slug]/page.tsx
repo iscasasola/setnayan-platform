@@ -25,6 +25,8 @@ import { isShopLive } from '@/lib/vendor-visibility';
 import { isShopPaused, SHOP_PAUSED_DETAIL, SHOP_PAUSED_LINE } from '@/lib/shop-status';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { claimVendorInviteToEvent } from './actions';
+import { OFFLINE_QR_PARAM, OFFLINE_QR_TOKEN_RE } from '@/lib/supplier-offline/qr';
+import { OFFLINE_QR_STATUS_COPY } from '@/lib/supplier-offline/claim.server';
 
 export const metadata = {
   title: 'Add a supplier to your plan',
@@ -34,7 +36,7 @@ export const metadata = {
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ status?: string; et?: string; cat?: string; ci?: string }>;
+  searchParams: Promise<{ status?: string; et?: string; cat?: string; ci?: string; oq?: string }>;
 };
 
 const STATUS_COPY: Record<string, string> = {
@@ -43,6 +45,8 @@ const STATUS_COPY: Record<string, string> = {
   not_found: 'This supplier link is no longer available.',
   paused: SHOP_PAUSED_LINE,
   error: 'Something went wrong adding the supplier. Please try again.',
+  // 🔳 An offline client QR's date that could not be saved (owner 2026-11-24 — said to the client too, never silent).
+  ...OFFLINE_QR_STATUS_COPY,
 };
 
 /**
@@ -66,10 +70,13 @@ async function resolveDisplayUrl(value: string | null | undefined): Promise<stri
 
 export default async function VendorInvitePage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const { status, et, cat, ci: rawCi } = await searchParams;
+  const { status, et, cat, ci: rawCi, oq: rawOq } = await searchParams;
   // 🎁 An Add-a-client invite (Own clients v4): the client's token rides every round-trip, shape-checked only — the
   // claim action decides whether it is this shop's own waiting invite.
   const ci = clientInviteTokenOf(rawCi);
+  // 🔳 An offline client QR (owner 2026-11-24): shape-checked only; the claim action verifies its signature. It rides the
+  // sign-up round-trip like `ci`, and is dropped once its date was refused (the action sends it back without it).
+  const oq = typeof rawOq === 'string' && OFFLINE_QR_TOKEN_RE.test(rawOq) ? rawOq : null;
 
   const admin = createAdminClient();
   const { data: vendor } = await admin
@@ -127,6 +134,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
   if (et) scopeQs.set('et', et);
   if (cat) scopeQs.set('cat', cat);
   if (ci) scopeQs.set(CLIENT_INVITE_PARAM, ci);
+  if (oq) scopeQs.set(OFFLINE_QR_PARAM, oq);
   const scopeSuffix = scopeQs.toString() ? `?${scopeQs.toString()}` : '';
   const nextPath = `${shopInvitePath(slug)}${scopeSuffix}`;
   // ⏸ Owner 2026-11-16 (answer 4 to PR #7890): a paused shop's Shortlist QR adds nothing — the page says so in place
@@ -229,6 +237,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
             ) : null}
             {et ? <input type="hidden" name="et" value={et} /> : null}
             {ci ? <input type="hidden" name={CLIENT_INVITE_PARAM} value={ci} /> : null}
+            {oq ? <input type="hidden" name={OFFLINE_QR_PARAM} value={oq} /> : null}
             <TemplateSection label="Add to which event?" first>
               <fieldset className="[&>label+label]:border-t [&>label+label]:border-[color:var(--m-line)]">
                 <legend className="sr-only">Add to which event?</legend>

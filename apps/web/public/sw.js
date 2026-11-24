@@ -898,6 +898,46 @@ async function forgetOfflineCopies() {
   }
 }
 
+// 📶 SIGN-OUT ERASES THE SUPPLIER'S OFFLINE WORK ON THIS PHONE (owner 2026-11-24, "signing out wipes the phone's offline
+// copy and unused codes"): the queued supplier actions and the member's one-time QR codes, in the daemon's own database
+// (`lib/offline/db.ts` · `supplier_queue` + `supplier_codes`). Opened with no version, so it never upgrades or creates
+// anything — a phone that never kept supplier work has nothing to erase.
+function forgetSupplierOffline() {
+  return new Promise((resolve) => {
+    if (!('indexedDB' in self)) return resolve(false);
+    let req;
+    try {
+      req = indexedDB.open('setnayan_offline');
+    } catch {
+      return resolve(false);
+    }
+    req.onerror = () => resolve(false);
+    req.onsuccess = () => {
+      const db = req.result;
+      const names = ['supplier_queue', 'supplier_codes'].filter((n) => db.objectStoreNames.contains(n));
+      if (names.length === 0) {
+        db.close();
+        return resolve(true);
+      }
+      try {
+        const tx = db.transaction(names, 'readwrite');
+        for (const n of names) tx.objectStore(n).clear();
+        tx.oncomplete = () => {
+          db.close();
+          resolve(true);
+        };
+        tx.onerror = tx.onabort = () => {
+          db.close();
+          resolve(false);
+        };
+      } catch {
+        db.close();
+        resolve(false);
+      }
+    };
+  });
+}
+
 // One event's copies only — a guest's "Remove it from this browser" (the POST to `/<slug>/sign-out`): that event's
 // entry goes, with each page no other event of this viewer still keeps.
 async function forgetOfflineEvent(eventKey) {
@@ -1320,7 +1360,8 @@ self.addEventListener('message', (event) => {
         : data.type === 'OFFLINE_FORGET'
           ? withOfflineLock(() =>
               // 🔒 F-W1-82: a signed-out page's wipe erases the day-of guest pages too, never only the saved copies.
-              Promise.all([forgetOfflineCopies(), forgetGuestPages(null).catch(() => undefined)]).then(() => ({ ok: true })),
+              // 📶 …and the supplier's queued work and one-time codes (`forgetSupplierOffline`).
+              Promise.all([forgetOfflineCopies(), forgetGuestPages(null).catch(() => undefined), forgetSupplierOffline()]).then(() => ({ ok: true })),
             )
           : withOfflineLock(async () => {
               /* 🔒 ONE VIEWER AT A TIME — FOR EVERY CACHE THAT HOLDS A PERSON'S PAGES (walk 13 Nov 2026, F-W1-82: after an
@@ -1404,6 +1445,8 @@ self.addEventListener('fetch', (event) => {
       Promise.all([
         withOfflineLock(() => (forget === '*' ? forgetOfflineCopies() : forgetOfflineEvent(forget))).catch(() => undefined),
         forgetGuestPages(forget === '*' ? null : forget).catch(() => undefined),
+        // 📶 An account's sign-out (`/auth/sign-out`) also erases the supplier's queued work and one-time codes.
+        forget === '*' ? forgetSupplierOffline() : Promise.resolve(false),
       ]),
     );
   }

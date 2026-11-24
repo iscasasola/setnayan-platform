@@ -33,7 +33,10 @@ export type ServiceCode =
   | 'live_wall'
   // 🎫 EV3 (owner 2026-10-28, "scans … QUEUE offline and sync later; double claims surfaced, never lost"): a check-in
   // made at the door with no signal. Not a media service — the same bus, so the scanner has ONE queue, not a second.
-  | 'checkin';
+  | 'checkin'
+  // 📶 The supplier dashboard offline (owner 2026-11-24): every supplier action made with no signal — the same bus, so
+  // the supplier side has ONE queue, not a second engine (`lib/offline/supplier-queue.ts`).
+  | 'supplier';
 
 /**
  * Canonical ordered list of ServiceCode values. Use this when iterating
@@ -51,6 +54,7 @@ export const SERVICE_CODES: readonly ServiceCode[] = [
   'camera_bridge',
   'live_wall',
   'checkin',
+  'supplier',
 ] as const;
 
 /**
@@ -67,6 +71,7 @@ export const SERVICE_LABELS: Record<ServiceCode, string> = {
   camera_bridge: 'Camera Bridge — DSLR transit',
   live_wall: 'Memory lane — Memories cache',
   checkin: 'Check-in desk — arrivals scanned with no signal',
+  supplier: 'Supplier dashboard — changes made with no signal',
 };
 
 /**

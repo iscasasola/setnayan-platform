@@ -27,6 +27,7 @@ import { SUP_ATTRIBUTES } from './supAttributes';
 import { SUP_CALENDAR } from './supCalendar';
 import { SUP_CLIENTS } from './supClients';
 import { SUP_LINES } from './supLines';
+import { SUP_OFFLINE } from './supOffline';
 import { SUP_PAYMENTS } from './supPayments';
 import { SUP_TEAM } from './supTeam';
 import { SV_CONTRACTS } from './svContracts';
@@ -72,6 +73,7 @@ export const DOORS: Readonly<Record<StayDoor, Door>> = {
   ...SUP_CALENDAR,
   ...SUP_CLIENTS,
   ...SUP_LINES,
+  ...SUP_OFFLINE,
   ...SUP_PAYMENTS,
   ...SUP_TEAM,
   ...SV_CONTRACTS,

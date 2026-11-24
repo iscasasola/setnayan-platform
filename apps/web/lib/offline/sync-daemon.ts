@@ -36,6 +36,7 @@ import { syncOne as syncOnePatiktok } from './service-handlers/patiktok-handler'
 import { syncOne as syncOneCameraBridge } from './service-handlers/camera-bridge-handler';
 import { syncOne as syncOneLiveWall } from './service-handlers/live-wall-handler';
 import { syncOne as syncOneCheckin, noteGaveUp as checkinGaveUp } from './service-handlers/checkin-handler';
+import { syncOne as syncOneSupplier, noteGaveUp as supplierGaveUp } from './service-handlers/supplier-handler';
 import { ownedByPageUploader } from '../papic-upload/ownership';
 import {
   SERVICE_CODES,
@@ -66,6 +67,8 @@ const HANDLERS: Record<ServiceCode, (item: OfflineItem) => Promise<SyncResult>> 
   camera_bridge: syncOneCameraBridge,
   live_wall: syncOneLiveWall,
   checkin: syncOneCheckin,
+  // 📶 The supplier dashboard offline (owner 2026-11-24) — one queue on this same bus.
+  supplier: syncOneSupplier,
 };
 
 /**
@@ -74,6 +77,8 @@ const HANDLERS: Record<ServiceCode, (item: OfflineItem) => Promise<SyncResult>> 
  */
 const ON_EVICT: Partial<Record<ServiceCode, (item: OfflineItem) => void>> = {
   checkin: checkinGaveUp,
+  // 📶 A supplier action given up on is kept as an answer the person sees — never dropped silently.
+  supplier: supplierGaveUp,
 };
 
 // ── Eviction backstop (the "7-day TTL" the per-service handlers reference) ────

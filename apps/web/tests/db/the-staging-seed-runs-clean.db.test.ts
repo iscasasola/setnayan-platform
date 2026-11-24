@@ -13,7 +13,10 @@
  *   · the two messy accounts really are big and messy;
  *   · the tagging rule: nobody is internal, the demo pair only meets itself, every seeded event is `stg-`, and every
  *     minted id is version-4 shaped;
- *   · both belts refuse: a database that holds real people, and a second run.
+ *   · both belts refuse: a database that holds real people, and a second run;
+ *   · the catalogue copy (scripts/staging/copy-catalog-core.ts): every table it copies still exists, has a primary
+ *     key and points at no person, shop or event — and its one upsert lands production-shaped rows: a changed
+ *     price is overwritten, an admin's audit stamp lands as NULL, a `keep` column keeps the copy's value.
  *
  * The numbers it prints (`# staging seed:` lines) are the ones quoted in the kit's pull request.
  *
@@ -27,6 +30,7 @@ import path from 'node:path';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import { STAGING_ACCOUNTS, accountEmail, accountEmails } from '../../../../scripts/staging/accounts';
 import { SEED_FLOOR, SEED_SUMMARY_SQL, seedSettingsSql } from '../../../../scripts/staging/seed-core';
+import { COPY_TABLES, buildUpsertSql, metaSql, refusalFor, type TableMeta } from '../../../../scripts/staging/copy-catalog-core';
 
 const KIT = path.resolve(import.meta.dirname, '../../../../scripts/staging');
 const SEAL = fs.readFileSync(path.join(KIT, 'seal.sql'), 'utf8');
@@ -213,4 +217,39 @@ test('belt: a second run is refused, and so is a database that holds real people
   } finally {
     await replay.db.exec('ROLLBACK');
   }
+});
+
+test('the catalogue copy: every listed table is still copyable, and its upsert lands production-shaped rows', async () => {
+  const metaRow = await one<{ meta: TableMeta[] }>(metaSql(COPY_TABLES.map((t) => t.table)));
+  const metas = new Map(metaRow.meta.map((m) => [m.table, m]));
+  for (const spec of COPY_TABLES) assert.equal(refusalFor(metas.get(spec.table), spec), null, spec.table);
+
+  // "Production": today's catalogue rows with one price changed and an admin's stamp that the copy has no account for.
+  const spec = COPY_TABLES.find((t) => t.table === 'platform_retail_catalog_v2')!;
+  const rows = (await replay.db.query<Record<string, unknown>>('SELECT * FROM public.platform_retail_catalog_v2 ORDER BY service_code')).rows;
+  const target = rows.find((r) => Number(r.retail_price_php) > 0)!;
+  const prodPrice = Number(target.retail_price_php) + 1;
+  const prodRows = rows.map((r) =>
+    r.service_code === target.service_code
+      ? { ...r, retail_price_php: prodPrice, updated_by_admin_id: '9f9f9f9f-0000-4000-8000-000000000001' }
+      : r,
+  );
+  const before = await one<{ n: number }>('SELECT count(*)::int AS n FROM public.platform_retail_catalog_v2');
+  await replay.db.exec(buildUpsertSql(spec, metas.get(spec.table)!, JSON.parse(JSON.stringify(prodRows)))!);
+  const after = await one<{ n: number; price: string; stamp: string | null }>(
+    `SELECT (SELECT count(*)::int FROM public.platform_retail_catalog_v2) AS n, retail_price_php::text AS price, updated_by_admin_id::text AS stamp
+       FROM public.platform_retail_catalog_v2 WHERE service_code = $1`,
+    [target.service_code],
+  );
+  assert.equal(after.n, before.n, 'an upsert, never a second copy of a row');
+  assert.equal(Number(after.price), prodPrice, "production's price lands");
+  assert.equal(after.stamp, null, "an admin's audit stamp is copied as NULL (that account does not exist here)");
+
+  // A `keep` column keeps the copy's own value: platform_settings keeps its (sandbox) Maya endpoint.
+  const ps = COPY_TABLES.find((t) => t.table === 'platform_settings')!;
+  const settings = (await replay.db.query<Record<string, unknown>>('SELECT * FROM public.platform_settings')).rows;
+  const live = settings.map((r) => ({ ...r, maya_checkout_endpoint: 'https://pg.maya.ph/checkout/v1/checkouts' }));
+  await replay.db.exec(buildUpsertSql(ps, metas.get('platform_settings')!, JSON.parse(JSON.stringify(live)))!);
+  const kept = await one<{ e: string | null }>('SELECT maya_checkout_endpoint AS e FROM public.platform_settings WHERE id = 1');
+  assert.notEqual(kept.e, 'https://pg.maya.ph/checkout/v1/checkouts');
 });

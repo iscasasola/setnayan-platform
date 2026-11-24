@@ -132,8 +132,8 @@ test('Setnayan AI is quoted at its own catalog price — and no old event-type r
 
 test('the Event Hub single is quoted at its own catalog price, by name, after the plans', () => {
   /*
-    ⚖ Owner 2026-11-23 (DECISION_LOG "EVENT PLANS ARE PACKAGES; SINGLES ARE THE SECOND CHOICE": "Event Hub unlock
-    2790"; migration 20271359355225). The plans lead; the single is the second choice.
+    ⚖ Owner 2026-11-23 (DECISION_LOG "EVENT PLANS ARE PACKAGES; SINGLES ARE THE SECOND CHOICE"; migration
+    20271359355225). The plans lead; the single is the second choice.
 
     🔑 Its figure is read from the FIXTURE, never typed. It equals Setnayan AI's today, so "every active price is quoted"
     alone cannot see a missing Event Hub line — this one ties the figure to the Event Hub's own words.

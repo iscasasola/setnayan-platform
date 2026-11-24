@@ -178,8 +178,8 @@ const REQUIRED_RETAIL = [
   // ♻️ SETNAYAN_AI BACK 2026-11-23 at ₱2,790 (DECISION_LOG 2026-11-23: "so there is a separate price for setnayan AI
   // 2790"; migration 20271359355225). Entry and prose came back together.
   'SETNAYAN_AI',
-  // 🛒 EVENT_HUB NEW 2026-11-23 at ₱2,790 (DECISION_LOG 2026-11-23 "EVENT PLANS ARE PACKAGES; SINGLES ARE THE SECOND
-  // CHOICE": "Event Hub unlock 2790"; migration 20271359355225). The whole Hub for one event, no Papic credits. Entry and
+  // 🛒 EVENT_HUB NEW 2026-11-23 (DECISION_LOG 2026-11-23 "EVENT PLANS ARE PACKAGES; SINGLES ARE THE SECOND CHOICE";
+  // migration 20271359355225; the price is the catalog row's). The whole Hub for one event, no Papic credits. Entry and
   // prose came in together — and its prose names it beside its price, because the figure is the same as Setnayan AI's.
   'EVENT_HUB',
   'EVENT_PLUS',

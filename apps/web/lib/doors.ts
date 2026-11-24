@@ -35,11 +35,17 @@ function labelOfDoor(door: Door): DoorLabel {
   })!;
 }
 
-/** A door named on a query string or a header, or `null`. Only the doors in `DOORS` — never a guess. */
+/**
+ * A door named on a query string or a header, or `null`. Only the doors in `DOORS` — never a guess. An alias label in
+ * the map counts as its door (`business` → `supplier`): the first ruling, 24 Nov, sent sign-in to `/login?door=business`,
+ * so an old link or bookmark still lands on the focused supplier card, never the couple card.
+ */
 export function parseDoor(raw: unknown): Door | null {
   if (typeof raw !== 'string') return null;
   const s = raw.trim().toLowerCase();
-  return (DOORS as readonly string[]).includes(s) ? (s as Door) : null;
+  const host: DoorHost | undefined = Object.prototype.hasOwnProperty.call(DOOR_HOSTS, s) ? DOOR_HOSTS[s as DoorLabel] : undefined;
+  const name = host && 'aliasOf' in host ? host.aliasOf : s;
+  return (DOORS as readonly string[]).includes(name) ? (name as Door) : null;
 }
 
 /** `host[:port]` → the label of a door host (`supplier.setnayan.com`, and `supplier.localhost` in dev), or `null`. */

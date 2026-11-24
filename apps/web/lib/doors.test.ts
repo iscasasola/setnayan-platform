@@ -100,7 +100,10 @@ test('every sign-in on a door goes to /login?door=X on the one auth origin; ✕ 
     assert.equal(doorSignInHref(door, SITE), `https://www.setnayan.com/login?door=${door}`);
     assert.equal(parseDoor(door), door);
   }
-  assert.equal(parseDoor('business'), null, 'an alias is a host, not a door');
+  // an alias in the one map counts as its door: an old /login?door=business link lands on the supplier card
+  assert.equal(parseDoor('business'), 'supplier', 'door=business shows the couple card');
+  assert.equal(parseDoor(' Business '), 'supplier');
+  assert.equal(parseDoor('constructor'), null, 'only labels in the map, never an inherited key');
   assert.equal(parseDoor('admin'), null);
   assert.equal(doorFrontHref('supplier', SITE), 'https://supplier.setnayan.com/');
   assert.equal(doorFrontHref('coordinator', 'http://localhost:3000'), 'http://coordinator.localhost:3000/');

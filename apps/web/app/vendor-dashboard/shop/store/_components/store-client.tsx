@@ -68,8 +68,8 @@ export function StoreOp({
         return;
       }
       if (res.status === 'ok') toast.success(res.message);
+      // The action revalidated the Shop, the Toolkit, Badges and Analytics; its answer carries the new render.
       if (landTo) router.push(landTo);
-      else router.refresh();
     });
   };
   return (
@@ -269,7 +269,6 @@ const ARRANGE_TITLE: Readonly<Record<LayoutRow, string>> = { graphs: 'Arrange An
  * A paid tool taken off stays owned (the tools sheet says so). A save that fails keeps the sheet open and says why.
  */
 export function ArrangeEdit({ row, items }: { row: LayoutRow; items: readonly ArrangeItem[] }) {
-  const router = useRouter();
   const toast = useToast();
   const titleId = useId();
   const [open, setOpen] = useState(false);
@@ -304,7 +303,6 @@ export function ArrangeEdit({ row, items }: { row: LayoutRow; items: readonly Ar
       }
       if (res.status === 'ok') toast.success(res.message);
       setOpen(false);
-      router.refresh();
     });
   };
 

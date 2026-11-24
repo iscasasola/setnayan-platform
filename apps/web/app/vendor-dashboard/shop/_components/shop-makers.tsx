@@ -17,6 +17,7 @@ import { ServiceScannerPick } from './service-scanner-pick';
 import { LockExplainer } from '@/app/_components/lock/locked-feature';
 import type { OfferMakerStart } from '../../offers/_components/offer-maker';
 import { TemplatesOffersContext } from './shop-templates';
+import { NewThingTile } from '@/app/_components/collection-card';
 
 // 📦 The Offer Maker is its own chunk, fetched on the first open — never in the Shop tab's first load.
 // 🎂 The Cake Maker's options editor — only fetched when its tile opens (none of it is in the Shop's first load).
@@ -260,12 +261,12 @@ export function ShopMakers({
           })}
           {addToolHref ? (
             <li className="w-[150px] flex-none snap-start">
-              <Link href={addToolHref} className="sn-press flex h-full min-h-[128px] flex-col items-start gap-2 rounded-2xl border-2 border-dashed border-[color:var(--m-line)] p-3 text-sn-lg font-semibold text-ink" data-tool-add="">
+              <NewThingTile layout="ghost" href={addToolHref} label="Add a widget" className="flex h-full min-h-[128px] flex-col items-start gap-2 p-3 text-sn-lg font-semibold text-ink" data-tool-add="">
                 <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-full bg-[color:var(--surface-soft)] text-[color:var(--m-slate-2)]">
                   <Plus className="h-5 w-5" strokeWidth={2} />
                 </span>
                 Add a widget
-              </Link>
+              </NewThingTile>
             </li>
           ) : null}
         </ul>

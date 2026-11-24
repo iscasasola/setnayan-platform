@@ -45,7 +45,7 @@ test('2 · one line of doors: the logo · View shop · Toolkit · Share · Promo
 
 test('3 · Promote: one sheet, Posters & prints · My QRs, the old addresses still land', () => {
   assert.match(COVER, /label: 'Posters & prints'/);
-  // The QR tab reads "My QRs" since My QRs replaced Promote's QR part (main 341aee5063).
+  // 🔳 Main's My QRs (23 Nov): Promote's second tab reads "My QRs" (held too by shop/qrs/my-qrs-keeps-every-code.test.ts).
   assert.match(COVER, /label: 'My QRs'/);
   assert.match(COVER, /\{promoteTab === 'qr' \? qrBody : promoteBody\}/);
   assert.match(COVER, /const promoteOpen = sheet === 'promote' \|\| sheet === 'prints' \|\| sheet === 'qr';/);

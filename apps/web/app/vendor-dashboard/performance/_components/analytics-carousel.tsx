@@ -2,7 +2,6 @@
 
 import './analytics-growing.css';
 import { useMemo, useState, type ReactNode } from 'react';
-import Link from 'next/link';
 import { Plus } from 'lucide-react';
 import { SnapCarousel, type CarouselCard } from '@/components/snap-carousel';
 import { PillSelector } from '@/app/_components/pill-selector';
@@ -28,6 +27,9 @@ import { STORE_GRAPHS, graphWindowWords } from '@/lib/supplier-store';
 import { ArrangeEdit } from '@/app/vendor-dashboard/shop/store/_components/store-client';
 import { GraphArt } from '@/app/vendor-dashboard/shop/store/_components/graph-art';
 import type { InviteMonth } from '@/lib/graph-unlocks';
+import { NewThingTile } from '@/app/_components/collection-card';
+import type { StoreGraphs } from '@/lib/vendor-store-graphs';
+import { storeGraphSpecs } from './store-graphs';
 
 /**
  * 📊🎠 SHOP › ANALYTICS — ONE LONG CAROUSEL, AND IT IS THE ONLY ANALYTICS (owner 11 Nov 2026: *"Analytics should be the
@@ -158,9 +160,11 @@ type Props =
       giftsRecFacts?: GiftsRecFacts;
       /** The Invites graph (a fixed 12 months) — present only once Invites Bronze has opened it; null = a refused read. */
       invites?: InviteMonth[] | null;
+      /** 🛍 The Store's twelve new graphs, per window (lib/vendor-store-graphs.server.ts) — each `null` part = refused. */
+      store?: Record<GrowthWindow, StoreGraphs>;
       locked?: undefined;
     }
-  | { locked: { progress: string; totals: Record<GrowthWindow, Totals | null> }; view?: undefined; graphs?: undefined; unlocks?: undefined; gifts?: undefined; giftsRecFacts?: undefined; invites?: undefined };
+  | { locked: { progress: string; totals: Record<GrowthWindow, Totals | null> }; view?: undefined; graphs?: undefined; unlocks?: undefined; gifts?: undefined; giftsRecFacts?: undefined; invites?: undefined; store?: undefined };
 
 /**
  * 🛍 THE SHOP'S PICKS (owner 23 Nov 2026 — Store drawing v12, F0 + "Edit · Analytics"): `order` = the graphs the shop
@@ -188,11 +192,11 @@ export function AnalyticsCarousel(props: Props & Picks) {
     () =>
       base
         ? {
-            '30': { ...base['30'], gifts: props.gifts ? giftsSpec(props.gifts['30'], props.giftsRecFacts) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null },
-            '12': { ...base['12'], gifts: props.gifts ? giftsSpec(props.gifts['12'], props.giftsRecFacts) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null },
+            '30': { ...base['30'], gifts: props.gifts ? giftsSpec(props.gifts['30'], props.giftsRecFacts) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null, ...(props.store ? storeGraphSpecs(props.store['30'], '30') : {}) },
+            '12': { ...base['12'], gifts: props.gifts ? giftsSpec(props.gifts['12'], props.giftsRecFacts) : null, invites: props.invites !== undefined ? invitesSpec(props.invites) : null, ...(props.store ? storeGraphSpecs(props.store['12'], '12') : {}) },
           }
         : null,
-    [base, props.gifts, props.giftsRecFacts, props.invites],
+    [base, props.gifts, props.giftsRecFacts, props.invites, props.store],
   );
   const hidden = useMemo(() => new Set(props.unlocks?.hidden ?? []), [props.unlocks]);
 
@@ -233,10 +237,10 @@ export function AnalyticsCarousel(props: Props & Picks) {
       key: 'add',
       label: 'Add a graph',
       node: (
-        <Link href={props.addHref} className="ag-card-in sn-press flex h-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[color:var(--m-line)] text-[color:var(--m-slate-2)]" data-analytics-add="">
+        <NewThingTile layout="ghost" href={props.addHref} label="Add a graph" className="ag-card-in flex h-full flex-col items-center justify-center gap-2 text-[color:var(--m-slate-2)]" data-analytics-add="">
           <Plus aria-hidden className="h-7 w-7" strokeWidth={1.8} />
           <b className="text-sn-lg font-semibold text-ink">Add a graph</b>
-        </Link>
+        </NewThingTile>
       ),
     });
   }
@@ -260,7 +264,7 @@ export function AnalyticsCarousel(props: Props & Picks) {
             Analytics
           </h2>
           {props.addHref ? (
-            <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" aria-label={`${graphCount} ${graphCount === 1 ? 'graph' : 'graphs'}`} data-analytics-count="">
+            <span className="rounded-full bg-[color:var(--surface-soft)] px-2 py-0.5 text-sn-sm font-semibold text-[color:var(--m-slate-2)]" aria-label={`${formatCount(graphCount)} ${graphCount === 1 ? 'graph' : 'graphs'}`} data-analytics-count="">
               {formatCount(graphCount)}
             </span>
           ) : null}

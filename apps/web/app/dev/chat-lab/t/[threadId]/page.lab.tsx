@@ -16,6 +16,9 @@
  *   ?unverified=1   (couple side) the shop is not verified yet → the REAL `NotYetVerifiedThreadLine` in the head's
  *                   `below` slot, as the couple's thread page draws it (DECISION_LOG 2026-11-07 ruling (4))
  *                   (vendor side) the shop is not verified → its ＋ tiles locked and NO mic, as the supplier's page
+ *   ?share=1        🧰 the five tool cards the supplier shared (DECISION_LOG 2026-11-23 dee66686) — waiting, and the 3D
+ *                   plan approved; on ?side=vendor the ＋ › Share from your widgets picker lists &tools=all (default) ·
+ *                   some · none · unread. Open / Approve / a pick post the REAL send, which needs a session here.
  *
  * The real thread routes' `loading.tsx` is `ThreadArrival`; this lab has NO loading.tsx (a dev route under a loading
  * boundary that 404s in production would stream a 200 first — `the-press-commits-now.test.ts`). It draws the same
@@ -44,7 +47,8 @@ import {
 import { CHAT_ATTACH_INPUT_ID } from '@/lib/chat-attach-input-id';
 import { dealEntryFor } from '@/lib/deal-entry';
 import { initialsForSupplierName } from '@/lib/conversation-list';
-import { LAB_EVENT, LAB_MESSAGES, LAB_STAFF, LAB_THREADS, LAB_USER } from '../../fixtures';
+import { LAB_EVENT, LAB_MESSAGES, LAB_STAFF, LAB_THREADS, LAB_USER, labToolShareMessages } from '../../fixtures';
+import type { ShareableRead } from '@/lib/chat-tool-share-held';
 
 /** The couple's ⋮ rows as the thread page passes them (each wears its own picture — owner 2026-10-29). */
 const LAB_MENU_LINKS = [
@@ -100,7 +104,19 @@ async function LabThread({ params, searchParams }: LabProps) {
   const fileMode = one('file');
   const fileAgoMs = { ring: 1_000, sheet: 2 * 60_000, late: 6 * 60_000, booking: 60_000 }[fileMode as 'ring'] ?? null;
   const fileId = LAB_MESSAGES[LAB_MESSAGES.length - 1]!.message_id;
-  const messages = LAB_MESSAGES.map((m) =>
+  // 🧰 `?share=1` — the five shared tool cards (both faces: waiting, and the 3D plan approved). The supplier's ＋ picker
+  // lists `&tools=all` (default) · `none` (the shop holds none yet) · `unread` (the list could not be read) · `some`.
+  const toolsMode = one('tools');
+  const shareFixture: ShareableRead | null =
+    toolsMode === 'unread'
+      ? null
+      : toolsMode === 'none'
+        ? { tools: [], unread: false }
+        : toolsMode === 'some'
+          ? { tools: ['run_of_show', 'emcee_script'], unread: false }
+          : { tools: ['cake_tool', 'plan_3d', 'run_of_show', 'emcee_script', 'song_bank'], unread: false };
+  const base = one('share') === '1' ? [...LAB_MESSAGES, ...labToolShareMessages()] : LAB_MESSAGES;
+  const messages = base.map((m) =>
     fileAgoMs !== null && m.message_id === fileId ? { ...m, thread_id: threadId, created_at: new Date(Date.now() - fileAgoMs).toISOString() } : { ...m, thread_id: threadId },
   );
   const expiryEventDate =
@@ -149,6 +165,7 @@ async function LabThread({ params, searchParams }: LabProps) {
                       threadId={threadId}
                       verified={shopVerified}
                       state={{ hasAgreement: booked, askOpen: false, paymentsToConfirm: 0, guestCountChanges: 0 }}
+                      share={shareFixture}
                     />
                   )
                 }

@@ -5,7 +5,7 @@
  * open-to-all start date (`platform_settings.special_tools_paid_from`) no longer opens a paid widget either.
  *
  * The ONE answer is the database's `vendor_store_tool_open` (bought AND `vendor_pro_tools_included`), read through
- * `readShopSpecialToolOpen` (lib/cake-maker.server.ts). This file holds the subscription half's plan list —
+ * `readShopSpecialToolOpen` (lib/paid-widget-open.server.ts). This file holds the subscription half's plan list —
  * `TIER_CAPS[tier].specialTools` — and the words every lock reads, so a ladder change moves the words.
  * Free and Verified LOCK: saved options and sent designs are kept, never deleted.
  */

@@ -125,6 +125,7 @@ export type SendMessageError =
   | 'plus_unverified'
   | 'private_recipient'
   | 'whisper_refused'
+  | 'tool_share_refused'
   | 'insert_failed';
 
 export type SendMessageResult =
@@ -314,6 +315,27 @@ export async function sendChatMessageCore(
     const { plusGateRefusal } = await import('./shop-plus-gate');
     const unverified = plusGateRefusal(await shopPlusGate(supabase, thread.vendor_profile_id));
     if (unverified) return { ok: false, code: 'plus_unverified', message: unverified };
+  }
+
+  // 🧰 A TOOL SHARE IS A ＋ TOOL TOO ("Share from your widgets", DECISION_LOG 2026-11-23 dee66686). The card is the line's
+  // exact words (`lib/chat-tool-share.ts`), so the words are checked HERE, at the server — hiding the picker's row is
+  // not a check: the shop must be verified AND hold the tool (the Store's own rule, `readShareableTools`). A refused
+  // read refuses ("couldn't check"), never lets a share of a tool the shop may not have through.
+  if (senderRole === 'vendor') {
+    const { toolShareFromLine, SHARE_NOT_HELD, SHARE_NOT_CHECKED } = await import('./chat-tool-share');
+    const shared = toolShareFromLine(trimmed);
+    if (shared) {
+      const admin = createAdminClient();
+      const { shopPlusGate } = await import('./shop-plus-gate.server');
+      const { plusGateRefusal } = await import('./shop-plus-gate');
+      const unverified = plusGateRefusal(await shopPlusGate(supabase, thread.vendor_profile_id));
+      if (unverified) return { ok: false, code: 'tool_share_refused', message: unverified };
+      const shop = await admin.from('vendor_profiles').select('services').eq('vendor_profile_id', thread.vendor_profile_id).maybeSingle();
+      if (shop.error || !shop.data) return { ok: false, code: 'tool_share_refused', message: SHARE_NOT_CHECKED };
+      const { readShareableTools } = await import('./supplier-store.server');
+      const held = await readShareableTools(admin, thread.vendor_profile_id, ((shop.data as { services?: string[] | null }).services ?? []) as string[]);
+      if (!held.tools.includes(shared)) return { ok: false, code: 'tool_share_refused', message: held.unread ? SHARE_NOT_CHECKED : SHARE_NOT_HELD };
+    }
   }
 
   // 🔒 PRIVATE TO ONE PERSON — yourself is everyone; a file is refused (owner, 9 Nov: "private messages are just words.

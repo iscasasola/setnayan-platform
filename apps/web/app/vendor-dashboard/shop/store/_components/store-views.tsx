@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { formatCount } from '@/lib/format-number';
 import type { ReactNode } from 'react';
 import { BadgeCheck, Check, ChevronRight, Layers, Lock, Plus, QrCode, ShoppingBag, Sparkles } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -330,7 +331,7 @@ export function StoreShelfRow({ title, count, href, children, data }: { title: s
       <h2 className="hc-k2 mb-2 min-h-9 justify-between">
         <span>{title}</span>
         <Link href={href} className="sn-press inline-flex min-h-11 items-center gap-0.5 text-sn-base font-semibold normal-case text-[rgb(var(--color-link))]" data-store-see-all={data}>
-          See all {count}
+          See all {formatCount(count)}
           <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
         </Link>
       </h2>

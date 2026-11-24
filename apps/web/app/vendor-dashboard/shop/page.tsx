@@ -1,7 +1,7 @@
 import { getCurrentUser } from '@/lib/auth';
 import { readStoreLayout, readStoreToolFacts } from '@/lib/supplier-store.server';
 import { followedBadges, noCardWords, storageMeter, yourTools, type StorageMeter, type StoreLayout } from '@/lib/supplier-store';
-import { readStoredBytes } from '@/lib/supplier-storage.server';
+import { readStoredBytesWithoutMeasuring } from '@/lib/supplier-storage.server';
 import { nextStoragePlan } from '@/lib/supplier-storage';
 import { readPayPlanTemplates } from '@/lib/pay-plan-templates.server';
 import { routes } from '@/lib/routes';
@@ -405,7 +405,7 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   const storeAdmin = createAdminClient();
   const layoutRead = readStoreLayout(supabase, vendorId);
   const toolFactsRead = layoutRead.then((l) => readStoreToolFacts(supabase, storeAdmin, vendorId, (profile.services ?? []) as string[], l));
-  const storedRead = readStoredBytes(storeAdmin, vendorId);
+  const storedRead = readStoredBytesWithoutMeasuring(storeAdmin, vendorId);
   const plansRead = readPayPlanTemplates(supabase, vendorId).catch((err: unknown) => {
     logQueryError('shop.readPayPlanTemplates', err, { vendor_profile_id: vendorId });
     return { status: 'unread' as const };
@@ -813,14 +813,16 @@ async function ShopHome({
           </p>
           <VendorServicesManager search={sp} basePath="/vendor-dashboard/shop" toolsByCoverage={toolsByCoverage(data)} />
           {/* ＋ Services end in their own tile (Store drawing v10, F0): the Card Maker, as the head's ＋ › New service. */}
-          <Link
+          <NewThingTile
+            layout="ghost"
             href={SERVICE_MAKER_HREF}
-            className="sn-press mt-3 flex min-h-16 items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-[color:var(--m-line)] text-sn-lg font-semibold text-ink"
+            label="Add a service"
+            className="mt-3 flex min-h-16 items-center justify-center gap-2 text-sn-lg font-semibold text-ink"
             data-shop-service-add=""
           >
             <Plus aria-hidden className="h-5 w-5 text-[color:var(--m-slate-2)]" strokeWidth={2} />
             Add a service
-          </Link>
+          </NewThingTile>
         </section>
         </div>
       </div>
@@ -839,6 +841,7 @@ import { Suspense } from 'react';
 import { shopGearBodyAlways } from './_components/shop-settings-body';
 import { BadgeRewardSweep } from '../_components/badge-reward-sweep';
 import { shopFormsBody } from './_components/shop-forms-body';
+import { NewThingTile } from '@/app/_components/collection-card';
 
 export default async function VendorShopHub({
   searchParams,

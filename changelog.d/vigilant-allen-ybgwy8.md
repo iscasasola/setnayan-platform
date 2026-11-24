@@ -41,12 +41,13 @@ The owner ruled the release order on 24 Nov: "start with event hub. then supplie
   - The Papic camera is untouched: it already queues.
 - **Words.** The E-Gifts header said "Pabuya"; it now says "E-Gifts".
 - **Guards:**
-  - `app/sw-offline-copies.test.ts`: 13 new R18 tests, covering both address forms, every page saved, a deploy, the seal, sign-out, the day after, the announcement, the host's app, and one cache only.
+  - `app/sw-offline-copies.test.ts`: 12 new R18 tests, covering both address forms, every page saved, a deploy, the seal, sign-out, the day after, the announcement, the host's app, and one cache only.
+  - `app/sw-is-a-pass-through-on-a-dev-host.test.ts`: its golden production trace changes in exactly two rows, edited by hand and noted in the guard (the guest navigation is no longer kept in the retired day-of cache, and the cache-bust no longer deletes it). A new pin fails if the day-of cache comes back.
   - `lib/needs-internet.test.ts`: the real guard against a fake document, offline and online.
   - `lib/offline-copies.test.ts`: 4 new tests.
   - `app/[slug]/every-saved-hub-page-wears-its-mark.test.ts`.
   - `app/sw-the-maker-asks-once.test.ts`: its day-of tests are re-pointed to the new rules.
-  - 18 sabotages were each measured landing (1 → 0) and seen red. Two guards were decorative on the first run and were fixed:
+  - 19 sabotages were each measured landing and seen red. Two guards were decorative on the first run and were fixed:
     - nothing tested that a room is kept only beside a sealed hub page;
     - the deploy test's `VERSION` replace hit the COMMENT quoting `const VERSION = '…'`, not the real line.
 - **Real Chromium, the real worker** (stand-in pages, a non-development host):

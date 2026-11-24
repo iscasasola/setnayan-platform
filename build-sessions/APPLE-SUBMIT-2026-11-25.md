@@ -91,13 +91,14 @@ SIGN IN
 Use the demo account above (email and password, not Google). In-App Purchases are offered only to an event's host, and only in this iOS app. The demo account is the host of three events, so that each event plan can be bought once: "Ana & Ben" (Event Plus), "Carla & Dan" (Event Pro) and "Ella & Fred" (Event Ultra). One event holds one plan. The demo account also runs the supplier shop "Review Shop", which buys the gift items. Home may also list events the account only helps with; those offer no purchases, so please use the three named here.
 
 WHAT THE APP IS
-Setnayan is an event planning tool for weddings, debuts, birthdays and other celebrations: guests and RSVP, seating, a schedule, a budget, suppliers and chat, and the event's own page for guests. The app loads our web application with native Sign in with Apple, camera, photos, NFC and In-App Purchase.
+Setnayan is an event planning tool for weddings, debuts, birthdays and other events: guests and RSVP, seating, a schedule, a budget, suppliers and chat, and the event's own page for guests. The app loads our web application with native Sign in with Apple, camera, photos, NFC and In-App Purchase.
 
 IN-APP PURCHASES (13 consumable items, each bought for one event, or for the supplier's gift stock)
+Step by step, with what each screen shows: the attached setnayan-purchase-guide.pdf, and each item's own Review Notes.
 
 1. Event Plus, Event Pro, Event Ultra (event_plus, event_pro, event_ultra)
 Home > open the event > Today > Your services > Event services (the last row) > under "Pick a pack" tap the plan > Pay > Apple's purchase sheet.
-Buy Event Plus on "Ana & Ben", Event Pro on "Carla & Dan", Event Ultra on "Ella & Fred". Once an event has a plan, the page offers no other plan for it.
+Buy Event Plus on "Ana & Ben", Event Pro on "Carla & Dan", Event Ultra on "Ella & Fred".
 
 2. Live Watch (live_watch)
 On "Ana & Ben" or "Carla & Dan": Today > Your services > Live stream > Activate > tick the box > Add Live Watch.
@@ -183,6 +184,7 @@ If a label reads differently on screen, change the note to match the screen.
      - `papic_thank_you`, `mood_board_renders_50`, every `hub_part_*`
    - **Do NOT attach the supplier subscriptions** (`supplier_plus_monthly`, `supplier_pro_monthly`, `supplier_ultra_monthly`). They ship with the next version.
    - Each of the 13 needs its Review screenshot (step 8) before it can be added.
+   - **Each product's Review Notes:** paste its block from `build-sessions/APPLE-PURCHASE-GUIDE-2026-11-25.md` section A: how to buy it, and what the screen shows once it worked.
    - If a figure in the table is not offered as an Apple price point, **stop and tell the controller**. Never pick a nearby one.
 4. **Live Watch: one price on both sides.** The website side is **DONE**.
    - You ruled on 25 Nov: "so it is 3990 one time payment / 3990/day if hosted".
@@ -211,7 +213,7 @@ If a label reads differently on screen, change the note to match the screen.
 9. **Version 1.0 page:**
    - Pick **build 9** (or 10).
    - Under In-App Purchases and Subscriptions, add the 13 products and **no** subscription.
-   - App Review Information: sign-in ON, the demo account's email and password (you type them), your contact, and the **Notes from section 2**. Attach `setnayan-nfc-demo.mp4`.
+   - App Review Information: sign-in ON, the demo account's email and password (you type them), your contact, and the **Notes from section 2**. Attach `setnayan-nfc-demo.mp4` and `setnayan-purchase-guide.pdf` (made from the purchase guide's section B). If App Store Connect takes only one attachment, keep the video and delete the "Step by step" line from the notes: each product's own Review Notes carry the same steps.
 10. **Submit:** Version Release = **Manually release this version**, then **Add for Review** › **Submit**.
 11. **Tell the controller it is submitted.** Supnayan stays parked until Apple approves this one.
 

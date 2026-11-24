@@ -284,8 +284,14 @@ test('6 · Offline bar — Quick in and out by translate; only after the browser
   assert.equal(MOTION_TABLE.offlineMs, QUICK_MS);
   const { OFFLINE_WORDS, BACK_ONLINE_WORDS } = await import('../app/_components/offline-bar');
   assert.equal(BACK_ONLINE_WORDS, 'Back online ✓');
-  assert.match(OFFLINE_WORDS, /^You're offline/);
+  // Owner (DECISION_LOG cfd9bbdf, 9366a4d3 "Offline is LIMITED"): most pages do not save offline, so the global bar
+  // says only that the connection dropped. It never promises a save, a sync or a queue.
+  assert.equal(OFFLINE_WORDS, "You're offline");
   const src = read('app/_components/offline-bar.tsx');
+  const drawn = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
+  for (const words of [OFFLINE_WORDS, BACK_ONLINE_WORDS, drawn]) {
+    assert.doesNotMatch(words, /\b(save[sd]?|saving|sync(s|ed|ing)?|queued?|when you(?:'|’)re back)\b/i, 'the offline bar promises a save it cannot keep');
+  }
   // Never from navigator.onLine on load: a bar on every cold start of a waking phone would be a false alarm.
   assert.match(src, /useState<Phase>\('hidden'\)/);
   assert.doesNotMatch(src, /navigator\.onLine/, 'the bar reads navigator.onLine — it must wait for the browser’s own `offline` event');

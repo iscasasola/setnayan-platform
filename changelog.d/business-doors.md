@@ -26,4 +26,4 @@ The owner approved the business door drawing v7 (claude.ai artifact VFyriJ267Pw6
   - The same flag can be turned on by a future "Setnayan Business" app shell (a `SetnayanBusiness` user-agent marker or a `setnayan-door` cookie, DECISION_LOG 866cebc5). The signed-in dashboard then loses its own rail rows, the way back and the company links. The app shell itself is not built.
 - **/for-coordinators:** "Your preferred suppliers" is now "Trusted partners" (`TRUSTED_PARTNERS`).
 
-SPEC IMPACT: None. This builds the approved door drawing and DECISION_LOG 866cebc5's flag. The owner still has to add the door hosts (or `*.setnayan.com`) to the Vercel project and DNS.
+SPEC IMPACT: None. This builds the approved door drawing and DECISION_LOG 866cebc5's flag. The owner added the three door hosts to Vercel and their DNS on 24 Nov.

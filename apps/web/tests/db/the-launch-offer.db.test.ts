@@ -93,8 +93,8 @@ async function newVendor(): Promise<string> {
 
 async function newBooking(vpid: string, opts: { sourced?: boolean; status?: string; serviceId?: string } = {}) {
   const e = await db.query<{ event_id: string }>(
-    `INSERT INTO public.events (display_name, event_type, event_date)
-     VALUES ('A celebration','birthday','2030-07-01') RETURNING event_id`,
+    `INSERT INTO public.events (for_whom, display_name, event_type, event_date)
+     VALUES ('self', 'A celebration','birthday','2030-07-01') RETURNING event_id`,
   );
   const eventId = e.rows[0]!.event_id;
   const ev = await db.query<{ vendor_id: string }>(

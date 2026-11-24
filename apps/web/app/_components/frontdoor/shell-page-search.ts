@@ -33,12 +33,15 @@ export function topBarSearch<T>({
   handed,
   signedIn,
   pageHasOwnSearch,
+  onADoor = false,
 }: {
   handed: T | false | undefined;
   signedIn: boolean;
   pageHasOwnSearch: boolean;
+  /** 🚪 A business door (lib/doors.ts) draws no search, signed in or out (drawing v7). */
+  onADoor?: boolean;
 }): T | false | undefined {
-  if (pageHasOwnSearch) return false;
+  if (pageHasOwnSearch || onADoor) return false;
   if (handed !== undefined) return handed;
   return signedIn ? false : undefined;
 }

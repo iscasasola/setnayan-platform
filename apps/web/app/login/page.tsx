@@ -19,6 +19,10 @@ import type { Metadata } from 'next';
 import { SignInCardModal } from './_components/sign-in-card-modal';
 import { LastSeenSignedOutWipe } from '@/app/_components/last-seen/last-seen-wipe-script';
 import { getLoginView, type LoginSearchParams } from './_components/login-data';
+import { redirect } from 'next/navigation';
+import { getCurrentUser } from '@/lib/auth';
+import { doorFrontHref, doorLandingHref } from '@/lib/doors';
+import { siteOrigin } from '@/lib/site-origin';
 
 export const metadata: Metadata = {
   title: 'Sign in',
@@ -34,6 +38,12 @@ export default async function LoginPage({
 }) {
   const params = await searchParams;
   const view = await getLoginView(params);
+  // 🚪 FROM A BUSINESS DOOR, ALREADY SIGNED IN (owner 24 Nov 2026): no card — straight on, by the same landing rule
+  // (`/auth/door` → `landingForAccount` with the door). An anonymous session (a host with no account yet) is not
+  // signed in. Read only when a door asked, so every other /login pays nothing.
+  const user = view.door ? await getCurrentUser() : null;
+  const signedIn = Boolean(user && !user.is_anonymous);
+  if (view.door && signedIn) redirect(doorLandingHref(view.door));
   // ✕ (and Escape, and the backdrop) go to Discover ("/") — on the web AND in
   // the phone and desktop apps. The apps open ON this page; while Apple
   // reviewed 1.0 middleware bounced "/" straight back here inside them, so a ✕
@@ -57,7 +67,9 @@ export default async function LoginPage({
           (a host's kept pages) is emptied before anything else runs. */}
       <LastSeenSignedOutWipe />
       <SignInCardModal
-        dismissHref={view.forGuest ? view.next : '/'}
+        // 🚪 From a business door the ✕ goes back to that door, never to Discover (drawing v7).
+        dismissHref={view.door ? doorFrontHref(view.door, siteOrigin()) : view.forGuest ? view.next : '/'}
+        door={view.door}
         next={view.next}
         signupHref={view.signupHref}
         showOAuth={view.showOAuth}

@@ -21,6 +21,7 @@ import { resolveProfile } from '@/lib/event-type-profile';
 import { sanitizeSetupAnswers, setupLanding } from '@/lib/onboarding/setup-answers';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 import { resolveEventHonoree } from '@/lib/honoree-dependent-link';
+import { forWhomToStore } from '@/lib/event-for-whom';
 import { setupColumns } from '@/lib/onboarding/event-insert';
 import { SIMPLE_NEEDS_FIELD, SIMPLE_SETUP_FIELD } from './_components/simple-setup-field';
 import { defaultNeedsFor, needsColumns, sanitizeNeeds, applyNeedsToSetup } from '@/lib/event-needs';
@@ -156,6 +157,12 @@ export async function commitSimpleEvent(formData: FormData) {
       display_name,
       honoree_label,
       honoree_dependent_id,
+      // ⚖ Who it is for (owner 2026-11-23): only 'self' lets a booking fee be waived; locked once a supplier joins.
+      for_whom: forWhomToStore({
+        claimed: formData.get('for_whom'),
+        honoreeLabel: honoree_label,
+        honoreeDependentId: honoree_dependent_id,
+      }),
       // We have an exact date → day precision (the column DEFAULTs to 'year').
       // No date ("When" is optional on the needs screen) → an undated event,
       // the generic commit's shape.

@@ -11,6 +11,9 @@
  * ⚠ A CLAIM ONLY. `commitSimpleEvent` hands both to `resolveEventHonoree`, which
  * re-reads the record under `owner_user_id = you` and links it only when it is
  * the caller's own BUSINESS — a person carried here is dropped, label and all.
+ *
+ * ⚖ "For · You" rides too, as `for_whom` (owner 2026-11-23): the answer is kept on the event, because only a For-you
+ * event may have its booking fee waived. A record carried here (a business or a person) posts `someone`.
  */
 import { useEffect, useState } from 'react';
 import { takeHonoree, type HonoreeCarry } from '@/lib/onboarding/honoree-handoff';
@@ -19,13 +22,15 @@ export function CarriedHonoreeFields() {
   const [carried, setCarried] = useState<HonoreeCarry | null>(null);
   useEffect(() => {
     const c = takeHonoree();
-    if (c?.dependentId) setCarried(c);
+    if (c?.dependentId || c?.forSelf) setCarried(c);
   }, []);
+  if (carried?.forSelf) return <input type="hidden" name="for_whom" value="self" />;
   if (!carried?.dependentId) return null;
   return (
     <>
       <input type="hidden" name="honoree_label" value={carried.name} />
       <input type="hidden" name="honoree_dependent_id" value={carried.dependentId} />
+      <input type="hidden" name="for_whom" value="someone" />
     </>
   );
 }

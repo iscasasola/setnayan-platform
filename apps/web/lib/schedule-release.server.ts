@@ -4,6 +4,7 @@ import { eventProPlanActive } from './couple-website-pro';
 import { eventEntitlementClient } from './event-entitlement-client.server';
 import { asViewed } from './view-as-free.server';
 import { getIapGate } from './request-platform';
+import { routes } from './routes';
 import { logQueryError } from './supabase/error-detect';
 import type { NotificationType } from './notifications';
 
@@ -61,7 +62,13 @@ export async function readScheduleRelease(supabase: SupabaseClient, eventId: str
     kind: 'ok',
     releasedAt: (row.data as { schedule_released_at?: string | null } | null)?.schedule_released_at ?? null,
     pro,
-    // 🍎 Where Apple sells Pro, its page; any other store shell sells none — the door is absent there (shell rule).
-    proHref: gate.iap ? `/dashboard/${eventId}/apple-pro` : gate.storeShell ? null : `/dashboard/${eventId}/studio/website-pro`,
+    // 🍎 Where Apple sells, Event services with Event Pro picked (Release is the Pro PLAN's, `eventProPlanActive`; the
+    // app's /apple-pro sells Event Plus since 20 Nov, which does not release); any other store shell sells none — the
+    // door is absent there (shell rule).
+    proHref: gate.iap
+      ? `${routes.dashboard.eventServices(eventId)}?plan=pro`
+      : gate.storeShell
+        ? null
+        : `/dashboard/${eventId}/studio/website-pro`,
   };
 }

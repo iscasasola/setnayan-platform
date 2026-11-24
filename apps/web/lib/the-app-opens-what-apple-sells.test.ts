@@ -83,6 +83,10 @@ const OPENS = [
   `/dashboard/${E}/studio/setnayan-ai`,
   // 🎬 R3 (owner 2026-10-27): the Thank-You Video maker is a Memories page now.
   `/dashboard/${E}/memories/thank-you`,
+  // 🛒 Event services (owner 2026-11-23): Event Plus · Pro · Ultra, Live Watch and photos, Apple's sheet per item. Its
+  // iPhone face strips every web peso (`withoutWebFigures`); until 24 Nov the route stayed refused, so Pro and Ultra had
+  // no door in the app at all.
+  `/dashboard/${E}/studio/website-pro`,
 ];
 const STAYS_REFUSED = [
   // 2026-11-20: Music Maker and Patiktok are RETIRED (lib/retired-products.ts) — Apple no longer sells them, so
@@ -105,7 +109,6 @@ const STAYS_REFUSED = [
   `/dashboard/${E}/studio/about/pakanta`,
   `/dashboard/${E}/studio/about/patiktok`,
   `/dashboard/${E}/studio/about/thank-you`,
-  `/dashboard/${E}/studio/website-pro`,
   `/dashboard/${E}/studio/animated-monogram`,
   `/dashboard/${E}/orders/new`,
   `/dashboard/${E}/checkout`,

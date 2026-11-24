@@ -32,7 +32,7 @@ const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
 
 test('the Verified card opens a shop carrying the choice; Free keeps the bare door', () => {
   const front = read('app/for-suppliers/_components/supplier-front-page.tsx');
-  assert.match(front, /cta: t === 'free' \? CTA : 'Get verified', href: t === 'free' \? OPEN_SHOP : OPEN_SHOP_VERIFIED_HREF \}/);
+  assert.match(front, /cta: t === 'free' \? CTA : 'Get verified', href: t === 'free' \? OPEN_SHOP : onSiteHref\(OPEN_SHOP_VERIFIED_HREF, SITE\) \}/);
   assert.equal(OPEN_SHOP_VERIFIED_HREF, '/open-shop?plan=verified');
   assert.doesNotMatch(OPEN_SHOP_VERIFIED_HREF, /₱|price|amount/i, 'no price rides on the Verified door');
 });

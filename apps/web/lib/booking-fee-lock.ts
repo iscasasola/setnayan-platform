@@ -17,6 +17,11 @@
  * free-fee window, Setnayan's every-Nth booking fee, and a free booking fee
  * ticket (auto-claimed — never redeemed at will).
  *
+ * ⚖ 23 NOV — EVERY ONE OF THOSE FREE PATHS NEEDS A "FOR YOU" EVENT (specs DECISION_LOG "Free booking fee only on
+ * 'For you' events, locked once a supplier joins"): the account that made the event is its celebrant
+ * (`events.for_whom = 'self'`, lib/event-for-whom.ts). An event made for someone else always pays. A ledger place
+ * frozen free, or already in the launch offer, before that day is never taken back.
+ *
  * The DB-touching wrapper (open the charge + issue the vendor order + notify)
  * lives in lib/booking-fee-lock.server.ts and composes these.
  */
@@ -223,20 +228,26 @@ export type LockFeeDecision = {
 };
 
 /**
- * The pure LOCK-fee decision — the mirror of `booking_fee_open_lock_charge` (migration 20271356196197), arm for arm
- * and in the same order. Deterministic, no I/O. Every number arrives as an argument (the schedule and N come from
- * `platform_settings`); nothing here types a rate, a band, a lock or a count.
+ * The pure LOCK-fee decision — the mirror of `booking_fee_open_lock_charge` (migration 20271360986087, which
+ * re-created 20271356196197's body with the 23 Nov gate), arm for arm and in the same order. Deterministic, no I/O.
+ * Every number arrives as an argument (the schedule and N come from `platform_settings`); nothing here types a rate,
+ * a band, a lock or a count.
  *
  *   1 · flag OFF or no marketplace shop      → no charge
- *   2 · attribution 'import'                 → waived, no fee recorded (the 16 Nov import rule)
- *   3 · launch offer                         → waived, fee recorded
+ *   2 · attribution 'import', FOR YOU        → waived, no fee recorded (the 16 Nov import rule)
+ *   3 · launch offer: a place already held,
+ *       or a new one on a FOR YOU event      → waived, fee recorded
  *   4 · a place frozen free (pre-20 Nov)     → waived, fee recorded (never taken back)
  *   5 · fee ₱0                               → a cleared charge
- *   6 · free-fee window                      → waived, fee recorded
+ *   6 · free-fee window, FOR YOU             → waived, fee recorded
  *   7 · the booking carries a fee → takes its number in Setnayan's count:
- *         every Nth                          → waived; a ticket the shop holds is NOT used
- *         else a ticket waiting              → the ticket pays it (auto-claimed, oldest first)
+ *         every Nth, FOR YOU                 → waived; a ticket the shop holds is NOT used
+ *         else a ticket waiting, FOR YOU     → the ticket pays it (auto-claimed, oldest first)
  *         else                               → billed, with an order
+ *
+ * ⚖ 23 NOV: `forYou` false (someone else, a business, a memorial, or never recorded) skips every waiver except the
+ * two that were already granted (a frozen free place, a launch place already held). An import on such an event is
+ * billed like any other booking — its attribution stays 'import'; only the waiver is withheld.
  *
  * The fee is the verified taper or, for an unverified shop, the flat rate — both locked (`bookingFeePhpFor`).
  */
@@ -246,11 +257,16 @@ export function decideLockFee(args: {
   onPlatform: boolean;
   /** `booking_fee_attribution_for` for this (shop, event). */
   attribution: 'sourced' | 'import';
+  /** `booking_fee_event_is_for_you(event)` — the event's creator is its celebrant (`events.for_whom = 'self'`). */
+  forYou: boolean;
   /** `booking_fee_shop_verified_since(shop) IS NOT NULL` — picks the taper over the flat rate. */
   shopVerified: boolean;
   /** `booking_fee_ledger.is_free_booking` on a row frozen before 20 Nov. */
   frozenFree: boolean;
+  /** A launch place is open for this booking (or already held — see `launchOfferHeld`). */
   launchOffer: boolean;
+  /** `booking_fee_ledger.launch_offer` was already true — a place granted before is never taken back. */
+  launchOfferHeld?: boolean;
   promoWindow: boolean;
   agreedTotalPhp: number | null | undefined;
   schedule: BookingFeeSchedule;
@@ -271,16 +287,17 @@ export function decideLockFee(args: {
     reason,
   });
   if (!args.flagEnabled || !args.onPlatform) return none('off');
-  if (args.attribution === 'import') return none('not_sourced');
+  const forYou = args.forYou === true;
+  if (args.attribution === 'import' && forYou) return none('not_sourced');
   const fee = bookingFeePhpFor(Number(args.agreedTotalPhp ?? 0), args.schedule, { verified: args.shopVerified });
-  if (args.launchOffer) return none('launch_offer', fee);
+  if (args.launchOfferHeld === true || (args.launchOffer && forYou)) return none('launch_offer', fee);
   if (args.frozenFree) return none('frozen_free', fee);
   if (fee <= 0) return none('zero', 0);
-  if (args.promoWindow) return none('promo', fee);
-  if (isPlatformFreeNumber(args.nextPlatformNumber, args.freeEveryNth)) {
+  if (args.promoWindow && forYou) return none('promo', fee);
+  if (forYou && isPlatformFreeNumber(args.nextPlatformNumber, args.freeEveryNth)) {
     return { ...none('every_nth', fee), takesPlatformNumber: true };
   }
-  if (args.ticketWaiting) return { ...none('ticket', fee), takesPlatformNumber: true };
+  if (args.ticketWaiting && forYou) return { ...none('ticket', fee), takesPlatformNumber: true };
   return {
     charge: true,
     free: false,

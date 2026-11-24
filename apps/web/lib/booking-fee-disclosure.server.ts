@@ -76,19 +76,29 @@ export async function resolveBookingFeeStanding(
   if (!isBookingFeeEnabled()) return { kind: 'silent' };
   if (!args.vendorProfileId) return { kind: 'silent' };
 
-  // Attribution: 'import' (a client the shop brought) carries no fee, ever. The
+  // ⚖ 23 NOV — A WAIVER NEEDS A "FOR YOU" EVENT (specs DECISION_LOG "Free booking fee only on 'For you' events, locked
+  // once a supplier joins"): every free arm below is said only when the event's creator is its celebrant — the same
+  // `booking_fee_event_is_for_you` the charge asks. A refused read is `unreadable`, never "free". With no event (the
+  // shop-level plan screen) there is no booking to judge, so the shop's general standing is said, as before.
+  let forYou = true;
+  // Attribution: 'import' (a client the shop brought) carries no fee on a For-you event. The
   // SQL function IS the rule — re-implementing `inquiry_source` matching in TS
   // would be a second source of truth for who counts as Setnayan-sourced.
   if (args.eventId) {
-    const { data: attribution, error: aErr } = await admin.rpc(
-      'booking_fee_attribution_for',
-      { p_vendor_profile_id: args.vendorProfileId, p_event_id: args.eventId },
-    );
+    const [{ data: attribution, error: aErr }, forYouRead] = await Promise.all([
+      admin.rpc('booking_fee_attribution_for', { p_vendor_profile_id: args.vendorProfileId, p_event_id: args.eventId }),
+      admin.rpc('booking_fee_event_is_for_you', { p_event_id: args.eventId }),
+    ]);
     if (aErr) {
       logQueryError('booking-fee-disclosure: attribution', aErr);
       return { kind: 'unreadable' };
     }
-    if (attribution === 'import') {
+    if (forYouRead.error || typeof forYouRead.data !== 'boolean') {
+      if (forYouRead.error) logQueryError('booking-fee-disclosure: for you', forYouRead.error);
+      return { kind: 'unreadable' };
+    }
+    forYou = forYouRead.data === true;
+    if (attribution === 'import' && forYou) {
       // 📅 The window's length for the notice's words — the same remembered settings read every fee screen makes.
       const months = (await getBookingFeeSchedule(admin)).newClientFreeMonths;
       return months ? { kind: 'not_sourced', newClientFreeMonths: months } : { kind: 'not_sourced' };
@@ -160,7 +170,8 @@ export async function resolveBookingFeeStanding(
   }
   const unverified = verifiedRead.data == null;
 
-  if (isLaunchBooking || ordinal === null) {
+  // ⚖ 23 NOV: a launch place already held is kept; a NEW one is offered only on a For-you event.
+  if (isLaunchBooking || (ordinal === null && forYou)) {
     const offer = await readLaunchOffer(admin);
     if (!offer) return { kind: 'unreadable' };
     if (isLaunchBooking || launchOfferIsOpen(offer, Date.now())) {
@@ -206,7 +217,7 @@ export async function resolveBookingFeeStanding(
   // booking that is already free must stay the shop's own courtesy — a window
   // must never quietly spend one of the five during a period when everything
   // was free anyway.
-  if (ordinalIsFrozen ? frozenFree : isFreeBooking(ordinal)) {
+  if (ordinalIsFrozen ? frozenFree : forYou && isFreeBooking(ordinal)) {
     // 🛡 ONE FREE FIRST BOOKING PER BUSINESS (owner 2026-11-06). A projected
     // free place is promised only if the BUSINESS has not spent it under another
     // account — the same `booking_fee_business_free_standing` the charge asks.
@@ -253,7 +264,7 @@ export async function resolveBookingFeeStanding(
     from: (win as { booking_fee_free_from?: string | null } | null)?.booking_fee_free_from ?? null,
     until: (win as { booking_fee_free_until?: string | null } | null)?.booking_fee_free_until ?? null,
   };
-  if (isBookingFeeFreeWindowActive(window, new Date())) {
+  if (forYou && isBookingFeeFreeWindowActive(window, new Date())) {
     return { kind: 'promo_window', ordinal, ordinalIsFrozen, schedule, endsAt: window.until, freeHeldBack, ...(unverified ? { unverified: true } : {}) };
   }
 
@@ -266,9 +277,11 @@ export async function resolveBookingFeeStanding(
   // was the Nth says so, and the ticket is not claimed for it. It cannot be promised before the yes — the number is
   // taken at the lock — so only a charge that already holds it is named.
   const platformFree = args.eventId ? await readPlatformFreeNumber(admin, args.vendorProfileId, args.eventId) : null;
-  const badgeReward = platformFree == null
+  const badgeRead = platformFree == null
     ? await readBadgeFeeStanding(admin, args.vendorProfileId, args.eventId ?? null)
     : null;
+  // ⚖ 23 NOV: a waiting ticket is not spent on an event made for someone else, so it is not promised there.
+  const badgeReward = badgeRead === 'next' && !forYou ? null : badgeRead;
   return {
     kind: 'billable',
     ordinal,

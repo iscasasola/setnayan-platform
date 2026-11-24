@@ -26,7 +26,8 @@
  * of 2026-10-13 ("no follow the phone"). Three choices: Light · Dark · Automatic, where Automatic follows the
  * phone / OS (`prefers-color-scheme`, live). LIGHT is the DEFAULT (owner 2026-10-23: "make light the default first"
  * until dark covers every screen): no cookie, no choice → Light. Automatic is a choice a person makes.
- * It still only paints on a DARK_READY route, for a signed-in person; signed out is always Light (call 4).
+ * It still only paints on a DARK_READY route, for a signed-in person; signed out is always Light (call 4) — except the
+ * two sign-in pages, which follow the phone signed out too (owner 24 Nov 2026, `SIGNED_OUT_FOLLOWS_PHONE` below).
  */
 export type Appearance = 'light' | 'dark' | 'auto';
 export const APPEARANCES: readonly Appearance[] = ['light', 'dark', 'auto'];
@@ -117,10 +118,31 @@ export function appearanceSwitchShown(ready: readonly string[] = DARK_READY): bo
 }
 
 
+/** The choice the cookie EXPLICITLY holds — `light` / `dark` / `auto` — or null when there is none (or an unknown value). */
+export function explicitAppearance(cookie: string): Appearance | null {
+  const m = /(?:^|;\s*)sn-theme=(light|dark|auto)(?:;|$)/.exec(cookie);
+  return m ? (m[1] as Appearance) : null;
+}
+
 /** The person's choice from `document.cookie` — `light` / `dark` / `auto`; no (or an unknown) value is the default, Light. */
 export function appearanceFromCookie(cookie: string): Appearance {
-  const m = /(?:^|;\s*)sn-theme=(light|dark|auto)(?:;|$)/.exec(cookie);
-  return m ? (m[1] as Appearance) : DEFAULT_APPEARANCE;
+  return explicitAppearance(cookie) ?? DEFAULT_APPEARANCE;
+}
+
+/**
+ * 🌗 THE SIGN-IN CARDS FOLLOW THE PHONE, SIGNED OUT TOO (owner 24 Nov 2026, DECISION_LOG "Sign in and Create account:
+ * simple, dark, a forming logo": "Make it follow dark" — an exception to 13 Oct call 4 and to K2's "signed-out public
+ * pages stay light", for these two cards only). On these routes a SIGNED-OUT visitor with no choice on this device is
+ * treated as Automatic: a phone set to dark gets the dark card. An explicit choice still wins (`sn-theme=light` stays
+ * Light). Exactly these two pages (`$`), never the routes below them. The pop-up card over any other page follows the
+ * same rule on its own overlay (`sign-in-here-panel.tsx`, `.sn-dark-scope`) — the page behind it keeps its look.
+ * Same matcher as the ready-list (`isDarkReady`); the inline <head> script mirrors it (`theme-bootstrap-script.ts`).
+ */
+export const SIGNED_OUT_FOLLOWS_PHONE: readonly string[] = ['/login$', '/signup$'];
+
+/** The choice a signed-out visitor's sign-in card follows: what the cookie holds, else Automatic. */
+export function signInCardChoice(cookie: string): Appearance {
+  return explicitAppearance(cookie) ?? 'auto';
 }
 
 /** Does this choice mean dark, given what the phone / OS prefers right now? */
@@ -192,7 +214,8 @@ export function isAppRoute(pathname: string, appRoutes: ReadonlySet<string>): bo
 
 /**
  * THE RULE: dark is painted only for a signed-in person whose choice means dark (Dark, or Automatic on a phone
- * that prefers dark), on a swept app screen.
+ * that prefers dark), on a swept app screen — and, on the two sign-in pages (`SIGNED_OUT_FOLLOWS_PHONE`), for a
+ * signed-out visitor too, whose missing choice there means Automatic.
  */
 export function darkApplies(
   {
@@ -202,10 +225,14 @@ export function darkApplies(
     prefersDark = false,
   }: { pathname: string; cookie: string; appRoutes: ReadonlySet<string>; prefersDark?: boolean },
   ready: readonly string[] = DARK_READY,
+  followsPhone: readonly string[] = SIGNED_OUT_FOLLOWS_PHONE,
 ): boolean {
+  const signedIn = signedInFromCookie(cookie);
+  const signedOutCard = !signedIn && isDarkReady(pathname, followsPhone);
+  const choice = signedOutCard ? signInCardChoice(cookie) : appearanceFromCookie(cookie);
   return (
-    choiceIsDark(appearanceFromCookie(cookie), prefersDark) &&
-    signedInFromCookie(cookie) &&
+    choiceIsDark(choice, prefersDark) &&
+    (signedIn || signedOutCard) &&
     isAppRoute(pathname, appRoutes) &&
     isDarkReady(pathname, ready)
   );

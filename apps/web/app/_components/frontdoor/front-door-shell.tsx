@@ -79,7 +79,9 @@ import { ShellBoundaryProvider, type ShellBoundary } from '@/app/_components/she
 import { useOneOpen } from '@/lib/one-open';
 import { POLICY_LINKS } from '@/lib/policy-links';
 import type { Door } from '@/lib/doors';
-import { HOME_HREF, homeSegHref } from '@/lib/home-segments';
+import { HOME_HREF } from '@/lib/home-segments';
+import { unihomeHref } from '@/lib/unihome';
+import { RailHomeCreate } from './rail-home-create';
 import type { EventMenuIconName } from '@/lib/customer-menu';
 /*
   ─── THE RAIL'S OWN ROWS DRAW LUCIDE, LIKE EVERY OTHER ROW IN IT ──────────
@@ -518,6 +520,11 @@ type Props = {
    */
   createSlot?: React.ReactNode;
   /**
+   * ➕ The address that IS Home here — where the rail's top carries "Create an event" (Unihome v5). The app's Home is
+   * `/dashboard`; a dev lab that stands in for it passes its own address. Default `/dashboard`.
+   */
+  homePath?: string;
+  /**
    * The search control. Left out: SIGNED IN draws no box (2026-10-22, "One
    * thumb row"); signed out draws the front door's marketplace GET form — the
    * one rule in `topBarSearch` (`shell-page-search.ts`), so a mount that
@@ -672,6 +679,7 @@ export function FrontDoorShell({
   boundary = 'lg',
   pinnedBar,
   door = null,
+  homePath = '/dashboard',
 }: Props) {
   const [railOpen, setRailOpen] = useState(false);
   /*
@@ -1439,40 +1447,51 @@ export function FrontDoorShell({
               Memories, the ruled order; Shop only for a shop). They light nothing on their own: the rail reads the
               PATH only (a query read here once broke hydration — see the fixed-id note above), and every section
               shares `/dashboard`, so Home is the row that says where you are. 🔒 lib/home-is-the-profile.test.ts */}
+          {/* 🏠 UNIHOME v5 (owner-approved 23 Nov 2026, DECISION_LOG "UNIHOME v5 APPROVED"; drawing `unihome-v5.html`,
+              Notes "Every way in still lands"): the ☰ is Home with its FIVE places under it — Events · Shop · People ·
+              Memories · Discover, in page order, each landing on its part of Home (`/dashboard#…`, `unihomeHref`) —
+              then Features (and Setnayan HQ for admins) as fine print. Discover is the last part of Home, so a signed-in
+              rail draws no Discover row of its own; signed out, the Discover row below is the front door, unchanged.
+              Shop is a door for everyone: an owner's quick view, everyone else's "Create your own shop". The doors light
+              nothing on their own (the rail reads the PATH only — see the fixed-id note above); Home is the lit row.
+              ➕ On Home the rail's top carries "Create an event" (the phone's floating button, on a computer). */}
           {account.signedIn ? (
             <>
+              {pathname === homePath ? <RailHomeCreate /> : null}
               <Link href={HOME_HREF} {...rowProps('events')} data-home-row="">
                 <RailIcon as={House} />
                 <span className="fd-label-text">Home</span>
                 <span className="fd-icon-caption">Home</span>
               </Link>
               <div data-home-doors="">
-                <Link href={HOME_HREF} className="fd-row fd-hsub" data-home-door="events">
+                <Link href={unihomeHref('events')} className="fd-row fd-hsub" data-home-door="events">
                   <span className="fd-label-text">{slotLabel(RAIL_SLOT.events, 'Events')}</span>
                   <Count value={account.eventCount} />
                 </Link>
-                <Link href={homeSegHref('people')} className="fd-row fd-hsub" data-home-door="people">
+                <Link href={unihomeHref('shop')} className="fd-row fd-hsub" data-home-door="shop">
+                  <span className="fd-label-text">Shop</span>
+                </Link>
+                <Link href={unihomeHref('people')} className="fd-row fd-hsub" data-home-door="people">
                   <span className="fd-label-text">People</span>
                 </Link>
-                {account.shopName ? (
-                  <Link href={homeSegHref('shop')} className="fd-row fd-hsub" data-home-door="shop">
-                    <span className="fd-label-text">Shop</span>
-                    <span className="fd-ct">{account.shopName}</span>
-                  </Link>
-                ) : null}
-                <Link href={homeSegHref('memories')} className="fd-row fd-hsub" data-home-door="memories">
+                <Link href={unihomeHref('memories')} className="fd-row fd-hsub" data-home-door="memories">
                   <span className="fd-label-text">{slotLabel(RAIL_SLOT.alaala, 'Memories')}</span>
                   <Count value={account.alaalaCount} />
                 </Link>
+                <Link href={unihomeHref('discover')} className="fd-row fd-hsub" data-home-door="discover">
+                  <span className="fd-label-text">Discover</span>
+                </Link>
               </div>
             </>
-          ) : null}
-          {/* 🧭 Signed in, the bare `/` opens Home (23 Nov 2026), so the Discover row uses Discover's own door. */}
-          <Link href={account.signedIn ? DISCOVER_HREF : '/'} {...rowProps('home')}>
+          ) : (
+          /* 🧭 Signed out, the Discover row is Discover's own door, `DISCOVER_HREF` (23 Nov 2026). Signed in there is no
+             row: Discover is Home's last section, `unihomeHref('discover')` above (UNIHOME v5, owner-approved 23 Nov). */
+          <Link href={DISCOVER_HREF} {...rowProps('home')}>
             <RailIcon as={Telescope} />
             <span className="fd-label-text">Discover</span>
             <span className="fd-icon-caption">Discover</span>
           </Link>
+          )}
           {/*
             STORIES IS NOT A DESTINATION ANY MORE — IT IS A CHIP (owner
             2026-08-20: *"what we want is the stories menu to be inside this as

@@ -46,7 +46,8 @@ test('allowances · the owner\'s 2026-11-22 FINAL LADDER, Free / Verified / Plus
   assert.deepEqual(row('waitlistAcceptances'), [10, 10, 10, 10, 10], 'waitlist: no plan limit — the setting\'s own ceiling on every plan');
   assert.deepEqual(row('branchesIncluded'), [0, 0, 0, Infinity, Infinity], 'branches besides the main shop: 0 / 0 / 0 / no limit / no limit');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].storageBytes), [50 * STORAGE_MB, ...[1, 50, 256, 1000].map((gb) => gb * STORAGE_GB)], 'storage (owner 2026-11-23 "SUPPLIER SIZES FIXED"): 50 MB / 1 GB / 50 GB / 256 GB / 1 TB');
-  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].portfolioPhotos === Infinity), [false, false, true, true, true], 'no portfolio photo cap on a paid size');
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].eventPhotosPerEvent), [10, 10, Infinity, Infinity, Infinity], 'event photos (owner 2026-11-23): Free 10 · Verified 10 · Plus and up no limit');
+  assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].eventVideos), [false, false, true, true, true], 'event videos: Plus and up');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].customWebsiteName), [false, false, true, true, true], 'own web address: Plus, Pro, Ultra');
   assert.deepEqual(LADDER.map((t) => TIER_CAPS[t].premiumPage), [false, false, true, true, true], 'the premium page parts are on every paid size (owner 2026-11-22 SAME FEATURES IN EVERY SIZE)');
 });

@@ -50,6 +50,7 @@ const CLOCK_SELECT = 'event_date,event_end_date,launch_mode,manual_phase,std_inv
 /** TEST ONLY. */
 export function forgetHubStampsForTest(): void {
   stampMemo.clear();
+  personMemo.clear();
   clockMemo.clear();
 }
 
@@ -121,7 +122,6 @@ async function hubStamp(slug: string, fetcher: typeof fetch): Promise<Stamp | un
  */
 export async function bareWordIsNoEvent(request: NextRequest, fetcher: typeof fetch = fetch): Promise<boolean> {
   try {
-    if (isUserNestingCutoverEnabled()) return false;
     const shape = hubRequestShape({
       method: request.method,
       pathname: request.nextUrl.pathname,
@@ -139,14 +139,62 @@ export async function bareWordIsNoEvent(request: NextRequest, fetcher: typeof fe
   }
 }
 
+
+const PERSON_MEMO_MS = 60_000;
+const personMemo = new Map<string, { at: number; value: boolean }>();
+
+/**
+ * 🔗 THE ADDRESS MOVE — is this bare word a PERSON (`users.slug`)? Asked only for a word the event stamp already said
+ * is no event, and only while the cutover is on, so a stranger's `/{username}` reaches the person's page
+ * (`/u/{username}`, an internal rewrite) instead of the shop copy's not-found. Remembered for a minute per instance;
+ * `false` on any doubt (the shop copy then answers, exactly as before). Never throws.
+ */
+export async function bareWordIsPerson(slug: string, fetcher: typeof fetch = fetch): Promise<boolean> {
+  const key = slug.toLowerCase();
+  const hit = personMemo.get(key);
+  if (hit && Date.now() - hit.at < PERSON_MEMO_MS) return hit.value;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const service = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !service) return false;
+  try {
+    const res = await fetcher(
+      `${url.replace(/\/$/, '')}/rest/v1/users?slug=eq.${encodeURIComponent(key)}&select=user_id&limit=1`,
+      {
+        method: 'GET',
+        headers: { apikey: service, Authorization: `Bearer ${service}` },
+        signal: AbortSignal.timeout(STAMP_TIMEOUT_MS),
+        cache: 'no-store',
+      },
+    );
+    if (!res.ok) return false;
+    const rows = (await res.json()) as unknown[] | null;
+    const value = Array.isArray(rows) && rows.length > 0;
+    if (personMemo.size >= MEMO_MAX) personMemo.delete(personMemo.keys().next().value as string);
+    personMemo.set(key, { at: Date.now(), value });
+    return value;
+  } catch {
+    return false;
+  }
+}
+
 /** The pathname to rewrite this request to (`/{slug}/cached/{key}`), or null for the live render. Never throws. */
-export async function hubViewRewritePath(request: NextRequest, fetcher: typeof fetch = fetch): Promise<string | null> {
+export async function hubViewRewritePath(
+  request: NextRequest,
+  fetcher: typeof fetch = fetch,
+  /**
+   * 🔗 THE ADDRESS MOVE: `{ pathname: '/{event}' }` when the middleware has already read `/{username}/{event}` as a
+   * nested event — the copy for that event answers it, exactly as the bare address was answered before the cutover.
+   */
+  opts: { pathname?: string } = {},
+): Promise<string | null> {
   try {
     if (envFlagEnabled(process.env.HUB_CACHE_DISABLED)) return null;
-    if (isUserNestingCutoverEnabled()) return null; // the bare root redirects to /u/… — that is the live page's call
+    // The bare `/{event}` forwards to `/{username}/{event}` under the cutover — that is the live page's call. The
+    // nested address (opts.pathname) is the event's own, and is answered from its copy.
+    if (isUserNestingCutoverEnabled() && !opts.pathname) return null;
     const shape = hubRequestShape({
       method: request.method,
-      pathname: request.nextUrl.pathname,
+      pathname: opts.pathname ?? request.nextUrl.pathname,
       searchParams: request.nextUrl.searchParams,
       cookieNames: request.cookies.getAll().map((c) => c.name),
       clientTypeCookie: request.cookies.get(STORE_SHELL_CLIENT_TYPE_COOKIE)?.value ?? null,

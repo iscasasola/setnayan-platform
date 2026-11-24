@@ -979,7 +979,7 @@ export default function PrivacyPage() {
 
         <Section title="Supplier Deep Search (supplier business research)">
           <p>
-            Suppliers can run <strong>Deep Search</strong>, a paid tool that uses AI
+            Suppliers on a paid plan can run <strong>Deep Search</strong>, a tool that uses AI
             to research <em>their own business</em> across public web sources —
             their own website, directory listings, and review sites — and builds a
             short summary the supplier reviews to fill in their Setnayan profile.

@@ -220,8 +220,9 @@ const LOG_SITE_FLOORS: { file: string; sites: { label: string; floor: number }[]
     { label: '[supabase-error] lib/vendor-dayof-config.ts · from:vendor_dayof_configs.select', floor: 2 },
   ] },
   { file: 'lib/vendor-deep-search-addon.ts', sites: [
-    { label: '[supabase-error] vendor-deep-search-addon: price (using fallback)', floor: 1 },
-    // the `vendor_deep_search_uses.select` site retired with the free search (2026-11-09) — see above.
+    // The price read (and its fallback) retired with the per-search sale (owner 2026-11-22, "DEEP SEARCH IS RETIRED");
+    // its one read now is the monthly allowance, and a refusal says so (`{ read: false }`), never a remembered number.
+    { label: '[supabase-error] vendor-deep-search-addon: runs per month', floor: 2 },
   ] },
   { file: 'lib/vendor-earnings.ts', sites: [
     { label: '[supabase-error] lib/vendor-earnings.ts · from:platform_settings.select', floor: 1 },

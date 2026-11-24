@@ -81,9 +81,13 @@ async function readOnlineCards(client: SupabaseClient, vendorProfileId: string):
  */
 export async function readHubOverrides(admin: SupabaseClient): Promise<HubOverrides> {
   try {
-    const [set, sw] = await Promise.all([
+    // ⚡ ONE round (supplier walk 24 Nov, every page under 0.7 s): the saved categories' names are read BESIDE the saved
+    // rows — only categories that have a saved row (`!inner` on `category_hub_settings.category_id → service_categories.id`)
+    // — instead of in a second read after the first, on every Toolkit and Shop page.
+    const [set, sw, cats] = await Promise.all([
       admin.from('category_hub_settings').select('category_id'),
       admin.from('category_hub_tool_switches').select('category_id, tool_key'),
+      admin.from('service_categories').select('id, label_en, category_hub_settings!inner(category_id)'),
     ]);
     if (set.error || sw.error) {
       logQueryError('readHubOverrides', set.error ?? sw.error, {}, 'graceful_degrade');
@@ -91,14 +95,13 @@ export async function readHubOverrides(admin: SupabaseClient): Promise<HubOverri
     }
     const ids = ((set.data ?? []) as { category_id: string }[]).map((r) => r.category_id);
     if (ids.length === 0) return new Map();
-    const cats = await admin.from('service_categories').select('id, label_en').in('id', ids);
     if (cats.error) {
       logQueryError('readHubOverrides.categories', cats.error, {}, 'graceful_degrade');
       return new Map();
     }
     const on = new Map<string, string[]>(ids.map((id) => [id, []]));
     for (const r of (sw.data ?? []) as { category_id: string; tool_key: string }[]) on.get(r.category_id)?.push(r.tool_key);
-    return new Map(((cats.data ?? []) as { id: string; label_en: string | null }[]).filter((c) => c.label_en).map((c) => [nameKey(c.label_en!), on.get(c.id) ?? []]));
+    return new Map(((cats.data ?? []) as unknown as { id: string; label_en: string | null }[]).filter((c) => c.label_en && on.has(c.id)).map((c) => [nameKey(c.label_en!), on.get(c.id) ?? []]));
   } catch (err) {
     logQueryError('readHubOverrides', err, {});
     return new Map();
@@ -176,9 +179,10 @@ export async function readStoreToolFacts(
   admin: SupabaseClient,
   vendorProfileId: string,
   services: readonly string[],
-  layout: StoreLayout | null,
+  /** The shop's layout — or the read of it still on its way: the tool reads below never wait for it to START. */
+  layoutOrRead: StoreLayout | null | PromiseLike<StoreLayout | null>,
 ): Promise<ToolFacts> {
-  const [freeOpen, orders, subscribed, prices, categoryLabels, hubOverrides, papicCapture, cards, taxonomy] = await Promise.all([
+  const [freeOpen, orders, subscribed, prices, categoryLabels, hubOverrides, papicCapture, cards, taxonomy, layout] = await Promise.all([
     readFreeOpen(admin, vendorProfileId),
     readToolOrders(admin, vendorProfileId),
     readSubscribed(admin, vendorProfileId),
@@ -190,6 +194,7 @@ export async function readStoreToolFacts(
     readOnlineCards(client, vendorProfileId),
     // The card gate joins on the LIVE taxonomy; `getTaxonomy` falls back to the seed itself when the tables are unread.
     getTaxonomy(),
+    layoutOrRead,
   ]);
   return {
     freeOpen,

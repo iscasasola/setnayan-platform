@@ -14,6 +14,7 @@
  *
  * Pure module (no React, no I/O) — `supplier-front-reads-its-numbers.test.ts` runs it.
  */
+import { deepSearchAllowanceWords } from '@/lib/deep-search-findings';
 import { VENDOR_TIER_SECTIONS } from '@/app/_components/home/vendor-benefits';
 import { bookingFeeCapAmount, bookingFeeFigures, bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { formatPhpRounded } from '@/lib/php';
@@ -351,12 +352,13 @@ export function helperLine(): string | null {
 export const ADDON_TIERS: GrowTier[] = GROW_TIERS.filter((t) => canBuyExtraBranches(t) && canBuyExtraSeats(t));
 
 /**
- * The one line under the plan cards that replaced the add-ons box (drawing § 1): "Deep Search is ₱499 a search on any
- * plan. On Ultra, you can also add a seat or a branch." The price is the catalogue row the search CHARGES; unread → the
- * sentence names no figure. The plan that may add seats and branches is `ADDON_TIERS` (canBuyExtra*).
+ * The one line under the plan cards that replaced the add-ons box (drawing § 1). Since 2026-11-22 Deep Search is NOT
+ * sold (DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED" + 🔎 "1 RUN A MONTH"): the line says what the paid plans include, from
+ * the admin's monthly number (`platform_settings.deep_search_runs_per_month`, read by the caller; null = no number
+ * said) — never a price. The plan that may add seats and branches is `ADDON_TIERS` (canBuyExtra*).
  */
-export function buyMoreLine(deepSearchPrice: string | null): string {
-  const deep = deepSearchPrice ? `Deep Search is ${deepSearchPrice} a search on any plan.` : 'Deep Search is bought one search at a time, on any plan.';
+export function buyMoreLine(deepSearchRunsPerMonth: number | null): string {
+  const deep = `Deep Search: ${deepSearchAllowanceWords(deepSearchRunsPerMonth)}`;
   if (ADDON_TIERS.length === 0) return deep;
   return `${deep} On ${ADDON_TIERS.map(planName).join(' and ')}, you can also add a seat or a branch.`;
 }

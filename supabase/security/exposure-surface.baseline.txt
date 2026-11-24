@@ -9,13 +9,13 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8421
+# facts: 8433
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     676
-#   col       6068
-#   policy    1230
+#   tpriv     678
+#   col       6077
+#   policy    1231
 #   view      10
 #   func      433
 #
@@ -595,6 +595,8 @@ tpriv	public.vendor_package_items|anon	SIUD
 tpriv	public.vendor_package_items|authenticated	SIUD
 tpriv	public.vendor_packages|anon	SIUD
 tpriv	public.vendor_packages|authenticated	SIUD
+tpriv	public.vendor_papic_capture_grants|anon	SIUD
+tpriv	public.vendor_papic_capture_grants|authenticated	SIUD
 tpriv	public.vendor_papic_captures|anon	SIUD
 tpriv	public.vendor_papic_captures|authenticated	SIUD
 tpriv	public.vendor_papic_portfolio_credit_grants|authenticated	S
@@ -4268,6 +4270,7 @@ col	public.platform_settings.business_name	anon=- authenticated=S
 col	public.platform_settings.business_tin	anon=- authenticated=S
 col	public.platform_settings.chat_live_pings_live	anon=- authenticated=S
 col	public.platform_settings.creator_offer_sweep_last_run_at	anon=- authenticated=S
+col	public.platform_settings.deep_search_runs_per_month	anon=- authenticated=S
 col	public.platform_settings.default_vat_rate_pct	anon=- authenticated=S
 col	public.platform_settings.drive_speed_kmh	anon=- authenticated=S
 col	public.platform_settings.fee_leak_price_tolerance	anon=- authenticated=S
@@ -5121,8 +5124,6 @@ col	public.users.tour_completed_at	anon=S authenticated=SU
 col	public.users.tour_seen_keys	anon=S authenticated=SU
 col	public.users.updated_at	anon=S authenticated=SU
 col	public.users.user_id	anon=S authenticated=SU
-col	public.users.username_minted_at	anon=S authenticated=SU
-col	public.users.username_minted_seen_at	anon=S authenticated=SU
 col	public.users.youtube_live_ready_ack_at	anon=S authenticated=SU
 col	public.vendor_2307_filings.audit_log	anon=- authenticated=SIU
 col	public.vendor_2307_filings.created_at	anon=- authenticated=SIU
@@ -5467,6 +5468,7 @@ col	public.vendor_dayof_configs.event_id	anon=- authenticated=SIU
 col	public.vendor_dayof_configs.song_requests_open	anon=- authenticated=S
 col	public.vendor_dayof_configs.updated_at	anon=- authenticated=SIU
 col	public.vendor_dayof_configs.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_deep_search_uses.allowance_slot	anon=SIU authenticated=SIU
 col	public.vendor_deep_search_uses.created_at	anon=SIU authenticated=SIU
 col	public.vendor_deep_search_uses.dossier_id	anon=SIU authenticated=SIU
 col	public.vendor_deep_search_uses.free_cycle_start	anon=SIU authenticated=SIU
@@ -5820,6 +5822,15 @@ col	public.vendor_packages.unspent_credit_policy	anon=SIU authenticated=SIU
 col	public.vendor_packages.updated_at	anon=SIU authenticated=SIU
 col	public.vendor_packages.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_packages.vendor_service_id	anon=SIU authenticated=SIU
+col	public.vendor_papic_capture_grants.clip_cap	anon=SIU authenticated=SIU
+col	public.vendor_papic_capture_grants.created_at	anon=SIU authenticated=SIU
+col	public.vendor_papic_capture_grants.event_id	anon=SIU authenticated=SIU
+col	public.vendor_papic_capture_grants.grant_id	anon=SIU authenticated=SIU
+col	public.vendor_papic_capture_grants.photo_cap	anon=SIU authenticated=SIU
+col	public.vendor_papic_capture_grants.tier	anon=SIU authenticated=SIU
+col	public.vendor_papic_capture_grants.updated_at	anon=SIU authenticated=SIU
+col	public.vendor_papic_capture_grants.upgrade_order_id	anon=SIU authenticated=SIU
+col	public.vendor_papic_capture_grants.vendor_profile_id	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.capture_id	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.captured_at	anon=SIU authenticated=SIU
 col	public.vendor_papic_captures.client_capture_id	anon=SIU authenticated=SIU
@@ -7820,6 +7831,7 @@ policy	public.vendor_package_items|vendor_package_items_team_admin	mode=PERMISSI
 policy	public.vendor_packages|vendor_packages_owner_write	mode=PERMISSIVE cmd=ALL roles=authenticated using=((vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND (users.account_type = 'admin'::account_type))))) check=((vendor_profile_id IN ( SELECT vendor_profiles.vendor_profile_id FROM vendor_profiles WHERE (vendor_profiles.user_id = ( SELECT auth.uid() AS uid)))) OR (EXISTS ( SELECT 1 FROM users WHERE ((users.user_id = ( SELECT auth.uid() AS uid)) AND (users.account_type = 'admin'::account_type)))))
 policy	public.vendor_packages|vendor_packages_public_read	mode=PERMISSIVE cmd=SELECT roles=PUBLIC using=(is_active = true) check=NULL
 policy	public.vendor_packages|vendor_packages_team_admin	mode=PERMISSIVE cmd=ALL roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids))
+policy	public.vendor_papic_capture_grants|vendor_papic_grants_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_papic_captures|vendor_papic_captures_keys_stay_in_their_folder_insert	mode=RESTRICTIVE cmd=INSERT roles=anon,authenticated using=NULL check=(NOT (EXISTS ( SELECT 1 FROM unnest(ARRAY[vendor_papic_captures.r2_object_key, vendor_papic_captures.poster_r2_key, vendor_papic_captures.display_r2_key, vendor_papic_captures.thumb_r2_key, vendor_papic_captures.tile_r2_key]) k(ref) WHERE ((k.ref IS NOT NULL) AND (NOT ((starts_with(k.ref, (((('r2://setnayan-media/papic/vendor-'::text || (vendor_papic_captures.vendor_profile_id)::text) || '/event-'::text) || (vendor_papic_captures.event_id)::text) || '/'::text)) OR starts_with(k.ref, (((('r2://setnayan-media/derivatives/papic/vendor-'::text || (vendor_papic_captures.vendor_profile_id)::text) || '/event-'::text) || (vendor_papic_captures.event_id)::text) || '/'::text))) AND (k.ref !~ '(^|/)\.{1,2}(/|$)'::text)))))))
 policy	public.vendor_papic_captures|vendor_papic_captures_keys_stay_in_their_folder_update	mode=RESTRICTIVE cmd=UPDATE roles=anon,authenticated using=true check=(NOT (EXISTS ( SELECT 1 FROM unnest(ARRAY[vendor_papic_captures.r2_object_key, vendor_papic_captures.poster_r2_key, vendor_papic_captures.display_r2_key, vendor_papic_captures.thumb_r2_key, vendor_papic_captures.tile_r2_key]) k(ref) WHERE ((k.ref IS NOT NULL) AND (NOT ((starts_with(k.ref, (((('r2://setnayan-media/papic/vendor-'::text || (vendor_papic_captures.vendor_profile_id)::text) || '/event-'::text) || (vendor_papic_captures.event_id)::text) || '/'::text)) OR starts_with(k.ref, (((('r2://setnayan-media/derivatives/papic/vendor-'::text || (vendor_papic_captures.vendor_profile_id)::text) || '/event-'::text) || (vendor_papic_captures.event_id)::text) || '/'::text))) AND (k.ref !~ '(^|/)\.{1,2}(/|$)'::text)))))))
 policy	public.vendor_papic_captures|vendor_papic_captures_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((nsfw_checked = true) AND (consent_basis <> 'pending_dpo_ruling'::text) AND (hidden_at IS NULL) AND (EXISTS ( SELECT 1 FROM event_members em WHERE ((em.event_id = vendor_papic_captures.event_id) AND (em.user_id = ( SELECT auth.uid() AS uid)) AND (em.member_type = ANY (ARRAY['couple'::member_type, 'coordinator'::member_type])))))) check=NULL

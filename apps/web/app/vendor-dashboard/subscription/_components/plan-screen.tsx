@@ -21,7 +21,8 @@ import {
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
 import { fetchVendorAiAddonState, isVendorAiAddonActive } from '@/lib/vendor-addon-pricing';
-import { fetchVendorAddonPricePhp } from '@/lib/vendor-addon-tier-pricing';
+import { fetchDeepSearchRunsPerMonth } from '@/lib/vendor-deep-search-addon';
+import { deepSearchAllowanceWords } from '@/lib/deep-search-findings';
 import { SEAT_SKU_CODE } from '@/lib/vendor-seats';
 import { BRANCH_SKU_CODE } from '@/lib/vendor-branches';
 import { PlanSheet, type PlanPick, type SheetPlan } from './plan-sheet';
@@ -211,14 +212,15 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
 
   // ── 💳 WHAT IS LEFT TO BUY, AND WHAT A SHOP ALREADY BOUGHT (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS",
   // drawing § 3). The AI chatbot, specialized tools and Ultra's four "+1" add-ons are folded into the plans, so their
-  // cards leave this page (what a plan includes is under "What <plan> gives you"). Left: a Deep Search row with its
-  // price (every plan) and, on Ultra, an extra seats and branches row. A shop that bought a chatbot window or an Ultra
+  // cards leave this page (what a plan includes is under "What <plan> gives you"). Left: a Deep Search row — since
+  // 2026-11-22 NOT a price (DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED" + 🔎 "1 RUN A MONTH"): what the paid plans include,
+  // from the admin's monthly number — and, on Ultra, an extra seats and branches row. A shop that bought a chatbot window or an Ultra
   // "+1" before the change keeps it until it runs out (item 11) — said on its own row while it runs.
   const ultraHoldsExtras = holdsBoughtExtras(currentTier);
-  const [ultraExtras, aiAddonState, deepSearchPricePhp, extraSeatsRead] = await Promise.all([
+  const [ultraExtras, aiAddonState, deepSearchRuns, extraSeatsRead] = await Promise.all([
     ultraHoldsExtras ? fetchAddOnExtras(supabase, profile.vendor_profile_id) : Promise.resolve(null),
     fetchVendorAiAddonState(supabase, profile.vendor_profile_id),
-    fetchVendorAddonPricePhp(supabase, 'deep_search_about_you', currentTier),
+    fetchDeepSearchRunsPerMonth(createAdminClient()),
     canBuyExtraSeats(currentTier)
       ? supabase.from('vendor_profiles').select('extra_agent_seats').eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle()
       : Promise.resolve(null),
@@ -477,10 +479,8 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
   const deepSearchRow = storeShell
     ? null
     : {
-        line:
-          deepSearchPricePhp !== null
-            ? `${formatPhp(deepSearchPricePhp)} a search · on every plan`
-            : 'One search at a time · on every plan',
+        // An unread number says no number — never a remembered one.
+        line: deepSearchAllowanceWords(deepSearchRuns.read ? deepSearchRuns.perMonth : null),
       };
   const seatPrice = seatPricePhp !== null ? formatPhp(seatPricePhp) : null;
   const branchPrice = branchPricePhp !== null ? formatPhp(branchPricePhp) : null;

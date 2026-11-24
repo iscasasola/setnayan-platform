@@ -43,7 +43,7 @@ const WEB = join(__dirname, '..');
 
 test('1 · the money (20 Nov): booking #1 is billed too — the free first booking is retired', () => {
   const base = {
-    flagEnabled: true, onPlatform: true, attribution: 'sourced', shopVerified: true, frozenFree: false,
+    flagEnabled: true, onPlatform: true, attribution: 'sourced', forYou: true, shopVerified: true, frozenFree: false,
     launchOffer: false, promoWindow: false, schedule: BOOKING_FEE, nextPlatformNumber: 1, freeEveryNth: 100_000,
     ticketWaiting: false, agreedTotalPhp: 100_000,
   } as const;

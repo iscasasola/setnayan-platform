@@ -1,5 +1,6 @@
 'use server';
 
+import { forWhomForWeddingRole } from '@/lib/event-for-whom';
 import { cleanDateMonths } from '@/lib/event-date-options';
 import { onePickedPlaceName } from '@/lib/onboarding/one-picked-place';
 import { singlePickedWeddingDate } from '@/lib/event-anchor';
@@ -579,6 +580,9 @@ export async function commitOnboardingWedding(
     .insert({
       event_type: 'wedding',
       display_name: displayName,
+      // ⚖ Who it is for (owner 2026-11-23): the bride or the groom is the celebrant ('self'); a helper plans it for
+      // someone else; no pick is not recorded. Only 'self' lets a booking fee be waived; locked once a supplier joins.
+      for_whom: forWhomForWeddingRole(payload.role),
       // 💍 ONE PICKED DATE IS THE DATE (owner 14 Nov 2026, F-W2-01): day precision, no candidates; 2+ picks stay options.
       event_date: weddingDate,
       ...(weddingDate ? { event_date_precision: 'day' } : {}),

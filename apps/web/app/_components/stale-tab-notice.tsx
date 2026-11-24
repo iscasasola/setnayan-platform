@@ -36,6 +36,8 @@
  */
 
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react';
+import { RotateCw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { LazyInlineNotice } from './notices/inline-notice-lazy';
 import {
   LAYER_ATTRIBUTES,
@@ -118,6 +120,8 @@ function inAppLinkHref(e: MouseEvent): string | null {
 export function StaleTabNotice() {
   const [stale, setStale] = useState(false);
   const [servingVersion, setServingVersion] = useState<string | null>(null);
+  // ⏳ The person pressed Reload and the new page has not arrived yet (live fault, DEAD_TAP "Reload", 18–23 Nov).
+  const [reloading, setReloading] = useState(false);
   /** A layer is over the page — the notice is drawn on the top notification layer instead of the flow. */
   const [lift, setLift] = useState<Lifted | null>(null);
   /** A served version this tab should take silently on its next in-app link press. */
@@ -247,13 +251,22 @@ export function StaleTabNotice() {
       noticeKey={`app-updated:${servingVersion}`}
       title="Setnayan was updated while this page was open"
       actions={
-        <button
-          type="button"
-          onClick={() => window.location.reload()}
-          className="sn-press inline-flex min-h-11 items-center rounded-full bg-mulberry px-4 text-sm font-semibold text-cream"
-        >
-          Reload
-        </button>
+        /* ⏳ SAY IT IS WORKING (live fault: DEAD_TAP "Reload" — "nothing happened within 2s" on the Suppliers tab,
+           admin, the shop, Launch, the Event Hub editor, 18–23 Nov). A reload changes nothing on screen until the new
+           page ARRIVES; on a phone's slow line that is seconds of a button that looks dead, and people pressed it
+           again. The press now says "Reloading…" at once and waits; the reload itself is unchanged.
+           🔒 lib/the-site-updates-itself.test.ts */
+        <ActionButton
+          tone="brand"
+          main
+          icon={RotateCw}
+          label={reloading ? 'Reloading…' : 'Reload'}
+          waiting={reloading}
+          onClick={() => {
+            setReloading(true);
+            window.location.reload();
+          }}
+        />
       }
       onClose={() => setStale(false)}
     />

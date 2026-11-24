@@ -14,8 +14,7 @@
  *   5 · no migration after the retirement puts the row back on sale;
  *   6 · the allowance is the admin's (platform_settings), read — never a typed count — and Free/Verified get none.
  * 🛡 SABOTAGE (seen RED, then restored — 2026-11-24): `requested_total_php` put back into the run action (red: 1) ·
- *   `deep_search_about_you` put back in the band map (red: 2) · a "₱499 a search" cell in the plan table (red: 4) ·
- *   `price: 'paid'` on /features' C30 (red: 4).
+ *   `deep_search_about_you` put back in the band map (red: 2) · `price: 'paid'` on /features' C30 (red: 4).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';

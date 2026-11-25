@@ -11,11 +11,12 @@
 // last-mile job for each service team (Phase G+1..Phase G+7).
 //
 // Two surfaces consume this module:
-//   1. The service worker (`sw-offline.js`) listens for `sync` events with
-//      tag `setnayan-offline-sync` (Background Sync API) and posts a
-//      `TRIGGER_SYNC` message to all open clients. The client's
-//      `offline-daemon-mount.tsx` receives that message and calls
-//      `triggerSyncNow()`.
+//   1. The ONE service worker (`public/sw.js`; `sw-offline.js` is retired,
+//      controller review #2 item 5) listens for `sync` events with tag
+//      `setnayan-offline-sync` (Background Sync API), posts a `TRIGGER_SYNC`
+//      message to all open clients (`offline-daemon-mount.tsx` then calls
+//      `triggerSyncNow()`), and sends the supplier queue itself — so it goes
+//      with the app closed too.
 //   2. The admin diagnostic page (`/admin/offline`) renders a
 //      [Trigger sync now] button that calls `triggerSyncNow()` directly
 //      so admins can validate the loop end-to-end without waiting for the
@@ -45,9 +46,9 @@ import {
   type SyncRunSummary,
 } from './types';
 
-// Background Sync API tag — picked up by `sw-offline.js`. Stays in sync
-// (no pun intended) between the service worker and this module via this
-// shared constant export so a future rename only touches one place.
+// Background Sync API tag — picked up by `public/sw.js`, which keeps its own
+// copy (a worker imports nothing); the two are held equal by
+// `lib/offline/the-queue-is-sent-with-the-app-closed.test.ts`.
 export const OFFLINE_SYNC_TAG = 'setnayan-offline-sync';
 
 /**

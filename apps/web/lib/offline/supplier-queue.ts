@@ -4,8 +4,10 @@
 // offline and catches up when back online"). A thin layer over the SHIPPED offline daemon (`lib/offline/db.ts` +
 // `lib/offline/sync-daemon.ts`), exactly as the check-in desk's `checkin-queue.ts` is: the supplier side has no queue of
 // its own — an action made with no signal is an `OfflineItem` in the daemon's `supplier` store, and it is sent by the
-// daemon's `triggerSyncNow()`. Everything that talks to the server goes through the ONE door (`saveInPlace`, stay door
-// `supOffline.supplierOffline`). Lazy-load it (`import()`), like the desk does, so none of this is in a first load.
+// daemon's `triggerSyncNow()` — or, with the app closed, by the service worker itself (`public/sw.js`, the Background
+// Sync pass each keep arms). Everything that talks to the server goes through the ONE stable route
+// (`/api/offline/supplier-sync`, `supplier-wire.ts`). Lazy-load it (`import()`), like the desk does, so none of this is in
+// a first load.
 //
 // What the screens (the approved drawing) will call:
 //   queueSupplierAction · queueBookingIfFree — keep one action; it shows "Not confirmed yet" until the server accepts it
@@ -21,7 +23,7 @@
 
 import { dequeueOfflineItem, enqueueOfflineItem, listOfflineItems } from './db';
 import { phoneDeviceIds, phoneKeyId, readPhoneKey, wipeSupplierOffline, writePhoneKey } from './supplier-keys';
-import { triggerSyncNow } from './sync-daemon';
+import { registerSyncDaemon, triggerSyncNow } from './sync-daemon';
 import { supplierWire } from './supplier-wire';
 import { offlineHere } from './supplier-here';
 import {
@@ -96,6 +98,9 @@ export async function queueSupplierAction(input: QueueInput): Promise<Queued> {
   // The shop rides in `event_id`, the daemon's scoping key (its index lists one shop's items without reading all).
   // `ageByTriesOnly`: never dropped by the phone's clock, only after real tries (review #2 item 3).
   await enqueueOfflineItem('supplier', { item_id: item.itemId, event_id: input.shop, payload: { ...item, ageByTriesOnly: true }, queued_at: phoneTime });
+  // R16: the browser wakes the worker when the signal is back, even with the app closed (Android; review #2 item 5). Not
+  // left to the daemon's own mount, which is switched off in production (measured 25 Nov: absent from the live bundle).
+  void registerSyncDaemon();
   return { itemId: item.itemId, phoneTime, line: NOT_CONFIRMED_YET, warning: here.warning };
 }
 

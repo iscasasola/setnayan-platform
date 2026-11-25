@@ -53,10 +53,23 @@ export async function recordSupplierOutcome(note: SupplierOutcomeNote): Promise<
   await (await outcomes()).put({ id: note.item.itemId, ...note });
 }
 
-/** This account's answers in this shop that need a look, oldest first. */
+/** An answer this page can't draw as what it is (the worker files answers it only checked by status — `public/sw.js`). */
+export const ANSWER_NOT_SHOWN = 'Setnayan answered, but this page can’t show it. Reload, then check this change.';
+
+/** This account's answers in this shop that need a look, oldest first. Each is re-read here, the page's own way; one it
+ *  can't read is still shown — as a refusal saying so — never dropped. */
 export async function readSupplierOutcomes(member: string, shop: string): Promise<SupplierOutcomeNote[]> {
   const rows = (await (await outcomes()).all()) as unknown as SupplierOutcomeNote[];
-  return rows.filter((n) => n.member === member && n.shop === shop).sort((a, b) => (a.answeredAt < b.answeredAt ? -1 : 1));
+  const { parseSyncReply } = await import('@/lib/supplier-offline/kinds');
+  return rows
+    .filter((n) => n.member === member && n.shop === shop)
+    .map((n) => {
+      const reply = parseSyncReply(n.reply);
+      return reply && reply.status !== 'retry'
+        ? { ...n, reply }
+        : { ...n, reply: { status: 'refused' as const, why: ANSWER_NOT_SHOWN, itemId: n.item.itemId, kind: n.item.kind } };
+    })
+    .sort((a, b) => (a.answeredAt < b.answeredAt ? -1 : 1));
 }
 
 export async function dismissSupplierOutcome(member: string, itemId: string): Promise<void> {

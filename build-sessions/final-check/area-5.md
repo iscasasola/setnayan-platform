@@ -1,4 +1,4 @@
-FIXER: batch 2 of ~4 · PR #8305 (batch 1, ready, CI) · PR #8314 (batch 2, ready, CI) · 23 lane A IDs fixed · 1 🟠 (A5-G4-01) · batch 3 next: broken controls and wrong words
+FIXER: batch 3 of ~4 · PR #8305 (b1) · PR #8314 (b2) · PR #8318 (b3) · all ready, CI · 35 lane A IDs fixed · 1 🟠 (A5-G4-01) · B5-18/B5-21 retracted · B5-08 → lane B · batch 4 next: the rest (A5-G2-05, A5-G5-07, A5-G3-01 after b1 lands; B5-22, B5-27, A5-G6-04, A5-G2-04, A5-G5-10)
 STATUS: phase B done · 48 of 48 pages + 5 of 5 forwards walked at 375 / 768 / 1280 (light; dark does not exist in area 5, B5-00) · signed-out doors walked · buttons 1,285 (375) · pressed 870 · failed 23 (hand-proven: 21 inert controls on a booked card, 2 popups that ignore Escape) · phase B findings 28: blocker 0 · money-signin 4 · broken 4 (1 not proven) · wrong 9 · look 11 · phase A findings 99 (10 confirmed live)
 
 # Final check · Area 5 · Supplier: shop, cards, Toolkit, plans
@@ -1518,7 +1518,9 @@ RULE      Add 2 EFFECTIVE (no internal names or codes)
 SEVERITY  wrong
 SOURCE    SEEN
 
-#### B5-08 · Analytics draws a made-up "Example" zigzag over a real zero
+#### B5-08 · Analytics draws a made-up "Example" zigzag over a real zero — LANE B (fixer, 25 Nov)
+LANE      The approved Build 5 Lane H design: an empty graph is a faded sample marked "Example" (`graph-tile.tsx`); a refused
+          read still says "Couldn't load". Changing it needs a drawing and the owner's OK.
 PAGE      /vendor-dashboard/shop › Analytics › Opened (and Today's "How is business")
 BUTTON    the Opened tile
 STEPS     1. Open Shop. 2. Look at the Opened tile (0 opened in 30 days).
@@ -1638,7 +1640,10 @@ RULE      Add 2 BALANCED (no lone card on a row) · Add 5 (no two controls touch
 SEVERITY  look
 SOURCE    SEEN
 
-#### B5-18 · "Write to NFC" popup does not close with Escape
+#### B5-18 · ~~"Write to NFC" popup does not close with Escape~~ — RETRACTED by the fixer (25 Nov)
+RETRACTED  The popup is the canonical `Sheet` (rise); `lib/use-modal-a11y.ts` closes the topmost layer on Escape at document
+           level. The walk harness checked the dialog only 500 ms after Escape, but the close runs through a history step
+           plus the exit motion. Not a fault.
 PAGE      /open-shop/invite (and every QR page with Write to NFC: /vendor-dashboard/shop/qrs/*)
 BUTTON    "Write to NFC"
 STEPS     1. Press Write to NFC on a computer. 2. Press Escape.
@@ -1681,7 +1686,8 @@ RULE      design-and-wiring C8 (one reader) · CLAUDE.md § 1 money
 SEVERITY  wrong (the shop page half: money-signin if it repeats on a maker-made card)
 SOURCE    SEEN
 
-#### B5-21 · The Shop settings layer, like the NFC popup, does not close with Escape
+#### B5-21 · ~~The Shop settings layer, like the NFC popup, does not close with Escape~~ — RETRACTED by the fixer (25 Nov)
+RETRACTED  Same shared modal stack as B5-18; same harness limit. Not a fault.
 PAGE      /vendor-dashboard/profile (⚙ Shop settings), and every page with the ⚙
 BUTTON    "Shop settings"
 STEPS     1. Press ⚙ on a computer. 2. Press Escape.

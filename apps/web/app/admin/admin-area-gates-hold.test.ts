@@ -187,7 +187,7 @@ test('A8·E-2 · a resolved force-majeure flag is closed to re-resolution', () =
 
 test('A8·E-13 · a refused flag resolution is said on its page, never the crash page', () => {
   const f = 'app/admin/force-majeure/actions.ts';
-  const b = body(read(f), 'resolveFlag');
+  const b = body(read(f), 'resolveFlag', f);
   assert.match(b, /const refuse: \(msg: string\) => never = \(msg\) =>\s*redirect\(`\/admin\/force-majeure\/\$\{encodeURIComponent\(flagId\)\}\?error=1&msg=/);
   assert.doesNotMatch(b, /throw new Error\((?!'Invalid input')/, 'every refusal after the id check is said, not thrown');
 });
@@ -195,10 +195,10 @@ test('A8·E-13 · a refused flag resolution is said on its page, never the crash
 test('A8·A-6 · a founder seat goes to an exact email match, and a failed read is said', () => {
   const f = 'app/admin/founder-seats/actions.ts';
   const s = read(f);
-  const grant = body(s, 'grantFounderSeat');
+  const grant = body(s, 'grantFounderSeat', f);
   assert.match(grant, /\.ilike\('email', email\.replace\(\/\[\\\\%_\]\/g, \(c\) => `\\\\\$\{c\}`\)\)/, 'wildcards are escaped');
   before(grant, /if \(targetErr\) \{\s*fail\(/, 'if (!target)', 'grantFounderSeat');
-  const revoke = body(s, 'revokeFounderSeat');
+  const revoke = body(s, 'revokeFounderSeat', f);
   before(revoke, /if \(seatErr\) fail\(/, 'is already empty', 'revokeFounderSeat');
 });
 

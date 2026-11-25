@@ -28,3 +28,13 @@ test('🔒 a refused rating read is said on the shop page, never "none yet" (A1-
   const reviews = stripComments(readFileSync(join(process.cwd(), 'lib/reviews.ts'), 'utf8'));
   assert.match(reviews, /if \(error\) \{[\s\S]{0,140}return null;/);
 });
+
+test('🔒 "Show more reviews" stops when the public list runs out (A1-130)', () => {
+  const page = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/page.tsx'), 'utf8'));
+  assert.match(page, /const hasMore = reviews\.length >= limit && reviewStats\.total_count > reviews\.length;/);
+});
+
+test('🔒 an unverified shop hands its cards no reviews (A1-131)', () => {
+  const page = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/page.tsx'), 'utf8'));
+  assert.match(page, /reviewsByService: isVerifiedShop \? reviewsByService : new Map<string, CardReviews>\(\),/);
+});

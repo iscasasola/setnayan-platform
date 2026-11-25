@@ -1424,7 +1424,10 @@ export async function renderVendorBySlug({
     }
   }
 
-  const hasMore = reviewStats.total_count > reviews.length;
+  // 🔒 "Show more reviews" ends when the LIST does (final check A1-130): the raw count includes reviews the public list
+  // never shows (held, unlisted events), so comparing against it kept the pager alive for ever, reloading the same rows.
+  // A page that came back short of what it asked for has nothing after it.
+  const hasMore = reviews.length >= limit && reviewStats.total_count > reviews.length;
   const activeServices = allServices.filter((s) => s.is_active);
 
   // Service-card enrichment (redesign · Phase 4) — FREE inclusions + the
@@ -2536,7 +2539,9 @@ export async function renderVendorBySlug({
     inquireMode: canMessage ? 'anchor' : 'none',
     openServicePublicId: openServicePublicId,
     inspirationByService: inspirationByService,
-    reviewsByService: reviewsByService,
+    // 🔒 No review and no stars anywhere on a shop Setnayan has not verified (final check A1-131) — the same gate as the
+    // card's record rating and the page's own Reviews section.
+    reviewsByService: isVerifiedShop ? reviewsByService : new Map<string, CardReviews>(),
 
   };
   const photoServiceViews = activeServices.length > 0 ? servicesFromCards(buildServiceGroups(servicesProps).flatMap((g) => g.cards)) : [];

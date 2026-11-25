@@ -549,3 +549,4 @@ their cover photo… if they go to Pro, they go to Ultra, the full editorial wil
 - Open for the owner: is Pro's print excluded even for Pro bought before canvas left Pro (`CANVAS_LEFT_PRO_AT` grandfathering)?
   Default until he says: follow the same grandfathering rule as canvas.
 - Nothing already written is deleted when a plan is lower: it stays saved and shows again on upgrade.
+- **Look APPROVED (owner 25 Nov: "A newspaper looks good.")** for the Our Day Paper drawing. Function stays the controller's (Add 31).

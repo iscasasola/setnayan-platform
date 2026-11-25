@@ -1,4 +1,4 @@
-FIXER: lane A done (b1 #8305 landed · b2 #8314 · b3 #8318 · b4 #8320 ready) · lane B 1 #8335 ready (B1–B3) · lane B 2 #8341 ready (B7 B8 B10 B11) · next: B9 (own PR), then B13–B16 · 🟠 A5-G4-01, B5-22
+FIXER: lane A done (b1 #8305 landed · b2 #8314 · b3 #8318 · b4 #8320 ready) · lane B 1 #8335 · lane B 2 #8341 (review fixes in) · lane B 3 #8353 draft (B9, depends on #8341) · next: B13–B16 · 🟠 A5-G4-01, B5-22
 STATUS: phase B done · 48 of 48 pages + 5 of 5 forwards walked at 375 / 768 / 1280 (light; dark does not exist in area 5, B5-00) · signed-out doors walked · buttons 1,285 (375) · pressed 870 · failed 23 (hand-proven: 21 inert controls on a booked card, 2 popups that ignore Escape) · phase B findings 28: blocker 0 · money-signin 4 · broken 4 (1 not proven) · wrong 9 · look 11 · phase A findings 99 (10 confirmed live)
 
 # Final check · Area 5 · Supplier: shop, cards, Toolkit, plans

@@ -16,16 +16,16 @@ None found in phase A so far.
 - [x] /open-shop · OFFLINE: NOT NEEDED (sign-up creates the account and the shop; needs internet) · SHAPE: TODAY a full page (5-step wizard, its own `<main>`; `?claim=` draws the claim door the same way) → SHOULD FULL-SCREEN POPUP with a full entry (differs)
 - [x] /open-shop/invite · OFFLINE: NOT NEEDED (a first-run step; the QR stays in Shop › Partnerships) · SHAPE: TODAY a full page (last step of opening a shop) → SHOULD FULL-SCREEN POPUP, the closing step of /open-shop's (differs)
 - [x] /open-shop/logo · OFFLINE: NOT NEEDED (an upload) · SHAPE: TODAY a full page (step after the shop opens) → SHOULD FULL-SCREEN POPUP, a step of /open-shop's (differs)
-- [ ] /vendor-dashboard
-- [ ] /vendor-dashboard/activities
-- [ ] /vendor-dashboard/attributes
+- [x] /vendor-dashboard (Today + layout shell: top bar, rail, bottom bar) · OFFLINE: READ-ONLY IS ENOUGH (the on-the-day work lives on /vendor-dashboard/on-the-day and expo work on the calendar/QR; Today should open as a saved copy with "as of", edits "Needs internet") · SHAPE: TODAY page → SHOULD PAGE (same)
+- [x] /vendor-dashboard/activities · OFFLINE: READ-ONLY IS ENOUGH (an emcee may glance at segments on the day; the run sheet on On the day is the working copy) · SHAPE: TODAY page (+ Add sheet) → SHOULD PAGE (same)
+- [x] /vendor-dashboard/attributes · OFFLINE: NOT NEEDED · SHAPE: TODAY page (+ Add sheet, `?add=` deep link) → SHOULD PAGE (same)
 - [ ] /vendor-dashboard/collections
 - [ ] /vendor-dashboard/collections/albums
-- [ ] /vendor-dashboard/creators
+- [x] /vendor-dashboard/creators · OFFLINE: NOT NEEDED · SHAPE: TODAY page (+ Send offer sheet) → SHOULD PAGE (same)
 - [ ] /vendor-dashboard/deep-search
-- [ ] /vendor-dashboard/help
+- [x] /vendor-dashboard/help · OFFLINE: NOT NEEDED (five doors to online pages) · SHAPE: TODAY page of 5 link rows → SHOULD SMALL POPUP (Sheet from Settings › Help) (differs)
 - [ ] /vendor-dashboard/invite
-- [ ] /vendor-dashboard/lines
+- [x] /vendor-dashboard/lines · OFFLINE: READ-ONLY IS ENOUGH (lines are read during a wedding; writing happens on the client's script tab) · SHAPE: TODAY page → SHOULD PAGE (same)
 - [ ] /vendor-dashboard/moodboard-library
 - [ ] /vendor-dashboard/packages
 - [ ] /vendor-dashboard/packages/[packageId]
@@ -41,15 +41,15 @@ None found in phase A so far.
 - [x] /vendor-dashboard/services/requests/[requestId] · OFFLINE: NOT NEEDED · SHAPE: TODAY page → SHOULD PAGE (same; "requested=1" / decision notices link here) · glow: no
 - [x] /vendor-dashboard/services/requests/new · OFFLINE: NOT NEEDED (sending a request needs internet) · SHAPE: TODAY page, 3 steps as 3 addresses → SHOULD FULL-SCREEN POPUP (differs) · glow: no
 - [x] /vendor-dashboard/services/their-work · OFFLINE: READ-ONLY IS ENOUGH (portfolio shown to a client at an expo) · SHAPE: TODAY page → SHOULD PAGE (same; a card's Portfolio row links to its album anchor) · glow: no
-- [ ] /vendor-dashboard/settings
-- [ ] /vendor-dashboard/shop
-- [ ] /vendor-dashboard/shop/badges
-- [ ] /vendor-dashboard/shop/promote
-- [ ] /vendor-dashboard/shop/qrs
-- [ ] /vendor-dashboard/shop/qrs/[code]
-- [ ] /vendor-dashboard/shop/store
-- [ ] /vendor-dashboard/shop/store/[shelf]
-- [ ] /vendor-dashboard/shop/store/[shelf]/[item]
+- [x] /vendor-dashboard/settings · OFFLINE: NOT NEEDED (rows open other pages; nothing to do here offline) · SHAPE: TODAY page → SHOULD PAGE (forward target of /more, `#more-tools` deep link) (same)
+- [x] /vendor-dashboard/shop · OFFLINE: READ-ONLY IS ENOUGH (showing the shop to a client at an expo is a look, not an edit; R11 "shop offline" is read-only) · SHAPE: TODAY PAGE (the Shop tab) → SHOULD PAGE (same; its Logo / Cover / Storage doors differ, see A5-G4-04)
+- [x] /vendor-dashboard/shop/badges · OFFLINE: NOT NEEDED (progress ladder, nothing done on the road) · SHAPE: TODAY PAGE (ToolPage) → SHOULD PAGE (same; "See all" link target, bookmarked)
+- [x] /vendor-dashboard/shop/promote · OFFLINE: READ-ONLY IS ENOUGH (prints and gifts need internet to buy; the list can be read) · SHAPE: TODAY PAGE (Shop › Promote) → SHOULD PAGE (same)
+- [x] /vendor-dashboard/shop/qrs · OFFLINE: NEEDED — at an expo (the supplier shows Check a date / Shortlist / Your page codes for a client to scan where the hall has no signal; R8 offline client QR) · SHAPE: TODAY PAGE (ToolPage) → SHOULD PAGE (same)
+- [x] /vendor-dashboard/shop/qrs/[code] · OFFLINE: NEEDED — at an expo (the one code held up for scanning; a saved copy of the code image is enough, no edits) · SHAPE: TODAY PAGE → SHOULD PAGE (same; linked from Today's "Open QR" and bookmarks)
+- [x] /vendor-dashboard/shop/store · OFFLINE: NOT NEEDED (Toolkit browsing and buying need internet) · SHAPE: TODAY PAGE → SHOULD PAGE (same)
+- [x] /vendor-dashboard/shop/store/[shelf] · OFFLINE: NOT NEEDED · SHAPE: TODAY PAGE → SHOULD PAGE (same)
+- [x] /vendor-dashboard/shop/store/[shelf]/[item] · OFFLINE: NOT NEEDED (Buy / Install need internet) · SHAPE: TODAY PAGE → SHOULD PAGE (same; each widget has its own address, shared and bookmarked)
 - [ ] /vendor-dashboard/subscription
 - [ ] /vendor-dashboard/team
 - [ ] /vendor-dashboard/team/roles
@@ -316,6 +316,176 @@ RULE      HOUSE_DESIGN_STANDARD D2 (3+ choices = PickMenu) · K2
 SEVERITY  look
 SOURCE    CODE
 
+### Today, settings and small tools
+
+#### A5-G2-01 · The rail's Plan row says "Free" when the plan read fails
+PAGE      every /vendor-dashboard/* page (the layout's rail, desktop + tablet)   (shop: Liwanag Photo & Film, Pro)
+BUTTON    "Plan" row (its count text shows the plan name)
+STEPS     1. Sign in as `supplier_shop`. 2. The layout's tier read on `vendor_profiles` is refused (any error). 3. Look at the rail's Plan row.
+EXPECTED  A refused read says it could not be read ("—" or "Couldn't read"), never a plan name.
+ACTUAL    `tierProbePromise` keeps only `tierRes.data` (no `error` branch) → `tier: null` → `TIER_LABEL[asVendorTier(tier)]` = "Free" on a Pro shop.
+CODE      apps/web/app/vendor-dashboard/layout.tsx · `tierProbePromise` · apps/web/app/vendor-dashboard/_components/vendor-rail-context.tsx · `TIER_LABEL[asVendorTier(tier)]`
+SHOTS     to take in phase B: desktop light + dark (rail)
+RULE      CLAUDE.md §5 rule 4 (honest states) · kit § 5 item 9 ("Free" on a failed read)
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### A5-G2-02 · The rail's plan word is a second tier reader (no promotion applied)
+PAGE      every /vendor-dashboard/* page (rail Plan row) vs /vendor-dashboard/subscription and every gate
+BUTTON    "Plan" row
+STEPS     1. A shop whose tier is raised by a live promotion (`applyVendorTierPromotion`). 2. Compare the rail's plan word with the plan page and the gates.
+EXPECTED  One reader for a shop's plan (`resolveVendorTier` / `lib/vendor-tier-caps.ts`), so every page agrees.
+ACTUAL    The layout reads raw `tier_state` itself; the gates use `resolveVendorTier`, which applies `getPromotedVendorTierFor`. A promoted shop can read "Free" in the rail and "Pro" on its gates. Verify in phase B.
+CODE      apps/web/app/vendor-dashboard/layout.tsx · `tierProbePromise` · apps/web/lib/vendor-feature-gate.ts · `applyVendorTierPromotion`
+SHOTS     to take in phase B: desktop light
+RULE      design-and-wiring C8 (one reader per shared fact)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G2-03 · Creators: a refused plan read locks Send for a paying shop
+PAGE      /vendor-dashboard/creators   (shop: Liwanag Photo & Film, Pro)
+BUTTON    "Send offer" (in the sheet)
+STEPS     1. Open Creators. 2. The tier read is refused. 3. Tap Send offer on any creator.
+EXPECTED  A refused plan read is said; a Pro shop is never told to buy a plan.
+ACTUAL    `resolveVendorTier` destructures only `{ data }` (no error check) → `asVendorTier(undefined)` = free → `sendNeedsPro` true → the sheet says "Sending an offer is part of every paid plan… Send asks for the plan" to a Pro shop.
+CODE      apps/web/lib/vendor-feature-gate.ts · `resolveVendorTier` · apps/web/app/vendor-dashboard/creators/page.tsx · `sendNeedsPro`
+SHOTS     to take in phase B: 375 px light + 375 px dark (sheet open)
+RULE      CLAUDE.md §5 rule 4 (honest states) · kit § 5 item 9
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### A5-G2-04 · Creators: the Send lock has no 🔒 door, and its two sentences disagree on the plan
+PAGE      /vendor-dashboard/creators   (a Free shop; phase B can only read the words on the Pro shop)
+BUTTON    "Send offer"
+STEPS     1. As a Free shop, open Creators › Send offer. 2. Fill it in. 3. Press Send offer.
+EXPECTED  🔒 shown, then Problem → Solution → preview → price from the catalogue → one button to a real checkout. One plan named, the same everywhere.
+ACTUAL    The sheet says "part of every paid plan"; pressing Send bounces back with "Creator collabs are a Pro-and-up feature. Upgrade your plan…" (`humanizeOfferError`). No price, no checkout door — the press only returns an error line.
+CODE      apps/web/app/vendor-dashboard/creators/_components/creators-tools.tsx · `sendNeedsPro` · apps/web/app/vendor-dashboard/creators/actions.ts · `humanizeOfferError`
+SHOTS     to take in phase B: 375 px light (sheet + the error line)
+RULE      design-and-wiring B7 (🔒 locks are honest) · HOUSE_DESIGN_STANDARD D3 ("Every lock shows 🔒")
+SEVERITY  broken
+SOURCE    CODE
+
+#### A5-G2-05 · Creators: a refused list read reads as "No creators match yet" and "no offers sent"
+PAGE      /vendor-dashboard/creators
+BUTTON    —
+STEPS     1. Open Creators while the creator chapters or the offers read is refused.
+EXPECTED  "Couldn't load creators · Try again", distinct from empty.
+ACTUAL    `fetchEligibleCreators` and `fetchVendorSentOffers` keep only `{ data }` (`data ?? []`) → the empty state "No creators match yet" and an empty Sent list.
+CODE      apps/web/lib/creator-offers.ts · `fetchEligibleCreators` · `fetchVendorSentOffers`
+SHOTS     to take in phase B: 375 px light
+RULE      CLAUDE.md §5 rule 4 (honest states) · kit § 5 item 9
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G2-06 · Today: the failure screen has no Try again
+PAGE      /vendor-dashboard
+BUTTON    —
+STEPS     1. Open Today while `fetchVendorOverviewData` or `readTodaySchedules` throws.
+EXPECTED  The shared `ErrorState`: what broke → what survived → one Try again.
+ACTUAL    A hand-made header "This page is temporarily unavailable. Refreshing usually clears this. Your data is safe." with no button (and the setup maker's "The service maker couldn't load. Refresh to try again." likewise).
+CODE      apps/web/app/vendor-dashboard/page.tsx · `This page is temporarily unavailable` · `The service maker couldn’t load`
+SHOTS     to take in phase B: only if a failure can be forced
+RULE      HOUSE_DESIGN_STANDARD F4 · CLAUDE.md §3 (Empty / error: `error-state.tsx`)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G2-07 · Today: the next-event card has a shadow and a white pill in dark
+PAGE      /vendor-dashboard   (Coming up carousel, next event)
+BUTTON    the event card
+STEPS     1. Open Today in dark with a booked event coming up.
+EXPECTED  K2: static cards flat in dark (no shadows), no white surfaces.
+ACTUAL    `EventCard` hand-types `shadow-[0_1px_2px…,0_8px_24px…]` on a static card in both modes, and the "when" pill is `bg-white` (white in dark); the position pill is `bg-black/45`.
+CODE      apps/web/app/vendor-dashboard/_components/today-next-events.tsx · `EventCard` · `data-today-next-when`
+SHOTS     to take in phase B: 375 px dark
+RULE      HOUSE_DESIGN_STANDARD Part K2 · design-and-wiring D13 (no `bg-white`)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G2-08 · Today welcome: the first card's price is formatted by hand, and "Edit in the Card Maker"
+PAGE      /vendor-dashboard?opened=1 (the welcome after opening a shop)
+BUTTON    "Edit in the Card Maker" · "Approve card"
+STEPS     1. Finish /open-shop with a first card. 2. Land on Today's welcome.
+EXPECTED  Pesos only through `lib/php.ts` (`formatPhp`); no "Edit in X" link (put the field there or say "Edit card").
+ACTUAL    `from ₱{formatCount(card.price)}` builds the peso string by hand; the link reads "Edit in the Card Maker". The Approve button is the legacy `.button-primary`.
+CODE      apps/web/app/vendor-dashboard/_components/today-welcome.tsx · `from ₱{formatCount(card.price)}` · `Edit in the Card Maker`
+SHOTS     to take in phase B: 375 px light + dark (only if a fresh shop can be walked; never on the seeded one)
+RULE      CLAUDE.md §1 (money only through `lib/php.ts`) · HOUSE_DESIGN_STANDARD D3 ("Never 'Edit in X ↗'")
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G2-09 · Help: "we answer within a business day" is a speed promise
+PAGE      /vendor-dashboard/help
+BUTTON    "Talk to Setnayan"
+STEPS     1. Settings › Help. 2. Read the last row.
+EXPECTED  No speed claims or service promises in UI copy.
+ACTUAL    Row line: "Send us a message — we answer within a business day".
+CODE      apps/web/app/vendor-dashboard/settings/settings-rows.ts · `we answer within a business day`
+SHOTS     to take in phase B: 375 px light
+RULE      docs/brand.md claims 6 (speed) and 10 (promises)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G2-10 · Attributes: "attribute payload" and an unproven ranking claim
+PAGE      /vendor-dashboard/attributes
+BUTTON    swipe left › Delete (the toast after it) · the ⓘ beside the title
+STEPS     1. Remove a service's attributes by swipe. 2. Read the toast. 3. Open the ⓘ.
+EXPECTED  Plain words; no claim the app cannot back.
+ACTUAL    Toast: "Removed that service's attribute payload." (database word). ⓘ: "Completing more fields raises your marketplace ranking and unlocks listing visibility." — verify the ranking claim is true before it stays.
+CODE      apps/web/app/vendor-dashboard/attributes/_components/attributes-view.tsx · `attribute payload` · `INTRO`
+SHOTS     to take in phase B: 375 px light
+RULE      docs/brand.md (tone, claims) · HOUSE_DESIGN_STANDARD Part I 5 (exact words)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G2-11 · Your segments: a second accent button on the screen ("Add question")
+PAGE      /vendor-dashboard/activities
+BUTTON    "Add question" · "Save" (inside an opened segment or question) · the thumb row ＋ "Add a segment"
+STEPS     1. Open Your segments. 2. Look at the screen with one segment open.
+EXPECTED  K1: one main (blue) button per screen; every other button neutral or a text link.
+ACTUAL    The thumb row's ＋ is the main action, while "Write your own" always shows `ActionButton tone="brand"` "Add question" (accent-outlined), and each opened row's "Save" is `tone="brand"` too. The "Write your own" form is also always open on the page while segments add from a sheet.
+CODE      apps/web/app/vendor-dashboard/activities/questions-section.tsx · `label="Add question"` · `label="Save"` · apps/web/app/vendor-dashboard/activities/_components/activities-view.tsx · `label="Save"`
+SHOTS     to take in phase B: 375 px light + dark
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G2-12 · Segments and Lines send a shop-less person through /verify
+PAGE      /vendor-dashboard/activities · /vendor-dashboard/lines
+BUTTON    —
+STEPS     1. A signed-in person with no shop opens either address.
+EXPECTED  The same landing every other tool uses for "no shop" (`/vendor-dashboard`, which tells a team member from a new supplier).
+ACTUAL    `redirect('/vendor-dashboard/verify')` → forwards to `/vendor-dashboard/profile#docs` → profile finds no shop and redirects to `/vendor-dashboard`: two extra hops through a page about verification.
+CODE      apps/web/app/vendor-dashboard/activities/page.tsx · `redirect('/vendor-dashboard/verify')` · apps/web/app/vendor-dashboard/lines/page.tsx · same
+SHOTS     not needed
+RULE      design-and-wiring A4 (every way in lands where it says)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G2-13 · Shell: "+ Create service card" is a filled accent beside each page's own main button
+PAGE      every /vendor-dashboard/* page on desktop (the rail's create slot)
+BUTTON    "+ Create service card"
+STEPS     1. Open any supplier page at desktop width that has its own main button (e.g. Your segments' ＋, Shop).
+EXPECTED  K1: one main button per screen.
+ACTUAL    The layout passes `createSlot` = `fd-btn-gold` "+ Create service card" (the shell's filled action) on every page; with the page's own main verb that is two filled accents on one screen. Verify in phase B how `fd-btn-gold` draws in the supplier blue.
+CODE      apps/web/app/vendor-dashboard/layout.tsx · `createSlot` · `fd-btn-gold`
+SHOTS     to take in phase B: desktop light + dark
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G2-14 · SHAPE: Help is a page of five links
+PAGE      /vendor-dashboard/help
+BUTTON    Settings › "Help"
+STEPS     1. Settings › Help.
+EXPECTED  SMALL POPUP (`Sheet`, half height on a phone): one short screen of five doors, not shared by link.
+ACTUAL    TODAY: its own page with a Back button.
+CODE      apps/web/app/vendor-dashboard/help/page.tsx · `SUPPLIER_HELP_ROWS`
+SHOTS     to take in phase B: 375 px light
+RULE      SHAPE (owner 25 Nov)
+SEVERITY  look
+SOURCE    CODE
+
 ### Service cards
 
 #### A5-G3-01 · A refused card read shows "page doesn't exist" for the shop's own card
@@ -459,5 +629,139 @@ ACTUAL    Visible `<h1>` "Their work" + "Photos from the events this card was bo
 CODE      apps/web/app/vendor-dashboard/services/their-work/page.tsx · `Photos from the events this card was booked for`
 SHOTS     to take in phase B: 375 px light + dark
 RULE      CLAUDE.md §3 (Page title: PageMasthead) · checklist 11 (wrong words)
+SEVERITY  wrong
+SOURCE    CODE
+
+### Shop, Toolkit and store
+
+#### A5-G4-01 · "Most in one payment" shows a typed ₱ default when the setting read fails
+PAGE      /vendor-dashboard/shop/promote   (shop: Liwanag Photo & Film) — also Shop › Promote door
+BUTTON    "Buy more" → the gift store's foot line
+STEPS     1. Open Promote. 2. Press "Buy more". 3. Read the line under "Buy now".
+EXPECTED  The cap is read from `platform_settings.max_payment_php`; if that read fails the line says it could not be read (and the cart does not enforce an invented cap).
+ACTUAL    `getMaxPaymentPhp` catches a refused read and returns `MAX_PAYMENT_PHP_DEFAULT` (a peso number typed in `lib/max-payment.ts`); the store prints "<₱…> is the most in one payment." and `canAdd` caps the cart with it, as if it were read.
+CODE      apps/web/lib/max-payment.server.ts · `return MAX_PAYMENT_PHP_DEFAULT` · apps/web/app/vendor-dashboard/shop/promote/_components/gift-store.tsx · `is the most in one payment`
+SHOTS     to take in phase B: 375 px light + 375 px dark
+RULE      CLAUDE.md §5 rule 3 (never guess a number that governs money) · rule 4 (honest states)
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### A5-G4-02 · Gift ticket sheet has two accent buttons (filled + accent-outlined), hand-made
+PAGE      /vendor-dashboard/shop/promote   (shop: Liwanag Photo & Film)
+BUTTON    "Add 1" beside "Add 10" (the bundle)
+STEPS     1. Promote › Your gifts. 2. Tap a gift ticket. 3. Look at the two add buttons.
+EXPECTED  One main button (the bundle, filled blue); "Add 1" neutral. Both made with `ActionButton`.
+ACTUAL    `AddButton` is a hand-made `<button>`: the main one `bg-sn-accent`, the other `border-sn-accent/40 bg-sn-accent/[0.09] text-sn-accent` — accent-outlined. Same in the Apple branch.
+CODE      apps/web/app/vendor-dashboard/shop/promote/_components/gift-store.tsx · `function AddButton`
+SHOTS     to take in phase B: 375 px light + 375 px dark
+RULE      HOUSE_DESIGN_STANDARD Part K1.2 · design-and-wiring §D 12 (one button primitive)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G4-03 · Gift store and gift history paint a fixed light fill — a pale surface in dark
+PAGE      /vendor-dashboard/shop/promote   (shop: Liwanag Photo & Film)
+BUTTON    "Buy more" · the history door
+STEPS     1. Switch to dark. 2. Promote › "Buy more" (and the gift history). 3. Look behind the gift tiles.
+EXPECTED  Flat `--color-page` / navy surfaces from tokens in dark.
+ACTUAL    The scroll body is `bg-[rgb(238_242_248)]` (the light page colour typed in) in both the store and the history; `gift-store.module.css` also types `rgb(37 99 235 / 0.06)`. In dark the sheet body stays near-white under navy cards.
+CODE      apps/web/app/vendor-dashboard/shop/promote/_components/gift-store.tsx · `bg-[rgb(238_242_248)]` · gift-store.module.css · `rgb(37 99 235 / 0.06)`
+SHOTS     to take in phase B: 375 px dark
+RULE      HOUSE_DESIGN_STANDARD Part K2.1 (no white surfaces in dark) · design-and-wiring §D 13 (no typed colour)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G4-04 · Logo, Cover photo and Storage open full screen on a phone though each is one short screen
+PAGE      /vendor-dashboard/shop   (shop: Liwanag Photo & Film)
+BUTTON    the logo circle · the cover · the plan/storage chip
+STEPS     1. Shop at 375 px. 2. Tap the logo (then the cover, then the storage chip).
+EXPECTED  SMALL POPUP: `Sheet` at half height (See · Upload · Adjust / See · Upload · Choose / the meter + one button are ≤ 3 things).
+ACTUAL    `ParamSheet` → `ShopDoorScreen`, which below 701 px IS `RiseScreen` (full screen).
+CODE      apps/web/app/vendor-dashboard/shop/_components/shop-cover.tsx · `function ParamSheet` · apps/web/app/vendor-dashboard/_components/shop-door-screen.tsx · `return <RiseScreen`
+SHOTS     to take in phase B: 375 px light
+RULE      SHAPE (owner 25 Nov)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G4-05 · A popup opens on top of a popup: Shop › Promote/Prints door → gift store / prints sheet
+PAGE      /vendor-dashboard/shop   (shop: Liwanag Photo & Film)
+BUTTON    "Promote" / "Prints" (cover row) → "Buy more" / a print design
+STEPS     1. Shop at 375 px. 2. Tap Promote (rises full screen). 3. Tap "Buy more" (or open Prints and pick a piece).
+EXPECTED  One layer at a time: from inside a full-screen door, the next step opens in place (sections open inside the RiseScreen), never a second overlay.
+ACTUAL    The door is `ShopDoorScreen` (RiseScreen); inside it `ShopGiftsSection` opens `GiftStore` as `<Sheet … full>` and `ShopPrintsSection` opens `PrintsSheet` as `<Sheet … wide full>` — a full sheet over a full-screen popup (and the ticket sheet a third level).
+CODE      apps/web/app/vendor-dashboard/shop/_components/shop-cover.tsx · `promoteBody` · promote/_components/gift-store.tsx · `<Sheet open={open} onClose={close} labelledById={headingId} full` · promote/_components/shop-prints-section.tsx · `function PrintsSheet`
+SHOTS     to take in phase B: 375 px light
+RULE      SHAPE (owner 25 Nov: never a popup on top of a popup) · HOUSE_DESIGN_STANDARD D2 (RiseScreen: one level only)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G4-06 · "Name your shop first" sends the supplier back to the Shop tab, not to where the address is set
+PAGE      /vendor-dashboard/shop/qrs   (also Shop › QR door and Promote › Prints)
+BUTTON    "Name your shop first"
+STEPS     1. As a shop with no web address yet, open My QRs. 2. Tap "Name your shop first".
+EXPECTED  It lands on the field that sets the shop's web address (Your page / Your details), opened.
+ACTUAL    `setupHref="/vendor-dashboard/shop"` everywhere: from the Shop tab's own QR door it reloads the same page; from My QRs it lands at the top of Shop with nothing pointing at the address. Verify in phase B (the seeded shop has an address; needs a shop without one).
+CODE      apps/web/app/vendor-dashboard/shop/qrs/page.tsx · `setupHref="/vendor-dashboard/shop"` · promote/_components/promote-body.tsx · `setupHref="/vendor-dashboard/shop"`
+SHOTS     to take in phase B: 375 px light
+RULE      design-and-wiring §B 5 (every press reaches a real destination)
+SEVERITY  broken
+SOURCE    CODE
+
+#### A5-G4-07 · Storage sheet's upgrade button names the plan but shows no price
+PAGE      /vendor-dashboard/shop   (shop: Liwanag Photo & Film)
+BUTTON    "Go Ultra" (the next plan with more space)
+STEPS     1. Shop › the plan/storage chip. 2. Read the sheet.
+EXPECTED  A gate shows Problem → Solution → preview → price from the catalogue → one button.
+ACTUAL    `StorageBody` shows the meter (and "Over your space — new files wait for room") and "Go <plan>" with no price; the price is only on the plans page.
+CODE      apps/web/app/vendor-dashboard/shop/_components/shop-cover.tsx · `function StorageBody`
+SHOTS     to take in phase B: 375 px light
+RULE      design-and-wiring §B 7 (🔒 locks are honest: price from the catalogue)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G4-08 · Shop's "couldn't read" screen is hand-made: own <h1> "My Shop" and the legacy button
+PAGE      /vendor-dashboard/shop
+BUTTON    "Try again"
+STEPS     1. Shop loader throws (refused read). 2. Look at the screen.
+EXPECTED  The shared `ErrorState` / `ReadFailed` (what broke → what survived → what to do), one `ActionButton`; the tab's name is "Shop".
+ACTUAL    A typed `<h1>` "My Shop" with `text-3xl … sm:text-4xl` and a `.button-primary` link (legacy, no more to be added).
+CODE      apps/web/app/vendor-dashboard/shop/page.tsx · `data-shop-unread` · `className="button-primary`
+SHOTS     to take in phase B: cannot be forced on staging; code only
+RULE      HOUSE_DESIGN_STANDARD F4 · CLAUDE.md §3 (Button, Empty/error rows)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G4-09 · Analytics streaming stand-in is a pulsing grey block
+PAGE      /vendor-dashboard/shop
+BUTTON    —
+STEPS     1. Open Shop on a slow connection. 2. Watch the Analytics slot before the carousel lands.
+EXPECTED  `Ghost` / `Sk` skeleton that draws the carousel card's shape with the Sheen; no `animate-pulse`.
+ACTUAL    `AnalyticsPlaceholder` draws `h-[260px] animate-pulse rounded-2xl bg-ink/[0.05]`.
+CODE      apps/web/app/vendor-dashboard/shop/page.tsx · `function AnalyticsPlaceholder`
+SHOTS     to take in phase B: 375 px light (throttled)
+RULE      HOUSE_DESIGN_STANDARD F1 · CLAUDE.md §3 Loading (no animate-pulse)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G4-10 · A Shop tool opens as a body panel with no dim, blur or lock behind it
+PAGE      /vendor-dashboard/shop   (shop: Liwanag Photo & Film)
+BUTTON    any widget tile under "Your widgets" (e.g. "Run of show")
+STEPS     1. Shop › tap a widget tile. 2. Try the bottom nav / top bar while it is open.
+EXPECTED  Part K3: anything on top draws the shared `OverlayBackdrop` (dim + blur), the page behind is inert, a backdrop tap closes it.
+ACTUAL    `BodyPanel` is a hand-built `fixed z-sn-pop` panel over the body that keeps the bars live (by an earlier ruling, "keep the navs"); it draws no backdrop. The 24 Nov K3 rule outranks it — needs an owner call.
+CODE      apps/web/app/vendor-dashboard/_components/body-panel.tsx · `export function BodyPanel` · shop/_components/shop-makers.tsx · `<BodyPanel`
+SHOTS     to take in phase B: 375 px light + dark
+RULE      HOUSE_DESIGN_STANDARD Part K3.1–K3.2
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G4-11 · Share your work: a refused plan read shows recaps as open; the Ultra notes vanish silently
+PAGE      /vendor-dashboard/shop/promote   (shop: Liwanag Photo & Film)
+BUTTON    —
+STEPS     1. Promote › Share your work, when the tier read is refused.
+EXPECTED  "Couldn't load" for the part that depends on the plan; never a gate opened by a failed read, never a section quietly gone.
+ACTUAL    `gatedRead.catch(() => false)` treats an unread tier as not gated (recaps load); `loadUltraStoryNotes` returns `null` on a refused `vendor_profiles` read, so an Ultra shop's story-notes block simply is not drawn.
+CODE      apps/web/app/vendor-dashboard/shop/promote/_components/share-your-work-data.ts · `gatedRead.catch(() => false)` · `function loadUltraStoryNotes`
+SHOTS     cannot be forced on staging; code only
+RULE      CLAUDE.md §5 rule 4 (honest states)
 SEVERITY  wrong
 SOURCE    CODE

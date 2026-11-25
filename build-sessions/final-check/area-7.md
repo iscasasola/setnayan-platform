@@ -947,6 +947,7 @@ Lane A ones are fixed in the batches; the rest wait for their lane.
 - [B] /dashboard/[eventId]/vendors/[vendorId]/workspace · Add 11.2 / Add 1 · a PAGE drawn with a ✕ at the top like a popup; the top should be the house Back (the address, Back and refresh already work).
 - [B] /dashboard/[eventId]/vendors/[vendorId]/workspace · Add 11.8 · the three ⓘ buttons are 16 px (A7-36, lane B SW-TAP).
 - [B] /[slug]/venue · Add 12.4 · the "opens on the day" and "didn't load" plates arrive with a hard cut to near-black from the Event Hub; no named page move.
+- Drawn for the owner, 25 Nov: `build-sessions/final-check/drawings/area-7-second-pass.html` (artifact https://claude.ai/artifact/EU2nkDsrVNc9iR85pmdeiH). All five lane B lines above wait for his yes; none is built.
 - Add 13 · no missing icons found on these pages.
 - Add 15 · no Setnayan mark drawn on these pages outside `<Logo>` (the 3D demo QR draws no mark; `renderUrlQrSvg` carries none).
 - Add 17 · none of the ten routes is retired: `/dashboard/[eventId]/plan3d` is a forward kept for old links; `/3d_plan/demo/[token]` is reached from the /pa3d room's QR.

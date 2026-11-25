@@ -1,0 +1,465 @@
+<title>Area 7 Second Pass</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Space+Mono&display=swap">
+<style>
+/* Layout: one column of five numbered items; each puts the shipped screen (Now) beside the proposal, in phone and
+   computer frames drawn from the house tokens (Setnayan's own colours, type scale and motion speeds). */
+:root {
+  --color-ink: 44 42 41;
+  --color-ink-2: 58 56 47;
+  --color-ink-3: 110 106 98;
+  --color-raised: 255 255 255;
+  --color-raised-2: 244 242 236;
+  --color-wash: 237 234 224;
+  --color-page: 247 245 240;
+  --color-mulberry: 194 78 37;
+  --color-on-accent: 255 255 255;
+  --color-danger: 179 38 30;
+  --color-night: 18 17 16;
+  --color-night-ink: 238 234 226;
+  --line: rgb(var(--color-ink) / 0.12);
+  --scrim: rgb(var(--color-ink) / 0.42);
+  --font: 'Hanken Grotesk', 'Helvetica Neue', Arial, sans-serif;
+  --mono: 'Space Mono', ui-monospace, Menlo, monospace;
+  --r-sm: 8px; --r-md: 14px; --r-lg: 22px; --r-full: 999px;
+  --m-tap: 100ms; --m-quick: 200ms; --m-release: 280ms; --m-move: 320ms; --m-rise: 700ms; --m-sheen: 1400ms;
+  --ease: cubic-bezier(.2,.8,.2,1);
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --color-ink: 247 244 238; --color-ink-2: 210 204 193; --color-ink-3: 164 158 147;
+    --color-raised: 28 26 22; --color-raised-2: 38 35 30; --color-wash: 48 44 38; --color-page: 18 17 16;
+    --color-mulberry: 238 132 86; --color-on-accent: 26 18 12; --color-danger: 242 129 122;
+    --color-night: 10 10 9; --color-night-ink: 238 234 226;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --color-ink: 247 244 238; --color-ink-2: 210 204 193; --color-ink-3: 164 158 147;
+  --color-raised: 28 26 22; --color-raised-2: 38 35 30; --color-wash: 48 44 38; --color-page: 18 17 16;
+  --color-mulberry: 238 132 86; --color-on-accent: 26 18 12; --color-danger: 242 129 122;
+  --color-night: 10 10 9; --color-night-ink: 238 234 226;
+  color-scheme: dark;
+}
+body { background: rgb(var(--color-page)); color: rgb(var(--color-ink)); font-family: var(--font); font-size: 14px; line-height: 1.45; }
+.page { max-width: 1120px; margin: 0 auto; padding-block: 32px 64px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 48px; }
+h1 { font-size: 30px; font-weight: 800; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+.lede { max-width: 62ch; margin: 8px 0 0; color: rgb(var(--color-ink-2)); font-size: 15px; }
+.where { font-family: var(--mono); font-size: 12px; color: rgb(var(--color-ink-3)); }
+.item { display: grid; gap: 16px; }
+.item > header { display: grid; gap: 4px; }
+.item h2 { margin: 0; font-size: 22px; font-weight: 700; letter-spacing: -0.01em; text-wrap: balance; }
+.tag { display: inline-flex; align-items: center; height: 22px; padding: 0 9px; border-radius: var(--r-full); font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.tag.now { background: rgb(var(--color-wash)); color: rgb(var(--color-ink-2)); }
+.tag.new { background: rgb(var(--color-mulberry)); color: rgb(var(--color-on-accent)); }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; align-items: start; }
+.cap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 8px; color: rgb(var(--color-ink-2)); font-size: 13px; }
+.notes { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px 32px; }
+.notes h3 { margin: 0 0 4px; font-size: 13px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: rgb(var(--color-ink-3)); }
+.notes ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.notes li { min-width: 0; }
+code { font-family: var(--mono); font-size: 12px; }
+
+/* ── frames ── */
+.phone { position: relative; width: 100%; max-width: 340px; aspect-ratio: 375 / 700; border-radius: 30px; border: 1px solid var(--line); background: rgb(var(--color-page)); overflow: hidden; }
+.desk { position: relative; width: 100%; aspect-ratio: 1280 / 720; border-radius: 14px; border: 1px solid var(--line); background: rgb(var(--color-page)); overflow: hidden; }
+.bar { display: flex; align-items: center; gap: 10px; height: 48px; padding: 0 14px; border-bottom: 1px solid var(--line); background: rgb(var(--color-raised)); font-weight: 700; font-size: 15px; }
+.bar .back { display: inline-flex; align-items: center; gap: 4px; color: rgb(var(--color-mulberry)); font-weight: 600; font-size: 14px; }
+.bar .sp { flex: 1; }
+.av { width: 30px; height: 30px; border-radius: 50%; background: rgb(var(--color-ink)); }
+.body { padding: 14px; display: grid; gap: 12px; align-content: start; }
+.ic { width: 18px; height: 18px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: var(--r-full); font-weight: 600; font-size: 14px; border: 1px solid var(--line); background: rgb(var(--color-raised)); color: rgb(var(--color-ink)); }
+.btn.main { background: rgb(var(--color-mulberry)); border-color: transparent; color: rgb(var(--color-on-accent)); }
+.mark { position: absolute; border: 2px dashed rgb(var(--color-mulberry)); border-radius: var(--r-md); pointer-events: none; }
+.mark b { position: absolute; top: -11px; left: 10px; padding: 0 6px; background: rgb(var(--color-page)); color: rgb(var(--color-mulberry)); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.spin { animation: spin 700ms linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ghost (the house skeleton): draws only what the page draws, one quiet sheen */
+.gh { position: relative; overflow: hidden; background: rgb(var(--color-ink) / .07); border-radius: var(--r-sm); }
+.gh::after { content: ''; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgb(var(--color-raised) / .55), transparent); animation: sheen var(--m-sheen) var(--ease) infinite; }
+@keyframes sheen { to { transform: translateX(100%); } }
+
+/* 1 · the room */
+.room { position: relative; aspect-ratio: 4 / 5; border-radius: var(--r-lg); background: radial-gradient(120% 90% at 50% 115%, rgb(var(--color-mulberry) / .18), rgb(var(--color-wash)) 45%, rgb(var(--color-raised-2))); display: grid; place-items: center; text-align: center; padding: 16px; }
+.room p { margin: 0; }
+.room .k { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: rgb(var(--color-ink-3)); }
+.room .t { font-size: 18px; font-weight: 600; max-width: 20ch; }
+.ghostroom { position: absolute; inset: 14px; display: grid; place-items: center; }
+.floor { position: absolute; left: 10%; right: 10%; bottom: 12%; height: 46%; border-radius: 50% / 22%; }
+.tbl { position: absolute; width: 18%; aspect-ratio: 1; border-radius: 50%; }
+.qrline { display: flex; gap: 12px; align-items: center; padding: 12px; border-radius: var(--r-md); background: rgb(var(--color-raised)); border: 1px solid var(--line); }
+.qr { width: 72px; height: 72px; flex: none; }
+
+/* 2 · pull to refresh */
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.tile { border-radius: var(--r-md); background: rgb(var(--color-raised)); border: 1px solid var(--line); padding: 10px; display: grid; gap: 2px; min-height: 76px; }
+.tile b { font-size: 14px; }
+.tile span { font-size: 12px; color: rgb(var(--color-ink-3)); }
+.tile .st { justify-self: start; margin-top: 6px; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: var(--r-full); background: rgb(var(--color-wash)); color: rgb(var(--color-ink-2)); }
+.tile.sel { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: -1px; }
+.date { display: flex; align-items: center; justify-content: space-between; min-height: 44px; font-weight: 600; }
+.date .pick { display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: var(--r-full); background: rgb(var(--color-raised)); border: 1px solid var(--line); font-size: 13px; }
+.ptr { position: relative; }
+.ptr-mark { position: absolute; left: 50%; top: 0; width: 36px; height: 36px; margin-left: -18px; border-radius: 50%; background: rgb(var(--color-raised)); border: 1px solid var(--line); display: grid; place-items: center; color: rgb(var(--color-mulberry)); opacity: 0; transform: translateY(-8px); }
+.ptr-content { transition: transform var(--m-release) var(--ease); }
+.ptr[data-pull] .ptr-content { transform: translateY(56px); transition-duration: var(--m-move); }
+.ptr[data-pull] .ptr-mark { opacity: 1; transform: translateY(10px); transition: opacity var(--m-quick) var(--ease), transform var(--m-move) var(--ease); }
+.ptr[data-busy] .ptr-mark svg { animation: spin 700ms linear infinite; }
+.ptr-toast { position: absolute; left: 14px; right: 14px; bottom: 76px; padding: 12px 14px; border-radius: var(--r-md); background: rgb(var(--color-ink)); color: rgb(var(--color-raised)); font-weight: 600; font-size: 13px; opacity: 0; transform: translateY(12px); transition: opacity var(--m-quick) var(--ease), transform var(--m-quick) var(--ease); }
+.ptr-toast[data-on] { opacity: 1; transform: none; transition-duration: var(--m-move); }
+.thumb { position: absolute; left: 14px; right: 14px; bottom: 14px; display: flex; gap: 8px; align-items: center; height: 48px; padding: 4px; border-radius: var(--r-full); background: rgb(var(--color-raised)); border: 1px solid var(--line); }
+.thumb .s { flex: 1; display: flex; align-items: center; gap: 8px; padding: 0 12px; color: rgb(var(--color-ink-3)); font-size: 13px; }
+.thumb .o { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: rgb(var(--color-raised-2)); }
+.demo { margin-top: 10px; }
+
+/* 3 · desktop split */
+.dshell { display: grid; grid-template-columns: 17% 1fr; height: 100%; }
+.rail { border-right: 1px solid var(--line); background: rgb(var(--color-raised)); padding: 14px 10px; display: grid; gap: 8px; align-content: start; }
+.rail i { display: block; height: 10px; border-radius: var(--r-full); background: rgb(var(--color-ink) / .1); }
+.rail i.on { background: rgb(var(--color-mulberry) / .45); }
+.dmain { display: grid; grid-template-rows: auto 1fr; min-width: 0; }
+.dcols { display: grid; gap: 16px; padding: 16px 20px; min-height: 0; }
+.dcols.now { grid-template-columns: minmax(0, 520px); justify-content: center; }
+.dcols.new { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; align-content: start; }
+.detail { border-radius: var(--r-md); background: rgb(var(--color-raised)); border: 1px solid var(--line); padding: 14px; display: grid; gap: 10px; align-content: start; font-size: 12px; }
+.detail h4 { margin: 0; font-size: 16px; }
+.detail .row { display: flex; justify-content: space-between; gap: 8px; padding: 6px 0; border-top: 1px solid var(--line); color: rgb(var(--color-ink-2)); }
+.plan { aspect-ratio: 16 / 10; border-radius: var(--r-sm); background: rgb(var(--color-raised-2)); position: relative; }
+.plan i { position: absolute; width: 12%; aspect-ratio: 1; border-radius: 50%; border: 2px solid rgb(var(--color-ink) / .45); }
+.drawer { position: absolute; top: 48px; right: 0; bottom: 0; width: 32%; background: rgb(var(--color-raised)); border-left: 1px solid var(--line); box-shadow: -16px 0 40px rgb(var(--color-ink) / .12); padding: 14px; display: grid; gap: 10px; align-content: start; font-size: 12px; }
+.dim { position: absolute; inset: 48px 32% 0 0; background: var(--scrim); }
+.small { font-size: 12px; color: rgb(var(--color-ink-3)); }
+
+/* 4 · workspace top */
+.popx { display: flex; align-items: center; justify-content: space-between; padding: 12px 14px 4px; }
+.popx .x { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: rgb(var(--color-raised-2)); }
+.wst { font-size: 22px; font-weight: 700; padding: 0 14px; }
+.chips { display: flex; gap: 6px; padding: 8px 14px 0; flex-wrap: wrap; }
+.chips span { padding: 6px 12px; border-radius: var(--r-full); background: rgb(var(--color-raised)); border: 1px solid var(--line); font-size: 12px; font-weight: 600; }
+.chips span.on { background: rgb(var(--color-ink)); color: rgb(var(--color-raised)); border-color: transparent; }
+.card { border-radius: var(--r-md); background: rgb(var(--color-raised)); border: 1px solid var(--line); padding: 12px; display: grid; gap: 6px; }
+
+/* 5 · the venue plate move */
+.hub { position: absolute; inset: 0; background: rgb(var(--color-raised-2)); padding: 14px; display: grid; gap: 10px; align-content: start; }
+.hub .hero { aspect-ratio: 16 / 11; border-radius: var(--r-lg); background: linear-gradient(160deg, rgb(var(--color-mulberry) / .35), rgb(var(--color-wash))); }
+.hub .tilev { display: flex; align-items: center; gap: 10px; padding: 12px; border-radius: var(--r-md); background: rgb(var(--color-raised)); border: 1px solid var(--line); font-weight: 600; }
+.plate { position: absolute; inset: 0; background: rgb(var(--color-night)); color: rgb(var(--color-night-ink)); display: grid; place-items: center; text-align: center; padding: 24px; }
+.plate p { margin: 0; }
+.plate .big { font-size: 19px; font-weight: 700; margin-bottom: 6px; }
+.plate .btn { margin-top: 14px; background: transparent; color: rgb(var(--color-night-ink)); border-color: rgb(var(--color-night-ink) / .3); }
+.stage .plate { opacity: 0; visibility: hidden; }
+.stage[data-show] .plate { opacity: 1; visibility: visible; }
+.stage.cut .plate { transition: none; }
+.stage.move .plate { clip-path: inset(var(--from-top, 58%) 14px var(--from-bottom, 30%) 14px round 14px); transition: clip-path var(--m-rise) var(--ease), opacity var(--m-quick) var(--ease), visibility 0s linear var(--m-rise); }
+.stage.move[data-show] .plate { clip-path: inset(0 0 0 0 round 0); transition: clip-path var(--m-rise) var(--ease), opacity var(--m-quick) var(--ease), visibility 0s; }
+.stage.move .plate > * { opacity: 0; transition: opacity var(--m-quick) var(--ease); }
+.stage.move[data-show] .plate > * { opacity: 1; transition-delay: 420ms; }
+
+.answer { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 14px; border-radius: var(--r-md); background: rgb(var(--color-raised)); border: 1px solid var(--line); }
+.answer b { margin-right: auto; }
+button.btn { cursor: pointer; font: inherit; font-weight: 600; }
+button.btn:focus-visible { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .spin, .ptr[data-busy] .ptr-mark svg { animation: none; }
+  .gh::after { animation: none; }
+  .ptr-content, .ptr-mark, .ptr-toast { transition-duration: 120ms !important; }
+  .stage.move .plate, .stage.move[data-show] .plate { clip-path: none !important; transition: opacity 120ms linear, visibility 0s !important; }
+  .stage.move .plate > *, .stage.move[data-show] .plate > * { transition: none; opacity: 1; }
+}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-loader" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.2-8.6"/></symbol>
+  <symbol id="i-left" viewBox="0 0 24 24"><path d="m15 18-6-6 6-6"/></symbol>
+  <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+  <symbol id="i-rotate" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></symbol>
+  <symbol id="i-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></symbol>
+  <symbol id="i-cal" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></symbol>
+  <symbol id="i-map" viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></symbol>
+  <symbol id="i-down" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+</svg>
+
+<main class="page">
+  <header>
+    <p class="where">Final check · 25 Nov 2026 · Area 7 second pass · lane B, for the owner</p>
+    <h1>Five screens to look at before they are built</h1>
+    <p class="lede">The fixer found these while fixing area 7. Each one changes how a screen looks or moves, so each waits for your yes. Nothing here changes who can do what, a price, or what is saved. Each item shows today next to the proposal.</p>
+  </header>
+
+  <!-- 1 -->
+  <section class="item" aria-labelledby="h1">
+    <header>
+      <p class="where">/pa3d · /pa3d/try · the sample room on the 3D Plan page · Add 12</p>
+      <h2 id="h1">1 · The 3D room loads as a ghost of itself, not a spinner</h2>
+    </header>
+    <div class="pair">
+      <div>
+        <div class="cap"><span class="tag now">Now</span>"Step inside" turns into a spinning circle and "Standing up the room…". The guest's code spins too.</div>
+        <div class="phone">
+          <div class="bar"><span>Setnayan</span><span class="sp"></span><span class="av"></span></div>
+          <div class="body">
+            <div class="room">
+              <div>
+                <p class="k">A sample reception</p>
+                <p class="t">Maria &amp; Jose's sample room, with their tables, seats and colours.</p>
+                <p style="margin-top:14px"><span class="btn main"><svg class="ic spin"><use href="#i-loader"/></svg>Standing up the room…</span></p>
+              </div>
+            </div>
+            <div class="qrline"><svg class="ic spin" style="color:rgb(var(--color-ink-3))"><use href="#i-loader"/></svg><span class="small">Making their code…</span></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="cap"><span class="tag new">Proposed</span>The frame draws the room's outline at once: the floor and the tables, with one quiet sheen. The button keeps its place and says "Opening the room".</div>
+        <div class="phone">
+          <div class="bar"><span>Setnayan</span><span class="sp"></span><span class="av"></span></div>
+          <div class="body">
+            <div class="room" aria-label="The room is opening">
+              <div class="ghostroom" aria-hidden="true">
+                <span class="gh floor"></span>
+                <span class="gh tbl" style="left:22%;bottom:38%"></span>
+                <span class="gh tbl" style="left:41%;bottom:44%"></span>
+                <span class="gh tbl" style="left:60%;bottom:38%"></span>
+                <span class="gh tbl" style="left:32%;bottom:22%"></span>
+                <span class="gh tbl" style="left:52%;bottom:22%"></span>
+              </div>
+              <p style="position:absolute;bottom:16px;left:0;right:0"><span class="btn main" aria-disabled="true">Opening the room</span></p>
+            </div>
+            <div class="qrline"><span class="gh qr" aria-hidden="true"></span><span><b>Lito Santos</b><br><span class="small">Their code is being made.</span></span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <div><h3>What changes</h3><ul><li>The two waits draw what is coming: the room's floor and tables, and a square where the code will be.</li><li>The guest's name shows at once; only the square waits.</li></ul></div>
+      <div><h3>What it removes</h3><ul><li>Both spinners (house rule: no spinners).</li><li>The button changing size as its words change.</li></ul></div>
+      <div><h3>Rules used</h3><ul><li>The house Ghost skeleton draws only what the page draws.</li><li>One sheen loop (1400 ms). With reduced motion, the ghost stays still.</li><li>A failed load keeps today's "The room didn't load" and Try again.</li></ul></div>
+    </div>
+  </section>
+
+  <!-- 2 -->
+  <section class="item" aria-labelledby="h2">
+    <header>
+      <p class="where">Shop › Spaces · phone · Add 11.3 · reference: iOS Mail, pull to refresh on a list</p>
+      <h2 id="h2">2 · Pull down on Spaces to read the day again</h2>
+    </header>
+    <div class="pair">
+      <div>
+        <div class="cap"><span class="tag now">Now</span>The only way to read the day again is to open the date menu and pick the same day.</div>
+        <div class="phone">
+          <div class="bar"><span class="back"><svg class="ic"><use href="#i-left"/></svg></span><span>Spaces</span></div>
+          <div class="body">
+            <div class="date"><span>Who holds what</span><span class="pick"><svg class="ic" style="width:14px;height:14px"><use href="#i-cal"/></svg>Sat 13 Mar<svg class="ic" style="width:14px;height:14px"><use href="#i-down"/></svg></span></div>
+            <div class="grid2">
+              <div class="tile"><b>Hall 1</b><span>Hall · 200 seated</span><span class="st">Free</span></div>
+              <div class="tile"><b>Garden</b><span>Hall · 120 seated</span><span class="st">Held</span></div>
+              <div class="tile"><b>Room A</b><span>Room · 40</span><span class="st">Booked</span></div>
+              <div class="tile"><b>Bridal suite</b><span>Room · 6</span><span class="st">Free</span></div>
+            </div>
+          </div>
+          <div class="thumb"><span class="s"><svg class="ic"><use href="#i-search"/></svg>Search or add a space</span><span class="o"><svg class="ic"><use href="#i-sliders"/></svg></span></div>
+        </div>
+      </div>
+      <div>
+        <div class="cap"><span class="tag new">Proposed</span>Pull the tiles down and let go: the day is read again. The tiles stay where they are, and a toast says when it is done.</div>
+        <div class="phone">
+          <div class="bar"><span class="back"><svg class="ic"><use href="#i-left"/></svg></span><span>Spaces</span></div>
+          <div class="body ptr" id="ptr">
+            <span class="ptr-mark" aria-hidden="true"><svg class="ic"><use href="#i-rotate"/></svg></span>
+            <div class="ptr-content">
+              <div class="date"><span>Who holds what</span><span class="pick"><svg class="ic" style="width:14px;height:14px"><use href="#i-cal"/></svg>Sat 13 Mar<svg class="ic" style="width:14px;height:14px"><use href="#i-down"/></svg></span></div>
+              <div class="grid2" style="margin-top:12px">
+                <div class="tile"><b>Hall 1</b><span>Hall · 200 seated</span><span class="st">Free</span></div>
+                <div class="tile"><b>Garden</b><span>Hall · 120 seated</span><span class="st">Held</span></div>
+                <div class="tile"><b>Room A</b><span>Room · 40</span><span class="st">Booked</span></div>
+                <div class="tile"><b>Bridal suite</b><span>Room · 6</span><span class="st">Free</span></div>
+              </div>
+            </div>
+          </div>
+          <div class="ptr-toast" id="ptr-toast" role="status">Sat 13 Mar is up to date.</div>
+          <div class="thumb"><span class="s"><svg class="ic"><use href="#i-search"/></svg>Search or add a space</span><span class="o"><svg class="ic"><use href="#i-sliders"/></svg></span></div>
+        </div>
+        <p class="demo"><button class="btn" type="button" id="ptr-play">Show the pull</button></p>
+      </div>
+    </div>
+    <div class="notes">
+      <div><h3>What changes</h3><ul><li>A pull past the mark re-reads the chosen day (the same read the date menu makes).</li><li>A small toast says "Sat 13 Mar is up to date."</li></ul></div>
+      <div><h3>What it removes</h3><ul><li>Nothing. The date menu stays as it is.</li></ul></div>
+      <div><h3>Rules used</h3><ul><li>A refused read keeps today's line: "Couldn't read who holds what on Sat 13 Mar."</li><li>Move 320 down and Release 280 back; reduced motion uses a 120 ms fade.</li><li>Phone only. A computer has the date menu.</li></ul></div>
+    </div>
+  </section>
+
+  <!-- 3 -->
+  <section class="item" aria-labelledby="h3">
+    <header>
+      <p class="where">Shop › Spaces · computer, 1280 · Add 11b · reference: iPad Mail split view</p>
+      <h2 id="h3">3 · On a computer, the hall's details sit beside the tiles</h2>
+    </header>
+    <div class="pair" style="grid-template-columns:1fr">
+      <div>
+        <div class="cap"><span class="tag now">Now</span>The tiles stay a phone-sized grid in a narrow column; a tile opens a drawer over the page.</div>
+        <div class="desk">
+          <div class="dshell">
+            <div class="rail"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+            <div class="dmain">
+              <div class="bar"><span class="back"><svg class="ic"><use href="#i-left"/></svg></span><span>Spaces</span></div>
+              <div class="dcols now">
+                <div style="display:grid;gap:10px;align-content:start">
+                  <div class="date"><span>Who holds what</span><span class="pick">Sat 13 Mar</span></div>
+                  <div class="grid2">
+                    <div class="tile sel"><b>Hall 1</b><span>Hall · 200 seated</span></div>
+                    <div class="tile"><b>Garden</b><span>Hall · 120 seated</span></div>
+                    <div class="tile"><b>Room A</b><span>Room · 40</span></div>
+                    <div class="tile"><b>Bridal suite</b><span>Room · 6</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="dim"></div>
+          <div class="drawer"><b style="font-size:15px">Hall 1</b><span class="small">Hall · 200 seated</span><div class="plan"><i style="left:20%;top:30%"></i><i style="left:45%;top:30%"></i><i style="left:70%;top:30%"></i></div><span class="small">Tables, doors and size…</span></div>
+        </div>
+      </div>
+      <div>
+        <div class="cap"><span class="tag new">Proposed</span>The tiles on the left, the chosen hall's details on the right. Choosing a tile changes the right side; nothing covers the page.</div>
+        <div class="desk">
+          <div class="dshell">
+            <div class="rail"><i></i><i></i><i class="on"></i><i></i><i></i></div>
+            <div class="dmain">
+              <div class="bar"><span class="back"><svg class="ic"><use href="#i-left"/></svg></span><span>Spaces</span></div>
+              <div class="dcols new">
+                <div style="display:grid;gap:10px;align-content:start">
+                  <div class="date"><span>Who holds what</span><span class="pick">Sat 13 Mar</span></div>
+                  <div class="grid3">
+                    <div class="tile sel"><b>Hall 1</b><span>Hall · 200</span><span class="st">Free</span></div>
+                    <div class="tile"><b>Garden</b><span>Hall · 120</span><span class="st">Held</span></div>
+                    <div class="tile"><b>Room A</b><span>Room · 40</span><span class="st">Booked</span></div>
+                    <div class="tile"><b>Bridal suite</b><span>Room · 6</span><span class="st">Free</span></div>
+                  </div>
+                </div>
+                <div class="detail">
+                  <h4>Hall 1</h4>
+                  <span class="small">Hall · 200 seated · 24 × 30 m</span>
+                  <div class="plan"><i style="left:15%;top:25%"></i><i style="left:35%;top:25%"></i><i style="left:55%;top:25%"></i><i style="left:75%;top:25%"></i><i style="left:25%;top:60%"></i><i style="left:45%;top:60%"></i><i style="left:65%;top:60%"></i></div>
+                  <div class="row"><span>Connects to</span><b>Garden</b></div>
+                  <div class="row"><span>On Sat 13 Mar</span><b>Free</b></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <div><h3>What changes</h3><ul><li>From 1024 px, the page is two columns: tiles, then the chosen hall's details (the same parts the sheet shows today).</li><li>The tile grid gets three across.</li></ul></div>
+      <div><h3>What it removes</h3><ul><li>The drawer and its dim on a computer. A phone keeps the sheet exactly as today.</li></ul></div>
+      <div><h3>Rules used</h3><ul><li>The same sheet body, drawn in place: no second editor.</li><li>One main button stays one: Save lives in the details column.</li><li>With nothing chosen, the right column says "Choose a space to see it here."</li></ul></div>
+    </div>
+  </section>
+
+  <!-- 4 -->
+  <section class="item" aria-labelledby="h4">
+    <header>
+      <p class="where">/dashboard/[event]/vendors/[supplier]/workspace · the hosts' page for one supplier · Add 11.2 · Add 1</p>
+      <h2 id="h4">4 · The supplier's workspace is a page, so its top is the house Back</h2>
+    </header>
+    <div class="pair">
+      <div>
+        <div class="cap"><span class="tag now">Now</span>A full page, but its top draws a round ✕ like a popup, so it reads as something laid over the Suppliers list.</div>
+        <div class="phone">
+          <div class="popx"><span class="small">Suppliers</span><span class="x"><svg class="ic"><use href="#i-x"/></svg></span></div>
+          <div class="wst">Bloom &amp; Vine Florals</div>
+          <div class="chips"><span class="on">Details</span><span>Files</span><span>Schedule</span><span>Book &amp; Budget</span></div>
+          <div class="body">
+            <div class="card"><b>Florist · booked</b><span class="small">Contact, address and payment notes.</span></div>
+            <div class="card"><b>Amount to pay</b><span class="small">From the agreed quote.</span></div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="cap"><span class="tag new">Proposed</span>The app's top bar holds "‹ Suppliers" and the supplier's name, like every other page. The ✕ goes.</div>
+        <div class="phone">
+          <div class="bar"><span class="back"><svg class="ic"><use href="#i-left"/></svg>Suppliers</span><span class="sp"></span><span class="av"></span></div>
+          <div class="wst" style="padding-top:12px">Bloom &amp; Vine Florals</div>
+          <div class="chips"><span class="on">Details</span><span>Files</span><span>Schedule</span><span>Book &amp; Budget</span></div>
+          <div class="body">
+            <div class="card"><b>Florist · booked</b><span class="small">Contact, address and payment notes.</span></div>
+            <div class="card"><b>Amount to pay</b><span class="small">From the agreed quote.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <div><h3>What changes</h3><ul><li>The top is the house top bar through <code>PageMasthead</code>, with Back to Suppliers, as on Chats.</li></ul></div>
+      <div><h3>What it removes</h3><ul><li>The round ✕ and its popup look. The address, Back and refresh already work and stay.</li></ul></div>
+      <div><h3>Rules used</h3><ul><li>Add 1: a page is a page, a popup is a popup.</li><li>Back goes where the person came from (the one page-home map).</li></ul></div>
+    </div>
+  </section>
+
+  <!-- 5 -->
+  <section class="item" aria-labelledby="h5">
+    <header>
+      <p class="where">/[slug]/venue · the guest's venue walk, from the Event Hub · Add 12.4</p>
+      <h2 id="h5">5 · The venue walk opens with a move, not a hard cut to black</h2>
+    </header>
+    <div class="pair">
+      <div>
+        <div class="cap"><span class="tag now">Now</span>Tapping "Walk the venue" cuts straight from the light Event Hub to a near-black plate ("Opens on the day" or "Didn't load").</div>
+        <div class="phone stage cut" id="stage-now">
+          <div class="hub"><div class="hero"></div><b style="font-size:17px">Maria &amp; Jose</b><div class="tilev"><svg class="ic"><use href="#i-map"/></svg>Walk the venue</div><div class="tilev">Find your seat</div></div>
+          <div class="plate"><div><p class="big">The venue opens on the day</p><p>Come back on Sat 13 Mar to walk the room.</p><span class="btn">Back to the Event Hub</span></div></div>
+        </div>
+        <p class="demo"><button class="btn" type="button" data-play="stage-now">Show today's cut</button></p>
+      </div>
+      <div>
+        <div class="cap"><span class="tag new">Proposed</span>The plate grows out of the tile that was tapped (Rise, 700 ms), then its words fade in. Back runs it the other way.</div>
+        <div class="phone stage move" id="stage-new">
+          <div class="hub"><div class="hero"></div><b style="font-size:17px">Maria &amp; Jose</b><div class="tilev"><svg class="ic"><use href="#i-map"/></svg>Walk the venue</div><div class="tilev">Find your seat</div></div>
+          <div class="plate"><div><p class="big">The venue opens on the day</p><p>Come back on Sat 13 Mar to walk the room.</p><span class="btn">Back to the Event Hub</span></div></div>
+        </div>
+        <p class="demo"><button class="btn" type="button" data-play="stage-new">Show the move</button></p>
+      </div>
+    </div>
+    <div class="notes">
+      <div><h3>What changes</h3><ul><li>One named page move, the house Rise: the dark plate grows from the tapped tile to the full screen.</li><li>The words arrive after the plate, so nothing jumps.</li></ul></div>
+      <div><h3>What it removes</h3><ul><li>The hard cut. The plates' words and Try again are unchanged.</li></ul></div>
+      <div><h3>Rules used</h3><ul><li>Motion standard: Rise 700 ms, transform and clip only; reduced motion is a 120 ms fade.</li><li>The guest Event Hub keeps its own look (the only self-styled surface).</li></ul></div>
+    </div>
+  </section>
+
+  <section class="item" aria-labelledby="h6">
+    <header><h2 id="h6">What I need from you</h2></header>
+    <div class="answer"><b>A yes, a no, or a change for each of the five.</b><span class="small">Nothing is built until you answer. Items 1 to 5 can go yes or no separately.</span></div>
+  </section>
+</main>
+
+<script>
+(function () {
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  var ptr = document.getElementById('ptr');
+  var toast = document.getElementById('ptr-toast');
+  document.getElementById('ptr-play').addEventListener('click', function () {
+    ptr.setAttribute('data-pull', '');
+    setTimeout(function () { ptr.setAttribute('data-busy', ''); }, reduce ? 120 : 360);
+    setTimeout(function () {
+      ptr.removeAttribute('data-busy');
+      ptr.removeAttribute('data-pull');
+      toast.setAttribute('data-on', '');
+      setTimeout(function () { toast.removeAttribute('data-on'); }, 2400);
+    }, reduce ? 600 : 1400);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('[data-play]'), function (b) {
+    b.addEventListener('click', function () {
+      var s = document.getElementById(b.getAttribute('data-play'));
+      if (s.hasAttribute('data-show')) { s.removeAttribute('data-show'); return; }
+      s.setAttribute('data-show', '');
+      setTimeout(function () { s.removeAttribute('data-show'); }, 2600);
+    });
+  });
+})();
+</script>

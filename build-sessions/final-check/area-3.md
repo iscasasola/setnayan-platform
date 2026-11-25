@@ -47,6 +47,29 @@ SOURCE    CODE + SEEN (25 Nov, staging copy: Carla & Miguel's Guests page reads 
 ```
 
 
+#### B-02 · Every guest Event Hub answers 500 after ~23.6 s on the copy (seen 25 Nov, about 09:00 UTC onward)
+
+```
+PAGE      /stg-carla-miguel · /stg-bea-paolo · /stg-mika-turns-7   (signed out, as a guest)
+BUTTON    the Event Hub link itself
+STEPS     1. Signed out, open any seeded Event Hub. 2. Wait.
+EXPECTED  The cover and the opening reveal ("Tap or swipe up to unveil"), as at 06:56 UTC the same day.
+ACTUAL    HTTP 500 every time, each after 23.6–23.8 s (same length on all three hubs, five tries). The guest sees the
+          error page "Still opening your invitation… This is taking a little longer than usual. One moment." with a
+          disabled "Opening…" button and a reference number. Inside the Maker, the hub's own preview frames
+          (`/stg-carla-miguel?phase=save_the_date&editor=1&tabs=1`, `?phase=rsvp…`, `/stg-mika-turns-7?phase=editorial…`)
+          also answered 500, and the Maker logged "An error occurred in the Server Components render".
+          At the same moment `/pricing` answered 200 in 46 s and `/api/health` in 0.6 s.
+CAUSE?    Not proven. The equal 23.6 s on every hub looks like a fixed time limit inside the hub's render being hit
+          while the shared copy is under the eight checkers' load. If it is only load, it is still a finding: under a
+          slow database the guest gets an error page, not the saved copy or a slower page. Area 4 should re-check
+          when the copy is quiet; area 3 will re-check before closing.
+SHOTS     375 px light (the error page)
+RULE      Kit § 5 item 1 (no 5xx, no error screen) · CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  blocker
+SOURCE    SEEN
+```
+
 ## Progress
 
 Marks: **OFFLINE** NEEDED (where signal is lost) / READ-ONLY / NOT NEEDED · **SHAPE** today → should.

@@ -22,7 +22,7 @@ function MakerStandIn() {
         Card name (stand-in)
         <input className="input-field mt-1 w-full" value={typed} onChange={(e) => setTyped(e.target.value)} data-lab-typed="" />
       </label>
-      {Array.from({ length: 14 }, (_, i) => (
+      {Array.from({ length: 40 }, (_, i) => (
         <p key={i} className="text-sn-base text-ink/60">
           Maker field {i + 1} · unchanged
         </p>

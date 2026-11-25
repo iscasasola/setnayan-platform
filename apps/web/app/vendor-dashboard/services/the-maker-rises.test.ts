@@ -32,7 +32,7 @@ test('B8 · the maker rises: picker + maker share one dialog layer, an edit is h
   assert.match(editPage, /import CardMakerPage from '\.\.\/\.\.\/\.\.\/services\/\[serviceId\]\/page';/, 'a second card page body');
   assert.match(editPage, /if \(!isServiceCardId\(serviceId\)\) return <LoadWhole \/>;\s*return <CardMakerPage \{\.\.\.props\} \/>;/);
   const route = src('app/_components/rise/rise-route.tsx');
-  assert.match(route, /<ShopDoorScreen page title=\{title\}/, 'the dialog is not the one door screen');
+  assert.match(route, /<ShopDoorScreen page title=\{headTitle\}/, 'the dialog is not the one door screen');
   assert.match(route, /if \(st\?\.\[LAYER_MARK\]\) window\.history\.go\(-2\);\s*else router\.back\(\);/);
 });
 

@@ -3,7 +3,8 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta http-equiv="refresh" content="0; url=https://setnayan.com" />
+    <!-- Only without scripts (never in the app): the page below checks for a connection before it leaves. -->
+    <noscript><meta http-equiv="refresh" content="0; url=https://setnayan.com" /></noscript>
     <title>Setnayan</title>
     <style>
       :root {
@@ -37,6 +38,42 @@
       a {
         color: #c97b4b;
       }
+      /* 📶 No connection (controller review #2 item 23): said plainly, with the one way to keep working. */
+      .offline {
+        display: none;
+        max-width: 320px;
+        text-align: center;
+      }
+      .offline h1 {
+        font-size: 19px;
+        margin: 0 0 8px;
+        font-weight: 600;
+      }
+      .offline .line {
+        font-size: 14px;
+        margin: 0 0 16px;
+        color: #1a1a1acc;
+        text-transform: none;
+        letter-spacing: 0;
+      }
+      .offline button {
+        font: inherit;
+        font-size: 14px;
+        min-height: 44px;
+        padding: 0 20px;
+        border-radius: 999px;
+        /* the house action colour: white on it measures 4.8:1 (the lighter link copper measured 3.3:1) */
+        border: 1px solid #c24e25;
+        background: #c24e25;
+        color: #ffffff;
+        cursor: pointer;
+      }
+      body.is-offline .offline {
+        display: block;
+      }
+      body.is-offline .loading {
+        display: none;
+      }
     </style>
   </head>
   <body>
@@ -55,10 +92,50 @@
         transform="matrix(1.3333333,0,0,-1.3333333,0,5333.3333)"
         clip-path="url(#setnayan-mark-clip)" />
     </svg>
-    <p>Loading Setnayan…</p>
+    <p class="loading">Loading Setnayan…</p>
+    <div class="offline" role="status" aria-live="polite">
+      <h1>You’re offline</h1>
+      <p class="line">Open setnayan.com in your browser to work offline.</p>
+      <button type="button" id="again">Try again</button>
+    </div>
     <noscript><a href="https://setnayan.com">Open Setnayan</a></noscript>
     <script>
-      window.location.replace('https://setnayan.com');
+      // 📶 THE DESKTOP APP WITH NO CONNECTION (controller review #2 item 23). This window shows the live site, which a
+      // desktop app cannot keep for offline use (the browser and the Home Screen app can). So before leaving this page
+      // it checks for a connection: with one it goes straight on, as it always did; with none it says so, with the one
+      // way to keep working — never a blank error page. "Try again" checks again.
+      var SITE = 'https://setnayan.com';
+      function offline() {
+        document.body.classList.add('is-offline');
+      }
+      function go() {
+        document.body.classList.remove('is-offline');
+        if (navigator.onLine === false) return offline();
+        var done = false;
+        var timer = setTimeout(function () {
+          if (!done) {
+            done = true;
+            offline();
+          }
+        }, 6000);
+        fetch(SITE + '/api/health', { mode: 'no-cors', cache: 'no-store' }).then(
+          function () {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            window.location.replace(SITE);
+          },
+          function () {
+            if (done) return;
+            done = true;
+            clearTimeout(timer);
+            offline();
+          },
+        );
+      }
+      document.getElementById('again').addEventListener('click', go);
+      window.addEventListener('online', go);
+      go();
     </script>
   </body>
 </html>

@@ -14,6 +14,7 @@
  * The old page is preserved at page.flat-list.bak.tsx.txt (not compiled).
  */
 
+import { routes } from '@/lib/routes';
 import { FINDABLE_SHOP_GATE, shopVerifiedNote, threadShowsNotYetVerified } from '@/lib/findable-shop';
 import { readOnePerEventGroups } from '@/lib/one-per-event';
 import { Spotlight } from '@/app/_components/spotlight';
@@ -1504,7 +1505,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
   const saiOffered = aiOffer && setnayanAiOffered(await readEventNeedsFor(supabase, eventId, 'VendorsPage'));
   const aiOfferBanner = saiOffered ? (
     <Link
-      href={`/dashboard/${eventId}/studio/setnayan-ai`}
+      href={routes.dashboard.eventServices(eventId)}
       className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-mulberry/25 bg-mulberry/5 px-4 py-3 transition-colors hover:bg-mulberry/10"
     >
       <span className="text-sm text-ink/80">

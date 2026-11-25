@@ -785,8 +785,6 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
             loadFailed={Boolean(abuseError)}
             icon={null}
             count={(abuseFlags ?? []).length}
-            href="/admin/concierge-abuse"
-            hrefLabel="Open abuse queue"
             empty="No abuse flags."
             rows={(abuseFlags ?? []).map((f) => ({
               key: f.flag_id as string,
@@ -1045,8 +1043,9 @@ function SupportSection({
   icon: React.ReactNode;
   title: string;
   count: number;
-  href: string;
-  hrefLabel: string;
+  /** The queue this section opens — none when its desk is retired (final check R7: the AI abuse desk). */
+  href?: string;
+  hrefLabel?: string;
   empty: string;
   rows: { key: string; primary: string; status: string; at: string | null }[];
 }) {
@@ -1054,9 +1053,11 @@ function SupportSection({
     <RecordSection
       label={`${title} (${loadFailed ? '—' : formatCount(count)})`}
       right={
-        <Link href={href} className={RECORD_LINK}>
-          {hrefLabel} ›
-        </Link>
+        href ? (
+          <Link href={href} className={RECORD_LINK}>
+            {hrefLabel} ›
+          </Link>
+        ) : undefined
       }
     >
       {loadFailed ? (

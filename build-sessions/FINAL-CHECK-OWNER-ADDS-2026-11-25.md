@@ -487,3 +487,15 @@ Areas 1, 2, 3, 8: 85 screens checked → 80 KEEP. Not to redesign:
 Pass = status "connected" AND one door file really shows the link on screen (the map counts Maker rows that never
 render, misses DB doors, and ignores flags). Admin: `lib/admin-map/admin-routes.generated.ts` needs `inMenuSource: true`
 or a real link. A failed check = file an R line, do not redesign.
+
+## Add 28 · OWNER RULINGS, area 6 (25 Nov)
+1. **Retire Manpower (A6-B15 part):** lane R; delete with a forward, no redesign.
+2. **Two clients claim the same date (A6-71), the rule:** whoever REGISTERED FIRST is first in line. Nothing is final
+   on a claim alone: when the supplier's page loads or refreshes, the server re-checks which claim truly came first
+   (the stored creation time, not the order the screen received them) and only then marks the winner and updates both
+   clients. Until that check the date shows as "being confirmed", never as won. Lane C → now buildable (owner ruled);
+   needs a test that two claims in either arrival order give the same winner.
+3. **Booking ask as a small popup (A6-11):** YES, a popup so it feels like a quick add-on. This REVERSES the 10 Nov
+   "RISE FULL SCREEN" ruling for this one panel: the fixer updates the guard test that held it, citing this Add.
+   The booking-fee line on that panel stays as it is (no money change).
+Still lane C: A6-B14 fee wording, A6-B07 a new line on the Money screen.

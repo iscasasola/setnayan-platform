@@ -15,6 +15,8 @@ import { getSelfPersonalization } from '@/lib/self-personalization';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
 import { submitHelpMessage } from '@/app/help/actions';
+import { ownMessageFromParam } from '@/lib/human-auth-error';
+import { HELP_MESSAGE_ERRORS, HELP_MESSAGE_ERROR_FALLBACK, helpReferenceFromParam } from '@/lib/help-message-errors';
 import { HowSearchField, HowSearchResults } from '@/app/_components/how-search/how-search';
 import { runHowSearch } from '@/lib/how-search';
 import type { HowHit } from '@/lib/how-search-core';
@@ -118,6 +120,9 @@ export default async function HelpPage({ searchParams }: Props) {
   const search = await searchParams;
   // ✍ A door that already knows what the note is about opens it prefilled (the Card Maker's "Need your own form?" row:
   // "Custom form request · [card] · [category]:"). Plain text, capped to the fields' own limits; the person still sends.
+  // 🔒 The URL picks one of our sentences; it never supplies one, and a stray "%" never throws (final check A1-083).
+  const helpError = ownMessageFromParam(search.error, HELP_MESSAGE_ERRORS, HELP_MESSAGE_ERROR_FALLBACK);
+  const submittedRef = helpReferenceFromParam(search.submitted);
   const prefillSubject = typeof search.subject === 'string' ? search.subject.slice(0, 160) : '';
   const prefillBody = typeof search.body === 'string' ? search.body.slice(0, 4000) : '';
   const prefillTopic = ['couple', 'vendor', 'guest', 'billing', 'bug', 'feature', 'other'].includes(search.topic ?? '') ? search.topic! : null;
@@ -162,7 +167,7 @@ export default async function HelpPage({ searchParams }: Props) {
   const shown = ask?.best ? [ask.best, ...ask.more].map((h) => h.title).join(' · ') : '';
 
   const contact = (
-    <MessageUs title={q ? 'Still stuck?' : 'Message us'} startOpen={Boolean(prefillSubject || prefillBody || prefillTopic || search.error)}>
+    <MessageUs title={q ? 'Still stuck?' : 'Message us'} startOpen={Boolean(prefillSubject || prefillBody || prefillTopic || helpError)}>
       <form action={submitHelpMessage} className="space-y-4">
         {forParam ? <input type="hidden" name="for" value={forParam} /> : null}
         {q ? <input type="hidden" name="asked" value={q} /> : null}
@@ -234,15 +239,15 @@ export default async function HelpPage({ searchParams }: Props) {
             ) : null}
           </p>
 
-          {search.submitted ? (
+          {submittedRef ? (
             <p role="status" className="mt-4 rounded-md border border-success-300/60 bg-success-50 px-4 py-3 text-sm text-success-900">
-              Thanks — we got your message (ref <span className="font-mono">{search.submitted}</span>). We&rsquo;ll get back to you
+              Thanks — we got your message (ref <span className="font-mono">{submittedRef}</span>). We&rsquo;ll get back to you
               via email.
             </p>
           ) : null}
-          {search.error ? (
+          {helpError ? (
             <p role="alert" className="mt-4 rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700">
-              {decodeURIComponent(search.error)}
+              {helpError}
             </p>
           ) : null}
 

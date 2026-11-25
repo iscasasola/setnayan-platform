@@ -107,9 +107,9 @@ export const STUDIO_CSS = `
 `;
 
 export const STUDIO_HTML = `
-<h2 class="sr-only">Vector monogram studio — design your initials, then save them as your wedding monogram.</h2>
+<h2 class="sr-only">Logo Maker — design your initials, then save them as your wedding logo.</h2>
 <div class="frame"><div class="card">
-  <div class="top"><span class="wm">SETNAYAN</span><span class="tag">Monogram studio · vector</span></div>
+  <div class="top"><span class="wm">SETNAYAN</span><span class="tag">Logo Maker · vector</span></div>
   <div class="sw2">
     <canvas id="cv"></canvas>
     <div class="load" id="load">Loading the typeface…</div>
@@ -201,7 +201,7 @@ export const STUDIO_HTML = `
         </div>
         <label class="cust" title="Custom backdrop colour"><input type="color" id="bg_custom" value="#FBFBFA" aria-label="Custom backdrop colour"></label>
       </div>
-      <p class="cap">Backdrop is just your working canvas — your saved monogram is always transparent.</p>
+      <p class="cap">Backdrop is just your working canvas — your saved logo is always transparent.</p>
     </div>
     <div class="box collapsible" id="animbox">
       <div class="animhdr" id="animhdr"><p class="lab" style="margin:0">Animate the reveal<span class="chev">▸</span></p></div>
@@ -212,7 +212,7 @@ export const STUDIO_HTML = `
         <div><div class="lab2"><span>Smoothness</span><span id="sm_v">90%</span></div><div class="gaprow"><span class="ro">Linear</span><input type="range" id="smooth" min="0" max="100" step="1" value="90" aria-label="Animation smoothness"><span class="ro">Silky</span></div></div>
       </div>
     </div>
-    <p class="cap">Everything is real vector — crisp at any size, transparent-ready, animatable. Tap to fix the mark; <b>Animate the reveal</b> picks how your monogram appears on your Event Hub.</p>
+    <p class="cap">Everything is real vector — crisp at any size, transparent-ready, animatable. Tap to fix the mark; <b>Animate the reveal</b> picks how your logo appears on your Event Hub.</p>
     <div class="foot"><span class="ro" id="ro" aria-live="polite">Loading…</span>
       <div class="btns">
         <button type="button" class="mini" id="undo" disabled>Undo</button>

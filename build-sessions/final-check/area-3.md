@@ -97,6 +97,26 @@ Marks: **OFFLINE** NEEDED (where signal is lost) / READ-ONLY / NOT NEEDED · **S
 
 _Format: kit § 6 plus `SOURCE`. Phase A findings are `SOURCE: CODE` until the browser pass confirms or strikes them._
 
+### Area-wide
+
+#### A-01 · Dark mode reaches only 3 of the 59 area-3 pages; the rest stay light when a person picks Dark
+
+```
+PAGE      every area-3 page except /dashboard/[eventId]/memories, /dashboard/library and /dashboard/life-flash
+BUTTON    Preferences › Appearance › Dark
+STEPS     1. As couple_maker, choose Dark. 2. Open the Maker, the Event Hub editor, any Studio page, Papic, Panood.
+EXPECTED  K2: every signed-in screen is dark with the top block's glow (kit §5.6–7).
+ACTUAL    By design they paint light: `DARK_READY` lists only `/dashboard/*/memories$`, `/dashboard/library` and
+          `/dashboard/life-flash` from this area ("the Maker, the Studio, the website editor … STAYS LIGHT until it is
+          swept and walked"). Not a per-page finding; one note so the controller decides whether the dark sweep of
+          area 3 is in scope for the fix round. Phase B checks the 3 listed pages in dark.
+WHERE     apps/web/lib/appearance.ts · `DARK_READY`
+SHOTS     375 px dark (Maker, editor, Studio) beside Memories
+RULE      HOUSE_DESIGN_STANDARD Part K2 · DARK_MODE_STANDARD §5
+SEVERITY  look
+SOURCE    CODE
+```
+
 ### Forwards
 
 #### F-01 · The "event page" forward gives a coordinator, and a failed read, a 404

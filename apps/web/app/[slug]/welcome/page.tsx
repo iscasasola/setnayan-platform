@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { SITE_URL } from '@/lib/feature-pages/seo';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -12,7 +13,14 @@ import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { guestAccountState } from '@/lib/guest-one-path';
 import { readSeatHolder } from '@/lib/guest-one-path.server';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
-import { plusOneFilled, plusOneGate, plusOneMissing, type PlusOneRow } from '@/lib/plus-one-welcome';
+import {
+  PLUS_ONE_TYPED_COOKIE,
+  plusOneFilled,
+  plusOneGate,
+  plusOneMissing,
+  readTypedName,
+  type PlusOneRow,
+} from '@/lib/plus-one-welcome';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook, type QrLookRow } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -35,6 +43,7 @@ const ERROR_COPY: Record<string, string> = {
   missing: 'Please enter both your first and last name.',
   too_long: 'Names can be at most 80 characters.',
   terms: 'Please tick the Terms to save this to your account.',
+  save_failed: 'Your details did not save — please try again.',
 };
 
 type Props = {
@@ -125,7 +134,10 @@ export default async function WelcomePage({ params, searchParams }: Props) {
     displayPersonName(
       primary?.display_name?.trim() || [primary?.first_name, primary?.last_name].filter(Boolean).join(' '),
     ) || 'the inviting guest';
-  const primaryFirst = displayPersonName((primary?.first_name as string | null)?.trim()) || primaryName.split(/\s+/)[0] || primaryName;
+  // 🔌 A4-25: an unread inviter stays the whole plain phrase — never its first word ("from the …").
+  const primaryFirst = primary
+    ? displayPersonName((primary.first_name as string | null)?.trim()) || primaryName.split(/\s+/)[0] || primaryName
+    : primaryName;
 
   const ask = resolveRsvpAsk(event.rsvp_ask_config);
   const row: PlusOneRow = {
@@ -174,7 +186,7 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   // where no provider can sign in and nothing is emailed (owner 2026-09-29).
   const linkParams = guest.qr_token
     ? {
-        appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
+        appUrl: SITE_URL,
         slug: home,
         qrToken: guest.qr_token as string,
         ownerSlug: await resolveEventOwnerSlug(admin, event.event_id as string),
@@ -190,7 +202,10 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   }
 
   const errorKey = search.error ?? null;
-  const errorMessage = errorKey ? (ERROR_COPY[errorKey] ?? errorKey) : null;
+  // 🔌 A4-27: only a known key draws a message — never the query's own text on the couple's page.
+  const errorMessage = errorKey ? (ERROR_COPY[errorKey] ?? null) : null;
+  // 🔁 A4-26: after a save that did not go through, the boxes hold what was typed (lib/plus-one-welcome.ts).
+  const typedName = errorKey === 'save_failed' ? readTypedName((await cookies()).get(PLUS_ONE_TYPED_COOKIE)?.value) : null;
 
   // Typed as a plain form action for the door's own forms: it hands back
   // `{ native, next }` ONLY to the phone app's Save form, which reads it at run
@@ -223,6 +238,7 @@ export default async function WelcomePage({ params, searchParams }: Props) {
         primaryFirst={primaryFirst}
         theOrganizerPossessive={words.theOrganizerPossessive}
         row={row}
+        typedName={typedName}
         missing={missing}
         filled={filled}
         inside={inside}

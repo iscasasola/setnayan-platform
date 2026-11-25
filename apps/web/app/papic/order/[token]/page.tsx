@@ -266,8 +266,7 @@ export default async function PapicGuestOrderPage({
           <p className="sn-eye">What you&rsquo;ve logged</p>
           {paymentsUnread ? (
             <p role="status" className="text-sm text-ink/70">
-              Couldn&rsquo;t read your logged payments just now. Reload this page before logging a transfer, so the
-              same one is not logged twice.
+              Couldn&rsquo;t read your logged payments. Reload before logging a transfer.
             </p>
           ) : (
             <ul className="space-y-1 text-sm text-ink/70">

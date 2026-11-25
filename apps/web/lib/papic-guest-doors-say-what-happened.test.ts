@@ -57,7 +57,8 @@ test('A4-60 / A4-67 · every guest-camera refusal after the event read offers th
   assert.ok(after.length > 0, 'exitSlug is resolved');
   assert.doesNotMatch(after, /\{backSlug \? \(\s*<Link href=\{`\/\$\{backSlug\}`\}/, 'a refusal still links only when ?from= was given');
   assert.match(src, /\{ data: blockRow, error: blockErr \}/);
-  assert.ok(src.indexOf('if (blockErr) {') < src.indexOf('if (blockRow) {'), 'the failure is answered before the block');
+  assert.match(src, /if \(blockErr \|\| blockRow\) \{/, 'a failed block read closes the door too');
+  assert.match(src, /title=\{blockErr \? 'We couldn’t check just now\.' : 'Camera unavailable\.'\}/, 'and says it could not check');
 });
 
 test('A4-61 / A4-63 / A4-65 / A4-66 · the guest camera: unread shots, one popup, the live low line, an unread count', () => {

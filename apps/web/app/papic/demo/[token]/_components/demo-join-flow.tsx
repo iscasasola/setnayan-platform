@@ -392,7 +392,7 @@ export function DemoJoinFlow({
           {capped ? `That’s the ${formatCount(shotCap)} demo credits` : shooting ? 'Saving the moment…' : 'Take the shot'}
         </button>
         {shotNote && (
-          <p role="status" className="mt-2 text-xs text-[var(--m-grey,#8c8884)]">
+          <p role="status" className="mt-2 text-xs text-[var(--m-slate-2)]">
             {shotNote}
           </p>
         )}

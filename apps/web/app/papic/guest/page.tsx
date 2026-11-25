@@ -378,8 +378,8 @@ export default async function PapicGuestPage({
     .maybeSingle();
 
   // 🔌 A4-67: an unread block list does not hand out the camera (the capture route would then refuse every shot) —
-  // it says, as the pool gate above does, that we couldn't check.
-  if (blockErr) {
+  // the closed door below says "we couldn't check", as the pool gate above does. One door, one way back.
+  if (blockErr || blockRow) {
     return (
       <DoorShell
         tone="dead_end"
@@ -389,30 +389,12 @@ export default async function PapicGuestPage({
             Guest camera
           </>
         }
-        title="We couldn’t check just now."
-        sub="Something on our side didn’t answer, so we can’t open your camera yet. Give it a moment and try again — nothing is wrong with your invitation."
-      >
-        {exitSlug ? (
-          <Link href={`/${exitSlug}`} className="button-secondary">
-            Back to the invitation
-          </Link>
-        ) : null}
-      </DoorShell>
-    );
-  }
-
-  if (blockRow) {
-    return (
-      <DoorShell
-        tone="dead_end"
-        eyebrow={
-          <>
-            <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-            Guest camera
-          </>
+        title={blockErr ? 'We couldn’t check just now.' : 'Camera unavailable.'}
+        sub={
+          blockErr
+            ? 'Something on our side didn’t answer, so we can’t open your camera yet. Give it a moment and try again — nothing is wrong with your invitation.'
+            : `Your guest camera for ${eventName} has been turned off. Photos you already shared stay in Memories. If you think this is a mistake, reach out to the host directly.`
         }
-        title="Camera unavailable."
-        sub={`Your guest camera for ${eventName} has been turned off. Photos you already shared stay in Memories. If you think this is a mistake, reach out to the host directly.`}
       >
         {exitSlug ? (
           <Link href={`/${exitSlug}`} className="button-secondary">

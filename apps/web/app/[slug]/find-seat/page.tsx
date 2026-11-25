@@ -280,7 +280,7 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
         .sort((a, b) => Number(b.you) - Number(a.you));
     }
 
-    const [{ data: checkin }, qrSvg] = await Promise.all([
+    const [{ data: checkin, error: checkinErr }, qrSvg] = await Promise.all([
       admin
         .from('guest_checkins')
         .select('checked_in_at')
@@ -312,7 +312,8 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
       partyLine: companions.length > 0 ? `party of ${companions.length + 1} · ${companionWords.join(', ')}` : null,
       qrSvg,
       seal: resolveMonogram(event).text,
-      checkedInAt: checkedInClock(checkedIn, venueTz),
+      checkedInAt: checkinErr ? null : checkedInClock(checkedIn, venueTz),
+      checkInUnread: Boolean(checkinErr),
     };
 
     if (dayOf) {

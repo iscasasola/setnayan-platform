@@ -35,6 +35,7 @@ const ERROR_COPY: Record<string, string> = {
   missing: 'Please enter both your first and last name.',
   too_long: 'Names can be at most 80 characters.',
   terms: 'Please tick the Terms to save this to your account.',
+  save_failed: 'Your details did not save — please try again.',
 };
 
 type Props = {
@@ -125,7 +126,10 @@ export default async function WelcomePage({ params, searchParams }: Props) {
     displayPersonName(
       primary?.display_name?.trim() || [primary?.first_name, primary?.last_name].filter(Boolean).join(' '),
     ) || 'the inviting guest';
-  const primaryFirst = displayPersonName((primary?.first_name as string | null)?.trim()) || primaryName.split(/\s+/)[0] || primaryName;
+  // 🔌 A4-25: an unread inviter stays the whole plain phrase — never its first word ("from the …").
+  const primaryFirst = primary
+    ? displayPersonName((primary.first_name as string | null)?.trim()) || primaryName.split(/\s+/)[0] || primaryName
+    : primaryName;
 
   const ask = resolveRsvpAsk(event.rsvp_ask_config);
   const row: PlusOneRow = {
@@ -190,7 +194,8 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   }
 
   const errorKey = search.error ?? null;
-  const errorMessage = errorKey ? (ERROR_COPY[errorKey] ?? errorKey) : null;
+  // 🔌 A4-27: only a known key draws a message — never the query's own text on the couple's page.
+  const errorMessage = errorKey ? (ERROR_COPY[errorKey] ?? null) : null;
 
   // Typed as a plain form action for the door's own forms: it hands back
   // `{ native, next }` ONLY to the phone app's Save form, which reads it at run

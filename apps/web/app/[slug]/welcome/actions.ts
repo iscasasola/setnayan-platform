@@ -59,7 +59,7 @@ export async function confirmPlusOneName(slug: string, formData: FormData): Prom
   const admin = createAdminClient();
   const now = new Date().toISOString();
 
-  const [{ data: event }, { data: guest }] = await Promise.all([
+  const [{ data: event, error: eventErr }, { data: guest, error: guestErr }] = await Promise.all([
     admin.from('events').select('event_id, slug, rsvp_ask_config').eq('event_id', session.event_id).maybeSingle(),
     admin
       .from('guests')
@@ -69,6 +69,9 @@ export async function confirmPlusOneName(slug: string, formData: FormData): Prom
       .is('deleted_at', null)
       .maybeSingle(),
   ]);
+  // 🔌 A4-26: a read that FAILED is not "no such guest" — sending them to /{slug} bounced an unnamed plus-one
+  // straight back here with no word. They stay on this door and are told the save did not go through.
+  if (eventErr || guestErr) redirect(`/${slug}/welcome?error=save_failed`);
   if (!event?.slug || !guest?.guest_id) redirect(`/${slug}`);
   const home = event.slug as string;
   const ask = resolveRsvpAsk(event.rsvp_ask_config);
@@ -124,7 +127,7 @@ export async function confirmPlusOneName(slug: string, formData: FormData): Prom
       // Only ever a plus-one's own row — this door is theirs.
       .not('plus_one_of_guest_id', 'is', null);
     if (error) {
-      redirect(`/${home}/welcome?error=${encodeURIComponent('Your details did not save — please try again.')}`);
+      redirect(`/${home}/welcome?error=save_failed`);
     }
   }
 

@@ -602,3 +602,14 @@ of those users will become the same supplier."
   - **AV-NONE** (Always available): never full by date.
   - Style not set: use the shop's schedule as today.
 - The "+1 booking per date" add-on is **not sold** (`canBuyExtraBookingsPerDate` returns false since 14 Nov). Bought-before extras keep counting through `service_card_daily_limit` for Ultra. No change to prices or what plans hold.
+
+## Add 38 · OWNER RULING (25 Nov) · Custom attire maker splits into three tools, after the design is final
+
+- "Let's do a separate for Men, Women and Wedding Gown, once we have finalized the design."
+- Today's single prototype keeps evolving until the owner finalizes the design. **Then** it becomes three separate makers, each with its own options, presets and inspiration board:
+  1. **Wedding Gown** (bridal gowns: ball gown, A-line, mermaid, trumpet, sheath, column, fit-and-flare, empire; bridal Filipiniana / terno; veils and trains)
+  2. **Women** (non-bridal women's attire: cocktail, long dress, entourage, Filipiniana, pantsuit, mother's gowns …)
+  3. **Men** (tuxedo, suit, three-piece, barong Tagalog, morning coat, white tie, resort suit, coat-off versions)
+- They share one engine (the mannequin, measurements, fabric library, chat, quote, design sheet) so a fix lands in all three.
+- Open for the owner, not to be guessed: how each is sold to designers (separately priced? bundled?) and its price; the exact split of borderline items (e.g. Filipiniana bridal vs non-bridal, entourage gowns).
+- Nothing is built in the app until the owner approves the final prototype (Fable prototype rule).

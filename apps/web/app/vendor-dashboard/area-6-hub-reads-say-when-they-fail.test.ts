@@ -19,7 +19,11 @@ const editorialBody = read('app/vendor-dashboard/clients/[eventId]/editorial-med
 const mood = read('app/vendor-dashboard/clients/[eventId]/mood-board/page.tsx');
 const theirPart = read('app/vendor-dashboard/clients/[eventId]/their-event/[part]/page.tsx');
 const theirBody = read('app/vendor-dashboard/clients/[eventId]/_components/their-event-part-body.tsx');
-const schedule = read('app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule.tsx');
+const noPullWords = [
+  'app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule.tsx',
+  'app/vendor-dashboard/clients/[eventId]/_components/supplier-locks-section.tsx',
+  'app/_components/chat/agreed-now.tsx',
+];
 
 test('A6-13 · a chat list whose archive state did not load is reported incomplete', () => {
   const fallback = chat.slice(chat.indexOf("'fetchVendorThreads (archive embed)'"));
@@ -55,10 +59,11 @@ test('A6-55 · A6-56 · only the RPCs’ refusals leave the mood board and their
     assert.match(src, /error && error\.code !== '42501' && error\.code !== 'P0002'/);
     assert.match(src, /<ReadFailedBody mark=/);
   }
-  assert.match(theirPart, /hubSlug = evError \? 'unread'/);
-  assert.ok(theirBody.indexOf("hubSlug === 'unread'") < theirBody.indexOf('not published their Hub'));
+  assert.match(theirPart, /hubUnread = Boolean\(evError\)/);
+  assert.match(theirPart, /hubUnread=\{hubUnread\}/);
+  assert.ok(theirBody.indexOf('hubUnread ?') > -1 && theirBody.indexOf('hubUnread ?') < theirBody.indexOf('not published their Hub'));
 });
 
 test('second pass · no screen tells a person to "pull to refresh" (the app turns the gesture off)', () => {
-  assert.doesNotMatch(schedule, /pull to refresh/i);
+  for (const f of noPullWords) assert.doesNotMatch(read(f), /pull to refresh/i, f);
 });

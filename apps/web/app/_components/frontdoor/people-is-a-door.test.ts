@@ -32,10 +32,11 @@ function shell(): string {
 }
 
 test('the rail offers a real door into People', () => {
-  // 🏠 People is a section of Home since 11 Nov 2026 ("HOME IS THE PROFILE"): its door is Home's People door.
+  // 🏠 People is a section of Home since 11 Nov 2026 ("HOME IS THE PROFILE"): its door is Home's People door — since
+  // Unihome v5 (23 Nov 2026) it lands on Home's People part (`unihomeHref('people')` → `/dashboard#people`).
   assert.match(
     shell(),
-    /<Link href=\{homeSegHref\('people'\)\} className="fd-row fd-hsub" data-home-door="people">/,
+    /<Link href=\{unihomeHref\('people'\)\} className="fd-row fd-hsub" data-home-door="people">/,
     'The rail has no door into Home › People. It was a dead notice once; a ' +
       'row that cannot be pressed is the same defect wearing a link-shaped hole.',
   );

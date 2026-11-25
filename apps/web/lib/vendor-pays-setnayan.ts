@@ -39,6 +39,7 @@ export const VENDOR_PAYS_SETNAYAN_SKUS: readonly string[] = [
   'vendor_3d_booth_event',
   'vendor_ai_addon',
   'vendor_ai_addon_advanced',
+  // Retired 2026-11-22 (not sold any more); kept so an order bought before then still reads as a shop paying us.
   'vendor_deep_search',
   'vendor_papic_portfolio_pack',
   'vendor_photo_challenge',

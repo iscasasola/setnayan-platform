@@ -25,10 +25,12 @@
  * panel is closed, and it only ever opens from a click.
  */
 
-import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
+import { X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
+import { choiceIsDark, signInCardChoice } from '@/lib/appearance';
 import { SidePanel } from '@/app/_components/side-panel';
 import { SignInCard } from '@/app/login/_components/sign-in-card';
 import { detectSignInOAuth, type SignInOAuth } from './detect-oauth-shell';
@@ -86,6 +88,9 @@ export function SignInHerePanel({
     `app/login/_components/sign-in-card-modal.tsx` is the shape that works and
     has always worked: no gate, `open: true`, ref attached on first commit.
   */
+  // 🌗 Does the card's choice mean dark (no choice = follow the phone), and is the page itself not already dark? Read live (a flip while the card is open
+  // follows). Client-only: the panel only ever mounts from a click, so there is no server render to disagree with.
+  const phoneDark = useSyncExternalStore(subscribePhoneDark, phoneDarkNow, () => false);
   // The third pane brings its own dialog (SidePanel runs the same hook on its own container) — one trap, not two.
   useModalA11y({ open: !options.pane, onClose, containerRef: ref });
 
@@ -153,7 +158,7 @@ export function SignInHerePanel({
         size="wide"
         phone="sheet"
       >
-        <div className="home-reskin-ov" style={PANE_HOST} data-sign-in-pane="">
+        <div className="home-reskin-ov sn-signin-simple" style={PANE_HOST} data-sign-in-pane="">
           <div className="hr-ov-card sn-signin-terra" style={PANE_CARD}>
             {card}
           </div>
@@ -164,7 +169,11 @@ export function SignInHerePanel({
 
   return createPortal(
     <div
-      className="home-reskin-ov sn-signin-here"
+      // 🌗 `sn-dark-scope` (owner 24 Nov 2026: the sign-in card follows the phone's dark setting, signed out too; "the
+      // page behind a pop-up keeps its own appearance"). The class carries the app's own dark token set
+      // (globals.css: `html.dark, .sn-dark-scope { … }`) onto THIS overlay only, so the card and the one scrim go dark
+      // while the page behind stays as it is. Already dark (`html.dark`) → nothing to add.
+      className={`home-reskin-ov sn-signin-here sn-signin-simple${phoneDark ? ' sn-dark-scope' : ''}`}
       role="dialog"
       aria-modal="true"
       aria-label="Sign in"
@@ -175,13 +184,29 @@ export function SignInHerePanel({
     >
       <div className="hr-ov-card sn-signin-terra" style={{ maxWidth: 460 }}>
         <button type="button" className="hr-ov-x" onClick={onClose} aria-label="Close">
-          ✕
+          <X aria-hidden size={18} strokeWidth={1.8} />
         </button>
         {card}
       </div>
     </div>,
     document.body,
   );
+}
+
+const PHONE_DARK = '(prefers-color-scheme: dark)';
+function subscribePhoneDark(onChange: () => void): () => void {
+  if (typeof window.matchMedia !== 'function') return () => {};
+  const mq = window.matchMedia(PHONE_DARK);
+  mq.addEventListener?.('change', onChange);
+  return () => mq.removeEventListener?.('change', onChange);
+}
+/**
+ * The card's own choice means dark — what this device chose, else Automatic (`signInCardChoice`, the rule the two
+ * sign-in pages follow) — and the page has not painted dark itself (then `html.dark` already carries the card).
+ */
+function phoneDarkNow(): boolean {
+  const prefersDark = typeof window.matchMedia === 'function' && window.matchMedia(PHONE_DARK).matches;
+  return choiceIsDark(signInCardChoice(document.cookie), prefersDark) && !document.documentElement.classList.contains('dark');
 }
 
 /** `.home-reskin-ov` is a fixed full-screen backdrop; inside the pane it is only the scope its card's styles need. */

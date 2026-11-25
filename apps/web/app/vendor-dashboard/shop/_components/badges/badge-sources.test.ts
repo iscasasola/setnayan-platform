@@ -22,13 +22,15 @@ import { BADGE_WORDS, awardFact, badgeCard, badgePage } from './badge-page-model
 const HERE = __dirname;
 const WEB = join(HERE, '..', '..', '..', '..', '..');
 
-test('(1) the J0 mirror equals lib/badge-tiers.ts the day it exports the same names', async () => {
-  const tiers = (await import('@/lib/badge-tiers')) as Record<string, unknown>;
-  if ('SHOP_BADGE_STEPS' in tiers) assert.deepEqual(tiers.SHOP_BADGE_STEPS, SHOP_BADGE_STEPS, 'J0 landed with different steps — make the adapter one line');
-  if ('SHOP_BADGE_KEYS' in tiers) assert.deepEqual(tiers.SHOP_BADGE_KEYS, SHOP_BADGE_KEYS, 'J0 landed with different badge keys');
-  if (typeof tiers.tierName === 'function') {
-    for (const k of TIER_KEYS) assert.equal((tiers.tierName as (k: string) => string)(k), tierName(k), `J0 names ${k} differently`);
-  }
+test('(1) the adapter re-exports lib/badge-tiers.ts — no hand-typed mirror (walk 24 Nov, fix 5: one list)', async () => {
+  const tiers = await import('@/lib/badge-tiers');
+  assert.equal(SHOP_BADGE_KEYS, tiers.SHOP_BADGE_KEYS, 'the adapter keeps a badge list of its own');
+  assert.equal(SHOP_BADGE_STEPS, tiers.SHOP_BADGE_STEPS, 'the adapter keeps steps of its own');
+  assert.equal(TIER_KEYS, tiers.TIER_KEYS, 'the adapter keeps tier keys of its own');
+  assert.equal(tierName, tiers.tierName, 'the adapter names tiers itself');
+  const src = stripComments(readFileSync(join(HERE, 'badge-sources.ts'), 'utf8'));
+  assert.match(src, /export \{[^}]*SHOP_BADGE_KEYS[^}]*\} from '@\/lib\/badge-tiers';/);
+  assert.doesNotMatch(src, /\bconst\b|\bfunction\b/, 'the adapter declares something again instead of re-exporting');
 });
 
 test('(2) only the adapter reaches into the parallel jobs’ helpers', () => {

@@ -26,6 +26,7 @@ import { deriveVendorInitials as deriveInitials } from '@/app/_components/vendor
 
 import {
   VendorServicesManager,
+  preloadServicesManager,
   type ServicesManagerSearch,
 } from '@/app/vendor-dashboard/services/_components/services-manager';
 
@@ -67,7 +68,7 @@ import { coverIsYourPagePick, shopCoverKey } from '@/lib/supplier-hero';
 import { VENDOR_PACKAGE_SELECT } from '@/lib/vendor-packages';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { collapseToPickerDays, phTodayIso } from '@/lib/vendor-day-picker';
-import { OneAnalyticsSection } from '../performance/_components/one-analytics-section';
+import { OneAnalyticsSection, preloadOneAnalytics } from '../performance/_components/one-analytics-section';
 import { PromoteBody } from './promote/_components/promote-body';
 
 const PAGE_HREF = '/vendor-dashboard/website';
@@ -193,6 +194,13 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // `vendorId`, started here as a promise with its own graceful-degrade, and awaited together in the ONE
   // `Promise.all` below (measured 2026-09-29: one-after-another took 1.7 s). Analytics waits only for the plan.
   // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS RUN.
+
+  // ⚡ THE TWO STREAMED PARTS START HERE TOO (supplier walk 24 Nov: the stream ended 1.5–2.4 s in, because the service
+  // list and the Analytics carousel only began their reads once this whole batch was back). Both are drawn below the
+  // cover in their own place; each reads through a per-request cache, so starting them now costs no second read —
+  // they pick up these same promises when they render.
+  preloadServicesManager(supabase, profile);
+  preloadOneAnalytics(supabase, user.id, profile);
 
   // The shop's own row, the columns the profile select does not carry: the plan, Your page's cover pick, the
   // founding mark and when the shop opened — ONE select.
@@ -410,7 +418,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // meter and the saved payment plans. Started here, awaited in the one wait below.
   const storeAdmin = createAdminClient();
   const layoutRead = readStoreLayout(supabase, vendorId);
-  const toolFactsRead = layoutRead.then((l) => readStoreToolFacts(supabase, storeAdmin, vendorId, (profile.services ?? []) as string[], l));
+  // ⚡ The tool facts start NOW, beside the layout read (they take its promise and wait for it only at the end).
+  const toolFactsRead = readStoreToolFacts(supabase, storeAdmin, vendorId, (profile.services ?? []) as string[], layoutRead);
   const storedRead = readStoredBytesWithoutMeasuring(storeAdmin, vendorId);
   const plansRead = readPayPlanTemplates(supabase, vendorId).catch((err: unknown) => {
     logQueryError('shop.readPayPlanTemplates', err, { vendor_profile_id: vendorId });

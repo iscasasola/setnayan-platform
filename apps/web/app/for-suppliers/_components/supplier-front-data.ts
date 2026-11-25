@@ -14,12 +14,13 @@
  *
  * Pure module (no React, no I/O) — `supplier-front-reads-its-numbers.test.ts` runs it.
  */
+import { deepSearchAllowanceWords } from '@/lib/deep-search-findings';
 import { VENDOR_TIER_SECTIONS } from '@/app/_components/home/vendor-benefits';
 import { bookingFeeCapAmount, bookingFeeFigures, bookingFeePhp, type BookingFeeSchedule } from '@/lib/booking-fee';
 import { formatPhpRounded } from '@/lib/php';
 import { SHOP_BADGE_KEYS, type ShopBadgeKey } from '@/lib/badge-tiers';
 import { BADGE_NAME } from '@/lib/graph-unlocks';
-import { BADGE_ART_H, BADGE_ART_W, SHELF_FAMILY, badgeArtSrc } from '@/lib/shop-badge-shelf';
+import { BADGE_ART_H, BADGE_ART_W, SHELF_BADGE_KEYS, SHELF_FAMILY, VERIFIED_TILE_TITLE, badgeArtSrc } from '@/lib/shop-badge-shelf';
 import { alwaysAllowedPack, bundleFreePacks, type ShopGiftBundle, type ShopGiftPack } from '@/lib/shop-gifts';
 import type { PlanCredits } from '@/lib/event-plans';
 import { countNoun, formatCount } from '@/lib/format-number';
@@ -33,11 +34,11 @@ import { clientsKeptWords, planStorageLine } from '@/lib/supplier-client-room';
 const sizeWords = (bytes: number | null): string => (bytes == null ? 'Your storage' : storageWords(bytes));
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
 import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
-import { listedWidgets, type SpecializedToolKey } from '@/lib/specialized-tools';
-import { isBuiltInWidget, isPaidStoreTool, toolkitCounts } from '@/lib/supplier-store';
+import { SPECIALIZED_TOOLS, type SpecializedToolKey } from '@/lib/specialized-tools';
+import { SHELF_TITLE, STORE_GRAPHS, isBuiltInWidget, isPaidStoreTool, isShopBadgeKey, qrWords, toolkitItems } from '@/lib/supplier-store';
+import { avTemplateOf, payTemplateOf } from '@/lib/toolkit-templates';
 import { PLAN_CHATBOT_LEVEL } from '@/lib/vendor-ai-level';
 import {
-  PORTFOLIO_FREE_BASE,
   TIER_CAPS,
   canBuyExtraBranches,
   canBuyExtraSeats,
@@ -239,8 +240,6 @@ export function reachSentence(): string {
   return 'until then you are found by your own link and QR; once verified, you set how far you go, on every plan';
 }
 
-/** The free photo base ("50 portfolio photos"). */
-export const FREE_PHOTOS = formatCount(PORTFOLIO_FREE_BASE);
 
 /** "10 · 50 · 100 · 500 · 1,000 · 5,000 · 10,000" — where a badge climbs. */
 export const BADGE_STEPS = MILESTONE_THRESHOLDS.map((n) => formatCount(n)).join(' · ');
@@ -268,7 +267,7 @@ export function foldGroups(): FoldGroup[] {
       title: 'Get found',
       lines: [
         free('Your public page, auto-built, ready for Google'),
-        free(`${FREE_PHOTOS} portfolio photos`),
+        free('Portfolio photos, no limit'),
         free('Six QR codes: Shortlist, Check a date, My page, Booked, Crew, Review'),
         at('Shown in search, as far as you go', 'verified'),
         at('Your own reach on every plan — you set it', 'verified'),
@@ -354,12 +353,13 @@ export function helperLine(): string | null {
 export const ADDON_TIERS: GrowTier[] = GROW_TIERS.filter((t) => canBuyExtraBranches(t) && canBuyExtraSeats(t));
 
 /**
- * The one line under the plan cards that replaced the add-ons box (drawing § 1): "Deep Search is ₱499 a search on any
- * plan. On Ultra, you can also add a seat or a branch." The price is the catalogue row the search CHARGES; unread → the
- * sentence names no figure. The plan that may add seats and branches is `ADDON_TIERS` (canBuyExtra*).
+ * The one line under the plan cards that replaced the add-ons box (drawing § 1). Since 2026-11-22 Deep Search is NOT
+ * sold (DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED" + 🔎 "1 RUN A MONTH"): the line says what the paid plans include, from
+ * the admin's monthly number (`platform_settings.deep_search_runs_per_month`, read by the caller; null = no number
+ * said) — never a price. The plan that may add seats and branches is `ADDON_TIERS` (canBuyExtra*).
  */
-export function buyMoreLine(deepSearchPrice: string | null): string {
-  const deep = deepSearchPrice ? `Deep Search is ${deepSearchPrice} a search on any plan.` : 'Deep Search is bought one search at a time, on any plan.';
+export function buyMoreLine(deepSearchRunsPerMonth: number | null): string {
+  const deep = `Deep Search: ${deepSearchAllowanceWords(deepSearchRunsPerMonth)}`;
   if (ADDON_TIERS.length === 0) return deep;
   return `${deep} On ${ADDON_TIERS.map(planName).join(' and ')}, you can also add a seat or a branch.`;
 }
@@ -461,7 +461,7 @@ export function planStair(t: VendorTier): PlanStair {
  *   · the fee rows + cap line   → `bookingFeeFigures` / `bookingFeeCapAmount` on the same schedule
  *   · the gifts                 → the shop-gift packs (`fetchShopGiftPacks`, `platform_retail_catalog_v2`) + the
  *                                 event plans' included credits (`planCreditsFrom`) + the 10+1 bundle (`bundleFreePacks`)
- *   · the Toolkit count + sheet → `SPECIALIZED_TOOLS` · `CARD_ORDER` · `SHOP_BADGE_KEYS` (see `toolkitShelves`)
+ *   · the Toolkit count + sheet → `toolkitClaim` (lib/supplier-toolkit-count.ts) · `toolkitItems` (see `toolkitShelves`)
  *   · the plans                 → `planStair` (`TIER_CAPS`); prices from the catalog, handed in by the page
  *   · the badges row            → `SHOP_BADGE_KEYS`, their names `BADGE_NAME`, their art `badgeArtSrc`
  *
@@ -599,45 +599,44 @@ export const BADGE_ROW: ReadonlyArray<{ key: ShopBadgeKey; name: string; src: st
 
 export type ToolkitTag = 'free' | 'paid' | 'built';
 export type ToolkitRow = { key: string; name: string; line: string | null; tag: ToolkitTag | null };
-export type ToolkitShelf = { key: 'tools' | 'graphs' | 'badges'; title: string; count: number; rows: ToolkitRow[] };
+type ToolkitShelfKey = 'tools' | 'payment_plans' | 'availability' | 'qr' | 'graphs' | 'badges';
+export type ToolkitShelf = { key: ToolkitShelfKey; title: string; rows: ToolkitRow[] };
 
 /**
- * 🧾 THE TOOLKIT: the tools (`SPECIALIZED_TOOLS`), the graphs (`CARD_ORDER`, the Analytics carousel's one list) and
- * the badges (`SHOP_BADGE_KEYS`). The counts are the ONE Toolkit list's (`toolkitCounts`, lib/supplier-store.ts —
- * DECISION_LOG 5ae3fbb2, the same count the Toolkit masthead reads) — never typed.
+ * 🧾 THE TOOLKIT'S SHEET, from the ONE Toolkit list (`toolkitItems`, lib/supplier-store.ts — Toolkit v19 PR 2): the
+ * widgets (the Papic camera only while its privacy switch is on), the payment-plan and availability templates, the QR
+ * designs, the graphs (named by `STORE_GRAPHS`) and the badges (the shelf's one list, `SHELF_BADGE_KEYS` — the same list
+ * the Toolkit counts). Each item once, never padded; a
+ * shelf with no item is left out. The sheet lists them by name — the page's ONE number is `toolkitClaim`
+ * (lib/supplier-toolkit-count.ts), so no shelf carries a second count (controller, 24 Nov: one count).
  *
- * ⏭ The graph rows stay count-only: their Store names (`STORE_GRAPHS`) are not drawn in this sheet yet.
- *
- * A tool's tag is the Toolkit's own (owner a02673ac, 23 Nov): the paid widgets (`PAID_STORE_TOOLS`, each bought once
- * in the Toolkit, working only on a paid plan) are Paid; the built-in widgets (`BUILT_IN_WIDGETS`) are Built in; every
- * other tool is Free. There is no start date to read any more. A badge is earned, never sold.
+ * A tag is the Toolkit's own (owner a02673ac, 23 Nov): the paid widgets (`PAID_STORE_TOOLS`, each bought once in the
+ * Toolkit, working only on a paid plan) are Paid; the built-in widgets (`BUILT_IN_WIDGETS`) and the built-in QR codes
+ * are Built in; every other widget, template, QR design and graph is Free. A badge is earned, never sold: Built in.
  */
 export function toolkitShelves(papicCapture: boolean): ToolkitShelf[] {
-  // The one Toolkit list (`toolkitCounts`, v19 PR 2): the Papic camera is listed only while its privacy switch is on.
-  const counts = toolkitCounts({ papicCapture, badges: SHOP_BADGE_KEYS });
-  const toolTag = (k: SpecializedToolKey): ToolkitTag => (isPaidStoreTool(k) ? 'paid' : isBuiltInWidget(k) ? 'built' : 'free');
-  return [
-    {
-      key: 'tools',
-      title: 'Tools',
-      count: counts.widgets ?? 0,
-      rows: listedWidgets(papicCapture).map((t) => ({ key: t.key, name: t.title, line: t.line, tag: toolTag(t.key) })),
-    },
-    { key: 'graphs', title: 'Graphs', count: counts.graphs ?? 0, rows: [] },
-    {
-      key: 'badges',
-      title: 'Badges',
-      count: counts.badges ?? 0,
-      rows: SHOP_BADGE_KEYS.map((k) => ({ key: k, name: BADGE_NAME[k], line: null, tag: 'built' as const })),
-    },
-  ];
-}
-
-/** "33 in the Toolkit: 11 tools · 17 graphs · 5 badges" — the shelves' own counts, added up. */
-export function toolkitCountLine(shelves: readonly ToolkitShelf[]): { total: number; parts: string } {
-  const total = shelves.reduce((n, sh) => n + sh.count, 0);
-  const parts = shelves.map((sh) => `${formatCount(sh.count)} ${sh.title.toLowerCase()}`).join(' · ');
-  return { total, parts };
+  const rows: Record<ToolkitShelfKey, ToolkitRow[]> = { tools: [], payment_plans: [], availability: [], qr: [], graphs: [], badges: [] };
+  const widgetTag = (k: SpecializedToolKey): ToolkitTag => (isPaidStoreTool(k) ? 'paid' : isBuiltInWidget(k) ? 'built' : 'free');
+  for (const i of toolkitItems({ papicCapture, badges: SHELF_BADGE_KEYS })) {
+    if (i.kind === 'widget') {
+      const t = SPECIALIZED_TOOLS.find((x) => x.key === i.key);
+      if (t) rows.tools.push({ key: t.key, name: t.title, line: t.line, tag: widgetTag(t.key) });
+    } else if (i.kind === 'template') {
+      const t = i.of === 'pay' ? payTemplateOf(i.key) : avTemplateOf(i.key);
+      if (t) rows[i.of === 'pay' ? 'payment_plans' : 'availability'].push({ key: `${i.of}:${t.key}`, name: t.name, line: null, tag: 'free' });
+    } else if (i.kind === 'qr') {
+      const w = qrWords(i.key);
+      rows.qr.push({ key: i.key, name: w.name, line: w.line, tag: i.builtIn ? 'built' : 'free' });
+    } else if (i.kind === 'graph') {
+      rows.graphs.push({ key: i.key, name: STORE_GRAPHS[i.key].title, line: null, tag: 'free' });
+    } else if (i.key === 'verified') {
+      rows.badges.push({ key: i.key, name: VERIFIED_TILE_TITLE, line: null, tag: 'built' });
+    } else if (isShopBadgeKey(i.key)) {
+      rows.badges.push({ key: i.key, name: BADGE_NAME[i.key], line: null, tag: 'built' });
+    }
+  }
+  const order: readonly ToolkitShelfKey[] = ['tools', 'payment_plans', 'availability', 'qr', 'graphs', 'badges'];
+  return order.map((key) => ({ key, title: SHELF_TITLE[key], rows: rows[key] })).filter((sh) => sh.rows.length > 0);
 }
 
 /* ── #plans · the rail and the plan cards ────────────────────────────────────────────────────────────────────────── */

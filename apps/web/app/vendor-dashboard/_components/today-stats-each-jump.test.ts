@@ -24,7 +24,7 @@ import { TODAY_STAT_HREFS, TodayStats, TodayStatsPinned, todayStatsOf } from './
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
 
 test('1 · five links to five places', () => {
-  const html = renderToStaticMarkup(React.createElement(TodayStats, { stats: { views: 1240, inquiries: 4, booked: 6, portfolio: { used: 32, free: 50 }, toComeInPhp: 48000 } }));
+  const html = renderToStaticMarkup(React.createElement(TodayStats, { stats: { views: 1240, inquiries: 4, booked: 6, portfolio: { used: 32 }, toComeInPhp: 48000 } }));
   const links = [...html.matchAll(/<a[^>]*href="([^"]+)"[^>]*data-today-stat="(\w+)"|<a[^>]*data-today-stat="(\w+)"[^>]*href="([^"]+)"/g)].map((m) => [m[2] ?? m[3], (m[1] ?? m[4])!.replace(/&amp;/g, '&')]);
   assert.deepEqual(links.map(([id]) => id), ['views', 'inquiries', 'booked', 'portfolio', 'money']);
   assert.deepEqual(Object.fromEntries(links), {
@@ -39,12 +39,12 @@ test('1 · five links to five places', () => {
 });
 
 test('2 · the ruled words', () => {
-  const t = text(renderToStaticMarkup(React.createElement(TodayStats, { stats: { views: 1240, inquiries: 4, booked: 6, portfolio: { used: 32, free: 50 }, toComeInPhp: 48000 } })));
+  const t = text(renderToStaticMarkup(React.createElement(TodayStats, { stats: { views: 1240, inquiries: 4, booked: 6, portfolio: { used: 32 }, toComeInPhp: 48000 } })));
   assert.match(t, /1,240 Views last 28 days/);
   assert.match(t, /4 Inquiries asked · last 28 days/);
   // RW-84 (walk 13 Nov 2026): the line says which month it counts — events DATED this month (owner Q2).
   assert.match(t, /6 Booked events this month/);
-  assert.match(t, /32 of 50 Portfolio free photos/);
+  assert.match(t, /32 Portfolio photos · no limit/);
   assert.match(t, /₱48K Money to come in/);
   assert.doesNotMatch(t, /to collect|this month.*Views/, 'the money stat says "to collect" (WRONG row 23)');
 });

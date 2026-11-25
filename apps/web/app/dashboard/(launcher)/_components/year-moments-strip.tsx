@@ -1,16 +1,6 @@
 import Link from 'next/link';
 
-import { createClient } from '@/lib/supabase/server';
-import { manilaToday } from '@/lib/std-views';
-import { logQueryError } from '@/lib/supabase/error-detect';
-import {
-  buildYearMoments,
-  buildSelfMoments,
-  mergeSelfMoments,
-  worthPlanningMoments,
-  type MomentEvent,
-  type SelfForMoments,
-} from '@/lib/year-moments';
+import { readWorthPlanning } from '@/lib/worth-planning.server';
 import { YearMomentsList, type YearMomentView } from './year-moments-list';
 import { inDaysWords } from '@/lib/format-number';
 import { WorthPlanningExample } from './board-examples';
@@ -95,65 +85,11 @@ export async function YearMomentsStrip({
    */
   heading?: string | null;
 }) {
-  const supabase = await createClient();
-  const today = manilaToday();
-
-  const [{ data: rows, error: rowsErr }, { data: selfRow, error: selfErr }] = await Promise.all([
-    supabase
-      .from('event_members')
-      .select(
-        `member_type,
-       events:event_id (
-         event_id, event_type, display_name, event_date,
-         anchor_date, anchor_origin, recurs, recur_cadence, archived
-       )`,
-      )
-      .eq('user_id', userId)
-      .eq('member_type', 'couple'),
-    // THEIR OWN birthday, from their own profile. Not gated on
-    // `public_greeting_opt_in` — that flag governs greeting somebody PUBLICLY
-    // (the admin social queue selects on it and must keep doing so); showing
-    // you your own date on your own home publishes nothing.
-    supabase.from('users').select('birth_date, sex').eq('user_id', userId).maybeSingle(),
-  ]);
-
-  // Supabase RESOLVES with an error, it does not throw. Logging it is half the
-  // job; the other half is NOT STATING A FACT WE DID NOT ESTABLISH — see
-  // <EmptyYear>'s `unsure` branch.
-  if (rowsErr) logQueryError('YearMomentsStrip (event_members)', rowsErr);
-  if (selfErr) logQueryError('YearMomentsStrip (users birthday)', selfErr);
-  const readFailed = Boolean(rowsErr) || Boolean(selfErr);
-
-  const events: MomentEvent[] = (rows ?? []).flatMap((r) => {
-    const e = (r as { events: MomentEvent | MomentEvent[] | null }).events;
-    return e ? (Array.isArray(e) ? e : [e]) : [];
-  });
-
-  // 🔑 HOLIDAYS ARE IN NOW (owner 2026-08-21). They were excluded because the
-  // full /dashboard/year view existed to carry them — and the owner has since
-  // retired that page into this shelf (*"we already have the your year inside
-  // my events"*). Excluding them would have made the retirement a QUIET LOSS:
-  // Christmas and Valentine's are exactly the dates the shelf exists to warn
-  // about, because they are the ones that book out early. The own
-  // birthday is folded in HERE rather than inside buildYearMoments because it
-  // comes from the profile, not from an event: it is the one moment an account
-  // can offer before it has a single event on it. `mergeSelfMoments` drops it
-  // when an event already holds that day, so one date never prints twice.
-  // 🔑 EXISTING EVENTS' OWN DAYS NEVER REACH THIS SHELF (2026-08-24). The
-  // shelf's whole reason to exist apart from Planning is that "Planning holds
-  // celebrations that EXIST and this holds days that do not" (owner naming
-  // ruling, DECISION_LOG 2026-08-21) — and the rows this filter drops were the
-  // shelf listing the very weddings sitting two shelves up, with an "Open plan"
-  // button confessing it. The rows were correct on the retired /dashboard/year
-  // page and came along unchanged when it folded into the board. Derived days
-  // (anniversaries, monthsaries) and no-event days (holidays, own birthday)
-  // stay — see `momentIsEventOwnDay` for the full rule.
-  const moments = worthPlanningMoments(
-    mergeSelfMoments(
-      buildYearMoments(events, today, { includeHolidays: true }),
-      buildSelfMoments((selfRow as SelfForMoments | null) ?? null, today),
-    ),
-  );
+  // 🔑 ONE READER (Unihome v5, 23 Nov 2026): the reads, the holiday rule, the own birthday and the "existing events'
+  // own days never reach this shelf" filter (2026-08-21 · 2026-08-24) live in `lib/worth-planning.server.ts`, so Home's
+  // one "Worth planning" row and this shelf can never name different days. A refused read is `readFailed` — see
+  // <EmptyYear>'s `unsure` branch: we never state a fact we did not establish.
+  const { moments, readFailed } = await readWorthPlanning(userId);
 
   if (moments.length === 0) return <EmptyYear unsure={readFailed} heading={heading} />;
 

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveBoothStudioContent } from '@/lib/booth-studio';
+import { withYourTableName } from '@/lib/venue-your-table';
 
 // Guest photos in the payload (present only for a token holder + a host setting
 // that returns them) arrive as RAW stored refs (r2:// or bare URL). A client
@@ -122,5 +123,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const { data, error } = await admin.rpc('public_venue_scene', { p_slug: slug, p_token: token });
   if (error || !data) return NextResponse.json({ published: false });
 
-  return NextResponse.json(await resolveBoothLogos(await resolveScenePhotos(data)));
+  // The guest's own table by its NAME (the RPC sends only the public id): the same join the page makes,
+  // so a live refresh never puts the code back in the caption.
+  const named = await withYourTableName(admin, data as { you?: { table: string } | null });
+  return NextResponse.json(await resolveBoothLogos(await resolveScenePhotos(named)));
 }

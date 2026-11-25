@@ -29,6 +29,7 @@
  */
 import { useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import { X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { SignInCard, type SignInCardProps } from './sign-in-card';
 import '@/app/_components/home/home-reskin.css';
@@ -50,7 +51,9 @@ export function SignInCardModal({
 
   return (
     <div
-      className="home-reskin-ov"
+      // `sn-signin-simple` — the 24 Nov 2026 card (concentric corners, 48 px doors, the rise); `sn-signin-scene` — the
+      // celebration photo behind it, on the two sign-in PAGES only (the pop-up keeps the page behind it).
+      className="home-reskin-ov sn-signin-simple sn-signin-scene"
       role="dialog"
       aria-modal="true"
       aria-label="Sign in"
@@ -76,7 +79,7 @@ export function SignInCardModal({
       <div className="hr-ov-card sn-signin-terra" style={{ maxWidth: 460 }}>
         {dismissible ? (
           <button type="button" className="hr-ov-x" onClick={dismiss} aria-label="Close">
-            ✕
+            <X aria-hidden size={18} strokeWidth={1.8} />
           </button>
         ) : null}
         <SignInCard {...card} />

@@ -2,10 +2,12 @@
 
 /**
  * SignInCard — THE single Setnayan login (owner 2026-07-18 "we only want 1
- * login … that popup and dimming the background anywhere"). This is the light
- * greige "Sign in to Setnayan." card visitors already see from the marketing
- * top-nav; it is now ALSO what renders at /login (and on any redirect there), so
- * every entry point shows the same login.
+ * login … that popup and dimming the background anywhere"). This is the greige
+ * "Sign in" card visitors already see from the marketing top-nav; it is ALSO
+ * what renders at /login (and on any redirect there), so every entry point shows
+ * the same login. Since 24 Nov 2026 (owner, "simple and straight to the point";
+ * drawing `login_simple_dark_2026-11-24`): the forming mark over one centred
+ * title, Google · Apple · "Use email", and it follows the phone's dark setting.
  *
  * Rendered inside a `.home-reskin-ov` > `.hr-ov-card` shell (the greige glass
  * modal). Two shells drive it:
@@ -26,13 +28,15 @@
  * they were reading instead of dropping them on the account board.
  */
 import { useActionState, useEffect, useRef, useState } from 'react';
+import type { Door } from '@/lib/doors';
+import { DOOR_SIGN_IN_WORDS } from '@/lib/door-words';
 import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { signInWithPassword, signInInPlace } from '../actions';
 import { humanAuthError } from '@/lib/human-auth-error';
-import { DEAD_LINK_WORDS } from '@/lib/auth-confirm-link';
+import { DEAD_LINK_WORDS } from '@/lib/dead-link-words';
 import { inboxFor } from '@/lib/reset-sent';
 import { SIGN_IN_IN_PLACE_INITIAL } from './sign-in-state';
 import { providerNextStep, SET_PASSWORD_WORDS, type KnownProvider } from '@/lib/sign-in-door';
@@ -42,6 +46,8 @@ import dynamic from 'next/dynamic';
 import { PasswordField } from '@/app/_components/password-field';
 import { earlyGoogleFold, EARLY_FOLD_GIVE_BACK_MS } from '@/lib/google-address';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { FormingMark } from '@/app/_components/auth/forming-mark';
+import { UseEmailFold } from '@/app/_components/auth/use-email-fold';
 
 const GOOGLE_DOOR_ON = envFlagEnabled(process.env.NEXT_PUBLIC_OAUTH_GOOGLE_ENABLED);
 
@@ -114,6 +120,12 @@ export type SignInCardProps = {
   forGuest?: boolean;
   /** W1-B24 — arrived from an email link that can no longer finish: plain words + "Send a new link". */
   linkExpired?: boolean;
+  /**
+   * 🚪 Opened from a business door (`/login?door=X`, lib/doors.ts): the heading slot says the door's words
+   * (`DOOR_SIGN_IN_WORDS`) — the card is otherwise the one card — and Google / Apple carry the supplier intent, so a
+   * brand-new account comes in as a supplier and opens its shop.
+   */
+  door?: Door | null;
 };
 
 export function SignInCard({
@@ -131,6 +143,7 @@ export function SignInCard({
   onSignedIn,
   forGuest = false,
   linkExpired = false,
+  door = null,
 }: SignInCardProps) {
   const inPlace = Boolean(onSignedIn);
   const [state, submitInPlace] = useActionState(
@@ -201,21 +214,15 @@ export function SignInCard({
 
   return (
     <>
-      {forGuest ? (
-        <>
-          <div className="hr-ov-eyebrow">{GUEST_SIGN_IN_WORDS.eyebrow}</div>
-          <h2 className="hr-ov-title">{GUEST_SIGN_IN_WORDS.title}</h2>
-          <p className="hr-ov-sub">{GUEST_SIGN_IN_WORDS.sub}</p>
-        </>
-      ) : (
-        <>
-          <div className="hr-ov-eyebrow">Welcome back</div>
-          <h2 className="hr-ov-title">Sign in to Setnayan.</h2>
-          <p className="hr-ov-sub">
-            One account for couples and suppliers. Pick up right where you left off.
-          </p>
-        </>
-      )}
+      {/* THE HEADING SLOT (owner 24 Nov 2026, "simple and straight to the point"): the forming mark, centred, over one
+          centred title — no eyebrow, no sentence. A guest keeps its own title (no "Welcome back"); a business door
+          (#8263, `/login?door=X`) keeps its own title from `DOOR_SIGN_IN_WORDS`. */}
+      <div className="hr-si-head">
+        <FormingMark />
+        <h2 className="hr-ov-title">
+          {door ? DOOR_SIGN_IN_WORDS[door].title : forGuest ? GUEST_SIGN_IN_WORDS.title : 'Sign in'}
+        </h2>
+      </div>
 
       {/* 🔗 W1-B24 (walk 2, 16 Nov 2026): a confirmation link opened on the phone after signing up on the laptop
           failed and spent itself; the second open showed SDK text and no way forward. Now: plain words, and a button
@@ -335,87 +342,90 @@ export function SignInCard({
           ) : nativeOAuth ? (
             <NativeOAuthButtons next={next} />
           ) : (
-            <OAuthButtonRow next={next} />
+            <OAuthButtonRow next={next} withAccountType={!!door} defaultAccountType={door ? 'vendor' : 'customer'} />
           )}
         </div>
       ) : null}
 
-      {showOAuth ? (
-        <div className="hr-si-or">
-          <span>or continue with email</span>
-        </div>
-      ) : null}
-
-      <form
-        ref={formRef}
-        action={inPlace ? submitInPlace : signInWithPassword}
-        className="hr-si-form"
-        onSubmit={(e) => {
-          const email = String(new FormData(e.currentTarget).get('email') ?? '').trim();
-          setTyped(email);
-          // The route redirects (the form is empty afterwards); in place the card stays.
-          if (!inPlace) rememberTypedEmail(email);
-        }}
+      {/* "Use email" (owner 24 Nov 2026): with Google / Apple on the card, the email half waits behind one quiet
+          switch under them. It starts open when there is anything to show or keep — an error, an address already
+          typed or recalled, a "ready" or "account created" line. With no Google / Apple there is no switch. */}
+      <UseEmailFold
+        fold={showOAuth}
+        open={Boolean(shownError || typed || readyEmail || justSignedUpEmail || shownProvider)}
       >
-        <input type="hidden" name="next" value={next} />
-        <TurnstileField action="login" />
-        <div className="hr-si-field">
-          <label htmlFor="hr-si-email" className="hr-si-label">
-            Email
-          </label>
-          <input
-            id="hr-si-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            inputMode="email"
-            placeholder="you@email.com"
-            defaultValue={prefilledEmail}
-            onChange={(e) => {
-              setTyped(e.target.value);
-              foldEarly(e.target.value);
-            }}
-            required
-            className="hr-si-input"
-          />
-        </div>
-        {/* A TYPED Google address takes the Google button's own door, address
-            pre-filled (owner 2026-10-18). Folds away every `data-password-only`
-            part below; where this shell hides the Google button it never shows. */}
-        <GoogleAddressDoor enabled={showOAuth} desktopOAuth={desktopOAuth} nativeOAuth={nativeOAuth} next={next} />
-        <div className="hr-si-field" data-password-only="">
-          <label htmlFor="hr-si-password" className="hr-si-label">
-            Password
-          </label>
-          <PasswordField
-            id="hr-si-password"
-            name="password"
-            autoComplete="current-password"
-            placeholder="••••••••"
-            required
-            className="hr-si-input"
-          />
-        </div>
-        {/* "Stay signed in" defaults CHECKED — explicit opt-out only (the server
-            action downgrades sb-* cookies to session-only when unchecked). */}
-        <div className="hr-si-row" data-password-only="">
-          <label htmlFor="hr-si-remember" className="hr-si-remember">
-            <input id="hr-si-remember" name="remember" type="checkbox" defaultChecked />
-            <span>Stay signed in</span>
-          </label>
-          <Link href="/forgot-password" className="hr-si-link" onClick={onNavigate}>
-            Forgot password?
-          </Link>
-        </div>
-        <SubmitButton className="hr-si-submit" pendingLabel="Signing in…" data-password-only="">
-          Continue
-        </SubmitButton>
-      </form>
+        <form
+          ref={formRef}
+          action={inPlace ? submitInPlace : signInWithPassword}
+          className="hr-si-form"
+          onSubmit={(e) => {
+            const email = String(new FormData(e.currentTarget).get('email') ?? '').trim();
+            setTyped(email);
+            // The route redirects (the form is empty afterwards); in place the card stays.
+            if (!inPlace) rememberTypedEmail(email);
+          }}
+        >
+          <input type="hidden" name="next" value={next} />
+          <TurnstileField action="login" />
+          {/* The boxes say what they hold; the labels stay for a screen reader (owner 24 Nov 2026: the visible labels go). */}
+          <div className="hr-si-field">
+            <label htmlFor="hr-si-email" className="sr-only">
+              Email
+            </label>
+            <input
+              id="hr-si-email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              inputMode="email"
+              placeholder="Email"
+              defaultValue={prefilledEmail}
+              onChange={(e) => {
+                setTyped(e.target.value);
+                foldEarly(e.target.value);
+              }}
+              required
+              className="hr-si-input"
+            />
+          </div>
+          {/* A TYPED Google address takes the Google button's own door, address
+              pre-filled (owner 2026-10-18). Folds away every `data-password-only`
+              part below; where this shell hides the Google button it never shows. */}
+          <GoogleAddressDoor enabled={showOAuth} desktopOAuth={desktopOAuth} nativeOAuth={nativeOAuth} next={next} />
+          <div className="hr-si-field" data-password-only="">
+            <label htmlFor="hr-si-password" className="sr-only">
+              Password
+            </label>
+            <PasswordField
+              id="hr-si-password"
+              name="password"
+              autoComplete="current-password"
+              placeholder="Password"
+              required
+              className="hr-si-input"
+            />
+          </div>
+          {/* "Stay signed in" defaults CHECKED — explicit opt-out only (the server
+              action downgrades sb-* cookies to session-only when unchecked). */}
+          <div className="hr-si-row" data-password-only="">
+            <label htmlFor="hr-si-remember" className="hr-si-remember">
+              <input id="hr-si-remember" name="remember" type="checkbox" defaultChecked />
+              <span>Stay signed in</span>
+            </label>
+            <Link href="/forgot-password" className="hr-si-link" onClick={onNavigate}>
+              Forgot password?
+            </Link>
+          </div>
+          <SubmitButton className="hr-si-submit" pendingLabel="Signing in…" data-password-only="">
+            Continue
+          </SubmitButton>
+        </form>
+      </UseEmailFold>
 
       <div className="hr-si-foot">
-        No account yet?{' '}
+        New here?{' '}
         <Link href={signupHref} className="hr-si-link" onClick={onNavigate}>
-          Create one, free
+          Create account
         </Link>
       </div>
     </>

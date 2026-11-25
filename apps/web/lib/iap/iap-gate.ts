@@ -46,6 +46,20 @@ export function hasStoreQuantity(ua: string | null | undefined): boolean {
   return /\bSetnayanIAP\/(?:[3-9]|[1-9]\d)/.test(ua ?? '');
 }
 
+/**
+ * 🏪 The token a build whose APP VERSION carries the "Supplier plans" subscription group announces. The supplier plans
+ * are NOT part of the 1.0 submission (pre-submit list 22 Nov, "Not part of the 1.0 submit"; corpus
+ * SUPPLIER_SUBSCRIPTIONS_BUILD_SPEC_2026-11-22.md: "Does not gate the 1.0 App Store submit; ships with the next app
+ * version"), so 1.0 (build 9, `/3`) never draws the plan door: a reviewer would meet Subscribe buttons for products the
+ * submission does not carry. The build that ships them with its version bumps apps/mobile/capacitor.config.ts to `/4`.
+ */
+export const NATIVE_STORE_SUBSCRIPTION_UA_MARKER = 'SetnayanIAP/4';
+
+/** `SetnayanIAP/4` or higher — `/4`–`/9`, then any two-or-more-digit version. */
+export function hasStoreSubscriptions(ua: string | null | undefined): boolean {
+  return /\bSetnayanIAP\/(?:[4-9]|[1-9]\d)/.test(ua ?? '');
+}
+
 export function iapAvailable(input: {
   storeShell: boolean;
   userAgent: string | null | undefined;

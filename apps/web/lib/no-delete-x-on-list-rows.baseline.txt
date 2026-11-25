@@ -2,7 +2,6 @@
 # Guard: lib/no-delete-x-on-list-rows.test.ts. `path count` — this list ONLY SHRINKS. Move a row onto
 # SwipeToDelete (app/_components/swipe-to-delete.tsx) and lower its line; never add one or raise one.
 app/[slug]/find-seat/_components/name-search.tsx 1
-app/_components/auth/sign-in-here-panel.tsx 1
 app/_components/home/HomeOverlays.tsx 1
 app/_components/paper-picker.tsx 1
 app/dashboard/(account)/create-event/_components/create-location-picker.tsx 1
@@ -24,7 +23,6 @@ app/dashboard/[eventId]/vendors/_components/build-body.tsx 3
 app/dashboard/[eventId]/vendors/_components/build-compare.tsx 1
 app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx 2
 app/dashboard/[eventId]/website/editor/_components/background-colour-wells.tsx 1
-app/login/_components/sign-in-card-modal.tsx 1
 app/monogram/public-monogram-studio.tsx 1
 app/onboarding/wedding/_components/onboarding-shell.tsx 1
 app/papic/guest/_components/guest-camera-tools.tsx 1

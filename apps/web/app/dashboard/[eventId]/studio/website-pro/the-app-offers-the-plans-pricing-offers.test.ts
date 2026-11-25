@@ -148,3 +148,17 @@ test('🍎 the page strips every web peso before the app’s browser sees it', (
   assert.match(page, /packs: f\.packs\.map\(\(p\) => \(\{ \.\.\.p, php: null, savePhp: null \}\)\)/);
   assert.match(page, /if \(gate\.storeShell && !gate\.iap\) redirect/);
 });
+
+test('🍎 one plan per event in the app: an event on a plan is offered no pack (the server refuses a second plan)', () => {
+  // Free: every pack Apple prices is offered.
+  assert.match(drawApple(facts()), /data-event-services-pack="pro"/);
+  // On a plan the web shows "Next pack" (pay the difference); Apple cannot charge a difference, and
+  // `startAppStorePurchase` refuses a second plan for the event — so the app draws no pack at all.
+  for (const plan of ['plus', 'pro', 'ultra'] as const) {
+    const web = draw(facts({ plan, planName: plan }));
+    const app = drawApple(facts({ plan, planName: plan }));
+    if (plan !== 'ultra') assert.match(web, /data-event-services-packs=""/, `premise: the web offers a next pack on ${plan}`);
+    assert.doesNotMatch(app, /data-event-services-pack=/, `the app offers a pack to an event on ${plan} — its Pay can only fail`);
+    assert.match(app, new RegExp(`data-event-services-plan="${plan}"`), 'the plan card still says the plan');
+  }
+});

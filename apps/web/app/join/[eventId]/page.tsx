@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import { headers } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -98,7 +99,7 @@ export default async function JoinPage({ params, searchParams }: Props) {
   // token therefore opens NOTHING extra on such an event; only "Anyone, I
   // approve" puts the request form on this page.
   if (!anyoneMayAskToJoin(event.rsvp_ask_config)) {
-    if (event.slug) redirect(`/${event.slug}`);
+    if (event.slug) redirect(`${publicEventPath(event.slug)}`);
     // No public page yet: not a broken link, so it is not told it is one.
     return (
       <DoorShell

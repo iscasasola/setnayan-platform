@@ -12,7 +12,7 @@
  * (edit EMBEDDED from YouTube / TikTok / Instagram — Setnayan never hosts it),
  * shoppable vendor cards from the real event, followers + view counts, the
  * Storyteller (Creator) badge, featuring on Real Stories, and vendors sending
- * token-gated exclusive discount offers. Free forever; storytellers keep their
+ * token-gated exclusive discount offers. Free to publish; storytellers keep their
  * own channel monetization. Do NOT promise: audience promos on the Book
  * button, tier names, per-booking earnings, or cash of any kind.
  *

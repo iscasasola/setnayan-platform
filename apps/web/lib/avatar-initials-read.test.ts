@@ -36,7 +36,7 @@ function vars(src: string, sel: RegExp): Map<string, string> {
   return out;
 }
 const ROOT = /^:root$/;
-const DARK = /^html\.dark$/;
+const DARK = /^(?:\.sn-dark-scope\s*,\s*)?html\.dark$/;
 function resolve(name: string, theme: 'light' | 'dark'): string {
   const light = new Map([...vars(GLOBALS, ROOT), ...vars(FRONT, /^\.fd$/)]);
   const dark = new Map([...light, ...vars(GLOBALS, DARK), ...vars(FRONT, /^html\.dark \.fd$/)]);

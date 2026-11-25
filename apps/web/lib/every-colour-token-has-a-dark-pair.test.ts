@@ -95,6 +95,9 @@ function blocks(css: string): Block[] {
 const isDarkBlock = (b: Block) =>
   /(^|[\s,])html\.dark\b/.test(b.sel) || b.ctx.some((c) => /prefers-color-scheme:\s*dark/.test(c));
 
+/** `.sn-dark-scope, html.dark` is the dark set reaching one element too (the sign-in pop-up, 24 Nov 2026) — still the dark set. */
+const darkRoot = (sel: string) => sel.replace(/^\.sn-dark-scope\s*,\s*/, '');
+
 /** `{ light: name→value at the root selector, dark: names redeclared in a dark block }`. */
 function tokens(file: string, rootSel: RegExp, darkSel: RegExp) {
   const light = new Map<string, string>();
@@ -102,7 +105,7 @@ function tokens(file: string, rootSel: RegExp, darkSel: RegExp) {
   for (const b of blocks(read(file))) {
     const inMediaOrSupports = b.ctx.some((c) => /^@(media|supports|container)/.test(c));
     for (const [, name = '', value = ''] of b.body.matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/gi)) {
-      if (isDarkBlock(b) && darkSel.test(b.sel)) dark.add(name);
+      if (isDarkBlock(b) && darkSel.test(darkRoot(b.sel))) dark.add(name);
       else if (rootSel.test(b.sel) && !inMediaOrSupports && !light.has(name)) light.set(name, value.trim());
     }
   }

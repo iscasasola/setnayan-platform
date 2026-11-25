@@ -315,6 +315,17 @@
 [data-growth] .ag-card .ag-chev { width: 18px; height: 18px; flex: none; color: var(--m-slate-3); }
 [data-growth] .ag-ctlrow { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 44px; min-width: 0; }
 [data-growth] .ag-when { font-size: 12px; color: var(--m-slate-3); white-space: nowrap; }
+/* 📏 The switch fits its card (re-walk 24 Nov 2026): the card is a size container. Below the width the figure plus
+   "30 days · 12 months" need (two-across on a computer), the figure steps aside (the line under the graph says the same
+   number) and the switch fills the row with its short faces. 🔒 the-window-switch-fits-its-card.test.ts */
+[data-growth] .ag-card-in { container-type: inline-size; }
+[data-growth] .ag-ws { display: none; }
+@container (max-width: 200px) {
+  [data-growth] .ag-ctlrow > .ag-fig { display: none; }
+  [data-growth] .ag-ctlrow > [data-pill-selector] { flex: 1 1 auto; }
+  [data-growth] .ag-wl { display: none; }
+  [data-growth] .ag-ws { display: inline; }
+}
 [data-growth] .ag-fig { display: flex; flex-direction: column; line-height: 1.1; }
 [data-growth] .ag-fig b, [data-growth] .ag-fig .ag-fig-n { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 [data-growth] .ag-fig small { font-size: 12px; color: var(--m-slate-2); }

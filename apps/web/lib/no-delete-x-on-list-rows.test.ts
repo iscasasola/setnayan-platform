@@ -38,6 +38,7 @@ const BASELINE = join(HERE, 'no-delete-x-on-list-rows.baseline.txt');
 /** Kept kinds — tile · chip · editor field · confirm — never a list row. Path (from apps/web) → why. */
 export const ALLOWED: ReadonlyMap<string, string> = new Map([
   ['app/dashboard/[eventId]/monogram/upload-mark.tsx', 'tile — the uploaded mark’s ✕'],
+  ['app/dashboard/(launcher)/_components/event-card-menu.tsx', 'tile — Home’s event card (Unihome v5, owner-approved 23 Nov 2026): a small grey trash icon at the far end of the card’s button row that only OPENS the two-screen remove sheet (Put this away first, then type the name) — never removes on tap'],
   ['app/vendor-dashboard/clients/[eventId]/_components/booth-poster-card.tsx', 'tile — the booth poster preview’s Remove in the booth editor (one poster, not a list)'],
   ['app/vendor-dashboard/clients/[eventId]/_components/booth-studio-card.tsx', 'editor field — the booth words’ Remove in the booth editor (one set of words, not a list)'],
   ['app/papic/decorate/_components/kwento-decorator.tsx', 'tile — a sticker on the photo being decorated'],

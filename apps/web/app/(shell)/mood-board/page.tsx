@@ -132,7 +132,7 @@ const FAQ = [
   },
   {
     q: 'Is it really free?',
-    a: 'Yes. The Mood Board is included with every Setnayan account, like your guest list, your schedule, your budget and your seat plan. There is nothing to buy and nothing that expires.',
+    a: 'Yes. The Mood Board is included with every Setnayan account, like your guest list, your schedule, your budget and your seat plan. There is nothing to buy.',
   },
   {
     q: 'Do we have to be good at design?',
@@ -230,7 +230,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   },
   {
     chip: 'Free',
-    t: 'Nothing to buy, nothing that expires',
+    t: 'Nothing to buy',
     d: 'The Mood Board is free with every Setnayan account, beside your guest list, your schedule and your seat plan. Change your mind as often as you like — nothing here is locked, and everything that reads from your board picks up the change.',
     media: { kind: 'photo', src: '/demo/maria-jose/moodboard.webp', alt: 'A flat lay of a ribbon, a ring, a compact and a bouquet on linen' },
   },

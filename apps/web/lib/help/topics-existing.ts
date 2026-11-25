@@ -161,7 +161,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       {
         slug: 'how-does-setnayan-handle-privacy',
         title: 'How does Setnayan handle my privacy?',
-        body: 'RA 10173 (Data Privacy Act of the Philippines) compliant. Guest list and event details are never publicly shared without your explicit opt-in. Setnayan sets essential cookies only — no analytics, advertising or tracking cookies — and lists every one at setnayan.com/cookies. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
+        body: 'Setnayan is built to follow RA 10173 (the Data Privacy Act of the Philippines). Guest list and event details are never publicly shared without your explicit opt-in. Setnayan sets essential cookies only — no analytics, advertising or tracking cookies — and lists every one at setnayan.com/cookies. National Privacy Commission registration in progress. DPO contact at dpo@setnayan.com.',
       },
       {
         slug: 'how-to-contact-support',

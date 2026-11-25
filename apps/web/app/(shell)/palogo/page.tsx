@@ -127,7 +127,7 @@ const FAQ = [
   },
   {
     q: 'Can I try one first?',
-    a: 'Yes — you can preview a logo for your initials free, no sign-up, before you decide. The animation that follows you across the whole wedding is Event Pro’s Logo & QR part.',
+    a: 'Yes — you can preview a logo for your initials free, no sign-up, before you decide. The animation that follows you across the whole wedding is part of Event Pro.',
   },
 ];
 
@@ -218,7 +218,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Try it free',
     t: 'Preview yours before you decide',
-    d: 'You can preview a logo for your initials free, no sign-up, before you decide. The animation that follows you across the whole wedding is Event Pro’s Logo & QR part.',
+    d: 'You can preview a logo for your initials free, no sign-up, before you decide. The animation that follows you across the whole wedding is part of Event Pro.',
     media: { kind: 'photo', src: '/demo/maria-jose/hero.webp', alt: 'A couple on a hillside terrace at golden hour, a lake and volcano behind them' },
   },
 ];
@@ -234,7 +234,7 @@ export default function LogoMakerLandingPage() {
       steps={STEPS}
       differentiator={{ heading: 'Not a clip-art logo', lede: 'A template looks like everyone else’s. Logo Maker looks like you — and it moves.', rows: VS }}
       faq={FAQ}
-      closing={{ heading: 'Give your wedding its signature', body: 'Logo Maker lives inside your free Setnayan wedding — alongside your save-the-date, Event Hub and videos. Start planning free, and animate your mark with Event Pro’s Logo & QR when you’re ready.', href: '/onboarding/wedding?from=palogo', label: 'Start planning · free' }}
+      closing={{ heading: 'Give your wedding its signature', body: 'Logo Maker lives inside your free Setnayan wedding — alongside your save-the-date, Event Hub and videos. Start planning free, and your mark comes alive with Event Pro when you’re ready.', href: '/onboarding/wedding?from=palogo', label: 'Start planning · free' }}
       structuredData={[APP_LD, FAQ_LD]}
     >
       <SpotlightSection

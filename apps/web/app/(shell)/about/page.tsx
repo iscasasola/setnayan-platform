@@ -32,11 +32,11 @@ const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
 ).replace(/\/$/, '');
 
-const PAGE_TITLE = 'About Setnayan — the Philippines-first wedding & life-events platform';
+const PAGE_TITLE = 'About Setnayan — plan it, live it, keep it';
 // (Description carries no free-claims — clean under the 2026-06-13 reprice
 // scrub of Pricing.md § 00.D, which retired "free RSVP / free website" copy.)
 const PAGE_DESCRIPTION =
-  "Setnayan is the Philippines' own all-in-one wedding & life-events platform — the first built here to plan the event, run a 0%-commission marketplace of verified local suppliers, and capture the day so every guest can find the photos they're in.";
+  "Setnayan is one place for the whole Filipino event: plan it, hire verified local suppliers, and capture the day so every guest can find the photos they're in.";
 
 /*
   ⚠ `dynamic` IS DECLARED ONCE, ON `app/(shell)/layout.tsx`, NOT HERE.
@@ -231,7 +231,7 @@ export default async function AboutPage() {
               marketplace of
               verified Filipino wedding suppliers you message directly, and
               in-app services — single-camera livestreaming to YouTube, included
-              (Live Watch), candid photo capture (Papic), and bespoke monograms. Papic has no limit on
+              (every camera at once is Live Watch), candid photo capture (Papic), and Logo Maker. Papic has no limit on
               cameras: every photo uses credits, and your first event starts
               with free credits; the rest is priced on the Pricing page. Couples and suppliers
               agree on bookings between themselves; Setnayan never holds the

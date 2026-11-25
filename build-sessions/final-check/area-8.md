@@ -1,4 +1,4 @@
-FIXER: batch 1 of ~10 · PR #8322 · ready, handed over (CI green except the generated screens-map baseline for the ship controller) · batch 2 + 3 built, PRs after preflight
+FIXER: batch 1 PR #8322 handed over (only the generated screens-map baseline red) · batch 2 PR #8327 ready, CI running · batch 3 (claude/fc-fix-a8-b3, 8 fixes) built, preflight running · ~7 batches left
 STATUS: phase B done · 71/71 pages walked (375 light+dark, 768, 1280; dark sample at 768/1280) · 36/36 forwards land · 156/156 links ok · buttons 3,311 · pressed 2,303 · failed 0 confirmed · left 1,008 · phase-B findings 22 (blocker 0 · broken 0 · wrong 7 · look 15) + G-4 confirmed (money-signin) · checker-made changes disclosed and restored
 
 # Final check · Area 8 · Admin (/admin/* and the internal pages)

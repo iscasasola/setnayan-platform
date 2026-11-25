@@ -551,12 +551,22 @@ export function PaymentsList({
    */
   receiptReads: Record<string, ReceiptReadRow>;
 }) {
+  // A8·A-11: no pending payments is not "nothing to reconcile" while money sits in the BDO pile (or its read
+  // failed). With an empty queue the pile, its failure line and its drop tile stay on screen above the empty line.
+  const pileWhenEmpty = received ? (
+    <ReceivedPile read={received} lastDrop={receivedLastDrop} query={query} held={receivedHeld} waiting={[]} />
+  ) : null;
   if (readFailed) return <ReadFailedNotice which={readFailed} retryHref={deskHref(here)} />;
   if (payments.length === 0) {
     return (
-      <TemplateSection label="To confirm" right="0">
-        <TemplateEmpty data="payments">{query ? `No payment matches “${query}”.` : 'Nothing to reconcile.'}</TemplateEmpty>
-      </TemplateSection>
+      <>
+        {pileWhenEmpty}
+        <TemplateSection label="To confirm" right="0">
+          <TemplateEmpty data="payments">
+            {query ? `No payment matches “${query}”.` : 'Nothing to reconcile.'}
+          </TemplateEmpty>
+        </TemplateSection>
+      </>
     );
   }
   // Lightweight rows for the paste-and-match helper. Keep only the fields the

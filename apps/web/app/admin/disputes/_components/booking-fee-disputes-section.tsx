@@ -3,6 +3,7 @@ import { Scale } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { relativeTime } from '@/lib/activity';
+import { formatPhp } from '@/lib/php';
 import { formatLongDate } from '@/lib/format-date';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { SOURCED_INQUIRY_SOURCES, SETNAYAN_SAVE_SOURCES } from '@/lib/booking-fee-gate';
@@ -43,9 +44,11 @@ type ChargeRow = {
   amount_charged_centavos: number | string | null;
 };
 
+// A8·E-3: a missing amount is "—", never ₱0 (Number(null) is 0). Pesos go through lib/php.ts.
 const peso = (centavos: number | string | null): string => {
+  if (centavos == null || centavos === '') return '—';
   const n = Number(centavos);
-  return Number.isFinite(n) ? `₱${(n / 100).toLocaleString('en-PH', { maximumFractionDigits: 2 })}` : '—';
+  return Number.isFinite(n) ? formatPhp(n / 100) : '—';
 };
 
 export async function BookingFeeDisputesSection({ result }: { result?: string }) {
@@ -72,6 +75,11 @@ export async function BookingFeeDisputesSection({ result }: { result?: string })
       : Promise.resolve({ data: [], error: null }),
   ]);
   if (chargesRes.error) logQueryError('AdminDisputesPage (fee dispute charges)', chargesRes.error);
+  if (shopsRes.error) logQueryError('AdminDisputesPage (fee dispute shops)', shopsRes.error);
+  // A8·E-3: a refused read is said where its fact would sit, so the evidence never leans toward a waiver.
+  const chargesUnread = Boolean(chargesRes.error);
+  const shopsUnread = Boolean(shopsRes.error);
+  const shopLabel = (id: string) => shopName.get(id) ?? (shopsUnread ? 'Couldn’t read the shop name' : 'Unnamed shop');
   const charges = new Map(((chargesRes.data ?? []) as ChargeRow[]).map((c) => [c.charge_id, c]));
   const shopName = new Map(
     ((shopsRes.data ?? []) as { vendor_profile_id: string; business_name: string | null }[]).map((s) => [
@@ -83,7 +91,7 @@ export async function BookingFeeDisputesSection({ result }: { result?: string })
   // The receipts, per waiting dispute: its event, the found-record, a sourced chat, a Find save.
   const receipts = new Map<
     string,
-    { eventName: string | null; eventDate: string | null; found: string; chat: boolean; save: boolean; prior: number }
+    { eventName: string | null; eventDate: string | null; found: string; chat: boolean | null; save: boolean | null; prior: number }
   >();
   await Promise.all(
     waiting.map(async (r) => {
@@ -106,10 +114,14 @@ export async function BookingFeeDisputesSection({ result }: { result?: string })
         eventName: e?.display_name ?? null,
         eventDate: e?.event_date ?? null,
         found: found.error ? 'The found-record could not be read.' : foundReceiptLine(f?.first_found_at ?? null, f?.view_count ?? null, f?.first_source ?? null),
-        chat: ((threads.data ?? []) as { inquiry_source: string | null }[]).some(
-          (t) => t.inquiry_source != null && SOURCED_INQUIRY_SOURCES.has(t.inquiry_source),
-        ),
-        save: ((saves.data ?? []) as { source: string | null }[]).some((s) => s.source != null && SETNAYAN_SAVE_SOURCES.has(s.source)),
+        chat: threads.error
+          ? null
+          : ((threads.data ?? []) as { inquiry_source: string | null }[]).some(
+              (t) => t.inquiry_source != null && SOURCED_INQUIRY_SOURCES.has(t.inquiry_source),
+            ),
+        save: saves.error
+          ? null
+          : ((saves.data ?? []) as { source: string | null }[]).some((s) => s.source != null && SETNAYAN_SAVE_SOURCES.has(s.source)),
         prior: (rows ?? []).filter((x) => x.vendor_profile_id === r.vendor_profile_id && x.dispute_id !== r.dispute_id).length,
       });
     }),
@@ -152,11 +164,13 @@ export async function BookingFeeDisputesSection({ result }: { result?: string })
             return (
               <li key={r.dispute_id} className="py-4" data-fee-dispute-row="">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <span className="text-sm font-medium text-ink">{shopName.get(r.vendor_profile_id) ?? 'Unnamed shop'}</span>
+                  <span className="text-sm font-medium text-ink">{shopLabel(r.vendor_profile_id)}</span>
                   <span className="text-xs text-ink/50">disputed {relativeTime(r.created_at)}</span>
                 </div>
                 <p className="mt-1 text-xs text-ink/70">
-                  Fee {peso(c?.amount_charged_centavos ?? null)} · bill {c?.status ?? 'unknown'}
+                  {chargesUnread
+                    ? 'Couldn’t read the bill, so the fee is not shown'
+                    : `Fee ${peso(c?.amount_charged_centavos ?? null)} · bill ${c?.status ?? 'unknown'}`}
                   {rc?.eventName ? ` · ${rc.eventName}` : ''}
                   {rc?.eventDate ? ` on ${formatLongDate(rc.eventDate)}` : ''}
                   {rc ? ` · ${rc.prior} earlier dispute${rc.prior === 1 ? '' : 's'}` : ''}
@@ -166,8 +180,12 @@ export async function BookingFeeDisputesSection({ result }: { result?: string })
                 </p>
                 <ul className="mt-2 list-disc space-y-0.5 pl-5 text-xs text-ink/70">
                   <li>{rc?.found ?? 'The receipts could not be read.'}</li>
-                  <li>{rc ? (rc.chat ? 'A chat was started from Setnayan.' : 'No chat was started from Setnayan.') : '—'}</li>
-                  <li>{rc ? (rc.save ? 'The couple saved this shop from Find.' : 'No save from Find.') : '—'}</li>
+                  <li>
+                    {!rc ? '—' : rc.chat === null ? 'Couldn’t read the chats.' : rc.chat ? 'A chat was started from Setnayan.' : 'No chat was started from Setnayan.'}
+                  </li>
+                  <li>
+                    {!rc ? '—' : rc.save === null ? 'Couldn’t read the saves.' : rc.save ? 'The couple saved this shop from Find.' : 'No save from Find.'}
+                  </li>
                 </ul>
                 <form action={bookingFeeDispute} className="mt-3 space-y-2">
                   <input type="hidden" name="op" value="decide" />
@@ -194,7 +212,7 @@ export async function BookingFeeDisputesSection({ result }: { result?: string })
           <ul className="mt-2 space-y-1 text-xs text-ink/70">
             {decided.map((r) => (
               <li key={r.dispute_id}>
-                {shopName.get(r.vendor_profile_id) ?? 'Unnamed shop'} ·{' '}
+                {shopLabel(r.vendor_profile_id)} ·{' '}
                 {r.status === 'auto_accepted' ? 'first dispute, accepted on the spot' : r.status}
                 {r.decided_at ? ` · ${relativeTime(r.decided_at)}` : ''}
                 {r.decision_note ? ` · “${r.decision_note}”` : ''}

@@ -28,10 +28,10 @@ import {
   type CompGrantRow,
 } from '@/lib/comp-grants';
 import {
-  fetchV2CustomerCatalog,
+  fetchV2CustomerCatalogRead,
   supplierSkuCategory,
-  fetchV2BundleCatalog,
-  fetchV2VendorCatalog,
+  fetchV2BundleCatalogRead,
+  fetchV2VendorCatalogRead,
 } from '@/lib/v2-catalog';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { Badge } from '@/app/_components/badge';
@@ -281,11 +281,17 @@ export async function UsersSurface({
   // control whose whole job is picking a SKU.
   let compGrantServices: ServiceOption[] | null = null;
   try {
-    const [customers, bundles, vendors] = await Promise.all([
-      fetchV2CustomerCatalog({ forAdmin: true }),
-      fetchV2BundleCatalog(),
-      fetchV2VendorCatalog(),
+    const [customersRead, bundlesRead, vendorsRead] = await Promise.all([
+      fetchV2CustomerCatalogRead({ forAdmin: true }),
+      fetchV2BundleCatalogRead(),
+      fetchV2VendorCatalogRead(),
     ]);
+    // A8·D-6: the catalogue reads resolve with an empty list instead of throwing, so the catch below never saw a
+    // refusal. Any refused part makes the whole picker "couldn't read" — a partial list would drop a category silently.
+    if (!customersRead.ok || !bundlesRead.ok || !vendorsRead.ok) throw new Error('catalogue read refused');
+    const customers = customersRead.rows;
+    const bundles = bundlesRead.rows;
+    const vendors = vendorsRead.rows;
     compGrantServices = [
       ...customers.map((c) => ({
         sku_code: c.service_code,

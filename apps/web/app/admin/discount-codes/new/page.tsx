@@ -12,9 +12,9 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { VoucherForm, type VoucherFormInitial } from '../_components/voucher-form';
 import { createDiscountCode } from '../actions';
 import {
-  fetchV2CustomerCatalog,
-  fetchV2BundleCatalog,
-  fetchV2VendorCatalog,
+  fetchV2CustomerCatalogRead,
+  fetchV2BundleCatalogRead,
+  fetchV2VendorCatalogRead,
   supplierSkuCategory,
 } from '@/lib/v2-catalog';
 
@@ -38,10 +38,10 @@ export default async function NewDiscountCodePage() {
   // even though vendor checkout UI itself is V1.x post-pilot — admin can
   // create the codes now; they activate when vendor billing surfaces ship.
   // Customer + bundle from #598 stay. Vendor SKUs added here.
-  const [customers, bundles, vendors] = await Promise.all([
-    fetchV2CustomerCatalog({ forAdmin: true }),
-    fetchV2BundleCatalog(),
-    fetchV2VendorCatalog(),
+  const [customersRead, bundlesRead, vendorsRead] = await Promise.all([
+    fetchV2CustomerCatalogRead({ forAdmin: true }),
+    fetchV2BundleCatalogRead(),
+    fetchV2VendorCatalogRead(),
   ]);
 
   // Map V2 shape onto the existing ServiceRow contract the form expects.
@@ -49,6 +49,11 @@ export default async function NewDiscountCodePage() {
   // convert to centavos for the form display layer. Category derived from
   // origin table: customers → 'Customer service' · bundles → 'Bundle' ·
   // supplier subs → 'Supplier subscription' · other supplier SKUs → 'Supplier add-on'.
+  // A8·A-9: a refused catalogue read is said, never shown as "no active services".
+  const catalogFailed = !customersRead.ok || !bundlesRead.ok || !vendorsRead.ok;
+  const customers = customersRead.rows;
+  const bundles = bundlesRead.rows;
+  const vendors = vendorsRead.rows;
   const services: ServiceRow[] = [
     ...customers.map((c) => ({
       sku_code: c.service_code,
@@ -114,6 +119,7 @@ export default async function NewDiscountCodePage() {
         action={createDiscountCode}
         submitLabel="Create code"
         submitPendingLabel="Creating…"
+        catalogFailed={catalogFailed}
       />
     </div>
   );

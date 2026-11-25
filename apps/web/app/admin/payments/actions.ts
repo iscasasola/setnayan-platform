@@ -1,6 +1,7 @@
 'use server';
 
 import { requireAdminCan } from '@/lib/admin/can.server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { redirect } from 'next/navigation';
@@ -690,10 +691,21 @@ export async function approvePaymentCore(args: {
     // NOT promote the order. The admin leaves "promote to paid" off to record it
     // as partial, or re-runs once the balance is matched. Closes the audit's
     // "short transfer silently passes on the happy path" gap.
-    const { data: orderPayments } = await admin
+    const { data: orderPayments, error: orderPaymentsErr } = await admin
       .from('payments')
       .select('amount_php, status')
       .eq('order_id', payment.order_id);
+    // A8·A-3: an unread payments list is not "₱0 received". Say it plainly, name no peso figure, and do not promote.
+    if (orderPaymentsErr) {
+      logQueryError('approvePaymentCore.orderPayments', orderPaymentsErr);
+      return {
+        ok: false,
+        shortfall: true,
+        message:
+          'Payment matched, but the order was NOT marked paid: couldn’t check what was received on this order. ' +
+          'Try “Also mark order as paid” again in a moment.',
+      };
+    }
     const matchedTotal = (orderPayments ?? [])
       .filter((p) => p.status === 'matched')
       .reduce((acc, p) => acc + Number(p.amount_php), 0);

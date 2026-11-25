@@ -1,3 +1,4 @@
+FIXER: batch 1 of ~9 (a1-live) · PR #8310 · draft, waiting for CI · next: a1-live-perf
 STATUS: phase B done (25 Nov 2026, staging copy commit bd86936)
 **Phase B counts:** 74 pages + 2 forwards walked at 375 · 768 · 1280, light and dark (456 loads) · **controls 2,837 counted, 2,629 pressed, 10 failed** (8 = the sign-in ✕, A1-172; 2 = a shop link answering 500, A1-154); the 208 left are search boxes, submits, Google/Apple, disabled controls and a tour blocking /pricing, named per page · **19 new findings (A1-154 – A1-172): blocker 1 · money-signin 2 · broken 1 · wrong 9 · look 6**; A1-056 blocker **confirmed** · **File total 172: blocker 2 · money-signin 14 · broken 15 · wrong 92 · look 49** · DARK: light only 64 · yes 6 · n/a 4 · no sideways scroll at any size.
 
@@ -2601,3 +2602,15 @@ Area 1 is the public front door. Only parts that are NOT one of the owner's five
 | The part | The moment the signal drops | Level it needs | Why |
 |---|---|---|---|
 | /for-suppliers, /features/supplier-* | at an expo, showing a couple | READ-ONLY | the supplier shows what Setnayan does from their phone; a blank page at the booth looks bad |
+
+## Second pass (25 Nov)
+
+Pages touched by fixer batch `a1-live`, checked against Adds 11, 11b, 12, 13, 15, 17 and 18. Code read; no new walk.
+
+- [B] **SP1-01 · /papic scan block** · `app/(shell)/papic/_papic-scan.tsx`: the code placeholder pulses (`animate-pulse`, banned: "no animate-pulse, no spinners"; Add 11.6 skeletons); the style chips are a hand-rolled pill row with typed `text-[0.66rem]` / `text-[0.58rem]` sizes (not `PillSelector`, not the type scale). Should be: the house skeleton (`Sk`) for the code square and the shared chip row. Reference: iOS segmented control.
+- [B] **SP1-02 · /monogram studio** · `app/monogram/public-monogram-studio.tsx`: hand-typed colours (`#1E2229`, `#9B3B2E`, `#C5A059`, `bg-white`), `text-[10.5px]`, hand-made rounded frames and pill buttons. The page has no dark mode (public pages are light only today). Should be: the house tokens, `ActionButton`, `.sn-frame`.
+- [B] **SP1-03 · /panood/demo/[token] live frame** · `page.tsx` `Shell`: a one-off frame (`rounded-[var(--sn-frame-radius)]`) and a mulberry hand-made button in `cam-join-flow.tsx` (`bg-[var(--m-mulberry)] … text-white`). Should be: `.sn-frame` and `ActionButton`. (The new "Open Live Watch" door uses `actionButtonClass('brand')`.)
+- [B] **SP1-04 · /help Message us** · `app/(shell)/help/page.tsx`: the error line (`role="alert"`) still uses `border-terracotta/30 bg-terracotta/10` and the success line `bg-success-50` hand-made boxes, and the error sits outside the opened sheet (A1-083's "the sheet opens over the alert line"). The words are fixed (batch a1-live); moving the line into the sheet is a look change.
+- [A] **SP1-05 · footer** · `app/_components/marketing/reskin-footer.tsx` "For storytellers", "Plan your wedding" (wedding-only) and "Help center": the wedding-only link text is SW-WEDDING. Not built here.
+- [R] none of the touched pages is retired (Add 17): all are in the nav, sitemap or a live door. `/setnayan-ai` stays (Add 19); not touched (lane C).
+- Add 13 icons: none missing on the touched pages. Add 15 logo: the studio's "SETNAYAN" wordmark is text, not the mark — no finding. Add 18 reveals: no reveal picker on area-1 pages.

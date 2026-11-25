@@ -45,6 +45,197 @@ in `public/sw.js`. No page in this area is on that list.
 - [x] /vendor-dashboard/clients/[eventId]/seat-plan · OFFLINE: READ-ONLY (at the venue on the day: the caterer's covers per table; agree it is saved for the day — today it is not, only the customer's `?tab=schedule` is) · SHAPE: PAGE =
 - [x] /vendor-dashboard/spaces · OFFLINE: NOT NEEDED (set up at the shop, with signal) · SHAPE: PAGE = (its space sheet differs, see A7-11)
 
+## Phase B · the staging walk (SOURCE: SEEN)
+
+How it was walked: headless Chromium through the session's proxy, every page at 375 · 768 · 1280 in light and dark
+(the `sn-theme` cookie), scrolled to the end, then every visible control pressed at 375 (and 1280 where the controls
+differ). Links were checked by asking for the address. Controls that would change shared data (Pay, Record, Send,
+Remove, Save, Confirm) were counted but not pressed, as the kit asks. No money was paid, nothing seeded was deleted.
+
+**Speed caveat.** With eight checkers on one preview, first loads took 2 s to over 90 s (several timed out at 90 s
+and were re-walked). The same address answered in 1–3 s minutes later. Speed (kit check 10) is therefore not judged
+page by page; anything over 2 s here is the preview under load, not a finding.
+
+**Dark.** None of the ten pages is on `DARK_READY` (`lib/appearance.ts`), so a person who chose Dark sees every page
+in this area in light. Seen at all three sizes: `html.dark` is never set and the page stays light. One finding,
+A7-34, covers the area and the four-role comparison (Add 7).
+
+### Progress (phase B)
+
+- [x] /for-coordinators · SEEN 375/768/1280 · DARK: light only (public) · buttons 23 · pressed 23 · failed 0 at 375; buttons 36 · pressed 36 · failed 0 at 1280
+  · A7-18 seen (₱24,999 and "4.9 · 64" on "Amihan Events, Taguig", a made-up shop) · A7-19 seen ("No end date" twice) · CLEAN: the hero repeats "free" in the button and the line under it · BALANCED: ok · EFFECTIVE: ok
+- [x] /pa3d · SEEN · DARK: light only (public) · buttons 11 · pressed 11 · failed 0 · "Step inside" → "The room didn't load" on the copy (see BLOCKERS: seed) · A7-28 new
+- [x] /pa3d/try · SEEN · DARK: light only (public) · buttons 7 · pressed 7 · failed 0 · same room failure · A7-28 new (the page contradicts itself)
+- [x] /3d_plan/demo/[token] · SEEN with an unknown token only (no token can be minted on the copy) · DARK: light only · buttons 1 · pressed 1 · failed 0 · A7-03 seen: "This demo link expired … from the 3D Plan tile on the Setnayan homepage", and no button but the wordmark
+- [x] /[slug]/venue · SEEN on stg-bea-paolo, stg-carla-miguel, stg-maria-jose-dela-paz · always dark (the guest walk's own skin) · buttons 1 · pressed 1 · failed 1 (its only button, "← Back to the invitation", lands on the Event Hub that answers 500: area 4 B-01) · every seeded plan shows "The 3D room opens on the day", so A7-01, A7-02 and A7-05 cannot be seen on the copy (no event is today)
+- [x] /dashboard/[eventId]/plan3d · SEEN as messy_one (stg-maria-jose-dela-paz) · forwards to `guests?gview=seats&seat=3d` as Phase A said · DARK: no · the 3D room draws · at 375 the count row ("161 · 174 · 40") is cut off under the "More seat-plan tools" button (A7-35) · the seeded 40 tables are drawn piled in one corner, across the wall: a seed fault, not counted (see Seed notes)
+- [x] /dashboard/[eventId]/studio/panood/setup/venue-check · SEEN · DARK: no · idle screen correct ("Takes about 25 seconds · Uses up to 9 MB · 2.6 Mbps") · the check itself was not run (it would upload 9 MB from the cloud, not from a venue)
+- [x] /dashboard/[eventId]/vendors/[vendorId]/workspace · SEEN as messy_one, supplier Tala Events Coordination, tab Book & Budget · DARK: no · A7-25 seen ("Record payment" and "Propose a change" are both accent-tinted pills) · A7-32, A7-33 new
+- [x] /vendor-dashboard/clients/[eventId]/seat-plan · SEEN as coordinator on both weddings · DARK: no · only the lock is shown (BLOCKERS: seed) · A7-29 new
+- [x] /vendor-dashboard/spaces · SEEN as the coordinator's seat on Hardin ng Tagaytay · DARK: no · A7-15 seen (bare empty line, hand-made top) · A7-11 seen on the New hall sheet (ten rows and two buttons in a half sheet that scrolls inside) · A7-12 seen in part ("Add the hall" filled, "Add another like this" accent-tinted) · A7-30, A7-31 new · good: the New hall sheet fills Floor width 30 and length 45 from the venue's own size
+
+### New findings (phase B)
+
+#### A7-28 · /pa3d calls the sample room "A real reception, not a mock-up"
+
+```
+PAGE      /pa3d   and   /pa3d/try
+BUTTON    none — the eyebrow over "Step inside"
+STEPS     1. Open /pa3d at 375.  2. Read the card above "Step inside".  3. Open /pa3d/try.
+EXPECTED  A sample said to be a sample, once. No made-up couple shown as real (Add 3).
+ACTUAL    "A REAL RECEPTION, NOT A MOCK-UP · Maria & Jose's room — their tables, their seats, their colours."
+          Maria & Jose is the seeded sample event (`is_sample`, slug `maria-and-jose`). /pa3d/try says the opposite
+          one line above it ("This is Maria & Jose's sample room") and then repeats the same card, so the page says
+          "sample" and "not a mock-up" about one room, and its heading "Stand in a real reception." repeats it.
+          At 375 the eyebrow breaks with "UP" alone on its second line.
+SHOTS     375 px light (pa3d, pa3d-try)
+RULE      Add 3 (made-up people / demo shown as real) · Add 2 CLEAN (a title repeating the one above) · brand.md claims
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A7-29 · The coordinator's seat plan: a lock with no way forward, saying the opposite of "Booked"
+
+```
+PAGE      /vendor-dashboard/clients/[eventId]/seat-plan   (as coordinator; Bea & Paolo and María-José & Juan Carlos)
+BUTTON    none — "Back to the booking" is the only control
+STEPS     1. As the coordinator, open Clients › Bea & Paolo (the header reads "Booked").  2. Open Seats.
+EXPECTED  The lock names the one thing to do and gives ONE button to do it (B7); one word for the booking's state.
+ACTUAL    "This booking is not confirmed on Setnayan yet. The rest of this event — and this event's day-of tools —
+          open once you accept this booking on Setnayan and its booking fee is settled." No button: the person must
+          guess where "accept" lives. The client page one tap back says "Booked" (and "PAID ₱0 of …"). Two screens
+          disagree on whether this booking exists. `feeLockCopy` (`lib/event-access-stage.ts`) sets `cta: null` for
+          reason `no_charge` on purpose (no bill yet), but then the door should be the accept step, not nothing.
+SHOTS     375 px light (the lock, beside the client page header)
+RULE      design-and-wiring B7 (locks are honest: one button) · CLAUDE.md §4 (booked = one reader) · Add 2 EFFECTIVE (no dead end)
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A7-30 · Spaces: a helper fills the whole New hall sheet, "Add the hall" is refused, and the sheet says nothing
+
+```
+PAGE      /vendor-dashboard/spaces   (coordinator's seat on Hardin ng Tagaytay Events Place, role Helper)
+BUTTON    "Add what you typed" → "Add the hall"
+STEPS     1. Switch to Hardin ng Tagaytay.  2. Shop › Spaces.  3. Tap the search icon, type a name, tap "Add what you typed".
+          4. In "New hall", press "Add the hall".
+EXPECTED  Either a helper cannot start (the page says who can change spaces), or the refusal shows in the sheet with
+          the reason (HOUSE F4).
+ACTUAL    The sheet opens with every control live. "Add the hall" posts; the server answers
+          `{ok:false, error:"Only the shop's owner can change its spaces."}` and the sheet stays open, unchanged, with
+          no message, for as long as I watched (60 s). Pressing again does the same. The person thinks the app froze.
+          (Nothing was saved, so there was nothing of mine to delete.)
+SHOTS     375 px light (the sheet after pressing)
+RULE      CLAUDE.md §5 rule 4 · HOUSE F4 (failure gives a plain reason) · design-and-wiring B6
+SEVERITY  broken
+SOURCE    SEEN
+```
+
+#### A7-31 · Spaces' empty state points to "the box below", which is a search icon
+
+```
+PAGE      /vendor-dashboard/spaces   (a shop with no spaces: Hardin ng Tagaytay on the copy)
+BUTTON    the search icon at the thumb (bottom left)
+STEPS     1. Open Spaces with no spaces at 375.
+EXPECTED  The empty state states the fact and offers one action (kit check 9): an "Add a space" button.
+ACTUAL    "No spaces yet. Type in the box below to add your first." There is no box: search is an icon until tapped
+          (house rule), so a first-timer looks for a box that is not drawn. The add is found only by tapping the
+          magnifier.
+SHOTS     375 px light
+RULE      kit check 9 · Add 5 (first-timer) · Add 2 EFFECTIVE
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A7-32 · The hosts' workspace counts an unconfirmed payment as paid; the supplier counts ₱0
+
+```
+PAGE      /dashboard/[eventId]/vendors/[vendorId]/workspace?tab=budget   (messy_one, stg-maria-jose-dela-paz, Tala Events Coordination)
+          against /vendor-dashboard/clients/[eventId]?tab=details (coordinator, the same booking)
+BUTTON    none — "Payments so far", Progress
+STEPS     1. As the hosts open Tala's Book & Budget.  2. As the coordinator open the same client.
+EXPECTED  One paid figure for one booking on both sides, from one reader (resolveEventMoney / event_vendor_money_read),
+          and an unconfirmed payment shown as "waiting for confirmation", not as paid.
+ACTUAL    Hosts: "PAYMENTS SO FAR · ₱14,364 paid", "₱14,364 · Nov 11, 2026 · bank_transfer · Awaiting Tala Events
+          Coordination's confirmation", and Progress ticks "✓ First payment paid".
+          Supplier: "PAID ₱0 of ₱47,880 · ₱14,364 to collect" and "The couple logged a ₱14,364 payment … Confirm received".
+          The same ₱14,364 is paid on one side and unpaid on the other.
+SHOTS     375 px light, both screens
+RULE      CLAUDE.md §4 (Budget: one reader) · design-and-wiring C8 · kit check 3 (connections)
+SEVERITY  money-signin
+SOURCE    SEEN
+```
+
+#### A7-33 · "Amount to pay: Next payment" with no amount, and a raw method code
+
+```
+PAGE      /dashboard/[eventId]/vendors/[vendorId]/workspace?tab=budget   (as above)
+BUTTON    none — the AMOUNT TO PAY card
+STEPS     1. Open Book & Budget for a supplier who has no payment method on Setnayan.
+EXPECTED  The amount still owed (₱ from the one reader) or no "Amount to pay" row at all; methods in plain words.
+ACTUAL    The row reads "Amount to pay: Next payment" — a label and a step name, no peso. The payment line shows the
+          stored code "bank_transfer" (the supplier's page shows it too) instead of "Bank transfer".
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 (a missing value never drawn as if complete) · Add 2 EFFECTIVE (labels are plain words)
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A7-34 · Area 7 has no dark mode, and the supplier role wears its own colours (Add 7)
+
+```
+PAGE      every signed-in page in area 7, and the four-role comparison
+BUTTON    Account › Appearance › Dark
+STEPS     1. Choose Dark.  2. Open each page of this area.  3. Compare the coordinator's Today with the couple's Home.
+EXPECTED  Each signed-in page has a dark design; the four roles share one light and one dark design (Add 7).
+ACTUAL    DARK: no on all five signed-in pages (plan3d → Guests › Seats › 3D, venue check, workspace, supplier seat plan,
+          Spaces): none is on DARK_READY. Across roles (measured on the copy):
+          · page, light — couple rgb(247,245,244) warm grey · supplier rgb(238,242,248) blue-grey
+          · page, dark — couple rgb(18,17,16) warm near-black · supplier rgb(13,22,38) navy (`supplier-look.css`)
+          · main button — couple terracotta · supplier blue rgb(34,114,230) ("Add the hall", "Create service card", the shop check)
+          · the guest walk `/[slug]/venue` is near-black in both themes (its own skin, allowed for the Event Hub)
+          · admin: not walked (no admin sign-in for this checker; area 8 has the shots)
+          The supplier's own navy and blue are by design today (B4 note in `lib/appearance.ts`), so this is the owner's
+          call; by Add 7's rule it is a finding.
+SHOTS     shots/area-7/home-*.png (the coordinator's Today) beside the couple's Home
+RULE      Add 7 · DARK_MODE_STANDARD · HOUSE K2
+SEVERITY  look
+SOURCE    SEEN
+```
+
+#### A7-35 · At 375 the 3D seat plan's count row is cut off under a button
+
+```
+PAGE      /dashboard/[eventId]/plan3d → Guests › Seats › 3D   (messy_one)
+BUTTON    the count chips "161 seated · 174 unseated · 40 tables" and "More seat-plan tools"
+STEPS     1. Open the 3D seat plan at 375.
+EXPECTED  The row fits or wraps; no control sits on top of another.
+ACTUAL    "Seats · 3D 🪑161 👥174 ⊙ 4…" — the tables count is clipped under the round "…" button; the "i" and ⚙ buttons
+          follow. Two controls touch (Add 5, one hand).
+SHOTS     375 px light
+RULE      Add 5 (no two controls touching) · Add 7 (cut-off text)
+SEVERITY  look
+SOURCE    SEEN
+```
+
+### Seed notes (not findings; for whoever re-seeds the copy)
+
+- The sample event `maria-and-jose` (`is_sample`) is missing → no 3D demo, no demo QR (BLOCKERS).
+- The coordinator's two bookings have no Setnayan handshake → every coordinator day-of tool is locked (BLOCKERS).
+- `event_tables.x_pos / y_pos` are seeded in pixels (100–820, 120–1560) while a sized room reads them as percent, so
+  all 40 of María-José's tables are drawn piled in the bottom-right corner, across the wall. A real plan stores
+  percent; the 3D room could still clamp a stray table inside the walls.
+- Hardin ng Tagaytay has `venue_width_m 30 × venue_length_m 45` but no `vendor_units` row, so Spaces is empty, and the
+  coordinator's seat (role Helper) may not add one (A7-30). No seeded event is today, so the guest walk never opens.
+
+### Seen in other areas (reported there or for the controller)
+
+- Event Hub `/[slug]` 500 after ~23.6 s, and an unknown slug answers 500 not 404: area 4 B-01.
+- `/login`: 1 of 6 password sign-ins failed under load with "We could not sign you in. Check your email and password,
+  or try again in a moment."; the address became `/login?error=%7B%7D` (an empty error object) and the email field was
+  emptied, so it had to be typed again (Add 5: nothing typed is lost). The same sign-in worked on the next try. Area 1.
+- `/api/telemetry/client-fault` answers 500 `insert_failed` on the copy (client faults are not being recorded). Controller.
+
 ## Phase A summary (code pass, 10 of 10 pages)
 
 - Findings: 27 · blocker 0 · money-signin 1 (A7-24) · broken 2 (A7-22, A7-27) · wrong 14 · look 10.

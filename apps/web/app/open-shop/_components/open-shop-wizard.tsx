@@ -1216,7 +1216,7 @@ export function OpenShopWizard({
           <div key={step} className={`grid gap-[3px] ${slide}`}>
             {/* The title and its line ride in the layer's head (final check B1) — never said twice. */}
             {step === ACCOUNT_STEP && signInLine ? (
-              <p className="text-xs md:hidden" style={{ color: 'var(--m-slate-3)' }}>
+              <p className="text-xs lg:hidden" style={{ color: 'var(--m-slate-3)' }}>
                 {signInLine}
               </p>
             ) : null}

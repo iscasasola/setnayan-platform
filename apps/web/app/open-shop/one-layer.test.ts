@@ -55,6 +55,10 @@ test('2 · no step draws its own page shell; the SETNAYAN line stays above the b
 test('3 · each step names the head; after the shop opened, ✕ goes where its own buttons go', () => {
   const wiz = src(WIZARD);
   assert.match(wiz, /useOpenShopHead\(\{\s*title,\s*line,/);
+  // The account step's sign-in line under the title shows exactly where the head's copy does not (below 1024): no gap at 768–1023.
+  assert.match(wiz, /data-open-shop-head-sign-in=""/);
+  assert.match(wiz, /className="hidden text-sn-base lg:inline"/);
+  assert.match(wiz, /step === ACCOUNT_STEP && signInLine \? \(\s*<p className="text-xs lg:hidden"/, 'the sign-in line vanishes between 768 and 1023');
   assert.ok(wiz.indexOf('useOpenShopHead(') < wiz.indexOf('if (sentTo && !hardLoading)'), 'the head hook sits after an early return');
   assert.match(src(LOGO), /useOpenShopHead\(\{ title: hasSaved \? 'Your logo' : 'Add your logo', line: `\$\{shopName\} is open\.`, leaveTo: doneHref \}\);/);
   assert.match(src(INVITE), /<OpenShopHeadMark title=\{title\} line=\{line\} leaveTo=\{done\} \/>/);

@@ -305,3 +305,24 @@ Simple pages answer in 0.2 s; pages with many reads take 9–13 s and some Event
 its tables tiny. So it is the staging copy's setup, not proven to be the app. Keep to 1–2 tabs; retry a slow or 500 page
 once after a minute; log it under `## Copy health (not counted)` with the route and seconds; keep judging what you can
 see. A slow page or a 500 is a product finding only when the code shows the cause.
+
+## Add 15 · The Setnayan logo comes from ONE place (owner, 25 Nov)
+The one place: **Admin → Business → "Default brand icon"** (upload · reset; `brand-icon-form`, `brand_icon_*` settings).
+It already feeds `<Logo>`/`<LogoMark>` (via `BrandProvider`/`useBrandMark`), the browser tab and the app icon. Every
+other spot that shows the Setnayan mark must be mapped to it. Today these bypass it (main @ bd86936; checkers: confirm
+on screen, file one finding per spot, area = the screen it shows on):
+- **A copied drawing of the mark** (its own path data): `auth/forming-mark.tsx` (login), `setnayan-mark-icon.tsx`,
+  `onboarding/wedding/_components/onboarding-shell.tsx` + `welcome-moments.tsx`, `[slug]/_components/reveal/veil-shared.ts`,
+  `lib/qr-style-svg.ts`, `lib/photo-mark-geometry.ts`, `lib/papic-photo-mark.ts`, `src-tauri` desktop icon + shell.
+- **A fixed file link** to `/brand/setnayan-*`: `components/sd-loader/sd-loader.tsx`, `brand-marks.tsx`, `lib/qr-look.ts`,
+  `lib/print-layout.ts`, `lib/wallet-pass-icons.ts`, the seating export and both mood-board PDF routes.
+Fix rule (lane B, one batch): one shared source module for the mark's shapes + one resolver for its URL; every spot
+reads those. Animated marks (login, loader) need the vector, so they read the uploaded SVG when there is one and the
+built-in gold vector otherwise; never a third copy. Event and shop logos (a couple's or a shop's own) are NOT this.
+
+## Add 16 · Loading logo APPROVED (owner, 25 Nov)
+The looping loader drawing is approved: ring builds clockwise 700 · turns once 700 · logo grows inward 700 · hold 400 ·
+collapse 320 · unwinds counterclockwise 700 (one loop 3,520 ms); 20 px = ring and turn only; reduced motion = still mark.
+Press = house press (.96 at Tap 100, back at Release 280) + one gold sheen; starts or cancels nothing. After ~8 s one
+line "Still working: …", with a separate Cancel only where stopping is safe. The top-bar still logo is a real Home
+button. It replaces the particle SDLoader look; it reads the mark from Add 15's one source. Build = lane B fix batch.

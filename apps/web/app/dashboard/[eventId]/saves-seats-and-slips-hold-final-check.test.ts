@@ -49,7 +49,11 @@ test('A2-H10: Put this away is drawn only for someone its writer lets put the ev
   const page = src('app/dashboard/[eventId]/details/page.tsx');
   assert.match(page, /mayPutAwayEvent\(supabase, eventId, user\.id\)/);
   assert.ok(page.indexOf('{mayPutAway ? (') >= 0 && page.indexOf('{mayPutAway ? (') < page.indexOf('<PutAwayCard'));
-  assert.match(src('app/dashboard/[eventId]/archive-actions.ts'), /const isHost = await mayPutAwayEvent\(supabase, eventId, user\.id\);/, 'one answer for both');
+  assert.match(src('app/dashboard/[eventId]/archive-actions.ts'), /const mayPutAway = await mayPutAwayEvent\(supabase, eventId, user\.id\);/, 'one answer for both');
+  // Owner (brief Add 39): only the couple — no coordinator, no helper.
+  const rule = src('lib/event-put-away.ts');
+  assert.match(rule, /\.eq\('member_type', 'couple'\)/);
+  assert.doesNotMatch(rule, /coordinator|event_moderators/);
 });
 
 test('A2-H12: locking a date goes through the date’s one writer and never throws at the page', () => {

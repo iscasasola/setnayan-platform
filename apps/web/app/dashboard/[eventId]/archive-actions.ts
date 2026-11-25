@@ -87,12 +87,13 @@ export async function setEventArchived(formData: FormData): Promise<ArchiveResul
     return { ok: false, code: 'unauthorized', message: 'Sign in required' };
   }
 
-  const isHost = await mayPutAwayEvent(supabase, eventId, user.id);
-  if (!isHost) {
+  // 👑 Only the couple puts their event away (owner, brief Add 39 · A2-H10) — `mayPutAwayEvent` is the one answer.
+  const mayPutAway = await mayPutAwayEvent(supabase, eventId, user.id);
+  if (!mayPutAway) {
     return {
       ok: false,
       code: 'unauthorized',
-      message: 'Only a host of this event can put it away.',
+      message: 'Only the couple can put this event away.',
     };
   }
 

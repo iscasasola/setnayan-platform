@@ -249,3 +249,9 @@ ac766664b4da8102328f0c052cb1f59e653454ae:apps/web/tests/db/a-supplier-gift-lands
 # Apple products build note — a product identifier, not a credential. Pinned by
 # the introducing commit, like the 99e2eb0e rows above.
 7511a21863d01f4b6fb189e60c5472aebdb88696:build-sessions/APPLE-PRODUCTS-2026-11-22.md:generic-api-key:10
+#
+# A8·I-6 (final check, 25 Nov 2026): the generic-api-key rule flags
+# `{ key: 'grow_few_inquiries_28d', name: 'Few inquiries …' }` in the Business
+# form's OWNER_NUMBERS list — a platform_settings COLUMN NAME paired with its
+# label, not a credential. Pinned by the introducing commit.
+ac6deeed29282ec581e14590404d743992ba3ae3:apps/web/app/admin/business/_components/business-identity-form.tsx:generic-api-key:43

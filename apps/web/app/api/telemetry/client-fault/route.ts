@@ -109,8 +109,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  // A preview or dev server keeps no faults by design (202, not stored); only a real write failure on production is
-  // a 500 (`faultIngestAnswer`, SW-TELE).
+  // Never a 5xx from the fault door (`faultIngestAnswer`, SW-TELE): a preview or dev server keeps no faults by design
+  // (202); a production write that failed is 202 too, and is logged here so the lost fault is still on record.
   const answer = faultIngestAnswer(await recordFault(shaped.record), backgroundWritesAllowed());
+  if (answer.log) console.error('[telemetry] client-fault: production write failed; fault not stored', { kind: shaped.record.kind });
   return NextResponse.json(answer.body, { status: answer.status });
 }

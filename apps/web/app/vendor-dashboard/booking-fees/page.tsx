@@ -20,6 +20,7 @@ import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
 import { launchOfferFeesLine } from '@/lib/launch-offer';
 import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
+import { readWaivedForPage } from '@/lib/booking-fees-page-reads';
 
 export const metadata = { title: 'Booking fees · Supplier' };
 
@@ -60,9 +61,13 @@ export default async function VendorBookingFeesPage() {
   // 🧾 A6-59 (final check 25 Nov): no shop id is not "no free bookings" — the waived reader answers [] for a missing
   // id, which drew no section at all. A shop that could not be read is said as unread.
   // (With the fee system dark there is nothing to list either way — the reader's own first answer.)
-  const waivedRead = profile?.vendor_profile_id || !isBookingFeeEnabled()
-    ? await fetchWaivedFeeCharges(createAdminClient(), profile?.vendor_profile_id).catch(() => FEE_BILLS_UNREADABLE)
-    : FEE_BILLS_UNREADABLE;
+  const waivedRead =
+    (await readWaivedForPage(
+      profile?.vendor_profile_id,
+      isBookingFeeEnabled(),
+      (id) => fetchWaivedFeeCharges(createAdminClient(), id),
+      FEE_BILLS_UNREADABLE,
+    )) ?? FEE_BILLS_UNREADABLE;
   const waived: WaivedFeeCharge[] = waivedRead === FEE_BILLS_UNREADABLE ? [] : waivedRead;
 
   // `null` when ANY due order's total could not be read — the banner then names

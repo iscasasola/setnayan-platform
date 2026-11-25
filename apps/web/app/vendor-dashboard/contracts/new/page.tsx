@@ -26,7 +26,14 @@ export default async function NewVendorContractPage({ searchParams }: Props) {
   const { event: prefillEventId } = await searchParams;
   const supabase = await createClient();
   const user = await getCurrentUser();
-  if (!user) redirect(loginRedirectPath('/vendor-dashboard/contracts/new')); // A6-65
+  // A6-65: back to this page — with the couple it was opened for (`?event=`), so the return lands on the same pick.
+  if (!user) {
+    redirect(
+      loginRedirectPath(
+        prefillEventId ? `/vendor-dashboard/contracts/new?event=${encodeURIComponent(prefillEventId)}` : '/vendor-dashboard/contracts/new',
+      ),
+    );
+  }
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 
@@ -55,6 +62,9 @@ export default async function NewVendorContractPage({ searchParams }: Props) {
   const threadEventIds = [...new Set(threads.map((t) => t.event_id).filter(Boolean))];
   const facts = threadEventIds.length > 0 ? await fetchInquiryCustomerFacts(createAdminClient(), threadEventIds) : new Map();
   if (threadEventIds.length > 0 && facts.size === 0) threadsMeasured = false;
+  // Some names back but not all: the couples it could name are listed, and the page SAYS some are missing (never a
+  // shorter picker that reads as the whole list).
+  const someCouplesUnread = threadsMeasured && facts.size < threadEventIds.length;
   const eventOptions = threadEventIds
     .filter((id) => facts.has(id))
     .map((id) => ({ id, title: facts.get(id)?.displayName ?? 'Untitled event' }));
@@ -64,5 +74,11 @@ export default async function NewVendorContractPage({ searchParams }: Props) {
   const defaultEventId =
     prefillEventId && eventOptions.some((o) => o.id === prefillEventId) ? prefillEventId : '';
 
-  return <UploadContractBody eventOptions={threadsMeasured ? eventOptions : null} defaultEventId={defaultEventId} />;
+  return (
+    <UploadContractBody
+      eventOptions={threadsMeasured ? eventOptions : null}
+      someCouplesUnread={someCouplesUnread}
+      defaultEventId={defaultEventId}
+    />
+  );
 }

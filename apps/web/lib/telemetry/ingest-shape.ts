@@ -94,17 +94,22 @@ export function wireToRecord(
 }
 
 /**
- * 🧾 THE ANSWER TO ONE FAULT REPORT (SW-TELE, final check 25 Nov: A6-B04 · A8·P-B-2). `recordFault` returns null on
- * purpose on every deployment that is not production (`backgroundWritesAllowed`), and the route used to answer that
- * null with a 500 — so every preview and dev page showed a failed request for a report that was never meant to be
- * stored. A report this deployment does not keep is said as such (202, `recorded: false`); only a real write failure on
- * production is a 500, so a lost fault there still shows.
+ * 🧾 THE ANSWER TO ONE FAULT REPORT (SW-TELE, final check 25 Nov: A6-B04 · A8·P-B-2). The reporter never answers 5xx:
+ * a browser cannot act on it, and a 500 from the fault door shows up as one more fault. Three answers:
+ *   · stored → 201 with its id;
+ *   · this deployment keeps no faults by design (`backgroundWritesAllowed` false: preview, dev) → 202, not stored;
+ *   · production tried and the write failed → 202, not stored, `error: 'insert_failed'` — and the route LOGS it
+ *     (`logged: true` asks it to), so a lost fault is in the server log rather than a calm zero.
  */
 export function faultIngestAnswer(
   id: string | null,
   writesAllowed: boolean,
-): { status: 201 | 202 | 500; body: { ok: boolean; id?: string; recorded?: false; error?: 'insert_failed' } } {
-  if (id) return { status: 201, body: { ok: true, id } };
-  if (!writesAllowed) return { status: 202, body: { ok: true, recorded: false } };
-  return { status: 500, body: { ok: false, error: 'insert_failed' } };
+): {
+  status: 201 | 202;
+  body: { ok: boolean; id?: string; recorded?: false; error?: 'insert_failed' };
+  log: boolean;
+} {
+  if (id) return { status: 201, body: { ok: true, id }, log: false };
+  if (!writesAllowed) return { status: 202, body: { ok: true, recorded: false }, log: false };
+  return { status: 202, body: { ok: false, recorded: false, error: 'insert_failed' }, log: true };
 }

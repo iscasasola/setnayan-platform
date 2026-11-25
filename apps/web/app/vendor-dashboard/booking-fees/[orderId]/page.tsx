@@ -17,6 +17,7 @@ import { asDisputeStatus, foundYouLine } from '@/lib/booking-fee-dispute';
 import { TOP_UP_CHARGE_KIND, topUpStage, type TopUpStage } from '@/lib/booking-fee-top-up';
 import { manilaToday } from '@/lib/std-views';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { batchOrUnread } from '@/lib/booking-fees-page-reads';
 
 export const metadata = { title: 'Booking fee · Supplier' };
 
@@ -69,9 +70,9 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
   const chargeId = chargeIdFromBookingFeeLockServiceKey(order.service_key);
   // 🧾 A6-60 (final check 25 Nov): `fetchPaymentsForOrder` and the settings read THROW on a refused read — inside this
   // batch that used to reach the dashboard's error screen. Said in place, like the bill's own read above.
-  let batch: [Awaited<ReturnType<typeof fetchPaymentsForOrder>>, Awaited<ReturnType<typeof fetchPlatformSettings>>, { data: unknown; error: unknown }];
-  try {
-    batch = await Promise.all([
+  const batch = await batchOrUnread(
+    () =>
+      Promise.all([
     fetchPaymentsForOrder(supabase, orderId),
     fetchPlatformSettings(supabase),
     chargeId
@@ -81,11 +82,10 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
           .eq('charge_id', chargeId)
           .maybeSingle()
       : { data: null, error: null },
-    ]);
-  } catch (err) {
-    logQueryError('booking-fees/[orderId]: payments or settings', { message: err instanceof Error ? err.message : String(err) });
-    return <BookingFeeReadFailed orderId={orderId} />;
-  }
+    ]),
+    (err) => logQueryError('booking-fees/[orderId]: payments or settings', { message: err instanceof Error ? err.message : String(err) }),
+  );
+  if (!batch) return <BookingFeeReadFailed orderId={orderId} />;
   const [payments, settings, disputeRead] = batch;
   // Fee orders are `vendor_`-prefixed → VAT-INCLUSIVE: the stored total IS the
   // gross the vendor pays. Pass vatRatePct=0 so no VAT line is added on top.

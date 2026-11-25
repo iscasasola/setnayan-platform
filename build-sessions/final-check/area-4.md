@@ -1,4 +1,4 @@
-FIXER: batch 4 of 4 · all PRs open: #8306 (b1, CI cancelled twice — needs a re-run), #8319 (b2, CI green), #8325 (b3, waits on the Ugat map regen), #8329 (b4, waits on port:baseline) · two 🟠 owner questions (A4-52, A4-B11)
+FIXER: batch 4 of 4 · all PRs open: #8306 (b1, A4-26 review fix pushed, fresh CI run), #8319 (b2, CI green), #8325 (b3, waits on the Ugat map regen), #8329 (b4, QR-token leak + guard-at-24 review fixes pushed; still waits on port:baseline) · two 🟠 owner questions (A4-52, A4-B11)
 STATUS: phase B done (25 Nov 08:50 UTC) · pages 37 + 1 forward: 35 walked on the copy, 1 not reachable (/[slug]/cached/[key]: no key), K3 layers on the Hub not walked (A4-B01) · phase B findings 13: blocker 1 (A4-B01, OPEN) · money-signin 0 · broken 2 · wrong 7 · look 3 · phase A confirmed on the copy: A4-01, A4-42, A4-44, A4-73 · phase A struck: "set-password drops ?next" (it keeps it) · not reproduced: A4-06 (no seeded "Anyone, I approve" event) · latent behind flags off on the copy: A4-02, A4-64, A4-77, A4-78 (Papic guest buy) · buttons on walked pages ≈ 120 at 375 · pressed ≈ 100 · failed 9
 
 # Final check · Area 4 · Guest (Event Hub, pass, camera)

@@ -79,7 +79,7 @@ export async function saveYou(formData: FormData): Promise<void> {
       error_message: error.message,
       payload_snapshot: { userId: user.id, columns: Object.keys(plan.patch) },
     });
-    backWithError(next, error.message);
+    backWithError(next, YOU_ERRORS.notSaved);
   }
 
   revalidatePath('/dashboard', 'layout');

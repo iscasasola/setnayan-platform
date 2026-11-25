@@ -24,7 +24,9 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext, getCurrentUser } from '@/lib/auth';
 import { signInDestination } from '@/lib/sign-in-landing';
-import { youCardOnward } from '@/lib/signup-landing';
+import { youCardOnward, YOU_ERRORS } from '@/lib/signup-landing';
+import { SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability';
+import { ownMessageFromParam } from '@/lib/human-auth-error';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { saveYou } from './actions';
@@ -43,7 +45,12 @@ export default async function YouPage({ searchParams }: { searchParams: SearchPa
   // (the event they came from, the onboarding resume) comes back whole; a bare
   // `/` becomes the dashboard, never the front door (audit 2026-09-25 §C).
   const next = signInDestination(safeNext(params.next));
-  const errorMessage = params.error ? decodeURIComponent(params.error) : null;
+  // 🔒 The URL picks one of the card's own refusals; it never supplies the words (final check A1-058).
+  const errorMessage = ownMessageFromParam(
+    params.error,
+    [...Object.values(YOU_ERRORS), ...Object.values(SLUG_CONFLICT_MESSAGE)],
+    YOU_ERRORS.notSaved,
+  );
 
   const supabase = await createClient();
   const user = await getCurrentUser();

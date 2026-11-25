@@ -28,6 +28,7 @@ import { SIGNED_IN_LANDING, signInDestination } from '@/lib/sign-in-landing';
 import { SLUG_FORMAT } from '@/lib/slug-availability';
 import { isReservedSlug } from '@/lib/reserved-slugs';
 import {
+  BIRTHDAY_INVALID,
   planPersonalInfoPatch,
   PRESENCE_MARKERS,
   type FormLike,
@@ -126,6 +127,8 @@ export function isBrandNewAccount(input: {
  */
 export const YOU_ERRORS = {
   displayName: 'Add a display name.',
+  notSaved: 'We couldn’t save your details just now. Please try again.',
+  birthday: BIRTHDAY_INVALID,
   slugShape: 'Use 3–32 characters: lowercase letters, numbers, and hyphens only.',
   slugReserved: 'That handle is reserved. Please pick another.',
   slugJustTaken: 'That handle was just taken. Please pick another.',

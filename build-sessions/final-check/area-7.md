@@ -1,7 +1,11 @@
 # Final check · Area 7 · Coordinator, Spaces & venue, maps
 
-Checker 7 of 8. Report only. Pinned commit `fb3f72d`. Kit: `build-sessions/FINAL-CHECK-KIT.md`.
-Phase A = code pass (`SOURCE: CODE`). Phase B = staging browser walk (`SOURCE: SEEN`), not started.
+STATUS: phase B in progress (staging walk started 25 Nov; preview commit `bd86936`)
+
+Checker 7 of 8. Report only. Phase A pinned commit `fb3f72d`; phase B walks the staging copy at `bd86936`. Kit: `build-sessions/FINAL-CHECK-KIT.md`.
+Phase A = code pass (`SOURCE: CODE`). Phase B = staging browser walk (`SOURCE: SEEN`): headless Chromium at 375 · 768 · 1280,
+light and dark (`sn-theme` cookie), signed in as `coordinator` (Tala Events Coordination, and its seat on Hardin ng Tagaytay),
+and as `messy_one` for the hosts' pages (the coordinator cannot open `/dashboard/<event>`: 404, see A7-B03).
 Read against the corpus `HOUSE_DESIGN_STANDARD_2026-11-20.md` (Parts C, D, F, H, K) and `DARK_MODE_STANDARD_2026-11-20.md`.
 
 Marks on each line: **OFFLINE** = NEEDED (where signal is lost) · READ-ONLY · NOT NEEDED.
@@ -12,7 +16,21 @@ in `public/sw.js`. No page in this area is on that list.
 
 ## BLOCKERS
 
-None yet.
+**No product blocker found.** Two parts of this area cannot be walked on the copy, because of how the copy was seeded
+(not a fault of the code; logged here so the controller can decide):
+
+- **CHECK BLOCKED (seed) · the 3D demo.** `/pa3d` and `/pa3d/try` → "Step inside" → "The room didn't load." The server
+  action answers 404: `getSampleEvent()` (`app/tour/_lib/sample-event.ts`) reads the sample event by its fixed slug
+  `maria-and-jose` with `is_sample = true`, and the copy has no such row (the seed's demo event has its own slug). So
+  the room, "Tap any seated guest", the QR and every `/3d_plan/demo/<token>` cannot be made on the copy. Production is
+  not checked (never touched). If production also lacks that row, this is a blocker for the whole demo.
+- **CHECK BLOCKED (seed) · the coordinator's seat.** The coordinator's day-of tools on both seeded weddings are behind the
+  "This booking is not confirmed on Setnayan yet" lock (`feeLockCopy` reason `no_charge`): the seed set the
+  `event_vendors` status but never made the Setnayan handshake. So `/vendor-dashboard/clients/<event>/seat-plan` shows
+  only the lock, and A7-16 / A7-17 cannot be seen on the copy. The lock itself is a finding (A7-B02).
+- **Seen, already reported by area 4 (B-01):** every Event Hub `/[slug]` answers 500 after about 23.6 s ("Still
+  opening your invitation…", reference shown). From this area it is reached by the venue walk's "← Back to the
+  invitation". An unknown slug (`/fc7-no-such-event`) also answers 500, not 404.
 
 ## Progress
 

@@ -71,7 +71,17 @@ export function EventLockedByFee({
             {cta ? (
               <ActionButton tone="brand" main href={payHref} icon={<Wallet className="h-4 w-4" aria-hidden />} label={cta} />
             ) : null}
-            {threadId ? (
+            {!cta && stage === 'booked_fee_due' && access.reason === 'no_charge' && eventId ? (
+              // A7-29: no bill yet, so no Pay — but never a dead end. The yes that confirms the booking is given in the
+              // client's chat, so the one button opens it (and the separate "Message the couple" would repeat it).
+              <ActionButton
+                tone="brand"
+                main
+                href={`/vendor-dashboard/clients/${eventId}?tab=chat`}
+                icon={<MessageSquare className="h-4 w-4" aria-hidden />}
+                label="Open the booking to accept it"
+              />
+            ) : threadId ? (
               <ActionButton
                 tone="info"
                 href={supplierChatHref(eventId, threadId)}

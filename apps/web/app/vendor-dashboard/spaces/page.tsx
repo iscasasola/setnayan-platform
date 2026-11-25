@@ -8,6 +8,8 @@ import { readSpaces } from '@/lib/spaces.server';
 import { kindForShop } from '@/lib/spaces';
 import { isTierAtLeast } from '@/lib/vendor-tier-caps';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
+import { getVendorPrices, monthlyPlanPrice } from '@/lib/v2-catalog';
+import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 import { SpacesScreen } from './_components/spaces-screen';
 
 export const metadata = { title: 'Spaces' };
@@ -31,10 +33,14 @@ export default async function SpacesPage() {
 
   // The shop's calendar day: a supplier in Manila looks at Manila's today.
   const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
-  const [read, tierRow] = await Promise.all([
+  const [read, tierRow, prices] = await Promise.all([
     readSpaces(supabase, profile.vendor_profile_id, today),
     supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle(),
+    getVendorPrices(),
   ]);
+  // A7-14: the locks name the Plus price from the catalogue (the same reader as /for-suppliers); unread → no figure.
+  const soloPrice = monthlyPlanPrice(prices, 'solo');
+  const planPrice = soloPrice ? `${soloPrice} ${PLAN_PERIOD.slash}` : null;
   // 🔒 Every paid plan, from Plus (or the paywall switch off): own names, renaming, numbering by floor, the drawn floor plan. A refused
   // tier read reads as below Pro — the lock holds, never a wrong "you have it". The server refuses the same.
   const tier = (tierRow.data as { tier_state?: string | null } | null)?.tier_state ?? null;
@@ -58,7 +64,7 @@ export default async function SpacesPage() {
       </div>
       <h1 className="text-[22px] font-semibold text-ink">Spaces</h1>
       <p className="mt-1 text-[14px] text-ink/70">Set once for the shop. Your cards pick from here.</p>
-      <SpacesScreen initial={read} today={today} proOpen={proOpen} shopKind={kindForShop(categories)} firstHall={firstHall} />
+      <SpacesScreen initial={read} today={today} proOpen={proOpen} shopKind={kindForShop(categories)} firstHall={firstHall} planPrice={planPrice} />
     </div>
   );
 }

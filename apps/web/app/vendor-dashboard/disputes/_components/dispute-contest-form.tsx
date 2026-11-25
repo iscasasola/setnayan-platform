@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { TypedRow } from '@/app/_components/form-row';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { StayForm } from '@/app/_components/stay-form';
 import { submitDisputeContest } from '../actions';
 
 export function DisputeContestForm({
@@ -22,7 +23,8 @@ export function DisputeContestForm({
 }) {
   const [words, setWords] = useState(contest);
   return (
-    <form action={submitDisputeContest} className="flex flex-col gap-2.5">
+    // A6-68: a refusal ("This dispute has already been reviewed …") is said under the box and the words stay.
+    <StayForm door="svDisputes.submitDisputeContest" action={submitDisputeContest} resetOnSaved={false} className="flex flex-col gap-2.5">
       <input type="hidden" name="dispute_id" value={disputeId} />
       <TypedRow
         name={contestedAgo ? `Your response · ${contestedAgo}` : 'Your response'}
@@ -44,6 +46,6 @@ export function DisputeContestForm({
           {contest ? 'Update my response' : 'Submit my response'}
         </SubmitButton>
       </div>
-    </form>
+    </StayForm>
   );
 }

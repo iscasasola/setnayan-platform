@@ -1,4 +1,4 @@
-FIXER: batch 1 of ~4 · PR pending (claude/fc-fix-a4-b1) · building
+FIXER: batch 1 of ~4 · PR #8306 · waiting for CI (batch 2 built locally, batch 3 in progress)
 STATUS: phase B done (25 Nov 08:50 UTC) · pages 37 + 1 forward: 35 walked on the copy, 1 not reachable (/[slug]/cached/[key]: no key), K3 layers on the Hub not walked (A4-B01) · phase B findings 13: blocker 1 (A4-B01, OPEN) · money-signin 0 · broken 2 · wrong 7 · look 3 · phase A confirmed on the copy: A4-01, A4-42, A4-44, A4-73 · phase A struck: "set-password drops ?next" (it keeps it) · not reproduced: A4-06 (no seeded "Anyone, I approve" event) · latent behind flags off on the copy: A4-02, A4-64, A4-77, A4-78 (Papic guest buy) · buttons on walked pages ≈ 120 at 375 · pressed ≈ 100 · failed 9
 
 # Final check · Area 4 · Guest (Event Hub, pass, camera)

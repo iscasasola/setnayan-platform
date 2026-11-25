@@ -40,7 +40,8 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
       .from('guests')
       .select('guest_id, first_name, display_name')
       .eq('event_id', eventId)
-      .eq('rsvp_status', 'confirmed')
+      // B-01: public.rsvp_status has no 'confirmed'; a guest who said yes is 'attending' (guard: lib/a-guest-read-filters-on-a-real-rsvp-value.test.ts).
+      .eq('rsvp_status', 'attending')
       .order('first_name', { ascending: true }),
   ]);
   if (assignmentsError) {

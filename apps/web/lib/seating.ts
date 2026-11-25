@@ -2094,6 +2094,18 @@ export async function fetchSigns(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<FloorSignRow[]> {
+  return (await fetchSignsMeasured(supabase, eventId)).rows;
+}
+
+/**
+ * The signs, and WHETHER THE READ HAPPENED (A7-10, final check 25 Nov). `measured: false` = refused: `rows` is empty
+ * because nobody knows which signs are placed, not because none are. The couple's seat plan asks this form, so a refused
+ * read is never drawn as a plan with every sign gone. Never throws.
+ */
+export async function fetchSignsMeasured(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ rows: FloorSignRow[]; measured: boolean }> {
   const { data, error } = await supabase
     .from('event_floor_signs')
     .select('sign_id,event_id,label,x_pos,y_pos,rotation_deg,sort_order')
@@ -2103,13 +2115,16 @@ export async function fetchSigns(
   if (error) console.error('[supabase-error] lib/seating.ts · from:event_floor_signs.select', error);
   // Graceful-degrade (same contract as fetchBooths): a not-yet-migrated table
   // or RLS hiccup renders a sign-less plan, never a crashed page.
-  if (error || !data) return [];
-  return (data as FloorSignRow[]).map((s) => ({
-    ...s,
-    x_pos: Number(s.x_pos),
-    y_pos: Number(s.y_pos),
-    rotation_deg: Number(s.rotation_deg),
-  }));
+  if (error || !data) return { rows: [], measured: !error };
+  return {
+    rows: (data as FloorSignRow[]).map((s) => ({
+      ...s,
+      x_pos: Number(s.x_pos),
+      y_pos: Number(s.y_pos),
+      rotation_deg: Number(s.rotation_deg),
+    })),
+    measured: true,
+  };
 }
 
 // --- placed venue objects (whole-venue designer) ----------------------------

@@ -135,7 +135,7 @@ export function paymentHistory(args: {
       id: String(r.payment_id ?? `row-${i}`),
       paidOn: paidOnLabel(r.paid_at),
       amountCentavos: centavos(r.amount_php),
-      method: typeof r.method === 'string' && r.method.trim() ? r.method.trim() : null,
+      method: methodWords(r.method),
       confirmed,
       refused,
       isFirstPayment: r.is_deposit_record === true,
@@ -157,4 +157,17 @@ export function paymentHistory(args: {
 }
 
 /** The heading both ends put above the list. One string, so they cannot drift. */
+/**
+ * A7-33 (final check 25 Nov): the method is what the couple typed, but a stored code ("bank_transfer", from an import or
+ * an older form) used to show as typed. Words only: underscores become spaces and the first letter is capitalised —
+ * "bank_transfer" → "Bank transfer"; "GCash" stays "GCash".
+ */
+export function methodWords(raw: unknown): string | null {
+  if (typeof raw !== 'string' || !raw.trim()) return null;
+  const t = raw.trim();
+  if (!t.includes('_')) return t;
+  const spaced = t.replace(/_+/g, ' ').replace(/\s+/g, ' ').trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
 export const PAYMENT_HISTORY_HEADING = 'Payments so far';

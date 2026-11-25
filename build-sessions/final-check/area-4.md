@@ -8,7 +8,32 @@ Marks on each line: **OFFLINE** = NEEDED (where signal is lost) · READ-ONLY · 
 
 ## BLOCKERS
 
-None yet.
+None found in phase A (code).
+
+## Report at once (money-signin, kit § 6)
+
+- **A4-06** `/join/[eventId]/connect/confirm`: a pending join request can bind itself to the event by opening the confirm page directly, so a person is let in before the hosts approve.
+- **A4-04** `/claim/[token]`: the godparent records can stay on the guardian's account while the screen says the claim succeeded.
+- **A4-77** `/papic/order/[token]`: an unread amount is drawn as ₱0.00 with a Copy of "0.00" (behind a flag).
+- **A4-78** `/papic/order/[token]`: a failed read of logged payments hides them, so a guest may log the same transfer twice (behind a flag).
+- **A4-64** Papic "Add credits": prices are formatted outside `lib/php.ts` (centavos rounded away), and a peso-per-credit rate is hand-typed in code (behind a flag).
+
+## Phase A summary (code pass, 25 Nov 2026)
+
+- **Pages:** 37 pages + 1 forward checked, all ticked below. **83 findings**: blocker 0 · money-signin 5 · broken 7 (A4-02 counts only if its flag is on) · wrong 49 · look 22.
+- **OFFLINE marks:** NEEDED 7 · READ-ONLY IS ENOUGH 5 · NOT NEEDED 26.
+  - Of the 7 NEEDED, only `/[slug]` (its bare address and the guest's `?tab=me` copy) and `/[slug]/find-my-table` are kept today.
+  - `/[slug]/hub` (the home-screen tile), `/[slug]/find-seat`, `/[slug]/seat`, `/papic/guest` and `/papic/seat` cannot be opened with no signal.
+- **SHAPE marks:** PAGE 30 · forward 2 · differs today 6.
+  - 5 pages should be a FULL-SCREEN POPUP: `/everyone`, `/invite/reply`, `/papic/decorate`, `/papic/guest`, `/papic/pool`.
+  - `/papic/lightcheck` should not be a product route at all.
+  - Layers inside pages that differ: A4-17..A4-20, A4-36, A4-40, A4-62, A4-63.
+- **Dark (K2):** not applicable. No area-4 route is on `DARK_READY` (`lib/appearance.ts`), and the guest Event Hub never wears the app glow (DARK_MODE_STANDARD §1). The only self-forced dark page is `/[slug]/avatar` (A4-29).
+- **Patterns builders can fix once:**
+  - a failed read drawn as "this link isn't active" (A4-03, 10, 12, 54, 71);
+  - "the couple" said on every event type (A4-08, 16, 48);
+  - three raw readers of the seat plan (A4-34);
+  - hand-made layers instead of `Sheet` / `RiseScreen` (K3).
 
 ## Progress
 
@@ -1265,3 +1290,39 @@ RULE      brand.md claims (price promises)
 SEVERITY  wrong
 SOURCE    CODE
 ```
+
+## For the browser pass (phase B, on staging)
+
+- **Offline (DevTools offline, 375 px).**
+  - Open `/stg-bea-paolo`, `?tab=program`, `?tab=me`, `/find-my-table`, `/find-seat` and `/seat` with signal, then offline. Confirm which ones load (A4-01, A4-23).
+  - Install the home-screen tile and open it offline (A4-24).
+  - Open the camera, shoot offline, press ✕ (A4-70).
+  - Check whether the saved Hub's Live group still holds the camera you can shoot from.
+  - Read `NEXT_PUBLIC_OFFLINE_DAEMON_ENABLED` and count the service workers (A4-02).
+- **`/find-my-table` copy:** a copy saved the day before shows "seats show on the day". Check it is replaced on the day.
+- **Entrance:** on a floor-plan entrance, compare the door on `/find-my-table`, `/find-seat` and `/seat` (A4-33).
+- **A4-06:** reproduce with the `guest` account on an "Anyone, I approve" event. Send a request, then open `/join/<eventId>/connect/confirm` directly.
+- **A4-30:** check whether a pending join request that answered Yes appears under "Also coming" on `/stg-bea-paolo/everyone`.
+- **One main button (K1):**
+  - Me on `/stg-bea-paolo`, both for a guest who owes a reply and for one who said Yes;
+  - `/invite/enter` for a signed-in guest whose seat is not linked (A4-39);
+  - `/papic/me` with tagged photos (A4-76);
+  - the Papic pool's "In your Memories" toggles.
+- **Layers (K3):**
+  - selfie ⓘ backdrop tap (A4-17);
+  - phone Back inside Relive and the suppliers sheet (A4-18);
+  - My QR at 375 px (A4-20);
+  - the `/find-seat` door pass: scroll behind, Esc, Back (A4-36);
+  - My shots ✕ reach and stacking with Add from your phone (A4-62, A4-63);
+  - `TicketPopup` together with the Yes celebration on the first arrival.
+- **Live screens:** pull the TV's or projector's network for about 20 s on `/live/screen` and `/wall/<id>`. Does it keep its frame, recover, or land on the browser's error page? Try `/wall/zzz` (an id that is not a uuid).
+- **Doors with no button:** the Papic dead ends (claim taken, seat reissued, join/me/demo invalid, decorate/pool with no session) only offer the wordmark to `/`.
+- **Flags to read on the preview:**
+  - `PABUYA_PUBLIC_ROUTE_ENABLED` (`/pabuya` returns 404 when it is off);
+  - `NEXT_PUBLIC_PAPIC_GUEST_BUY` (`/papic/order`, Add credits);
+  - `guestAvatarsEnabled` (`/avatar`);
+  - `dependentPeopleEnabled` (`/claim`);
+  - whether `CUSTOM_QR_GUEST` is owned on stg-carla-miguel (`/seat`).
+- **Addresses:** personal links and QR codes on `/welcome`, `/find-seat` and `/request` must not show `*.vercel.app` (the fallback when `NEXT_PUBLIC_APP_URL` is unset).
+- **Sign-in returns:** `/join/<id>/set-password` through the login bounce (`?next=` is dropped); `/join/<id>/success` signed out (no return path).
+- **Speed:** check `/papic/guest` and `/papic/seat` on slow 3G. They show a cream skeleton, then a black camera (A4-68).

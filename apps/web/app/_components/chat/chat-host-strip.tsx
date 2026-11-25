@@ -271,7 +271,7 @@ export function ChatHostStrip({
         />
       ) : null}
       {leaveRefused ? (
-        <p role="alert" className="mt-1.5 text-sn-13 text-terracotta" data-chat-leave-refused="">
+        <p role="alert" className="mt-1.5 text-sn-md text-terracotta" data-chat-leave-refused="">
           You did not leave the chat just now. Try again.
         </p>
       ) : null}
@@ -308,7 +308,7 @@ export function AddHostsList({ addable, onDone, initiallyPicked = [] }: { addabl
   return (
     <div id="chat-host-add" className="mt-1.5 space-y-1" data-chat-host-add="">
       {refused ? (
-        <p role="alert" className="text-sn-13 text-terracotta" data-chat-host-add-refused="">
+        <p role="alert" className="text-sn-md text-terracotta" data-chat-host-add-refused="">
           They were not added just now. Press Add to try again.
         </p>
       ) : null}

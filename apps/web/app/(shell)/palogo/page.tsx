@@ -27,7 +27,7 @@ import { studioDescription } from '@/lib/studio-apps';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const PAGE_TITLE = 'Logo Maker — Your Animated Wedding Monogram · Setnayan';
+const PAGE_TITLE = 'Logo Maker — Your Wedding Logo, Brought to Life · Setnayan';
 /** The document title ONLY. `metadata.title` is rendered through the root
  *  layout's `template: '%s · Setnayan'`, so a PAGE_TITLE that already ends in
  *  the brand came out as "… · Setnayan · Setnayan" on 11 live pages. The share
@@ -76,7 +76,7 @@ export const metadata = {
     description: PAGE_DESCRIPTION,
     url: '/palogo',
     type: 'website',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Logo Maker — your animated wedding monogram' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Logo Maker — your wedding logo, brought to life' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -91,13 +91,13 @@ export const metadata = {
 const APP_LD = {
   '@context': 'https://schema.org',
   '@type': 'SoftwareApplication',
-  name: 'Logo Maker — Animated Wedding Monogram',
+  name: 'Logo Maker — Your Wedding Logo, Brought to Life',
   url: `${SITE_URL}/palogo`,
   applicationCategory: 'DesignApplication',
   operatingSystem: 'Any (web browser)',
   description: PAGE_DESCRIPTION,
   featureList: [
-    'A custom monogram drawn from your initials',
+    'A custom logo drawn from your initials',
     'Animated — your mark comes alive, not just a static logo',
     'Carries across your save-the-date, Event Hub, reception screens and videos',
     'Refine it until it feels like yours',
@@ -111,7 +111,7 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'What exactly do I get?',
-    a: 'A monogram of your own — your initials drawn into a single mark, with a short animation that brings it to life. It becomes the signature of your whole wedding, the same way a brand has its logo.',
+    a: 'A logo of your own — your initials drawn into a single mark, with a short animation that brings it to life. It becomes the signature of your whole wedding, the same way a brand has its logo.',
   },
   {
     q: 'Where does it show up?',
@@ -127,7 +127,7 @@ const FAQ = [
   },
   {
     q: 'Can I try one first?',
-    a: 'Yes — you can preview a monogram for your initials free, no sign-up, before you decide. The animation that follows you across the whole wedding is Event Pro’s Logo & QR part.',
+    a: 'Yes — you can preview a logo for your initials free, no sign-up, before you decide. The animation that follows you across the whole wedding is Event Pro’s Logo & QR part.',
   },
 ];
 
@@ -152,13 +152,13 @@ const STEPS = [
   },
   {
     t: 'It follows you everywhere',
-    d: 'Your monogram opens your save-the-date, signs your Event Hub, glows at the reception, and closes every video — one mark, carried beautifully across the day.',
+    d: 'Your logo opens your save-the-date, signs your Event Hub, glows at the reception, and closes every video — one mark, carried beautifully across the day.',
   },
 ];
 
 const VS = [
   ['A stock template everyone uses', 'A mark drawn from your initials'],
-  ['A flat, static logo', 'A monogram that comes alive'],
+  ['A flat, static logo', 'A logo that comes alive'],
   ['Different look on every piece', 'One signature across the day'],
   ['Stuck on the invite only', 'On screens, your Event Hub and videos too'],
 
@@ -218,7 +218,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Try it free',
     t: 'Preview yours before you decide',
-    d: 'You can preview a monogram for your initials free, no sign-up, before you decide. The animation that follows you across the whole wedding is Event Pro’s Logo & QR part.',
+    d: 'You can preview a logo for your initials free, no sign-up, before you decide. The animation that follows you across the whole wedding is Event Pro’s Logo & QR part.',
     media: { kind: 'photo', src: '/demo/maria-jose/hero.webp', alt: 'A couple on a hillside terrace at golden hour, a lake and volcano behind them' },
   },
 ];

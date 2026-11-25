@@ -26,6 +26,7 @@ import { accountHomePath, validateNewPassword } from '@/lib/account-security';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isPasswordLeaked } from '@/lib/leaked-password';
 import { LEAKED_PASSWORD_MESSAGE } from '@/lib/password-strength';
+import { RESET_NOT_SAVED } from '@/lib/reset-password-errors';
 
 export async function completePasswordReset(formData: FormData) {
   const newPassword = formData.get('new_password');
@@ -70,7 +71,7 @@ export async function completePasswordReset(formData: FormData) {
       error_message: error.message,
       payload_snapshot: { userId: user.id },
     });
-    return redirect(`/reset-password?error=${encodeURIComponent(error.message)}`);
+    return redirect(`/reset-password?error=${encodeURIComponent(RESET_NOT_SAVED)}`);
   }
 
   // Security: a reset implies the old password may be compromised — revoke

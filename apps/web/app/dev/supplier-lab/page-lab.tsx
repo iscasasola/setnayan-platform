@@ -322,6 +322,7 @@ function detailsFixture(who: Who): DetailsData {
     website: null,
     about: f.about,
     sameDayAvailable: false,
+    visibilityMeasured: true,
     socialFeatureOptOut: false,
     socialAlreadyFeatured: false,
     openCorrections: [],

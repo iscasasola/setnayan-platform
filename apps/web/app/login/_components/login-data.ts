@@ -19,7 +19,7 @@ import { getOAuthGate } from '@/lib/request-platform';
 import { safeNext } from '@/lib/auth';
 import { OAUTH_FLAGS } from '@/app/_components/oauth-button-row';
 import { parseProviderParam, type KnownProvider } from '@/lib/sign-in-door';
-import { loginErrorFromParam } from '@/lib/human-auth-error';
+import { emailFromParam, loginErrorFromParam } from '@/lib/human-auth-error';
 import { LINK_EXPIRED_VALUE } from '@/lib/auth-confirm-link';
 import { eventSlugFromNext } from '@/lib/sign-in-for-a-guest';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -95,10 +95,11 @@ export async function getLoginView(params: LoginSearchParams): Promise<LoginView
      one of a FIXED set of sentences here, before it reaches the render. */
   const errorMessage = loginErrorFromParam(params.error);
   const provider = errorMessage ? parseProviderParam(params.provider) : null;
-  const justSignedUpEmail = params.check_email
-    ? decodeURIComponent(params.check_email)
-    : null;
-  const readyEmail = params.ready ? decodeURIComponent(params.ready) : null;
+  // 🔒 These banners print the address back ("We sent a confirmation link to …"), so only a real email address is
+  // shown and a stray "%" never throws (final check A1-058: `/login?ready=100%25` answered HTTP 500, and any text in
+  // the link was printed inside our card).
+  const justSignedUpEmail = emailFromParam(params.check_email);
+  const readyEmail = emailFromParam(params.ready);
   const prefilledEmail = readyEmail ?? '';
   // 🚪 FROM A BUSINESS DOOR (`/login?door=X`, lib/doors.ts): a sign-in that names nowhere of its own lands through
   // the door (`/auth/door`, which asks `landingForAccount` with the door) — the door rides `next`, so the password,

@@ -108,7 +108,7 @@ export function VendorRailContext({
    * is declared at the mount site, where a reviewer can see it survived.
    */
   planHref: string | null;
-  /** `tier_state`, or null when the probe failed. Normalised below. */
+  /** The shop's effective plan from `readVendorTier`; `'unread'` when the read was refused (drawn as "—", never "Free"). */
   tier: string | null;
 }) {
   const pathname = usePathname() ?? '/vendor-dashboard';
@@ -223,7 +223,9 @@ export function VendorRailContext({
           </span>
           <span className="fd-label-text">Plan</span>
           <span className="fd-icon-caption">Plan</span>
-          <span className="fd-ct">{TIER_LABEL[asVendorTier(tier)]}</span>
+          <span className="fd-ct" title={tier === 'unread' ? 'Couldn\u2019t read your plan' : undefined}>
+            {tier === 'unread' ? '—' : TIER_LABEL[asVendorTier(tier)]}
+          </span>
         </Link>
       ) : null}
     </>

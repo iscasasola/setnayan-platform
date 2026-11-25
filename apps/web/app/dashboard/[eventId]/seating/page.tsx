@@ -110,8 +110,16 @@ export default async function SeatingPage({ params, searchParams }: Props) {
 
   const [tables, assignments, guestsRead, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet, bookedVendors, venueRoomSize, roleNames, avatarCount] =
     await Promise.all([
-      fetchTables(supabase, eventId),
-      fetchAssignments(supabase, eventId),
+      // A2-D1: these two THROW on a refused read, and inside Guests › Seats no error boundary sits between them and the
+      // whole Guests page. Caught here: a refusal is said in the Seats view, the List stays.
+      fetchTables(supabase, eventId).catch((e: unknown) => {
+        logQueryError('SeatingPage.tables', e, { event_id: eventId }, 'graceful_degrade');
+        return null;
+      }),
+      fetchAssignments(supabase, eventId).catch((e: unknown) => {
+        logQueryError('SeatingPage.assignments', e, { event_id: eventId }, 'graceful_degrade');
+        return null;
+      }),
       fetchGuestsByEventMeasured(supabase, eventId),
       fetchGuestGroupsByEvent(supabase, eventId),
       fetchGroupMembershipsByEvent(supabase, eventId),
@@ -145,6 +153,13 @@ export default async function SeatingPage({ params, searchParams }: Props) {
         .is(REPRESENTED_BY, null)
         .not('avatar_config', 'is', null),
     ]);
+  if (tables === null || assignments === null) {
+    return (
+      <section className="mx-auto w-full max-w-3xl px-4 py-6">
+        <ReadRefusedNotice what="your seat plan" />
+      </section>
+    );
+  }
   // 🔌 A refused guest read is never an empty room to seat (reads-are-honest, 2026-11-02 audit #14).
   if (!guestsRead.measured) {
     return (

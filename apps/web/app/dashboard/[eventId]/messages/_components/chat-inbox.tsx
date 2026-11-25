@@ -40,7 +40,9 @@ import { CHAT_PANES_FROM } from './chat-panes';
  * Independent of any other menus? Why is it still jumping to customer events"* — `vendor-dashboard/messages`). Three
  * props let the one component serve both sides without a second copy:
  *   · `newMessage` is optional — a supplier answers chats, it does not start them, so no ✎ and no sheet;
- *   · `peerFilter` names the third chip ("Suppliers" for the couple) — `null` draws All · Unread only;
+ *   · `peerFilter` names an optional third chip — `null` (the default, both sides) draws All · Unread only. Every row in
+ *     this list IS a supplier chat (the couple's groups are drawn by the page above it), so a "Suppliers" chip drew
+ *     exactly the All list: a press that changed nothing (final check A2-H1). It is no longer offered;
  *   · `dock="foot"` — on a FULL-SCREEN page (`data-chat-takeover`, which covers the shell and its bottom dock) the thumb
  *     row stands at the page's own foot instead of being portalled onto a dock the takeover covers.
  *
@@ -97,7 +99,7 @@ export function ChatInbox({
   newMessage,
   empty,
   unreadMeasured = true,
-  peerFilter = 'Suppliers',
+  peerFilter = null,
   dock = 'float',
   join = null,
 }: {

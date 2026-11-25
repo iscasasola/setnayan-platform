@@ -73,6 +73,14 @@ export default async function TeaCeremonyPage({ params }: Props) {
   // RLS-denied (not the couple's event) OR not a Chinese wedding → 404. The
   // ceremony gate is the whole reason this tool exists; non-Chinese events
   // should never reach it.
+  // A2-E3: a REFUSED event read says so; only an answered read that is not a Chinese wedding is "not found".
+  if (eventRowError) {
+    return (
+      <section className="mx-auto w-full max-w-3xl space-y-6">
+        <ReadRefusedNotice what="this event" />
+      </section>
+    );
+  }
   if (!eventRow || !isChineseWedding(eventRow)) {
     notFound();
   }
@@ -86,8 +94,9 @@ export default async function TeaCeremonyPage({ params }: Props) {
   // The couple are the SERVERS, not the served — drop them from the order.
   // Plus-one TBA placeholder rows add nothing to a serving list, so drop them
   // too (they carry no relation/seniority and aren't elders).
+  // A2-E3: a guest who said they are not coming is not served — the order is the people who will be there.
   const served = guests.filter(
-    (g) => g.role !== 'bride' && g.role !== 'groom' && !g.plus_one_of_guest_id,
+    (g) => g.role !== 'bride' && g.role !== 'groom' && !g.plus_one_of_guest_id && g.rsvp_status !== 'declined',
   );
 
   const groomSide = sortServeOrder(served.filter((g) => g.side === 'groom'));
@@ -233,7 +242,8 @@ function SideBlock({
           {heading}
         </h2>
         <span className="ml-auto font-mono text-[11px] text-ink/45">
-          {guests.length === 1 ? '1 elder' : `${formatCount(guests.length)} elders`}
+          {/* A2-E3: everyone on the side is counted, so the count never calls them all elders. */}
+          {`${formatCount(guests.length)} to serve`}
         </span>
       </div>
       {note ? <p className="text-xs text-ink/55">{note}</p> : null}

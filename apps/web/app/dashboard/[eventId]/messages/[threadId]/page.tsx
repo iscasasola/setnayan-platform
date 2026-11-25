@@ -68,6 +68,7 @@ import { formatCount } from '@/lib/format-number';
 import { MarkReadWhenShown } from '@/app/vendor-dashboard/messages/[threadId]/_components/mark-read-when-shown';
 import { displayLogoUrl } from '@/lib/uploads';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { fetchEventViewer } from '@/lib/event-viewer.server';
 
 export const metadata = { title: 'Thread' };
 
@@ -104,6 +105,10 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.event_id !== eventId) notFound();
+  // A2-H3: only a host books or pays (owner 21 Nov "no booking, no paying"). Who the viewer is, started now and read
+  // where the stream is drawn — the same reader and rule as the Suppliers page (`fetchEventViewer` → `isCouple`).
+  // A failed read fails CLOSED: no Book and no Pay drawn (the server refuses a non-host anyway).
+  const viewerRead = fetchEventViewer(supabase, eventId, user.id).catch(() => null);
 
   // ═══ EVERY READ BELOW STARTS AT ONCE (perf, 2026-09-29) ══════════════════
   // This page used to make its database trips ONE AFTER ANOTHER — event date,
@@ -822,6 +827,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     ),
   };
 
+  const viewerBooks = (await viewerRead)?.isCouple ?? false;
   const chatBox = (
         <ChatBox
           // 🪞 Inside the picked supplier its pinned row IS the head, so the full-screen head is drawn only on the route.
@@ -993,7 +999,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             counterHref={`?compose=deal`}
             // S5 · an accepted quote mounts the ONE action that books.
             // The Book confirm tells the couple when this shop is not yet verified (owner 16 Nov) — the same read as the head's line.
-            lockTarget={quoteLockTarget}
+            lockTarget={viewerBooks ? quoteLockTarget : null}
             // 🚦 RW-26: the live switch, so a closed booking door says so before the press.
             bookingsOpen={quoteLockTarget ? await areBookingsOpen() : true}
             threadId={threadId}
@@ -1008,11 +1014,13 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             shopLogoUrl={shopLogoUrl}
             eventDate={eventDate}
             standing={threadStanding}
-            decisionPayments={decisionPayments}
+            // A2-H2: a viewer whose amounts the database hides gets no payment facts at all — they were read with the
+            // admin client, past the per-column close (lib/event-vendor-money.ts), so they never reach that viewer.
+            decisionPayments={chatPins.streamMasked ? [] : decisionPayments}
             initialView={initialView}
             lockHandshake={lockHandshake}
             bookedStep={bookedMoney.step}
-            couplePay={couplePay}
+            couplePay={viewerBooks ? couplePay : null}
             theirLastReadAt={receipts.theirLastReadAt}
             senderNames={receipts.senderNames}
             fileExpiry={{

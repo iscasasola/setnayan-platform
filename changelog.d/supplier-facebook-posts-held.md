@@ -22,3 +22,9 @@ The owner approved Batch 1 on 24 Nov ("supplier posts to december appoved"). It 
   Each check was sabotage-run red.
 
 SPECS IMPACT: None. This is content under the Social Sharing Program § 8 queue. The owner's Batch 1 approval is recorded by the controller.
+
+**Owner, 25 Nov ("reword both"):** two captions now follow the word rules.
+- #20 was "0% fee on clients you bring. Your couple never pays a Setnayan fee." It now reads "No booking fee on clients you bring. Hosts pay 0% commission.". That is the one allowed 0% line, and couples do pay for Event plans.
+- #21 was "Try it. No risk." (too close to a promise). It now reads "Try it. Open free, no card. Leave anytime from your Profile."
+
+The images carry no caption text, so they are unchanged.

@@ -185,13 +185,13 @@ export const SUPPLIER_FACEBOOK_SERIES: readonly SupplierPost[] = [
   },
   {
     n: 20,
-    lines: ["0% fee on clients you bring.", "Your couple never pays a Setnayan fee."],
+    lines: ["No booking fee on clients you bring.", "Hosts pay 0% commission."],
     link: '/for-suppliers',
     from: "/marketing/2026-11-23/for-suppliers/still-clients.webp",
   },
   {
     n: 21,
-    lines: ["Try it. No risk.", "Open free. No card. Leave anytime from your Profile."],
+    lines: ["Try it. Open free, no card.", "Leave anytime from your Profile."],
     link: '/open-shop',
     from: "/marketing/2026-11-23/for-suppliers/still-open-shop.webp",
   },
@@ -207,7 +207,7 @@ export const supplierPostBody = (p: SupplierPost) => `${p.lines.join('\n')}\n\n$
 
 /** Post N's day: start + (N − 1) × everyDays, as YYYY-MM-DD. */
 export function supplierPostDay(p: SupplierPost, release: Pick<SupplierSeriesRelease, 'start' | 'everyDays'>): string {
-  const [y, m, d] = release.start.split('-').map(Number);
+  const [y = 0, m = 1, d = 1] = release.start.split('-').map(Number);
   const day = new Date(Date.UTC(y, m - 1, d + (p.n - 1) * release.everyDays));
   return day.toISOString().slice(0, 10);
 }

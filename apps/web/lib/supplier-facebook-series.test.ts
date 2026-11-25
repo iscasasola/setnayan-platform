@@ -40,7 +40,7 @@ function jpegSize(buf: Buffer): { w: number; h: number } | null {
   let i = 2;
   while (i + 9 < buf.length) {
     if (buf[i] !== 0xff) return null;
-    const marker = buf[i + 1];
+    const marker = buf[i + 1] ?? 0;
     const len = buf.readUInt16BE(i + 2);
     if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
       return { h: buf.readUInt16BE(i + 5), w: buf.readUInt16BE(i + 7) };
@@ -117,7 +117,10 @@ test('5 · the release SQL: one announcement per post, its image, its link, its 
     assert.ok(sql.includes(supplierPostBody(p)), `post ${p.n}: the caption with its link`);
     assert.ok(supplierPostBody(p).endsWith(`https://www.setnayan.com${p.link}`), `post ${p.n}: the link ends the caption`);
   }
-  assert.equal(supplierPostDay(SUPPLIER_FACEBOOK_SERIES[0], release), '2026-12-01');
-  assert.equal(supplierPostDay(SUPPLIER_FACEBOOK_SERIES[20], release), '2027-01-10');
+  const first = SUPPLIER_FACEBOOK_SERIES[0];
+  const last = SUPPLIER_FACEBOOK_SERIES[20];
+  assert.ok(first && last, 'the series has 21 posts');
+  assert.equal(supplierPostDay(first, release), '2026-12-01');
+  assert.equal(supplierPostDay(last, release), '2027-01-10');
   assert.equal(new Set(SUPPLIER_FACEBOOK_SERIES.map(supplierPostRef)).size, 21, 'refs are unique');
 });

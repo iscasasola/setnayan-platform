@@ -97,7 +97,8 @@ export async function AddOnDetailView({
       ? readV2Sku(entry.serviceKey).catch(() => ({ record: null, readFailed: true }))
       : Promise.resolve({ record: null, readFailed: false }),
     entry.serviceKey
-      ? ent
+      ? Promise.resolve(
+          ent
           .from('orders')
           .select('status')
           .eq('event_id', eventId)
@@ -106,8 +107,8 @@ export async function AddOnDetailView({
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()
-          .then((r) => ({ row: r.data, readFailed: Boolean(r.error) }))
-          .catch(() => ({ row: null, readFailed: true }))
+          .then((r) => ({ row: r.data, readFailed: Boolean(r.error) })),
+        ).catch(() => ({ row: null, readFailed: true }))
       : Promise.resolve({ row: null, readFailed: false }),
   ]);
   const sku = skuRead.record;

@@ -243,3 +243,65 @@ Report on what ships today:
    arm's length, with the shop's name under it, in light and dark?
 Rows go into "Offline — beyond the five", marked `QR`. The controller hands the list to #8284's builder after the
 check, so the engine is measured against real cases.
+
+---
+
+# Adds 11 – 14 (owner, 25 Nov, during phase B) · every checker applies these to every page
+
+## Add 11 · It must feel like a real phone app
+Owner: *"the basic functions of how an app feels and perform"* · *"When you pull down, the screen should still look like
+an app, not just cutting the headers"* · *"proper scrolling, proper fade of speed when we scroll"* · *"not feeling like a
+forced table, but an actual on-screen app"*.
+1. **Scroll:** smooth, slows down naturally; no jumps, no layout shift while loading, no page scrolling inside a page.
+2. **Top bar stays put:** headers and the bottom bar stay fixed or sticky and are never cut; content passes under them
+   with a soft fade, not a hard cut.
+3. **Pull down:** on a list or feed page, pull to refresh works and looks native: the header stays, a spinner shows, no
+   white gap, no bare-page bounce, no clipped header. Missing on a list page = a finding.
+4. **Overscroll:** no rubber-band showing white or the page behind; no white flash in dark.
+5. **Back:** the back gesture and button return to the same place and scroll position.
+6. **Lists:** long lists load more as you scroll (or page cleanly), keep their place, show skeletons, never blank.
+7. **Tables:** a table that forces sideways scrolling on a phone is a finding; name what it should become (cards, a list
+   with a details sheet, or a popup per Add 1).
+8. **Touch:** taps ≥ 44 px on touch; a press shows pressed at once; no hover-only controls; the keyboard never covers the
+   field or the main button.
+9. **Edges:** safe areas respected; fixed bars never cover the last item of a list.
+10. **Effects:** at the house speeds, never stuttering on scroll.
+Each miss carries one line `Reference:` naming how a well-known app does it (iOS Settings list, Instagram pull to
+refresh, Google Maps bottom sheet, Airbnb listing cards…). Name the pattern; never copy a brand's look.
+
+## Add 11b · Each screen size behaves its own way
+Owner: *"how app performs also depends on how it looks like… desktop mode, tablet mode, mobile mode… on desktop rows can
+be a bit smaller because it is controlled by mouse or cursors, while on mobile it needs to be a bit bigger because it is
+finger-ruled buttons."*
+- **Phone (375, touch):** finger-sized rows and buttons (≥ 44 px) with room between them; pull to refresh, swipes, sheets
+  from the bottom, a bottom bar in thumb reach; one column.
+- **Tablet (768, touch, also sideways):** still finger-sized but uses the width (two columns, list + details); popups
+  centred or side sheets, never a phone sheet stretched wide.
+- **Desktop (1280, mouse):** denser rows and smaller controls are right; hover, pointer cursor, keyboard (Tab, Enter, Esc
+  closes popups); refresh is a button or live, never pull; centred dialogs; clean wide tables are fine.
+- A phone layout stretched across a desktop is a finding; so is a phone-sized giant button on desktop. Note any site-wide
+  rule that forces one size on every screen (for example a 44 px minimum on every button, desktop rows included).
+Write the size, what it does now, what it should do, and a `Reference:` (Gmail phone vs desktop, iPad Mail split view…).
+
+## Add 12 · Every animation follows OUR templates
+Owner: tables that expand and collapse, *"how buttons are pressed, how we animate full screen, and the movement of pages
+when we transfer from one to another, and even the icons… animated icons that when you press on the icon, it does this
+small animation that creates a bit of flavor."*
+Rulebook: Setnayan-specs `MOTION_STANDARD_2026-11-18.md` (visual contract `prototypes/motion_standard_2026-11-18_fable.html`);
+animated-icon plan in Setnayan-specs `prototypes/control_templates_2026-10-08_working.html`.
+1. Expand/collapse = motion 9 "Open": Move 320 open, Quick 200 close, no snap. 2. Press: Tap 100 in, Release 280 out;
+controls never dance. 3. Full-screen rise: behind to 0.96, chrome last, close mirrors open. 4. Page moves: the named
+transitions (Zoom through, Picture leads, Unfold), never a hard cut or white flash. 5. Icons against the animated-icon
+plan. 6. Named speeds only; reduced motion still works. Write: page · motion number/name · now · what the standard says.
+Planned but not built = "planned, not built" (its own list, not a fault).
+
+## Add 13 · Missing icons
+Owner: *"there are some icons that we might not have yet. So we want to be able to create those icons."* Under
+`## Icons`, one line each: page · control · what it shows now (none, placeholder, generic, wrong meaning) · what the icon
+should mean. This becomes the list of icons to draw.
+
+## Add 14 · The copy is slow: how to handle it (controller, 25 Nov ~07:30 UTC)
+Simple pages answer in 0.2 s; pages with many reads take 9–13 s and some Event Hubs return 500; the database is idle and
+its tables tiny. So it is the staging copy's setup, not proven to be the app. Keep to 1–2 tabs; retry a slow or 500 page
+once after a minute; log it under `## Copy health (not counted)` with the route and seconds; keep judging what you can
+see. A slow page or a 500 is a product finding only when the code shows the cause.

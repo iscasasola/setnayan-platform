@@ -11,6 +11,14 @@ Marks on every page: **OFFLINE** = NEEDED (where signal is lost) / READ-ONLY / N
 
 None found in phase A so far.
 
+## Phase A summary (code pass, done)
+
+- 48 of 48 pages, 5 of 5 forwards (all land). 99 findings: blocker 0 · money-signin 12 · broken 6 · wrong 32 · look 49.
+- OFFLINE: NEEDED 3 (/vendor-dashboard/invite, /vendor-dashboard/shop/qrs, /vendor-dashboard/shop/qrs/[code]: at an expo and on the road) · READ-ONLY IS ENOUGH 16 · NOT NEEDED 29.
+- SHAPE: PAGE 35 · FULL-SCREEN POPUP 12 · SMALL POPUP 1; 13 differ from today.
+- Dark: no page has a glowing top block except Today's next-event card (initials only), see A5-X-02.
+- Note for the controller: CLAUDE.md § 1 says special tools are Pro and Ultra only; the code and DECISION_LOG (23 Nov) say a paid tool works on Plus, Pro or Ultra. The corpus wins; CLAUDE.md is stale.
+
 ## Progress
 
 - [x] /open-shop · OFFLINE: NOT NEEDED (sign-up creates the account and the shop; needs internet) · SHAPE: TODAY a full page (5-step wizard, its own `<main>`; `?claim=` draws the claim door the same way) → SHOULD FULL-SCREEN POPUP with a full entry (differs)
@@ -30,7 +38,7 @@ None found in phase A so far.
 - [x] /vendor-dashboard/packages · OFFLINE: READ-ONLY IS ENOUGH (show bundles and prices "as of" at an expo) · SHAPE: TODAY page (list of bundles) → SHOULD PAGE (same)
 - [x] /vendor-dashboard/packages/[packageId] · OFFLINE: NOT NEEDED (editing; the shop's saved copy covers showing it) · SHAPE: TODAY its own address drawn as a RiseScreen whose ✕ always goes to Shop › services → SHOULD FULL-SCREEN POPUP over the page it was opened from, ✕ back to that same place (differs)
 - [x] /vendor-dashboard/partnerships · OFFLINE: NOT NEEDED · SHAPE: TODAY page (inbox + Add / Invite sheets) → SHOULD PAGE (same)
-- [ ] /vendor-dashboard/profile
+- [x] /vendor-dashboard/profile · OFFLINE: READ-ONLY IS ENOUGH (contact and shop details at an expo; edits need internet) · SHAPE: TODAY page (rises in-app through `@rise/(.)profile`; forwards #where/#pay/#docs land on it) → SHOULD PAGE (same)
 - [x] /vendor-dashboard/recommendations · OFFLINE: NOT NEEDED · SHAPE: TODAY page (per-category rows; Suggest / Not a fit sheets) → SHOULD PAGE (same)
 - [x] /vendor-dashboard/repertoire · OFFLINE: READ-ONLY IS ENOUGH (show the set list at a gig or expo; library search needs internet) · SHAPE: TODAY page (tool page) → SHOULD PAGE (same)
 - [x] /vendor-dashboard/services · OFFLINE: READ-ONLY IS ENOUGH (a forward to Shop; the cards as a saved copy, R11) · SHAPE: TODAY forward → /vendor-dashboard/shop (keeps every param) → SHOULD PAGE (same) · glow: n/a (forward)
@@ -50,13 +58,13 @@ None found in phase A so far.
 - [x] /vendor-dashboard/shop/store · OFFLINE: NOT NEEDED (Toolkit browsing and buying need internet) · SHAPE: TODAY PAGE → SHOULD PAGE (same)
 - [x] /vendor-dashboard/shop/store/[shelf] · OFFLINE: NOT NEEDED · SHAPE: TODAY PAGE → SHOULD PAGE (same)
 - [x] /vendor-dashboard/shop/store/[shelf]/[item] · OFFLINE: NOT NEEDED (Buy / Install need internet) · SHAPE: TODAY PAGE → SHOULD PAGE (same; each widget has its own address, shared and bookmarked)
-- [ ] /vendor-dashboard/subscription
-- [ ] /vendor-dashboard/team
-- [ ] /vendor-dashboard/team/roles
-- [ ] /vendor-dashboard/team/roles/inquiries
-- [ ] /vendor-dashboard/theft-watch
-- [ ] /vendor-dashboard/track-record
-- [ ] /vendor-dashboard/website
+- [x] /vendor-dashboard/subscription · OFFLINE: NOT NEEDED (buying a plan needs internet; R15 "Needs internet") · SHAPE: TODAY page with its own address (rises over the screen in-app through `@rise/(.)subscription`; also mounted inside the Shop ⚙ full screen) → SHOULD PAGE (renewal and receipt links come back to it) (same)
+- [x] /vendor-dashboard/team · OFFLINE: READ-ONLY IS ENOUGH (who is on the team; invites and seats need internet) · SHAPE: TODAY page (rises in-app through `@rise/(.)team`; also inside the Shop ⚙) → SHOULD PAGE (same)
+- [x] /vendor-dashboard/team/roles · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: TODAY separate page under Team → SHOULD FULL-SCREEN POPUP over Team, opening in place (differs)
+- [x] /vendor-dashboard/team/roles/inquiries · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: TODAY separate page two levels under Team → SHOULD FULL-SCREEN POPUP (a section of Roles, in place; never a popup on a popup) (differs)
+- [x] /vendor-dashboard/theft-watch · OFFLINE: NOT NEEDED · SHAPE: TODAY page (a Toolkit shelf link, no notification or email links to it) → SHOULD FULL-SCREEN POPUP (differs)
+- [x] /vendor-dashboard/track-record · OFFLINE: NOT NEEDED · SHAPE: TODAY page (a Toolkit shelf link only) → SHOULD FULL-SCREEN POPUP (differs)
+- [x] /vendor-dashboard/website · OFFLINE: READ-ONLY IS ENOUGH (the shop as it looks, R11; Apply needs internet) · SHAPE: TODAY page (Shop › Page; rises in-app through `@rise/(.)website`; /reviews forwards to #reviews) → SHOULD PAGE (same)
 - [x] /vendor-invite/[slug] · OFFLINE: NOT NEEDED (a couple's landing from a supplier's QR; adding to a plan needs internet. Couple-at-an-expo offline goes through the in-app expo scanner, not this page) · SHAPE: TODAY PAGE (shared link) → SHOULD PAGE (same)
 - [x] /vendor/claim/[token] · OFFLINE: NOT NEEDED (claim + sign-up need internet) · SHAPE: TODAY PAGE (emailed/shared link, door shell) → SHOULD PAGE (same)
 - [x] /vendor/claim/[token]/finalize · OFFLINE: NOT NEEDED (writes the claim) · SHAPE: TODAY a hand-off step that redirects; only its error screens draw (door shell) → SHOULD PAGE (same)
@@ -764,6 +772,248 @@ CODE      apps/web/app/vendor-dashboard/shop/promote/_components/share-your-work
 SHOTS     cannot be forced on staging; code only
 RULE      CLAUDE.md §5 rule 4 (honest states)
 SEVERITY  wrong
+SOURCE    CODE
+
+### Plan, team and your page
+
+#### A5-G5-01 · Seats count paused and removed team members against the plan
+PAGE      /vendor-dashboard/team   (shop: Liwanag Photo & Film)
+BUTTON    "Seats on your plan" row · "Invite to your team" → "Send the invite"
+STEPS     1. A shop has a member whose seat was paused by a smaller plan (`deactivated_at` / `paused_by_plan_at` set, badge "Added · waiting for plan"). 2. Open Team. 3. Read "Seats on your plan", then invite someone.
+EXPECTED  Plans limit ACTIVE members: a paused or deactivated member does not use a seat; the line and the invite check count active members only.
+ACTUAL    `teamSeats` counts every row except the founder (`others.length`), and `readSeatMembers` in the invite action selects every row with no `deactivated_at` filter, so a paused seat reads "N with you · your plan holds …" and an invite is refused for a seat that is free. (Inquiries on the same team already filters `!m.deactivated_at`.)
+CODE      apps/web/lib/vendor-free-helper.ts · `teamSeats` · apps/web/app/vendor-dashboard/team/actions.ts · `readSeatMembers`
+SHOTS     to take in phase B: 375 px light + 375 px dark
+RULE      Area fact "plans limit ACTIVE cards and members"; CLAUDE.md §4 Plan tier (`TIER_CAPS` limits)
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### A5-G5-02 · A refused read of bought extra seats is drawn as "0 added" and shrinks the seat limit
+PAGE      /vendor-dashboard/team   (an Ultra shop with bought seats)
+BUTTON    "Add a seat" row · "Seats on your plan" row
+STEPS     1. The `vendor_profiles.extra_agent_seats` read is refused. 2. Open Team.
+EXPECTED  "Couldn't read your extra seats"; the cap is not lowered on a guess.
+ACTUAL    `fetchExtraAgentSeats` returns 0 on error, so the row says "0 added · joins your renewal" and `effectiveSeatCap` drops the seats the shop paid for (seat line and invite check both).
+CODE      apps/web/lib/vendor-seats.ts · `fetchExtraAgentSeats` (`if (error || !data) return 0`) · apps/web/app/vendor-dashboard/team/_components/team-screen.tsx · `effectiveSeatCap`
+SHOTS     to take in phase B: 375 px light
+RULE      CLAUDE.md §5 rule 4 (honest states); kit § 5 item 9
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### A5-G5-03 · Your page shows Plus / Pro / own-address plan asks to a paying shop when the plan read fails
+PAGE      /vendor-dashboard/website   (shop: Liwanag Photo & Film, Pro)
+BUTTON    ◆ "Part of Pro" / "Part of Plus" marks · "Apply"
+STEPS     1. The own-row read in `loadPageData` (`tier_state, verification_state, …`) is refused. 2. Open Shop › Page.
+EXPECTED  The plan is said as unread; no plan ask is drawn on a guess.
+ACTUAL    The error is only logged; `tier` becomes null → `asVendorTier` → free, so `proAsks`, `personalizeAsks` and `addressAsks` all turn on and Apply "asks for the plan" a Pro shop already pays for; the domain card also drops "It's free".
+CODE      apps/web/app/vendor-dashboard/website/page-data.ts · `VendorPage.ownRow` · apps/web/app/vendor-dashboard/website/page.tsx · `ownAddressAsks` / `proPartsAsk`
+SHOTS     to take in phase B: 375 px light + 375 px dark
+RULE      CLAUDE.md §5 rule 4; kit § 5 item 9 (a failed read never shows "Free"); design-and-wiring B7 (honest locks)
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### A5-G5-04 · Theft Watch shows "Portfolio protection is a Pro feature" to a Pro shop when the plan read fails
+PAGE      /vendor-dashboard/theft-watch   (shop: Liwanag Photo & Film, Pro)
+BUTTON    "Upgrade to Pro" / "Unlock with Pro"
+STEPS     1. The `vendor_profiles` tier read is refused. 2. Open Theft Watch with the feature gate on.
+EXPECTED  "Couldn't read your plan" — never an upgrade ask to a payer.
+ACTUAL    `resolveVendorTier` never binds `error`; the refused row reads as `free` and the page renders `VendorTierGate` asking a Pro shop to upgrade to Pro.
+CODE      apps/web/lib/vendor-feature-gate.ts · `resolveVendorTier` · apps/web/app/vendor-dashboard/theft-watch/page.tsx · `canSeeTheftWatch(tier)`
+SHOTS     to take in phase B: 375 px light
+RULE      CLAUDE.md §5 rule 4; reads-are-honest pattern (the calendar's "isn't part of your current plan. Upgrade → to a payer")
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### A5-G5-05 · Your details tells a verified paid shop it is not on a paid plan, with switches OFF, when its row is refused
+PAGE      /vendor-dashboard/profile   (Contact fold)
+BUTTON    Visibility card "Save"
+STEPS     1. The own-row read in `loadDetailsData` (`tier_state, verification_state, same_day_available, social_feature_opt_out, …`) is refused. 2. Open Your details › Contact.
+EXPECTED  The card says it could not be read and offers no Save that would overwrite the real values.
+ACTUAL    The row resolves to `{}`: `isVerified` false and `tier` null, so the card says "You'll appear here once your shop is verified and on a paid plan", both switches draw OFF, and Save would write OFF. `ownMeasured` only guards the travel reach.
+CODE      apps/web/app/vendor-dashboard/profile/details-data.ts · `VendorDetails.ownRow` / `ownMeasured` · apps/web/app/vendor-dashboard/shop/_components/visibility-card.tsx · `isPaidTier`
+SHOTS     to take in phase B: 375 px light
+RULE      CLAUDE.md §5 rule 4; kit § 5 item 9
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### A5-G5-06 · Track record says "Set up your supplier profile first" to a shop that has one when the read fails
+PAGE      /vendor-dashboard/track-record
+BUTTON    "Go to my shop"
+STEPS     1. `fetchOwnVendorProfile` returns null because the read failed (not because the shop is missing). 2. Open Track record.
+EXPECTED  "Couldn't read your shop just now · Try again" (the profile page itself bounces to /vendor-dashboard, whose layout tells the two apart).
+ACTUAL    The page draws "Set up your supplier profile first — once couples mark your bookings delivered…" with a main "Go to my shop".
+CODE      apps/web/app/vendor-dashboard/track-record/page.tsx · `Set up your supplier profile first`
+SHOTS     to take in phase B: 375 px light
+RULE      CLAUDE.md §5 rule 4; kit (never "Create your shop" to a supplier who has one; `the-open-shop-redirect-is-a-proven-absence`)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G5-07 · A refused team read shows a role lock (Roles, Inquiries) or a silent bounce (Team) to a Shop Manager
+PAGE      /vendor-dashboard/team/roles · /vendor-dashboard/team/roles/inquiries · /vendor-dashboard/team
+BUTTON    —
+STEPS     1. `fetchTeamManagerContext` hits a read error (it logs and returns null). 2. Open Roles, Who gets new inquiries, or Team.
+EXPECTED  "Couldn't load your team · Try again".
+ACTUAL    Roles and Inquiries draw `RoleLock` (the "your role can't do this" panel) to the shop's own manager; Team `redirect('/vendor-dashboard')` with no word.
+CODE      apps/web/lib/vendor-team.ts · `fetchTeamManagerContext` (`if (error) … return null`) · apps/web/app/vendor-dashboard/team/roles/page.tsx · `if (!ctx)` · team/_components/team-screen.tsx · `if (!ctx) redirect('/vendor-dashboard')`
+SHOTS     to take in phase B: 375 px light
+RULE      CLAUDE.md §5 rule 4 (a failed read is said, never drawn as a fact)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G5-08 · Who gets new inquiries says "No live cards on this branch yet." on a failed card read
+PAGE      /vendor-dashboard/team/roles/inquiries
+BUTTON    —
+STEPS     1. The `vendor_services` read (`cardsRead`) fails. 2. Open the page.
+EXPECTED  Only the failure ("Part of this couldn't load…"); no empty-state claim.
+ACTUAL    Both show: the gold failure notice AND "No live cards on this branch yet." (`cardsRead.data ?? []` → `sections.length === 0`).
+CODE      apps/web/app/vendor-dashboard/team/roles/inquiries/page.tsx · `No live cards on this branch yet.`
+SHOTS     to take in phase B: 375 px light
+RULE      CLAUDE.md §5 rule 4; kit § 5 item 9 (empty and failure never look alike)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G5-09 · The Theft Watch lock has no price
+PAGE      /vendor-dashboard/theft-watch   (a shop below Pro, gate on)
+BUTTON    "Upgrade to Pro" / "Unlock with Pro"
+STEPS     1. Open Theft Watch on Free or Plus.
+EXPECTED  🔒 → Problem → Solution → preview → price from `vendor_billing_catalog` → one button.
+ACTUAL    `VendorTierGate` draws the feature, a blurb and the button; no catalogue price is read or shown anywhere in `tier-gate.tsx`.
+CODE      apps/web/app/vendor-dashboard/_components/tier-gate.tsx · `VendorTierGate`
+SHOTS     to take in phase B: 375 px light + 375 px dark
+RULE      design-and-wiring B7 (🔒 locks are honest); HOUSE_DESIGN_STANDARD D3 "Every lock shows 🔒; a tap shows Problem → Solution → preview → price → one button"
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G5-10 · Hand-typed counts and plan names on Team, Roles, Your page and Theft Watch
+PAGE      /vendor-dashboard/team · /vendor-dashboard/team/roles · /vendor-dashboard/website · /vendor-dashboard/theft-watch
+BUTTON    "Roles" row · plan line · ◆ marks · gate blurb
+STEPS     1. Read each line.
+EXPECTED  Counts and plan names come from their one source (`VENDOR_DUTIES.length`, `FREE_HELPER_SEATS`, `TIER_LABEL[firstPlanWith(…)]`), as the own-address mark already does.
+ACTUAL    Team's Roles row ends "· and 3 more" (typed); Roles' plan line types "1 Helper free"; Your page types `PlanAsk plan="Pro"` / `plan="Plus"`; Theft Watch's blurb types "Portfolio protection is a Pro feature". Each drifts the day the table moves.
+CODE      team/_components/helpers-view.tsx · `and 3 more` · team/roles/page.tsx · `'1 Helper free'` · website/_components/page-parts.tsx · `PlanAsk plan="Pro"` · theft-watch/page.tsx · `is a Pro feature`
+SHOTS     to take in phase B: 375 px light
+RULE      brand.md claims 5 (hand-typed counts); design-and-wiring D15 (no business rules typed in UI)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G5-11 · Plan and Team open a popup on top of a popup
+PAGE      /vendor-dashboard/subscription · /vendor-dashboard/team (and both inside Shop ⚙ › Plan and billing / Team)
+BUTTON    "Switch to <lower plan>" · a "Ready" upgrade row · "Invite to your team"
+STEPS     1. From Shop, tap ⚙ (it rises full screen, `MenuSettingsButton`), open Plan and billing, tap "Switch to Plus" on a lower plan that does not fit. 2. Or open Team (in-app it rises through `@rise/(.)team`) and tap "Invite to your team".
+EXPECTED  One layer at a time; a section opens in place inside the full screen.
+ACTUAL    `LowerPlanSwitch` opens a `RiseScreen`, `BadgeUpgradesSection` opens a `Sheet`, and `InviteHelperSheet` opens a `Sheet` — each over the already-risen ⚙ / Plan / Team screen.
+CODE      subscription/_components/limits-sheet.tsx · `LowerPlanSwitch` · subscription/_components/badge-upgrades-section.tsx · `StartUpgradeSheet` · team/_components/helpers-controls.tsx · `InviteHelperSheet` · shop/_components/shop-settings-body.tsx · `<PlanScreen search={planSearch} embedded />`
+SHOTS     to take in phase B: 375 px light (+ desktop)
+RULE      SHAPE (owner 25 Nov: never a popup on top of a popup); HOUSE_DESIGN_STANDARD D2 RiseScreen "One level only"
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G5-12 · Your details: a legacy primary Save, accent-outlined Saves and the thumb's main button on one screen
+PAGE      /vendor-dashboard/profile
+BUTTON    "Save" (business start date) · "Save" (public line, visibility, venue match) · "Add what is left"
+STEPS     1. Open Your details with something left. 2. Open Name and logo, then Contact.
+EXPECTED  One main button per scope; the rest neutral or text links.
+ACTUAL    The thumb row's `OpenFoldButton` is `tone="brand" main`; Name and logo adds a `.button-primary` Save (a second filled accent); Contact holds two `tone="brand"` (accent-outlined) Saves (`PublicLineCard`, `VisibilityCard`); What you do holds another (`VenueMatchCard`).
+CODE      profile/_components/details-screen.tsx · `button-primary min-h-11` · shop/_components/public-line-card.tsx · shop/_components/visibility-card.tsx · shop/_components/venue-match-card.tsx · `tone="brand"`
+SHOTS     to take in phase B: 375 px light + 375 px dark
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G5-13 · Your page: Apply (main) beside an accent-outlined "Add domain" and a blue-outlined "Verify"
+PAGE      /vendor-dashboard/website   (Your own web address fold)
+BUTTON    "Apply" · "Add domain" · "Verify"
+STEPS     1. Open Shop › Page › Use your own web address with a pending domain.
+EXPECTED  Apply is the one main; Add domain and Verify step down to neutral.
+ACTUAL    `DomainManager` draws "Add domain" `tone="brand"` (accent outline) and "Verify" `tone="info"` (a second bright colour) while the thumb's Apply is the main action.
+CODE      website/_domain-manager.tsx · `label={pending && !busyId ? 'Adding…' : 'Add domain'}` · `tone="info"`
+SHOTS     to take in phase B: 375 px light + 375 px dark
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G5-14 · Team vote card: "Agree" and "Say no" are two bright outlined buttons, unranked
+PAGE      /vendor-dashboard/team   (Shop Managers fold, an open vote)
+BUTTON    "Agree" · "Say no" · "Call off the vote"
+STEPS     1. Open a vote about another Shop Manager that you have not voted on.
+EXPECTED  The likely choice is the one main button; the other is neutral; danger is a word or neutral.
+ACTUAL    "Agree" is `tone="ok"` outlined (main only after you agreed), "Say no" is `tone="danger"` outlined — two coloured outlines, no main.
+CODE      team/_components/helpers-view.tsx · `main={myVote?.approve === true}`
+SHOTS     to take in phase B: 375 px light + 375 px dark
+RULE      HOUSE_DESIGN_STANDARD Part K1 (3, 5)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G5-15 · Plan "How to pay" tile: a hand-made white box (white in dark), a second peso formatter and a legacy primary button
+PAGE      /vendor-dashboard/subscription?ordered=<reference>
+BUTTON    "Send your payment"
+STEPS     1. Start a plan order (do not pay). 2. Land back on Plan with `?ordered=`. 3. Switch to dark.
+EXPECTED  The amount in an `.sn-frame`/tile on tokens; money through `formatPhp`; the button an `ActionButton`.
+ACTUAL    The amount sits in `rounded-lg border` with `background: 'rgba(255,255,255,.72)'` (a white surface in dark), printed as `₱{NUMBER.format(…)}` instead of `formatPhp`; the door is `.button-primary`.
+CODE      subscription/_components/plan-screen.tsx · `rgba(255,255,255,.72)` · `₱{NUMBER.format(orderedSummary.amount)}`
+SHOTS     to take in phase B: 375 px light + 375 px dark
+RULE      HOUSE_DESIGN_STANDARD Part K2 (no white surfaces); CLAUDE.md §1 (money only via lib/php.ts); §3 Button
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G5-16 · Who gets new inquiries: the branch choice is a row of pill links, not one dropdown
+PAGE      /vendor-dashboard/team/roles/inquiries   (a shop with branches)
+BUTTON    "<Branch> · N" pills
+STEPS     1. Open the page on a shop with 3+ locations.
+EXPECTED  "Where you are" is one `PickMenu` dropdown.
+ACTUAL    Hand-made `rounded-full border` pill `Link`s, one per branch, in terracotta classes.
+CODE      team/roles/inquiries/page.tsx · `data-team-inquiries-branch`
+SHOTS     to take in phase B: 375 px light (+ desktop)
+RULE      HOUSE_DESIGN_STANDARD D2 (3+ choices = PickMenu) and D3 Navigate
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G5-17 · SHAPE: Roles is a separate page; it should rise over Team
+PAGE      /vendor-dashboard/team/roles
+BUTTON    Team › "Roles"
+STEPS     1. Open Team (risen in-app). 2. Tap Roles.
+EXPECTED  FULL-SCREEN POPUP over Team (more than one short screen; nobody shares it), ✕ back to Team.
+ACTUAL    A plain page that leaves the risen Team.
+CODE      team/_components/helpers-view.tsx · `href="/vendor-dashboard/team/roles"`
+SHOTS     to take in phase B: 375 px light + desktop
+RULE      SHAPE (owner 25 Nov)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G5-18 · SHAPE: Who gets new inquiries is a page two levels under Team
+PAGE      /vendor-dashboard/team/roles/inquiries
+BUTTON    Roles › "Who gets new inquiries"
+STEPS     1. Team → Roles → Who gets new inquiries.
+EXPECTED  FULL-SCREEN POPUP (a section of Roles opening in place; never a popup on a popup).
+ACTUAL    A separate page; "Adjust" reloads it with `?adjust=` and scrolls to `#adjust`.
+CODE      team/roles/page.tsx · `href="/vendor-dashboard/team/roles/inquiries"`
+SHOTS     to take in phase B: 375 px light + desktop
+RULE      SHAPE (owner 25 Nov)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G5-19 · SHAPE: Theft Watch is a page; it should be a full-screen popup from the Toolkit
+PAGE      /vendor-dashboard/theft-watch
+BUTTON    Shop shelf "Theft Watch"
+STEPS     1. Shop → the Theft Watch shelf row.
+EXPECTED  FULL-SCREEN POPUP (a list longer than one screen; no email or notification links to it).
+ACTUAL    A separate page (`ToolPage`-style), not risen.
+CODE      shop/shop-tool-shelves.ts · `'/vendor-dashboard/theft-watch'`
+SHOTS     to take in phase B: 375 px light + desktop
+RULE      SHAPE (owner 25 Nov)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G5-20 · SHAPE: Track record is a page; it should be a full-screen popup from the Toolkit
+PAGE      /vendor-dashboard/track-record
+BUTTON    Shop shelf "Track record"
+STEPS     1. Shop → the Track record shelf row.
+EXPECTED  FULL-SCREEN POPUP (no shared or notification link reaches it).
+ACTUAL    A separate page (`ToolPage`), not risen.
+CODE      shop/shop-tool-shelves.ts · `'/vendor-dashboard/track-record'`
+SHOTS     to take in phase B: 375 px light + desktop
+RULE      SHAPE (owner 25 Nov)
+SEVERITY  look
 SOURCE    CODE
 
 ### Portfolio, bundles, partners and client invite

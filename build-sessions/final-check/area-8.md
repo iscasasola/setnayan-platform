@@ -1,4 +1,4 @@
-FIXER: batch 1 PR #8322 handed over (only the generated screens-map baseline red) · batch 2 PR #8327 ready, CI running · batch 3 (claude/fc-fix-a8-b3, 8 fixes) built, preflight running · ~7 batches left
+FIXER (checker 8): batches 1–6 only · b1 PR #8322 handed over · b2 PR #8327 CI running · b3 built, preflight running · b4–b6 next · batches 7–10 belong to checker 8-1 (Admin assist), list below
 STATUS: phase B done · 71/71 pages walked (375 light+dark, 768, 1280; dark sample at 768/1280) · 36/36 forwards land · 156/156 links ok · buttons 3,311 · pressed 2,303 · failed 0 confirmed · left 1,008 · phase-B findings 22 (blocker 0 · broken 0 · wrong 7 · look 15) + G-4 confirmed (money-signin) · checker-made changes disclosed and restored
 
 # Final check · Area 8 · Admin (/admin/* and the internal pages)
@@ -6,6 +6,22 @@ STATUS: phase B done · 71/71 pages walked (375 light+dark, 768, 1280; dark samp
 > CHECKER 8 of 8. Report only, never a fix. Check commit: main @ fb3f72d (frozen). Phase A = code pass (SOURCE: CODE).
 > Phase B (browser walk on staging) waits for the controller's address. Kit: `build-sessions/FINAL-CHECK-KIT.md` §§ 3–6.
 > Marks per page: OFFLINE = NEEDED / READ-ONLY IS ENOUGH / NOT NEEDED · SHAPE = what it is TODAY → what it SHOULD be (PAGE / FULL-SCREEN POPUP / SMALL POPUP).
+
+## Area 8 lane A split (controller, 25 Nov: checker 8 = b1–b6, checker 8-1 = b7–b10)
+
+So no finding is fixed twice. IDs are the lane A entries in `ALL-FINDINGS.md` § Area 8.
+
+| Batch | Owner | Branch / PR | Findings |
+|---|---|---|---|
+| b1 | checker 8 | `claude/fc-fix-a8-b1` · #8322 | G-4 · L-1 · L-2 · C-3 · B-9 · B-10 · F-22 · G-16 · I-11 · P-B-12 |
+| b2 | checker 8 | `claude/fc-fix-a8-b2` · #8327 | F-23 · A-24 · A-21 · F-19 · E-11 · I-7 · I-8 · G-12 · G-9 · F-24 |
+| b3 | checker 8 | `claude/fc-fix-a8-b3` | F-5 · D-8 · A-23 · A-19 · B-16 · I-10 · I-12 · C-5 |
+| b4 | checker 8 | `claude/fc-fix-a8-b4` | Work/Focus/catalogue honest reads: C-1 · C-6 · C-7 · C-8 · C-9 · C-10 · H-14 · B-14 · B-15 · E-10 · F-20 · D-15 |
+| b5 | checker 8 | `claude/fc-fix-a8-b5` | Saves that hide a failure: F-6 · D-9 · F-7 · H-6 · H-15 · I-1 · I-2 · B-6 · H-10 · D-10 · A-10 · E-12 |
+| b6 | checker 8 | `claude/fc-fix-a8-b6` | Money desks, display only (never an amount): A-1 · A-3 · A-11 · H-1 · H-3 · E-3 · E-4 · B-1 · B-4 · B-7 · B-8 · A-9 · F-1 · F-3 · D-6 |
+| b7–b10 | **checker 8-1** | yours to cut | Everything else in area 8 lane A: the permission guards (D-1 · D-2 · D-3 · D-4 · D-5 · B-2 · L-8), A-2 · A-5 · A-6 · A-7 · A-8 · A-18 · A-20 · A-22 · C-4 · C-11 · D-11 · D-12 · D-13 · D-14 · E-1 · E-2 · E-5 · E-8 · E-9 · E-13 · F-8 · F-13 · F-14 · F-15 · F-16 · F-17 · F-18 · F-21 · F-25 · G-3 · G-5 · G-6 · G-7 · G-8 · G-10 · G-11 · H-7 · H-8 · H-9 · H-11 · H-16 · I-3 · I-6 · L-5 · L-9 · P-B-3 · P-B-14 · P-B-18 · P-B-22 |
+
+Shared files the batches touch (so 8-1 can avoid collisions): `lib/admin/admin-pages.ts` (b3: `notInMenus`), `app/admin/_components/tab-landing.tsx` (b1), `app/admin/_components/admin-tab-rows.tsx` (b3), `app/_components/help-ask/*` (b3), `app/admin/gifts/page.tsx` (b2), `lib/spotlight-awards.ts` + `lib/background-videos.ts` (b2). If b4–b6 must move an ID, this table is edited first.
 
 ## Lock proof
 

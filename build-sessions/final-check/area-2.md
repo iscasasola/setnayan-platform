@@ -1,6 +1,6 @@
 # Final check · Area 2 · Couple: create an event and plan it
 
-FIXER: batch 1 of 6 · PR #8309 · ready, full CI running · batches 2 (SW-RAWDB) · 3 · 4 · 5 built and committed, local preflight running before each PR · batch 6 next (SW-HYDR + the last area-2 items)
+FIXER: batches 1–6 · PRs #8309 (1) · #8323 (2, SW-RAWDB) · #8326 (3) · #8330 (4) ready, CI blocked only on the generated root map · batch 5 and batch 6 built, preflight running, PRs next · SW-HYDR reproduced, cause not found yet (needs a non-minified build)
 
 STATUS: phase B done · 77 entries walked at 375/768/1280 light + dark · 24 new findings (0 blocker · 4 money-signin · 4 broken · 5 wrong · 11 look) · buttons 2191 (375) / 2698 (1280) · pressed 1202 · failed 0
 
@@ -2594,7 +2594,19 @@ Pages touched by fix batch 1, checked against Adds 11, 11b, 12, 13, 15, 17 and 1
 - **A2-P1** 🟠 needs-owner: money on Home counts up from ₱0 because of the owner's 7 Oct rule "all numbers animate"
   (held by `home-numbers-count.test.ts`). Should money figures be exempt from the count-up?
 - **A2-P5** by design: the import notice is the owner's own words (DECISION_LOG 2 Nov "Guest import opens December 19").
-- **A2-D2 / A2-E4** (one counting reader for seats and check-in) left for batch 6: they change how numbers are
-  derived and need care.
-- **A2-F7** (order slip names a rail /pay may not use) and **A2-F10** (referral page, behind a switched-off flag): batch 6.
+- Batch 6 fixed A2-D2, A2-E4, A2-F7, A2-F10, A2-H10, A2-H12, A2-I10, A2-I11, A2-I15, A2-I19.
+- **A2-I19** and **A2-I10** moved from batches 4 and 5 to batch 6: a redirect failed `a-save-never-resets-the-screen`,
+  so both are now stay doors (`lib/stay-doors/paperwork.ts`).
+- **A2-I11** only half fixed: a replaced scan is now deleted. A file uploaded but never saved still needs a sweep (ops).
+- **A2-H10** 🟠 needs-owner: the writer lets the coordinator put the couple's event away (cameras and Memory lane go
+  quiet). Is that meant? The card now shows exactly to whom the writer allows, nothing more.
+- **SW-HYDR** (A2-P11, A6-B09, A8·P-B-1) reproduced on Schedule at 375: React #418, "HTML" variant. Server HTML and the
+  browser DOM differ mostly in lazy-piece placeholders, so no single cause stood out, and a blind change would be a
+  guess. Needs a non-minified build against the copy to name the element. Not fixed.
+- **A2-P10** not reproduced from code: Home draws a refused task read as its own "couldn't read" row with ⟳, never
+  "Nothing needs you". The two loads were about 25 minutes apart, likely either side of a task's due time.
+- **A2-P9** (date selection restarts on a locked date) is lane B: the page needs a locked-date face, a screen change.
+- **A2-I14** (Sponsors is a second sponsor list) is lane B plus 🟠: whether the page stays, reads from the guest list,
+  or is retired is the owner's call.
+- **A2-P6** still waiting on the linked-row name question above.
 

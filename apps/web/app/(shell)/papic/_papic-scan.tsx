@@ -212,7 +212,7 @@ export function PapicScan() {
           </div>
           <p className="mt-2.5 text-xs text-[var(--m-slate-2)]">
             {remaining !== null && remaining > 0
-              ? `${remaining} demo shot${remaining === 1 ? '' : 's'} left — the demo caps this, not Papic.`
+              ? `${remaining} demo shot${remaining === 1 ? '' : 's'} left.`
               : 'That is the demo roll. A real event puts no limit on how many phones shoot.'}
           </p>
         </>

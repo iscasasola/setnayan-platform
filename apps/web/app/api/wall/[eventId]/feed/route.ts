@@ -31,6 +31,10 @@ export async function GET(
   const since = url.searchParams.get('since');
 
   const snapshot = await getWallSnapshot(eventId, since);
+  // 🔌 A4-15: a failed read is never sent as an empty wall — the projector keeps its last collage (amber dot).
+  if (snapshot.unreadable) {
+    return NextResponse.json({ error: 'unreadable' }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
   return NextResponse.json(snapshot, {
     headers: { 'Cache-Control': 'no-store' },
   });

@@ -169,10 +169,13 @@ test('loadLiveScreen resolves entitlement on every poll and can return locked', 
   assert.match(src, /state:\s*'locked'/, "LoadedScreen must carry a distinct 'locked' state");
   assert.match(
     src,
-    /resolveBroadcastWindow\(\s*admin\s*,\s*row\.event_id\s*\)/,
+    // (A4-09, 25 Nov: `readBroadcastWindow` — the same decision, which also reports a refused read as 'down'.)
+    /readBroadcastWindow\(\s*admin\s*,\s*row\.event_id\s*\)/,
     'loadLiveScreen must resolve the PAIRED row\'s event entitlement, not a request-time value',
   );
   assert.match(src, /canUseVenueScreens\(\s*\{\s*liveStudioActive:\s*broadcastWindow\.multiCam\s*\}\s*\)/);
+  // A refused ownership read is `down` (keep the last picture, reconnecting) — checked before the gate, never `locked`.
+  assert.match(src, /if \(!windowRead\.ok\) return \{ state: 'down' \};/);
   // Gated BEFORE the event read that produces the picture — a locked poll
   // must never reach the query that would let it draw the event's content.
   const gateAt = src.indexOf('canUseVenueScreens(');

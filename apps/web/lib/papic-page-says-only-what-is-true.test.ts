@@ -75,6 +75,8 @@ const PAPIC_PAGE_FILES = [
   'app/(shell)/papic/_papic-scan.tsx',
   'app/(shell)/papic/_papic-film.tsx',
   'app/(shell)/papic/try/page.tsx',
+  // The live demo's own camera (A4-56, final check 25 Nov): it said "The real Papic is unlimited".
+  'app/papic/demo/[token]/_components/demo-join-flow.tsx',
 ] as const;
 
 type Prohibition = {
@@ -211,6 +213,18 @@ const FORBIDDEN: readonly Prohibition[] = [
     stillSayable: [
       'The cameras are free and unlimited',
       'Cameras are free and unlimited',
+    ],
+  },
+  {
+    id: 'Papic does not cap shots',
+    why:
+      'Shots are metered by the event pool (papic_event_pool_config). "The real Papic is unlimited" and "the demo ' +
+      'caps this, not Papic" both say the opposite (A4-56, A4-83, final check 25 Nov). Unlimited CAMERAS is true.',
+    pattern: /\bcaps this,? not Papic\b|\b(?:the real )?Papic is unlimited\b|\bPapic (?:has|puts) no (?:cap|limit) on (?:shots|photos)\b/i,
+    sample: 'the demo caps this, not Papic',
+    stillSayable: [
+      'A real event puts no limit on how many phones shoot.',
+      'A real event puts no limit on how many phones shoot — every photo lands in one album.',
     ],
   },
   {

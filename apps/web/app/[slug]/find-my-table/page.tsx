@@ -12,11 +12,7 @@ import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFromProfile } from '../_lib/event-words';
 import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
-import {
-  DEFAULT_ENTRANCE,
-  type EntrancePos,
-  clampPct,
-} from '@/lib/indoor-blueprint';
+import { fetchEntrance } from '@/lib/indoor-blueprint';
 import type { EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { PulsedLiveRefresher } from '@/app/_components/pulsed-live-refresher';
@@ -165,7 +161,9 @@ export default async function FindMyTablePage({ params }: Props) {
 
   // Entrance marker (optional columns from migration 20260717000000) →
   // bottom-center default when unset / pre-migration.
-  const entrance = await resolveEntrance(admin, event.event_id);
+  // 🔌 A4-33: the ONE entrance reader (`fetchEntrance`) — the floor plan's door wins, the same door /seat and
+  // /find-seat draw. (It took only the event's old pin before, and every page drew its own door.)
+  const entrance = await fetchEntrance(admin, event.event_id);
 
   const targetTableId = (assignment?.table_id as string | null) ?? null;
   const targetTable = tables.find((t) => t.table_id === targetTableId) ?? null;
@@ -243,27 +241,6 @@ export default async function FindMyTablePage({ params }: Props) {
       </div>
     </Shell>
   );
-}
-
-// Entrance resolver scoped to the admin read on this route (lib/fetchEntrance
-// uses the RLS client; here we already hold the admin client + event_id).
-async function resolveEntrance(
-  admin: ReturnType<typeof createAdminClient>,
-  eventId: string,
-): Promise<EntrancePos> {
-  const { data, error } = await admin
-    .from('events')
-    .select('venue_entrance_x, venue_entrance_y')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (error) console.error('[supabase-error] app/[slug]/find-my-table/page.tsx · from:events.select', error);
-  if (error) return DEFAULT_ENTRANCE;
-  const x = data?.venue_entrance_x;
-  const y = data?.venue_entrance_y;
-  if (typeof x === 'number' && typeof y === 'number') {
-    return { x: clampPct(x), y: clampPct(y) };
-  }
-  return DEFAULT_ENTRANCE;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

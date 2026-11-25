@@ -182,7 +182,8 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
     const { data: guestRows, error: guestRowsError } = await admin
       .from('guests')
       // + each guest's own answer: "Also coming" is the people who said yes.
-      .select(`${ENTOURAGE_COLUMNS}, rsvp_status`)
+      // + who COUNTS toward the event (A4-30): a pending request's own Yes is not "Also coming".
+      .select(`${ENTOURAGE_COLUMNS}, rsvp_status, entry_source, passed_away, represented_by_guest_id`)
       .eq('event_id', event.event_id)
       .is('deleted_at', null);
     if (guestRowsError) throw new GuestReadError('everyone (guest list)', guestRowsError);
@@ -191,7 +192,16 @@ export default async function EveryonePage({ params }: { params: Promise<{ slug:
        them). The names themselves are for guests and hosts by the 2026-09-15
        ruling — that is the gate above, unchanged. */
     guests = plainGuestNames(
-      guestsWhoSaidYes((guestRows ?? []) as Array<EntourageGuestRow & { rsvp_status?: string | null }>),
+      guestsWhoSaidYes(
+        (guestRows ?? []) as Array<
+          EntourageGuestRow & {
+            rsvp_status?: string | null;
+            entry_source?: string | null;
+            passed_away?: boolean | null;
+            represented_by_guest_id?: string | null;
+          }
+        >,
+      ),
       nameStyle,
     );
   }

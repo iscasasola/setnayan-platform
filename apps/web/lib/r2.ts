@@ -10,6 +10,8 @@ import {
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 import { mediaCacheControl, presignR2GetSync, stableSigningWindow } from '@/lib/r2-stable-sign';
+import { confineKey, stagingStorage } from '@/lib/staging-locks';
+import { confineR2Client } from '@/lib/staging-r2-confine';
 
 /**
  * Cloudflare R2 client + bucket constants.
@@ -66,11 +68,23 @@ let _warnedBadPublicUrl = false;
  * Supabase Storage fallback.
  */
 export function isR2Configured(): boolean {
+  // 🔒 STAGING LOCK (d): a staging copy with no valid STAGING_R2_PREFIX has NO R2 at all (lib/staging-locks.ts) —
+  // every caller then takes its own "not configured" path, so nothing it does can reach a live object.
+  if (stagingStorage(process.env).mode === 'off') return false;
   return Boolean(
     process.env.R2_ACCOUNT_ID &&
       process.env.R2_ACCESS_KEY_ID &&
       process.env.R2_SECRET_ACCESS_KEY,
   );
+}
+
+/**
+ * 🔒 STAGING LOCK (d) for the two browser-facing builders below (`publicUrlFor`, `r2StableMediaGet`): on a confined
+ * staging copy an object lives under the prefix, so its address does too. Everywhere else: the key, unchanged.
+ */
+function storedKey(key: string): string {
+  const storage = stagingStorage(process.env);
+  return storage.mode === 'confined' ? confineKey(key, storage.prefix) : key;
 }
 
 /**
@@ -126,6 +140,12 @@ export function getR2Client(): S3Client | null {
     requestChecksumCalculation: 'WHEN_REQUIRED',
     responseChecksumValidation: 'WHEN_REQUIRED',
   });
+  // 🔒 STAGING LOCK (d): on a staging copy every command this client sends — PUT, DELETE, COPY, multipart, batch
+  // delete, presigned URL — is confined under STAGING_R2_PREFIX before it is signed (lib/staging-r2-confine.ts).
+  const storage = stagingStorage(process.env);
+  if (storage.mode === 'confined') {
+    confineR2Client(_client, storage.prefix, { liveReadBuckets: new Set([R2_BUCKETS.media]) });
+  }
   return _client;
 }
 
@@ -171,7 +191,7 @@ export function requireR2Client(): S3Client {
  */
 export function publicUrlFor(bucket: string, key: string): string {
   const base = process.env.R2_PUBLIC_URL;
-  const encodedKey = key.split('/').map(encodeURIComponent).join('/');
+  const encodedKey = storedKey(key).split('/').map(encodeURIComponent).join('/');
   if (base) {
     // Guardrail: the S3 API endpoint is NOT publicly readable (SigV4-only), so
     // pointing R2_PUBLIC_URL at it makes every public <img> 400. This is the
@@ -540,7 +560,7 @@ export function r2StableMediaGet(key: string, ttlSeconds = 60 * 60 * 24, nowMs =
     accessKeyId: process.env.R2_ACCESS_KEY_ID as string,
     secretAccessKey: process.env.R2_SECRET_ACCESS_KEY as string,
     bucket: R2_BUCKETS.media,
-    key,
+    key: storedKey(key),
     signingDate,
     expiresIn,
     responseCacheControl: mediaCacheControl(key),

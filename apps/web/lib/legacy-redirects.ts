@@ -239,6 +239,9 @@ const TO_DISCOVER = '/explore/categories';
  */
 export const RETIRED_TREES: readonly (readonly [from: string, to: string])[] = [
   ['/realstories', DISCOVER_HREF], // the query is carried by `discoverForwardTarget` in `legacyRedirectTarget`
+  // 🗞✂ Real Stories' FEATURE page (both languages) still answered 200 on 24 Nov — the same retirement, the same door.
+  ['/features/real-stories', DISCOVER_HREF],
+  ['/tl/features/real-stories', DISCOVER_HREF],
 ];
 
 /**

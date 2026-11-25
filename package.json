@@ -27,6 +27,8 @@
     "prepare": "node scripts/setup-git-hooks.mjs"
   },
   "devDependencies": {
+    "@types/pg": "^8.23.1",
+    "pg": "^8.23.1",
     "prettier": "^3.3.3",
     "tsx": "^4.22.3",
     "turbo": "^2.9.14",

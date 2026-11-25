@@ -313,6 +313,11 @@ export const STORE_SHELL_WEB_ONLY_PATH = '/web-only';
  *     (`IapUnlockSheet`) and draws no web price, no GCash / BDO and no web link
  *     when `getIapGate().iap` is true. (Mood Board is a free planning page that
  *     is never refused; its paid part, Make it real, was retired 2026-10-26.)
+ *   · 🛒 `studio/website-pro` — Event services, the ONE place an event buys Event Plus · Pro · Ultra, Live Watch and
+ *     photos (owner 2026-11-23). Its iPhone face is built (e02b733152, 22 Nov): StoreKit's prices only (the page strips
+ *     every web peso before the browser sees it, `withoutWebFigures`), Apple's sheet per item, no web saving, and Today
+ *     draws its door where Apple sells. Until 24 Nov the route itself stayed refused, so Event Pro and Event Ultra had
+ *     NO door in the app — a 1.0 submission carrying them would fail review (2.1), and 3.1.3(b) needs them sold here.
  *
  * NOT here, deliberately: the Live Watch detail / buy page
  * (`studio/live-studio-control`), the legacy setup and broadcast rooms, the
@@ -321,7 +326,7 @@ export const STORE_SHELL_WEB_ONLY_PATH = '/web-only';
  * every build while the switch is off) nothing here opens.
  */
 const IAP_OPENED_ROUTE =
-  /^\/(?:dashboard\/[^/]+\/(?:studio\/(?:papic|panood\/cameras|setnayan-ai)|memories\/thank-you)|panood\/control\/[^/]+)(?:\/|$)/;
+  /^\/(?:dashboard\/[^/]+\/(?:studio\/(?:papic|panood\/cameras|setnayan-ai|website-pro)|memories\/thank-you)|panood\/control\/[^/]+)(?:\/|$)/;
 
 /**
  * 🍎 IS THIS ADD-ON'S DOOR HIDDEN IN THE STORE SHELL? — the ONE rule every door site asks (owner 2026-10-23: App

@@ -19,7 +19,7 @@
 import { headers, cookies } from 'next/headers';
 import { isStoreShellSignals, STORE_SHELL_CLIENT_TYPE_COOKIE } from '@/lib/store-shell';
 import { classifyShell, oauthGate, type ClientShell, type OAuthFlags, type OAuthGate } from '@/lib/oauth-shell-gate';
-import { hasStoreQuantity, iapAvailable } from '@/lib/iap/iap-gate';
+import { hasStoreQuantity, hasStoreSubscriptions, iapAvailable } from '@/lib/iap/iap-gate';
 import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
 import { onTheCachedHub } from '@/lib/hub-request';
 
@@ -155,11 +155,20 @@ export async function isStoreShellRequest(): Promise<boolean> {
  *
  * 💝 `iapQuantity` — `iap`, AND a build whose plugin passes a quantity to StoreKit (`SetnayanIAP/3`+, build 9 on): a
  * shop's gift cart pays line by line, 1–10 per Apple purchase (owner 2026-11-22). Couple products never need it.
+ *
+ * 🏪 `iapSubscriptions` — `iap`, AND a build whose app version carries the "Supplier plans" subscriptions
+ * (`SetnayanIAP/4`+). 1.0 (build 9, `/3`) does not: they ship with the next app version (lib/iap/iap-gate.ts
+ * `hasStoreSubscriptions`).
  */
-export async function getIapGate(): Promise<{ storeShell: boolean; iap: boolean; iapQuantity: boolean }> {
+export async function getIapGate(): Promise<{ storeShell: boolean; iap: boolean; iapQuantity: boolean; iapSubscriptions: boolean }> {
   const signals = await readShellSignals();
-  if (!signals) return { storeShell: false, iap: false, iapQuantity: false };
+  if (!signals) return { storeShell: false, iap: false, iapQuantity: false, iapSubscriptions: false };
   const storeShell = isStoreShellSignals(signals.ua, signals.clientType);
   const iap = iapAvailable({ storeShell, userAgent: signals.ua, enabled: isAppleIapEnabled() });
-  return { storeShell, iap, iapQuantity: iap && hasStoreQuantity(signals.ua) };
+  return {
+    storeShell,
+    iap,
+    iapQuantity: iap && hasStoreQuantity(signals.ua),
+    iapSubscriptions: iap && hasStoreSubscriptions(signals.ua),
+  };
 }

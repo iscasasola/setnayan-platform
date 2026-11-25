@@ -32,7 +32,8 @@
  * (one hidden input, the value the URL decided — owner-locked 2026-09-20,
  * `lib/signup-intent.ts`), `next`, `ref` / `src_event` (guest → host
  * attribution), `refc` (couple referral), `email`, `password`, the Terms box
- * (CTRL-B3, unticked, required, JUST above the submit — one box for all three doors since 2026-10-22, and it gates Google / Apple from there — `lib/terms-agreement.ts`),
+ * (CTRL-B3, unticked, required — one box for all three doors since 2026-10-22, ABOVE Google / Apple since
+ * 24 Nov 2026, a field of the email form by `form=` — `lib/terms-agreement.ts`),
  * `remember`, and the Turnstile bot check inside the form. The OAuth row above
  * the email form, shell-gated exactly as /login gates it. The status banners
  * (error · confirmation sent · guest photos will be saved · a couple invited
@@ -50,7 +51,8 @@ import Link from 'next/link';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { FirstRunBrand } from '@/app/_components/first-run-brand';
+import { FormingMark } from '@/app/_components/auth/forming-mark';
+import { UseEmailFold } from '@/app/_components/auth/use-email-fold';
 import { OAUTH_FLAGS, OAuthButtonRow } from '@/app/_components/oauth-button-row';
 import { TermsFirst } from '@/app/_components/auth/terms-first';
 import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
@@ -76,7 +78,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/signup' },
 };
 
-/** The one Terms box (inside the email form, just above its submit) and that form — one id each. */
+/** The one Terms box (above Google / Apple, a field of the email form by `form=`) and that form — one id each. */
 const TERMS_BOX_ID = 'hr-su-terms';
 const SIGNUP_FORM_ID = 'hr-su-form';
 
@@ -164,24 +166,19 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   // never flashes a void behind the card.
   return (
     <main style={{ minHeight: '100dvh', background: 'var(--m-paper)' }}>
-      <div className="home-reskin-ov">
+      {/* `sn-signin-simple` + `sn-signin-scene`: the 24 Nov 2026 card on the celebration photo — the same pair /login wears. */}
+      <div className="home-reskin-ov sn-signin-simple sn-signin-scene">
         <div className="hr-ov-card sn-signin-terra" style={{ maxWidth: 460 }}>
           {/* No ✕: this is a page of its own with nothing behind it (the same
               mistake as aria-modal, one layer up — overlay chrome on a page).
               The way out is the browser and the Sign-in link below. */}
-          {/* The brand line (owner 2026-10-21, "make sure there is Setnayan"): the shipped wordmark, small —
-              not the brand PANEL retired above. */}
-          <FirstRunBrand className="hr-si-brand" />
-          <div className="hr-ov-eyebrow">Your account</div>
-          <h1 className="hr-ov-title">Create your account.</h1>
-          {/* THE OWNER'S OWN WORDS (2026-09-23): "enter your email address and
-              create your password. or directly sign in with Google or Apple." —
-              said in the order the card now shows them (2026-09-25: Google /
-              Apple first, like the invitation). */}
-          <p className="hr-ov-sub">
-            {showOAuth ? 'Sign in directly with Google or Apple — or enter' : 'Enter'} your email
-            address and create your password.
-          </p>
+          {/* THE HEADING (owner 24 Nov 2026, "simple and straight to the point"): the forming mark over one centred
+              title. The SETNAYAN word beside the mark, the eyebrow and the sentence are gone (amends 21 Oct, the
+              brand line — the mark stays and says Setnayan). */}
+          <div className="hr-si-head">
+            <FormingMark />
+            <h1 className="hr-ov-title">Create account</h1>
+          </div>
 
           {errorMessage ? (
             <p role="alert" className="hr-si-banner hr-si-banner--error">
@@ -210,21 +207,37 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </p>
           ) : null}
 
-          {/* ONE DOOR, ONE ORDER (owner 2026-09-25, verbatim: "When a new account
-              is created via website must be similar to the event invitation").
-              Google / Apple FIRST, as on the invitation door (DECISION_LOG
-              2026-09-10: a provider redirect under a half-filled form loses the
-              form) and the approved one_door_FINAL_2026-09-22 card; then the email
-              form. ⚠ This reverses the 2026-09-23 ORDER only (email first); the
-              owner's WORDS from that day stay — "sign in directly with Google or
-              Apple" (the sentence above); the buttons say `OAUTH_VERB`
-              (lib/oauth-words.ts, "Continue with"), the one wording every door
-              uses (sweep C9, 2026-10-19). The one Terms box — below them, just
-              above "Create user account" (owner 2026-10-22, "do both") — is the
-              agreement on this path as well; `TermsFirst` holds them until it is
-              ticked.
-              Same components and shell gate as /login; `withAccountType` carries
-              the URL's decision so a vendor arriving by Google is filed as one. */}
+          {/* THE AGREEMENT — ONE BOX FOR ALL THREE DOORS (owner 2026-10-22, "Yes to all": Host 1 option B), and since
+              24 Nov 2026 ABOVE the buttons it controls (owner, on the approved drawing `login_simple_dark_2026-11-24`:
+              "Create account puts the Terms tick above Google/Apple (it still gates all three)" — amends 22 Oct's
+              "just above Create user account"). Clickwrap, UNTICKED, `required` (CTRL-B3). It sits outside the email
+              form now, so `form={SIGNUP_FORM_ID}` makes it one of that form's fields: the email door posts it and the
+              browser refuses that submit without it, exactly as before. NOT `data-password-only`, so it never folds
+              away with the password half. `TermsFirst` below dims Google / Apple until it is ticked, and a press on
+              them unticked nudges it; the tick rides the provider round trip (`carrySignupTerms` →
+              `app/auth/callback`), so a Google / Apple account that ticked here never meets "One quick thing". */}
+          <label htmlFor={TERMS_BOX_ID} className="hr-si-remember hr-si-terms">
+            <input id={TERMS_BOX_ID} name={TERMS_FIELD} form={SIGNUP_FORM_ID} type="checkbox" required data-terms-box="" />
+            <span>
+              I agree to the{' '}
+              <Link href="/terms" className="hr-si-link">
+                Terms
+              </Link>{' '}
+              and{' '}
+              <Link href="/privacy" className="hr-si-link">
+                Privacy Policy
+              </Link>
+            </span>
+          </label>
+          <p id={`${TERMS_BOX_ID}-hint`} role="status" className="hr-si-hint hr-si-terms-hint" hidden>
+            Tick the Terms first.
+          </p>
+
+          {/* ONE DOOR, ONE ORDER (owner 2026-09-25: "similar to the event invitation"): Google / Apple FIRST, then
+              "Use email" (owner 24 Nov 2026). The buttons say `OAUTH_VERB` (lib/oauth-words.ts, "Continue with"),
+              the one wording every door uses (sweep C9, 2026-10-19). `TermsFirst` holds them until the box above is
+              ticked. Same components and shell gate as /login; `withAccountType` carries the URL's decision so a
+              vendor arriving by Google is filed as one. */}
           {showOAuth ? (
             <div className="hr-si-oauth">
               <TermsFirst boxId={TERMS_BOX_ID}>
@@ -238,103 +251,79 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               </TermsFirst>
             </div>
           ) : null}
-          {showOAuth ? (
-            <div className="hr-si-or">
-              <span>or create a password with your email</span>
-            </div>
-          ) : null}
 
-          <form action={signUp} id={SIGNUP_FORM_ID} className="hr-si-form">
-            <input type="hidden" name="next" value={next} />
-            <TurnstileField action="signup" />
-            {refParam ? <input type="hidden" name="ref" value={refParam} /> : null}
-            {srcEvent ? <input type="hidden" name="src_event" value={srcEvent} /> : null}
-            {referralCode ? <input type="hidden" name="refc" value={referralCode} /> : null}
-            {/* The one `account_type`, carrying the value the URL decided. */}
-            <input type="hidden" name="account_type" value={accountType} />
+          {/* "Use email" (owner 24 Nov 2026): the email half waits behind one quiet switch under Google / Apple, and
+              starts open when there is something to show or keep (an error, an address handed over by a link). */}
+          <UseEmailFold fold={showOAuth} open={Boolean(errorMessage || prefilledEmail)}>
+            <form action={signUp} id={SIGNUP_FORM_ID} className="hr-si-form">
+              <input type="hidden" name="next" value={next} />
+              <TurnstileField action="signup" />
+              {refParam ? <input type="hidden" name="ref" value={refParam} /> : null}
+              {srcEvent ? <input type="hidden" name="src_event" value={srcEvent} /> : null}
+              {referralCode ? <input type="hidden" name="refc" value={referralCode} /> : null}
+              {/* The one `account_type`, carrying the value the URL decided. */}
+              <input type="hidden" name="account_type" value={accountType} />
 
-            <div className="hr-si-field">
-              <label htmlFor="hr-su-email" className="hr-si-label">
-                Email address
-              </label>
-              <input
-                id="hr-su-email"
-                name="email"
-                type="email"
-                autoComplete="email"
-                inputMode="email"
-                placeholder="you@email.com"
-                defaultValue={prefilledEmail}
-                required
-                className="hr-si-input"
+              {/* The boxes say what they hold; the labels stay for a screen reader (owner 24 Nov 2026). */}
+              <div className="hr-si-field">
+                <label htmlFor="hr-su-email" className="sr-only">
+                  Email
+                </label>
+                <input
+                  id="hr-su-email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  inputMode="email"
+                  placeholder="Email"
+                  defaultValue={prefilledEmail}
+                  required
+                  className="hr-si-input"
+                />
+              </div>
+              {/* A TYPED Google address takes the Google button's own door (owner
+                  2026-10-18) — same words, same account type as the row above. */}
+              <GoogleAddressDoor
+                enabled={showOAuth}
+                desktopOAuth={desktopOAuth}
+                nativeOAuth={nativeOAuth}
+                next={next}
+                accountType={accountType}
+                termsBoxId={TERMS_BOX_ID}
               />
-            </div>
-            {/* A TYPED Google address takes the Google button's own door (owner
-                2026-10-18) — same words, same account type as the row above. */}
-            <GoogleAddressDoor
-              enabled={showOAuth}
-              desktopOAuth={desktopOAuth}
-              nativeOAuth={nativeOAuth}
-              next={next}
-              accountType={accountType}
-              termsBoxId={TERMS_BOX_ID}
-            />
-            <div className="hr-si-field" data-password-only="">
-              <label htmlFor="hr-su-password" className="hr-si-label">
-                Create your password
-              </label>
-              <PasswordField
-                mode="new"
-                leaked={rawError === 'password_leaked'}
-                id="hr-su-password"
-                name="password"
-                autoComplete="new-password"
-                placeholder="At least 8 characters"
-                required
-                minLength={8}
-                className="hr-si-input"
-              />
-            </div>
+              <div className="hr-si-field" data-password-only="">
+                <label htmlFor="hr-su-password" className="sr-only">
+                  Create a password
+                </label>
+                {/* `brief`: the checks show only while typing, in the drawing's short words (owner 24 Nov 2026). */}
+                <PasswordField
+                  mode="new"
+                  brief
+                  leaked={rawError === 'password_leaked'}
+                  id="hr-su-password"
+                  name="password"
+                  autoComplete="new-password"
+                  placeholder="Password, 8+ characters"
+                  required
+                  minLength={8}
+                  className="hr-si-input"
+                />
+              </div>
 
-            {/* "Stay signed in" defaults CHECKED — explicit opt-out only; the
-                action downgrades sb-* cookies to session-only when unchecked. */}
-            <div className="hr-si-row" data-password-only="">
-              <label htmlFor="hr-su-remember" className="hr-si-remember">
-                <input id="hr-su-remember" name="remember" type="checkbox" defaultChecked />
-                <span>Stay signed in</span>
-              </label>
-            </div>
+              {/* "Stay signed in" defaults CHECKED — explicit opt-out only; the
+                  action downgrades sb-* cookies to session-only when unchecked. */}
+              <div className="hr-si-row" data-password-only="">
+                <label htmlFor="hr-su-remember" className="hr-si-remember">
+                  <input id="hr-su-remember" name="remember" type="checkbox" defaultChecked />
+                  <span>Stay signed in</span>
+                </label>
+              </div>
 
-            {/* THE AGREEMENT — ONE BOX FOR ALL THREE DOORS (owner 2026-10-22, "Yes to all": Host 1 option B,
-                prototype journey_fixes_2026-10-22.html), and since the same day ("do both") JUST ABOVE the button
-                that creates the account — the card reads choose how (Google · Apple · or email + password) →
-                agree → create. Clickwrap, UNTICKED, `required` (CTRL-B3). Inside the form, so the email door posts
-                it as before; NOT `data-password-only`, so it stays on screen when a typed Google address folds the
-                password half away. `TermsFirst` above still dims Google / Apple until it is ticked, and a press on
-                them unticked scrolls here and nudges it; the tick rides the provider round trip (`carrySignupTerms`
-                → `app/auth/callback`), so a Google / Apple account that ticked here never meets "One quick thing". */}
-            <label htmlFor={TERMS_BOX_ID} className="hr-si-remember" style={{ alignItems: 'flex-start' }}>
-              <input id={TERMS_BOX_ID} name={TERMS_FIELD} type="checkbox" required data-terms-box="" style={{ marginTop: 3 }} />
-              <span>
-                I agree to the{' '}
-                <Link href="/terms" className="hr-si-link">
-                  Terms
-                </Link>{' '}
-                and{' '}
-                <Link href="/privacy" className="hr-si-link">
-                  Privacy Policy
-                </Link>
-                .
-              </span>
-            </label>
-            <p id={`${TERMS_BOX_ID}-hint`} role="status" className="hr-si-hint hr-si-terms-hint" hidden>
-              Tick the Terms first.
-            </p>
-
-            <SubmitButton className="hr-si-submit" pendingLabel="Creating account…" data-password-only="">
-              Create account · free
-            </SubmitButton>
-          </form>
+              <SubmitButton className="hr-si-submit" pendingLabel="Creating account…" data-password-only="">
+                Create account
+              </SubmitButton>
+            </form>
+          </UseEmailFold>
 
           <div className="hr-si-foot">
             Have an account?{' '}

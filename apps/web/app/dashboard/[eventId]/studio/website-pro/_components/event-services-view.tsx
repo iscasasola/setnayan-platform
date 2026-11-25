@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { createContext, useContext, useId, useMemo, useRef, useState, useTransition, type ComponentType, type ReactNode } from 'react';
+import { createPortal } from 'react-dom';
 import { ArrowRight, Check, RotateCw, ChevronDown, ChevronRight, Wallet, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Chips } from '@/app/_components/chips';
@@ -96,9 +97,13 @@ function appleFacts(f: EventServicesFacts, apple: AppleKit): EventServicesFacts 
     const id = apple.products[code];
     return id && apple.prices.display.has(id) ? 0 : null;
   };
+  // 🍎 ONE plan per event in the app: Apple sells each plan whole and cannot charge "the difference", and the server
+  // refuses a second plan for an event that holds one (`startAppStorePurchase`: owned / not_on_sale). So an event on a
+  // plan is offered no pack here at all — never a "Next pack" whose Pay can only fail.
+  const onPlan = f.plan !== null && f.plan !== 'free';
   return {
     ...f,
-    packs: f.packs.map((p) => ({ ...p, php: p.state === 'buy' ? priced(p.code) : null, savePhp: null, upgrade: false })),
+    packs: onPlan ? [] : f.packs.map((p) => ({ ...p, php: p.state === 'buy' ? priced(p.code) : null, savePhp: null, upgrade: false })),
     singles: f.singles.filter((x) => has(x.code)).map((x) => ({ ...x, php: x.state === 'buy' ? priced(x.code) : null })),
     photos: f.photos ? f.photos.filter((x) => has(x.code)).map((x) => ({ ...x, php: 0 })) : null,
   };
@@ -509,18 +514,25 @@ export function EventServicesView({
         <ChevronRight aria-hidden strokeWidth={1.9} />
       </Link>
 
-      {/* 🍎 "1 of 2 · Event Pro" — Apple's own payment sheet opens over this; we only name the step (frames 08b · 08c). */}
-      {step ? (
-        <div className="es-step" role="status" aria-live="polite" data-event-services-apple-step={`${step.at}/${step.of}`}>
-          <div className="es-step-sheet">
-            <p className="es-kick">
-              {formatCount(step.at)} of {formatCount(step.of)}
-            </p>
-            <p className="es-big">{step.label}</p>
-            <p className="es-fine">Apple’s own payment sheet opens now.</p>
-          </div>
-        </div>
-      ) : null}
+      {/* 🍎 "1 of 2 · Event Pro" — Apple's own payment sheet opens over this; we only name the step (frames 08b · 08c).
+          Drawn into <body>, like the cart bar's ThumbDock: the event layout's `<main class="sn-vt-page">` carries a
+          view-transition-name, which traps a fixed layer under the bottom nav (the iPhone walk, 25 Nov: the nav and the
+          Pay bar covered "1 of 1"). On <body> it lies over the top bar and the nav, as frame 08b draws. `step` is only
+          ever set by Pay, in the browser, so `document` is there. */}
+      {step
+        ? createPortal(
+            <div className="es-step" role="status" aria-live="polite" data-event-services-apple-step={`${step.at}/${step.of}`}>
+              <div className="es-step-sheet">
+                <p className="es-kick">
+                  {formatCount(step.at)} of {formatCount(step.of)}
+                </p>
+                <p className="es-big">{step.label}</p>
+                <p className="es-fine">Apple’s own payment sheet opens now.</p>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       {/* ── the cart bar: ONE order, ONE Pay — flat on the page, a hairline above (no floating pill) ── */}
       {cart.lines.length > 0 ? (

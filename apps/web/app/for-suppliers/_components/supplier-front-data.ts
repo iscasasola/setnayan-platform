@@ -20,7 +20,7 @@ import { bookingFeeCapAmount, bookingFeeFigures, bookingFeePhp, type BookingFeeS
 import { formatPhpRounded } from '@/lib/php';
 import { SHOP_BADGE_KEYS, type ShopBadgeKey } from '@/lib/badge-tiers';
 import { BADGE_NAME } from '@/lib/graph-unlocks';
-import { BADGE_ART_H, BADGE_ART_W, SHELF_FAMILY, badgeArtSrc } from '@/lib/shop-badge-shelf';
+import { BADGE_ART_H, BADGE_ART_W, SHELF_BADGE_KEYS, SHELF_FAMILY, VERIFIED_TILE_TITLE, badgeArtSrc } from '@/lib/shop-badge-shelf';
 import { alwaysAllowedPack, bundleFreePacks, type ShopGiftBundle, type ShopGiftPack } from '@/lib/shop-gifts';
 import type { PlanCredits } from '@/lib/event-plans';
 import { countNoun, formatCount } from '@/lib/format-number';
@@ -605,7 +605,8 @@ export type ToolkitShelf = { key: ToolkitShelfKey; title: string; rows: ToolkitR
 /**
  * 🧾 THE TOOLKIT'S SHEET, from the ONE Toolkit list (`toolkitItems`, lib/supplier-store.ts — Toolkit v19 PR 2): the
  * widgets (the Papic camera only while its privacy switch is on), the payment-plan and availability templates, the QR
- * designs, the graphs (named by `STORE_GRAPHS`) and the badges (`SHOP_BADGE_KEYS`). Each item once, never padded; a
+ * designs, the graphs (named by `STORE_GRAPHS`) and the badges (the shelf's one list, `SHELF_BADGE_KEYS` — the same list
+ * the Toolkit counts). Each item once, never padded; a
  * shelf with no item is left out. The sheet lists them by name — the page's ONE number is `toolkitClaim`
  * (lib/supplier-toolkit-count.ts), so no shelf carries a second count (controller, 24 Nov: one count).
  *
@@ -616,7 +617,7 @@ export type ToolkitShelf = { key: ToolkitShelfKey; title: string; rows: ToolkitR
 export function toolkitShelves(papicCapture: boolean): ToolkitShelf[] {
   const rows: Record<ToolkitShelfKey, ToolkitRow[]> = { tools: [], payment_plans: [], availability: [], qr: [], graphs: [], badges: [] };
   const widgetTag = (k: SpecializedToolKey): ToolkitTag => (isPaidStoreTool(k) ? 'paid' : isBuiltInWidget(k) ? 'built' : 'free');
-  for (const i of toolkitItems({ papicCapture, badges: SHOP_BADGE_KEYS })) {
+  for (const i of toolkitItems({ papicCapture, badges: SHELF_BADGE_KEYS })) {
     if (i.kind === 'widget') {
       const t = SPECIALIZED_TOOLS.find((x) => x.key === i.key);
       if (t) rows.tools.push({ key: t.key, name: t.title, line: t.line, tag: widgetTag(t.key) });
@@ -628,6 +629,8 @@ export function toolkitShelves(papicCapture: boolean): ToolkitShelf[] {
       rows.qr.push({ key: i.key, name: w.name, line: w.line, tag: i.builtIn ? 'built' : 'free' });
     } else if (i.kind === 'graph') {
       rows.graphs.push({ key: i.key, name: STORE_GRAPHS[i.key].title, line: null, tag: 'free' });
+    } else if (i.key === 'verified') {
+      rows.badges.push({ key: i.key, name: VERIFIED_TILE_TITLE, line: null, tag: 'built' });
     } else if (isShopBadgeKey(i.key)) {
       rows.badges.push({ key: i.key, name: BADGE_NAME[i.key], line: null, tag: 'built' });
     }

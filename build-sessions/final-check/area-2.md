@@ -80,26 +80,46 @@
 - [x] /dashboard/[eventId]/contracts/[contractId] · OFFLINE: READ-ONLY IS ENOUGH (disagree a little: the contract is wanted at the venue on the day; a saved copy of this page plus the PDF would help) · SHAPE: PAGE = PAGE
 - [x] /dashboard/[eventId]/disputes · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: PAGE = PAGE
 - [x] /dashboard/[eventId]/clearance · OFFLINE: READ-ONLY IS ENOUGH (it is pressed once, after the day; it needs the network to write) · SHAPE: PAGE = PAGE
-- [ ] /dashboard/[eventId]/messages
-- [ ] /dashboard/[eventId]/messages/[threadId]
-- [ ] /dashboard/[eventId]/manpower
+- [x] /dashboard/[eventId]/messages · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: PAGE = PAGE ("Message a supplier" is a `Sheet`, correct)
+- [x] /dashboard/[eventId]/messages/[threadId] · OFFLINE: READ-ONLY IS ENOUGH (a saved copy of the quote and agreed terms; a queued send would help a couple at an expo, which the plan does not ask for) · SHAPE: PAGE = PAGE (full-screen takeover on a phone, list beside it from 701; notifications link to it). The `@supplier/(..)vendors/[vendorId]/workspace` door lands: it re-exports `vendors/[vendorId]/workspace/page`, and `?tab=chat|quote|payments|files|schedule|details|report` all resolve in `pickedSupplierPageOf`.
+- [x] /dashboard/[eventId]/manpower · OFFLINE: READ-ONLY IS ENOUGH (the host checks the crew and cash on the day) · SHAPE: PAGE = PAGE
 
 ### Plan the day
-- [ ] /dashboard/[eventId]/details
-- [ ] /dashboard/[eventId]/details/field/[row]
-- [ ] /dashboard/[eventId]/details/change → /dashboard/[…]/details/field/area
-- [ ] /dashboard/[eventId]/date-selection
-- [ ] /dashboard/[eventId]/find-date
-- [ ] /dashboard/[eventId]/checklist
-- [ ] /dashboard/[eventId]/schedule
-- [ ] /dashboard/[eventId]/documents
-- [ ] /dashboard/[eventId]/paperwork
-- [ ] /dashboard/[eventId]/sponsors
-- [ ] /dashboard/[eventId]/nikah
+- [x] /dashboard/[eventId]/details · OFFLINE: READ-ONLY IS ENOUGH (already has `LastSeenCapture page="details"`) · SHAPE: PAGE = PAGE. Note: a couple never sees this page. `viewer.isCouple` → `redirect(eventSettingsHref(...))` (Home with the ⚙ Event Settings sheet open). Only helpers and coordinators read it, read-only. So no row here opens a field (`opens()` is null for every non-couple), and the date, venue and headcount edits live in the Home sheet (`event-settings-rows.tsx` → `EventSettingsEditor` → `GovernedFields`). Their actions revalidate correctly: `updateEventDate` → `revalidatePath(/dashboard/${eventId}, 'layout')` + `revalidateGuestSite`, and `updateGuestCount`/`updateVenueSetting` → layout + details. A failed save returns `{ ok:false, error }`.
+- [x] /dashboard/[eventId]/details/field/[row] (+ `@field/(.)field/[row]` popup) · OFFLINE: NOT NEEDED · SHAPE: TODAY: forward (couple → Home ⚙ sheet, top; helper → the record with nothing open, because `RecordFieldSlot` returns null when `!viewer.isCouple`) → SHOULD: SMALL POPUP on the named field (A2-H11). The intercepting popup (`RecordFieldSheet`/`MakerHalfSheet`) can never open from Details, since couples are redirected before the record draws and helpers' rows carry no `open`.
+- [x] /dashboard/[eventId]/details/change · OFFLINE: NOT NEEDED · SHAPE: forward. Confirmed: `redirect(/dashboard/${eventId}/details/field/area)`. That address then takes a couple to `/dashboard/[eventId]?settings=1` (sheet top, `area` not opened) and a helper to the read-only record (A2-H11).
+- [x] /dashboard/[eventId]/date-selection · OFFLINE: NOT NEEDED (disagree with plan: it ranks dates on live supplier calendars, and a stale copy would recommend a taken date) · SHAPE: PAGE = PAGE (the `?path=direct|guided` steps each have their own address)
+- [x] /dashboard/[eventId]/find-date · OFFLINE: NOT NEEDED (disagree with plan: same live-calendar reason) · SHAPE: PAGE = PAGE (a couple whose event has an Event Hub is forwarded to `launch?tool=details&item=date&date=help`)
+- [x] /dashboard/[eventId]/checklist · OFFLINE: READ-ONLY IS ENOUGH (the target Schedule already has a saved offline copy) · SHAPE: forward. Confirmed: `planningTodoHref` → `/dashboard/[eventId]/schedule?view=preparation&filter=todo`. `schedule/page.tsx` honours both (`viewParam === 'preparation'` → `active`, `filterParam === 'todo'` → `planFilter` → `PreparationAgendaView initialFilter`), and the browser carries a `#task-<id>` hash across the redirect.
+- [x] /dashboard/[eventId]/schedule · OFFLINE: NEEDED (at the venue on the day: hosts and coordinator run the day; today's saved copy is read-only, which the plan accepts for the couple, not the coordinator) · SHAPE: PAGE = PAGE
+- [x] /dashboard/[eventId]/documents · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: PAGE = PAGE
+- [x] /dashboard/[eventId]/paperwork · OFFLINE: READ-ONLY IS ENOUGH (at the parish or LGU office: tracking numbers and dates) · SHAPE: PAGE = PAGE
+- [x] /dashboard/[eventId]/sponsors · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: PAGE = PAGE
+- [x] /dashboard/[eventId]/nikah · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: PAGE = PAGE
+
+## Phase A summary (code pass, done 25 Nov 2026)
+
+- **74 of 74 entries done** (67 pages + 6 forwards + `/signup/you`). Every forward lands where the kit says
+  (`/dashboard/[eventId]/progress` lands on `/dashboard/[eventId]`, keeping `?sai=`; `/checklist` lands on
+  `/schedule?view=preparation&filter=todo`; `/orders/new` and `/dashboard/people` are forwards too).
+- **131 findings:** 0 blocker · 14 money-signin · 16 broken · 60 wrong · 41 look. All `SOURCE: CODE`; the ones a
+  browser must settle say PLAUSIBLE in ACTUAL.
+- **OFFLINE:** 4 NEEDED (check-in and souvenir desk at the venue, Schedule on the day, Suppliers at an expo) ·
+  39 READ-ONLY IS ENOUGH · 31 NOT NEEDED. 16 lines disagree with the plan (most: forms and live-data pages where a
+  saved copy has nothing useful to show; the souvenir desk needs full offline like check-in).
+- **SHAPE:** 53 PAGE = PAGE · 9 forwards (no screen) · **12 differ today:** 10 PAGE → FULL-SCREEN POPUP
+  (the 3 onboarding flows + create-event, guests/new · quick · import, seating/chart · lab · walkthrough),
+  1 PAGE → SMALL POPUP (samahan/new), 1 forward → SMALL POPUP on the named field (details/field/[row]).
+  Onboarding's full entry is under group A (A2-A1 and "ONBOARDING SHAPE").
+- **Question for the controller (not filed as a finding):** with anonymous drafts ON, a signed-out host's event is
+  saved to an anonymous session and the account is asked LATER (`SecureAccountBanner`), not "at save" as CLAUDE.md §1
+  says. Which is meant? It decides whether A2-A3/A2-A4 are the whole problem.
+- Readers' notes: findings A2-B1, C2, D6, E15 and G20 (no dark glow) were folded into A2-X4; A2-A5 and A2-B10 were
+  lowered from money-signin to wrong (a second peso formatter whose figure is right today).
 
 ## BLOCKERS
 
-None found in the code pass so far.
+None found in the code pass (phase A).
 
 ## Findings
 
@@ -1450,6 +1470,480 @@ EXPECTED  The page itself says "It can’t be undone from here", so one confirm 
 ACTUAL    A plain `<form action={closeOutTheDay.bind(null, eventId)}>` submits on the first press. It flips the whole event menu Day-of → After and stamps `cleared_at`. Code: `apps/web/app/dashboard/[eventId]/clearance/page.tsx` · `pendingLabel="Closing out…"`.
 SHOTS     none yet (phase B: 375 px light + dark)
 RULE      CLAUDE.md §3 Floating surface "Confirm only for the irreversible"
+SEVERITY  look
+SOURCE    CODE
+```
+
+### Chat and event details (group H)
+
+#### A2-H1 · "Suppliers" chip shows exactly the All list
+```
+PAGE      /dashboard/[eventId]/messages   (event: Bea & Paolo)
+BUTTON    "Suppliers"
+STEPS     1. Open Chats. 2. Tap All, note the rows. 3. Tap Suppliers.
+EXPECTED  Suppliers narrows the list (for example, hides the Groups section), or the chip is not offered.
+ACTUAL    The chip only changes its pressed state. `shown` filters on `filter === 'unread'` alone, so 'suppliers' draws the same rows as 'all'. The server-rendered Groups section (`EventGroups`) stays above under every chip. Code: `apps/web/app/dashboard/[eventId]/messages/_components/chat-inbox.tsx` · `rows.filter((r) => (filter === 'unread' ? r.unread : true))` · `chip('suppliers', peerFilter)`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      design-and-wiring B5 (every press reaches a real action)
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### A2-H2 · Decisions show payment amounts to a money-hidden viewer
+```
+PAGE      /dashboard/[eventId]/messages/[threadId]   (event: Bea & Paolo, viewed by a coordinator/helper without Budget & payments)
+BUTTON    — (Decisions list / pinned "waiting" payment rows)
+STEPS     1. Sign in as a coordinator or helper whose money is hidden (`chat_money_hidden` = true). 2. Open a booked supplier's thread where a payment was logged. 3. Open Decisions, or look at the pins.
+EXPECTED  Every amount reads "₱ — hosts only", like the stream (`moneyHidden`). Booking amounts are read only through `event_vendor_money_read` on a session.
+ACTUAL    `decisionPayments` comes from `fetchThreadPayments`, which reads `event_vendors.total_cost_php` and `event_vendor_payments.amount_php` with the ADMIN client. That bypasses the per-column close in `lib/event-vendor-money.ts`. The amounts are passed to the stream whatever the viewer, and `threadDecisionFacts`/`buildThreadDecisions` print them (`formatPhp(p.amountPhp)`, `${formatPhp(p.amountPhp)} of ${formatPhp(p.ofTotalPhp)}`). `pinsFromDecisions` pins a "waiting" payment with that title. Only `initialMessages` is masked when `chatPins.streamMasked`. PLAUSIBLE also: the standing line "Quoted ₱X" (`fetchLiveQuoteTotalPhp`, session read of `vendor_proposals.total_centavos`) is not masked either; a browser walk as a money-hidden coordinator must confirm. Code: `apps/web/app/dashboard/[eventId]/messages/[threadId]/page.tsx` · `fetchThreadPayments({ adminClient: decisionAdmin` · `decisionPayments={decisionPayments}`; `apps/web/lib/thread-decision-sources.server.ts` · `.select(\`vendor_id, total_cost_php,`; `apps/web/lib/thread-decisions.ts` · `formatPhp(p.amountPhp)`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §4 (amounts only via event_vendor_money_read) · §5 rule 4
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### A2-H3 · Book and "Amount to pay" shown to non-hosts in thread
+```
+PAGE      /dashboard/[eventId]/messages/[threadId]   (event: Bea & Paolo, viewed by the coordinator or a helper)
+BUTTON    "Book" (quote card lock) · the deposit "Amount to pay" card
+STEPS     1. As the event's coordinator (or a helper), open a thread with an accepted quote / a booked supplier. 2. Look at the quote card and the payment card. 3. Press Book or record a payment.
+EXPECTED  Only a host books or pays. A non-host sees no Book/Pay button, only the coordinator's verbs ("remind the hosts").
+ACTUAL    The page never asks the viewer's role. It passes `lockTarget={quoteLockTarget}` and `couplePay` for every viewer, with `viewerRole="couple"` hard-wired, so the stream mounts `AccordionLockButton` and `DepositReservation` (`viewerRole === 'couple' && couplePay`). The server refuses afterwards: `finalizeVendor`/`recordDeposit` → `coordinatorMoneyScopeAllowed` → `ONLY_A_HOST_BOOKS` / `ONLY_A_HOST_PAYS`. That is a button that is refused on every press. A non-host reaching this page is PLAUSIBLE (the page's own comments say a coordinator whispers here); a browser walk as the coordinator must confirm. Code: `apps/web/app/dashboard/[eventId]/messages/[threadId]/page.tsx` · `lockTarget={quoteLockTarget}` · `couplePay={couplePay}` · `viewerRole="couple"`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §4 ("Only a host books or pays") · design-and-wiring B5
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### A2-H4 · Chat box does not mark the phone key "Send"
+```
+PAGE      /dashboard/[eventId]/messages/[threadId]   (event: Bea & Paolo)
+BUTTON    the message box (phone keyboard's Enter key)
+STEPS     1. On a phone, open a thread. 2. Tap the message box. 3. Look at the keyboard's Enter key.
+EXPECTED  `enterKeyHint="send"` on the box (D3), because Enter now sends on every device (`shouldSendOnEnter`, "one rule for every device").
+ACTUAL    The composer textarea sets no `enterKeyHint`, so the phone keyboard shows "return" while Enter sends. A stale comment in the same file still says "the phone's Enter is a new line". Enter-sends and Shift+Enter-new-line are correct (IME composing is exempt). Code: `apps/web/app/_components/chat-send-form.tsx` · `shouldSendOnEnter(` (no `enterKeyHint` in the file).
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      HOUSE_DESIGN_STANDARD D3 (Enter sends, `enterKeyHint="send"`)
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-H5 · A failed gig read says "No open gigs"
+```
+PAGE      /dashboard/[eventId]/manpower   (event: Bea & Paolo)
+BUTTON    —
+STEPS     1. Open Manpower while the `manpower_gigs` read is refused. 2. Read the three groups.
+EXPECTED  "Couldn't read your gigs" with Try again, never the empty lines.
+ACTUAL    `gigsError` is only logged, then `gigs = (gigsRaw ?? [])`, so every group shows its empty line ("No open gigs. Post one above to start.", "No crews are confirmed yet."). The supplier-name read does the same (`vendorsError` → name falls back to 'Supplier'). Code: `apps/web/app/dashboard/[eventId]/manpower/page.tsx` · `const gigs = (gigsRaw ?? []) as ManpowerGigRow[];`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-H6 · Pesos formatted by page-local formatters, not lib/php
+```
+PAGE      /dashboard/[eventId]/manpower · /dashboard/[eventId]/date-selection (candidate cards)   (event: Bea & Paolo)
+BUTTON    — (gig cash amount; candidate "Budget" line)
+STEPS     1. Open Manpower with a posted gig, read its cash line. 2. Open Pick your date with candidate dates and suppliers, read the Budget line.
+EXPECTED  Every peso through `formatPhp` / `formatPhpRounded` (`lib/php.ts`).
+ACTUAL    Manpower defines its own `formatPhp(centavos)` with `toLocaleString('en-PH', { maximumFractionDigits: 0 })`, which rounds centavos away. The candidate picker defines `phpFormat` (`₱${(php / 1_000).toFixed(0)}K`, `₱…M`, bare `toLocaleString()`), and its "—" for `<= 0` does not tell "nothing" from "unread". Code: `apps/web/app/dashboard/[eventId]/manpower/page.tsx` · `function formatPhp(centavos: number)`; `apps/web/app/dashboard/[eventId]/date-selection/_components/candidate-date-picker.tsx` · `function phpFormat(centavos: number)`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §1 / §4 (pesos only via lib/php.ts)
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### A2-H7 · Static cards carry shadows
+```
+PAGE      /dashboard/[eventId]/manpower · /dashboard/[eventId]/date-selection (candidate cards)   (event: Bea & Paolo)
+BUTTON    —
+STEPS     1. Open Manpower with a gig; look at a gig row. 2. Open Pick your date with candidates; look at the "best" card and hover any card. 3. Repeat in dark.
+EXPECTED  Hairlines on static cards; shadows only on floating layers. In dark, no shadows.
+ACTUAL    Each gig `.sn-row` gets `style={{ boxShadow: 'var(--m-shadow-sm)' }}`. Each candidate card has `hover:shadow-md`, and the best one `shadow-sm`. (Not the system `.sn-frame` shadow.) Code: `apps/web/app/dashboard/[eventId]/manpower/page.tsx` · `boxShadow: 'var(--m-shadow-sm)'`; `apps/web/app/dashboard/[eventId]/date-selection/_components/candidate-date-picker.tsx` · `bg-terracotta/[0.04] shadow-sm`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      HOUSE_DESIGN_STANDARD Part I.4 · Part K2
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-H8 · Booked read from a second status list
+```
+PAGE      /dashboard/[eventId]/details · /dashboard/[eventId]/date-selection   (event: Bea & Paolo)
+BUTTON    — ("N booked", locked rows, "Booked suppliers"; date-lock gate and candidate narrowing)
+STEPS     1. Book a supplier. 2. Open Details (as a helper) and Pick your date.
+EXPECTED  Booked = `BOOKED_EVENT_VENDOR_STATUSES` (`lib/vendor-funnel.ts`), the one reader.
+ACTUAL    Both pages use `CONFIRMED_VENDOR_STATUSES` from `lib/events.ts`, a separate copy of the same four statuses. It agrees today, but it will drift. Code: `apps/web/app/dashboard/[eventId]/details/page.tsx` · `new Set<string>(CONFIRMED_VENDOR_STATUSES`; `apps/web/app/dashboard/[eventId]/date-selection/page.tsx` · `(CONFIRMED_VENDOR_STATUSES as readonly string[]).includes(v.status)`; `date-selection/actions.ts` · `.in('status', CONFIRMED_VENDOR_STATUSES`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §4 / design-and-wiring C8 (one reader)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-H9 · Details row says "monogram"
+```
+PAGE      /dashboard/[eventId]/details   (event: Bea & Paolo, viewed by a helper)
+BUTTON    "Logo / monogram" (row label)
+STEPS     1. Open Event Details as a helper. 2. Open How it looks.
+EXPECTED  "Logo" (Logo Maker), never "monogram".
+ACTUAL    Code: `apps/web/app/dashboard/[eventId]/details/page.tsx` · `label="Logo / monogram"`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      brand.md word rules (Logo Maker, never Monogram)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-H10 · Helpers get "Put this away" on Details
+```
+PAGE      /dashboard/[eventId]/details   (event: Bea & Paolo, viewed by a helper / the coordinator)
+BUTTON    "Put this away" → "Yes, put Bea & Paolo away"
+STEPS     1. Sign in as a view-only helper. 2. Open Event Details. 3. Press Put this away, then Yes.
+EXPECTED  The control is shown only to someone who may archive the event. A helper sees nothing, or a plain line.
+ACTUAL    Couples are redirected away from this page (`if (viewer.isCouple) redirect(...)`), so only non-couples ever see `PutAwayCard`, which renders unconditionally. A view-only helper gets a pressable button that `setEventArchived` refuses ("Only a host of this event can put it away."). PLAUSIBLE product question: `setEventArchived` counts `member_type` 'coordinator' and edit-level moderators as hosts, so the coordinator can put the couple's event away (cameras and Memory lane go quiet) from this page; the owner should confirm that is meant. Code: `apps/web/app/dashboard/[eventId]/details/page.tsx` · `<PutAwayCard`; `apps/web/app/dashboard/[eventId]/archive-actions.ts` · `.in('member_type', ['couple', 'coordinator'])`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      design-and-wiring B5 / B7 (honest controls)
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### A2-H11 · Details field links drop the field
+```
+PAGE      /dashboard/[eventId]/details/field/[row] · /dashboard/[eventId]/details/change   (event: Bea & Paolo)
+BUTTON    — (a bookmark / old link such as …/details/field/date, …/details/change)
+STEPS     1. As the couple, open /dashboard/<id>/details/field/date (or /details/change). 2. See where you land.
+EXPECTED  The Event Settings sheet opens ON that row (`?settings=1&row=date`; `date`, `names` and `venues` are `EVENT_SETTINGS_ROWS`).
+ACTUAL    `RecordFieldPage` renders `EventDetailsPage`, which for a couple calls `redirect(eventSettingsHref(eventId, keep.host_removed || keep.invite_error ? 'access' : undefined, keep))`. The row is never passed, so the sheet opens at its top. Only `papic-answer` has a forward (`COUPLE_RECORD_FIELD_FORWARD`). A helper lands on the record with nothing open (`RecordFieldSlot`: `if (!viewer.isCouple) return null`). Code: `apps/web/app/dashboard/[eventId]/details/page.tsx` · `redirect(eventSettingsHref(`; `apps/web/app/dashboard/[eventId]/details/field/[row]/page.tsx` · `<EventDetailsPage params=`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      design-and-wiring A4 (every way in moves with it) · SHAPE
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### A2-H12 · Locking a date here skips the date's real writer
+```
+PAGE      /dashboard/[eventId]/date-selection   (event: Bea & Paolo)
+BUTTON    "Lock in <date>" (candidate cards) · the date picker's lock · the guided flow's pick
+STEPS     1. Open Pick your date (?path=direct) on an event that already has a date and suppliers on the shortlist. 2. Lock a new date. 3. Open the guest Event Hub, the Schedule and a supplier's view.
+EXPECTED  The same rules and fan-out as the date's writer `updateEventDate`: supplier-calendar clash check, Schedule moved with the date, booked suppliers told (`afterDateApplied`), `revalidatePath(.., 'layout')` + `revalidateGuestSite`.
+ACTUAL    `lockEventDate` writes `events.event_date` itself. It calls `revalidatePath(/dashboard/${eventId})` (Home only, no 'layout', no guest Event Hub), never moves the Schedule, and checks no supplier calendar. Its booked-supplier gate ignores a failed count (`const { count } = …; if ((count ?? 0) > 0)`), so a refused read lets the date change over booked suppliers. The candidate picker's `lockThisDate` has no try/catch, so a thrown refusal ("Date is locked — …", a DB error) goes to the error page instead of under the card. Code: `apps/web/app/dashboard/[eventId]/date-selection/actions.ts` · `export async function lockEventDate` · `revalidatePath(\`/dashboard/${eventId}\`);`; `candidate-date-picker.tsx` · `async function lockThisDate`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      design-and-wiring C9 (a change to a shared fact updates every page) · CLAUDE.md §5 rule 4
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-H13 · "Long weekend" claimed for any date near a holiday
+```
+PAGE      /dashboard/[eventId]/date-selection (candidate cards)   (event: Bea & Paolo)
+BUTTON    — (holiday line on a candidate card)
+STEPS     1. Have a candidate date on a Wednesday two days before a fixed PH holiday that falls on a Friday (e.g. Rizal Day). 2. Open Pick your date.
+EXPECTED  The long-weekend line only when the gap really touches a weekend.
+ACTUAL    `touchesWeekend = candDow === 0 || … || Math.abs(delta) <= 2`. The loop only runs `delta` in ±1, ±2, so the last arm is always true, and every date within two days of a holiday reads "… — a long weekend gives guests time to travel". Holidays and season notes are also hand-typed data arrays inside `page.tsx` (`PH_HOLIDAYS`, `SEASON_NOTES`), not `lib/`. Code: `apps/web/app/dashboard/[eventId]/date-selection/page.tsx` · `function holidayNote` · `Math.abs(delta) <= 2`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      HOUSE_DESIGN_STANDARD Part I.5 (exact words; never invent) · design-and-wiring D15
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-H14 · Icon tiles and a self-made title
+```
+PAGE      /dashboard/[eventId]/find-date · /dashboard/[eventId]/date-selection (candidate cards)   (event: Sofia's 18th, or a coordinator on Bea & Paolo)
+BUTTON    —
+STEPS     1. Open Find your date. 2. Open Pick your date with candidates.
+EXPECTED  No icon in a pastel box; typography leads. The page title through `PageMasthead` like its siblings.
+ACTUAL    Find your date draws its own header: a `CalendarSearch` icon in `rounded-lg bg-terracotta/10` plus a hand-made `<h1 className="text-3xl …">` (no `PageMasthead`). Each candidate fact row puts its icon in `rounded-full bg-terracotta/10`. The same file also uses `text-red-500`/`text-red-600` palette classes. Code: `apps/web/app/dashboard/[eventId]/find-date/_components/find-your-date.tsx` · `function Shell` · `bg-terracotta/10 text-terracotta`; `candidate-date-picker.tsx` · `h-7 w-7 shrink-0 items-center justify-center rounded-full bg-terracotta/10`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      HOUSE_DESIGN_STANDARD Part I.2 · CLAUDE.md §3 (PageMasthead on every page; no numbered palette class)
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-H15 · A failed date read shows "Set your dates first"
+```
+PAGE      /dashboard/[eventId]/find-date   (event: Sofia's 18th, or a coordinator on Bea & Paolo)
+BUTTON    —
+STEPS     1. Open Find your date while the event row read fails.
+EXPECTED  "Couldn't read your date" with Try again.
+ACTUAL    `eventRes.error` is logged, then `eventDate = ev?.event_date ?? null`, so `matrix.hasDate` is false and the page tells a couple who HAS a date to "Set the dates you're considering first". The comment above it says a failed read "is not 'no date'". Code: `apps/web/app/dashboard/[eventId]/find-date/page.tsx` · `if (eventRes.error) {` · `const eventDate = ev?.event_date ?? null;`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-H16 · Find-your-date doors 404 for its own viewers
+```
+PAGE      /dashboard/[eventId]/find-date   (event: a coordinator on Bea & Paolo; Sofia's 18th if its type has no Event Hub)
+BUTTON    "Set your wedding date" · "Lock it in your date settings" · "Set a month or a date range"
+STEPS     1. As the coordinator, open Find your date. 2. Press any of the three links.
+EXPECTED  A door the viewer can open, in the event's own word.
+ACTUAL    A couple whose event has an Event Hub is forwarded away (`redirect(detailsItemHref(eventId, 'date', '&date=help'))`), so this page is read by coordinators and by couples of a type with no Event Hub. All three links go to `/dashboard/${eventId}/date-selection`, which calls `notFound()` for anyone not `member_type === 'couple'`, so a coordinator gets a 404. The CTA says "wedding" for every event type (PLAUSIBLE that a non-wedding type with no Event Hub reaches it; confirm in a browser). Code: `apps/web/app/dashboard/[eventId]/find-date/_components/find-your-date.tsx` · `Set your wedding date` · `Lock it in your date settings`; `apps/web/app/dashboard/[eventId]/date-selection/page.tsx` · `membership.member_type !== 'couple'`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      design-and-wiring B5 (no link to a route the viewer cannot open) · CLAUDE.md §1 (event, not wedding, unless it is one)
+SEVERITY  broken
+SOURCE    CODE
+```
+
+### Plan the day (group I)
+
+Checked and fine (no finding): `/checklist` forwards via `planningTodoHref` to `/schedule?view=preparation&filter=todo`, which is correct. The couple's schedule and the supplier's `clients/[eventId]?tab=schedule` read the same table, `event_schedule_blocks`: the couple through `fetchScheduleBlocks` (`lib/schedule.ts`), the supplier through its own select in `vendor-dashboard/clients/[eventId]/page.tsx`. `emcee-script-button.tsx` hand-rolls `role="dialog"` + `aria-modal`, but it uses `OverlayBackdrop` + `useModalA11y`, so K3 passes. Inside ⚙ Schedule settings it carries `data-settings-closes`, so it never opens on top of a popup. Every other schedule layer uses `Sheet`. The nikah page returns 404 unless `isMuslimWedding`. Sponsors redirects a Muslim-primary wedding to Guests. Nikah counts come from `fetchGuestsByEventMeasured`, and a failed read is said in words (`measured` false).
+
+#### A2-I1 · Failed supplier-requests read shows "Nothing waiting"
+```
+PAGE      /dashboard/[eventId]/schedule   (event: Bea & Paolo)
+BUTTON    "N need you ›" / Home's "N to approve" door (?sheet=requests)
+STEPS     1. The event_schedule_suggestions read (direction to_host) is refused. 2. Open Schedule, or come in from Home's "N to approve".
+EXPECTED  The requests sheet says it could not read the requests and offers Try again. It never says "Nothing waiting".
+ACTUAL    The `error` is never checked: `const openSuggestions = (suggestionsRes.data ?? []) as VendorSuggestion[];`. With no rows, the "need you" control does not draw, and `RequestsSheet` shows "Nothing waiting. Suppliers' requests land here…". Home can say "N to approve" while this sheet says nothing is waiting. The sibling `asksRes` read on the same page IS checked (`asksRes && !asksRes.error ? … : null`). Code: `apps/web/app/dashboard/[eventId]/schedule/page.tsx` · `suggestionsRes.data ?? []`; `schedule/_components/day-sheets.tsx` · `Nothing waiting.`
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-I2 · Planning list works out owed money itself
+```
+PAGE      /dashboard/[eventId]/schedule?view=preparation   (event: Bea & Paolo)
+BUTTON    —   (payment rows "₱N due to <supplier>")
+STEPS     1. Book a supplier with dated payment lines. 2. Open Schedule › Planning Stage.
+EXPECTED  The amounts and paid status come from the one money reader (`resolveEventMoney`, amounts via `event_vendor_money_read`). Booked comes from `BOOKED_EVENT_VENDOR_STATUSES`. Pesos are formatted by `lib/php.ts`.
+ACTUAL    `fetchPaymentItems` reads `event_vendor_line_items.amount_php` and `event_vendor_payments` directly. It sums paid per line itself (`paidByLine`) and decides booked with a second list, `CONFIRMED_VENDOR_STATUSES` from `lib/events.ts`. It prints pesos with its own `formatPhpShort` (`₱${Math.round(php).toLocaleString('en-PH')}`). The row repeats this in the view: `₱{Math.round(item.amountPhp).toLocaleString('en-PH')}`. Hidden amounts never pass through the RPC, so an amount the budget page hides ("—") can show here. Code: `apps/web/lib/preparation.ts` · `fetchPaymentItems`, `formatPhpShort`, `CONFIRMED_VENDOR_STATUSES`; `apps/web/app/dashboard/[eventId]/schedule/_components/preparation-agenda.tsx` · `toLocaleString('en-PH')`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §4 Budget row + design-and-wiring C8 (one reader)
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### A2-I3 · Planning list silently drops paperwork and meetings on a failed read
+```
+PAGE      /dashboard/[eventId]/schedule?view=preparation   (event: Bea & Paolo)
+BUTTON    —
+STEPS     1. The event_paperwork read or the event_appointments read is refused. 2. Open Planning Stage.
+EXPECTED  The page says the paperwork deadlines or meetings could not be read, as it already does for tasks, steps and payments.
+ACTUAL    `fetchPaperworkItems` and `fetchAppointmentItems` log the error and `return []`. Only task, manual and payment are pushed into `unread`. A refused paperwork read therefore removes every "complete by" deadline with no notice. If nothing else is dated, the page shows "Nothing to prepare yet." Code: `apps/web/lib/preparation.ts` · `console.error('[preparation] paperwork:'` then `return [];` · `unread.push`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-I4 · Planning rows use pastel icon tiles and numbered colours
+```
+PAGE      /dashboard/[eventId]/schedule?view=preparation   (event: Bea & Paolo)
+BUTTON    —
+STEPS     1. Open Planning Stage with a payment, paperwork and meeting row.
+EXPECTED  No coloured icon boxes (Part I rule 2), and token colours by job only.
+ACTUAL    Every non-tick row draws a 36 px icon in a tinted box (`inline-flex h-9 w-9 … rounded-lg ${iconStylesFor(display)}`). The boxes use numbered palette classes `bg-blue-50`, `bg-indigo-50`, `bg-warn-100`, `bg-mulberry/10`. Row frames use `border-blue-200/70 … bg-blue-50/30` (`containerStylesFor`). Code: `apps/web/app/dashboard/[eventId]/schedule/_components/preparation-agenda.tsx` · `iconStylesFor`, `containerStylesFor`, `chipStylesFor`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      HOUSE_DESIGN_STANDARD Part I rule 2 (no icon tiles) · design-and-wiring D13
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-I5 · Failed document and receipt reads show "No documents yet"
+```
+PAGE      /dashboard/[eventId]/documents   (event: Bea & Paolo)
+BUTTON    —
+STEPS     1. Any of the paperwork, contracts, orders or receipts reads is refused. 2. Open Documents.
+EXPECTED  The section says it could not read ("Couldn't read" + Try again). It never shows "No paid orders yet", "No transaction receipts yet" or the whole-page "No documents yet".
+ACTUAL    `fetchEventPaperwork` and `fetchEventContracts` return `[]` on error (`lib/paperwork.ts`, `lib/contracts.ts`). The page adds `.catch(() => [])` to all three, which also swallows the throw from `fetchOrdersForEvent`. Receipts use `(receiptsRes.data ?? [])` with no error check. When all of them fail, `totalDocs === 0` draws `EmptyState` ("No documents yet…"). Order and receipt rows carry ₱ amounts, so paid money disappears as if it never existed. Code: `apps/web/app/dashboard/[eventId]/documents/page.tsx` · `fetchOrdersForEvent(supabase, eventId).catch(() => [])`, `receiptsRes.data ?? []`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### A2-I6 · Documents says "Monogram" (Logo Maker) and a stale door
+```
+PAGE      /dashboard/[eventId]/documents   (event: Bea & Paolo)
+BUTTON    "Browse add-ons" (Setnayan creations empty line)
+STEPS     1. Open Documents with no creation orders, or with a `monogram_hero_upgrade` order.
+EXPECTED  The page says "Logo Maker". The empty line names a place that exists.
+ACTUAL    `CREATION_SKU_LABEL` prints "Monogram Hero". The empty message reads "No Setnayan creations yet. Design a monogram from the YOUR PLAN section on Today." The creation SKU list (`CREATION_SKU_KEYS`) is also typed into the page. Code: `apps/web/app/dashboard/[eventId]/documents/page.tsx` · `monogram_hero_upgrade: 'Monogram Hero'`, `Design a monogram from the YOUR PLAN section on Today.`
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      brand.md word rules (Logo Maker, never Monogram) · design-and-wiring D15
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-I7 · Several accent-outlined buttons in one scope
+```
+PAGE      /dashboard/[eventId]/documents ; /dashboard/[eventId]/paperwork   (event: Bea & Paolo)
+BUTTON    "Start your paperwork" + "See contract uploads"; "Mark as requested" / "Mark as received" + "Open PSA portal" + "Save" + "Save scan" + "Save note"; "Plan your tea-ceremony serving order" + "Find a date / feng-shui specialist"
+STEPS     1. Documents with nothing on file. 2. Paperwork: open one document card (PSA birth cert, status not_started, then requested). 3. A Chinese wedding: the traditions guide.
+EXPECTED  At most one main button per scope. Every other button is neutral or a text link, never accent-outlined and never another bright colour.
+ACTUAL    The Documents empty state shows two `ab ab-brand` (accent-outlined) links side by side, with no main. Each paperwork card has the main `ab ab-brand ab-main` "Mark as requested" plus four or five `ab ab-brand` outlined buttons ("Open PSA portal", tracking "Save", "Save scan", "Save note", "Reset status"). In the requested state, a filled green `bg-success-700` "Mark as received" sits beside them. The Chinese guide puts two `ab ab-brand` outlined links side by side. Code: `apps/web/app/dashboard/[eventId]/documents/page.tsx` · `EmptyState`; `apps/web/app/dashboard/[eventId]/paperwork/page.tsx` · `ActionsBlock`, `UploadBlock`, `NotesForm`, `TrackingReferenceForm`, `TraditionsGuide`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-I8 · Failed paperwork read shows "Start your checklist"
+```
+PAGE      /dashboard/[eventId]/paperwork   (event: Bea & Paolo)
+BUTTON    "Build my checklist"
+STEPS     1. The event_paperwork read is refused. 2. Open Paperwork.
+EXPECTED  The page says the paperwork could not be read. It never asks the couple to start over.
+ACTUAL    `fetchEventPaperwork` logs the error and returns `[]`. `rows.length === 0` sets `needsSeed`, so the page offers "Start your checklist · Build my checklist". The summary strip is hidden, and every card says "This document will appear once you build your checklist above." Paperwork already marked received reads as never started. Code: `apps/web/lib/paperwork.ts` · `fetchEventPaperwork` (`return [];` on error); `apps/web/app/dashboard/[eventId]/paperwork/page.tsx` · `needsSeed`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-I9 · Paperwork is a blank page for non-wedding events
+```
+PAGE      /dashboard/[eventId]/paperwork   (event: Sofia's 18th · Lolo Ben at 80)
+BUTTON    "Start your paperwork" (Documents) · "Open paperwork" (Planning Stage empty state)
+STEPS     1. On Sofia's 18th, open Documents with nothing on file and press "Start your paperwork", or open Schedule › Planning Stage while empty and press "Open paperwork".
+EXPECTED  Either no door to Paperwork for an event with no statutory paperwork, or a page that says plainly that this event needs none.
+ACTUAL    For `event_type !== 'wedding'` the page renders only the back link and `<PageMasthead title="Paperwork" />`, with no text below. The comment promises "a generic 'no statutory paperwork' state". Both doors are drawn for every event type. Code: `apps/web/app/dashboard/[eventId]/paperwork/page.tsx` · `!== 'wedding'` branch; `documents/page.tsx` · `Start your paperwork`; `schedule/_components/preparation-agenda.tsx` · `Open paperwork`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      design-and-wiring A3/B5 (every press reaches something real) · F3 empty state
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-I10 · Paperwork save failures go to the error screen
+```
+PAGE      /dashboard/[eventId]/paperwork   (event: Bea & Paolo)
+BUTTON    "Save scan" · "Save note" · "Mark as requested" · "Mark as received" · "Save"
+STEPS     1. Type a note, or upload a scan. 2. Press Save while the update is refused (RLS, network).
+EXPECTED  An inline failure in plain words ("Didn't save · Try again" / "Didn't upload · Try again"), with the typed note kept.
+ACTUAL    Every action in `paperwork/actions.ts` does `throw new Error('Could not …')` from a plain `<form action>`. Nothing on the page catches it, and `dashboard/[eventId]` has no `error.tsx` of its own, so the root `app/error.tsx` replaces the whole page. In production Next strips the thrown message, so the friendly text never shows, and the typed note is lost. The upload widget itself does show its own failure line (`FileUpload`). Code: `apps/web/app/dashboard/[eventId]/paperwork/actions.ts` · `throw new Error(` in `uploadPaperworkScan`, `setPaperworkNotes`, `markPaperworkRequested`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      design-and-wiring B6 (a failure must render as a failure) · CLAUDE.md §3 Toast row
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-I11 · Replaced or unsaved paperwork scans are never removed
+```
+PAGE      /dashboard/[eventId]/paperwork   (event: Bea & Paolo)
+BUTTON    "Upload scan" → "Save scan"
+STEPS     1. Upload a PSA scan and press Save scan. 2. Upload a different file for the same document and save again. 3. Or upload a file and leave without pressing Save scan.
+EXPECTED  The old or abandoned object in the private bucket is deleted, or swept later.
+ACTUAL    `uploadPaperworkScan` overwrites `document_r2_key` and never deletes the previous key. A file uploaded but never saved (`unsavedHint="press Save scan below"`) stays in the bucket under `paperwork/<eventId>/…`. I found no sweep or `cleanup-delete` path that reads `event_paperwork.document_r2_key` or the `paperwork/` prefix. PLAUSIBLE: the absence of a sweep is from grep only (`lib/cleanup-delete.ts`, `lib/*sweep*`). Ops should confirm in the bucket. Code: `apps/web/app/dashboard/[eventId]/paperwork/actions.ts` · `document_r2_key: documentR2Key`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      group brief (every upload surface needs a cleanup) · CLAUDE.md §7 private buckets
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-I12 · Paperwork summary is four equal KPI tiles
+```
+PAGE      /dashboard/[eventId]/paperwork   (event: Bea & Paolo)
+BUTTON    —
+STEPS     1. Open Paperwork with at least one row.
+EXPECTED  One hero number, with the rest quieter in one hairline row. Static cards are neutral.
+ACTUAL    `SummaryStrip` draws four equal `sn-row` tiles (Received · In progress · Overdue · License status) in green, amber or red text. Document cards are tinted by state with numbered palette classes (`border-success-300/50 bg-success-50/40`, `bg-danger-50/40`, `bg-warn-50/40`) on a hand-made `rounded-xl border` frame. Code: `apps/web/app/dashboard/[eventId]/paperwork/page.tsx` · `SummaryStrip`, `borderClass`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      HOUSE_DESIGN_STANDARD Part I rules 3 and 4 · design-and-wiring D13
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-I13 · Failed sponsor read shows "0 of N slots filled"
+```
+PAGE      /dashboard/[eventId]/sponsors   (event: Bea & Paolo)
+BUTTON    "Add ninong" / "Add ninang" slots
+STEPS     1. The event_sponsors read is refused. 2. Open Sponsors.
+EXPECTED  The page says it could not read the sponsors. It never shows an empty list a couple could re-fill with duplicates.
+ACTUAL    `sponsorRowsError` is logged (`graceful_degrade`), then `const sponsors = (sponsorRows ?? []) as SponsorRow[];`. Progress reads "0 of N slots filled · 0 accepted" and every slot draws an Add button. Code: `apps/web/app/dashboard/[eventId]/sponsors/page.tsx` · `sponsorRows ?? []`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-I14 · Sponsors page is a second sponsor list, not the guest list
+```
+PAGE      /dashboard/[eventId]/sponsors   (event: Bea & Paolo; also Sofia's 18th by URL)
+BUTTON    —
+STEPS     1. On Guests, tag two guests "Principal sponsor". 2. Open /sponsors.
+EXPECTED  Sponsors are counted from the one guest reader (`guests.role`), the source the guest list, the entourage and the printed invitation use. The page is reachable only where it makes sense (weddings).
+ACTUAL    The page reads only `event_sponsors` (admin client) and counts its own "N of M slots filled · N accepted". Guests tagged as sponsors on the guest list do not appear, so the two pages disagree. `lib/entourage.ts` and `app/[slug]/_lib/loaders.ts` state that roles come "from the guest list and nowhere else" and that `event_sponsors` held zero rows. The only real door is the AI cockpit nudge (`lib/setnayan-ai-cockpit.ts`, which fires only when sponsor rows already exist). Guests and the menu only "alsoMatch" it. The page has no `event_type` gate: only a Muslim-primary wedding is redirected, so a debut or birthday that opens the URL gets "Ninong & ninang" and cord/veil/coin/candle sponsors. Code: `apps/web/app/dashboard/[eventId]/sponsors/page.tsx` · `.from('event_sponsors')`, `totalSlotsTarget`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §4 Guest row (one reader) · design-and-wiring A3 (registered and reachable), C8
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-I15 · Sponsors guesses ninong or ninang from the family side
+```
+PAGE      /dashboard/[eventId]/sponsors   (event: Bea & Paolo)
+BUTTON    "Add ninong" · "Add ninang"
+STEPS     1. Open Sponsors and look at any Walk row.
+EXPECTED  Godfather or godmother is chosen by the couple, never inferred from side (owner ruling 2026-09-15, quoted in `lib/event-sponsors.ts` `sponsorRoleHonorific`).
+ACTUAL    Each walk labels the groom's column "<Groom's side> · ninong" with "Add ninong", and the bride's column "· ninang" with "Add ninang". A bride-side godfather is therefore filed under "ninang". This is the inference `lib/event-sponsors.ts` calls "always wrong". Code: `apps/web/app/dashboard/[eventId]/sponsors/page.tsx` · `{SPONSOR_SIDE_LABEL.groom} · ninong`, `triggerLabel="Add ninang"`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      wrong word (owner ruling in lib/event-sponsors.ts)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-I16 · Sponsor invite sheet advertises a coming feature
+```
+PAGE      /dashboard/[eventId]/sponsors   (event: Bea & Paolo)
+BUTTON    the sponsor's name (opens "Invite <name>")
+STEPS     1. Add a sponsor. 2. Press their invite button.
+EXPECTED  No mention of features that are not live.
+ACTUAL    The sheet says "Automated email delivery ships in a future update — for now you send the message yourself." Code: `apps/web/app/dashboard/[eventId]/sponsors/_components/invitation-template-modal.tsx` · `Automated email delivery ships in a future update`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      brand.md claims never made, item 9 (coming features)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-I17 · Sponsor card and invite sheet break button rank
+```
+PAGE      /dashboard/[eventId]/sponsors   (event: Bea & Paolo)
+BUTTON    invite trigger + "Marked yes" + "Declined"; sheet "Copy to clipboard" + "Mark invitation sent"
+STEPS     1. Mark a sponsor's invitation sent (status invited). 2. Look at their card. 3. Open the invite sheet.
+EXPECTED  One main per card or sheet; the others neutral.
+ACTUAL    In the invited state, one card shows a hand-made accent-outlined invite trigger (`border-terracotta/40 … text-terracotta-700-700`; that last class does not exist, so the word falls back to the inherited colour), a green outlined `actionButtonClass('ok')` "Marked yes", and a neutral "Declined". That is two bright buttons and no main. In the sheet, `ActionButton tone="info"` "Copy to clipboard" (bright) sits beside the main "Mark invitation sent". Code: `apps/web/app/dashboard/[eventId]/sponsors/_components/sponsor-card.tsx` · `actionButtonClass('ok')`; `invitation-template-modal.tsx` · `tone="info"`, `text-terracotta-700-700`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-I18 · Sponsors shows raw database errors, and the URL can forge them
+```
+PAGE      /dashboard/[eventId]/sponsors   (event: Bea & Paolo)
+BUTTON    "Save" in the Add / Edit sponsor sheets
+STEPS     1. An add or update fails, or anyone opens /sponsors?error=anything.
+EXPECTED  A plain reason in house words plus Try again. A hand-edited URL cannot put text on the page (the schedule page guards this with `parseNoteFlash`).
+ACTUAL    The actions redirect with `?error=${encodeURIComponent((e as Error).message.slice(0, 120))}`, which is the Postgres or Supabase message. The page prints `search.error` verbatim in a `role="alert"` banner. Code: `apps/web/app/dashboard/[eventId]/sponsors/actions.ts` · `sponsors?error=`; `sponsors/page.tsx` · `const errorMessage = search.error ?? null;`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      design-and-wiring B6 · Part F4 (error in plain words)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-I19 · "Save Nikah details" ignores a failed save
+```
+PAGE      /dashboard/[eventId]/nikah   (event: a Muslim wedding; none seeded, so use one with ceremony_type muslim)
+BUTTON    "Save Nikah details"
+STEPS     1. Type a mahr. 2. Press Save while the events update is refused.
+EXPECTED  The failure is said ("Didn't save · Try again"), and success gets a small toast.
+ACTUAL    `updateNikahDetails` does `await sb.from('events').update({...}).eq('event_id', eventId);` and never reads `{ error }`. It then revalidates as if it saved. A refused write gives no feedback, and on reload the mahr is gone. "Mahr set" stays at todo with no explanation. Code: `apps/web/app/dashboard/[eventId]/nikah-actions.ts` · `updateNikahDetails`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      design-and-wiring B6 (a failure must render as a failure)
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### A2-I20 · Nikah card uses a hand-made emerald frame and typed px
+```
+PAGE      /dashboard/[eventId]/nikah   (event: a Muslim wedding)
+BUTTON    —
+STEPS     1. Open the Nikah page in light and dark.
+EXPECTED  The card is `.sn-frame` with token colours by job and the `text-sn-*` scale.
+ACTUAL    The card is `rounded-2xl border-2 border-emerald-200/70 … bg-emerald-50/30` (a hand-made tinted frame). Icons, labels and the mood-board link use numbered `text-emerald-700/800`. Small print uses `text-[11px]`, the heading `font-mono text-[11px] … tracking-[0.25em]`. The inputs are hand-styled rather than `.input-field`. Code: `apps/web/app/dashboard/[eventId]/_components/nikah-essentials-card.tsx` · `border-emerald-200/70`, `text-[11px]`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      design-and-wiring D13 · CLAUDE.md §3 Card/Type/Form rows
 SEVERITY  look
 SOURCE    CODE
 ```

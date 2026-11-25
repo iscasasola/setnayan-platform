@@ -25,14 +25,14 @@ function enumValues(): string[] {
   );
   const m = sql.match(/CREATE TYPE public\.rsvp_status AS ENUM \(([^)]*)\)/);
   assert.ok(m, 'the rsvp_status enum is created in the guests migration');
-  const base = [...m[1].matchAll(/'([a-z_]+)'/g)].map((x) => x[1]);
+  const base = [...(m[1] ?? '').matchAll(/'([a-z_]+)'/g)].map((x) => x[1] ?? '');
   // Any later ALTER TYPE … ADD VALUE also counts.
   const added: string[] = [];
   for (const f of readdirSync(join(REPO, 'supabase', 'migrations'))) {
     if (!f.endsWith('.sql')) continue;
     const s = readFileSync(join(REPO, 'supabase', 'migrations', f), 'utf8');
     for (const a of s.matchAll(/ALTER TYPE public\.rsvp_status ADD VALUE(?: IF NOT EXISTS)? '([a-z_]+)'/gi)) {
-      added.push(a[1]);
+      added.push(a[1] ?? '');
     }
   }
   return [...base, ...added];
@@ -52,7 +52,7 @@ test('RsvpStatus carries exactly the values of the rsvp_status enum', () => {
   const src = readFileSync(join(WEB, 'lib', 'guests.ts'), 'utf8');
   const m = src.match(/export type RsvpStatus = ([^;]+);/);
   assert.ok(m, 'lib/guests.ts exports RsvpStatus');
-  const typed = [...m[1].matchAll(/'([a-z_]+)'/g)].map((x) => x[1]).sort();
+  const typed = [...(m[1] ?? '').matchAll(/'([a-z_]+)'/g)].map((x) => x[1] ?? '').sort();
   assert.deepEqual(typed, [...enumValues()].sort());
 });
 
@@ -64,11 +64,11 @@ test('every rsvp_status filter in app/, lib/ and components/ names a real value'
       const src = readFileSync(file, 'utf8');
       const rel = relative(WEB, file);
       for (const m of src.matchAll(/\.(?:eq|neq)\(\s*'rsvp_status',\s*'([a-z_]+)'/g)) {
-        if (!real.has(m[1])) bad.push(`${rel}: '${m[1]}'`);
+        if (!real.has(m[1] ?? '')) bad.push(`${rel}: '${m[1]}'`);
       }
       for (const m of src.matchAll(/\.in\(\s*'rsvp_status',\s*\[([^\]]*)\]/g)) {
-        for (const v of m[1].matchAll(/'([a-z_]+)'/g)) {
-          if (!real.has(v[1])) bad.push(`${rel}: '${v[1]}'`);
+        for (const v of (m[1] ?? '').matchAll(/'([a-z_]+)'/g)) {
+          if (!real.has(v[1] ?? '')) bad.push(`${rel}: '${v[1]}'`);
         }
       }
     }

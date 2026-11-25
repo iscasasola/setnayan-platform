@@ -268,13 +268,14 @@ test('the seat pass never blames the guest for a read that failed', () => {
 test('a failed read never renders as "the floor plan is on its way"', () => {
   // That sentence is a claim about the COUPLE'S progress. Produced by our own
   // outage it is simply untrue, and the guest cannot act on it.
+  // (A4-34, 25 Nov: both pages read through the ONE seat-plan reader, `fetchTables`, which throws on a refused read;
+  // each page catches it into its own honest answer.)
   assert.match(
     SEAT,
-    /const \{ data, error \} = await admin[\s\S]{0,400}?from\('event_tables'\)/,
+    /try \{\s*return \{ rows: await fetchTables\(admin, eventId\), failed: false \};\s*\} catch \{\s*return \{ rows: \[\], failed: true \};/,
     'seat: the tables read discards its error',
   );
-  assert.match(SEAT, /failed: Boolean\(error\)/, 'seat: the failure is not reported to the caller');
-  assert.match(FIND_TABLE, /error: tablesErr/, 'find-my-table: the tables read discards its error');
+  assert.match(FIND_TABLE, /\} catch \(e\) \{\s*tablesErr = e;/, 'find-my-table: the tables read discards its error');
   assert.match(
     FIND_TABLE,
     /if \(assignmentErr \|\| tablesErr\)/,

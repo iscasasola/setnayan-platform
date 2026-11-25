@@ -21,7 +21,7 @@ import {
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { resolveMonogram } from '@/lib/monogram';
-import type { EventTableRow } from '@/lib/seating';
+import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { publicDisplayName } from '@/lib/find-your-seat';
 import { PulsedLiveRefresher } from '@/app/_components/pulsed-live-refresher';
@@ -93,9 +93,6 @@ type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ t?: string }>;
 };
-
-const TABLES_SELECT =
-  'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos';
 
 export default async function SeatPassPage({ params, searchParams }: Props) {
   const { slug } = await params;
@@ -231,7 +228,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     if (await partDoorHidden(admin, event.event_id, 'seat')) redirect(`/${slug}`);
 
     // Table hit → stateless public table view (publication-gated below).
-    const { rows: tables, failed: tablesFailed } = await fetchTables(admin, event.event_id);
+    const { rows: tables, failed: tablesFailed } = await readTables(admin, event.event_id);
     const entrance = await fetchEntrance(admin, event.event_id);
     if (tablesFailed) return <SeatCouldNotLoad event={event} slug={slug} roomLinks={roomLinks} />;
     const published = await guestsMaySeeSeatsFor(admin, event.event_id);
@@ -298,7 +295,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     );
   }
 
-  const { rows: tables, failed: tablesFailed } = await fetchTables(admin, event.event_id);
+  const { rows: tables, failed: tablesFailed } = await readTables(admin, event.event_id);
   const entrance = await fetchEntrance(admin, event.event_id);
 
   return (
@@ -350,22 +347,18 @@ function SeatCouldNotLoad({
 
 // Shared seating fetch. Admin client; constrained to event_id. Same select
 // string find-my-table uses.
-async function fetchTables(
+async function readTables(
   admin: ReturnType<typeof createAdminClient>,
   eventId: string,
 ): Promise<{ rows: EventTableRow[]; failed: boolean }> {
-  // 🔴 `return (data ?? [])` threw the error away, and an empty list is exactly
-  // what this page renders as "the floor plan is on its way" — i.e. a failed
-  // read was shown to the guest as the COUPLE not having done their seating.
-  // supabase-js resolves with `data: null` on failure, which is the same value
-  // as "no tables yet"; only the error tells them apart.
-  const { data, error } = await admin
-    .from('event_tables')
-    .select(TABLES_SELECT)
-    .eq('event_id', eventId)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
-  return { rows: (data ?? []) as EventTableRow[], failed: Boolean(error) };
+  // 🔌 A4-34 (final check, 25 Nov): the couple's ONE seat-plan reader (`lib/seating.ts` `fetchTables` — its order, its
+  // capacity and coordinate clean-up). This page had its own copy that SHADOWED the shared name. A refused read is
+  // still told apart from "no tables yet" — the shared reader throws, and this page answers with SeatCouldNotLoad.
+  try {
+    return { rows: await fetchTables(admin, eventId), failed: false };
+  } catch {
+    return { rows: [], failed: true };
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────

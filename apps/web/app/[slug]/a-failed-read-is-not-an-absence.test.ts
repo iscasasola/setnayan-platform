@@ -231,7 +231,9 @@ test('1 · every read on the guest\'s day pages is thrown, consulted, or listed 
   // panels. Measured with DUMP_READS=1 after the change: 5 thrown · 16 consulted · 3 discarded = 24.
   assert.ok(ALL.filter((r) => r.verdict === 'thrown').length >= 5, 'anti-vacuity: fewer `guestRead` reads than this work made');
   assert.ok(ALL.filter((r) => r.verdict === 'consulted').length >= 8, 'anti-vacuity: fewer consulted reads than the files hold');
-  assert.ok(ALL.length >= 24, `anti-vacuity: the walker sees ${ALL.length} reads; there were 24 when /hub became a redirect (28 before)`);
+  // 🧭 23 since 25 Nov (A4-34): seat/page.tsx's own `event_tables` read moved into the shared `fetchTables` (lib/seating.ts),
+  // which throws on a refused read; the page catches it into `failed: true`. One fewer raw read here, none less honest.
+  assert.ok(ALL.length >= 23, `anti-vacuity: the walker sees ${ALL.length} reads; there were 23 after seat/page.tsx moved to the shared table reader (24 when /hub became a redirect, 28 before)`);
 
   const soft = new Set<string>();
   const offenders: string[] = [];

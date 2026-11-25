@@ -14,7 +14,7 @@ import { fetchEntrance } from '@/lib/indoor-blueprint';
 import { readGuestBooths } from '@/lib/booth-card-from-row';
 import { parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
 import type { Lab3DBooth } from '@/lib/seating-3d';
-import type { EventTableRow } from '@/lib/seating';
+import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram } from '@/lib/monogram';
 import { formatEventDate } from '@/lib/events';
@@ -87,9 +87,6 @@ type Props = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-const TABLES_SELECT =
-  'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos';
-
 export default async function FindSeatPage({ params, searchParams }: Props) {
   const { slug } = await params;
   if (!slug) notFound();
@@ -140,16 +137,9 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
   let tables: EventTableRow[] = [];
   const entrance = await fetchEntrance(admin, event.event_id);
   if (published) {
-    const { data, error } = await admin
-      .from('event_tables')
-      .select(TABLES_SELECT)
-      .eq('event_id', event.event_id)
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: true });
-    // 🔴 A failed read is not an empty room: an empty list would draw "your
-    // table will appear here" to a seated guest. Throw to the error boundary.
-    if (error) throw new Error(`find-seat: could not read the tables: ${error.message}`);
-    tables = (data ?? []) as EventTableRow[];
+    // 🔌 A4-34: the ONE seat-plan reader (`lib/seating.ts` `fetchTables`). A failed read is not an empty room — it
+    // throws to the error boundary, as before.
+    tables = await fetchTables(admin, event.event_id);
   }
   /* 🪑 How the couple chose guests see their seat (owner 2026-11-01) and 🏪 the booked suppliers' booths — both read only
      once the seat gate opened the room, like the tables. An unread choice is today's (Both); an unread booth list draws

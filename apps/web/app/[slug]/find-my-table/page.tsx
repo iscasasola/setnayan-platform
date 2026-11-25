@@ -13,7 +13,7 @@ import { eventWordsFromProfile } from '../_lib/event-words';
 import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { fetchEntrance } from '@/lib/indoor-blueprint';
-import type { EventTableRow } from '@/lib/seating';
+import { fetchTables, type EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { PulsedLiveRefresher } from '@/app/_components/pulsed-live-refresher';
 import { theDayFor } from '@/lib/event-clock.server';
@@ -133,17 +133,16 @@ export default async function FindMyTablePage({ params }: Props) {
     .maybeSingle();
   if (assignmentErr) console.error('[supabase-error] app/[slug]/find-my-table/page.tsx · from:event_seat_assignments.select', assignmentErr);
 
-  // Fetch this event's tables (admin client; constrained to event_id).
-  const { data: tablesRaw, error: tablesErr } = await admin
-    .from('event_tables')
-    .select(
-      'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos',
-    )
-    .eq('event_id', event.event_id)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
-  if (tablesErr) console.error('[supabase-error] app/[slug]/find-my-table/page.tsx · from:event_tables.select', tablesErr);
-  const tables = (tablesRaw ?? []) as EventTableRow[];
+  // 🔌 A4-34: the couple's ONE seat-plan reader (`lib/seating.ts` `fetchTables` — its order, its capacity and coordinate
+  // clean-up), never a raw read with its own order. It throws on a refused read; the honest card below still answers.
+  let tables: EventTableRow[] = [];
+  let tablesErr: unknown = null;
+  try {
+    tables = await fetchTables(admin, event.event_id);
+  } catch (e) {
+    tablesErr = e;
+    console.error('[supabase-error] app/[slug]/find-my-table/page.tsx · fetchTables', e);
+  }
 
   // 🔴 A failed read renders as "the floor plan is on its way" — a confident
   // statement about the COUPLE'S progress produced by our own outage. Neither

@@ -2,7 +2,7 @@ import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
 import { readPoolSoftStopPct } from '@/lib/papic-event-pool';
 import { guestReusesAccountFace } from '@/lib/account-face-profile';
 import { formatPapicDayInWords } from '@/lib/papic-window';
-import { Camera, Images } from 'lucide-react';
+import { Camera, Images, MailOpen } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import Link from 'next/link';
@@ -10,6 +10,8 @@ import { redirect } from 'next/navigation';
 import { hostCameraDoor } from '@/lib/papic-host-door.server';
 import { hostCameraHref } from '@/lib/papic-host-door';
 import { readGuestSession } from '@/lib/guest-session';
+import { readGuestViewerForEvent } from '@/lib/guest-one-path.server';
+import { AdoptSeatSession } from '@/app/[slug]/_components/adopt-seat-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPapicGuestAccess, fetchGuestQuota } from '@/lib/papic-guest';
 import { guestCaptureGate, GUEST_CAPTURE_GATE_COLUMNS } from '@/lib/papic-guest-window';
@@ -107,6 +109,37 @@ export default async function PapicGuestPage({
           <ActionButton tone="brand" main icon={<Images aria-hidden strokeWidth={1.9} />} label="Open Memories" href={`/dashboard/${host.eventId}/memories`} />
         </DoorShell>
       );
+    }
+    /* 🔑 A4-B11 (owner, final check Add 34): a SIGNED-IN account that holds a seat on the event this camera was opened
+       from is a guest here, with no invite link in this browser. The camera's uploads read the pass, so the existing
+       adopt action writes it (that account's own seat only) and the page reloads into the camera. Anyone else — no
+       account, no seat, another guest's seat — still meets "Open your invitation first." */
+    if (backSlug) {
+      const { data: fromEvent, error: fromEventErr } = await createAdminClient()
+        .from('events')
+        .select('event_id')
+        .eq('slug', backSlug)
+        .maybeSingle();
+      if (fromEventErr) throw new Error(`papic/guest: could not read the event: ${fromEventErr.message}`);
+      const fromEventId = (fromEvent?.event_id as string | undefined) ?? null;
+      if (fromEventId && (await readGuestViewerForEvent(fromEventId)).kind === 'seat') {
+        return (
+          <DoorShell
+            eyebrow={
+              <>
+                <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Guest camera
+              </>
+            }
+            title="Opening your camera…"
+            sub="You’re signed in with your invitation."
+          >
+            <AdoptSeatSession eventId={fromEventId} thenRefresh />
+            {/* The one way on while it opens (or if it cannot): the invitation this camera was opened from. */}
+            <ActionButton tone="brand" icon={<MailOpen aria-hidden strokeWidth={1.9} />} label="Open your invitation" href={`/${backSlug}`} />
+          </DoorShell>
+        );
+      }
     }
     return (
       <DoorShell

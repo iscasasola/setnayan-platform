@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { adoptSeatSessionAction } from '../actions';
 
 /**
@@ -15,14 +16,38 @@ import { adoptSeatSessionAction } from '../actions';
  * (lib/guest-membership-session.ts). A prefetch never mounts a component, so
  * only a person actually opening their invitation reaches this. Once per mount.
  */
-export function AdoptSeatSession({ eventId }: { eventId: string }) {
+export function AdoptSeatSession({
+  eventId,
+  thenRefresh = false,
+}: {
+  eventId: string;
+  /**
+   * 🔑 A4-B11 (owner, final check Add 34): the camera door mounts this for a signed-in seat holder with no pass. Once the
+   * pass is written the page reloads into the camera; when it could not be written, it says so in place.
+   */
+  thenRefresh?: boolean;
+}) {
   const done = useRef(false);
+  const router = useRouter();
+  const [failed, setFailed] = useState(false);
   useEffect(() => {
     if (done.current) return;
     done.current = true;
-    void adoptSeatSessionAction(eventId).catch(() => {
-      // Best-effort: the page itself already shows their own invitation.
-    });
-  }, [eventId]);
-  return null;
+    adoptSeatSessionAction(eventId)
+      .then((held) => {
+        if (!thenRefresh) return;
+        if (held) router.refresh();
+        else setFailed(true);
+      })
+      .catch(() => {
+        // Best-effort on the event page (it already shows their own invitation); the camera door says it failed.
+        if (thenRefresh) setFailed(true);
+      });
+  }, [eventId, router, thenRefresh]);
+  if (!failed) return null;
+  return (
+    <p role="alert" className="text-sm text-ink/70">
+      We couldn’t open your camera just now. Open your invitation, then try the camera again.
+    </p>
+  );
 }

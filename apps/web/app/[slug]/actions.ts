@@ -211,17 +211,20 @@ export async function linkThisSeatAction(eventId: string, formData?: FormData) {
  * scoped lookup the page's gate uses), and leaves a cookie that already names
  * this event alone. Same mint as the join door's `enterAsGuest`.
  */
-export async function adoptSeatSessionAction(eventId: string): Promise<void> {
+export async function adoptSeatSessionAction(eventId: string): Promise<boolean> {
+  // 🔑 A4-B11: answers whether this browser now holds the pass, so the camera door can reload into the camera or say
+  // it could not — never wait on "Opening your camera…" for ever.
   const current = await readGuestSession();
-  if (current && current.event_id === eventId) return;
+  if (current && current.event_id === eventId) return true;
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user) return false;
   const seat = await findGuestSeatForUser(eventId, user.id);
-  if (!seat) return;
+  if (!seat) return false;
   await setGuestSession({ guest_id: seat.guestId, event_id: eventId, qr_token: seat.qrToken });
+  return true;
 }
 
 /** What a reply save reads of the guest before it writes — and again, if another save landed in between. */

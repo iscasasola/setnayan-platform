@@ -22,8 +22,15 @@ read or a dead press say what happened, where it used to be silent or drawn as a
 - `/papic/order` (behind `NEXT_PUBLIC_PAPIC_GUEST_BUY`): an unread payment list says so and holds the log form, so
   the same transfer is never logged twice (A4-78). No amount, fee or rule changes.
 
+- The guest camera (`/papic/guest?from=<event>`) opens for a SIGNED-IN account that holds a seat on that event, with
+  no invite link in the browser (owner ruling, Add 34 · A4-B11): the existing `adoptSeatSessionAction` writes that
+  account's own pass and the page reloads into the camera; if it cannot, the door says so with "Open your invitation".
+  Anyone else still meets "Open your invitation first." (`/papic/decorate` is unchanged: its address names no event,
+  and its only way in, the `/papic/me` session bridge, already writes the pass.)
+
 Held by `apps/web/lib/papic-guest-doors-say-what-happened.test.ts`, plus updated pins in
 `lib/papic-reads-are-honest.test.ts`, `lib/papic-page-says-only-what-is-true.test.ts` and
 `lib/papic-pool-balance-is-the-couples.test.ts`.
 
-SPEC IMPACT: None — honest-state and wording fixes under existing rules (CLAUDE.md §5 rule 4; Papic truth guard).
+SPEC IMPACT: None — honest-state and wording fixes under existing rules (CLAUDE.md §5 rule 4; Papic truth guard), and the
+owner's Add 34 ruling (already in `build-sessions/FINAL-CHECK-OWNER-ADDS-2026-11-25.md`).

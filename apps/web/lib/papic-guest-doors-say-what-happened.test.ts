@@ -24,6 +24,7 @@
  *   pool: a failed "load more" makes the button vanish silently ............... A4-80
  *   seat: a failed read sends the claimer back to "Claim your seat" ........... A4-82
  *   claim: a dead seat token is greeted with "Start shooting" ................. A4-B03
+ *   guest camera: a signed-in seat holder is told to open the invite link ..... A4-B11 (owner, Add 34)
  * (A4-54 — the claim page's `?state=error` is retryable — is held in papic-reads-are-honest.test.ts;
  *  A4-56 / A4-83 — no "Papic is unlimited" — in papic-page-says-only-what-is-true.test.ts.)
  */
@@ -132,4 +133,26 @@ test('A4-B03 · /papic/claim: a dead token is said on arrival; a taken seat keep
   assert.match(page, /if \(state === 'invalid' \|\| arrival === 'invalid'\)/);
   assert.match(page, /\|\| arrival === 'unreadable';/);
   assert.doesNotMatch(page, /arrival === 'taken'/, 'a returning claimer is never shut out on arrival');
+});
+
+test('A4-B11 · the guest camera opens for a signed-in account’s own seat; everyone else still opens the invite link', () => {
+  const page = code('app/papic/guest/page.tsx');
+  const noSession = page.slice(page.indexOf('if (!session) {'), page.indexOf('const admin = createAdminClient();'));
+  // Only the event the camera was opened from, and only a SEAT the signed-in account holds there (not a cookie, not a host).
+  assert.match(noSession, /if \(backSlug\) \{/);
+  assert.match(noSession, /\.eq\('slug', backSlug\)/);
+  assert.match(noSession, /if \(fromEventErr\) throw/, 'a failed event read is not "open your invitation"');
+  assert.match(noSession, /\(await readGuestViewerForEvent\(fromEventId\)\)\.kind === 'seat'/);
+  assert.match(noSession, /<AdoptSeatSession eventId=\{fromEventId\} thenRefresh \/>/);
+  // …and the invite-link door still stands for anyone else.
+  const seatDoor = noSession.indexOf('Opening your camera…');
+  const inviteDoor = noSession.indexOf('Open your invitation first.');
+  assert.ok(seatDoor > -1 && inviteDoor > seatDoor, 'the invite-link door is gone or comes first');
+
+  const adopt = code('app/[slug]/_components/adopt-seat-session.tsx');
+  assert.match(adopt, /if \(held\) router\.refresh\(\);\s*else setFailed\(true\);/, 'a pass that was not written must say so, never wait for ever');
+  assert.match(adopt, /We couldn’t open your camera just now/);
+  const action = code('app/[slug]/actions.ts');
+  const fn = action.slice(action.indexOf('export async function adoptSeatSessionAction('));
+  assert.match(fn, /const seat = await findGuestSeatForUser\(eventId, user\.id\);\s*if \(!seat\) return false;/, 'only the account’s own seat is adopted');
 });

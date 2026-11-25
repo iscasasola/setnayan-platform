@@ -134,8 +134,9 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
     },
     shots: [],
     price: { kind: 'free' },
-    // 2026-11-12: supplier browsing lives on Discover (`/?browse=1`); `/explore` only forwards there.
-    tryHref: '/?browse=1',
+    // The public supplier directory: Discover's supplier view (`/?browse=1`) asks a stranger to sign in first, so "Try
+    // it" put them on the sign-in page (final check A1-113).
+    tryHref: '/suppliers',
     moreHref: '/marketplace',
     evidence: ['app/(shell)/marketplace/page.tsx', 'app/(shell)/explore/_lib/marketplace-view.tsx', 'app/_components/frontdoor/discover-supplier-controls.tsx', 'lib/marketplace-service-cards.ts', 'lib/compat-score.ts', 'lib/vendor-verification.ts'],
   },

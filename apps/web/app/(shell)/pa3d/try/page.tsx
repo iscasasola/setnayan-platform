@@ -19,6 +19,7 @@
  * empty jar and serves a signed-in person a signed-out rail from the edge cache.
  */
 
+import { routes } from '@/lib/routes';
 import Link from 'next/link';
 import { studioDescription } from '@/lib/studio-apps';
 import { Pa3dRoom } from '../_pa3d-room';
@@ -79,7 +80,7 @@ export default function ThreeDPlanTryPage() {
           </Link>{' '}
           or{' '}
           <Link
-            href="/onboarding/wedding?from=pa3d-try"
+            href={routes.start()}
             className="font-medium text-[var(--m-mulberry)] hover:opacity-80"
           >
             start planning free

@@ -508,3 +508,12 @@ Area 5: (1) pull to refresh comes to supplier pages (SP5-01): Add 11 (25 Nov) su
 the header and the app look; (2) a popup never opens on a popup: A5-G3-06, A5-G5-17, A5-G5-18 open IN PLACE inside the
 first popup; (3) empty screens keep their "Example" cards (B5-08 held change is dropped).
 Area 6: see Add 28. Lane B drawings for areas 4, 5, 6 are approved; run the Add 27 door check before each.
+
+## Add 30 · OWNER RULING (25 Nov): the post-event story is an EDITORIAL ARTICLE with a "Play the story" view on top
+Approved "as long as we can execute it and it is presented properly". One address per event story: big cover photo
+(≥1200 px wide, og:image 1200×630) + title + "Play the story" (the shipped tap-through story, full screen) → below it
+the article: the host's write-up, photos and chosen moments. Both are made from the same content, made once.
+Article/ImageObject structured data, `max-image-preview:large`, readable by screen readers, printable. Reason
+(research 25 Nov): Google reduced Web Stories in Feb 2024 and rarely shows them in PH; FB/Messenger previews are the
+main share path; articles keep, print and index. Drawing first (Fable), then a build plan; lane C until the drawing
+is approved. Findings that point at the post-event story are kept and placed in this page.

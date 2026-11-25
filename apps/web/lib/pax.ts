@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from './supabase/admin';
 import { guestListIsClosed } from './guest-list-closed';
 import { computeAddedPaxSurcharge } from './added-pax-surcharge';
@@ -23,11 +24,13 @@ export type HeadcountBasis = 'attending' | 'attending_plus_maybe' | 'invited';
 
 // Live headcount on a basis (the count query, shared by resolveLivePax +
 // finalizeGuestList so the floor math and the finalize snapshot never diverge).
+// 🧾 A6-03 (final check 25 Nov): `null` = the count was refused — never 0. Finalizing then refuses rather than freeze a
+// guess; `resolveLivePax` keeps its contract (🟠 owner: what a price should do with an unread count) and logs it.
 async function liveHeadcount(
   supabase: SupabaseClient,
   eventId: string,
   basis: HeadcountBasis,
-): Promise<number> {
+): Promise<number | null> {
   let q = supabase
     .from('guests')
     .select('guest_id', { count: 'exact', head: true })
@@ -42,7 +45,11 @@ async function liveHeadcount(
   } else {
     q = q.eq('rsvp_status', 'attending');
   }
-  const { count } = await q;
+  const { count, error } = await q;
+  if (error) {
+    logQueryError('lib/pax.ts liveHeadcount', error, { eventId }, 'graceful_degrade');
+    return null;
+  }
   return count ?? 0;
 }
 
@@ -144,6 +151,8 @@ export async function finalizeGuestList(
   if (!ev.guest_count_locked_at) {
     const basis = (ev.headcount_basis ?? 'attending') as HeadcountBasis;
     const count = await liveHeadcount(admin, eventId, basis);
+    // A refused count would freeze the estimate as the binding headcount — refuse instead, nothing changed.
+    if (count === null) return { ok: false, error: 'Couldn’t count your guests just now — nothing was changed.' };
     const computed = Math.max(ev.estimated_pax ?? 0, count);
     const { error: upErr } = await admin
       .from('events')
@@ -213,7 +222,8 @@ export async function resolveLivePax(
 ): Promise<number | null> {
   const fin = await readFinalizeState(supabase, eventId);
   if (fin.locked) return fin.finalPax;
-  const headcount = await liveHeadcount(supabase, eventId, fin.basis);
+  const read = await liveHeadcount(supabase, eventId, fin.basis);
+  const headcount = read ?? 0; // unread → the estimate floor, as before (logged in liveHeadcount; 🟠 A6-03)
   if (fin.estimatedPax == null && headcount === 0) return null;
   return Math.max(fin.estimatedPax ?? 0, headcount);
 }

@@ -277,6 +277,19 @@ SOURCE    SEEN
 ```
 
 ```
+ID        A4-B10
+PAGE      /[slug]   (the supplier desk block, when a supplier's time block has no time)
+BUTTON    none
+STEPS     1. On a Hub whose supplier desk lists a block with no start/end time, read the time line.
+EXPECTED  A plain word: "Time to follow".
+ACTUAL    "Time TBD" (`apps/web/app/[slug]/_components/supplier-desk.tsx` `'Time TBD'`): a planner's abbreviation a guest reads.
+SHOTS     375 px light
+RULE      Add 3 (TBD) · brand.md tone
+SEVERITY  look
+SOURCE    CODE (phase B grep; seen once the Hub loads)
+```
+
+```
 NOTE      (not area 4, passed on) /dashboard/[eventId]/guests as messy_one (event M & J, 370 guests): tapping a guest row opens the card sheet full height (not half) and it stayed on "Opening their card…" for 7 s+ at 06:55 UTC; during A4-B01 the page itself did not load in 60 s. Area 2 owns it.
 ```
 
@@ -1443,6 +1456,73 @@ RULE      brand.md claims (price promises)
 SEVERITY  wrong
 SOURCE    CODE
 ```
+
+## Owner adds 1–10b (phase B)
+
+**Add 1 · Shape.** Marked per page in Progress (phase A). Seen on the copy: the 22 non-Hub doors are PAGEs and should be (each is reached by a shared link or QR). The 6 that differ stand as phase A wrote them (A4-32, 41, 55, 69, 73, 81). Seen in passing, not area 4: the couple's guest card opens full height, not half (passed to area 2).
+
+**Add 2 · Clean / balanced / effective** (non-Hub doors):
+- `/live`, `/wall`: CLEAN ok · BALANCED ok · EFFECTIVE fails: no pressed state (A4-B04), a wrong link called a hiccup (A4-B07).
+- dead doors (`/claim`, `/join`, `/samahan/join`): ok on all three.
+- `/join/crew` dead: EFFECTIVE fails, no way on (A4-B02).
+- Papic dead doors (`/papic/guest`, `/decorate`, `/join`, `/me`, `/demo`): CLEAN ok · BALANCED ok · EFFECTIVE fails: the wordmark is the only way on (phase A "doors with no button").
+- `/papic/claim`, `/papic/seat`, `/panood/cam` with a dead token: EFFECTIVE fails, the door asks for a press that cannot work (A4-B03).
+- `/papic/try`: CLEAN ok · BALANCED ok at 375, desktop is the phone column centred · EFFECTIVE ok.
+- `/[slug]`: A4-B05 (desktop "swipe up", a frame in a frame, a missing gap, phone column on desktop). The rest waits on A4-B01.
+
+**Add 3 · Placeholders.**
+- Code grep over the area's routes (`lorem|TODO|TBD|XXX|coming soon|john doe|juan dela cruz|your name here|beta`):
+  - "The app is coming soon" (`/papic/join` banner) — already A4 phase A;
+  - "Time TBD" on the supplier desk of a Hub (`app/[slug]/_components/supplier-desk.tsx` `'Time TBD'`) when a block has no time — a developer word a guest can read; should say "Time to follow" (A4-B10, look);
+  - the empty "Photo moments" grey sample bars are hidden from guests (`hideWhenEmpty={guestView}`), so not a finding;
+  - the `e.g. Maria Teresita Aquino-Reyes` field hint reads as a hint, not a finding.
+- Seen on the copy: `/papic/lightcheck` "Throwaway diagnostic" is a public developer page (A4-73). No lorem, no ₱X, no made-up counts on the doors walked.
+
+**Add 4 · Where area 4 sells** (a guest never buys a plan; these are the only money points a guest meets):
+
+| Route | What | Price shown | How reached | On the copy |
+|---|---|---|---|---|
+| `/papic/order/[token]` + "Add credits" on the guest camera | Papic photo credits bought by a guest | from code, not the catalogue (A4-64) | camera › out of credits › Add credits | **off**: `NEXT_PUBLIC_PAPIC_GUEST_BUY` unset, the route 404s; A4-64/77/78 stay latent |
+| guest camera / "Add from your phone" when the event pool is empty | the wall: "The event's credits ran out, so these shots are kept on this phone…" / "Out of Credits" | none (the guest is not the buyer; the line tells them the hosts add more) | the camera | waits on a seeded event with an empty pool and a Hub that loads |
+| `/[slug]/pabuya` (E-Gifts) | a guest's gift to the host (not a Setnayan sale): bank / GCash details | the guest types the amount | Hub › E-Gifts | waits on A4-B01 |
+
+Taps from the wall to "payment logged": not measurable on the copy (the guest buy is off). Never paid anything.
+
+**Add 5 · Easy to handle** (guest jobs):
+- Connect a venue screen (`/live`): OK. Two taps, but a press gives no feedback (A4-B04) and the field takes 12 characters with `autocomplete=off` (right).
+- Join an event and set a password (`/join` › set-password): HARD. The last step, Skip, lands on a 404 (A4-B09).
+- Claim a crew seat with an old link (`/papic/claim`, `/papic/seat`): HARD. It asks for a press, then says the link is dead (A4-B03).
+- Open the invitation, reply, find my seat, shoot photos: wait on A4-B01.
+
+**Add 6 · Buttons.** Counted per page in Phase B progress (375 / 1280). Running total for the 22 non-Hub pages: buttons 59 at 375 (72 at 1280) · pressed 54 · failed 7. Not pressed: a valid "Set password" (would change the shared `guest` sign-in); "Sign in" on `/papic/try` and the wordmarks counted as pressed by destination check only.
+
+**Add 7 · Sizes and dark.**
+- 375 · 768 · 1280 walked on every non-Hub page: no sideways scroll, nothing cut off, no bar overlap. Desktop on these doors is a centred phone card in an empty page (fine for a one-step door).
+- DARK: `/live`, `/live/screen`, `/wall` draw their own dark always (a venue screen) · every other page in the area is signed-out and **light only** (19 pages counted, not reported) · the guest Event Hub wears the couple's theme in both settings (by design, DARK_MODE_STANDARD §1).
+- Home shots: `shots/area-4/home-{375,768,1280}-{light,dark}.png` — the Event Hub /stg-bea-paolo at 06:45 UTC; light and dark are the same picture (the couple's theme).
+
+**Add 8 · Reveals.** Area 3 owns the list and the Maker. On the guest side: /stg-carla-miguel opened with "Tap or swipe up to unveil" at 06:45 (one reveal, the couple's choice). Playing every reveal at 3 sizes waits on A4-B01.
+
+**Add 9.** Not area 4.
+
+**Add 10 · Offline — beyond the five.** (The five include "guests at the venue: the Event Hub and the walk-in hub", so the Hub, `?tab=me`, find-my-table, the seat pages and the guest camera are NOT listed here; phase A marked them.)
+
+Guest:
+
+| Part | When the signal drops | Level | Why |
+|---|---|---|---|
+| `/[slug]/invite/reply` (the reply) | on the road, in a province with weak data, days before | SAVE AND SYNC | A tita answers on a jeepney; a lost reply is a guest the hosts chase by hand. |
+| `/[slug]/welcome` (name the plus-one) | weak data, before the day | SAVE AND SYNC | Same: one short form; losing it means a nameless seat. |
+| `/[slug]/pabuya` (E-Gifts details) | at the venue, in the money dance | READ-ONLY | The bank or GCash details must show so the guest can send later; the transfer itself needs signal anyway. |
+| `/papic/me/[token]` (my camera and my photos, from the pass) | at the venue door and tables | READ-ONLY | It is the door to the camera; with no copy the QR on the pass opens the browser's error page. |
+| `/join/crew/[token]` (crew run of show) | back of house at the venue | READ-ONLY | A crew member re-checks the call time with no signal. |
+| `/[slug]/print` (print my photos) | after the event, at home | NOT NEEDED | — |
+
+Event Hub (host side seen by guests): covered by the five.
+
+Offline tried on the copy: waits on A4-B01 (the Hub must load once with signal before a copy exists). Pages that need no Hub were checked in phase A from `sw.js`: none of `/papic/*`, `/join/*`, `/claim/*`, `/live*`, `/wall/*` is kept; with no signal the browser shows its own error page.
+
+**Add 10b.** Areas 5–7. Not area 4. One guest-side note: a supplier's crew QR (`/join/crew/<token>`) that was replaced shows a page with no button (A4-B02).
 
 ## For the browser pass (phase B, on staging)
 

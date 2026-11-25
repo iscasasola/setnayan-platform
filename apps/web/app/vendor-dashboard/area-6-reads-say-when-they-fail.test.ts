@@ -74,3 +74,12 @@ test('A6-05 · a refused live-quote read is said above the builder, never a blan
   assert.match(thread, /quoteRevisionUnread = true/);
   assert.match(thread, /cm === 'quote' && quoteRevisionUnread \? \(\s*<ReadFailedNote mark="quote-revision">/);
 });
+
+test('A6-01 · the chat’s plan cards say an unread payments read — never "₱0 of ₱X received"', () => {
+  assert.match(thread, /readPlanProgressForVendor\(\{/);
+  assert.match(thread, /const plansUnread = !planRead\.complete;/);
+  assert.match(thread, /const planProgress = plansUnread \? \[\] : planRead\.plans;/);
+  assert.match(thread, /\{plansUnread \? \(\s*<ReadFailedNote mark="thread-plan-progress">/);
+  assert.match(refresh, /if \(!planRead\.complete\) return null;/);
+  assert.doesNotMatch(refresh, /fetchPlanProgressForVendor\(\{/, 'the live refresh reads the plans with whether they answered');
+});

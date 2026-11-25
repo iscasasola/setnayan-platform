@@ -30,7 +30,8 @@ import { formatPhp } from '@/lib/php';
 import {
   fetchPendingVendorPayments,
   readPendingVendorPayments,
-  fetchPlanProgressForVendor,
+  readPlanProgressForVendor,
+  type fetchPlanProgressForVendor,
 } from '@/lib/vendor-service-payment-schedules.server';
 
 /**
@@ -360,13 +361,13 @@ export async function getVendorPaymentState(threadId: string): Promise<{
 
   const admin = createAdminClient();
   try {
-    const [pendingRead, plans] = await Promise.all([
+    const [pendingRead, planRead] = await Promise.all([
       readPendingVendorPayments({
         adminClient: admin,
         eventId: thread.event_id,
         vendorProfileId: profile.vendor_profile_id,
       }),
-      fetchPlanProgressForVendor({
+      readPlanProgressForVendor({
         adminClient: admin,
         eventId: thread.event_id,
         vendorProfileId: profile.vendor_profile_id,
@@ -374,7 +375,9 @@ export async function getVendorPaymentState(threadId: string): Promise<{
     ]);
     // A6-02: a refused re-read keeps the cards' last-known state (null) — never an empty list that drops a payment.
     if (!pendingRead.complete) return null;
-    return { pending: pendingRead.payments, plans };
+    // A6-01: the same for the plans — a refused re-read keeps the last-known plan cards, never "₱0 of ₱X received".
+    if (!planRead.complete) return null;
+    return { pending: pendingRead.payments, plans: planRead.plans };
   } catch (e) {
     console.error('[getVendorPaymentState] threw', e);
     return null;

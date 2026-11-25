@@ -101,7 +101,7 @@ import {
 import { buildSupplierStanding } from '@/lib/supplier-standing';
 import {
   readPendingVendorPayments,
-  fetchPlanProgressForVendor,
+  readPlanProgressForVendor,
 } from '@/lib/vendor-service-payment-schedules.server';
 import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
 import { confirmVendorPayment, refuseVendorPayment } from './pay-confirm-actions';
@@ -611,14 +611,15 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       console.error('[vendor-thread] readPendingVendorPayments threw', e);
       return { payments: [], complete: false };
     }),
-    // Phase 2 PR-D — plan progress for this vendor's bookings. Best-effort.
-    fetchPlanProgressForVendor({
+    // Phase 2 PR-D — plan progress for this vendor's bookings. A6-01: with whether it answered — a refused bookings,
+    // plans or payments read is said, never "₱0 of ₱X received".
+    readPlanProgressForVendor({
       adminClient: paxAdmin,
       eventId: thread.event_id,
       vendorProfileId: profile.vendor_profile_id,
-    }).catch((e): Awaited<ReturnType<typeof fetchPlanProgressForVendor>> => {
-      console.error('[vendor-thread] fetchPlanProgressForVendor threw', e);
-      return [];
+    }).catch((e): Awaited<ReturnType<typeof readPlanProgressForVendor>> => {
+      console.error('[vendor-thread] readPlanProgressForVendor threw', e);
+      return { plans: [], complete: false };
     }),
     // Won & Lost Reasons (Wave 6) — live admin-managed reason taxonomy.
     fetchReasonCodes(supabase),
@@ -1176,7 +1177,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       returningMap,
       livePax,
       pendingRead,
-      planProgress,
+      planRead,
       reasonCodes,
       { data: existingOutcome },
       customerPlan,
@@ -1237,6 +1238,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   ]);
   const pendingPayments = pendingRead.payments;
   const pendingUnread = !pendingRead.complete;
+  // A6-01: an unread plan draws no plan card at all (no "₱0 of ₱X received") and says so.
+  const plansUnread = !planRead.complete;
+  const planProgress = plansUnread ? [] : planRead.plans;
   const heldAskService = await heldServiceRead;
   const agreeGiftBasis = await agreeGiftBasisRead;
   const chatPins = await chatPinsRead;
@@ -1955,6 +1959,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     <>
     {pendingUnread ? (
       <ReadFailedNote mark="thread-pending-payments">We couldn&rsquo;t load the payments to confirm right now. {MONEY_NOT_OWED}</ReadFailedNote>
+    ) : null}
+    {plansUnread ? (
+      <ReadFailedNote mark="thread-plan-progress">We couldn&rsquo;t read payments for this booking right now. {MONEY_NOT_OWED}</ReadFailedNote>
     ) : null}
     <VendorPaymentLive
       threadId={threadId}

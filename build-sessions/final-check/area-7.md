@@ -19,13 +19,13 @@ None yet.
 - [x] /[slug]/venue · OFFLINE: READ-ONLY (at the venue on the day; find-my-table already holds the seat offline, the walk is not saved today) · SHAPE: PAGE =
 - [x] /3d_plan/demo/[token] · OFFLINE: NOT NEEDED · SHAPE: PAGE = (opened from a QR)
 - [x] /dashboard/[eventId]/plan3d · OFFLINE: READ-ONLY (at the venue on the day; agree it is saved for the day — today it is not, no Seats address is in `OFFLINE_COPY_SHAPES`) · SHAPE: PAGE = (a forward to Guests › Seats › 3D, which keeps its own address `?gview=seats&seat=3d`; its View only card and Accents sheet differ, see A7-08, A7-09)
-- [ ] /dashboard/[eventId]/studio/panood/setup/venue-check
+- [x] /dashboard/[eventId]/studio/panood/setup/venue-check · OFFLINE: NOT NEEDED (it measures the signal; with none it says "We couldn't reach Setnayan from here") · SHAPE: PAGE = (opened on a phone at the venue; the place note is for the coordinator)
 - [ ] /dashboard/[eventId]/vendors/[vendorId]/workspace
-- [ ] /for-coordinators
+- [x] /for-coordinators · OFFLINE: NOT NEEDED · SHAPE: PAGE =
 - [x] /pa3d · OFFLINE: NOT NEEDED · SHAPE: PAGE =
 - [x] /pa3d/try · OFFLINE: NOT NEEDED · SHAPE: PAGE = (the link people paste)
-- [ ] /vendor-dashboard/clients/[eventId]/seat-plan
-- [ ] /vendor-dashboard/spaces
+- [x] /vendor-dashboard/clients/[eventId]/seat-plan · OFFLINE: READ-ONLY (at the venue on the day: the caterer's covers per table; agree it is saved for the day — today it is not, only the customer's `?tab=schedule` is) · SHAPE: PAGE =
+- [x] /vendor-dashboard/spaces · OFFLINE: NOT NEEDED (set up at the shop, with signal) · SHAPE: PAGE = (its space sheet differs, see A7-11)
 
 ## Scope notes
 
@@ -33,6 +33,12 @@ None yet.
   Guests › Seats › 3D: `guests/page.tsx` streams `seating/page.tsx` (`host=guests`), which streams `seating/lab/page.tsx` (the room).
   Those host pages are Area 2's; the room's own controls (`seating/lab/_components/*`) are checked here because they ARE the 3D plan.
 - `/pa3d` and `/pa3d/try` mount the same `Pa3dRoom`; findings A7-05 to A7-07 apply to both.
+- Maps: no Area 7 page draws an OpenStreetMap picture (no `scene-map-tiles`, `vendor-location-map`, `venue-widget` or
+  `reach-map` import under any of the ten routes), so the OSM-prefetch rule has nothing to hold here. The seeded venue's map
+  pin is drawn on its shop page `/v/[slug]` (Area 1) and the Event Hub's venue plate (Area 4).
+- One source: the guest walk reads `public_venue_scene`, the couple's 2D and 3D read `lib/seating.ts`, the supplier reads
+  `get_vendor_seat_plan`, Spaces reads `vendor_units`. Spaces and the couple share the one editor (`SeatingEditor` in venue
+  mode) and the one engine (`lib/seat-plan-engine`); the supplier's client seat plan does not (A7-16, A7-17).
 
 ## Findings
 
@@ -217,5 +223,180 @@ ACTUAL    `seating/page.tsx` and `seating/lab/page.tsx` call `fetchFloorPlan` �
 SHOTS     375 px light (with the read refused)
 RULE      CLAUDE.md §5 rule 4 (honest states; copy guests-read-is-honest)
 SEVERITY  wrong
+SOURCE    CODE
+```
+
+### A7-11 · A space's sheet is a tall half-sheet, and it opens popups on top of itself
+
+```
+PAGE      /vendor-dashboard/spaces   (shop: Hardin ng Tagaytay Events Place, the 30 × 45 m hall)
+BUTTON    the hall's tile → "Base layout" → "Open the floor plan"; the 🔒 "Your own names" row
+STEPS     1. Tap the hall's tile.  2. Scroll the sheet.  3. Open "Base layout".  4. Press "Open the floor plan"
+          (on a Free shop, tap the 🔒 name row instead).
+EXPECTED  SHAPE: more than one short screen → FULL-SCREEN POPUP (RiseScreen). Never a popup on top of a popup.
+ACTUAL    TODAY a `Sheet` (`space-sheet.tsx`). For a hall it holds What is it · Hall or room · Names · Seated ·
+          Standing · Floor width · Floor length · Connects to · Base layout (the doors list, three door pickers,
+          Add a door, the plan picture, every table row, then Add tables: names, type, chairs, ends) · Preview ·
+          two buttons: far past one short screen. "Open the floor plan" raises the couple's editor in a
+          `RiseScreen` over that sheet, and the 🔒 row raises `LockedFeature`'s own `RiseScreen` over it too.
+SHOTS     375 px light + dark (sheet scrolled; editor open over it)
+RULE      SHAPE (owner 25 Nov) · HOUSE K3.4 (one layer at a time)
+SEVERITY  look
+SOURCE    CODE
+```
+
+### A7-12 · A hall's sheet carries two filled main buttons and an accent-outlined one
+
+```
+PAGE      /vendor-dashboard/spaces   (the hall with its tables)
+BUTTON    a table row's "Save" · "Add tables" · "Save hall"
+STEPS     1. Open the hall.  2. Open Base layout.  3. Open one table's row.
+EXPECTED  One main button in the sheet; every other button neutral.
+ACTUAL    In the one sheet: the table's "Save" (`ActionButton tone="ok" main`, filled green), "Add tables"
+          (`tone="brand"` without `main`, so accent-outlined) and the sheet's "Save hall" (`tone="brand" main`,
+          filled). "Add a door" is neutral, as it should be.
+SHOTS     375 px light + dark
+RULE      HOUSE K1.1–K1.2
+SEVERITY  look
+SOURCE    CODE
+```
+
+### A7-13 · A failed date change keeps the old day's tiles under the new day's name, and says "Saved"
+
+```
+PAGE      /vendor-dashboard/spaces
+BUTTON    the Date menu (top right)
+STEPS     1. Pick another date while the read fails.
+EXPECTED  The tiles say nothing about a day they could not read (the page's own rule for a refused day read), and the
+          message says the day could not be read.
+ACTUAL    `onPick` sets the date first (`setDate(k)`) and then runs `{op: 'read'}`. On failure `read` is untouched, so
+          the tiles still show who holds each space on the OLD day (`tilesOnDay(read.day.date, …)`) under the NEW
+          day's heading ("Sat 14 Feb · Tiles follow this date"). The warning is `fresh()`'s "Saved, but we couldn't
+          read your spaces back. Open the page again." — nothing was saved; it was a read.
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### A7-14 · The two Spaces locks never show the price
+
+```
+PAGE      /vendor-dashboard/spaces   (a Free shop)
+BUTTON    🔒 "Your own names" (in a space's sheet) · 🔒 "Make it a floor plan"
+STEPS     1. On a Free shop tap either lock.
+EXPECTED  Problem → solution → preview → the plan's price from the catalogue → one button.
+ACTUAL    `PAID_NEED` passes `price: null` (`space-sheet.tsx`), so the lock reads "Price from the price sheet when you
+          tap Upgrade". The Plus price is in `vendor_billing_catalog` and other pages read it
+          (`getVendorPrices` + `monthlyPlanPrice`).
+SHOTS     375 px light
+RULE      design-and-wiring B7 (locks are honest)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### A7-15 · Spaces skips the house title, toast, Undo and empty state
+
+```
+PAGE      /vendor-dashboard/spaces
+BUTTON    "Add the hall" / "Save hall" / "Remove Hall001"; the page top
+STEPS     1. Open Spaces in dark.  2. Add a space.  3. Remove it.  4. Open a shop with no spaces.
+EXPECTED  `PageMasthead` (and in dark the top block carries the glow); success a small toast; remove at once with
+          Undo in a toast; empty as `EmptyState`.
+ACTUAL    A hand-made `<h1 className="text-[22px]">` under a BackButton, no `PageMasthead`. Success shows as a
+          `ShopNotice` banner at the top of the page ("Added", "Hall001 saved"). "Remove Hall001" removes with no
+          Undo. Empty is a bare line, "No spaces yet. Type in the box below to add your first." Half-pixel sizes
+          (`text-[12.5px]`, `text-[13.5px]`, `font-size: 12.5px` in the module CSS).
+SHOTS     375 px light + dark
+RULE      CLAUDE.md §3 (Page title · Toast · Empty · Type) · HOUSE D2 (Remove a row) · K2
+SEVERITY  look
+SOURCE    CODE
+```
+
+### A7-16 · The supplier's seat plan is a second drawing of the plan, not the shared engine
+
+```
+PAGE      /vendor-dashboard/clients/[eventId]/seat-plan   (event: stg-bea-paolo, as a booked floor supplier)
+BUTTON    none — the map
+STEPS     1. Open the client's Seats.  2. Compare with the hosts' 2D plan of the same event.
+EXPECTED  DECISION_LOG 2026-11-20, "ONE SEAT-PLAN ENGINE FOR THE COUPLE AND THE SUPPLIER": the picture drawn by
+          `lib/seat-plan-engine` (`PlanPoster` / `planTableGeometry`), as Spaces draws a hall.
+ACTUAL    `seat-plan-body.tsx` hand-draws its own map: every table a fixed 9 % × 9 % square or circle
+          (`isRound` on the type's name) whatever its type, chairs or size, so a long table is a small square.
+          Joined tables are drawn apart under their own labels (the hosts and find-seat use the group's name). An
+          unsized room is drawn 4:3 landscape while the engine's default room is 20 × 30 m (`DEFAULT_ROOM_M`),
+          so the supplier's picture of an unsized plan is the hosts' stretched the other way.
+SHOTS     375 px light + dark, beside the hosts' 2D plan
+RULE      DECISION_LOG 2026-11-20 · design-and-wiring D11–D12 (one way to make each thing)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### A7-17 · The supplier's "N of M seated" counts removed chairs, and the covers disagree with "seated"
+
+```
+PAGE      /vendor-dashboard/clients/[eventId]/seat-plan   (event: stg-bea-paolo, as the caterer)
+BUTTON    none — the table rows
+STEPS     1. As the hosts, remove 2 chairs from a table.  2. As the caterer, open Seats.
+EXPECTED  The same "seated of seats" the hosts see; covers that add up to the seated count, or a line saying why not.
+ACTUAL    `get_vendor_seat_plan` sends `capacity = event_tables.capacity`; the hosts' plan counts
+          `effectiveCapacity(capacity, removed_seats)`. A table with 2 chairs removed reads "6 of 10 seated" for
+          the supplier and 6 of 8 for the hosts. `seated` counts every seat at the table, but `meal_counts`
+          leaves out guests not counted for this supplier, the passed away and the represented — so the caterer's
+          "Covers per table" pills add up to fewer than the "seated" line beside them, with nothing saying why.
+SHOTS     375 px light, beside the hosts' table
+RULE      CLAUDE.md §4 (one reader per shared number) · kit check 3 (connections)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### A7-18 · /for-coordinators types a price and a rating on its sample card
+
+```
+PAGE      /for-coordinators
+BUTTON    none — "Your shop" part, the sample service card
+STEPS     1. Scroll to "Your shop".
+EXPECTED  No hand-typed price, count or rating on a public page.
+ACTUAL    `price={formatPhpRounded(24999)}`, `rating={{ avg: 4.9, count: 64 }}`, `aboutKmLine(8)`, "2 coordinators,
+          12 hours": the card shows ₱24,999 and 4.9 (64). The page's own guard bans `/₱\s?\d/` ("no price is
+          typed — prices come from vendor_billing_catalog"); sending the number through `formatPhpRounded` slips
+          past it. The fine print says "A sample card and calendar."
+SHOTS     375 px light
+RULE      docs/brand.md claims #1 (a hand-typed price) · CLAUDE.md §1 (never write a price into code)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### A7-19 · /for-coordinators promises "No end date"
+
+```
+PAGE      /for-coordinators
+BUTTON    none — the hero's fine print; the "On the day" ⓘ
+STEPS     1. Open the page (the day-of tools' switch is on).
+EXPECTED  "Free", with no promise about how long.
+ACTUAL    "Coordinator tools are free on every plan. No end date." and "The day-of tools are free on every plan,
+          with no end date." DECISION_LOG 2026-11-04 rules the tools free with no end date and says the marketing
+          tag is plain "Free"; brand.md, which wins on wording, bans price promises ("always free", "free for life").
+SHOTS     375 px light
+RULE      docs/brand.md claims #3 (price promises)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### A7-20 · Venue check: a failed event read is a 404; the bar animates its width; four equal number tiles
+
+```
+PAGE      /dashboard/[eventId]/studio/panood/setup/venue-check   (event: stg-carla-miguel)
+BUTTON    "Start the check" → the result
+STEPS     1. Open the page.  2. Run a check.
+EXPECTED  A refused read says so; motion is transform and opacity only; one hero number.
+ACTUAL    `const { data: event } = await eventRowOnce(…)` drops the error, so a refused read gives `notFound()` —
+          "this page does not exist". The progress bar is `transition-[width] duration-500` (width, and 500 ms is
+          not a house speed). The result is Upload · Slowest second · Delay · Stream needs as four equal tiles.
+          Otherwise this page is right: idle, running, saving, result and failure each look different and every
+          failure has words and Try again.
+SHOTS     375 px light + dark (result screen)
+RULE      CLAUDE.md §5 rule 4 · HOUSE E2.2 · HOUSE Part I.3 (one hero metric)
+SEVERITY  look
 SOURCE    CODE
 ```

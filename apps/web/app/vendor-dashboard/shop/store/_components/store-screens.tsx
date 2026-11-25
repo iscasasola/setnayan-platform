@@ -799,6 +799,7 @@ function ToolItem({ d, toolKey }: { d: StoreData; toolKey: string }) {
           {addsOf(tool.key, tool.line).map((x) => (
             <Line key={x.title} {...x} />
           ))}
+          {/* ⚖ Backed: DECISION_LOG 2026-11-23 "APP STORE FREE LIST — APPROVED" ("LOCKED: free forever = …"). */}
           {!paid ? <Line icon={<Plus aria-hidden className="h-4 w-4" strokeWidth={2} />} title="Free forever" line="Every free widget is yours to keep." /> : null}
         </ul>
       </ToolSection>

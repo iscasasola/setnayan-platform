@@ -52,7 +52,7 @@ test('2 · 20 Nov: no free first place is left to share — a new business and a
   // The per-business check guarded a free first booking; the 20 Nov rulings removed that booking, so the lock decision
   // no longer asks it. Both shops pay the same fee on the same booking.
   const base = {
-    flagEnabled: true, onPlatform: true, attribution: 'sourced', shopVerified: true, frozenFree: false,
+    flagEnabled: true, onPlatform: true, attribution: 'sourced', forYou: true, shopVerified: true, frozenFree: false,
     launchOffer: false, promoWindow: false, schedule: BOOKING_FEE, nextPlatformNumber: 3, freeEveryNth: 100_000,
     ticketWaiting: false, agreedTotalPhp: 100_000,
   } as const;

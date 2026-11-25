@@ -45,13 +45,14 @@
   --uh-acc-soft: rgb(var(--color-mulberry) / 0.16);
 }
 
-/* 🏠 Home is a unipage: NO bottom bar (`account-bottom-nav.tsx`, Home · Discover) and NO account switcher pill at the
-   top right while Home is on screen. Their rows moved: Your events → Home itself, each shop → the Shop part, HQ → the
-   ☰, the rest → ⚙ beside your name (the same sheet). Both stay mounted in the shared layout — they never remount on a
-   tab change — and are only hidden here, so the section pages, Discover and every other page keep them as before.
-   The selector names this page's own root (`.page`), so it only ever applies while Home is drawn. */
-:global(html):has(.page) :global([data-account-bar]),
-:global(html):has(.page) :global(.fd-topright .fd-acct) {
+/* 🏠 Home is a unipage: NO bottom bar (`account-bottom-nav.tsx`, Home · Discover) while Home is on screen. It stays
+   mounted in the shared layout — it never remounts on a tab change — and is only hidden here, so the section pages,
+   Discover and every other page keep it as before. The selector names this page's own root (`.page`), so it only
+   ever applies while Home is drawn.
+   👤 THE PHOTO AT THE TOP RIGHT STAYS ON HOME (owner 24 Nov 2026: "keep what we have now and just return the profile
+   icon on the upper right"). Unihome v5 had hidden it here; it is back, the same switcher every other page shows, and
+   the ⚙ beside your name stays as it is. */
+:global(html):has(.page) :global([data-account-bar]) {
   display: none;
 }
 

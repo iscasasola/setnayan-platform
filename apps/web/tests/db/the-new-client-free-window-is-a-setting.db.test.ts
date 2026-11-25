@@ -74,8 +74,8 @@ async function newShop(q: Q = db): Promise<string> {
 /** An event the couple holds, created at `createdAtSql` (an SQL expression, so a transaction can pin it to NOW()). */
 async function newEvent(q: Q, couple: string, createdAtSql: string): Promise<string> {
   const r = await q.query<{ event_id: string }>(
-    `INSERT INTO public.events (display_name, event_type, event_date, created_at)
-     VALUES ($1, 'birthday', '2031-02-14', ${createdAtSql}) RETURNING event_id`,
+    `INSERT INTO public.events (for_whom, display_name, event_type, event_date, created_at)
+     VALUES ('self', $1, 'birthday', '2031-02-14', ${createdAtSql}) RETURNING event_id`,
     [`Window ${++n}`],
   );
   const eventId = r.rows[0]!.event_id;

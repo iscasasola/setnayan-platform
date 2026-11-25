@@ -45,7 +45,8 @@ export const VENDOR_TIER_SECTIONS: VendorTierSection[] = [
   {
     tier: 'free',
     name: 'Free · Verified',
-    tagline: 'The whole business: get found, get trusted, get booked. Keep 100%.',
+    // ⚖ No "Keep 100%" (24 Nov): a booking Setnayan brings carries the booking fee. Free and Verified are free, for good.
+    tagline: 'The whole business: get found, get trusted, get booked. Free, for good.',
     groups: [
       {
         h: 'Get found',

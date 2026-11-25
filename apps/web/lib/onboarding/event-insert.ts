@@ -14,6 +14,7 @@ import { initialLandingVisibility } from './initial-visibility';
 import { sanitizeRsvpAskConfig, type RsvpAskConfig } from '../rsvp-ask';
 import type { SetupAnswers } from './setup-answers';
 import { answerColumnsFromSetup, type EventAnswerColumn } from '../event-answers';
+import { forWhomToStore } from '../event-for-whom';
 
 /** What `style_preferences.setup` keeps: every answer EXCEPT the four that have their own column. */
 export type StoredSetupAnswers = Omit<SetupAnswers, 'papic' | 'gifts' | 'logo' | 'photo'>;
@@ -149,6 +150,13 @@ export function buildGenericEventInsert(
     // resolve the id the same way — passing a raw client value here would write
     // an unowned dependent_id.
     honoree_dependent_id: payload.honoreeDependentId?.trim() || null,
+    // ⚖ Who it is for (owner 2026-11-23): only 'self' lets a booking fee be waived; locked once a supplier joins.
+    // 'self' beside a name or an alaga is stored as 'someone' — toward the fee (lib/event-for-whom.ts).
+    for_whom: forWhomToStore({
+      claimed: payload.forWhom ?? null,
+      honoreeLabel: payload.honoreeLabel,
+      honoreeDependentId: payload.honoreeDependentId,
+    }),
     // Date-anchor model (2026-07-12): per-type default anchor_kind from the
     // authored map. Keeps the generic path consistent with createWeddingEvent.
     anchor_kind: anchorForType(payload.eventType).kind,

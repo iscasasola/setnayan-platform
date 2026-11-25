@@ -344,10 +344,15 @@ export default async function DownloadPage() {
                 ) : null}
               </Note>
 
-              <Note data-reveal-item label="What you need">
+              {/* Live Watch only (owner, 24 Nov: "Copy fix NOW"): this download is the Live Watch encoder for streamers,
+                  so these requirements are for streaming, not for everyone who plans on setnayan.com. Words only. */}
+              <Note data-reveal-item label="For Live Watch only">
                 <h3 className="text-xl font-semibold tracking-[-0.01em] text-ink">
-                  System requirements.
+                  Live Watch system requirements.
                 </h3>
+                <p className="mt-2 text-sm text-ink/65">
+                  Only for streaming with Live Watch. Planning needs no install.
+                </p>
                 <ul className="mt-4 divide-y divide-ink/8">
                   <Req>Apple-silicon Mac (M1 or newer) on macOS 14 or later, with the Safari 26 update</Req>
                   {windows ? <Req>Or Windows 10/11 with hardware video encoding</Req> : null}

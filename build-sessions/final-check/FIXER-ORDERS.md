@@ -50,3 +50,8 @@ Your STATUS comment on the open batch PR, plus one line at the top of your area 
 ## Door check before any redesign (Add 27)
 Before you change the look of any screen, run the Add 27 door check. No live door = do not redesign; add an R line.
 Owner rulings in Add 26 (six items) and Add 27 (R / MOVE list) are now part of your orders.
+
+## Baselines (controller, after reviewing #8305)
+Never commit a regenerated baseline (`port-control-baseline.json`, `screens.generated.json`, `*.baseline.txt`,
+`*.baseline.json`, the exposure surface). If a lint asks for one, say so in your STATUS; the GitHub Controller
+regenerates once per landed batch. Eight fixers regenerating the same file would conflict on every batch.

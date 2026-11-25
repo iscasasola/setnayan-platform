@@ -624,7 +624,7 @@ async function viewerIsSignedIn(): Promise<boolean> {
 export async function vendorMetadataBySlug(slug: string) {
   const { vendor, failed } = await fetchVendorRead(slug);
   // A refused read is not a missing page: no "Page not found" tab, and nothing indexed (A1-128).
-  if (failed) return { title: 'Setnayan', robots: { index: false, follow: false } };
+  if (failed) return { title: { absolute: 'Setnayan' }, robots: { index: false, follow: false } };
   // 🔎 NO SHOP BY THIS NAME (logged-out crawl #12): `/faq`, `/contact`, any unknown top-level path lands here through
   // `app/[slug]` and is a 404 — its tab must not read "Supplier · Setnayan" as if a shop were behind it.
   if (!vendor) return { title: 'Page not found', robots: { index: false, follow: false } };

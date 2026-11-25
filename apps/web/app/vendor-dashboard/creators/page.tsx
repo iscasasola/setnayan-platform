@@ -68,7 +68,7 @@ export default async function VendorCreatorsPage({
   // Creators this vendor already has an OUTSTANDING (pending) offer to — hide
   // the send form for them (the DB also enforces one-pending-per-pair).
   const pendingCreatorIds = new Set(
-    sentOffers.filter((o) => o.status === 'pending').map((o) => o.creatorUserId),
+    (sentOffers ?? []).filter((o) => o.status === 'pending').map((o) => o.creatorUserId),
   );
 
   return (

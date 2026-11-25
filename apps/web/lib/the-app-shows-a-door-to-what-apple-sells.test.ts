@@ -49,6 +49,9 @@ const APP_OPENED_FREE_KEYS = ['thank-you'];
  */
 const APP_INCLUDED_KEYS: ReadonlyArray<readonly [key: string, soldInside: readonly string[]]> = [
   ['setnayan-ai', ['EVENT_PLUS', 'COUPLE_WEBSITE_PRO']],
+  // 🛒 Event services (`studio/website-pro`, owner 2026-11-23) is where the app sells Event Plus · Pro · Ultra through
+  // Apple (24 Nov: its route opens where Apple sells — until then Pro and Ultra had no door in the app).
+  ['website-pro', ['EVENT_PLUS', 'COUPLE_WEBSITE_PRO', 'EVENT_ULTRA']],
 ];
 const APP_DOOR_KEYS = [...APPLE_UNLOCK_KEYS, ...APP_OPENED_FREE_KEYS, ...APP_INCLUDED_KEYS.map(([k]) => k)];
 

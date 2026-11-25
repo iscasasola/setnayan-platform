@@ -23,6 +23,8 @@
 // added tomorrow is protected the moment its folder exists.
 // ============================================================================
 
+import { DOOR_LABELS } from './door-map';
+
 /**
  * The hand-authored half. This is the set MIRRORED BY THE DATABASE
  * (`public.business_slug_is_reserved`, migration 20271117527966) and compared
@@ -151,12 +153,26 @@ export const DB_MIRRORED_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   // `for-suppliers` is.
   'for-coordinators',
 
+  // --- ⬇ ADDED 2026-11-16 -------------------------------------------------
+  // THE ADDRESS MOVE (owner 2026-11-15, specs DECISION_LOG d7910b5d). The words
+  // that sit UNDER a person or a shop — `/{user}/c/{id}` (a chapter),
+  // `/{shop}/invite`, `/{shop}/dates` · `booth` · `review` · `guest-review`, and
+  // the cached copies — so `/{x}/{y}` never needs a guess. Mirrored by the
+  // database (migration 20271357986226). `c` cannot be an address anyway (the
+  // format needs three characters); it is listed for the record.
+  'c',
+  'invite',
+  'dates',
+  'booth',
+  'review',
+  'guest-review',
+  'cached',
+
   // --- ⬇ ADDED 2026-11-17 -------------------------------------------------
   // Discover's articles (/articles/{slug}, Build 2). A route folder, so the
   // GENERATED half carries it too; here because the database mirrors THIS half
   // (migration 20271355258231).
   'articles',
-
 
   // --- Next.js internals / special files (defense-in-depth; can't be slugs
   //     anyway per the ^[a-z0-9-]{3,32}$ format, but reserved for safety) -----
@@ -256,6 +272,9 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
 export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   ...DB_MIRRORED_RESERVED_SLUGS,
   ...ROUTE_RESERVED_SLUGS,
+  // 🚪 The business doors' host labels (supplier · coordinator · business — the ONE map, lib/doors.ts): no event or
+  // shop address may take one, so `<label>.setnayan.com` is always the door. None was taken on prod (checked 24 Nov).
+  ...DOOR_LABELS,
 ]);
 
 /**

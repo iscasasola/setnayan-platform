@@ -9,8 +9,10 @@
  * else. Email sign-ups were never asked twice; Google / Apple sign-ups always were.
  *
  * ── THE PROPERTY ────────────────────────────────────────────────────────────
- *   1. ONE box for every door — just above "Create user account" (owner 2026-10-22, "do both"); the Google / Apple
- *      row above it sits inside its gate.
+ *   1. ONE box for every door — since 24 Nov 2026 ABOVE Google / Apple (owner, DECISION_LOG "Sign in and Create
+ *      account: simple, dark, a forming logo": "the Terms tick above Google/Apple (it still gates all three)"; it
+ *      amends 22 Oct's "just above Create user account"). Unticked, required, one of the email form's fields through
+ *      `form=`, and the Google / Apple row below it sits inside its gate.
  *   2. The tick travels only as a tick: an httpOnly cookie the SERVER sets from an affirmative posted tick, never
  *      OAuth `state` (Supabase owns that) and never a URL parameter (anyone can type one).
  *   3. The callback records it — only where nothing is on record — and spends it.
@@ -68,37 +70,45 @@ test('an account with no stamp still meets the one-time re-ask', () => {
 
 // ── THE CARD ───────────────────────────────────────────────────────────────
 
-// SABOTAGE: move the box back above the OAuth row → RED (owner 2026-10-22, "do both": choose how → agree → create).
-// SABOTAGE: move the box below the submit → RED.
+// SABOTAGE: move the box back below the OAuth row → RED (owner 24 Nov 2026: agree first, then choose how).
+// SABOTAGE: drop `form={SIGNUP_FORM_ID}` from the box → RED (the email door would post no tick).
+// SABOTAGE: drop `required`, or add `defaultChecked` → RED (clickwrap is an unticked box the person ticks).
 // SABOTAGE: put `<OAuthTermsLine />` back under the row → RED.
-test('/signup: ONE box, just above "Create user account", gating Google / Apple, and no browsewrap line', () => {
+test('/signup: ONE box, above Google / Apple, unticked and required, gating all three doors, and no browsewrap line', () => {
   const page = code('app/signup/page.tsx');
   const box = page.indexOf('name={TERMS_FIELD}');
   assert.ok(box > 0, 'the Terms box is gone from /signup');
   assert.equal(page.split('name={TERMS_FIELD}').length - 1, 1, 'exactly one box — the tick is asked once');
-  // The reading order (owner 2026-10-22, "do both"): choose how (Google · Apple · or email + password) → agree → create.
-  for (const before of ['<OAuthButtonRow', '<DesktopOAuthButtons', '<NativeOAuthButtons', '<form action={signUp}', 'name="email"', 'name="password"']) {
-    const at = page.indexOf(before);
-    assert.ok(at > 0, `${before} moved — this guard is pointed at nothing`);
-    assert.ok(at < box, `the Terms box must sit BELOW ${before} — the card reads choose how, then agree, then create`);
+  // The reading order (owner 24 Nov 2026): agree → choose how (Google · Apple · or email + password) → create.
+  for (const after of ['<OAuthButtonRow', '<DesktopOAuthButtons', '<NativeOAuthButtons', '<form action={signUp}', 'name="email"', 'name="password"', '<SubmitButton']) {
+    const at = page.indexOf(after);
+    assert.ok(at > 0, `${after} moved — this guard is pointed at nothing`);
+    assert.ok(box < at, `the Terms box must sit ABOVE ${after} — the card reads agree, then choose how, then create`);
   }
-  const submit = page.indexOf('<SubmitButton');
-  assert.ok(submit > box, 'the Terms box must sit ABOVE the button that creates the account — below it is browsewrap');
-  assert.ok(box < page.indexOf('</form>'), 'the box is inside the email form, so the email door posts it');
+  const tag = page.match(/<input id=\{TERMS_BOX_ID\}[^>]*>/)?.[0] ?? '';
+  assert.match(page, /<input id=\{TERMS_BOX_ID\} name=\{TERMS_FIELD\}/, 'the gate must name THIS box');
+  // Outside the email form, the box still belongs to it: the email door posts the tick and the browser refuses an
+  // unticked submit, exactly as when it sat inside.
+  assert.match(tag, /\bform=\{SIGNUP_FORM_ID\}/, 'the box must belong to the email form, or the email door posts no tick');
+  assert.match(page, /<form action=\{signUp\} id=\{SIGNUP_FORM_ID\}/, 'the email form must carry the id the box names');
+  assert.match(tag, /\brequired\b/, 'the box must be required — no tick, no email account');
+  assert.match(tag, /type="checkbox"/, 'the box must be a box');
+  assert.doesNotMatch(tag, /\b(?:defaultChecked|checked)\b/, 'the box starts UNTICKED — a ticked box is not an agreement');
   const wrap = page.indexOf('<TermsFirst boxId={TERMS_BOX_ID}>');
   const close = page.indexOf('</TermsFirst>');
   for (const row of ['<OAuthButtonRow', '<DesktopOAuthButtons', '<NativeOAuthButtons']) {
     const at = page.indexOf(row);
     assert.ok(wrap > 0 && wrap < at && at < close, `${row} must sit inside <TermsFirst> — ungated, it skips the tick`);
   }
-  assert.match(page, /<input id=\{TERMS_BOX_ID\} name=\{TERMS_FIELD\}/, 'the gate must name THIS box');
   assert.doesNotMatch(page, /<OAuthTermsLine/, 'the "By continuing…" line is browsewrap — the box above is the agreement');
-  const tag = page.match(/<input id=\{TERMS_BOX_ID\}[^>]*>/)?.[0] ?? '';
   assert.doesNotMatch(tag, /data-password-only/, 'the box must never fold away with the password half — it covers Google too');
-  // Inside the form now, so its LABEL must not fold away either (`GoogleAddressDoor` hides every `[data-password-only]`).
+  // `GoogleAddressDoor` hides every `[data-password-only]`: the box's LABEL must not fold away either.
   const label = page.match(/<label htmlFor=\{TERMS_BOX_ID\}[^>]*>/)?.[0] ?? '';
   assert.ok(label, 'the box has lost its label — the label is the 44 px press');
   assert.doesNotMatch(label, /data-password-only/, 'the Terms row must never fold away with the password half');
+  // "Use email" folds the email half away — the box must sit outside that fold, or Google / Apple could not be ticked for.
+  const fold = page.indexOf('<UseEmailFold');
+  assert.ok(fold < 0 || box < fold, 'the Terms box must sit outside the "Use email" fold — it gates Google / Apple too');
 });
 
 // SABOTAGE: let the gate carry before checking `box.checked` → RED.

@@ -46,7 +46,7 @@
 
 import { MILESTONE_THRESHOLDS } from '@/lib/service-card-record';
 import { stepName, type ShopBadge, type TrackerRow } from '@/lib/shop-badges';
-import { SHOP_BADGE_STEPS, TIER_KEYS, tierKeyAt, tierName, type ShopBadgeKey, type TierKey } from '@/lib/badge-tiers';
+import { SHOP_BADGE_KEYS, SHOP_BADGE_STEPS, TIER_KEYS, tierKeyAt, tierName, type ShopBadgeKey, type TierKey } from '@/lib/badge-tiers';
 import type { SpotlightAwardType } from '@/lib/spotlight-awards';
 import { upgradeLineFor, type BadgeUpgradeRow } from '@/lib/badge-upgrades';
 
@@ -195,8 +195,9 @@ export const BADGE_REWARDS: Readonly<Record<RewardBadge, BadgeRewardRule>> = {
    * (owner 15 Nov, DECISION_LOG "BADGE OPEN ITEMS RULED" (3): "successful booking" = the event is completed — the same
    * test as Completed bookings). ✅ COUNTED since Invite a supplier v3 (#7891, owner 16 Nov): the record is
    * `vendor_partnerships.brought_new_shop` — a shop CREATED through this shop's link, still partners — and
-   * `readInvitesCount` (lib/supplier-invite.server.ts) counts those with a completed booking (the same vetted view
-   * Completed bookings reads). An existing shop joining through the link never counts (answer 2).
+   * `readInvitesCount` (lib/supplier-invite.server.ts) counts those the ONE trust reader counts (owner 21 Nov 2026:
+   * verified, with a first completed, paid booking through Setnayan — `shop_trust`, lib/vendor-trusted-by.ts). An
+   * existing shop joining through the link never counts (answer 2).
    */
   invites: shopLadder('invites', 'Invites', ['supplier you added', 'suppliers you added'], true),
   verified: { badge: 'verified', title: 'SETNAYAN Verified', measured: true, shape: 'once', reward: papic(1) },
@@ -435,7 +436,7 @@ function shopBadgeOwed(badge: ShopBadgeKey, f: BadgeRewardFacts): OwedReward[] {
 export function rewardsOwed(f: BadgeRewardFacts): OwedReward[] {
   const out: OwedReward[] = [];
   if (f.verified === true) out.push({ key: rewardKey('verified'), badge: 'verified', reward: papic(1), note: 'Badge reward · SETNAYAN Verified' });
-  for (const badge of ['completed_bookings', 'five_star_reviews', 'gifts_given', 'trusted_by', 'invites'] as const) {
+  for (const badge of SHOP_BADGE_KEYS) {
     out.push(...shopBadgeOwed(badge, f));
   }
   const award = BADGE_REWARDS.award;

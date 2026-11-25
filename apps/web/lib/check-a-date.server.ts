@@ -14,6 +14,7 @@ import { formatPhpRounded } from '@/lib/php';
 import { NOT_AVAILABLE_COLUMNS, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
 import { checkDateAnswer, checkDateWindow, checkDateWindowFor, withBookingWindow, type CheckDateInput, type CheckDateService } from '@/lib/check-a-date';
 import { bookingWindowOf, type BookingWindow } from '@/lib/booking-window';
+import { SCHEDULE_OR_HALL_POOLS } from '@/lib/schedule-pool-kinds';
 
 /**
  * check-a-date.server — THE ONE READ BEHIND `/v/[slug]/dates` (owner 2026-10-28 ✅ "index.html approve").
@@ -247,7 +248,8 @@ export async function readShopDateFacts(
       .from('vendor_schedule_pools')
       .select('pool_id, daily_booking_capacity, vendor_service_halls(vendor_service_id)')
       .eq('vendor_profile_id', id)
-      .eq('is_active', true),
+      .eq('is_active', true)
+      .or(SCHEDULE_OR_HALL_POOLS),
     admin.from('vendor_schedule_pool_categories').select('category_key, pool_id').eq('vendor_profile_id', id),
     admin
       .from('vendor_schedule_calendar_services')

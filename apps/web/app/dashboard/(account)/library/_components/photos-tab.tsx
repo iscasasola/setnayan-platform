@@ -1,3 +1,4 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import Link from 'next/link';
 import { ArrowRight, Camera, ChevronRight, Play, Plus, Sparkles } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -115,7 +116,7 @@ export async function PhotosTab({
   // honest album-building guidance. No auto-upload, no cross-event ZIP.
   const fbShareUrl = shareEvent
     ? `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(
-        `${APP_URL}/${shareEvent.slug}`,
+        `${APP_URL}${publicEventPath(shareEvent.slug)}`,
       )}`
     : null;
 

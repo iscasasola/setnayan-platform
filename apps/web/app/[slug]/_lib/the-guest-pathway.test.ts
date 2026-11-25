@@ -372,7 +372,7 @@ test('5 · 🔒 nothing INSIDE is rendered for a stranger — decided on the ser
   assert.match(anon, /const insideAllowed = viewerIsHost \|\| vendorCapability !== null;/);
   assert.match(anon, /\{insideAllowed && dayOfPhase === 'live' && plan\.liveMediaVisible && liveWall \? \(/, 'the live photo wall reaches strangers');
   // (#6169 adds the one seat rule AFTER `insideAllowed` — a stranger is still refused first.)
-  assert.match(anon, /\{insideAllowed(?: && [^{}]*?)? \? \(\s*<div className="mt-8 text-center">\s*<Link\s*href=\{`\/\$\{event\.slug\}\/find-seat`\}/, 'the seat finder is offered to strangers');
+  assert.match(anon, /\{insideAllowed(?: && [^{}]*?)? \? \(\s*<div className="mt-8 text-center">\s*<Link\s*href=\{`\$\{publicEventPath\(event\.slug\)\}\/find-seat`\}/, 'the seat finder is offered to strangers');
   assert.match(anon, /candidCameraActive=\{insideAllowed && publicCandidCameraActive\}/, 'the camera reaches strangers');
   assert.match(anon, /photosHref=\{insideAllowed \? publicAlbumHref : null\}/, 'the photos reach strangers');
   assert.match(anon, /<GetInside\b/, 'the stranger has no way in');

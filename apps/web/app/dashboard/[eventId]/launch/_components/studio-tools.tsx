@@ -38,7 +38,8 @@ import {
 import { useMaker } from './maker-context';
 import { DetailsSelectContext } from './details-go';
 import { ISeg, ISegmented } from '../../website/editor/_components/inspector-kit';
-import { LOOK_SECTION_ITEM_KEYS, type LookSectionItemKey } from '@/lib/maker-details-items';
+import { type LookSectionItemKey } from '@/lib/maker-details-items';
+import { STUDIO_LOOK_TABS, type StudioLookTab } from '@/lib/studio-tile-defs';
 import {
   STUDIO_GROUP,
   STUDIO_GROUP_HEAD,
@@ -833,6 +834,9 @@ export const STUDIO_LOOK_LABEL: Readonly<Record<LookSectionItemKey, string>> = {
   music: 'Music',
 };
 
+/** Look's first tab — the theme, shown as the moving set. */
+export const STUDIO_LOOK_THEME_LABEL = 'Theme';
+
 /** What the main background IS (the owner: *"explain that this is the main background"*) — behind the Source row's ⓘ since 2026-10-08 (`BACKGROUND_MAIN_INFO`). */
 export const STUDIO_MAIN_BACKGROUND_LINE = BACKGROUND_MAIN_INFO;
 
@@ -843,14 +847,15 @@ export const STUDIO_MAIN_BACKGROUND_LINE = BACKGROUND_MAIN_INFO;
  * writes nothing. What the main background IS sits behind the Source row's ⓘ
  * (helper text lives behind ⓘ), no longer a paragraph under this bar.
  */
-export function StudioLookBar({ item }: { item: LookSectionItemKey }) {
+export function StudioLookBar({ item }: { item: StudioLookTab }) {
   const select = useContext(DetailsSelectContext);
   return (
     <div data-studio-look-bar={item} className="flex flex-col gap-2 pb-1">
       <ISegmented label="Look">
-        {LOOK_SECTION_ITEM_KEYS.map((k) => (
+        {/* 🎬 Theme first — the whole Event Hub's one theme, shown as the moving set (owner 23 Nov 2026). */}
+        {STUDIO_LOOK_TABS.map((k) => (
           <ISeg key={k} on={k === item} data={k} onClick={() => k !== item && select?.(k)} className="!text-[13px]">
-            {STUDIO_LOOK_LABEL[k]}
+            {k === 'theme' ? STUDIO_LOOK_THEME_LABEL : STUDIO_LOOK_LABEL[k]}
           </ISeg>
         ))}
       </ISegmented>

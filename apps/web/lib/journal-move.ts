@@ -20,8 +20,13 @@
  * source by `lib/journal-move.test.ts`.
  */
 
-/** The byline every imported Journal post carries in the feed ("Setnayan Journal · 17 Nov" in the drawing). */
-export const JOURNAL_BYLINE = 'Setnayan Journal';
+/**
+ * The byline every imported Journal post carries in the feed ("Setnayan · 17 Nov"). ⚖ The Journal MOVED into Articles
+ * (DECISION_LOG 2026-11-17 "THE JOURNAL MOVES INTO DISCOVER'S ARTICLES — ONE SOURCE"), so a reader never sees the
+ * retired name "Setnayan Journal" — these are Setnayan's own posts, bylined "Setnayan" (controller, 24 Nov "make it
+ * true"; it was the drawing's "Setnayan Journal · 17 Nov"). 🔒 lib/public-lines-match-the-rulings.test.ts
+ */
+export const JOURNAL_BYLINE = 'Setnayan';
 
 /** Most tags one post may carry ("Tags · up to 3" on the Write sheet). */
 export const ARTICLE_TAGS_MAX = 3;

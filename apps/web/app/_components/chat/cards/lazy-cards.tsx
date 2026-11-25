@@ -36,5 +36,5 @@ export const DealSheet = dynamic(() => import(/* webpackChunkName: "thread-parts
 export const CakeDesignCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './cake-design-card').then((m) => m.CakeDesignCard), { ssr: false, loading: wait });
 // 🎂 The shop's "Design your cake for us" invite (Cake Maker v6) — Design your cake opens the designer.
 export const CakeInviteCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './cake-invite-card').then((m) => m.CakeInviteCard), { ssr: false, loading: wait });
-// 🧰 A supplier's "Share from your tools" (DECISION_LOG 2026-11-23 dee66686) — the five tool cards, Open · Approve.
+// 🧰 A supplier's "Share from your widgets" (DECISION_LOG 2026-11-23 dee66686) — the five tool cards, Open · Approve.
 export const ToolShareCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './tool-share-card').then((m) => m.ToolShareCard), { ssr: false, loading: wait });

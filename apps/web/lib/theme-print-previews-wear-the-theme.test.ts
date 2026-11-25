@@ -69,8 +69,9 @@ test('4 · the sample door can only ever draw the pinned sample, on screen, and 
   assert.doesNotMatch(door, /searchParams\.get\('event'\)/, 'the sample door reads an event from the request');
   assert.match(door, /loadPrintSet\(sampleId, /);
   assert.equal([...door.matchAll(/loadPrintSet\(/g)].length, 1);
-  // On-screen pictures of three pieces only — never a PDF, passes or the set.
-  assert.match(mod, /export const SAMPLE_PIECES = \['invitation', 'details', 'pass'\] as const;/);
+  // On-screen pictures of four pieces only — never a PDF, passes or the set. RE-AIMED 23 Nov (the Maker's theme set):
+  // the table sign in the theme joins the three, still a picture on screen, still the sample's.
+  assert.match(mod, /export const SAMPLE_PIECES = \['invitation', 'details', 'pass', 'table-sign'\] as const;/);
   assert.doesNotMatch(mod, /print-render-pdf|renderPrintPdf|renderImposedPdf|loadGuestPasses/, 'the sample door can make a file');
   assert.match(door, /url\.searchParams\.get\('mode'\) !== 'screen'/);
   assert.match(door, /samplePreviewCacheControl\(url\.searchParams\.get\('v'\)\)/);

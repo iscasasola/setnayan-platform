@@ -18,3 +18,13 @@ export const MARKETING_PHOTO_ROOT = '/marketing/2026-11-04';
 export function marketingPhoto(key: string): string {
   return `${MARKETING_PHOTO_ROOT}/${key}.webp`;
 }
+
+/**
+ * ⚡ The same photo at tile size (`<root>/sm/<key>.webp`, 560 px on the short side) — for a picture drawn at most ~200
+ * CSS px wide (the front page's event shelf, its 64-px "Keep it" row). The full renders are 70–155 KB each and are
+ * drawn there at a fraction of their size (speed pass 24 Nov 2026). Only the keys with a copy in `sm/` may ask for it
+ * (`the-front-door-photos-are-drawn-small.test.ts`).
+ */
+export function marketingSmallPhoto(key: string): string {
+  return `${MARKETING_PHOTO_ROOT}/sm/${key}.webp`;
+}

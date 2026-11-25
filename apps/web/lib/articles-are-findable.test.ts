@@ -32,6 +32,7 @@ import {
 } from './articles-index';
 // The llms.txt WORDS for articles live in the one search-and-AI source (#8041), never in articles-index.ts.
 import { LLMS_ARTICLES_MAX, llmsArticlesSection } from './llms-txt';
+import { JOURNAL_BYLINE } from './journal-move';
 
 const WEB = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -51,7 +52,7 @@ const journal: IndexedArticle = {
   ...member,
   slug: 'the-money-dance',
   title: 'The money dance: where it came from and how it works',
-  byline: { kind: 'journal', name: 'Setnayan Journal' },
+  byline: { kind: 'journal', name: JOURNAL_BYLINE },
 };
 const shop: IndexedArticle = { ...member, slug: 'april-weekends', title: 'April weekends', byline: { kind: 'shop', name: 'Taal Vista Hotel' } };
 
@@ -120,7 +121,7 @@ test('4 · llms.txt: an Articles section only when there is one; each line says 
   assert.equal(llmsArticlesSection([], BASE), '', 'nothing public (or a refused read) = no section');
   const out = llmsArticlesSection([journal, shop, { ...member, title: 'Two\nlines [x]' }], BASE);
   assert.match(out, /^## Articles\n/);
-  assert.match(out, /- \[The money dance[^\]]*\]\(https:\/\/www\.setnayan\.com\/articles\/the-money-dance\): Setnayan Journal/);
+  assert.match(out, /- \[The money dance[^\]]*\]\(https:\/\/www\.setnayan\.com\/articles\/the-money-dance\): Setnayan(?: —|$)/m);
   assert.match(out, /- \[April weekends\]\(https:\/\/www\.setnayan\.com\/articles\/april-weekends\): a supplier’s post by Taal Vista Hotel/);
   assert.match(out, /- \[Two lines x\]\(https:\/\/www\.setnayan\.com\/articles\/garden-or-church-in-tagaytay\): a member’s post by tagaytaybride/);
   const many = llmsArticlesSection(Array.from({ length: LLMS_ARTICLES_MAX + 7 }, () => member), BASE);
@@ -151,7 +152,7 @@ test('5 · structured data: a member or shop post is a DiscussionForumPosting, a
   assert.ok(isJournalArticle(journal) && !isJournalArticle(shop));
   const art = articleStructuredData(journal, BASE);
   assert.equal(art['@type'], 'Article');
-  assert.deepEqual(art.author, { '@type': 'Organization', name: 'Setnayan Journal' });
+  assert.deepEqual(art.author, { '@type': 'Organization', name: 'Setnayan' });
 
   const text = jsonLdText(articleStructuredData({ ...member, title: '</script><script>alert(1)</script>' }, BASE));
   assert.doesNotMatch(text, /<\/script>/i, 'a title can end the JSON-LD script tag');
@@ -191,7 +192,7 @@ test('8 · Discover’s Articles part draws the posts, each a door to its articl
         status: 'ok',
         items: [
           { key: 'a', title: 'Garden or church?', href: articleHref(member), by: 'tagaytaybride', isJournal: false, postedAt: member.publishedAt, line: 'Torn.' },
-          { key: 'b', title: 'Best months', href: articleHref(journal), by: 'Setnayan Journal', isJournal: true, postedAt: null, line: null },
+          { key: 'b', title: 'Best months', href: articleHref(journal), by: JOURNAL_BYLINE, isJournal: true, postedAt: null, line: null },
         ],
       },
     }),
@@ -200,7 +201,7 @@ test('8 · Discover’s Articles part draws the posts, each a door to its articl
   assert.match(html, /href="\/articles\/garden-or-church-in-tagaytay"/);
   assert.match(html, /href="\/articles\/the-money-dance"/);
   assert.match(html, /tagaytaybride · 17 Nov/);
-  assert.match(html, /<b class="fd-art-jby">Setnayan Journal<\/b>/);
+  assert.match(html, /<b class="fd-art-jby">Setnayan<\/b>/);
   assert.doesNotMatch(html, /coming soon|data-coming-soon/i, 'the placeholder came back');
   assert.match(html, /<a(?=[^>]*data-discover-see-all="")(?=[^>]*href="\/articles")[^>]*>See all/, 'See all must open Build 2’s feed');
 

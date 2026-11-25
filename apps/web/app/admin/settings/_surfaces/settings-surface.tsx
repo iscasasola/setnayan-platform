@@ -22,6 +22,7 @@ import {
   fetchGrowLines,
 } from '@/lib/platform-settings';
 import { getLoaderSettings } from '@/lib/loader-settings';
+import { fetchDeepSearchRunsPerMonth } from '@/lib/vendor-deep-search-addon';
 import { removeBrandIcon, saveBusinessIdentity } from '@/app/admin/settings/actions';
 import { TinInput } from '@/app/admin/settings/_components/tin-input';
 import { BrandIconUploadForm } from '@/app/admin/settings/_components/brand-icon-form';
@@ -70,6 +71,9 @@ export async function SettingsSurface({ searchParams }: Props) {
   // Soft probe (degrades to defaults pre-migration 20270503417266).
   const driveSpeed = await fetchDriveSpeed(admin);
   const growLines = await fetchGrowLines(admin);
+  // 🔎 Deep Search's monthly searches (owner 2026-11-22, "Deep Search 1 a month") — its own read, so a database without
+  // the column locks only this field.
+  const deepSearchRuns = await fetchDeepSearchRunsPerMonth(admin);
   // Loader appearance (owner 2026-07-05; degrades to DEFAULT pre-migration
   // 20270520000000).
   const loaderConfig = await getLoaderSettings();
@@ -381,6 +385,51 @@ export async function SettingsSurface({ searchParams }: Props) {
               step={1}
               disabled={!growLines.read}
               defaultValue={growLines.read && growLines.proofRealGuestsMin != null ? growLines.proofRealGuestsMin : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
+          <Field
+            label="Trust in search — how much more trust each step needs"
+            htmlFor="trust_search_step"
+            help={
+              growLines.read
+                ? 'Among suppliers that fit a search, those trusted by more shops show higher. Each step needs this many times the trusted shops of the one below: 2 means steps at 1, 2, 4 and 8 shops. Leave blank and trust does not move anyone.'
+                : 'Couldn’t read the current line, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="trust_search_step"
+              name="trust_search_step"
+              type="number"
+              min={2}
+              max={10}
+              step={1}
+              disabled={!growLines.read}
+              defaultValue={growLines.read && growLines.trustSearchStep != null ? growLines.trustSearchStep : ''}
+              placeholder="Not set"
+              className="input-field"
+            />
+          </Field>
+          {/* 🔎 Owner 2026-11-22 (DECISION_LOG "DEEP SEARCH ALLOWANCE = 1 RUN A MONTH"): the paid plans' searches. */}
+          <Field
+            label="Deep Search — searches each paid month on Plus, Pro and Ultra"
+            htmlFor="deep_search_runs_per_month"
+            help={
+              deepSearchRuns.read
+                ? 'Each paid supplier plan includes this many Deep Searches a month. They reset when the shop’s next paid month starts; unused ones don’t carry over. Free and Verified get none. Leave blank and no search is included.'
+                : 'Couldn’t read the current number, so this field is locked to keep a save from clearing it. Reload to try again.'
+            }
+          >
+            <input
+              id="deep_search_runs_per_month"
+              name="deep_search_runs_per_month"
+              type="number"
+              min={1}
+              max={31}
+              step={1}
+              disabled={!deepSearchRuns.read}
+              defaultValue={deepSearchRuns.read && deepSearchRuns.perMonth !== null ? deepSearchRuns.perMonth : ''}
               placeholder="Not set"
               className="input-field"
             />

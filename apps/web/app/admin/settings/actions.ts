@@ -1,5 +1,6 @@
 'use server';
 
+import { routes } from '@/lib/routes';
 import { requireAdminCan } from '@/lib/admin/can.server';
 import { randomUUID } from 'node:crypto';
 import sharp from 'sharp';
@@ -196,6 +197,9 @@ export async function saveBusinessIdentity(formData: FormData) {
     // an event needs before a review from it counts, when the couple did not find the shop on Setnayan. Blank = not
     // set — that route never counts. The owner's number; nothing is seeded. A trigger re-reads the counts on save.
     ['proof_real_guests_min', 'real-guests', 100000],
+    // 🔎 Owner 2026-11-22 (DECISION_LOG "DEEP SEARCH ALLOWANCE = 1 RUN A MONTH", *"Deep Search 1 a month"*): searches each
+    // paid month on Plus, Pro and Ultra. Blank = not set — no search is included. Seeded to the owner's 1 by migration.
+    ['deep_search_runs_per_month', 'Deep Search searches', 31],
   ] as const) {
     if (!formData.has(field)) continue;
     const raw = formData.get(field);
@@ -212,6 +216,33 @@ export async function saveBusinessIdentity(formData: FormData) {
       return redirect(
         `/admin/settings?tab=settings&error=${encodeURIComponent(
           `Business identity saved, but the ${word} line couldn't save. Try again, and tell the developers if it repeats.${logRefusal('AdminSettingsActions (grow lines)', lineErr)}`,
+        )}`,
+      );
+    }
+  }
+  // The paid plans' Deep Search line is drawn on the supplier's Deep Search page, Shop › Details and the Plans page.
+  revalidatePath(routes.vendorDashboard.deepSearch());
+  revalidatePath(routes.vendorDashboard.profile());
+  revalidatePath(routes.vendorDashboard.subscription());
+
+  // 🤝 Owner 21 Nov 2026 ("TRUSTED SHOPS RANK HIGHER IN SEARCH" (5)): how many times more trusted shops each search
+  // step needs. The same shape as the lines above, but 2–10: 1 would be no step at all. Blank = not set — trust lifts
+  // nobody. The owner's number; nothing is seeded.
+  if (formData.has('trust_search_step')) {
+    const raw = formData.get('trust_search_step');
+    const blank = typeof raw !== 'string' || raw.trim() === '';
+    const n = nullIfBlankNumber(raw);
+    if (!blank && (n === null || !Number.isInteger(n) || n < 2 || n > 10)) {
+      return redirect(`/admin/settings?tab=settings&error=${encodeURIComponent('Business identity saved, but the trust step must be a whole number 2–10, or blank.')}`);
+    }
+    const { error: stepErr } = await admin
+      .from('platform_settings')
+      .update({ trust_search_step: n, updated_at: new Date().toISOString() })
+      .eq('id', 1);
+    if (stepErr) {
+      return redirect(
+        `/admin/settings?tab=settings&error=${encodeURIComponent(
+          `Business identity saved, but the trust step couldn't save. Try again, and tell the developers if it repeats.${logRefusal('AdminSettingsActions (trust step)', stepErr)}`,
         )}`,
       );
     }

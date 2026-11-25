@@ -13,7 +13,7 @@ import { SAMPLE_PLANNING } from '@/lib/empty-look-samples';
  * on fixtures: the REAL `HomeProfile` header + section bar and the REAL pinned rows (`HomePinnedRow`, Memories'
  * `MemoriesThumb`), no sign-in and no database. The Events body draws the board's REAL Planning card (`CollectionCard`
  * + `EventPoster`) on the shipped sample events (`SAMPLE_PLANNING`, the board's own Examples), so a review sees the real
- * body; the other section BODIES are the shipped pages, which read the database — the lab says so in their place. ?seg=events|people|shop|memories · ?shop=0 (no shop).
+ * body; the other section BODIES are the shipped pages, which read the database — the lab says so in their place. ?seg=events|people|shop|memories · ?shop=0 (no shop) · ?made=1 (the once-only "We made this from your name" line).
  */
 export function HomeLab({ sp }: { sp: Record<string, string | undefined> }) {
   const ownsShop = sp.shop !== '0';
@@ -24,7 +24,7 @@ export function HomeLab({ sp }: { sp: Record<string, string | undefined> }) {
       seg={seg}
       segs={segs}
       me={{ displayName: 'Ana Mercado', email: 'ana@example.test', photoUrl: null, photoFrame: null }}
-      handle={{ slug: 'ana-mercado', publicOn: true }}
+      handle={{ slug: 'ana-mercado', publicOn: true, justMade: sp.made === '1' }}
       eventCount={3}
       asking={2}
       cardCount={ownsShop ? 6 : null}

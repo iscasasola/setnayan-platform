@@ -10,7 +10,7 @@
  *   1 · every row's status is PINNED below. Adding, removing or flipping a row fails until the pin is edited in the
  *       same commit — say there what shipped (a flip to live) or why it left (a removal).
  *   2 · every planned row names its lane or ruling; every row with no register id names the ruling it came from.
- *   3 · every row is on the page, and the register coverage stays whole: A 71 · B 16 · C 42 · D 6, with each row
+ *   3 · every row is on the page, and the register coverage stays whole: A 70 · B 16 · C 42 · D 6, with each row
  *       left off named in EXCLUDED (or shown inside another row, A40 in the Event Hub row).
  *   4 · the PAINTED page agrees: a coming row draws the "Coming" chip and a live row never does.
  *   5 · the house words: no "vendor", "website", "site", "celebration", no typed peso; plan prices only by code.
@@ -61,7 +61,7 @@ const STATUS_PIN: Readonly<Record<string, RowStatus>> = {
   a73: 'coming', chats: 'coming', a31: 'live', a32: 'live', a33: 'live', a34: 'live', a35: 'live', a36: 'coming',
   a37: 'coming', a29: 'live', a30: 'live', a26: 'live', a38: 'live', a18: 'live', a52: 'live', a53: 'live', a54: 'live',
   a55: 'live', a56: 'live', a61: 'live', a68: 'live', a64: 'live', a65: 'live', a57: 'live',
-  a58: 'live', a59: 'live', a60: 'live', a66: 'live', a45: 'live', a46: 'live', a47: 'live', a74: 'live', a01: 'live',
+  a58: 'live', a59: 'live', a60: 'live', a66: 'live', a45: 'live', a47: 'live', a74: 'live', a01: 'live',
   a05: 'live', a06: 'live', a07: 'live', a08: 'live', a10: 'live', a11: 'live', a12: 'live', a13: 'live', a75: 'live',
   a76: 'live', a77: 'live',
   // B · guests
@@ -79,7 +79,8 @@ const STATUS_PIN: Readonly<Record<string, RowStatus>> = {
 };
 
 /** The register's row count per role and how many the page must show (v3 completeness table). */
-const REGISTER = { A: { total: 77, shown: 71 }, B: { total: 16, shown: 16 }, C: { total: 43, shown: 42 }, D: { total: 6, shown: 6 } } as const;
+// A 71 → 70 on 2026-11-24: A46 Real Stories left the page (retired 16 Nov) and is named in EXCLUDED.
+const REGISTER = { A: { total: 77, shown: 70 }, B: { total: 16, shown: 16 }, C: { total: 43, shown: 42 }, D: { total: 6, shown: 6 } } as const;
 /** Register rows shown INSIDE another row (one product to a visitor). */
 const MERGED: Readonly<Record<string, RowId>> = { A40: 'a39' };
 
@@ -110,7 +111,7 @@ test('2 · a planned row names its lane or ruling; a row with no register id nam
   assert.deepEqual(bad, [], `\n  ${bad.join('\n  ')}`);
 });
 
-test('3 · every row is on the page, and the register coverage stays whole (A 71 · B 16 · C 42 · D 6)', () => {
+test('3 · every row is on the page, and the register coverage stays whole (A 70 · B 16 · C 42 · D 6)', () => {
   const onPage = new Set<string>(PERSONAS.flatMap((p) => rowsOf(p)));
   const orphans = Object.keys(ROWS).filter((id) => !onPage.has(id));
   assert.deepEqual(orphans, [], `rows in the module that no chapter shows: ${orphans.join(', ')}`);

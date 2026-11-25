@@ -802,7 +802,11 @@ export function BottomDock({
       );
     publish();
     const ro = new ResizeObserver(publish);
-    ro.observe(el);
+    // 📱 The BORDER box: the dock's home-indicator room is its padding (`env(safe-area-inset-bottom)`), and an iPhone's
+    // WebView can report that inset after the first paint. Watching the content box (the default) misses that change,
+    // so the clearance stayed short by the home indicator and the nav covered the foot of every bar standing on it
+    // (the iPhone walk, 25 Nov: Event services' Pay bar). Pinned by the-pay-bar-and-its-step-clear-the-nav.test.ts.
+    ro.observe(el, { box: 'border-box' });
     return () => {
       ro.disconnect();
       // A doorway without a dock must not inherit this one's clearance.

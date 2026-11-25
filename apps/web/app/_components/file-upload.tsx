@@ -87,6 +87,7 @@ type FileUploadBaseProps = {
    */
   pickOneAtATime?: boolean;
   /** Hard upper bound on number of files when `multiple` is true. */
+  /** `Infinity` = no count limit (a portfolio since 2026-11-23 — storage is the only limit); no "max N" is said then. */
   maxFiles?: number;
   /**
    * What to say when a pick would go past `maxFiles` — in place of the generic "N-file limit" line. For a limit that
@@ -1821,7 +1822,7 @@ export function FileUpload({
                 .map((t) => t.replace('image/', '').replace('application/', '').toUpperCase())
                 .join(' · ')}{' '}
               · up to {formatCount(maxSizeMB)} MB
-              {multiple ? ` · max ${effectiveMaxFiles}` : ''}
+              {multiple && Number.isFinite(effectiveMaxFiles) ? ` · max ${effectiveMaxFiles}` : ''}
             </span>
           )}
           {fileInput}

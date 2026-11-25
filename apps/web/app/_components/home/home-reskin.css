@@ -3389,9 +3389,12 @@ html.hr-snap {
    The greige card shipped with no dark rule, so on a dark page it would have stayed a light panel. It now
    follows the app's approved dark set — card #2B2821, inputs #232019, ink #FBFAF7, lines at 16 % — and keeps
    the locked terracotta Done (the top edge went 2026-10-22, owner "do both"). Words that act (eyebrow, links) take the dark CTA #E5794E; quiet
-   words #B3AEA3 (today: the ink-3 token). INERT until a sign-in route joins `DARK_READY` (lib/appearance.ts): `html.dark` is only ever
-   set on a ready route, and none is. Scoped to the `.sn-signin-terra` card so no other overlay moves. */
-html.dark .home-reskin-ov:has(.sn-signin-terra) {
+   words #B3AEA3 (today: the ink-3 token). Live since 24 Nov 2026 for everyone whose phone prefers dark (`SIGNED_OUT_FOLLOWS_PHONE`, lib/appearance.ts):
+   on /login and /signup through `html.dark`, and on the pop-up over any other page through `.sn-dark-scope` on its
+   own overlay (`sign-in-here-panel.tsx`) — the page behind keeps its look. Each rule names both, one rule set for the
+   two. Scoped to the `.sn-signin-terra` card so no other overlay moves. */
+html.dark .home-reskin-ov:has(.sn-signin-terra),
+.home-reskin-ov.sn-dark-scope:has(.sn-signin-terra) {
   /* The dark is the scrim token's own dark-mode value (`--sn-scrim`, flipped on html.dark). */
   --hr-bg: rgb(var(--color-raised-2));
   --hr-ink: rgb(var(--color-ink));
@@ -3400,39 +3403,52 @@ html.dark .home-reskin-ov:has(.sn-signin-terra) {
   --hr-line: rgb(var(--color-ink) / 0.16);
   color: rgb(var(--color-ink));
 }
-html.dark .home-reskin-ov .hr-ov-card.sn-signin-terra {
+html.dark .home-reskin-ov .hr-ov-card.sn-signin-terra,
+.home-reskin-ov.sn-dark-scope .hr-ov-card.sn-signin-terra {
   border-color: rgba(255, 255, 255, 0.08);
 }
-html.dark .home-reskin-ov .sn-signin-terra .hr-si-input {
+html.dark .home-reskin-ov .sn-signin-terra .hr-si-input,
+.home-reskin-ov.sn-dark-scope .sn-signin-terra .hr-si-input {
   background: rgb(var(--color-raised));
   color: rgb(var(--color-ink));
 }
-html.dark .home-reskin-ov .sn-signin-terra .hr-si-input::placeholder {
+html.dark .home-reskin-ov .sn-signin-terra .hr-si-input::placeholder,
+.home-reskin-ov.sn-dark-scope .sn-signin-terra .hr-si-input::placeholder {
   color: #9a958c;
 }
 html.dark .home-reskin-ov .sn-signin-terra .hr-si-label,
 html.dark .home-reskin-ov .sn-signin-terra .hr-si-or span,
 html.dark .home-reskin-ov .sn-signin-terra .hr-si-hint,
 html.dark .home-reskin-ov .sn-signin-terra .hr-si-remember,
-html.dark .home-reskin-ov .sn-signin-terra .hr-si-foot {
+html.dark .home-reskin-ov .sn-signin-terra .hr-si-foot,
+.home-reskin-ov.sn-dark-scope .sn-signin-terra .hr-si-label,
+.home-reskin-ov.sn-dark-scope .sn-signin-terra .hr-si-or span,
+.home-reskin-ov.sn-dark-scope .sn-signin-terra .hr-si-hint,
+.home-reskin-ov.sn-dark-scope .sn-signin-terra .hr-si-remember,
+.home-reskin-ov.sn-dark-scope .sn-signin-terra .hr-si-foot {
   color: rgb(var(--color-ink-3));
 }
 html.dark .home-reskin-ov .sn-signin-terra .hr-ov-eyebrow,
-html.dark .home-reskin-ov .sn-signin-terra .hr-si-link {
+html.dark .home-reskin-ov .sn-signin-terra .hr-si-link,
+.home-reskin-ov.sn-dark-scope .sn-signin-terra .hr-ov-eyebrow,
+.home-reskin-ov.sn-dark-scope .sn-signin-terra .hr-si-link {
   color: rgb(var(--color-mulberry));
 }
-html.dark .home-reskin-ov .sn-signin-terra .hr-si-banner--error {
+html.dark .home-reskin-ov .sn-signin-terra .hr-si-banner--error,
+.home-reskin-ov.sn-dark-scope .sn-signin-terra .hr-si-banner--error {
   color: #f3b59a;
 }
 /* ✕ The close disc (dark B2, 2026-10-23). It is the base `.hr-ov-x` — a solid #fff disc with the card's
    ink — and the card's ink turns near-white in dark: a white × on a white disc, invisible (the audit reads
    words, not glyphs; dark_mode_rollout_2026-10-22 §3). The disc takes the raised card, the × the ink. */
-html.dark .home-reskin-ov .sn-signin-terra .hr-ov-x {
+html.dark .home-reskin-ov .sn-signin-terra .hr-ov-x,
+.home-reskin-ov.sn-dark-scope .sn-signin-terra .hr-ov-x {
   background: rgb(var(--color-raised));
   border-color: rgb(var(--color-ink) / 0.16);
   color: rgb(var(--color-ink));
 }
-html.dark .home-reskin-ov .sn-signin-terra .hr-ov-x:hover {
+html.dark .home-reskin-ov .sn-signin-terra .hr-ov-x:hover,
+.home-reskin-ov.sn-dark-scope .sn-signin-terra .hr-ov-x:hover {
   background: #34322b;
 }
 /* The You card's @name verdict paints its tone inline (#2F6B35 ok · #8A3418 taken) — about 2:1 on the dark
@@ -3518,5 +3534,239 @@ html.dark .home-reskin-ov .hr-vb-legend {
   .home-reskin-ov [data-terms-nudge] {
     animation: none;
     text-decoration: underline;
+  }
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   THE SIMPLE CARD — SIGN IN · CREATE ACCOUNT (owner 24 Nov 2026, DECISION_LOG "Sign in and Create account: simple,
+   dark, a forming logo"; approved drawing `prototypes/login_simple_dark_2026-11-24/`).
+   `.sn-signin-simple` sits on the overlay of the /login page, the sign-in pop-up (and its third pane) and the /signup
+   page — never on the You card, which keeps its own shape.
+     · CONCENTRIC CORNERS: the card is the popup radius (22, `--m-r-lg`), 8 in; everything inside it that is a box —
+       Google / Apple, the fields, "Use email", the ✕ — is 22 − 8 = 14 (`--m-r-md`) and 48 tall (the ✕ 44 square, 8
+       from the corner). The one round button is Continue / Create account (K1: the only accent button).
+     · A layered warm shadow (gold and terracotta in light, lamplight in dark), from the colour tokens.
+     · The card rises in on open (Move speed, Settle) — transform and opacity only.
+   Held by `app/signup/the-sign-in-cards-wear-the-house-shape.test.ts`.
+   ═══════════════════════════════════════════════════════════════════════════ */
+.home-reskin-ov.sn-signin-simple .hr-ov-card.sn-signin-terra {
+  padding: 8px;
+  box-shadow:
+    0 1px 2px rgb(var(--ramp-gold-dark) / 0.1),
+    0 6px 14px rgb(var(--ramp-gold) / 0.14),
+    0 20px 40px rgb(var(--color-mulberry) / 0.14),
+    0 44px 88px rgb(var(--ramp-gold-deep) / 0.18);
+  animation: hr-si-rise var(--sn-m-move) var(--sn-m-settle) backwards;
+}
+html.dark .home-reskin-ov.sn-signin-simple .hr-ov-card.sn-signin-terra,
+.home-reskin-ov.sn-signin-simple.sn-dark-scope .hr-ov-card.sn-signin-terra {
+  box-shadow:
+    0 1px 2px rgb(var(--color-page) / 0.5),
+    0 8px 18px rgb(var(--color-page) / 0.42),
+    0 22px 48px rgb(var(--color-mulberry) / 0.16),
+    0 0 96px rgb(var(--ramp-gold-300) / 0.14);
+}
+@keyframes hr-si-rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+}
+.home-reskin-ov.sn-signin-simple.sn-dark-scope {
+  color-scheme: dark;
+}
+
+/* The head: the forming mark over one centred title. */
+.home-reskin-ov.sn-signin-simple .hr-si-head {
+  padding: 16px;
+  text-align: center;
+}
+.home-reskin-ov.sn-signin-simple .hr-si-head .hr-ov-title {
+  margin: 0;
+  font-size: var(--sn-fs-title);
+  line-height: 1.1;
+}
+
+/* The ✕: a 14-radius square in the corner, 8 in — the card's corner, one step in. */
+.home-reskin-ov.sn-signin-simple .sn-signin-terra .hr-ov-x {
+  top: 8px;
+  right: 8px;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--m-r-md);
+  background: rgb(var(--color-raised));
+}
+
+/* Google / Apple: 48 tall, 14 corners, 8 apart. */
+.home-reskin-ov.sn-signin-simple .hr-si-oauth {
+  margin: 0;
+}
+.home-reskin-ov.sn-signin-simple .hr-si-oauth :is(form, button) + :is(form, button) {
+  margin-top: 8px;
+}
+.home-reskin-ov.sn-signin-simple .hr-si-oauth button {
+  min-height: 48px;
+  border-radius: var(--m-r-md);
+  font-size: var(--sn-fs-lg);
+  transition: transform var(--sn-m-tap) var(--sn-m-settle);
+}
+.home-reskin-ov.sn-signin-simple .hr-si-oauth button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+/* In dark both doors wear the dark provider style (the drawing: Google's own dark theme for both) — from the dark set. */
+html.dark .home-reskin-ov.sn-signin-simple .hr-si-oauth button,
+.home-reskin-ov.sn-signin-simple.sn-dark-scope .hr-si-oauth button {
+  background: rgb(var(--color-page));
+  color: rgb(var(--color-ink));
+  border-color: rgb(var(--color-ink-3));
+}
+html.dark .home-reskin-ov.sn-signin-simple .hr-si-oauth button:hover,
+.home-reskin-ov.sn-signin-simple.sn-dark-scope .hr-si-oauth button:hover {
+  background: rgb(var(--color-raised));
+}
+/* The one-colour Apple glyph (a lone path) takes the words' colour in dark; Google's four colours stay its own. */
+html.dark .home-reskin-ov.sn-signin-simple .hr-si-oauth svg path:only-child,
+.home-reskin-ov.sn-signin-simple.sn-dark-scope .hr-si-oauth svg path:only-child {
+  fill: currentColor;
+}
+
+/* "Use email" — a quiet switch under Google / Apple (`UseEmailFold`). The email half is its next sibling, rendered
+   always (so the bot check inside it can solve) and folded until it opens: hidden, no height, nothing focusable. */
+.home-reskin-ov .hr-si-fold > summary {
+  list-style: none;
+}
+.home-reskin-ov .hr-si-fold > summary::-webkit-details-marker {
+  display: none;
+}
+.home-reskin-ov .hr-si-fold[open] {
+  display: none;
+}
+.home-reskin-ov .hr-si-fold:not([open]) + .hr-si-email {
+  visibility: hidden;
+  height: 0;
+  overflow: hidden;
+}
+.home-reskin-ov .hr-si-use-email {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 48px;
+  margin-top: 4px;
+  border-radius: var(--m-r-md);
+  font-size: var(--sn-fs-base);
+  font-weight: 500;
+  color: var(--hr-ink);
+  cursor: pointer;
+  user-select: none;
+}
+.home-reskin-ov .hr-si-use-email:hover {
+  background: color-mix(in srgb, var(--hr-ink) 6%, transparent);
+}
+.home-reskin-ov .hr-si-use-email:focus-visible {
+  outline: 2px solid rgb(var(--color-mulberry));
+  outline-offset: 2px;
+}
+.home-reskin-ov .hr-si-email {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+/* The divider is one quiet word, "or", between two hairlines. */
+.home-reskin-ov.sn-signin-simple .hr-si-or {
+  gap: 12px;
+  height: 24px;
+  margin: 0;
+}
+.home-reskin-ov.sn-signin-simple .hr-si-or span {
+  font-family: inherit;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+/* The fields and the rows: 48 tall, 14 corners, 8 apart; words 16 in from the card's inner edge. */
+.home-reskin-ov.sn-signin-simple .hr-si-form {
+  gap: 8px;
+}
+.home-reskin-ov.sn-signin-simple .sn-signin-terra .hr-si-input {
+  min-height: 48px;
+  padding: 0 16px;
+  border-radius: var(--m-r-md);
+  font-size: var(--sn-fs-lg);
+}
+.home-reskin-ov.sn-signin-simple .hr-si-row {
+  padding: 0 16px;
+  font-size: var(--sn-fs-base);
+}
+.home-reskin-ov.sn-signin-simple .hr-si-submit {
+  min-height: 48px;
+  margin-top: 0;
+  padding: 0 24px;
+  font-size: var(--sn-fs-lg);
+}
+.home-reskin-ov.sn-signin-simple .hr-si-banner {
+  margin: 0 0 8px;
+}
+.home-reskin-ov.sn-signin-simple .hr-si-foot {
+  margin: 0;
+  padding: 12px 16px;
+}
+/* The Terms tick above Google / Apple (create account): the row they agree on before they choose how. */
+.home-reskin-ov.sn-signin-simple .hr-si-terms {
+  display: flex;
+  padding: 0 16px;
+  margin-bottom: 4px;
+  font-size: var(--sn-fs-md);
+}
+.home-reskin-ov.sn-signin-simple .hr-si-terms-hint {
+  margin: -4px 0 8px;
+  padding: 0 16px;
+}
+/* The password checks under the box, set in from the card's edge like the rows. */
+.home-reskin-ov.sn-signin-simple [data-password-meter] {
+  padding: 4px 16px 0;
+}
+
+/* ═══ THE SCENE BEHIND THE TWO SIGN-IN PAGES (`.sn-signin-scene`, /login and /signup only) ═══════════════════════
+   A celebration photo (`public/hero/hero-couple.avif`), blurred under a warm light veil; in dark the same photo
+   darkened, with drawn string lights (`public/hero/string-lights.svg`). A CSS background on two fixed layers behind
+   the card: fetched at the browser's own low priority, and it takes no room, so nothing shifts when it lands. The
+   pop-up over a page never wears it — the page you are on stays behind it, under the one scrim. */
+.home-reskin-ov.sn-signin-scene {
+  background: rgb(var(--color-page));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  isolation: isolate;
+}
+.home-reskin-ov.sn-signin-scene::before,
+.home-reskin-ov.sn-signin-scene::after {
+  content: '';
+  position: fixed;
+  pointer-events: none;
+}
+.home-reskin-ov.sn-signin-scene::before {
+  inset: -24px;
+  z-index: -2;
+  background: url('/hero/hero-couple.avif') 22% 50% / cover no-repeat;
+  filter: blur(6px) saturate(1.05);
+}
+.home-reskin-ov.sn-signin-scene::after {
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(180deg, rgb(var(--ramp-gold-100) / 0.18), rgb(var(--ramp-gold-100) / 0.34));
+}
+html.dark .home-reskin-ov.sn-signin-scene::before {
+  filter: blur(6px) brightness(0.34) saturate(0.8) sepia(0.25);
+}
+html.dark .home-reskin-ov.sn-signin-scene::after {
+  background:
+    linear-gradient(180deg, rgb(var(--color-page) / 0.3), rgb(var(--color-page) / 0.62)),
+    url('/hero/string-lights.svg') top center / 100% 200px no-repeat;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-reskin-ov.sn-signin-simple .hr-ov-card.sn-signin-terra {
+    animation: none;
   }
 }

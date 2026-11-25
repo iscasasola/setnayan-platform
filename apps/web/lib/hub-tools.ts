@@ -15,7 +15,9 @@
  * that any shop may switch on; `suggestedHubTools` below turns the category switches into which of them start ON for a
  * booking — a suggestion, never a gate. 24 Nov (DECISION_LOG "Seven open calls settled" item 3, the free rest): ten more
  * on the same row store — Ceremony details · Proofs & approval · Safety permit & cue · Fittings & measurements · Looks per
- * person · Crew roster · Room list · Chair schedule · Reservation slots · Brackets & scoring. The three
+ * person · Crew roster · Room list · Chair schedule · Reservation slots · Brackets & scoring; then part 2, the seven live
+ * timelines (Pick-up times & routes · Itinerary · Serving times · Remembrance schedule · March cue sheet · Rehearsal &
+ * cues · Reveal cue) and the Wellness plan (dates and plain activity words). The three
  * privacy picks (Medic health notes · Mobile Bar adult/minor · Insurance names) still wait for the owner's yes — they
  * are switches here, never data.
  *
@@ -71,40 +73,40 @@ export const HUB_TOOL_LIBRARY = [
   { key: "chair_schedule", label: "Chair schedule", template: "ordered_list", shipped: true },
   { key: "photo_upload", label: "Photo upload (Photo by · credits)", template: "media", shipped: false },
   { key: "personalisation_list", label: "Personalisation list", template: "per_person", shipped: true },
-  { key: "wellness_plan", label: "Wellness plan", template: "plan", shipped: false },
+  { key: "wellness_plan", label: "Wellness plan", template: "plan", shipped: true },
   { key: "queue_counter", label: "Queue counter", template: "counter", shipped: true },
   { key: "papic_camera", label: "Papic camera", template: "media", shipped: true },
   { key: "quantity_vs_guests", label: "Quantity vs guests", template: "counter", shipped: true },
   { key: "dietary_and_allergies", label: "Dietary & allergies", template: "per_person", shipped: true },
   { key: "load_in_and_venue_access", label: "Load-in & venue access", template: "checklist", shipped: true },
-  { key: "pick_up_times_and_routes", label: "Pick-up times & routes", template: "live_timeline", shipped: false },
+  { key: "pick_up_times_and_routes", label: "Pick-up times & routes", template: "live_timeline", shipped: true },
   { key: "headcount", label: "Headcount", template: "counter", shipped: true },
-  { key: "itinerary", label: "Itinerary", template: "live_timeline", shipped: false },
-  { key: "tables_and_seating", label: "Tables & seating", template: "plan", shipped: false },
-  { key: "serving_times", label: "Serving times", template: "live_timeline", shipped: false },
+  { key: "itinerary", label: "Itinerary", template: "live_timeline", shipped: true },
+  { key: "tables_and_seating", label: "Tables & seating", template: "plan", shipped: true },
+  { key: "serving_times", label: "Serving times", template: "live_timeline", shipped: true },
   { key: "crew_roster", label: "Crew roster", template: "per_person", shipped: true },
   { key: "floor_command", label: "Floor Command", template: "live_timeline", shipped: true },
   { key: "run_of_show", label: "Run of show (live)", template: "live_timeline", shipped: true },
   { key: "march", label: "March (read)", template: "live_timeline", shipped: true },
   { key: "paperwork_checklist", label: "Paperwork checklist", template: "checklist", shipped: true },
   { key: "reservation_slots", label: "Reservation slots", template: "ordered_list", shipped: true },
-  { key: "remembrance_schedule", label: "Remembrance schedule", template: "live_timeline", shipped: false },
+  { key: "remembrance_schedule", label: "Remembrance schedule", template: "live_timeline", shipped: true },
   { key: "emcee_script", label: "Emcee script", template: "live_timeline", shipped: true },
-  { key: "march_cue_sheet", label: "March cue sheet (live)", template: "live_timeline", shipped: false },
+  { key: "march_cue_sheet", label: "March cue sheet (live)", template: "live_timeline", shipped: true },
   { key: "song_desk", label: "Song Desk", template: "ordered_list", shipped: true },
   { key: "set_list", label: "Set list", template: "ordered_list", shipped: true },
   { key: "tech_rider", label: "Tech rider", template: "checklist", shipped: true },
   { key: "ceremony_details", label: "Ceremony details", template: "checklist", shipped: true },
   { key: "live_watch", label: "Live Watch", template: "media", shipped: true },
-  { key: "rehearsal_and_cues", label: "Rehearsal & cues", template: "live_timeline", shipped: false },
+  { key: "rehearsal_and_cues", label: "Rehearsal & cues", template: "live_timeline", shipped: true },
   { key: "insured_people_list", label: "Insured people list", template: "per_person", shipped: false },
   { key: "proofs_and_approval", label: "Proofs & approval", template: "checklist", shipped: true },
-  { key: "incident_log", label: "Incident log", template: "log", shipped: false },
+  { key: "incident_log", label: "Incident log", template: "log", shipped: true },
   { key: "brackets_and_scoring", label: "Brackets & scoring", template: "ordered_list", shipped: true },
-  { key: "shot_list", label: "Shot list", template: "checklist", shipped: false },
+  { key: "shot_list", label: "Shot list", template: "checklist", shipped: true },
   { key: "photo_delivery", label: "Photo delivery", template: "media", shipped: false },
-  { key: "reveal_cue", label: "Reveal cue", template: "live_timeline", shipped: false },
-  { key: "floor_plan", label: "Floor plan", template: "plan", shipped: false },
+  { key: "reveal_cue", label: "Reveal cue", template: "live_timeline", shipped: true },
+  { key: "floor_plan", label: "Floor plan", template: "plan", shipped: true },
   { key: "safety_permit_and_cue", label: "Safety permit & cue", template: "checklist", shipped: true },
   { key: "room_list", label: "Room list", template: "per_person", shipped: true },
 ] as const;
@@ -246,7 +248,9 @@ export type HubToolsAnswer = {
 /**
  * THE READER — the tools SUGGESTED to a supplier of this category ("Popular for florists").
  * 🔑 A SUGGESTION, NEVER A GATE (owner 2026-10-28: "These forms and tools are all available to all services"): the
- * supplier Hub must offer EVERY active tool; this only orders what is shown first. Never filter a supplier's tools by it.
+ * supplier Hub must offer EVERY active tool; this only orders what is shown first. Never filter a supplier's Hub tools
+ * by it. (The Toolkit's widgets are another matter: DECISION_LOG 3a2419fd shows a widget only to a shop with an online
+ * card of a category it is tagged with — `toolServedByCards` in lib/supplier-store.ts.)
  * `library` = the ACTIVE tool records (`hub_tools` where is_active; the code seed when not given). A tool switched
  * off in the library (Turn off keeps data) simply drops out — its switches stay stored for when it comes back.
  */

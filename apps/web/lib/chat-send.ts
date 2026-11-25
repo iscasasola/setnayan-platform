@@ -317,7 +317,7 @@ export async function sendChatMessageCore(
     if (unverified) return { ok: false, code: 'plus_unverified', message: unverified };
   }
 
-  // 🧰 A TOOL SHARE IS A ＋ TOOL TOO ("Share from your tools", DECISION_LOG 2026-11-23 dee66686). The card is the line's
+  // 🧰 A TOOL SHARE IS A ＋ TOOL TOO ("Share from your widgets", DECISION_LOG 2026-11-23 dee66686). The card is the line's
   // exact words (`lib/chat-tool-share.ts`), so the words are checked HERE, at the server — hiding the picker's row is
   // not a check: the shop must be verified AND hold the tool (the Store's own rule, `readShareableTools`). A refused
   // read refuses ("couldn't check"), never lets a share of a tool the shop may not have through.

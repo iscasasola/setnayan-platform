@@ -46,7 +46,8 @@ test('ten themes × the four dressable openings: every material slot is a real c
     }
   }
   console.log(`  material slots checked: ${slots}`);
-  assert.equal(slots, 9 * DRESSABLE.length * 6);
+  // RE-AIMED 23 Nov (themes batch 1): five more dressed themes — 14, every theme but Classic.
+  assert.equal(slots, 14 * DRESSABLE.length * 6);
 });
 
 test('the dressed paper is the theme’s own colour — the materials follow the theme', () => {

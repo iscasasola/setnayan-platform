@@ -43,6 +43,7 @@ import {
   readCanvasFormSnapshot,
   type CanvasFormSnapshot,
 } from '@/lib/canvas-form-snapshot';
+import { Sk } from '@/components/skeletons';
 import { readSnapshot, type Snapshot } from '@/lib/service-card-snapshot';
 import { audienceGroups, type AudienceOption } from '@/lib/canvas-audience-groups';
 import type { CanvasInitial } from '@/lib/canvas-initial';
@@ -108,6 +109,7 @@ import {
 } from '../coverage-actions';
 import { formatCount } from '@/lib/format-number';
 import { DAILY_CAPACITY_MAX } from '@/lib/vendor-tier-caps';
+import { avReads, type AvTemplate } from '@/lib/toolkit-templates';
 import {
   AVAILABILITY_NOT_SET,
   AVAILABILITY_STYLES,
@@ -294,6 +296,7 @@ export function CanvasMaker({
   cancelHref,
   bookingsPerDate = null,
   availabilityOf = null,
+  avTemplates = null,
   checkRules = null,
   photoCheck,
   library,
@@ -425,6 +428,8 @@ export function CanvasMaker({
    * the read was refused — the Recommended row is then left out, never drawn as "Not set".
    */
   availabilityOf?: Record<string, AvailabilityStyle> | null;
+  /** 🧩 The availability templates the shop installed from the Toolkit — "From a template" (null / absent = none offered). */
+  avTemplates?: readonly AvTemplate[] | null;
   /**
    * 🃏 THE CARD CHECKS — FIX BEFORE CREATE (owner 2026-10-26): the claim words this shop may not use and the live
    * trades with their reviewed aliases (`loadMakerContext` → `lib/service-card-checks.server.ts`). Each problem shows on
@@ -711,6 +716,15 @@ export function CanvasMaker({
   const storedPrep = editing && editing.usualPrepDays.trim() !== '' ? Number(editing.usualPrepDays) : null;
   const [perDay, setPerDay] = useState<number | null>(storedPerDay ?? (editing ? null : 1));
   const [leadDays, setLeadDays] = useState<number | null>(storedLead);
+  /** 🧩 The Toolkit template picked on this card ("From a template"); its numbers start the rows below. null = make your own. */
+  const [fromTemplate, setFromTemplate] = useState<AvTemplate | null>(null);
+  const pickTemplate = (t: AvTemplate | null) => {
+    setFromTemplate(t);
+    if (!t) return;
+    setPickedStyle(t.style);
+    if (t.leadDays != null) setLeadDays(t.leadDays);
+    if (t.perDay != null) setPerDay(t.perDay);
+  };
 
   /** ✍ THE NAME IS WRITTEN FOR THEM — only on a maker they have not typed into, never over an existing name. */
   useEffect(() => {
@@ -743,6 +757,14 @@ export function CanvasMaker({
     giftPickOf({ includes_setnayan_gift: initial?.includesSetnayanGift ?? false, gift_pack_code: initial?.giftPackCode ?? null }),
   );
   const [snap, setSnap] = useState<CanvasFormSnapshot>(EMPTY_CANVAS_SNAPSHOT);
+  /**
+   * 👻 THE FIRST PAINT IS NOT A READ (supplier walk on live, 24 Nov 2026): `snap` is read off the live form, which only
+   * exists after hydration — so the server render and the first paint said "Photos 0 of 5 · still missing: a cover
+   * photo · a price · what's included" on a COMPLETE card, then corrected 1–2 s later. Until the first read lands the
+   * photo count and the status line draw a skeleton, never the empty snapshot as if it were the card.
+   * 🔒 lib/card-editor-first-paint-is-honest.test.ts
+   */
+  const [snapRead, setSnapRead] = useState(false);
   // New photos stop at 5; a card opened with 6 keeps 6 (Decided Q5) — the SAME rule the gallery counts by, fixed at open.
   const [photoLimit] = useState(() =>
     cardPhotoLimit(cardPhotoOrder(editing?.coverKey ?? initial?.coverPhotoR2Key ?? null, initial?.showcasePhotoR2Keys).length),
@@ -833,6 +855,7 @@ export function CanvasMaker({
           lastKey = key;
           setSnap(next);
         }
+        setSnapRead(true);
         const f = readSnapshot(fd);
         const fk = JSON.stringify(f);
         if (fk !== lastFace) {
@@ -994,7 +1017,7 @@ export function CanvasMaker({
 
   const [pending, setPending] = useState(false);
   // A card that is LIVE keeps its price (the gate's own rule for a live card) — Save waits while it is blank.
-  const liveNeedsPrice = isEdit && liveOn && editing?.isActive === true && !snap.hasPrice;
+  const liveNeedsPrice = snapRead && isEdit && liveOn && editing?.isActive === true && !snap.hasPrice;
   /**
    * 🃏 FIX BEFORE CREATE (owner 2026-10-26) — claim words · the card matches its service · one photo = one service
    * card. Each open problem is drawn on its row; Create (Save on an edit) waits until none is left. ./card-checks.tsx
@@ -1363,7 +1386,7 @@ export function CanvasMaker({
             <MakerGroup
               id="photos"
               label="Photos"
-              aside={`${formatCount((snap.hasCover ? 1 : 0) + snap.photoCount)} of ${formatCount(photoLimit)}`}
+              aside={snapRead ? `${formatCount((snap.hasCover ? 1 : 0) + snap.photoCount)} of ${formatCount(photoLimit)}` : undefined}
               tip={(snap.hasCover ? 1 : 0) + snap.photoCount >= photoLimit ? cardPhotosFullTip(photoLimit) : CARD_PHOTOS_TIP}
             >
               <div data-maker-row="photos">
@@ -1403,6 +1426,9 @@ export function CanvasMaker({
 
             {/* The status line — on a phone it follows the photos; from 701 up the preview beside it says it. */}
             <div className="tab:hidden">
+              {!snapRead ? (
+                <Sk className="h-11 w-full rounded-2xl" />
+              ) : (
               <p
                 data-maker-status={status.tone}
                 className="flex items-start gap-2.5 rounded-2xl px-3 py-2.5 text-[14px] leading-snug"
@@ -1421,6 +1447,7 @@ export function CanvasMaker({
                   <b className="font-semibold">{status.text}</b>
                 </span>
               </p>
+              )}
               <div className="mt-2">
                 <CardChecksSummary open={checks.open} unread={checks.unread} isEdit={isEdit} />
               </div>
@@ -1541,8 +1568,14 @@ export function CanvasMaker({
                 serviceLabel={activeCategoryLabel}
                 recommended={availabilityOf === null ? null : recommendedStyle}
                 style={cardStyle}
-                onPick={setPickedStyle}
+                onPick={(s) => {
+                  setFromTemplate(null);
+                  setPickedStyle(s);
+                }}
                 reads={availabilityReads(cardStyle, perDay, leadDays)}
+                templates={avTemplates ?? []}
+                fromTemplate={fromTemplate}
+                onTemplate={pickTemplate}
               />
               {cardStyle !== 'order' ? <input type="hidden" name="order_lead_days" value={editing?.orderLeadDays ?? ''} /> : null}
               {cardStyle !== 'order' ? <input type="hidden" name="usual_prep_days" value={editing?.usualPrepDays ?? ''} /> : null}
@@ -1552,10 +1585,10 @@ export function CanvasMaker({
               ) : null}
               <FormRows width="short" data="same-day-rows">
                 {cardIsNeverCounted(cardStyle) ? null : (
-                  <SameDayRow editing={editing} bookingsPerDate={bookingsPerDate} sharedSchedule={sharedSchedule} style={cardStyle} onCount={setPerDay} />
+                  <SameDayRow key={`count-${fromTemplate?.key ?? 'own'}`} editing={editing} bookingsPerDate={bookingsPerDate} sharedSchedule={sharedSchedule} style={cardStyle} onCount={setPerDay} startAt={fromTemplate?.perDay ?? null} />
                 )}
                 {cardStyle === 'order' ? <UsualPrepRow stored={storedPrep} /> : null}
-                {cardStyle === 'order' ? <OrderLeadRow stored={storedLead} onCount={setLeadDays} /> : null}
+                {cardStyle === 'order' ? <OrderLeadRow key={`lead-${fromTemplate?.key ?? 'own'}`} stored={fromTemplate?.leadDays ?? storedLead} onCount={setLeadDays} /> : null}
                 <div data-maker-row="schedule">
                   <ChosenRow
                     name="Schedule"
@@ -1910,6 +1943,9 @@ export function CanvasMaker({
               <span className="text-[11px] font-medium uppercase tracking-[0.14em] text-ink/45">Live</span>
             </div>
             {cardFace}
+            {!snapRead ? (
+              <Sk className="h-5 w-3/4 rounded-full" />
+            ) : (
             <p
               data-maker-status={status.tone}
               className="flex items-start gap-2.5 text-[14px] leading-snug"
@@ -1925,6 +1961,7 @@ export function CanvasMaker({
                 <b className="font-semibold">{status.text}</b>
               </span>
             </p>
+            )}
             <CardChecksSummary open={checks.open} unread={checks.unread} isEdit={isEdit} />
           </div>
         </aside>
@@ -2368,6 +2405,7 @@ function SameDayRow({
   sharedSchedule = null,
   style = null,
   onCount,
+  startAt = null,
 }: {
   editing: MakerEditing | null;
   bookingsPerDate: { cap: number | null; help: string | null } | null;
@@ -2377,8 +2415,10 @@ function SameDayRow({
    *  — the SAME `daily_capacity`, renamed. Every other style (and Not set) asks today's question, unchanged. */
   style?: AvailabilityStyle | null;
   onCount?: (n: number) => void;
+  /** 🧩 A Toolkit template's count ("One event a day" = 1) — it starts the counter in place of the stored number. */
+  startAt?: number | null;
 }) {
-  const stored = editing && editing.dailyCapacity.trim() !== '' ? Number(editing.dailyCapacity) : null;
+  const stored = startAt ?? (editing && editing.dailyCapacity.trim() !== '' ? Number(editing.dailyCapacity) : null);
   const cap = bookingsPerDate?.cap != null && Number.isFinite(bookingsPerDate.cap) ? bookingsPerDate.cap : null;
   // Rented by the piece has NO cap above 500 (owner ruling 3, 2026-11-19).
   const max = cardCountHasNoCap(style) ? Number.MAX_SAFE_INTEGER : Math.max(cap ?? DAILY_CAPACITY_MAX, stored ?? 0, 1);
@@ -2433,12 +2473,19 @@ function AvailabilityBlock({
   style,
   onPick,
   reads,
+  templates = [],
+  fromTemplate = null,
+  onTemplate,
 }: {
   serviceLabel: string;
   recommended: AvailabilityStyle | null;
   style: AvailabilityStyle | null;
   onPick: (s: AvailabilityStyle | null) => void;
   reads: string | null;
+  /** 🧩 "From a template" (Toolkit templates drawing frame 3): the shop's installed availability templates. */
+  templates?: readonly AvTemplate[];
+  fromTemplate?: AvTemplate | null;
+  onTemplate?: (t: AvTemplate | null) => void;
 }) {
   const recName = recommended ? availabilityName(recommended) : null;
   const recPickable = recommended !== null && isCardPickableStyle(recommended);
@@ -2459,6 +2506,30 @@ function AvailabilityBlock({
       {/* 🃏 Drawn as the group's own rows (HYBRID: framed group, name left · pill right), like Schedule and Exact
           time slots below it — not a loose label over a bare dropdown. Same PickMenu, same posts. */}
       <FormRows width="short" data="availability-rows">
+        {templates.map((t) => {
+          const on = fromTemplate?.key === t.key;
+          return (
+            <div key={t.key} className="flex min-h-11 items-center justify-between gap-3 py-1" data-maker-availability-template={t.key}>
+              <span className="min-w-0 text-sn-md text-ink/75">
+                <span className="block text-sn-sm font-semibold text-ink/55">From a template</span>
+                <b className="font-semibold text-ink">{t.name}</b> · {availabilityName(t.style)}
+              </span>
+              <ActionButton
+                tone={on ? 'neutral' : 'brand'}
+                quiet={on}
+                icon={Check}
+                label={on ? 'Using it ✓' : 'Use it'}
+                onClick={() => onTemplate?.(on ? null : t)}
+                data-maker-availability-template-use=""
+              />
+            </div>
+          );
+        })}
+        {fromTemplate ? (
+          <p className={HINT} data-maker-availability-template-reads="">
+            {avReads(fromTemplate)}
+          </p>
+        ) : null}
         {recName ? (
           <div className="flex min-h-11 items-center justify-between gap-3 py-1" data-maker-availability-recommended={recommended ?? ''}>
             <span className="min-w-0 text-[14px] text-ink/75">

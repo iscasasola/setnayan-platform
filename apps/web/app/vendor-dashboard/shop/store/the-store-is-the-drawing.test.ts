@@ -1,7 +1,9 @@
 /**
  * GUARD — THE STORE IS THE DRAWING (owner 23 Nov 2026; drawing `supplier_store_graphs_badges_2026-11-23` v12).
  *
- *   1. Three shelves in the drawing's order — Widgets · Graphs · Badges (the place reads "Toolkit"; owner 23 Nov) — each with "See all N", one batched read.
+ *   1. The v19 shelves in the drawing's order (Chat · Present · Event Hub · Shop page widgets · the three Forms · QR designs ·
+ *      Graphs · Badges; a shelf with no real item is not drawn), the chips, the Installed switch and the featured cards —
+ *      each shelf with "See all N", one batched read.
  *   2. Every Shop [+] lands on its shelf: Add a graph → Graphs, Add a badge → Badges, Add a tool → Tools. Each of the
  *      three rows has an Edit that arranges it (reorder · remove) through the one action's op=layout.
  *   3. Buying is apply-then-pay through the ONE Store action: the price is the catalog row's (`vendor_billing_catalog`,
@@ -35,10 +37,17 @@ const SHOP = read('app/vendor-dashboard/shop/page.tsx');
 /** The screens every Store page (and the supplier lab) mounts — the pages only read and hand over. */
 const SCREENS = read('app/vendor-dashboard/shop/store/_components/store-screens.tsx');
 
-test('1 · three shelves in order, each with See all, from one read', () => {
-  const at = ['title={SHELF_TITLE.tools}', 'title={SHELF_TITLE.graphs}', 'title={SHELF_TITLE.badges}'].map((k) => SCREENS.indexOf(k));
-  assert.ok(at.every((n) => n > 0), 'a shelf is missing');
-  assert.deepEqual(at, [...at].sort((a, b) => a - b), 'the shelves are out of the drawing’s order');
+test('1 · the v19 shelves in the drawing’s order, each with See all, from the ONE Toolkit list and one read', async () => {
+  const { TOOLKIT_SHELVES, SHELF_TITLE } = await import('@/lib/supplier-store');
+  assert.deepEqual(
+    TOOLKIT_SHELVES.map((k) => SHELF_TITLE[k]),
+    // 🧩 Toolkit templates (specs 24dcf90c) adds the Availability shelf after Payment plans.
+    ['Chat widgets', 'Present widgets', 'Event Hub widgets', 'Shop page widgets', 'Chat forms', 'Card forms', 'Payment plans', 'Availability', 'QR designs', 'Graphs', 'Badges'],
+    'the eleven shelves are not the drawing’s, in its order',
+  );
+  assert.match(SCREENS, /\{shelves\.map\(\(sh\) => \(\s*<FrontShelf key=\{sh\}/, 'the front does not draw every shelf the list holds');
+  assert.match(SCREENS, /<StoreInstalledSwitch label=\{INSTALLED_WORD\} \/>/, 'the Installed switch is gone (v19 frame 1)');
+  assert.match(SCREENS, /<StoreHeroes d=\{d\} tools=\{tools\} \/>/, 'the featured cards are gone (v19 frame 1)');
   for (const page of [FRONT, SHELF, ITEM]) assert.equal((page.match(/await loadStore\(\)/g) ?? []).length, 1, 'a Store page reads more than once');
   assert.doesNotMatch(SCREENS, /loadStore|createClient|createAdminClient|\.from\(/, 'a Store screen reads on its own');
   const views = read('app/vendor-dashboard/shop/store/_components/store-views.tsx');

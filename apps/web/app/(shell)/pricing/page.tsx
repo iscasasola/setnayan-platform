@@ -20,6 +20,7 @@ import { readOurPrices, papicRungWords } from './_pricing-reads';
 import { HubProWays, IncludedGroup, PriceRowShell, type IncludedRow } from './_pricing-pickers';
 import { FEE_SCOPE_THIRD } from '@/lib/booking-fee-who-words';
 import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
+import { MAKER_PAGE_STAGES, makerStageLabel } from '@/app/dashboard/[eventId]/launch/_components/maker-bar';
 
 /**
  * /pricing — OURS ONLY, QUALITY-LED (owner 2026-10-25, verbatim: "Yes, build this pricing page and the questionnaire
@@ -197,8 +198,10 @@ export default async function PricingPage() {
   const included: IncludedRow[] = [
     {
       name: 'The Event Hub',
-      tip: 'A complete design written from your details, all five stages — Save-the-Date, RSVP, the day, Memories, Post Event. Yours with every event; Pro changes only how it looks.',
-      what: 'A complete design, your details in it, all five stages.',
+      // ⚖ The stages are the Maker's own list (`MAKER_PAGE_STAGES`: Save the Date · RSVP · Invitation · The Day ·
+      // Post Event), read, never typed. The typed line named "Memories", which is not a stage, and left out the Invitation.
+      tip: `A complete design written from your details, all ${MAKER_PAGE_STAGES.length} stages: ${MAKER_PAGE_STAGES.map(makerStageLabel).join(', ')}. Yours with every event; Pro changes only how it looks.`,
+      what: `A complete design, your details in it, all ${MAKER_PAGE_STAGES.length} stages.`,
     },
     { name: 'Guest list & RSVPs', tip: 'No limit on guests; each replies by link, without an account.', what: 'No limit; guests reply by link.' },
     {

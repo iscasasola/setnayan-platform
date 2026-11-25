@@ -155,12 +155,14 @@ test('the quote builder OPENS AT THE LIVE COUNT, and says so beside the inquiry 
   assert.match(threadSrc, /livePax=\{headerPax \?\? null\}/, 'the live count must reach the builder');
   assert.match(
     threadSrc,
-    /requestedPax=\{thread\.pax_at_inquiry \?\? headerPax \?\? 100\}/,
+    // Supplier walk 24 Nov 2026 (controller): the typed `?? 100` stand-in is gone — no count is null, never a guess
+    // (lib/no-guest-count-is-guessed.test.ts).
+    /requestedPax=\{thread\.pax_at_inquiry \?\? headerPax \?\? null\}/,
     'and so must the inquiry count — it is still named, it is just no longer the seed',
   );
   assert.match(
     makerSrc,
-    /const seedPax = livePax \?\? requestedPax;/,
+    /const seedPax = paxKnown \? openingPax\(livePax, requestedPax\) : null;/,
     'the seed is the LIVE count, falling back to the inquiry count when there is none',
   );
   // 👥 12 Nov 2026 (owner): *"our quotation maker will follow their pax at auto. but they will set the minimum count
@@ -169,7 +171,7 @@ test('the quote builder OPENS AT THE LIVE COUNT, and says so beside the inquiry 
   // inquiry count it may have moved away from.
   assert.match(
     makerSrc,
-    /const pax = billedPax\(seedPax, minPax\);/,
+    /const pax = billedPax\(seedPax \?\? 0, minPax\);/,
     'the billed count follows the live count (never below the minimum) — a seed nothing reads is not a seed',
   );
   assert.equal(
@@ -181,7 +183,7 @@ test('the quote builder OPENS AT THE LIVE COUNT, and says so beside the inquiry 
   // 17 Nov, "Debut 18": "On their list 100" with no count anywhere — the-client-workspace-says-what-is-true.test.ts 8).
   assert.match(
     makerSrc,
-    /data-quote-live-pax=\{paxKnown \? '' : 'none'\}[^>]*>\s*\{paxKnown \? formatCount\(seedPax\) : 'No count yet'\}/,
+    /\{seedPax != null \? \(\s*<strong[^>]*data-quote-live-pax=""[^>]*>\s*\{formatCount\(seedPax\)\}[\s\S]{0,240}?data-quote-live-pax="none"[^>]*>\s*No guest count yet/,
     'and show their live count as "On their list"',
   );
 });
@@ -212,7 +214,7 @@ test('the raw guest-count columns are only ever handed to the helper or a fetche
   const ALLOWED = [
     /atInquiry: thread\.pax_at_inquiry \?\? null/, // → the one guestCounts object
     /paxAtInquiry: thread\.pax_at_inquiry/, // → fetchVendorPaxProposals + the rail builder
-    /requestedPax=\{thread\.pax_at_inquiry \?\? headerPax \?\? 100\}/, // → the quote seed
+    /requestedPax=\{thread\.pax_at_inquiry \?\? headerPax \?\? null\}/, // → the quote seed (no guessed count, 24 Nov)
     /const headerPax = livePax \?\? thread\.pax_current;/, // → the live count, read once
   ];
 

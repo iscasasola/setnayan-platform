@@ -166,7 +166,8 @@ function readCssVars(mode = 'light') {
     for (const file of files) {
       const css = stripComments(readFileSync(file, 'utf8'));
       for (const b of css.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-        if (!/^\s*html\.dark(\s+\.fd)?\s*$/.test(b[1])) continue;
+        // `.sn-dark-scope, html.dark` — the same dark set reaching one element (the sign-in pop-up) — is the theme too.
+        if (!/^\s*(?:\.sn-dark-scope\s*,\s*)?html\.dark(\s+\.fd)?\s*$/.test(b[1])) continue;
         for (const d of b[2].matchAll(/--([a-z0-9-]+)\s*:\s*([^;]+);/gi)) {
           if (darkSeen.has(d[1])) continue;
           darkSeen.add(d[1]);
@@ -644,7 +645,9 @@ function cssRulePairings(rawCss, resolveColor, mode = 'light') {
       // where the dark pass folds it into the selector it overrides and judges it with the dark tokens. A dark rule
       // written in literal hexes is still judged here, as before. (Since the one colour set, 18 Nov 2026, the dark
       // rules read `rgb(var(--color-…))`; resolved with LIGHT values they scored dark ink on a light card, 1.11:1.)
-      if (mode !== 'dark' && /html\.dark/.test(sel) && (/var\(/.test(selBg) || /var\(/.test(labelRaw))) continue;
+      // `.sn-dark-scope …` is the same dark rule reaching one element (the sign-in pop-up, 24 Nov 2026): every one is
+      // written as the twin of an `html.dark …` selector in the same rule, so the dark pass already judges it.
+      if (mode !== 'dark' && /html\.dark|\.sn-dark-scope\b/.test(sel) && (/var\(/.test(selBg) || /var\(/.test(labelRaw))) continue;
       const fill = resolveColor(selBg);
       const label = resolveColor(labelRaw);
       if (!fill || !label) continue;
@@ -855,9 +858,13 @@ const hex = (rgb) => '#' + rgb.map((c) => c.toString(16).padStart(2, '0')).join(
 const GUEST_DIRS = ['app/[slug]', 'app/join'];
 const FAINT_BASELINE_FILE = join(__dirname, 'guest-faint-ink.baseline.json');
 
-/** [name, ink, paper] for the house look and every hub theme that sets both, read from globals.css. */
+/**
+ * [name, ink, paper] for the house look and every hub theme that sets both, read from globals.css — and from
+ * app/hub-themes.css, where the 23 Nov redraw's theme blocks live (globals.css sits at its ceiling), so a theme moved
+ * there is still measured.
+ */
 function guestLooks() {
-  const css = stripComments(readFileSync(join(WEB_ROOT, 'app/globals.css'), 'utf8'));
+  const css = ['app/globals.css', 'app/hub-themes.css'].map((f) => stripComments(readFileSync(join(WEB_ROOT, f), 'utf8'))).join('\n');
   const tok = (body, name) => {
     const m = body.match(new RegExp('--color-' + name + ':\\s*(\\d{1,3})\\s+(\\d{1,3})\\s+(\\d{1,3})\\s*;'));
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;

@@ -38,6 +38,8 @@ import { RenewalRecordFacts } from './_components/renewal-record';
 import { ServiceCardsSection, type AdminServiceCard } from './_components/service-cards-section';
 import { SampleShopSwitch } from './_components/sample-shop-switch';
 import { verifiedElsewhere } from '@/lib/one-registered-business.server';
+import { readSpaceList } from '@/lib/spaces.server';
+import { spacesCountLine, tileLine } from '@/lib/spaces';
 
 export const metadata = { title: 'Supplier · Admin', robots: { index: false, follow: false } };
 export const dynamic = 'force-dynamic';
@@ -267,6 +269,10 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
   if (payoutRead.error) logQueryError('admin/vendors/[vendorProfileId]:payouts', payoutRead.error);
   const payouts = payoutRead.error ? null : ((payoutRead.data ?? []) as PayoutRow[]);
 
+  // ── 🏛 spaces (owner 19 Nov, drawing screen 14: "Admin read-only view sits on the shop page") ───────────────
+  // Null = refused: the fold says so, never "no spaces".
+  const spaces = await readSpaceList(admin, shopId);
+
   // ── service cards (every one — live, draft or taken down) ───────────────
   const cardRead = await admin
     .from('vendor_services')
@@ -455,6 +461,23 @@ export default async function AdminSupplierPage({ params, searchParams }: Props)
             </p>
           ) : null}
           <ServiceCardsSection shopId={shopId} cards={cards} cap={CARD_CAP} />
+        </RecordFold>
+
+        <RecordFold
+          title="Spaces"
+          anchor="spaces"
+          summary={spaces === null ? 'Couldn’t load' : spaces.length === 0 ? 'None · read-only' : `${spacesCountLine(spaces)} · read-only`}
+        >
+          {spaces === null ? (
+            <p role="alert" className="text-sm text-ink/70">
+              Couldn&rsquo;t load this shop&rsquo;s spaces just now.
+            </p>
+          ) : spaces.length === 0 ? (
+            <RecordNote>This shop has no halls, rooms or rentals set.</RecordNote>
+          ) : (
+            <RecordFacts items={spaces.slice(0, 40).map((s) => [s.name, [tileLine(s), s.inRepair > 0 ? `${s.inRepair} in repair` : ''].filter(Boolean).join(' · ')] as [string, string])} />
+          )}
+          <RecordNote>Read-only. The shop sets its spaces on Shop › Spaces.</RecordNote>
         </RecordFold>
 
         <RecordFold title="Money" anchor="money" summary={payoutSummary}>

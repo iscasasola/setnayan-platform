@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { getTaxonomy } from './taxonomy-db';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveCoverageLabels } from '@/lib/vendor-coverages';
@@ -14,6 +15,7 @@ import { fetchVendorSpecializationSubscription } from '@/lib/vendor-specializati
 import { freeWidgetsOpen } from '@/lib/vendor-specialization-gate';
 import { PAID_STORE_TOOLS, STORE_TOOL_SKUS, readLayout, toolOfSku, toolStatus, type ToolStatus, type PaidStoreTool, type HubOverrides, type StoreLayout, type ToolFacts, type ToolPrice } from '@/lib/supplier-store';
 import { nameKey } from '@/lib/hub-tools';
+import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import { shareableTools, type ShareableRead } from '@/lib/chat-tool-share-held';
 
 /**
@@ -55,15 +57,37 @@ async function readCategoryLabels(client: SupabaseClient, vendorProfileId: strin
 }
 
 /**
+ * 🟢 The kinds of the shop's ONLINE service cards (`vendor_services.category` where `is_active`) — the card gate's one
+ * read (DECISION_LOG 3a2419fd). null = refused: the Toolkit then hides nothing, greys nothing and says so.
+ */
+async function readOnlineCards(client: SupabaseClient, vendorProfileId: string): Promise<string[] | null> {
+  try {
+    const { data, error } = await client.from('vendor_services').select('category').eq('vendor_profile_id', vendorProfileId).eq('is_active', true);
+    if (error) {
+      logQueryError('readStoreOnlineCards', error, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+      return null;
+    }
+    return [...new Set(((data ?? []) as { category: string | null }[]).map((r) => (r.category ?? '').trim()).filter(Boolean))];
+  } catch (err) {
+    logQueryError('readStoreOnlineCards', err, { vendor_profile_id: vendorProfileId });
+    return null;
+  }
+}
+
+/**
  * An admin's saved hub tools per category (`category_hub_settings` = saved, `category_hub_tool_switches` = what is on),
  * keyed by the category's name the table's own way. A refused read falls back to the seed alone — tags only order and
  * suggest, they never lock a tool, so the seed is a safe answer.
  */
 export async function readHubOverrides(admin: SupabaseClient): Promise<HubOverrides> {
   try {
-    const [set, sw] = await Promise.all([
+    // ⚡ ONE round (supplier walk 24 Nov, every page under 0.7 s): the saved categories' names are read BESIDE the saved
+    // rows — only categories that have a saved row (`!inner` on `category_hub_settings.category_id → service_categories.id`)
+    // — instead of in a second read after the first, on every Toolkit and Shop page.
+    const [set, sw, cats] = await Promise.all([
       admin.from('category_hub_settings').select('category_id'),
       admin.from('category_hub_tool_switches').select('category_id, tool_key'),
+      admin.from('service_categories').select('id, label_en, category_hub_settings!inner(category_id)'),
     ]);
     if (set.error || sw.error) {
       logQueryError('readHubOverrides', set.error ?? sw.error, {}, 'graceful_degrade');
@@ -71,14 +95,13 @@ export async function readHubOverrides(admin: SupabaseClient): Promise<HubOverri
     }
     const ids = ((set.data ?? []) as { category_id: string }[]).map((r) => r.category_id);
     if (ids.length === 0) return new Map();
-    const cats = await admin.from('service_categories').select('id, label_en').in('id', ids);
     if (cats.error) {
       logQueryError('readHubOverrides.categories', cats.error, {}, 'graceful_degrade');
       return new Map();
     }
     const on = new Map<string, string[]>(ids.map((id) => [id, []]));
     for (const r of (sw.data ?? []) as { category_id: string; tool_key: string }[]) on.get(r.category_id)?.push(r.tool_key);
-    return new Map(((cats.data ?? []) as { id: string; label_en: string | null }[]).filter((c) => c.label_en).map((c) => [nameKey(c.label_en!), on.get(c.id) ?? []]));
+    return new Map(((cats.data ?? []) as unknown as { id: string; label_en: string | null }[]).filter((c) => c.label_en && on.has(c.id)).map((c) => [nameKey(c.label_en!), on.get(c.id) ?? []]));
   } catch (err) {
     logQueryError('readHubOverrides', err, {});
     return new Map();
@@ -156,15 +179,22 @@ export async function readStoreToolFacts(
   admin: SupabaseClient,
   vendorProfileId: string,
   services: readonly string[],
-  layout: StoreLayout | null,
+  /** The shop's layout — or the read of it still on its way: the tool reads below never wait for it to START. */
+  layoutOrRead: StoreLayout | null | PromiseLike<StoreLayout | null>,
 ): Promise<ToolFacts> {
-  const [freeOpen, orders, subscribed, prices, categoryLabels, hubOverrides] = await Promise.all([
+  const [freeOpen, orders, subscribed, prices, categoryLabels, hubOverrides, papicCapture, cards, taxonomy, layout] = await Promise.all([
     readFreeOpen(admin, vendorProfileId),
     readToolOrders(admin, vendorProfileId),
     readSubscribed(admin, vendorProfileId),
     readStoreToolPrices(admin),
     readCategoryLabels(client, vendorProfileId),
     readHubOverrides(admin),
+    // 📷 The Papic camera is listed only while its privacy switch is on; a refused read keeps it off (fail closed).
+    isVendorPapicCaptureEnabled().catch(() => false),
+    readOnlineCards(client, vendorProfileId),
+    // The card gate joins on the LIVE taxonomy; `getTaxonomy` falls back to the seed itself when the tables are unread.
+    getTaxonomy(),
+    layoutOrRead,
   ]);
   return {
     freeOpen,
@@ -177,11 +207,14 @@ export async function readStoreToolFacts(
     categoryLabels,
     services,
     hubOverrides,
+    papicCapture,
+    cards,
+    tiles: { map: taxonomy.map, tileLabel: taxonomy.tileLabel },
   };
 }
 
 /**
- * 🧰 The tools this shop may share into a chat ("Share from your tools", DECISION_LOG 2026-11-23 dee66686) — the tool
+ * 🧰 The tools this shop may share into a chat ("Share from your widgets", DECISION_LOG 2026-11-23 dee66686) — the tool
  * facts above, read with the shop's saved layout, through the one rule (`shareableTools`). Read by the supplier's chat
  * page (the picker) and by the chat send (`sendChatMessageCore`, which refuses a share of a tool not held).
  */

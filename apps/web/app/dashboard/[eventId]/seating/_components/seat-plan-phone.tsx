@@ -125,6 +125,7 @@ export function PhoneSeatPlanHead({
   view,
   onView,
   show3D,
+  venue = false,
   toast,
   trailing,
 }: {
@@ -149,6 +150,8 @@ export function PhoneSeatPlanHead({
   toast: { text: string; onUndo: (() => void) | null; onDismiss: () => void } | null;
   /** The save chip, the view-only pill, the notices badge — as the bar had them. */
   trailing?: ReactNode;
+  /** 🏛 A venue's own plan (Spaces): no guests, so no Auto arrange, no Rules, no Unseated count. */
+  venue?: boolean;
 }) {
   const views: PickOption[] = [
     { key: '2d', label: '2D' },
@@ -178,10 +181,14 @@ export function PhoneSeatPlanHead({
           {more}
         </Pop>
       </div>
-      <p data-seat-plan-status="" className="text-[13px] leading-snug text-ink/70 group-data-[details-mode=guided]/ws:hidden">
-        {status}
-      </p>
+      {/* 🏛 A hall has no guests and no day: its count and seats are the full screen's own head line. */}
+      {venue ? null : (
+        <p data-seat-plan-status="" className="text-sn-md leading-snug text-ink/70 group-data-[details-mode=guided]/ws:hidden">
+          {status}
+        </p>
+      )}
       {toast ? <SeatToast toast={toast} /> : null}
+      {venue ? null : (
       <div className="flex items-center gap-2">
         <AutoArrange onAutoArrange={onAutoArrange} disabled={autoDisabled} busy={autoBusy} />
         <Pop
@@ -197,6 +204,9 @@ export function PhoneSeatPlanHead({
           {rules}
         </Pop>
       </div>
+      )}
+      {/* 🏛 A hall: no one to seat and one view (its floor) — nothing for this row to hold. */}
+      {venue ? null : (
       <div className="flex items-center gap-2">
         <button
           type="button"
@@ -216,6 +226,7 @@ export function PhoneSeatPlanHead({
           <PickMenu label="View" value={view} options={views} onPick={(k) => onView(k as '2d' | '3d' | 'list')} dataAttr="data-seat-plan-view" compact className="border border-ink/15" />
         </span>
       </div>
+      )}
     </div>
   );
 }
@@ -520,6 +531,7 @@ export function PhoneTableDock({
   swapPressed = false,
   onSwap,
   seatPeople,
+  venue = false,
   onDone,
   onDelete,
 }: {
@@ -548,6 +560,8 @@ export function PhoneTableDock({
   swapPressed?: boolean;
   onSwap?: () => void;
   seatPeople: ReactNode;
+  /** 🏛 A venue's own hall: no chairs to mark as taken and no linked rows (those are an event's). */
+  venue?: boolean;
   onDone: () => void;
   onDelete: () => void;
 }) {
@@ -583,8 +597,8 @@ export function PhoneTableDock({
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <ActionButton tone="neutral" icon={RotateCw} label="Rotate" disabled={!canEdit} onClick={onRotate} />
-        <ActionButton tone="neutral" icon={Armchair} label="Edit chairs…" disabled={!canEdit} onClick={onEditChairs} />
-        {linked ? (
+        {venue ? null : <ActionButton tone="neutral" icon={Armchair} label="Edit chairs…" disabled={!canEdit} onClick={onEditChairs} />}
+        {venue ? null : linked ? (
           <ActionButton tone="neutral" icon={Ungroup} label="Unlink" disabled={!canEdit} onClick={onUnlink} />
         ) : (
           <span data-seat-plan-link="" className="inline-flex">

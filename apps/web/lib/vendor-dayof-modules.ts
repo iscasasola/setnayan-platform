@@ -213,7 +213,17 @@ export type DayOfModuleId =
   | 'room_list'
   | 'chair_schedule'
   | 'reservation_slots'
-  | 'brackets_and_scoring';
+  | 'brackets_and_scoring'
+  // ── Hub tools, the free rest · part 2 (same ruling): the seven live timelines and the Wellness plan — same row
+  // store, drawn inline by `HubToolPanels`; ON for nobody by family.
+  | 'pick_up_times_and_routes'
+  | 'itinerary'
+  | 'serving_times'
+  | 'remembrance_schedule'
+  | 'march_cue_sheet'
+  | 'rehearsal_and_cues'
+  | 'reveal_cue'
+  | 'wellness_plan';
 // 🗑 `guest_delivery` ("Who’s received theirs") was REMOVED 2026-10-04 (owner,
 // 2026-10-03 S1): it shipped always padlocked — `dayOfModuleHref` was null and
 // no screen ever existed behind it — so every caterer saw a locked promise. The
@@ -529,7 +539,7 @@ export const DAY_OF_MODULES: readonly DayOfModule[] = [
   {
     id: 'chair_schedule',
     label: 'Chair schedule',
-    blurb: 'Who sits when, in order, ticked as each one is done.',
+    blurb: 'Who sits when, in order — moved up or down as the morning changes.',
     defaultOnFor: [],
     alwaysAvailable: true,
     requiresGrant: false,
@@ -538,7 +548,7 @@ export const DAY_OF_MODULES: readonly DayOfModule[] = [
   {
     id: 'reservation_slots',
     label: 'Reservation slots',
-    blurb: 'Your slots in order — the time and how many — ticked as each is seated.',
+    blurb: 'Your slots in order — the time and who — moved as plans change.',
     defaultOnFor: [],
     alwaysAvailable: true,
     requiresGrant: false,
@@ -552,6 +562,78 @@ export const DAY_OF_MODULES: readonly DayOfModule[] = [
     alwaysAvailable: true,
     requiresGrant: false,
     hubTool: 'brackets_and_scoring',
+  },
+  {
+    id: 'pick_up_times_and_routes',
+    label: 'Pick-up times & routes',
+    blurb: 'Each pick-up in time order — who, and from where to where — with the one under way marked now.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'pick_up_times_and_routes',
+  },
+  {
+    id: 'itinerary',
+    label: 'Itinerary',
+    blurb: 'The stops in time order — flights, hotels, meeting points — with the current one marked now.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'itinerary',
+  },
+  {
+    id: 'serving_times',
+    label: 'Serving times',
+    blurb: 'When each course or station goes out, in time order, ticked off with Next as it’s served.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'serving_times',
+  },
+  {
+    id: 'remembrance_schedule',
+    label: 'Remembrance schedule',
+    blurb: 'Viewing hours, masses and the interment in time order, with the one under way marked now.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'remembrance_schedule',
+  },
+  {
+    id: 'march_cue_sheet',
+    label: 'March cue sheet',
+    blurb: 'The song for each march group in walking order, moved on with Next as each group walks.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'march_cue_sheet',
+  },
+  {
+    id: 'rehearsal_and_cues',
+    label: 'Rehearsal & cues',
+    blurb: 'Rehearsal times and each cue in order, moved on with Next as the run goes.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'rehearsal_and_cues',
+  },
+  {
+    id: 'reveal_cue',
+    label: 'Reveal cue',
+    blurb: 'The lead-up and the exact reveal moment, in time order, moved on with Next.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'reveal_cue',
+  },
+  {
+    id: 'wellness_plan',
+    label: 'Wellness plan',
+    blurb: 'Sessions in the weeks before — the date and the activity — ticked as each is done.',
+    defaultOnFor: [],
+    alwaysAvailable: true,
+    requiresGrant: false,
+    hubTool: 'wellness_plan',
   },
 ];
 

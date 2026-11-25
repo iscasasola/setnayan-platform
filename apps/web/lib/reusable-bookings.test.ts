@@ -146,7 +146,7 @@ test('only committed marketplace bookings are reusable sources', () => {
 // carry-over of a prior lock's paid state.
 
 const REUSE = {
-  flagEnabled: true, onPlatform: true, attribution: 'sourced', shopVerified: true, frozenFree: false,
+  flagEnabled: true, onPlatform: true, attribution: 'sourced', forYou: true, shopVerified: true, frozenFree: false,
   launchOffer: false, promoWindow: false, schedule: BOOKING_FEE, nextPlatformNumber: 2, freeEveryNth: 100_000,
   ticketWaiting: false,
 } as const;

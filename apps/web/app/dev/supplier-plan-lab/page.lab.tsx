@@ -71,7 +71,6 @@ import { BOOKING_FEE } from '@/lib/booking-fee';
 import { bookingFeeRow, planGivesLines, planPickLine } from '@/lib/vendor-plan-rows';
 import { giftEndedLine, giftEndsSoon, giftPlanLine, planGiftOf, portfolioPlanRowLine } from '@/lib/plan-gift';
 import { dayAfterWords } from '@/lib/personal-invite-offer';
-import { portfolioPhotoCap } from '@/lib/vendor-tier-caps';
 import { storageAllowanceBytes, type StorageBreakdownRead } from '@/lib/supplier-storage';
 import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
 import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from '@/lib/business-doing';
@@ -268,7 +267,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
       }
       papicPackPrice={99}
       featured={shop.tier === 'pro'}
-      deepSearch={{ line: 'Lab price a search · on every plan' }}
+      deepSearch={{ line: 'Included in Plus, Pro and Ultra: 1 search each paid month. Unused searches don’t carry over.' }}
       extras={shop.tier === 'enterprise' ? { line: '1 extra seat · lab price each, every 4 weeks' } : null}
     />
   );
@@ -280,7 +279,7 @@ function planFixture(who: Who, unverified: boolean, fail: boolean, limits: { flo
  * on Pro, starting 1 Feb — no Free gap), or after it ended. The words are the shipped helpers' (`lib/plan-gift.ts`);
  * the lab's "now" is 1 Nov 2026 (running), 27 Jan 2027 (soon) or 2 Feb 2027 (ended).
  */
-function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean) {
+function giftPlanFixture(mode: 'running' | 'soon' | 'ended', _photos100: boolean) {
   const now = Date.parse(
     mode === 'running' ? '2026-11-01T02:00:00Z' : mode === 'soon' ? '2027-01-27T02:00:00Z' : '2027-02-02T02:00:00Z',
   );
@@ -296,7 +295,6 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
       pickLine: planPickLine(tier, t, gift ? '31 January 2027' : null),
     })),
   ];
-  const cap = portfolioPhotoCap(tier, photos100 ? 100 : null);
   return (
     <PlanRows
       tier={tier}
@@ -326,13 +324,7 @@ function giftPlanFixture(mode: 'running' | 'soon' | 'ended', photos100: boolean)
       papicPackPrice={99}
       featured={tier === 'pro'}
       gift={gift ? { line: giftPlanLine(gift) } : { line: giftEndedLine('Pro', '2027-01-31') }}
-      photosLine={portfolioPlanRowLine({
-        held: mode === 'ended' ? 62 : 14,
-        cap,
-        gifted: photos100,
-        giftUntilDay: gift ? gift.untilDay : null,
-        giftEnded: mode === 'ended',
-      })}
+      photosLine={portfolioPlanRowLine(mode === 'ended' ? 62 : 14)}
       storage={labMeter(undefined, tier)}
     />
   );

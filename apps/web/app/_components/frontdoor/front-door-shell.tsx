@@ -78,7 +78,10 @@ import { topBarSearch } from './shell-page-search';
 import { ShellBoundaryProvider, type ShellBoundary } from '@/app/_components/shell-boundary';
 import { useOneOpen } from '@/lib/one-open';
 import { POLICY_LINKS } from '@/lib/policy-links';
-import { HOME_HREF, homeSegHref } from '@/lib/home-segments';
+import type { Door } from '@/lib/doors';
+import { HOME_HREF } from '@/lib/home-segments';
+import { unihomeHref } from '@/lib/unihome';
+import { RailHomeCreate } from './rail-home-create';
 import type { EventMenuIconName } from '@/lib/customer-menu';
 /*
   ─── THE RAIL'S OWN ROWS DRAW LUCIDE, LIKE EVERY OTHER ROW IN IT ──────────
@@ -517,6 +520,11 @@ type Props = {
    */
   createSlot?: React.ReactNode;
   /**
+   * ➕ The address that IS Home here — where the rail's top carries "Create an event" (Unihome v5). The app's Home is
+   * `/dashboard`; a dev lab that stands in for it passes its own address. Default `/dashboard`.
+   */
+  homePath?: string;
+  /**
    * The search control. Left out: SIGNED IN draws no box (2026-10-22, "One
    * thumb row"); signed out draws the front door's marketplace GET form — the
    * one rule in `topBarSearch` (`shell-page-search.ts`), so a mount that
@@ -585,6 +593,16 @@ type Props = {
    * `vendor-dashboard/_components/the-supplier-frame-holds.test.ts`.
    */
   pinnedBar?: { lead: React.ReactNode };
+  /**
+   * 🚪 A BUSINESS DOOR — the ONE door flag (lib/doors.ts; owner 24 Nov 2026, drawing "Business door drawing" v7).
+   * Set on supplier.setnayan.com / coordinator.setnayan.com, and by an app shell that asks for a door (DECISION_LOG
+   * 866cebc5, the "Setnayan Business" app). With it there is no way out to the couple side or Discover:
+   *   · the public variants draw only the wordmark (not a link), Sign in (to `signInHref`, the ONE auth origin —
+   *     never the in-place panel) and one legal line under the page — no rail, no ☰, no search;
+   *   · the signed-in `app` variant keeps the surface's own menu but drops Home, Discover, Features, the way back
+   *     and the company links, and its wordmark is not a link.
+   */
+  door?: { door: Door; signInHref: string } | null;
 };
 
 /** A count that failed to load says so. It NEVER says 0, and it never invents
@@ -660,6 +678,8 @@ export function FrontDoorShell({
   pageSearchPaths,
   boundary = 'lg',
   pinnedBar,
+  door = null,
+  homePath = '/dashboard',
 }: Props) {
   const [railOpen, setRailOpen] = useState(false);
   /*
@@ -839,11 +859,16 @@ export function FrontDoorShell({
   const isBleed = bleed || (bleedPaths?.includes(pathname ?? '') ?? false);
   /* 🔎 A page that searches in its own bottom row (/help, /features): no second box up here — `false`, the same
      switch a signed-in host hands in. Exact path, so /features/<slug> keeps the box. */
+  // 🚪 A door draws no search (drawing v7): the same `false` answer, from the one rule.
   const search = topBarSearch({
     handed: searchProp,
     signedIn: account.signedIn,
     pageHasOwnSearch: pageSearchPaths?.includes(pathname ?? '') ?? false,
+    onADoor: door !== null,
   });
+  /* 🚪 The public door draws no rail at all (drawing v7), so it has no Menu button to open one — every other mount,
+     signed-in door included, keeps the rail and the control that opens it on a phone. */
+  const railDrawn = !(door && !inApp);
 
   /*
     HIDE ON SCROLL — the app's universal top-nav rule (owner 2026-06-15), and
@@ -1011,6 +1036,7 @@ export function FrontDoorShell({
             collapsing the whole page layout.
             `fd-only-narrow` is a real CSS mount condition, not a visual one.
           */}
+          {railDrawn ? (
           <button
             type="button"
             className="fd-iconbtn fd-only-narrow"
@@ -1021,6 +1047,7 @@ export function FrontDoorShell({
           >
             ☰
           </button>
+          ) : null}
           {/*
             🔒 THE TEXT IS TITLE-CASE "Setnayan" AND THE CAPITALS COME FROM CSS.
             It looks identical to the approved prototype — `.fd-wordmark` carries
@@ -1095,7 +1122,13 @@ export function FrontDoorShell({
             doorway branch below — the signed-out world — still goes to `/`.
             Pinned by `seam-invariants.test.ts`.
           */}
-          {inApp ? (
+          {/* 🚪 On a door the wordmark is the name, not a way out (drawing v7). */}
+          {door ? (
+            <span className={inApp ? 'fd-wordmark fd-wordmark-app' : 'fd-wordmark'} data-door-mark="">
+              {inApp ? <LogoMark size={28} className="fd-mark" /> : null}
+              {inApp ? <span className="fd-wordmark-text">Setnayan</span> : 'Setnayan'}
+            </span>
+          ) : (<>{inApp ? (
             <Link href="/dashboard?hub=1" className="fd-wordmark fd-wordmark-app">
               <LogoMark size={28} className="fd-mark" />
               <span className="fd-wordmark-text">Setnayan</span>
@@ -1104,7 +1137,7 @@ export function FrontDoorShell({
             <Link href={homeHref} className="fd-wordmark">
               Setnayan
             </Link>
-          )}
+          )}</>)}
         </div>
         {/* 📌 THE PAGE MENU ▾ — the pinned row's LEFT from 701, in the wordmark's seat (`pinnedBar`; hidden below 701). */}
         {pinnedBar ? (
@@ -1202,6 +1235,12 @@ export function FrontDoorShell({
                   it is the first room inside, not the last step outside. That
                   is handled on the panel itself; here it is a quiet control so
                   the page never nags. */}
+              {/* 🚪 On a door: a plain link to the ONE auth origin (`/login?door=X`) — sign-in never runs on a door host. */}
+              {door ? (
+                <a href={door.signInHref} className="fd-btn-quiet">
+                  Sign in
+                </a>
+              ) : (
               <Link
                 href="/login"
                 prefetch={false}
@@ -1211,11 +1250,45 @@ export function FrontDoorShell({
               >
                 Sign in
               </Link>
+              )}
             </>
           )}
         </div>
       </header>
   );
+
+  /*
+    🚪 A BUSINESS DOOR, PUBLIC SIDE (supplier.setnayan.com, coordinator.setnayan.com — drawing v7, "what this
+    removes"): the wordmark (the name, not a way out) and Sign in, then the page, then one legal line that opens
+    inside this same door. No ☰, no rail, no search, no couple links. Sign in is the quiet button (HOUSE_DESIGN_STANDARD
+    Part K1: the page's "Open your shop" is the one filled button) and a plain link to the ONE auth origin.
+  */
+  if (door && !inApp) {
+    return (
+      <ShellBoundaryProvider value={boundary}>
+        <div className="fd" data-chrome="front-door" data-door={door.door} data-bar-hidden={barHidden ? '' : undefined}>
+          {topBarEl}
+          <div className="fd-body">
+            <MainEl className={isBleed ? 'fd-main fd-bleed' : 'fd-main'}>
+              <div className={isBleed ? 'fd-col fd-bleed' : 'fd-col'}>
+                {children}
+                <footer className="fd-doorfoot">
+                  <span>© 2026 Setnayan</span>
+                  <nav aria-label="Legal">
+                    {POLICY_LINKS.map((p) => (
+                      <Link key={p.href} href={p.href}>
+                        {p.label}
+                      </Link>
+                    ))}
+                  </nav>
+                </footer>
+              </div>
+            </MainEl>
+          </div>
+        </div>
+      </ShellBoundaryProvider>
+    );
+  }
 
   return (
     // `data-chrome` is the ONE switch the stylesheet reads. Below 1024 the app
@@ -1343,6 +1416,8 @@ export function FrontDoorShell({
             if ((e.target as Element | null)?.closest?.('a[href]')) closeRail();
           }}
         >
+          {/* 🚪 On a door the surface's own menu is the whole rail: no Home, Discover, Features or way back. */}
+          {door ? null : (<>
           {focused && focus ? (
             /* THE WAY BACK — the only row above the section's own menu. The
                words say where it goes, and so does the drawing: the arrow is
@@ -1372,40 +1447,51 @@ export function FrontDoorShell({
               Memories, the ruled order; Shop only for a shop). They light nothing on their own: the rail reads the
               PATH only (a query read here once broke hydration — see the fixed-id note above), and every section
               shares `/dashboard`, so Home is the row that says where you are. 🔒 lib/home-is-the-profile.test.ts */}
+          {/* 🏠 UNIHOME v5 (owner-approved 23 Nov 2026, DECISION_LOG "UNIHOME v5 APPROVED"; drawing `unihome-v5.html`,
+              Notes "Every way in still lands"): the ☰ is Home with its FIVE places under it — Events · Shop · People ·
+              Memories · Discover, in page order, each landing on its part of Home (`/dashboard#…`, `unihomeHref`) —
+              then Features (and Setnayan HQ for admins) as fine print. Discover is the last part of Home, so a signed-in
+              rail draws no Discover row of its own; signed out, the Discover row below is the front door, unchanged.
+              Shop is a door for everyone: an owner's quick view, everyone else's "Create your own shop". The doors light
+              nothing on their own (the rail reads the PATH only — see the fixed-id note above); Home is the lit row.
+              ➕ On Home the rail's top carries "Create an event" (the phone's floating button, on a computer). */}
           {account.signedIn ? (
             <>
+              {pathname === homePath ? <RailHomeCreate /> : null}
               <Link href={HOME_HREF} {...rowProps('events')} data-home-row="">
                 <RailIcon as={House} />
                 <span className="fd-label-text">Home</span>
                 <span className="fd-icon-caption">Home</span>
               </Link>
               <div data-home-doors="">
-                <Link href={HOME_HREF} className="fd-row fd-hsub" data-home-door="events">
+                <Link href={unihomeHref('events')} className="fd-row fd-hsub" data-home-door="events">
                   <span className="fd-label-text">{slotLabel(RAIL_SLOT.events, 'Events')}</span>
                   <Count value={account.eventCount} />
                 </Link>
-                <Link href={homeSegHref('people')} className="fd-row fd-hsub" data-home-door="people">
+                <Link href={unihomeHref('shop')} className="fd-row fd-hsub" data-home-door="shop">
+                  <span className="fd-label-text">Shop</span>
+                </Link>
+                <Link href={unihomeHref('people')} className="fd-row fd-hsub" data-home-door="people">
                   <span className="fd-label-text">People</span>
                 </Link>
-                {account.shopName ? (
-                  <Link href={homeSegHref('shop')} className="fd-row fd-hsub" data-home-door="shop">
-                    <span className="fd-label-text">Shop</span>
-                    <span className="fd-ct">{account.shopName}</span>
-                  </Link>
-                ) : null}
-                <Link href={homeSegHref('memories')} className="fd-row fd-hsub" data-home-door="memories">
+                <Link href={unihomeHref('memories')} className="fd-row fd-hsub" data-home-door="memories">
                   <span className="fd-label-text">{slotLabel(RAIL_SLOT.alaala, 'Memories')}</span>
                   <Count value={account.alaalaCount} />
                 </Link>
+                <Link href={unihomeHref('discover')} className="fd-row fd-hsub" data-home-door="discover">
+                  <span className="fd-label-text">Discover</span>
+                </Link>
               </div>
             </>
-          ) : null}
-          {/* 🧭 Signed in, the bare `/` opens Home (23 Nov 2026), so the Discover row uses Discover's own door. */}
-          <Link href={account.signedIn ? DISCOVER_HREF : '/'} {...rowProps('home')}>
+          ) : (
+          /* 🧭 Signed out, the Discover row is Discover's own door, `DISCOVER_HREF` (23 Nov 2026). Signed in there is no
+             row: Discover is Home's last section, `unihomeHref('discover')` above (UNIHOME v5, owner-approved 23 Nov). */
+          <Link href={DISCOVER_HREF} {...rowProps('home')}>
             <RailIcon as={Telescope} />
             <span className="fd-label-text">Discover</span>
             <span className="fd-icon-caption">Discover</span>
           </Link>
+          )}
           {/*
             STORIES IS NOT A DESTINATION ANY MORE — IT IS A CHIP (owner
             2026-08-20: *"what we want is the stories menu to be inside this as
@@ -1573,6 +1659,7 @@ export function FrontDoorShell({
 
           </>
           )}
+          </>)}
 
           {/*
             2b · THE CONTEXT GROUP.
@@ -1624,6 +1711,7 @@ export function FrontDoorShell({
               <h*> elements — the rail has no heading outline to slot into — and each column is a named group.
             */}
             <div className="fd-sp-cols">
+              {door ? null : (
               <div className="fd-sp-col" role="group" aria-label="Company">
                 <span className="fd-sp-h" aria-hidden="true">
                   Company
@@ -1656,6 +1744,7 @@ export function FrontDoorShell({
                 */}
                 <Link href="/download" data-web-only="">Download</Link>
               </div>
+              )}
               <div className="fd-sp-col" role="group" aria-label="Legal">
                 <span className="fd-sp-h" aria-hidden="true">
                   Legal

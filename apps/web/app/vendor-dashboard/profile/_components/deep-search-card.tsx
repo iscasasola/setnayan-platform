@@ -3,12 +3,11 @@ import { ChevronRight } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { SharePdfButton } from '@/app/_components/share-pdf-button';
 import { formatCount } from '@/lib/format-number';
-import { isTierAtLeast } from '@/lib/vendor-tier-caps';
-import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
+import { routes } from '@/lib/routes';
 import {
   DEEP_SEARCH_FINDINGS,
   DEEP_SEARCH_KEEP_DAYS,
-  deepSearchBandWords,
+  deepSearchAllowanceWords,
   deepSearchCounts,
   deepSearchPdfFileName,
   deepSearchPdfHref,
@@ -45,9 +44,11 @@ const shortDate = (iso: string) =>
  * note 2: *explained, not "fill in my details"*). The body of the Deep Search fold on Your details.
  *
  *   · WHAT IT GIVES — the five findings, in the order the result and its PDF use (`DEEP_SEARCH_FINDINGS`);
- *   · HOW IT IS PRICED — in the ⓘ, built from the one price source the run charges from (`deepSearchBandWords` over
- *     `loadDeepSearchOffer`'s band), never typed; the runner below states THIS shop's price, the free search and the
- *     rails exactly as `/vendor-dashboard/deep-search` does — it IS that page's runner (`DeepSearchRunner`), mounted;
+ *   · WHAT THE PLAN INCLUDES — in the ⓘ, built from the admin's monthly number (`deepSearchAllowanceWords` over
+ *     `loadDeepSearchOffer`'s allowance), never typed and never a price: Deep Search is not sold (owner 2026-11-22,
+ *     DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED" + 🔎 "1 RUN A MONTH"). The runner below states THIS shop's searches left
+ *     — or, on Free and Verified, "Included in Plus · Upgrade" — exactly as `/vendor-dashboard/deep-search` does: it IS
+ *     that page's runner (`DeepSearchRunner`), mounted;
  *   · UNVERIFIED — the shared `GetVerifiedLine` instead of a runner that can only refuse (owner note 4: "the same line
  *     wherever being unverified blocks");
  *   · THE LAST SEARCH — when it ran, what it found, and its PDF (owner, with the approval: *"run search would also create
@@ -98,18 +99,13 @@ export function DeepSearchCard({
         ))}
       </ul>
 
-      <InfoTip label="How it’s priced" labelAs="p" labelClassName="text-sm text-[color:var(--m-slate-2)]" align="start">
-        {deepSearchBandWords(offer.band)} Each search is kept {DEEP_SEARCH_KEEP_DAYS} days with its PDF,
-        then deleted.
+      <InfoTip label="What your plan includes" labelAs="p" labelClassName="text-sm text-[color:var(--m-slate-2)]" align="start">
+        {offer.allowance.read ? deepSearchAllowanceWords(offer.allowance.perMonth) : deepSearchAllowanceWords(null)} Each
+        search is kept {DEEP_SEARCH_KEEP_DAYS} days with its PDF, then deleted.
       </InfoTip>
 
-      {offer.eligible ? (
-        <DeepSearchRunner
-          eligible={offer.eligible}
-          planAsks={vendorPaywallApplies(isTierAtLeast(offer.tier, 'solo'))}
-          pricePhp={offer.pricePhp}
-          openRails={offer.openRails}
-        />
+      {offer.verified || !offer.included ? (
+        <DeepSearchRunner verified={offer.verified} included={offer.included} allowance={offer.allowance} />
       ) : (
         <GetVerifiedLine title="Deep Search is for verified shops" line="You can run it once you’re verified" data="deep-search" />
       )}
@@ -139,7 +135,7 @@ export function DeepSearchCard({
           ) : null}
         </div>
         {last.measured && last.last ? (
-          <Link href="/vendor-dashboard/deep-search" className="sn-press flex min-h-14 items-center gap-3 py-2.5" data-deep-search-all="">
+          <Link href={routes.vendorDashboard.deepSearch()} className="sn-press flex min-h-14 items-center gap-3 py-2.5" data-deep-search-all="">
             <span className="flex-1 text-base font-semibold text-ink">All your Deep Searches</span>
             <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
           </Link>

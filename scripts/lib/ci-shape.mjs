@@ -25,9 +25,10 @@
  * `skipped` is the one that matters: it is what a mis-edited `if:` or a failed
  * upstream job produces, and GitHub itself treats a skipped check as passed.
  *
- * 📝 `prDraft` is `${{ github.event.pull_request.draft == true }}` (env PR_DRAFT). A draft PR is RED, whatever its
- * jobs did: its heavy jobs skip on a draft (DRAFT_CLAUSE), and a red required check is the fence that keeps
- * auto-merge — armed on new PRs — from merging it. Marking the PR ready runs everything and this line goes away.
+ * 📝 `prDraft` is `${{ needs.pr-state.outputs.draft }}` (env PR_DRAFT): the PR's draft flag read LIVE from GitHub by
+ * the pr-state job, never the event payload (see LIVE_DRAFT_JOB). A draft PR is RED, whatever its jobs did: its heavy
+ * jobs skip on a draft (LIVE_DRAFT_CLAUSE), and a red required check is the fence that keeps auto-merge (armed on new
+ * PRs) from merging it. Marking the PR ready runs everything and this line goes away.
  */
 export const DRAFT_PR_PROBLEM = 'Draft PR: checks not run. Mark ready to test.';
 export function gateVerdict(needsJson, prDraft) {
@@ -48,6 +49,102 @@ export function gateVerdict(needsJson, prDraft) {
     if (r.result !== 'success') problems.push(`${r.job}: ${r.result}`);
   }
   return { ok: problems.length === 0, rows, problems };
+}
+
+/* ── 1b. a run cancelled because a newer run took its place ─────────────────*/
+
+/**
+ * 📝 2026-11-24 (#8252, run 45266185097). Every pull_request run of ci.yml shares the group `ci-pr-<N>` with
+ * `cancel-in-progress`, so a second run on the SAME commit (`opened` + `ready_for_review` a second apart, `reopened`,
+ * a re-run) cancels the first. The gate is `if: always()`, so it still runs in the cancelled run, finds its jobs
+ * `cancelled`, and posts a FAILED "typecheck + lint" — in that run's own check suite, where nothing newer replaces it.
+ * The PR then sits BLOCKED with every check of the newer run green.
+ *
+ * A cancelled run tested nothing; the run that replaced it tests the same commit and posts its own gate under the
+ * same required name. So the cancelled run's gate DEFERS to it — but only when all of these hold:
+ *   · the red is only "nothing finished": every job it needs is success, cancelled or skipped (never `failure`,
+ *     never unreadable) — a run that found a real failure keeps it, superseded or not;
+ *   · another run of this workflow is WAITING on the same head commit, same branch, pull_request event. Waiting
+ *     (`queued`/`pending`/`waiting`/`requested`), never `in_progress`: the group lets ONE run of a PR be in
+ *     progress at a time — this one — so a waiting run is the one queued to replace it, and its gate decides.
+ *     A run that is not waiting behind this one (or a failed lookup) means no deferral: the gate stays red.
+ * The chain always ends in a run nothing replaced, and that run's gate never defers.
+ *
+ * 🔒 A DEFERRING GATE NEVER SAYS SUCCESS (controller, 24 Nov, on #8285). Between the cancelled run finishing and the
+ * successor creating its own check runs there is a window. In a draft run the heavy required jobs are SKIPPED, and
+ * GitHub counts skipped as passed, so a green gate there could make every required context read green on a commit
+ * nothing typechecked or built. So, before the cancelled run's gate job ends, it POSTS a check run of the same name,
+ * "typecheck + lint", with status `in_progress` and NO conclusion (deferredCheckBody). It is required (same app, same
+ * name), and GitHub counts every check run of a required name, so the context reads PENDING until someone completes it.
+ * The job itself may only end 0 once that post was accepted. A job cannot end "pending": its own check run is success
+ * or failure, and a failure is what stuck on #8252, #8259 and #8274. If the post is refused, the gate stays red.
+ * The successor's HONEST gate then COMPLETES every pending deferred check on the commit with its own verdict
+ * (completionConclusion). It PATCHes the same check run, because a newer run of the same name does not replace an
+ * older one (measured on #8274: an attempt-1 failure stayed counted beside two successes). A draft-red gate leaves
+ * them pending: a draft vouches for nothing either way.
+ */
+export const WAITING_RUN_STATUSES = ['queued', 'pending', 'waiting', 'requested'];
+export const DEFERRED_EXTERNAL_ID_PREFIX = 'deferred-gate:';
+
+/** The check run a deferring gate posts. PENDING: `in_progress`, and never a `conclusion` key. */
+export function deferredCheckBody({ runId, headSha, successor }) {
+  const summary = `Run ${runId} was cancelled because run ${successor?.id} is replacing it on this same commit. Nothing was tested here. This check stays PENDING until that run's own "${GATE_NAME}" finishes and completes it with its real result.`;
+  return {
+    name: GATE_NAME,
+    head_sha: headSha,
+    status: 'in_progress',
+    external_id: `${DEFERRED_EXTERNAL_ID_PREFIX}${runId}`,
+    ...(successor?.html_url ? { details_url: successor.html_url } : {}),
+    output: { title: `Deferred to run ${successor?.id}: pending`, summary },
+  };
+}
+
+/** Deferred checks on a commit that no honest gate has completed yet. */
+export function pendingDeferredChecks(checkRuns) {
+  if (!Array.isArray(checkRuns)) return [];
+  return checkRuns.filter((c) => c?.name === GATE_NAME && c?.status !== 'completed' && String(c?.external_id ?? '').startsWith(DEFERRED_EXTERNAL_ID_PREFIX));
+}
+
+/**
+ * What an honest (non-deferring) gate writes into pending deferred checks: its own verdict, or null (leave them
+ * PENDING) when it is red only because the PR is a draft. A draft run tested nothing, so it may not vouch either way.
+ */
+export function completionConclusion(ok, prDraft) {
+  if (prDraft === 'true') return null;
+  return ok ? 'success' : 'failure';
+}
+
+/** May this red be handed to a successor? Only when nothing FAILED: every needed job is success, cancelled or skipped. */
+export function deferrable(needsJson) {
+  let needs;
+  try {
+    needs = JSON.parse(needsJson ?? '');
+  } catch {
+    return false;
+  }
+  if (!needs || typeof needs !== 'object' || Array.isArray(needs)) return false;
+  const results = Object.values(needs).map((v) => (typeof v?.result === 'string' ? v.result : 'missing'));
+  return results.length > 0 && results.every((r) => r === 'success' || r === 'cancelled' || r === 'skipped');
+}
+
+/**
+ * The run waiting to replace this one, or null.
+ * @param {any[]} runs `workflow_runs` from GET /repos/{repo}/actions/workflows/{file}/runs?head_sha=…
+ * @param {{runId:string|number, headSha:string, headBranch:string, prNumber?:string|number}} me
+ */
+export function supersedingRun(runs, me) {
+  if (!Array.isArray(runs) || !me?.headSha || !me?.headBranch || me.runId == null || me.runId === '') return null;
+  return (
+    runs.find(
+      (r) =>
+        String(r?.id) !== String(me.runId) &&
+        r?.event === 'pull_request' &&
+        r?.head_sha === me.headSha &&
+        r?.head_branch === me.headBranch &&
+        WAITING_RUN_STATUSES.includes(r?.status) &&
+        (!me.prNumber || !Array.isArray(r?.pull_requests) || r.pull_requests.length === 0 || r.pull_requests.some((p) => String(p?.number) === String(me.prNumber))),
+    ) ?? null
+  );
 }
 
 /* ── 2. the workflow's shape ────────────────────────────────────────────────*/
@@ -77,16 +174,28 @@ export const REQUIRED_CONTEXTS = [
 export const GATE_NAME = 'typecheck + lint';
 
 /**
- * 📝 DRAFT PRs SKIP THE HEAVY JOBS (owner, 16 Nov 2026 — runners are spent on PRs that are ready). The ONE job-level
- * `if:` a gated job may carry. Three rules keep it from opening a hole, because GitHub counts a skipped check as passed:
+ * 📝 DRAFT PRs SKIP THE HEAVY JOBS (owner, 16 Nov 2026 — runners are spent on PRs that are ready).
+ *
+ * DRAFT_CLAUSE is the EVENT PAYLOAD's draft flag: frozen when the event fired, and replayed unchanged by every re-run.
+ * e2e.yml and lighthouse.yml still use it (a skipped job there reads as passed, so it can never strand a PR red).
+ * ci.yml may NOT (rule i): its gate goes RED on a draft, and a red gate built from a frozen "draft" stays on the head
+ * commit after the PR is ready — measured 24 Nov on #8252, #8259 and #8261, where `opened`-as-draft and
+ * `ready_for_review` ran a second apart, the draft run landed last, and re-running it failed again.
+ *
+ * So ci.yml reads the flag LIVE: the LIVE_DRAFT_JOB job asks GitHub's API at run time, and LIVE_DRAFT_IF is the ONE
+ * job-level `if:` a gated job may carry (with `needs: pr-state`, the one `needs:` it may carry). The rules that keep it
+ * from opening a hole, because GitHub counts a skipped check as passed:
  *   · the GATE never carries it (rule b: exactly `always()`), and it is RED on a draft (PR_DRAFT → gateVerdict), so
  *     a draft can never merge — not by auto-merge, not by anyone;
- *   · the gate is handed PR_DRAFT (rule h) — without it a draft's skipped jobs would be its only signal;
- *   · a workflow that uses it lists `ready_for_review` (rule g), so marking a PR ready RUNS every job.
- * On `push` and `workflow_dispatch` there is no pull request, `draft` is null, and `null != true` — every job runs.
+ *   · the gate is handed PR_DRAFT from the live job (rule h) — without it a draft's skipped jobs would be its only signal;
+ *   · the live job exists, runs everywhere, reads the API and is NEEDED by the gate, so a failed read is a red gate (rule i);
+ *   · a workflow that skips drafts lists `ready_for_review` (rule g), so marking a PR ready RUNS every job.
+ * On `push` and `workflow_dispatch` there is no pull request and the live job answers `false`: every job runs.
  */
 export const DRAFT_CLAUSE = 'github.event.pull_request.draft != true';
-const DRAFT_IF = `\${{ ${DRAFT_CLAUSE} }}`;
+export const LIVE_DRAFT_JOB = 'pr-state';
+export const LIVE_DRAFT_CLAUSE = `needs.${LIVE_DRAFT_JOB}.outputs.draft == 'false'`;
+const LIVE_DRAFT_IF = `\${{ ${LIVE_DRAFT_CLAUSE} }}`;
 const PR_TYPES_NEEDED = ['opened', 'synchronize', 'reopened', 'ready_for_review'];
 
 /**
@@ -214,8 +323,14 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
   /* d · a needed job that can be skipped makes the gate red for no fault — or tempts someone to loosen it */
   for (const id of gate.needs) {
     const j = byId.get(id);
-    if (j?.if && j.if !== DRAFT_IF) problems.push(`job "${id}" has a job-level \`if:\` — where it is false the job is skipped and the gate is (correctly) red. Make the job run everywhere; do not teach the gate that skipped is fine.`);
-    if (j && j.needs.length) problems.push(`job "${id}" has its own \`needs:\` — if that dependency fails this job is SKIPPED rather than failed. Keep the gated jobs independent of each other.`);
+    const live = j?.if === LIVE_DRAFT_IF;
+    if (j?.if && j.if.includes('github.event.pull_request.draft')) {
+      problems.push(`job "${id}" decides draft-or-ready from the event payload (\`${j.if}\`) — a re-run replays that payload, so a run that started on a draft stays red after the PR is ready. Use \`if: ${LIVE_DRAFT_IF}\` with \`needs: ${LIVE_DRAFT_JOB}\`.`);
+    } else if (j?.if && !live) {
+      problems.push(`job "${id}" has a job-level \`if:\` — where it is false the job is skipped and the gate is (correctly) red. Make the job run everywhere; do not teach the gate that skipped is fine.`);
+    }
+    const ownNeeds = live ? j.needs.filter((n) => n !== LIVE_DRAFT_JOB) : j?.needs ?? [];
+    if (ownNeeds.length) problems.push(`job "${id}" has its own \`needs:\` — if that dependency fails this job is SKIPPED rather than failed. Keep the gated jobs independent of each other (the one allowed need is \`${LIVE_DRAFT_JOB}\`, with the live draft \`if:\`).`);
   }
 
   /* e · what the gate used to run as steps is still run by a job it needs */
@@ -226,7 +341,7 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
 
   /* g · a workflow whose jobs skip drafts must run them when the PR is marked ready (see DRAFT_CLAUSE) */
   for (const [file, text] of [['ci.yml', ci], ...Object.entries(others)]) {
-    if (!text.includes(DRAFT_CLAUSE)) continue;
+    if (!text.includes(DRAFT_CLAUSE) && !text.includes(LIVE_DRAFT_CLAUSE)) continue;
     const pr = /^ {2}pull_request:[^\n]*\n((?: {4}[^\n]*\n)*)/m.exec(text);
     const types = pr ? /^ {4}types:\s*\[([^\]]*)\]/m.exec(pr[1]) : null;
     const have = types ? types[1].split(',').map((x) => x.trim()) : [];
@@ -236,9 +351,45 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
     }
   }
 
-  /* h · the gate is told when the PR is a draft — so a draft is red, never green-by-skipping */
-  if (!/PR_DRAFT:\s*\$\{\{\s*github\.event\.pull_request\.draft == true\s*\}\}/.test(gate.body)) {
-    problems.push(`"${GATE_NAME}" must hand the script \`PR_DRAFT: \${{ github.event.pull_request.draft == true }}\` — on a draft the heavy jobs are skipped, and without it the gate cannot say the PR is a draft and stay red`);
+  /* h · the gate is told when the PR is a draft — LIVE — so a draft is red, never green-by-skipping */
+  if (!/PR_DRAFT:\s*\$\{\{\s*needs\.pr-state\.outputs\.draft\s*\}\}/.test(gate.body)) {
+    problems.push(`"${GATE_NAME}" must hand the script \`PR_DRAFT: \${{ needs.${LIVE_DRAFT_JOB}.outputs.draft }}\` — on a draft the heavy jobs are skipped, and without it the gate cannot say the PR is a draft and stay red. Never the event payload's \`github.event.pull_request.draft\`: a re-run replays it.`);
+  }
+
+  /* i · draft-or-ready is read LIVE, once, by one job the gate needs (see LIVE_DRAFT_JOB) */
+  const liveJob = byId.get(LIVE_DRAFT_JOB);
+  if (!liveJob) {
+    problems.push(`no job "${LIVE_DRAFT_JOB}" in ci.yml — nothing reads the PR's draft flag live, so a run that started on a draft replays "draft" on every re-run and strands a ready PR behind a red gate`);
+  } else {
+    if (!gate.needs.includes(LIVE_DRAFT_JOB)) problems.push(`"${GATE_NAME}" must \`needs: ${LIVE_DRAFT_JOB}\` — a failed live read must be a red gate, not skipped heavy jobs nobody counts`);
+    if (liveJob.if) problems.push(`job "${LIVE_DRAFT_JOB}" must have no \`if:\` — it answers for every run, push and dispatch included`);
+    if (liveJob.needs.length) problems.push(`job "${LIVE_DRAFT_JOB}" must need nothing — every heavy job waits on it`);
+    if (!/^ {6}pull-requests:\s*read\s*$/m.test(liveJob.body)) problems.push(`job "${LIVE_DRAFT_JOB}" must have \`permissions: pull-requests: read\` — without it the live read is refused`);
+    if (!/^ {6}draft:\s*\$\{\{\s*steps\.[A-Za-z0-9_-]+\.outputs\.draft\s*\}\}/m.test(liveJob.body)) problems.push(`job "${LIVE_DRAFT_JOB}" must output \`draft\` from its read step`);
+    if (!/gh api "repos\/\$REPO\/pulls\/\$PR_NUMBER" --jq '\.draft'/.test(liveJob.body)) problems.push(`job "${LIVE_DRAFT_JOB}" must read the flag from GitHub's API at run time (\`gh api "repos/$REPO/pulls/$PR_NUMBER" --jq '.draft'\`) — that is the whole point of the job`);
+  }
+  ci.split('\n').forEach((line, i) => {
+    if (/^\s*#/.test(line)) return;
+    if (line.includes('github.event.pull_request.draft')) problems.push(`ci.yml line ${i + 1} reads the event payload's draft flag (\`${line.trim()}\`) — a re-run replays it. Read \`needs.${LIVE_DRAFT_JOB}.outputs.draft\` instead.`);
+  });
+  /* j · a cancelled run's gate can see the run replacing it — or a superseded commit stays red forever (see supersedingRun) */
+  if (!/^ {6}checks:\s*write\s*$/m.test(gate.body)) problems.push(`"${GATE_NAME}" must have \`permissions: checks: write\` — a deferring gate posts a PENDING check (never success) and an honest gate completes it; without it a cancelled run stays red`);
+  if (!/^ {6}actions:\s*read\s*$/m.test(gate.body)) problems.push(`"${GATE_NAME}" must have \`permissions: actions: read\` — without it a run cancelled for a newer run on the same commit cannot see that run, and posts a FAILED gate nothing replaces`);
+  for (const [key, expr] of [
+    ['EVENT_NAME', 'github.event_name'],
+    ['GITHUB_TOKEN', 'github.token'],
+    ['RUN_ID', 'github.run_id'],
+    ['HEAD_SHA', 'github.event.pull_request.head.sha'],
+    ['HEAD_BRANCH', 'github.head_ref'],
+  ]) {
+    const re = new RegExp(`^ {10}${key}:\\s*\\$\\{\\{\\s*${expr.replace(/\./g, '\\.')}\\s*\\}\\}\\s*$`, 'm');
+    if (!re.test(gate.body)) problems.push(`"${GATE_NAME}" must hand the script \`${key}: \${{ ${expr} }}\` — it is how a cancelled run finds the run replacing it on the same commit`);
+  }
+
+  for (const j of jobs) {
+    if (j.body.includes(`needs.${LIVE_DRAFT_JOB}.outputs`) && !j.needs.includes(LIVE_DRAFT_JOB)) {
+      problems.push(`job "${j.id}" reads \`needs.${LIVE_DRAFT_JOB}.outputs\` but does not \`needs: ${LIVE_DRAFT_JOB}\``);
+    }
   }
 
   /* f · shards: the whole list, never cancelled early, exit code kept */

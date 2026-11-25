@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { ArrowUpRight, ExternalLink, Megaphone, Settings, ShieldCheck, Star, Share } from 'lucide-react';
+import { ArrowUpRight, ExternalLink, Megaphone, Puzzle, Settings, ShieldCheck, Star, Share } from 'lucide-react';
+import { routes } from '@/lib/routes';
 import { PillSelector } from '@/app/_components/pill-selector';
 import type { StorageMeter } from '@/lib/supplier-store';
 import { STORAGE_UPGRADE_HREF } from '@/lib/supplier-storage';
@@ -348,7 +349,7 @@ export function ShopCover({
 
       {/* 🚪 THE COVER'S DOORS (Store drawing `supplier_store_graphs_badges_2026-11-23` v10, F0 — owner 23 Nov 2026): the
           Storage row (what the shop stores of its plan's space; the plan chip opens the storage sheet), then ONE line —
-          the logo (tap = the picker) · View shop · Share · Promote. The QR door is a tab inside Promote now; Gifts lives
+          the logo (tap = the picker) · View shop · Toolkit · Share · Promote (v19 adds Toolkit). The QR door is a tab inside Promote now; Gifts lives
           in Promote › Posters & prints (its shipped section); the plan is the chip. 🔒 the-cover-is-the-store-drawing.test.ts */}
       <div className="space-y-3 px-4 pt-3" data-shop-cover-doors="">
         {d.storage ? (
@@ -390,6 +391,11 @@ export function ShopCover({
               <span className="truncate">Add your shop name</span>
             </Link>
           )}
+          {/* 🧩 Toolkit v19 (frame 0): View shop · Toolkit · Share · Promote — the Toolkit's own door from the cover. */}
+          <Link href={routes.vendorDashboard.shop.store.index()} className={SHARE_PILL} data-shop-cover-icon="toolkit">
+            <Puzzle aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+            Toolkit
+          </Link>
           <button type="button" onClick={() => setShareOpen(true)} disabled={!d.shareUrl} className={SHARE_PILL} data-shop-cover-icon="share">
             <Share aria-hidden className="h-4 w-4" strokeWidth={1.9} />
             Share
@@ -439,9 +445,10 @@ export function ShopCover({
   );
 }
 
-/** Share and Promote: an icon over its word, a small 48 px square beside View shop (Store drawing v12, F0). */
+/** Toolkit, Share and Promote: an icon over its word, a small square beside View shop (Store drawing v19, frame 0 —
+ *  five compact buttons on one line, so each square is 56 px wide). */
 const SHARE_PILL =
-  'sn-press inline-flex min-h-12 w-16 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl bg-[rgb(var(--sn-frame-bg))] py-1.5 text-sn-xs font-semibold text-ink shadow-[var(--sn-frame-shadow-tile)] disabled:opacity-40'; // no-card-ok: a press (the Share and Promote buttons), not a frame
+  'sn-press inline-flex min-h-12 w-14 shrink-0 flex-col items-center justify-center gap-0.5 rounded-2xl bg-[rgb(var(--sn-frame-bg))] py-1.5 text-sn-xs font-semibold text-ink shadow-[var(--sn-frame-shadow-tile)] disabled:opacity-40'; // no-card-ok: a press (the Share and Promote buttons), not a frame
 
 /** The plan chip's words — the plan, or that it could not be read (never "Free" on a refused read). */
 function chipWord(plan: string | null): string {

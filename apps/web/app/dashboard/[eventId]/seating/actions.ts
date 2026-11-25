@@ -52,6 +52,8 @@ import {
   shapeHintFor,
   tableGeometry,
   type TableType,
+  seatingFloorOf,
+  seatingGridLayout,
 } from '@/lib/seat-plan-engine';
 import { parseRestoreSeats, parseSeatScope, restorableSeats, seatsThatStay, seatsToClear, type RestoreSeat } from '@/lib/seat-plan-scope';
 import { refuseLimitedHelper } from '@/lib/host-gate';
@@ -956,8 +958,7 @@ export async function savePriorityOrder(formData: FormData) {
 // couple-only. Guest ids are validated as UUIDs before use in any filter.
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function addSeatingConstraint(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
+async function addKeepApart(formData: FormData) {
   const eventId = formData.get('event_id');
   const a = formData.get('guest_a_id');
   const b = formData.get('guest_b_id');
@@ -992,8 +993,7 @@ export async function addSeatingConstraint(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
-export async function removeSeatingConstraint(formData: FormData) {
-  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
+async function removeKeepApart(formData: FormData) {
   const eventId = formData.get('event_id');
   const a = formData.get('guest_a_id');
   const b = formData.get('guest_b_id');
@@ -1027,6 +1027,20 @@ export async function removeSeatingConstraint(formData: FormData) {
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
+/**
+ * The ONE server action for keep-apart rules: `op` = 'add' | 'remove' routes to the matching write, each exactly as it
+ * was when they were two exports (the gate runs here, once, first; then UUID checks, lock, write, revalidate). Folded to hold the server-action
+ * ceiling (lint-server-action-budget.mjs). The editor still calls `addSeatingConstraint` / `removeSeatingConstraint`
+ * by name; `seating-writes.ts` sets `op` and calls this.
+ */
+export async function seatingConstraint(formData: FormData) {
+  await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
+  const op = formData.get('op');
+  if (op === 'add') return addKeepApart(formData);
+  if (op === 'remove') return removeKeepApart(formData);
+  throw new Error('Invalid input');
 }
 
 // Pin/unpin a seated guest (smart seat-plan · Phase 4 lock-and-fill). A locked
@@ -2571,9 +2585,12 @@ async function clearAllSeats(eventId: string, formData: FormData): Promise<AutoA
 // + zero-cost, the same family as Auto Arrange: recommend a table SET, create
 // it, lay it out stage-out, and seat the confirmed guests by role tier. Guarded
 // to a truly empty floor so it can never clobber an in-progress plan.
+/** How long after the draft's tables are made its own seats may land (one action; seconds in practice). */
+const DRAFT_SEAT_WINDOW_MS = 120_000;
+
 export async function buildSeatingDraft(
   formData: FormData,
-): Promise<{ tables: number; seated: number }> {
+): Promise<{ tables: number; seated: number; kept?: true }> {
   await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
@@ -2600,6 +2617,52 @@ export async function buildSeatingDraft(
       .eq('event_id', eventId)
       .maybeSingle(),
   ]);
+
+  /* ↩ UNDO THE DRAFT (owner 2026-11-20: the draft's message is ONE line with Undo) — an intent of this action (the
+     server-action ceiling), never a second one. It takes back exactly the tables the draft made (the ids the screen
+     saw arrive), for this event only, in ONE statement; their seats go with them (ON DELETE CASCADE). It stands AFTER
+     the stop-readers above like every write in this file — a refused read stops it too. */
+  const undoRaw = formData.get('undo_table_ids');
+  if (typeof undoRaw === 'string' && undoRaw.length > 0) {
+    let ids: string[] = [];
+    try {
+      const parsed = JSON.parse(undoRaw);
+      if (Array.isArray(parsed)) ids = parsed.filter((x): x is string => typeof x === 'string').slice(0, 200);
+    } catch {
+      ids = [];
+    }
+    if (ids.length > 0) {
+      /* 🛡 THE SERVER DECIDES WHAT IS THE DRAFT'S (ship review 21 Nov): the ids come from the browser, so they are
+         only a claim. The draft makes its tables in ONE insert on an empty floor, so they share one `created_at`;
+         and it seats with `placed_by = 'auto'` moments later. Undo takes them back only when every listed table is
+         this event's, from that one batch, and every seat on them is still the solver's from that same minute. A
+         guest moved by hand (or seated later) since the draft makes Undo refuse — it never silently un-seats them. */
+      const [{ data: mine, error: tErr }, { data: seats, error: sErr }] = await Promise.all([
+        supabase.from('event_tables').select('table_id, created_at').eq('event_id', eventId).in('table_id', ids),
+        supabase.from('event_seat_assignments').select('placed_by, placed_at').eq('event_id', eventId).in('table_id', ids),
+      ]);
+      if (tErr) throw new Error(tErr.message);
+      if (sErr) throw new Error(sErr.message);
+      const batch = new Set((mine ?? []).map((t) => String(t.created_at)));
+      const madeAt = Date.parse([...batch][0] ?? '');
+      const stillTheDrafts =
+        (mine ?? []).length === ids.length &&
+        batch.size === 1 &&
+        Number.isFinite(madeAt) &&
+        (seats ?? []).every(
+          (r) => r.placed_by === 'auto' && r.placed_at != null && Date.parse(String(r.placed_at)) - madeAt <= DRAFT_SEAT_WINDOW_MS,
+        );
+      if (!stillTheDrafts) {
+        await refreshSeatingLock(supabase, lockId);
+        return { tables: 0, seated: 0, kept: true };
+      }
+      const { error } = await supabase.from('event_tables').delete().eq('event_id', eventId).in('table_id', ids);
+      if (error) throw new Error(error.message);
+    }
+    await refreshSeatingLock(supabase, lockId);
+    revalidatePath(`/dashboard/${eventId}/seating`);
+    return { tables: 0, seated: 0 };
+  }
 
   // Guard: only ever build onto a blank floor — never clobber existing tables.
   if (existing.length > 0) {
@@ -2637,12 +2700,23 @@ export async function buildSeatingDraft(
   // percent of the canvas, so a nominal server-side rect renders correctly at
   // any real canvas size — the same stub-rect path the unit tests exercise.
   const tables = await fetchTables(supabase, eventId);
-  const layout = computeAutoLayout({
-    tables,
-    floorPlan,
-    rect: { width: 1000, height: 680 },
-    footprintOf: (t) => tableGeometry(shapeHintFor(t.table_type), t.capacity).box,
-  });
+  /* 🪑 THE DRAFT USES THE GRID (owner 2026-11-20, "Tables that line up"): rows facing the stage, each centred on the
+     stage line, the couple's table alone on the line — the shared core's `seatingGridLayout`, the SAME rows a table
+     added by hand joins. (It used to lay raw drawing boxes on a nominal canvas, so a row of two was never either side
+     of the line.) A table the room has no line for keeps the old layout's spot rather than no spot. */
+  const grid = seatingGridLayout(
+    seatingFloorOf(floorPlan),
+    tables.map((t) => ({ id: t.table_id, table_type: t.table_type, capacity: t.capacity })),
+  );
+  const spill = tables.some((t) => !grid[t.table_id])
+    ? computeAutoLayout({
+        tables,
+        floorPlan,
+        rect: { width: 1000, height: 680 },
+        footprintOf: (t) => tableGeometry(shapeHintFor(t.table_type), t.capacity).box,
+      })
+    : {};
+  const layout: Record<string, { x: number; y: number }> = { ...spill, ...grid };
   for (const t of tables) {
     const p = layout[t.table_id];
     if (!p) continue;

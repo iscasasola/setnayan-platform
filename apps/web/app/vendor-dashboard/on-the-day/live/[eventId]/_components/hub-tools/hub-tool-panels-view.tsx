@@ -4,13 +4,20 @@ import type { ComponentType, ReactNode, SVGProps } from 'react';
 import {
   Armchair,
   BedDouble,
+  CalendarHeart,
+  CarFront,
   Church,
   Clock,
   FileCheck2,
+  Flower2,
+  Footprints,
   HardHat,
   ListOrdered,
+  MapPinned,
   Mic,
+  Music,
   PackageCheck,
+  PartyPopper,
   PenLine,
   Ruler,
   Salad,
@@ -22,6 +29,7 @@ import {
   Trophy,
   Truck,
   UsersRound,
+  UtensilsCrossed,
 } from 'lucide-react';
 import { entryTemplateOf, isScoredTool, type DietaryRead, type EntriesRead } from '@/lib/hub-tool-entries';
 import { HUB_TOOL_LIBRARY } from '@/lib/hub-tools';
@@ -31,7 +39,7 @@ import type { Song } from '@/lib/songs';
 import { PartCard } from '@/app/vendor-dashboard/_components/set-two/parts';
 import { ReadFailedNote } from '@/app/vendor-dashboard/_components/set-two/read-failed';
 import { UndoToastHost } from '@/app/dashboard/[eventId]/guests/_components/undo-toast';
-import { ChecklistTool, CounterTool, OrderedListTool, PerPersonTool, type HubToolSave } from './entry-tools';
+import { ChecklistTool, CounterTool, DatedPlanTool, LiveTimelineTool, OrderedListTool, PerPersonTool, type HubToolSave } from './entry-tools';
 import type { EntourageSheetSection } from '@/lib/supplier-march';
 import { DietarySheet } from './dietary-sheet';
 import { EntourageSheet } from './entourage-sheet';
@@ -59,6 +67,9 @@ type Icon = ComponentType<SVGProps<SVGSVGElement> & { strokeWidth?: number | str
  *   Ceremony details · Proofs & approval · Safety permit & cue                     ① Checklist (the couple sees the ticks)
  *   Fittings & measurements · Looks per person · Crew roster · Room list           ② Per-person
  *   Chair schedule · Reservation slots · Brackets & scoring (a score per row)      ⑤ Ordered list, ▲ ▼
+ *   Pick-up times & routes · Itinerary · Serving times · Remembrance schedule ·
+ *   March cue sheet · Rehearsal & cues · Reveal cue                                ③ Live timeline, Next ›
+ *   Wellness plan (dates and plain activity words)                                 ⑥ Plan, dated sessions
  *
  * ONE home (controller, DECISION_LOG 23 Nov 2026): every row above is in `vendor_hub_tool_entries`; the Shot list's
  * couple-read table is the Shot list's alone.
@@ -87,10 +98,65 @@ const MARK: Partial<Record<DayOfModuleId, Icon>> = {
   chair_schedule: Armchair,
   reservation_slots: Clock,
   brackets_and_scoring: Trophy,
+  pick_up_times_and_routes: CarFront,
+  itinerary: MapPinned,
+  serving_times: UtensilsCrossed,
+  remembrance_schedule: Flower2,
+  march_cue_sheet: Music,
+  rehearsal_and_cues: Footprints,
+  reveal_cue: PartyPopper,
+  wellness_plan: CalendarHeart,
 };
 
 /** Each entry tool's words — the add box and the empty line (the drawing's examples). `first` names an ordered list's row. */
 const ENTRY_WORDS: Record<string, { placeholder: string; empty: string; second?: string; first?: string }> = {
+  pick_up_times_and_routes: {
+    first: 'Pick-up',
+    placeholder: 'e.g. Bride · Hotel → Church',
+    second: 'Route or note',
+    empty: 'Add each pick-up with its time — who, and from where to where — then press Next as each one leaves.',
+  },
+  itinerary: {
+    first: 'Stop',
+    placeholder: 'e.g. Flight PR 102 lands',
+    second: 'Where or a note',
+    empty: 'Add each stop with its time — a flight, a hotel, a meeting point — then press Next as the day goes.',
+  },
+  serving_times: {
+    first: 'What goes out',
+    placeholder: 'e.g. Soup course',
+    second: 'Station or note',
+    empty: 'Add each course or serving with its time, then press Next as each one goes out.',
+  },
+  remembrance_schedule: {
+    first: 'What happens',
+    placeholder: 'e.g. Viewing opens',
+    second: 'Where or a note',
+    empty: 'Add the viewing hours, the masses and the interment with their times, then press Next as each begins.',
+  },
+  march_cue_sheet: {
+    first: 'Who walks',
+    placeholder: 'e.g. Principal sponsors',
+    second: 'The song',
+    empty: 'Add each march group in walking order with its time and song, then press Next as each group walks.',
+  },
+  rehearsal_and_cues: {
+    first: 'Cue',
+    placeholder: 'e.g. Couple’s first dance',
+    second: 'The cue song or step',
+    empty: 'Add the rehearsal and each cue with its time, then press Next as the run goes.',
+  },
+  reveal_cue: {
+    first: 'Moment',
+    placeholder: 'e.g. Countdown starts',
+    second: 'Who triggers it',
+    empty: 'Add the lead-up and the reveal with their times — and who triggers it — then press Next on the night.',
+  },
+  wellness_plan: {
+    first: 'Activity',
+    placeholder: 'e.g. Pilates session',
+    empty: 'Add each session in the weeks before with its date, and tick it when it’s done.',
+  },
   ceremony_details: {
     placeholder: 'e.g. Mass at 3:00 PM',
     empty: 'List what the ceremony needs settled — the time, sponsors, readings, banns — and tick each when it’s set.',
@@ -238,6 +304,35 @@ export function HubToolPanelsView({
         body = <ChecklistTool eventId={eventId} toolKey={key} title={title} icon={icon} initial={read.entries} save={save} placeholder={words.placeholder} empty={words.empty} />;
       } else if (template === 'per_person') {
         body = <PerPersonTool eventId={eventId} toolKey={key} title={title} icon={icon} initial={read.entries} save={save} second={words.second ?? 'Note'} empty={words.empty} />;
+      } else if (template === 'live_timeline') {
+        body = (
+          <LiveTimelineTool
+            eventId={eventId}
+            toolKey={key}
+            title={title}
+            icon={icon}
+            initial={read.entries}
+            save={save}
+            first={words.first ?? 'What happens'}
+            placeholder={words.placeholder}
+            second={words.second ?? 'Note'}
+            empty={words.empty}
+          />
+        );
+      } else if (template === 'plan') {
+        body = (
+          <DatedPlanTool
+            eventId={eventId}
+            toolKey={key}
+            title={title}
+            icon={icon}
+            initial={read.entries}
+            save={save}
+            first={words.first ?? 'Activity'}
+            placeholder={words.placeholder}
+            empty={words.empty}
+          />
+        );
       } else if (template === 'ordered_list') {
         body = (
           <OrderedListTool

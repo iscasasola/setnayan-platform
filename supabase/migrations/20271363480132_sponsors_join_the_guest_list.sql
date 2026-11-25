@@ -85,7 +85,10 @@ BEGIN
                 ELSE 'principal_sponsor'
               END::public.guest_role;
     v_name := lower(regexp_replace(btrim(s.full_name), '\s+', ' ', 'g'));
-    v_asked := s.invitation_sent_at;  -- the sponsor row's "asked" moment → guests.sponsor_asked_at
+    -- the sponsor row's "asked" moment → guests.sponsor_asked_at. A row that was ANSWERED was asked, even where no
+    -- sent time was recorded — so an accepted sponsor keeps their place on the public "who was there" band.
+    v_asked := coalesce(s.invitation_sent_at,
+                        CASE WHEN s.invitation_status IN ('accepted', 'declined') THEN coalesce(s.responded_at, s.updated_at) END);
 
     -- 1 · the match rule
     SELECT g.guest_id INTO v_guest

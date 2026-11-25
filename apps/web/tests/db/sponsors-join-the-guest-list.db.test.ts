@@ -150,6 +150,15 @@ test('being asked to be a sponsor lands in sponsor_asked_at — never the RSVP i
   assert.equal(r.rsvp, 'pending');
 });
 
+test('an ANSWERED sponsor was asked — an accepted one keeps the public band’s consent (asked + their own yes)', async () => {
+  const r = await one<{ asked: string | null; by: string | null; rsvp: string }>(
+    `SELECT sponsor_asked_at::text AS asked, rsvp_set_by AS by, rsvp_status::text AS rsvp FROM public.guests WHERE guest_id = $1`,
+    [(await linkOf(ids.sNew))!],
+  );
+  assert.ok(r.asked, 'accepted with no sent time recorded: still asked');
+  assert.deepEqual({ by: r.by, rsvp: r.rsvp }, { by: 'guest', rsvp: 'attending' });
+});
+
 test('a principal pair walks together', async () => {
   const a = await linkOf(ids.sNew);
   const b = await linkOf(ids.sNew2);

@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { createAdminClient } from '@/lib/supabase/admin';
+import { acceptedTheNamedRole, querySponsorGuests } from '@/lib/sponsor-guests';
 
 /**
  * WHO WAS THERE — the ninong, the ninang, the abay, on a person's public page.
@@ -41,12 +42,16 @@ import { createAdminClient } from '@/lib/supabase/admin';
  */
 
 /** The four Filipino secondary tiers, plus the principals. */
-const ROLE_LABEL: Record<string, { groom: string; bride: string; neutral: string }> = {
-  principal: { groom: 'Ninong', bride: 'Ninang', neutral: 'Principal sponsor' },
-  cord: { groom: 'Cord', bride: 'Cord', neutral: 'Cord' },
-  veil: { groom: 'Veil', bride: 'Veil', neutral: 'Veil' },
-  coin: { groom: 'Coin', bride: 'Coin', neutral: 'Coin' },
-  candle: { groom: 'Candle', bride: 'Candle', neutral: 'Candle' },
+/** The label for a sponsor's ROLE on the guest — Ninong or Ninang only where the couple recorded it, never from the
+ *  side (owner ruling 2026-09-15). The five tiers: principal · cord · veil · coin · candle. */
+const ROLE_LABEL: Record<string, string> = {
+  principal_sponsor_ninong: 'Ninong',
+  principal_sponsor_ninang: 'Ninang',
+  principal_sponsor: 'Principal sponsor',
+  cord_sponsor: 'Cord',
+  veil_sponsor: 'Veil',
+  coin_sponsor: 'Coin',
+  candle_sponsor: 'Candle',
 };
 
 export type WhoWasThere = {
@@ -76,18 +81,8 @@ export async function loadWhoWasThere(
     return [];
   }
 
-  const { data, error } = await admin
-    .from('event_sponsors')
-    .select('full_name, sponsor_tier, side, invitation_status, pair_index')
-    // 🔒 THE GATE. Never widen this to include 'invited' — an invitation is a
-    // question, and publishing the answer before it is given answers it for
-    // them.
-    .eq('invitation_status', 'accepted')
-    .in('event_id', ids)
-    // Principals first (pair_index orders them as the couple arranged), then
-    // the secondary tiers in the order they happen in the ceremony.
-    .order('pair_index', { ascending: true, nullsFirst: false })
-    .limit(limit * 3);
+  // 👥 Sponsors are guests with a sponsor role (owner, brief Add 41 · A2-I14) — read from the guest list.
+  const { data, error } = await querySponsorGuests(admin, ids, { publicOnly: true });
 
   if (error) {
     // Rejected, not thrown — the only symptom of a refused read is an absence,
@@ -96,12 +91,10 @@ export async function loadWhoWasThere(
     return [];
   }
 
-  const rows = (data ?? []) as Array<{
-    full_name: string | null;
-    sponsor_tier: string;
-    side: string;
-    pair_index: number | null;
-  }>;
+  // 🔒 THE GATE (`acceptedTheNamedRole`): asked to stand in the role AND answered yes themselves. Never widen it to an
+  // event RSVP or to someone merely invited — an invitation is a question, and publishing the answer before it is
+  // given answers it for them.
+  const rows = (data ?? []).filter(acceptedTheNamedRole);
 
   const TIER_ORDER = ['principal', 'cord', 'veil', 'coin', 'candle'];
   return rows
@@ -114,9 +107,6 @@ export async function loadWhoWasThere(
     .slice(0, limit)
     .map((r) => ({
       name: (r.full_name as string).trim(),
-      role:
-        ROLE_LABEL[r.sponsor_tier]?.[
-          (r.side as 'groom' | 'bride' | 'neutral') ?? 'neutral'
-        ] ?? 'Sponsor',
+      role: ROLE_LABEL[r.role] ?? 'Sponsor',
     }));
 }

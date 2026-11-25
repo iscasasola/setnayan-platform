@@ -25,6 +25,7 @@ const row = (id: string, full_name: string, side: SponsorRow['side'], invitation
   decline_note: null,
   linked_guest_id: null,
   role: 'principal_sponsor',
+  reply_set_by: invitation_status === 'accepted' ? 'guest' : null,
 });
 
 const SPONSORS: SponsorRow[] = [

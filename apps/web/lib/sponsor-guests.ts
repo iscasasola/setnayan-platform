@@ -43,7 +43,12 @@ export function sponsorTierOfRole(role: string | null | undefined): SponsorTier 
 
 /** The guest columns a sponsor is drawn from. */
 export const SPONSOR_GUEST_COLUMNS =
-  'guest_id, event_id, first_name, last_name, display_name, side, role, extra_roles, email, mobile, notes, rsvp_status, rsvp_responded_at, sponsor_asked_at, entourage_order, created_at';
+  'guest_id, event_id, first_name, last_name, display_name, side, role, extra_roles, email, mobile, notes, rsvp_status, rsvp_set_by, rsvp_responded_at, sponsor_asked_at, entourage_order, created_at';
+
+/** The columns a PUBLIC surface may read ("who was there"): a name, a role, a side and the reply — never an email, a
+ *  phone or a private note. */
+export const PUBLIC_SPONSOR_GUEST_COLUMNS =
+  'guest_id, event_id, first_name, last_name, display_name, side, role, extra_roles, rsvp_status, rsvp_set_by, rsvp_responded_at, sponsor_asked_at, entourage_order, created_at';
 
 export type SponsorGuestRow = {
   guest_id: string;
@@ -58,6 +63,7 @@ export type SponsorGuestRow = {
   mobile: string | null;
   notes: string | null;
   rsvp_status: string;
+  rsvp_set_by: string | null;
   rsvp_responded_at: string | null;
   /** When the couple asked them to stand as a sponsor — not `invitation_sent_at` (the RSVP invitation's own). */
   sponsor_asked_at: string | null;
@@ -83,6 +89,8 @@ export type GuestSponsor = {
   linked_guest_id: string | null;
   /** The guest role this sponsor entry is — for a principal, the couple's own ninong / ninang / not yet specified. */
   role: GuestRole;
+  /** Who set the reply: 'guest' (their own answer — a sponsor's acceptance is theirs) or 'host'; null = not said. */
+  reply_set_by: string | null;
 };
 
 function invitationStatusOf(g: Pick<SponsorGuestRow, 'rsvp_status' | 'sponsor_asked_at'>): SponsorInvitationStatus {
@@ -116,15 +124,16 @@ export function sponsorsFromGuests(rows: readonly SponsorGuestRow[]): GuestSpons
         sponsor_tier: tier,
         side: g.side === 'bride' || g.side === 'groom' ? g.side : 'neutral',
         full_name: fullNameOf(g),
-        relationship_note: g.notes,
-        email: g.email,
-        phone: g.mobile,
+        relationship_note: g.notes ?? null,
+        email: g.email ?? null,
+        phone: g.mobile ?? null,
         invitation_status: invitationStatusOf(g),
         invitation_sent_at: g.sponsor_asked_at,
         responded_at: g.rsvp_responded_at,
         decline_note: null,
         linked_guest_id: g.guest_id,
         role,
+        reply_set_by: g.rsvp_set_by ?? null,
       });
     }
   }
@@ -185,16 +194,27 @@ export function takeSponsorRole(
 export async function querySponsorGuests(
   client: SupabaseClient,
   eventIds: readonly string[],
+  opts: { publicOnly?: boolean } = {},
 ): Promise<{ data: GuestSponsor[] | null; error: { message: string } | null }> {
   if (eventIds.length === 0) return { data: [], error: null };
   const roles = SPONSOR_GUEST_ROLES.join(',');
   const { data, error } = await client
     .from('guests')
-    .select(SPONSOR_GUEST_COLUMNS)
+    .select(opts.publicOnly ? PUBLIC_SPONSOR_GUEST_COLUMNS : SPONSOR_GUEST_COLUMNS)
     .in('event_id', [...eventIds])
     .is('deleted_at', null)
     .or(`role.in.(${roles}),extra_roles.ov.{${roles}}`)
     .order('created_at', { ascending: true });
   if (error) return { data: null, error };
-  return { data: sponsorsFromGuests((data ?? []) as SponsorGuestRow[]), error: null };
+  return { data: sponsorsFromGuests((data ?? []) as unknown as SponsorGuestRow[]), error: null };
+}
+
+/**
+ * 🔒 THE CONSENT GATE for naming a sponsor in public ("who was there"). A guest list is people typed in by somebody
+ * else; nobody on it agreed to be named on a public page. A sponsor is named only when they were ASKED to stand in that
+ * role (`sponsor_asked_at`) and ANSWERED YES THEMSELVES (attending, set by the guest) — an affirmative answer to an
+ * invitation that named the role. An RSVP to the event alone is never that consent; neither is a host's mark.
+ */
+export function acceptedTheNamedRole(s: Pick<GuestSponsor, 'invitation_status' | 'invitation_sent_at' | 'reply_set_by'>): boolean {
+  return s.invitation_status === 'accepted' && s.invitation_sent_at !== null && s.reply_set_by === 'guest';
 }

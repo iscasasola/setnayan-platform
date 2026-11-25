@@ -10,8 +10,11 @@
 - Sponsors page: reads the guest list (`lib/sponsor-guests.ts`); Add, Edit, Remove, Invite and Mark-response write
   `guests`. Removing a sponsor takes the role, not the person. A refused read is said. Home's decision cockpit and the
   AI activity count sponsors from the guest list too.
-- "Who was there" (the public band) still reads the read-only record: publishing a name needs an accepted sponsor
-  invitation, and a guest's RSVP is not that consent — left for the owner.
+- "Who was there" (the public band) reads the guest list's sponsors too, keeping its consent gate: a sponsor is named
+  only when ASKED to stand in the role (`sponsor_asked_at`) AND they ANSWERED YES THEMSELVES (attending, set by the
+  guest) — never on an event RSVP alone or a host's mark (`acceptedTheNamedRole`). Its public read selects no contact
+  details. Its label for a principal is the couple's own ninong / ninang on the guest, never guessed from the side.
+  An answered sponsor row counts as asked in the move, so accepted sponsors keep their place on the band.
 
 Guards: `tests/db/sponsors-join-the-guest-list.db.test.ts` (the match rule, on a replayed database) ·
 `app/dashboard/[eventId]/sponsors/sponsors-come-from-the-guest-list.test.ts`.

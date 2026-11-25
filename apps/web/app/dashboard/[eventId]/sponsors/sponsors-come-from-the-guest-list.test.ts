@@ -38,6 +38,7 @@ const g = (over: Partial<SponsorGuestRow>): SponsorGuestRow => ({
   mobile: null,
   notes: null,
   rsvp_status: 'pending',
+  rsvp_set_by: null,
   rsvp_responded_at: null,
   sponsor_asked_at: null,
   entourage_order: null,

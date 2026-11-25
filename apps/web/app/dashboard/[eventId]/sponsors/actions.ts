@@ -265,12 +265,27 @@ export async function markResponse(formData: FormData): Promise<void> {
   try {
     await requireSponsorHost(eventId);
     const admin = createAdminClient();
+    const now = new Date().toISOString();
+    // An answer means they were asked: keep the asked moment if there is one, else it is now (the consent gate for
+    // naming a sponsor in public reads both — `acceptedTheNamedRole`).
+    const { data: before, error: beforeErr } = await admin
+      .from('guests')
+      .select('sponsor_asked_at')
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (beforeErr || !before) {
+      if (beforeErr) logQueryError('markResponse (guests read)', beforeErr, { event_id: eventId });
+      throw new Error('read refused');
+    }
     const { data, error } = await admin
       .from('guests')
       .update({
         rsvp_status: status === 'accepted' ? 'attending' : 'declined',
         rsvp_set_by: 'guest',
-        rsvp_responded_at: new Date().toISOString(),
+        rsvp_responded_at: now,
+        sponsor_asked_at: (before as { sponsor_asked_at: string | null }).sponsor_asked_at ?? now,
       })
       .eq('guest_id', guestId)
       .eq('event_id', eventId)

@@ -346,3 +346,15 @@ Save the Date builder's Step 5 "Opening (reveal)" (`studio/save-the-date/_compon
 `RevealPreviewCard`). File each one; the fix is a link "Choose your reveal in the Event Hub" (deep link to the reveal
 part), never a second picker. Today and Home show at most a status line, never the templates. Held PR #8222 touches
 `reveal-preview-card.tsx` too; it must follow this before it lands.
+
+## Add 19 · Setnayan AI: OWNER RULING (25 Nov) — supersedes the Add 17 "owner to rule" lines
+- **Keep `/setnayan-ai`, the public page.** It tells people Setnayan AI is a service BUILT INTO the Event Hub: it helps
+  them build, manage and track their list of suppliers, and a watchdog keeps watch over them. It shows the stand-alone
+  value as "normally ₱X per event" with X READ from the catalogue (`SETNAYAN_AI`, ₱1,499 today; never typed in code),
+  then "included with the Event Hub". No Buy button on it.
+- **Retire `/dashboard/[eventId]/studio/setnayan-ai`, the buy page.** There is no page to purchase Setnayan AI.
+  Every door to it (home planner card, home first screen, Suppliers banner and search overlay, onboarding value card,
+  `lib/routes.ts` setnayanAi) goes to the Event Hub offer instead; the old address forwards there.
+- **Retire `/dashboard/profile/concierge`, the settings page** (no door since `CONCIERGE_ENABLED = false`).
+- Checkers: file the remaining AI doors and copy that still say "buy" or "paid add-on" under this Add. Lane C until the
+  plan question below is answered (which Event Hub plan includes it).

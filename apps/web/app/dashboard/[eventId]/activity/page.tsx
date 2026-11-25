@@ -5,7 +5,8 @@ import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ChevronRight, Footprints, Plus } from 'lucide-react';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { fetchEventActivity, relativeTime } from '@/lib/activity';
+import { fetchEventActivityMeasured, relativeTime, type ActivityItem } from '@/lib/activity';
+import { ReadRefusedNotice } from '../_components/read-refused-notice';
 import { getLocale, makeT } from '@/lib/i18n';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatLongTimestamp } from '@/lib/format-date';
@@ -22,17 +23,20 @@ export default async function EventActivityPage({
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [eventRes, activity, locale] = await Promise.all([
+  const [eventRes, activityRead, locale] = await Promise.all([
     eventRowOnce(supabase, eventId, 'event_id, display_name', () =>
       supabase
       .from('events')
       .select('event_id, display_name')
       .eq('event_id', eventId)
       .maybeSingle()),
-    fetchEventActivity(supabase, eventId, 500),
+    fetchEventActivityMeasured(supabase, eventId, 500),
     getLocale(),
   ]);
   const tr = makeT(locale);
+  const activity = activityRead.items;
+  // A2-B9: which sources were refused. Every one refused = we cannot say nothing happened; some = the feed is partial.
+  const refused = activityRead.refused;
   const event = eventRes.data;
   if (!event) notFound();
 
@@ -53,7 +57,10 @@ export default async function EventActivityPage({
         }
       />
 
-      {activity.length === 0 ? (
+      {refused.length > 0 ? (
+        <ReadRefusedNotice what={`your ${refused.join(', ')} activity`} partial={activity.length > 0} />
+      ) : null}
+      {activity.length === 0 && refused.length > 0 ? null : activity.length === 0 ? (
         <QuietStart
           Icon={Footprints}
           title="Nothing has happened yet."
@@ -102,8 +109,8 @@ export default async function EventActivityPage({
 }
 
 function groupByDay(
-  activity: Awaited<ReturnType<typeof fetchEventActivity>>,
-): Array<{ day: string; items: Awaited<ReturnType<typeof fetchEventActivity>> }> {
+  activity: ActivityItem[],
+): Array<{ day: string; items: ActivityItem[] }> {
   const groups = new Map<string, typeof activity>();
   for (const a of activity) {
     const key = formatDayKey(a.at);

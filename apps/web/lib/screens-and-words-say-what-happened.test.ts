@@ -83,6 +83,15 @@ test('A4-B07 · a wall address that cannot be an event gets the quiet dead end, 
   assert.ok(guard > -1 && guard < page.indexOf('eventSkuActive('), 'the address is checked before anything is read');
 });
 
+test('A4-16 · /wall reads the event’s words only after the ownership check — the dead end is the same for every address', () => {
+  const page = code('app/wall/[eventId]/page.tsx');
+  const owns = page.indexOf('if (!owns) {');
+  const words = page.indexOf('await eventWordsForEvent(eventId)');
+  assert.ok(owns > -1 && words > owns, 'the event words are read before the ownership check (an existence and type oracle)');
+  const deadEnd = page.slice(owns, page.indexOf('}', page.indexOf('</main>', owns)));
+  assert.doesNotMatch(deadEnd, /words\./, 'the not-lit dead end names the event’s organiser');
+});
+
 test('A4-B06 · /wall carries its own tab title and is never indexed', () => {
   const page = code('app/wall/[eventId]/page.tsx');
   assert.match(page, /export const metadata = \{ title: 'Live photo wall', robots: \{ index: false, follow: false \} \};/);

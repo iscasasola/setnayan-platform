@@ -13,7 +13,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createReplayedDb, setAuthUid, type ReplayResult } from './replay-migrations';
-import { briefHeadcount } from '../../lib/guests';
+import { briefHeadcount } from '../../lib/brief-headcount';
 
 let replay: ReplayResult;
 let db: ReplayResult['db'];

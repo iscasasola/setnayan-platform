@@ -46,7 +46,7 @@ import { OpenTheirEvent } from './_components/open-their-event';
 import { Badge } from '@/app/_components/badge';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { briefHeadcount, headcountBasisWords, type HeadcountBasis } from '@/lib/guests';
+import { briefHeadcount, headcountBasisWords, type HeadcountBasis } from '@/lib/brief-headcount';
 import { BoothPosterCard } from './_components/booth-poster-card';
 import { BoothStudioCard } from './_components/booth-studio-card';
 import { boothStudioEnabled } from '@/lib/booth-studio-flag';

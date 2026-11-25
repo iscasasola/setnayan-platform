@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
-import { briefHeadcount, headcountBasisWords } from '@/lib/guests';
+import { briefHeadcount, headcountBasisWords } from '@/lib/brief-headcount';
 
 const read = (rel: string) => stripComments(readFileSync(join(__dirname, '../..', rel), 'utf8'));
 const PAX = { invited: 10, attending: 4, maybe: 3, pending: 2, declined: 1 };

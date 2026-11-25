@@ -29,6 +29,7 @@ const FILES = [
   'app/(shell)/alaala/page.tsx',
   'app/(shell)/mood-board/page.tsx',
   'app/(hub)/page.tsx',
+  'app/layout.tsx',
   'app/creators/_components/creator-story-sections.tsx',
   'app/creators/_components/creator-story-hero.tsx',
   'app/_components/frontdoor/front-door-landing.tsx',

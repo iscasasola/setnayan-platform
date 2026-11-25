@@ -79,7 +79,7 @@ export function PapicScan() {
           io.disconnect();
         }
       },
-      { rootMargin: '120px 0px' },
+      { threshold: 0.4 },
     );
     io.observe(el);
     return () => io.disconnect();

@@ -70,3 +70,11 @@ test('🔒 no page that shows a URL message decodes it by hand or prints it as g
     assert.doesNotMatch(src, /backWithError\([^)]*error\.message/, `${rel} sends the database's own text to the page`);
   }
 });
+
+test('🔒 /papic mints its demo codes only once the scan block is in view, never on mount (A1-149)', () => {
+  const src = stripComments(readFileSync(join(process.cwd(), 'app/(shell)/papic/_papic-scan.tsx'), 'utf8'));
+  assert.match(src, /new IntersectionObserver\(/, 'the scan block no longer waits to be seen');
+  const mint = src.indexOf("startDemoSession('papic'");
+  assert.ok(mint > 0);
+  assert.match(src.slice(Math.max(0, mint - 200), mint), /if \(!inView\) return;/, 'startDemoSession runs before the block is in view');
+});

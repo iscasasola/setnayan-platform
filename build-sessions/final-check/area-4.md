@@ -290,6 +290,19 @@ SOURCE    CODE (phase B grep; seen once the Hub loads)
 ```
 
 ```
+ID        A4-B11
+PAGE      /[slug]/find-my-table and /[slug]/seat   (stg-bea-paolo, signed in as `guest`)
+BUTTON    none (opening the page)
+STEPS     1. Sign in as `guest` (their home shows "YOU'RE INVITED · Bea & Paolo · Event Hub", so the account holds a seat). 2. Open /stg-bea-paolo/find-my-table, then /stg-bea-paolo/seat.
+EXPECTED  The signed-in seat holder sees their own table / pass, the same as the Hub's ?tab=me copy treats "the seat's own account" (phase A, offline section).
+ACTUAL    Both say "Open this from your invitation — … Open your invitation link (or scan your QR)…" with "The invitation" as the only way on. /find-my-table reads only the invite-link cookie: `const session = await readGuestSession(); if (!session || session.event_id !== event.event_id)` → `PromptCard`; the account is never asked. A guest who signed in (the claim/join path this sign-in exists for) is sent to hunt for a link. Answer times 23 s and 80–116 s (A4-B01).
+SHOTS     375 px light (both)
+RULE      Add 5 (never ask again for what Setnayan already knows) · Add 2 EFFECTIVE
+SEVERITY  wrong
+SOURCE    SEEN + CODE (`apps/web/app/[slug]/find-my-table/page.tsx` `readGuestSession()`)
+```
+
+```
 NOTE      (not area 4, passed on) /dashboard/[eventId]/guests as messy_one (event M & J, 370 guests): tapping a guest row opens the card sheet full height (not half) and it stayed on "Opening their card…" for 7 s+ at 06:55 UTC; during A4-B01 the page itself did not load in 60 s. Area 2 owns it.
 ```
 

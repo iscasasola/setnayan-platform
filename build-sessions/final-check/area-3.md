@@ -79,20 +79,38 @@ Marks: **OFFLINE** NEEDED (where signal is lost) / READ-ONLY / NOT NEEDED · **S
 
 ### Forwards (13)
 
-- [ ] /dashboard/[eventId]/event-page → […]
-- [ ] /dashboard/[eventId]/studio/[addon] → /dashboard/[…]/[…]
-- [ ] /dashboard/[eventId]/studio/indoor-blueprint → /dashboard/[…]
-- [ ] /dashboard/[eventId]/studio/papic/crew/print → /dashboard/[…]/studio/papic/crew/poster
-- [ ] /dashboard/[eventId]/website → /dashboard/[…]/launch
-- [ ] /dashboard/[eventId]/website/colors → /dashboard/[…]/website/editor?open=colors
-- [ ] /dashboard/[eventId]/website/editorial → /dashboard/[…]/story
-- [ ] /dashboard/[eventId]/website/special-message → /dashboard/[…]/website/editor?open=special-message
-- [ ] /dashboard/[eventId]/website/what-to-bring → /dashboard/[…]/website/editor?open=what-to-bring
-- [ ] /site-editor/[eventId] → /dashboard/[…]/website/editor
-- [ ] /site-editor/[eventId]/editorial → /dashboard/[…]/website/editor
-- [ ] /site-editor/[eventId]/event → /dashboard/[…]/website/editor
-- [ ] /site-editor/[eventId]/rsvp → /dashboard/[…]/website/editor
+- [x] /dashboard/[eventId]/event-page → […] · lands on the guest Event Hub `/[slug]` for a couple (no slug → `/launch`); a coordinator or a failed read gets a 404 (F-01) · OFFLINE n/a · SHAPE forward
+- [x] /dashboard/[eventId]/studio/[addon] → /dashboard/[…]/[…] · lands: `monogram-creator`→`/monogram`, `landing-page`→`/website`→`/launch` (2 hops), `music-creator`→`/studio/pakanta`, `orders`→`/orders`, `supplies-marketplace`→`/studio`→More menu (middleware, 2 hops), `rsvp`/`event`/`editorial`→`/website/editor`; any other value 404 · OFFLINE n/a · SHAPE forward
+- [x] /dashboard/[eventId]/studio/indoor-blueprint → /dashboard/[…] · lands on `/guests?gview=seats&seat=map` (`guestsViewHref`), or `/dashboard/[eventId]` when the event type has no seating · OFFLINE n/a · SHAPE forward
+- [x] /dashboard/[eventId]/studio/papic/crew/print → /dashboard/[…]/studio/papic/crew/poster · lands · OFFLINE n/a · SHAPE forward
+- [x] /dashboard/[eventId]/website → /dashboard/[…]/launch · lands · OFFLINE n/a · SHAPE forward
+- [x] /dashboard/[eventId]/website/colors → /dashboard/[…]/website/editor?open=colors · lands (the `open` value is checked under the editor page) · OFFLINE n/a · SHAPE forward
+- [x] /dashboard/[eventId]/website/editorial → /dashboard/[…]/story · lands · OFFLINE n/a · SHAPE forward
+- [x] /dashboard/[eventId]/website/special-message → /dashboard/[…]/website/editor?open=special-message · lands (the `open` value is checked under the editor page) · OFFLINE n/a · SHAPE forward
+- [x] /dashboard/[eventId]/website/what-to-bring → /dashboard/[…]/website/editor?open=what-to-bring · lands (the `open` value is checked under the editor page) · OFFLINE n/a · SHAPE forward
+- [x] /site-editor/[eventId] → /dashboard/[…]/website/editor · lands · OFFLINE n/a · SHAPE forward
+- [x] /site-editor/[eventId]/editorial → /dashboard/[…]/website/editor · lands · OFFLINE n/a · SHAPE forward
+- [x] /site-editor/[eventId]/event → /dashboard/[…]/website/editor · lands · OFFLINE n/a · SHAPE forward
+- [x] /site-editor/[eventId]/rsvp → /dashboard/[…]/website/editor · lands · OFFLINE n/a · SHAPE forward
 
 ## Findings
 
 _Format: kit § 6 plus `SOURCE`. Phase A findings are `SOURCE: CODE` until the browser pass confirms or strikes them._
+
+### Forwards
+
+#### F-01 · The "event page" forward gives a coordinator, and a failed read, a 404
+
+```
+PAGE      /dashboard/[eventId]/event-page   (event: stg-carla-miguel; sign in as coordinator for the 404)
+BUTTON    the address itself (help-ask "invitations" place opens it: `help-ask-places.ts` `invitations: { path: 'event-page' }`)
+STEPS     1. As a coordinator seated on the event (or a couple whose membership read fails), open /dashboard/[eventId]/event-page.
+EXPECTED  The guest Event Hub `/[slug]` opens (it is public), or a failure says the read failed.
+ACTUAL    `if (!membership || membership.member_type !== 'couple') notFound();` — a coordinator (`member_type 'coordinator'`)
+          and any refused `event_members` read (logged `graceful_degrade`, then `membership` is null) both get a 404.
+WHERE     apps/web/app/dashboard/[eventId]/event-page/page.tsx · `HostEventPageRedirect`
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 (honest states: a failed read is not "not found") · kit §5.2 (no link to a 404)
+SEVERITY  wrong
+SOURCE    CODE
+```

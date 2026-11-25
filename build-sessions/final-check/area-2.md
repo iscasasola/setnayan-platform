@@ -1,6 +1,6 @@
 # Final check · Area 2 · Couple: create an event and plan it
 
-FIXER: PRs #8309 · #8326 · #8330 · #8342 (own batches, built before the plan landed) · #8323 = plan A-7 SW-RAWDB (done) · #8349 = plan A-6 SW-HYDR (A2-P11 fixed and proven; A6-B09 / A8·P-B-1 need supplier and admin sessions) · 10 more fixes on claude/fc-fix-a2-b6, PR after its preflight · CI cancelled upstream, re-runs pending
+FIXER: lane A built · PRs #8309 · #8326 · #8330 · #8342 · #8352 (incl. owner Add 39: A2-H10 couple only, A2-P1 exact amount) · #8323 = A-7 SW-RAWDB (api-keys owed to lane R) · #8349 = A-6 SW-HYDR (A2-P11 done; A6-B09 / A8·P-B-1 owed, need supplier/admin sessions) · #8360 = the plan's last rows (P5 P9 P6 P4 fixed; P10 P22 traced + tested) · 🟠 A2-I14 stopped (owner/controller) · CI re-runs upstream
 
 STATUS: phase B done · 77 entries walked at 375/768/1280 light + dark · 24 new findings (0 blocker · 4 money-signin · 4 broken · 5 wrong · 11 look) · buttons 2191 (375) / 2698 (1280) · pressed 1202 · failed 0
 

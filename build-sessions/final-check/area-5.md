@@ -1354,18 +1354,21 @@ RULE      design-and-wiring C8 (one reader for booked: `BOOKED_EVENT_VENDOR_STAT
 SEVERITY  wrong
 SOURCE    SEEN
 
-#### B5-03 · An unknown address at the root crashes (500) instead of "not found"
-PAGE      /{anything} (the shop page and Event Hub route), e.g. `/liwanag-photo-film` (a mistyped shop address)
-BUTTON    — (a mistyped or old shop link)
-STEPS     1. Signed out, open `/liwanag-photo-film` (the shop is really at `/liwanagphotoandfilm`).
-EXPECTED  The "This link can't be found" page with 404, the same answer `/liwanag-photo-film/invite` gives.
-ACTUAL    HTTP 500 after about 18 s. The page draws "Still opening your invitation…" with an "Opening…" button and a
-          Server Components render error in the console. A curl of `/definitely-not-a-shop-xyz` also answers 500. Owned
-          by area 1 or 4 (the root `[slug]` route); passed on. It hits area 5 because a couple who types a shop's address
-          wrongly lands on an endless "opening your invitation".
-SHOTS     checker set: so `_liwanag_photo_film-375-light.png`
-RULE      kit § 5.1 (no 5xx) · CLAUDE.md § 5.4 honest states
-SEVERITY  broken (cross-area)
+#### B5-03 · Shop page, its Check-a-date landing and a mistyped shop address answer 500 "Still opening your invitation…" (NOT PROVEN, likely the copy's load)
+PAGE      /{shop} · /{shop}/dates (the Check a date QR: `/{shop}/dates?src=own&via=link` → 307 → `/{shop}?…&dates=1`) · a mistyped `/{word}`
+BUTTON    — (a couple scanning the shop's Check a date code; a mistyped shop link)
+STEPS     1. Signed out, open `/liwanagphotoandfilm/dates?src=own&via=link` (the code's own address) or `/liwanag-photo-film`.
+EXPECTED  The shop with its dates sheet; a "This link can't be found" 404 for the mistyped one.
+ACTUAL    In the browser: `/liwanagphotoandfilm` drew in 2 s (200), but `/liwanagphotoandfilm/dates` and
+          `/liwanag-photo-film` answered 500 after about 20 s and drew "Still opening your invitation…" with an
+          "Opening…" button (a Server Components render error). A few minutes later curl got 500 after 20–24 s on every
+          one of them, **including the plain shop page that had just drawn**. Every 500 lands at about 20 s, so this
+          is most likely the copy's server timing out under eight checkers, not a route bug. Recorded so it is
+          re-checked on a quiet copy. It matters whatever the cause: a timed-out shop page tells a couple their
+          *invitation* is opening.
+SHOTS     checker set: so `_liwanag_photo_film-375-light.png`, so2 `_liwanagphotoandfilm_dates-375-light.png`
+RULE      kit § 5.1 (no 5xx) · honest states (the shop's failure screen talks about an invitation)
+SEVERITY  broken if it repeats on a quiet copy; the wording ("invitation" on a shop page) is wrong either way
 SOURCE    SEEN
 
 #### B5-04 · A plan-history row with no total prints "₱0"

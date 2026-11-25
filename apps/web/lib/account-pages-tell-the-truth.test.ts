@@ -83,3 +83,18 @@ test('A1-008 · group chat failed reads are not empty lists', () => {
   assert.doesNotMatch(nw, /readGroupPeople\(supabase, eventId\)\) \?\? \[\]/);
   assert.doesNotMatch(src('app/_components/chat/chat-host-strip.tsx'), /Every host of this event is already in this chat/);
 });
+
+test('controller follow-ups on #8340 · the rejecting cases are said too', () => {
+  const read = (rel: string) => stripComments(readFileSync(join(import.meta.dirname, '..', rel), 'utf8'));
+  // A1-070: a refused profile read lands on the page's own boundary, with Try again.
+  const boundary = read('app/u/error.tsx');
+  assert.match(boundary, /Couldn’t read this profile/);
+  assert.match(boundary, /router\.refresh\(\);\s*reset\(\);/);
+  // A1-072: a thrown follow action (a dropped connection) is a refusal.
+  assert.match(read('app/u/_components/follow-button.tsx'), /\.catch\(\s*\(\) => \(\{ ok: false, following: wasFollowing \}\)/);
+  // A1-005: a rejoin refused as data is a refusal.
+  assert.match(read('app/samahan/chat/actions.ts'), /if \(error \|\| \(data !== 'added' && data !== 'already'\)\) \{\s*logQueryError\('rejoinGroup/);
+  // A1-008: the host check comes before the people read.
+  const page = read('app/samahan/chat/new/page.tsx');
+  assert.ok(page.indexOf("if (!meError && me !== 'host') notFound();") < page.indexOf('await readGroupPeople('), 'host check first');
+});

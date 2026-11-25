@@ -13,5 +13,6 @@ Lane A fixes on sign-up, the You card, public profiles and group chat. No sign-i
 - **A1-073:** the chapter page names the person as /u does and drops the unmeasured "Papic Memories" claim.
 - **A1-005:** group chat Add and Leave throw on refusal and the strip says so; Join chat and New group say why they failed.
 - **A1-008:** a failed groups read draws the plain name (no empty sheet); New group says it couldn't read instead of a 404 or an empty list; the ＋ list's "everyone is in" line fits groups.
+- **Controller follow-ups:** /u has its own "Couldn't read this profile" boundary with Try again; a thrown follow action is a refusal; a rejoin refused as data is said; New group checks the host before reading people.
 
 SPEC IMPACT: None.

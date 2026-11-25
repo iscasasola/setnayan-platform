@@ -100,9 +100,10 @@ async function rejoinGroup(threadId: string): Promise<void> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
-  const { error } = await supabase.rpc('chat_group_add', { p_thread_id: threadId, p_people: [user.id] });
-  if (error) {
-    logQueryError('rejoinGroup (chat_group_add)', error, { thread_id: threadId }, 'graceful_degrade');
+  const { data, error } = await supabase.rpc('chat_group_add', { p_thread_id: threadId, p_people: [user.id] });
+  // A refusal returned as data (`not_found`, `unauthenticated`, …) is a refusal too, as in `addToGroup`.
+  if (error || (data !== 'added' && data !== 'already')) {
+    logQueryError('rejoinGroup (chat_group_add)', error ?? { message: String(data) }, { thread_id: threadId }, 'graceful_degrade');
     // The page says it (final check A1-005), instead of reloading the same question.
     redirect(`${groupChatHref(threadId)}?error=rejoin`);
   }

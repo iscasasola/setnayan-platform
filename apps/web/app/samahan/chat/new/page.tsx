@@ -29,6 +29,8 @@ export default async function NewGroupPage({ searchParams }: { searchParams: Pro
   const { data: me, error: meError } = await supabase.rpc('chat_group_my_kind', { p_event_id: eventId });
   // 🔒 A refused read is said (final check A1-008): a failed role read used to be a 404, and a failed people read an
   // empty "Who is in it", the same as an event with nobody else.
+  // The host check comes FIRST: a non-host gets the 404 even when the people read would have failed.
+  if (!meError && me !== 'host') notFound();
   const peopleRead = meError ? null : await readGroupPeople(supabase, eventId);
   if (meError || peopleRead === null) {
     if (meError) logQueryError('NewGroupPage.my_kind', meError, { event_id: eventId }, 'graceful_degrade');
@@ -44,7 +46,6 @@ export default async function NewGroupPage({ searchParams }: { searchParams: Pro
       </main>
     );
   }
-  if (me !== 'host') notFound();
   const people = peopleRead.filter((p) => p.user_id !== user.id);
 
   return (

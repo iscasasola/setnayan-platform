@@ -77,9 +77,10 @@ export function FollowButton({
     const wasFollowing = state.following;
     setState((s) => ({ ...s, following: !wasFollowing }));
     startTransition(async () => {
-      const res = wasFollowing
-        ? await unfollowUser(followedUserId)
-        : await followUser(followedUserId);
+      // A thrown action (a dropped connection) is a refusal too (controller follow-up on A1-072).
+      const res = await (wasFollowing ? unfollowUser(followedUserId) : followUser(followedUserId)).catch(
+        () => ({ ok: false, following: wasFollowing }),
+      );
       // A refusal is said, and the button goes back to what is true (final check A1-072): it used to flip back with
       // no word, so the press looked like it did nothing.
       if (!res.ok) {

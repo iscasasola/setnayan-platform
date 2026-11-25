@@ -472,3 +472,18 @@ are free and the total is lowest).
 Still lane C (not covered by this ruling): A6-11 booking ask as a popup (controller recommends keeping the 10 Nov
 RISE FULL SCREEN ruling), A6-71 double-claimed date rule, A6-B14 fee wording, A6-B07 Money line, A1-098 help shell
 caching. A6-B15 Manpower part = R candidate.
+
+## Add 27 · Door check of every drawn screen (controller audit, main @ 7c14361159) — redesign only what has a live door
+Areas 1, 2, 3, 8: 85 screens checked → 80 KEEP. Not to redesign:
+- R (retire, not redesign): `guests/quick` (A2-D9 part; in `lib/ugat/baselines/no-door.baseline.txt`) ·
+  `website/widgets` and `website/photo-moments` (A3·E-20; only door is a Maker row never shown on screen; jobs already
+  inline in the Maker) · Patiktok (A3·S-10; `/patiktok` forwards).
+- MOVE: the wax seal maker `studio/save-the-date/stamp` (A3·I-11). The seal is part of the guest envelope reveal
+  (`app/[slug]/_lib/reveal-props.ts:56`), so per Add 18 its door and parent become the Event Hub reveal
+  ("seal or ribbon", `launch/_components/maker-reveal.tsx:825`), not Save the Date. Save the Date stays (live, weddings).
+- Check by a DB read before work: `/onboarding/simple` (door is a database setting).
+**Before redesigning ANY screen** run the door check and stop if it fails:
+`git show origin/main:apps/web/lib/ugat/screens.generated.json | jq '.screens[]|select(.route=="<route>")|{status,doors:[.doors[]|select(.from|startswith("app/dev/")|not)]}'`
+Pass = status "connected" AND one door file really shows the link on screen (the map counts Maker rows that never
+render, misses DB doors, and ignores flags). Admin: `lib/admin-map/admin-routes.generated.ts` needs `inMenuSource: true`
+or a real link. A failed check = file an R line, do not redesign.

@@ -1896,7 +1896,7 @@ Watch, Your page, the card maker, Your details, Promote, Team. Sources: the phas
   Reference: iPad Mail split view.
 - [B] SP5-05 · Add 12.3 · /vendor-dashboard/packages/[packageId] and the card maker · the full-screen rise has no
   matching close (✕ jumps to Shop, A5-G6-04). Motion 3 "Full-screen rise" says close mirrors open. Now: a page change.
-- [A] SP5-06 · Add 12.6 · /vendor-dashboard/deep-search · the history status pill uses a typed `text-[10px]` and
+- [B] SP5-06 · Add 12.6 · /vendor-dashboard/deep-search · the history status pill uses a typed `text-[10px]` and
   hand-coloured fills (`bg-success-100` …) beside the house chip. Not motion; a token miss on a line batch 1 touched.
   Noted, not fixed here: the fix is a look change (lane B, SW-K-style).
 - [B] SP5-07 · Add 13 · /vendor-dashboard/deep-search · the card's icon is a hand-made orange tile (`--m-orange-4`)

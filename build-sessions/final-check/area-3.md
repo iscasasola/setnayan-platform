@@ -7,6 +7,15 @@
 > Standards read: corpus `HOUSE_DESIGN_STANDARD_2026-11-20.md` (Parts D, E, F, I, K), `DARK_MODE_STANDARD_2026-11-20.md`,
 > `MOTION_STANDARD_2026-11-18.md`, `docs/brand.md`.
 
+## Phase A summary (code pass, 25 Nov 2026)
+
+- **Pages:** 59 of 59 checked, plus 13 of 13 forwards. Every finding below is `SOURCE: CODE`; phase B confirms or strikes each one.
+- **Findings (78):** blocker 1 · money-signin 19 · broken 18 · wrong 23 · look 17. Repeats of one problem across one group are folded into one entry.
+- **OFFLINE (59 pages):** NEEDED 8 · READ-ONLY 35 · NOT NEEDED 16. The 8 NEEDED pages are the Panood controller and program window, `/live`, Live Watch setup and broadcast (flag off), Papic challenges and run-of-show, and the Patiktok booth. Each is used at the venue on the day, so I disagree with the plan's read-only copy for them. `/panood/control` needs queued writes and an offline sign at the least.
+- **SHAPE (59 pages):** 18 differ today. 3 entries are forwards, not pages (library, live-studio-control/setup, studio/panood). The rest match.
+- **Worst first:** B-01 (Story Assignments cannot assign anyone) · L-01/L-02 (the live controller says done or "Off air" after a failed write or read) · E-10 (a story save after a failed read wipes the moments) · I-01 (E-Gift accounts read as "none yet" on a failed read) · M-01/P-04 ("free, for life" and a flat 3 months, against brand.md claim 3) · E-01 (Event Hub saves that land as saved after failing).
+- **Phase B notes:** `NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED`, `NEXT_PUBLIC_LIFE_STORY` and `GUEST_COLUMNS_ENABLED` change what opens. Pakanta and Patiktok open only for an owner. Couples are sent from `/monogram` and `/studio/mood-board` into the Maker. Phase B will need an event without an Event Hub, or a coordinator, to reach those.
+
 ## BLOCKERS
 
 #### B-01 · Story Assignments can never assign anyone: the guest read filters on an RSVP value that does not exist
@@ -34,27 +43,27 @@ Marks: **OFFLINE** NEEDED (where signal is lost) / READ-ONLY / NOT NEEDED · **S
 - [x] /dashboard/[eventId]/alaala · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
 - [x] /dashboard/[eventId]/alaala/assignments · OFFLINE NOT NEEDED · SHAPE PAGE → FULL-SCREEN POPUP (differs) · BLOCKER B-01
 - [x] /dashboard/[eventId]/apple-pro · OFFLINE NOT NEEDED (App Store purchase) · SHAPE PAGE → FULL-SCREEN POPUP (differs, unsure: a page today to keep StoreKit off the Maker's first load)
-- [ ] /dashboard/[eventId]/event-qr
+- [x] /dashboard/[eventId]/event-qr · OFFLINE READ-ONLY (shown to the crew at the venue: it must be in the saved copy) · SHAPE PAGE → PAGE
 - [x] /dashboard/[eventId]/galleries · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
-- [ ] /dashboard/[eventId]/guests/invite
-- [ ] /dashboard/[eventId]/guests/send
-- [ ] /dashboard/[eventId]/invitation
-- [ ] /dashboard/[eventId]/invitation/print
+- [x] /dashboard/[eventId]/guests/invite · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
+- [x] /dashboard/[eventId]/guests/send · OFFLINE READ-ONLY · SHAPE hand-built full-screen layer at its own address → FULL-SCREEN POPUP (RiseScreen) (differs)
+- [x] /dashboard/[eventId]/invitation · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
+- [x] /dashboard/[eventId]/invitation/print · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (print)
 - [x] /dashboard/[eventId]/launch · OFFLINE READ-ONLY (planned at home; "Go live" on the day is rare) · SHAPE PAGE → PAGE
 - [x] /dashboard/[eventId]/live · OFFLINE NEEDED (at the venue on the day: hiding a photo mid-party; disagree with read-only) · SHAPE PAGE → PAGE
 - [x] /dashboard/[eventId]/memories · OFFLINE READ-ONLY (mild disagreement: the Papic on/off switch is used at the venue) · SHAPE PAGE → PAGE
 - [x] /dashboard/[eventId]/memories/download-all · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE
 - [x] /dashboard/[eventId]/memories/thank-you · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE
-- [ ] /dashboard/[eventId]/monogram
-- [ ] /dashboard/[eventId]/pabuya
+- [x] /dashboard/[eventId]/monogram · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (a couple with an Event Hub is redirected to Maker › Details › Logo; phase B needs an event without one)
+- [x] /dashboard/[eventId]/pabuya · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
 - [x] /dashboard/[eventId]/prints · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
 - [x] /dashboard/[eventId]/story · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
-- [ ] /dashboard/[eventId]/studio/about/[addon]
-- [ ] /dashboard/[eventId]/studio/guest-columns
+- [x] /dashboard/[eventId]/studio/about/[addon] · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE (opens for 9 keys; retired → owner redirect; others 404)
+- [x] /dashboard/[eventId]/studio/guest-columns · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (404 unless `GUEST_COLUMNS_ENABLED` and the privacy control are on)
 - [x] /dashboard/[eventId]/studio/live-studio-control · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
 - [x] /dashboard/[eventId]/studio/live-studio-control/setup · OFFLINE NOT NEEDED · SHAPE forward (to `/panood/control/[eventId]`; 404 when `NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED` is off; Ugat marks it no-door) → list as a forward
-- [ ] /dashboard/[eventId]/studio/mood-board
-- [ ] /dashboard/[eventId]/studio/pakanta
+- [x] /dashboard/[eventId]/studio/mood-board · OFFLINE READ-ONLY (also serves the couple-at-an-expo case) · SHAPE PAGE → PAGE (couples are redirected to Maker › Details › Mood board)
+- [x] /dashboard/[eventId]/studio/pakanta · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE (retired; owners only — seeded events are bounced to Home)
 - [x] /dashboard/[eventId]/studio/panood · OFFLINE NOT NEEDED · SHAPE forward (to live-studio-control, or `/studio/panood/setup` with the flag off)
 - [x] /dashboard/[eventId]/studio/panood/broadcast · OFFLINE NEEDED with the flag off (old day-of control room at the venue) · SHAPE PAGE → PAGE (forward to `/panood/control` with the flag on)
 - [x] /dashboard/[eventId]/studio/panood/cameras · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (with the flag on its only doors are in the old control room)
@@ -66,14 +75,14 @@ Marks: **OFFLINE** NEEDED (where signal is lost) / READ-ONLY / NOT NEEDED · **S
 - [x] /dashboard/[eventId]/studio/papic/moderation · OFFLINE READ-ONLY · SHAPE PAGE → folded into the Memories photo sheet (differs; owner 23 Oct)
 - [x] /dashboard/[eventId]/studio/papic/recap · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
 - [x] /dashboard/[eventId]/studio/papic/run-of-show · OFFLINE NEEDED (coordinator at the venue: "This is happening now", Pause) · SHAPE PAGE → PAGE (no working door: P-02)
-- [ ] /dashboard/[eventId]/studio/patiktok
-- [ ] /dashboard/[eventId]/studio/patiktok/[templateId]
-- [ ] /dashboard/[eventId]/studio/patiktok/booth
+- [x] /dashboard/[eventId]/studio/patiktok · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE (retired; owners only)
+- [x] /dashboard/[eventId]/studio/patiktok/[templateId] · OFFLINE NOT NEEDED · SHAPE PAGE → FULL-SCREEN POPUP (differs; retired, owners only)
+- [x] /dashboard/[eventId]/studio/patiktok/booth · OFFLINE NEEDED (operator at the venue on the day; clips should queue) · SHAPE PAGE → PAGE, camera inline → FULL-SCREEN POPUP (differs; retired, owners only)
 - [x] /dashboard/[eventId]/studio/photo-delivery · OFFLINE NOT NEEDED (OAuth + Drive; disagree with read-only) · SHAPE PAGE → PAGE
-- [ ] /dashboard/[eventId]/studio/playlist
-- [ ] /dashboard/[eventId]/studio/save-the-date
-- [ ] /dashboard/[eventId]/studio/save-the-date/stamp
-- [ ] /dashboard/[eventId]/studio/setnayan-ai
+- [x] /dashboard/[eventId]/studio/playlist · OFFLINE READ-ONLY (DJ glance at the venue) · SHAPE PAGE → PAGE
+- [x] /dashboard/[eventId]/studio/save-the-date · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
+- [x] /dashboard/[eventId]/studio/save-the-date/stamp · OFFLINE NOT NEEDED (a WebGL maker) · SHAPE PAGE → FULL-SCREEN POPUP (differs)
+- [x] /dashboard/[eventId]/studio/setnayan-ai · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
 - [x] /dashboard/[eventId]/studio/website-pro · OFFLINE NOT NEEDED (buying needs signal; a saved price list could mislead) · SHAPE PAGE → PAGE
 - [x] /dashboard/[eventId]/website/editor · OFFLINE READ-ONLY · SHAPE forward into the Maker (`/launch?…&open=…`) → keep; `open=colors` opens Look, `special-message` and `what-to-bring` (Reminders) open their rows
 - [x] /dashboard/[eventId]/website/hero-photo · OFFLINE NOT NEEDED (an upload; I disagree with read-only: a saved copy does nothing) · SHAPE PAGE → FULL-SCREEN POPUP (differs)
@@ -85,7 +94,7 @@ Marks: **OFFLINE** NEEDED (where signal is lost) / READ-ONLY / NOT NEEDED · **S
 - [x] /dashboard/[eventId]/website/site-chrome · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs; video upload)
 - [x] /dashboard/[eventId]/website/stories · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs)
 - [x] /dashboard/[eventId]/website/widgets · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs)
-- [ ] /dashboard/creator
+- [x] /dashboard/creator · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
 - [x] /dashboard/library · OFFLINE READ-ONLY · SHAPE forward to `/dashboard?seg=memories` (Home section) → keep
 - [x] /dashboard/life-flash · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (its player is a hand-built full-screen layer; should be RiseScreen)
 - [x] /panood/control/[eventId] · OFFLINE NEEDED (host/coordinator at the venue on the day; a read-only copy is NOT enough for a live control: every tap is a form POST + redirect with ~15 reads, no queue, no offline sign) · SHAPE PAGE → PAGE; its Setup half-sheet should be a FULL-SCREEN POPUP (differs)
@@ -967,6 +976,327 @@ STEPS     1. Open from Launch / Alaala "See all →".
 EXPECTED  Crew: a SMALL POPUP (the one code already lives on Event Details › How guests get in). Moderation: on the photo in Memories (owner 23 Oct: "the separate moderation page and the padlock go").
 ACTUAL    Both are full pages with doors; crew copies `one-code.tsx` with hand frames.
 WHERE     studio/papic/crew/page.tsx · moderation/actions.ts (`photoActionHome` note) · alaala/page.tsx
+SHOTS     375 px light
+RULE      SHAPE
+SEVERITY  look
+SOURCE    CODE
+```
+
+### Invitations, Logo Maker, E-Gifts (guests/invite · guests/send · invitation · print · save-the-date · stamp · event-qr · monogram · pabuya)
+
+#### I-01 · E-Gifts: a failed read of the money accounts shows "No e-gift methods yet" and an add form
+
+```
+PAGE      /dashboard/[eventId]/pabuya   (event: stg-carla-miguel)
+BUTTON    the methods list · "Add an e-gift method"
+STEPS     1. Open while the `event_egift_methods` read fails.
+EXPECTED  "Couldn't read your E-Gift methods", no add form.
+ACTUAL    The page calls `fetchEgiftMethods` (drops the `read` flag) instead of `readEgiftMethods`, which exists so "a refused read must never draw as 'no methods yet' with an add form". With the event read also failing, the notice says "Your gift methods below are correct and saved" without having read them.
+WHERE     apps/web/app/dashboard/[eventId]/pabuya/page.tsx (`fetchEgiftMethods`) · lib/egift.ts `readEgiftMethods` · _components/pabuya-manager.tsx
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 (money destinations)
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### I-02 · Custom Event Hub address: no lock or price before Save, and the refusal shows the bare key "needs_custom_address"
+
+```
+PAGE      /dashboard/[eventId]/invitation   (an event without the custom-address part)
+BUTTON    "Save address"
+STEPS     1. Type a new address. 2. Press Save address.
+EXPECTED  A 🔒 with the catalogue price and a real checkout door; at least a plain sentence.
+ACTUAL    `redirect(\`${back}?slug_error=needs_custom_address\`)`; `SLUG_ERROR_COPY` has no such key, so the page prints `decodeURIComponent(slugErrorKey)` — the person reads "needs_custom_address".
+WHERE     invitation/actions.ts `updateEventSlug` · invitation/page.tsx (`SLUG_ERROR_COPY`) · lib/slug-availability.ts
+SHOTS     375 px light
+RULE      design-and-wiring B7
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### I-03 · Save the Date prices: a failed read drops the price and claims the opening is bundle-only
+
+```
+PAGE      /dashboard/[eventId]/studio/save-the-date   (event: stg-carla-miguel)
+BUTTON    "Unlock the openings" / "Unlock Event Pro" lines
+STEPS     1. Open while the catalogue read fails.
+EXPECTED  "Couldn't read" by the price.
+ACTUAL    `formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null)` → price silently dropped; `formatV2Sku(STD_PREMIUM_OPENINGS_SERVICE_KEY).catch(() => null)` → "The cinematic opening is part of Event Pro" (a false claim from a failed read).
+WHERE     studio/save-the-date/page.tsx `SaveTheDatePage`
+SHOTS     375 px light
+RULE      CLAUDE.md §1 money · §5 rule 4
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### I-04 · Invitation sheet "Mark sent" failure is never shown; "Save monogram" reads a zero-row update as saved
+
+```
+PAGE      /dashboard/[eventId]/invitation
+BUTTON    "Mark sent" / "Not sent yet" · "Save monogram"
+STEPS     1. Press Mark sent when the write is refused. 2. Save the mark when RLS refuses the row.
+EXPECTED  "Couldn't save".
+ACTUAL    `redirect(…/invitation?invite=failed)` but the page never reads `invite`; `updateMonogram` `.update({...}).eq('event_id', eventId)` with no `.select()` → `?mono_saved=1`.
+WHERE     invitation/actions.ts `markGuestInvitationSent`, `updateMonogram` · invitation/page.tsx (`searchParams`) · _components/guest-invite-modal.tsx
+SHOTS     375 px light
+RULE      design-and-wiring B6 · CLAUDE.md §5 rule 4
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### I-05 · Event QR "Regenerate QR" throws its result away (no failure, no success, no confirm)
+
+```
+PAGE      /dashboard/[eventId]/event-qr
+BUTTON    "Regenerate QR"
+STEPS     1. Press when the update errors or matches zero rows.
+EXPECTED  "Couldn't make a new QR"; success said; a confirm like the guest QR's.
+ACTUAL    `action={async (data) => { 'use server'; await regenerateEventMasterQR(data); }}` — `{ ok: false, reason }` never reaches the screen.
+WHERE     event-qr/page.tsx · event-qr/actions.ts `regenerateEventMasterQR`
+SHOTS     375 px light
+RULE      design-and-wiring B6 · CLAUDE.md §5 rule 4
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### I-06 · Save the Date "Render": a failed read can blank the saved film; a dropped connection escapes; the date fill reports Saved after a failed write
+
+```
+PAGE      /dashboard/[eventId]/studio/save-the-date
+BUTTON    "Render my Save the Date"
+STEPS     1. Open when the events read fails, press Render. 2. Press Render offline. 3. Render a film date on an undated event when the write fails.
+EXPECTED  "Couldn't read" and no save offered; a failure line; a failed write said.
+ACTUAL    eventError only logged, the builder filled with `?? null` blanks and `saveAllStdContent` writes every field (unsure how the patch treats null); `handleRender` awaits `save.run(...)` with no try/catch (siblings wrap it); `update({ event_date: filmDate … }).is('event_date', null)` error discarded then `{ ok: true }` → "Saved." (baseline).
+WHERE     studio/save-the-date/page.tsx · _components/StdBuilderClient.tsx `handleRender` · actions.ts `saveAllStdContent`
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 · design-and-wiring B6
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### I-07 · Invitation failed reads read as facts (no address yet, House theme, free QR look, bounce, 404)
+
+```
+PAGE      /dashboard/[eventId]/guests/send, /guests/invite, /invitation, /invitation/print, /event-qr
+BUTTON    "Your Event Hub has no address yet…" · requests notice · Theme · QR look · page loads
+STEPS     1. Make each read fail.
+EXPECTED  "Couldn't read".
+ACTUAL    send: `loadInviteSetup` returns `slug: null` on error → "Your Event Hub has no address yet, so there are no personal links to send"; invite: `pendingRes.count ?? 0` hides requests, the theme falls to House, `eventHubOwnership(...).catch(() => null)` draws a paid couple's QR in the free look; invitation: `if (!event) redirect(/dashboard/${eventId})`, and zero guests draw an empty table with no EmptyState; print: `notFound()` on a failed read, an empty dashed sheet for zero guests; event-qr: `redirect('/dashboard')`.
+WHERE     guests/_components/invite-message-setup.ts `loadInviteSetup` · guests/invite/_components/share-link-panel.tsx · invitation/page.tsx · invitation/print/page.tsx · event-qr/page.tsx
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 · kit §5.9
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### I-08 · Words: "Monogram" across the Logo Maker, invitation and launch sheet; "site", "slug", "Pabuya", "text" (SMS); a non-setnayan.com fallback domain
+
+```
+PAGE      /dashboard/[eventId]/monogram, /invitation, /studio/save-the-date, /pabuya, /guests/invite
+BUTTON    titles · labels · notices · links
+STEPS     1. Read the pages.
+EXPECTED  "Logo Maker", "Event Hub", "E-Gifts", email only, setnayan.com only.
+ACTUAL    monogram: `title: 'Monogram Maker'`, `<PageMasthead title="Your wedding monogram" />`, "Make it my monogram", "Your monogram, everywhere", "View live site", loader "Opening the monogram studio", menu `label: "Monogram"`; invitation: "Your monogram", "Save monogram", "Your invitation site", "No slug set yet", "Slug saved."; save-the-date: "your live site", "wedding-site song", "Manage site music", "Website → Privacy"; pabuya: `title: 'Pabuya · E-Gifts'`, eyebrow "Pabuya", "your event page"; invite: "Send it by text, email, or your group chat"; fallback `?? 'https://setnayan-platform-web.vercel.app'` in four places (only if NEXT_PUBLIC_APP_URL is unset).
+WHERE     monogram/{page,draft-restore,mark-everywhere,upload-mark,animated-monogram-upgrade}.tsx, studio-notices.ts · components/sd-loader/loader-steps.ts · lib/nav-registry-defaults.ts · invitation/page.tsx · studio/save-the-date/page.tsx, _components/{StdBuilderClient,launch-std-button}.tsx · pabuya/page.tsx, _components/pabuya-manager.tsx · guests/invite/_components/share-link-panel.tsx, guests/_components/guest-card-data.ts, invitation/print/page.tsx
+SHOTS     375 px light
+RULE      brand.md word rules · CLAUDE.md §1 (email only)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### I-09 · Logo Maker unlock: no price on the page; a dropped connection stops the unlock silently; the stamp gives no "Saved"
+
+```
+PAGE      /dashboard/[eventId]/monogram, /studio/save-the-date/stamp
+BUTTON    "Unlock Animation & Apply" · "Love it — use this seal"
+STEPS     1. Unowned event → press Unlock. 2. Save a wax seal.
+EXPECTED  🔒 → price from the catalogue → one button; a small "Saved".
+ACTUAL    no price anywhere; `onClick={async () => { await save(true); window.location.assign(unlockHref); }}` with no catch; the stamp's `StayForm` has no `sayNote` (unsure: the page may re-render visibly).
+WHERE     monogram/animate-rows.tsx · studio/save-the-date/stamp/wax-stamp-maker.tsx · app/_actions/stay-registry/stdStamp.ts
+SHOTS     375 px light
+RULE      design-and-wiring B6, B7
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### I-10 · Invitation look: send run and Logo popup hand-built, many accent fills, spinners, hex, bg-white, native confirm
+
+```
+PAGE      /dashboard/[eventId]/guests/send, /guests/invite, /invitation, /invitation/print, /studio/save-the-date, /stamp, /event-qr, /monogram, /pabuya
+BUTTON    layers · buttons · frames · loading
+STEPS     1. Open each at 375 px.
+EXPECTED  RiseScreen/Sheet/ConfirmDialog; one main per screen; tokens; Sk skeletons; a Print button on a phone.
+ACTUAL    send run: portal `fixed inset-0 z-[110]` with `html.style.overflow = 'hidden'`, ✕ always goes to /guests, `bg-white`, hand shadows, `text-[11.5px]`; Logo "everywhere" popup `fixed inset-0 z-[70] role="dialog"` with a `setTimeout` slideshow ignoring reduced motion and `480ms cubic-bezier(.22,1,.36,1)`; save-the-date: `bg-mulberry` on Unlock ×2, Render, Launch now, wax seal + accent-outlined Schedule/Change time, `GridPageSkeleton`; invitation `button-primary` + `bg-mulberry` link + hex `#C97B4B` + `bg-white`; monogram `ab-main` + `bg-mulberry` ×2, SDLoader as loading; pabuya `button-primary` + `ab-main`, `window.confirm`; stamp hex gold main `bg-[#cb9e4b]`; invite no PageMasthead, hand frames, `animate-spin` on Regenerate; event-qr `rounded-card`, hex QR colours; print pages only "Press ⌘P" (no Print button on a phone).
+WHERE     guests/send/_components/send-run.tsx · monogram/mark-everywhere.tsx, animate-rows.tsx, loading.tsx · studio/save-the-date/** · invitation/page.tsx · pabuya/_components/{pabuya-manager,pabuya-message-editor}.tsx · guests/invite/** · event-qr/page.tsx · invitation/print/page.tsx
+SHOTS     375 px light
+RULE      Part K1, K3 · CLAUDE.md §3 · MOTION_STANDARD
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### I-11 · Send run and wax-seal maker are addresses; they should rise over the page you came from
+
+```
+PAGE      /dashboard/[eventId]/guests/send, /studio/save-the-date/stamp
+BUTTON    the pages
+STEPS     1. Invite › "Send invites one by one". 2. Save the Date › "Make your wax seal". 3. Press ✕ / Back.
+EXPECTED  FULL-SCREEN POPUP (RiseScreen): ✕ returns to the same place.
+ACTUAL    send: its own address drawn as a hand-built full-screen layer, ✕ → /guests even from /guests/invite; stamp: its own page with "Back to Save the Date".
+WHERE     guests/send/_components/send-run.tsx · studio/save-the-date/stamp/page.tsx
+SHOTS     375 px light
+RULE      SHAPE
+SEVERITY  look
+SOURCE    CODE
+```
+
+### Studio tools and creator (about/[addon] · guest-columns · mood-board · pakanta · patiktok ×3 · playlist · setnayan-ai · creator)
+
+> Phase B: Pakanta and Patiktok are retired (`redirectUnlessEventKeepsRetired` bounces non-owners to Home), guest-columns is flag-gated, and couples are redirected off the mood-board page, so `couple_maker` may not reach these; a seeded owner or coordinator is needed.
+
+#### S-01 · Add-on About pages: a failed price or order read hides the price and offers "Get" again; About and the tool disagree on the Setnayan AI price
+
+```
+PAGE      /dashboard/[eventId]/studio/about/[addon] (e.g. setnayan-ai), /dashboard/[eventId]/studio/setnayan-ai   (event: stg-carla-miguel)
+BUTTON    "Get · ₱…" · plan row · "Verifying"
+STEPS     1. Open About while the price read fails. 2. Place an order, then open About while the order read fails. 3. Compare About › Setnayan AI with the tool page on a non-wedding event.
+EXPECTED  "Couldn't read"; never offered to buy again; one price from one reader.
+ACTUAL    `formatV2Sku(entry.serviceKey).catch(() => null)` → "Get" with no price; `.then((r) => r.data)` drops the order error → "Get" again (a second purchase); About uses the flat `formatV2Sku('SETNAYAN_AI')` while the tool uses `resolveSetnayanAiDisplayPricePhp` (per event type), or no price with the paywall off.
+WHERE     studio/_components/addon-detail-view.tsx `AddOnDetailView` · studio/setnayan-ai/page.tsx
+SHOTS     375 px light
+RULE      CLAUDE.md §1 money · §5 rule 4 · design-and-wiring C8
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### S-02 · About pages mark Save the Date and the animated logo "Free" over copy that sells their paid parts; "Get" opens the feature page, not a checkout
+
+```
+PAGE      /dashboard/[eventId]/studio/about/save-the-date, /about/animated-monogram, /about/setnayan-ai
+BUTTON    "Free" pill · hero copy · "Get · ₱…"
+STEPS     1. Open each; press Get.
+EXPECTED  Free parts said free, paid parts named with their plan; one button to a real checkout.
+ACTUAL    `tier: 'free'` pill over "A reveal they'll want to watch twice" / "An animated trace that draws itself on" (the catalogue says those need Event Pro); `href={surfaceHref}` opens the feature page; Setnayan AI then needs a second Unlock; Papic → `/studio/papic` → Home.
+WHERE     lib/add-ons-detail.ts · lib/add-ons-catalog.ts · studio/_components/addon-detail-view.tsx
+SHOTS     375 px light
+RULE      design-and-wiring B7 · brand.md claims 1/3
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### S-03 · Hand-formatted pesos and "Pricing loads from your catalog" on a failed read (Setnayan AI, Pakanta)
+
+```
+PAGE      /dashboard/[eventId]/studio/setnayan-ai, /dashboard/[eventId]/studio/pakanta
+BUTTON    hero price · "Continue to payment · ₱…"
+STEPS     1. Open each; then with the price read failing.
+EXPECTED  `formatPhp`; "Couldn't read".
+ACTUAL    `` `₱${Math.round(pricePhp).toLocaleString('en-PH')}` `` and `` ` · ₱${pricePhp.toLocaleString('en-PH')}` ``; `resolveSetnayanAiDisplayPricePhp(...).catch(() => 0)` merges a failed read with a real zero → "Pricing loads from your catalog — please refresh in a moment."
+WHERE     studio/setnayan-ai/page.tsx · studio/pakanta/page.tsx, _components/pakanta-music-form.tsx
+SHOTS     375 px light
+RULE      CLAUDE.md §1 (money via lib/php.ts; "Couldn't read")
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### S-04 · Creator page crashes on a "%" in the error parameter; Delete removes a chapter with no confirm
+
+```
+PAGE      /dashboard/creator   (couple_maker)
+BUTTON    error banner · chapter "Delete"
+STEPS     1. Open `/dashboard/creator?error=100%`. 2. Press Delete on a chapter.
+EXPECTED  The page opens; an irreversible delete confirms once.
+ACTUAL    `decodeURIComponent(search.error)` decodes an already-decoded value → URIError → error screen (and any link can put words in the red banner); `deleteChapter` hard-deletes in one press.
+WHERE     app/dashboard/(account)/creator/page.tsx (FormFlash) · creator/actions.ts `deleteChapter`
+SHOTS     375 px light
+RULE      kit §5.1 · CLAUDE.md §3 Floating surface
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### S-05 · Studio tools failed reads read as real (mood board, playlist, Setnayan AI, guest columns, Patiktok, creator)
+
+```
+PAGE      /dashboard/[eventId]/studio/mood-board, /playlist, /setnayan-ai, /guest-columns, /patiktok, /patiktok/[templateId], /patiktok/booth, /dashboard/creator
+BUTTON    boards · sync chip · "Working right now" · queues · renders · offers
+STEPS     1. Make each read fail.
+EXPECTED  "Couldn't read".
+ACTUAL    mood board: `(inspirationRes.data ?? [])` empty board, finalizations only `console.error` → every part "never signed off", booked count 0 → "Once you've booked suppliers…"; playlist: booked error ignored → "book your DJ first", `fetchEventSongRequests` drops `failed` → tray looks "all placed"; Setnayan AI: `measured` never read → "0% booked · 0 suppliers"; guest-columns "No one has written yet."; patiktok renders vanish, "Pick from 0 tracks", booth finds no tables; creator "No chapters yet", supplier offers vanish.
+WHERE     studio/mood-board/_components/mood-board-editor.tsx · studio/playlist/page.tsx, lib/songs.ts · setnayan-ai/_components/setnayan-ai-value.tsx, lib/setnayan-ai-activity.ts · guest-columns/page.tsx · patiktok/page.tsx, [templateId]/page.tsx, booth/page.tsx · (account)/creator/page.tsx, lib/creator-offers.ts
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### S-06 · Playlist re-computes "booked" with a hand list instead of BOOKED_EVENT_VENDOR_STATUSES
+
+```
+PAGE      /dashboard/[eventId]/studio/playlist
+BUTTON    "Synced with {supplier}"
+STEPS     1. Compare with the one reader.
+EXPECTED  Import `BOOKED_EVENT_VENDOR_STATUSES`.
+ACTUAL    `.in('status', ['contracted','deposit_paid','delivered','complete'])` (matches today; a second copy).
+WHERE     studio/playlist/page.tsx
+SHOTS     375 px light
+RULE      design-and-wiring C8
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### S-07 · Studio words: "vendor", "wedding" on every event, "Monogram", "Stop…" lines, raw codes and database text
+
+```
+PAGE      /dashboard/[eventId]/studio/mood-board, /playlist, /setnayan-ai, /pakanta, /about/[addon], /guest-columns, /patiktok
+BUTTON    toasts · mastheads · errors
+STEPS     1. Read on stg-mika-turns-7; trigger failures.
+EXPECTED  supplier; the event's own word; Logo Maker; plain reasons.
+ACTUAL    "Shared with N vendor(s)" · "Notify your N booked vendor(s)" · "Your wedding playlist" · "ready for your wedding" (with `eventWord` in scope) · "Now playing on your wedding page" · 'Monogram Maker' · "Stop hunting. Start choosing." · "Stop guessing who to hire" · guest-columns `'not_found'`, `error.message.slice(0, 80)` · mood board `message: assetErr.message` · patiktok "TikTok connection failed (<code>; env missing: X)" · booth "upload presign failed (500)".
+WHERE     studio/mood-board/_components/share-with-vendors-button.tsx, mood-board/actions.ts, dress-code-actions.ts · studio/playlist/page.tsx · studio/setnayan-ai/page.tsx · studio/pakanta/** · lib/add-ons-catalog.ts, lib/add-ons-detail.ts · guest-columns/actions.ts · patiktok/page.tsx, _components/booth-capture.tsx
+SHOTS     375 px light
+RULE      brand.md word rules and tone · CLAUDE.md §3 Toast
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### S-08 · Patiktok promises things not built (shipped floor sticker, signage, 4K, "auto-pick" music on a render worker) and saves partially
+
+```
+PAGE      /dashboard/[eventId]/studio/patiktok/[templateId], /studio/patiktok
+BUTTON    "What ships in the Station Pack" · Music "Auto-pick from template vibe" · render finish
+STEPS     1. Read the template page. 2. Queue a render with Auto-pick. 3. Finish a render while a clip write fails.
+EXPECTED  Only what is live; failures said.
+ACTUAL    "Physical X-mark floor sticker (50×50 cm vinyl, shipped 3–5 days)", signage card, 4K — no fulfilment code found; Auto-pick leaves `musicUrl` null and renders in the browser, not a worker; `patiktok_render_job_clips.upsert` / `patiktok_source_clips.update` errors discarded then `{ ok: true, downloadUrl }`; `failPatiktokRenderJob` can leave a failed render "queued".
+WHERE     studio/patiktok/[templateId]/page.tsx, _components/render-form.tsx · patiktok/actions.ts
+SHOTS     375 px light
+RULE      brand.md claims 6/9 · CLAUDE.md §5 rule 4
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### S-09 · Studio look: K1 breaks, spinners and pulses, hand-built pickers and tag sheet, width transition, wrong skeletons
+
+```
+PAGE      /dashboard/[eventId]/studio/mood-board, /patiktok, /patiktok/booth, /playlist, /setnayan-ai, /guest-columns, /pakanta, /about/[addon], /dashboard/creator
+BUTTON    buttons · layers · loading
+STEPS     1. Open each at 375 px.
+EXPECTED  One main per scope; Sheet; Sk; transform/opacity; PickMenu.
+ACTUAL    patiktok two `ab-main` "Open booth dashboard" + `ab-main` Download + `bg-mulberry` triggers, broken class `text-terracotta-700-700`; creator selected audience `ab-main` beside "Save changes" `ab-main`, native `<select>`; mood-board `StudioPopup` hand-built `fixed inset-0 role="dialog"`; booth tag sheet hand-built, `max-h-[85vh]`, `animate-pulse` REC, `bg-success-700` Keep; `animate-spin` in mood-board, pakanta, guest-columns, patiktok; Setnayan AI `transition-all` on a width bar; playlist `GridPageSkeleton` for a list; guest-columns no PageMasthead, raw buttons; `text-[12px]`/`[12.5px]` throughout.
+WHERE     patiktok/page.tsx · (account)/creator/page.tsx · mood-board/_components/colour-picker-sheet.tsx `StudioPopup` · patiktok/_components/{tag-sheet,booth-capture}.tsx · setnayan-ai/_components/setnayan-ai-value.tsx · playlist/loading.tsx · guest-columns/**
+SHOTS     375 px light
+RULE      Part K1, K3 · CLAUDE.md §3 · MOTION_STANDARD E2
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### S-10 · Patiktok template pick and booth camera should be full-screen layers
+
+```
+PAGE      /dashboard/[eventId]/studio/patiktok/[templateId], /studio/patiktok/booth
+BUTTON    template page · "Open camera"
+STEPS     1. Open a template; open the camera.
+EXPECTED  FULL-SCREEN POPUP (one-step pick; a camera).
+ACTUAL    template pick is its own address; the camera opens inline in a `max-w-[280px]` box.
+WHERE     patiktok/[templateId]/page.tsx · patiktok/_components/booth-capture.tsx
 SHOTS     375 px light
 RULE      SHAPE
 SEVERITY  look

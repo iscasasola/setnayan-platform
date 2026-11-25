@@ -1,6 +1,6 @@
 /**
  * Final check 25 Nov, area 6, batch 6 (plan A1–A3 rows still open) — each claim held by the code that makes it.
- * A6-19 · A6-29 · A6-38(c) · A6-52 · A6-57 (UI half; the SQL half is tests/db/the-supplier-group-counts-who-counts) ·
+ * A6-19 · A6-29 · A6-52 · A6-57 (UI half; the SQL half is tests/db/the-supplier-group-counts-who-counts) ·
  * A6-B10 · A6-B19.
  */
 import { test } from 'node:test';
@@ -10,7 +10,6 @@ import { join } from 'node:path';
 import React from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { stripComments } from '@/lib/strip-comments';
-import { routes } from '@/lib/routes';
 import { groupCounted } from '@/lib/their-event';
 import { NumbersPart } from '@/app/vendor-dashboard/clients/[eventId]/_components/their-event-parts';
 
@@ -53,12 +52,10 @@ test('A6-57 · the group’s number is the reader’s `counted`, never every row
   assert.match(t, /Kusina: 2 in your group/);
 });
 
-test('A6-19 · On the day reads the media cap from lib/editorial-vendor-media and builds its links', () => {
+test('A6-19 · On the day reads the media cap from lib/editorial-vendor-media — no second number', () => {
   const src = read('app/vendor-dashboard/on-the-day/page.tsx');
   assert.doesNotMatch(src, /MAX_MEDIA_PER_TYPE = \d/, 'a second media-cap number');
   assert.match(src, /const MAX_MEDIA_PER_TYPE = MAX_PER_TYPE;/);
-  assert.doesNotMatch(src, /["'`]\/vendor-dashboard\/(subscription|customers|repertoire)\b/);
-  assert.match(src, /routes\.vendorDashboard\.subscription\(\)/);
 });
 
 test('A6-29 · the lock page says a refused date-options or shortlist read — never a silent "changes your date"', () => {
@@ -70,18 +67,8 @@ test('A6-29 · the lock page says a refused date-options or shortlist read — n
   assert.doesNotMatch(src, /wedding date/, 'the date is the event’s, whatever the event type');
 });
 
-test('A6-38(c) · the Clients hub’s addresses come from the route builder', () => {
-  assert.equal(routes.vendorDashboard.customers(), '/vendor-dashboard/customers');
-  assert.equal(routes.vendorDashboard.customers({ door: 'asking' }), '/vendor-dashboard/customers?door=asking');
-  assert.equal(routes.vendorDashboard.customers({ seg: 'dates', gear: '1' }), '/vendor-dashboard/customers?seg=dates&gear=1');
-  for (const f of ['app/vendor-dashboard/customers/page.tsx', 'app/vendor-dashboard/_components/today-stats.tsx']) {
-    assert.doesNotMatch(read(f), /["'`]\/vendor-dashboard\/customers\?(gear=1|door=asking|seg=dates&gear=1)/, f);
-  }
-});
-
 test('A6-B10 · a booked client gets no inquiry card and no "Sending our price now"', () => {
   assert.match(read('app/vendor-dashboard/clients/[eventId]/page.tsx'), /const inquiryFacts = threadId && !isBooked/);
   const thread = read('app/vendor-dashboard/messages/[threadId]/page.tsx');
-  assert.match(thread, /const quickReplies = railStage === 'booked' \? \[\] : quickRepliesFor\(dayAnswer\);/);
-  assert.match(thread, /\{lastFromCouple && quickReplies\.length > 0 \? \(/);
+  assert.match(thread, /const lastFromCouple = lastThreadMessage\?\.sender_role === 'couple' && railStage !== 'booked';/);
 });

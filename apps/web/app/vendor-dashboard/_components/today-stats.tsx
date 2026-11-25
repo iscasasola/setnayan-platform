@@ -4,7 +4,6 @@ import { formatCount } from '@/lib/format-number';
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
 import type { TodayStats as Stats } from '@/lib/supplier-today-view';
 import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
-import { routes } from '@/lib/routes';
 
 /**
  * 📊 TODAY'S FIVE STATS (THE ONE BUILD A4, v113 Today — v103/v104 "stats jump"): Views · Inquiries · Booked ·
@@ -22,7 +21,7 @@ import { routes } from '@/lib/routes';
  */
 export const TODAY_STAT_HREFS = {
   views: '/vendor-dashboard/shop',
-  inquiries: routes.vendorDashboard.customers({ door: 'asking' }),
+  inquiries: '/vendor-dashboard/customers?door=asking',
   // Owner 75a46e3c item 9: Clients filtered to this month, so it shows this same number (`lib/booked-this-month.ts`).
   booked: BOOKED_THIS_MONTH_HREF,
   portfolio: '/vendor-dashboard/collections',

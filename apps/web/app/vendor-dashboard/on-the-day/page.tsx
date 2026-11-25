@@ -100,7 +100,6 @@ import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-
 import { formatCount } from '@/lib/format-number';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { ActionButton } from '@/components/action-button';
-import { routes } from '@/lib/routes';
 import { MAX_PER_TYPE } from '@/lib/editorial-vendor-media';
 
 export const metadata = { title: 'Hub · Supplier' };
@@ -213,7 +212,7 @@ export default async function VendorOnTheDayPage({
           </p>
           {storeShell ? null : (
             <Link
-              href={routes.vendorDashboard.subscription()}
+              href="/vendor-dashboard/subscription"
               className="mt-3 inline-flex items-center gap-1 text-sm font-semibold underline"
             >
               See plans <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -295,7 +294,7 @@ export default async function VendorOnTheDayPage({
               on the day, {HUB_OPEN_WINDOW_PLAIN}.
             </InfoTip>
             <div className="mt-3">
-              <ActionButton tone="brand" main icon={<ArrowRight aria-hidden strokeWidth={1.9} />} label="See your customers" href={routes.vendorDashboard.customers()} />
+              <ActionButton tone="brand" main icon={<ArrowRight aria-hidden strokeWidth={1.9} />} label="See your customers" href="/vendor-dashboard/customers" />
             </div>
           </ShopEmpty>
         </div>
@@ -789,7 +788,7 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
                   it at the event so guests can scan and review you.
                 </p>
                 <Link
-                  href={`${routes.vendorDashboard.profile()}#docs`}
+                  href="/vendor-dashboard/profile#docs"
                   className="mt-3 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-sn-accent hover:underline"
                 >
                   Get verified <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -1130,11 +1129,11 @@ function NonPhotoConsole({
   // telling the supplier the wrong thing on the one morning it matters.
   const target = eventId
     ? kind === 'caterer'
-      ? routes.vendorDashboard.clients.productionSheet(eventId)
-      : `${routes.vendorDashboard.clients.detail(eventId)}?tab=details`
+      ? `/vendor-dashboard/clients/${eventId}/production-sheet`
+      : `/vendor-dashboard/clients/${eventId}?tab=details`
     : kind === 'band'
-      ? routes.vendorDashboard.repertoire()
-      : routes.vendorDashboard.customers();
+      ? '/vendor-dashboard/repertoire'
+      : '/vendor-dashboard/customers';
 
   const copy: Record<
     Exclude<DayOfConsoleKind, 'photo'>,

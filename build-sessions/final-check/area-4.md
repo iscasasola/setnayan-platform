@@ -1,4 +1,4 @@
-FIXER: batch 1 of 4 · PR #8306 · waiting for CI · batches 2–4 built and tested locally (2 in preflight), PRs follow one by one
+FIXER: batch 2 of 4 · PRs #8306 (b1) and #8319 (b2) ready, waiting for CI · b3 in preflight · b4 built
 STATUS: phase B done (25 Nov 08:50 UTC) · pages 37 + 1 forward: 35 walked on the copy, 1 not reachable (/[slug]/cached/[key]: no key), K3 layers on the Hub not walked (A4-B01) · phase B findings 13: blocker 1 (A4-B01, OPEN) · money-signin 0 · broken 2 · wrong 7 · look 3 · phase A confirmed on the copy: A4-01, A4-42, A4-44, A4-73 · phase A struck: "set-password drops ?next" (it keeps it) · not reproduced: A4-06 (no seeded "Anyone, I approve" event) · latent behind flags off on the copy: A4-02, A4-64, A4-77, A4-78 (Papic guest buy) · buttons on walked pages ≈ 120 at 375 · pressed ≈ 100 · failed 9
 
 # Final check · Area 4 · Guest (Event Hub, pass, camera)
@@ -1638,9 +1638,9 @@ On the pages fixer batch 1 touched (`/[slug]/seat`, `/find-seat`, `/welcome`, `/
 
 | Batch | Branch | Entries | State |
 |---|---|---|---|
-| 1 | `claude/fc-fix-a4-b1` | A4-50 51 53 37 25 26 27 28 44 45 46 49 38 S01 | PR #8306, waiting for CI |
-| 2 | `claude/fc-fix-a4-b2` | A4-56 57 58 83 60 61 63 65 66 67 70 71 54 82 74 75 79 80 78 B03(papic) | built; preflight running |
-| 3 | `claude/fc-fix-a4-b3` | A4-03 04 06 08 09 10 11 12 13 15 16 B02 B03(cam) B06 B07 B09 | built; tests green locally |
+| 1 | `claude/fc-fix-a4-b1` | A4-50 51 53 37 25 26 27 28 44 45 46 49 38 S01 | PR #8306, ready, waiting for CI |
+| 2 | `claude/fc-fix-a4-b2` | A4-56 57 58 83 60 61 63 65 66 67 70 71 54 82 74 75 79 80 78 B03(papic) | PR #8319, ready, waiting for CI |
+| 3 | `claude/fc-fix-a4-b3` | A4-03 04 06 08 09 10 11 12 13 15 16 B02 B03(cam) B06 B07 B09 | preflight running |
 | 4 | `claude/fc-fix-a4-b4` | A4-01 23 22 30 33 34 35 52(silent half) | built; tests green locally |
 
 Not fixed, with the reason:

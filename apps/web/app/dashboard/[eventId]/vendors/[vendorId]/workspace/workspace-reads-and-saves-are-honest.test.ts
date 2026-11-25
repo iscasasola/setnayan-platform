@@ -22,6 +22,14 @@ test('A7-27: the costing forms keep the row and say it did not save', () => {
   assert.equal((PAGE.match(/<CostsForm className=/g) ?? []).length, 2, 'both Save costs and Save crew go through CostsForm');
   assert.match(FORM, /await updateVendorCosts\(formData\)/);
   assert.match(FORM, /catch \(err\) \{\s*unstable_rethrow\(err\);\s*setFailed\(true\);/);
+  // Typed values survive a failure: onSubmit + preventDefault + a transition, never a form `action` (React resets a
+  // form whose action resolved — and a caught failure resolves).
+  assert.match(FORM, /<form className=\{className\} onSubmit=\{onSubmit\}/);
+  assert.doesNotMatch(FORM, /<form[^>]*\baction=/, 'the form resets its fields again on a failed save');
+  assert.match(FORM, /e\.preventDefault\(\);/);
+  assert.match(FORM, /const formData = new FormData\(e\.currentTarget\);/);
+  assert.match(FORM, /<SubmitButton pendingLabel="Saving…" pending=\{pending\}/, 'the button no longer shows it is saving');
+  assert.equal((PAGE.match(/<CostsSubmit className=/g) ?? []).length, 2);
   assert.match(FORM, /That did not save\. Nothing changed — please try again\./);
 });
 

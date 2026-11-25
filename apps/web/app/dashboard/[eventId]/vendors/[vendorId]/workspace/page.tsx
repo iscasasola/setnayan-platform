@@ -117,7 +117,7 @@ import {
   type AppointmentTypePreset,
   type AppointmentView,
 } from '@/lib/appointments';
-import { CostsForm } from './_components/costs-form';
+import { CostsForm, CostsSubmit } from './_components/costs-form';
 import { manualVendorNeedsAddress } from '@/lib/manual-venue-address';
 import { HostServiceDetails } from './_components/host-service-details';
 import { SelfAddedContactCard } from './_components/self-added-contact-card';
@@ -2582,7 +2582,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             {crewFields}
             {paidSoFarRow}
             {ev.category === 'crew_meals' ? null : (
-              <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save crew</SubmitButton>
+              <CostsSubmit className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save crew</CostsSubmit>
             )}
           </CostsForm>
         </section>
@@ -2674,7 +2674,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               one source: the same `paidSoFarFormatted` the header shows. */}
           {paidSoFarRow}
 
-          <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</SubmitButton>
+          <CostsSubmit className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</CostsSubmit>
         </CostsForm>
         </section>
       );

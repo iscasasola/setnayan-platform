@@ -4240,3 +4240,16 @@ export function solveAutoLayout(input: SolveLayoutInput): SolveLayoutResult {
   }
   return { placed: primary.placed, unplaced: primary.unplaced, altPlacedAtFloor };
 }
+
+/**
+ * 🪑 HOW MANY GUESTS STILL NEED A SEAT — the ONE count every seat surface shows (final check A2-E4 / A2-D2: the
+ * desktop chip, its tooltip, the phone line and the entrance chart each counted their own way and disagreed).
+ * The rule is the seat plan's own: not declined and in no chair. A pending guest holds a seat until a person releases
+ * it (CLAUDE.md §4 Guest); a declined guest never does. The caller passes the guests the seat plan offers a seat to
+ * (requests, and "after party only" guests from `readNoSeatGuestIds`, already off the list).
+ */
+export function countStillToSeat(
+  guests: readonly { rsvp_status?: string | null; seated_table_id?: string | null }[],
+): number {
+  return guests.filter((g) => g.rsvp_status !== 'declined' && !g.seated_table_id).length;
+}

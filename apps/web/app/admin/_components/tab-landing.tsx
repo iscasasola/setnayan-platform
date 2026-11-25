@@ -234,7 +234,8 @@ export async function TabLanding({
               {/* 👆 Each chip is the app's ONE chip (`CHIP_CLASS`: 40 drawn, `.sn-hit` presses at 44 — walk W4/W5 18 Nov,
                   #7900 follow-up: these were 24-px one-offs). gap-2 keeps two wrapped rows' presses from overlapping. */}
               <div className="flex flex-wrap gap-2" data-admin-landing-chips="">
-                {c.chips.slice(0, 6).map((ch) => (
+                {/* Every chip the line names (A8·P-B-12: a cap of six dropped Hub music and Songs on Catalogue). */}
+                {c.chips.map((ch) => (
                   <Link key={ch.href} href={ch.href} className={`${CHIP_CLASS} ${CHIP_OFF_CLASS}`} data-admin-landing-chip="">
                     {ch.label}
                     {typeof ch.count === 'number' && ch.count > 0 ? <em className="ml-1 not-italic font-semibold">{formatCount(ch.count)}</em> : null}

@@ -41,13 +41,13 @@
 - [x] /dashboard/samahan/new · way in: People pinned row "＋ New", Groups section, palette, `/samahan` · OFFLINE: NOT NEEDED · SHAPE: PAGE → SMALL POPUP (A2-C15)
 
 ### Guests and seats
-- [ ] /dashboard/[eventId]/guests
-- [ ] /dashboard/[eventId]/guests/[guestId]
-- [ ] /dashboard/[eventId]/guests/new
-- [ ] /dashboard/[eventId]/guests/quick
-- [ ] /dashboard/[eventId]/guests/import
-- [ ] /dashboard/[eventId]/guests/claims
-- [ ] /dashboard/[eventId]/guests/checkin
+- [x] /dashboard/[eventId]/guests · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: PAGE = PAGE   (the guest card opens over it as the `InspectorSheet` side peek at `?inspect=`; its inner layers: A2-D3, A2-D4)
+- [x] /dashboard/[eventId]/guests/[guestId] · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: PAGE = PAGE   (deep-link / print / failed-save landing for the same `GuestCard`; the in-app way in is already the `?inspect=` sheet)
+- [x] /dashboard/[eventId]/guests/new · OFFLINE: NOT NEEDED (disagree with plan: an empty form has nothing to keep) · SHAPE: PAGE → FULL-SCREEN POPUP (A2-D9)
+- [x] /dashboard/[eventId]/guests/quick · OFFLINE: NOT NEEDED (disagree with plan: an empty form has nothing to keep) · SHAPE: PAGE → FULL-SCREEN POPUP, or retire (A2-D9, A2-D10)
+- [x] /dashboard/[eventId]/guests/import · OFFLINE: NOT NEEDED (disagree with plan: an upload needs the network) · SHAPE: PAGE → FULL-SCREEN POPUP (A2-D9)
+- [x] /dashboard/[eventId]/guests/claims · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: PAGE = PAGE   (the `guest_claim_pending` notification links to it, and it is also drawn in place inside Guests)
+- [x] /dashboard/[eventId]/guests/checkin · OFFLINE: NEEDED (at the venue on the day) · SHAPE: PAGE = PAGE   (saved offline copy exists: `DeskSavedMark`, `OFFLINE_COPY_SHAPES`)
 - [x] /dashboard/[eventId]/guests/souvenirs · OFFLINE: NEEDED (at the venue on the day; the desk is run by the couple's or coordinator's crew at the giveaway table, and it is not in `OFFLINE_COPY_SHAPES` today) · SHAPE: PAGE = PAGE (the crew reopens this station by its link on the day; Back and refresh must work)
 - [x] /dashboard/[eventId]/guests/tea-ceremony · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: PAGE = PAGE (printed and shared with both families)
 - [x] /dashboard/[eventId]/seating · OFFLINE: READ-ONLY IS ENOUGH (the coordinator looking up a seat at the venue needs the saved copy; nobody edits the plan offline) · SHAPE: PAGE = PAGE (the address only forwards to Guests › Seats through `guestsViewHref(eventId, 'seats', …)`; Guests draws this same file with `host: 'guests'`, so the plan has one source)
@@ -71,15 +71,15 @@
 - [x] /proposals/[publicId] · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: PAGE = PAGE (shared by link, printed)
 
 ### Suppliers
-- [ ] /dashboard/[eventId]/vendors
-- [ ] /dashboard/[eventId]/vendors/[vendorId] → /dashboard/[…]/vendors/[…]/workspace
-- [ ] /dashboard/[eventId]/vendors/categories
-- [ ] /dashboard/[eventId]/vendors/packages/[bookingId]
-- [ ] /dashboard/[eventId]/vendors/[vendorId]/review
-- [ ] /dashboard/[eventId]/contracts
-- [ ] /dashboard/[eventId]/contracts/[contractId]
-- [ ] /dashboard/[eventId]/disputes
-- [ ] /dashboard/[eventId]/clearance
+- [x] /dashboard/[eventId]/vendors · OFFLINE: NEEDED (at an expo) — today a read-only last-seen copy only (`LastSeenCapture page="suppliers"`) · SHAPE: PAGE = PAGE
+- [x] /dashboard/[eventId]/vendors/[vendorId] · forward only: `redirect(\`/dashboard/${eventId}/vendors/${vendorId}/workspace\`)` lands on `vendors/[vendorId]/workspace/page.tsx` (exists) · OFFLINE: NOT NEEDED · SHAPE: forward (no screen)
+- [x] /dashboard/[eventId]/vendors/categories · OFFLINE: READ-ONLY IS ENOUGH (disagree with plan: the couple-at-an-expo case needs a live search anyway) · SHAPE: PAGE = PAGE
+- [x] /dashboard/[eventId]/vendors/packages/[bookingId] · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: PAGE = PAGE
+- [x] /dashboard/[eventId]/vendors/[vendorId]/review · OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE (reached from the `review_request` notification link)
+- [x] /dashboard/[eventId]/contracts · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: PAGE = PAGE
+- [x] /dashboard/[eventId]/contracts/[contractId] · OFFLINE: READ-ONLY IS ENOUGH (disagree a little: the contract is wanted at the venue on the day; a saved copy of this page plus the PDF would help) · SHAPE: PAGE = PAGE
+- [x] /dashboard/[eventId]/disputes · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: PAGE = PAGE
+- [x] /dashboard/[eventId]/clearance · OFFLINE: READ-ONLY IS ENOUGH (it is pressed once, after the day; it needs the network to write) · SHAPE: PAGE = PAGE
 - [ ] /dashboard/[eventId]/messages
 - [ ] /dashboard/[eventId]/messages/[threadId]
 - [ ] /dashboard/[eventId]/manpower
@@ -1004,3 +1004,452 @@ SOURCE    CODE
 ```
 
 Checked and clean (no finding): /dashboard/billing honest states (`read.measured`, `receiptsMeasured`, supplier sections `Unread`), pesos via `formatPhp` (re-export of `lib/php.ts`), VAT from `getEffectiveVatRatePct` (falls to 0 by owner design = the setting's value); /dashboard/search forward on empty `q` → `DISCOVER_HREF`; /dashboard/people and /dashboard/samahan forwards land on Home › People as specified; profile `href="#slug"` / `#privacy` anchors switch group via `SettingsShell` `hashchange`; K3 layers in samahan use `OverlayBackdrop` + `useModalA11y` / `PickMenu`.
+
+### Guests (group D)
+
+Checked and clean, not findings: the guest list's own counts are honest (masthead, summary, empty state are gated on `guestsMeasured`; `computeGuestStats` / `rosterStats` both filter by `countsTowardEvent`); `GuestPopup` (`guest-popup.tsx`) uses `OverlayBackdrop` + `usePopupBehind` (= `useModalA11y` + `inertBehind`), and every guest-list sheet goes through it; `Drawer` in `overlay-primitives.tsx` is correct (`Scrim dim` → `OverlayBackdrop`, `useModalA11y`) but no page in this group uses it; `/claims` gates "Nobody is waiting" / the big `0` on `unlistedMeasured`; the seat view gates its room on `guestsRead.measured`; the guest card says "Couldn't read their seat" on a refused seat read. Not covered by `lib/guests-read-is-honest.test.ts`: the check-in desk (A2-D13) and the seat view's crash path (A2-D1).
+
+#### A2-D1 · A failed seat read crashes the whole Guests page
+```
+PAGE      /dashboard/[eventId]/guests?gview=seats   (event: Bea & Paolo)
+BUTTON    "Seats" (the List · Map · Seats view switch)
+STEPS     1. Open Guests. 2. Switch to Seats (or open ?gview=seats) while the event_tables or event_seat_assignments read is refused (RLS blip, timeout).
+EXPECTED  The List stays; the Seats view says it could not load the seat plan (the page's own rule: "this Promise.all must never take down the whole Guests tab over a transient seat-read blip").
+ACTUAL    The page guards its OWN seat reads (`measuredOr(fetchAssignments(…))`, `measuredOr(fetchTables(…))`), but the Seats body is the shipped seat page rendered whole (`<SeatingPage params=… searchParams={{ host: 'guests' … }} />` inside `<Suspense fallback={viewLoading('seats')}>`), and that page calls `fetchTables` / `fetchAssignments` unguarded in its `Promise.all`; both `throw new Error('fetchTables failed: …')` / `'fetchAssignments failed: …'` (lib/seating.ts). The seat route's own boundary (`app/dashboard/[eventId]/seating/error.tsx`) does not wrap it when drawn inside Guests, and there is no error.tsx under `app/dashboard/[eventId]/` or `/guests/`, so the nearest boundary is `app/error.tsx`: the List, Map and the open card go too. PLAUSIBLE on the exact boundary: a browser walk with the seat read forced to fail must confirm. Code: `apps/web/app/dashboard/[eventId]/guests/page.tsx` · `<SeatingPage params={Promise.resolve({ eventId })}`; `apps/web/app/dashboard/[eventId]/seating/page.tsx` · `fetchTables(supabase, eventId),`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §5 rule 4 (honest states: a failure renders as a failure, scoped)
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### A2-D2 · Seats and Check-in count replies with their own filters
+```
+PAGE      /dashboard/[eventId]/guests?gview=seats · /dashboard/[eventId]/guests/checkin   (event: Bea & Paolo)
+BUTTON    — (the "to seat" / seat-shortfall numbers; the desk's "N / M attending")
+STEPS     1. Open Guests › Seats and read the reserved / still-to-seat / need-more-tables numbers. 2. Open the check-in desk and read "Arrived N / M attending".
+EXPECTED  Each number comes from the one reader: `computeGuestStats` then `headcountForBasis(stats,'attending')` for "attending" and `headcountForBasis(stats,'invited')` for "everyone not declined" (CLAUDE.md §4; check-in "expected" = attending only).
+ACTUAL    Each page re-counts the rows itself. Seat view: `reservedGuests = seatingGuests.filter((g) => g.rsvp_status === 'attending')` and `nonDeclinedCount = seatingGuests.filter((g) => g.rsvp_status !== 'declined').length`. Check-in: `const expected = guests.filter((g) => g.rsvpStatus === 'attending').length;` over its own hand-written guests select (it repeats the `countsTowardEvent` filters as `.neq('entry_source', REQUEST_ENTRY_SOURCE).eq(PASSED_AWAY, false).is(REPRESENTED_BY, null)`). They agree today; they are second copies that drift (e.g. when a basis or a new "not counted" rule is added to `countsTowardEvent`). Code: `apps/web/app/dashboard/[eventId]/seating/page.tsx` · `reservedGuests`, `nonDeclinedCount`; `apps/web/app/dashboard/[eventId]/guests/checkin/page.tsx` · `const expected =`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §4 / design-and-wiring C8 (one reader per shared fact)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-D3 · Guest card's Invite menu has no dim, no lock
+```
+PAGE      /dashboard/[eventId]/guests (guest card, ?inspect=) · /dashboard/[eventId]/guests/[guestId]   (event: Bea & Paolo)
+BUTTON    "Invite <first name>" (the Send-invite menu on the guest card: WhatsApp · Viber · Messenger · Copy message · Copy ticket · Mark as sent · Copy invitation link)
+STEPS     1. Open a guest's card. 2. Press the invite control. 3. Try to scroll or tap the card behind the menu.
+EXPECTED  K3: the layer draws the one shared backdrop (dim + blur), the page behind is inert and does not scroll, a backdrop tap closes it.
+ACTUAL    It is the guest list's own `Popover` (`overlay-primitives.tsx`) with `role="dialog"`: its catcher is a clear `<button … className="gl-scrim fixed inset-0">` (`Scrim` without `dim`, so no `OverlayBackdrop`), and it calls `useModalA11y({ … lockScroll: false })`, which skips both the scroll lock and `isolateOverlay` (the inert page). So nothing dims or blurs and the page behind still scrolls. A tap outside does close it. On a phone this menu also opens over the card sheet (a layer on a layer; see A2-D4). Code: `apps/web/app/dashboard/[eventId]/guests/_components/guest-invite-cell.tsx` · `<Popover anchorRef={from === 'head' && pin.pinned ? pinRef : ref}`; `apps/web/app/dashboard/[eventId]/guests/_components/overlay-primitives.tsx` · `<Scrim onClose={onClose} z={78} label="Dismiss menu" />`, `useModalA11y({ open: true, onClose, containerRef: ref, lockScroll: false })`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      HOUSE_DESIGN_STANDARD Part K3
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-D4 · Ticket view opens a confirm over itself
+```
+PAGE      /dashboard/[eventId]/guests (guest card) · /dashboard/[eventId]/guests/[guestId]   (event: Bea & Paolo)
+BUTTON    "New QR" · "Unlink account" (inside "Their ticket"); "Delete guest" (on the card)
+STEPS     1. On a phone, open a guest (the card is the side-peek sheet). 2. Tap "Their ticket", which opens a centred popup. 3. Tap "New QR".
+EXPECTED  No popup on a popup: the confirm replaces the ticket view, or the ticket view's buttons act without a second layer.
+ACTUAL    `GuestMoreMenu` (New QR · Unlink account) is passed as the ticket view's `tools`, and its confirm is a second `GuestPopup kind="confirm"` mounted while the ticket `GuestPopup` is still open. On a phone that is three layers: card `InspectorSheet` → ticket popup → confirm. The card's "Delete guest" confirm (`GuestDeleteControl` → `OpenDeleteGuestSheet`) is likewise a popup over the card sheet. Code: `apps/web/app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx` · `{open && mounted ? (` + `{tools ? (` and `{confirm !== null ? (\n      <GuestPopup kind="confirm"`; `guest-card-body.tsx` · `tools={more}`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      SHAPE (never a popup on a popup)
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-D5 · Hand-typed shadows and white fills on guest layers
+```
+PAGE      /dashboard/[eventId]/guests · /dashboard/[eventId]/guests/[guestId] · /dashboard/[eventId]/guests/checkin   (event: Bea & Paolo)
+BUTTON    — (the ticket view, the confirm box, the invite menu, the desk's "Next" button)
+STEPS     1. Switch to dark. 2. Open a guest's ticket, a New QR confirm, the invite menu; on the desk scan a declined code.
+EXPECTED  K2: no shadows and no white surfaces in dark; no raw colour in a component (tokens by job).
+ACTUAL    Shadows with raw rgba and no dark variant: `CONFIRM_PANEL` `shadow-[0_24px_60px_-20px_rgba(26,26,26,0.45)]` and the ticket panel `shadow-[0_30px_80px_-30px_rgba(26,26,26,0.5)]`; `Popover` `shadow-lg`; `GuestPeek` `shadow-lg`. White fills: the invite menu's manual-copy `<textarea className="… bg-white dark:bg-raised …">` and the desk's declined-verdict button `className="… rounded-xl bg-white dark:bg-raised … shadow-sm"` (a hand-made button too, not `ActionButton`). Code: `apps/web/app/dashboard/[eventId]/guests/_components/guest-popup.tsx` · `CONFIRM_PANEL`; `guest-ticket-parts.tsx` · `shadow-[0_30px_80px_-30px_rgba(26,26,26,0.5)]`; `guest-invite-cell.tsx` · `bg-white dark:bg-raised p-2`; `checkin/_components/checkin-desk.tsx` · `{DOOR_WORDS.next}`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      HOUSE_DESIGN_STANDARD Part K2 · design-and-wiring D13
+SEVERITY  look
+SOURCE    CODE
+```
+
+
+#### A2-D7 · Add forms print raw database errors
+```
+PAGE      /dashboard/[eventId]/guests/new · /guests/quick · /guests/import   (event: Bea & Paolo)
+BUTTON    "Save guest" · "Upload to guest list" · "Add N guests"
+STEPS     1. Submit a form while the insert is refused (RLS, expired session, constraint).
+EXPECTED  One plain sentence plus Try again, as the guest list already does (`plainRefusal`, held by `a-host-never-reads-database-words.test.ts`).
+ACTUAL    The database's text reaches the screen. /new: the action redirects `?error=${encodeURIComponent(friendly)}` where `friendly = … (error?.message ?? 'insert_failed')`, and `'plus_one_failed: ' + nameErr.message`; the page shows `ERROR_COPY[rawError] ?? rawError`. /quick: `?error=${encodeURIComponent(error.message)}`, shown by `ERROR_COPY[errorKey] ?? decodeURIComponent(errorKey)`. /import: `` `We could not add them: ${insertErr.message}` ``. E.g. "new row violates row-level security policy for table "guests"". Code: `apps/web/app/dashboard/[eventId]/guests/new/actions.ts` · `(error?.message ?? 'insert_failed')`; `new/page.tsx` · `ERROR_COPY[rawError] ?? rawError`; `quick/actions.ts` · `encodeURIComponent(error.message)`; `import/actions.ts` · `We could not add them:`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §3 Toast ("failure gives a plain reason plus Try again")
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-D8 · Four guest pages hand-roll their title
+```
+PAGE      /dashboard/[eventId]/guests/new · /guests/quick · /guests/import · /guests/checkin   (event: Bea & Paolo)
+BUTTON    —
+STEPS     1. Open each page.
+EXPECTED  `PageMasthead` on every page (CLAUDE.md §3), as /guests and /claims do.
+ACTUAL    Each draws its own `<h1 className="text-3xl font-semibold tracking-tight …">` ("Add a guest", "List your guests, one row at a time.", "Import guests from a file") or `<h1 className="flex items-center gap-2 text-2xl font-semibold tracking-tight">` with a QrCode icon ("Check-in desk"), plus a hand-made back link in a different style on each (`font-mono text-xs uppercase`, `rounded-md bg-ink/5`, `text-sm text-ink/60`). `lint:masthead` only catches an eyebrow above an h1, so it passes. Code: `apps/web/app/dashboard/[eventId]/guests/new/page.tsx` · `Add a guest</h1>`; `quick/page.tsx` · `List your guests, one row at a time.`; `import/page.tsx` · `Import guests from a file`; `checkin/page.tsx` · `<QrCode className="h-6 w-6 text-terracotta" /> Check-in desk`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §3 (Page title) · design-and-wiring A2
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-D9 · The add forms are pages, not full-screen popups
+```
+PAGE      /dashboard/[eventId]/guests/new · /guests/quick · /guests/import   (event: Bea & Paolo)
+BUTTON    "Add full guest" (from /quick) · "Import a file" (Guests › + › Add another way) · the /new links on Tea ceremony and Event Hub widgets
+STEPS     1. From Guests, open Import a file (or any door to /new, /quick).
+EXPECTED  SHAPE tests: nobody shares or returns to an add form by link (test 1 fails); each is more than one short screen (/new ~15 fields; /quick a growing row list; /import download → upload → preview) → FULL-SCREEN POPUP (`RiseScreen`/`RiseRoute`) over Guests, ✕ back to the same place.
+ACTUAL    All three are plain routes with their own back links (`‹ Back to guest list`); the add sheet pushes to /import (`push(\`/dashboard/${eventId}/guests/import\`)`). Code: `apps/web/app/dashboard/[eventId]/guests/_components/add-guest-sheet.tsx` · `openAddWay`; `new/page.tsx` · `export default async function NewGuestPage`; `quick/page.tsx` · `QuickAddGuestsPage`; `import/page.tsx` · `ImportGuestsPage`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      SHAPE
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-D10 · Quick add page has no way in
+```
+PAGE      /dashboard/[eventId]/guests/quick   (event: Bea & Paolo)
+BUTTON    —
+STEPS     1. Look for any menu, row or link that opens /guests/quick.
+EXPECTED  A page is registered and reachable (design-and-wiring A3), or retired when its job moved (owner 2026-10-27: "Paste many names" left; the search box adds).
+ACTUAL    The Ugat map lists it as `"route":"/dashboard/[eventId]/guests/quick", … "status":"no-door"` with `"doors":[]`; the only code reference is the unused builder `quick: (eventId: string) => \`/dashboard/${eventId}/guests/quick\`` in lib/routes.ts. It still writes guests (`bulkAddGuests`) with no finalized-list pre-check (only the DB trigger stops it), and links on to /new and /import. Code: `apps/web/lib/ugat/screens.generated.json` · `"status":"no-door"`; `apps/web/app/dashboard/[eventId]/guests/quick/page.tsx` · `QuickAddGuestsPage`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      design-and-wiring A3 (registered and reachable) · D11 (one source of truth)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-D11 · Import shows two main buttons
+```
+PAGE      /dashboard/[eventId]/guests/import   (event: Bea & Paolo; an account past the 19 Dec gate or exempt)
+BUTTON    "Download for Excel / Numbers" · "Check the file"
+STEPS     1. Open Import guests from a file.
+EXPECTED  K1: one main button per screen; the other steps down to neutral.
+ACTUAL    Both are `button-primary` (filled accent) on the same screen: `<SaveFileLink … className="button-primary inline-flex items-center gap-1.5">` in step 1 and `Submit` → `<button type="submit" className="button-primary">` ("Check the file") in step 2. Code: `apps/web/app/dashboard/[eventId]/guests/import/page.tsx` · `className="button-primary inline-flex items-center gap-1.5"`; `import/import-form.tsx` · `function Submit`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-D12 · Request card ranks Accept and Link both in accent
+```
+PAGE      /dashboard/[eventId]/guests/claims (also drawn in place in Guests › Asking to join)   (event: Bea & Paolo)
+BUTTON    "Accept" · "Link" · "Add to my list"
+STEPS     1. Have a request waiting. 2. Look at one request row. 3. Open Accept.
+EXPECTED  K1: one main per card; the other is neutral, never accent-outlined.
+ACTUAL    Accept and Link are both `actionButtonClass('brand', …)`. One gets `main`, the other is the non-main brand look, which is accent-outlined on an accent wash (`.ab` = `border … rgb(var(--ab-tone)) 45%` + `9%` wash). Opening Accept (when it is the main) then adds a third accent button, `<SubmitButton className="button-primary">` "Add to my list", under the still-filled Accept. Code: `apps/web/app/dashboard/[eventId]/guests/claims/page.tsx` · `actionButtonClass('brand', { main: !match })`, `actionButtonClass('brand', { main: Boolean(match) })`, `Add to my list`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-D13 · Check-in desk shows "0 / 0 attending" on a failed read
+```
+PAGE      /dashboard/[eventId]/guests/checkin   (event: Bea & Paolo, on the day)
+BUTTON    — (the "Arrived N / M attending" headcount)
+STEPS     1. Open the desk while the guests read is refused (signal drop at the venue, RLS, timeout).
+EXPECTED  The headcount says it could not be read ("—"), never a confident 0. The house test does not cover this page.
+ACTUAL    The error is logged and a `ReadRefusedNotice partial` is drawn, but `roster = (guestsRaw ?? [])` → `expected = 0`, and the same is true of `checkinsRaw ?? []` → arrived 0. The desk still prints "0 / 0 attending" with an empty bar, and `DOOR_WORDS.checkedLive(…, checkedCount, expected)` repeats the zeros after a scan. A name search finds nobody. Code: `apps/web/app/dashboard/[eventId]/guests/checkin/page.tsx` · `const roster = (guestsRaw ?? []) as GuestRow[];`, `const expected =`; `checkin/_components/checkin-desk.tsx` · `{expected} attending`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-D14 · Desk reads "booked" from a second copy of the list
+```
+PAGE      /dashboard/[eventId]/guests/checkin (Suppliers part)   (event: Bea & Paolo)
+BUTTON    — (the suppliers on the arrivals board)
+STEPS     1. Open the desk › Suppliers.
+EXPECTED  Booked = `BOOKED_EVENT_VENDOR_STATUSES` from `lib/vendor-funnel.ts` (CLAUDE.md §4).
+ACTUAL    The page imports `BOOKED_EVENT_VENDOR_STATUSES` from `@/lib/coordinator-trade`, which declares its own literal `['contracted', 'deposit_paid', 'delivered', 'complete']` rather than re-exporting the vendor-funnel one. Same four values today; a second copy that drifts. Other importers of the copy (outside this group): `vendor-dashboard/on-the-day/page.tsx`, `vendor-dashboard/clients/[eventId]/page.tsx`, `access-requests/page.tsx` and more. Code: `apps/web/lib/coordinator-trade.ts` · `export const BOOKED_EVENT_VENDOR_STATUSES: readonly string[] =`; `apps/web/app/dashboard/[eventId]/guests/checkin/page.tsx` · `import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/coordinator-trade';`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §4 / design-and-wiring C8
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-D15 · Desk shows two main buttons at once
+```
+PAGE      /dashboard/[eventId]/guests/checkin   (event: Bea & Paolo, on the day)
+BUTTON    "Scan a guest's QR" · "Mark arrived" · "Read a guest's tag" · "Open in Guest List → Pending"
+STEPS     1. Search a guest's name and pick them (or scan a pending code).
+EXPECTED  K1: one main per screen.
+ACTUAL    "Scan a guest's QR" (`ActionButton tone="brand" main`) stays drawn while the picked guest shows "Mark arrived" (`ActionButton tone="brand" main`), in the same column on a phone. A pending scan adds a third filled accent link (`actionButtonClass('brand', { main: true })`, "Open in Guest List → Pending"). The NFC button is `actionButtonClass('info', …)`, a second bright colour. Code: `apps/web/app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx` · `label="Scan a guest’s QR"`, `label="Mark arrived"`, `actionButtonClass('info', { extra: 'my-2 w-full' })`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-D16 · Desk shows a raw reply word ("RSVP'd pending")
+```
+PAGE      /dashboard/[eventId]/guests/checkin   (event: Bea & Paolo, on the day)
+BUTTON    — (the badge on the arriving guest)
+STEPS     1. Pick a guest who has not replied, or replied maybe or no.
+EXPECTED  The reply in the house words (`RSVP_LABELS` / the list's reply words).
+ACTUAL    `<Badge tone="wait">RSVP&rsquo;d {selected.rsvpStatus}</Badge>` prints the database value: "RSVP’d pending", "RSVP’d maybe", "RSVP’d declined". Code: `apps/web/app/dashboard/[eventId]/guests/checkin/_components/checkin-desk.tsx` · `RSVP&rsquo;d {selected.rsvpStatus}`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      brand.md word rules (no database words to a person)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### Suppliers (group G)
+
+#### A2-G1 · Build "Ask to book" and Compare "book" shown to the coordinator
+```
+PAGE      /dashboard/[eventId]/vendors   (event: Bea & Paolo, viewed as the booked coordinator)
+BUTTON    "Ask to book" (Build body line) · "book" (Compare, saved build row)
+STEPS     1. Sign in as the event's coordinator. 2. Open Suppliers → Build. 3. A priced pick shows "Ask to book"; Compare shows "book" on a saved build. 4. Press it.
+EXPECTED  A non-host sees no Book or Pay control (owner 21 Nov "no booking, no paying"; the page itself wraps everything in `ViewerBooksProvider books={viewer.isCouple}`).
+ACTUAL    Only three components read the screen gate: `booked-row.tsx`, `book-this-build.tsx`, `bench-vendor-actions.tsx` (`useViewerBooks`). `build-body.tsx` draws `AccordionLockButton label="Ask to book"` whenever `askable(line)` is true, and `build-compare.tsx` draws the `aria-label={\`Book ${c.title}\`}` button calling `onApply(c.snapshot, 'lock', …)`, with no `useViewerBooks()` check. `buildBody` and `compareSlot` are passed to `ServicesTakeover` for every viewer. The server refuses (`coordinatorMoneyScopeAllowed` → `ONLY_A_HOST_BOOKS`), so the coordinator gets a main-coloured button whose only result is a refusal. Code: `apps/web/app/dashboard/[eventId]/vendors/_components/build-body.tsx` · `label="Ask to book"`; `.../_components/build-compare.tsx` · `aria-label={\`Book ${c.title}\`}`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §4 "Only a host books or pays" · design-and-wiring B5 (every press reaches a real action)
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### A2-G2 · Peso figures formatted by hand, not lib/php.ts
+```
+PAGE      /dashboard/[eventId]/vendors   (event: Bea & Paolo)
+BUTTON    — (Build, Compare, Quote fill, reservation-terms and first-payment popups, Book again, remove-supplier refusal)
+STEPS     1. Open Suppliers. 2. Look at the peso figures on Build / Compare / quote fill, and the first-payment and reservation-terms popups. 3. Try to remove a supplier with a logged payment.
+EXPECTED  Every peso figure goes through `formatPhp` / `formatPhpRounded` (`lib/php.ts`), and an unknown amount never prints ₱0.
+ACTUAL    Seven hand-made formatters: `_components/accordion-build.tsx` · `` `₱${Math.round(php).toLocaleString('en-PH')}` ``; `_components/quote-fill.tsx` (same); `_components/build-compare.tsx` (same); `_components/build-locked.tsx` · `const peso = (centavos: number) => \`₱${Math.round((centavos ?? 0) / 100)…` (a null coerces to ₱0; it draws the "Committed" tile and the "Book your build" total); `_components/accordion-lock.tsx` · `₱{minimumAmountPhp.toLocaleString('en-PH')}` and `` `₱${Math.round(policy.downpayment_amount_php).toLocaleString('en-PH')}` ``; `_components/reuse-bookings-panel.tsx` · `function peso(n` with `Intl.NumberFormat`; `vendors/actions.ts` · `(₱${total.toLocaleString('en-PH')})` in `refusalForLoggedPayments`, which also sums `event_vendor_payments.amount_php` itself.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §1 "Format money only through apps/web/lib/php.ts" · design-and-wiring C8
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### A2-G3 · "Your team" Committed and Buffer use their own sum
+```
+PAGE      /dashboard/[eventId]/vendors   (event: Bea & Paolo, 2+ booked suppliers, one with a change order or line items)
+BUTTON    — ("Committed" / "Buffer" tiles in BuildLocked)
+STEPS     1. Open Suppliers on the Build view that draws `BuildLocked`. 2. Note Committed / Buffer. 3. Open Budget and compare with Agreed / what is left.
+EXPECTED  The committed money comes from the ONE reader, `resolveEventMoney` (`lib/budget-truth.ts`), as the Booked tab's own budget block does (`booked-slot.tsx` · `resolveEventMoneySettled`).
+ACTUAL    `BuildLocked` draws `peso(model.chosenCentavos)` and a Buffer from `teamMoney` (`lib/your-team.ts`), where `chosenCentavos` is summed in `lib/vendors-plan-budget.ts` (`chosenCentavos += child.lockedTotal`) from the rows' `total_cost_php`. That is a second money reader. PLAUSIBLE that it disagrees with Budget whenever line items, overpayment or a hidden amount are involved; which branch is live depends on the build flag (`buildBody` vs `buildSlot`), so a browser walk must confirm the two numbers. Code: `apps/web/app/dashboard/[eventId]/vendors/_components/build-locked.tsx` · `<LockTile k="Committed" v={peso(model.chosenCentavos)} accent />`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §4 Budget row (one reader) · design-and-wiring C8
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### A2-G4 · Payment record says "Downpayment … awaiting vendor confirmation"
+```
+PAGE      /dashboard/[eventId]/vendors (written here) → shown on the budget's supplier itemisation card   (event: Bea & Paolo)
+BUTTON    "Book & submit first payment" / record a reservation fee
+STEPS     1. Book a supplier with a first payment from Suppliers. 2. Open Budget (or event home) → that supplier's payments.
+EXPECTED  The person reads "reservation fee" and "supplier".
+ACTUAL    The action writes the payment row's `notes` as a sentence, and `vendor-itemization-card.tsx` prints `p.notes` as the payment's line. Code: `apps/web/app/dashboard/[eventId]/vendors/actions.ts` · `notes: 'Downpayment (lock · awaiting vendor confirmation)'` and `notes: 'Deposit (date held · awaiting vendor confirmation)'`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      brand.md word rules (supplier, reservation fee)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-G5 · Booked statuses hand-copied instead of BOOKED_EVENT_VENDOR_STATUSES
+```
+PAGE      /dashboard/[eventId]/vendors · /dashboard/[eventId]/vendors/[vendorId]/review   (event: Bea & Paolo)
+BUTTON    —
+STEPS     Code read only. They agree today; they drift the day one changes.
+EXPECTED  "Booked" is read from `BOOKED_EVENT_VENDOR_STATUSES` (`lib/vendor-funnel.ts`).
+ACTUAL    Six local copies of `['contracted','deposit_paid','delivered','complete']`: `vendors/page.tsx` · `const PLAN_LOCKED = new Set(`; `_components/plan-budget-accordion.tsx` · `const LOCKED = new Set(`; `_components/build-locked.tsx` · `const LOCKED = new Set(`; `build-3state-actions.ts` · `COMMITTED_STATUSES`; `_actions/reuse-actions.ts` and `[vendorId]/review/page.tsx` + `review/actions.ts` · `.in('status', ['contracted', 'deposit_paid', 'delivered', 'complete'])`. Two more named twins are used on these pages: `CONFIRMED_VENDOR_STATUSES` (`lib/events.ts`) and `LOCKED_VENDOR_STATUSES` (`lib/shortlist-taxonomy.ts`). The two copies that already DIFFER are A2-G9 and A2-G16.
+SHOTS     none
+RULE      CLAUDE.md §4 Supplier booking row · design-and-wiring C8 (a second copy is a defect even when it agrees)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-G6 · Filter sheet opens over the full-screen search, own scrim
+```
+PAGE      /dashboard/[eventId]/vendors   (event: Bea & Paolo)
+BUTTON    "Filter" (inside "Add <category> to your plan" search)
+STEPS     1. Suppliers → open a category's search (the full-screen `.csov` overlay). 2. Press Filter.
+EXPECTED  One layer at a time on the shared backdrop (`OverlayBackdrop` + `useModalA11y`); never a popup on a popup.
+ACTUAL    The filter `role="dialog"` sheet (`.fsheet`) opens on top of the full-screen `role="dialog"` search, over a hand-made scrim `<div className="fscrim sn-popup-dark" aria-hidden onClick=…>`, not `OverlayBackdrop`. Code: `apps/web/app/dashboard/[eventId]/vendors/_components/category-search-overlay.tsx` · `aria-label="Filter suppliers"`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      HOUSE_DESIGN_STANDARD Part K3 · SHAPE (never a popup on a popup)
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-G7 · Pay sheet's QR opens a second popup over the sheet
+```
+PAGE      /dashboard/[eventId]/vendors   (event: Bea & Paolo, a self-added supplier with a QR pay way)
+BUTTON    "<method> QR — tap to see it full size"
+STEPS     1. Suppliers → Booked → Pay on a self-added supplier (the `Sheet`). 2. Tap the QR thumbnail.
+EXPECTED  No popup on a popup: enlarge in place inside the sheet, or move the sheet to a full screen.
+ACTUAL    `OwnPayWays` (drawn inside `PaySheet`'s `<Sheet open … rise>`) opens a `GuestPopup` (`rootClassName="fixed inset-0 z-[96] …"`) on top of the open sheet. Code: `apps/web/app/dashboard/[eventId]/vendors/_components/own-pay-ways.tsx` · `onClick={() => setBig(w)}`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      SHAPE (never a popup on a popup) · HOUSE_DESIGN_STANDARD Part K3.4
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-G8 · Booking popups carry raw-rgba drop shadows
+```
+PAGE      /dashboard/[eventId]/vendors   (event: Bea & Paolo)
+BUTTON    — (every booking-flow popup: reservation terms, first payment, slot, confirm; the pay-QR popup)
+STEPS     1. Dark mode. 2. Start a booking that needs a first payment. 3. Look at the popup's edge.
+EXPECTED  Dark has no shadows and no raw colour; popups use tokens.
+ACTUAL    `LockPopup` panel: `shadow-[0_24px_60px_-20px_rgba(0,0,0,.5)]` (`_components/lock-milestone.tsx` · `export function LockPopup`); pay-QR panel: `shadow-[0_30px_80px_-30px_rgba(26,26,26,0.5)]` (`_components/own-pay-ways.tsx` · `panelClassName=`).
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      HOUSE_DESIGN_STANDARD Part K2.1 · design-and-wiring D13 (no raw colour)
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### A2-G9 · Find: a contracted supplier still offers "Ask for a quote"
+```
+PAGE      /dashboard/[eventId]/vendors/categories?c=<tile>   (event: Bea & Paolo, a supplier in status contracted)
+BUTTON    "Ask for a quote" / "Save to bench"
+STEPS     1. Book a supplier to `contracted` (not yet paid). 2. Find a supplier → open that category.
+EXPECTED  The header and the row agree: the booked supplier's row says "Booked · Open chat".
+ACTUAL    The header uses `openTile.booked` (from `readFindList`, `LOCKED_VENDOR_STATUSES`, includes contracted) → "Booked ✓". The row uses `r.relationshipDepth === 3`, and `searchCategoryVendors` sets depth 3 only for `s === 'deposit_paid' || s === 'complete'`, so a contracted or delivered supplier gets Save + "Ask for a quote" under a "Booked ✓" header. Code: `apps/web/app/dashboard/[eventId]/vendors/categories/page.tsx` · `const isBooked = r.relationshipDepth === 3`; `apps/web/app/dashboard/[eventId]/vendors/_actions/category-search.ts` · `s === 'deposit_paid' || s === 'complete'`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §4 booked = BOOKED_EVENT_VENDOR_STATUSES
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-G10 · Find: a failed category search reads "0 suppliers"
+```
+PAGE      /dashboard/[eventId]/vendors/categories?c=<tile>   (event: Sofia's 18th)
+BUTTON    —
+STEPS     1. Open a category while its search read is refused (event read, picks read or recommendations read fails). 2. Look at the count and the list.
+EXPECTED  "Couldn't load suppliers" plus Try again, never "0 suppliers" / none listed.
+ACTUAL    `searchCategoryVendors` returns `{ ...EMPTY, unreadable: true }` on a refused read, but the page never reads `res.unreadable`: it prints `` `${formatCount(rows.length)} suppliers` `` (0) and `findEmptyWords(…)` ("none listed"). The page checks `unreadable` only for the shops-by-name search (`shopsRead.unreadable`). Code: `apps/web/app/dashboard/[eventId]/vendors/categories/page.tsx` · `const empty = findEmptyState({`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-G11 · Find: a shop with no slug links to "#"
+```
+PAGE      /dashboard/[eventId]/vendors/categories?q=<shop name>   (event: Bea & Paolo)
+BUTTON    the shop row under "Suppliers"
+STEPS     1. Find a supplier → type a shop's name. 2. Tap a shop whose `business_slug` is null.
+EXPECTED  Every row reaches the shop, or is not a link.
+ACTUAL    `href={r.slug ? shopHrefForEvent(r.slug, eventId) : '#'}`, and `slug` is `business_slug ?? null` in `bench-marketplace-search.ts`. PLAUSIBLE that no listed shop lacks a slug today; the code still draws a dead link if one does. Code: `apps/web/app/dashboard/[eventId]/vendors/categories/page.tsx` · `: '#'`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      design-and-wiring B5 (no href="#")
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### A2-G12 · "Release this package" un-books paid suppliers with no check
+```
+PAGE      /dashboard/[eventId]/vendors/packages/[bookingId]   (event: Bea & Paolo, a locked package with a first payment made)
+BUTTON    "Release this package"
+STEPS     1. Lock a package, then pay its reservation fee (supplier row reaches deposit_paid). 2. Open the package page. 3. Press "Release this package".
+EXPECTED  The same rule as cancelling a booking: money that moved stops the release, or it goes to the dispute path (`cancelBookingAsHost` gates on `bookingMoneyMoved`); an irreversible step asks once.
+ACTUAL    One press, no confirm. `releasePackage` sets every `event_vendors` row of the booking to `status: 'considering'` with `.eq('event_vendor_package_id', bookingId)` and no status or money filter, then marks the booking released. A deposit_paid/delivered supplier silently leaves Booked, the coordinator's seat and the budget's agreed money, and the supplier is not told. PLAUSIBLE budget effect (agreed drops while paid stays); a browser walk must confirm. Code: `apps/web/app/dashboard/[eventId]/vendors/packages/actions.ts` · `export async function releasePackage` · `.update({ status: 'considering' })`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §4 Supplier booking row (one booked state drives budget, supplier view, coordinator seat) · CLAUDE.md §3 Floating surface "Confirm only for the irreversible"
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### A2-G13 · Review page says "Vendor Agreement"
+```
+PAGE      /dashboard/[eventId]/vendors/[vendorId]/review   (event: Lolo Ben at 80, a delivered supplier)
+BUTTON    —
+STEPS     1. Open "Leave a review" for a delivered supplier. 2. Read the line under the title (and the already-reviewed state).
+EXPECTED  "supplier", never "vendor", in words a person reads.
+ACTUAL    "They’re permanent per the Vendor Agreement § 3.10" and "Reviews are one-per-event per the Vendor Agreement § 3.10". Code: `apps/web/app/dashboard/[eventId]/vendors/[vendorId]/review/page.tsx` · `per the Vendor Agreement`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      brand.md word rules
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-G14 · A failed contracts read shows "No contracts yet" / 404
+```
+PAGE      /dashboard/[eventId]/contracts · /dashboard/[eventId]/contracts/[contractId]   (event: Bea & Paolo, one sent contract)
+BUTTON    —
+STEPS     1. Open Supplier contracts while the `vendor_contracts` read is refused. 2. Open one contract while its read is refused.
+EXPECTED  "Couldn't load your contracts" + Try again; the detail says it could not be read, not "not found".
+ACTUAL    `fetchEventContracts` returns `[]` on error, so the list shows `ContractsEmptyState` "No contracts yet. Suppliers will upload PDFs here…". `fetchContract` returns null on error, so the detail page calls `notFound()`. `lib/contracts.ts` already has the honest `readContract` (`{ failed: true }`) that the supplier side uses. Code: `apps/web/lib/contracts.ts` · `fetchEventContracts` / `fetchContract`; `apps/web/app/dashboard/[eventId]/contracts/page.tsx` · `message="No contracts yet.`; `.../contracts/[contractId]/page.tsx` · `if (!contract || contract.event_id !== eventId) notFound();`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-G15 · A failed disputes read shows "No disputes on record"
+```
+PAGE      /dashboard/[eventId]/disputes   (event: Bea & Paolo, one open flag)
+BUTTON    —
+STEPS     1. Open Disputes while the `force_majeure_flags` read is refused.
+EXPECTED  "Couldn't load your disputes" + Try again, not an empty record.
+ACTUAL    `const flags = (flagsRes.data ?? []) as FlagRow[];` with `flagsRes.error` never checked, so it shows "Existing flags (0)" and "No disputes on record. Open one above…". The same goes for the supplier list (`vendorsRes.data ?? []` → "No contracted suppliers yet."). Code: `apps/web/app/dashboard/[eventId]/disputes/page.tsx` · `flagsRes.data ?? []`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-G16 · Disputes uses its own supplier status list
+```
+PAGE      /dashboard/[eventId]/disputes   (event: Bea & Paolo, a supplier in status complete)
+BUTTON    "Affects which supplier?"
+STEPS     1. Have one supplier at `complete` and one only `shortlisted`. 2. Open Disputes → Open a new dispute → the supplier picker. 3. Look at an existing flag about the complete supplier.
+EXPECTED  The picker lists the booked suppliers (`BOOKED_EVENT_VENDOR_STATUSES`).
+ACTUAL    `.in('status', ['contracted', 'deposit_paid', 'delivered', 'shortlisted'])`: it adds a supplier that is only shortlisted and drops a `complete` one, which is the supplier most likely to need an after-event dispute. A flag already filed about a `complete` supplier has no match in `vendorById`, so `FlagCard` says "Whole event". The picker label also shows the raw status (`v.status.replace(/_/g, ' ')` → "deposit paid", "shortlisted"). Code: `apps/web/app/dashboard/[eventId]/disputes/page.tsx` · `'shortlisted'])`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §4 booked = BOOKED_EVENT_VENDOR_STATUSES
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### A2-G17 · "Close out the day" reports success when the save failed
+```
+PAGE      /dashboard/[eventId]/clearance   (event: Bea & Paolo, after the day)
+BUTTON    "Close out the day"
+STEPS     1. Press "Close out the day" while the `events` update fails.
+EXPECTED  A plain reason plus Try again; the page stays.
+ACTUAL    `closeOutTheDay` logs the update error (`logQueryError(… 'graceful_degrade')`) and then always `redirect(\`/dashboard/${eventId}\`)`, the same landing as success. The event stays un-cleared with nothing said. Code: `apps/web/app/dashboard/[eventId]/clearance/actions.ts` · `logQueryError('closeOutTheDay (events update)'`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      design-and-wiring B6 (a failure must render as a failure)
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### A2-G18 · "Stop the livestream" opens the Event Hub Maker
+```
+PAGE      /dashboard/[eventId]/clearance   (event: Bea & Paolo)
+BUTTON    "Stop the livestream"
+STEPS     1. Open Close out the day. 2. Press "Stop the livestream".
+EXPECTED  Lands on the live controller where the broadcast is ended (`liveStudioControllerHref(eventId)`, the same door `launch/page.tsx` gives "Go live").
+ACTUAL    `href: \`${base}/launch\``. `/launch` is the Event Hub Maker (`metadata = { title: 'Event Hub Maker' }`), which only lists "Live Watch — livestream" with a "Go live" button, one more hop away. PLAUSIBLE the host can still find it; a walk must confirm. Code: `apps/web/app/dashboard/[eventId]/clearance/page.tsx` · `{ label: 'Stop the livestream', href: \`${base}/launch\``.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      design-and-wiring B5 (a real destination)
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### A2-G19 · Irreversible close-out has no confirm
+```
+PAGE      /dashboard/[eventId]/clearance   (event: Bea & Paolo)
+BUTTON    "Close out the day"
+STEPS     1. Press "Close out the day" once.
+EXPECTED  The page itself says "It can’t be undone from here", so one confirm sheet asks first (confirm only for the irreversible).
+ACTUAL    A plain `<form action={closeOutTheDay.bind(null, eventId)}>` submits on the first press. It flips the whole event menu Day-of → After and stamps `cleared_at`. Code: `apps/web/app/dashboard/[eventId]/clearance/page.tsx` · `pendingLabel="Closing out…"`.
+SHOTS     none yet (phase B: 375 px light + dark)
+RULE      CLAUDE.md §3 Floating surface "Confirm only for the irreversible"
+SEVERITY  look
+SOURCE    CODE
+```

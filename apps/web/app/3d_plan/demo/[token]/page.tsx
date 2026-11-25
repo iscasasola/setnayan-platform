@@ -1,5 +1,8 @@
-import { CircleAlert } from 'lucide-react';
+import Link from 'next/link';
+import { CircleAlert, QrCode, RotateCcw } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
+import { actionButtonClass } from '@/components/action-button-class';
+import { routes } from '@/lib/routes';
 import { resolvePlan3DGuestToken } from '@/app/_actions/plan3d-demo-actions';
 import { Plan3DGuestView } from './_components/plan3d-guest-view';
 
@@ -24,6 +27,9 @@ export default async function Plan3DDemoJoinPage({ params }: Props) {
   const result = await resolvePlan3DGuestToken(token);
 
   if (!result.ok) {
+    // A7-03: two different dead ends, two different asks. An old code points to where fresh codes are made today
+    // (/pa3d/try — the homepage tile it used to name is gone); a failed read says so and offers the same link again.
+    const expired = result.reason === 'expired';
     return (
       <DoorShell
         tone="dead_end"
@@ -33,9 +39,24 @@ export default async function Plan3DDemoJoinPage({ params }: Props) {
             3D Plan demo
           </>
         }
-        title="This demo link expired."
-        sub="Demo codes are fresh every time — open a new one from the 3D Plan tile on the Setnayan homepage."
+        title={expired ? 'This demo link expired.' : 'We couldn’t open this demo.'}
+        sub={
+          expired
+            ? 'Demo codes are fresh every time. Open the demo room and tap a seated guest for a new one.'
+            : 'Your link is fine. Something on our end didn’t load. Try again in a moment.'
+        }
       >
+        {expired ? (
+          <Link href={routes.pa3d.try()} className={actionButtonClass('brand', { main: true })}>
+            <QrCode aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Open the demo room
+          </Link>
+        ) : (
+          <Link href={`/3d_plan/demo/${encodeURIComponent(token)}`} className={actionButtonClass('brand', { main: true })}>
+            <RotateCcw aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Try again
+          </Link>
+        )}
       </DoorShell>
     );
   }

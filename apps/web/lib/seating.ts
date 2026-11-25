@@ -217,16 +217,15 @@ export async function fetchTables(
  * QR opens that table's guest list), `qr_published_at`, the linked-unit fields or `is_vip`. Every guest-facing page —
  * `/[slug]/seat`, `/find-seat`, `/find-my-table` — reads tables through this, never through `fetchTables`, because
  * these rows are handed to a client component and so reach the browser. Throws on a refused read, like `fetchTables`.
+ * (The column list is written in the select, not exported: it is a deliberately narrow read, not the canonical set.)
  */
-export const PUBLIC_TABLE_COLUMNS = 'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos';
-
 export async function fetchPublicTables(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<EventTableRow[]> {
   const { data, error: publicTablesErr } = await supabase
     .from('event_tables')
-    .select(PUBLIC_TABLE_COLUMNS)
+    .select('table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos')
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });

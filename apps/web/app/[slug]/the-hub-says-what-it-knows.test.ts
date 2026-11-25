@@ -20,7 +20,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
 import { guestsWhoSaidYes } from '@/lib/entourage';
-import { fetchPublicTables, PUBLIC_TABLE_COLUMNS } from '@/lib/seating';
+import { fetchPublicTables } from '@/lib/seating';
 
 const WEB = join(__dirname, '..', '..');
 const raw = (rel: string) => readFileSync(join(WEB, rel), 'utf8');
@@ -88,8 +88,12 @@ test('A4-34 · the three seat pages read tables through lib/seating.ts fetchPubl
 });
 
 test('A4-34 · the rows the guest map receives carry no QR token, even when the database returns one', async () => {
+  const lib = code('lib/seating.ts');
+  const reader = lib.slice(lib.indexOf('export async function fetchPublicTables('), lib.indexOf('export async function fetchAssignments('));
+  const select = reader.match(/\.select\('([^']+)'\)/)?.[1] ?? '';
+  assert.ok(select.includes('table_label'), 'anti-vacuity: the guest read’s select was found');
   for (const col of ['qr_token', 'qr_published_at', 'link_group', 'is_vip']) {
-    assert.doesNotMatch(PUBLIC_TABLE_COLUMNS, new RegExp(col), `the guest read selects ${col}`);
+    assert.doesNotMatch(select, new RegExp(col), `the guest read selects ${col}`);
   }
   // A database that over-answers: the reader still hands on only the map's columns.
   const row = {

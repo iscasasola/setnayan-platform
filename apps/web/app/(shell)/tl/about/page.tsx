@@ -78,7 +78,7 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
   },
   {
     icon: ShieldCheck,
-    label: '0% commission, forever',
+    label: 'Hosts pay 0% commission.',
     value:
       'Hindi kailanman kumukuha ang Setnayan ng cut sa binabayad mo sa supplier. Direkta kayong nag-uusap ng supplier; galing ang kita sa software services at supplier subscriptions.',
   },
@@ -101,7 +101,7 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: 'May commission ba ang Setnayan sa supplier bookings?',
-    a: 'Wala. 0% commission sa bawat booking, sa bawat tier. Hindi kailanman hinahawakan ng Setnayan ang pera sa pagitan ng couple at supplier — galing ang kita sa software services at supplier subscriptions.',
+    a: 'Wala. Hosts pay 0% commission — sa bawat booking, sa bawat tier. Hindi kailanman hinahawakan ng Setnayan ang pera sa pagitan ng couple at supplier — galing ang kita sa software services at supplier subscriptions.',
   },
   {
     q: 'Supported ba ang mga Pinoy wedding traditions?',

@@ -69,7 +69,7 @@ type Control = 'map' | 'tables';
 type Resolution = 'entities' | 'joints' | 'fields';
 
 /** Nodes carry their live count once merged with UgatCounts. */
-type LiveNode = UgatTypeMeta & { count: number; countLabel: string };
+type LiveNode = UgatTypeMeta & { count: number | null; countLabel: string };
 
 /**
  * Tab labels, keyed by table. A `Record<UgatTableKey, …>` on purpose: TypeScript
@@ -104,8 +104,9 @@ const TYPE_TO_TABLE: Partial<Record<UgatEntityType, UgatTableKey>> = {
   community: 'communities',
 };
 
-function fmtCount(n: number): string {
-  return n.toLocaleString('en-PH');
+/** A8·H-3: null = the count could not be read — "—", never 0. */
+function fmtCount(n: number | null): string {
+  return n === null ? '—' : n.toLocaleString('en-PH');
 }
 
 function relTime(ms: number): string {
@@ -246,7 +247,7 @@ export function UgatConsole({
   // merge live counts into the static type nodes
   const nodes: LiveNode[] = useMemo(() => {
     return UGAT_TYPES.map((t) => {
-      const count = counts[t.countKey] ?? 0;
+      const count = counts[t.countKey] ?? null;
       let countLabel = fmtCount(count);
       if (t.type === 'taxonomy') {
         countLabel = fmtCount(counts.detail.taxonomyLeaves);
@@ -962,7 +963,8 @@ function NodeCard({
       <div className="ug-status-line">
         <Ico name="check" />
         <span>
-          <b>{node.countLabel}</b> · {node.blurb} · <span className="ug-live-dot">live</span>
+          <b>{node.countLabel}</b> · {node.blurb} ·{' '}
+          {node.count === null ? <span>couldn&rsquo;t read</span> : <span className="ug-live-dot">live</span>}
         </span>
       </div>
 
@@ -1625,7 +1627,7 @@ function TablesView({
                   {TABLE_META.find((t) => t.key === active)!.label}
                 </div>
                 <div className="ug-sub">
-                  {data.total.toLocaleString('en-PH')} row{data.total === 1 ? '' : 's'} · live · page{' '}
+                  {data.unread ? 'Couldn’t read this table' : `${data.total.toLocaleString('en-PH')} row${data.total === 1 ? '' : 's'} · live`} · page{' '}
                   {formatCount(data.page + 1)} of {formatCount(totalPages)}
                 </div>
               </div>

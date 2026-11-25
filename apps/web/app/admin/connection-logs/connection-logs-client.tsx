@@ -37,6 +37,7 @@ import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 import { useSaveLoader } from '@/components/sd-loader';
 
 import { resolveAllActive, setLogStatus } from './actions';
+import { useToast } from '@/app/_components/toast/toast-provider';
 
 export type FaultLogRow = {
   id: string;
@@ -180,6 +181,7 @@ export function ConnectionLogsClient({
 
   const rows = tab === 'active' ? filteredActive : resolved;
 
+  const toast = useToast();
   const resolveOne = useCallback(
     (row: FaultLogRow, status: 'resolved' | 'ignored') => {
       // Optimistic move; Realtime UPDATE reconciles as a safety net.
@@ -188,18 +190,25 @@ export function ConnectionLogsClient({
       setResolved((prev) => [updated, ...prev.filter((r) => r.id !== row.id)]);
       if (selected?.id === row.id) setSelected(null);
       startTransition(async () => {
-        const res = await save.run(() => setLogStatus(row.id, status), {
-          steps: ['Updating the log'],
-          hint: 'Saving',
-        });
-        if (!res.ok) {
-          // Revert on failure.
+        // A8·H-6: a refused save THROWS inside run(), so the loader hides instead of showing "Saved ✓"; the row
+        // goes back to Active and the reason is said.
+        try {
+          await save.run(
+            async () => {
+              const res = await setLogStatus(row.id, status);
+              if (!res.ok) throw new Error('refused');
+              return res;
+            },
+            { steps: ['Updating the log'], hint: 'Saving' },
+          );
+        } catch {
           setResolved((prev) => prev.filter((r) => r.id !== row.id));
           setActive((prev) => (prev.some((r) => r.id === row.id) ? prev : [row, ...prev]));
+          toast.error(`Couldn’t mark it ${status}. It is back under Active — press ${status === 'resolved' ? 'Resolve' : 'Ignore'} again.`);
         }
       });
     },
-    [selected, save],
+    [selected, save, toast],
   );
 
   const archiveAll = useCallback(() => {
@@ -215,12 +224,23 @@ export function ConnectionLogsClient({
     setActive((prev) => prev.filter((r) => !ids.has(r.id)));
     setResolved((prev) => [...stamped, ...prev]);
     startTransition(async () => {
-      await save.run(() => resolveAllActive(scope), {
-        steps: ['Archiving the logs'],
-        hint: 'Saving',
-      });
+      // A8·H-6: the result is read — a refused archive puts the rows back under Active and says so, never "Saved ✓".
+      try {
+        await save.run(
+          async () => {
+            const res = await resolveAllActive(scope);
+            if (!res.ok) throw new Error('refused');
+            return res;
+          },
+          { steps: ['Archiving the logs'], hint: 'Saving' },
+        );
+      } catch {
+        setResolved((prev) => prev.filter((r) => !ids.has(r.id)));
+        setActive((prev) => [...target.filter((r) => !prev.some((p) => p.id === r.id)), ...prev]);
+        toast.error('Couldn’t archive the logs. They are back under Active — press Archive all active again.');
+      }
     });
-  }, [active, filter, save]);
+  }, [active, filter, save, toast]);
 
   return (
     <div className="space-y-6">

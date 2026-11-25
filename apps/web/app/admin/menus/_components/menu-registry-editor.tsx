@@ -16,6 +16,8 @@ import {
 } from '../actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { useSaveLoader } from '@/components/sd-loader';
+import { useToast } from '@/app/_components/toast/toast-provider';
+import type { MenuWriteResult } from '@/app/admin/menus/actions';
 import { formatCount } from '@/lib/format-number';
 
 /**
@@ -132,6 +134,7 @@ export function MenuRegistryEditor({
 function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string[] }) {
   const [pending, startTransition] = useTransition();
   const save = useSaveLoader();
+  const toast = useToast();
   const [editing, setEditing] = useState(false);
   const [labelDraft, setLabelDraft] = useState(slot.label);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -143,25 +146,41 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
     return list.slice(0, 160);
   }, [iconNames, iconQuery]);
 
+  /**
+   * A8·H-15: one way to run a menu write. A refused write throws inside run(), so the loader hides instead of
+   * showing "Saved ✓", and its reason is said; Hide and Reset, which said nothing at all, now say what happened.
+   */
+  async function runWrite(step: string, write: () => Promise<MenuWriteResult>, done?: string): Promise<boolean> {
+    try {
+      await save.run(
+        async () => {
+          const res = await write();
+          if (!res.ok) throw new Error(res.error);
+          return res;
+        },
+        { steps: [step], hint: 'Saving' },
+      );
+      if (done) toast.success(done);
+      return true;
+    } catch (err) {
+      toast.error(err instanceof Error && err.message ? err.message : 'The menu change could not be saved. Try again.');
+      return false;
+    }
+  }
+
   function saveLabel() {
     const v = labelDraft;
     startTransition(async () => {
-      await save.run(() => setSlotLabel(slot.key, v), {
-        steps: ['Saving the label'],
-        hint: 'Saving',
-      });
-      setEditing(false);
+      if (await runWrite('Saving the label', () => setSlotLabel(slot.key, v))) setEditing(false);
     });
   }
 
   function pickIcon(name: string) {
     startTransition(async () => {
-      await save.run(() => setSlotLucideIcon(slot.key, name), {
-        steps: ['Saving the icon'],
-        hint: 'Saving',
-      });
-      setPickerOpen(false);
-      setIconQuery('');
+      if (await runWrite('Saving the icon', () => setSlotLucideIcon(slot.key, name))) {
+        setPickerOpen(false);
+        setIconQuery('');
+      }
     });
   }
 
@@ -240,9 +259,9 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
         </div>
 
         <div className="flex shrink-0 items-center gap-1">
-          <ActionButton tone="neutral" quiet iconOnly icon={slot.isHidden ? EyeOff : Eye} label={slot.isHidden ? 'Show in menu' : 'Hide from menu'} type="button" title={slot.isHidden ? 'Show in menu' : 'Hide from menu'} onClick={() => startTransition(async () => void (await setSlotHidden(slot.key, !slot.isHidden)))} />
+          <ActionButton tone="neutral" quiet iconOnly icon={slot.isHidden ? EyeOff : Eye} label={slot.isHidden ? 'Show in menu' : 'Hide from menu'} type="button" title={slot.isHidden ? 'Show in menu' : 'Hide from menu'} onClick={() => startTransition(async () => void (await runWrite('Saving', () => setSlotHidden(slot.key, !slot.isHidden), slot.isHidden ? 'Shown in the menu.' : 'Hidden from the menu.')))} />
           {slot.isOverridden ? (
-            <ActionButton tone="neutral" quiet iconOnly icon={RotateCcw} label="Reset to default" type="button" title="Reset to default" onClick={() => startTransition(async () => void (await resetSlot(slot.key)))} />
+            <ActionButton tone="neutral" quiet iconOnly icon={RotateCcw} label="Reset to default" type="button" title="Reset to default" onClick={() => startTransition(async () => void (await runWrite('Saving', () => resetSlot(slot.key), 'Back to the default.')))} />
           ) : null}
         </div>
       </div>
@@ -257,7 +276,7 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
               placeholder="Filter icons…"
               className="w-full rounded-md border border-ink/15 bg-cream px-2 py-1 text-sm"
             />
-            <ActionButton tone="neutral" icon={Check} label="No icon" type="button" onClick={() => startTransition(async () => void (await setSlotNoIcon(slot.key)))} />
+            <ActionButton tone="neutral" icon={Check} label="No icon" type="button" onClick={() => startTransition(async () => void (await runWrite('Saving the icon', () => setSlotNoIcon(slot.key))))} />
             <button
               type="button"
               onClick={() => {
@@ -295,7 +314,9 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
           </div>
 
           <form
-            action={uploadSlotIcon}
+            action={async (fd: FormData) => {
+              await runWrite('Uploading the icon', () => uploadSlotIcon(fd));
+            }}
             className="mt-3 flex items-center gap-2 border-t border-ink/10 pt-3"
           >
             <input type="hidden" name="slot_key" value={slot.key} />

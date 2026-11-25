@@ -73,13 +73,20 @@ async function audit(
   });
 }
 
+/**
+ * A8·H-15: every write reads its own `{ error }`. A refused write returns its reason and writes NO audit row —
+ * it used to audit and let the editor show "Saved" over a write the database refused.
+ */
+export type MenuWriteResult = { ok: true } | { ok: false; error: string };
+const REFUSED: MenuWriteResult = { ok: false, error: 'The menu change could not be saved. Nothing changed — try again.' };
+
 /** Rename a slot (blank ⇒ revert to the code-default label). */
-export async function setSlotLabel(slotKey: string, labelRaw: string) {
+export async function setSlotLabel(slotKey: string, labelRaw: string): Promise<MenuWriteResult> {
   const user = await requireAdmin();
   assertKnownSlot(slotKey);
   const label = labelRaw.trim();
   const admin = createAdminClient();
-  await admin.from('nav_slot_override').upsert(
+  const { error } = await admin.from('nav_slot_override').upsert(
     {
       slot_key: slotKey,
       label: label.length ? label : null,
@@ -88,17 +95,19 @@ export async function setSlotLabel(slotKey: string, labelRaw: string) {
     },
     { onConflict: 'slot_key' },
   );
+  if (error) return REFUSED;
   await audit(admin, user.id, 'nav.set_label', slotKey, { label: label || null });
   revalidateRegistry();
+  return { ok: true };
 }
 
 /** Set the slot's icon to an allowlisted Lucide glyph. */
-export async function setSlotLucideIcon(slotKey: string, lucideName: string) {
+export async function setSlotLucideIcon(slotKey: string, lucideName: string): Promise<MenuWriteResult> {
   const user = await requireAdmin();
   assertKnownSlot(slotKey);
   if (!KNOWN_ICONS.has(lucideName)) throw new Error(`Unknown icon: ${lucideName}`);
   const admin = createAdminClient();
-  await admin.from('nav_slot_override').upsert(
+  const { error } = await admin.from('nav_slot_override').upsert(
     {
       slot_key: slotKey,
       icon_kind: 'lucide',
@@ -109,16 +118,18 @@ export async function setSlotLucideIcon(slotKey: string, lucideName: string) {
     },
     { onConflict: 'slot_key' },
   );
+  if (error) return REFUSED;
   await audit(admin, user.id, 'nav.set_icon_lucide', slotKey, { lucide_name: lucideName });
   revalidateRegistry();
+  return { ok: true };
 }
 
 /** Set the slot to show no glyph (label-only). */
-export async function setSlotNoIcon(slotKey: string) {
+export async function setSlotNoIcon(slotKey: string): Promise<MenuWriteResult> {
   const user = await requireAdmin();
   assertKnownSlot(slotKey);
   const admin = createAdminClient();
-  await admin.from('nav_slot_override').upsert(
+  const { error } = await admin.from('nav_slot_override').upsert(
     {
       slot_key: slotKey,
       icon_kind: 'none',
@@ -129,16 +140,18 @@ export async function setSlotNoIcon(slotKey: string) {
     },
     { onConflict: 'slot_key' },
   );
+  if (error) return REFUSED;
   await audit(admin, user.id, 'nav.set_icon_none', slotKey, {});
   revalidateRegistry();
+  return { ok: true };
 }
 
 /** Show/hide a slot without a code change. */
-export async function setSlotHidden(slotKey: string, hidden: boolean) {
+export async function setSlotHidden(slotKey: string, hidden: boolean): Promise<MenuWriteResult> {
   const user = await requireAdmin();
   assertKnownSlot(slotKey);
   const admin = createAdminClient();
-  await admin.from('nav_slot_override').upsert(
+  const { error } = await admin.from('nav_slot_override').upsert(
     {
       slot_key: slotKey,
       is_hidden: hidden,
@@ -147,22 +160,26 @@ export async function setSlotHidden(slotKey: string, hidden: boolean) {
     },
     { onConflict: 'slot_key' },
   );
+  if (error) return REFUSED;
   await audit(admin, user.id, 'nav.set_hidden', slotKey, { is_hidden: hidden });
   revalidateRegistry();
+  return { ok: true };
 }
 
 /** Clear all overrides for a slot → back to the code default. */
-export async function resetSlot(slotKey: string) {
+export async function resetSlot(slotKey: string): Promise<MenuWriteResult> {
   const user = await requireAdmin();
   assertKnownSlot(slotKey);
   const admin = createAdminClient();
-  await admin.from('nav_slot_override').delete().eq('slot_key', slotKey);
+  const { error } = await admin.from('nav_slot_override').delete().eq('slot_key', slotKey);
+  if (error) return REFUSED;
   await audit(admin, user.id, 'nav.reset', slotKey, {});
   revalidateRegistry();
+  return { ok: true };
 }
 
 /** Upload a custom icon image (SVG/PNG/JPEG/WebP) → R2 → set as the slot icon. */
-export async function uploadSlotIcon(formData: FormData) {
+export async function uploadSlotIcon(formData: FormData): Promise<MenuWriteResult> {
   const user = await requireAdmin();
   const slotKey = String(formData.get('slot_key') || '');
   assertKnownSlot(slotKey);
@@ -179,7 +196,7 @@ export async function uploadSlotIcon(formData: FormData) {
   const url = await r2Upload({ bucket: R2_BUCKETS.media, key, body: bytes, contentType: file.type });
 
   const admin = createAdminClient();
-  await admin.from('nav_slot_override').upsert(
+  const { error } = await admin.from('nav_slot_override').upsert(
     {
       slot_key: slotKey,
       icon_kind: 'custom',
@@ -190,6 +207,8 @@ export async function uploadSlotIcon(formData: FormData) {
     },
     { onConflict: 'slot_key' },
   );
+  if (error) return REFUSED;
   await audit(admin, user.id, 'nav.set_icon_custom', slotKey, { custom_url: url });
   revalidateRegistry();
+  return { ok: true };
 }

@@ -1,7 +1,9 @@
 # Final check · Area 6 · Supplier: bookings, chat, payments, calendar
 
 Checker 6 of 8. Checked commit: `fb3f72d` (the pinned check commit). Report only.
-Phase A = code pass (`SOURCE: CODE`). Phase B = browser walk on staging (later).
+STATUS: phase A done (22 pages, 12 forwards, 70 findings) · phase B in progress
+
+Phase A = code pass (`SOURCE: CODE`). Phase B = browser walk on staging (`SOURCE: WALK`).
 
 ## BLOCKERS
 
@@ -11,9 +13,9 @@ None so far.
 
 Pages (22):
 
-- [ ] /vendor-dashboard/booking-fees
-- [ ] /vendor-dashboard/booking-fees/[orderId]
-- [ ] /vendor-dashboard/calendar/[date]
+- [x] /vendor-dashboard/booking-fees — OFFLINE: READ-ONLY IS ENOUGH · SHAPE: today page → should page · same
+- [x] /vendor-dashboard/booking-fees/[orderId] — OFFLINE: NOT NEEDED (paying needs the server) · SHAPE: today page → should page (a notification links to it) · same
+- [x] /vendor-dashboard/calendar/[date] — a forward to Customers › Dates day sheet · OFFLINE: see Dates · SHAPE: the day sheet is a SMALL POPUP over Dates · same
 - [x] /vendor-dashboard/clients/[eventId] — OFFLINE: NEEDED (on the day: booking status, Your booking, client details) — only `?tab=schedule` is saved today · SHAPE: today page (rises over the list on a soft tap) → should page · same
 - [x] /vendor-dashboard/clients/[eventId]/challenge-photos — OFFLINE: NOT NEEDED · SHAPE: today page → should FULL-SCREEN POPUP (a photo/video grid, nothing links to it by address) · DIFFERS (A6-53)
 - [x] /vendor-dashboard/clients/[eventId]/cocktail — OFFLINE: READ-ONLY IS ENOUGH · SHAPE: today page → should page (routes.ts builder, linked from the client page, multi-screen editor) · same
@@ -21,10 +23,10 @@ Pages (22):
 - [x] /vendor-dashboard/clients/[eventId]/mood-board — OFFLINE: READ-ONLY IS ENOUGH (a stylist checks the palette on the day; none saved today) · SHAPE: today page → should page · same
 - [x] /vendor-dashboard/clients/[eventId]/production-sheet — OFFLINE: NEEDED (on the day: the caterer works from it at the venue) — NOT saved today (not in `OFFLINE_COPY_SHAPES`); print is the only fallback · SHAPE: today page → should page · same
 - [x] /vendor-dashboard/clients/[eventId]/their-event/[part] — OFFLINE: NEEDED (on the day) for Schedule and Numbers; READ-ONLY for Guests and Event Hub; none saved today · SHAPE: today page → should page · same
-- [ ] /vendor-dashboard/contracts/[contractId]
-- [ ] /vendor-dashboard/contracts/new
+- [x] /vendor-dashboard/contracts/[contractId] — OFFLINE: READ-ONLY IS ENOUGH · SHAPE: today page → should page · same
+- [x] /vendor-dashboard/contracts/new — OFFLINE: NOT NEEDED · SHAPE: today page → should FULL-SCREEN POPUP (a 4-field fill-in with a file pick; the person came from a client or Contracts) · DIFFERS (A6-70)
 - [x] /vendor-dashboard/customers — OFFLINE: NEEDED (at an expo: Dates — "is this date open?"; on the day: the bookings list). No saved copy today; Money segment READ-ONLY IS ENOUGH · SHAPE: today page → should page · same (but 2 of its sheets differ: A6-41, A6-42)
-- [ ] /vendor-dashboard/disputes
+- [x] /vendor-dashboard/disputes — OFFLINE: NOT NEEDED · SHAPE: today page → should page · same
 - [x] /vendor-dashboard/manpower — OFFLINE: NOT NEEDED (no door by owner ruling 9 Nov; accepting a gig needs the server) · SHAPE: today page → should page · same
 - [x] /vendor-dashboard/messages — OFFLINE: READ-ONLY IS ENOUGH · SHAPE: today page (full-screen chats) → should page · same
 - [x] /vendor-dashboard/messages/[threadId] — OFFLINE: NEEDED (on the day: replying from the venue; composer should queue, money cards re-checked on reconnect) · SHAPE: today page → should page · same (but 2 of its tools differ: A6-12)
@@ -734,6 +736,151 @@ ACTUAL    Reads are honest on cocktail and production-sheet (`partReadOutcome`).
           `h-[22px] border-[3px]`, `bg-[rgb(var(--sn-frame-bg))]`, `shadow-[inset_0_0_0_1.5px_…]`, `rounded-[var(--m-r-*)]`; their-event uses hand-made `<h1>`s
           (no PageMasthead), `text-terracotta-700`, and typed `/vendor-dashboard/clients/${eventId}` / `/dashboard/${eventId}` routes.
 RULE      CLAUDE.md §3 type / radius / colour / page title
+SEVERITY  look
+SOURCE    CODE
+```
+
+### /vendor-dashboard/booking-fees · /booking-fees/[orderId]
+
+```
+A6-59
+PAGE      /vendor-dashboard/booking-fees   (Kusina ni Aling Nena Catering)
+BUTTON    the "Waived — nothing owed" section
+STEPS     1. Open Booking fees while the shop-profile read (`fetchOwnVendorProfile`) answers null or fails.
+EXPECTED  "We couldn't load your waived fees just now."
+ACTUAL    `fetchWaivedFeeCharges(admin, profile?.vendor_profile_id)` returns `[]` for a missing id, so the section is simply
+          absent — it reads as "you had no free bookings", the exact case the page's own comment says it must never draw.
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+```
+A6-60
+PAGE      /vendor-dashboard/booking-fees/[orderId]
+BUTTON    (page load)
+STEPS     1. Open one fee. 2. The payments read (`fetchPaymentsForOrder`) or the settings read is refused.
+EXPECTED  The page's own "We couldn't load this fee right now" (BookingFeeReadFailed), as the order read already does.
+ACTUAL    `fetchPaymentsForOrder` throws inside `Promise.all` with no catch → the vendor-dashboard error screen. Only the
+          FIRST read is honest-in-place.
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+A6-61
+PAGE      /vendor-dashboard/booking-fees · /booking-fees/[orderId]
+ACTUAL    (a) page.tsx's docblock types the fee rate and peso bounds ("5% … 3% beyond ₱…, never more than ₱…, minimum ₱…") —
+          a price in a comment; (b) /booking-fees runs 5 reads one after another (orders, profile, waived, schedule,
+          launch offer) — not one `Promise.all`; (c) [orderId] reads the same `booking_fee_charges` row twice with the
+          service role (found-you, then top-up), sequentially, after the batch.
+RULE      CLAUDE.md §1 (never write a price into a comment) · design-and-wiring D16 (one batched read)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+A6-62
+PAGE      /vendor-dashboard/booking-fees/[orderId]
+ACTUAL    Look only: typed `text-[17px]`, `text-[rgb(var(--color-link))]` on the Screenshot link, `!text-[13px]`; the
+          payment log prints the raw `paid_at` string ("Paid 2026-11-20") while every other date on the page is formatted.
+RULE      CLAUDE.md §3 type / colour
+SEVERITY  look
+SOURCE    CODE
+```
+
+### /vendor-dashboard/calendar/[date]
+
+```
+A6-63
+PAGE      /vendor-dashboard/calendar/[date]
+ACTUAL    A redirect stub, not a page: a valid date → `daySheetHref(date)` (Customers › Dates day sheet, `notice` kept when it
+          is a plain word); anything else → 404. Nothing to report in code; the browser pass checks it lands on the day.
+SEVERITY  —
+SOURCE    CODE
+```
+
+### /vendor-dashboard/contracts/[contractId] · /contracts/new
+
+```
+A6-64
+PAGE      /vendor-dashboard/contracts/new · /contracts/[contractId] (Cancel · Make visible)
+BUTTON    "Upload draft" · "Cancel contract" · "Make visible to couple"
+STEPS     1. Upload a PDF over the size limit, or a non-PDF renamed .pdf (or publish a contract another tab just cancelled).
+EXPECTED  The reason next to the field, in plain words, the form kept (Add 5 "Clear errors").
+ACTUAL    contracts/actions.ts answers every bad input with `throw new Error('…')` ("Title must be 1–200 characters.",
+          `validation.reason`, "Cancelled contracts cannot be re-published."). In production Next hides a thrown
+          server-action message, so the person gets the dashboard error screen and loses what they typed.
+RULE      FINAL-CHECK Add 5 (clear errors · forgiving)
+SEVERITY  broken
+SOURCE    CODE
+```
+
+```
+A6-65
+PAGE      /vendor-dashboard/contracts/[contractId] · /contracts/new · /disputes
+BUTTON    (signed out)
+STEPS     1. Open a contract link (from a notification) while signed out. 2. Sign in.
+EXPECTED  Back on the contract (`loginRedirectPath(...)`, as booking-fees does).
+ACTUAL    `redirect('/login')` with no return address on all three pages — the person lands on the dashboard, not the contract.
+RULE      kit § 5.1 (Back / deep links) · Law 9
+SEVERITY  broken
+SOURCE    CODE
+```
+
+```
+A6-66
+PAGE      /vendor-dashboard/contracts/[contractId]
+ACTUAL    Publish and Cancel `revalidatePath('/vendor-dashboard/contracts')` — a redirect stub — but not the hub where the
+          contracts list is drawn (`/vendor-dashboard/customers`) nor the couple's page that shows the contract.
+RULE      design-and-wiring C9 (revalidate every affected route)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+A6-67
+PAGE      /vendor-dashboard/contracts/new · /contracts/[contractId]
+ACTUAL    Look / words: the title hint is a photographer's example ("Wedding photography package — June 14, 2027") on every
+          shop, including a caterer; the cancel reason hint is "Couple changed terms / pricing renegotiated / etc.";
+          typed `/vendor-dashboard/messages` and `/vendor-dashboard` routes (not `lib/routes.ts`); typed `text-[11px]`,
+          `text-[13px]`; "their dashboard" (couples call it their event).
+RULE      CLAUDE.md §3 type · design-and-wiring A3 (routes.ts) · Add 3 (placeholders)
+SEVERITY  look
+SOURCE    CODE
+```
+
+### /vendor-dashboard/disputes
+
+```
+A6-68
+PAGE      /vendor-dashboard/disputes
+BUTTON    "Submit my response" / "Update my response"
+STEPS     1. Open an open dispute. 2. The team rules on it in another tab. 3. Press Update my response.
+EXPECTED  "This dispute has already been reviewed …" next to the box, the words kept.
+ACTUAL    `submitDisputeContest` throws that sentence; production hides it → the error screen, the typed response is lost.
+RULE      FINAL-CHECK Add 5 (clear errors · forgiving)
+SEVERITY  broken
+SOURCE    CODE
+```
+
+```
+A6-69
+PAGE      /vendor-dashboard/disputes
+ACTUAL    Look: the contest button is the legacy `button-primary text-sm` (no icon, no `ActionButton`); typed `text-[14px]`,
+          `text-[15px]`, `text-[13px]`; the no-profile state is a bare `<p>` with no empty-state piece.
+RULE      CLAUDE.md §3 Button / Type / Empty
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+A6-70
+PAGE      /vendor-dashboard/contracts/new
+ACTUAL    Shape (Add 1): today its own page; four fields plus a file pick, reached from a client or Contracts → should be a
+          FULL-SCREEN POPUP that returns to where the supplier started. Change ships only after a drawing.
+RULE      FINAL-CHECK Add 1
 SEVERITY  look
 SOURCE    CODE
 ```

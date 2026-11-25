@@ -11,7 +11,9 @@
 > Built in PR #8281 (`scripts/staging/*`, `apps/web/lib/staging-locks.ts`). Proven on every pull request by
 > `apps/web/tests/db/the-staging-seed-runs-clean.db.test.ts` (the seed and the catalogue copy on the replayed
 > schema), `apps/web/lib/staging-locks.test.ts`, `apps/web/lib/staging-r2-confine.test.ts` and
-> `apps/web/lib/staging-kit.test.ts`.
+> `apps/web/lib/staging-kit.test.ts`. The migration step (`scripts/staging/apply-migrations.ts`, added 25 Nov) is
+> proven by `apps/web/lib/staging-apply-migrations.test.ts` and
+> `apps/web/tests/db/the-staging-migration-apply-matches-the-replay.db.test.ts`.
 
 ---
 
@@ -52,9 +54,30 @@ branch of the production project (dashboard → Branches, or the MCP `create_bra
 and nowhere else: the branch's project ref, its database URL (pooler, port 5432), its API URL, its anon key and its
 service key. **The branch has its own ref — check it is not `njrupjnvkjkitfctetvi`.**
 
-**2 · Migrations.** A new branch applies the repository's migrations itself. Confirm it holds every file in
-`supabase/migrations` (`list_migrations` on the BRANCH). If it does not, apply them **to the branch's database URL
-only**, never production's: `supabase db push --db-url "$STAGING_DB_URL" --include-all`.
+**2 · Migrations.** A new branch does **not** finish the migrations by itself. Supabase branching applies them in
+strict version order and stops at the first back-numbered file (measured 25 Nov 2026 on `final-check`: 116 applied,
+then `MIGRATIONS_FAILED` on `20260530010000`, which needs a table that `20260631000000` creates). `supabase db push
+--include-all` is strict version order too and stops on the same file, so it is **not** a fallback — do not use it.
+
+Finish them with `scripts/staging/apply-migrations.ts` (run `pnpm install` first: it uses `pg`, no psql needed). It
+applies every file the branch's ledger does not hold, in the order the replay proves on every pull request (a file
+that fails is rolled back and retried right after the file that unblocks it), one transaction per file, and records
+each one in the branch's `supabase_migrations.schema_migrations`. Like the replay, it first writes a stand-in owner
+sign-in to `auth.users` (one migration refuses to run without it). **The branch's database URL only:** it refuses
+production's ref anywhere in the URL. Dry run first — one read-only transaction that prints the branch's ref, how
+many files are left, the two files expected out of order and the known skips, and writes nothing:
+
+```bash
+STAGING=1 STAGING_DB_URL='<the branch database URL — session pooler, port 5432>' pnpm exec tsx scripts/staging/apply-migrations.ts --dry-run
+```
+
+Then the same line without `--dry-run` (a few minutes; it prints every 100 files). It ends with a report: applied ·
+out of order · skipped (the known `ALLOWED_SKIP` files, recorded in the ledger as production's ledger has them) ·
+still failing, with each error. Exit `0` is clean. `1` means files are still failing and `3` means a file landed
+somewhere the replay does not: stop and send the report to the controller. `4` means the connection dropped: run the
+same command again, it resumes from the ledger. Then check `list_migrations` on the **BRANCH**: every version in
+`supabase/migrations` is listed. The branch's own status may still read `MIGRATIONS_FAILED` from its first attempt;
+the ledger is what counts.
 
 **3 · Copy the catalogue (before the seed, so the seed's orders carry production's prices).** Production is read
 through `scripts/lib/read-only-db.mjs` only — one SELECT at a time, in a read-only transaction, on a read-only

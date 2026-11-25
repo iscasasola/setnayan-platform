@@ -51,3 +51,13 @@ test('I-12 · the admin radar copy promises no floor control (none writes radar_
   );
   assert.doesNotMatch(card, /lower the floor in platform settings/);
 });
+
+test('C-5 · the team Help button says where it goes; public Help keeps "Message us"', () => {
+  const guides = code('help/guides/page.tsx');
+  assert.match(guides, /messageHref: '#no-answer-yet',\s*messageLabel: 'See what is unanswered'/);
+  const view = stripComments(readFileSync(resolve(admin, '..', '_components/help-ask/help-ask-view.tsx'), 'utf8'));
+  assert.doesNotMatch(view, /label="Message us"/);
+  assert.equal((view.match(/label=\{ctx\.messageLabel \?\? 'Message us'\}/g) ?? []).length, 2);
+  const fb = stripComments(readFileSync(resolve(admin, '..', '_components/help-ask/answer-feedback.tsx'), 'utf8'));
+  assert.match(fb, /messageLabel = 'Message us'/);
+});

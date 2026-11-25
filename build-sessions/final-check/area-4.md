@@ -1628,7 +1628,7 @@ On the pages fixer batch 1 touched (`/[slug]/seat`, `/find-seat`, `/welcome`, `/
 - [B] Add 15 · every guest QR (seat pass, door pass, ticket) draws the mark from `lib/qr-style-svg.ts`'s own path data → the one source. Lane B (Add 15 batch).
 - [B] Add 11b · `/[slug]/seat`, `/find-seat`, `/welcome`, `/request` at 1280 are the phone column centred in an empty page; at 768 the same. Should use the width (pass beside the room map on desktop). Reference: iPad Mail split view. Lane B.
 - [B] Add 11 (8) · `/find-seat` door pass: "Show this at the door" chip is a 0.6875 rem label in a bordered pill, not a control — fine; the page's two "Back to the invitation" links sit 1 line apart (two doors, one place). Lane B (one door).
-- [B] Add 12 · `/[slug]/seat` ArrivalBloom plays on every open, not only on arrival day: an arrival flourish on a pass read weeks before. Planned, not built: tie it to `arrived`. Lane B.
+- Add 12 · not judged here (motion needs the drawing's numbers side by side; no motion change in batch 1).
 - Add 13 · no missing icons found on these pages (every control uses lucide or the house glyphs).
 - Add 17 · no retired page among them. `/papic/lightcheck` stays R9 (not touched).
 - Add 18 · the guest pages only PLAY the couple's reveal; none offers templates to pick. No finding.

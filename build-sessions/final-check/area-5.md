@@ -33,14 +33,14 @@ None found in phase A so far.
 - [ ] /vendor-dashboard/profile
 - [ ] /vendor-dashboard/recommendations
 - [ ] /vendor-dashboard/repertoire
-- [ ] /vendor-dashboard/services
-- [ ] /vendor-dashboard/services/[serviceId]
-- [ ] /vendor-dashboard/services/new
-- [ ] /vendor-dashboard/services/new/[category]
-- [ ] /vendor-dashboard/services/requests
-- [ ] /vendor-dashboard/services/requests/[requestId]
-- [ ] /vendor-dashboard/services/requests/new
-- [ ] /vendor-dashboard/services/their-work
+- [x] /vendor-dashboard/services · OFFLINE: READ-ONLY IS ENOUGH (a forward to Shop; the cards as a saved copy, R11) · SHAPE: TODAY forward → /vendor-dashboard/shop (keeps every param) → SHOULD PAGE (same) · glow: n/a (forward)
+- [x] /vendor-dashboard/services/[serviceId] · OFFLINE: READ-ONLY IS ENOUGH (show a card at an expo; editing needs internet) · SHAPE: TODAY own page (the card maker, Back "Shop") → SHOULD FULL-SCREEN POPUP (differs) · glow: no
+- [x] /vendor-dashboard/services/new · OFFLINE: NOT NEEDED (making a card needs internet) · SHAPE: TODAY own page (picker, then the maker) → SHOULD FULL-SCREEN POPUP (differs) · glow: no
+- [x] /vendor-dashboard/services/new/[category] · OFFLINE: NOT NEEDED (making a card needs internet) · SHAPE: TODAY own page (the maker for one kind; "Start another from this") → SHOULD FULL-SCREEN POPUP (differs) · glow: no
+- [x] /vendor-dashboard/services/requests · OFFLINE: NOT NEEDED (a list of category requests, never needed without signal) · SHAPE: TODAY page → SHOULD PAGE (same; actions and notices land here by link) · glow: no
+- [x] /vendor-dashboard/services/requests/[requestId] · OFFLINE: NOT NEEDED · SHAPE: TODAY page → SHOULD PAGE (same; "requested=1" / decision notices link here) · glow: no
+- [x] /vendor-dashboard/services/requests/new · OFFLINE: NOT NEEDED (sending a request needs internet) · SHAPE: TODAY page, 3 steps as 3 addresses → SHOULD FULL-SCREEN POPUP (differs) · glow: no
+- [x] /vendor-dashboard/services/their-work · OFFLINE: READ-ONLY IS ENOUGH (portfolio shown to a client at an expo) · SHAPE: TODAY page → SHOULD PAGE (same; a card's Portfolio row links to its album anchor) · glow: no
 - [ ] /vendor-dashboard/settings
 - [ ] /vendor-dashboard/shop
 - [ ] /vendor-dashboard/shop/badges
@@ -314,4 +314,150 @@ CODE      apps/web/app/vendor/fit/[ref]/page.tsx · `bg-ink text-cream`
 SHOTS     to take in phase B: 375 px light + 375 px dark
 RULE      HOUSE_DESIGN_STANDARD D2 (3+ choices = PickMenu) · K2
 SEVERITY  look
+SOURCE    CODE
+
+### Service cards
+
+#### A5-G3-01 · A refused card read shows "page doesn't exist" for the shop's own card
+PAGE      /vendor-dashboard/services/[serviceId]   (shop: Liwanag Photo & Film)
+BUTTON    any service row on Shop (opens the card)
+STEPS     1. Shop › tap a card. 2. The `vendor_services` read is refused (any error).
+EXPECTED  "Couldn't load this card · Try again" — the card is still there.
+ACTUAL    `loadCardForEdit` returns null on `error || !row`, and the page calls `notFound()` — a failed read is drawn as "this page doesn't exist", the same as a card that was deleted.
+CODE      apps/web/lib/service-card-maker.server.ts · `if (error || !row) return null` ; apps/web/app/vendor-dashboard/services/[serviceId]/page.tsx · `if (!card) notFound()`
+SHOTS     to take in phase B: 375 px light + 375 px dark (only reproducible with a refused read; confirm by code)
+RULE      CLAUDE.md §5 rule 4 (honest states) · HOUSE_DESIGN_STANDARD F4
+SEVERITY  broken
+SOURCE    CODE
+
+#### A5-G3-02 · A refused plan read locks a venue's "Add the first space" for a Pro payer
+PAGE      /vendor-dashboard/services/[serviceId]   (a venue card; seeded venue shop is Area 7's — reproduce on any venue card)
+BUTTON    "Add the first" (AddFirstSpace, no hall yet)
+STEPS     1. Open a venue card with no hall. 2. The `vendor_profiles.tier_state` read in the page's Promise.all fails.
+EXPECTED  The plan read failing is said ("Couldn't check your plan · Try again"); a payer is never shown an upgrade lock.
+ACTUAL    `tierRes.error` is never looked at; `tier_state ?? null` → below Pro → the Pro lock and its upgrade door show to a shop that pays for Pro.
+CODE      apps/web/app/vendor-dashboard/services/[serviceId]/page.tsx · `proOpen={!vendorPaywallApplies(isTierAtLeast(` (comment: "A refused tier read reads as below Pro")
+SHOTS     to take in phase B: 375 px light + dark (code-only unless the read is refused)
+RULE      CLAUDE.md §5 rule 4 · reads-are-honest.test.ts ("isn't part of your current plan. Upgrade → to a payer")
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### A5-G3-03 · The maker's sheets are a hand-rolled overlay; on a computer nothing behind is dimmed or blurred
+PAGE      /vendor-dashboard/services/new · /services/new/[category] · /services/[serviceId]
+BUTTON    "Services", "Who it's for", the coverage ask, "Delete" (every `CanvasSheet`)
+STEPS     1. Open the maker on desktop (≥ 1024 px). 2. Tap the Services row (or Who it's for, or Delete).
+EXPECTED  The shared `Sheet` (or `RiseScreen`) with the one `OverlayBackdrop`: dim + blur, page behind inert, backdrop tap closes.
+ACTUAL    `CanvasSheet` is its own `createPortal` (`fixed inset-0 z-sn-toast`, `role="dialog" aria-modal`). `OverlayBackdrop` is `lg:hidden`; on desktop a clear `<button aria-label="Close">` catches the tap and the page stays bright and sharp behind it. Its panel also carries its own `shadow-[0_-12px_40px…]` and inline `--m-paper` fill instead of the Sheet's surface.
+CODE      apps/web/app/vendor-dashboard/services/_components/canvas-maker.tsx · `function CanvasSheet` · `<OverlayBackdrop onClose={onClose} className="lg:hidden" />`
+SHOTS     to take in phase B: desktop light + dark with a sheet open; 375 px light + dark
+RULE      HOUSE_DESIGN_STANDARD Part K3 (1)–(2) · CLAUDE.md §3 (Floating surface: no new hand-rolled aria-modal)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G3-04 · Maker sheets open as tall bottom sheets, and on Today they open on top of a sheet
+PAGE      /vendor-dashboard/services/new (and the maker opened from Today › What you offer › Start)
+BUTTON    "Services" / "Who it's for" in the maker
+STEPS     1. On a phone, Today › What you offer › Start (the maker in the shared Sheet). 2. Tap the Services row.
+EXPECTED  One layer at a time; a short choice opens at half height; the long ones live in a full-screen maker.
+ACTUAL    The maker already sits in a `Sheet` on Today (comment in `CanvasSheet`: "Today's 'What you offer → ＋ Start' opens it in the shared Sheet … every sheet the maker opens … opened BEHIND that sheet"; fixed by raising the z-index), so each choice is a popup on a popup. Each `CanvasSheet` is `max-h-[86dvh]` from the bottom, so its top (title, ✕) sits out of thumb reach on a phone.
+CODE      apps/web/app/vendor-dashboard/services/_components/canvas-maker.tsx · `sn-canvas-sheet absolute inset-x-0 bottom-0 mx-auto max-h-[86dvh]` · comment "ABOVE THE FRAME THAT HOSTS THE MAKER"
+SHOTS     to take in phase B: 375 px light + dark, from Today and from /services/new
+RULE      SHAPE (owner 25 Nov): never a popup on a popup, never a tall half-sheet · HOUSE_DESIGN_STANDARD K3 (4)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G3-05 · Making or editing a card is a page, not a full-screen popup
+PAGE      /vendor-dashboard/services/new · /services/new/[category] · /services/[serviceId]
+BUTTON    Shop › "＋ Add" / a card row / "Start another from this"
+STEPS     1. Shop › Add a service (or tap a card). 2. Look at what opens; press ✕/Back.
+EXPECTED  A multi-step fill-in rises as a `RiseScreen` over Shop; ✕ returns to the same scroll place; large centred dialog on desktop.
+ACTUAL    Each is its own page with a "‹ Shop" link (`/services/new/[category]` links "‹ Services", which bounces through the `/services` redirect to Shop's top). No `@rise` slot exists for services (`@rise` holds only team, settings, subscription, website, profile).
+CODE      apps/web/app/vendor-dashboard/services/new/page.tsx · apps/web/app/vendor-dashboard/services/[serviceId]/page.tsx · apps/web/app/vendor-dashboard/services/new/[category]/page.tsx · `href="/vendor-dashboard/services"`
+SHOTS     to take in phase B: 375 px light + dark, desktop
+RULE      SHAPE (owner 25 Nov): "adding a service card is a multi-step fill-in → FULL-SCREEN POPUP"
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G3-06 · "Tell us what you do" is three addresses, not one full-screen popup
+PAGE      /vendor-dashboard/services/requests/new
+BUTTON    "Can't find yours? Tell us what you do" (from the maker's picker)
+STEPS     1. Maker › search › Tell us what you do. 2. Step 1 group → step 2 category → step 3 name.
+EXPECTED  A 3-step fill-in rises as one `RiseScreen` over the maker; ✕ returns to the maker as it was.
+ACTUAL    Each step is the same page with `?group=` / `?tile=`; the maker is left behind (its "‹" goes to `SERVICE_MAKER_HREF`, a fresh maker — anything typed there is gone unless the device copy offers it).
+CODE      apps/web/app/vendor-dashboard/services/requests/_components/tell-us-view.tsx · `SERVICE_REQUEST_NEW_HREF}?group=` · `backToCard`
+SHOTS     to take in phase B: 375 px light + dark
+RULE      SHAPE (owner 25 Nov)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G3-07 · "That request is gone." is sent to the list, which never shows it
+PAGE      /vendor-dashboard/services/requests
+BUTTON    "Put it here" (on a request that was removed meanwhile)
+STEPS     1. Open a waiting request. 2. Admin removes it. 3. Pick a card › Put it here.
+EXPECTED  The list says "That request is gone."
+ACTUAL    `putCardUnderRequest` redirects to `/vendor-dashboard/services/requests?error=…`, but `YourRequestsPage` reads no searchParams and `YourRequestsView` draws no error line — the press looks like it did nothing.
+CODE      apps/web/app/vendor-dashboard/services/requests/actions.ts · `That request is gone.` ; apps/web/app/vendor-dashboard/services/requests/page.tsx · `export default async function YourRequestsPage()`
+SHOTS     to take in phase B: 375 px light (hard to stage; confirm by code)
+RULE      HOUSE_DESIGN_STANDARD D3 ("failure = plain reason + Try again") · checklist 2 (a press that does nothing)
+SEVERITY  broken
+SOURCE    CODE
+
+#### A5-G3-08 · Request detail: a main button plus accent-outlined buttons in one screen
+PAGE      /vendor-dashboard/services/requests/[requestId]
+BUTTON    "Make a card now" + "Put it here" (waiting) · "Pick the service that fits" + "Request a different name" (not added)
+STEPS     1. Open a waiting request while the shop has a card not yet placed. 2. Open a request marked Not added.
+EXPECTED  One filled blue main button; every other button neutral or a text link.
+ACTUAL    Waiting: "Put it here" is `actionButtonClass('brand')` (blue outline on a blue wash) beside the main "Make a card now". Not added: "Request a different name" is `tone="brand"` outlined beside the main "Pick the service that fits".
+CODE      apps/web/app/vendor-dashboard/services/requests/_components/request-detail-view.tsx · `className={actionButtonClass('brand')}` · `label="Request a different name"`
+SHOTS     to take in phase B: 375 px light + dark
+RULE      HOUSE_DESIGN_STANDARD Part K1 (2)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G3-09 · Card maker: accent-outlined "Pick up" / "Use it" beside the main Create
+PAGE      /vendor-dashboard/services/new · /services/new/[category] · /services/[serviceId]
+BUTTON    "Pick up" (Picked up where you left off?) · "Use it" (each availability template + Recommended)
+STEPS     1. Start a card, leave, come back (the device copy is offered). 2. Open How clients book with a template installed and a recommended style.
+EXPECTED  The thumb row's "Create" / "Save card" is the one blue main; the rest neutral.
+ACTUAL    "Pick up" is `tone="brand"` (outlined accent) and every "Use it" is `tone={on ? 'neutral' : 'brand'}` — up to several accent-outlined buttons on the screen that holds the main Create. Choosing one style is a pick, not a second forward step.
+CODE      apps/web/app/vendor-dashboard/services/_components/canvas-maker.tsx · `label="Pick up"` · `function AvailabilityBlock` · `tone={on ? 'neutral' : 'brand'}` · `tone={using ? 'neutral' : 'brand'}`
+SHOTS     to take in phase B: 375 px light + dark
+RULE      HOUSE_DESIGN_STANDARD Part K1 (2)–(3)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G3-10 · "Who it's for" sheet saves with the legacy `.button-primary`
+PAGE      /vendor-dashboard/services/new · /services/[serviceId]
+BUTTON    "Save who it's for"
+STEPS     1. Maker › Who it's for. 2. Look at the save button in light and dark.
+EXPECTED  `ActionButton tone="brand" main` (the supplier blue, 40 px paint in a 44 px press).
+ACTUAL    `SubmitButton className="button-primary min-h-[44px]"` — the legacy primary, which CLAUDE.md §3 says not to add to; verify in phase B that it reads blue (not terracotta) inside the supplier look, light and dark.
+CODE      apps/web/app/vendor-dashboard/services/_components/canvas-maker.tsx · `button-primary min-h-[44px] disabled:opacity-50`
+SHOTS     to take in phase B: 375 px light + dark
+RULE      CLAUDE.md §3 (Button) · HOUSE_DESIGN_STANDARD K1 (supplier blue inside supplier surfaces)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G3-11 · Claim banner says "their wedding" for any event, with a terracotta heart
+PAGE      /vendor-dashboard/services/new/[category]?claim=…
+BUTTON    —
+STEPS     1. A host adds the supplier to a debut or birthday and the supplier claims it. 2. The card maker opens with the claim banner.
+EXPECTED  "…Saving links it straight to their event." in the supplier's blue look.
+ACTUAL    The words are fixed: "they added you to their <kind> plan. Saving links it straight to their wedding." The heart is `text-terracotta` (the couple accent) on `--m-paper-2` inside a supplier surface.
+CODE      apps/web/app/vendor-dashboard/services/new/[category]/page.tsx · `Saving links it straight to their wedding` · `text-terracotta`
+SHOTS     to take in phase B: 375 px light + dark (needs a claim link; Area 6 seed may have one)
+RULE      docs/brand.md word rules (event) · DARK_MODE_STANDARD §1 (supplier family)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G3-12 · "Their work" says "this card" on a shop-wide page and hand-types its title
+PAGE      /vendor-dashboard/services/their-work
+BUTTON    —
+STEPS     1. A card › Portfolio › an album row (opens Their work).
+EXPECTED  A line that matches the page (every booked event's photos across the shop) and the house `PageMasthead`.
+ACTUAL    Visible `<h1>` "Their work" + "Photos from the events this card was booked for" — but the page lists every album of the shop (`readShopWork`), each with its own "Booked on" card rows. The title is a hand-typed `text-[22px]` h1 instead of `PageMasthead`.
+CODE      apps/web/app/vendor-dashboard/services/their-work/page.tsx · `Photos from the events this card was booked for`
+SHOTS     to take in phase B: 375 px light + dark
+RULE      CLAUDE.md §3 (Page title: PageMasthead) · checklist 11 (wrong words)
+SEVERITY  wrong
 SOURCE    CODE

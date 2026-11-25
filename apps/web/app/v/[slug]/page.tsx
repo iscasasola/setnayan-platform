@@ -4479,8 +4479,7 @@ function ReviewsSection({
 }) {
   if (readFailed) {
     return (
-      <section id="reviews" className="space-y-6 border-b border-ink/10 py-8">
-        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Reviews</h2>
+      <section id="reviews" aria-label="Reviews" className="space-y-6 border-b border-ink/10 py-8">
         <ShopSectionCouldNotLoad what="reviews" />
       </section>
     );

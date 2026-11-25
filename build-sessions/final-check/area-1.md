@@ -2456,3 +2456,122 @@ RULE      kit § 5 item 10
 SEVERITY  look
 SOURCE    SEEN
 ```
+
+#### A1-170 · From "Sign in to get Event Plus" to a payment is well over 4 taps, and three priced rows have no button
+```text
+PAGE      /pricing (signed out, then signed in as `front`, no event) · /pricing/plan
+BUTTON    "Sign in to get Event Plus / Pro / Ultra" · "Add to an event" · rows "Papic credits from ₱99", "Live Watch ₱3,990", "Setnayan AI from ₱265"
+STEPS     1. Signed out, press "Sign in to get Event Plus". 2. Sign in (Use email · email · password · Continue). 3. Back on /pricing, find Event Plus again and press "Add to an event". 4. With no event: "Start a new event".
+EXPECTED  Add 4: price before pressing (ok), the wall-to-"payment logged" path in 4 taps or fewer, every priced thing with one door.
+ACTUAL    The sign-in returns to the top of /pricing (`next=%2Fpricing`), not to Event Plus, so the person scrolls and presses again. A person with no event then gets "You have no event ahead yet — start one, then add the plan to it." → "Start a new event" → /start → 9 onboarding screens (A1-156: 2+ minutes) → and the plan is not carried through: they must find it again inside the event. Counted: 15+ taps before any checkout. Papic credits, Live Watch and Setnayan AI show a price and an ⓘ but no button, signed out or in. The "Add Event Plus to…" popup draws with no dimmed or blurred backdrop and the page behind stays live (K3; the hand-built dialog of A1-046, now SEEN).
+SHOTS     375 px light: the "Add Event Plus to…" popup over /pricing
+RULE      Add 4 (EVIDENT, ≤ 4 taps) · Part K3
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A1-171 · Sign-up's small checkboxes and links, and browser-bubble errors
+```text
+PAGE      /signup · /login · /forgot-password (375 px)
+BUTTON    "I agree to the Terms…" box · "Stay signed in" box · "Terms" · "Privacy Policy" · "Sign in" · "Create account" (links) · empty "Create account" / "Continue" / "Email me a reset link"
+STEPS     1. Open each at 375 px. 2. Measure the controls. 3. Press the main button with the fields empty.
+EXPECTED  Add 5: every tap target 44 px, no two controls touching; the error sits next to the field in house words.
+ACTUAL    The two checkboxes draw at 15 × 15 px; "Terms" and "Privacy Policy" are 17 px tall links on the same line as the agree box; "Sign in" (/signup) and "Create account" (/login) are 17 px tall. An empty submit shows the browser's own bubble ("Please check this box if you want to proceed." · "Please fill out this field.") instead of a house error under the field. On /signup the agree box also blocks "Continue with Google / Apple" with that bubble.
+SHOTS     375 px light
+RULE      Add 5 (one hand, clear errors) · CLAUDE.md §3 (form-row)
+SEVERITY  look
+SOURCE    SEEN
+```
+
+## Phase B · the owner's additions (Adds 1–10b), area 1
+
+### Add 1 · Popup, full-screen popup or page
+Phase A's SHAPE marks stand (see Progress): **8 differ** — /login, /signup, /forgot-password (should be SMALL POPUP) · /signup/you, /start, /pricing/plan, /articles/write, /samahan/chat/new (should be FULL-SCREEN POPUP). Seen on the copy, adding:
+- **/pricing:** a spotlight tour opens by itself, then a second "You’re set · Done" card after Skip — a popup after a popup the person never asked for (A1-158).
+- **"Add Event Plus to…"** (/pricing, signed in): today a floating card with no backdrop → should be a SMALL POPUP (`Sheet`) (A1-170).
+- **/start → /onboarding/<type>:** today a PAGE of 9 screens → should be a FULL-SCREEN POPUP on a phone, a centred popup on desktop (owner's onboarding rule).
+
+### Add 2 · Clean, balanced, effective (home, pricing, sign-in; the rest are in each Progress line)
+- **/ (home):** CLEAN ok · BALANCED: at 1280 the shelf of event types is cut at the content edge while ~150 px of page stays empty to its right, and the rail repeats "Sign in" (A1-167) · EFFECTIVE: the hero has no button; the first thing to press is a tile further down ("What are you planning?").
+- **/pricing:** CLEAN: the tour and its "Done" card cover the page (A1-158) · BALANCED: it uses a serif display face and cream panels the other public pages do not, so it reads as another site · EFFECTIVE: three priced rows have no button (A1-170).
+- **/login, /signup:** CLEAN ok · BALANCED ok · EFFECTIVE: on a phone the card is pinned near the top, the main button sits mid-screen, fine; small links (A1-171).
+- **/for-suppliers:** CLEAN ok · BALANCED ok · EFFECTIVE ok ("Open your shop" is visible at once).
+
+### Add 3 · Placeholders (seen)
+- "Maria and Jose" as a real couple on / and /pricing (A1-168).
+- "Lola Rosa turns 80" pre-shown in the Event name of `/onboarding/birthday` (reached from /start; area 2's page — passed on, not counted here).
+- "suppliers are landing every week" on an empty supplier list (A1-157).
+- Seeded "Sample photo" labels on supplier cards in Discover: seeded data, NOT a finding.
+- Phase A's code list stands (A1-009, A1-010, A1-012, A1-013, A1-048, A1-123).
+
+### Add 4 · Every place to buy or upgrade in area 1
+| Route | What is sold | Price shown (read live, matches catalogue) | Door today |
+|---|---|---|---|
+| /pricing "Make it yours" | Event Pro · Event Ultra | ₱5,490 · ₱9,990 | signed out: "Sign in to get …" → /login?next=/pricing · signed in: "Add to an event" popup |
+| /pricing "A nicer, bigger event" | Event Plus | ₱2,990 | same as above |
+| /pricing "The day" | Papic credits · Live Watch | from ₱99 · ₱3,990 | **none** (ⓘ only) |
+| /pricing "Help planning" | Setnayan AI | **from ₱265** (Product data and llms.txt say ₱2,790) | **none** (A1-155) |
+| /pricing "For suppliers" · /for-suppliers plan rows | Plus · Pro · Ultra (monthly) | ₱1,990 · ₱4,990 · ₱8,990 | "Start on Plus/Pro/Ultra →" → /open-shop?p… (area 5 walks the rest) |
+| /pricing/plan (quiz) | Event Plus · Pro · Ultra | same | "Sign in to get …" → /login?next=/pricing (the quiz's answers are lost) |
+| /papic | Papic credits (price dial) | from ₱99 | → /papic/try (area 4) |
+| /panood · /palogo · /setnayan-ai · other product pages | (no price on the page) | — | "Start planning · free" → /onboarding/wedding (A1-031) |
+| /features/<slug> | per-feature price line | read live | "Start planning · free" → /signup |
+| /for-suppliers | booking fee (to suppliers) | 5% / 3% above ₱100,000, never more than ₱100,000 | text only, correct audience |
+Taps from the wall to "payment logged": **not reachable inside area 1** — over 15 taps before any checkout for a new person (A1-170). EVIDENT: prices show before every button (ok); the current plan is never shown on /pricing for a signed-in person. CLEAN: one decision per row (ok), except the tour on top. HONEST: all prices match the catalogue except Setnayan AI (A1-155).
+
+### Add 5 · Main jobs on a phone, one hand, as a first-timer
+| Job | Rating | The one step that makes it hard |
+|---|---|---|
+| Start an event with no account (/start → create) | **HARD** | "Creating…" for over 2 minutes with no word (A1-156); 9 screens |
+| Save that event to an account ("Secure my plan") | **HARD — impossible** | /signup bounces back to the dashboard (A1-056, blocker) |
+| Sign in by email | OK | "Use email" hides the fields one tap deeper; then ~1 minute of "Signing in…" (A1-156) |
+| Create an account | OK | 15 px checkboxes; browser-bubble errors (A1-171) |
+| Read the prices | OK | a tour covers the page first (A1-158) |
+| Find a supplier signed out | **HARD** | browsing sends a stranger to /login (owner's ruling), and llms.txt says the opposite (A1-163) |
+| Open a supplier's shop | **HARD — impossible on the copy** | every shop page answers 500 (A1-154, blocker) |
+| Get help offline at a venue | **HARD** | the browser's blank error (A1-166) |
+
+### Add 6 · Every control pressed
+Counts per page are in each Progress line (`B375` and `B1280`: buttons · pressed · failed). How: every visible control was found (links, buttons, tabs, switches, menu items, checkboxes, radios, selects with every option, summaries). Every internal link was followed (HTTP status checked, redirects followed); every other control was pressed in place and counted "failed" when nothing changed (no navigation, no popup, no expand/select state, no change to the page). Left unpressed, by rule: anything that submits, pays, sends, posts, publishes, saves, uploads or reports (named per page), and disabled controls.
+
+### Add 7 · Three sizes, light and dark
+- **Sizes:** no page scrolls sideways at 375, 768 or 1280. At 768 the public pages keep the phone's drawer (same controls as 375) with a wider search and a wider hero: designed, not stretched. At 1280 the rail appears (+13 controls).
+- **DARK:** public signed-out pages are **light only: 67** (counted, not reported one by one, per Add 7). **Dark: 3** — /login, /signup and the pages that forward to them (/signup/you, /articles/write, /explore/compare, /samahan/chat/[id]) follow the phone's dark setting. So a person in dark mode goes light → dark (sign-in card) → light again: worth the owner's look when the light-only count is decided.
+- **Shots:** `build-sessions/final-check/shots/area-1/home-{375,768,1280}-{light,dark}.png` (the dark shots are identical to light: the home page is light only).
+
+### Add 8 · Reveals — area 3 only. Not walked here.
+
+### Add 9 · The whole public website's words and how it is found
+- **Words:** phase A's word findings stand (A1-022, A1-024–A1-030, A1-047–A1-049, A1-063, A1-066, A1-086, A1-087, A1-093, A1-103, A1-105–A1-108, A1-152). Seen now on the copy as well: "Monogram maker" in the old footer on /help/guides/[key]; "vendor" in 6 help addresses (A1-162); "The best place…" and "Philippines-first" (A1-159).
+- **SEO:** titles, descriptions, canonicals, share pictures, robots and sitemaps were read on every public page: A1-160, A1-161, A1-162. Every indexable page has a canonical except /api/v1. Every page has Organization data; feature pages add SoftwareApplication + FAQPage + HowTo; help answers add Article + FAQPage + BreadcrumbList; /pricing lists 10 Products + 3 Services whose prices match the page except Setnayan AI (A1-155); /for-suppliers lists the 3 paid plans (match).
+- **GEO / llms.txt:** prices are read live from both catalogues and match /pricing (except A1-155); plan names right; wrong or banned lines in A1-163.
+- **AEO:** /features/<slug> and /help/<slug> open with a plain answer (good); the product pages open with slogans (A1-165).
+- **What AI says now:** nothing — no search result names Setnayan (A1-164).
+
+### Add 10b · Supplier QR challenge — areas 5, 6, 7. Not walked here.
+
+## Offline — beyond the five
+
+Area 1 is the public front door. Only parts that are NOT one of the owner's five full-offline places are listed. Tried on the copy with the browser offline (service worker active, `/offline.html` in its cache): every public and help page gives the browser's own blank error, not Setnayan's offline page, and loads normally back online (A1-166). Shop pages could not be tried (A1-154). No offline bar shows on any area-1 page.
+
+**Event host or couple (signed out, before or between events)**
+| The part | The moment the signal drops | Level it needs | Why |
+|---|---|---|---|
+| /help, /help/[slug], /help/topics, /help/topics/[key] — answers | in a province with weak data; at the venue on the day | READ-ONLY | a host or guest looking up "what if the venue has no signal" gets a blank page exactly when they need the answer |
+| /explore/compare?ids=… — a saved comparison | at an expo, between booths | READ-ONLY | the couple re-opens the two suppliers they were weighing; today it is a sign-in wall then a live read |
+| /{shop} (was /v/[slug]) — a supplier's page, its cards and prices | at an expo, after scanning a booth QR | READ-ONLY (the couple-at-an-expo place covers the action; the page itself needs a last copy) | today only an accidental one-word-address rule keeps a copy (`isDayOfGuestNavigation`), and it keeps a 500 as readily as a page |
+| /{shop}?dates=1 — Check a date | at an expo, from the printed QR | SAVE AND SYNC (ask now, sent when back) | the couple loses the question if there is no signal; it should queue with a plain "We'll send this when you're back online" |
+| /pricing | on the road | NOT NEEDED (a stale price is worse than none) | — |
+| /start → onboarding — start an event | on the road, weak data | SAVE AND SYNC | 9 screens typed with no signal are lost on "Create"; it should keep the draft and create when back |
+| /login, /signup | anywhere | NOT NEEDED, but say so | today a blank error; Setnayan's own "You're offline" with Try again is the honest state |
+
+**Guest (from a public link)**
+| The part | The moment the signal drops | Level it needs | Why |
+|---|---|---|---|
+| /v/[slug]/guest-review — the supplier's table QR asking for a review | at the venue on the day | SAVE AND SYNC | the guest writes the review at the table; it should send when signal returns, not vanish |
+| /samahan/chat/[threadId] — the day-of crew group | at the venue on the day | SAVE AND SYNC (read the last messages; queue new ones) | the coordinator and suppliers talk here during the event |
+
+**Supplier (public pages only; the supplier console is areas 5–7)**
+| The part | The moment the signal drops | Level it needs | Why |
+|---|---|---|---|
+| /for-suppliers, /features/supplier-* | at an expo, showing a couple | READ-ONLY | the supplier shows what Setnayan does from their phone; a blank page at the booth looks bad |

@@ -104,5 +104,7 @@ test('⏱ the house speed is 12 s; a stored veil `feather` (the speed it replace
 test('↪️ a retired opening id as the house default plays its successor', () => {
   assert.equal(mergeRevealConfig({ defaultTemplate: 'four-flap' }).defaultTemplate, 'envelope-classic');
   assert.equal(mergeRevealConfig({ defaultTemplate: 'church-doors' }).defaultTemplate, 'cathedral-doors');
-  assert.equal(mergeRevealConfig({ defaultTemplate: 'gift-box' }).defaultTemplate, 'veil-sheer', 'the held gift box is not an opening');
+  /* 🎁 the gift box is the tenth reveal now (owner 23 Nov, "ten reveals approved"): it is a house default like any other */
+  assert.equal(mergeRevealConfig({ defaultTemplate: 'gift-box' }).defaultTemplate, 'gift-box');
+  assert.equal(mergeRevealConfig({ defaultTemplate: 'gift' }).defaultTemplate, 'veil-sheer', 'a bare alias is not a stored id');
 });

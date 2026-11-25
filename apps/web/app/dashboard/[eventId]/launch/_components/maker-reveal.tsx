@@ -29,6 +29,7 @@ import { IRow, ISection, ISeg, ISegmented } from '../../website/editor/_componen
 import { PickMenu } from '../../website/editor/_components/pick-menu';
 import { ColourSheet } from '../../website/editor/_components/colour-well';
 import { StageStyle } from './stage-panel/stage-style';
+import { RevealDesignsRow } from './stage-panel/reveal-designs-row';
 import { About, Dd, Swatch } from './stage-panel/kit';
 import {
   VEIL_FOLDS,
@@ -848,6 +849,8 @@ function RevealStagePart({
                 </>
               )}
             </div>
+            {/* 🎨 the opening's own designs (v24 + v25): one list, the same Step 5 offers */}
+            {picked !== REVEAL_NONE_ID ? <RevealDesignsRow picked={picked} effects={effects} onEffects={setEffects} /> : null}
             {veil ? (
               /* 🧵 THE VEIL IS THE COUPLE'S TO TUNE (owner 2026-10-17: *"fold coverage, veil thread count, veil color"*):
                  Fold ▾ · Weave ▾ and the veil's colour circle — the one colour sheet. Each middle choice is today's veil,

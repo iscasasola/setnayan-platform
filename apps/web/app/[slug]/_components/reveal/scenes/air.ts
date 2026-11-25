@@ -10,7 +10,7 @@
  */
 import * as THREE from 'three';
 import { SCRATCH_OPENS_AT } from '@/lib/reveal-motion';
-import { BUMP, canvas, ctx2d, lay, solidLights, stamp, texOf, type Ctx, type Scene } from './kit';
+import { halfFloatTargets, BUMP, canvas, ctx2d, lay, solidLights, stamp, texOf, type Ctx, type Scene } from './kit';
 
 const VS = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = vec4(position.xy, 0., 1.); }';
 const VS3 = 'varying vec2 vUv; void main(){ vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }';
@@ -24,11 +24,6 @@ const HEAD = 'varying vec2 vUv; uniform vec2 px; uniform float dt, uT, uTau, uR;
 type U = Record<string, THREE.IUniform>;
 type Pair = { a: THREE.WebGLRenderTarget; b: THREE.WebGLRenderTarget; swap: () => void };
 
-/** Does this phone render into half-float targets? (WebGL2 needs EXT_color_buffer_half_float or _float.) */
-function halfFloatTargets(r: THREE.WebGLRenderer): boolean {
-  const gl = r.getContext();
-  return !!(gl.getExtension('EXT_color_buffer_half_float') || gl.getExtension('EXT_color_buffer_float'));
-}
 
 class Fluid {
   v: Pair;

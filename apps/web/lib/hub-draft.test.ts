@@ -353,7 +353,7 @@ test('the reveal: "No reveal" is free, every opening is Pro — both answers of 
       { events: { std_reveal_template: live }, widgets: [] },
       ownsPro,
     );
-  for (const opening of ['veil-sheer', 'beach-curtains', 'envelope-classic', 'envelope-gatefold', 'fabric', 'scratch', 'smoke', 'cathedral-doors', 'petals', 'fireworks']) {
+  for (const opening of ['veil-sheer', 'beach-curtains', 'envelope-classic', 'envelope-gatefold', 'fabric', 'scratch', 'smoke', 'cathedral-doors', 'petals', 'fireworks', 'gift-box']) {
     assert.equal(plan(opening, false).refused.length, 1, `${opening} applied for a free couple`);
     assert.equal(plan(opening, true).apply.length, 1, `${opening} refused for an owning couple`);
   }
@@ -362,8 +362,10 @@ test('the reveal: "No reveal" is free, every opening is Pro — both answers of 
   assert.equal(plan(null, false, 'envelope-classic').refused.length, 0, 'clearing a reveal is free');
   // An unknown opening never lands in a draft.
   assert.equal('std_reveal_template' in sanitizeHubDraft({ events: { std_reveal_template: 'gold-monogram' } }).events, false);
-  // ↪️ …nor a retired one (23 Nov 2026: a stored one still PLAYS, as its successor, but none is newly chosen), nor the held gift box.
-  for (const old of ['four-flap', 'church-doors', 'gift-box']) assert.equal('std_reveal_template' in sanitizeHubDraft({ events: { std_reveal_template: old } }).events, false, old);
+  // ↪️ …nor a retired one (23 Nov 2026: a stored one still PLAYS, as its successor, but none is newly chosen).
+  for (const old of ['four-flap', 'church-doors']) assert.equal('std_reveal_template' in sanitizeHubDraft({ events: { std_reveal_template: old } }).events, false, old);
+  // 🎁 the gift box is the tenth reveal (owner 23 Nov, "ten reveals approved"): it is chosen like any other, and is Pro
+  assert.equal(sanitizeHubDraft({ events: { std_reveal_template: 'gift-box' } }).events.std_reveal_template, 'gift-box');
 });
 
 test('the logo autosave: the studio mark is sanitised like saveStudioAction, and is free to apply', () => {

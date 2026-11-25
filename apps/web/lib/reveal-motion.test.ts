@@ -87,12 +87,13 @@ test('🎞 a frame is capped at 33 ms (no stalled frame jumps the open)', () => 
   assert.ok(Math.abs(revealDt(1016, 1000) - 0.016) < 1e-9);
 });
 
-test('🎭 the nine reveals — the envelope in two styles — and the gift box is HELD (no id)', () => {
+test('🎭 the ten reveals — the envelope in two styles — the gift box the tenth (owner 23 Nov, "ten reveals approved")', () => {
   assert.deepEqual(
     [...REVEAL_TEMPLATE_IDS].sort(),
-    ['beach-curtains', 'cathedral-doors', 'envelope-classic', 'envelope-gatefold', 'fabric', 'fireworks', 'petals', 'scratch', 'smoke', 'veil-sheer'],
+    ['beach-curtains', 'cathedral-doors', 'envelope-classic', 'envelope-gatefold', 'fabric', 'fireworks', 'gift-box', 'petals', 'scratch', 'smoke', 'veil-sheer'],
   );
-  for (const held of ['gift', 'gift-box', 'giftbox']) assert.equal(canonicalRevealId(held), null, `${held} is held by the owner`);
+  assert.equal(canonicalRevealId('gift-box'), 'gift-box');
+  for (const alias of ['gift', 'giftbox']) assert.equal(canonicalRevealId(alias), null, `${alias} is not a stored id`);
 });
 
 test('↪️ an event that chose a retired opening keeps an opening — its nearest new reveal', () => {

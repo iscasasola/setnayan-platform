@@ -2,8 +2,8 @@
 
 /**
  * 🎭 SceneReveal — ONE STAGE for every reveal that is not the veil: Beach curtains · Envelope (classic, gatefold) ·
- * Fabric · Scratch · Smoke · Cathedral doors · Petals · Fireworks (owner 23 Nov 2026, DECISION_LOG "NINE REVEALS
- * SHIP; THE GIFT BOX IS HELD"; drawing specs `prototypes/reveals_round3_veil_rules_2026-11-23/`, artifact
+ * Fabric · Scratch · Smoke · Cathedral doors · Petals · Fireworks · Gift box (owner 23 Nov 2026, DECISION_LOG "NINE
+ * REVEALS SHIP", then "ten reveals approved" for the v25 gift box; drawing specs `prototypes/reveals_round3_veil_rules_2026-11-23/`, artifact
  * U4pTTfGDn6TBxA3PixFPLq v12–13).
  *
  * The stage runs the SHARED MOTION RULES (`lib/reveal-motion.ts`) — the veil's, read off `veil-reveal.tsx`: one tap
@@ -28,7 +28,7 @@ import { REVEAL_MOTION, REVEAL_REDUCED_FADE_MS, handsFreeTarget, pushedZ, readGe
 import { DEFAULT_REVEAL_CONFIG, REVEAL_TEMPLATE_IDS, type RevealTemplateId } from '@/lib/reveal-config-pure';
 import { claimVeilHold, primeUnveilPress } from '@/lib/hub-veil';
 import { defaultConfigFromSeed, type WaxSealConfig } from '@/lib/wax-seal/types';
-import type { GatefoldClosure } from '@/lib/std-reveal-effects';
+import { revealLooksFull, type GatefoldClosure, type RevealLooks } from '@/lib/std-reveal-effects';
 import { CAMZ, FOV, FZ, LEGACY_FOV, LEGACY_H, disposeScene, logoMask, seeded, type ArtName, type Ctx, type Pt, type Scene, type SceneState } from './scenes/kit';
 
 /** Each reveal's scene, in its own chunk. The veil's is its still face only (reduced motion); the live veil is `veil-reveal.tsx`. */
@@ -43,6 +43,7 @@ const LOADERS: Record<RevealTemplateId, () => Promise<() => Scene>> = {
   'cathedral-doors': () => import('./scenes/doors').then((m) => m.cathedralDoors),
   petals: () => import('./scenes/bloom').then((m) => m.petals),
   fireworks: () => import('./scenes/bloom').then((m) => m.fireworks),
+  'gift-box': () => import('./scenes/gift').then((m) => m.giftBox),
 };
 
 /** The drawing's art for the scenes (sample art drawn for the reveals — `public/reveal/art/`). */
@@ -64,6 +65,8 @@ type Props = {
   sealFallbackSeed?: number;
   /** 🎀 The gatefold's closure: the couple's seal (default) or a ribbon and bow, never both. */
   closure?: GatefoldClosure;
+  /** 🎨 The couple's design picks for this reveal (`RevealEffects.looks`); absent plays each as it already plays. */
+  looks?: RevealLooks;
   /** The event's wax colour (Mood Board), for a minted seal that left its wax on "follow the event". */
   waxColor?: string;
   /** ♿ Reduced motion: the closed reveal, still; a tap cross-fades it away. */
@@ -258,8 +261,13 @@ export default function SceneReveal(props: Props) {
       const realDt = revealDt(now, last);
       last = now;
       tick(realDt);
-      renderer.render(scene, camera);
+      draw();
       raf = requestAnimationFrame(loop);
+    };
+
+    const draw = () => {
+      if (sc?.render) sc.render(renderer, scene, camera);
+      else renderer.render(scene, camera);
     };
 
     /* ── touch, exactly as the veil reads it ─────────────────────────────── */
@@ -327,7 +335,7 @@ export default function SceneReveal(props: Props) {
             renderer.setSize(pw, ph, false);
             camera.aspect = pw / ph;
             camera.updateProjectionMatrix();
-            if (still && sc) renderer.render(scene, camera);
+            if (still && sc) draw();
           })
         : null;
     ro?.observe(cv);
@@ -381,6 +389,8 @@ export default function SceneReveal(props: Props) {
           ? { recipe: cb.current.sealConfig, color: cb.current.sealConfig.wax.color ?? cb.current.waxColor ?? null }
           : { recipe: defaultConfigFromSeed(cb.current.sealFallbackSeed ?? 1), color: null },
         closure: cb.current.closure ?? 'seal',
+        looks: revealLooksFull(cb.current.looks),
+        still,
         open: (nx, ny) => {
           if (still) return stillOpen(false);
           if (state !== 'closed') return;
@@ -405,7 +415,7 @@ export default function SceneReveal(props: Props) {
       sc = s;
       /* the closed reveal, drawn */
       sc.step(1 / 60, 0, legacy ? -1 : 0, false);
-      renderer.render(scene, camera);
+      draw();
       cv.style.opacity = '1';
       hit.style.pointerEvents = 'auto';
       hit.style.touchAction = 'none';

@@ -13,6 +13,7 @@
 import * as THREE from 'three';
 import { ss } from '@/lib/reveal-motion';
 import { DEFAULT_VEIL_LOOK } from '@/lib/reveal-config-pure';
+import type { RevealLooksFull } from '@/lib/std-reveal-effects';
 import { CAMZ, FZ, canvas, ctx2d, shadowsOnly, stamp, texOf, veilLights, wideness, type Ctx, type Pt, type Scene } from './kit';
 import { CLOTH_TOP, clothLength, holdEdges, pullWay } from '@/lib/veil-cloth';
 
@@ -723,6 +724,126 @@ export const beachCurtains = (): Scene =>
     },
   });
 
+/** 🎨 Each fabric's finish: [roughness, sheen at the edges] (drawing v24 `FB`). Plain satin is the shipped satin's own. */
+const FABRIC_FINISH: Record<RevealLooksFull['fabric'], readonly [number, number]> = {
+  satin: [0.24, 0.3],
+  chiffon: [0.8, 0.12],
+  velvet: [0.97, 0.55],
+  linen: [0.9, 0.08],
+  organza: [0.32, 0.55],
+  tulle: [0.85, 0.14],
+  lace: [0.6, 0.24],
+};
+
+/**
+ * Weave a fabric over the satin ground (drawing v24 `drape.js` `finish`). The drawing's cloth is 512 px wide; a wide
+ * screen's is `cw`, so every pattern runs on across it at the same pixel size (more fabric, never wider fabric).
+ */
+function weaveFabric(x: CanvasRenderingContext2D, kind: RevealLooksFull['fabric'], cw: number, rand: () => number): void {
+  const H = 888;
+  const k = cw / 512;
+  if (kind === 'chiffon') {
+    x.fillStyle = 'rgba(252,246,232,.42)';
+    x.fillRect(0, 0, cw, H);
+    for (let i = 0; i < 3200 * k; i++) {
+      const a = rand() * cw;
+      const b = rand() * H;
+      const q = rand() * 6.283;
+      x.strokeStyle = rand() > 0.5 ? 'rgba(255,255,255,.12)' : 'rgba(110,84,44,.08)';
+      x.lineWidth = 0.8;
+      x.beginPath();
+      x.moveTo(a, b);
+      x.lineTo(a + Math.cos(q) * 9, b + Math.sin(q) * 9);
+      x.stroke();
+    }
+  } else if (kind === 'velvet') {
+    x.fillStyle = 'rgba(40,26,8,.34)';
+    x.fillRect(0, 0, cw, H);
+    for (let i = 0; i < 150 * k; i++) {
+      const a = rand() * cw;
+      const b = rand() * H;
+      const q = 30 + rand() * 90;
+      const g = x.createRadialGradient(a, b, 0, a, b, q);
+      g.addColorStop(0, i % 2 ? 'rgba(255,236,196,.13)' : 'rgba(20,12,2,.16)');
+      g.addColorStop(1, 'rgba(120,96,60,0)');
+      x.fillStyle = g;
+      x.fillRect(a - q, b - q, q * 2, q * 2);
+    }
+  } else if (kind === 'linen') {
+    x.fillStyle = 'rgba(216,196,154,.62)';
+    x.fillRect(0, 0, cw, H);
+    for (let i = 0; i < 296; i++) {
+      x.fillStyle = rand() > 0.5 ? `rgba(255,250,236,${(0.05 + rand() * 0.16).toFixed(3)})` : `rgba(96,74,40,${(0.05 + rand() * 0.16).toFixed(3)})`;
+      x.fillRect(0, i * 3, cw, 1.4);
+    }
+    for (let i = 0; i < 171 * k; i++) {
+      x.fillStyle = rand() > 0.5 ? `rgba(255,250,236,${(0.05 + rand() * 0.14).toFixed(3)})` : `rgba(96,74,40,${(0.05 + rand() * 0.14).toFixed(3)})`;
+      x.fillRect(i * 3, 0, 1.4, H);
+    }
+  } else if (kind === 'organza') {
+    x.fillStyle = 'rgba(255,250,238,.3)';
+    x.fillRect(0, 0, cw, H);
+    x.fillStyle = 'rgba(255,255,255,.1)';
+    for (let i = 0; i < 222; i++) x.fillRect(0, i * 4, cw, 1);
+    for (let i = 0; i < 128 * k; i++) x.fillRect(i * 4, 0, 1, H);
+  } else if (kind === 'tulle') {
+    x.fillStyle = 'rgba(250,244,230,.5)';
+    x.fillRect(0, 0, cw, H);
+    x.lineWidth = 1;
+    for (let i = -100; i < 160 + (cw - 512) / 9; i++) {
+      x.strokeStyle = 'rgba(92,70,36,.3)';
+      x.beginPath();
+      x.moveTo(i * 9, 0);
+      x.lineTo(i * 9 + 512, H);
+      x.stroke();
+      x.beginPath();
+      x.moveTo(i * 9, 0);
+      x.lineTo(i * 9 - 512, H);
+      x.stroke();
+      x.strokeStyle = 'rgba(255,255,255,.26)';
+      x.beginPath();
+      x.moveTo(i * 9 + 1.5, 0);
+      x.lineTo(i * 9 + 513.5, H);
+      x.stroke();
+    }
+  } else if (kind === 'lace') {
+    x.lineCap = 'round';
+    for (const [dx, dy, col] of [
+      [1.6, 2, 'rgba(84,62,30,.4)'],
+      [0, 0, 'rgba(255,252,240,.8)'],
+    ] as const) {
+      x.save();
+      x.translate(dx, dy);
+      x.strokeStyle = col;
+      x.fillStyle = col;
+      x.lineWidth = 2.2;
+      for (let r = 0; r < 9; r++)
+        for (let cc = 0; cc < Math.ceil(cw / 102) + 1; cc++) {
+          const lx = cc * 102 + (r % 2) * 51;
+          const ly = r * 111;
+          for (let pk = 0; pk < 8; pk++) {
+            const la = (pk / 8) * 6.283;
+            x.beginPath();
+            x.ellipse(lx + Math.cos(la) * 24, ly + Math.sin(la) * 24, 15, 8, la, 0, 7);
+            x.stroke();
+          }
+          x.beginPath();
+          x.arc(lx, ly, 7, 0, 7);
+          x.stroke();
+          x.beginPath();
+          x.arc(lx, ly, 45, 0, 7);
+          x.stroke();
+          for (let pk = 0; pk < 6; pk++) {
+            x.beginPath();
+            x.arc(lx + 51 + Math.cos(pk) * 14, ly + 55 + Math.sin(pk * 2.1) * 14, 2.2, 0, 7);
+            x.fill();
+          }
+        }
+      x.restore();
+    }
+  }
+}
+
 /** 5 · FABRIC — one drape of satin lying crumpled (the pilak's gather), the logo embroidered large; a palm of it is taken
     and it slides off slowly, the creases easing out, the last corner trailing. */
 export const fabric = (): Scene =>
@@ -748,9 +869,13 @@ export const fabric = (): Scene =>
         sx.fillStyle = `rgba(255,248,232,${(0.03 + 0.07 * c.rand()).toFixed(3)})`;
         sx.fillRect(0, y, cw, 1);
       }
+      /* 🎨 the couple's fabric (drawing v24): the same cloth and crumple, its weave, sheen and roughness change */
+      const kind = c.looks.fabric;
+      weaveFabric(sx, kind, cw, c.rand);
       stamp(sx, c.logo, cw / 2 + 2, 446, 250, '#7a6238', 0.35);
       stamp(sx, c.logo, cw / 2, 444, 250, '#fff6dc', 0.7);
-      const mat = clothMaterial({ color: '#f1e4cf', map: texOf(sc), opacity: 1, rough: 0.24, fresnel: 0.3, fresnelA: 0, solid: true });
+      const [rough, fresnel] = FABRIC_FINISH[kind];
+      const mat = clothMaterial({ color: '#f1e4cf', map: texOf(sc), opacity: 1, rough, fresnel, fresnelA: 0, solid: true });
       /* gathered satin draws in around its folds, so it is cut larger (and as finely woven) to still cover the screen */
       return [new Drape(c, { cols: 88, rows: 80, wideMax: 1.6, x0: -c.vw * 1.25, x1: c.vw * 1.25, mode: 'slide', material: mat, twist: 5.5, shadow: true, crumple: true, cfg: { weight: 30, wind: 14, full: 100, folds: 7, reach: -18, bounce: 90 } })];
     },

@@ -49,7 +49,7 @@ import {
   type StdLegibility,
 } from '@/lib/std-backgrounds';
 import type { StdMedia, StdNsfwStatus } from '@/lib/std-media';
-import type { RevealEffects } from '@/lib/std-reveal-effects';
+import { withRevealLook, type RevealEffects, type RevealLookKey } from '@/lib/std-reveal-effects';
 import type { RevealEffectsLook, VeilLook } from '@/lib/reveal-config';
 import {
   DeviceFrame,
@@ -333,6 +333,14 @@ export function StdBuilderClient({
   // which is what made the colour pickers hang/lag (owner 2026-06-19).
   const setColor = (key: 'veilColor' | 'petalColor', value: string | null) => {
     setEffects((e) => ({ ...e, [key]: value }));
+    if (result !== 'idle') setResult('idle');
+  };
+  // 🎨 Pick one of the reveal's own designs (flap shape, panel design, fabric, the gift box's lining / floor /
+  // arrangement) and replay the opening, so the new design is seen at once.
+  const setLook = (key: RevealLookKey, value: string) => {
+    setEffects((e) => withRevealLook(e, key, value));
+    setRestartKey((k) => k + 1);
+    setRevealDone(false);
     if (result !== 'idle') setResult('idle');
   };
   // Set (hex) or clear (null = inherit the Mood Board) the film accent colour.
@@ -896,6 +904,7 @@ export function StdBuilderClient({
             effects={effects}
             onToggleEffect={toggleEffect}
             onSetColor={setColor}
+            onSetLook={setLook}
             inheritedVeilColor={veilColor ?? '#f3ece1'}
             inheritedPetalColor={petalsColor ?? '#e87a93'}
             allowed={allowedTemplates}

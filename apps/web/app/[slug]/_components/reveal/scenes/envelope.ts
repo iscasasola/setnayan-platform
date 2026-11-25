@@ -1,8 +1,9 @@
 /**
  * 🎭 THE ENVELOPE, IN THE OWNER'S TWO STYLES (owner 23 Nov: *"we want both styles"*; drawing v22 `src/env2.js`). Built to read as a photograph: paper that takes light across its relief, gold foil and wax that
  * mirror a room, soft shadows cast flap on flap, flaps that bend as paper does while they turn, film tone.
- *   CLASSIC  — an ornate scalloped front flap, gold edge, a gold wax seal carrying the event's logo.
- *   GATEFOLD — two embossed panels, closed with the couple's seal OR a satin ribbon and bow, never both (owner 23 Nov:
+ *   CLASSIC  — an ornate front flap cut to the couple's shape (v24: seven, scalloped the default), 1.34× the screen
+ *              wide, gold edge, a gold wax seal carrying the event's logo.
+ *   GATEFOLD — two embossed panels (v24: the sculpted lilies or one of six designs pressed in code), closed with the couple's seal OR a satin ribbon and bow, never both (owner 23 Nov:
  *              *"ribbon and wax seal never co exist together"*). Sealed: the whole seal rides the left panel, which opens
  *              first. Tied: the bow comes undone and the ribbon slides off before the panels part.
  * The wax seal never breaks: it stays on the flap it was pressed on and goes where that paper goes.
@@ -11,32 +12,8 @@ import * as THREE from 'three';
 import { ss } from '@/lib/reveal-motion';
 import { mulberry32 } from '@/lib/wax-seal/types';
 import { CLOTH_TOP } from '@/lib/veil-cloth';
-import { Hinge, Strip, alphaBox, canvas, ctx2d, ease, lay, shadowPlane, texOf, wideness, type Ctx, type Scene, BUMP } from './kit';
-
-/* a room for the gold and the wax to mirror: a soft box overhead, a warm window, a dim floor */
-function room(c: Ctx): THREE.Texture {
-  const k = canvas(256, 128);
-  const x = ctx2d(k);
-  const g = x.createLinearGradient(0, 0, 0, 128);
-  g.addColorStop(0, '#e9e2d6');
-  g.addColorStop(0.45, '#8f8475');
-  g.addColorStop(1, '#2c261f');
-  x.fillStyle = g;
-  x.fillRect(0, 0, 256, 128);
-  x.fillStyle = '#ffffff';
-  x.fillRect(28, 8, 74, 26);
-  x.fillStyle = '#ffe9c2';
-  x.fillRect(150, 30, 26, 44);
-  x.fillStyle = '#fff6e6';
-  x.fillRect(206, 14, 34, 12);
-  const t = texOf(k, { srgb: true });
-  t.mapping = THREE.EquirectangularReflectionMapping;
-  const pm = new THREE.PMREMGenerator(c.renderer);
-  const env = pm.fromEquirectangular(t).texture;
-  pm.dispose();
-  t.dispose();
-  return env;
-}
+import type { RevealLooksFull } from '@/lib/std-reveal-effects';
+import { Hinge, Strip, alphaBox, canvas, ctx2d, ease, lay, room, satinTex, shadowPlane, stamp, texOf, wideness, type Ctx, type Scene, BUMP } from './kit';
 
 /* a normal map made from a painted canvas: its light-and-dark becomes real relief, and its cut edge a bevel */
 function normalsOf(src: HTMLCanvasElement, strength: number): THREE.Texture {
@@ -299,6 +276,10 @@ function makeSeal(c: Ctx, size: number, vertical: boolean): THREE.Group[] {
   return halves;
 }
 
+/** 🖼 The classic's front flap is this many times the width of the screen (drawing v24 `BL`): its shoulders and upright
+ *  sides are never in view, so no shape ever shows a vertical cut. */
+export const FLAP_BL = 1.34;
+
 /** How far the wax stands off its paper, along the paper's own face (the classic's flap). */
 const SEAL_LIFT = 0.07;
 /** The gatefold's seal: how far it stands off the left panel, along that panel's face (drawing v22). */
@@ -501,13 +482,19 @@ export const envelopeClassic = (): Scene => {
           }),
         );
       }
-      /* the front flap: scalloped, embossed, edged in gold */
+      /* the front flap: cut to the couple's shape (drawing v24 `flap`), embossed, edged in gold. It is BL times the width
+         of the screen, so its shoulders and upright sides are never in view: only its lower edge crosses the screen, and
+         the envelope reads as larger than the screen (owner 23 Nov: *"We want the illusion that it is larger than the
+         screen"*). Its art is drawn at its old size. */
       const ht = HH - TY;
-      const scallop = (x: CanvasRenderingContext2D, cw: number, ch: number, inset: number) => {
+      const shape = c.looks.flap;
+      /** a phone's share of the flap's canvas (the flap is `wide` phones and BL screens across) */
+      const phoneOf = (cw: number) => cw / wide;
+      const scallop = (x: CanvasRenderingContext2D, cw: number, ch: number, inset: number, per: number, bg: number) => {
         const y0 = ((HH - YS) / ht) * ch;
         /* the scallops keep their shape on a wide screen: more of them, not wider ones */
-        const n = Math.max(3, Math.round(3 * wide));
-        const pw = cw / wide;
+        const n = Math.max(per, Math.round(per * wide));
+        const pw = phoneOf(cw);
         x.beginPath();
         x.moveTo(inset, 0);
         x.lineTo(inset, y0 - inset);
@@ -516,21 +503,69 @@ export const envelopeClassic = (): Scene => {
           const ay = y0 + ((ch - y0) * (i - 1)) / n - inset;
           const bx = inset + ((cw / 2 - inset) * i) / n;
           const by = y0 + ((ch - y0) * i) / n - inset;
-          x.quadraticCurveTo((ax + bx) / 2 - pw * 0.035, (ay + by) / 2 + ch * 0.075, bx, by);
+          x.quadraticCurveTo((ax + bx) / 2 - pw * 0.035, (ay + by) / 2 + ch * bg, bx, by);
         }
         for (let i = n; i >= 1; i--) {
           const ax = cw - (inset + ((cw / 2 - inset) * i) / n);
           const ay = y0 + ((ch - y0) * i) / n - inset;
           const bx = cw - (inset + ((cw / 2 - inset) * (i - 1)) / n);
           const by = y0 + ((ch - y0) * (i - 1)) / n - inset;
-          x.quadraticCurveTo((ax + bx) / 2 + pw * 0.035, (ay + by) / 2 + ch * 0.075, bx, by);
+          x.quadraticCurveTo((ax + bx) / 2 + pw * 0.035, (ay + by) / 2 + ch * bg, bx, by);
+        }
+        x.lineTo(cw - inset, 0);
+        x.closePath();
+      };
+      /* the deckle's torn edge: the same bite at every place along it, every time it is drawn */
+      const hsh = (i: number, j: number) => {
+        const h = Math.sin(i * 127.1 + j * 311.7) * 43758.5453;
+        return h - Math.floor(h);
+      };
+      const outline = (x: CanvasRenderingContext2D, cw: number, ch: number, inset: number) => {
+        const y0 = ((HH - YS) / ht) * ch;
+        const m = cw / 2;
+        const b = ch - inset;
+        if (shape === 'scallop') return scallop(x, cw, ch, inset, 3, 0.075);
+        if (shape === 'double') return scallop(x, cw, ch, inset, 2, 0.13);
+        x.beginPath();
+        x.moveTo(inset, 0);
+        if (shape === 'deepv') {
+          x.lineTo(inset, y0 * 0.25);
+          x.lineTo(m, b);
+          x.lineTo(cw - inset, y0 * 0.25);
+        } else if (shape === 'euro') {
+          x.lineTo(inset, y0 * 0.55);
+          x.quadraticCurveTo(cw * 0.34, ch * 0.8, m, b);
+          x.quadraticCurveTo(cw * 0.66, ch * 0.8, cw - inset, y0 * 0.55);
+        } else if (shape === 'round') {
+          const cy2 = y0 * 0.8 + (b - y0 * 0.8) / 0.75;
+          x.lineTo(inset, y0 * 0.8);
+          x.bezierCurveTo(cw * 0.16, cy2, cw * 0.84, cy2, cw - inset, y0 * 0.8);
+        } else if (shape === 'square') {
+          const rr = ch * 0.05;
+          x.lineTo(inset, b - rr);
+          x.quadraticCurveTo(inset, b, inset + rr, b);
+          x.lineTo(cw - inset - rr, b);
+          x.quadraticCurveTo(cw - inset, b, cw - inset, b - rr);
+        } else {
+          /* deckle: torn by hand, the bites as small on a wide screen as on the phone */
+          const n2 = Math.round(54 * wide);
+          const ys = y0 * 0.6;
+          x.lineTo(inset, ys);
+          for (let i = 1; i <= n2; i++) {
+            const u = i / n2;
+            x.lineTo(inset + (m - inset) * u, ys + (b - ys) * Math.pow(u, 1.12) + (i < n2 ? (hsh(i, 3) - 0.5) * ch * 0.024 : 0));
+          }
+          for (let i = n2 - 1; i >= 0; i--) {
+            const u = i / n2;
+            x.lineTo(cw - inset - (m - inset) * u, ys + (b - ys) * Math.pow(u, 1.12) + (i ? (hsh(i, 7) - 0.5) * ch * 0.024 : 0));
+          }
         }
         x.lineTo(cw - inset, 0);
         x.closePath();
       };
       flaps.push(
         new Flap(s, {
-          w: W,
+          w: W * FLAP_BL,
           h: ht,
           hinge: 'top',
           x: 0,
@@ -541,22 +576,27 @@ export const envelopeClassic = (): Scene => {
           relief: 7,
           nx: 24,
           ny: 30,
-          wide,
-          shape: (x, cw, ch) => scallop(x, cw, ch, 0),
+          wide: wide * FLAP_BL,
+          shape: (x, cw, ch) => outline(x, cw, ch, 0),
           paint: (x, cw, ch) => {
-            plain(x, cw, ch);
+            /* the paper across the whole flap, as the drawing lays it; the damask at its old size: one phone screen is
+               `cw / wide / BL` of this wider sheet */
+            const bw = phoneOf(cw);
+            const pw = bw / FLAP_BL;
+            lay(x, paper, [130, 130, 330, 300], cw, { dy: 0, dw: bw, dh: ch, step: bw, anchor: 'center' });
+            x.fillStyle = 'rgba(255,250,240,.18)';
+            x.fillRect(0, 0, cw, ch);
             x.globalCompositeOperation = 'multiply';
-            const pw = cw / wide;
             /* the drawing's one panel on the phone; on a wide screen the panels meet edge to edge, mirrored */
             lay(x, dam, [40, 76, 480, 500], cw, { dy: ch * 0.02, dw: pw * 0.92, dh: ch * 0.9, step: wide > 1 ? pw * 0.92 : pw, anchor: 'center' });
             x.globalCompositeOperation = 'source-over';
           },
           foil: (x, cw, ch) => {
             x.lineWidth = 5;
-            scallop(x, cw, ch, 5);
+            outline(x, cw, ch, 5);
             x.stroke();
             x.lineWidth = 1.6;
-            scallop(x, cw, ch, 15);
+            outline(x, cw, ch, 15);
             x.stroke();
           },
         }),
@@ -593,30 +633,6 @@ export const envelopeClassic = (): Scene => {
 };
 
 /* ── the satin ribbon (drawing `src/ribbon.js`) ───────────────────────────── */
-
-function satinTex(a: string, b: string, cc: string): THREE.Texture {
-  const k = canvas(64, 64);
-  const x = ctx2d(k);
-  const g = x.createLinearGradient(0, 0, 64, 0);
-  g.addColorStop(0, a);
-  g.addColorStop(0.05, b);
-  g.addColorStop(0.5, cc);
-  g.addColorStop(0.95, b);
-  g.addColorStop(1, a);
-  x.fillStyle = g;
-  x.fillRect(0, 0, 64, 64);
-  x.fillStyle = 'rgba(255,255,255,.35)';
-  x.fillRect(2, 0, 1, 64);
-  x.fillRect(61, 0, 1, 64);
-  for (let q = 0; q < 64; q += 2) {
-    x.fillStyle = `rgba(255,255,255,${0.03 + 0.03 * Math.sin(q * 0.7)})`;
-    x.fillRect(0, q, 64, 1);
-  }
-  const t = texOf(k, { srgb: true });
-  t.wrapT = THREE.RepeatWrapping;
-  t.repeat.set(1, 6);
-  return t;
-}
 
 type Twist = (s: number, t: number) => number;
 /** A satin band with width in space: it turns over as it twists, cups slightly across, and throws a shadow. */
@@ -854,6 +870,244 @@ class GateRibbon {
   }
 }
 
+/* ── the gatefold's panel designs, drawn in code (drawing v24 `PROC` + `press`) ─────────────────────────────────
+   Each is drawn across BOTH panels (FW = the whole envelope on the phone), then pressed into the paper: a shadow below
+   and to the right, a highlight above and to the left, so the relief map reads it as embossed. */
+
+type Ink = CanvasRenderingContext2D;
+const hs2 = (i: number, j: number) => {
+  const h = Math.sin(i * 127.1 + j * 311.7) * 43758.5453;
+  return h - Math.floor(h);
+};
+function press(x: Ink, fn: (x: Ink) => void): void {
+  x.save();
+  x.lineCap = 'round';
+  x.lineJoin = 'round';
+  for (const [dx, dy, col] of [
+    [3, 3.4, 'rgba(62,44,20,.72)'],
+    [-2.2, -2.6, 'rgba(255,255,255,.95)'],
+    [0, 0, 'rgba(150,120,74,.7)'],
+  ] as const) {
+    x.save();
+    x.translate(dx, dy);
+    x.strokeStyle = col;
+    x.fillStyle = col;
+    fn(x);
+    x.restore();
+  }
+  x.restore();
+}
+function leaf(x: Ink, px: number, py: number, an: number, L: number): void {
+  x.save();
+  x.translate(px, py);
+  x.rotate(an);
+  x.beginPath();
+  x.moveTo(0, 0);
+  x.quadraticCurveTo(L * 0.5, -L * 0.28, L, 0);
+  x.quadraticCurveTo(L * 0.5, L * 0.28, 0, 0);
+  x.moveTo(0, 0);
+  x.lineTo(L * 0.9, 0);
+  x.stroke();
+  x.restore();
+}
+function bloomAt(x: Ink, px: number, py: number, R: number, rot: number, np: number): void {
+  x.save();
+  x.translate(px, py);
+  x.rotate(rot);
+  for (let k = 0; k < np; k++) {
+    x.rotate(6.283 / np);
+    x.beginPath();
+    x.moveTo(0, 0);
+    x.bezierCurveTo(R * 0.5, -R * 0.25, R * 0.95, -R * 0.3, R, 0);
+    x.bezierCurveTo(R * 0.95, R * 0.3, R * 0.5, R * 0.25, 0, 0);
+    x.stroke();
+  }
+  x.beginPath();
+  x.arc(0, 0, R * 0.16, 0, 7);
+  x.fill();
+  x.restore();
+}
+const PANEL: Record<Exclude<RevealLooksFull['panel'], 'lily' | 'monogram'>, (x: Ink, FW: number, FH: number) => void> = {
+  deco(x, FW, FH) {
+    const cx = FW / 2;
+    const cy = FH * 0.42;
+    x.lineWidth = 4;
+    for (let i = 0; i < 32; i++) {
+      const a = (i / 32) * 6.283;
+      const r0 = FW * (i % 2 ? 0.3 : 0.22);
+      x.beginPath();
+      x.moveTo(cx + Math.cos(a) * r0, cy + Math.sin(a) * r0);
+      x.lineTo(cx + Math.cos(a) * FH, cy + Math.sin(a) * FH);
+      x.stroke();
+    }
+    for (const r of [0.13, 0.17, 0.22]) {
+      x.beginPath();
+      x.arc(cx, cy, FW * r, 0, 7);
+      x.stroke();
+    }
+    x.lineWidth = 6;
+    for (const [ox, oy, sx, sy] of [
+      [0, 0, 1, 1],
+      [FW, 0, -1, 1],
+      [0, FH, 1, -1],
+      [FW, FH, -1, -1],
+    ] as const) {
+      for (let k = 1; k <= 3; k++) {
+        const d = 40 + k * 34;
+        x.beginPath();
+        x.moveTo(ox + sx * d, oy + sy * (d + 150));
+        x.lineTo(ox + sx * d, oy + sy * d);
+        x.lineTo(ox + sx * (d + 150), oy + sy * d);
+        x.stroke();
+      }
+    }
+  },
+  geo(x, FW, FH) {
+    const sp = FW / 5;
+    x.lineWidth = 3;
+    for (let i = -14; i < 14; i++)
+      for (let o = 0; o < 2; o++) {
+        x.beginPath();
+        x.moveTo(i * sp + o * 9, 0);
+        x.lineTo(i * sp + o * 9 + FH * 0.58, FH);
+        x.stroke();
+        x.beginPath();
+        x.moveTo(i * sp - o * 9, 0);
+        x.lineTo(i * sp - o * 9 - FH * 0.58, FH);
+        x.stroke();
+      }
+  },
+  botanical(x, FW, FH) {
+    x.lineWidth = 3.5;
+    for (const sg of [-1, 1])
+      for (const st of [
+        [0.05, 0.34, 0.3, 0.04, 1],
+        [0.12, 0.2, 0.42, 0.46, 0.62],
+      ] as const) {
+        const p0 = [FW / 2 + sg * FW * st[0], FH];
+        const p1 = [FW / 2 + sg * FW * st[1], FH * 0.72];
+        const p2 = [FW / 2 + sg * FW * st[2] * 0.5, FH * (st[3] + 0.3)];
+        const p3 = [FW / 2 + sg * FW * st[2], FH * st[3]];
+        const n = 13;
+        x.beginPath();
+        x.moveTo(p0[0]!, p0[1]!);
+        x.bezierCurveTo(p1[0]!, p1[1]!, p2[0]!, p2[1]!, p3[0]!, p3[1]!);
+        x.stroke();
+        for (let t = 1; t <= n; t++) {
+          const u = t / (n + 0.5);
+          const v = 1 - u;
+          const at = (k: 0 | 1) => v * v * v * p0[k]! + 3 * v * v * u * p1[k]! + 3 * v * u * u * p2[k]! + u * u * u * p3[k]!;
+          const tan = (k: 0 | 1) => 3 * v * v * (p1[k]! - p0[k]!) + 6 * v * u * (p2[k]! - p1[k]!) + 3 * u * u * (p3[k]! - p2[k]!);
+          leaf(x, at(0), at(1), Math.atan2(tan(1), tan(0)) + (t % 2 ? 1 : -1) * 0.85, FW * 0.15 * st[4] * (1.05 - u * 0.5));
+        }
+      }
+  },
+  lace(x, FW, FH) {
+    const R = FW / 16;
+    const cx = FW / 2;
+    const cy = FH * 0.42;
+    x.lineWidth = 3;
+    for (let i = 0; i * R * 2 < FH + R; i++)
+      for (const ex of [0, FW]) {
+        x.beginPath();
+        x.arc(ex, i * R * 2, R * 1.9, 0, 7);
+        x.stroke();
+        x.beginPath();
+        x.arc(ex, i * R * 2, R * 1.1, 0, 7);
+        x.stroke();
+      }
+    for (let i = 0; i * R * 2 < FW + R; i++)
+      for (const ey of [0, FH]) {
+        x.beginPath();
+        x.arc(i * R * 2, ey, R * 1.9, 0, 7);
+        x.stroke();
+      }
+    for (const [rr, cnt] of [
+      [0.34, 18],
+      [0.24, 14],
+      [0.14, 10],
+    ] as const) {
+      for (let k = 0; k < cnt; k++) {
+        const a = (k / cnt) * 6.283;
+        x.save();
+        x.translate(cx + Math.cos(a) * FW * rr, cy + Math.sin(a) * FW * rr);
+        x.rotate(a);
+        x.beginPath();
+        x.ellipse(0, 0, FW * 0.05, FW * 0.028, 0, 0, 7);
+        x.stroke();
+        x.restore();
+      }
+      x.beginPath();
+      x.arc(cx, cy, FW * (rr - 0.055), 0, 7);
+      x.stroke();
+    }
+    for (let i = 0; i < 46; i++)
+      for (let k = 0; k < 70; k++) {
+        const px = (i + (k % 2) * 0.5) * 24;
+        const py = k * 26;
+        if (Math.hypot(px - cx, py - cy) > FW * 0.41 && px > R * 2.4 && px < FW - R * 2.4 && py > R * 2.4 && py < FH - R * 2.4) {
+          x.beginPath();
+          x.arc(px, py, 2.4, 0, 7);
+          x.fill();
+        }
+      }
+  },
+  pressed(x, FW, FH) {
+    x.lineWidth = 2.8;
+    for (let i = 0; i < 30; i++) bloomAt(x, hs2(i, 1) * FW, hs2(i, 2) * FH, FW * (0.045 + hs2(i, 3) * 0.06), hs2(i, 4) * 6.283, 5 + Math.floor(hs2(i, 5) * 3));
+    for (let i = 0; i < 22; i++) {
+      const px = hs2(i, 11) * FW;
+      const py = hs2(i, 12) * FH;
+      const an = hs2(i, 13) * 6.283;
+      const L = FW * 0.12;
+      x.beginPath();
+      x.moveTo(px, py);
+      x.lineTo(px + Math.cos(an) * L, py + Math.sin(an) * L);
+      x.stroke();
+      for (let k = 1; k <= 3; k++) {
+        const qx = px + (Math.cos(an) * L * k) / 3.4;
+        const qy = py + (Math.sin(an) * L * k) / 3.4;
+        leaf(x, qx, qy, an + 0.8, L * 0.34);
+        leaf(x, qx, qy, an - 0.8, L * 0.34);
+      }
+    }
+  },
+};
+/** The event's own monogram in a half-drop field, each one pressed (drawing v24 `PROC.monogram`). */
+function monogramField(x: Ink, FW: number, FH: number, logo: HTMLCanvasElement): void {
+  const st = FW / 3.2;
+  for (let r = -1; r * st * 0.9 < FH + st; r++)
+    for (let col = -1; col < 5; col++) {
+      const px = col * st + (r % 2 ? st / 2 : 0) + st * 0.3;
+      const py = r * st * 0.9 + st * 0.4;
+      const sz = st * 0.5;
+      stamp(x, logo, px + 2.5, py + 3, sz, '#46341a', 0.5);
+      stamp(x, logo, px - 2, py - 2.4, sz, '#ffffff', 0.9);
+      stamp(x, logo, px, py, sz, '#b3935a', 0.6);
+    }
+  press(x, (x2) => {
+    for (let r = -1; r * st * 0.9 < FH + st; r++)
+      for (let col = -1; col < 5; col++) {
+        x2.beginPath();
+        x2.arc(col * st + (r % 2 ? 0 : st / 2) + st * 0.3, r * st * 0.9 + st * 0.4, 4, 0, 7);
+        x2.fill();
+      }
+  });
+}
+/**
+ * Both panels of a code-drawn design, at the phone's size: the paper on each panel (as the drawing draws it), then the
+ * design across the pair. Each panel then lays its own half of this outward from the seam, as the lilies are laid.
+ */
+function panelArt(paper: HTMLImageElement, design: Exclude<RevealLooksFull['panel'], 'lily'>, ch: number, logo: HTMLCanvasElement): HTMLCanvasElement {
+  const pw = 512;
+  const k = canvas(pw * 2, ch);
+  const x = ctx2d(k);
+  for (const side of [0, 1]) x.drawImage(paper, 130, 130, 330, 300, side * pw, 0, pw, ch);
+  if (design === 'monogram') monogramField(x, pw * 2, ch, logo);
+  else press(x, (x2) => PANEL[design](x2, pw * 2, ch));
+  return k;
+}
+
 /** 3b · ENVELOPE, GATEFOLD — closed with the couple's seal or a ribbon and bow (never both); the panels open like doors */
 export const envelopeGatefold = (): Scene => {
   const flaps: Flap[] = [];
@@ -875,8 +1129,10 @@ export const envelopeGatefold = (): Scene => {
       const tied = c.closure === 'ribbon';
       HWg = HW;
       stage(c);
-      const calla = await c.art('calla');
       const wide = wideness(c.px);
+      /* 🎨 the couple's panel design (drawing v24): the sculpted lilies (the art), or one drawn in code and pressed */
+      const design = c.looks.panel;
+      const calla: HTMLImageElement | HTMLCanvasElement = design === 'lily' ? await c.art('calla') : panelArt(await c.art('paper'), design, Math.round((512 * H) / (HW / wide)), c.logo);
       for (const side of [-1, 1]) {
         flaps.push(
           new Flap(s, {
@@ -900,7 +1156,7 @@ export const envelopeGatefold = (): Scene => {
               x.rect(0, 0, cw, ch);
             },
             paint: (x, cw, ch) => {
-              /* the calla relief at its own size, laid outward from the seam (a wide screen gets more lilies) */
+              /* the design at its own size, laid outward from the seam (a wide screen gets more lilies, more pattern) */
               const pw = cw / wide;
               /* on a wide screen the art's own border is trimmed, so the copies meet without a line */
               const trim = wide > 1 ? calla.width * 0.012 : 0;

@@ -1,9 +1,9 @@
 /**
  * The reveal library — the shared registry of openings.
  *
- * 🎭 NINE REVEALS (owner 23 Nov 2026, DECISION_LOG "NINE REVEALS SHIP; THE GIFT BOX IS HELD"; drawing specs
- * `prototypes/reveals_round3_veil_rules_2026-11-23/`): Veil · Beach curtains · Envelope (classic + gatefold) ·
- * Fabric · Scratch · Smoke · Cathedral doors · Petals · Fireworks. The veil is the shipped `veil-reveal.tsx`;
+ * 🎭 TEN REVEALS (owner 23 Nov 2026, DECISION_LOG "NINE REVEALS SHIP; THE GIFT BOX IS HELD", then "ten reveals
+ * approved" for the v25 gift box; drawing specs `prototypes/reveals_round3_veil_rules_2026-11-23/`): Veil · Beach
+ * curtains · Envelope (classic + gatefold) · Fabric · Scratch · Smoke · Cathedral doors · Petals · Fireworks · Gift box. The veil is the shipped `veil-reveal.tsx`;
  * the others are scenes on one stage (`scene-reveal.tsx`). All share one set of motion rules (`lib/reveal-motion.ts`).
  * The 2026-06 openings (four-flap · two-flaps · church doors) are retired; their ids map to the nearest new
  * reveal (`RETIRED_REVEAL_IDS`, lib/reveal-config-pure.ts). A tiny pure module (no React, no three.js) so the live
@@ -49,6 +49,8 @@ export const REVEAL_ALIASES: Record<string, RevealTemplate> = {
   'cathedral-doors': 'cathedral-doors',
   petals: 'petals',
   fireworks: 'fireworks',
+  gift: 'gift-box',
+  'gift-box': 'gift-box',
   'two-flap-v': 'envelope-gatefold',
   'two-flap-h': 'envelope-classic',
   ...RETIRED_REVEAL_IDS,
@@ -125,6 +127,7 @@ export const REVEAL_LIBRARY: ReadonlyArray<{
   { id: 'cathedral-doors', label: 'Cathedral doors', family: 'scene', blurb: 'Heavy doors swing in; you glide down the aisle into the light.', motion: 'Doors open', hint: 'Tap the doors' },
   { id: 'petals', label: 'Petals', family: 'scene', blurb: 'Sampaguita and rose petals lift in a ring from the tap and fall away.', motion: 'Petals lift', hint: 'Tap anywhere' },
   { id: 'fireworks', label: 'Fireworks', family: 'scene', blurb: 'A rocket rises from the tap; the night melts where its sparks fall.', motion: 'Night bursts open', hint: 'Tap anywhere' },
+  { id: 'gift-box', label: 'Gift box', family: 'scene', blurb: 'A wrapped box in a soft breeze: the bow comes undone, the ribbon opens like a flower, the lid lifts and light pours out.', motion: 'Lid lifts', hint: 'Tap the bow' },
 ];
 
 /** The one instruction over a closed reveal. */

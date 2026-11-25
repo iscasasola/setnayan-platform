@@ -1,5 +1,5 @@
 /**
- * 🎭 THE NINE REVEALS SHARE ONE MOTION, AND EACH LOADS ONLY WHEN CHOSEN (owner 23 Nov 2026).
+ * 🎭 THE TEN REVEALS SHARE ONE MOTION, AND EACH LOADS ONLY WHEN CHOSEN (owner 23 Nov 2026).
  *
  *   · No reveal has timing of its own: the scene stage and the veil read the lift, the tap, the swipe and the speed
  *     from `lib/reveal-motion.ts`; no scene file reads a clock or schedules a timer.
@@ -7,7 +7,8 @@
  *   · ♿ Reduced motion: the closed reveal STILL, and a short cross-fade on the tap.
  *   · A reveal's engine loads only when it is the one chosen: three.js and the stage come through `next/dynamic`,
  *     each scene through its own `import()`, its art from `public/reveal/art/` at run time.
- *   · The gift box is held: no scene, no id, no art.
+ *   · The gift box is the tenth reveal (owner 23 Nov, "ten reveals approved"): a scene of its own, still under reduced
+ *     motion, its sparkle a slow wave, its ribbon never under the box.
  *
  * Sabotage check (run once by hand): give `scenes/bloom.ts` a `setTimeout` → the timing test goes red; import
  * `./scenes/doors` statically in `scene-reveal.tsx` → the loading test goes red.
@@ -97,8 +98,17 @@ test('📦 a reveal’s engine loads only when it is the one chosen', () => {
   }
 });
 
-test('🎁 the gift box is held — no scene, no art, no id (owner: "remove it until we fix it")', () => {
-  for (const f of [...SCENES, 'scene-reveal.tsx', 'reveal-templates.ts']) {
-    assert.doesNotMatch(strip(read(f.endsWith('.ts') && !f.includes('reveal') ? `scenes/${f}` : f)), /\bgift\b|giftBox|gift-box/i, `${f} carries the held gift box`);
-  }
+test('🎁 the gift box is the tenth reveal (owner 23 Nov, "ten reveals approved"; drawing v25 `gift3.js`)', () => {
+  assert.ok(REVEAL_LIBRARY.some((r) => r.id === 'gift-box'), 'the gift box is not in the chooser');
+  assert.match(STAGE, /'gift-box': \(\) => import\('\.\/scenes\/gift'\)/, 'the gift box has no scene of its own');
+  const GIFT = strip(read('scenes/gift.ts'));
+  /* ♿ reduced motion: everything holds still — no breeze, no travelling light */
+  assert.match(GIFT, /air\.gust = RM \? 0 :/, 'the breeze blows under reduced motion');
+  assert.match(GIFT, /if \(!RM\) spk\.position\.set/, 'the sheen light travels under reduced motion');
+  /* ✨ the sparkle is a slow wave (5.6 s), never a strobe */
+  assert.match(GIFT, /t \/ 5\.6/, 'the glints no longer come and go on the slow wave');
+  /* 🎀 the ribbon never goes under the box: it collides with the lid and the base, drawn vertices included */
+  assert.match(GIFT, /\{ x: LX, y: LY, z: ZT, z0: ZT - SK \},\s*\{ x: BX, y: BY, z: BZ \}/, 'the box is no longer solid to its ribbon');
+  /* the card is a window onto the guest's own page */
+  assert.match(GIFT, /blending: THREE\.NoBlending/, 'the card no longer shows the page through it');
 });

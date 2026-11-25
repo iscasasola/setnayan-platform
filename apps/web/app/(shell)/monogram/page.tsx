@@ -28,7 +28,7 @@ import { actionButtonClass } from '@/components/action-button-class';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const PAGE_TITLE = 'Free Monogram Maker · Setnayan';
+const PAGE_TITLE = 'Free Logo Maker · Setnayan';
 /** The document title ONLY. `metadata.title` is rendered through the root
  *  layout's `template: '%s · Setnayan'`, so a PAGE_TITLE that already ends in
  *  the brand came out as "… · Setnayan · Setnayan" on 11 live pages. The share
@@ -36,7 +36,7 @@ const PAGE_TITLE = 'Free Monogram Maker · Setnayan';
  *  correct WITH the brand — which is why this strips it here and nowhere else. */
 const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION =
-  'Design your own wedding monogram, free — no sign-up. Combine your initials in real typefaces, weave and frame them your way, and download it as a crisp vector (SVG) or a transparent PNG. Then make it your wedding’s mark everywhere with Setnayan.';
+  'Design your own wedding logo, free — no sign-up. Combine your initials in real typefaces, weave and frame them your way, and download it as a crisp vector (SVG) or a transparent PNG. Then make it your wedding’s mark everywhere with Setnayan.';
 // Use the neutral site-wide brand card (the /our-story manifesto card is
 // off-topic for a tool page); a monogram-specific OG render is a nice follow-up.
 const OG_IMAGE = `${SITE_URL}/brand/og-card-2026-11.png`;
@@ -59,7 +59,7 @@ export const metadata = {
     description: PAGE_DESCRIPTION,
     url: '/monogram',
     type: 'website',
-    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Setnayan free monogram maker' }],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: 'Setnayan free Logo Maker' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -74,7 +74,7 @@ export const metadata = {
 const JSON_LD = {
   '@context': 'https://schema.org',
   '@type': 'WebApplication',
-  name: 'Setnayan Free Monogram Maker',
+  name: 'Setnayan Free Logo Maker',
   url: `${SITE_URL}/monogram`,
   applicationCategory: 'DesignApplication',
   operatingSystem: 'Any (web browser)',
@@ -102,19 +102,19 @@ export default function PublicMonogramPage() {
       <main className="mx-auto w-full max-w-6xl px-5 pb-20 pt-10 sm:pt-14">
         <header className="mx-auto max-w-2xl text-center">
           <p className="text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">{gated ? 'Free · create an account' : 'Free · no sign-up'}</p>
-          <MonogramHeadline>Make your wedding monogram</MonogramHeadline>
+          <MonogramHeadline>Make your wedding logo</MonogramHeadline>
           <p className="mx-auto mt-4 max-w-xl text-base text-[var(--m-slate-2)] sm:text-lg">
             Two initials, your way — real vector outlines you can interlock, frame, and colour. Design it here for
             free{gated ? ' — create your free account to start.' : ' and download it crisp. No account needed.'}
           </p>
         </header>
 
-        <section className="mt-9" aria-label="Monogram studio">
+        <section className="mt-9" aria-label="Logo Maker">
           {gated ? (
             <div className="mx-auto max-w-md rounded-3xl bg-[var(--m-orange-4)] px-6 py-12 text-center">
               <h2 className="font-serif text-2xl text-[var(--m-ink)] sm:text-3xl">Create your free account to design</h2>
               <p className="mx-auto mt-3 max-w-sm text-base text-[var(--m-slate-2)]">
-                Your monogram becomes your wedding&rsquo;s mark — saved to your account so you can refine it, download it,
+                Your logo becomes your wedding&rsquo;s mark — saved to your account so you can refine it, download it,
                 and use it everywhere. It&rsquo;s free.
               </p>
               <Link
@@ -149,7 +149,7 @@ export default function PublicMonogramPage() {
 
         <ClosingCta heading="Make it official">
           <p data-premium-item className="mx-auto mt-3 max-w-lg text-base text-[var(--m-slate-2)]">
-            Couples on Setnayan don&rsquo;t just download their monogram — it becomes their wedding&rsquo;s signature
+            Couples on Setnayan don&rsquo;t just download their logo — it becomes their wedding&rsquo;s signature
             across their Event Hub, QR invitations, save-the-date, and signage, and can come alive as an animated reveal.
             Planning is free to start.
           </p>

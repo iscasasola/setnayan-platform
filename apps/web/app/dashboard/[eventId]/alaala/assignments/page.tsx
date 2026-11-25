@@ -43,8 +43,7 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
       .select('guest_id, first_name, display_name, entry_source, passed_away, represented_by_guest_id')
       .eq('event_id', eventId)
       .is('deleted_at', null)
-      // B-01 (final check, 25 Nov): the reply value is `attending` — the enum is pending · attending · declined ·
-      // maybe. It used to read `confirmed`, which Postgres refuses, so every moment said "No guests to assign".
+      // B-01: public.rsvp_status has no 'confirmed'; a guest who said yes is 'attending' (guard: lib/a-guest-read-filters-on-a-real-rsvp-value.test.ts).
       .eq('rsvp_status', 'attending')
       .order('first_name', { ascending: true }),
   ]);

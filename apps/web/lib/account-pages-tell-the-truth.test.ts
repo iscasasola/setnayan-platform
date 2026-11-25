@@ -69,8 +69,10 @@ test('A1-005 · group chat refusals are loud and said', () => {
   assert.match(act, /\?error=rejoin/);
   assert.match(act, /error=\$\{name\.trim\(\) \? 'refused' : 'name'\}/);
   const strip = src('app/_components/chat/chat-host-strip.tsx');
-  assert.match(strip, /catch \{[\s\S]{0,160}toast\.error\('They were not added just now/);
-  assert.match(strip, /catch \{[\s\S]{0,160}toast\.error\('You did not leave the chat just now/);
+  assert.match(strip, /catch \{[\s\S]{0,160}setRefused\(true\);/);
+  assert.match(strip, /They were not added just now\. Press Add to try again\./);
+  assert.match(strip, /catch \{[\s\S]{0,160}setLeaveRefused\(true\);/);
+  assert.match(strip, /You did not leave the chat just now\. Try again\./);
   assert.match(src('app/samahan/chat/[threadId]/page.tsx'), /rejoinFailed \? \(/);
 });
 

@@ -11,3 +11,8 @@ Final check, area 8 fixer, batch 1 (lane A only, no screen shape change):
 Each claim has a guard test; each guard was mutation-checked red, then restored.
 
 SPEC IMPACT: None. Fixes to already-drawn admin pages; no rule, price or plan changes.
+
+**Added (controller ruling 25 Nov): A8·A-1.** Approving a payment whose own row can't be read is refused ("Couldn't
+check this payment against previous payments… Nothing was approved"), the same rule as the priors read beside it. It
+used to skip the whole duplicate-reference check and approve. Guard: `apps/web/app/admin/payments/an-unread-payment-is-not-approved.test.ts`
+(fails when the fix is reverted). The other eight A1 guards are #8332's (checker 8-1).

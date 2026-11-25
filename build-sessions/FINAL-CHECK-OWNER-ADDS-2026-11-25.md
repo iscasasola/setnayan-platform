@@ -659,7 +659,7 @@ One shared engine: the 3D faceless mannequin, measurements driving the body, and
 Owner: "supplier. then clients and events".
 
 1. **Supplier launch first.**
-   - L1–L12: ship batch 1 (merged), ship batch 2 (area 5: #8314, #8338, #8335, #8318, #8320) and ship batch 3 (#8324, #8329, #8322, #8332), plus #8348 shipped on its own (migration). #8346 waits for the owner's OK on its baselines.
+   - L1–L12: ship batch 1 (merged), ship batch 2 (area 5: #8314, #8338, #8335, #8318, #8320) and ship batch 3 (#8324, #8329, #8322, #8332), plus #8348 shipped on its own (migration). #8346 joins ship batch 3: the owner OK'd its port and route baseline update on 26 Nov, for that PR only.
    - Live only when /api/health shows the commit.
    - One staging walkthrough with the owner signing in: supplier sign-up, open a shop, admin approves, take a booking.
 2. **Clients and events next:** lane A (areas 2–4) in batches, plus Add 41 (sponsors into the guest list, a pipeline migration on its own PR, with Checker 2). The Apple upload follows the clients step.

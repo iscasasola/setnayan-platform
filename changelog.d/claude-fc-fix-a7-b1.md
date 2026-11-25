@@ -13,7 +13,7 @@ Final check (25 Nov), area 7 (coordinator, Spaces, maps), lane A — no screen r
 - A7-14 — Spaces: both locks show the Plus price from the catalogue (`getVendorPrices` + `monthlyPlanPrice`).
 - A7-29 — the supplier's "not confirmed on Setnayan yet" lock has one button into the client's chat.
 - A7-33 — no "Amount to pay: Next payment" line without a peso; stored method codes read as words ("Bank transfer").
-- A7-10 — the couple's 2D seat plan and 3D room stop on a refused floor-plan / fixtures / signs read (`fetch*Measured`).
+- A7-10 — the couple's 2D seat plan stops on a refused floor-plan or signs read (`fetchFloorPlanMeasured`, new `fetchSignsMeasured`). The 3D room (`seating/lab/page.tsx`) is lane R5: not edited.
 
 Tests: `lib/amount-to-pay.test.ts` (new case), `lib/payment-method-words.test.ts`, `app/dashboard/[eventId]/seating/floor-plan-read-is-honest.test.ts`.
 

@@ -584,3 +584,10 @@ of those users will become the same supplier."
 - The screen says the read failed ("Couldn't read the guest count. Try again.") with a retry. The lock stays refused (already built in #8343).
 - Every caller of the live count (quotes, per-guest prices, invoices, locks) treats "unread" as "no price", never as zero or the estimate. Add a behaviour test: refused count → no price, no charge.
 - No price numbers change. This only decides what happens when the count cannot be read.
+
+## Add 36 · OWNER RULING (25 Nov) on R2 (L6, #8346): Setnayan AI on its own is sold on the web only
+
+- Retiring R2 removes the stand-alone Setnayan AI Apple in-app purchase. The owner accepts this: **AI on its own is a web-only purchase.**
+- R2's old address forwards (308) to `routes.dashboard.eventServices(eventId, 'ai')`, the existing web AI-alone path (controller ruling; no "Event Hub AI page" exists).
+- **Inside the iOS app**, do not show a buy button, price, or link/steer to the web checkout for AI on its own (Apple's anti-steering rule). AI there comes through the event plans (already IAP), so the iOS AI-alone entry shows only what's included or nothing.
+- No prices change.

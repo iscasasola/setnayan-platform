@@ -37,12 +37,12 @@ None yet.
 - [x] /live — OFFLINE: NOT NEEDED (Live Watch never saved) · SHAPE: PAGE = PAGE
 - [x] /live/screen — OFFLINE: NOT NEEDED (Live Watch never saved) · SHAPE: PAGE = PAGE
 - [x] /panood/cam/[token] — OFFLINE: NOT NEEDED (a live camera) · SHAPE: PAGE = PAGE (camera, but reached and re-opened by its shared link: test 1)
-- [ ] /papic/claim/[token]
-- [ ] /papic/decorate
-- [ ] /papic/demo/[token]
-- [ ] /papic/guest
-- [ ] /papic/join/[token]
-- [ ] /papic/lightcheck
+- [x] /papic/claim/[token] — OFFLINE: NOT NEEDED (one-time claim) · SHAPE: PAGE = PAGE
+- [x] /papic/decorate — OFFLINE: NOT NEEDED (an open page saves to the phone queue) · SHAPE: PAGE → FULL-SCREEN POPUP (DIFFERS, A4-55)
+- [x] /papic/demo/[token] — OFFLINE: NOT NEEDED (marketing demo) · SHAPE: PAGE = PAGE
+- [x] /papic/guest — OFFLINE: NEEDED (hall and tables, mid-shoot) — shots queue on the phone, but the camera cannot be opened with no signal · SHAPE: PAGE → FULL-SCREEN POPUP (DIFFERS, A4-69)
+- [x] /papic/join/[token] — OFFLINE: NOT NEEDED (one server hop) · SHAPE: PAGE = PAGE
+- [x] /papic/lightcheck — OFFLINE: NOT NEEDED · SHAPE: PAGE → not a product route (an operator tool; app/dev or deleted, A4-73)
 - [ ] /papic/me/[token]
 - [ ] /papic/order/[token]
 - [ ] /papic/pool
@@ -836,6 +836,290 @@ EXPECTED  No price written into code or comments.
 ACTUAL    `gated on the paid CUSTOM_QR_GUEST SKU, ₱1,499`. Anchor: `apps/web/app/[slug]/seat/page.tsx` header comment "CUSTOM_QR_GUEST SKU".
 SHOTS     n/a
 RULE      CLAUDE.md §1 (never write a price into a comment)
+SEVERITY  look
+SOURCE    CODE
+```
+
+### Papic: what ships for offline and photo credit
+
+- **A shot taken with no signal is not lost.** It is saved on the phone first (IndexedDB, `lib/papic-upload/store.ts`).
+  The sender wakes on `online`, on visibility, when the page opens and on its back-off timer (a Web Lock between
+  tabs). There is no Background Sync (iOS has none), so waiting shots send only while a camera for that event and
+  person is open. The chip's words ("Offline · N waiting … Keep this page open") match the code. A waiting shot is
+  dropped after 7 days (`SHOT_TTL_MS`) and shown as "Couldn't save N".
+- **The gaps:** the camera page cannot be opened with no signal (not intercepted), and ✕ lands on `offline.html`
+  (A4-70).
+- **Photo credit** reads through `lib/papic-event-pool.ts` (`fetchGuestQuota` → `readEventPoolStatus`), except the
+  low-credits threshold (A4-65).
+
+### /papic/claim/[token]
+
+```
+ID        A4-54
+PAGE      /papic/claim/[token]   (any seat link)
+BUTTON    "Start shooting" / "Claim my seat & start shooting"
+STEPS     1. Open a valid seat link. 2. Tap the button while the `papic_claim_seat` RPC (or a non-captcha anonymous sign-in) errors.
+EXPECTED  A retryable "we couldn't check just now · your link is fine", like the page's own `unreadable` and `verify` states.
+ACTUAL    `redirect(`/papic/claim/${token}?state=error`)` → `if (state === 'invalid' || state === 'error') {` draws the terminal "This link isn't active. The host may have reissued this seat." with no form. Anchors: `apps/web/app/papic/actions.ts` `claimPapicSeat`; `apps/web/app/papic/claim/[token]/page.tsx`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /papic/decorate
+
+```
+ID        A4-55
+PAGE      /papic/decorate   (event: stg-carla-miguel)
+BUTTON    "Decorate a photo" (on /papic/me)
+STEPS     1. Open /papic/me/<token>. 2. Tap "Decorate a photo".
+EXPECTED  SHAPE tests: a photo editor, not shared or revisited by link → FULL-SCREEN POPUP over /papic/me; ✕ returns to the same place.
+ACTUAL    A two-hop navigation (`me/[token]/session/route.ts` `NEXT_DESTINATIONS` `decorate: '/papic/decorate'`) to a standalone `<main className="min-h-screen bg-cream px-4 py-8 text-ink">` with its own "Back to my photos" link. Anchor: `apps/web/app/papic/decorate/_components/kwento-decorator.tsx`.
+SHOTS     375 px light
+RULE      SHAPE
+SEVERITY  look
+SOURCE    CODE
+```
+
+### /papic/demo/[token]
+
+```
+ID        A4-56
+PAGE      /papic/demo/[token]
+BUTTON    the line under "That's the 3 demo credits"
+STEPS     1. Scan a demo QR. 2. Take three shots.
+EXPECTED  No claim that Papic is unlimited (shots are metered by the event pool, `papic_event_pool_config`).
+ACTUAL    `The real Papic is unlimited — every guest, all day, all in your Memories.`. `papic-page-says-only-what-is-true.test.ts` bans exactly this, but its `PAPIC_PAGE_FILES` list misses this file. Anchor: `apps/web/app/papic/demo/[token]/_components/demo-join-flow.tsx` "The real Papic is unlimited".
+SHOTS     375 px light
+RULE      brand.md claims (price promises)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-57
+PAGE      /papic/demo/[token]
+BUTTON    "Take the shot"
+STEPS     1. Open a demo link and register. 2. Let the session expire (or lose signal). 3. Tap "Take the shot".
+EXPECTED  It says the demo expired or the shot failed.
+ACTUAL    Nothing happens and nothing is said: `if (!gate.ok) { if (gate.reason === 'cap') setRemaining(0); return; }`; a thrown `recordDemoShot` only reaches the `finally`. Anchor: `apps/web/app/papic/demo/[token]/_components/demo-join-flow.tsx` `takeShot`.
+SHOTS     375 px light
+RULE      design-and-wiring B5/B6 (a failure renders as a failure)
+SEVERITY  broken
+SOURCE    CODE
+```
+
+```
+ID        A4-58
+PAGE      /papic/demo/[token]
+BUTTON    the credit counter / "That's the 3 demo credits"
+STEPS     1. Shoot on the demo.
+EXPECTED  The count from the server cap `DEMO_SHOT_CAP` (`lib/demo-sessions.ts`).
+ACTUAL    A hand-typed second copy: `const [remaining, setRemaining] = useState(3);` and `'That’s the 3 demo credits'`. Anchor: `apps/web/app/papic/demo/[token]/_components/demo-join-flow.tsx`.
+SHOTS     375 px light
+RULE      design-and-wiring C8 (one reader) · brand.md (hand-typed counts)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-59
+PAGE      /papic/demo/[token]
+BUTTON    the demo card
+STEPS     1. Open a demo link.
+EXPECTED  A frame token surface.
+ACTUAL    `<div className="w-full max-w-md rounded-2xl border border-[var(--m-line)] bg-white p-7 …">` (`function Shell`). Anchor: `apps/web/app/papic/demo/[token]/page.tsx` `function Shell`.
+SHOTS     375 px light
+RULE      design-and-wiring D13 (no bg-white) · lint:no-card
+SEVERITY  look
+SOURCE    CODE
+```
+
+### /papic/guest (the guest camera)
+
+```
+ID        A4-60
+PAGE      /papic/guest   (event: stg-carla-miguel before its capture day, or a blocked guest)
+BUTTON    "Open my camera" (on /papic/me), which lands here
+STEPS     1. Open /papic/me/<token>. 2. Tap "Open my camera" (`/papic/me/<t>/session?next=guest`, no `from`). 3. Arrive before the day, while access is off or unknown, or while blocked.
+EXPECTED  Every refusal has a way back to this event's Event Hub (the slug is already read: `ownHubSlug`).
+ACTUAL    The only way off is `{backSlug ? (<Link href={`/${backSlug}`} …>Back to the invitation</Link>) : null}`; with no `?from=` the "Guest cameras open on the day", "aren't on yet / couldn't check" and "Camera unavailable." screens have no button, only the DoorShell wordmark to `/`. Other entries without `from`: `public-event-day-bar.tsx` `href="/papic/guest"`, kwento-decorator's "Open the camera page". Anchor: `apps/web/app/papic/guest/page.tsx` `backSlug`.
+SHOTS     375 px light
+RULE      Every screen has a way off (`lib/page-home.ts`: a guest page never sends anyone to `/`)
+SEVERITY  broken
+SOURCE    CODE
+```
+
+```
+ID        A4-61
+PAGE      /papic/guest   (event: stg-carla-miguel)
+BUTTON    the thumbnail beside the shutter ("My shots")
+STEPS     1. Open the camera while the read of the guest's own shots fails. 2. Tap the thumbnail.
+EXPECTED  "Couldn't read your earlier shots" (`getGuestOwnShots` returns null for exactly this).
+ACTUAL    `...(myShots ?? []).map(...)` folds the failure into empty; the sheet says "Your shots land here as you take them.". Anchor: `apps/web/app/papic/guest/_components/papic-guest-capture.tsx` `myShotsList`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-62
+PAGE      /papic/guest   (event: stg-carla-miguel)
+BUTTON    the "My shots" sheet · "Add credits" (also on /papic/seat; flag NEXT_PUBLIC_PAPIC_GUEST_BUY)
+STEPS     1. Tap the thumbnail. 2. (Flag on) tap "Add credits", or run out of shots.
+EXPECTED  The shared `Sheet`.
+ACTUAL    Two hand-rolled panels: `role="dialog" aria-modal="true"` `className="fixed inset-x-0 bottom-0 z-[46] flex h-[72%] …"` with its own drag-to-close (`my-shots-sheet.tsx`), and `role="dialog" aria-modal="true" … className="fixed inset-0 z-50 flex items-end …"` with its own `max-h-[85vh]` panel (`papic-buy-shell.tsx` `PapicBuyShell`). Both do use `OverlayBackdrop`. Anchors: `apps/web/app/papic/guest/_components/my-shots-sheet.tsx`; `apps/web/app/papic/_components/papic-buy-shell.tsx`.
+SHOTS     375 px light
+RULE      K3
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+ID        A4-63
+PAGE      /papic/guest   (event: stg-carla-miguel)
+BUTTON    "Add from your phone" (in the My shots header)
+STEPS     1. Open My shots. 2. Tap "Add from your phone".
+EXPECTED  Never a popup on top of a popup.
+ACTUAL    `const openPhone = useCallback(() => setPhoneOpen(true), []);` leaves `shotsOpen` true, so `<AddFromPhoneSheet open={phoneOpen} …>` opens over the still-open `<MyShotsSheet open={shotsOpen} …>`. Anchor: `apps/web/app/papic/guest/_components/papic-guest-capture.tsx` `openPhone`.
+SHOTS     375 px light
+RULE      K3 · SHAPE (popup on a popup)
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+ID        A4-64
+PAGE      /papic/guest   (also /papic/seat/[token]; behind NEXT_PUBLIC_PAPIC_GUEST_BUY)
+BUTTON    each offer row in "Add credits" ("₱N — adds N credits to your shared pool")
+STEPS     1. Open Add credits.
+EXPECTED  Pesos only through `lib/php.ts`; no rate written in code.
+ACTUAL    `function peso(n: number): string { return `₱${Math.round(n).toLocaleString('en-PH')}`; }` formats locally and rounds away centavos; the "N% off ₱M" figure uses `export const PAPIC_PESO_PER_CREDIT = 1;` (`papicPoolRungPhrase`). Anchor: `apps/web/lib/papic-tier-copy.ts` `function peso`.
+SHOTS     375 px light
+RULE      CLAUDE.md §1 (money through php.ts only) · §5 rule 3 (never guess a number that governs money)
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+```
+ID        A4-65
+PAGE      /papic/guest   (an event with a per-guest ceiling)
+BUTTON    the low-credits pill
+STEPS     1. Shoot until the remaining credits near the soft stop.
+EXPECTED  The threshold is the pool's live `softStopPct` read through `lib/papic-event-pool.ts`.
+ACTUAL    `remaining <= Math.floor((total * (100 - DEFAULT_EVENT_POOL_CONFIG.softStopPct)) / 100)` uses the last-resort fallback, not the owner-tunable `papic_event_pool_config` row. Anchor: `apps/web/app/papic/guest/_components/papic-guest-capture.tsx` `const low =`.
+SHOTS     n/a
+RULE      design-and-wiring C8 (photo credit: one reader)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-66
+PAGE      /papic/guest   (an event with a per-guest ceiling)
+BUTTON    the remaining-credits pill
+STEPS     1. Open the camera while both `papic_guest_captures` reads in `fetchGuestQuota` fail.
+EXPECTED  An unknown count is not drawn as a full allowance (the function's own comment says so).
+ACTUAL    `used` stays 0 when `countError` is set (logged only, "graceful_degrade"), so `remaining = … GUEST_CAPTURE_CREDITS - used` shows the full figure. The record RPC still enforces the cap. Anchor: `apps/web/lib/papic-guest.ts` `fetchGuestQuota`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-67
+PAGE      /papic/guest   (event: stg-carla-miguel)
+BUTTON    the page gate
+STEPS     1. A guest the host blocked opens the camera while the `event_blocked_users` read errors.
+EXPECTED  A failed gate read does not hand out the camera.
+ACTUAL    `const { data: blockRow } = await admin.from('event_blocked_users')…` ignores `error`, then `if (blockRow) {`: the camera opens and the capture route later refuses every shot. Anchor: `apps/web/app/papic/guest/page.tsx` `event_blocked_users`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-68
+PAGE      /papic/guest · /papic/seat/[token]
+BUTTON    route load
+STEPS     1. Tap Camera on the Hub on a slow connection (or open a seat camera).
+EXPECTED  The skeleton draws only what the page draws: a dark full-screen stage.
+ACTUAL    `return <GridPageSkeleton title />;` (`guest/loading.tsx`, a cream card grid) and `return <FormPageSkeleton title />;` (`seat/[token]/loading.tsx`, a form shell), then a black full-screen camera.
+SHOTS     375 px light (slow 3G)
+RULE      CLAUDE.md §3 Loading · HOUSE_DESIGN_STANDARD F1
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+ID        A4-69
+PAGE      /papic/guest   (event: stg-carla-miguel)
+BUTTON    "Camera" on the Event Hub bar
+STEPS     1. On the Hub, tap Camera.
+EXPECTED  SHAPE tests: the URL carries no identity and QR scans land on /papic/me first, so test 1 does not hold; it is a camera → FULL-SCREEN POPUP (RiseScreen) over the Hub; ✕ returns to the same scroll and tab without a reload.
+ACTUAL    Two navigations (`guestCameraHref = … /papic/me/${…}/session?next=guest&from=${event.slug}` in `site-body.tsx`) to a page with `'fixed inset-0 z-30 h-[100dvh] overflow-hidden …'`; its ✕ is a link to `cameraExitHref(...)` that reloads the Hub. `the-camera-tab-is-the-camera.test.ts` #6 and `the-camera-is-the-whole-screen.test.ts` pin the page shape and move with the owner's word.
+SHOTS     375 px light + desktop
+RULE      SHAPE (the camera is a FULL-SCREEN POPUP)
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+ID        A4-70
+PAGE      /papic/guest   (also /papic/seat/[token])   (event: stg-carla-miguel)
+BUTTON    ✕ "Close the camera"
+STEPS     1. Open the camera with signal. 2. Lose signal in the hall. 3. Shoot. 4. Tap ✕.
+EXPECTED  Back to the Hub's saved copy.
+ACTUAL    The exit link is `return `/${slug}?${HUB_TAB_PARAM}=${to}${n}`;` with `&added=N` after shots (`hub-tabs.ts` `cameraExitHref`). The worker's fallback matches the exact URL (`caches.match(request).then((c) => c ?? caches.match('/offline.html'))`), and that URL was never cached, so the guest lands on offline.html (the shots stay queued). Anchors: `apps/web/app/[slug]/_components/hub-tabs.ts` `cameraExitHref`; `apps/web/public/sw.js` `isDayOfGuestNavigation` fallback.
+SHOTS     375 px light (DevTools offline)
+RULE      Offline: guests at the venue
+SEVERITY  broken
+SOURCE    CODE
+```
+
+### /papic/join/[token]
+
+```
+ID        A4-71
+PAGE      /papic/join/[token]
+BUTTON    page load
+STEPS     1. Scan a valid camera QR while the `paparazzi_seats` or `guests` read errors.
+EXPECTED  "We couldn't check · your link is fine", as /papic/me and claim's `unreadable` state do.
+ACTUAL    `const { data } = await admin.from('paparazzi_seats')…; return Boolean(data);` and `catch { return false; }` fold a failure into "This link isn't active … Ask whoever sent it to re-share your link". Anchor: `apps/web/app/papic/join/[token]/page.tsx` `resolveKind`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-72
+PAGE      /papic/join/[token]
+BUTTON    the "Shoot from the Setnayan app" notice
+STEPS     1. Open a join link in a phone browser with no store URL set.
+EXPECTED  No coming-feature or app claim before it is live.
+ACTUAL    `<span data-coming-soon="">The app is coming soon — for now, keep going right here in your browser. Nothing to install.</span>` under "Shoot from the Setnayan app". Anchor: `apps/web/app/papic/join/[token]/_components/app-install-banner.tsx` `data-coming-soon`.
+SHOTS     375 px light
+RULE      brand.md claims #8 and #9 (app before approval; coming features)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /papic/lightcheck
+
+```
+ID        A4-73
+PAGE      /papic/lightcheck
+BUTTON    the page itself · "Copy"
+STEPS     1. Visit /papic/lightcheck.
+EXPECTED  A throwaway diagnostic lives under `app/dev/**` or is removed.
+ACTUAL    The page says `DELETE THIS ROUTE once the numbers are recorded in the verdict.` and is baselined in `lib/ugat/baselines/no-door.baseline.txt` ("a page nobody can reach without typing its address"). Copy says success whatever happens: `void navigator.clipboard?.writeText(text); say('Copied to clipboard.');`. Anchors: `apps/web/app/papic/lightcheck/page.tsx`; `_components/lightcheck-client.tsx` "Copied to clipboard.".
+SHOTS     n/a
+RULE      design-and-wiring D11/D17 (labs under app/dev) · honest states
 SEVERITY  look
 SOURCE    CODE
 ```

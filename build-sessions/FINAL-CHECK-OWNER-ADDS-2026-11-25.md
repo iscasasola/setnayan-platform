@@ -550,3 +550,4 @@ their cover photo… if they go to Pro, they go to Ultra, the full editorial wil
   Default until he says: follow the same grandfathering rule as canvas.
 - Nothing already written is deleted when a plan is lower: it stays saved and shows again on upgrade.
 - **Look APPROVED (owner 25 Nov: "A newspaper looks good.")** for the Our Day Paper drawing. Function stays the controller's (Add 31).
+- **Grandfathering ANSWERED (owner 25 Nov: "Ultra only.")**: Our Day Paper prints for Event Ultra ONLY. Do NOT reuse `eventCanvasPrintsActive` (it lets early-Pro canvas through); gate on `eventUltraActive` alone. Supersedes the "Default until he says" line above.

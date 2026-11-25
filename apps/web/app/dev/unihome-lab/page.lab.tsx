@@ -56,6 +56,17 @@ function card(over: Partial<UnihomeEventCard> & Pick<UnihomeEventCard, 'eventId'
     hubUrl: '#hub',
     scene: { eventType: 'wedding', photoSrc: photo('wedding'), ownPhotoSrc: null, cover: null },
     archived: false,
+    // 📋 The card's tap menu (brief Add 40) — the organiser's full set; a helper's has no Story and no Delete.
+    menu:
+      over.stance === 'invited'
+        ? null
+        : {
+            hubHref: '#hub',
+            chatHref: '#chat',
+            memoriesHref: '#memories',
+            story: over.stance === 'organiser' ? { href: '#story-publish', open: false } : null,
+            canDelete: over.stance === 'organiser',
+          },
     ...over,
   };
 }

@@ -377,8 +377,15 @@ export const routes = {
       index: (eventId: string) => `/dashboard/${eventId}/messages`,
       detail: (eventId: string, threadId: string) => `/dashboard/${eventId}/messages/${threadId}`,
     },
+    /** The event's Memories — its photos and videos (the album is Memories; the Papic page is gone). */
+    memories: (eventId: string) => `/dashboard/${eventId}/memories`,
     monogram: (eventId: string) => `/dashboard/${eventId}/monogram`,
     more: (eventId: string) => `/dashboard/${eventId}/more`,
+    /**
+     * The Story maker. `step` opens one of its steps by the hash it already reads (`STORY_STEPS` in
+     * `story/_components/story-rail.tsx`): `'publish'` is the publish step, where the clear desk and the consent tick live.
+     */
+    story: (eventId: string, step?: 'publish') => `/dashboard/${eventId}/story${step ? `#${step}` : ''}`,
     notifications: () => `/dashboard/notifications`,
     orders: {
       index: (eventId: string) => `/dashboard/${eventId}/orders`,

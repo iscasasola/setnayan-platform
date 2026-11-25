@@ -3673,6 +3673,7 @@ the batches; the rest wait.
   the concierge is retired (R7). Delete with a forward.
 - [C/R] Add 17 · `/admin/studio?tab=patiktok` · Patiktok is a retired name (SW-RETNAME) but the Studio menu still offers
   it. Owner to rule: retire or rename.
-- Add 15 · the admin top bar and rail draw the mark through `<Logo>`/`LogoMark` (the one source). No bypass found in
-  `app/admin`. ✓
+- [B] Add 15 · every admin page's top bar · the mark is `LogoMark` from `app/_components/brand-marks.tsx`
+  (`front-door-shell.tsx` draws it), which Add 15 lists as a bypass of the one source. Covered by the Add 15 lane B batch;
+  nothing inside `app/admin` draws its own mark.
 - Add 18 · the admin Reveal Studio edits the house reveal settings (not a couple's pick); it shows no per-event picker. ✓

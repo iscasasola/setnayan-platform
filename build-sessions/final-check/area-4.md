@@ -1,4 +1,4 @@
-FIXER: batch 1 of ~4 · PR #8306 · waiting for CI (batch 2 built locally, batch 3 in progress)
+FIXER: batch 1 of 5 · PR #8306 · waiting for CI · batches 2–4 built and tested locally (2 in preflight), PRs follow one by one
 STATUS: phase B done (25 Nov 08:50 UTC) · pages 37 + 1 forward: 35 walked on the copy, 1 not reachable (/[slug]/cached/[key]: no key), K3 layers on the Hub not walked (A4-B01) · phase B findings 13: blocker 1 (A4-B01, OPEN) · money-signin 0 · broken 2 · wrong 7 · look 3 · phase A confirmed on the copy: A4-01, A4-42, A4-44, A4-73 · phase A struck: "set-password drops ?next" (it keeps it) · not reproduced: A4-06 (no seeded "Anyone, I approve" event) · latent behind flags off on the copy: A4-02, A4-64, A4-77, A4-78 (Papic guest buy) · buttons on walked pages ≈ 120 at 375 · pressed ≈ 100 · failed 9
 
 # Final check · Area 4 · Guest (Event Hub, pass, camera)
@@ -1633,3 +1633,25 @@ On the pages fixer batch 1 touched (`/[slug]/seat`, `/find-seat`, `/welcome`, `/
 - Add 17 · no retired page among them. `/papic/lightcheck` stays R9 (not touched).
 - Add 18 · the guest pages only PLAY the couple's reveal; none offers templates to pick. No finding.
 - Skipped on purpose: A4-31 (`/everyone` host read) — `app/[slug]/a-failed-read-is-not-an-absence.test.ts` records the soft read as deliberate fail-closed (the rest of the list stays hidden), so no change; the wording a host sees on a failed read stays a lane B question.
+
+## Fixer ledger (25 Nov)
+
+| Batch | Branch | Entries | State |
+|---|---|---|---|
+| 1 | `claude/fc-fix-a4-b1` | A4-50 51 53 37 25 26 27 28 44 45 46 49 38 S01 | PR #8306, waiting for CI |
+| 2 | `claude/fc-fix-a4-b2` | A4-56 57 58 83 60 61 63 65 66 67 70 71 54 82 74 75 79 80 78 B03(papic) | built; preflight running |
+| 3 | `claude/fc-fix-a4-b3` | A4-03 04 06 08 09 10 11 12 13 15 16 B02 B03(cam) B06 B07 B09 | built; tests green locally |
+| 4 | `claude/fc-fix-a4-b4` | A4-01 23 22 30 33 35 52(silent half) | built; tests green locally |
+| 5 | — | A4-21 (story counts through `lib/guests.ts`), A4-34 (one seat-plan reader for three pages) | next |
+
+Not fixed, with the reason:
+- **A4-31** `/everyone` host read — the guard `a-failed-read-is-not-an-absence.test.ts` rules the soft read deliberate (fails closed).
+- **A4-B08** `/papic/pool` 404 — the deliberate "switched off ⇒ the page does not exist" rule; the gallery was off on the copy.
+- **A4-05** claim success toast — it lives on `/dashboard` (area 2's file). Passed to area 2.
+- **A4-02** two service workers on one scope — needs a design call (one worker carrying both jobs); latent while the daemon flag is off.
+- **A4-24** the home-screen tile offline — the pass hop is deliberately "the browser's alone" (sign-in cookies and redirects); wrapping it in the worker touches sign-in. Design call.
+- 🟠 **A4-B11** a signed-in seat holder's pass, QR and find-my-table — making the pass/QR endpoints accept the account changes who may read a pass. Owner: should an account that holds the seat open its own pass without the invite link?
+- 🟠 **A4-52** table-change alerts — nothing sends them (`guest_push_subscriptions` has no reader), and a guard requires the ask to stay mounted. Owner: build the sender, or retire the ask?
+- **A4-B13** venue time vs "your time" on one screen — where the zone label goes needs a drawing (lane B).
+- Shared sweeps that list area 4 but not first (SW-PHP A4-64 A4-77 · SW-WORDS A4-42 A4-43 · SW-PROMISE A4-B12 · SW-COMING A4-72 · SW-RAWDB A4-14 · SW-PLACE A4-B10 · SW-WEDDING A4-47 A4-48 · SW-500 A4-B01) — built by the area named first.
+- **A4-73** `/papic/lightcheck` — lane R (retire), not touched.

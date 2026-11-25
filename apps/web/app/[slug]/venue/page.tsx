@@ -5,7 +5,7 @@ import { notFound, redirect } from 'next/navigation';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { canViewSlugEvent } from '@/lib/slug-access';
-import { fetchBooths } from '@/lib/seating';
+import { withBoothShopFacts } from './_lib/venue-scene-joins.server';
 import { GuestVenueLoader } from './_components/guest-venue-loader';
 import { guestAvatarsEnabled } from '@/lib/venue-avatars';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -235,35 +235,8 @@ export default async function VenuePage({
     // boothIsBranded render check requires on top of the Pro/Enterprise tier.
     // Public business info only; fail-soft (a missing event row → no CTA, and
     // boothAddonActive defaults false → the generic unbranded booth).
-    if (eventId) {
-      const boothRows = await fetchBooths(admin, eventId);
-      const profileById = new Map(
-        boothRows.map((b) => [
-          b.booth_id,
-          {
-            slug: b.vendor?.slug ?? null,
-            bookable: b.vendor?.bookable ?? false,
-            boothAddonActive: b.vendor?.boothAddonActive ?? false,
-          },
-        ]),
-      );
-      scene = {
-        ...scene,
-        booths: (scene.booths ?? []).map((b) =>
-          b.vendor
-            ? {
-                ...b,
-                vendor: {
-                  ...b.vendor,
-                  slug: profileById.get(b.id)?.slug ?? null,
-                  bookable: profileById.get(b.id)?.bookable ?? false,
-                  boothAddonActive: profileById.get(b.id)?.boothAddonActive ?? false,
-                },
-              }
-            : b,
-        ),
-      };
-    }
+    // A7-01: the one booth join, shared with the live-refresh route.
+    scene = await withBoothShopFacts(admin, scene, eventId);
   }
 
   // Three unrelated causes used to share one plate. The event-does-not-exist

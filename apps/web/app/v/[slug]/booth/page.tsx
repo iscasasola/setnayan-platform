@@ -250,7 +250,7 @@ export default async function VendorBoothShowcasePage({ params, searchParams }: 
       <BoothShowcaseLoader booth={booth} vendorName={name} />
       {/* The way back (final check A1-126): the canvas fills the screen and had no exit, in the installed app none at all.
           The same link the not-set-up state already shows. */}
-      <Link href={shopHref} className={`fixed left-4 top-4 z-10 ${actionButtonClass('neutral')}`}>
+      <Link href={shopHref} className={`fixed left-[calc(var(--sn-safe-l)+1rem)] top-[calc(env(safe-area-inset-top)+1rem)] z-10 ${actionButtonClass('neutral')}`}>
         <ChevronLeft aria-hidden strokeWidth={1.9} />
         <span className="lbl">Back to {name}&rsquo;s shop page</span>
       </Link>

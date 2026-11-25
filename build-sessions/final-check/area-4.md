@@ -33,10 +33,10 @@ None yet.
 - [x] /join/[eventId]/connect/confirm — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE
 - [x] /join/[eventId]/set-password — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE
 - [x] /join/[eventId]/success — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE
-- [ ] /join/crew/[token]
-- [ ] /live
-- [ ] /live/screen
-- [ ] /panood/cam/[token]
+- [x] /join/crew/[token] — OFFLINE: READ-ONLY IS ENOUGH (run of show, back of house) · SHAPE: PAGE = PAGE
+- [x] /live — OFFLINE: NOT NEEDED (Live Watch never saved) · SHAPE: PAGE = PAGE
+- [x] /live/screen — OFFLINE: NOT NEEDED (Live Watch never saved) · SHAPE: PAGE = PAGE
+- [x] /panood/cam/[token] — OFFLINE: NOT NEEDED (a live camera) · SHAPE: PAGE = PAGE (camera, but reached and re-opened by its shared link: test 1)
 - [ ] /papic/claim/[token]
 - [ ] /papic/decorate
 - [ ] /papic/demo/[token]
@@ -48,8 +48,8 @@ None yet.
 - [ ] /papic/pool
 - [ ] /papic/seat/[token]
 - [ ] /papic/try
-- [ ] /samahan/join/[token]
-- [ ] /wall/[eventId]
+- [x] /samahan/join/[token] — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE
+- [x] /wall/[eventId] — OFFLINE: NOT NEEDED (live wall never saved; freezes on last frame) · SHAPE: PAGE = PAGE
 
 ## Offline today: what ships for guests (read once, applies to every page below)
 
@@ -169,3 +169,145 @@ No findings. (Browser pass: through the login bounce `?next=` is dropped, so Sav
 ### /join/[eventId]/success
 
 No findings. (Browser pass: signed out, `redirect('/login')` carries no return path.)
+
+### /join/crew/[token]
+
+```
+ID        A4-07
+PAGE      /join/crew/[token]   (a supplier's crew QR)
+BUTTON    the "What the shop calls you" field
+STEPS     1. Open a crew QR signed out, with anonymous crew joining on.
+EXPECTED  The shared `.input-field` input; no white surface.
+ACTUAL    A hand-made white input: `className="h-12 w-full rounded-xl bg-white px-4 text-[16px] text-ink dark:bg-raised"`; the error line uses `text-danger-700`. Anchor: `apps/web/app/join/crew/[token]/_components/crew-name-form.tsx` `CrewJoinForm`.
+SHOTS     375 px light
+RULE      design-and-wiring §D12 (one input primitive) · §D13 (no bg-white)
+SEVERITY  look
+SOURCE    CODE
+```
+
+### /live
+
+```
+ID        A4-08
+PAGE      /live   (event: stg-mika-turns-7, a birthday)
+BUTTON    the page line and the `?error=locked` line
+STEPS     1. Open /live. 2. Enter a code for an event that has not unlocked Live Watch.
+EXPECTED  The event's own words (`eventWordsForEvent`), as `panood/cam` already does.
+ACTUAL    "Type the code shown under Venue screens in the couple's Live Studio controller." and `locked: '… Ask the couple to unlock it first.'` on every event type. Anchor: `apps/web/app/live/page.tsx` `ERRORS` "Ask the couple".
+SHOTS     375 px light + desktop
+RULE      Words (event words, not "couple" on a birthday)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /live/screen
+
+```
+ID        A4-09
+PAGE      /live/screen   (a paired TV on an event with Live Studio)
+BUTTON    none (the polling TV)
+STEPS     1. Pair a TV on a paid event. 2. Let the `orders` read fail once during a poll.
+EXPECTED  Keep the last picture with "Reconnecting…" (the file's own rule: a refused read is not unpaired).
+ACTUAL    `checkOrderActive` throws, `resolveBroadcastWindow` catches it as not owned (`try { owned = await eventSkuActive(supabase, eventId, LIVE_STUDIO_SKU); } catch { owned = false; }`), so `loadLiveScreen` returns `locked` and the room's screen says "Live Watch isn't active for this event." on a paid event until a later poll succeeds. Anchors: `apps/web/lib/live-studio-window-server.ts` `resolveBroadcastWindow`; `apps/web/app/live/_lib/load-screen.ts` `state: 'locked'`.
+SHOTS     desktop (TV)
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /panood/cam/[token]
+
+```
+ID        A4-10
+PAGE      /panood/cam/[token]
+BUTTON    "Join this camera" / "Join & open my camera"
+STEPS     1. Press Join while the `panood_claim_camera` RPC errors (a blip, not a bad token).
+EXPECTED  "Couldn't reach Setnayan · Try again" with Join still there.
+ACTUAL    Every failure goes to `?state=error`, drawn exactly like a dead link: `if (state === 'invalid' || state === 'error') {` → "This link isn't active. The host may have reissued this camera." Anchors: `apps/web/app/panood/cam/[token]/page.tsx` `PanoodCameraJoinPage`; `apps/web/app/panood/actions.ts` `claimPanoodCamera`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-11
+PAGE      /panood/cam/[token]
+BUTTON    the status pill in the header
+STEPS     1. Join a camera while the control-room channel is refused or failed, or while streaming is off.
+EXPECTED  The pill agrees with the footer's link state.
+ACTUAL    The pill says "Connected" with a pulsing green dot whenever the local camera opened: `{state === 'live' ? 'Connected' : …}`, even while the footer reports a refused or failed link. Anchor: `apps/web/app/panood/cam/[token]/_components/panood-camera-publish.tsx` `PanoodCameraPublish`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /samahan/join/[token]
+
+```
+ID        A4-12
+PAGE      /samahan/join/[token]
+BUTTON    opening the link
+STEPS     1. Open a valid invite while the `community_invite_tokens` read fails.
+EXPECTED  "Couldn't read · Try again".
+ACTUAL    The error is dropped: `const { data } = await admin.from('community_invite_tokens')…maybeSingle(); if (!data) return { status: 'not_found' };` → "This invite link doesn't work." Anchor: `apps/web/lib/communities.ts` `fetchPendingCommunityInvite`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-13
+PAGE      /samahan/join/[token]
+BUTTON    none (the "N members" line)
+STEPS     1. Open a valid invite while the member-count read fails.
+EXPECTED  The count hidden or "—".
+ACTUAL    `member_count: count ?? 0,` draws "0 members". Anchor: `apps/web/lib/communities.ts` `fetchPendingCommunityInvite`.
+SHOTS     375 px light
+RULE      Honest states (a failed read is never 0)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-14
+PAGE      /samahan/join/[token]
+BUTTON    "Join <group>" (when it fails)
+STEPS     1. The join upsert fails, or open /samahan/join/<token>?error=anything signed in.
+EXPECTED  A plain reason plus Try again.
+ACTUAL    The raw database message, or any text in the URL, is printed: `sub={`Error: ${search.error}. Try again, or ask an organizer for a fresh link.`}`; the action sets `?error=${encodeURIComponent(error.message.slice(0, 80))}`. Anchor: `apps/web/app/samahan/join/[token]/page.tsx` "Error: ${search.error}".
+SHOTS     375 px light
+RULE      Honest states · HOUSE_DESIGN_STANDARD F4 (plain reason)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /wall/[eventId]
+
+```
+ID        A4-15
+PAGE      /wall/[eventId]   (an event that owns the live wall, during the event)
+BUTTON    none (the projector's 60 s full sweep)
+STEPS     1. A claimed wall is live. 2. The `wall_visible_photos` RPC and/or the `events` read fail during a poll.
+EXPECTED  Freeze on the last collage with an amber dot (the file's own promise: "never whites out").
+ACTUAL    `getWallSnapshot` drops both errors and returns 200 with `tiles: []`, `count: 0`, mode `coming_soon`; on the full sweep `reconcileTiles(prev, snap.tiles)` removes every tile, so the room sees "0 photos / Waiting for the first shot…" (or the teaser if the events read failed). On first render a failed `isWallSessionLive` read shows the code-entry screen on a claimed TV. Anchors: `apps/web/lib/live-wall.ts` `getWallSnapshot`; `apps/web/app/wall/[eventId]/_components/wall-projection.tsx` `reconcileTiles(prev, snap.tiles)`.
+SHOTS     desktop (projector)
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-16
+PAGE      /wall/[eventId]   (event: stg-mika-turns-7)
+BUTTON    the claim screen and its error line
+STEPS     1. Open the wall on a screen. 2. Enter a wrong code.
+EXPECTED  The event's own words.
+ACTUAL    "Enter the screen code from the couple's Setnayan dashboard.", "ask the couple to generate a fresh one", and the not-lit card "Check the link with the couple." Anchors: `apps/web/app/wall/[eventId]/_components/wall-claim.tsx` `WallClaim`; `apps/web/app/wall/[eventId]/page.tsx` "Check the link with the couple".
+SHOTS     desktop
+RULE      Words (event words)
+SEVERITY  wrong
+SOURCE    CODE
+```

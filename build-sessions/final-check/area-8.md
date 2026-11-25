@@ -58,6 +58,24 @@ Phase B, staging copy at preview commit bd86936 (`/api/health` env preview), sig
 
 None found. (Phase B, so far: the copy is slow under all eight checkers, but every admin page opens.)
 
+## ⚠ Checker 8 changed data on the copy (disclosed; restored)
+
+My automated button walk pressed controls whose labels did not read as writes. The admin log (`/admin/admin-log`,
+Person = Admin Staging) shows every change; all were made by this checker, and all are restored except one additive job:
+
+| When (UTC, 25 Nov) | What | Restored? |
+|---|---|---|
+| ~07:26 | Money › To approve › Fees owed: "One event fewer" → the review count went **2 → 1** (`fee_review_min_edit`) | **Yes**, ~09:25: back to **2** via "One event more", checked after a reload |
+| ~08:46–08:47 | Catalogue › Studio › Website (Home page sections): **3 switches turned off** (Browse strip, Hero, What's live today) and **7 up/down moves** among the first six rows (`site_widgets_toggle`, `site_widgets_reorder`) | **Yes**, ~09:25: order back to Announcement bar · Browse strip · Hero · What's live today · The chaos we're fixing · Built for both sides · (rows 7–15 never moved), **all 15 on**, checked after a reload |
+| during the 1280 walk | Insights › Papic storage: **"Fill in missing Memory lane copies"** pressed once. It only ADDS small display copies of existing photos (up to 40); nothing deleted or changed. The page now reads "Every photo already has its Memory lane copy." | Not reversible and not harmful: additive derived copies |
+
+**For area 1 and the controller:** between about **08:46 and 09:25 UTC** the copy's **homepage was missing its Browse
+strip, Hero and What's live today sections and its first rows were out of order**. Any area-1 finding about those
+sections from that window is caused by me, not the product. Checked and unchanged: Close bookings (opened the confirm,
+pressed Escape; bookings still open), the demo-mode switch (still "Default — off"), the colours designer and the loader
+picker (draft-only until Save; nothing saved), the expense form (never submitted). Inputs, dropdown options and submit
+buttons were never pressed.
+
 ## Raised at once in phase B (money-signin)
 
 - **G-4 confirmed live:** any signed-in non-admin account gets an upload URL for the homepage background-video

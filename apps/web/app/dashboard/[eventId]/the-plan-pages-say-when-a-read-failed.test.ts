@@ -169,6 +169,7 @@ test('A2-G10: Find never prints "0 suppliers" for a refused category search', ()
   const g = src.indexOf('res.unreadable ? (');
   const count = src.indexOf('suppliers`');
   assert.ok(g >= 0 && count > g, 'the refusal is drawn before the count');
-  assert.match(src, /res\.unreadable \|\| empty === 'nobody_free' \? null/);
-  assert.match(src, /res\.unreadable \? null : empty \?/);
+  const refusal = src.indexOf('{res.unreadable ? (');
+  const otherwise = src.indexOf(') : (\n          <>', refusal);
+  assert.ok(refusal >= 0 && otherwise > refusal && otherwise < src.indexOf("{empty === 'nobody_free' ? null : ("), 'the count and the list are the refusal\'s else');
 });

@@ -183,16 +183,16 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
               Try again
             </Link>
           </p>
-        ) : null}
-
-        {res.unreadable || empty === 'nobody_free' ? null : (
+        ) : (
+          <>
+        {empty === 'nobody_free' ? null : (
           <p className="mt-3 text-[13px] text-ink/55">
             {rows.length === 1 ? '1 supplier' : `${formatCount(rows.length)} suppliers`}
             {res.hasReceptionCoords ? ' · nearest first' : ''}
           </p>
         )}
 
-        {res.unreadable ? null : empty ? (
+        {empty ? (
           <p className="mt-6 text-[15px] text-ink/65" data-find-empty={empty}>
             {findEmptyWords(empty, res.hiddenForDateScope)}
           </p>
@@ -274,6 +274,8 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
               );
             })}
           </ul>
+        )}
+          </>
         )}
       </div>
     );

@@ -251,7 +251,7 @@ async function WorkAllList({
           kind={supplierKind}
           itemKey={itemKey}
           basePath={basePath}
-          eventTypes={((typesRead.data ?? []) as Array<{ event_type: string; label_en: string }>).map((t) => ({ key: t.event_type, label: t.label_en }))}
+          eventTypes={typesRead.error ? null : ((typesRead.data ?? []) as Array<{ event_type: string; label_en: string }>).map((t) => ({ key: t.event_type, label: t.label_en }))}
           nowMs={nowMs}
         />
         </>

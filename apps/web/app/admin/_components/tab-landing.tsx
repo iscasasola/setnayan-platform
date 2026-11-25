@@ -20,7 +20,8 @@ import { CHIP_CLASS, CHIP_OFF_CLASS } from '@/app/_components/chip-classes';
 
 import { PageMasthead } from '@/app/_components/page-masthead';
 
-import { ageShort, getAdminQueueDigest, type AdminQueueDigest } from '@/lib/admin/queue-counts';
+import { ADMIN_QUEUE_META, ageShort, getAdminQueueDigest, type AdminQueueDigest } from '@/lib/admin/queue-counts';
+import { BASE_ROWS } from '@/lib/admin/work-rows';
 import { formatCount } from '@/lib/format-number';
 import { pagesIn, type AdminBarKey, type AdminMergedPage, type AdminPageView } from '@/lib/admin/admin-pages';
 
@@ -53,6 +54,12 @@ function countOf(view: AdminPageView, digest: AdminQueueDigest): number | null |
   return row ? row.count : null;
 }
 
+/** A8·C-7: what a view adds to a card's or a tab's "N waiting" — a watch-only trail keeps its chip count but adds nothing. */
+function countToSum(view: AdminPageView, digest: AdminQueueDigest): number | null | undefined {
+  if (view.queue && ADMIN_QUEUE_META[view.queue]?.watchOnly === true) return undefined;
+  return countOf(view, digest);
+}
+
 function sum(values: (number | null | undefined)[]): number | null | undefined {
   const counted = values.filter((x) => x !== undefined);
   if (counted.length === 0) return undefined;
@@ -67,7 +74,7 @@ function cardsFor(page: AdminMergedPage, digest: AdminQueueDigest): Card[] {
   const grouped = page.views.filter((vw) => vw.kindGroup);
   if (grouped.length === 0) {
     const chips = page.views.map(toChip);
-    const count = sum(chips.map((c) => c.count));
+    const count = sum(page.views.map((vw) => countToSum(vw, digest)));
     return [
       {
         key: page.key,
@@ -84,7 +91,7 @@ function cardsFor(page: AdminMergedPage, digest: AdminQueueDigest): Card[] {
   return names.map((name) => {
     const views = grouped.filter((vw) => vw.kindGroup === name);
     const chips = views.map(toChip);
-    const count = sum(chips.map((c) => c.count));
+    const count = sum(views.map((vw) => countToSum(vw, digest)));
     // Open the kind that has something waiting, else the first — the view is preselected.
     const first = chips.find((c) => typeof c.count === 'number' && c.count > 0) ?? chips[0]!;
     return {
@@ -138,7 +145,7 @@ export async function TabLanding({
   // the everyone list (its Show & sort holds both jobs). The pages stay in the picker and the rail.
   const cards = pages.filter((p) => !(tab === 'people' && (p.key === 'look-up' || p.key === 'papers'))).flatMap((p) => cardsFor(p, digest));
   const allViews = pages.flatMap((p) => [...p.views]);
-  const waiting = sum(allViews.map((vw) => countOf(vw, digest)));
+  const waiting = sum(allViews.map((vw) => countToSum(vw, digest)));
   const q = (key: string) => {
     const vw = allViews.find((x) => x.key === key);
     return vw ? countOf(vw, digest) : undefined;
@@ -147,10 +154,15 @@ export async function TabLanding({
   let head: HeadNumber[] = [];
   let hello: string;
   if (tab === 'work') {
-    head = [{ label: 'Waiting', value: show(waiting), sub: 'across every queue' }];
+    // A8·C-7: "across every queue" is the SAME total the Work list and Focus show — every queue in `BASE_ROWS`,
+    // watch-only trails left out (`ADMIN_QUEUE_META[…].watchOnly`), an unread queue makes it "—".
+    const workTotal = sum(
+      BASE_ROWS.filter((b) => ADMIN_QUEUE_META[b.key]?.watchOnly !== true).map((b) => (digest[b.key] ? digest[b.key]!.count : null)),
+    );
+    head = [{ label: 'Waiting', value: show(workTotal), sub: 'across every queue' }];
     const o = oldest(allViews, digest, nowMs);
     if (o) head.push(o);
-    hello = typeof waiting === 'number' && waiting > 0 ? `${formatCount(waiting)} things are waiting` : waiting === null ? 'Some counts could not be read' : HELLO_WHEN_EMPTY.work;
+    hello = typeof workTotal === 'number' && workTotal > 0 ? `${formatCount(workTotal)} things are waiting` : workTotal === null ? 'Some counts could not be read' : HELLO_WHEN_EMPTY.work;
   } else if (tab === 'money') {
     head = [
       { label: 'To confirm', value: show(q('payments')), sub: 'payments' },

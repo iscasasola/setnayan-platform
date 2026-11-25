@@ -26,37 +26,37 @@ None found.
 - [x] /admin/catalogue · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/categories · OFFLINE: NOT NEEDED · SHAPE: today PAGE (map + full-screen Sheet drawer) → should PAGE
 - [x] /admin/categories/requests · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [ ] /admin/chat-flags
-- [ ] /admin/colours
+- [x] /admin/chat-flags · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/work?view=chat-flags) → should PAGE
+- [x] /admin/colours · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/switches?view=colours; preview inline, sticky save bar, no overlay) → should PAGE
 - [x] /admin/completions · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/compliance/data-sheet · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [ ] /admin/concierge-abuse
-- [ ] /admin/corrections
+- [x] /admin/concierge-abuse · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/work?view=ai-abuse) → should PAGE · tabs checked: queue, enforcement
+- [x] /admin/corrections · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/work?view=corrections; inline address form + confirm popups) → should PAGE
 - [x] /admin/data-privacy · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · tabs checked: controls, coverage, deletions, checklist, documents (+ documents/[doc] route)
 - [x] /admin/demand · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/demo-vendors/inquiries · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/directory · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [ ] /admin/discount-codes/new
 - [x] /admin/disputes · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [ ] /admin/editorial-review
+- [x] /admin/editorial-review · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/work?view=editorial) + record PAGE /admin/editorial-review/[editorialId] → should PAGE + record PAGE
 - [x] /admin/email-delivery · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/event-deletions · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/force-majeure · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE (the [flagId] record: PAGE → PAGE)
 - [ ] /admin/founder-seats
 - [x] /admin/fraud · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [ ] /admin/gifts
+- [x] /admin/gifts · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/offers?view=gifts; grant forms inline by ?grant_vendor= / ?grant_user=) → should PAGE
 - [ ] /admin/help
 - [ ] /admin/help/guides
 - [x] /admin/hub-music · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE (one sub-surface finding below)
 - [x] /admin/integrations · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [ ] /admin/integrity-watch
+- [x] /admin/integrity-watch · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/work?view=integrity) → should PAGE · tabs checked: reviews, listings, inquiries, prices
 - [ ] /admin/launch-offer
-- [ ] /admin/live-studio-channels
+- [x] /admin/live-studio-channels · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/switches?view=live-watch) → should PAGE
 - [ ] /admin/money
 - [ ] /admin/more
 - [ ] /admin/offers
 - [x] /admin/pakanta · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [ ] /admin/papic-storage
+- [x] /admin/papic-storage · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/app-performance?tab=papic-storage) → should PAGE
 - [x] /admin/pax-changes · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [ ] /admin/payment-options
 - [ ] /admin/payments
@@ -64,8 +64,8 @@ None found.
 - [ ] /admin/payouts
 - [x] /admin/pricing · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · tabs checked: pricing, setnayan-ai, papic-shots, price-bands, free-windows, plan-contents
 - [ ] /admin/receipts
-- [ ] /admin/repost-watch
-- [ ] /admin/reviews
+- [x] /admin/repost-watch · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/work?view=repost) → should PAGE
+- [x] /admin/reviews · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/work?view=reviews) → should PAGE
 - [ ] /admin/search-memory
 - [ ] /admin/secrets · NOT CHECKED: this session's permission settings refuse every read of `apps/web/app/admin/secrets/` (lead and checker both tried); needs a session that may open it
 - [ ] /admin/settings/payment-methods
@@ -75,7 +75,7 @@ None found.
 - [x] /admin/team · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/ugat · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · tabs checked: menus (default), onboarding, brain, screens
 - [x] /admin/ugat/map · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [ ] /admin/user-reports
+- [x] /admin/user-reports · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/work?view=user-reports) → should PAGE
 - [x] /admin/vendor-partnerships · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/vendor-recommendations · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/venues/new · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should FULL-SCREEN POPUP
@@ -1988,3 +1988,475 @@ SOURCE    CODE
 - On Real Stories and Storytellers, the "migration missing" panel tells an admin to run `supabase db push --db-url "$SUPABASE_DB_URL"` by hand, which CLAUDE.md §5.5 forbids. It only shows when that migration is missing.
 - Unsure, not reported: the Referrals KPI tiles (cap 500) and the Patiktok status chips (cap 60) count only the most recent rows but read as totals. I did not test G-7's touch drag on a real phone.
 - The checkout is on 653100823, which is fb3f72d plus one progress-list commit; there is no diff under `apps/web/app/admin`.
+
+### Group F · Watch desks & media
+
+#### F-1 · Gift limit shows the built-in default as the live setting when its read fails
+PAGE      /admin/gifts
+BUTTON    "Save gift limit"
+STEPS     1. The platform_settings read of gift_limit_pct is refused. 2. Open Gifts & comps.
+EXPECTED  "Couldn't read" where the % sits, and no Save over a value nobody read.
+ACTUAL    lib/gift-limit-settings.server.ts `getGiftLimitPct` catch → `GIFT_LIMIT_PCT_DEFAULT`. gifts/page.tsx prefills `GiftLimitForm` with it, and `ShopGiftsLedger`'s ⓘ states "capped at {giftLimitPct}%" as fact.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 honest states (a default setting stated as fact)
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### F-2 · Peso amounts are formatted by hand on Gifts
+PAGE      /admin/gifts
+BUTTON    — (the "What's free" and "Services to make free" checkboxes, and the Active comp grants "Value" column)
+STEPS     1. Open Gifts & comps. 2. Read the tier and service prices and the Value column.
+EXPECTED  Every amount formatted through lib/php.ts `formatPhp` / `formatPhpRounded`.
+ACTUAL    gifts/page.tsx has `₱{formatPeso(sku.price_php)}` and `₱{formatPeso(s.retail_price_php)}` (`formatPeso` = toLocaleString). The Value column uses lib/comp-grants.ts `formatRetailValueCentavos`, which returns `₱${pesos.toLocaleString(…)}`. badge-rewards-ledger.tsx `stateWords` types a literal "→ ₱0".
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §1 money · brief §4
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### F-3 · A refused catalogue read empties the deal and free-window price pickers without saying so
+PAGE      /admin/gifts   (Supplier cohort deals · Couple free windows)
+BUTTON    "Create deal" / "Create free window"
+STEPS     1. The vendor_billing_catalog or platform_retail_catalog_v2 read is refused. 2. Open Gifts & comps.
+EXPECTED  "Couldn't read the catalogue" in the What's free / Services rows, and Create held back.
+ACTUAL    lib/v2-catalog.ts `fetchV2VendorCatalog` and `fetchV2CustomerCatalog` return `[]` on error (`if (error || !data) return [];`). `tierSkus.map` and `customerCatalog.map` then draw no checkboxes and no notice. The Services column falls back to raw codes (`coupleTitleFor.get(code) ?? code`).
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 honest states
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### F-4 · The price evidence chips format pesos by hand
+PAGE      /admin/integrity-watch   (tab: prices)
+BUTTON    —
+STEPS     1. With the plausibility scanner on, open the Prices tab. 2. Read the evidence chips on a flag.
+EXPECTED  Amounts via lib/php.ts `formatPhp` / `formatPhpRounded`.
+ACTUAL    page.tsx `evidenceChips` has `const peso = (n) => \`₱${Math.round(n).toLocaleString('en-PH')}\``, used for "lock ₱…" and "below own median (₱…)".
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §1 money · brief §4
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### F-5 · The "Live Watch channels" menu item opens a 404 while the Live Watch flag is off
+PAGE      /admin/live-studio-channels
+BUTTON    "Live Watch channels" (Switches & delivery › What ▾)
+STEPS     1. Run with NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED off. 2. Open Switches & delivery and pick Live Watch channels.
+EXPECTED  The view is hidden while the flag is off (the page's own comment says the nav entry is conditional).
+ACTUAL    lib/admin/admin-pages.ts lists `v('live-watch', 'Live Watch channels', …)` unconditionally. The page calls `if (!liveStudioRoamEnabled()) notFound();`, so the whole /admin/switches?view=live-watch answers 404.
+SHOTS     phase B: 375 px light
+RULE      design-and-wiring A3 / B5 (every press reaches a real destination)
+SEVERITY  broken
+SOURCE    CODE
+
+#### F-6 · Editorial unlock, resolve and re-scan ignore write failures, and a failed unlock still tells the couple "approved"
+PAGE      /admin/editorial-review   (record page /admin/editorial-review/[editorialId])
+BUTTON    "Unlock for couple — all red flags resolved" · "Mark OK — no change" · "Save rewrite" · "Re-scan editorial"
+STEPS     1. Open a flagged editorial. 2. Press Unlock (or Mark OK) while the event_editorial update is refused.
+EXPECTED  The failure is shown, and nothing is sent to the couple.
+ACTUAL    [editorialId]/actions.ts: `unlockForCouple`, `resolveFlag` and `triggerRescan` run `await admin.from('event_editorial').update(…)` without reading `error`. `unlockForCouple` then sends `notifyCoupleEditorialDecision` "Your editorial is approved" anyway.
+SHOTS     phase B: 375 px light
+RULE      design-and-wiring B6 (a failure must render as a failure) · brief: moderation actions show failures
+SEVERITY  broken
+SOURCE    CODE
+
+#### F-7 · "Block uploader" can block nobody and still record "Uploader blocked"
+PAGE      /admin/user-reports
+BUTTON    "Block uploader"
+STEPS     1. On an open photo or user report, press Block uploader. 2. The event_blocked_users upsert fails, or the photo is a seat photo with no guest_id.
+EXPECTED  The failure is shown and the report stays open.
+ACTUAL    actions.ts `resolveReport`: `await admin.from('event_blocked_users').upsert(…)` drops `error`, and a null `guestId` skips the block silently. The report is still stamped `ACTION_NOTE.block` "Uploader blocked (event-scoped)…" and status `actioned`.
+SHOTS     phase B: 375 px light
+RULE      design-and-wiring B6 · brief: moderation actions show failures
+SEVERITY  broken
+SOURCE    CODE
+
+#### F-8 · The Liveliness switches and Icon tile colours save but change nothing ("applies in the next update")
+PAGE      /admin/colours
+BUTTON    "Curved edge on the band" · "First frame overlaps the band" · "Press ring" · the Icon tiles colour fields
+STEPS     1. Toggle a Liveliness switch or change a tile colour. 2. Press Save. 3. Look at any app screen.
+EXPECTED  No pressable "not yet" control. (Band and Frames are not "next update": `.sn-band` and `.sn-frame` in globals.css already read their tokens.)
+ACTUAL    lib/app-colours.ts `appColourTokens` emits no `touches`, and nothing in app/ reads `--sn-cat-*`. colours-editor.tsx tags them `NEXT_UPDATE` / "· applies in the next update", and gives Band and Frames the same stale tag.
+SHOTS     phase B: 375 px light + desktop
+RULE      design-and-wiring B5 (no pressable "coming soon")
+SEVERITY  broken
+SOURCE    CODE
+
+#### F-9 · The Corrections page crashes when a shop name or error message contains "%"
+PAGE      /admin/corrections
+BUTTON    "Move the address"
+STEPS     1. Move the address of a shop named e.g. "100% Events" (or hit a DB error whose text has %). 2. The action redirects with `?address_moved=` / `?error=`.
+EXPECTED  A success or error notice.
+ACTUAL    page.tsx runs `decodeURIComponent(search.address_moved)` and `decodeURIComponent(search.error)` on searchParams Next has already decoded. A bare "%" throws URIError, so the page fails right after a successful move.
+SHOTS     phase B: 375 px light
+RULE      brief severity: error on valid input
+SEVERITY  broken
+SOURCE    CODE
+
+#### F-10 · A failed users read turns into "0 strikes", on screen and in the strike count it writes
+PAGE      /admin/concierge-abuse   (tabs: queue, enforcement)
+BUTTON    "Confirm abuse (+1 strike)" · "Lift enforcement (−1 strike)"
+STEPS     1. The users read is refused. 2. Confirm abuse on a user who already has 3 strikes (full banned).
+EXPECTED  The read error is shown; nothing is written from an unread count.
+ACTUAL    actions.ts drops the error on `select('concierge_abuse_strike_count')` and uses `?? 0`, so Confirm writes 1 strike / 'warning' over a full ban and Lift writes 0 / 'none'. page.tsx `usersById` also drops its error: the queue shows "0 strikes · No enforcement" and "No matched accounts resolved."
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 honest states
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-11 · A raw enforcement code reaches the user's notification and the admin's notice
+PAGE      /admin/concierge-abuse
+BUTTON    "Confirm abuse (+1 strike)" · "Lift enforcement (−1 strike)"
+STEPS     1. Confirm abuse on a flag. 2. Read the user's notification and the page notice.
+EXPECTED  The worded level, e.g. "Trial banned" (`ENFORCEMENT_LEVEL_LABEL`).
+ACTUAL    actions.ts sends the title `Account flagged for review (${newLevel})`, e.g. "(trial_banned)". page.tsx prints "Account enforcement level is now <strong>{search.confirmed}</strong>" and "New level: {search.lifted}" as raw keys.
+SHOTS     phase B: 375 px light
+RULE      brief §4 (words a person reads)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-12 · The enforcement desk calls itself read-only and retired, but its strike buttons are live, under three different names
+PAGE      /admin/concierge-abuse
+BUTTON    "Clear (false positive)" · "Confirm abuse (+1 strike)" · "Lift enforcement (−1 strike)"
+STEPS     1. Open the page. 2. Read the masthead, the tab title and the ⓘ.
+EXPECTED  One name, and a status line that matches what the buttons do.
+ACTUAL    The masthead says "Today's Focus enforcement" (a retired SKU), metadata says "Setnayan AI enforcement · Admin", and the ⓘ "About the Concierge rule" says "Read-only — retired as a separate concept." Meanwhile all three forms write strikes and send notifications.
+SHOTS     phase B: 375 px light
+RULE      brief §4 · docs/brand.md (one word per thing)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-13 · Escalating an appeal closes it; no "two-admin queue" exists to receive it
+PAGE      /admin/reviews
+BUTTON    "Escalate"
+STEPS     1. Escalate a pending self-review appeal. 2. Look for it in any queue.
+EXPECTED  The appeal lands in a queue someone works, as the notice promises.
+ACTUAL    actions.ts `escalateAppeal` sets `decided_at` + `decision: 'escalated'`. The page notice says "Appeal escalated to the two-admin queue." Nothing reads escalated appeals: lib/admin/queue-counts.ts counts `decided_at IS NULL` only, and the fake-flag ⓘ promises the same missing queue.
+SHOTS     phase B: 375 px light
+RULE      design-and-wiring B6 (trace to the page that shows the result)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-14 · Reject or Escalate from a stale page overwrites an appeal that was already decided
+PAGE      /admin/reviews
+BUTTON    "Reject appeal" · "Escalate"
+STEPS     1. Admin A override-publishes an appeal. 2. Admin B, on an older copy of the page, presses Reject.
+EXPECTED  "Already decided", nothing changed.
+ACTUAL    actions.ts `rejectAppeal` and `escalateAppeal` update with `.eq('appeal_id', appealId)` only (no `decided_at IS NULL` guard). The decision flips to rejected while the review stays live, and the reviewer is emailed "The original review will not be published."
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 honest states
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-15 · An escalated user report shows as "Resolved" and drops out of every view
+PAGE      /admin/user-reports
+BUTTON    "Escalate"
+STEPS     1. Escalate an open report (including an RA 10173 "take my photo down"). 2. Look for it.
+EXPECTED  It stays visible as escalated until a person settles it.
+ACTUAL    actions.ts maps `escalate: 'actioned'`. The page shows "✓ Resolved" for every non-open row, and `STATUS_FILTERS` has no escalated view.
+SHOTS     phase B: 375 px light
+RULE      design-and-wiring B6
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-16 · A refused grants read shows every channel as "Not connected"
+PAGE      /admin/live-studio-channels
+BUTTON    "Connect"
+STEPS     1. The live_studio_channel_grants read is refused. 2. Open the pool.
+EXPECTED  "Couldn't read the connections".
+ACTUAL    lib/live-studio-channel-grants.ts `fetchPoolChannelGrants` returns an empty Map on error. Every row then shows `grantSummary` "Not connected", the count line says "0 ready to claim", and each row offers a filled "Connect".
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 honest states
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-17 · The "don't disconnect a checked-out channel" guard is skipped when its read fails
+PAGE      /admin/live-studio-channels
+BUTTON    "Disconnect"
+STEPS     1. The status read fails. 2. Press Disconnect on a channel an event is holding.
+EXPECTED  Refuse (fail closed).
+ACTUAL    actions.ts `disconnectChannel`: `const { data: current } = await admin…select('status')` drops `error`. A null `current` skips the refusal, and `revokePoolChannelGrant` runs mid-event.
+SHOTS     phase B: 375 px light
+RULE      design-and-wiring B6
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-18 · OAuth error codes and raw status values are shown to the admin
+PAGE      /admin/live-studio-channels
+BUTTON    "Connect a Setnayan channel" / "Re-connect"
+STEPS     1. Start a channel connect that fails (state expired, exchange failed, not configured). 2. Read the red notice and a channel's status line.
+EXPECTED  Plain words.
+ACTUAL    app/api/oauth/youtube/pool/start and the callback redirect with `error=exchange_failed`, `no_refresh_token`, `not_configured:…`, `state_failed:<db text>`. page.tsx prints `{flashError}` verbatim. `statusLine` prints `${row.status}`, e.g. "checked_out".
+SHOTS     phase B: 375 px light
+RULE      brief §4
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-19 · Failed reads show "No QR flags" and "No shop holds an allowance"
+PAGE      /admin/repost-watch
+BUTTON    "Scan QR codes" · "Allow"
+STEPS     1. The vendor_qr_media_flags or card_claim_word_allowances read is refused. 2. Open the page.
+EXPECTED  "Couldn't read" in place of the empty line.
+ACTUAL    page.tsx shows the `qrError` FormFlash and then still renders `qrRows.length === 0 ? <TemplateEmpty>No QR flags…`. card-checks-admin.tsx logs `allowRes.error` and renders "No shop holds an allowance." A `shopsRes` error hides the Allow form silently.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 honest states
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-20 · A refused editorial read shows as "not found"
+PAGE      /admin/editorial-review   (record page /admin/editorial-review/[editorialId])
+BUTTON    a queue row (TemplateRow href)
+STEPS     1. Open a record while the event_editorial read is refused.
+EXPECTED  "Couldn't read this editorial".
+ACTUAL    [editorialId]/page.tsx: `const { data: row } = await admin…maybeSingle(); if (!row) notFound();` drops `error`.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 honest states
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-21 · Storage totals can be quietly cut off at the database's row limit and still shown as measured
+PAGE      /admin/papic-storage
+BUTTON    —
+STEPS     1. Let papic_photos or papic_guest_captures hold more than 1,000 rows. 2. Open the page.
+EXPECTED  The totals are paged to the end or marked as a lower bound.
+ACTUAL    page.tsx reads each table once with `.limit(ROW_CAP)` (200,000) and no paging. The server's row cap (1,000 per lib/vendor-earnings.ts) returns `error: null`, and the `capped` warning fires only at `ROW_CAP * 2`. The ratio, GB and per-event numbers then show as fact. unsure: the cap is a project setting, not in the repo.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 (the measurement must reach the render)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-22 · "Made 2 copys"
+PAGE      /admin/papic-storage
+BUTTON    "Fill in missing Memory lane copies"
+STEPS     1. Press it with 2+ photos to fill.
+EXPECTED  "Made 2 copies".
+ACTUAL    backfill-tiles-button.tsx renders `copy{result.filled === 1 ? '' : 's'}`.
+SHOTS     phase B: 375 px light
+RULE      brief §4
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-23 · A failed supplier or user search says "No suppliers match"
+PAGE      /admin/gifts
+BUTTON    "Search"
+STEPS     1. Search suppliers or users while the read is refused.
+EXPECTED  "Couldn't search".
+ACTUAL    page.tsx: `const { data } = await admin.from('vendor_profiles')…ilike(…)` and the matching users `.or(…)` read drop `error`, then render "No suppliers match “x”." / "No user matches “x”." A refused `grant_vendor` / `grant_user` read leaves the grant panel missing with no notice.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 honest states
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-24 · A refused open-count read hides the tab badge, which looks the same as "none open"
+PAGE      /admin/integrity-watch   (tabs: reviews, listings, inquiries, prices)
+BUTTON    the Reviews / Listings / Inquiries / Prices tabs
+STEPS     1. A count read is refused. 2. Look at the tabs.
+EXPECTED  "—" on that tab.
+ACTUAL    page.tsx `const { count: openReviews } = await admin…` (and `openListings`, `openInquiries`, `openPrices`) drops `error`, and `{openReviews ? \` · ${openReviews}\` : ''}` hides the badge.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 honest states
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-25 · "Reset to current" replaces the live colour set at once, though it reads like "discard my draft"
+PAGE      /admin/colours
+BUTTON    "Reset to current"
+STEPS     1. With a custom set saved, change a colour. 2. Press Reset to current to undo the change.
+EXPECTED  A discard of the draft, or a clear label and confirm for an app-wide revert.
+ACTUAL    colours-editor.tsx posts `op=reset`. actions.ts `saveAppColours` → `writeColours(userId, null, …)` saves NULL straight away, so every screen goes back to the code defaults and the saved custom set is gone.
+SHOTS     phase B: 375 px light
+RULE      brief §4 (words match the action)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### F-26 · Two brand buttons in the supplier grant frame
+PAGE      /admin/gifts
+BUTTON    "Set tier" + "Comp Papic Challenges"
+STEPS     1. Search a supplier and press Comp this supplier.
+EXPECTED  One main button per frame; others neutral.
+ACTUAL    page.tsx: "Set tier" is `actionButtonClass('brand', { main: true })`, and "Comp Papic Challenges" is `actionButtonClass('brand')` (accent-outlined) in the same `FRAME`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+
+#### F-27 · Two filled accent buttons on one screen
+PAGE      /admin/papic-storage
+BUTTON    "Fill in missing Memory lane copies" + "Make small copies of old photos"
+STEPS     1. Open the page while there are oversized covers.
+EXPECTED  At most one main button.
+ACTUAL    backfill-tiles-button.tsx and old-photos-button.tsx both draw raw `<button>`s with `bg-[var(--sn-accent)] … text-[var(--sn-on-accent)]`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+
+#### F-28 · A second green button next to the green main button
+PAGE      /admin/editorial-review   (record page)
+BUTTON    "Unlock for couple — all red flags resolved" + "Mark OK — no change"
+STEPS     1. Open an editorial whose red flags are resolved but grammar flags are still pending.
+EXPECTED  The second button is neutral.
+ACTUAL    [editorialId]/page.tsx: Unlock is `actionButtonClass('ok', { main: true })`, and each pending `FlagCard`'s Mark OK is `actionButtonClass('ok')`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+
+#### F-29 · The "Use #…" fix buttons share Save's green
+PAGE      /admin/colours
+BUTTON    "Save" + "Use #xxxxxx"
+STEPS     1. Pick an unreadable colour so a fix button appears.
+EXPECTED  The fix buttons are neutral.
+ACTUAL    colours-editor.tsx: Save is `ActionButton tone="ok" main`, and `CheckLine`'s fix is `ActionButton tone="ok"`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+
+#### F-30 · The "● Vulgar" chip is white text on a pale pink background
+PAGE      /admin/editorial-review   (record page)
+BUTTON    —
+STEPS     1. Open an editorial with a red flag.
+EXPECTED  A readable chip.
+ACTUAL    [editorialId]/page.tsx `FlagCard`: `bg-[var(--sn-danger-soft)] text-white`, where `--sn-danger-soft` is #F3E1DC in light mode.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### F-31 · Hard-coded light-only sizes and colours
+PAGE      /admin/integrity-watch
+BUTTON    —
+STEPS     1. Open the page.
+EXPECTED  Tokens only.
+ACTUAL    7 lines in page.tsx: `text-[12px]`×5, `text-[13px]`, `text-[14px]`, and `bg-white/70` + `rounded-[var(--m-r-md)]` on the note input.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### F-32 · Hard-coded light-only sizes and colours
+PAGE      /admin/repost-watch
+BUTTON    —
+STEPS     1. Open the page.
+EXPECTED  Tokens only.
+ACTUAL    16 lines in page.tsx: `text-[12px]`×10, `text-[13px]`×4, and `bg-white/70` on both note inputs.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### F-33 · Hard-coded type sizes
+PAGE      /admin/chat-flags
+BUTTON    —
+STEPS     1. Open the page.
+EXPECTED  `text-sn-*`.
+ACTUAL    5 lines in page.tsx: `text-[12px]`×3 (status, category and id chips) and `text-[13px]`×2 (InfoTip labels).
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### F-34 · Hard-coded light-only sizes and colours
+PAGE      /admin/concierge-abuse
+BUTTON    —
+STEPS     1. Open the page.
+EXPECTED  Tokens only.
+ACTUAL    12 lines in page.tsx: `bg-white/70` on 3 textareas, `text-[24px]` and `style={{ color: \`rgb(var(--color-${tone}))\` }}` in `Metric`, `text-[15px]`, `text-[12px]`, and hand-made banners `border-success-300/60 bg-success-50`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### F-35 · Hard-coded light-only colours and hand-rolled buttons
+PAGE      /admin/user-reports
+BUTTON    "Hide content" · "Block uploader" · "Escalate" · "Dismiss"
+STEPS     1. Open the page.
+EXPECTED  Tokens and `ActionButton`.
+ACTUAL    15 lines in page.tsx: `bg-white/70`×5 (hand-rolled SubmitButton classes and the empty state), `text-[12px]`×8, `text-[13px]`×2, and `bg-warn-50` on Escalate.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### F-36 · Hard-coded light-only sizes and colours
+PAGE      /admin/reviews
+BUTTON    —
+STEPS     1. Open the page.
+EXPECTED  Tokens only.
+ACTUAL    7 lines in page.tsx: `bg-white/60` (Supplier reason box), `text-[12px]`×4, `text-[13px]`×2, `min-h-[60px]`, and hand-made `rounded-lg border border-warn-200 bg-warn-50/60` frames.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### F-37 · Hard-coded sizes and colours
+PAGE      /admin/corrections
+BUTTON    —
+STEPS     1. Open the page.
+EXPECTED  Tokens only.
+ACTUAL    4 lines in page.tsx: `style={{ color: 'rgb(var(--color-warn))' }}` (held name), `text-[13px]`×2, `text-[15px]`, and `text-[12px]` on the status chip.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### F-38 · Tailwind palette colours in place of tokens
+PAGE      /admin/editorial-review   (queue + record page)
+BUTTON    —
+STEPS     1. Open the queue and a record.
+EXPECTED  Tokens only.
+ACTUAL    13 lines. page.tsx `statusMap`: `text-green-600`, `text-yellow-600`. [editorialId]/page.tsx `StatusBadge`: `bg-gray-100 text-gray-600`, `bg-green-100 text-green-700`, `bg-yellow-100`. `FlagCard`: `bg-yellow-500 text-white`, `text-green-900`, `text-[24px]`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### F-39 · Hard-coded type sizes and hand-rolled buttons
+PAGE      /admin/live-studio-channels
+BUTTON    "Connect" · "Release" · "Disconnect" · "Save"
+STEPS     1. Open the page.
+EXPECTED  `text-sn-*` and `ActionButton`.
+ACTUAL    7 lines in page.tsx: `text-[14px]`×3, `text-[15px]`×2, `text-[13px]`×2. Buttons are local `PRESS`/`BTN_*` class strings (e.g. `BTN_BRAND = … bg-[var(--sn-accent)]`), not `ActionButton`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### F-40 · Hard-coded type sizes
+PAGE      /admin/papic-storage
+BUTTON    —
+STEPS     1. Open the page.
+EXPECTED  `text-sn-*`.
+ACTUAL    9 lines: `text-[13px]` (old-photos-button.tsx ×3, backfill-tiles-button.tsx ×3, page.tsx) and `text-[15px]` (page.tsx, backfill-tiles-button.tsx).
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### F-41 · Tailwind palette colours and hard-coded sizes
+PAGE      /admin/gifts
+BUTTON    —
+STEPS     1. Open the page with `?createError=` or `?error=`.
+EXPECTED  Tokens only.
+ACTUAL    17 lines: `border-rose-200 bg-rose-50 … text-rose-900` (error banners), `style={{ color: 'rgb(var(--color-warn))' }}` / `rgb(var(--color-success))`, `text-[11px]`×4, `text-[14px]`×4, and `w-[200px]` (page.tsx); `text-[13px]` in shop-gifts-ledger.tsx and gift-limit-form.tsx.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### F-42 · Hard-coded colours and sizes in the editor chrome (not counting the preview swatches)
+PAGE      /admin/colours
+BUTTON    the mood cards
+STEPS     1. Open the page.
+EXPECTED  Tokens only, outside the swatches that show the draft.
+ACTUAL    17 lines in colours-editor.tsx: mood card `bg-white shadow-[0_-4px_12px_-6px_rgba(0,0,0,0.3)]`, `border-black/5`, `border-black/10`, `text-[12px]`×10, `text-[13px]`×4. Plus `text-[26px]` and `text-[12px]` in colours-sample.tsx.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+**Group F notes**
+
+- The own loading files `app/admin/concierge-abuse/loading.tsx` (`TablePageSkeleton`: a search toolbar and a bordered 5-column table the page never draws) and `app/admin/reviews/loading.tsx` never show. Middleware `adminMergedForward` sends both addresses to /admin/work?view=… (307) before they render, so they are dead files.
+- The Apply / Decline confirm on /admin/corrections (`ConfirmForm` → `app/_components/confirm-dialog.tsx`) is a native `<dialog>`, not the shared `Sheet`. It is a shared component, so I did not judge it per page.
+- Outside my pages: `lib/v2-catalog.ts` `fetchV2VendorCatalog` / `fetchV2CustomerCatalog` turn a refused read into `[]` for every caller, and `lib/comp-grants.ts` `formatRetailValueCentavos` hand-formats ₱ on the per-user comp pages too.
+- F-21 depends on the project's PostgREST max-rows, which is not in the repo. `lib/vendor-earnings.ts` says it is 1,000.
+- F-4 and the Prices tab only render while `plausibilityScannerEnabled()` is on. Checked in code only.

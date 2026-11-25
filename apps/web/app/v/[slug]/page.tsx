@@ -1,3 +1,4 @@
+import { ErrorState } from '@/app/_components/states/error-state';
 import { getCurrentUser } from '@/lib/auth';
 import { startAhead } from '@/lib/start-ahead';
 import { shopPath } from '@/lib/shop-address';
@@ -1142,8 +1143,16 @@ export async function renderVendorBySlug({
   const unlistedEvents = await readOverdueTopUpEventIds(vendor.vendor_profile_id, manilaToday());
   const unlistedPageRefs = await readPageRefsFromEvents(vendor.vendor_profile_id, unlistedEvents);
   const logoDisplayUrl = await logoDisplayRead;
-  const [reviewStats, trustedReviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingRead, completedEvents, hidePricesPublicly] = await Promise.all([
-    fetchReviewStats(admin, vendor.vendor_profile_id),
+  // 🔒 ONE FAILED SECTION READ NEVER TAKES THE PAGE DOWN (final check A1-125, 25 Nov 2026). These three readers
+  // throw on a refused read and this `Promise.all` had no catch, so a stranger got the root error screen instead of
+  // the shop. Each now settles to `null`; its own section says it couldn't load and the rest of the page still draws.
+  const sectionRead = <T,>(p: Promise<T>, what: string): Promise<T | null> =>
+    p.catch((e: unknown) => {
+      console.error(`[shop page] ${what} read failed`, e instanceof Error ? e.message : e);
+      return null;
+    });
+  const [reviewStatsRead, trustedReviewStats, reviewsRead, allServicesRead, vendorPackages, recommendingCouples, finalizedBookingRead, completedEvents, hidePricesPublicly] = await Promise.all([
+    sectionRead(fetchReviewStats(admin, vendor.vendor_profile_id), 'review stats'),
     // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the PUBLIC headline average
     // + review count read the TRUSTED (receipt-backed, arm's-length) stat, so
     // fake / self-dealt reviews can't inflate the number couples see. The raw
@@ -1152,8 +1161,8 @@ export async function renderVendorBySlug({
     fetchTrustedReviewStats(admin, vendor.vendor_profile_id),
     // 🛡 Fake proof fixes (owner 2026-11-23, b89e2420 C + D): the PUBLIC read — a held review never lists, and each row
     // says whether it counts (a booked review that does not wears the supplier's-own-client pill, `reviewIsOwnClient`).
-    fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0, excludeEventIds: [...unlistedEvents], publicOnly: true }),
-    fetchVendorServices(admin, vendor.vendor_profile_id),
+    sectionRead(fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0, excludeEventIds: [...unlistedEvents], publicOnly: true }), 'reviews'),
+    sectionRead(fetchVendorServices(admin, vendor.vendor_profile_id), 'services'),
     // Vendor packages (owner directive 2026-05-22) — bundled multi-category
     // wedding offerings. Public-read via RLS when is_active=TRUE. The fetch
     // is best-effort: if the table doesn't exist yet in a deploy environment
@@ -1416,7 +1425,21 @@ export async function renderVendorBySlug({
     }
   }
 
-  const hasMore = reviewStats.total_count > reviews.length;
+  const reviewsReadFailed = reviewStatsRead === null || reviewsRead === null;
+  const servicesReadFailed = allServicesRead === null;
+  const reviewStats: ReviewStatsRow = reviewStatsRead ?? {
+    vendor_profile_id: vendor.vendor_profile_id,
+    avg_rating_overall: 0,
+    total_count: 0,
+    count_5_star: 0,
+    count_4_star: 0,
+    count_3_star: 0,
+    count_2_star: 0,
+    count_1_star: 0,
+  };
+  const reviews = reviewsRead ?? [];
+  const allServices = allServicesRead ?? [];
+  const hasMore = !reviewsReadFailed && reviewStats.total_count > reviews.length;
   const activeServices = allServices.filter((s) => s.is_active);
 
   // Service-card enrichment (redesign · Phase 4) — FREE inclusions + the
@@ -3371,7 +3394,9 @@ export async function renderVendorBySlug({
 
         {/* ── SERVICES: the cards, the typical price, the packages (Lock lives on each package card, nowhere else). */}
         <div id="shop-services" data-shop-section="" className="scroll-mt-14">
-        {activeServices.length > 0 ? (
+        {servicesReadFailed ? (
+          <ShopSectionCouldNotLoad what="services" />
+        ) : activeServices.length > 0 ? (
           /* Hybrid-anonymity (V2.1 amendment #2): pass displayLabel so
              the services section's section heading + per-service
              cards' "by {vendor}" copy don't leak the hidden name. */
@@ -3645,6 +3670,7 @@ export async function renderVendorBySlug({
           businessName={displayLabel}
           reviewStats={reviewStats}
           trustedReviewStats={trustedReviewStats}
+          readFailed={reviewsReadFailed}
           reviews={orderedReviews}
           reviewCardsById={reviewCardsById}
           guestReviews={guestReviews}
@@ -4376,6 +4402,7 @@ function TrustedBySection({
 }
 
 function ReviewsSection({
+  readFailed,
   slug,
   businessName,
   reviewStats,
@@ -4423,7 +4450,17 @@ function ReviewsSection({
   hasVenueMatch: boolean;
   /** 🏪 A demo shop (`is_demo`) — its reviews are SAMPLES and each one says so (DECISION_LOG 2026-11-10 🏪). */
   sampleShop?: boolean;
+  /** The reviews read failed (A1-125): the section says so instead of drawing "no reviews". */
+  readFailed?: boolean;
 }) {
+  if (readFailed) {
+    return (
+      <section id="reviews" className="space-y-6 border-b border-ink/10 py-8">
+        <h2 className="font-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">Reviews</h2>
+        <ShopSectionCouldNotLoad what="reviews" />
+      </section>
+    );
+  }
   return (
     <section id="reviews" className="space-y-6 border-b border-ink/10 py-8">
       <header className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -5070,5 +5107,20 @@ function HeroBadge({ badge, title, drawn = false }: { badge: ShopBadge; title: s
     <span className="inline-flex leading-[0]" title={title} data-shop-badge={badge.key}>
       <ImageBadge {...badgeImageOf(badge)} uid={`shop-${badge.key}`} size={48} label={badge.label} drawn={drawn} />
     </span>
+  );
+}
+
+/**
+ * One shop section whose read failed (final check A1-125): the shipped `ErrorState`, in its three beats, so the
+ * person knows what broke, that the rest of the page is real, and what to do. Never "no reviews" or an empty gallery.
+ */
+function ShopSectionCouldNotLoad({ what }: { what: 'reviews' | 'services' }) {
+  return (
+    <ErrorState
+      title={what === 'reviews' ? 'Couldn’t load the reviews' : 'Couldn’t load the services'}
+      broke={what === 'reviews' ? 'The reviews did not load just now.' : 'The services and their prices did not load just now.'}
+      survived="Everything else on this page is current."
+      todo="Reload the page to try again."
+    />
   );
 }

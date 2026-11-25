@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CheckCircle2, ShieldAlert, Sparkles, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   ROLE_SUBTYPE_LABEL,
@@ -58,6 +59,7 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
 
   // A2-A10: a refused read is "we couldn't read this invitation — try again", never the dead link's "not found".
   if (inviteError) {
+    logQueryError('HostAcceptPage (event_moderators)', inviteError);
     return (
       <TerminalCard
         tone="warn"

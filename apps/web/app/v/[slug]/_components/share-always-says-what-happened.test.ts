@@ -38,3 +38,10 @@ test('🔒 an unverified shop hands its cards no reviews (A1-131)', () => {
   const page = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/page.tsx'), 'utf8'));
   assert.match(page, /reviewsByService: isVerifiedShop \? reviewsByService : new Map<string, CardReviews>\(\),/);
 });
+
+test('🔒 only a verified Trusted partner wears the check badge (A1-139)', () => {
+  const tile = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/_components/trusted-by-carousel.tsx'), 'utf8'));
+  assert.match(tile, /\{tile\.verified \? \([\s\S]{0,300}<BadgeCheck/);
+  const page = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/page.tsx'), 'utf8'));
+  assert.match(page, /verified: v\.isVerified,/);
+});

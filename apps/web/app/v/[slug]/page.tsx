@@ -1893,6 +1893,7 @@ export async function renderVendorBySlug({
           kindHint: trustedByHint({ origin: v.origin, shop: displayLabel, other: v.displayName, direction: v.direction, events: v.events }),
           logoUrl: v.logoRef ? await shopFileUrl(v.logoRef, partnerServes, (r) => displayUrlForStoredAsset(r)).catch(() => null) : null,
           initials: shopInitials(v.displayName, 2, 'SN'),
+          verified: v.isVerified,
         })),
       )
     : [];

@@ -591,3 +591,14 @@ of those users will become the same supplier."
 - R2's old address forwards (308) to `routes.dashboard.eventServices(eventId, 'ai')`, the existing web AI-alone path (controller ruling; no "Event Hub AI page" exists).
 - **Inside the iOS app**, do not show a buy button, price, or link/steer to the web checkout for AI on its own (Apple's anti-steering rule). AI there comes through the event plans (already IAP), so the iOS AI-alone entry shows only what's included or nothing.
 - No prices change.
+
+## Add 37 · OWNER RULING (25 Nov) on L9 / A6-71: the date limit follows the card's availability style (AV)
+
+- "There is a setting in the app via AV that sets limits per day of booking… it depends on the AV used." The first-registered-wins check (#8348) must decide "full" by the claimed card's **availability style** (`lib/availability-styles.ts`), using the card's own number (`daily_capacity`, asked per style by `cardCountQuestion`):
+  - **AV-DAY** (One booking a day) and **AV-ORDER** (Made to order): full when that date's bookings reach the card's number for one day.
+  - **AV-HOUR** (By the hour) and **AV-TIME** (Set times with seats): full only when the claimed hours/time slot is taken or out of seats, not the whole date.
+  - **AV-PIECE** (Rented by the piece): full only when the pieces asked for exceed the pieces left that date.
+  - **AV-NIGHT** (Rooms by the night): full when no room is left for that night.
+  - **AV-NONE** (Always available): never full by date.
+  - Style not set: use the shop's schedule as today.
+- The "+1 booking per date" add-on is **not sold** (`canBuyExtraBookingsPerDate` returns false since 14 Nov). Bought-before extras keep counting through `service_card_daily_limit` for Ultra. No change to prices or what plans hold.

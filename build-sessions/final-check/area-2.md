@@ -1,6 +1,6 @@
 # Final check · Area 2 · Couple: create an event and plan it
 
-FIXER: batch 1 of ~5 · PR #8309 · draft, waiting for CI (14 lane A fixes) · batch 2 (SW-RAWDB, 9 IDs) built, batch 3 in progress
+FIXER: batch 1 of 6 · PR #8309 · ready, full CI running · batches 2 (SW-RAWDB) · 3 · 4 · 5 built and committed, local preflight running before each PR · batch 6 next (SW-HYDR + the last area-2 items)
 
 STATUS: phase B done · 77 entries walked at 375/768/1280 light + dark · 24 new findings (0 blocker · 4 money-signin · 4 broken · 5 wrong · 11 look) · buttons 2191 (375) / 2698 (1280) · pressed 1202 · failed 0
 
@@ -2586,4 +2586,15 @@ Pages touched by fix batch 1, checked against Adds 11, 11b, 12, 13, 15, 17 and 1
   `PageMasthead` (already A2-D8 / A2-P15, noted again for the drawing).
 - Add 12 (motion), 13 (icons), 15 (logo), 17 (retired), 18 (reveals): nothing new on these pages. None of the touched
   pages is in lane R.
+
+### Fixer notes (25 Nov) — skipped or not reproduced, with the reason
+- **A2-P4** not reproduced: once the copy was fast, Groups drew "No group yet · New". Copy slowness, not code.
+- **A2-P6** seed-shaped: the seed links Bea's account to the groom's row; the list then shows the linked account's
+  name. Not changed until a builder confirms which name a linked row should show.
+- **A2-P1** 🟠 needs-owner: money on Home counts up from ₱0 because of the owner's 7 Oct rule "all numbers animate"
+  (held by `home-numbers-count.test.ts`). Should money figures be exempt from the count-up?
+- **A2-P5** by design: the import notice is the owner's own words (DECISION_LOG 2 Nov "Guest import opens December 19").
+- **A2-D2 / A2-E4** (one counting reader for seats and check-in) left for batch 6: they change how numbers are
+  derived and need care.
+- **A2-F7** (order slip names a rail /pay may not use) and **A2-F10** (referral page, behind a switched-off flag): batch 6.
 

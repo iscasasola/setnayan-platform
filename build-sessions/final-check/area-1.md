@@ -1,4 +1,4 @@
-FIXER: launch first · #8338 (L4 a1-launch, A1-059, ready) · #8334 (#8310 follow-up: baselines restored, ready) · #8310 merged · #8321 (custom-domain leak fixed, re-run) · #8328 (a1-a3-shop, ready) · a1-a4-account testing, PR next
+FIXER: launch first · #8338 (L4 a1-launch, A1-059, ready) · #8334 (#8310 follow-up: BIRTHDAY_INVALID move only, ready) · #8310 merged · #8321 (a1-live-perf, ready) · #8328 (a1-a3-shop, ready) · #8340 (a1-a4-account, ready) · a1-a5-money next
 STATUS: phase B done (25 Nov 2026, staging copy commit bd86936)
 **Phase B counts:** 74 pages + 2 forwards walked at 375 · 768 · 1280, light and dark (456 loads) · **controls 2,837 counted, 2,629 pressed, 10 failed** (8 = the sign-in ✕, A1-172; 2 = a shop link answering 500, A1-154); the 208 left are search boxes, submits, Google/Apple, disabled controls and a tour blocking /pricing, named per page · **19 new findings (A1-154 – A1-172): blocker 1 · money-signin 2 · broken 1 · wrong 9 · look 6**; A1-056 blocker **confirmed** · **File total 172: blocker 2 · money-signin 14 · broken 15 · wrong 92 · look 49** · DARK: light only 64 · yes 6 · n/a 4 · no sideways scroll at any size.
 

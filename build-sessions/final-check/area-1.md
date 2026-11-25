@@ -1,5 +1,9 @@
 # Final check — AREA 1 · Front door & public pages (signed out), incl. the sign-in pages
 
+STATUS: phase B done (25 Nov 2026, staging copy commit bd86936)
+**Phase B counts:** 74 pages + 2 forwards walked at 375 · 768 · 1280, light and dark (456 loads) · **controls 2,837 counted, 2,629 pressed, 10 failed** (8 = the sign-in ✕, A1-172; 2 = a shop link answering 500, A1-154); the 208 left are search boxes, submits, Google/Apple, disabled controls and a tour blocking /pricing, named per page · **19 new findings (A1-154 – A1-172): blocker 1 · money-signin 2 · broken 1 · wrong 9 · look 6**; A1-056 blocker **confirmed** · **File total 172: blocker 2 · money-signin 14 · broken 15 · wrong 92 · look 49** · DARK: light only 64 · yes 6 · n/a 4 · no sideways scroll at any size.
+
+
 > Checker 1 of 8. **Report only — nothing here was fixed.** Pinned check commit: `fb3f72d` (main, frozen).
 > Kit: `build-sessions/FINAL-CHECK-KIT.md` §§ 3–6. Rules: `docs/brand.md`, corpus `HOUSE_DESIGN_STANDARD_2026-11-20.md` (Parts H, K, I).
 > Phase A = code pass (`SOURCE: CODE`) + a read-only walk of LIVE https://setnayan.com signed out (`SOURCE: SEEN-LIVE`).
@@ -29,7 +33,7 @@ PAGE      /v/[slug] (served at /{shop}) · /v/[slug]/dates (→ /{shop}?dates=1)
 BUTTON    — (page load)
 STEPS     1. Open /liwanagphotoandfilm on the staging copy, signed out. 2. Wait. 3. Repeat signed in (`front`). 4. Repeat for every shop in sitemap-vendors.xml.
 EXPECTED  The shop page: cover, service cards with ₱ prices from the catalogue, portfolio, reviews, Check a date.
-ACTUAL    HTTP 500 after 22–24 s, every time, for all 10 seeded shops (liwanagphotoandfilm, kusinanialingnenacatering, hardinngtagaytayeventsplace, talaeventscoordination, gandaglamstudio, hostkuyajun, mamonandcocakes, sampaguitaflorals, tugtugansounds, pelikulaweddingfilms) and for /liwanagphotoandfilm?dates=1. Console: "An error occurred in the Server Components render". The steady ~24 s points at a server read that times out, not a missing shop (a made-up shop gives an honest 404). The error screen a couple sees reads "Still opening your invitation… This is taking a little longer than usual. One moment. Opening…" with a REFERENCE number: the Event Hub's words on a shop page, and it never opens. Guest Event Hubs on the same copy open (e.g. /stg-carla-miguel 200), so it is the shop route. Areas 5, 6 and 7 cannot see their own public shop either. Copy-only cause not ruled out (lock d blocks stored pictures), but a picture should never take the page down (see A1-125, A1-128).
+ACTUAL    HTTP 500 after 22–24 s on most loads for all 10 seeded shops (a re-check at 07:50 UTC: 7 of 10 still 500, 1 timed out at 90 s, 3 answered 200 after 2, 13 and 89 s) (liwanagphotoandfilm, kusinanialingnenacatering, hardinngtagaytayeventsplace, talaeventscoordination, gandaglamstudio, hostkuyajun, mamonandcocakes, sampaguitaflorals, tugtugansounds, pelikulaweddingfilms) and for /liwanagphotoandfilm?dates=1. Console: "An error occurred in the Server Components render". The steady ~24 s points at a server read that times out, not a missing shop (a made-up shop gives an honest 404). The error screen a couple sees reads "Still opening your invitation… This is taking a little longer than usual. One moment. Opening…" with a REFERENCE number: the Event Hub's words on a shop page, and it never opens. Guest Event Hubs on the same copy open (e.g. /stg-carla-miguel 200), so it is the shop route. Areas 5, 6 and 7 cannot see their own public shop either. Copy-only cause not ruled out (lock d blocks stored pictures), but a picture should never take the page down (see A1-125, A1-128).
 SHOTS     375 px light, signed out and signed in (checker's scratchpad)
 RULE      kit § 5 item 1 (opens, no 5xx) · CLAUDE.md §5 rule 4 (honest states) · brand.md (the error names the wrong thing)
 SEVERITY  blocker
@@ -68,84 +72,93 @@ SOURCE    SEEN
 - **Switched off live:** `/sample` and `/sample/hub/*` are 404 (sample switch off), `/{shop}/booth` is 404 (booth switch off); their findings apply when switched on.
 - **Speed figures** are from a US container through Vercel's Cleveland edge to Singapore; about 0.25–0.35 s of each is distance. Re-time from Manila in phase B.
 
+### Checker's notes (phase B)
+
+- **How phase B was done.** A scripted browser (Chromium, Playwright) loaded every area-1 page at 375, 768 and 1280 px, light and dark, signed out, and read status, console, timing, sideways scroll, controls, title, description, canonical, share picture, robots and structured data. A second pass pressed every visible control at 375 and 1280 (links followed and checked for their HTTP answer; other controls pressed in place and marked failed when nothing changed). Every "failed" was re-checked by hand; false alarms (slow navigation, a filter already selected, checkbox state) were struck before counting. By hand: the no-account event start and "Secure my plan", sign-in with the spare account, the buy buttons on /pricing, the sign-in forms, offline.
+- **What the checker created on the copy:** an anonymous host with the event "FC Area1 anon test" (birthday, 28 Nov), possibly a second unfinished one from the first try, and sign-ins of the spare `front` account. Nothing paid, nothing deleted, no seeded data changed.
+- **The copy was slow** while 8 checkers walked it (home once took 58 s). Speed findings say so; re-time from Manila on live.
+- **Not walkable on the copy:** /tour and /tour/* (no sample event seeded; live has it), /sample* (switch off, as live), the shop pages (A1-154), the booth (switch off). Their phase A findings stand as code findings.
+- **Phase A findings seen again on the copy:** A1-046 (Add to an event popup, now with no backdrop, A1-170), A1-103 (/tl/about "0% commission, forever"), A1-108 (/features "Pabuya e-gifts"), A1-152 (old footer "Monogram maker", also on /help/guides/[key] signed in), A1-153 (sign-in card). None struck.
+- **For the controller:** CLAUDE.md §1 says special tools are on Pro and Ultra only; the code (`SPECIALIZED_TOOLS_INCLUDED_TIERS` = solo, pro, enterprise) and /pricing ("Plus · All specialized tools") say Plus has them. One of the two is stale; the corpus decides.
+
 ## Progress
 
 Each line: page · OFFLINE mark · SHAPE today → should.
 
-- [x] / · OFFLINE: NOT NEEDED (marketing front door) · SHAPE: today PAGE → should PAGE
-- [x] /about · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /acceptable-use · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /alaala · OFFLINE: NOT NEEDED (signed-out marketing page) · SHAPE: today PAGE → should PAGE
-- [x] /api/v1 · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE (or not public at all, see finding)
-- [x] /articles · OFFLINE: NOT NEEDED (an online community feed) · SHAPE: today PAGE → should PAGE
-- [x] /articles/[slug] · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /articles/write · OFFLINE: NOT NEEDED (posting needs the network) · SHAPE: today PAGE (its own ✕ header) → should FULL-SCREEN POPUP over /articles (differs)
-- [x] /budget · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding)
-- [x] /cookies · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /creators · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /download · OFFLINE: NOT NEEDED (marketing) · SHAPE: today PAGE → should PAGE
-- [x] /explore/compare · OFFLINE: READ-ONLY IS ENOUGH (a couple at an expo may reopen a comparison by its link; Save and Ask need signal anyway) · SHAPE: today PAGE → should PAGE (people share it by its `?ids=` link)
-- [x] /features · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /features/[slug] · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /for-suppliers · OFFLINE: NOT NEEDED (marketing) · SHAPE: today PAGE → should PAGE
-- [x] /forgot-password · OFFLINE: NOT NEEDED · SHAPE: today a PAGE (`DoorShell`) → should SMALL POPUP (one field, a step of sign-in) (differs)
-- [x] /guest-list · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding)
-- [x] /help · OFFLINE: READ-ONLY IS ENOUGH (the answers are fixed text, so a saved copy helps a guest or supplier at a venue with no signal; Ask and Message us need the network) · SHAPE: today PAGE → should PAGE
-- [x] /help/[slug] · OFFLINE: READ-ONLY IS ENOUGH (static answer text) · SHAPE: today PAGE → should PAGE
-- [x] /help/guides/[key] · OFFLINE: READ-ONLY IS ENOUGH (static steps) · SHAPE: today PAGE → should PAGE
-- [x] /help/topics · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: today PAGE → should PAGE
-- [x] /help/topics/[key] · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: today PAGE → should PAGE
-- [x] /i/[slug] · OFFLINE: NOT NEEDED (joining needs the network) · SHAPE: today PAGE → should PAGE (shared by link and QR)
-- [x] /login · OFFLINE: NOT NEEDED (signing in needs the network) · SHAPE: today a PAGE that draws its own centred popup (`.home-reskin-ov`, role=dialog) on every screen size → should SMALL POPUP (`Sheet`) (differs)
-- [x] /marketplace · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /monogram · OFFLINE: NOT NEEDED (free design-and-download tool, used at home) · SHAPE: today PAGE → should PAGE
-- [x] /mood-board · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding)
-- [x] /our-story · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /palogo · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding)
-- [x] /panood · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (its Live Watch demo popup is wrong: see the popups finding)
-- [x] /panood/demo/[token] · OFFLINE: NOT NEEDED (a live peer-to-peer camera demo; nothing works without signal) · SHAPE: today PAGE → should PAGE (opened by scanning a QR on a phone)
-- [x] /papic · OFFLINE: NOT NEEDED (marketing page; its live demo needs a connection) · SHAPE: today PAGE → should PAGE (/papic/try is its shareable address)
-- [x] /pawebsite · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding)
-- [x] /pricing · OFFLINE: NOT NEEDED (prices must be live; a saved copy would show stale prices) · SHAPE: today PAGE → should PAGE
-- [x] /pricing/plan · OFFLINE: NOT NEEDED · SHAPE: today PAGE (a step-by-step quiz; the steps are not in the URL, so Back leaves and refresh restarts) → should FULL-SCREEN POPUP over /pricing (differs)
-- [x] /privacy · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /privacy/google-access · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /refunds · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /reset-password · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE (opened from an email link)
-- [x] /samahan · OFFLINE: NOT NEEDED (marketing) · SHAPE: today PAGE → should PAGE
-- [x] /samahan/chat/[threadId] · OFFLINE: NEEDED (at the venue on the day: the "Day-of crew" group is how the coordinator and suppliers talk there) · SHAPE: today PAGE → should PAGE (tray notices link here)
-- [x] /samahan/chat/new · OFFLINE: NOT NEEDED (made while planning) · SHAPE: today PAGE → should FULL-SCREEN POPUP (differs)
-- [x] /sample · OFFLINE: NOT NEEDED (a demo landing; it only opens when the sample switch is on) · SHAPE: today PAGE → should PAGE · LIVE: 404 (switch off)
-- [x] /sample/[...rest] · OFFLINE: NOT NEEDED · SHAPE: today PAGE (always the 404) → should PAGE (the 404)
-- [x] /sample/hub/[guestKey] · OFFLINE: NOT NEEDED (a demo of the guest Hub; the real Hub is the one used at the venue) · SHAPE: today PAGE → should PAGE · LIVE: 404 (switch off)
-- [x] /schedule · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding)
-- [x] /seat-plan · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding)
-- [x] /setnayan-ai · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding)
-- [x] /signup · OFFLINE: NOT NEEDED · SHAPE: today a PAGE with the same centred card → should SMALL POPUP (`Sheet`, about 3 fields; keep the address for shared referral links) (differs)
-- [x] /signup/you · OFFLINE: NOT NEEDED · SHAPE: today a PAGE (card on paper) → should FULL-SCREEN POPUP (`RiseScreen`: a photo upload, 8 or more fields, part of the first run) (differs)
-- [x] /start · OFFLINE: NOT NEEDED (the onboarding asks for an account at save and needs a connection) · SHAPE: today PAGE → should FULL-SCREEN POPUP (owner: creating an event is a full-screen popup; signed in, create-event is already a modal) (differs)
-- [x] /suppliers · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /suppliers/[event]/[category] · OFFLINE: NOT NEEDED (an indexed directory; at an expo the couple uses Suppliers › Find inside their event) · SHAPE: today PAGE → should PAGE
-- [x] /suppliers/[event]/[category]/[city] · OFFLINE: NOT NEEDED (same reason) · SHAPE: today PAGE → should PAGE
-- [x] /terms · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /tl/about · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /tl/features · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /tl/features/[slug] · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /tour · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /tour/budget · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /tour/gallery · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /tour/seating · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /tour/vendors · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [x] /u/[userSlug] · OFFLINE: NOT NEEDED (a public page read online; nothing to do there at a venue) · SHAPE: today PAGE → should PAGE (shared by link)
-- [x] /u/[userSlug]/c/[chapterId] · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE (shared by link; forwards to /articles/&lt;slug&gt; when one exists)
-- [x] /v/[slug] · LIVE: shops now live at /{shop}; /v/{shop} answers 308 → /{shop} (seen on /setnaprod, 200) · OFFLINE: NEEDED (couple at an expo. Today a `/{shop}` page opened once keeps a last copy only because sw.js treats any one-word address as a guest's event page (`isDayOfGuestNavigation`). Inquire, Add to your event and Check a date all need signal) · SHAPE: today PAGE → should PAGE
-- [x] /v/[slug]/booth · LIVE: /setnaprod/booth 404 (switch off) · OFFLINE: NOT NEEDED (a 3D showcase, hidden behind NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE) · SHAPE: today PAGE (full-screen canvas, no way back) → should PAGE
-- [x] /v/[slug]/cached · LIVE: 404 "Not found" from outside (internal only) · OFFLINE: NEEDED (couple at an expo. This route does not provide it: it is a copy kept on the server and refreshed every 60 s, refused from outside, with nothing stored on the phone) · SHAPE: today PAGE (the page every signed-out visitor actually gets, at an internal address) → should PAGE
-- [x] /v/[slug]/dates · LIVE: → /{shop}?dates=1, LCP 2.7 s · OFFLINE: NEEDED (at an expo, from the printed Check a date QR. Today it is a server redirect plus a live render, so no signal means no answer) · SHAPE: today a redirect to the shop with Check a date as a hand-built FULL-SCREEN POPUP → should FULL-SCREEN POPUP (RiseScreen) on its own address
-- [x] /v/[slug]/guest-review · LIVE: 200, "We can’t find you on the door list" · OFFLINE: NEEDED (guests at the venue on the day, from the supplier's on-the-day guest QR. Every read and the send need signal) · SHAPE: today PAGE → should PAGE
-- [x] /v/[slug]/story/[eventSlug] · OFFLINE: NOT NEEDED (a story page read at home) · SHAPE: today PAGE → should PAGE
-- [x] /waitlist · OFFLINE: NOT NEEDED (marketing) · SHAPE: today PAGE → should PAGE
-- [x] /web-only · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
+- [x] / · OFFLINE: NOT NEEDED (marketing front door) · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 43 · pressed 42 · failed 0 | 1280 buttons 56 · pressed 55 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /about · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 41 · pressed 40 · failed 0 | 1280 buttons 54 · pressed 53 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /acceptable-use · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 8 · pressed 7 · failed 0 | 1280 buttons 21 · pressed 20 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /alaala · OFFLINE: NOT NEEDED (signed-out marketing page) · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 13 · pressed 12 · failed 0 | 1280 buttons 26 · pressed 25 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /api/v1 · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE (or not public at all, see finding) · B: SEEN 200 · 375 buttons 1 · pressed 1 · failed 0 | 1280 buttons 1 · pressed 1 · failed 0 · DARK: light only
+- [x] /articles · OFFLINE: NOT NEEDED (an online community feed) · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 128 · pressed 127 · failed 0 | 1280 buttons 141 · pressed 140 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /articles/[slug] · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 9 · pressed 7 · failed 0 | 1280 buttons 22 · pressed 20 · failed 0 · left: Report (would write/submit), Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /articles/write · OFFLINE: NOT NEEDED (posting needs the network) · SHAPE: today PAGE (its own ✕ header) → should FULL-SCREEN POPUP over /articles (differs) · B: SEEN 200 → /login?next=/articles/write · 375 buttons 5 · pressed 3 · failed 1 | 1280 buttons 5 · pressed 3 · failed 1 · left: Continue with Apple (would wri, Continue with Google (would wr (submit/search/disabled, by rule) · failed: Close · DARK: yes
+- [x] /budget · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding) · B: SEEN 200 · 375 buttons 7 · pressed 6 · failed 0 | 1280 buttons 20 · pressed 19 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /cookies · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 8 · pressed 7 · failed 0 | 1280 buttons 21 · pressed 20 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /creators · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 8 · pressed 7 · failed 0 | 1280 buttons 21 · pressed 20 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /download · OFFLINE: NOT NEEDED (marketing) · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 7 · pressed 6 · failed 0 | 1280 buttons 20 · pressed 19 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /explore/compare · OFFLINE: READ-ONLY IS ENOUGH (a couple at an expo may reopen a comparison by its link; Save and Ask need signal anyway) · SHAPE: today PAGE → should PAGE (people share it by its `?ids=` link) · B: SEEN 200 → /login?next=%2F%3Fbrowse%3D1 · 375 buttons 5 · pressed 3 · failed 1 | 1280 buttons 5 · pressed 3 · failed 1 · left: Continue with Apple (would wri, Continue with Google (would wr (submit/search/disabled, by rule) · failed: Close · DARK: yes
+- [x] /features · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 115 · pressed 115 · failed 0 | 1280 buttons 128 · pressed 128 · failed 0 · DARK: light only
+- [x] /features/[slug] · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 14 · pressed 13 · failed 0 | 1280 buttons 27 · pressed 26 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /for-suppliers · OFFLINE: NOT NEEDED (marketing) · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 21 · pressed 20 · failed 0 | 1280 buttons 34 · pressed 33 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /forgot-password · OFFLINE: NOT NEEDED · SHAPE: today a PAGE (`DoorShell`) → should SMALL POPUP (one field, a step of sign-in) (differs) · B: SEEN 200 · 375 buttons 3 · pressed 2 · failed 0 | 1280 buttons 3 · pressed 2 · failed 0 · left: Email me a reset link (would w (submit/search/disabled, by rule) · DARK: light only
+- [x] /guest-list · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding) · B: SEEN 200 · 375 buttons 7 · pressed 6 · failed 0 | 1280 buttons 20 · pressed 19 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /help · OFFLINE: READ-ONLY IS ENOUGH (the answers are fixed text, so a saved copy helps a guest or supplier at a venue with no signal; Ask and Message us need the network) · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 6 · pressed 6 · failed 0 | 1280 buttons 19 · pressed 19 · failed 0 · DARK: light only
+- [x] /help/[slug] · OFFLINE: READ-ONLY IS ENOUGH (static answer text) · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 28 · pressed 28 · failed 0 | 1280 buttons 29 · pressed 29 · failed 0 · DARK: light only
+- [x] /help/guides/[key] · OFFLINE: READ-ONLY IS ENOUGH (static steps) · SHAPE: today PAGE → should PAGE · B: SEEN 404 · 375 buttons 18 · pressed 18 · failed 0 | 1280 buttons 18 · pressed 18 · failed 0 · DARK: light only · 404 signed out by design (a guide belongs to a signed-in help); signed in /help/guides/guests opens (old footer: A1-152)
+- [x] /help/topics · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 22 · pressed 21 · failed 0 | 1280 buttons 35 · pressed 34 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /help/topics/[key] · OFFLINE: READ-ONLY IS ENOUGH · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 108 · pressed 66 · failed 0 | 1280 buttons 121 · pressed 79 · failed 0 · left: Does Setnayan have a mobile ap, Does Setnayan support Filipino, How do I share wedding photos , How much does Setnayan cost?, Is Setnayan free for couples? (submit/search/disabled, by rule) · DARK: light only · 42 FAQ toggles lost page state mid-pass at 375 (spot check: they open)
+- [x] /i/[slug] · OFFLINE: NOT NEEDED (joining needs the network) · SHAPE: today PAGE → should PAGE (shared by link and QR) · B: SEEN 404 · 375 buttons 2 · pressed 2 · failed 0 | 1280 buttons 2 · pressed 2 · failed 0 · DARK: light only
+- [x] /login · OFFLINE: NOT NEEDED (signing in needs the network) · SHAPE: today a PAGE that draws its own centred popup (`.home-reskin-ov`, role=dialog) on every screen size → should SMALL POPUP (`Sheet`) (differs) · B: SEEN 200 · 375 buttons 5 · pressed 3 · failed 1 | 1280 buttons 5 · pressed 3 · failed 1 · left: Continue with Apple (would wri, Continue with Google (would wr (submit/search/disabled, by rule) · failed: Close · DARK: yes
+- [x] /marketplace · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 7 · pressed 6 · failed 0 | 1280 buttons 20 · pressed 19 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /monogram · OFFLINE: NOT NEEDED (free design-and-download tool, used at home) · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 7 · pressed 6 · failed 0 | 1280 buttons 20 · pressed 19 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /mood-board · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding) · B: SEEN 200 · 375 buttons 7 · pressed 6 · failed 0 | 1280 buttons 20 · pressed 19 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /our-story · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 6 · pressed 5 · failed 0 | 1280 buttons 19 · pressed 18 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /palogo · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding) · B: SEEN 200 · 375 buttons 7 · pressed 6 · failed 0 | 1280 buttons 20 · pressed 19 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /panood · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (its Live Watch demo popup is wrong: see the popups finding) · B: SEEN 200 · 375 buttons 9 · pressed 8 · failed 0 | 1280 buttons 22 · pressed 21 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /panood/demo/[token] · OFFLINE: NOT NEEDED (a live peer-to-peer camera demo; nothing works without signal) · SHAPE: today PAGE → should PAGE (opened by scanning a QR on a phone) · B: SEEN 200 · 375 buttons 1 · pressed 1 · failed 0 | 1280 buttons 1 · pressed 1 · failed 0 · DARK: light only
+- [x] /papic · OFFLINE: NOT NEEDED (marketing page; its live demo needs a connection) · SHAPE: today PAGE → should PAGE (/papic/try is its shareable address) · B: SEEN 200 · 375 buttons 24 · pressed 22 · failed 0 | 1280 buttons 37 · pressed 35 · failed 0 · left: Search (would write/submit), − (disabled) (submit/search/disabled, by rule) · DARK: light only
+- [x] /pawebsite · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding) · B: SEEN 200 · 375 buttons 7 · pressed 6 · failed 0 | 1280 buttons 20 · pressed 19 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /pricing · OFFLINE: NOT NEEDED (prices must be live; a saved copy would show stale prices) · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 34 · pressed 30 · failed 0 | 1280 buttons 51 · pressed 48 · failed 0 · left: Next, Search (would write/submit), Skip, ☰ (submit/search/disabled, by rule) · DARK: light only
+- [x] /pricing/plan · OFFLINE: NOT NEEDED · SHAPE: today PAGE (a step-by-step quiz; the steps are not in the URL, so Back leaves and refresh restarts) → should FULL-SCREEN POPUP over /pricing (differs) · B: SEEN 200 · 375 buttons 10 · pressed 9 · failed 0 | 1280 buttons 23 · pressed 22 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /privacy · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 35 · pressed 34 · failed 0 | 1280 buttons 48 · pressed 47 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /privacy/google-access · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 8 · pressed 7 · failed 0 | 1280 buttons 21 · pressed 20 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /refunds · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 9 · pressed 8 · failed 0 | 1280 buttons 22 · pressed 21 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /reset-password · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE (opened from an email link) · B: SEEN 200 · 375 buttons 3 · pressed 2 · failed 0 | 1280 buttons 3 · pressed 2 · failed 0 · left: Send a new link (would write/s (submit/search/disabled, by rule) · DARK: light only
+- [x] /samahan · OFFLINE: NOT NEEDED (marketing) · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 7 · pressed 6 · failed 0 | 1280 buttons 20 · pressed 19 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /samahan/chat/[threadId] · OFFLINE: NEEDED (at the venue on the day: the "Day-of crew" group is how the coordinator and suppliers talk there) · SHAPE: today PAGE → should PAGE (tray notices link here) · B: SEEN 200 → /login?next=%2Fsamahan%2Fchat%2F00000000-0000-0000-0000-000000000000 · 375 buttons 5 · pressed 3 · failed 1 | 1280 buttons 5 · pressed 3 · failed 1 · left: Continue with Apple (would wri, Continue with Google (would wr (submit/search/disabled, by rule) · failed: Close · DARK: yes
+- [x] /samahan/chat/new · OFFLINE: NOT NEEDED (made while planning) · SHAPE: today PAGE → should FULL-SCREEN POPUP (differs) · B: SEEN 404 · 375 buttons 2 · pressed 2 · failed 0 | 1280 buttons 2 · pressed 2 · failed 0 · DARK: light only · 404 signed out (not a sign-in wall)
+- [x] /sample · OFFLINE: NOT NEEDED (a demo landing; it only opens when the sample switch is on) · SHAPE: today PAGE → should PAGE · LIVE: 404 (switch off) · B: SEEN 404 · 375 buttons 2 · pressed 2 · failed 0 | 1280 buttons 2 · pressed 2 · failed 0 · DARK: light only
+- [x] /sample/[...rest] · OFFLINE: NOT NEEDED · SHAPE: today PAGE (always the 404) → should PAGE (the 404) · B: SEEN 404 · 375 buttons 2 · pressed 2 · failed 0 | 1280 buttons 2 · pressed 2 · failed 0 · DARK: light only
+- [x] /sample/hub/[guestKey] · OFFLINE: NOT NEEDED (a demo of the guest Hub; the real Hub is the one used at the venue) · SHAPE: today PAGE → should PAGE · LIVE: 404 (switch off) · B: SEEN 404 · 375 buttons 2 · pressed 2 · failed 0 | 1280 buttons 2 · pressed 2 · failed 0 · DARK: light only
+- [x] /schedule · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding) · B: SEEN 200 · 375 buttons 7 · pressed 6 · failed 0 | 1280 buttons 20 · pressed 19 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /seat-plan · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding) · B: SEEN 200 · 375 buttons 7 · pressed 6 · failed 0 | 1280 buttons 20 · pressed 19 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /setnayan-ai · OFFLINE: NOT NEEDED (marketing page) · SHAPE: today PAGE → should PAGE (the signed-in "Add to an event" popup is wrong: see the popups finding) · B: SEEN 200 · 375 buttons 7 · pressed 6 · failed 0 | 1280 buttons 20 · pressed 19 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /signup · OFFLINE: NOT NEEDED · SHAPE: today a PAGE with the same centred card → should SMALL POPUP (`Sheet`, about 3 fields; keep the address for shared referral links) (differs) · B: SEEN 200 · 375 buttons 7 · pressed 5 · failed 0 | 1280 buttons 7 · pressed 5 · failed 0 · left: Continue with Apple (would wri, Continue with Google (would wr (submit/search/disabled, by rule) · DARK: yes
+- [x] /signup/you · OFFLINE: NOT NEEDED · SHAPE: today a PAGE (card on paper) → should FULL-SCREEN POPUP (`RiseScreen`: a photo upload, 8 or more fields, part of the first run) (differs) · B: SEEN 200 → /signup?next=%2Fdashboard%3Fhub%3D1 · 375 buttons 7 · pressed 5 · failed 0 | 1280 buttons 7 · pressed 5 · failed 0 · left: Continue with Apple (would wri, Continue with Google (would wr (submit/search/disabled, by rule) · DARK: yes
+- [x] /start · OFFLINE: NOT NEEDED (the onboarding asks for an account at save and needs a connection) · SHAPE: today PAGE → should FULL-SCREEN POPUP (owner: creating an event is a full-screen popup; signed in, create-event is already a modal) (differs) · B: SEEN 200 · 375 buttons 23 · pressed 22 · failed 0 | 1280 buttons 36 · pressed 30 · failed 0 · left: Concert Live music for a crowd, Grand opening The ribbon, the , Hangout Time with friends or b, Open house Doors open — guests, Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /suppliers · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 9 · pressed 8 · failed 0 | 1280 buttons 22 · pressed 21 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /suppliers/[event]/[category] · OFFLINE: NOT NEEDED (an indexed directory; at an expo the couple uses Suppliers › Find inside their event) · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 19 · pressed 18 · failed 1 | 1280 buttons 32 · pressed 31 · failed 1 · left: Search (would write/submit) (submit/search/disabled, by rule) · failed: View details for Pelikula Wedding Films — Classic  → /pelikulaweddingfilms?service=S89S-84566Q4TY7 = 500 · DARK: light only
+- [x] /suppliers/[event]/[category]/[city] · OFFLINE: NOT NEEDED (same reason) · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 10 · pressed 9 · failed 0 | 1280 buttons 23 · pressed 22 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /terms · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 17 · pressed 16 · failed 0 | 1280 buttons 30 · pressed 29 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /tl/about · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 12 · pressed 11 · failed 0 | 1280 buttons 25 · pressed 24 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /tl/features · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 55 · pressed 54 · failed 0 | 1280 buttons 68 · pressed 67 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /tl/features/[slug] · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 14 · pressed 13 · failed 0 | 1280 buttons 27 · pressed 26 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /tour · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: 404 on the copy (no sample event seeded; live 200) — not walked, not counted · DARK: light only
+- [x] /tour/budget · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: 404 on the copy (no sample event seeded; live 200) — not walked, not counted · DARK: light only
+- [x] /tour/gallery · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: 404 on the copy (no sample event seeded; live 200) — not walked, not counted · DARK: light only
+- [x] /tour/seating · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: 404 on the copy (no sample event seeded; live 200) — not walked, not counted · DARK: light only
+- [x] /tour/vendors · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: 404 on the copy (no sample event seeded; live 200) — not walked, not counted · DARK: light only
+- [x] /u/[userSlug] · OFFLINE: NOT NEEDED (a public page read online; nothing to do there at a venue) · SHAPE: today PAGE → should PAGE (shared by link) · B: SEEN 404 · 375 buttons 2 · pressed 2 · failed 0 | 1280 buttons 2 · pressed 2 · failed 0 · DARK: light only
+- [x] /u/[userSlug]/c/[chapterId] · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE (shared by link; forwards to /articles/&lt;slug&gt; when one exists) · B: SEEN 404 · 375 buttons 2 · pressed 2 · failed 0 | 1280 buttons 2 · pressed 2 · failed 0 · DARK: light only
+- [x] /v/[slug] · LIVE: shops now live at /{shop}; /v/{shop} answers 308 → /{shop} (seen on /setnaprod, 200) · OFFLINE: NEEDED (couple at an expo. Today a `/{shop}` page opened once keeps a last copy only because sw.js treats any one-word address as a guest's event page (`isDayOfGuestNavigation`). Inquire, Add to your event and Check a date all need signal) · SHAPE: today PAGE → should PAGE · B: SEEN HTTP 500 after ~24 s on most loads, 200 after 2–89 s on a few (all 10 shops) — A1-154 blocker · not pressed (no page) · DARK: n/a
+- [x] /v/[slug]/booth · LIVE: /setnaprod/booth 404 (switch off) · OFFLINE: NOT NEEDED (a 3D showcase, hidden behind NEXT_PUBLIC_PLAN3D_BOOTH_SHOWCASE) · SHAPE: today PAGE (full-screen canvas, no way back) → should PAGE · B: /liwanagphotoandfilm/booth 404 (booth switch off on the copy) · DARK: n/a
+- [x] /v/[slug]/cached · LIVE: 404 "Not found" from outside (internal only) · OFFLINE: NEEDED (couple at an expo. This route does not provide it: it is a copy kept on the server and refreshed every 60 s, refused from outside, with nothing stored on the phone) · SHAPE: today PAGE (the page every signed-out visitor actually gets, at an internal address) → should PAGE · B: 404 from outside (internal only, as phase A) · buttons 0 · DARK: n/a
+- [x] /v/[slug]/dates · LIVE: → /{shop}?dates=1, LCP 2.7 s · OFFLINE: NEEDED (at an expo, from the printed Check a date QR. Today it is a server redirect plus a live render, so no signal means no answer) · SHAPE: today a redirect to the shop with Check a date as a hand-built FULL-SCREEN POPUP → should FULL-SCREEN POPUP (RiseScreen) on its own address · B: → /{shop}?dates=1, HTTP 500 (A1-154) · not pressed · DARK: n/a
+- [x] /v/[slug]/guest-review · LIVE: 200, "We can’t find you on the door list" · OFFLINE: NEEDED (guests at the venue on the day, from the supplier's on-the-day guest QR. Every read and the send need signal) · SHAPE: today PAGE → should PAGE · B: SEEN 200 → /liwanagphotoandfilm/guest-review · 375 buttons 2 · pressed 2 · failed 0 | 1280 buttons 2 · pressed 2 · failed 0 · DARK: light only
+- [x] /v/[slug]/story/[eventSlug] · OFFLINE: NOT NEEDED (a story page read at home) · SHAPE: today PAGE → should PAGE · B: SEEN 0 · 375 buttons 2 · pressed 2 · failed 0 | 1280 buttons 2 · pressed 2 · failed 0 · DARK: light only
+- [x] /waitlist · OFFLINE: NOT NEEDED (marketing) · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 7 · pressed 6 · failed 0 | 1280 buttons 20 · pressed 19 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
+- [x] /web-only · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · B: SEEN 200 · 375 buttons 5 · pressed 4 · failed 0 | 1280 buttons 18 · pressed 17 · failed 0 · left: Search (would write/submit) (submit/search/disabled, by rule) · DARK: light only
 
 Forwards (kit: each must land):
 
@@ -2483,6 +2496,19 @@ SEVERITY  look
 SOURCE    SEEN
 ```
 
+#### A1-172 · The sign-in card's ✕ does nothing when the page was opened directly
+```text
+PAGE      /login · and every wall that lands on it (/articles/write, /explore/compare, /samahan/chat/[threadId])
+BUTTON    "Close" (✕ on the sign-in card)
+STEPS     1. Open /login from a link, a bookmark or a new tab (no page before it in this tab). 2. Press ✕.
+EXPECTED  The card closes to somewhere real: the page the person came for, or Home.
+ACTUAL    Nothing happens: same address, same card (pressed at 375 and 1280; re-checked by hand with an 8 s wait). The ✕ only works when there is a page to go back to.
+SHOTS     375 px dark
+RULE      design-and-wiring B5 (every press reaches a real destination)
+SEVERITY  broken
+SOURCE    SEEN
+```
+
 ## Phase B · the owner's additions (Adds 1–10b), area 1
 
 ### Add 1 · Popup, full-screen popup or page
@@ -2536,7 +2562,7 @@ Counts per page are in each Progress line (`B375` and `B1280`: buttons · presse
 
 ### Add 7 · Three sizes, light and dark
 - **Sizes:** no page scrolls sideways at 375, 768 or 1280. At 768 the public pages keep the phone's drawer (same controls as 375) with a wider search and a wider hero: designed, not stretched. At 1280 the rail appears (+13 controls).
-- **DARK:** public signed-out pages are **light only: 67** (counted, not reported one by one, per Add 7). **Dark: 3** — /login, /signup and the pages that forward to them (/signup/you, /articles/write, /explore/compare, /samahan/chat/[id]) follow the phone's dark setting. So a person in dark mode goes light → dark (sign-in card) → light again: worth the owner's look when the light-only count is decided.
+- **DARK:** public signed-out pages are **light only: 64** (counted, not reported one by one, per Add 7). **Dark: 6** — /login, /signup and the pages that forward to them (/signup/you, /articles/write, /explore/compare, /samahan/chat/[id]); n/a 4 (the shop routes, A1-154) follow the phone's dark setting. So a person in dark mode goes light → dark (sign-in card) → light again: worth the owner's look when the light-only count is decided.
 - **Shots:** `build-sessions/final-check/shots/area-1/home-{375,768,1280}-{light,dark}.png` (the dark shots are identical to light: the home page is light only).
 
 ### Add 8 · Reveals — area 3 only. Not walked here.

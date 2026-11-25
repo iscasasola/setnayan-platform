@@ -1,6 +1,6 @@
 # Final check · Area 2 · Couple: create an event and plan it
 
-STATUS: phase B in progress (lock proof done; walking the staging copy)
+STATUS: phase B in progress (button-press pass still running; counts so far) · 77 entries walked at 375/768/1280 light + dark · 24 new findings (0 blocker · 4 money-signin · 4 broken · 5 wrong · 11 look) · buttons 2191 (375) / 2634 (1280) · pressed 736 · failed 2
 
 > Checker 2 of 8. Report only, no fixes. Main frozen at `fb3f72d`. Phase A = code pass (`SOURCE: CODE`);
 > phase B = browser walk on staging (`SOURCE: SEEN`), not started (no staging address yet).
@@ -129,6 +129,103 @@ STATUS: phase B in progress (lock proof done; walking the staging copy)
   says. Which is meant? It decides whether A2-A3/A2-A4 are the whole problem.
 - Readers' notes: findings A2-B1, C2, D6, E15 and G20 (no dark glow) were folded into A2-X4; A2-A5 and A2-B10 were
   lowered from money-signin to wrong (a second peso formatter whose figure is right today).
+
+## Phase B summary (browser walk on the staging copy, 25 Nov 2026)
+
+- **77 entries walked** (67 pages + 6 forwards + `/signup/you`, plus 13 detail addresses: a seeded guest card,
+  the second order's pay page, `/onboarding/debut`, and 10 unknown ids that check the not-found state, since the seed holds no
+  contract, package, loved one, linked group, group, proposal, host invite, receipt row or payment receipt for this couple).
+  Sizes: 375 · 768 · 1280 light on every page; dark at 375 on every page and at 768 · 1280 on the pages that go dark.
+- **24 new findings (SEEN):** 0 blocker · 4 money-signin · 4 broken · 5 wrong · 11 look.
+  12 phase-A findings confirmed in the browser (listed under the new ones).
+- **Buttons (Add 6):** 2191 controls counted at 375 and 2634 at 1280 across the area; **pressed 736 · failed 2**.
+  Pressed = a button pressed and seen to act (a popup, a state, a new address), or a link whose destination page was opened
+  in this walk. Left: anything that would pay, send, delete, archive, release or change seeded data; links into other areas'
+  pages; and, on pages the press pass did not reach, the buttons themselves — the copy took 20–180 s per signed-in load for
+  most of the day, which made a reload after each press impossible (each line says which).
+- **DARK (Add 7):** yes 19 · no 44 · partly 0 · "—" = a detail address walked light only. No half-dark screen.
+- **Offline (Add 10):** an open check-in desk keeps working with no signal; no dashboard page reopens offline (A2-P22).
+- **Lock proof:** sent (above); nothing on screen said an email went out.
+
+## Phase B progress (per page: sizes · dark · buttons · pressed · speed · CLEAN / BALANCED / EFFECTIVE)
+
+- [x] /dashboard · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 46 (375) / 61 (1280) · pressed 26 (buttons 3+0 repeats, links 23 to pages opened in this walk) · failed 0 (no effect: —) · left 20 (4 would change data / pay / timed out, 16 links to other areas' pages) · usable in 37–102 s · CLEAN ok · BALANCED: 1280 one 780 px column, right third empty · EFFECTIVE ok (profile line ends in an unexplained "· off")
+- [x] /dashboard?seg=events · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 29 (375) / 43 (1280) · pressed 13 (buttons 6+1 repeats, links 6 to pages opened in this walk) · failed 1 (no effect: 0 celebrated) · left 6 (3 would change data / pay / timed out, 3 links to other areas' pages) · usable in 101–115 s · CLEAN ok · BALANCED ok · EFFECTIVE: ⓘ "What is this row?" 16 px (A2-P14)
+- [x] /dashboard/[eventId] · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 52 (375) / 62 (1280) · pressed 23 (buttons 1+0 repeats, links 22 to pages opened in this walk) · failed 0 (no effect: —) · left 30 (22 would change data / pay / timed out, 8 links to other areas' pages) · usable in 16–113 s · CLEAN: EXAMPLE rows (A2-P12) · BALANCED: 1280 date cut (A2-P21) · EFFECTIVE: tour over the main tile (A2-P13); counts differ between loads (A2-P10); money counts up from ₱0 (A2-P1)
+- [x] /dashboard/[eventId]/access-requests · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 11 (375) / 21 (1280) · pressed 3 (buttons 1+0 repeats, links 2 to pages opened in this walk) · failed 1 (no effect: Close) · left 1 (0 would change data / pay / timed out, 1 links to other areas' pages) · usable in 15–19 s · CLEAN ok · BALANCED ok · EFFECTIVE: no visible title, one line "Nothing waiting on you."
+- [x] /dashboard/[eventId]/activity · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 114 (375) / 124 (1280) · pressed 52 (buttons 2+1 repeats, links 49 to pages opened in this walk) · failed 0 (no effect: —) · left 93 (1 would change data / pay / timed out, 92 links to other areas' pages) · usable in 25–28 s · CLEAN ok · BALANCED ok · EFFECTIVE: no visible title; 114 rows, no filter
+- [x] /dashboard/[eventId]/budget · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 29 (375) / 39 (1280) · pressed 21 (buttons 15+0 repeats, links 6 to pages opened in this walk) · failed 0 (no effect: —) · left 6 (5 would change data / pay / timed out, 1 links to other areas' pages) · usable in 11–27 s · CLEAN ok · BALANCED ok · EFFECTIVE: tour opens over the totals (A2-P13); totals agree with Home ✓
+- [x] /dashboard/[eventId]/checklist · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 10 (375) / 20 (1280) · pressed 0 (buttons 0+0 repeats, links 0 to pages opened in this walk) · failed 0 (no effect: —) · left 0 (0 would change data / pay / timed out, 0 links to other areas' pages) · usable in 24–110 s · lands on `/dashboard/[eventId]/schedule?view=preparation&filter=todo` · forward ✓ · lands on a "Syncing your day" splash for ~105 s (A2-P11)
+- [x] /dashboard/[eventId]/clearance · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 14 (375) / 24 (1280) · pressed 10 (buttons 2+0 repeats, links 8 to pages opened in this walk) · failed 0 (no effect: —) · left 4 (2 would change data / pay / timed out, 2 links to other areas' pages) · usable in 30–64 s · CLEAN ok · BALANCED ok · EFFECTIVE: the irreversible button is offered before the day (A2-P8)
+- [x] /dashboard/[eventId]/contracts · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 11 (375) / 21 (1280) · pressed 9 (buttons 2+0 repeats, links 7 to pages opened in this walk) · failed 0 (no effect: —) · left 2 (1 would change data / pay / timed out, 1 links to other areas' pages) · usable in 36–72 s · CLEAN ok · BALANCED ok · EFFECTIVE ok (empty state)
+- [x] /dashboard/[eventId]/date-selection · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 14 (375) / 24 (1280) · pressed 11 (buttons 2+0 repeats, links 9 to pages opened in this walk) · failed 0 (no effect: —) · left 3 (2 would change data / pay / timed out, 1 links to other areas' pages) · usable in 69–71 s · CLEAN ok · BALANCED ok · EFFECTIVE: restarts a locked date (A2-P9)
+- [x] /dashboard/[eventId]/details · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 10 (375) / 61 (1280) · pressed 4 (buttons 0+0 repeats, links 4 to pages opened in this walk) · failed 0 (no effect: —) · left 8 (8 would change data / pay / timed out, 0 links to other areas' pages) · usable in 105–109 s · lands on `/dashboard/[eventId]?settings=1` · forward ✓ (couple → Home ?settings=1)
+- [x] /dashboard/[eventId]/details/field/area · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 85 (375) / 98 (1280) · pressed 17 (buttons 0+0 repeats, links 17 to pages opened in this walk) · failed 0 (no effect: —) · left 19 (18 would change data / pay / timed out, 1 links to other areas' pages) · usable in 19–24 s · lands on `/dashboard/[eventId]?settings=1` · forward → Home ?settings=1, field not opened (A2-H11 SEEN); sheet's only Done is a lone ✓
+- [x] /dashboard/[eventId]/details/change · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 85 (375) / 20 (1280) · pressed 0 (buttons 0+0 repeats, links 0 to pages opened in this walk) · failed 0 (no effect: —) · left 0 (0 would change data / pay / timed out, 0 links to other areas' pages) · usable in 22–31 s · lands on `/dashboard/[eventId]?settings=1` · forward ✓ → field/area → Home ?settings=1
+- [x] /dashboard/[eventId]/disputes · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 18 (375) / 28 (1280) · pressed 13 (buttons 3+4 repeats, links 6 to pages opened in this walk) · failed 0 (no effect: —) · left 5 (4 would change data / pay / timed out, 1 links to other areas' pages) · usable in 22–69 s · CLEAN ok · BALANCED ok · EFFECTIVE: 13 px icon buttons (A2-P14)
+- [x] /dashboard/[eventId]/documents · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 12 (375) / 22 (1280) · pressed 10 (buttons 2+0 repeats, links 8 to pages opened in this walk) · failed 0 (no effect: —) · left 2 (1 would change data / pay / timed out, 1 links to other areas' pages) · usable in 6–58 s · CLEAN: two accent outlines (A2-I7) · BALANCED ok · EFFECTIVE ok
+- [x] /dashboard/[eventId]/find-date · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 23 (375) / 35 (1280) · pressed 8 (buttons 1+0 repeats, links 7 to pages opened in this walk) · failed 0 (no effect: —) · left 14 (13 would change data / pay / timed out, 1 links to other areas' pages) · usable in 32–43 s · lands on `/dashboard/[eventId]/launch?tool=details&item=date&date=help` · forward → /launch?tool=details&item=date&date=help; the Maker's tour covers the date help
+- [x] /dashboard/[eventId]/guests · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 305 (375) / 315 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 297 (297 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 6–144 s · CLEAN ok · BALANCED ok · EFFECTIVE: Bride & Groom shows one name twice (A2-P6)
+- [x] /dashboard/[eventId]/guests/checkin · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 16 (375) / 26 (1280) · pressed 9 (links to pages opened in this walk) · failed 0 · left 7 (7 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 18–99 s · CLEAN: helper paragraph · BALANCED ok · EFFECTIVE ok (0 / 60 attending)
+- [x] /dashboard/[eventId]/guests/claims · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 12 (375) / 22 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 4 (4 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 24–86 s · CLEAN ok · BALANCED ok · EFFECTIVE ok
+- [x] /dashboard/[eventId]/guests/import · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 15 (375) / 25 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 7 (4 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 28–114 s · CLEAN: launch story (A2-P5) · BALANCED ok · EFFECTIVE: contradicts itself
+- [x] /dashboard/[eventId]/guests/new · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 31 (375) / 41 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 23 (22 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 24–53 s · CLEAN ok · BALANCED ok · EFFECTIVE: required Side/Group below the fold
+- [x] /dashboard/[eventId]/guests/quick · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 16 (375) / 26 (1280) · pressed 10 (links to pages opened in this walk) · failed 0 · left 6 (6 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 7–43 s · CLEAN: key-chip instructions + helper paragraph · BALANCED ok · EFFECTIVE ok
+- [x] /dashboard/[eventId]/guests/souvenirs · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 14 (375) / 24 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 6 (6 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 7–35 s · CLEAN ok · BALANCED ok · EFFECTIVE: "0 / 92" counts every guest (A2-E1)
+- [x] /dashboard/[eventId]/guests/tea-ceremony · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 2 (375) / 2 (1280) · pressed 2 (links to pages opened in this walk) · failed 0 · left 0 (0 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 8–66 s · 404 by design for a Catholic wedding (no seeded Chinese wedding): not walked with data
+- [x] /dashboard/[eventId]/hosts · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 305 (375) / 315 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 297 (297 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 14–37 s · lands on `/dashboard/[eventId]/guests` · forward → /guests for the couple ✓
+- [x] /dashboard/[eventId]/manpower · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 14 (375) / 24 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 6 (6 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 8–123 s · CLEAN: "SETNAYAN NOTE" block · BALANCED ok · EFFECTIVE ok
+- [x] /dashboard/[eventId]/messages · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 37 (375) / 67 (1280) · pressed 9 (links to pages opened in this walk) · failed 0 · left 28 (20 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 22–36 s · CLEAN ok · BALANCED: list rows' white cards cut at the right edge at 375 (swipe rows) · EFFECTIVE ok; one load landed signed out (A2-P20)
+- [x] /dashboard/[eventId]/messages/1c89e70c-d969-40f6-8f51-235a35ae3e89 · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 27 (375) / 66 (1280) · pressed 11 (links to pages opened in this walk) · failed 0 · left 16 (19 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 18–73 s · CLEAN ok · BALANCED ok · EFFECTIVE ok (Tugtugan Sounds thread)
+- [x] /dashboard/[eventId]/nikah · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 2 (375) / 2 (1280) · pressed 2 (links to pages opened in this walk) · failed 0 · left 0 (0 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 8–109 s · 404 by design (not a Muslim wedding; none seeded): not walked with data
+- [x] /dashboard/[eventId]/orders · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 14 (375) / 24 (1280) · pressed 10 (links to pages opened in this walk) · failed 0 · left 4 (3 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 6–22 s · CLEAN ok · BALANCED ok · EFFECTIVE ok ("incl. VAT" vs order page, A2-P3)
+- [x] /dashboard/[eventId]/orders/7c1e13f0-c95c-42b0-b52c-15eb1d465e55 · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 13 (375) / 23 (1280) · pressed 10 (links to pages opened in this walk) · failed 0 · left 3 (4 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 6–21 s · CLEAN ok · BALANCED ok · EFFECTIVE: VAT wording and "₱2 , 990" (A2-P3)
+- [x] /dashboard/[eventId]/orders/new · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 19 (375) / 29 (1280) · pressed 9 (links to pages opened in this walk) · failed 0 · left 10 (11 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 8–32 s · lands on `/dashboard/[eventId]/studio/website-pro` · forward ✓ → Event services · prices (A2-P2)
+- [x] /dashboard/[eventId]/paperwork · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 13 (375) / 23 (1280) · pressed 9 (links to pages opened in this walk) · failed 0 · left 4 (4 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 6–21 s · CLEAN ok · BALANCED ok · EFFECTIVE ok
+- [x] /dashboard/[eventId]/people · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 16 (375) / 26 (1280) · pressed 10 (links to pages opened in this walk) · failed 0 · left 6 (4 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 5–21 s · CLEAN ok · BALANCED ok · EFFECTIVE ok (99 = 92 + 6 + 1 ✓)
+- [x] /dashboard/[eventId]/refer · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 52 (375) / 60 (1280) · pressed 20 (links to pages opened in this walk) · failed 0 · left 32 (22 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 8–26 s · lands on `/dashboard/[eventId]` · forwards to the event Home (phase A had it as a page)
+- [x] /dashboard/[eventId]/schedule · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 24 (375) / 41 (1280) · pressed 29 (links to pages opened in this walk) · failed 0 · left 0 (17 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 6–166 s · CLEAN ok · BALANCED ok · EFFECTIVE: hydration error #418 (A2-P11); tour
+- [x] /dashboard/[eventId]/seating · B: 375✓ 768✗ 1280✓ · DARK: yes · buttons 40 (375) / 23 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 32 (33 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 22–50 s · lands on `/dashboard/[eventId]/guests?gview=seats` · forward → /guests?gview=seats ✓ · table pins 26 px
+- [x] /dashboard/[eventId]/seating/chart · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 16 (375) / 21 (1280) · pressed 9 (links to pages opened in this walk) · failed 0 · left 7 (8 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 26–66 s · CLEAN ok · BALANCED ok · EFFECTIVE ok (chart names are right)
+- [x] /dashboard/[eventId]/seating/lab · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 14 (375) / 24 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 6 (7 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 24–149 s · 3D draws at 375 ✓ (30 × 45 grid, 4 pills)
+- [x] /dashboard/[eventId]/seating/walkthrough · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 14 (375) / 24 (1280) · pressed 9 (links to pages opened in this walk) · failed 0 · left 5 (6 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 8–75 s · CLEAN ok · BALANCED: zone placeholder cut · EFFECTIVE ok
+- [x] /dashboard/[eventId]/sponsors · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 31 (375) / 41 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 23 (22 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–62 s · CLEAN ok · BALANCED ok · EFFECTIVE: second sponsor list (A2-I14)
+- [x] /dashboard/[eventId]/vendors · B: 375✓ 768✗ 1280✓ · DARK: no · buttons 46 (375) / 56 (1280) · pressed 13 (links to pages opened in this walk) · failed 0 · left 33 (35 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 11–96 s · CLEAN ok · BALANCED ok · EFFECTIVE: tour over Find · Build · Book (A2-P13)
+- [x] /dashboard/[eventId]/vendors/categories · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 67 (375) / 21 (1280) · pressed 59 (links to pages opened in this walk) · failed 0 · left 8 (4 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–151 s · CLEAN ok · BALANCED ok · EFFECTIVE: "3 booked" (A2-P7); "Joining soon" row (A2-P19)
+- [x] /dashboard/[eventId]/vendors/d4054370-577c-4187-84da-71c93b08517d · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 11 (375) / 21 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 3 (4 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 22–57 s · lands on `/dashboard/[eventId]/vendors/d4054370-577c-4187-84da-71c93b08517d/workspace` · forward → /workspace ✓
+- [x] /dashboard/[eventId]/more · B: 375✓ 768✓ 1280✗ · DARK: yes · buttons 52 (375) / — (1280) · pressed 20 (links to pages opened in this walk) · failed 0 · left 32 (22 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 22–26 s · lands on `/dashboard/[eventId]` · forward → event Home ✓
+- [x] /dashboard/[eventId]/progress · B: 375✓ 768✗ 1280✓ · DARK: yes · buttons 52 (375) / 62 (1280) · pressed 20 (links to pages opened in this walk) · failed 0 · left 32 (22 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 30–131 s · lands on `/dashboard/[eventId]` · forward → event Home ✓
+- [x] /dashboard/api-keys · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 9 (375) / 22 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 1 (4 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 20–54 s · CLEAN: sample curl + endpoint list for a couple · EFFECTIVE: a closed feature (A2-C3)
+- [x] /dashboard/billing · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 8 (375) / 21 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 0 (3 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 10–60 s · CLEAN ok · BALANCED ok · EFFECTIVE ok
+- [x] /dashboard/clusters · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 8 (375) / 21 (1280) · pressed 7 (links to pages opened in this walk) · failed 0 · left 1 (5 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 5–51 s · CLEAN ok · BALANCED: no gutter (A2-P16) · EFFECTIVE: no door (A2-C13)
+- [x] /dashboard/create-event · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 26 (375) / 39 (1280) · pressed 7 (links to pages opened in this walk) · failed 0 · left 19 (22 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–44 s · CLEAN ok · BALANCED ok · EFFECTIVE ok (bottom bar covers the 3rd row of tiles at 375)
+- [x] /dashboard/notifications · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 7 (375) / 20 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 0 (3 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–42 s · CLEAN ok · BALANCED ok · EFFECTIVE ok (empty; seed has no notification rows)
+- [x] /dashboard/people · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 17 (375) / 31 (1280) · pressed 11 (links to pages opened in this walk) · failed 0 · left 6 (10 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 5–55 s · lands on `/dashboard?seg=people` · forward ✓ · K1: two accent buttons (A2-P17)
+- [x] /dashboard/profile · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 16 (375) / 28 (1280) · pressed 14 (links to pages opened in this walk) · failed 0 · left 2 (3 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–47 s · CLEAN ok · BALANCED ok · EFFECTIVE ok
+- [x] /dashboard/profile/concierge · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 10 (375) / 23 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 2 (4 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–39 s · CLEAN: two Backs (A2-C11) · EFFECTIVE: "See pricing" with no price (A2-P18)
+- [x] /dashboard/samahan · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 6 (375) / 27 (1280) · pressed 10 (links to pages opened in this walk) · failed 0 · left 0 (3 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 4–32 s · lands on `/dashboard?seg=people&view=samahan` · forward lands on a BLANK screen (A2-P4)
+- [x] /dashboard/samahan/new · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 7 (375) / 18 (1280) · pressed 7 (links to pages opened in this walk) · failed 0 · left 0 (4 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–22 s · CLEAN ok · EFFECTIVE: no visible title, two fields (SMALL POPUP, A2-C15)
+- [x] /dashboard/search · B: 375✓ 768✓ 1280✗ · DARK: — · buttons 51 (375) / — (1280) · pressed 10 (links to pages opened in this walk) · failed 0 · left 41 (14 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 7–27 s · lands on `/?discover=1` · CLEAN ok · BALANCED ok · EFFECTIVE ok
+- [x] /dashboard/year · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 6 (375) / 20 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 0 (3 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 5–72 s · lands on `/dashboard?seg=events#worth-planning` · forward ✓ → /dashboard?seg=events#worth-planning (~100 s)
+- [x] /onboarding/wedding · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 2 (375) / 2 (1280) · pressed 2 (links to pages opened in this walk) · failed 0 · left 0 (0 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–48 s · blocked: "You're already planning a wedding" ✓ · bare page (A2-A1)
+- [x] /onboarding/simple · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 9 (375) / 9 (1280) · pressed 2 (links to pages opened in this walk) · failed 0 · left 7 (8 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–36 s · CLEAN ok · EFFECTIVE: US date format mm/dd/yyyy
+- [x] /onboarding/birthday · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 11 (375) / 11 (1280) · pressed 1 (links to pages opened in this walk) · failed 0 · left 10 (9 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 4–137 s · CLEAN ok · EFFECTIVE ok ("already have a birthday in planning" with a link)
+- [x] /pay/STG-0001 · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 7 (375) / 7 (1280) · pressed 4 (links to pages opened in this walk) · failed 0 · left 3 (4 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 4–116 s · CLEAN ok · BALANCED ok · EFFECTIVE ok (₱2,990.00 = order ✓, fixed To-pay bar)
+- [x] /receipts/order/7c1e13f0-c95c-42b0-b52c-15eb1d465e55 · B: 375✓ 768✓ 1280✓ · DARK: no · buttons 3 (375) / 3 (1280) · pressed 2 (links to pages opened in this walk) · failed 0 · left 1 (1 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–75 s · CLEAN ok · EFFECTIVE: "₱2 , 990"; bronze Pay (A2-F8)
+- [x] /signup/you · B: 375✓ 768✓ 1280✓ · DARK: yes · buttons 6 (375) / 6 (1280) · pressed 1 (links to pages opened in this walk) · failed 0 · left 5 (5 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–78 s · CLEAN ok · EFFECTIVE: native select for Prefix (not PickMenu)
+- [x] /dashboard/[eventId]/guests/d56b20cb-fbdf-4694-85bd-0feda93921bc · B: 375✓ 768✗ 1280✓ · DARK: — · buttons 81 (375) / 91 (1280) · pressed 9 (links to pages opened in this walk) · failed 0 · left 72 (69 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 9–87 s · CLEAN ok · BALANCED ok · EFFECTIVE ok (Josefa Rizal card)
+- [x] /dashboard/[eventId]/contracts/00000000-0000-4000-8000-000000000000 · B: 375✓ 768✗ 1280✓ · DARK: — · buttons 2 (375) / 2 (1280) · pressed 2 (links to pages opened in this walk) · failed 0 · left 0 (0 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 7–47 s · no contract seeded: an unknown id shows the generic 404
+- [x] /dashboard/[eventId]/vendors/d4054370-577c-4187-84da-71c93b08517d/review · B: 375✓ 768✗ 1280✓ · DARK: — · buttons 12 (375) / 22 (1280) · pressed 8 (links to pages opened in this walk) · failed 0 · left 4 (4 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 6–27 s · review page for a booked supplier (event not over)
+- [x] /dashboard/[eventId]/vendors/packages/00000000-0000-4000-8000-000000000000 · B: 375✓ 768✗ 1280✓ · DARK: — · buttons 2 (375) / 2 (1280) · pressed 2 (links to pages opened in this walk) · failed 0 · left 0 (0 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 6–27 s · no package seeded: generic 404
+- [x] /dashboard/people/00000000-0000-4000-8000-000000000000 · B: 375✓ 768✗ 1280✓ · DARK: — · buttons 2 (375) / 2 (1280) · pressed 2 (links to pages opened in this walk) · failed 0 · left 0 (0 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–7 s · no loved one seeded: generic 404
+- [x] /dashboard/clusters/00000000-0000-4000-8000-000000000000 · B: 375✓ 768✗ 1280✓ · DARK: — · buttons 2 (375) / 2 (1280) · pressed 2 (links to pages opened in this walk) · failed 0 · left 0 (0 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–4 s · no linked group seeded: generic 404
+- [x] /dashboard/samahan/00000000-0000-4000-8000-000000000000 · B: 375✓ 768✗ 1280✓ · DARK: — · buttons 2 (375) / 2 (1280) · pressed 2 (links to pages opened in this walk) · failed 0 · left 0 (0 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–3 s · no group seeded: generic 404
+- [x] /proposals/S89PRP-0000000000 · B: 375✓ 768✗ 1280✓ · DARK: — · buttons 2 (375) / 2 (1280) · pressed 2 (links to pages opened in this walk) · failed 0 · left 0 (0 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 2–3 s · no proposal seeded: generic 404
+- [x] /host/accept/notarealtoken · B: 375✓ 768✗ 1280✓ · DARK: — · buttons 2 (375) / 2 (1280) · pressed 2 (links to pages opened in this walk) · failed 0 · left 0 (0 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–3 s · bad token → generic 404, not "this invite expired" (A2-A10)
+- [x] /receipts/00000000-0000-4000-8000-000000000000 · B: 375✓ 768✗ 1280✓ · DARK: — · buttons 2 (375) / 2 (1280) · pressed 2 (links to pages opened in this walk) · failed 0 · left 0 (0 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–3 s · no receipt row seeded: generic 404
+- [x] /receipts/payment/00000000-0000-4000-8000-000000000000 · B: 375✓ 768✗ 1280✓ · DARK: — · buttons 2 (375) / 2 (1280) · pressed 2 (links to pages opened in this walk) · failed 0 · left 0 (0 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 3–5 s · no payment receipt id reachable: generic 404
+- [x] /pay/STG-0002 · B: 375✓ 768✗ 1280✓ · DARK: — · buttons 7 (375) / 7 (1280) · pressed 4 (links to pages opened in this walk) · failed 0 · left 3 (4 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 4–23 s · ₱2,790.00 = order ✓
+- [x] /onboarding/debut · B: 375✓ 768✗ 1280✓ · DARK: — · buttons 11 (375) / 11 (1280) · pressed 1 (links to pages opened in this walk) · failed 0 · left 10 (9 buttons not pressed: the copy took 20–180 s per signed-in load, too slow to reload after each press; the rest are links to other areas' pages) · usable in 6–22 s · CLEAN ok · EFFECTIVE ok
 
 ## BLOCKERS
 
@@ -293,8 +390,11 @@ BUTTON    —
 STEPS     1. Load Home at 768 (light). 2. Load it again minutes later (dark).
 EXPECTED  Same facts each load.
 ACTUAL    Load A: "4 things need you", a "Needs you today" list of tasks, Event Hub "9 of 18". Load B: "1 thing needs you",
-          "Nothing needs you", Event Hub "8 of 18". Nothing was changed in between (this checker only). A slow or failed
-          task read seems to be drawn as "Nothing needs you". PLAUSIBLE until a builder checks the reader's failure path.
+          "Nothing needs you", Event Hub "8 of 18". Load B was the two earliest loads (768 and 1280 dark, ~06:55 UTC); the
+          four later loads (07:20 UTC on) all read "4 things" and "9 of 18". This checker changed nothing on the event
+          in between (one chat message). Load B carried no "last copy" banner. A slow or failed task read seems to be
+          drawn as "Nothing needs you". PLAUSIBLE until a builder checks the reader's failure path. (Good, seen once:
+          when Home's refresh failed it said "Couldn't update — showing your last copy from Nov 25, 7:44 AM … Try again".)
 SHOTS     Home-768-light vs Home-768-dark
 RULE      CLAUDE.md §5 rule 4 (honest states)
 SEVERITY  wrong
@@ -474,6 +574,36 @@ ACTUAL    Every dashboard page fails with the browser's own "no internet" error 
 SHOTS     off-checkin-inpage (375), offline goto log
 RULE      Owner 24 Nov: guests at the venue and the day-of desks are among the five FULL-offline places
 SEVERITY  broken
+SOURCE    SEEN
+```
+
+#### A2-P23 · Schedule on desktop: the run of show is crushed into a 300 px column
+```
+PAGE      /dashboard/[eventId]/schedule at 1280   (event: stg-bea-paolo)
+BUTTON    —
+STEPS     1. Open Schedule at 1280 (Event Day, 4 chapters).
+EXPECTED  The timeline uses the page: times and moments on one line each, nothing cut.
+ACTUAL    The chapters sit in a ~300 px left column; the Ceremony's moments are laid in two sub-columns inside it, so
+          words stack one per line ("Liturgy / of / the / Word", "Vows / + / ring / exchange"), the 1:40 time overlaps
+          "Procession", and the right sub-column is cut ("Ope…", "Hom…", "Veil cere…"). The middle third holds only
+          "Open a chapter to see it here."
+SHOTS     schedule-1280-light
+RULE      Add 7 (desktop designed, no cut-off text) · Add 2 BALANCED
+SEVERITY  look (major: it hides the couple's own run of show)
+SOURCE    SEEN
+```
+
+#### A2-P24 · Suppliers: "Unlock" Setnayan AI with no price
+```
+PAGE      /dashboard/[eventId]/vendors (Find)   (event: stg-bea-paolo)
+BUTTON    "Unlock"
+STEPS     1. Open Suppliers.
+EXPECTED  The ₱ price (read) and the plan name before the button (Add 4 EVIDENT).
+ACTUAL    A tinted strip "See your ranked shortlist. Setnayan AI so[rts …]" with a filled "Unlock" button and no price.
+          Not pressed (opens a purchase).
+SHOTS     vendors-1280-light
+RULE      Add 4 (price before pressing)
+SEVERITY  look
 SOURCE    SEEN
 ```
 
@@ -2318,3 +2448,114 @@ RULE      design-and-wiring D13 · CLAUDE.md §3 Card/Type/Form rows
 SEVERITY  look
 SOURCE    CODE
 ```
+
+## Owner's additions (Adds 1–10b) · area 2
+
+### Add 1 · Popup, full-screen popup or page — only the ones that differ (TODAY → SHOULD)
+
+The full per-page marks are on the Progress lines (phase A, SHAPE). Seen on the copy, unchanged:
+
+| Route / flow | TODAY | SHOULD | Why |
+|---|---|---|---|
+| /onboarding/[type] · /simple · /wedding | PAGE, bare, steps in one address | FULL-SCREEN POPUP (phone) · centred popup (desktop) | Add 1 names onboarding; several steps (A2-A1) |
+| /dashboard/create-event | PAGE cold / side panel from the board | FULL-SCREEN POPUP, screen 1 of the create flow | same flow as onboarding |
+| /guests/new · /guests/quick · /guests/import | PAGE | FULL-SCREEN POPUP | several fields / upload; return to the list (A2-D9) |
+| /seating/chart · /seating/walkthrough · /seating/lab | PAGE | FULL-SCREEN POPUP over Guests › Seats | print / media / 3D, launched from Seats (A2-E12, A2-E6) |
+| /dashboard/samahan/new | PAGE (two fields, no title) | SMALL POPUP | two fields (A2-C15) |
+| /details/field/[row] | forward to Home ⚙ sheet, field not opened | SMALL POPUP on the named field | A2-H11 |
+| Event settings (Home ?settings=1) | full-height sheet whose top holds a lone ✓ | = FULL-SCREEN POPUP (many fields) — ok, but the ✓ should be a labelled "Done" | top-right ✓ with no word |
+
+Never-rules seen: none broken on the copy at 375 (the pay sheet's QR-over-sheet, A2-G7, was not opened: it sits behind a payment step).
+
+### Add 2 · Clean · balanced · effective
+
+Each page's mark is on its Progress line. The repeated failures across the area:
+- **CLEAN:** helper paragraphs under titles (quick add, check-in, souvenirs, manpower "SETNAYAN NOTE", import's launch story A2-P5); two accent buttons (People A2-P17, Documents A2-I7).
+- **BALANCED:** desktop Home (/dashboard) is one 780 px column with the right third empty; event Home's date eyebrow is cut in a narrow left column (A2-P21); Linked events has no gutter (A2-P16).
+- **EFFECTIVE:** the title is screen-reader-only on most pages (owner's "start at the content" call in `page-masthead.tsx`), so Access requests ("Nothing waiting on you."), Activity, Linked events and Groups new open with no visible name: a first-timer cannot tell where they are. Not filed per page (owner decision); flagged once here.
+
+### Add 3 · Placeholders a real couple could see
+
+| Where | What |
+|---|---|
+| /guests/import | founders' wedding launch story and "opens on December 19, 2026" (A2-P5) |
+| Home (Schedule tile, Who's here) | EXAMPLE rows with made-up people and venues (A2-P12) |
+| /vendors/categories | "Joining soon" pressable row (A2-P19) |
+| /dashboard/profile | "Legacy contact … Coming soon" (A2-C9, code) |
+| /dashboard/api-keys | sample `sk_live_…` key and a vercel.app address (A2-C3) |
+| /sponsors invite sheet | a coming feature advertised (A2-I16, code) |
+Hint text in fields ("Maria — or paste the whole name", "de la Cruz", "Pasig · our place") reads as hints: not findings.
+
+### Add 4 · Every place area 2 sells or asks for money
+
+| # | Route | What is sold | Price shown | How a person reaches it | Evident · Clean · Honest |
+|---|---|---|---|---|---|
+| 1 | /dashboard/[eventId]/orders/new → studio/website-pro "Event services" | Event Plus · Pro · Ultra (couple plans) | Plus "being checked" · Pro ₱2,500 · Ultra "Couldn't read" | Orders › New order (2 taps from Home via menu) | Evident: yes, price beside each. Clean: plan list first, no "show it working" before it. Honest: **no** (A2-P2) |
+| 2 | /dashboard/[eventId]/orders/[orderId] | the order (Event Plus STG-0001) | ₱2,990 | Orders › row | Honest wording conflict (A2-P3) |
+| 3 | /pay/[reference] | pay an order (GCash / bank QR, then upload proof) | ₱2,990.00 / ₱2,790.00 = order = receipt ✓ | order › "Send your payment"; billing › Pay; receipt › Pay | Evident ✓ price before button, fixed "To pay … Continue" bar ✓ |
+| 4 | /dashboard/billing | all orders, Pay | ₱2,990 (waiting) · ₱2,790 (submitted) ✓ | account menu › Billing & receipts | ✓ ("₱0 paid" is true: nothing paid) |
+| 5 | /receipts/order/[orderId] | Pay from the slip | ₱2,990 ✓ (rendered "₱2 , 990") | billing › row | Pay button bronze (A2-F8) |
+| 6 | /dashboard/profile/concierge | Setnayan AI | **none** ("See pricing") | no live door (A2-C11) | Evident: no (A2-P18) |
+| 7 | /schedule › "Release ›" (each guest's full schedule) and View as (◆ Pro) | Event Pro upgrade | none on the row | Schedule's right rail at 1280 | Evident: the row says "Release", not that it is a Pro upgrade or its price; not pressed (opens a purchase) |
+| 7b | /vendors (Find) › "Unlock" strip | Setnayan AI (ranked shortlist) | **none** | Suppliers, top of Find | Evident: no price (A2-P24) |
+| 8 | Supplier money: /vendors/[vendorId]/workspace?tab=payments, Budget › Pay, Home "Pay ₱… to …" | reservation fee and booking payments to suppliers | from the agreed lines (₱124,488 paid / ₱165,782 owed ✓ budget = Home) | Home Budget card, Budget, Suppliers | Home's line counts up from ₱0 (A2-P1); several green Pay buttons on Home (A2-B6) |
+| 9 | /onboarding services step | add-ons picked during create | "No payment in this step" (by design) | onboarding | ✓ no checkout in onboarding |
+
+**Taps from the wall to "payment logged"** (Event Plus): Home ☰ › Orders (2) › order (3) › Send your payment (4) › Continue (5) › Continue (6) › upload proof + log (7). Pay page step 1 (reference, "Have a code?") › Continue › step 2 ("Pay this exact amount", QR, bank details, Share) › "Upload Payment Receipt" › step 3. **7 taps to the upload, plus picking the file — over 4, a finding for the buy flow** (Add 4). Seen on step 2: the step header repeats ("2 PAY THIS EXACT AMOUNT … 2 PAY THIS EXACT AMOUNT") and "Upload Payment Receipt" shows twice (body and bottom bar). Not completed: logging proof was not pressed (it would move the seeded order out of "awaiting payment", which the admin checker counts).
+
+### Add 5 · Main jobs, as a first-timer on a phone
+
+| Job | Rating | The step that makes it hard |
+|---|---|---|
+| Create an event | OK | a bare page with no way back to where you were (A2-A1); date field is the browser's US "mm/dd/yyyy" |
+| Add a guest | OK | a full page of 8+ fields before Side and Group, which are required, sit below the fold |
+| Import guests | HARD | the page says import opens 19 Dec under working buttons (A2-P5) |
+| Seat guests | OK | table pins are 26 px; the chart and walkthrough leave Guests for their own pages |
+| Book / pay a supplier | OK | the Find tour covers the first screen; "3 booked" vs "6 booked" (A2-P7) |
+| Reply to a chat | EASY | box at the thumb, send inside the box ✓ (the phone key is not "Send", A2-H4) |
+| Log a payment (to Setnayan) | HARD | 7 taps (Add 4) |
+| Check a guest in | EASY | big Scan button, search below ✓ |
+Across all: ⓘ targets are 16 px (A2-P14); five first-visit tours (A2-P13); seven Back styles (A2-P15).
+
+### Add 6 · Buttons pressed
+
+Each page line carries **buttons N (375) / N (1280)** counted on the copy, and **pressed** = links whose destination
+was opened in this walk + buttons pressed by the press pass. The press pass ran at 375 on the first pages only: the
+copy answered a signed-in page in 20–180 s, so a reload after each press was not possible for every page (see BLOCKERS).
+Where pressed < buttons, the line says which were left and why.
+
+### Add 7 · Three sizes, light and dark
+
+- Walked at 375 · 768 · 1280 light, and 375 dark on every page; 768 and 1280 dark on the pages that go dark.
+- **DARK: yes** only on the routes in `DARK_READY`: the account spokes (/dashboard/people · profile · notifications ·
+  create-event · samahan) and event Home, Budget, Guests, Schedule. **DARK: no** on every other area-2 page (they stay
+  light with the switch on Dark; A2-X2). No half-dark page was seen: the ready pages had no white surface in dark
+  (the only white block found is the QR slot, which must stay white).
+- Home shots: `build-sessions/final-check/shots/area-2/home-{375,768,1280}-{light,dark}.png` (event Home, Bea & Paolo, tour skipped).
+- 768: the event pages switch to the side rail + top bar (desktop shape) at 768, with no bottom bar: designed, not a stretched phone. Account pages keep the phone bottom bar (Home · Discover) at 768.
+
+### Add 8 · Reveals — area 3. Add 9 — areas 1 and 8. Not in this area.
+
+### Add 10 · Offline — beyond the five (event host / couple)
+
+| Part (route) | Moment the signal drops | Level | Why |
+|---|---|---|---|
+| Guests list + guest card (/guests, ?inspect=) | at the venue on the day; at the parish | READ-ONLY | the host must find a guest's table, phone, plus-ones without signal |
+| Souvenir desk (/guests/souvenirs) | at the venue on the day | SAVE AND SYNC | the giveaway table runs like check-in; today it has no saved copy (not in OFFLINE_COPY_SHAPES) |
+| Schedule / run of show (/schedule) | at the venue on the day | READ-ONLY (couple) · SAVE AND SYNC for "done" ticks | hosts follow the timeline; ticks can wait |
+| Budget (/budget) + supplier payment record | on the road; at an expo; paying a supplier in a province | READ-ONLY, + SAVE AND SYNC for "record a cash payment" | a host pays cash at the venue and must log it before forgetting |
+| Supplier chat (/messages/[threadId]) | at an expo | READ-ONLY + SAVE AND SYNC send | the quote and agreed terms must open at the booth; a typed message can queue |
+| Contract (/contracts/[contractId]) | at the venue on the day | READ-ONLY | to settle "what was agreed" with a supplier |
+| Paperwork (/paperwork) | at the parish / LGU office | READ-ONLY | tracking numbers and dates at the window |
+| Event home (/dashboard/[eventId]) | anywhere | READ-ONLY (built) | already has a saved copy |
+**Tried offline on the copy (browser offline, service worker active, bypass cookie set):**
+- **Check-in desk, already open:** keeps working. The bar says "No signal · scans will be saved on this phone"; search
+  still finds guests with their tables. Back online it carries on without a reload. (No scan was made: seeded data.)
+- **Reopening any dashboard page with no signal** (check-in, Home, Schedule, Souvenirs, Budget, Suppliers): the
+  browser's own "no internet" error. The saved copies are not served on a reload or a fresh open (A2-P22).
+- **Event Hub (/stg-bea-paolo):** the service worker's page "You're offline — We can't reach Setnayan right now. Any
+  pages and event details you've already opened are still available — reconnect to load the rest. Set na 'yan. Try again".
+- **Souvenir desk:** not tried in-page (it has no saved copy in OFFLINE_COPY_SHAPES; reload fails like the rest).
+
+**Add 10b (supplier QR) — areas 5, 6, 7.** For a couple the only QR moment in area 2 is scanning a supplier's QR at an
+expo; that lands on the supplier's shop (area 5/1), not on an area-2 page. Nothing to add here.

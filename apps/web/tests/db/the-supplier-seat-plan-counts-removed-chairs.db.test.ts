@@ -1,4 +1,10 @@
 /**
+ * 🔗 A7-16 (final check, 25 Nov 2026 · migration 20271363442215_supplier_seat_plan_sends_table_link_groups).
+ *
+ * The supplier's seat plan draws through the hosts' engine and lists the hosts' display units, so it needs each table's
+ * join. Against the replayed migrations: a joined pair sends its shared `link_group_id` and the group's name; a table
+ * on its own sends null for both. (Built on the A7-17 fixture — the removed-chairs test below still holds.)
+ *
  * 🪑 A7-17 (final check, 25 Nov 2026 · migration 20271363213887_supplier_seat_plan_sends_removed_seats).
  *
  * The supplier's seat plan read "6 of 10 seated" where the hosts removed two chairs and read "6 of 8". Against the
@@ -29,6 +35,12 @@ before(async () => {
   await db.query(
     `INSERT INTO public.event_tables (event_id, table_label, table_type, capacity, sort_order, removed_seats)
      VALUES ($1, 'Table 1', 'round_10', 10, 1, '{1,2}'), ($1, 'Table 2', 'round_8', 8, 2, '{}')`,
+    [eventId],
+  );
+  await db.query(
+    `INSERT INTO public.event_tables (event_id, table_label, table_type, capacity, sort_order, link_group_id, link_group_label)
+     VALUES ($1, 'Table 3', 'long_banquet_8', 8, 3, '00000000-0000-4000-8000-000000000016', 'Family table'),
+            ($1, 'Table 4', 'long_banquet_8', 8, 4, '00000000-0000-4000-8000-000000000016', 'Family table')`,
     [eventId],
   );
   const u = await db.query<{ id: string }>(
@@ -70,4 +82,22 @@ test('the supplier seat plan sends removed_seats, and the hosts\' count follows 
   assert.deepEqual(t1.removed_seats, [1, 2], 'the removed chairs reach the supplier');
   assert.equal(effectiveCapacity(t1.capacity, t1.removed_seats), 8, 'the supplier counts 8 seats, as the hosts do');
   assert.deepEqual(t2.removed_seats, [], 'no removed chairs is [] — never null');
+});
+
+test('A7-16: the supplier seat plan sends each table\'s join, and a lone table sends none', async () => {
+  await db.exec('RESET ROLE').catch(() => {});
+  await setAuthUid(db, catererUid);
+  let plan: { tables: { label: string; link_group_id: string | null; link_group_label: string | null }[] };
+  try {
+    const r = await db.query<{ p: typeof plan }>(`SELECT public.get_vendor_seat_plan($1) AS p`, [eventId]);
+    plan = r.rows[0]!.p;
+  } finally {
+    await setAuthUid(db, null);
+  }
+  const by = (l: string) => plan.tables.find((t) => t.label === l)!;
+  assert.equal(by('Table 3').link_group_id, '00000000-0000-4000-8000-000000000016', 'the join reaches the supplier');
+  assert.equal(by('Table 4').link_group_id, by('Table 3').link_group_id, 'both members share it');
+  assert.equal(by('Table 3').link_group_label, 'Family table', 'under the group\'s own name');
+  assert.equal(by('Table 1').link_group_id, null, 'a table on its own is joined to nothing');
+  assert.equal(by('Table 1').link_group_label, null);
 });

@@ -1,14 +1,29 @@
+STATUS: phase B in progress (blocker B-01 open)
+
 # Final check · Area 4 · Guest (Event Hub, pass, camera)
 
 Checker 4 of 8. Report only. Pinned commit `fb3f72d`. Kit: `build-sessions/FINAL-CHECK-KIT.md`.
-Phase A = code pass (`SOURCE: CODE`). Phase B = staging browser walk (`SOURCE: SEEN`), not started.
+Phase A = code pass (`SOURCE: CODE`). Phase B = staging browser walk (`SOURCE: SEEN`), on the copy at commit `bd86936` (area-4 code identical to `fb3f72d`), started 25 Nov 06:45 UTC.
 
 Marks on each line: **OFFLINE** = NEEDED (where signal is lost) · READ-ONLY · NOT NEEDED.
 **SHAPE** = TODAY → SHOULD (PAGE · FULL-SCREEN POPUP · SMALL POPUP); `=` when they match.
 
 ## BLOCKERS
 
-None found in phase A (code).
+Phase A (code): none.
+
+```
+ID        A4-B01
+PAGE      /[slug] (every Event Hub: stg-bea-paolo, stg-carla-miguel, stg-mika-turns-7, stg-sofia-debut) and /[slug]/everyone
+BUTTON    none (opening the link)
+STEPS     1. Open /stg-bea-paolo signed out. 2. Open it again signed in as `guest`, then as `messy_one`.
+EXPECTED  The invitation opens in under about 0.7 s (it did: 06:45 UTC, 0.5–0.8 s to DOM, all six views).
+ACTUAL    From about 07:00 UTC every Event Hub answers HTTP 500 after 20–24 s and draws "Still opening your invitation…" (app/[slug]/error.tsx). Six tries, three viewers, four events: all 500. In the same minute /about, /live, /papic/try and /api/health answer 200 in under 1 s, so the fault is in the Hub's own reads, not the deployment. /stg-bea-paolo/everyone took 58 s (curl) and 110 s (browser) to answer 200; /stg-bea-paolo/print took 29 s to redirect. Guests cannot open their invitation, reply, or reach their pass. Likely a slow or locked read under the 8 checkers' load (the copy has no logs this session can read); the controller should read the Vercel function log for /[slug] around 07:00 UTC.
+SHOTS     375 px light (the "Still opening your invitation…" screen)
+RULE      Kit § 5 item 1 (it opens; no 5xx) · item 10 (speed)
+SEVERITY  blocker
+SOURCE    SEEN 25 Nov 07:00–07:08 UTC
+```
 
 ## Report at once (money-signin, kit § 6)
 

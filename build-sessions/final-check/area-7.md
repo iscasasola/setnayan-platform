@@ -288,9 +288,10 @@ Tap targets under 44 px seen at 375: the SETNAYAN wordmark (110 × 23) and "setn
 #### Add 6 · Buttons pressed (375; 1280 where the controls differ)
 
 Counted: every visible button, link, tab, toggle, select and summary. Links were checked by asking for their address
-(all answered 200, some after 77–93 s on the loaded preview). Two tools-only misses are not counted as failures: the
-search icon sits under its own transparent input (a finger lands on the input, which opens search), and one ⓘ needed a
-real tap; both were re-pressed by hand and work.
+(all answered 200, some after 77–93 s on the loaded preview). Three tools-only misses are not counted as failures: the
+search icon sits under its own transparent input (a finger lands on the input, which opens search), one ⓘ needed a
+real tap, and the notifications bell (its badge moves) opens its panel on a real tap. All three were re-pressed by hand and work.
+On every signed-in page the wordmark link to `/dashboard?hub=1` has no accessible name (a screen reader says "link").
 
 | Page | 375 | 1280 | Not pressed, and why |
 |---|---|---|---|
@@ -302,8 +303,8 @@ real tap; both were re-pressed by hand and work.
 | Guests › Seats › 3D | buttons 65 (40 of them are tables) · pressed 0 | — | the headless browser could not finish drawing the room within 2–3 min on the loaded preview; Walk in / Accents / View only were not reached |
 | Venue check | buttons 15 · pressed 15 · failed 0 | — | "Start the check" was pressed and started (content changed); its result was not waited for |
 | Workspace › Book & Budget | PENDING | — | "Record payment", "Pay", "Propose a change" are counted but not pressed (they write or pay) |
-| Supplier seat plan | buttons 10 · pressed PENDING | buttons 20 | — |
-| Spaces (Hardin) | buttons 11 · pressed 11 by hand · failed 1 ("Add the hall", A7-30) | buttons 21 | the Date menu's options |
+| Supplier seat plan | buttons 10 · pressed 10 · failed 0 | buttons 20 (the rail adds its words) | — |
+| Spaces (Hardin) | buttons 11 · pressed 11 · failed 0, then in the New hall sheet buttons 16 · pressed 3 · failed 1 ("Add the hall", A7-30) | buttons 21 | the sheet's dropdowns and steppers were not changed (they only edit an unsaved draft) |
 
 #### Add 7 · Three sizes, light and dark, one design across roles
 

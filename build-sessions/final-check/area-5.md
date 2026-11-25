@@ -1632,7 +1632,7 @@ from Today (phone): ☰ › Plan › a plan row › "Switch to Plus" = 3 taps. T
 | Job | Rating | The step that makes it hard |
 |---|---|---|
 | Publish a service card | OK | The maker is a long single page under two stacked thumb bars (Cancel/Create over the bottom nav). The Name box shows the middle of the name. "Hidden until: a cover photo · a price" tells you what is missing, which helps. |
-| Make and share a QR (Check a date) | OK | It is 4 taps from Today (Shop › Promote › My QRs "Open page" › Check a date) and there is no QR door on Shop itself at 375. The code page is clean: one Download button, Share, Copy link, the shop name under the code. |
+| Make and share a QR (Check a date) | OK | It is 3 taps from Today (Shop › Promote › Check a date); there is no QR door on Shop's own face at 375, so a first-timer has to guess that codes live under Promote. The code page is clean: one Download button, Share, Copy link, the shop name under the code. |
 | Upgrade the plan | HARD | On a phone the Plan is not in the bottom bar or on Shop's face (☰ or ⚙). Each plan unfolds an 8-row table. The Your page ladder disagrees with the Plan page (B5-23 below). |
 | Invite a team member | EASY | Team › "Invite to your team" (one sheet). |
 | Fill in Your details | HARD | Five filled buttons compete (B5-14); "0/3 documents in" sits beside "verified". |
@@ -1686,7 +1686,7 @@ nothing; every landing is a server page.
 
 | Case | Code | Caught today? | Words |
 |---|---|---|---|
-| The same date held twice (two Booked codes for one date) | Booked · one-use | yes, at **make** time (`date_unavailable`). A second code made before the first is claimed is refused only if the date is already booked or blocked; two **unclaimed** codes for one date can both exist. At claim the RPC decides | supplier: "That date is already booked or blocked on your calendar — you can't lock a second booking on it." |
+| The same date held twice (two Booked codes for one date) | Booked · one-use | partly, at **make** time (`date_unavailable`). The check reads bookings and blocks only, so two **unclaimed** codes for one date can both be issued. It also **fails open**: if the availability read errors, the code is issued anyway ("fail-open on a query error", `invite/actions.ts`). What the claim RPC does with a second claim on a taken date was not read | supplier: "That date is already booked or blocked on your calendar — you can't lock a second booking on it." |
 | A price changed between making and scanning | Booked · one-use | the code carries its own total, so the couple gets the price agreed at the booth. Not a sync problem today, because the code is made online | — |
 | A gift that ran out | Add a client | yes: "given from bought stock FIRST … with too little stock the couple still lands on the shortlist … not yet an own client" (`vendor-invite/[slug]/actions.ts`) | the couple is not told the gift did not come; the supplier sees it only in gift history |
 | A code shown twice / scanned twice | Booked · one-use | yes: single use (`taken`) | couple: "This Locked QR has already been used." (uses "Locked QR", while the supplier's screen calls it "Booked · one-use") |
@@ -1695,7 +1695,20 @@ nothing; every landing is a server page.
 
 Also seen: the couple's lock page labels the date "Wedding date" for any event type (area 6 page; passed on).
 
-**4 · Easy to handle:** 4 taps from Today to a code on a phone (Shop › Promote › My QRs › the code). The code is about
+**4 · Easy to handle:** 3 taps from Today to a code on a phone (bottom nav Shop › Promote › the code; checked in the press pass). The code is about
 170 px on a 375 px screen (about 4.5 cm). It scans phone to phone but is small for arm's length; a "Show big" or full
 screen option would help. The shop's name is under the code. In dark, the QR card stays a white surface (navy preview);
 that is right for scanning, but it is the one white surface on the page.
+
+#### B5-23 · Your page's plan ladder disagrees with the Plan page
+PAGE      /vendor-dashboard/website › "What each plan adds" (and /vendor-dashboard/reviews, which forwards there)
+STEPS     1. As the Pro shop, open Shop › Page; unfold "What each plan adds". 2. Open Plan.
+EXPECTED  The same five plans as the Plan page (Free · Verified · Plus · Pro · Ultra), the current one marked, no "See
+          plans" pull on what the shop already has.
+ACTUAL    "Free · Plus ◆ · Pro ◆": Verified and Ultra are missing, and Pro is not marked as current. "◆ Pro: Everything in
+          Plus, with more storage" is offered to a Pro shop with "See plans". The Plan page lists Free · Verified, Plus,
+          Pro (current, "Keep Pro") and Ultra.
+SHOTS     checker set: x3 `_vendor_dashboard_website-375-light.png`, r1 `_vendor_dashboard_subscription-375-light.png`
+RULE      Add 4 (what you have now; never offer what they own) · CLAUDE.md § 1 plans
+SEVERITY  wrong
+SOURCE    SEEN

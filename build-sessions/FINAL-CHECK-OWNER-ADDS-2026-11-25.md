@@ -640,3 +640,11 @@ Drawing: `build-sessions/final-check/drawings/event-card-menu.html` (artifact v3
 - The data moves through the normal migration pipeline only (never by hand on prod). Every `event_sponsors` row missing from the guest list becomes a guest row with the sponsor role. Nothing is lost. A row that matches an existing guest is linked, not duplicated, and the match rule must be written in the migration and tested.
 - Sponsors' Add, Invite and Mark-response then write the guest list. `event_sponsors` stays read-only until a later cleanup; do not drop it in this batch.
 - Godfather/godmother stays the couple's choice (A2-I15).
+
+## Add 42 — Attire makers: three fully featured makers (owner, 26 Nov)
+This updates Add 38 for attire. The Cake Maker stays separate.
+1. **Wedding Gown Maker**
+2. **Gown & Dress Maker** (not wedding gowns: entourage, mother of the bride or groom, ninang, debut, prom, cocktail, modern Filipiniana)
+3. **Suit Maker** (men: suit, three-piece, tuxedo, barong Tagalog)
+
+One shared engine: the 3D faceless mannequin, measurements driving the body, and garments built from the body surface (approved 26 Nov: "it follow the body structure"). Each maker is sold separately. All are offline-ready and usable in chat. They are prototyped now in artifacts; the app build comes after launch.

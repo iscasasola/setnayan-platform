@@ -1,4 +1,5 @@
 import { notFound, redirect } from 'next/navigation';
+import { shownAddress } from '@/lib/shop-address';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -9,16 +10,6 @@ import { loadMyQrCode, type MyQrCodeData } from '../_components/my-qrs-data';
 
 export const metadata = { title: 'My QRs · Shop · Supplier' };
 export const dynamic = 'force-dynamic';
-
-/** The address a code opens, as a person reads it: no `https://`, no tag (the drawing's line under the title). */
-function shownAddress(url: string): string {
-  try {
-    const u = new URL(url);
-    return `${u.host.replace(/^www\./, '')}${u.pathname}`;
-  } catch {
-    return url;
-  }
-}
 
 /**
  * 🔳 SHOP › MY QRs › ONE CODE (drawing frame "One QR, opened", v18): `/vendor-dashboard/shop/qrs/<code>` for the shop's

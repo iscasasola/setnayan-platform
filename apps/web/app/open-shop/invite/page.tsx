@@ -77,9 +77,12 @@ export default async function InviteShopsYouTrustPage({ searchParams }: { search
           Your invite QR is ready once your shop name is approved.
         </p>
       )}
-      <p className="text-sm font-medium" style={{ color: 'var(--m-ink)' }} data-onboarding-invite-line="">
-        {INVITE_SHOPS_LINE}
-      </p>
+      {/* The owner's line once (final check A5-G1-06): the QR card carries it; without a code it stands alone. */}
+      {url ? null : (
+        <p className="text-sm font-medium" style={{ color: 'var(--m-ink)' }} data-onboarding-invite-line="">
+          {INVITE_SHOPS_LINE}
+        </p>
+      )}
       {/* PC7: "Later" — share another time (the QR stays in Shop › Partnerships); both go where the first card lands. */}
       <span className="flex items-center gap-2">
         <ActionButton tone="neutral" quiet icon={<Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />} label="Later" href={done} data-onboarding-invite-later="" />

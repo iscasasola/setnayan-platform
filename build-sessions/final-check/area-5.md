@@ -1,3 +1,4 @@
+FIXER: batch 1 of ~4 · PR #8305 (draft, building) · lane A: refused plan reads said, never Free or a lock (11 IDs)
 STATUS: phase B done · 48 of 48 pages + 5 of 5 forwards walked at 375 / 768 / 1280 (light; dark does not exist in area 5, B5-00) · signed-out doors walked · buttons 1,285 (375) · pressed 870 · failed 23 (hand-proven: 21 inert controls on a booked card, 2 popups that ignore Escape) · phase B findings 28: blocker 0 · money-signin 4 · broken 4 (1 not proven) · wrong 9 · look 11 · phase A findings 99 (10 confirmed live)
 
 # Final check · Area 5 · Supplier: shop, cards, Toolkit, plans

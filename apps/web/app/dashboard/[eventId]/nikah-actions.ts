@@ -1,6 +1,8 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { refuseLimitedHelper } from '@/lib/host-gate';
@@ -36,14 +38,21 @@ export async function updateNikahDetails(eventId: string, formData: FormData) {
   const gender = GENDER_SEPARATION.has(genderRaw) ? genderRaw : 'none';
 
   const sb = await createClient();
-  await sb
+  const { error } = await sb
     .from('events')
     .update({
       mahr_description: mahr,
       gender_separation: gender,
     })
     .eq('event_id', eventId);
+  // A2-I19: a refused save is said ("Didn't save · Try again"), never revalidated as if it had saved; success says so.
+  if (error) {
+    logQueryError('updateNikahDetails', error, { event_id: eventId }, 'graceful_degrade');
+    redirect(`/dashboard/${eventId}/nikah?error=1&msg=${encodeURIComponent('Didn’t save · Try again.')}`);
+  }
 
   revalidatePath(`/dashboard/${eventId}`);
   revalidatePath(`/dashboard/${eventId}/nikah`);
+  // The app-wide toast bridge (`app/_components/toast/toast-from-params.tsx`) says "Saved." and strips the flag.
+  redirect(`/dashboard/${eventId}/nikah?saved=1`);
 }

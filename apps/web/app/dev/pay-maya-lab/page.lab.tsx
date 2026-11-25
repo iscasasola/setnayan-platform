@@ -74,7 +74,7 @@ export default async function PayMayaLabPage({ searchParams }: { searchParams: P
     return (
       <main className="mx-auto max-w-[560px] px-4 pb-32 pt-6">
         {summary}
-        <MayaChecking />
+        <MayaChecking back={{ href: '/dashboard', label: 'Back to your event' }} />
       </main>
     );
   }

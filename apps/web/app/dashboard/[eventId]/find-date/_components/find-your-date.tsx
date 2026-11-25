@@ -31,7 +31,9 @@ import {
 import type { MatrixDate, ScheduleMatrix } from '@/lib/schedule-matrix';
 import { formatCount } from '@/lib/format-number';
 
-type Props = { eventId: string; matrix: ScheduleMatrix };
+/** A2-H16: `canSetDate` = the viewer may open the date settings (the couple). Anyone else gets plain words, never a
+ *  door that 404s for them. */
+type Props = { eventId: string; matrix: ScheduleMatrix; canSetDate: boolean };
 
 function Shell({ children }: { children: ReactNode }) {
   return (
@@ -217,7 +219,7 @@ function DateCard({
   );
 }
 
-export function FindYourDate({ eventId, matrix }: Props) {
+export function FindYourDate({ eventId, matrix, canSetDate }: Props) {
   const base = `/dashboard/${eventId}`;
 
   if (!matrix.hasDate) {
@@ -228,13 +230,17 @@ export function FindYourDate({ eventId, matrix }: Props) {
             Set the dates you&apos;re considering first — then we&apos;ll find which one keeps the
             most of your suppliers free.
           </p>
-          <Link
-            href={`${base}/date-selection`}
-            className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center gap-1.5 mt-4"
-          >
-            Set your wedding date
-            <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
-          </Link>
+          {canSetDate ? (
+            <Link
+              href={`${base}/date-selection`}
+              className="ab ab-brand ab-main inline-flex min-h-11 items-center justify-center gap-1.5 mt-4"
+            >
+              Set your date
+              <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+            </Link>
+          ) : (
+            <p className="mt-4 text-sm text-ink/65">The couple sets the dates from their event settings.</p>
+          )}
         </div>
       </Shell>
     );
@@ -260,10 +266,10 @@ export function FindYourDate({ eventId, matrix }: Props) {
     );
   }
 
-  return <FindYourDateBody matrix={matrix} base={base} />;
+  return <FindYourDateBody matrix={matrix} base={base} canSetDate={canSetDate} />;
 }
 
-function FindYourDateBody({ matrix, base }: { matrix: ScheduleMatrix; base: string }) {
+function FindYourDateBody({ matrix, base, canSetDate }: { matrix: ScheduleMatrix; base: string; canSetDate: boolean }) {
   const [pinned, setPinned] = useState<string | null>(null);
   const [openKey, setOpenKey] = useState<string | null>(matrix.dates[0]?.dateKey ?? null);
 
@@ -362,7 +368,7 @@ function FindYourDateBody({ matrix, base }: { matrix: ScheduleMatrix; base: stri
         </ul>
       </div>
 
-      {matrix.exactDate ? (
+      {!canSetDate ? null : matrix.exactDate ? (
         <p className="text-sm text-ink/70">
           Considering other dates?{' '}
           <Link href={`${base}/date-selection`} className="font-medium text-terracotta-700 underline">

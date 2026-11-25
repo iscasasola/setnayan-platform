@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2 } from 'lucide-react';
+import Link from 'next/link';
+import { Loader2, RefreshCw } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 
 /**
  * 💳 "Checking your payment…" — back from Maya, while we ask Maya's API for this exact reference and amount (v3
@@ -15,7 +17,8 @@ import { Loader2 } from 'lucide-react';
 const EVERY_MS = 3_000;
 const TRIES = 20;
 
-export function MayaChecking() {
+/** A2-F5: never a dead end — the way back to the event, and a press to check again once it stops asking. */
+export function MayaChecking({ back }: { back: { href: string; label: string } }) {
   const router = useRouter();
   const [tries, setTries] = useState(0);
   useEffect(() => {
@@ -39,6 +42,24 @@ export function MayaChecking() {
         {gaveUp
           ? 'Maya is still confirming your payment. Refresh in a minute.'
           : 'We’re asking Maya to confirm it. This takes a few seconds — please keep this page open.'}
+      </p>
+      {gaveUp ? (
+        <ActionButton
+          tone="brand"
+          main
+          icon={RefreshCw}
+          label="Check again"
+          className="mt-4"
+          onClick={() => {
+            router.refresh();
+            setTries(0);
+          }}
+        />
+      ) : null}
+      <p className="mt-4">
+        <Link href={back.href} className="text-sm text-link underline">
+          {back.label}
+        </Link>
       </p>
     </section>
   );

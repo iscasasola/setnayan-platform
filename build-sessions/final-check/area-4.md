@@ -15,12 +15,12 @@ None yet.
 - [x] /[slug] — OFFLINE: NEEDED (venue door: pass on Me; hall: Live programme, seat line, directions) · SHAPE: PAGE = PAGE (its layers differ: A4-17..A4-20)
 - [x] /[slug]/avatar — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE
 - [x] /[slug]/cached/[key] — OFFLINE: READ-ONLY IS ENOUGH (it is the Event Hub, same cache) · SHAPE: rewrite of PAGE = PAGE
-- [ ] /[slug]/everyone
-- [ ] /[slug]/find-my-table
-- [ ] /[slug]/find-seat
+- [x] /[slug]/everyone — OFFLINE: NOT NEEDED · SHAPE: PAGE → FULL-SCREEN POPUP (DIFFERS, A4-32)
+- [x] /[slug]/find-my-table — OFFLINE: NEEDED (in the hall, door to table) — kept today, but a copy saved before the day shows "seats show on the day" · SHAPE: PAGE = PAGE
+- [x] /[slug]/find-seat — OFFLINE: NEEDED (venue door pass; the hall map) — not kept today · SHAPE: PAGE = PAGE (its door pass layer: A4-36)
 - [x] /[slug]/hub → forward to /[slug] (every branch lands) — OFFLINE: NEEDED (installed home-screen tile at the venue door) · SHAPE: forward = forward
-- [ ] /[slug]/invite
-- [ ] /[slug]/invite/enter
+- [x] /[slug]/invite — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE
+- [x] /[slug]/invite/enter — OFFLINE: READ-ONLY IS ENOUGH (ticket at the door; ?tab=me copy is the fallback) · SHAPE: PAGE = PAGE (its ticket popup: A4-40)
 - [ ] /[slug]/invite/reply
 - [ ] /[slug]/pabuya
 - [ ] /[slug]/print
@@ -362,7 +362,7 @@ PAGE      /[slug]   (event: stg-bea-paolo for "My QR"; stg-mika-turns-7 for the 
 BUTTON    "My QR" · a plus-one's ticket · a minute on the story dial · "Open in your browser"
 STEPS     1. Open each on a 375 px phone.
 EXPECTED  The shared Sheet: half height on a phone, centred dialog on desktop.
-ACTUAL    They use OverlayBackdrop but draw their own panels; My QR is a centred card on the phone: `<div className="fixed inset-0 z-50 flex items-center justify-center p-4"> <OverlayBackdrop …/>` (`guest-hub-bar.tsx` `export function GuestSheet`), `className="fixed inset-x-0 bottom-0 z-50 max-h-[80vh] …"` (`story/story-clock.tsx`), `copy-my-link.tsx` `aria-labelledby="open-in-browser-title"` (also on /invite/enter, A4-38).
+ACTUAL    They use OverlayBackdrop but draw their own panels; My QR is a centred card on the phone: `<div className="fixed inset-0 z-50 flex items-center justify-center p-4"> <OverlayBackdrop …/>` (`guest-hub-bar.tsx` `export function GuestSheet`), `className="fixed inset-x-0 bottom-0 z-50 max-h-[80vh] …"` (`story/story-clock.tsx`), `copy-my-link.tsx` `OpenInBrowser` `aria-labelledby="open-in-browser-title"` (the same layer opens on /invite/enter).
 SHOTS     375 px light + desktop
 RULE      K3 · SHAPE (small popup = Sheet)
 SEVERITY  look
@@ -494,6 +494,159 @@ EXPECTED  The page wears the couple's look from the layout (`every-guest-page-we
 ACTUAL    The page paints its own dark ground and white text: `<main className="min-h-screen bg-[#0b0d12] p-3 sm:p-5">` … `text-white`; Save is a hand-made white fill `className="rounded-xl bg-white px-4 py-2 …"`. Anchors: `apps/web/app/[slug]/avatar/page.tsx` `bg-[#0b0d12]`; `avatar/_components/avatar-maker.tsx` `dirty ? 'Save' : 'Saved'`.
 SHOTS     375 px light + desktop
 RULE      Theme (guest pages keep the couple's design) · CLAUDE.md §3 Button
+SEVERITY  look
+SOURCE    CODE
+```
+
+### /[slug]/everyone
+
+```
+ID        A4-30
+PAGE      /[slug]/everyone   (event: stg-bea-paolo)
+BUTTON    the "Also coming" list
+STEPS     1. Someone not on the list asks to join through /invite and answers Yes. 2. A guest opens /everyone.
+EXPECTED  Only people who count toward the event (`countsTowardEvent`); an unapproved request is not listed.
+ACTUAL    The list filters on `rsvp_status` alone and never reads `entry_source`: `return rows.filter((r) => r.rsvp_status === 'attending');`. A join request is stored with the requester's own answer (`rsvp_status: answers.rsvp_status` in `app/join/[eventId]/actions.ts`), so a stranger's pending Yes prints as "Also coming". Anchors: `apps/web/lib/entourage.ts` `guestsWhoSaidYes`; `apps/web/app/[slug]/everyone/page.tsx` `${ENTOURAGE_COLUMNS}, rsvp_status`.
+SHOTS     375 px light
+RULE      Connections: a second reader of "who is coming" (use `countsTowardEvent`)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-31
+PAGE      /[slug]/everyone   (event: stg-bea-paolo)
+BUTTON    the "Also coming" section, seen by a signed-in host
+STEPS     1. A host opens /everyone while the `event_members` read fails.
+EXPECTED  A failure state or the error boundary.
+ACTUAL    The error is dropped (`const { data } = await supabase.from('event_members')`), the host is treated as a stranger and told "The rest of the guest list is for invited guests. Open your own invitation link…". Anchor: `apps/web/app/[slug]/everyone/page.tsx` `eventRecognisesViewer`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-32
+PAGE      /[slug]/everyone   (event: stg-bea-paolo)
+BUTTON    the invitation's preview that opens "Everyone who will be there"
+STEPS     1. Press the full-list door on the invitation.
+EXPECTED  SHAPE tests: nobody shares or bookmarks this list (test 1 no); it is more than one short screen (test 2 yes) → FULL-SCREEN POPUP over the invitation; ✕ returns to the same place.
+ACTUAL    It navigates to its own page with "Back to the invitation" (`href={`/${slug}`}`) at the foot.
+SHOTS     375 px light
+RULE      SHAPE
+SEVERITY  look
+SOURCE    CODE
+```
+
+### /[slug]/find-my-table
+
+```
+ID        A4-33
+PAGE      /[slug]/find-my-table   (event: stg-carla-miguel)
+BUTTON    the entrance marker and the dotted path on the map
+STEPS     1. The couple sets the entrance in the seat-plan editor (`event_floor_plan.entrance_*`). 2. A guest opens /find-my-table, then /find-seat.
+EXPECTED  Both pages draw the same door through the one reader `fetchEntrance` (`lib/indoor-blueprint.ts`).
+ACTUAL    This page has its own `resolveEntrance` that reads only `events.venue_entrance_x/y` (`.select('venue_entrance_x, venue_entrance_y')`), never the floor plan's entrance that wins in `fetchEntrance`; and `if (error) return DEFAULT_ENTRANCE;` silently draws a default door on a failed read. Anchor: `apps/web/app/[slug]/find-my-table/page.tsx` `resolveEntrance`.
+SHOTS     375 px light
+RULE      Connections (second reader) · honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-34
+PAGE      /[slug]/find-my-table · /[slug]/find-seat · /[slug]/seat   (event: stg-carla-miguel)
+BUTTON    the table map on each page
+STEPS     1. Open each page once seats are shown; compare with the couple's seat plan.
+EXPECTED  Tables come from the couple's seat-plan reader `lib/seating.ts` `fetchTables` (its order `sortTables`, its capacity and coordinate clean-up).
+ACTUAL    Three raw `event_tables` reads, each with its own order: `.from('event_tables').select('table_id,public_id,event_id,table_label,…')` (`find-my-table/page.tsx` `tablesRaw`), `.from('event_tables').select(TABLES_SELECT)` (`find-seat/page.tsx`), and a LOCAL `async function fetchTables(` that shadows the shared name (`seat/page.tsx`).
+SHOTS     375 px light
+RULE      design-and-wiring C8 (one reader) · Connections: a guest's table must read the seat plan's reader
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /[slug]/find-seat
+
+```
+ID        A4-35
+PAGE      /[slug]/find-seat   (event: stg-bea-paolo)
+BUTTON    "Confirm your Booking" (the link in the dashed step-up card under the search)
+STEPS     1. Open /stg-bea-paolo/find-seat without a pass.
+EXPECTED  "Open your invitation" (the door's words since 3 Nov).
+ACTUAL    `Confirm your Booking`, which a guest reads as a purchase; the line is held in `lib/ugat/baselines/wrong-words.baseline.txt`. Anchor: `apps/web/app/[slug]/find-seat/_components/seat-frame.tsx` `StepUp`.
+SHOTS     375 px light
+RULE      Words
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-36
+PAGE      /[slug]/find-seat   (event: stg-carla-miguel, on the day)
+BUTTON    "Show at the door"
+STEPS     1. A seated guest opens the page. 2. Presses "Show at the door".
+EXPECTED  The shared full-screen layer (RiseScreen) with the shared backdrop.
+ACTUAL    A hand-rolled modal with its own ground: `role="dialog" aria-modal="true"` … `className="fixed inset-0 z-[60] flex flex-col bg-ink`. Anchor: `apps/web/app/[slug]/find-seat/_components/door-pass.tsx` `DoorPass`.
+SHOTS     375 px light
+RULE      K3
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+ID        A4-37
+PAGE      /[slug]/find-seat   (also /[slug]/seat)   (event: stg-carla-miguel, on the day)
+BUTTON    the door pass's foot line ("Checked in · 5:42 pm" / "Show this at the door")
+STEPS     1. A guest who already checked in opens the pass while the `guest_checkins` read fails.
+EXPECTED  It does not claim the guest is not checked in.
+ACTUAL    The error is dropped: `const [{ data: checkin }, qrSvg] = await Promise.all([` → "Show this at the door". `/seat` has the same shape (`const { data: checkin }` in `PersonalPass`, which drives the arrival bloom). Anchor: `apps/web/app/[slug]/find-seat/page.tsx`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /[slug]/invite
+
+```
+ID        A4-38
+PAGE      /[slug]/invite   (an event that takes requests)
+BUTTON    the request form / "Request sent"
+STEPS     1. Open /invite while one of these reads fails: the event's question settings, the membership check, the existing request.
+EXPECTED  A failure state.
+ACTUAL    All three errors are dropped (`const { data: askRow } = await admin` / `const { data: existing } = await admin` / `const { data: claim } = await admin`): default questions are drawn, a member is shown the form, and someone who already asked gets a second form instead of "Request sent". Anchor: `apps/web/app/join/[eventId]/_components/join-flow.tsx` `JoinFlow`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /[slug]/invite/enter
+
+```
+ID        A4-39
+PAGE      /[slug]/invite/enter   (event: stg-bea-paolo, a guest who said Yes)
+BUTTON    "Save my ticket" and "Yes, save to my account" / "Sign in to your account" / "Open in your browser"
+STEPS     1. A signed-in guest whose seat is not yet linked to their account opens the thank-you after a Yes.
+EXPECTED  One main button in the ticket section.
+ACTUAL    Two `button-primary` buttons in the same `data-landing="ticket"` section: Save (`variant="primary"`) and `saveNode`, which renders `<SubmitButton className="button-primary min-h-[56px] w-full" …>Yes, save to my account` (and `button-primary` in the `sign_in` and in-app `OpenInBrowser` states). The guard `each-guest-page-has-one-main-action.test.ts` counts the page source only. Anchors: `apps/web/app/[slug]/_components/save-to-account.tsx`; `apps/web/app/[slug]/invite/enter/page.tsx` `data-landing-keep-slot`.
+SHOTS     375 px light
+RULE      K1
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+ID        A4-40
+PAGE      /[slug]/invite/enter   (event: stg-bea-paolo)
+BUTTON    the ticket popup that opens on arrival
+STEPS     1. Open the personal link after a new or changed ticket.
+EXPECTED  `Sheet` (a small popup).
+ACTUAL    A hand-rolled centred card `<div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true"` (it does use the shared `OverlayBackdrop`). The `OpenInBrowser` layer here is A4-20. Anchor: `apps/web/app/[slug]/_components/ticket-popup.tsx` `TicketPopup`.
+SHOTS     375 px light
+RULE      K3 · SHAPE (small popup = Sheet)
 SEVERITY  look
 SOURCE    CODE
 ```

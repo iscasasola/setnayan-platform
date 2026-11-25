@@ -16940,7 +16940,6 @@
         "UnreadBellBadge",
         "UnreadMessagesBadge",
         "VendorBottomNav",
-        "VendorDealFacts",
         "VendorNoticeTop",
         "VendorRailContext",
         "VerifySection",
@@ -18240,6 +18239,7 @@
         "DossierView",
         "ListPageSkeleton",
         "PageMasthead",
+        "ReadFailedNote",
         "Section",
         "SharePdfButton",
         "VendorDeepSearchActionState"
@@ -19327,6 +19327,7 @@
         "PaymentOptionsSurface",
         "ProfileChecklistEditor",
         "PublicLineCard",
+        "ReadFailedNote",
         "RequestCorrectionCard",
         "RowIcon",
         "SharePdfButton",
@@ -19703,6 +19704,7 @@
         "CardRecordUnread",
         "HallsUsesPick",
         "Link",
+        "ReadFailedNote",
         "RefinementsEditor"
       ]
     },
@@ -20722,6 +20724,7 @@
       "blocks": [
         "Image",
         "ListPageSkeleton",
+        "ReadFailedNote",
         "RoleLock",
         "TemplateRows",
         "TheftWatchView",

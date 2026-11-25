@@ -1,4 +1,4 @@
-STATUS: phase B in progress (walk running; first findings below)
+STATUS: phase B done · 48 of 48 pages + 5 of 5 forwards walked at 375 / 768 / 1280 (light; dark does not exist in area 5, B5-00) · signed-out doors walked · buttons 1,285 (375) · pressed 870 · failed 23 (hand-proven: 21 inert controls on a booked card, 2 popups that ignore Escape) · phase B findings 28: blocker 0 · money-signin 4 · broken 4 (1 not proven) · wrong 9 · look 11 · phase A findings 99 (10 confirmed live)
 
 # Final check · Area 5 · Supplier: shop, cards, Toolkit, plans
 
@@ -1303,6 +1303,101 @@ Copy caveat: the copy was very slow during the walk (see BLOCKERS). A page "slow
 page here, so speed is reported only where a page did not finish at all.
 
 ### Phase B cross-cutting
+
+### Phase B progress · every page (Add 6 · Add 7)
+
+Columns: **status → where it landed** · **buttons at 375** (pressed = clicked or its link fetched and answered 200; *left* =
+would change data or money, or the per-page time cap on the slow copy; *not provable* = the click was blocked by my own
+harness, e.g. the native share sheet or a control under the fixed bottom bar) · **controls 375 / 768 / 1280** · horizontal
+overflow at any width · **DARK** · **notes** (the findings that apply; "ok" = CLEAN / BALANCED / EFFECTIVE all hold at
+375).
+Desktop adds the same rail and top-bar controls to every page (about 9 to 17: My Home, the menu, Plan, the company and
+legal links, Create service card, search). They were all pressed once on Today at 1280: 40 of 40 reached their target.
+Of the ten raw "no visible effect" rows, nine were checked by hand and work: "Do it tomorrow" (already snoozed), the
+Toolkit chips (one checked by hand, "Specialty": it filters), "Share my page" (the phone's share sheet), "30 days" (already picked). Today's ⓘ was not
+re-checked. OFFLINE and SHAPE marks are phase A's, above (unchanged by the walk).
+
+| Page | Status → landed | Buttons (375) | Controls 375/768/1280 | Overflow | DARK | Notes |
+|---|---|---|---|---|---|---|
+| /open-shop | 200 → `/open-shop` | 64 · pressed 26 · failed 0 · left 38 | 64/65/65 | no overflow | no | "Three answers" over a 5-step bar; photo and icon tiles mixed · signed out |
+| /open-shop/invite | 200 → `/open-shop/invite` | 7 · pressed 6 · failed 0 · not provable 1 | 7/7/7 | no overflow | no | B5-15, A5-G1-05/06 live, B5-18 |
+| /open-shop/logo | 200 → `/open-shop/logo` | 1 · pressed 1 · failed 0 | 1/1/1 | no overflow | no | B5-15 |
+| /vendor-dashboard | 200 → `/vendor-dashboard` | 40 · pressed 36 · failed 3 · left 2 · not provable 2 | 40/41/57 | no overflow | no | B5-02, B5-11, B5-27 |
+| /vendor-dashboard/activities | 200 → `/vendor-dashboard/activities` | 17 · pressed 12 · failed 0 · left 4 · not provable 1 | 17/18/27 | no overflow | no | ok |
+| /vendor-dashboard/attributes | 200 → `/vendor-dashboard/attributes` | 12 · pressed 11 · failed 0 · not provable 1 | 12/13/22 | no overflow | no | B5-25 |
+| /vendor-dashboard/collections | 200 → `/vendor-dashboard/collections` | 16 · pressed 15 · failed 0 · not provable 1 | 16/17/26 | no overflow | no | B5-13 |
+| /vendor-dashboard/collections/albums | 200 → `/vendor-dashboard/collections/albums` | 11 · pressed 7 · failed 0 · not provable 4 | 11/11/20 | no overflow | no | no title (B5-26); "once Papic for suppliers is switched on" names an unlaunched feature |
+| /vendor-dashboard/creators | 200 → `/vendor-dashboard/creators` | 11 · pressed 10 · failed 0 · not provable 1 | 11/12/21 | no overflow | no | ok |
+| /vendor-dashboard/deep-search | 200 → `/vendor-dashboard/deep-search` | 10 · pressed 8 · failed 0 · left 1 · not provable 1 | 10/11/20 | no overflow | no | B5-12 |
+| /vendor-dashboard/help | 200 → `/vendor-dashboard/help` | 14 · pressed 13 · failed 0 · not provable 1 | 14/15/24 | no overflow | no | no title (B5-26); A5-G2-09 live ("within a business day") |
+| /vendor-dashboard/invite | 200 → `/vendor-dashboard/shop/qrs/shortlist` | 19 · counted with its target (forward) | 19/21/30 | no overflow | no | forwards to My QRs › Shortlist (as designed) |
+| /vendor-dashboard/lines | 200 → `/vendor-dashboard/lines` | 12 · pressed 11 · failed 0 · not provable 1 | 12/13/22 | no overflow | no | ok |
+| /vendor-dashboard/moodboard-library | 200 → `/vendor-dashboard/moodboard-library` | 12 · pressed 11 · failed 0 · not provable 1 | 12/13/25 | no overflow | no | ok |
+| /vendor-dashboard/packages | 200 → `/vendor-dashboard/packages` | 11 · pressed 10 · failed 0 · not provable 1 | 11/12/21 | no overflow | no | no title (B5-26) |
+| /vendor-dashboard/packages/new | 200 → `/vendor-dashboard/packages/new` | 21 · pressed 14 · failed 0 · left 2 · not provable 5 | 21/22/31 | no overflow | no | B5-10, A5-G6-03 live |
+| /vendor-dashboard/partnerships | 200 → `/vendor-dashboard/partnerships` | 12 · pressed 10 · failed 0 · not provable 2 | 12/13/22 | no overflow | no | no title (B5-26); A5-G6-07 live; dashed hand-made empty box |
+| /vendor-dashboard/profile | 200 → `/vendor-dashboard/profile` | 84 · pressed 39 · failed 0 · left 44 · not provable 1 | 84/85/94 | no overflow | no | B5-14 |
+| /vendor-dashboard/recommendations | 200 → `/vendor-dashboard/recommendations` | 11 · pressed 10 · failed 0 · not provable 1 | 11/12/21 | no overflow | no | ok |
+| /vendor-dashboard/repertoire | 200 → `/vendor-dashboard/repertoire` | 11 · pressed 10 · failed 0 · not provable 1 | 11/12/21 | no overflow | no | ok (a photographer reaches a music-only tool by address) |
+| /vendor-dashboard/services | 200 → `/vendor-dashboard/shop` | 9 · counted with its target (forward) | 9/11/20 | no overflow | no | forward to Shop (as designed) |
+| /vendor-dashboard/services/[booked card] | None → `/vendor-dashboard/services/…` | 89 · pressed 18 · failed 0 · left 50 · not provable 21 | 85/85/94 | no overflow | no | B5-16, B5-22 |
+| /vendor-dashboard/services/new | 200 → `/vendor-dashboard/services/new` | 73 · pressed 30 · failed 0 · left 41 · not provable 2 | 73/74/83 | no overflow | no | ok |
+| /vendor-dashboard/services/new/photographer | 200 → `/vendor-dashboard/services/new/photographer` | 94 · pressed 34 · failed 0 · left 56 · not provable 4 | 88/88/97 | no overflow | no | B5-16 |
+| /vendor-dashboard/services/requests | 200 → `/vendor-dashboard/services/requests` | 11 · pressed 10 · failed 0 · not provable 1 | 11/12/21 | no overflow | no | no title (B5-26) |
+| /vendor-dashboard/services/requests/[unknown id] | 200 → `/vendor-dashboard/services/requests/…` | 10 · pressed 9 · failed 0 · not provable 1 | 10/11/20 | no overflow | no | A5-G3-07 live (bare "That request is gone.") |
+| /vendor-dashboard/services/requests/new | 200 → `/vendor-dashboard/services/requests/new` | 29 · pressed 28 · failed 0 · not provable 1 | 29/30/39 | no overflow | no | no title (B5-26) |
+| /vendor-dashboard/services/their-work | 200 → `/vendor-dashboard/services/their-work` | 10 · pressed 9 · failed 0 · not provable 1 | 10/11/20 | no overflow | no | A5-G3-12 live; B5-26 |
+| /vendor-dashboard/settings | 200 → `/vendor-dashboard/settings` | 33 · pressed 32 · failed 0 · not provable 1 | 33/34/43 | no overflow | no | ok |
+| /vendor-dashboard/shop | 200 → `/vendor-dashboard/shop` | 111 · pressed 45 · failed 2 · left 62 · not provable 4 | 111/113/114 | no overflow | no | B5-06, B5-07, B5-08, B5-20 |
+| /vendor-dashboard/shop/badges | 200 → `/vendor-dashboard/shop/badges` | 11 · pressed 10 · failed 0 · not provable 1 | 11/13/22 | no overflow | no | "Black D." cut at 375 |
+| /vendor-dashboard/shop/promote | 200 → `/vendor-dashboard/shop/promote` | 38 · pressed 33 · failed 0 · left 1 · not provable 4 | 38/39/48 | no overflow | no | B5-09 |
+| /vendor-dashboard/shop/qrs | 200 → `/vendor-dashboard/shop/qrs` | 15 · pressed 14 · failed 0 · not provable 1 | 15/17/26 | no overflow | no | ok |
+| /vendor-dashboard/shop/qrs/dates | 200 → `/vendor-dashboard/shop/qrs/dates` | 17 · pressed 15 · failed 0 · not provable 2 | 17/19/28 | no overflow | no | B5-07, B5-18 |
+| /vendor-dashboard/shop/qrs/page | 200 → `/vendor-dashboard/shop/qrs/page` | 19 · pressed 16 · failed 0 · left 1 · not provable 2 | 19/21/30 | no overflow | no | B5-18 |
+| /vendor-dashboard/shop/qrs/shortlist | 200 → `/vendor-dashboard/shop/qrs/shortlist` | 19 · pressed 16 · failed 0 · not provable 3 | 19/21/30 | no overflow | no | B5-18 |
+| /vendor-dashboard/shop/qrs/reviews | 200 → `/vendor-dashboard/shop/qrs/reviews` | 17 · pressed 15 · failed 0 · not provable 2 | 17/19/28 | no overflow | no | B5-18 |
+| /vendor-dashboard/shop/qrs/nope | 200 → `/vendor-dashboard/shop/qrs/nope` | 2 · counted with its target (forward) | 2/2/2 | no overflow | no | clean "doesn't exist" (HTTP 200) |
+| /vendor-dashboard/shop/store | 200 → `/vendor-dashboard/shop/store` | 94 · pressed 92 · failed 0 · left 1 · not provable 1 | 94/96/105 | no overflow | no | B5-17 |
+| /vendor-dashboard/shop/store/tools | 200 → `/vendor-dashboard/shop/store/tools` | 45 · pressed 36 · failed 4 · left 8 · not provable 1 | 45/47/56 | no overflow | no | ok |
+| /vendor-dashboard/shop/store/tools/run_of_show | 200 → `/vendor-dashboard/shop/store/tools/run_of_show` | 14 · pressed 12 · failed 0 · left 1 · not provable 1 | 14/16/25 | no overflow | no | B5-24 |
+| /vendor-dashboard/shop/store/graphs/booked | 200 → `/vendor-dashboard/shop/store/graphs/booked` | 12 · pressed 10 · failed 0 · left 1 · not provable 1 | 12/14/23 | no overflow | no | ok |
+| /vendor-dashboard/subscription | 200 → `/vendor-dashboard/subscription` | 25 · pressed 19 · failed 0 · left 4 · not provable 2 | 25/26/35 | no overflow | no | B5-01, B5-04; Add 4 row 1 |
+| /vendor-dashboard/team | 200 → `/vendor-dashboard/team` | 14 · pressed 13 · failed 0 · not provable 1 | 14/15/24 | no overflow | no | ok |
+| /vendor-dashboard/team/roles | 200 → `/vendor-dashboard/team/roles` | 25 · pressed 23 · failed 0 · left 1 · not provable 1 | 25/26/35 | no overflow | no | ok |
+| /vendor-dashboard/team/roles/inquiries | 200 → `/vendor-dashboard/team/roles/inquiries` | 11 · pressed 10 · failed 0 · not provable 1 | 11/12/21 | no overflow | no | B5-26 |
+| /vendor-dashboard/theft-watch | 200 → `/vendor-dashboard/theft-watch` | 12 · pressed 8 · failed 0 · not provable 4 | 12/13/22 | no overflow | no | ok |
+| /vendor-dashboard/track-record | 200 → `/vendor-dashboard/track-record` | 10 · pressed 9 · failed 0 · not provable 1 | 10/11/20 | no overflow | no | ok |
+| /vendor-dashboard/website | 200 → `/vendor-dashboard/website` | 41 · pressed 35 · failed 1 · left 4 · not provable 2 | 41/42/51 | no overflow | no | B5-23 |
+| /vendor-invite/liwanagphotoandfilm | 200 → `/liwanagphotoandfilm/invite` | 3 · pressed 3 · failed 0 | 3/3/3 | no overflow | no | clean; no Setnayan mark, no <main> · signed out |
+| /vendor/claim/not-a-real-token | 200 → `/vendor/claim/not-a-real-token` | 2 · pressed 2 · failed 0 | 2/2/2 | no overflow | no | clean "doesn't exist", answers HTTP 200 · signed out |
+| /vendor/claim/not-a-real-token/finalize | 200 → `/vendor/claim/not-a-real-token` | 2 · pressed 2 · failed 0 | 2/2/2 | no overflow | no | lands on the claim page's not-found · signed out |
+| /vendor/fit/not-a-real-ref | 404 → `/vendor/fit/not-a-real-ref` | 2 · pressed 2 · failed 0 | 2/2/2 | no overflow | no | clean, 404 · signed out |
+| /vendor-dashboard/branches | 200 → `/vendor-dashboard/profile#where` | 84 · counted with its target (forward) | 84/85/94 | no overflow | no | lands, #where |
+| /vendor-dashboard/more | 200 → `/vendor-dashboard/settings` | 33 · counted with its target (forward) | 33/34/43 | no overflow | no | lands |
+| /vendor-dashboard/performance | 200 → `/vendor-dashboard/shop#analytics` | 9 · counted with its target (forward) | 9/11/20 | no overflow | no | lands, #analytics |
+| /vendor-dashboard/reviews | 200 → `/vendor-dashboard/website#reviews` | 39 · counted with its target (forward) | 39/42/51 | no overflow | no | lands, #reviews (one shot drew the top bar mid-screen) |
+| /vendor-dashboard/verify | 200 → `/vendor-dashboard/profile#docs` | 9 · counted with its target (forward) | 9/86/96 | no overflow | no | lands, #docs (once: sign-in, B5-05) |
+
+Totals at 375: **buttons 1,285 · pressed 870 · failed 23** (all hand-proven: 21 inert controls on the booked card, B5-22; the
+"Write to NFC" popup and the Shop settings layer ignoring Escape, B5-18 and B5-21). Left unpressed: about 380, mostly
+the card maker's and Profile's fields and Save/Create (they write data) and the plan buttons (they start an order).
+
+### Phase B summary (Add 1 · 2 · 7)
+
+- **Add 7, three sizes:** no page scrolls sideways at 375, 768 or 1280. 768 shows the narrow icon rail with no bottom
+  bar (designed, not a stretched phone). The problems are at 1280: Shop's squeezed column (B5-06), Today's clipped
+  tiles (B5-11), the Toolkit's lone cards and short band (B5-17).
+- **Add 7, light and dark:** DARK = **no** on all 48 pages (B5-00). The six home shots are in `build-sessions/final-check/shots/area-5/`; the dark
+  set shows the light page because that is what a supplier who picks Dark gets. The navy preview, forced and not
+  shipped, keeps a shadow on every card and has no glowing top block (A5-X-01, A5-X-02 confirmed).
+- **Add 1, shape:** the walk agrees with phase A's 13 shape differences. The Add sheets, the Account switcher and the
+  print sheets open as popups. The Shop ⚙ layer and the NFC popup ignore Escape (B5-18, B5-21).
+- **Add 2:** most pages pass CLEAN / BALANCED / EFFECTIVE at 375. The fails are in the notes column. The repeated
+  themes are a second filled button on a screen (K1: Profile, Invite shops, Partnerships, Today desktop), no visible
+  title (B5-26), and one fact said twice (Deep Search, Today, the trust line).
+- **Phase A confirmed live:** A5-X-01, A5-X-02, A5-G1-05, A5-G1-06, A5-G2-09, A5-G3-07, A5-G3-12, A5-G5-12, A5-G6-03, A5-G6-07.
+- **Not walked to the end, on purpose:** any plan or gift purchase (never pay), saving a card, sending a request,
+  issuing a Booked QR. **Not finished:** the offline test of a QR page already open (sign-in failed, B5-19).
 
 #### B5-00 · Dark mode does not exist anywhere in area 5 (Add 7: DARK = no on all 48 pages)
 PAGE      every page in area 5 (all `/vendor-dashboard/*` in this area, `/open-shop*`, `/vendor/*`)

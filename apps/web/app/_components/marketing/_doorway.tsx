@@ -10,6 +10,7 @@ import Link from 'next/link';
 import { DOORWAY_TONE } from './_doorway-tone';
 import { DemoOverlayHost } from './demo-overlay-host';
 import { AddToEventCta } from './add-to-event-cta';
+import { routes } from '@/lib/routes';
 
 import { Reveal } from './_motion';
 import { LineRevealHeading, RevealBand, RevealList, HowItWorksPanel } from './_pa-motion';
@@ -256,7 +257,11 @@ export function DoorwayPage({
                 is byte-identical to what it was.
               */}
               {studioKey ? (
-                <AddToEventCta studioKey={studioKey} primary={primary} />
+                <AddToEventCta
+                  studioKey={studioKey}
+                  primary={primary}
+                  create={[primary, secondary].find((d) => d.href.startsWith(routes.onboarding.wedding())) ?? primary}
+                />
               ) : (
                 <Link href={primary.href} className={PRIMARY_CTA}>
                   {primary.label}

@@ -204,6 +204,17 @@ export function customerSkuBuildStatus(serviceCode: string): BuildStatus {
 export async function fetchV2CustomerCatalog(
   opts: { forAdmin?: boolean } = {},
 ): Promise<V2CustomerSku[]> {
+  return (await fetchV2CustomerCatalogRead(opts)).rows;
+}
+
+/**
+ * The same read with its outcome kept: `ok: false` = REFUSED (or no admin client), NOT "nothing on sale". The public
+ * price pages read this, because an empty list there dropped every paid plan and add-on without a word, so Home,
+ * /pricing and /papic looked complete and free (final check A1-100, A1-023).
+ */
+export async function fetchV2CustomerCatalogRead(
+  opts: { forAdmin?: boolean } = {},
+): Promise<{ rows: V2CustomerSku[]; ok: boolean }> {
   // createAdminClient throws when SUPABASE_SERVICE_ROLE_KEY is unset (CI
   // builds run `next build` with placeholder NEXT_PUBLIC_* env only · no
   // service-role key). Match the documented "return [] on error" semantic
@@ -215,7 +226,7 @@ export async function fetchV2CustomerCatalog(
   try {
     admin = createAdminClient();
   } catch {
-    return [];
+    return { rows: [], ok: false };
   }
   let query = admin
     .from('platform_retail_catalog_v2')
@@ -266,9 +277,13 @@ export async function fetchV2CustomerCatalog(
 
   const { data, error } = await query.order('service_code', { ascending: true });
 
-  if (error || !data) return [];
+  if (error) {
+    console.error('[supabase-error] v2-catalog: platform_retail_catalog_v2', error);
+    return { rows: [], ok: false };
+  }
+  if (!data) return { rows: [], ok: true };
 
-  return data.map((row) => ({
+  const rows = data.map((row) => ({
     service_code: row.service_code as string,
     title: row.title as string,
     retail_price_php: Number(row.retail_price_php),
@@ -293,6 +308,7 @@ export async function fetchV2CustomerCatalog(
     pax_increment_price_php:
       row.pax_increment_price_php == null ? null : Number(row.pax_increment_price_php),
   }));
+  return { rows, ok: true };
 }
 
 export async function fetchV2BundleCatalog(): Promise<V2BundleSku[]> {

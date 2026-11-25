@@ -3,13 +3,18 @@ import { shopPath } from '@/lib/shop-address';
 import Link from 'next/link';
 import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { ChevronLeft, MapPin, Star, FlaskConical } from 'lucide-react';
+import { ChevronLeft, MapPin, Star, FlaskConical, RotateCw } from 'lucide-react';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
-import { fetchUserEvents } from '@/lib/events';
+import { resolvePrimaryHostEvent } from '@/lib/events';
+import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
+import { hasVerifiedBadge } from '@/lib/verified-badge';
+import { resolveHostEventChoices, type HostEventChoice } from '@/app/v/[slug]/_components/add-shop-to-event-data';
+import { ErrorState } from '@/app/_components/states/error-state';
+import { actionButtonClass } from '@/components/action-button-class';
 import {
-  fetchTrustedReviewStatsForMany,
+  fetchTrustedReviewStatsForManyRead,
   formatStarRating,
   NEW_TO_SETNAYAN_LABEL,
 } from '@/lib/reviews';
@@ -112,6 +117,8 @@ type CompareRow = {
   // verification_state ∈ unverified | pending_review | verified | demoted |
   // rejected — only 'verified' rows survive outside admin demo mode.
   verification_state: string | null;
+  /** The badge's deadline — `hasVerifiedBadge` reads it (final check A1-042). */
+  next_renewal_due_at: string | null;
 };
 
 /**
@@ -162,17 +169,34 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
   // distance-from-venue per row. Anonymous viewers and couples without an
   // event simply don't get distance / save state — the comparison still
   // works for raw spec-vs-spec eval.
+  /*
+    🗂 ONE EVENT FOR THE SAVED STATE, THE DISTANCE AND THE SAVE (final check A1-043). This page took `userEvents[0]`
+    (archived events included, is_primary ignored) while Save wrote through `resolvePrimaryHostEvent` — so a cell could
+    say "Saved" for one event while Save wrote into another. Both now ask `resolvePrimaryHostEvent`, and a host with two
+    or more events ahead gets Discover's "Save to…" choice (`resolveHostEventChoices`).
+    Each read that fails is said in its own cell — never drawn as a real answer (A1-041).
+  */
   let coupleEventId: string | null = null;
+  let eventReadFailed = false;
+  let venueReadFailed = false;
   let venueAnchor: { lat: number; lng: number } | null = null;
+  let saveChoices: HostEventChoice[] = [];
   if (user) {
-    const userEvents = await fetchUserEvents(supabase, user.id, 'couple');
-    coupleEventId = userEvents[0]?.event_id ?? null;
+    try {
+      coupleEventId = (await resolvePrimaryHostEvent(admin, user.id))?.event_id ?? null;
+    } catch {
+      eventReadFailed = true;
+    }
+    saveChoices = await resolveHostEventChoices()
+      .then((c) => (c.signedIn && c.options.length >= 2 ? c.options : []))
+      .catch(() => []);
     if (coupleEventId) {
-      const { data: ev } = await admin
+      const { data: ev, error: evError } = await admin
         .from('events')
         .select('venue_latitude, venue_longitude')
         .eq('event_id', coupleEventId)
         .maybeSingle();
+      if (evError) venueReadFailed = true;
       if (
         ev?.venue_latitude !== null &&
         ev?.venue_latitude !== undefined &&
@@ -187,51 +211,12 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
     }
   }
 
-  // Fetch the requested rows. Use admin client because anonymous viewers
-  // also use this compare surface and vendor_profiles is RLS-gated.
-  const { data: rowsRaw } = await admin
-    .from('vendor_profiles')
-    .select(
-      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,tier_state,verification_state',
-    )
-    .in('vendor_profile_id', ids)
-    // 🔒 Owner 2026-07-27 — verified only; `coming_soon` is retired. This
-    // surface is reachable anonymously, so it must not be looser than /explore.
-    // ⚠ ASKED, NOT RE-TYPED. This used to spell the list itself. It gave the
-    // same answer as the shared gate, which is exactly why it was safe to leave
-    // and exactly why it would not have followed the gate the day the gate
-    // learned a second condition — a shop gone from /explore and still on this
-    // page, with nothing failing to say so.
-    .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
-    // PR-B — drop UNVERIFIED vendors from this public compare surface
-    // (anonymous viewers reach it). Demo rows are admitted at the query level
-    // so the admin demo-mode carve-out below still works; the demo-mode gate
-    // resolved after the fetch decides whether demo rows actually render.
-    .or('verification_state.eq.verified,is_demo.eq.true')
-    .not('business_name', 'is', null)
-    .neq('business_name', '');
-
-  const rowsById = new Map<string, CompareRow>(
-    ((rowsRaw ?? []) as CompareRow[]).map((r) => [r.vendor_profile_id, r]),
-  );
-  // Preserve the order the couple chose (URL order). Skip any IDs the
-  // query dropped (deleted vendor, RLS hide, etc.) — the comparison still
-  // works with N < requested count.
-  let rows: CompareRow[] = ids
-    .map((id) => rowsById.get(id))
-    .filter((r): r is CompareRow => r !== undefined);
-
-  // PR-B demo-mode resolution. The query above admits `is_demo` rows via the
-  // .or() so the admin demo-mode carve-out works; this is the post-fetch gate
-  // the query comment promises. Resolve demo mode (cookie + admin profile)
-  // BEFORE the rows.length < 2 redirect so the verified-only filter below
-  // applies to the redirect decision too. Cheap fast path: no cookie ⇒ skip
-  // the admin lookup and demo mode stays false.
+  // Demo mode is decided BEFORE the shops read, so the read can ask the one findable rule outside it (A1-042).
   const cookieStore = await cookies();
   const hasDemoCookie =
     cookieStore.get(DEMO_MODE_COOKIE_NAME)?.value === '1';
   let inDemoMode = false;
-  if (hasDemoCookie && user && rows.some((r) => r.is_demo === true)) {
+  if (hasDemoCookie && user) {
     const { data: viewerProfile } = await supabase
       .from('users')
       .select('account_type, is_internal, is_team_member')
@@ -240,33 +225,72 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
     inDemoMode = isAdminProfile(viewerProfile);
   }
 
-  // Outside admin demo mode, drop unverified DEMO rows that the .or() admitted
-  // — an anonymous public viewer must never see an unverified vendor render as
-  // a full comparison column. (Verified non-demo vendors are
-  // unaffected.) Filter BEFORE the redirect check so a comparison that would
-  // be all-unverified-demo correctly bounces to /explore instead of rendering.
-  //
-  // 🧪 A VERIFIED demo shop stays (owner, DECISION_LOG 2026-11-06 "DEMO SHOPS +
-  // DEMO EVENTS": demo suppliers show with the rest, marked "(DEMO ONLY)" — its
-  // column header wears `DemoOnlyMarker`). This supersedes the 2026-09-30
-  // "no demo row at all" line. An UNVERIFIED demo row is still admin-only.
+  /*
+    ✅ THE ONE RULE FOR "LISTED" (final check A1-042). A paused shop, or one whose papers lapsed, leaves every
+    couple-facing list — this one included — through `FINDABLE_SHOP_GATE` (`lib/findable-shop.ts`), never a re-typed
+    visibility + verified pair. Only an admin in demo mode also sees the demo shops, as before.
+  */
+  const shopsBase = admin
+    .from('vendor_profiles')
+    .select(
+      'vendor_profile_id,public_id,business_name,business_slug,tagline,logo_url,services,location_city,hq_latitude,hq_longitude,public_visibility,compatible_ceremony_types,compatible_venue_settings,is_demo,tier_state,verification_state,next_renewal_due_at',
+    )
+    .in('vendor_profile_id', ids)
+    .not('business_name', 'is', null)
+    .neq('business_name', '');
+  const { data: rowsRaw, error: rowsError } = inDemoMode
+    ? await shopsBase
+        .in('public_visibility', PUBLIC_SURFACE_VISIBILITIES as readonly string[])
+        .or('verification_state.eq.verified,is_demo.eq.true')
+    : await shopsBase.match(FINDABLE_SHOP_GATE);
+
+  // A failed shops read is said, with Try again — it used to forward to Discover without a word (A1-041).
+  if (rowsError) {
+    return (
+      <main className="min-h-dvh bg-page">
+        <section className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Side-by-side comparison.</h1>
+          <ErrorState
+            title="Couldn’t read these suppliers"
+            broke="The comparison could not be loaded just now."
+            survived="Your saved suppliers and your event are unchanged."
+            todo="Try again, or go back to suppliers."
+            actions={
+              <>
+                <Link href={`/explore/compare?ids=${ids.join(',')}`} className={actionButtonClass('neutral')}>
+                  <RotateCw aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+                  Try again
+                </Link>
+                <Link href="/?browse=1" className={actionButtonClass('neutral', { quiet: true })}>
+                  <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
+                  Back to suppliers
+                </Link>
+              </>
+            }
+          />
+        </section>
+      </main>
+    );
+  }
+
+  const rowsById = new Map<string, CompareRow>(
+    ((rowsRaw ?? []) as CompareRow[]).map((r) => [r.vendor_profile_id, r]),
+  );
+  let rows: CompareRow[] = ids
+    .map((id) => rowsById.get(id))
+    .filter((r): r is CompareRow => r !== undefined);
+
   if (!inDemoMode) {
     rows = rows.filter((r) => r.verification_state === 'verified');
   }
   const demoRows = rows.filter((r) => r.is_demo === true);
 
   if (rows.length < 2) {
-    // The requested vendors aren't all visible (drift / deletes / unverified).
-    // Send the couple back rather than rendering a one-column "comparison".
     redirect('/?browse=1');
   }
 
-  // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the compare table's PUBLIC
-  // rating + count read the TRUSTED (receipt-backed, arm's-length) stat so
-  // fake / self-dealt reviews can't inflate the compared number. Raw
-  // `fetchReviewStatsForMany` is no longer needed here (only the aggregate
-  // number/count is shown — no histogram).
-  const trustedReviewStats = await fetchTrustedReviewStatsForMany(
+  // null = the read failed; the Rating cell then says so, never "New to Setnayan" (A1-041).
+  const trustedReviewStats = await fetchTrustedReviewStatsForManyRead(
     admin,
     rows.map((r) => r.vendor_profile_id),
   );
@@ -286,8 +310,9 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
 
   // Lookup saved set so each column's Save button starts in the right state.
   let savedSet = new Set<string>();
+  let savedReadFailed = false;
   if (user && coupleEventId) {
-    const { data: saved } = await supabase
+    const { data: saved, error: savedError } = await supabase
       .from('event_vendors')
       .select('marketplace_vendor_id')
       .eq('event_id', coupleEventId)
@@ -295,6 +320,8 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
         'marketplace_vendor_id',
         rows.map((r) => r.vendor_profile_id),
       );
+    // A refused read is not "not saved" — the Save cell says it couldn't read (A1-041).
+    if (savedError) savedReadFailed = true;
     savedSet = new Set(
       (saved ?? [])
         .map((s) => s.marketplace_vendor_id)
@@ -483,6 +510,17 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
 
               <CompareRowEl label="Distance">
                 {rows.map((row) => {
+                  if (eventReadFailed || venueReadFailed) {
+                    return (
+                      <td
+                        key={row.vendor_profile_id}
+                        className="border-b border-ink/5 px-3 py-3 align-top text-ink/60"
+                        data-compare-unread="distance"
+                      >
+                        Couldn&rsquo;t read your venue
+                      </td>
+                    );
+                  }
                   if (!venueAnchor) {
                     return (
                       <td
@@ -536,6 +574,17 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
 
               <CompareRowEl label="Rating">
                 {rows.map((row) => {
+                  if (trustedReviewStats === null) {
+                    return (
+                      <td
+                        key={row.vendor_profile_id}
+                        className="border-b border-ink/5 px-3 py-3 align-top text-ink/60"
+                        data-compare-unread="rating"
+                      >
+                        Couldn&rsquo;t read reviews
+                      </td>
+                    );
+                  }
                   const stats = trustedReviewStats.get(row.vendor_profile_id);
                   // Phase C review-display gate (vendor-tier-caps · surface
                   // layer). Free vendors (reviewStarsCounted=false) render
@@ -729,7 +778,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                       key={row.vendor_profile_id}
                       className="border-b border-ink/5 px-3 py-3 align-top"
                     >
-                      {visibility === 'verified' ? (
+                      {hasVerifiedBadge(row) ? (
                         <span className="inline-flex items-center rounded-full bg-success-100 px-2 py-0.5 text-success-800 text-xs font-bold uppercase tracking-[0.1em]">
                           ✓ Verified
                         </span>
@@ -764,8 +813,14 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
                     <SaveVendorButton
                       vendorProfileId={row.vendor_profile_id}
                       initiallySaved={savedSet.has(row.vendor_profile_id)}
+                      events={saveChoices}
                       variant="card"
                     />
+                    {savedReadFailed ? (
+                      <p className="mt-1 text-sn-xs text-ink/60" data-compare-unread="saved">
+                        Couldn&rsquo;t read whether it&rsquo;s already saved.
+                      </p>
+                    ) : null}
                     {row.business_slug ? (
                       <Link
                         href={`${shopPath(row.business_slug)}?src=explore`}

@@ -33,6 +33,7 @@
  * above still forbids a hand-written photo or clip figure either way.
  */
 
+import { formatPhp } from '@/lib/php';
 import { useState } from 'react';
 import { papicCreditsHeld, papicVideosAffordable } from '@/lib/papic-credits-held';
 import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
@@ -51,7 +52,7 @@ export type PapicRung = {
   setupPeso: number | null;
 };
 
-const peso = (n: number) => '₱' + n.toLocaleString('en-PH');
+const peso = (n: number) => formatPhp(n);
 const count = (n: number) => n.toLocaleString('en-PH');
 
 /** Guest-count steps for the "spread across the room" line. */

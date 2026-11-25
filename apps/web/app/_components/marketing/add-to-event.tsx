@@ -34,7 +34,10 @@
  */
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { RotateCw } from 'lucide-react';
 
+import { actionButtonClass } from '@/components/action-button-class';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 
 import type { AddToEventOption } from './add-to-event-data';
@@ -61,17 +64,21 @@ export function AddToEvent({
   serviceName,
   options,
   emptyReason,
+  readFailed = false,
   createHref,
   createLabel,
 }: {
   serviceName: string;
   options: readonly AddToEventOption[];
   emptyReason: string | null;
+  /** Your events could not be read: say so with Try again, never "you don't have an event yet" (final check A1-033). */
+  readFailed?: boolean;
   /** where "Start a new celebration" goes — the page's own signed-out CTA, so
    *  there is exactly one route into creating a celebration from this page */
   createHref: string;
   createLabel: string;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const panelRef = useRef<HTMLDivElement | null>(null);
@@ -153,7 +160,24 @@ export function AddToEvent({
               Add {serviceName} to…
             </p>
 
-            {emptyReason ? (
+            {readFailed ? (
+              <>
+                <div className="mt-3 flex-none px-4 py-5 text-center" role="status">
+                  <p className="text-sm text-[var(--m-slate-2)]">Couldn&rsquo;t read your events.</p>
+                  <button
+                    type="button"
+                    onClick={() => router.refresh()}
+                    className={actionButtonClass('neutral', { extra: 'mt-3' })}
+                  >
+                    <RotateCw aria-hidden strokeWidth={1.9} />
+                    <span className="lbl">Try again</span>
+                  </button>
+                </div>
+                <div className="mt-3 flex-none border-t border-[var(--m-line)] pt-2">
+                  {createRow}
+                </div>
+              </>
+            ) : emptyReason ? (
               <>
                 <p className="mt-3 flex-none rounded-xl border border-dashed border-[var(--m-line)] px-4 py-5 text-center text-sm text-[var(--m-slate-2)]">
                   {emptyReason}

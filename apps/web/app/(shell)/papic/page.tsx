@@ -40,10 +40,12 @@
  */
 
 import Link from 'next/link';
+import { RotateCcw } from 'lucide-react';
 import Image from 'next/image';
 import { studioDescription } from '@/lib/studio-apps';
 import { Reveal } from '@/app/_components/marketing/_motion';
-import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
+import { fetchV2CustomerCatalogRead } from '@/lib/v2-catalog';
+import { actionButtonClass } from '@/components/action-button-class';
 import {
   readPapicPassTiers,
   readPapicFreeGrantRead,
@@ -327,9 +329,9 @@ async function readSetupDiscountPct(): Promise<number> {
  * is dropped rather than shown at ₱0, and if nothing resolves the whole cost
  * section is omitted and the page renders without it.
  */
-async function resolvePapicAnchor(): Promise<PapicAnchor | null> {
-  const [catalog, poolTiers, freeGrant, setupPct] = await Promise.all([
-    fetchV2CustomerCatalog(),
+async function resolvePapicAnchor(): Promise<PapicAnchor | 'unread' | null> {
+  const [catalogRead, poolTiers, freeGrant, setupPct] = await Promise.all([
+    fetchV2CustomerCatalogRead(),
     readPapicPassTiers(),
     readPapicFreeGrantRead(),
     readSetupDiscountPct(),
@@ -340,6 +342,13 @@ async function resolvePapicAnchor(): Promise<PapicAnchor | null> {
   // `papicFreeCreditPoints` returns null for "switched off" and the copy falls
   // silent — see lib/papic-free-credit-promise.ts.
   const freeCredits = papicFreeCreditPoints(freeGrant) ?? 0;
+  /*
+    💸 A REFUSED PRICE READ IS NOT "NOTHING TO BUY" (final check A1-023). With the catalogue (or the rung table) unread,
+    every rung dropped and the dial showed only the free rung: "You pay nothing", + disabled, as if Papic had no price.
+    It now says it couldn't read the prices, with Try again, and never draws a dial it cannot price.
+  */
+  if (!catalogRead.ok || poolTiers.length === 0) return 'unread';
+  const catalog = catalogRead.rows;
   const priceOf = (code: string): number | null => {
     const row = catalog.find((c) => c.service_code === code);
     const php = row ? Number(row.retail_price_php) : NaN;
@@ -631,7 +640,18 @@ export default async function PapicLandingPage() {
       </section>
 
       {/* ── WHAT IT COSTS — sixteen rows become one dial. ─────────────────── */}
-      {anchor ? (
+      {anchor === 'unread' ? (
+        <section className="mx-auto mt-16 max-w-2xl" aria-label="What Papic costs" data-papic-prices-unread="">
+          <h2 className="font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">What it costs</h2>
+          <p className="mt-2 text-sm text-[var(--m-slate-2)]" role="status">
+            Couldn&rsquo;t read the Papic prices just now.
+          </p>
+          <Link href="/papic" className={actionButtonClass('neutral', { extra: 'mt-3' })}>
+            <RotateCcw aria-hidden className="h-4 w-4" />
+            Try again
+          </Link>
+        </section>
+      ) : anchor ? (
         <>
           <section className="mx-auto mt-16 max-w-2xl" aria-label="What Papic costs">
             <h2 className="font-serif text-2xl tracking-tight text-[var(--m-ink)] sm:text-3xl">

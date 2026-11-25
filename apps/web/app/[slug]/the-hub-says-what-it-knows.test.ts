@@ -10,6 +10,7 @@
  *   "Also coming" lists someone who does not count toward the event ............... A4-30
  *   /find-my-table draws its own entrance instead of the one reader ................ A4-33
  *   /find-seat's door says "Confirm your Booking" ................................. A4-35
+ *   a seat page reads event_tables itself instead of the one seat-plan reader ...... A4-34
  *   the alerts ask vanishes silently when the subscribe failed .................... A4-52 (half)
  */
 import test from 'node:test';
@@ -71,4 +72,13 @@ test('A4-52 · a failed alerts subscribe keeps the ask and says so', () => {
   assert.match(src, /\} catch \{\s*saved = false;\s*\}/);
   assert.match(src, /if \(saved\) setVisible\(false\);\s*else setFailed\(true\);/);
   assert.match(src, /Alerts didn’t turn on/);
+});
+
+test('A4-34 · the three seat pages read tables through lib/seating.ts fetchTables, never their own copy', () => {
+  for (const rel of ['app/[slug]/seat/page.tsx', 'app/[slug]/find-seat/page.tsx', 'app/[slug]/find-my-table/page.tsx']) {
+    const src = code(rel);
+    assert.doesNotMatch(src, /\.from\('event_tables'\)/, `${rel} reads event_tables itself`);
+    assert.doesNotMatch(src, /async function fetchTables\(/, `${rel} shadows the shared reader`);
+    assert.match(src, /fetchTables\(admin, (?:event\.event_id|eventId)\)/, `${rel} does not use the shared reader`);
+  }
 });

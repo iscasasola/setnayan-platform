@@ -146,7 +146,8 @@ export default async function EditorialPrintPage({
   // Load the SAME editorial data the on-screen editorial renders. A null is "not ready yet"; a THROW is a failed
   // read and reaches the guest boundary (🔌 A4-46) — never "This keepsake isn't ready to print yet", a claim about
   // the hosts.
-  let data: EditorialData | null = await loadEditorialData(event.event_id);
+  let data: EditorialData | null = null;
+  data = await loadEditorialData(event.event_id);
 
   /*
     (3) AUDIENCE GATE — the SAME question the on-screen story asks, because this

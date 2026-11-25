@@ -18,7 +18,8 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 
-const HERE = dirname(fileURLToPath(import.meta.url));
+const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
+const HERE = join(WEB, 'app/dashboard/[eventId]/website');
 const read = (rel: string) => stripComments(readFileSync(join(HERE, rel), 'utf8'));
 
 test('E-10 · Our story refuses to save when the stored story could not be read', () => {
@@ -45,4 +46,14 @@ test('E-11 · section visibility, mode and order count the rows they wrote', () 
 test('E-17 · Set the mood: no Save when both parts are locked; a zero-row write is a failure', () => {
   assert.match(read('site-chrome/page.tsx'), /musicGated && videoGated \? null :/);
   assert.match(read('site-chrome/actions.ts'), /if \(error \|\| \(hasWrite && !event\)\)/);
+});
+
+test('M-08 · the stories density read throws on a failed read, and Alaala turns that into "Couldn\'t read"', () => {
+  const lib = stripComments(readFileSync(join(WEB, 'lib/kwento-density.ts'), 'utf8'));
+  assert.match(lib, /const \{ data: counts, error: countsError \} = await admin/);
+  assert.match(lib, /if \(countsError\) throw new Error\(/);
+  assert.match(lib, /const \{ data: previews, error: previewsError \} = await admin/);
+  assert.match(lib, /if \(previewsError\) throw new Error\(/);
+  const page = read('../alaala/page.tsx');
+  assert.match(page, /getKwentoDensity\(eventId, 5\)\.catch\(\(\) => \{\s*densityFailed = true;/);
 });

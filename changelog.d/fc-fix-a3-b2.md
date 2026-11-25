@@ -11,8 +11,8 @@ From the final check of the staging copy (area 3, lane A: no screen change).
 - **N-04:** one song limit. Save the Date said 40 MB for the same `site-music` file the Maker and Set the mood take at 20 MB. Upload boxes no longer repeat the types and limit the box already prints, and "wedding-site" is gone.
 - **L-09 (copy part):** the live-studio "Copy" says when the clipboard is blocked.
 - **P-07:** Apple Pro with no App Store product shows the store's silent line instead of a button disabled forever.
-- **M-08 (Alaala part):** a failed stories read says "Couldn't read your guests' stories" instead of vanishing sections.
-- **Guard:** `app/dashboard/[eventId]/website/editor-saves-are-honest.test.ts` (seen red on the old E-10 line).
+- **M-08 (Alaala part):** a failed stories read says "Couldn't read your guests' stories" instead of vanishing sections; `lib/kwento-density.ts` now throws on either read error, so a failed read never draws "no stories yet".
+- **Guard:** `lib/editor-saves-are-honest.test.ts` (seen red on the old E-10 line).
 - **Server actions:** no new export. No migration. No price, plan or sign-in rule changed.
 
 SPEC IMPACT: None. Honest-state fixes on shipped pages; the song limit follows the two places that already said 20 MB.

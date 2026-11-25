@@ -1,4 +1,4 @@
-STATUS: phase B in progress (blocker A4-B01 flapping: down 07:00–07:14 and 07:19–07:34, up again 07:35 UTC)
+STATUS: phase B done (25 Nov 08:50 UTC) · pages 37 + 1 forward: 35 walked on the copy, 1 not reachable (/[slug]/cached/[key]: no key), K3 layers on the Hub not walked (A4-B01) · phase B findings 13: blocker 1 (A4-B01, OPEN) · money-signin 0 · broken 2 · wrong 7 · look 3 · phase A confirmed on the copy: A4-01, A4-42, A4-44, A4-73 · phase A struck: "set-password drops ?next" (it keeps it) · not reproduced: A4-06 (no seeded "Anyone, I approve" event) · latent behind flags off on the copy: A4-02, A4-64, A4-77, A4-78 (Papic guest buy) · buttons on walked pages ≈ 120 at 375 · pressed ≈ 100 · failed 9
 
 # Final check · Area 4 · Guest (Event Hub, pass, camera)
 
@@ -123,8 +123,16 @@ Each line: **sizes** 375 · 768 · 1280, light and dark asked of the browser · 
   - /[slug]/invite/enter — "You're on the list" · "We couldn't draw your ticket just now — your link below still works at the door" (honest, during the stall) yet "Save my ticket" is still offered as the main button (nothing to save) · buttons 5 · pressed 4 (Open the invitation, 2 more answers, the home-screen tip, Made with Setnayan) · Save my ticket not pressed
   - /[slug]/pabuya — flag ON · 125 s (375) / 4 s (1280) · A4-42 CONFIRMED ("PABUYA · THE PABUYA · DIGITAL MONEY DANCE") · A4-44 CONFIRMED ("Bea & Paolo haven't set up e-gifts yet" — cannot tell a failed read from none) · A4-B12 · buttons 3 · pressed 3
   - /[slug]/invite, /welcome, /avatar, /request, /print, /hub forward a signed-in guest to /[slug] (as phase A read); /recap forwards to /[slug]?story=later. Each forward landed; the Hub then failed (A4-B01).
-  - /[slug], ?tab=me, ?tab=program, /find-seat, /invite/reply: 500 every try (A4-B01). Not walked yet.
-- [ ] Offline (DevTools offline), the reveals, K3 layers on the Hub — WAITING on A4-B01
+- [x] 08:30–08:45, the copy steady for everything but the Hub (2 s pages; the Hub 0.85 s signed out at first):
+  - /[slug] — signed out: drawn 3/3 (3–11 s) · signed in as `messy_one`: drawn 3/3 · **signed in as the seat holder `guest`: error screen 3/3, then 3/5** (13–30 s), on the same address in the same minutes (A4-B01 hits the seat holder's own Hub hardest). Drawn as `guest`: buttons 14 (Close, the day ↓, You're coming ✓, Switch account, RSVP, map ×2, Get directions, Account, Share, Report, …) · pressed 6 (links checked by destination) · light only (couple's theme) at 375 and 1280 · A4-B13
+  - /[slug]?tab=me — drawn once at 1280 (buttons 15, one under 44 px) · the ticket card fails for an account holder (A4-B11) · Save my ticket / Copy link not pressed
+  - /[slug]/find-seat — "SIGNED IN · ANDRES · Your seat shows on the day · The room is still being arranged" · buttons 3 · pressed 3 · 1.8–2.3 s
+  - /[slug]/invite/reply — "The couple has you down as attending · Two more things" · buttons 19 (Switch, meal dropdown with 7 options, mobile, consent, Terms, Privacy, Send, Not coming after all?, Made with Setnayan) · pressed 4 (Terms, Privacy, the dropdown opened, Made with) · Send and "Not coming after all?" NOT pressed: they change a seeded reply that area 2's counts read
+  - /stg-carla-miguel (not on its list): "You're not on the guest list for this event yet" (honest) · /stg-mika-turns-7 after the event: "This birthday's story isn't available yet … Claim your photos" · buttons 6 · pressed 4
+  - /[slug]/cached/[key] — not walked: needs a saved-copy key the copy does not hand out
+- [x] Offline (Playwright offline, 375, signed out, after opening each with signal): ONE service worker, `/sw.js` at scope `/` (A4-02 stays latent) · kept: `?tab=program`, `/find-my-table` · NOT kept though opened: `/find-seat`, `/seat` → the browser's own "no internet" page (A4-01 CONFIRMED: offline.html promises "pages … you've already opened are still available") · `?tab=me` signed out → the browser's error page, not offline.html · the bare `/<slug>` that answered 500 online → offline.html (right) · back online: the Hub drew the error screen again (A4-B01)
+- [x] Reveal (Add 8, guest side): /stg-carla-miguel "Tap or swipe up to unveil", a curtain with the C & M seal, petals fall, fills the screen at 768 and 1280 with no gaps · after a tap on the seal the curtain was still lifting at 17 s in this headless browser (CPU-bound; not counted) · with reduced motion the unveil line is skipped and the page shows at once (right) · at 375 the Hub 500'd (A4-B01)
+- [ ] K3 layers on the Hub (selfie ⓘ, Relive, My QR, door pass, My shots): not walked; the seat holder's Hub failed more often than it drew
 
 ## Offline today: what ships for guests (read once, applies to every page below)
 
@@ -302,7 +310,7 @@ PAGE      /[slug]/find-my-table and /[slug]/seat   (stg-bea-paolo, signed in as 
 BUTTON    none (opening the page)
 STEPS     1. Sign in as `guest` (their home shows "YOU'RE INVITED · Bea & Paolo · Event Hub", so the account holds a seat). 2. Open /stg-bea-paolo/find-my-table, then /stg-bea-paolo/seat.
 EXPECTED  The signed-in seat holder sees their own table / pass, the same as the Hub's ?tab=me copy treats "the seat's own account" (phase A, offline section).
-ACTUAL    Both say "Open this from your invitation — … Open your invitation link (or scan your QR)…" with "The invitation" as the only way on. /find-my-table reads only the invite-link cookie: `const session = await readGuestSession(); if (!session || session.event_id !== event.event_id)` → `PromptCard`; the account is never asked. A guest who signed in (the claim/join path this sign-in exists for) is sent to hunt for a link. The same wall on /papic/guest and /papic/decorate for the same signed-in seat holder: "Open your invitation first. Scan your personal QR or open your invite link…". Answer times 23 s and 80–116 s (A4-B01).
+ACTUAL    Both say "Open this from your invitation — … Open your invitation link (or scan your QR)…" with "The invitation" as the only way on. /find-my-table reads only the invite-link cookie: `const session = await readGuestSession(); if (!session || session.event_id !== event.event_id)` → `PromptCard`; the account is never asked. A guest who signed in (the claim/join path this sign-in exists for) is sent to hunt for a link. On the Hub itself (08:33, ?tab=me) the same account is greeted "You're coming ✓ · Not Andres? Switch account" and shown its QR, but the ticket card says "We couldn't draw your ticket just now — this code still works at the door": `/api/guest/pass-card` and `/api/guest/qr` both answer 401 "Open your invitation link first." (`readGuestSession()` only), so "just now" is never true for an account holder. Yet /[slug]/find-seat reads the account ("SIGNED IN · ANDRES"): three seat pages, two rules. The same wall on /papic/guest and /papic/decorate for the same signed-in seat holder: "Open your invitation first. Scan your personal QR or open your invite link…". Answer times 23 s and 80–116 s (A4-B01).
 SHOTS     375 px light (both)
 RULE      Add 5 (never ask again for what Setnayan already knows) · Add 2 EFFECTIVE
 SEVERITY  wrong
@@ -318,6 +326,19 @@ EXPECTED  The only 0% line allowed anywhere is the exact sentence "Hosts pay 0% 
 ACTUAL    "Setnayan never touches your money. We only show you where to send it — it goes directly to the couple's own account. No commission, no middleman, no fees." Anchor: `apps/web/app/_components/pabuya/pabuya-card-list.tsx` "No commission, no middleman". Also says "the couple" on every event type (A4-08 pattern).
 SHOTS     375 px light
 RULE      brand.md claims never made, rule 2
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+```
+ID        A4-B13
+PAGE      /[slug]   (stg-bea-paolo, ?tab=program or the bare page, signed in as `guest`)
+BUTTON    none
+STEPS     1. Open /stg-bea-paolo with the phone's clock set to a zone outside Manila (a relative abroad; checked with UTC). 2. Read the card's time, then THE PROGRAM below it.
+EXPECTED  One clock per screen, or each time labelled with its zone.
+ACTUAL    The card says "CEREMONY 1:30 PM" (venue time, no zone named) while THE PROGRAM right below says "Times shown in your time … 5:30 AM – 7:30 AM Ceremony". The same ceremony is told at two times on one screen. In Asia/Manila both read 1:30 PM. "ARRIVE BY 7:00 AM" on ?tab=me is also unlabelled.
+SHOTS     375 px light (UTC clock)
+RULE      honest states / one fact, one reader (design-and-wiring § C)
 SEVERITY  wrong
 SOURCE    SEEN
 ```
@@ -1534,7 +1555,7 @@ Taps from the wall to "payment logged": not measurable on the copy (the guest bu
 - DARK: `/live`, `/live/screen`, `/wall` draw their own dark always (a venue screen) · every other page in the area is signed-out and **light only** (19 pages counted, not reported) · the guest Event Hub wears the couple's theme in both settings (by design, DARK_MODE_STANDARD §1).
 - Home shots: `shots/area-4/home-{375,768,1280}-{light,dark}.png` — the Event Hub /stg-bea-paolo at 06:45 UTC; light and dark are the same picture (the couple's theme).
 
-**Add 8 · Reveals.** Area 3 owns the list and the Maker. On the guest side: /stg-carla-miguel opened with "Tap or swipe up to unveil" at 06:45 (one reveal, the couple's choice). Playing every reveal at 3 sizes waits on A4-B01.
+**Add 8 · Reveals.** Area 3 owns the list and the Maker. Guest side, the one reveal seeded (stg-carla-miguel, a curtain with the seal): fills the screen at 768 and 1280, no gaps, reduced motion skips it (right). The 375 view 500'd (A4-B01). The other nine reveals are not seeded on any Hub area 4 can open.
 
 **Add 9.** Not area 4.
 
@@ -1553,7 +1574,7 @@ Guest:
 
 Event Hub (host side seen by guests): covered by the five.
 
-Offline tried on the copy: waits on A4-B01 (the Hub must load once with signal before a copy exists). Pages that need no Hub were checked in phase A from `sw.js`: none of `/papic/*`, `/join/*`, `/claim/*`, `/live*`, `/wall/*` is kept; with no signal the browser shows its own error page.
+Offline tried on the copy (08:40, see Phase B progress): `?tab=program` and `/find-my-table` kept; `/find-seat` and `/seat` not kept (A4-01 confirmed); one worker; the offline bar's words could not be read (the browser's own page replaces ours on the unkept pages). Pages that need no Hub were checked in phase A from `sw.js`: none of `/papic/*`, `/join/*`, `/claim/*`, `/live*`, `/wall/*` is kept; with no signal the browser shows its own error page.
 
 **Add 10b.** Areas 5–7. Not area 4. One guest-side note: a supplier's crew QR (`/join/crew/<token>`) that was replaced shows a page with no button (A4-B02).
 

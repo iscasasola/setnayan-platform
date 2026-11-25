@@ -55,6 +55,7 @@ import { notifyWaitlistIfBookingReleased } from '@/lib/vendor-waitlist';
 import { CONFIRMED_VENDOR_STATUSES, recomputeReceptionAnchor } from '@/lib/events';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
+import { couplesWordsForBookingRefusal } from '@/lib/closed-day';
 import { orderIsTooSoon, orderTooSoonMessage } from '@/lib/availability-styles';
 import { bookingWindowRefusal } from '@/lib/booking-window.server';
 import { phTodayIso } from '@/lib/vendor-day-picker';
@@ -467,7 +468,7 @@ async function updateVendorStatus(formData: FormData) {
     if (!wasConsuming && willConsume) {
       await releaseSchedulePools(supabase, vendorId, 'status_downgrade');
     }
-    throw new Error(error.message);
+    throw new Error(couplesWordsForBookingRefusal(error.message));
   }
 
   // BOOKED → white downgrade frees the date (status-flip, never DELETE).
@@ -2149,7 +2150,7 @@ export async function finalizeVendor(
         error_message: lockErr.message,
         payload_snapshot: { eventId, vendorId, targetCategory, overrideExisting },
       });
-      return { status: 'error', message: lockErr.message };
+      return { status: 'error', message: couplesWordsForBookingRefusal(lockErr.message) };
     }
 
     /**

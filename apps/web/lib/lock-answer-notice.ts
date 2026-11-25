@@ -203,6 +203,13 @@ const AGREE: Record<string, (ctx: LockAnswerContext) => LockAnswerNotice> = {
     text: 'You closed this date on your calendar, so this booking cannot be taken. Open the date again in Dates if you can take it, or turn this one down so the couple can look elsewhere.',
     door: { label: 'Dates', href: '/vendor-dashboard/customers?seg=dates' },
   }),
+  // 📶 EXPO MODE (owner 2026-11-24, team-clash rule 1 — "only the holder can book them"): a teammate holds this day, so
+  // the database refused the yes (`event_vendors_respect_offline_holds`). Nothing was booked; the ask stays open.
+  date_held: () => ({
+    tone: 'refused',
+    text: 'A teammate is holding this date for expo mode, so only they can take this booking until they let it go. Nothing was booked — the couple’s ask stays open.',
+    door: { label: 'Dates', href: '/vendor-dashboard/customers?seg=dates' },
+  }),
   // 📊 RENTED BY THE PIECE (Availability plan step 4, owner ruling 2): the supplier says how many pieces at the yes.
   pieces_needed: () => ({
     tone: 'refused',

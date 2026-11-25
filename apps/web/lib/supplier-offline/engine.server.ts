@@ -750,7 +750,7 @@ async function stopDevice(fd: FormData): Promise<SupplierOfflineReply> {
 /** Who may hold dates (controller under the 20 Nov delegation, DECISION_LOG 24 Nov): any role that can book. */
 export const HOLD_DUTIES: ReadonlyArray<VendorDuty> = BOOKING_DUTIES;
 
-async function holdOp(op: 'holds.claim' | 'holds.release' | 'holds.synced', fd: FormData): Promise<SupplierOfflineReply> {
+async function holdOp(op: 'holds.claim' | 'holds.release', fd: FormData): Promise<SupplierOfflineReply> {
   const ctx = await contextFor(str(fd, 'shop'), 'schedule');
   if ('why' in ctx) return refusal(op, ctx.why, ctx.retry);
   const p: Record<string, unknown> = { vendor_profile_id: ctx.shop, member_user_id: ctx.userId };
@@ -773,7 +773,7 @@ async function holdOp(op: 'holds.claim' | 'holds.release' | 'holds.synced', fd: 
     const holder = (h as { member_user_id: string } | null)?.member_user_id ?? null;
     const anyone = holder !== null && holder !== ctx.userId && (await mayStopFor(ctx, holder)) === true;
     Object.assign(p, { op: 'release', hold_id: holdId, may_release_any: anyone });
-  } else p.op = 'synced';
+  }
   const { data, error } = await ctx.admin.rpc('supplier_offline_hold', { p });
   if (error) {
     console.error('[supabase-error] supplier-offline: supplier_offline_hold', error.message);
@@ -904,7 +904,6 @@ export async function supplierOffline(fd: FormData): Promise<SupplierOfflineRepl
       return reply(await seenDevice(fd));
     case 'holds.claim':
     case 'holds.release':
-    case 'holds.synced':
       return reply(await holdOp(op, fd));
     default:
       return reply(await readTeam(fd));

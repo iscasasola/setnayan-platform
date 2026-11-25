@@ -400,6 +400,7 @@ export const SQL_INVALID: Readonly<Record<string, string>> = {
   day_part: 'Pick a part of the day.',
   base_version: 'This change doesn’t say which version it was made on. Open the item and make it again.',
   hold_cap: 'You hold 5 date ranges already — let one go first.',
+  branch_only: 'You can hold only your own branch’s dates — pick one of your branch’s schedules.',
   source: 'A booking made through Setnayan can’t be changed here.',
   day_state: 'That day setting can’t be saved.',
   code: 'That QR code isn’t one of this shop’s.',

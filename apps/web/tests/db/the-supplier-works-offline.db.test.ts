@@ -7,13 +7,18 @@
  *   2 · FIRST SAVE WINS — on a full day the second phone's outside client is a clash naming the first member; a retry
  *       of the first item is answered from the ledger and writes nothing twice.
  *   3 · EXPO MODE — a member's held dates refuse another member's offline write AND their online insert; the holder
- *       writes; released on sync, the others write again.
+ *       writes; let go by hand, the others write again (a reconnect never ends a hold — there is no such op).
  *   4 · ONE CODE, ONE ENTRY (no stock — DECISION_LOG 7d618cb3) — client first or supplier first, one code id makes one
  *       schedule row; the same code id twice gives one entry; a code from a STOPPED phone makes nothing; a phone of
  *       another shop cannot sign for this shop; a payload edited after signing is refused by the phone's public key as
  *       the database keeps it; a clash gives the code id back.
  *   5 · DAY STATES are versioned the same way (base 0 = the phone saw none).
  *   6 · RLS — no session reads a phone's key row, writes a hold or a code use, or calls a door; another shop reads none.
+ *   7 · EVERY BOOKING WRITE RESPECTS A HOLD (review #2 item 14) — the moment a row becomes booked: a couple's own yes,
+ *       a teammate's, a write naming nobody, an insert straight into booked — all refused on a held day; the holder
+ *       books; moving a booked row along, another schedule, another day, a month-only date and a let-go hold pass.
+ *   8 · A BRANCH OR ACCOUNT MANAGER HOLDS ONLY THEIR OWN BRANCH'S DATES — never the whole shop, never a schedule with a
+ *       card at another branch; a Shop Manager holds anything.
  *
  * Sabotage (2026-11-24): dropping `AND h.member_user_id IS DISTINCT FROM p_member_user_id` from
  * supplier_offline_hold_in_the_way turns test 3 red (the holder is refused by their own hold); dropping
@@ -184,7 +189,7 @@ test('2 · first save wins on a full day, and a retry writes nothing twice', asy
   );
 });
 
-test('3 · expo mode: held dates refuse the others, offline and online; released on sync', async () => {
+test('3 · expo mode: held dates refuse the others, offline and online; let go by hand', async () => {
   const pool = await poolOf(shop, 5);
   const d1 = await day(40);
   const d3 = await day(42);
@@ -225,7 +230,9 @@ test('3 · expo mode: held dates refuse the others, offline and online; released
   const anaOwn = await write({ op: 'add_client', vendor_profile_id: shop, member_user_id: ana, item_id: uuid(), pool_id: pool, start_date: d2, client_name: 'Ana’s' });
   assert.equal(anaOwn.status, 'applied', 'the holder was refused by their own hold');
 
-  const released = await hold({ op: 'synced', vendor_profile_id: shop, member_user_id: ana });
+  const synced = await hold({ op: 'synced', vendor_profile_id: shop, member_user_id: ana });
+  assert.equal(synced.status, 'invalid', 'a reconnect ended a hold (there is no release-on-sync)');
+  const released = await hold({ op: 'release', vendor_profile_id: shop, member_user_id: ana, hold_id: claim.hold_id });
   assert.equal(released.released, 1);
   const benAfter = await write({ op: 'add_client', vendor_profile_id: shop, member_user_id: ben, item_id: uuid(), pool_id: pool, start_date: d2, client_name: 'Ben’s' });
   assert.equal(benAfter.status, 'applied', 'a released hold still refuses');
@@ -372,4 +379,146 @@ test('6 · RLS: no session reads a phone’s key row, writes a hold or a code us
     await setAuthUid(db, null);
   }
 
+});
+
+/** A verified, bookable shop of its own (the booked-status triggers refuse an unverified one). */
+async function bookableShop(label: string): Promise<{ owner: string; vpid: string }> {
+  const u = await newUser(`${label}@example.com`, 'vendor');
+  const vpid = await shopOf(u, label);
+  await db.query(
+    `UPDATE public.vendor_profiles
+        SET verification_state = 'verified'::public.vendor_verification_state, last_verified_at = NOW(),
+            public_visibility = 'verified'::public.vendor_public_visibility
+      WHERE vendor_profile_id = $1`,
+    [vpid],
+  );
+  return { owner: u, vpid };
+}
+
+async function cardOn(vpid: string, pool: string): Promise<string> {
+  const card = await one<string>(
+    `INSERT INTO public.vendor_services (vendor_profile_id, category, starting_price_php, exclusive_perk_text, is_active, primary_photo_r2_key)
+     VALUES ($1, 'photo_booth', 40000, 'Free extra hour', FALSE, 'vendor-media/per-date/cover.jpg') RETURNING vendor_service_id AS v`,
+    [vpid],
+  );
+  await db.query(`INSERT INTO public.vendor_schedule_calendar_services (vendor_service_id, pool_id, vendor_profile_id) VALUES ($1, $2, $3)`, [card, pool, vpid]);
+  return card;
+}
+
+async function eventOn(date: string, precision: 'day' | 'month', couple: string): Promise<string> {
+  const ev = await one<string>(
+    `INSERT INTO public.events (display_name, event_type, event_date, event_date_precision)
+     VALUES ('Expo client', 'birthday', $1::date, $2) RETURNING event_id AS v`,
+    [date, precision],
+  );
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1, $2, 'couple')`, [ev, couple]);
+  return ev;
+}
+
+async function asking(ev: string, vpid: string, card: string): Promise<string> {
+  return one<string>(
+    `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id, service_id)
+     VALUES ($1, 'misc', 'Expo Studio', 'considering', $2, $3) RETURNING vendor_id AS v`,
+    [ev, vpid, card],
+  );
+}
+
+/** Book the row as `who` (null = a write that names nobody, the service role): 'ok', or the refusal's message. */
+async function bookAs(who: string | null, row: string, status = 'contracted'): Promise<string> {
+  await setAuthUid(db, who);
+  try {
+    await db.query(`UPDATE public.event_vendors SET status = $2::public.vendor_status WHERE vendor_id = $1`, [row, status]);
+    return 'ok';
+  } catch (e) {
+    return e instanceof Error ? e.message : String(e);
+  } finally {
+    await setAuthUid(db, null);
+  }
+}
+
+test('7 · every booking write respects a hold: only the holder books a held day', async () => {
+  const s = await bookableShop('expo-book-shop');
+  const poolA = await poolOf(s.vpid, 5);
+  const poolB = await poolOf(s.vpid, 5);
+  const cardA = await cardOn(s.vpid, poolA);
+  const cardB = await cardOn(s.vpid, poolB);
+  const couple = await newUser('expo-couple@example.com', 'customer');
+  const held = await day(50);
+  const free = await day(53);
+  const h = await hold({ op: 'claim', vendor_profile_id: s.vpid, member_user_id: ana, pool_id: poolA, start_date: held, end_date: held });
+  assert.equal(h.status, 'applied');
+
+  // one marketplace pick per event: every booking below is its own event
+  const ask = async (date: string, card: string, precision: 'day' | 'month' = 'day') => asking(await eventOn(date, precision, couple), s.vpid, card);
+  assert.match(await bookAs(couple, await ask(held, cardA)), /date_held/, 'a couple booked a held day');
+  assert.match(await bookAs(ben, await ask(held, cardA)), /date_held/, 'a teammate booked another’s held day');
+  assert.match(await bookAs(null, await ask(held, cardA)), /date_held/, 'a write naming nobody booked a held day');
+
+  // straight into booked, as an insert (a couple's own lock of a package cascades rows like this)
+  await setAuthUid(db, couple);
+  await assert.rejects(
+    db.query(
+      `INSERT INTO public.event_vendors (event_id, category, vendor_name, status, marketplace_vendor_id, service_id)
+       VALUES ($1, 'misc', 'Expo Studio', 'contracted', $2, $3)`,
+      [await eventOn(held, 'day', couple), s.vpid, cardA],
+    ),
+    /date_held/,
+    'an insert straight into booked took a held day',
+  );
+  await setAuthUid(db, null);
+
+  const anas = await ask(held, cardA);
+  assert.equal(await bookAs(ana, anas), 'ok', 'the holder was refused their own held day');
+  assert.equal(await bookAs(couple, anas, 'deposit_paid'), 'ok', 'moving a booked row along was refused');
+
+  assert.equal(await bookAs(couple, await ask(held, cardB)), 'ok', 'a card on another schedule was refused');
+  assert.equal(await bookAs(couple, await ask(free, cardA)), 'ok', 'a day nobody holds was refused');
+  assert.equal(await bookAs(couple, await ask(held, cardA, 'month')), 'ok', 'a month-only date was refused');
+
+  // a shop-wide hold covers every schedule
+  const wide = await hold({ op: 'claim', vendor_profile_id: s.vpid, member_user_id: ana, pool_id: null, start_date: free, end_date: free });
+  assert.equal(wide.status, 'applied');
+  assert.match(await bookAs(couple, await ask(free, cardB)), /date_held/, 'a shop-wide hold let a booking through');
+
+  const gone = await hold({ op: 'release', vendor_profile_id: s.vpid, member_user_id: ana, hold_id: h.hold_id });
+  assert.equal(gone.released, 1);
+  assert.equal(await bookAs(couple, await ask(held, cardA)), 'ok', 'a let-go hold still refused');
+});
+
+test('8 · a Branch or Account Manager holds only their own branch’s dates', async () => {
+  const s = await bookableShop('expo-branch-shop');
+  // a branch carries its shop's registration number (`vendor_branches_carry_shop_registration`)
+  await db.query(`UPDATE public.vendor_profiles SET registration_number_raw = 'dti-3000-0777' WHERE vendor_profile_id = $1`, [s.vpid]);
+  const cebu = await one<string>(
+    `INSERT INTO public.vendor_branches (parent_vendor_profile_id, branch_label, branch_city, branch_radius_km)
+     VALUES ($1, 'Cebu', 'Cebu City', 30) RETURNING branch_id AS v`,
+    [s.vpid],
+  );
+  const cebuPool = await poolOf(s.vpid, 3);
+  const mainPool = await poolOf(s.vpid, 3);
+  const mixedPool = await poolOf(s.vpid, 3);
+  const emptyPool = await poolOf(s.vpid, 3);
+  const cebuCard = await cardOn(s.vpid, cebuPool);
+  await db.query(`UPDATE public.vendor_services SET branch_id = $2 WHERE vendor_service_id = $1`, [cebuCard, cebu]);
+  await cardOn(s.vpid, mainPool);
+  const mixedCebu = await cardOn(s.vpid, mixedPool);
+  await db.query(`UPDATE public.vendor_services SET branch_id = $2 WHERE vendor_service_id = $1`, [mixedCebu, cebu]);
+  await cardOn(s.vpid, mixedPool); // …and a main-location card on the same schedule
+  const cruz = await newUser('expo-branch-manager@example.com', 'vendor');
+  const lim = await newUser('expo-account-manager@example.com', 'vendor');
+  const sy = await newUser('expo-shop-manager@example.com', 'vendor');
+  await db.query(`INSERT INTO public.vendor_team_members (vendor_profile_id, user_id, role, duty, branch_id) VALUES ($1, $2, 'agent', 'branch_manager', $3)`, [s.vpid, cruz, cebu]);
+  await db.query(`INSERT INTO public.vendor_team_members (vendor_profile_id, user_id, role, duty, branch_id) VALUES ($1, $2, 'agent', 'account_manager', NULL)`, [s.vpid, lim]);
+  await db.query(`INSERT INTO public.vendor_team_members (vendor_profile_id, user_id, role, duty) VALUES ($1, $2, 'admin', 'shop_manager')`, [s.vpid, sy]);
+  const d = await day(60);
+  const claim = (member: string, pool: string | null) => hold({ op: 'claim', vendor_profile_id: s.vpid, member_user_id: member, pool_id: pool, start_date: d, end_date: d });
+
+  assert.equal((await claim(cruz, null)).reason, 'branch_only', 'a Branch Manager held the whole shop');
+  assert.equal((await claim(cruz, mainPool)).reason, 'branch_only', 'a Cebu Branch Manager held the main location’s schedule');
+  assert.equal((await claim(cruz, mixedPool)).reason, 'branch_only', 'a schedule with a card at another branch was held');
+  assert.equal((await claim(cruz, emptyPool)).reason, 'branch_only', 'a schedule with no card proves no branch');
+  assert.equal((await claim(cruz, cebuPool)).status, 'applied', 'a Branch Manager could not hold their own branch’s schedule');
+  assert.equal((await claim(lim, cebuPool)).reason, 'branch_only', 'a main-location Account Manager held Cebu’s schedule');
+  assert.equal((await claim(lim, mainPool)).status, 'applied', 'an Account Manager could not hold their own branch’s schedule');
+  assert.equal((await claim(sy, emptyPool)).status, 'applied', 'a Shop Manager could not hold a schedule');
 });

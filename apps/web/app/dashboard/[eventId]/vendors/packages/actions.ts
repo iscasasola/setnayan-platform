@@ -8,6 +8,7 @@ import { createAdminClient, createMoneyWriterClient } from '@/lib/supabase/admin
 import { openTheCoordinatorsSeatForBooking } from '@/lib/coordinator-grant';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
+import { couplesWordsForBookingRefusal } from '@/lib/closed-day';
 import { bookingWindowRefusal } from '@/lib/booking-window.server';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { resolveLivePax } from '@/lib/pax';
@@ -612,7 +613,7 @@ export async function lockPackage(
         .from('event_vendor_packages')
         .delete()
         .eq('booking_id', bookingId);
-      return { status: 'error', message: cascadeErr.message };
+      return { status: 'error', message: couplesWordsForBookingRefusal(cascadeErr.message) };
     }
 
     // The ANCHOR is the primary, by construction — it is the row carrying the

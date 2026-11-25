@@ -17,8 +17,6 @@ export const SUPPLIER_OFFLINE_OPS = [
   'holds.claim',
   /** expo mode: let a hold go (the holder, or someone who manages the team) */
   'holds.release',
-  /** expo mode: the queue is empty again — this member's holds end */
-  'holds.synced',
   /** what online teammates see (Settings › Offline): holds, last seen, the team's phones */
   'team.read',
 ] as const;
@@ -48,8 +46,8 @@ export type SupplierOfflineReply =
   | ({ op: 'device.seen' } & OpRefusal)
   | { op: 'holds.claim'; ok: true; holdId: string }
   | { op: 'holds.claim'; ok: false; why: string; retry: boolean; clash?: Clash }
-  | { op: 'holds.release' | 'holds.synced'; ok: true; released: number }
-  | ({ op: 'holds.release' | 'holds.synced' } & OpRefusal)
+  | { op: 'holds.release'; ok: true; released: number }
+  | ({ op: 'holds.release' } & OpRefusal)
   | { op: 'team.read'; ok: true; holds: TeamHold[]; seen: TeamSeen[]; devices: TeamDevice[]; readAt: string }
   | ({ op: 'team.read' } & OpRefusal);
 

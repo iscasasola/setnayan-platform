@@ -239,7 +239,8 @@ CREATE TABLE IF NOT EXISTS public.vendor_offline_holds (
   released_at       TIMESTAMPTZ,
   release_reason    TEXT
                       CONSTRAINT vendor_offline_holds_release_allowed
-                      CHECK (release_reason IS NULL OR release_reason IN ('synced', 'released')),
+                      -- one way to end a hold early: someone lets it go (a reconnect never does — review #2 item 14)
+                      CHECK (release_reason IS NULL OR release_reason IN ('released')),
   released_by       UUID,
   CONSTRAINT vendor_offline_holds_range
     CHECK (end_date >= start_date AND end_date - start_date <= 31),
@@ -372,6 +373,76 @@ DROP TRIGGER IF EXISTS vendor_calendar_day_states_respect_holds ON public.vendor
 CREATE TRIGGER vendor_calendar_day_states_respect_holds
   BEFORE INSERT OR UPDATE ON public.vendor_calendar_day_states
   FOR EACH ROW EXECUTE FUNCTION public.vendor_calendar_day_states_respect_holds();
+
+-- ── 4b · EVERY booking write respects a hold (review #2 item 14) ─────────────
+-- "Only the holder can book them." Every way a booking lands — a couple's own yes (a lock, a package, the wizard, a
+-- status they mark), the supplier's yes to an ask (`vendor_agree_to_lock`), a Locked-QR claim — ends in ONE fact: the
+-- row's status moves INTO the booked set (`booked_event_vendor_statuses()`, the SQL twin of
+-- `BOOKED_EVENT_VENDOR_STATUSES`). So the hold is asked there, once, and no door can be missed: on a day-precise event,
+-- a live hold of anyone but the writer on that day (the shop-wide one, or one on a schedule the card uses) refuses it.
+-- The writer is the session (`auth.uid()`): the holder booking their own client passes; a couple, a teammate, or a
+-- write that names nobody (the service role) does not. Moving a row that is ALREADY booked along is not a booking.
+-- The couple is never told who or why (`date_held` reads as the closed-day sentence on their side); the supplier
+-- reads "Held by a teammate for expo mode".
+CREATE OR REPLACE FUNCTION public.event_vendors_respect_offline_holds()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_shop      UUID := COALESCE(NEW.marketplace_vendor_id, NEW.linked_vendor_profile_id);
+  v_day       DATE;
+  v_precision TEXT;
+  v_pools     UUID[];
+  v_hold      RECORD;
+BEGIN
+  IF v_shop IS NULL OR NOT (NEW.status::text = ANY (public.booked_event_vendor_statuses())) THEN
+    RETURN NEW;
+  END IF;
+  IF TG_OP = 'UPDATE' AND OLD.status::text = ANY (public.booked_event_vendor_statuses()) THEN
+    RETURN NEW;
+  END IF;
+  -- Nothing held at this shop (almost always): one probe of the live-holds index.
+  IF NOT EXISTS (
+    SELECT 1 FROM public.vendor_offline_holds h
+     WHERE h.vendor_profile_id = v_shop AND h.released_at IS NULL
+       AND h.end_date >= (NOW() AT TIME ZONE 'Asia/Manila')::date
+  ) THEN
+    RETURN NEW;
+  END IF;
+  SELECT e.event_date, e.event_date_precision INTO v_day, v_precision
+    FROM public.events e WHERE e.event_id = NEW.event_id;
+  IF v_day IS NULL OR v_precision IS DISTINCT FROM 'day' THEN
+    RETURN NEW;
+  END IF;
+  SELECT array_agg(cs.pool_id) INTO v_pools
+    FROM public.vendor_schedule_calendar_services cs
+   WHERE NEW.service_id IS NOT NULL AND cs.vendor_service_id = NEW.service_id;
+  IF v_pools IS NULL THEN
+    -- no card, or a card on no schedule: any hold on that day is in the way
+    SELECT * INTO v_hold FROM public.supplier_offline_hold_in_the_way(v_shop, auth.uid(), NULL, v_day, v_day);
+  ELSE
+    SELECT w.* INTO v_hold
+      FROM unnest(v_pools) AS p(pool_id),
+           LATERAL public.supplier_offline_hold_in_the_way(v_shop, auth.uid(), p.pool_id, v_day, v_day) AS w
+     LIMIT 1;
+  END IF;
+  IF FOUND THEN
+    RAISE EXCEPTION 'date_held'
+      USING ERRCODE = 'P0001',
+            DETAIL = format('held by %s since %s (%s to %s)', v_hold.member_user_id, v_hold.created_at,
+                            v_hold.start_date, v_hold.end_date);
+  END IF;
+  RETURN NEW;
+END;
+$$;
+REVOKE ALL ON FUNCTION public.event_vendors_respect_offline_holds() FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS event_vendors_respect_offline_holds ON public.event_vendors;
+CREATE TRIGGER event_vendors_respect_offline_holds
+  BEFORE INSERT OR UPDATE OF status ON public.event_vendors
+  FOR EACH ROW EXECUTE FUNCTION public.event_vendors_respect_offline_holds();
 
 -- ── 4b · a member who leaves the team: their phones stop signing QR codes ──
 CREATE OR REPLACE FUNCTION public.vendor_offline_devices_stop_on_leave()
@@ -805,9 +876,13 @@ $$;
 REVOKE ALL ON FUNCTION public.supplier_offline_schedule_write(JSONB) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.supplier_offline_schedule_write(JSONB) TO service_role;
 
--- ── 7b · expo mode: claim · release · release on sync ────────────────────────
--- p: { op: claim | release | synced, vendor_profile_id, member_user_id,
+-- ── 7b · expo mode: claim · release ─────────────────────────────────────────
+-- p: { op: claim | release, vendor_profile_id, member_user_id,
 --      pool_id?, start_date?, end_date?, hold_id?, may_release_any? }
+-- A hold ends at its end date, or when someone lets it go — never because a phone reconnected (review #2 item 14), so
+-- there is no "release on sync". A Branch or Account Manager holds only their own branch's dates (DECISION_LOG 24 Nov,
+-- drawing question 3): one schedule (never the whole shop), every card on it at their branch — a schedule carries no
+-- branch of its own, its cards do (`vendor_services.branch_id`, NULL = the main location, as for the person).
 CREATE OR REPLACE FUNCTION public.supplier_offline_hold(p JSONB)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -824,8 +899,10 @@ DECLARE
   v_hold   RECORD;
   v_id     UUID;
   v_n      INTEGER;
+  v_duty   TEXT;
+  v_branch UUID;
 BEGIN
-  IF v_shop IS NULL OR v_member IS NULL OR v_op NOT IN ('claim', 'release', 'synced') THEN
+  IF v_shop IS NULL OR v_member IS NULL OR v_op NOT IN ('claim', 'release') THEN
     RETURN jsonb_build_object('status', 'invalid', 'reason', 'shape');
   END IF;
   PERFORM pg_advisory_xact_lock(hashtextextended('setnayan.shop-day-counts:' || v_shop::text, 0));
@@ -839,6 +916,20 @@ BEGIN
       SELECT 1 FROM public.vendor_schedule_pools sp WHERE sp.pool_id = v_pool AND sp.vendor_profile_id = v_shop
     ) THEN
       RETURN jsonb_build_object('status', 'invalid', 'reason', 'pool');
+    END IF;
+    SELECT tm.duty, tm.branch_id INTO v_duty, v_branch
+      FROM public.vendor_team_members tm
+     WHERE tm.vendor_profile_id = v_shop AND tm.user_id = v_member AND tm.deactivated_at IS NULL;
+    IF v_duty IN ('branch_manager', 'account_manager') AND (
+         v_pool IS NULL
+         OR NOT EXISTS (SELECT 1 FROM public.vendor_schedule_calendar_services cs WHERE cs.pool_id = v_pool)
+         OR EXISTS (
+           SELECT 1 FROM public.vendor_schedule_calendar_services cs
+             JOIN public.vendor_services vs ON vs.vendor_service_id = cs.vendor_service_id
+            WHERE cs.pool_id = v_pool AND vs.branch_id IS DISTINCT FROM v_branch
+         )
+       ) THEN
+      RETURN jsonb_build_object('status', 'invalid', 'reason', 'branch_only');
     END IF;
     SELECT * INTO v_hold FROM public.supplier_offline_hold_in_the_way(v_shop, v_member, v_pool, v_start, v_end);
     IF FOUND THEN
@@ -866,12 +957,6 @@ BEGIN
     IF v_n = 0 THEN
       RETURN jsonb_build_object('status', 'refused', 'reason', 'not_yours_or_gone');
     END IF;
-    RETURN jsonb_build_object('status', 'applied', 'released', v_n);
-  ELSE
-    UPDATE public.vendor_offline_holds
-       SET released_at = NOW(), release_reason = 'synced', released_by = v_member
-     WHERE vendor_profile_id = v_shop AND member_user_id = v_member AND released_at IS NULL;
-    GET DIAGNOSTICS v_n = ROW_COUNT;
     RETURN jsonb_build_object('status', 'applied', 'released', v_n);
   END IF;
 END;

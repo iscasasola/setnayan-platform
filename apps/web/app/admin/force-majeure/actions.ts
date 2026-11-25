@@ -99,9 +99,16 @@ export async function resolveFlag(formData: FormData) {
       admin_handler_user_id: userId, // ensure the resolver is on the row
     })
     .eq('flag_id', flagId)
+    // A8·E-2: a resolved flag is closed to re-resolution (like resolveDispute's
+    // open-only guard) — otherwise a second press overwrites the refund record
+    // and tells the couple again.
+    .is('resolved_at', null)
     .select('flag_id, public_id, event_id, couple_user_id')
-    .single();
+    .maybeSingle();
   if (error) throw new Error(error.message);
+  if (!updated) {
+    throw new Error('This flag is already resolved. Nothing was changed. Refresh to see it.');
+  }
 
   // Notify the couple. The notification type list is small; `order_quoted`
   // already serves "admin update needs your attention" elsewhere in the app.

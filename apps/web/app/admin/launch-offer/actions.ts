@@ -4,6 +4,7 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
+import { adminCanRefusal } from '@/lib/admin/can.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
@@ -40,6 +41,9 @@ export async function saveLaunchOffer(
   formData: FormData,
 ): Promise<LaunchOfferActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // A8·L-8: the launch offer is Prices & promos · Escalated (lib/admin/areas.ts).
+  const refused = await adminCanRefusal('prices_promos', 'escalated');
+  if (refused) return { ok: false, message: refused };
   const admin = createAdminClient();
   const intent = String(formData.get('intent') ?? '').trim();
 

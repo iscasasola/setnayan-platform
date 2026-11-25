@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
+import { adminCanRefusal } from '@/lib/admin/can.server';
 import { FOUNDER_SEAT_CAP } from '@/lib/founder-seats';
 
 /**
@@ -26,6 +27,9 @@ const ok = (msg: string): never => redirect(`${BACK}?saved=${encodeURIComponent(
 
 export async function grantFounderSeat(formData: FormData) {
   const { userId: adminUserId } = await requireAdminAction();
+  // A8·L-8: founder seats are Gifts & comps · Escalated (lib/admin/areas.ts).
+  const refused = await adminCanRefusal('gifts_comps', 'escalated');
+  if (refused) fail(refused);
   const admin = createAdminClient();
 
   const email = String(formData.get('email') ?? '').trim().toLowerCase();
@@ -82,6 +86,8 @@ export async function grantFounderSeat(formData: FormData) {
 
 export async function revokeFounderSeat(formData: FormData) {
   const { userId: adminUserId } = await requireAdminAction();
+  const refused = await adminCanRefusal('gifts_comps', 'escalated');
+  if (refused) fail(refused);
   const admin = createAdminClient();
 
   const seatNo = Number(formData.get('seat_no'));

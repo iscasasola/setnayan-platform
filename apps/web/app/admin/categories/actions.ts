@@ -62,6 +62,7 @@ import { CATEGORIES_PATH, backHref, type BackState } from './_components/back';
 import { workBackHref, workReturnTo } from '@/lib/admin/supplier-work';
 import { isHubToolTemplate, parseHubToolsSave, type HubToolTemplate } from '@/lib/hub-tools';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { AdminAreaRefusal, requireAdminCan } from '@/lib/admin/can.server';
 import { getTaxonomy } from '@/lib/taxonomy-db';
 import { deletionWouldBreakCoupleLinks } from '@/lib/vendor-category-taxonomy';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
@@ -111,6 +112,20 @@ function redirectBack(
   const returnTo = workReturnTo(formData.get('return_to'));
   if (returnTo) redirect(workBackHref(returnTo, kind === 'ok' ? 'type-added' : 'refused', msg));
   redirect(backHref(formData, kind, msg, next));
+}
+
+/**
+ * A8·L-8: "hide for everyone · combine · retire" is Catalogue · Escalated
+ * (lib/admin/areas.ts `ADMIN_AREA_LIST`). Asked before any read or write; a
+ * refusal lands back on the page as a plain sentence, never a crash.
+ */
+async function requireCatalogueEscalated(formData: FormData): Promise<void> {
+  try {
+    await requireAdminCan('catalogue', 'escalated');
+  } catch (err) {
+    if (err instanceof AdminAreaRefusal) redirectBack(formData, 'error', err.message);
+    throw err;
+  }
 }
 
 
@@ -416,6 +431,7 @@ export async function setCategoryPhoto(formData: FormData) {
  */
 export async function setCategoryHidden(formData: FormData) {
   const user = await requireAdmin();
+  await requireCatalogueEscalated(formData);
   const categoryId = String(formData.get('category_id') ?? '').trim();
   if (!categoryId) throw new Error('Missing category_id');
   const next = String(formData.get('hidden') ?? '') === '1';
@@ -1354,6 +1370,14 @@ export async function deleteTileWithDestination(
 ): Promise<StudioActionResult> {
   const gate = await requireAdminJson();
   if ('error' in gate) return { ok: false, error: gate.error };
+  // A8·L-8: removing a category (folding its services into another) is
+  // "combine · retire" — Catalogue · Escalated.
+  try {
+    await requireAdminCan('catalogue', 'escalated');
+  } catch (err) {
+    if (err instanceof AdminAreaRefusal) return { ok: false, error: err.message };
+    throw err;
+  }
 
   const tile = String(tileId ?? '').trim();
   const dest = String(destinationTileId ?? '').trim();
@@ -1859,6 +1883,7 @@ export async function relabelLeafAttributeFieldAction(formData: FormData): Promi
 /** Admin: soft-retire OR un-retire a whole refinement. The def + its options
  *  stay in the schema so saved vendor payloads keep validating. */
 export async function retireLeafAttributeFieldAction(formData: FormData): Promise<never> {
+  await requireCatalogueEscalated(formData);
   const fieldKey = String(formData.get('field_key') ?? '').trim();
   const retired = String(formData.get('retired') ?? '') === 'true';
   return applyLeafAttributeMutation(
@@ -1873,6 +1898,7 @@ export async function retireLeafAttributeFieldAction(formData: FormData): Promis
 /** Admin: soft-retire OR un-retire a single option VALUE. The value stays inside
  *  `options` (validation survives); only the render layer hides it. */
 export async function retireLeafAttributeOptionAction(formData: FormData): Promise<never> {
+  await requireCatalogueEscalated(formData);
   const fieldKey = String(formData.get('field_key') ?? '').trim();
   const option = String(formData.get('option') ?? '').trim();
   const retired = String(formData.get('retired') ?? '') === 'true';

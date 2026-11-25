@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { ReadFailedNote } from '../../_components/set-two/read-failed';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
@@ -207,11 +208,14 @@ export default async function EditServiceCardPage({
         </p>
       ) : venueHalls.length > 0 ? (
         <HallsUsesPick serviceId={serviceId} halls={venueHalls} uses={hallUses} action={setServiceHalls} />
+      ) : sellsVenue && ('error' in tierRes ? Boolean(tierRes.error) || !tierRes.data : false) && vendorPaywallApplies(false) ? (
+        // 🪪 A refused plan read is SAID (final check A5-G3-02), never the Pro lock and its upgrade door to a payer.
+        <ReadFailedNote mark="card-first-space-plan">We couldn&rsquo;t load your plan right now.</ReadFailedNote>
       ) : sellsVenue ? (
         // 🏛 No hall yet: "add the first" (drawing screen 8) — the way into Spaces for a new venue.
         <AddFirstSpace
           today={new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })}
-          // A refused tier read reads as below Pro: the lock holds, never a wrong "you have it". The server refuses the same.
+          // A refused tier read never reaches here (said above); the server still refuses below Pro.
           proOpen={!vendorPaywallApplies(isTierAtLeast((tierRes.data as { tier_state?: string | null } | null)?.tier_state ?? null, SUPPLIER_FLOOR_PLAN_MIN_TIER))}
           firstHall={
             profile.venue_width_m != null || profile.capacity_max != null

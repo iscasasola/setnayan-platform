@@ -519,7 +519,15 @@ async function viewerIsShopTeam(vendor: Pick<PublicVendorRow, 'vendor_profile_id
 // this one the next time a column is added or renamed here).
 // ⚡ One read per render (speed pass 2026-11-14): `generateMetadata` and the page body each asked for the same shop row
 // before the first byte. `cache()` hands them one answer; outside a render (the OG route) it reads as before.
-export const fetchVendor = cache(async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
+/**
+ * 🔒 A REFUSED SHOP READ IS NOT "NO SUCH SHOP" (final check A1-128, 25 Nov 2026). The read used to fold every error
+ * into `null`, which became `notFound()`: a stranger saw "Page not found" for a real shop, and the copy kept for
+ * strangers held that 404 until its refresh. `fetchVendorRead` says which it was; `fetchVendor` keeps its old
+ * answer (null for both) for the callers that only need a row (the OG image).
+ */
+export const fetchVendorRead = cache(async function fetchVendorRead(
+  slug: string,
+): Promise<{ vendor: PublicVendorRow | null; failed: boolean }> {
   const admin = createAdminClient();
   // The `is_demo` column ships in a parallel PR (marketplace simulation
   // workstream, Agent 1). If that PR hasn't landed yet on `main`,
@@ -562,14 +570,22 @@ export const fetchVendor = cache(async function fetchVendor(slug: string): Promi
       error.message,
     )
   ) {
-    ({ data } = await admin
+    ({ data, error } = await admin
       .from('vendor_profiles')
       .select(legacySelect)
       .ilike('business_slug', slug)
       .maybeSingle());
   }
-  return (data ?? null) as PublicVendorRow | null;
+  if (error) {
+    console.error('[shop page] vendor_profiles read failed', error.message);
+    return { vendor: null, failed: true };
+  }
+  return { vendor: (data ?? null) as PublicVendorRow | null, failed: false };
 });
+
+export async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
+  return (await fetchVendorRead(slug)).vendor;
+}
 
 /**
  * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. It holds `r2://bucket/key` for
@@ -606,7 +622,9 @@ async function viewerIsSignedIn(): Promise<boolean> {
 // Named, slug-resolved so the bare-root dispatcher (app/[slug]/page.tsx) can
 // reuse the exact same vendor metadata when a bare slug resolves to a vendor.
 export async function vendorMetadataBySlug(slug: string) {
-  const vendor = await fetchVendor(slug);
+  const { vendor, failed } = await fetchVendorRead(slug);
+  // A refused read is not a missing page: no "Page not found" tab, and nothing indexed (A1-128).
+  if (failed) return { title: 'Setnayan', robots: { index: false, follow: false } };
   // 🔎 NO SHOP BY THIS NAME (logged-out crawl #12): `/faq`, `/contact`, any unknown top-level path lands here through
   // `app/[slug]` and is a 404 — its tab must not read "Supplier · Setnayan" as if a shop were behind it.
   if (!vendor) return { title: 'Page not found', robots: { index: false, follow: false } };
@@ -1010,7 +1028,12 @@ export async function renderVendorBySlug({
     detailsEnabled && typeof search.service === 'string' && search.service.trim()
       ? search.service.trim()
       : null;
-  const vendor = await fetchVendor(slug);
+  const { vendor, failed: vendorReadFailed } = await fetchVendorRead(slug);
+  if (vendorReadFailed) {
+    // The copy kept for strangers must never store this: throwing keeps its last good version (A1-128).
+    if (cachedCopy) throw new Error('shop read failed; keeping the last good copy');
+    return <ShopCouldNotOpen />;
+  }
 
   // 🔁 A CORRECTED SHOP ADDRESS FORWARDS HERE TOO.
   //
@@ -5122,5 +5145,19 @@ function ShopSectionCouldNotLoad({ what }: { what: 'reviews' | 'services' }) {
       survived="Everything else on this page is current."
       todo="Reload the page to try again."
     />
+  );
+}
+
+/** A refused shop read (A1-128): the shop exists as far as we know, so never the not-found page. */
+function ShopCouldNotOpen() {
+  return (
+    <main className="mx-auto w-full max-w-xl px-4 py-12">
+      <ErrorState
+        title="Couldn’t open this shop"
+        broke="The shop did not load just now."
+        survived="Nothing about the shop has changed."
+        todo="Reload the page to try again."
+      />
+    </main>
   );
 }

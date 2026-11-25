@@ -75,17 +75,21 @@ export async function publishedStoriesOfShop(
 export async function loadShopStoryPage(
   shopSlug: string,
   eventSlug: string,
-): Promise<{ kind: 'missing' } | { kind: 'ok'; page: ShopStoryPage }> {
+): Promise<{ kind: 'missing' } | { kind: 'failed' } | { kind: 'ok'; page: ShopStoryPage }> {
   if (!shopSlug || !eventSlug || eventSlug.length > 200) return { kind: 'missing' };
   let admin: SupabaseClient;
   try {
     admin = createAdminClient();
   } catch {
-    return { kind: 'missing' };
+    return { kind: 'failed' };
   }
 
   const shopRead = await admin.from('vendor_profiles').select(SHOP_COLS).ilike('business_slug', shopSlug).maybeSingle();
-  if (shopRead.error) logQueryError('loadShopStoryPage.shop', shopRead.error, { shopSlug }, 'graceful_degrade');
+  // A refused read is not a missing story (final check A1-128): the page says it couldn't open, never "not found".
+  if (shopRead.error) {
+    logQueryError('loadShopStoryPage.shop', shopRead.error, { shopSlug }, 'graceful_degrade');
+    return { kind: 'failed' };
+  }
   const shop = shopRead.data as ShopRow | null;
   if (!shop || !shop.business_slug) return { kind: 'missing' };
   if (shopPageGate(shop as ShopPageGateRow, { isTeam: false, adminDemoMode: false }).open !== 'public') return { kind: 'missing' };
@@ -100,7 +104,7 @@ export async function loadShopStoryPage(
     ({ stories, eventVendorByEvent } = await publishedStoriesOfShop(admin, vendorProfileId));
   } catch (err) {
     logQueryError('loadShopStoryPage.stories', err, { vendorProfileId }, 'graceful_degrade');
-    return { kind: 'missing' };
+    return { kind: 'failed' };
   }
   const story = stories.find((s) => s.slug.toLowerCase() === eventSlug.toLowerCase());
   if (!story) return { kind: 'missing' };

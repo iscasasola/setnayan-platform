@@ -556,3 +556,7 @@ their cover photo… if they go to Pro, they go to Ultra, the full editorial wil
   Our Day Paper as a separate one-time add-on, priced clearly ABOVE what it is worth inside Ultra (Ultra stays the better deal).
   PRICE: NOT SET. Never guess; the owner names it. Open: which plans may buy it alone (proposed: Pro only, since Free has no
   editorial to print). Until both are answered, the build shows the Ultra upsell only, with no buy-alone button.
+- **PRICE SET (owner 25 Nov): "let's price it at 1,490 pesos for the print design."** Our Day Paper bought alone = ₱1,490,
+  one-time, for the print design (the PDF file; physical printing is not included). It goes in as a NEW catalogue row through
+  the migration pipeline (never typed in code; read from `platform_retail_catalog_v2`). Still open: which plans may buy it
+  alone (proposed Pro only). Until answered, no buy-alone button.

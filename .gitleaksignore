@@ -255,3 +255,4 @@ ac766664b4da8102328f0c052cb1f59e653454ae:apps/web/tests/db/a-supplier-gift-lands
 # form's OWNER_NUMBERS list — a platform_settings COLUMN NAME paired with its
 # label, not a credential. Pinned by the introducing commit.
 ac6deeed29282ec581e14590404d743992ba3ae3:apps/web/app/admin/business/_components/business-identity-form.tsx:generic-api-key:43
+09234d481d3eae8058d6d41e986287cf78bc9122:.gitleaksignore:generic-api-key:254

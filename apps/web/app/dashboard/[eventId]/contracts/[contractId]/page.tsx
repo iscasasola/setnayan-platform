@@ -2,6 +2,7 @@ import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Share } from 'lucide-react';
+import { BackButton } from '@/app/_components/back-button';
 import { createClient } from '@/lib/supabase/server';
 import { OpenFileLink } from '@/app/_components/open-file-link';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -28,13 +29,7 @@ export default async function CustomerContractDetailPage({ params }: Props) {
   if (read.failed) {
     return (
       <div className="mx-auto w-full max-w-3xl space-y-6">
-        <Link
-          href={`/dashboard/${eventId}/contracts`}
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/65 hover:text-ink"
-        >
-          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-          Back to contracts
-        </Link>
+        <BackButton route="/dashboard/[eventId]/contracts/[contractId]" params={{ eventId, contractId }} />
         <ReadRefusedNotice what="this contract" />
       </div>
     );

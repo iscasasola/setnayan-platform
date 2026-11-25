@@ -2,6 +2,7 @@ import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { BackButton } from '@/app/_components/back-button';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -209,13 +210,7 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
   if (sponsorRowsError) {
     return (
       <section className="sn-col space-y-6 pb-12">
-        <Link
-          href={`/dashboard/${eventId}`}
-          className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-sn-accent"
-        >
-          <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Back to {eventName}
-        </Link>
+        <BackButton route="/dashboard/[eventId]/sponsors" params={{ eventId }} />
         <PageMasthead title="Your principal sponsors" />
         <ReadRefusedNotice what="your sponsors" />
       </section>

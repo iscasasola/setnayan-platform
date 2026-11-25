@@ -19,6 +19,7 @@ import { receivingAccounts } from '@/lib/payment-channels';
 import { NOT_RECEIVED_REASONS, dropReceived, isNotReceivedReason, leaveReceived, matchReceived } from './received';
 import { undoAutoMatch } from './received-auto';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { classifyDuplicate, normalizeReference, MONEY_STATUSES } from '@/lib/payment-reference-match';
 import { emitNotification } from '@/lib/notification-emit';
 import {
@@ -272,6 +273,10 @@ export async function approvePayment(formData: FormData) {
   // Couple-facing surfaces refresh a beat later, post-response — see the note
   // in approvePaymentCore's provisioning block for why this is deferred.
   after(() => revalidatePath('/dashboard', 'layout'));
+  // A8·A-10: the payment is approved, but a receipt that did not issue is said on the desk, never silent.
+  if (outcome.receiptFailed) {
+    redirect(deskUrl(q, 'Payment approved, but its receipt did not issue. Open Records › Receipts and check before telling the buyer.', true));
+  }
 }
 
 /**
@@ -460,7 +465,7 @@ export async function approvePaymentCore(args: {
    */
   gateway?: 'maya';
 }): Promise<
-  | { ok: true }
+  | { ok: true; receiptFailed?: true }
   | { ok: false; shortfall: true; message: string }
   | { ok: false; duplicate: true; message: string; blocking: boolean }
   /**
@@ -681,6 +686,8 @@ export async function approvePaymentCore(args: {
   // is gated on this (shouldProvisionOnApproval) so a partial/short payment —
   // or an approval with "promote" unchecked — never provisions the full SKU.
   let reconciledToPaid = false;
+  // A8·A-10: the receipt's outcome travels back to the desk.
+  let receipt: 'issued' | 'not_needed' | 'failed' | null = null;
 
   if (promoteOrder) {
     // SHORTFALL GUARD (2026-06-25): an order must not be marked fully 'paid'
@@ -830,7 +837,7 @@ export async function approvePaymentCore(args: {
     // BIR Official Receipt (the actual BIR OR is issued separately, offline).
     // The unique constraint on receipts.order_id makes the insert idempotent
     // across retries; subsequent runs silently no-op.
-    await issueReceiptForOrder({ admin, orderId: payment.order_id });
+    receipt = await issueReceiptForOrder({ admin, orderId: payment.order_id });
 
     // Vendor Payout dispatcher (locked 2026-05-16). If this order is linked
     // to a vendor_profile (vendor_profile_id column on orders, populated by
@@ -920,7 +927,7 @@ export async function approvePaymentCore(args: {
   //     would otherwise surface a generic 500 to the admin even though the
   //     approval fully succeeded, making them re-click an already-done
   //     reconciliation. Post-response it can't. See DECISION_LOG 2026-07-05.
-  return { ok: true };
+  return receipt === 'failed' ? { ok: true, receiptFailed: true } : { ok: true };
 }
 
 /**
@@ -1184,23 +1191,32 @@ async function schedulePayoutsForOrder(args: {
 async function issueReceiptForOrder(args: {
   admin: ReturnType<typeof createAdminClient>;
   orderId: string;
-}): Promise<void> {
+}): Promise<'issued' | 'not_needed' | 'failed'> {
   const { admin, orderId } = args;
 
+  // A8·A-10: every read and the insert are checked — a receipt that did not issue is reported to the desk, never
+  // silent. (Display only: no amount is computed differently.)
   // Skip if a receipt was already issued for this order.
-  const { data: existing } = await admin
+  const { data: existing, error: existingErr } = await admin
     .from('receipts')
     .select('receipt_id')
     .eq('order_id', orderId)
     .maybeSingle();
-  if (existing) return;
+  if (existingErr) {
+    logQueryError('issueReceiptForOrder (receipts existing)', existingErr);
+    return 'failed';
+  }
+  if (existing) return 'not_needed';
 
-  const { data: order } = await admin
+  const { data: order, error: orderErr } = await admin
     .from('orders')
     .select('user_id, service_key, confirmed_total_php, requested_total_php, voucher_discount_centavos')
     .eq('order_id', orderId)
     .maybeSingle();
-  if (!order) return;
+  if (orderErr || !order) {
+    if (orderErr) logQueryError('issueReceiptForOrder (orders)', orderErr);
+    return 'failed';
+  }
 
   // For customer SKUs the order's *_total_php fields are the **pre-VAT base**
   // (the value Setnayan quotes); VAT is added on top, so the buyer paid
@@ -1217,7 +1233,7 @@ async function issueReceiptForOrder(args: {
     order.confirmed_total_php != null
       ? Number(order.confirmed_total_php)
       : Math.max(0, Number(order.requested_total_php ?? 0) - voucherDiscountPhp);
-  if (storedTotal <= 0) return;
+  if (storedTotal <= 0) return 'not_needed';
 
   // The buyer, when there is one. A GUEST order (owner-locked 2026-07-29) has
   // `user_id` NULL — nobody to look up — so the receipt is issued to whatever
@@ -1281,7 +1297,7 @@ async function issueReceiptForOrder(args: {
 
   // or_serial defaults from public.or_serial_seq (atomic) — don't pass it.
   // The display "Transaction No." is composed at read-time via formatReceiptNumber().
-  await admin.from('receipts').insert({
+  const { error: insertErr } = await admin.from('receipts').insert({
     order_id: orderId,
     user_id: order.user_id ?? null,
     issued_to_email: buyer?.email ?? 'unknown@setnayan.com',
@@ -1291,6 +1307,11 @@ async function issueReceiptForOrder(args: {
     vat_amount_php: vat,
     gross_total_php: gross,
   });
+  if (insertErr) {
+    logQueryError('issueReceiptForOrder (receipts insert)', insertErr);
+    return 'failed';
+  }
+  return 'issued';
 }
 
 export async function rejectPayment(formData: FormData) {

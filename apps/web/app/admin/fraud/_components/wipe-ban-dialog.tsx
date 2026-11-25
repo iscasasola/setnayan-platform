@@ -29,6 +29,9 @@ export function WipeBanDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [typed, setTyped] = useState('');
+  // A8·E-12: the outcome is said — "sent, waiting for a second admin", or the refusal's sentence in the dialog.
+  const [sent, setSent] = useState(false);
+  const [refusal, setRefusal] = useState<string | null>(null);
   const titleId = useId();
   const matches = typed.trim() === businessName.trim() && businessName.trim().length > 0;
 
@@ -42,7 +45,13 @@ export function WipeBanDialog({
 
   return (
     <>
-      <ActionButton tone="danger" icon={ShieldAlert} label="Confirm fraud → wipe + ban" type="button" onClick={() => setOpen(true)} />
+      {sent ? (
+        <p role="status" className="text-sm text-ink" data-wipe-ban-sent="">
+          Sent — waiting for a second admin in Approvals.
+        </p>
+      ) : (
+        <ActionButton tone="danger" icon={ShieldAlert} label="Confirm fraud → wipe + ban" type="button" onClick={() => setOpen(true)} />
+      )}
 
       {open ? (
         <div
@@ -76,7 +85,24 @@ export function WipeBanDialog({
               </button>
             </div>
 
-            <form action={initiateFraudWipeBan} className="space-y-4 px-5 py-4">
+            <form
+              action={async (fd) => {
+                setRefusal(null);
+                const res = await initiateFraudWipeBan(fd);
+                if (res.ok) {
+                  setSent(true);
+                  setOpen(false);
+                } else {
+                  setRefusal(res.message);
+                }
+              }}
+              className="space-y-4 px-5 py-4"
+            >
+              {refusal ? (
+                <p role="alert" className="text-sm text-ink" data-wipe-ban-refusal="">
+                  {refusal}
+                </p>
+              ) : null}
               <input type="hidden" name="vendor_profile_id" value={vendorProfileId} />
 
               <div className="space-y-2 rounded-lg bg-terracotta-50/40 p-3 text-xs text-ink/75">

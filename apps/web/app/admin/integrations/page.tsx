@@ -25,6 +25,8 @@ import {
   OAUTH_INTEGRATIONS,
   SOCIAL_INTEGRATIONS,
   MAYA_INTEGRATION,
+  getOAuthIntegration,
+  getSecretIntegration,
 } from '@/lib/integrations/registry';
 import { getSecretPresenceMapMeasured } from '@/lib/integration-config';
 
@@ -181,8 +183,16 @@ export default async function AdminIntegrationsPage({
           role="status"
           className="inline-flex items-center gap-2 rounded-2xl border border-ink/15 bg-white/70 px-4 py-3 text-sm text-ink/70"
         >
-          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /> Key cleared —
-          email now falls back to the Vercel env (if set).
+          <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={1.75} /> {clearedNotice(cleared)}
+        </p>
+      ) : null}
+      {error === 'clear_failed' ? (
+        <p
+          role="alert"
+          className="inline-flex items-center gap-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
+        >
+          <ShieldAlert aria-hidden className="h-4 w-4" strokeWidth={1.75} /> That key wasn&rsquo;t cleared, so it is
+          still stored. Try again.
         </p>
       ) : null}
       {error === 'invalid_config' ? (
@@ -204,7 +214,7 @@ export default async function AdminIntegrationsPage({
           role="alert"
           className="inline-flex items-center gap-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
         >
-          <ShieldAlert aria-hidden className="h-4 w-4" strokeWidth={1.75} /> That key
+          <ShieldAlert aria-hidden className="h-4 w-4" strokeWidth={1.75} /> That change
           wasn&rsquo;t saved, so nothing on this card changed — whatever was working before
           is still working. Try again; if it keeps failing, the platform settings row may be
           missing.
@@ -529,4 +539,15 @@ export default async function AdminIntegrationsPage({
       </p>
     </section>
   );
+}
+
+/**
+ * A8·I-2: the "cleared" notice names the integration that was cleared — it used to say "email now falls back…" for
+ * every card, Maya's payment keys included.
+ */
+function clearedNotice(cleared: string): string {
+  if (cleared === 'resend') return 'Email key cleared — email now falls back to the Vercel env (if set).';
+  if (cleared === 'maya') return 'Maya keys cleared.';
+  const label = getSecretIntegration(cleared)?.label ?? getOAuthIntegration(cleared)?.label;
+  return label ? `${label}: key cleared.` : 'Key cleared.';
 }

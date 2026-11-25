@@ -195,7 +195,13 @@ export async function unsuspendVendor(formData: FormData) {
  * /admin/approvals. A typed-confirmation ("type the business name") guards the
  * INITIATION here too, so a mis-click can't even open the request.
  */
-export async function initiateFraudWipeBan(formData: FormData) {
+/**
+ * A8·E-12: the expected refusals come back as a sentence the dialog shows (a thrown message is hidden in production,
+ * so a second press used to land on the crash page); success tells the dialog to close and say it was sent.
+ */
+export type WipeBanInitResult = { ok: true } | { ok: false; message: string };
+
+export async function initiateFraudWipeBan(formData: FormData): Promise<WipeBanInitResult> {
   const { userId } = await requireAdmin();
   // Areas × levels (DECISION_LOG 2026-11-13): fraud · escalated.
   await requireAdminCan('fraud', 'escalated');
@@ -205,7 +211,7 @@ export async function initiateFraudWipeBan(formData: FormData) {
   const rationale = typeof rationaleRaw === 'string' ? rationaleRaw.trim() : '';
 
   if (rationale.length < 3) {
-    throw new Error('A rationale (≥3 chars) is required to initiate a wipe + ban.');
+    return { ok: false, message: 'Say why in a few words — it is recorded in the audit trail.' };
   }
 
   const admin = createAdminClient();
@@ -227,9 +233,7 @@ export async function initiateFraudWipeBan(formData: FormData) {
   // Typed-confirmation gate — the admin must retype the exact business name.
   const expected = (vendor.business_name ?? '').trim();
   if (!expected || typedName !== expected) {
-    throw new Error(
-      'Business-name confirmation did not match. Type the supplier’s exact business name to initiate the wipe + ban.',
-    );
+    return { ok: false, message: 'The business name did not match. Type the supplier’s exact business name.' };
   }
 
   // Guard against a duplicate pending request for the same vendor.
@@ -241,9 +245,7 @@ export async function initiateFraudWipeBan(formData: FormData) {
     .eq('status', 'pending')
     .limit(1);
   if (existing && existing.length > 0) {
-    throw new Error(
-      'A wipe + ban request for this supplier is already pending a second admin’s confirmation.',
-    );
+    return { ok: false, message: 'A wipe + ban request for this supplier is already waiting for a second admin in Approvals.' };
   }
 
   const { error: insErr } = await admin.from('admin_approval_requests').insert({
@@ -273,6 +275,7 @@ export async function initiateFraudWipeBan(formData: FormData) {
   revalidatePath('/admin/fraud');
   revalidatePath('/admin/approvals');
   revalidatePath('/admin');
+  return { ok: true };
 }
 
 /**

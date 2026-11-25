@@ -145,8 +145,11 @@ export async function resolveReport(formData: FormData) {
         .maybeSingle();
       guestId = (cap?.guest_id as string | null) ?? null;
     }
-    if (guestId) {
-      await admin.from('event_blocked_users').upsert(
+    // A8·F-7: "Block uploader" that cannot find the uploader, or whose block is refused, fails — the report stays
+    // open and is never stamped "Uploader blocked".
+    if (!guestId) throw new Error('Couldn’t find who uploaded this, so nobody was blocked. The report stays open.');
+    {
+      const { error: blockErr } = await admin.from('event_blocked_users').upsert(
         {
           event_id: report.event_id as string,
           blocked_guest_id: guestId,
@@ -155,6 +158,7 @@ export async function resolveReport(formData: FormData) {
         },
         { onConflict: 'event_id,blocked_guest_id', ignoreDuplicates: true },
       );
+      if (blockErr) throw new Error(`Couldn’t block the uploader — the report stays open. (${blockErr.message})`);
       // Also hide the offending photo when we block off a photo report.
       if (report.target_type === 'photo') {
         hiddenIn = await hideReportedPhoto(admin, report.event_id as string, report.target_id as string);

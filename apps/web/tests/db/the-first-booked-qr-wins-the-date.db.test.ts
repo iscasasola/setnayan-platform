@@ -20,6 +20,9 @@
  *      step degrades open) and the second claim for that date is refused.
  *   6. Only a COUPLE of the event may claim: a guest member is 'not_your_event' and nothing is written.
  *   7. An Always available card takes no seat and has no limit: two claims on one single-place date both book.
+ *   8. OWNER RULING ADD 37 — "full" follows the claimed card's availability style, one case per style: day, order and
+ *      night by the card's own number; piece by the pieces left; hour and time never full by the date; none never;
+ *      no style set → today's shop schedule.
  *
  * Concurrency note: PGlite serves one connection, so the two claims in case 1 are sent together and run one after the
  * other. The FOR UPDATE asserted in case 0 is what makes the same outcome hold with two real connections in Postgres
@@ -299,7 +302,7 @@ test('a guest member cannot claim a code onto the host’s event — not_your_ev
   assert.notEqual(ev.rows[0]!.d, day, 'the host’s date was not rewritten');
 });
 
-/* ── 7. ALWAYS AVAILABLE ────────────────────────────────────────────────────────────────────────────────────────*/
+/* ── 7. ALWAYS AVAILABLE (also AV-NONE of Add 37) ────────────────────────────────────────────────────────────────────────────────────────*/
 
 test('an Always available card is never counted: two claims on one single-place date both book', async () => {
   const day = '2028-02-18';
@@ -310,4 +313,60 @@ test('an Always available card is never counted: two claims on one single-place 
   assert.equal((await claim(a.uid, await mkToken(shop, day), a.eventId)).status, 'ok');
   await setPoolCapacity(shop.vpid, 1);
   assert.equal((await claim(b.uid, await mkToken(shop, day), b.eventId)).status, 'ok', 'an Always available card takes no seat');
+});
+
+/* ── 8. ADD 37 · ONE CASE PER AVAILABILITY STYLE ────────────────────────────────────────────────────────────────*/
+
+/** A shop whose code names a card of `style` with its own number `cap`; the schedule is opened wide (10) or left at `poolCap`. */
+async function styledClaims(style: string | null, cap: number | null, poolCap: number, n: number): Promise<string[]> {
+  const day = `2028-04-${String(10 + ++seq % 18).padStart(2, '0')}`;
+  const shop = await mkShop(`Style ${style ?? 'unset'} ${seq}`);
+  await db.query(`UPDATE public.vendor_services SET availability_style = $2, daily_capacity = $3 WHERE vendor_service_id = $1`, [
+    shop.serviceId,
+    style,
+    cap,
+  ]);
+  // The schedule exists before the claims under test (a claim on another day makes it), at the number the case needs.
+  const warm = await mkCoupleEvent(`Warm ${seq}`);
+  assert.equal((await claim(warm.uid, await mkToken(shop, '2028-05-30'), warm.eventId)).status, 'ok');
+  await setPoolCapacity(shop.vpid, poolCap);
+  const out: string[] = [];
+  for (let i = 0; i < n; i++) {
+    const c = await mkCoupleEvent(`Styled ${seq}-${i}`);
+    out.push((await claim(c.uid, await mkToken(shop, day), c.eventId)).status);
+  }
+  return out;
+}
+
+test('Add 37 · AV-DAY: full when the date’s bookings reach the card’s number (the schedule does not decide)', async () => {
+  assert.deepEqual(await styledClaims('day', 1, 10, 2), ['ok', 'date_full']);
+});
+
+test('Add 37 · AV-ORDER: full when the date’s orders reach the card’s number', async () => {
+  assert.deepEqual(await styledClaims('order', 2, 10, 3), ['ok', 'ok', 'date_full']);
+});
+
+test('Add 37 · AV-NIGHT: full when no room is left that night', async () => {
+  assert.deepEqual(await styledClaims('night', 2, 10, 3), ['ok', 'ok', 'date_full']);
+});
+
+test('Add 37 · AV-PIECE: full only when the pieces asked for exceed the pieces left (a code asks for one)', async () => {
+  // A one-place schedule does not refuse pieces: only the card's pieces do.
+  assert.deepEqual(await styledClaims('piece', 2, 1, 3), ['ok', 'ok', 'date_full']);
+});
+
+test('Add 37 · AV-HOUR: never full by the date — a code carries no hours, the yes judges them', async () => {
+  assert.deepEqual(await styledClaims('hour', 1, 1, 2), ['ok', 'ok']);
+});
+
+test('Add 37 · AV-TIME: never full by the date — a code carries no slot, the yes judges it', async () => {
+  assert.deepEqual(await styledClaims('time', 1, 1, 2), ['ok', 'ok']);
+});
+
+test('Add 37 · AV-NONE: never full by date', async () => {
+  assert.deepEqual(await styledClaims('none', null, 1, 2), ['ok', 'ok']);
+});
+
+test('Add 37 · no style set: today’s shop schedule decides', async () => {
+  assert.deepEqual(await styledClaims(null, null, 1, 2), ['ok', 'date_full']);
 });

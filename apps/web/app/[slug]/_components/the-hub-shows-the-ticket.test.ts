@@ -106,7 +106,13 @@ test('a failed picture is never an empty box: it swaps to the plain code and say
   assert.match(pic, /onError=\{\(\) => setState\('failed'\)\}/);
   assert.match(pic, /img\.complete[\s\S]{0,80}naturalWidth > 0 \? 'shown' : 'failed'/, 'an error before hydration is missed');
   assert.match(pic, /if \(state === 'failed'\) return <>\{fallback\}<\/>;/);
-  assert.match(read('guest-ticket.tsx'), /src="\/api\/guest\/qr"/, 'the fallback has no code to show at the door');
+  // The real guest's fallback is the door code (`fallbackQrSrc` defaults to it). Only the sample hub passes null — it has
+  // no guest cookie, so that route could never answer there (final check A1-016).
+  const ticket = read('guest-ticket.tsx');
+  assert.match(ticket, /fallbackQrSrc = '\/api\/guest\/qr',/, 'the fallback has no code to show at the door');
+  assert.match(ticket, /src=\{fallbackQrSrc\}/, 'the fallback has no code to show at the door');
+  const page = stripComments(readFileSync(join(HERE, '..', 'page.tsx'), 'utf8'));
+  assert.doesNotMatch(page, /fallbackQrSrc=/, 'a real guest’s ticket lost its door code');
 });
 
 // ─── 3 · Where it is mounted ────────────────────────────────────────────────

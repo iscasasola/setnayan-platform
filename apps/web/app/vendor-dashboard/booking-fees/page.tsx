@@ -19,13 +19,14 @@ import { feeFreeRuleInApp, feeNewClientLine } from '@/lib/booking-fee-who-words'
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { readLaunchOffer } from '@/lib/launch-offer.server';
 import { launchOfferFeesLine } from '@/lib/launch-offer';
+import { isBookingFeeEnabled } from '@/lib/booking-fee-gate';
 
 export const metadata = { title: 'Booking fees · Supplier' };
 
 /**
  * /vendor-dashboard/booking-fees — the vendor-facing list of their Setnayan
- * booking-fee orders (5% of a booked total, then 3% beyond ₱100,000, never more than ₱100,000, minimum ₱50,
- * owner 2026-11-20; NOT a flat rate). Each row links to
+ * booking-fee orders (a share of the booked total, on the owner's live schedule — `getLiveBookingFeeSchedule`; never a
+ * number typed here, A6-61). Each row links to
  * the same manual-QR pay flow couples use, reachable from the Plan hub
  * doorway. READ-ONLY surfacing: this never mints or mutates a fee — it lists the
  * orders the fee-charge path already created (RLS scopes to the caller's own).
@@ -40,7 +41,14 @@ export default async function VendorBookingFeesPage() {
   if (!user) redirect(loginRedirectPath('/vendor-dashboard/booking-fees'));
   const supabase = await createClient();
 
-  const read = await fetchVendorFeeOrders(supabase, user.id);
+  // ⚡ A6-61: the reads that ask nothing of each other go in one batch (design-and-wiring D16); only the waived
+  // charges wait, because they need the shop id.
+  const [read, profile, feeSchedule, launchOffer] = await Promise.all([
+    fetchVendorFeeOrders(supabase, user.id),
+    fetchOwnVendorProfile(supabase, user.id),
+    getLiveBookingFeeSchedule(),
+    readLaunchOffer(createAdminClient()).catch(() => null),
+  ]);
   const unreadable = read === FEE_ORDERS_UNREADABLE;
   const orders = unreadable ? [] : read;
   const { due, settled, closed } = bucketFeeOrders(orders);
@@ -50,11 +58,12 @@ export default async function VendorBookingFeesPage() {
   // supplier goes to read their fees — showed nothing at all for the first five
   // and then a bill for the sixth. Unreadable renders nothing, never an implied
   // "you have had no free bookings".
-  const profile = await fetchOwnVendorProfile(supabase, user.id);
-  const waivedRead = await fetchWaivedFeeCharges(
-    createAdminClient(),
-    profile?.vendor_profile_id,
-  ).catch(() => FEE_BILLS_UNREADABLE);
+  // 🧾 A6-59 (final check 25 Nov): no shop id is not "no free bookings" — the waived reader answers [] for a missing
+  // id, which drew no section at all. A shop that could not be read is said as unread.
+  // (With the fee system dark there is nothing to list either way — the reader's own first answer.)
+  const waivedRead = profile?.vendor_profile_id || !isBookingFeeEnabled()
+    ? await fetchWaivedFeeCharges(createAdminClient(), profile?.vendor_profile_id).catch(() => FEE_BILLS_UNREADABLE)
+    : FEE_BILLS_UNREADABLE;
   const waived: WaivedFeeCharge[] = waivedRead === FEE_BILLS_UNREADABLE ? [] : waivedRead;
 
   // `null` when ANY due order's total could not be read — the banner then names
@@ -62,10 +71,9 @@ export default async function VendorBookingFeesPage() {
   // silently counted the unreadable one as ₱0.
   const totalDue = sumFeeOrderTotalsPhp(due);
 
-  // The owner's LIVE rate for the fee line below — null prints no rate, never the code default.
-  const feeSchedule = await getLiveBookingFeeSchedule();
-  // 🎁 F-W1-30: the launch offer, said where the supplier reads their fees — from the live settings, never typed.
-  const launchLine = launchOfferFeesLine(await readLaunchOffer(createAdminClient()).catch(() => null), Date.now());
+  // The owner's LIVE rate for the fee line below (`feeSchedule`, read in the batch) — null prints no rate, never the
+  // code default. 🎁 F-W1-30: the launch offer, said where the supplier reads their fees — from the live settings.
+  const launchLine = launchOfferFeesLine(launchOffer, Date.now());
   // 📅 The new-client window (owner 2026-11-16, #8086), named with its length from settings — the supplier's own app
   // only. Unread → no line (never a guessed number).
   const newClientLine = feeNewClientLine(feeSchedule?.newClientFreeMonths);

@@ -92,3 +92,19 @@ export function wireToRecord(
     },
   };
 }
+
+/**
+ * 🧾 THE ANSWER TO ONE FAULT REPORT (SW-TELE, final check 25 Nov: A6-B04 · A8·P-B-2). `recordFault` returns null on
+ * purpose on every deployment that is not production (`backgroundWritesAllowed`), and the route used to answer that
+ * null with a 500 — so every preview and dev page showed a failed request for a report that was never meant to be
+ * stored. A report this deployment does not keep is said as such (202, `recorded: false`); only a real write failure on
+ * production is a 500, so a lost fault there still shows.
+ */
+export function faultIngestAnswer(
+  id: string | null,
+  writesAllowed: boolean,
+): { status: 201 | 202 | 500; body: { ok: boolean; id?: string; recorded?: false; error?: 'insert_failed' } } {
+  if (id) return { status: 201, body: { ok: true, id } };
+  if (!writesAllowed) return { status: 202, body: { ok: true, recorded: false } };
+  return { status: 500, body: { ok: false, error: 'insert_failed' } };
+}

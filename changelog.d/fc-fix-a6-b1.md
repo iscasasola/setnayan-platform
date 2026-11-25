@@ -1,0 +1,14 @@
+## 2026-11-25 · fix(supplier): final check area 6, batch 1: contracts, disputes, booking fees, lock links, the fault reporter
+
+Lane A fixes from the 25 Nov final check (area 6 · supplier bookings, chat, payments). No look change, no amount, fee or rule changed.
+
+- **Upload a contract works for a shop with chats (A6-B13).** The picker filtered threads on their `event` embed, which is null on every supplier thread (a supplier holds no `events` RLS), so every shop read "You need to be in conversation with a couple". The couples now come from the shop's threads, named through `fetchInquiryCustomerFacts` (service-role, scoped to the caller's own threads). A names read that fails is said as a failed read.
+- **A refused upload or dispute response is said under the form, with what was typed kept (A6-64, A6-68).** Both forms now save through `StayForm` (doors `svContracts.uploadVendorContract`, `svDisputes.submitDisputeContest`); a landed upload still goes to its new contract. The "already reviewed" refusal is a plain sentence with no status code.
+- **Signing in returns to the contract or the disputes page (A6-65).** `loginRedirectPath` on contracts/[contractId], contracts/new and disputes.
+- **Publish and Cancel re-draw every page that shows the contract (A6-66):** Clients, and the couple's Contracts and Documents pages, not only the old forward.
+- **Booking fees read honestly (A6-59, A6-60, A6-61).** A shop that could not be read says the waived list is unread; a failed payments or settings read on one fee says so in place instead of the error screen; the list's independent reads are one batch; the fee rate is no longer typed in a comment.
+- **A dead lock link says so (A6-26, A6-B23).** An unknown code reads "This Locked QR link is not valid." with what to do; a read that did not answer reads "Couldn't read this lock link" with Try again. Never the site-wide 404.
+- **The fault reporter answers honestly (SW-TELE: A6-B04, A8·P-B-2).** A preview or dev server keeps no faults by design and now answers 202 "not stored" instead of 500; production that fails to store one still answers 500 (`faultIngestAnswer`).
+- **Guards:** `a-fault-report-answers-honestly`, `the-couples-come-from-the-threads`, `a-dead-lock-link-says-so`. Server actions: no new export. No migration.
+
+SPEC IMPACT: None. Fixes against existing rules (honest states, Law 9, clear errors); no product decision changed.

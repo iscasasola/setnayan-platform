@@ -37,6 +37,7 @@ import {
   INGEST_LIMIT_PER_INSTANCE,
   INGEST_LIMIT_PER_IP,
   countsFromWire,
+  faultIngestAnswer,
   wireToRecord,
 } from '@/lib/telemetry/ingest-shape';
 import { loadsFromWire } from '@/lib/telemetry/load-timing';
@@ -44,6 +45,7 @@ import { hasSessionCookie, recordLoads, toRoutePattern } from '@/lib/telemetry/l
 import { enforceRateLimit } from '@/lib/with-rate-limit';
 import { rateLimit } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/client-ip';
+import { backgroundWritesAllowed } from '@/lib/background-writes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -107,11 +109,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const id = await recordFault(shaped.record);
-  if (!id) {
-    // Insert failed (env / DB). Report it but keep the contract simple — the
-    // client swallows non-2xx anyway; a fault report must never break the app.
-    return NextResponse.json({ ok: false, error: 'insert_failed' }, { status: 500 });
-  }
-  return NextResponse.json({ ok: true, id }, { status: 201 });
+  // A preview or dev server keeps no faults by design (202, not stored); only a real write failure on production is
+  // a 500 (`faultIngestAnswer`, SW-TELE).
+  const answer = faultIngestAnswer(await recordFault(shaped.record), backgroundWritesAllowed());
+  return NextResponse.json(answer.body, { status: answer.status });
 }

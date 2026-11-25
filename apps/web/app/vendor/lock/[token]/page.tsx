@@ -1,7 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { LOCKED_QR_SHOP_NOT_VERIFIED } from '@/lib/vendor-verification';
-import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Lock, CalendarDays, Store, CheckCircle2 } from 'lucide-react';
@@ -88,21 +87,25 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
   const { status } = await searchParams;
 
   const admin = createAdminClient();
-  const { data: tok } = await admin
+  const { data: tok, error: tokError } = await admin
     .from('vendor_locked_qr_tokens')
     .select(
       'token, vendor_profile_id, event_type, category, service_description, event_date, total_php, initial_paid_php, schedule_json, status, claimed_by_user_id, claimed_event_id',
     )
     .eq('token', token)
     .maybeSingle();
-  if (!tok) notFound();
+  // 🧾 A6-26 · A6-B23 (final check 25 Nov): a read that did not answer is not a fake QR, and a code we do not know is
+  // a Locked QR that does not work — never the site-wide "This page doesn't exist". Both are said here, with what to do.
+  if (tokError) return <LockLinkMessage kind="unread" retryHref={`/vendor/lock/${token}`} />;
+  if (!tok) return <LockLinkMessage kind="invalid" />;
 
-  const { data: vendor } = await admin
+  const { data: vendor, error: vendorError } = await admin
     .from('vendor_profiles')
     .select('business_name, tagline, logo_url, location_city, is_published')
     .eq('vendor_profile_id', tok.vendor_profile_id)
     .maybeSingle();
-  if (!vendor) notFound();
+  if (vendorError) return <LockLinkMessage kind="unread" retryHref={`/vendor/lock/${token}`} />;
+  if (!vendor) return <LockLinkMessage kind="invalid" />;
 
   const categoryLabel =
     VENDOR_CATEGORY_LABEL[tok.category as VendorCategory] ?? 'Supplier';
@@ -460,5 +463,31 @@ async function ClaimForm({
         <span className="lbl">Lock it in</span>
       </SubmitButton>
     </form>
+  );
+}
+
+/**
+ * A lock link that cannot be shown (A6-26 · A6-B23): the code is unknown (old, mistyped, or the shop is gone), or the
+ * read did not answer. Same terminal block as a used or cancelled QR — the couple learns it was a supplier's Locked QR
+ * and what to do next, never the site-wide 404.
+ */
+function LockLinkMessage({ kind, retryHref }: { kind: 'invalid' | 'unread'; retryHref?: string }) {
+  return (
+    <div className="mx-auto w-full max-w-lg px-4 py-10 sm:px-6 text-center" data-lock-link={kind}>
+      <Lock aria-hidden className="mx-auto h-10 w-10" style={{ color: 'rgb(var(--color-ink-3))' }} strokeWidth={1.5} />
+      <h1 className="mt-4 text-2xl font-semibold tracking-tight">
+        {kind === 'invalid' ? STATUS_COPY.invalid : 'Couldn’t read this lock link'}
+      </h1>
+      <p className={`mt-2 ${TEMPLATE_SUBLINE}`}>
+        {kind === 'invalid'
+          ? 'Ask the supplier to show you a new Locked QR.'
+          : 'Nothing has changed. Try again in a moment.'}
+      </p>
+      {kind === 'unread' && retryHref ? (
+        <span className="mt-5 inline-flex">
+          <ActionButton tone="brand" main href={retryHref} icon={<Lock aria-hidden />} label="Try again" />
+        </span>
+      ) : null}
+    </div>
   );
 }

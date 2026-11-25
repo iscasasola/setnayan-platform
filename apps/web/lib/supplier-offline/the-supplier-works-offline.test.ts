@@ -424,7 +424,7 @@ test('14 · each kind’s fields are pinned: nothing else reaches the shipped ac
     'note.add': { schema: 1, fields: ['event_id', 'body', 'remind_at'] },
     'note.done': { schema: 1, fields: ['event_id', 'note_id', 'done'] },
     'note.delete': { schema: 1, fields: ['event_id', 'note_id'] },
-    'message.send': { schema: 1, fields: ['thread_id', 'body'] },
+    'message.send': { schema: 2, fields: ['thread_id', 'body', 'attachment_ref', 'attachment_name'] },
     'payment.ask': { schema: 1, fields: ['event_id', 'vendor_id', 'amount_php', 'due_date', 'note', 'inline'] },
     'payment.ask_withdraw': { schema: 1, fields: ['event_id', 'ask_id'] },
     'payment.confirm': { schema: 1, fields: ['payment_id', 'thread_id', 'vendor_id'] },

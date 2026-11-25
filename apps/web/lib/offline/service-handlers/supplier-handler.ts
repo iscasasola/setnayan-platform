@@ -78,6 +78,13 @@ export async function dismissSupplierOutcome(member: string, itemId: string): Pr
   if (rows.some((n) => n.member === member && n.item.itemId === itemId)) await s.remove(itemId);
 }
 
+/** The queued item without a kept file's bytes — what is sent, and what an answer keeps (never the bytes). */
+function withoutBytes(p: SupplierQueuedItem): SupplierQueuedItem {
+  const { file: _bytes, ...rest } = p as SupplierQueuedItem & { file?: unknown };
+  void _bytes;
+  return rest;
+}
+
 function payloadOf(item: OfflineItem): SupplierQueuedItem | null {
   const p = item.payload as Partial<SupplierQueuedItem> | undefined;
   return p && p.v === 1 && typeof p.itemId === 'string' && typeof p.member === 'string' ? (p as SupplierQueuedItem) : null;
@@ -104,18 +111,81 @@ export function noteGaveUp(item: OfflineItem): void {
   void recordSupplierOutcome({
     member: p.member,
     shop: p.shop,
-    item: p,
+    item: withoutBytes(p),
     reply: { status: 'refused', why: 'This never reached Setnayan. Check it, then make it again.', itemId: p.itemId, kind: p.kind },
     answeredAt: new Date().toISOString(),
   }).catch(() => undefined);
+}
+
+/* ── 📎 a file written offline (review #2: "one upload kind") ─────────────────────────────────────────────────────── */
+
+/** What sending a kept file came to: its ref, a refusal that will not change (the chat's own words), or no luck now. */
+export type FileSent = { ok: true; ref: string; name: string } | { refused: string } | { failed: string };
+type FileDeps = {
+  /** prepare (compress) + PUT the kept file the shipped chat way, into the sender's own folder */
+  send(args: { threadId: string; member: string; file: File }): Promise<FileSent>;
+  /** write the queued item back (its ref in, its bytes out) */
+  save(item: OfflineItem): Promise<void>;
+};
+const shippedFileDeps: FileDeps = {
+  async send({ threadId, member, file }) {
+    const { prepareChatFile, uploadPreparedChatFile } = await import('@/lib/chat-file-prepare');
+    const prepared = await prepareChatFile(file);
+    if (!prepared.ok) return { refused: prepared.message };
+    const up = await uploadPreparedChatFile({ threadId, userId: member, prepared: prepared.prepared });
+    return up.ok ? { ok: true, ref: up.ref, name: up.name } : { failed: up.message };
+  },
+  async save(item) {
+    const { updateOfflineItem } = await import('../db');
+    await updateOfflineItem('supplier', item);
+  },
+};
+let fileDeps: FileDeps = shippedFileDeps;
+/** The guard runs where no browser compresses or uploads: it hands stand-ins. */
+export function useFileDepsForTest(d: FileDeps | null): void {
+  fileDeps = d ?? shippedFileDeps;
+}
+
+/**
+ * A queued message that carries a file: send the file ONCE, before the message. Its ref is written onto the queued item
+ * (and the bytes dropped) before anything else, so a retry never uploads it twice. `null` = go on and send the message.
+ */
+async function sendKeptFile(item: OfflineItem, p: SupplierQueuedItem): Promise<SyncResult | null> {
+  const kept = (item.payload as { file?: Record<string, unknown> } | undefined)?.file;
+  if (!kept || typeof p.fields.attachment_ref === 'string') return null;
+  const { bytesBack } = await import('../stored-bytes');
+  const blob = bytesBack(kept);
+  const name = typeof kept.name === 'string' && kept.name ? kept.name : 'file';
+  if (!blob) return { ok: false, error: 'This saved file could not be read.' };
+  const threadId = typeof p.fields.thread_id === 'string' ? p.fields.thread_id : '';
+  const sent = await fileDeps.send({ threadId, member: p.member, file: new File([blob], name, { type: blob.type }) });
+  if ('refused' in sent) {
+    // The chat would never take it (its type, or too big even compressed): an answer, with the chat's own words.
+    await recordSupplierOutcome({ member: p.member, shop: p.shop, item: withoutBytes(p), reply: { status: 'refused', why: sent.refused, itemId: p.itemId, kind: p.kind }, answeredAt: new Date().toISOString() });
+    return { ok: true };
+  }
+  if ('failed' in sent) {
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) return wait('offline');
+    return { ok: false, error: sent.failed };
+  }
+  const { file: _sent, ...rest } = item.payload as Record<string, unknown>;
+  void _sent;
+  const fields = { ...p.fields, attachment_ref: sent.ref, attachment_name: sent.name };
+  await fileDeps.save({ ...item, payload: { ...rest, fields } });
+  p.fields = fields;
+  return null;
 }
 
 export async function syncOne(item: OfflineItem): Promise<SyncResult> {
   const p = payloadOf(item);
   if (!p) return { ok: false, error: 'This saved change could not be read.' };
   if (p.member !== activeMember) return wait('other_member');
+  const filed = await sendKeptFile(item, p);
+  if (filed) return filed;
   const { supplierWire } = await import('../supplier-wire');
-  const answer = await supplierWire('sync', { item: JSON.stringify(p) });
+  // The bytes never ride the sync, and an answer never keeps them: only the ref does (and the item's own fields).
+  const sendable = withoutBytes(p);
+  const answer = await supplierWire('sync', { item: JSON.stringify(sendable) });
   if (answer === null) return wait('offline');
   if ('update' in answer) return wait('update');
   if ('busy' in answer) return wait('busy');
@@ -124,7 +194,7 @@ export async function syncOne(item: OfflineItem): Promise<SyncResult> {
   const now = new Date().toISOString();
   if (!r.ok) {
     if (r.retry) return WAITING.has(r.why) ? wait(r.why) : { ok: false, error: RETRY_WORDS[r.why] ?? RETRY_WORDS.unread! };
-    await recordSupplierOutcome({ member: p.member, shop: p.shop, item: p, reply: { status: 'refused', why: r.why, itemId: p.itemId, kind: p.kind }, answeredAt: now });
+    await recordSupplierOutcome({ member: p.member, shop: p.shop, item: sendable, reply: { status: 'refused', why: r.why, itemId: p.itemId, kind: p.kind }, answeredAt: now });
     return { ok: true };
   }
   const { isFinalOutcome, parseSyncReply } = await import('@/lib/supplier-offline/kinds');
@@ -135,6 +205,6 @@ export async function syncOne(item: OfflineItem): Promise<SyncResult> {
     const why = (reply as { why: string }).why;
     return WAITING.has(why) ? wait(why) : { ok: false, error: RETRY_WORDS[why] ?? RETRY_WORDS.unread! };
   }
-  if (reply.status !== 'applied') await recordSupplierOutcome({ member: p.member, shop: p.shop, item: p, reply, answeredAt: now });
+  if (reply.status !== 'applied') await recordSupplierOutcome({ member: p.member, shop: p.shop, item: sendable, reply, answeredAt: now });
   return { ok: true };
 }

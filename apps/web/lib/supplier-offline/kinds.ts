@@ -174,7 +174,7 @@ export const KIND_SCHEMA: Readonly<Record<SupplierOfflineKind, number>> = {
   'note.add': 1,
   'note.done': 1,
   'note.delete': 1,
-  'message.send': 1,
+  'message.send': 2,
   'payment.ask': 1,
   'payment.ask_withdraw': 1,
   'payment.confirm': 1,
@@ -202,7 +202,8 @@ export const KIND_FIELDS: Readonly<Record<SupplierOfflineKind, readonly string[]
   'note.add': ['event_id', 'body', 'remind_at'],
   'note.done': ['event_id', 'note_id', 'done'],
   'note.delete': ['event_id', 'note_id'],
-  'message.send': ['thread_id', 'body'],
+  // v2: a file written offline rides as the ref the phone got when it uploaded it (`attachment_ref` + its name)
+  'message.send': ['thread_id', 'body', 'attachment_ref', 'attachment_name'],
   'payment.ask': ['event_id', 'vendor_id', 'amount_php', 'due_date', 'note', 'inline'],
   'payment.ask_withdraw': ['event_id', 'ask_id'],
   'payment.confirm': ['payment_id', 'thread_id', 'vendor_id'],
@@ -210,8 +211,9 @@ export const KIND_FIELDS: Readonly<Record<SupplierOfflineKind, readonly string[]
   'booking.accept': ['event_id', 'vendor_id', 'booked_quantity', 'regift', 'gift'],
 };
 
-/** Older payload versions → today's. Version 1 is today's; a later version adds its adapter here. */
+/** Older payload versions → today's. Version 1 is the first; a later version adds its adapter here. */
 export function adaptQueuedItem(item: SupplierQueuedItem): SupplierQueuedItem {
+  // message.send v1 → v2: v2 added a file (its ref and name). A v1 message carried none, so it means the same today.
   return { ...item, schema: KIND_SCHEMA[item.kind] };
 }
 

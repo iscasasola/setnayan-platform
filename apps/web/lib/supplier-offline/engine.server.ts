@@ -578,8 +578,13 @@ async function messageSend(ctx: Ctx, item: SupplierQueuedItem): Promise<SyncOutc
   const threadId = typeof item.fields.thread_id === 'string' ? item.fields.thread_id : '';
   const typed = typeof item.fields.body === 'string' ? item.fields.body : '';
   // The other side sees when it was really written (review #2 item 16) — the phone's time, said as phone time.
-  const body = typed.trim() ? `${typed}\n\n${writtenOfflineLine(item.phoneTime)}` : typed;
-  const res = await sendChatMessageCore(ctx.supabase, { threadId, body });
+  // 📎 A file written offline: the phone PUT it to R2 itself when the signal came back (`/api/upload`, the shipped
+  // chat way) and sends only its ref; the shipped core HEADs the object and judges its real size and type.
+  const ref = typeof item.fields.attachment_ref === 'string' ? item.fields.attachment_ref : '';
+  const name = typeof item.fields.attachment_name === 'string' ? item.fields.attachment_name : '';
+  const stamp = writtenOfflineLine(item.phoneTime);
+  const body = typed.trim() ? `${typed}\n\n${stamp}` : ref ? stamp : typed;
+  const res = await sendChatMessageCore(ctx.supabase, { threadId, body, attachmentRef: ref ? { ref, name: name || 'file' } : null });
   if (res.ok) return { status: 'applied' };
   if (res.code === 'unauthenticated') return { status: 'retry', why: 'signed_out' };
   if (res.code === 'insert_failed') return { status: 'retry', why: 'unread' };

@@ -23,6 +23,7 @@ import {
   updateOfflineItem,
 } from '../offline/db';
 import type { OfflineItem } from '../offline/types';
+import { bytesBack, keepBytes } from '../offline/stored-bytes';
 import type { QueuedShot } from './schedule';
 import type { CaptureTier } from './tiers';
 
@@ -47,23 +48,15 @@ export async function saveShot(shot: QueuedShot): Promise<void> {
 }
 
 export async function saveBlob(shot: Pick<QueuedShot, 'id' | 'eventId'>, piece: LocalPiece, blob: Blob): Promise<void> {
-  try {
-    await enqueueOfflineItem('papic', {
+  // 🧭 Kept as a Blob, or as its bytes where Safari's private storage refuses one — the ONE way bytes are kept offline
+  // (`lib/offline/stored-bytes.ts`, shared with the supplier's files written offline).
+  await keepBytes(blob, (bytes) =>
+    enqueueOfflineItem('papic', {
       item_id: blobItemId(shot.id, piece),
       event_id: shot.eventId,
-      payload: { mode: BLOB_MODE, shot_id: shot.id, piece, blob },
-    });
-  } catch {
-    // 🧭 SAFARI'S PRIVATE / EPHEMERAL STORAGE REFUSES A Blob IN IndexedDB
-    // ("Error preparing Blob/File data to be stored") but takes the same bytes
-    // as an ArrayBuffer. Measured in Playwright WebKit, 2026-10-23.
-    const buffer = await blob.arrayBuffer();
-    await enqueueOfflineItem('papic', {
-      item_id: blobItemId(shot.id, piece),
-      event_id: shot.eventId,
-      payload: { mode: BLOB_MODE, shot_id: shot.id, piece, buffer, type: blob.type },
-    });
-  }
+      payload: { mode: BLOB_MODE, shot_id: shot.id, piece, ...bytes },
+    }),
+  );
 }
 
 export async function loadBlob(shotId: string, piece: LocalPiece): Promise<Blob | null> {
@@ -71,13 +64,7 @@ export async function loadBlob(shotId: string, piece: LocalPiece): Promise<Blob 
   // getAll handles are lazy (the bytes are not read until used).
   const items = await listOfflineItems('papic');
   const hit = items.find((i) => i.item_id === blobItemId(shotId, piece));
-  const blob = hit?.payload?.blob;
-  if (blob instanceof Blob) return blob;
-  const buffer = hit?.payload?.buffer;
-  if (buffer instanceof ArrayBuffer) {
-    return new Blob([buffer], { type: typeof hit?.payload?.type === 'string' ? hit.payload.type : '' });
-  }
-  return null;
+  return bytesBack(hit?.payload);
 }
 
 export async function deleteBlob(shotId: string, piece: LocalPiece): Promise<void> {

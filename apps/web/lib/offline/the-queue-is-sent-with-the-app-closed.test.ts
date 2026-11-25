@@ -389,3 +389,20 @@ test('every keep arms the background send — not left to the daemon mount, whic
   assert.ok(keep > 0, 'queueSupplierAction keeps the item');
   assert.ok(body.indexOf('registerSyncDaemon()', keep) > keep, 'and then arms the sync');
 });
+
+test('a message whose file is not uploaded yet waits for the page; with its ref it goes — and bytes never ride', async () => {
+  const withFile = queued('F', '2026-11-24T06:00:00.000Z');
+  (withFile.payload as Record<string, unknown>).kind = 'message.send';
+  (withFile.payload as Record<string, unknown>).fields = { thread_id: 'T1', body: 'layout' };
+  (withFile.payload as Record<string, unknown>).file = { name: 'layout.jpg', type: 'image/jpeg', buffer: 'BYTES' };
+  const uploaded = queued('G', '2026-11-24T06:01:00.000Z');
+  (uploaded.payload as Record<string, unknown>).kind = 'message.send';
+  (uploaded.payload as Record<string, unknown>).fields = { thread_id: 'T1', body: 'menu', attachment_ref: 'r2://thread-files/x/menu.pdf', attachment_name: 'menu.pdf' };
+  (uploaded.payload as Record<string, unknown>).file = { name: 'menu.pdf', type: 'application/pdf', buffer: 'STALE' };
+  const w = boot({ stores: stores(withFile, uploaded), answers: [ok({ status: 'applied', itemId: 'G', kind: 'message.send' })] });
+  await w.sync();
+  assert.deepEqual(w.sent.map((s) => JSON.parse(s.body.fields.item).itemId), ['G'], 'the worker sent a message whose file only the page can upload');
+  assert.equal('file' in JSON.parse(w.sent[0]!.body.fields.item), false, 'bytes rode the sync');
+  assert.deepEqual([...w.idb.state.stores!.supplier_queue!.keys()], ['F'], 'the page’s item was touched');
+  assert.equal(w.idb.state.stores!.supplier_queue!.get('F')!.retry_count, 0, 'waiting for the page counted as a try');
+});

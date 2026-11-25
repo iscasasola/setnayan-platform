@@ -1814,7 +1814,11 @@ async function sendSupplierQueue() {
       const p = item && item.payload;
       if (!p || p.v !== 1 || typeof p.itemId !== 'string' || typeof p.member !== 'string') continue;
       if (item.retry_count >= SUPPLIER_OFFLINE_MAX_TRIES) continue;
-      const answer = await postSupplierItem(p);
+      // 📎 A message carrying a file the page has not uploaded yet: only the page can prepare (compress) and upload it
+      // (`supplier-handler.ts` `sendKeptFile`), so it waits for the page. The bytes never ride a sync.
+      if (p.file && !(p.fields && typeof p.fields.attachment_ref === 'string')) continue;
+      const { file: _bytes, ...sendable } = p;
+      const answer = await postSupplierItem(sendable);
       if (answer === null) {
         noSignal = true;
         break;
@@ -1823,7 +1827,7 @@ async function sendSupplierQueue() {
       if (step.done) {
         const note = step.done.status === 'applied'
           ? null
-          : { id: p.itemId, member: p.member, shop: p.shop, item: p, reply: step.done, answeredAt: new Date().toISOString() };
+          : { id: p.itemId, member: p.member, shop: p.shop, item: sendable, reply: step.done, answeredAt: new Date().toISOString() };
         await offlineTx(db, ['supplier_queue', 'supplier_outcomes'], 'readwrite', (tx) => {
           if (note) tx.objectStore('supplier_outcomes').put(note);
           tx.objectStore('supplier_queue').delete(item.item_id);

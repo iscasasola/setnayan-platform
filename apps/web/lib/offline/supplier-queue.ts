@@ -26,6 +26,9 @@ import { phoneDeviceIds, phoneKeyId, readPhoneKey, wipeSupplierOffline, writePho
 import { registerSyncDaemon, triggerSyncNow } from './sync-daemon';
 import { supplierWire } from './supplier-wire';
 import { offlineHere } from './supplier-here';
+import { keepBytes } from './stored-bytes';
+import { CHAT_ATTACHMENT_MIME, chatAttachmentLimit } from '@/lib/chat-attachment-limits';
+import { CHAT_FILE_TYPE_REFUSAL } from '@/lib/chat-file-rules';
 import {
   dismissSupplierOutcome,
   readSupplierOutcomes,
@@ -33,6 +36,7 @@ import {
   type SupplierOutcomeNote,
 } from './service-handlers/supplier-handler';
 import {
+  KIND_SCHEMA,
   NOT_CONFIRMED_YET,
   isSupplierOfflineKind,
   localSlot,
@@ -69,7 +73,21 @@ export type QueueInput = {
   rowVersion?: RowVersion | null;
   seen?: MoneySeen | null;
   giftsAsOf?: string | null;
+  /**
+   * 📎 A file written offline (a `message.send` only). Kept on this phone as it is — wiped with the rest at sign-out —
+   * and judged now by type and size; when the signal is back it goes the shipped chat way: prepared (compressed) by
+   * `prepareChatFile`, PUT to R2 by `uploadPreparedChatFile`, then the message is sent with its ref (`supplier-handler`).
+   */
+  file?: File | null;
 };
+
+/** A file the shipped chat would refuse whatever happens — said now, on this phone, not after the signal is back. */
+function fileRefusalNow(file: File): string | null {
+  const mime = (file.type || '').toLowerCase();
+  if (!(CHAT_ATTACHMENT_MIME as readonly string[]).includes(mime)) return CHAT_FILE_TYPE_REFUSAL;
+  const limit = chatAttachmentLimit(mime);
+  return file.size > limit.maxBytes ? limit.tooLargeMessage : null;
+}
 
 /** `warning`: kept, but say it (iPhone Safari outside Home Screen mode erases a site's data after ~7 days unused). */
 export type Queued = { itemId: string; phoneTime: string; line: string; warning?: string | null };
@@ -80,6 +98,12 @@ export async function queueSupplierAction(input: QueueInput): Promise<Queued> {
   // A change this browser would lose is never accepted (the App Store app, a private window — review #2 items 6, 22).
   const here = await offlineHere();
   if (!here.ok) throw new Error(here.why);
+  const file = input.file ?? null;
+  if (file) {
+    if (input.kind !== 'message.send') throw new Error('Only a message can carry a file offline.');
+    const refusal = fileRefusalNow(file);
+    if (refusal) throw new Error(refusal);
+  }
   const phoneTime = new Date().toISOString();
   const item: SupplierQueuedItem = {
     v: 1,
@@ -93,11 +117,15 @@ export async function queueSupplierAction(input: QueueInput): Promise<Queued> {
     rowVersion: input.rowVersion ?? null,
     seen: input.seen ?? null,
     giftsAsOf: input.giftsAsOf ?? null,
+    schema: KIND_SCHEMA[input.kind],
     fields: input.fields,
   };
   // The shop rides in `event_id`, the daemon's scoping key (its index lists one shop's items without reading all).
   // `ageByTriesOnly`: never dropped by the phone's clock, only after real tries (review #2 item 3).
-  await enqueueOfflineItem('supplier', { item_id: item.itemId, event_id: input.shop, payload: { ...item, ageByTriesOnly: true }, queued_at: phoneTime });
+  const keep = (extra: Record<string, unknown>) =>
+    enqueueOfflineItem('supplier', { item_id: item.itemId, event_id: input.shop, payload: { ...item, ageByTriesOnly: true, ...extra }, queued_at: phoneTime });
+  if (file) await keepBytes(file, (bytes) => keep({ file: { name: file.name, ...bytes } }));
+  else await keep({});
   // R16: the browser wakes the worker when the signal is back, even with the app closed (Android; review #2 item 5). Not
   // left to the daemon's own mount, which is switched off in production (measured 25 Nov: absent from the live bundle).
   void registerSyncDaemon();

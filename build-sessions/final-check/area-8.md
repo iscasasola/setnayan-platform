@@ -12,13 +12,14 @@ None found.
 
 ### Pages (71)
 
-- [ ] /admin
+- [x] /admin · OFFLINE: NOT NEEDED · SHAPE: today PAGE (Focus list; in Full mode it is the Work landing) → should PAGE
+- [x] /admin (shell, every page) · OFFLINE: NOT NEEDED · SHAPE: n/a (chrome) · doors checked: every href in admin-nav-groups.tsx and admin-pages.ts, the ADMIN_ROUTES map, bottom-nav tabs, rail, avatar rows and pinned rows reach an existing page.tsx or route.ts (one exception: C-4)
 - [x] /admin/account-deletions · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/accounts · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · tabs checked: users, vendors, events, venues, demo-vendors
-- [ ] /admin/admin-log
+- [x] /admin/admin-log · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/app-performance · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · tabs checked: overview (default + bare-address landing), connection-logs, funnels, growth, intelligence, offline, operations, seo, visits, interconnections, browser-blocks, slow-loads
-- [ ] /admin/approvals
-- [ ] /admin/ask
+- [x] /admin/approvals · OFFLINE: NOT NEEDED · SHAPE: today PAGE (renders as /admin/work?view=approvals) → should PAGE
+- [x] /admin/ask · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE (Setup › Help, prints as A4)
 - [x] /admin/background-videos · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [ ] /admin/booking-fees
 - [x] /admin/budget-planner · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
@@ -45,15 +46,15 @@ None found.
 - [ ] /admin/founder-seats
 - [x] /admin/fraud · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/gifts · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/offers?view=gifts; grant forms inline by ?grant_vendor= / ?grant_user=) → should PAGE
-- [ ] /admin/help
-- [ ] /admin/help/guides
+- [x] /admin/help · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · tabs checked: help (the demo-inquiries view is its own page)
+- [x] /admin/help/guides · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/hub-music · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE (one sub-surface finding below)
 - [x] /admin/integrations · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/integrity-watch · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/work?view=integrity) → should PAGE · tabs checked: reviews, listings, inquiries, prices
 - [ ] /admin/launch-offer
 - [x] /admin/live-studio-channels · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/switches?view=live-watch) → should PAGE
 - [ ] /admin/money
-- [ ] /admin/more
+- [x] /admin/more · OFFLINE: NOT NEEDED · SHAPE: today never renders (the middleware sends it on with a 307 to /admin/work?view=all) → should n/a (dead body, see NOTES)
 - [ ] /admin/offers
 - [x] /admin/pakanta · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/papic-storage · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/app-performance?tab=papic-storage) → should PAGE
@@ -66,7 +67,7 @@ None found.
 - [ ] /admin/receipts
 - [x] /admin/repost-watch · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/work?view=repost) → should PAGE
 - [x] /admin/reviews · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/work?view=reviews) → should PAGE
-- [ ] /admin/search-memory
+- [x] /admin/search-memory · OFFLINE: NOT NEEDED · SHAPE: today PAGE (renders as /admin/ugat?tab=search) → should PAGE
 - [ ] /admin/secrets · NOT CHECKED: this session's permission settings refuse every read of `apps/web/app/admin/secrets/` (lead and checker both tried); needs a session that may open it
 - [ ] /admin/settings/payment-methods
 - [x] /admin/studio · OFFLINE: NOT NEEDED · SHAPE: today PAGE (tab host, `?tab=`) → should PAGE · tabs checked: website, reveal-studio, real-stories, storytellers, recaps, patiktok, songs, moodboard-library, social-queue, journal-spotlights, spotlight-awards (forwards to /admin/offers?view=badges, which renders the same `SpotlightAwardsSurface`), discount-codes and referrals (forward to /admin/offers?view=…, which renders the same studio surfaces; links to discount-codes/new and discount-codes/[id]/edit resolve), plus the views it mounts: background-videos, website-media, hub-music
@@ -82,7 +83,7 @@ None found.
 - [x] /admin/verification-docs · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/verify · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · tabs checked: applications (pending_review, in_review, approved, auto, rejected, demoted, all), visibility (hidden, verified, archived, all), ?shop=
 - [x] /admin/website-media · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [ ] /admin/work
+- [x] /admin/work · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · tabs checked: landing (TabLanding), all, approvals (the other Kind ▾ views mount their own pages)
 
 ### Forwards (36) — each must land where the kit says, with its ?tab=
 
@@ -180,7 +181,7 @@ PAGE      /admin/admin-log · /admin/approvals · /admin/ask · /admin/backgroun
 BUTTON    —
 STEPS     1. Open any listed page on a slow connection.
 EXPECTED  The skeleton draws only what that page draws (HOUSE_DESIGN_STANDARD F1: "Every loading.tsx mirrors its loaded layout").
-ACTUAL    None of these has a `loading.tsx` of its own, so each shows `app/admin/loading.tsx` — the OVERVIEW's ghost ("Action queues panel — terracotta-tinted card + 4 queue tiles", "Stats — 8 tiles", "Nav tiles — 6 tiles"). That ghost also uses a hand-made terracotta frame (`border-terracotta/20 bg-terracotta/[0.03]`) on the monochrome console.
+ACTUAL    None of these has a `loading.tsx` of its own, so each shows `app/admin/loading.tsx` — the OVERVIEW's ghost ("Action queues panel — terracotta-tinted card + 4 queue tiles", "Stats — 8 tiles", "Nav tiles — 6 tiles"). That ghost also uses a hand-made terracotta frame (`border-terracotta/20 bg-terracotta/[0.03]`) on the monochrome console. Worse, the overview itself no longer draws those parts: Focus is a date line, "N things need you" and one list; Full is the Work landing (C-13). So the ghost matches no admin page at all.
 SHOTS     phase B: 375 px light on a throttled load of /admin/approvals and /admin/booking-fees
 RULE      HOUSE_DESIGN_STANDARD F1 · CLAUDE.md §3 Loading ("the skeleton draws only what the page draws") · kit § 5.9
 SEVERITY  wrong
@@ -2460,3 +2461,332 @@ SOURCE    CODE
 - Outside my pages: `lib/v2-catalog.ts` `fetchV2VendorCatalog` / `fetchV2CustomerCatalog` turn a refused read into `[]` for every caller, and `lib/comp-grants.ts` `formatRetailValueCentavos` hand-formats ₱ on the per-user comp pages too.
 - F-21 depends on the project's PostgREST max-rows, which is not in the repo. `lib/vendor-earnings.ts` says it is 1,000.
 - F-4 and the Prices tab only render while `plausibilityScannerEnabled()` is on. Checked in code only.
+
+### Group C · Home, work & the shell
+
+#### C-1 · Asking "payments to confirm" in Focus answers "0" when the payments count failed, and counts rows instead of payments
+PAGE      /admin   (Focus · `?ask=payments`)
+BUTTON    "Ask or go anywhere" → "Payments to confirm"
+STEPS     1. Open /admin?ask=payments while the payments digest count is null, or while more than 3 payments wait.
+EXPECTED  "Couldn't count" when the read failed. Otherwise the real number of payments waiting.
+ACTUAL    focus-home.tsx `${formatCount(answerRows.length)} · answered here` counts `rows` (up to PEEK_LIMIT 3 items plus one "N more" row). An unread queue is dropped from `waiting`, so the line says "0 · answered here".
+SHOTS     phase B: 375 px light
+RULE      Honest states (CLAUDE.md §5.4) · money read
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### C-2 · Approval label has a typed price: "Approve refund over ₱25,000 (money)"
+PAGE      /admin/approvals
+BUTTON    —
+STEPS     1. Open an approve_large_refund request (pending row, or the Recently decided "Action" column).
+EXPECTED  The threshold read from its one home and formatted with formatPhp.
+ACTUAL    lib/admin-approvals.ts `NON_PICKER_ACTION_LABEL` hard-types '₱25,000'. The real number is `REFUND_TWO_ADMIN_THRESHOLD_PHP` in lib/two-admin-promise.ts, so this is a second copy that can drift.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §1 Money (never write a price; lib/php.ts) · brand.md claim 1
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### C-3 · Approve, Reject and Mark handled read with the service-role client before the admin gate
+PAGE      /admin/approvals
+BUTTON    "✓ Approve & execute" · "Reject" · "Mark handled"
+STEPS     1. POST approveRequest, rejectRequest or adminTeamAct op=resolve as a non-admin.
+EXPECTED  The admin gate runs before any createAdminClient() read. This matters because these approvals carry refunds, comps and price changes.
+ACTUAL    approvals/actions.ts `requireDeciderFor` reads `admin_approval_requests` with `createAdminClient()` before calling `requireAdminCan(area, 'escalated')`. escalation-ops.server.ts `resolveEscalationOp` reads `work_escalations` before `requireAdminCan(row.area, …)`.
+SHOTS     n/a (server-side)
+RULE      Gate before service role (brief §3c · layout.tsx "AFTER THE ADMIN CHECK, NEVER BEFORE IT")
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### C-4 · "Answered on Focus" search rows open the Work list in Full mode
+PAGE      /admin (shell, every page)   (Full mode)
+BUTTON    palette rows "Suppliers’ badge progress" / "Payments to confirm" / "Papers to verify"
+STEPS     1. Switch to Full. 2. ⌘K, then pick a row in the "Answered on Focus" group.
+EXPECTED  The in-place answer for that question.
+ACTUAL    admin-destinations.ts `FOCUS_ASKS` hrefs `/admin?ask=…`. In Full mode, page.tsx `if (mode === 'full') return AdminWorkLanding(props)` sends any query to `WorkAllList`, which ignores `ask`.
+SHOTS     phase B: 375 px light + desktop
+RULE      design-and-wiring B5 (every press reaches its destination)
+SEVERITY  broken
+SOURCE    CODE
+
+#### C-5 · "Message us" in the team Help only scrolls the page
+PAGE      /admin/help/guides
+BUTTON    "Message us"
+STEPS     1. Ask something with no answer, or press No on an answer. 2. Press "Message us".
+EXPECTED  A real way to message someone, or a label that says what it does.
+ACTUAL    guides/page.tsx `messageHref: '#no-answer-yet'`. The shared NoAnswer and AnswerFeedback show `label="Message us"`, but the press only jumps to the "No answer yet" list and sends nothing.
+SHOTS     phase B: 375 px light
+RULE      design-and-wiring B5
+SEVERITY  broken
+SOURCE    CODE
+
+#### C-6 · Work › All lane chips add the watch-only trails into "All N"
+PAGE      /admin/work   (tab: all)
+BUTTON    "All" / "Support" chips
+STEPS     1. Have pax changes or supplier refunds in the last 7 days. 2. Open /admin/work?view=all.
+EXPECTED  The chip agrees with the Next card's "N need you" (totalOpen leaves the trails out).
+ACTUAL    queues-triage-feed.tsx `LaneChips` → `waiting(rows)` sums every `count`, including `watchOnly` rows. This is the same 624-vs-53 drift that `workBadge` fixed (F-A-03).
+SHOTS     phase B: 375 px light
+RULE      design-and-wiring C8 (one reader for a shared number)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### C-7 · Work landing's "Waiting · across every queue" counts a watch trail and leaves out queues the Work list counts
+PAGE      /admin/work   (tab: landing; also /admin in Full mode)
+BUTTON    —
+STEPS     1. Open /admin/work. 2. Compare the head number with Focus "N things need you" or Work › All.
+EXPECTED  The same total the Work list and Focus show.
+ACTUAL    tab-landing.tsx `sum(allViews.map(countOf))` adds `pax-changes` (watchOnly) and leaves out payments, verify, subscriptions, booking-fees and the other non-Work-tab queues. The sub-line still says 'across every queue'. The "Requests to decide" card also counts the pax trail.
+SHOTS     phase B: 375 px light
+RULE      design-and-wiring C8
+SEVERITY  wrong
+SOURCE    CODE
+
+#### C-8 · "From suppliers" filter shows "Documents 0" when that read failed
+PAGE      /admin/work   (tab: all)
+BUTTON    "Filter what suppliers sent" ▾
+STEPS     1. Make one supplier-work kind fail (read.failed). 2. Open the dropdown.
+EXPECTED  "—" or "couldn't read" beside that kind, and an "All" count that says it is partial.
+ACTUAL    supplier-inbox.tsx `kindOptions` uses `countByKind(read.items)`, which gives 0 for a failed kind. "All N" leaves it out silently.
+SHOTS     phase B: 375 px light
+RULE      Honest states (CLAUDE.md §5.4)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### C-9 · Event-type read error is dropped, so the "It is this event type" picker is just empty
+PAGE      /admin/work   (tab: all · Event types row)
+BUTTON    "Pick the type…" / "Point them to it"
+STEPS     1. Fail the `event_type_vocab` read. 2. Open an event-type ask.
+EXPECTED  "Couldn't read the event types".
+ACTUAL    work/page.tsx `(typesRead.data ?? [])`, and `typesRead.error` is never checked. FormPick opens with no options. A linked row shows the raw type key.
+SHOTS     phase B: 375 px light
+RULE      Honest states (CLAUDE.md §5.4)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### C-10 · Verification checks that fail to run show up as "no checks" on a Documents row
+PAGE      /admin/work   (tab: all · Documents row)
+BUTTON    "Approve"
+STEPS     1. Make buildVerificationChecksForVendors throw. 2. Open a Documents row.
+EXPECTED  A line saying the checks could not run, before Approve.
+ACTUAL    lib/admin/supplier-work.server.ts `buildVerificationChecksForVendors(...).catch(() => ({}))` leaves `checks: []`. DocsBody draws only the papers and an active "Approve".
+SHOTS     phase B: 375 px light
+RULE      Honest states (CLAUDE.md §5.4)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### C-11 · Admin log prints raw action and table names ("vendor tier set · vendor_profiles")
+PAGE      /admin/admin-log
+BUTTON    —
+STEPS     1. Open the log after any vendor_* action.
+EXPECTED  Plain words that say "supplier", and no table names.
+ACTUAL    admin-log/page.tsx `actionWords(r.action)` only swaps `_` for spaces, so a person reads "vendor visibility change". It also prints `` ` · ${r.target_table}` `` (vendor_profiles, canonical_service_taxonomy, …).
+SHOTS     phase B: 375 px light
+RULE      brand.md Word rules (supplier, never vendor)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### C-12 · "Journal" in admin words a person reads
+PAGE      /admin (shell, every page)   (also /admin/approvals)
+BUTTON    palette/menu row "Journal Spotlights"
+STEPS     1. ⌘K, type "journal". 2. Open an approve_journal_spotlight request on Approvals.
+EXPECTED  "Articles".
+ACTUAL    admin-nav-groups.tsx `label: 'Journal Spotlights'` (palette and All-surfaces card). lib/admin-approvals.ts `'Publish sponsored journal spotlight'` (approvalActionLabel).
+SHOTS     phase B: 375 px light
+RULE      brand.md Word rules (Articles, never Blog/Journal)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### C-13 · The overview skeleton draws a page that no longer exists
+PAGE      /admin   (and every admin page that inherits app/admin/loading.tsx)
+BUTTON    —
+STEPS     1. Open /admin on a slow connection.
+EXPECTED  A ghost of what arrives.
+ACTUAL    loading.tsx draws a "terracotta card + 4 tiles", "8 tiles in a 2×4 grid" and "6 nav tiles". Focus actually draws a date line, "N things need you", the ask pill, "From your BDO" and one list of rows. Full draws TabLanding: a hello line, a cream head card (Waiting · Oldest) and 5 group cards with chips. Neither has the panel, the stats or the tiles, so the shared skeleton is dishonest.
+SHOTS     phase B: 375 px light + desktop
+RULE      CLAUDE.md §3 Loading ("draws only what the page draws")
+SEVERITY  look
+SOURCE    CODE
+
+#### C-14 · The Help inbox's own loading.tsx draws a 5-column table
+PAGE      /admin/help
+BUTTON    —
+STEPS     1. Open /admin/help cold.
+EXPECTED  A ghost of the conversation list (avatar · name · preview).
+ACTUAL    help/loading.tsx `TablePageSkeleton` draws a toolbar plus a 5-column, 10-row table header grid. The page draws the HelpMessenger list and chat.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §3 Loading
+SEVERITY  look
+SOURCE    CODE
+
+#### C-15 · The team Help page has no PageMasthead (no page title)
+PAGE      /admin/help/guides
+BUTTON    —
+STEPS     1. Open the account sheet → Help.
+EXPECTED  `<PageMasthead title="Help" />`, as every page has.
+ACTUAL    guides/page.tsx renders AskBox and then a `<p>` "Answers for the team". There is no PageMasthead and no h1 anywhere.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §3 Page title · design-and-wiring A2
+SEVERITY  look
+SOURCE    CODE
+
+#### C-16 · The command palette is a hand-built dialog, not the shared Sheet
+PAGE      /admin (shell, every page)
+BUTTON    top-bar search / "Ask or go anywhere" / ⌘K
+STEPS     1. Open the search on a phone and on desktop.
+EXPECTED  Sheet / PickMenu / RiseScreen with the shared backdrop, and ActionButton for its buttons.
+ACTUAL    admin-command-palette.tsx: its own `role="dialog" aria-modal="true"` panel (`fixed left-1/2 top-[11vh] … shadow-2xl`). It does use the shared OverlayBackdrop and lock. "Prepare the form" / "Back" are raw `<button>`s filled with `var(--sn-mulberry-600, #C24E25)`.
+SHOTS     phase B: 375 px light + desktop
+RULE      HOUSE_DESIGN_STANDARD Part K3 · D12
+SEVERITY  look
+SOURCE    CODE
+
+#### C-17 · An open supplier row on tablet and desktop is a fixed side panel with no backdrop
+PAGE      /admin/work   (tab: all · From suppliers)
+BUTTON    any supplier row (e.g. "Documents · ‹shop›")
+STEPS     1. At ≥768 px open a row (`?item=`).
+EXPECTED  A RiseScreen (long body) or a Sheet with the shared dim+blur that locks the page.
+ACTUAL    supplier-inbox.tsx `md:fixed md:inset-y-0 md:right-0 md:z-40 … md:shadow-2xl`. There is no backdrop and no lock, and the list behind stays live.
+SHOTS     phase B: desktop
+RULE      HOUSE_DESIGN_STANDARD Part K3 · SHAPE
+SEVERITY  look
+SOURCE    CODE
+
+#### C-18 · "Delete" on Search memory uses window.confirm
+PAGE      /admin/search-memory
+BUTTON    "Delete"
+STEPS     1. Press Delete on a phrase.
+EXPECTED  The house confirm sheet.
+ACTUAL    search-memory-table.tsx `window.confirm(`Forget "${phrase}"?…`)`
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K3
+SEVERITY  look
+SOURCE    CODE
+
+#### C-19 · The New request "Action" field is a native select
+PAGE      /admin/approvals
+BUTTON    "Action"
+STEPS     1. Open Approvals → New request.
+EXPECTED  PickMenu (FieldPick).
+ACTUAL    1 native `<select name="action_type">` with 3 options (APPROVAL_ACTIONS). Next to it are raw `<input>`/`<textarea>` with `bg-white` instead of form-row.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD D2 (PickMenu) · K3
+SEVERITY  look
+SOURCE    CODE
+
+#### C-20 · The 3-field New request form sits open above the queue
+PAGE      /admin/approvals
+BUTTON    "Submit for two-admin approval"
+STEPS     1. Open Approvals on a phone.
+EXPECTED  The queue first, and New request as a SMALL POPUP (Sheet, 3 fields).
+ACTUAL    approvals/page.tsx `{/* NEW REQUEST */}` is an always-open section that pushes "Pending" below the fold.
+SHOTS     phase B: 375 px light
+RULE      SHAPE
+SEVERITY  look
+SOURCE    CODE
+
+#### C-21 · K2: hard-coded colour and size in the shell
+PAGE      /admin (shell, every page)
+BUTTON    —
+STEPS     1. Read the shell files.
+EXPECTED  Tokens only.
+ACTUAL    83 hits. layout.tsx `bg-red-100 … text-red-800`, `bg-success-100 text-success-800`, `text-[10px]`; admin-command-palette.tsx `var(--sn-paper-2, #F5EEE1)`, `text-[9.5px]`; admin-search-box.tsx `#FBFAF7`, `text-[9px]`; error.tsx `border-danger-200 bg-danger-50/60`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### C-22 · K2: Focus overview
+PAGE      /admin
+BUTTON    —
+STEPS     1. Read the Focus files.
+EXPECTED  Tokens and the text-sn-* scale.
+ACTUAL    24 hits. focus-home.tsx `text-[26px]`, `text-[13px]`; focus-row.tsx `rounded-[var(--sn-frame-radius)]`, `text-[15px]`; admin-ask-pill.tsx `shadow-lg`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### C-23 · K2: Work list
+PAGE      /admin/work
+BUTTON    —
+STEPS     1. Read the Work files.
+EXPECTED  Tokens only.
+ACTUAL    45 hits. queues-triage-feed.tsx `'#B42318'`, `'#B54708'`, `'#8A6A2E'`, `color: 'white'`; supplier-inbox.tsx `bg-success-100 text-success-800`, `bg-danger-100`, `md:shadow-2xl`, `text-[17px]`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### C-24 · K2: Approvals
+PAGE      /admin/approvals
+BUTTON    —
+STEPS     1. Read approvals/page.tsx.
+EXPECTED  Tokens only.
+ACTUAL    31 hits. `bg-white` ×5, `bg-success-600 … text-white`, `bg-warn-50/60 text-warn-900`, `to-terracotta-50/30`, `text-[11px]`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### C-25 · K2: Search memory
+PAGE      /admin/search-memory
+BUTTON    —
+STEPS     1. Read search-memory-table.tsx.
+EXPECTED  Tokens only.
+ACTUAL    10 hits. `bg-emerald-50 text-emerald-800 border-emerald-200`, `border-red-200 bg-red-50 … text-red-800`, `text-[12px]`, `text-[13px]`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### C-26 · K2: What can I ask? (half-pixel sizes)
+PAGE      /admin/ask
+BUTTON    —
+STEPS     1. Read ask/page.tsx.
+EXPECTED  text-sn-* scale, no half pixels.
+ACTUAL    8 hits. `text-[14.5px]`, `text-[12.5px]`, `text-[18px]`, `text-[10px]`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 Type
+SEVERITY  look
+SOURCE    CODE
+
+#### C-27 · K2: Help inbox
+PAGE      /admin/help
+BUTTON    —
+STEPS     1. Read help-messenger.tsx.
+EXPECTED  text-sn-* scale.
+ACTUAL    6 hits. `text-[14px]`, `text-[11px]`, `md:h-[560px]`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2
+SEVERITY  look
+SOURCE    CODE
+
+#### C-28 · K2: Admin log
+PAGE      /admin/admin-log
+BUTTON    —
+STEPS     1. Read admin-log/page.tsx.
+EXPECTED  Tokens only.
+ACTUAL    2 hits. `text-danger-700`, `text-[11px]`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2
+SEVERITY  look
+SOURCE    CODE
+
+#### C-29 · K2: Team help
+PAGE      /admin/help/guides
+BUTTON    —
+STEPS     1. Read guides/page.tsx.
+EXPECTED  Tokens only.
+ACTUAL    1 hit. `text-terracotta-700` on the "We couldn’t read the list" line.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2
+SEVERITY  look
+SOURCE    CODE
+
+**Group C notes**
+
+- /admin/more, /admin/approvals, /admin/search-memory and /admin/queues never render at their own address. The middleware's `adminMergedForward` (lib/admin/admin-pages.ts `olds`) sends them on with a 307 first. So the /admin/more "All surfaces" body, more/loading.tsx and queues/loading.tsx are dead. layout.tsx and admin-bottom-nav.tsx still say "/admin/more still answers". Approvals and search-memory render only as mounted views.
+- `ConfirmDialog` (app/_components/confirm-dialog.tsx) is a native `<dialog>`, not a Sheet. It is the confirm behind "Approve all N green" (green-batch.tsx → ConfirmForm) and avatar-confirm.tsx. It is the house confirm, so the lead should decide once, app-wide, whether K3 applies.
+- TabLanding is shared. The Money landing (/admin/money, not my page) has the same problem as C-7: its "Refunds · waiting" and "N money items to approve" include the watch-only `supplier-refunds` trail.
+- error.tsx's "Back to Overview" goes to /admin, which is now Focus or Work. "Overview" now means Insights › Overview.
+- Smaller items: /admin's metadata title is 'Work · Admin' while Focus mode's masthead says "Focus". The Apple secret reminder's "Copy prompt" does nothing, silently, when the clipboard is unavailable; it shows from 8 Dec, so I could not see it live.

@@ -43,11 +43,11 @@ None yet.
 - [x] /papic/guest — OFFLINE: NEEDED (hall and tables, mid-shoot) — shots queue on the phone, but the camera cannot be opened with no signal · SHAPE: PAGE → FULL-SCREEN POPUP (DIFFERS, A4-69)
 - [x] /papic/join/[token] — OFFLINE: NOT NEEDED (one server hop) · SHAPE: PAGE = PAGE
 - [x] /papic/lightcheck — OFFLINE: NOT NEEDED · SHAPE: PAGE → not a product route (an operator tool; app/dev or deleted, A4-73)
-- [ ] /papic/me/[token]
-- [ ] /papic/order/[token]
-- [ ] /papic/pool
-- [ ] /papic/seat/[token]
-- [ ] /papic/try
+- [x] /papic/me/[token] — OFFLINE: READ-ONLY IS ENOUGH (scanned at the door and in the hall to reach the camera and own photos) — not kept today · SHAPE: PAGE = PAGE
+- [x] /papic/order/[token] — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE
+- [x] /papic/pool — OFFLINE: NOT NEEDED (a live gallery) · SHAPE: PAGE → FULL-SCREEN POPUP (DIFFERS, A4-81)
+- [x] /papic/seat/[token] — OFFLINE: NEEDED (crew shooting in the hall) — queue as /papic/guest; cannot be opened with no signal · SHAPE: PAGE = PAGE (the crew return by the seat link)
+- [x] /papic/try — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE (lives at app/(shell)/papic/try)
 - [x] /samahan/join/[token] — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE
 - [x] /wall/[eventId] — OFFLINE: NOT NEEDED (live wall never saved; freezes on last frame) · SHAPE: PAGE = PAGE
 
@@ -1121,5 +1121,147 @@ ACTUAL    The page says `DELETE THIS ROUTE once the numbers are recorded in the 
 SHOTS     n/a
 RULE      design-and-wiring D11/D17 (labs under app/dev) · honest states
 SEVERITY  look
+SOURCE    CODE
+```
+
+### /papic/me/[token]
+
+```
+ID        A4-74
+PAGE      /papic/me/[token]   (event: stg-mika-turns-7)
+BUTTON    the "Memories of you" section (Download, Decorate a photo, Make my Story)
+STEPS     1. Open the personal QR page while the `photo_tags` read fails.
+EXPECTED  "Couldn't read your photos", distinct from having none.
+ACTUAL    `getGuestLiveGallery` returns null on failure (`if (tagsError) return null;`) and `GuestGallery` treats it as empty (`if (!gallery || gallery.photos.length === 0) return null;`): the whole section with Download, Decorate and Story silently disappears. Anchors: `apps/web/lib/guest-live-gallery.ts` `getGuestLiveGallery`; `apps/web/app/papic/me/[token]/page.tsx` `GuestGallery`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-75
+PAGE      /papic/me/[token]   (event: stg-mika-turns-7)
+BUTTON    "Make my Story"
+STEPS     1. Tap "Make my Story" while the `guests` read in `prepareGuestStory` errors.
+EXPECTED  "Couldn't load your photos".
+ACTUAL    `const { data } = await admin.from('guests')…; if (!data) return empty;` returns `taggedPhotoCount: 0`, so the maker says "No tagged photos of you just yet. Once you're tagged in a few, come back…". Anchor: `apps/web/app/papic/me/[token]/actions.ts` `prepareGuestStory`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-76
+PAGE      /papic/me/[token]   (event: stg-mika-turns-7, a guest with tagged photos)
+BUTTON    "Open my camera" and "Make my Story"
+STEPS     1. Open the personal QR page as a guest with tagged photos.
+EXPECTED  One accent-filled main button per screen.
+ACTUAL    `className="button-primary w-full gap-2"` (Open my camera, `page.tsx`) and `className="inline-flex … rounded-md bg-mulberry px-4 py-2.5 … text-cream"` (`guest-story-maker.tsx`, phase `idle`) inside the same DoorShell card.
+SHOTS     375 px light
+RULE      K1
+SEVERITY  look
+SOURCE    CODE
+```
+
+### /papic/order/[token] (flag NEXT_PUBLIC_PAPIC_GUEST_BUY; otherwise 404)
+
+```
+ID        A4-77
+PAGE      /papic/order/[token]
+BUTTON    the payment rails' "Exact amount" and its Copy
+STEPS     1. Open an order whose `requested_total_php` is unreadable or absent.
+EXPECTED  No ₱0 anywhere; the copy control hidden (the header already does this: `formatPhp(amount)` shows "—").
+ACTUAL    `amountPhp={amount ?? 0}` is passed to `PayRailsBlock`; `PaymentDetailsBlock` draws `payAmount(0)` ("₱0.00") with `<CopyButton value={amountPhp.toFixed(2)} />` ("0.00"). `mintOrderQr` refuses 0, so no ₱0 QR is minted. Anchor: `apps/web/app/papic/order/[token]/page.tsx` `amountPhp={amount ?? 0}`.
+SHOTS     375 px light
+RULE      CLAUDE.md §1 ("never ₱0" on a failed read) · §5 rule 4
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+```
+ID        A4-78
+PAGE      /papic/order/[token]
+BUTTON    "What you've logged" section and "Log my payment"
+STEPS     1. Log a payment. 2. Reload the order while the `payments` read errors.
+EXPECTED  "Couldn't read your logged payments", so the guest does not log the same transfer twice.
+ACTUAL    `const [{ data: payments }, settings] = await Promise.all([ admin.from('payments')…` ignores `error`; `{(payments ?? []).length > 0 ? (` hides the section and "Already sent it?" is still offered. Anchor: `apps/web/app/papic/order/[token]/page.tsx` `admin.from('payments')`.
+SHOTS     375 px light
+RULE      Honest states (money)
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+### /papic/pool
+
+```
+ID        A4-79
+PAGE      /papic/pool   (event: stg-mika-turns-7 with `pool_gallery_open`)
+BUTTON    "Browse everyone's photos" (on /papic/me)
+STEPS     1. Tap the doorway while the `events` read errors.
+EXPECTED  A "couldn't load" state (the page already has `initialUnreadable` for the tiles).
+ACTUAL    `const { data: ev } = await admin.from('events')…; if (!ev?.pool_gallery_open) notFound();` turns a failed read into a 404. Anchor: `apps/web/app/papic/pool/page.tsx` `pool_gallery_open`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-80
+PAGE      /papic/pool   (event: stg-mika-turns-7)
+BUTTON    "Load more"
+STEPS     1. Tap "Load more" while `/api/papic/guest-pool` returns a 5xx or HTML, or the fetch throws.
+EXPECTED  "Couldn't load more · Try again", with the button kept.
+ACTUAL    `} else { setCursor(null); }` makes the button vanish as if the list had ended; a thrown fetch hits an empty `catch {}`. Anchor: `apps/web/app/papic/pool/_components/pool-grid.tsx` `loadMore`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-81
+PAGE      /papic/pool   (event: stg-mika-turns-7)
+BUTTON    "Browse everyone's photos"
+STEPS     1. Tap it on /papic/me.
+EXPECTED  SHAPE tests: a photo gallery, not shared (the URL carries no identity) → FULL-SCREEN POPUP over /papic/me; ✕ returns to the same place.
+ACTUAL    A two-hop navigation to a standalone `<main className="min-h-screen bg-cream px-4 py-8 text-ink">`. Anchor: `apps/web/app/papic/pool/page.tsx`.
+SHOTS     375 px light
+RULE      SHAPE
+SEVERITY  look
+SOURCE    CODE
+```
+
+### /papic/seat/[token]
+
+The loading skeleton is in A4-68; the ✕ offline issue in A4-70; Add credits in A4-62 and A4-64.
+
+```
+ID        A4-82
+PAGE      /papic/seat/[token]   (event: stg-carla-miguel, a claimed seat)
+BUTTON    page load / "Open my camera"
+STEPS     1. Open your claimed seat while the `paparazzi_seats` read errors.
+EXPECTED  "We couldn't check your seat · Try again" (the claim page has `?state=unreadable` for this).
+ACTUAL    `if (error || !seat || seat.claimer_user_id !== user.id) { redirect(`/papic/claim/${token}`); }` sends the rightful claimer back to "Claim your photo-crew seat" with no explanation. Anchor: `apps/web/app/papic/seat/[token]/page.tsx` `seat.claimer_user_id !== user.id`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /papic/try
+
+```
+ID        A4-83
+PAGE      /papic/try (also /papic)
+BUTTON    the line under the demo photos
+STEPS     1. Run the demo with two phones and take a shot.
+EXPECTED  No line that implies Papic does not cap shots (shots are metered by the event pool).
+ACTUAL    `` `${remaining} demo shot${…} left — the demo caps this, not Papic.` ``; the truth guard's "unlimited" rule only matches the literal word. Anchor: `apps/web/app/(shell)/papic/_papic-scan.tsx` "the demo caps this, not Papic".
+SHOTS     375 px light
+RULE      brand.md claims (price promises)
+SEVERITY  wrong
 SOURCE    CODE
 ```

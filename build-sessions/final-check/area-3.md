@@ -9,7 +9,21 @@
 
 ## BLOCKERS
 
-None found.
+#### B-01 · Story Assignments can never assign anyone: the guest read filters on an RSVP value that does not exist
+
+```
+PAGE      /dashboard/[eventId]/alaala/assignments   (event: stg-carla-miguel)
+BUTTON    "Pick a guest…" / "Assign" on every moment
+STEPS     1. Open Memories › Guest Stories (`/alaala`) › "Manage assignments". 2. Open any moment's guest picker.
+EXPECTED  The attending guests are listed and a guest can be assigned to a moment.
+ACTUAL    `.eq('rsvp_status', 'confirmed')` — the `rsvp_status` enum is `'pending', 'attending', 'declined', 'maybe'` (no `confirmed`; no migration adds it), so Postgres rejects the query. `guestsError` is logged as graceful_degrade and `(guests ?? [])` makes every moment say "No guests to assign". The whole assignment flow stops for every event. It also re-filters guests instead of `countsTowardEvent`.
+WHERE     apps/web/app/dashboard/[eventId]/alaala/assignments/page.tsx (the `guests` read, `guestsError`) · _components/assignment-controls.tsx `GuestPicker` · supabase/migrations/20260513010000_iteration_0001_guests.sql (`rsvp_status` enum)
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 (honest states) · design-and-wiring C8 (headcount reader)
+SEVERITY  blocker
+SOURCE    CODE
+```
+
 
 ## Progress
 

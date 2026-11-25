@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { LOCKED_QR_SHOP_NOT_VERIFIED } from '@/lib/vendor-verification';
 import Link from 'next/link';
@@ -96,7 +97,10 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
     .maybeSingle();
   // 🧾 A6-26 · A6-B23 (final check 25 Nov): a read that did not answer is not a fake QR, and a code we do not know is
   // a Locked QR that does not work — never the site-wide "This page doesn't exist". Both are said here, with what to do.
-  if (tokError) return <LockLinkMessage kind="unread" retryHref={`/vendor/lock/${token}`} />;
+  if (tokError) {
+    logQueryError('vendorLockPage.token', tokError, {}, 'graceful_degrade');
+    return <LockLinkMessage kind="unread" retryHref={`/vendor/lock/${token}`} />;
+  }
   if (!tok) return <LockLinkMessage kind="invalid" />;
 
   const { data: vendor, error: vendorError } = await admin
@@ -104,7 +108,10 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
     .select('business_name, tagline, logo_url, location_city, is_published')
     .eq('vendor_profile_id', tok.vendor_profile_id)
     .maybeSingle();
-  if (vendorError) return <LockLinkMessage kind="unread" retryHref={`/vendor/lock/${token}`} />;
+  if (vendorError) {
+    logQueryError('vendorLockPage.shop', vendorError, {}, 'graceful_degrade');
+    return <LockLinkMessage kind="unread" retryHref={`/vendor/lock/${token}`} />;
+  }
   if (!vendor) return <LockLinkMessage kind="invalid" />;
 
   const categoryLabel =

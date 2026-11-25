@@ -25,8 +25,8 @@ export const metadata = { title: 'Booking fees · Supplier' };
 
 /**
  * /vendor-dashboard/booking-fees — the vendor-facing list of their Setnayan
- * booking-fee orders (a share of the booked total, on the owner's live schedule — `getLiveBookingFeeSchedule`; never a
- * number typed here, A6-61). Each row links to
+ * booking-fee orders (5% of a booked total, then 3% beyond ₱100,000, never more than ₱100,000, minimum ₱50,
+ * owner 2026-11-20; NOT a flat rate). Each row links to
  * the same manual-QR pay flow couples use, reachable from the Plan hub
  * doorway. READ-ONLY surfacing: this never mints or mutates a fee — it lists the
  * orders the fee-charge path already created (RLS scopes to the caller's own).
@@ -43,11 +43,10 @@ export default async function VendorBookingFeesPage() {
 
   // ⚡ A6-61: the reads that ask nothing of each other go in one batch (design-and-wiring D16); only the waived
   // charges wait, because they need the shop id.
-  const [read, profile, feeSchedule, launchOffer] = await Promise.all([
+  const [read, profile, feeSchedule] = await Promise.all([
     fetchVendorFeeOrders(supabase, user.id),
     fetchOwnVendorProfile(supabase, user.id),
     getLiveBookingFeeSchedule(),
-    readLaunchOffer(createAdminClient()).catch(() => null),
   ]);
   const unreadable = read === FEE_ORDERS_UNREADABLE;
   const orders = unreadable ? [] : read;
@@ -73,7 +72,7 @@ export default async function VendorBookingFeesPage() {
 
   // The owner's LIVE rate for the fee line below (`feeSchedule`, read in the batch) — null prints no rate, never the
   // code default. 🎁 F-W1-30: the launch offer, said where the supplier reads their fees — from the live settings.
-  const launchLine = launchOfferFeesLine(launchOffer, Date.now());
+  const launchLine = launchOfferFeesLine(await readLaunchOffer(createAdminClient()).catch(() => null), Date.now());
   // 📅 The new-client window (owner 2026-11-16, #8086), named with its length from settings — the supplier's own app
   // only. Unread → no line (never a guessed number).
   const newClientLine = feeNewClientLine(feeSchedule?.newClientFreeMonths);

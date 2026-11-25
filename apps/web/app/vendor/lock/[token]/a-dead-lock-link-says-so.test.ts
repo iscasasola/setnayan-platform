@@ -18,9 +18,9 @@ test('the lock page never answers with notFound()', () => {
 
 test('both reads bind their error and say an unread link, apart from an unknown one', () => {
   assert.match(body, /data: tok, error: tokError/);
-  assert.match(body, /if \(tokError\) return <LockLinkMessage kind="unread"/);
+  assert.match(body, /if \(tokError\) \{\s*logQueryError\([^)]*\);\s*return <LockLinkMessage kind="unread"/);
   assert.match(body, /if \(!tok\) return <LockLinkMessage kind="invalid"/);
-  assert.match(body, /if \(vendorError\) return <LockLinkMessage kind="unread"/);
+  assert.match(body, /if \(vendorError\) \{\s*logQueryError\([^)]*\);\s*return <LockLinkMessage kind="unread"/);
   assert.match(body, /if \(!vendor\) return <LockLinkMessage kind="invalid"/);
 });
 

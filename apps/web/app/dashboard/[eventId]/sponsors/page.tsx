@@ -2,6 +2,7 @@ import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { BackButton } from '@/app/_components/back-button';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -24,6 +25,7 @@ import { addSponsor } from './actions';
 import { formatCount } from '@/lib/format-number';
 import { InfoTip } from '@/app/_components/info-tip';
 import { sponsorErrorWords } from './sponsor-error-copy';
+import { ReadRefusedNotice } from '../_components/read-refused-notice';
 
 export const metadata = {
   title: 'Sponsors',
@@ -204,6 +206,18 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
   const justDeclined = search.declined === '1';
   // A2-I18: fixed words for a known key, the plain fallback otherwise — never the address bar's own text.
   const errorMessage = sponsorErrorWords(search.error);
+
+  // A2-I13: a refused sponsor read is never "0 of N slots filled" with an Add button on every slot (pressing them
+  // would add second copies of sponsors who are already there). The page says it could not read, and stops.
+  if (sponsorRowsError) {
+    return (
+      <section className="sn-col space-y-6 pb-12">
+        <BackButton route="/dashboard/[eventId]/sponsors" params={{ eventId }} />
+        <PageMasthead title="Your principal sponsors" />
+        <ReadRefusedNotice what="your sponsors" />
+      </section>
+    );
+  }
 
   return (
     <section className="sn-col space-y-6 pb-12">

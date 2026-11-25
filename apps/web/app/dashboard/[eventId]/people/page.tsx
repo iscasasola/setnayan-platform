@@ -10,6 +10,7 @@ import { countGuestsByEvent } from '@/lib/guests';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { HOST_MEMBER_TYPES } from '@/app/[slug]/_lib/host-scope';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ReadRefusedNotice } from '../_components/read-refused-notice';
 import type { ModeratorPermissions } from '@/lib/delegate-areas';
 import {
   buildPeopleGroups,
@@ -197,6 +198,9 @@ export default async function EventPeoplePage({ params }: Props) {
 
   const groups = buildPeopleGroups(eventId, viewer, counts);
   const headline = rosterHeadline(groups);
+  // A2-E8: when WHO the viewer is could not be read, the empty list is a refused read, not a fact about their access.
+  // The page still lists nothing (the safe direction), but it never says "not shared with you".
+  const whoRefused = Boolean(memberRes.error || delegateRes.error);
 
   return (
     <section className="sn-col space-y-6">
@@ -204,7 +208,9 @@ export default async function EventPeoplePage({ params }: Props) {
 
       <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">{headline}</p>
 
-      {groups.length === 0 ? (
+      {groups.length === 0 && whoRefused ? (
+        <ReadRefusedNotice what="who can see this event's lists" />
+      ) : groups.length === 0 ? (
         // Not a Denied frame and not an Empty one: nothing about this event is
         // shared with them, and the honest thing is to say so and point at the
         // person who can change it — never a create-CTA for somebody else's list.

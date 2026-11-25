@@ -78,7 +78,7 @@ async function audit(
  * it used to audit and let the editor show "Saved" over a write the database refused.
  */
 export type MenuWriteResult = { ok: true } | { ok: false; error: string };
-const REFUSED: MenuWriteResult = { ok: false, error: 'The menu change could not be saved. Nothing changed — try again.' };
+const REFUSED: { ok: false; error: string } = { ok: false, error: 'The menu change could not be saved. Nothing changed — try again.' };
 
 /** Rename a slot (blank ⇒ revert to the code-default label). */
 export async function setSlotLabel(slotKey: string, labelRaw: string): Promise<MenuWriteResult> {
@@ -179,7 +179,7 @@ export async function resetSlot(slotKey: string): Promise<MenuWriteResult> {
 }
 
 /** Upload a custom icon image (SVG/PNG/JPEG/WebP) → R2 → set as the slot icon. */
-export async function uploadSlotIcon(formData: FormData): Promise<MenuWriteResult> {
+export async function uploadSlotIcon(formData: FormData): Promise<void> {
   const user = await requireAdmin();
   const slotKey = String(formData.get('slot_key') || '');
   assertKnownSlot(slotKey);
@@ -207,8 +207,9 @@ export async function uploadSlotIcon(formData: FormData): Promise<MenuWriteResul
     },
     { onConflict: 'slot_key' },
   );
-  if (error) return REFUSED;
+  // A8·H-15: a form posts this, so a refusal is said on the Menus tab (the app-wide `?error=` + `msg` toast) — no
+  // audit row, no silent success.
+  if (error) redirect(`/admin/ugat?tab=menus&error=1&msg=${encodeURIComponent(REFUSED.error)}`);
   await audit(admin, user.id, 'nav.set_icon_custom', slotKey, { custom_url: url });
   revalidateRegistry();
-  return { ok: true };
 }

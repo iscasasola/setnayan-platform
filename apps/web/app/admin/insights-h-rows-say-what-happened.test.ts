@@ -63,7 +63,10 @@ test('A8·H-10 · the Sentry smoke test says it did not reach the server on a ne
 
 test('A8·H-15 · a refused menu edit returns its reason and writes no audit row', () => {
   const s = read('app/admin/menus/actions.ts');
-  for (const fn of ['setSlotLabel', 'setSlotLucideIcon', 'setSlotNoIcon', 'setSlotHidden', 'resetSlot', 'uploadSlotIcon']) {
+  const upload = body(s, 'uploadSlotIcon');
+  const said = upload.indexOf('if (error) redirect(`/admin/ugat?tab=menus&error=1&msg=');
+  assert.ok(said > 0 && said < upload.indexOf('await audit('), 'a refused upload is said before any audit row');
+  for (const fn of ['setSlotLabel', 'setSlotLucideIcon', 'setSlotNoIcon', 'setSlotHidden', 'resetSlot']) {
     const b = body(s, fn);
     assert.match(b, /Promise<MenuWriteResult>/, `${fn} returns its result`);
     assert.match(b, /const \{ error \} = await admin\.from\('nav_slot_override'\)/, `${fn} reads its write`);
@@ -73,7 +76,7 @@ test('A8·H-15 · a refused menu edit returns its reason and writes no audit row
   const ed = read('app/admin/menus/_components/menu-registry-editor.tsx');
   assert.match(ed, /const res = await write\(\);\s*if \(!res\.ok\) throw new Error\(res\.error\);/);
   assert.match(ed, /toast\.error\(/);
-  for (const call of ['setSlotHidden(', 'resetSlot(', 'setSlotNoIcon(', 'uploadSlotIcon(', 'setSlotLabel(', 'setSlotLucideIcon(']) {
+  for (const call of ['setSlotHidden(', 'resetSlot(', 'setSlotNoIcon(', 'setSlotLabel(', 'setSlotLucideIcon(']) {
     const i = ed.indexOf(`() => ${call}`);
     assert.ok(i > 0, `${call} is not run through runWrite`);
   }

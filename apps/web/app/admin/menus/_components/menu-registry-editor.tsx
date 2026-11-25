@@ -314,9 +314,7 @@ function SlotRow({ slot, iconNames }: { slot: ResolvedNavSlot; iconNames: string
           </div>
 
           <form
-            action={async (fd: FormData) => {
-              await runWrite('Uploading the icon', () => uploadSlotIcon(fd));
-            }}
+            action={uploadSlotIcon}
             className="mt-3 flex items-center gap-2 border-t border-ink/10 pt-3"
           >
             <input type="hidden" name="slot_key" value={slot.key} />

@@ -397,3 +397,12 @@ best fit and follow it up (`requirements-capture.ts:181`) · check each quoted p
 history · check payment plans (balance after the event, odd deposit) · when a booked supplier cancels, line up free
 look-alikes · rank your list by real reply speed · sum up reviews per shortlisted supplier · warn when a
 supplier-added to-do is slipping · find dates every picked supplier is free. Nothing is built until the owner picks.
+
+## Add 22 · Setnayan AI's purpose (owner, 25 Nov): make building the supplier team ~10× easier for the client
+The AI is for the CLIENT (host). Its headline is a one-tap top recommendation that feels clearly special: the whole
+team picked for this event, asked in one tap, followed up and swapped for them. Free keeps browsing, the "% match",
+manual inquiries and the sign-up fan-out. Controller's proposed shape (drawing first, owner OK before any build):
+one screen "Your team, picked for you" (top pick per category + 2 backups, why each fits, total vs budget) → one
+button "Ask them all" (requirement-filled inquiries) → the AI follows up the quiet ones, swaps a declined or booked one
+for the next best, and keeps the team's status on one line. Supporting AI checks: fair-price check on each quote,
+payment-plan check, backup line-up when a booked supplier cancels. Not built; lane C until the owner approves.

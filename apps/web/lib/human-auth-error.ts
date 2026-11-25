@@ -169,6 +169,66 @@ const OWN_LOGIN_ERRORS: ReadonlyMap<string, string> = new Map<string, string>([
 ]);
 
 /**
+ * 🔒 A URL PARAM, DECODED WITHOUT EVER THROWING (final check A1-058 / A1-083, 25 Nov 2026).
+ *
+ * Next hands `searchParams` over already decoded, and several pages decoded them a second time with a bare
+ * `decodeURIComponent`. A lone "%" (`/login?ready=100%25`, `/reset-password?error=%25`, `/help?error=%25`) then
+ * threw URIError and the page answered HTTP 500. This decodes once more only when it can, and otherwise keeps the
+ * text as it came. `null`/`undefined`/empty in → `null` out.
+ */
+export function decodeParamSafely(raw: string | string[] | null | undefined): string | null {
+  const one = Array.isArray(raw) ? raw[0] : raw;
+  if (one === null || one === undefined) return null;
+  let s = String(one);
+  try {
+    s = decodeURIComponent(s);
+  } catch {
+    /* a stray "%" — keep the text as Next decoded it */
+  }
+  s = s.trim();
+  return s === '' ? null : s;
+}
+
+/**
+ * 🔒 THE URL CHOOSES AMONG OUR SENTENCES; IT NEVER SUPPLIES ONE.
+ *
+ * The same closed-list rule as `loginErrorFromParam`, for every other card that shows `?error=`: the param may be
+ * a code (`own` keyed by code), one of our own exact sentences (`own` values), or a provider message we know
+ * (`KNOWN`). Anything else shows `fallback`, never the URL's own words (a link reading
+ * `?error=Call us at 0917…` printed that line inside our card).
+ */
+export function ownMessageFromParam(
+  raw: string | string[] | null | undefined,
+  own: Readonly<Record<string, string>> | ReadonlyArray<string>,
+  fallback: string,
+): string | null {
+  const s = decodeParamSafely(raw);
+  if (s === null) return null;
+  if (Array.isArray(own)) {
+    if ((own as ReadonlyArray<string>).includes(s)) return s;
+  } else {
+    const byCode = own as Readonly<Record<string, string>>;
+    if (Object.prototype.hasOwnProperty.call(byCode, s)) return byCode[s] ?? fallback;
+    if (Object.values(byCode).includes(s)) return s;
+  }
+  for (const [pattern, message] of KNOWN) {
+    if (pattern.test(s)) return message;
+  }
+  return fallback;
+}
+
+/**
+ * An email address carried in the URL (`/login?check_email=` · `?ready=`), or `null` when the param is not one.
+ * Those banners print the address back ("We sent a confirmation link to …"), so anything that is not plainly an
+ * email address is dropped rather than printed.
+ */
+export function emailFromParam(raw: string | string[] | null | undefined): string | null {
+  const s = decodeParamSafely(raw);
+  if (s === null || s.length > 254) return null;
+  return /^[^\s@<>()"',;:]+@[^\s@<>()"',;:]+\.[^\s@<>()"',;:]{2,}$/.test(s) ? s : null;
+}
+
+/**
  * 🔒 THE `/login?error=` PARAM → A FIXED SENTENCE, or null for no error.
  *
  * Guest text audit 2026-09-30 (security): `humanAuthError` prints any string
@@ -183,13 +243,8 @@ const OWN_LOGIN_ERRORS: ReadonlyMap<string, string> = new Map<string, string>([
  */
 export function loginErrorFromParam(raw: string | null | undefined): string | null {
   if (raw === null || raw === undefined) return null;
-  let s: string;
-  try {
-    s = decodeURIComponent(String(raw)).trim();
-  } catch {
-    s = String(raw).trim();
-  }
-  if (s === '') return null;
+  const s = decodeParamSafely(raw);
+  if (s === null) return null;
   const own = OWN_LOGIN_ERRORS.get(s);
   if (own) return own;
   if (/sign-in is not configured|sign-in could not start/i.test(s)) {

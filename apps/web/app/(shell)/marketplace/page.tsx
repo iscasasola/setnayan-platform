@@ -109,7 +109,7 @@ const APP_LD = {
     'Save the suppliers you like to your shortlist',
     'Compare two saved suppliers side by side — location, rating, services, faith fit',
     'A free preview of how well each supplier fits your wedding',
-    'Free to browse, 0% commission on bookings',
+    'Free to browse. Hosts pay 0% commission.',
   ],
   areaServed: 'Philippines',
   publisher: { '@id': `${SITE_URL}/#organization` },
@@ -122,7 +122,7 @@ const FAQ = [
   },
   {
     q: 'Is it free? Do we need an account?',
-    a: 'Browsing is free and open to anyone. Saving a supplier and comparing two are tied to your wedding, so you start an event when you want to keep one — that is free too. Setnayan takes 0% commission on bookings: nothing you pay a supplier comes back to us.',
+    a: 'Browsing is free and open to anyone. Saving a supplier and comparing two are tied to your wedding, so you start an event when you want to keep one — that is free too. Hosts pay 0% commission: nothing you pay a supplier comes back to us.',
   },
   {
     q: 'What does “verified” mean?',
@@ -171,7 +171,7 @@ const VS = [
   ['Suppliers found in group chats and comment threads', 'Verified suppliers, one search'],
   ['Guessing who is legitimate', 'Every listing passed a business check and a video call'],
   ['Weighing quotes in your head', 'Two suppliers side by side, spec for spec'],
-  ['A referral fee hiding in your price', '0% commission — Setnayan never takes a cut'],
+  ['A referral fee hiding in your price', 'Hosts pay 0% commission.'],
 ] as const;
 
 /*
@@ -208,7 +208,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Inside your event',
     t: 'Chosen here, kept in one ledger',
-    d: 'Message a supplier from Setnayan — they see your event’s name and date, never your email. Once you choose them, their contact, contract, packages, payment schedule and notes sit against a single row in your event, and you pay them directly: 0% commission, so what fits you is never what pays us.',
+    d: 'Message a supplier from Setnayan — they see your event’s name and date, never your email. Once you choose them, their contact, contract, packages, payment schedule and notes sit against a single row in your event, and you pay them directly. Hosts pay 0% commission.',
     media: { kind: 'photo', src: '/demo/maria-jose/details.webp', alt: 'A wedding invitation with two gold rings, beside a bouquet of white roses' },
   },
 ];
@@ -236,7 +236,7 @@ export default function MarketplaceLandingPage() {
       faq={FAQ}
       closing={{
         heading: 'Start with who you need',
-        body: 'The Marketplace is free to browse, with 0% commission on bookings. Find your suppliers here, save the ones you like, compare two — and when you start your wedding on Setnayan, they carry into your event’s supplier ledger, beside your guest list, budget and schedule.',
+        body: 'The Marketplace is free to browse. Hosts pay 0% commission. Find your suppliers here, save the ones you like, compare two — and when you start your wedding on Setnayan, they carry into your event’s supplier ledger, beside your guest list, budget and schedule.',
         href: '/?browse=1',
         label: 'Browse the marketplace',
       }}
@@ -245,7 +245,7 @@ export default function MarketplaceLandingPage() {
       <SpotlightSection
         productName="Marketplace"
         heading="Find them, keep them, compare them"
-        lede="Free to browse. 0% commission on bookings."
+        lede="Free to browse. Hosts pay 0% commission."
         items={SPOTLIGHTS}
       />
     </DoorwayPage>

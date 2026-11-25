@@ -15,7 +15,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { stripComments } from './strip-comments';
 import {
@@ -135,9 +135,11 @@ test('an undated member does not drag the span, it is simply absent from it', ()
 /* ── the sort key must never reach a person ──────────────────────────────── */
 
 test('no surface renders sort_key', () => {
+  // The /dashboard/clusters pages retired at launch (L6, R3): no cluster surface is left to render a sort key.
+  // A root that comes back is walked again.
   const roots = [
     path.join(__dirname, '..', 'app', 'dashboard', '(account)', 'clusters'),
-  ];
+  ].filter((d) => existsSync(d));
   const offenders: string[] = [];
 
   const walk = (dir: string) => {

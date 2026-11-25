@@ -13,22 +13,14 @@ import Link from 'next/link';
 import { Trophy, Eye, EyeOff, Plus, MessageSquareQuote, Search, X, Radio, Play, Square } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { papicMissionCost } from '@/lib/papic-cameras';
-import { fetchEventPoolStatus } from '@/lib/papic-event-pool';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { resolveProfileByEvent } from '@/lib/event-type-profile';
 import { ensurePapicBoard } from '@/lib/papic-games';
 import {
   BOARD_SIZE,
-  boardIsTrustworthy,
-  boardLaneCounts,
-  boardShowingWords,
-  boardOccupancyClaim,
   coupleSlots,
   displayChallengePrompt,
-  type BoardReading,
   type CaptureKind,
   type PapicMissionSource,
 } from '@/lib/papic-missions';
@@ -143,7 +135,7 @@ export async function CoupleChallengesManager({
   // are queued behind it". An unbuilt board is not a full one, and the couple
   // was told to delete their own challenges to make room on a board that was
   // empty. `resolved` is what stops this screen inventing that again.
-  const board = await ensurePapicBoard(supabase, eventId);
+  await ensurePapicBoard(supabase, eventId);
 
   // Approved missions only — live or hidden. Pending vendor challenges
   // (approved=false) belong to the approval panel, not the curation list.
@@ -167,56 +159,8 @@ export async function CoupleChallengesManager({
   const missions = (data ?? []) as MissionRow[];
   const missionsReadable = !missionsErr;
 
-  // The split the couple actually needs: what guests see, and what does not fit.
-  // A hidden challenge is excluded from the board by the resolver, so it lands
-  // in `offBoard` — but its own "Hidden from guests" line already explains why,
-  // and it is the couple's own doing. `waiting` is the surprising set: active,
-  // approved, and still not shown, because the 20 slots are full.
-  // ⚠ WHAT THIS BOARD COMMITS A GUEST TO SPEND. Every live challenge is a shot
-  // out of the ONE shared pool, and until now this screen said nothing about
-  // that: the board is in Set up, the balance is in Cameras, and a couple could
-  // sign their guests up for hundreds of shots without a number in sight.
-  // Derived from papicMissionCost — never a hand-typed 8.
-  const onBoard = missions.filter((m) => m.board_slot !== null);
-  const offBoard = missions.filter((m) => m.board_slot === null);
-  const waiting = offBoard.filter((m) => m.is_active);
-
-  // ── 🔑 MAY THIS SCREEN SAY "WAITING FOR A FREE SPOT"? ──────────────────────
-  // Only when there is a board to be waiting BEHIND. Two ways that is false,
-  // and they used to look identical to this component:
-  //
-  //   · the resolver was refused, so NOTHING has a slot — the live bug this
-  //     flag was added for; and
-  //   · the resolver ran and put nothing on the board, which it cannot do while
-  //     an active approved couple pick exists (the couple lane is slotted
-  //     FIRST), so an empty board beside waiting rows means the two reads
-  //     disagree and we do not know which is right.
-  //
-  // ⚠ THE DIRECTION IS THE WHOLE POINT. "Your board is full, hide one to make
-  // room" is an instruction to DELETE something, given on the strength of a
-  // measurement we do not have. Not-measured is never zero and never a limit
-  // reached: when we cannot tell, we say we cannot tell.
-  //
-  // The rule lives in `lib/papic-missions.ts` beside BOARD_SIZE, not in this
-  // JSX, so it can be tested without a Supabase client — and so a second screen
-  // cannot answer the same question differently.
-  const reading: BoardReading = {
-    resolved: board.resolved,
-    onBoardCount: onBoard.length,
-    waitingCount: waiting.length,
-  };
-  const boardReadable = boardIsTrustworthy(reading);
-  const notShowingClaim = boardOccupancyClaim(reading);
-
-  // Cost of the board a guest actually sees, per guest. Fail-soft: the pool read
-  // degrades to "absent" on any error and we then say nothing about a balance
-  // rather than printing a confident zero — a zero here reads as "you have no
-  // credits left", which would be a lie told at the worst moment.
-  const boardCostPerGuest = onBoard
-    .filter((m) => m.is_active)
-    .reduce((sum, m) => sum + papicMissionCost(m.capture_kind), 0);
-  const pool = await fetchEventPoolStatus(createAdminClient(), eventId);
-  const poolRemaining = pool.applies ? pool.remainingPoints : null;
+  // L6 (R6): the full board, its cost line and its "make room" claim retired with /papic/challenges. The card draws
+  // its own rows below and makes no occupancy or pool claim, so nothing here is derived for them.
 
   // ── ⏱ WHICH CHALLENGE IS BEING ASKED RIGHT NOW ────────────────────────────
   // Owner ruling 2026-09-01: the window is RELATIVE — it opens when a challenge

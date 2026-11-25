@@ -164,7 +164,6 @@ export const JUDGEMENT_QUEUES: Record<string, string> = {
     'Someone reported content about a real person. Read it before deciding.',
   'integrity-watch':
     'Review-fraud and ghost listings need the surrounding evidence.',
-  'concierge-abuse': 'Abuse flags need their history before a verdict.',
   'account-deletions':
     'An erasure request is a legal duty with a clock. Opens the case file.',
   /* Added 2026-08-28. Approving one DESTROYS an event and voids paid

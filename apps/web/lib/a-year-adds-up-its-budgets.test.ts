@@ -385,10 +385,10 @@ test('no cluster surface reaches the Papic pot', () => {
   const files = [
     path.join(__dirname, 'cluster-budgets.ts'),
     path.join(__dirname, 'clusters.ts'),
-    ...walkTsFiles(path.join(__dirname, '..', 'app', 'dashboard', '(account)', 'clusters')),
+    // The /dashboard/clusters pages retired at launch (L6, R3); the two lib modules are what remains.
   ];
   // A sweep that finds nothing to check is a broken guard, not a pass.
-  assert.ok(files.length >= 6, `the cluster sweep found only ${files.length} files`);
+  assert.ok(files.length >= 2, `the cluster sweep found only ${files.length} files`);
 
   const offenders: string[] = [];
   for (const file of files) {

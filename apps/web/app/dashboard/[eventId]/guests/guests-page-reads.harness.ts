@@ -62,7 +62,10 @@ const USER = { id: USER_ID, aud: 'authenticated', role: 'authenticated', email: 
 const SESSION = { access_token: ACCESS, token_type: 'bearer', expires_in: 3600, expires_at: 4102444800, refresh_token: 'harness-refresh', user: USER };
 const COOKIES = [{ name: 'sb-db-auth-token', value: `base64-${Buffer.from(JSON.stringify(SESSION)).toString('base64url')}` }];
 /** The request's cookies: the couple's session, or none at all (`STATE.signedOut`). */
-const cookiesNow = () => (STATE.signedOut ? [] : COOKIES);
+/** 🧹 A session the middleware could not refresh (a dead refresh token) is left as the cookie's NAME with an EMPTY
+ *  value — @supabase/ssr's removal, written onto the request — so the page sees the name and no session. */
+const CLEARED = [{ name: 'sb-db-auth-token', value: '' }];
+const cookiesNow = () => (STATE.signedOut ? [] : STATE.sessionCleared ? CLEARED : COOKIES);
 const jar = {
   get: (name: string) => cookiesNow().find((c) => c.name === name),
   getAll: () => cookiesNow(),
@@ -206,6 +209,8 @@ const STATE = {
   delegateWithoutGuestList: false,
   /** The request carries NO session cookie — signed out, or a `/guests` link opened in another browser (G6). */
   signedOut: false,
+  /** The session cookie is there by NAME only, its value emptied — the middleware's refresh was refused (live fault, 21 Nov). */
+  sessionCleared: false,
 };
 
 type Sent = { step: number; what: string; key: string; table: string; select: string; who: string; by?: string };
@@ -363,6 +368,7 @@ async function main() {
     oneReadRefused: undefined as unknown as ViewReport,
     delegateWithoutGuestList: undefined as unknown as ViewReport,
     signedOut: undefined as unknown as ViewReport,
+    sessionCleared: undefined as unknown as ViewReport,
   };
   // 🧯 THE ONE READ IS REFUSED: every asker must send its own read and the list must still be drawn.
   STATE.refuseOneRead = true;
@@ -376,6 +382,10 @@ async function main() {
   STATE.signedOut = true;
   out.signedOut = await view(() => page());
   STATE.signedOut = false;
+  // 🧹 A SESSION THE MIDDLEWARE COULD NOT REFRESH: the cookie's name is there, its value is empty — still signed out.
+  STATE.sessionCleared = true;
+  out.sessionCleared = await view(() => page());
+  STATE.sessionCleared = false;
   process.stdout.write(`GUESTS_PAGE_READS ${JSON.stringify(out)}\n`);
 }
 

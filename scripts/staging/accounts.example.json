@@ -1,0 +1,20 @@
+{
+  "note": "STAGING TEST SIGN-INS — never commit this file. Hand each checker only their own row. (This is the SHAPE only: scripts/staging/seed.ts writes the real file, accounts.local.json, which git ignores.)",
+  "generated_at": "<ISO time of the run>",
+  "target": { "project_ref": "<the staging branch's project ref — never production>", "api_url": "https://<branch-ref>.supabase.co" },
+  "accounts": [
+    { "key": "front", "area": 1, "role": "Front door and public pages — signed OUT; this sign-in is a spare for the sign-in pages themselves", "email": "front@final-check.test", "password": "<generated — in accounts.local.json only>" },
+    { "key": "couple_plan", "area": 2, "role": "Couple: create an event and plan it (guests, seats, budget, suppliers, checklist)", "email": "couple-plan@final-check.test", "password": "<generated — in accounts.local.json only>" },
+    { "key": "couple_maker", "area": 3, "role": "Couple: Maker, Event Hub page, invitations, Papic, Memories", "email": "couple-maker@final-check.test", "password": "<generated — in accounts.local.json only>" },
+    { "key": "guest", "area": 4, "role": "Guest: never signs in for the Event Hub (use the links); this sign-in is for claim and join flows", "email": "guest@final-check.test", "password": "<generated — in accounts.local.json only>" },
+    { "key": "supplier_shop", "area": 5, "role": "Supplier: shop, service cards, Toolkit, plans (Pro plan)", "email": "supplier-shop@final-check.test", "password": "<generated — in accounts.local.json only>" },
+    { "key": "supplier_bookings", "area": 6, "role": "Supplier: bookings in every state, chat, payments, calendar (Free plan)", "email": "supplier-bookings@final-check.test", "password": "<generated — in accounts.local.json only>" },
+    { "key": "coordinator", "area": 7, "role": "Coordinator seat on a booked wedding, plus a seat on the venue shop (Spaces, the map pin)", "email": "coordinator@final-check.test", "password": "<generated — in accounts.local.json only>" },
+    { "key": "admin", "area": 8, "role": "Admin console (account_type admin — not internal, so its own paid gates stay honest)", "email": "admin@final-check.test", "password": "<generated — in accounts.local.json only>" },
+    { "key": "messy_one", "area": null, "role": "BIG and MESSY couple: a 350-guest wedding, very long and accented names, old-style records", "email": "messy-one@final-check.test", "password": "<generated — in accounts.local.json only>" },
+    { "key": "messy_two", "area": null, "role": "BIG and MESSY couple: a 320-guest reunion, an undated old event, lapsed and refunded orders, a long chat", "email": "messy-two@final-check.test", "password": "<generated — in accounts.local.json only>" }
+  ],
+  "counts": { "events": 9, "guests": 1056, "shops": 15, "cards": 36, "bookings": 29, "chat_threads": 28, "chat_messages": 182, "tables": 62, "seated": 256, "orders": 8, "payments": 9 },
+  "events": [{ "slug": "stg-bea-paolo", "event_id": "<uuid>", "type": "wedding", "name": "Bea & Paolo", "date": "<90 days after the run>" }],
+  "guest_links": [{ "event": "stg-bea-paolo", "guest": "<a guest's name>", "rsvp": "attending", "set_by": "guest", "invited": true, "qr_token": "<the guest's pass code>" }]
+}

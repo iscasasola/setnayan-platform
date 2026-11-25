@@ -22,7 +22,7 @@
  * `app/dashboard/[eventId]/studio/website-pro/event-services-wears-the-website-look.test.ts`.
  */
 
-:is([data-event-services], [data-event-services-cart]) {
+:is([data-event-services], [data-event-services-cart], [data-event-services-apple-step]) {
   --web-ink: rgb(var(--color-ink));
   --web-m1: var(--sn-ink-500);
   --web-m2: var(--m-slate-3);
@@ -34,7 +34,7 @@
   --web-mono: var(--font-mono, ui-monospace, monospace);
   color: var(--web-ink);
 }
-html.dark :is([data-event-services], [data-event-services-cart]) {
+html.dark :is([data-event-services], [data-event-services-cart], [data-event-services-apple-step]) {
   --web-chip: rgb(var(--color-raised-2));
   --web-note: rgb(var(--color-raised));
 }
@@ -53,7 +53,7 @@ html:not(.dark):has([data-event-services]) {
 }
 
 /* ── The head: the event's line as a mono kicker, the one title ── */
-[data-event-services] .es-kick {
+:is([data-event-services], [data-event-services-apple-step]) .es-kick {
   font-family: var(--web-mono);
   font-size: 11px;
   font-weight: 700;
@@ -329,7 +329,7 @@ html:not(.dark):has([data-event-services]) {
   background: var(--web-ink);
   color: rgb(var(--sn-page-bg));
 }
-[data-event-services] .es-fine {
+:is([data-event-services], [data-event-services-apple-step]) .es-fine {
   margin-top: 6px;
   margin-bottom: 12px;
   font-size: 12px;
@@ -393,24 +393,28 @@ html:not(.dark):has([data-event-services]) {
   color: var(--web-ink);
 }
 
-/* ── 🍎 "1 of 2 · Event Pro": named on a sheet over the scrim while Apple's own sheet opens ── */
-[data-event-services] .es-step {
+/* ── 🍎 "1 of 2 · Event Pro": named on a sheet over the scrim while Apple's own sheet opens ──
+   The layer is drawn into <body> (the view's createPortal), so it carries its own hook like the cart bar does: inside
+   the event layout's <main class="sn-vt-page"> a fixed layer is trapped under the bottom nav. On <body>, at the pop
+   layer, the scrim covers the top bar and the nav and the sheet stands on the screen's foot (frame 08b), clear of the
+   home indicator. ── */
+[data-event-services-apple-step].es-step {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: var(--sn-z-pop);
   display: flex;
   align-items: flex-end;
   justify-content: center;
   background: var(--sn-scrim);
 }
-[data-event-services] .es-step-sheet {
+[data-event-services-apple-step] .es-step-sheet {
   width: 100%;
   max-width: 720px;
-  padding: 18px 16px 28px;
+  padding: 18px 16px calc(28px + env(safe-area-inset-bottom, 0px));
   border-radius: var(--m-r-lg) var(--m-r-lg) 0 0;
   background: rgb(var(--color-raised));
 }
-[data-event-services] .es-big {
+[data-event-services-apple-step] .es-big {
   margin-top: 4px;
   font-size: 28px;
   font-weight: 700;

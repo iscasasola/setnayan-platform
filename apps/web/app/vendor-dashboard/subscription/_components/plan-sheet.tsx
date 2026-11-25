@@ -22,6 +22,7 @@
  *
  * 🔒 app/vendor-dashboard/subscription/the-plan-is-rows.test.ts · lib/plan-sheet.test.ts
  */
+import { planRenewal } from '@/lib/plan-renewal-words';
 import { BadgeCheck, Gem, Sparkles, Wallet } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
 import { Badge, type BadgeTone } from '@/app/_components/badge';
@@ -146,6 +147,7 @@ export function PlanSheet({
   gift = null,
   offer = null,
   pricesUnread = false,
+  appleSells = false,
 }: {
   /** `sheetPlans(...)` order — the shop's own first. */
   plans: readonly SheetPlan[];
@@ -165,7 +167,10 @@ export function PlanSheet({
   offer?: string | null;
   /** L-2: the catalogue read was REFUSED — a missing price is "Couldn't load", never "Not sold on this cycle". */
   pricesUnread?: boolean;
+  /** 🔁 `getIapGate().iap` — in the app with Apple on, a plan renews through Apple (lib/plan-renewal-words.ts). */
+  appleSells?: boolean;
 }) {
+  const renewal = planRenewal(appleSells);
   // The year switch is gone (owner 2026-11-22: "no yearly for any supplier subscription"): every plan is billed
   // monthly, so there is one cycle and no control to change it.
   const cycle: Cycle = startCycle;
@@ -241,10 +246,10 @@ export function PlanSheet({
                           onGift && gift
                             ? keepGift
                               ? `Starts ${gift.startsShort ?? `after ${gift.untilShort}`}, no gap`
-                              : `${formatPhp(0)} until ${gift.untilFull} · nothing renews by itself`
+                              : `${formatPhp(0)} until ${gift.untilFull} · ${renewal.inline}`
                             : expiresOn
-                              ? `On ${expiresOn} to stay on ${p.name} · nothing renews by itself`
-                              : `To stay on ${p.name} · nothing renews by itself`
+                              ? `On ${expiresOn} to stay on ${p.name} · ${renewal.inline}`
+                              : `To stay on ${p.name} · ${renewal.inline}`
                         }
                         pesos={onGift && !keepGift ? 0 : price !== undefined ? price : null}
                       />

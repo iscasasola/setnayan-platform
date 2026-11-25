@@ -522,7 +522,13 @@ function surfaceOf(text: string): DoorSurface {
  * `app/[slug]` falls through to), so the map reads it as `/v/${x}`, the address the same door was written as before.
  */
 export function shopPathAsShopRoute(src: string): string {
-  return src.replace(/\$\{shopPath\(([^()]*(?:\([^()]*\))?[^()]*)\)\}/g, '/v/${$1}');
+  return src
+    .replace(/\$\{shopPath\(([^()]*(?:\([^()]*\))?[^()]*)\)\}/g, '/v/${$1}')
+    .replace(/\$\{publicEventPath\(([^(),]+),\s*([^()]+)\)\}/g, '/u/${$2}/${$1}')
+    .replace(/\$\{publicEventPath\(([^()]*)\)\}/g, '/${$1}')
+    .replace(/(?<!function )\bpublicEventPath\(([^(),:]+),\s*([^():]+)\)/g, '`/u/${$2}/${$1}`')
+    .replace(/(?<!function )\bpublicEventPath\(([^():]*)\)/g, '`/${$1}`')
+    .replace(/(?<!function )\bpersonPath\(([^():]*)\)/g, '`/u/${$1}`');
 }
 
 /* ═══════════════════════════ builders ═══════════════════════════ */

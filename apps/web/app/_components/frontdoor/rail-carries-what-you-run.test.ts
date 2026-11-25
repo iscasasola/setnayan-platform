@@ -59,9 +59,11 @@ test('the rail offers a row into HQ, and into the shop', () => {
   );
   // 🏠 Since 11 Nov 2026 ("HOME IS THE PROFILE") the shop is a SECTION of Home: the rail's door into it is Home's
   // Shop door (`homeSegHref('shop')`), and the console is "Open the Shop dashboard" inside that section.
+  // 🏠 Unihome v5 (23 Nov 2026): Home's Shop part (`/dashboard#shop`), drawn for EVERYONE — an owner's quick view, a
+  // helper's shop, or "Create your own shop".
   assert.match(
     src,
-    /href=\{homeSegHref\('shop'\)\}[^>]*data-home-door="shop"/,
+    /href=\{unihomeHref\('shop'\)\}[^>]*data-home-door="shop"/,
     'The rail lost its door into the shop (Home › Shop).',
   );
 });
@@ -190,17 +192,20 @@ test('Shop and HQ sit inside My Home — no second group, no "What you run"', ()
   // 🏠 11 Nov 2026 ("HOME IS THE PROFILE"): My Home moved UP — Home · Discover, in the bar's order, and Home's
   // sections (Events · People · Shop · Memories) are small doors under the Home row. HQ stays in the fine print
   // under the divider. Still ONE group: no heading and no divider between People and Shop.
+  // 🏠 UNIHOME v5 (owner-approved 23 Nov 2026): the doors follow Home's page order — Events · Shop · People · Memories ·
+  // Discover (the owner's pick, open question 1 of the drawing) — and HQ stays in the fine print.
   const home = src.indexOf('data-home-row=""');
-  const people = src.indexOf('data-home-door="people"', home);
-  const shop = src.indexOf('data-home-door="shop"', people);
-  const memories = src.indexOf('data-home-door="memories"', shop);
-  const hq = src.indexOf('href="/admin"', memories);
+  const shop = src.indexOf('data-home-door="shop"', home);
+  const people = src.indexOf('data-home-door="people"', shop);
+  const memories = src.indexOf('data-home-door="memories"', people);
+  const discover = src.indexOf('data-home-door="discover"', memories);
+  const hq = src.indexOf('href="/admin"', discover);
   assert.ok(
-    home >= 0 && people > home && shop > people && memories > shop && hq > memories,
-    `Rail order is not Home → People → Shop → Memories … HQ ` +
-      `(found at ${home}, ${people}, ${shop}, ${memories}, ${hq}).`,
+    home >= 0 && shop > home && people > shop && memories > people && discover > memories && hq > discover,
+    `Rail order is not Home → Shop → People → Memories → Discover … HQ ` +
+      `(found at ${home}, ${shop}, ${people}, ${memories}, ${discover}, ${hq}).`,
   );
-  const between = src.slice(people, memories);
+  const between = src.slice(shop, memories);
   assert.doesNotMatch(
     between,
     /fd-rdiv|fd-rlabel/,

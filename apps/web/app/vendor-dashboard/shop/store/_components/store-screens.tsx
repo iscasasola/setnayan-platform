@@ -20,6 +20,13 @@ import {
   shelfItems,
   toolkitItems,
   visibleShelves,
+  includedSplitWords,
+  hiddenTemplates,
+  installedTemplateIds,
+  storeTemplateRows,
+  templatesGreyed,
+  NO_ONLINE_CARD_WORDS,
+  type StoreTemplateRow,
   type ToolkitListFacts,
   type ToolkitShelf,
   STORE_GRAPHS,
@@ -67,6 +74,19 @@ import { WIDGET_GUIDES } from '@/lib/supplier-store-guides';
 import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from '@/lib/special-tools';
 import { toolVideoSrc } from '@/lib/toolkit-videos.server';
 import { formatCount } from '@/lib/format-number';
+import {
+  AV_TEMPLATES,
+  PAY_PLAN_TEMPLATES,
+  avInside,
+  avTemplateOf,
+  partDueWords,
+  payTemplateOf,
+  type TemplateKind,
+} from '@/lib/toolkit-templates';
+import { planItemsToDrafts } from '@/lib/vendor-pay-plans';
+import { TemplateShelfRow, TemplateTile, templateHref } from './template-views';
+import { KindWord, PlanBar } from './template-bar';
+import { TemplatePlanEditor, TemplateRemove } from './template-client';
 
 /**
  * 🛍 THE STORE'S SCREENS (owner 23 Nov 2026 — drawing `supplier_store_graphs_badges_2026-11-23` v12). Each page reads
@@ -87,13 +107,35 @@ import { formatCount } from '@/lib/format-number';
 /** What the one Toolkit list is built from, on this visit. */
 function listFacts(d: StoreData): ToolkitListFacts {
   // 🟢 The dashboard count is what this shop is shown: the card gate's hidden widgets are out (3a2419fd).
-  return { papicCapture: d.tools.papicCapture === true, badges: d.badges ? d.badges.map((t) => t.key) : null, hidden: cardHiddenWidgets(d.tools) };
+  return {
+    papicCapture: d.tools.papicCapture === true,
+    badges: d.badges ? d.badges.map((t) => t.key) : null,
+    hidden: cardHiddenWidgets(d.tools),
+    // 🧩 With no online card, a template the shop never installed is not shown (DECISION_LOG 2026-11-23).
+    hiddenTemplates: hiddenTemplates(d.tools.cards, installedTemplateIds(d.layout, livePlanIds(d))),
+  };
+}
+
+/** The ids of the shop's live saved plans; null = the plans read was refused (installed is then unread). */
+function livePlanIds(d: StoreData): Set<string> | null {
+  return d.plans.status === 'ok' ? new Set(d.plans.plans.map((p) => p.id)) : null;
+}
+
+/** One template shelf's rows for this shop (`storeTemplateRows`). */
+function templateRows(d: StoreData, of: TemplateKind): StoreTemplateRow[] {
+  return storeTemplateRows(of, { layout: d.layout, livePlanIds: livePlanIds(d), cards: d.tools.cards });
+}
+
+/** "For your services" first, then the rest — tags only order, they never lock (drawing, Notes). */
+function forYouFirst(rows: readonly StoreTemplateRow[]): StoreTemplateRow[] {
+  return [...rows.filter((r) => r.forYou), ...rows.filter((r) => !r.forYou)];
 }
 
 /** The front's chips: All, then one per kind of item that has a shelf showing (a kind with nothing has no chip). */
 const KIND_CHIPS: readonly { key: string; label: string; shelves: readonly ToolkitShelf[] }[] = [
   { key: 'k-widget', label: 'Widgets', shelves: ['chat', 'present', 'hub', 'shop_page'] },
-  { key: 'k-form', label: 'Forms', shelves: ['chat_forms', 'card_forms', 'payment_plans'] },
+  // 🧩 "Forms" reads "Templates" (Toolkit templates drawing): payment plans and availability are not forms.
+  { key: 'k-template', label: 'Templates', shelves: ['chat_forms', 'card_forms', 'payment_plans', 'availability'] },
   { key: 'k-qr', label: 'QR designs', shelves: ['qr'] },
   { key: 'k-graph', label: 'Graphs', shelves: ['graphs'] },
   { key: 'k-badge', label: 'Badges', shelves: ['badges'] },
@@ -104,8 +146,10 @@ export function StoreFront({ d }: { d: StoreData }) {
   const tools = storeToolRows(d.tools);
   const items = toolkitItems(listFacts(d));
   const shelves = visibleShelves(items);
-  // 🔢 The live count (owner 5ae3fbb2), from the one Toolkit list; a failed badge read drops that part.
-  const countWords = toolkitCountWords(toolkitCounts(listFacts(d)));
+  // 🔢 The live count (owner 5ae3fbb2), from the one Toolkit list, split Included · With a plan (Toolkit templates
+  //    drawing frame 0: "71 included · 8 with a plan"). In the dashboard a shop counts only what it is shown.
+  const countWords = includedSplitWords(items);
+  const paid = tools.filter((r) => isPaidStoreTool(r.tool.key));
   const installedCount = yourTools(d.tools).filter((r) => r.installed).length;
   return (
     <>
@@ -133,9 +177,28 @@ export function StoreFront({ d }: { d: StoreData }) {
 
       <StoreHeroes d={d} tools={tools} />
 
+      {/* 🧩 Two shelves (Toolkit templates drawing frame 0; owner "Prices only on plan-only tools"): Included says
+          "Free with every shop." once and no tile carries a price; With a plan holds the only priced items. */}
+      <h2 className="hc-k2 mt-[18px]" data-store-included="">
+        Included
+      </h2>
+      <p className="text-sn-base text-[color:var(--m-slate-2)]">Free with every shop.</p>
       {shelves.map((sh) => (
-        <FrontShelf key={sh} shelf={sh} d={d} tools={tools} count={shelfItems(items, sh).length} />
+        <FrontShelf key={sh} shelf={sh} d={d} tools={tools.filter((r) => !isPaidStoreTool(r.tool.key))} count={shelfItems(items, sh).filter((i) => !(i.kind === 'widget' && isPaidStoreTool(i.key))).length} />
       ))}
+      {paid.length > 0 ? (
+        <section className="mt-[18px]" data-store-block="" data-store-with-plan="">
+          <h2 className="hc-k2">With a plan</h2>
+          <p className="text-sn-base text-[color:var(--m-slate-2)]" data-web-only="">Plus or higher. Buy once; it works while you stay on a plan.</p>
+          <div className="mt-2" data-store-list="">
+            <TemplateRows label="With a plan">
+              {paid.map((r) => (
+                <ToolShelfRow key={r.tool.key} row={r} yours={yourToolKeys(d)} />
+              ))}
+            </TemplateRows>
+          </div>
+        </section>
+      ) : null}
       {/* A refused badge read lists no badge, so the shelf is not drawn — said, never an empty shelf. */}
       {d.badges ? null : <ToolFail title="Couldn’t load your badges" retryHref={routes.vendorDashboard.shop.store.index()} data="store-badges" />}
       <p hidden data-store-none="" className="py-6 text-center text-sn-lg text-[color:var(--m-slate-2)]">
@@ -197,6 +260,17 @@ function FrontShelf({ shelf, d, tools, count }: { shelf: ToolkitShelf; d: StoreD
       </StoreShelfRow>
     );
   }
+  if (shelf === 'payment_plans' || shelf === 'availability') {
+    const rows = forYouFirst(templateRows(d, shelf === 'payment_plans' ? 'pay' : 'av'));
+    if (rows.length === 0) return null;
+    return (
+      <StoreShelfRow title={SHELF_TITLE[shelf]} count={count} href={routes.vendorDashboard.shop.store.shelf(shelf)} data={shelf}>
+        {rows.map((r) => (
+          <TemplateTile key={r.t.key} row={r} />
+        ))}
+      </StoreShelfRow>
+    );
+  }
   if (shelf === 'qr') {
     const on = installedQrs(d.layout);
     return (
@@ -242,6 +316,8 @@ export function StoreShelfScreen({ shelf, d }: { shelf: StoreShelf; d: StoreData
         <ToolsShelf d={d} />
       ) : isWidgetShelf(shelf) ? (
         <WidgetShelfList d={d} shelf={shelf} />
+      ) : shelf === 'payment_plans' || shelf === 'availability' ? (
+        <TemplateShelf d={d} of={shelf === 'payment_plans' ? 'pay' : 'av'} />
       ) : shelf === 'qr' ? (
         <QrShelf d={d} />
       ) : shelf === 'yours' ? (
@@ -268,6 +344,8 @@ export function StoreShelfScreen({ shelf, d }: { shelf: StoreShelf; d: StoreData
         />
       ) : isWidgetShelf(shelf) || shelf === 'yours' ? (
         <StoreThumb name={shelf} placeholder="Search widgets" countWord="widget" />
+      ) : shelf === 'payment_plans' || shelf === 'availability' ? (
+        <StoreThumb name={shelf} placeholder={shelf === 'payment_plans' ? 'Search payment plans' : 'Search availability'} countWord="template" />
       ) : shelf === 'qr' ? (
         <StoreThumb name="qr" placeholder="Search QR designs" countWord="QR design" />
       ) : shelf === 'graphs' ? (
@@ -290,7 +368,8 @@ export function StoreShelfScreen({ shelf, d }: { shelf: StoreShelf; d: StoreData
 }
 
 /** One item: a widget (price or state, the strip, what it adds, one button), a graph, or a QR design. */
-export function StoreItemScreen({ shelf, itemKey, d }: { shelf: 'tools' | 'graphs' | 'qr'; itemKey: string; d: StoreData }) {
+export function StoreItemScreen({ shelf, itemKey, d }: { shelf: 'tools' | 'graphs' | 'qr' | 'payment_plans' | 'availability'; itemKey: string; d: StoreData }) {
+  if (shelf === 'payment_plans' || shelf === 'availability') return <TemplateItem d={d} of={shelf === 'payment_plans' ? 'pay' : 'av'} templateKey={itemKey} />;
   if (shelf === 'qr') return <QrItem d={d} qrKey={itemKey as PromoteQrMode} />;
   return shelf === 'tools' ? <ToolItem d={d} toolKey={itemKey} /> : <GraphItem d={d} graphKey={itemKey} />;
 }
@@ -300,6 +379,8 @@ function subLine(shelf: StoreShelf, d: StoreData): string {
   if (shelf === 'yours') return d.layout === null ? 'Couldn’t load which are installed.' : `${yourTools(d.tools).filter((r) => r.installed).length} installed`;
   if (shelf === 'graphs') return `${CARD_ORDER.length} graphs, all free. ${d.on.length} ${d.on.length === 1 ? 'is' : 'are'} on your Analytics.`;
   if (shelf === 'badges') return 'Earned, never sold. Pick the badges that show on your Shop.';
+  if (shelf === 'payment_plans') return 'Ready-made ways to split a payment. Change any part.';
+  if (shelf === 'availability') return 'Ready-made ways your cards book. Change any of it.';
   return SHELF_LINE[shelf];
 }
 
@@ -718,6 +799,7 @@ function ToolItem({ d, toolKey }: { d: StoreData; toolKey: string }) {
           {addsOf(tool.key, tool.line).map((x) => (
             <Line key={x.title} {...x} />
           ))}
+          {/* ⚖ Backed: DECISION_LOG 2026-11-23 "APP STORE FREE LIST — APPROVED" ("LOCKED: free forever = …"). */}
           {!paid ? <Line icon={<Plus aria-hidden className="h-4 w-4" strokeWidth={2} />} title="Free forever" line="Every free widget is yours to keep." /> : null}
         </ul>
       </ToolSection>
@@ -953,7 +1035,7 @@ function GraphItem({ d, graphKey }: { d: StoreData; graphKey: string }) {
 }
 
 /** The shelf this item sits on — the drawing's "‹ Specialized Tools" / "‹ Graphs" under the pinned row. */
-function BackToShelf({ shelf }: { shelf: 'tools' | 'graphs' | 'qr' }) {
+function BackToShelf({ shelf }: { shelf: 'tools' | 'graphs' | 'qr' | 'payment_plans' | 'availability' }) {
   return (
     <Link href={routes.vendorDashboard.shop.store.shelf(shelf)} className="sn-press inline-flex min-h-11 items-center text-sn-base font-semibold text-[rgb(var(--color-link))]" data-store-shelf-back={shelf}>
       All {SHELF_TITLE[shelf]}
@@ -961,3 +1043,193 @@ function BackToShelf({ shelf }: { shelf: 'tools' | 'graphs' | 'qr' }) {
     </Link>
   );
 }
+
+// ── 🧩 TEMPLATES (Toolkit templates drawing, specs 24dcf90c: frames 1 · 1b · 2 · 3) ─────────────────────────────
+
+/** Shop › Payment plans — the shop's saved plans (Payment Strategies), opened on the Shop. */
+const SAVED_PLANS_HREF = `${routes.vendorDashboard.shop.index()}?maker=templates&tpl=plans`;
+
+/** A template shelf (frames 1 · 1b · 3): "For your services" first, then More; Get / ✓ Installed on each. */
+function TemplateShelf({ d, of }: { d: StoreData; of: TemplateKind }) {
+  const rows = templateRows(d, of);
+  const forYou = rows.filter((r) => r.forYou);
+  const more = rows.filter((r) => !r.forYou);
+  const group = (label: string, list: readonly StoreTemplateRow[], data: string) =>
+    list.length === 0 ? null : (
+      <ToolSection label={label} count={list.length} data={data}>
+        <div data-store-block="">
+          <div data-store-list="">
+            <TemplateRows label={label}>
+              {list.map((r) => (
+                <TemplateShelfRow key={r.t.key} row={r} />
+              ))}
+            </TemplateRows>
+          </div>
+        </div>
+      </ToolSection>
+    );
+  return (
+    <>
+      {d.plans.status === 'unread' && of === 'pay' ? (
+        <ToolFail title="Couldn’t read your saved payment plans" line="Which ones are installed may show as not yet. Nothing was changed." retryHref={routes.vendorDashboard.shop.store.shelf('payment_plans')} data="store-plans" />
+      ) : null}
+      {templatesGreyed(d.tools.cards) ? (
+        <ToolFail title="None of your service cards is online" line={`${NO_ONLINE_CARD_WORDS} Nothing you installed is lost.`} retryHref={routes.vendorDashboard.services()} data="store-templates-offline" />
+      ) : null}
+      {group('For your services', forYou, 'templates-for-you')}
+      {group(forYou.length > 0 ? 'More' : SHELF_TITLE[of === 'pay' ? 'payment_plans' : 'availability'], more, 'templates-more')}
+    </>
+  );
+}
+
+/** One template's page (frame 2 · frame 3): what it is, Install (or ✓ Installed + Remove), the plan editor once
+ *  installed, What is inside, Where it works and How to use it. Free: no price cell (owner, prices only on plan-only items). */
+function TemplateItem({ d, of, templateKey }: { d: StoreData; of: TemplateKind; templateKey: string }) {
+  const shelf = of === 'pay' ? 'payment_plans' : 'availability';
+  const row = templateRows(d, of).find((r) => r.t.key === templateKey) ?? null;
+  const pay = of === 'pay' ? payTemplateOf(templateKey) : null;
+  const av = of === 'av' ? avTemplateOf(templateKey) : null;
+  const t = pay ?? av;
+  if (!t) return null;
+  const installed = row?.installed ?? false;
+  const planId = d.layout?.templates.pay[templateKey] ?? null;
+  const plan = pay && planId && d.plans.status === 'ok' ? (d.plans.plans.find((p) => p.id === planId) ?? null) : null;
+  const cardCount = plan?.cardCount ?? 0;
+  const firstFor = t.forCategories[0] ?? 'Any service';
+  const forWords = t.forCategories.length > 1 ? `${firstFor} +${formatCount(t.forCategories.length - 1)} more` : firstFor;
+  // The plan as the shop now has it (it may have changed parts since Install), else the template's own parts.
+  const savedParts = plan
+    ? (planItemsToDrafts(plan.items) ?? []).map((x) => ({ label: x.label, pct: x.percent ?? 0, anchor: x.due_anchor ?? ('before_event' as const), days: x.due_offset_days ?? 0 }))
+    : null;
+  const parts = savedParts ?? pay?.parts ?? [];
+  const button =
+    row === null ? (
+      <ToolChip tone="quiet">{NO_ONLINE_CARD_WORDS}</ToolChip>
+    ) : row.installed === null ? (
+      <ToolChip tone="wait">Couldn’t load</ToolChip>
+    ) : installed ? (
+      <span className="flex flex-wrap items-center gap-3" data-store-installed="">
+        <OnPage />
+        <TemplateRemove of={of} templateKey={templateKey} name={t.name} cardCount={cardCount} />
+        {pay ? (
+          <span className="text-sn-base text-[color:var(--m-slate-2)]" data-template-cards={cardCount}>
+            {cardCount > 0 ? `Used on ${formatCount(cardCount)} service ${cardCount === 1 ? 'card' : 'cards'}` : 'Not on a card yet'}
+          </span>
+        ) : null}
+      </span>
+    ) : row.greyed ? (
+      <ActionButton tone="info" icon={<Layers aria-hidden strokeWidth={1.8} />} label="Your services" href={routes.vendorDashboard.services()} />
+    ) : (
+      <StoreOp op="template" fields={{ of, key: templateKey, act: 'install' }} tone="brand" main icon={<Plus aria-hidden strokeWidth={2} />} label={INSTALL_WORD} />
+    );
+  return (
+    <>
+      <ToolPin
+        route="/vendor-dashboard/shop/store/[shelf]/[item]"
+        title={t.name}
+        sub={<ItemSub line={pay ? pay.line : `${av ? avInside(av)[0]?.value : ''} · how a card books`} d={d} />}
+      />
+      <BackToShelf shelf={shelf} />
+      <Card data="template-head">
+        <p className="text-sn-base">
+          <KindWord of={of} />
+        </p>
+        {pay ? (
+          <div className="mt-2">
+            <PlanBar parts={parts} />
+          </div>
+        ) : null}
+        <b className="mt-2 block text-sn-xl font-semibold text-ink" data-store-state={installed ? 'installed' : 'install'}>
+          {installed ? 'Installed · yours to change' : 'Install · yours to change'}
+        </b>
+      </Card>
+      <div className="mt-4 flex [&>*]:w-full" data-store-buy="">
+        {button}
+      </div>
+      {pay ? (
+        <ItemStrip
+          cells={[
+            { k: 'Parts', v: `${formatCount(parts.length)} · change any` },
+            { k: 'First part', v: parts[0] ? `${formatCount(parts[0].pct)}% ${partDueWords(parts[0]).toLowerCase()}` : '—' },
+            { k: 'For', v: forWords },
+          ]}
+        />
+      ) : av ? (
+        <ItemStrip cells={[{ k: 'Style', v: `${avInside(av)[0]?.value ?? ''}` }, { k: 'Where', v: 'Card maker' }, { k: 'For', v: forWords }]} />
+      ) : null}
+      {pay && installed && plan ? <TemplatePlanEditor key={plan.id + plan.name} templateKey={templateKey} name={plan.name} parts={parts} /> : null}
+      <ToolSection label="What is inside" data="template-inside">
+        <ul className="sn-frame px-4 py-1" data-template-inside="">
+          {pay
+            ? parts.map((x, i) => (
+                <li key={i} className="flex items-center justify-between gap-3 py-2.5">
+                  <span className="min-w-0">
+                    <b className="block text-sn-lg font-semibold leading-tight text-ink">{x.label}</b>
+                    <span className="block text-sn-md text-[color:var(--m-slate-2)]">{partDueWords(x)}</span>
+                  </span>
+                  <b className="text-sn-lg font-semibold tabular-nums text-ink">{formatCount(x.pct)}%</b>
+                </li>
+              ))
+            : av
+              ? avInside(av).map((x) => (
+                  <li key={x.name} className="flex items-center justify-between gap-3 py-2.5">
+                    <span className="min-w-0">
+                      <b className="block text-sn-lg font-semibold leading-tight text-ink">{x.name}</b>
+                      {x.line ? <span className="block text-sn-md text-[color:var(--m-slate-2)]">{x.line}</span> : null}
+                    </span>
+                    <b className="text-sn-lg font-semibold tabular-nums text-ink">{x.value}</b>
+                  </li>
+                ))
+              : null}
+        </ul>
+      </ToolSection>
+      <ToolSection label="Where it works" data="store-where">
+        <ul className="sn-frame px-4 py-1">
+          {(pay
+            ? [
+                { k: 'saved', title: 'Shop › Payment plans', line: installed ? 'In your saved plans' : 'It joins your saved plans, ready to use', href: SAVED_PLANS_HREF },
+                { k: 'cards', title: 'Every service card', line: 'Pick it under Pay plan on any card', href: routes.vendorDashboard.services() },
+              ]
+            : [{ k: 'cards', title: 'Service cards › Availability', line: 'Pick it on any card, or on a new one', href: routes.vendorDashboard.services() }]
+          ).map((w) => (
+            <li key={w.k} className="flex items-center gap-3 py-2.5" data-store-place={w.k}>
+              <span className="min-w-0 flex-1">
+                <b className="block text-sn-lg font-semibold leading-tight text-ink">{w.title}</b>
+                <span className="block text-sn-md leading-snug text-[color:var(--m-slate-2)]">{w.line}</span>
+              </span>
+              <Link href={w.href} className="sn-press inline-flex min-h-11 flex-none items-center gap-0.5 text-sn-base font-semibold text-[rgb(var(--color-link))]" data-store-place-open={w.k}>
+                Open
+                <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
+              </Link>
+            </li>
+          ))}
+        </ul>
+      </ToolSection>
+      <ToolSection label="How to use it" data="template-guide">
+        <ol className="sn-frame space-y-3 p-4" data-template-guide="">
+          {(pay
+            ? [
+                ['Tap Install', 'The plan opens in your payment plan maker, filled in.'],
+                ['Change it, or keep it', 'Move any percent or due day. The parts must add up to 100%.'],
+                ['Use it on a card', 'On a service card, pick it under Pay plan. Couples see each part in pesos, worked out from the card’s price.'],
+              ]
+            : [
+                ['Tap Install', 'It joins your templates in the card maker.'],
+                ['Open a service card', 'Under Availability, tap the template.'],
+                ['Add your number', 'Type how many you can do. Save the card.'],
+              ]
+          ).map(([title, line], i) => (
+            <li key={title} className="flex gap-3">
+              <b className="w-5 flex-none text-sn-lg font-semibold tabular-nums text-[rgb(var(--color-link))]">{formatCount(i + 1)}</b>
+              <span className="min-w-0">
+                <b className="block text-sn-lg font-semibold leading-tight text-ink">{title}</b>
+                <span className="block text-sn-md leading-snug text-[color:var(--m-slate-2)]">{line}</span>
+              </span>
+            </li>
+          ))}
+        </ol>
+      </ToolSection>
+    </>
+  );
+}
+

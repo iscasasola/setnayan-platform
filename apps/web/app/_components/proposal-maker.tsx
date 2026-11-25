@@ -1688,9 +1688,16 @@ export function ProposalMaker({
                 {countsDiffer ? <> · was {formatCount(requestedPax)} at inquiry</> : null}
               </span>
             </span>
-            <strong className="font-serif text-lg tabular-nums text-ink" data-quote-live-pax={seedPax != null ? '' : 'none'}>
-              {seedPax != null ? formatCount(seedPax) : 'No guest count yet'}
-            </strong>
+            {/* A count is a figure; "No guest count yet" is words — body size, one line (re-walk 24 Nov, fault 3). */}
+            {seedPax != null ? (
+              <strong className="font-serif text-lg tabular-nums text-ink" data-quote-live-pax="">
+                {formatCount(seedPax)}
+              </strong>
+            ) : (
+              <strong className="shrink-0 whitespace-nowrap text-sm font-semibold text-ink" data-quote-live-pax="none">
+                No guest count yet
+              </strong>
+            )}
           </div>
           <div ref={minPaxRowRef} className="flex min-h-[52px] items-center justify-between gap-3" data-quote-min-pax-row="">
             <span className="min-w-0">
@@ -1740,7 +1747,7 @@ export function ProposalMaker({
               </span>
             </span>
             {pax === 0 ? (
-              <strong className="text-sm font-semibold text-ink" data-quote-billed-pax="none">
+              <strong className="shrink-0 whitespace-nowrap text-sm font-semibold text-ink" data-quote-billed-pax="none">
                 No guest count yet
               </strong>
             ) : (

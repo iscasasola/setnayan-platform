@@ -21,7 +21,7 @@ export function articleWhen(iso: string | null, now: Date = new Date(), dated = 
   return new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'Asia/Manila' });
 }
 
-/** The writer's name — a shop wears the Supplier mark; Setnayan's own posts read "Setnayan Journal". */
+/** The writer's name — a shop wears the Supplier mark; Setnayan's own posts read `JOURNAL_BYLINE` ("Setnayan"). */
 export function BylineName({ byline }: { byline: Byline }) {
   return (
     <span className={`inline-flex items-center gap-1 font-medium ${byline.kind === 'journal' ? 'text-mulberry' : 'text-ink'}`}>

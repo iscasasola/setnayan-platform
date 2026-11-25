@@ -18,7 +18,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { readRecentUnreadOfTypes, readUnreadNotificationCount, type NotificationType } from '@/lib/notifications';
-import { readUnreadMessageThreads } from '@/lib/chat';
+import { readUnreadMessageThreads, type UnreadReadFailure } from '@/lib/chat';
 import { startCountPoll } from '@/lib/tab-return';
 import { isChatLiveEnabled } from '@/lib/chat-live-flag';
 import { trackFailure } from '@/lib/telemetry/track-error';
@@ -28,19 +28,62 @@ const ARRIVAL_WINDOW_MS = 15 * 60_000;
 
 function reportOnce(elementName: string, filePath: string, query: string) {
   let reported = false;
-  return (n: number | null) => {
+  return (n: number | null, why?: UnreadReadFailure | null) => {
     if (n === null && !reported) {
       reported = true;
       void trackFailure({
         eventType: 'OTHER',
         elementName,
         filePath,
-        error: new Error(`${query} could not be read`),
-        payload: { query },
+        // 📶 The reason rides with the row (live fault 21 Nov: eight rows said only "could not be read").
+        error: new Error(`${query} could not be read${why ? (why.network ? ' · no answer (network)' : ` · ${why.detail}`) : ''}`),
+        payload: why ? { query, network: why.network, detail: why.detail } : { query },
       });
     }
     return n;
   };
+}
+
+/** How long the envelope waits for the phone's line to come back before its one second ask. */
+export const ENVELOPE_LINE_WAIT_MS = 4_000;
+
+/** Resolves when the browser says it is online again, or after `ms` — whichever is first. */
+function waitForLine(ms = ENVELOPE_LINE_WAIT_MS): Promise<void> {
+  return new Promise((resolve) => {
+    if (typeof window === 'undefined') return resolve();
+    const done = () => {
+      window.removeEventListener('online', done);
+      window.clearTimeout(timer);
+      resolve();
+    };
+    const timer = window.setTimeout(done, ms);
+    window.addEventListener('online', done);
+  });
+}
+
+/**
+ * The envelope's count, ONCE MORE after a read that never reached the database.
+ *
+ * 📶 LIVE FAULT (app_telemetry_logs, "readUnreadMessageThreads could not be read", 8× to 21 Nov). Not one of those reads
+ * reached Supabase — the gateway logged every count around them as 200 — so each was a fetch with NO answer: the
+ * envelope asks the moment a tab is shown again (`startCountPoll` → `onWake`), and a phone woken from sleep has not got
+ * its line back yet. The badge stayed honest (null changes nothing); the count just stayed old until the next minute,
+ * and the row said nothing of why. Now a no-answer read waits for the line (the `online` event, at most
+ * `ENVELOPE_LINE_WAIT_MS`) and asks once more; a refusal from the database is NOT asked again. Still `null` on a second
+ * failure — never a 0. 🛡 lib/the-envelope-asks-again-when-the-line-returns.test.ts
+ */
+export async function readEnvelopeCount(
+  read: (onFail: (why: UnreadReadFailure) => void) => Promise<number | null>,
+  wait: () => Promise<void> = waitForLine,
+): Promise<{ n: number | null; why: UnreadReadFailure | null }> {
+  let why: UnreadReadFailure | null = null;
+  const first = await read((w) => (why = w));
+  if (first !== null) return { n: first, why: null };
+  if (!(why as UnreadReadFailure | null)?.network) return { n: null, why };
+  await wait();
+  why = null;
+  const second = await read((w) => (why = w));
+  return { n: second, why: second === null ? why : null };
 }
 
 export function pollBell({
@@ -87,9 +130,15 @@ export function pollEnvelope({
 }): () => void {
   const report = reportOnce('Unread messages badge', 'app/_components/unread-messages-badge.tsx', 'readUnreadMessageThreads');
   return startCountPoll({
-    read: async () => report(await readUnreadMessageThreads(supabase)),
+    read: () => askEnvelope(supabase, report),
     onValue,
   });
+}
+
+/** The envelope's ONE read of its count: the honest read, once more after no answer, reported with its reason. */
+async function askEnvelope(supabase: SupabaseClient, report: ReturnType<typeof reportOnce>): Promise<number | null> {
+  const { n, why } = await readEnvelopeCount((onFail) => readUnreadMessageThreads(supabase, onFail));
+  return report(n, why);
 }
 
 export function followEnvelope({
@@ -117,7 +166,14 @@ export function followEnvelope({
       if (gone) return;
       interim?.();
       interim = null;
-      stop = followEnvelopeLive({ supabase, userId, onValue, report, subscribe: subscribeUserLive });
+      stop = followEnvelopeLive({
+        supabase,
+        userId,
+        onValue,
+        subscribe: subscribeUserLive,
+        // The same one-more-ask after a no-answer read, and the same reason on the row, as the poll above.
+        read: () => askEnvelope(supabase, report),
+      });
     })
     .catch(() => {
       /* the live half did not load (offline, a stale deploy's chunk): the poll above carries on alone */

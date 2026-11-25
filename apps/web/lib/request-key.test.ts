@@ -95,10 +95,10 @@ test('🔒 redeem: a pending or declined key is remembered as a REQUEST and neve
   assert.equal(early.length, 1, 'a second pass is written before the key is read');
   assert.match(r.slice(0, keyRead), /await setGuestSession\(\{ guest_id: spent\.guestId,/);
   const gate = r.slice(ask, session);
-  assert.match(gate, /keyState\.kind === 'pending' \|\| keyState\.kind === 'declined'\) \{\s*await rememberRequestKey\([^)]*\);\s*return NextResponse\.redirect\(new URL\(`\/\$\{event\.slug\}\/request`/);
+  assert.match(gate, /keyState\.kind === 'pending' \|\| keyState\.kind === 'declined'\) \{\s*await rememberRequestKey\([^)]*\);\s*return NextResponse\.redirect\(new URL\(`\$\{publicEventPath\(event\.slug\)\}\/request`/);
   assert.match(gate, /keyState\.kind === 'none'\) \{\s*target\.searchParams\.set\('invite_error', 'invalid_token'\)/, 'a removed list guest’s key opens their page');
   assert.match(gate, /\.eq\('guest_id', keyState\.into\)[\s\S]{0,120}\.is\('deleted_at', null\)/, 'a Linked key is not forwarded to a live guest');
-  assert.match(r, /if \(wasRequest\) \{\s*await forgetRequestKey\(\);\s*return NextResponse\.redirect\(new URL\(`\/\$\{event\.slug\}\/invite\/enter\?in=1`/);
+  assert.match(r, /if \(wasRequest\) \{\s*await forgetRequestKey\(\);\s*return NextResponse\.redirect\(new URL\(`\$\{publicEventPath\(event\.slug\)\}\/invite\/enter\?in=1`/);
 });
 
 test('🔒 the join door hands the key on Send — its OWN cookie, never a guest session, and no email box', () => {

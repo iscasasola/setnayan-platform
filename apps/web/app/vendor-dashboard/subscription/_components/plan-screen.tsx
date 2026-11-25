@@ -12,16 +12,12 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchV2VendorCatalogRead } from '@/lib/v2-catalog';
 import { planGiftOf, giftEndsSoon, giftPlanLine, giftEndedLine, portfolioPlanRowLine } from '@/lib/plan-gift';
 import { dayAfterWords, offerDayWords, offerFromInvite } from '@/lib/personal-invite-offer';
-import { readPortfolioAllowance } from '@/lib/portfolio-allowance.server';
 import { readClaimedTeamInvite } from '@/lib/vendor-invites';
 import {
   TIER_CAPS,
   asVendorTier,
   canBuyExtraSeats,
   holdsBoughtExtras,
-  portfolioPhotoCap,
-  PORTFOLIO_FREE_BASE,
-  PORTFOLIO_ALLOWANCE_UNREAD,
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
 import { fetchVendorAiAddonState, isVendorAiAddonActive } from '@/lib/vendor-addon-pricing';
@@ -34,7 +30,8 @@ import { supplierPlanTier } from '@/lib/supplier-plan-offer';
 import { changeKind, payToday, planChanges, planDirection, planRowLine, sheetPlans } from '@/lib/plan-sheet';
 import { papersProgress } from '@/lib/locks';
 import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots, fetchLatestApplication, type DocUploadMap } from '@/lib/vendor-verification';
-import { isStoreShellRequest } from '@/lib/request-platform';
+import { getIapGate } from '@/lib/request-platform';
+import { planRenewal } from '@/lib/plan-renewal-words';
 import { PlanRows } from './plan-rows';
 import { startSubscriptionPurchase } from '../actions';
 import { BadgeUpgradesSection } from './badge-upgrades-section';
@@ -341,8 +338,12 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
 
   // Every plan with its catalogue price per cycle — the plan sheet's rows read these.
   const expiresOn = isPaid && tierExpiresAt ? fmtDate(tierExpiresAt) : null;
+  // 🔁 The request's Apple gate (store app + StoreKit build + NEXT_PUBLIC_APPLE_IAP_ENABLED): an Apple plan renews by
+  // itself, a web plan never does — every renewal line below asks lib/plan-renewal-words.ts with it. A header read.
+  const iapGate = await getIapGate();
+  const appleSells = iapGate.iap;
   const plans: PlanPick[] = [
-    { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(currentTier, 'free', expiresOn) },
+    { key: 'free', name: 'Free', price: {}, tooShort: {}, pickLine: planPickLine(currentTier, 'free', expiresOn, appleSells) },
     ...visibleTiers.map((tier) => ({
       key: tier,
       name: planWord(tier),
@@ -352,7 +353,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         // 🗓 A month started now vs the plan already held: the picker's copy of create_vendor_subscription's rule.
         monthly: monthlyTermIsTooShort(tierExpiresAt, now) ? termTooShortMessage(tierExpiresAt) : null,
       },
-      pickLine: planPickLine(currentTier, tier, expiresOn),
+      pickLine: planPickLine(currentTier, tier, expiresOn, appleSells),
     })),
   ];
 
@@ -383,7 +384,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             console.error('[supabase-error] subscription/plan-screen · latest application', err);
             return null;
           }),
-    isStoreShellRequest(),
+    Promise.resolve(iapGate.storeShell),
     // 🍎 One channel at a time (owner 22 Nov): who bills this shop's live plan — read for THIS shop's own id.
     readAppleShopPlan(createAdminClient(), profile.vendor_profile_id),
   ]);
@@ -408,7 +409,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             ? expiresOn
               ? `Active until ${expiresOn}`
               : isVerifiedVendor || t !== 'free'
-                ? 'Nothing to pay · nothing renews by itself'
+                ? `Nothing to pay · ${planRenewal(false).inline}` // Free never renews, on any channel
                 : 'Not verified yet · nothing to pay'
             : planRowLine(currentTier, t, paywallOn, expiresOn),
         paid,
@@ -420,7 +421,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             payToday({ kind, price: v, unusedPhp, creditPhp: heldCreditPhp, currentRaw: currentTier, endsOn: expiresOn }),
           ]),
         ),
-        pickLine: planPickLine(currentTier, t, expiresOn),
+        pickLine: planPickLine(currentTier, t, expiresOn, appleSells),
         changes: planChanges(currentTier, t, paywallOn),
         fit:
           downgradeFacts && planDirection(currentTier, t) === 'down'
@@ -445,8 +446,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
 
   // 🎁 A PLAN SETNAYAN GAVE (prototype supplier_personal_invite_2026-10-23 C1 · C3, owner-approved). While it runs,
   // the answer line names the gift instead of a price nobody pays, and the picker's rows say ₱0 until the day. Once a
-  // personal invite's plan gift has ended (the comp lapse wrote the shop back to Free), the line says it ended. The
-  // photos row reads the shop's own allowance — the invite's 100 are kept (owner ruling 2026-10-23).
+  // personal invite's plan gift has ended (the comp lapse wrote the shop back to Free), the line says it ended.
   const gift = planGiftOf(
     {
       tier_state: (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null,
@@ -455,13 +455,12 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
     },
     now,
   );
-  const [allowance, claimedInvite] = await Promise.all([
-    readPortfolioAllowance(supabase, profile.vendor_profile_id),
-    (async () => readClaimedTeamInvite(createAdminClient(), profile.vendor_profile_id))().catch((err) => {
+  const claimedInvite = await (async () => readClaimedTeamInvite(createAdminClient(), profile.vendor_profile_id))().catch(
+    (err) => {
       console.error('[supabase-error] subscription · claimed invite', err);
       return null;
-    }),
-  ]);
+    },
+  );
   const invited = claimedInvite ? offerFromInvite(claimedInvite) : null;
   const todayDay = new Date(now + 8 * 3_600_000).toISOString().slice(0, 10);
   const giftEnded =
@@ -469,16 +468,8 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
       ? { plan: planWord(invited.tier), untilDay: invited.untilDay }
       : null;
 
-  // An allowance that could not be read says so — never "50 free" in its place (a gifted 100 would read as 50).
-  const photosLine = allowance.ok
-    ? portfolioPlanRowLine({
-        held: (profile.portfolio_r2_keys ?? []).length,
-        cap: portfolioPhotoCap(currentTier, allowance.allowance),
-        gifted: (allowance.allowance ?? 0) > PORTFOLIO_FREE_BASE,
-        giftUntilDay: gift ? gift.untilDay : null,
-        giftEnded: Boolean(giftEnded),
-      })
-    : PORTFOLIO_ALLOWANCE_UNREAD;
+  // 🔓 No portfolio count on any plan since 2026-11-23 — the row says what is on the page and that storage is the limit.
+  const photosLine = portfolioPlanRowLine((profile.portfolio_r2_keys ?? []).length);
 
   // 📏 THE STORAGE METER (owner 2026-11-23 "THE SUPPLIER STORAGE METER COUNTS EVERYTHING THE SHOP OWNS"): Photos &
   // video · Files · Records, from the ONE breakdown read — the limits sheet above already
@@ -597,6 +588,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
             action={startSubscriptionPurchase}
             expiresOn={expiresOn}
             storeShell={storeShell}
+            appleSells={appleSells}
             papersProgress={papersProgress(papersRead)}
             pricesUnread={catalogUnread}
             gift={
@@ -621,6 +613,7 @@ export async function PlanScreen({ search, embedded = false }: { search: PlanSea
         photosLine={photosLine}
         storage={storageRead}
         deepSearch={deepSearchRow}
+        appleSells={appleSells}
         extras={extrasRow}
         bought={bought}
       />

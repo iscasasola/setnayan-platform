@@ -166,7 +166,10 @@ export function AddToEvent({
                   <p className="text-sm text-[var(--m-slate-2)]">Couldn&rsquo;t read your events.</p>
                   <button
                     type="button"
-                    onClick={() => router.refresh()}
+                    onClick={() =>
+                      // one-render: keep (retry) — the events read failed; this asks for it once more. No write came before it.
+                      router.refresh()
+                    }
                     className={actionButtonClass('neutral', { extra: 'mt-3' })}
                   >
                     <RotateCw aria-hidden strokeWidth={1.9} />

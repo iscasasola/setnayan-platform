@@ -92,7 +92,10 @@ test('A1-033 · "Add to an event" says it could not read your events — never "
 
 test('A1-045 · "Start a new event" starts one, and each row opens where the service lives', () => {
   const doorway = src('app/_components/marketing/_doorway.tsx');
-  assert.match(doorway, /create=\{\[primary, secondary\]\.find\(\(d\) => d\.href\.startsWith\(routes\.onboarding\.wedding\(\)\)\) \?\? primary\}/);
+  assert.match(
+    doorway,
+    /\[primary, secondary\]\.find\(\s*\(d\) => d\.href === routes\.start\(\) \|\| d\.href\.startsWith\(routes\.onboarding\.wedding\(\)\),?\s*\) \?\? primary/,
+  );
   const cta = src('app/_components/marketing/add-to-event-cta.tsx');
   assert.match(cta, /createHref=\{create\.href\}/);
   assert.doesNotMatch(cta, /createHref=\{primary\.href\}/);
@@ -101,7 +104,7 @@ test('A1-045 · "Start a new event" starts one, and each row opens where the ser
   assert.doesNotMatch(data, /`\/dashboard\/\$\{/, 'no hand-typed event address');
   // The marketplace page: primary is Browse, secondary is the start door — the create row must take the latter.
   const market = src('app/(shell)/marketplace/page.tsx');
-  assert.match(market, /secondary=\{\{ href: '\/onboarding\/wedding\?from=marketplace'/);
+  assert.match(market, /secondary=\{\{ href: (?:'\/onboarding\/wedding\?from=marketplace'|routes\.start\(\))/);
 });
 
 test('A1-041 · Compare says each failed read in its own place', () => {

@@ -254,18 +254,12 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
             title="Couldn’t read these suppliers"
             broke="The comparison could not be loaded just now."
             survived="Your saved suppliers and your event are unchanged."
-            todo="Try again, or go back to suppliers."
+            todo="Try again in a moment."
             actions={
-              <>
-                <Link href={`/explore/compare?ids=${ids.join(',')}`} className={actionButtonClass('neutral')}>
-                  <RotateCw aria-hidden className="h-4 w-4" strokeWidth={1.9} />
-                  Try again
-                </Link>
-                <Link href="/?browse=1" className={actionButtonClass('neutral', { quiet: true })}>
-                  <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
-                  Back to suppliers
-                </Link>
-              </>
+              <Link href={`/explore/compare?ids=${ids.join(',')}`} className={actionButtonClass('neutral')}>
+                <RotateCw aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+                Try again
+              </Link>
             }
           />
         </section>

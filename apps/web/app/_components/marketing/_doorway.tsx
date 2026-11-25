@@ -260,7 +260,11 @@ export function DoorwayPage({
                 <AddToEventCta
                   studioKey={studioKey}
                   primary={primary}
-                  create={[primary, secondary].find((d) => d.href.startsWith(routes.onboarding.wedding())) ?? primary}
+                  create={
+                    [primary, secondary].find(
+                      (d) => d.href === routes.start() || d.href.startsWith(routes.onboarding.wedding()),
+                    ) ?? primary
+                  }
                 />
               ) : (
                 <Link href={primary.href} className={PRIMARY_CTA}>

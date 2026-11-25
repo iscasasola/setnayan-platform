@@ -99,7 +99,7 @@ test('the create row reuses the signed-out destination, inventing no second rout
   const doorway = strip(readFileSync(join(HERE, '_doorway.tsx'), 'utf8'));
   assert.match(
     doorway,
-    /create=\{\[primary, secondary\]\.find\(/,
+    /create=\{\s*\[primary, secondary\]\.find\(/,
     'the doorway picks the start door from the two links it already draws',
   );
 });

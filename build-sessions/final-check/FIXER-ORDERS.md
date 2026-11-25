@@ -46,3 +46,7 @@ Your STATUS comment on the open batch PR, plus one line at the top of your area 
 - Shared entries (e.g. `SW-PHP`, one fix across all areas): only the area named first in the entry's area list builds
   it; the others skip it. Area 8 also owns the shared admin guards.
 - Lane R pages: no edits. Add 25 (AI features move to free) is lane C: not yours.
+
+## Door check before any redesign (Add 27)
+Before you change the look of any screen, run the Add 27 door check. No live door = do not redesign; add an R line.
+Owner rulings in Add 26 (six items) and Add 27 (R / MOVE list) are now part of your orders.

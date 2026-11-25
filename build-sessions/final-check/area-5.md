@@ -1872,3 +1872,45 @@ SHOTS     checker set: `do-it-tomorrow.png`
 RULE      Add 2 CLEAN (nothing twice) · honest states
 SEVERITY  look
 SOURCE    SEEN
+
+## Second pass (25 Nov)
+
+New rules (Adds 11, 11b, 12, 13, 15, 17, 18) on the pages batch 1 touched: the rail, Creators, Deep Search, Theft
+Watch, Your page, the card maker, Your details, Promote, Team. Sources: the phase B walk shots and the code at
+`bd86936`. Lane per FIXER-ORDERS. Only lane A is fixed by this fixer.
+
+- [B] SP5-01 · Add 11.3 · every list page in the area (Creators, Team, Toolkit, My QRs, Portfolio) · pull to refresh is
+  switched off for the whole app (`html { overscroll-behavior: none }`, owner 15 Jun native-feel rule) and no in-app
+  pull-to-refresh exists, so a supplier on a phone cannot refresh a list by pulling. Reference: Instagram's
+  pull-to-refresh, where the header stays and a spinner shows under it. Needs the owner's word, because it reverses
+  the 15 Jun rule. → lane B, drawing first.
+- [B] SP5-02 · Add 11.9 · /vendor-dashboard/shop/store and the card maker at 375 · a fixed control covers content.
+  The floating search button sits on the first Toolkit card's Install, and the maker's Cancel / Create bar stacks on
+  the bottom nav and covers the last rows (walk shots). Reference: the iOS Mail compose bar, where content scrolls
+  clear of fixed bars.
+- [B] SP5-03 · Add 11b · /vendor-dashboard at 1280 · desktop keeps the phone's 44 px rows and pill buttons
+  ("Not now", "Add photos", "Open") and a phone-sized thumb bar. Today's count tiles overflow (B5-11). A site-wide
+  44 px minimum on every button forces one size on mouse screens. Reference: Gmail desktop vs phone rows.
+- [B] SP5-04 · Add 11b · /vendor-dashboard/shop at 1280 · the right column squeezes the service cards to letter-by-letter
+  wrapping (B5-06). Tablet (768) shows the icon rail and one column, so it never uses the width for list + details.
+  Reference: iPad Mail split view.
+- [B] SP5-05 · Add 12.3 · /vendor-dashboard/packages/[packageId] and the card maker · the full-screen rise has no
+  matching close (✕ jumps to Shop, A5-G6-04). Motion 3 "Full-screen rise" says close mirrors open. Now: a page change.
+- [A] SP5-06 · Add 12.6 · /vendor-dashboard/deep-search · the history status pill uses a typed `text-[10px]` and
+  hand-coloured fills (`bg-success-100` …) beside the house chip. Not motion; a token miss on a line batch 1 touched.
+  Noted, not fixed here: the fix is a look change (lane B, SW-K-style).
+- [B] SP5-07 · Add 13 · /vendor-dashboard/deep-search · the card's icon is a hand-made orange tile (`--m-orange-4`)
+  around `Search`, unlike every other supplier tool tile. The icon should mean "search the web about you"
+  (a globe with a magnifier), on the house tile.
+- [B] SP5-08 · Add 13 · /vendor-dashboard/team/roles · each role row has only a generic ⓘ and no icon per role
+  (Shop Manager, Branch Manager, Account Manager, Marketing, Event Crew, Helper). Each should have its own icon.
+- [B] SP5-09 · Add 15 · /open-shop/invite, /vendor-dashboard/shop/qrs/* · the centre of every supplier QR is a
+  letter tile ("S") drawn by the QR style code (`lib/qr-style-svg.ts`, one of the copied-mark spots Add 15 lists), not
+  the one brand icon from Admin › Business. Seen on screen in the walk.
+- [B] SP5-10 · Add 15 / 16 · the card maker Save, Your page's domain manager and the documents sheet use
+  `useSaveLoader` (`components/sd-loader`), the particle loader Add 16 replaces.
+- SP5-11 · Add 17 · retired candidates in area 5: none found. Every page in the area has a live door (phase A). The
+  closest are /vendor-dashboard/repertoire (a music-only tool a photographer reaches only by address) and
+  /vendor-dashboard/theft-watch and /track-record (Toolkit shelf links only). All three are reachable and their
+  product is still live, so they are kept.
+- SP5-12 · Add 18 · reveals: area 5 shows no reveal template to pick. Nothing to file.

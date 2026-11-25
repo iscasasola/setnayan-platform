@@ -1644,115 +1644,115 @@ async function requestPaymentResubmitCore(formData: FormData) {
 // ============================================================================
 
 export async function refundOrder(formData: FormData) {
-  return sayRefusalOnTheDesk(formData, () => refundOrderCore(formData));
-}
+  // A8·A-2: the whole press runs inside the desk's refusal catcher, so the two-admin request, "already refunded"
+  // and Maya's own refusal land on the opened payment as a notice — never the crash page.
+  return sayRefusalOnTheDesk(formData, async () => {
+    const { userId: adminUserId } = await requireAdmin();
+    // Areas × levels (DECISION_LOG 2026-11-13): refunds · escalated.
+    await requireAdminCan('refunds', 'escalated');
+    // ── A SERVICE THEY CANNOT USE (owner 2026-11-05 "yes to refund"; /refunds) ──
+    // Two intent branches, not new exported actions: the server-action budget is
+    // at its ceiling, and both sit beside this refund tool on the same order row.
+    // Neither moves money. See lib/admin/service-remedies.server.ts.
+    const intent = formData.get('intent');
+    if (intent === 'convert_to_papic_credits' || intent === 'move_to_next_event') {
+      return serviceRemedy(adminUserId, intent, formData);
+    }
+    // ── 💳 A MAYA-PAID ORDER IS HANDED BACK THROUGH MAYA (owner 2026-11-22 · specs 86f20253) ──
+    // An intent branch, not a new action (the budget is at its ceiling). Maya is asked FIRST; only its yes is
+    // recorded, through applyRefund below — the same flip, revocations, ledger row, audit and notice.
+    if (intent === 'maya_reverse') {
+      return mayaReverse(adminUserId, formData);
+    }
+    const orderId = formData.get('order_id');
+    const reason = nullIfBlank(formData.get('reason'));
+    const proofUrl = nullIfBlank(formData.get('proof_url'));
+    const amountRaw = formData.get('refund_amount_php');
 
-async function refundOrderCore(formData: FormData) {
-  const { userId: adminUserId } = await requireAdmin();
-  // Areas × levels (DECISION_LOG 2026-11-13): refunds · escalated.
-  await requireAdminCan('refunds', 'escalated');
-  // ── A SERVICE THEY CANNOT USE (owner 2026-11-05 "yes to refund"; /refunds) ──
-  // Two intent branches, not new exported actions: the server-action budget is
-  // at its ceiling, and both sit beside this refund tool on the same order row.
-  // Neither moves money. See lib/admin/service-remedies.server.ts.
-  const intent = formData.get('intent');
-  if (intent === 'convert_to_papic_credits' || intent === 'move_to_next_event') {
-    return serviceRemedy(adminUserId, intent, formData);
-  }
-  // ── 💳 A MAYA-PAID ORDER IS HANDED BACK THROUGH MAYA (owner 2026-11-22 · specs 86f20253) ──
-  // An intent branch, not a new action (the budget is at its ceiling). Maya is asked FIRST; only its yes is
-  // recorded, through applyRefund below — the same flip, revocations, ledger row, audit and notice.
-  if (intent === 'maya_reverse') {
-    return mayaReverse(adminUserId, formData);
-  }
-  const orderId = formData.get('order_id');
-  const reason = nullIfBlank(formData.get('reason'));
-  const proofUrl = nullIfBlank(formData.get('proof_url'));
-  const amountRaw = formData.get('refund_amount_php');
+    if (typeof orderId !== 'string') {
+      throw new Error('Refund missing order_id.');
+    }
+    if (!reason || reason.length < 20) {
+      throw new Error(
+        'Refund needs a reason (at least 20 characters) so we have a paper trail for the couple.',
+      );
+    }
+    if (typeof amountRaw !== 'string') {
+      throw new Error('Refund amount is required.');
+    }
+    const amountPhp = Number(amountRaw);
+    if (!Number.isFinite(amountPhp) || amountPhp <= 0) {
+      throw new Error('Refund amount must be a positive number.');
+    }
+    // Inherit the same ₱100M paste-typo guard confirmOrderTotal uses below —
+    // wedding totals never approach this in practice.
+    const MAX_REFUND_AMOUNT_PHP = 100_000_000;
+    if (amountPhp > MAX_REFUND_AMOUNT_PHP) {
+      throw new Error(
+        `Refund amount ${amountPhp} exceeds the ₱${MAX_REFUND_AMOUNT_PHP.toLocaleString()} sanity ceiling — double-check the input.`,
+      );
+    }
+    const refundCentavos = Math.round(amountPhp * 100);
 
-  if (typeof orderId !== 'string') {
-    throw new Error('Refund missing order_id.');
-  }
-  if (!reason || reason.length < 20) {
-    throw new Error(
-      'Refund needs a reason (at least 20 characters) so we have a paper trail for the couple.',
-    );
-  }
-  if (typeof amountRaw !== 'string') {
-    throw new Error('Refund amount is required.');
-  }
-  const amountPhp = Number(amountRaw);
-  if (!Number.isFinite(amountPhp) || amountPhp <= 0) {
-    throw new Error('Refund amount must be a positive number.');
-  }
-  // Inherit the same ₱100M paste-typo guard confirmOrderTotal uses below —
-  // wedding totals never approach this in practice.
-  const MAX_REFUND_AMOUNT_PHP = 100_000_000;
-  if (amountPhp > MAX_REFUND_AMOUNT_PHP) {
-    throw new Error(
-      `Refund amount ${amountPhp} exceeds the ₱${MAX_REFUND_AMOUNT_PHP.toLocaleString()} sanity ceiling — double-check the input.`,
-    );
-  }
-  const refundCentavos = Math.round(amountPhp * 100);
+    const admin = createAdminClient();
 
-  const admin = createAdminClient();
+    // Step 1: read current order state so the audit-log carries before-JSON +
+    // we can surface useful messages when the idempotent flip is a no-op.
+    const { data: orderBefore, error: readErr } = await admin
+      .from('orders')
+      .select(
+        'order_id, user_id, vendor_profile_id, event_id, public_id, status, service_key, requested_total_php, confirmed_total_php',
+      )
+      .eq('order_id', orderId)
+      .maybeSingle();
+    if (readErr) throw new Error(readErr.message);
+    if (!orderBefore) throw new Error('Order not found.');
 
-  // Step 1: read current order state so the audit-log carries before-JSON +
-  // we can surface useful messages when the idempotent flip is a no-op.
-  const { data: orderBefore, error: readErr } = await admin
-    .from('orders')
-    .select(
-      'order_id, user_id, vendor_profile_id, event_id, public_id, status, service_key, requested_total_php, confirmed_total_php',
-    )
-    .eq('order_id', orderId)
-    .maybeSingle();
-  if (readErr) throw new Error(readErr.message);
-  if (!orderBefore) throw new Error('Order not found.');
+    // Idempotent no-op when the order is already refunded — surface a friendly
+    // message rather than re-firing the notification and audit row. The same
+    // path catches the case where a concurrent admin refunded a few seconds
+    // ago: the read here would already show status='refunded'.
+    if (orderBefore.status === 'refunded') {
+      revalidatePath('/admin/payments');
+      throw new Error(
+        `Order ${orderBefore.public_id} is already marked refunded. Nothing to do — refresh the page.`,
+      );
+    }
 
-  // Idempotent no-op when the order is already refunded — surface a friendly
-  // message rather than re-firing the notification and audit row. The same
-  // path catches the case where a concurrent admin refunded a few seconds
-  // ago: the read here would already show status='refunded'.
-  if (orderBefore.status === 'refunded') {
-    revalidatePath('/admin/payments');
-    throw new Error(
-      `Order ${orderBefore.public_id} is already marked refunded. Nothing to do — refresh the page.`,
-    );
-  }
+    // Only paid / fulfilled orders can be refunded. Cancelled / draft /
+    // submitted / awaiting_payment orders shouldn't surface a refund button
+    // in the UI, but we guard server-side too so a hand-rolled form post
+    // can't slip past.
+    if (!(orderBefore.status === 'paid' || orderBefore.status === 'fulfilled')) {
+      throw new Error(
+        `Refund only applies to paid or fulfilled orders. This order is ${orderBefore.status} — cancel or close it instead.`,
+      );
+    }
 
-  // Only paid / fulfilled orders can be refunded. Cancelled / draft /
-  // submitted / awaiting_payment orders shouldn't surface a refund button
-  // in the UI, but we guard server-side too so a hand-rolled form post
-  // can't slip past.
-  if (!(orderBefore.status === 'paid' || orderBefore.status === 'fulfilled')) {
-    throw new Error(
-      `Refund only applies to paid or fulfilled orders. This order is ${orderBefore.status} — cancel or close it instead.`,
-    );
-  }
+    // ── VENDOR AGREEMENT § 9.1 · a refund over ₱25,000 takes two admins ───────
+    //
+    // The clause is explicit in both directions: "Refund any single transaction
+    // > ₱25,000" is a major decision, and "Process a refund ≤ ₱25,000" is named
+    // as single-admin authority for the Disputes and Payments Handlers. So this
+    // gate is STRICT — at exactly ₱25,000 one admin is enough, and widening it
+    // would take back authority the vendor was promised.
+    //
+    // Gated HERE, after the order has been read and proved refundable, so a
+    // second admin is never asked to approve a refund against an order that is
+    // already refunded or was never paid.
+    if (refundNeedsTwoAdmins(amountPhp)) {
+      await openLargeRefundApproval(admin, { orderId, orderBefore, amountPhp, reason, proofUrl, adminUserId });
+    }
 
-  // ── VENDOR AGREEMENT § 9.1 · a refund over ₱25,000 takes two admins ───────
-  //
-  // The clause is explicit in both directions: "Refund any single transaction
-  // > ₱25,000" is a major decision, and "Process a refund ≤ ₱25,000" is named
-  // as single-admin authority for the Disputes and Payments Handlers. So this
-  // gate is STRICT — at exactly ₱25,000 one admin is enough, and widening it
-  // would take back authority the vendor was promised.
-  //
-  // Gated HERE, after the order has been read and proved refundable, so a
-  // second admin is never asked to approve a refund against an order that is
-  // already refunded or was never paid.
-  if (refundNeedsTwoAdmins(amountPhp)) {
-    await openLargeRefundApproval(admin, { orderId, orderBefore, amountPhp, reason, proofUrl, adminUserId });
-  }
-
-  await applyRefund(admin, {
-    orderId,
-    orderBefore,
-    reason,
-    proofUrl,
-    amountPhp,
-    refundCentavos,
-    actingAdminId: adminUserId,
+    await applyRefund(admin, {
+      orderId,
+      orderBefore,
+      reason,
+      proofUrl,
+      amountPhp,
+      refundCentavos,
+      actingAdminId: adminUserId,
+    });
   });
 }
 

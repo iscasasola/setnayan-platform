@@ -29,7 +29,8 @@ function body(src: string, name: string): string {
 
 test('A8·A-2 · refund, reject, ask-again and confirm-total refusals land on the desk as a notice', () => {
   const s = read('app/admin/payments/actions.ts');
-  for (const fn of ['refundOrder', 'rejectPayment', 'requestPaymentResubmit', 'confirmOrderTotal']) {
+  assert.match(body(s, 'refundOrder'), /export async function refundOrder\(formData: FormData\) \{[\s\S]*?return sayRefusalOnTheDesk\(formData, async \(\) => \{/);
+  for (const fn of ['rejectPayment', 'requestPaymentResubmit', 'confirmOrderTotal']) {
     assert.match(
       body(s, fn),
       new RegExp(`return sayRefusalOnTheDesk\\(formData, \\(\\) => ${fn}Core\\(formData\\)\\)`),
@@ -160,7 +161,7 @@ test('A8·E-8 · verification-doc presses use the shared admin gate and say a re
   const s = read('app/admin/verification-docs/actions.ts');
   assert.doesNotMatch(s, /redirect\('\/'\)/, 'never the public home page');
   assert.doesNotMatch(s, /\.select\('is_internal'\)/, 'no narrower hand-rolled admin check');
-  const gate = body(s, 'requireAdmin');
+  const gate = body(s, 'requireVerificationArea');
   assert.match(gate, /await requireAdminAction\(\);/);
   assert.match(gate, /adminCanRefusal\('verification', level\)/);
   assert.match(gate, /\/admin\/verification-docs\?error=1&msg=/);

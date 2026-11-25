@@ -26,7 +26,7 @@ import { performVerificationDelete } from '@/lib/verification-docs';
  * (the app-wide `?error=` + `msg` toast) — it used to send a team-member admin
  * to the public home page with no reason.
  */
-async function requireAdmin(level: 'basic' | 'escalated' = 'basic') {
+async function requireVerificationArea(level: 'basic' | 'escalated' = 'basic') {
   await requireAdminAction();
   const refused = await adminCanRefusal('verification', level);
   if (refused) redirect(`/admin/verification-docs?error=1&msg=${encodeURIComponent(refused)}`);
@@ -41,7 +41,7 @@ async function requireAdmin(level: 'basic' | 'escalated' = 'basic') {
  * play instead of download.
  */
 export async function viewVerificationDoc(formData: FormData): Promise<void> {
-  await requireAdmin();
+  await requireVerificationArea();
   const key = String(formData.get('key') ?? '').trim();
   if (!key) redirect('/admin/verification-docs?error=nokey');
 
@@ -95,7 +95,7 @@ export async function viewVerificationDoc(formData: FormData): Promise<void> {
  * not be: the whole value of the gate is that a person looked at each file.
  */
 export async function deleteVerificationDoc(formData: FormData): Promise<void> {
-  await requireAdmin('escalated');
+  await requireVerificationArea('escalated');
   const key = String(formData.get('key') ?? '').trim();
   if (!key) redirect('/admin/verification-docs?error=nokey');
 

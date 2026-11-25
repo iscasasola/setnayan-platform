@@ -577,3 +577,10 @@ of those users will become the same supplier."
 
 - **A4-52 (lane A): hide the promise.** The guest seat prompt "We'll let you know on this device if your table changes" stays hidden until a real sender exists. No new look, no sender in this round. Building the table-change push sender is a later feature (lane C, after launch).
 - **A4-B11 (lane A): yes.** A signed-in account that holds the seat sees its own table and pass on `/find-my-table`, `/seat`, the pass-card and QR routes, and the camera doors, the same way `/find-seat` and `?tab=me` already read the account. Only the seat tied to that account: everyone else still needs the invite link. Add a test that a signed-in account with no seat (or another guest's seat) still gets the invite-link message.
+
+## Add 35 · OWNER RULING (25 Nov) on A6-03: an unread guest count prices NOTHING (lane C, money rule)
+
+- When the guest count (headcount / pax) read fails, **no price is computed and nothing is charged**. Do not fall back to the event's estimate or an estimate floor (`resolveLivePax` must not use `?? 0` or the estimate on a refused read).
+- The screen says the read failed ("Couldn't read the guest count. Try again.") with a retry. The lock stays refused (already built in #8343).
+- Every caller of the live count (quotes, per-guest prices, invoices, locks) treats "unread" as "no price", never as zero or the estimate. Add a behaviour test: refused count → no price, no charge.
+- No price numbers change. This only decides what happens when the count cannot be read.

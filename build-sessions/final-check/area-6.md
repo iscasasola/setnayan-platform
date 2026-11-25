@@ -1335,3 +1335,35 @@ The five full-offline places (owner 24 Nov) are not repeated here. Area 6 covers
 | QR scanner (live console) | scans guests' passes / seats | On the day › live › Scanner | — | the live console is in `supplierOfflinePaths` | a guest checked in twice from two phones | (area 3/7 check-in) |
 
 Taps from the supplier's home to a booked QR: Clients (1) › a date (2) › "Show a QR" (3) → the invite page (area 5).
+
+## Second pass (25 Nov)
+
+Fixer pass over the pages touched in fix batches 1–3, against Adds 11, 11b, 12, 13, 15, 17, 18. Lane A ones are fixed in
+the batch named; the rest wait for their lane.
+
+- [A · fixed, batch 3] **"Pull to refresh" told to a person, with the gesture switched off.** `app/globals.css` sets
+  `overscroll-behavior: none` on `html` (owner, native feel) and no in-app pull-to-refresh exists, yet the supplier Schedule
+  tab (4 lines), the locks section and the chat's "what is agreed" said "pull to refresh". Now "Nothing is lost — try again
+  in a moment." (Add 11.3)
+- [B] **No pull to refresh on any supplier list** (Clients, Chats, Disputes, Booking fees, On the day). The site turns the
+  gesture off on purpose, so this is a drawing and an owner call: a list page refreshes by pulling down with the header
+  staying, a spinner, no white gap. Reference: Instagram's feed pull-to-refresh; iOS Mail. (Add 11.3)
+- [B] **Tap targets under 44 px:** every ⓘ on Clients is 16 × 16 (A6-B08, already in SW-TAP). (Add 11.8)
+- [B] **Desktop On the day is a phone column in a wide page** at 1280 (A6-B12). Should use the width: the list of booked
+  days on the left, the picked day on the right. Reference: iPad Mail split view. (Add 11b)
+- [B] **Upload a contract is its own page**; Add 1 says a FULL-SCREEN POPUP on a phone and a centred dialog on desktop
+  (A6-70). (Add 1 / 11b)
+- [Icons] page `/vendor-dashboard/disputes` · control "Submit my response" · shows no icon (legacy `button-primary`) ·
+  should mean "send your side" (a send or speech icon, the house `ActionButton`). (Add 13)
+- [R] **`/vendor-dashboard/manpower`** — retired candidate: no door by owner ruling (9 Nov), and no gigs exist to claim on
+  the copy; nothing in the supplier menu links to it (phase A note). Delete with a forward, or the owner keeps it. (Add 17)
+- Add 12 (motion), Add 15 (logo), Add 18 (reveals): nothing new on these pages. The lock link's new "not valid / couldn't
+  read" state uses the house terminal block (no logo copy, no reveal).
+
+Skipped in lane A, with the reason (🟠 = needs the owner):
+- 🟠 **A6-B07** (Money hub should say "N payments logged — confirm them"): adds a new count and row to Money — a look change
+  (lane B), not a wording fix.
+- 🟠 **A6-71** (two booked QRs for one date both book it): the fix is a date-capacity check inside the claim RPC — a
+  booking rule and a migration; it changes who can book a date, so it waits for the owner.
+- **A6-B01** (speed on the copy): the copy's setup (Add 14), not proven in code.
+- **A6-B22** (offline reload shows the browser's error): needs a Setnayan offline page in the service worker — a look change.

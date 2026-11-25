@@ -40,7 +40,7 @@ import { supplierChatHref, supplierThreadPageHref } from '@/lib/upcoming-schedul
 import { uploadPublicAsset } from '@/lib/storage';
 import { uploadDepositProof } from '@/lib/deposit-proof.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
-import { resolveLivePax } from '@/lib/pax';
+import { priceablePax, resolveLivePax } from '@/lib/pax';
 import {
   VENDOR_CATEGORIES,
   VENDOR_STATUSES,
@@ -323,7 +323,8 @@ export async function updateVendorCosts(formData: FormData) {
     crewMealCovered,
   });
   if (totalChanged) {
-    const livePax = await resolveLivePax(supabase, eventId);
+    // Owner Add 35: an unread count is no surcharge base (null) — it prices nothing, never the estimate.
+    const livePax = priceablePax(await resolveLivePax(supabase, eventId));
     updatePayload.pax_quote_base = livePax;
     updatePayload.pax_surcharge_php = 0;
     updatePayload.cost_basis_pax = livePax;

@@ -100,6 +100,8 @@ import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-
 import { formatCount } from '@/lib/format-number';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { ActionButton } from '@/components/action-button';
+import { routes } from '@/lib/routes';
+import { MAX_PER_TYPE } from '@/lib/editorial-vendor-media';
 
 export const metadata = { title: 'Hub · Supplier' };
 
@@ -139,7 +141,8 @@ export const metadata = { title: 'Hub · Supplier' };
  */
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
-const MAX_MEDIA_PER_TYPE = 3; // mirrors editorial-vendor-media MAX_PER_TYPE
+// A6-19: the media cap is the one in lib/editorial-vendor-media — never a second constant here.
+const MAX_MEDIA_PER_TYPE = MAX_PER_TYPE;
 /** A printed QR's ink and paper — the review QR and the crew QR, one pair. */
 const QR_COLOURS = { dark: '#1B1A17', light: '#FBFBFA' } as const;
 
@@ -210,7 +213,7 @@ export default async function VendorOnTheDayPage({
           </p>
           {storeShell ? null : (
             <Link
-              href="/vendor-dashboard/subscription"
+              href={routes.vendorDashboard.subscription()}
               className="mt-3 inline-flex items-center gap-1 text-sm font-semibold underline"
             >
               See plans <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -292,7 +295,7 @@ export default async function VendorOnTheDayPage({
               on the day, {HUB_OPEN_WINDOW_PLAIN}.
             </InfoTip>
             <div className="mt-3">
-              <ActionButton tone="brand" main icon={<ArrowRight aria-hidden strokeWidth={1.9} />} label="See your customers" href="/vendor-dashboard/customers" />
+              <ActionButton tone="brand" main icon={<ArrowRight aria-hidden strokeWidth={1.9} />} label="See your customers" href={routes.vendorDashboard.customers()} />
             </div>
           </ShopEmpty>
         </div>
@@ -786,7 +789,7 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
                   it at the event so guests can scan and review you.
                 </p>
                 <Link
-                  href="/vendor-dashboard/profile#docs"
+                  href={`${routes.vendorDashboard.profile()}#docs`}
                   className="mt-3 inline-flex min-h-11 items-center gap-1 text-sm font-semibold text-sn-accent hover:underline"
                 >
                   Get verified <ArrowRight aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -1127,11 +1130,11 @@ function NonPhotoConsole({
   // telling the supplier the wrong thing on the one morning it matters.
   const target = eventId
     ? kind === 'caterer'
-      ? `/vendor-dashboard/clients/${eventId}/production-sheet`
-      : `/vendor-dashboard/clients/${eventId}?tab=details`
+      ? routes.vendorDashboard.clients.productionSheet(eventId)
+      : `${routes.vendorDashboard.clients.detail(eventId)}?tab=details`
     : kind === 'band'
-      ? '/vendor-dashboard/repertoire'
-      : '/vendor-dashboard/customers';
+      ? routes.vendorDashboard.repertoire()
+      : routes.vendorDashboard.customers();
 
   const copy: Record<
     Exclude<DayOfConsoleKind, 'photo'>,

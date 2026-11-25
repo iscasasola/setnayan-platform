@@ -150,6 +150,7 @@ import BookingsSurface from '../bookings/surface';
 import { CustomersMoney } from './_components/money-segment';
 import ContractsSurface from '../contracts/surface';
 import ProposalsSurface from '../proposals/surface';
+import { routes } from '@/lib/routes';
 
 export const metadata = { title: 'Clients' };
 
@@ -1143,7 +1144,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                 <OtherChatsFold
                   paged={othersPage}
                   keepParams={keepParamsFrom(sp, ['opage', 'notice', 'add', 'gear'])}
-                  returnTo="/vendor-dashboard/customers?door=asking"
+                  returnTo={routes.vendorDashboard.customers({ door: 'asking' })}
                   rollup={<InquiryOutcomesRollup rollup={outcomeRollup} />}
                   incomplete={!threadsRead.complete}
                 />
@@ -1204,7 +1205,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
             action={importExternalClient}
             startOpen={search.add === 'outside'}
             today={todayIso}
-            setupHref="/vendor-dashboard/customers?gear=1"
+            setupHref={routes.vendorDashboard.customers({ gear: '1' })}
             halls={pools.length > 0 && pools.every((p) => p.isHall)}
             seats={seatsByPool(pools, bookings, blocksRead.blocks, todayIso)}
           />
@@ -1778,7 +1779,7 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
                   pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
                   action={importExternalClient}
                   today={todayIso}
-                  setupHref="/vendor-dashboard/customers?seg=dates&gear=1"
+                  setupHref={routes.vendorDashboard.customers({ seg: 'dates', gear: '1' })}
                   returnTo="dates"
                   halls={pools.length > 0 && pools.every((p) => p.isHall)}
                   day={day}

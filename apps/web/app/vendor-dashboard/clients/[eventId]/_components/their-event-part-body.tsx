@@ -66,7 +66,6 @@ export function TheirEventPartBody({
                   </span>
                   {b.location ? <span className="block truncate text-sn-md text-ink/60">{b.location}</span> : null}
                 </span>
-                <span className="shrink-0 text-sn-md text-ink/55">View</span>
               </li>
             ))}
           </ul>

@@ -1832,7 +1832,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
   /* QUICK REPLIES — offered only while the couple spoke last, so they never sit over a conversation the supplier
      already answered; "Yes po, that day is free" only on an open day (`quickRepliesFor`). */
   const lastFromCouple = lastThreadMessage?.sender_role === 'couple';
-  const quickReplies = quickRepliesFor(dayAnswer);
+  // A6-B10: a BOOKED client is past "Sending our price now" — no canned inquiry replies once they have booked.
+  const quickReplies = railStage === 'booked' ? [] : quickRepliesFor(dayAnswer);
 
   msgTimer.flush();
 
@@ -2242,7 +2243,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                     {proposalNotice}
                   </p>
                 ) : null}
-                {lastFromCouple ? (
+                {lastFromCouple && quickReplies.length > 0 ? (
                   <QuickReplies threadId={threadId} replies={quickReplies} sendAction={sendChatMessage} />
                 ) : null}
                 {/* NOTHING BETWEEN THE LAST MESSAGE AND THE BOX BUT THE BOX.

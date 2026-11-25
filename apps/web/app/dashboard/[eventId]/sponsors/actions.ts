@@ -75,7 +75,7 @@ function revalidateSponsors(eventId: string): void {
   revalidatePath(`/dashboard/${eventId}/guests`);
 }
 
-type GuestRoleRow = { guest_id: string; role: string; extra_roles: string[] | null };
+type GuestRoleRow = { role: string; extra_roles: string[] | null };
 
 /**
  * Add a sponsor: a NEW guest on the list with the sponsor role (one form for every tier). The tier, side and walking
@@ -186,7 +186,7 @@ export async function removeSponsor(formData: FormData): Promise<void> {
     const admin = createAdminClient();
     const { data: row, error: readErr } = await admin
       .from('guests')
-      .select('guest_id, role, extra_roles')
+      .select('role, extra_roles')
       .eq('guest_id', guestId)
       .eq('event_id', eventId)
       .is('deleted_at', null)
@@ -290,7 +290,7 @@ export async function markResponse(formData: FormData): Promise<void> {
       .eq('guest_id', guestId)
       .eq('event_id', eventId)
       .is('deleted_at', null)
-      .select('guest_id, role, extra_roles');
+      .select('role, extra_roles');
     if (error || !data?.length) {
       if (error) logQueryError('markResponse (guests update)', error, { event_id: eventId });
       throw new Error('update refused');

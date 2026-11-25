@@ -14,7 +14,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { PUBLIC_SPONSOR_GUEST_COLUMNS, acceptedTheNamedRole } from './sponsor-guests';
+import { PUBLIC_SPONSOR_GUEST_FIELDS, acceptedTheNamedRole } from './sponsor-guests';
 
 const src = () => readFileSync(join(process.cwd(), 'lib', 'who-was-there.ts'), 'utf8');
 /** A guard must read the code, never the comment explaining the rule. */
@@ -47,7 +47,7 @@ test('🔒 the gate itself: asked for the role, AND their own yes — an event R
   assert.equal(acceptedTheNamedRole({ invitation_status: 'declined', invitation_sent_at: asked, reply_set_by: 'guest' }), false);
   // …and the public mode reads no contact details at all.
   for (const field of ['email', 'mobile', 'notes']) {
-    assert.doesNotMatch(PUBLIC_SPONSOR_GUEST_COLUMNS, new RegExp(`\\b${field}\\b`), `the public read selects ${field}`);
+    assert.doesNotMatch(PUBLIC_SPONSOR_GUEST_FIELDS, new RegExp(`\\b${field}\\b`), `the public read selects ${field}`);
   }
 });
 

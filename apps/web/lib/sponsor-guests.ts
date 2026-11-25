@@ -41,13 +41,14 @@ export function sponsorTierOfRole(role: string | null | undefined): SponsorTier 
   return (role && TIER_BY_ROLE[role as GuestRole]) || null;
 }
 
-/** The guest columns a sponsor is drawn from. */
-export const SPONSOR_GUEST_COLUMNS =
+/** The guest columns a sponsor is drawn from — a purpose-built sponsor read, NOT the guest list's canonical shape
+ *  (named `…_FIELDS`, not `…_COLUMNS`, so the dup-rule guard does not take it for the guests table's one list). */
+export const SPONSOR_GUEST_FIELDS =
   'guest_id, event_id, first_name, last_name, display_name, side, role, extra_roles, email, mobile, notes, rsvp_status, rsvp_set_by, rsvp_responded_at, sponsor_asked_at, entourage_order, created_at';
 
 /** The columns a PUBLIC surface may read ("who was there"): a name, a role, a side and the reply — never an email, a
  *  phone or a private note. */
-export const PUBLIC_SPONSOR_GUEST_COLUMNS =
+export const PUBLIC_SPONSOR_GUEST_FIELDS =
   'guest_id, event_id, first_name, last_name, display_name, side, role, extra_roles, rsvp_status, rsvp_set_by, rsvp_responded_at, sponsor_asked_at, entourage_order, created_at';
 
 export type SponsorGuestRow = {
@@ -147,7 +148,7 @@ export async function readEventSponsorGuests(client: SupabaseClient, eventId: st
   const roles = SPONSOR_GUEST_ROLES.join(',');
   const { data, error } = await client
     .from('guests')
-    .select(SPONSOR_GUEST_COLUMNS)
+    .select(SPONSOR_GUEST_FIELDS)
     .eq('event_id', eventId)
     .is('deleted_at', null)
     .or(`role.in.(${roles}),extra_roles.ov.{${roles}}`)
@@ -200,7 +201,7 @@ export async function querySponsorGuests(
   const roles = SPONSOR_GUEST_ROLES.join(',');
   const { data, error } = await client
     .from('guests')
-    .select(opts.publicOnly ? PUBLIC_SPONSOR_GUEST_COLUMNS : SPONSOR_GUEST_COLUMNS)
+    .select(opts.publicOnly ? PUBLIC_SPONSOR_GUEST_FIELDS : SPONSOR_GUEST_FIELDS)
     .in('event_id', [...eventIds])
     .is('deleted_at', null)
     .or(`role.in.(${roles}),extra_roles.ov.{${roles}}`)

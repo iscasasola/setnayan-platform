@@ -1,5 +1,6 @@
 'use server';
 
+import { INVITE_ERRORS } from '@/lib/supplier-invite-errors';
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -25,14 +26,12 @@ export async function joinSupplierInvite(formData: FormData) {
 
   const { data, error } = await supabase.rpc('join_supplier_invite', { p_inviter_slug: slug });
   if (error) {
-    const msg = /not_your_shop/.test(error.message ?? '')
-      ? 'Open your shop first, then join from this link.'
-      : 'We couldn’t join you just now. Please try again.';
+    const msg = /not_your_shop/.test(error.message ?? '') ? INVITE_ERRORS.openShopFirst : INVITE_ERRORS.failed;
     redirect(`${back}?error=${encodeURIComponent(msg)}`);
   }
   const outcome = String(data ?? '');
-  if (outcome === 'self') redirect(`${back}?error=${encodeURIComponent('This is your own invite link.')}`);
-  if (outcome === 'no_shop') redirect(`${back}?error=${encodeURIComponent('This invite link no longer opens a shop.')}`);
+  if (outcome === 'self') redirect(`${back}?error=${encodeURIComponent(INVITE_ERRORS.self)}`);
+  if (outcome === 'no_shop') redirect(`${back}?error=${encodeURIComponent(INVITE_ERRORS.noShop)}`);
 
   revalidatePath('/vendor-dashboard/partnerships');
   revalidateShopPage(null, slug);

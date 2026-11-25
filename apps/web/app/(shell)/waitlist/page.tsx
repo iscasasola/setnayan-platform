@@ -16,7 +16,7 @@ import { actionButtonClass } from '@/components/action-button-class';
 export const metadata = {
   title: 'Plan your wedding free',
   description:
-    'Setnayan is live for couples. Start planning free today — guest list, seating, budget, mood board, and a verified supplier marketplace with 0% commission on bookings.',
+    'Setnayan is live for couples. Start planning free today — guest list, seating, budget, mood board, and a verified supplier marketplace. Hosts pay 0% commission.',
   alternates: { canonical: '/waitlist' },
   openGraph: {
     images: BRAND_OG_IMAGES,

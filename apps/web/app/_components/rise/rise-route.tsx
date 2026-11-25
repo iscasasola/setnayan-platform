@@ -22,7 +22,7 @@ import type { RiseKind } from '@/lib/rise-screen';
 
 /**
  * True inside a risen page (either frame). A page that also loads whole (a hard load: no ✕) keeps its own "‹ Back" link
- * and hides it here, where ✕ is the way out — `HideWhenRisen`. Final check B8.
+ * and hides it here, where ✕ is the way out — `BackWhenNotRisen` reads it. Final check B8.
  */
 const InRiseRoute = createContext(false);
 
@@ -37,9 +37,9 @@ export function useRiseRouteHead() {
   return useContext(RiseRouteHead);
 }
 
-/** Draws its children only on the whole page, never inside a risen one (✕ replaces a "‹ Shop" link there). */
-export function HideWhenRisen({ children }: { children: ReactNode }) {
-  return useContext(InRiseRoute) ? null : <>{children}</>;
+/** True inside a page risen by `RiseRoute` — the phone's full screen AND the dialog from 701 (`BackWhenNotRisen`). */
+export function useInRiseRoute(): boolean {
+  return useContext(InRiseRoute);
 }
 
 /** `useBackCloses`' mark on the history entry it pushes (lib/use-back-closes.ts). */

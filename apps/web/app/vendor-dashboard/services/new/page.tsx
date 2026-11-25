@@ -5,7 +5,7 @@ import { ChevronLeft } from 'lucide-react';
 import { loadRequestTree } from '@/lib/service-requests.server';
 import { SERVICE_MAKER_HREF } from '@/lib/service-picker-anchor';
 import { TellUsHost } from '../requests/_components/tell-us-host';
-import { HideWhenRisen } from '@/app/_components/rise/rise-route';
+import { BackWhenNotRisen } from '../../_components/back-when-not-risen';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { NewServiceMaker } from './_components/new-service-maker';
@@ -60,7 +60,7 @@ export default async function NewServiceCardPage({
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6">
       {/* ‹ only on the whole page: risen over Shop, ✕ is the way out (final check B8). */}
-      <HideWhenRisen>
+      <BackWhenNotRisen>
       <div className="mb-2 flex min-h-11 items-center gap-2">
         {quoteReturn ? (
           <Link href={quoteReturn} className="sn-press inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">
@@ -76,7 +76,7 @@ export default async function NewServiceCardPage({
         {/* Rule 1 — the way out is the back arrow; the page's name stays for a screen reader only. */}
         <h1 className="sr-only">New service</h1>
       </div>
-      </HideWhenRisen>
+      </BackWhenNotRisen>
       {/* The old address /services/requests/new forwards here with ?tell=1 (and where it stood): the steps open at once. */}
       <TellUsHost
         groups={requestTree?.groups ?? null}

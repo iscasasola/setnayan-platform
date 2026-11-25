@@ -60,12 +60,15 @@ test('B8 · the ‹ links hide only inside the layer; a hard load keeps them', (
     'app/vendor-dashboard/services/new/[category]/page.tsx',
   ]) {
     const s = src(f);
-    const i = s.indexOf('<HideWhenRisen>');
+    const i = s.indexOf('<BackWhenNotRisen>');
     assert.ok(i > 0, `${f}: the back link is not wrapped`);
-    const inside = s.slice(i, s.indexOf('</HideWhenRisen>'));
+    const inside = s.slice(i, s.indexOf('</BackWhenNotRisen>'));
     assert.match(inside, /<ChevronLeft|<ArrowLeft/, `${f}: the wrapper holds no back link`);
   }
-  assert.match(src('app/_components/rise/rise-route.tsx'), /return useContext\(InRiseRoute\) \? null : <>\{children\}<\/>;/);
+  // ONE piece hides a back link on a risen page — both frames (the phone's RiseScreen and the dialog from 701).
+  const back = src('app/vendor-dashboard/_components/back-when-not-risen.tsx');
+  assert.match(back, /const outsideRise = useRiseClose\(\) \? null : <>\{children\}<\/>;\s*return inRiseRoute \? null : outsideRise;/, 'the dialog shows the ‹ link beside its ✕');
+  assert.doesNotMatch(src('app/_components/rise/rise-route.tsx'), /export function HideWhenRisen/, 'a second hide-when-risen piece');
 });
 
 test('B7 · a booked card: the name reads from its start with no pencil; no add tile', () => {

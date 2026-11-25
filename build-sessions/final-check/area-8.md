@@ -13,13 +13,13 @@ None found.
 ### Pages (71)
 
 - [ ] /admin
-- [ ] /admin/account-deletions
-- [ ] /admin/accounts
+- [x] /admin/account-deletions · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
+- [x] /admin/accounts · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · tabs checked: users, vendors, events, venues, demo-vendors
 - [ ] /admin/admin-log
 - [x] /admin/app-performance · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · tabs checked: overview (default + bare-address landing), connection-logs, funnels, growth, intelligence, offline, operations, seo, visits, interconnections, browser-blocks, slow-loads
 - [ ] /admin/approvals
 - [ ] /admin/ask
-- [ ] /admin/background-videos
+- [x] /admin/background-videos · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [ ] /admin/booking-fees
 - [x] /admin/budget-planner · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/business · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · views checked: own (identity, brand icon, loader, Sentry, compliance), privacy, data-sheet, integrations (secrets view not readable, see NOTES)
@@ -28,26 +28,26 @@ None found.
 - [x] /admin/categories/requests · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [ ] /admin/chat-flags
 - [ ] /admin/colours
-- [ ] /admin/completions
+- [x] /admin/completions · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/compliance/data-sheet · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [ ] /admin/concierge-abuse
 - [ ] /admin/corrections
 - [x] /admin/data-privacy · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · tabs checked: controls, coverage, deletions, checklist, documents (+ documents/[doc] route)
 - [x] /admin/demand · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [ ] /admin/demo-vendors/inquiries
-- [ ] /admin/directory
+- [x] /admin/demo-vendors/inquiries · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
+- [x] /admin/directory · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [ ] /admin/discount-codes/new
-- [ ] /admin/disputes
+- [x] /admin/disputes · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [ ] /admin/editorial-review
 - [x] /admin/email-delivery · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [ ] /admin/event-deletions
-- [ ] /admin/force-majeure
+- [x] /admin/event-deletions · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
+- [x] /admin/force-majeure · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE (the [flagId] record: PAGE → PAGE)
 - [ ] /admin/founder-seats
-- [ ] /admin/fraud
+- [x] /admin/fraud · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [ ] /admin/gifts
 - [ ] /admin/help
 - [ ] /admin/help/guides
-- [ ] /admin/hub-music
+- [x] /admin/hub-music · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE (one sub-surface finding below)
 - [x] /admin/integrations · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [ ] /admin/integrity-watch
 - [ ] /admin/launch-offer
@@ -55,9 +55,9 @@ None found.
 - [ ] /admin/money
 - [ ] /admin/more
 - [ ] /admin/offers
-- [ ] /admin/pakanta
+- [x] /admin/pakanta · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [ ] /admin/papic-storage
-- [ ] /admin/pax-changes
+- [x] /admin/pax-changes · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [ ] /admin/payment-options
 - [ ] /admin/payments
 - [ ] /admin/payments/supplier-refunds
@@ -69,19 +69,19 @@ None found.
 - [ ] /admin/search-memory
 - [ ] /admin/secrets · NOT CHECKED: this session's permission settings refuse every read of `apps/web/app/admin/secrets/` (lead and checker both tried); needs a session that may open it
 - [ ] /admin/settings/payment-methods
-- [ ] /admin/studio
+- [x] /admin/studio · OFFLINE: NOT NEEDED · SHAPE: today PAGE (tab host, `?tab=`) → should PAGE · tabs checked: website, reveal-studio, real-stories, storytellers, recaps, patiktok, songs, moodboard-library, social-queue, journal-spotlights, spotlight-awards (forwards to /admin/offers?view=badges, which renders the same `SpotlightAwardsSurface`), discount-codes and referrals (forward to /admin/offers?view=…, which renders the same studio surfaces; links to discount-codes/new and discount-codes/[id]/edit resolve), plus the views it mounts: background-videos, website-media, hub-music
 - [ ] /admin/subscriptions
 - [x] /admin/switches · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · incl. #demo-mode and the /api/admin/demo-mode/toggle route
-- [ ] /admin/team
+- [x] /admin/team · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/ugat · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · tabs checked: menus (default), onboarding, brain, screens
 - [x] /admin/ugat/map · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [ ] /admin/user-reports
 - [x] /admin/vendor-partnerships · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/vendor-recommendations · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
-- [ ] /admin/venues/new
-- [ ] /admin/verification-docs
-- [ ] /admin/verify
-- [ ] /admin/website-media
+- [x] /admin/venues/new · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should FULL-SCREEN POPUP
+- [x] /admin/verification-docs · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
+- [x] /admin/verify · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · tabs checked: applications (pending_review, in_review, approved, auto, rejected, demoted, all), visibility (hidden, verified, archived, all), ?shop=
+- [x] /admin/website-media · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [ ] /admin/work
 
 ### Forwards (36) — each must land where the kit says, with its ?tab=
@@ -195,6 +195,28 @@ ACTUAL    `app/_components/submit-button.tsx` `SubmitButton` draws a spinning ic
 SHOTS     phase B: 375 px light, mid-press
 RULE      CLAUDE.md §3 Loading ("No animate-pulse, no spinners") · HOUSE_DESIGN_STANDARD D1
 SEVERITY  look
+SOURCE    CODE
+
+#### L-7 · The house confirm is a native dialog with its own scrim
+PAGE      every /admin page that confirms (`ConfirmForm`, `ConfirmButton`, `useConfirm()`; shared with other areas)
+BUTTON    any confirm, e.g. "Delete account", "Delete ‹category›"
+STEPS     1. Press a control that asks "Are you sure?".
+EXPECTED  The shared `Sheet` with the ONE shared backdrop token (dim + blur), opening at half on a phone (HOUSE_DESIGN_STANDARD K3.1: "No page builds its own scrim").
+ACTUAL    `app/_components/confirm-dialog.tsx` `ConfirmDialog` is a portalled `<dialog>` opened with `showModal()`, with its own scrim `backdrop:bg-black/50 backdrop:backdrop-blur-sm` and a hand-written `shadow-[0_24px_60px_-20px_rgba(0,0,0,.5)]`. It dims and blurs, but not with the shared backdrop, and it is the layer that ends up on top of a Sheet (D-28, B-20). Three checkers found it independently.
+SHOTS     phase B: 375 px light, a confirm opened from a list and from inside a sheet
+RULE      HOUSE_DESIGN_STANDARD Part K3 · D2 (Sheet is the one floating surface)
+SEVERITY  look
+SOURCE    CODE
+
+#### L-8 · "Catalogue · Escalated" is never enforced
+PAGE      /admin/categories (and every catalogue write)
+BUTTON    "Delete ‹category›" · "Combine" · hide for everyone · retire
+STEPS     1. Sign in as an admin whose Team grid gives Catalogue = Basic only. 2. Delete, combine or hide a category or service.
+EXPECTED  `lib/admin/areas.ts` `ADMIN_AREA_LIST` row `catalogue`: Escalated = "hide for everyone · combine · retire", so these presses are refused without it.
+ACTUAL    No `requireAdminCan('catalogue', …)` exists anywhere in `apps/web`; the categories actions check only "is admin" (`requireAdmin`/`requireAdminAction`). Same family as B-2 (prices), D-1 and D-3 (deletions), D-4 (plans): the area grid on /admin/team promises limits the server does not hold.
+SHOTS     phase B: n/a (server-side)
+RULE      Admin areas × levels (DECISION_LOG 2026-11-13) · task check 2
+SEVERITY  money-signin
 SOURCE    CODE
 
 _Group findings follow as each group of pages is done._
@@ -1042,3 +1064,927 @@ SOURCE    CODE
 - Server-side admin checks verified: `/api/admin/demo-mode/toggle` (`isAdminProfile` → 403), `/api/admin/sentry-smoke-test` (403), `/api/admin/smoke-test` (404), `/admin/data-privacy/documents/[doc]` (404). /admin/integrations and /admin/email-delivery pass only booleans and non-secret config to the page. No ciphertext or env secret reaches the browser.
 - Cosmetic: `TestResendButton` reads `body.id`, but `/api/admin/smoke-test` returns `messageId`, so "Sent — message id …" never shows.
 - `ConfirmDialog`, the house confirm behind `ConfirmButton` and `ConfirmForm`, is a portalled native `<dialog>`, not `Sheet`. That is area-wide, so I did not report it per page.
+
+### Group D · Accounts & people
+
+#### D-1 · Approving a deletion marks it "approved" before any area, self or internal check runs
+PAGE      /admin/account-deletions
+BUTTON    "Approve + delete" · "Approve + blacklist" · "Reject (keep account)"
+STEPS     1. Sign in as an admin with no Deletions area. 2. Approve a pending request, or Reject one.
+EXPECTED  Deletions · Escalated ("approve a deletion", `lib/admin/areas.ts`) is checked before anything is written.
+ACTUAL    `approveRequest` (account-deletions/actions.ts) checks only "is admin", then writes `status: 'approved'`. Only after that do `deleteUser`/`blacklistUser` run `requireAdminCan` and the internal and self guards. If any of them refuses, the request reads "approved" and the account stays open. It can no longer be rejected, because `loadPendingRequest` expects `pending`. `rejectRequest` has no area check at all.
+SHOTS     phase B: — (server-side)
+RULE      Admin areas × levels (DECISION_LOG 2026-11-13) · gate first
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### D-2 · The internal-account guard on erasure lets the erase run when its read fails
+PAGE      /admin/account-deletions   (same action behind /admin/accounts tab: users "Delete account")
+BUTTON    "Approve + delete" · "Run erasure again"
+STEPS     1. Approve a request for an internal (§ 10a) account while the `users` read is refused.
+EXPECTED  An unread target refuses the erase.
+ACTUAL    users/actions.ts `deleteUser` reads with `const { data: target } = await admin.from('users').select('is_internal')…` and drops the error. `if (target?.is_internal)` passes when `target` is null, so `eraseUserAccount` runs, and lib/erasure/purge.ts has no internal check. This page still offers both approve buttons on internal rows.
+SHOTS     phase B: — (server-side)
+RULE      Honest states (CLAUDE.md §5.4) · admin access
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### D-3 · Removing an event never checks Deletions · Escalated
+PAGE      /admin/event-deletions   (and /admin/accounts tab: events)
+BUTTON    "Remove it for good" · "Keep it, and tell them why" · tab events "Delete"
+STEPS     1. Sign in as an admin with no areas. 2. Remove a money-held event, or press Delete on the Events tab.
+EXPECTED  "remove an event" is Deletions · Escalated (`ADMIN_AREA_LIST`), so it should be refused.
+ACTUAL    `approveEventDeletion`, `rejectEventDeletion` (event-deletions/actions.ts) and `deleteEvent` (events/actions.ts) each call only a local "is admin" `requireAdmin`. None of these files contains `requireAdminCan`.
+SHOTS     phase B: — (server-side)
+RULE      Admin areas × levels (DECISION_LOG 2026-11-13)
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### D-4 · The supplier invite gives a free paid plan without the Plans or Gifts gate
+PAGE      /admin/accounts   (tab: vendors)
+BUTTON    "Create invite link" (with "Plan they get for free" = Plus/Pro/Ultra)
+STEPS     1. Admin with no Plans or Gifts area. 2. Invite a supplier with Pro free until a date up to a year away.
+EXPECTED  The same gate as `setVendorTier` (`requireAdminCan('plans','escalated')`) or `issueVendorSkuComp` (gifts_comps).
+ACTUAL    `createAdminVendorInvite` (vendors/actions.ts) checks only "is admin". It writes `offer_tier`/`offer_until`, which the claim applies as `tier_source = 'admin_comp'`.
+SHOTS     phase B: — (server-side)
+RULE      Admin areas × levels · money
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### D-5 · A failed cancel of unpaid bills is swallowed and the event is removed anyway
+PAGE      /admin/event-deletions
+BUTTON    "Remove it for good"
+STEPS     1. Remove an event while the `orders` update is refused.
+EXPECTED  Stop with a failure. Otherwise unpaid bills outlive the event.
+ACTUAL    `approveEventDeletion` only logs `strandErr` (`console.error('[event-deletions] could not cancel unpaid bills'`) and goes on to delete. `orders.event_id` is SET NULL, so the stranded-bill case the comment warns about happens silently. The `status: 'approved'` update is also unchecked.
+SHOTS     phase B: — (server-side)
+RULE      Honest states · money
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### D-6 · Comp-grant service picker shows a failed catalog read as "No catalog SKUs found."
+PAGE      /admin/accounts   (tab: users, comp grants panel; also tab: vendors)
+BUTTON    "Comp grants" → "Issue comp grant"
+STEPS     1. Open Comp grants while a catalog read is refused.
+EXPECTED  "Couldn't read" (the `services === null` path).
+ACTUAL    `fetchV2CustomerCatalog`, `fetchV2BundleCatalog` and `fetchV2VendorCatalog` (lib/v2-catalog.ts) return `[]` on error and never throw, so users-surface `catch { compGrantServices = null }` never fires. A whole category drops out, or the panel says "No catalog SKUs found." The vendors tab has the same problem: `readPersonalInvitePlanPrices` lists plans with no price.
+SHOTS     phase B: 375 px light
+RULE      Honest states (CLAUDE.md §5.4) · prices from the catalog
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### D-7 · Peso amounts formatted by hand, and a typed peso example, on the comp-grant form
+PAGE      /admin/accounts   (tab: users)
+BUTTON    "Issue comp grant"
+STEPS     1. Open Comp grants. 2. Read the SKU prices, the value hint, the success banner and the grant cards.
+EXPECTED  `formatPhp` / `formatPhpRounded`. No peso number typed into copy.
+ACTUAL    users-surface has `₱{(s.price_centavos / 100).toLocaleString()}`, `₱{formatCount(COMP_GRANT_CO_REVIEW_PESOS)}` and `placeholder="2499"`. users/actions.ts banner: `₱${COMP_GRANT_CO_REVIEW_PESOS.toLocaleString('en-PH')}`. `formatRetailValueCentavos` (lib/comp-grants.ts) is hand-rolled. The threshold itself is code (`COMP_GRANT_CO_REVIEW_PESOS = 10_000`).
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §1 money · lib/php.ts
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### D-8 · A comma in the Users or Venues search breaks the read and shows "Couldn't read"
+PAGE      /admin/accounts   (tab: users, venues)
+BUTTON    Search box (Enter) · "Apply filters"
+STEPS     1. Users: search `Cruz, Ana`. 2. Venues: search `Marriott, Manila` (the placeholder suggests commas).
+EXPECTED  Results. The Events tab already sanitises this (`eventWordFilters`, F-W2-37).
+ACTUAL    Raw `q` is put straight into PostgREST `.or()`. users-surface: `` `email.ilike.%${q}%,display_name…` ``. venues-surface: `` `name.ilike.%${q}%,slug.ilike.%${q}%` ``. The comma splits the filter, PostgREST errors, and the tab shows its read failure.
+SHOTS     phase B: 375 px light
+RULE      Every control does something real (design-and-wiring B5)
+SEVERITY  broken
+SOURCE    CODE
+
+#### D-9 · "Keep it" can fail to record yet still notifies the couple
+PAGE      /admin/event-deletions
+BUTTON    "Keep it, and tell them why"
+STEPS     1. Reject while the `event_deletion_requests` update is refused.
+EXPECTED  A failure is shown and nothing is sent.
+ACTUAL    `rejectEventDeletion` runs `await createAdminClient().from('event_deletion_requests').update(…)` with no error check, then calls `emitNotification`. The row stays pending, the couple gets a reply that was never recorded, and the admin sees nothing.
+SHOTS     phase B: 375 px light
+RULE      A failure must render as a failure (design-and-wiring B6)
+SEVERITY  broken
+SOURCE    CODE
+
+#### D-10 · The face-tagging switch on the Events tab never says whether it worked
+PAGE      /admin/accounts   (tab: events)
+BUTTON    "On" / "Auto" / "Off" (Face tagging column)
+STEPS     1. Toggle face tagging on a row. The write is refused or does not land.
+EXPECTED  "The database refused the face-tagging change", as `/admin/events/[eventId]` shows.
+ACTUAL    `setEventFaceMode` redirects to `/admin/accounts?tab=events&error=face_mode_failed` (or `saved=face_mode_on`). accounts/page.tsx never passes `error`/`saved` to `EventsSurface`, so both outcomes are silent.
+SHOTS     phase B: 375 px light
+RULE      Honest states · Toast rule (CLAUDE.md §3)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### D-11 · Rollups are silently cut at 1,000 rows on the Events and Demo tabs
+PAGE      /admin/accounts   (tab: events, demo-vendors)
+BUTTON    —
+STEPS     1. Events tab with 200 events whose guests total more than 1,000. 2. Demo tab with more than 1,000 demo shops.
+EXPECTED  Paged reads, or a disclosure when a read is capped.
+ACTUAL    events-surface reads `guests` and `event_std_views` (one row per day) with `.in('event_id', eventIds)` and no paging, so Guests and STD views undercount while reading as measured. demo-vendors-surface asks for `.limit(BATCH_SCAN_LIMIT)` (2000) and 5000, but the 1,000-row ceiling (noted in lib/vendor-earnings.ts) caps them first. Per-folder, per-city and Empty-categories shrink, and the "floors" note (`>= BATCH_SCAN_LIMIT`) never fires.
+SHOTS     phase B: 375 px light
+RULE      Honest states (CLAUDE.md §5.4)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### D-12 · The Delete and Blacklist confirms promise a hard-delete cascade that no longer happens
+PAGE      /admin/accounts   (tab: users)
+BUTTON    "Delete account" · "Delete and block this email"
+STEPS     1. ⋯ on a person → Delete account. 2. Read the confirm.
+EXPECTED  The true erasure words, like account-deletions' `ERASURE_WORDS` ("Orders and payments are kept…").
+ACTUAL    The confirm says "Hard-delete … Their auth identity is gone; all related data cascade-deletes" and "The user is hard-deleted". `deleteUser` only anonymises through `eraseUserAccount` ("no auth.users DELETE is issued").
+SHOTS     phase B: 375 px light
+RULE      Words must be true (brand.md)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### D-13 · The Demo tab contradicts itself and points to retired addresses
+PAGE      /admin/accounts   (tab: demo-vendors)
+BUTTON    "/explore?demo=1"
+STEPS     1. Open the Demo suppliers tab and read the warning, then "View as a couple".
+EXPECTED  One true statement, and links whose labels match where they go.
+ACTUAL    The warning says "Demo shops are public … marked (DEMO ONLY)". The next section says "hidden from the public marketplace by default. Append ?demo=1 to any /vendors URL", but `/vendors` now forwards to `/for-suppliers` (next.config.ts). The button is labelled "/explore?demo=1" but its href is `/?browse=1&demo=1`. A footer still reads "PR 1 (this PR) …".
+SHOTS     phase B: 375 px light
+RULE      Words must be true · no dev text
+SEVERITY  wrong
+SOURCE    CODE
+
+#### D-14 · Team "Add" and "Save" give no sign anything happened, and a second press opens another request
+PAGE      /admin/team
+BUTTON    "Add" · "Save" · "Take all away"
+STEPS     1. Add an admin. The two-admin request opens. 2. The screen is unchanged and the fields keep their text. 3. Press Add again.
+EXPECTED  "Waiting on a second admin in Approvals", and one pending request per person, as `requestTeamMemberGrant` does.
+ACTUAL    `addAdminOp`, `saveAdminAreasOp` and `takeAllAreasAwayOp` (team-ops.server.ts) only `revalidatePath`, with no flag or banner. `addAdminOp` and `raiseEscalatedRequest` insert without a pending check, and no unique index on `admin_approval_requests` stops the duplicate.
+SHOTS     phase B: 375 px light
+RULE      Success is a small toast (CLAUDE.md §3) · design-and-wiring B6
+SEVERITY  wrong
+SOURCE    CODE
+
+#### D-15 · A failed owner check shows the owner as an ordinary admin with "No areas yet"
+PAGE      /admin/team
+BUTTON    —
+STEPS     1. Load Team while the `is_platform_owner` RPC is refused.
+EXPECTED  "Couldn't check the owner", never an unlocked row.
+ACTUAL    `readIsPlatformOwner` returns `null` on error. The page only adds ids `=== true` to `ownerIds`, so the owner's row loses "🔒 Owner · everything" and shows the editable grid, and the summary falls to "No areas yet — can open /admin and do nothing". The server refuses a save, so only the display is wrong.
+SHOTS     phase B: 375 px light
+RULE      Honest states (CLAUDE.md §5.4)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### D-16 · Deletion queue prints "vendor" as the account kind
+PAGE      /admin/account-deletions
+BUTTON    —
+STEPS     1. A supplier files a deletion request. 2. Read the pending card line.
+EXPECTED  "Supplier".
+ACTUAL    page.tsx `u?.account_type === 'customer' ? 'Couple' : (u?.account_type ?? 'unknown')` prints the raw `vendor` (and `admin`, `unknown`).
+SHOTS     phase B: 375 px light
+RULE      docs/brand.md Word rules
+SEVERITY  wrong
+SOURCE    CODE
+
+#### D-17 · Banned words in placeholders on the Accounts tabs
+PAGE      /admin/accounts   (tab: vendors, users)
+BUTTON    —
+STEPS     1. Vendors: read the invite's Supplier email field. 2. Users: read the comp-grant Rationale field.
+EXPECTED  No "vendor", no "Monogram" (say Logo Maker).
+ACTUAL    invite-vendor-form.tsx `placeholder="hello@vendorbusiness.ph"`. users-surface rationale `placeholder="… gifting Animated Monogram as remediation."`.
+SHOTS     phase B: 375 px light
+RULE      docs/brand.md Word rules
+SEVERITY  wrong
+SOURCE    CODE
+
+#### D-18 · Two filled main buttons on one screen in three Accounts tabs
+PAGE      /admin/accounts   (tab: venues, vendors, demo-vendors)
+BUTTON    "Add venue" + "Apply filters" · "Create invite link" + "Download the card" · "/explore?demo=1" + "Create demo suppliers"
+STEPS     1. Open each tab (vendors: after an invite succeeds).
+EXPECTED  One accent-filled main per scope.
+ACTUAL    venues-surface: masthead link `bg-mulberry` and `button-primary`. invite-vendor-form: `button-primary` and `ActionButton … main` in the same card. demo-vendors-surface: `bg-ink … text-cream` link and `DemoVendorActions` `tone="brand" main`.
+SHOTS     phase B: 375 px light + desktop
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+
+#### D-19 · Filled danger outside a confirm, with a second danger button beside it
+PAGE      /admin/account-deletions
+BUTTON    "Approve + delete" + "Approve + blacklist"
+STEPS     1. Open a pending request card.
+EXPECTED  A filled danger only as the single action of a confirm sheet, and no second button in the main's colour.
+ACTUAL    `actionButtonClass('danger', { main: true })` on the card, next to `actionButtonClass('danger')` (outlined in the same danger colour).
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+
+#### D-20 · Filled danger button on the queue card, outside a confirm sheet
+PAGE      /admin/event-deletions
+BUTTON    "Remove it for good"
+STEPS     1. Open a pending removal.
+EXPECTED  A filled danger only as the single action of a confirm sheet.
+ACTUAL    page.tsx `className={actionButtonClass('danger', { main: true })}` sits inline on the card.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+
+#### D-21 · Hard-coded light-only colours and typed sizes across the Accounts tabs (67)
+PAGE      /admin/accounts
+BUTTON    —
+STEPS     1. Grep the surfaces, `person-more.tsx`, `invite-vendor-form.tsx` and `demo-vendor-actions.tsx`.
+EXPECTED  Colour and type tokens only.
+ACTUAL    67 hits. Examples: `bg-sky-100 text-sky-800` ("Team & roles", vendors-surface); `bg-white/70` (users-surface grants panel); `border-red-200 bg-red-50 text-red-900` (demo-vendor-actions); half-pixel `text-[11.5px]` and `style={{ color: 'rgb(var(--color-danger))' }}` (users-surface); `text-[9px]` (venues-surface).
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### D-22 · Typed pixel sizes on the venue form (12)
+PAGE      /admin/venues/new
+BUTTON    —
+STEPS     1. Open the form.
+EXPECTED  The `text-sn-*` scale.
+ACTUAL    venue-form.tsx uses `text-[10px]` 12 times, for example the labels "Slug *" and "Venue type *" and the hints "Decimal degrees. PH range…".
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### D-23 · Typed pixel sizes on the event-removals queue (8)
+PAGE      /admin/event-deletions
+BUTTON    —
+STEPS     1. Open the page.
+EXPECTED  The `text-sn-*` scale.
+ACTUAL    page.tsx has 8 hits: `text-[13px]` ("Asked …", "What you did about the money", "Why people left" lines) and `text-[12px]` ("Removing destroys its photos…").
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### D-24 · Typed pixel sizes on the account-deletions queue (4)
+PAGE      /admin/account-deletions
+BUTTON    —
+STEPS     1. Open the page.
+EXPECTED  The `text-sn-*` scale.
+ACTUAL    page.tsx has `text-[12px]` (request id, Status pill) and `labelClassName="text-[13px] …"` (internal-account InfoTip).
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### D-25 · Typed pixel size on the demo inquiries Status pill (1)
+PAGE      /admin/demo-vendors/inquiries
+BUTTON    —
+STEPS     1. Open the page.
+EXPECTED  The `text-sn-*` scale.
+ACTUAL    page.tsx Status pill: `rounded-full px-2.5 py-0.5 text-[12px]`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### D-26 · Native selects with 3 or more options on the Accounts tabs (2)
+PAGE      /admin/accounts   (tab: vendors, venues)
+BUTTON    Status · "Filter by type"
+STEPS     1. Open either filter.
+EXPECTED  `PickMenu`.
+ACTUAL    vendors-surface `<select name="status">` (All, Published, Draft, Renewals). venues-surface `<select name="type">` (17 options).
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD D2 (PickMenu) · K3
+SEVERITY  look
+SOURCE    CODE
+
+#### D-27 · Native select for venue type on the create form
+PAGE      /admin/venues/new
+BUTTON    "Venue type *"
+STEPS     1. Open the type field.
+EXPECTED  `PickMenu`.
+ACTUAL    venue-form.tsx `<select name="venue_type">` over `VENUE_TYPES` (16 options).
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD D2 (PickMenu) · K3
+SEVERITY  look
+SOURCE    CODE
+
+#### D-28 · A confirm dialog opens on top of the ⋯ sheet
+PAGE      /admin/accounts   (tab: users)
+BUTTON    "Sign out everywhere" · "Delete account" · "Delete and block this email"
+STEPS     1. ⋯ on a person (Sheet). 2. Press a danger row.
+EXPECTED  Never a popup on top of a popup.
+ACTUAL    `PersonMore` renders a `Sheet`, and its children are `ConfirmForm`s whose `ConfirmDialog` (`<dialog>`) opens over the open sheet.
+SHOTS     phase B: 375 px light
+RULE      SHAPE
+SEVERITY  look
+SOURCE    CODE
+
+#### D-29 · The long comp-grant form opens at the foot of the list, out of sight
+PAGE      /admin/accounts   (tab: users)
+BUTTON    "Comp grants" (⋯ sheet)
+STEPS     1. With a long list, ⋯ → Comp grants.
+EXPECTED  FULL-SCREEN POPUP (RiseScreen, ✕ back to the list) for a 5-part form: scope, service checklist, value, expiry, rationale.
+ACTUAL    `buildToggleHref` targets `#u-<id>` (the row), but `CompGrantsPanel` renders after `</TemplateSection>`, below up to 200 rows.
+SHOTS     phase B: 375 px light + desktop
+RULE      SHAPE
+SEVERITY  look
+SOURCE    CODE
+
+#### D-30 · The one-off venue create form is its own page
+PAGE      /admin/venues/new
+BUTTON    "Add venue" (venues tab)
+STEPS     1. Venues tab → Add venue.
+EXPECTED  FULL-SCREEN POPUP over the Venues tab (long form: 8 fields and 17 ceremony checkboxes; nobody bookmarks it).
+ACTUAL    A standalone page (venues/new/page.tsx) that leaves the tab, with Cancel → `/admin/venues`.
+SHOTS     phase B: 375 px light + desktop
+RULE      SHAPE
+SEVERITY  look
+SOURCE    CODE
+
+#### D-31 · The Accounts skeleton draws a bordered table, but the default Users tab is a row list
+PAGE      /admin/accounts
+BUTTON    —
+STEPS     1. Load /admin/accounts (Users).
+EXPECTED  A skeleton with the page's shape: masthead, chip row, search, avatar rows.
+ACTUAL    accounts/loading.tsx re-exports `TablePageSkeleton` (5-column bordered table). Users draws `PeopleFilterChips` and `TemplateRows` with no table.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §3 Loading
+SEVERITY  look
+SOURCE    CODE
+
+#### D-32 · The People skeleton draws a table but none of the head numbers or group cards
+PAGE      /admin/directory
+BUTTON    —
+STEPS     1. Load /admin/directory.
+EXPECTED  The head-number strip, the group cards and the list.
+ACTUAL    directory/loading.tsx is `TablePageSkeleton`. The page draws `TabLanding` (head numbers and cards) before the list.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §3 Loading
+SEVERITY  look
+SOURCE    CODE
+
+**Group D notes**
+
+- D-11 assumes PostgREST's 1,000-row limit, based on the repo's own notes (lib/vendor-earnings.ts, lib/admin/growth-stats.ts). The live max-rows setting was not checked. The Venues tab stats read (`venue_directory.select('venue_type')`, no paging) would cap the same way past 1,000 venues; the directory's current size is unknown.
+- /admin/directory shows two page titles: `TabLanding`'s "People" masthead plus the mounted Users tab's "Users" masthead. This is not on the checklist.
+- Outside my pages: the shared `ConfirmDialog` (app/_components/confirm-dialog.tsx) is a `<dialog>` used across the whole app (K3). That is the lead's call.
+- The Users tab copy says "Reverse via the Blacklisted filter", and account-deletions says "Users → Blacklisted", but the filter chip is labelled "Blocked".
+- The checkout is at 653100823, a progress-list commit on top of fb3f72d with no admin code changes, so findings hold for fb3f72d.
+
+### Group E · Verify, fraud & disputes
+
+#### E-1 · A settlement the database refused, or one that succeeded, is never shown to the admin
+PAGE      /admin/disputes
+BUTTON    "It did not arrive" / "The payment stands" / "Accept — waive the fee"
+STEPS     1. Two admins open the same "The downpayment never reached me" row. 2. A settles it. 3. B then presses "It did not arrive".
+EXPECTED  B is told it was already settled. A sees a success line.
+ACTUAL    settleDepositDispute and settlePaymentDispute redirect to `?settled=already|no_dispute|ok`. page.tsx `Props.searchParams` has no `settled`, so the row just disappears. bookingFeeDispute `decide` redirects `?fee_dispute=already|no_dispute|not_admin|accepted|rejected`, but BookingFeeDisputesSection shows only `result === 'error'`.
+SHOTS     phase B: 375 px light
+RULE      design-and-wiring B6 (a failure must render as a failure) · CLAUDE.md §5.4
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### E-2 · A resolved force-majeure flag can be re-resolved, overwriting the refund record
+PAGE      /admin/force-majeure/[flagId]
+BUTTON    "Apply Dismissed" (any "Resolve as" choice)
+STEPS     1. Open a flag already resolved as "Refund issued". 2. The "Resolve as" list still shows. Open "Dismissed" and press Apply.
+EXPECTED  A resolved flag is closed to re-resolution, like resolveDispute's `.eq('status', 'open')` guard.
+ACTUAL    The `RecordSection label="Actions"` renders whatever `isResolved` is. force-majeure/actions.ts `resolveFlag` updates by `.eq('flag_id', flagId)` only. It overwrites `status` and `resolution_notes` (the refund amount and channel) and notifies the couple again.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 · design-and-wiring B6
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### E-3 · Booking fee dispute shows "Fee ₱0" and a confident "no chat / no save" when its reads fail
+PAGE      /admin/disputes   (Booking fee disputes section)
+BUTTON    "Accept — waive the fee" / "Reject — the fee stands"
+STEPS     1. A dispute is under_review. 2. The booking_fee_charges, chat_threads or event_vendors read fails.
+EXPECTED  "Couldn't read" for each failed read. The evidence does not lean toward a waiver.
+ACTUAL    booking-fee-disputes-section.tsx only logs `chargesRes.error`. `peso(c?.amount_charged_centavos ?? null)` turns null into Number(null) = 0, so the row reads "Fee ₱0 · bill unknown". `threads`/`saves` errors are never read, so it says "No chat was started from Setnayan." and "No save from Find.". `shopsRes` error is unchecked, so names read "Unnamed shop".
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 Honest states
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### E-4 · Dispute evidence silently disappears on a failed read
+PAGE      /admin/disputes
+BUTTON    "Reservation policy evidence" / "Delivery handover" / "receipt"
+STEPS     1. Open the queue while the event_vendor_policy_acknowledgements or booking_handovers read is refused, or a receipt presign throws.
+EXPECTED  "Couldn't read" on the row, as QuoteVersionsEvidence already says ("Couldn't read this supplier's quote versions").
+ACTUAL    `fetchPolicyAcknowledgementsByVendor` and `fetchHandoversByVendor` use `const { data } =` and drop the error, so the forfeit evidence is just missing. payment-disputes-section.tsx has `catch { receiptByPayment.set(r.payment_id, null) }`, so the row says " · no receipt on file". page.tsx `[{ data: vendorData }, { data: openerData }]` drops errors, so rows read "Unnamed supplier" with TierChip "Free".
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 Honest states
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### E-5 · A failed booking lookup makes a flag read "Whole event" and hides the deposit
+PAGE      /admin/force-majeure/[flagId]
+BUTTON    —
+STEPS     1. Open a flag tied to a booking while the event_vendors, events or users lookup fails.
+EXPECTED  Say the booking and deposit could not be read.
+ACTUAL    `eventRes`, `vendorRes`, `coupleRes` and `handlerRes` errors are never read. With vendor null the page shows "Scope: Whole event" and drops the "Deposit" row (state and proof). Handler reads "Unassigned"; event and filed-by read "—". `depositProofDisplayUrl(...).catch(() => null)` also hides the receipt without saying so.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 Honest states
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### E-6 · Re-verification fee shows "Free" when the price read fails, and the fee chip uses a hand-made ₱ formatter
+PAGE      /admin/verify   (tab: demoted; fee chip on every application card)
+BUTTON    —
+STEPS     1. Open ?status=demoted with a demoted shop listed. 2. The service_catalog read fails.
+EXPECTED  "Couldn't read". Money formatted through lib/php.ts.
+ACTUAL    lib/vendor-verification.ts `resolveApplicationFeeCentavos` returns 0 on error ("charging 0"), so DemotedVendorCard reads "Re-verification fee: Free". `feeLabelForCentavos` formats with `formatPhpCentavos`, a hand-made `₱${(centavos / 100).toLocaleString('en-PH'…)}`.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §1 Money · §5.4
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### E-7 · Peso amounts formatted by hand instead of lib/php.ts
+PAGE      /admin/disputes · /admin/force-majeure/[flagId] · /admin/pax-changes
+BUTTON    —
+STEPS     1. Open any row that shows an amount.
+EXPECTED  formatPhp / formatPhpRounded only.
+ACTUAL    `peso` helpers in payment-, deposit- and booking-fee-disputes-section.tsx; page.tsx PolicyEvidence `₱${Math.round(p.downpayment_amount_php).toLocaleString('en-PH')}`; actions.ts settlePaymentDispute title `₱${Number(pay.amount_php ?? 0)…}`, which tells both parties "₱0" when the amount is missing; [flagId] change orders `toLocaleString('en-PH', { style: 'currency', currency: 'PHP' })`; pax-changes/page.tsx `peso`.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §1 Money (lib/php.ts)
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### E-8 · "Download" sends a team-member admin to the public home page with no reason
+PAGE      /admin/verification-docs
+BUTTON    "Download" (and "Delete")
+STEPS     1. Sign in as is_team_member (not is_internal). The admin layout lets them in through `isAdminProfile`. 2. Press Download.
+EXPECTED  The page is hidden from people who can't use it, or the press says why it is refused.
+ACTUAL    The local `requireAdmin` in verification-docs/actions.ts checks only `is_internal` and does `redirect('/')`. The signed-URL path is otherwise sound: gated first, minted server-side, 120 s, attachment.
+SHOTS     phase B: 375 px light
+RULE      design-and-wiring B5 (a press reaches a real action or destination)
+SEVERITY  broken
+SOURCE    CODE
+
+#### E-9 · Verify actions land on the wrong surface or tab
+PAGE      /admin/verify   (tabs: visibility, in_review, ?shop=)
+BUTTON    "Approve → Verified", "Archive", "Run deep search", "Read it again"
+STEPS     1. Listing visibility, then Approve → Verified, then confirm. 2. Or: In review tab, then Run deep search.
+EXPECTED  Come back to the same surface, tab or shop with the result.
+ACTUAL    approveVendor and archiveVendor redirect to `/admin/verify?approved=1` / `?archived=1` (Applications › Pending). runVendorDeepSearchAction (`?deep_search=1`) and openApplicationDocument with intent=read (`?reread=1`) drop `status` and `shop`, so "the dossier is on the application card" points at a card not on screen. verifyVendorExperience sends `?exp_verified=1`, which FlashBanner never reads.
+SHOTS     phase B: 375 px light
+RULE      design-and-wiring B6
+SEVERITY  broken
+SOURCE    CODE
+
+#### E-10 · Three verify queues show "empty" copy when the read failed
+PAGE      /admin/verify   (tabs: visibility, auto, demoted)
+BUTTON    —
+STEPS     1. Make the visibility read, the admin_audit_log auto-check read, or the demoted read fail.
+EXPECTED  Only the "couldn't load" line.
+ACTUAL    VisibilitySurface shows its FormFlash and then, because `vendors.length === 0`, "Queue is empty for this filter. Try widening the status.". The auto tab shows the `autoReadFailed` banner plus "No shop has been verified automatically yet.". The demoted tab's `const { data: demotedVendors }` drops the error and shows "No suppliers currently demoted."
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 Honest states
+SEVERITY  wrong
+SOURCE    CODE
+
+#### E-11 · A storage failure still draws "Nothing here." on both shelves
+PAGE      /admin/verification-docs
+BUTTON    —
+STEPS     1. The R2 listing fails.
+EXPECTED  Only the TemplateFail.
+ACTUAL    `buildVerificationDocsReportWith` leaves `objects = []`, so `verificationDocShelves` draws "Left over 0" and "In use 0", each with `TemplateEmpty` "Nothing here.". This sits under the fail line that says the page is "showing nothing rather than an empty list".
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 Honest states
+SEVERITY  wrong
+SOURCE    CODE
+
+#### E-12 · Wipe + ban request gives no sign it was opened; a second press crashes
+PAGE      /admin/fraud
+BUTTON    "Open two-admin wipe + ban request"
+STEPS     1. Confirm fraud → wipe + ban, type the reason and the name, press. 2. Press again.
+EXPECTED  The dialog closes with "sent — waiting for a second admin", and the card shows the request is pending.
+ACTUAL    wipe-ban-dialog.tsx never calls `setOpen(false)` on success, and page.tsx never reads admin_approval_requests. The second press throws "A wipe + ban request for this supplier is already pending…", which lands on the admin crash page.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §3 Toast (success is a small toast)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### E-13 · Refusals arrive as the crash page instead of a plain reason
+PAGE      /admin/disputes   (also /admin/fraud, /admin/force-majeure/[flagId], /admin/completions)
+BUTTON    "Apply resolution" · "Un-suspend (keep watching)" · "Apply Refund issued" · "Keep review closed"
+STEPS     1. Two admins resolve the same dispute. 2. The second one presses Apply resolution.
+EXPECTED  A plain reason plus Try again, on the same screen.
+ACTUAL    `resolveDispute` throws "Dispute already resolved (status: …). Refresh the page."; unsuspendVendor, resolveFlag and forceCompleteVendor/upholdNonDelivery throw the same way. Plain `<form action>` → app/admin/error.tsx "This surface crashed". A production build replaces the thrown message with a generic one.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §3 Toast (failure gives a plain reason + Try again)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### E-14 · Banned words on the dispute and fraud desks
+PAGE      /admin/disputes · /admin/fraud · /admin/force-majeure/[flagId]
+BUTTON    —
+STEPS     1. Open each page with rows present.
+EXPECTED  "reservation fee"; "supplier".
+ACTUAL    deposit-disputes-section.tsx "“The downpayment never reached me”" and "No downpayment is in dispute."; page.tsx PolicyEvidence "• Downpayment … non-refundable" and "No-show forfeits the downpayment"; lib/fraud-detection.ts `FRAUD_SIGNAL_LABEL` "reviewed this vendor" and "this vendor is the only thing they touched"; [flagId] "Raised by {co.raised_by}" prints "Raised by vendor".
+SHOTS     phase B: 375 px light
+RULE      docs/brand.md Word rules
+SEVERITY  wrong
+SOURCE    CODE
+
+#### E-15 · Reject, Demote and Founders verification open as hand-made floating `<details>` popovers
+PAGE      /admin/verify
+BUTTON    "Reject…" · "Demote…" · "Founders verification…"
+STEPS     1. Press Reject… on a pending card.
+EXPECTED  The shared Sheet: half height on a phone, dimmed page behind.
+ACTUAL    `<details className="relative">` with a form `absolute right-0 z-10 … shadow-lg`. Reject holds checkboxes plus a textarea; Founders holds a long paragraph plus a textarea in `w-80`.
+SHOTS     phase B: 375 px light + desktop
+RULE      HOUSE_DESIGN_STANDARD Part K3 · SHAPE
+SEVERITY  look
+SOURCE    CODE
+
+#### E-16 · Wipe + ban is a hand-made modal
+PAGE      /admin/fraud
+BUTTON    "Confirm fraud → wipe + ban"
+STEPS     1. Press it.
+EXPECTED  The shared Sheet.
+ACTUAL    wipe-ban-dialog.tsx builds its own `role="dialog" aria-modal="true"` inside `fixed inset-0 z-50` with OverlayBackdrop.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K3
+SEVERITY  look
+SOURCE    CODE
+
+#### E-17 · Resolve forms open inline inside a wide table's last column
+PAGE      /admin/disputes   (also /admin/completions)
+BUTTON    "Resolve" · "Force-complete" · "Uphold non-delivery"
+STEPS     1. On a phone, scroll the table sideways to the last column and open Resolve.
+EXPECTED  SMALL POPUP (Sheet, 1–2 fields) opened from the row.
+ACTUAL    `<details className="min-w-[12rem]">` / `min-w-[13rem]` with a pick or textarea plus a button, inside ConsoleTable `minWidth="72rem"` / `"60rem"`.
+SHOTS     phase B: 375 px light
+RULE      SHAPE
+SEVERITY  look
+SOURCE    CODE
+
+#### E-18 · Loading skeletons draw shapes these pages never draw
+PAGE      /admin/verify   (also /admin/completions, /admin/force-majeure/[flagId])
+BUTTON    —
+STEPS     1. Load each page on a slow connection.
+EXPECTED  The skeleton draws only what the page draws.
+ACTUAL    verify/loading.tsx uses `TablePageSkeleton` (search + sort toolbar and a 5-column table); the page draws pill tabs and cards. completions/loading.tsx draws that toolbar; the page has none. [flagId]/loading.tsx uses `DetailPageSkeleton`, a 2-column layout with a 320 px aside; the page is one 760 px column.
+SHOTS     phase B: 375 px light + desktop
+RULE      CLAUDE.md §3 Loading
+SEVERITY  look
+SOURCE    CODE
+
+#### E-19 · Light-only colours and typed pixel sizes (58)
+PAGE      /admin/verify
+BUTTON    —
+STEPS     1. Grep page.tsx and _components.
+EXPECTED  Tokens and the `text-sn-*` scale.
+ACTUAL    `text-[10px]` ×17, `text-[11px]` ×15 (incl. free-booking-match-note.tsx), `bg-white` ×8 (e.g. `bg-white/50` empty state), `shadow-lg` ×3, `bg-amber-50 … text-amber-700` "Duplicate reg #", `bg-rose-50 … text-rose-700` "linked acct".
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### E-20 · Light-only colours and typed pixel sizes (28)
+PAGE      /admin/disputes
+BUTTON    —
+STEPS     1. Grep page.tsx and _components.
+EXPECTED  Tokens and the `text-sn-*` scale.
+ACTUAL    `text-[12px]` ×22 (page.tsx, quote-versions-evidence.tsx), `text-[13px]` ×4, `bg-ink … text-white` on "The payment stands" in payment- and deposit-disputes-section.tsx.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### E-21 · Light-only colours and typed pixel sizes (15)
+PAGE      /admin/force-majeure   (and [flagId])
+BUTTON    —
+STEPS     1. Grep page.tsx, [flagId]/page.tsx and lib/force-majeure.ts.
+EXPECTED  Tokens and the `text-sn-*` scale.
+ACTUAL    `text-[12px]` ×9, `text-[14px]` ×2, `text-[24px]` (the record name), `text-[13px]`, `bg-violet-100 text-violet-800` (`FLAG_STATUS_TONE.mediation`).
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### E-22 · Light-only colours and typed pixel sizes (8)
+PAGE      /admin/fraud
+BUTTON    —
+STEPS     1. Grep page.tsx and wipe-ban-dialog.tsx.
+EXPECTED  Tokens and the `text-sn-*` scale.
+ACTUAL    `text-[11px]` ×4 (StateBadge, EvidenceChips), `text-[13px]` ×2, `bg-white` ×2 (wipe-ban-dialog.tsx textarea and input).
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### E-23 · Light-only colours and typed pixel sizes (4)
+PAGE      /admin/completions
+BUTTON    —
+STEPS     1. Grep page.tsx.
+EXPECTED  Tokens and the `text-sn-*` scale.
+ACTUAL    `bg-sky-100 text-sky-800` (`STATUS_TONE.vendor_marked`), `text-[12px]` "Off-platform", `text-[13px]` InfoTip label.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+**Group E notes**
+
+- completions/actions.ts `openUpheldDispute`: a booking with no order (couple-to-supplier money is off-platform) fails the vendor_disputes `CHECK (payout_id OR order_id)`. The insert is only logged, so an upheld non-delivery may never count toward demotion, and the admin is not told. This is outside the checklist and not checked against prod.
+- fraud/page.tsx: the banned card says "Appeal routed to the help center.", but `executeFraudWipeBan` opens the help ticket only `if (appealEmail)`.
+- deposit-disputes-section.tsx signs receipts inside an uncaught `Promise.all`. If the presigner throws, the whole /admin/disputes page goes to the error boundary. Unsure whether the presigner can throw.
+- Gate order is correct in every action on these pages, including `bookingFeeDispute` (app/_actions), which is the one action imported from outside app/admin: the admin check runs before any `createAdminClient()` use. Verify's `openApplicationDocument` re-derives the document key from the application and signs it server-side after the check.
+- HEAD is 653100823, which is fb3f72d plus one commit that touches only build-sessions/final-check/area-8.md. App code is identical to fb3f72d.
+
+### Group G · Studio & media
+
+#### G-1 · The referral reward has no setter, but the copy says "set the reward below"
+PAGE      /admin/studio   (tab: referrals → /admin/offers?view=referrals)
+BUTTON    —
+STEPS     1. Open the Referrals view. 2. Read the switch's help line, then look under "Reward per side".
+EXPECTED  A control that sets the reward amount, or a door to the page that sets it.
+ACTUAL    `referrals-surface.tsx` says "Turn it on to run the program — then set the reward below", but "Reward per side" only displays it. Nothing in app/ writes `referral_reward_php`; only `app/admin/switches/page.tsx` and `lib/referrals.ts` read it.
+SHOTS     phase B: 375 px light
+RULE      design-and-wiring B5/B6 (every press reaches a real action) · money read from platform_settings
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### G-2 · Pesos are formatted by hand on Discount codes and Referrals
+PAGE      /admin/studio   (tab: discount-codes, referrals)
+BUTTON    —
+STEPS     1. Open Discount codes and look at a capped code ("50% up to …"). 2. Open Referrals and look at "Reward per side".
+EXPECTED  Money formatted through `lib/php.ts` (`formatCentavosPhp` / `formatPhp`).
+ACTUAL    `discount-codes-surface.tsx` `formatPesos` uses its own `Intl.NumberFormat('en-PH', { style: 'currency', currency: 'PHP' … })`. `referrals-surface.tsx` uses `` `₱${rewardPhp.toLocaleString('en-PH')}` `` in two places (the tile and the InfoTip).
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §1 Money · checklist 4 (money format)
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### G-3 · On Journal Spotlights, failed reads show as empty, "not for sale" or "no approval pending"
+PAGE      /admin/studio   (tab: journal-spotlights)
+BUTTON    "Start 2-admin approval"
+STEPS     1. Make the spotlights, `service_catalog` or `admin_approval_requests` read fail. 2. Open the tab.
+EXPECTED  "Couldn't read" for each read that failed.
+ACTUAL    `fetchAllSpotlightsForAdmin` returns `[]` on error, which shows "No drafts…" and "Nothing published yet." `fetchSponsoredSlotPrice` returns null, so the banner states the SKU "is inactive in the pricing catalog". `pendingRes.data ?? []` drops the error, so a sponsored draft waiting for a second admin offers "Start 2-admin approval" again.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 Honest states
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### G-4 · Any signed-in account can upload into the homepage background-video folder
+PAGE      /admin/background-videos
+BUTTON    "Upload video"
+STEPS     1. Signed in as any couple or supplier, POST /api/upload with `{ bucket: 'media', pathPrefix: 'homepage-bg/slot-0', … }`.
+EXPECTED  An admin check on the server for the site's own `homepage-bg/` folder, the same way `hub-music/` gets one.
+ACTUAL    `app/api/upload/route.ts` runs an admin test (`hubMusicUploadRule` + `isAdminProfile`) only for `hub-music/`. `homepage-bg/…` has no id segment, so `tenancyForPathPrefix` returns null and the presign is granted. Publishing a slot is still gated in `saveBackgroundVideo`; the stray files then show up as left-over files on /admin/website-media.
+SHOTS     —
+RULE      checklist 2(b): API routes an admin page calls must check admin on the server
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### G-5 · "Open couple page ↗" goes to /{public_id}, which is not an Event Hub address
+PAGE      /admin/studio   (tab: reveal-studio)
+BUTTON    "Open couple page ↗"
+STEPS     1. With a Save-the-Date video waiting for review, press "Open couple page ↗".
+EXPECTED  The couple's Event Hub (`publicEventPath(slug)`).
+ACTUAL    `std-video-moderation.tsx` builds `` href={`/${row.publicId}`} ``. `/[slug]` finds events by `slug` (`theOneEventRead` `.ilike('slug', …)`, `event_public_stamp`), and slugs come from the display name (`generateUniqueSlug`). The link therefore 404s.
+SHOTS     phase B: 375 px light
+RULE      checklist 1 (dead link)
+SEVERITY  broken
+SOURCE    CODE
+
+#### G-6 · The "Show the reveal on couple sites" switch saves a value nothing reads
+PAGE      /admin/studio   (tab: reveal-studio)
+BUTTON    "Show the reveal on couple sites"
+STEPS     1. Flip the switch. 2. Press "Save — make it live". 3. Open any Event Hub.
+EXPECTED  The switch changes something, or it is removed.
+ACTUAL    `studio.tsx` writes `draft.enabled`. Its own hint says it "No longer switches the reveal on", and `lib/reveal-access.ts` / `reveal-overlay.tsx` say `config.enabled` "is NOT an input". No reader of `fetchRevealConfig()` uses `.enabled`.
+SHOTS     phase B: 375 px light
+RULE      design-and-wiring B5 (no control that does nothing)
+SEVERITY  broken
+SOURCE    CODE
+
+#### G-7 · On a phone, homepage widgets cannot be reordered
+PAGE      /admin/studio   (tab: website)
+BUTTON    "↑" / "↓" (aria "Move … up/down")
+STEPS     1. At 375 px, open the Website editor. 2. Try to reorder a widget.
+EXPECTED  The Move buttons, which the file's own docblock promises for touch users.
+ACTUAL    `app/admin/website/widget-list.tsx` wraps the Move pair in `hidden flex-col gap-1 sm:flex`, so below 640 px only HTML5 `draggable` is left. Phase B should confirm that touch drag does nothing.
+SHOTS     phase B: 375 px light
+RULE      checklist 1
+SEVERITY  broken
+SOURCE    CODE
+
+#### G-8 · When the Reveal Studio read fails, the locked defaults are shown as the live house settings
+PAGE      /admin/studio   (tab: reveal-studio)
+BUTTON    "Save — make it live"
+STEPS     1. Make the `reveal_studio_config` read fail. 2. Open the tab.
+EXPECTED  "Couldn't read", with the editor withheld.
+ACTUAL    `fetchRevealConfig` (`lib/reveal-config.ts`) has `catch { return DEFAULT_REVEAL_CONFIG; }`, and `RevealStudio initial={config}` draws those defaults as fact. Pressing "Save — make it live" would overwrite the real house config.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4 Honest states (a default stated as fact)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### G-9 · When the Spotlight Awards read fails, it shows "No awards for this month yet" and zeroes
+PAGE      /admin/studio   (tab: spotlight-awards → /admin/offers?view=badges)
+BUTTON    —
+STEPS     1. Make the `vendor_spotlight_awards` read fail. 2. Open the view.
+EXPECTED  "Couldn't read".
+ACTUAL    `fetchSpotlightAwards` (`lib/spotlight-awards.ts`) does `console.error` then `return []`. The surface then shows "Total awards 0 · Auto-picked 0 · Featured 0" (its local `Stat value: number`) and the empty state.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4
+SEVERITY  wrong
+SOURCE    CODE
+
+#### G-10 · Moodboard colour tags look empty when their read fails, and "Save tags" then deletes them
+PAGE      /admin/studio   (tab: moodboard-library)
+BUTTON    "Save tags"
+STEPS     1. Make the `moodboard_asset_color_ranges` read fail. 2. Open an asset. 3. Press "Save tags".
+EXPECTED  "Couldn't read" for the tags, and no save over an unread state.
+ACTUAL    `moodboard-library-surface.tsx` does `const { data: ranges } = await admin.from('moodboard_asset_color_ranges')` and drops the error, so every asset shows no tags. `saveColorRanges` deletes all existing ranges and inserts the current ones, so saving wipes the real tags.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4
+SEVERITY  wrong
+SOURCE    CODE
+
+#### G-11 · Social queue: a failed evergreen read says "No evergreen items yet", and the autopilot form saves defaults
+PAGE      /admin/studio   (tab: social-queue)
+BUTTON    "Save" (Autopilot)
+STEPS     1. Make the `social_evergreen_items` read fail, or the `social_publish_settings` read fail. 2. Open the tab.
+EXPECTED  "Couldn't read", and the settings form withheld (as on Referrals).
+ACTUAL    `evergreenErr` is only logged. "Evergreen library · 0" and "No evergreen items yet — add a few…" render, and it is the only section not wrapped in `QueueSection loadFailed`. When settings fail to load, `AutopilotStrip` still draws the checkbox form over the hard-coded defaults ("(defaults shown)"), and "Save" would write them.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4
+SEVERITY  wrong
+SOURCE    CODE
+
+#### G-12 · When the background-videos read fails, the page shows an empty editor with no message
+PAGE      /admin/background-videos   (also studio tab: background-videos)
+BUTTON    —
+STEPS     1. Make the `homepage_background_videos` read fail. 2. Open the page.
+EXPECTED  "Couldn't read".
+ACTUAL    `fetchRows` in `lib/background-videos.ts` does `const { data } = …; return (data …) ?? []` and drops the error. `BackgroundVideosManager` then draws no main card and an empty "Bottom pillar icons (5)" grid.
+SHOTS     phase B: 375 px light
+RULE      CLAUDE.md §5.4
+SEVERITY  wrong
+SOURCE    CODE
+
+#### G-13 · "Journal" is used where people should read "Articles"
+PAGE      /admin/studio   (tab: journal-spotlights)
+BUTTON    "Journal Spotlights" (rail tab)
+STEPS     1. Open the Studio rail or picker. 2. Open the tab.
+EXPECTED  Articles (e.g. "Article spotlights", "Article").
+ACTUAL    The rail label `'Journal Spotlights'` in `studio/page.tsx` `RAIL`. The picker label `v('journal-spotlights', 'Journal Spotlights', …)` in `lib/admin/admin-pages.ts`. The masthead `title="Journal Spotlights"`, the field label "Journal article" and the InfoTip "Pick a Journal article", all in `journal-spotlights-surface.tsx`.
+SHOTS     phase B: 375 px light
+RULE      docs/brand.md Word rules
+SEVERITY  wrong
+SOURCE    CODE
+
+#### G-14 · Reveal Studio calls the couple's Event Hub a "couple site"
+PAGE      /admin/studio   (tab: reveal-studio)
+BUTTON    "Show the reveal on couple sites"
+STEPS     1. Open the tab and read the InfoTip, the switch and the save message.
+EXPECTED  Event Hub.
+ACTUAL    `reveal-studio-surface.tsx` InfoTip: "every Save-the-Date couple site… go live on couple sites". `studio.tsx`: the switch "Show the reveal on couple sites" and the save message "Saved — live on couple sites."
+SHOTS     phase B: 375 px light
+RULE      docs/brand.md Word rules
+SEVERITY  wrong
+SOURCE    CODE
+
+#### G-15 · The social queue shows "Monogram" and can show "vendor"
+PAGE      /admin/studio   (tab: social-queue)
+BUTTON    —
+STEPS     1. Look at a monogram consent under Take-downs or "Couple creations — ready to post". 2. Look at a verified supplier with no services under "New verified suppliers".
+EXPECTED  Logo Maker / logo, and supplier.
+ACTUAL    `SHARE_ARTIFACT_LABEL.monogram = 'Monogram'` (`lib/social-sharing.ts`) is rendered in card headers, and the image has `alt="Couple monogram"`. The fallback `: 'vendor'` in `social-queue-surface.tsx` renders "A new vendor in …" and goes into the public `vendorFeatureCaption`.
+SHOTS     phase B: 375 px light
+RULE      docs/brand.md Word rules
+SEVERITY  wrong
+SOURCE    CODE
+
+#### G-16 · The Music Maker delivery copy says "couple's site"
+PAGE      /admin/pakanta
+BUTTON    "Finished song file"
+STEPS     1. On an active row, read the upload help line. 2. Deliver a song.
+EXPECTED  Event Hub, as the next line of the same file already says.
+ACTUAL    In `pakanta-deliver.tsx`, the help text says "It auto-plays on the couple's site once delivered…", and the success line says "Delivered and now playing on the couple’s site."
+SHOTS     phase B: 375 px light
+RULE      docs/brand.md Word rules
+SEVERITY  wrong
+SOURCE    CODE
+
+#### G-17 · Several Studio tabs have more than one main (filled) button on one screen
+PAGE      /admin/studio   (tabs: moodboard-library, songs, spotlight-awards, social-queue, reveal-studio)
+BUTTON    see ACTUAL
+STEPS     1. Open each tab.
+EXPECTED  One main button per screen, sheet or card.
+ACTUAL    Moodboard: "Generate random prompt", "Upload + tag", "Save tags", "Save sample to slot N" (all `tone="brand" main`) and "Reject with this reason" (`danger main`, not in a confirm sheet). Songs: "Merge" and "Search" (both `.button-primary`). Spotlight: "Run now" and "Add award" (both brand `main`). Social queue `ScheduledPostCard`: "Save copy" and "Post now" in one card. Reveal: "Save — make it live", plus the selected speed and preview pills filled in the same `ACCENT`.
+SHOTS     phase B: 375 px light + desktop
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+
+#### G-18 · Studio tabs use browser confirm and alert boxes
+PAGE      /admin/studio   (tabs: songs, spotlight-awards)
+BUTTON    "Delete {song}" (trash) · "Merge" · "Remove award"
+STEPS     1. Delete a song, merge two songs, or remove an award.
+EXPECTED  The shared Sheet / ConfirmForm.
+ACTUAL    `songs-danger-controls.tsx` uses `window.confirm(` (DeleteSongButton, MergeSongsFields) and `window.alert('Those are the same song…')`. `spotlight-awards/_components/spotlight-actions.tsx` uses `window.confirm('Remove this award?')`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K3
+SEVERITY  look
+SOURCE    CODE
+
+#### G-19 · Reveal Studio uses a native select with 10 options
+PAGE      /admin/studio   (tab: reveal-studio)
+BUTTON    "Default template"
+STEPS     1. Open the Default template dropdown.
+EXPECTED  PickMenu (FieldPick).
+ACTUAL    1 native `<select>` in `reveal-studio/studio.tsx`, one option per `REVEAL_TEMPLATE_IDS` (10).
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD D2 (PickMenu) · K3
+SEVERITY  look
+SOURCE    CODE
+
+#### G-20 · Studio tabs have about 183 hard-coded colour, size and shadow values
+PAGE      /admin/studio
+BUTTON    —
+STEPS     1. Switch the theme to dark (once admin is on DARK_READY).
+EXPECTED  Colour tokens by job and the `text-sn-*` sizes.
+ACTUAL    About 183 hits outside comments, including:
+          - `reveal-studio/studio.tsx`: `background: '#0e0e10'`, `from-[#1c1c20] to-[#0b0b0c]`, `rounded-[2rem] … shadow-xl`, `color: '#b23b3b'`
+          - `real-stories-surface.tsx` INPUT/BTN_SECONDARY `bg-white`; `social-queue-surface.tsx` `bg-sky-100 text-sky-800` and `bg-white/70`
+          - about 130 `text-[11–13px]`
+SHOTS     phase B: 375 px dark
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### G-21 · Studio's own loading.tsx draws a form the page never draws
+PAGE      /admin/studio
+BUTTON    —
+STEPS     1. Open /admin/studio (or any `?tab=`) on a slow connection.
+EXPECTED  A skeleton of the rail plus a list, matching the page.
+ACTUAL    `studio/loading.tsx` re-exports `FormPageSkeleton`: a max-w-2xl framed card with 6 label/input pairs and a button. It has no nav rail. The default Website tab is a list of widget rows.
+SHOTS     phase B: 375 px light + desktop
+RULE      CLAUDE.md §3 Loading (the skeleton draws only what the page draws)
+SEVERITY  look
+SOURCE    CODE
+
+#### G-22 · Deleting a single file asks with a browser confirm box
+PAGE      /admin/website-media   (also studio tab: website-media)
+BUTTON    "Delete" (row)
+STEPS     1. Press Delete on a left-over file.
+EXPECTED  The shared Sheet / ConfirmForm.
+ACTUAL    `media-table.tsx` `handleDelete` calls `window.confirm(\`Delete this file permanently?…`)`.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K3
+SEVERITY  look
+SOURCE    CODE
+
+#### G-23 · Website media has about 73 Tailwind palette classes and typed sizes
+PAGE      /admin/website-media
+BUTTON    —
+STEPS     1. View the page in dark.
+EXPECTED  Tokens by job.
+ACTUAL    About 73 hits: `page.tsx` `border-amber-200 bg-amber-50 … text-amber-900` and `border-slate-200 bg-slate-50 … text-slate-700`; `clear-folder-button.tsx` `bg-red-600 … text-white` and `bg-white … text-slate-900`; `media-table.tsx` `bg-red-50 text-red-800`; plus `text-[12–16px]`.
+SHOTS     phase B: 375 px dark
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 colour
+SEVERITY  look
+SOURCE    CODE
+
+#### G-24 · Removing a track opens a browser confirm on top of the Edit sheet
+PAGE      /admin/hub-music   (also studio tab: hub-music)
+BUTTON    Remove (in the track sheet)
+STEPS     1. Tap a track title to open its Sheet. 2. Press Remove.
+EXPECTED  One layer: a confirm inside the sheet, or the shared confirm.
+ACTUAL    `hub-music-manager.tsx` `remove()` calls `window.confirm(\`Remove “…” from Event Hub music?…`)` while the `Sheet` (`EditTrack`) is open, so one popup sits on top of another.
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K3 · SHAPE (no popup on a popup)
+SEVERITY  look
+SOURCE    CODE
+
+#### G-25 · Background videos uses 12 typed pixel sizes
+PAGE      /admin/background-videos
+BUTTON    —
+STEPS     1. View the page.
+EXPECTED  The `text-sn-*` scale.
+ACTUAL    In `background-videos-manager.tsx`, 8 `text-[12px]` and 4 `text-[13px]` (e.g. the "Upload video" label and "Main · slot 1"), plus `bg-black`/`text-white/50` on the video frame.
+SHOTS     phase B: 375 px dark
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 type
+SEVERITY  look
+SOURCE    CODE
+
+#### G-26 · Music Maker queue uses typed pixel sizes
+PAGE      /admin/pakanta
+BUTTON    —
+STEPS     1. View the page.
+EXPECTED  The `text-sn-*` scale.
+ACTUAL    5 hits: `page.tsx` has `text-[15px]` (couple names) and `text-[13px]` (InfoTip labels); `pakanta-deliver.tsx` has `text-[13px]` ("Deliver finished song").
+SHOTS     phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K2 · CLAUDE.md §3 type
+SEVERITY  look
+SOURCE    CODE
+
+**Group G notes**
+
+- Outside my pages: `app/admin/discount-codes/_components/voucher-form.tsx` (behind discount-codes/new and [id]/edit) formats pesos by hand (`₱{formatPeso(...)}` via `toLocaleString`) and types peso example amounts in its "Maximum discount (₱)" help ("₱500 cap on a ₱2,000 service"). /admin/discount-codes/new is also a candidate for a FULL-SCREEN POPUP.
+- Outside my pages: `app/admin/switches/page.tsx` also builds `` `₱${s.referral_reward_php.toLocaleString('en-PH')}` `` by hand.
+- On Real Stories and Storytellers, the "migration missing" panel tells an admin to run `supabase db push --db-url "$SUPABASE_DB_URL"` by hand, which CLAUDE.md §5.5 forbids. It only shows when that migration is missing.
+- Unsure, not reported: the Referrals KPI tiles (cap 500) and the Patiktok status chips (cap 60) count only the most recent rows but read as totals. I did not test G-7's touch drag on a real phone.
+- The checkout is on 653100823, which is fb3f72d plus one progress-list commit; there is no diff under `apps/web/app/admin`.

@@ -884,3 +884,85 @@ RULE      FINAL-CHECK Add 1
 SEVERITY  look
 SOURCE    CODE
 ```
+
+### QR codes made in area 6 (Add 10b, code side)
+
+```
+A6-71
+PAGE      /vendor-dashboard/customers (Dates › "Book a client" · day sheet "Show a QR" · client "Send their code") → /vendor/lock/[token]
+BUTTON    the booked (Locked) QR for a date
+STEPS     1. Issue a booked QR for Sat 9 Jan to couple A. 2. Before A scans, issue another for the same date to couple B
+          (or block the day). 3. A and B both scan.
+EXPECTED  The second scan is told the date is no longer open; the supplier is told which one won.
+ACTUAL    `issueLockedQr` (invite/actions.ts) checks the day only when the code is MADE — and fails OPEN on a read error
+          ("fail-open on a query error"). `vendor_claim_locked_qr` (latest: migration …_booked_qr_client_and_quote_on_claim…)
+          checks only the token's own state (void / taken) and never the day's capacity or blocks, so both claims book the
+          same date. This is exactly the "same date held twice" case #8284's sync must catch, and it is open today online too.
+RULE      FINAL-CHECK Add 10b (3) · CLAUDE.md §5 rule 4 (fail-open read)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+## Phase B · the walk on the staging copy
+
+Signed in as the area 6 supplier (Kusina ni Aling Nena Catering). Preview commit `bd86936` (`/api/health`, env preview).
+Every load done with Playwright Chromium at 375 × 812, 768 × 900 and 1280 × 900; dark set through the `sn-theme` cookie
+(the switch's own cookie). Third-party hosts this container cannot reach (vercel.live, the captcha) were blocked so they
+do not count against a page's time.
+
+### Across the area
+
+```
+A6-B01
+PAGE      every area 6 page (worst: /vendor-dashboard/messages)
+STEPS     1. Open the page signed in. 2. Time the server's first byte with curl (no browser).
+EXPECTED  Usable in about 0.7 s; never over 2 s.
+ACTUAL    /api/health answers in 0.6 s, but signed-in pages take 3 s to 110 s: /vendor-dashboard/messages first byte 108 s
+          (curl), Clients 3–90 s, a thread 10–90 s, many loads past Playwright's 90 s limit. Health is fast, so it is the
+          database side. CAVEAT: the staging branch is shared by 8 checkers at once; production may not show this. The
+          controller should measure the same routes on production before counting it.
+RULE      kit § 5.10 (speed)
+SEVERITY  wrong (blocks nothing; every flow ends, just slowly)
+SOURCE    WALK
+```
+
+```
+A6-B02
+PAGE      21 of the 22 area 6 pages (all but /vendor-dashboard/customers)
+STEPS     1. Choose Dark. 2. Open Clients (dark). 3. Open Chats, a thread, Booking fees, On the day, a client.
+EXPECTED  DARK: yes on every signed-in page (Add 7), or the switch says where dark is not ready.
+ACTUAL    `lib/appearance.ts` `DARK_READY` lists only `/vendor-dashboard/clients$` and `/vendor-dashboard/customers$` for
+          the supplier; every other page paints light. Leaving Clients for Chats or a client flips the whole screen from
+          navy to white. DARK: yes = 1 page · DARK: no = 21 pages.
+          Also (Add 7, one design for four roles): the supplier's dark is "its own navy" (`supplier-look.css`), not the
+          couple's dark — a role with its own dark shade, which Add 7 counts as a finding.
+SHOTS     customers-375-dark vs booking-fees-375-dark (light) — kept by the checker, not committed
+RULE      FINAL-CHECK Add 7 · DARK_MODE_STANDARD
+SEVERITY  look
+SOURCE    WALK + CODE
+```
+
+```
+A6-B03
+PAGE      /vendor-dashboard/messages · /vendor-dashboard/customers · the thread header
+STEPS     1. Open Clients. 2. Open Chats.
+EXPECTED  One event, one name everywhere.
+ACTUAL    Clients: "Lolo Ben at 80 · Birthday", "ÑAÑEZ-O'BRIEN CLAN REUNION 2026 (all branches!!)"; Chats list:
+          "Lolo's Birthday (Dec 15)", "ÑAÑEZ-O'BRIEN's Reunion …"; the thread header uses the Clients name again. Two
+          readers name one event two ways.
+RULE      design-and-wiring C8 (one reader per shared fact)
+SEVERITY  wrong
+SOURCE    WALK
+```
+
+```
+A6-B04
+PAGE      /vendor-dashboard/messages/[threadId] → /vendor-dashboard/clients/[eventId]?tab=chat
+STEPS     1. Open the reunion thread at 768 dark.
+EXPECTED  No failed request.
+ACTUAL    The page reported a client fault and `POST /api/telemetry/client-fault` answered 500 — so the fault itself was
+          lost. (May be the copy's write locks; the controller should check the route on production.)
+RULE      kit § 5.1 (no 5xx)
+SEVERITY  broken
+SOURCE    WALK
+```

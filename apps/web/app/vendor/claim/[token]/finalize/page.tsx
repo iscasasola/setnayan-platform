@@ -329,19 +329,19 @@ function refusedSetup(error: unknown): string {
 }
 
 /**
- * The person on this page is signed in (the page sends anyone else to sign in first), so a failure offers the way
- * forward: open the invite again when that can work (`retryHref`), else go home — never "Back to sign in".
+ * A failure offers the way forward: open the invite again when that can work (`retryHref`). Otherwise it keeps the
+ * page's one way out, "Back to sign in" — someone signed in to the wrong account needs it to switch.
  */
 function ErrorShell({ title, body, retryHref }: { title: string; body?: string; retryHref?: string }) {
   return (
     <DoorShell tone="dead_end" eyebrow="Claim" title={title} sub={body}>
       {retryHref ? (
-        <Link href={retryHref} className={actionButtonClass('brand', { main: true, extra: '!h-11' })}>
+        <Link href={retryHref} className={actionButtonClass('neutral', { extra: '!h-11' })}>
           Try again
         </Link>
       ) : (
-        <Link href="/" className={actionButtonClass('neutral', { extra: '!h-11' })}>
-          Go home
+        <Link href="/login" className={actionButtonClass('neutral', { extra: '!h-11' })}>
+          Back to sign in
         </Link>
       )}
     </DoorShell>

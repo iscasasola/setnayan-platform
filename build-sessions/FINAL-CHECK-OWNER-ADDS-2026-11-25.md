@@ -441,3 +441,18 @@ for `search_areas`, `venue_name`, `style_preferences`, onboarding categories.
 Proposed "Set up Setnayan AI" (a sheet, pre-filled from onboarding, editable any time from the AI panel's "Your
 setup"): confirm budget · guests · date · area (pre-filled) → top 3 priorities → per-category budget split (suggested,
 adjustable) → must-haves and deal-breakers → how suppliers reach you → "send for me" vs "ask me first". Lane C.
+
+## Add 25 · OWNER RULE (25 Nov): the free app absorbs anything close to free; AI = only clearly different features
+If a paid AI feature is almost what the free app already does, the free app takes it over and the AI drops it.
+So these move to FREE (lane C to build, then removed from the AI list): automatic payment-due alert + email (5) ·
+price watch on suppliers still considered (6) · availability-change alert (7) · budget fixer next to the existing
+"over target" warning (8) · supplier report card on the host's own Suppliers page (9) · overdue booked-supplier task
+nudge beside the free no-reply nudge (10). They need a real schedule (no crons today).
+AI keeps (very different from free): 1 team picked for you · 2 ask them all + follow-ups · 3 auto-swap and cancel
+backup · 4 fair deal check (quote vs the supplier's own prices; odd payment plans).
+Six candidates to replace 5–10, each to be checked against the free app before listing (controller, not yet checked):
+quote comparer (like-for-like across suppliers in one category) · hidden-fee and inclusions check (overtime, travel,
+hours, missing items) · negotiation helper (drafts a counter-offer or a package that fits the budget) · change
+broadcast (one change, e.g. guests or time, sent to every affected supplier, confirmations tracked) · day-of supplier
+run sheet (call times and contacts sent to each supplier) · best-date finder (date options where the most top picks
+are free and the total is lowest).

@@ -1,4 +1,4 @@
-FIXER: batch 3 of ~4 · PR #8305 (b1) · PR #8314 (b2) · PR #8318 (b3) · all ready, CI · 35 lane A IDs fixed · 1 🟠 (A5-G4-01) · B5-18/B5-21 retracted · B5-08 → lane B · batch 4 next: the rest (A5-G2-05, A5-G5-07, A5-G3-01 after b1 lands; B5-22, B5-27, A5-G6-04, A5-G2-04, A5-G5-10)
+FIXER: batch 4 of 4 · #8305 (b1, ship controller took it on, CI running) · #8314 (b2) + #8318 (b3) ready, both wait only on the screens-map baseline · #8320 (b4, building: 2 of 8, rest after #8305 lands) · 37 lane A IDs fixed · 🟠 A5-G4-01, B5-22 · B5-18/B5-21 retracted · B5-08 → lane B
 STATUS: phase B done · 48 of 48 pages + 5 of 5 forwards walked at 375 / 768 / 1280 (light; dark does not exist in area 5, B5-00) · signed-out doors walked · buttons 1,285 (375) · pressed 870 · failed 23 (hand-proven: 21 inert controls on a booked card, 2 popups that ignore Escape) · phase B findings 28: blocker 0 · money-signin 4 · broken 4 (1 not proven) · wrong 9 · look 11 · phase A findings 99 (10 confirmed live)
 
 # Final check · Area 5 · Supplier: shop, cards, Toolkit, plans

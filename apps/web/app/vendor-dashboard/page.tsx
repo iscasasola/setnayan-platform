@@ -1,5 +1,8 @@
 import type { ReactNode } from 'react';
-import { ReadFailedBody, ReadFailedNote } from './_components/set-two/read-failed';
+import { ReadFailedNote } from './_components/set-two/read-failed';
+import { ErrorState } from '@/app/_components/states/error-state';
+import { ActionButton } from '@/components/action-button';
+import { RotateCw } from 'lucide-react';
 import { isPaidSize } from '@/lib/vendor-tier-caps';
 import Link from 'next/link';
 import { DATE_ANSWER_NOTICE } from '@/lib/date-change';
@@ -430,10 +433,14 @@ export default async function VendorOverviewPage({
     return (
       <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-12 sm:px-6 lg:px-8" data-today-read="failed">
         <h1 className="sr-only">Today</h1>
-        {/* 🪪 The shared "When a read fails" body: what broke, what survived, Try again (final check A5-G2-06). */}
-        <ReadFailedBody mark="today" tail="Your data is safe — nothing was changed.">
-          We couldn&rsquo;t load Today right now.
-        </ReadFailedBody>
+        {/* 🪪 The shared ErrorState: what broke → what survived → one Try again (final check A5-G2-06). */}
+        <ErrorState
+          title="This page is temporarily unavailable."
+          broke="We couldn’t load Today just now."
+          survived="Your data is safe — nothing was changed."
+          todo="Try again in a moment."
+          actions={<ActionButton tone="brand" main icon={<RotateCw aria-hidden className="h-4 w-4" strokeWidth={1.9} />} label="Try again" href="/vendor-dashboard" />}
+        />
       </div>
     );
   }

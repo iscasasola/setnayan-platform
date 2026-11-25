@@ -347,7 +347,7 @@ function TerminalCard({
   return (
     <DoorShell tone="dead_end" eyebrow={eyebrow} title={title} sub={body} width="lg">
       {help ? (
-        <Link href={routes.help.index()} className={actionButtonClass('brand', { main: true })} data-tone="brand" data-main="">
+        <Link href={`${routes.help.index()}?for=shop#contact`} className={actionButtonClass('brand', { main: true })} data-tone="brand" data-main="">
           <Mail aria-hidden className="h-4 w-4" strokeWidth={1.9} />
           Message us
         </Link>

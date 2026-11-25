@@ -8,8 +8,9 @@
   this supplier just now", not "not found". A refused events read is said, not "Create your event first".
   `listHostEvents` still fails closed for the claim action; the page reads the new `readHostEvents`.
 - Claim finalize: a refused card count no longer sends a shop to "make your first card".
-- Fit check: a refused calendar read is "Couldn't check your date", never "Free on your date".
-- Claim dead ends ("already claimed", "no longer active") carry a Message us door instead of "contact support".
+- Fit check: a refused calendar read is "Couldn't check your date" and the verdict is never "Fits" on it.
+- Today's failure screen uses the shared `ErrorState` (what broke, what survived, Try again).
+- Claim dead ends ("already claimed", "no longer active") carry a Message us door (`/help?for=shop#contact`) instead of "contact support".
 - New route builders: `routes.vendorDashboard.recommendations`, `.trackRecord`.
 - Guard: `lib/supplier-reads-say-couldnt-load.test.ts`.
 - Findings: A5-G6-01 A5-G6-05 A5-G6-06 A5-G6-11 A5-G6-10 A5-G5-08 A5-G5-06 A5-G1-09 A5-G1-13 A5-G1-14 A5-G2-06

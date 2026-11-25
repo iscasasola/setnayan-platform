@@ -54,6 +54,7 @@ test('fit check: a date with an unread calendar is "couldn\'t check", never free
     remainingBudgetPhp: null,
   });
   assert.equal(noDate.checks[0]!.label, 'Set your date to check');
+  assert.equal(noDate.fits, true, 'no date set stays warn-only (owner-locked)');
 });
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -93,8 +94,8 @@ test('track record, Today, finalize and the QR landing never turn a failure into
   assert.doesNotMatch(tr, /Set up your supplier profile first/);
   assert.match(tr, /<ToolFail/);
   const today = src('app/vendor-dashboard/page.tsx');
-  assert.doesNotMatch(today, /This page is temporarily unavailable/);
-  assert.match(today, /<ReadFailedBody mark="today"/);
+  assert.match(today, /<ErrorState\s+title="This page is temporarily unavailable\."/);
+  assert.match(today, /label="Try again" href="\/vendor-dashboard"/);
   assert.match(src('app/vendor/claim/[token]/finalize/page.tsx'), /if \(!countError && \(count \?\? 0\) === 0\)/);
   const invite = src('app/vendor-invite/[slug]/page.tsx');
   assert.match(invite, /if \(vendorError\) \{/);
@@ -106,5 +107,5 @@ test('claim dead ends carry a real door, never "contact support" alone (A5-G1-11
   const claim = src('app/vendor/claim/[token]/page.tsx');
   assert.doesNotMatch(claim, /please contact support/);
   assert.equal((claim.match(/^\s+help$/gm) ?? []).length, 2, 'both dead ends ask for the help door');
-  assert.match(claim, /href=\{routes\.help\.index\(\)\}/);
+  assert.match(claim, /href=\{`\$\{routes\.help\.index\(\)\}\?for=shop#contact`\}/);
 });

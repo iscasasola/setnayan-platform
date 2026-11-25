@@ -52,7 +52,7 @@ export default async function VendorTrackRecordPage() {
           retryHref={routes.vendorDashboard.trackRecord()}
         />
         <div className="mt-4">
-          <ActionButton tone="neutral" icon={<Store aria-hidden />} label="Go to my shop" href="/vendor-dashboard/shop" />
+          <ActionButton tone="brand" main icon={<Store aria-hidden />} label="Go to my shop" href="/vendor-dashboard/shop" />
         </div>
       </ToolPage>
     );

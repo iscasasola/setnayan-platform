@@ -84,5 +84,8 @@ export function computeVendorFit(i: FitCheckInput): FitVerdict {
     checks.push({ key: 'budget', ok, label: ok ? 'Within your budget' : 'Over your remaining budget' });
   }
 
-  return { fits: checks.every((c) => c.ok !== false), checks };
+  // A date is set but its calendar could not be read: that is a failed read, not an unknown input — never "Fits" on it
+  // (final check A5-G1-14). Unset inputs (no date, no budget, no reach) stay warn-only, as owner-locked above.
+  const dateUnread = i.eventDate != null && i.vendorAvailableOnDate == null;
+  return { fits: !dateUnread && checks.every((c) => c.ok !== false), checks };
 }

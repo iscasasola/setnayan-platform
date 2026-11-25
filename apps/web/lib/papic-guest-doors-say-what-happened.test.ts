@@ -23,6 +23,7 @@
  *   pool: a failed event read is a 404 ........................................ A4-79
  *   pool: a failed "load more" makes the button vanish silently ............... A4-80
  *   seat: a failed read sends the claimer back to "Claim your seat" ........... A4-82
+ *   claim: a dead seat token is greeted with "Start shooting" ................. A4-B03
  * (A4-54 — the claim page's `?state=error` is retryable — is held in papic-reads-are-honest.test.ts;
  *  A4-56 / A4-83 — no "Papic is unlimited" — in papic-page-says-only-what-is-true.test.ts.)
  */
@@ -122,4 +123,12 @@ test('A4-79 / A4-80 · /papic/pool: a failed read is not a closed gallery, and "
 test('A4-82 · /papic/seat: a failed read goes to the retryable claim notice', () => {
   const src = code('app/papic/seat/[token]/page.tsx');
   assert.match(src, /if \(error\) redirect\(`\/papic\/claim\/\$\{token\}\?state=unreadable`\);/);
+});
+
+test('A4-B03 · /papic/claim: a dead token is said on arrival; a taken seat keeps its path', () => {
+  const page = code('app/papic/claim/[token]/page.tsx');
+  assert.match(page, /const arrival = state \? null : await seatClaimability\(token\);/);
+  assert.match(page, /if \(state === 'invalid' \|\| arrival === 'invalid'\)/);
+  assert.match(page, /\|\| arrival === 'unreadable';/);
+  assert.doesNotMatch(page, /arrival === 'taken'/, 'a returning claimer is never shut out on arrival');
 });

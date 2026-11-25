@@ -13,7 +13,8 @@ read or a dead press say what happened, where it used to be silent or drawn as a
   "Credits: couldn't read", never the full allowance (A4-66).
 - Offline: the camera's ✕ finds the saved Event Hub whatever its query, instead of the offline page (A4-70, `sw.js`).
 - `/papic/join`: a failed token read says "we couldn't check your link" with Try again, not "isn't active" (A4-71).
-- `/papic/claim` · `/papic/seat`: our own error is retryable, never the dead-link screen (A4-54, A4-82).
+- `/papic/claim` · `/papic/seat`: our own error is retryable, never the dead-link screen (A4-54, A4-82); a dead seat
+  link is said on arrival, not after "Start shooting" (A4-B03; `lib/papic-seat-claimability.ts`).
 - `/papic/me`: an unread gallery says "Couldn't read your photos" (A4-74); the story maker says "Couldn't load your
   photos" instead of "no tagged photos yet" (A4-75).
 - `/papic/pool`: a failed event read is not a 404 (A4-79); "Load more" keeps its button and says why when a page

@@ -27,6 +27,27 @@ None yet.
 - [x] /vendor-dashboard/clients/[eventId]/seat-plan · OFFLINE: READ-ONLY (at the venue on the day: the caterer's covers per table; agree it is saved for the day — today it is not, only the customer's `?tab=schedule` is) · SHAPE: PAGE =
 - [x] /vendor-dashboard/spaces · OFFLINE: NOT NEEDED (set up at the shop, with signal) · SHAPE: PAGE = (its space sheet differs, see A7-11)
 
+## Phase A summary (code pass, 10 of 10 pages)
+
+- Findings: 27 · blocker 0 · money-signin 1 (A7-24) · broken 2 (A7-22, A7-27) · wrong 14 · look 10.
+- OFFLINE marks: NEEDED 0 · READ-ONLY 3 (`/[slug]/venue`, `/plan3d`, supplier `seat-plan`) · NOT NEEDED 7.
+  Where I differ from the plan: the 3D room is view-only now, so a saved read-only copy is enough. NEEDED fits the
+  2D seat plan that the coordinator edits (Guests › Seats, Area 2). None of the three is saved for offline today.
+- SHAPE marks: all 10 pages are PAGE and should be PAGE. Six popups inside them differ from what the rules say:
+  - the 3D room's View only card → SMALL POPUP (A7-08);
+  - Accents → FULL-SCREEN (A7-09);
+  - a space's sheet → FULL-SCREEN (A7-11);
+  - three workspace sheets → FULL-SCREEN (Log your payment, Propose a change, Photo approvals; A7-26).
+  
+  There are also four places where a popup opens on top of a popup: the floor plan and the 🔒 over a space's sheet, the
+  QR and leaving popups over the pay sheet, and "Show" over the View only card.
+- Phase B is waiting for the staging address. These are the findings the browser has to settle:
+  - A7-01: watch for 70 s;
+  - A7-05: scroll with a thumb on a phone;
+  - A7-08 and A7-26: tap the backdrop;
+  - A7-15 and K2 everywhere: the dark top-block glow;
+  - A7-27: see what is drawn.
+
 ## Scope notes
 
 - `/dashboard/[eventId]/plan3d` only forwards (`redirect(guestsViewHref(eventId, 'seats', { seat: '3d' }))`). The 3D plan now lives in

@@ -38,7 +38,9 @@ import {
   type RevealTemplate,
   type RevealChoice,
 } from '@/app/[slug]/_components/reveal/reveal-templates';
-import { RevealPreviewCard, ColorRow } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
+import { ColorRow } from '@/app/dashboard/[eventId]/_components/reveal-preview-card';
+import { detailsItemHref } from '@/lib/maker-details-items';
+import { actionButtonClass } from '@/components/action-button-class';
 import { RevealPreview } from '@/app/dashboard/[eventId]/_components/reveal-preview';
 import { StdMediaPicker, type StdVideoUpload } from '@/app/dashboard/[eventId]/_components/std-media-picker';
 import { StdBackgroundLayer } from '@/app/[slug]/_components/std-background-layer';
@@ -231,7 +233,7 @@ export function StdBuilderClient({
   const firstAllowed = (
     REVEAL_LIBRARY.find((t) => allowedTemplates[t.id] !== false) ?? REVEAL_LIBRARY[0]!
   ).id;
-  const [previewing, setPreviewing] = useState<RevealChoice>(
+  const [previewing] = useState<RevealChoice>(
     // 'none' (No Reveal) is always honoured; otherwise the saved opening if the
     // admin still allows it, else the first enabled opening.
     initialRevealTemplate === NO_REVEAL
@@ -306,11 +308,6 @@ export function StdBuilderClient({
     if (result !== 'idle') setResult('idle');
   };
 
-  // Any change that should replay the opening also resets the lifted state.
-  const pickOpening = (t: RevealChoice) => {
-    setPreviewing(t);
-    setRevealDone(false);
-  };
   const changeDevice = (d: PreviewDevice) => {
     setDevice(d);
     setRevealDone(false);
@@ -324,15 +321,6 @@ export function StdBuilderClient({
     setEffects((e) => ({ ...e, [key]: !e[key] }));
     setRestartKey((k) => k + 1);
     setRevealDone(false);
-    if (result !== 'idle') setResult('idle');
-  };
-  // Set (or clear, with null = inherit the Mood Board) a veil/petal colour.
-  // NO remount: veil-reveal reads the colour live each frame (colorRef/
-  // petalColorRef), so a colour change is a cheap prop update — bumping
-  // restartKey here used to rebuild the whole WebGL cloth on every picker tick,
-  // which is what made the colour pickers hang/lag (owner 2026-06-19).
-  const setColor = (key: 'veilColor' | 'petalColor', value: string | null) => {
-    setEffects((e) => ({ ...e, [key]: value }));
     if (result !== 'idle') setResult('idle');
   };
   // Set (hex) or clear (null = inherit the Mood Board) the film accent colour.
@@ -888,18 +876,24 @@ export function StdBuilderClient({
 
           {/* Step 5 · Opening (reveal) — the premium opening that lifts away to
               reveal the film. Last step: the film is built, now choose its entrance. */}
-          <RevealPreviewCard
-            eventId={eventId}
-            previewing={previewing}
-            onPreview={pickOpening}
-            chosenTemplate={initialRevealTemplate}
-            effects={effects}
-            onToggleEffect={toggleEffect}
-            onSetColor={setColor}
-            inheritedVeilColor={veilColor ?? '#f3ece1'}
-            inheritedPetalColor={petalsColor ?? '#e87a93'}
-            allowed={allowedTemplates}
-          />
+          {/* 🎭 ADD 18 (owner, 25 Nov — final check N-10): the reveal is edited in the Event Hub only. This step names
+              the opening the preview plays and links to the one picker; it is never a second picker. */}
+          <section className="space-y-3">
+            <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
+              <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+              Step 5 · Opening
+            </p>
+            <h2 className="font-serif text-xl italic">How your page opens</h2>
+            <p className="text-sm text-ink/75">
+              {previewing === NO_REVEAL
+                ? 'No reveal — your Save the Date opens straight away.'
+                : `${REVEAL_LIBRARY.find((t) => t.id === previewing)?.label ?? 'Your reveal'} — plays in the preview.`}
+            </p>
+            <Link href={detailsItemHref(eventId, 'reveal')} className={actionButtonClass('neutral')}>
+              <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+              Choose your reveal in the Event Hub
+            </Link>
+          </section>
         </div>
 
         {/* RIGHT: Sticky preview + Render */}

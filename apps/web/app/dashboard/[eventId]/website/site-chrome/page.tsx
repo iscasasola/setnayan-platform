@@ -38,7 +38,7 @@ export default async function SiteChromeEditorPage({
   if (!user) redirect('/login');
 
   const supabase = await createClient();
-  const { data: event } = await supabase
+  const { data: event, error: eventReadError } = await supabase
     .from('events')
     .select(
       'event_id, display_name, slug, site_bg_music_r2_key, site_bg_music_enabled, landing_page_hero_video_r2_key',
@@ -46,6 +46,9 @@ export default async function SiteChromeEditorPage({
     .eq('event_id', eventId)
     .maybeSingle();
 
+  // E-16 (final check): a refused read used to bounce the couple to Home as if the page did not exist. It is a
+  // failure: the error page says so and offers Try again.
+  if (eventReadError) throw new Error("Couldn't read this event just now.");
   if (!event) redirect(`/dashboard/${eventId}`);
 
   const musicRef =

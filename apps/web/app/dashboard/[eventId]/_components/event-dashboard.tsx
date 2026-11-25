@@ -134,6 +134,7 @@ import {
   budgetTileCommitted,
   COMMITTED_HIDDEN_LINE,
 } from '@/lib/budget-tile-committed';
+import { querySponsorGuests } from '@/lib/sponsor-guests';
 
 /**
  * <EventDashboard> — the couple's event dashboard, extracted verbatim from the
@@ -479,10 +480,8 @@ export async function EventDashboard({
     // Sponsors — the fill-a-role decision group via the cockpit model.
     (async () => {
       try {
-        return await supabase
-          .from('event_sponsors')
-          .select('sponsor_tier, invitation_status')
-          .eq('event_id', eventId);
+        // 👥 Sponsors are guests with a sponsor role (owner, brief Add 41) — the guest list's rows.
+        return await querySponsorGuests(supabase, [eventId]);
       } catch (caught) {
         logQueryError(
           'EventDashboard (event_sponsors SELECT threw)',

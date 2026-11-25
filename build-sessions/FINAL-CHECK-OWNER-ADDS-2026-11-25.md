@@ -614,3 +614,8 @@ of those users will become the same supplier."
 - Open for the owner, not to be guessed: each tool's price and plan terms; the exact split of borderline items (e.g. Filipiniana bridal vs non-bridal, entourage gowns).
 - Nothing is built in the app until the owner approves the final prototype (Fable prototype rule).
 - **Names (owner, 25 Nov):** the maker tools are **Cake Maker, Suit Maker, Wedding Gown Maker, Dress Maker** (Men = Suit Maker, Women = Dress Maker). All are **offline-ready** supplier tools and are **usable inside chat** (client and supplier work on the same draft in the conversation). Each sold separately because each serves a different service.
+
+## Add 39 — area 2 answers (owner, 25 Nov)
+- **A2-P1:** money counts up too. Money amounts use the same count-up animation as other numbers, and the final value must be the exact amount.
+- **A2-H10:** only the couple can put their event away. A coordinator cannot archive the couple's event; they can ask the couple.
+- **Controller:** `(account)/api-keys/actions.ts` stays on lane R's do-not-edit list. Its 2 raw `error.message` sites are owed to lane R.

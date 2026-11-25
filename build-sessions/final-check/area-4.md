@@ -12,13 +12,13 @@ None yet.
 
 ## Progress
 
-- [ ] /[slug]
-- [ ] /[slug]/avatar
-- [ ] /[slug]/cached/[key]
+- [x] /[slug] — OFFLINE: NEEDED (venue door: pass on Me; hall: Live programme, seat line, directions) · SHAPE: PAGE = PAGE (its layers differ: A4-17..A4-20)
+- [x] /[slug]/avatar — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE
+- [x] /[slug]/cached/[key] — OFFLINE: READ-ONLY IS ENOUGH (it is the Event Hub, same cache) · SHAPE: rewrite of PAGE = PAGE
 - [ ] /[slug]/everyone
 - [ ] /[slug]/find-my-table
 - [ ] /[slug]/find-seat
-- [ ] /[slug]/hub → forward
+- [x] /[slug]/hub → forward to /[slug] (every branch lands) — OFFLINE: NEEDED (installed home-screen tile at the venue door) · SHAPE: forward = forward
 - [ ] /[slug]/invite
 - [ ] /[slug]/invite/enter
 - [ ] /[slug]/invite/reply
@@ -27,7 +27,7 @@ None yet.
 - [ ] /[slug]/recap
 - [ ] /[slug]/request
 - [ ] /[slug]/seat
-- [ ] /[slug]/welcome
+- [x] /[slug]/welcome — OFFLINE: NOT NEEDED (one-time plus-one form) · SHAPE: PAGE = PAGE
 - [x] /claim/[token] — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE
 - [x] /join/[eventId] — OFFLINE: NOT NEEDED (but scanned at the venue door; no Setnayan offline line) · SHAPE: PAGE = PAGE
 - [x] /join/[eventId]/connect/confirm — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE
@@ -309,5 +309,191 @@ ACTUAL    "Enter the screen code from the couple's Setnayan dashboard.", "ask th
 SHOTS     desktop
 RULE      Words (event words)
 SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /[slug] (the Event Hub)
+
+Reply writes go to the same `guests` row by `guest_id` + `event_id` and revalidate `/dashboard/${eventId}/guests`; a
+decline frees the seat in the database (`free_seat_on_decline`); the main reads throw into `error.tsx`. Clean there.
+
+```
+ID        A4-17
+PAGE      /[slug]   (event: stg-bea-paolo, a guest with face tagging on, on the day)
+BUTTON    ⓘ "Details" on the selfie screen (Me → Face tagging)
+STEPS     1. Me → Face tagging → the camera screen opens. 2. Tap ⓘ. 3. Tap the dark area above the sheet.
+EXPECTED  One layer at a time; the shared OverlayBackdrop (dim + blur); a backdrop tap closes.
+ACTUAL    A second dialog opens on top of the full-screen camera dialog with its own scrim, no blur, and no close on tap (only "Got it"): `className="absolute inset-0 z-20 flex flex-col justify-end bg-black/50"` `role="dialog" aria-modal="true" aria-label="Face tagging"`. It also draws a spinner (`Loader2 … animate-spin`). Anchor: `apps/web/app/[slug]/_components/selfie-capture.tsx` `aria-label="Face tagging"`.
+SHOTS     375 px light
+RULE      HOUSE_DESIGN_STANDARD K3 (popup on popup, own scrim, backdrop tap) · CLAUDE.md §3 Loading (no spinners)
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+ID        A4-18
+PAGE      /[slug]   (event: stg-mika-turns-7, the after-event story)
+BUTTON    "Relive it" · "See all N suppliers" / a supplier tile · "See all N" on a scene
+STEPS     1. Open the story. 2. Open any of these layers. 3. Press the phone's Back.
+EXPECTED  A full-screen popup (RiseScreen); Back or ✕ returns to the same place in the story.
+ACTUAL    Hand-made full screens with no history entry, so phone Back leaves the Event Hub: `className="fixed inset-0 z-[100] flex flex-col bg-[#0E0D0C] text-white"` (`story/relive.tsx`), `role="dialog" aria-modal="true" aria-label={label} className="fixed inset-0 z-[95] …"` (`story/story-suppliers.tsx` `function Layer(`). Anchors: `apps/web/app/[slug]/_components/story/relive.tsx`; `apps/web/app/[slug]/_components/story/story-suppliers.tsx`.
+SHOTS     375 px light
+RULE      K3 · SHAPE (full screen = RiseScreen)
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+ID        A4-19
+PAGE      /[slug]   (event: stg-mika-turns-7)
+BUTTON    "Open the gallery" / "Open your day" (OpenUpScene) · Me → Face tagging → camera
+STEPS     1. Open the layer.
+EXPECTED  RiseScreen, the one full-screen piece.
+ACTUAL    Each draws its own full screen: `className="fixed inset-0 z-[90] flex flex-col bg-cream text-ink"` (`editorial/open-up-layer.tsx` `data-open-up-layer={kind}`; it does handle Back through the hash), `className="fixed inset-0 z-[70] … bg-[#1d1719] text-cream"` (`selfie-capture.tsx` `data-face-screen`).
+SHOTS     375 px light
+RULE      K3 · SHAPE (the camera is a FULL-SCREEN POPUP = RiseScreen)
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+ID        A4-20
+PAGE      /[slug]   (event: stg-bea-paolo for "My QR"; stg-mika-turns-7 for the minute sheet)
+BUTTON    "My QR" · a plus-one's ticket · a minute on the story dial · "Open in your browser"
+STEPS     1. Open each on a 375 px phone.
+EXPECTED  The shared Sheet: half height on a phone, centred dialog on desktop.
+ACTUAL    They use OverlayBackdrop but draw their own panels; My QR is a centred card on the phone: `<div className="fixed inset-0 z-50 flex items-center justify-center p-4"> <OverlayBackdrop …/>` (`guest-hub-bar.tsx` `export function GuestSheet`), `className="fixed inset-x-0 bottom-0 z-50 max-h-[80vh] …"` (`story/story-clock.tsx`), `copy-my-link.tsx` `aria-labelledby="open-in-browser-title"` (also on /invite/enter, A4-38).
+SHOTS     375 px light + desktop
+RULE      K3 · SHAPE (small popup = Sheet)
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+ID        A4-21
+PAGE      /[slug]   (event: stg-mika-turns-7, the "By the numbers" scene)
+BUTTON    the scene's numbers (invited · said yes · replied %)
+STEPS     1. Open the after-event story when one of the guest count reads fails.
+EXPECTED  Counts from `lib/guests.ts` (`computeGuestStats` / `headcountForBasis`); a failed read shows "—", never 0.
+ACTUAL    Three count queries of its own (a SQL copy of `countsTowardEvent`), and a failed read becomes 0: `const { count: att } = await ahead.guestsAttending; attending = att ?? 0;` → `saidYes: data.metrics.attending`. Anchors: `apps/web/app/[slug]/_components/editorial/data.ts` `guestsAttending: early(`; `editorial-content.tsx` `saidYes: data.metrics.attending`.
+SHOTS     375 px light
+RULE      design-and-wiring C8 (one reader) · honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-22
+PAGE      /[slug]   (event: stg-carla-miguel, signed in as a booked supplier)
+BUTTON    supplier desk → "The running order"
+STEPS     1. A booked supplier opens the Event Hub while the run-of-show read is refused.
+EXPECTED  "Couldn't read" (`fetchRunOfShowBlocks` answers null for a refused read).
+ACTUAL    `blocks: blocks ?? [],` turns null into empty, so the desk says "{TheOrganizer} hasn't written the day's timeline yet." (`/vendor-dashboard/on-the-day/live/[eventId]` already handles this with `programUnread`). Anchors: `apps/web/app/[slug]/_lib/supplier-desk.server.ts` `blocks: blocks ?? []`; `supplier-desk.tsx` `hasProgramme`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-23
+PAGE      /[slug]   (any event on the day; a host can preview with ?phase=event)
+BUTTON    the "Live now" notice at the top of Live
+STEPS     1. Open the Event Hub on the day. 2. Go offline. 3. Open Live, Me, find-seat, venue.
+EXPECTED  Offline words match what ships.
+ACTUAL    `detail={`The ${words.eventWord} is happening. Your schedule, QR, and venue info are pinned below — they work offline if WiFi cuts out.`}`. The QR is not on Live (it is "first on Me, and only on Me"); only pages already opened are kept; the doors from here (find-seat, venue, papic) have no offline copy at all. Anchor: `apps/web/app/[slug]/_components/day-of-banner.tsx` "they work offline if WiFi cuts out".
+SHOTS     375 px light (online + DevTools offline)
+RULE      Offline words promise only what the page does · honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /[slug]/hub (forward)
+
+Every branch lands on `/{slug}` (before the day `''` / `?phase=`; the day `?tab=live|gallery|me`; after `#site-gallery` / `#site-me`).
+
+```
+ID        A4-24
+PAGE      /[slug]/hub   (event: stg-bea-paolo)
+BUTTON    the installed home-screen tile (manifest start_url)
+STEPS     1. Install the Event Hub tile from the thank-you page. 2. At the venue with no signal, open the tile.
+EXPECTED  The saved Event Hub opens (the bare /<slug> copy in DAYOF_CACHE).
+ACTUAL    The tile starts at `/<slug>/redeem?…&to=hub`. The worker leaves redeem to the browser (`isGuestPassHop`) and has no rule for `/hub` (`isDayOfGuestNavigation` keeps only `/<slug>` and `find-my-table`), so the guest gets the browser's no-internet page from the home-screen tile. Anchors: `apps/web/app/[slug]/manifest.webmanifest/route.ts` `reentryRedeemPath(source.slug, code, 'hub')`; `apps/web/public/sw.js` `isDayOfGuestNavigation`.
+SHOTS     375 px light (installed tile, DevTools offline)
+RULE      Offline: guests at the venue
+SEVERITY  broken
+SOURCE    CODE
+```
+
+### /[slug]/cached/[key]
+
+No findings. Internal rewrite of `/{slug}`; a failed pass check throws.
+
+### /[slug]/welcome
+
+```
+ID        A4-25
+PAGE      /[slug]/welcome   (event: stg-bea-paolo, a plus-one's link)
+BUTTON    the heading / "Your details … from <name>"
+STEPS     1. Open a plus-one's link while the bringer's row read fails.
+EXPECTED  "Couldn't read", or the page fails honestly.
+ACTUAL    The error is ignored and a made-up name is drawn: `… ) || 'the inviting guest';` → "You are the +1 of the inviting guest", and `primaryFirst` becomes "the" ("from the …"). Anchor: `apps/web/app/[slug]/welcome/page.tsx` `'the inviting guest'`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-26
+PAGE      /[slug]/welcome   (event: stg-bea-paolo, an unnamed plus-one)
+BUTTON    "Save" / "Save to my account" / "just show my pass"
+STEPS     1. Type the name. 2. Press Save while the action's event or guest read fails.
+EXPECTED  The door says the save failed and keeps what was typed.
+ACTUAL    `const [{ data: event }, { data: guest }] = await Promise.all([` … `if (!event?.slug || !guest?.guest_id) redirect(`/${slug}`);` sends the guest to /{slug}, which sends an unnamed plus-one back to /welcome with no message and the typed name lost. Anchor: `apps/web/app/[slug]/welcome/actions.ts` `if (!event?.slug || !guest?.guest_id) redirect(`.
+SHOTS     375 px light
+RULE      Honest states (a failure renders as a failure)
+SEVERITY  broken
+SOURCE    CODE
+```
+
+```
+ID        A4-27
+PAGE      /[slug]/welcome   (event: stg-bea-paolo)
+BUTTON    the alert notice at the top of the door
+STEPS     1. Open /<slug>/welcome?error=<any text> while holding a plus-one pass.
+EXPECTED  Only known error keys draw a message.
+ACTUAL    `const errorMessage = errorKey ? (ERROR_COPY[errorKey] ?? errorKey) : null;` draws any query text as an alert on the couple's page (the action itself puts a full sentence in the query). Anchor: `apps/web/app/[slug]/welcome/page.tsx` `ERROR_COPY[errorKey] ?? errorKey`.
+SHOTS     375 px light
+RULE      Words · honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /[slug]/avatar
+
+```
+ID        A4-28
+PAGE      /[slug]/avatar   (event: stg-bea-paolo)
+BUTTON    page load
+STEPS     1. Open /<slug>/avatar holding a pass while the guest-row read fails.
+EXPECTED  Honest failure (the event read on this page already throws).
+ACTUAL    `const { data: guest } = await admin.from('guests').select('guest_id, avatar_config, display_name, first_name')` … `if (!guest) redirect(`/${slug}`);` treats a failed read as no guest. Anchor: `apps/web/app/[slug]/avatar/page.tsx` `select('guest_id, avatar_config, display_name, first_name')`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-29
+PAGE      /[slug]/avatar   (event: stg-carla-miguel, a light couple theme)
+BUTTON    whole page · "Save"
+STEPS     1. Open the avatar maker.
+EXPECTED  The page wears the couple's look from the layout (`every-guest-page-wears-the-theme.test.ts` lists it); no self-forced dark; Save is ActionButton.
+ACTUAL    The page paints its own dark ground and white text: `<main className="min-h-screen bg-[#0b0d12] p-3 sm:p-5">` … `text-white`; Save is a hand-made white fill `className="rounded-xl bg-white px-4 py-2 …"`. Anchors: `apps/web/app/[slug]/avatar/page.tsx` `bg-[#0b0d12]`; `avatar/_components/avatar-maker.tsx` `dirty ? 'Save' : 'Saved'`.
+SHOTS     375 px light + desktop
+RULE      Theme (guest pages keep the couple's design) · CLAUDE.md §3 Button
+SEVERITY  look
 SOURCE    CODE
 ```

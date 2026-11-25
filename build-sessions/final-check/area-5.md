@@ -1432,7 +1432,7 @@ RULE      Add 3 (demo data in place of the person's own) · honest states
 SEVERITY  wrong
 SOURCE    SEEN
 
-#### B5-09 · Promote shows the raw code "PAGE_GUEST"-style name `PAPIC_GUEST_150` for a gift
+#### B5-09 · Promote names a gift by its raw code `PAPIC_GUEST_150`
 PAGE      /vendor-dashboard/shop/promote › Your gifts
 BUTTON    the gift rows
 STEPS     1. Open Shop › Promote. 2. Read Your gifts.

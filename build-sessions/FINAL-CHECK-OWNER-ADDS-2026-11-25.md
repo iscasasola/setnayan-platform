@@ -521,3 +521,18 @@ is approved. Findings that point at the post-event story are kept and placed in 
 (`/[slug]`) becomes the editorial. The editorial holds everything: all stories, all videos, the uploaded Save the Date
 videos, all photos and all write-ups. It need not look like the Event Hub. "Play the story" plays the Facebook-style
 tap-through of the same content.
+
+## Add 31 · OWNER DELEGATION (25 Nov): he checks the LOOK; the controller owns FUNCTION
+Owner: "my main concern is that nothing is off the design; how they work, present, connect and act should be all
+you, because I cannot check that from the samples." So: the owner approves drawings for look; the Main Controller
+decides and verifies behaviour, wiring, doors and states (money, prices, plan contents and sign-in rules stay his).
+- Area 7 drawing APPROVED, including Undo after removing a space (A7-15: one new write op inside the existing Spaces
+  action, with a test).
+- Event story (Add 30) behaviour, controller decisions under this delegation: (1) audience choices Everyone · People
+  with the link · People of this event · Only me; "Only me" until the host publishes; (2) after the event and before
+  publishing, `/[slug]` shows "Our story is coming soon" with the cover and date, never the old Hub; (3) the host can
+  open the old Hub read-only from their dashboard, guests cannot; (4) player: tap zones, hold to pause, photos 5 s,
+  videos play in full, ✕ returns to the same spot; (5) the writing helper is free; (6) guest dark mode follows the
+  couple's theme (no house glow), as the guest pages do today.
+Every fixer PR is function-checked by the controller before it lands: the change is reachable (Add 27 door check),
+wired end to end, honest on failure, and its test holds the claim.

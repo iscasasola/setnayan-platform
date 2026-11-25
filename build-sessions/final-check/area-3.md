@@ -1,3 +1,4 @@
+FIXER: batch 1 of ~4 · PR #8313 · draft, preflight re-running (12 lane A fixes: B-01 M-08 M-05 P-05 P-03 P-06 L-06 N-02 N-11 P-08 I-05 I-04)
 STATUS: phase B done — 56 of 59 pages walked at 375 / 768 / 1280, light and dark (3 did not open within 180 s on the loaded copy: /apple-pro, /studio/panood/broadcast, /panood/control) · 13 forwards land (§ Forwards) · presses at 375: buttons 766 · pressed 137 · no visible change or blocked 140 (explained under N-13's notes) · left 62 (writes: save, send, publish, pay, delete) · the rest are the invitation's per-guest repeats past the first 40 and pages that forwarded · findings: phase A 78 (B-01 confirmed; 16 more confirmed SEEN) + phase B 13 new (blocker 1 · money-signin 1 · broken 1 · wrong 5 · look 5) · Adds 1–8 and 10 written; Add 9 / 10b not area 3.
 
 # Final check · Area 3 — Couple: Maker, Event Hub page, invitations, Papic, Memories
@@ -1702,3 +1703,20 @@ Only parts that are NOT one of the owner's five full-offline places (guests at t
 - **Papic capture, check-in desk, saved Event Hub copies:** guest-side (area 4); the Event Hub could not be tested because it answered 500 (B-02).
 
 <!-- PHASE-B-END -->
+
+## Second pass (25 Nov)
+
+Adds 11, 11b, 12, 13, 15, 17, 18 on the pages batch 1 touched (from the walk's shots and the code). Lane in brackets.
+
+- [B] `/dashboard/[eventId]/alaala/assignments` · Add 13 / Add 12 · "Nudge" and "Remove" are word-only bordered chips (no icon, 12 px, under 44 px tall), not `ActionButton`. Should be: icon + word, house press. Reference: iOS Mail swipe actions (one destructive, one neutral).
+- [B] `/dashboard/[eventId]/alaala/assignments` · Add 11 · ten moments in one long list with no jump; on a phone the person scrolls past all ten to reach the last. Reference: iOS Settings grouped list with a section index.
+- [B] `/dashboard/[eventId]/live` · Add 12 · the mode picker shows a `Loader2` spinner (`animate-spin`) while saving; the house has no spinners (Motion standard: Tap/Release press, skeletons). Same file family as L-11.
+- [B] `/dashboard/[eventId]/live` · Add 11b · the same single column at 1280 as at 375 (a phone column on desktop).
+- [B] `/dashboard/[eventId]/invitation` · Add 11 / 11b · 97 guest rows × 4 buttons in one page, no paging or load-more; at 1280 still the phone list. Reference: Gmail desktop list (dense rows, actions on hover) vs phone (row opens a sheet).
+- [B] `/dashboard/[eventId]/invitation` · Add 15 · the QR centre mark and print sheet draw the Setnayan mark from `lib/qr-style-svg.ts` / `lib/qr-look.ts`, not the one brand source (already on Add 15's list; confirmed on screen at 375).
+- [B] `/dashboard/[eventId]/studio/papic/crew` · Add 13 · "Copy link" and "Print poster" use generic icons; Papic's topic icon (`lib/topic-icons.ts`) is not used on the page.
+- [A] `/dashboard/[eventId]/event-qr` · Add 1 · "Regenerate QR" cuts the old printed code (irreversible for new pairings) with no confirm; batch 1 says the outcome, but a confirm like the guest QR's is a new popup, so it waits for the drawing → lane B.
+- [B] `/dashboard/[eventId]/studio/photo-delivery` · Add 11b · a phone column at 1280; the connect card's body is a long paragraph.
+- Add 17: none of the touched pages is a retired candidate (all have a live door). R6 (challenges, run-of-show) was not touched.
+- Add 18: none of the touched pages shows reveal templates. N-10 (Save the Date Step 5) is the area's one second copy; it is batch 2.
+- `Copy health (not counted)`: the copy's Event Hubs answered 500 after ~23.6 s from ~09:00 UTC (B-02 / SW-500, area 1 builds it).

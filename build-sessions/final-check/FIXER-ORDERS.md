@@ -36,3 +36,13 @@ end of your area file `build-sessions/final-check/area-N.md` on your `final-chec
 ## Report
 Your STATUS comment on the open batch PR, plus one line at the top of your area file:
 `FIXER: batch K of ~M · PR #… · status`. A question for the owner = 🟠 needs-owner, one sentence, then the next batch.
+
+## Controller note after the merge (ALL-FINDINGS @ 256499c90e)
+- 85 lane A entries carry `[money-signin]`. In lane A you may only change HOW something shows: a failed read says
+  "Couldn't read" instead of ₱0 / "none" / "live", a hidden amount stays hidden, a guard refuses. You may NEVER change an
+  amount, a fee, a plan's contents, who may pay or sign in, or which price is read. If the right fix would, mark the
+  entry 🟠 in your PR body, skip it, and move on.
+- The 21 `LIVE` entries (all area 1) go first, in their own batch: `claude/fc-fix-a1-live`.
+- Shared entries (e.g. `SW-PHP`, one fix across all areas): only the area named first in the entry's area list builds
+  it; the others skip it. Area 8 also owns the shared admin guards.
+- Lane R pages: no edits. Add 25 (AI features move to free) is lane C: not yours.

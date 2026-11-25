@@ -47,7 +47,7 @@ export async function saveYou(formData: FormData): Promise<void> {
     .maybeSingle();
   // Fail closed (final check A1-062): without the saved @name and account type, a posted @name would replace the old
   // one and skip the rename limit. Refuse, in the card's own words; nothing is written.
-  if (mineError) backWithError(next, 'We couldn’t save your details just now. Please try again.');
+  if (mineError) backWithError(next, YOU_ERRORS.notSaved);
   const plan = planYouCard(formData, {
     slug: (mine?.slug as string | null) ?? null,
     accountType: (mine?.account_type as string | null) ?? null,

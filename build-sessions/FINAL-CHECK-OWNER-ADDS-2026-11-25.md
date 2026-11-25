@@ -358,3 +358,20 @@ part), never a second picker. Today and Home show at most a status line, never t
 - **Retire `/dashboard/profile/concierge`, the settings page** (no door since `CONCIERGE_ENABLED = false`).
 - Checkers: file the remaining AI doors and copy that still say "buy" or "paid add-on" under this Add. Lane C until the
   plan question below is answered (which Event Hub plan includes it).
+
+## Add 20 · CORRECTION to Add 19 (owner, 25 Nov): Setnayan AI comes with Event Pro and Event Ultra
+Not "the Event Hub" and not Event Plus (since the 18 Nov re-cut; `_plan-steps.ts`, `add-ons-catalog.ts`). The public
+`/setnayan-ai` page presents it as a planning service built to do the jobs below, included in Event Pro and Event Ultra,
+with a door to Pricing. No Buy button; the buy page and the concierge settings page are still retired (Add 19).
+What it really does today (only wired features, from `setnayan-ai-value-copy.ts`, owner rule "just list what is true"):
+- Finds the right people: builds your suggested supplier team by best fit to your date and budget, not cheapest.
+- Keeps it all moving: tracks every category's booking window (plus, for weddings, marriage license, Pre-Cana, PSA)
+  and tells you the one most urgent thing to do next.
+- Watchdog: flags a payment before it is due · warns before you go over budget · tells you when a watched supplier
+  changes their price · tells you when someone you are considering gets booked or frees up · warns when two things
+  clash on the day · shows who else is eyeing your date.
+Never list: first inquiry sent for you, chasing quiet suppliers (not built yet), "learns your taste", "couples like
+you" (dormant). It is rule-based, not a chatbot; the "% match" score is free for everyone.
+⚠ Money, lane C, owner to confirm before any copy ships: live `platform_retail_catalog_v2` (read 25 Nov) has
+`SETNAYAN_AI` = ₱2,790 and **is_active = true** (bands B ₱1,980 · C ₱1,190 · D ₱265 · renewal ₱799, all off). The owner
+said ₱1,499 per event. The "normally ₱X" line reads the catalogue; the catalogue value is the owner's to set.

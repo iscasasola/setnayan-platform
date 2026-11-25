@@ -106,6 +106,26 @@ export async function fetchEventContracts(
   return (data ?? []) as VendorContractRow[];
 }
 
+/**
+ * The event's contracts, said honestly (A2-G14): `null` = the read was refused (the page says it could not load),
+ * `[]` = it answered with none. `fetchEventContracts` above folds the two together.
+ */
+export async function readEventContracts(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<VendorContractRow[] | null> {
+  const { data, error } = await supabase
+    .from('vendor_contracts')
+    .select('*')
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: false });
+  if (error) {
+    console.error('[contracts] readEventContracts:', error.message);
+    return null;
+  }
+  return (data ?? []) as VendorContractRow[];
+}
+
 /** Lookup a single contract by ID. Caller-controlled access via RLS. */
 export async function fetchContract(
   supabase: SupabaseClient,

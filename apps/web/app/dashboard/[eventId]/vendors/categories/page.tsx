@@ -170,14 +170,29 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
           </Suspense>
         </form>
 
-        {empty === 'nobody_free' ? null : (
+        {/* A2-G10: a refused category search is never "0 suppliers" / "none listed" — the same honest line as the
+            name search below, with Try again on this tile. */}
+        {res.unreadable ? (
+          <p role="alert" className="mt-6 text-sm text-ink/70" data-find-category-unreadable="">
+            Couldn’t load suppliers just now. This does not mean there are none.{' '}
+            <Link
+              href={`${base}?c=${encodeURIComponent(openTile.tile)}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
+              prefetch={false}
+              className="font-semibold text-sn-accent"
+            >
+              Try again
+            </Link>
+          </p>
+        ) : null}
+
+        {res.unreadable || empty === 'nobody_free' ? null : (
           <p className="mt-3 text-[13px] text-ink/55">
             {rows.length === 1 ? '1 supplier' : `${formatCount(rows.length)} suppliers`}
             {res.hasReceptionCoords ? ' · nearest first' : ''}
           </p>
         )}
 
-        {empty ? (
+        {res.unreadable ? null : empty ? (
           <p className="mt-6 text-[15px] text-ink/65" data-find-empty={empty}>
             {findEmptyWords(empty, res.hiddenForDateScope)}
           </p>

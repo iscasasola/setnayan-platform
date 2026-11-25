@@ -2106,7 +2106,7 @@ PAGE      /admin/concierge-abuse
 BUTTON    "Confirm abuse (+1 strike)" · "Lift enforcement (−1 strike)"
 STEPS     1. Confirm abuse on a flag. 2. Read the user's notification and the page notice.
 EXPECTED  The worded level, e.g. "Trial banned" (`ENFORCEMENT_LEVEL_LABEL`).
-ACTUAL    actions.ts sends the title `Account flagged for review (${newLevel})`, e.g. "(trial_banned)". page.tsx prints "Account enforcement level is now <strong>{search.confirmed}</strong>" and "New level: {search.lifted}" as raw keys.
+ACTUAL    actions.ts sends the title `Account flagged for review (${newLevel})`, e.g. "(trial_banned)". page.tsx prints `Account enforcement level is now <strong>{search.confirmed}</strong>` and "New level: {search.lifted}" as raw keys.
 SHOTS     phase B: 375 px light
 RULE      brief §4 (words a person reads)
 SEVERITY  wrong

@@ -1,8 +1,24 @@
+STATUS: phase B in progress (lock proof done)
+
 # Final check · Area 8 · Admin (/admin/* and the internal pages)
 
 > CHECKER 8 of 8. Report only, never a fix. Check commit: main @ fb3f72d (frozen). Phase A = code pass (SOURCE: CODE).
 > Phase B (browser walk on staging) waits for the controller's address. Kit: `build-sessions/FINAL-CHECK-KIT.md` §§ 3–6.
 > Marks per page: OFFLINE = NEEDED / READ-ONLY IS ENOUGH / NOT NEEDED · SHAPE = what it is TODAY → what it SHOULD be (PAGE / FULL-SCREEN POPUP / SMALL POPUP).
+
+## Lock proof
+
+Phase B, staging copy at preview commit bd86936 (`/api/health` env preview), signed in as the seeded admin account.
+
+- **(a) Maya, `/admin/integrations`** (forwards to `/admin/business?view=integrations`), 25 Nov 06:47 UTC: the Maya card reads
+  **"Sandbox — test payments, no money moves."**, status **"No keys"**, public and secret API key **NOT SET**, and
+  "On, but hidden — a Maya key is missing. Payers see the BDO QR." → **closed + sandbox. Lock holds.** The webhook
+  button ("Register webhooks") was not pressed.
+- **(b) Email, `/admin/email-delivery`** (forwards to `/admin/switches?view=email`), 06:48 UTC: "Email is switched off.
+  No Resend key is set, so nothing is being sent." Key source **Not configured**; "No emails were sent in the last 7
+  days." Integrations › Resend also reads **Off · Not configured**. With no key, `sendEmail` cannot reach any
+  address → **no real send is possible. Lock holds.** Checker 2's chat message: not visible yet at 06:48 (the 7-day
+  list is empty); re-check below.
 
 ## Phase A summary (code pass, 25 Nov 2026)
 

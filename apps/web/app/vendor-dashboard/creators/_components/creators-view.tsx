@@ -45,7 +45,8 @@ export function CreatorsView({
   minReach: number;
   /** Creators this shop already has an OUTSTANDING offer to — "Offer pending" in place of Send. */
   pendingCreatorIds: ReadonlySet<string>;
-  sendNeedsPro: boolean;
+  /** true = the plan asks at Send · 'unread' = the plan read was refused (said, never a plan ask). */
+  sendNeedsPro: boolean | 'unread';
   flash: { error?: string; sent: boolean };
 }) {
   return (
@@ -149,7 +150,7 @@ function CreatorRow({
   creator: EligibleCreator;
   hasPending: boolean;
   /** The database's Pro floor on sending — see the page body. */
-  sendNeedsPro: boolean;
+  sendNeedsPro: boolean | 'unread';
 }) {
   return (
     <ToolRow

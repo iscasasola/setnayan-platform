@@ -7,6 +7,13 @@
 > Standards read: corpus `HOUSE_DESIGN_STANDARD_2026-11-20.md` (Parts D, E, F, I, K), `DARK_MODE_STANDARD_2026-11-20.md`,
 > `MOTION_STANDARD_2026-11-18.md`, `docs/brand.md`.
 
+## Lock proof (phase B step 0)
+
+- **Upload:** 25 Nov 2026 06:46:56 UTC, signed in as `couple_maker`, one 64 × 64 px JPEG (692 bytes) through Memories › Add photos on Carla & Miguel. Result "1 added to your Memories", credits 50 → 47.
+- **Object path (seen in the network):** `/api/upload` returned a presigned PUT to the `setnayan-media` bucket at **`staging/final-check/papic/event-<carla-miguel id>/seat-…/…-upload-….jpg`**, and the PUT answered 200. **The object sits under `staging/final-check/`. Lock holds.**
+- **Stored key:** the save action records `r2://setnayan-media/papic/event-…/…jpg` with no prefix: the lock adds the prefix in the storage client, so the database row carries the plain key. Not a finding, noted so area 8 is not surprised by it.
+- **Preview:** `/api/health` reports `bd86936`, env `preview`.
+
 ## Phase A summary (code pass, 25 Nov 2026)
 
 - **Pages:** 59 of 59 checked, plus 13 of 13 forwards. Every finding below is `SOURCE: CODE`; phase B confirms or strikes each one.
@@ -30,7 +37,7 @@ WHERE     apps/web/app/dashboard/[eventId]/alaala/assignments/page.tsx (the `gue
 SHOTS     375 px light
 RULE      CLAUDE.md §5 rule 4 (honest states) · design-and-wiring C8 (headcount reader)
 SEVERITY  blocker
-SOURCE    CODE
+SOURCE    CODE + SEEN (25 Nov, staging copy: Carla & Miguel's Guests page reads "61 coming"; Story Assignments shows "No guests to assign" on all 10 moments. A1-056 / live fault B-01 confirmed on the copy.)
 ```
 
 

@@ -33,6 +33,7 @@ import {
 import { formatCount } from '@/lib/format-number';
 import { saveFileToDevice } from '@/lib/save-to-device';
 import { formatPhp } from '@/lib/orders';
+import { PRICE_UNREAD } from '@/lib/php';
 import { PaidMark } from '@/app/_components/paid-mark';
 import {
   InlineCheckoutDrawer,
@@ -49,6 +50,8 @@ import { InfoTip } from '@/app/_components/info-tip';
 export type ThankYouSaveCheckout = {
   /** A Thank-You Video order is submitted and being confirmed. */
   pending: boolean;
+  /** The catalogue price could not be read — said as such, never as "not on sale". */
+  priceUnread?: boolean;
   /** Catalogue price in centavos, as a string; null = not on sale right now. */
   priceCentavos: string | null;
   pricePhp: number | null;
@@ -269,6 +272,13 @@ function SavePanel({ eventId, checkout }: { eventId: string; checkout: ThankYouS
           triggerClassName="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 sm:w-auto"
         />
       </div>
+    );
+  }
+  if (checkout.priceCentavos == null && checkout.priceUnread) {
+    return (
+      <p role="status" className="rounded-xl bg-ink/5 px-3 py-2 text-sm text-ink/70">
+        {PRICE_UNREAD} of saving the film. You can still watch it here — reload to try again.
+      </p>
     );
   }
   if (checkout.priceCentavos == null) {

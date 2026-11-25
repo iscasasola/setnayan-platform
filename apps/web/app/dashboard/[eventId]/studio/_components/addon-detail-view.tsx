@@ -3,12 +3,13 @@ import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { notFound, redirect } from 'next/navigation';
-import { Rocket, Clock3, ArrowRight } from 'lucide-react';
+import { Rocket, Clock3, ArrowRight, AlertCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { formatPhp } from '@/lib/orders';
 import { ADD_ONS, addOnHref } from '@/lib/add-ons-catalog';
 import { addOnDetail } from '@/lib/add-ons-detail';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { readV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { PRICE_UNREAD } from '@/lib/php';
 import {
   AppStoreLayout,
   type PlanRow,
@@ -91,8 +92,10 @@ export async function AddOnDetailView({
   // purchase unlocks the EVENT) — `orders` RLS is purchaser-scoped, so through
   // `supabase` a co-host who did not place the order was offered it again.
   const ent = await eventEntitlementClient(eventId);
-  const [sku, orderRow] = await Promise.all([
-    entry.serviceKey ? formatV2Sku(entry.serviceKey).catch(() => null) : Promise.resolve(null),
+  const [skuRead, orderRead] = await Promise.all([
+    entry.serviceKey
+      ? readV2Sku(entry.serviceKey).catch(() => ({ record: null, readFailed: true }))
+      : Promise.resolve({ record: null, readFailed: false }),
     entry.serviceKey
       ? ent
           .from('orders')
@@ -103,15 +106,20 @@ export async function AddOnDetailView({
           .order('created_at', { ascending: false })
           .limit(1)
           .maybeSingle()
-          .then((r) => r.data)
-      : Promise.resolve(null),
+          .then((r) => ({ row: r.data, readFailed: Boolean(r.error) }))
+          .catch(() => ({ row: null, readFailed: true }))
+      : Promise.resolve({ row: null, readFailed: false }),
   ]);
+  const sku = skuRead.record;
+  const orderRow = orderRead.row;
 
   const isFree = entry.tier === 'free';
   // Variable/per-unit services (Papic per-camera) never show a single flat SKU
   // price here — their own surface owns the live multi-SKU pricing.
+  // S-01 (final check): a failed price read says so; a failed order read never offers "Get" again (a second purchase).
   const priceLabel =
-    sku && !entry.variablePricing ? formatPhp(sku.price_php) : null;
+    sku && !entry.variablePricing ? formatPhp(sku.price_php) : skuRead.readFailed && !entry.variablePricing ? PRICE_UNREAD : null;
+  const orderUnread = orderRead.readFailed && !isFree;
   const status = orderRow?.status ?? null;
   const isActive = status === 'paid' || status === 'fulfilled';
   const isPending = status === 'submitted' || status === 'awaiting_payment';
@@ -127,7 +135,16 @@ export async function AddOnDetailView({
   // Clickable on purpose — it opens the order so the couple can see the
   // reference and payment status. The feature stays locked server-side via
   // eventSkuActive → checkOrderActive ('paid'/'fulfilled' only).
-  const cta = isPending ? (
+  const cta = orderUnread ? (
+    <Link
+      href={`/dashboard/${eventId}/orders`}
+      className="ab ab-neutral"
+      title="We couldn't check whether you already ordered this. Your orders list shows it."
+    >
+      <AlertCircle aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+      Couldn&rsquo;t check your order
+    </Link>
+  ) : isPending ? (
     <Link
       href={`/dashboard/${eventId}/orders`}
       className="ab ab-warn"

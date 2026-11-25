@@ -23,6 +23,19 @@ SEVERITY  blocker
 SOURCE    CODE + SEEN
 ```
 
+### A1-154 · Every shop page answers HTTP 500 after about 24 seconds, signed in or out
+```text
+PAGE      /v/[slug] (served at /{shop}) · /v/[slug]/dates (→ /{shop}?dates=1)   (shops: all 10 seeded, e.g. liwanagphotoandfilm)
+BUTTON    — (page load)
+STEPS     1. Open /liwanagphotoandfilm on the staging copy, signed out. 2. Wait. 3. Repeat signed in (`front`). 4. Repeat for every shop in sitemap-vendors.xml.
+EXPECTED  The shop page: cover, service cards with ₱ prices from the catalogue, portfolio, reviews, Check a date.
+ACTUAL    HTTP 500 after 22–24 s, every time, for all 10 seeded shops (liwanagphotoandfilm, kusinanialingnenacatering, hardinngtagaytayeventsplace, talaeventscoordination, gandaglamstudio, hostkuyajun, mamonandcocakes, sampaguitaflorals, tugtugansounds, pelikulaweddingfilms) and for /liwanagphotoandfilm?dates=1. Console: "An error occurred in the Server Components render". The steady ~24 s points at a server read that times out, not a missing shop (a made-up shop gives an honest 404). The error screen a couple sees reads "Still opening your invitation… This is taking a little longer than usual. One moment. Opening…" with a REFERENCE number: the Event Hub's words on a shop page, and it never opens. Guest Event Hubs on the same copy open (e.g. /stg-carla-miguel 200), so it is the shop route. Areas 5, 6 and 7 cannot see their own public shop either. Copy-only cause not ruled out (lock d blocks stored pictures), but a picture should never take the page down (see A1-125, A1-128).
+SHOTS     375 px light, signed out and signed in (checker's scratchpad)
+RULE      kit § 5 item 1 (opens, no 5xx) · CLAUDE.md §5 rule 4 (honest states) · brand.md (the error names the wrong thing)
+SEVERITY  blocker
+SOURCE    SEEN
+```
+
 ## Summary (phase A, done 25 Nov 2026)
 
 - **Pages:** 74 of 74 + the 2 forwards (`/pakanta`, `/patiktok` → `/features`, both land live). Code pass on every page; live walk of setnayan.com signed out on every static page plus every dynamic page with a live example.

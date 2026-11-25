@@ -50,16 +50,19 @@ export default async function WallPage({ params }: Props) {
   const admin = createAdminClient();
   const owns = await eventSkuActive(admin, eventId, 'LIVE_WALL');
 
-  // 🔌 A4-16 / A4-B06: the event's own word for whoever runs it ("the couple" only on a wedding).
-  const words = await eventWordsForEvent(eventId);
-
   if (!owns) {
+    // 🔒 The same words for every address: naming "the couple" or "the family" here would tell a stranger the event
+    // exists and what kind it is — the oracle this door exists to refuse.
     return (
       <main className="flex min-h-screen items-center justify-center bg-ink px-6 text-cream">
-        <p className="text-sm text-cream/50">This Memory lane isn&rsquo;t lit. Check the link with {words.theOrganizer}.</p>
+        <p className="text-sm text-cream/50">This Memory lane isn&rsquo;t lit. Check the link with whoever sent it.</p>
       </main>
     );
   }
+
+  // 🔌 A4-16 / A4-B06: the event's own word for whoever runs it ("the couple" only on a wedding) — read only once the
+  // event is known to own the wall.
+  const words = await eventWordsForEvent(eventId);
 
   const session = await readWallDisplayCookie();
   const claimed =

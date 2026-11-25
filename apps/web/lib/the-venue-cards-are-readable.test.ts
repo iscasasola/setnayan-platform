@@ -190,7 +190,10 @@ test('the venue card and its buttons paint with the tokens measured above', () =
   assert.doesNotMatch(WIDGET, /<NavLinksRow(?![A-Za-z0-9_])/, 'the plain card is back to three map chips');
   // The chips' ground is the plate, not the page.
   assert.match(WIDGET, /VENUE_CHIP_GROUND[^;]*'--color-cream': 'var\(--color-paper-deep\)'/);
-  assert.match(WIDGET, /className="pahina-plate[^"]*" style=\{VENUE_CHIP_GROUND\}/);
+  // (A4-B05 (b), 25 Nov 2026: the photo-card plate wears `VENUE_PLATE_STYLE`, which IS the chip ground plus the
+  // inner frame switched off — the chips keep exactly the ground measured above.)
+  assert.match(WIDGET, /const VENUE_PLATE_STYLE = \{ \.\.\.VENUE_CHIP_GROUND,/);
+  assert.match(WIDGET, /className="pahina-plate[^"]*" style=\{VENUE_PLATE_STYLE\}/);
   assert.match(WIDGET, /font-pahina text-2xl[^"]*text-ink">\s*\{venue\.name\}/);
   // The button: the couple's look paints `bg-ink` + `text-cream` (alpha 1 both — the pair measured above, swapped).
   assert.match(DIRECTIONS, /look \?\? \('venue' in props \? 'couple' : 'template'\)/, 'a venue card no longer gets the couple look');

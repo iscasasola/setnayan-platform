@@ -845,6 +845,7 @@ export function EventCardMenu({
           }}
           onDelete={openDelete}
           pending={pending}
+          error={confirming ? null : error}
           deleteBody={deleteBody}
           deleteHeadingId={headingId}
         />
@@ -1375,6 +1376,7 @@ function CardMenuFrame({
   onBack,
   onDelete,
   pending,
+  error,
   deleteBody,
   deleteHeadingId,
 }: {
@@ -1387,6 +1389,8 @@ function CardMenuFrame({
   onBack: () => void;
   onDelete: () => void;
   pending: boolean;
+  /** A refused check before Delete (the impact read) — said under the rows, never a press that does nothing. */
+  error: string | null;
   deleteBody: ReactNode;
   deleteHeadingId: string;
 }) {
@@ -1504,6 +1508,11 @@ function CardMenuFrame({
   ) : (
     <div className={ecm.body}>
       <CardMenuRows card={card} onNavigate={onClose} onDelete={onDelete} pending={pending} />
+      {error ? (
+        <p role="alert" className="pb-1 pt-2 text-sn-md font-semibold text-[color:var(--sn-danger)]" data-ecm-error="">
+          {error}
+        </p>
+      ) : null}
     </div>
   );
 

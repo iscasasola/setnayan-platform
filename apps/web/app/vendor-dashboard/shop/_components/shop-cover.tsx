@@ -150,10 +150,10 @@ function sheetInAddress(params: { get(k: string): string | null }): CoverSheet |
 }
 
 /** A cover door's screen, whose body came with the page (null = still on its way) — risen full screen out of its door. */
-function ParamSheet({ open, onClose, title, body, data }: { open: boolean; onClose: () => void; title: string; body: ReactNode | null; data: string }) {
+function ParamSheet({ open, onClose, title, body, data, half = false }: { open: boolean; onClose: () => void; title: string; body: ReactNode | null; data: string; half?: boolean }) {
   if (!open) return null;
   return (
-    <ShopDoorScreen title={title} onClose={onClose} data={`shop-${data}`}>
+    <ShopDoorScreen title={title} onClose={onClose} data={`shop-${data}`} half={half}>
       <div className="px-4 pb-6 pt-3" data-shop-sheet={data}>
         {body ?? (
           <p role="status" className="py-4 text-[13.5px] text-ink/60">
@@ -437,10 +437,10 @@ export function ShopCover({
         data="promote"
       />
       {d.storage ? (
-        <ParamSheet open={sheet === 'storage'} onClose={() => closeSheet('storage')} title="Storage" body={<StorageBody storage={d.storage} plan={d.planLabel} />} data="storage" />
+        <ParamSheet open={sheet === 'storage'} onClose={() => closeSheet('storage')} title="Storage" body={<StorageBody storage={d.storage} plan={d.planLabel} />} data="storage" half />
       ) : null}
-      <ParamSheet open={sheet === 'logo'} onClose={() => closeSheet('logo')} title="Logo" body={logoBody ? <PickedLogoFiles.Provider value={logoFiles}>{logoBody}</PickedLogoFiles.Provider> : null} data="logo" />
-      <ParamSheet open={sheet === 'cover'} onClose={() => closeSheet('cover')} title="Cover photo" body={coverBody} data="cover" />
+      <ParamSheet open={sheet === 'logo'} onClose={() => closeSheet('logo')} title="Logo" body={logoBody ? <PickedLogoFiles.Provider value={logoFiles}>{logoBody}</PickedLogoFiles.Provider> : null} data="logo" half />
+      <ParamSheet open={sheet === 'cover'} onClose={() => closeSheet('cover')} title="Cover photo" body={coverBody} data="cover" half />
     </>
   );
 }

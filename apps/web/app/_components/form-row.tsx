@@ -460,7 +460,14 @@ export function TypedRow({
   fieldName,
   boxed = false,
   counts = false,
+  readOnly = false,
 }: {
+  /**
+   * 🔒 READ-ONLY (a booked card, final check B7 — drawing `final-check-area-5_2026-11-25.html` § B7): the answer as plain
+   * words beside its name, from its START and cut with "…" at its end — no pill to press, no pencil, nothing that
+   * moves. Absent → the row is exactly as it was.
+   */
+  readOnly?: boolean;
   /** 🔢 A `boxed` one-line field shows "n/max" inside its box, at rest and open (the chat Poll's question, #7489). */
   counts?: boolean;
   /**
@@ -738,6 +745,13 @@ export function TypedRow({
           onEnd={end}
           onGone={closed}
         />
+      ) : readOnly ? (
+        <div className={FORM_ROW_LINE} data-form-row-readonly="">
+          <RowName name={name} about={about} needed={false} nameId={nameId} />
+          <span {...pillAttrs} data-form-row-words="" className={`min-w-0 truncate text-right ${words ? 'text-ink' : 'text-ink/45'}`}>
+            {words || empty}
+          </span>
+        </div>
       ) : boxed && !long ? (
         <div key={`box-${back}`} data-form-row-back={back > 0 ? '' : undefined} data-form-row-boxed="line" className="flex flex-col gap-[5px] pb-3 pt-2.5">
           <RowName name={name} about={about} needed={needed} nameId={nameId} />

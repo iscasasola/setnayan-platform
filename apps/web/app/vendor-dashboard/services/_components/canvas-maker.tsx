@@ -1366,6 +1366,8 @@ export function CanvasMaker({
                       }}
                       data="title"
                       pillAttrs={{ 'data-maker-name': '' }}
+                      // 🔒 A booked card's name reads as plain words from its start — no pencil (final check B7).
+                      readOnly={editLocked}
                     />
                     {/* The kept name, posted under its shipped field name (the live read picks it up on its next tick). */}
                     <input type="hidden" name="title" value={title} />
@@ -1393,6 +1395,7 @@ export function CanvasMaker({
                 <div className="pt-1" data-maker-gallery="">
                   <CardPhotoGallery
                     vendorProfileId={vendorProfileId}
+                    locked={editLocked}
                     primaryCurrent={editing?.coverKey ?? initial?.coverPhotoR2Key ?? null}
                     showcaseCurrent={initial?.showcasePhotoR2Keys}
                     displayUrls={initial?.mediaDisplayUrls}

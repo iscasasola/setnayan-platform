@@ -144,11 +144,17 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
     new Set([...pending, ...recent].map((p) => p.vendor_id)),
   );
   const nameById = new Map<string, { business_name: string; public_id: string }>();
+  // A8·A-21: a refused names read is not an unknown supplier — the row says it could not read the name.
+  let namesReadFailed = false;
   if (vendorIds.length > 0) {
-    const { data: vendors } = await admin
+    const { data: vendors, error: vendorsErr } = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id, business_name, public_id')
       .in('vendor_profile_id', vendorIds);
+    if (vendorsErr) {
+      namesReadFailed = true;
+      logQueryError('admin/subscriptions.vendorNames', vendorsErr);
+    }
     for (const v of vendors ?? []) {
       nameById.set(v.vendor_profile_id, {
         business_name: v.business_name,
@@ -269,7 +275,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
                       <b className="block truncate text-[15px] font-semibold leading-tight text-ink">
-                        {v?.business_name ?? 'Unknown supplier'}
+                        {v?.business_name ?? (namesReadFailed ? 'Couldn’t read the supplier' : 'Unknown supplier')}
                       </b>
                       <span className={`mt-0.5 block truncate ${TEMPLATE_SUBLINE}`}>
                         {v?.public_id ?? p.vendor_id}
@@ -342,7 +348,7 @@ export default async function AdminSubscriptionsPage({ searchParams }: Props) {
                 <TemplateRow
                   key={p.purchase_id}
                   data="subscription-resolved"
-                  title={v?.business_name ?? 'Unknown supplier'}
+                  title={v?.business_name ?? (namesReadFailed ? 'Couldn’t read the supplier' : 'Unknown supplier')}
                   line={[p.reference_code, p.rejection_reason, fmtDate(p.paid_at ?? p.created_at)].filter(Boolean).join(' · ')}
                   right={
                     <Badge tone={paid ? 'ok' : 'quiet'}>

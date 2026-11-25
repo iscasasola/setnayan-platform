@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, Gift, Store, Ticket } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ActionButton } from '@/components/action-button';
@@ -18,6 +19,7 @@ import {
   TemplateSection,
 } from '@/app/_components/template-rows';
 import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
+import { ReadFailed } from '@/app/admin/_components/read-failed';
 import { PostedPickRow, PostedTypedRow } from './_components/posted-rows';
 import { issueCompGrant, revokeCompGrant } from '@/app/admin/users/actions';
 import { setVendorTier, issueVendorSkuComp } from '@/app/admin/vendors/actions';
@@ -262,13 +264,19 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
   // ── Vendor search + selection ──────────────────────────────────────────
   const vendorQuery = sp.vendor_q?.trim() ?? '';
   let vendorResults: { vendor_profile_id: string; public_id: string; business_name: string }[] = [];
+  // A8·F-23 / A-24: a refused search is not "no match" — keep the two apart.
+  let vendorSearchFailed = false;
   if (vendorQuery.length >= 2) {
-    const { data } = await admin
+    const { data, error: vendorSearchErr } = await admin
       .from('vendor_profiles')
       .select('vendor_profile_id, public_id, business_name')
       .ilike('business_name', `%${vendorQuery}%`)
       .order('business_name', { ascending: true })
       .limit(8);
+    if (vendorSearchErr) {
+      vendorSearchFailed = true;
+      logQueryError('admin/gifts.vendorSearch', vendorSearchErr);
+    }
     vendorResults = data ?? [];
   }
   let grantVendor: { vendor_profile_id: string; public_id: string; business_name: string; tier_state: string; tier_expires_at: string | null } | null = null;
@@ -288,12 +296,17 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
   // ── User search + selection ────────────────────────────────────────────
   const userQuery = sp.user_q?.trim() ?? '';
   let userResults: { user_id: string; email: string | null; display_name: string | null }[] = [];
+  let userSearchFailed = false;
   if (userQuery.length >= 2) {
-    const { data } = await admin
+    const { data, error: userSearchErr } = await admin
       .from('users')
       .select('user_id, email, display_name')
       .or(`email.ilike.%${userQuery}%,display_name.ilike.%${userQuery}%`)
       .limit(8);
+    if (userSearchErr) {
+      userSearchFailed = true;
+      logQueryError('admin/gifts.userSearch', userSearchErr);
+    }
     userResults = data ?? [];
   }
   let grantUser: { user_id: string; email: string | null; display_name: string | null } | null = null;
@@ -393,7 +406,8 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
             </TemplateRows>
           </div>
         )}
-        {vendorQuery.length >= 2 && vendorResults.length === 0 && !grantVendor && (
+        {vendorSearchFailed && !grantVendor && <ReadFailed what="the supplier search" />}
+        {!vendorSearchFailed && vendorQuery.length >= 2 && vendorResults.length === 0 && !grantVendor && (
           <TemplateEmpty data="supplier-search">No suppliers match &ldquo;{vendorQuery}&rdquo;.</TemplateEmpty>
         )}
 
@@ -992,7 +1006,8 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
             </TemplateRows>
           </div>
         )}
-        {userQuery.length >= 2 && userResults.length === 0 && !grantUser && (
+        {userSearchFailed && !grantUser && <ReadFailed what="the user search" />}
+        {!userSearchFailed && userQuery.length >= 2 && userResults.length === 0 && !grantUser && (
           <TemplateEmpty data="user-search">No user matches &ldquo;{userQuery}&rdquo;.</TemplateEmpty>
         )}
 

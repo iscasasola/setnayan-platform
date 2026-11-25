@@ -153,7 +153,8 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
         </TemplateFail>
       ) : null}
 
-      {shelves.map((shelf, i) =>
+      {/* A8·E-11: a storage failure draws only the TemplateFail above — never "Nothing here." under it. */}
+      {report.listingError ? null : shelves.map((shelf, i) =>
         // "Not sure" is hidden when empty; the other two always show, so an
         // empty shelf reads as "nothing here" rather than as a missing section.
         shelf.state === 'unrecognised' && shelf.docs.length === 0 ? null : (

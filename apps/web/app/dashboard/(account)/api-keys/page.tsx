@@ -6,6 +6,6 @@ import { routes } from '@/lib/routes';
  * every couple was offered keys. The page is gone; an old link people may hold forwards — permanently — to the
  * dashboard. Held by `lib/retired-pages-are-gone.test.ts`.
  */
-export default function RetiredApiKeysPage(): never {
+export default function RetiredApiKeysPage() {
   permanentRedirect(routes.dashboard.index());
 }

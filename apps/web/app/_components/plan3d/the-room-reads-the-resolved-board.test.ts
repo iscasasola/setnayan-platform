@@ -585,7 +585,7 @@ test('all three surfaces dress their people from the palette section 02 shows', 
   /* The couple lab's people are dressed by its PAGE (`seating/lab/_components/seating-room.tsx` resolves every guest's attire colour) — the
      room component's own display palette fed only the old Build panel's concept illustration, gone since the room
      became view-only (owner 2026-10-30). So for the lab it is the page that must read the display palette. */
-  for (const rel of SURFACES.map((f) => f.replace('_components/seating-lab-3d.tsx', 'page.tsx'))) {
+  for (const rel of SURFACES.map((f) => f.replace('_components/seating-lab-3d.tsx', '_components/seating-room.tsx'))) {
     const src = stripComments(readFileSync(join(APP, rel), 'utf8'));
     assert.match(
       src,

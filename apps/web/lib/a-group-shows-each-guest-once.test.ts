@@ -17,9 +17,6 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-import path from 'node:path';
-import { stripComments } from './strip-comments';
 import { orderRoster, type ClusterRosterPerson } from './clusters';
 
 function person(name: string | null, events: string[]): ClusterRosterPerson {
@@ -70,28 +67,4 @@ test('ordering does not mutate the rows it was given', () => {
   assert.deepEqual(rows.map((r) => r.display_name), before);
 });
 
-const PAGE = stripComments(
-  readFileSync(
-    path.join(process.cwd(), 'app', 'dashboard', '(account)', 'clusters', '[clusterId]', 'page.tsx'),
-    'utf8',
-  ),
-);
-
-test('the cluster page reads the roster and renders it', () => {
-  assert.ok(PAGE.length > 2000, 'the cluster page source is too small to be the real page');
-  const calls = PAGE.match(/fetchClusterRoster\(\s*supabase\s*,\s*clusterId\s*\)/g) ?? [];
-  assert.equal(calls.length, 1, `expected exactly one roster read, found ${calls.length}`);
-  assert.match(PAGE, /people\.map\(/, 'the roster is read but never drawn');
-});
-
-test('a refused roster read is checked BEFORE the page may say there are no guests', () => {
-  const refused = PAGE.indexOf('!roster.measured');
-  const empty = PAGE.indexOf('No guests on these events yet');
-  assert.ok(refused > 0, 'the page no longer branches on a refused roster read');
-  assert.ok(empty > 0, 'the empty-roster copy moved — update this guard');
-  assert.ok(
-    refused < empty,
-    'the "no guests" sentence is reachable before the refused-read branch — a failed ' +
-      'read would tell a couple their year has nobody in it',
-  );
-});
+// The cluster PAGE (`/dashboard/clusters/[clusterId]`) is retired — final check R3, 25 Nov; the roster's order stays held above.

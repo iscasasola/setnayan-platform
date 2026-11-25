@@ -8,7 +8,7 @@ import { routes } from '@/lib/routes';
  * forwards there permanently. The value copy beside it (`_components/`) stays: onboarding and the home cards read it.
  * Held by `lib/retired-pages-are-gone.test.ts`.
  */
-export default async function RetiredSetnayanAiBuyPage({ params }: { params: Promise<{ eventId: string }> }): Promise<never> {
+export default async function RetiredSetnayanAiBuyPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   permanentRedirect(routes.dashboard.eventServices(eventId));
 }

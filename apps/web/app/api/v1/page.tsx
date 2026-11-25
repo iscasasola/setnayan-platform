@@ -7,6 +7,6 @@ import { routes } from '@/lib/routes';
  * forwards — permanently — to the dashboard, as the API keys page does. The /api/v1/* ROUTES (health, the admin and
  * checkout helpers) are untouched. Held by `lib/retired-pages-are-gone.test.ts`.
  */
-export default function RetiredApiReferencePage(): never {
+export default function RetiredApiReferencePage() {
   permanentRedirect(routes.dashboard.index());
 }

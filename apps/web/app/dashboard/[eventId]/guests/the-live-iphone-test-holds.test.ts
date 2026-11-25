@@ -79,10 +79,7 @@ test('② every add path splits a typed name with the ONE shared parser', () => 
   // server action — no "first word + the rest" left anywhere on these paths.
   assert.match(readWeb('lib', 'guest-parse.ts'), /parsePersonName\(/);
   assert.match(readWeb('lib', 'guest-import-file.ts'), /parsePersonName\(/);
-  const list = read('quick', '_components', 'quick-add-list.tsx');
-  assert.match(bodyOf(list, 'commitEdit'), /parsePersonName\(/, 'the quick list edits a name with its own split');
-  assert.doesNotMatch(list, /slice\(1\)\.join\(' '\)/, 'the quick list still splits "first word + the rest"');
-  assert.match(bodyOf(read('quick', 'actions.ts'), 'bulkAddGuests'), /parsePersonName\(/, 'the quick list saves names unsplit');
+  // (The quick-add PAGE and its list are retired — final check R4, 25 Nov; the capture bar and the import stay held.)
 });
 
 // ── ③ the card opens fast and fits 390 ──────────────────────────────────────

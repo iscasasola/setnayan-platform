@@ -7,7 +7,7 @@ import { guestsViewHref } from '@/lib/guests-views';
  * (this file used to be both the page and that component). An old link forwards there permanently, as `/plan3d` does.
  * Held by `lib/retired-pages-are-gone.test.ts`.
  */
-export default async function RetiredSeatingLabPage({ params }: { params: Promise<{ eventId: string }> }): Promise<never> {
+export default async function RetiredSeatingLabPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
   permanentRedirect(guestsViewHref(eventId, 'seats', { seat: '3d' }));
 }

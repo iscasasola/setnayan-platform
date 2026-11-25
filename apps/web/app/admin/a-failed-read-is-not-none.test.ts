@@ -5,12 +5,13 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { stripComments } from '@/lib/strip-comments';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const web = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^\s*\/\/.*$/gm, '');
+const strip = stripComments;
 const code = (p: string) => strip(readFileSync(resolve(web, p), 'utf8'));
 
 /** `failure` must appear, and must appear BEFORE `empty` (the branch that says "none"). */

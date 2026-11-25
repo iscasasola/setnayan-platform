@@ -610,6 +610,6 @@ of those users will become the same supplier."
   1. **Wedding Gown** (bridal gowns: ball gown, A-line, mermaid, trumpet, sheath, column, fit-and-flare, empire; bridal Filipiniana / terno; veils and trains)
   2. **Women** (non-bridal women's attire: cocktail, long dress, entourage, Filipiniana, pantsuit, mother's gowns …)
   3. **Men** (tuxedo, suit, three-piece, barong Tagalog, morning coat, white tie, resort suit, coat-off versions)
-- They share one engine (the mannequin, measurements, fabric library, chat, quote, design sheet) so a fix lands in all three.
-- Open for the owner, not to be guessed: how each is sold to designers (separately priced? bundled?) and its price; the exact split of borderline items (e.g. Filipiniana bridal vs non-bridal, entourage gowns).
+- **"They all do the same thing, but we sell them all differently."** One engine and the same features in all three (the mannequin, measurements, fabric library, inspiration board, chat, quote, design sheet), so a fix lands in all three. Each is a **separate product sold on its own** to designers; only the garment catalogue differs.
+- Open for the owner, not to be guessed: each tool's price and plan terms; the exact split of borderline items (e.g. Filipiniana bridal vs non-bridal, entourage gowns).
 - Nothing is built in the app until the owner approves the final prototype (Fable prototype rule).

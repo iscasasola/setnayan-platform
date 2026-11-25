@@ -358,6 +358,8 @@ function MembersTab({
             tip="Rotate it to kill a leaked link — the old one stops working immediately. Or open someone on People and pick “Ask into a group”: Setnayan emails them this link, and nothing happens until they open it."
             line="Anyone with this link can join."
             action={
+              // A refused token read offers no Rotate: the link may still work, and rotating would kill it (A2-C14).
+              tokenUnread ? null : (
               <StayForm door="accGroup.rotateInviteToken" action={rotateInviteToken}>
                 <input name="community_id" type="hidden" value={communityId} />
                 <SubmitButton overlay={false} pendingLabel="Rotating…" className={QUIET_ACTION}>
@@ -365,6 +367,7 @@ function MembersTab({
                   Rotate link
                 </SubmitButton>
               </StayForm>
+              )
             }
           />
           {inviteUrl ? (

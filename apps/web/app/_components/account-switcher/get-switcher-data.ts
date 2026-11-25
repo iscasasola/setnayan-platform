@@ -300,6 +300,8 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
     photoFrame: profile ? readProfilePhotoFrame(profile) : null,
     events,
     eventsMeasured: !membershipRes.error,
+    // A2-B2: a refused owned-shops read reaches Home as "couldn't read", never "you have no shop".
+    shopsMeasured: roles.shopsMeasured,
     context,
     // A refused users read is NOT "never chosen": undefined, so the menu reconciles nothing.
     themePreference: userRes.error ? undefined : (profile?.theme_preference ?? null),

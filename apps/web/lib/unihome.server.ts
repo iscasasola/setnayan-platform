@@ -34,6 +34,7 @@ import { hasVerifiedBadge } from '@/lib/verified-badge';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import {
   unihomeInitials,
+  unihomeShopBeforeRead,
   type UnihomeDiscover,
   type UnihomeMemories,
   type UnihomePeople,
@@ -47,22 +48,11 @@ export const UNIHOME_SHELF = 4;
 /* ── Shop ─────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
 export async function readUnihomeShop(switcher: SwitcherData | null, userId: string): Promise<UnihomeShop> {
-  if (!switcher || switcher.shopsMeasured === false) return { kind: 'unread' };
-  const shops = switcher.context.shops ?? [];
-  const owned = shops.find((s) => s.owned) ?? null;
-  if (!owned) {
-    const helping = shops[0] ?? null;
-    if (helping) {
-      return {
-        kind: 'helper',
-        name: helping.name,
-        initials: unihomeInitials(helping.name),
-        logoUrl: helping.logoUrl,
-        canOpenShop: switcher.context.canOpenShop,
-      };
-    }
-    return switcher.context.canOpenShop ? { kind: 'create' } : { kind: 'none' };
-  }
+  // Every answer that needs no read of its own (unread · helper · create · none) is the pure `unihomeShopBeforeRead`.
+  const early = unihomeShopBeforeRead(switcher);
+  if (early) return early;
+  const shops = switcher?.context.shops ?? [];
+  const owned = shops.find((s) => s.owned)!;
 
   const supabase = await createClient();
   const rowRead = (async () => {

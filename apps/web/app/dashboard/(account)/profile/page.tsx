@@ -52,6 +52,7 @@ import {
 import { accountFaceProfileEnabled } from '@/lib/account-face-profile';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { FORM_READ_FIELD } from '@/lib/form-read';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import {
@@ -474,6 +475,7 @@ export default async function ProfilePage({ searchParams }: Props) {
       <GroupHeader eyebrow="Who you are" title="Profile" />
       <StayForm door="accProfile.updatePersonalInfo" action={updatePersonalInfo} className="space-y-6">
         <input type="hidden" name="tab" value="profile" />
+        <input type="hidden" name={FORM_READ_FIELD} value="1" />
         {/* The photo control is on this form, so a cleared photo (which posts
             no value at all) is told apart from a form without the photo. */}
         <input type="hidden" name={PRESENCE_MARKERS.profile_photo_url} value="1" />
@@ -617,6 +619,7 @@ export default async function ProfilePage({ searchParams }: Props) {
       {formalNameOffer ? (
         <StayForm door="accProfile.updatePersonalInfo" id="use-event-name" action={updatePersonalInfo} className="hidden">
           <input type="hidden" name="tab" value="profile" />
+          <input type="hidden" name={FORM_READ_FIELD} value="1" />
         </StayForm>
       ) : null}
     </>
@@ -632,6 +635,7 @@ export default async function ProfilePage({ searchParams }: Props) {
       />
       <StayForm door="accProfile.updatePersonalInfo" action={updatePersonalInfo} className="sn-tile space-y-6">
         <input type="hidden" name="tab" value="guest-details" />
+        <input type="hidden" name={FORM_READ_FIELD} value="1" />
         {/* ── AT THE TABLE (owner 2026-08-21) ────────────────────────────
             *"if they create an account to sync, these information will be
             saved on their account automatically."* A guest answers these on
@@ -1286,6 +1290,7 @@ export default async function ProfilePage({ searchParams }: Props) {
               help="Product updates, new templates, seasonal promos. RA 10173 opt-in. Default off."
             >
               <input type="hidden" name="tab" value="preferences" />
+              <input type="hidden" name={FORM_READ_FIELD} value="1" />
               <input type="hidden" name={PRESENCE_MARKERS.marketing_opt_in} value="1" />
               {/* The switch submits the state it is turning TO. */}
               {profile?.marketing_opt_in ? null : (

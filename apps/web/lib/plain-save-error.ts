@@ -16,12 +16,11 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  */
 export const DIDNT_SAVE = 'Didn’t save · Try again.';
 
+const NOT_ALLOWED = 'You can’t change this here. Ask a host of this event.';
+
 const SAID: { test: (code: string, message: string) => boolean; words: string }[] = [
   { test: (c) => c === '23505', words: 'That’s already there — check the list, then try again.' },
-  {
-    test: (c, m) => c === '42501' || /row-level security|permission denied/i.test(m),
-    words: 'You can’t change this here. Ask a host of this event.',
-  },
+  { test: (c, m) => c === '42501' || /row-level security|permission denied/i.test(m), words: '' },
   { test: (c) => c === '23503', words: 'Something this needs was changed meanwhile. Reload, then try again.' },
   {
     test: (_c, m) => /fetch failed|network|timeout|ECONN/i.test(m),
@@ -29,16 +28,21 @@ const SAID: { test: (code: string, message: string) => boolean; words: string }[
   },
 ];
 
+/** A screen whose "not allowed" is not an event's (a person's own groups) says its own line instead. */
+export type PlainSaveVoice = { notAllowed?: string };
+
 /** The sentence for a refusal — no logging; `plainSaveError` is the one the actions call. */
-export function plainSaveWords(error: unknown): string {
+export function plainSaveWords(error: unknown, voice: PlainSaveVoice = {}): string {
   const e = (error ?? {}) as { code?: unknown; message?: unknown };
   const code = typeof e.code === 'string' ? e.code : '';
   const message = typeof e.message === 'string' ? e.message : '';
-  return SAID.find((s) => s.test(code, message))?.words ?? DIDNT_SAVE;
+  const said = SAID.find((s) => s.test(code, message));
+  if (!said) return DIDNT_SAVE;
+  return said.words || (voice.notAllowed ?? NOT_ALLOWED);
 }
 
 /** Log the refusal where somebody can act on it, and return the one plain sentence a person reads. */
-export function plainSaveError(callSite: string, error: unknown): string {
+export function plainSaveError(callSite: string, error: unknown, voice: PlainSaveVoice = {}): string {
   logQueryError(callSite, error, {}, 'graceful_degrade');
-  return plainSaveWords(error);
+  return plainSaveWords(error, voice);
 }

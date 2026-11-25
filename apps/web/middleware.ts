@@ -341,9 +341,9 @@ async function middlewareCore(request: NextRequest) {
       if (target.startsWith('/v/')) {
         // Vendor sub-path: the shop's own links (`/{shop}…`) and its sub-pages go under the vendor route; any other
         // path is a real setnayan.com route and routes normally (final check A1-124, `lib/custom-domain-shop-path.ts`).
-        const shopPath = customDomainShopPath(target, pathname);
-        if (shopPath) {
-          rewrite.pathname = shopPath;
+        const internalShopPath = customDomainShopPath(target, pathname);
+        if (internalShopPath) {
+          rewrite.pathname = internalShopPath;
           return NextResponse.rewrite(rewrite);
         }
       }

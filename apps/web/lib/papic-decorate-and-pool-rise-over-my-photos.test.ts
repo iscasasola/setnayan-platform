@@ -12,10 +12,11 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 
 const APP = join(__dirname, '..', 'app');
 const read = (p: string) => readFileSync(join(APP, p), 'utf8');
-const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '');
+const code = stripComments;
 
 test('the Papic layout draws the @rise slot after the page', () => {
   const src = code(read('papic/layout.tsx'));

@@ -136,17 +136,22 @@ function displayNameFor(r: VendorNameRow): string {
 export async function fetchEligibleCreators(opts?: {
   minReach?: number;
   limit?: number;
-}): Promise<EligibleCreator[]> {
+}): Promise<EligibleCreator[] | null> {
+  // `null` = a read was refused: the page says "Couldn't load creators", never "No creators match yet" (A5-G2-05).
   const minReach = Math.max(0, opts?.minReach ?? 0);
   const limit = Math.min(Math.max(opts?.limit ?? 60, 1), 200);
   const admin = createAdminClient();
 
   // Distinct creators = user_ids with >=1 published chapter. Count per user.
-  const { data: chapterRows } = await admin
+  const { data: chapterRows, error: chapterError } = await admin
     .from('creator_chapters')
     .select('user_id')
     .eq('status', 'published')
     .eq('is_journal', false); // 📰 the Journal is Setnayan's — its owner is never an offer-able creator
+  if (chapterError) {
+    console.error('[supabase-error] lib/creator-offers.ts · fetchEligibleCreators chapters', chapterError.message);
+    return null;
+  }
   const counts = new Map<string, number>();
   for (const row of (chapterRows ?? []) as Array<{ user_id: string }>) {
     if (!row.user_id) continue;
@@ -160,12 +165,16 @@ export async function fetchEligibleCreators(opts?: {
   // .neq keeps pre-migration rows (column absent → PostgREST error is caught by
   // the loose client returning an error → data null → empty browse; the column
   // ships in the same PR's migration, so this is a same-deploy window only).
-  const { data: userRows } = await admin
+  const { data: userRows, error: userError } = await admin
     .from('users')
     .select('user_id, display_name, slug, followers_count, profile_view_count, public_profile_enabled, creator_accepts_offers')
     .in('user_id', creatorIds)
     .eq('public_profile_enabled', true)
     .neq('creator_accepts_offers', false);
+  if (userError) {
+    console.error('[supabase-error] lib/creator-offers.ts · fetchEligibleCreators users', userError.message);
+    return null;
+  }
 
   const rows = (userRows ?? []) as Array<{
     user_id: string;
@@ -203,14 +212,19 @@ export async function fetchEligibleCreators(opts?: {
 export async function fetchVendorSentOffers(
   supabase: SupabaseClient,
   vendorProfileId: string,
-): Promise<VendorSentOffer[]> {
-  const { data } = await supabase
+): Promise<VendorSentOffer[] | null> {
+  // `null` = the offers read was refused: "Couldn't load your offers", never an empty Sent list (A5-G2-05).
+  const { data, error } = await supabase
     .from('vendor_creator_offers')
     .select(
       'offer_id, creator_user_id, creator_rate_terms, audience_rate_terms, status, reach_tokens_held, created_at, responded_at, expires_at, fulfilled_at, deliverable_chapter_id',
     )
     .eq('vendor_id', vendorProfileId)
     .order('created_at', { ascending: false });
+  if (error) {
+    console.error('[supabase-error] lib/creator-offers.ts · fetchVendorSentOffers', error.message);
+    return null;
+  }
 
   const rows = (data ?? []) as Array<{
     offer_id: string;

@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { cameraClaimability } from '@/lib/panood-camera-claimability';
 import Link from 'next/link';
 import { Video, LogIn, CircleAlert, Radio } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -79,8 +80,12 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
 
   // ---- Terminal states (the claim action redirects back here with ?state=…). ----
 
+  // 🔌 A4-B03: a link that opens nothing says so ON ARRIVAL — never "You're invited to operate a camera" and a
+  // sign-in first. The same reading the claim action makes (`lib/panood-camera-claimability.ts`).
+  const arrival = state ? null : await cameraClaimability(token);
+
   // Already claimed by someone else.
-  if (state === 'taken') {
+  if (state === 'taken' || arrival === 'taken') {
     return (
       <DoorShell
         tone="dead_end"
@@ -112,8 +117,12 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
   // (default-OFF) venue-door throttle is on; see lib/venue-door-throttle.ts.
   const venueThrottled = state === VENUE_DOOR_STATE;
 
-  // Invalid / expired / revoked / soft error.
-  if (state === 'invalid' || state === 'error') {
+  // 🔌 A4-10: `?state=error` (or a refused read on arrival) is OUR failure — a retryable notice over the join form,
+  // with Join still there, never "This link isn't active".
+  const checkFailed = state === 'error' || arrival === 'unreadable';
+
+  // Invalid / expired / revoked.
+  if (state === 'invalid' || arrival === 'invalid') {
     return (
       <DoorShell
         tone="dead_end"
@@ -161,6 +170,11 @@ export default async function PanoodCameraJoinPage({ params, searchParams }: Pro
       ) : null}
       {venueThrottled ? (
         <DoorNotice kind="alert">{VENUE_DOOR_THROTTLED_MESSAGE}</DoorNotice>
+      ) : null}
+      {checkFailed ? (
+        <DoorNotice kind="alert">
+          We couldn&rsquo;t reach Setnayan just now &mdash; your link is probably fine. Tap once more to try again.
+        </DoorNotice>
       ) : null}
       <form action={claimPanoodCamera}>
         <input type="hidden" name="token" value={token} />

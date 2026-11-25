@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { cameraLinkNotice } from '@/lib/panood-signal-status';
+import { cameraLinkNotice, cameraPill } from '@/lib/panood-signal-status';
 import { Video, VideoOff, CircleAlert, Wifi } from 'lucide-react';
 import {
   publishPanoodCamera,
@@ -261,6 +261,9 @@ export function PanoodCameraPublish({
 
   const camLabel = label?.trim() || `Camera ${cameraIndex}`;
 
+  // 🔌 A4-11: one reading for the pill and the footer (`lib/panood-signal-status.ts`).
+  const pill = cameraPill({ cameraState: state, streamingEnabled, link, signalRefused });
+
   return (
     <main className="flex min-h-screen flex-col bg-ink text-cream">
       {/* Honest header — who you are, what's happening. */}
@@ -273,7 +276,7 @@ export function PanoodCameraPublish({
         </div>
         <span
           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
-            state === 'live'
+            pill.live
               ? 'bg-emerald-500/15 text-emerald-300'
               : 'bg-cream/10 text-cream/60'
           }`}
@@ -281,10 +284,10 @@ export function PanoodCameraPublish({
           <span
             aria-hidden
             className={`h-1.5 w-1.5 rounded-full ${
-              state === 'live' ? 'animate-pulse bg-emerald-400' : 'bg-cream/40'
+              pill.live ? 'animate-pulse bg-emerald-400' : 'bg-cream/40'
             }`}
           />
-          {state === 'live' ? 'Connected' : state === 'starting' ? 'Starting…' : 'No camera'}
+          {pill.label}
         </span>
       </header>
 

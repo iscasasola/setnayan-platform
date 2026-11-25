@@ -10,6 +10,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { KWENTO_MOMENTS, type KwentoMomentKey } from '@/lib/kwento-moments';
 import { GuestPicker, AssignmentRow } from './_components/assignment-controls';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import type { RsvpStatus } from '@/lib/guests';
 
 export const metadata = { title: 'Story Assignments' };
 export const dynamic = 'force-dynamic';
@@ -40,7 +41,8 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
       .from('guests')
       .select('guest_id, first_name, display_name')
       .eq('event_id', eventId)
-      .eq('rsvp_status', 'confirmed')
+      // B-01: the enum has no 'confirmed'; a guest who said yes is 'attending' (RsvpStatus, lib/guests.ts).
+      .eq('rsvp_status', 'attending' satisfies RsvpStatus)
       .order('first_name', { ascending: true }),
   ]);
   if (assignmentsError) {

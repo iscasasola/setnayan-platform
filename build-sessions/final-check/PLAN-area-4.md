@@ -15,7 +15,7 @@
 - No lane A row changes how a screen looks. A "Couldn't read" line or a Try again uses the shipped `ErrorState` / `EmptyState` / `DoorShell tone="dead_end"` / the route's `error.tsx` as they are.
 - Sweep members (tagged SW-…) are listed so nothing is lost. If the controller runs a sweep as one cross-area batch, strike the row here and keep its test.
 - Paths are under `apps/web/` (`lib/` = `apps/web/lib/`, `public/` = `apps/web/public/`).
-- Lane B waits. Every lane B line reads `APPROVAL: pending controller`; start a line only when the controller changes it to approved.
+- Lane B waits. Every lane B line reads `APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29)`; start a line only when the controller changes it to approved.
 
 ### Batch `a4-1-opens-and-doors` (13)
 
@@ -154,26 +154,26 @@ Rules the drawings follow: popup or page per Add 1 (Sheet = small popup, RiseScr
 
 | # | ID | Screen | The change (one line) | Drawing | Approval |
 |---|---|---|---|---|---|
-| B1 | A4-B05 | `/[slug]` cover and venue block | Pointer screens read "Scroll for the event"; the venue photo and words share one frame; 24 px before "The entourage". | § 01 | APPROVAL: pending controller |
-| B2 | A4-32 | `/[slug]/everyone` | Opens as a RiseScreen over the invitation; the foot link "Back to the invitation" goes. | § 02 | APPROVAL: pending controller |
-| B3 | A4-41 | `/[slug]/invite/reply` | On a phone the reply card opens in a RiseScreen ("Your reply"); desktop stays the shipped Sheet. | § 03 | APPROVAL: pending controller |
-| B4 | A4-B04 | `/live` Connect | The button shows pressed at once ("Connecting…", locked), then the shipped answer line. | § 04 | APPROVAL: pending controller |
-| B5 | A4-55 | `/papic/decorate` | Opens as a RiseScreen over My photos; the back link and the two-hop navigation go. | § 05 | APPROVAL: pending controller |
-| B6 | A4-81 | `/papic/pool` | Opens as a RiseScreen over My photos; desktop grid uses the width. | § 06 | APPROVAL: pending controller |
-| B7 | A4-69 | `/papic/guest` from the Hub bar | The camera rises over the Event Hub (RiseScreen); ✕ returns to the same scroll and tab, no reload. | § 07 | APPROVAL: pending controller |
-| B8 | A4-68 (SW-SKEL) | `/papic/guest` · `/papic/seat/[token]` loading | The skeleton is the dark camera stage, not a card grid or a form. | § 08 | APPROVAL: pending controller |
-| B9 | A4-62 (SW-DIALOG) | Camera · My shots | The hand-built 72 % panel becomes the shared Sheet. | § 09 | APPROVAL: pending controller |
-| B10 | A4-62 (SW-DIALOG) | Camera · Add credits | The hand-built panel becomes the shared Sheet (body and prices unchanged). | § 10 | APPROVAL: pending controller |
-| B11 | A4-07 (SW-TAP) | `/join/crew/[token]` name field | The typed white box becomes the shared `.input-field`; the error line uses the danger token. | § 11 | APPROVAL: pending controller |
-| B12 | A4-17 (SW-POPPOP) · A4-19 (SW-DIALOG) | `/[slug]` Face tagging selfie camera and its Details | The camera is a RiseScreen; ⓘ opens the Details as the note under its head (one layer); spinners become a Ghost block. | § 12 | APPROVAL: pending controller |
-| B13 | A4-18 · A4-19 (SW-DIALOG) | `/[slug]` story: Relive it · suppliers · Open the gallery | Three hand-built full screens become RiseScreen; Back returns to the story. | § 13 | APPROVAL: pending controller |
-| B14 | A4-20 (SW-DIALOG) | `/[slug]` My QR · plus-one ticket · story minute · Open in your browser | Four hand-built panels become the shared Sheet. | § 14 | APPROVAL: pending controller |
-| B15 | A4-29 (SW-DIALOG) | `/[slug]/avatar` | The page wears the couple's look (no self-forced dark); Save is the one main button. | § 15 | APPROVAL: pending controller |
-| B16 | A4-36 (SW-DIALOG) | `/[slug]/find-seat` Show at the door | The hand-built modal becomes a RiseScreen; the pass card is unchanged. | § 16 | APPROVAL: pending controller |
-| B17 | A4-39 (SW-K1) | `/[slug]/invite/enter` ticket section | "Save my ticket" is the one main button; "Yes, save to my account" turns neutral. | § 17 | APPROVAL: pending controller |
-| B18 | A4-40 (SW-DIALOG) | `/[slug]/invite/enter` ticket popup | The hand-built centred card becomes the shared Sheet. | § 18 | APPROVAL: pending controller |
-| B19 | A4-59 (SW-K2) | `/papic/demo/[token]` card | The typed white card becomes the house frame (surface token, hairline, no shadow). | § 19 | APPROVAL: pending controller |
-| B20 | A4-76 (SW-K1) | `/papic/me/[token]` | "Open my camera" stays the one main button; "Make my Story" turns neutral. | § 20 | APPROVAL: pending controller |
+| B1 | A4-B05 | `/[slug]` cover and venue block | Pointer screens read "Scroll for the event"; the venue photo and words share one frame; 24 px before "The entourage". | § 01 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B2 | A4-32 | `/[slug]/everyone` | Opens as a RiseScreen over the invitation; the foot link "Back to the invitation" goes. | § 02 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B3 | A4-41 | `/[slug]/invite/reply` | On a phone the reply card opens in a RiseScreen ("Your reply"); desktop stays the shipped Sheet. | § 03 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B4 | A4-B04 | `/live` Connect | The button shows pressed at once ("Connecting…", locked), then the shipped answer line. | § 04 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B5 | A4-55 | `/papic/decorate` | Opens as a RiseScreen over My photos; the back link and the two-hop navigation go. | § 05 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B6 | A4-81 | `/papic/pool` | Opens as a RiseScreen over My photos; desktop grid uses the width. | § 06 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B7 | A4-69 | `/papic/guest` from the Hub bar | The camera rises over the Event Hub (RiseScreen); ✕ returns to the same scroll and tab, no reload. | § 07 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B8 | A4-68 (SW-SKEL) | `/papic/guest` · `/papic/seat/[token]` loading | The skeleton is the dark camera stage, not a card grid or a form. | § 08 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B9 | A4-62 (SW-DIALOG) | Camera · My shots | The hand-built 72 % panel becomes the shared Sheet. | § 09 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B10 | A4-62 (SW-DIALOG) | Camera · Add credits | The hand-built panel becomes the shared Sheet (body and prices unchanged). | § 10 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B11 | A4-07 (SW-TAP) | `/join/crew/[token]` name field | The typed white box becomes the shared `.input-field`; the error line uses the danger token. | § 11 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B12 | A4-17 (SW-POPPOP) · A4-19 (SW-DIALOG) | `/[slug]` Face tagging selfie camera and its Details | The camera is a RiseScreen; ⓘ opens the Details as the note under its head (one layer); spinners become a Ghost block. | § 12 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B13 | A4-18 · A4-19 (SW-DIALOG) | `/[slug]` story: Relive it · suppliers · Open the gallery | Three hand-built full screens become RiseScreen; Back returns to the story. | § 13 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B14 | A4-20 (SW-DIALOG) | `/[slug]` My QR · plus-one ticket · story minute · Open in your browser | Four hand-built panels become the shared Sheet. | § 14 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B15 | A4-29 (SW-DIALOG) | `/[slug]/avatar` | The page wears the couple's look (no self-forced dark); Save is the one main button. | § 15 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B16 | A4-36 (SW-DIALOG) | `/[slug]/find-seat` Show at the door | The hand-built modal becomes a RiseScreen; the pass card is unchanged. | § 16 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B17 | A4-39 (SW-K1) | `/[slug]/invite/enter` ticket section | "Save my ticket" is the one main button; "Yes, save to my account" turns neutral. | § 17 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B18 | A4-40 (SW-DIALOG) | `/[slug]/invite/enter` ticket popup | The hand-built centred card becomes the shared Sheet. | § 18 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B19 | A4-59 (SW-K2) | `/papic/demo/[token]` card | The typed white card becomes the house frame (surface token, hairline, no shadow). | § 19 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
+| B20 | A4-76 (SW-K1) | `/papic/me/[token]` | "Open my camera" stays the one main button; "Make my Story" turns neutral. | § 20 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/LbNcP7UftYuZVGEBtT59Tj; Adds 28–29) |
 
 **Order to build once approved:** B11, B17, B19, B20 (one-file token and button changes) → B4, B8 → the Sheets B9, B10, B14, B18 → the RiseScreens B2, B5, B6, B13, B16, B12 → B3 → B15 → B1 → B7 last (it moves two owner-pinned tests).
 

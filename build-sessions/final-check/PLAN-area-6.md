@@ -112,14 +112,14 @@ Drawing for every line: `prototypes/final-check-area-6_2026-11-25/final-check-ar
 
 | # | ID | Screen | Change in one line | Drawing | Approval |
 |---|---|---|---|---|---|
-| 1 | A6-53 | /vd/clients/[eventId]/challenge-photos | Page → full-screen popup (RiseScreen); the old address forwards to the client page with it open. Also the shape for A6-54's page. | § 1 | APPROVAL: pending controller |
-| 2 | A6-70 | /vd/contracts/new | Page → full-screen popup; Cancel removed (✕ is the way out), one main button. | § 2 | APPROVAL: pending controller |
-| 3 | A6-41 | Clients › Add a booking from outside | Half sheet with 7 rows and a calendar on top → full-screen popup; the calendar opens inside its row. | § 3 | APPROVAL: pending controller |
-| 4 | A6-B24 | /vd/customers in dark, 768 and 1280 | Dark open-day tile; "Handled by" said once; one column at 768 (split from 1024). | § 4 | APPROVAL: pending controller |
-| 5 | A6-42 | /vd/customers?wallet=1 | Sheet with its own address → its own page; `?wallet=1` forwards. | § 5 | APPROVAL: pending controller |
-| 6 | A6-B15 | disputes · manpower · contracts/new · booking-fees | Two back buttons → the one 44 px tinted round with "Back to …". | § 6 | APPROVAL: pending controller |
-| 7 | A6-11 | thread › Answer their booking ask | Full-screen popup → small popup (Sheet). | § 7 | APPROVAL: pending controller |
-| 8 | A6-12 | thread › Send a quote · Deal or meeting | Tray under the composer → full-screen popup. | § 8 | APPROVAL: pending controller |
+| 1 | A6-53 | /vd/clients/[eventId]/challenge-photos | Page → full-screen popup (RiseScreen); the old address forwards to the client page with it open. Also the shape for A6-54's page. | § 1 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/EURzWw27SpWKbNDLtLVexF; Adds 28–29) |
+| 2 | A6-70 | /vd/contracts/new | Page → full-screen popup; Cancel removed (✕ is the way out), one main button. | § 2 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/EURzWw27SpWKbNDLtLVexF; Adds 28–29) |
+| 3 | A6-41 | Clients › Add a booking from outside | Half sheet with 7 rows and a calendar on top → full-screen popup; the calendar opens inside its row. | § 3 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/EURzWw27SpWKbNDLtLVexF; Adds 28–29) |
+| 4 | A6-B24 | /vd/customers in dark, 768 and 1280 | Dark open-day tile; "Handled by" said once; one column at 768 (split from 1024). | § 4 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/EURzWw27SpWKbNDLtLVexF; Adds 28–29) |
+| 5 | A6-42 | /vd/customers?wallet=1 | Sheet with its own address → its own page; `?wallet=1` forwards. | § 5 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/EURzWw27SpWKbNDLtLVexF; Adds 28–29) |
+| 6 | A6-B15 | disputes · manpower · contracts/new · booking-fees | Two back buttons → the one 44 px tinted round with "Back to …". | § 6 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/EURzWw27SpWKbNDLtLVexF; Adds 28–29) |
+| 7 | A6-11 | thread › Answer their booking ask | Full-screen popup → small popup (Sheet). | § 7 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/EURzWw27SpWKbNDLtLVexF; Adds 28–29) |
+| 8 | A6-12 | thread › Send a quote · Deal or meeting | Tray under the composer → full-screen popup. | § 8 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/EURzWw27SpWKbNDLtLVexF; Adds 28–29) |
 
 Build notes for lane B (after approval): § 1, 2, 3 and 8 use the shipped `RiseScreen`; § 7 uses the shipped `Sheet`; none builds a new layer. § 6 is one change to the shared `BackButton` "tool" variant and reaches area 5's tool pages: build it once with area 5. § 4 changes the shared `--seat-top` token for supplier dark only and must update `app/v/[slug]/dates/check-a-date-is-a-seat-plan.test.ts`. § 7 and § 8 change `lib/vendor-thread-tools.ts` and its guard `lib/the-booking-ask-rises-full-screen.test.ts`. Every build proves 375 light, 390 dark with the glow, and 1280.
 

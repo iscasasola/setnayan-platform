@@ -11,7 +11,7 @@ Paths below are under `apps/web/app/vendor-dashboard/` unless they start with `a
 - Lane A now, in the batch order below. One branch and one PR per batch: `claude/fc-fix-a5-b1` … `b4`.
 - **No LIVE entry belongs to area 5** (all 21 are area 1). Batch 1 is the worst-first batch and is already open as PR #8305: this plan keeps its 11 IDs as they are.
 - **Area 5 builds no shared lane A sweep** (no sweep names area 5 first). Skip the IDs listed under "Area 5 IDs that other areas build".
-- Lane B waits. Every lane B line below reads `APPROVAL: pending controller`. Start a line only when the controller changes it to approved.
+- Lane B waits. Every lane B line below reads `APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29)`. Start a line only when the controller changes it to approved.
 - Lane C: `A5-G5-01` (seats count paused and removed members) and the area 5 members of the shared lane C entries (`B5-01` · `B5-05` · `B5-19` sign-in, `B5-23` plan story). Never built without the owner.
 - Lane R: none in area 5 (second pass SP5-11).
 - Money entries (`money-signin`): change only HOW it shows ("Couldn't read", a guard that refuses). Never an amount, a plan's contents or which price is read. If the right fix needs that, mark it 🟠 in the PR and skip it.
@@ -106,25 +106,25 @@ Drawing file: `prototypes/final-check-area-5_2026-11-25/final-check-area-5_2026-
 
 | Drawing | ID | Screen | The change in one line | Status |
 |---|---|---|---|---|
-| B1 | A5-G1-01 · B5-15 (look) | Open a shop (`/open-shop`) | The five steps rise in the shared RiseScreen (centred dialog on desktop); ✕ returns to where the person was. | APPROVAL: pending controller |
-| B2 | A5-G1-08 · B5-15 (look) | Add your logo (`/open-shop/logo`) | A step of the same layer, in the supplier look (no warm page, no brown bars). | APPROVAL: pending controller |
-| B3 | A5-G1-07 | Invite shops you trust (`/open-shop/invite`) | The closing step of the same layer; Later and Done in its bar. | APPROVAL: pending controller |
-| B4 | B5-11 | Today at 1280 (`/vendor-dashboard`) | Counts fit their column and show once; the band sits inside the gutter; the stage step uses the supplier accent. | APPROVAL: pending controller |
-| B5 | A5-G6-16 · SP5-06 · SP5-07 | Deep Search | Status is the house chip (dot + word); the icon tile goes. | APPROVAL: pending controller |
-| B6 | A5-G2-14 | Help (`/vendor-dashboard/help`) | A small popup (Sheet) from Settings with the same five rows. | APPROVAL: pending controller |
-| B7 | B5-16 | Card maker, a booked card | Read-only fields (no pencil, no add-photo tile); the name shows from its start; one bar at the thumb. | APPROVAL: pending controller |
-| B8 | A5-G3-05 · SP5-05 | Card maker (`services/new`, `new/[category]`, `[serviceId]`) | Rises over Shop in the RiseScreen; ✕ returns to the same scroll place. Needs a `@rise` slot for services. | APPROVAL: pending controller |
-| B9 | A5-G3-06 | Tell us what you do (`services/requests/new`) | Three steps open in place inside the maker's layer; ‹ returns to the maker as it was. | APPROVAL: pending controller |
-| B10 | A5-G4-04 | Shop › Logo · Cover photo · Storage | Half sheets on a phone (already Sheets from 701 px). | APPROVAL: pending controller |
-| B11 | B5-06 · SP5-04 | Shop at 1280 | The tab uses the body's width; service cards one per row until each has 320 px. | APPROVAL: pending controller |
-| B12 | B5-17 · SP5-02 | Toolkit (`shop/store`) | Shelves sit side by side on tablet and desktop; on a phone the list fades and clears the thumb row. | APPROVAL: pending controller |
-| B13 | A5-G5-17 · SP5-08 | Roles (`team/roles`) | Opens in place inside the risen Team layer (‹ back to Team). | APPROVAL: pending controller |
-| B14 | A5-G5-16 · A5-G5-18 | Who gets new inquiries (`team/roles/inquiries`) | One PickMenu for the branch; opens in place under Roles; Adjust opens under its group. | APPROVAL: pending controller |
-| B15 | A5-G5-19 | Theft Watch | Rises from the Shop shelf in the RiseScreen. | APPROVAL: pending controller |
-| B16 | A5-G5-20 | Track record | Rises from the Shop shelf in the RiseScreen. | APPROVAL: pending controller |
-| B17 | A5-G1-15 | Fit check (`/vendor/fit/[ref]`) | The event choice is one PickMenu; colours by token. | APPROVAL: pending controller |
-| B18 | B5-26 | Back control and title, across the area | One pinned row (ToolPin: ‹ + a visible title) on every page with a way back. | APPROVAL: pending controller |
-| B19 | SW-SPIN (A5-G4-09 · A5-G6-21 · A8·L-6) | Busy states (sweep; area 5 is named first) | Ghost skeleton in the loaded shape; a pressed button that names its step; no spinner, no pulse. | APPROVAL: pending controller |
+| B1 | A5-G1-01 · B5-15 (look) | Open a shop (`/open-shop`) | The five steps rise in the shared RiseScreen (centred dialog on desktop); ✕ returns to where the person was. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B2 | A5-G1-08 · B5-15 (look) | Add your logo (`/open-shop/logo`) | A step of the same layer, in the supplier look (no warm page, no brown bars). | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B3 | A5-G1-07 | Invite shops you trust (`/open-shop/invite`) | The closing step of the same layer; Later and Done in its bar. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B4 | B5-11 | Today at 1280 (`/vendor-dashboard`) | Counts fit their column and show once; the band sits inside the gutter; the stage step uses the supplier accent. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B5 | A5-G6-16 · SP5-06 · SP5-07 | Deep Search | Status is the house chip (dot + word); the icon tile goes. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B6 | A5-G2-14 | Help (`/vendor-dashboard/help`) | A small popup (Sheet) from Settings with the same five rows. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B7 | B5-16 | Card maker, a booked card | Read-only fields (no pencil, no add-photo tile); the name shows from its start; one bar at the thumb. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B8 | A5-G3-05 · SP5-05 | Card maker (`services/new`, `new/[category]`, `[serviceId]`) | Rises over Shop in the RiseScreen; ✕ returns to the same scroll place. Needs a `@rise` slot for services. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B9 | A5-G3-06 | Tell us what you do (`services/requests/new`) | Three steps open in place inside the maker's layer; ‹ returns to the maker as it was. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B10 | A5-G4-04 | Shop › Logo · Cover photo · Storage | Half sheets on a phone (already Sheets from 701 px). | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B11 | B5-06 · SP5-04 | Shop at 1280 | The tab uses the body's width; service cards one per row until each has 320 px. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B12 | B5-17 · SP5-02 | Toolkit (`shop/store`) | Shelves sit side by side on tablet and desktop; on a phone the list fades and clears the thumb row. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B13 | A5-G5-17 · SP5-08 | Roles (`team/roles`) | Opens in place inside the risen Team layer (‹ back to Team). | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B14 | A5-G5-16 · A5-G5-18 | Who gets new inquiries (`team/roles/inquiries`) | One PickMenu for the branch; opens in place under Roles; Adjust opens under its group. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B15 | A5-G5-19 | Theft Watch | Rises from the Shop shelf in the RiseScreen. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B16 | A5-G5-20 | Track record | Rises from the Shop shelf in the RiseScreen. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B17 | A5-G1-15 | Fit check (`/vendor/fit/[ref]`) | The event choice is one PickMenu; colours by token. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B18 | B5-26 | Back control and title, across the area | One pinned row (ToolPin: ‹ + a visible title) on every page with a way back. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
+| B19 | SW-SPIN (A5-G4-09 · A5-G6-21 · A8·L-6) | Busy states (sweep; area 5 is named first) | Ghost skeleton in the loaded shape; a pressed button that names its step; no spinner, no pulse. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/PXhoxhtaK266X68bNeSZ5f; Adds 28–29) |
 
 ### Area 5 IDs in lane B sweeps that other areas draw
 

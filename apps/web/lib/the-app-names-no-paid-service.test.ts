@@ -161,7 +161,7 @@ const NOT_SHOWN = new Map<string, string>([
   ['app/dashboard/[eventId]/_components/papic-ready-nudge.tsx', 'mounted only `&& !storeShell` (app/dashboard/[eventId]/page.tsx)'],
   ['app/dashboard/[eventId]/guests/_components/guest-papic-bulk.tsx', 'the Select › Set… › Papic sheet: its options are offered only while `papic === \'on\'`, which the Guests page hands as `viewer.isCouple && !storeShell ? eventPapic : null` (2026-10-23)'],
   ['app/dashboard/[eventId]/_components/setnayan-ai-comeback-offer.tsx', 'mounted only `aiOffer && aiOfferSettings && !storeShell` (app/dashboard/[eventId]/page.tsx)'],
-  ['app/dashboard/[eventId]/_components/reveal-preview-card.tsx', 'used by Save the Date only, after an Event Pro opening is picked — see StdBuilderClient'],
+  ['app/dashboard/[eventId]/_components/reveal-preview-card.tsx', '`RevealPreviewCard` is mounted nowhere since Add 18 (25 Nov: Save the Date links to the Event Hub\'s one reveal picker); the only import left is `ColorRow`, which names no paid service'],
   ['app/dashboard/[eventId]/website/photo-moments/config.ts', 'the Papic-only hint is drawn only by photo-moments-editor.tsx, which shows app words under `data-app-only`'],
   ['app/dashboard/[eventId]/_components/event-dashboard.tsx', '"Setnayan AI · The Watch" is drawn only when `aiActive`, which is `storeShellAllowsPaidFeature`-gated (the owner\'s free-feature rule: off in the app while the paywall is on)'],
   ['app/dashboard/[eventId]/studio/save-the-date/page.tsx', 'the "part of Event Pro" upsell is the last arm of `) : storeShell ? null : sellable ? (…) : (…)` — a chained ternary this scan does not follow'],

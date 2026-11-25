@@ -13,7 +13,7 @@ import { eventWordsFromProfile } from '../_lib/event-words';
 import { readGuestSession } from '@/lib/guest-session';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { fetchEntrance } from '@/lib/indoor-blueprint';
-import { fetchTables, type EventTableRow } from '@/lib/seating';
+import { fetchPublicTables, type EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { PulsedLiveRefresher } from '@/app/_components/pulsed-live-refresher';
 import { theDayFor } from '@/lib/event-clock.server';
@@ -133,15 +133,15 @@ export default async function FindMyTablePage({ params }: Props) {
     .maybeSingle();
   if (assignmentErr) console.error('[supabase-error] app/[slug]/find-my-table/page.tsx · from:event_seat_assignments.select', assignmentErr);
 
-  // 🔌 A4-34: the couple's ONE seat-plan reader (`lib/seating.ts` `fetchTables` — its order, its capacity and coordinate
+  // 🔌 A4-34: the guest-safe seat-plan reader (`lib/seating.ts` `fetchPublicTables` — fetchTables' order, its capacity and coordinate
   // clean-up), never a raw read with its own order. It throws on a refused read; the honest card below still answers.
   let tables: EventTableRow[] = [];
   let tablesErr: unknown = null;
   try {
-    tables = await fetchTables(admin, event.event_id);
+    tables = await fetchPublicTables(admin, event.event_id);
   } catch (e) {
     tablesErr = e;
-    console.error('[supabase-error] app/[slug]/find-my-table/page.tsx · fetchTables', e);
+    console.error('[supabase-error] app/[slug]/find-my-table/page.tsx · fetchPublicTables', e);
   }
 
   // 🔴 A failed read renders as "the floor plan is on its way" — a confident

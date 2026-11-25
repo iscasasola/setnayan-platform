@@ -21,7 +21,7 @@ import {
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { resolveMonogram } from '@/lib/monogram';
-import { fetchTables, type EventTableRow } from '@/lib/seating';
+import { fetchPublicTables, type EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { publicDisplayName } from '@/lib/find-your-seat';
 import { PulsedLiveRefresher } from '@/app/_components/pulsed-live-refresher';
@@ -351,11 +351,11 @@ async function readTables(
   admin: ReturnType<typeof createAdminClient>,
   eventId: string,
 ): Promise<{ rows: EventTableRow[]; failed: boolean }> {
-  // 🔌 A4-34 (final check, 25 Nov): the couple's ONE seat-plan reader (`lib/seating.ts` `fetchTables` — its order, its
+  // 🔌 A4-34 (final check, 25 Nov): the guest-safe seat-plan reader (`lib/seating.ts` `fetchPublicTables` — fetchTables' order, its
   // capacity and coordinate clean-up). This page had its own copy that SHADOWED the shared name. A refused read is
   // still told apart from "no tables yet" — the shared reader throws, and this page answers with SeatCouldNotLoad.
   try {
-    return { rows: await fetchTables(admin, eventId), failed: false };
+    return { rows: await fetchPublicTables(admin, eventId), failed: false };
   } catch {
     return { rows: [], failed: true };
   }

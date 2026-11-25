@@ -86,7 +86,7 @@ test("3 · the part's own page takes the exit it already had", () => {
   const claimHop = SEAT.indexOf('redirect(`/${slug}/seat/claim?t=');
   const firstGate = SEAT.indexOf("partDoorHidden(admin, event.event_id, 'seat')");
   const secondGate = SEAT.indexOf("partDoorHidden(admin, event.event_id, 'seat')", firstGate + 1);
-  // (A4-34, 25 Nov: /seat reads its tables through `readTables`, a wrapper on the shared lib/seating.ts fetchTables.)
+  // (A4-34, 25 Nov: /seat reads its tables through `readTables`, a wrapper on the guest-safe lib/seating.ts fetchPublicTables.)
   const tableRead = SEAT.indexOf('await readTables(admin, event.event_id)');
   const sessionRead = SEAT.indexOf('await readGuestSession()');
   assert.ok(claimHop > 0 && claimHop < firstGate, 'the gate stands before the claim hop — a hidden seat would stop a guest signing in');

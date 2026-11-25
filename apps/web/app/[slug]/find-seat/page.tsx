@@ -14,7 +14,7 @@ import { fetchEntrance } from '@/lib/indoor-blueprint';
 import { readGuestBooths } from '@/lib/booth-card-from-row';
 import { parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
 import type { Lab3DBooth } from '@/lib/seating-3d';
-import { fetchTables, type EventTableRow } from '@/lib/seating';
+import { fetchPublicTables, type EventTableRow } from '@/lib/seating';
 import { renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram } from '@/lib/monogram';
 import { formatEventDate } from '@/lib/events';
@@ -137,9 +137,9 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
   let tables: EventTableRow[] = [];
   const entrance = await fetchEntrance(admin, event.event_id);
   if (published) {
-    // 🔌 A4-34: the ONE seat-plan reader (`lib/seating.ts` `fetchTables`). A failed read is not an empty room — it
+    // 🔌 A4-34: the guest-safe seat-plan reader (`lib/seating.ts` `fetchPublicTables`, no QR tokens). A failed read is not an empty room — it
     // throws to the error boundary, as before.
-    tables = await fetchTables(admin, event.event_id);
+    tables = await fetchPublicTables(admin, event.event_id);
   }
   /* 🪑 How the couple chose guests see their seat (owner 2026-11-01) and 🏪 the booked suppliers' booths — both read only
      once the seat gate opened the room, like the tables. An unread choice is today's (Both); an unread booth list draws

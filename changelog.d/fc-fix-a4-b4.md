@@ -11,9 +11,10 @@ Final check fixer, area 4 (Guest), lane A batch 4 — Event Hub readers and offl
   a stranger's pending request is not listed (A4-30).
 - `/[slug]/find-my-table`: the entrance comes from the one reader, `fetchEntrance` (the floor plan's door wins), the
   same door `/seat` and `/find-seat` draw (A4-33).
-- `/[slug]/seat`, `/find-seat`, `/find-my-table`: tables come from the couple's one seat-plan reader, `lib/seating.ts`
-  `fetchTables` (one order, one clean-up); `/seat`'s own copy shadowed the shared name. Each page still answers a
-  refused read honestly (A4-34).
+- `/[slug]/seat`, `/find-seat`, `/find-my-table`: tables come from one guest-safe reader, `lib/seating.ts`
+  `fetchPublicTables` (the seat plan's order and clean-up, and only the columns the map draws, so no table's QR token
+  reaches the browser); `/seat`'s own copy shadowed the shared name. Each page still answers a refused read honestly
+  (A4-34).
 - `/[slug]/find-seat`: the door reads "Open your invitation", never "Confirm your Booking" (A4-35).
 - `/[slug]/seat`: a failed alerts subscribe keeps the ask and says "Alerts didn't turn on", instead of vanishing
   (A4-52, the silent half; whether anything SENDS is the owner's call).

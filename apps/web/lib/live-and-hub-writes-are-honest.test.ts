@@ -29,10 +29,8 @@ function fn(src: string, name: string): string {
 
 test('E-01 · hero photo: both writes count their rows and go back with the failure line', () => {
   const src = read('dashboard/[eventId]/website/hero-photo/actions.ts');
-  for (const name of ['uploadHeroPhoto', 'removeHeroPhoto']) {
-    const body = fn(src, name);
-    assert.match(body, /\.select\('event_id'\);\s*if \([a-zA-Z]+Error \|\| ![a-zA-Z]+Rows\?\.length\) heroNotSaved\(eventId\);/, name);
-  }
+  assert.match(fn(src, 'uploadHeroPhoto'), /if \(saveError \|\| !savedRows\?\.length\) heroNotSaved\(eventId\);/);
+  assert.match(fn(src, 'removeHeroPhoto'), /if \(clearError \|\| !clearedRows\?\.length\) throw new Error\(/);
   assert.match(read('dashboard/[eventId]/website/hero-photo/page.tsx'), /hero === 'not-saved'/);
 });
 
@@ -51,7 +49,7 @@ test('L-05 · Live Watch setup: every link write counts its rows; go-live and en
     assert.match(fn(src, name), /if \(saveError \|\| !savedRows\?\.length\) linkNotSaved\(eventId\);/, name);
   }
   assert.match(fn(src, 'goLivePanood'), /mirrorFailed = Boolean\(mirrorError\) \|\| !mirrored\?\.length;/);
-  assert.match(fn(src, 'endPanoodBroadcast'), /if \(clearError \|\| !clearedRows\?\.length\) \{\s*return \{ ok: true, notice:/);
+  assert.match(fn(src, 'endPanoodBroadcast'), /if \(clearError \|\| !clearedRows\?\.length\) \{\s*console\.error\([^;]*\);\s*return \{ ok: true, notice:/);
   assert.match(read('dashboard/[eventId]/studio/panood/setup/page.tsx'), /link_not_saved: linkNotSaved/);
 });
 

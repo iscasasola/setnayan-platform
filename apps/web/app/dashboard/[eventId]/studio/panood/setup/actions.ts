@@ -378,6 +378,7 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
       .select('event_id');
     // L-05 (final check): the broadcast IS live on YouTube; only the Event Hub's player link did not land — say so.
     mirrorFailed = Boolean(mirrorError) || !mirrored?.length;
+    if (mirrorFailed) console.error('[panood/setup] go-live watch link mirror refused', mirrorError ?? 'zero rows');
   }
 
   // (g) ⭐ WAVE 7 · STAMP THE BROADCAST-WINDOW ANCHOR
@@ -576,6 +577,7 @@ export async function endPanoodBroadcast(eventId: string): Promise<GoLiveResult>
   revalidatePath('/[slug]', 'page');
   // L-05 (final check): the broadcast ended; a refused clear leaves the finished player up — say so, with the way out.
   if (clearError || !clearedRows?.length) {
+    console.error('[panood/setup] end-broadcast watch link clear refused', clearError ?? 'zero rows');
     return { ok: true, notice: 'The broadcast ended, but your Event Hub still shows the player. Press Remove link below.' };
   }
   return { ok: true };

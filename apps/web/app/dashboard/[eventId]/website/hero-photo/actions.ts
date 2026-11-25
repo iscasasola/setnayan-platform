@@ -156,7 +156,8 @@ export async function removeHeroPhoto(formData: FormData) {
     })
     .eq('event_id', eventId)
     .select('event_id');
-  if (clearError || !clearedRows?.length) heroNotSaved(eventId);
+  // Thrown, not redirected: Remove lands in place (`landAfterWrite`), and a new redirect would re-draw the screen.
+  if (clearError || !clearedRows?.length) throw new Error('That did not save. Nothing changed — please try again.');
 
   revalidatePath(`/dashboard/${eventId}/website/hero-photo`);
   revalidatePath(`/dashboard/${eventId}/website`);

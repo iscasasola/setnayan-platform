@@ -209,8 +209,7 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
       <>
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Both cameras are taken</h1>
         <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
-          This demo session already has its two cameras. Open Live Watch and press
-          “Try the control room with two phones” to start your own.
+          This demo already has its two cameras. Open Live Watch to start your own.
         </p>
         <OpenLiveWatch />
       </>
@@ -222,8 +221,7 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
       <>
         <h1 className="mt-3 text-xl font-semibold tracking-tight">This demo link expired</h1>
         <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
-          Demo codes are fresh every time. Open Live Watch and press “Try the
-          control room with two phones” for a new one.
+          Demo codes are fresh every time. Open Live Watch for a new one.
         </p>
         <OpenLiveWatch />
       </>

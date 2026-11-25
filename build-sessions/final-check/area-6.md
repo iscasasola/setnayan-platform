@@ -1128,3 +1128,58 @@ RULE      kit § 6 (signing in)
 SEVERITY  money-signin
 SOURCE    WALK
 ```
+
+## Add 4 · Where area 6 sells (buy and upgrade points)
+
+| # | Route · where | What is sold | Price shown before the button | How a person reaches it | Taps from the wall |
+|---|---|---|---|---|---|
+| 1 | /vendor-dashboard/booking-fees/[orderId] → /pay/[reference] | the booking fee on a booking | yes — the order's own amount (`formatPhp(headlineTotal)`), from the bill | Clients › Money › Booking fees › a bill › "Send your payment" (or a fee-gate "pay" link) | 4 to the pay page; NOT WALKED: the copy holds no fee bill for this shop ("Nothing to pay yet") |
+| 2 | Clients › Dates › Waiting list (Free shop) | a paid plan (waiting list on full dates) | **no** — "See the plans · A waiting list on full dates comes with the paid plans" | Clients › Dates › Waiting list fold | 2 to /vendor-dashboard/subscription, then the plan page (area 5) |
+| 3 | Clients › Money › This year (when locked) | Plus / Pro ("Plus and Pro carry the year") | **no** — "See plans" | Clients › Money › This year | 2 |
+| 4 | Client › Files (storage full) | a plan with more storage | **no** — a status line + "See plans" | client page › Files › add a file at the limit | 1 + the plan page |
+| 5 | On the day › live › album share switch | a plan that shares the album | **no** — "See plans" | On the day › an event's live console | 1 + the plan page |
+| 6 | On the day (after the free day-of window ends) | a plan to keep day-of tools | **no** — "Upgrade to keep using the day-of tools · See plans" | On the day | 1 + the plan page |
+| 7 | Event fee gate (production sheet, their event, day tools of a booking with an unsettled fee) | the booking fee | **no**, and on the copy no bill exists to pay (A6-B17) | client › Production sheet / Their event | dead end today |
+| 8 | Clients › Money › "Shop wallet · 0 Papic credits" | Papic packs | the wallet page (area 5) | Clients › Money › Shop wallet | 2 |
+
+```
+A6-B18
+PAGE      Clients › Dates (Waiting list) · Clients › Money (This year) · client › Files · live › album share · On the day
+ACTUAL    Five upgrade doors in area 6 are a bare "See plans" / "See the plans" link: no plan name with its ₱ price before the
+          press, no "what you get" lines, no current plan beside it, and a plain text link instead of ONE upgrade button.
+EXPECTED  Add 4 EVIDENT: at the wall, one line + the plan name and its price from `vendor_billing_catalog` + one button
+          opening the plan's checkout.
+RULE      FINAL-CHECK Add 4 (price before pressing · at the wall) · design-and-wiring B7 (honest 🔒)
+SEVERITY  wrong
+SOURCE    WALK + CODE
+```
+
+## Offline — beyond the five (Add 10 · Add 10b)
+
+The five full-offline places (owner 24 Nov) are not repeated here. Area 6 covers the **supplier** role only.
+
+### Supplier
+
+| Part (route · what it does) | When the signal drops | Level | Why (what breaks) |
+|---|---|---|---|
+| /vendor-dashboard/messages/[threadId] (client › Chat) — reply to a couple | at the venue on the day; on the road | SAVE AND SYNC | A reply typed in a dead zone is lost today; the composer should queue it and send on reconnect. Money cards (Ask for ₱…, Confirm received) must NOT queue — re-checked online. |
+| /vendor-dashboard/messages — the chat list | on the road; a province with weak data | READ-ONLY | Seeing who wrote last and the event dates without a signal; nothing to change offline. |
+| /vendor-dashboard/customers › Dates — "is this date open?" | at an expo booth | READ-ONLY | A supplier answers a walk-up couple from the last copy of the month; the answer is marked "as of …". |
+| /vendor-dashboard/customers › Events — the bookings list | at the venue; on the road | READ-ONLY | Which events this week, the couple's name, the agreed amount — the supplier's day plan. |
+| /vendor-dashboard/clients/[eventId] (Booking status · Your booking · Details) | at the venue on the day | READ-ONLY | The contact, the venue, the headcount and the agreed amount when the venue has no data. |
+| /vendor-dashboard/clients/[eventId]/production-sheet | at the venue on the day | READ-ONLY | The caterer cooks and plates from it; today only print saves it (A6 phase A). |
+| /vendor-dashboard/clients/[eventId]/their-event/schedule · numbers | at the venue on the day | READ-ONLY | The run of show and the final pax. |
+| /vendor-dashboard/clients/[eventId]/cocktail · mood-board | at the venue on the day | READ-ONLY | The stylist's palette and the bar menu at set-up. |
+| /vendor-dashboard/booking-fees · contracts/[contractId] | a province with weak data | READ-ONLY | See what is owed and the contract PDF; paying and publishing stay online. |
+| client › Payments "Confirm received" | at the venue (couple pays cash on the day) | SAVE AND SYNC | The supplier marks the cash received on the spot; it syncs and the couple's budget updates when back online. Must re-check the amount at sync. |
+
+### QR codes made in area 6 (Add 10b)
+
+| QR | What it is | Where it is made | What the scanner sees | No signal today (code) | Back online: what can go wrong | Caught today? |
+|---|---|---|---|---|---|---|
+| Booked (Locked) QR — "Book a client" / "Show a QR" / "Send their code" | a date hold + booking for one couple (with the quote) | Clients › Dates day bar and day sheet; client › people "Send their code" → /vendor-dashboard/invite?mode=locked (area 5 makes the code) | /vendor/lock/[token]: the shop, the date, the quote, "Lock it in" | cannot be made: `issueLockedQr` is a server action | **the same date held twice**: two codes for one date both claim (A6-71); a price changed between issue and claim (the quote rides the token — unchanged, so the old price books); a code shown twice → `taken` ("This Locked QR has already been used.") | double hold NO · shown twice YES · removed phone n/a (codes are not per phone today) |
+| Crew QR (Hub › Crew) | a crew member's pass into the supplier's event hub | On the day › an event › Crew | a join page; the phone waits for Allow | the QR is drawn server-side; shown only if the page was saved (On the day is in `supplierOfflinePaths`) | a forwarded QR admits nobody until Allow — safe | yes |
+| Guest review QR | the shop's review form for today's event | On the day › Reviews card (Print · Show fullscreen) | the guest review form | shown from the saved On the day copy if saved; the guest needs a signal to send | a review sent twice | not checked |
+| QR scanner (live console) | scans guests' passes / seats | On the day › live › Scanner | — | the live console is in `supplierOfflinePaths` | a guest checked in twice from two phones | (area 3/7 check-in) |
+
+Taps from the supplier's home to a booked QR: Clients (1) › a date (2) › "Show a QR" (3) → the invite page (area 5).

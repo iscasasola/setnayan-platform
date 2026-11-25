@@ -509,12 +509,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   // been signed off — the failure shape this repo has shipped twice (the guest
   // list and the vendor workspace). So an error is logged and the panels are
   // told, rather than silently drawing the blank state.
-  if (finalizationRes.error) {
-    console.error(
-      `[moodBoard] part finalizations unreadable for event_id=${eventId}:`,
-      finalizationRes.error.message,
-    );
-  }
+  // (A refused read returned `ok: false` above — S-05, final check — so here the read is real.)
   const finalizationRecords: PartFinalizationRecord[] = (finalizationRes.data ??
     []) as unknown as PartFinalizationRecord[];
 

@@ -1,7 +1,6 @@
 import { eventRowOnce } from '@/lib/event-row-once';
 import { getCurrentUser } from '@/lib/auth';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
-import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';

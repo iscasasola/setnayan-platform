@@ -57,6 +57,7 @@ export default async function PrintSheetPage({ params }: Props) {
     return (
       <section className="mx-auto w-full max-w-3xl px-4 py-6">
         <EmptyState
+          readPermitted
           Icon={Users}
           title="No guests to print yet."
           blurb="Add guests first — each one gets their own card with a QR here."

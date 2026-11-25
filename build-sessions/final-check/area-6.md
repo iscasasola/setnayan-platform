@@ -1,6 +1,6 @@
 # Final check · Area 6 · Supplier: bookings, chat, payments, calendar
 
-FIXER: batch 2 of ~3 · PRs https://github.com/iscasasola/setnayan-platform/pull/8311 (batch 1, review asks done, waits on Ship map regen) · https://github.com/iscasasola/setnayan-platform/pull/8324 (batch 2, ready, CI running) · batch 3 in preflight
+FIXER: batch 3 of ~4 · PRs https://github.com/iscasasola/setnayan-platform/pull/8311 (batch 1) · https://github.com/iscasasola/setnayan-platform/pull/8324 (batch 2) · https://github.com/iscasasola/setnayan-platform/pull/8331 (batch 3) · all ready; each waits on the Ship map regen and one CI suite run · batch 4 next (the rest of lane A)
 
 Checker 6 of 8. Checked commit: `fb3f72d` (the pinned check commit). Report only.
 STATUS: phase B done
@@ -1369,3 +1369,7 @@ Skipped in lane A, with the reason (🟠 = needs the owner):
   booking rule and a migration; it changes who can book a date, so it waits for the owner.
 - **A6-B01** (speed on the copy): the copy's setup (Add 14), not proven in code.
 - **A6-B22** (offline reload shows the browser's error): needs a Setnayan offline page in the service worker — a look change.
+
+**Correction (fixer, 25 Nov):** A6-56's wording half ("Hub" should read "Event Hub") was a wrong finding. The owner ruled on
+5 Nov that suppliers never read "Event Hub"; their day page is the "Hub" (`suppliers-read-hub-not-event-hub.test.ts`).
+Not changed. The read-failure half of A6-56 is fixed in batch 3.

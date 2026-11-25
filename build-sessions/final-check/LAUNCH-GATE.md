@@ -1,8 +1,16 @@
-# LAUNCH GATE · supplier sign-up + Apple upload (owner 25 Nov: "finish all that we need so we can launch, then the rest of the builds after")
+# LAUNCH GATE · clients + supplier sign-up + Apple upload (owner 25 Nov: "finish all that we need so we can launch, then the rest of the builds after")
 
 Launch = suppliers can sign up and open a shop, and the iOS app passes App Store review. Everything on this list lands
 first. Every other final-check build continues AFTER, in the normal order. The controller function-checks each PR; the
 controller never merges. "Live" only after /api/health shows the commit.
+
+## Owner 26 Nov: clients are in the launch too
+"Clients, suppliers and apple." Launch = clients (couples and hosts planning an event, and their guests) can use it
+honestly, suppliers can sign up and open a shop, and the iOS app passes App Store review.
+- **Added to the gate:** every remaining lane A batch for the client areas (area 2 couple plan, area 3 couple
+  Maker/Hub/Papic/Memories, area 4 guest) plus Add 41 (A2-I14 sponsors move into the guest list).
+- **Still after launch:** lane B drawings, lane C decisions, areas 1/5/6/7/8 batches not listed above, offline tools,
+  attire makers.
 
 ## Must land (in this order where it matters)
 

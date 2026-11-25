@@ -1568,3 +1568,134 @@ SHOTS     checker set: `login-error-empty.png` (375 light), the press-pass rows 
 RULE      kit § 6 money-signin (signing in) · CLAUDE.md § 5.4 honest states (a failure says its real reason)
 SEVERITY  money-signin
 SOURCE    SEEN
+
+#### B5-20 · Shop says "Add a starting price" to a shop whose four cards all have one; the shop page's "from" prices contradict their own lines
+PAGE      /vendor-dashboard/shop › Where your price sits · /{shop} (the couple's view of the cards)
+STEPS     1. Open Shop, scroll to "Where your price sits". 2. Signed out, open /liwanagphotoandfilm and read the card prices.
+EXPECTED  The price-position block reads the cards' starting prices. A per-guest card's "from" equals its per-guest price ×
+          its minimum.
+ACTUAL    Shop: "Where your price sits · Add a starting price to see where you sit · Set a starting price", twice. The shop
+          page shows the same four cards "from ₱47,880 … from ₱95,760". On the shop page, "from ₱63,840 · ₱1,995 / guest ·
+          min 50 guests" (₱1,995 × 50 is ₱99,750), "from ₱79,800 · ₱7,980 for 4 hrs", "from ₱95,760 · ₱998 for 100
+          pieces". The second half is seed-shaped (the seed writes `starting_price_php` apart from the per-unit price);
+          check it on a card made in the maker. The first half is a reader disagreement.
+SHOTS     checker set: x2 `_vendor_dashboard_shop-375-light.png`; so2 `_liwanagphotoandfilm-375-light.png`
+RULE      design-and-wiring C8 (one reader) · CLAUDE.md § 1 money
+SEVERITY  wrong (the shop page half: money-signin if it repeats on a maker-made card)
+SOURCE    SEEN
+
+#### B5-21 · The Shop settings layer, like the NFC popup, does not close with Escape
+PAGE      /vendor-dashboard/profile (⚙ Shop settings), and every page with the ⚙
+BUTTON    "Shop settings"
+STEPS     1. Press ⚙ on a computer. 2. Press Escape.
+EXPECTED  Closes (K3), the same way as other popups (the Account switcher and the Add sheets close on Escape).
+ACTUAL    Stays open.
+RULE      K3 · Add 5 (same everywhere)
+SEVERITY  broken
+SOURCE    SEEN
+
+### Add 3 · Placeholders a real supplier would see (walk)
+
+| Where | What | Finding |
+|---|---|---|
+| Shop › Analytics (Opened) | an "Example" zigzag over a real 0 | B5-08 |
+| Portfolio › Most viewed albums | "EXAMPLE · Cover · 14 photos" for a shop with 0 photos | B5-13 |
+| Shop hero | "Sample photo · Upload yours" over a stock hall photo | polish: honest (labelled), but stock art on the shop's own hero |
+| Bundle maker | ₱0 in seven places before anything is picked; "above ₱0 and below ₱0" | B5-10 |
+| Promote › Your gifts | `PAPIC_GUEST_150` | B5-09 |
+| Card maker › Availability | "Coming soon" styles | A5-X-04 (confirmed in code; the dropdown was not opened on the copy) |
+| Your page › custom domain | `sny.yourshop.com` | not a finding: a hint in an empty field |
+| Seeded "Staging sample shop — Quezon City", `stg-` events, `.test` sign-ins | | not findings (seed) |
+
+### Add 4 · Every place area 5 sells (walk + code)
+
+| # | Route | What is sold | Price shown before the button | How a person reaches it | Finding |
+|---|---|---|---|---|---|
+| 1 | /vendor-dashboard/subscription | supplier plans (Free · Verified · Plus · Pro · Ultra), monthly | yes: "You are on Pro · ₱4,990 / month"; Plus ₱1,990 / month. They match /for-suppliers (Plus ₱1,990 · Pro ₱4,990 · Ultra ₱8,990) | desktop: rail › Plan (1 tap). Phone: ☰ › Plan, or Shop › ⚙ › Plan and billing (3 taps) | each lower plan unfolds a "What changes" table of 8 rows on the phone (Add 4: no feature table on a phone); Ultra comes after the lower plans |
+| 2 | /vendor-dashboard/website › "What each plan adds" | plans | **no** ("See plans") | Shop › Page | "Free · Plus ◆ · Pro ◆": Verified and Ultra are missing, and the current plan (Pro) is not marked. A Pro shop is told "Pro: Everything in Plus, with more storage" with "See plans" |
+| 3 | /vendor-dashboard/team/roles › "Change plan" | plans | no | Team › Roles | a link with no price; fine as a link to #1 |
+| 4 | Shop › Storage (upgrade) | a bigger plan | no | Shop › Storage bar | A5-G4-07 (code) |
+| 5 | Theft Watch · Deep Search · Song bank locks | Pro / paid features | no | Toolkit | A5-G5-09, A5-G6-15, A5-G6-12 (code); this shop is Pro, so the locks were not met on the copy |
+| 6 | /vendor-dashboard/shop/store (Toolkit) | widgets | yes, "Buy ₱499" on a paid widget; "Free" on the rest | Shop › Toolkit (2 taps) | ok |
+| 7 | /vendor-dashboard/shop/qrs/page · Promote › Your gifts | gift credits (Papic, Event plans as gifts) | **no** ("Buy gifts", "Buy more") | Shop › Promote, or a QR page | price only after pressing |
+| 8 | Promote › Prints | printed materials (15 designs, 7 pieces) | not read in the walk (the rows open a sheet) | Shop › Promote | not verified |
+| 9 | Your details › branches | extra branch ("Add branch · included in …") | read as "included" on Pro | Profile › Where you work | ok |
+| 10 | Plan › AI chatbot | the AI Chatbot add-on | not opened | Plan | A5-X-03 ("Vendor AI" on the order) |
+| 11 | /{shop}/invite (the couple's side) | nothing sold; "Sign up free & add this supplier" | n/a | a shop QR | ok |
+
+Taps from a wall to "payment logged": not walked to the end. The plan buttons start a real order (`sku_code` form), and the
+check rule is never to pay. Pressing them would also create orders for area 8's desk. The count up to the order button
+from Today (phone): ☰ › Plan › a plan row › "Switch to Plus" = 3 taps. Then GCash/BDO proof upload, which was not done.
+
+### Add 5 · Main jobs in area 5, as a first-timer on a phone
+
+| Job | Rating | The step that makes it hard |
+|---|---|---|
+| Publish a service card | OK | The maker is a long single page under two stacked thumb bars (Cancel/Create over the bottom nav). The Name box shows the middle of the name. "Hidden until: a cover photo · a price" tells you what is missing, which helps. |
+| Make and share a QR (Check a date) | OK | It is 4 taps from Today (Shop › Promote › My QRs "Open page" › Check a date) and there is no QR door on Shop itself at 375. The code page is clean: one Download button, Share, Copy link, the shop name under the code. |
+| Upgrade the plan | HARD | On a phone the Plan is not in the bottom bar or on Shop's face (☰ or ⚙). Each plan unfolds an 8-row table. The Your page ladder disagrees with the Plan page (B5-23 below). |
+| Invite a team member | EASY | Team › "Invite to your team" (one sheet). |
+| Fill in Your details | HARD | Five filled buttons compete (B5-14); "0/3 documents in" sits beside "verified". |
+| Build a bundle | HARD | Seven ₱0s before you start (B5-10); "Send to this couple" with no couple. |
+
+### Add 10 · Offline beyond the five (area 5 is the supplier role)
+
+What was tried on the copy (Playwright `setOffline`, signed in, service worker `sw.js` active):
+- **The offline bar works.** On a page already open, it says "You're offline", then "Back online ✓" when the signal
+  returns, and the page catches up.
+- **Opening any area-5 page with no signal fails with the browser's own "no internet" page**, not even `/offline.html`:
+  /vendor-dashboard/shop/qrs and its four codes, /vendor-dashboard/invite, /vendor-dashboard/shop, Today, packages and
+  collections. Caveat: /vendor-dashboard/on-the-day, which the worker is built to keep, also failed the same way here. So
+  the test harness may stop the worker from answering. **Re-check with DevTools › Network › Offline on a real phone
+  before acting on this line.** The code agrees for area 5's own pages: none of them is in `OFFLINE_COPY_SHAPES`
+  (`public/sw.js`), so with no signal they can only reach the offline shell.
+- The "QR page already open, then the signal drops" test could not be finished: sign-in on the copy failed (B5-19).
+
+| The part | When the signal drops | Level it needs | Why |
+|---|---|---|---|
+| /vendor-dashboard/shop/qrs/[code] (show one code) | expo booth, venue | **FULL** | **QR.** The supplier holds the code up for a couple. The code is drawn on the server (`renderUrlQrSvg`), so with no signal there is no code at all |
+| /vendor-dashboard/shop/qrs (the list) | expo booth | READ-ONLY | **QR.** Pick which code to show |
+| /vendor-dashboard/invite (Add a client, Booked · one-use) | expo booth, on the road | **SAVE AND SYNC** | **QR.** A deal agreed at the booth must not wait for signal; today it is a server action that refuses offline |
+| /vendor-dashboard/collections (Portfolio "Show") | expo booth | READ-ONLY | showing past work to a couple at the table |
+| /vendor-dashboard/packages, card list on Shop | expo booth | READ-ONLY | quoting from the price list "as of" the last sync |
+| /vendor-dashboard/profile (contact, address) | on the road | READ-ONLY | reading the shop's own details to a caller |
+| /vendor-dashboard (Today) | venue, province | READ-ONLY | the day's tasks as last seen |
+| Plan, Team, Toolkit, Your page, Deep Search | — | NOT NEEDED | buying and editing need the network by rule |
+
+### Add 10b · The supplier QR challenge (what ships today, area 5's makers)
+
+**1 · The list** (every QR an area-5 page makes)
+
+| QR | Kind | Made where | What the scanner sees |
+|---|---|---|---|
+| Your page | shop link | Shop › Promote › My QRs › Your page (`/shop/qrs/page`) | the shop page `/{shop}?src=own&via=link` |
+| Reviews | shop link | My QRs › Reviews | `/{shop}/review` |
+| Shortlist · free | invite (adds the shop to the couple's plan) | My QRs › Shortlist (picks: event type, service) | `/{shop}/invite`: "Save Liwanag Photo & Film to your event · Sign up free & add this supplier" (walked: clean, one button) |
+| Check a date · free | a date check (read-only) | My QRs › Check a date | `/{shop}/dates` → `/{shop}?dates=1`, the open days. On the copy this answered 500 (B5-03, likely load) |
+| Invite shops you trust | a partner invite | /open-shop/invite, Partnerships | the partner join page |
+| Add a client (own client + gift) | invite **with a gift** | /vendor-dashboard/invite (area 5 page; Customers › QR codes) | `/{shop}/invite?ci=…`: the gift is given from bought stock at the scan |
+| Booked · one-use (Locked QR) | **a deal: date + price + first payment** | /vendor-dashboard/invite?mode=locked | `/vendor/lock/{token}` (area 6): the deal, then claim |
+| Print your QR | the same codes on paper | Promote › Prints | the printed code's address (`via=print`) |
+
+**2 · With no signal:** none of them can be made, and none can be opened fresh (above). Every code is drawn by the
+server. The shop-link codes (Your page, Reviews, Shortlist, Check a date) do not change, so a downloaded or printed copy
+works offline; the app does not offer to keep one for offline. A couple scanning with no signal of their own reaches
+nothing; every landing is a server page.
+
+**3 · Back online, what can go wrong at sync** (today's code; the held engine #8284 is not on the copy):
+
+| Case | Code | Caught today? | Words |
+|---|---|---|---|
+| The same date held twice (two Booked codes for one date) | Booked · one-use | yes, at **make** time (`date_unavailable`). A second code made before the first is claimed is refused only if the date is already booked or blocked; two **unclaimed** codes for one date can both exist. At claim the RPC decides | supplier: "That date is already booked or blocked on your calendar — you can't lock a second booking on it." |
+| A price changed between making and scanning | Booked · one-use | the code carries its own total, so the couple gets the price agreed at the booth. Not a sync problem today, because the code is made online | — |
+| A gift that ran out | Add a client | yes: "given from bought stock FIRST … with too little stock the couple still lands on the shortlist … not yet an own client" (`vendor-invite/[slug]/actions.ts`) | the couple is not told the gift did not come; the supplier sees it only in gift history |
+| A code shown twice / scanned twice | Booked · one-use | yes: single use (`taken`) | couple: "This Locked QR has already been used." (uses "Locked QR", while the supplier's screen calls it "Booked · one-use") |
+| A code made on a phone since removed | all | not applicable today: codes are made by the server, not the phone | — |
+| The code changed while the couple was scanning | Booked · one-use | yes: `replaced_claimed` | supplier: "The code you were changing was scanned a moment ago — it is a booking now…" |
+
+Also seen: the couple's lock page labels the date "Wedding date" for any event type (area 6 page; passed on).
+
+**4 · Easy to handle:** 4 taps from Today to a code on a phone (Shop › Promote › My QRs › the code). The code is about
+170 px on a 375 px screen (about 4.5 cm). It scans phone to phone but is small for arm's length; a "Show big" or full
+screen option would help. The shop's name is under the code. In dark, the QR card stays a white surface (navy preview);
+that is right for scanning, but it is the one white surface on the page.

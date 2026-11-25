@@ -110,6 +110,7 @@ test('the page draws the guest list’s sponsors, and a refused read stops it', 
   const page = src('page.tsx');
   assert.match(page, /readEventSponsorGuests\(admin, eventId\)/);
   assert.doesNotMatch(page, /\.from\('event_sponsors'\)/);
-  const refused = page.indexOf('if (sponsorRows === null) {');
+  assert.match(page, /const sponsorRowsError = sponsorRows === null;/, 'the refusal is the guest read’s own');
+  const refused = page.indexOf('if (sponsorRowsError) {');
   assert.ok(refused > 0 && refused < page.indexOf('slots filled'), 'never "0 of N slots" over a refused read');
 });

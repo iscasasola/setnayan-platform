@@ -23,7 +23,6 @@ import { PairTargetPicker } from './_components/pair-target-picker';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { addSponsor } from './actions';
 import { readEventSponsorGuests } from '@/lib/sponsor-guests';
-import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { formatCount } from '@/lib/format-number';
 import { InfoTip } from '@/app/_components/info-tip';
 import { ReadRefusedNotice } from '../_components/read-refused-notice';
@@ -140,16 +139,9 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
 
   const eventName = event.display_name ?? 'Your event';
   const coupleNames = event.display_name ?? 'we';
-  // A refused read stops here — never "0 of N slots filled" with Add buttons over sponsors already there.
-  if (sponsorRows === null) {
-    return (
-      <section className="mx-auto w-full max-w-3xl tab:max-w-3xl space-y-4">
-        <PageMasthead title="Sponsors" />
-        <ReadRefusedNotice what="your sponsors" />
-      </section>
-    );
-  }
-  const sponsors: SponsorRow[] = sponsorRows;
+  // A refused guest-list read is said below (A2-I13) — `sponsorRowsError`, before any slot is counted.
+  const sponsorRowsError = sponsorRows === null;
+  const sponsors: SponsorRow[] = sponsorRows ?? [];
 
   // Highest pair_index already in use — guards the picker.
   const highestUsedPair = sponsors.reduce(

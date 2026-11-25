@@ -179,6 +179,55 @@ None found. (Phase B, so far: the copy is slow under all eight checkers, but eve
 - [x] /admin/venues → /admin/accounts?tab=venues · lands ✓ (code: target + `?tab=` key read by the host page)
 - [x] /admin/website → /admin/studio?tab=website · lands ✓ (code: target + `?tab=` key read by the host page)
 
+## Phase B · the owner's additions (Adds 1–10b)
+
+### Add 1 · Popup, full-screen popup, or page
+Admin is a desk of places people come back to, so almost every address is rightly a PAGE. Only these differ (from
+phase A, confirmed on the copy):
+- `/admin/venues/new` · today PAGE → should FULL-SCREEN POPUP over Accounts › Venues (a long fill-in; the person came from the venues list). D-30.
+- `/admin/discount-codes/new` · today PAGE → should FULL-SCREEN POPUP over Money › Offers & gifts › Discount codes. A-29.
+- The 13 popup findings in phase A (a popup on a popup, a long form in a half sheet) stand; see the `SHAPE` lines under each group.
+
+### Add 3 · Placeholders
+Admin is seen only by the Setnayan team, so none of these reaches a real couple or supplier on setnayan.com. Listed for
+the builder, all **polish**:
+- `/admin/ugat?tab=brain` (`brain-surface.tsx`, `ComingSoonTab`): grey tabs labelled **"Coming soon"**. They are not pressable (`aria-disabled`), so they pass the rule, but they are clutter (Add 2 CLEAN).
+- `/admin/compliance/data-sheet`: empty fields print **"[TO CONFIRM]"** on purpose (a filing sheet that must show its gaps). Honest; keep.
+- `/admin/app-performance` intelligence rows print "date TBD" when an event has no date. Honest wording; fine.
+- `/admin/categories`: "coming soon" is a real state of a religion (not yet live for couples). Fine.
+- Code grep for lorem / John Doe / Juan dela Cruz / "Your name here" / "under construction" over `app/admin`: **none**.
+- Seen in the walk: none beyond the above (seeded `stg-…` data and `@final-check.test` people are not findings).
+
+### Add 4 · Places to buy or upgrade
+**Admin sells nothing to anyone**: there is no buy, upgrade, plan gate or checkout in area 8. What area 8 owns is where
+every price a buyer sees is **set**, so the owner's list of where Setnayan sells points here for its source:
+| Admin place (route) | What it sets | Read by |
+|---|---|---|
+| Money › Prices (`/admin/pricing`, views Prices · AI prices · Papic shots · Bands · Free windows · Plan contents) | the catalogue rows of `platform_retail_catalog_v2` / `vendor_billing_catalog` | Pricing, For Suppliers, every 🔒 gate, checkout |
+| Money › Offers & gifts (`/admin/offers`, views Launch offer · Discount codes · Referrals · Gifts & comps · Founder seats · Badges & seals) | promotions and give-aways | checkout totals, supplier plan pages |
+| Money › To approve › Fees owed / Payment options / Subscriptions (`/admin/payments?view=…`) | the booking fee switches, the payment rails shown to payers (BDO QR, Maya), plan confirmations | `/pay/[reference]`, the supplier's Subscription page |
+| Setup › Business keys & privacy › Integrations (`/admin/business?view=integrations`) | Maya on/off and sandbox, the Setnayan AI paywall switch | the payer's choice of rail; the AI unlock gate |
+EVIDENT / CLEAN / HONEST apply to the buyer pages in areas 1, 2, 5 and 6. For the admin side, the HONEST risks are
+phase A's money-signin themes 2 and 3 (a failed read shown as ₱0 or "Free"; pesos formatted by hand or typed into code)
+and theme 1 (price changes not held to the Escalated level, B-2). No test payment was made; taps to "payment logged"
+are not an admin job.
+
+### Add 10 · Offline — beyond the five (admin role)
+Admin is not one of the owner's five offline places. Tried on the copy (375 px, browser set offline while on
+`/admin/work`): the page already drawn stays readable and a black **"You're offline"** bar appears, but the bar sits
+**over** the top bar and hides the mark and the Focus/Full buttons (finding P-B-OFF-1 below). Back, a tab or any new admin
+address offline gives the **browser's own "no internet" error page**, not a Setnayan saved copy or offline page
+(P-B-OFF-2). Back online, `/admin` loads again normally and nothing was lost (nothing had been typed).
+
+| Part (route · what it does) | When the signal drops | Level | Why |
+|---|---|---|---|
+| Focus / Work queue (`/admin`, `/admin/work`) · what needs an admin today | on the road, weak data | READ-ONLY | the one admin should still see what is waiting and how old it is |
+| BDO screenshot matcher (`/admin` "Add received screenshots") · reads BDO app pictures on the phone | on the road | READ-ONLY (read the pictures now, match when back) | it already reads on the phone; confirming a payment must stay online (money) |
+| Messages (`/admin/work?view=messages`, help replies) | on the road | SAVE AND SYNC | a typed reply to a couple should not be lost when the signal drops |
+| Money › To approve (confirm payments, payouts, refunds) | any | READ-ONLY | money moves only online; seeing the list offline is enough |
+| Everything else (Catalogue, Insights, Setup) | — | NOT NEEDED | desk work |
+Add 10b (supplier QR) is areas 5–7; area 8 has no QR maker.
+
 ## Findings
 
 > IDs: `L-n` = area-wide (checker 8 itself) · `A`–`I` = one id per group of pages (A money · B pricing & catalogue ·
@@ -2506,7 +2555,7 @@ SHOTS     —
 RULE      checklist 2(b): API routes an admin page calls must check admin on the server
 SEVERITY  money-signin
 SOURCE    CODE
-PHASE B   **CONFIRMED on the copy, 25 Nov ~08:10 UTC.** Signed in as the shared non-admin `messy-one`, from an ordinary page, `POST /api/upload` with `{ bucket: 'media', pathPrefix: 'homepage-bg/slot-0', contentType: 'video/mp4' }` → **200** with an `uploadUrl` and an object key under `homepage-bg/slot-0/`. The same call for `hub-music/x` → **403** "That upload location isn't allowed." So the admin test exists for hub music and is missing for the homepage videos. Only the presign was asked for: **no bytes were PUT, nothing was created.**
+PHASE B   **CONFIRMED on the copy, 25 Nov ~07:50 UTC.** Signed in as the shared non-admin `messy-one`, from an ordinary page, `POST /api/upload` with `{ bucket: 'media', pathPrefix: 'homepage-bg/slot-0', contentType: 'video/mp4' }` → **200** with an `uploadUrl` and an object key under `homepage-bg/slot-0/`. The same call for `hub-music/x` → **403** "That upload location isn't allowed." So the admin test exists for hub music and is missing for the homepage videos. Only the presign was asked for: **no bytes were PUT, nothing was created.**
 
 #### G-5 · "Open couple page ↗" goes to /{public_id}, which is not an Event Hub address
 PAGE      /admin/studio   (tab: reveal-studio)

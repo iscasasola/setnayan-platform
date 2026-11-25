@@ -52,6 +52,11 @@ async function draftHero(eventId: string, ref: string | null, formData: FormData
   return landAfterWrite(formData, `/dashboard/${eventId}/launch`);
 }
 
+/** A refused hero write goes back to the editor with the failure line, never to a saved landing. Never returns. */
+function heroNotSaved(eventId: string): never {
+  redirect(`/dashboard/${eventId}/website/hero-photo?hero=not-saved`);
+}
+
 export async function uploadHeroPhoto(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
@@ -104,14 +109,17 @@ export async function uploadHeroPhoto(formData: FormData) {
     'background',
   );
 
-  await supabase
+  const { data: savedRows, error: saveError } = await supabase
     .from('events')
     .update({
       landing_page_hero_image_url: heroImageUrlRaw,
       landing_page_hero_image_uploaded_at: new Date().toISOString(),
       landing_page_hero_image_uploaded_by_user_id: userId,
     })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('event_id');
+  // E-01 (final check): RLS refuses by matching zero rows with no error — never land a refused save as saved.
+  if (saveError || !savedRows?.length) heroNotSaved(eventId);
 
   // Revalidate the dashboard hub + the website hub + the public landing
   // page so cached HTML reflects the new photo immediately.
@@ -139,14 +147,16 @@ export async function removeHeroPhoto(formData: FormData) {
 
   const supabase = await createClient();
 
-  await supabase
+  const { data: clearedRows, error: clearError } = await supabase
     .from('events')
     .update({
       landing_page_hero_image_url: null,
       landing_page_hero_image_uploaded_at: null,
       landing_page_hero_image_uploaded_by_user_id: null,
     })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (clearError || !clearedRows?.length) heroNotSaved(eventId);
 
   revalidatePath(`/dashboard/${eventId}/website/hero-photo`);
   revalidatePath(`/dashboard/${eventId}/website`);

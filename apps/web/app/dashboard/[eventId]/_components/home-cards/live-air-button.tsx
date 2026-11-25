@@ -35,6 +35,8 @@ export function LiveAirButton({ eventId, onAir, source }: { eventId: string; onA
       ).catch(() => ({ error: 'That did not go through. Please try again.' }));
       if ('error' in r) {
         setLine(r.error);
+      } else if ('notice' in r && r.notice) {
+        setLine(r.notice);
       }
       // (No refresh: these actions revalidate, so their answer already carries Home's new render — one render per press.)
     });

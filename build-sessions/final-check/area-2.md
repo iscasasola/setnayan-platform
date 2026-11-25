@@ -1,5 +1,7 @@
 # Final check · Area 2 · Couple: create an event and plan it
 
+FIXER: batch 1 of ~5 · PR #8309 · draft, waiting for CI (14 lane A fixes) · batch 2 (SW-RAWDB, 9 IDs) built, batch 3 in progress
+
 STATUS: phase B done · 77 entries walked at 375/768/1280 light + dark · 24 new findings (0 blocker · 4 money-signin · 4 broken · 5 wrong · 11 look) · buttons 2191 (375) / 2698 (1280) · pressed 1202 · failed 0
 
 > Checker 2 of 8. Report only, no fixes. Main frozen at `fb3f72d`. Phase A = code pass (`SOURCE: CODE`);
@@ -2566,3 +2568,22 @@ Where pressed < buttons, the line says which were left and why.
 
 **Add 10b (supplier QR) — areas 5, 6, 7.** For a couple the only QR moment in area 2 is scanning a supplier's QR at an
 expo; that lands on the supplier's shop (area 5/1), not on an area-2 page. Nothing to add here.
+
+## Second pass (25 Nov)
+
+Pages touched by fix batch 1, checked against Adds 11, 11b, 12, 13, 15, 17 and 18. Only the lane A lines are fixed.
+
+- **A2-P4 not reproduced (copy health).** Re-walked after the copy sped up: `/dashboard?seg=people&view=samahan` draws
+  "Groups · No group yet · New" in 20 s. The blank screen was the copy's slow stream, not the code. No fix.
+- [A] A2-S1 (fixed in batch 2, folded into SW-RAWDB) · /dashboard/[eventId]/disputes and /sponsors · both print `?error=` from the address bar as the alert
+  text (`{search.error}` / `search.error ?? null`), so a crafted link shows any words under Setnayan's name → map
+  fixed message keys to plain sentences, ignore anything else (the SW-URI rule; area 2's pages are not in that sweep).
+- [B] A2-S2 · /activity, /disputes, /contracts, /documents, /people (list pages) · no pull to refresh on a phone
+  (Add 11.3) · Reference: the iOS Mail list pull-to-refresh, header stays put.
+- [B] A2-S3 · /vendors/categories (category list) · hand-typed `text-[13px]`, `text-[15px]`, `text-[12.5px]` sizes and
+  45 px initials circles; rows are phone-sized on desktop too (Add 11b) · Reference: Gmail's denser desktop rows.
+- [B] A2-S4 · /guests/checkin, /guests/souvenirs · the desk title is a hand-made `<h1>` with a QR / gift icon, not
+  `PageMasthead` (already A2-D8 / A2-P15, noted again for the drawing).
+- Add 12 (motion), 13 (icons), 15 (logo), 17 (retired), 18 (reveals): nothing new on these pages. None of the touched
+  pages is in lane R.
+

@@ -1,0 +1,808 @@
+<title>Event Card Menu</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700;800&family=Space+Mono&display=swap');
+
+/* ── the drawing's own page (outside the frames) ── */
+.ecm {
+  --o-bg: #F7F5F4; --o-ink: #2C2A29; --o-m: #6E6A62; --o-line: #E1DCD1; --o-card: #FFFFFF;
+  font-family: 'Hanken Grotesk', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  background: var(--o-bg); color: var(--o-ink);
+  padding: 24px 16px 40px; font-size: 14px; line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) .ecm { --o-bg: #121110; --o-ink: #F7F4EE; --o-m: #A49E93; --o-line: rgb(247 244 238 / .16); --o-card: #1C1A16; }
+}
+:root[data-theme='dark'] .ecm { --o-bg: #121110; --o-ink: #F7F4EE; --o-m: #A49E93; --o-line: rgb(247 244 238 / .16); --o-card: #1C1A16; }
+.ecm *, .ecm *::before, .ecm *::after { box-sizing: border-box; }
+.ecm h1 { font-size: 30px; font-weight: 700; line-height: 1.08; letter-spacing: -0.02em; margin: 0 0 8px; }
+.ecm .lede { margin: 0 0 24px; color: var(--o-m); font-size: 15px; max-width: 60ch; }
+.ecm-boards { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+.ecm-board { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; width: 375px; min-width: 0; max-width: 100%; }
+.ecm-board.wide { flex: 1 1 100%; width: auto; }
+.ecm-cap { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+.ecm-cap b { font-size: 15px; font-weight: 700; }
+.ecm-cap span { color: var(--o-m); font-size: 13px; }
+.ecm-reset { margin-left: auto; min-height: 44px; padding: 0 4px; border: 0; background: none; font: inherit; font-size: 13px; font-weight: 600; color: var(--o-ink); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.ecm-scroll { overflow-x: auto; max-width: 100%; padding-bottom: 4px; }
+.ecm-notes { margin-top: 24px; display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.ecm-notes section { background: var(--o-card); border: 1px solid var(--o-line); border-radius: 12px; padding: 16px; }
+.ecm-notes h2 { margin: 0 0 8px; font-size: 15px; font-weight: 700; }
+.ecm-notes ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; font-size: 13px; }
+.ecm-notes code { font-family: 'Space Mono', ui-monospace, monospace; font-size: 11px; }
+
+/* ── a frame = one screen of the app. The app's own token names and values (globals.css, origin/main). ── */
+.ecm-frame {
+  --color-cream: 255 255 255; --color-raised: 255 255 255; --color-raised-2: 244 242 236; --color-wash: 237 234 224;
+  --color-ink: 44 42 41; --color-ink-2: 58 56 47; --color-ink-3: 110 106 98;
+  --color-mulberry: 194 78 37; --color-mulberry-700: 157 63 30; --color-on-accent: 255 255 255;
+  --color-link: 59 78 103; --color-danger: 179 38 30; --color-on-danger: 255 255 255; --color-terracotta: 169 131 75;
+  --color-band-from: 255 255 255; --color-band-glow: none;
+  --m-line: #E1DCD1; --m-slate-3: #8A857B;
+  --sn-btn-secondary-bg: rgb(44 42 41 / 0.06); --sn-scrim: rgb(44 42 41 / 0.42); --sn-scrim-blur: 6px;
+  --m-shadow-lg: 0 40px 80px -30px rgba(30,26,18,.28), 0 10px 30px -8px rgba(30,26,18,.10);
+  --m-r-xs: 4px; --m-r-sm: 8px; --m-r-md: 12px; --m-r-lg: 22px; --m-r-xl: 36px; --m-r-full: 999px;
+  --sn-space-1: 4px; --sn-space-2: 8px; --sn-space-3: 12px; --sn-space-4: 16px; --sn-space-5: 24px;
+  --sn-fs-2xs: 10px; --sn-fs-xs: 11px; --sn-fs-sm: 12px; --sn-fs-md: 13px; --sn-fs-base: 14px; --sn-fs-lg: 15px; --sn-fs-xl: 17px; --sn-fs-2xl: 19px; --sn-fs-3xl: 22px;
+  --sn-m-tap: 100ms; --sn-m-quick: 200ms; --sn-m-release: 280ms; --sn-m-move: 320ms; --sn-m-close: 256ms;
+  --sn-m-settle: cubic-bezier(.2,.8,.2,1);
+  --sn-m-spring: cubic-bezier(.34,1.56,.64,1);
+  position: relative; overflow: hidden; isolation: isolate;
+  width: 375px; max-width: 100%; height: 760px;
+  border: 1px solid var(--o-line); border-radius: var(--m-r-xl);
+  background: rgb(var(--color-cream)); color: rgb(var(--color-ink));
+  font-size: var(--sn-fs-base); line-height: 1.4; font-variant-numeric: tabular-nums;
+}
+@supports (transition-timing-function: linear(0, 1)) {
+  .ecm-frame { --sn-m-spring: linear(0, 0.062, 0.204, 0.379, 0.551, 0.704, 0.827, 0.919, 0.983, 1.022, 1.042, 1.05, 1.048, 1.042, 1.034, 1.025, 1.017, 1.01, 1.005, 1.002, 0.999, 0.998, 0.998, 0.998, 0.998, 0.998, 1); }
+}
+.ecm-frame.dark {
+  --color-cream: 18 17 16; --color-raised: 28 26 22; --color-raised-2: 38 35 30; --color-wash: 48 44 38;
+  --color-ink: 247 244 238; --color-ink-2: 210 204 193; --color-ink-3: 164 158 147;
+  --color-mulberry: 238 132 86; --color-mulberry-700: 242 160 125; --color-on-accent: 26 18 12;
+  --color-link: 157 178 206; --color-danger: 242 129 122; --color-on-danger: 26 18 12; --color-terracotta: 203 167 102;
+  --color-band-from: 36 31 26;
+  --color-band-glow: radial-gradient(120% 95% at 88% -8%, rgb(var(--color-mulberry) / 0.4) 0%, rgb(var(--color-mulberry) / 0) 58%), radial-gradient(90% 70% at -10% 110%, rgb(var(--color-terracotta) / 0.16) 0%, rgb(var(--color-terracotta) / 0) 60%);
+  --m-line: rgb(var(--color-ink) / .16); --m-slate-3: #9A958C;
+  --sn-btn-secondary-bg: rgb(var(--color-wash)); --sn-scrim: rgb(0 0 0 / 0.55);
+  --m-shadow-lg: none;
+}
+.ecm-frame.desk { width: 1280px; max-width: none; height: 760px; border-radius: var(--m-r-md); }
+.ecm-frame button { font: inherit; color: inherit; -webkit-tap-highlight-color: transparent; }
+.ecm-frame :focus-visible { outline: 2px solid rgb(var(--color-mulberry)); outline-offset: 2px; }
+.ecm-frame svg.ic, .ecm-frame svg.end { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+
+.ecm-screen { position: absolute; inset: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; }
+.ecm-frame[data-open] .ecm-screen { overflow: hidden; }
+.ecm-main { flex: 1; min-width: 0; padding-bottom: 112px; }
+.ecm-top { background: var(--color-band-glow, none), rgb(var(--color-band-from)); border-bottom: 1px solid var(--m-line); }
+.ecm-top .bar { height: 56px; padding: 0 16px; display: flex; align-items: center; justify-content: space-between; }
+.ecm-frame .wm { font-weight: 800; letter-spacing: .15em; font-size: var(--sn-fs-lg); }
+.ecm-frame .av { width: 56px; height: 56px; border-radius: var(--m-r-full); display: grid; place-items: center; flex: none; background: rgb(var(--color-wash)); color: rgb(var(--color-ink-2)); font-weight: 700; font-size: var(--sn-fs-xl); box-shadow: 0 0 0 2px rgb(var(--color-cream)), 0 0 0 3px rgb(var(--color-terracotta)); }
+.ecm-frame .av.sm { width: 32px; height: 32px; font-size: var(--sn-fs-xs); box-shadow: none; }
+.ecm-top .prof { display: flex; align-items: center; gap: 12px; padding: 8px 16px 16px; }
+.ecm-top .pn { display: grid; min-width: 0; }
+.ecm-top .pn b { font-size: var(--sn-fs-3xl); font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+.ecm-top .pn span { font-size: var(--sn-fs-md); color: rgb(var(--color-ink-3)); }
+.ecm-frame .col { padding: 0 16px; max-width: 720px; margin: 0 auto; }
+.ecm-frame .part { padding-top: 24px; display: grid; gap: 12px; }
+.ecm-frame .sh { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
+.ecm-frame .sh h2 { margin: 0; font-size: var(--sn-fs-2xl); font-weight: 700; letter-spacing: -0.01em; }
+.ecm-frame .cnt { flex: 1; min-width: 0; font-size: var(--sn-fs-md); color: rgb(var(--color-ink-3)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ecm-frame .see { color: rgb(var(--color-link)); font-size: var(--sn-fs-base); font-weight: 600; }
+.ecm-frame [hidden] { display: none !important; }
+.ecm-empty { margin: 0; color: rgb(var(--color-ink-3)); }
+
+/* the Home event card — unihome.module.css */
+.ecm-frame .ecard { position: relative; display: grid; gap: 2px; transition: opacity var(--sn-m-quick) var(--sn-m-settle); }
+.ecm-frame .ecard.gone, .ecm-frame .irow.gone { opacity: 0; }
+.ecm-frame .ecard-hit { display: grid; gap: 2px; width: 100%; padding: 0; border: 0; background: none; text-align: left; cursor: pointer; border-radius: var(--m-r-lg); transition: transform var(--sn-m-release) var(--sn-m-spring); touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+.ecm-frame .ecard-hit:active, .ecm-frame .ecard-hit.pressed { transform: scale(.985); transition: transform var(--sn-m-tap) var(--sn-m-settle); }
+.ecm-frame .cover { position: relative; display: block; border-radius: var(--m-r-lg); overflow: hidden; aspect-ratio: 16 / 10; margin-bottom: 10px; background: rgb(var(--color-wash)); }
+.ecm-scene { position: absolute; inset: 0; width: 100%; height: 100%; display: block; filter: saturate(.88) sepia(.1) contrast(1.03) brightness(1.01); }
+.ecm-frame.dark .ecm-scene { filter: saturate(.8) brightness(.82); }
+.ecm-stance { position: absolute; top: 10px; left: 10px; z-index: 2; display: inline-flex; align-items: center; gap: 5px; height: 26px; padding: 0 9px; border-radius: var(--m-r-full); background: rgb(var(--color-cream) / .9); color: rgb(var(--color-ink-2)); font-size: var(--sn-fs-xs); font-weight: 700; letter-spacing: .05em; text-transform: uppercase; white-space: nowrap; }
+.ecm-frame.dark .ecm-stance { background: rgb(var(--color-cream) / .82); color: rgb(var(--color-ink)); }
+.ecm-frame .ecm-stance svg.ic { width: 13px; height: 13px; stroke-width: 2.25; }
+.ecm-stance.inl { position: static; height: 22px; margin-top: 4px; justify-self: start; background: rgb(var(--color-wash)); }
+.ecm-frame.dark .ecm-stance.inl { background: rgb(var(--color-wash)); }
+.ecm-frame .dright { display: grid; gap: 2px; }
+.ecm-frame .poK, .ecm-frame .poS, .ecm-frame .poM, .ecm-frame .poT { display: block; }
+.ecm-frame .poK { font-family: 'Space Mono', ui-monospace, monospace; font-size: var(--sn-fs-2xs); line-height: 1.3; letter-spacing: .16em; color: rgb(var(--color-ink-3)); text-transform: uppercase; }
+.ecm-frame .poT { font-size: var(--sn-fs-3xl); font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; }
+.ecm-frame .poS { font-size: var(--sn-fs-base); color: rgb(var(--color-ink-3)); }
+.ecm-frame .poM { font-size: var(--sn-fs-md); color: rgb(var(--color-ink-3)); }
+.ecm-frame .hot { color: rgb(var(--color-mulberry-700)); }
+.ecm-frame .more { position: absolute; top: 4px; right: 4px; z-index: 3; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: var(--m-r-full); background: rgb(var(--color-raised) / .85); color: rgb(var(--color-ink)); cursor: pointer; transition: transform var(--sn-m-release) var(--sn-m-spring); }
+.ecm-frame .more:active { transform: scale(.97); transition: transform var(--sn-m-tap) var(--sn-m-settle); }
+.ecm-frame .ecard + .ecard { margin-top: 12px; }
+
+/* today's buttons under the card (the Now frame only) */
+.ecm-frame .eact { display: flex; align-items: center; gap: 8px; margin-top: 12px; }
+.ecm-frame .ab { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: var(--m-r-full); font-size: var(--sn-fs-base); font-weight: 600; white-space: nowrap; }
+.ecm-frame .ab svg.ic { width: 16px; height: 16px; }
+.ecm-frame .ab.neutral { background: var(--sn-btn-secondary-bg); }
+.ecm-frame .ab.quiet { padding: 0 8px; }
+.ecm-frame .ab.io { width: 40px; padding: 0; justify-content: center; color: rgb(var(--color-ink-3)); }
+.ecm-frame .ab.eend { margin-left: auto; }
+.ecm-frame .ab.sm { height: 36px; padding: 0 12px; font-size: var(--sn-fs-md); }
+.ecm-frame .ab.brand { background: rgb(var(--color-mulberry)); color: rgb(var(--color-on-accent)); align-self: center; }
+
+/* You're invited — one row */
+.ecm-frame .irow { display: flex; gap: 12px; align-items: center; width: 100%; padding: 12px 0; margin-top: 4px; border: 0; border-top: 1px solid var(--m-line); border-bottom: 1px solid var(--m-line); background: none; text-align: left; transition: transform var(--sn-m-release) var(--sn-m-spring), opacity var(--sn-m-quick) var(--sn-m-settle); }
+.ecm-frame button.irow { cursor: pointer; }
+.ecm-frame button.irow:active { transform: scale(.985); transition: transform var(--sn-m-tap) var(--sn-m-settle); }
+.ecm-frame .thumb, .ecm-thumb { position: relative; width: 48px; height: 48px; border-radius: var(--m-r-sm); flex: none; overflow: hidden; background: rgb(var(--color-wash)); }
+.ecm-frame .hrL { flex: 1; min-width: 0; display: grid; gap: 1px; }
+.ecm-frame .hrT { font-weight: 600; font-size: var(--sn-fs-lg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ecm-frame .hrS { font-size: var(--sn-fs-sm); color: rgb(var(--color-ink-3)); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ecm-frame .tagw { font-family: 'Space Mono', ui-monospace, monospace; font-size: var(--sn-fs-2xs); line-height: 1.2; letter-spacing: .12em; text-transform: uppercase; color: rgb(var(--color-mulberry-700)); }
+
+.ecm-create { position: absolute; right: 16px; bottom: 22px; z-index: 10; display: inline-flex; align-items: center; gap: 8px; height: 56px; padding: 0 22px 0 18px; border-radius: var(--m-r-full); background: rgb(var(--color-mulberry)); color: rgb(var(--color-on-accent)); font-size: var(--sn-fs-lg); font-weight: 600; box-shadow: var(--m-shadow-lg); }
+
+/* desktop: rail + one 720 column; the card is picture | words */
+.ecm-frame .rail { width: 256px; flex: none; border-right: 1px solid var(--m-line); padding: 24px 16px; display: grid; gap: 4px; align-content: start; position: sticky; top: 0; height: 760px; }
+.ecm-frame .rail .wm { padding: 0 12px 16px; }
+.ecm-frame .ri { display: flex; align-items: center; gap: 12px; height: 44px; padding: 0 12px; border-radius: var(--m-r-sm); font-weight: 600; color: rgb(var(--color-ink-2)); }
+.ecm-frame .ri.on { background: rgb(var(--color-wash)); color: rgb(var(--color-ink)); }
+.ecm-frame.desk .ecm-main { padding-bottom: 40px; }
+.ecm-frame.desk .ecm-top .prof { padding: 24px 40px; }
+.ecm-frame.desk .col { margin: 0 0 0 40px; padding: 0; }
+.ecm-frame.desk .dgrid2 { display: grid; grid-template-columns: 1.25fr 1fr; gap: 24px; align-items: start; }
+.ecm-frame.desk .dgrid2 .cover { margin-bottom: 0; }
+.ecm-frame.desk .dright { align-content: start; }
+.ecm-frame.desk .ecard .more { right: auto; left: calc((100% - 24px) * 0.5556 - 48px); }
+.ecm-frame.desk .ecard-hit:hover .poT { text-decoration: underline; text-underline-offset: 3px; }
+.ecm-frame.desk .ecard + .ecard { margin-top: 24px; }
+
+/* ── the ONE backdrop: dims, blurs, and the page behind is inert ── */
+.ecm-scrim { position: absolute; inset: 0; z-index: 74; background: var(--sn-scrim); -webkit-backdrop-filter: blur(var(--sn-scrim-blur)); backdrop-filter: blur(var(--sn-scrim-blur)); opacity: 0; visibility: hidden; transition: opacity var(--sn-m-quick) var(--sn-m-settle), visibility 0s linear var(--sn-m-quick); }
+.ecm-frame[data-open] .ecm-scrim { opacity: 1; visibility: visible; transition-delay: 0s; }
+
+/* ── the panel: a Sheet on a phone, an anchored menu on desktop ── */
+.ecm-panel { position: absolute; z-index: 75; background: rgb(var(--color-raised)); color: rgb(var(--color-ink)); box-shadow: var(--m-shadow-lg); visibility: hidden; }
+.ecm-frame:not(.desk) .ecm-panel { left: 0; right: 0; bottom: 0; max-height: 90%; overflow-y: auto; border-radius: var(--m-r-lg) var(--m-r-lg) 0 0; padding-bottom: max(16px, env(safe-area-inset-bottom)); transform: translateY(100%); transition: transform var(--sn-m-close) var(--sn-m-settle), visibility 0s linear var(--sn-m-close); }
+.ecm-frame:not(.desk)[data-open] .ecm-panel { transform: none; visibility: visible; transition: transform var(--sn-m-move) var(--sn-m-spring), visibility 0s; }
+.ecm-frame:not(.desk) .ecm-panel.dragging { transition: none; }
+.ecm-frame.desk .ecm-panel { width: 360px; border: 1px solid var(--m-line); border-radius: var(--m-r-md); padding-bottom: 8px; opacity: 0; transform: scale(.96); transform-origin: 16px 0; transition: opacity var(--sn-m-tap) var(--sn-m-settle), transform var(--sn-m-tap) var(--sn-m-settle), visibility 0s linear var(--sn-m-tap); }
+.ecm-frame.desk[data-open] .ecm-panel { opacity: 1; transform: none; visibility: visible; transition: opacity var(--sn-m-quick) var(--sn-m-settle), transform var(--sn-m-quick) var(--sn-m-spring), visibility 0s; }
+.ecm-grab { height: 20px; display: grid; place-items: center; touch-action: none; cursor: grab; }
+.ecm-grab i { width: 36px; height: 4px; border-radius: var(--m-r-full); background: rgb(var(--color-ink) / .22); }
+.ecm-ph { display: flex; align-items: center; gap: 12px; padding: 4px 8px 12px 16px; touch-action: none; }
+.ecm-frame.desk .ecm-ph { padding-top: 12px; }
+.ecm-ph.del { padding-left: 8px; gap: 4px; }
+.ecm-pht { flex: 1; min-width: 0; display: grid; }
+.ecm-ph .nm { font-size: var(--sn-fs-xl); font-weight: 700; letter-spacing: -0.01em; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ecm-ph.del .nm { flex: 1; min-width: 0; outline: none; }
+.ecm-ph .dt { font-size: var(--sn-fs-md); color: rgb(var(--color-ink-3)); }
+.ecm-x { position: relative; width: 44px; height: 44px; flex: none; display: grid; place-items: center; border: 0; border-radius: var(--m-r-full); background: none; cursor: pointer; align-self: flex-start; transition: transform var(--sn-m-release) var(--sn-m-spring); }
+.ecm-x::before { content: ''; position: absolute; width: 32px; height: 32px; border-radius: var(--m-r-full); background: var(--sn-btn-secondary-bg); }
+.ecm-x svg { position: relative; width: 16px !important; height: 16px !important; stroke-width: 2 !important; }
+.ecm-x:active { transform: scale(.97); transition: transform var(--sn-m-tap) var(--sn-m-settle); }
+.ecm-ph.del .ecm-x { align-self: center; }
+.ecm-pb { padding: 0 16px; display: grid; gap: 0; }
+@media (prefers-reduced-motion: no-preference) {
+  .ecm-panel.swap .ecm-pb, .ecm-panel.swap .ecm-ph { animation: ecm-enter var(--sn-m-move) var(--sn-m-settle) backwards; }
+}
+@keyframes ecm-enter { from { opacity: 0; transform: translateY(8px); } }
+
+.ecm-row { position: relative; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 60px; padding: 8px 0; border: 0; background: none; text-align: left; cursor: pointer; border-radius: var(--m-r-sm); transition: transform var(--sn-m-release) var(--sn-m-spring), background-color var(--sn-m-quick) var(--sn-m-settle); }
+.ecm-row:active:not([aria-disabled='true']) { transform: scale(.985); transition: transform var(--sn-m-tap) var(--sn-m-settle); }
+.ecm-row .tx { flex: 1; min-width: 0; display: grid; }
+.ecm-row .lb { font-size: var(--sn-fs-lg); font-weight: 600; }
+.ecm-row .hp { font-size: var(--sn-fs-md); color: rgb(var(--color-ink-3)); line-height: 1.35; }
+.ecm-frame .ecm-row svg.end { width: 16px; height: 16px; stroke-width: 2; color: rgb(var(--color-mulberry)); }
+.ecm-row.main { padding: 8px 12px 8px 16px; margin-bottom: 4px; border-radius: var(--m-r-md); background: rgb(var(--color-mulberry)); color: rgb(var(--color-on-accent)); }
+.ecm-row.main .hp, .ecm-frame .ecm-row.main svg.end { color: inherit; }
+.ecm-rows .ecm-row + .ecm-row::before { content: ''; position: absolute; left: 32px; right: 0; top: 0; height: 1px; background: var(--m-line); }
+.ecm-row[aria-disabled='true'] { cursor: default; }
+.ecm-row[aria-disabled='true'] .lb, .ecm-row[aria-disabled='true'] > svg.ic { color: rgb(var(--color-ink-3)); }
+.ecm-frame .ecm-row[aria-disabled='true'] svg.end { color: rgb(var(--color-ink-3)); }
+.ecm-div { height: 1px; background: var(--m-line); margin: 8px -16px; }
+.ecm-row.danger .lb, .ecm-row.danger > svg.ic { color: rgb(var(--color-danger)); }
+.ecm-frame .ecm-row.danger svg.end { color: rgb(var(--color-danger)); }
+.ecm-row.soft { padding: 8px 12px; margin-top: 12px; border-radius: var(--m-r-md); background: rgb(var(--color-raised-2)); }
+.ecm-frame.dark .ecm-row.soft { background: rgb(var(--color-raised-2)); }
+.ecm-row.busy { opacity: .6; }
+@media (hover: hover) {
+  .ecm-frame.desk .ecm-rows .ecm-row:hover:not([aria-disabled='true']), .ecm-frame.desk .ecm-row.danger:hover { background: rgb(var(--color-ink) / .05); }
+}
+.ecm-frame.desk .ecm-rows .ecm-row, .ecm-frame.desk .ecm-row.danger { padding-left: 8px; padding-right: 8px; margin: 0 -8px; width: calc(100% + 16px); }
+.ecm-frame.desk .ecm-rows .ecm-row + .ecm-row::before { left: 40px; right: 8px; }
+.ecm-frame.desk .ecm-row { min-height: 56px; }
+
+.ecm-p { margin: 0; font-size: var(--sn-fs-base); line-height: 1.45; color: rgb(var(--color-ink-2)); }
+.ecm-p b { font-weight: 600; color: rgb(var(--color-ink)); }
+.ecm-lab { display: grid; gap: 4px; margin-top: 16px; font-size: var(--sn-fs-md); font-weight: 600; color: rgb(var(--color-ink-2)); }
+.ecm-lab em { font-style: normal; font-weight: 400; color: rgb(var(--color-ink-3)); }
+.ecm-lab b { color: rgb(var(--color-ink)); font-weight: 700; }
+.ecm-lab select, .ecm-lab input { width: 100%; min-height: 48px; padding: 8px 12px; border: 1px solid rgb(var(--color-ink) / .28); border-radius: var(--m-r-sm); background: rgb(var(--color-raised)); color: rgb(var(--color-ink)); font: inherit; font-size: 16px; font-weight: 400; }
+.ecm-lab select { font-weight: 600; }
+.ecm-lab select:focus-visible, .ecm-lab input:focus-visible { outline-offset: 0; border-color: rgb(var(--color-mulberry)); }
+.ecm-lab input.shake { animation: ecm-shake var(--sn-m-move) var(--sn-m-settle) 1; border-color: rgb(var(--color-danger)); }
+@keyframes ecm-shake { 20% { transform: translateX(-6px); } 50% { transform: translateX(5px); } 80% { transform: translateX(-3px); } }
+.ecm-link { justify-self: start; min-height: 44px; padding: 0; border: 0; background: none; font-size: var(--sn-fs-md); font-weight: 700; color: rgb(var(--color-ink-2)); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.ecm-said { margin: 4px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 0 8px; font-size: var(--sn-fs-md); color: rgb(var(--color-ink-3)); }
+.ecm-err { margin: 8px 0 0; font-size: var(--sn-fs-md); font-weight: 600; color: rgb(var(--color-danger)); }
+.ecm-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; min-height: 52px; margin-top: 16px; border: 0; border-radius: var(--m-r-full); font-size: var(--sn-fs-lg); font-weight: 600; cursor: pointer; transition: transform var(--sn-m-release) var(--sn-m-spring), opacity var(--sn-m-quick) var(--sn-m-settle); }
+.ecm-btn.danger { background: rgb(var(--color-danger)); color: rgb(var(--color-on-danger)); }
+.ecm-btn:active:not(:disabled) { transform: scale(.97); transition: transform var(--sn-m-tap) var(--sn-m-settle); }
+.ecm-btn:disabled { opacity: .45; cursor: default; }
+.ecm-btn.busy:disabled { opacity: .8; }
+.ecm-btn svg.ic { width: 18px; height: 18px; }
+.ecm-btn .spin { display: none; }
+.ecm-btn.busy .spin { display: block; animation: ecm-spin 700ms linear infinite; }
+.ecm-btn.busy svg.ic:not(.spin) { display: none; }
+@keyframes ecm-spin { to { transform: rotate(360deg); } }
+
+/* toast: from the bottom, never a layer */
+.ecm-toast { position: absolute; left: 16px; right: 16px; bottom: 92px; z-index: 80; display: flex; align-items: center; gap: 8px; min-height: 48px; padding: 4px 8px 4px 16px; border-radius: var(--m-r-md); background: rgb(var(--color-ink)); color: rgb(var(--color-cream)); font-size: var(--sn-fs-base); font-weight: 600; box-shadow: var(--m-shadow-lg); opacity: 0; transform: translateY(16px); visibility: hidden; transition: opacity var(--sn-m-quick) var(--sn-m-settle), transform var(--sn-m-quick) var(--sn-m-settle), visibility 0s linear var(--sn-m-quick); }
+.ecm-toast.on { opacity: 1; transform: none; visibility: visible; transition: opacity var(--sn-m-quick) var(--sn-m-settle), transform var(--sn-m-move) var(--sn-m-spring), visibility 0s; }
+.ecm-toast span { flex: 1; min-width: 0; padding: 8px 0; }
+.ecm-toast button { min-height: 44px; padding: 0 12px; border: 0; background: none; color: inherit !important; font-weight: 700; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.ecm-frame.desk .ecm-toast { left: auto; right: 24px; bottom: 24px; width: 360px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ecm-frame * { animation-duration: 120ms !important; }
+  .ecm-frame .ecm-panel, .ecm-frame .ecm-toast { transform: none !important; transition: opacity 120ms linear, visibility 0s !important; }
+  .ecm-frame:not(.desk) .ecm-panel { opacity: 0; }
+  .ecm-frame[data-open] .ecm-panel { opacity: 1; }
+  .ecm-frame .ecard-hit, .ecm-frame .ecm-row, .ecm-frame .ecm-btn, .ecm-frame .more, .ecm-frame .irow { transition: none !important; transform: none !important; }
+  .ecm-btn.busy .spin { animation: none; }
+}
+
+/* one board alone, full screen — used only for the proof screenshots */
+.ecm[data-solo] { padding: 0; }
+.ecm[data-solo] > h1, .ecm[data-solo] > .lede, .ecm[data-solo] .ecm-notes, .ecm[data-solo] .ecm-cap, .ecm[data-solo] .ecm-board:not(.solo) { display: none; }
+.ecm[data-solo] .ecm-scroll { overflow: visible; padding: 0; }
+.ecm[data-solo] .ecm-frame { position: fixed; inset: 0; width: 100vw; height: 100dvh; max-width: none; border: 0; border-radius: 0; }
+.ecm[data-solo] .ecm-frame .rail { height: 100dvh; }
+</style>
+<div class="ecm">
+<h1>Event card menu</h1>
+<p class="lede">Tap an event on Home and a menu rises: Open Dashboard, Open your Event Hub, Open Chat, Open your Memories, Publish Story, Delete Event. Every frame below works. Tap, type, press Esc.</p>
+<div class="ecm-boards">
+<div class="ecm-board" data-board="now">
+<div class="ecm-cap"><b>Now</b><span>The picture and name open the Dashboard. Three buttons sit under each card.</span></div>
+<div class="ecm-frame phone">
+<div class="ecm-screen" inert><div class="ecm-main"><div class="ecm-top"><div class="bar"><span class="wm">SETNAYAN</span><span class="av sm" aria-hidden="true">AR</span></div><div class="prof"><span class="av" aria-hidden="true">AR</span><span class="pn"><b>Ana Reyes</b><span>@anareyes · Quezon City</span></span></div></div><div class="col"><section class="part"><div class="sh"><h2>Events</h2><span class="cnt" data-count>2 you organise · 1 invite</span><span class="see">See all</span></div><article class="ecard dgrid2"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#EBDCCB"/><circle cx="236" cy="62" r="34" fill="#F7EDE0"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#DDBFA6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#CBA288"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#B98A70" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#B98A70"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><div class="dright"><span class="poK">Wedding</span><span class="poT">Maria &amp; Jose</span><span class="poS">Sat 13 Mar 2027 · Tagaytay</span><span class="poM"><span class="hot">108 days to go</span> · 12 of 40 done</span><div class="eact"><span class="ab neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-dash"/></svg>Dashboard</span><span class="ab quiet"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg>Event Hub</span><span class="ab quiet io eend" aria-label="Remove"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-trash"/></svg></span></div></div></article><article class="ecard dgrid2"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#DDE4D8"/><circle cx="236" cy="62" r="34" fill="#F2F1E4"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#BFCDB6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A5B79E"/><circle cx="92" cy="78" r="15" fill="#8DA389"/><circle cx="118" cy="62" r="12" fill="#BFCDB6"/><path d="M92 93 V128 M118 74 V124" stroke="#8DA389" stroke-width="1.5" fill="none"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8DA389"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><div class="dright"><span class="poK">Birthday</span><span class="poT">Lola Nena at 80</span><span class="poS">Sat 14 Nov 2026 · Quezon City</span><div class="eact"><span class="ab neutral"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-dash"/></svg>Dashboard</span><span class="ab quiet"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg>Event Hub</span><span class="ab quiet io eend" aria-label="Remove"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-trash"/></svg></span></div></div></article><div class="irow"><span class="thumb"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#D9DFE8"/><circle cx="236" cy="62" r="34" fill="#EEF1F5"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#B9C4D3"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A0AEC1"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#8898AE" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8898AE"/></svg></span><span class="hrL"><span class="tagw">You’re invited</span><span class="hrT">Carlo &amp; Bea</span><span class="hrS">Sat 9 Jan 2027 · Cebu City</span></span><span class="ab neutral sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg>Event Hub</span></div><p class="ecm-empty" hidden>No events on Home now. Use Reset sample to bring them back.</p></section></div></div></div>
+<span class="ecm-create" inert><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-plus"/></svg>Create an event</span>
+
+</div>
+</div>
+<div class="ecm-board" data-board="home">
+<div class="ecm-cap"><b>Proposed · Home</b><span>Tap a card or its ⋯. Long-press works too.</span><button type="button" class="ecm-reset">Reset sample</button></div>
+<div class="ecm-frame phone" data-live>
+<div class="ecm-screen"><div class="ecm-main"><div class="ecm-top"><div class="bar"><span class="wm">SETNAYAN</span><span class="av sm" aria-hidden="true">AR</span></div><div class="prof"><span class="av" aria-hidden="true">AR</span><span class="pn"><b>Ana Reyes</b><span>@anareyes · Quezon City</span></span></div></div><div class="col"><section class="part"><div class="sh"><h2>Events</h2><span class="cnt" data-count>2 you organise · 1 invite</span><span class="see">See all</span></div><article class="ecard" data-ev="ev1"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Maria &amp; Jose, Sat 13 Mar 2027 · Tagaytay. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#EBDCCB"/><circle cx="236" cy="62" r="34" fill="#F7EDE0"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#DDBFA6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#CBA288"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#B98A70" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#B98A70"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Wedding</span><span class="poT">Maria &amp; Jose</span><span class="poS">Sat 13 Mar 2027 · Tagaytay</span><span class="poM"><span class="hot">108 days to go</span> · 12 of 40 done</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Maria &amp; Jose"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><article class="ecard" data-ev="ev2"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Lola Nena at 80, Sat 14 Nov 2026 · Quezon City. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#DDE4D8"/><circle cx="236" cy="62" r="34" fill="#F2F1E4"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#BFCDB6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A5B79E"/><circle cx="92" cy="78" r="15" fill="#8DA389"/><circle cx="118" cy="62" r="12" fill="#BFCDB6"/><path d="M92 93 V128 M118 74 V124" stroke="#8DA389" stroke-width="1.5" fill="none"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8DA389"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Birthday</span><span class="poT">Lola Nena at 80</span><span class="poS">Sat 14 Nov 2026 · Quezon City</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Lola Nena at 80"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><button type="button" class="irow" data-act="guest" data-ev="ev3" aria-label="Carlo &amp; Bea, you’re invited. Open the Event Hub"><span class="thumb"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#D9DFE8"/><circle cx="236" cy="62" r="34" fill="#EEF1F5"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#B9C4D3"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A0AEC1"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#8898AE" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8898AE"/></svg></span><span class="hrL"><span class="tagw">You’re invited</span><span class="hrT">Carlo &amp; Bea</span><span class="hrS">Sat 9 Jan 2027 · Cebu City</span></span><span class="ab neutral sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg>Event Hub</span></button><p class="ecm-empty" hidden>No events on Home now. Use Reset sample to bring them back.</p></section></div></div></div>
+<span class="ecm-create"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-plus"/></svg>Create an event</span>
+<div class="ecm-scrim"></div>
+<div class="ecm-panel" role="dialog" aria-modal="true" aria-label="Event options"></div>
+<div class="ecm-toast" role="status" aria-live="polite"></div>
+</div>
+</div>
+<div class="ecm-board" data-board="sheet">
+<div class="ecm-cap"><b>The menu</b><span>Before the event: Publish Story waits, and says when it opens.</span><button type="button" class="ecm-reset">Reset sample</button></div>
+<div class="ecm-frame phone" data-live data-open="ev1" data-view="menu">
+<div class="ecm-screen" inert><div class="ecm-main"><div class="ecm-top"><div class="bar"><span class="wm">SETNAYAN</span><span class="av sm" aria-hidden="true">AR</span></div><div class="prof"><span class="av" aria-hidden="true">AR</span><span class="pn"><b>Ana Reyes</b><span>@anareyes · Quezon City</span></span></div></div><div class="col"><section class="part"><div class="sh"><h2>Events</h2><span class="cnt" data-count>2 you organise · 1 invite</span><span class="see">See all</span></div><article class="ecard" data-ev="ev1"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Maria &amp; Jose, Sat 13 Mar 2027 · Tagaytay. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#EBDCCB"/><circle cx="236" cy="62" r="34" fill="#F7EDE0"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#DDBFA6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#CBA288"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#B98A70" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#B98A70"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Wedding</span><span class="poT">Maria &amp; Jose</span><span class="poS">Sat 13 Mar 2027 · Tagaytay</span><span class="poM"><span class="hot">108 days to go</span> · 12 of 40 done</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Maria &amp; Jose"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><article class="ecard" data-ev="ev2"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Lola Nena at 80, Sat 14 Nov 2026 · Quezon City. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#DDE4D8"/><circle cx="236" cy="62" r="34" fill="#F2F1E4"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#BFCDB6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A5B79E"/><circle cx="92" cy="78" r="15" fill="#8DA389"/><circle cx="118" cy="62" r="12" fill="#BFCDB6"/><path d="M92 93 V128 M118 74 V124" stroke="#8DA389" stroke-width="1.5" fill="none"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8DA389"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Birthday</span><span class="poT">Lola Nena at 80</span><span class="poS">Sat 14 Nov 2026 · Quezon City</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Lola Nena at 80"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><button type="button" class="irow" data-act="guest" data-ev="ev3" aria-label="Carlo &amp; Bea, you’re invited. Open the Event Hub"><span class="thumb"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#D9DFE8"/><circle cx="236" cy="62" r="34" fill="#EEF1F5"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#B9C4D3"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A0AEC1"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#8898AE" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8898AE"/></svg></span><span class="hrL"><span class="tagw">You’re invited</span><span class="hrT">Carlo &amp; Bea</span><span class="hrS">Sat 9 Jan 2027 · Cebu City</span></span><span class="ab neutral sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg>Event Hub</span></button><p class="ecm-empty" hidden>No events on Home now. Use Reset sample to bring them back.</p></section></div></div></div>
+<span class="ecm-create" inert><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-plus"/></svg>Create an event</span>
+<div class="ecm-scrim"></div>
+<div class="ecm-panel" role="dialog" aria-modal="true" aria-label="Options for Maria &amp; Jose"><div class="ecm-grab" data-drag aria-hidden="true"><i></i></div><header class="ecm-ph" data-drag><span class="ecm-thumb"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#EBDCCB"/><circle cx="236" cy="62" r="34" fill="#F7EDE0"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#DDBFA6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#CBA288"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#B98A70" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#B98A70"/></svg></span><span class="ecm-pht"><b class="nm">Maria &amp; Jose</b><span class="dt">Sat 13 Mar 2027 · Tagaytay</span><span class="ecm-stance inl"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><button type="button" class="ecm-x" data-act="close" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-x"/></svg></button></header><div class="ecm-pb"><button type="button" class="ecm-row main" data-act="dash"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-dash"/></svg><span class="tx"><span class="lb">Open Dashboard</span><span class="hp">Tasks, guests, suppliers and budget.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><div class="ecm-rows"><button type="button" class="ecm-row " data-act="hub"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg><span class="tx"><span class="lb">Open your Event Hub</span><span class="hp">See your hub as your QR opens it.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><button type="button" class="ecm-row " data-act="chat"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chat"/></svg><span class="tx"><span class="lb">Open Chat</span><span class="hp">Messages with your suppliers.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><button type="button" class="ecm-row " data-act="mem"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-images"/></svg><span class="tx"><span class="lb">Open your Memories</span><span class="hp">Photos and videos from this event.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><button type="button" class="ecm-row " data-act="locked" aria-disabled="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-book"/></svg><span class="tx"><span class="lb">Publish Story</span><span class="hp">Opens the day after your event.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-lock"/></svg></button></div><div class="ecm-div" role="separator"></div><button type="button" class="ecm-row danger" data-act="del"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-trash"/></svg><span class="tx"><span class="lb">Delete Event</span><span class="hp">Photos and everything else, gone for good.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button></div></div>
+<div class="ecm-toast" role="status" aria-live="polite"></div>
+</div>
+</div>
+<div class="ecm-board" data-board="ready">
+<div class="ecm-cap"><b>After the event</b><span>Publish Story is ready once the day has passed.</span><button type="button" class="ecm-reset">Reset sample</button></div>
+<div class="ecm-frame phone" data-live data-open="ev2" data-view="menu">
+<div class="ecm-screen" inert><div class="ecm-main"><div class="ecm-top"><div class="bar"><span class="wm">SETNAYAN</span><span class="av sm" aria-hidden="true">AR</span></div><div class="prof"><span class="av" aria-hidden="true">AR</span><span class="pn"><b>Ana Reyes</b><span>@anareyes · Quezon City</span></span></div></div><div class="col"><section class="part"><div class="sh"><h2>Events</h2><span class="cnt" data-count>2 you organise · 1 invite</span><span class="see">See all</span></div><article class="ecard" data-ev="ev1"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Maria &amp; Jose, Sat 13 Mar 2027 · Tagaytay. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#EBDCCB"/><circle cx="236" cy="62" r="34" fill="#F7EDE0"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#DDBFA6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#CBA288"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#B98A70" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#B98A70"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Wedding</span><span class="poT">Maria &amp; Jose</span><span class="poS">Sat 13 Mar 2027 · Tagaytay</span><span class="poM"><span class="hot">108 days to go</span> · 12 of 40 done</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Maria &amp; Jose"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><article class="ecard" data-ev="ev2"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Lola Nena at 80, Sat 14 Nov 2026 · Quezon City. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#DDE4D8"/><circle cx="236" cy="62" r="34" fill="#F2F1E4"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#BFCDB6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A5B79E"/><circle cx="92" cy="78" r="15" fill="#8DA389"/><circle cx="118" cy="62" r="12" fill="#BFCDB6"/><path d="M92 93 V128 M118 74 V124" stroke="#8DA389" stroke-width="1.5" fill="none"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8DA389"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Birthday</span><span class="poT">Lola Nena at 80</span><span class="poS">Sat 14 Nov 2026 · Quezon City</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Lola Nena at 80"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><button type="button" class="irow" data-act="guest" data-ev="ev3" aria-label="Carlo &amp; Bea, you’re invited. Open the Event Hub"><span class="thumb"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#D9DFE8"/><circle cx="236" cy="62" r="34" fill="#EEF1F5"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#B9C4D3"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A0AEC1"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#8898AE" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8898AE"/></svg></span><span class="hrL"><span class="tagw">You’re invited</span><span class="hrT">Carlo &amp; Bea</span><span class="hrS">Sat 9 Jan 2027 · Cebu City</span></span><span class="ab neutral sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg>Event Hub</span></button><p class="ecm-empty" hidden>No events on Home now. Use Reset sample to bring them back.</p></section></div></div></div>
+<span class="ecm-create" inert><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-plus"/></svg>Create an event</span>
+<div class="ecm-scrim"></div>
+<div class="ecm-panel" role="dialog" aria-modal="true" aria-label="Options for Lola Nena at 80"><div class="ecm-grab" data-drag aria-hidden="true"><i></i></div><header class="ecm-ph" data-drag><span class="ecm-thumb"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#DDE4D8"/><circle cx="236" cy="62" r="34" fill="#F2F1E4"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#BFCDB6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A5B79E"/><circle cx="92" cy="78" r="15" fill="#8DA389"/><circle cx="118" cy="62" r="12" fill="#BFCDB6"/><path d="M92 93 V128 M118 74 V124" stroke="#8DA389" stroke-width="1.5" fill="none"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8DA389"/></svg></span><span class="ecm-pht"><b class="nm">Lola Nena at 80</b><span class="dt">Sat 14 Nov 2026 · Quezon City</span><span class="ecm-stance inl"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><button type="button" class="ecm-x" data-act="close" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-x"/></svg></button></header><div class="ecm-pb"><button type="button" class="ecm-row main" data-act="dash"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-dash"/></svg><span class="tx"><span class="lb">Open Dashboard</span><span class="hp">Tasks, guests, suppliers and budget.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><div class="ecm-rows"><button type="button" class="ecm-row " data-act="hub"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg><span class="tx"><span class="lb">Open your Event Hub</span><span class="hp">See your hub as your QR opens it.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><button type="button" class="ecm-row " data-act="chat"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chat"/></svg><span class="tx"><span class="lb">Open Chat</span><span class="hp">Messages with your suppliers.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><button type="button" class="ecm-row " data-act="mem"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-images"/></svg><span class="tx"><span class="lb">Open your Memories</span><span class="hp">Photos and videos from this event.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><button type="button" class="ecm-row " data-act="story"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-book"/></svg><span class="tx"><span class="lb">Publish Story</span><span class="hp">Your day has passed. Choose who reads it.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button></div><div class="ecm-div" role="separator"></div><button type="button" class="ecm-row danger" data-act="del"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-trash"/></svg><span class="tx"><span class="lb">Delete Event</span><span class="hp">Photos and everything else, gone for good.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button></div></div>
+<div class="ecm-toast" role="status" aria-live="polite"></div>
+</div>
+</div>
+<div class="ecm-board" data-board="why">
+<div class="ecm-cap"><b>Delete · step 1</b><span>What goes, the gentle choice first, an optional reason.</span><button type="button" class="ecm-reset">Reset sample</button></div>
+<div class="ecm-frame phone" data-live data-open="ev1" data-view="why">
+<div class="ecm-screen" inert><div class="ecm-main"><div class="ecm-top"><div class="bar"><span class="wm">SETNAYAN</span><span class="av sm" aria-hidden="true">AR</span></div><div class="prof"><span class="av" aria-hidden="true">AR</span><span class="pn"><b>Ana Reyes</b><span>@anareyes · Quezon City</span></span></div></div><div class="col"><section class="part"><div class="sh"><h2>Events</h2><span class="cnt" data-count>2 you organise · 1 invite</span><span class="see">See all</span></div><article class="ecard" data-ev="ev1"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Maria &amp; Jose, Sat 13 Mar 2027 · Tagaytay. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#EBDCCB"/><circle cx="236" cy="62" r="34" fill="#F7EDE0"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#DDBFA6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#CBA288"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#B98A70" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#B98A70"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Wedding</span><span class="poT">Maria &amp; Jose</span><span class="poS">Sat 13 Mar 2027 · Tagaytay</span><span class="poM"><span class="hot">108 days to go</span> · 12 of 40 done</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Maria &amp; Jose"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><article class="ecard" data-ev="ev2"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Lola Nena at 80, Sat 14 Nov 2026 · Quezon City. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#DDE4D8"/><circle cx="236" cy="62" r="34" fill="#F2F1E4"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#BFCDB6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A5B79E"/><circle cx="92" cy="78" r="15" fill="#8DA389"/><circle cx="118" cy="62" r="12" fill="#BFCDB6"/><path d="M92 93 V128 M118 74 V124" stroke="#8DA389" stroke-width="1.5" fill="none"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8DA389"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Birthday</span><span class="poT">Lola Nena at 80</span><span class="poS">Sat 14 Nov 2026 · Quezon City</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Lola Nena at 80"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><button type="button" class="irow" data-act="guest" data-ev="ev3" aria-label="Carlo &amp; Bea, you’re invited. Open the Event Hub"><span class="thumb"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#D9DFE8"/><circle cx="236" cy="62" r="34" fill="#EEF1F5"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#B9C4D3"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A0AEC1"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#8898AE" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8898AE"/></svg></span><span class="hrL"><span class="tagw">You’re invited</span><span class="hrT">Carlo &amp; Bea</span><span class="hrS">Sat 9 Jan 2027 · Cebu City</span></span><span class="ab neutral sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg>Event Hub</span></button><p class="ecm-empty" hidden>No events on Home now. Use Reset sample to bring them back.</p></section></div></div></div>
+<span class="ecm-create" inert><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-plus"/></svg>Create an event</span>
+<div class="ecm-scrim"></div>
+<div class="ecm-panel" role="dialog" aria-modal="true" aria-label="Delete Maria &amp; Jose?"><div class="ecm-grab" data-drag aria-hidden="true"><i></i></div><header class="ecm-ph del" data-drag><button type="button" class="ecm-x" data-act="back" aria-label="Back"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-back"/></svg></button><b class="nm" tabindex="-1" data-title>Delete Maria &amp; Jose?</b><button type="button" class="ecm-x" data-act="close" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-x"/></svg></button></header><div class="ecm-pb"><p class="ecm-p"><b>128 photos · 86 guests · 3 booked suppliers</b> go with it, along with the page your guests use.</p><button type="button" class="ecm-row soft" data-act="putaway"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-archive"/></svg><span class="tx"><span class="lb">Put this away instead</span><span class="hp">Off your list. Nothing is deleted.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><label class="ecm-lab"><span>Why are you deleting it? <em>Optional</em></span><select data-reason><option value="">Choose a reason (optional)</option><option value="not_happening">Not happening any more</option><option value="made_by_mistake">Made it by mistake</option><option value="made_a_new_one">Made a new one instead</option><option value="using_something_else">Using something else</option><option value="too_expensive">Costs too much</option><option value="other">Something else</option></select></label><button type="button" class="ecm-link" data-act="skip">I’d rather not say</button></div></div>
+<div class="ecm-toast" role="status" aria-live="polite"></div>
+</div>
+</div>
+<div class="ecm-board" data-board="confirm">
+<div class="ecm-cap"><b>Delete · step 2</b><span>Same sheet. Type the name; then it is gone for good.</span><button type="button" class="ecm-reset">Reset sample</button></div>
+<div class="ecm-frame phone" data-live data-open="ev1" data-view="confirm">
+<div class="ecm-screen" inert><div class="ecm-main"><div class="ecm-top"><div class="bar"><span class="wm">SETNAYAN</span><span class="av sm" aria-hidden="true">AR</span></div><div class="prof"><span class="av" aria-hidden="true">AR</span><span class="pn"><b>Ana Reyes</b><span>@anareyes · Quezon City</span></span></div></div><div class="col"><section class="part"><div class="sh"><h2>Events</h2><span class="cnt" data-count>2 you organise · 1 invite</span><span class="see">See all</span></div><article class="ecard" data-ev="ev1"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Maria &amp; Jose, Sat 13 Mar 2027 · Tagaytay. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#EBDCCB"/><circle cx="236" cy="62" r="34" fill="#F7EDE0"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#DDBFA6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#CBA288"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#B98A70" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#B98A70"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Wedding</span><span class="poT">Maria &amp; Jose</span><span class="poS">Sat 13 Mar 2027 · Tagaytay</span><span class="poM"><span class="hot">108 days to go</span> · 12 of 40 done</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Maria &amp; Jose"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><article class="ecard" data-ev="ev2"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Lola Nena at 80, Sat 14 Nov 2026 · Quezon City. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#DDE4D8"/><circle cx="236" cy="62" r="34" fill="#F2F1E4"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#BFCDB6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A5B79E"/><circle cx="92" cy="78" r="15" fill="#8DA389"/><circle cx="118" cy="62" r="12" fill="#BFCDB6"/><path d="M92 93 V128 M118 74 V124" stroke="#8DA389" stroke-width="1.5" fill="none"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8DA389"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Birthday</span><span class="poT">Lola Nena at 80</span><span class="poS">Sat 14 Nov 2026 · Quezon City</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Lola Nena at 80"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><button type="button" class="irow" data-act="guest" data-ev="ev3" aria-label="Carlo &amp; Bea, you’re invited. Open the Event Hub"><span class="thumb"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#D9DFE8"/><circle cx="236" cy="62" r="34" fill="#EEF1F5"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#B9C4D3"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A0AEC1"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#8898AE" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8898AE"/></svg></span><span class="hrL"><span class="tagw">You’re invited</span><span class="hrT">Carlo &amp; Bea</span><span class="hrS">Sat 9 Jan 2027 · Cebu City</span></span><span class="ab neutral sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg>Event Hub</span></button><p class="ecm-empty" hidden>No events on Home now. Use Reset sample to bring them back.</p></section></div></div></div>
+<span class="ecm-create" inert><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-plus"/></svg>Create an event</span>
+<div class="ecm-scrim"></div>
+<div class="ecm-panel" role="dialog" aria-modal="true" aria-label="Delete Maria &amp; Jose?"><div class="ecm-grab" data-drag aria-hidden="true"><i></i></div><header class="ecm-ph del" data-drag><button type="button" class="ecm-x" data-act="back" aria-label="Back"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-back"/></svg></button><b class="nm" tabindex="-1" data-title>Delete Maria &amp; Jose?</b><button type="button" class="ecm-x" data-act="close" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-x"/></svg></button></header><div class="ecm-pb"><p class="ecm-p"><b>Your photos and everything about this event are deleted for good.</b> You can’t bring any of it back, and neither can we.</p><p class="ecm-said">You said: not happening any more <button type="button" class="ecm-link" data-act="why">Change</button></p><label class="ecm-lab"><span>Type <b>Maria &amp; Jose</b> to confirm</span><input type="text" data-typed autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" value="Maria &amp; Jose"></label><p class="ecm-err" role="alert" data-err hidden></p><button type="button" class="ecm-btn danger" data-act="delete"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-trash"/></svg><svg class="ic spin" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-spin"/></svg><span data-btn-label>Delete for good</span></button></div></div>
+<div class="ecm-toast" role="status" aria-live="polite"></div>
+</div>
+</div>
+<div class="ecm-board" data-board="guest">
+<div class="ecm-cap"><b>Invited guest</b><span>No menu. A tap on the row opens the Event Hub, as today.</span><button type="button" class="ecm-reset">Reset sample</button></div>
+<div class="ecm-frame phone" data-live>
+<div class="ecm-screen"><div class="ecm-main"><div class="ecm-top"><div class="bar"><span class="wm">SETNAYAN</span><span class="av sm" aria-hidden="true">AR</span></div><div class="prof"><span class="av" aria-hidden="true">AR</span><span class="pn"><b>Ana Reyes</b><span>@anareyes · Quezon City</span></span></div></div><div class="col"><section class="part"><div class="sh"><h2>Events</h2><span class="cnt" data-count>1 invite</span><span class="see">See all</span></div><button type="button" class="irow" data-act="guest" data-ev="ev3" aria-label="Carlo &amp; Bea, you’re invited. Open the Event Hub"><span class="thumb"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#D9DFE8"/><circle cx="236" cy="62" r="34" fill="#EEF1F5"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#B9C4D3"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A0AEC1"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#8898AE" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8898AE"/></svg></span><span class="hrL"><span class="tagw">You’re invited</span><span class="hrT">Carlo &amp; Bea</span><span class="hrS">Sat 9 Jan 2027 · Cebu City</span></span><span class="ab neutral sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg>Event Hub</span></button><p class="ecm-empty" hidden>No events on Home now. Use Reset sample to bring them back.</p></section></div></div></div>
+<span class="ecm-create"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-plus"/></svg>Create an event</span>
+<div class="ecm-scrim"></div>
+<div class="ecm-panel" role="dialog" aria-modal="true" aria-label="Event options"></div>
+<div class="ecm-toast" role="status" aria-live="polite"></div>
+</div>
+</div>
+<div class="ecm-board" data-board="dark">
+<div class="ecm-cap"><b>Dark</b><span>Flat page, glow on the top block only, no shadows.</span><button type="button" class="ecm-reset">Reset sample</button></div>
+<div class="ecm-frame phone dark" data-live data-open="ev1" data-view="menu">
+<div class="ecm-screen" inert><div class="ecm-main"><div class="ecm-top"><div class="bar"><span class="wm">SETNAYAN</span><span class="av sm" aria-hidden="true">AR</span></div><div class="prof"><span class="av" aria-hidden="true">AR</span><span class="pn"><b>Ana Reyes</b><span>@anareyes · Quezon City</span></span></div></div><div class="col"><section class="part"><div class="sh"><h2>Events</h2><span class="cnt" data-count>2 you organise · 1 invite</span><span class="see">See all</span></div><article class="ecard" data-ev="ev1"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Maria &amp; Jose, Sat 13 Mar 2027 · Tagaytay. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#EBDCCB"/><circle cx="236" cy="62" r="34" fill="#F7EDE0"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#DDBFA6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#CBA288"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#B98A70" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#B98A70"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Wedding</span><span class="poT">Maria &amp; Jose</span><span class="poS">Sat 13 Mar 2027 · Tagaytay</span><span class="poM"><span class="hot">108 days to go</span> · 12 of 40 done</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Maria &amp; Jose"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><article class="ecard" data-ev="ev2"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Lola Nena at 80, Sat 14 Nov 2026 · Quezon City. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#DDE4D8"/><circle cx="236" cy="62" r="34" fill="#F2F1E4"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#BFCDB6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A5B79E"/><circle cx="92" cy="78" r="15" fill="#8DA389"/><circle cx="118" cy="62" r="12" fill="#BFCDB6"/><path d="M92 93 V128 M118 74 V124" stroke="#8DA389" stroke-width="1.5" fill="none"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8DA389"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Birthday</span><span class="poT">Lola Nena at 80</span><span class="poS">Sat 14 Nov 2026 · Quezon City</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Lola Nena at 80"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><button type="button" class="irow" data-act="guest" data-ev="ev3" aria-label="Carlo &amp; Bea, you’re invited. Open the Event Hub"><span class="thumb"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#D9DFE8"/><circle cx="236" cy="62" r="34" fill="#EEF1F5"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#B9C4D3"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A0AEC1"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#8898AE" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8898AE"/></svg></span><span class="hrL"><span class="tagw">You’re invited</span><span class="hrT">Carlo &amp; Bea</span><span class="hrS">Sat 9 Jan 2027 · Cebu City</span></span><span class="ab neutral sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg>Event Hub</span></button><p class="ecm-empty" hidden>No events on Home now. Use Reset sample to bring them back.</p></section></div></div></div>
+<span class="ecm-create" inert><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-plus"/></svg>Create an event</span>
+<div class="ecm-scrim"></div>
+<div class="ecm-panel" role="dialog" aria-modal="true" aria-label="Options for Maria &amp; Jose"><div class="ecm-grab" data-drag aria-hidden="true"><i></i></div><header class="ecm-ph" data-drag><span class="ecm-thumb"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#EBDCCB"/><circle cx="236" cy="62" r="34" fill="#F7EDE0"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#DDBFA6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#CBA288"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#B98A70" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#B98A70"/></svg></span><span class="ecm-pht"><b class="nm">Maria &amp; Jose</b><span class="dt">Sat 13 Mar 2027 · Tagaytay</span><span class="ecm-stance inl"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><button type="button" class="ecm-x" data-act="close" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-x"/></svg></button></header><div class="ecm-pb"><button type="button" class="ecm-row main" data-act="dash"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-dash"/></svg><span class="tx"><span class="lb">Open Dashboard</span><span class="hp">Tasks, guests, suppliers and budget.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><div class="ecm-rows"><button type="button" class="ecm-row " data-act="hub"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg><span class="tx"><span class="lb">Open your Event Hub</span><span class="hp">See your hub as your QR opens it.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><button type="button" class="ecm-row " data-act="chat"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chat"/></svg><span class="tx"><span class="lb">Open Chat</span><span class="hp">Messages with your suppliers.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><button type="button" class="ecm-row " data-act="mem"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-images"/></svg><span class="tx"><span class="lb">Open your Memories</span><span class="hp">Photos and videos from this event.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><button type="button" class="ecm-row " data-act="locked" aria-disabled="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-book"/></svg><span class="tx"><span class="lb">Publish Story</span><span class="hp">Opens the day after your event.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-lock"/></svg></button></div><div class="ecm-div" role="separator"></div><button type="button" class="ecm-row danger" data-act="del"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-trash"/></svg><span class="tx"><span class="lb">Delete Event</span><span class="hp">Photos and everything else, gone for good.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button></div></div>
+<div class="ecm-toast" role="status" aria-live="polite"></div>
+</div>
+</div>
+<div class="ecm-board" data-board="darkconfirm">
+<div class="ecm-cap"><b>Dark · delete</b><span>The danger button is the one filled button.</span><button type="button" class="ecm-reset">Reset sample</button></div>
+<div class="ecm-frame phone dark" data-live data-open="ev1" data-view="confirm">
+<div class="ecm-screen" inert><div class="ecm-main"><div class="ecm-top"><div class="bar"><span class="wm">SETNAYAN</span><span class="av sm" aria-hidden="true">AR</span></div><div class="prof"><span class="av" aria-hidden="true">AR</span><span class="pn"><b>Ana Reyes</b><span>@anareyes · Quezon City</span></span></div></div><div class="col"><section class="part"><div class="sh"><h2>Events</h2><span class="cnt" data-count>2 you organise · 1 invite</span><span class="see">See all</span></div><article class="ecard" data-ev="ev1"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Maria &amp; Jose, Sat 13 Mar 2027 · Tagaytay. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#EBDCCB"/><circle cx="236" cy="62" r="34" fill="#F7EDE0"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#DDBFA6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#CBA288"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#B98A70" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#B98A70"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Wedding</span><span class="poT">Maria &amp; Jose</span><span class="poS">Sat 13 Mar 2027 · Tagaytay</span><span class="poM"><span class="hot">108 days to go</span> · 12 of 40 done</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Maria &amp; Jose"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><article class="ecard" data-ev="ev2"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Lola Nena at 80, Sat 14 Nov 2026 · Quezon City. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#DDE4D8"/><circle cx="236" cy="62" r="34" fill="#F2F1E4"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#BFCDB6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A5B79E"/><circle cx="92" cy="78" r="15" fill="#8DA389"/><circle cx="118" cy="62" r="12" fill="#BFCDB6"/><path d="M92 93 V128 M118 74 V124" stroke="#8DA389" stroke-width="1.5" fill="none"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8DA389"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Birthday</span><span class="poT">Lola Nena at 80</span><span class="poS">Sat 14 Nov 2026 · Quezon City</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Lola Nena at 80"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><button type="button" class="irow" data-act="guest" data-ev="ev3" aria-label="Carlo &amp; Bea, you’re invited. Open the Event Hub"><span class="thumb"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#D9DFE8"/><circle cx="236" cy="62" r="34" fill="#EEF1F5"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#B9C4D3"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A0AEC1"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#8898AE" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8898AE"/></svg></span><span class="hrL"><span class="tagw">You’re invited</span><span class="hrT">Carlo &amp; Bea</span><span class="hrS">Sat 9 Jan 2027 · Cebu City</span></span><span class="ab neutral sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg>Event Hub</span></button><p class="ecm-empty" hidden>No events on Home now. Use Reset sample to bring them back.</p></section></div></div></div>
+<span class="ecm-create" inert><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-plus"/></svg>Create an event</span>
+<div class="ecm-scrim"></div>
+<div class="ecm-panel" role="dialog" aria-modal="true" aria-label="Delete Maria &amp; Jose?"><div class="ecm-grab" data-drag aria-hidden="true"><i></i></div><header class="ecm-ph del" data-drag><button type="button" class="ecm-x" data-act="back" aria-label="Back"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-back"/></svg></button><b class="nm" tabindex="-1" data-title>Delete Maria &amp; Jose?</b><button type="button" class="ecm-x" data-act="close" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-x"/></svg></button></header><div class="ecm-pb"><p class="ecm-p"><b>Your photos and everything about this event are deleted for good.</b> You can’t bring any of it back, and neither can we.</p><p class="ecm-said">No reason given <button type="button" class="ecm-link" data-act="why">Say why</button></p><label class="ecm-lab"><span>Type <b>Maria &amp; Jose</b> to confirm</span><input type="text" data-typed autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" value=""></label><p class="ecm-err" role="alert" data-err hidden></p><button type="button" class="ecm-btn danger" data-act="delete" disabled><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-trash"/></svg><svg class="ic spin" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-spin"/></svg><span data-btn-label>Delete for good</span></button></div></div>
+<div class="ecm-toast" role="status" aria-live="polite"></div>
+</div>
+</div>
+<div class="ecm-board wide" data-board="desk">
+<div class="ecm-cap"><b>Desktop · 1280</b><span>A small menu anchored to the card’s ⋯, on the same dim and blur.</span><button type="button" class="ecm-reset">Reset sample</button></div>
+<div class="ecm-scroll"><div class="ecm-frame desk" data-live data-open="ev1" data-view="menu">
+<div class="ecm-screen" inert><nav class="rail" aria-hidden="true"><span class="wm">SETNAYAN</span><span class="ri on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-home"/></svg>Home</span><span class="ri"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-compass"/></svg>Discover</span><span class="ri"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chat"/></svg>Messages</span></nav><div class="ecm-main"><div class="ecm-top"><div class="prof"><span class="av" aria-hidden="true">AR</span><span class="pn"><b>Ana Reyes</b><span>@anareyes · Quezon City</span></span></div></div><div class="col"><section class="part"><div class="sh"><h2>Events</h2><span class="cnt" data-count>2 you organise · 1 invite</span><span class="ab brand"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-plus"/></svg>Create an event</span></div><article class="ecard" data-ev="ev1"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Maria &amp; Jose, Sat 13 Mar 2027 · Tagaytay. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#EBDCCB"/><circle cx="236" cy="62" r="34" fill="#F7EDE0"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#DDBFA6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#CBA288"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#B98A70" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#B98A70"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Wedding</span><span class="poT">Maria &amp; Jose</span><span class="poS">Sat 13 Mar 2027 · Tagaytay</span><span class="poM"><span class="hot">108 days to go</span> · 12 of 40 done</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Maria &amp; Jose"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><article class="ecard" data-ev="ev2"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Lola Nena at 80, Sat 14 Nov 2026 · Quezon City. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#DDE4D8"/><circle cx="236" cy="62" r="34" fill="#F2F1E4"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#BFCDB6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A5B79E"/><circle cx="92" cy="78" r="15" fill="#8DA389"/><circle cx="118" cy="62" r="12" fill="#BFCDB6"/><path d="M92 93 V128 M118 74 V124" stroke="#8DA389" stroke-width="1.5" fill="none"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8DA389"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Birthday</span><span class="poT">Lola Nena at 80</span><span class="poS">Sat 14 Nov 2026 · Quezon City</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Lola Nena at 80"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><button type="button" class="irow" data-act="guest" data-ev="ev3" aria-label="Carlo &amp; Bea, you’re invited. Open the Event Hub"><span class="thumb"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#D9DFE8"/><circle cx="236" cy="62" r="34" fill="#EEF1F5"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#B9C4D3"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A0AEC1"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#8898AE" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8898AE"/></svg></span><span class="hrL"><span class="tagw">You’re invited</span><span class="hrT">Carlo &amp; Bea</span><span class="hrS">Sat 9 Jan 2027 · Cebu City</span></span><span class="ab neutral sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg>Event Hub</span></button><p class="ecm-empty" hidden>No events on Home now. Use Reset sample to bring them back.</p></section></div></div></div>
+
+<div class="ecm-scrim"></div>
+<div class="ecm-panel" role="dialog" aria-modal="true" aria-label="Options for Maria &amp; Jose" style="left:635px;top:233px"><header class="ecm-ph" data-drag><span class="ecm-thumb"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#EBDCCB"/><circle cx="236" cy="62" r="34" fill="#F7EDE0"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#DDBFA6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#CBA288"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#B98A70" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#B98A70"/></svg></span><span class="ecm-pht"><b class="nm">Maria &amp; Jose</b><span class="dt">Sat 13 Mar 2027 · Tagaytay</span><span class="ecm-stance inl"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><button type="button" class="ecm-x" data-act="close" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-x"/></svg></button></header><div class="ecm-pb"><button type="button" class="ecm-row main" data-act="dash"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-dash"/></svg><span class="tx"><span class="lb">Open Dashboard</span><span class="hp">Tasks, guests, suppliers and budget.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><div class="ecm-rows"><button type="button" class="ecm-row " data-act="hub"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg><span class="tx"><span class="lb">Open your Event Hub</span><span class="hp">See your hub as your QR opens it.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><button type="button" class="ecm-row " data-act="chat"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chat"/></svg><span class="tx"><span class="lb">Open Chat</span><span class="hp">Messages with your suppliers.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><button type="button" class="ecm-row " data-act="mem"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-images"/></svg><span class="tx"><span class="lb">Open your Memories</span><span class="hp">Photos and videos from this event.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button><button type="button" class="ecm-row " data-act="locked" aria-disabled="true"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-book"/></svg><span class="tx"><span class="lb">Publish Story</span><span class="hp">Opens the day after your event.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-lock"/></svg></button></div><div class="ecm-div" role="separator"></div><button type="button" class="ecm-row danger" data-act="del"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-trash"/></svg><span class="tx"><span class="lb">Delete Event</span><span class="hp">Photos and everything else, gone for good.</span></span><svg class="end" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chev"/></svg></button></div></div>
+<div class="ecm-toast" role="status" aria-live="polite"></div>
+</div></div>
+</div>
+<div class="ecm-board wide" data-board="deskdark">
+<div class="ecm-cap"><b>Desktop · dark</b><span>The delete steps open inside the same menu.</span><button type="button" class="ecm-reset">Reset sample</button></div>
+<div class="ecm-scroll"><div class="ecm-frame desk dark" data-live data-open="ev1" data-view="confirm">
+<div class="ecm-screen" inert><nav class="rail" aria-hidden="true"><span class="wm">SETNAYAN</span><span class="ri on"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-home"/></svg>Home</span><span class="ri"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-compass"/></svg>Discover</span><span class="ri"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-chat"/></svg>Messages</span></nav><div class="ecm-main"><div class="ecm-top"><div class="prof"><span class="av" aria-hidden="true">AR</span><span class="pn"><b>Ana Reyes</b><span>@anareyes · Quezon City</span></span></div></div><div class="col"><section class="part"><div class="sh"><h2>Events</h2><span class="cnt" data-count>2 you organise · 1 invite</span><span class="ab brand"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-plus"/></svg>Create an event</span></div><article class="ecard" data-ev="ev1"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Maria &amp; Jose, Sat 13 Mar 2027 · Tagaytay. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#EBDCCB"/><circle cx="236" cy="62" r="34" fill="#F7EDE0"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#DDBFA6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#CBA288"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#B98A70" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#B98A70"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Wedding</span><span class="poT">Maria &amp; Jose</span><span class="poS">Sat 13 Mar 2027 · Tagaytay</span><span class="poM"><span class="hot">108 days to go</span> · 12 of 40 done</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Maria &amp; Jose"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><article class="ecard" data-ev="ev2"><button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="Lola Nena at 80, Sat 14 Nov 2026 · Quezon City. Open options"><span class="cover"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#DDE4D8"/><circle cx="236" cy="62" r="34" fill="#F2F1E4"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#BFCDB6"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A5B79E"/><circle cx="92" cy="78" r="15" fill="#8DA389"/><circle cx="118" cy="62" r="12" fill="#BFCDB6"/><path d="M92 93 V128 M118 74 V124" stroke="#8DA389" stroke-width="1.5" fill="none"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8DA389"/></svg><span class="ecm-stance"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-heart"/></svg>You organise this</span></span><span class="dright"><span class="poK">Birthday</span><span class="poT">Lola Nena at 80</span><span class="poS">Sat 14 Nov 2026 · Quezon City</span></span></button><button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for Lola Nena at 80"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-more"/></svg></button></article><button type="button" class="irow" data-act="guest" data-ev="ev3" aria-label="Carlo &amp; Bea, you’re invited. Open the Event Hub"><span class="thumb"><svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><rect width="320" height="200" fill="#D9DFE8"/><circle cx="236" cy="62" r="34" fill="#EEF1F5"/><path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="#B9C4D3"/><path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="#A0AEC1"/><path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="#8898AE" stroke-width="5" fill="none" stroke-linecap="round"/><path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="#8898AE"/></svg></span><span class="hrL"><span class="tagw">You’re invited</span><span class="hrT">Carlo &amp; Bea</span><span class="hrS">Sat 9 Jan 2027 · Cebu City</span></span><span class="ab neutral sm"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-eye"/></svg>Event Hub</span></button><p class="ecm-empty" hidden>No events on Home now. Use Reset sample to bring them back.</p></section></div></div></div>
+
+<div class="ecm-scrim"></div>
+<div class="ecm-panel" role="dialog" aria-modal="true" aria-label="Delete Maria &amp; Jose?" style="left:635px;top:233px"><header class="ecm-ph del" data-drag><button type="button" class="ecm-x" data-act="back" aria-label="Back"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-back"/></svg></button><b class="nm" tabindex="-1" data-title>Delete Maria &amp; Jose?</b><button type="button" class="ecm-x" data-act="close" aria-label="Close"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-x"/></svg></button></header><div class="ecm-pb"><p class="ecm-p"><b>Your photos and everything about this event are deleted for good.</b> You can’t bring any of it back, and neither can we.</p><p class="ecm-said">No reason given <button type="button" class="ecm-link" data-act="why">Say why</button></p><label class="ecm-lab"><span>Type <b>Maria &amp; Jose</b> to confirm</span><input type="text" data-typed autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" value=""></label><p class="ecm-err" role="alert" data-err hidden></p><button type="button" class="ecm-btn danger" data-act="delete" disabled><svg class="ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-trash"/></svg><svg class="ic spin" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-spin"/></svg><span data-btn-label>Delete for good</span></button></div></div>
+<div class="ecm-toast" role="status" aria-live="polite"></div>
+</div></div>
+</div>
+</div>
+<div class="ecm-notes">
+<section><h2>What changes</h2><ul>
+<li>A tap on an organiser’s card opens the menu. It no longer goes straight to the Dashboard.</li>
+<li>Phone: the house Sheet with a grabber. Desktop: a small anchored menu. One backdrop that dims and blurs; the page behind cannot be pressed.</li>
+<li>Open Dashboard is the one filled row. Delete Event is last, in red, under a divider.</li>
+<li>Keyboard: Enter opens, Tab stays inside, arrows move, Esc closes and focus returns to the card.</li>
+</ul></section>
+<section><h2>What it removes</h2><ul>
+<li>The Dashboard · Event Hub · trash buttons under each Home card (Unihome v5, approved 23 Nov).</li>
+<li>One-tap entry to the Dashboard from the picture or name. It is now two taps.</li>
+<li>“Put this away” as the first screen of the trash icon. It stays, inside Delete step 1.</li>
+</ul></section>
+<section><h2>Rules used</h2><ul>
+<li>Publish Story opens the day after the event (the app’s story gate). It is free, not a paid lock.</li>
+<li>The row is a door to the Story’s publish step. Publishing still needs a clear desk and the consent tick there.</li>
+<li>Open your Event Hub opens the hub page itself, signed in as you, the way your own QR opens it. It only shows the hub. A signed-in organiser gets in even while the hub is private, so the row has no lock.</li>
+<li>Open Chat and Open your Memories carry no lock for an organiser: neither page waits for the event date or a plan.</li>
+<li>Delete keeps today’s flow: what goes, put-away first, optional reason, then the typed name.</li>
+<li>Guests get no menu. Helpers are not drawn. A booked coordinator is kept out of Memories today, and a limited helper reads Chat but cannot start one unless given Suppliers.</li>
+</ul></section>
+</div>
+</div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false"><defs><symbol id="ecm-i-dash" viewBox="0 0 24 24"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></symbol><symbol id="ecm-i-eye" viewBox="0 0 24 24"><path d="M2.062 12.348a1 1 0 0 1 0-.696 10.75 10.75 0 0 1 19.876 0 1 1 0 0 1 0 .696 10.75 10.75 0 0 1-19.876 0"/><circle cx="12" cy="12" r="3"/></symbol><symbol id="ecm-i-trash" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><path d="M10 11v6"/><path d="M14 11v6"/></symbol><symbol id="ecm-i-book" viewBox="0 0 24 24"><path d="M12 7v14"/><path d="M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></symbol><symbol id="ecm-i-heart" viewBox="0 0 24 24"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M12 5 9.04 7.96a2.17 2.17 0 0 0 0 3.08c.82.82 2.13.85 3 .07l2.07-1.9a2.82 2.82 0 0 1 3.79 0l2.96 2.66"/><path d="m18 15-2-2"/><path d="m15 18-2-2"/></symbol><symbol id="ecm-i-mail" viewBox="0 0 24 24"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></symbol><symbol id="ecm-i-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></symbol><symbol id="ecm-i-x" viewBox="0 0 24 24"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></symbol><symbol id="ecm-i-chev" viewBox="0 0 24 24"><path d="m9 18 6-6-6-6"/></symbol><symbol id="ecm-i-back" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7"/><path d="M19 12H5"/></symbol><symbol id="ecm-i-archive" viewBox="0 0 24 24"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></symbol><symbol id="ecm-i-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol><symbol id="ecm-i-spin" viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></symbol><symbol id="ecm-i-plus" viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></symbol><symbol id="ecm-i-images" viewBox="0 0 24 24"><path d="M18 22H4a2 2 0 0 1-2-2V6"/><path d="m22 13-1.296-1.296a2.41 2.41 0 0 0-3.408 0L11 18"/><circle cx="12" cy="8" r="2"/><rect width="16" height="16" x="6" y="2" rx="2"/></symbol><symbol id="ecm-i-home" viewBox="0 0 24 24"><path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></symbol><symbol id="ecm-i-compass" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16.24 7.76-1.8 5.4a2 2 0 0 1-1.27 1.27l-5.4 1.8 1.8-5.4a2 2 0 0 1 1.27-1.27z"/></symbol><symbol id="ecm-i-chat" viewBox="0 0 24 24"><path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/></symbol></defs></svg>
+<script>
+/* Shared by the build (static first paint) and the runtime (live frames). Plain script, no modules. */
+var ECM = (function () {
+  var EV = {
+    ev1: {
+      id: 'ev1', name: 'Maria & Jose', kind: 'Wedding', when: 'Sat 13 Mar 2027 · Tagaytay',
+      stance: 'organiser', scene: 'wed', meta: '<span class="hot">108 days to go</span> · 12 of 40 done',
+      story: 'locked', impact: '128 photos · 86 guests · 3 booked suppliers'
+    },
+    ev2: {
+      id: 'ev2', name: 'Lola Nena at 80', kind: 'Birthday', when: 'Sat 14 Nov 2026 · Quezon City',
+      stance: 'organiser', scene: 'bday',
+      story: 'ready', impact: '342 photos · 120 guests'
+    },
+    ev3: {
+      id: 'ev3', name: 'Carlo & Bea', kind: 'Wedding', when: 'Sat 9 Jan 2027 · Cebu City',
+      stance: 'invited', scene: 'inv'
+    }
+  };
+  var REASONS = [
+    ['not_happening', 'Not happening any more'],
+    ['made_by_mistake', 'Made it by mistake'],
+    ['made_a_new_one', 'Made a new one instead'],
+    ['using_something_else', 'Using something else'],
+    ['too_expensive', 'Costs too much'],
+    ['other', 'Something else']
+  ];
+
+  function esc(s) {
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+  function ic(name, cls) {
+    return '<svg class="' + (cls || 'ic') + '" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><use href="#ecm-i-' + name + '"/></svg>';
+  }
+
+  /* A soft placeholder picture, drawn, in place of the event's photo. */
+  function scene(kind) {
+    var p = {
+      wed: ['#EBDCCB', '#F7EDE0', '#DDBFA6', '#CBA288', '#B98A70'],
+      bday: ['#DDE4D8', '#F2F1E4', '#BFCDB6', '#A5B79E', '#8DA389'],
+      inv: ['#D9DFE8', '#EEF1F5', '#B9C4D3', '#A0AEC1', '#8898AE']
+    }[kind] || [];
+    return (
+      '<svg class="ecm-scene" viewBox="0 0 320 200" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">' +
+      '<rect width="320" height="200" fill="' + p[0] + '"/>' +
+      '<circle cx="236" cy="62" r="34" fill="' + p[1] + '"/>' +
+      '<path d="M0 132 C60 96 110 112 160 128 S262 150 320 112 V200 H0Z" fill="' + p[2] + '"/>' +
+      '<path d="M0 158 C70 128 130 150 190 158 S280 150 320 142 V200 H0Z" fill="' + p[3] + '"/>' +
+      (kind === 'bday'
+        ? '<circle cx="92" cy="78" r="15" fill="' + p[4] + '"/><circle cx="118" cy="62" r="12" fill="' + p[2] + '"/><path d="M92 93 V128 M118 74 V124" stroke="' + p[4] + '" stroke-width="1.5" fill="none"/>'
+        : '<path d="M78 150 V96 a26 26 0 0 1 52 0 V150" stroke="' + p[4] + '" stroke-width="5" fill="none" stroke-linecap="round"/>') +
+      '<path d="M0 182 C80 166 180 178 320 170 V200 H0Z" fill="' + p[4] + '"/>' +
+      '</svg>'
+    );
+  }
+
+  function stance(ev, inline) {
+    var inv = ev.stance === 'invited';
+    return (
+      '<span class="ecm-stance' + (inline ? ' inl' : '') + (inv ? ' inv' : '') + '">' +
+      ic(inv ? 'mail' : 'heart') + (inv ? 'You’re invited' : 'You organise this') + '</span>'
+    );
+  }
+
+  /* ── Home ─────────────────────────────────────────────────────────────── */
+  function card(ev, now) {
+    var words =
+      '<span class="poK">' + esc(ev.kind) + '</span>' +
+      '<span class="poT">' + esc(ev.name) + '</span>' +
+      '<span class="poS">' + esc(ev.when) + '</span>' +
+      (ev.meta ? '<span class="poM">' + ev.meta + '</span>' : '');
+    var cover = '<span class="cover">' + scene(ev.scene) + stance(ev) + '</span>';
+    if (now) {
+      return (
+        '<article class="ecard dgrid2">' + cover + '<div class="dright">' + words +
+        '<div class="eact"><span class="ab neutral">' + ic('dash') + 'Dashboard</span>' +
+        '<span class="ab quiet">' + ic('eye') + 'Event Hub</span>' +
+        '<span class="ab quiet io eend" aria-label="Remove">' + ic('trash') + '</span></div></div></article>'
+      );
+    }
+    return (
+      '<article class="ecard" data-ev="' + ev.id + '">' +
+      '<button type="button" class="ecard-hit dgrid2" data-act="open" aria-haspopup="dialog" aria-label="' + esc(ev.name) + ', ' + esc(ev.when) + '. Open options">' +
+      cover + '<span class="dright">' + words + '</span></button>' +
+      '<button type="button" class="more" data-act="open" aria-haspopup="dialog" aria-label="Options for ' + esc(ev.name) + '">' + ic('more') + '</button>' +
+      '</article>'
+    );
+  }
+  function invited(ev, now) {
+    var inner =
+      '<span class="thumb">' + scene(ev.scene) + '</span>' +
+      '<span class="hrL"><span class="tagw">You’re invited</span><span class="hrT">' + esc(ev.name) + '</span><span class="hrS">' + esc(ev.when) + '</span></span>' +
+      '<span class="ab neutral sm">' + ic('eye') + 'Event Hub</span>';
+    return now
+      ? '<div class="irow">' + inner + '</div>'
+      : '<button type="button" class="irow" data-act="guest" data-ev="' + ev.id + '" aria-label="' + esc(ev.name) + ', you’re invited. Open the Event Hub">' + inner + '</button>';
+  }
+  function home(opts) {
+    var now = !!opts.now, desk = !!opts.desk;
+    var top =
+      '<div class="ecm-top">' +
+      (desk ? '' : '<div class="bar"><span class="wm">SETNAYAN</span><span class="av sm" aria-hidden="true">AR</span></div>') +
+      '<div class="prof"><span class="av" aria-hidden="true">AR</span><span class="pn"><b>Ana Reyes</b><span>@anareyes · Quezon City</span></span></div>' +
+      '</div>';
+    var body =
+      '<div class="col"><section class="part">' +
+      '<div class="sh"><h2>Events</h2><span class="cnt" data-count>' + (opts.guest ? '1 invite' : '2 you organise · 1 invite') + '</span>' +
+      (desk ? '<span class="ab brand">' + ic('plus') + 'Create an event</span>' : '<span class="see">See all</span>') + '</div>' +
+      (opts.guest ? '' : card(EV.ev1, now) + card(EV.ev2, now)) + invited(EV.ev3, now) +
+      '<p class="ecm-empty" hidden>No events on Home now. Use Reset sample to bring them back.</p>' +
+      '</section></div>';
+    var rail = desk
+      ? '<nav class="rail" aria-hidden="true"><span class="wm">SETNAYAN</span><span class="ri on">' + ic('home') + 'Home</span><span class="ri">' + ic('compass') + 'Discover</span><span class="ri">' + ic('chat') + 'Messages</span></nav>'
+      : '';
+    return rail + '<div class="ecm-main">' + top + body + '</div>';
+  }
+
+  /* ── The menu and the delete steps: one panel, its content changes in place ── */
+  function row(o) {
+    return (
+      '<button type="button" class="ecm-row ' + (o.cls || '') + '" data-act="' + o.act + '"' + (o.off ? ' aria-disabled="true"' : '') + '>' +
+      ic(o.icon) + '<span class="tx"><span class="lb">' + o.label + '</span><span class="hp">' + o.help + '</span></span>' +
+      ic(o.end || 'chev', 'end') + '</button>'
+    );
+  }
+  function panel(ev, st, desk) {
+    var name = esc(ev.name);
+    var view = st.view || 'menu';
+    var h = desk ? '' : '<div class="ecm-grab" data-drag aria-hidden="true"><i></i></div>';
+    if (view === 'menu') {
+      h +=
+        '<header class="ecm-ph" data-drag><span class="ecm-thumb">' + scene(ev.scene) + '</span>' +
+        '<span class="ecm-pht"><b class="nm">' + name + '</b><span class="dt">' + esc(ev.when) + '</span>' + stance(ev, true) + '</span>' +
+        '<button type="button" class="ecm-x" data-act="close" aria-label="Close">' + ic('x') + '</button></header>' +
+        '<div class="ecm-pb">' +
+        row({ act: 'dash', icon: 'dash', cls: 'main', label: 'Open Dashboard', help: 'Tasks, guests, suppliers and budget.' }) +
+        '<div class="ecm-rows">' +
+        row({ act: 'hub', icon: 'eye', label: 'Open your Event Hub', help: 'See your hub as your QR opens it.' }) +
+        row({ act: 'chat', icon: 'chat', label: 'Open Chat', help: 'Messages with your suppliers.' }) +
+        row({ act: 'mem', icon: 'images', label: 'Open your Memories', help: 'Photos and videos from this event.' }) +
+        (ev.story === 'ready'
+          ? row({ act: 'story', icon: 'book', label: 'Publish Story', help: 'Your day has passed. Choose who reads it.' })
+          : row({ act: 'locked', icon: 'book', label: 'Publish Story', help: 'Opens the day after your event.', end: 'lock', off: true })) +
+        '</div><div class="ecm-div" role="separator"></div>' +
+        row({ act: 'del', icon: 'trash', cls: 'danger', label: 'Delete Event', help: 'Photos and everything else, gone for good.' }) +
+        '</div>';
+      return h;
+    }
+    h +=
+      '<header class="ecm-ph del" data-drag><button type="button" class="ecm-x" data-act="back" aria-label="Back">' + ic('back') + '</button>' +
+      '<b class="nm" tabindex="-1" data-title>Delete ' + name + '?</b>' +
+      '<button type="button" class="ecm-x" data-act="close" aria-label="Close">' + ic('x') + '</button></header>';
+    if (view === 'why') {
+      var opts = '<option value="">Choose a reason (optional)</option>';
+      for (var i = 0; i < REASONS.length; i++) {
+        opts += '<option value="' + REASONS[i][0] + '"' + (st.reason === REASONS[i][0] ? ' selected' : '') + '>' + REASONS[i][1] + '</option>';
+      }
+      h +=
+        '<div class="ecm-pb"><p class="ecm-p"><b>' + esc(ev.impact) + '</b> go with it, along with the page your guests use.</p>' +
+        row({ act: 'putaway', icon: 'archive', cls: 'soft', label: 'Put this away instead', help: 'Off your list. Nothing is deleted.' }) +
+        '<label class="ecm-lab"><span>Why are you deleting it? <em>Optional</em></span><select data-reason>' + opts + '</select></label>' +
+        '<button type="button" class="ecm-link" data-act="skip">I’d rather not say</button></div>';
+      return h;
+    }
+    var said = 'No reason given';
+    for (var j = 0; j < REASONS.length; j++) if (REASONS[j][0] === st.reason) said = 'You said: ' + REASONS[j][1].toLowerCase();
+    var typed = st.typed || '';
+    h +=
+      '<div class="ecm-pb"><p class="ecm-p"><b>Your photos and everything about this event are deleted for good.</b> You can’t bring any of it back, and neither can we.</p>' +
+      '<p class="ecm-said">' + said + ' <button type="button" class="ecm-link" data-act="why">' + (st.reason ? 'Change' : 'Say why') + '</button></p>' +
+      '<label class="ecm-lab"><span>Type <b>' + name + '</b> to confirm</span>' +
+      '<input type="text" data-typed autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" value="' + esc(typed) + '"></label>' +
+      '<p class="ecm-err" role="alert" data-err hidden></p>' +
+      '<button type="button" class="ecm-btn danger" data-act="delete"' + (typed.trim() ? '' : ' disabled') + '>' +
+      ic('trash') + ic('spin', 'ic spin') + '<span data-btn-label>Delete for good</span></button></div>';
+    return h;
+  }
+
+  return { EV: EV, REASONS: REASONS, home: home, panel: panel, esc: esc, ic: ic };
+})();
+
+(function () {
+  var R = ECM, EV = R.EV;
+  var FOCUS = 'button:not([disabled]), select:not([disabled]), input:not([disabled]), [href]';
+  var reduced = function () { return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches; };
+
+  function init(f) {
+    var desk = f.classList.contains('desk');
+    var screen = f.querySelector('.ecm-screen'), scrim = f.querySelector('.ecm-scrim');
+    var panel = f.querySelector('.ecm-panel'), toast = f.querySelector('.ecm-toast');
+    var create = f.querySelector('.ecm-create');
+    var st = { ev: f.dataset.open || null, view: f.dataset.view || 'menu', reason: '', typed: '', busy: false, opener: null };
+    var toastTimer = null, lastHidden = null;
+    if (st.ev && st.view === 'confirm') st.typed = (panel.querySelector('[data-typed]') || {}).value || '';
+
+    function lock(on) {
+      screen.inert = on;
+      if (create) create.inert = on;
+    }
+    function place() {
+      if (!desk || !st.ev) return;
+      var more = f.querySelector('.ecard[data-ev="' + st.ev + '"] .more');
+      if (!more) return;
+      var fr = f.getBoundingClientRect(), r = more.getBoundingClientRect();
+      var left = r.left - fr.left, top = r.bottom - fr.top + 4;
+      left = Math.max(16, Math.min(left, f.clientWidth - panel.offsetWidth - 16));
+      top = Math.max(16, Math.min(top, f.clientHeight - panel.offsetHeight - 16));
+      panel.style.left = left + 'px';
+      panel.style.top = top + 'px';
+    }
+    function paint(swap) {
+      var ev = EV[st.ev];
+      panel.innerHTML = R.panel(ev, st, desk);
+      panel.setAttribute('aria-label', st.view === 'menu' ? 'Options for ' + ev.name : 'Delete ' + ev.name + '?');
+      f.dataset.view = st.view;
+      panel.classList.remove('swap');
+      if (swap) { void panel.offsetWidth; panel.classList.add('swap'); }
+      panel.scrollTop = 0;
+      place();
+    }
+    function focusIn() {
+      var el = st.view === 'menu' ? panel.querySelector('.ecm-row') : st.view === 'confirm' ? panel.querySelector('[data-typed]') : panel.querySelector('[data-title]');
+      if (el) el.focus({ preventScroll: true });
+    }
+    function open(id, opener) {
+      if (!EV[id] || st.busy) return;
+      hideToast();
+      st.ev = id; st.view = 'menu'; st.reason = ''; st.typed = ''; st.opener = opener || null;
+      panel.style.transform = '';
+      paint(false);
+      f.dataset.open = id;
+      lock(true);
+      focusIn();
+    }
+    function close(silent) {
+      if (!st.ev || st.busy) return;
+      var opener = st.opener;
+      st.ev = null;
+      delete f.dataset.open;
+      panel.style.transform = '';
+      lock(false);
+      if (!silent && opener && opener.isConnected && !opener.closest('[hidden]')) opener.focus({ preventScroll: true });
+    }
+    function go(view) { st.view = view; paint(true); focusIn(); }
+
+    function say(text, undo) {
+      clearTimeout(toastTimer);
+      toast.innerHTML = '<span>' + R.esc(text) + '</span>' + (undo ? '<button type="button" data-act="undo">Undo</button>' : '');
+      toast.classList.add('on');
+      toastTimer = setTimeout(hideToast, undo ? 6000 : 3200);
+    }
+    function hideToast() { clearTimeout(toastTimer); toast.classList.remove('on'); }
+
+    function recount() {
+      var org = f.querySelectorAll('.ecard[data-ev]:not([hidden])').length;
+      var inv = f.querySelectorAll('.irow[data-ev]:not([hidden])').length;
+      var bits = [];
+      if (org) bits.push(org + ' you organise');
+      if (inv) bits.push(inv + (inv === 1 ? ' invite' : ' invites'));
+      f.querySelector('[data-count]').textContent = bits.join(' · ');
+      f.querySelector('.ecm-empty').hidden = org + inv > 0;
+    }
+    function takeOff(id, then) {
+      var el = f.querySelector('.ecard[data-ev="' + id + '"]');
+      el.classList.add('gone');
+      setTimeout(function () { el.hidden = true; recount(); if (then) then(); }, reduced() ? 0 : 200);
+      return el;
+    }
+    function reset() {
+      if (st.busy) return;
+      close(true); hideToast();
+      f.querySelectorAll('[data-ev]').forEach(function (el) { el.hidden = false; el.classList.remove('gone'); });
+      lastHidden = null; recount();
+    }
+
+    function putAway(btn) {
+      var id = st.ev, name = EV[id].name;
+      st.busy = true; btn.classList.add('busy'); btn.querySelector('.hp').textContent = 'Putting it away…';
+      setTimeout(function () {
+        st.busy = false; close(true);
+        lastHidden = takeOff(id);
+        say(name + ' is put away. Nothing was deleted.', true);
+      }, 700);
+    }
+    function doDelete(btn) {
+      var id = st.ev, ev = EV[id];
+      var input = panel.querySelector('[data-typed]'), err = panel.querySelector('[data-err]');
+      var typed = input.value.trim();
+      if (!typed || st.busy) return;
+      if (typed !== ev.name) {
+        err.textContent = 'Type ' + ev.name + ' exactly to delete it.';
+        err.hidden = false;
+        input.classList.remove('shake'); void input.offsetWidth; input.classList.add('shake');
+        input.focus();
+        return;
+      }
+      err.hidden = true;
+      st.busy = true;
+      btn.disabled = true; btn.classList.add('busy');
+      btn.querySelector('[data-btn-label]').textContent = 'Deleting…';
+      input.disabled = true;
+      panel.querySelectorAll('.ecm-x, .ecm-link').forEach(function (b) { b.disabled = true; });
+      setTimeout(function () {
+        st.busy = false; close(true);
+        takeOff(id, function () {
+          var next = f.querySelector('.ecard[data-ev]:not([hidden]) .ecard-hit, button.irow:not([hidden])');
+          if (next) next.focus({ preventScroll: true });
+        });
+        lastHidden = null;
+        say(ev.name + ' was deleted for good.');
+      }, 1300);
+    }
+
+    f.addEventListener('click', function (e) {
+      var t = e.target.closest('[data-act]');
+      if (e.target === scrim) { close(); return; }
+      if (!t || !f.contains(t)) return;
+      var act = t.dataset.act;
+      if (act === 'open') {
+        if (f._held) { f._held = false; return; }
+        open(t.closest('[data-ev]').dataset.ev, t);
+      } else if (act === 'guest') {
+        say('Opens ' + EV[t.dataset.ev].name + '’s Event Hub.');
+      } else if (act === 'undo') {
+        if (lastHidden) { lastHidden.hidden = false; lastHidden.classList.remove('gone'); lastHidden = null; recount(); }
+        hideToast();
+      } else if (act === 'close') close();
+      else if (act === 'back') { if (st.view === 'confirm') go('why'); else go('menu'); }
+      else if (act === 'dash' || act === 'hub' || act === 'story' || act === 'chat' || act === 'mem') {
+        var name = EV[st.ev].name;
+        close();
+        say(act === 'dash' ? 'Opens the Dashboard for ' + name + '.' : act === 'hub' ? 'Opens ' + name + '’s Event Hub, as your own QR opens it.' : act === 'chat' ? 'Opens Chat for ' + name + '.' : act === 'mem' ? 'Opens Memories for ' + name + '.' : 'Opens the Story for ' + name + ', at its publish step.');
+      } else if (act === 'locked') { /* a wait, not a refusal: the row already says when it opens */ }
+      else if (act === 'del' || act === 'why') go('why');
+      else if (act === 'skip') { st.reason = ''; go('confirm'); }
+      else if (act === 'putaway') putAway(t);
+      else if (act === 'delete') doDelete(t);
+    });
+    f.addEventListener('change', function (e) {
+      if (e.target.matches('[data-reason]')) { st.reason = e.target.value; if (st.reason) go('confirm'); }
+    });
+    f.addEventListener('input', function (e) {
+      if (!e.target.matches('[data-typed]')) return;
+      st.typed = e.target.value;
+      panel.querySelector('[data-act="delete"]').disabled = !st.typed.trim();
+      e.target.classList.remove('shake');
+    });
+    f.addEventListener('keydown', function (e) {
+      if (!st.ev) return;
+      if (e.key === 'Escape') { e.preventDefault(); close(); return; }
+      if (e.key === 'Enter' && e.target.matches('[data-typed]')) { e.preventDefault(); doDelete(panel.querySelector('[data-act="delete"]')); return; }
+      var items = Array.prototype.filter.call(panel.querySelectorAll(FOCUS), function (el) { return el.offsetParent !== null; });
+      if (!items.length) return;
+      var i = items.indexOf(document.activeElement);
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        items[(i + (e.shiftKey ? -1 : 1) + items.length) % items.length].focus();
+      } else if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && st.view === 'menu') {
+        var rows = Array.prototype.slice.call(panel.querySelectorAll('.ecm-row'));
+        var j = rows.indexOf(document.activeElement);
+        e.preventDefault();
+        rows[(j + (e.key === 'ArrowDown' ? 1 : -1) + rows.length) % rows.length].focus();
+      }
+    });
+
+    /* long-press (350 ms) and right-click open the same menu */
+    var holdTimer = null;
+    f.addEventListener('pointerdown', function (e) {
+      var hit = e.target.closest('.ecard-hit');
+      if (!hit || e.button) return;
+      holdTimer = setTimeout(function () { f._held = true; open(hit.closest('[data-ev]').dataset.ev, hit); }, 350);
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (n) {
+      f.addEventListener(n, function () { clearTimeout(holdTimer); setTimeout(function () { f._held = false; }, 50); }, true);
+    });
+    f.addEventListener('contextmenu', function (e) {
+      var hit = e.target.closest('.ecard-hit');
+      if (hit) { e.preventDefault(); clearTimeout(holdTimer); open(hit.closest('[data-ev]').dataset.ev, hit); }
+    });
+
+    /* the sheet follows the finger down and closes past 90 px */
+    if (!desk) {
+      var y0 = null, dy = 0;
+      panel.addEventListener('pointerdown', function (e) {
+        if (!e.target.closest('[data-drag]') || e.target.closest('button') || st.busy) return;
+        y0 = e.clientY; dy = 0; panel.classList.add('dragging');
+        try { panel.setPointerCapture(e.pointerId); } catch (x) {}
+      });
+      panel.addEventListener('pointermove', function (e) {
+        if (y0 === null) return;
+        dy = Math.max(0, e.clientY - y0);
+        panel.style.transform = 'translateY(' + dy + 'px)';
+      });
+      var end = function () {
+        if (y0 === null) return;
+        y0 = null; panel.classList.remove('dragging');
+        if (dy > 90) close(); else panel.style.transform = '';
+      };
+      panel.addEventListener('pointerup', end);
+      panel.addEventListener('pointercancel', end);
+    }
+
+    var resetBtn = f.closest('.ecm-board').querySelector('.ecm-reset');
+    if (resetBtn) resetBtn.addEventListener('click', reset);
+    window.addEventListener('resize', place);
+    if (st.ev) { lock(true); place(); }
+  }
+
+  document.querySelectorAll('.ecm-frame[data-live]').forEach(init);
+})();
+
+</script>

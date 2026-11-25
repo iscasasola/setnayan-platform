@@ -619,3 +619,18 @@ of those users will become the same supplier."
 - **A2-P1:** money counts up too. Money amounts use the same count-up animation as other numbers, and the final value must be the exact amount.
 - **A2-H10:** only the couple can put their event away. A coordinator cannot archive the couple's event; they can ask the couple.
 - **Controller:** `(account)/api-keys/actions.ts` stays on lane R's do-not-edit list. Its 2 raw `error.message` sites are owed to lane R.
+
+## Add 40 — Event card tap menu (owner APPROVED, 25 Nov)
+Drawing: `build-sessions/final-check/drawings/event-card-menu.html` (artifact v3). Build it as drawn. Lane B, Home launcher (`apps/web/app/dashboard/(launcher)/_components/unihome.tsx`, `event-card-menu.tsx`).
+- Tapping an event card (or ⋯, long-press or right-click) opens a menu. Phone: a sheet. Desktop: an anchored menu.
+- The menu replaces the Dashboard · Event Hub · trash buttons under each card.
+- Rows, in order:
+  1. **Open Dashboard**
+  2. **Open your Event Hub.** It opens the ACTUAL hub `/{slug}`, signed in as you, as your own QR opens it. View only: never the Maker, never edit. Eye icon. Always shown for organisers, with no Public/Unlisted gate (a private hub admits the signed-in host, `[slug]/page.tsx` Path B). In the native app it must keep the session: navigate in the same view or use the organiser's own `?invite=` link, not `openEventHub`.
+  3. **Open Chat** (`/dashboard/[eventId]/messages`)
+  4. **Open your Memories** (`/dashboard/[eventId]/memories`)
+  5. **Publish Story**. A door to the Story's publish step, locked with "Opens the day after your event" until then.
+  6. **Delete Event**, last, in the danger colour.
+- Delete keeps today's two screens inside the sheet or menu, with "Put this away" offered first, then typing the event name. The server rules are unchanged (`deleteOwnEvent`, organisers only), and the blocked case (money or booked suppliers) is unchanged.
+- Guests get no menu; the invited row opens the hub directly. Helpers get Dashboard, Event Hub and Chat; Memories follows the existing Photos grant; no Delete.
+- An organiser with no guest row still opens the hub as the signed-in host. An event with no slug shows the row disabled with "Set up your Event Hub first".

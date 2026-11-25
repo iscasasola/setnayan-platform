@@ -117,7 +117,14 @@ Each line: **sizes** 375 · 768 · 1280, light and dark asked of the browser · 
 - [x] /papic/pool (no session) — **404 "This page doesn't exist on Setnayan"** under the tab title "Everyone's photos · Papic · Setnayan" (A4-B08)
 - [x] /papic/seat/[token] (dead) — sizes ok · light only · buttons 2 · pressed 2 · failed 1 (greeted as valid, lands on /papic/claim/<token>?state=invalid, A4-B03) · 0.6–0.8 s
 - [x] /papic/try — sizes ok · light only (signed out) · buttons 11 at 375 / 24 at 1280 · pressed 8 (5 look chips: each marks itself pressed and changes its line; the link; Sign in; wordmark) · failed 0 · ☰ and Search under 44 px (shell, area 1) · 0.6–0.9 s
-- [ ] /[slug] and its 14 pages, /[slug]/hub — WAITING on A4-B01 (every Hub address answers 500 since 07:19 UTC). Seen once at 06:45: /[slug] signed out at all six views (shots/area-4), /[slug]/everyone 200 in 110 s.
+- [~] /[slug] signed in as `guest` (07:36–07:55, during A4-B01): of 17 Hub addresses × 2 sizes, 11 drew the "Still opening / didn't load" screen. Drawn and read:
+  - /[slug]/everyone — 200 in 4.6 s (375) and 52 s (1280) · light only (couple's theme) · buttons 1 (Back to the invitation) · pressed 1 · failed 0
+  - /[slug]/find-my-table, /[slug]/seat — "Open this from your invitation" for a signed-in seat holder (A4-B11) · buttons 2 · pressed 2 · 23 s / 80 s / 2.8 s
+  - /[slug]/invite/enter — "You're on the list" · "We couldn't draw your ticket just now — your link below still works at the door" (honest, during the stall) yet "Save my ticket" is still offered as the main button (nothing to save) · buttons 5 · pressed 4 (Open the invitation, 2 more answers, the home-screen tip, Made with Setnayan) · Save my ticket not pressed
+  - /[slug]/pabuya — flag ON · 125 s (375) / 4 s (1280) · A4-42 CONFIRMED ("PABUYA · THE PABUYA · DIGITAL MONEY DANCE") · A4-44 CONFIRMED ("Bea & Paolo haven't set up e-gifts yet" — cannot tell a failed read from none) · A4-B12 · buttons 3 · pressed 3
+  - /[slug]/invite, /welcome, /avatar, /request, /print, /hub forward a signed-in guest to /[slug] (as phase A read); /recap forwards to /[slug]?story=later. Each forward landed; the Hub then failed (A4-B01).
+  - /[slug], ?tab=me, ?tab=program, /find-seat, /invite/reply: 500 every try (A4-B01). Not walked yet.
+- [ ] Offline (DevTools offline), the reveals, K3 layers on the Hub — WAITING on A4-B01
 
 ## Offline today: what ships for guests (read once, applies to every page below)
 
@@ -256,7 +263,7 @@ PAGE      /papic/pool   (opened with no Papic session, e.g. a forwarded link)
 BUTTON    none
 STEPS     1. Open /papic/pool signed out with no pass.
 EXPECTED  The same door as /papic/guest and /papic/decorate: "Open your invitation first. Scan your personal QR or open your invite link…".
-ACTUAL    The site 404 page "This page doesn't exist on Setnayan … Take me home / Browse suppliers", HTTP 404, while the tab reads "Everyone's photos · Papic · Setnayan". A guest who saved the album link is told it never existed.
+ACTUAL    The site 404 page "This page doesn't exist on Setnayan … Take me home / Browse suppliers", HTTP 404, while the tab reads "Everyone's photos · Papic · Setnayan". A guest who saved the album link is told it never existed. Same 404 for the signed-in `guest` (375 and 1280).
 SHOTS     375 px light
 RULE      honest states · Add 2 EFFECTIVE (one way per door)
 SEVERITY  wrong
@@ -295,11 +302,24 @@ PAGE      /[slug]/find-my-table and /[slug]/seat   (stg-bea-paolo, signed in as 
 BUTTON    none (opening the page)
 STEPS     1. Sign in as `guest` (their home shows "YOU'RE INVITED · Bea & Paolo · Event Hub", so the account holds a seat). 2. Open /stg-bea-paolo/find-my-table, then /stg-bea-paolo/seat.
 EXPECTED  The signed-in seat holder sees their own table / pass, the same as the Hub's ?tab=me copy treats "the seat's own account" (phase A, offline section).
-ACTUAL    Both say "Open this from your invitation — … Open your invitation link (or scan your QR)…" with "The invitation" as the only way on. /find-my-table reads only the invite-link cookie: `const session = await readGuestSession(); if (!session || session.event_id !== event.event_id)` → `PromptCard`; the account is never asked. A guest who signed in (the claim/join path this sign-in exists for) is sent to hunt for a link. Answer times 23 s and 80–116 s (A4-B01).
+ACTUAL    Both say "Open this from your invitation — … Open your invitation link (or scan your QR)…" with "The invitation" as the only way on. /find-my-table reads only the invite-link cookie: `const session = await readGuestSession(); if (!session || session.event_id !== event.event_id)` → `PromptCard`; the account is never asked. A guest who signed in (the claim/join path this sign-in exists for) is sent to hunt for a link. The same wall on /papic/guest and /papic/decorate for the same signed-in seat holder: "Open your invitation first. Scan your personal QR or open your invite link…". Answer times 23 s and 80–116 s (A4-B01).
 SHOTS     375 px light (both)
 RULE      Add 5 (never ask again for what Setnayan already knows) · Add 2 EFFECTIVE
 SEVERITY  wrong
 SOURCE    SEEN + CODE (`apps/web/app/[slug]/find-my-table/page.tsx` `readGuestSession()`)
+```
+
+```
+ID        A4-B12
+PAGE      /[slug]/pabuya   (stg-bea-paolo; PABUYA_PUBLIC_ROUTE_ENABLED is ON on the copy)
+BUTTON    the page text under the gift cards
+STEPS     1. Open /stg-bea-paolo/pabuya (signed in as `guest` or not).
+EXPECTED  The only 0% line allowed anywhere is the exact sentence "Hosts pay 0% commission." (brand.md, claims rule 2; DECISION_LOG 20 Nov).
+ACTUAL    "Setnayan never touches your money. We only show you where to send it — it goes directly to the couple's own account. No commission, no middleman, no fees." Anchor: `apps/web/app/_components/pabuya/pabuya-card-list.tsx` "No commission, no middleman". Also says "the couple" on every event type (A4-08 pattern).
+SHOTS     375 px light
+RULE      brand.md claims never made, rule 2
+SEVERITY  wrong
+SOURCE    SEEN
 ```
 
 ```

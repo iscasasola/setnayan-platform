@@ -1,3 +1,4 @@
+FIXER: batch 1 of ~10 · branch claude/fc-fix-a8-b1 (10 lane A fixes: G-4, L-1, L-2, C-3, B-9, B-10, F-22, G-16, I-11, P-B-12) · local preflight running, PR next · batch 2 (claude/fc-fix-a8-b2, 10 honest-read fixes) built, waiting
 STATUS: phase B done · 71/71 pages walked (375 light+dark, 768, 1280; dark sample at 768/1280) · 36/36 forwards land · 156/156 links ok · buttons 3,311 · pressed 2,303 · failed 0 confirmed · left 1,008 · phase-B findings 22 (blocker 0 · broken 0 · wrong 7 · look 15) + G-4 confirmed (money-signin) · checker-made changes disclosed and restored
 
 # Final check · Area 8 · Admin (/admin/* and the internal pages)
@@ -3649,3 +3650,29 @@ SOURCE    CODE
 - Server-side admin checks verified: `/api/admin/demo-mode/toggle` (`isAdminProfile` → 403), `/api/admin/sentry-smoke-test` (403), `/api/admin/smoke-test` (404), `/admin/data-privacy/documents/[doc]` (404). /admin/integrations and /admin/email-delivery pass only booleans and non-secret config to the page. No ciphertext or env secret reaches the browser.
 - Cosmetic: `TestResendButton` reads `body.id`, but `/api/admin/smoke-test` returns `messageId`, so "Sent — message id …" never shows.
 - `ConfirmDialog`, the house confirm behind `ConfirmButton` and `ConfirmForm`, is a portalled native `<dialog>`, not `Sheet`. That is area-wide, so I did not report it per page.
+
+## Second pass (25 Nov)
+
+Checked on the admin pages batch 1 and 2 touch, against Adds 11, 11b, 12, 13, 15, 17 and 18. Lane A ones are fixed in
+the batches; the rest wait.
+
+- [B] Add 11.3 · every admin list (Work, Money › To confirm, People, Integrity watch, Repost watch) · no pull to refresh
+  on a phone; the only refresh is a reload. Should: pull to refresh on 375/768 lists. Reference: iOS Mail list.
+- [B] Add 11.7 · `/admin/team` areas × levels grid, `/admin/pricing` catalogue table · a table that scrolls sideways on
+  375. Should: one row per person or price with a details sheet. Reference: iOS Settings list → detail.
+- [B] Add 11b · admin shell · the 44 px house press is applied to every control at 1280 too (chips, ⓘ, ↑/↓); desktop
+  rows could be denser. Reference: Gmail desktop vs phone.
+- [B] Add 11b · `/admin/studio` (Website widgets) · the ↑/↓ reorder arrows draw 24 px on a phone (P-B-21) while the
+  file's own docblock promises touch Move buttons (G-7). Fix waits for a drawing.
+- [B] Add 12.1 · admin landing cards and the Focus "Completions" row expand with a snap (no motion 9 "Open").
+- [B] Add 13 · Icons: `/admin` Focus/Full switch is two unlabeled glyphs on 375 (should mean "Focus list" / "Full
+  console"); the Ugat map's Map · Entities · Joints · Fields buttons carry no icon (should mean graph · box · link · column).
+- [R] Add 17 · `/admin/studio?tab=real-stories` ("Real Stories (retired)", its own label says retired, still in the
+  Studio menu and the Catalogue card) · product folded; nothing for couples links to it. Delete with a forward.
+- [R] Add 17 · `/admin/ugat?tab=brain` ("AI brain (old)", the concierge brain; three tabs inside say "Coming soon") ·
+  the concierge is retired (R7). Delete with a forward.
+- [C/R] Add 17 · `/admin/studio?tab=patiktok` · Patiktok is a retired name (SW-RETNAME) but the Studio menu still offers
+  it. Owner to rule: retire or rename.
+- Add 15 · the admin top bar and rail draw the mark through `<Logo>`/`LogoMark` (the one source). No bypass found in
+  `app/admin`. ✓
+- Add 18 · the admin Reveal Studio edits the house reveal settings (not a couple's pick); it shows no per-event picker. ✓

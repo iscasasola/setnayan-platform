@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { RiseRoute } from '@/app/_components/rise/rise-route';
 import { createClient } from '@/lib/supabase/server';
+import { isServiceCardId } from '@/lib/service-card-id';
 
 /**
  * ⤴ EDITING A SERVICE CARD RISES OVER SHOP (final check B8). A tap on a card row draws the card maker inside the one
@@ -10,10 +11,10 @@ import { createClient } from '@/lib/supabase/server';
  */
 export default async function RisenServiceCardLayout({ children, params }: { children: ReactNode; params: Promise<{ serviceId: string }> }) {
   const { serviceId } = await params;
+  // Not a card (a services page beside the maker): no layer at all — the page loads as its own (see page.tsx).
+  if (!isServiceCardId(serviceId)) return <>{children}</>;
   const supabase = await createClient();
-  const { data, error } = /^[0-9a-fA-F-]{36}$/.test(serviceId)
-    ? await supabase.from('vendor_services').select('title').eq('vendor_service_id', serviceId).maybeSingle()
-    : { data: null, error: null };
+  const { data, error } = await supabase.from('vendor_services').select('title').eq('vendor_service_id', serviceId).maybeSingle();
   if (error) console.error('[supabase-error] @rise/(.)services/[serviceId]/layout.tsx · from:vendor_services.select (title)', error.message);
   const name = (data as { title: string | null } | null)?.title?.trim() || 'Your service';
   return (

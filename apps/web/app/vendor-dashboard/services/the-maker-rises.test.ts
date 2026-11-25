@@ -28,25 +28,28 @@ test('B8 · the maker rises: picker + maker share one dialog layer, an edit is h
   const edit = src(`${SLOT}/[serviceId]/layout.tsx`);
   assert.match(edit, /<RiseRoute page kind="stack" title=\{name\} data="service-maker-edit">/);
   assert.match(edit, /\|\| 'Your service'/, 'a refused name read heads it with a made-up name');
-  assert.equal(src(`${SLOT}/[serviceId]/page.tsx`).trim(), `export { default } from '../../../services/[serviceId]/page';`);
+  const editPage = src(`${SLOT}/[serviceId]/page.tsx`);
+  assert.match(editPage, /import CardMakerPage from '\.\.\/\.\.\/\.\.\/services\/\[serviceId\]\/page';/, 'a second card page body');
+  assert.match(editPage, /if \(!isServiceCardId\(serviceId\)\) return <LoadWhole \/>;\s*return <CardMakerPage \{\.\.\.props\} \/>;/);
   const route = src('app/_components/rise/rise-route.tsx');
   assert.match(route, /<ShopDoorScreen page title=\{title\}/, 'the dialog is not the one door screen');
   assert.match(route, /if \(st\?\.\[LAYER_MARK\]\) window\.history\.go\(-2\);\s*else router\.back\(\);/);
 });
 
-test('B8 · every static sibling under services is named, so the card folder never swallows it', () => {
-  const real = join(web, 'app/vendor-dashboard/services');
-  const statics = readdirSync(real).filter((d) => statSync(join(real, d)).isDirectory() && !d.startsWith('_') && !d.startsWith('['));
-  assert.ok(statics.length >= 3, 'the scan reads nothing');
-  for (const d of statics) {
-    const slot = join(web, SLOT, d);
-    let has = false;
-    try {
-      has = statSync(slot).isDirectory();
-    } catch {
-      has = false;
-    }
-    assert.ok(has, `/vendor-dashboard/services/${d} would be drawn as a card (no (.)services/${d} in the rise slot)`);
+test('B8 · only the maker rises: the services pages beside it load as their own (controller 25 Nov)', () => {
+  // Only `new` (picker + maker) and a card id rise; requests, requests/[id] and their-work are never intercepted.
+  const slot = join(web, SLOT);
+  const dirs = readdirSync(slot).filter((d) => statSync(join(slot, d)).isDirectory()).sort();
+  assert.deepEqual(dirs, ['[serviceId]', 'new'], `a services page other than the maker rises: ${dirs.join(', ')}`);
+  // The card folder matches any name: a non-card one draws no layer and loads whole.
+  const layout = src(`${SLOT}/[serviceId]/layout.tsx`);
+  assert.match(layout, /if \(!isServiceCardId\(serviceId\)\) return <>\{children\}<\/>;/, 'a services page beside the maker is drawn in the layer');
+  assert.ok(layout.indexOf('isServiceCardId(serviceId)') < layout.indexOf('<RiseRoute'), 'the layer is drawn before the id is checked');
+  assert.match(src('app/_components/load-whole.tsx'), /window\.location\.replace\(window\.location\.href\)/);
+  // One id rule: the maker's own loader asks the same question.
+  assert.match(src('lib/service-card-maker.server.ts'), /if \(!isServiceCardId\(serviceId\)\) return null;/);
+  for (const real of ['requests', 'their-work']) {
+    assert.ok(statSync(join(web, 'app/vendor-dashboard/services', real)).isDirectory(), `${real} is gone from services — the check reads nothing`);
   }
 });
 
@@ -70,11 +73,25 @@ test('B7 · a booked card: the name reads from its start with no pencil; no add 
   assert.match(maker, /pillAttrs=\{\{ 'data-maker-name': '' \}\}\s*readOnly=\{editLocked\}/);
   assert.match(maker, /<CardPhotoGallery\s+vendorProfileId=\{vendorProfileId\}\s+locked=\{editLocked\}/);
   const row = src('app/_components/form-row.tsx');
-  const ro = row.slice(row.indexOf(') : readOnly ? ('), row.indexOf(') : boxed && !long ? ('));
+  const ro = row.slice(row.indexOf(') : asRead ? ('), row.indexOf(') : boxed && !long ? ('));
   assert.ok(ro.length > 50, 'the read-only form is gone');
   assert.match(ro, /className=\{`min-w-0 truncate /, 'the words are not cut at their end');
   assert.doesNotMatch(ro, /<Pencil|<button|PillWords/, 'a read-only name can still be pressed or moves');
   assert.match(src('app/vendor-dashboard/services/_components/card-photo-gallery.tsx'), /maxFiles=\{locked \? n : limit\}/);
+  // EVERY field of a booked card (Description, Video link, the price and payment editors…): the form sets read-only once.
+  const form = maker.slice(maker.indexOf('id={CARD_FORM_ID}'), maker.indexOf('</form>', maker.indexOf('id={CARD_FORM_ID}')));
+  assert.match(form, /<FormRowsReadOnly\.Provider value=\{editLocked\}>/, 'the booked card’s rows still draw pencils');
+  assert.ok(form.indexOf('</FormRowsReadOnly.Provider>') > form.indexOf('<FormRowsReadOnly.Provider'), 'the read-only form does not wrap the rows');
+  for (const row of ['data-maker-row="description"', 'data-maker-row="video-link"', 'data-maker-row="name"']) {
+    const at = maker.indexOf(row);
+    assert.ok(at > maker.indexOf('<FormRowsReadOnly.Provider') || at > maker.indexOf('function AboutRows'), `${row} sits outside the read-only rows`);
+  }
+  // Every TypedRow honours it: no pencil, no field opens (by a tap or by the screen's ask).
+  assert.match(row, /const asRead = readOnly \|\| lockedByForm;/);
+  assert.match(row, /if \(mode !== 'shut' \|\| asRead\) return;/, 'a read-only row still opens on a tap');
+  assert.match(row, /asked\.current = openAsk;\s*if \(asRead\) return;/, 'a read-only row still opens when the screen asks');
+  const ro2 = row.slice(row.indexOf(') : asRead && long ? ('), row.indexOf(') : boxed && !long ? ('));
+  assert.doesNotMatch(ro2, /<Pencil|<button|PillWords/, 'a read-only description can still be pressed');
 });
 
 test('B10 · Logo, Cover photo and Storage are the shared Sheet; the other doors still rise', () => {

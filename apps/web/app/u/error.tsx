@@ -29,6 +29,7 @@ export default function PersonPageError({ reset }: { error: Error & { digest?: s
             className={actionButtonClass('neutral')}
             onClick={() =>
               startTransition(() => {
+                // one-render: keep (retry) — the page failed to render; this asks for it once more. No write came before it.
                 router.refresh();
                 reset();
               })

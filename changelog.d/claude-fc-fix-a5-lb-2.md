@@ -13,5 +13,8 @@
 - **B11** From 1280 the Shop tab uses the body's width; a fixed 320 side column; service cards one per row until each has
   320 (two-up from about 1600).
 - Guard: `app/vendor-dashboard/services/the-maker-rises.test.ts`; the Layout A and gallery guards hold the new values.
+- Known follow-up (accepted for launch, controller 25 Nov): a soft tap to `/vendor-dashboard/services/requests` or
+  `/vendor-dashboard/services/their-work` is caught by the card folder's intercept and loads the page whole (one full
+  load of the same address, `LoadWhole`); the page itself is unchanged.
 
 SPEC IMPACT: None.

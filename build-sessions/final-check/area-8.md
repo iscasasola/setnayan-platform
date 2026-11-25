@@ -1,4 +1,4 @@
-FIXER (checker 8): batches 1–6 only · b1 PR #8322 handed over · b2 PR #8327 CI running · b3 built, preflight running · b4–b6 next · batches 7–10 belong to checker 8-1 (Admin assist), list below
+FIXER (checker 8): batches 1–6 + launch batch A1 guards · b1 PR #8322 handed over · b2 PR #8327 waits for the A1 guards · A1 guards (L-8 D-1 D-2 D-3 D-4 B-2 F-17 A-1 E-2) built on `claude/fc-fix-a8-guards`, preflight running (launch gate L12) · b3 b4 b5 built, preflight next · b6 in progress · batches 7–10 belong to checker 8-1 (Admin assist), list below
 STATUS: phase B done · 71/71 pages walked (375 light+dark, 768, 1280; dark sample at 768/1280) · 36/36 forwards land · 156/156 links ok · buttons 3,311 · pressed 2,303 · failed 0 confirmed · left 1,008 · phase-B findings 22 (blocker 0 · broken 0 · wrong 7 · look 15) + G-4 confirmed (money-signin) · checker-made changes disclosed and restored
 
 # Final check · Area 8 · Admin (/admin/* and the internal pages)

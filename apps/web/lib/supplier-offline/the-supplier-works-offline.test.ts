@@ -351,7 +351,7 @@ test('11 · a phone never loses work it did not really send; dependent and newer
   assert.equal(isOfflineItemExpired({ ...old, retry_count: 50 }, Date.now(), false), true, 'real tries no longer end an item');
   const daemon = read('lib/offline/sync-daemon.ts');
   assert.match(daemon, /retry_count: result\.waiting \? item\.retry_count : item\.retry_count \+ 1/, 'waiting burns a try');
-  assert.match(read('lib/offline/supplier-queue.ts'), /payload: \{ \.\.\.item, ageByTriesOnly: true \}/, 'supplier items are aged by the clock');
+  assert.match(read('lib/offline/supplier-queue.ts'), /payload: \{ \.\.\.item, ageByTriesOnly: true, \.\.\.extra \}/, 'supplier items are aged by the clock');
   assert.match(daemon, /locks\s*\.request\('setnayan-offline-supplier', \{ ifAvailable: true \}/, 'two tabs can send the supplier queue at once');
   assert.match(read('lib/offline/db.ts'), /request\.result\.onversionchange = \(\) => request\.result\.close\(\)/, 'an old tab blocks the database upgrade');
   const engine = read('lib/supplier-offline/engine.server.ts');
@@ -381,7 +381,8 @@ test('12 · a change this browser would lose is never accepted; the phone says w
   assert.ok(q.indexOf('await offlineHere()') > -1 && q.indexOf('await offlineHere()') < q.indexOf('enqueueOfflineItem('), 'work is queued before the browser is asked whether it can keep it');
   assert.match(queue, /const lost = left === 0 && sent === 0 && lastQueued > 0 \? lastQueued : 0;/, 'an erased queue is not noticed');
   const engine = read('lib/supplier-offline/engine.server.ts');
-  assert.match(engine, /\$\{typed\}\\n\\n\$\{writtenOfflineLine\(item\.phoneTime\)\}/, 'a message written offline is not stamped');
+  assert.match(engine, /const stamp = writtenOfflineLine\(item\.phoneTime\);/, 'a message written offline is not stamped');
+  assert.match(engine, /\$\{typed\}\\n\\n\$\{stamp\}/, 'a message written offline is not stamped');
   assert.match(read('app/vendor-dashboard/calendar/actions.ts'), /\/date_held\/\.test\(error\.message \?\? ''\) \? 'date_held' : 'save_failed'/, 'a teammate’s hold is said online as "try again"');
 });
 

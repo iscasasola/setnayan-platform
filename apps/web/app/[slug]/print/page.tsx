@@ -37,7 +37,7 @@ import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { eventProPlanActive } from '@/lib/couple-website-pro';
 import { loadStoryPages, type DrawnSheet } from '@/lib/story-pages';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { eventWordsFor } from '../_lib/event-words';
+import { eventWordsFor, untitledEventName } from '../_lib/event-words';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { viewerIsBookedSupplier } from '@/lib/booked-supplier';
 import { readGuestSession } from '@/lib/guest-session';
@@ -254,9 +254,14 @@ export default async function EditorialPrintPage({
   try {
     copy = composeCopy(data);
   } catch {
+    /* 🗣 A4-47 (final check, SW-WEDDING): the bare fallback headline speaks the event type's own words — "Are
+       Married" only for a wedding; any other event prints its own name (or "The Birthday", "The Gathering"). */
+    const isWedding = words.eventWord === 'wedding' && !words.solemn;
     copy = {
-      superKicker: 'A celebration',
-      headline: `${data.displayName} Are Married`,
+      superKicker: words.solemn ? untitledEventName(words) : 'A celebration',
+      headline: isWedding
+        ? `${data.displayName} Are Married`
+        : data.displayName?.trim() || untitledEventName(words),
       deck: '',
       byline: 'By the Setnayan Desk',
       leadParagraphs: [],

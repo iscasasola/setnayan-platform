@@ -452,13 +452,15 @@ export type CardForEdit = {
 /**
  * AN EXISTING CARD, OPENED IN THE MAKER (the edit sheet). Every list the one save replaces is read HERE with its
  * error checked — the shared fetchers degrade a refused read to an empty list, which on a screen that saves the list
- * back would delete it. Owner-scoped on every read. `null` = no such card of this shop's.
+ * back would delete it. Owner-scoped on every read. `null` = no such card of this shop's. `'unread'` = the card's own
+ * row could not be read: the card may well be there, so the page says "Couldn't load this card", never "not found"
+ * (final check A5-G3-01).
  */
 export async function loadCardForEdit(
   supabase: SupabaseClient,
   vendorProfileId: string,
   serviceId: string,
-): Promise<CardForEdit | null> {
+): Promise<CardForEdit | null | 'unread'> {
   if (!/^[0-9a-fA-F-]{36}$/.test(serviceId)) return null;
   const { data: row, error } = await supabase
     .from('vendor_services')
@@ -469,7 +471,8 @@ export async function loadCardForEdit(
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
   if (error) console.error('[supabase-error] lib/service-card-maker.server.ts · from:vendor_services.select (card for edit)', error);
-  if (error || !row) return null;
+  if (error) return 'unread';
+  if (!row) return null;
   const c = row as Record<string, unknown> & {
     category: string;
     title: string | null;

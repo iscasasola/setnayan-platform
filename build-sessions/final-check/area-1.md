@@ -7,7 +7,7 @@
 
 ## BLOCKERS
 
-**A1-056** (full entry also in the findings list, sign-in group). Found in code; the staging walk confirms it first.
+**A1-056** (full entry also in the findings list, sign-in group). Found in code; **CONFIRMED on the staging copy 25 Nov (phase B, `SOURCE: SEEN`)**.
 
 ### A1-056 · "Secure my plan" never reaches the sign-up form for a host with no account
 ```text
@@ -16,10 +16,11 @@ BUTTON    "Secure my plan" (dashboard notice) · "Create a free account" (SaveTo
 STEPS     1. Start an event with no account (an anonymous session). 2. On the dashboard press "Secure my plan". 3. /signup?next=%2Fdashboard loads.
 EXPECTED  The Create account card. Its `signUp` action has a branch that turns this same anonymous account into a real one (`existingUser?.is_anonymous` in signup/actions.ts).
 ACTUAL    The page's signed-in bypass counts any session as signed in. `getCurrentUser()` returns anonymous users and the page never checks `is_anonymous` (/login does: `!user.is_anonymous`). So `if (user) { if (next !== '/') redirect(next) … }` sends the host straight back to /dashboard and the form never draws. Every door that links /signup for these hosts dead-ends the same way: secure-account-banner.tsx, anon-gate/save-to-continue.tsx and stay-registry accProfile. Anonymous onboarding is ON according to build-sessions/P0-b-SWITCHES.md (`NEXT_PUBLIC_ANON_ONBOARDING_ENABLED`). Checker re-read: `getCurrentUser()` (`apps/web/lib/auth.ts`) returns the anonymous user, and no version of `app/signup/page.tsx` ever checked `is_anonymous`. Not tried live (it needs a new anonymous host, which is a write). Phase B confirms first: on staging, start an event signed out, then press "Secure my plan".  (anchor: `apps/web/app/signup/page.tsx` · `Already-authenticated bypass`)
-SHOTS     — (phase B)
+SEEN      Phase B, staging copy (commit bd86936), 375 px, signed out: /start → Birthday → 7 steps → "Create my birthday" made the event "FC Area1 anon test" with no account (the checker's own test event). On its dashboard the button "Secure my plan" links `/signup?next=%2Fdashboard`. Opening it lands back on `/dashboard/<that event>` at once; the Create account card never draws. Same on a second try. A host with no account has no way to save their event.
+SHOTS     375 px light: dashboard with "Secure my plan" · the /signup press landing back on the dashboard (checker's scratchpad)
 RULE      North Star (a host starts with no account; the account is asked for at save) · design-and-wiring B5 (every press reaches a real destination)
 SEVERITY  blocker
-SOURCE    CODE
+SOURCE    CODE + SEEN
 ```
 
 ## Summary (phase A, done 25 Nov 2026)
@@ -911,10 +912,11 @@ BUTTON    "Secure my plan" (dashboard notice) · "Create a free account" (SaveTo
 STEPS     1. Start an event with no account (an anonymous session). 2. On the dashboard press "Secure my plan". 3. /signup?next=%2Fdashboard loads.
 EXPECTED  The Create account card. Its `signUp` action has a branch that turns this same anonymous account into a real one (`existingUser?.is_anonymous` in signup/actions.ts).
 ACTUAL    The page's signed-in bypass counts any session as signed in. `getCurrentUser()` returns anonymous users and the page never checks `is_anonymous` (/login does: `!user.is_anonymous`). So `if (user) { if (next !== '/') redirect(next) … }` sends the host straight back to /dashboard and the form never draws. Every door that links /signup for these hosts dead-ends the same way: secure-account-banner.tsx, anon-gate/save-to-continue.tsx and stay-registry accProfile. Anonymous onboarding is ON according to build-sessions/P0-b-SWITCHES.md (`NEXT_PUBLIC_ANON_ONBOARDING_ENABLED`). Checker re-read: `getCurrentUser()` (`apps/web/lib/auth.ts`) returns the anonymous user, and no version of `app/signup/page.tsx` ever checked `is_anonymous`. Not tried live (it needs a new anonymous host, which is a write). Phase B confirms first: on staging, start an event signed out, then press "Secure my plan".  (anchor: `apps/web/app/signup/page.tsx` · `Already-authenticated bypass`)
-SHOTS     — (phase B)
+SEEN      Phase B, staging copy (commit bd86936), 375 px, signed out: /start → Birthday → 7 steps → "Create my birthday" made the event "FC Area1 anon test" with no account (the checker's own test event). On its dashboard the button "Secure my plan" links `/signup?next=%2Fdashboard`. Opening it lands back on `/dashboard/<that event>` at once; the Create account card never draws. Same on a second try. A host with no account has no way to save their event.
+SHOTS     375 px light: dashboard with "Secure my plan" · the /signup press landing back on the dashboard (checker's scratchpad)
 RULE      North Star (a host starts with no account; the account is asked for at save) · design-and-wiring B5 (every press reaches a real destination)
 SEVERITY  blocker
-SOURCE    CODE
+SOURCE    CODE + SEEN
 ```
 
 #### A1-057 · /reset-password lets any signed-in device set a new password without the current one

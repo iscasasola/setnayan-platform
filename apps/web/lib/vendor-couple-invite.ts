@@ -123,13 +123,25 @@ export async function listHostEvents(
   client: SupabaseClient,
   userId: string,
 ): Promise<HostEvent[]> {
-  const { data: memberRows } = await client
+  // Fails CLOSED for the claim action (an unread list owns no event). A screen reads `readHostEvents`.
+  return (await readHostEvents(client, userId)) ?? [];
+}
+
+/**
+ * 🪪 The events this person hosts, or null when either read was refused (final check A5-G1-09): the invite page says it
+ * could not read them, never "Create your event first" to a host who has events.
+ */
+export async function readHostEvents(
+  client: SupabaseClient,
+  userId: string,
+): Promise<HostEvent[] | null> {
+  const { data: memberRows, error: memberError } = await client
     .from('event_members')
     .select('event_id, events:event_id(event_id, display_name, event_date, is_primary, archived)')
     .eq('user_id', userId)
     .eq('member_type', 'couple');
 
-  const { data: modRows } = await client
+  const { data: modRows, error: modError } = await client
     .from('event_moderators')
     .select('event_id, events:event_id(event_id, display_name, event_date, is_primary, archived)')
     .eq('user_id', userId)
@@ -137,6 +149,7 @@ export async function listHostEvents(
     .not('accepted_at', 'is', null)
     .neq('role_subtype', 'viewer') // a limited helper views, never edits (owner 2026-09-28)
     .in('role_subtype', PRIMARY_HOST_ROLE_SUBTYPES as unknown as string[]);
+  if (memberError || modError) return null;
 
   const byId = new Map<string, EventStub>();
   for (const row of [...(memberRows ?? []), ...(modRows ?? [])]) {

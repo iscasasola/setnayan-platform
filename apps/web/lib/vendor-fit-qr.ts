@@ -25,7 +25,7 @@ export type FitCheckInput = {
    *  weighing candidate dates — then the date check is "not set" (unknown). */
   eventDate: string | null;
   /** Whether the vendor is free on `eventDate` (from vendor-availability). Null
-   *  when there's no locked date to check against. */
+   *  when there's no locked date to check against, or the calendar could not be read. */
   vendorAvailableOnDate: boolean | null;
   /** km from the event venue to the vendor (Haversine), or null when either
    *  side's coords are unknown. */
@@ -52,8 +52,11 @@ export type FitVerdict = { fits: boolean; checks: FitCheck[] };
 export function computeVendorFit(i: FitCheckInput): FitVerdict {
   const checks: FitCheck[] = [];
 
-  if (i.eventDate == null || i.vendorAvailableOnDate == null) {
+  if (i.eventDate == null) {
     checks.push({ key: 'date', ok: null, label: 'Set your date to check' });
+  } else if (i.vendorAvailableOnDate == null) {
+    // A date is set but the calendar could not be read: unknown, said as such (final check A5-G1-14).
+    checks.push({ key: 'date', ok: null, label: 'Couldn\u2019t check your date' });
   } else {
     checks.push({
       key: 'date',

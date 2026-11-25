@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { ReadFailedBody, ReadFailedNote } from './_components/set-two/read-failed';
 import { isPaidSize } from '@/lib/vendor-tier-caps';
 import Link from 'next/link';
 import { DATE_ANSWER_NOTICE } from '@/lib/date-change';
@@ -7,7 +8,6 @@ import { readSupplierPayoutReadiness } from '@/lib/vendor-payment-methods.server
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PAYMENT_OPTIONS_HREF } from './_components/payout-method-nudge';
 import { redirect } from 'next/navigation';
-import { AlertTriangle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { businessProfileChecklist, fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -428,23 +428,12 @@ export default async function VendorOverviewPage({
     // eslint-disable-next-line no-console
     console.error('[/vendor-dashboard overview] loader failed', err);
     return (
-      <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
-        <header className="mb-6 flex items-start gap-3">
-          <AlertTriangle
-            aria-hidden
-            className="mt-0.5 h-6 w-6 shrink-0"
-            strokeWidth={1.75}
-            style={{ color: 'var(--m-blush-deep)' }}
-          />
-          <div className="space-y-1">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              This page is temporarily unavailable.
-            </h1>
-            <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-              Refreshing usually clears this. Your data is safe.
-            </p>
-          </div>
-        </header>
+      <div className="mx-auto w-full max-w-6xl tab:max-w-3xl px-4 py-12 sm:px-6 lg:px-8" data-today-read="failed">
+        <h1 className="sr-only">Today</h1>
+        {/* 🪪 The shared "When a read fails" body: what broke, what survived, Try again (final check A5-G2-06). */}
+        <ReadFailedBody mark="today" tail="Your data is safe — nothing was changed.">
+          We couldn&rsquo;t load Today right now.
+        </ReadFailedBody>
       </div>
     );
   }
@@ -640,7 +629,7 @@ export default async function VendorOverviewPage({
                 error={null}
               />
             ) : (
-              <p className="py-4 text-[13.5px] text-ink/70">The service maker couldn’t load. Refresh to try again.</p>
+              <ReadFailedNote mark="today-maker">We couldn&rsquo;t load the service maker right now.</ReadFailedNote>
             )
           }
           qr={qrUrl ? { svg: qrSvg, url: qrUrl } : null}

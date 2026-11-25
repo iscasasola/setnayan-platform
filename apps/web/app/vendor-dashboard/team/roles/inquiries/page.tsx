@@ -182,7 +182,8 @@ export default async function WhoGetsInquiriesPage({ searchParams }: { searchPar
       ) : null}
 
       <div className="mt-4 space-y-4">
-        {sections.length === 0 ? <p className="text-[14px] text-ink/65">No live cards on this branch yet.</p> : null}
+        {/* 🪪 A failed read is not "no live cards" (final check A5-G5-08): only the failure note above shows. */}
+        {sections.length === 0 && !readFailed ? <p className="text-[14px] text-ink/65">No live cards on this branch yet.</p> : null}
         {sections.map((s) => (
           <article key={s.card.vendor_service_id} className="border-t border-ink/10 pt-4" data-team-inquiries-card={s.card.vendor_service_id}>
             <h2 className="text-[15px] font-semibold text-ink">{s.title} card</h2>

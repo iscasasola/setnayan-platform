@@ -264,11 +264,12 @@ export default async function FinalizeClaimPage({ params, searchParams }: Props 
   if (data.invite.source !== 'admin') {
     const category = data.invite.service_category;
     if (category && VENDOR_CATEGORY_SET.has(category)) {
-      const { count } = await admin
+      const { count, error: countError } = await admin
         .from('vendor_services')
         .select('vendor_service_id', { count: 'exact', head: true })
         .eq('vendor_profile_id', vendorProfileId);
-      if ((count ?? 0) === 0) {
+      // 🪪 A refused count is not "no cards" (final check A5-G1-13): the shop lands where it normally does instead.
+      if (!countError && (count ?? 0) === 0) {
         redirect(
           `/vendor-dashboard/services/new/${encodeURIComponent(category)}?claim=${encodeURIComponent(token)}`,
         );

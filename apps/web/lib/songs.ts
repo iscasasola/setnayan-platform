@@ -160,27 +160,30 @@ export async function readVendorSongs(
 }
 
 /** Search the master catalogue by title (public-read). Curated picks first. */
-export async function searchSongs(supabase: SupabaseClient, q: string): Promise<Song[]> {
+/** null = the read was refused (said by the caller, never "No songs match"; final check A5-G6-11). */
+export async function searchSongs(supabase: SupabaseClient, q: string): Promise<Song[] | null> {
   const safe = q.replace(/[%,()]/g, ' ').trim();
   if (!safe) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('songs')
     .select('song_id, title, artist')
     .ilike('title', `%${safe}%`)
     .order('is_curated_pick', { ascending: false })
     .order('title', { ascending: true })
     .limit(25);
+  if (error) return null;
   return (data ?? []) as Song[];
 }
 
 /** The curated picks (the seeded MUSIC100) — the default browse list. */
-export async function fetchCuratedSongs(supabase: SupabaseClient): Promise<Song[]> {
-  const { data } = await supabase
+export async function fetchCuratedSongs(supabase: SupabaseClient): Promise<Song[] | null> {
+  const { data, error } = await supabase
     .from('songs')
     .select('song_id, title, artist')
     .eq('is_curated_pick', true)
     .order('song_id', { ascending: true })
     .limit(60);
+  if (error) return null;
   return (data ?? []) as Song[];
 }
 

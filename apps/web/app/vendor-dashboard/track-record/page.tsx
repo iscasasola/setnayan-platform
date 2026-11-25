@@ -2,11 +2,12 @@ import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { Store } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
+import { routes } from '@/lib/routes';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, resolveVendorStanding, canManageVendor } from '@/lib/vendor-role';
 import { RoleLock } from '@/app/vendor-dashboard/_components/role-lock';
-import { ToolPage, ToolPin } from '../_components/tool-page';
+import { ToolFail, ToolPage, ToolPin } from '../_components/tool-page';
 import { fetchVendorTrackRecord } from '../_components/vendor-track-record-panel';
 import { TrackRecordView } from './_components/track-record-view';
 
@@ -39,15 +40,19 @@ export default async function VendorTrackRecordPage() {
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) {
+    // 🪪 A shop role was read above, so a missing profile here is a failed read — said, never "Set up your supplier
+    // profile first" to a shop that has one (final check A5-G5-06).
     return (
       <ToolPage name="track-record">
         <ToolPin route="/vendor-dashboard/track-record" title="Track record" />
-        <p className="mt-3 text-[15px] text-[color:var(--m-slate-2)]">
-          Set up your supplier profile first — once couples mark your bookings
-          delivered, your record across every kind of event shows up here.
-        </p>
+        <ToolFail
+          data="track-record-shop"
+          title="Couldn’t read your shop just now"
+          line="Nothing was changed."
+          retryHref={routes.vendorDashboard.trackRecord()}
+        />
         <div className="mt-4">
-          <ActionButton tone="brand" main icon={<Store aria-hidden />} label="Go to my shop" href="/vendor-dashboard/shop" />
+          <ActionButton tone="neutral" icon={<Store aria-hidden />} label="Go to my shop" href="/vendor-dashboard/shop" />
         </div>
       </ToolPage>
     );

@@ -74,13 +74,15 @@ export const revalidate = 300;
 
 const fetchEvent = cache(async (slug: string) => {
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from('events')
     .select(
       `event_id, slug, display_name, event_type, event_date, event_end_date, timezone, venue_latitude, venue_longitude, landing_page_visibility, ${HERO_MONOGRAM_COLUMNS}, role_palette, logo_wanted, style_preferences, qr_shown`,
     )
     .ilike('slug', slug)
     .maybeSingle();
+  // 🔌 A4-45: a failed read is not "no such event" (a 404 for an event that exists) — it throws (the guest boundary).
+  if (error) throw new Error(`print: could not read the event for "${slug}": ${error.message}`);
   return data;
 });
 
@@ -141,14 +143,11 @@ export default async function EditorialPrintPage({
     if (!hostPreview) redirect(`/${slug}`);
   }
 
-  // Load the SAME editorial data the on-screen editorial renders. Best-effort:
-  // a null / throw degrades to the "not ready yet" stand-in.
+  // Load the SAME editorial data the on-screen editorial renders. A null is "not ready yet"; a THROW is a failed
+  // read and reaches the guest boundary (🔌 A4-46) — never "This keepsake isn't ready to print yet", a claim about
+  // the hosts.
   let data: EditorialData | null = null;
-  try {
-    data = await loadEditorialData(event.event_id);
-  } catch {
-    data = null;
-  }
+  data = await loadEditorialData(event.event_id);
 
   /*
     (3) AUDIENCE GATE — the SAME question the on-screen story asks, because this
@@ -232,7 +231,7 @@ export default async function EditorialPrintPage({
   const sheets: DrawnSheet[] = data
     ? await loadStoryPages(createAdminClient(), event.event_id, printViewer, (key) =>
         displayUrlForStoredAsset(key),
-      ).catch(() => [])
+      ) // 🔌 A4-46: a failed read throws — never the automatic layout printed as if nothing were arranged.
     : [];
 
   if (!data) {

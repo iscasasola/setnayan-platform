@@ -634,3 +634,9 @@ Drawing: `build-sessions/final-check/drawings/event-card-menu.html` (artifact v3
 - Delete keeps today's two screens inside the sheet or menu, with "Put this away" offered first, then typing the event name. The server rules are unchanged (`deleteOwnEvent`, organisers only), and the blocked case (money or booked suppliers) is unchanged.
 - Guests get no menu; the invited row opens the hub directly. Helpers get Dashboard, Event Hub and Chat; Memories follows the existing Photos grant; no Delete.
 - An organiser with no guest row still opens the hub as the signed-in host. An event with no slug shows the row disabled with "Set up your Event Hub first".
+
+## Add 41 — A2-I14 sponsors move into the guest list (owner, 26 Nov)
+- One list: a sponsor is a guest marked sponsor (`guests.role`). The Sponsors page, the hub loaders and the counts read the guest list.
+- The data moves through the normal migration pipeline only (never by hand on prod). Every `event_sponsors` row missing from the guest list becomes a guest row with the sponsor role. Nothing is lost. A row that matches an existing guest is linked, not duplicated, and the match rule must be written in the migration and tested.
+- Sponsors' Add, Invite and Mark-response then write the guest list. `event_sponsors` stays read-only until a later cleanup; do not drop it in this batch.
+- Godfather/godmother stays the couple's choice (A2-I15).

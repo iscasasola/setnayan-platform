@@ -131,7 +131,7 @@ None found.
 
 ### Area-wide
 
-### L-1 · Government-ID shelf is read with the service role behind the layout gate only
+#### L-1 · Government-ID shelf is read with the service role behind the layout gate only
 PAGE      /admin/verification-docs
 BUTTON    —
 STEPS     1. Open `apps/web/app/admin/verification-docs/page.tsx`. 2. Follow `buildVerificationDocsReport` and `verificationDocSupplierNames`.
@@ -142,7 +142,7 @@ RULE      Task check 2 (admin gates, server-side) · `lib/admin/require-admin.ts
 SEVERITY  money-signin
 SOURCE    CODE
 
-### L-2 · Three more pages lean on the layout gate alone
+#### L-2 · Three more pages lean on the layout gate alone
 PAGE      /admin/demand · /admin/venues/new · /admin/more
 BUTTON    —
 STEPS     1. Open each `page.tsx`. 2. Look for `requireAdmin`.
@@ -153,7 +153,7 @@ RULE      Task check 2 (admin gates)
 SEVERITY  wrong
 SOURCE    CODE
 
-### L-3 · Admin never goes dark: the console is not on the dark ready-list
+#### L-3 · Admin never goes dark: the console is not on the dark ready-list
 PAGE      every /admin page
 BUTTON    Preferences › Dark (the appearance switch)
 STEPS     1. Pick Dark. 2. Open any /admin page.
@@ -164,7 +164,7 @@ RULE      HOUSE_DESIGN_STANDARD Part K2 · DARK_MODE_STANDARD § 1 (Admin = mono
 SEVERITY  look
 SOURCE    CODE
 
-### L-4 · The admin dark set gives static cards a shadow
+#### L-4 · The admin dark set gives static cards a shadow
 PAGE      every /admin page (once dark is switched on)
 BUTTON    —
 STEPS     1. Open `app/admin/_components/admin-look.css`, block `html.dark:has([data-admin-look])`.
@@ -175,7 +175,7 @@ RULE      HOUSE_DESIGN_STANDARD Part K2.1 ("no shadows") · Part I.4 (shadows on
 SEVERITY  look
 SOURCE    CODE
 
-### L-5 · 39 pages load with the overview's skeleton
+#### L-5 · 39 pages load with the overview's skeleton
 PAGE      /admin/admin-log · /admin/approvals · /admin/ask · /admin/background-videos · /admin/booking-fees · /admin/business · /admin/chat-flags · /admin/colours · /admin/compliance/data-sheet · /admin/corrections · /admin/data-privacy · /admin/demand · /admin/editorial-review · /admin/email-delivery · /admin/event-deletions · /admin/founder-seats · /admin/fraud · /admin/gifts · /admin/hub-music · /admin/integrations · /admin/integrity-watch · /admin/launch-offer · /admin/live-studio-channels · /admin/offers · /admin/pakanta · /admin/papic-storage · /admin/pax-changes · /admin/repost-watch · /admin/search-memory · /admin/secrets · /admin/subscriptions · /admin/switches · /admin/team · /admin/user-reports · /admin/vendor-partnerships · /admin/vendor-recommendations · /admin/verification-docs · /admin/website-media · /admin/work
 BUTTON    —
 STEPS     1. Open any listed page on a slow connection.
@@ -186,7 +186,7 @@ RULE      HOUSE_DESIGN_STANDARD F1 · CLAUDE.md §3 Loading ("the skeleton draws
 SEVERITY  wrong
 SOURCE    CODE
 
-### L-6 · Every form button spins while it works
+#### L-6 · Every form button spins while it works
 PAGE      every /admin page with a form (shared `SubmitButton`; other areas share it too)
 BUTTON    any submit, e.g. "Save", "Approve"
 STEPS     1. Press a submit button. 2. Watch it while the action runs.

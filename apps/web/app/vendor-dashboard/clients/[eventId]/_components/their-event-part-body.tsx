@@ -35,7 +35,7 @@ export function TheirEventPartBody({
   brief: TheirEventPartBrief;
   group: BookingGroupRead;
   /** The Hub's address, when the caller read it; null = not published (or not read — said the same, never a guess). */
-  /** The Event Hub's address; null = not published; `'unread'` = the read was refused (A6-56: said, never "not published"). */
+  /** `'unread'` = the read was refused (A6-56: said, never "not published"). */
   hubSlug: string | null | 'unread';
 }) {
   const clientHref = `/vendor-dashboard/clients/${eventId}`;
@@ -85,13 +85,13 @@ export function TheirEventPartBody({
     <div className="space-y-2 p-4" data-their-event-hub="">
       <h1 className="text-lg font-semibold text-ink">Hub</h1>
       {hubSlug === 'unread' ? (
-        <p role="alert" className="text-sm text-ink/70">We couldn&rsquo;t read their Event Hub&rsquo;s address right now. Try again in a moment.</p>
+        <p role="alert" className="text-sm text-ink/70">We couldn&rsquo;t read their Hub&rsquo;s address right now. Try again in a moment.</p>
       ) : hubSlug ? (
         <Link href={`/${hubSlug}`} target="_blank" className="inline-flex min-h-11 items-center text-sn-lg font-medium text-sn-accent">
           Open what the guests see
         </Link>
       ) : (
-        <p className="text-sm text-ink/70">The hosts have not published their Event Hub yet.</p>
+        <p className="text-sm text-ink/70">The hosts have not published their Hub yet.</p>
       )}
     </div>
   );

@@ -19,7 +19,6 @@ const editorialBody = read('app/vendor-dashboard/clients/[eventId]/editorial-med
 const mood = read('app/vendor-dashboard/clients/[eventId]/mood-board/page.tsx');
 const theirPart = read('app/vendor-dashboard/clients/[eventId]/their-event/[part]/page.tsx');
 const theirBody = read('app/vendor-dashboard/clients/[eventId]/_components/their-event-part-body.tsx');
-const theirLib = read('lib/their-event.ts');
 const schedule = read('app/vendor-dashboard/clients/[eventId]/_components/supplier-schedule.tsx');
 
 test('A6-13 · a chat list whose archive state did not load is reported incomplete', () => {
@@ -45,8 +44,8 @@ test('A6-36 · the day sheet reads the honest twins and answers "Couldn’t read
 });
 
 test('A6-54 · editorial eligibility says a refused read, never "Not available for this event yet"', () => {
-  assert.match(editorialLib, /if \(evRowsError\) return \{ \.\.\.none, unread: true \}/);
-  assert.match(editorialLib, /if \(svcRowsError\) return \{ \.\.\.none, unread: true \}/);
+  assert.match(editorialLib, /if \(evRowsError\) \{\s*logQueryError\([^)]*\);\s*return \{ \.\.\.none, unread: true \}/);
+  assert.match(editorialLib, /if \(svcRowsError\) \{\s*logQueryError\([^)]*\);\s*return \{ \.\.\.none, unread: true \}/);
   assert.match(editorialPage, /eligibility\.unread\s*\?\s*\{ kind: 'unread' \}/);
   assert.ok(editorialBody.indexOf("view.kind === 'unread'") < editorialBody.indexOf('Not available for this event yet'));
 });
@@ -57,8 +56,7 @@ test('A6-55 · A6-56 · only the RPCs’ refusals leave the mood board and their
     assert.match(src, /<ReadFailedBody mark=/);
   }
   assert.match(theirPart, /hubSlug = evError \? 'unread'/);
-  assert.ok(theirBody.indexOf("hubSlug === 'unread'") < theirBody.indexOf('not published their Event Hub'));
-  assert.match(theirLib, /hub: 'Event Hub'/);
+  assert.ok(theirBody.indexOf("hubSlug === 'unread'") < theirBody.indexOf('not published their Hub'));
 });
 
 test('second pass · no screen tells a person to "pull to refresh" (the app turns the gesture off)', () => {

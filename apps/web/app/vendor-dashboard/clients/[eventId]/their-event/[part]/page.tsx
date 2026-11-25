@@ -80,6 +80,7 @@ export default async function TheirEventPartPage({ params }: { params: Promise<{
   if (open && part === 'hub') {
     const { data: ev, error: evError } = await createAdminClient().from('events').select('slug').eq('event_id', eventId).maybeSingle();
     // A6-56: a refused read is not "the hosts have not published their Event Hub yet".
+    if (evError) logQueryError('theirEventPart.hubSlug', evError, { eventId }, 'graceful_degrade');
     hubSlug = evError ? 'unread' : ((ev as { slug: string | null } | null)?.slug ?? null);
   }
   const body = <TheirEventPartBody eventId={eventId} part={part} open={open} brief={brief} group={group} hubSlug={hubSlug} />;

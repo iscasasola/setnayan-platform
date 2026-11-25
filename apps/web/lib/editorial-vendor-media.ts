@@ -4,6 +4,7 @@
 // action and the vendor page can call it with an admin client.
 // ============================================================================
 
+import { logQueryError } from '@/lib/supabase/error-detect';
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { isReviewable, type CompletionFields } from '@/lib/completion-handshake';
 
@@ -111,7 +112,10 @@ export async function getEditorialEligibility(
     )
     .eq('event_id', eventId)
     .eq('selection_match_rank', 1);
-  if (evRowsError) return { ...none, unread: true };
+  if (evRowsError) {
+    logQueryError('getEditorialEligibility.bookings', evRowsError, { eventId }, 'graceful_degrade');
+    return { ...none, unread: true };
+  }
   const rows = (evRows ?? []) as EventVendorGateRow[];
   const withService = rows.filter((r) => r.service_id);
   if (withService.length === 0) return none;
@@ -123,7 +127,10 @@ export async function getEditorialEligibility(
       'vendor_service_id',
       withService.map((r) => r.service_id as string),
     );
-  if (svcRowsError) return { ...none, unread: true };
+  if (svcRowsError) {
+    logQueryError('getEditorialEligibility.cards', svcRowsError, { eventId }, 'graceful_degrade');
+    return { ...none, unread: true };
+  }
   const svcToProfile = new Map<string, string>();
   for (const s of (svcRows ?? []) as Array<{
     vendor_service_id: string;

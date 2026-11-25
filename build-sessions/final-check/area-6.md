@@ -966,3 +966,165 @@ RULE      kit § 5.1 (no 5xx)
 SEVERITY  broken
 SOURCE    WALK
 ```
+
+### /vendor-dashboard/customers (Clients · Events · Money · Dates)
+
+```
+A6-B05
+PAGE      /vendor-dashboard/customers?tab=bookings&seg=money › Bookings
+STEPS     1. Clients › Money. 2. Open Bookings.
+EXPECTED  Each row shows its event date and the booking's own state, the same as the Events list.
+ACTUAL    All 7 rows read "NO DATE SET" although every event has a date (Clients: Dec 15, Jan 9, Jan 24, Feb 23, Mar 25 …).
+          States disagree with Events: Sofia's 18th, the reunion and Bea & Paolo are "Booked" on Events but
+          "IN CONVERSATION" on Bookings; filter chips say "All 7 · New 2 · In progress 3 · Closed 2" while the header says
+          "Booked 3 · Asked 2". The list is drawn from threads, not from `BOOKED_EVENT_VENDOR_STATUSES` (A6-37, now seen).
+RULE      design-and-wiring C8 · CLAUDE.md §4 (booked = BOOKED_EVENT_VENDOR_STATUSES)
+SEVERITY  wrong
+SOURCE    WALK
+```
+
+```
+A6-B06
+PAGE      /vendor-dashboard/customers?seg=money (the top strip)
+ACTUAL    "₱0 received · ₱239K to come in · 0 overdue" and "0% of ₱239,400 booked". The bar measures what is COLLECTED, but
+          the words say "booked" — a supplier with three bookings reads "0% booked". Should read "0% of ₱239,400 received".
+RULE      brand.md (plain words) · Add 2 EFFECTIVE
+SEVERITY  wrong
+SOURCE    WALK
+```
+
+```
+A6-B07
+PAGE      /vendor-dashboard/customers?seg=money · Clients › Events rows
+STEPS     1. The seed logged three couple payments to this shop (a reservation fee on Sofia's 18th; the full amount on Mika's
+          and on one delivered booking). 2. Open Clients, then Money.
+EXPECTED  The money hub says "3 payments logged — confirm them" and links to each (it is the supplier's next money job).
+ACTUAL    Money says "Nothing due this month", "0 overdue", "This year · Nothing confirmed yet". The Events row for Sofia reads
+          "₱0 paid · next ₱14,364" — ₱14,364 is the reservation fee the couple ALREADY logged, shown as if still to be asked
+          for. The logged payment and its "Confirm received" only appear inside the client's Payments tab.
+          (₱0 received itself is honest: nothing is confirmed yet.)
+RULE      Add 2 EFFECTIVE (the job is obvious) · Add 5 (fewest taps to "log a payment")
+SEVERITY  money-signin
+SOURCE    WALK
+```
+
+```
+A6-B08
+PAGE      /vendor-dashboard/customers (all segments)
+ACTUAL    Every ⓘ is a 16 × 16 px tap target (8 to 30 per screen); the Money top has an empty tinted band above the strip; the
+          floating ✓ button (bottom right) on Money has no label and its job is unclear; the Bookings fold draws a frame
+          inside a frame.
+RULE      Add 5 (44 px targets) · Add 2 CLEAN
+SEVERITY  look
+SOURCE    WALK
+```
+
+### /vendor-dashboard/clients/[eventId]
+
+```
+A6-B09
+PAGE      /vendor-dashboard/clients/[eventId]   (Bea & Paolo, at 375)
+STEPS     1. Open the client from Clients.
+EXPECTED  The page draws with no error.
+ACTUAL    First load: React error #418 (hydration mismatch) then "Cannot read properties of null (reading 'parentNode')";
+          the chat sat at "Loading the chat…" and DECISIONS at "Checking…" past the 90 s mark. A second load drew it after
+          ~3 minutes. `POST /api/telemetry/client-fault` answered 500 on both loads (A6-B04).
+RULE      kit § 5.1
+SEVERITY  broken
+SOURCE    WALK
+```
+
+```
+A6-B10
+PAGE      /vendor-dashboard/clients/[eventId]?tab=chat   (Bea & Paolo — Booked)
+ACTUAL    A booked client still shows the inquiry card "An inquiry · Your turn · Reply with an offer", and the quick replies
+          offer "Sending our price now" — on a booking that is already agreed. The header says Booked; the card says it is
+          the supplier's turn to quote.
+RULE      design-and-wiring C8 (booked state from one reader)
+SEVERITY  wrong
+SOURCE    WALK
+```
+
+```
+A6-B11
+PAGE      /vendor-dashboard/clients/[eventId]?tab=payments (Book & Budget)
+ACTUAL    The logged payment's method prints the raw code "bank_transfer"; "Payment · awaiting your confirmation · ₱47,880"
+          is said three times on one screen (Next row, plan row, logged row); Agreed / Paid / To collect use three colours
+          for three amounts; the floating wallet button covers the "Asks" heading at 375.
+RULE      Add 2 (plain labels, never internal codes · CLEAN)
+SEVERITY  look
+SOURCE    WALK
+```
+
+### /vendor-dashboard/on-the-day
+
+```
+A6-B12
+PAGE      /vendor-dashboard/on-the-day
+STEPS     1. Open On the day (the shop is Booked on Sofia's 18th, the reunion and Bea & Paolo per Clients).
+EXPECTED  The booked events, soonest first.
+ACTUAL    "No events yet" + "See your customers". On the day reads `fetchVendorRoomEvents` (schedule pool / claimed QR / …),
+          not `BOOKED_EVENT_VENDOR_STATUSES`, so bookings Clients calls Booked do not exist here. (Caveat: the seed set
+          `event_vendors.status` directly; if bookings made the real way always pass the room rule, this is a seed shape —
+          but then the two readers still disagree for any booking made outside chat.) The reader also drops `complete`, so
+          a failed read shows the same "No events yet".
+          Desktop: the empty line sits in a narrow column with the rest of the 1280 page empty; two blue main buttons
+          ("+ Create service card" in the top bar and "See your customers").
+RULE      CLAUDE.md §4 (booked) · §5 rule 4 · K1
+SEVERITY  wrong
+SOURCE    WALK + CODE
+```
+
+### /vendor-dashboard/contracts/new
+
+```
+A6-B13
+PAGE      /vendor-dashboard/contracts/new
+STEPS     1. Clients › Money › Contracts › Upload (or open /vendor-dashboard/contracts/new). The shop has 7 chats.
+EXPECTED  The event picker lists the 7 couples.
+ACTUAL    "You need to be in conversation with a couple before uploading a contract. Open a chat with a couple from your
+          messages first." No form. A supplier with seven open chats cannot upload a contract at all.
+          (Likely the thread → event join (`t.event`) comes back empty for the supplier, so every thread is filtered out.)
+RULE      kit § 5.2 (control reaches a real action)
+SEVERITY  broken
+SOURCE    WALK
+```
+
+### Booking fees · Disputes · Manpower · Notifications
+
+```
+A6-B14
+PAGE      /vendor-dashboard/booking-fees
+ACTUAL    Words: "Be the first to bring the event — your booking is free. Otherwise: 5% … — unless you are the first to bring
+          the event." says the same rule twice in one sentence, under a separate "New to Setnayan through you? They book you
+          free for 12 months." line — two free rules stacked, neither plain. Subtitle "Back to Plan" names a place the
+          phone's bottom bar does not have (Plan is only in the desktop rail). No Waived section although the shop has
+          5 booked events (cannot tell from the screen whether none were waived or the read is off — see A6-59).
+RULE      Add 2 CLEAN · brand.md tone
+SEVERITY  look
+SOURCE    WALK
+```
+
+```
+A6-B15
+PAGE      /vendor-dashboard/disputes · /manpower · /contracts/new · /booking-fees
+ACTUAL    Two back buttons: disputes and manpower use a white circle with "<"; contracts/new and booking-fees use a tinted
+          circle with "←" plus a "Back to …" subtitle. One thing, two looks.
+RULE      Add 5 "Same everywhere"
+SEVERITY  look
+SOURCE    WALK
+```
+
+### Signing in
+
+```
+A6-B16
+PAGE      any /vendor-dashboard/* (seen on the 12 forwards)
+STEPS     1. Stay signed in until the session needs a refresh. 2. Open several supplier pages in tabs at the same moment.
+EXPECTED  All stay signed in.
+ACTUAL    6 of 14 tabs landed on /login?next=…. Each tab refreshed the same session at once while the server took ~95 s to
+          answer. Seen once, on the slow copy; the controller should retry it on production before counting it.
+RULE      kit § 6 (signing in)
+SEVERITY  money-signin
+SOURCE    WALK
+```

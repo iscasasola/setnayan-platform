@@ -44,6 +44,7 @@ export function GuestTicket({
   name,
   invitationUrl,
   src = PASS_CARD_ROUTE,
+  qrSrc = '/api/guest/qr',
   replyHref = null,
   mark = null,
   appleWallet = null,
@@ -52,6 +53,8 @@ export function GuestTicket({
   state: PassCardEligibility;
   name: string;
   invitationUrl: string;
+  /** 🔑 A4-B11: the bare code's route — the Hub passes one naming its event (`passRouteForEvent`). */
+  qrSrc?: string;
   /**
    * ✉ REPLY FIRST (`meLeadsWithReply`, lib/arrival-action.ts): set for a guest
    * who has not replied yet. Me then leads with the one reply button — the
@@ -124,7 +127,7 @@ export function GuestTicket({
               // still works when the picture could not be made.
               // eslint-disable-next-line @next/next/no-img-element -- cookie-authenticated PNG
               <img
-                src="/api/guest/qr"
+                src={qrSrc}
                 alt={`QR code for ${name}`}
                 width={224}
                 height={224}
@@ -142,7 +145,7 @@ export function GuestTicket({
       <p className="mx-auto mt-3 max-w-prose text-sm text-ink/70">
         {pending ? REQUEST_WORDS.sentUnlocks : 'Show this at the door.'}
       </p>
-      <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-3" passCardHref={src} />
+      <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-3" passCardHref={src} qrHref={qrSrc} />
       {/* 🍎 Under Save · Copy link, sized to its words and centred — a second control, never wider than the row above. */}
       {state === 'pass' ? <AppleWalletButton link={appleWallet} className="mx-auto mt-2 w-fit" /> : null}
       {state === 'pass' && keep ? <div data-ticket-keep="" className="mt-8 text-left">{keep}</div> : null}

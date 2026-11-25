@@ -41,6 +41,22 @@ export async function readGuestSessionForEvent(
 }
 
 /**
+ * 🔑 A4-B11 (owner ruling, final check Add 34): the guest a PASS route (`/api/guest/qr`, `/api/guest/pass-card`) speaks
+ * for. The routes carry no event in their path, so a page that knows its event passes `?event=<uuid>`; with it, the
+ * answer is `readGuestSessionForEvent` — the invite-link cookie for that event, else the seat the SIGNED-IN account
+ * holds there (its own seat, never another guest's). Without it (or with anything that is not a uuid) the answer is
+ * the cookie alone, exactly as before.
+ */
+export async function readGuestSessionForPassRoute(
+  eventParam: string | null,
+): Promise<GuestSessionPayload | null> {
+  if (eventParam && PASS_ROUTE_EVENT_ID.test(eventParam)) return readGuestSessionForEvent(eventParam);
+  return readGuestSession();
+}
+
+const PASS_ROUTE_EVENT_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
  * The same answer with its KIND kept — `cookie` (a key was used on this
  * browser) or `seat` (a signed-in account bound to a seat here), or
  * `anonymous`. `/[slug]/find-seat` needs the kind to say "Signed in · Ana"

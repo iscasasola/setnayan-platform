@@ -335,7 +335,9 @@ test('RENDERS 1080 × 1440 and the QR DECODES from the PNG — every design, a l
 
 test('the card route decides access BEFORE it draws, and needs the guest’s key or a host', () => {
   const r = src('app/api/guest/pass-card/route.ts');
-  assert.match(r, /readGuestSession\(\)/, 'the guest key is the signed session cookie');
+  // 🔑 A4-B11 (owner, final check Add 34): the key is the signed session cookie, or — when the page names its event —
+  // the seat the signed-in account holds there (`readGuestSessionForPassRoute`, its own seat only).
+  assert.match(r, /readGuestSessionForPassRoute\(url\.searchParams\.get\('event'\)\)/, 'the guest key is the signed session cookie or the account’s own seat');
   assert.match(r, /getHostUserId\(/, 'or a host of the event');
   const gate = r.indexOf('decidePassCardAccess(');
   const refuse = r.indexOf('if (!verdict.allow)');

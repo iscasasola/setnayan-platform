@@ -10,7 +10,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFromProfile } from '../_lib/event-words';
-import { readGuestSession } from '@/lib/guest-session';
+import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { fetchEntrance } from '@/lib/indoor-blueprint';
 import { fetchPublicTables, type EventTableRow } from '@/lib/seating';
@@ -93,8 +93,10 @@ export default async function FindMyTablePage({ params }: Props) {
     redirect(`/${slug}`);
   }
 
-  // Guest must be signed in for THIS event (the redeem flow sets the cookie).
-  const session = await readGuestSession();
+  // 🔑 A4-B11 (owner, Add 34): the guest for THIS event — the invite-link cookie, else the seat the SIGNED-IN account
+  // holds here (`readGuestSessionForEvent`, the resolver /find-seat and the Hub use). Only that account's own seat;
+  // anyone else still gets "Open this from your invitation".
+  const session = await readGuestSessionForEvent(event.event_id);
   if (!session || session.event_id !== event.event_id) {
     return (
       <Shell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug}>

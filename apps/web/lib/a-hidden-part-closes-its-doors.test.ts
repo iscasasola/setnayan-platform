@@ -88,7 +88,8 @@ test("3 · the part's own page takes the exit it already had", () => {
   const secondGate = SEAT.indexOf("partDoorHidden(admin, event.event_id, 'seat')", firstGate + 1);
   // (A4-34, 25 Nov: /seat reads its tables through `readTables`, a wrapper on the guest-safe lib/seating.ts fetchPublicTables.)
   const tableRead = SEAT.indexOf('await readTables(admin, event.event_id)');
-  const sessionRead = SEAT.indexOf('await readGuestSession()');
+  // (A4-B11, 25 Nov: the personal pass reads the cookie or the signed-in account's own seat — `readGuestSessionForEvent`.)
+  const sessionRead = SEAT.indexOf('await readGuestSessionForEvent(event.event_id)');
   assert.ok(claimHop > 0 && claimHop < firstGate, 'the gate stands before the claim hop — a hidden seat would stop a guest signing in');
   assert.ok(firstGate < tableRead, 'a table is read before the door is asked (the table sign)');
   assert.ok(secondGate > tableRead && secondGate < sessionRead, 'the personal pass is reached before the door is asked');

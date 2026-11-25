@@ -9,7 +9,7 @@ import { ArrowLeft, DoorOpen, MapPin, Users } from 'lucide-react';
 import { guestAvatarsEnabled } from '@/lib/venue-avatars';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withSchemaRetry } from '@/lib/read-retry';
-import { readGuestSession } from '@/lib/guest-session';
+import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor } from '../_lib/event-words';
 import { eventNoun } from '@/lib/event-noun';
@@ -29,6 +29,7 @@ import type { TheDayWhen } from '@/lib/event-clock';
 import { theDayFor } from '@/lib/event-clock.server';
 import { ArrivalBloom } from './_components/arrival-bloom';
 import { GuestPushPrompt } from './_components/guest-push-prompt';
+import { TABLE_CHANGE_ALERTS_SEND } from '@/lib/table-change-alerts';
 import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
 import { seatNumberWords } from '@/lib/table-words';
 
@@ -257,7 +258,8 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   // 👁 …and none on a stage the couple hid "Your seat" on — the same exit as above. This is where the claim hop lands,
   // so a guest who scanned their own code arrives on the event's page, signed in, with no seat shown.
   if (await partDoorHidden(admin, event.event_id, 'seat')) redirect(`/${slug}`);
-  const session = await readGuestSession();
+  // 🔑 A4-B11 (owner, Add 34): the invite-link cookie, else the seat the SIGNED-IN account holds here — its own seat only.
+  const session = await readGuestSessionForEvent(event.event_id);
   if (!session || session.event_id !== event.event_id) {
     return (
       <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={theDayFor(event)}>
@@ -484,7 +486,8 @@ async function PersonalPass({
           solemn={words.solemn}
         />
 
-        <GuestPushPrompt />
+        {/* 🔕 A4-52 (owner, Add 34): the alerts ask stays hidden until something sends them (lib/table-change-alerts.ts). */}
+        {TABLE_CHANGE_ALERTS_SEND ? <GuestPushPrompt /> : null}
 
         <header className="space-y-2 text-center">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700">

@@ -22,7 +22,7 @@ ACTUAL    From about 07:00 UTC every Event Hub answers HTTP 500 after 20–24 s 
 SHOTS     375 px light (the "Still opening your invitation…" screen)
 RULE      Kit § 5 item 1 (it opens; no 5xx) · item 10 (speed)
 SEVERITY  blocker
-SOURCE    SEEN 25 Nov 07:00–07:14 UTC · 200 again at 07:15 · 500 again from 07:19 for every viewer (signed out, `guest`, `messy_one`) on every Hub tried. Every failure carries the same REFERENCE (one error digest), which fits the Hub's read deadline (`lib/read-limit.ts`; `lib/invitation-retry.ts` names the free database's stalls) rather than a code fault. The auto-retry (`AUTO_RETRY_DELAY_MS`) fires once and fails too, so the guest is left on "This invitation didn't load" + Try again. Controller: the copy's database is stalling; phase B of the Hub pages waits on it.
+SOURCE    SEEN 25 Nov 07:00–07:14 UTC · 200 again at 07:15 · 500 again from 07:19 for every viewer (signed out, `guest`, `messy_one`) on every Hub tried. Every failure carries the same REFERENCE (one error digest), which fits the Hub's read deadline (`lib/read-limit.ts`; `lib/invitation-retry.ts` names the free database's stalls) rather than a code fault. The auto-retry (`AUTO_RETRY_DELAY_MS`) fires once and fails too, so the guest is left on "This invitation didn't load" + Try again. 07:36–07:37: five loads in a row (signed out, `guest`, signed out, `guest`, `messy_one`) → 200 at 10.6 s · 200 at 10.8 s · 500 at 23.6 s · 200 at 10.5 s · 500 at 20.8 s. About half fail, and a load that works takes 10 s, not 0.5 s; not tied to who is looking. Controller: the copy's database is stalling; phase B of the Hub pages waits on it.
 ```
 
 ## Report at once (money-signin, kit § 6)

@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { MEAL_LABELS, MEAL_PREFERENCES, type MealPreference } from '@/lib/guests';
 import type { GuestAccountState } from '@/lib/guest-one-path';
-import type { PlusOneAnswers, PlusOneRow } from '@/lib/plus-one-welcome';
+import type { PlusOneAnswers, PlusOneRow, TypedName } from '@/lib/plus-one-welcome';
 import { SaveToAccount } from '../../_components/save-to-account';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
 import { composeFormalName, type FormalNameField } from '@/lib/formal-name';
@@ -34,6 +34,7 @@ export function PlusOneDoor({
   primaryFirst,
   theOrganizerPossessive,
   row,
+  typedName = null,
   missing,
   filled,
   inside,
@@ -52,6 +53,8 @@ export function PlusOneDoor({
   primaryFirst: string;
   theOrganizerPossessive: string;
   row: PlusOneRow;
+  /** A4-26: the name as typed, back after a save that did not go through — it fills the boxes over the stored row. */
+  typedName?: TypedName | null;
   missing: PlusOneAnswers;
   filled: PlusOneAnswers;
   /** Nothing REQUIRED is missing — the Event Hub will open for them. */
@@ -149,7 +152,7 @@ export function PlusOneDoor({
             <div className="mt-2 space-y-4">
               {filled.name
                 ? nameBoxes(
-                    {
+                    typedName ?? {
                       name_prefix: row.name_prefix ?? null,
                       first_name: row.first_name,
                       middle_name: row.middle_name ?? null,
@@ -169,7 +172,7 @@ export function PlusOneDoor({
       {missingCount > 0 ? (
         <section className="space-y-4" data-plus-one-missing>
           <p className="text-sm font-medium text-ink">{missingCount === 1 ? 'One more thing' : 'A few things'}</p>
-          {missing.name ? nameBoxes({}, true) : null}
+          {missing.name ? nameBoxes(typedName ?? {}, true) : null}
           {missing.meal ? mealBox('', true) : null}
           {missing.dietary ? dietaryBox('') : null}
           {missing.name ? (

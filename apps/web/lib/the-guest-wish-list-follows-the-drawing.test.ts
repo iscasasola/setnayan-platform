@@ -205,7 +205,8 @@ test('6 · the page: above the ways to give, by the one-setting rule, in the pic
     /const wishes = wishRead\.read && wishListShownToGuests\(\{ giftsOn: event\.gifts_on, methods, wishCount: wishRead\.wishes\.length \}\) \? wishRead\.wishes : \[\];/,
   );
   assert.match(body, /\{wishes\.length > 0 \? \( <WishList/);
-  assert.match(page, /fetchEgiftMethods\(admin, event\.event_id, \{ enabledOnly: true, \}\)/, 'the rule must be asked of the ENABLED ways');
+  // (A4-44, 25 Nov: `readEgiftMethods`, the same ENABLED read that also reports a failure.)
+  assert.match(page, /readEgiftMethods\(admin, event\.event_id, \{ enabledOnly: true, \}\)/, 'the rule must be asked of the ENABLED ways');
 
   /* The picked E-Gifts look — the Invitation's gift door's — and no other source. */
   assert.match(page, /const wishShape = wishListShape\(partLookAttr\('gifts', fixedSceneStyleOf\(event\.style_preferences, 'gifts', 'rsvp', event\.event_type\)\)\);/);

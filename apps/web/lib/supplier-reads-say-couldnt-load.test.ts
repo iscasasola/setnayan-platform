@@ -45,6 +45,7 @@ test('fit check: a date with an unread calendar is "couldn\'t check", never free
   });
   assert.equal(v.checks[0]!.ok, null);
   assert.equal(v.checks[0]!.label, 'Couldn’t check your date');
+  assert.equal(v.fits, false, 'an unread calendar is never "Fits"');
   const noDate = computeVendorFit({
     eventDate: null,
     vendorAvailableOnDate: null,

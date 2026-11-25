@@ -3,6 +3,7 @@ import { ReadFailedNote } from '../../_components/set-two/read-failed';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
+import { HideWhenRisen } from '@/app/_components/rise/rise-route';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { CanvasMaker } from '../_components/canvas-maker';
@@ -142,12 +143,15 @@ export default async function EditServiceCardPage({
   return (
     // No page title: the maker's surface carries the card's name (makers prototype 7 Nov 2026 § 3).
     <div className="mx-auto w-full tab:max-w-5xl px-4 pb-8 pt-4 sm:px-6">
+      {/* ‹ only on the whole page: risen over Shop, ✕ is the way out (final check B8). */}
+      <HideWhenRisen>
       <div className="mb-2 flex min-h-11 items-center gap-2">
         <Link href="/vendor-dashboard/shop" className="sn-press inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">
           <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
           Shop
         </Link>
       </div>
+      </HideWhenRisen>
       <CanvasMaker
         library={library}
         categoryValue={card.category}

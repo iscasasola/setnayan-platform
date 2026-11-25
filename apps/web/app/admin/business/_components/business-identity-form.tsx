@@ -77,7 +77,7 @@ export function BusinessIdentityForm({ values, readFailed }: { values: BusinessI
             'Average driving speed (km/h)',
             ...OWNER_NUMBERS.map((n) => n.name),
           ].map((name) => (
-            <FactRow key={name} name={name} value="Couldn’t read" />
+            <FactRow key={name} name={name} value="Couldn’t read" where="The saved settings could not be read. Reload to try again." />
           ))}
         </FormRows>
         <div className="mt-3 flex justify-end">

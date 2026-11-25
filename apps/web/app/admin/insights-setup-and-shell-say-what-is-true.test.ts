@@ -92,7 +92,7 @@ test('A8·I-3 · a failed settings read shows every field as "Couldn’t read" a
   const fn = body(form, 'BusinessIdentityForm');
   const unread = fn.indexOf('if (readFailed) {');
   assert.ok(unread > 0 && unread < fn.indexOf('<form action={saveBusinessIdentity}'), 'the unread branch posts no form');
-  assert.match(fn, /<FactRow key=\{name\} name=\{name\} value="Couldn’t read" \/>/);
+  assert.match(fn, /<FactRow key=\{name\} name=\{name\} value="Couldn’t read" where=/);
   const page = read('app/admin/business/page.tsx');
   assert.match(page, /settingsReadFailed\s*\?\s*'Last updated: couldn’t read'/);
   assert.match(page, /settingsReadFailed \? \(\s*<p[^>]*data-brand-unread=""/);

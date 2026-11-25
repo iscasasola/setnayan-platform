@@ -456,6 +456,27 @@ SEVERITY  look
 SOURCE    SEEN
 ```
 
+#### A2-P22 · With no signal, a dashboard page cannot be reopened — not even the check-in desk
+```
+PAGE      /dashboard/[eventId]/guests/checkin (and Home, Schedule, Souvenirs, Budget, Suppliers)   (event: stg-bea-paolo)
+BUTTON    — (reload / open the link)
+STEPS     1. Signed in, open each page online (service worker registered: /sw.js active, caches filled). 2. Switch the
+          browser offline (DevTools Network › Offline). 3. Reload, or open the same link again.
+EXPECTED  Kit: check-in and Home have a saved copy (OFFLINE_COPY_SHAPES, DeskSavedMark). The desk phone that reloads,
+          or a crew member who opens the desk link at the venue, gets the saved desk.
+ACTUAL    Every dashboard page fails with the browser's own "no internet" error (ERR_INTERNET_DISCONNECTED); the
+          `setnayan-offline-pages-v1` cache held 1 entry. The guest Event Hub (/stg-bea-paolo) does fall back to the
+          service worker's "You're offline … pages you've already opened are still available" page.
+          WHAT WORKS: a desk that is ALREADY OPEN keeps working when the signal drops — it shows "No signal · scans will
+          be saved on this phone", and search still finds guests (typed "Josefa": 5 matches with tables). Back online it
+          picks up without a reload. No guest was checked in (seeded data).
+          PLAUSIBLE: Playwright's offline switch also governs the service worker; a phone test should confirm.
+SHOTS     off-checkin-inpage (375), offline goto log
+RULE      Owner 24 Nov: guests at the venue and the day-of desks are among the five FULL-offline places
+SEVERITY  broken
+SOURCE    SEEN
+```
+
 ### Phase-A findings the browser confirmed (now `SEEN`)
 
 - **A2-X2 / A2-X4** dark: only the account spokes, event Home, Budget, Guests and Schedule go dark; every other page

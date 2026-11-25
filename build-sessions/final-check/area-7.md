@@ -69,7 +69,7 @@ A7-34, covers the area and the four-role comparison (Add 7).
 - [x] /3d_plan/demo/[token] · SEEN with an unknown token only (no token can be minted on the copy) · DARK: light only · buttons 1 · pressed 1 · failed 0 · A7-03 seen: "This demo link expired … from the 3D Plan tile on the Setnayan homepage", and no button but the wordmark
 - [x] /[slug]/venue · SEEN on stg-bea-paolo, stg-carla-miguel, stg-maria-jose-dela-paz · always dark (the guest walk's own skin) · buttons 1 · pressed 1 · failed 1 (its only button, "← Back to the invitation", lands on the Event Hub that answers 500: area 4 B-01) · every seeded plan shows "The 3D room opens on the day", so A7-01, A7-02 and A7-05 cannot be seen on the copy (no event is today)
 - [x] /dashboard/[eventId]/plan3d · SEEN as messy_one (stg-maria-jose-dela-paz) · forwards to `guests?gview=seats&seat=3d` as Phase A said · DARK: no · the 3D room draws · at 375 the count row ("161 · 174 · 40") is cut off under the "More seat-plan tools" button (A7-35) · the seeded 40 tables are drawn piled in one corner, across the wall: a seed fault, not counted (see Seed notes)
-- [x] /dashboard/[eventId]/studio/panood/setup/venue-check · SEEN · DARK: no · idle screen correct ("Takes about 25 seconds · Uses up to 9 MB · 2.6 Mbps") · the check itself was not run (it would upload 9 MB from the cloud, not from a venue)
+- [x] /dashboard/[eventId]/studio/panood/setup/venue-check · SEEN · DARK: no · idle screen correct ("Takes about 25 seconds · Uses up to 9 MB · 2.6 Mbps") · "Start the check" pressed: it starts (the result was not awaited; a cloud machine is not a venue)
 - [x] /dashboard/[eventId]/vendors/[vendorId]/workspace · SEEN as messy_one, supplier Tala Events Coordination, tab Book & Budget · DARK: no · A7-25 seen ("Record payment" and "Propose a change" are both accent-tinted pills) · A7-32, A7-33 new
 - [x] /vendor-dashboard/clients/[eventId]/seat-plan · SEEN as coordinator on both weddings · DARK: no · only the lock is shown (BLOCKERS: seed) · A7-29 new
 - [x] /vendor-dashboard/spaces · SEEN as the coordinator's seat on Hardin ng Tagaytay · DARK: no · A7-15 seen (bare empty line, hand-made top) · A7-11 seen on the New hall sheet (ten rows and two buttons in a half sheet that scrolls inside) · A7-12 seen in part ("Add the hall" filled, "Add another like this" accent-tinted) · A7-30, A7-31 new · good: the New hall sheet fills Floor width 30 and length 45 from the venue's own size
@@ -218,6 +218,147 @@ SEVERITY  look
 SOURCE    SEEN
 ```
 
+### Owner's additions (25 Nov), area 7
+
+#### Add 1 · Popup, full-screen popup, or page (only the ones that differ)
+
+| Where | TODAY | SHOULD | Why (the three tests) |
+|---|---|---|---|
+| Spaces › "Add what you typed" → New hall | SMALL POPUP (half `Sheet`, 10 rows + 2 buttons, scrolls inside) | FULL-SCREEN POPUP | more than one short screen (A7-11, seen) |
+| Spaces › a hall's sheet › "Open the floor plan" | full-screen popup over a half sheet | one layer: the hall itself rises full screen | never a popup on a popup (A7-11, code) |
+| 3D seat plan › "View only / Editing" card | hand-made card, no backdrop | SMALL POPUP (`Sheet`) | one short choice (A7-08, code; the 3D buttons were not reachable in the headless walk) |
+| 3D seat plan › Accents | half `Sheet`, 22 rows | FULL-SCREEN POPUP | long fill-in with photos (A7-09, code) |
+| Workspace › Log your payment · Propose a change · Photo approvals | half `Sheet` | FULL-SCREEN POPUP | photo / four fields / a photo list (A7-26, code) |
+| Workspace › Pay › Show QR | hand-made popup on the pay sheet | one layer | never a popup on a popup (A7-26, code) |
+| Workspace itself (`…/workspace`) | a PAGE drawn with a ✕ like a full-screen popup | PAGE (keep), but a ✕ on a page reads as "close a popup": use the Back arrow | it has its own address with `?tab=` doors; people come back to it |
+
+Every one of the ten routes is rightly a PAGE.
+
+#### Add 2 · Clean, balanced, effective
+
+| Screen | CLEAN | BALANCED | EFFECTIVE |
+|---|---|---|---|
+| /for-coordinators | fails: "free" twice in the hero (button and the line under it) and "No end date" (A7-19) | ok at 375 and 1280; 768 is the phone column centred, not a tablet layout | ok |
+| /pa3d | fails: "A REAL RECEPTION, NOT A MOCK-UP" eyebrow over a sample (A7-28); "UP" orphaned at 375 | ok | ok until "Step inside" (room fails on the copy) |
+| /pa3d/try | fails: heading, lede and card say the same thing three times (A7-28) | ok | ok |
+| /3d_plan/demo (expired) | ok | fails at 1280: a small card top-left of an empty page | fails: no next step (A7-03) |
+| /[slug]/venue (before the day) | ok | ok | ok: says when to come back, one button |
+| 3D seat plan (375) | ok | fails: count row cut under a button (A7-35) | ok |
+| Venue check | ok | ok | ok: one main button, the cost in data before you press |
+| Workspace › Book & Budget | fails: two accent pills (A7-25) | ok | fails: "Amount to pay: Next payment" with no amount (A7-33); "bank_transfer" is a code |
+| Supplier seat plan | ok | ok | fails: a lock with no button (A7-29) |
+| Spaces | fails: hand-made top, bare empty line (A7-15) | ok | fails: "the box below" is not drawn (A7-31); a refused save says nothing (A7-30) |
+
+#### Add 3 · Placeholders a real person could see
+
+- /pa3d, /pa3d/try: "Maria & Jose" shown as "a real reception, not a mock-up" (A7-28).
+- /for-coordinators: the sample card "Amihan Events · Taguig · ₱24,999 · 4.9 · 64 · about 8 km" (A7-18). It is labelled "A sample card and calendar", but the price and rating are typed.
+- /3d_plan/demo: "A sample guest, on a sample table" (A7-04, code; no token could be minted on the copy).
+- Workspace: "Amount to pay: Next payment" with no amount (A7-33).
+- Code grep (`lorem|TODO|TBD|coming soon|john doe|sample|XXX|beta`) over the ten routes found nothing else a person sees. The `+63 9XX XXX XXXX` hint on the self-added contact card reads as a hint (fine).
+
+#### Add 4 · Every place to buy or upgrade in area 7
+
+| Route | What is sold | Price shown | How a person reaches it | EVIDENT · CLEAN · HONEST |
+|---|---|---|---|---|
+| /vendor-dashboard/spaces › 🔒 "Your own names", 🔒 "Make it a floor plan" | supplier Plus | none: "Price from the price sheet when you tap Upgrade" (A7-14) | a space's sheet (Free shop only) | EVIDENT fails (no price before pressing) · CLEAN ok · HONEST not seen: both seeded shops are Plus/Pro, so the lock never shows on the copy |
+| /for-coordinators › "Your shop, fees and plans" ⓘ, the Booking fee line | supplier plans; the booking fee | the fee read from `_facts.ts` ("5% up to ₱100,000, 3% above"); plans via /pricing | ⓘ on the page | ok |
+| /for-coordinators › "Start as a coordinator free →" | nothing (opens the shop) | "free" | hero and close | ok; answered 200 in 77 s on the copy |
+| Workspace › "Pay {supplier}" (direct pay sheet, BDO / GCash QR) | the booking payment to the supplier | the plan's due amount | Book & Budget | not seen: Tala has no payment method on the copy, so the card says "hasn't added a way to pay"; never pressed |
+| Workspace › "Record payment" | logs a payment the couple made elsewhere | typed by the couple | Book & Budget | not pressed (would write) |
+| Supplier seat plan lock | (would be the booking fee) | none, and no button (A7-29) | Clients › a booking › Seats | EVIDENT fails |
+| /pa3d, /pa3d/try | nothing for sale on the page ("start planning free") | — | — | ok |
+
+Taps from the wall to "payment logged": not measurable on the copy (no lock in this area has a button that reaches a checkout).
+
+#### Add 5 · Easy to handle (main jobs, first-timer, one hand, 375)
+
+| Job | Rating | The step that makes it hard |
+|---|---|---|
+| Add a space (venue) | HARD | the empty state points at a box that is not drawn (A7-31); as a helper the save fails silently (A7-30) |
+| See a client's seat plan as the coordinator | HARD | the lock gives no button (A7-29) |
+| Walk your own reception in 3D (hosts) | OK | the count row is cut at 375 (A7-35); the rest of the controls sit in a bottom row in thumb reach |
+| Check the venue's signal | EASY | one button, says data use and time first |
+| Pay / log a payment to the coordinator (hosts) | OK | "Amount to pay" has no amount (A7-33) |
+| Try the 3D demo (public) | HARD on the copy | the room does not load (seed); on a phone the room traps the page's scroll (A7-05, code) |
+
+Tap targets under 44 px seen at 375: the SETNAYAN wordmark (110 × 23) and "setnayan.com/pa3d/try" (157 × 17) on /pa3d; "read what it's for" (112 × 17) on /pa3d/try; the "Setnayan home" link (171 × 30) on the expired demo. Each is a text link; the kit asks for 44.
+
+
+#### Add 6 · Buttons pressed (375; 1280 where the controls differ)
+
+Counted: every visible button, link, tab, toggle, select and summary. Links were checked by asking for their address
+(all answered 200, some after 77–93 s on the loaded preview). Two tools-only misses are not counted as failures: the
+search icon sits under its own transparent input (a finger lands on the input, which opens search), and one ⓘ needed a
+real tap; both were re-pressed by hand and work.
+
+| Page | 375 | 1280 | Not pressed, and why |
+|---|---|---|---|
+| /for-coordinators | buttons 23 · pressed 23 · failed 0 | buttons 36 · pressed 36 · failed 0 | — |
+| /pa3d | buttons 11 · pressed 11 · failed 0 | (as 375, plus the desktop top bar) | the room itself: it does not load on the copy (seed) |
+| /pa3d/try | buttons 7 · pressed 7 · failed 0 | (as 375) | as above; "Tap any seated guest" cannot be reached |
+| /3d_plan/demo/[token] | buttons 1 · pressed 1 · failed 0 | same | — |
+| /[slug]/venue | buttons 1 · pressed 1 · failed 1 | same | its one link opens the Event Hub that answers 500 (area 4 B-01) |
+| Guests › Seats › 3D | buttons 65 (40 of them are tables) · pressed 0 | — | the headless browser could not finish drawing the room within 2–3 min on the loaded preview; Walk in / Accents / View only were not reached |
+| Venue check | buttons 15 · pressed 15 · failed 0 | — | "Start the check" was pressed and started (content changed); its result was not waited for |
+| Workspace › Book & Budget | PENDING | — | "Record payment", "Pay", "Propose a change" are counted but not pressed (they write or pay) |
+| Supplier seat plan | buttons 10 · pressed PENDING | buttons 20 | — |
+| Spaces (Hardin) | buttons 11 · pressed 11 by hand · failed 1 ("Add the hall", A7-30) | buttons 21 | the Date menu's options |
+
+#### Add 7 · Three sizes, light and dark, one design across roles
+
+- **Shots:** `build-sessions/final-check/shots/area-7/home-{375,768,1280}-{light,dark}.png` = the coordinator's Today
+  (`/vendor-dashboard`, Tala Events Coordination). The three `-dark` files are LIGHT: the supplier Today is not on
+  `DARK_READY`, so Dark does nothing there. `roles-375-couple-light-couple-dark-supplier-dark.png` sets the couple's
+  Home (light, dark) beside the supplier's Clients (dark, which is dark-ready) at 375.
+- **Sizes:** 375 ok (bottom bar, thumb row); 768 is a real tablet layout (icon rail, no bottom bar); 1280 has the full
+  rail with words. No bottom bar and rail showing together; no sideways scroll on any area 7 page at any size.
+  On /3d_plan/demo at 1280 the card sits top-left of an empty page (BALANCED).
+- **Dark:** `DARK: no` on all five signed-in pages of this area; `light only` on the four public ones; the guest walk is
+  always dark. Count: signed-in no-dark 5 · public light-only 4 · own skin 1.
+- **Roles:** see A7-34. Couple light page rgb(247,245,244) vs supplier rgb(238,242,248); couple dark rgb(18,17,16) vs
+  supplier navy rgb(13,22,38); couple main button terracotta vs supplier blue rgb(34,114,230). Admin not walked here.
+
+#### Add 8, Add 9 · not this area.
+
+#### Add 10 · Offline, beyond the five (area 7)
+
+Tried on the copy (the service worker installs: `sw=active`), then DevTools-style offline and a reload:
+`/stg-bea-paolo/venue`, `/pa3d` and `/for-coordinators` each give the browser's own "No internet" page, not a Setnayan
+line. That matches Phase A: none of these addresses is in `OFFLINE_COPY_SHAPES` or `sw.js`.
+
+**Coordinator**
+
+| Part | When the signal drops | Level | Why |
+|---|---|---|---|
+| `/vendor-dashboard/clients/[eventId]/seat-plan` (covers per table, who sits where) | at the venue on the day | READ-ONLY | the caterer and coordinator need the table list at the door; today it is not saved |
+| `/vendor-dashboard/spaces` | at the shop | NOT NEEDED | set up with signal |
+
+**Event host / couple**
+
+| Part | When the signal drops | Level | Why |
+|---|---|---|---|
+| Guests › Seats › 3D (`/dashboard/[eventId]/plan3d`) | at the venue on the day | READ-ONLY | showing the room to the venue's staff; a saved copy is enough (the 2D seat editor is Area 2's FULL case) |
+| Workspace (`…/vendors/[vendorId]/workspace`) | on the road | READ-ONLY for Details (the supplier's phone and address); money NOT NEEDED (HOUSE F2) | the couple calls the supplier from the car |
+| Venue check | at the venue | NOT NEEDED | it measures the signal; offline it says it could not reach Setnayan |
+
+**Guest / Event Hub**
+
+| Part | When the signal drops | Level | Why |
+|---|---|---|---|
+| `/[slug]/venue` (the 3D walk to your seat) | at the venue on the day | READ-ONLY | the guest finding their table in a weak-signal hall; `find-my-table` is saved, this is not. Today offline shows the browser's error |
+
+#### Add 10b · The supplier QR challenge (area 7's part)
+
+1. **The list (area 7 only).**
+   - The 3D demo guest QR (`mintPlan3DGuestQr`, /pa3d and /pa3d/try → "Tap any seated guest"): opens `/3d_plan/demo/<token>` from that guest's seat. Not a supplier QR; a demo. Could not be made on the copy (seed).
+   - The supplier's payment QR in the hosts' workspace ("Pay {supplier}" → "Show QR", BDO / GCash): made by the supplier in Profile › How clients pay you (area 5/6), shown here to the couple. Not seen on the copy (Tala has no payment method).
+   - The coordinator's own invite QR (`/i/<shop>`) is shown on /for-coordinators only as a drawn sample (`FcSampleQr`, not a real code, says the code); the real one is in Shop › Partnerships (area 5).
+   - Spaces and the supplier seat plan make no QR.
+2. **No signal.** The demo QR is minted by a server action: offline it cannot be made (and the room cannot load). The payment QR is an image the supplier uploaded; whether it shows offline depends on the browser cache (the workspace is not saved).
+3. **Back online.** The demo QR touches no date, price or gift. The payment QR touches money: a QR shown from a stale page could carry an account the supplier has since changed. Today the workspace reads it fresh on every load; nothing warns when a copy is old. Name of the case: "a price or account changed in between".
+4. **Taps.** Not measurable here (no supplier QR maker in area 7).
+
 ### Seed notes (not findings; for whoever re-seeds the copy)
 
 - The sample event `maria-and-jose` (`is_sample`) is missing → no 3D demo, no demo QR (BLOCKERS).
@@ -231,10 +372,13 @@ SOURCE    SEEN
 ### Seen in other areas (reported there or for the controller)
 
 - Event Hub `/[slug]` 500 after ~23.6 s, and an unknown slug answers 500 not 404: area 4 B-01.
-- `/login`: 1 of 6 password sign-ins failed under load with "We could not sign you in. Check your email and password,
+- `/login`: 1 of 7 password sign-ins failed under load with "We could not sign you in. Check your email and password,
   or try again in a moment."; the address became `/login?error=%7B%7D` (an empty error object) and the email field was
   emptied, so it had to be typed again (Add 5: nothing typed is lost). The same sign-in worked on the next try. Area 1.
 - `/api/telemetry/client-fault` answers 500 `insert_failed` on the copy (client faults are not being recorded). Controller.
+- `/vendor-dashboard` (area 5): React error #418 (hydration mismatch) at 768 and 1280. Likely the greeting ("Good afternoon")
+  worked out in the server's time zone and again in the browser's (the checker's browser runs in UTC). A person abroad would see it flicker.
+- `/dashboard/<event>` Home (area 2): a 4-step coach-mark tour ("STEP 1 OF 4 · Now · Press Next") covers the page at first open (Add 5: a step that needs a tour).
 
 ## Phase A summary (code pass, 10 of 10 pages)
 

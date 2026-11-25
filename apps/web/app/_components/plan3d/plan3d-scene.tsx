@@ -88,10 +88,9 @@
  * today the remote-mover list is empty and the pass is skipped.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
-import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib';
 import * as THREE from 'three';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { TURN_MS, turnAzimuthAt } from '@/lib/plan3d-turn-step';
@@ -1451,7 +1450,7 @@ export function Plan3DScene({
   };
 
   // 🔄 A7-05: one tap of "Turn left / Turn right" eases the orbit camera one step (Move 320, settle); reduced motion cuts.
-  const orbitRef = useRef<OrbitControlsImpl | null>(null);
+  const orbitRef = useRef<ComponentRef<typeof OrbitControls> | null>(null);
   const turnSeen = useRef(turnSignal?.n ?? 0);
   useEffect(() => {
     if (!turnSignal || turnSignal.n === turnSeen.current) return;

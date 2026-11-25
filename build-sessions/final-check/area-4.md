@@ -1494,7 +1494,7 @@ Taps from the wall to "payment logged": not measurable on the copy (the guest bu
 - Claim a crew seat with an old link (`/papic/claim`, `/papic/seat`): HARD. It asks for a press, then says the link is dead (A4-B03).
 - Open the invitation, reply, find my seat, shoot photos: wait on A4-B01.
 
-**Add 6 · Buttons.** Counted per page in Phase B progress (375 / 1280). Running total for the 22 non-Hub pages: buttons 59 at 375 (72 at 1280) · pressed 54 · failed 7. Not pressed: a valid "Set password" (would change the shared `guest` sign-in); "Sign in" on `/papic/try` and the wordmarks counted as pressed by destination check only.
+**Add 6 · Buttons.** Counted per page in Phase B progress (375 / 1280). Running total for the 22 non-Hub pages: controls 51 at 375 (64 at 1280: `/papic/try` adds the shell's desktop menu) · pressed 51 · failed 6 (A4-B03 ×3, A4-B04, A4-B07, A4-B09). The wordmark and "Back home" links were checked by their destination (`/` answers 200), not clicked one by one. Not pressed: a valid "Set password" (would change the shared `guest` sign-in).
 
 **Add 7 · Sizes and dark.**
 - 375 · 768 · 1280 walked on every non-Hub page: no sideways scroll, nothing cut off, no bar overlap. Desktop on these doors is a centred phone card in an empty page (fine for a one-step door).

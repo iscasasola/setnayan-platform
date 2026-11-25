@@ -3502,9 +3502,9 @@ function OverviewTab(props: {
               {/* A6-48: the count the hosts go by (events.headcount_basis, the basis a supplier's pax follows), counted by
                   the one reader — never "attending" when the hosts count coming-or-maybe, or everyone not declined. */}
               <p className="mt-3 text-3xl font-semibold tracking-tight" data-headcount-basis={brief.pax.headcount_basis ?? 'attending'}>
-                {briefHeadcount(brief.pax)}
+                {formatCount(briefHeadcount(brief.pax))}
                 <span className="ml-2 text-sm font-normal text-ink/55">
-                  {headcountBasisWords(brief.pax.headcount_basis)} of {brief.pax.invited} invited
+                  {headcountBasisWords(brief.pax.headcount_basis)} of {formatCount(brief.pax.invited)} invited
                 </span>
               </p>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink/60">

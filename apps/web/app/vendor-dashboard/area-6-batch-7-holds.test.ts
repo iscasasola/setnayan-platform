@@ -24,8 +24,8 @@ test('A6-48 · the count follows the hosts’ basis, through the one reader', ()
 
 test('A6-48 · the client page’s Headcount card draws that count and its words, never a hand-picked "attending"', () => {
   const src = read('app/vendor-dashboard/clients/[eventId]/page.tsx');
-  assert.match(src, /\{briefHeadcount\(brief\.pax\)\}/);
-  assert.match(src, /\{headcountBasisWords\(brief\.pax\.headcount_basis\)\} of \{brief\.pax\.invited\} invited/);
+  assert.match(src, /\{formatCount\(briefHeadcount\(brief\.pax\)\)\}/);
+  assert.match(src, /\{headcountBasisWords\(brief\.pax\.headcount_basis\)\} of \{formatCount\(brief\.pax\.invited\)\} invited/);
   assert.doesNotMatch(src, /attending of \{brief\.pax\.invited\} invited/);
 });
 

@@ -236,24 +236,24 @@ One line per screen. "§N" is the section in the drawings file. Nothing in lane 
 
 | § | ID | Screen | The change, in one line | Drawing | Status |
 |---|---|---|---|---|---|
-| 1 | A8·P-B-7 | /admin (1280) · /admin/payments Full (375, 768) | Top-bar search becomes the search icon on Focus; the desk's own reference box goes on a phone (the thumb row searches) | §1 | APPROVAL: pending controller |
-| 2 | A8·P-B-8 | /admin (Focus) | Completions card loses its side stripe and sits in the content column | §2 | APPROVAL: pending controller |
-| 3 | A8·D-29 | /admin/accounts · Users · Comp grants | The 5-part form becomes a full-screen popup (RiseScreen) over the list | §3 | APPROVAL: pending controller |
-| 4 | A8·C-20 | /admin/approvals | Queue first; New request is a small popup (Sheet, 3 fields) | §4 | APPROVAL: pending controller |
-| 5 | A8·P-B-11 | /admin/catalogue · /admin/work · /admin/app-performance | A card with nothing waiting keeps full strength; only the "0" is quiet | §5 | APPROVAL: pending controller |
-| 6 | A8·A-29 | /admin/discount-codes/new | Create is a full-screen popup over Discount codes | §6 | APPROVAL: pending controller |
-| 7 | A8·E-17 | /admin/disputes (also /admin/completions) | Resolve opens a small popup from the row; the sheet is the confirm | §7 | APPROVAL: pending controller |
-| 8 | A8·F-30 | /admin/editorial-review/[id] | "● Vulgar" chip words take the danger colour on the soft fill | §8 | APPROVAL: pending controller |
-| 9 | A8·C-15 | /admin/help/guides | Add the PageMasthead (an sr-only h1): no visible change | §9 | APPROVAL: pending controller · planner says lane A |
-| 10 | A8·P-B-4 | /admin/business?view=accounts | The pinned title wraps on a phone instead of scrolling sideways | §10 | APPROVAL: pending controller |
-| 11 | A8·D-30 | /admin/venues/new | New venue is a full-screen popup over People › Venues | §11 | APPROVAL: pending controller |
-| 12 | A8·P-B-10 | /admin/work · /admin/catalogue · /admin/app-performance | The dotted line that repeats the chip names goes | §12 | APPROVAL: pending controller |
-| 13 | A8·P-B-17 | any admin page, signal off (375) | The offline bar sits above the top bar; the shell moves down | §13 | APPROVAL: pending controller |
-| 14 | A8·P-B-5 | every admin page (top bar) | The overdue chip is never cut: "1 overdue" at 1280, sign + number on a phone | §14 | APPROVAL: pending controller |
-| 15 | A8·P-B-6 | every admin page (top bar, 768 and 1280) | "Setnayan Team" is a plain one-line label, no pill | §15 | APPROVAL: pending controller |
-| 16 | A8·P-B-9 | every admin page at 1280 (rail) | The public footer leaves the admin rail | §16 | APPROVAL: pending controller |
-| 17 | A8·P-B-20 | every admin page, Focus, 375 and 768 | Focus keeps the five-tab bar on a phone | §17 | APPROVAL: pending controller · planner says lane C (reverses the 14 Nov Focus / Full ruling) |
-| 18 | SW-SELECT (A8·B-21 C-19 D-26 D-27 G-19 H-20 I-16) | /admin/categories faith pick stands for all 7 | Native select with 3+ choices becomes the PickMenu | §18 (the sweep's one reference drawing) | APPROVAL: pending controller |
+| 1 | A8·P-B-7 | /admin (1280) · /admin/payments Full (375, 768) | Top-bar search becomes the search icon on Focus; the desk's own reference box goes on a phone (the thumb row searches) | §1 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
+| 2 | A8·P-B-8 | /admin (Focus) | Completions card loses its side stripe and sits in the content column | §2 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
+| 3 | A8·D-29 | /admin/accounts · Users · Comp grants | The 5-part form becomes a full-screen popup (RiseScreen) over the list | §3 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
+| 4 | A8·C-20 | /admin/approvals | Queue first; New request is a small popup (Sheet, 3 fields) | §4 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
+| 5 | A8·P-B-11 | /admin/catalogue · /admin/work · /admin/app-performance | A card with nothing waiting keeps full strength; only the "0" is quiet | §5 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
+| 6 | A8·A-29 | /admin/discount-codes/new | Create is a full-screen popup over Discount codes | §6 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
+| 7 | A8·E-17 | /admin/disputes (also /admin/completions) | Resolve opens a small popup from the row; the sheet is the confirm | §7 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
+| 8 | A8·F-30 | /admin/editorial-review/[id] | "● Vulgar" chip words take the danger colour on the soft fill | §8 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
+| 9 | A8·C-15 | /admin/help/guides | Add the PageMasthead (an sr-only h1): no visible change | §9 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R · planner says lane A |
+| 10 | A8·P-B-4 | /admin/business?view=accounts | The pinned title wraps on a phone instead of scrolling sideways | §10 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
+| 11 | A8·D-30 | /admin/venues/new | New venue is a full-screen popup over People › Venues | §11 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
+| 12 | A8·P-B-10 | /admin/work · /admin/catalogue · /admin/app-performance | The dotted line that repeats the chip names goes | §12 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
+| 13 | A8·P-B-17 | any admin page, signal off (375) | The offline bar sits above the top bar; the shell moves down | §13 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
+| 14 | A8·P-B-5 | every admin page (top bar) | The overdue chip is never cut: "1 overdue" at 1280, sign + number on a phone | §14 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
+| 15 | A8·P-B-6 | every admin page (top bar, 768 and 1280) | "Setnayan Team" is a plain one-line label, no pill | §15 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
+| 16 | A8·P-B-9 | every admin page at 1280 (rail) | The public footer leaves the admin rail | §16 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
+| 17 | A8·P-B-20 | every admin page, Focus, 375 and 768 | Focus keeps the five-tab bar on a phone | §17 | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R · planner says lane C (reverses the 14 Nov Focus / Full ruling) |
+| 18 | SW-SELECT (A8·B-21 C-19 D-26 D-27 G-19 H-20 I-16) | /admin/categories faith pick stands for all 7 | Native select with 3+ choices becomes the PickMenu | §18 (the sweep's one reference drawing) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/VrrjwXDi7wBNBzhiiYybLP), except items flagged lane C or R |
 
 ### Build notes for lane B (for after approval)
 

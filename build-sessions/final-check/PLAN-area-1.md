@@ -216,46 +216,46 @@ Each drawing section shows Now beside Proposed at 375 px and 1280 px, light and 
 
 | # | Screen to change | Findings | Drawing section | Approval |
 |---|---|---|---|---|
-| 1 | Signed-out shell, desktop rail (every shelled page) | A1-167 | §01 (`#s01`) | APPROVAL: pending controller |
-| 2 | / first screen (hero) | A1-116 | §02 (`#s02`) | APPROVAL: pending controller |
-| 3 | / close and sticky bar | A1-115 LIVE | §03 (`#s03`) | APPROVAL: pending controller |
-| 4 | /features and /tl/features hero | A1-116 | §04 (`#s04`) | APPROVAL: pending controller |
-| 5 | /about and /tl/about button pairs | A1-115 LIVE | §05 (`#s05`) | APPROVAL: pending controller |
-| 6 | Doorway kit lists and close: /alaala /budget /guest-list /mood-board /palogo /panood /pawebsite /schedule /seat-plan /setnayan-ai /marketplace /samahan | A1-037 A1-053 | §06 (`#s06`) | APPROVAL: pending controller |
-| 7 | Product-page plain answer line: /budget /seat-plan /schedule /setnayan-ai /creators /our-story /pricing /about | A1-165 | §07 (`#s07`) | APPROVAL: pending controller |
-| 8 | Loading (Ghost) on the 12 doorway pages, /samahan, /suppliers, /explore/compare, /marketplace, /creators, /help, /help/topics, /articles, /articles/write and the six legal pages | A1-020 A1-040 A1-054 A1-099 | §08 (`#s08`) | APPROVAL: pending controller |
-| 9 | /features lists ("Why Setnayan", "Who's who") | A1-119 | §09 (`#s09`) | APPROVAL: pending controller |
-| 10 | /creators grids | A1-053 | §10 (`#s10`) | APPROVAL: pending controller |
-| 11 | /papic Event Hub mock | A1-038 | §11 (`#s11`) | APPROVAL: pending controller |
-| 12 | /monogram studio buttons | A1-039 | §12 (`#s12`) | APPROVAL: pending controller |
-| 13 | /tour and the four tour stops (buttons, stop list, close) | A1-019 | §13 (`#s13`) | APPROVAL: pending controller |
-| 14 | /tour/vendors sample chat | A1-018 | §14 (`#s14`) | APPROVAL: pending controller |
-| 15 | /tour/budget adjust popup | A1-017 | §15 (`#s15`) | APPROVAL: pending controller |
-| 16 | /explore/compare buttons | A1-044 | §16 (`#s16`) | APPROVAL: pending controller |
-| 17 | /login, provider-refusal and dead-link states | A1-076 | §17 (`#s17`) | APPROVAL: pending controller |
-| 18 | Sign in as the small popup: top-bar Sign in, /login, /signup | A1-074 A1-153 | §18 (`#s18`) | APPROVAL: pending controller |
-| 19 | /signup, /login, /forgot-password tap targets, field errors, dark focus | A1-171 A1-079 | §19 (`#s19`) | APPROVAL: pending controller |
-| 20 | /signup and /signup/you loading skeleton | A1-078 | §20 (`#s20`) | APPROVAL: pending controller |
-| 21 | /signup/you (the You card) | A1-075 | §21 (`#s21`) | APPROVAL: pending controller |
-| 22 | Report popup: /u/[userSlug], /u/[userSlug]/c/[chapterId], /articles/[slug], /v/[slug] | A1-077 A1-095 A1-141 | §22 (`#s22`) | APPROVAL: pending controller |
-| 23 | /samahan/chat/new | A1-021 | §23 (`#s23`) | APPROVAL: pending controller |
-| 24 | /pricing page order and accent (and /features, /tl/features order) | A1-118 | §24 (`#s24`) | APPROVAL: pending controller |
-| 25 | /pricing first-visit tour | A1-158 | §25 (`#s25`) | APPROVAL: pending controller |
-| 26 | /pricing and /pricing/plan ⓘ notes | A1-117 | §26 (`#s26`) | APPROVAL: pending controller |
-| 27 | /pricing/plan (the quiz) | A1-120 | §27 (`#s27`) | APPROVAL: pending controller |
-| 28 | /start | A1-120 | §28 (`#s28`) | APPROVAL: pending controller |
-| 29 | /help "Message us" | A1-097 | §29 (`#s29`) | APPROVAL: pending controller |
-| 30 | /help/[slug] | A1-098 | §30 (`#s30`) | APPROVAL: pending controller |
-| 31 | /help search results, /help/topics/[key], /help/guides/[key] buttons | A1-094 | §31 (`#s31`) | APPROVAL: pending controller |
-| 32 | /articles/write | A1-096 | §32 (`#s32`) | APPROVAL: pending controller |
-| 33 | "Add to an event" popup (signed in, /pricing, /marketplace and the doorway pages) | A1-035 A1-046 A1-117 | §33 (`#s33`) | APPROVAL: pending controller |
-| 34 | /panood Live Watch demo | A1-035 | §34 (`#s34`) | APPROVAL: pending controller |
-| 35 | /v/[slug] portfolio photo and "Photos by service" | A1-142 | §35 (`#s35`) | APPROVAL: pending controller |
-| 36 | /v/[slug] pinned review and supplier reply | A1-144 | §36 (`#s36`) | APPROVAL: pending controller |
-| 37 | /v/[slug] service filter | A1-145 | §37 (`#s37`) | APPROVAL: pending controller |
-| 38 | /v/[slug] "Get directions" and waitlist button | A1-150 LIVE A1-143 | §38 (`#s38`) | APPROVAL: pending controller |
-| 39 | /v/[slug] Inquire popup and /v/[slug]/dates start + send | A1-143 | §39 (`#s39`) | APPROVAL: pending controller |
-| 40 | /v/[slug] Book this package, full service card, Check a date, award screen | A1-141 | §40 (`#s40`) | APPROVAL: pending controller |
+| 1 | Signed-out shell, desktop rail (every shelled page) | A1-167 | §01 (`#s01`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 2 | / first screen (hero) | A1-116 | §02 (`#s02`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 3 | / close and sticky bar | A1-115 LIVE | §03 (`#s03`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 4 | /features and /tl/features hero | A1-116 | §04 (`#s04`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 5 | /about and /tl/about button pairs | A1-115 LIVE | §05 (`#s05`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 6 | Doorway kit lists and close: /alaala /budget /guest-list /mood-board /palogo /panood /pawebsite /schedule /seat-plan /setnayan-ai /marketplace /samahan | A1-037 A1-053 | §06 (`#s06`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 7 | Product-page plain answer line: /budget /seat-plan /schedule /setnayan-ai /creators /our-story /pricing /about | A1-165 | §07 (`#s07`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 8 | Loading (Ghost) on the 12 doorway pages, /samahan, /suppliers, /explore/compare, /marketplace, /creators, /help, /help/topics, /articles, /articles/write and the six legal pages | A1-020 A1-040 A1-054 A1-099 | §08 (`#s08`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 9 | /features lists ("Why Setnayan", "Who's who") | A1-119 | §09 (`#s09`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 10 | /creators grids | A1-053 | §10 (`#s10`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 11 | /papic Event Hub mock | A1-038 | §11 (`#s11`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 12 | /monogram studio buttons | A1-039 | §12 (`#s12`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 13 | /tour and the four tour stops (buttons, stop list, close) | A1-019 | §13 (`#s13`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 14 | /tour/vendors sample chat | A1-018 | §14 (`#s14`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 15 | /tour/budget adjust popup | A1-017 | §15 (`#s15`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 16 | /explore/compare buttons | A1-044 | §16 (`#s16`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 17 | /login, provider-refusal and dead-link states | A1-076 | §17 (`#s17`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 18 | Sign in as the small popup: top-bar Sign in, /login, /signup | A1-074 A1-153 | §18 (`#s18`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 19 | /signup, /login, /forgot-password tap targets, field errors, dark focus | A1-171 A1-079 | §19 (`#s19`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 20 | /signup and /signup/you loading skeleton | A1-078 | §20 (`#s20`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 21 | /signup/you (the You card) | A1-075 | §21 (`#s21`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 22 | Report popup: /u/[userSlug], /u/[userSlug]/c/[chapterId], /articles/[slug], /v/[slug] | A1-077 A1-095 A1-141 | §22 (`#s22`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 23 | /samahan/chat/new | A1-021 | §23 (`#s23`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 24 | /pricing page order and accent (and /features, /tl/features order) | A1-118 | §24 (`#s24`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 25 | /pricing first-visit tour | A1-158 | §25 (`#s25`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 26 | /pricing and /pricing/plan ⓘ notes | A1-117 | §26 (`#s26`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 27 | /pricing/plan (the quiz) | A1-120 | §27 (`#s27`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 28 | /start | A1-120 | §28 (`#s28`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 29 | /help "Message us" | A1-097 | §29 (`#s29`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 30 | /help/[slug] | A1-098 | §30 (`#s30`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 31 | /help search results, /help/topics/[key], /help/guides/[key] buttons | A1-094 | §31 (`#s31`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 32 | /articles/write | A1-096 | §32 (`#s32`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 33 | "Add to an event" popup (signed in, /pricing, /marketplace and the doorway pages) | A1-035 A1-046 A1-117 | §33 (`#s33`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 34 | /panood Live Watch demo | A1-035 | §34 (`#s34`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 35 | /v/[slug] portfolio photo and "Photos by service" | A1-142 | §35 (`#s35`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 36 | /v/[slug] pinned review and supplier reply | A1-144 | §36 (`#s36`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 37 | /v/[slug] service filter | A1-145 | §37 (`#s37`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 38 | /v/[slug] "Get directions" and waitlist button | A1-150 LIVE A1-143 | §38 (`#s38`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 39 | /v/[slug] Inquire popup and /v/[slug]/dates start + send | A1-143 | §39 (`#s39`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
+| 40 | /v/[slug] Book this package, full service card, Check a date, award screen | A1-141 | §40 (`#s40`) | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/XUAW9PGoxmx7LnqKU5HnnE), except items flagged lane C or R |
 
 ### Notes for the controller on lane B
 

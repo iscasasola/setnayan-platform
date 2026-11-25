@@ -11,7 +11,7 @@ IDs are written as in `ALL-FINDINGS.md` (`A3·E-01`); search `area-3.md` for the
 
 - Lane A now, in the batch order below. One branch and one PR per batch: `claude/fc-fix-a3-b1` … `b5`.
 - **No LIVE entry belongs to area 3** (all 21 are area 1), so batch 1 is the worst-first batch: the blocker and the saves that lie.
-- Lane B waits. Every lane B line below reads `APPROVAL: pending controller`. Start a line only when the controller changes it to approved.
+- Lane B waits. Every lane B line below reads `APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/QAKfrcqMciL81eBStkWR5V), except items flagged lane C or R`. Start a line only when the controller changes it to approved.
 - Never edit a lane R page. For area 3 that is `studio/papic/challenges`, `studio/papic/run-of-show` (R6) and `studio/setnayan-ai` (R2). Two lane A entries touch code those pages share; the notes say where to stop.
 - Money entries (`money-signin`): change only HOW it shows ("Couldn't read", a guard that refuses). Never an amount, a plan's contents or which price is read. If the right fix needs that, mark it 🟠 in the PR and skip it.
 - Every fix follows the house error line: *"That did not save. Nothing changed — please try again."* for a failed save, and "Couldn't read …" for a failed read. A failed read never shows as 0, empty, free, off or "none yet".
@@ -115,18 +115,18 @@ Drawing file: `prototypes/final-check-area-3_2026-11-25/final-check-area-3_2026-
 
 | Drawing | ID | Screen | The change in one line | Status |
 |---|---|---|---|---|
-| B1 | A3·M-11 | Story Assignments (`alaala/assignments`) | Rises as a full-screen layer over Alaala; ✕ returns to the row. | APPROVAL: pending controller |
-| B2 | A3·N-03 | Memories › More from your day (`galleries`) | At 375 each source card stacks: words on top, button under. | APPROVAL: pending controller |
-| B3 | A3·I-11 | Send invites (`guests/send`) | The hand-built layer becomes the shared RiseScreen; ✕ returns to where the person was. | APPROVAL: pending controller |
-| B4 | A3·I-11 | Make your wax seal (`studio/save-the-date/stamp`) | Rises over Save the Date; ✕ returns to the row. | APPROVAL: pending controller |
-| B5 | A3·N-05 | Memories first-visit tour (`memories`) | The tour stops blocking the page (no dim, no blocking panels). | APPROVAL: pending controller · planner recommends lane C |
-| B6 | A3·N-06 | The phone dock in dark (seen on `memories`) | The grey active pill is lifted to a visible grey (3:1); stays grey per the owner. | APPROVAL: pending controller |
-| B7 | A3·E-08 | Photos you add · the Story switch · Make it move | House main button, danger token, knob moves by transform, loop respects reduced motion. | APPROVAL: pending controller |
-| B8 | A3·P-11 | One code for everyone (`studio/papic/crew`) | Becomes a small popup (Sheet) over the page that opened it. | APPROVAL: pending controller |
-| B9 | A3·E-09 | Hero photo · Make it move · Photos you add (`website/*`) | Each rises over the Maker; ✕ returns to the row. | APPROVAL: pending controller |
-| B10 | A3·E-20 | Set the mood and five more editor sub-pages (`website/*`) | Each rises over the Maker; ✕ returns to the row. | APPROVAL: pending controller |
-| B11 | A3·L-12 | Live controller Setup (`panood/control`) | Full screen on a phone (`<Sheet full>`); the side panel stays on a computer. | APPROVAL: pending controller |
-| B12 | A3·N-07 | The event badge in the side rail (768 and up) | The initials stay on one line inside the badge. | APPROVAL: pending controller |
+| B1 | A3·M-11 | Story Assignments (`alaala/assignments`) | Rises as a full-screen layer over Alaala; ✕ returns to the row. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/QAKfrcqMciL81eBStkWR5V), except items flagged lane C or R |
+| B2 | A3·N-03 | Memories › More from your day (`galleries`) | At 375 each source card stacks: words on top, button under. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/QAKfrcqMciL81eBStkWR5V), except items flagged lane C or R |
+| B3 | A3·I-11 | Send invites (`guests/send`) | The hand-built layer becomes the shared RiseScreen; ✕ returns to where the person was. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/QAKfrcqMciL81eBStkWR5V), except items flagged lane C or R |
+| B4 | A3·I-11 | Make your wax seal (`studio/save-the-date/stamp`) | Rises over Save the Date; ✕ returns to the row. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/QAKfrcqMciL81eBStkWR5V), except items flagged lane C or R |
+| B5 | A3·N-05 | Memories first-visit tour (`memories`) | The tour stops blocking the page (no dim, no blocking panels). | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/QAKfrcqMciL81eBStkWR5V), except items flagged lane C or R · planner recommends lane C |
+| B6 | A3·N-06 | The phone dock in dark (seen on `memories`) | The grey active pill is lifted to a visible grey (3:1); stays grey per the owner. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/QAKfrcqMciL81eBStkWR5V), except items flagged lane C or R |
+| B7 | A3·E-08 | Photos you add · the Story switch · Make it move | House main button, danger token, knob moves by transform, loop respects reduced motion. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/QAKfrcqMciL81eBStkWR5V), except items flagged lane C or R |
+| B8 | A3·P-11 | One code for everyone (`studio/papic/crew`) | Becomes a small popup (Sheet) over the page that opened it. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/QAKfrcqMciL81eBStkWR5V), except items flagged lane C or R |
+| B9 | A3·E-09 | Hero photo · Make it move · Photos you add (`website/*`) | Each rises over the Maker; ✕ returns to the row. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/QAKfrcqMciL81eBStkWR5V), except items flagged lane C or R |
+| B10 | A3·E-20 | Set the mood and five more editor sub-pages (`website/*`) | Each rises over the Maker; ✕ returns to the row. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/QAKfrcqMciL81eBStkWR5V), except items flagged lane C or R |
+| B11 | A3·L-12 | Live controller Setup (`panood/control`) | Full screen on a phone (`<Sheet full>`); the side panel stays on a computer. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/QAKfrcqMciL81eBStkWR5V), except items flagged lane C or R |
+| B12 | A3·N-07 | The event badge in the side rail (768 and up) | The initials stay on one line inside the badge. | APPROVAL: approved by the owner 25 Nov (drawing https://claude.ai/artifact/QAKfrcqMciL81eBStkWR5V), except items flagged lane C or R |
 | — | A3·P-11 (moderation) | Photo moderation (`studio/papic/moderation`) | No drawing. Moving moderation onto the photo in Memories moves a function. | HELD · planner recommends lane C |
 | — | A3·S-10 | Patiktok template pick and booth camera | No drawing. Patiktok is a retired name and opens for an owner only. | HELD · planner recommends lane R |
 

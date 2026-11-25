@@ -117,7 +117,9 @@ test('A8·I-6 · the owner’s numbers are editable from Business and round-trip
 });
 
 test('A8·L-5 · each of the nine pages has its own skeleton, and the shared one is not the old overview', () => {
-  for (const p of ['work', 'offers', 'business', 'switches', 'vendor-partnerships', 'admin-log', 'ask', 'team', 'verification-docs']) {
+  // Offers mounts other pages by `?view=` (merged-view.ts), a shape the skeleton guard cannot read
+  // (app/_components/the-skeleton-promises-only-what-the-page-draws.test.ts), so it keeps /admin's list ghost below.
+  for (const p of ['work', 'business', 'switches', 'vendor-partnerships', 'admin-log', 'ask', 'team', 'verification-docs']) {
     assert.ok(existsSync(join(WEB, `app/admin/${p}/loading.tsx`)), `/admin/${p} has no loading.tsx`);
   }
   const shared = read('app/admin/loading.tsx');

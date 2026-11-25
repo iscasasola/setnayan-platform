@@ -20,6 +20,7 @@
  * all ask THIS, so the three cannot disagree about what a plus-one still owes.
  */
 import { PLACEHOLDER_FIRST_NAME } from '@/lib/extra-seats';
+import { FORMAL_NAME_FIELDS, type FormalNameField } from '@/lib/formal-name';
 
 /**
  * Set by either of the door's two buttons — "Save to my account" or "Not now".
@@ -29,6 +30,44 @@ import { PLACEHOLDER_FIRST_NAME } from '@/lib/extra-seats';
  */
 export const PLUS_ONE_WELCOMED_COOKIE = 'sn_p1_welcomed';
 export const PLUS_ONE_WELCOMED_MAX_AGE = 60 * 60 * 24 * 365;
+
+/**
+ * 🔁 A4-26 (final check, area 4): when the plus-one's save does not go through, the name they typed comes back
+ * into the boxes. It travels in a five-minute, httpOnly cookie scoped to this door — never in the address, so a
+ * guest's name is not written into the URL, the browser history or a server log. Read only beside
+ * `?error=save_failed`.
+ */
+export const PLUS_ONE_TYPED_COOKIE = 'sn_p1_typed';
+export const PLUS_ONE_TYPED_MAX_AGE = 60 * 5;
+
+export type TypedName = Partial<Record<FormalNameField, string>>;
+
+/** The five name boxes as typed (trimmed, at most 80 characters each), or null when nothing was typed. */
+export function typedNameFromForm(formData: FormData): string | null {
+  const typed: TypedName = {};
+  for (const field of FORMAL_NAME_FIELDS) {
+    const v = String(formData.get(field) ?? '').trim().slice(0, 80);
+    if (v) typed[field] = v;
+  }
+  return Object.keys(typed).length > 0 ? JSON.stringify(typed) : null;
+}
+
+/** The cookie back into box defaults. Anything malformed is nothing — the boxes are simply empty, as before. */
+export function readTypedName(raw: string | undefined | null): TypedName | null {
+  if (!raw) return null;
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    const typed: TypedName = {};
+    for (const field of FORMAL_NAME_FIELDS) {
+      const v = (parsed as Record<string, unknown>)[field];
+      if (typeof v === 'string' && v.trim()) typed[field] = v.trim().slice(0, 80);
+    }
+    return Object.keys(typed).length > 0 ? typed : null;
+  } catch {
+    return null;
+  }
+}
 
 export type PlusOneRow = {
   first_name: string | null;

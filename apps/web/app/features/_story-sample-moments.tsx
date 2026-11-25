@@ -316,7 +316,7 @@ export function Moment({ kind }: { kind: MomentKind }) {
               </span>
             </div>
           </div>
-          <p className={s.moCap}>Two steps to open. Build as many cards as you like; switch one Online when it is ready.</p>
+          <p className={s.moCap}>Three answers to open. Build as many cards as you like; switch one Online when it is ready.</p>
         </div>
       );
     case 'paid':

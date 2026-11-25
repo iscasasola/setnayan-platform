@@ -150,7 +150,7 @@ test('recognition is a session for THIS event, or a real host', () => {
   /* (2026-10-14) asked beside the page's other reads, in its one reader — the THIRD answer is the rule's. */
   assert.match(
     pageBody(),
-    /const \[methods, wishRead, viewerIsRecognised, stored, words\] = await Promise\.all\(\[ fetchEgiftMethods\(admin, event\.event_id, \{ enabledOnly: true, \}\), readGuestWishList\(admin, event\.event_id, reader\?\.guest_id \?\? null\), viewerIsRecognisedForEvent\(event\.event_id\),/,
+    /const \[methodsRead, wishRead, viewerIsRecognised, stored, words\] = await Promise\.all\(\[ readEgiftMethods\(admin, event\.event_id, \{ enabledOnly: true, \}\), readGuestWishList\(admin, event\.event_id, reader\?\.guest_id \?\? null\), viewerIsRecognisedForEvent\(event\.event_id\),/,
     'the gifts page no longer asks the shared recognition rule',
   );
 });
@@ -279,7 +279,8 @@ test('🔒 the Welcome page’s E-Gifts goes through the gift page’s own gate 
   const READER = flat('app/[slug]/pabuya/_lib/gift-page.server.ts');
   assert.match(READER, /viewerIsRecognisedForEvent\(event\.event_id\)/);
   assert.match(READER, /const \{ cards, identifiersWithheld, howToSend \} = giftCardsFor\(methods, viewerIsRecognised\);/);
-  assert.match(READER, /fetchEgiftMethods\(admin, event\.event_id, \{ enabledOnly: true, \}\)/, 'the reader fetches more than the ENABLED ways');
+  // (A4-44, 25 Nov: the reader now asks `readEgiftMethods`, which also says whether the read worked.)
+  assert.match(READER, /readEgiftMethods\(admin, event\.event_id, \{ enabledOnly: true, \}\)/, 'the reader fetches more than the ENABLED ways');
   assert.match(flat('app/[slug]/pabuya/page.tsx'), /const content = await loadGiftPage\(admin, event\);/);
   /* The Welcome's block draws only what the reader handed it, with the gift page's own body. */
   const INLINE = flat('app/[slug]/_components/welcome-gifts-content.tsx');

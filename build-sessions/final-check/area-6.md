@@ -1,6 +1,6 @@
 # Final check · Area 6 · Supplier: bookings, chat, payments, calendar
 
-FIXER: batch 1 of ~3 · PR https://github.com/iscasasola/setnayan-platform/pull/8311 · draft, CI running · batches 2–3 built, preflight running
+FIXER: batch 2 of ~3 · PRs https://github.com/iscasasola/setnayan-platform/pull/8311 (batch 1, review asks done, waits on Ship map regen) · https://github.com/iscasasola/setnayan-platform/pull/8324 (batch 2, ready, CI running) · batch 3 in preflight
 
 Checker 6 of 8. Checked commit: `fb3f72d` (the pinned check commit). Report only.
 STATUS: phase B done

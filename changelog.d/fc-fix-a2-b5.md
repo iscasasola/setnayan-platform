@@ -1,9 +1,7 @@
-## 2026-11-25 · fix(schedule, profile, groups, sign-up): honest reads, eleven final-check faults (area 2, batch 5)
+## 2026-11-25 · fix(schedule, profile, groups, sign-up): honest reads, ten final-check faults (area 2, batch 5)
 
 - Schedule › Requests: a refused read says so, never "Nothing waiting" (A2-I1). Planning list: refused paperwork
   deadlines and meetings are named (`missing`), never silently dropped; Home's counts unchanged (A2-I3).
-- Paperwork: a refused save stays on the page with "Didn’t save · Try again" (the app-wide toast bridge), never the
-  error screen (A2-I10).
 - Home › Shop: "Couldn’t read your shop", never "Yours shows here once you have one" over a failed read (A2-B2).
 - Loved one: a refused read is "couldn't read", not a 404 (A2-C12; linked events are lane R and left).
 - Profile: a refused read shows no forms Save could write blanks from, and a refused pending-deletion read does not

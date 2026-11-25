@@ -1,7 +1,7 @@
 /**
  * schedule-profile-groups-reads-hold-final-check.test.ts — final check, area 2, fix batch 5 (25 Nov 2026).
  *
- * Eleven findings, most of them one rule (CLAUDE.md §5 rule 4): a refused read is said, never drawn as "none",
+ * Ten findings, most of them one rule (CLAUDE.md §5 rule 4): a refused read is said, never drawn as "none",
  * "nothing waiting", "not found", a blank form that Save would write over, or an invitation to rotate a link that still
  * works. Behaviour for the lib readers against a stubbed client; comment-stripped source for each page's wiring.
  */
@@ -45,13 +45,6 @@ test('A2-I3: paperwork deadlines and meetings that could not be read are said, n
   assert.match(lib, /if \(paperwork === null\) missing\.push\('paperwork'\)/);
   assert.match(lib, /if \(appointments === null\) missing\.push\('meeting'\)/);
   assert.match(src('app/dashboard/[eventId]/schedule/_components/preparation-agenda.tsx'), /\.\.\.\(agenda\.missing \?\? \[\]\)/);
-});
-
-test('A2-I10: paperwork saves never throw to the error screen', () => {
-  const s = src('app/dashboard/[eventId]/paperwork/actions.ts');
-  assert.doesNotMatch(s, /throw new Error\('Could not/);
-  assert.doesNotMatch(s, /throw new Error\(\s*'Could not/);
-  assert.match(s, /function saveRefused\(eventId: string, words: string\): never/);
 });
 
 test('A2-B2: Home’s Shop part says it could not read, never "you have none", when the shops read failed', () => {

@@ -13,7 +13,14 @@ import { guestListIsClosed } from '@/lib/guest-list-closed';
 import { guestAccountState } from '@/lib/guest-one-path';
 import { readSeatHolder } from '@/lib/guest-one-path.server';
 import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
-import { plusOneFilled, plusOneGate, plusOneMissing, type PlusOneRow } from '@/lib/plus-one-welcome';
+import {
+  PLUS_ONE_TYPED_COOKIE,
+  plusOneFilled,
+  plusOneGate,
+  plusOneMissing,
+  readTypedName,
+  type PlusOneRow,
+} from '@/lib/plus-one-welcome';
 import { buildInvitationUrl, renderInvitationQrSvg } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook, type QrLookRow } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -197,6 +204,8 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   const errorKey = search.error ?? null;
   // 🔌 A4-27: only a known key draws a message — never the query's own text on the couple's page.
   const errorMessage = errorKey ? (ERROR_COPY[errorKey] ?? null) : null;
+  // 🔁 A4-26: after a save that did not go through, the boxes hold what was typed (lib/plus-one-welcome.ts).
+  const typedName = errorKey === 'save_failed' ? readTypedName((await cookies()).get(PLUS_ONE_TYPED_COOKIE)?.value) : null;
 
   // Typed as a plain form action for the door's own forms: it hands back
   // `{ native, next }` ONLY to the phone app's Save form, which reads it at run
@@ -229,6 +238,7 @@ export default async function WelcomePage({ params, searchParams }: Props) {
         primaryFirst={primaryFirst}
         theOrganizerPossessive={words.theOrganizerPossessive}
         row={row}
+        typedName={typedName}
         missing={missing}
         filled={filled}
         inside={inside}

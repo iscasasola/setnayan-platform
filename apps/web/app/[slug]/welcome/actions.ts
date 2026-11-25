@@ -18,7 +18,14 @@ import {
   TERMS_FIELD,
   TERMS_VERSION,
 } from '@/lib/terms-agreement';
-import { PLUS_ONE_WELCOMED_COOKIE, PLUS_ONE_WELCOMED_MAX_AGE, plusOneUnnamed } from '@/lib/plus-one-welcome';
+import {
+  PLUS_ONE_TYPED_COOKIE,
+  PLUS_ONE_TYPED_MAX_AGE,
+  PLUS_ONE_WELCOMED_COOKIE,
+  PLUS_ONE_WELCOMED_MAX_AGE,
+  plusOneUnnamed,
+  typedNameFromForm,
+} from '@/lib/plus-one-welcome';
 import { signInWithApple, signInWithGoogle } from '@/app/auth/oauth-actions';
 import { eventConnectPath } from '@/lib/signup-landing';
 import { NATIVE_SAVE_FIELD, nativeSaveHandOff, type NativeSaveHandOff } from '@/lib/native-account-save';
@@ -56,6 +63,22 @@ export async function confirmPlusOneName(slug: string, formData: FormData): Prom
   const session = await readGuestSession();
   if (!session) redirect(`/${slug}`);
 
+  /* 🔁 A4-26: a save that did not go through keeps the guest on this door AND gives back the name they typed (a
+     five-minute cookie scoped to the door — never the address, so the name is not in the URL or a log). */
+  const saveFailed = async (to: string): Promise<never> => {
+    const typed = typedNameFromForm(formData);
+    if (typed) {
+      (await cookies()).set(PLUS_ONE_TYPED_COOKIE, typed, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: `/${to}/welcome`,
+        maxAge: PLUS_ONE_TYPED_MAX_AGE,
+      });
+    }
+    redirect(`/${to}/welcome?error=save_failed`);
+  };
+
   const admin = createAdminClient();
   const now = new Date().toISOString();
 
@@ -71,7 +94,7 @@ export async function confirmPlusOneName(slug: string, formData: FormData): Prom
   ]);
   // 🔌 A4-26: a read that FAILED is not "no such guest" — sending them to /{slug} bounced an unnamed plus-one
   // straight back here with no word. They stay on this door and are told the save did not go through.
-  if (eventErr || guestErr) redirect(`/${slug}/welcome?error=save_failed`);
+  if (eventErr || guestErr) await saveFailed(slug);
   if (!event?.slug || !guest?.guest_id) redirect(`/${slug}`);
   const home = event.slug as string;
   const ask = resolveRsvpAsk(event.rsvp_ask_config);
@@ -126,9 +149,7 @@ export async function confirmPlusOneName(slug: string, formData: FormData): Prom
       .eq('event_id', event.event_id)
       // Only ever a plus-one's own row — this door is theirs.
       .not('plus_one_of_guest_id', 'is', null);
-    if (error) {
-      redirect(`/${home}/welcome?error=save_failed`);
-    }
+    if (error) await saveFailed(home);
   }
 
   // Record the naming as its own scan event, as this door always did — through

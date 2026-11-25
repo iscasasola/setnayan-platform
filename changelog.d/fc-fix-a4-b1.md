@@ -8,7 +8,8 @@ the hosts:
   throws on a failed read instead of "seats show on the day", on the day (A4-51); no price in a comment (A4-53).
 - `/[slug]/find-seat`: an unread check-in no longer says "Show this at the door" as if arrival were checked (A4-37).
 - `/[slug]/welcome`: only known `?error=` keys draw a message (A4-27); a failed read in the save stays on the door
-  with "Your details did not save" (A4-26); an unread inviter keeps the whole phrase, never "from the …" (A4-25).
+  with "Your details did not save", and the name they typed is back in the boxes (a five-minute cookie, never
+  the address) (A4-26); an unread inviter keeps the whole phrase, never "from the …" (A4-25).
 - `/[slug]/avatar`: a failed guest read throws instead of redirecting as "no guest" (A4-28).
 - `/[slug]/pabuya`: an unread list of ways to give throws instead of "hasn't set up e-gifts yet" (A4-44).
 - `/[slug]/print`: a failed event read is no longer a 404 (A4-45); the story reads no longer fall back to "not

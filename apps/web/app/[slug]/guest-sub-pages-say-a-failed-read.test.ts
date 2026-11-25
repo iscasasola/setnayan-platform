@@ -14,6 +14,7 @@
  *   welcome: an unknown ?error= draws its own text ....................... A4-27
  *   welcome: the save puts a sentence in the address ..................... A4-27
  *   welcome: a failed read in the save bounces to the Hub ................ A4-26
+ *   welcome: a failed save loses the name the guest typed ................ A4-26
  *   welcome: an unread inviter's first word becomes "the" ................ A4-25
  *   avatar: the guest read no longer throws on failure ................... A4-28
  *   pabuya: the ways-to-give read folds a failure into "none" ............ A4-44
@@ -28,6 +29,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { stripComments } from '@/lib/strip-comments';
+import { readTypedName, typedNameFromForm } from '@/lib/plus-one-welcome';
 
 const WEB = join(__dirname, '..', '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -72,11 +74,35 @@ test('A4-27 · /welcome draws only known error keys, and the save sends keys, ne
 
 test('A4-26 · /welcome save: a failed read stays on the door with save_failed', () => {
   const actions = code('app/[slug]/welcome/actions.ts');
-  assert.match(actions, /if \(eventErr \|\| guestErr\) redirect\(`\/\$\{slug\}\/welcome\?error=save_failed`\)/);
+  assert.match(actions, /if \(eventErr \|\| guestErr\) await saveFailed\(slug\);/);
+  assert.match(actions, /if \(error\) await saveFailed\(home\);/, 'a refused write also gives the typed name back');
+  assert.match(actions, /redirect\(`\/\$\{to\}\/welcome\?error=save_failed`\);/);
   assert.ok(
     actions.indexOf('if (eventErr || guestErr)') < actions.indexOf('if (!event?.slug || !guest?.guest_id)'),
     'the failure is answered before "no such guest"',
   );
+});
+
+test('A4-26 · /welcome: a failed save gives back the typed name — in a cookie, never the address', () => {
+  const form = new FormData();
+  form.set('first_name', '  Ana ');
+  form.set('last_name', 'Reyes');
+  form.set('middle_name', '');
+  const raw = typedNameFromForm(form);
+  assert.deepEqual(readTypedName(raw), { first_name: 'Ana', last_name: 'Reyes' });
+  assert.equal(typedNameFromForm(new FormData()), null, 'nothing typed, no cookie');
+  assert.equal(readTypedName('not json'), null);
+  assert.equal(readTypedName(JSON.stringify({ first_name: 7, evil: 'x' })), null);
+
+  const actions = code('app/[slug]/welcome/actions.ts');
+  assert.match(actions, /\.set\(PLUS_ONE_TYPED_COOKIE, typed, \{[\s\S]{0,120}httpOnly: true/);
+  assert.doesNotMatch(actions, /welcome\?error=save_failed&/, 'the name never rides in the address');
+  const page = code('app/[slug]/welcome/page.tsx');
+  assert.match(page, /errorKey === 'save_failed' \? readTypedName\(/);
+  assert.match(page, /typedName=\{typedName\}/);
+  const door = code('app/[slug]/welcome/_components/plus-one-door.tsx');
+  assert.match(door, /nameBoxes\(typedName \?\? \{\}, true\)/, 'the empty name boxes take the typed name');
+  assert.match(door, /nameBoxes\(\s*typedName \?\? \{/, 'the "Change it" boxes take the typed name');
 });
 
 test('A4-25 · /welcome: an unread inviter keeps the whole phrase (never "from the …")', () => {

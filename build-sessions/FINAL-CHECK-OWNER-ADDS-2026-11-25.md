@@ -224,3 +224,22 @@ Only list parts that are NOT already one of the five places. On the copy, also s
 Papic capture, the saved Event Hub copies and the offline bar's words. Report whether it works, what it says, and
 whether it catches up when back online. The controller merges the five tables into one list for the owner to
 decide.
+
+**Add 10b · The supplier QR challenge (areas 5, 6 and 7; owner 25 Nov: "this includes our challenge in line with the offline mode on QR Code creation of suppliers").**
+At an expo or a venue, a supplier must be able to make a QR code for a couple with no signal, and nothing may go
+wrong when the phone comes back online. Today's QR makers are under `vendor-dashboard/shop/qrs`, `shop/store`,
+`shop/promote`, `invite`, `customers`, `clients/[eventId]` and `on-the-day`. The offline engine that signs codes on the
+phone (PR #8284: each phone signs its own codes, no stock, re-checked at sync) is held, so it is NOT on the copy.
+Report on what ships today:
+1. **The list:** every QR a supplier can make. For each, say what it is (shop link · invite · a date hold or deal ·
+   a gift or freebie · check-in · payment), where it is made, and what the couple or guest sees when they scan it.
+2. **With no signal (DevTools offline):** can each one still be made, shown or shared? What does the screen say?
+   What does the person scanning see if they are offline too?
+3. **Back online:** for each one that touches a date, a price, money or a gift, what can go wrong at sync? Name the
+   case: the same date held twice, a price changed in between, a gift that ran out, a code shown twice, a code made on
+   a phone that has since been removed. Say whether today's code catches it, and in what words the supplier and
+   the couple are told.
+4. **Easy to handle:** making a QR takes how many taps from the supplier's home? Is it one size that scans from
+   arm's length, with the shop's name under it, in light and dark?
+Rows go into "Offline — beyond the five", marked `QR`. The controller hands the list to #8284's builder after the
+check, so the engine is measured against real cases.

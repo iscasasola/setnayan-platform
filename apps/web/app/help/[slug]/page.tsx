@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { routes } from '@/lib/routes';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { Logo } from '@/app/_components/logo';
@@ -128,7 +129,7 @@ export default async function HelpArticlePage({ params }: Props) {
         '@type': 'ListItem',
         position: 3,
         name: topic.label,
-        item: `${SITE_URL}/help#${topic.key}`,
+        item: `${SITE_URL}${routes.help.topic(topic.key)}`,
       },
       {
         '@type': 'ListItem',
@@ -187,7 +188,7 @@ export default async function HelpArticlePage({ params }: Props) {
             <Logo height={32} withWordmark title="Setnayan · Help" />
           </Link>
           <Link
-            href="/help"
+            href={routes.help.topics()}
             className="hidden text-sm font-medium text-ink/70 underline-offset-4 hover:text-ink hover:underline sm:-my-3 sm:inline-flex sm:min-h-[44px] sm:items-center"
           >
             All help topics
@@ -209,7 +210,7 @@ export default async function HelpArticlePage({ params }: Props) {
           <span data-web-only={notInApp ? '' : undefined}>
             <span className="mx-2">/</span>
             <Link
-              href={`/help#${topic.key}`}
+              href={routes.help.topic(topic.key)}
               className="hover:text-ink hover:underline"
             >
               {topic.label}
@@ -263,7 +264,7 @@ export default async function HelpArticlePage({ params }: Props) {
 
         <div className="mt-12 flex flex-wrap items-center gap-x-6 gap-y-2">
           <Link
-            href="/help"
+            href={routes.help.topics()}
             className="sn-hit inline-flex items-center text-sm font-medium text-ink/70 underline-offset-4 hover:text-terracotta hover:underline"
           >
             <ChevronLeft aria-hidden className="mr-1 h-4 w-4" strokeWidth={1.75} />

@@ -64,7 +64,7 @@ const PAGE_TITLE = 'Memories — A New Way to Remember · Setnayan';
  *  correct WITH the brand — which is why this strips it here and nowhere else. */
 const DOC_TITLE = PAGE_TITLE.replace(/ · Setnayan$/, '');
 const PAGE_DESCRIPTION =
-  'Memories brings together everything you create on Setnayan — Papic, Live Watch, your Event Hub, your 3D plan, and your monogram — into one living memory you can open any time: your life-events collection, gathered as you go. A new way to remember, for every event you’ll ever hold.';
+  'Memories brings together everything you create on Setnayan — Papic, Live Watch, your Event Hub, your 3D plan, and your logo — into one living memory you can open any time: your life-events collection, gathered as you go. A new way to remember, for every event you’ll ever hold.';
 const OG_IMAGE = `${SITE_URL}/brand/og-card-2026-11.png`;
 
 /*
@@ -118,7 +118,7 @@ const APP_LD = {
   operatingSystem: 'Any (web browser)',
   description: PAGE_DESCRIPTION,
   featureList: [
-    'Brings together Papic, Live Watch, your Event Hub, your 3D plan, and your monogram',
+    'Brings together Papic, Live Watch, your Event Hub, your 3D plan, and your logo',
     'A living memory you can relive, share, and keep — not a folder of files',
     'Guests join from your event link — nothing to download',
     'Works for every kind of event, not just weddings',
@@ -132,7 +132,7 @@ const APP_LD = {
 const FAQ = [
   {
     q: 'What is Memories?',
-    a: 'Memories is everything you create for your event, in one place — your candid photos (Papic), your live broadcast (Live Watch), your event page (Event Hub), your 3D plan (3D Plan), and your monogram (Logo Maker) — gathered into one living memory you can return to any time.',
+    a: 'Memories is everything you create for your event, in one place — your candid photos (Papic), your live broadcast (Live Watch), your event page (Event Hub), your 3D plan (3D Plan), and your logo (Logo Maker) — gathered into one living memory you can return to any time.',
   },
   {
     q: 'Is it free?',
@@ -192,7 +192,7 @@ const PILLARS: { role: string; name: string; desc: string; href: string }[] = [
   {
     role: 'Mark',
     name: 'Logo Maker',
-    desc: 'Your monogram, drawn to life — the mark that signs every piece of the day.',
+    desc: 'Your logo, drawn to life — the mark that signs every piece of the day.',
     href: '/palogo',
   },
 ];

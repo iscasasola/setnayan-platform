@@ -45,3 +45,9 @@ test('🔒 only a verified Trusted partner wears the check badge (A1-139)', () =
   const page = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/page.tsx'), 'utf8'));
   assert.match(page, /verified: v\.isVerified,/);
 });
+
+test('🔒 the 3D booth has a way back and treats an expired plan as Free (A1-126, A1-136)', () => {
+  const booth = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/booth/page.tsx'), 'utf8'));
+  assert.match(booth, /<BoothShowcaseLoader[^>]*\/>[\s\S]{0,300}<Link href=\{shopHref\}/, 'the booth has no way back to the shop');
+  assert.match(booth, /boothTierCanBrand\(effectiveSeoTier\(\{ tier_state: vendor\.tier_state, tier_expires_at: vendor\.tier_expires_at \}\)\)/);
+});

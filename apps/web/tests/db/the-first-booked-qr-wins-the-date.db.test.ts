@@ -16,6 +16,10 @@
  *      18 Nov no plan ceiling sits over it, so the old "+1 booking per date" add-on raises nothing) — and the booking
  *      now carries its card (`service_id`) so the count sees it.
  *   4. An event that already holds the shop is not counted against itself (a re-claim of the same couple's booking).
+ *   5. A booking that holds NO seat still takes the date: on a blocked day the first claim books seatless (its seat
+ *      step degrades open) and the second claim for that date is refused.
+ *   6. Only a COUPLE of the event may claim: a guest member is 'not_your_event' and nothing is written.
+ *   7. An Always available card takes no seat and has no limit: two claims on one single-place date both book.
  *
  * Concurrency note: PGlite serves one connection, so the two claims in case 1 are sent together and run one after the
  * other. The FOR UPDATE asserted in case 0 is what makes the same outcome hold with two real connections in Postgres
@@ -174,6 +178,11 @@ test('META: the claim locks the schedule row FOR UPDATE and refuses a full date 
   assert.ok(flipAt > -1, 'the single-use flip must still exist');
   assert.ok(lockAt < flipAt && fullAt < flipAt, 'the date is decided BEFORE the token flips — never read-then-write after it');
   assert.match(def, /service_card_daily_limit\(t\.vendor_service_id\)/, 'the card’s own limit per date is read');
+  // House lock order (review 25 Nov): the shop's count lock BEFORE the schedule row, as acquire_schedule_pools takes them.
+  const shopLockAt = def.indexOf('lock_shop_day_counts(t.vendor_service_id)');
+  assert.ok(shopLockAt > -1 && shopLockAt < lockAt, 'the shop count lock is taken before the schedule row — never the reverse (deadlock)');
+  assert.match(def, /current_couple_event_ids\(\)/, 'only a couple of the event may claim');
+  assert.doesNotMatch(def, /current_event_ids\(\)/, 'never the any-member check (a guest could claim)');
 });
 
 /* ── 1. THE RULING ──────────────────────────────────────────────────────────────────────────────────────────────*/
@@ -248,4 +257,57 @@ test('an event that already holds the shop is not counted against itself', async
   assert.equal((await claim(c.uid, await mkToken(shop, day), c.eventId)).status, 'ok');
   assert.equal(await bookingsOn(c.eventId), 1, 'still one booking for the couple');
   assert.equal(await liveSeats(shop.vpid, day), 1);
+});
+
+/* ── 5. A BOOKING WITH NO SEAT STILL TAKES THE DATE ─────────────────────────────────────────────────────────────*/
+
+test('a blocked day: the first claim books with no seat, and the second claim for that date is refused', async () => {
+  const day = '2028-02-16';
+  const shop = await mkShop('Blocked Day Studio');
+  // The pool exists (an earlier claim on another day made it) and takes one a day.
+  const warm = await mkCoupleEvent('Blocked Warm');
+  assert.equal((await claim(warm.uid, await mkToken(shop, '2028-03-01', false), warm.eventId)).status, 'ok');
+  await setPoolCapacity(shop.vpid, 1);
+  await db.query(
+    `INSERT INTO public.vendor_calendar_blocks (vendor_profile_id, pool_id, blocked_at, blocked_until, block_label, block_source)
+     VALUES ($1, NULL, ($2::date)::timestamptz, ($2::date + 1)::timestamptz, 'Closed', 'manual')`,
+    [shop.vpid, day],
+  );
+  const a = await mkCoupleEvent('Blocked A');
+  const b = await mkCoupleEvent('Blocked B');
+  assert.equal((await claim(a.uid, await mkToken(shop, day, false), a.eventId)).status, 'ok', 'the supplier’s own code still books');
+  assert.equal(await liveSeats(shop.vpid, day), 0, 'the blocked day gave the first booking no seat');
+  const tb = await mkToken(shop, day, false);
+  assert.equal((await claim(b.uid, tb, b.eventId)).status, 'date_full', 'a seatless booking still took the date');
+  assert.equal(await bookingsOn(b.eventId), 0);
+  assert.equal(await tokenStatus(tb), 'pending');
+});
+
+/* ── 6. ONLY THE COUPLE ─────────────────────────────────────────────────────────────────────────────────────────*/
+
+test('a guest member cannot claim a code onto the host’s event — not_your_event, nothing written', async () => {
+  const day = '2028-02-17';
+  const shop = await mkShop('Guest Claim Studio');
+  const host = await mkCoupleEvent('Guest Claim Host');
+  const guestUid = await mkUser('guest-claimer', 'customer');
+  await db.query(`INSERT INTO public.event_members (event_id, user_id, member_type) VALUES ($1,$2,'guest')`, [host.eventId, guestUid]);
+  const t = await mkToken(shop, day);
+  assert.equal((await claim(guestUid, t, host.eventId)).status, 'not_your_event');
+  assert.equal(await bookingsOn(host.eventId), 0);
+  assert.equal(await tokenStatus(t), 'pending');
+  const ev = await db.query<{ d: string | null }>(`SELECT event_date::text AS d FROM public.events WHERE event_id = $1`, [host.eventId]);
+  assert.notEqual(ev.rows[0]!.d, day, 'the host’s date was not rewritten');
+});
+
+/* ── 7. ALWAYS AVAILABLE ────────────────────────────────────────────────────────────────────────────────────────*/
+
+test('an Always available card is never counted: two claims on one single-place date both book', async () => {
+  const day = '2028-02-18';
+  const shop = await mkShop('Always Open Studio');
+  await db.query(`UPDATE public.vendor_services SET availability_style = 'none' WHERE vendor_service_id = $1`, [shop.serviceId]);
+  const a = await mkCoupleEvent('Always A');
+  const b = await mkCoupleEvent('Always B');
+  assert.equal((await claim(a.uid, await mkToken(shop, day), a.eventId)).status, 'ok');
+  await setPoolCapacity(shop.vpid, 1);
+  assert.equal((await claim(b.uid, await mkToken(shop, day), b.eventId)).status, 'ok', 'an Always available card takes no seat');
 });

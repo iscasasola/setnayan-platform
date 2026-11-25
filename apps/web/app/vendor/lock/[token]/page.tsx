@@ -31,6 +31,7 @@ import {
 } from '@/app/_components/template-rows';
 import { claimLockedQr } from './actions';
 import { formatCount } from '@/lib/format-number';
+import { routes } from '@/lib/routes';
 
 export const metadata = {
   title: 'Lock in your supplier',
@@ -51,7 +52,7 @@ const STATUS_COPY: Record<string, string> = {
   // 🗓 A6-71 · LAUNCH L9 (owner 25 Nov: the first registered wins) — another couple's claim on this supplier's date
   // registered first, so this one booked nothing. The code is still the supplier's to move to another date.
   date_full:
-    'Someone booked this supplier for this date just before you, so nothing was booked or charged. Ask the supplier for another date or another option.',
+    'Someone booked this supplier for this date just before you. Nothing was booked. Ask the supplier for another date, or see their other options.',
   // 🚪 owner 2026-11-02 — bookings closed (`lib/bookings-open.ts`, door 7b). The code stays unused.
   bookings_closed: BOOKINGS_CLOSED_COUPLE_MESSAGE,
   not_verified: LOCKED_QR_SHOP_NOT_VERIFIED,
@@ -103,7 +104,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
 
   const { data: vendor } = await admin
     .from('vendor_profiles')
-    .select('business_name, tagline, logo_url, location_city, is_published')
+    .select('business_name, business_slug, tagline, logo_url, location_city, is_published')
     .eq('vendor_profile_id', tok.vendor_profile_id)
     .maybeSingle();
   if (!vendor) notFound();
@@ -247,6 +248,17 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
         <p role="alert" className="mt-4 text-[14px] font-semibold" style={{ color: 'rgb(var(--color-warn))' }}>
           {statusMessage}
         </p>
+      ) : null}
+      {/* 🗓 A6-71: a date someone else registered first — the shop's page shows the supplier's other options. */}
+      {status === 'date_full' && vendor.business_slug ? (
+        <Link
+          href={routes.v.detail(vendor.business_slug)}
+          data-date-full-shop=""
+          className={actionButtonClass('neutral', { extra: 'mt-3' })}
+        >
+          <Store aria-hidden className="h-4 w-4" />
+          See {vendor.business_name}’s options
+        </Link>
       ) : null}
 
       {/* Action zone */}

@@ -1,12 +1,15 @@
 -- first_registered_booked_qr_wins_the_date · A6-71 · LAUNCH L9 (final check 25 Nov)
 --
 -- Owner ruling (25 Nov, LAUNCH-GATE.md L9): two booked/locked QR claims for one supplier date — the one REGISTERED
--- FIRST wins. Decided in ONE atomic database step: `vendor_claim_locked_qr` now takes the shop's schedule row FOR UPDATE
--- and refuses a full date ('date_full') BEFORE the token is flipped or anything is written. It honours the schedule's
--- own number and the code's service card limit (`service_card_daily_limit`: the card's own number per date — since 18 Nov
--- no plan ceiling sits over it, so the old "+1 booking per date" add-on has nothing left to raise). The booking now
--- carries the code's card (`event_vendors.service_id`) so that card count sees it. Every other step is the shipped body
--- of 20271328327292, unchanged. CREATE OR REPLACE keeps the grants. Idempotent.
+-- FIRST wins. Decided in ONE atomic database step: `vendor_claim_locked_qr` now counts the date under the house lock
+-- order (booking → card → shop count lock → schedule row FOR UPDATE) and refuses a full date ('date_full') BEFORE the
+-- token is flipped or anything is written. It honours the schedule's own number — counting the shop's booked bookings
+-- that hold no seat too — and the code's service card limit (`service_card_daily_limit`: the card's own number per
+-- date; the "+1 booking per date" add-on question is the owner's and is not changed here), with the seat's and the
+-- yes's own exemptions (Always available, by the piece, slotted cards). Only a COUPLE of the event may claim
+-- (`current_couple_event_ids`, was `current_event_ids`, which answered guests too). The booking now carries the
+-- code's card (`event_vendors.service_id`) so that card count sees it. Every other step is the shipped body of
+-- 20271328327292, unchanged. CREATE OR REPLACE keeps the grants. Idempotent.
 --
 -- Held by tests/db/the-first-booked-qr-wins-the-date.db.test.ts (two concurrent claims → exactly one books).
 
@@ -28,6 +31,8 @@ DECLARE
   v_cap        INT;
   v_card_cap   INT;
   v_existing   UUID;
+  v_style      TEXT;
+  v_seatless   INT := 0;
 BEGIN
   IF v_uid IS NULL THEN
     RETURN jsonb_build_object('status', 'unauthenticated');
@@ -55,47 +60,99 @@ BEGIN
     RETURN jsonb_build_object('status', 'taken');
   END IF;
 
-  -- Ownership: the target event must be one the claimer hosts.
-  IF p_event_id NOT IN (SELECT public.current_event_ids()) THEN
+  -- Ownership: the target event must be one the claimer is a COUPLE of (A6-71 review, 25 Nov). `current_event_ids`
+  -- also answers a guest member, who could then claim a code onto the host's event, rewrite its date and book the
+  -- supplier; the couple check is the one the seat step (e) already uses.
+  IF p_event_id NOT IN (SELECT public.current_couple_event_ids()) THEN
     RETURN jsonb_build_object('status', 'not_your_event');
   END IF;
 
   -- ── (0) THE DATE IS DECIDED HERE, ONCE (A6-71 · LAUNCH L9; owner 25 Nov: "the first registered wins") ──────────
   -- Two booked QRs for one supplier date used to both book it: the date was checked only when a code was MADE, and the
   -- seat was taken in step (e), after the claim was written, degrading OPEN. Now, before anything is written, the claim
-  -- takes the shop's schedule row (FOR UPDATE — a second claim on the same schedule waits here until the first commits,
-  -- then counts again on a fresh statement and sees its seat) and refuses when the date is full:
-  --   · the schedule's own number (`daily_booking_capacity`), counted by the SAME function the yes and the acquire use
-  --     (`schedule_pool_taken_on`);
-  --   · the code's service card, when it names one: its own number per date (`service_card_daily_limit`), counted by
-  --     `service_card_bookings_on` under the shop's one day lock.
-  -- An event that already holds this shop is not counted against itself. A refused claim writes NOTHING (the token stays
-  -- pending — the supplier still sees it, and can void it or move the couple to another date) and the couple is told.
+  -- counts the date under the same locks the seat and the yes take, and refuses a full date. A refused claim writes
+  -- NOTHING (the token stays pending — the supplier still sees it, and can void it or move the couple to another date).
+  --
+  -- 🔒 LOCK ORDER — the house order, so no two paths wait on each other: the BOOKING row (this event's existing one
+  -- with the shop, if any) → the CARD row (NO KEY) → the shop's one count lock (`lock_shop_day_counts`) → the
+  -- SCHEDULE row (FOR UPDATE). vendor_agree_to_lock and set_booked_quantity take booking → card → shop;
+  -- the seat step (e) takes shop → schedule. A second claim on the same date waits on the first lock it shares
+  -- with the first claim, then counts again on a fresh statement and sees that claim's booking.
+  --
+  -- WHAT IS COUNTED (each rule the one the seat or the yes already applies — never a stricter one):
+  --   · an Always available card ('none') takes no seat and has no limit: nothing is checked;
+  --   · a by-the-piece card is judged by its card number only (pieces never take a schedule seat), as the seat does;
+  --   · any other card is judged by the schedule's own number (`daily_booking_capacity`): the seats taken
+  --     (`schedule_pool_taken_on`) PLUS this shop's booked bookings on that date for the same schedule that hold NO
+  --     seat — a booking whose seat step degraded open (a blocked, held or approve-first day) still took the date;
+  --   · the card's own number per date (`service_card_daily_limit`, counted by `service_card_bookings_on`) — except a
+  --     card with an active time slot that is not by the piece, which the yes judges by its slot alone.
+  -- An event that already holds this shop is not counted against itself.
   IF t.event_date IS NOT NULL THEN
     SELECT vendor_id INTO v_existing
       FROM public.event_vendors
      WHERE event_id = p_event_id AND marketplace_vendor_id = t.vendor_profile_id
-     LIMIT 1;
-
-    v_pool_id := public.resolve_schedule_pool(t.vendor_profile_id, t.category);
-
-    IF v_pool_id IS NOT NULL THEN
-      SELECT daily_booking_capacity INTO v_cap
-        FROM public.vendor_schedule_pools
-       WHERE pool_id = v_pool_id AND is_active
-         FOR UPDATE;
-      IF FOUND AND v_cap IS NOT NULL
-         AND public.schedule_pool_taken_on(v_pool_id, t.event_date, v_existing) + 1 > v_cap THEN
-        RETURN jsonb_build_object('status', 'date_full', 'event_date', t.event_date);
-      END IF;
-    END IF;
+     LIMIT 1
+       FOR UPDATE;
 
     IF t.vendor_service_id IS NOT NULL THEN
+      SELECT vs.availability_style INTO v_style
+        FROM public.vendor_services vs
+       WHERE vs.vendor_service_id = t.vendor_service_id
+         FOR NO KEY UPDATE;
       PERFORM public.lock_shop_day_counts(t.vendor_service_id);
-      v_card_cap := public.service_card_daily_limit(t.vendor_service_id);
-      IF v_card_cap IS NOT NULL AND v_card_cap > 0
-         AND public.service_card_bookings_on(t.vendor_service_id, t.event_date, v_existing) + 1 > v_card_cap THEN
-        RETURN jsonb_build_object('status', 'date_full', 'event_date', t.event_date);
+    END IF;
+
+    IF v_style IS DISTINCT FROM 'none' THEN
+      -- The schedule's number (not for pieces). A read-only lookup: resolve_schedule_pool may CREATE a schedule, and
+      -- a claim that is refused writes nothing.
+      IF v_style IS DISTINCT FROM 'piece' THEN
+        SELECT c.pool_id INTO v_pool_id
+          FROM public.vendor_schedule_pool_categories c
+         WHERE c.vendor_profile_id = t.vendor_profile_id AND c.category_key = t.category;
+        IF v_pool_id IS NOT NULL THEN
+          SELECT daily_booking_capacity INTO v_cap
+            FROM public.vendor_schedule_pools
+           WHERE pool_id = v_pool_id AND is_active
+             FOR UPDATE;
+          IF FOUND AND v_cap IS NOT NULL THEN
+            v_seatless := (
+              SELECT count(*)::int
+                FROM public.event_vendors ev
+                JOIN public.events e ON e.event_id = ev.event_id
+                LEFT JOIN public.vendor_services vs ON vs.vendor_service_id = ev.service_id
+               WHERE ev.marketplace_vendor_id = t.vendor_profile_id
+                 AND ev.status::text = ANY (public.booked_event_vendor_statuses())
+                 AND ev.archived_at IS NULL
+                 AND e.event_date = t.event_date
+                 AND 'day' = e.event_date_precision
+                 AND ev.vendor_id IS DISTINCT FROM v_existing
+                 AND vs.availability_style IS DISTINCT FROM 'none'
+                 AND vs.availability_style IS DISTINCT FROM 'piece'
+                 AND EXISTS (
+                   SELECT 1 FROM public.vendor_schedule_pool_categories c
+                    WHERE c.vendor_profile_id = t.vendor_profile_id
+                      AND c.category_key = ev.category::text
+                      AND c.pool_id = v_pool_id)
+                 AND NOT EXISTS (
+                   SELECT 1 FROM public.vendor_schedule_pool_bookings pb
+                    WHERE pb.event_vendor_id = ev.vendor_id AND pb.released_at IS NULL));
+            IF public.schedule_pool_taken_on(v_pool_id, t.event_date, v_existing) + v_seatless + 1 > v_cap THEN
+              RETURN jsonb_build_object('status', 'date_full', 'event_date', t.event_date);
+            END IF;
+          END IF;
+        END IF;
+      END IF;
+
+      -- The card's own number (a slotted card that is not by the piece is judged by its slot, as the yes does).
+      IF t.vendor_service_id IS NOT NULL AND (v_style = 'piece' OR NOT EXISTS (
+           SELECT 1 FROM public.vendor_service_time_slots ts
+            WHERE ts.vendor_service_id = t.vendor_service_id AND ts.is_active)) THEN
+        v_card_cap := public.service_card_daily_limit(t.vendor_service_id);
+        IF v_card_cap IS NOT NULL AND v_card_cap > 0
+           AND public.service_card_bookings_on(t.vendor_service_id, t.event_date, v_existing) + 1 > v_card_cap THEN
+          RETURN jsonb_build_object('status', 'date_full', 'event_date', t.event_date);
+        END IF;
       END IF;
     END IF;
   END IF;
@@ -272,9 +329,11 @@ END;
 $function$;
 
 COMMENT ON FUNCTION public.vendor_claim_locked_qr(text, uuid) IS
-  'Claim a vendor Locked-QR (Booked QR) token onto an event the caller hosts. Single-use and race-safe. Step (0) '
-  '(A6-71, owner 25 Nov: the first registered wins): before anything is written, the shop''s schedule row is taken FOR '
-  'UPDATE and a full date — the schedule''s own number, or the code''s service card limit per date — refuses with status ''date_full'' and writes nothing (the token stays pending). Writes BOTH '
+  'Claim a vendor Locked-QR (Booked QR) token onto an event the caller is a couple of. Single-use and race-safe. Step (0) '
+  '(A6-71, owner 25 Nov: the first registered wins): before anything is written, the date is counted under the house '
+  'lock order (booking, card, shop count lock, schedule row FOR UPDATE) and a full date — the schedule''s own number '
+  '(seats plus booked bookings that hold none), or the code''s service card limit per date — refuses with status '
+  '''date_full'' and writes nothing (the token stays pending). Writes BOTH '
   'marketplace_vendor_id and linked_vendor_profile_id, and the code''s card as service_id. event_vendors.source is '
   'written ONLY when inserting a new row (owner rule 2026-08-09). Step (c2): the code''s stored quote lines are copied '
   'into ONE accepted vendor_proposals row. The schedule acquire is step (e), after the date-precision narrowing.';

@@ -192,6 +192,7 @@ SHOTS     phase B: n/a (access, not layout) — confirm a non-admin sign-in gets
 RULE      Task check 2 (admin gates, server-side) · `lib/admin/require-admin.ts` contract
 SEVERITY  money-signin
 SOURCE    CODE
+PHASE B   25 Nov 07:20 UTC, signed in as the shared non-admin `messy-one` (session confirmed: `/dashboard` opens their event). `/admin/verification-docs` → **404 "This page doesn't exist on Setnayan."** The layout gate holds today; nothing leaks in the browser. The code finding stands (one layer of defence, not two) → kept, severity lowered to **wrong** for the fix list.
 
 #### L-2 · Three more pages lean on the layout gate alone
 PAGE      /admin/demand · /admin/venues/new · /admin/more
@@ -203,6 +204,7 @@ SHOTS     phase B: n/a
 RULE      Task check 2 (admin gates)
 SEVERITY  wrong
 SOURCE    CODE
+PHASE B   Same non-admin `messy-one` sign-in: `/admin/demand` → forwarded to `/admin/app-performance?tab=demand` → **404**; `/admin/venues/new` → **404**; `/admin/more` → forwarded to `/admin/work?view=all` → **404**. Also `/admin` and `/admin/catalogue` → **404**. Signed out, `/admin` → `/login?next=%2Fadmin`. **Confirmed: a non-admin cannot open any of the three.** Note: `/admin/demand` itself is never reached by its address (the middleware forwards it first), so the page's own `after(maybeRefreshDemandRadar)` only runs for an admin.
 
 #### L-3 · Admin never goes dark: the console is not on the dark ready-list
 PAGE      every /admin page

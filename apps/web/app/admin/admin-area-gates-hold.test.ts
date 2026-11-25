@@ -17,6 +17,8 @@
  *   A8·L-8  Catalogue · Escalated, and the six money desks, are enforced.
  *   A8·E-2  a resolved force-majeure flag cannot be re-resolved.
  *   A8·F-17 "don't disconnect a checked-out channel" fails closed.
+ *   A8·E-13 (force-majeure part) a refused resolution is said on the flag's page.
+ *   A8·A-6  a founder seat goes to an exact email match; failed reads are said.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -180,7 +182,24 @@ test('A8·E-2 · a resolved force-majeure flag is closed to re-resolution', () =
   const b = body(read(f), 'resolveFlag', f);
   const update = b.slice(b.indexOf('.update({'), b.indexOf('.select('));
   assert.match(update, /\.is\('resolved_at', null\)/, 'the update only touches an unresolved flag');
-  before(b, /if \(!updated\) \{\s*throw/, 'emitNotification(', 'resolveFlag');
+  before(b, /if \(!updated\) refuse\(/, 'emitNotification(', 'resolveFlag');
+});
+
+test('A8·E-13 · a refused flag resolution is said on its page, never the crash page', () => {
+  const f = 'app/admin/force-majeure/actions.ts';
+  const b = body(read(f), 'resolveFlag');
+  assert.match(b, /const refuse: \(msg: string\) => never = \(msg\) =>\s*redirect\(`\/admin\/force-majeure\/\$\{encodeURIComponent\(flagId\)\}\?error=1&msg=/);
+  assert.doesNotMatch(b, /throw new Error\((?!'Invalid input')/, 'every refusal after the id check is said, not thrown');
+});
+
+test('A8·A-6 · a founder seat goes to an exact email match, and a failed read is said', () => {
+  const f = 'app/admin/founder-seats/actions.ts';
+  const s = read(f);
+  const grant = body(s, 'grantFounderSeat');
+  assert.match(grant, /\.ilike\('email', email\.replace\(\/\[\\\\%_\]\/g, \(c\) => `\\\\\$\{c\}`\)\)/, 'wildcards are escaped');
+  before(grant, /if \(targetErr\) \{\s*fail\(/, 'if (!target)', 'grantFounderSeat');
+  const revoke = body(s, 'revokeFounderSeat');
+  before(revoke, /if \(seatErr\) fail\(/, 'is already empty', 'revokeFounderSeat');
 });
 
 test('A8·F-17 · an unread channel status refuses the disconnect', () => {

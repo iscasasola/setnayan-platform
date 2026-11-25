@@ -11,10 +11,13 @@
 - The money desks ask their area: payouts (mark paid = Payments · Escalated, hold = Payments · Basic), plan
   confirmations (Payments · Basic), founder seats (Gifts & comps · Escalated), launch offer and booking-fee switches
   (Prices & promos · Escalated), supplier payment destinations (Verification · Escalated).
-- A resolved force-majeure flag can no longer be re-resolved; disconnecting a live-studio channel is refused when
-  its status can't be read.
+- A resolved force-majeure flag can no longer be re-resolved, and a refused resolution is said on the flag's page
+  (never the crash page); disconnecting a live-studio channel is refused when its status can't be read.
+- Founder seats go to an exact email match (`_` and `%` are not wildcards), and a failed read says so, never
+  "no account" or "already empty".
 - Guard: `apps/web/app/admin/admin-area-gates-hold.test.ts` (ordered: each gate before the read or write it guards).
-- Findings: A8·D-1 A8·D-2 A8·D-3 A8·D-4 A8·D-5 A8·B-2 A8·L-8 A8·E-2 A8·F-17.
+- Findings: A8·D-1 A8·D-2 A8·D-3 A8·D-4 A8·D-5 A8·B-2 A8·L-8 A8·E-2 A8·F-17 A8·A-6, and the force-majeure part of
+  A8·E-13.
 
 SPEC IMPACT: None. No amount, fee, plan content or sign-in rule changes; the server now holds the area limits the
 Team grid already shows.

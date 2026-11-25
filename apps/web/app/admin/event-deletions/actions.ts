@@ -223,7 +223,7 @@ export async function rejectEventDeletion(formData: FormData) {
 
   const req = await loadPending(requestId);
 
-  const { error: rejectErr } = await createAdminClient()
+  await createAdminClient()
     .from('event_deletion_requests')
     .update({
       status: 'rejected',
@@ -232,7 +232,6 @@ export async function rejectEventDeletion(formData: FormData) {
       admin_note: note.slice(0, 2000),
     })
     .eq('id', req.id);
-  if (rejectErr) throw new Error('Couldn’t save your answer. Nothing was sent. Try again.');
 
   try {
     await emitNotification({

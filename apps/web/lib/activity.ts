@@ -9,11 +9,26 @@ export type ActivityItem = {
 
 type Row = Pick<ActivityItem, 'id' | 'at' | 'description' | 'href'>;
 
+/** The feed plus WHICH of its four sources could not be read (A2-B9: a refused read is never "nothing happened"). */
+export type ActivityRead = {
+  items: ActivityItem[];
+  /** The sources that were refused, in the couple's words. Empty = every source was read. */
+  refused: string[];
+};
+
 export async function fetchEventActivity(
   supabase: SupabaseClient,
   eventId: string,
   limit: number,
 ): Promise<ActivityItem[]> {
+  return (await fetchEventActivityMeasured(supabase, eventId, limit)).items;
+}
+
+export async function fetchEventActivityMeasured(
+  supabase: SupabaseClient,
+  eventId: string,
+  limit: number,
+): Promise<ActivityRead> {
   const perSource = Math.min(Math.max(limit, 20), 200);
 
   const [guestsRes, vendorsRes, ordersRes, blocksRes] = await Promise.all([
@@ -89,7 +104,12 @@ export async function fetchEventActivity(
   }
 
   rows.sort((a, b) => (b.at ?? '').localeCompare(a.at ?? ''));
-  return rows.slice(0, limit);
+  const refused: string[] = [];
+  if (guestsRes.error) refused.push('guests');
+  if (vendorsRes.error) refused.push('suppliers');
+  if (ordersRes.error) refused.push('orders');
+  if (blocksRes.error) refused.push('schedule');
+  return { items: rows.slice(0, limit), refused };
 }
 
 function formatPeso(value: number | null): string | null {

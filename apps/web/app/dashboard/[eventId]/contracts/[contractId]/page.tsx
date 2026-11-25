@@ -5,8 +5,9 @@ import { ArrowLeft, Share } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { OpenFileLink } from '@/app/_components/open-file-link';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ReadRefusedNotice } from '../../_components/read-refused-notice';
 import {
-  fetchContract,
+  readContract,
   formatFileSize,
   statusLabel,
 } from '@/lib/contracts';
@@ -22,7 +23,23 @@ export default async function CustomerContractDetailPage({ params }: Props) {
   if (!user) redirect('/login');
 
   // RLS gives this row to event members only when contract.status <> 'draft'.
-  const contract = await fetchContract(supabase, contractId);
+  // A2-G14: a refused read says it could not load; only a read that answered with no row is "not found".
+  const read = await readContract(supabase, contractId);
+  if (read.failed) {
+    return (
+      <div className="mx-auto w-full max-w-3xl space-y-6">
+        <Link
+          href={`/dashboard/${eventId}/contracts`}
+          className="inline-flex items-center gap-1.5 text-xs font-medium text-ink/65 hover:text-ink"
+        >
+          <ArrowLeft aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
+          Back to contracts
+        </Link>
+        <ReadRefusedNotice what="this contract" />
+      </div>
+    );
+  }
+  const contract = read.contract;
   if (!contract || contract.event_id !== eventId) notFound();
 
   const vendorRes = await supabase

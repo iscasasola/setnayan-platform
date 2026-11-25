@@ -23,6 +23,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { addSponsor } from './actions';
 import { formatCount } from '@/lib/format-number';
 import { InfoTip } from '@/app/_components/info-tip';
+import { ReadRefusedNotice } from '../_components/read-refused-notice';
 
 export const metadata = {
   title: 'Sponsors',
@@ -202,6 +203,24 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
   const justAccepted = search.accepted === '1';
   const justDeclined = search.declined === '1';
   const errorMessage = search.error ?? null;
+
+  // A2-I13: a refused sponsor read is never "0 of N slots filled" with an Add button on every slot (pressing them
+  // would add second copies of sponsors who are already there). The page says it could not read, and stops.
+  if (sponsorRowsError) {
+    return (
+      <section className="sn-col space-y-6 pb-12">
+        <Link
+          href={`/dashboard/${eventId}`}
+          className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-sn-accent"
+        >
+          <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
+          Back to {eventName}
+        </Link>
+        <PageMasthead title="Your principal sponsors" />
+        <ReadRefusedNotice what="your sponsors" />
+      </section>
+    );
+  }
 
   return (
     <section className="sn-col space-y-6 pb-12">

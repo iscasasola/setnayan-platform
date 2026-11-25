@@ -31,23 +31,23 @@ Marks: **OFFLINE** NEEDED (where signal is lost) / READ-ONLY / NOT NEEDED · **S
 
 ### Pages (59)
 
-- [ ] /dashboard/[eventId]/alaala
-- [ ] /dashboard/[eventId]/alaala/assignments
-- [ ] /dashboard/[eventId]/apple-pro
+- [x] /dashboard/[eventId]/alaala · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
+- [x] /dashboard/[eventId]/alaala/assignments · OFFLINE NOT NEEDED · SHAPE PAGE → FULL-SCREEN POPUP (differs) · BLOCKER B-01
+- [x] /dashboard/[eventId]/apple-pro · OFFLINE NOT NEEDED (App Store purchase) · SHAPE PAGE → FULL-SCREEN POPUP (differs, unsure: a page today to keep StoreKit off the Maker's first load)
 - [ ] /dashboard/[eventId]/event-qr
-- [ ] /dashboard/[eventId]/galleries
+- [x] /dashboard/[eventId]/galleries · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
 - [ ] /dashboard/[eventId]/guests/invite
 - [ ] /dashboard/[eventId]/guests/send
 - [ ] /dashboard/[eventId]/invitation
 - [ ] /dashboard/[eventId]/invitation/print
 - [x] /dashboard/[eventId]/launch · OFFLINE READ-ONLY (planned at home; "Go live" on the day is rare) · SHAPE PAGE → PAGE
 - [x] /dashboard/[eventId]/live · OFFLINE NEEDED (at the venue on the day: hiding a photo mid-party; disagree with read-only) · SHAPE PAGE → PAGE
-- [ ] /dashboard/[eventId]/memories
-- [ ] /dashboard/[eventId]/memories/download-all
-- [ ] /dashboard/[eventId]/memories/thank-you
+- [x] /dashboard/[eventId]/memories · OFFLINE READ-ONLY (mild disagreement: the Papic on/off switch is used at the venue) · SHAPE PAGE → PAGE
+- [x] /dashboard/[eventId]/memories/download-all · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE
+- [x] /dashboard/[eventId]/memories/thank-you · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE
 - [ ] /dashboard/[eventId]/monogram
 - [ ] /dashboard/[eventId]/pabuya
-- [ ] /dashboard/[eventId]/prints
+- [x] /dashboard/[eventId]/prints · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
 - [x] /dashboard/[eventId]/story · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
 - [ ] /dashboard/[eventId]/studio/about/[addon]
 - [ ] /dashboard/[eventId]/studio/guest-columns
@@ -60,16 +60,16 @@ Marks: **OFFLINE** NEEDED (where signal is lost) / READ-ONLY / NOT NEEDED · **S
 - [x] /dashboard/[eventId]/studio/panood/cameras · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (with the flag on its only doors are in the old control room)
 - [x] /dashboard/[eventId]/studio/panood/cameras/print · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (print)
 - [x] /dashboard/[eventId]/studio/panood/setup · OFFLINE NEEDED with the flag off (Go live / End at the venue), else READ-ONLY · SHAPE PAGE → PAGE
-- [ ] /dashboard/[eventId]/studio/papic/challenges
-- [ ] /dashboard/[eventId]/studio/papic/crew
-- [ ] /dashboard/[eventId]/studio/papic/crew/poster
-- [ ] /dashboard/[eventId]/studio/papic/moderation
-- [ ] /dashboard/[eventId]/studio/papic/recap
-- [ ] /dashboard/[eventId]/studio/papic/run-of-show
+- [x] /dashboard/[eventId]/studio/papic/challenges · OFFLINE NEEDED (at the venue on the day: "Ask now"/"Stop" run live; disagree with read-only) · SHAPE PAGE → PAGE (no working door: P-02)
+- [x] /dashboard/[eventId]/studio/papic/crew · OFFLINE READ-ONLY · SHAPE PAGE → SMALL POPUP (differs; one QR + Copy + Print, duplicate of Event Details › How guests get in)
+- [x] /dashboard/[eventId]/studio/papic/crew/poster · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (print)
+- [x] /dashboard/[eventId]/studio/papic/moderation · OFFLINE READ-ONLY · SHAPE PAGE → folded into the Memories photo sheet (differs; owner 23 Oct)
+- [x] /dashboard/[eventId]/studio/papic/recap · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
+- [x] /dashboard/[eventId]/studio/papic/run-of-show · OFFLINE NEEDED (coordinator at the venue: "This is happening now", Pause) · SHAPE PAGE → PAGE (no working door: P-02)
 - [ ] /dashboard/[eventId]/studio/patiktok
 - [ ] /dashboard/[eventId]/studio/patiktok/[templateId]
 - [ ] /dashboard/[eventId]/studio/patiktok/booth
-- [ ] /dashboard/[eventId]/studio/photo-delivery
+- [x] /dashboard/[eventId]/studio/photo-delivery · OFFLINE NOT NEEDED (OAuth + Drive; disagree with read-only) · SHAPE PAGE → PAGE
 - [ ] /dashboard/[eventId]/studio/playlist
 - [ ] /dashboard/[eventId]/studio/save-the-date
 - [ ] /dashboard/[eventId]/studio/save-the-date/stamp
@@ -86,8 +86,8 @@ Marks: **OFFLINE** NEEDED (where signal is lost) / READ-ONLY / NOT NEEDED · **S
 - [x] /dashboard/[eventId]/website/stories · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs)
 - [x] /dashboard/[eventId]/website/widgets · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs)
 - [ ] /dashboard/creator
-- [ ] /dashboard/library
-- [ ] /dashboard/life-flash
+- [x] /dashboard/library · OFFLINE READ-ONLY · SHAPE forward to `/dashboard?seg=memories` (Home section) → keep
+- [x] /dashboard/life-flash · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (its player is a hand-built full-screen layer; should be RiseScreen)
 - [x] /panood/control/[eventId] · OFFLINE NEEDED (host/coordinator at the venue on the day; a read-only copy is NOT enough for a live control: every tap is a form POST + redirect with ~15 reads, no queue, no offline sign) · SHAPE PAGE → PAGE; its Setup half-sheet should be a FULL-SCREEN POPUP (differs)
 - [x] /panood/program/[eventId] · OFFLINE NEEDED (second window captured by OBS at the venue; re-attaches every 2 s) · SHAPE PAGE → PAGE
 
@@ -633,6 +633,342 @@ ACTUAL    `<Sheet … wide>` holds connect, add camera, overlays, moments, watch
 WHERE     panood/control/[eventId]/_components/setup-sheet.tsx `SetupSheet`
 SHOTS     375 px light
 RULE      SHAPE · Part K3
+SEVERITY  look
+SOURCE    CODE
+```
+
+### Memories (memories · download-all · thank-you · alaala · assignments · galleries · prints · library · life-flash)
+
+#### M-01 · Memories keep-time words: "free, for life", and "3 months" for every plan
+
+```
+PAGE      /dashboard/[eventId]/memories, /memories/download-all   (event: stg-carla-miguel, Event Plus)
+BUTTON    ⚙ "Keep full resolution" ⓘ · viewer Share ⓘ · Download all ⓘ · originals-reminder email
+STEPS     1. Open ⚙ › Keep full resolution ⓘ. 2. Open a photo › Share ⓘ.
+EXPECTED  No "free for life"; originals kept 3/6/12 months by plan, then a 720p copy for life.
+ACTUAL    "Your Memories stay free, for life." · "Keep full resolution keeps it for good" · "the 720p copy stays, free, for life" · "Off · 3 months after the event we keep the 720p copy" on every plan; the drop job itself uses a flat 92 days (`lib/papic-fullres-drop-core.ts`) — the copy and the code both ignore 3/6/12 by plan.
+WHERE     memories/_components/memories-settings.tsx `MemoriesSettings` · lib/memories-viewer.ts `shareWords` · lib/papic-originals-reminder-core.ts · memories/download-all/page.tsx · lib/papic-fullres-drop-core.ts
+SHOTS     375 px light + 375 px dark
+RULE      brand.md claims #3 (originals 3/6/12 by plan; no "free for life")
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### M-02 · "Keep full resolution" price: a failed catalogue read looks like "not on sale"; its checkout opens on top of the ⚙ sheet
+
+```
+PAGE      /dashboard/[eventId]/memories
+BUTTON    ⚙ › "Turn on · ₱…/yr"
+STEPS     1. Open ⚙ while the HIGH_RES_ARCHIVE read fails. 2. On a good read press Turn on.
+EXPECTED  "Couldn't read" by the row; the checkout replaces the sheet (one layer).
+ACTUAL    `priceRes.data?.is_active ? … : null` (error unread) → a bare icon and no door; `InlineCheckoutDrawer` is its own `role="dialog" aria-modal … fixed inset-0` opened over the ⚙ Sheet (popup on a popup; the Thank-You SavePanel uses the same drawer).
+WHERE     memories/_components/memories-settings.tsx (`priceRes`) · app/dashboard/[eventId]/_components/inline-checkout-drawer.tsx
+SHOTS     375 px light + 375 px dark
+RULE      CLAUDE.md §1 money · §5 rule 4 · Part K3
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### M-03 · Thank-You film: a failed price read says "isn't on sale" (dormant while the SKU is free for all)
+
+```
+PAGE      /dashboard/[eventId]/memories/thank-you
+BUTTON    "Save to my phone" (unowned)
+STEPS     1. With a price on the SKU, the catalogue read fails.
+EXPECTED  "Couldn't read".
+ACTUAL    `formatV2Sku(SKU_CODE).catch(() => null)` → "Saving the film isn't on sale right now." Dormant today (`FREE_FOR_ALL_SKUS` holds PAPIC_ADDON_THANK_YOU).
+WHERE     memories/thank-you/page.tsx · _components/thank-you-maker.tsx `SavePanel`
+SHOTS     375 px light
+RULE      CLAUDE.md §1 money · §5 rule 4
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### M-04 · Prints: the Event Hub look lock says PLUS on the badge and Event Pro in the note, with no price in the note
+
+```
+PAGE      /dashboard/[eventId]/prints   (event: stg-mika-turns-7)
+BUTTON    "Wear it" → ConfirmDialog "Event Pro" / "Not now"
+STEPS     1. Open Prints on a free event. 2. Press Wear it.
+EXPECTED  One plan name and its catalogue price on the lock; one button; an upsell is not a confirm dialog.
+ACTUAL    badge `word="PLUS"`, note "Printing in your Event Hub look is Event Pro", `<ConfirmDialog confirmLabel="Event Pro">` used as a sales note; the price is only in the ProQuietLine above, which hides after "Not now"; typed `/studio/website-pro` href.
+WHERE     launch/_components/studio-prints-settings.tsx `StudioHubLookRow` · studio-prints-six.tsx `StudioProDoor` · lib/studio-hub-look-row.ts
+SHOTS     375 px light
+RULE      design-and-wiring B7 · CLAUDE.md §1 plans · §3 Floating surface
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### M-05 · Assignments: "Remove" never says it failed
+
+```
+PAGE      /dashboard/[eventId]/alaala/assignments
+BUTTON    "Remove"
+STEPS     1. Press Remove while the action refuses.
+EXPECTED  The failure is shown.
+ACTUAL    `save.run(() => removeAssignment(...))` never reads `{ ok:false }`; raw strings reach the UI (`'Not authenticated'`, `error.message`); moments are the wedding list on every event type.
+WHERE     alaala/assignments/_components/assignment-controls.tsx `AssignmentRow` · alaala/assignments/actions.ts · lib/kwento-moments.ts
+SHOTS     375 px light
+RULE      design-and-wiring B6
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### M-06 · Three pages are all called "Memories"; Galleries and the Memories tab count photos differently
+
+```
+PAGE      /dashboard/[eventId]/alaala, /dashboard/[eventId]/galleries, /dashboard/[eventId]/memories
+BUTTON    page titles · "Ready · N" on the Papic row
+STEPS     1. Finished-event "Memories" → /galleries. 2. Galleries › Guest Stories → /alaala. 3. Event bar Memories → /memories. Compare counts.
+EXPECTED  One page per name; one photo count from one reader.
+ACTUAL    alaala `metadata = { title: 'Memories' }`, galleries `title: 'Memories'` + `<PageMasthead title="Memories" />`, the tab; assignments' "← Memories" goes to alaala; photo-delivery "Back to Memories" goes to /galleries. Galleries counts every `papic_photos` row + guest captures (hidden and withheld included); Memories uses `countGalleryFrames`.
+WHERE     alaala/page.tsx · galleries/page.tsx `countPapicPhotos` · memories/page.tsx `countGalleryFrames` · _components/after/finished-event-summary.tsx
+SHOTS     375 px light
+RULE      design-and-wiring A3, C8
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### M-07 · Memories words: wedding wording on every event, "Monogram Maker", a "Coming soon" Drive copy while other lines promise it
+
+```
+PAGE      /dashboard/[eventId]/memories, /alaala, /memories/thank-you, /dashboard/library
+BUTTON    withheld line · Alaala masthead · chip · ⚙ Drive row · errors
+STEPS     1. Open on stg-mika-turns-7.
+EXPECTED  The event's own words; Logo Maker; no coming feature advertised; plain error words.
+ACTUAL    "belong to the couple" (birthday) · "Your wedding, kept alive." · "your wedding's own song" · chip `label: 'Monogram Maker'` · Drive card "Coming soon — Setnayan's Drive verified-app review is in progress." while the viewer ⓘ and the email say "Copy to Google Drive (free)" (unsure: `driveOAuthReady` on prod) · Thank-You shows the raw browser error · library Editorials "Your wedding editorial will appear here" on a failed read.
+WHERE     memories/page.tsx (withheld line) · alaala/page.tsx · lib/add-ons-catalog.ts (`animated-monogram`) · studio/papic/_components/drive-copy-card.tsx · memories/thank-you/_components/thank-you-maker.tsx · (account)/library/_data/editorials.ts
+SHOTS     375 px light
+RULE      brand.md word rules and claims #9 · CLAUDE.md §5 rule 4
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### M-08 · Memories failed reads vanish or read as empty (Alaala sections, assignments, library editorials)
+
+```
+PAGE      /dashboard/[eventId]/alaala, /alaala/assignments, /dashboard/library?tab=editorials
+BUTTON    "Most storied moments" · "Mga Boses" · moment list · Editorials
+STEPS     1. Make each read fail.
+EXPECTED  "Couldn't read".
+ACTUAL    `getKwentoDensity(...).catch(() => [])` and the stories reject → sections vanish; assignments `(assignments ?? [])`; `fetchLibraryEditorials` returns `empty` in every catch.
+WHERE     alaala/page.tsx · alaala/assignments/page.tsx · (account)/library/_data/editorials.ts
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### M-09 · Dark: /dashboard/library forwards to Home, which is not dark-ready (dead DARK_READY entry); Life-Flash's top block has no glow and its player is hand-built
+
+```
+PAGE      /dashboard/library, /dashboard/life-flash
+BUTTON    Dark mode · "▶ Play your Life-Flash"
+STEPS     1. Choose Dark. 2. Open /dashboard/library and /dashboard/life-flash; press Play.
+EXPECTED  Memories library paints dark; Life-Flash's top block carries `--color-band-glow`; the player is a RiseScreen.
+ACTUAL    library `redirect(forwardToHome('memories', …))` → `/dashboard?seg=memories`, and `/dashboard` is not on `DARK_READY`; life-flash launcher `bg-ink dark:bg-raised` with no glow; player `<div className={styles.overlay} role="dialog" aria-modal="true">` with `document.body.style.overflow = 'hidden'`; `flash.module.css` hex (`#161311`, `#fff`, `#d98a54` …); scope chips are a wrapping `sn-chip` row, not PickMenu. Life-Flash 404s unless `NEXT_PUBLIC_LIFE_STORY === '1'` (check on staging).
+WHERE     (account)/library/page.tsx · lib/appearance.ts `DARK_READY` · (account)/life-flash/_components/flash.tsx, flash.module.css · life-flash/page.tsx
+SHOTS     375 px dark
+RULE      Part K2 · K3 · DARK_MODE_STANDARD §3 · CLAUDE.md §3 Choices
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### M-10 · Memories look: K1 in the Add photos sheet and Alaala, spinners, wrong skeleton, hex and half-pixel type in the grid
+
+```
+PAGE      /dashboard/[eventId]/memories, /download-all, /thank-you, /alaala, /alaala/assignments
+BUTTON    buttons · loading · grid tiles
+STEPS     1. Open each at 375 px light and dark.
+EXPECTED  One main per scope; Sk/Ghost; tokens; text-sn-* scale.
+ACTUAL    Add photos sheet `tone="brand"` "Add more" beside `main` "Choose photos"; Alaala two hand-filled `var(--m-mulberry)` links; Thank-You `ab-main` + `bg-ink` filled; `Loader2 animate-spin` (add-to-library, photo-viewer SharePanel, download-all-parts, thank-you-maker); memories/loading.tsx `ListPageSkeleton` (the page draws a Papic block and a grid); gallery tiles `bg-[rgba(184,150,62,0.92)] text-[#17160F]`, `text-[8.5px]`/`[9.5px]`/`[10.5px]`/`[12.5px]`, `duration-300`; download-all title twice and hand-rolled buttons; Alaala hand frames + hex `#5C4726`; assignments hand buttons.
+WHERE     studio/papic/_components/add-to-library.tsx · alaala/page.tsx · thank-you-maker.tsx · memories/loading.tsx · app/_components/memories/event-memories-gallery.tsx · download-all/{page,download-all-parts}.tsx · alaala/assignments/_components/assignment-controls.tsx
+SHOTS     375 px light + 375 px dark
+RULE      Part K1 · CLAUDE.md §3 (Loading, Colour, Type) · MOTION_STANDARD
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### M-11 · Assignments is its own address; it should rise over Alaala
+
+```
+PAGE      /dashboard/[eventId]/alaala/assignments
+BUTTON    the page
+STEPS     1. Alaala › Manage assignments.
+EXPECTED  FULL-SCREEN POPUP over Alaala; ✕ returns.
+ACTUAL    Its own page with "← Memories".
+WHERE     alaala/assignments/page.tsx
+SHOTS     375 px light
+RULE      SHAPE
+SEVERITY  look
+SOURCE    CODE
+```
+
+### Papic and photo delivery (challenges · crew · poster · moderation · recap · run-of-show · photo-delivery · apple-pro)
+
+> No page computes Papic credits itself or shows a per-camera allowance; the challenges cost line reads `lib/papic-event-pool.ts` and drops the balance (never 0) on a failed read.
+
+#### P-01 · Every challenge and run-of-show press reads as saved when the write failed
+
+```
+PAGE      /dashboard/[eventId]/studio/papic/challenges, /studio/papic/run-of-show   (event: stg-carla-miguel)
+BUTTON    "Add challenge" · "Add" · eye Hide/Show · "Ask now" · "Stop" · swipe delete · "Use this" · "This is happening now" · "Take off this moment" · "Pause/Resume challenges"
+STEPS     1. Press any while the write is refused.
+EXPECTED  A plain failure line under the control.
+ACTUAL    Each action logs or drops the error and redirects to the bare page; `papicInPlaceAnswer` reads a bare path as `{ ok: true }`. `setCoupleChallengeActiveAction` never reads the error: `await supabase.from('papic_missions').update({ is_active: … })`. A failed count read reads as "Ten challenges are already on"; `?add=unavailable` reads in place as saved.
+WHERE     studio/papic/actions.ts (`createCoupleChallengeAction`, `addLibraryChallengeAction`, `setCoupleChallengeActiveAction`, `armChallengeAction`, `setChallengesPausedAction`, `clearMomentChallengeAction`, `stopChallengeAction`, `deleteCoupleChallengeAction`) · studio/papic/_lib/papic-in-place.ts `papicInPlaceAnswer` · lib/papic-missions.ts `activationRefused`
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 · design-and-wiring B6
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### P-02 · Challenges and run-of-show have no door a person can reach
+
+```
+PAGE      /dashboard/[eventId]/studio/papic/challenges, /studio/papic/run-of-show
+BUTTON    "Pick your challenges" / "Set a challenge for each moment"
+STEPS     1. Look for a menu row or link into either page.
+EXPECTED  A real door.
+ACTUAL    The only links sit in the `!standalone` branch of `CoupleChallengesManager`, which is never drawn (rendered only with `inCard` in papic-camera-settings.tsx or `standalone` on the page). Ugat counts the links; no person can press them. Also "Clear search and filters" goes to Memories (`href={papicCardHref(eventId)}`) instead of clearing.
+WHERE     studio/papic/couple-challenges-manager.tsx (`if (!standalone)`, the FilterChip block) · studio/papic/_components/papic-camera-settings.tsx
+SHOTS     375 px light
+RULE      design-and-wiring A3, B5
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### P-03 · Photo delivery "Disconnect" says disconnected after a failed write (the Google token may stay stored)
+
+```
+PAGE      /dashboard/[eventId]/studio/photo-delivery   (event: stg-carla-miguel)
+BUTTON    "Disconnect"
+STEPS     1. Press while the `oauth_grants` or `events` update is refused.
+EXPECTED  "Couldn't disconnect".
+ACTUAL    Both updates unchecked, then always `?disconnected=1` → "Drive disconnected." (baseline rows).
+WHERE     studio/photo-delivery/actions.ts `disconnectPhotoDelivery`
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### P-04 · Photo delivery promises "free, for life" and a flat "3 months" for every plan
+
+```
+PAGE      /dashboard/[eventId]/studio/photo-delivery
+BUTTON    retention notice · step 3 · delivery-complete copy
+STEPS     1. Read the page.
+EXPECTED  No "free for life"; originals 3/6/12 months by plan.
+ACTUAL    "Every photo stays in your Memories, free, for life." and "3 months after your event's last day…" three times. Same family as M-01.
+WHERE     studio/photo-delivery/page.tsx · _components/photo-delivery-panel.tsx
+SHOTS     375 px light
+RULE      brand.md claims #3
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### P-05 · Recap "Publish" / "Make it private" fail without a word
+
+```
+PAGE      /dashboard/[eventId]/studio/papic/recap   (event: stg-mika-turns-7)
+BUTTON    "Publish my recap" · "Publish anyway" · "Make it private" · socials switch
+STEPS     1. Press while the `event_recaps` upsert is refused.
+EXPECTED  A failure line.
+ACTUAL    `await admin.from('event_recaps').upsert(…)` error discarded, action returns void, the page re-renders unchanged; the socials switch flips back silently.
+WHERE     studio/papic/recap/actions.ts `publishRecap`, `unpublishRecap` · recap/_components/recap-social-feature-toggle.tsx
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 · design-and-wiring B6
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### P-06 · Crew "Copy link" does nothing when the clipboard is blocked (the link is not printed on the page)
+
+```
+PAGE      /dashboard/[eventId]/studio/papic/crew
+BUTTON    "Copy link"
+STEPS     1. Press where the clipboard is blocked.
+EXPECTED  The link shown, or a failure line.
+ACTUAL    `catch { /* … the visible link is still selectable */ }` but the page never prints the link; a second copy-button primitive beside `app/_components/copy-button.tsx`.
+WHERE     studio/papic/crew/_components/copy-button.tsx `CopyButton`
+SHOTS     375 px light
+RULE      design-and-wiring B5, D12
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### P-07 · Apple Pro: the button stays disabled forever when the App Store product is missing
+
+```
+PAGE      /dashboard/[eventId]/apple-pro   (iPhone app)
+BUTTON    "Unlock Plus and Apply"
+STEPS     1. The EVENT_PLUS product is missing (`PRO` null).
+EXPECTED  A sentence saying the store is not answering.
+ACTUAL    `if (sample || !PRO) return;` leaves the price state at 'loading': disabled with no line. A failed entitlement/ownership read (`.catch(() => null)`) shows the sale to a couple who may own it (a server refusal backstops it).
+WHERE     app/_components/iap/apple-pro-screen.tsx · app/dashboard/[eventId]/apple-pro/page.tsx
+SHOTS     375 px light (app)
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### P-08 · Papic failed reads read as real (crew notice, moderation list, recap counts, photo-delivery state)
+
+```
+PAGE      /dashboard/[eventId]/studio/papic/crew, /moderation, /recap, /dashboard/[eventId]/studio/photo-delivery
+BUTTON    "Not working yet" notice · guest photo list · "The 0 photos…" · delivery panel
+STEPS     1. Make each read fail.
+EXPECTED  "Couldn't read".
+ACTUAL    crew: a failed read says "This link has been turned off or has expired. Issue a fresh one…" (and offers no button); moderation: notice plus "No guest photos yet"; recap: "The 0 photos that are safe to share" under the refusal notice, guests counted outside `countsTowardEvent`; photo-delivery: sync mode defaults to "Selected" manual release and the connect card shows to a connected event.
+WHERE     studio/papic/crew/page.tsx, lib/shared-join-link.ts · moderation/page.tsx · recap/page.tsx, lib/auto-recap.ts · photo-delivery/page.tsx
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 · design-and-wiring C8
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### P-09 · Papic words: wedding moments and wording on every event, internal notes, raw database errors, garbled ⓘ labels
+
+```
+PAGE      /dashboard/[eventId]/studio/papic/run-of-show, /moderation, /recap, /challenges, /dashboard/[eventId]/studio/photo-delivery
+BUTTON    moments · footer · reasons · errors · ⓘ
+STEPS     1. Open on stg-mika-turns-7; trigger a failure; use a screen reader on the ⓘ.
+EXPECTED  The event's own words; plain reasons; real labels.
+ACTUAL    run-of-show always lists "Bridal March", "Veil & Cord", "Money Dance" (`KWENTO_MOMENTS`); moderation footer "Source · iteration 0012 Papic · UGC moderation (Apple 1.2 / Google Play UGC)"; "Not from this wedding"; recap "share a couple's recap"; `error.message.slice(0, 80)` and "something hiccuped"; photo-delivery "Could not save sync mode: {Postgres text}", "as it lands in R2", "One-tap OAuth"; challenges ⓘ label "Your guests see up to on their phone." (number missing); photo-delivery ⓘ label `"files · $ delivered.\` : …"` (code text).
+WHERE     studio/papic/run-of-show/page.tsx, lib/kwento-moments.ts · moderation/page.tsx, moderation/actions.ts · recap/page.tsx · couple-challenges-manager.tsx (InfoTip) · photo-delivery/page.tsx, actions.ts, _components/photo-delivery-panel.tsx
+SHOTS     375 px light
+RULE      brand.md word rules and tone · CLAUDE.md §3 Toast
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### P-10 · Papic look: K1 (several tints per card), spinners, width transition, poster wider than 375 px, no masthead
+
+```
+PAGE      /dashboard/[eventId]/studio/papic/challenges, /crew, /crew/poster, /moderation, /recap, /run-of-show, /dashboard/[eventId]/studio/photo-delivery, /dashboard/[eventId]/apple-pro
+BUTTON    buttons · loading · QR poster · titles
+STEPS     1. Open each at 375 px.
+EXPECTED  One main per scope; no spinners; transform/opacity; fits 375 px; PageMasthead.
+ACTUAL    challenges `bg-mulberry` "Add challenge" + accent-outlined "Ask now" per row; moderation cards: terracotta-outlined Delete, `bg-warn-50` Report, terracotta Block, green Approve; recap `tone="ok"` Keep all beside `bg-mulberry` Publish, `Loader2 animate-spin`; photo-delivery filled `bg-success-700` "Open in Drive", `bg-mulberry` Release, `animate-spin` + `transition-[width] duration-700`; poster QR fixed `h-[420px] w-[420px]` inside `px-8` (side-scrolls at 375 px), `bg-white`, rail/nav may print (unsure); crew loading draws a 4-tile grid for one card; challenges and run-of-show have no PageMasthead; apple-pro `.button-primary`.
+WHERE     couple-challenges-manager.tsx · moderation/page.tsx · recap/_components/guest-phone-review.tsx · photo-delivery/_components/{photo-delivery-panel,release-progress-poller}.tsx · crew/poster/page.tsx · crew/loading.tsx · run-of-show/page.tsx · app/_components/iap/apple-pro-screen.tsx
+SHOTS     375 px light
+RULE      Part K1 · CLAUDE.md §3 · MOTION_STANDARD E2
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### P-11 · Crew and moderation pages should not be pages
+
+```
+PAGE      /dashboard/[eventId]/studio/papic/crew, /studio/papic/moderation
+BUTTON    the pages
+STEPS     1. Open from Launch / Alaala "See all →".
+EXPECTED  Crew: a SMALL POPUP (the one code already lives on Event Details › How guests get in). Moderation: on the photo in Memories (owner 23 Oct: "the separate moderation page and the padlock go").
+ACTUAL    Both are full pages with doors; crew copies `one-code.tsx` with hand frames.
+WHERE     studio/papic/crew/page.tsx · moderation/actions.ts (`photoActionHome` note) · alaala/page.tsx
+SHOTS     375 px light
+RULE      SHAPE
 SEVERITY  look
 SOURCE    CODE
 ```

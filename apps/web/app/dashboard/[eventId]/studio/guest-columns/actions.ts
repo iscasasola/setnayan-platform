@@ -1,6 +1,6 @@
 'use server';
 
-import { hostRefusal } from '@/lib/host-refusal';
+import { plainSaveError } from '@/lib/plain-save-error';
 
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -55,7 +55,7 @@ export async function approveColumn(
     .eq('event_id', eventId)
     .eq('status', 'pending')
     .select('column_id');
-  if (error) return { ok: false, error: hostRefusal('guestColumns', error) };
+  if (error) return { ok: false, error: plainSaveError('guestColumns', error) };
   if (!data || data.length === 0) return { ok: false, error: 'not_found' };
   revalidatePath(columnsPath(eventId));
   return { ok: true };
@@ -90,7 +90,7 @@ export async function declineColumn(
     .eq('event_id', eventId)
     .in('status', ['pending', 'approved'])
     .select('column_id');
-  if (error) return { ok: false, error: hostRefusal('guestColumns', error) };
+  if (error) return { ok: false, error: plainSaveError('guestColumns', error) };
   if (!data || data.length === 0) return { ok: false, error: 'not_found' };
   revalidatePath(columnsPath(eventId));
   return { ok: true };

@@ -1,6 +1,6 @@
 'use server';
 
-import { hostRefusal } from '@/lib/host-refusal';
+import { plainSaveError } from '@/lib/plain-save-error';
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -77,7 +77,7 @@ async function updateSyncMode(
     .eq('event_id', eventId);
 
   if (error) {
-    hostRefusal('photoDelivery.syncMode', error, 'change the sync mode');
+    plainSaveError('photoDelivery.syncMode', error);
     return {
       ok: false,
       // SW-RAWDB (A3·P-09): a fixed key; the database's words go to the log only.

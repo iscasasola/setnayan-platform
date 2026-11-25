@@ -37,6 +37,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
+import { plainSaveError } from '@/lib/plain-save-error';
 
 type ActionResult = { ok: true } | { ok: false; error: string };
 
@@ -80,7 +81,7 @@ export async function createCluster(formData: FormData): Promise<ActionResult> {
     .insert({ owner_user_id: user.id, display_name: displayName })
     .select('event_cluster_id');
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: plainSaveError('clusters', error) };
   const created = (data ?? [])[0] as { event_cluster_id: string } | undefined;
   if (!created) return { ok: false, error: 'That group could not be created.' };
 
@@ -107,7 +108,7 @@ export async function renameCluster(formData: FormData): Promise<ActionResult> {
     .eq('event_cluster_id', clusterId)
     .select('event_cluster_id');
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: plainSaveError('clusters', error) };
   if ((data ?? []).length === 0) {
     return { ok: false, error: 'Only your own groups can be renamed.' };
   }
@@ -155,7 +156,7 @@ export async function linkCelebration(formData: FormData): Promise<ActionResult>
         error: 'You can only add your own events, to your own groups.',
       };
     }
-    return { ok: false, error: error.message };
+    return { ok: false, error: plainSaveError('clusters', error) };
   }
   if ((data ?? []).length === 0) {
     return { ok: false, error: 'That event could not be added.' };
@@ -198,7 +199,7 @@ export async function setClusterAnchor(formData: FormData): Promise<ActionResult
     .eq('is_anchor', true)
     .select('event_id');
 
-  if (clearErr) return { ok: false, error: clearErr.message };
+  if (clearErr) return { ok: false, error: plainSaveError('clusters', clearErr) };
 
   if (!eventId) {
     // Clearing was the whole request. Nothing to clear is not a failure.
@@ -213,7 +214,7 @@ export async function setClusterAnchor(formData: FormData): Promise<ActionResult
     .eq('event_id', eventId)
     .select('event_id');
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: plainSaveError('clusters', error) };
   if ((data ?? []).length === 0) {
     // The clear above may have succeeded; if this row was not ours, say so
     // rather than reporting a silent success over a half-applied change.
@@ -258,7 +259,7 @@ export async function unlinkCelebration(formData: FormData): Promise<ActionResul
     .eq('event_id', eventId)
     .select('event_id');
 
-  if (error) return { ok: false, error: error.message };
+  if (error) return { ok: false, error: plainSaveError('clusters', error) };
   if ((data ?? []).length === 0) {
     return { ok: false, error: 'Only your own groups can be changed.' };
   }

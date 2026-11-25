@@ -1,6 +1,6 @@
 'use server';
 
-import { hostRefusal } from '@/lib/host-refusal';
+import { plainSaveError } from '@/lib/plain-save-error';
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -374,7 +374,7 @@ export async function approveKwento(
     .eq('message_id', messageId)
     .eq('event_id', eventId)
     .eq('status', 'pending');
-  if (error) return { ok: false, error: hostRefusal('papicModeration', error) };
+  if (error) return { ok: false, error: plainSaveError('papicModeration', error) };
   revalidateKwentoSurfaces(eventId);
   return { ok: true };
 }
@@ -397,7 +397,7 @@ export async function rejectKwento(
     })
     .eq('message_id', messageId)
     .eq('event_id', eventId);
-  if (error) return { ok: false, error: hostRefusal('papicModeration', error) };
+  if (error) return { ok: false, error: plainSaveError('papicModeration', error) };
   revalidateKwentoSurfaces(eventId);
   return { ok: true };
 }
@@ -419,7 +419,7 @@ export async function kwentoToWall(
       ok: false,
       error: error.message.includes('kwento:not_clean')
         ? 'Held messages can never go on Memory lane.'
-        : hostRefusal('papicModeration.approve', error),
+        : plainSaveError('papicModeration.approve', error),
     };
   }
   revalidateKwentoSurfaces(eventId);
@@ -437,7 +437,7 @@ export async function kwentoOffWall(
   const { error } = await supabase.rpc('wall_clear_caption', {
     p_message_id: messageId,
   });
-  if (error) return { ok: false, error: hostRefusal('papicModeration', error) };
+  if (error) return { ok: false, error: plainSaveError('papicModeration', error) };
   revalidateKwentoSurfaces(eventId);
   return { ok: true };
 }
@@ -480,7 +480,7 @@ export async function blockKwentoGuest(
     guest_id: guestId,
   });
   if (error && !error.message.includes('uq_guest_message_block')) {
-    return { ok: false, error: hostRefusal('papicModeration.block', error) };
+    return { ok: false, error: plainSaveError('papicModeration.block', error) };
   }
   revalidateKwentoSurfaces(eventId);
   return { ok: true };

@@ -79,17 +79,31 @@ export async function fetchExtraAgentSeats(
   supabase: SupabaseClient,
   vendorProfileId: string,
 ): Promise<number> {
+  // Fails CLOSED for the actions that enforce the cap (an unread count invites no one extra). A screen that SHOWS the
+  // count reads `readExtraAgentSeats`, which says "couldn't read" instead of "0 added".
+  return (await readExtraAgentSeats(supabase, vendorProfileId)) ?? 0;
+}
+
+/**
+ * 🪪 The bought extra seats, or null when the read was refused (final check A5-G5-02): the Team screen says it could
+ * not read them and never draws "0 added" or a smaller seat limit on a guess. Held by
+ * `lib/vendor-tier-read-is-honest.test.ts`.
+ */
+export async function readExtraAgentSeats(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<number | null> {
   try {
     const { data, error } = await supabase
       .from('vendor_profiles')
       .select('extra_agent_seats')
       .eq('vendor_profile_id', vendorProfileId)
       .maybeSingle();
-    if (error || !data) return 0;
+    if (error || !data) return null;
     const n = Number((data as { extra_agent_seats?: number | null }).extra_agent_seats);
     return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
   } catch {
-    return 0;
+    return null;
   }
 }
 

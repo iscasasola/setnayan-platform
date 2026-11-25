@@ -432,6 +432,8 @@ export const routes = {
   features: () => `/features`,
   forVendors: () => `/for-suppliers`,
   forgotPassword: () => `/forgot-password`,
+  /** The public Live Watch page — where "Try the control room with two phones" opens a fresh demo (A1-032). */
+  liveWatch: () => `/panood`,
   guest: {
     findMyTable: (slug: string) => `/${slug}/find-my-table`,
     findSeat: (slug: string) => `/${slug}/find-seat`,

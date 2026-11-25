@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { isPaidSize } from '@/lib/vendor-tier-caps';
-import { resolveVendorTier } from '@/lib/vendor-feature-gate';
+import { readVendorTier } from '@/lib/vendor-feature-gate';
 import { settledValue } from '@/lib/settled-read';
 import { fetchEligibleCreators, fetchVendorSentOffers } from '@/lib/creator-offers';
 import { fetchVendorCreatorRoi } from '@/lib/creator-analytics';
@@ -48,7 +48,7 @@ export default async function VendorCreatorsPage({
   // failure still surfaces where it always did (`settledValue`): the tier's first, the lists' after the ◆ check.
   const minReach = Math.max(0, Number.parseInt(search.minReach ?? '0', 10) || 0);
   const [tierRead, listsRead] = await Promise.allSettled([
-    resolveVendorTier(supabase, profile.vendor_profile_id),
+    readVendorTier(supabase, profile.vendor_profile_id),
     Promise.all([
       fetchEligibleCreators({ minReach, limit: 60 }),
       fetchVendorSentOffers(supabase, profile.vendor_profile_id),
@@ -57,9 +57,11 @@ export default async function VendorCreatorsPage({
       fetchVendorCreatorRoi(supabase, profile.vendor_profile_id),
     ]),
   ]);
-  const tier = settledValue(tierRead);
+  const { tier } = settledValue(tierRead);
   // 🔒 The ◆ note is a purchase hint → absent in the App Store / Play Store shell.
-  const sendNeedsPro = !isPaidSize(tier) && !(await isStoreShellRequest()); // every paid size since 2026-11-22
+  // 🪪 A REFUSED plan read is said, never drawn as "needs a plan" to a shop that may pay for one (final check A5-G2-03).
+  const sendNeedsPro: boolean | 'unread' =
+    tier === 'unread' ? 'unread' : !isPaidSize(tier) && !(await isStoreShellRequest()); // every paid size since 2026-11-22
 
   const [creators, sentOffers, roi] = settledValue(listsRead);
 

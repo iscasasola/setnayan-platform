@@ -182,6 +182,34 @@ export const KIND_SCHEMA: Readonly<Record<SupplierOfflineKind, number>> = {
   'booking.accept': 1,
 };
 
+/**
+ * 📌 THE FIELDS EACH KIND CARRIES (review #2 item 11) — exactly what its replay reads: the shipped action's own form
+ * fields (and the cores it hands the form to), the engine's money and gift reads, and what the phone's R14 copy reads.
+ * Anything else on a queued item is DROPPED where it is first read (`parseQueuedItem`), so a phone can never hand a
+ * shipped action a field its online form would not (a `return_to`, a `buying`). Changing a kind's list changes what an
+ * OLD phone's item means: bump that kind's `KIND_SCHEMA`, add its adapter below, and move the pin in
+ * `the-supplier-works-offline.test.ts` (test 14) — which fails until all three move together.
+ */
+export const KIND_FIELDS: Readonly<Record<SupplierOfflineKind, readonly string[]>> = {
+  'schedule.client': ['pool_id', 'start_date', 'end_date', 'client_name', 'client_contact', 'client_note', 'client_time'],
+  'schedule.block': ['scope', 'start_date', 'end_date', 'label', 'day_part'],
+  'schedule.edit': ['block_id', 'label', 'client_name', 'client_contact', 'client_note', 'start_date', 'end_date', 'client_time'],
+  'schedule.remove': ['block_id'],
+  'schedule.day': ['pool_id', 'state_date', 'day_state', 'note'],
+  'qr.booking': ['token', 'code_id', 'start_date', 'client_time', 'pool_id', 'client_name', 'client_contact', 'client_note'],
+  'client.add': ['client_name', 'client_contact', 'client_note', 'gift', 'code_id'],
+  'lead.outcome': ['thread_id', 'outcome', 'reason_code', 'free_text'],
+  'note.add': ['event_id', 'body', 'remind_at'],
+  'note.done': ['event_id', 'note_id', 'done'],
+  'note.delete': ['event_id', 'note_id'],
+  'message.send': ['thread_id', 'body'],
+  'payment.ask': ['event_id', 'vendor_id', 'amount_php', 'due_date', 'note', 'inline'],
+  'payment.ask_withdraw': ['event_id', 'ask_id'],
+  'payment.confirm': ['payment_id', 'thread_id', 'vendor_id'],
+  'deposit.ack': ['event_id', 'vendor_id'],
+  'booking.accept': ['event_id', 'vendor_id', 'booked_quantity', 'regift', 'gift'],
+};
+
 /** Older payload versions → today's. Version 1 is today's; a later version adds its adapter here. */
 export function adaptQueuedItem(item: SupplierQueuedItem): SupplierQueuedItem {
   return { ...item, schema: KIND_SCHEMA[item.kind] };
@@ -270,8 +298,11 @@ export function parseQueuedItem(raw: unknown): SupplierQueuedItem | null {
   if (r.madeOffline !== true || !isSupplierOfflineKind(r.kind)) return null;
   const fields: Record<string, string | string[]> = {};
   if (!r.fields || typeof r.fields !== 'object') return null;
+  const pinned = KIND_FIELDS[r.kind as SupplierOfflineKind];
   for (const [k, v] of Object.entries(r.fields as Record<string, unknown>)) {
     if (!/^[a-z_]{1,40}$/.test(k)) return null;
+    // A field this kind does not carry is dropped, never handed to the shipped action (`KIND_FIELDS`).
+    if (!pinned.includes(k)) continue;
     if (typeof v === 'string' && v.length <= 4000) fields[k] = v;
     else if (Array.isArray(v) && v.length <= 12 && v.every((x) => typeof x === 'string' && x.length <= 200)) fields[k] = v as string[];
     else return null;

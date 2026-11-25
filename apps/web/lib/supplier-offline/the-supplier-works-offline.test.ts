@@ -21,6 +21,8 @@
  *       full day reads full; the QR's free-time check, "To collect" and the gift balance read the same copy + queue.
  *  10 · EVERY SUPPLIER ACTION IS DECIDED — an offline kind, "needs internet" (R15), or a line on the area builders'
  *       shrink-only list (`not-yet-offline.baseline.txt`). A new supplier action can never be left undecided.
+ *  14 · EACH KIND'S FIELDS ARE PINNED — a field a kind does not carry never reaches the shipped action, and a kind's
+ *       fields cannot change without its schema version moving (old phones' items keep their meaning).
  *  13 · A HELD DAY IS SAID — the database refuses a booking on a teammate's held day (`date_held`); every couple door
  *       says it as the closed-day sentence (never who or why), and the supplier's yes says a teammate holds it.
  *
@@ -168,7 +170,9 @@ test('3 · every kind has a rule and a role; a named door is real; nothing that 
   const engine = read('lib/supplier-offline/engine.server.ts');
   const sync = engine.slice(engine.indexOf('async function syncOne'), engine.indexOf('/* ── the phone'));
   const stale = sync.indexOf('await rowStillAsSeen(ctx, item)');
-  assert.ok(stale > -1 && stale < sync.indexOf('await moneyAction(') && stale < sync.indexOf('await replayDoor('), 'a write that names a row runs before the row is compared');
+  const money = sync.indexOf('moneyAction(ctx, item)');
+  const door = sync.indexOf('replayDoor(door, item)');
+  assert.ok(stale > -1 && money > stale && door > stale, 'a write that names a row runs before the row is compared');
   assert.ok(parseQueuedItem(item()));
 });
 
@@ -402,4 +406,54 @@ test('13 · a held day is said: as a closed day to the couple at every door, as 
   const n = lockAgreeNotice('date_held');
   assert.equal(n?.tone, 'refused');
   assert.match(n!.text, /teammate is holding this date/);
+});
+
+test('14 · each kind’s fields are pinned: nothing else reaches the shipped action; a change moves the schema version', async () => {
+  const { KIND_FIELDS, KIND_SCHEMA, parseQueuedItem, SUPPLIER_OFFLINE_KINDS } = await import('./kinds');
+  // ⚠ THE PIN. To change a kind's fields: bump its KIND_SCHEMA, add its adapter (`adaptQueuedItem`), then move BOTH lines
+  // here. A field list that moves while its schema number stays is an old phone's item changing meaning in silence.
+  const PIN: Record<string, { schema: number; fields: string[] }> = {
+    'schedule.client': { schema: 1, fields: ['pool_id', 'start_date', 'end_date', 'client_name', 'client_contact', 'client_note', 'client_time'] },
+    'schedule.block': { schema: 1, fields: ['scope', 'start_date', 'end_date', 'label', 'day_part'] },
+    'schedule.edit': { schema: 1, fields: ['block_id', 'label', 'client_name', 'client_contact', 'client_note', 'start_date', 'end_date', 'client_time'] },
+    'schedule.remove': { schema: 1, fields: ['block_id'] },
+    'schedule.day': { schema: 1, fields: ['pool_id', 'state_date', 'day_state', 'note'] },
+    'qr.booking': { schema: 1, fields: ['token', 'code_id', 'start_date', 'client_time', 'pool_id', 'client_name', 'client_contact', 'client_note'] },
+    'client.add': { schema: 1, fields: ['client_name', 'client_contact', 'client_note', 'gift', 'code_id'] },
+    'lead.outcome': { schema: 1, fields: ['thread_id', 'outcome', 'reason_code', 'free_text'] },
+    'note.add': { schema: 1, fields: ['event_id', 'body', 'remind_at'] },
+    'note.done': { schema: 1, fields: ['event_id', 'note_id', 'done'] },
+    'note.delete': { schema: 1, fields: ['event_id', 'note_id'] },
+    'message.send': { schema: 1, fields: ['thread_id', 'body'] },
+    'payment.ask': { schema: 1, fields: ['event_id', 'vendor_id', 'amount_php', 'due_date', 'note', 'inline'] },
+    'payment.ask_withdraw': { schema: 1, fields: ['event_id', 'ask_id'] },
+    'payment.confirm': { schema: 1, fields: ['payment_id', 'thread_id', 'vendor_id'] },
+    'deposit.ack': { schema: 1, fields: ['event_id', 'vendor_id'] },
+    'booking.accept': { schema: 1, fields: ['event_id', 'vendor_id', 'booked_quantity', 'regift', 'gift'] },
+  };
+  assert.deepEqual(Object.keys(PIN).sort(), Object.keys(SUPPLIER_OFFLINE_KINDS).sort(), 'a kind has no pin');
+  for (const [kind, pin] of Object.entries(PIN)) {
+    const k = kind as keyof typeof KIND_FIELDS;
+    assert.equal(KIND_SCHEMA[k], pin.schema, `${kind}: its schema version moved without its pin`);
+    assert.deepEqual([...KIND_FIELDS[k]], pin.fields, `${kind}: its fields changed — bump its KIND_SCHEMA and add the adapter first`);
+  }
+  // Every name the shipped action reads is pinned (a pin that drops a real field would break the replay in silence).
+  const reads: [string, string, string[]][] = [
+    ['lead.outcome', 'app/vendor-dashboard/messages/[threadId]/outcome-actions.ts', ['thread_id', 'outcome', 'reason_code', 'free_text']],
+    ['note.add', 'app/vendor-dashboard/clients/[eventId]/actions.ts', ['event_id', 'body', 'remind_at']],
+    ['payment.ask', 'app/vendor-dashboard/clients/[eventId]/actions.ts', ['amount_php', 'due_date', 'note']],
+    ['booking.accept', 'app/vendor-dashboard/clients/[eventId]/actions.ts', ['booked_quantity', 'regift']],
+    ['client.add', 'app/vendor-dashboard/invite/own-client-actions.ts', ['client_name', 'client_contact', 'client_note']],
+  ];
+  for (const [kind, file, names] of reads) {
+    const src = read(file);
+    for (const n of names) {
+      assert.match(src, new RegExp(`\\.get\\('${n}'\\)|getAll\\('${n}'\\)`), `${file} no longer reads ${n} — re-derive ${kind}'s pin`);
+      assert.ok(KIND_FIELDS[kind as keyof typeof KIND_FIELDS].includes(n), `${kind} drops ${n}, which its action reads`);
+    }
+  }
+  // Nothing else reaches the action: an extra field on a queued item is dropped where it is first read.
+  const parsed = parseQueuedItem({ ...item({ kind: 'booking.accept', fields: { vendor_id: 'EV1', return_to: 'https://evil.example', buying: '1' } }) });
+  assert.ok(parsed);
+  assert.deepEqual(parsed!.fields, { vendor_id: 'EV1' }, 'a field this kind does not carry reached the shipped action');
 });

@@ -3022,15 +3022,10 @@
         "3d_plan/demo/[token]/_components/plan3d-guest-view.tsx",
         "3d_plan/demo/[token]/page.tsx"
       ],
-      "destinations": [
-        "/3d_plan/demo/[seg]"
-      ],
-      "actions": [
-        "routes.pa3d.try"
-      ],
+      "destinations": [],
+      "actions": [],
       "blocks": [
         "DoorShell",
-        "Link",
         "Phase",
         "Plan3DGuestView",
         "Plan3DSceneLoader"
@@ -4336,7 +4331,7 @@
       "destinations": [
         "/[seg]",
         "/[seg]/avatar",
-        "/[seg]/venue?t=[seg]"
+        "/[seg]/venue"
       ],
       "actions": [],
       "blocks": [
@@ -14821,10 +14816,7 @@
         "/help",
         "/help/[seg]"
       ],
-      "actions": [
-        "routes.help.topic",
-        "routes.help.topics"
-      ],
+      "actions": [],
       "blocks": [
         "Link",
         "Logo"
@@ -15505,18 +15497,14 @@
         "panood/demo/[token]/page.tsx"
       ],
       "destinations": [],
-      "actions": [
-        "routes.liveWatch"
-      ],
+      "actions": [],
       "blocks": [
         "CamJoinFlow",
         "CamSlot",
         "CameraPublisher",
         "DoorShell",
         "HTMLVideoElement",
-        "Link",
         "MediaStream",
-        "OpenLiveWatch",
         "PeerConnectionState",
         "Shell",
         "Step"
@@ -16674,7 +16662,6 @@
         "/open-shop",
         "/vendor-dashboard",
         "/vendor-dashboard/clients/[seg]",
-        "/vendor-dashboard/clients/[seg]?tab=chat",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/collections",
         "/vendor-dashboard/customers",

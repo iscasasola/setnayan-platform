@@ -8,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorRoomEvents, fetchVendorRoomEventsDetailed } from '@/lib/vendor-room-access';
 import { DayReadFailed } from './_components/papic-desk-body';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
 import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { resolveModules, type DayOfModuleId } from '@/lib/vendor-dayof-modules';
@@ -128,7 +129,10 @@ export default async function VendorOnTheDayLivePage({
     // Not the owner (or not booked under their own profile) — check for a grant.
     const { data: grants, error: grantsError } = await supabase.rpc('current_vendor_dayof_grant_event_ids');
     // A6-22: a refused grant read is not "you have no shop" — said, not the shop-papers page.
-    if (grantsError) return <DayReadFailed eventId={eventId} />;
+    if (grantsError) {
+      logQueryError('vendorDayConsole.crewGrants', grantsError, { eventId }, 'graceful_degrade');
+      return <DayReadFailed eventId={eventId} />;
+    }
     const grantedEvents = new Set((grants as string[] | null) ?? []);
     if (grantedEvents.has(eventId)) {
       // Resolve the granting vendor + booking via the admin client (the grant is

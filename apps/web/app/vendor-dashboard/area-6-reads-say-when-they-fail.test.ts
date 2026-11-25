@@ -36,7 +36,7 @@ test('A6-21 · the live headcount is "—" on a failed brief, never 0 / 0', () =
 
 test('A6-22 · an unread bookings or crew-grant read is said, not "opens on <date>" or the shop papers', () => {
   assert.match(live, /data: grants, error: grantsError/);
-  assert.match(live, /if \(grantsError\) return <DayReadFailed/);
+  assert.match(live, /if \(grantsError\) \{\s*logQueryError\([^)]*\);\s*return <DayReadFailed/);
   assert.match(live, /if \(!booking && ownRoomUnread\) return <DayReadFailed/);
   assert.ok(live.indexOf('ownRoomUnread) return') < live.indexOf("live=not-yet"), 'unread is decided before not-yet');
 });

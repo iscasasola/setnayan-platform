@@ -1,6 +1,8 @@
 # Final check · Area 7 · Coordinator, Spaces & venue, maps
 
-STATUS: phase B in progress (staging walk started 25 Nov; preview commit `bd86936`)
+STATUS: phase B done · 10 of 10 pages walked at 375 / 768 / 1280, light and dark · 36 findings (27 code + 9 seen):
+blocker 0 · money-signin 2 · broken 3 · wrong 18 · look 13 · product blockers 0, two checks blocked by the seed (see BLOCKERS)
+· DARK: signed-in no-dark 5 · public light-only 4 · own skin 1 · buttons counted 193 at 375, pressed 109 (the 3D room's 65 not reached; 5 timed out; writes skipped), failed 2 (A7-30, venue walk's back link → area 4 B-01)
 
 Checker 7 of 8. Report only. Phase A pinned commit `fb3f72d`; phase B walks the staging copy at `bd86936`. Kit: `build-sessions/FINAL-CHECK-KIT.md`.
 Phase A = code pass (`SOURCE: CODE`). Phase B = staging browser walk (`SOURCE: SEEN`): headless Chromium at 375 · 768 · 1280,
@@ -302,7 +304,7 @@ On every signed-in page the wordmark link to `/dashboard?hub=1` has no accessibl
 | /[slug]/venue | buttons 1 · pressed 1 · failed 1 | same | its one link opens the Event Hub that answers 500 (area 4 B-01) |
 | Guests › Seats › 3D | buttons 65 (40 of them are tables) · pressed 0 | — | the headless browser could not finish drawing the room within 2–3 min on the loaded preview; Walk in / Accents / View only were not reached |
 | Venue check | buttons 15 · pressed 15 · failed 0 | — | "Start the check" was pressed and started (content changed); its result was not waited for |
-| Workspace › Book & Budget | PENDING | — | "Record payment", "Pay", "Propose a change" are counted but not pressed (they write or pay) |
+| Workspace › Book & Budget | buttons 33 · pressed 27 · failed 0 confirmed · 5 timed out at 180 s on the loaded preview (Close, Chat, Details, Schedule, one unnamed button) | — | 6 not pressed because they write: Record payment, Save costs, Delete the payment, Amount to pay, its ⓘ, the Book & Budget tab re-press. "Propose a change" opens its sheet (Esc closes). See A7-36 |
 | Supplier seat plan | buttons 10 · pressed 10 · failed 0 | buttons 20 (the rail adds its words) | — |
 | Spaces (Hardin) | buttons 11 · pressed 11 · failed 0, then in the New hall sheet buttons 16 · pressed 3 · failed 1 ("Add the hall", A7-30) | buttons 21 | the sheet's dropdowns and steppers were not changed (they only edit an unsaved draft) |
 
@@ -359,6 +361,21 @@ line. That matches Phase A: none of these addresses is in `OFFLINE_COPY_SHAPES` 
 2. **No signal.** The demo QR is minted by a server action: offline it cannot be made (and the room cannot load). The payment QR is an image the supplier uploaded; whether it shows offline depends on the browser cache (the workspace is not saved).
 3. **Back online.** The demo QR touches no date, price or gift. The payment QR touches money: a QR shown from a stale page could carry an account the supplier has since changed. Today the workspace reads it fresh on every load; nothing warns when a copy is old. Name of the case: "a price or account changed in between".
 4. **Taps.** Not measurable here (no supplier QR maker in area 7).
+
+#### A7-36 · Workspace: 16 px ⓘ buttons, a 13 px "on" link, and "Open workspace" that opens the same page
+
+```
+PAGE      /dashboard/[eventId]/vendors/[vendorId]/workspace?tab=budget   (messy_one, Tala Events Coordination)
+BUTTON    ⓘ "About Who can do what" · ⓘ "About Amount to pay" · ⓘ "About Change orders" · "on" · "Open workspace"
+STEPS     1. Open Book & Budget at 375.  2. Tap each ⓘ with a thumb.  3. Press "Open workspace".
+EXPECTED  Every tap target at least 44 px (Add 5); every control goes somewhere new.
+ACTUAL    The three ⓘ are 16 × 16 px, the "on" control is 13 × 16 px and changes nothing visible. "Open workspace"
+          (beside "Message") links to the workspace the person is already in.
+SHOTS     375 px light
+RULE      Add 5 (one hand, 44 px) · design-and-wiring B5 (every press reaches a real destination)
+SEVERITY  look
+SOURCE    SEEN
+```
 
 ### Seed notes (not findings; for whoever re-seeds the copy)
 

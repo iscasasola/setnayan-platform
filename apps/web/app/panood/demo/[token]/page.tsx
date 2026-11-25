@@ -1,5 +1,8 @@
+import Link from 'next/link';
+import { actionButtonClass } from '@/components/action-button-class';
+import { routes } from '@/lib/routes';
 import { after } from 'next/server';
-import { CircleAlert } from 'lucide-react';
+import { CircleAlert, Radio } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import { purgeExpiredDemoSessions, resolveDemoToken } from '@/lib/demo-sessions';
 import { CamJoinFlow } from './_components/cam-join-flow';
@@ -61,8 +64,12 @@ export default async function PanoodDemoJoinPage({ params }: Props) {
           </>
         }
         title="This demo link expired."
-        sub="Demo codes are fresh every time — open a new one from the Live Watch tile on the Setnayan homepage."
+        sub="Demo codes are fresh every time. Open Live Watch and press “Try the control room with two phones” for a new one."
       >
+        <Link href={routes.liveWatch()} className={actionButtonClass('brand', { main: true })}>
+          <Radio aria-hidden strokeWidth={1.9} />
+          <span className="lbl">Open Live Watch</span>
+        </Link>
       </DoorShell>
     );
   }

@@ -1,5 +1,7 @@
 # Final check · Area 2 · Couple: create an event and plan it
 
+STATUS: phase B in progress (lock proof done; walking the staging copy)
+
 > Checker 2 of 8. Report only, no fixes. Main frozen at `fb3f72d`. Phase A = code pass (`SOURCE: CODE`);
 > phase B = browser walk on staging (`SOURCE: SEEN`), not started (no staging address yet).
 > Page list from `pnpm exec tsx scripts/staging/areas.ts --area 2` (67 pages + 6 forwards, same as kit § 4),
@@ -131,6 +133,14 @@
 ## BLOCKERS
 
 None found in the code pass (phase A).
+
+**Phase B, 25 Nov ~07:20 UTC — copy health, NOT filed as a blocker (controller's call):** the staging copy is
+very slow for a signed-in couple. Measured from this cloud container (not from the Philippines), with
+`/api/health` answering in 0.7–0.9 s: `/dashboard` first byte 23–131 s; `/dashboard/[eventId]` (Bea & Paolo)
+17–108 s to first byte; `/dashboard/[eventId]/guests` 104–144 s to usable, and several loads passed 150 s with no
+answer; `/details` and `/checklist` ~105 s. A person would give up. Pages with lighter reads (`/budget`,
+`/documents`, `/access-requests`) answer in 2–6 s. It looks like the copy's database (or eight checkers at once)
+rather than the code, but production should be timed the same way before launch. I cut my own load to 2 tabs.
 
 ## Findings
 

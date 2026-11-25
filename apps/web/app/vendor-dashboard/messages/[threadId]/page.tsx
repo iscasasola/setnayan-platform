@@ -727,6 +727,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
    * Null when there is nothing live to revise: the builder then opens empty,
    * which is the ordinary Build-a-quote, not an error.
    */
+  // 🧾 A6-05 (final check 25 Nov): a refused read of the live quote is said above the builder (`quoteRevisionUnread`) —
+  // the builder opening blank looked like "there is no quote to revise".
+  let quoteRevisionUnread = false;
   const quoteRevisionRead = (async () => {
     let quoteRevision: QuoteRevisionSeed | null = null;
     // The picked client's draw always seeds it: its Quotation node opens on the live quote.
@@ -746,6 +749,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
         .maybeSingle();
       if (liveQuoteErr) {
         console.error('[vendor thread] live quote read for revision refused', liveQuoteErr);
+        quoteRevisionUnread = true;
       } else if (liveQuote) {
         quoteRevision = seedQuoteRevision(liveQuote as QuoteRevisionSource);
       }
@@ -1501,6 +1505,11 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     */
     'build-quote': (
       <div className="space-y-3">
+        {cm === 'quote' && quoteRevisionUnread ? (
+          <ReadFailedNote mark="quote-revision">
+            We couldn&rsquo;t load your last quotation right now, so this one starts empty.
+          </ReadFailedNote>
+        ) : null}
         <ProposalMaker
           threadId={threadId}
           eventDate={event?.event_date ? String(event.event_date).slice(0, 10) : null}

@@ -69,3 +69,8 @@ test('A6-47 · only the brief RPC’s refusals bounce to Clients; a refused cont
   assert.match(client, /We couldn&rsquo;t load this client right now\./);
   assert.match(client, /const hasContract = contracts\.length > 0 \|\| Boolean\(contractRowsError\)/);
 });
+
+test('A6-05 · a refused live-quote read is said above the builder, never a blank builder that reads as "no quote"', () => {
+  assert.match(thread, /quoteRevisionUnread = true/);
+  assert.match(thread, /cm === 'quote' && quoteRevisionUnread \? \(\s*<ReadFailedNote mark="quote-revision">/);
+});

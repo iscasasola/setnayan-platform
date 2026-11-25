@@ -13,7 +13,8 @@ Marks on every page: **OFFLINE** = NEEDED (where signal is lost) / READ-ONLY / N
 
 None proven. Two things the controller should know at once (not counted as blockers, see B5-00 and B5-01):
 - **The copy itself is very slow** (25 Nov, 07:00–07:30 UTC, eight checkers on it): a supplier page took 4–90 s to be ready, the public home page 77 s, `/api/health` 0.6 s. From about 07:15 a password sign-in sometimes did not finish in 150 s. Every speed number in this file is the copy's, not production's.
-- **money-signin, at once:** the Plan page once sent the signed-in Pro shop to sign in (B5-01).
+- **money-signin, at once:** the Plan page once sent the signed-in Pro shop to sign in (B5-01), and so did Verify (B5-05).
+- **money-signin, at once (B5-19, cross-area):** a correct password sometimes lands on `/login?error=%7B%7D` with "Check your email and password". From 07:15 UTC on, live sessions also dropped to the sign-in card mid-walk.
 
 ## Phase A summary (code pass, done)
 
@@ -1548,4 +1549,22 @@ EXPECTED  The popup closes (K3: closes the same way as every other popup).
 ACTUAL    "Do this on your phone" opens and stays open on Escape.
 RULE      HOUSE_DESIGN_STANDARD K3 · Add 5 (same everywhere)
 SEVERITY  broken
+SOURCE    SEEN
+
+#### B5-19 · Sign-in with the right password says "Check your email and password" (`error={}`); live sessions drop mid-walk
+PAGE      /login (area 1's page; hits every signed-in area) · seen from /vendor-dashboard, /vendor-dashboard/subscription
+BUTTON    "Continue" (email + password)
+STEPS     1. Signed out, Use email › Use a password instead. 2. Type the supplier_shop sign-in (correct). 3. Continue.
+EXPECTED  Signed in. If the auth server refuses for its own reason (busy, rate limit), the message says so: "We couldn't
+          reach sign-in. Try again in a moment.", never a hint that the password is wrong.
+ACTUAL    Between 08:00 and 08:30 UTC, several sign-ins with the correct password went to `/login?error=%7B%7D&next=%2F`
+          (the error is an empty object). The card reads "We could not sign you in. Check your email and password, or
+          try again in a moment." One retry at 08:31 succeeded after 80 s. In the same window, three already signed-in
+          sessions landed on the sign-in card when opening Today and the Plan page (B5-01, B5-05 are the same pattern).
+          Likely cause: the copy's auth refusing under load. I ran up to five sign-ins of this one account in parallel,
+          on top of the other seven checkers, so this checker's own load is part of it. The wording is the finding
+          either way: an empty server error is reported to the person as their own mistake.
+SHOTS     checker set: `login-error-empty.png` (375 light), the press-pass rows for Today and Plan (5 controls = the sign-in card)
+RULE      kit § 6 money-signin (signing in) · CLAUDE.md § 5.4 honest states (a failure says its real reason)
+SEVERITY  money-signin
 SOURCE    SEEN

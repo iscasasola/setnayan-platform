@@ -104,6 +104,8 @@ export type DetailsData = {
   fairWords: ClaimWord[] | null;
   sameDayAvailable: boolean;
   socialFeatureOptOut: boolean;
+  /** 🪪 false = the shop's own row was refused: its switches and plan are unknown (final check A5-G5-05). */
+  visibilityMeasured: boolean;
   socialAlreadyFeatured: boolean;
   openCorrections: VendorCorrectionRequestRow[];
   /**
@@ -395,6 +397,7 @@ export async function loadDetailsData(
     website: profile.website,
     about,
     sameDayAvailable: own.same_day_available === true,
+    visibilityMeasured: ownMeasured,
     socialFeatureOptOut: own.social_feature_opt_out === true,
     socialAlreadyFeatured: own.social_featured_at != null,
     openCorrections,

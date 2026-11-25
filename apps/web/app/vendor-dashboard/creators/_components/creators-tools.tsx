@@ -85,8 +85,8 @@ export function SendOfferButton({
 }: {
   creatorUserId: string;
   creatorName: string;
-  /** The database's Pro floor on sending — see the page body. */
-  sendNeedsPro: boolean;
+  /** The database's Pro floor on sending — see the page body. 'unread' = the plan read was refused. */
+  sendNeedsPro: boolean | 'unread';
 }) {
   const [open, setOpen] = useState(false);
   const [rate, setRate] = useState('');
@@ -137,7 +137,11 @@ export function SendOfferButton({
             Free to send; the offer expires if they don&rsquo;t reply within 14 days. Discounts settle off-platform —
             Setnayan never touches the money.
           </InfoTip>
-          {sendNeedsPro ? (
+          {sendNeedsPro === 'unread' ? (
+            <p className="text-sn-base text-[color:var(--m-slate-2)]" data-plan-unread="">
+              Couldn&rsquo;t read your plan just now. Send checks it.
+            </p>
+          ) : sendNeedsPro ? (
             <p className="inline-flex items-center gap-1.5 text-[14px] text-[color:var(--m-slate-2)]">
               <PaidMark state="try" label="Part of every paid plan — draft it here; Send asks for a plan" size="xs" />
               Sending an offer is part of every paid plan. Draft it here — Send asks for the plan.

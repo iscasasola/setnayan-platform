@@ -20,7 +20,7 @@ None yet.
 - [x] /3d_plan/demo/[token] · OFFLINE: NOT NEEDED · SHAPE: PAGE = (opened from a QR)
 - [x] /dashboard/[eventId]/plan3d · OFFLINE: READ-ONLY (at the venue on the day; agree it is saved for the day — today it is not, no Seats address is in `OFFLINE_COPY_SHAPES`) · SHAPE: PAGE = (a forward to Guests › Seats › 3D, which keeps its own address `?gview=seats&seat=3d`; its View only card and Accents sheet differ, see A7-08, A7-09)
 - [x] /dashboard/[eventId]/studio/panood/setup/venue-check · OFFLINE: NOT NEEDED (it measures the signal; with none it says "We couldn't reach Setnayan from here") · SHAPE: PAGE = (opened on a phone at the venue; the place note is for the coordinator)
-- [ ] /dashboard/[eventId]/vendors/[vendorId]/workspace
+- [x] /dashboard/[eventId]/vendors/[vendorId]/workspace · OFFLINE: NOT NEEDED (money is never kept offline, HOUSE F2; the day's supplier contacts are on the saved Home › Today and Schedule) · SHAPE: PAGE = (its own address with `?tab=` and `#payments` doors; its sheets differ, see A7-26)
 - [x] /for-coordinators · OFFLINE: NOT NEEDED · SHAPE: PAGE =
 - [x] /pa3d · OFFLINE: NOT NEEDED · SHAPE: PAGE =
 - [x] /pa3d/try · OFFLINE: NOT NEEDED · SHAPE: PAGE = (the link people paste)
@@ -398,5 +398,146 @@ ACTUAL    `const { data: event } = await eventRowOnce(…)` drops the error, so 
 SHOTS     375 px light + dark (result screen)
 RULE      CLAUDE.md §5 rule 4 · HOUSE E2.2 · HOUSE Part I.3 (one hero metric)
 SEVERITY  look
+SOURCE    CODE
+```
+
+> A7-21 to A7-27 cover the hosts' picked-supplier page (the shared workspace). It is ≈3,200 lines plus 30 parts; a
+> helper read swept it rule by rule, and every finding below was re-read in the code before it was written here.
+> Production draws it through `PickedSupplierShell` (`NEXT_PUBLIC_RELATIONSHIP_WORKSPACE_ENABLED`), tabs Details ·
+> Book & Budget · Schedule · Files · Chat. Nothing dead was found: every typed route exists, no `#`, no empty handler.
+> No "vendor" in any word a person reads.
+
+### A7-21 · Details says "Booked" over a supplier who is not booked
+
+```
+PAGE      /dashboard/[eventId]/vendors/[vendorId]/workspace?tab=details   (event: stg-bea-paolo, a supplier in each state)
+BUTTON    none — the green chip in the top block
+STEPS     1. From Chats (or Suppliers), open a supplier who is only shortlisted, or who declined, or whose request expired.
+EXPECTED  The chip names the real state; "booked" is decided by BOOKED_EVENT_VENDOR_STATUSES.
+ACTUAL    `heroSection` draws "Asked" only when `lockRequestStateOf(…) === 'requested'`, and green "Booked" for every
+          other state — none, declined, cancelled, expired. The colour-access card says "{category} · booked for this
+          event" the same way. Two hand-written lists also decide "booked" on this page: `inferStage` (contracted ·
+          deposit_paid · delivered · complete → `isBooked`, the steps, the quote schedule) and
+          `const BOOKED = new Set([...])` in `promote-coordinator-card.tsx`.
+SHOTS     375 px light + dark, for a declined supplier
+RULE      CLAUDE.md §4 (Booked = BOOKED_EVENT_VENDOR_STATUSES) · design-and-wiring C8
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### A7-22 · A failed contact read shows a blank card, and "Save" then wipes the saved address
+
+```
+PAGE      /dashboard/[eventId]/vendors/[vendorId]/workspace?tab=details   (a supplier the hosts added themselves)
+BUTTON    "Save their details"
+STEPS     1. Open a self-added supplier while the `manual_vendors` read fails.  2. Type a phone number.  3. Save.
+EXPECTED  "Couldn't load their details" and no save over data the page never read.
+ACTUAL    `manualContactRes?.data ?? null` never checks the error, so the card shows empty fields and "No contact yet.
+          Add one so you can reach {name}." The save always writes `address: address.value` (`actions.ts`), so the
+          blank address field overwrites the stored one, and the payment note with it when the form sends it.
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  broken
+SOURCE    CODE
+```
+
+### A7-23 · Failed reads on the workspace are drawn as "nothing there"
+
+```
+PAGE      /dashboard/[eventId]/vendors/[vendorId]/workspace   (Files · Schedule · Details · Book & Budget tabs)
+BUTTON    none — the sections
+STEPS     1. Open the page when each read below is refused.
+EXPECTED  "Couldn't load …" with Try again, never an empty or zero state.
+ACTUAL    Each read logs the error and then empties itself (`?? []`):
+          · Files: `handovers = handoverRows ?? []` → `HandoverInbox` returns null — the delivered gallery with
+            "Open album" / "Confirm receipt" vanishes. The code's own comment names this exact danger.
+          · Schedule: `apptRows ?? []` → "No appointments yet. Propose a meeting…" — invites a duplicate booking.
+          · Details: `grantRows ?? []` / `changeRows ?? []` → colour access "Off", "No changes yet", and the Reject
+            buttons for changes already made are hidden.
+          · Book & Budget (catering / crew meals): `eventVendorCrewRows ?? []` → "Feeding 0 crew meals … they see
+            this count on their production sheet."
+SHOTS     375 px light, one per tab
+RULE      CLAUDE.md §5 rule 4 (copy guests-read-is-honest)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### A7-24 · Money on the workspace: a failed payments read reads as nothing paid; two amounts due; its own peso formatter
+
+```
+PAGE      /dashboard/[eventId]/vendors/[vendorId]/workspace?tab=budget   (event: stg-bea-paolo, a supplier with payments)
+BUTTON    none — "Paid so far", the Next step row, "Amount to pay", Costing's "Total"
+STEPS     1. Open Book & Budget when the payments read is refused.  2. Open it for a supplier whose accepted quote has its
+             own schedule.  3. Look at an amount with centavos (e.g. ₱837.50).
+EXPECTED  A refused read says so; one amount due everywhere; pesos only through lib/php.ts.
+ACTUAL    · `paidSoFarPhp` takes `vendorBudgetSummary.paidTotal`, which is 0 when `paymentsMeasured` is false; the page
+            never checks that flag, so "Paid so far" disappears — the same as nothing paid. When the summary itself
+            fails: "No payment milestones added yet. Add a line item or log a payment…"
+          · The Next step row above Chat reads the payment plan's due step (`planProgress`), while "Amount to pay" reads
+            `readBookedMoney` and can show the accepted quote's schedule — two different amounts due.
+          · A page-local `formatPHP` (`maximumFractionDigits: 0`) prints ₱837.50 as ₱838 for Paid so far, Price and
+            Total, while `VendorItemizationCard` on the same page prints ₱837.50. More local formatters: refunds
+            (`toLocaleString`), `pesoFromCentavos`, `fmtPeso`, `peso`, `fmtPHP`. Costing's "Total" is added up on the
+            page (`serviceNowNum + transportNum + foodNum`, `?? '₱0'`), not read from `resolveEventMoney`.
+SHOTS     375 px light + dark
+RULE      CLAUDE.md §1 (money via lib/php.ts) · §4 (resolveEventMoney) · §5 rule 4
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+### A7-25 · The workspace's screens each carry several main buttons
+
+```
+PAGE      /dashboard/[eventId]/vendors/[vendorId]/workspace   (Book & Budget · Details)
+BUTTON    "Pay {supplier}", "Save costs", "Save crew", "Record payment", "Propose a change", "Log ₱X", "Send it again";
+          "Save their details", "Save details", "Save answers", "Yes, I got everything", "Leave a review"
+STEPS     1. Open Book & Budget.  2. Open Details.
+EXPECTED  One filled main button per screen, sheet or card; every other button neutral or a text link.
+ACTUAL    Book & Budget: "Pay {supplier}" (`tone="brand" main`) plus "Save costs" and "Save crew" (`bg-mulberry`
+          fills) on one screen; "Record payment", "Propose a change", "Log ₱X" are `tone="brand"` without `main`
+          (accent-outlined); after a refusal `main={declined || …}` makes "Send it again" a second main beside "Pay"
+          in one card. Details: "Save their details" and "Save details" are both `tone="brand" main` (a third,
+          "Move", while its confirm is open); for a Setnayan supplier, "Save answers" per form plus "Yes, I got
+          everything" / "Leave a review" (`bg-mulberry`).
+SHOTS     375 px light + dark, each tab
+RULE      HOUSE K1
+SEVERITY  look
+SOURCE    CODE
+```
+
+### A7-26 · Workspace popups: a hand-made popup over the pay sheet; long sheets that should rise full screen
+
+```
+PAGE      /dashboard/[eventId]/vendors/[vendorId]/workspace?tab=budget
+BUTTON    "Pay {supplier}" → "Show QR" / a method's "Pay"; "Record payment"; "Propose a change"; Photo approvals
+STEPS     1. Press "Pay {supplier}", then "Show QR".  2. Press "Record payment".  3. Press "Propose a change".
+EXPECTED  One layer at a time, each a shared part; more than one short screen or a photo → RiseScreen.
+ACTUAL    · "Show QR" and "You're leaving Setnayan" open a hand-made `ModalShell` (`role="dialog"`, `fixed inset-0
+            z-[60]`, `vendor-direct-pay.tsx`) on top of the "Direct payment" `Sheet` — a popup on a popup. Each link
+            method there also draws its own filled `bg-terracotta-700` "Pay" (several mains in one sheet).
+          · "Log your payment" is a half `Sheet` with amount, method, reference and a proof photo → SHOULD be a
+            full-screen popup (a photo, four fields).
+          · "Propose a change" is a `Sheet` with a toggle and four fields → SHOULD be full screen.
+          · Photo approvals is a `Sheet` holding a list of photos with Show/Hide each → SHOULD be full screen.
+SHOTS     375 px light + dark, each open
+RULE      SHAPE (owner 25 Nov) · HOUSE K3.4 · CLAUDE.md §3 (no new hand-rolled dialog)
+SEVERITY  look
+SOURCE    CODE
+```
+
+### A7-27 · A failed "Save costs" or "Save crew" throws the whole screen away
+
+```
+PAGE      /dashboard/[eventId]/vendors/[vendorId]/workspace?tab=budget
+BUTTON    "Save costs" · "Save crew"
+STEPS     1. Change a cost.  2. Save while the accepted-quote read or the write fails.
+EXPECTED  The row stays, with "That did not save. Nothing changed — please try again." (HOUSE F4).
+ACTUAL    Both are bare `<form action={updateVendorCosts}>`; the action `throw`s (`vendors/actions.ts`) and there is no
+          `error.tsx` under `/dashboard/[eventId]` except `seating/`, so the root error page replaces the screen.
+          `quote-bridge.tsx` shows the same action's `err.message`, which in production is Next's generic
+          server-render text. (What exactly is drawn: confirm in the browser.)
+SHOTS     375 px light
+RULE      HOUSE F4 · CLAUDE.md §5 rule 4
+SEVERITY  broken
 SOURCE    CODE
 ```

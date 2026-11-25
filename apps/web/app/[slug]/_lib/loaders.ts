@@ -1883,6 +1883,7 @@ export const loadGuestContext = cache(
           })()),
           uploadOwner: papicOwnerTag('guest', guest.guest_id, event.event_id),
           initialRemaining: quota.remaining,
+          remainingUnread: quota.countUnread === true,
           total: quota.total,
           termsAccepted: Boolean(
             (ugcRow as { ugc_terms_accepted_at?: string | null } | null)

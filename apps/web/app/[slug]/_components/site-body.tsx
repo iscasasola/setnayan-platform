@@ -3736,6 +3736,7 @@ export async function SiteBody({
                   eventId={event.event_id}
                   uploadOwner={papicGuest.uploadOwner}
                   initialRemaining={papicGuest.initialRemaining}
+                  remainingUnread={papicGuest.remainingUnread === true}
                   total={papicGuest.total}
                   termsAccepted={papicGuest.termsAccepted}
                   needsFaceEnroll={needsFaceEnroll}

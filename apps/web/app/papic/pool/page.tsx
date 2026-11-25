@@ -59,11 +59,13 @@ export default async function PapicPoolPage() {
   // owner's "no dead door" rule). The RPC re-checks the same gate on every
   // read, so closing is retroactive even mid-session.
   const admin = createAdminClient();
-  const { data: ev } = await admin
+  const { data: ev, error: evErr } = await admin
     .from('events')
     .select('display_name, pool_gallery_open, event_date, event_type, papic_window_start')
     .eq('event_id', session.event_id)
     .maybeSingle();
+  // 🔌 A4-79: a failed read is not "the couple closed the gallery" (a 404) — it throws (the error boundary).
+  if (evErr) throw new Error(`papic/pool: could not read the event: ${evErr.message}`);
   if (!ev?.pool_gallery_open) notFound();
 
   const firstPage = await getPoolGalleryPage(session.guest_id);

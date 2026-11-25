@@ -81,10 +81,12 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
   // 🔴 OUR READ WAS REFUSED — the link may well be fine. Not the terminal
   // "isn't active" branch below: that sends a crew member to the host for a new
   // link when the fault was ours. Falls through to the claim form (S41b).
-  const checkUnreadable = state === 'unreadable';
+  // 🔌 A4-54: `?state=error` is OUR failure too (the claim RPC or the anon sign-in answered with an error) — a
+  // retryable notice over the form, never the terminal "isn't active".
+  const checkUnreadable = state === 'unreadable' || state === 'error';
 
-  // Invalid / expired / soft error.
-  if (state === 'invalid' || state === 'error') {
+  // Invalid / expired (a soft error is retryable above).
+  if (state === 'invalid') {
     return (
       <DoorShell
         tone="dead_end"

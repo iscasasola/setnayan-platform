@@ -375,6 +375,8 @@ export type GuestPapicCamera = {
    *  (lib/papic-upload/owner-tag.server.ts). Null when the seal is missing. */
   uploadOwner: string | null;
   initialRemaining: number;
+  /** 🔌 A4-66: the spent count could not be read — the counter says so instead of the full allowance. */
+  remainingUnread?: boolean;
   total: number;
   termsAccepted: boolean;
   /** Does the per-guest ceiling actually bind here? Mirrors BOTH disjuncts of

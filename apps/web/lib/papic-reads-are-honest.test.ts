@@ -137,6 +137,10 @@ test('seat claim: a refused read routes to the retryable form, never the dead-li
   ]);
   const page = src('app/papic/claim/[token]/page.tsx');
   assert.equal(all(page, "state === 'unreadable'").length, 1, 'the claim page reads the state');
-  assert.equal(all(page, "if (state === 'invalid' || state === 'error') {").length, 1, 'the terminal branch is unchanged — and does not swallow unreadable');
+  // A4-54 (final check, 25 Nov): `?state=error` is our own failure too, so it joined the retryable notice; only a
+  // dead token is terminal now.
+  assert.equal(all(page, "if (state === 'invalid') {").length, 1, 'the terminal branch is the dead token alone');
+  assert.equal(all(page, "state === 'unreadable' || state === 'error'").length, 1, 'our own error is retryable, never "isn\'t active"');
+  assert.equal(all(page, "state === 'error') {").length, 0, 'no terminal branch swallows our own error');
   assert.equal(all(page, '{checkUnreadable ? (').length, 1, 'the claim form says why');
 });

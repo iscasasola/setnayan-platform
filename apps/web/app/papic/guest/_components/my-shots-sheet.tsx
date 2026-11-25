@@ -76,12 +76,15 @@ export function MyShotsSheet({
   open,
   onClose,
   shots: given,
+  earlierUnread = false,
   eventId,
   onAddFromPhone,
 }: {
   open: boolean;
   onClose: () => void;
   shots: MyShot[];
+  /** 🔌 A4-61: the earlier shots could not be read — never drawn as "none yet". */
+  earlierUnread?: boolean;
   eventId: string;
   /**
    * 📲 "Add from your phone" (guest upload v2, approved 2026-11-13) — the one button in this sheet's head. Null when
@@ -192,8 +195,15 @@ export function MyShotsSheet({
           </div>
         ) : null}
 
+        {earlierUnread ? (
+          <p role="status" className="px-4 pt-3 text-center text-sm text-cream/60">
+            Couldn’t read your earlier shots. Reload the page in a moment to see them.
+          </p>
+        ) : null}
         {n === 0 ? (
-          <p className="px-4 py-8 text-center text-sm text-cream/60">Your shots land here as you take them.</p>
+          earlierUnread ? null : (
+            <p className="px-4 py-8 text-center text-sm text-cream/60">Your shots land here as you take them.</p>
+          )
         ) : (
           <ul className="grid flex-1 grid-cols-3 content-start gap-0.5 overflow-y-auto pb-5" aria-label="Shots">
             {shots.map((s, i) => (

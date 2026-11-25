@@ -1483,7 +1483,18 @@ self.addEventListener('fetch', (event) => {
           return response;
         })
         .catch(() =>
-          caches.match(request).then((c) => c ?? caches.match('/offline.html')),
+          caches.match(request).then(
+            (c) =>
+              c ??
+              // 🔌 A4-70 (final check, 25 Nov): the camera's ✕ comes back to this Hub with `?tab=…&added=N`, an address
+              // never kept — so with no signal the guest landed on offline.html although the Hub WAS saved. Any saved
+              // copy of the same Hub page (this cache only: the per-person Me copy lives elsewhere) beats the
+              // offline page.
+              caches
+                .open(DAYOF_CACHE)
+                .then((cache) => cache.match(request, { ignoreSearch: true }))
+                .then((same) => same ?? caches.match('/offline.html')),
+          ),
         ),
     );
     return;

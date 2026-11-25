@@ -31,12 +31,17 @@ export async function prepareGuestStory(token: string): Promise<GuestStoryPlan> 
   if (!cleanToken) return empty;
 
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from('guests')
     .select('guest_id, event_id')
     .eq('qr_token', cleanToken)
     .is('deleted_at', null)
     .maybeSingle();
+  // 🔌 A4-75: a failed read is not "no tagged photos of you just yet".
+  if (error) {
+    console.error('[supabase-error] app/papic/me/[token]/actions.ts · prepareGuestStory guests.select', error);
+    return { ...empty, readFailed: true };
+  }
   if (!data) return empty;
 
   return await buildGuestStoryPlan(data.event_id as string, data.guest_id as string);

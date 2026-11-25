@@ -77,7 +77,8 @@ test('A4-52 · a failed alerts subscribe keeps the ask and says so', () => {
 test('A4-34 · the three seat pages read tables through lib/seating.ts fetchTables, never their own copy', () => {
   for (const rel of ['app/[slug]/seat/page.tsx', 'app/[slug]/find-seat/page.tsx', 'app/[slug]/find-my-table/page.tsx']) {
     const src = code(rel);
-    assert.doesNotMatch(src, /\.from\('event_tables'\)/, `${rel} reads event_tables itself`);
+    // A list read of the event's tables (the seat plan) — `/seat`'s one-table lookup by a QR token is not one.
+    assert.doesNotMatch(src, /\.from\('event_tables'\)[^;]{0,300}?\.order\(/, `${rel} reads the event's tables in its own order`);
     assert.doesNotMatch(src, /async function fetchTables\(/, `${rel} shadows the shared reader`);
     assert.match(src, /fetchTables\(admin, (?:event\.event_id|eventId)\)/, `${rel} does not use the shared reader`);
   }

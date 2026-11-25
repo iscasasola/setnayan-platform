@@ -1523,7 +1523,8 @@ EXPECTED  A locked card shows read-only fields (no pencil, no add-photo tile); a
 ACTUAL    "Can't edit while booked 🔒" sits above a Name box with a pencil and an empty add-photo tile. The Name box shows
           the middle of the name ("wanag Photo & F", "grapher by Liwan"). The Cancel / Locked bar floats on top of the
           bottom nav, so two bars stack at the thumb. The back link reads "Shop" on edit and "Services" on new (the same
-          place).
+          place). Checked by hand: the locked card's whole form is `inert`, so the ⓘ notes, "About this card" and
+          "Show me" cannot be pressed either. A supplier can't even read why a field is the way it is (B5-22).
 SHOTS     checker set: w2 `_vendor_dashboard_services_09957d94…-375-light.png`, x2 `…services_new_photographer-375-light.png`
 RULE      Add 5 (first-timer, one hand) · Add 2 CLEAN
 SEVERITY  look
@@ -1711,4 +1712,67 @@ ACTUAL    "Free · Plus ◆ · Pro ◆": Verified and Ultra are missing, and Pro
 SHOTS     checker set: x3 `_vendor_dashboard_website-375-light.png`, r1 `_vendor_dashboard_subscription-375-light.png`
 RULE      Add 4 (what you have now; never offer what they own) · CLAUDE.md § 1 plans
 SEVERITY  wrong
+SOURCE    SEEN
+
+#### B5-22 · A booked card's maker is entirely inert: its ⓘ notes and "About this card" do nothing
+PAGE      /vendor-dashboard/services/[serviceId] (any card with an open booking)
+BUTTON    "About this card", each ⓘ, "Show me", every field
+STEPS     1. Open the Classic package (booked). 2. Press any ⓘ.
+EXPECTED  Locked fields read-only, but help and reading controls still work; or one clear "Locked" screen with no
+          dead controls.
+ACTUAL    The whole form is wrapped in `inert`; 21 controls on it do nothing when pressed, and they are drawn as live
+          (pencils, ⓘ, the add-photo tile).
+SHOTS     checker set: w2 `_vendor_dashboard_services_09957d94…-375-light.png`
+RULE      design-and-wiring B5 (every press reaches a real action) · Add 5 (first-timer)
+SEVERITY  broken
+SOURCE    SEEN
+
+#### B5-24 · "Free forever · Every free widget is yours to keep" on every Toolkit item page
+PAGE      /vendor-dashboard/shop/store/[shelf]/[item], e.g. /vendor-dashboard/shop/store/tools/run_of_show
+STEPS     1. Toolkit › any free widget. 2. Read "What it adds to your shop".
+EXPECTED  No price promise (brand.md 3: never "free for life", "always free").
+ACTUAL    "Free forever · Every free widget is yours to keep." The same page also repeats the store's whole count line
+          ("10 widgets · 14 templates · 4 QR designs · 29 graphs · 6 badges") under every item's title.
+SHOTS     checker set: x3 `_vendor_dashboard_shop_store_tools_run_of_show-375-light.png`
+RULE      docs/brand.md claims never made, 3 · Add 2 CLEAN
+SEVERITY  wrong
+SOURCE    SEEN
+
+#### B5-25 · Attributes says "No services yet" to a shop with a live service and four cards
+PAGE      /vendor-dashboard/attributes
+STEPS     1. Open Attributes as the Liwanag shop (Photo & Video, four live cards).
+EXPECTED  The shop's service (Photo & Video) listed with its fields to fill.
+ACTUAL    Header "0 services"; "No services yet. Tap + to add your first one — it shows in the marketplace under its
+          category once saved." Your details says "What you do · Photo & Video · Done".
+SHOTS     checker set: x1 `_vendor_dashboard_attributes-375-light.png`
+RULE      design-and-wiring C8 (one reader) · kit § 5.3
+SEVERITY  wrong
+SOURCE    SEEN
+
+#### B5-26 · Five different back buttons, and seven pages with no visible title
+PAGE      across the area
+STEPS     1. Walk the area at 375 and look at each page's top-left.
+EXPECTED  One back control and a PageMasthead title on every page (lint:masthead holds the component, not that it shows).
+ACTUAL    Back controls: a round ‹ (Segments, Attributes, Creators, Lines, Toolkit, QR pages…), a grey "← Today" box (Team,
+          Profile, Settings), a grey "← Shop" box (Their work), a "← Back" pill (Who gets new inquiries), a plain "‹ Shop" or
+          "← Services" text link (card maker) and "‹ Your requests" (a request). No visible title (the h1 is screen-reader
+          only or absent): Deep Search, Packages, Albums by event, Help, Partnerships, Your requests, Tell us what you do.
+          "Who gets new inquiries" uses a 30 px two-line title where its siblings use the 19 px row title.
+SHOTS     checker set: x1/x2/x3/r1 375 light of each page named
+RULE      Add 5 (same everywhere) · CLAUDE.md § 3 (PageMasthead on every page)
+SEVERITY  look
+SOURCE    SEEN
+
+#### B5-27 · Today: "You're done for today" twice, directly above "Tomorrow 3"
+PAGE      /vendor-dashboard after "Do it tomorrow" on every task
+STEPS     1. On Today, open each "Reply to …" task and press "Do it tomorrow".
+EXPECTED  One line that says the day is clear; the snoozed tasks below it.
+ACTUAL    The heading becomes "✓ You're done for today" and an empty-state block below the list says it again ("You're
+          done for today · Nothing waiting on you. New asks land here first"). Between them sit "Needs you today" (empty
+          band) and "Tomorrow 3" with three unanswered couples.
+          **Data this checker changed:** the press pass pressed "Do it tomorrow" on all three reply tasks of the
+          supplier_shop account, so they return on Today tomorrow (26 Nov). Nothing else was written.
+SHOTS     checker set: `do-it-tomorrow.png`
+RULE      Add 2 CLEAN (nothing twice) · honest states
+SEVERITY  look
 SOURCE    SEEN

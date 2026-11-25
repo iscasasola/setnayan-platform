@@ -109,6 +109,13 @@ type Rows = {
 const RowsContext = createContext<Rows | null>(null);
 
 /**
+ * 🔒 EVERY ROW READ-ONLY (a booked card, final check B7): set once around a form, and every `TypedRow` inside it — the
+ * card's own and its sub-editors' — draws its answer as plain words with no pencil, whatever it was passed. Default
+ * false: every form as shipped.
+ */
+export const FormRowsReadOnly = createContext(false);
+
+/**
  * A list of rows: its pills share ONE width, and one of its fields is open at a time.
  * (Rows drawn outside a list still work — each keeps its own state and takes the `wide` pill.)
  */
@@ -535,6 +542,8 @@ export function TypedRow({
   below?: ReactNode;
 }) {
   const rows = useContext(RowsContext);
+  const lockedByForm = useContext(FormRowsReadOnly);
+  const asRead = readOnly || lockedByForm;
   const width = usePillWidth();
   const id = useId();
   const nameId = useId();
@@ -567,7 +576,7 @@ export function TypedRow({
   /* 📱 Is there a row to go on to? Its field's keyboard then says "next" (decided as it opens). */
   const [onwards, setOnwards] = useState(false);
   const open = () => {
-    if (mode !== 'shut') return;
+    if (mode !== 'shut' || asRead) return;
     setOnwards(tabRowFrom(root.current, 1) !== null);
     rows?.setOpen(id);
     setMode('open');
@@ -577,6 +586,7 @@ export function TypedRow({
   useEffect(() => {
     if (openAsk === asked.current) return;
     asked.current = openAsk;
+    if (asRead) return;
     setOnwards(tabRowFrom(root.current, 1) !== null);
     rows?.setOpen(id);
     setMode((m) => (m === 'shut' ? 'open' : m));
@@ -745,7 +755,15 @@ export function TypedRow({
           onEnd={end}
           onGone={closed}
         />
-      ) : readOnly ? (
+      ) : asRead && long ? (
+        // A long answer (a description) read-only: its words under its name, a few lines, nothing to press.
+        <div className="flex flex-col gap-1.5 pb-3 pt-2.5" data-form-row-readonly="long">
+          <RowName name={name} about={about} needed={false} nameId={nameId} />
+          <span {...pillAttrs} data-form-row-words="" className={`line-clamp-4 whitespace-pre-wrap break-words text-sn-lg ${words ? 'text-ink' : 'text-ink/45'}`}>
+            {words || empty}
+          </span>
+        </div>
+      ) : asRead ? (
         <div className={FORM_ROW_LINE} data-form-row-readonly="">
           <RowName name={name} about={about} needed={false} nameId={nameId} />
           <span {...pillAttrs} data-form-row-words="" className={`min-w-0 truncate text-right ${words ? 'text-ink' : 'text-ink/45'}`}>

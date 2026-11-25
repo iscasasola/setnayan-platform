@@ -25,6 +25,7 @@ import {
   type VendorDealFacts,
 } from './promo-free-windows';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export function isVendorFeatureGateEnabled(): boolean {
   return envFlagEnabled(process.env.VENDOR_TIER_FEATURE_GATE);
@@ -124,7 +125,11 @@ export async function readVendorTier(
   const row = data as
     | ({ tier_state?: string | null } & Partial<VendorDealFacts>)
     | null;
-  if (error || !row) return { tier: 'unread', storedTier: null, facts: null };
+  if (error || !row) {
+    // Logged, never dropped: the screen says "Couldn't read" and the reason stays in the logs.
+    if (error) logQueryError('readVendorTier', error, { vendorProfileId }, 'graceful_degrade');
+    return { tier: 'unread', storedTier: null, facts: null };
+  }
   const facts: VendorDealFacts = {
     verification_state: row.verification_state ?? null,
     created_at: row.created_at ?? null,

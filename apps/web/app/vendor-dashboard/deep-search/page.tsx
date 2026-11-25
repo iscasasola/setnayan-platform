@@ -200,16 +200,14 @@ export default async function VendorDeepSearchPage() {
         </section>
       ) : null}
 
-      {historyUnread ? (
+      {historyUnread || uses.length > 0 ? (
         <section className="sn-tile mt-6 p-6">
           <p className="sn-eye">Search history</p>
-          <div className="mt-3">
-            <ReadFailedNote mark="deep-search-history">We couldn&rsquo;t load your searches right now.</ReadFailedNote>
-          </div>
-        </section>
-      ) : uses.length > 0 ? (
-        <section className="sn-tile mt-6 p-6">
-          <p className="sn-eye">Search history</p>
+          {historyUnread ? (
+            <div className="mt-3">
+              <ReadFailedNote mark="deep-search-history">We couldn&rsquo;t load your searches right now.</ReadFailedNote>
+            </div>
+          ) : (
           <ul className="mt-3 divide-y" style={{ borderColor: 'var(--m-line)' }}>
             {uses.map((u) => {
               const d = u.dossier_id != null ? dossierById.get(u.dossier_id) : undefined;
@@ -247,6 +245,7 @@ export default async function VendorDeepSearchPage() {
               );
             })}
           </ul>
+          )}
         </section>
       ) : null}
     </div>

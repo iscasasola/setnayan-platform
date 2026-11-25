@@ -18,6 +18,7 @@ import { guestPhotoDisplayUrls } from '@/lib/uploads';
 import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests';
 import { companionNames } from '@/lib/extra-seats';
 import { DeskSavedMark } from '@/app/_components/offline-ready/desk-saved-mark';
+import { NeedsInternetGuard } from '@/app/_components/offline-ready/needs-internet-guard';
 import { EVENT_CLOCK_COLUMNS, theDayInstantsOf } from '@/lib/event-clock';
 import { eventClockOf } from '@/lib/event-clock.server';
 import { readDeskViewer } from '@/lib/checkin-desk.server';
@@ -305,6 +306,8 @@ export default async function CheckinDeskPage({ params }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-2xl tab:max-w-3xl xl:max-w-5xl px-4 py-6 sm:px-6">
+      {/* 📶 R15 — with no signal, the Maker's door in the menu greys out and says "Needs internet". */}
+      <NeedsInternetGuard />
       <Link
         href={`/dashboard/${eventId}/guests`}
         className="inline-flex items-center gap-1.5 text-sm text-ink/60 hover:text-ink"

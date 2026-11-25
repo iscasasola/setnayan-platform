@@ -24,18 +24,33 @@ import path from 'node:path';
 import vm from 'node:vm';
 
 import {
+  GUEST_HUB_ANSWER,
+  GUEST_HUB_ROOMS_KEPT,
+  GUEST_HUB_TABS_KEPT,
   OFFLINE_COPIES_CACHE,
   OFFLINE_COPIES_WIPE_SCRIPT,
   OFFLINE_COPY_UNREAD,
+  OFFLINE_MAX_PAGES,
   OFFLINE_REGISTRY_PATH,
   coordinatorSchedulePath,
+  guestHubSavePaths,
+  offlineCopiesUntil,
   parseOfflineRegistry,
   savedAtFor,
   savedMark,
   staleFor,
   supplierSchedulePath,
 } from '@/lib/offline-copies';
-import { guestMePath, isOfflineCopyPath, offlineCopyEventId } from '@/lib/offline-copy-addresses';
+import { DB_MIRRORED_RESERVED_SLUGS, RESERVED_SLUGS } from '@/lib/reserved-slugs';
+import { DOOR_LABELS } from '@/lib/door-map';
+import {
+  HUB_PAGE_WORDS,
+  guestHubAddress,
+  guestMePath,
+  isOfflineCopyPath,
+  offlineCopyEventId,
+  offlineCopyKey,
+} from '@/lib/offline-copy-addresses';
 
 const SW_FILE = process.env.SW_OFFLINE_FROM || path.join(import.meta.dirname, '..', 'public', 'sw.js');
 const HOOK = path.join(import.meta.dirname, '_components', 'offline-ready', 'use-offline-copy.ts');
@@ -113,6 +128,16 @@ function boot(o: { ua?: string; host?: string } = {}) {
     sent: [] as string[],
     /** 🧾 The version each address's page draws (`data-sn-copy-version`), as a "Your schedule" page renders it. */
     versions: {} as Record<string, string>,
+    /** 🔒 A guest page names the viewer it was drawn for (`data-sn-copy-viewer`); `unsealed` = the server now draws it
+     *  for a stranger (a rotated QR, a removed guest), with no seal — exactly what the cached hub's seal check does. */
+    unsealed: false,
+    /** 🔗 The address move's switch: a bare guest address forwards to `/{nested}/<event>…` (one 307 hop). */
+    nested: null as string | null,
+    /** 📶 Rooms this viewer cannot open: forwarded to the event's arrival page, or a 404 (E-Gifts off). Bare keys. */
+    forwards: new Set<string>(),
+    missing: new Set<string>(),
+    /** 📣 The announcement card's answer. */
+    announcement: 'Phones down — the ceremony is starting' as string | null,
   };
   const navigator = { onLine: true, userAgent: o.ua ?? CHROME_UA };
   const listeners: Record<string, Array<(ev: Record<string, unknown>) => void>> = {};
@@ -142,14 +167,43 @@ function boot(o: { ua?: string; host?: string } = {}) {
         Object.defineProperty(res, 'type', { value: 'opaqueredirect' });
         return res;
       }
-      const address = url.pathname + url.search;
-      const version = server.versions[address];
-      const html = `<html><body data-build="${server.build}" data-viewer="${server.viewer}">${address}` +
-        (version ? `<div data-schedule-saved="" data-sn-copy-version="${version}"></div>` : '') +
-        `<script src="/_next/static/chunks/app-${server.build}-0123456789abcdef.js?dpl=dpl_${server.build}"></script></body></html>`;
-      const res = new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } });
-      Object.defineProperty(res, 'type', { value: 'basic' });
-      return res;
+      const follows = typeof req !== 'string' && (req as { redirect?: string }).redirect === 'follow';
+      const forward = (to: string) => {
+        // A navigation (or a `redirect: 'manual'` fetch) sees the 307; a following fetch sees where it landed.
+        if (!follows) {
+          const res = new Response('', { status: 307, headers: { Location: to } });
+          Object.defineProperty(res, 'type', { value: 'opaqueredirect' });
+          return res;
+        }
+        return render(new URL(to, origin), true);
+      };
+      const render = (at: URL, redirected: boolean): Response => {
+        const address = at.pathname + at.search;
+        const g = guestHubAddress(address);
+        if (g && server.nested && !g.nested) return forward(`/${server.nested}${g.key}`);
+        if (g && server.missing.has(g.key)) {
+          const res = new Response('Not found', { status: 404, headers: { 'Content-Type': 'text/html' } });
+          Object.defineProperty(res, 'type', { value: 'basic' });
+          return res;
+        }
+        if (g && server.forwards.has(g.key)) return forward(server.nested ? `/${server.nested}/${g.event}` : `/${g.event}`);
+        const done = (res: Response) => {
+          Object.defineProperty(res, 'type', { value: 'basic' });
+          Object.defineProperty(res, 'url', { value: at.href });
+          Object.defineProperty(res, 'redirected', { value: redirected });
+          return res;
+        };
+        if (g && g.suffix === '/announcement') {
+          return done(new Response(JSON.stringify({ body: server.announcement, build: server.build }), { status: 200, headers: { 'Content-Type': 'application/json' } }));
+        }
+        const version = server.versions[address];
+        const seal = g && !server.unsealed ? `<div data-hub-saved="" data-sn-copy-viewer="${server.viewer}" hidden></div>` : '';
+        const html = `<html><body data-build="${server.build}" data-viewer="${server.viewer}">${address}` + seal +
+          (version ? `<div data-schedule-saved="" data-sn-copy-version="${version}"></div>` : '') +
+          `<script src="/_next/static/chunks/app-${server.build}-0123456789abcdef.js?dpl=dpl_${server.build}"></script></body></html>`;
+        return done(new Response(html, { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }));
+      };
+      return render(url, false);
     },
     Request,
     Response,
@@ -203,10 +257,10 @@ function boot(o: { ua?: string; host?: string } = {}) {
     return r ? JSON.parse(await r.text()) : null;
   };
   /** The worker went idle and was started again — its memory is gone, its caches are not. */
-  const restart = () => {
+  const restart = (source?: string) => {
     for (const k of Object.keys(listeners)) delete listeners[k];
     context = makeContext();
-    vm.runInContext(readFileSync(SW_FILE, 'utf8'), context, { filename: 'sw.js' });
+    vm.runInContext(source ?? readFileSync(SW_FILE, 'utf8'), context, { filename: 'sw.js' });
   };
   return { dispatch, post, nav, saveFor, kept, registry, restart, server, navigator, clock, stores, context: () => context, caches };
 }
@@ -392,9 +446,11 @@ test('sign-out: the signed-out landing page deletes the copies and tells the wor
 
 // ── only their own event views ────────────────────────────────────────────────
 
-test('a save may name only its own event’s pages, of the four shapes', async () => {
+test('a save may name only its own event’s pages, of the shapes — and never more pages than the cap', async () => {
   const w = boot();
-  for (const paths of [[`/dashboard/${E2}`], [`/dashboard/${E1}/vendors`], ['/ana-ben'], [`/dashboard/${E1}?x=1`], ['/api/x'], [HOME, DESK, HUB, LIVE, HOME]]) {
+  const tooMany = [HOME, DESK, HUB, LIVE, SCHED, SUP, ...Array.from({ length: OFFLINE_MAX_PAGES - 5 }, () => HOME)];
+  assert.ok(tooMany.length > OFFLINE_MAX_PAGES);
+  for (const paths of [[`/dashboard/${E2}`], [`/dashboard/${E1}/vendors`], ['/ana-ben'], [`/dashboard/${E1}?x=1`], ['/api/x'], tooMany]) {
     const r = await w.saveFor(ANA, E1, paths);
     assert.equal(r?.ok, false, `a save of ${paths} was accepted`);
   }
@@ -656,90 +712,313 @@ test('sign-out wipes it: a guest’s “Remove it from this browser” erases th
   assert.ok(r.kept().includes(HOME));
 });
 
-test('the day-of cache never keeps a guest’s Me — it is per person, kept only by the saved copy', async () => {
+
+// ── 📶 R18 — THE WHOLE EVENT HUB, SAVED FOR ITS GUEST (owner 2026-11-24) ───────────────────────────────────────────
+
+const BASE = `/${SLUG}`;
+const NEST = 'ana'; // the creator's username, once the address move's switch is on
+/** Every page this guest's bar offers on The Day, as the hub mark asks for them (`guestHubSavePaths`). */
+const HUB_PAGES = guestHubSavePaths(BASE, ['live', 'home', 'details']);
+const hubSave = (w: ReturnType<typeof boot>, paths: string[] = HUB_PAGES, extra: Record<string, unknown> = {}) =>
+  w.post({ type: 'OFFLINE_SAVE', viewer: GUEST, eventId: SLUG, until: w.clock.now + 30 * HOUR, paths, ...extra });
+const guestWorker = () => {
+  const w = boot();
+  w.server.viewer = GUEST;
+  return w;
+};
+/** A non-navigation fetch (the announcement card's ask). */
+const ask = async (w: ReturnType<typeof boot>, p: string) => {
+  const r = await w.dispatch('fetch', {
+    request: { method: 'GET', url: new URL(p, ORIGIN).href, destination: '', mode: 'cors', referrer: '', headers: new Headers() },
+  });
+  return { ...r, body: r.response ? await r.response.clone().text() : null };
+};
+
+test('R18 · the worker and lib agree on every guest address, in BOTH address forms — and on the lists and the cap', () => {
+  const sw = boot();
+  const ctx = sw.context() as unknown as {
+    isOfflineCopyPath: (p: string) => boolean;
+    offlineCopyEventId: (p: string) => string | null | undefined;
+    offlineCopyKey: (p: string) => string | null;
+    GUEST_HUB_TABS?: string[];
+  };
+  const table = [
+    BASE, `${BASE}?tab=me`, `${BASE}?tab=live`, `${BASE}?tab=home`, `${BASE}?tab=details`, `${BASE}?tab=story`,
+    `${BASE}?tab=gallery`, `${BASE}?tab=me&x=1`, `${BASE}/find-my-table`, `${BASE}/find-seat`, `${BASE}/seat`,
+    `${BASE}/pabuya`, `${BASE}/everyone`, `${BASE}/announcement`, `${BASE}/venue`, `${BASE}/invite`, `${BASE}/invite/reply`,
+    `${BASE}/hub`, `${BASE}/recap`, `${BASE}/sign-out`, `${BASE}/find-my-table?tab=me`, `${BASE}/`, `${BASE}//seat`,
+    `/${NEST}${BASE}`, `/${NEST}${BASE}?tab=me`, `/${NEST}${BASE}?tab=gallery`, `/${NEST}${BASE}/find-my-table`,
+    `/${NEST}${BASE}/announcement`, `/${NEST}${BASE}/venue`, `/${NEST}${BASE}/seat/claim`, `/${NEST}/dates`, `/${NEST}/c/abc`,
+    `/${NEST}/invite`, '/dashboard/ana-ben', '/u/ana-ben', '/dashboard?tab=me', '/login?tab=me', '/ab?tab=me', '/Ana-Ben?tab=me',
+    '/ana/hub', '/vendor-dashboard/ana-ben', `/${NEST}${BASE}/x/y`,
+    // The business doors' labels: never an event (lib/door-map.ts), in either word of the address.
+    '/supplier', '/coordinator?tab=me', '/business/seat', `/supplier${BASE}`, `/${NEST}/business`,
+  ];
+  for (const p of table) {
+    assert.equal(ctx.isOfflineCopyPath(p), isOfflineCopyPath(p), `sw.js and lib disagree whether ${p} may be kept`);
+    assert.equal(ctx.offlineCopyEventId(p), offlineCopyEventId(p), `sw.js and lib disagree whose event ${p} is`);
+    assert.equal(ctx.offlineCopyKey(p), offlineCopyKey(p), `sw.js and lib disagree what ${p} is kept under`);
+  }
+  // Both forms of one page are ONE copy, kept under the bare form.
+  assert.equal(offlineCopyKey(`/${NEST}${BASE}?tab=me`), `${BASE}?tab=me`);
+  assert.equal(offlineCopyKey(`/${NEST}${BASE}/find-my-table`), `${BASE}/find-my-table`);
+  assert.equal(offlineCopyEventId(`/${NEST}${BASE}`), SLUG);
+  assert.equal(isOfflineCopyPath(`${BASE}?tab=gallery`), false, 'the Gallery (photos) is kept');
+  assert.equal(isOfflineCopyPath(`${BASE}/venue`), false, 'the 3D walk is kept');
+  assert.equal(table.filter((p) => isOfflineCopyPath(p)).length, 16, 'the table no longer exercises the 16 kept guest addresses it lists');
+  // The worker's copies of the lists are the lib's — read out of the worker's own source (it cannot import lib).
+  const src = readFileSync(SW_FILE, 'utf8');
+  const list = (name: string): string[] => {
+    const m = new RegExp(`const ${name} = (?:new Set\\()?\\[([\\s\\S]*?)\\]`).exec(src);
+    assert.ok(m, `sw.js no longer declares ${name}`);
+    return [...m[1]!.matchAll(/'([^']+)'/g)].map((x) => x[1]!).sort();
+  };
+  assert.deepEqual(list('GUEST_HUB_TABS'), [...GUEST_HUB_TABS_KEPT].sort());
+  assert.deepEqual(list('GUEST_HUB_ROOMS'), [...GUEST_HUB_ROOMS_KEPT].sort());
+  assert.match(src, new RegExp(`const GUEST_HUB_ANSWER = '${GUEST_HUB_ANSWER}';`));
+  assert.deepEqual(list('HUB_PAGE_WORDS'), [...HUB_PAGE_WORDS].sort());
+  assert.match(src, new RegExp(`const OFFLINE_MAX_PAGES = ${OFFLINE_MAX_PAGES};`), 'the page cap in sw.js is not lib’s');
+  // (The event's own pages are the address move's `EVENT_SUB_ROUTES`, which `lib/u-nesting.test.ts` holds to the folders.)
+  // ⚖ The reserved words: the worker asks the route half (`RESERVED`), lib the whole pool. Every slug-shaped word only
+  // lib reserves must be one the database refuses as an event's word — so no real event's address can differ.
+  // The business doors' labels are reserved in lib too (no event may take one); the worker keeps them as DOOR_WORDS.
+  assert.deepEqual(list('DOOR_WORDS'), [...DOOR_LABELS].sort(), 'the worker’s door words are not lib’s door map');
+  for (const w of DOOR_LABELS) {
+    assert.ok(RESERVED_SLUGS.has(w), `the door label "${w}" is no longer reserved in lib`);
+    assert.equal(guestHubAddress(`/${w}`), null);
+  }
+  const swReserved = [...list('RESERVED'), ...list('DOOR_WORDS')];
+  const libOnly = [...RESERVED_SLUGS].filter((w) => /^[a-z0-9-]{3,32}$/.test(w) && !swReserved.includes(w));
+  assert.ok(libOnly.length > 0, 'the two lists are equal now — tighten this to deepEqual');
+  for (const w of libOnly) {
+    assert.ok(DB_MIRRORED_RESERVED_SLUGS.has(w), `"${w}" is reserved only in lib and an event may still take it — the worker would read /${w} differently`);
+  }
+  for (const w of swReserved.filter((x) => /^[a-z0-9-]{3,32}$/.test(x))) {
+    assert.ok(RESERVED_SLUGS.has(w), `"${w}" is reserved only in the worker`);
+    assert.equal(guestHubAddress(`/${w}`), null);
+  }
+  assert.equal(OFFLINE_MAX_PAGES, 12, 'the cap is the hub’s real page count: arrival + 5 pages + 5 rooms + the announcement');
+});
+
+test('R18 · every page a guest can open is saved in the window — a room they cannot open is theirs-not, never failed', async () => {
+  const w = guestWorker();
+  w.server.forwards.add(`${BASE}/find-seat`); // seats are not out yet → the room forwards to the hub
+  w.server.missing.add(`${BASE}/pabuya`); // E-Gifts switched off → 404
+  const r = await hubSave(w);
+  assert.equal(r?.ok, true, `the hub save did not land: ${JSON.stringify(r)}`);
+  const kept = w.kept();
+  for (const p of HUB_PAGES.filter((x) => !w.server.forwards.has(x) && !w.server.missing.has(x))) {
+    assert.ok(kept.includes(p), `${p} was not saved (kept: ${kept})`);
+  }
+  assert.ok(kept.includes(`${BASE}?tab=me`) && kept.includes(`${BASE}/find-my-table`) && kept.includes(`${BASE}/announcement`));
+  assert.ok(!kept.includes(`${BASE}/find-seat`) && !kept.includes(`${BASE}/pabuya`), 'a room this guest cannot open was kept');
+  const reg = parseOfflineRegistry(await w.registry());
+  assert.equal(typeof reg?.events[SLUG]?.absent?.[`${BASE}/find-seat`], 'number', 'the forwarded room is not recorded as not theirs');
+  assert.equal(typeof reg?.events[SLUG]?.absent?.[`${BASE}/pabuya`], 'number', 'the 404 room is not recorded as not theirs');
+  // The mark speaks for the whole hub, and calls it saved.
+  const at = savedAtFor(reg, GUEST, SLUG, HUB_PAGES, w.clock.now);
+  assert.equal(typeof at, 'number', 'the mark would not read the hub as saved');
+  assert.equal(savedMark({ phase: 'saved', savedAt: at, now: w.clock.now, online: true, eventDay: true }).text, 'Saved for offline · updated just now');
+  // No signal: every saved page opens from the copy, marked as the copy.
+  w.server.down = true;
+  for (const p of [BASE, `${BASE}?tab=me`, `${BASE}?tab=live`, `${BASE}/find-my-table`]) {
+    const off = await w.nav(p);
+    assert.ok(off.copy && off.body?.includes(`>${p}`), `${p}: no signal opened ${off.body?.slice(0, 80)}`);
+  }
+  // Only the pages kept: nothing is invented for a page that was not.
+  assert.equal((await w.nav(`${BASE}/find-seat`)).copy, null);
+});
+
+test('R18 · the marks turn amber after 3 hours on the day, and say so in the approved words', async () => {
+  const w = guestWorker();
+  await hubSave(w);
+  const reg = parseOfflineRegistry(await w.registry());
+  const at = savedAtFor(reg, GUEST, SLUG, HUB_PAGES, w.clock.now)!;
+  const mark = (h: number) => savedMark({ phase: 'saved', savedAt: at, now: at + h * HOUR, online: true, eventDay: true });
+  assert.equal(mark(2.9).tone, 'ok');
+  assert.match(mark(2.9).text, /^Saved for offline · updated \d{1,2}:\d{2} [AP]M$/);
+  assert.equal(mark(4).tone, 'amber');
+  assert.equal(mark(4).text, 'Saved 4 hours ago · update before you leave for the venue');
+  assert.equal(savedMark({ phase: 'saved', savedAt: at, now: at + 4 * HOUR, online: true, eventDay: false }).tone, 'ok', 'amber before the day');
+});
+
+test('R18 · a deploy (a new worker VERSION) does not erase a guest’s saved hub', async () => {
+  const w = guestWorker();
+  await w.dispatch('install');
+  await hubSave(w);
+  const before = w.kept();
+  assert.ok(before.length >= 8);
+  // The next deploy: the stamped VERSION changes, the new worker installs and activates (deleting unknown caches).
+  // The REAL line — `^const VERSION` — not the comment above it that quotes the same shape (`'…'`).
+  const next = readFileSync(SW_FILE, 'utf8').replace(/^const VERSION = '[^']*';$/m, "const VERSION = 'deploy-2';");
+  assert.match(next, /^const VERSION = 'deploy-2';$/m, 'the deploy did not change the worker’s VERSION');
+  const shellBefore = [...w.stores.keys()].filter((n) => /^setnayan-v\d/.test(n));
+  assert.ok(shellBefore.length > 0, 'the first worker kept no versioned cache to replace');
+  w.restart(next);
+  await w.dispatch('install');
+  await w.dispatch('activate');
+  // The deploy really happened: the old version's caches are gone and the new one's exist…
+  assert.deepEqual([...w.stores.keys()].filter((n) => shellBefore.includes(n)), [], 'the old version’s caches survived — the deploy did not happen');
+  assert.ok(w.stores.has('setnayan-deploy-2'), 'the new version did not install');
+  // …and the guest's saved hub did not go with them.
+  assert.deepEqual(w.kept(), before, 'a deploy erased the guest’s saved hub');
+  assert.ok(![...w.stores.keys()].some((n) => n.startsWith('setnayan-dayof')), 'a day-of cache still exists');
+  w.server.down = true;
+  assert.ok((await w.nav(`${BASE}?tab=me`)).copy, 'after a deploy, no signal did not open the saved Me');
+});
+
+test('R18 · a rotated QR or a removed guest is never kept — and ends the copy already on the phone', async () => {
+  // A save while the seal is broken keeps nothing.
+  const fresh = guestWorker();
+  fresh.server.unsealed = true;
+  const r0 = await hubSave(fresh);
+  assert.equal(r0?.ok, false);
+  assert.deepEqual(fresh.kept().filter((k) => !k.startsWith('/__setnayan-sw')), [], 'a stranger’s page was kept as the guest’s');
+  // A copy saved before the QR was rotated: the next save ends it, every page and room.
+  const w = guestWorker();
+  await hubSave(w);
+  assert.ok(w.kept().includes(`${BASE}?tab=me`));
+  w.server.unsealed = true;
+  const r = await hubSave(w, HUB_PAGES, { force: true });
+  assert.equal(r?.ok, false);
+  assert.deepEqual(w.kept().filter((k) => !k.startsWith('/__setnayan-sw')), [], `the rotated pass’s copy survived: ${w.kept()}`);
+  assert.equal((await w.registry()).events[SLUG], undefined);
+  // …and so does simply opening the hub with signal once the seal is broken.
+  const n = guestWorker();
+  await hubSave(n);
+  n.server.unsealed = true;
+  n.clock.now += HOUR;
+  await n.nav(BASE);
+  assert.deepEqual(n.kept().filter((k) => !k.startsWith('/__setnayan-sw')), [], 'an open with a broken seal left the copy');
+  n.server.down = true;
+  assert.equal((await n.nav(`${BASE}/find-my-table`)).copy, null, 'no signal opened a removed guest’s table');
+});
+
+test('R18 · sign-out erases the saved hub — both address forms — and a shared phone never opens the previous guest’s pages', async () => {
+  for (const out of [`${BASE}/sign-out`, `/${NEST}${BASE}/sign-out`]) {
+    const w = guestWorker();
+    await hubSave(w);
+    await w.nav(out, { method: 'POST' });
+    assert.deepEqual(w.kept().filter((k) => !k.startsWith('/__setnayan-sw')), [], `${out} left ${w.kept()}`);
+    w.server.down = true;
+    for (const p of [BASE, `${BASE}?tab=me`, `${BASE}/find-my-table`]) {
+      assert.equal((await w.nav(p)).copy, null, `after ${out}, no signal opened ${p}`);
+    }
+  }
+  // The next guest on the same phone saves their own hub: the first one's goes first.
+  const s = guestWorker();
+  await hubSave(s);
+  const NEXT = 'g-0e0e0e0e-0000-4000-8000-0000000000bb';
+  s.server.viewer = NEXT;
+  await s.post({ type: 'OFFLINE_SAVE', viewer: NEXT, eventId: 'cale-ice', until: s.clock.now + 30 * HOUR, paths: guestHubSavePaths('/cale-ice') });
+  assert.ok(!s.kept().some((k) => k.startsWith(BASE)), `the next guest inherited ${s.kept()}`);
+  s.server.down = true;
+  assert.equal((await s.nav(`${BASE}?tab=me`)).copy, null, 'the next guest, with no signal, opened the previous guest’s Me');
+  // A signed-in account on the phone (OFFLINE_VIEWER) erases it too.
+  const a = guestWorker();
+  await hubSave(a);
+  await a.post({ type: 'OFFLINE_VIEWER', viewer: BEN });
+  assert.ok(!a.kept().some((k) => k.startsWith(BASE)), 'an account switch left the guest’s saved hub');
+  // An older worker's guest page in the image cache (GuestPreload before R18) goes with a sign-out too.
+  const o = guestWorker();
+  await (await o.caches.open('setnayan-images-v4')).put(`${ORIGIN}${BASE}`, new Response('old copy', { headers: { 'Content-Type': 'text/html' } }));
+  await o.nav(`/${NEST}${BASE}/sign-out`, { method: 'POST' });
+  assert.equal(o.stores.get('setnayan-images-v4')?.size ?? 0, 0, 'an older worker’s copy of the guest page survived the sign-out');
+});
+
+test('R18 · the day after the event erases the saved hub, every page and room', async () => {
+  const w = guestWorker();
+  const day = '2026-11-14';
+  const until = offlineCopiesUntil(day)!;
+  await w.post({ type: 'OFFLINE_SAVE', viewer: GUEST, eventId: SLUG, until, paths: HUB_PAGES });
+  assert.ok(w.kept().includes(`${BASE}/find-my-table`));
+  w.clock.now = until + 60_000;
+  w.server.down = true;
+  assert.equal((await w.nav(`${BASE}?tab=me`)).copy, null, 'a copy opened past the day after the event');
+  await w.dispatch('activate');
+  assert.deepEqual(w.kept().filter((k) => !k.startsWith('/__setnayan-sw')), [], `the day after left ${w.kept()}`);
+});
+
+test('R18 · the address move: /{username}/{event} and /{event} are ONE copy — saving, opening and signing out', async () => {
+  const w = guestWorker();
+  w.server.nested = NEST; // the switch is on: every bare guest address forwards one hop
+  const r = await hubSave(w); // the hub's own links still name the bare form
+  assert.equal(r?.ok, true, `with the switch on, the hub save stopped working: ${JSON.stringify(r)}`);
+  assert.ok(w.kept().includes(`${BASE}?tab=me`), 'the copy is not kept under the bare form');
+  // The page the worker kept is the one the network drew at the NEW address.
+  w.server.down = true;
+  for (const p of [`/${NEST}${BASE}?tab=me`, `${BASE}?tab=me`, `/${NEST}${BASE}/find-my-table`, `${BASE}/find-my-table`]) {
+    const off = await w.nav(p);
+    assert.ok(off.copy, `with the switch on, no signal did not open ${p}`);
+    assert.match(off.body ?? '', new RegExp(`/${NEST}${BASE}`), `${p} opened a page that was not drawn at the new address`);
+  }
+  w.server.down = false;
+  // Opening the nested page with signal refreshes the ONE copy.
+  w.clock.now += HOUR;
+  await w.nav(`/${NEST}${BASE}?tab=me`);
+  assert.equal((await w.registry()).events[SLUG].pages[`${BASE}?tab=me`], w.clock.now, 'opening the nested address did not refresh the copy');
+  await w.nav(`/${NEST}${BASE}/sign-out`, { method: 'POST' });
+  assert.deepEqual(w.kept().filter((k) => !k.startsWith('/__setnayan-sw')), []);
+});
+
+test('R18 · the latest announcement: the network’s answer with signal, the kept answer with none', async () => {
+  const w = guestWorker();
+  await hubSave(w);
+  w.server.announcement = 'The ceremony moved to 3 PM';
+  const online = await ask(w, `${BASE}/announcement`);
+  assert.match(online.body ?? '', /moved to 3 PM/, 'with signal the card did not get the network’s answer');
+  w.server.down = true;
+  const offline = await ask(w, `${BASE}/announcement`);
+  assert.equal(offline.responded, true, 'with no signal the card’s ask was not answered');
+  assert.match(offline.body ?? '', /moved to 3 PM/, 'with no signal the card did not get the last answer kept');
+  // A cold worker on an offline phone answers it too; nobody else's answer is ever kept.
+  w.restart();
+  w.navigator.onLine = false;
+  assert.match((await ask(w, `/${NEST}${BASE}/announcement`)).body ?? '', /moved to 3 PM/);
+  const stranger = boot();
+  stranger.server.down = true;
+  const none = await ask(stranger, `${BASE}/announcement`);
+  assert.ok(!none.responded || !none.body?.includes('Phones down'), 'a phone that saved nothing was answered with an announcement');
+});
+
+test('R18 · a guest page the host’s app opens is still the browser’s alone — saved or not', async () => {
   for (const ua of [CHROME_UA, SAFARI_UA]) {
     const w = boot({ ua });
     w.server.viewer = GUEST;
-    w.restart(); // cold: nothing in memory
-    await w.nav(ME);
-    await w.nav(`/${SLUG}`);
-    const dayOf = [...(w.stores.get('setnayan-dayof-v4')?.keys() ?? [])].map((u) => new URL(u).pathname + new URL(u).search);
-    assert.ok(!dayOf.includes(ME), `${ua.slice(0, 20)}: the day-of cache kept a guest’s Me (${dayOf})`);
-    assert.ok(dayOf.includes(`/${SLUG}`), `${ua.slice(0, 20)}: the day-of cache stopped keeping the guest page itself (${dayOf})`);
-    // Another person, no signal: the Me opens from nobody’s copy.
-    w.server.down = true;
-    const off = await w.nav(ME);
-    assert.ok(!off.body?.includes(GUEST), `no signal opened the last guest’s Me: ${off.body}`);
+    await hubSave(w);
+    const r = await w.nav(BASE, { referrer: `${ORIGIN}/dashboard/${E1}` });
+    assert.equal(r.responded, false, `${ua.slice(0, 20)}: the worker answered a guest page opened from the host’s app`);
+    const framed = await w.nav(BASE, { destination: 'iframe' });
+    assert.equal(framed.responded, false, 'the worker answered a framed guest page');
   }
 });
 
-test('a guest’s sign-out erases their day-of pages too — the next person, with no signal, never opens their table page', async () => {
-  const OTHER = 'cale-ice';
-  const DAYOF = 'setnayan-dayof-v4';
-  const IMAGES = 'setnayan-images-v4';
-  const paths = (w: ReturnType<typeof boot>, name: string) =>
-    [...(w.stores.get(name)?.keys() ?? [])].map((u) => new URL(u).pathname + new URL(u).search).sort();
-  const visit = async (w: ReturnType<typeof boot>) => {
+test('R18 · nothing of a guest page is kept anywhere but the viewer’s own copy — whatever they open', async () => {
+  for (const ua of [CHROME_UA, SAFARI_UA]) {
+    const w = guestWorker();
     await w.dispatch('install');
-    w.server.viewer = GUEST;
-    for (const p of [`/${SLUG}`, `/${SLUG}/find-my-table`, `/${SLUG}?tab=home`, `/${OTHER}`]) await w.nav(p);
-    // GuestPreload: the page asks for its own address (kept in the image cache, which `caches.match` also reads).
-    await w.post({ type: 'PRELOAD_ASSETS', urls: ['/icon-192.svg', `/${SLUG}`] });
-  };
-
-  const w = boot();
-  await visit(w);
-  assert.ok(paths(w, DAYOF).includes(`/${SLUG}/find-my-table`), `the walk kept nothing to erase: ${paths(w, DAYOF)}`);
-  assert.ok(paths(w, IMAGES).includes(`/${SLUG}`), `GuestPreload kept nothing to erase: ${paths(w, IMAGES)}`);
-  await w.nav(`/${SLUG}/sign-out`, { method: 'POST' });
-  assert.deepEqual(paths(w, DAYOF), [`/${OTHER}`], 'the signed-out guest’s day-of pages survived (or another event’s went)');
-  assert.deepEqual(paths(w, IMAGES), ['/icon-192.svg'], 'the preloaded guest page survived (or an icon went)');
-  w.server.down = true;
-  for (const p of [`/${SLUG}`, `/${SLUG}/find-my-table`, `/${SLUG}?tab=home`]) {
-    const off = await w.nav(p);
-    assert.ok(!off.body?.includes(GUEST), `no signal opened the signed-out guest’s ${p}: ${off.body}`);
+    for (const p of [BASE, `${BASE}?tab=home`, `${BASE}/find-my-table`, `${BASE}?tab=gallery`, `${BASE}/venue`]) await w.nav(p);
+    // An older page still posting its own address (GuestPreload before R18): nothing is fetched or kept for it.
+    w.server.sent.length = 0;
+    await w.post({ type: 'PRELOAD_ASSETS', urls: ['/icon-192.svg', BASE, `/${NEST}${BASE}`] });
+    assert.deepEqual(w.server.sent.filter((x) => x !== '/icon-192.svg'), [], `${ua.slice(0, 20)}: the preload fetched a guest page`);
+    const elsewhere = [...w.stores.entries()]
+      .filter(([name]) => name !== OFFLINE_COPIES_CACHE)
+      .flatMap(([name, s]) => [...s.keys()].filter((k) => guestHubAddress(new URL(k).pathname)).map((k) => `${name} ${k}`));
+    assert.deepEqual(elsewhere, [], `${ua.slice(0, 20)}: a guest page was kept outside the viewer’s copy`);
+    w.server.down = true;
+    const off = await w.nav(`${BASE}?tab=me`);
+    assert.ok(!off.body?.includes(GUEST), 'no signal opened a Me nobody saved');
   }
-  assert.ok((await w.nav(`/${OTHER}`)).body?.includes(`>/${OTHER}<`), 'another event’s page was lost');
-
-  // An account's sign-out: every guest page goes; icons and code stay.
-  const a = boot();
-  await visit(a);
-  await a.nav('/auth/sign-out');
-  assert.deepEqual(paths(a, DAYOF), [], `an account sign-out left guest pages: ${paths(a, DAYOF)}`);
-  assert.deepEqual(paths(a, IMAGES), ['/icon-192.svg']);
-
-  // A reserved route is never read as a guest's sign-out.
-  const r = boot();
-  await visit(r);
-  await r.nav('/dashboard/sign-out', { method: 'POST' });
-  assert.ok(paths(r, DAYOF).includes(`/${SLUG}/find-my-table`));
 });
 
-test('F-W1-82 · an account switch erases the day-of Event Hub pages too — not only the saved copies', async () => {
-  const DAYOF = 'setnayan-dayof-v4';
-  const paths = (w: ReturnType<typeof boot>) =>
-    [...(w.stores.get(DAYOF)?.keys() ?? [])].map((u) => new URL(u).pathname + new URL(u).search).sort();
-  const w = boot();
-  await w.dispatch('install');
-  w.server.viewer = GUEST;
-  for (const p of [`/${SLUG}`, `/${SLUG}/find-my-table`]) await w.nav(p);
-  assert.ok(paths(w).includes(`/${SLUG}`), `the walk kept nothing to erase: ${paths(w)}`);
-  // A signed-in page, nobody on record yet: the pages of an unknown viewer are not kept for this one.
-  await w.post({ type: 'OFFLINE_VIEWER', viewer: ANA });
-  assert.deepEqual(paths(w), [], `the first signed-in account inherited earlier pages: ${paths(w)}`);
-  assert.equal((await w.registry()).viewer, ANA, 'the viewer is not on record after a page that saved nothing');
-  // Ana browses; then Ben signs in on the same phone.
-  w.server.viewer = ANA;
-  await w.nav(`/${SLUG}`);
-  assert.ok(paths(w).includes(`/${SLUG}`));
-  await w.post({ type: 'OFFLINE_VIEWER', viewer: BEN });
-  assert.deepEqual(paths(w), [], `Ben inherited Ana's day-of pages: ${paths(w)}`);
-  // The same account again: nothing goes.
-  w.server.viewer = BEN;
-  await w.nav(`/${SLUG}`);
-  await w.post({ type: 'OFFLINE_VIEWER', viewer: BEN });
-  assert.ok(paths(w).includes(`/${SLUG}`), 'the same account lost its own pages');
-  // A signed-out page's wipe (OFFLINE_FORGET) takes the day-of pages as well.
-  await w.post({ type: 'OFFLINE_FORGET' });
-  assert.deepEqual(paths(w), [], `the signed-out wipe left day-of pages: ${paths(w)}`);
+test('R18 · a room or the announcement is kept only beside the guest’s own sealed hub page — never on its own', async () => {
+  const w = guestWorker();
+  const r = await hubSave(w, [`${BASE}/find-my-table`, `${BASE}/announcement`]);
+  assert.equal(r?.ok, false, 'a room-only save said it landed');
+  assert.deepEqual(w.kept().filter((k) => !k.startsWith('/__setnayan-sw')), [], `rooms were kept with no sealed hub page: ${w.kept()}`);
+  // The same rooms, beside the hub's own page: kept.
+  const ok = await hubSave(w, [BASE, `${BASE}/find-my-table`, `${BASE}/announcement`]);
+  assert.equal(ok?.ok, true);
+  assert.ok(w.kept().includes(`${BASE}/find-my-table`) && w.kept().includes(`${BASE}/announcement`));
 });

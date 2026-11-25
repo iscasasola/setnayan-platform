@@ -22,6 +22,7 @@ import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { PulsedLiveRefresher } from '@/app/_components/pulsed-live-refresher';
 import { theDayFor } from '@/lib/event-clock.server';
 import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
+import { RoomSavedMark } from '../_components/room-saved-mark';
 
 export const metadata = { title: 'Find your table' };
 
@@ -297,6 +298,8 @@ function Shell({
           </span>
         </div>
       </header>
+      {/* 📶 R18 — saved for offline with the rest of this guest's Event Hub (the viewer's own copy only). */}
+      <RoomSavedMark slug={slug} />
       <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 sm:py-14">{children}</div>
       <footer className="border-t border-ink/10 px-4 py-8 text-center">
         <p className="font-serif text-lg italic text-terracotta-700">See you soon.</p>

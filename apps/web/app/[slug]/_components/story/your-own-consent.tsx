@@ -131,6 +131,7 @@ export function YourOwnConsent({
                 className="rounded-lg border border-ink/25 bg-white/60 px-3 py-2 text-[15px] text-ink placeholder:text-ink/60"
               />
               <button
+                data-needs-internet=""
                 type="button"
                 onClick={hide}
                 disabled={busy || !pick}
@@ -148,6 +149,7 @@ export function YourOwnConsent({
           {named ? (
             <div className="grid gap-2 border-t border-ink/10 pt-3">
               <button
+                data-needs-internet=""
                 type="button"
                 onClick={unname}
                 disabled={busy}

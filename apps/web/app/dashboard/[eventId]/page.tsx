@@ -95,6 +95,7 @@ import { demoScopeFor } from '@/lib/demo-scope';
 import { EventDayPrepCta } from '@/app/_components/event-day-prep-cta';
 import { AutoPreloadOnEventDay } from '@/app/_components/auto-preload-on-event-day';
 import { ReadyForNoSignal, type ReadyRow } from '@/app/_components/offline-ready/ready-for-no-signal';
+import { NeedsInternetGuard } from '@/app/_components/offline-ready/needs-internet-guard';
 import { formatCount } from '@/lib/format-number';
 import { DayOfModeGrid } from './_components/day-of-mode/grid';
 import { SetDateNudge } from './_components/set-date-nudge';
@@ -1667,6 +1668,9 @@ export default async function EventHomePage({
           guest (owner 14 Nov 2026); an unclaimed one waits as a line at the page's top and in the bell. Asked after
           Home has drawn; it draws no box in the flow (a notice registration and a popup) — Home's own reads never grow for it. */}
       {viewerMemberType === 'couple' ? <GiftMoments url={`/api/unwrap?event=${eventId}`} /> : null}
+      {/* 📶 R15 — with no signal, the Maker's doors (Home's cards and the menu row) grey out and say "Needs internet".
+          It draws nothing (it only marks), so it sits last — never above the cover. */}
+      <NeedsInternetGuard />
     </LastSeenCapture>
   );
 }

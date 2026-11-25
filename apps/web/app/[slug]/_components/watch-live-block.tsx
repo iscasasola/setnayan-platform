@@ -96,6 +96,7 @@ function FacebookWatchCard({
   return (
     <section
       aria-label={`Watch the ${watchLiveOccasion(occasion)} live on Facebook`}
+      data-needs-internet=""
       className="rounded-2xl border-2 border-terracotta/40 bg-ink px-4 py-3 shadow-sm"
     >
       <div className="flex flex-wrap items-center justify-between gap-3">

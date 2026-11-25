@@ -103,13 +103,16 @@ test('2 · the service worker runs the SAME predicate, and lets every pass hop g
     const u = new URL(href, 'https://www.setnayan.com');
     assert.equal(swHop(u), isGuestPassHop(u.pathname, u.search), `sw.js and lib/guest-pass-hop.ts disagree on ${href}`);
   }
-  // …and asks it BEFORE the day-of handler can take the navigation.
+  // …and asks it BEFORE the guest-page handler can take the navigation. Since R18 (24 Nov 2026) that is the saved copy
+  // (`maybeServeOfflineCopy` — the day-of handler is retired); the anchor must exist, or this check went blind.
   const body = stripComments(sw);
   const fetchAt = body.indexOf("self.addEventListener('fetch'");
   const hop = body.indexOf('if (isNavigation && isGuestPassHop(url)) return;', fetchAt);
-  const dayOf = body.indexOf('if (isNavigation && isDayOfGuestNavigation(url))', fetchAt);
+  const guestPages = body.indexOf('if (isNavigation && maybeServeOfflineCopy(event, request, url)) return;', fetchAt);
   assert.ok(hop > fetchAt, 'the fetch handler never asks isGuestPassHop');
-  assert.ok(hop < dayOf, 'the day-of handler takes a pass hop before it is let go');
+  assert.ok(guestPages > fetchAt, 'the guest-page handler moved — re-anchor this check, do not drop it');
+  assert.ok(hop < guestPages, 'the guest-page handler takes a pass hop before it is let go');
+  assert.equal(body.indexOf('isDayOfGuestNavigation'), -1, 'the retired day-of handler is back');
 });
 
 test('3 · the middleware slides the pass only on a plain read that is not a pass hop', () => {

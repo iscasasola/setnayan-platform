@@ -272,7 +272,8 @@ export function LiveWallBlock({
     >
       <LiveWallHeader count={count} occasion={w.occasion} />
       <ChallengeBanner challenge={challenge} measured={challengeMeasured} />
-      <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2">
+      {/* 📶 R15 — the live photos need internet: with no signal the grid greys out under "Needs internet". */}
+      <div data-needs-internet="" className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2">
         {display.map((tile) => (
           <figure
             key={tile.feedId}

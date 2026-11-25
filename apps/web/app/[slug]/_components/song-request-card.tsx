@@ -73,6 +73,7 @@ export function SongRequestCard({ paused }: { paused: boolean }) {
         <p className="mt-2 text-sm text-ink/70">{SONG_REQUEST_COPY.paused}</p>
       ) : (
         <form
+          data-needs-internet=""
           onSubmit={(e) => {
             e.preventDefault();
             submit();

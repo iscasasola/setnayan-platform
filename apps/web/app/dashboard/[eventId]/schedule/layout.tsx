@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 
+import { NeedsInternetGuard } from '@/app/_components/offline-ready/needs-internet-guard';
 import { ScheduleSavedSlot } from '@/app/_components/offline-ready/schedule-saved-slot';
 
 /**
@@ -11,6 +12,8 @@ export default function ScheduleLayout({ children }: { children: ReactNode }) {
     <>
       {children}
       <ScheduleSavedSlot />
+      {/* 📶 R15 — with no signal, the Maker's doors grey out and say "Needs internet" (also here, not in the page). */}
+      <NeedsInternetGuard />
     </>
   );
 }

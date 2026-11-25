@@ -18,6 +18,10 @@
  *      `11.0.0.1`…), and its trace — what was answered, with which body, and every cache open / put / delete — is compared with
  *      `sw-production-trace.golden.json`, recorded from the worker as it was BEFORE this change (210c0195f). Regenerate only
  *      with `SW_TRACE_FROM=<path of an older sw.js> npx tsx --test app/sw-is-a-pass-through-on-a-dev-host.test.ts`.
+ *      ONE DELIBERATE PRODUCTION CHANGE SINCE (R18, owner 24 Nov 2026), edited into the golden BY HAND, two rows only:
+ *      the "guest navigation" row no longer writes `setnayan-dayof-${VERSION}` and answers nothing (the guest's pages live
+ *      in the per-viewer saved copy now, which a deploy does not erase; `app/sw-offline-copies.test.ts` holds that), and
+ *      CACHE_BUST no longer deletes that retired cache. Every other row is byte-for-byte the 210c0195f recording.
  *  (2) A DEVELOPMENT HOST IS A PASS-THROUGH — for each dev host: no request is answered, nothing touches a cache, nothing is
  *      pre-cached on install, a preload writes nothing, and activate leaves only caches that are not the worker's.
  *
@@ -302,6 +306,10 @@ test('the golden trace really does exercise the caches (so "unchanged" means som
   // The stale answer the dev server suffered is the production behaviour (and stays so): the 2nd unhashed-script request is the 1st's bytes.
   const byLabel = Object.fromEntries((golden.requests as Array<{ label: string; body: string }>).map((r) => [r.label, r.body]));
   assert.equal(byLabel['unhashed script'], byLabel['unhashed script again']);
+  // R18: a guest's page is never kept outside the per-viewer saved copy — the plain worker leaves the navigation to the network.
+  const guest = (golden.requests as Array<{ label: string; responded: boolean; ops: string[] }>).find((r) => r.label === 'guest navigation');
+  assert.ok(guest && !guest.responded && guest.ops.length === 0, 'the worker keeps a guest page outside the saved copy again');
+  assert.ok(!JSON.stringify(golden).includes('setnayan-dayof-'), 'the retired day-of cache is back in the production trace');
 });
 
 // ── (2) a development host is a pass-through ───────────────────────────────

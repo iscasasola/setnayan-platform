@@ -233,7 +233,7 @@ export function PhotosOfYouGallery({
                 option; it was not taken because it hides a consent control behind
                 an unlabelled icon an older guest may never find.
               */}
-              <form action={removeMyTag.bind(null, eventId, opened.sourceTable, opened.id)}>
+              <form data-needs-internet="" action={removeMyTag.bind(null, eventId, opened.sourceTable, opened.id)}>
                 <SubmitButton
                   className="sn-gal-btn inline-flex min-h-[44px] items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-semibold"
                   pendingLabel="Removing…"
@@ -307,6 +307,7 @@ function TakeItDown({
 
   return (
     <form
+      data-needs-internet=""
       action={async (formData: FormData) => {
         setError(null);
         const res = await askToTakeMyPhotoDown(
@@ -449,6 +450,7 @@ function WallControl({
   return (
     <span className="inline-flex flex-col items-start gap-1">
       <button
+        data-needs-internet=""
         type="button"
         onClick={press}
         disabled={busy}

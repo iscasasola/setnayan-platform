@@ -134,7 +134,7 @@ export function ScanTrailForm({
         ) : (
           <p className="text-sm text-ink/70">{said.main}</p>
         )}
-        <form action={toggle} data-scan-trail="" className="m-1 mt-3 inline-block align-middle text-sm text-ink/70">
+        <form action={toggle} data-needs-internet="" data-scan-trail="" className="m-1 mt-3 inline-block align-middle text-sm text-ink/70">
           <SubmitButton className={ME_PILL} pendingLabel={optedOut ? 'Turning on…' : 'Turning off…'}>
             {optedOut ? <RotateCcw aria-hidden className="h-4 w-4 shrink-0" /> : <CircleSlash aria-hidden className="h-4 w-4 shrink-0" />}
             <span>{optedOut ? 'Keep a record again' : 'Stop keeping a record'}</span>
@@ -150,6 +150,7 @@ export function ScanTrailForm({
        puts it back at once. The gutter is the page's, given by whoever draws this (`site-body.tsx`). */
     <form
       action={toggle}
+      data-needs-internet=""
       data-scan-trail=""
       className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink/70"
     >

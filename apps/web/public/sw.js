@@ -31,8 +31,8 @@
 //   alone (the `?dpl=` query is dropped from the key). A file that DID change
 //   gets a new name, which the new deploy's HTML asks for, so it can never be
 //   served stale. That is why this cache survives deploys while everything
-//   that is NOT content-hashed (shell, offline page, day-of pages, the
-//   per-build manifests, non-hashed files) keeps the per-deploy wipe below —
+//   that is NOT content-hashed (shell, offline page, the per-build manifests,
+//   non-hashed files) keeps the per-deploy wipe below —
 //   the 2026-06-14 "stale shell after deploy" bug class stays dead.
 //   Bump the `-v1` suffix BY HAND only if the key format or what this cache
 //   holds changes; never tie it to VERSION.
@@ -41,7 +41,8 @@
 // non-GET). App-shell navigations (dashboard / login / auth / marketing) are
 // intentionally NOT intercepted — see the `fetch` handler's trailing comment
 // for why (Safari "Service Worker context closed" navigation crash). Only the
-// day-of guest `/[slug]` navigation is served offline.
+// viewer's OWN saved pages are served offline (THE SAVED COPY, below) — since
+// 24 Nov 2026 (R18) that includes every Event Hub page a guest can open.
 //
 // Listens for `{ type: 'CACHE_BUST' }` postMessages to drop every cache —
 // used by the schema-buster pattern when NEXT_PUBLIC_CACHE_BUSTER bumps. That
@@ -78,10 +79,10 @@ const SHELL_CACHE = `setnayan-${VERSION}`;
 const IMAGE_CACHE = `setnayan-images-${VERSION}`;
 const STATIC_CACHE = `setnayan-static-${VERSION}`;
 const FONT_CACHE = `setnayan-fonts-${VERSION}`;
-// Day-of guest data (the personal landing page + find-my-table). Served
-// stale-while-revalidate so a guest at a venue with flaky signal still sees
-// their schedule / table / floorplan from the last good fetch.
-const DAYOF_CACHE = `setnayan-dayof-${VERSION}`;
+// 📶 There is no day-of cache any more (R18, 24 Nov 2026). `setnayan-dayof-${VERSION}` kept every guest page anybody
+// opened, one copy per address for whoever opened it last — and every deploy (it carried VERSION) erased a guest's
+// saved hub. A guest's Event Hub pages are now in the viewer's OWN saved copy (OFFLINE_PAGES_CACHE, below), which a
+// deploy never erases; an older phone's day-of cache is deleted by `activate` (it is not in KNOWN_CACHES).
 // Content-hashed build files. NOT suffixed by VERSION — survives deploys (see
 // "KEEP THE CODE ON THE PHONE" in the header). Never derive this from VERSION.
 const IMMUTABLE_CACHE = 'setnayan-static-immutable-v1';
@@ -96,7 +97,6 @@ const KNOWN_CACHES = [
   IMAGE_CACHE,
   STATIC_CACHE,
   FONT_CACHE,
-  DAYOF_CACHE,
   IMMUTABLE_CACHE,
   OFFLINE_PAGES_CACHE,
 ];
@@ -233,39 +233,23 @@ function isHostCanvasClient(client) {
 }
 
 // ---------------------------------------------------------------------------
-// A GUEST'S OWN VISIT IS ONE RENDER (2026-10-12). The guest page asks the
-// worker to keep its own address for offline (`GuestPreload`) — but when the
-// worker ANSWERED that navigation, the day-of handler below is already keeping
-// it (`DAYOF_CACHE`), so fetching it again was a second full server render of
-// the guest page on every visit after the first. So the preload skips exactly
-// one address: the SENDER'S OWN, and only while the day-of copy of it is held
-// (or still being written — `DAYOF_WRITES`, its body may still be streaming).
-// A page the worker did not answer (the first visit, a pass hop, a hard
-// reload) has no such copy, and its preload is made exactly as before.
+// A GUEST'S OWN VISIT IS ONE RENDER — AND A GUEST PAGE IS KEPT IN ONE PLACE ONLY (2026-10-12; R18, 2026-11-24).
+// The guest page used to ask the worker to keep its own address for offline (`GuestPreload` posted `/<slug>`), and the
+// worker fetched it into IMAGE_CACHE — a second full server render, and a second copy of the guest's page for
+// whoever opened it last. A guest's Event Hub pages now live in the viewer's OWN saved copy alone (THE SAVED COPY,
+// below): the preload never fetches or keeps a guest page (`isGuestPageUrl`), only the icons and the manifest.
 // ---------------------------------------------------------------------------
-const DAYOF_WRITES = new Map();
-
-function clientAddress(client) {
-  const at = client ? sameOriginUrl(client.url) : null;
-  if (!at) return null;
-  at.hash = '';
-  return at.href;
+function isGuestPageUrl(href) {
+  const at = sameOriginUrl(href);
+  return Boolean(at && guestHubAddress(at.pathname));
 }
 
-async function dayOfCopyHeld(href) {
-  try {
-    const writing = DAYOF_WRITES.get(href);
-    if (writing) await writing;
-    const cache = await caches.open(DAYOF_CACHE);
-    return Boolean(await cache.match(href));
-  } catch {
-    return false;
-  }
-}
-
-// Every top-level app route — a first segment that is NEVER a couple's guest slug (generated from app/, held by
-// app/sw-reserved-routes.test.ts — see the note in `isDayOfGuestNavigation`). Module-level so the saved guest page
-// ("THE SAVED COPY" below, the `/<slug>?tab=me` shape) asks the same question.
+// Every top-level app route — a first segment that is NEVER a couple's guest slug. This list is generated from the
+// top-level directories under `apps/web/app/` (private `_dirs`, `(route-groups)` and `[dynamic]` segments excluded —
+// see `app/sw-reserved-routes.test.ts`, which fails if this drifts from what `app/` actually contains). Add the new
+// route's segment here and let the guard confirm it matches. (owner 2026-06-19: /monogram — and other public pages —
+// were mistaken for a guest slug and stale-cached, so the Vector Studio served an old build that hung on "Loading the
+// typeface…".) The saved guest pages ("THE SAVED COPY" below, `guestHubAddress`) and the guest sign-out ask it.
 const RESERVED = new Set([
   '3d_plan',
   'about',
@@ -349,35 +333,6 @@ const RESERVED = new Set([
   'web-only',
 ]);
 
-// A navigation to one of these path shapes is the day-of guest experience —
-// cache it stale-while-revalidate in DAYOF_CACHE. `/[slug]` is the guest's
-// personal landing page; `/[slug]/find-my-table` is the table/floorplan view.
-// Dashboard + marketing routes are intentionally excluded (they stay on the
-// network-first navigation fallback below).
-function isDayOfGuestNavigation(url) {
-  const segments = url.pathname.split('/').filter(Boolean);
-  if (segments.length === 0) return false;
-  const first = segments[0];
-  // Exclude EVERY known top-level app route so only a bare guest slug matches.
-  // (owner 2026-06-19: /monogram — and other public pages — were mistaken for a
-  // guest slug and stale-cached, so the Vector Studio served an old build that
-  // hung on "Loading the typeface…". Keep this in sync with app/<route>/.)
-  //
-  // This list is generated from the top-level directories under `apps/web/app/`
-  // (private `_dirs`, `(route-groups)` and `[dynamic]` segments excluded — see
-  // `app/sw-reserved-routes.test.ts`, which fails if this drifts from what
-  // `app/` actually contains). Add the new route's segment here and let the
-  // guard confirm it matches.
-  if (RESERVED.has(first)) return false;
-  // 📅 Me (`?tab=me`) holds the guest's OWN day — their name, seat, schedule and call time. It is kept per person by
-  // THE SAVED COPY below (one viewer, erased at sign-out and after the event), never here: this cache is one copy per
-  // address for whoever opens it, and survives "Remove it from this browser".
-  if (segments.length === 1 && url.searchParams.get('tab') === 'me') return false;
-  if (segments.length === 1) return true; // /[slug]
-  if (segments.length === 2 && segments[1] === 'find-my-table') return true;
-  return false;
-}
-
 // LRU + max-age caps per asset class. Soft splits per spec § 2 — whichever
 // layer fills first triggers eviction inside that layer, no cross-layer
 // borrowing.
@@ -394,10 +349,6 @@ const EXPIRATION = {
     maxEntries: 20,
     maxAgeMs: 365 * 24 * 60 * 60 * 1000, // 1 year
   },
-  [DAYOF_CACHE]: {
-    maxEntries: 50, // a handful of guests' landing pages per device
-    maxAgeMs: 2 * 24 * 60 * 60 * 1000, // 2 days — the event-day window
-  },
 };
 
 // LRU metadata lives in an in-memory map per-cache; the SW process is shared
@@ -409,7 +360,6 @@ const lru = {
   [IMAGE_CACHE]: new Map(),
   [STATIC_CACHE]: new Map(),
   [FONT_CACHE]: new Map(),
-  [DAYOF_CACHE]: new Map(),
 };
 
 function recordAccess(cacheName, url) {
@@ -745,8 +695,16 @@ async function clearAllCaches() {
 // the viewer's OWN copies of exactly four page shapes are kept, and opened when — and only when — there is no signal:
 //   /dashboard/<event> · /dashboard/<event>/guests/checkin · /vendor-dashboard/on-the-day ·
 //   /vendor-dashboard/on-the-day/live/<event> — and each person's "Your schedule": /dashboard/<event>/schedule ·
-//   /vendor-dashboard/clients/<event>?tab=schedule · /<slug>?tab=me   (a COPY of lib/offline-copies.ts
-//   OFFLINE_COPY_SHAPES, held equal by app/sw-offline-copies.test.ts; a query only where the shape spells it out)
+//   /vendor-dashboard/clients/<event>?tab=schedule   (a COPY of lib/offline-copies.ts OFFLINE_COPY_SHAPES, held equal
+//   by app/sw-offline-copies.test.ts; a query only where the shape spells it out)
+// 📶 …and, since R18 (owner 2026-11-24, "start with event hub"), EVERY Event Hub page a guest can open: the arrival
+// page `/<event>`, its `?tab=` pages (live · home · details · story · me), its rooms (find-my-table · find-seat · seat ·
+// pabuya · everyone) and the latest announcement's answer — in either address form (`/<event>…` and, once the address
+// move's switch is on, `/{username}/<event>…`), kept as ONE copy under the bare form (`guestHubAddress`, a COPY of
+// lib/offline-copy-addresses.ts). The Gallery tab (photos), the 3D walk and the reply are not kept: small data only.
+// 🔒 A guest page is kept only when its own HTML names the viewer saving it (`data-sn-copy-viewer`, drawn only for the
+// pass holder or the seat's own account); a rotated QR or a removed guest draws a stranger's page, which is never kept,
+// and the network answering a guest page without it erases that event's guest copies.
 //
 // 🔑 THE RULES (each one a test in app/sw-offline-copies.test.ts):
 //   · NETWORK-FIRST, ALWAYS. With signal the page is the network's answer, every time — a kept copy is never returned
@@ -781,10 +739,64 @@ const OFFLINE_COPY_SHAPES = [
   // Customer › Schedule, a guest's Event Hub › Me (its owner is the SLUG; a reserved first segment is never a guest's).
   /^\/dashboard\/([A-Za-z0-9-]{8,64})\/schedule$/,
   /^\/vendor-dashboard\/clients\/([A-Za-z0-9-]{8,64})\?tab=schedule$/,
-  /^\/([a-z0-9-]{3,32})\?tab=me$/,
 ];
-const OFFLINE_GUEST_ME_SHAPE = OFFLINE_COPY_SHAPES[6];
-// An event key: an event id the address names, or a guest page's slug (3–32, lib/slugs.ts).
+// 📶 R18 — the guest's Event Hub pages (a COPY of lib/offline-copies.ts GUEST_HUB_TABS_KEPT · GUEST_HUB_ROOMS_KEPT ·
+// GUEST_HUB_ANSWER, and of lib/offline-copy-addresses.ts EVENT_PAGE_FOLDERS + SHOP_SUB_PAGES + U_SUBPATH_ROUTES as
+// HUB_PAGE_WORDS — the second words that are never an event under a person). Held equal by sw-offline-copies.test.ts.
+const GUEST_HUB_TABS = ['live', 'home', 'details', 'story', 'me'];
+const GUEST_HUB_ROOMS = ['find-my-table', 'find-seat', 'seat', 'pabuya', 'everyone'];
+const GUEST_HUB_ANSWER = 'announcement';
+const HUB_PAGE_WORDS = new Set([
+  'announcement', 'avatar', 'cached', 'everyone', 'find-my-table', 'find-seat', 'hub', 'icon', 'invite',
+  'live-pulse', 'live-wall', 'manifest.webmanifest', 'open-as-pass', 'pabuya', 'print', 'recap', 'redeem',
+  'request', 'seat', 'sign-out', 'venue', 'welcome',
+  'dates', 'booth', 'review', 'guest-review', 'story',
+  'c',
+]);
+const GUEST_WORD = /^[a-z0-9-]{3,32}$/;
+const GUEST_KEPT_ROOMS = new Set([...GUEST_HUB_ROOMS, GUEST_HUB_ANSWER]);
+// The business doors' host labels — a COPY of `DOOR_LABELS` (lib/door-map.ts, the one door map), held equal by
+// app/sw-offline-copies.test.ts. No event or shop may take one (lib/reserved-slugs.ts), and they are not route folders,
+// so they cannot live in RESERVED (sw-reserved-routes.test.ts holds that to the folders).
+const DOOR_WORDS = new Set(['supplier', 'coordinator', 'business']);
+
+function isGuestWord(w) {
+  return typeof w === 'string' && GUEST_WORD.test(w) && !RESERVED.has(w) && !DOOR_WORDS.has(w);
+}
+
+// A guest Event Hub page this copy keeps, in either address form, or null: { event, suffix, key (the bare form) }.
+//   /<event>[?tab=<kept>] · /<event>/<kept room> · /{username}/<event>[?tab=<kept>] · /{username}/<event>/<kept room>
+function guestHubAddress(path) {
+  const q = path.indexOf('?');
+  const pathname = q === -1 ? path : path.slice(0, q);
+  const search = q === -1 ? '' : path.slice(q);
+  const tab = /^\?tab=([a-z]+)$/.exec(search);
+  if (search !== '' && !(tab && GUEST_HUB_TABS.includes(tab[1]))) return null;
+  if (pathname.charAt(0) !== '/') return null;
+  const parts = pathname.slice(1).split('/');
+  if (parts.some((p) => p === '')) return null;
+  const read = (event, suffix, nested) => ({ event, suffix, key: `/${event}${suffix}`, nested });
+  const [a, b, c] = parts;
+  if (parts.length === 1) return isGuestWord(a) ? read(a, search, false) : null;
+  if (parts.length === 2) {
+    if (!isGuestWord(a)) return null;
+    if (GUEST_KEPT_ROOMS.has(b)) return search === '' ? read(a, `/${b}`, false) : null;
+    if (HUB_PAGE_WORDS.has(b) || !isGuestWord(b)) return null;
+    return read(b, search, true);
+  }
+  if (parts.length === 3) {
+    if (search !== '' || !isGuestWord(a) || !isGuestWord(b) || HUB_PAGE_WORDS.has(b) || !GUEST_KEPT_ROOMS.has(c)) return null;
+    return read(b, `/${c}`, true);
+  }
+  return null;
+}
+
+// A guest's own hub page (the arrival page or a `?tab=` page) — the pages that carry the seal (`data-sn-copy-viewer`).
+function isGuestHubPage(g) {
+  return Boolean(g) && (g.suffix === '' || g.suffix.charAt(0) === '?');
+}
+
+// An event key: an event id the address names, or a guest page's event word (3–32, lib/slugs.ts).
 const OFFLINE_EVENT_ID = /^[A-Za-z0-9-]{3,64}$/;
 // 🧾 THE COPY'S VERSION (lib/offline-copies.ts `copyVersionOf`): a "Your schedule" page renders
 // `data-sn-copy-version="<fingerprint of the day it drew>"`. Recorded with the copy; a save naming another version
@@ -792,7 +804,10 @@ const OFFLINE_EVENT_ID = /^[A-Za-z0-9-]{3,64}$/;
 const OFFLINE_COPY_VERSION = /^[A-Za-z0-9._-]{1,64}$/;
 const OFFLINE_COPY_UNREAD = 'unread';
 const OFFLINE_VIEWER_ID = /^[A-Za-z0-9_-]{8,128}$/;
-const OFFLINE_MAX_PAGES = 4;
+// 📏 The most pages one save may hold: a guest's whole Event Hub (the arrival page, its five pages, its five rooms and
+// the announcement's answer). Raised from four for R18 (24 Nov 2026); lib/offline-copies.ts OFFLINE_MAX_PAGES says why
+// and how big that is, and app/sw-offline-copies.test.ts holds the two equal.
+const OFFLINE_MAX_PAGES = 12;
 // An automatic save re-renders a kept page only when its copy is older than this (lib/offline-copies.ts
 // AUTO_REFRESH_AFTER_MS); "Update now" (`force`) always does.
 const OFFLINE_AUTO_REFRESH_MS = 30 * 60 * 1000;
@@ -804,16 +819,29 @@ function isOfflineCopyPath(path) {
   return offlineCopyEventId(path) !== undefined;
 }
 
-// The event a copy path belongs to (a guest's Me: its slug); null for the supplier Hub (names no event); undefined = not
-// a copy path.
+// The event a copy path belongs to (a guest's page: its event word); null for the supplier Hub (names no event);
+// undefined = not a copy path.
 function offlineCopyEventId(path) {
   for (const re of OFFLINE_COPY_SHAPES) {
     const m = re.exec(path);
-    if (!m) continue;
-    if (re === OFFLINE_GUEST_ME_SHAPE && RESERVED.has(m[1])) return undefined;
-    return m[1] || null;
+    if (m) return m[1] || null;
   }
-  return undefined;
+  const g = guestHubAddress(path);
+  return g ? g.event : undefined;
+}
+
+// The key a copy of `path` is kept under: the path itself, or a guest page's bare form (both address forms are ONE
+// copy); null = not a copy path. A COPY of lib/offline-copy-addresses.ts `offlineCopyKey`.
+function offlineCopyKey(path) {
+  for (const re of OFFLINE_COPY_SHAPES) if (re.test(path)) return path;
+  const g = guestHubAddress(path);
+  return g ? g.key : null;
+}
+
+// 🔒 The viewer a kept guest page's HTML names, or null (a COPY of lib/offline-copies.ts `copyViewerIn`).
+function copyViewerIn(html) {
+  const m = /data-sn-copy-viewer="([A-Za-z0-9_-]{8,128})"/.exec(html);
+  return m ? m[1] : null;
 }
 
 // The version a kept page's HTML carries, or null (a COPY of lib/offline-copies.ts `copyVersionIn`).
@@ -916,25 +944,27 @@ async function forgetOfflineEvent(eventKey) {
   }
 }
 
-// 🧹 …and the guest's pages the DAY-OF fallback keeps (`DAYOF_CACHE`: `/<slug>`, `/<slug>/find-my-table`, the other
-// `?tab=` pages) plus the copy of `/<slug>` that `GuestPreload` asks for (`PRELOAD_ASSETS` → `IMAGE_CACHE`). Both are ONE
-// copy per address for whoever opened it last, and the no-signal fallback reads them with `caches.match` — every cache —
-// so a shared phone's next person, with no signal, opened the previous guest's table page. A guest's sign-out erases
-// that slug's; an account's erases every guest page. Only same-origin keys whose first segment is a guest slug (never a
-// reserved route, an icon, an image or code) are touched.
+// 🧹 …and any guest page an OLDER worker left in `IMAGE_CACHE` (the copy of `/<slug>` that `GuestPreload` used to ask
+// for — R18 retired that, and the day-of cache with it). Those were ONE copy per address for whoever opened it last,
+// and a no-signal fallback that reads every cache (`caches.match`) could open the previous guest's page on a shared
+// phone. A guest's sign-out erases that event's; an account's erases every guest page. Only same-origin keys under a
+// guest event — `/<event>…` or `/{username}/<event>…` — are touched (never a reserved route, an icon, an image or code).
 function guestPageSlug(key) {
   try {
     const u = new URL(typeof key === 'string' ? key : key.url, self.location.origin);
     if (u.host !== self.location.host) return null;
-    const first = (u.pathname.split('/').filter(Boolean)[0] || '').toLowerCase();
-    return /^[a-z0-9-]{3,32}$/.test(first) && !RESERVED.has(first) ? first : null;
+    const parts = u.pathname.toLowerCase().split('/').filter(Boolean);
+    if (!isGuestWord(parts[0])) return null;
+    // `/{username}/<event>…` — a second word that is no page of an event, a shop or a person is the event.
+    if (parts[1] && !HUB_PAGE_WORDS.has(parts[1]) && isGuestWord(parts[1])) return parts[1];
+    return parts[0];
   } catch {
     return null;
   }
 }
 
 async function forgetGuestPages(slug) {
-  for (const name of [DAYOF_CACHE, IMAGE_CACHE]) {
+  for (const name of [IMAGE_CACHE]) {
     try {
       if (!(await caches.has(name))) continue;
       const cache = await caches.open(name);
@@ -952,17 +982,20 @@ async function forgetGuestPages(slug) {
 }
 
 // 🧹 SIGN-OUT, AS THE WORKER SEES IT. Every guest sign-out door (the Me button, "Not you?", "Remove it from this
-// browser") is ONE request: a navigation to `/<slug>/sign-out`. The worker sees it go by — it never answers it — and
-// erases that event's saved guest page and its day-of pages before the browser even sends it (with no signal too: the
-// person asked to be removed). `/auth/sign-out` (an account's sign-out) erases every copy and every guest page, beside
-// the signed-out landing pages' own wipe (`OFFLINE_COPIES_WIPE_SCRIPT`). Returns the event key to forget, `'*'` for
-// all, or null.
+// browser") is ONE request: a navigation to `/<event>/sign-out` (or `/{username}/<event>/sign-out` once the address
+// move's switch is on). The worker sees it go by — it never answers it — and erases that event's saved Event Hub
+// before the browser even sends it (with no signal too: the person asked to be removed). `/auth/sign-out` (an
+// account's sign-out) erases every copy and every guest page, beside the signed-out landing pages' own wipe
+// (`OFFLINE_COPIES_WIPE_SCRIPT`). Returns the event key to forget, `'*'` for all, or null.
 function signOutForget(request, url) {
   if (request.mode !== 'navigate') return null;
   if (url.host !== self.location.host) return null;
   if (url.pathname === '/auth/sign-out') return '*';
-  const m = /^\/([a-z0-9-]{3,32})\/sign-out$/.exec(url.pathname.toLowerCase());
-  return m && !RESERVED.has(m[1]) ? m[1] : null;
+  const parts = url.pathname.toLowerCase().split('/').filter(Boolean);
+  if (parts[parts.length - 1] !== 'sign-out') return null;
+  if (parts.length === 2) return isGuestWord(parts[0]) ? parts[0] : null;
+  if (parts.length === 3 && isGuestWord(parts[0]) && isGuestWord(parts[1]) && !HUB_PAGE_WORDS.has(parts[1])) return parts[1];
+  return null;
 }
 
 // When the copy of `path` was saved, if a live (not yet erased) event of the CURRENT viewer keeps it; else null.
@@ -1030,10 +1063,55 @@ async function warmPageCode(html) {
   }
 }
 
+// 📶 What the network said about one of a guest's Event Hub pages (asked with `redirect: 'follow'`, so a page the address
+// move forwards — `/<event>` → `/{username}/<event>` — is read at its new address):
+//   'page'   — that very page (the same key, either address form), 200 HTML: keep it (if its seal names the viewer);
+//   'answer' — the announcement's answer, 200 JSON: keep it;
+//   'absent' — not a page this viewer can open: forwarded to ANOTHER page of the same event (a room before seats are
+//              out, a stranger's `/find-seat`), or a 404 (E-Gifts switched off). Nothing to keep, and nothing failed;
+//   'failed' — anything else (no signal, a 5xx, a forward to the login or to another event).
+function guestAnswerOf(g, response) {
+  if (!response) return 'failed';
+  if (response.status === 404) return 'absent';
+  if (response.status !== 200) return 'failed';
+  if (response.type !== 'basic' && response.type !== 'default') return 'failed';
+  if (response.redirected) {
+    const at = sameOriginUrl(response.url);
+    const landed = at ? guestHubAddress(at.pathname + at.search) : null;
+    if (!landed || landed.event !== g.event) return 'failed';
+    if (landed.key !== g.key) return 'absent';
+  }
+  const type = (response.headers.get('Content-Type') || '').toLowerCase();
+  if (g.suffix === `/${GUEST_HUB_ANSWER}`) return type.includes('application/json') ? 'answer' : 'failed';
+  return type.includes('text/html') ? 'page' : 'failed';
+}
+
+// Does this event's entry keep a guest hub page (the arrival page or a `?tab=` page) — one that carried the seal?
+function guestHubSealedIn(ev, event) {
+  return Object.keys((ev && ev.pages) || {}).some((k) => {
+    const g = guestHubAddress(k);
+    return Boolean(g && g.event === event && isGuestHubPage(g));
+  });
+}
+
+// Keeps the announcement's answer (a small JSON document) under its key. It is drawn only by the card, never opened as
+// a page, so it carries no `data-sn-saved-copy`; it rides on the event's sealed hub pages (`guestHubSealedIn`).
+async function keepOfflineAnswer(key, response, now) {
+  const body = await response.clone().text();
+  const cache = await caches.open(OFFLINE_PAGES_CACHE);
+  const headers = new Headers({ 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+  headers.set('X-Setnayan-Saved-Copy', String(now));
+  await cache.put(offlinePageKey(key), new Response(body, { status: 200, headers }));
+  return { version: null };
+}
+
 // Keeps the page. Returns false — and keeps nothing — when the page says it could not read what it shows (🧾 `unread`):
-// the older copy stays, and the save says it failed. Otherwise `{ version }` (null when the page carries none).
-async function keepOfflinePage(path, response, now) {
+// the older copy stays, and the save says it failed. Returns 'unsealed' — and keeps nothing — when `seal` names a
+// viewer and the page does not (🔒 a guest hub page drawn for somebody else: a rotated QR, a removed guest, a
+// stranger). Otherwise `{ version }` (null when the page carries none).
+async function keepOfflinePage(path, response, now, seal = null) {
   const html = await response.clone().text();
+  if (seal && copyViewerIn(html) !== seal) return 'unsealed';
   const version = copyVersionIn(html);
   if (version === OFFLINE_COPY_UNREAD) return false;
   const cache = await caches.open(OFFLINE_PAGES_CACHE);
@@ -1051,9 +1129,18 @@ async function keepOfflinePage(path, response, now) {
 // Records a kept page in one event's entry: its time and (when it carries one) its version.
 function recordOfflinePage(ev, path, at, kept) {
   ev.pages[path] = at;
+  if (ev.absent) delete ev.absent[path];
   if (!ev.versions || typeof ev.versions !== 'object') ev.versions = {};
   if (kept && kept.version) ev.versions[path] = kept.version;
   else delete ev.versions[path];
+}
+
+// 📶 Records a hub page this viewer cannot open (`guestAnswerOf` → 'absent'): when it was asked, and no copy of it.
+function recordAbsentPage(ev, path, at) {
+  if (!ev.absent || typeof ev.absent !== 'object') ev.absent = {};
+  ev.absent[path] = at;
+  delete ev.pages[path];
+  if (ev.versions) delete ev.versions[path];
 }
 
 // `OFFLINE_SAVE` — keep (or refresh) this viewer's copies of one event's pages. Returns what the page's mark says.
@@ -1073,12 +1160,23 @@ async function saveOfflineCopies(data) {
     paths.length > OFFLINE_MAX_PAGES ||
     !paths.every((p) => {
       const owner = offlineCopyEventId(p);
-      // Only the four shapes, and only THIS event's address (the Hub names no event and is the supplier's own).
+      // Only the shapes, and only THIS event's address (the Hub names no event and is the supplier's own).
       return owner !== undefined && (owner === null || owner === eventId);
     })
   ) {
     return { ok: false, refused: true, savedAt: null, failed: paths };
   }
+  // Each address once, under its key (a guest page's two address forms are one copy). A guest's own hub pages go
+  // first: they carry the seal, and the rooms and the announcement are kept only beside a sealed hub page.
+  const asked = [];
+  const seen = new Set();
+  for (const path of paths) {
+    const key = offlineCopyKey(path);
+    if (key === null || seen.has(key)) continue;
+    seen.add(key);
+    asked.push({ path, key, guest: guestHubAddress(path) });
+  }
+  asked.sort((x, y) => Number(isGuestHubPage(y.guest)) - Number(isGuestHubPage(x.guest)));
   const reg = await loadOfflineRegistry();
   if (reg.viewer !== viewer) {
     // 🔑 ONE VIEWER: somebody else's copies are erased before anything of this viewer's is kept.
@@ -1092,37 +1190,85 @@ async function saveOfflineCopies(data) {
   // 🧾 The version the asking page was rendered with: a copy of another version is stale however fresh its clock.
   const version = OFFLINE_COPY_VERSION.test(String(data.version || '')) ? String(data.version) : null;
   const failed = [];
-  for (const path of paths) {
-    const had = ev.pages[path];
-    const sameVersion = version === null || (ev.versions && ev.versions[path] === version);
+  const absent = [];
+  let unsealed = false;
+  for (const { path, key, guest } of asked) {
+    const had = typeof ev.pages[key] === 'number' ? ev.pages[key] : ev.absent && ev.absent[key];
+    const sameVersion = version === null || (ev.versions && ev.versions[key] === version);
     if (!data.force && sameVersion && typeof had === 'number' && now - had < OFFLINE_AUTO_REFRESH_MS) continue;
     try {
+      // A guest page follows a forward (the address move's `/<event>` → `/{username}/<event>`); `guestAnswerOf` keeps
+      // only one that landed on the same page. Every other shape is kept only as the page itself, never a redirect.
       const response = await fetch(new Request(offlinePageKey(path), {
         credentials: 'same-origin',
-        redirect: 'manual',
+        redirect: guest ? 'follow' : 'manual',
         cache: 'no-store',
         headers: { 'X-Setnayan-Offline-Save': '1' },
       }));
       const at = Date.now();
-      const kept = isKeepablePage(response) ? await keepOfflinePage(path, response, at) : false;
-      if (kept) recordOfflinePage(ev, path, at, kept);
+      if (!guest) {
+        const kept = isKeepablePage(response) ? await keepOfflinePage(key, response, at) : false;
+        if (kept) recordOfflinePage(ev, key, at, kept);
+        else failed.push(path);
+        continue;
+      }
+      const answer = guestAnswerOf(guest, response);
+      if (answer === 'absent') {
+        recordAbsentPage(ev, key, at);
+        absent.push(path);
+        continue;
+      }
+      // 🔒 A room or the announcement is kept only beside the guest's own sealed hub page.
+      if (answer === 'failed' || (!isGuestHubPage(guest) && !guestHubSealedIn(ev, guest.event))) {
+        failed.push(path);
+        continue;
+      }
+      const kept =
+        answer === 'answer'
+          ? await keepOfflineAnswer(key, response, at)
+          : await keepOfflinePage(key, response, at, isGuestHubPage(guest) ? viewer : null);
+      if (kept === 'unsealed') {
+        unsealed = true;
+        break;
+      }
+      if (kept) recordOfflinePage(ev, key, at, kept);
       else failed.push(path);
     } catch {
       failed.push(path);
     }
   }
   reg2.events[eventId] = ev;
+  if (unsealed) {
+    // 🔒 THE SEAL IS BROKEN: the server drew this guest's page for somebody else (a rotated QR, a removed guest, a
+    // signed-out pass). Nothing of this event is kept for this viewer — the older copy goes too.
+    await forgetOfflineEvent(eventId);
+    return { ok: false, unsealed: true, savedAt: null, failed: paths };
+  }
+  try {
+    // A page this viewer can no longer open: its older copy is not left to be opened with no signal.
+    const cache = await caches.open(OFFLINE_PAGES_CACHE);
+    for (const path of absent) {
+      const key = offlineCopyKey(path);
+      if (key && offlineCopySavedAt(reg2, key, now) === null) await cache.delete(offlinePageKey(key));
+    }
+  } catch {
+    // Best-effort: the registry no longer lists it, so it is never opened.
+  }
   await writeOfflineRegistry();
+  // The mark speaks for every page asked (the OLDEST); a page this viewer cannot open counts at the time it was asked.
   let savedAt = Infinity;
-  for (const p of paths) {
-    const at = ev.pages[p];
+  let keptAny = false;
+  for (const { key } of asked) {
+    const at = typeof ev.pages[key] === 'number' ? ev.pages[key] : ev.absent && ev.absent[key];
     if (typeof at !== 'number') {
       savedAt = null;
       break;
     }
+    if (typeof ev.pages[key] === 'number') keptAny = true;
     savedAt = Math.min(savedAt, at);
   }
-  return { ok: failed.length === 0, savedAt: savedAt === Infinity ? null : savedAt, failed };
+  if (!keptAny) savedAt = null;
+  return { ok: failed.length === 0 && savedAt !== null, savedAt: savedAt === Infinity ? null : savedAt, failed, absent };
 }
 
 // The copy of `path` the current viewer keeps, or null. It is marked on its <html> element
@@ -1146,7 +1292,10 @@ async function offlineCopyResponse(path) {
 // One kept-shape navigation. NETWORK-FIRST: the network's answer is returned whenever there is one; the copy only when
 // the request failed (or the browser says it is offline). A kept page's successful answer refreshes its copy.
 async function offlineCopyNavigation(request, url, after) {
-  const path = url.pathname + url.search;
+  // 📶 Either address form of a guest page opens the ONE copy kept under its bare form (`offlineCopyKey`).
+  const address = url.pathname + url.search;
+  const path = offlineCopyKey(address) || address;
+  const guest = guestHubAddress(address);
   if (browserSaysOffline()) {
     const copy = await offlineCopyResponse(path);
     if (copy) return copy;
@@ -1168,7 +1317,14 @@ async function offlineCopyNavigation(request, url, after) {
         const reg = await loadOfflineRegistry();
         const now = Date.now();
         if (offlineCopySavedAt(reg, path, now) === null) return; // not a page this viewer keeps
-        const kept = await keepOfflinePage(path, copy, now);
+        // 🔒 A guest's hub page must still name the viewer who keeps it; one that does not (a rotated QR, a removed
+        // guest) ends that event's copy. A room rides on the event's sealed hub page, as it did when it was saved.
+        const seal = guest && isGuestHubPage(guest) ? reg.viewer : null;
+        const kept = await keepOfflinePage(path, copy, now, seal);
+        if (kept === 'unsealed') {
+          await forgetOfflineEvent(guest.event);
+          return;
+        }
         if (!kept) return; // 🧾 a page that could not read its schedule: the older copy stays
         for (const id of Object.keys(reg.events)) {
           const ev = reg.events[id];
@@ -1181,14 +1337,86 @@ async function offlineCopyNavigation(request, url, after) {
   return response;
 }
 
+// 📣 THE ANNOUNCEMENT'S ANSWER — R18 "home with the latest announcement". The card asks `/<event>/announcement` on
+// every open (a fetch, not a navigation). NETWORK-FIRST like every kept page: with signal it is the network's answer
+// (and the kept answer is refreshed from it); with none, the answer this viewer last kept — so the coordinator's last
+// words stay on the saved hub. Answered only when the registry in memory lists it, or the browser says it is offline.
+async function offlineAnswerFetch(request, key, after) {
+  const kept = async () => {
+    const reg = await loadOfflineRegistry();
+    if (offlineCopySavedAt(reg, key, Date.now()) === null) return null;
+    try {
+      const cache = await caches.open(OFFLINE_PAGES_CACHE);
+      return (await cache.match(offlinePageKey(key))) || null;
+    } catch {
+      return null;
+    }
+  };
+  if (browserSaysOffline()) {
+    const copy = await kept();
+    if (copy) return copy;
+  }
+  let response;
+  try {
+    response = await fetch(request);
+  } catch (err) {
+    const copy = await kept();
+    if (copy) return copy;
+    throw err;
+  }
+  const g = guestHubAddress(key);
+  if (g && guestAnswerOf(g, response) === 'answer') {
+    const copy = response.clone();
+    after.push(
+      withOfflineLock(async () => {
+        const reg = await loadOfflineRegistry();
+        const now = Date.now();
+        if (offlineCopySavedAt(reg, key, now) === null) return;
+        const k = await keepOfflineAnswer(key, copy, now);
+        for (const id of Object.keys(reg.events)) {
+          const ev = reg.events[id];
+          if (ev && ev.until > now && ev.pages && typeof ev.pages[key] === 'number') recordOfflinePage(ev, key, now, k);
+        }
+        await writeOfflineRegistry();
+      }).catch(() => undefined),
+    );
+  }
+  return response;
+}
+
+function maybeServeOfflineAnswer(event, request, url) {
+  if (request.mode === 'navigate' || request.method !== 'GET') return false;
+  const g = guestHubAddress(url.pathname + url.search);
+  if (!g || g.suffix !== `/${GUEST_HUB_ANSWER}`) return false;
+  const listed = offlineRegistry ? offlineCopySavedAt(offlineRegistry, g.key, Date.now()) !== null : null;
+  if (!(listed === true || (listed === null && browserSaysOffline()))) return false;
+  const after = [];
+  let release;
+  event.waitUntil(
+    new Promise((resolve) => {
+      release = resolve;
+    }),
+  );
+  event.respondWith(
+    offlineAnswerFetch(request, g.key, after).finally(() => {
+      Promise.allSettled(after).then(() => release());
+    }),
+  );
+  return true;
+}
+
 // The fetch handler's synchronous decision for a navigation (see 🍎 SAFARI above). Returns true when it answered.
 function maybeServeOfflineCopy(event, request, url) {
   // The address is the path plus its query: a query is only ever part of a shape where the shape spells it out
-  // (`?tab=schedule`, `?tab=me`); any other query is never answered from a copy.
+  // (`?tab=schedule`, a guest page's `?tab=me`); any other query is never answered from a copy.
   const address = url.pathname + url.search;
-  if (!isOfflineCopyPath(address)) return false;
+  const key = offlineCopyKey(address);
+  if (key === null) return false;
   if (request.destination && request.destination !== 'document') return false;
-  const listed = offlineRegistry ? offlineCopySavedAt(offlineRegistry, address, Date.now()) !== null : null;
+  // 🔑 THE MAKER ASKS ONCE — a GUEST page the host's app opens (from /dashboard/ or /site-editor/) is the browser's
+  // alone, exactly as before R18. A coordinator's own pages (Home → Check-in desk) are still answered.
+  if (guestHubAddress(address) && isHostAppNavigation(request, url)) return false;
+  const listed = offlineRegistry ? offlineCopySavedAt(offlineRegistry, key, Date.now()) !== null : null;
   if (!(listed === true || (listed === null && (browserSaysOffline() || !IS_WEBKIT)))) return false;
   const after = [];
   let release;
@@ -1353,15 +1581,16 @@ self.addEventListener('message', (event) => {
     // asked: nothing is fetched (this was the bare `/<slug>` after every canvas
     // load). And no sender can have a host canvas address kept.
     if (isHostCanvasClient(event.source)) return;
+    // 📶 …and a guest's Event Hub page is never fetched or kept here (R18): it lives in the viewer's own saved copy
+    // alone (`isGuestPageUrl`) — an older page that still posts its own address costs no render and keeps nothing.
     const urls = Array.isArray(data.urls)
       ? data.urls.filter((u) => {
           if (typeof u !== 'string') return false;
           const at = sameOriginUrl(u);
-          return !(at && isHostCanvasUrl(at));
+          return !(at && isHostCanvasUrl(at)) && !isGuestPageUrl(u);
         })
       : [];
     if (urls.length === 0) return;
-    const own = clientAddress(event.source);
 
     event.waitUntil(
       (async () => {
@@ -1369,9 +1598,6 @@ self.addEventListener('message', (event) => {
         await Promise.all(
           urls.map(async (url) => {
             try {
-              // The sender's own page, already kept for the day: not fetched again.
-              const at = sameOriginUrl(url);
-              if (own && at && at.href === own && (await dayOfCopyHeld(own))) return;
               const res = await fetch(url, { mode: 'no-cors' });
               // `no-cors` responses are opaque but still cacheable. Skip
               // anything the browser flagged as a real failure.
@@ -1442,52 +1668,24 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Guest landing-page navigation (the personal `/[slug]` page + find-my-table).
-  // NETWORK-FIRST (owner 2026-06-19): always fetch fresh when online and update
-  // the cache, falling back to the cached copy ONLY when the network fails. The
-  // old stale-while-revalidate served the PREVIOUS build's HTML (→ old JS chunks)
-  // on the first visit after every deploy — so couples/owners saw stale pages and
-  // thought nothing shipped. Network-first keeps the offline/weak-signal fallback
-  // (day-of at a venue) while guaranteeing a fresh page whenever the network is up.
+  // 📣 The announcement card's ask (`/<event>/announcement`, a fetch): network-first, the kept answer with no signal.
+  if (maybeServeOfflineAnswer(event, request, url)) return;
+
+  // NETWORK-FIRST for every page HTML (owner 2026-06-19): always fetched fresh when online, a saved copy ONLY when the
+  // network fails. The old stale-while-revalidate served the PREVIOUS build's HTML (→ old JS chunks) on the first visit
+  // after every deploy — so couples/owners saw stale pages and thought nothing shipped.
   const isNavigation =
     request.mode === 'navigate' || request.destination === 'document';
   // 🔑 A pass hop is the browser's alone — no respondWith, no cache, no fallback.
   if (isNavigation && isGuestPassHop(url)) return;
-  // 📶 A coordinator's / supplier's own event page: network-first, the saved copy only with no signal (EV3). Checked
-  // BEFORE the host-app rule below — that rule is about GUEST pages opened from the host's app, and its referrer test
-  // would otherwise hand Home → Check-in desk back to the browser.
+  // 📶 The viewer's own saved pages — a coordinator's / supplier's event page (EV3) and, since R18, every Event Hub
+  // page a guest can open: network-first, the saved copy only with no signal. Checked BEFORE the host-app rule below —
+  // that rule is about GUEST pages opened from the host's app (`maybeServeOfflineCopy` asks it itself for those), and
+  // its referrer test would otherwise hand Home → Check-in desk back to the browser.
   if (isNavigation && maybeServeOfflineCopy(event, request, url)) return;
   // 🔑 So is a page the host's app asks for (the Maker's canvas, a stage
   // preview, a miniature): one request, the browser's, and no copy kept.
   if (isNavigation && isHostAppNavigation(request, url)) return;
-  if (isNavigation && isDayOfGuestNavigation(url)) {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response && response.ok) {
-            const clone = response.clone();
-            const writing = caches.open(DAYOF_CACHE).then((cache) =>
-              cache.put(request, clone).then(() => {
-                recordAccess(DAYOF_CACHE, request.url);
-                return enforceLimits(DAYOF_CACHE);
-              }),
-            );
-            // The page's own preload waits for this copy instead of fetching it again.
-            DAYOF_WRITES.set(request.url, writing);
-            writing
-              .catch(() => undefined)
-              .then(() => {
-                if (DAYOF_WRITES.get(request.url) === writing) DAYOF_WRITES.delete(request.url);
-              });
-          }
-          return response;
-        })
-        .catch(() =>
-          caches.match(request).then((c) => c ?? caches.match('/offline.html')),
-        ),
-    );
-    return;
-  }
 
   // Every OTHER navigation (dashboard · login · auth · marketing — all but the
   // saved-copy shapes above) is left to the browser: we deliberately do NOT call event.respondWith for it, so the
@@ -1506,8 +1704,8 @@ self.addEventListener('fetch', (event) => {
   // The generic shell-cache offline fallback we used to serve here bought
   // almost nothing — the dashboard / login / auth surfaces all need the network
   // + a live auth session anyway — so it never justified crashing live logins.
-  // The one genuinely-offline navigation, the day-of guest `/[slug]` page, is
-  // still intercepted above; asset caching (images / fonts / JS / CSS) is
+  // The genuinely-offline navigations — the viewer's own saved pages, a guest's
+  // Event Hub among them — are intercepted above; asset caching (images / fonts / JS / CSS) is
   // unaffected because those aren't navigations. Not intercepting app
   // navigations also *helps* freshness: they can never serve a stale shell.
   return;

@@ -3,6 +3,7 @@ import '@/app/hub-themes.css';
 import { type AnnouncementStage } from '@/lib/coordinator-broadcasts';
 import { announcementStageOf } from './_lib/announcement-stage';
 import { DayOfAnnouncement } from './_components/day-of-announcement';
+import { NeedsInternetGuard } from '@/app/_components/offline-ready/needs-internet-guard';
 import { AnnouncementLook } from './_components/announcement-look';
 import { GuestLookScope } from './_components/guest-look-scope';
 import { lookScopeProps } from './_components/host-draft-look';
@@ -190,6 +191,8 @@ async function guestTreeLayout({ children, params }: GuestTreeLayoutProps) {
           look={<AnnouncementLook stylePreferences={stylePreferences} />}
         />
       ) : null}
+      {/* 📶 R15 — with no signal, what needs internet greys out and says so (Live Watch, the photo wall, the reply…). */}
+      <NeedsInternetGuard />
       {children}
     </GuestLookScope>
   );

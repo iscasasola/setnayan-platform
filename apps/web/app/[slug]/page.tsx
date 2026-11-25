@@ -7,8 +7,9 @@ import { YourScheduleCard } from './_components/your-schedule-card';
 import { ScheduleSavedMark } from '@/app/_components/offline-ready/schedule-saved-mark';
 import { OfflineViewerScript } from '@/app/_components/offline-ready/offline-viewer-script';
 import { QuietScheduleRefresh } from '@/app/_components/offline-ready/quiet-schedule-refresh';
-import { OFFLINE_COPY_UNREAD, copyVersionOf } from '@/lib/offline-copies';
-import { guestMePath } from '@/lib/offline-copy-addresses';
+import { HubSavedMark } from '@/app/_components/offline-ready/hub-saved-mark';
+import { OFFLINE_COPY_UNREAD, copyVersionOf, guestCopyViewer } from '@/lib/offline-copies';
+import { guestHubBase, guestMePath } from '@/lib/offline-copy-addresses';
 import { guestsArriveTime } from '@/lib/guests-arrive';
 import { loadGiftPage, type GiftPageEvent } from './pabuya/_lib/gift-page.server';
 import { sampleBoardFor } from '@/lib/sample-board.server';
@@ -2547,18 +2548,34 @@ async function invitationBody({
   const yourScheduleRead = yourScheduleAhead ? await yourScheduleAhead : null;
   /* 📅 YOUR SCHEDULE, SAVED FOR NO SIGNAL (`lib/offline-copies.ts`) — kept on this phone only when the day on screen is
      the VIEWER'S OWN: the pass holder's (no account: `g-<guest>`), or the signed-in account whose seat this is. Never a
-     host's look at a guest (hosts keep their own day on the Schedule), a sample, or the Maker's canvas. */
-  const ownDayViewer: string | null =
-    isEditorCanvas || search.as !== undefined || ownerCapability
-      ? null
-      : viewerAccount?.id
-        ? seatHolderUserId === viewerAccount.id && passStandingNow.standing !== 'host_preview'
-          ? viewerAccount.id
-          : null
-        : session?.event_id === event.event_id && session?.guest_id === guest.guest_id
-          ? `g-${guest.guest_id}`
-          : null;
+     host's look at a guest (hosts keep their own day on the Schedule), a sample, or the Maker's canvas. 📶 R18: the
+     same ONE rule (`guestCopyViewer`) decides whose saved Event Hub this page is — and the rooms ask it too. */
+  const ownDayViewer: string | null = guestCopyViewer({
+    refused: isEditorCanvas || search.as !== undefined || Boolean(ownerCapability) || passStandingNow.standing === 'host_preview',
+    accountId: viewerAccount?.id ?? null,
+    seatHolderId: seatHolderUserId ?? null,
+    passGuestId: session?.event_id === event.event_id ? (session?.guest_id ?? null) : null,
+    drawnGuestId: guest.guest_id,
+  });
   const meCopyPath = ownDayViewer ? guestMePath(event.slug ?? slug) : null;
+  /* 📶 R18 — THE WHOLE EVENT HUB, SAVED FOR ITS GUEST: the mark at the top of every one of their pages (the 28 Oct
+     drawing: "the saved mark at the top of Home"), the seal the worker keeps it by, and the save of every page they can
+     open. Me already wears its own mark on "Your schedule" (`meSaved`), so there it saves and seals but draws no line. */
+  const hubCopyBase = ownDayViewer ? guestHubBase(event.slug ?? slug) : null;
+  const hubSaved =
+    ownDayViewer && hubCopyBase && !isEditorCanvas ? (
+      <>
+      {/* 🔑 ONE VIEWER: on a shared phone, this guest's page erases the copies somebody else saved here. */}
+      <OfflineViewerScript viewer={ownDayViewer} />
+      <HubSavedMark
+        viewer={ownDayViewer}
+        base={hubCopyBase}
+        eventDate={event.event_date ?? null}
+        eventEndDate={event.event_end_date ?? null}
+        draw={!(search.tab === 'me' && yourScheduleRead)}
+      />
+      </>
+    ) : null;
   const meSaved =
     ownDayViewer && meCopyPath && yourScheduleRead ? (
       <>
@@ -2728,6 +2745,7 @@ async function invitationBody({
   timer.flush();
   return wearDraft(
     <>
+      {hubSaved}
       <SiteBody
         {...siteProps}
         invitationChapters={guestChapters}

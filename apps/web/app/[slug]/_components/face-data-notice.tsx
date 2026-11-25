@@ -136,7 +136,7 @@ export async function FaceDataNotice({
 
         {/* The gentle option first — it is the one most people want, and putting
             the irreversible one first invites using it by mistake. */}
-        <form action={toggleBlur} className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <form data-needs-internet="" action={toggleBlur} className="mt-2 flex flex-wrap items-center justify-between gap-2">
           <span className="min-w-0">
             {faceblockEnabled === null
               ? 'We couldn’t check whether your face is blurred on the screens just now.'
@@ -166,6 +166,7 @@ export async function FaceDataNotice({
       />
 
       <form
+        data-needs-internet=""
         action={withdraw}
         className="flex flex-wrap items-center justify-between gap-2 text-xs text-ink/70"
       >

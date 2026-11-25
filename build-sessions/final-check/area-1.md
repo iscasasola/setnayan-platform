@@ -2257,3 +2257,202 @@ SOURCE    CODE
 ```
 
 > NOTES: Chrome and live-walk findings by the checker (not a sub-pass). Live walk: GET page loads only, signed out, 375 px then 1280 px, light; nothing pressed, typed or submitted.
+
+### Phase B · the staging walk (25 Nov, commit bd86936)
+
+Blockers A1-056 (confirmed) and A1-154 (new) are at the top of this file.
+
+#### A1-155 · Setnayan AI has three different prices: "from ₱265" on /pricing, ₱2,790 in the same page's search data and in llms.txt
+```text
+PAGE      /pricing · /llms.txt
+BUTTON    "Setnayan AI" price row (ⓘ)
+STEPS     1. Open /pricing. 2. Scroll to "Help planning". 3. Read the page's Product data (view source) and /llms.txt.
+EXPECTED  One price, read from the catalogue, the same in the row, the Product data and llms.txt. If it is still sold on its own, the row has a way to buy it.
+ACTUAL    The row reads "Setnayan AI · from ₱265" (lowest of the per-event-type bands, `aiFrom` in `app/(shell)/pricing/page.tsx`). The same page's Product data says ₱2,790. llms.txt says "sold on its own at ₱2,790 one-time per event" and repeats it in "What is Setnayan AI?". The page's own comment says "Setnayan AI is no longer sold on its own" and that the row stops drawing once it is off sale, yet the catalogue (copied from production) keeps it on sale. The row has no button, so the price leads nowhere (Add 4: a price with no door).
+SHOTS     375 px light, /pricing "Help planning" row
+RULE      CLAUDE.md §1 (money is read, one reader) · Add 4 HONEST · design-and-wiring C8
+SEVERITY  money-signin
+SOURCE    SEEN
+```
+
+#### A1-156 · Signing in takes about a minute, and creating an event over two minutes
+```text
+PAGE      /login · /start → /onboarding/birthday ("Create my birthday")
+BUTTON    "Use email" → Sign in · "Create my birthday"
+STEPS     1. /login at 375 px, "Use email", sign in with the spare account. 2. Signed out, /start → Birthday → 7 steps → "Create my birthday".
+EXPECTED  A press looks pressed at once; sign-in lands in a few seconds (kit § 5 item 10).
+ACTUAL    Sign-in showed "Signing in…" for 64 s before landing on /dashboard?hub=1. "Creating…" stayed for more than 120 s (the first try was abandoned at "Creating…"; the second landed after about 2.5 min). No message tells the person to wait. Measured while 8 checkers share the copy, from a US container: re-time on live from Manila before fixing, but a minute with no word is a finding either way. /api/telemetry/client-fault also answered 500 on both flows.
+SHOTS     375 px light ("Signing in…", "Creating…")
+RULE      kit § 5 item 10 (speed) · Add 5 (forgiving, clear)
+SEVERITY  money-signin
+SOURCE    SEEN
+```
+
+#### A1-157 · Signed-in supplier browsing says "No services listed yet" while ten verified shops have cards
+```text
+PAGE      /?browse=1 (also where /explore/compare lands with no ids)   (signed in as `front`)
+BUTTON    "Suppliers" view on Discover
+STEPS     1. Sign in. 2. Open /explore/compare (forwards to /?browse=1) or /?browse=1.
+EXPECTED  The seeded verified shops and their service cards (Liwanag alone has 4), or an honest "Couldn't read" with Try again.
+ACTUAL    "Suppliers · All categories · Most reviews · Filters — No services listed yet. Check back soon — suppliers are landing every week." A second open of /?browse=1 hung 93 s and ended blank. /?discover=1 on the same account lists the same ten shops, so the shops exist: the services read is failing (likely the same read that takes the shop pages down, A1-154) and the failure is drawn as "none". "Suppliers are landing every week" is a promise nobody measures.
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 (honest states) · brand.md (no promises)
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A1-158 · /pricing opens a 3-step tour over the page for a first-time visitor
+```text
+PAGE      /pricing (signed out, 375 px)
+BUTTON    the tour's "Skip" / "Next"
+STEPS     1. Open /pricing in a fresh browser at 375 px.
+EXPECTED  The page itself: show it working, remove the fear, then the plans (brand.md page order). Add 5: a step that needs a tour is a finding.
+ACTUAL    A "STEP 1 OF 3 · Why Setnayan … Press Next · Skip · Next" card covers the lower half and the page is scrolled past its heading to "Crafted for every event". The person has to dismiss a tour before reading prices.
+SHOTS     375 px light
+RULE      Add 5 (first-timer, no tour) · Add 1 (never a popup the person did not ask for)
+SEVERITY  look
+SOURCE    SEEN
+```
+
+#### A1-159 · "The best place to build your event." and "the Philippines-first … platform"
+```text
+PAGE      /pricing (H1) · /about and /tl/about (page title) 
+BUTTON    —
+STEPS     1. Read the /pricing heading. 2. Read the /about tab title.
+EXPECTED  No rank claims (brand.md claim 11).
+ACTUAL    /pricing H1 "The best place to build your event." · /about title "About Setnayan — the Philippines-first wedding & life-events platform" (and the Tagalog twin "ang Philippines-first wedding platform"); /about H1 "Set na ’yan. Your wedding, all set — on one Filipino platform." speaks only to weddings. Same family as A1-105.
+SHOTS     —
+RULE      brand.md claims 11 · word rules (event)
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A1-160 · Sign-in pages and walls are indexed; /api/v1 is indexed with no canonical
+```text
+PAGE      /login · /signup · /signup/you · every page that forwards to /login (/articles/write, /explore/compare, /samahan/chat/[id]) · /api/v1 · sitemap-static.xml
+BUTTON    —
+STEPS     1. Read each page's robots meta and canonical. 2. Read sitemap-static.xml.
+EXPECTED  Utility and private pages stay out of search (Add 9 SEO): noindex on sign-in, sign-up and the walls, and not in the sitemap.
+ACTUAL    All carry `index, follow`. /login and /signup are listed in sitemap-static.xml. /api/v1 ("Setnayan API v1 — Reference") is `index, follow` with no canonical, though the locked decision is "no public API endpoints in V1". The four sign-in-wall pages share one title and description ("Sign in · Setnayan"). Pages that do it right: /reset-password, /web-only, /panood/demo/* (noindex).
+SHOTS     —
+RULE      Add 9 SEO · CLAUDE.md §6 (no public API in V1)
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A1-161 · Titles, descriptions and share pictures: doubled brand, shared descriptions, no picture on legal pages
+```text
+PAGE      see list
+BUTTON    —
+STEPS     1. Read <title>, meta description and og:image on every public page at 1280 px.
+EXPECTED  Each page: a unique title ending once in "· Setnayan", its own description, a share picture.
+ACTUAL    • "What connecting Google does · Setnayan · Setnayan" (/privacy/google-access) and "Setnayan · Plan any event free. Every photo in one album. · Setnayan" (/) say the brand twice. • /creators' title runs on to "…bookable Chapters —" and is cut. • /help/topics, /help/topics/about-setnayan and /web-only use the site-wide description, not their own. • /privacy, /terms, /cookies, /refunds, /acceptable-use have no share picture (og:image). • /monogram title "Free Monogram Maker" and /palogo "Logo Maker — Your Animated Wedding Monogram" use the retired word in the title Google shows (A1-027 family). • /features ("Wedding & Life-Events Platform Philippines") and /pawebsite speak to weddings only.
+SHOTS     —
+RULE      Add 9 SEO · brand.md word rules
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A1-162 · Sitemaps: an empty weddings sitemap, sign-in pages listed, old words in help addresses
+```text
+PAGE      /sitemap.xml and its children
+BUTTON    —
+STEPS     1. Open /sitemap.xml and each child.
+EXPECTED  Every listed sitemap holds pages; only public, indexable pages; addresses in house words.
+ACTUAL    sitemap-weddings.xml is in the index with 0 URLs. sitemap-static.xml lists /login and /signup (A1-160) and omits /suppliers (it is in sitemap-suppliers). sitemap-help.xml (315 URLs) carries the retired words in addresses and titles people see in search: /help/how-are-vendors-verified, /help/sign-up-as-vendor, /help/track-vendor, /help/start-thread-with-vendor, /help/vendor-reply-only, /help/verified-filipino-wedding-vendors-no-commission, /help/monogram ("Customize the QR monogram"), /help/what-is-pakulay. (Old addresses may be kept for links; then the title and words should still say supplier / Logo Maker / Mood Board, and a new address should forward.)
+SHOTS     —
+RULE      Add 9 SEO · brand.md word rules
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A1-163 · llms.txt tells AI things the site does not do, and uses banned words and promises
+```text
+PAGE      /llms.txt (prices read live from both catalogues — those match /pricing, except A1-155)
+BUTTON    —
+STEPS     1. Read /llms.txt against the pages it points at.
+EXPECTED  True and complete today (Add 9 GEO), in brand.md words.
+ACTUAL    • "Marketplace … Browsing is free and open to anyone" and "Find suppliers on Discover — Browse verified Filipino event suppliers on the front page": a signed-out stranger who opens supplier browsing is sent to /login (owner's 16 Nov ruling, `signedOutRedirect`). • Setnayan AI "on its own at ₱2,790" (A1-155). • "Monogram Maker" twice, as a product name. • "A plan bought in the iPhone app is an Apple subscription" (brand.md claim 8). • Promises: "No fake reviews. No paid stars. Ever.", "Verified is free, for good", "Free costs nothing, for good" (the "for good" family, A1-024/A1-030/A1-048). • "Built under the Philippine Data Privacy Act (RA 10173)" as a trust line (claim 13). • The general answer "How much does Setnayan cost?" spells out the supplier booking fee; AI assistants will repeat it to hosts (claim 2 allows hosts only "Hosts pay 0% commission."). • The summary line "book verified Filipino suppliers at 0% commission" is commission wording other than the ruled sentence (A1-022 family). Correct today: the plan names (Free · Verified · Plus · Pro · Ultra; Event Plus · Pro · Ultra), all other prices, no "Max/Enterprise".
+SHOTS     —
+RULE      Add 9 GEO · brand.md claims 2, 3, 8, 13 · word rules
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A1-164 · Web search knows nothing about Setnayan today
+```text
+PAGE      the whole public site (answers live on /help/what-is-setnayan, /help/how-much-does-setnayan-cost, /help/is-setnayan-free-for-couples, /help/setnayan-vs-free-apps-and-google-sheets)
+BUTTON    —
+STEPS     Web search, 25 Nov: "what is Setnayan" · "Setnayan price how much Event Plus" · "is Setnayan free for couples wedding planner Philippines" · "Setnayan vs wedding planning app Philippines".
+EXPECTED  The help answers above come back, or at least setnayan.com.
+ACTUAL    Not one result names Setnayan. The engine offered "Setan" (a village in Iran), "Setnja" (a Serbian dance), Evento Plus, Bridestory, Nuptial and eKasal instead, and said plainly it found nothing on Setnayan. So today an assistant asked about us has no facts at all, right or wrong. Not a page bug: the site is not yet found. The answer pages exist and are in sitemap-help.xml. Owner/controller steps outside the code: submit the sitemap in Google Search Console and Bing Webmaster Tools (Bing feeds several assistants), link setnayan.com from the Facebook page already in `sameAs`, and get a few real links. Also note robots.txt blocks GPTBot, Applebot-Extended, Amazonbot, cohere-ai, Bytespider, Diffbot outright (OAI-SearchBot, ChatGPT-User, PerplexityBot, ClaudeBot, Google-Extended allowed): an owner decision, written down so it is a choice.
+SHOTS     —
+RULE      Add 9 (what AI says about us now)
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A1-165 · Product pages open with a slogan, not a plain answer
+```text
+PAGE      /budget · /seat-plan · /schedule · /setnayan-ai · /creators · /our-story · /pricing · /about
+BUTTON    —
+STEPS     1. Read the H1 and the first line of each page.
+EXPECTED  Add 9 AEO: each page opens with a plain answer ("Setnayan Budget is a free budget tracker in pesos…"), then the detail. /features/<slug> already does this and is the model.
+ACTUAL    H1s: "The truth, in PHP." · "Drag, drop, done." · "The day, minute by minute." · "It doesn’t chat. It watches your wedding for you." · "EVERYWHERE ELSE, THEY WATCH. HERE, THEY BOOK." · "Memories." · "The best place to build your event." An answer box or assistant quoting the first line gets a slogan. (Brand tone allows the feeling first; the fix is one plain line under it, not a new headline.)
+SHOTS     —
+RULE      Add 9 AEO
+SEVERITY  look
+SOURCE    SEEN
+```
+
+#### A1-166 · With no signal, help and public pages show the browser's blank error, not even Setnayan's offline page
+```text
+PAGE      /help · /help/[slug] · /help/topics · /help/topics/[key] (OFFLINE: READ-ONLY IS ENOUGH) · every public page
+BUTTON    —
+STEPS     1. Open /help, /help/what-is-setnayan, /help/topics/about-setnayan and / (service worker active, /offline.html in its cache). 2. Switch the browser offline. 3. Open each again.
+EXPECTED  The help answers from a saved copy (phase A marked them READ-ONLY IS ENOUGH), or at least Setnayan's own offline page.
+ACTUAL    Each gives the browser's own error (net::ERR_INTERNET_DISCONNECTED, a blank page in the test browser). By design `public/sw.js` leaves every navigation except the saved-copy shapes and day-of guest pages to the browser ("Every OTHER navigation … is left to the browser"), so /offline.html is never shown here. Back online, the page loads normally.
+SHOTS     375 px, offline
+RULE      Add 10 (offline beyond the five)
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A1-167 · Desktop rail: a coloured stripe on the active row and two "Sign in" buttons
+```text
+PAGE      every signed-out page with the shell, at 1280 px (seen on /, /pricing, /features)
+BUTTON    "Discover" (rail) · "Sign in" (top right) · "Sign in" (rail)
+STEPS     1. Open / at 1280 px.
+EXPECTED  Part H: never a coloured side stripe. K1: one main button per screen.
+ACTUAL    The active rail row "Discover" carries a terracotta bar down its left edge. "Sign in" appears twice: an outline pill at the top right and a filled brown button in the rail, while the hero above the fold has no main button at all (Part H: one terracotta button per hero). At 375 and 768 only the top "Sign in" shows.
+SHOTS     home-1280-light.png (shots/area-1)
+RULE      HOUSE_DESIGN_STANDARD Part H · Part K1
+SEVERITY  look
+SOURCE    SEEN
+```
+
+#### A1-168 · A made-up couple "Maria and Jose" is the example on the home page and /pricing
+```text
+PAGE      / ("Same event. Each guest sees their own.") · /pricing ("An Event Hub that looks like yours")
+BUTTON    —
+STEPS     1. Scroll / to "Live it". 2. Open /pricing.
+EXPECTED  Add 3: no made-up people presented as real; a sample is labelled as a sample.
+ACTUAL    "Maria and Jose’s wedding, as their guests see it." and an "M & J · Maria & Jose" Event Hub card. The words present them as a real couple; nothing says sample. (If the owner wants a named sample, say "a sample wedding".)
+SHOTS     home-768-light.png (shots/area-1) · 375 px /pricing
+RULE      Add 3 (placeholders)
+SEVERITY  look
+SOURCE    SEEN
+```
+
+#### A1-169 · Pages over 2 seconds on the copy
+```text
+PAGE      see list
+BUTTON    —
+STEPS     Page loads at 375/768/1280, light and dark (6 loads each), time to DOM ready.
+EXPECTED  Usable in about 0.7 s; anything over 2 s listed (kit § 5 item 10).
+ACTUAL    Every page is over 0.7 s (best ~0.6–1.0 s DOM ready, 1.3–3.5 s to load). Over 2 s DOM ready: /suppliers 9.7–12.4 s · /suppliers/wedding/photo-video 9.3–11.2 s · /suppliers/wedding/photo-video/tagaytay up to 9.2 s · /tl/features 3.2–6.5 s · /tl/features/budget 2.1–4.7 s · /explore/compare 2.2–3.1 s · / up to 2.5 s · /sample (a 404!) 6.5–8.7 s · /u/<made-up>/c/x up to 15.7 s (a 404) · every shop page 23 s then 500 (A1-154). Measured with 8 checkers on the copy from a US container; the order (directory pages slowest) matches phase A's live figures (A1-147).
+SHOTS     —
+RULE      kit § 5 item 10
+SEVERITY  look
+SOURCE    SEEN
+```

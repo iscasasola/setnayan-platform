@@ -18,8 +18,8 @@
  * the V1 columns (`events.concierge_*`, `users.concierge_*`) which
  * the Phase A schema migration retires alongside.
  *
- * Function names kept (activateConcierge / startConciergeTrial /
- * cancelConcierge / recomputeConciergeExpiry / startConciergeTrialFromForm)
+ * Function names kept (activateConcierge / recomputeConciergeExpiry). L6 (R1, 25 Nov): the trial and cancel
+ * handlers that redirected to the retired /dashboard/profile/concierge page are deleted. The names are kept
  * to avoid cross-iteration import churn during cutover. Engineering
  * rename to activate/cancel TodaysFocus is V2.x scope.
  *
@@ -176,160 +176,6 @@ export async function activateConcierge(input: {
 }
 
 /**
- * Cancel Setnayan AI — surface "cancellation requested" client-side
- * only. Status remains 'active' until natural expiry per the lazy sweep.
- * The host keeps the access they paid for.
- *
- * RETIRED 2026-05-28 V2 cutover.
- * V1 framing was a Concierge cancel flow; V2 doesn't expose a cancel
- * CTA in the settings UI (one-time purchase, no recurring billing to
- * cancel). The handler stays mounted for cutover-period continuity but
- * is no longer reachable from the UI.
- */
-async function cancelConcierge(formData: FormData): Promise<void> {
-  const { eventId } = await requireCoupleMembership(formData.get('event_id'));
-  // V1 SIMPLIFICATION: no structural state change — the couple keeps their
-  // paid access until the natural `concierge_expires_at`. Pro-rated refund
-  // requests are admin-handled per 0025 § 3.7.6.
-  revalidatePath(`/dashboard/${eventId}`, 'layout');
-  redirect(`/dashboard/profile/concierge?cancelled=1&event=${encodeURIComponent(eventId)}`);
-}
-
-/**
- * Start trial — V1 legacy server action.
- *
- * RETIRED 2026-05-28 V2 cutover.
- * V2 has no trial mechanic per CLAUDE.md 2026-05-28 row 3 lock. V1 ran
- * a 3-day card-less trial gated on three signals (per-account trial-
- * used flag, enforcement level, phone-match abuse signal); the handler
- * + abuse-flag insert + per-event trial slot stamping stay mounted for
- * cutover-period continuity but no UI surface invokes it.
- *
- * Idempotent: re-running on an event already in 'trial' returns
- * `already_active` (no double-stamp).
- */
-async function startConciergeTrial(input: { eventId: string }): Promise<{
-  status:
-    | 'started'
-    | 'already_used'
-    | 'already_used_on_event'
-    | 'enforcement_blocked'
-    | 'under_review'
-    | 'already_active';
-}> {
-  const { userId, eventId } = await requireCoupleMembership(input.eventId);
-  const admin = createAdminClient();
-
-  // Check event status first — idempotent retry on an existing trial.
-  // Also reads the new (2026-05-20 dual-scope lock) per-event trial-used
-  // column so we can short-circuit when another host on this event has
-  // already consumed the event-level trial slot.
-  const { data: eventRow } = await admin
-    .from('events')
-    .select(
-      'concierge_status, concierge_expires_at, concierge_trial_used_at, concierge_trial_started_by_user_id',
-    )
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (eventRow?.concierge_status === 'trial') {
-    return { status: 'already_active' };
-  }
-
-  // Per-event lock (locked 2026-05-20) — even if THIS user's account trial
-  // is still fresh, the event itself may have already consumed its single
-  // trial slot via a different moderator (V1.2 multi-moderator events
-  // from iteration 0048 are the primary motivator; for V1 single-host
-  // events this branch only fires on the bookkeeping edge case where
-  // events.concierge_status was reverted/cleaned without resetting
-  // concierge_trial_used_at).
-  if (
-    (eventRow as { concierge_trial_used_at?: string | null } | null)?.concierge_trial_used_at
-  ) {
-    return { status: 'already_used_on_event' };
-  }
-
-  const { data: userRow } = await admin
-    .from('users')
-    .select('phone, concierge_trial_used_at, concierge_enforcement_level')
-    .eq('user_id', userId)
-    .maybeSingle();
-  if (!userRow) throw new Error('User not found');
-
-  if ((userRow as { concierge_trial_used_at?: string }).concierge_trial_used_at) {
-    return { status: 'already_used' };
-  }
-
-  const lvl = (userRow as { concierge_enforcement_level?: string }).concierge_enforcement_level;
-  if (lvl === 'trial_banned' || lvl === 'full_banned') {
-    return { status: 'enforcement_blocked' };
-  }
-
-  // Deterministic anti-abuse check — V1 catches phone matches only.
-  const abuse = await detectConciergeAbuseSignals(admin, {
-    userId,
-    userPhone: (userRow as { phone?: string | null }).phone ?? null,
-  });
-  if (abuse) {
-    const { error: abuseFlagErr } = await admin.from('concierge_abuse_flags').insert({
-      flagged_user_id: userId,
-      matched_user_ids: abuse.matchedUserIds,
-      similarity_score: abuse.similarityScore,
-      signals: abuse.signals,
-    });
-    if (abuseFlagErr) console.error('[concierge] abuse-flag insert failed:', abuseFlagErr.message);
-    void emitNotification({
-      userId,
-      type: 'chat_message',
-      title: "Setnayan AI — account under review",
-      body: 'Your account is under review. Contact support if you believe this is in error.',
-      relatedUrl: `/help#concierge`,
-    });
-    return { status: 'under_review' };
-  }
-
-  const now = new Date();
-  const expiresAt = new Date(now.getTime() + TRIAL_DURATION_DAYS * MS_PER_DAY);
-
-  const { error: eventErr } = await admin
-    .from('events')
-    .update({
-      concierge_status: 'trial' satisfies ConciergeStatus,
-      concierge_tier: 'complete',
-      concierge_activated_at: now.toISOString(),
-      concierge_expires_at: expiresAt.toISOString(),
-      // Dual-scope lock (2026-05-20) — stamp the per-event trial slot so
-      // no other moderator on this event can fire their own per-account
-      // trial against it.
-      concierge_trial_used_at: now.toISOString(),
-      concierge_trial_started_by_user_id: userId,
-    })
-    .eq('event_id', eventId);
-  if (eventErr) throw new Error(eventErr.message);
-
-  const { error: userErr } = await admin
-    .from('users')
-    .update({ concierge_trial_used_at: now.toISOString() })
-    .eq('user_id', userId);
-  if (userErr) throw new Error(userErr.message);
-
-  void emitNotification({
-    userId,
-    type: 'chat_message',
-    title: "Setnayan AI active",
-    body: `Setnayan AI is now active on your event. Open your dashboard to see today's recommended step.`,
-    relatedUrl: `/dashboard/${eventId}`,
-  });
-  // 2026-05-28 V2 cutover note: the expiresAt timestamp above is still
-  // written to the events row for cutover-period continuity (V1 schema)
-  // but no longer surfaced as a "trial ends on" claim in the notification
-  // body. V2 has no trial mechanic.
-
-  revalidatePath(`/dashboard/${eventId}`, 'layout');
-  revalidatePath('/dashboard/profile/concierge', 'layout');
-  return { status: 'started' };
-}
-
-/**
  * Recompute `concierge_expires_at` from the current wedding_date.
  *
  * RETIRED 2026-05-28 V2 cutover.
@@ -410,25 +256,6 @@ async function recomputeConciergeExpiry(input: {
   revalidatePath(`/dashboard/${eventId}`, 'layout');
   revalidatePath('/dashboard/profile/concierge', 'layout');
   return { status: extended ? 'extended' : 'unchanged' };
-}
-
-/**
- * FormData wrapper.
- *
- * RETIRED 2026-05-28 V2 cutover.
- * V1 wired the Settings → Concierge trial button to this handler. V2
- * has no trial surface in the UI. Handler retained for cutover-period
- * continuity; engineering retirement happens alongside Phase A schema.
- */
-async function startConciergeTrialFromForm(formData: FormData): Promise<void> {
-  const rawEventId = formData.get('event_id');
-  if (typeof rawEventId !== 'string') {
-    redirect('/dashboard/profile/concierge?error=missing_event');
-  }
-  const result = await startConciergeTrial({ eventId: rawEventId });
-  redirect(
-    `/dashboard/profile/concierge?event=${encodeURIComponent(rawEventId)}&trial=${result.status}`,
-  );
 }
 
 function monthsBetween(later: Date, earlier: Date): number {

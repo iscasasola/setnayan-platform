@@ -662,7 +662,7 @@ export function CategorySearchOverlay({
               main
               icon={Sparkles}
               label="Unlock with Setnayan AI"
-              href={routes.dashboard.eventServices(eventId)}
+              href={routes.dashboard.eventServices(eventId, 'ai')}
             />
           </div>
         ) : results.length === 0 && nobodyFree ? (

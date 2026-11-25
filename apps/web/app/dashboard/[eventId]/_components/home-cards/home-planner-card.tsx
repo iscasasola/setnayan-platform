@@ -30,7 +30,7 @@ import { HomeCardRow, HomeServiceCard } from '../home-service-card';
 export async function HomePlannerCard({ eventId, name, brand }: { eventId: string; name: string; brand?: string }) {
   const supabase = await createClient();
   const user = await getCurrentUser();
-  const door = { label: 'Open Setnayan AI', href: routes.dashboard.eventServices(eventId) };
+  const door = { label: 'Open Setnayan AI', href: routes.dashboard.eventServices(eventId, 'ai') };
   const icon = <Sparkles aria-hidden strokeWidth={1.9} />;
   const marker = { 'data-home-service': 'ai' };
   const { data: event, error } = await supabase

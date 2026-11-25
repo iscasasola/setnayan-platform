@@ -10,5 +10,5 @@ import { routes } from '@/lib/routes';
  */
 export default async function RetiredSetnayanAiBuyPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
-  permanentRedirect(routes.dashboard.eventServices(eventId));
+  permanentRedirect(routes.dashboard.eventServices(eventId, 'ai'));
 }

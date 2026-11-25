@@ -26,7 +26,7 @@ const GONE: ReadonlyArray<[string, string]> = [
 ];
 
 const FORWARDS: ReadonlyArray<[string, string, RegExp]> = [
-  ['R2', 'app/dashboard/[eventId]/studio/setnayan-ai/page.tsx', /permanentRedirect\(routes\.dashboard\.eventServices\(eventId\)\)/],
+  ['R2', 'app/dashboard/[eventId]/studio/setnayan-ai/page.tsx', /permanentRedirect\(routes\.dashboard\.eventServices\(eventId, 'ai'\)\)/],
   ['R5', 'app/dashboard/[eventId]/seating/lab/page.tsx', /permanentRedirect\(guestsViewHref\(eventId, 'seats', \{ seat: '3d' \}\)\)/],
   ['R8', 'app/dashboard/(account)/api-keys/page.tsx', /permanentRedirect\(routes\.dashboard\.index\(\)\)/],
   ['R8', 'app/api/v1/page.tsx', /permanentRedirect\(routes\.dashboard\.index\(\)\)/],

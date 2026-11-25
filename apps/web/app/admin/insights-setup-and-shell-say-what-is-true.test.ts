@@ -139,3 +139,14 @@ test('A8·P-B-3 · each supplier under review says why it is listed, and that li
   assert.match(s, /Listed: \{r\.events\}/);
   assert.match(s, /data-review-note=""[\s\S]{0,80}Listed for review only/);
 });
+
+test('A8·H-1 · a failed sales read shows no ₱0, no flat bars and no "Live" pill', () => {
+  const s = read('app/admin/app-performance/_surfaces/overview-surface.tsx');
+  assert.match(s, /const salesUnread = perf\.errors\.some\(\(e\) => e\.startsWith\('monetization:'\)\);/);
+  const card = s.slice(s.indexOf('title="Sales — split three ways"'), s.indexOf('title="Sales — split three ways"') + 2500);
+  assert.match(card, /pill=\{salesUnread \? null : 'live'\}/);
+  const unread = card.indexOf('salesUnread ? (');
+  assert.ok(unread > 0 && unread < card.indexOf('php.format(perf.monetization.totalPhp)'), 'the peso total is drawn only on a real read');
+  assert.match(s, /pct: salesUnread \? null :/);
+  assert.match(read('app/admin/app-performance/_components/charts.tsx'), /\{pill \? <StatusPill state=\{pill\} \/> : null\}/);
+});

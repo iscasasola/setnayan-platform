@@ -292,7 +292,8 @@ export function ChartCard({
   className = '',
 }: {
   title: string;
-  pill: 'live' | 'wiring';
+  /** null = no pill: a card whose read failed is not "Live" (A8·H-1). */
+  pill: 'live' | 'wiring' | null;
   source: string;
   children: ReactNode;
   muted?: boolean;
@@ -308,7 +309,7 @@ export function ChartCard({
         <h3 className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
           {title}
         </h3>
-        <StatusPill state={pill} />
+        {pill ? <StatusPill state={pill} /> : null}
       </div>
       <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--m-slate-2)' }}>
         {source}

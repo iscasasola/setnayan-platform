@@ -122,6 +122,9 @@ export async function CockpitSurface({ searchParams }: Props) {
   const rangeDays = GROWTH_RANGE_OPTIONS.find((o) => o.value === range)?.days ?? null;
   const against = rangeDays ? `vs the ${rangeDays} days before` : 'vs the same stretch before';
 
+  // A8·H-1: a refused sales read is said — no ₱0, no flat bars, no "Live" pill, no revenue mover.
+  const salesUnread = perf.errors.some((e) => e.startsWith('monetization:'));
+
   const byKey = Object.fromEntries(growth.series.map((s) => [s.key, s])) as Record<
     string,
     GrowthSeries | undefined
@@ -145,7 +148,7 @@ export async function CockpitSurface({ searchParams }: Props) {
       return { label: s.label, color: INDEX_COLORS[i] ?? 'var(--sn-ink-700)', index: idx };
     })
     .filter((s): s is NonNullable<typeof s> => s !== null);
-  if (perf.monetization.prevTotalPhp >= 500) {
+  if (!salesUnread && perf.monetization.prevTotalPhp >= 500) {
     let running = perf.monetization.prevTotalPhp;
     const revIdx = [100];
     const perBucket = perf.monetization.streams.reduce<number[]>((acc, s) => {
@@ -182,8 +185,8 @@ export async function CockpitSurface({ searchParams }: Props) {
       label: 'Revenue',
       current: perf.monetization.totalPhp,
       previous: perf.monetization.prevTotalPhp,
-      pct: pctDelta(perf.monetization.totalPhp, perf.monetization.prevTotalPhp),
-      note: 'realized ₱',
+      pct: salesUnread ? null : pctDelta(perf.monetization.totalPhp, perf.monetization.prevTotalPhp),
+      note: salesUnread ? 'couldn’t read' : 'realized ₱',
     },
     {
       label: 'Completed services',
@@ -391,49 +394,57 @@ export async function CockpitSurface({ searchParams }: Props) {
           {/* G4 — sales split three ways (pesos) */}
           <ChartCard
             title="Sales — split three ways"
-            pill="live"
+            pill={salesUnread ? null : 'live'}
             source="paid orders + supplier plans · pesos"
           >
-            <div className="mb-2 flex flex-wrap items-baseline gap-2">
-              <p
-                className="text-2xl font-semibold tabular-nums"
-                data-countup=""
-                style={{ color: 'var(--sn-ink-900)' }}
-              >
-                {php.format(perf.monetization.totalPhp)}
+            {salesUnread ? (
+              <p role="alert" className="text-sm" style={{ color: 'var(--sn-ink-700)' }} data-sales-unread="">
+                Couldn&rsquo;t read the sales. Refresh to try again.
               </p>
-              <DeltaPct
-                against={against}
-                current={perf.monetization.totalPhp}
-                previous={perf.monetization.prevTotalPhp}
-              />
-            </div>
-            <StackedBars
-              series={perf.monetization.streams.map((s) => ({
-                label: s.label,
-                color: STREAM_COLORS[s.key] ?? 'var(--sn-ink-400)',
-                values: s.php,
-              }))}
-              ariaLabel={`Realized revenue per bucket by stream. Totals — ${perf.monetization.streams
-                .map((s) => `${s.label}: ${php.format(s.totalPhp)}`)
-                .join('; ')}.`}
-              formatTitle={(label, v) => `${label}: ${php.format(v)}`}
-            />
-            <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
-              {perf.monetization.streams.map((s) => (
-                <li key={s.key} className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--sn-ink-700)' }}>
-                  <span
-                    aria-hidden
-                    className="inline-block h-2 w-2 rounded-full"
-                    style={{ background: STREAM_COLORS[s.key] ?? 'var(--sn-ink-400)' }}
+            ) : (
+              <>
+                <div className="mb-2 flex flex-wrap items-baseline gap-2">
+                  <p
+                    className="text-2xl font-semibold tabular-nums"
+                    data-countup=""
+                    style={{ color: 'var(--sn-ink-900)' }}
+                  >
+                    {php.format(perf.monetization.totalPhp)}
+                  </p>
+                  <DeltaPct
+                    against={against}
+                    current={perf.monetization.totalPhp}
+                    previous={perf.monetization.prevTotalPhp}
                   />
-                  {s.label}
-                  <span className="tabular-nums" style={{ color: 'var(--sn-ink-900)' }}>
-                    {php.format(s.totalPhp)}
-                  </span>
-                </li>
-              ))}
-            </ul>
+                </div>
+                <StackedBars
+                  series={perf.monetization.streams.map((s) => ({
+                    label: s.label,
+                    color: STREAM_COLORS[s.key] ?? 'var(--sn-ink-400)',
+                    values: s.php,
+                  }))}
+                  ariaLabel={`Realized revenue per bucket by stream. Totals — ${perf.monetization.streams
+                    .map((s) => `${s.label}: ${php.format(s.totalPhp)}`)
+                    .join('; ')}.`}
+                  formatTitle={(label, v) => `${label}: ${php.format(v)}`}
+                />
+                <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+                  {perf.monetization.streams.map((s) => (
+                    <li key={s.key} className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--sn-ink-700)' }}>
+                      <span
+                        aria-hidden
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ background: STREAM_COLORS[s.key] ?? 'var(--sn-ink-400)' }}
+                      />
+                      {s.label}
+                      <span className="tabular-nums" style={{ color: 'var(--sn-ink-900)' }}>
+                        {php.format(s.totalPhp)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
           </ChartCard>
 
           {/* G3 — completed services (the real delivery signal) */}

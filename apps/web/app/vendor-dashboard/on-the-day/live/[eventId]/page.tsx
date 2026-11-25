@@ -6,7 +6,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
+import { fetchVendorRoomEvents, fetchVendorRoomEventsDetailed } from '@/lib/vendor-room-access';
+import { DayReadFailed } from './_components/papic-desk-body';
 import { fetchRunOfShowBlocks } from '@/app/_actions/run-of-show';
 import { fetchReviewsForVendorWithCouple } from '@/lib/reviews';
 import { resolveModules, type DayOfModuleId } from '@/lib/vendor-dayof-modules';
@@ -109,11 +110,13 @@ export default async function VendorOnTheDayLivePage({
   // The page only needs the id + services from the profile — a minimal shape so
   // the grantee path (admin-loaded partial row) is assignable too.
   let profile: { vendor_profile_id: string; services: string[] } | null = ownProfile;
-  let booking = ownProfile
-    ? (await fetchVendorRoomEvents(supabase, ownProfile.vendor_profile_id)).find(
-        (b) => b.eventId === eventId,
-      ) ?? null
+  // 🧾 A6-22 (final check 25 Nov): the bookings read's `complete` is kept — "not booked today" is decided only on a read
+  // that reached its end; one that did not is said (`DayReadFailed`), never the Hub's "opens on <date>".
+  const ownRoom = ownProfile
+    ? await fetchVendorRoomEventsDetailed(supabase, ownProfile.vendor_profile_id).catch(() => null)
     : null;
+  let booking = ownRoom?.events.find((b) => b.eventId === eventId) ?? null;
+  const ownRoomUnread = Boolean(ownProfile) && (ownRoom === null || !ownRoom.complete);
   // Which client can READ this vendor's profile row. The owner path reads under
   // their own RLS; the grantee path is already authorised by the grant and uses
   // the admin client (as the profile load below does), so the subscription read
@@ -123,7 +126,9 @@ export default async function VendorOnTheDayLivePage({
 
   if (!booking) {
     // Not the owner (or not booked under their own profile) — check for a grant.
-    const { data: grants } = await supabase.rpc('current_vendor_dayof_grant_event_ids');
+    const { data: grants, error: grantsError } = await supabase.rpc('current_vendor_dayof_grant_event_ids');
+    // A6-22: a refused grant read is not "you have no shop" — said, not the shop-papers page.
+    if (grantsError) return <DayReadFailed eventId={eventId} />;
     const grantedEvents = new Set((grants as string[] | null) ?? []);
     if (grantedEvents.has(eventId)) {
       // Resolve the granting vendor + booking via the admin client (the grant is
@@ -155,6 +160,8 @@ export default async function VendorOnTheDayLivePage({
   }
 
   if (!profile) redirect('/vendor-dashboard/profile#docs');
+
+  if (!booking && ownRoomUnread) return <DayReadFailed eventId={eventId} />;
 
   // Booked-today gate: the launched console only opens for a booking dated today.
   const today = phToday();
@@ -345,7 +352,7 @@ export default async function VendorOnTheDayLivePage({
       showRunOfShow={has('run_of_show')}
       // 🚶 The Wedding March, read-only — the band and the coordinator only; nothing drawn when nobody walks.
       march={march && (march.unread || marchWalkCount(marchShown) > 0) ? <MarchRead sections={marchShown} unread={march.unread === true} /> : null}
-      headcount={has('pax_headcount') ? { attending, invited } : null}
+      headcount={has('pax_headcount') ? (brief ? { attending, invited } : 'unread') : null}
       // Enabled-module quick links — one row each; the whole row opens.
       tools={linkModules.map(({ mod, href }) => ({ id: mod.id, label: mod.label, blurb: mod.blurb, href }))}
       // 🧰 The hub tools switched on for this booking (DECISION_LOG 2026-11-23: Tech rider · Personalisation list · Dietary

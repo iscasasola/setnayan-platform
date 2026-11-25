@@ -29,6 +29,7 @@ import { refundDayWords, refundRefusalWords, type RefundAnswer } from '@/lib/cli
 import { formatPhp } from '@/lib/php';
 import {
   fetchPendingVendorPayments,
+  readPendingVendorPayments,
   fetchPlanProgressForVendor,
 } from '@/lib/vendor-service-payment-schedules.server';
 
@@ -359,8 +360,8 @@ export async function getVendorPaymentState(threadId: string): Promise<{
 
   const admin = createAdminClient();
   try {
-    const [pending, plans] = await Promise.all([
-      fetchPendingVendorPayments({
+    const [pendingRead, plans] = await Promise.all([
+      readPendingVendorPayments({
         adminClient: admin,
         eventId: thread.event_id,
         vendorProfileId: profile.vendor_profile_id,
@@ -371,7 +372,9 @@ export async function getVendorPaymentState(threadId: string): Promise<{
         vendorProfileId: profile.vendor_profile_id,
       }),
     ]);
-    return { pending, plans };
+    // A6-02: a refused re-read keeps the cards' last-known state (null) — never an empty list that drops a payment.
+    if (!pendingRead.complete) return null;
+    return { pending: pendingRead.payments, plans };
   } catch (e) {
     console.error('[getVendorPaymentState] threw', e);
     return null;

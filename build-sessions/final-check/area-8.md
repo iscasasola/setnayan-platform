@@ -1,4 +1,4 @@
-STATUS: phase B in progress (lock proof done)
+STATUS: phase B done · 71/71 pages walked (375 light+dark, 768, 1280; dark sample at 768/1280) · 36/36 forwards land · 156/156 links ok · buttons 3,311 · pressed 2,303 · failed 0 confirmed · left 1,008 · phase-B findings 22 (blocker 0 · broken 0 · wrong 7 · look 15) + G-4 confirmed (money-signin) · checker-made changes disclosed and restored
 
 # Final check · Area 8 · Admin (/admin/* and the internal pages)
 
@@ -25,6 +25,106 @@ Phase B, staging copy at preview commit bd86936 (`/api/health` env preview), sig
   Delivered 0 · Did not arrive 3. → **the chat message went nowhere; logged as dropped. Lock holds.**
   (Note, not a finding: on the copy a lock-dropped email is counted under "Did not arrive", the same bucket as a real
   bounce. Expected on the copy per kit § 5.)
+
+## Phase B summary (browser walk on the staging copy, 25 Nov 2026, 06:45–09:40 UTC)
+
+- **Walked:** all **71 pages** at **375 light · 375 dark · 768 light · 1280 light**, and **768/1280 dark on a 10-page
+  sample** (`/admin`, accounts, payments, pricing, catalogue, app-performance, team, work, studio, money). Admin paints
+  Light in every dark visit (92 of 92, L-3), so the dark sample is the same pixels; that is why dark was not repeated
+  at every width. Plus **Focus and Full** modes (the walk ran in Focus, the default; Full checked on Money at 375/768/1280),
+  all **36 forwards**, the **non-admin test** (L-1, L-2) and the **offline test** (Add 10).
+- **Every page opens:** 71/71 answer 200 at every width; **0 broken links** (156 unique admin links, each fetched one by one).
+  **36/36 forwards land**; 6 land at the approved 17 Nov homes rather than the kit's snapshot (see Forwards).
+- **Buttons (Add 6), totals at 1280:** buttons **3,311** · pressed **2,303** · failed **0 confirmed** · left **1,008**.
+  At 375: **1,955** controls counted; their links are the same addresses as at 1280 and all resolve; buttons were
+  pressed at 1280 only (the copy was too slow for a second press pass). Left = would write data (save, approve, send,
+  pay, delete…), dropdown options and form inputs (never chosen), disabled, a 2-minute time cap per page on the slow copy,
+  or "walker blocked" (another popover covered the control; every candidate re-tried by hand opened and closed correctly).
+- **Phase-A box closed:** `/admin/secrets` was opened in the browser (it renders as `/admin/business?view=secrets`): it
+  shows variable NAMES and status only ("Set", "Unknown from here"), never a value. Nothing on it was pressed.
+- **Phase B findings: 22** (P-B-1 … P-B-22 below): blocker 0 · broken 0 · wrong 7 · look 15; plus G-4 confirmed (money-signin).
+  Phase A findings confirmed in the browser: L-1, L-2 (gates hold), L-3 (no dark), G-4. The rest stay `SOURCE: CODE`.
+- **Speed:** the copy served 8 checkers at once, so seconds here are not production's. Nearly every admin page took
+  over 2 s to first paint; some took 40–150 s at peak. The steadily slowest, across runs: `/admin/ugat` (~54 s both
+  widths), `/admin/work` (~45 s), `/admin/catalogue`, `/admin/approvals`, `/admin/email-delivery` (~30 s).
+
+### Phase B per page (Add 6 counts; DARK per Add 7)
+
+| Page | Lands at | Controls 375 · 768 · 1280 | 1280: pressed · failed · left (why) | DARK | Load 1280 (s) | Errors |
+|---|---|---|---|---|---|---|
+| `/admin` | `/admin` | 11 · 11 · 28 | 26 · 0 · 2 (writes 2) | no (paints light) | 6.9 | React #418 |
+| `/admin/account-deletions` | `/admin/work?view=account-deletions` | 8 · 8 · 25 | 24 · 0 · 1 (writes 1) | no (paints light) | 86.6 | telemetry 500 |
+| `/admin/accounts` | `/admin/accounts` | 25 · 27 · 45 | 33 · 0 · 12 (writes 1, walker blocked 11) | no (paints light) | 87.0 | React #418 |
+| `/admin/admin-log` | `/admin/admin-log` | 14 · 13 · 28 | 24 · 0 · 4 (writes 2, walker blocked 2) | no (paints light) | 31.4 | React #418 |
+| `/admin/app-performance` | `/admin/app-performance` | 39 · 39 · 60 | 49 · 0 · 11 (writes 4, dropdown 1, input 1, walker blocked 5) | no (paints light) | 91.9 | — |
+| `/admin/approvals` | `/admin/work?view=approvals` | 11 · 11 · 28 | 25 · 0 · 3 (writes 2, dropdown 1) | no (paints light) | 41.7 | — |
+| `/admin/ask` | `/admin/ask` | 9 · 9 · 24 | 22 · 0 · 2 (writes 1, walker blocked 1) | no (paints light) | 18.7 | — |
+| `/admin/background-videos` | `/admin/studio?tab=background-videos` | 10 · 10 · 28 | 27 · 0 · 1 (writes 1) | no (paints light) | 2.5 | React #418 |
+| `/admin/booking-fees` | `/admin/payments?view=fees` | 22 · 17 · 36 | 34 · 0 · 2 (writes 2) | no (paints light) | 18.8 | JS error, React #418, telemetry 500 |
+| `/admin/budget-planner` | `/admin/budget-planner` | 83 · 83 · 101 | 29 · 0 · 72 (writes 37, input 34, walker blocked 1) | no (paints light) | 25.8 | — |
+| `/admin/business` | `/admin/business` | 71 · 71 · 86 | 41 · 0 · 45 (writes 21, input 23, walker blocked 1) | no (paints light) | 20.1 | — |
+| `/admin/catalogue` | `/admin/catalogue` | 38 · 38 · 56 | 55 · 0 · 1 (writes 1) | no (paints light) | 113.6 | React #418 |
+| `/admin/categories` | `/admin/categories` | 36 · 36 · 127 | 32 · 0 · 95 (writes 5, walker blocked 90) | no (paints light) | 48.4 | — |
+| `/admin/categories/requests` | `/admin/categories/requests` | 10 · 10 · 28 | 26 · 0 · 2 (writes 2) | no (paints light) | 14.3 | React #418 |
+| `/admin/chat-flags` | `/admin/work?view=chat-flags` | 10 · 10 · 27 | 25 · 0 · 2 (writes 2) | no (paints light) | 35.4 | — |
+| `/admin/colours` | `/admin/switches?view=colours` | 32 · 32 · 47 | 38 · 0 · 9 (writes 6, walker blocked 3) | no (paints light) | 41.9 | — |
+| `/admin/completions` | `/admin/work?view=completions` | 9 · 13 · 30 | 24 · 0 · 6 (writes 6) | no (paints light) | 9.2 | React #418 |
+| `/admin/compliance/data-sheet` | `/admin/business?view=data-sheet` | 11 · 11 · 26 | 25 · 0 · 1 (writes 1) | no (paints light) | 16.3 | — |
+| `/admin/concierge-abuse` | `/admin/work?view=ai-abuse` | 12 · 12 · 29 | 27 · 0 · 2 (writes 1, walker blocked 1) | no (paints light) | 78.5 | — |
+| `/admin/corrections` | `/admin/work?view=corrections` | 13 · 13 · 30 | 28 · 0 · 2 (writes 2) | no (paints light) | 14.5 | React #418 |
+| `/admin/data-privacy` | `/admin/business?view=privacy` | 36 · 36 · 51 | 49 · 0 · 2 (writes 2) | no (paints light) | 2.5 | — |
+| `/admin/demand` | `/admin/app-performance?tab=demand` | 12 · 12 · 28 | 24 · 0 · 4 (writes 2, walker blocked 2) | no (paints light) | 27.5 | — |
+| `/admin/demo-vendors/inquiries` | `/admin/help?view=demo-inquiries` | 10 · 10 · 27 | 26 · 0 · 1 (writes 1) | no (paints light) | 41.7 | — |
+| `/admin/directory` | `/admin/directory` | 29 · 31 · 52 | 40 · 0 · 12 (writes 1, walker blocked 11) | no (paints light) | 2.6 | — |
+| `/admin/discount-codes/new` | `/admin/discount-codes/new` | 36 · 36 · 55 | 35 · 0 · 20 (writes 4, input 16) | no (paints light) | 1.9 | — |
+| `/admin/disputes` | `/admin/work?view=disputes` | 15 · 15 · 32 | 28 · 0 · 4 (writes 2, walker blocked 2) | no (paints light) | 2.0 | — |
+| `/admin/editorial-review` | `/admin/work?view=editorial` | 70 · 70 · 87 | 82 · 0 · 5 (writes 1, walker blocked 4) | no (paints light) | 2.1 | — |
+| `/admin/email-delivery` | `/admin/switches?view=email` | 15 · 15 · 30 | 25 · 0 · 5 (writes 3, disabled 1, walker blocked 1) | no (paints light) | 28.5 | — |
+| `/admin/event-deletions` | `/admin/work?view=event-removals` | 9 · 9 · 26 | 25 · 0 · 1 (writes 1) | no (paints light) | 2.5 | — |
+| `/admin/force-majeure` | `/admin/work?view=force-majeure` | 11 · 11 · 28 | 24 · 0 · 4 (writes 2, walker blocked 2) | no (paints light) | 3.1 | — |
+| `/admin/founder-seats` | `/admin/offers?view=founder-seats` | 13 · 13 · 32 | 29 · 0 · 3 (writes 3) | no (paints light) | 2.1 | — |
+| `/admin/fraud` | `/admin/work?view=fraud` | 8 · 8 · 25 | 24 · 0 · 1 (writes 1) | no (paints light) | 3.2 | — |
+| `/admin/gifts` | `/admin/offers?view=gifts` | 46 · 60 · 79 | 49 · 0 · 30 (writes 13, input 15, walker blocked 2) | no (paints light) | 2.6 | — |
+| `/admin/help` | `/admin/help` | 10 · 10 · 27 | 26 · 0 · 1 (writes 1) | no (paints light) | 1.3 | — |
+| `/admin/help/guides` | `/admin/help/guides` | 19 · 19 · 36 | 34 · 0 · 2 (writes 2) | no (paints light) | 2.3 | — |
+| `/admin/hub-music` | `/admin/studio?tab=hub-music` | 11 · 11 · 29 | 27 · 0 · 2 (writes 2) | no (paints light) | 5.0 | — |
+| `/admin/integrations` | `/admin/business?view=integrations` | 32 · 32 · 47 | 32 · 0 · 15 (writes 13, dropdown 1, disabled 1) | no (paints light) | 24.7 | — |
+| `/admin/integrity-watch` | `/admin/work?view=integrity` | 15 · 15 · 32 | 29 · 0 · 3 (writes 2, walker blocked 1) | no (paints light) | 25.1 | — |
+| `/admin/launch-offer` | `/admin/offers` | 11 · 11 · 30 | 26 · 0 · 4 (writes 4) | no (paints light) | 3.0 | — |
+| `/admin/live-studio-channels` | `/admin/switches?view=live-watch` | 12 · 12 · 27 | 25 · 0 · 2 (writes 1, walker blocked 1) | no (paints light) | 2.8 | — |
+| `/admin/money` | `/admin/money` | 36 · 36 · 55 | 54 · 0 · 1 (writes 1) | no (paints light) | 5.3 | — |
+| `/admin/more` | `/admin/work?view=all` | 48 · 48 · 63 | 60 · 0 · 3 (writes 2, walker blocked 1) | no (paints light) | 3.1 | — |
+| `/admin/offers` | `/admin/offers` | 11 · 11 · 30 | 26 · 0 · 4 (writes 4) | no (paints light) | 5.6 | — |
+| `/admin/pakanta` | `/admin/work?view=music-maker` | 10 · 10 · 27 | 26 · 0 · 1 (writes 1) | no (paints light) | 49.3 | — |
+| `/admin/papic-storage` | `/admin/app-performance?tab=papic-storage` | 13 · 13 · 29 | 27 · 0 · 2 (writes 1, walker blocked 1) | no (paints light) | 20.6 | React #418 |
+| `/admin/pax-changes` | `/admin/work?view=pax-changes` | 8 · 8 · 25 | 24 · 0 · 1 (writes 1) | no (paints light) | 13.5 | — |
+| `/admin/payment-options` | `/admin/payments?view=payment-options` | 9 · 9 · 28 | 26 · 0 · 2 (writes 2) | no (paints light) | 3.4 | — |
+| `/admin/payments` | `/admin/payments` | 13 · 13 · 32 | 29 · 0 · 3 (writes 3) | no (paints light) | 2.2 | — |
+| `/admin/payments/supplier-refunds` | `/admin/payments?view=refunds` | 11 · 11 · 30 | 27 · 0 · 3 (writes 2, walker blocked 1) | no (paints light) | 2.7 | React #418 |
+| `/admin/payouts` | `/admin/payments?view=payouts` | 9 · 9 · 28 | 26 · 0 · 2 (writes 2) | no (paints light) | 3.2 | — |
+| `/admin/pricing` | `/admin/pricing` | 40 · 40 · 59 | 34 · 0 · 25 (writes 6, other 19) | no (paints light) | 2.5 | — |
+| `/admin/receipts` | `/admin/money?view=receipts` | 10 · 10 · 29 | 28 · 0 · 1 (writes 1) | no (paints light) | 3.9 | — |
+| `/admin/repost-watch` | `/admin/work?view=repost` | 79 · 79 · 96 | 32 · 0 · 64 (writes 62, walker blocked 2) | no (paints light) | 2.9 | — |
+| `/admin/reviews` | `/admin/work?view=reviews` | 14 · 14 · 31 | 28 · 0 · 3 (writes 1, walker blocked 2) | no (paints light) | 2.8 | React #418 |
+| `/admin/search-memory` | `/admin/ugat?tab=search` | 10 · 10 · 28 | 27 · 0 · 1 (writes 1) | no (paints light) | 3.7 | — |
+| `/admin/secrets` | `/admin/business?view=secrets` | 67 · 67 · 82 | 74 · 0 · 8 (writes 6, walker blocked 2) | no (paints light) | 12.0 | — |
+| `/admin/settings/payment-methods` | `/admin/business?view=accounts` | 31 · 31 · 46 | 24 · 0 · 22 (writes 17, input 3, disabled 2) | no (paints light) | 17.0 | — |
+| `/admin/studio` | `/admin/studio` | 30 · 64 · 85 | 48 · 0 · 37 (writes 2, disabled 1, time cap 27, walker blocked 7) | no (paints light) | 1.6 | telemetry 500 |
+| `/admin/subscriptions` | `/admin/payments?view=subscriptions` | 10 · 10 · 29 | 27 · 0 · 2 (writes 2) | no (paints light) | 6.3 | React #418 |
+| `/admin/switches` | `/admin/switches` | 27 · 27 · 42 | 33 · 0 · 9 (writes 4, walker blocked 5) | no (paints light) | 2.3 | — |
+| `/admin/team` | `/admin/team` | 111 · 111 · 126 | 32 · 0 · 94 (writes 1, disabled 25, time cap 57, walker blocked 11) | no (paints light) | 2.1 | — |
+| `/admin/ugat` | `/admin/ugat` | 220 · 220 · 238 | 34 · 0 · 204 (writes 77, other 125, walker blocked 2) | no (paints light) | 55.1 | — |
+| `/admin/ugat/map` | `/admin/ugat/map` | 18 · 18 · 36 | 32 · 0 · 4 (writes 1, other 3) | no (paints light) | 5.4 | React #418, telemetry 500 |
+| `/admin/user-reports` | `/admin/work?view=user-reports` | 14 · 14 · 31 | 28 · 0 · 3 (writes 1, walker blocked 2) | no (paints light) | 10.3 | — |
+| `/admin/vendor-partnerships` | `/admin/vendor-partnerships` | 32 · 32 · 50 | 30 · 0 · 20 (writes 3, input 16, walker blocked 1) | no (paints light) | 4.8 | — |
+| `/admin/vendor-recommendations` | `/admin/vendor-partnerships?view=recommendations` | 79 · 79 · 97 | 29 · 0 · 68 (writes 34, input 33, walker blocked 1) | no (paints light) | 3.8 | — |
+| `/admin/venues/new` | `/admin/venues/new` | 28 · 28 · 46 | 26 · 0 · 20 (writes 2, dropdown 1, input 17) | no (paints light) | 4.6 | — |
+| `/admin/verification-docs` | `/admin/verification-docs` | 10 · 10 · 28 | 26 · 0 · 2 (writes 1, walker blocked 1) | no (paints light) | 10.5 | — |
+| `/admin/verify` | `/admin/verify` | 17 · 17 · 35 | 34 · 0 · 1 (writes 1) | no (paints light) | 5.1 | — |
+| `/admin/website-media` | `/admin/studio?tab=website-media` | 10 · 10 · 28 | 27 · 0 · 1 (writes 1) | no (paints light) | 20.4 | React #418 |
+| `/admin/work` | `/admin/work` | 36 · 36 · 53 | 52 · 0 · 1 (writes 1) | no (paints light) | 43.1 | React #418 |
+
+DARK column: every page is `DARK: no` today (L-3, one finding). OFFLINE and SHAPE marks are unchanged from phase A.
 
 ## Phase A summary (code pass, 25 Nov 2026)
 
@@ -141,7 +241,7 @@ buttons were never pressed.
 - [x] /admin/repost-watch · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/work?view=repost) → should PAGE
 - [x] /admin/reviews · OFFLINE: NOT NEEDED · SHAPE: today PAGE (view of /admin/work?view=reviews) → should PAGE
 - [x] /admin/search-memory · OFFLINE: NOT NEEDED · SHAPE: today PAGE (renders as /admin/ugat?tab=search) → should PAGE
-- [ ] /admin/secrets · NOT CHECKED: this session's permission settings refuse every read of `apps/web/app/admin/secrets/` (lead and checker both tried); needs a session that may open it
+- [x] /admin/secrets · OFFLINE: NOT NEEDED · SHAPE: today PAGE (renders as /admin/business?view=secrets) → should PAGE · checked in the BROWSER in phase B (the code folder is still unreadable to this session): names and status only, no value shown; 82 controls at 1280, nothing that writes was pressed
 - [x] /admin/settings/payment-methods · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
 - [x] /admin/studio · OFFLINE: NOT NEEDED · SHAPE: today PAGE (tab host, `?tab=`) → should PAGE · tabs checked: website, reveal-studio, real-stories, storytellers, recaps, patiktok, songs, moodboard-library, social-queue, journal-spotlights, spotlight-awards (forwards to /admin/offers?view=badges, which renders the same `SpotlightAwardsSurface`), discount-codes and referrals (forward to /admin/offers?view=…, which renders the same studio surfaces; links to discount-codes/new and discount-codes/[id]/edit resolve), plus the views it mounts: background-videos, website-media, hub-music
 - [x] /admin/subscriptions · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE
@@ -159,6 +259,13 @@ buttons were never pressed.
 - [x] /admin/work · OFFLINE: NOT NEEDED · SHAPE: today PAGE → should PAGE · tabs checked: landing (TabLanding), all, approvals (the other Kind ▾ views mount their own pages)
 
 ### Forwards (36) — each must land where the kit says, with its ?tab=
+
+**Phase B (browser, 375):** 36/36 land on a working page. 6 land at the approved 17 Nov home instead of the kit's
+snapshot, all correct by `ADMIN_MERGED_PAGES`: `/admin/discount-codes` → `/admin/offers?view=discount-codes` ·
+`/admin/referrals` → `/admin/offers?view=referrals` · `/admin/spotlight-awards` → `/admin/offers?view=badges` ·
+`/admin/notifications` → `/admin/switches?view=email` · `/admin/npc-readiness` → `/admin/business?tab=checklist&view=privacy` ·
+`/admin/queues` → `/admin/work?view=all`. `/admin/connection-logs` reaches `/admin/app-performance?tab=connection-logs`
+through its page's own `redirect()` (slow on the copy, but it lands).
 
 - [x] /admin/addons → /admin/pricing · lands ✓ (code: target + `?tab=` key read by the host page)
 - [x] /admin/brain → /admin/ugat?tab=brain · lands ✓ (code: target + `?tab=` key read by the host page)
@@ -206,6 +313,18 @@ phase A, confirmed on the copy):
 - `/admin/discount-codes/new` · today PAGE → should FULL-SCREEN POPUP over Money › Offers & gifts › Discount codes. A-29.
 - The 13 popup findings in phase A (a popup on a popup, a long form in a half sheet) stand; see the `SHAPE` lines under each group.
 
+### Add 2 · Clean, balanced, effective (main screens, 375 → 1280)
+| Screen | CLEAN | BALANCED | EFFECTIVE |
+|---|---|---|---|
+| Focus `/admin` | fails: two searches at 1280 (P-B-7), public footer in the rail (P-B-9) | fails: the Completions card leaves the column (P-B-8) | ok: "2 things need you" and one black main button |
+| Work `/admin/work` | fails: chips repeated as a sentence (P-B-10) | ok | fails: grey "0" cards look off (P-B-11) |
+| Money `/admin/payments` | fails: two search boxes in Full (P-B-7) | ok (768 is designed: 3-up stats) | ok |
+| People `/admin/accounts` | ok | ok | fails: "anon+…" names (P-B-16) |
+| Catalogue `/admin/catalogue` | fails: retired chips (P-B-13), repeated names (P-B-10) | fails: a lone card on its own row at 1280; uneven card heights | fails: missing chips (P-B-12), grey cards (P-B-11) |
+| Insights `/admin/app-performance` | fails: two titles (P-B-14) | ok | fails: internal names ("Offline daemon", "Interconnections", "Infra") |
+| Setup (avatar) | ok | ok | fails: old names under new (P-B-15) |
+Design fixes ship only after a drawing; the approved drawing already exists (`area-8-admin-gap.md`).
+
 ### Add 3 · Placeholders
 Admin is seen only by the Setnayan team, so none of these reaches a real couple or supplier on setnayan.com. Listed for
 the builder, all **polish**:
@@ -230,6 +349,37 @@ phase A's money-signin themes 2 and 3 (a failed read shown as ₱0 or "Free"; pe
 and theme 1 (price changes not held to the Escalated level, B-2). No test payment was made; taps to "payment logged"
 are not an admin job.
 
+### Add 5 · Easy to handle (main admin jobs, phone, one hand)
+| Job | Rating | The one step that makes it hard |
+|---|---|---|
+| See what needs me (Focus) | EASY | — |
+| Confirm a payment (Money › To confirm) | OK | Focus mode has no tab bar on a phone; Money is behind ☰ (P-B-20) |
+| Find a person (People › Look up) | OK | rows named "anon+…" (P-B-16) |
+| Answer a help message (Work › Messages) | OK | 2 taps from Work, but a typed reply is lost on a dropped signal (Add 10) |
+| Change a price (Money › Prices) | HARD | "Change the numbers" opens a long editor; the masthead says "Pricing & Catalog" while the menu says "Prices" (P-B-15) |
+| Reorder the homepage (Catalogue › Studio) | HARD | 24 px arrows, and every press saves at once with no undo (P-B-21, P-B-22) |
+| Add an admin (Setup › Team) | HARD | 96 small controls on one phone screen; the areas × levels grid is wider than the phone's thumb reach |
+
+### Add 6 · Proof every button was pressed
+See the per-page table above: **buttons N · pressed N · failed N · left N (why)** for every page at 1280, controls
+counted at 375 and 768. "Failed 0" means no press was CONFIRMED broken. Every walker-reported failure was re-tried by hand:
+Tab settings, the "More for …" menus and Close bookings all open and close on Escape and on the backdrop; the Ugat map's
+"Entities", "Map" and Pricing's "On sale" were already the selected tab (a no-op press is correct); Studio's arrows
+reorder. The "Fields" button on `/admin/ugat/map` did nothing on one hand-press after "Joints" — **not proven**, re-check.
+
+### Add 7 · Three sizes, light and dark, one design across roles
+Six home shots are in `build-sessions/final-check/shots/area-8/` (Focus home). 768 is designed, not a stretched phone
+(two-column cards on Catalogue, 3-up stats on Money), except the Focus home, which is a phone column with a card that
+runs to the edge (P-B-8). Dark: `DARK: no` on every page (L-3, P-B-19); the admin uses the house light colours, card
+surfaces and accent, so it matches the other roles in light. In dark it cannot be compared because it never goes dark.
+
+### Add 9 · Admin against the approved drawing
+Written to `build-sessions/final-check/area-8-admin-gap.md`. Short version: of 162 approved items, 121 built · 15 partly
+· 14 missing · 7 live elsewhere · 5 not verified. The five tabs, Focus | Full, the pinned `Page · View ▾` row, the avatar
+Setup rows and the 48 forwards are built. The confusion is mostly names: each place has two or three (P-B-15). Nothing
+shipped is lost: all 71 pages have a home in the approved shape. The walk confirmed the tabs, Focus | Full, the bar in
+Full mode, the merged views and every forward.
+
 ### Add 10 · Offline — beyond the five (admin role)
 Admin is not one of the owner's five offline places. Tried on the copy (375 px, browser set offline while on
 `/admin/work`): the page already drawn stays readable and a black **"You're offline"** bar appears, but the bar sits
@@ -247,6 +397,141 @@ address offline gives the **browser's own "no internet" error page**, not a Setn
 Add 10b (supplier QR) is areas 5–7; area 8 has no QR maker.
 
 ## Findings
+
+### Phase B findings (SOURCE: BROWSER, staging copy)
+
+#### P-B-1 · React hydration error on 16 admin pages
+PAGE      /admin · accounts · admin-log · background-videos · booking-fees · budget-planner · catalogue · categories/requests · completions · corrections · papic-storage · payments/supplier-refunds · reviews · subscriptions · website-media · work (+ ugat/map, text variant)
+STEPS     Open the page; read the console.
+EXPECTED  No console error.
+ACTUAL    "Minified React error #418" (server HTML ≠ first client render). The page re-renders on the client, which costs time on a slow phone. A date or time printed differently on server and phone is the usual cause.
+RULE      Kit § 5 item 1 (no console error)
+SEVERITY  wrong
+
+#### P-B-2 · The error reporter itself fails: `/api/telemetry/client-fault` answers 500
+PAGE      /admin/account-deletions · booking-fees · studio · ugat/map
+STEPS     Open the page with the network panel; a client fault is posted.
+EXPECTED  The fault is stored, so Insights › Problems can count it.
+ACTUAL    500 from `/api/telemetry/client-fault`. Insights then reads "Problems, last 24 h: 0 app errors" while faults are being lost: a failed write that looks like a calm zero.
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong (may be the copy's setup; check on production before fixing)
+
+#### P-B-3 · Fees owed: "Nothing waiting" over a list of 9 suppliers with fee owed ₱0
+PAGE      /admin/payments?view=fees (from /admin/booking-fees)
+STEPS     Open Money › To approve › Fees owed.
+EXPECTED  One clear story: who owes what, and why a supplier is listed for review.
+ACTUAL    Header "Nothing waiting", "Nobody owes a booking fee right now. The booking fee is on…", then "SUPPLIERS TO REVIEW" lists 9 suppliers, each "N events · couples recorded ₱… · fee owed ₱0". It is not clear whether ₱0 is a true zero (bookings recorded outside chat owe nothing) or a fee that should exist. Not judged here: never guess a money number. The control "List a supplier at [2] events" saves on every −/+ press with no confirm (that is how this checker changed it by accident; see the disclosure above).
+RULE      Add 4 HONEST · Add 5 Clear
+SEVERITY  wrong (needs the owner's or the fee builder's read)
+
+#### P-B-4 · Payment methods: the pinned title runs off the screen at 375
+PAGE      /admin/settings/payment-methods → /admin/business?view=accounts
+ACTUAL    "Business, keys & privacy · Receiving accounts (GCash · BDO QR)" is one line 398 px wide in a 375 px screen; the page scrolls sideways.
+SHOTS     375 light (checker scratch)
+RULE      HOUSE_DESIGN_STANDARD: no sideways scroll at 375
+SEVERITY  look
+
+#### P-B-5 · The overdue chip is cut off: "1 ove…" (1280) and "1…" (375)
+PAGE      every admin page (top bar)
+ACTUAL    The red chip truncates its own words at 1280 and shows only "1…" on a phone. At 768 it reads "1 overdue".
+SEVERITY  look
+
+#### P-B-6 · "SETNAYAN TEAM" chip: tiny two-line text in a grey pill
+PAGE      every admin page (top bar, 768 and 1280)
+ACTUAL    Letter-spaced micro text wraps to two lines inside a pill at 1280; it reads like a disabled control. It is a label, not a button.
+SEVERITY  look
+
+#### P-B-7 · Two search boxes on one screen
+PAGE      /admin at 1280 (top bar "Search or ask…" + Focus "Ask or go anywhere"); Money in Full mode at 375 and 768 ("Reference code…" box + thumb row "Search payments, references, receipts")
+EXPECTED  One search per screen; search is an icon until tapped (Add 5 "Same everywhere").
+SEVERITY  look
+
+#### P-B-8 · Focus "Completions" card: a coloured side stripe, and it leaves the content column
+PAGE      /admin (Focus)
+ACTUAL    A red left stripe (the house never uses a coloured side stripe). At 1280 the card starts 16 px left of everything above it; at 768 it runs to the right screen edge with no gutter.
+SHOTS     `shots/area-8/home-1280-light.png`, `home-768-light.png`
+RULE      Add 2 BALANCED · HOUSE_DESIGN_STANDARD (no side stripes)
+SEVERITY  look
+
+#### P-B-9 · The admin rail carries the public site's footer
+PAGE      every admin page at 1280 (rail)
+ACTUAL    COMPANY / LEGAL links (About, Pricing, Help, Download, Terms, Privacy, Acceptable use, Cookies, Refunds) and the tagline fill the lower rail. An admin never needs them there.
+RULE      Add 2 CLEAN
+SEVERITY  look
+
+#### P-B-10 · Tab dashboards repeat each card's buttons as a sentence first
+PAGE      /admin/work, /admin/catalogue, /admin/app-performance (Insights)
+ACTUAL    Each card prints its chip names as a dotted line ("Approvals · Completions · Pax changes …"), then the same names again as chips, then "Open Queue · Kind ▾ Requests to decide ›".
+RULE      Add 2 CLEAN (no label that says what the screen already shows)
+SEVERITY  look
+
+#### P-B-11 · A card with nothing waiting is drawn grey, so its working chips look switched off
+PAGE      /admin/catalogue ("Services 0", "Stories & social 0"), /admin/app-performance ("App health 0"), /admin/work ("Reports & safety 0")
+ACTUAL    The whole card, chips included, is faded. Every chip still opens its page.
+RULE      Add 2 EFFECTIVE (a working control must look pressable)
+SEVERITY  look
+
+#### P-B-12 · Catalogue › Templates & media names Hub music and Songs but has no chip for them
+PAGE      /admin/catalogue (375, 768, 1280)
+ACTUAL    The card's line lists "… Website media · Hub music · Songs"; the chips stop at "Website media".
+SEVERITY  wrong
+
+#### P-B-13 · Retired things are still offered
+PAGE      /admin/catalogue
+ACTUAL    Chips "Real Stories (retired)" and "AI brain (old)" sit with the live ones.
+RULE      Add 2 CLEAN
+SEVERITY  look
+
+#### P-B-14 · Page titles: missing on four views, doubled on two
+PAGE      no h1: /admin/payments?view=fees, ?view=payouts, /admin/help/guides, /admin/ugat/map · two h1: /admin/app-performance ("Insights" + "Numbers"), /admin/directory ("People" + "Users")
+RULE      CLAUDE.md §3 (every page has one PageMasthead)
+SEVERITY  wrong
+
+#### P-B-15 · The old name shows under the new one
+PAGE      /admin/pricing (dropdown "Prices · Prices", masthead "Pricing & Catalog"), /admin/directory ("People"/"Users"), /admin/app-performance ("Insights"/"Numbers")
+ACTUAL    The pinned row uses the approved name and the page title just below uses the old one. Confirms the gap report's main finding (`area-8-admin-gap.md` § Summary 3).
+SEVERITY  wrong
+
+#### P-B-16 · People list shows raw internal addresses as names
+PAGE      /admin/accounts, /admin/directory
+ACTUAL    Rows titled "anon+6ea63a2c-…@anon.setnayan.local" (anonymised couples). The menu label reads "More for anon+…".
+EXPECTED  A plain label such as "Guest-only couple" plus the short ID.
+RULE      Add 2 EFFECTIVE (labels are plain words, never internal codes)
+SEVERITY  look
+
+#### P-B-17 · The offline bar covers the top bar
+PAGE      any admin page with the signal off (375)
+ACTUAL    "You're offline" is drawn over the top bar, hiding the mark and the Focus/Full buttons.
+SHOTS     checker scratch `off-a.png`
+SEVERITY  look
+
+#### P-B-18 · Offline, every new admin address is the browser's own error page
+PAGE      any admin address opened or re-opened with no signal
+ACTUAL    Chrome's "no internet" page, not a Setnayan saved copy or offline page. (Admin is not one of the five offline places; see Add 10.)
+SEVERITY  look
+
+#### P-B-19 · Dark mode: L-3 confirmed in pixels
+PAGE      all 71
+ACTUAL    With the dark choice set and the phone in dark, every admin page paints Light (body `rgb(245,245,245)`), 92 of 92 dark visits. Home shots committed for Add 7.
+SEVERITY  look (one finding; L-3)
+
+#### P-B-20 · Focus on a phone has no tab bar; the five tabs hide behind ☰
+PAGE      every admin page, Focus mode, 375 and 768
+ACTUAL    Focus (the default) drops the bottom bar (`layout.tsx`: `mode === 'full' ? <AdminBottomNav …/>`). A phone admin reaches Money, People, Catalogue and Insights only through ☰ or search. Full mode shows the bar and works (Money at 375/768).
+RULE      Add 5 One hand. May be intended by the 14 Nov Focus | Full ruling: owner's call.
+SEVERITY  look
+
+#### P-B-21 · Small tap targets at 375
+PAGE      /admin/team (96 controls under 40 px tall), /admin/studio (↑ ↓ arrows 24 px), the ⓘ buttons everywhere
+RULE      Add 5 One hand (44 px)
+SEVERITY  look
+
+#### P-B-22 · A one-press job with no confirm, labelled like a fix
+PAGE      /admin/app-performance?tab=papic-storage, "Fill in missing Memory lane copies"
+ACTUAL    One press runs a backfill of up to 40 photos. It is additive and safe, but nothing says it will run straight away. Same pattern: the Studio section switches and ↑/↓ arrows save on press, and so does the fee-review −/+.
+RULE      Add 5 Forgiving (undo, not surprise)
+SEVERITY  wrong (it works; the risk is surprise)
+
 
 > IDs: `L-n` = area-wide (checker 8 itself) · `A`–`I` = one id per group of pages (A money · B pricing & catalogue ·
 > C home, work & shell · D accounts · E verify & disputes · F watch desks & media · G studio · H app performance & Ugat ·

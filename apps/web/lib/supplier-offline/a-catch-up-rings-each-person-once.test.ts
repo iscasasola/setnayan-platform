@@ -12,7 +12,8 @@
  *   · `offlineReplayNow() &&` dropped from emitNotification (every notice groups)     → "only inside a replay"
  *   · the grouping check moved below the bell-row insert                              → "before anything is sent"
  *   · `return false` on a refused read changed to `return true`                       → "fails toward ringing"
- *   · one replay taken out of `runAsOfflineReplay` in the engine                       → "every replay is in the scope"
+ *   · one replay moved just after `runAsOfflineReplay`'s callback in the engine         → "every replay is in the scope"
+ *     (a first version of this check ran to the `catch` and stayed GREEN on that move — measured, then tightened)
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -90,7 +91,11 @@ test('fails toward ringing: a refused read of the standing notices sends the not
 test('every replay is in the scope: the shipped doors, money, gifts and messages', () => {
   const engine = read('lib/supplier-offline/engine.server.ts');
   const sync = engine.slice(engine.indexOf('async function syncOne('), engine.indexOf('async function registerDevice('));
-  const scope = sync.slice(sync.indexOf('runAsOfflineReplay('), sync.indexOf('} catch (e) {'));
+  // The scope is the replay's own callback: from `runAsOfflineReplay(` to the `});` that closes it — not to the `catch`,
+  // which would count a call placed just after the scope as inside it.
+  const start = sync.indexOf('runAsOfflineReplay(');
+  const scope = sync.slice(start, sync.indexOf('\n    });', start));
+  assert.ok(start > 0 && scope.length > 0, 'the engine has no replay scope');
   for (const call of ['rowStillAsSeen(ctx, item)', 'moneyAction(ctx, item)', 'clientAdd(ctx, item)', 'messageSend(ctx, item)', 'replayDoor(door, item)']) {
     assert.ok(scope.includes(call), `${call} runs outside the replay scope`);
     assert.equal(sync.split(call).length - 1, 1, `${call} is also called outside the replay scope`);

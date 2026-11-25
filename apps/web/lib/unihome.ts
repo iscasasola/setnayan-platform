@@ -95,8 +95,11 @@ export type UnihomeShop =
     }
   | { kind: 'helper'; name: string; initials: string; logoUrl: string | null; canOpenShop: boolean }
   | { kind: 'create' }
-  /** No shop, may not open one (or the shops read was refused — a duplicate shop is permanent, so it stays closed). */
-  | { kind: 'none' };
+  /** No shop, and the account may not open one. */
+  | { kind: 'none' }
+  /** A2-B2: the shops read was refused — said as such, never as "you have none" (and no Open-a-shop door either: a
+   *  duplicate shop is permanent). */
+  | { kind: 'unread' };
 
 export type UnihomeFace = { key: string; name: string; initials: string; photoUrl: string | null; href: string };
 

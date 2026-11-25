@@ -53,6 +53,15 @@ function isPaperworkStatus(v: unknown): v is PaperworkStatus {
   );
 }
 
+/**
+ * A2-I10 (final check): a refused save stays on the page and says so — the app-wide toast bridge
+ * (`app/_components/toast/toast-from-params.tsx`) shows `msg` — instead of a throw that replaced the whole page with the
+ * error screen (and, in production, lost the friendly words and the typed note).
+ */
+function saveRefused(eventId: string, words: string): never {
+  redirect(`/dashboard/${eventId}/paperwork?error=1&msg=${encodeURIComponent(words)}`);
+}
+
 function revalidateBoth(eventId: string): void {
   revalidatePath(`/dashboard/${eventId}/paperwork`);
   revalidatePath(`/dashboard/${eventId}`);
@@ -138,9 +147,7 @@ export async function seedPaperworkForEvent(formData: FormData): Promise<void> {
     // never expose raw Postgres errors to the host per
     // [[feedback_setnayan_no_dev_text_post_launch]].
     console.error('[paperwork] seedPaperworkForEvent:', error.message);
-    throw new Error(
-      'Could not set up your paperwork checklist. Please refresh and try again.',
-    );
+    saveRefused(eventIdRaw, 'Didn’t set up your checklist · Try again.');
   }
 
   revalidateBoth(eventIdRaw);
@@ -184,7 +191,7 @@ export async function markPaperworkRequested(formData: FormData): Promise<void> 
     .eq('event_id', eventId);
   if (error) {
     console.error('[paperwork] markPaperworkRequested:', error.message);
-    throw new Error('Could not update this document. Please refresh and try again.');
+    saveRefused(eventId, 'Didn’t save · Try again.');
   }
   revalidateBoth(eventId);
 }
@@ -233,7 +240,7 @@ export async function markPaperworkReceived(formData: FormData): Promise<void> {
     .eq('event_id', eventId);
   if (error) {
     console.error('[paperwork] markPaperworkReceived:', error.message);
-    throw new Error('Could not update this document. Please refresh and try again.');
+    saveRefused(eventId, 'Didn’t save · Try again.');
   }
   revalidateBoth(eventId);
 }
@@ -291,7 +298,7 @@ export async function setPaperworkStatus(formData: FormData): Promise<void> {
     .eq('event_id', eventId);
   if (error) {
     console.error('[paperwork] setPaperworkStatus:', error.message);
-    throw new Error('Could not update this document. Please refresh and try again.');
+    saveRefused(eventId, 'Didn’t save · Try again.');
   }
   revalidateBoth(eventId);
 }
@@ -327,7 +334,7 @@ export async function uploadPaperworkScan(formData: FormData): Promise<void> {
     throw new Error('Unknown document type.');
   }
   if (typeof r2KeyRaw !== 'string' || r2KeyRaw.trim().length === 0) {
-    throw new Error('No file was attached. Please pick a file and try again.');
+    saveRefused(eventId, 'Pick a file first, then upload it.');
   }
 
   const supabase = await createClient();
@@ -388,9 +395,7 @@ export async function uploadPaperworkScan(formData: FormData): Promise<void> {
     .eq('event_id', eventId);
   if (error) {
     console.error('[paperwork] uploadPaperworkScan:', error.message);
-    throw new Error(
-      'Could not save your scan. Please try uploading again, or reach out from /help if it keeps failing.',
-    );
+    saveRefused(eventId, 'Didn’t save your scan · Try uploading again.');
   }
   revalidateBoth(eventId);
 }
@@ -432,7 +437,7 @@ export async function setPaperworkNotes(formData: FormData): Promise<void> {
     .eq('event_id', eventId);
   if (error) {
     console.error('[paperwork] setPaperworkNotes:', error.message);
-    throw new Error('Could not save your notes. Please refresh and try again.');
+    saveRefused(eventId, 'Didn’t save your notes · Try again.');
   }
   revalidateBoth(eventId);
 }

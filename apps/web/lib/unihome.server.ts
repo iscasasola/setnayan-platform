@@ -47,7 +47,7 @@ export const UNIHOME_SHELF = 4;
 /* ── Shop ─────────────────────────────────────────────────────────────────────────────────────────────────────── */
 
 export async function readUnihomeShop(switcher: SwitcherData | null, userId: string): Promise<UnihomeShop> {
-  if (!switcher) return { kind: 'none' };
+  if (!switcher || switcher.shopsMeasured === false) return { kind: 'unread' };
   const shops = switcher.context.shops ?? [];
   const owned = shops.find((s) => s.owned) ?? null;
   if (!owned) {

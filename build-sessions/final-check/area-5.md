@@ -1,4 +1,4 @@
-FIXER: batch 4 of 4 · #8305 (b1) landed · #8314 (b2) + #8318 (b3) + #8320 (b4) ready, all wait only on the screens-map baseline · 43 lane A IDs fixed (A5-G2-04 partly: the lock price waits for its drawing) · 🟠 A5-G4-01, B5-22 · B5-18/B5-21 retracted · B5-08 → lane B
+FIXER: lane A done (b1 #8305 landed · b2 #8314 · b3 #8318 · b4 #8320 ready) · lane B 1 #8335 ready (B1–B3 Open a shop) · next lane B 2: B7–B11 (card maker, Shop) · 🟠 A5-G4-01, B5-22 · B5-18/B5-21 retracted
 STATUS: phase B done · 48 of 48 pages + 5 of 5 forwards walked at 375 / 768 / 1280 (light; dark does not exist in area 5, B5-00) · signed-out doors walked · buttons 1,285 (375) · pressed 870 · failed 23 (hand-proven: 21 inert controls on a booked card, 2 popups that ignore Escape) · phase B findings 28: blocker 0 · money-signin 4 · broken 4 (1 not proven) · wrong 9 · look 11 · phase A findings 99 (10 confirmed live)
 
 # Final check · Area 5 · Supplier: shop, cards, Toolkit, plans

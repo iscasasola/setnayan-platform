@@ -138,6 +138,8 @@ export default async function LiveStudioChannelsPage({
   const readyCount = rows.filter(
     (r) => r.verified && r.status === 'available' && grants.get(r.id)?.connected,
   ).length;
+  const readyLine = grantsUnread ? 'ready to claim: couldn’t read' : `${formatCount(readyCount)} ready to claim`;
+  const poolCountLine = error ? '—' : `${rows.length} channel${rows.length === 1 ? '' : 's'} · ${readyLine}`;
 
 
   return (
@@ -232,9 +234,7 @@ export default async function LiveStudioChannelsPage({
       </div>
 
       <p className="mb-1 mt-4 text-[13px] text-ink/65" data-pool-count="">
-        {error
-          ? '—'
-          : `${rows.length} channel${rows.length === 1 ? '' : 's'} · ${grantsUnread ? 'ready to claim: couldn’t read' : `${formatCount(readyCount)} ready to claim`}`}
+        {poolCountLine}
       </p>
 
       {error ? null : rows.length === 0 ? (

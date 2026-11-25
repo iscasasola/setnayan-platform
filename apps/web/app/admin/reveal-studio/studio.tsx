@@ -192,8 +192,7 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
               (every reveal needs Event Pro, owner 2026-09-24; lib/reveal-access.ts). The value stays in the saved
               row untouched. */}
           <p className="text-[12px]" style={{ color: SLATE }}>
-            Every reveal needs Event Pro. A Pro couple who has not chosen gets the default template below; a free couple
-            gets no reveal.
+            Every reveal needs Event Pro. A Pro couple who has not chosen gets the default below.
           </p>
           <div>
             <div className="mb-1 text-[12px]" style={{ color: SLATE }}>

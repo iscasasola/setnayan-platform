@@ -595,8 +595,7 @@ export function LibraryEditor({ initialAssets, partLabels = {}, tagsUnread = fal
             </header>
             {tagsUnread ? (
               <p role="alert" className="text-[13px] text-ink/70" data-tags-unread="">
-                Couldn&rsquo;t read the colour tags, so they are not shown and Save tags is off — a save now would wipe
-                them. Refresh to try again.
+                Couldn&rsquo;t read the colour tags, so Save tags is off. Refresh to try again.
               </p>
             ) : null}
 

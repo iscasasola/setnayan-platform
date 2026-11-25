@@ -1,5 +1,5 @@
 /**
- * live-studio-pool-words.ts — plain words for the Live Studio channel pool
+ * live-studio-pool-words.ts — plain words for the Live Watch channel pool
  * (A8·F-18). The OAuth start and callback routes hand the board short codes
  * (`exchange_failed`, `not_configured:<keys>`, `state_failed:<db text>`) and the
  * pool stores raw statuses (`checked_out`). Neither is shown to the admin as
@@ -7,7 +7,7 @@
  * line — never the code, never database text.
  */
 const CONNECT_ERRORS: Record<string, string> = {
-  live_studio_disabled: 'Live Studio is switched off, so no channel can be connected right now.',
+  live_studio_disabled: 'Live Watch is switched off, so no channel can be connected right now.',
   not_configured: 'The YouTube connection is not set up yet (its keys are missing). Ask the owner to add them.',
   bad_channel_pool_id: 'That channel is not in the pool any more. Refresh and try again.',
   state_failed: 'Couldn’t start the connection just now. Try again.',

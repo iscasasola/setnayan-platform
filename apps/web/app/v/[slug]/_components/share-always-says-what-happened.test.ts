@@ -51,3 +51,14 @@ test('🔒 the 3D booth has a way back and treats an expired plan as Free (A1-12
   assert.match(booth, /<BoothShowcaseLoader[^>]*\/>[\s\S]{0,300}<Link href=\{shopHref\}/, 'the booth has no way back to the shop');
   assert.match(booth, /boothTierCanBrand\(effectiveSeoTier\(\{ tier_state: vendor\.tier_state, tier_expires_at: vendor\.tier_expires_at \}\)\)/);
 });
+
+test('🔒 the guest review page and the story page follow the shop page’s public rules (A1-132, A1-133, A1-134, A1-135)', () => {
+  const gr = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/guest-review/page.tsx'), 'utf8'));
+  assert.match(gr, /shopPageGate\(shopRow as ShopPageGateRow,[\s\S]{0,120}\.open !== 'public'\) \{\s*notFound\(\);/, 'a hidden shop is named on the guest review page');
+  assert.doesNotMatch(gr, /\|\| 'the'\}’s/, 'a missing name reads "the’s wedding" again');
+  assert.match(gr, /const BOOKED: readonly string\[\] = BOOKED_EVENT_VENDOR_STATUSES;/);
+  const act = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/guest-review/actions.ts'), 'utf8'));
+  assert.doesNotMatch(act, /\|\| 'you';/, '"Thank you, you" is back');
+  const story = stripComments(readFileSync(join(process.cwd(), 'lib/ultra-story-pages.server.ts'), 'utf8'));
+  assert.match(story, /\.from\('vendor_reviews_public'\)\s*\.select\('rating_overall, body, voided_by_fraud'\)/);
+});

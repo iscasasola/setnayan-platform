@@ -190,7 +190,7 @@ export function GuestReviewThanks({
 }) {
   return (
     <div className="sn-glass-bare rounded-xl p-4" data-guest-review="sent">
-      <p className="mb-1 text-[18px] font-semibold">Thank you, {firstName}</p>
+      <p className="mb-1 text-[18px] font-semibold">{firstName ? `Thank you, ${firstName}` : 'Thank you'}</p>
       <p className="text-[13px] text-ink/70">Your line is on {shopName}&rsquo;s card. They&rsquo;ll see it today.</p>
       {giftLine ? (
         <div className="mt-2.5 border-t border-dashed border-ink/15 pt-3.5" data-guest-review-gift>

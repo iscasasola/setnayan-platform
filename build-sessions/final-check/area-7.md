@@ -1,5 +1,7 @@
 # Final check · Area 7 · Coordinator, Spaces & venue, maps
 
+FIXER: batch 1 of ~3 · PR pending (branch `claude/fc-fix-a7-b1`) · built, unit suite running · batch 2 built (`claude/fc-fix-a7-b2`) · batch 3 = A7-16/A7-17 (needs an RPC change)
+
 STATUS: phase B done · 10 of 10 pages walked at 375 / 768 / 1280, light and dark · 36 findings (27 code + 9 seen):
 blocker 0 · money-signin 2 · broken 3 · wrong 18 · look 13 · product blockers 0, two checks blocked by the seed (see BLOCKERS)
 · DARK: signed-in no-dark 5 · public light-only 4 · own skin 1 · buttons counted 193 at 375, pressed 109 (the 3D room's 65 not reached; 5 timed out; writes skipped), failed 2 (A7-30, venue walk's back link → area 4 B-01)
@@ -933,3 +935,19 @@ RULE      HOUSE F4 · CLAUDE.md §5 rule 4
 SEVERITY  broken
 SOURCE    CODE
 ```
+
+## Second pass (25 Nov)
+
+Adds 11, 11b, 12, 13, 15, 17, 18 on the pages the fixer touched (code read on main @ bd86936 plus the phase B shots).
+Lane A ones are fixed in the batches; the rest wait for their lane.
+
+- [B] /pa3d, /pa3d/try · Add 12 · "Standing up the room…" and "Making their code…" spin a `Loader2` (no spinners; a Ghost of the room) — same as A7-07.
+- [B] /vendor-dashboard/spaces · Add 11.3 · a list/grid page with no pull to refresh; the date menu is the only refresh. Reference: iOS Mail's pull to refresh on a list.
+- [B] /vendor-dashboard/spaces · Add 11b · at 1280 the tiles stay a phone-sized grid in a 4xl column; desktop could show the hall's sheet beside the grid (list + details). Reference: iPad Mail split view.
+- [B] /dashboard/[eventId]/vendors/[vendorId]/workspace · Add 11.2 / Add 1 · a PAGE drawn with a ✕ at the top like a popup; the top should be the house Back (the address, Back and refresh already work).
+- [B] /dashboard/[eventId]/vendors/[vendorId]/workspace · Add 11.8 · the three ⓘ buttons are 16 px (A7-36, lane B SW-TAP).
+- [B] /[slug]/venue · Add 12.4 · the "opens on the day" and "didn't load" plates arrive with a hard cut to near-black from the Event Hub; no named page move.
+- Add 13 · no missing icons found on these pages.
+- Add 15 · no Setnayan mark drawn on these pages outside `<Logo>` (the 3D demo QR draws no mark; `renderUrlQrSvg` carries none).
+- Add 17 · none of the ten routes is retired: `/dashboard/[eventId]/plan3d` is a forward kept for old links; `/3d_plan/demo/[token]` is reached from the /pa3d room's QR.
+- Add 18 · no reveal picker on these pages.

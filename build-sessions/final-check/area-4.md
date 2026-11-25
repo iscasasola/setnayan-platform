@@ -1,4 +1,4 @@
-STATUS: phase B in progress (blocker B-01 open)
+STATUS: phase B in progress (blocker A4-B01 recovered 07:15 UTC, watching)
 
 # Final check · Area 4 · Guest (Event Hub, pass, camera)
 
@@ -22,7 +22,7 @@ ACTUAL    From about 07:00 UTC every Event Hub answers HTTP 500 after 20–24 s 
 SHOTS     375 px light (the "Still opening your invitation…" screen)
 RULE      Kit § 5 item 1 (it opens; no 5xx) · item 10 (speed)
 SEVERITY  blocker
-SOURCE    SEEN 25 Nov 07:00–07:08 UTC
+SOURCE    SEEN 25 Nov 07:00–07:14 UTC · RECOVERED 07:15 UTC (the Hub answers 200 again; watching for a repeat). An outage of about 15 minutes with no change on our side: if it repeats, it is the copy's database, not the page.
 ```
 
 ## Report at once (money-signin, kit § 6)

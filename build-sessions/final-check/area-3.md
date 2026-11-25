@@ -1,4 +1,4 @@
-FIXER: batch 2 of ~4 · PR #8313 (batch 1, draft, preflight running) · PR #8316 (batch 2, draft) · next: batch 3 (N-10 Add 18, N-08, N-09, failed-read honesty: I-07 S-05 E-05 E-16 L-08)
+FIXER: batch 3 of ~4 · PR #8313 (b1, draft, preflight running) · PR #8316 (b2, draft) · PR #8317 (b3, draft) · next: b4 = I-07 rest, E-05, S-05, L-08, N-08, E-16 stories; 🟠 none yet
 STATUS: phase B done — 56 of 59 pages walked at 375 / 768 / 1280, light and dark (3 did not open within 180 s on the loaded copy: /apple-pro, /studio/panood/broadcast, /panood/control) · 13 forwards land (§ Forwards) · presses at 375: buttons 766 · pressed 137 · no visible change or blocked 140 (explained under N-13's notes) · left 62 (writes: save, send, publish, pay, delete) · the rest are the invitation's per-guest repeats past the first 40 and pages that forwarded · findings: phase A 78 (B-01 confirmed; 16 more confirmed SEEN) + phase B 13 new (blocker 1 · money-signin 1 · broken 1 · wrong 5 · look 5) · Adds 1–8 and 10 written; Add 9 / 10b not area 3.
 
 # Final check · Area 3 — Couple: Maker, Event Hub page, invitations, Papic, Memories

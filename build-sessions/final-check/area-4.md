@@ -1,4 +1,4 @@
-STATUS: phase B in progress (blocker A4-B01 recovered 07:15 UTC, watching)
+STATUS: phase B in progress (blocker A4-B01 OPEN: the Event Hub flaps between 200 and 500)
 
 # Final check · Area 4 · Guest (Event Hub, pass, camera)
 
@@ -22,7 +22,7 @@ ACTUAL    From about 07:00 UTC every Event Hub answers HTTP 500 after 20–24 s 
 SHOTS     375 px light (the "Still opening your invitation…" screen)
 RULE      Kit § 5 item 1 (it opens; no 5xx) · item 10 (speed)
 SEVERITY  blocker
-SOURCE    SEEN 25 Nov 07:00–07:14 UTC · RECOVERED 07:15 UTC (the Hub answers 200 again; watching for a repeat). An outage of about 15 minutes with no change on our side: if it repeats, it is the copy's database, not the page.
+SOURCE    SEEN 25 Nov 07:00–07:14 UTC · 200 again at 07:15 · 500 again from 07:19 for every viewer (signed out, `guest`, `messy_one`) on every Hub tried. Every failure carries the same REFERENCE (one error digest), which fits the Hub's read deadline (`lib/read-limit.ts`; `lib/invitation-retry.ts` names the free database's stalls) rather than a code fault. The auto-retry (`AUTO_RETRY_DELAY_MS`) fires once and fails too, so the guest is left on "This invitation didn't load" + Try again. Controller: the copy's database is stalling; phase B of the Hub pages waits on it.
 ```
 
 ## Report at once (money-signin, kit § 6)
@@ -140,6 +140,77 @@ SHOTS     DevTools Application panel
 RULE      Offline: guests at the venue (one of the 5 full-offline places)
 SEVERITY  broken (only if the flag is on; else no finding)
 SOURCE    CODE
+```
+
+### Phase B findings (SOURCE: SEEN on the copy)
+
+```
+ID        A4-B02
+PAGE      /join/crew/[token]   (a crew QR that does not exist: /join/crew/zzz)
+BUTTON    none — the page has 0 controls
+STEPS     1. Open /join/crew/zzz at 375, 768 and 1280.
+EXPECTED  A dead link says so and offers one way on (the wordmark home at least, like /join/zzz "Back home").
+ACTUAL    "This QR does not open anything / Ask the shop for their crew QR for this event — it may have been replaced." and nothing to press: no wordmark, no Back home. Every other dead door in the area offers one (claim, join, samahan: "Back home"/"Go home").
+SHOTS     375 px light
+RULE      Kit § 5 item 2 (no dead end) · Add 2 EFFECTIVE (no dead end)
+SEVERITY  broken
+SOURCE    SEEN
+```
+
+```
+ID        A4-B03
+PAGE      /panood/cam/[token] and /papic/claim/[token]   (a token that does not exist: zzz)
+BUTTON    "Sign in to join this camera" / "Join & open my camera" · "Start shooting"
+STEPS     1. Open /panood/cam/zzz signed out, then signed in as `guest`. 2. Open /papic/claim/zzz and press "Start shooting".
+EXPECTED  A link that opens nothing says so on arrival, before asking for a sign-in or a press.
+ACTUAL    /panood/cam/zzz greets the person as valid: "You're invited to operate a camera … Sign in to join this camera"; after sign-in "Join as a live camera … Join & open my camera". /papic/claim/zzz says "Claim your photo-crew seat … Start shooting"; only after the press (45 s during the A4-B01 stall) does it land on ?state=invalid "This link isn't active". The person signs in or waits for nothing.
+SHOTS     375 px light (both screens)
+RULE      Add 2 EFFECTIVE · honest states (CLAUDE.md §5 rule 4)
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+```
+ID        A4-B04
+PAGE      /live   (Live Watch: connect a screen)
+BUTTON    "Connect"
+STEPS     1. Open /live. 2. Type ZZZ999. 3. Press Connect.
+EXPECTED  The button looks pressed at once (pending), then "that code doesn't work" (`/live?error=code`).
+ACTUAL    The button stays exactly as it was (not disabled, no busy state, same word) and nothing changed for 60 s while the copy's database stalled (A4-B01): the person cannot tell the press was taken and presses again. An empty press relies on the browser's own "Please fill out this field." bubble.
+SHOTS     375 px dark (the page draws its own dark)
+RULE      Kit § 5 item 10 (a press should look pressed at once)
+SEVERITY  look
+SOURCE    SEEN
+```
+
+```
+ID        A4-B05
+PAGE      /[slug]   (stg-bea-paolo, signed out; seen at 06:45 UTC while it loaded)
+BUTTON    none
+STEPS     1. Open /stg-bea-paolo at 1280 and 375.
+EXPECTED  Desktop words for desktop; one frame per block.
+ACTUAL    (a) At 1280 the cover still says "SWIPE UP FOR THE EVENT" — there is no swipe with a mouse; it should read "Scroll for the event" on a pointer screen. (b) THE VENUE card holds a second bordered grey box ("RECEPTION · Hardin ng Tagaytay Events Place"): a frame inside a frame. (c) "THE ENTOURAGE" eyebrow sits flush under the venue card with no gap (should be 24). (d) At 1280 it is the phone column in a wide white page (Add 2 BALANCED), at 768 likewise.
+SHOTS     shots/area-4/home-375-light.png · home-1280-light.png
+RULE      Add 2 CLEAN / BALANCED · Add 7 (tablet designed for)
+SEVERITY  look
+SOURCE    SEEN
+```
+
+```
+ID        A4-B06
+PAGE      /wall/[eventId] and /live   (the venue-screen code pages)
+BUTTON    the page text
+STEPS     1. Open /wall/zzz and /live.
+EXPECTED  Words that fit every event type (a debut, a birthday, a reunion).
+ACTUAL    "Enter the screen code from the couple's Setnayan dashboard." · "Type the code shown under Venue screens in the couple's Live Studio controller." Same pattern as A4-08/16/48 ("the couple" on every event type). /wall/zzz also carries the generic tab title "Setnayan · The home of every Filipino celebration".
+SHOTS     375 px light
+RULE      brand.md (event words) · A4-08 pattern
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+```
+NOTE      (not area 4, passed on) /dashboard/[eventId]/guests as messy_one (event M & J, 370 guests): tapping a guest row opens the card sheet full height (not half) and it stayed on "Opening their card…" for 7 s+ at 06:55 UTC; during A4-B01 the page itself did not load in 60 s. Area 2 owns it.
 ```
 
 ### /claim/[token]

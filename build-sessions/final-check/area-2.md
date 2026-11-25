@@ -7,6 +7,17 @@
 > Marks on each line: **OFFLINE** (NEEDED + where signal is lost / READ-ONLY IS ENOUGH / NOT NEEDED) and
 > **SHAPE** (TODAY → SHOULD; `=` when they agree).
 
+## Lock proof
+
+- **Sent:** 25 Nov 2026, **06:48:44 UTC (14:48 PHT)**, signed in as `couple_plan`.
+- **Thread:** event **Bea & Paolo** (`stg-bea-paolo`, event `44c273b9-9c4a-4b92-8147-03c50ca46023`) × supplier
+  **Kusina ni Aling Nena Catering** — the couple's chat, reached at
+  `/dashboard/44c273b9-…/vendors/d4054370-577c-4187-84da-71c93b08517d/workspace?tab=chat`.
+- **Text:** "Final check lock proof (area 2) — test message, please ignore."
+- **What the app showed:** the bubble with "Delivered" under it (the chat's own delivery mark). Nothing on screen
+  said an email was sent to the supplier. **No blocker.** Checker 8: please confirm in /admin/email-delivery that the
+  notification went to the sink or was logged "not configured".
+
 ## Progress
 
 ### Create an event

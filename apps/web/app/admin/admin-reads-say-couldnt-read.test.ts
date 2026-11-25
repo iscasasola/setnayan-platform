@@ -156,11 +156,13 @@ test('Papic ladder: a refused clamp read never mounts the editor whose Save writ
 
 test('Discount codes: a service the picker did not return is kept, not dropped on save', () => {
   const edit = src('app/admin/discount-codes/[id]/edit/page.tsx');
-  assert.match(edit, /fetchV2CustomerCatalog\(\{ forAdmin: true \}\)/);
+  // A8·A-9 (25 Nov): the pages call the outcome-keeping twin `fetchV2CustomerCatalogRead` — the same query; the claim
+  // held here (the admin read passes `forAdmin: true`) is unchanged.
+  assert.match(edit, /fetchV2CustomerCatalog(?:Read)?\(\{ forAdmin: true \}\)/);
   assert.match(edit, /for \(const key of code\.covered_service_keys \?\? \[\]\) \{\s*if \(knownSkus\.has\(key\)\) continue;\s*services\.push\(/);
   assert.doesNotMatch(edit, /Supplier tokens|Vendor tokens/);
   const nw = src('app/admin/discount-codes/new/page.tsx');
-  assert.match(nw, /fetchV2CustomerCatalog\(\{ forAdmin: true \}\)/);
+  assert.match(nw, /fetchV2CustomerCatalog(?:Read)?\(\{ forAdmin: true \}\)/);
   const cat = src('lib/v2-catalog.ts');
   // The dark-launch exclusion stays INSIDE both gates (also pinned by live-studio-pricing-row).
   assert.match(cat, /if \(!opts\.forAdmin\) \{\s*if \(!liveStudioRoamEnabled\(\)\) \{/);

@@ -75,7 +75,7 @@ function useAdminPlace(at?: string): AdminShellPlace | null {
 
 /** Setup's views, grouped under their page — the avatar's pages that exist today. */
 const SETUP_OPTIONS = ADMIN_SETUP_PAGES.filter((p) => p.href).flatMap((p) =>
-  p.views.map((v) => ({ key: `${p.key}.${v.key}`, label: v.label, group: pageGroupLabel(p), href: v.href })),
+  p.views.filter((v) => !v.notInMenus).map((v) => ({ key: `${p.key}.${v.key}`, label: v.label, group: pageGroupLabel(p), href: v.href })),
 );
 
 export function AdminPinnedRow({

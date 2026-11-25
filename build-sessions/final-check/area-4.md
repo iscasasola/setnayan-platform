@@ -101,7 +101,7 @@ Each line: **sizes** 375 · 768 · 1280, light and dark asked of the browser · 
 - [x] /claim/[token] (dead) — sizes ok · light only (signed out) · buttons 2 · pressed 2 · failed 0 · 4.8 s calm, 16–26 s in the stall (slow, A4-B01)
 - [x] /join/[eventId] — guest-list-only event forwards to its Hub (by design, `anyoneMayAskToJoin`); dead id "This invite link isn't valid" · buttons 2 · pressed 2 · failed 0 · 0.6–1.1 s · A4-06 NOT reproduced: no seeded event is "Anyone, I approve", and a checker does not change a shared event's setting
 - [x] /join/[eventId]/connect/confirm — signed out → /login?next=/join/<id>/connect (the route handler; returns there) · signed in as `guest` → /dashboard (no seat to link)
-- [x] /join/[eventId]/set-password — signed out → /login?next=…/set-password (phase A's "next dropped" is NOT seen: the next is kept) · signed in: buttons 6 (field, show, Set password, Skip for now, wordmark, label) · pressed 2 (show, Skip → /dashboard/<eventId>) · Set password not pressed (would change the shared `guest` password)
+- [x] /join/[eventId]/set-password — signed out → /login?next=…/set-password (phase A's "next dropped" is NOT seen: the next is kept) · signed in: buttons 4 (field, Show password, Set password, Skip for now) + wordmark · pressed 4 (Show → field turns to text and the button says Hide; Set password with "abc" → the checklist says "Weak password · 8 or more characters" and nothing is saved; Skip; wordmark) · failed 1 (Skip lands on a 404, A4-B09) · a valid Set password not pressed (would change the shared `guest` sign-in)
 - [x] /join/[eventId]/success — signed out → /login with no return path (confirmed) · signed in: → /join/<id> → the Hub
 - [x] /join/crew/[token] (dead) — sizes ok · light only · **buttons 0** (A4-B02) · 0.7–0.9 s
 - [x] /panood/cam/[token] (dead) — sizes ok · light only · buttons 2 · pressed 2 · failed 1 (a dead token greeted as valid, A4-B03) · 0.8 s
@@ -260,6 +260,19 @@ ACTUAL    The site 404 page "This page doesn't exist on Setnayan … Take me hom
 SHOTS     375 px light
 RULE      honest states · Add 2 EFFECTIVE (one way per door)
 SEVERITY  wrong
+SOURCE    SEEN
+```
+
+```
+ID        A4-B09
+PAGE      /join/[eventId]/set-password   (signed in as `guest`, a guest of the event, not a host)
+BUTTON    "Skip for now" (and Save, which falls back to the same place)
+STEPS     1. Sign in as `guest`. 2. Open /join/<eventId>/set-password. 3. Press "Skip for now".
+EXPECTED  The guest lands on the event they just joined: its Event Hub (/<slug>), or their own home.
+ACTUAL    The link is /dashboard/<eventId> — the HOST's planning page. For a guest it is HTTP 404 "This page doesn't exist on Setnayan" (31 s to answer during A4-B01). The last step of joining ends on a not-found page.
+SHOTS     375 px light (the 404 after Skip)
+RULE      Kit § 5 item 2 (a link to a 404) · sign-in door
+SEVERITY  broken
 SOURCE    SEEN
 ```
 

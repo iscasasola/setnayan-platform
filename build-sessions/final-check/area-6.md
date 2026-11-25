@@ -14,16 +14,16 @@ Pages (22):
 - [ ] /vendor-dashboard/booking-fees
 - [ ] /vendor-dashboard/booking-fees/[orderId]
 - [ ] /vendor-dashboard/calendar/[date]
-- [ ] /vendor-dashboard/clients/[eventId]
-- [ ] /vendor-dashboard/clients/[eventId]/challenge-photos
-- [ ] /vendor-dashboard/clients/[eventId]/cocktail
-- [ ] /vendor-dashboard/clients/[eventId]/editorial-media
-- [ ] /vendor-dashboard/clients/[eventId]/mood-board
-- [ ] /vendor-dashboard/clients/[eventId]/production-sheet
-- [ ] /vendor-dashboard/clients/[eventId]/their-event/[part]
+- [x] /vendor-dashboard/clients/[eventId] — OFFLINE: NEEDED (on the day: booking status, Your booking, client details) — only `?tab=schedule` is saved today · SHAPE: today page (rises over the list on a soft tap) → should page · same
+- [x] /vendor-dashboard/clients/[eventId]/challenge-photos — OFFLINE: NOT NEEDED · SHAPE: today page → should FULL-SCREEN POPUP (a photo/video grid, nothing links to it by address) · DIFFERS (A6-53)
+- [x] /vendor-dashboard/clients/[eventId]/cocktail — OFFLINE: READ-ONLY IS ENOUGH · SHAPE: today page → should page (routes.ts builder, linked from the client page, multi-screen editor) · same
+- [x] /vendor-dashboard/clients/[eventId]/editorial-media — OFFLINE: NOT NEEDED · SHAPE: today page → should FULL-SCREEN POPUP (photo/clip capture, no deep link) · DIFFERS (A6-54)
+- [x] /vendor-dashboard/clients/[eventId]/mood-board — OFFLINE: READ-ONLY IS ENOUGH (a stylist checks the palette on the day; none saved today) · SHAPE: today page → should page · same
+- [x] /vendor-dashboard/clients/[eventId]/production-sheet — OFFLINE: NEEDED (on the day: the caterer works from it at the venue) — NOT saved today (not in `OFFLINE_COPY_SHAPES`); print is the only fallback · SHAPE: today page → should page · same
+- [x] /vendor-dashboard/clients/[eventId]/their-event/[part] — OFFLINE: NEEDED (on the day) for Schedule and Numbers; READ-ONLY for Guests and Event Hub; none saved today · SHAPE: today page → should page · same
 - [ ] /vendor-dashboard/contracts/[contractId]
 - [ ] /vendor-dashboard/contracts/new
-- [ ] /vendor-dashboard/customers
+- [x] /vendor-dashboard/customers — OFFLINE: NEEDED (at an expo: Dates — "is this date open?"; on the day: the bookings list). No saved copy today; Money segment READ-ONLY IS ENOUGH · SHAPE: today page → should page · same (but 2 of its sheets differ: A6-41, A6-42)
 - [ ] /vendor-dashboard/disputes
 - [x] /vendor-dashboard/manpower — OFFLINE: NOT NEEDED (no door by owner ruling 9 Nov; accepting a gig needs the server) · SHAPE: today page → should page · same
 - [x] /vendor-dashboard/messages — OFFLINE: READ-ONLY IS ENOUGH · SHAPE: today page (full-screen chats) → should page · same
@@ -417,6 +417,323 @@ BUTTON    "Lock it in" (event picker)
 ACTUAL    Hand-made `<fieldset>` of `<input type="radio" … accent-mulberry>` (should be `PickMenu`); `text-[13px]`/`[15px]`/`[14px]`/`[11.5px]`,
           `rounded-[var(--m-r-lg)]`, `rounded-2xl`; loading.tsx uses `animate-pulse rounded-3xl bg-ink/5` blocks, not `Sk`/`Ghost`.
 RULE      CLAUDE.md §3 choices / type / radius / loading
+SEVERITY  look
+SOURCE    CODE
+```
+
+### /vendor-dashboard/customers (My Customers hub: Events · Dates · Money · @client)
+
+```
+A6-31
+PAGE      /vendor-dashboard/customers?seg=money   (Log a payment sheet)
+BUTTON    "Log a payment"
+STEPS     1. Money. 2. The payday read is incomplete. 3. Press "Log a payment".
+EXPECTED  "Couldn't load — try again".
+ACTUAL    money-segment.tsx `moneyPicture(paydayIncomplete ? null : paydayRead.rows, …)` → lib/vendor-money.ts `if (payday === null) return { …, customers: [] }`
+          → money-log.tsx "No booked customer yet. A payment is logged on a booking…".
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+```
+A6-32
+PAGE      /vendor-dashboard/customers?seg=money
+BUTTON    "Log a payment" → "Whose payment?"
+ACTUAL    The pick list is `picture.customers` built from instalment rows, not from bookings in `BOOKED_EVENT_VENDOR_STATUSES` — a booked customer
+          with no payment plan is missing (PLAUSIBLE: depends on whether every booking gets a plan).
+RULE      design-and-wiring C8
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+```
+A6-33
+PAGE      /vendor-dashboard/customers?seg=money
+ACTUAL    (a) money-segment.tsx `const waived = waivedRead === FEE_BILLS_UNREADABLE ? [] : waivedRead;` — waived fees vanish on a failed read, with no line;
+          (b) the pinned Received / To come in figures use `formatPesoCompact` (lib/vendors-plan-budget.ts), a second ₱ formatter, not lib/php.ts.
+RULE      CLAUDE.md §5 rule 4 · §1 money
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+```
+A6-34
+PAGE      /vendor-dashboard/customers (Events rows "₱… paid") vs /vendor-dashboard/clients/[eventId] ("Your booking")
+STEPS     Compare the paid figure on a roster row with the same client's card.
+EXPECTED  One reader (`event_vendor_money_read` / `resolveEventMoney`).
+ACTUAL    The row: page.tsx `computeEventMoneyPositions(paydayRows)` sums confirmed `vendor_payday_installments`. The card:
+          lib/booked-money-step.server.ts reads `event_vendor_payments` directly and folds it locally (`clientPaymentView` / `yourBookingView`).
+          Two sources for one "paid"; neither is the house reader (rg finds no `resolveEventMoney` / `event_vendor_money_read` in clients/[eventId]).
+RULE      design-and-wiring C8 · CLAUDE.md §4 Budget row
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+```
+A6-35
+PAGE      /vendor-dashboard/customers (Events)
+BUTTON    Booked tile → "This month"
+ACTUAL    `fetchVendorRoomEventsDetailed(…).catch(() => ({ events: [], complete: false }))`: the tile says couldn't load (monthCount null) while the
+          list under it says "No events booked this month." The pool-bookings read uses `fetchVendorPoolBookings` (drops `complete`), so held dates lose
+          their booked marks silently. The `vendor_branches` read error is never checked → everyone grouped as "Main".
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+A6-36
+PAGE      /vendor-dashboard/customers?seg=dates&day=YYYY-MM-DD
+STEPS     The schedules, pool-bookings or waitlist read fails.
+EXPECTED  A "couldn't load" line, as the same day already draws for blocks and holds.
+ACTUAL    Uses `fetchVendorPools` (`?? []`), `fetchVendorPoolBookings`, `fetchVendorWaitlist` → `pendingCount ?? 0`: a booked day looks open with 0 waiting
+          — at an expo this is the answer a supplier gives a couple. The month view has the same waitlist gap. A failed plan read
+          (`tierProbe.error` unchecked) falls back to the entry plan's ceiling (PLAUSIBLE).
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+A6-37
+PAGE      /vendor-dashboard/customers
+ACTUAL    lib/lock-request-state.ts `const CONFIRMED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete'])` drives the roster lanes —
+          a copy of `BOOKED_EVENT_VENDOR_STATUSES`.
+RULE      design-and-wiring C8
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+A6-38
+PAGE      /vendor-dashboard/customers
+ACTUAL    (a) toast "Booking from outside added — free." (a price word in UI; PLAUSIBLE); (b) Money's locked line "Couples pay you directly and we
+          never take a cut — Setnayan bills you a booking fee…" — a commission claim beyond the one allowed sentence (PLAUSIBLE: supplier-facing);
+          (c) typed hub addresses (`?gear=1`, `?door=asking`, `?seg=dates&m=…`) instead of a lib/routes.ts builder.
+RULE      brand.md claims 2–3 · design-and-wiring A3
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+A6-39
+PAGE      /vendor-dashboard/customers
+ACTUAL    No loading.tsx under customers/: the page borrows app/vendor-dashboard/loading.tsx ("Loading supplier dashboard", 6 stat tiles) — the skeleton draws
+          what this page never draws. The @client slot's loading.tsx returns `null` (a tap shows nothing until the card arrives).
+RULE      CLAUDE.md §3 loading (skeleton draws only what the page draws)
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+A6-40
+PAGE      /vendor-dashboard/customers
+ACTUAL    `text-[13.5px]`, `text-[9.5px]`, `text-[12.5px]` (half pixels) in page.tsx / customers-roster / customers-calendar / customers-pin; `!bg-white` in
+          customers-calendar; `text-danger-700` in shop-wallet-sheet; many `text-[13px]`/`[15px]`/`[17px]` in money-view / money-log.
+RULE      CLAUDE.md §3 type / colour
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+A6-41
+PAGE      /vendor-dashboard/customers
+BUTTON    "Add a booking from outside"
+ACTUAL    A half `Sheet` (outside-client-add.tsx) with 7 rows (Name · Schedule/Halls · Date · Time · To · Contact · Note), whose date rows open their own picker
+          — a tall half-sheet and a popup on a popup.
+EXPECTED  FULL-SCREEN POPUP (RiseScreen).
+RULE      SHAPE (owner 25 Nov)
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+A6-42
+PAGE      /vendor-dashboard/customers?wallet=1
+BUTTON    Shop wallet
+ACTUAL    A `Sheet`, but it is opened by its own address and linked from a client uploader (`SHOP_WALLET_HREF`).
+EXPECTED  Test 1 (returned to by link) → its own PAGE.
+RULE      SHAPE (owner 25 Nov)
+SEVERITY  look
+SOURCE    CODE
+```
+
+### /vendor-dashboard/clients/[eventId]
+
+```
+A6-43
+PAGE      /vendor-dashboard/clients/[eventId]
+BUTTON    "Confirm payment received" (hidden) · Asks · Change orders
+STEPS     The booking-row read (`evRow`) fails.
+EXPECTED  "Couldn't load".
+ACTUAL    page.tsx `{ data: evRow }` (error unbound) → `eventVendorId = completion?.vendor_id ?? null` → change orders become `{ data: null, error: null }`
+          (counted as measured), asks `{ rows: [], complete: true }`, refunds `: 0`, and the recorded-payment card is hidden (`depositRecorded && eventVendorId`).
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+```
+A6-44
+PAGE      /vendor-dashboard/clients/[eventId]
+STEPS     The booking-fee bills read fails.
+EXPECTED  "Couldn't read your fees".
+ACTUAL    `clientFeeBillsRead === FEE_BILLS_UNREADABLE ? [] : …` (same for waived) → `<BookingFeeBills bills={[]}>` — a fee owed for this couple disappears silently.
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+```
+A6-45
+PAGE      /vendor-dashboard/clients/[eventId] (Payment)
+STEPS     The pending-payments read fails (the same unbound reads as A6-02).
+ACTUAL    "No payments to confirm yet…" / "Nothing waiting on you…" over a payment the couple really logged.
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+```
+A6-46
+PAGE      /vendor-dashboard/clients/[eventId]
+ACTUAL    Pesos by local functions: page.tsx `fmtDelta`, `fmtPeso` (`₱${php.toLocaleString('en-PH'…`), `fmtPesoCentavos`; payment-asks-panel.tsx `peso()`;
+          booking-money-summary.tsx imports `formatPhp` from `@/lib/orders` (re-export).
+RULE      CLAUDE.md §1 money (lib/php.ts)
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+```
+A6-47
+PAGE      /vendor-dashboard/clients/[eventId]
+BUTTON    "Contract"
+ACTUAL    (a) A failed brief read: `if (error || !data) redirect('/vendor-dashboard/clients')` — looks like "not your client";
+          (b) a failed contracts read → `hasContract = false` → "Contract" goes to `/vendor-dashboard/contracts/new?event=…`;
+          (c) schedule-block, cocktail-gate and poster reads ignore errors → an empty day, "no poster yet".
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+A6-48
+PAGE      /vendor-dashboard/clients/[eventId]
+ACTUAL    The headcount card shows `brief.pax.attending … of … invited` (and invited before booking), not the count by `events.headcount_basis` the supplier's pax
+          follows (CLAUDE.md §4). PLAUSIBLE — the RPC internals were not traced.
+RULE      CLAUDE.md §4 Guest row
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+A6-49
+PAGE      /vendor-dashboard/clients/[eventId]
+ACTUAL    "Their monogram & palettes, pulled from the mood board." — the word is Logo Maker / logo.
+RULE      brand.md word rules
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+A6-50
+PAGE      /vendor-dashboard/clients/[eventId]
+BUTTON    "Confirm payment received" + "Mark service complete" · Schedule: "Accept" per change order + "Send to couple"
+ACTUAL    Both legacy `.button-primary` buttons draw on Details at once (booked, payment recorded, service not yet complete); the Schedule tab has a primary
+          "Accept" on every change-order row plus "Send to couple".
+RULE      HOUSE_DESIGN_STANDARD K1 · CLAUDE.md §3 button (`.button-primary` legacy)
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+A6-51
+PAGE      /vendor-dashboard/clients/[eventId]
+ACTUAL    Hand-made buttons (`rounded-lg bg-ink px-3 py-2 … text-cream` "Open chat" and 5 more), hand frames (`rounded-2xl border border-terracotta/30 …`),
+          a hand-rolled input, `shopInputClass` (legacy), numbered palette classes (`bg-success-100`, `text-success-600`, `text-terracotta-700`,
+          `border-danger-300 bg-danger-50`), `text-[12.5px]`; typed routes to production-sheet / seat-plan / cocktail / mood-board / editorial-media
+          where `lib/routes.ts` builders exist.
+RULE      CLAUDE.md §3 · design-and-wiring A3 / D12–13
+SEVERITY  look
+SOURCE    CODE
+```
+
+### /vendor-dashboard/clients/[eventId] sub-pages
+
+```
+A6-52
+PAGE      /vendor-dashboard/clients/[eventId]/their-event/[part]
+BUTTON    "View" on each schedule row
+ACTUAL    their-event-part-body.tsx `<span className="shrink-0 text-sn-md text-ink/55">View</span>` inside a plain `<li>` — looks pressable, does nothing (PLAUSIBLE).
+RULE      design-and-wiring B5
+SEVERITY  broken
+SOURCE    CODE
+```
+
+```
+A6-53
+PAGE      /vendor-dashboard/clients/[eventId]/challenge-photos
+ACTUAL    Today a page; a photo/video grid that nothing links to by address → should be a FULL-SCREEN POPUP. Also `bg-black/20`, `text-white`,
+          `rounded-[var(--m-r-sm)]`; a photo whose link fails to sign is skipped (`if (!tileUrl) continue`) so "N shared" undercounts (PLAUSIBLE).
+RULE      SHAPE · CLAUDE.md §3 colour · §5 rule 4
+SEVERITY  look
+SOURCE    CODE
+```
+
+```
+A6-54
+PAGE      /vendor-dashboard/clients/[eventId]/editorial-media
+STEPS     The eligibility read fails (lib/editorial-vendor-media.ts `const { data: evRows } = await admin…`, error unbound).
+EXPECTED  "Couldn't read".
+ACTUAL    "Not available for this event yet … Once you're the couple's confirmed pick here" — a false claim; the same read drives the client page's
+          "Add to their editorial" tile. SHAPE: today a page; photo/clip capture with no deep link → should be FULL-SCREEN POPUP.
+          Also `rounded-[var(--m-r-md)]`, `text-[13px]`.
+RULE      CLAUDE.md §5 rule 4 · SHAPE
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+A6-55
+PAGE      /vendor-dashboard/clients/[eventId]/mood-board
+BUTTON    "Back to event brief"
+ACTUAL    (a) a failed board read: `if (error || !data) redirect(vendorClientSurfaceHref(eventId, 'brief', …))` — silent bounce;
+          (b) a failed colour-grant read is only `console.error`ed → no swatches; (c) `briefRes.error` never checked → the event line disappears;
+          (d) typed `/vendor-dashboard/clients/${eventId}?tab=details`; `text-[14px]`; no PageMasthead; two reads after the batch (PLAUSIBLE rule 16).
+RULE      CLAUDE.md §5 rule 4 · A3 · D16
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+A6-56
+PAGE      /vendor-dashboard/clients/[eventId]/their-event/[part]
+ACTUAL    (a) a failed brief read: `redirect('/vendor-dashboard/customers')` — silent; (b) the Event Hub slug read ignores its error →
+          "The hosts have not published their Hub yet."; (c) the heading and copy say "Hub" (lib/their-event.ts `hub: 'Hub'`), not "Event Hub".
+RULE      CLAUDE.md §5 rule 4 · brand.md word rules
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+A6-57
+PAGE      /vendor-dashboard/clients/[eventId]/their-event/[part]   (Guests: "N in your group", "Matches the X booked")
+ACTUAL    The group count is `group.guests.length` from the their-event RPC (migration `20271357741892_the_their_event_door.sql`), which filters only by group
+          and event — declined, deleted, passed-away and represented guests all count, while the catering RPC applies `countsTowardEvent`'s rules.
+EXPECTED  The headcount comes from the ONE reader's rules.
+RULE      design-and-wiring C8 · CLAUDE.md §4 Guest row
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+A6-58
+PAGE      /vendor-dashboard/clients/[eventId]/cocktail · /production-sheet · /their-event/[part]
+ACTUAL    Reads are honest on cocktail and production-sheet (`partReadOutcome`). Look only: typed `text-[10px]`…`[17px]`, `px-[14px] py-[10px]`,
+          `h-[22px] border-[3px]`, `bg-[rgb(var(--sn-frame-bg))]`, `shadow-[inset_0_0_0_1.5px_…]`, `rounded-[var(--m-r-*)]`; their-event uses hand-made `<h1>`s
+          (no PageMasthead), `text-terracotta-700`, and typed `/vendor-dashboard/clients/${eventId}` / `/dashboard/${eventId}` routes.
+RULE      CLAUDE.md §3 type / radius / colour / page title
 SEVERITY  look
 SOURCE    CODE
 ```

@@ -62,3 +62,14 @@ test('🔒 the guest review page and the story page follow the shop page’s pub
   const story = stripComments(readFileSync(join(process.cwd(), 'lib/ultra-story-pages.server.ts'), 'utf8'));
   assert.match(story, /\.from\('vendor_reviews_public'\)\s*\.select\('rating_overall, body, voided_by_fraud'\)/);
 });
+
+test('🔒 review words fit every event type and every booking (A1-137, A1-140)', () => {
+  const vm = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/_components/venue-matched-events.tsx'), 'utf8'));
+  assert.doesNotMatch(vm, /Recent weddings|Weddings at your venue/);
+  const page = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/page.tsx'), 'utf8'));
+  assert.doesNotMatch(page, />\s*Verified wedding\s*</);
+  assert.doesNotMatch(page, /From verified couples who&rsquo;ve booked/);
+  assert.doesNotMatch(page, /`₱\$\{[^`]*toLocaleString\('en-PH'/, 'a peso is formatted outside lib/php.ts again');
+  const med = stripComments(readFileSync(join(process.cwd(), 'lib/verified-median.ts'), 'utf8'));
+  assert.doesNotMatch(med, /`₱\$\{/);
+});

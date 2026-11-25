@@ -41,7 +41,7 @@ import {
   VENDOR_PLACEHOLDER_PHOTO,
   type ServiceGroupKey,
 } from '@/lib/vendors';
-import { formatPhpRounded } from '@/lib/php';
+import { formatPhp, formatPhpRounded } from '@/lib/php';
 import {
   isBookable,
   isShopBookable,
@@ -763,7 +763,7 @@ function formatAttrFactValue(
   }
   if (typeof raw === 'number') {
     return /centavos/i.test(key)
-      ? `₱${Math.round(raw / 100).toLocaleString('en-PH')}`
+      ? formatPhpRounded(Math.round(raw / 100))
       : String(raw);
   }
   if (typeof raw === 'string') {
@@ -2360,7 +2360,7 @@ export async function renderVendorBySlug({
     );
     const minPeso = Math.min(...pkgPesos);
     const maxPeso = Math.max(...pkgPesos);
-    const peso = (n: number) => `₱${n.toLocaleString('en-PH')}`;
+    const peso = (n: number) => formatPhp(n);
     vendorJsonLd.priceRange =
       minPeso === maxPeso ? peso(minPeso) : `${peso(minPeso)}–${peso(maxPeso)}`;
   }
@@ -4450,7 +4450,7 @@ function ReviewsSection({
             Reviews
           </h2>
           <p className="mt-1 text-sm text-ink/65">
-            From verified couples who&rsquo;ve booked {businessName} via Setnayan.
+            From hosts who booked {businessName}.
           </p>
         </div>
         {recommendingCouples > 0 ? (
@@ -4715,10 +4715,10 @@ function VerifiedWeddingPill() {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full bg-mulberry/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-mulberry"
-      title="This couple booked this supplier through Setnayan — verified by the platform."
+      title="This host booked this supplier through Setnayan — verified by the platform."
     >
       <BadgeCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
-      Verified wedding
+      Verified event
     </span>
   );
 }

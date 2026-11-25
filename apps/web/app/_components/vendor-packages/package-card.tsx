@@ -57,7 +57,7 @@ export function PackageCard({
           </h3>
           {ctaBesidePrice && ctaSlot ? null : (
             <p className="mt-1 font-mono text-lg text-ink">
-              {packagePriceLabel(pkg.total_price_centavos, hidePrice)}
+              {hidePrice ? 'Price on inquiry' : pkg.total_price_centavos > 0 ? formatCentavosPhp(pkg.total_price_centavos) : PRICE_ON_REQUEST}
             </p>
           )}
         </div>
@@ -66,7 +66,7 @@ export function PackageCard({
       {ctaBesidePrice && ctaSlot ? (
         <div data-package-price-row="" className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <p className="font-mono text-lg text-ink">
-            {packagePriceLabel(pkg.total_price_centavos, hidePrice)}
+            {hidePrice ? 'Price on inquiry' : pkg.total_price_centavos > 0 ? formatCentavosPhp(pkg.total_price_centavos) : PRICE_ON_REQUEST}
           </p>
           <div className="min-w-0 shrink-0">{ctaSlot}</div>
         </div>
@@ -136,12 +136,3 @@ export function PackageCard({
   );
 }
 
-/**
- * The figure a package card shows (final check A1-123). A package saved at ₱0 (the table allows it) printed "₱0" beside
- * its main button; the same rule as the service cards now holds: no figure, "Price on request", never ₱0.
- */
-export function packagePriceLabel(totalCentavos: number | null | undefined, hidePrice: boolean): string {
-  if (hidePrice) return 'Price on inquiry';
-  if (typeof totalCentavos !== 'number' || !(totalCentavos > 0)) return PRICE_ON_REQUEST;
-  return formatCentavosPhp(totalCentavos);
-}

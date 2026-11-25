@@ -20,3 +20,11 @@ test('no clipboard is a failure, not a false "Copied"', () => {
 test('closing the share sheet is not reported as a failure', () => {
   assert.match(src, /e\.name === 'AbortError'\) return;/);
 });
+
+test('🔒 a refused rating read is said on the shop page, never "none yet" (A1-129)', () => {
+  const page = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/page.tsx'), 'utf8'));
+  assert.match(page, /fetchTrustedReviewStatsRead\(admin, vendor\.vendor_profile_id\)/);
+  assert.match(page, /const starsNote = trustedFailed\s*\?\s*'Couldn’t load the rating just now\. Reload to try again\.'/);
+  const reviews = stripComments(readFileSync(join(process.cwd(), 'lib/reviews.ts'), 'utf8'));
+  assert.match(reviews, /if \(error\) \{[\s\S]{0,140}return null;/);
+});

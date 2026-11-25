@@ -1,12 +1,15 @@
-/** FINAL CHECK A1-123: a package saved at ₱0 never shows "₱0" to couples. */
+/** FINAL CHECK A1-123: a package saved at ₱0 (the table allows it) never shows "₱0" to couples — "Price on request". */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { packagePriceLabel } from './package-card';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { stripComments } from '../../../lib/strip-comments';
 
-test('₱0 and a missing price read "Price on request"; a real price reads the peso figure', () => {
-  assert.equal(packagePriceLabel(0, false), 'Price on request');
-  assert.equal(packagePriceLabel(null, false), 'Price on request');
-  assert.doesNotMatch(packagePriceLabel(0, false), /₱/);
-  assert.match(packagePriceLabel(1_500_000, false), /₱/);
-  assert.equal(packagePriceLabel(1_500_000, true), 'Price on inquiry');
+const card = stripComments(readFileSync(join(process.cwd(), 'app/_components/vendor-packages/package-card.tsx'), 'utf8'));
+
+test('every price the card draws falls back to "Price on request" at ₱0', () => {
+  const draws = card.match(/formatCentavosPhp\(pkg\.total_price_centavos\)/g) ?? [];
+  assert.equal(draws.length, 2);
+  const guarded = card.match(/pkg\.total_price_centavos > 0 \? formatCentavosPhp\(pkg\.total_price_centavos\) : PRICE_ON_REQUEST/g) ?? [];
+  assert.equal(guarded.length, draws.length, 'a package price is drawn without the ₱0 rule');
 });

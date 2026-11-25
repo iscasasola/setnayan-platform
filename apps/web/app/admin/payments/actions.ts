@@ -1,5 +1,7 @@
 'use server';
 
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
+
 import { requireAdminCan } from '@/lib/admin/can.server';
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
@@ -155,6 +157,34 @@ function deskUrl(q: string | null, notice?: string, warn = false): string {
   return `/admin/payments?${parts.join('&')}`;
 }
 
+/**
+ * A8·A-2 / A8·E-13: a refusal is said ON THE DESK, never as the crash page.
+ * A production build hides a thrown server-action message, so "needs a second
+ * admin — the request is open in Approvals", "already refunded" and Maya's own
+ * refusal never reached the admin. Every throw these presses make is a plain
+ * sentence; it lands back on the opened payment (or the searched order) as a
+ * warn notice. Redirects and not-found pass straight through.
+ */
+async function sayRefusalOnTheDesk(formData: FormData, run: () => Promise<unknown>): Promise<void> {
+  // A server caller that shows the refusal in its own place (Admin › Work) asks for the throw.
+  if (formData.get('refusal') === 'throw') {
+    await run();
+    return;
+  }
+  try {
+    await run();
+  } catch (err) {
+    if (isRedirectError(err) || !(err instanceof Error)) throw err;
+    const paymentId = nullIfBlank(formData.get('payment_id'));
+    if (paymentId) {
+      redirect(
+        `/admin/payments?open=${encodeURIComponent(paymentId)}&notice=${encodeURIComponent(err.message)}&noticeType=warn`,
+      );
+    }
+    redirect(deskUrl(deskQuery(formData.get('q')), err.message, true));
+  }
+}
+
 /** A Focus `next` address — only `/admin` or `/admin?card=…`, never a URL from elsewhere. */
 function focusNext(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -233,10 +263,10 @@ export async function approvePayment(formData: FormData) {
     fd.set('payment_id', paymentId);
     if (reason === 'unreadable') {
       fd.set('admin_resubmit_notice', NOT_RECEIVED_REASONS.unreadable.notes);
-      await requestPaymentResubmit(fd);
+      await requestPaymentResubmitCore(fd);
     } else {
       fd.set('admin_notes', NOT_RECEIVED_REASONS[reason].notes);
-      await rejectPayment(fd);
+      await rejectPaymentCore(fd);
     }
     revalidatePath('/admin');
     redirect(next ?? deskUrl(q, reason === 'unreadable' ? 'Asked them for a clearer photo.' : 'Marked not received.'));
@@ -1294,6 +1324,10 @@ async function issueReceiptForOrder(args: {
 }
 
 export async function rejectPayment(formData: FormData) {
+  return sayRefusalOnTheDesk(formData, () => rejectPaymentCore(formData));
+}
+
+async function rejectPaymentCore(formData: FormData) {
   const { userId } = await requireAdmin();
   // Areas × levels (DECISION_LOG 2026-11-13): payments · basic.
   await requireAdminCan('payments', 'basic');
@@ -1472,6 +1506,10 @@ export async function rejectPayment(formData: FormData) {
 // ============================================================================
 
 export async function requestPaymentResubmit(formData: FormData) {
+  return sayRefusalOnTheDesk(formData, () => requestPaymentResubmitCore(formData));
+}
+
+async function requestPaymentResubmitCore(formData: FormData) {
   const { userId } = await requireAdmin();
   // Areas × levels (DECISION_LOG 2026-11-13): payments · basic.
   await requireAdminCan('payments', 'basic');
@@ -1606,6 +1644,10 @@ export async function requestPaymentResubmit(formData: FormData) {
 // ============================================================================
 
 export async function refundOrder(formData: FormData) {
+  return sayRefusalOnTheDesk(formData, () => refundOrderCore(formData));
+}
+
+async function refundOrderCore(formData: FormData) {
   const { userId: adminUserId } = await requireAdmin();
   // Areas × levels (DECISION_LOG 2026-11-13): refunds · escalated.
   await requireAdminCan('refunds', 'escalated');
@@ -2121,6 +2163,10 @@ async function applyRefund(
 }
 
 export async function confirmOrderTotal(formData: FormData) {
+  return sayRefusalOnTheDesk(formData, () => confirmOrderTotalCore(formData));
+}
+
+async function confirmOrderTotalCore(formData: FormData) {
   await requireAdmin();
   // Areas × levels (DECISION_LOG 2026-11-13): payments · basic.
   await requireAdminCan('payments', 'basic');
@@ -2248,7 +2294,13 @@ export async function rereadPaymentReceipt(formData: FormData): Promise<void> {
     .select('payment_id,screenshot_url,reference_number,amount_php,channel')
     .eq('payment_id', paymentId)
     .maybeSingle();
-  if (readError) console.error('[rereadPaymentReceipt] payment read failed', readError.message);
+  const back = `/admin/payments?open=${encodeURIComponent(paymentId)}`;
+  if (readError) {
+    console.error('[rereadPaymentReceipt] payment read failed', readError.message);
+    // A8·A-18: a refused read is said, never redirected as if it worked.
+    revalidatePath('/admin/payments');
+    redirect(`${back}&notice=${encodeURIComponent('Couldn’t read this payment, so nothing was read. Try again.')}&noticeType=warn`);
+  }
 
   const row = data as {
     screenshot_url: string | null;
@@ -2269,5 +2321,6 @@ export async function rereadPaymentReceipt(formData: FormData): Promise<void> {
   }
 
   revalidatePath('/admin/payments');
-  redirect('/admin/payments');
+  // A8·A-18: back to the same opened payment, where the read card shows the result.
+  redirect(back);
 }

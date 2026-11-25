@@ -24,6 +24,7 @@ import {
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { disputesOutcomeLine } from './_components/outcome-line';
 import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 
@@ -156,6 +157,8 @@ type Props = {
     status?: string;
     category?: string;
     fee_dispute?: string;
+    /** A8·E-1: what a settle / resolve press did (`disputesOutcomeLine`). */
+    settled?: string;
   }>;
 };
 
@@ -351,12 +354,28 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   // The banner is a COUNT, so a truncated scan does not shorten it — it makes it
   // WRONG, which is worse than a truncated list and has no visible symptom.
   const statsTruncated = (statRows?.length ?? 0) >= STATS_SCAN_LIMIT;
+  const outcome = disputesOutcomeLine(search.settled, search.fee_dispute);
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <PageMasthead
         title="Disputes"
       />
+
+      {outcome ? (
+        <p
+          role={outcome.tone === 'warn' ? 'alert' : 'status'}
+          data-disputes-outcome={outcome.tone}
+          className={
+            outcome.tone === 'warn'
+              ? 'mb-4 rounded-lg bg-[var(--sn-warning-soft)] px-4 py-3 text-xs text-[color:var(--sn-warning)]'
+              : 'mb-4 px-1 text-xs'
+          }
+          style={outcome.tone === 'ok' ? { color: 'rgb(var(--color-ok))' } : undefined}
+        >
+          {outcome.text}
+        </p>
+      ) : null}
 
       <div className="mb-6">
         <InfoTip label="How to resolve" align="start" labelClassName="text-[13px] font-semibold text-ink/70">

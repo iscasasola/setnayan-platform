@@ -1123,9 +1123,80 @@ PAGE      any /vendor-dashboard/* (seen on the 12 forwards)
 STEPS     1. Stay signed in until the session needs a refresh. 2. Open several supplier pages in tabs at the same moment.
 EXPECTED  All stay signed in.
 ACTUAL    6 of 14 tabs landed on /login?next=…. Each tab refreshed the same session at once while the server took ~95 s to
-          answer. Seen once, on the slow copy; the controller should retry it on production before counting it.
+          answer. Seen twice: once with 14 tabs at once, and once with one tab opening pages one after another
+          (/vendor-dashboard/locked-qr bounced to sign-in; the next page was signed in again). Both on the slow copy; the
+          controller should retry it on production before counting it.
 RULE      kit § 6 (signing in)
 SEVERITY  money-signin
+SOURCE    WALK
+```
+
+### Client sub-pages (Sofia's 18th — Booked on Clients, `deposit_paid`)
+
+```
+A6-B17
+PAGE      /vendor-dashboard/clients/[eventId]/production-sheet · /cocktail · /mood-board · /challenge-photos · /editorial-media
+STEPS     1. Clients › Sofia's 18th (Booked). 2. Open Production sheet (or any of the four others).
+EXPECTED  The sheet opens: the booking is Booked, and Booking fees says "Nothing to pay yet".
+ACTUAL    A lock card: "This booking is not confirmed on Setnayan yet — The rest of this event — and this event's day-of tools —
+          open once you accept this booking on Setnayan and its booking fee is settled." There is no Accept button and no fee
+          to settle (Booking fees: "Nothing to pay yet"), so the supplier cannot get past it. Meanwhile the same booking's
+          Their event › Schedule · Numbers · Guests open normally, and Clients calls it Booked. Three readers, three answers
+          about one booking.
+          (Caveat as A6-B12: the seed set the status directly, not through the chat lock; a real booking may pass the gate.
+          Either way the lock names a fee that does not exist and offers no way forward.)
+RULE      design-and-wiring B7 (honest 🔒: Problem → one button) · C8 · CLAUDE.md §4 (booked)
+SEVERITY  money-signin
+SOURCE    WALK
+```
+
+```
+A6-B19
+PAGE      /vendor-dashboard/clients/[eventId]/their-event/numbers
+ACTUAL    "Invited 55 · Coming 35 · Maybe 5 · No reply 10" — the four numbers add to 50 of 55; the 5 who said no are not
+          shown, so the sheet does not add up for the person reading it.
+RULE      Add 2 EFFECTIVE
+SEVERITY  wrong
+SOURCE    WALK
+```
+
+### Calendar day and the forwards
+
+```
+A6-B20
+PAGE      /vendor-dashboard/calendar/2027-01-09 → /vendor-dashboard/customers?seg=dates&day=2027-01-09 (the day sheet)
+STEPS     1. Open the day of Sofia's 18th (Booked on Clients, Sat 9 Jan 2027).
+EXPECTED  "1 booked · Sofia's 18th".
+ACTUAL    "Saturday, January 9, 2027 · in 6 weeks · Catering schedule · Still has room · 0 booked". The date a booked event
+          sits on reads as open — the supplier could sell it again (and a booked QR can be made for it, A6-71).
+RULE      CLAUDE.md §4 (booked = BOOKED_EVENT_VENDOR_STATUSES) · design-and-wiring C8
+SEVERITY  wrong
+SOURCE    WALK
+```
+
+```
+A6-B21
+PAGE      /vendor-dashboard/recaps → /vendor-dashboard/shop/promote#share
+ACTUAL    Lands on Promote with `#share` drawn but NOT scrolled into view at 375 (the page opens at its top). Every other
+          forward with an anchor landed in view.
+RULE      Law 9 (every way in lands)
+SEVERITY  wrong
+SOURCE    WALK
+```
+
+### Offline (Add 10, tried on the copy)
+
+```
+A6-B22
+PAGE      /vendor-dashboard/on-the-day · /vendor-dashboard/clients/[eventId]?tab=chat
+STEPS     1. Open the page online (a service worker is registered). 2. DevTools offline. 3. Reload.
+EXPECTED  The saved copy, or Setnayan's own offline page that says what still works.
+ACTUAL    Without a reload the open page stays and shows "You're offline". On reload both give the browser's own
+          "no internet" error (ERR_INTERNET_DISCONNECTED) — no Setnayan offline page, no saved copy. (On the day had no
+          booked event to save — A6-B12 — so its saved copy could not be tried; a chat is not saved by design today.)
+          Back online the page has to be reloaded by hand.
+RULE      FINAL-CHECK Add 10
+SEVERITY  wrong
 SOURCE    WALK
 ```
 

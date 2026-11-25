@@ -86,15 +86,15 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
     group: 'suppliers',
     icon: 'verified',
     name: { en: 'Get Verified', tl: 'Magpa-Verified' },
-    line: { en: 'Free, for good — and couples find you in search.', tl: 'Libre, habambuhay — at mahahanap ka sa search.' },
+    line: { en: 'Free — and couples find you in search.', tl: 'Libre — at mahahanap ka sa search.' },
     title: { en: 'Get Verified as an Event Supplier, Free', tl: 'Magpa-Verified bilang Event Supplier, Libre' },
     description: {
       en: 'Send three papers: DTI or SEC, BIR 2303 and your Mayor’s or Business Permit. A Setnayan admin checks them, and Verified puts your shop in search. Free.',
       tl: 'Ipadala ang tatlong papeles: DTI o SEC, BIR 2303 at Mayor’s o Business Permit. Susuriin ng Setnayan admin, at ilalagay ng Verified ang shop mo sa search. Libre.',
     },
     answer: {
-      en: 'Verified is free, for good. You send your business papers — DTI or SEC registration, BIR 2303 and a Mayor’s or Business Permit — and prove your email is yours. A Setnayan admin reviews them and contacts you for a final confirmation. A Verified shop shows the Verified seal and appears in search around you.',
-      tl: 'Libre ang Verified, habambuhay. Ipapadala mo ang papeles ng negosyo — DTI o SEC registration, BIR 2303 at Mayor’s o Business Permit — at patutunayan mong iyo ang email mo. Susuriin ito ng Setnayan admin at kokontakin ka para sa huling kumpirmasyon. May Verified seal ang Verified na shop at lumalabas ito sa search sa paligid mo.',
+      en: 'Verified is free. You send your business papers — DTI or SEC registration, BIR 2303 and a Mayor’s or Business Permit — and prove your email is yours. A Setnayan admin reviews them and contacts you for a final confirmation. A Verified shop shows the Verified seal and appears in search around you.',
+      tl: 'Libre ang Verified. Ipapadala mo ang papeles ng negosyo — DTI o SEC registration, BIR 2303 at Mayor’s o Business Permit — at patutunayan mong iyo ang email mo. Susuriin ito ng Setnayan admin at kokontakin ka para sa huling kumpirmasyon. May Verified seal ang Verified na shop at lumalabas ito sa search sa paligid mo.',
     },
     forWho: {
       en: 'Every supplier who wants couples to trust them, and to be found in Setnayan search.',
@@ -123,12 +123,12 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
     ],
     faq: {
       en: [
-        { q: 'How much does it cost to get Verified?', a: 'Nothing. Verified is free, for good.' },
+        { q: 'How much does it cost to get Verified?', a: 'Nothing. Verified is free.' },
         { q: 'What papers do I need?', a: 'Three: DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit.' },
         { q: 'What does Verified give me?', a: 'The Verified seal on your page, and a place in Marketplace search around you, as far as you choose to travel — on any plan.' },
       ],
       tl: [
-        { q: 'Magkano ang magpa-Verified?', a: 'Wala. Libre ang Verified, habambuhay.' },
+        { q: 'Magkano ang magpa-Verified?', a: 'Wala. Libre ang Verified.' },
         { q: 'Anong papeles ang kailangan?', a: 'Tatlo: DTI o SEC registration, BIR 2303, at Mayor’s o Business Permit.' },
         { q: 'Ano ang makukuha ko sa Verified?', a: 'Ang Verified seal sa page mo, at puwesto sa Marketplace search sa paligid mo, hanggang sa layong pinili mong puntahan — sa kahit anong plan.' },
       ],
@@ -159,8 +159,8 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
       tl: 'Libre ang bookings. Verified ang nagbubukas ng abot mo; may dagdag na live cards, seats at branches ang Plus, Pro at Ultra. Walang kusang nagre-renew.',
     },
     answer: {
-      en: `Setnayan has four supplier plans: Free, Plus, Pro and Ultra. Free costs nothing, for good, includes the full dashboard, and is where you get Verified. Your reach comes from getting Verified, on any plan. The paid plans add categories, service cards, team seats and branches — never the right to take bookings. Paid plans are billed monthly, and ${planRenewal(false).inline}.`,
-      tl: 'Apat ang supplier plans ng Setnayan: Free, Plus, Pro at Ultra. Libre ang Free, habambuhay, kasama ang buong dashboard, at dito ka nagpapa-Verified. Sa pagpa-Verified nanggagaling ang abot mo, sa kahit anong plan. Nagdadagdag ang paid plans ng categories, service cards, team seats at branches — hindi ang karapatang tumanggap ng booking. Buwanan ang bayad sa paid plans, at walang kusang nagre-renew.',
+      en: `Setnayan has four supplier plans: Free, Plus, Pro and Ultra. Free costs nothing, includes the full dashboard, and is where you get Verified. Your reach comes from getting Verified, on any plan. The paid plans add categories, service cards, team seats and branches — never the right to take bookings. Paid plans are billed monthly, and ${planRenewal(false).inline}.`,
+      tl: 'Apat ang supplier plans ng Setnayan: Free, Plus, Pro at Ultra. Libre ang Free, kasama ang buong dashboard, at dito ka nagpapa-Verified. Sa pagpa-Verified nanggagaling ang abot mo, sa kahit anong plan. Nagdadagdag ang paid plans ng categories, service cards, team seats at branches — hindi ang karapatang tumanggap ng booking. Buwanan ang bayad sa paid plans, at walang kusang nagre-renew.',
     },
     forWho: {
       en: 'Suppliers deciding how far they want to be found, and how big a team they run.',
@@ -191,13 +191,13 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
     ],
     faq: {
       en: [
-        { q: 'Is Setnayan free for suppliers?', a: 'Yes. Free costs nothing, for good, Verified included, and includes the full dashboard: calendar, inquiries, quotes, bookings, payments on record, contracts and your public page.' },
+        { q: 'Is Setnayan free for suppliers?', a: 'Yes. Free costs nothing, Verified included, and includes the full dashboard: calendar, inquiries, quotes, bookings, payments on record, contracts and your public page.' },
         { q: 'Does Setnayan take a commission?', a: `Setnayan never takes a cut of the deal. It bills a booking fee on a booking, ${FEE_SCOPE}. ${FEE_FREE_RULE} The current rate is on the For Suppliers page.` },
         { q: 'Do paid plans renew automatically?', a: 'No. Plus, Pro and Ultra are billed monthly. Skip the next payment and you are on Free.' },
         { q: 'What do the paid plans add?', a: 'More categories and service cards, team seats and branches, and your own web address. Reach is not a plan: it comes from getting Verified, free.' },
       ],
       tl: [
-        { q: 'Libre ba ang Setnayan para sa suppliers?', a: 'Oo. Libre ang Free, habambuhay, kasama ang Verified, at kasama ang buong dashboard: calendar, inquiries, quotes, bookings, tala ng bayad, contracts at public page mo.' },
+        { q: 'Libre ba ang Setnayan para sa suppliers?', a: 'Oo. Libre ang Free, kasama ang Verified, at kasama ang buong dashboard: calendar, inquiries, quotes, bookings, tala ng bayad, contracts at public page mo.' },
         { q: 'Kumukuha ba ng commission ang Setnayan?', a: `Hindi kumukuha ang Setnayan ng parte sa deal. May booking fee ang bawat booking, maliban kung ikaw ang unang nagdala ng event. ${FEE_FREE_RULE_TL} Nasa For Suppliers page ang kasalukuyang rate.` },
         { q: 'Kusa bang nagre-renew ang paid plans?', a: 'Hindi. Prepaid ang Plus, Pro at Ultra, bawat apat na linggo. Lumaktaw ng susunod na bayad at nasa Free ka na.' },
         { q: 'Ano ang idinadagdag ng paid plans?', a: 'Mas maraming categories at service cards, team seats at branches, at sariling web address. Hindi plan ang abot: sa pagpa-Verified ito nanggagaling, libre.' },

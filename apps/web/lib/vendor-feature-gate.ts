@@ -25,6 +25,7 @@ import {
   type VendorDealFacts,
 } from './promo-free-windows';
 import { envFlagEnabled } from '@/lib/env-flag';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export function isVendorFeatureGateEnabled(): boolean {
   return envFlagEnabled(process.env.VENDOR_TIER_FEATURE_GATE);
@@ -89,7 +90,34 @@ export async function resolveVendorTier(
   supabase: SupabaseClient,
   vendorProfileId: string,
 ): Promise<VendorTier> {
-  const { data } = await supabase
+  // Fails CLOSED on purpose: the callers that use this one are gates and server actions, where an unread plan must
+  // refuse (CLAUDE.md § 5.4). A screen that DRAWS the plan reads `readVendorTier` and says "Couldn't read".
+  const read = await readVendorTier(supabase, vendorProfileId);
+  return read.tier === 'unread' ? 'free' : read.tier;
+}
+
+/** What one read of a shop's plan found. `'unread'` = the row was refused or missing: never a plan name, never a lock. */
+export type VendorTierRead = {
+  /** The EFFECTIVE tier (the stored plan, raised by a live admin deal), or `'unread'`. */
+  tier: VendorTier | 'unread';
+  /** The stored `tier_state` exactly as read (null when unread): the lapse sweep asks about THIS, not the promotion. */
+  storedTier: string | null;
+  /** The three deal facts the promotion and the deal banner resolve against; null when unread. */
+  facts: VendorDealFacts | null;
+};
+
+/**
+ * 🪪 THE ONE READER OF A SHOP'S PLAN for every screen that shows it (final check A5-G2-01/02, 25 Nov 2026): the same
+ * single-row read and the same promotion as `resolveVendorTier`, but a refused or missing row comes back `'unread'`
+ * instead of `free`. So the rail, Creators, Deep Search, Theft Watch, Your page, the card maker and Share your work say
+ * "Couldn't read your plan" and never show a paying shop the Free lock or the word "Free".
+ * Held by `lib/vendor-tier-read-is-honest.test.ts`.
+ */
+export async function readVendorTier(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<VendorTierRead> {
+  const { data, error } = await supabase
     .from('vendor_profiles')
     .select('tier_state, verification_state, created_at, last_verified_at')
     .eq('vendor_profile_id', vendorProfileId)
@@ -97,11 +125,16 @@ export async function resolveVendorTier(
   const row = data as
     | ({ tier_state?: string | null } & Partial<VendorDealFacts>)
     | null;
-  const realTier = asVendorTier(row?.tier_state);
+  if (error || !row) {
+    // Logged, never dropped: the screen says "Couldn't read" and the reason stays in the logs.
+    if (error) logQueryError('readVendorTier', error, { vendorProfileId }, 'graceful_degrade');
+    return { tier: 'unread', storedTier: null, facts: null };
+  }
   const facts: VendorDealFacts = {
-    verification_state: row?.verification_state ?? null,
-    created_at: row?.created_at ?? null,
-    last_verified_at: row?.last_verified_at ?? null,
+    verification_state: row.verification_state ?? null,
+    created_at: row.created_at ?? null,
+    last_verified_at: row.last_verified_at ?? null,
   };
-  return applyVendorTierPromotion(realTier, await getPromotedVendorTierFor(facts));
+  const tier = applyVendorTierPromotion(asVendorTier(row.tier_state), await getPromotedVendorTierFor(facts));
+  return { tier, storedTier: row.tier_state ?? null, facts };
 }

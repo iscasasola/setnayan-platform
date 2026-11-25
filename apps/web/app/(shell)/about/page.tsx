@@ -105,7 +105,7 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
   },
   {
     icon: ShieldCheck,
-    label: '0% commission, ever',
+    label: 'Hosts pay 0% commission.',
     value:
       'Setnayan never takes a cut of what couples pay suppliers. Couples and suppliers transact directly; revenue comes from software services and supplier subscriptions.',
   },

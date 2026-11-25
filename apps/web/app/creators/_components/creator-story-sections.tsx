@@ -151,7 +151,7 @@ function CardGrid({ children }: { children: React.ReactNode }) {
 
 export function CreatorStoryThesis() {
   const items = [
-    { b: '₱0', s: 'to publish, forever — storytellers never pay Setnayan a peso' },
+    { b: 'Free', s: 'to publish a Chapter — storytellers pay Setnayan nothing' },
     { b: 'Yours', s: 'your edit stays on your channel, embedded here — you keep its monetization' },
     { b: 'Courted', s: 'suppliers who like your audience send you exclusive discount offers' },
   ];
@@ -230,7 +230,7 @@ export function CreatorStoryChapter() {
             <ul style={{ listStyle: 'none', padding: 0, margin: '24px 0 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[
                 { n: '1', t: 'The embed', p: 'Your YouTube / TikTok / Instagram edit, playing inside the Chapter. Views and monetization stay on your channel — we just give it a home that converts.' },
-                { n: '2', t: 'Shop this event', p: 'The suppliers who made the day — venue, photo, florals, catering — credited as cards a viewer can open and inquire with. 0% commission, as always.' },
+                { n: '2', t: 'Shop this event', p: 'The suppliers who made the day — venue, photo, florals, catering — credited as cards a viewer can open and inquire with. Hosts pay 0% commission.' },
                 { n: '3', t: 'Your audience layer', p: 'Followers and view counts on your page, plus the Storyteller badge once you’ve published. Standout Chapters get featured on Setnayan’s Stories page.' },
               ].map((s) => (
                 <li
@@ -421,7 +421,7 @@ export function CreatorStoryCTA() {
   return (
     <div style={{ textAlign: 'center', background: 'var(--m-paper)', borderTop: '1px solid var(--m-line)' }}>
       <section style={SECTION}>
-        <Eyebrow center>Free, forever</Eyebrow>
+        <Eyebrow center>Free to publish</Eyebrow>
         <H2>Publish your story.</H2>
         <Lede style={{ margin: '0 auto 26px', maxWidth: '48ch' }}>
           Any Setnayan account can publish a Chapter — your first real event is all it takes to
@@ -437,7 +437,7 @@ export function CreatorStoryCTA() {
           </Link>
         </div>
         <p style={{ maxWidth: 1120, margin: '26px auto 0', textAlign: 'center', fontSize: 12, color: 'var(--m-slate-3)', fontStyle: 'italic' }}>
-          Free for storytellers, always · your edit stays on your channel · Setnayan never hosts your video.
+          Free for storytellers · your edit stays on your channel · Setnayan never hosts your video.
         </p>
       </section>
     </div>

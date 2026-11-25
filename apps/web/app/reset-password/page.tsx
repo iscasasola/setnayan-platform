@@ -28,6 +28,8 @@ import { DoorShell, DoorNotice, DoorActions } from '@/app/_components/door/door-
 import { completePasswordReset } from './actions';
 import { PasswordField } from '@/app/_components/password-field';
 import { LEAKED_PASSWORD_MESSAGE } from '@/lib/password-strength';
+import { ownMessageFromParam } from '@/lib/human-auth-error';
+import { RESET_NOT_SAVED, RESET_PASSWORD_ERRORS } from '@/lib/reset-password-errors';
 import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata: Metadata = {
@@ -46,7 +48,8 @@ export default async function ResetPasswordPage({
   searchParams: SearchParams;
 }) {
   const params = await searchParams;
-  const errorMessage = params.error ? decodeURIComponent(params.error) : null;
+  // 🔒 One of our sentences, never the URL's; a stray "%" never throws (final check A1-058).
+  const errorMessage = ownMessageFromParam(params.error, RESET_PASSWORD_ERRORS, RESET_NOT_SAVED);
 
   const supabase = await createClient();
   const user = await getCurrentUser();

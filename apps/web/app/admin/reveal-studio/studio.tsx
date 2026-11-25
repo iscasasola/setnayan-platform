@@ -188,12 +188,13 @@ export function RevealStudio({ initial }: { initial: RevealStudioConfig }) {
           <h2 className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: SLATE }}>
             Activation
           </h2>
-          <Toggle
-            label="Show the reveal on couple sites"
-            hint="No longer switches the reveal on for couples: every reveal needs Event Pro (owner 2026-09-24). A Pro couple who has not chosen gets the default template below; a free couple gets no reveal either way."
-            checked={draft.enabled}
-            onChange={(v) => setDraft((d) => ({ ...d, enabled: v }))}
-          />
+          {/* A8·G-6: the "Show the reveal on couple sites" switch is gone — it saved `enabled`, which nothing reads
+              (every reveal needs Event Pro, owner 2026-09-24; lib/reveal-access.ts). The value stays in the saved
+              row untouched. */}
+          <p className="text-[12px]" style={{ color: SLATE }}>
+            Every reveal needs Event Pro. A Pro couple who has not chosen gets the default template below; a free couple
+            gets no reveal.
+          </p>
           <div>
             <div className="mb-1 text-[12px]" style={{ color: SLATE }}>
               Default template

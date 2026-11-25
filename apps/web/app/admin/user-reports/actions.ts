@@ -19,7 +19,10 @@ import { clearHomeShelf } from '@/lib/home-shelf-clear';
 //                  actioned.
 //   · blocked    — event-scoped block of the uploading guest AND mark actioned.
 //   · escalated  — leave the content up but flag the report as escalated
-//                  (action_taken note) for owner/legal review; status actioned.
+//                  (action_taken note) for owner/legal review. A8·F-15: the
+//                  status STAYS open — it is not settled, so it stays in the
+//                  Open view and the Work count until a person hides, blocks
+//                  or dismisses it (it used to read "Resolved" and vanish).
 //   · dismissed  — no action; status dismissed.
 //
 // Mirrors the requireAdmin + revalidatePath shape of app/admin/disputes/actions.ts.
@@ -38,10 +41,10 @@ const ACTION_NOTE: Record<Action, string> = {
   dismiss: 'Dismissed — no policy violation found.',
 };
 
-const ACTION_STATUS: Record<Action, 'actioned' | 'dismissed'> = {
+const ACTION_STATUS: Record<Action, 'open' | 'actioned' | 'dismissed'> = {
   hide: 'actioned',
   block: 'actioned',
-  escalate: 'actioned',
+  escalate: 'open',
   dismiss: 'dismissed',
 };
 

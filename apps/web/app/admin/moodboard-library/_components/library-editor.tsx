@@ -74,6 +74,11 @@ export type LibraryAsset = {
 type Props = {
   initialAssets: LibraryAsset[];
   /**
+   * A8·G-10: the colour-tag read was refused. The tags are not known, so they are not drawn as empty and
+   * "Save tags" is off — `saveColorRanges` replaces every range, so a save here would wipe the real tags.
+   */
+  tagsUnread?: boolean;
+  /**
    * RW-306 · the inspiration part's display name by its stored key ("entourage_bouquets" → "Entourage
    * bouquets"), read on the server from the admin's parts (`getInspirationParts`). A shop's gallery photo
    * carries that key in `asset_subtype`; this page printed it raw ("SUPPLIER_GALLERY · ENTOURAGE_BOUQUETS").
@@ -125,7 +130,7 @@ const DEFAULT_PREVIEW_PALETTE: PalettePreview = {
   6: '#a02c45',
 };
 
-export function LibraryEditor({ initialAssets, partLabels = {} }: Props) {
+export function LibraryEditor({ initialAssets, partLabels = {}, tagsUnread = false }: Props) {
   const [assets, setAssets] = useState<LibraryAsset[]>(initialAssets);
   const [selectedId, setSelectedId] = useState<string | null>(initialAssets[0]?.asset_id ?? null);
   const [isPending, startTransition] = useTransition();
@@ -235,7 +240,7 @@ export function LibraryEditor({ initialAssets, partLabels = {} }: Props) {
   }
 
   function handleSaveTags() {
-    if (!selected) return;
+    if (!selected || tagsUnread) return;
     const map = localMaps[selected.asset_id] ?? {};
     startTransition(async () => {
       try {
@@ -575,7 +580,7 @@ export function LibraryEditor({ initialAssets, partLabels = {} }: Props) {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <ActionButton tone="brand" main icon={Save} label="Save tags" type="button" onClick={handleSaveTags} disabled={isPending} />
+                <ActionButton tone="brand" main icon={Save} label="Save tags" type="button" onClick={handleSaveTags} disabled={isPending || tagsUnread} />
                 {!selected.approved_at && (
                   <ActionButton tone="ok" icon={Check} label="Publish" type="button" onClick={handleApprove} disabled={isPending} />
                 )}
@@ -588,6 +593,12 @@ export function LibraryEditor({ initialAssets, partLabels = {} }: Props) {
                 <ActionButton tone="danger" icon={Trash2} label="Delete" type="button" onClick={handleDelete} disabled={isPending} />
               </div>
             </header>
+            {tagsUnread ? (
+              <p role="alert" className="text-[13px] text-ink/70" data-tags-unread="">
+                Couldn&rsquo;t read the colour tags, so they are not shown and Save tags is off — a save now would wipe
+                them. Refresh to try again.
+              </p>
+            ) : null}
 
             {/* 🔑 MB21 · THE FINDING REACHES THE PIXEL. `findings` is read off
                 the selected asset, never hard-coded — a-finding-reaches-the-

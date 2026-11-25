@@ -14,6 +14,12 @@
 - **Stored key:** the save action records `r2://setnayan-media/papic/event-…/…jpg` with no prefix: the lock adds the prefix in the storage client, so the database row carries the plain key. Not a finding, noted so area 8 is not surprised by it.
 - **Preview:** `/api/health` reports `bd86936`, env `preview`.
 
+## Phase B status (browser walk, in progress)
+
+- Walking the staging copy as `couple_maker` at 375 / 768 / 1280, light and dark, one page load per page (width and theme switched in place: dark is the `html.dark` class the `sn-theme` cookie sets on `DARK_READY` routes).
+- **The copy is very slow under the eight checkers:** the first byte of a signed-in page takes 30–130 s (health answers in 0.6 s, so it is the database side). Load times below are measured under that load and are NOT speed findings on their own.
+- **Twice a slow page sent the signed-in couple to `/login?next=/dashboard`** (guests/invite at 768, guests/send in dark): the middleware session check (`lib/supabase/middleware.ts`, `withBudget` / `SESSION_CHECK_BUDGET_MS`) treats a check that runs out of time as "nobody is signed in", by design. Logged as N-01 below.
+
 ## Phase A summary (code pass, 25 Nov 2026)
 
 - **Pages:** 59 of 59 checked, plus 13 of 13 forwards. Every finding below is `SOURCE: CODE`; phase B confirms or strikes each one.

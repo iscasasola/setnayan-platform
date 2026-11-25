@@ -1,4 +1,4 @@
-STATUS: phase B in progress (blocker A4-B01 OPEN: the Event Hub flaps between 200 and 500)
+STATUS: phase B in progress (blocker A4-B01 flapping: down 07:00–07:14 and 07:19–07:34, up again 07:35 UTC)
 
 # Final check · Area 4 · Guest (Event Hub, pass, camera)
 

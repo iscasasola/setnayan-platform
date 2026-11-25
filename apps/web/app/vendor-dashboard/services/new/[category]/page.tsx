@@ -223,8 +223,8 @@ export default async function NewServicePage({
           </p>
         </div>
       ) : null}
+      <TellUsHost groups={requestTree?.groups ?? null} retry={`/vendor-dashboard/services/new/${category}`}>
       {canvas ? (
-        <TellUsHost groups={requestTree?.groups ?? null} retry={`/vendor-dashboard/services/new/${category}`}>
         <CanvasMaker
           library={library}
           categoryValue={cat}
@@ -269,7 +269,6 @@ export default async function NewServicePage({
           cardSpecialties={queuedSpecialties}
           initial={initial}
         />
-        </TellUsHost>
       ) : (
         <ServiceWizard
           categoryValue={cat}
@@ -281,6 +280,7 @@ export default async function NewServicePage({
           giftLimitPct={giftLimitPct}
         />
       )}
+      </TellUsHost>
     </div>
   );
 }

@@ -20,7 +20,7 @@ function MakerStandIn() {
     <div className="space-y-4 px-4 py-4" data-lab-maker="">
       <label className="block text-sn-base text-ink">
         Card name (stand-in)
-        <input className="input-field mt-1 w-full" value={typed} onChange={(e) => setTyped(e.target.value)} data-lab-typed="" />
+        <input className="input-field mt-1 w-full" value={typed} onChange={(e) => setTyped(e.target.value)} data-lab-typed="" /> {/* field-ok: a lab stand-in for the maker's own fields — proves what was typed survives */}
       </label>
       {Array.from({ length: 40 }, (_, i) => (
         <p key={i} className="text-sn-base text-ink/60">

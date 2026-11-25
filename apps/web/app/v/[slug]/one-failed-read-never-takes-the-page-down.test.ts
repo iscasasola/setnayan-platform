@@ -29,7 +29,7 @@ test('a failed read shows the section failure, never an empty list', () => {
 test('🔒 a refused shop read is not "no such shop" (A1-128)', () => {
   assert.match(src, /if \(error\) \{[\s\S]{0,160}return \{ vendor: null, failed: true \};/, 'a refused read folds into "not found" again');
   assert.match(src, /if \(vendorReadFailed\) \{[\s\S]{0,200}if \(cachedCopy\) throw[\s\S]{0,80}return <ShopCouldNotOpen \/>;/);
-  assert.match(src, /if \(failed\) return \{ title: \{ absolute: 'Setnayan' \}, robots: \{ index: false, follow: false \} \};/);
+  assert.match(src, /if \(\(await fetchVendorRead\(slug\)\)\.failed\) return \{ title: \{ absolute: 'Setnayan' \}, robots: \{ index: false, follow: false \} \};/);
   const story = stripComments(readFileSync(join(process.cwd(), 'lib/ultra-story-pages.server.ts'), 'utf8'));
   assert.match(story, /if \(shopRead\.error\) \{[\s\S]{0,160}return \{ kind: 'failed' \};/);
 });

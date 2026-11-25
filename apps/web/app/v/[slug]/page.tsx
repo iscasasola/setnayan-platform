@@ -622,9 +622,10 @@ async function viewerIsSignedIn(): Promise<boolean> {
 // Named, slug-resolved so the bare-root dispatcher (app/[slug]/page.tsx) can
 // reuse the exact same vendor metadata when a bare slug resolves to a vendor.
 export async function vendorMetadataBySlug(slug: string) {
-  const { vendor, failed } = await fetchVendorRead(slug);
-  // A refused read is not a missing page: no "Page not found" tab, and nothing indexed (A1-128).
-  if (failed) return { title: { absolute: 'Setnayan' }, robots: { index: false, follow: false } };
+  // A refused read is not a missing page: no "Page not found" tab, and nothing indexed (A1-128). `fetchVendorRead` is
+  // `cache()`d, so the `fetchVendor` below reuses this same read.
+  if ((await fetchVendorRead(slug)).failed) return { title: { absolute: 'Setnayan' }, robots: { index: false, follow: false } };
+  const vendor = await fetchVendor(slug);
   // 🔎 NO SHOP BY THIS NAME (logged-out crawl #12): `/faq`, `/contact`, any unknown top-level path lands here through
   // `app/[slug]` and is a 404 — its tab must not read "Supplier · Setnayan" as if a shop were behind it.
   if (!vendor) return { title: 'Page not found', robots: { index: false, follow: false } };

@@ -375,3 +375,25 @@ you" (dormant). It is rule-based, not a chatbot; the "% match" score is free for
 ⚠ Money, lane C, owner to confirm before any copy ships: live `platform_retail_catalog_v2` (read 25 Nov) has
 `SETNAYAN_AI` = ₱2,790 and **is_active = true** (bands B ₱1,980 · C ₱1,190 · D ₱265 · renewal ₱799, all off). The owner
 said ₱1,499 per event. The "normally ₱X" line reads the catalogue; the catalogue value is the owner's to set.
+
+## Add 21 · Setnayan AI: what is free already vs AI-only (controller audit, main @ bd86936; lane C, owner to rule)
+Live (read 25 Nov): paywall ON; 1 of 28 real events has AI. Alerts have no cron: `sweepGuardNotifications` runs only
+when a host opens the event (`dashboard/[eventId]/layout.tsx:455`), ≤ every 6 h, ≤ 3 alerts, 7-day repeat gap.
+- FREE ALREADY → take off the AI list, make strong in the free app: **budget** (budget page "₱X over target",
+  `budget-summary.tsx:275`; home ring; supplier cards) · **next_move** core (today's one thing for everyone,
+  `event-dashboard.tsx:1084`) · **deadlines** dates (Schedule › Planning Stage, `preparation-agenda.tsx:214`) ·
+  **schedule_clash** (Schedule flags it free, `chapters-host.tsx:405`).
+- PARTLY: **payments** (seeing what is due is free; the reminder alert + day-before email is AI,
+  `setnayan-ai-notify.ts:228`) · **date_watch** (today's booked/free is free; the CHANGE alert is AI) · **rank** (free
+  score + cheapest-first team; AI = best-fit team, `build-3state-actions.ts:185`, small).
+- AI-ONLY AND WORKING: **price_watch** (`setnayan-ai-snapshot.ts:425`). ⚠ Its copy is false: it says "the figure you
+  were quoted"; the code compares the supplier's own old vs new list price (`:455`).
+- AI-ONLY, LIKELY REACHING NO ONE: **demand** ("N also eyeing your date") needs privacy control `same_date_demand`,
+  created OFF.
+- Dead and unadvertised: the decision-window alert (input always empty, `setnayan-ai-snapshot.ts:678`).
+Owner's direction (25 Nov): free features leave the AI list and get their best version free; the AI becomes what helps a
+host handle SUPPLIERS better. Candidate AI features (data already exists): send one requirement-filled inquiry to the
+best fit and follow it up (`requirements-capture.ts:181`) · check each quoted price against the supplier's list and
+history · check payment plans (balance after the event, odd deposit) · when a booked supplier cancels, line up free
+look-alikes · rank your list by real reply speed · sum up reviews per shortlisted supplier · warn when a
+supplier-added to-do is slipping · find dates every picked supplier is free. Nothing is built until the owner picks.

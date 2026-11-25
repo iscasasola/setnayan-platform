@@ -1,7 +1,7 @@
 /**
  * plan-credits-are-read-not-typed.test.ts — RW-12 (Controller re-walk, 2026-11-14).
  *
- * /pricing and /features name each event plan's Papic credits (Event Ultra's 3,500 among them) from the catalogue
+ * /pricing and /features name each event plan's Papic credits from the catalogue
  * row's `included_papic_credits`, never a typed count. The sample counts below are deliberately NOT the live ones,
  * so a page that typed the live number would not pass by luck.
  *

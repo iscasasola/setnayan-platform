@@ -142,6 +142,335 @@ answer; `/details` and `/checklist` ~105 s. A person would give up. Pages with l
 `/documents`, `/access-requests`) answer in 2–6 s. It looks like the copy's database (or eight checkers at once)
 rather than the code, but production should be timed the same way before launch. I cut my own load to 2 tabs.
 
+## Phase B · findings seen on the staging copy (`SOURCE: SEEN`, 25 Nov, commit bd86936)
+
+> Walked signed in as `couple_plan` on **Bea & Paolo** (`stg-bea-paolo`), Sofia's 18th and Lolo Ben at 80. Shots are
+> kept in the checker's scratchpad (not committed: they carry the preview address); the home shots for Add 7 are
+> committed under `shots/area-2/`. Phase-A findings that the browser confirmed are listed after the new ones.
+> Times are from a cloud container, not the Philippines, on a copy that was slow for every signed-in read (see BLOCKERS).
+
+#### A2-P1 · Home's paid and owing figures count up from ₱0
+```
+PAGE      /dashboard/[eventId]   (event: stg-bea-paolo) — also under ?settings=1 (Details forwards there)
+BUTTON    —
+STEPS     1. Open the event home (or /details, which lands on Home ?settings=1). 2. Read the Budget line before it settles.
+EXPECTED  The money line shows the real figures at once: "Paid ₱124,488 · still owing ₱165,782 · 43% paid of ₱290,270 agreed".
+ACTUAL    The two peso figures and the % are a count-up (`home-control-row.tsx` → `<Count format="peso">`). Four loads were
+          caught mid-count: "Paid ₱0 · still owing ₱0 · 0% paid of ₱290,270 agreed", "Paid ₱47,897 · still owing ₱57,760 · 24%",
+          "Paid ₱81,599 · still owing ₱100,254 · 37%". On a slow phone a person reads ₱0 paid / ₱0 owed as a fact.
+SHOTS     details-768-light (₱0), details-375-dark (₱47,897), details-1280-light (₱81,599) vs Home-375-light (settled)
+RULE      CLAUDE.md §5 rule 4 (a money read never shows ₱0 that is not true) · MOTION_STANDARD (controls and facts don't dance)
+SEVERITY  money-signin
+SOURCE    SEEN
+```
+
+#### A2-P2 · Event services: Event Pro priced below Event Plus; Event Ultra "Couldn't read"
+```
+PAGE      /dashboard/[eventId]/orders/new → /dashboard/[eventId]/studio/website-pro ("Event services")   (event: stg-bea-paolo)
+BUTTON    "Pick a pack" rows
+STEPS     1. Orders › New order. 2. Read the three packs.
+EXPECTED  Each pack shows its catalogue price, ladder rising Plus < Pro < Ultra, the same figure /pricing shows.
+ACTUAL    Event Plus: "BEING CHECKED" (no price; its order STG-0001 is ₱2,990, read from the catalogue by the seed).
+          Event Pro: "₱2,500" — lower than Event Plus, with no "pay the difference" line under it, so a person cannot tell
+          whether it is the full price or an upgrade price. Event Ultra: "Couldn't read", while /pricing on the same copy
+          reads Event Ultra ₱9,990. The honest state works, but the read behind it fails on this page only.
+SHOTS     orders_new-375-light, orders_new-1280-light
+RULE      CLAUDE.md §1 (prices read from platform_retail_catalog_v2, one reader) · Add 4 HONEST
+SEVERITY  money-signin
+SOURCE    SEEN
+```
+
+#### A2-P3 · Order page says VAT is added on top; the list says "incl. VAT"; figures print as "₱2 , 990"
+```
+PAGE      /dashboard/[eventId]/orders/[orderId] (STG-0001) · /dashboard/[eventId]/orders · /receipts/order/[orderId]
+BUTTON    —
+STEPS     1. Orders: the row reads "₱2,990 INCL. VAT". 2. Open it.
+EXPECTED  One wording for tax on every money screen, and pesos printed as ₱2,990.
+ACTUAL    The order tiles read "PRE-VAT BASE ₱2,990 · + VAT (0%) ₱0 · TOTAL TO PAY ₱2,990" and "Requested base = ₱2 , 990.
+          PH VAT (0%) is added on top"; the list calls the same figure "incl. VAT". The body line and the receipt's big
+          figure render with a gap and spaced comma ("₱2 , 990"), the mono figure style splitting the number.
+SHOTS     orders_7c1e…-375-light, receipts_order_7c1e…-375-light, orders-375-light
+RULE      CLAUDE.md §1 (money read, formatted through lib/php.ts) · brand.md (plain words)
+SEVERITY  money-signin
+SOURCE    SEEN
+```
+
+#### A2-P4 · "Groups" (/dashboard/samahan) lands on a blank screen
+```
+PAGE      /dashboard/samahan → /dashboard?seg=people&view=samahan
+BUTTON    rail / any "Groups" door
+STEPS     1. Open /dashboard/samahan as a couple with no groups. 2. Wait 60 s.
+EXPECTED  The People › Groups view: "No group yet" and a New group action.
+ACTUAL    Only the top bar and the Home · Discover bar; the content area stays empty (twice, 60 s+ each). In
+          `people-segment.tsx` the view draws only `view === 'samahan' && groupRows ? … : nothing`, so an empty or failed
+          rows read draws nothing at all. /dashboard/people (same segment, list view) draws fine.
+SHOTS     re_dashboard_samahan (375 light)
+RULE      Kit § 5 item 1 (no blank screen) · CLAUDE.md §5 rule 4 (empty and failure never look like nothing)
+SEVERITY  broken
+SOURCE    SEEN
+```
+
+#### A2-P5 · Import page says importing opens on 19 Dec, under working import steps
+```
+PAGE      /dashboard/[eventId]/guests/import   (event: stg-bea-paolo)
+BUTTON    "Download for Excel / Numbers" · "Open in Google Sheets" · "CSV"
+STEPS     1. Guests › Import.
+EXPECTED  Either the import works (no notice) or it is closed (no steps). Never a launch story in the tool.
+ACTUAL    Step 1 "Get the guest list file" with live download buttons, and under it a paragraph: "Thank you for planning
+          with Setnayan! Our very first event is our founders' wedding on December 18, 2026 … Importing guests from a file
+          opens on December 19, 2026. Until then, add your guests one at a time". The page contradicts itself and
+          advertises a coming date.
+SHOTS     guests_import-375-light
+RULE      brand.md claims 9 (nothing coming) · Add 3 (placeholders / coming) · Add 2 CLEAN
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A2-P6 · Guest list shows the bride's name on the groom's row
+```
+PAGE      /dashboard/[eventId]/guests (List)   (event: stg-bea-paolo)
+BUTTON    —
+STEPS     1. Guests › List › Bride & Groom.
+EXPECTED  "Bea Villanueva" and "Paolo Garcia", as the seat chart and the guest rows hold them.
+ACTUAL    "Bea Villanueva" twice. The seat chart (/seating/chart) prints Bea Villanueva AND Paolo Garcia at the
+          Presidential table, so the rows are right and the list draws the linked account's name over the row's own
+          name. The seed links the creator's account to the groom row (seed.sql "The creator is their couple row"),
+          so the trigger here is seed-shaped, but the display rule (account name beats the row's name) would hit any
+          couple where one partner's account is linked to the other row, or a guest who signed up with a nickname.
+SHOTS     guests-375-light, seating_chart-375-light
+RULE      CLAUDE.md §4 (Guest: one reader) · Kit § 5 item 3 (two pages disagree)
+SEVERITY  wrong (PLAUSIBLE: needs a builder to confirm which name a linked row should show)
+SOURCE    SEEN
+```
+
+#### A2-P7 · Find says "3 booked"; Home says "6 of 25 booked"
+```
+PAGE      /dashboard/[eventId]/vendors/categories · /dashboard/[eventId] (Suppliers tile) · /dashboard/[eventId]/people
+BUTTON    —
+STEPS     1. Suppliers › Find. 2. Read the photo chip. 3. Compare Home and People.
+EXPECTED  One booked count everywhere (BOOKED_EVENT_VENDOR_STATUSES).
+ACTUAL    Find's chip: "4 CATEGORIES · 3 BOOKED". Home: "6 of 25 booked · 19 still to book". People: "Booked to be there ·
+          6 suppliers". The chip counts booked categories among the four "Popular for weddings", but says "booked" with
+          no unit, beside a list where a person counts suppliers.
+SHOTS     vendors_categories-375-light, Home-1280-light, people-375-light
+RULE      CLAUDE.md §4 (booked = one reader) · Add 2 EFFECTIVE (plain labels)
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A2-P8 · "Close out the day" offered 89 days before the event
+```
+PAGE      /dashboard/[eventId]/clearance   (event: stg-bea-paolo, Feb 23 2027)
+BUTTON    "Close out the day" (NOT pressed: irreversible, seeded data)
+STEPS     1. Open /clearance on an event 89 days away.
+EXPECTED  Before the day: the page says it opens after the event, the main button is not offered.
+ACTUAL    The terracotta "Close out the day" button is live, under the line "You can do this once the event is over. It
+          can't be undone". With A2-G19 (no confirm) one stray tap ends a wedding that has not happened.
+SHOTS     clearance-375-light
+RULE      Kit § 5 item 2 · HOUSE_DESIGN_STANDARD (confirm only for the irreversible — here it is irreversible)
+SEVERITY  broken
+SOURCE    SEEN
+```
+
+#### A2-P9 · Date selection starts over on a locked date
+```
+PAGE      /dashboard/[eventId]/date-selection   (event: stg-bea-paolo)
+BUTTON    "I have a date in mind" · "Help me pick a meaningful one" · "I'm not ready yet"
+STEPS     1. Open date selection for an event whose date is set and locked (Event settings: "Your wedding date is set,
+          because a supplier is booked on it").
+EXPECTED  The page shows the locked date and why, with no path to pick a new one.
+ACTUAL    "Congratulations. Let's start with your date." and the three start paths, as for a new event.
+SHOTS     date_selection-375-light, details_field_area-375-light (the lock line)
+RULE      Kit § 5 item 3 (two pages disagree about one fact) · see A2-H12
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A2-P10 · Event home disagrees with itself between loads
+```
+PAGE      /dashboard/[eventId]   (event: stg-bea-paolo)
+BUTTON    —
+STEPS     1. Load Home at 768 (light). 2. Load it again minutes later (dark).
+EXPECTED  Same facts each load.
+ACTUAL    Load A: "4 things need you", a "Needs you today" list of tasks, Event Hub "9 of 18". Load B: "1 thing needs you",
+          "Nothing needs you", Event Hub "8 of 18". Nothing was changed in between (this checker only). A slow or failed
+          task read seems to be drawn as "Nothing needs you". PLAUSIBLE until a builder checks the reader's failure path.
+SHOTS     Home-768-light vs Home-768-dark
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### A2-P11 · Schedule throws a hydration error on load
+```
+PAGE      /dashboard/[eventId]/schedule (and /checklist, which forwards there)   (event: stg-bea-paolo)
+BUTTON    —
+STEPS     1. Open Schedule at 375 light.
+EXPECTED  No console error.
+ACTUAL    "Minified React error #418" (server and browser HTML differ). /checklist at 375 stood on the full-screen
+          "Syncing your day ···" splash after ~105 s.
+SHOTS     checklist-375-light
+RULE      Kit § 5 item 1
+SEVERITY  broken
+SOURCE    SEEN
+```
+
+#### A2-P12 · Home shows made-up people and places as "EXAMPLE"
+```
+PAGE      /dashboard/[eventId] (Schedule tile, Who's here)   (event: stg-bea-paolo)
+BUTTON    —
+STEPS     1. Open Home at 768 or 1280.
+EXPECTED  The couple's own facts, or an empty state that says what to do.
+ACTUAL    Rows tagged EXAMPLE: "Ceremony · 2:00 PM · Our Lady of Lourdes", "Reception · 6:00 PM · Casa Verde Gardens",
+          "Miguel Santos · Host · Active now", "Tita Lu · Coordinator". A real couple sees strangers marked "Active now".
+SHOTS     Home-768-dark, Home-1280-light
+RULE      Add 3 (made-up people, demo data in place of the person's own)
+SEVERITY  look (polish)
+SOURCE    SEEN
+```
+
+#### A2-P13 · First-visit tours cover the page and its main button
+```
+PAGE      /dashboard/[eventId] · /budget · /vendors · /launch (find-date forward) · /schedule
+BUTTON    "Skip" · "Next"
+STEPS     1. Open each page for the first time on a phone.
+EXPECTED  The page works without a tour (Add 5: a step that needs a tour is a finding).
+ACTUAL    A coach mark ("STEP 1 OF 4 … Press Next") dims the page and sits over the bottom half, where the thumb and the
+          main action are; Budget's tour also opens the Share menu behind it. Five pages, five tours.
+SHOTS     -375-light of each
+RULE      Add 5 (first-timer, one hand)
+SEVERITY  look (polish)
+SOURCE    SEEN
+```
+
+#### A2-P14 · ⓘ buttons are 16 px tap targets
+```
+PAGE      Home (About Guests · Budget · Schedule · Suppliers · Event Hub · Who's here), /budget (About Target, Agreed),
+          /guests, /guests/quick, /guests/souvenirs, /manpower, /orders/new (What's in Event Plus/Pro/Ultra),
+          /dashboard?seg=events ("What is this row?"), /disputes (13 px), Home's slide counter dots (18×6, 6×6)
+BUTTON    the ⓘ beside each heading
+STEPS     1. Measure the pressable box at 375.
+EXPECTED  ≥ 44 px press area (40 px paint in a 44 px press).
+ACTUAL    16 × 16 px (13 × 13 on Disputes).
+SHOTS     —
+RULE      CLAUDE.md §3 Button (44 px press) · Add 5 one hand
+SEVERITY  look
+SOURCE    SEEN
+```
+
+#### A2-P15 · Guest sub-pages: four kinds of Back, three kinds of title
+```
+PAGE      /guests/claims · /guests/import · /guests/checkin · /guests/new · /guests/quick · /guests/souvenirs ·
+          /guests/[guestId] · /paperwork · /sponsors · /seating/chart
+BUTTON    the Back control
+STEPS     1. Open each from Guests.
+EXPECTED  One Back look and one title look (Add 5 "same everywhere").
+ACTUAL    "← Guest List" (text) · "‹ BACK TO GUEST LIST" (spaced caps) · "← Back to guest list" (grey chip) ·
+          "← Back to guest list" (plain) · "← BACK TO EVENT HOME" · "← Back to Bea & Paolo" (accent) · "← Seats" (chip);
+          titles at three sizes with and without an icon, under the "Guests ⌄" picker that already names the place.
+SHOTS     guests_*-375-light
+RULE      Add 5 · Add 2 CLEAN · A2-D8
+SEVERITY  look (polish)
+SOURCE    SEEN
+```
+
+#### A2-P16 · Linked events: the "Start a group" block has no side gutter
+```
+PAGE      /dashboard/clusters
+BUTTON    "Create group"
+STEPS     1. Open at 375.
+EXPECTED  16 px gutters like the card above it.
+ACTUAL    The "START A GROUP" label, the help line, the unframed name input and the button run edge to edge (0 px).
+SHOTS     clusters-375-light
+RULE      HOUSE_DESIGN_STANDARD spacing · Add 2 BALANCED
+SEVERITY  look
+SOURCE    SEEN
+```
+
+#### A2-P17 · People: two terracotta buttons on one screen
+```
+PAGE      /dashboard/people → /dashboard?seg=people
+BUTTON    "Invite" (header) · "Add someone" (empty state)
+STEPS     1. Open People with nobody yet.
+EXPECTED  One main button (K1).
+ACTUAL    Both are filled terracotta, 150 px apart.
+SHOTS     people-375-light
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    SEEN
+```
+
+#### A2-P18 · Setnayan AI settings: "See pricing" with no price
+```
+PAGE      /dashboard/profile/concierge
+BUTTON    "See pricing"
+STEPS     1. Open the page.
+EXPECTED  The ₱ price (read) before the button (Add 4 EVIDENT).
+ACTUAL    "See pricing" and two "Back to profile" (A2-C11). The same product is priced on /pricing (wedding ₱2,790).
+SHOTS     profile_concierge-375-light
+RULE      Add 4 (price before pressing)
+SEVERITY  look
+SOURCE    SEEN
+```
+
+#### A2-P19 · "Joining soon" row can be pressed
+```
+PAGE      /dashboard/[eventId]/vendors/categories
+BUTTON    "Hair & Make-up (HMUA) · Joining soon ›"
+STEPS     1. Suppliers › Find › Popular for weddings.
+EXPECTED  Nothing "soon" a person can press (Add 3).
+ACTUAL    The row has a chevron and is a link, labelled "Joining soon" (no supplier in that category on the copy).
+SHOTS     vendors_categories-375-light
+RULE      Add 3 · brand.md claims 9
+SEVERITY  look (polish)
+SOURCE    SEEN
+```
+
+#### A2-P20 · Signed out mid-session once (not reproduced)
+```
+PAGE      /dashboard/[eventId]/messages
+BUTTON    —
+STEPS     1. Signed in (own session, one tab). 2. Open Messages; it took 87 s.
+EXPECTED  Stay signed in.
+ACTUAL    The page landed on the Sign in card (/login?next=…). A fresh sign-in worked. A two-session test (two browsers,
+          same account, 70 s apart) kept both signed in, so this is not "one session per account". Earlier, six tabs
+          sharing one saved session were all signed out at once (refresh-token reuse; a test artefact, not filed).
+          PLAUSIBLE: a slow request crossing the token refresh.
+SHOTS     messages-375-light
+RULE      Kit § 6 money-signin (signing out)
+SEVERITY  money-signin (PLAUSIBLE)
+SOURCE    SEEN
+```
+
+#### A2-P21 · 1280: the event date is cut off in the left column
+```
+PAGE      /dashboard/[eventId] at 1280
+BUTTON    —
+STEPS     1. Open Home at 1280.
+EXPECTED  "WEDDING · FEBRUARY 23, 2027" in full.
+ACTUAL    "WEDDING · FEBRUARY 23, …" — the eyebrow is truncated in the 220 px left column while the right two
+          columns have room.
+SHOTS     Home-1280-light / dark
+RULE      Add 7 (no cut-off text) · Add 2 BALANCED
+SEVERITY  look
+SOURCE    SEEN
+```
+
+### Phase-A findings the browser confirmed (now `SEEN`)
+
+- **A2-X2 / A2-X4** dark: only the account spokes, event Home, Budget, Guests and Schedule go dark; every other page
+  stays light in dark mode; dark Home and Budget have no glowing top block (flat black).
+- **A2-A1** onboarding is a bare page (no shell), steps on one address. **A2-A10** a bad host-invite token shows the
+  generic "This page doesn't exist on Setnayan" 404.
+- **A2-C3** API keys: "not open to any plan right now", Try-it curl names `setnayan-platform-web.vercel.app` and `sk_live_`.
+- **A2-C11** Setnayan AI page: two "Back to profile".
+- **A2-E1** souvenir desk "0 / 92" (every guest) while check-in reads "0 / 60 attending".
+- **A2-F8** the receipt's Pay button is bronze, not the accent.
+- **A2-G19** Close out the day: no confirm in the code, and (A2-P8) it is offered before the day.
+- **A2-H11** /details/field/area opens Event settings at the top; the venue field is not opened.
+- **A2-I7** Documents: two accent-outlined buttons in one empty card.
+- **A2-I14** Sponsors: "0 of 16 slots filled" while the chat already has a "Principal Sponsors" group from the guest list.
+
 ## Findings
 
 ### Across the area (every page)

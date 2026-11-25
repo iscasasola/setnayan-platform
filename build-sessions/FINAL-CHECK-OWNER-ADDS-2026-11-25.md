@@ -561,3 +561,14 @@ their cover photo… if they go to Pro, they go to Ultra, the full editorial wil
   the migration pipeline (never typed in code; read from `platform_retail_catalog_v2`). Still open: which plans may buy it
   alone (proposed Pro only). Until answered, no buy-alone button.
 - **WHO MAY BUY ALONE ANSWERED (owner 25 Nov: "Pro only").** Only an event with Event Pro active may buy Our Day Paper alone (₱1,490). Free events see the cover+gallery only and no paper offer beyond "comes with Event Ultra". Ultra gets it included. All Add 32 questions are now answered.
+
+## Add 33 · OWNER RULING (25 Nov) on A1-059: a supplier is a USER WITH A SHOP
+Owner: "A supplier is a user with a shop. So it lives inside a specific user. And if they add other users to the shop, all
+of those users will become the same supplier."
+- Being a supplier is not a separate account type chosen at sign-up; it is a user who owns (or is a member of) a shop.
+- So the A1-059 fix: a sign-up → sign-in → back round trip must never lose the shop-creation intent. The user lands where
+  they continue creating their shop, and nothing files them as "a couple" in a way that blocks having a shop. The same user
+  can also plan their own event.
+- Team members a shop owner adds act for the SAME supplier (same shop, same bookings/chat/payments views per their role).
+- A1-059 moves from lane C to lane A for area 1 (fix the round trip under this rule). Check the existing shop-team code
+  before building; do not invent a new membership model.

@@ -1,6 +1,6 @@
 # Final check · Area 2 · Couple: create an event and plan it
 
-FIXER: batches 1–6 · PRs #8309 (1) · #8323 (2, SW-RAWDB) · #8326 (3) · #8330 (4) ready, CI blocked only on the generated root map · batch 5 and batch 6 built, preflight running, PRs next · SW-HYDR reproduced, cause not found yet (needs a non-minified build)
+FIXER: PRs #8309 · #8326 · #8330 · #8342 (own batches, built before the plan landed) · #8323 = plan A-7 SW-RAWDB (done) · #8349 = plan A-6 SW-HYDR (A2-P11 fixed and proven; A6-B09 / A8·P-B-1 need supplier and admin sessions) · 10 more fixes on claude/fc-fix-a2-b6, PR after its preflight · CI cancelled upstream, re-runs pending
 
 STATUS: phase B done · 77 entries walked at 375/768/1280 light + dark · 24 new findings (0 blocker · 4 money-signin · 4 broken · 5 wrong · 11 look) · buttons 2191 (375) / 2698 (1280) · pressed 1202 · failed 0
 
@@ -2600,9 +2600,9 @@ Pages touched by fix batch 1, checked against Adds 11, 11b, 12, 13, 15, 17 and 1
 - **A2-I11** only half fixed: a replaced scan is now deleted. A file uploaded but never saved still needs a sweep (ops).
 - **A2-H10** 🟠 needs-owner: the writer lets the coordinator put the couple's event away (cameras and Memory lane go
   quiet). Is that meant? The card now shows exactly to whom the writer allows, nothing more.
-- **SW-HYDR** (A2-P11, A6-B09, A8·P-B-1) reproduced on Schedule at 375: React #418, "HTML" variant. Server HTML and the
-  browser DOM differ mostly in lazy-piece placeholders, so no single cause stood out, and a blind change would be a
-  guess. Needs a non-minified build against the copy to name the element. Not fixed.
+- **SW-HYDR** A2-P11 fixed in #8349. The debugger, paused on React's #519, named `div[data-schedule-copy]`: the layout's
+  saved mark was portaled into it before the page's Suspense boundary hydrated. Proven 2 of 2 each way on the copy.
+  A6-B09 and A8·P-B-1 need supplier and admin sessions; the probe method is in #8349.
 - **A2-P10** not reproduced from code: Home draws a refused task read as its own "couldn't read" row with ⟳, never
   "Nothing needs you". The two loads were about 25 minutes apart, likely either side of a task's due time.
 - **A2-P9** (date selection restarts on a locked date) is lane B: the page needs a locked-date face, a screen change.

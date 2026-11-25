@@ -1,3 +1,5 @@
+STATUS: phase B in progress (walk done; the press pass is finishing)
+
 # Final check · Area 3 — Couple: Maker, Event Hub page, invitations, Papic, Memories
 
 > Checker 3 of 8. REPORT ONLY. Pinned commit `fb3f72d` (main frozen). Kit: `build-sessions/FINAL-CHECK-KIT.md` §§ 3–6.
@@ -76,65 +78,65 @@ Marks: **OFFLINE** NEEDED (where signal is lost) / READ-ONLY / NOT NEEDED · **S
 
 ### Pages (59)
 
-- [x] /dashboard/[eventId]/alaala · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/alaala/assignments · OFFLINE NOT NEEDED · SHAPE PAGE → FULL-SCREEN POPUP (differs) · BLOCKER B-01
-- [x] /dashboard/[eventId]/apple-pro · OFFLINE NOT NEEDED (App Store purchase) · SHAPE PAGE → FULL-SCREEN POPUP (differs, unsure: a page today to keep StoreKit off the Maker's first load)
-- [x] /dashboard/[eventId]/event-qr · OFFLINE READ-ONLY (shown to the crew at the venue: it must be in the saved copy) · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/galleries · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/guests/invite · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/guests/send · OFFLINE READ-ONLY · SHAPE hand-built full-screen layer at its own address → FULL-SCREEN POPUP (RiseScreen) (differs)
-- [x] /dashboard/[eventId]/invitation · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/invitation/print · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (print)
-- [x] /dashboard/[eventId]/launch · OFFLINE READ-ONLY (planned at home; "Go live" on the day is rare) · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/live · OFFLINE NEEDED (at the venue on the day: hiding a photo mid-party; disagree with read-only) · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/memories · OFFLINE READ-ONLY (mild disagreement: the Papic on/off switch is used at the venue) · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/memories/download-all · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/memories/thank-you · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/monogram · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (a couple with an Event Hub is redirected to Maker › Details › Logo; phase B needs an event without one)
-- [x] /dashboard/[eventId]/pabuya · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/prints · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/story · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/studio/about/[addon] · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE (opens for 9 keys; retired → owner redirect; others 404)
-- [x] /dashboard/[eventId]/studio/guest-columns · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (404 unless `GUEST_COLUMNS_ENABLED` and the privacy control are on)
-- [x] /dashboard/[eventId]/studio/live-studio-control · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/studio/live-studio-control/setup · OFFLINE NOT NEEDED · SHAPE forward (to `/panood/control/[eventId]`; 404 when `NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED` is off; Ugat marks it no-door) → list as a forward
-- [x] /dashboard/[eventId]/studio/mood-board · OFFLINE READ-ONLY (also serves the couple-at-an-expo case) · SHAPE PAGE → PAGE (couples are redirected to Maker › Details › Mood board)
-- [x] /dashboard/[eventId]/studio/pakanta · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE (retired; owners only — seeded events are bounced to Home)
-- [x] /dashboard/[eventId]/studio/panood · OFFLINE NOT NEEDED · SHAPE forward (to live-studio-control, or `/studio/panood/setup` with the flag off)
-- [x] /dashboard/[eventId]/studio/panood/broadcast · OFFLINE NEEDED with the flag off (old day-of control room at the venue) · SHAPE PAGE → PAGE (forward to `/panood/control` with the flag on)
-- [x] /dashboard/[eventId]/studio/panood/cameras · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (with the flag on its only doors are in the old control room)
-- [x] /dashboard/[eventId]/studio/panood/cameras/print · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (print)
-- [x] /dashboard/[eventId]/studio/panood/setup · OFFLINE NEEDED with the flag off (Go live / End at the venue), else READ-ONLY · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/studio/papic/challenges · OFFLINE NEEDED (at the venue on the day: "Ask now"/"Stop" run live; disagree with read-only) · SHAPE PAGE → PAGE (no working door: P-02)
-- [x] /dashboard/[eventId]/studio/papic/crew · OFFLINE READ-ONLY · SHAPE PAGE → SMALL POPUP (differs; one QR + Copy + Print, duplicate of Event Details › How guests get in)
-- [x] /dashboard/[eventId]/studio/papic/crew/poster · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (print)
-- [x] /dashboard/[eventId]/studio/papic/moderation · OFFLINE READ-ONLY · SHAPE PAGE → folded into the Memories photo sheet (differs; owner 23 Oct)
-- [x] /dashboard/[eventId]/studio/papic/recap · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/studio/papic/run-of-show · OFFLINE NEEDED (coordinator at the venue: "This is happening now", Pause) · SHAPE PAGE → PAGE (no working door: P-02)
-- [x] /dashboard/[eventId]/studio/patiktok · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE (retired; owners only)
-- [x] /dashboard/[eventId]/studio/patiktok/[templateId] · OFFLINE NOT NEEDED · SHAPE PAGE → FULL-SCREEN POPUP (differs; retired, owners only)
-- [x] /dashboard/[eventId]/studio/patiktok/booth · OFFLINE NEEDED (operator at the venue on the day; clips should queue) · SHAPE PAGE → PAGE, camera inline → FULL-SCREEN POPUP (differs; retired, owners only)
-- [x] /dashboard/[eventId]/studio/photo-delivery · OFFLINE NOT NEEDED (OAuth + Drive; disagree with read-only) · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/studio/playlist · OFFLINE READ-ONLY (DJ glance at the venue) · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/studio/save-the-date · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/studio/save-the-date/stamp · OFFLINE NOT NEEDED (a WebGL maker) · SHAPE PAGE → FULL-SCREEN POPUP (differs)
-- [x] /dashboard/[eventId]/studio/setnayan-ai · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/studio/website-pro · OFFLINE NOT NEEDED (buying needs signal; a saved price list could mislead) · SHAPE PAGE → PAGE
-- [x] /dashboard/[eventId]/website/editor · OFFLINE READ-ONLY · SHAPE forward into the Maker (`/launch?…&open=…`) → keep; `open=colors` opens Look, `special-message` and `what-to-bring` (Reminders) open their rows
-- [x] /dashboard/[eventId]/website/hero-photo · OFFLINE NOT NEEDED (an upload; I disagree with read-only: a saved copy does nothing) · SHAPE PAGE → FULL-SCREEN POPUP (differs)
-- [x] /dashboard/[eventId]/website/living-hero · OFFLINE NOT NEEDED (a video upload) · SHAPE PAGE → FULL-SCREEN POPUP (differs)
-- [x] /dashboard/[eventId]/website/our-photos · OFFLINE NOT NEEDED (an upload) · SHAPE PAGE → FULL-SCREEN POPUP (differs)
-- [x] /dashboard/[eventId]/website/our-story · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs; weddings already forward into the Maker; a birthday has no visible door)
-- [x] /dashboard/[eventId]/website/photo-moments · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs)
-- [x] /dashboard/[eventId]/website/privacy · OFFLINE READ-ONLY (disagree in part: "Who can watch on the day" is pressed at the venue) · SHAPE PAGE → FULL-SCREEN POPUP (differs)
-- [x] /dashboard/[eventId]/website/site-chrome · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs; video upload)
-- [x] /dashboard/[eventId]/website/stories · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs)
-- [x] /dashboard/[eventId]/website/widgets · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs)
-- [x] /dashboard/creator · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
-- [x] /dashboard/library · OFFLINE READ-ONLY · SHAPE forward to `/dashboard?seg=memories` (Home section) → keep
-- [x] /dashboard/life-flash · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (its player is a hand-built full-screen layer; should be RiseScreen)
-- [x] /panood/control/[eventId] · OFFLINE NEEDED (host/coordinator at the venue on the day; a read-only copy is NOT enough for a live control: every tap is a form POST + redirect with ~15 reads, no queue, no offline sign) · SHAPE PAGE → PAGE; its Setup half-sheet should be a FULL-SCREEN POPUP (differs)
-- [x] /panood/program/[eventId] · OFFLINE NEEDED (second window captured by OBS at the venue; re-attaches every 2 s) · SHAPE PAGE → PAGE
+- [x] /dashboard/[eventId]/alaala · OFFLINE READ-ONLY · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 25 / 1280 35 · in-page: buttons 1 · pressed 1 · failed 0 · left 0 (writes: save/send/publish/pay/delete) · links 13 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/alaala/assignments · OFFLINE NOT NEEDED · SHAPE PAGE → FULL-SCREEN POPUP (differs) · BLOCKER B-01 · **B** Carla: opens · DARK no · controls 375 12 / 1280 22 · in-page: buttons 1 · pressed 1 · failed 0 · left 0 (writes: save/send/publish/pay/delete) · links 1 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/apple-pro · OFFLINE NOT NEEDED (App Store purchase) · SHAPE PAGE → FULL-SCREEN POPUP (differs, unsure: a page today to keep StoreKit off the Maker's first load) · **B** Carla: did not open in 180 s on the copy (load) — not walked
+- [x] /dashboard/[eventId]/event-qr · OFFLINE READ-ONLY (shown to the crew at the venue: it must be in the saved copy) · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 13 / 1280 23 · in-page: buttons 3 · pressed 2 · failed 0 · left 1 (writes: save/send/publish/pay/delete) · links 0 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/galleries · OFFLINE READ-ONLY · SHAPE PAGE → PAGE · **B** Mika: opens · DARK no · controls 375 15 / 1280 25 · in-page: buttons 1 · pressed 1 · failed 0 · left 0 (writes: save/send/publish/pay/delete) · links 4 (read, destinations in the walk) · Carla: opens · DARK no · controls 375 15 / 1280 25 · in-page: buttons 1 · pressed 1 · failed 0 · left 0 (writes: save/send/publish/pay/delete) · links 4 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/guests/invite · OFFLINE READ-ONLY · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 21 / 1280 31 · in-page: buttons 5 · pressed 2 · failed 0 · left 3 (writes: save/send/publish/pay/delete) · links 6 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/guests/send · OFFLINE READ-ONLY · SHAPE hand-built full-screen layer at its own address → FULL-SCREEN POPUP (RiseScreen) (differs) · **B** Carla: opens · DARK no · controls 375 18 / 1280 28 · in-page: buttons 1 · pressed 0 · failed 1 · left 0 (writes: save/send/publish/pay/delete) · links 0 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/invitation · OFFLINE READ-ONLY · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 597 / 1280 607 · in-page: buttons 390 · pressed 29 · failed 0 · left 11 (writes: save/send/publish/pay/delete) · links 197 (read, destinations in the walk) (first 40 pressed)
+- [x] /dashboard/[eventId]/invitation/print · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (print) · **B** Carla: opens · DARK no · wider than the screen 375px +238 · controls 375 10 / 1280 20 · presses: page redirected before the press pass (counted at its landing page)
+- [x] /dashboard/[eventId]/launch · OFFLINE READ-ONLY (planned at home; "Go live" on the day is rare) · SHAPE PAGE → PAGE · **B** Carla: /dashboard/C/launch?tool=details&item=background · DARK no · controls 375 46 / 1280 51 · presses: page redirected before the press pass (counted at its landing page)
+- [x] /dashboard/[eventId]/live · OFFLINE NEEDED (at the venue on the day: hiding a photo mid-party; disagree with read-only) · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 20 / 1280 30 · in-page: buttons 10 · pressed 6 · failed 0 · left 4 (writes: save/send/publish/pay/delete) · links 0 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/memories · OFFLINE READ-ONLY (mild disagreement: the Papic on/off switch is used at the venue) · SHAPE PAGE → PAGE · **B** Carla: opens · DARK yes · controls 375 29 / 1280 41 · in-page: buttons 15 · pressed 1 · failed 12 · left 2 (writes: save/send/publish/pay/delete) · links 1 (read, destinations in the walk) · Mika: opens · DARK yes · controls 375 28 / 1280 40 · presses: page redirected before the press pass (counted at its landing page)
+- [x] /dashboard/[eventId]/memories/download-all · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE · **B** Mika: opens · DARK no · controls 375 12 / 1280 22 · in-page: buttons 2 · pressed 2 · failed 0 · left 0 (writes: save/send/publish/pay/delete) · links 0 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/memories/thank-you · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE · **B** Mika: opens · DARK no · controls 375 11 / 1280 21 · in-page: buttons 1 · pressed 1 · failed 0 · left 0 (writes: save/send/publish/pay/delete) · links 0 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/monogram · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (a couple with an Event Hub is redirected to Maker › Details › Logo; phase B needs an event without one) · **B** Mika: /dashboard/M · DARK yes · controls 375 57 / 1280 68 · presses: page redirected before the press pass (counted at its landing page) · Carla: /dashboard/C/launch?tool=details&item=logo · DARK no · controls 375 22 / 1280 36 · presses: page redirected before the press pass (counted at its landing page)
+- [x] /dashboard/[eventId]/pabuya · OFFLINE READ-ONLY · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 18 / 1280 28 · in-page: buttons 7 · pressed 3 · failed 4 · left 0 (writes: save/send/publish/pay/delete) · links 1 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/prints · OFFLINE READ-ONLY · SHAPE PAGE → PAGE · **B** Mika: /dashboard/M/prints?tool=details&item=every-print · DARK no · controls 375 17 / 1280 46 · in-page: buttons 6 · pressed 2 · failed 1 · left 3 (writes: save/send/publish/pay/delete) · links 1 (read, destinations in the walk) · Carla: /dashboard/C/prints?tool=details&item=every-print · DARK no · controls 375 17 / 1280 47 · in-page: buttons 6 · pressed 2 · failed 1 · left 3 (writes: save/send/publish/pay/delete) · links 1 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/story · OFFLINE READ-ONLY · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 12 / 1280 22 · in-page: buttons 1 · pressed 1 · failed 0 · left 0 (writes: save/send/publish/pay/delete) · links 1 (read, destinations in the walk) · Mika: did not open in 180 s on the copy (load) — not walked
+- [x] /dashboard/[eventId]/studio/about/[addon] · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE (opens for 9 keys; retired → owner redirect; others 404) · **B** Carla: opens · DARK no · controls 375 2 / 1280 2 · in-page: buttons 7 · pressed 1 · failed 4 · left 0 (writes: save/send/publish/pay/delete) · links 2 (read, destinations in the walk) · Carla: opens · DARK no · controls 375 13 / 1280 23 · in-page: buttons 1 · pressed 1 · failed 0 · left 0 (writes: save/send/publish/pay/delete) · links 2 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/studio/guest-columns · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (404 unless `GUEST_COLUMNS_ENABLED` and the privacy control are on) · **B** Carla: opens · DARK no · controls 375 2 / 1280 2
+- [x] /dashboard/[eventId]/studio/live-studio-control · OFFLINE READ-ONLY · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 17 / 1280 27 · in-page: buttons 4 · pressed 3 · failed 1 · left 0 (writes: save/send/publish/pay/delete) · links 3 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/studio/live-studio-control/setup · OFFLINE NOT NEEDED · SHAPE forward (to `/panood/control/[eventId]`; 404 when `NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED` is off; Ugat marks it no-door) → list as a forward · **B** Carla: /panood/control/C · DARK no · controls 375 11 / 1280 11 · presses: page redirected before the press pass (counted at its landing page)
+- [x] /dashboard/[eventId]/studio/mood-board · OFFLINE READ-ONLY (also serves the couple-at-an-expo case) · SHAPE PAGE → PAGE (couples are redirected to Maker › Details › Mood board) · **B** Mika: /dashboard/M/launch?tool=details&item=mood-board · DARK no · controls 375 19 / 1280 32 · presses: page redirected before the press pass (counted at its landing page) · Carla: /dashboard/C/launch?tool=details&item=mood-board · DARK no · controls 375 22 / 1280 35 · presses: page redirected before the press pass (counted at its landing page)
+- [x] /dashboard/[eventId]/studio/pakanta · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE (retired; owners only — seeded events are bounced to Home) · **B** Carla: /dashboard/C · DARK yes · controls 375 52 / 1280 62
+- [x] /dashboard/[eventId]/studio/panood · OFFLINE NOT NEEDED · SHAPE forward (to live-studio-control, or `/studio/panood/setup` with the flag off) · **B** Carla: /dashboard/C/studio/live-studio-control · DARK no · controls 375 17 / 1280 27 · presses: page redirected before the press pass (counted at its landing page)
+- [x] /dashboard/[eventId]/studio/panood/broadcast · OFFLINE NEEDED with the flag off (old day-of control room at the venue) · SHAPE PAGE → PAGE (forward to `/panood/control` with the flag on) · **B** Carla: did not open in 180 s on the copy (load) — not walked
+- [x] /dashboard/[eventId]/studio/panood/cameras · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (with the flag on its only doors are in the old control room) · **B** Carla: opens · DARK no · controls 375 18 / 1280 28 · presses: page redirected before the press pass (counted at its landing page)
+- [x] /dashboard/[eventId]/studio/panood/cameras/print · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (print) · **B** Carla: opens · DARK no · controls 375 14 / 1280 24 · in-page: buttons 3 · pressed 2 · failed 0 · left 1 (writes: save/send/publish/pay/delete) · links 1 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/studio/panood/setup · OFFLINE NEEDED with the flag off (Go live / End at the venue), else READ-ONLY · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 21 / 1280 31 · in-page: buttons 6 · pressed 3 · failed 0 · left 3 (writes: save/send/publish/pay/delete) · links 4 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/studio/papic/challenges · OFFLINE NEEDED (at the venue on the day: "Ask now"/"Stop" run live; disagree with read-only) · SHAPE PAGE → PAGE (no working door: P-02) · **B** Carla: opens · DARK no · controls 375 82 / 1280 92 · in-page: buttons 1 · pressed 1 · failed 0 · left 0 (writes: save/send/publish/pay/delete) · links 0 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/studio/papic/crew · OFFLINE READ-ONLY · SHAPE PAGE → SMALL POPUP (differs; one QR + Copy + Print, duplicate of Event Details › How guests get in) · **B** Carla: opens · DARK no · controls 375 16 / 1280 26 · in-page: buttons 4 · pressed 2 · failed 0 · left 2 (writes: save/send/publish/pay/delete) · links 2 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/studio/papic/crew/poster · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (print) · **B** Carla: opens · DARK no · wider than the screen 375px +125 · controls 375 11 / 1280 21 · in-page: buttons 1 · pressed 1 · failed 0 · left 0 (writes: save/send/publish/pay/delete) · links 0 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/studio/papic/moderation · OFFLINE READ-ONLY · SHAPE PAGE → folded into the Memories photo sheet (differs; owner 23 Oct) · **B** Carla: opens · DARK no · controls 375 14 / 1280 24 · in-page: buttons 4 · pressed 1 · failed 0 · left 3 (writes: save/send/publish/pay/delete) · links 0 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/studio/papic/recap · OFFLINE READ-ONLY · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 20 / 1280 30 · in-page: buttons 5 · pressed 3 · failed 0 · left 2 (writes: save/send/publish/pay/delete) · links 2 (read, destinations in the walk) · Mika: opens · DARK no · controls 375 17 / 1280 27 · in-page: buttons 5 · pressed 2 · failed 1 · left 2 (writes: save/send/publish/pay/delete) · links 2 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/studio/papic/run-of-show · OFFLINE NEEDED (coordinator at the venue: "This is happening now", Pause) · SHAPE PAGE → PAGE (no working door: P-02) · **B** Carla: opens · DARK no · controls 375 55 / 1280 65
+- [x] /dashboard/[eventId]/studio/patiktok · OFFLINE NOT NEEDED · SHAPE PAGE → PAGE (retired; owners only) · **B** Carla: /dashboard/C · DARK yes · controls 375 52 / 1280 62
+- [x] /dashboard/[eventId]/studio/patiktok/[templateId] · OFFLINE NOT NEEDED · SHAPE PAGE → FULL-SCREEN POPUP (differs; retired, owners only) · **B** Carla: opens · DARK no · controls 375 2 / 1280 2
+- [x] /dashboard/[eventId]/studio/patiktok/booth · OFFLINE NEEDED (operator at the venue on the day; clips should queue) · SHAPE PAGE → PAGE, camera inline → FULL-SCREEN POPUP (differs; retired, owners only) · **B** Carla: /dashboard/C · DARK yes · controls 375 52 / 1280 62
+- [x] /dashboard/[eventId]/studio/photo-delivery · OFFLINE NOT NEEDED (OAuth + Drive; disagree with read-only) · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 18 / 1280 28 · in-page: buttons 5 · pressed 4 · failed 1 · left 0 (writes: save/send/publish/pay/delete) · links 3 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/studio/playlist · OFFLINE READ-ONLY (DJ glance at the venue) · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 84 / 1280 94
+- [x] /dashboard/[eventId]/studio/save-the-date · OFFLINE READ-ONLY · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 51 / 1280 61 · in-page: buttons 32 · pressed 14 · failed 12 · left 5 (writes: save/send/publish/pay/delete) · links 7 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/studio/save-the-date/stamp · OFFLINE NOT NEEDED (a WebGL maker) · SHAPE PAGE → FULL-SCREEN POPUP (differs) · **B** Carla: opens · DARK no · controls 375 12 / 1280 22
+- [x] /dashboard/[eventId]/studio/setnayan-ai · OFFLINE READ-ONLY · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 13 / 1280 23 · in-page: buttons 1 · pressed 1 · failed 0 · left 0 (writes: save/send/publish/pay/delete) · links 2 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/studio/website-pro · OFFLINE NOT NEEDED (buying needs signal; a saved price list could mislead) · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 20 / 1280 30
+- [x] /dashboard/[eventId]/website/editor · OFFLINE READ-ONLY · SHAPE forward into the Maker (`/launch?…&open=…`) → keep; `open=colors` opens Look, `special-message` and `what-to-bring` (Reminders) open their rows · **B** Carla: /dashboard/C/launch?stage=save_the_date · DARK no · controls 375 22 / 1280 35 · presses: page redirected before the press pass (counted at its landing page)
+- [x] /dashboard/[eventId]/website/hero-photo · OFFLINE NOT NEEDED (an upload; I disagree with read-only: a saved copy does nothing) · SHAPE PAGE → FULL-SCREEN POPUP (differs) · **B** Carla: opens · DARK no · controls 375 16 / 1280 26
+- [x] /dashboard/[eventId]/website/living-hero · OFFLINE NOT NEEDED (a video upload) · SHAPE PAGE → FULL-SCREEN POPUP (differs) · **B** Carla: opens · DARK no · controls 375 12 / 1280 22 · in-page: buttons 1 · pressed 1 · failed 0 · left 0 (writes: save/send/publish/pay/delete) · links 1 (read, destinations in the walk)
+- [x] /dashboard/[eventId]/website/our-photos · OFFLINE NOT NEEDED (an upload) · SHAPE PAGE → FULL-SCREEN POPUP (differs) · **B** Carla: opens · DARK no · controls 375 12 / 1280 22
+- [x] /dashboard/[eventId]/website/our-story · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs; weddings already forward into the Maker; a birthday has no visible door) · **B** Carla: /dashboard/C/launch?tool=details&item=love-story · DARK no · controls 375 10 / 1280 20 · presses: page redirected before the press pass (counted at its landing page)
+- [x] /dashboard/[eventId]/website/photo-moments · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs) · **B** Carla: opens · DARK no · controls 375 18 / 1280 28
+- [x] /dashboard/[eventId]/website/privacy · OFFLINE READ-ONLY (disagree in part: "Who can watch on the day" is pressed at the venue) · SHAPE PAGE → FULL-SCREEN POPUP (differs) · **B** Carla: opens · DARK no · controls 375 22 / 1280 32
+- [x] /dashboard/[eventId]/website/site-chrome · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs; video upload) · **B** Carla: opens · DARK no · controls 375 15 / 1280 25
+- [x] /dashboard/[eventId]/website/stories · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs) · **B** Carla: opens · DARK no · controls 375 12 / 1280 22
+- [x] /dashboard/[eventId]/website/widgets · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs) · **B** Carla: opens · DARK no · controls 375 95 / 1280 105
+- [x] /dashboard/creator · OFFLINE READ-ONLY · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 10 / 1280 23
+- [x] /dashboard/library · OFFLINE READ-ONLY · SHAPE forward to `/dashboard?seg=memories` (Home section) → keep · **B** Carla: /dashboard?seg=memories · DARK no · controls 375 21 / 1280 35
+- [x] /dashboard/life-flash · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (its player is a hand-built full-screen layer; should be RiseScreen) · **B** Carla: opens · DARK yes · controls 375 10 / 1280 23
+- [x] /panood/control/[eventId] · OFFLINE NEEDED (host/coordinator at the venue on the day; a read-only copy is NOT enough for a live control: every tap is a form POST + redirect with ~15 reads, no queue, no offline sign) · SHAPE PAGE → PAGE; its Setup half-sheet should be a FULL-SCREEN POPUP (differs) · **B** Carla: did not open in 180 s on the copy (load) — not walked
+- [x] /panood/program/[eventId] · OFFLINE NEEDED (second window captured by OBS at the venue; re-attaches every 2 s) · SHAPE PAGE → PAGE · **B** Carla: opens · DARK no · controls 375 0 / 1280 0
 
 ### Forwards (13)
 
@@ -1338,3 +1340,341 @@ RULE      SHAPE
 SEVERITY  look
 SOURCE    CODE
 ```
+
+<!-- PHASE-B-START -->
+### Phase B — new findings (SOURCE: SEEN on the copy, 25 Nov)
+
+#### N-01 · A slow session check sends a signed-in couple to the sign-in page
+
+```
+PAGE      /dashboard/[eventId]/guests/invite (768) · /guests/send (dark) · /studio/save-the-date · /studio/about/panood   (event: stg-carla-miguel)
+BUTTON    none: opening the page
+STEPS     1. Signed in as couple_maker, open the page while the copy is slow (first byte 30 s or more). 2. Look where you land.
+EXPECTED  The page, late; or a "taking longer than usual" state that keeps the person signed in.
+ACTUAL    Four times the page landed on `/login?next=%2Fdashboard` (the sign-in card, Google / Apple / email). The same
+          session, opened again a minute later, was still signed in. `lib/supabase/middleware.ts` runs the session check
+          under `withBudget(…, SESSION_CHECK_BUDGET_MS)` and treats a check that runs out of time as "nobody is signed in"
+          (a stated trade, written after the 20 Aug outage). The person is told to sign in again although nothing is wrong
+          with their account, and `next` drops the page they asked for (it says /dashboard, not the invite page).
+RULE      Kit § 6 money-signin (signing in or out wrongly) · CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  money-signin
+SOURCE    SEEN + CODE
+```
+
+#### N-02 · Memory lane prints an internal code and the event's raw id
+
+```
+PAGE      /dashboard/[eventId]/live   (event: stg-carla-miguel)
+BUTTON    the "Auto" picker
+STEPS     1. Memories › Memory lane. 2. Read the line under "Auto"; scroll to the foot.
+EXPECTED  A plain line: "Showing now: your photos (picked for you)".
+ACTUAL    "Showing now: coming-soon (auto)" — the internal mode name. The page foot shows the tail of the event's id
+          ("…895b-525bee8e5cb5"). The page has no PageMasthead (the top block starts with the picker) and the bottom nav
+          lights no tab.
+RULE      brand.md (plain words, no internal names) · Add 2 EFFECTIVE · CLAUDE.md §3 (PageMasthead on every page)
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### N-03 · Memories › More from your day squeezes the Papic card into a one-word column at 375
+
+```
+PAGE      /dashboard/[eventId]/galleries   (events: stg-carla-miguel, stg-mika-turns-7)
+STEPS     1. Open at 375 px.
+EXPECTED  Title, state and line on one row; the button under them or at the right without crushing the text.
+ACTUAL    "Papic — candid photos", the "Ready · 1" chip and "Every shot your friends caught…" wrap one word per line in a
+          column about 50 px wide beside a full-width "View & download" button. Fine at 768 and 1280.
+SHOTS     375 px light
+RULE      Add 2 BALANCED · HOUSE_DESIGN_STANDARD (layout at 375)
+SEVERITY  look
+SOURCE    SEEN
+```
+
+#### N-04 · The song-file limit disagrees between two pages, and upload boxes say the limit twice in raw file types
+
+```
+PAGE      /dashboard/[eventId]/studio/save-the-date (Step 4) · /website/site-chrome (Set the mood) · /website/hero-photo
+STEPS     1. Read the song upload box on Save the Date. 2. Read the song upload box on Set the mood.
+EXPECTED  One limit for "your song" (both say it becomes the site's song), in plain words, said once.
+ACTUAL    Save the Date: "UP TO 40 MB … MP3/M4A/AAC/OGG/WAV, up to 40 MB. This becomes your wedding-site song."
+          Set the mood: "UP TO 20 MB … MP3, M4A, AAC, OGG, or WAV. Up to 20 MB." Every box prints the raw types
+          ("AUDIO/MPEG · AUDIO/MP4 · AUDIO/AAC…", "VIDEO/QUICKTIME") and then the same limit again in words. Hero photo:
+          "JPEG · JPG · PNG · WEBP · UP TO 10 MB" then "JPG, PNG, or WebP. Up to 10 MB." ("MB" breaks onto its own line
+          at 375). "wedding-site" is a banned word (Event Hub).
+RULE      Add 2 CLEAN (said once) · brand.md word rules · Kit § 5 item 3 (two pages disagree on one fact)
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### N-05 · Memories opens a six-step tour that blocks every control until Skip
+
+```
+PAGE      /dashboard/[eventId]/memories   (event: stg-carla-miguel)
+STEPS     1. Open Memories for the first time on a phone.
+EXPECTED  The page works at once; a first-timer can tell what to press (Add 5: a step that needs a tour is a finding).
+ACTUAL    "STEP 1 OF 6 · Albums … Press Next" covers the grid; 12 of the 15 controls (Papic switch, credits ⓘ,
+          All Papic settings, Recap, Thank-You Video, the album and chapter pickers, ⚙, the photo) could not be pressed
+          until the tour is dismissed. Also K1: "Add photos" and the floating "+" are both terracotta on the same screen,
+          beside a grid tile "Add photo · 3 credits each" — three ways to add one photo.
+SHOTS     375 light + dark (committed as the area's home shots)
+RULE      Add 5 (first-timer, no tour) · HOUSE_DESIGN_STANDARD K1
+SEVERITY  look
+SOURCE    SEEN
+```
+
+#### N-06 · Dark: the bottom bar loses the active tab on Memories
+
+```
+PAGE      /dashboard/[eventId]/memories (dark, 375 and 768)
+STEPS     1. Preferences › Appearance › Dark. 2. Open Memories.
+EXPECTED  The active tab marked as in light (the terracotta pill on "Memories").
+ACTUAL    In light the Memories cell is a terracotta pill; in dark no cell is marked, so the person cannot see where they are.
+SHOTS     home-375-light.png / home-375-dark.png in shots/area-3/
+RULE      DARK_MODE_STANDARD (same affordances in both themes) · Add 7
+SEVERITY  look
+SOURCE    SEEN
+```
+
+#### N-07 · The event's badge in the side rail spills out of its ring
+
+```
+PAGE      every event page at 768 and 1280 (event: stg-carla-miguel; shell, shared with area 2)
+STEPS     1. Open any event page wider than a phone. 2. Look at the round badge above the event name in the rail.
+EXPECTED  "C & M" inside its ring, on one line.
+ACTUAL    "C &" and "M" break onto two lines and the M hangs outside the ring.
+RULE      Add 2 CLEAN/BALANCED
+SEVERITY  look
+SOURCE    SEEN
+```
+
+#### N-08 · Pages filed under two sections: the masthead says Today, the back link says Memories / Studio / add-ons
+
+```
+PAGE      /studio/papic/recap ("Today · Papic" / "Back to Memories") · /studio/about/papic ("Today" / "Back to Studio")
+          · /studio/setnayan-ai and /studio/live-studio-control ("Today" / "Back to add-ons") · /studio/playlist ("Today" / "Back to Carla & Miguel")
+STEPS     1. Open each page. 2. Compare the masthead, the lit bottom-nav cell and the back link.
+EXPECTED  One home for each page: the masthead, the lit tab and Back agree.
+ACTUAL    The bottom nav lights Today and the masthead says Today, while Back names another place. "Studio" and
+          "add-ons" are not in the event menu (Today · Guests · Suppliers · Memories · Hub), so a person cannot find
+          them again.
+RULE      design-and-wiring A3 (registered and reachable) · Add 2 EFFECTIVE
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### N-09 · Send run: an empty white picture frame, and the guest's phone number beside "Send"
+
+```
+PAGE      /dashboard/[eventId]/guests/send   (event: stg-carla-miguel)
+STEPS     1. Guests › Send invites.
+EXPECTED  The invitation picture the guest will receive; the guest's email (Setnayan sends email only).
+ACTUAL    A large empty white rounded square where the picture belongs (light; a white surface in any theme). Under the
+          name: a phone icon and "+639170000069" directly above the main "Send" button, which reads as texting.
+RULE      Add 3 (empty image frame) · CLAUDE.md §1 (email only, no SMS) · I-08
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### N-10 · Save the Date reveal picker: text-only tiles, a lone tile, and at 375 the preview is off-screen
+
+```
+PAGE      /dashboard/[eventId]/studio/save-the-date › Step 5 "How your page opens"
+STEPS     1. Open at 375. 2. Tap each of the 10 reveals.
+EXPECTED  (Add 8) Each choice with a picture of what it does, grouped, the current one marked, one tap to watch it.
+ACTUAL    Marked: yes (the picked tile rings). Plays: yes, in the Live preview, all 10 (no write is made by a tap).
+          But: tiles are words only ("Veil · VEIL LIFTS AWAY") while the Maker's Cover Scene › Style draws each reveal
+          (`RevealPicture`); 11 tiles in a flat 2-column grid with "Fireworks" alone on the last row; no grouping (the
+          envelopes and the scenes mixed). At 375 the preview sits below the option rows and "Make this mine", so a
+          tap shows nothing until the person scrolls down. At 1280 the preview sits beside the tiles (good), but two
+          terracotta buttons share the screen ("Make this mine" and "Render my Save the Date") and the launch note
+          says "Website → Privacy". The page logs React error #418 (text mismatch) on load.
+SHOTS     375 light (grid of all 10), 1280 light
+RULE      Add 8 · K1 · brand.md word rules
+SEVERITY  look
+SOURCE    SEEN
+```
+
+#### N-11 · Small words: "1 PHOTOS", "Apply 0 changes"
+
+```
+PAGE      /studio/papic/recap ("1 PHOTOS · 0 MESSAGES · 97 GUESTS") · /dashboard/[eventId]/prints (a disabled "Apply 0 changes")
+RULE      brand.md (plain words)
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+#### N-12 · The Event Hub preview frames inside the Maker answer 500
+
+Folded into **B-02** (same 23.6 s 500s). Seen on `/launch`, `/monogram` → Maker, `/studio/mood-board` → Maker,
+`/website/editor` → Maker, `/site-editor/*` → Maker and `/prints` (both events): the Maker's own picture of the
+Event Hub is an error frame while the hub is down.
+
+## Phase B — what the walk confirmed from phase A
+
+Phase A findings are about code paths; most of them are about a failed read or a failed write, which a healthy copy
+does not produce on demand. Each is marked: **SEEN** (confirmed in the browser), **NOT SEEN** (the copy did not show it;
+the code finding stands), or **n/a** (needs a failure or a flag the copy does not have).
+
+| ID | Phase B |
+|---|---|
+| B-01 | **SEEN** — 61 coming on Guests; every moment reads "No guests to assign". |
+| A-01 | **SEEN** — with Dark chosen, only `/memories`, `/life-flash` and the Papic forward (lands on Memories) paint dark. Every other area-3 page stays light. |
+| F-01 | n/a (coordinator account and a failed read). The forwards for a couple land: see § Forwards. |
+| E-01, E-02, E-03, E-05, E-10, E-11, E-13, E-16, E-17 | n/a — failed reads and writes. Code findings stand. |
+| E-06, E-18, I-08 | **SEEN** — "Your monogram", "Save monogram", "Monogram text" on the invitation page; "monogram" on Alaala and Panood setup; "YOUR INVITATION SITE"; "wedding-site song" (N-04); "Website → Privacy" (N-10). |
+| E-04, E-12 | NOT SEEN on Carla (Event Plus paid; the Event Hub locks did not show). Code finding stands. |
+| E-07, E-08, E-15, E-19 | NOT SEEN in this pass (the Maker's inner layers did not open: B-02 broke its preview). |
+| E-09, E-20, I-11, M-11, P-11, S-10 | **SEEN** as addresses: every editor sub-page, the send run, assignments, crew and moderation open at their own address. |
+| E-14, P-07 | n/a — iPhone app only (`/apple-pro` sends a web browser back to the event Home). |
+| L-01 … L-09 | n/a — `/panood/control` did not open within 180 s on the copy (load); the live controller needs a second device. |
+| L-10 | **SEEN** — "WEB V1", "JUST LAUNCHED · EARLY ACCESS", "Be one of the first", "— No reviews yet" on Live Watch (`/studio/live-studio-control`). |
+| L-11 | **SEEN** in part — Memory lane mixes a black "Save" button, a terracotta "Generate screen code" and a terracotta switch on one screen. |
+| L-12 | NOT SEEN (controller did not open). |
+| M-01, P-04 | NOT SEEN on the pages walked (the Drive line on Recap reads "Save the originals to your Drive"). Code finding stands. |
+| M-02, M-03, M-04 | n/a — failed catalogue reads. |
+| M-05, M-08 | n/a — failed writes / reads. |
+| M-06 | **SEEN** — `/galleries` and `/memories` are both titled "Memories"; Alaala's masthead is "Memories · Kept alive". |
+| M-07 | **SEEN** in part — "Your wedding, kept alive." and wedding moments (Bridal March, Money Dance) on Alaala. |
+| M-09 | **SEEN** — `/dashboard/library` is on `DARK_READY` but lands on `/dashboard?seg=memories`, which stays light. |
+| M-10 | **SEEN** in part — K1 on Memories (N-05); half-pixel type measured on Alaala (14.5 px, 13.5 px, 10.5 px) and Assignments (10.5 px). |
+| P-01, P-03, P-05, P-08 | n/a — failed writes / reads. |
+| P-02 | NOT checked by a walk from the menu (pages opened by address). |
+| P-06 | n/a — clipboard blocked. |
+| P-09 | **SEEN** in part — wedding moments on every event's Papic pages. |
+| P-10 | **SEEN** — the crew poster is 125 px wider than a 375 px screen; the invitation print sheet 238 px wider. |
+| I-01, I-04, I-06, I-07 | n/a — failed reads / writes. |
+| I-02, I-03, I-09 | NOT SEEN in this pass. |
+| I-05 | NOT pressed (Regenerate QR would cut the crew's paired code on a shared seed). |
+| I-10 | **SEEN** in part — the send run is a hand-built full-screen layer (✕ top left, its own progress bar). |
+| S-01, S-02 | **SEEN** in part — Papic About reads "FREE TO START" with a "Get" button. |
+| S-03, S-05 | n/a — failed reads. |
+| S-04 | NOT pressed (Delete would remove a chapter). |
+| S-06 | code only. |
+| S-07 | **SEEN** — Setnayan AI's headline is "Stop guessing who to hire" (brand.md tone bans "Stop" headlines); "wedding" on the playlist and Setnayan AI for every event. |
+| S-08, S-09 | Patiktok pages are retired and send a couple to the event Home (seen); not walkable. |
+
+## Add 1 · Shapes (phase B)
+
+The phase A marks in § Progress stand; the walk agrees with each. What the browser added:
+
+- `/guests/send` is a full-screen layer (✕, progress bar, one guest at a time) at its own address → **FULL-SCREEN POPUP** (RiseScreen). Differs.
+- Save the Date is one long PAGE of six steps with the preview at the foot on a phone → keep PAGE, but the reveal step's preview must sit with the choice (N-10).
+- Memories' first-time tour is a popup over the page that blocks it (N-05) → should not be a gate at all.
+- The Maker's sub-tools (`/website/*`, `/monogram`, `/studio/mood-board`) already forward into `/launch?tool=details&item=…`, so they open as the Maker's own panel; the six editor sub-pages that still open as pages are listed in E-20.
+
+## Add 2 · Clean, balanced, effective (the screens walked)
+
+| Screen | CLEAN | BALANCED | EFFECTIVE |
+|---|---|---|---|
+| Memories | fails: three "add" controls, two terracotta (N-05) | ok | fails: a 6-step tour before the page can be used |
+| Memories › More from your day | ok | fails at 375 (N-03) | ok |
+| Alaala (Kept alive) | fails: every card carries a helper paragraph | ok at 375; at 1280 the cards hold a 540 px text column in a 770 px card | ok |
+| Story Assignments | ok | ok | fails: nothing can be assigned (B-01) |
+| Invitation (QRs & print) | fails: 390 buttons on one page (4 per guest × 97) | ok | fails: the page title is a count ("97 guests · QRs & print sheet") |
+| Send run | fails: an empty white frame (N-09) | ok | ok: one guest, one Send |
+| Memory lane | fails: internal code, raw id (N-02) | ok | fails: no masthead, no lit tab |
+| Save the Date | fails: two terracotta buttons; limits said twice in raw types (N-04, N-10) | ok at 1280; at 375 the preview is far from the choice | fails at 375 (N-10) |
+| Setnayan AI | ok | ok | fails: "Stop…" headline; the buy button shows before what you get |
+| Live Watch | fails: "WEB V1", "EARLY ACCESS", empty rating card | fails: the card row runs off the right edge at 375 (third card cut) | ok |
+| Recap | fails: Drive banner above "Back to Memories" | ok | fails: filed under Today (N-08) |
+| Set the mood / Hero photo | fails: raw types + limit twice (N-04); a native checkbox for "Turn background music on" (choices rule: a switch) | ok | ok |
+| Creator (Your Chapters) | fails: long helper paragraphs under every field | ok | fails: a native select ("Not about one of my events") and a mm/dd/yyyy date box (US order) |
+| Download all | ok | ok | ok: "No photos or clips to download yet." |
+
+## Add 3 · Placeholders a real couple could see
+
+- Send run: an empty white picture frame (N-09).
+- Memory lane: "coming-soon (auto)" and the raw event id (N-02).
+- Live Watch: "WEB V1", "JUST LAUNCHED · EARLY ACCESS", "Be one of the first", "— No reviews yet" (L-10).
+- Papic About: a "How it works" phone with "12 tagged" and coloured tiles — a drawing, labelled as a preview: fine.
+- The Maker's guest preview carries a "SAMPLE" mark and a sample "Table 7 · code" guest: labelled, fine.
+- Not findings: the seeded `stg-` events, `@final-check.test` names, the seeded phone numbers.
+
+## Add 4 · Every place area 3 sells (seen on the copy, Carla & Miguel)
+
+Prices are read from the copy's catalogue (copied from live). Nothing was paid; no checkout was submitted.
+
+| Route | What is sold | Price shown | How a person reaches it |
+|---|---|---|---|
+| `/memories` (Add photos sheet, grid tile) | Papic credits (a photo costs credits) | "47 credits left · 3 credits a photo"; no ₱ on the page | Memories › Add photos |
+| `/studio/about/papic` | Papic | "FREE TO START" + "Get"; no ₱ | Studio About (only from Today-filed doors) |
+| `/studio/setnayan-ai` | Setnayan AI | ₱2,790, "one-time purchase", "Unlock Setnayan AI" | Today › add-ons |
+| `/studio/live-studio-control` | Live Watch controller (multi-camera) | ₱3,990 "one price per event" | Today › add-ons |
+| same page, "Add hosted channel" sheet | Live Watch hosted channel | ₱3,990 "/ day" (a second catalogue row with the same price on the copy) | the sheet's button |
+| `/studio/save-the-date` Step 5 | the cinematic reveal | "add the cinematic reveal with Event Pro" (no ₱ on this step; Carla shows "Cinematic openings unlocked") | Save the Date |
+| `/website/*` locks, `/prints` look lock, `/our-story` | Event Pro / Event Plus | no ₱ on the lock (E-04, E-12, M-04) | the Hub editor |
+| `/memories` ⚙ "Keep full resolution", `/memories/thank-you` | storage upgrade, Thank-You film | not shown on the copy for Carla/Mika | ⚙ |
+| `/monogram` → Maker › Logo | Logo Maker unlock | not shown (I-09: no price on the page) | Maker › Details › Logo |
+| `/apple-pro` | Event Pro in the iPhone app | web sends it Home | iPhone app only |
+
+- **EVIDENT:** fails for Papic About and every Event Hub lock (no ₱ before the button). Setnayan AI and Live Watch show the price first: ok.
+- **CLEAN:** Live Watch fails (two prices, two buy doors, a hosted-channel sheet over the page, plus "EARLY ACCESS").
+- **HONEST:** not provable for the failed-read cases on a healthy copy (E-03, L-07, M-02, M-03, S-01, S-03 stand from code).
+- **Taps from the wall to "payment logged": not counted.** Logging a BDO / GCash proof writes an order to a shared seed; it was left for the money fixer with area 8.
+
+## Add 5 · Main jobs, as a first-timer on a phone
+
+| Job | Rating | The step that makes it hard |
+|---|---|---|
+| Upload a photo to Memories | OK | the first-time tour blocks the page until Skip (N-05) |
+| Assign a guest to a story moment | HARD | impossible (B-01) |
+| Send invitations one by one | OK | "Send" sits under a phone number; nothing says it sends an email (N-09) |
+| Pick a reveal for the Save the Date | HARD at 375, OK at 1280 | the preview is below the fold at 375 (N-10) |
+| Write the E-Gift note | EASY | the presets fill the message at once (seen) |
+| Set up Memory lane for the venue | HARD | "coming-soon (auto)", no masthead, several look-alike buttons (N-02) |
+| Write a chapter (creator) | HARD | a wall of helper text, a native select and a US date box |
+| Edit the Event Hub in the Maker | not rated | the Maker's preview frames answered 500 (B-02) |
+
+## Add 7 · Sizes and dark
+
+- **Three sizes:** every page that opened was walked at 375, 768 and 1280. Only two overflow the screen: the invitation print sheet (+238 px at 375) and the Papic crew poster (+125 px at 375). At 768 the side rail shows and the bottom bar hides: no page showed both.
+- **DARK per page:** yes on `/memories` (both events) and `/life-flash`; **no on every other area-3 page** (A-01). `/dashboard/library` is listed dark-ready but lands on Home (M-09).
+- **Partly dark:** none of the dark pages showed a white surface at any width (measured: no element over 5,000 px² with a near-white fill). Memories' top block carries the glow in dark (seen).
+- **Across roles:** the area's six home shots are Memories (`shots/area-3/home-{375,768,1280}-{light,dark}.png`). Note for the controller: on the event Home (area 2), dark at 768/1280 leaves near-white fills on the account chip, the rail's "Today" row and a neutral badge ("2 suppliers without a time").
+
+## Add 8 · The reveals
+
+- **One list:** the Maker (`maker-made-once.tsx`), Save the Date (`StdBuilderClient.tsx` → `RevealPreviewCard`) and the admin Reveal Studio (`studio.tsx`) all read `REVEAL_LIBRARY`, filtered only by the admin's allowed map: same 10 names, same order (Veil · Beach curtains · Envelope · classic · Envelope · gatefold · Fabric · Scratch · Smoke · Cathedral doors · Petals · Fireworks), plus "No reveal" first on Save the Date. Seen on Save the Date: all 10, in that order.
+- **How a couple finds them:** Save the Date › Step 5: N-10 (text-only tiles, lone last tile, preview off-screen at 375; fine at 1280). Maker › Cover Scene › Style: could not be walked — the Maker's preview frames answered 500 (B-02); the code draws a picture per reveal (`RevealPicture`), so the two pickers already look different.
+- **Every reveal plays (Save the Date live preview):** all 10 picked at 375 and 1280; the preview played Veil, Beach curtains, Envelope · classic, Fabric and Fireworks on screen (the others played below the fold at 375). Picking makes no write (no request but the page's own reads).
+- **On the guest's Event Hub:** at 06:56 UTC the Veil drew at 375 and waited for "Tap or swipe up to unveil" (shot `hub0`). A light strip about 15 px wide shows down the right edge of the veil at 375. From ~09:00 every hub answered 500 (B-02), so 768/1280, dark, reduced motion and the other nine reveals could not be played on the hub. `?reveal=` previews are off on the copy (`NEXT_PUBLIC_STD_REVEAL` is not "1"), so a reveal other than the couple's choice cannot be shown to a guest page without changing the couple's draft — not done.
+- **Reduced motion:** the code stands the opening down (`reveal-overlay.tsx`: `!reducedMotion` in `active`) — not seen on the hub (B-02).
+- **Code note:** a comment in `reveal-overlay.tsx` names a price ("the paid ₱999 opening"): CLAUDE.md §1 says never write a price in a comment.
+
+## Add 9 · not area 3. Add 10b · not area 3 (supplier QR is areas 5–7).
+
+## Offline — beyond the five (Add 10)
+
+Only parts that are NOT one of the owner's five full-offline places (guests at the venue on the Event Hub and walk-in hub · supplier on the day · supplier at an expo · couple at an expo · coordinator on the day). Area 3 covers the couple/host and the parts of the guest Event Hub the Maker writes.
+
+### Event host or couple
+
+| Part (route · what it does) | Moment the signal drops | Level | Why |
+|---|---|---|---|
+| `/dashboard/[eventId]/live` · Memory lane: hide a photo, switch guests' phones off | at the venue on the day | SAVE AND SYNC | A wrong photo on the venue screen must come down now; a hide that waits for signal is too late, so the tap must queue and the screen must say "will hide when back online". |
+| `/panood/control/[eventId]` · live controller (cut, on-air, Go live / End) | at the venue on the day | FULL for the program window, SAVE AND SYNC for settings | The stream runs on venue Wi-Fi; the controller is a form POST + redirect per tap with no queue and no offline sign, so a dropped tap looks done. |
+| `/panood/program/[eventId]` · the OBS program window | at the venue on the day | FULL (keep the last scene) | OBS captures this window; a reload error page goes out live to the online guests. |
+| `/dashboard/[eventId]/studio/papic/challenges` · "Ask now" / "Stop" | at the venue on the day | SAVE AND SYNC | A challenge is asked at a moment in the program; it must queue and say so, not report "saved" after a failed write (P-01). |
+| `/dashboard/[eventId]/studio/papic/run-of-show` · "This is happening now", Pause | at the venue on the day | SAVE AND SYNC | Same as challenges: the coordinator marks the moment as it happens. |
+| `/dashboard/[eventId]/memories` · the Papic on/off switch and credits | at the venue on the day | READ-ONLY (switch: SAVE AND SYNC) | The couple checks credits and turns cameras on or off at the venue; the balance must show the last copy with its time, never ₱0 or 0 credits. |
+| `/dashboard/[eventId]/event-qr` · the crew pairing QR | at the venue on the day | READ-ONLY | The crew scans it at the door; the saved copy must hold the current code. |
+| `/dashboard/[eventId]/invitation/print` and `/studio/papic/crew/poster` · print sheets | on the road (printing at a shop) | READ-ONLY | The couple prints at a print shop with weak data; the saved copy must print. |
+| `/dashboard/[eventId]/guests/send` · the send run | in a province with weak data | SAVE AND SYNC | "Mark sent" after sharing a link through a messenger app must not be lost when the signal drops between invites. |
+| `/dashboard/[eventId]/launch` (the Maker) | in a province with weak data | READ-ONLY + draft kept on the phone | A couple editing on weak data must not lose a typed story or a picked reveal; the Maker draft lives on the server only today. |
+| `/dashboard/[eventId]/memories/download-all`, `/galleries`, `/alaala`, `/story` | on the road | READ-ONLY | Looking back at photos and words; nothing breaks if it waits. |
+
+### Guest Event Hub (the parts the Maker writes)
+
+| Part | Moment | Level | Why |
+|---|---|---|---|
+| The opening reveal on `/[slug]` | at the venue on the day | FULL (already part of the five: the saved Event Hub copy must carry the reveal's art, or open straight to the page) | A guest opening the saved copy with no signal must not be stuck behind a reveal whose pictures did not load. |
+| `/[slug]` Memory lane on guests' phones | at the venue on the day | READ-ONLY | It is a slideshow; the last photos are enough. |
+
+### Offline pieces tried on the copy (DevTools offline)
+
+- **Memories, signal dropped with the page open:** the offline bar appears at once and reads "You're offline". The page stays as it was.
+- **Memories, reloaded with no signal:** the browser's own "No internet" page. On the copy the service worker had not registered by then (the copy took over a minute to finish loading), so the saved copy could not be tested here. Retest on a quiet copy.
+- **Back online:** the bar left; nothing else to catch up (no write was queued).
+- **Papic capture, check-in desk, saved Event Hub copies:** guest-side (area 4); the Event Hub could not be tested because it answered 500 (B-02).
+
+<!-- PHASE-B-END -->

@@ -1382,3 +1382,170 @@ SHOTS     no seeded row of this kind for this shop
 RULE      CLAUDE.md § 1 (a failed read never shows ₱0) · § 5.4
 SEVERITY  money-signin
 SOURCE    CODE (found in phase B)
+
+#### B5-05 · /vendor-dashboard/verify (a forward) also sent the signed-in shop to sign in
+PAGE      /vendor-dashboard/verify → /vendor-dashboard/profile#docs
+BUTTON    any old "Get verified" link
+STEPS     1. Signed in as supplier_shop, open /vendor-dashboard/verify during a walk of other pages.
+EXPECTED  Lands on Your details with the documents fold open.
+ACTUAL    Walk 1 (07:25 UTC): ended on `/login?next=%2Fvendor-dashboard%2Fverify`. Re-walk (07:40): landed correctly on
+          `/vendor-dashboard/profile#docs`. With B5-01 this makes two sign-in bounces for a live session, both on pages
+          that check the plan or verification. Each bounce came on one load and was gone on the next.
+SHOTS     checker set: x3 `_vendor_dashboard_verify-375-light.png`
+RULE      kit § 6 money-signin
+SEVERITY  money-signin (intermittent; confirm on a quiet copy)
+SOURCE    SEEN
+
+#### B5-06 · Shop on desktop: service-card titles break letter by letter in a narrow column
+PAGE      /vendor-dashboard/shop at 1280 (Your bundles and services)
+BUTTON    each service card row
+STEPS     1. Open Shop at 1280 px. 2. Look at the service cards under "Photographer" in the right column.
+EXPECTED  Card name on one or two lines beside the thumbnail; the right column wide enough, or the cards stacked.
+ACTUAL    The name wraps inside a ~40 px column: "Liwa / nag / Phot / o & / Film / — / Clas / sic / pac / kage".
+          The same squeeze cuts the Analytics tile titles ("Ope…").
+SHOTS     checker set: x2 `_vendor_dashboard_shop-1280-light.png`
+RULE      Add 2 BALANCED (desktop is not a squeezed column) · Add 7 (three sizes designed)
+SEVERITY  look (major: the shop's own cards are unreadable on a computer)
+SOURCE    SEEN
+
+#### B5-07 · Shop hero prints the raw shop address with its tracking tail
+PAGE      /vendor-dashboard/shop (hero eyebrow), also /vendor-dashboard/shop/qrs/* (under the title)
+BUTTON    —
+STEPS     1. Open Shop at 375 and 1280.
+EXPECTED  "Shop · setnayan.com/liwanagphotoandfilm" (or just the shop name); never query codes.
+ACTUAL    At 1280 the eyebrow reads "Shop · …vercel.app/liwanagphotoandfilm?src=own&via=link". `src=own&via=link` are
+          internal tracking tags (RW-19, #7881) and are shown to the supplier. On the copy the host is the preview
+          address; production would show setnayan.com, but the tags would show there too.
+SHOTS     checker set: x2 `_vendor_dashboard_shop-1280-light.png`, `_vendor_dashboard_shop-375-light.png`
+RULE      Add 2 EFFECTIVE (no internal names or codes)
+SEVERITY  wrong
+SOURCE    SEEN
+
+#### B5-08 · Analytics draws a made-up "Example" zigzag over a real zero
+PAGE      /vendor-dashboard/shop › Analytics › Opened (and Today's "How is business")
+BUTTON    the Opened tile
+STEPS     1. Open Shop. 2. Look at the Opened tile (0 opened in 30 days).
+EXPECTED  A flat or empty chart that says "Nobody opened your page in the last 30 days" with one action (Share your shop).
+ACTUAL    The tile says 0 and draws a large zigzag line marked "Example". The real value and a made-up shape sit on one chart.
+SHOTS     checker set: x2 `_vendor_dashboard_shop-375-light.png`, `-1280-light.png`
+RULE      Add 3 (demo data in place of the person's own) · honest states
+SEVERITY  wrong
+SOURCE    SEEN
+
+#### B5-09 · Promote shows the raw code "PAGE_GUEST"-style name `PAPIC_GUEST_150` for a gift
+PAGE      /vendor-dashboard/shop/promote › Your gifts
+BUTTON    the gift rows
+STEPS     1. Open Shop › Promote. 2. Read Your gifts.
+EXPECTED  The gift's catalogue name ("Papic 150", as the badge-reward row below calls it).
+ACTUAL    The first gift row is titled `PAPIC_GUEST_150`. The row below names the same gift "Papic 150". Also on
+          this screen: "Next event with us · Not set · can't be set here yet", a dead end with no door.
+SHOTS     checker set: r1 `_vendor_dashboard_shop_promote-375-light.png`
+RULE      Add 2 EFFECTIVE (plain labels, never codes) · Add 5 (no dead end)
+SEVERITY  wrong
+SOURCE    SEEN
+
+#### B5-10 · Bundle maker shows ₱0 before anything is picked, and "above ₱0 and below ₱0"
+PAGE      /vendor-dashboard/packages/new (Build a package › New bundle)
+BUTTON    —
+STEPS     1. Packages › Build a package. 2. Read the totals before adding a card.
+EXPECTED  Totals hidden or "—" until two cards are picked; the discount hint reads a real range.
+ACTUAL    "New total · Pick cards to see it · ₱0", "Total · No cards yet · ₱0", "Cards at their lowest ₱0", "₱0 − ₱0 · the
+          bundle's one price", "adds up to ₱0", and the discount hint "Pesos only, never a percent · above ₱0 and below
+          ₱0". The last line can't be met. "Send to this couple" is on screen with no couple (A5-G6-03, confirmed live).
+SHOTS     checker set: r1 `_vendor_dashboard_packages_new-375-light.png`
+RULE      CLAUDE.md § 1 (₱0 never stands for an unknown) · Add 3
+SEVERITY  wrong
+SOURCE    SEEN
+
+#### B5-11 · Today on desktop: tiles clipped at the right edge, the same counts twice, the task band bleeds left
+PAGE      /vendor-dashboard at 1280
+BUTTON    —
+STEPS     1. Open Today at 1280.
+EXPECTED  The count row fits its column; one set of counts; the "Needs you today" band sits inside the gutter.
+ACTUAL    The tile row (Views · Inquiries · Booked · Portfolio · Money) runs off the right edge ("Portfoli…" cut). The
+          Shop block repeats the same numbers as Opened · Asked · Booked. The blue "Needs you today" band starts at the
+          page edge, left of the gutter every other block keeps. The stage bar's current step is terracotta (the couple
+          colour) on the supplier blue.
+SHOTS     shots/area-5/home-1280-light.png
+RULE      Add 2 CLEAN (nothing twice) + BALANCED (even gutters) · CLAUDE.md § 3 colour by job
+SEVERITY  look
+SOURCE    SEEN
+
+#### B5-12 · Deep Search: no visible title, and "Unused searches don't carry over" twice
+PAGE      /vendor-dashboard/deep-search
+STEPS     1. Open Deep Search at 375.
+EXPECTED  A masthead ("Deep Search") and each fact once.
+ACTUAL    The page opens straight on a card (the h1 is screen-reader only). The card says "Unused searches don't carry
+          over" in its intro and again under the count.
+SHOTS     checker set: x1 `_vendor_dashboard_deep_search-375-light.png`
+RULE      Add 2 CLEAN · PageMasthead on every page
+SEVERITY  look
+SOURCE    SEEN
+
+#### B5-13 · Portfolio shows a made-up "EXAMPLE · 14 photos" album, and its empty line runs off the screen
+PAGE      /vendor-dashboard/collections
+STEPS     1. Open Portfolio at 375.
+EXPECTED  The shop's own albums; an empty state that fits.
+ACTUAL    "Most viewed albums" opens with an EXAMPLE card "Cover · 14 photos" (the shop has 0 photos), and the empty
+          tile's text "Nothing yet · your photos show here and on your pag…" is cut off at the right edge.
+SHOTS     checker set: x1 `_vendor_dashboard_collections-375-light.png`
+RULE      Add 3 (demo data in place of the person's own) · Add 2 BALANCED
+SEVERITY  look
+SOURCE    SEEN
+
+#### B5-14 · Profile: five filled buttons on one screen
+PAGE      /vendor-dashboard/profile
+STEPS     1. Open Your details at 375; count the filled buttons.
+EXPECTED  One main button (K1).
+ACTUAL    Filled: "Add what is left" (thumb), "Save", "Add a branch", "Add branch · included in …", "Run Deep Search".
+          Confirms A5-G5-12 live and wider. The "Coverage area" note is a hand-made bordered box (`rounded-lg border`).
+SHOTS     checker set: x1 `_vendor_dashboard_profile-375-light.png`
+RULE      HOUSE_DESIGN_STANDARD K1 · lint:no-card
+SEVERITY  look
+SOURCE    SEEN
+
+#### B5-15 · The open-shop steps change colour, and they open again for an established shop
+PAGE      /open-shop/logo, /open-shop/invite (signed in as a shop that opened long ago)
+STEPS     1. Signed in as supplier_shop, open /open-shop/logo, then /open-shop/invite.
+EXPECTED  One look across the open-shop steps; a shop that is open goes to Shop (as /open-shop itself does: it forwards to Today).
+ACTUAL    /open-shop/logo is beige with brown step bars ("Liwanag Photo & Film is open…"); /open-shop/invite is supplier
+          blue. Both draw their first-run text to a shop that has been open for months.
+SHOTS     checker set: w1 `_open_shop_logo-375-light.png`, `_open_shop_invite-375-light.png`
+RULE      Add 7 (one design per role) · Add 2 EFFECTIVE
+SEVERITY  look
+SOURCE    SEEN
+
+#### B5-16 · Card maker: a locked card still draws edit controls; the Name box hides the name
+PAGE      /vendor-dashboard/services/[serviceId] (a booked card), /vendor-dashboard/services/new/[category]
+STEPS     1. Open the Classic package (booked). 2. Read the top of the maker at 375.
+EXPECTED  A locked card shows read-only fields (no pencil, no add-photo tile); a name field shows the start of the name.
+ACTUAL    "Can't edit while booked 🔒" sits above a Name box with a pencil and an empty add-photo tile. The Name box shows
+          the middle of the name ("wanag Photo & F", "grapher by Liwan"). The Cancel / Locked bar floats on top of the
+          bottom nav, so two bars stack at the thumb. The back link reads "Shop" on edit and "Services" on new (the same
+          place).
+SHOTS     checker set: w2 `_vendor_dashboard_services_09957d94…-375-light.png`, x2 `…services_new_photographer-375-light.png`
+RULE      Add 5 (first-timer, one hand) · Add 2 CLEAN
+SEVERITY  look
+SOURCE    SEEN
+
+#### B5-17 · Toolkit: one lone card per shelf on tablet and desktop; search button covers Install at 375
+PAGE      /vendor-dashboard/shop/store
+STEPS     1. Open Toolkit at 375, 768, 1280.
+EXPECTED  Shelves fill a row; nothing floats over a card's button.
+ACTUAL    At 768 and 1280 each shelf ("Chat widgets · See all 1", "Present widgets · See all 1") holds one card and a wide
+          empty row. At 1280 the masthead band stops short of the right edge. At 375 the floating search button sits on the
+          first card's Install button.
+SHOTS     checker set: w3 `_vendor_dashboard_shop_store-{375,768,1280}-light.png`
+RULE      Add 2 BALANCED (no lone card on a row) · Add 5 (no two controls touching)
+SEVERITY  look
+SOURCE    SEEN
+
+#### B5-18 · "Write to NFC" popup does not close with Escape
+PAGE      /open-shop/invite (and every QR page with Write to NFC: /vendor-dashboard/shop/qrs/*)
+BUTTON    "Write to NFC"
+STEPS     1. Press Write to NFC on a computer. 2. Press Escape.
+EXPECTED  The popup closes (K3: closes the same way as every other popup).
+ACTUAL    "Do this on your phone" opens and stays open on Escape.
+RULE      HOUSE_DESIGN_STANDARD K3 · Add 5 (same everywhere)
+SEVERITY  broken
+SOURCE    SEEN

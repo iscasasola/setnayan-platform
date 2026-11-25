@@ -17,6 +17,7 @@ import { notificationEmailReason } from '@/lib/notification-email-reason';
 import { eventIdFromRelatedUrl } from '@/lib/notification-event-id';
 import { coupleSupplierEventSections } from '@/lib/couple-supplier-notices';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { REPLAY_GROUP_WINDOW_MS, alreadyRangForReplay, offlineReplayNow } from '@/lib/supplier-offline/replay-notices';
 
 // 📱 WHICH NOTICE REACHES A PHONE, AND WHEN, IS NOT DECIDED HERE: every type has one
 // level in lib/push-levels.ts (owner 2026-10-31, "Yes, add them" — Urgent · Normal ·
@@ -456,12 +457,37 @@ export async function emitAdminNotice(args: Omit<EmitNotificationArgs, 'adminNot
   return emitNotification({ ...args, adminNotice: true });
 }
 
+/** Inside an offline replay: is this person already holding this notice unread? A refused read says no (ring). */
+async function replayNoticeStanding(userId: string, type: NotificationType, relatedUrl: string | null): Promise<boolean> {
+  try {
+    const base = createAdminClient()
+      .from('notifications')
+      .select('created_at')
+      .eq('user_id', userId)
+      .eq('type', type)
+      .is('read_at', null)
+      .gte('created_at', new Date(Date.now() - REPLAY_GROUP_WINDOW_MS).toISOString());
+    const { data, error } = await (relatedUrl === null ? base.is('related_url', null) : base.eq('related_url', relatedUrl)).limit(5);
+    if (error) {
+      console.error('[supabase-error] lib/notification-emit.ts · replay group read', error.message);
+      return false;
+    }
+    return alreadyRangForReplay((data ?? []).map((r) => (r as { created_at: string }).created_at));
+  } catch {
+    return false;
+  }
+}
+
 export async function emitNotification(args: EmitNotificationArgs): Promise<void> {
   const { userId, type, title, body = null, relatedUrl = null } = args;
   // Which wedding is this about? Derived from the link unless the caller said.
   // The rule is pure and unit-tested in `notification-event-id.ts` — this module
   // is `server-only`, so a test cannot reach in here to check it.
   const eventId = args.eventId ?? eventIdFromRelatedUrl(relatedUrl);
+  // 📶 A PHONE CATCHING UP RINGS EACH PERSON ONCE (controller review #2 item 16, `lib/supplier-offline/replay-notices.ts`):
+  // inside an offline replay only, a notice this person already holds unread — same kind, same place, last 30 minutes —
+  // is not sent again (no second bell row, email or phone notice). Fails toward ringing.
+  if (offlineReplayNow() && (await replayNoticeStanding(userId, type, relatedUrl))) return;
   try {
     const admin = createAdminClient();
     // ONE shape, always carrying `event_id` (nullable in the schema). A

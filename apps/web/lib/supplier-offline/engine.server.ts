@@ -50,6 +50,7 @@ import {
 import { DEVICE_ID_RE, isPublicKeyJwk, memberTagOf } from './qr';
 import { checkOfflineQr } from './claim.server';
 import { isSupplierOfflineOp, type SupplierOfflineReply, type TeamDevice, type TeamHold, type TeamSeen } from './replies';
+import { runAsOfflineReplay } from './replay-notices';
 
 /**
  * 📶 THE SUPPLIER OFFLINE DOOR (owner 24 Nov 2026, DECISION_LOG "The supplier dashboard works offline and catches up
@@ -623,15 +624,17 @@ async function syncOne(raw: string): Promise<SupplierOfflineReply> {
   if (claim !== 'claimed') return done(claim);
   let out: SyncOutcome;
   try {
-    const stale = await rowStillAsSeen(ctx, item);
-    if (stale) out = stale;
-    else if (rule === 'money') out = await moneyAction(ctx, item);
-    else if (rule === 'gift') out = await clientAdd(ctx, item);
-    else if (item.kind === 'message.send') out = await messageSend(ctx, item);
-    else {
+    // 📶 The replay is a scope (`replay-notices.ts`): every notice the shipped action sends from inside it rings each
+    // person once while they hold it unread (review #2 item 16).
+    out = await runAsOfflineReplay({ member: item.member, shop: item.shop, phoneTime: item.phoneTime }, async (): Promise<SyncOutcome> => {
+      const stale = await rowStillAsSeen(ctx, item);
+      if (stale) return stale;
+      if (rule === 'money') return moneyAction(ctx, item);
+      if (rule === 'gift') return clientAdd(ctx, item);
+      if (item.kind === 'message.send') return messageSend(ctx, item);
       const door = (SUPPLIER_OFFLINE_KINDS[item.kind] as { door?: string }).door;
-      out = door ? await replayDoor(door, item) : { status: 'refused', why: COULD_NOT_SAVE };
-    }
+      return door ? replayDoor(door, item) : { status: 'refused', why: COULD_NOT_SAVE };
+    });
   } catch (e) {
     console.error('[supplier-offline] replay threw', e instanceof Error ? e.message : e);
     out = { status: 'retry', why: 'unread' };

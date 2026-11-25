@@ -5,22 +5,24 @@
  *
  *   1 · ONE ENGINE — the supplier queue is the shipped daemon's `supplier` store, sent by its `triggerSyncNow`; a shared
  *       phone never sends another account's work; an item given up on leaves an answer, never silence.
- *   2 · NO NEW SERVER ACTION — the engine rides the ONE dispatcher (`saveInPlace`, a stay door), and only a door's
- *       `{ stayReply }` is handed back through it.
+ *   2 · NO NEW SERVER ACTION — the queue goes to ONE stable, versioned route (`/api/offline/supplier-sync`), never a
+ *       server action (their ids change every deploy — review #2 item 4).
  *   3 · EVERY KIND HAS A RULE — a role, and (when it names one) a real shipped door; nothing that buys or pays is a kind
  *       (R15: "Needs internet"); every write that names a row is applied only if its `updated_at` is unchanged.
  *   4 · MONEY — the live amounts are re-read through the ONE reader and compared BEFORE the shipped action runs; a moved
  *       amount is `needs_reconfirm {offline, live}`, never applied.
  *   5 · GIFTS — the live stock decides before Add a client runs; none left is `no_gifts_left`; nothing is bought.
  *   6 · A CLASH IS TYPED — `{why, by, at}`, said in the ruling's words, never read as saved.
- *   7 · EXPO HOLDS END ON SYNC — only once nothing is left on the phone; only Shop, Branch and Account Managers hold;
- *       a Shop Manager or that branch's Branch Manager lets anyone's go (and stops anyone's phone). Teammates see "last
- *       seen", never a count of another phone's changes (R5, corrected).
+ *   7 · EXPO HOLDS — a hold ends at its end date or by hand, never on a reconnect; only Shop, Branch and Account
+ *       Managers hold; a Shop Manager or that branch's Branch Manager lets anyone's go (and stops anyone's phone).
+ *       Teammates see "last seen", never a count of another phone's changes (R5, corrected).
  *   8 · SIGN-OUT WIPES — the queue, the signing keys and the answers; the server stops the phone's key rows.
  *   9 · R14 — A BOOKING MADE OFFLINE COUNTS ON THAT PHONE AT ONCE: 12 Dec 2 PM booked offline is not offered again; a
  *       full day reads full; the QR's free-time check, "To collect" and the gift balance read the same copy + queue.
  *  10 · EVERY SUPPLIER ACTION IS DECIDED — an offline kind, "needs internet" (R15), or a line on the area builders'
  *       shrink-only list (`not-yet-offline.baseline.txt`). A new supplier action can never be left undecided.
+ *  13 · A HELD DAY IS SAID — the database refuses a booking on a teammate's held day (`date_held`); every couple door
+ *       says it as the closed-day sentence (never who or why), and the supplier's yes says a teammate holds it.
  *
  * Sabotages (2026-11-24), each turns its own test red:
  *   1 · dropping `if (p.member !== activeMember)` from supplier-handler.ts;
@@ -29,7 +31,8 @@
  *   7 · `if (left === 0)` → `if (true)` in supplier-queue.ts;
  *   8 · dropping `forgetSupplierOffline()` from the worker's OFFLINE_FORGET;
  *   9 · dropping the queue's seats from `localSlot` (`copy.taken + q.seats` → `copy.taken`);
- *  10 · deleting one line from not-yet-offline.baseline.txt (an undecided action).
+ *  10 · deleting one line from not-yet-offline.baseline.txt (an undecided action);
+ *  13 · (2026-11-25) each couple door's mapping undone in turn, and the yes's `date_held` flag removed.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -224,7 +227,7 @@ test('6 · a clash is typed — {why, by, at} — said in the ruling’s words, 
   assert.equal(waitingToSendLine(0), null);
 });
 
-test('7 · expo holds end on sync; the right roles hold, release and stop; teammates see last seen, never a count', () => {
+test('7 · expo holds end by date or by hand; the right roles hold, release and stop; teammates see last seen', () => {
   const queue = read('lib/offline/supplier-queue.ts');
   const body = queue.slice(queue.indexOf('export async function sendQueuedSupplierActions'), queue.indexOf('export async function reconfirmMoney'));
   assert.doesNotMatch(body, /holds\.synced/, 'a reconnect ends an expo hold — a hold ends at its end date or by hand (review #2 item 14)');
@@ -376,4 +379,27 @@ test('12 · a change this browser would lose is never accepted; the phone says w
   const engine = read('lib/supplier-offline/engine.server.ts');
   assert.match(engine, /\$\{typed\}\\n\\n\$\{writtenOfflineLine\(item\.phoneTime\)\}/, 'a message written offline is not stamped');
   assert.match(read('app/vendor-dashboard/calendar/actions.ts'), /\/date_held\/\.test\(error\.message \?\? ''\) \? 'date_held' : 'save_failed'/, 'a teammate’s hold is said online as "try again"');
+});
+
+test('13 · a held day is said: as a closed day to the couple at every door, as a teammate’s hold at the supplier’s yes', async () => {
+  const { couplesWordsForBookingRefusal, isDateHeldRefusal, CLOSED_DAY_COUPLE_MESSAGE } = await import('@/lib/closed-day');
+  assert.equal(couplesWordsForBookingRefusal('date_held'), CLOSED_DAY_COUPLE_MESSAGE);
+  assert.equal(couplesWordsForBookingRefusal('duplicate key'), 'duplicate key', 'another refusal was reworded');
+  assert.ok(!/held|teammate|expo/i.test(CLOSED_DAY_COUPLE_MESSAGE), 'the couple is told who or why');
+  assert.ok(isDateHeldRefusal('ERROR: date_held') && !isDateHeldRefusal('dated_heldx'));
+  // Each couple door, at the error of the write that books (the one place `date_held` can come back):
+  const doors: [string, RegExp][] = [
+    ['app/dashboard/[eventId]/vendors/actions.ts', /return \{ status: 'error', message: couplesWordsForBookingRefusal\(lockErr\.message\) \};/],
+    ['app/dashboard/[eventId]/vendors/actions.ts', /throw new Error\(couplesWordsForBookingRefusal\(error\.message\)\);/],
+    ['app/dashboard/[eventId]/vendors/packages/actions.ts', /return \{ status: 'error', message: couplesWordsForBookingRefusal\(cascadeErr\.message\) \};/],
+    ['app/dashboard/[eventId]/wizard-actions.ts', /if \(insertErr\) throw new Error\(couplesWordsForBookingRefusal\(insertErr\.message\)\);/],
+    ['lib/chat-lock-booking.server.ts', /if \(isDateHeldRefusal\(error\.message\)\) return \{ status: 'date_closed' \};/],
+  ];
+  for (const [file, re] of doors) assert.match(read(file), re, `${file}: a held day reaches the couple as a raw code`);
+  // The supplier's yes: the refusal is named, and the notice says it.
+  assert.match(read('app/vendor-dashboard/clients/[eventId]/actions.ts'), /\/date_held\/\.test\(error\.message \?\? ''\) \? 'date_held'/, 'the yes says a teammate’s hold as "did not go through"');
+  const { lockAgreeNotice } = await import('@/lib/lock-answer-notice');
+  const n = lockAgreeNotice('date_held');
+  assert.equal(n?.tone, 'refused');
+  assert.match(n!.text, /teammate is holding this date/);
 });

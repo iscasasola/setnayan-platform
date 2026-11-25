@@ -1,7 +1,9 @@
+STATUS: phase B in progress (walk running; first findings below)
+
 # Final check · Area 5 · Supplier: shop, cards, Toolkit, plans
 
-Checker 5 of 8. Report only. Pinned check commit: `fb3f72d` (main, frozen).
-Phase A = code pass (`SOURCE: CODE`). Phase B = browser walk on staging as `supplier_shop` (`SOURCE: SEEN`), later.
+Checker 5 of 8. Report only. Pinned check commit: `fb3f72d` (main, frozen). Staging copy serves `bd86936` (env preview).
+Phase A = code pass (`SOURCE: CODE`). Phase B = browser walk on staging as `supplier_shop` (`SOURCE: SEEN`), section "Phase B" below.
 Page list: `pnpm exec tsx scripts/staging/areas.ts --area 5` at `fb3f72d` (48 pages, 5 forwards; matches kit § 4).
 
 Marks on every page: **OFFLINE** = NEEDED (where signal is lost) / READ-ONLY / NOT NEEDED.
@@ -9,7 +11,9 @@ Marks on every page: **OFFLINE** = NEEDED (where signal is lost) / READ-ONLY / N
 
 ## BLOCKERS
 
-None found in phase A so far.
+None proven. Two things the controller should know at once (not counted as blockers, see B5-00 and B5-01):
+- **The copy itself is very slow** (25 Nov, 07:00–07:30 UTC, eight checkers on it): a supplier page took 4–90 s to be ready, the public home page 77 s, `/api/health` 0.6 s. From about 07:15 a password sign-in sometimes did not finish in 150 s. Every speed number in this file is the copy's, not production's.
+- **money-signin, at once:** the Plan page once sent the signed-in Pro shop to sign in (B5-01).
 
 ## Phase A summary (code pass, done)
 
@@ -1281,3 +1285,97 @@ SHOTS     to take in phase B: 375 px light
 RULE      FINAL-CHECK-KIT § 5.1 (it opens, no error screen)
 SEVERITY  broken
 SOURCE    CODE
+
+---
+
+## Phase B · browser walk on the staging copy (`SOURCE: SEEN`)
+
+How it was walked: signed in as `supplier_shop` (Liwanag Photo & Film, Pro, verified). Every page opened at 375 px,
+then the same load resized to 768 and 1280 and re-measured and shot. Controls were counted at each width (Add 6).
+Dark was checked with the page's own theme rule (`window.__snTheme.decide`) with Dark chosen. A **navy preview** was
+shot by switching `.dark` on by hand, to show what the area would look like if it were switched on. That look is
+**not shipped**, so it is reported only as a preview. The open-shop, claim, fit and shop-QR doors were also walked
+signed out. Shots: `build-sessions/final-check/shots/area-5/` (Add 7's six home shots). The rest stay with the checker
+and are named in each finding.
+
+Copy caveat: the copy was very slow during the walk (see BLOCKERS). A page "slower than 0.7 s" is true of almost every
+page here, so speed is reported only where a page did not finish at all.
+
+### Phase B cross-cutting
+
+#### B5-00 · Dark mode does not exist anywhere in area 5 (Add 7: DARK = no on all 48 pages)
+PAGE      every page in area 5 (all `/vendor-dashboard/*` in this area, `/open-shop*`, `/vendor/*`)
+BUTTON    Appearance › Dark (account preferences)
+STEPS     1. Choose Dark. 2. Open any area-5 page at 375, 768, 1280.
+EXPECTED  Owner 25 Nov: light and dark exist on every signed-in page, one design across user, event, supplier and admin.
+ACTUAL    Every page stays light (`decide` = false on all 48; `html.dark` never set). The ready-list allows only
+          `/vendor-dashboard/clients$` and `/vendor-dashboard/customers$` (area 6) in the supplier tree. So a supplier who
+          picks Dark gets a dark Clients list and light everything else. That is the half-dark experience the list was
+          meant to prevent, but spread across pages instead of within one.
+          Navy preview (forced `.dark`, not shipped): readable text, the navy surface and amber badges hold. But every card
+          keeps its drop shadow (A5-X-01, confirmed), no top block glows (A5-X-02, confirmed), the active bottom-nav cell
+          loses its blue fill, and the QR card on "Invite shops you trust" stays a white surface.
+CODE      apps/web/lib/appearance.ts · `DARK_READY`
+SHOTS     shots/area-5/home-375-light.png + home-375-dark.png (identical: dark does not paint); checker set: `*-navy.png`
+RULE      Owner add 7 · DARK_MODE_STANDARD · kit § 5.7
+SEVERITY  look (counted once; the owner decides the rollout)
+SOURCE    SEEN
+
+#### B5-01 · The Plan page sent the signed-in Pro shop to sign in, then would not finish drawing
+PAGE      /vendor-dashboard/subscription
+BUTTON    rail › Plan (Pro), or the address
+STEPS     1. Sign in as supplier_shop. 2. Open pages in the shop one after another (Toolkit graphs › Booked, Run of show).
+          3. Open /vendor-dashboard/subscription.
+EXPECTED  The Plan page with the current plan (Pro) and the catalogue prices.
+ACTUAL    Walk 1 (07:12 UTC): the page answered and landed on `/login?next=%2Fvendor-dashboard%2Fsubscription`. The very
+          next page (Team) opened signed in, so the session was alive. Recheck in a fresh session (07:15): two loads both
+          answered 200 but neither reached a drawn page in 120 s. Every other page in the same session drew. Not
+          reproduced a third time because sign-in itself began timing out on the copy.
+SHOTS     checker set: x3 `_vendor_dashboard_subscription-375-light.png` (the sign-in card)
+RULE      kit § 6 money-signin (signed out of the place a person pays)
+SEVERITY  money-signin (to confirm on a quiet copy: it may be the copy's load, but it hit only this page)
+SOURCE    SEEN
+
+#### B5-02 · Today says "No bookings yet" and "0 Booked" to a shop with two booked clients
+PAGE      /vendor-dashboard (Today) › Coming up; the count tiles
+BUTTON    "No bookings yet · Add the ones you already have"
+STEPS     1. Sign in as supplier_shop. 2. Open Today. 3. Read Coming up and the tiles. 4. Open the Classic package card
+          in the card maker.
+EXPECTED  One answer to "is this shop booked": the seed books Liwanag on Bea & Paolo (reservation fee paid) and Carla &
+          Miguel (contracted), both future events. Coming up lists them.
+ACTUAL    Today: "No bookings yet · Add the ones you already have" (the empty row, not the "Couldn't load" row), "0 Booked
+          · events this month" and "Grow your business · STAGE 4 OF 5 · 0 booked this month". On the same screen,
+          "₱96K Money to come in". The card maker opens the Classic package as "Can't edit while booked 🔒 · A booked
+          client is using this card" (it reads the booked set). Two readers, two answers.
+CODE      lib/supplier-today-view.ts · `comingUp: ahead.slice(0, 3)` (fed by the schedules read) vs lib/card-edit-lock.ts ·
+          `OPEN_BOOKING_STATUSES`
+SHOTS     shots/area-5/home-375-light.png (Today); checker set: x2 services card maker 375
+RULE      design-and-wiring C8 (one reader for booked: `BOOKED_EVENT_VENDOR_STATUSES`) · kit § 5.3
+SEVERITY  wrong
+SOURCE    SEEN
+
+#### B5-03 · An unknown address at the root crashes (500) instead of "not found"
+PAGE      /{anything} (the shop page and Event Hub route), e.g. `/liwanag-photo-film` (a mistyped shop address)
+BUTTON    — (a mistyped or old shop link)
+STEPS     1. Signed out, open `/liwanag-photo-film` (the shop is really at `/liwanagphotoandfilm`).
+EXPECTED  The "This link can't be found" page with 404, the same answer `/liwanag-photo-film/invite` gives.
+ACTUAL    HTTP 500 after about 18 s. The page draws "Still opening your invitation…" with an "Opening…" button and a
+          Server Components render error in the console. A curl of `/definitely-not-a-shop-xyz` also answers 500. Owned
+          by area 1 or 4 (the root `[slug]` route); passed on. It hits area 5 because a couple who types a shop's address
+          wrongly lands on an endless "opening your invitation".
+SHOTS     checker set: so `_liwanag_photo_film-375-light.png`
+RULE      kit § 5.1 (no 5xx) · CLAUDE.md § 5.4 honest states
+SEVERITY  broken (cross-area)
+SOURCE    SEEN
+
+#### B5-04 · A plan-history row with no total prints "₱0"
+PAGE      /vendor-dashboard/subscription › payment history
+BUTTON    a history row
+STEPS     1. An order whose `requested_total_php` is null (an admin-confirmed ₱0 code, or a row written without a total).
+EXPECTED  "Couldn't read" or the row without an amount; never ₱0 as if it were the price.
+ACTUAL    `formatPhp(Number(o.requested_total_php ?? 0))`: a missing total renders as ₱0.
+CODE      apps/web/app/vendor-dashboard/subscription/_components/plan-screen.tsx · `requested_total_php ?? 0`
+SHOTS     no seeded row of this kind for this shop
+RULE      CLAUDE.md § 1 (a failed read never shows ₱0) · § 5.4
+SEVERITY  money-signin
+SOURCE    CODE (found in phase B)

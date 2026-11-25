@@ -243,7 +243,7 @@ very slow for a signed-in couple. Measured from this cloud container (not from t
 answer; `/details` and `/checklist` ~105 s. A person would give up. Pages with lighter reads (`/budget`,
 `/documents`, `/access-requests`) answer in 2–6 s. It looks like the copy's database (or eight checkers at once)
 rather than the code, but production should be timed the same way before launch. I cut my own load to 2 tabs.
-Later in the day (from roughly 09:00 UTC) the same pages answered in 3–7 s, which points at load on the copy
+Later in the day (from roughly 08:20 UTC) the same pages answered in 3–7 s, which points at load on the copy
 rather than at a page. The per-page "usable in" ranges on the Progress lines span both periods.
 
 ## Phase B · findings seen on the staging copy (`SOURCE: SEEN`, 25 Nov, commit bd86936)

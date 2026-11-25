@@ -422,3 +422,22 @@ Panel (drawing first, owner OK before build): a one-line Setnayan AI bar at the 
 one main button (Ask them all / Review the swap) · a switch per feature (follow-ups, auto-swap, alerts). Each supplier
 card gets a small "AI pick" chip with its reason. Without AI the same bar is an honest preview, "Let Setnayan AI build
 your team · included in Event Pro and Ultra", door to Pricing. Alerts also need a real schedule, not only on page open.
+
+## Add 24 · Features 5–10 re-checked + the AI setup questions (controller audit, main @ bd86936)
+No crons at all (`vercel.json` "crons": []); every reminder fires on a page open or a button press.
+- 5 Payment reminders: PARTLY free (home Budget card lists due/late payments with Pay; supplier/coordinator bell
+  pushes by hand). Only the automatic due-soon notice + email is AI (`ai_payment_due`).
+- 6 Price watch: PARTLY free for BOOKED suppliers (pax surcharge, change order, "Price changed" line). AI only for
+  suppliers still being considered.
+- 7 Availability watch: PARTLY free ("Free on your date / Booked" when you look). The push is AI.
+- 8 Budget fixer: NOT BUILT for events (the math exists only on the public tour, `lib/budget-overspend.ts`).
+- 9 Supplier report card: FREE ALREADY (reply-speed badge, reviews, stars) → drop from the AI list; note the reply
+  badge is on Explore only, not the host's Suppliers pages (free-app gap).
+- 10 Supplier to-do watch: free ghosting nudge exists; a booked supplier's overdue task: not built.
+Onboarding already stores budget (`estimated_budget_centavos`, editable on Budget + Details), guests, date (or date
+options), region/area, venue setting, ceremony, style, wanted categories. NOT captured anywhere: per-category budget
+split, must-haves / deal-breakers, ranked priorities, preferred contact, how far the AI may act alone. No host editor
+for `search_areas`, `venue_name`, `style_preferences`, onboarding categories.
+Proposed "Set up Setnayan AI" (a sheet, pre-filled from onboarding, editable any time from the AI panel's "Your
+setup"): confirm budget · guests · date · area (pre-filled) → top 3 priorities → per-category budget split (suggested,
+adjustable) → must-haves and deal-breakers → how suppliers reach you → "send for me" vs "ask me first". Lane C.

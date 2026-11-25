@@ -1,3 +1,4 @@
+FIXER: batch 1 of ~4 · PR pending (claude/fc-fix-a4-b1) · building
 STATUS: phase B done (25 Nov 08:50 UTC) · pages 37 + 1 forward: 35 walked on the copy, 1 not reachable (/[slug]/cached/[key]: no key), K3 layers on the Hub not walked (A4-B01) · phase B findings 13: blocker 1 (A4-B01, OPEN) · money-signin 0 · broken 2 · wrong 7 · look 3 · phase A confirmed on the copy: A4-01, A4-42, A4-44, A4-73 · phase A struck: "set-password drops ?next" (it keeps it) · not reproduced: A4-06 (no seeded "Anyone, I approve" event) · latent behind flags off on the copy: A4-02, A4-64, A4-77, A4-78 (Papic guest buy) · buttons on walked pages ≈ 120 at 375 · pressed ≈ 100 · failed 9
 
 # Final check · Area 4 · Guest (Event Hub, pass, camera)
@@ -1616,3 +1617,19 @@ Offline tried on the copy (08:40, see Phase B progress): `?tab=program` and `/fi
 - **Addresses:** personal links and QR codes on `/welcome`, `/find-seat` and `/request` must not show `*.vercel.app` (the fallback when `NEXT_PUBLIC_APP_URL` is unset).
 - **Sign-in returns:** `/join/<id>/set-password` through the login bounce (`?next=` is dropped); `/join/<id>/success` signed out (no return path).
 - **Speed:** check `/papic/guest` and `/papic/seat` on slow 3G. They show a cream skeleton, then a black camera (A4-68).
+
+
+## Second pass (25 Nov)
+
+On the pages fixer batch 1 touched (`/[slug]/seat`, `/find-seat`, `/welcome`, `/avatar`, `/pabuya`, `/print`, `/request`, `/invite`, `/join/[eventId]`), against Adds 11, 11b, 12, 13, 15, 17, 18.
+
+- [A] A4-S01 · `/find-seat`, `/welcome`, `/request`, `/invite/enter`, the plus-one seats, the Hub loader · each guest link and QR fell back to `https://setnayan-platform-web.vercel.app` when `NEXT_PUBLIC_APP_URL` is unset → `SITE_URL` (setnayan.com). FIXED in batch 1.
+- [B] Add 15 · the Event Hub's Veil reveal draws its own copy of the Setnayan mark (`app/[slug]/_components/reveal/veil-shared.ts`, used by `veil-reveal.tsx`) → read the mark from the one source (Admin › Business › Default brand icon). Lane B (Add 15 batch).
+- [B] Add 15 · every guest QR (seat pass, door pass, ticket) draws the mark from `lib/qr-style-svg.ts`'s own path data → the one source. Lane B (Add 15 batch).
+- [B] Add 11b · `/[slug]/seat`, `/find-seat`, `/welcome`, `/request` at 1280 are the phone column centred in an empty page; at 768 the same. Should use the width (pass beside the room map on desktop). Reference: iPad Mail split view. Lane B.
+- [B] Add 11 (8) · `/find-seat` door pass: "Show this at the door" chip is a 0.6875 rem label in a bordered pill, not a control — fine; the page's two "Back to the invitation" links sit 1 line apart (two doors, one place). Lane B (one door).
+- [B] Add 12 · `/[slug]/seat` ArrivalBloom plays on every open, not only on arrival day: an arrival flourish on a pass read weeks before. Planned, not built: tie it to `arrived`. Lane B.
+- Add 13 · no missing icons found on these pages (every control uses lucide or the house glyphs).
+- Add 17 · no retired page among them. `/papic/lightcheck` stays R9 (not touched).
+- Add 18 · the guest pages only PLAY the couple's reveal; none offers templates to pick. No finding.
+- Skipped on purpose: A4-31 (`/everyone` host read) — `app/[slug]/a-failed-read-is-not-an-absence.test.ts` records the soft read as deliberate fail-closed (the rest of the list stays hidden), so no change; the wording a host sees on a failed read stays a lane B question.

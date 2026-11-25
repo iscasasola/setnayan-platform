@@ -665,3 +665,12 @@ Owner: "supplier. then clients and events".
 2. **Clients and events next:** lane A (areas 2–4) in batches, plus Add 41 (sponsors into the guest list, a pipeline migration on its own PR, with Checker 2). The Apple upload follows the clients step.
 
 Build-time rule: launch PRs ship in batches (`claude/ship-batch-N`, merge commits, one CI run each). Migrations ship alone. The owner merges.
+
+## Add 45: area 3's five 🟠 items (owner, 26 Nov)
+
+- **E-13 and L-08: a failed plan read never decides anything.**
+  - Show "We couldn't check your plan, try again" and offer a retry.
+  - No upsell, and no paid action, until the plan reads.
+  - A paying user is never shown as Free, and the camera cap and free limits are never applied from a failed read.
+- **S-01: Setnayan AI shows two prices.** The owner will give the exact price. Until then, nothing changes a price; it isn't guessed. Once he does, the price is set in the live price list first, and every screen and checkout reads that one row.
+- **I-02** (lock, price and checkout door before Save) **and M-02** (checkout on top of the ⚙ sheet): after launch, in lane C, each with a drawing first.

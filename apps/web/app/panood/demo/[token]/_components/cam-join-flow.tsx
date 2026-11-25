@@ -1,6 +1,9 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
+import { actionButtonClass } from '@/components/action-button-class';
+import { routes } from '@/lib/routes';
 import { Loader2, Radio, Video, WifiOff } from 'lucide-react';
 import { claimPanoodDemoCamera, getDemoIceServers } from '@/app/_actions/demo-session-actions';
 import { publishDemoCamera, type CameraPublisher, type CamSlot, type PeerConnectionState } from '@/lib/demo-webrtc';
@@ -206,9 +209,10 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
       <>
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Both cameras are taken</h1>
         <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
-          This demo session already has its two cameras. Open a fresh demo from
-          the Live Watch tile on the homepage to start your own.
+          This demo session already has its two cameras. Open Live Watch and press
+          “Try the control room with two phones” to start your own.
         </p>
+        <OpenLiveWatch />
       </>
     );
   }
@@ -218,9 +222,10 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
       <>
         <h1 className="mt-3 text-xl font-semibold tracking-tight">This demo link expired</h1>
         <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
-          Demo codes are fresh every time — open a new one from the Live Watch
-          tile on the Setnayan homepage.
+          Demo codes are fresh every time. Open Live Watch and press “Try the
+          control room with two phones” for a new one.
         </p>
+        <OpenLiveWatch />
       </>
     );
   }
@@ -276,5 +281,15 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
         Live camera — nothing recorded. Close this page and the feed is gone.
       </p>
     </>
+  );
+}
+
+/** The one way on from a full or expired demo: the Live Watch page, where a fresh demo opens (final check A1-032). */
+function OpenLiveWatch() {
+  return (
+    <Link href={routes.liveWatch()} className={`mt-5 ${actionButtonClass('brand', { main: true })}`}>
+      <Radio aria-hidden strokeWidth={1.9} />
+      <span className="lbl">Open Live Watch</span>
+    </Link>
   );
 }

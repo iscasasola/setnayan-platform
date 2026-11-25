@@ -208,7 +208,7 @@ export function ownMessageFromParam(
     if ((own as ReadonlyArray<string>).includes(s)) return s;
   } else {
     const byCode = own as Readonly<Record<string, string>>;
-    if (Object.prototype.hasOwnProperty.call(byCode, s)) return byCode[s];
+    if (Object.prototype.hasOwnProperty.call(byCode, s)) return byCode[s] ?? fallback;
     if (Object.values(byCode).includes(s)) return s;
   }
   for (const [pattern, message] of KNOWN) {

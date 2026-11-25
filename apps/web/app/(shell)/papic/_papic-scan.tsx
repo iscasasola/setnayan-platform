@@ -33,6 +33,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { RotateCw } from 'lucide-react';
+import { actionButtonClass } from '@/components/action-button-class';
 import { startDemoSession, type DemoQrPair } from '@/app/_actions/demo-session-actions';
 import {
   useDemoChannel,
@@ -55,8 +57,38 @@ export function PapicScan() {
   const [remaining, setRemaining] = useState<number | null>(null);
   const [style, setStyle] = useState<string>(DEFAULT_PAPIC_STYLE);
 
+  // 🔒 A PUBLIC PAGE WRITES NOTHING UNTIL A PERSON IS AT THE CODES (final check A1-149, 25 Nov 2026). Minting on
+  // mount wrote a `demo_sessions` row and opened a realtime socket for every visitor and every crawler that runs
+  // scripts. The owner's rule stands (no button: the codes are the door), so the pair is minted only once this block
+  // scrolls into view; a visitor who never reaches it, or a bot that never scrolls, writes nothing. `attempt` re-mints
+  // after a failure (Try again, A1-036).
+  const rootRef = useRef<HTMLDivElement | null>(null);
+  const [inView, setInView] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
+    const el = rootRef.current;
+    if (!el || inView) return;
+    if (typeof IntersectionObserver === 'undefined') {
+      setInView(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setInView(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: '120px 0px' },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [inView]);
+
+  useEffect(() => {
+    if (!inView) return;
     let cancelled = false;
+    setFailed(false);
     startDemoSession('papic', window.location.origin)
       .then((p) => {
         if (!cancelled) setPair(p);
@@ -67,7 +99,7 @@ export function PapicScan() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [inView, attempt]);
 
   // The current style answers a phone's style-request. Held in refs so a
   // setState updater never gains a side effect (house rule).
@@ -106,15 +138,21 @@ export function PapicScan() {
   // happened and leave the rest of the page intact.
   if (failed) {
     return (
-      <p className="rounded-2xl px-5 py-6 text-sm text-[var(--m-slate-2)]">
-        The live codes could not be created just now. Nothing is wrong with your event —
-        this is only the demo on this page.
-      </p>
+      <div ref={rootRef} className="rounded-2xl px-5 py-6 text-sm text-[var(--m-slate-2)]">
+        <p>
+          The live codes could not be created just now. Nothing is wrong with your event —
+          this is only the demo on this page.
+        </p>
+        <button type="button" onClick={() => setAttempt((n) => n + 1)} className={`mt-3 ${actionButtonClass('neutral')}`}>
+          <RotateCw aria-hidden strokeWidth={1.9} />
+          <span className="lbl">Try again</span>
+        </button>
+      </div>
     );
   }
 
   return (
-    <div className="rounded-2xl bg-[rgb(44_42_41/0.025)] px-4 py-5 sm:px-5">
+    <div ref={rootRef} className="rounded-2xl bg-[rgb(44_42_41/0.025)] px-4 py-5 sm:px-5">
       <div className="grid grid-cols-2 gap-4 sm:gap-5">
         {(['a', 'b'] as const).map((role) => (
           <Code

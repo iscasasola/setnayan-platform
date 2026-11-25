@@ -326,3 +326,23 @@ collapse 320 · unwinds counterclockwise 700 (one loop 3,520 ms); 20 px = ring a
 Press = house press (.96 at Tap 100, back at Release 280) + one gold sheen; starts or cancels nothing. After ~8 s one
 line "Still working: …", with a separate Cancel only where stopping is safe. The top-bar still logo is a real Home
 button. It replaces the particle SDLoader look; it reads the mark from Add 15's one source. Build = lane B fix batch.
+
+## Add 17 · Find retired pages; never fix them, list them for deletion (owner, 25 Nov)
+Fixing a page nobody can reach wastes the run. Before filing ANY finding on a page, ask: is it reachable from a live
+door, and is its product still sold? If not, file ONE line under `## Retired candidates (delete, do not fix)` with the
+route, why (no door / flag off for good / product folded into another / owner retired it), and what links to it, and
+file no other findings on it. Fixers skip those pages until the owner rules; the deletion is one batch with forwards.
+Known now (main @ bd86936, owner to rule):
+- `/dashboard/profile/concierge` (Setnayan AI settings): both doors behind `CONCIERGE_ENABLED = false` for good (A2-C11).
+- `/dashboard/[eventId]/studio/setnayan-ai` (the ₱1,499 stand-alone AI buy page): the 4 Nov price sheet says AI is no
+  longer sold alone (it comes inside Event Plus/Pro), yet home cards, Suppliers and onboarding still link here.
+- `/setnayan-ai` (public marketing page): in nav, sitemap and llms.txt; keep or fold into Pricing is the owner's call.
+- The concierge tables are already listed as retired in CONNECTION_MATRIX.
+
+## Add 18 · Reveals are edited in the Event Hub only (owner, 25 Nov)
+The reveal belongs to the Event Hub, where the couple edits the website (`launch/` maker: `maker-reveal.tsx`,
+`stage-panel/reveal-designs-row.tsx`). Any other place that shows reveal templates to PICK is a second copy: today the
+Save the Date builder's Step 5 "Opening (reveal)" (`studio/save-the-date/_components/StdBuilderClient.tsx` →
+`RevealPreviewCard`). File each one; the fix is a link "Choose your reveal in the Event Hub" (deep link to the reveal
+part), never a second picker. Today and Home show at most a status line, never the templates. Held PR #8222 touches
+`reveal-preview-card.tsx` too; it must follow this before it lands.

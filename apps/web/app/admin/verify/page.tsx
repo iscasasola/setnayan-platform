@@ -760,6 +760,7 @@ async function ApplicationsSurface({
     'post_demotion',
   );
 
+  const listUnread = demotedReadFailed || (autoReadFailed && statusParam === 'auto');
   return (
     <>
       <ApplicationsTabs current={statusParam ?? 'pending_review'} />
@@ -793,18 +794,20 @@ async function ApplicationsSurface({
         </FormFlash>
       ) : null}
 
+      {/* A8·E-10: a failed read (the automatic checks on the Auto tab, or the demoted list) shows only its "couldn't
+          load" line — never the empty hint under it (`listUnread`). */}
       {demotedReadFailed ? (
         <FormFlash tone="error">
           The demoted suppliers couldn&apos;t load. Refresh to try again.
         </FormFlash>
       ) : null}
 
-      {/* A8·E-10: a failed read (applications, the automatic checks on the Auto tab, or the demoted list) shows only
-          its "couldn't load" line — never the empty hint under it. */}
-      {appErr || demotedReadFailed || (autoReadFailed && statusParam === 'auto') ? null : shownRows.length === 0 && demotedFallback.length === 0 ? (
-        <p className="rounded-card border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-[color:var(--sn-ink-400)]">
-          {tabFilter.emptyHint}
-        </p>
+      {appErr ? null : shownRows.length === 0 && demotedFallback.length === 0 ? (
+        listUnread ? null : (
+          <p className="rounded-card border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-[color:var(--sn-ink-400)]">
+            {tabFilter.emptyHint}
+          </p>
+        )
       ) : (
         <>
           <ul className="grid gap-3">

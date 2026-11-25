@@ -189,6 +189,10 @@ export async function FocusHome({
   const { now: listed, tomorrow } = splitFocusPutOffs(orderFocusRows(rows), putOff);
 
   const notice = settle ? SETTLE_NOTICES[settle] : undefined;
+  const answerLine =
+    answerRows === null || answerCount === null
+      ? 'Couldn’t read this just now — not the same as none.'
+      : `${formatCount(answerCount)} · answered here`;
 
   return (
     <div className="mx-auto flex w-full max-w-[760px] flex-col pb-36 lg:pb-12" data-admin-focus>
@@ -237,7 +241,7 @@ export async function FocusHome({
           <p className="text-[13px] text-[color:var(--sn-ink-500)]">You asked</p>
           <p className="text-[18px] font-semibold text-[color:var(--sn-ink-900)]">“{answer.question}”</p>
           <p className="text-[13px] text-[color:var(--sn-ink-500)]">
-            {answerRows === null || answerCount === null ? 'Couldn’t read this just now — not the same as none.' : `${formatCount(answerCount)} · answered here`}
+            {answerLine}
           </p>
           <ul>
             {(answerRows ?? []).map((r) => (

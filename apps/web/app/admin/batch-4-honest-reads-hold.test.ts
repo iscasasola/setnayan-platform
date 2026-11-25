@@ -84,7 +84,8 @@ test('B-15 · service requests say what they could not read', () => {
 test('E-10 · Verify shows only the "couldn\'t load" line on a failed read', () => {
   const src = code('app/admin/verify/page.tsx');
   assert.match(src, /\{queryError \? null : vendors\.length === 0 \? \(/);
-  assert.match(src, /appErr \|\| demotedReadFailed \|\| \(autoReadFailed && statusParam === 'auto'\) \? null :/);
+  assert.match(src, /const listUnread = demotedReadFailed \|\| \(autoReadFailed && statusParam === 'auto'\);/);
+  assert.match(src, /demotedFallback\.length === 0 \? \(\s*listUnread \? null : \(/, 'the empty hint waits on a clean read');
   assert.match(src, /error: demotedErr/);
 });
 

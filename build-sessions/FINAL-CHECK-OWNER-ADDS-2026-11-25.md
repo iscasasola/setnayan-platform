@@ -456,3 +456,19 @@ hours, missing items) · negotiation helper (drafts a counter-offer or a package
 broadcast (one change, e.g. guests or time, sent to every affected supplier, confirmations tracked) · day-of supplier
 run sheet (call times and contacts sent to each supplier) · best-date finder (date options where the most top picks
 are free and the total is lowest).
+
+## Add 26 · OWNER RULINGS on the six flagged items (25 Nov: "with all six. Go for it.") — now buildable as lane B
+1. **Memories works like the phone's photo app (A3·P-11 moderation):** open a photo → delete, hide and photo notes are
+   right on it; a "Hidden" album brings hidden photos back. The separate moderation page is no longer the everyday path.
+2. **First-visit tours never block (A3·N-05, and the shared Spotlight tour for EVERY role):** the page works at once;
+   the tour becomes small hints beside the controls, dismissible, no dim, no blocking panel.
+3. **/pricing order (A1-118):** short hero → plans visible without a swipe → why it's worth it → questions. The two
+   extra sections move lower; nothing is deleted. No price or plan content changes (those stay lane C).
+4. **Retire the /pricing first-visit tour (A1-158).**
+5. **Plan quiz and /start as full-screen rises (A1-120):** they KEEP their own address (a shared link, refresh and
+   Back still work; a deep link opens the rise); ✕ returns exactly to where the person was.
+6. **Admin Focus on phone (A8·P-B-20): keep the 14 Nov ruling** (tabs stay behind ☰); only add the current tab's
+   name next to ☰. Not the five-tab bar.
+Still lane C (not covered by this ruling): A6-11 booking ask as a popup (controller recommends keeping the 10 Nov
+RISE FULL SCREEN ruling), A6-71 double-claimed date rule, A6-B14 fee wording, A6-B07 Money line, A1-098 help shell
+caching. A6-B15 Manpower part = R candidate.

@@ -140,7 +140,7 @@ const FAQ = [
   },
   {
     q: 'Where do our colors actually show up?',
-    a: 'Everywhere Setnayan makes something for you. Your save-the-date, your Event Hub, your monogram and your QR codes all dress to match, and the people in your 3D Plan wear the colors you set for their role — so what you see in the room is what you chose here.',
+    a: 'Everywhere Setnayan makes something for you. Your save-the-date, your Event Hub, your logo and your QR codes all dress to match, and the people in your 3D Plan wear the colors you set for their role — so what you see in the room is what you chose here.',
   },
   {
     q: 'Can our suppliers see it?',
@@ -173,7 +173,7 @@ const STEPS = [
   },
   {
     t: 'Everything else dresses to match',
-    d: 'Your save-the-date, your Event Hub, your monogram, your QR codes and the people in your 3D Plan. Your booked suppliers read the same board, and there is a one-page printable for everyone else.',
+    d: 'Your save-the-date, your Event Hub, your logo, your QR codes and the people in your 3D Plan. Your booked suppliers read the same board, and there is a one-page printable for everyone else.',
   },
 ];
 
@@ -219,7 +219,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Everywhere',
     t: 'Everything else dresses to match',
-    d: 'Your save-the-date, your Event Hub, your monogram, your QR codes and the people in your 3D Plan all wear the colors you set here. What you see in the room is what you chose.',
+    d: 'Your save-the-date, your Event Hub, your logo, your QR codes and the people in your 3D Plan all wear the colors you set here. What you see in the room is what you chose.',
     media: { kind: 'photo', src: '/demo/maria-jose/details.webp', alt: 'A wedding invitation with two gold rings, beside a bouquet of white roses' },
   },
   {

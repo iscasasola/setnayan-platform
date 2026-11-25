@@ -74,7 +74,7 @@ export const metadata: Metadata = {
     card: 'summary_large_image',
     title: TITLE,
     description:
-      'Everywhere else, they watch. Here, they book. Chapters are free for storytellers, forever — and your edit stays earning on your own channel.',
+      'Everywhere else, they watch. Here, they book. Chapters are free for storytellers — and your edit stays earning on your own channel.',
     images: ['/brand/og-card-2026-11.png'],
   },
 };

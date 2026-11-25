@@ -44,3 +44,10 @@ test('I-10 · the Default row reads the server default', () => {
   assert.match(sw, /it says \$\{envDefaultOn \? 'on' : 'off'\}/);
   assert.match(code('switches/page.tsx'), /envDefaultOn=\{envFlagEnabled\(process\.env\.SAMPLE_EVENT_ENABLED\)\}/);
 });
+
+test('I-12 · the admin radar copy promises no floor control (none writes radar_min_n_floor)', () => {
+  const card = stripComments(
+    readFileSync(resolve(admin, '..', 'vendor-dashboard/demand/_components/demand-radar-card.tsx'), 'utf8'),
+  );
+  assert.doesNotMatch(card, /lower the floor in platform settings/);
+});

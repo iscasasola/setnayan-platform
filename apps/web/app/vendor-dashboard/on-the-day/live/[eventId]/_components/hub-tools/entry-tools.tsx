@@ -1,20 +1,27 @@
 'use client';
 
 /**
- * THE FOUR ROW TEMPLATES — Checklist · Per-person sheet · Counter · Ordered list — one component each, ONE shared row
- * store, drawn for any hub tool record whose template they are (DECISION_LOG 2026-10-28 "HUB TOOLS (8 TEMPLATES)": "8
+ * THE SIX ROW TEMPLATES — Checklist · Per-person sheet · Live timeline · Counter · Ordered list · Plan (dated) — one
+ * component each, ONE shared row store, drawn for any hub tool record whose template they are (DECISION_LOG 2026-10-28 "HUB TOOLS (8 TEMPLATES)": "8
  * components fed by Admin › Categories › Hub tools, never per-service copies"; drawing `prototypes/hub_tools_working_2026-10-28/`).
  * 23 Nov: Tech rider (checklist) · Personalisation list (per-person) · Quantity vs guests (counter). 24 Nov: the Ordered
- * list (Chair schedule · Reservation slots · Brackets & scoring), ▲ ▼ like the Set list; Brackets keeps a score.
+ * list (Chair schedule · Reservation slots · Brackets & scoring), ▲ ▼ like the Set list; Brackets keeps a score. Part 2:
+ * the Live timeline (seven tools — the time on the left, the NOW row, "Next ›" ticks it, Back un-ticks the last) and the
+ * dated Plan (the Wellness plan — a date and the activity in plain words, no note). A row's time or day is read ONLY
+ * through `rowMinute` / `hhmmOf` / `rowDay` (`lib/hub-tool-entries.ts`), never as the raw `qty`.
  *
  * Every press writes through the ONE dispatcher (`hubToolEntry`, on-the-day/actions.ts) at once; the row moves first and
  * comes back with a plain reason when the write is refused. A row leaves by its swipe, with Undo (owner 2026-11-03:
  * "SWIPE LEFT TO DELETE ON EVERY LIST ROW — NO VISIBLE ✕ ON ROWS"). `save` is the dispatcher unless a lab hands one in.
  */
 import { useEffect, useRef, useState, type ComponentType, type SVGProps } from 'react';
-import { ArrowDown, ArrowUp, Check, Minus, Pencil, Plus } from 'lucide-react';
+import { ArrowDown, ArrowUp, Check, ChevronLeft, ChevronRight, Minus, Pencil, Plus } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
+import { TimeRow } from '@/app/_components/form-row-time';
+import { DateRow } from '@/app/_components/form-row-date';
+import { dayWords } from '@/lib/calendar-grid';
+import { clockWords } from '@/lib/timeline';
 import { SwipeToDelete } from '@/app/_components/swipe-to-delete';
 import { deleteWithUndo } from '@/app/_components/undo/delete-with-undo';
 import { setTwo } from '@/app/vendor-dashboard/_components/set-two/parts';
@@ -25,7 +32,14 @@ import {
   ENTRY_QTY_MAX,
   checklistProgress,
   counterModel,
+  dayQty,
+  hhmmOf,
   initialsOf,
+  minuteQty,
+  rowDay,
+  rowDayNumber,
+  rowMinute,
+  runningOrder,
   type HubToolEntry,
 } from '@/lib/hub-tool-entries';
 import { hubToolEntry, type HubToolEntryResult } from '../../../../actions';
@@ -137,28 +151,36 @@ function AddRow({
   second,
   onAdd,
   addWord = 'Add',
+  when,
 }: {
   name: string;
   placeholder: string;
   /** A second line (the per-person sheet's "what to write"). */
   second?: string;
-  onAdd: (label: string, note: string) => void;
+  /** `at` is the picked time ("14:05") or day ("2026-11-28") when the box asks one; '' otherwise. */
+  onAdd: (label: string, note: string, at: string) => void;
   addWord?: string;
+  /** A time or a day the row needs before it adds (the live timeline · the dated Plan). */
+  when?: WhenAsk;
 }) {
   const [label, setLabel] = useState('');
   const [note, setNote] = useState('');
+  const [at, setAt] = useState('');
   const [round, setRound] = useState(0);
+  const ready = (l: string) => l.trim() !== '' && (!when || at !== '');
   const submit = (typed?: string) => {
     const l = (typed ?? label).trim();
-    if (!l) return;
-    onAdd(l, note.trim());
+    if (!ready(l)) return;
+    onAdd(l, note.trim(), at);
     setLabel('');
     setNote('');
+    setAt('');
     setRound((n) => n + 1); // a fresh, empty row for the next one
   };
   return (
     <div className="mt-3" data-hub-tool-add="">
       <FormRows width="wide" key={round}>
+        {when ? <WhenRow ask={when} value={at} onKeep={setAt} data={`hub-tool-add-${when.kind}`} /> : null}
         <TypedRow
           name={name}
           value={label}
@@ -185,7 +207,7 @@ function AddRow({
         ) : null}
       </FormRows>
       <div className="mt-2 flex justify-end">
-        <ActionButton tone="brand" icon={Plus} label={addWord} onClick={() => submit()} disabled={!label.trim()} data-hub-tool-add-button="" />
+        <ActionButton tone="brand" icon={Plus} label={addWord} onClick={() => submit()} disabled={!ready(label)} data-hub-tool-add-button="" />
       </div>
     </div>
   );
@@ -221,6 +243,7 @@ function EditRow({
   row,
   first,
   second,
+  when,
   onSave,
   onDone,
 }: {
@@ -228,12 +251,15 @@ function EditRow({
   /** The first line's name (default: Name beside a second line, else Item). */
   first?: string;
   second?: string;
+  /** The row's time or day, kept on its own (the live timeline · the dated Plan). */
+  when?: { ask: WhenAsk; value: string; onKeep: (v: string) => void };
   onSave: (label: string, note: string) => void;
   onDone: () => void;
 }) {
   return (
     <div className="px-3 py-2" data-hub-tool-edit="">
       <FormRows width="wide">
+        {when ? <WhenRow ask={when.ask} value={when.value} onKeep={when.onKeep} data={`hub-tool-edit-${when.ask.kind}`} /> : null}
         <TypedRow
           name={first ?? (second ? 'Name' : 'Item')}
           value={row.label}
@@ -576,5 +602,213 @@ function MoveButtons({ row, first, last, onMove }: { row: HubToolEntry; first: b
       <ActionButton tone="neutral" iconOnly icon={ArrowUp} label="Up" name={`Move “${row.label}” up`} disabled={first} onClick={() => onMove(row, 'up')} data-hub-move="up" />
       <ActionButton tone="neutral" iconOnly icon={ArrowDown} label="Down" name={`Move “${row.label}” down`} disabled={last} onClick={() => onMove(row, 'down')} data-hub-move="down" />
     </>
+  );
+}
+
+// ── ③ LIVE TIMELINE — rows by the time they happen; NOW is the first not done, "Next ›" ticks it ────────────────────
+
+/** "When" on an add box or an edited row: a time (the live timeline) or a day (the dated Plan). */
+type WhenAsk = { kind: 'time' | 'day'; name: string };
+
+function WhenRow({ ask, value, onKeep, data }: { ask: WhenAsk; value: string; onKeep: (v: string) => void; data: string }) {
+  return ask.kind === 'time' ? (
+    <TimeRow name={ask.name} value={value} empty="Pick a time" onKeep={(t) => onKeep(t)} data={data} />
+  ) : (
+    <DateRow name={ask.name} value={value || null} empty="Pick a date" onKeep={(d) => onKeep(d)} data={data} />
+  );
+}
+
+/** The NOW (or NEXT) mark on the row the day is at — the drawing's pill. */
+function AtMark({ word }: { word: string }) {
+  return (
+    <span className="shrink-0 rounded-full bg-sn-accent px-2 py-0.5 text-sn-2xs font-bold tracking-wide text-sn-on-accent" data-hub-at="">
+      {word}
+    </span>
+  );
+}
+
+export function LiveTimelineTool({
+  eventId,
+  toolKey,
+  title,
+  icon,
+  initial,
+  save = hubToolEntry,
+  first,
+  placeholder,
+  second,
+  empty,
+}: Common & {
+  /** What a row is (a pick-up, a stop, a cue). */
+  first: string;
+  placeholder: string;
+  /** The second line (a route, the song, who triggers it). */
+  second: string;
+  empty: string;
+}) {
+  const { rows, error, add, patch, remove } = useEntries(eventId, initial, save);
+  const [editing, setEditing] = useState<string | null>(null);
+  const run = runningOrder(rows, rowMinute);
+  const now = run.rows.find((x) => x.now)?.entry ?? null;
+  const lastDone = [...run.rows].reverse().find((x) => x.entry.done)?.entry ?? null;
+  const tick = (row: HubToolEntry, done: boolean) => patch(row.id, { done }, { op: 'tick', done });
+
+  return (
+    <div data-hub-tool={toolKey} data-hub-template="live_timeline">
+      <ToolHead
+        icon={icon}
+        title={title}
+        end={run.total === 0 ? undefined : run.nowId ? `${formatCount(run.done)} of ${formatCount(run.total)} done` : 'All done'}
+      />
+      {rows.length === 0 ? <p data-hub-tool-empty="">{empty}</p> : null}
+      <ul className="-mx-3">
+        {run.rows.map(({ entry: r, when, now: isNow }) =>
+          editing === r.id ? (
+            <li key={r.id}>
+              <EditRow
+                row={r}
+                first={first}
+                second={second}
+                when={{
+                  ask: { kind: 'time', name: 'Time' },
+                  value: hhmmOf(r.qty),
+                  onKeep: (t) => {
+                    const qty = minuteQty(t);
+                    if (qty !== null && t !== hhmmOf(r.qty)) patch(r.id, { qty }, { op: 'count', qty });
+                  },
+                }}
+                onDone={() => setEditing(null)}
+                onSave={(label, note) => patch(r.id, { label, note }, { op: 'edit', label, note })}
+              />
+            </li>
+          ) : (
+            <SwipeToDelete key={r.id} as="li" label={`Remove “${r.label}”`} word="Remove" onDelete={() => remove(r)} radiusClass="" surfaceClass="bg-frame">
+              <div
+                className={`flex min-h-14 items-center gap-2.5 px-3 py-1 transition-opacity duration-sn-micro ${isNow ? 'bg-sn-accent/10' : ''} ${r.done ? 'opacity-50' : ''}`}
+                data-hub-tool-row=""
+                data-hub-timeline-row={isNow ? 'now' : r.done ? 'done' : 'ahead'}
+              >
+                <span className={`w-16 shrink-0 whitespace-nowrap text-sn-md font-bold tabular-nums ${isNow ? 'text-sn-accent' : 'text-ink'}`} data-hub-time="">
+                  {when === null ? '—' : clockWords(when)}
+                </span>
+                <span className={setTwo.rowBody}>
+                  <b className={setTwo.rowTitle}>{r.label}</b>
+                  {r.note ? <span className={setTwo.rowSub}>{r.note}</span> : null}
+                </span>
+                {isNow ? <AtMark word="NOW" /> : null}
+                <ActionButton tone="neutral" iconOnly icon={Pencil} label="Edit" name={`Edit “${r.label}”`} onClick={() => setEditing(r.id)} />
+              </div>
+            </SwipeToDelete>
+          ),
+        )}
+      </ul>
+      {run.total > 0 ? (
+        <div className="mt-3 flex justify-end gap-2">
+          <ActionButton
+            tone="neutral"
+            icon={ChevronLeft}
+            label="Back"
+            name={lastDone ? `Back to “${lastDone.label}”` : 'Back'}
+            disabled={!lastDone}
+            onClick={() => lastDone && tick(lastDone, false)}
+            data-hub-timeline="back"
+          />
+          <ActionButton
+            tone="brand"
+            filled
+            icon={ChevronRight}
+            label="Next"
+            name={now ? `Done with “${now.label}” — next` : 'Next'}
+            disabled={!now}
+            onClick={() => now && tick(now, true)}
+            data-hub-timeline="next"
+          />
+        </div>
+      ) : null}
+      <ErrorLine error={error} />
+      <AddRow
+        name={first}
+        placeholder={placeholder}
+        second={second}
+        when={{ kind: 'time', name: 'Time' }}
+        onAdd={(label, note, at) => {
+          const qty = minuteQty(at);
+          if (qty !== null) add({ toolKey, label, note, qty });
+        }}
+      />
+    </div>
+  );
+}
+
+// ── ⑥ PLAN, DATED — the Wellness plan: sessions by their day, the activity in plain words, ticked when done ─────────
+
+export function DatedPlanTool({
+  eventId,
+  toolKey,
+  title,
+  icon,
+  initial,
+  save = hubToolEntry,
+  first,
+  placeholder,
+  empty,
+}: Common & { first: string; placeholder: string; empty: string }) {
+  const { rows, error, add, patch, remove } = useEntries(eventId, initial, save);
+  const [editing, setEditing] = useState<string | null>(null);
+  const run = runningOrder(rows, rowDayNumber);
+
+  return (
+    <div data-hub-tool={toolKey} data-hub-template="plan">
+      <ToolHead icon={icon} title={title} end={run.total > 0 ? `${formatCount(run.done)} of ${formatCount(run.total)} done` : undefined} />
+      {rows.length === 0 ? <p data-hub-tool-empty="">{empty}</p> : null}
+      <ul className="-mx-3">
+        {run.rows.map(({ entry: r, now: isNext }) => {
+          const day = rowDay(r.qty);
+          return editing === r.id ? (
+            <li key={r.id}>
+              <EditRow
+                row={r}
+                first={first}
+                when={{
+                  ask: { kind: 'day', name: 'Date' },
+                  value: day ?? '',
+                  onKeep: (d) => {
+                    const qty = dayQty(d);
+                    if (qty !== null && d !== day) patch(r.id, { qty }, { op: 'count', qty });
+                  },
+                }}
+                onDone={() => setEditing(null)}
+                onSave={(label) => patch(r.id, { label }, { op: 'edit', label, note: '' })}
+              />
+            </li>
+          ) : (
+            <SwipeToDelete key={r.id} as="li" label={`Remove “${r.label}”`} word="Remove" onDelete={() => remove(r)} radiusClass="" surfaceClass="bg-frame">
+              <div className={`${setTwo.row} !gap-1 !py-0`} data-hub-tool-row="" data-hub-plan-row={isNext ? 'next' : r.done ? 'done' : 'ahead'}>
+                <Tick done={r.done} label={r.label} onPress={() => patch(r.id, { done: !r.done }, { op: 'tick', done: !r.done })} />
+                <span className={setTwo.rowBody}>
+                  <b className={`${setTwo.rowTitle} ${r.done ? 'text-[color:var(--m-slate-2)] line-through' : ''}`}>{r.label}</b>
+                  <span className={setTwo.rowSub} data-hub-day="">
+                    {day ? dayWords(day) : 'No date'}
+                  </span>
+                </span>
+                {isNext ? <AtMark word="NEXT" /> : null}
+                <ActionButton tone="neutral" iconOnly icon={Pencil} label="Edit" name={`Edit “${r.label}”`} onClick={() => setEditing(r.id)} />
+              </div>
+            </SwipeToDelete>
+          );
+        })}
+      </ul>
+      <ErrorLine error={error} />
+      <AddRow
+        name={first}
+        placeholder={placeholder}
+        when={{ kind: 'day', name: 'Date' }}
+        addWord="Add session"
+        onAdd={(label, _note, at) => {
+          const qty = dayQty(at);
+          if (qty !== null) add({ toolKey, label, qty });
+        }}
+      />
+    </div>
   );
 }

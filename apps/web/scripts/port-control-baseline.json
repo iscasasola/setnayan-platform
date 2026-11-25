@@ -78,6 +78,7 @@
         "_components/appointments-section.tsx",
         "_components/ask-submit.tsx",
         "_components/auth/detect-oauth-shell.ts",
+        "_components/auth/forming-mark.tsx",
         "_components/auth/google-address-door.tsx",
         "_components/auth/oauth-terms-line.tsx",
         "_components/auth/sign-in-here-link.tsx",
@@ -86,6 +87,7 @@
         "_components/auth/sign-in-here.tsx",
         "_components/auth/terms-first.tsx",
         "_components/auth/turnstile-field.tsx",
+        "_components/auth/use-email-fold.tsx",
         "_components/auto-preload-on-event-day.tsx",
         "_components/award/award-close.tsx",
         "_components/award/award-copy.ts",
@@ -315,6 +317,7 @@
         "_components/frontdoor/rail-active.ts",
         "_components/frontdoor/rail-data.ts",
         "_components/frontdoor/rail-focus.ts",
+        "_components/frontdoor/rail-home-create.tsx",
         "_components/frontdoor/rail-nav-slots.ts",
         "_components/frontdoor/shell-bleed.ts",
         "_components/frontdoor/shell-page-search.ts",
@@ -1582,6 +1585,7 @@
         "QuoteWhatChanged",
         "RailActiveKeyContext.Provider",
         "RailActiveKeyProvider",
+        "RailHomeCreate",
         "RailIcon",
         "RailMatchRow",
         "Read",
@@ -1950,6 +1954,8 @@
         "StanceChip",
         "SwitchTrack",
         "TermsReacceptSheet",
+        "Unihome",
+        "UnihomeHome",
         "YearMomentsStrip"
       ]
     },
@@ -3313,6 +3319,7 @@
         "[slug]/_lib/event-words.ts",
         "[slug]/_lib/first-screen-fit-dom.ts",
         "[slug]/_lib/first-screen-fit.ts",
+        "[slug]/_lib/forward-old-sub-page.ts",
         "[slug]/_lib/guest-checklist-facts.ts",
         "[slug]/_lib/guest-details-changed.ts",
         "[slug]/_lib/held-pass-name.ts",
@@ -7163,6 +7170,9 @@
         "markAllNotificationsRead",
         "markNotificationRead",
         "removeBrandIcon",
+        "routes.vendorDashboard.deepSearch",
+        "routes.vendorDashboard.profile",
+        "routes.vendorDashboard.subscription",
         "saveAdminDigest",
         "saveBusinessIdentity",
         "saveLoaderAppearance",
@@ -8757,6 +8767,7 @@
         "dashboard/[eventId]/_actions/day-of-broadcast.ts",
         "dashboard/[eventId]/_actions/share-consent.ts",
         "dashboard/[eventId]/_components/access-requests-doorway.tsx",
+        "dashboard/[eventId]/_components/add-to-calendar-link.tsx",
         "dashboard/[eventId]/_components/add-your-own-walk.tsx",
         "dashboard/[eventId]/_components/address-pin-field.tsx",
         "dashboard/[eventId]/_components/after/finished-event-summary.tsx",
@@ -8953,6 +8964,7 @@
         "AddOwnQuotedShop",
         "AddOwnStandIn",
         "AddOwnStep",
+        "AddToCalendarLink",
         "AddressPinField",
         "AfterSummary",
         "AlsoCoversPicker",
@@ -15032,6 +15044,7 @@
       ],
       "blocks": [
         "DesktopOAuthButtons",
+        "FormingMark",
         "GoogleAddressDoor",
         "HTMLDivElement",
         "HTMLFormElement",
@@ -15046,7 +15059,8 @@
         "SignInCardModal",
         "SignInInPlaceState",
         "SubmitButton",
-        "TurnstileField"
+        "TurnstileField",
+        "UseEmailFold"
       ]
     },
     "/onboarding/[type]": {
@@ -16015,7 +16029,7 @@
       ],
       "blocks": [
         "DesktopOAuthButtons",
-        "FirstRunBrand",
+        "FormingMark",
         "GoogleAddressDoor",
         "InfoTip",
         "Link",
@@ -16025,7 +16039,8 @@
         "Sk",
         "SubmitButton",
         "TermsFirst",
-        "TurnstileField"
+        "TurnstileField",
+        "UseEmailFold"
       ]
     },
     "/signup/you": {
@@ -18213,19 +18228,20 @@
       ],
       "destinations": [],
       "actions": [
-        "formAction"
+        "formAction",
+        "routes.vendorDashboard.deepSearch",
+        "routes.vendorDashboard.profile",
+        "routes.vendorDashboard.subscription"
       ],
       "blocks": [
+        "ActionButton",
         "Badge",
         "DeepSearchRunner",
         "DossierView",
         "ListPageSkeleton",
         "PageMasthead",
-        "PaidMark",
-        "PaymentsPausedNote",
         "Section",
         "SharePdfButton",
-        "SubmitButton",
         "VendorDeepSearchActionState"
       ]
     },
@@ -18858,6 +18874,7 @@
         "Answer",
         "AskAccess",
         "AskAccessResult",
+        "AtMark",
         "Badge",
         "Banned",
         "Blob",
@@ -18875,6 +18892,8 @@
         "Coverage",
         "CrewAsks",
         "CueCard",
+        "DateRow",
+        "DatedPlanTool",
         "DayRunOfShow",
         "DietarySheet",
         "Drawn",
@@ -18910,6 +18929,7 @@
         "InfoTip",
         "Link",
         "LiveReviews",
+        "LiveTimelineTool",
         "LockedUpsell",
         "MarchRead",
         "Mark",
@@ -18975,11 +18995,13 @@
         "TemplateFail",
         "TemplateSection",
         "Tick",
+        "TimeRow",
         "ToolHead",
         "TypedRow",
         "UndoToastHost",
         "VendorSpecializationSet",
         "WakeLockSentinel",
+        "WhenRow",
         "YourNumbers"
       ]
     },
@@ -19240,6 +19262,7 @@
         "PriceRail",
         "ProgressRing",
         "QuotesPic",
+        "ReactNode",
         "Reanimate",
         "ReanimateCtx.Provider",
         "RecBox",
@@ -19277,10 +19300,10 @@
         "vendor-dashboard/profile/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/deep-search",
         "/vendor-dashboard/website"
       ],
       "actions": [
+        "routes.vendorDashboard.deepSearch",
         "updateBusinessStartDate"
       ],
       "blocks": [
@@ -19503,6 +19526,7 @@
         "deleteCoverage",
         "deleteVendorService",
         "pickServicesThatStayOn",
+        "routes.vendorDashboard.shop.store.shelf",
         "saveAudience",
         "saveServiceRefinements",
         "setServiceAddons",
@@ -19520,6 +19544,7 @@
         "AddonsEditor",
         "AmountInput",
         "AttributeFieldRenderer",
+        "AvTemplate",
         "AvailabilityBlock",
         "AvailabilityStyle",
         "Basis",
@@ -19640,6 +19665,7 @@
         "Shell",
         "ShowcaseClipField",
         "ShowcaseMediaFields",
+        "Sk",
         "SlotRows",
         "Snapshot",
         "StayForm",
@@ -20320,6 +20346,9 @@
         "vendor-dashboard/shop/store/_components/store-data.ts",
         "vendor-dashboard/shop/store/_components/store-screens.tsx",
         "vendor-dashboard/shop/store/_components/store-views.tsx",
+        "vendor-dashboard/shop/store/_components/template-bar.tsx",
+        "vendor-dashboard/shop/store/_components/template-client.tsx",
+        "vendor-dashboard/shop/store/_components/template-views.tsx",
         "vendor-dashboard/shop/store/_components/widget-guide.tsx",
         "vendor-dashboard/shop/store/page.tsx",
         "vendor-dashboard/shop/store/store-actions.ts"
@@ -20342,7 +20371,9 @@
         "BadgeArt",
         "BadgesShelf",
         "Card",
+        "FormRows",
         "FrontShelf",
+        "GetPill",
         "GraphArt",
         "GraphBlock",
         "GraphItem",
@@ -20357,10 +20388,14 @@
         "InfoTable",
         "ItemStrip",
         "ItemSub",
+        "KindWord",
         "Line",
         "Link",
         "OnPage",
+        "PickMenu",
         "Pill",
+        "PlanBar",
+        "PlanPart",
         "QrArt",
         "QrItem",
         "QrShelf",
@@ -20384,7 +20419,14 @@
         "SupplierThumbRow",
         "SwitchTrack",
         "TagChips",
+        "TemplateArt",
+        "TemplateItem",
+        "TemplatePlanEditor",
+        "TemplateRemove",
         "TemplateRows",
+        "TemplateShelf",
+        "TemplateShelfRow",
+        "TemplateTile",
         "ThumbRow",
         "ToolArt",
         "ToolChip",
@@ -20399,6 +20441,7 @@
         "ToolShelfRow",
         "ToolVideo",
         "ToolsShelf",
+        "TypedRow",
         "WidgetGuideSteps",
         "WidgetShelfList",
         "YourWidgets"
@@ -20508,7 +20551,6 @@
       ],
       "destinations": [
         "/vendor-dashboard/collections",
-        "/vendor-dashboard/deep-search",
         "/vendor-dashboard/on-the-day",
         "/vendor-dashboard/profile",
         "/vendor-dashboard/team"
@@ -20519,6 +20561,7 @@
         "formAction",
         "routes.privacy",
         "routes.terms",
+        "routes.vendorDashboard.deepSearch",
         "startSubscriptionPurchase"
       ],
       "blocks": [

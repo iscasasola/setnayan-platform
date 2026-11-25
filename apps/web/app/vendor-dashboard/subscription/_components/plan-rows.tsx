@@ -1,6 +1,8 @@
+import { routes } from '@/lib/routes';
 import type { ReactNode } from 'react';
 import { BadgeCheck, Camera, CircleX, Images, ReceiptText, Search, Star, Store, Users, type LucideIcon } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
+import { planRenewal } from '@/lib/plan-renewal-words';
 import { DatesRow } from '../../customers/_components/dates-row';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
 import { formatCount } from '@/lib/format-number';
@@ -20,9 +22,9 @@ import { CLIENTS_FOOTNOTE } from '@/lib/supplier-client-room';
  *   Booking fee — the live schedule · "N of 5 used" / Waived   (`bookingFeeRow`)
  *   What <plan> gives you ▾ — read from the plan table         (`planGivesLines`)
  *   Receipts ▾ — paid plan orders, each to /receipts/<id>
- *   Deep Search › (every plan) · Extra seats and branches › (Ultra) · what was bought before the 2026-11-14 fold,
+ *   Deep Search › (what the paid plans include — never a price since 2026-11-22) · Extra seats and branches › (Ultra) · what was bought before the 2026-11-14 fold,
  *   while it runs · Papic credits › (Event Hub) · Featured by Setnayan ·
- *   Cancel the plan (nothing renews by itself). (The "Custom plan ›" row went 2026-11-06 with the Custom plan.)
+ *   Cancel the plan (`planRenewal`: nothing renews by itself on the web; an Apple plan in the app renews). (The "Custom plan ›" row went 2026-11-06 with the Custom plan.)
  *
  * Presentational: every value arrives read; nothing here fetches or writes. The page and `/dev/supplier-plan-lab`
  * both mount it, so the lab shows what ships.
@@ -50,6 +52,7 @@ export function PlanRows({
   extras = null,
   bought = [],
   titled = true,
+  appleSells = false,
 }: {
   tier: string;
   pays: string;
@@ -76,7 +79,7 @@ export function PlanRows({
    * Files · Records. null = the plan has no allowance and the block is not drawn.
    */
   storage?: StorageBreakdownRead | null;
-  /** 💳 Deep Search, the one thing every plan still buys (2026-11-14): its catalogue price; null = not drawn. */
+  /** 🔎 Deep Search: what Plus, Pro and Ultra include each month (owner 2026-11-22 — not sold); null = not drawn. */
   deepSearch?: { line: string } | null;
   /** 💳 Ultra's extra seats and branches (2026-11-14); null on every other plan. */
   extras?: { line: string } | null;
@@ -84,7 +87,10 @@ export function PlanRows({
   bought?: readonly { key: string; title: string; line: string }[];
   /** False inside the Shop ⚙'s "Plan and billing" fold — the fold names it (2026-10-31). */
   titled?: boolean;
+  /** 🔁 `getIapGate().iap` — in the app with Apple on, a plan renews through Apple (lib/plan-renewal-words.ts). */
+  appleSells?: boolean;
 }) {
+  const renewal = planRenewal(appleSells);
   return (
     <>
       {titled ? <h1 className="sn-h1">Your plan</h1> : null}
@@ -160,10 +166,11 @@ export function PlanRows({
         </div>
 
         {/* 💳 The "Add-ons" row became what is left to buy (owner 2026-11-14, DECISION_LOG "SIMPLER SUPPLIER PLANS",
-            drawing § 3): Deep Search on every plan; on Ultra, extra seats and branches. The chatbot, specialized tools,
-            3D booth and Papic Challenges are not bought any more — they are under "What <plan> gives you". */}
+            drawing § 3): Deep Search's monthly searches (included, never sold — 2026-11-22); on Ultra, extra seats and
+            branches. The chatbot, specialized tools, 3D booth and Papic Challenges are not bought any more — they are
+            under "What <plan> gives you". */}
         {deepSearch ? (
-          <DatesRow data="plan-deep-search" lead={ic(Search)} title="Deep Search" line={deepSearch.line} href="/vendor-dashboard/deep-search" />
+          <DatesRow data="plan-deep-search" lead={ic(Search)} title="Deep Search" line={deepSearch.line} href={routes.vendorDashboard.deepSearch()} />
         ) : null}
         {extras ? (
           <DatesRow data="plan-extras" lead={ic(Users)} title="Extra seats and branches" line={extras.line} href="/vendor-dashboard/team" />
@@ -195,14 +202,9 @@ export function PlanRows({
           // L-6 (supplier audit 2026-11-17): "Cancel the plan" read as a door and did nothing (no href) — it is a
           // statement of how stopping works, worded as one. L-7: the ~85-character line was cut off at 390 px and the
           // END DATE was the part lost — it now leads with the date.
-          title="Nothing renews by itself"
-          line={
-            isPaid
-              ? expiresOn
-                ? `Free after ${expiresOn} if you skip the next payment`
-                : 'Free once your paid days end, if you skip the next payment'
-              : 'You are on Free — there is nothing to cancel'
-          }
+          // 🔁 One source (lib/plan-renewal-words.ts): the web never renews; an Apple plan in the app does.
+          title={renewal.title}
+          line={isPaid ? renewal.howToStop(expiresOn) : 'You are on Free — there is nothing to cancel'}
         />
       </div>
     </>

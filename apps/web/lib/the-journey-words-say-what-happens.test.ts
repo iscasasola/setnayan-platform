@@ -51,7 +51,12 @@ function emailExamples(src: string): string[] {
 test('every account door shows one email example, and it is not an address we own', () => {
   const examples = DOORS.flatMap((d) => emailExamples(read(d)).map((e) => ({ door: d, e })));
   assert.ok(examples.length >= DOORS.length, `expected an email example on each of ${DOORS.length} doors, found ${examples.length}`);
-  const distinct = [...new Set(examples.map((x) => x.e))];
+  // The two simple cards' main boxes say what they hold — "Email" — and show no example at all (owner 24 Nov 2026,
+  // DECISION_LOG "Sign in and Create account: simple, dark, a forming logo"). Every door that DOES show an example
+  // still shows the one neutral one.
+  const named = examples.filter((x) => x.e === 'Email');
+  assert.ok(named.some((x) => x.door === 'app/signup/page.tsx') && named.some((x) => x.door === 'app/login/_components/sign-in-card.tsx'), 'the simple cards\' email box says "Email"');
+  const distinct = [...new Set(examples.filter((x) => x.e !== 'Email').map((x) => x.e))];
   assert.equal(distinct.length, 1, `the doors disagree on the example: ${JSON.stringify(examples)}`);
   assert.doesNotMatch(distinct[0]!, /@[^@]*setnayan/i, `the example "${distinct[0]}" is on our own domain`);
 });

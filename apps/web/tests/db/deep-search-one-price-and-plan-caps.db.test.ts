@@ -3,7 +3,7 @@
  * (migration 20271335272180_deep_search_one_price_and_plan_caps.sql; DECISION_LOG rows dated 2026-11-09, 🔎💳 and 💳⬢).
  *
  * Runs on the PGlite replay of every migration, so it reads the rows the pipeline will leave in production:
- *   1 · one Deep Search row on sale, and it is the row the app charges from on EVERY plan;
+ *   1 · the one Deep Search row — since 2026-11-22 RETIRED (no longer sold; the paid plans include it monthly);
  *   2 · the ₱799 entry row is RETIRED — never deleted — and points at it;
  *   3 · the AI chatbot keeps BOTH its price rows (owner: "AI chatbot keeps ₱1,490 … and ₱1,990") — off sale since
  *       2026-11-14 ("SIMPLER SUPPLIER PLANS": folded into Pro and Ultra);
@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 import { TIER_CAPS } from '../../lib/vendor-tier-caps';
-import { VENDOR_ADDON_BAND_SKU_CODES, vendorAddonSkuCode } from '../../lib/vendor-addon-tier-pricing';
+import { VENDOR_ADDON_BAND_SKU_CODES } from '../../lib/vendor-addon-tier-pricing';
 import { VENDOR_DEEP_SEARCH_SKU_CODE } from '../../lib/vendor-deep-search-addon';
 
 let replay: ReplayResult;
@@ -48,15 +48,17 @@ async function row(sku: string): Promise<Row | undefined> {
   return r.rows[0];
 }
 
-test('1 · ONE Deep Search row, on sale at ₱499.00, charged on every plan', async () => {
+test('1 · the Deep Search row is RETIRED (owner 2026-11-22, "Retire it") — kept, never deleted, never sold', async () => {
+  // ⚖ Superseded 2026-11-22 (DECISION_LOG ✂️ "DEEP SEARCH IS RETIRED"): the ₱499 sale ends; the paid plans include
+  // Deep Search monthly (migration *_deep_search_sale_retired_monthly_allowance.sql — pinned in
+  // deep-search-is-included-monthly.db.test.ts). The row stays: orders already paid still name it.
   const r = await row(VENDOR_DEEP_SEARCH_SKU_CODE);
-  assert.ok(r, 'the vendor_deep_search row is missing');
-  assert.equal(Number(r.price_php), 499);
-  assert.equal(r.is_active, true);
-  assert.equal(r.retired_at, null);
-  for (const tier of ['free', 'verified', 'solo', 'pro', 'enterprise']) {
-    assert.equal(vendorAddonSkuCode('deep_search_about_you', tier), VENDOR_DEEP_SEARCH_SKU_CODE, tier);
-  }
+  assert.ok(r, 'the vendor_deep_search row was deleted — retire it, never delete it');
+  assert.equal(r.is_active, false, 'Deep Search is on sale again');
+  assert.notEqual(r.retired_at, null);
+  assert.match(r.retirement_reason ?? '', /Retire it/);
+  assert.equal(Number(r.price_php), 499, 'the retired row keeps the price it was sold at');
+  assert.equal('deep_search_about_you' in VENDOR_ADDON_BAND_SKU_CODES, false, 'the app prices Deep Search again');
 });
 
 test('2 · the ₱799 entry row is RETIRED into it — never deleted', async () => {

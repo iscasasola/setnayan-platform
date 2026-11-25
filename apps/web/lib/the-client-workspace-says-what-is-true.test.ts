@@ -127,7 +127,8 @@ test('7c · what changed and side by side say the unpriced transport as it is (r
 test('8 · with no real count the Quotation says "No count yet", and the thread page says when the count is real', () => {
   const maker = read('app/_components/proposal-maker.tsx');
   const row = maker.slice(maker.indexOf('data-quote-live-pax='), maker.indexOf('data-quote-live-pax=') + 200);
-  assert.match(row, /\{paxKnown \? formatCount\(seedPax\) : 'No count yet'\}/, 'the row draws the stand-in seed as their list');
+  assert.match(row, /data-quote-live-pax=""[^>]*>\s*\{formatCount\(seedPax\)\}/, 'the row draws the stand-in seed as their list');
+  assert.match(maker, /data-quote-live-pax="none"[^>]*>\s*No guest count yet/, 'with no count the row stops saying so');
   assert.match(maker, /paxKnown = true,/);
   const thread = read('app/vendor-dashboard/messages/[threadId]/page.tsx');
   assert.match(thread, /paxKnown=\{guestCounts\.atInquiry != null \|\| guestCounts\.live != null\}/, 'the thread page never says whether the count is real');

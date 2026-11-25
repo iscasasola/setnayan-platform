@@ -7,7 +7,6 @@ import { MenuSettingsButton } from '@/app/_components/menu-settings-button';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { DatesRow } from '../../customers/_components/dates-row';
-import { walletRowTitle } from '@/lib/shop-wallet';
 import { portfolioCountLabel } from '@/lib/portfolio-count-label';
 import { COLLECTION_SECTION_NAME as SECTION_NAME, WHO_BADGE, collectionRows, type CollectionsInput } from '@/lib/supplier-collections';
 import { draftLine, pruneDraft, withDraft, type PageSaved } from '@/lib/supplier-page-draft';
@@ -30,15 +29,12 @@ export const SHOW_NONE = 'none';
  *   · 🔑 THE PAGE DROPDOWN IS A PAGE DRAFT CHANGE, NOT A SAVE — the same browser draft Your page applies (`usePageDraft`),
  *     so nothing reaches couples until Apply on Your page: "Shown on your page after Apply", word for word as before.
  *   · Show plays: ONE dropdown (approved (5)) — it was the ✓ circle on every row. The ▶ stays in the thumb row's menu.
- * THE SHOP'S FREE ROOM — as shipped: "12 of 50 free photos" and the rule in the uploader's words; the shop wallet;
- * Storage plans NOT ON SALE YET (no price shown or typed). ✂ No "What Show includes" toggles (map row 70 INVENTED).
+ * THE SHOP'S PHOTOS — "12 photos" and the rule in the uploader's words (no count since 2026-11-23: storage is the only
+ * limit); Storage plans NOT ON SALE YET (no price shown or typed). ✂ No "What Show includes" toggles (map row 70 INVENTED).
  * 🔒 collections/the-portfolio-is-collections.test.ts · website/your-page-applies-once.test.ts
  */
 export function PortfolioSettings({
   photos,
-  free,
-  allowanceUnread,
-  walletBalance,
   cover = false,
   vendorId,
   input,
@@ -51,9 +47,6 @@ export function PortfolioSettings({
   /** Drawn on the Portfolio band: the cover's ink (`MenuSettingsButton`'s own `cover` look). */
   cover?: boolean;
   photos: number;
-  free: number;
-  allowanceUnread: boolean;
-  walletBalance: number | null;
   vendorId: string;
   input: CollectionsInput;
   saved: PageSaved;
@@ -70,7 +63,6 @@ export function PortfolioSettings({
   const shown = withDraft(saved, draft);
   const rows = collectionRows({ ...input, page: { ...input.page, shown: shown.sections.portfolio } });
   const waiting = draftLine(draft, saved);
-  const nf = (x: number) => x.toLocaleString('en-PH');
 
   const togglePage = (next: boolean) => {
     if (next === shown.sections.portfolio) return;
@@ -153,10 +145,9 @@ export function PortfolioSettings({
         <div className="divide-y divide-ink/10">
           <DatesRow
             data="portfolio-free"
-            title={allowanceUnread ? 'Couldn’t read your photo allowance' : portfolioCountLabel(photos, free)}
-            line={`The first ${nf(free)} are free. After that each photo uses 1 Papic credit from your shop wallet — paid once, kept while your shop exists. Taking one off frees a free spot.`}
+            title={portfolioCountLabel(photos)}
+            line="No limit on portfolio photos — your plan’s storage is the only one. Taking one off frees its space."
           />
-          <DatesRow data="portfolio-wallet" title={walletRowTitle(walletBalance)} line={walletBalance == null ? 'Couldn’t read your wallet just now' : 'Pays for photos past your free room'} />
           <DatesRow data="portfolio-storage" title="Storage plans" line="Not on sale yet" />
         </div>
       </div>

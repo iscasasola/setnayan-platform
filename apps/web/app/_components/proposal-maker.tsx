@@ -75,6 +75,8 @@ import {
   FIRST_OPEN,
   billedPax,
   lineIsOpen,
+  needsGuestCount,
+  openingPax,
   presetClash,
   quoteMoney,
   seedMinPax,
@@ -467,7 +469,7 @@ export function ProposalMaker({
    * ⚠ NO LONGER THE SEED. It is the historical figure the header names beside
    * the live one, and the fallback when no live count exists.
    */
-  requestedPax: number;
+  requestedPax: number | null;
   /**
    * What the couple is planning for NOW — and, since 2026-09-09, WHAT THE
    * BUILDER OPENS AT (owner decision; binding prototype
@@ -535,7 +537,8 @@ export function ProposalMaker({
     ⚠ THIS IS THE NUMBER THE FIRST QUOTE IS PRICED AGAINST, so it is read once,
     here, and named in the header rather than left to be inferred.
   */
-  const seedPax = livePax ?? requestedPax;
+  // 👥 No guessed count (supplier walk 24 Nov): null = "no guest count yet", never a typed stand-in (`openingPax`).
+  const seedPax = paxKnown ? openingPax(livePax, requestedPax) : null;
   /*
     👥 PAX FOLLOWS THEIR GUEST LIST (owner 12 Nov 2026, verbatim: *"our quotation maker will follow their pax at auto.
     but they will set the minimum count for their pax. it only goes up as their guests go up."*). No guests stepper:
@@ -543,7 +546,7 @@ export function ProposalMaker({
     billed = max(their count, the minimum). A revision opens at the minimum the replaced quote was sent with.
   */
   const [minPax, setMinPax] = useState(() => revision?.minPax ?? 0);
-  const pax = billedPax(seedPax, minPax);
+  const pax = billedPax(seedPax ?? 0, minPax);
   const [hours, setHours] = useState(requestedHours);
   // 🪗 One line open at a time, the first open; the heading's icon opens / folds every line (owner 12 Nov).
   const [fold, setFold] = useState<LineFold>(FIRST_OPEN);
@@ -553,6 +556,8 @@ export function ProposalMaker({
   // 📅 An early Send shakes the Valid until row (design 12 Nov); the server refuses a blank one regardless.
   const [validNudge, setValidNudge] = useState(0);
   const validRowRef = useRef<HTMLDivElement>(null);
+  // 👥 The "Bill at least" row — an early Send on a per-guest quote with no count brings it into view (walk 24 Nov).
+  const minPaxRowRef = useRef<HTMLDivElement>(null);
   const [items, setItems] = useState<Line[]>(() =>
     revision && revision.lines.length > 0
       ? revision.lines.map((s) => ({ ...s, key: nextKey() }))
@@ -670,7 +675,7 @@ export function ProposalMaker({
     those are no longer the same number.
   */
   /** The live count and the inquiry count actually differ and both are known. */
-  const countsDiffer = livePax != null && livePax !== requestedPax;
+  const countsDiffer = livePax != null && requestedPax != null && livePax !== requestedPax;
 
   // 🏷 The quote's card names (the offer's "on <card> only") and the gift names an offer's gifts are drawn with.
   const cardName = (id: string) => cards.find((c) => c.id === id)?.label ?? 'its card';
@@ -998,7 +1003,7 @@ export function ProposalMaker({
         */
         shopGiftCodes,
         /* 👥 What this quote billed against their guest list, and the ONE minimum — `merge_snapshot` (owner 12 Nov). */
-        pax: { live: seedPax, min: minPax, billed: pax },
+        pax: { live: seedPax ?? 0, min: minPax, billed: pax },
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `cards`/`pickedCards` are read for serviceCardIds as before
     [lineItems, validUntil, title, note, scheduleDraft, selectedMethodIds, giftSwitch, shopGiftCodes, seedPax, minPax, pax],
@@ -1342,7 +1347,7 @@ export function ProposalMaker({
     window.history.replaceState(window.history.state, '', `${u.pathname}${u.search}${u.hash}`);
     const draft = kept ? parseSavedQuoteDraft(kept.draft) : null;
     const kMin = typeof kept?.minPax === 'number' && kept.minPax > 0 ? kept.minPax : minPax;
-    const kPax = billedPax(seedPax, kMin);
+    const kPax = billedPax(seedPax ?? 0, kMin);
     const kHours = typeof kept?.hours === 'number' && kept.hours > 0 ? kept.hours : hours;
     if (draft) applySavedDraft(draft);
     if (kept?.title) setTitle(kept.title);
@@ -1511,6 +1516,16 @@ export function ProposalMaker({
     }
   };
 
+  /** An early Send on a per-guest quote that bills nobody: bring "Bill at least" into view and focus it. */
+  const nudgeGuestCount = () => {
+    const row = minPaxRowRef.current;
+    if (!row) return;
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    row.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
+  };
+  /** 👥 Per-guest lines with no count and no minimum — Send waits (the send core refuses it too). */
+  const guestCountMissing = needsGuestCount(lineItems, pax);
+
   /** The couple's card for this draft once sent — the same rule their conversation reads. */
   const coupleCard = quoteCardState({ status: 'sent', isLatest: true, viewer: 'couple' });
 
@@ -1673,11 +1688,18 @@ export function ProposalMaker({
                 {countsDiffer ? <> · was {formatCount(requestedPax)} at inquiry</> : null}
               </span>
             </span>
-            <strong className="font-serif text-lg tabular-nums text-ink" data-quote-live-pax={paxKnown ? '' : 'none'}>
-              {paxKnown ? formatCount(seedPax) : 'No count yet'}
-            </strong>
+            {/* A count is a figure; "No guest count yet" is words — body size, one line (re-walk 24 Nov, fault 3). */}
+            {seedPax != null ? (
+              <strong className="font-serif text-lg tabular-nums text-ink" data-quote-live-pax="">
+                {formatCount(seedPax)}
+              </strong>
+            ) : (
+              <strong className="shrink-0 whitespace-nowrap text-sm font-semibold text-ink" data-quote-live-pax="none">
+                No guest count yet
+              </strong>
+            )}
           </div>
-          <div className="flex min-h-[52px] items-center justify-between gap-3">
+          <div ref={minPaxRowRef} className="flex min-h-[52px] items-center justify-between gap-3" data-quote-min-pax-row="">
             <span className="min-w-0">
               <span className="block text-sm text-ink">Bill at least</span>
               <span className="block text-xs text-ink/55">your minimum · one for the whole quote</span>
@@ -1715,16 +1737,24 @@ export function ProposalMaker({
             <span className="min-w-0">
               <span className="block text-sm text-ink">Billed</span>
               <span className="block text-xs text-ink/55">
-                {!paxKnown
-                  ? 'no count from them yet'
-                  : pax > seedPax
-                    ? 'your minimum · above their list'
-                    : 'their list · at or above your minimum'}
+                {pax === 0
+                  ? 'set Bill at least to price per-guest lines'
+                  : seedPax == null
+                    ? 'your minimum · no count from them yet'
+                    : pax > seedPax
+                      ? 'your minimum · above their list'
+                      : 'their list · at or above your minimum'}
               </span>
             </span>
-            <strong className="font-serif text-lg tabular-nums text-ink" data-quote-billed-pax="">
-              {formatCount(pax)} <span className="text-xs font-normal text-ink/55">pax</span>
-            </strong>
+            {pax === 0 ? (
+              <strong className="shrink-0 whitespace-nowrap text-sm font-semibold text-ink" data-quote-billed-pax="none">
+                No guest count yet
+              </strong>
+            ) : (
+              <strong className="font-serif text-lg tabular-nums text-ink" data-quote-billed-pax="">
+                {formatCount(pax)} <span className="text-xs font-normal text-ink/55">pax</span>
+              </strong>
+            )}
           </div>
           <div className="flex min-h-[52px] items-center justify-between gap-3">
             <span className="min-w-0">
@@ -3032,7 +3062,21 @@ export function ProposalMaker({
           </button>
           {/* 📅 SEND WAITS FOR VALID UNTIL (9 Nov "no lifetime quotation"; design 12 Nov): dimmed until it is set, and an
               early press shakes the row and says why — the server refuses a blank one regardless (`validUntilRefusal`). */}
-          {sendGate(validUntil).ready ? (
+          {guestCountMissing ? (
+            <button
+              type="button"
+              form={formId}
+              onClick={nudgeGuestCount}
+              aria-describedby={`${formId}-pax-why`}
+              data-quote-send="needs-guest-count"
+              className="inline-flex h-11 shrink-0 items-center gap-2 rounded-xl bg-mulberry px-5 text-sm font-semibold text-cream opacity-45"
+            >
+              Send quote
+              <span id={`${formId}-pax-why`} className="sr-only">
+                No guest count yet — set Bill at least first
+              </span>
+            </button>
+          ) : sendGate(validUntil).ready ? (
             <SubmitButton
               form={formId}
               pendingLabel="Sending…"

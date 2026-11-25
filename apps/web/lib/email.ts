@@ -2,6 +2,7 @@ import 'server-only';
 import { resolveResendConfig, isResendConfigured } from '@/lib/integration-config';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
 import { recordDelivery } from '@/lib/email-delivery.server';
+import { stagingEmailRoute } from '@/lib/staging-locks';
 
 export type SendEmailArgs = {
   to: string;
@@ -68,7 +69,17 @@ export async function sendEmail(args: SendEmailArgs): Promise<SendEmailResult> {
   if (isPlaceholderEmail(args.to)) {
     return { ok: false, reason: 'placeholder_recipient' };
   }
-  const result = await sendViaResend(args);
+  /*
+    🔒 STAGING LOCK (a) — on a staging copy (STAGING=1) an email reaches ONLY the allowlisted test inbox
+    STAGING_EMAIL_SINK (the real recipient masked into the subject), or nobody: with no valid sink it is dropped, and
+    the drop is logged below like any other attempt (outcome not_configured, the reason in `error`). Here, at the one
+    function every email goes through, so no sender can slip past it. Outside staging the route is the address and
+    subject exactly as given (lib/staging-locks.ts).
+  */
+  const route = stagingEmailRoute(args, process.env);
+  const result: SendEmailResult = route.send
+    ? await sendViaResend({ ...args, to: route.to, subject: route.subject })
+    : { ok: false, reason: 'not_configured', error: route.why };
   /*
     📬 EVERY EMAIL SAYS WHETHER IT ARRIVED (2026-09-18). Until now the id or
     the reason below went back to 29 caller files and every one dropped it, so

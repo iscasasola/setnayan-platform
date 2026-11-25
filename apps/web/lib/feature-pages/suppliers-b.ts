@@ -1,4 +1,5 @@
 import type { FeaturePageEntry } from './types';
+import { NOTHING_RENEWS, planRenewal } from '@/lib/plan-renewal-words';
 import { FEE_FREE_RULE, FEE_FREE_RULE_TL, FEE_SCOPE } from '@/lib/booking-fee-who-words';
 
 /**
@@ -154,11 +155,11 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
     line: { en: 'Free with Verified, then Plus, Pro and Ultra for a bigger shop.', tl: 'Free kasama ang Verified, tapos Plus, Pro at Ultra para sa mas malaking shop.' },
     title: { en: 'Supplier Plans: Free, Plus, Pro and Ultra', tl: 'Supplier Plans: Free, Plus, Pro at Ultra' },
     description: {
-      en: 'Run your bookings free. Verified opens your reach; Plus, Pro and Ultra add live cards, team seats and branches. Nothing renews by itself.',
+      en: `Run your bookings free. Verified opens your reach; Plus, Pro and Ultra add live cards, team seats and branches. ${NOTHING_RENEWS}.`,
       tl: 'Libre ang bookings. Verified ang nagbubukas ng abot mo; may dagdag na live cards, seats at branches ang Plus, Pro at Ultra. Walang kusang nagre-renew.',
     },
     answer: {
-      en: 'Setnayan has four supplier plans: Free, Plus, Pro and Ultra. Free costs nothing, for good, includes the full dashboard, and is where you get Verified. Your reach comes from getting Verified, on any plan. The paid plans add categories, service cards, team seats and branches — never the right to take bookings. Paid plans are billed monthly, and nothing renews by itself.',
+      en: `Setnayan has four supplier plans: Free, Plus, Pro and Ultra. Free costs nothing, for good, includes the full dashboard, and is where you get Verified. Your reach comes from getting Verified, on any plan. The paid plans add categories, service cards, team seats and branches — never the right to take bookings. Paid plans are billed monthly, and ${planRenewal(false).inline}.`,
       tl: 'Apat ang supplier plans ng Setnayan: Free, Plus, Pro at Ultra. Libre ang Free, habambuhay, kasama ang buong dashboard, at dito ka nagpapa-Verified. Sa pagpa-Verified nanggagaling ang abot mo, sa kahit anong plan. Nagdadagdag ang paid plans ng categories, service cards, team seats at branches — hindi ang karapatang tumanggap ng booking. Buwanan ang bayad sa paid plans, at walang kusang nagre-renew.',
     },
     forWho: {
@@ -174,7 +175,7 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
         'Couples pay you directly to your GCash or bank; Setnayan never takes a cut of the deal.',
         `The booking fee applies to every booking, ${FEE_SCOPE}.`,
         FEE_FREE_RULE,
-        'Nothing renews by itself: skip a payment and you are back on Free.',
+        `${NOTHING_RENEWS}: skip a payment and you are back on Free.`,
       ],
       tl: [
         'Direkta kang binabayaran ng couples sa GCash o bank mo; hindi kumukuha ang Setnayan ng parte sa deal.',

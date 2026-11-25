@@ -1,0 +1,4 @@
+- **/download:** the system requirements now read "For Live Watch only · Live Watch system requirements", with one line saying they are only for streaming and planning needs no install (owner, 24 Nov: the Mac app goes to the App Store; this download stays as the Live Watch encoder for streamers). Words only; no layout change.
+- **Offline bar:** the global bar now reads "You're offline". It no longer promises "changes will save when you're back", which was false on most pages (specs DECISION_LOG cfd9bbdf, 9366a4d3 "Offline is LIMITED"). "Back online ✓" is unchanged. `the-moments-move-by-the-standard.test.ts` pins the exact words and fails if any save, sync or queue promise comes back in the bar.
+
+SPEC IMPACT: None (both are copy fixes the owner already ruled on, 24 Nov; the full /download redo is a drawing first).

@@ -1462,12 +1462,14 @@ async function deactivateSpecializedToolsOrder(ctx: ActivationContext): Promise<
 }
 
 /**
- * Deep Search (vendor-facing) — on approval of a ₱500 apply-then-pay order, RUN
+ * Deep Search (vendor-facing) — on approval of an apply-then-pay order, RUN
  * the web-research deep search on the paying vendor's OWN business and record it
- * (owner 2026-07-22). Pay-then-run: there is no pre-paid credit ledger to draw
- * from, so the paid run happens HERE, at approval, reusing the same engine +
- * store as the free-search run action (runAndRecordVendorDeepSearch, was_free=
- * false). The resulting dossier is what the vendor's Deep Search surface renders.
+ * (owner 2026-07-22). ⚖ Since 2026-11-22 (DECISION_LOG ✂️ "DEEP SEARCH IS
+ * RETIRED") nothing new is sold: the paid plans include monthly searches, run by
+ * the run action. This hook stays ONLY so an order somebody paid for before the
+ * retirement still runs its one search, reusing the same engine + store
+ * (runAndRecordVendorDeepSearch, was_free=false). The resulting dossier is what
+ * the vendor's Deep Search surface renders.
  *
  * Reads the paying vendor + user off the order, snapshots their current profile
  * facts, and runs. IDEMPOTENT two ways: a prior 'service_activated' ledger row
@@ -1653,9 +1655,9 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // activatePhotoChallengeSponsorship.
   [VENDOR_PHOTO_CHALLENGE_SKU_CODE]: activatePhotoChallengeSponsorship,
 
-  // 'vendor_deep_search' → paid (₱500) vendor Deep Search. Runs the research on
-  // approval + records was_free=false (pay-then-run). See
-  // activateVendorDeepSearchOrder.
+  // 'vendor_deep_search' → a Deep Search bought before the sale retired
+  // (2026-11-22). Runs the research on approval + records was_free=false
+  // (pay-then-run). Nothing new carries this key. See activateVendorDeepSearchOrder.
   [VENDOR_DEEP_SEARCH_SKU_CODE]: activateVendorDeepSearchOrder,
 
   // 'vendor_papic_portfolio_pack' → VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS Papic

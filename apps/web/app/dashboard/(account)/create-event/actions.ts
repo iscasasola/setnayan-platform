@@ -21,6 +21,7 @@ import {
 } from '@/lib/event-recurrence';
 import { isGatedLifeType } from '@/lib/life-event-gate';
 import { resolveEventHonoree } from '@/lib/honoree-dependent-link';
+import { forWhomToStore } from '@/lib/event-for-whom';
 import { authorizePlanNextYear } from '@/lib/plan-next-year-authz';
 import { hasInPlanningWeddingForUser } from './wedding-guard';
 import { getBlockingLifeEvent } from './life-event-guard';
@@ -385,6 +386,15 @@ export async function createWeddingEvent(formData: FormData) {
       // roster, "You", "Someone else", or an edited label) and behaves exactly
       // as every row does today.
       honoree_dependent_id,
+      // ⚖ Who it is for (owner 2026-11-23): the "For ▾" answer, KEPT — only 'self' lets a booking fee be waived, and
+      // it locks once a supplier joins (events_for_whom_locked). 'self' beside a name, an alaga or a group is stored
+      // as 'someone' (lib/event-for-whom.ts).
+      for_whom: forWhomToStore({
+        claimed: formData.get('for_whom'),
+        honoreeLabel: honoree_label,
+        honoreeDependentId: honoree_dependent_id,
+        communityId: community_id,
+      }),
       // Anniversary capture (PR-A): the commemorated date + typed origin, and
       // recurs=true (anniversaries return every year). NULL for every other type.
       anchor_date: anniversaryDate,

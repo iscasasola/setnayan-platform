@@ -39,12 +39,13 @@ test('the approved page draws no invite button, and every CTA opens a shop', () 
   assert.match(page, /<SupplierFrontPage\b/, 'anti-vacuity: the page no longer draws the approved page');
   const front = readFileSync('app/for-suppliers/_components/supplier-front-page.tsx', 'utf8');
   assert.doesNotMatch(front, /Get your invite link/);
-  assert.match(front, /const OPEN_SHOP = '\/open-shop';/);
+  assert.match(front, /const OPEN_SHOP = onSiteHref\(doorOpenShopHref\('supplier'\), SITE\);/);
   // 2026-11-20 (approved drawing `prototypes/for_suppliers_2026-11-20/`): the CTA's words moved to "Open your shop
   // free" — moved, not loosened: still one constant, still at least three doors to /open-shop.
   // 23 Nov redesign (v4.3.1, owner-APPROVED): the drawing's words are "Open your shop" — moved, not loosened.
   assert.match(front, /const CTA = 'Open your shop';/);
   // The hero, the close and the following pill each carry the CTA; the Free and Verified plan cards open a shop.
-  assert.ok((front.match(/href(=\{|: )OPEN_SHOP\b/g) ?? []).length >= 4, 'the hero, Plans, the close and the following pill each carry the CTA');
-  assert.match(front, /cta: t === 'free' \? CTA : 'Get verified', href: OPEN_SHOP/, 'the Free and Verified plan cards no longer open a shop');
+  // 24 Nov 2026 re-walk: Verified's door carries its choice (`/open-shop?plan=verified`), moved, not loosened.
+  assert.ok((front.match(/href(=\{|: )OPEN_SHOP\b/g) ?? []).length >= 3, 'the hero, the close and the following pill each carry the CTA');
+  assert.match(front, /cta: t === 'free' \? CTA : 'Get verified', href: t === 'free' \? OPEN_SHOP : onSiteHref\(OPEN_SHOP_VERIFIED_HREF, SITE\)/, 'the Free and Verified plan cards no longer open a shop');
 });

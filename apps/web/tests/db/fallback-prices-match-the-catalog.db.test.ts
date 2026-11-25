@@ -63,6 +63,32 @@ const UNPAIRED: Record<string, string> = {
   'papic-cameras.ts': 'many constants, mostly retired rungs — covered by the Papic ladder guards',
 };
 
+/**
+ * 🔒 THE PAIRED FALLBACKS, BY NAME (controller ruling 24 Nov 2026, on #8265). The scan below still DERIVES the pairs;
+ * this list says which ones it must find. A scan that goes blind, a pair that vanishes, or a new one that lands
+ * unannounced each fails by name — a floor on a count could only fail the collapse to near-zero.
+ * Adding or deleting a `*_FALLBACK_PHP` / `*_FEE_PHP` next to one `*_SKU_CODE` edits this list in the same change.
+ */
+const EXPECTED_PAIRS = [
+  'VENDOR_3D_BOOTH_FALLBACK_PHP',
+  'VENDOR_AI_ADDON_FALLBACK_PHP',
+  'VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP',
+] as const;
+
+/**
+ * A paired fallback whose code has NO ACTIVE catalogue row — the retirement case, where the fallback is what covers a
+ * code no longer on sale and there is nothing live to disagree with. Each is named WITH THE REASON its row is off sale.
+ * Every other pair is compared against its live row; a pair with no live row and no line here fails.
+ */
+const NO_LIVE_ROW: Record<string, string> = {
+  VENDOR_3D_BOOTH_FALLBACK_PHP:
+    'vendor_3d_booth retired 2026-11-09 when the Specialized tools unlock went on sale (20271331982978, "BUILD 4 ANSWERS"); paid ones are honoured',
+  VENDOR_AI_ADDON_FALLBACK_PHP:
+    'vendor_ai_addon went off sale 2026-11-14: the AI chatbot is included on Pro and Ultra (20271346711828, "SIMPLER SUPPLIER PLANS")',
+  VENDOR_PHOTO_CHALLENGE_FALLBACK_PHP:
+    'vendor_photo_challenge retired 2026-11-09 with the Specialized tools unlock (20271331982978, "BUILD 4 ANSWERS")',
+};
+
 type Pair = { file: string; constName: string; php: number; sku: string };
 
 /** Scan `lib/` and pair each fallback literal with the SKU code beside it. */
@@ -132,11 +158,22 @@ test('the scan actually found pairs — this guard is not vacuous', () => {
   // A deleted fallback cannot drift, so the count fell 7 → 4 by removing prices, not by the scan going blind. The
   // floor follows that deletion, and a SECOND, independent check below now catches the blindness itself: a loose
   // count of every `export const …FALLBACK_PHP / …FEE_PHP` in lib/ must equal what the strict scan saw.
+  // ✂️ 2026-11-24 (#8265, DECISION_LOG 2026-11-22 "DEEP SEARCH IS RETIRED — 'NO ADD-ONS' MEANS NONE", owner: *"Retire it"*):
+  // `VENDOR_DEEP_SEARCH_FALLBACK_PHP` (₱499) was DELETED with the sale — Deep Search is a monthly allowance inside the
+  // plans, never sold — so the count fell 4 → 3 by removing a price, the same case as 2026-11-13. The floor follows the
+  // deletion, and the exact list below now pins WHICH three, so the floor is no longer the only thing standing.
   const { pairs } = scanPairs();
   assert.ok(
-    pairs.length >= 4,
+    pairs.length >= 3,
     `only ${pairs.length} fallback/SKU pairs were scanned out of lib/ — the scan has stopped seeing them, ` +
       `so every comparison below is vacuous. Fix the scan, do not lower this floor.`,
+  );
+  assert.deepEqual(
+    pairs.map((p) => p.constName).sort(),
+    [...EXPECTED_PAIRS].sort(),
+    `the scan paired ${pairs.map((p) => p.constName).join(', ') || 'nothing'} — not the named list. A missing name means ` +
+      `the scan went blind to it (or it was deleted: then delete it from EXPECTED_PAIRS, saying why); an extra name is a ` +
+      `new fallback: add it to EXPECTED_PAIRS in the same change.`,
   );
 });
 
@@ -180,34 +217,33 @@ test('every file with a peso fallback is either paired or exempt WITH A REASON',
 test('no hardcoded fallback disagrees with its live catalog row', async () => {
   const { pairs } = scanPairs();
   const drift: string[] = [];
-  let compared = 0;
+  const unexplained: string[] = [];
+  const staleReason: string[] = [];
 
   for (const p of pairs) {
     const live = await livePrice(p.sku);
-    // No ACTIVE row is the retirement case — the fallback is what deliberately
-    // covers it, so there is nothing to disagree with. Only a live row counts.
-    if (live === null) continue;
-    compared += 1;
+    if (live === null) {
+      // No ACTIVE row is the retirement case — but only when it is SAID, by name, in NO_LIVE_ROW. A pair that stopped
+      // resolving with no reason (a rename in the catalogue, a replay that seeded nothing) fails here instead of
+      // quietly dropping out of the comparison. (This replaced a `compared >= 1` floor, 24 Nov 2026, #8265: once
+      // Deep Search was deleted every remaining pair is retired, and a floor of 0 would have tested nothing.)
+      if (!(p.constName in NO_LIVE_ROW)) unexplained.push(`${p.file}: ${p.constName} → ${p.sku}`);
+      continue;
+    }
+    if (p.constName in NO_LIVE_ROW) staleReason.push(`${p.constName} → ${p.sku} is on sale at ₱${live}`);
     if (live !== p.php) {
       drift.push(`${p.file}: ${p.constName} = ₱${p.php} but ${p.sku} is ₱${live}`);
     }
   }
 
-  // A second floor, for the case where every SKU stopped resolving (a rename in
-  // the catalog, a replay that seeded nothing) — that would empty `drift` and
-  // read as a pass.
-  // 3 since 2026-11-14: the AI chatbot's row went off sale when it folded into Pro and Ultra ("SIMPLER SUPPLIER
-  // PLANS"), so its fallback has no live row left to disagree with — exactly the retirement case above. The scan floor
-  // (5 pairs, the test above) is unchanged.
-  // 💰 2026-11-13: 4 → 2 because three of the compared fallbacks were DELETED (seat, branch, per-event booth — see
-  // the first test), not because rows stopped resolving. The case this floor exists for — a rename or an empty
-  // seed — is now ALSO caught per pair, by name, in the test below (every paired code must have a catalogue row).
-  // 2 → 1 at the merge of SIMPLER SUPPLIER PLANS (#7698) into that change: main measured 2, and the AI row the plan
-  // folded away was one of them — measured 1 after the merge. The floor still fails the all-unresolved case it exists for.
-  assert.ok(
-    compared >= 1,
-    `only ${compared} fallbacks had a live catalog row to compare against — the comparison is near-vacuous`,
+  assert.deepEqual(
+    unexplained,
+    [],
+    `paired fallback(s) whose code has no ACTIVE catalogue row and no reason in NO_LIVE_ROW: ${unexplained.join('; ')}`,
   );
+  assert.deepEqual(staleReason, [], `NO_LIVE_ROW says these are off sale, but their row is live — drop the line so the price is compared: ${staleReason.join('; ')}`);
+  const stale = Object.keys(NO_LIVE_ROW).filter((n) => !pairs.some((p) => p.constName === n));
+  assert.deepEqual(stale, [], `NO_LIVE_ROW names fallbacks the scan no longer pairs: ${stale.join(', ')}`);
 
   assert.deepEqual(
     drift,

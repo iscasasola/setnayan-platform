@@ -398,6 +398,8 @@
     --sn-fs-title: 30px;                /* the ONE screen title, 30 px / 700 (16 Nov; Tailwind `text-sn-title`) */
   }
 
+  /* `.sn-dark-scope`: this dark set on one element (the sign-in pop-up, 24 Nov 2026). */
+  .sn-dark-scope,
   html.dark {
     /*
      * Dark mode — INERT. Kept coherent, not live.

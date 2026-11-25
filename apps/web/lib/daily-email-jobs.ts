@@ -243,7 +243,7 @@ export async function runAnniversaryHeadsup(): Promise<{ scanned: number; sent: 
         // (owner 2026-08-21). Pointing at the shelf directly rather than at the
         // redirect: an email lives for years, and a link that survives one hop
         // today is a link that 404s the day somebody deletes the redirect.
-        ctaHref: `${APP_URL}/dashboard#worth-planning`,
+        ctaHref: `${APP_URL}/dashboard?seg=events#worth-planning`, // Unihome v5: the shelf is on the full Events board
         weeksAway: HEADSUP_WEEKS,
         eventType: occasion.eventType,
         words: occasion.words,

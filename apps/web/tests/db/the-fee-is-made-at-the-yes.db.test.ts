@@ -73,8 +73,8 @@ async function newBooking(
   opts: { date?: string | null; status?: string; totalPhp?: number; serviceId?: string | null; sourced?: boolean } = {},
 ) {
   const e = await db.query<{ event_id: string }>(
-    `INSERT INTO public.events (display_name, event_type, event_date)
-     VALUES ('A celebration','birthday',$1::date) RETURNING event_id`,
+    `INSERT INTO public.events (for_whom, display_name, event_type, event_date)
+     VALUES ('self', 'A celebration','birthday',$1::date) RETURNING event_id`,
     [opts.date === undefined ? FUTURE : opts.date],
   );
   const eventId = e.rows[0]!.event_id;

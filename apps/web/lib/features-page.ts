@@ -34,9 +34,10 @@ import type { CatalogueRow } from '@/lib/feature-pages/price';
 import { FEE_SCOPE } from '@/lib/booking-fee-who-words';
 import { formatCount } from '@/lib/format-number';
 import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
+import { TIER_LABEL } from '@/lib/vendor-tier-caps';
 
 export type RowStatus = 'live' | 'coming';
-export type RowPrice = 'free' | 'free-plus' | 'paid' | 'credits' | 'per-day';
+export type RowPrice = 'free' | 'free-plus' | 'paid' | 'credits' | 'per-day' | 'in-plans';
 export type RowIcon =
   | 'budget' | 'list' | 'seat' | 'cube' | 'cal' | 'palette' | 'grid' | 'store' | 'spark' | 'hub' | 'shirt' | 'gift'
   | 'print' | 'mono' | 'music' | 'crown' | 'camera' | 'live' | 'reel' | 'mem' | 'book' | 'qr' | 'reply' | 'wall'
@@ -121,7 +122,6 @@ export const FEATURE_ROWS = {
   a60: F({ icon: 'gift', name: 'Pabuya e-gifts', line: 'Straight to your own GCash, Maya, bank or PayPal.', price: 'free', status: 'live', reg: ['A60'], page: 'e-gifts', problem: 'Cash in envelopes gets lost; guests abroad cannot give.', solution: 'Gifts go straight to your account and follow your wish list. Setnayan never touches the money.', why: 'Safe, traceable, from anywhere.' }),
   a66: F({ icon: 'print', name: 'Photo prints', line: 'Guests order prints, no account needed.', price: 'paid', status: 'live', reg: ['A66'], problem: 'Nobody prints anything any more.', solution: 'Order prints from the album, without an account.', why: 'Something on the wall.' }),
   a45: F({ icon: 'book', name: 'The story, Love Story and Post Event', line: 'Five word-only stories free; the Post Event story writes itself.', price: 'free-plus', status: 'live', reg: ['A45'], problem: 'The invitation link goes dead after the day.', solution: 'The same page becomes the story of the day; Pro adds media and custom scenes.', why: 'One link, for life.' }),
-  a46: F({ icon: 'book', name: 'Real Stories', line: 'Share your event as a story others can read.', price: 'free', status: 'live', reg: ['A46'], page: 'real-stories', problem: 'The next couple starts from zero, asking “who was your supplier?”.', solution: 'If you share it, your day becomes a Real Story with suppliers credited.', why: 'Your day helps the next family.' }),
   a47: F({ icon: 'book', name: 'Editorial and guest columns', line: 'A magazine story of the day, with guests’ columns.', price: 'paid', status: 'live', reg: ['A47'], problem: 'The story of the day is told in captions.', solution: 'An editorial written from the day, with guest columns.', why: 'Told properly.' }),
   a74: F({ icon: 'check', name: 'Clearance, launch, activity, progress, refer', line: 'Close out the day; see what happened; refer a couple.', price: 'free', status: 'live', reg: ['A74'], problem: 'The event never formally ends.', solution: 'Clearance closes the day; activity and progress show the record; refer a couple from the same place.', why: 'A clean ending.' }),
   a01: F({ icon: 'home', name: 'Home: all your events', line: 'Events · People · Shop · Memories · Discover, one bar.', price: 'free', status: 'live', reg: ['A01'], problem: 'A wedding app is used once and deleted.', solution: 'Every event you host or help with, in one list; create the next one from the same place.', why: 'One home for a family’s events.' }),
@@ -197,7 +197,9 @@ export const FEATURE_ROWS = {
   c27: F({ icon: 'chart', name: 'My Performance', line: 'Capacity, conversion, benchmark, price position, ROI.', price: 'free', status: 'live', reg: ['C27'], problem: 'Numbers without a next step.', solution: 'Five cards that say how you are doing.', why: 'Know where you stand.' }),
   c28: F({ icon: 'chart', name: 'Analytics that help', line: 'Tap any graph: our recommendation. Five new graphs.', price: 'paid', status: 'live', reg: ['C28'], problem: 'Graphs that do not tell you what to do.', solution: 'Every graph rises larger with one recommendation in the Problem → Solution shape; dates you lost, which card sells, reply speed, slow months, quotes waiting.', why: 'Growth you can act on.' }),
   c29: F({ icon: 'star', name: 'Reviews, track record, Stories', line: 'Land 24 hours after the event; one public reply.', price: 'free', status: 'live', reg: ['C29'], problem: 'Screenshots of thank-you messages as proof.', solution: 'Reviews from completed events; your track record and recaps grow on their own.', why: 'Proof that cannot be faked.' }),
-  c30: F({ icon: 'search', name: 'Deep Search', line: 'Find the couples whose plans match what you sell.', price: 'paid', status: 'live', reg: ['C30'], problem: 'You wait for inquiries.', solution: 'One search across events looking for your category, date and city.', why: 'Go to the client first.' }),
+  // 🔎 C30 · Deep Search (owner 2026-11-22: retired as a sale, "Deep Search 1 a month" inside the paid plans). It reads the
+  // web about the shop's OWN business (lib/vendor-deep-search.ts) — never other people's events.
+  c30: F({ icon: 'search', name: 'Deep Search', line: 'We read the web about your business and show what we found.', price: 'in-plans', status: 'live', reg: ['C30'], problem: 'You don’t know what couples find when they look you up.', solution: 'Each month your plan includes a search of the web for your shop: its services, prices, where it shows up, and anything to double-check.', why: 'Fix what couples see before they see it.' }),
   c39: F({ icon: 'grid', name: 'Honest empty states', line: 'Today, Clients, Shop, Portfolio and the graphs show greyed examples.', price: 'free', status: 'coming', reg: ['C39'], plan: 'Build 5 · Lane H', problem: 'A new shop looks broken: blank sections.', solution: 'Every empty part draws a greyed preview until there is real content.', why: 'You see what will be there.' }),
   social: F({ icon: 'megaphone', name: 'Your badge gets posted', line: 'A new badge or verification posts to Setnayan’s page; you can opt out.', price: 'free', status: 'coming', reg: [], plan: 'Build 6 · Lane S', problem: 'Your milestones go unseen.', solution: 'When you earn a badge or get verified, Setnayan posts it, public shops only, opt-out any time.', why: 'Free reach.' }),
   // ───────── D · COORDINATORS ─────────
@@ -265,7 +267,7 @@ export const PERSONAS: readonly Persona[] = [
       { eye: 'The day', title: 'The Hub turns live. Your guests become the crew.', line: 'From the morning of, the Event Hub switches to the day: the schedule, the tables, the stream for family abroad, and every phone shooting into one album.', moment: 'hub', photo: P.wall,
         groups: [['The door', ['a18']], ['Papic', ['a52', 'a53', 'a54', 'a55', 'a56']], ['The show', ['a61', 'a68', 'a64', 'a65']]] },
       { eye: 'After', title: 'The day ends. The page doesn’t.', line: 'The same link becomes the story of the day: your guests’ photos sorted by face, the family’s words, the thank-yous, and gifts that went straight to you.', moment: 'memories',
-        groups: [['Keep', ['a57', 'a58', 'a59', 'a60', 'a66']], ['Tell', ['a45', 'a46', 'a47', 'a74']]] },
+        groups: [['Keep', ['a57', 'a58', 'a59', 'a60', 'a66']], ['Tell', ['a45', 'a47', 'a74']]] },
       { eye: 'Every event after this one', title: 'A wedding is the way in. The family is why you stay.', line: 'Your people are saved once. The christening, the debut, the 60th and the golden anniversary each start pre-filled, and every memory stays in one library.', moment: 'family', photo: P.christening,
         groups: [['Your account', ['a01', 'a05', 'a06', 'a07', 'a08', 'a10', 'a11', 'a12', 'a13']], ['The house', ['a75', 'a76', 'a77']]] },
     ],
@@ -327,6 +329,7 @@ export const EXCLUDED: readonly (readonly [row: string, why: string])[] = [
   ['A70', 'Pabati — retired (migration retire_pabati)'],
   ['A62', 'Patiktok — retired 2026-11-20 (migration retire_patiktok_and_music_maker)'],
   ['A63', 'Music Maker — retired 2026-11-20 (migration retire_patiktok_and_music_maker)'],
+  ['A46', 'Real Stories — retired 2026-11-16 (DECISION_LOG "THE BLOG AND REAL STORIES ARE RETIRED"); /features/real-stories forwards to Discover like /realstories'],
   ['C36', 'Storage packs, 3D booth, photo challenge, tokens — off sale in the catalogue (read 10 Nov)'],
 ];
 
@@ -337,6 +340,9 @@ export const PRICE_WORDS: Readonly<Record<RowPrice, string>> = {
   paid: 'Paid · see the plans',
   credits: 'Free · Papic credits to add',
   'per-day': 'Paid per day',
+  // 🔎 Inside the paid supplier plans, never sold on its own (owner 2026-11-22, DECISION_LOG "SPECIAL TOOLS STAY INSIDE
+  // THE PLANS" · "DEEP SEARCH IS RETIRED"). The plan names are the plan words a person reads (`TIER_LABEL`).
+  'in-plans': `Included in ${TIER_LABEL.solo} · ${TIER_LABEL.pro} · ${TIER_LABEL.enterprise}`,
 };
 
 /* ─── THE PLANS COMPARE ───────────────────────────────────────────────────────────────────────────────────────── */

@@ -6,6 +6,7 @@
  * `commitOnboardingEvent`.
  */
 import type { ExpAxisAnswers, ExpForWhom } from '@/app/onboarding/wedding/_data/experience-personas';
+import type { ForWhomMode } from '@/lib/create-subjects';
 
 export type GenericOnboardingPayload = {
   /** The non-wedding event-type key (an `event_type_vocab` key, e.g. 'birthday'). NEVER 'wedding'. */
@@ -44,6 +45,12 @@ export type GenericOnboardingPayload = {
    * event-insert.ts is untouched.
    */
   honoreeDependentId?: string | null;
+  /**
+   * WHO the event is for, as the "For ▾" answer said (→ `events.for_whom`, owner 2026-11-23). Only `'self'` lets a
+   * booking fee be waived; it locks once a supplier joins. A CLAIM: `buildGenericEventInsert` stores `'self'` only
+   * beside a blank honoree (lib/event-for-whom.ts `forWhomToStore`). Absent / null = not recorded.
+   */
+  forWhom?: ForWhomMode | null;
   /**
    * The date this event COMMEMORATES (→ `events.anchor_date`) — NOT the day it
    * is held. Two columns on purpose: an anniversary marks a wedding date but is

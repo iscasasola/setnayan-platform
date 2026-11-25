@@ -81,7 +81,7 @@ async function records(fn: () => Promise<unknown>): Promise<unknown[][]> {
 const READERS: { name: string; run: (c: SupabaseClient) => Promise<unknown> }[] = [
   { name: 'fetchVendorCommittedBookingCount', run: (c) => first5.fetchVendorCommittedBookingCount(c, "vp_1") },
   { name: 'fetchVendorIdsWithActiveService', run: (c) => gate.fetchVendorIdsWithActiveService(c) },
-  { name: 'fetchVendorAcceptProvenance', run: (c) => grants.fetchVendorAcceptProvenance(c, "vp_1", "ev_1") },
+  { name: 'fetchVendorEventPhotosTaken', run: (c) => grants.fetchVendorEventPhotosTaken(c, "vp_1", "ev_1") },
   { name: 'fetchVendorTimeSlotsByService', run: (c) => slots.fetchVendorTimeSlotsByService(c, "vp_1") },
   { name: 'fetchSlotsForCoupleBooking', run: (c) => slots.fetchSlotsForCoupleBooking(c, "ev_1", "v_1") },
 ];

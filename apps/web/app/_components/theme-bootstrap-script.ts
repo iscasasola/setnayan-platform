@@ -6,7 +6,7 @@
   2026-09-11). Values a server file needs live in plain modules like this one; the guard is
   lib/a-server-file-never-takes-a-value-from-a-client-module.test.ts.
 */
-import { DARK_READY, THEME_COLOR } from '@/lib/appearance';
+import { DARK_READY, SIGNED_OUT_FOLLOWS_PHONE, THEME_COLOR } from '@/lib/appearance';
 import { ROUTE_RESERVED_SLUGS } from '@/lib/reserved-slugs';
 
 /**
@@ -19,7 +19,9 @@ import { ROUTE_RESERVED_SLUGS } from '@/lib/reserved-slugs';
  *   dark is painted only when ALL hold —
  *     · the person's choice means dark: the `sn-theme` cookie says `dark`, OR it says `auto`
  *       (Automatic — a choice; no cookie = Light, the default again since 2026-10-23) and the phone prefers dark;
- *     · a Supabase session cookie is present (signed-out visitors are always Light — call 4);
+ *     · a Supabase session cookie is present (signed-out visitors are always Light — call 4) — EXCEPT on the two
+ *       sign-in pages (`SIGNED_OUT_FOLLOWS_PHONE`, owner 24 Nov 2026), where a signed-out visitor's missing choice
+ *       means Automatic, so a phone set to dark gets the dark card;
  *     · the first path segment is one of the APP's routes (a couple's guest pages at `/[slug]` keep
  *       the couple's design — call 5);
  *     · the path is under a READY-LIST prefix (`DARK_READY`) — EMPTY today, so nobody sees dark yet
@@ -42,24 +44,19 @@ import { ROUTE_RESERVED_SLUGS } from '@/lib/reserved-slugs';
 export function buildThemeBootstrapScript(
   ready: readonly string[] = DARK_READY,
   appRoutes: ReadonlySet<string> = ROUTE_RESERVED_SLUGS,
+  followsPhone: readonly string[] = SIGNED_OUT_FOLLOWS_PHONE,
 ): string {
   const R = JSON.stringify([...ready]);
   const A = JSON.stringify([...appRoutes]);
+  const S = JSON.stringify([...followsPhone]);
   const C = JSON.stringify(THEME_COLOR.dark);
   return `
 (function() {
-  var R = ${R}, A = ${A}, DARK_BAR = ${C};
-  function decide(p, c) {
-    if (c == null) c = document.cookie;
-    var m = /(?:^|;\\s*)sn-theme=(light|dark|auto)(?:;|$)/.exec(c), ch = m ? m[1] : 'light';
-    if (ch === 'light') return false;
-    if (ch === 'auto' && !(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) return false;
-    if (!/(?:^|;\\s*)sb-[A-Za-z0-9]+-auth-token(?:\\.\\d+)?=/.test(c)) return false;
-    var f = p.split('/')[1] || '';
-    if (f !== '' && A.indexOf(f) < 0) return false;
+  var R = ${R}, A = ${A}, S = ${S}, DARK_BAR = ${C};
+  function on(p, L) {
     var q = p.length > 1 && p.charAt(p.length - 1) === '/' ? p.slice(0, -1) : p, h = q.split('/');
-    for (var i = 0; i < R.length; i++) {
-      var r = R[i], x = r.charAt(r.length - 1) === '$';
+    for (var i = 0; i < L.length; i++) {
+      var r = L[i], x = r.charAt(r.length - 1) === '$';
       if (x) r = r.slice(0, -1);
       if (r.length > 1 && r.charAt(r.length - 1) === '/') r = r.slice(0, -1);
       var w = r.split('/');
@@ -71,6 +68,17 @@ export function buildThemeBootstrapScript(
       if (ok) return true;
     }
     return false;
+  }
+  function decide(p, c) {
+    if (c == null) c = document.cookie;
+    var s = /(?:^|;\\s*)sb-[A-Za-z0-9]+-auth-token(?:\\.\\d+)?=/.test(c), o = !s && on(p, S);
+    var m = /(?:^|;\\s*)sn-theme=(light|dark|auto)(?:;|$)/.exec(c), ch = m ? m[1] : (o ? 'auto' : 'light');
+    if (ch === 'light') return false;
+    if (ch === 'auto' && !(window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) return false;
+    if (!s && !o) return false;
+    var f = p.split('/')[1] || '';
+    if (f !== '' && A.indexOf(f) < 0) return false;
+    return on(p, R);
   }
   function paint(dark) {
     var d = document.documentElement;

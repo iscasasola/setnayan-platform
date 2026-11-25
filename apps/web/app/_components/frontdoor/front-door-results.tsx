@@ -25,7 +25,7 @@
  * door's own card family — the same cards New uploads and Trending render.
  * Nothing
  * about the marketplace's search changed: /explore keeps its own box, its
- * word-bridge, its filters and all 192 categories, and every results page
+ * word-bridge, its filters and every category (counted live, never typed), and every results page
  * carries one row handing the typed words straight to it.
  *
  * 🔑 THE SUPPLIER SECTION HERE IS DELIBERATELY THE SMALLER ONE. It matches
@@ -55,6 +55,8 @@ import { ShopCard } from './front-door-feed';
 import type { HomeCommandItem } from './command-item';
 import { shopInitials } from '@/lib/shop-initials';
 import { formatCount } from '@/lib/format-number';
+import { getTaxonomy } from '@/lib/taxonomy-db';
+import { allCategoriesWords, liveCategoryCount } from '@/lib/category-count';
 import { ON_YOUR_EVENT, YOUR_OWN_SUPPLIER } from '@/lib/own-supplier-items';
 import { ShellOnward } from './shell-search-onward';
 import { SHELL_SEARCH_PATH } from '@/lib/shell-search';
@@ -261,11 +263,15 @@ export async function FrontDoorResults({
     thinner answer, never a broken page.
   */
   const onDiscover = place === 'discover';
-  const [hits, shops] = await Promise.all([
+  const [hits, shops, taxonomy] = await Promise.all([
     // Discover reads no stories or guides (2026-10-01): its results are events, people and suppliers.
     onDiscover ? Promise.resolve([] as Awaited<ReturnType<typeof searchReads>>) : searchReads(query, 24),
     searchLiveShops(query, 12),
+    // 🔢 The marketplace row says how many categories there are — COUNTED from the live tree, never typed (24 Nov).
+    // Only the front door draws that row; the read is the request's one cached taxonomy (`getTaxonomy`).
+    place === 'front-door' ? getTaxonomy() : Promise.resolve(null),
   ]);
+  const categoriesWords = allCategoriesWords(taxonomy ? liveCategoryCount(taxonomy) : null);
 
   /*
     The searcher's own things.
@@ -380,7 +386,7 @@ export async function FrontDoorResults({
         🔑 It renders whether or not shops matched here, because the two
         searches are not the same search. This page matched names and cities;
         /explore resolves the word-bridge (typing "photographer" reaches the
-        Photo & video folder), all 192 categories, and every filter. Showing
+        Photo & video folder), every category, and every filter. Showing
         the row only on zero results would hide the stronger search at exactly
         the moment two weak matches made it look answered.
       */}
@@ -394,7 +400,7 @@ export async function FrontDoorResults({
           <p>
             {total === 0
               ? 'We searched our writing, the shops we publish, and anything of yours. The marketplace searches differently — by category, city and what a supplier actually does — so it is worth trying there.'
-              : 'The marketplace searches by category, city and what a supplier actually does, across every shop and all 192 categories.'}
+              : `The marketplace searches by category, city and what a supplier actually does, across every shop and ${categoriesWords}.`}
           </p>
           {/* 🔎 2026-11-12: the supplier view on this page (Find suppliers moved inside Discover), narrowed by the
               same words — `/?q=…&browse=1` (lib/discover-suppliers.ts). Same words on the door. */}

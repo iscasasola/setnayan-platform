@@ -406,3 +406,19 @@ one screen "Your team, picked for you" (top pick per category + 2 backups, why e
 button "Ask them all" (requirement-filled inquiries) → the AI follows up the quiet ones, swaps a declined or booked one
 for the next best, and keeps the team's status on one line. Supporting AI checks: fair-price check on each quote,
 payment-plan check, backup line-up when a booked supplier cancels. Not built; lane C until the owner approves.
+
+## Add 23 · Setnayan AI = 10 features + its panel on the Suppliers page (owner asked 25 Nov; controller proposal)
+Ten (for the client; [works] = running today, AI-only):
+1 Team picked for you (top pick per category + 2 backups, a reason each, total vs budget) · 2 Ask them all
+(requirement-filled inquiries in one tap, follow-up of quiet ones) · 3 Auto-swap (declined/booked → next best; a
+booked supplier cancels → replacement lined up) · 4 Fair deal check (quote vs the supplier's own list and past prices;
+odd payment plans: balance after the event, oversized deposit) · 5 Payment reminders before due, bell + email [works]
+· 6 Price watch on suppliers you consider [works; fix copy: list price, not "your quote"] · 7 Availability watch,
+booked or freed on your date [works] · 8 Budget fixer: when over, suggests the swaps that bring it back · 9 Supplier
+report card: real reply speed + what past hosts praised or complained about · 10 Supplier to-do watch: warns when a
+task a supplier owes you is slipping.
+Panel (drawing first, owner OK before build): a one-line Setnayan AI bar at the top of Suppliers ("6 of 8 confirmed ·
+2 need you"); tap → a sheet (popup, not a page) with: the team by category and each one's state · "Needs you" items ·
+one main button (Ask them all / Review the swap) · a switch per feature (follow-ups, auto-swap, alerts). Each supplier
+card gets a small "AI pick" chip with its reason. Without AI the same bar is an honest preview, "Let Setnayan AI build
+your team · included in Event Pro and Ultra", door to Pricing. Alerts also need a real schedule, not only on page open.

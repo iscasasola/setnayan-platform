@@ -18,7 +18,7 @@
  * 🔒 app/vendor-dashboard/shop/each-shop-door-is-the-panel-from-701.test.ts
  */
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
-import { X } from 'lucide-react';
+import { ChevronLeft, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { RiseScreen, type RiseScreenProps } from '@/app/_components/rise/rise-screen';
@@ -82,7 +82,7 @@ export function ShopDoorScreen(props: ShopDoorScreenProps) {
   return <ShopDoorPanel {...props} />;
 }
 
-export function ShopDoorPanel({ title, line, labelledById, actions, thumb, fill = false, onClose, data, children, at = 'tab', page = false, half = false }: ShopDoorScreenProps) {
+export function ShopDoorPanel({ title, line, labelledById, actions, thumb, fill = false, onClose, data, children, at = 'tab', page = false, half = false, back }: ShopDoorScreenProps) {
   const headingId = useId();
   /* The panel closes through its own `open` (✕ · Esc · the backdrop · Back), and only THEN tells the caller, so the
      Sheet's history entry is taken off before the caller unmounts the door. */
@@ -117,7 +117,12 @@ export function ShopDoorPanel({ title, line, labelledById, actions, thumb, fill 
         title ? (
           <div className="flex min-h-[60px] items-center gap-2.5 border-b border-ink/10 px-4 py-2" data-shop-door-head="">
             <span className="inline-flex shrink-0">
-              <ActionButton tone="neutral" iconOnly icon={X} label="Close" onClick={shut} />
+              {/* ‹ steps back inside an open section (B9); ✕ otherwise, as shipped. */}
+              {back ? (
+                <ActionButton tone="neutral" iconOnly icon={ChevronLeft} label={back.label} onClick={back.onBack} />
+              ) : (
+                <ActionButton tone="neutral" iconOnly icon={X} label="Close" onClick={shut} />
+              )}
             </span>
             <span className="min-w-0 flex-1">
               <b id={headingId} className="block truncate text-[17px] font-bold leading-tight text-ink">

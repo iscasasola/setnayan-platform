@@ -14,7 +14,7 @@
  * page again; a tab that navigates instead lands on its own page, and the slot's catch-all clears the slot.
  * 🔒 app/_components/rise/the-rise-screen-is-one-full-screen.test.ts § 7
  */
-import { createContext, useContext, type ReactNode } from 'react';
+import { createContext, useContext, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
 import { ShopDoorScreen } from '@/app/vendor-dashboard/_components/shop-door-screen';
@@ -25,6 +25,17 @@ import type { RiseKind } from '@/lib/rise-screen';
  * and hides it here, where ✕ is the way out — `HideWhenRisen`. Final check B8.
  */
 const InRiseRoute = createContext(false);
+
+/**
+ * ‹ A SECTION THAT OPENS IN PLACE names the risen screen's head while it is open: its title over the screen's own name,
+ * and ‹ in ✕'s place (final check B9 — "Tell us what you do" inside the card maker; one level, never a popup on a
+ * popup). `null` puts the screen's own head back. Outside a risen page there is no head to name: null.
+ */
+export type RiseHeadOverride = { title: string; back: { label: string; onBack: () => void } };
+const RiseRouteHead = createContext<{ title: string; set: (head: RiseHeadOverride | null) => void } | null>(null);
+export function useRiseRouteHead() {
+  return useContext(RiseRouteHead);
+}
 
 /** Draws its children only on the whole page, never inside a risen one (✕ replaces a "‹ Shop" link there). */
 export function HideWhenRisen({ children }: { children: ReactNode }) {
@@ -62,16 +73,24 @@ export function RiseRoute({
     if (st?.[LAYER_MARK]) window.history.go(-2);
     else router.back();
   };
-  const body = <InRiseRoute.Provider value>{children}</InRiseRoute.Provider>;
+  const [over, setOver] = useState<RiseHeadOverride | null>(null);
+  const body = (
+    <InRiseRoute.Provider value>
+      <RiseRouteHead.Provider value={{ title, set: setOver }}>{children}</RiseRouteHead.Provider>
+    </InRiseRoute.Provider>
+  );
+  // An open section's head: its title over this screen's own name, ‹ in ✕'s place.
+  const headTitle = over ? over.title : title;
+  const headLine = over ? title : line;
   if (page) {
     return (
-      <ShopDoorScreen page title={title} line={line} onClose={leave} data={data} kind={kind}>
+      <ShopDoorScreen page title={headTitle} line={headLine} back={over?.back} onClose={leave} data={data} kind={kind}>
         {body}
       </ShopDoorScreen>
     );
   }
   return (
-    <RiseScreen title={title} line={line} onClose={leave} data={data} kind={kind}>
+    <RiseScreen title={headTitle} line={headLine} back={over?.back} onClose={leave} data={data} kind={kind}>
       {body}
     </RiseScreen>
   );

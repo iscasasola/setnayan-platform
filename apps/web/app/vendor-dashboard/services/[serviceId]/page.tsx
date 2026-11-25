@@ -1,6 +1,8 @@
 import { getCurrentUser } from '@/lib/auth';
 import { ReadFailedNote } from '../../_components/set-two/read-failed';
 import Link from 'next/link';
+import { loadRequestTree } from '@/lib/service-requests.server';
+import { TellUsHost } from '../requests/_components/tell-us-host';
 import { notFound, redirect } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { HideWhenRisen } from '@/app/_components/rise/rise-route';
@@ -67,7 +69,7 @@ export default async function EditServiceCardPage({
   // 🃏📸 ONE ALBUM, TWO PLACES (DECISION_LOG 2026-10-08, frames 71–78) rides the card-record flag: OFF → the Record and
   // Portfolio folds read and say exactly what they did before; ON → the record (or its refusal) and this card's albums.
   const recordOn = cardRecordEnabled();
-  const [ctx, details, records, hallsRes, bookedNow, cardBookings, albums, library, tierRes] = await Promise.all([
+  const [ctx, details, records, hallsRes, bookedNow, cardBookings, albums, library, tierRes, requestTree] = await Promise.all([
     loadMakerContext(supabase, profile.vendor_profile_id, { fixedCategory: card.category, withKindList: false }),
     loadKindDetails(supabase, profile.vendor_profile_id, card.category),
     // 🃏 Flag ON: a refused record read is SAID (frame 75), never folded into "nobody booked it". Flag OFF: not read.
@@ -101,6 +103,8 @@ export default async function EditServiceCardPage({
     sellsVenue
       ? supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle()
       : Promise.resolve({ data: null }),
+    // ‹ "Tell us what you do" opens in place inside the maker (final check B9).
+    loadRequestTree(),
   ]);
   // 🏷 Frame 6 (DECISION_LOG 2026-11-14): which inspirations each album's photos are in — the shop proved just above.
   const albumTags = albums
@@ -152,6 +156,7 @@ export default async function EditServiceCardPage({
         </Link>
       </div>
       </HideWhenRisen>
+      <TellUsHost groups={requestTree?.groups ?? null} retry={`/vendor-dashboard/services/${serviceId}`}>
       <CanvasMaker
         library={library}
         categoryValue={card.category}
@@ -205,6 +210,7 @@ export default async function EditServiceCardPage({
         errorLine={typeof error === 'string' && error.length > 0 ? error : null}
         returnTo={`/vendor-dashboard/services/${serviceId}`}
       />
+      </TellUsHost>
       {/* Its own form, OUTSIDE the card form (a nested form would never post). */}
       {hallsUnread ? (
         <p role="status" className="text-sm font-medium" style={{ color: 'rgb(var(--color-warn))' }} data-card-halls-unread="">

@@ -19,7 +19,7 @@ import { notFound } from 'next/navigation';
 
 import type { MyRequest, RequestTree } from '@/lib/service-requests.server';
 import { YourRequestsView } from '@/app/vendor-dashboard/services/requests/_components/your-requests-view';
-import { TellUsWhatYouDoView } from '@/app/vendor-dashboard/services/requests/_components/tell-us-view';
+import { LabTellUs } from './lab-tell-us';
 import { RequestDetailView } from '@/app/vendor-dashboard/services/requests/_components/request-detail-view';
 import { ServiceRequestsListView, type AdminRequestRow } from '@/app/admin/categories/requests/_components/list-view';
 import { ServiceRequestAdminView } from '@/app/admin/categories/requests/_components/request-view';
@@ -156,12 +156,15 @@ export default async function ServiceRequestsLabPage({ searchParams }: { searchP
 
   const frame = (() => {
     switch (f) {
+      // ‹ B9: the three steps open IN PLACE inside the maker's risen layer — the real host and head, on fixtures.
+      case 'maker':
+        return <LabTellUs groups={TREE.groups} open={false} />;
       case 'group':
-        return <TellUsWhatYouDoView tree={TREE} sp={{}} />;
+        return <LabTellUs groups={TREE.groups} open />;
       case 'category':
-        return <TellUsWhatYouDoView tree={TREE} sp={{ group: 'booths' }} />;
+        return <LabTellUs groups={TREE.groups} open at={{ group: 'booths' }} />;
       case 'name':
-        return <TellUsWhatYouDoView tree={TREE} sp={{ tile: 'make_take' }} />;
+        return <LabTellUs groups={TREE.groups} open at={{ tile: 'make_take' }} />;
       case 'request':
         return (
           <RequestDetailView requestId="r1" one={{ ok: true, value: MINE[0]! }} tree={TREE} cards={{ ok: true, value: CARDS }} sp={{ requested: '1' }} sameNameOthers={2} />

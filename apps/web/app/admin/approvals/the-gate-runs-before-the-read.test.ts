@@ -5,12 +5,13 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { stripComments } from '@/lib/strip-comments';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const strip = stripComments;
 
 function body(file: string, fn: string): string {
   const src = strip(readFileSync(resolve(here, file), 'utf8'));

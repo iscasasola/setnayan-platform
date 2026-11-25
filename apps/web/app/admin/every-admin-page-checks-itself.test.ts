@@ -12,6 +12,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { stripComments } from '@/lib/strip-comments';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,7 +30,7 @@ function pages(dir: string): string[] {
   return out;
 }
 
-const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const strip = stripComments;
 
 function isForwardOnly(src: string): boolean {
   const code = strip(src);

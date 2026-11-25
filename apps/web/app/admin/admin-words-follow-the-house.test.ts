@@ -6,12 +6,13 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { stripComments } from '@/lib/strip-comments';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const admin = dirname(fileURLToPath(import.meta.url));
-const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const strip = stripComments;
 const code = (p: string) => strip(readFileSync(resolve(admin, p), 'utf8'));
 
 test('pricing add-on rows say "Ultra", never "Supplier Ultra" (B-10)', () => {

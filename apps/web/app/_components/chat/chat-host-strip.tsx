@@ -8,6 +8,7 @@ import { hostFirstName, hostInitials, type ChatHost } from '@/lib/chat-hosts';
 import { isShopSelf, showsAddAll, stripOrder } from '@/lib/chat-members';
 import { setChatPeople, setPrivateTo } from './private-to';
 import { LeaveChatDialog } from './leave-chat-dialogs';
+import { useToast } from '@/app/_components/toast/toast-provider';
 
 /**
  * WHO IS IN THIS CHAT — the avatar strip under the picked client's pinned row (THE ONE BUILD, v111/v113: "Shared chat ·
@@ -97,6 +98,7 @@ export function ChatHostStrip({
   word?: string;
 }) {
   const [leaving, setLeaving] = useState(false);
+  const toast = useToast();
   const [adding, setAdding] = useState(false);
   // 🔒 The composer's 🔒 lists exactly these faces (you excluded) — published, never read twice. `setChatPeople`
   // emits only when the list changed, so running after every render is cheap.
@@ -259,7 +261,12 @@ export function ChatHostStrip({
           onCancel={() => setLeaving(false)}
           onLeave={async (note) => {
             setLeaving(false);
-            await leave(note);
+            try {
+              await leave(note);
+            } catch {
+              // A refused leave is said (final check A1-005); you are still in the chat.
+              toast.error('You did not leave the chat just now. Try again.');
+            }
           }}
         />
       ) : null}
@@ -272,10 +279,11 @@ export function ChatHostStrip({
 export function AddHostsList({ addable, onDone, initiallyPicked = [] }: { addable: ChatHostAdd; onDone: () => void; initiallyPicked?: string[] }) {
   const [picked, setPicked] = useState<ReadonlySet<string>>(() => new Set(initiallyPicked));
   const [busy, setBusy] = useState(false);
+  const toast = useToast();
   if (addable.candidates.length === 0) {
     return (
       <p id="chat-host-add" className="mt-1.5 text-[13px] text-ink/60" data-chat-host-add="empty">
-        Every host of this event is already in this chat.
+        Everyone who can join is already in this chat.
       </p>
     );
   }
@@ -283,9 +291,12 @@ export function AddHostsList({ addable, onDone, initiallyPicked = [] }: { addabl
     setBusy(true);
     try {
       await addable.add(ids, how);
+      onDone();
+    } catch {
+      // A refused add is said, with the list left open to try again (final check A1-005).
+      toast.error('They were not added just now. Press Add to try again.');
     } finally {
       setBusy(false);
-      onDone();
     }
   };
   return (

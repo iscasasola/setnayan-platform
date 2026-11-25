@@ -61,3 +61,23 @@ test('A1-073 · the chapter page names the person as /u does and claims no unmea
   assert.match(ch, /profileShownName\(user\) \?\? 'A Setnayan creator'/);
   assert.doesNotMatch(ch, /Papic Memories of candid photos/);
 });
+
+test('A1-005 · group chat refusals are loud and said', () => {
+  const act = src('app/samahan/chat/actions.ts');
+  assert.match(act, /throw new Error\('add refused'\)/);
+  assert.match(act, /throw new Error\('leave refused'\)/);
+  assert.match(act, /\?error=rejoin/);
+  assert.match(act, /error=\$\{name\.trim\(\) \? 'refused' : 'name'\}/);
+  const strip = src('app/_components/chat/chat-host-strip.tsx');
+  assert.match(strip, /catch \{[\s\S]{0,160}toast\.error\('They were not added just now/);
+  assert.match(strip, /catch \{[\s\S]{0,160}toast\.error\('You did not leave the chat just now/);
+  assert.match(src('app/samahan/chat/[threadId]/page.tsx'), /rejoinFailed \? \(/);
+});
+
+test('A1-008 · group chat failed reads are not empty lists', () => {
+  assert.match(src('app/samahan/chat/[threadId]/page.tsx'), /switcher=\{groups === null \? null : groups\.map/);
+  const nw = src('app/samahan/chat/new/page.tsx');
+  assert.match(nw, /if \(meError \|\| peopleRead === null\) \{/);
+  assert.doesNotMatch(nw, /readGroupPeople\(supabase, eventId\)\) \?\? \[\]/);
+  assert.doesNotMatch(src('app/_components/chat/chat-host-strip.tsx'), /Every host of this event is already in this chat/);
+});

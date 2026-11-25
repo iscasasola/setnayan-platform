@@ -1632,6 +1632,8 @@ On the pages fixer batch 1 touched (`/[slug]/seat`, `/find-seat`, `/welcome`, `/
 - Add 13 · no missing icons found on these pages (every control uses lucide or the house glyphs).
 - Add 17 · no retired page among them. `/papic/lightcheck` stays R9 (not touched).
 - Add 18 · the guest pages only PLAY the couple's reveal; none offers templates to pick. No finding.
+- [R] A4-32 (lane B § 02, `/[slug]/everyone` as a RiseScreen) · Add 27 door check FAILED on main @ 6dd495be44: `screens.generated.json` lists only `lib/public-event-url.ts` (a URL builder that never names the route) and a dev lab; `site-body.tsx` says the page "keeps working for old links, it just isn't linked from here" (guest list is inline). No live door → not redesigned; retire or give it a door — the controller's call.
+- Lane B batch 7 (#… `claude/fc-fix-a4-b7`): A4-B05 (a–c) and A4-B04 built from the approved drawing; part (d) not built per Add 29. Shots: `build-sessions/final-check/shots/area-4/fix-b7/` (lab `/dev/maker-lab/guest` and `/live`, 375 and 1280, light and dark; before and after for the venue card).
 - Skipped on purpose: A4-31 (`/everyone` host read) — `app/[slug]/a-failed-read-is-not-an-absence.test.ts` records the soft read as deliberate fail-closed (the rest of the list stays hidden), so no change; the wording a host sees on a failed read stays a lane B question.
 
 ## Fixer ledger (25 Nov)

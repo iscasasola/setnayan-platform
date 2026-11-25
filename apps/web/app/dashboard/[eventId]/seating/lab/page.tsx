@@ -20,11 +20,11 @@ import {
 import {
   fetchTables,
   fetchAssignments,
-  fetchFloorPlan,
+  fetchFloorPlanMeasured,
   fetchSeatingConstraints,
-  fetchSceneObjects,
+  fetchSceneObjectsMeasured,
   fetchBooths,
-  fetchSigns,
+  fetchSignsMeasured,
   defaultPriorityOrder,
   guestTier,
   defaultTablePosition,
@@ -98,17 +98,17 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
-  const [tablesRaw, assignments, guestsRead, floorPlan, constraints, sceneObjectsRaw, boothsRaw, signsRaw, groupsRaw, memberships, eventRow, roleSet, finalizationRes, vendorNameRes, bookedSupplierRes] = await Promise.all([
+  const [tablesRaw, assignments, guestsRead, floorPlanRead, constraints, sceneObjectsRead, boothsRaw, signsRead, groupsRaw, memberships, eventRow, roleSet, finalizationRes, vendorNameRes, bookedSupplierRes] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEventMeasured(supabase, eventId),
-    fetchFloorPlan(supabase, eventId),
+    fetchFloorPlanMeasured(supabase, eventId),
     fetchSeatingConstraints(supabase, eventId),
-    fetchSceneObjects(supabase, eventId),
+    fetchSceneObjectsMeasured(supabase, eventId),
     // brandedReader: the per-event branding RPC is service_role-only; the
     // couple's session would be refused and every booth would draw generic.
     fetchBooths(supabase, eventId, { brandedReader: createAdminClient() }),
-    fetchSigns(supabase, eventId),
+    fetchSignsMeasured(supabase, eventId),
     fetchGuestGroupsByEvent(supabase, eventId),
     fetchGroupMembershipsByEvent(supabase, eventId),
     // The couple's monogram columns — to render their canonical mark on the 3D
@@ -164,6 +164,18 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
       </section>
     );
   }
+  // 🔌 A7-10 (final check 25 Nov): a refused floor-plan, fixtures or signs read is not the couple's room — never the
+  // default room size, stage and dance floor drawn as theirs, never every placed fixture and sign gone.
+  if (!floorPlanRead.measured || !sceneObjectsRead.measured || !signsRead.measured) {
+    return (
+      <section className="mx-auto w-full max-w-3xl px-4 py-6">
+        <ReadRefusedNotice what="your floor plan" />
+      </section>
+    );
+  }
+  const floorPlan = floorPlanRead.plan;
+  const sceneObjectsRaw = sceneObjectsRead.rows;
+  const signsRaw = signsRead.rows;
   const guestsRaw = guestsRead.rows;
 
   // Tables created but never dragged onto the spatial canvas have null

@@ -279,7 +279,8 @@ export default async function VenuePage({
             Your link is fine — something on our end is having trouble. Give it a
             moment and try again.
           </p>
-          <Link href={`/${slug}/venue`} className="mt-5 inline-flex min-h-[44px] items-center rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">
+          {/* A7-02: Try again keeps the guest's personal token, so a retry that works is still their own walk. */}
+          <Link href={token ? `/${slug}/venue?t=${encodeURIComponent(token)}` : `/${slug}/venue`} className="mt-5 inline-flex min-h-[44px] items-center rounded-xl bg-white/10 px-4 py-2 text-sm text-white hover:bg-white/20">
             Try again
           </Link>
         </div>

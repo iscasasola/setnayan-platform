@@ -50,7 +50,13 @@ export type SheetMode =
   | { mode: 'edit'; space: Space; state: TileState | null };
 
 /** Every paid plan, from Plus (owner 22 Nov, "SAME FEATURES IN EVERY SIZE") — the plan lock both Spaces locks open with (the price is the Plan page's, never typed here). */
-export const PAID_NEED: LockNeed = { kind: 'plan', plan: 'solo', price: null, href: '/vendor-dashboard/subscription' };
+/**
+ * The Spaces locks' need: every paid plan, from Plus. A7-14 — the price is the catalogue's Plus monthly price, worded by
+ * the page from `getVendorPrices` + `monthlyPlanPrice` (never typed); `null` (an unread catalogue) shows no figure.
+ */
+export function paidNeed(planPrice: string | null): LockNeed {
+  return { kind: 'plan', plan: 'solo', price: planPrice, href: '/vendor-dashboard/subscription' };
+}
 
 const CLOTHING_TYPES = ['Gown', 'Barong', 'Suit', 'Dress', 'Filipiniana', 'Accessory'] as const;
 const NAMINGS_ROOM: ReadonlyArray<{ key: RoomNaming; label: string; hint: string }> = [
@@ -71,6 +77,8 @@ export function SpaceSheet({
   proOpen,
   dayLabel,
   firstHall,
+  refusal = null,
+  planPrice = null,
   run,
 }: {
   open: boolean;
@@ -84,6 +92,10 @@ export function SpaceSheet({
   dayLabel: string;
   /** The shop's shipped Room size & capacity — the FIRST hall opens filled from it. */
   firstHall: { widthM: number | null; lengthM: number | null; seated: number | null } | null;
+  /** A7-30: why the last save in this sheet was refused, drawn IN the sheet — the page's notice sits behind it. */
+  refusal?: string | null;
+  /** The Plus plan's catalogue price, worded ("₱… / month"); null = unread. */
+  planPrice?: string | null;
   run: Run;
 }) {
   const headingId = useId();
@@ -206,7 +218,7 @@ export function SpaceSheet({
         <div className="mt-1" data-space-name="">
           {!proOpen ? (
             <FormRows width="wide">
-              <LockedFeature lock="space_names" need={PAID_NEED} line={`Given for you: ${editing ? editing.name : preview?.ok ? preview.names[0] : '…'}`} data="space-name-lock" />
+              <LockedFeature lock="space_names" need={paidNeed(planPrice)} line={`Given for you: ${editing ? editing.name : preview?.ok ? preview.names[0] : '…'}`} data="space-name-lock" />
             </FormRows>
           ) : editing ? (
             <FormRows width="wide">
@@ -333,6 +345,12 @@ export function SpaceSheet({
         {at.mode === 'new' && preview ? (
           <p className={`mt-3 text-[13px] ${preview.ok ? 'text-ink/70' : 'font-medium text-ink'}`} data-space-preview="" role={preview.ok ? undefined : 'alert'}>
             {preview.ok ? `Preview: ${previewWords(preview.names)}` : preview.error}
+          </p>
+        ) : null}
+
+        {refusal ? (
+          <p className="mt-3 text-sn-13 font-medium text-ink" role="alert" data-space-refusal="">
+            {refusal}
           </p>
         ) : null}
 

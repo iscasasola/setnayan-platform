@@ -2094,6 +2094,18 @@ export async function fetchSigns(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<FloorSignRow[]> {
+  return (await fetchSignsMeasured(supabase, eventId)).rows;
+}
+
+/**
+ * The signs, and WHETHER THE READ HAPPENED (A7-10, final check 25 Nov). `measured: false` = refused: `rows` is empty
+ * because nobody knows which signs are placed, not because none are. The couple's seat plan asks this form, so a refused
+ * read is never drawn as a plan with every sign gone. Never throws.
+ */
+export async function fetchSignsMeasured(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ rows: FloorSignRow[]; measured: boolean }> {
   const { data, error } = await supabase
     .from('event_floor_signs')
     .select('sign_id,event_id,label,x_pos,y_pos,rotation_deg,sort_order')
@@ -2103,13 +2115,16 @@ export async function fetchSigns(
   if (error) console.error('[supabase-error] lib/seating.ts · from:event_floor_signs.select', error);
   // Graceful-degrade (same contract as fetchBooths): a not-yet-migrated table
   // or RLS hiccup renders a sign-less plan, never a crashed page.
-  if (error || !data) return [];
-  return (data as FloorSignRow[]).map((s) => ({
-    ...s,
-    x_pos: Number(s.x_pos),
-    y_pos: Number(s.y_pos),
-    rotation_deg: Number(s.rotation_deg),
-  }));
+  if (error || !data) return { rows: [], measured: !error };
+  return {
+    rows: (data as FloorSignRow[]).map((s) => ({
+      ...s,
+      x_pos: Number(s.x_pos),
+      y_pos: Number(s.y_pos),
+      rotation_deg: Number(s.rotation_deg),
+    })),
+    measured: true,
+  };
 }
 
 // --- placed venue objects (whole-venue designer) ----------------------------
@@ -2132,6 +2147,14 @@ export async function fetchSceneObjects(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<SceneObjectRow[]> {
+  return (await fetchSceneObjectsMeasured(supabase, eventId)).rows;
+}
+
+/** The placed venue objects, and whether the read happened (A7-10) — the same contract as `fetchSignsMeasured`. */
+export async function fetchSceneObjectsMeasured(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ rows: SceneObjectRow[]; measured: boolean }> {
   const { data, error } = await supabase
     .from('event_scene_objects')
     .select('object_id,event_id,kind,label,x_pct,y_pct,rotation_deg')
@@ -2140,14 +2163,15 @@ export async function fetchSceneObjects(
   if (error) console.error('[supabase-error] lib/seating.ts · from:event_scene_objects.select', error);
   // Graceful-degrade (same contract as fetchBooths/fetchSigns): a not-yet-
   // migrated table or RLS hiccup renders an object-less plan, never a crash.
-  if (error || !data) return [];
-  return (data as SceneObjectRow[]).map((o) => ({
+  if (error || !data) return { rows: [], measured: !error };
+  const rows = (data as SceneObjectRow[]).map((o) => ({
     ...o,
     label: o.label ?? null,
     x_pct: Number(o.x_pct),
     y_pct: Number(o.y_pct),
     rotation_deg: Number(o.rotation_deg),
   }));
+  return { rows, measured: true };
 }
 
 // Booth footprint + the hardcoded perimeter rulebook. All numbers are percent

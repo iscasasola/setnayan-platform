@@ -16,7 +16,7 @@ controller never merges. "Live" only after /api/health shows the commit.
 | L6 | Retired pages removed (lane R R1–R9; R2 and R8 forward to their new home) | NEW `claude/fc-fix-r-retire` | area 7 (coordinator) | not started |
 | L7 | Bookings/payments honest | #8311 | area 6 | ready, CI re-run |
 | L8 | On the day, chat honest | #8324 | area 6 | ready, CI re-run |
-| L9 | Same date booked twice (A6-71; owner: the first registered wins) | #8331 (check) | area 6 | being checked |
+| L9 | Same date booked twice (A6-71; owner: the first registered wins) | NEW `claude/fc-fix-a6-71` (after SW-BOOKED per PLAN-area-6 l.104) | area 6 | not started; #8331 READY without it |
 | L10 | Supplier words and doors | #8318, #8320 | area 5 | ready, CI re-run |
 | L11 | Guest offline words promise only what ships (A4-01/23); table QR must NOT leak | #8329 | area 4 | NOT READY: privacy leak |
 | L12 | Admin guards (A1 guards first: approve/verify suppliers safely) | #8322 + next batch | area 8 | 9 guards missing |
@@ -28,3 +28,11 @@ Not required for launch (may land when ready): #8321 (speed; NOT READY: custom-d
 - Lane R deletes: run the door check first; delete the page and its own files only; an old address that people may hold
   (R2 AI buy page → the Event Hub AI page; R8 API keys → dashboard) gets a permanent redirect; remove menu/sitemap entries;
   add a test that the route is gone or redirects.
+
+## L9 detail · A6-71 ruling for the builder (owner, 25 Nov; already ruled, no new question)
+Two booked/locked QR claims for one supplier date: the one REGISTERED FIRST wins. The claim must be decided in ONE atomic
+database step (`vendor_claim_locked_qr` RPC via a pipeline migration: lock the supplier+date row or use a unique/capacity
+check inside the transaction; never read-then-write in JS). It honours the supplier's per-date capacity (the paid
+"+1 booking per date" add-on raises it). The second claimant is told plainly the date was just taken and offered the
+supplier's other options; the supplier sees both, and nothing is final until the supplier's page refreshes. Test: two
+concurrent claims → exactly one wins (a DB test).

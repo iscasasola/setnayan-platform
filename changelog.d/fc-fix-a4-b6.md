@@ -13,8 +13,8 @@ Final check fixer, area 4 (Guest), lane A — area 4's rows of the shared sweeps
 - The Papic join app banner says nothing until a real store link is set — never "The app is coming soon" (A4-72,
   SW-COMING).
 - The supplier desk says "Time to follow", never "Time TBD" (A4-B10, SW-PLACE).
-- `/[slug]/print`: the bare fallback headline announces a marriage only at a wedding; other events print their own name
-  (A4-47, SW-WEDDING).
+- `/[slug]/print`: the bare fallback headline never announces a marriage; it prints the event's own name under the event
+  type's own word ("The Wedding", "The Birthday", "The Gathering") (A4-47, SW-WEDDING).
 - The request key's words take the event's own word ("the family" at a wake), and the door's two reasons need no noun
   (A4-48, SW-WEDDING).
 

@@ -254,14 +254,12 @@ export default async function EditorialPrintPage({
   try {
     copy = composeCopy(data);
   } catch {
-    /* 🗣 A4-47 (final check, SW-WEDDING): the bare fallback headline speaks the event type's own words — "Are
-       Married" only for a wedding; any other event prints its own name (or "The Birthday", "The Gathering"). */
-    const isWedding = words.eventWord === 'wedding' && !words.solemn;
+    /* 🗣 A4-47 (final check, SW-WEDDING): the bare fallback never announces a marriage. It prints the event's own
+       name under the event type's own word ("The Wedding", "The Birthday", "The Gathering" at a wake) —
+       `untitledEventName` reads the ONE solemn signal inside event-words.ts, so this page makes no second check. */
     copy = {
-      superKicker: words.solemn ? untitledEventName(words) : 'A celebration',
-      headline: isWedding
-        ? `${data.displayName} Are Married`
-        : data.displayName?.trim() || untitledEventName(words),
+      superKicker: untitledEventName(words),
+      headline: data.displayName?.trim() || untitledEventName(words),
       deck: '',
       byline: 'By the Setnayan Desk',
       leadParagraphs: [],

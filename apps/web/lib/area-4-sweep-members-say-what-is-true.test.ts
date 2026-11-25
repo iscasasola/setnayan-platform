@@ -12,7 +12,7 @@
  *   "No commission, no middleman, no fees." (or any other 0% wording) ........... A4-B12 (SW-PROMISE)
  *   the Papic join banner says the app is "coming soon" ......................... A4-72 (SW-COMING)
  *   the supplier desk says "Time TBD" ........................................... A4-B10 (SW-PLACE)
- *   /print announces a marriage on a non-wedding ............................... A4-47 (SW-WEDDING)
+ *   /print's fallback announces a marriage on any event ........................ A4-47 (SW-WEDDING)
  *   the request key says "the couple" on every event type ...................... A4-48 (SW-WEDDING)
  */
 import test from 'node:test';
@@ -71,12 +71,13 @@ test('A4-B10 · the supplier desk says "Time to follow", never "TBD"', () => {
   assert.match(src, /'Time to follow'/);
 });
 
-test('A4-47 · /print announces a marriage only at a wedding', () => {
+test('A4-47 · /print never announces a marriage in its fallback; it prints the event’s own name and word', () => {
   const src = code('app/[slug]/print/page.tsx');
-  const married = [...src.matchAll(/Are Married/g)].length;
-  assert.equal(married, 1);
-  assert.match(src, /const isWedding = words\.eventWord === 'wedding' && !words\.solemn;/);
-  assert.match(src, /headline: isWedding\s*\?\s*`\$\{data\.displayName\} Are Married`\s*:\s*data\.displayName\?\.trim\(\) \|\| untitledEventName\(words\)/);
+  assert.doesNotMatch(src, /Are Married/);
+  assert.match(src, /superKicker: untitledEventName\(words\),/);
+  assert.match(src, /headline: data\.displayName\?\.trim\(\) \|\| untitledEventName\(words\),/);
+  // No second "is this a wedding / solemn" check on this route (the-keepsake-stays-quiet-at-a-wake.test.ts).
+  assert.doesNotMatch(src, /eventWord === 'wedding'/);
 });
 
 test('A4-48 · the request key speaks the event’s own word', () => {

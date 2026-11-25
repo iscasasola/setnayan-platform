@@ -19,20 +19,20 @@ None found in phase A so far.
 - [x] /vendor-dashboard (Today + layout shell: top bar, rail, bottom bar) · OFFLINE: READ-ONLY IS ENOUGH (the on-the-day work lives on /vendor-dashboard/on-the-day and expo work on the calendar/QR; Today should open as a saved copy with "as of", edits "Needs internet") · SHAPE: TODAY page → SHOULD PAGE (same)
 - [x] /vendor-dashboard/activities · OFFLINE: READ-ONLY IS ENOUGH (an emcee may glance at segments on the day; the run sheet on On the day is the working copy) · SHAPE: TODAY page (+ Add sheet) → SHOULD PAGE (same)
 - [x] /vendor-dashboard/attributes · OFFLINE: NOT NEEDED · SHAPE: TODAY page (+ Add sheet, `?add=` deep link) → SHOULD PAGE (same)
-- [ ] /vendor-dashboard/collections
-- [ ] /vendor-dashboard/collections/albums
+- [x] /vendor-dashboard/collections · OFFLINE: READ-ONLY IS ENOUGH (show the portfolio to a couple at an expo; uploads need internet) · SHAPE: TODAY page (Portfolio tab; groups rise in RiseScreen; Show is a hand-rolled full-screen viewer) → SHOULD PAGE (same; Show should be a RiseScreen-family full-screen layer, see A5-G6-19)
+- [x] /vendor-dashboard/collections/albums · OFFLINE: NOT NEEDED · SHAPE: TODAY page (list of events → each event's Papic album) → SHOULD PAGE (same)
 - [x] /vendor-dashboard/creators · OFFLINE: NOT NEEDED · SHAPE: TODAY page (+ Send offer sheet) → SHOULD PAGE (same)
-- [ ] /vendor-dashboard/deep-search
+- [x] /vendor-dashboard/deep-search · OFFLINE: NOT NEEDED (AI tool, needs internet by rule) · SHAPE: TODAY page → SHOULD PAGE (same)
 - [x] /vendor-dashboard/help · OFFLINE: NOT NEEDED (five doors to online pages) · SHAPE: TODAY page of 5 link rows → SHOULD SMALL POPUP (Sheet from Settings › Help) (differs)
-- [ ] /vendor-dashboard/invite
+- [x] /vendor-dashboard/invite · OFFLINE: NEEDED — at an expo (Add a client / client QR, Check a date QR; R8 offline client QR) and on the road (Locked QR for a client met off-site) · SHAPE: TODAY page (QR codes hub; each code rises; Add a client is a Sheet) → SHOULD PAGE (same page; but a popup opens on a popup inside it — differs, see A5-G6-20)
 - [x] /vendor-dashboard/lines · OFFLINE: READ-ONLY IS ENOUGH (lines are read during a wedding; writing happens on the client's script tab) · SHAPE: TODAY page → SHOULD PAGE (same)
-- [ ] /vendor-dashboard/moodboard-library
-- [ ] /vendor-dashboard/packages
-- [ ] /vendor-dashboard/packages/[packageId]
-- [ ] /vendor-dashboard/partnerships
+- [x] /vendor-dashboard/moodboard-library · OFFLINE: NOT NEEDED (uploads and review need internet) · SHAPE: TODAY page (tool page; editor is a full Sheet, upload is a ToolAddSheet) → SHOULD PAGE (same)
+- [x] /vendor-dashboard/packages · OFFLINE: READ-ONLY IS ENOUGH (show bundles and prices "as of" at an expo) · SHAPE: TODAY page (list of bundles) → SHOULD PAGE (same)
+- [x] /vendor-dashboard/packages/[packageId] · OFFLINE: NOT NEEDED (editing; the shop's saved copy covers showing it) · SHAPE: TODAY its own address drawn as a RiseScreen whose ✕ always goes to Shop › services → SHOULD FULL-SCREEN POPUP over the page it was opened from, ✕ back to that same place (differs)
+- [x] /vendor-dashboard/partnerships · OFFLINE: NOT NEEDED · SHAPE: TODAY page (inbox + Add / Invite sheets) → SHOULD PAGE (same)
 - [ ] /vendor-dashboard/profile
-- [ ] /vendor-dashboard/recommendations
-- [ ] /vendor-dashboard/repertoire
+- [x] /vendor-dashboard/recommendations · OFFLINE: NOT NEEDED · SHAPE: TODAY page (per-category rows; Suggest / Not a fit sheets) → SHOULD PAGE (same)
+- [x] /vendor-dashboard/repertoire · OFFLINE: READ-ONLY IS ENOUGH (show the set list at a gig or expo; library search needs internet) · SHAPE: TODAY page (tool page) → SHOULD PAGE (same)
 - [x] /vendor-dashboard/services · OFFLINE: READ-ONLY IS ENOUGH (a forward to Shop; the cards as a saved copy, R11) · SHAPE: TODAY forward → /vendor-dashboard/shop (keeps every param) → SHOULD PAGE (same) · glow: n/a (forward)
 - [x] /vendor-dashboard/services/[serviceId] · OFFLINE: READ-ONLY IS ENOUGH (show a card at an expo; editing needs internet) · SHAPE: TODAY own page (the card maker, Back "Shop") → SHOULD FULL-SCREEN POPUP (differs) · glow: no
 - [x] /vendor-dashboard/services/new · OFFLINE: NOT NEEDED (making a card needs internet) · SHAPE: TODAY own page (picker, then the maker) → SHOULD FULL-SCREEN POPUP (differs) · glow: no
@@ -764,4 +764,270 @@ CODE      apps/web/app/vendor-dashboard/shop/promote/_components/share-your-work
 SHOTS     cannot be forced on staging; code only
 RULE      CLAUDE.md §5 rule 4 (honest states)
 SEVERITY  wrong
+SOURCE    CODE
+
+### Portfolio, bundles, partners and client invite
+
+#### A5-G6-01 · Albums by event says "No booked events yet" when the bookings read failed
+PAGE      /vendor-dashboard/collections/albums   (shop: Liwanag Photo & Film)
+BUTTON    —
+STEPS     1. Open Portfolio › Albums by event. 2. Have the bookings read refused (room.complete false, no events).
+EXPECTED  "Couldn't read your bookings" with Try again; never the empty sentence.
+ACTUAL    The "Some bookings could not be read" warning only draws inside the non-empty branch; with zero events read the page says "No booked events yet — an album fills when…".
+CODE      apps/web/app/vendor-dashboard/collections/albums/page.tsx · `upcoming.length + past.length === 0` · `!room.complete`
+SHOTS     to take in phase B: 375 px light + 375 px dark
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G6-02 · Bundle Maker thumb row has two filled main buttons
+PAGE      /vendor-dashboard/packages/[packageId]   (packages/new)
+BUTTON    "Save to my shop" · "Send to this couple"
+STEPS     1. Shop › services › Build a package (or Your packages › a bundle). 2. Look at the thumb row.
+EXPECTED  One main (supplier blue) button; the other neutral.
+ACTUAL    `EqualRow` holds `ActionButton tone="ok" main` (green fill) and `ActionButton tone="brand" main` (blue fill) at equal widths.
+CODE      apps/web/app/vendor-dashboard/packages/_components/package-editor.tsx · `data-bundle-send` · `bundle-save`
+SHOTS     to take in phase B: 375 px light + 375 px dark
+RULE      HOUSE_DESIGN_STANDARD Part K1 (one main per scope; never another bright colour)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G6-03 · "Send to this couple" is a drawn button that does nothing ("coming next")
+PAGE      /vendor-dashboard/packages/[packageId]
+BUTTON    "Send to this couple"
+STEPS     1. Open the Bundle Maker. 2. Press "Send to this couple".
+EXPECTED  A real action, or no button.
+ACTUAL    Rendered `waiting` (aria-disabled, no onClick) with the title "Send to this couple — opens from a couple’s chat, coming next"; the code comment says NOT WIRED YET. A filled main button a person can press that does nothing.
+CODE      apps/web/app/vendor-dashboard/packages/_components/package-editor.tsx · `NOT WIRED YET` · `data-bundle-send`
+SHOTS     to take in phase B: 375 px light
+RULE      design-and-wiring.md B5 (no pressable "coming soon"); brand.md claims 9
+SEVERITY  broken
+SOURCE    CODE
+
+#### A5-G6-04 · Bundle Maker ✕ never returns to where it was opened
+PAGE      /vendor-dashboard/packages/[packageId]
+BUTTON    ✕ (close)
+STEPS     1. Open /vendor-dashboard/packages. 2. Tap a bundle (or "Build a package"). 3. Tap ✕.
+EXPECTED  A full-screen popup that falls back to the same place (Your packages, scroll kept).
+ACTUAL    `onClose={() => router.push(closeHref)}` with `SHOP_SERVICES = '/vendor-dashboard/shop#services'` — always lands on Shop, from any opener; the maker is its own address, not a layer over the opener.
+CODE      apps/web/app/vendor-dashboard/packages/[packageId]/page.tsx · `SHOP_SERVICES`; package-editor.tsx · `router.push(closeHref)`
+SHOTS     to take in phase B: 375 px light + desktop
+RULE      SHAPE (owner 25 Nov) — multi-step fill-in = FULL-SCREEN POPUP, ✕ returns to the same place
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G6-05 · Partnerships section counts read "(0)" when the partnerships read failed
+PAGE      /vendor-dashboard/partnerships
+BUTTON    —
+STEPS     1. Open Partnerships with the `vendor_partnerships` read refused.
+EXPECTED  No count (or "—") beside the "couldn't load" notice.
+ACTUAL    Headings print `Incoming requests ({incoming.length})`, `Partners ({accepted.length})`, `Sent — awaiting response ({outgoing.length})` from `rows ?? []` — "(0)" above the failure notice.
+CODE      apps/web/app/vendor-dashboard/partnerships/page.tsx · `Incoming requests (` · `partnershipsMeasured`
+SHOTS     to take in phase B: 375 px light
+RULE      CLAUDE.md §5 rule 4 (a failed read never shows 0)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G6-06 · A partner's name falls back to the raw shop id when the names read fails
+PAGE      /vendor-dashboard/partnerships
+BUTTON    —
+STEPS     1. Partnerships with the other shops' `vendor_profiles` name read refused.
+EXPECTED  "Couldn't read this shop's name" or a neutral word.
+ACTUAL    `nameMap.get(id) ?? id` prints a UUID as the partner's name (the code comment admits it).
+CODE      apps/web/app/vendor-dashboard/partnerships/page.tsx · `nameMap.get(id) ?? id`
+SHOTS     to take in phase B: 375 px light
+RULE      CLAUDE.md §5 rule 4 (honest states)
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G6-07 · Add a preferred supplier card: main "Add" beside an accent-outlined "Invite"
+PAGE      /vendor-dashboard/partnerships
+BUTTON    "Add" · "Invite"
+STEPS     1. Open Partnerships; look at the top card.
+EXPECTED  One main; the other neutral.
+ACTUAL    `ActionButton tone="brand" main` "Add" and `ActionButton tone="brand"` (accent outline) "Invite" in one card.
+CODE      apps/web/app/vendor-dashboard/partnerships/_components/preferred-supplier-card.tsx · `label="Invite"`
+SHOTS     to take in phase B: 375 px light + dark
+RULE      HOUSE_DESIGN_STANDARD Part K1.2 (never accent-outlined)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G6-08 · Accept / Decline / Withdraw are hand-made small buttons, main is ink not supplier blue
+PAGE      /vendor-dashboard/partnerships
+BUTTON    "Accept" · "Decline" · "Withdraw"
+STEPS     1. Have an incoming request. 2. Look at its row.
+EXPECTED  `ActionButton` (44 px press): Accept main in supplier blue, Decline neutral.
+ACTUAL    `SubmitButton` with `rounded-md bg-ink px-3 py-1.5 text-xs` / `border px-3 py-1.5 text-xs` — about 28 px tall, ink fill; legacy `button-primary`/`button-secondary` in the Add sheet too.
+CODE      apps/web/app/vendor-dashboard/partnerships/page.tsx · `pendingLabel="Accepting…"`; preferred-supplier-card.tsx · `button-primary px-3 py-1.5 text-xs`
+SHOTS     to take in phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K1 + D1 (every press ≥ 44 px); CLAUDE.md §3 Button
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G6-09 · White surfaces on Partnerships in dark
+PAGE      /vendor-dashboard/partnerships
+BUTTON    —
+STEPS     1. Dark mode. 2. Look at Partners rows and the Add sheet's results.
+EXPECTED  Rows on `--color-raised`; no white.
+ACTUAL    `SwipeToDelete surfaceClass="bg-white"` behind every partner row; the result avatar is `bg-white`.
+CODE      apps/web/app/vendor-dashboard/partnerships/_components/partner-remove-row.tsx · `surfaceClass="bg-white"`; preferred-supplier-card.tsx · `bg-white font-mono`
+SHOTS     to take in phase B: 375 px dark
+RULE      HOUSE_DESIGN_STANDARD Part K2 (no white surfaces); DARK_MODE_STANDARD §2
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G6-10 · Recommendations: every read is unbound — failures read as "none", raw codes, no price, wrong On/Off
+PAGE      /vendor-dashboard/recommendations
+BUTTON    "Turn on" / "Turn off" · "Suggest to a couple"
+STEPS     1. Open Recommend with any of its reads refused.
+EXPECTED  "Couldn't read …" for the failed part; a price either from the catalogue or "Couldn't read".
+ACTUAL    Destructured `{ data }` with no `error`: taxonomy refused → `tileIds` empty → "No recommendations for your categories yet. Add the services you offer…"; recs refused → same; `platform_retail_catalog_v2` refused → each card titled by its raw service code with no price line; opt-ins refused → every card shows the default On/Off; pending suggestions refused → "Suggested ✓" missing (double suggestion possible).
+CODE      apps/web/app/vendor-dashboard/recommendations/page.tsx · `{ data: sentRows }` · `const { data: taxRows } = taxRead` · `catalogRes.data ?? []` · `optinRes.data ?? []`; _panel.tsx · `No recommendations for your categories yet`
+SHOTS     to take in phase B: 375 px light
+RULE      CLAUDE.md §5 rule 4; reads-are-honest pattern (the file is not in `RENDER_FILES`)
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### A5-G6-11 · Repertoire: a failed set-list or library read draws as empty
+PAGE      /vendor-dashboard/repertoire
+BUTTON    —
+STEPS     1. Song bank open. 2. `vendor_songs` (set list) or the songs search read refused.
+EXPECTED  "Couldn't read your set list" with Try again.
+ACTUAL    `fetchVendorSongs` drops `readVendorSongs(...).failed` → "Your set list" (0) + "Add the songs you perform"; `searchSongs` / `fetchCuratedSongs` return `data ?? []` → "No songs match — add it below", which opens Add your own and invites duplicates. The locked view's "Your N saved songs are kept" also hides on a failed read.
+CODE      apps/web/lib/songs.ts · `fetchVendorSongs` · `searchSongs`; apps/web/app/vendor-dashboard/repertoire/_components/repertoire-view.tsx · `Add the songs you perform`
+SHOTS     to take in phase B: 375 px light
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G6-12 · Song bank lock has no preview and no price
+PAGE      /vendor-dashboard/repertoire   (a shop without the Song bank)
+BUTTON    "See it in the Toolkit" · "See plans"
+STEPS     1. Open Repertoire on a music shop whose Song bank is not open.
+EXPECTED  🔒 → Problem → Solution → preview → price (catalogue) → one button.
+ACTUAL    Text only ("Get it once in the Toolkit; it is yours to keep") and a link out to the Toolkit item; no preview, no price on the lock.
+CODE      apps/web/app/vendor-dashboard/repertoire/_components/repertoire-view.tsx · `RepertoireLocked`
+SHOTS     to take in phase B: 375 px light
+RULE      design-and-wiring.md B7 (honest locks); HOUSE_DESIGN_STANDARD D3 "Every lock shows 🔒"
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G6-13 · Deep Search: a refused plan read shows a paying shop the Free lock
+PAGE      /vendor-dashboard/deep-search   (Liwanag = Pro)
+BUTTON    "Upgrade"
+STEPS     1. Open Deep Search with the `vendor_profiles` tier read refused.
+EXPECTED  "Couldn't read your plan" — never the Free lock.
+ACTUAL    `const { data: tierRow } = …maybeSingle()` with no error → `tier` null → `loadDeepSearchOffer` treats the shop as Free/Verified → the "What it finds" demo, "Included in Plus" and "Upgrade" to a Pro payer.
+CODE      apps/web/app/vendor-dashboard/deep-search/page.tsx · `const { data: tierRow }` · `loadDeepSearchOffer`
+SHOTS     to take in phase B: 375 px light
+RULE      CLAUDE.md §5 rule 4; vendor-dashboard `a-refused-plan-read-is-not-free` pattern
+SEVERITY  money-signin
+SOURCE    CODE
+
+#### A5-G6-14 · Deep Search history: a failed read hides the history; a failed dossier read says "Running"
+PAGE      /vendor-dashboard/deep-search
+BUTTON    —
+STEPS     1. Open Deep Search with `vendor_deep_search_uses` refused; or with `vendor_web_dossiers` refused.
+EXPECTED  "Couldn't read your searches".
+ACTUAL    Uses refused → no "Your latest result", no "Search history" (looks like never searched, and the allowance may look unused). Dossiers refused → `d?.status ?? 'running'` marks every past search "Running".
+CODE      apps/web/app/vendor-dashboard/deep-search/page.tsx · `{ data: usesData }` · `d?.status ?? 'running'`
+SHOTS     to take in phase B: 375 px light
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G6-15 · Deep Search lock shows no price and no main button
+PAGE      /vendor-dashboard/deep-search   (a Free or Verified shop)
+BUTTON    "Upgrade"
+STEPS     1. Open Deep Search as a Free/Verified shop.
+EXPECTED  🔒 → problem → solution → preview → price of Plus read from the catalogue → one main button to a real checkout.
+ACTUAL    "Included in Plus" + an outlined (not main) `ActionButton tone="brand"` "Upgrade" to the Plans page; no price shown.
+CODE      apps/web/app/vendor-dashboard/deep-search/_components/deep-search-runner.tsx · `label="Upgrade"`
+SHOTS     to take in phase B: 375 px light
+RULE      design-and-wiring.md B7
+SEVERITY  wrong
+SOURCE    CODE
+
+#### A5-G6-16 · Deep Search: numbered palette pills and an orange icon tile
+PAGE      /vendor-dashboard/deep-search
+BUTTON    —
+STEPS     1. Dark mode; look at "Search history" status pills and the "Run a Deep Search" head.
+EXPECTED  Token colours (dot + coloured word on a dark tint); no icon tile.
+ACTUAL    `bg-success-100 text-success-800` / `bg-danger-100 text-danger-800` pills; the Search icon sits in an orange `--m-orange-4` tile.
+CODE      apps/web/app/vendor-dashboard/deep-search/page.tsx · `bg-success-100 text-success-800` · `var(--m-orange-4)`
+SHOTS     to take in phase B: 375 px dark
+RULE      design-and-wiring.md D13; HOUSE_DESIGN_STANDARD Part I.2 (no icon tiles); DARK_MODE_STANDARD §2
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G6-17 · Moodboard editor: outlined red "Delete" beside the main "Save tags"
+PAGE      /vendor-dashboard/moodboard-library
+BUTTON    "Delete" · "Save tags"
+STEPS     1. Open an upload's Tag colours editor; look at its foot.
+EXPECTED  Save tags main; Delete as a danger word or neutral button.
+ACTUAL    `ActionButton tone="danger"` (red outline on a red wash) beside `tone="brand" main`.
+CODE      apps/web/app/vendor-dashboard/moodboard-library/_components/stylist-library-editor.tsx · `data-library-editor-buttons`
+SHOTS     to take in phase B: 375 px light + dark
+RULE      HOUSE_DESIGN_STANDARD Part K1.5
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G6-18 · Portfolio search with no match: two filled "Add photos" buttons
+PAGE      /vendor-dashboard/collections
+BUTTON    "Add photos" (in the list) · ＋ (thumb row)
+STEPS     1. Type a word that matches nothing in the Portfolio search.
+EXPECTED  One main.
+ACTUAL    The in-list `PortfolioUploadDoor` is `actionButtonClass('brand', { main: true })` and the thumb row's ＋ is `actionButtonClass('brand', { filled: true, iconOnly: true })` at the same time. (Section heads with an Upload door also wear `main` per section — verify in phase B how many show at once.)
+CODE      apps/web/app/vendor-dashboard/collections/_components/portfolio-view.tsx · `portfolio-upload-search` · `portfolio-upload-thumb`; portfolio-sections.tsx · `UploadDoor`
+SHOTS     to take in phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K1
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G6-19 · Portfolio "Show" is a hand-rolled full-screen layer
+PAGE      /vendor-dashboard/collections
+BUTTON    "Show" (an album) · "Close Show"
+STEPS     1. Open an album's Show.
+EXPECTED  The shared full-screen layer (`RiseScreen` family / shared backdrop), ✕ back to the same place.
+ACTUAL    Its own `createPortal` `role="dialog" aria-modal` `fixed inset-0 bg-black` with its own history entry and `useModalA11y`; not RiseScreen. (A black photo viewer is fine; the hand-rolled layer is the finding.)
+CODE      apps/web/app/vendor-dashboard/collections/_components/portfolio-show.tsx · `data-portfolio-show`
+SHOTS     to take in phase B: 375 px light
+RULE      HOUSE_DESIGN_STANDARD Part K3.1; CLAUDE.md §3 (no new hand-rolled aria-modal)
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G6-20 · Add a client: "Buy" opens a second sheet on top of the open sheet
+PAGE      /vendor-dashboard/invite
+BUTTON    a gift pick's buy door (GiftPicks `onBuy`) inside "Add a client"
+STEPS     1. QR codes › Add a client. 2. In the gift picks, press the buy door.
+EXPECTED  One layer at a time (close one, open the next), never a popup on a popup.
+ACTUAL    `setBuying({ code })` mounts `BuyGiftsSheet open` while the Add a client `Sheet` (`open`) is still open.
+CODE      apps/web/app/vendor-dashboard/invite/_components/own-client-gift.tsx · `onBuy={(c) => setBuying({ code: c })}` · `BuyGiftsSheet`
+SHOTS     to take in phase B: 375 px light
+RULE      SHAPE (owner 25 Nov) "never a popup on top of a popup"; HOUSE_DESIGN_STANDARD K3.4
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G6-21 · Locked QR form: a spinner and couple-colour error words
+PAGE      /vendor-dashboard/invite?mode=locked&open=1
+BUTTON    "Choose file" (proof / remembrance photo)
+STEPS     1. Make a Locked QR; upload a proof; force an upload error.
+EXPECTED  No spinner (house rule); error words in the danger token.
+ACTUAL    `Loader2 … animate-spin` while uploading; errors in `text-terracotta-700` (the couple colour, a numbered palette class) inside a supplier surface; `hover:border-terracotta`.
+CODE      apps/web/app/vendor-dashboard/invite/_components/locked-qr-generator.tsx · `animate-spin` · `text-terracotta-700`
+SHOTS     to take in phase B: 375 px light + dark
+RULE      CLAUDE.md §3 Loading ("no spinners") + Colour; design-and-wiring.md D13
+SEVERITY  look
+SOURCE    CODE
+
+#### A5-G6-22 · A malformed `?error=` crashes Partnerships, Recommend and Repertoire
+PAGE      /vendor-dashboard/partnerships · /vendor-dashboard/recommendations · /vendor-dashboard/repertoire
+BUTTON    —
+STEPS     1. Open any of them with `?error=%E0%A4%A` (a broken percent-escape, e.g. a truncated notification link).
+EXPECTED  The page opens; the bad flash is ignored.
+ACTUAL    `decodeURIComponent(sp.error)` throws `URIError` during render → the error screen. (Next already decodes search params once, so the second decode is also wrong for a message containing "%".)
+CODE      partnerships/page.tsx · `decodeURIComponent(sp.error)`; recommendations/page.tsx · `decodeURIComponent(search.error)`; repertoire/page.tsx · `decodeURIComponent(sp.error)`
+SHOTS     to take in phase B: 375 px light
+RULE      FINAL-CHECK-KIT § 5.1 (it opens, no error screen)
+SEVERITY  broken
 SOURCE    CODE

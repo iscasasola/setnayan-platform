@@ -82,3 +82,15 @@ export const getLoaderSettings = cache(async (): Promise<LoaderConfig> => {
     return DEFAULT_LOADER_CONFIG;
   }
 });
+
+/**
+ * The admin card's read (A8·I-3): `null` when the read was refused, so the card says "couldn't read" and offers
+ * no Save — never the defaults drawn as the live choice, where a save would write them over it.
+ */
+export async function readLoaderSettingsMeasured(): Promise<LoaderConfig | null> {
+  try {
+    return await loadLoaderSettings();
+  } catch {
+    return null;
+  }
+}

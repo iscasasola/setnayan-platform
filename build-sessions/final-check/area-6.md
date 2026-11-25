@@ -1,6 +1,6 @@
 # Final check · Area 6 · Supplier: bookings, chat, payments, calendar
 
-FIXER: batch 4 of ~5 · PRs #8311 (b1) · #8324 (b2) · #8331 (b3, controller READY) · #8343 (b4, CI running) · b1/b2 wait on a full CI run (cancelled twice) and the Ship map regen · the last lane A items wait for b1–b3 to land (they share files)
+FIXER: L9 done + batch 4 · PRs #8311 (b1) · #8324 (b2) · #8331 (b3, READY) · #8343 (b4 + owner Add 35) · #8348 (LAUNCH L9 · A6-71, migration, needs GO) · next: plan batch A4
 
 Checker 6 of 8. Checked commit: `fb3f72d` (the pinned check commit). Report only.
 STATUS: phase B done

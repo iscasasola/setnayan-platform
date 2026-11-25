@@ -1,4 +1,7 @@
 import { redirect } from 'next/navigation';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailedBody } from '../../../../_components/set-two/read-failed';
+import { PartPage } from '../../../../_components/set-two/parts';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -43,6 +46,16 @@ export default async function TheirEventPartPage({ params }: { params: Promise<{
   if (!part) redirect(clientHref);
 
   const { data, error } = await supabase.rpc('get_vendor_event_brief', { p_event_id: eventId });
+  // 🧾 A6-56 (final check 25 Nov): only the brief's own refusals (42501 not booked / not a supplier, P0002 no event)
+  // leave the page; any other error is a read that did not answer — said here, never a silent bounce to Clients.
+  if (error && error.code !== '42501' && error.code !== 'P0002') {
+    logQueryError('theirEventPart.brief', error, { eventId }, 'graceful_degrade');
+    return (
+      <PartPage column="mx-auto w-full max-w-2xl" mark="their-event">
+        <ReadFailedBody mark="their-event">We couldn&rsquo;t load their event right now.</ReadFailedBody>
+      </PartPage>
+    );
+  }
   if (error || !data) redirect('/vendor-dashboard/customers');
   const brief = data as Brief;
   if (brief.stage !== 'booked') redirect(clientHref);
@@ -63,10 +76,11 @@ export default async function TheirEventPartPage({ params }: { params: Promise<{
   const open = rows.some((r) => r.part === part);
 
   // Hub — the event's public address, read only when the Hub is the part opened.
-  let hubSlug: string | null = null;
+  let hubSlug: string | null | 'unread' = null;
   if (open && part === 'hub') {
-    const { data: ev } = await createAdminClient().from('events').select('slug').eq('event_id', eventId).maybeSingle();
-    hubSlug = (ev as { slug: string | null } | null)?.slug ?? null;
+    const { data: ev, error: evError } = await createAdminClient().from('events').select('slug').eq('event_id', eventId).maybeSingle();
+    // A6-56: a refused read is not "the hosts have not published their Event Hub yet".
+    hubSlug = evError ? 'unread' : ((ev as { slug: string | null } | null)?.slug ?? null);
   }
   const body = <TheirEventPartBody eventId={eventId} part={part} open={open} brief={brief} group={group} hubSlug={hubSlug} />;
 

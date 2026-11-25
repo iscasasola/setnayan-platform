@@ -25,7 +25,7 @@ export const THEIR_EVENT_PART_NAME: Readonly<Record<TheirEventPart, string>> = {
   guests: 'Guests',
   seats: 'Seats',
   mood_board: 'Mood Board',
-  hub: 'Hub',
+  hub: 'Event Hub', // A6-56: the house word (docs/brand.md)
 };
 
 /** The order the list draws in — everybody's three first (drawing: "Same first three links as everybody"). */
@@ -290,7 +290,7 @@ export function coordinatorDashboardRows(i: CoordinatorRowsInput): CoordinatorRo
     row('seats', 'Seats', i.tables !== null ? plural(i.tables, 'table', 'tables') : 'The seat plan', mark('seat_plan'), i.href.seats),
     row('march', 'March', 'Who walks, in what order', mark('schedule'), i.href.march),
     row('schedule', 'Schedule', i.moments !== null ? plural(i.moments, 'moment', 'moments') : 'The day', mark('schedule'), i.href.schedule),
-    row('hub', 'Hub', 'Guest page · check-in', mark('invitations'), i.href.hub),
+    row('hub', 'Event Hub', 'Guest page · check-in', mark('invitations'), i.href.hub),
     row('event_details', 'Event Details', 'Date · place · hosts', mark('schedule'), i.href.details),
     row('suppliers', 'Suppliers', 'Find · recommend · shortlist', mark('vendors'), i.href.suppliers),
     row('mood_board', 'Mood Board', 'The look of the day', mark('mood_board'), i.href.moodBoard),

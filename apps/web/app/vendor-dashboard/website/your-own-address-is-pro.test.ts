@@ -31,7 +31,8 @@ test('1 · the web-address part wears its own ◆ and names the plan from the ta
 
 test('2 · the ◆ is asked through the switch, from the plan’s own web-address cap, never in the store shell', () => {
   const page = read('page.tsx');
-  assert.match(page, /const ownAddressAsks = vendorPaywallApplies\(tierCaps\(asVendorTier\(d\.tier\)\)\.customWebsiteName\) && !d\.storeShell;/);
+  // A refused plan read draws no ask (final check A5-G5-03, held by lib/vendor-tier-read-is-honest.test.ts); the cap and the shell rule stay.
+  assert.match(page, /const ownAddressAsks = !d\.planUnread && vendorPaywallApplies\(tierCaps\(asVendorTier\(d\.tier\)\)\.customWebsiteName\) && !d\.storeShell;/);
   assert.match(page, /addressAsks: ownAddressAsks,/);
   assert.match(page, /const addressPlan = TIER_LABEL\[firstPlanWith\(\(c\) => c\.customWebsiteName\) \?\? 'pro'\];/);
 });

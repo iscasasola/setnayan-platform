@@ -5,7 +5,7 @@ import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorFeaturedStories, type VendorFeaturedStory } from '@/lib/realstories-vendor';
 import { loadVendorRecaps, type VendorRecap } from '@/lib/recap-vendor';
 import { canUseSoloBusinessTools } from '@/lib/vendor-tier-caps';
-import { isVendorFeatureGateEnabled, resolveVendorTier } from '@/lib/vendor-feature-gate';
+import { isVendorFeatureGateEnabled, readVendorTier } from '@/lib/vendor-feature-gate';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { effectiveSeoTier } from '@/lib/vendor-seo-tier';
 import { hasStoryPages } from '@/lib/ultra-story-pages';
@@ -35,13 +35,21 @@ export type ShareYourWorkData = {
   ultra?: { shopSlug: string; notes: Record<string, string> | null } | null;
 };
 
+/** The notes part, unread: drawn as "couldn't load" per story, never a saveable box (S-5). */
+const UNREAD_ULTRA = { shopSlug: '', notes: null } as const;
+
 async function loadUltraStoryNotes(supabase: SupabaseClient, vendorProfileId: string): Promise<ShareYourWorkData['ultra']> {
   const { data: shop, error } = await supabase
     .from('vendor_profiles')
     .select('business_slug, tier_state, tier_expires_at')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  if (error) logQueryError('ShareYourWork.ultra', error, { vendorProfileId }, 'graceful_degrade');
+  if (error) {
+    logQueryError('ShareYourWork.ultra', error, { vendorProfileId }, 'graceful_degrade');
+    // 🪪 Refused, the plan is unknown: the notes part says it could not load (the `notes: null` branch draws
+    // "couldn't load", never a box), instead of the Ultra notes silently vanishing (final check A5-G4-11).
+    return UNREAD_ULTRA;
+  }
   const row = shop as { business_slug: string | null; tier_state: string | null; tier_expires_at: string | null } | null;
   if (!row?.business_slug || !hasStoryPages(effectiveSeoTier(row))) return null;
   const { data: noteRows, error: notesErr } = await supabase
@@ -58,8 +66,10 @@ async function loadUltraStoryNotes(supabase: SupabaseClient, vendorProfileId: st
 }
 
 export async function loadShareYourWork(supabase: SupabaseClient, vendorProfileId: string): Promise<ShareYourWorkData> {
-  const gatedRead = isVendorFeatureGateEnabled()
-    ? resolveVendorTier(supabase, vendorProfileId).then((tier) => !canUseSoloBusinessTools(tier))
+  // 🪪 'unread' = the plan read was refused: the recaps part is then "couldn't load", never opened on a guess
+  // (final check A5-G4-11).
+  const gatedRead: Promise<boolean | 'unread'> = isVendorFeatureGateEnabled()
+    ? readVendorTier(supabase, vendorProfileId).then(({ tier }) => (tier === 'unread' ? 'unread' : !canUseSoloBusinessTools(tier)))
     : Promise.resolve(false);
 
   // LEFT ON THE POOL READ, ON PURPOSE — and NOT because this is capacity. It is the same "which events did this shop
@@ -69,14 +79,16 @@ export async function loadShareYourWork(supabase: SupabaseClient, vendorProfileI
   // reason, from the two retired pages, 2026-11-06.)
   const eventIdsRead = fetchVendorPoolBookings(supabase, vendorProfileId).then((bookings) => bookings.map((b) => b.eventId));
 
-  const [recapsGated, eventIds, ultra] = await Promise.all([
-    gatedRead.catch(() => false),
+  const [gate, eventIds, ultra] = await Promise.all([
+    gatedRead.catch(() => 'unread' as const),
     eventIdsRead.catch((err) => {
       logQueryError('ShareYourWork.bookings', err, { vendorProfileId }, 'graceful_degrade');
       return null;
     }),
-    loadUltraStoryNotes(supabase, vendorProfileId).catch(() => null),
+    loadUltraStoryNotes(supabase, vendorProfileId).catch(() => UNREAD_ULTRA),
   ]);
+  const recapsGated = gate === true;
+  const planUnread = gate === 'unread';
   if (eventIds === null) return { stories: null, recaps: null, recapsGated };
 
   const [stories, recaps] = await Promise.all([
@@ -84,7 +96,9 @@ export async function loadShareYourWork(supabase: SupabaseClient, vendorProfileI
       logQueryError('ShareYourWork.stories', err, { vendorProfileId }, 'graceful_degrade');
       return null;
     }),
-    recapsGated
+    planUnread
+      ? Promise.resolve(null)
+      : recapsGated
       ? Promise.resolve([] as VendorRecap[])
       : loadVendorRecaps(eventIds).catch((err) => {
           logQueryError('ShareYourWork.recaps', err, { vendorProfileId }, 'graceful_degrade');

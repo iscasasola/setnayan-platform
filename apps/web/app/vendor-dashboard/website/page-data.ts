@@ -83,6 +83,8 @@ export type PageData = {
   domainsMeasured: boolean;
   /** The plan, for the ◆ asks the page decides (`vendorPaywallApplies`, in `page.tsx`). */
   tier: string | null;
+  /** 🪪 The shop's row (and so its plan) was refused: no plan ask is drawn on a guess (final check A5-G5-03). */
+  planUnread: boolean;
   storeShell: boolean;
   plans: PagePlanLine[];
   /** 🏅 Awards and badges (`lib/shop-badges.ts`), read on every visit — nothing about a badge is stored. */
@@ -121,6 +123,7 @@ export function pagePlanLines(): PagePlanLine[] {
 export async function loadPageData(supabase: SupabaseClient, profile: VendorProfileRow): Promise<PageData> {
   const vendorId = profile.vendor_profile_id;
 
+  let ownRefused = false;
   const ownRead = (async (): Promise<OwnRow | null> => {
     const { data, error } = await supabase
       .from('vendor_profiles')
@@ -129,9 +132,13 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
       .maybeSingle();
     // ⚠ The page as it is published. Refused, the editor starts from the auto-composed defaults — said on the
     // ⚠ screen? No: logged, because the defaults ARE what couples see when these columns are empty.
-    if (error) logQueryError('VendorPage.ownRow', error, { vendorId }, 'graceful_degrade');
+    if (error) {
+      ownRefused = true;
+      logQueryError('VendorPage.ownRow', error, { vendorId }, 'graceful_degrade');
+    }
     return (data as OwnRow | null) ?? null;
   })().catch((err) => {
+    ownRefused = true;
     logQueryError('VendorPage.ownRow', err, { vendorId });
     return null;
   });
@@ -327,6 +334,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     domains: domains.rows,
     domainsMeasured: domains.measured,
     tier,
+    planUnread: ownRefused || !own,
     storeShell,
     plans: pagePlanLines(),
     badges: {

@@ -322,7 +322,7 @@ export function PackageEditor({
       if (res.status === 'ok') {
         setSaved(true);
         // ⚡ `savePackage` revalidates: its answer redraws this page, and a new bundle's replace reads a fresh one.
-        if (!packageId) router.replace(`/vendor-dashboard/packages/${res.packageId}`);
+        if (!packageId) router.replace(`/vendor-dashboard/packages/${res.packageId}${window.location.search}`); // keeps ?from= (A5-G6-04)
         return;
       }
       if (res.status === 'locked') {

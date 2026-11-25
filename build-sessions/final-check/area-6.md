@@ -1,13 +1,25 @@
 # Final check · Area 6 · Supplier: bookings, chat, payments, calendar
 
 Checker 6 of 8. Checked commit: `fb3f72d` (the pinned check commit). Report only.
-STATUS: phase A done (22 pages, 12 forwards, 70 findings) · phase B in progress
+STATUS: phase B done
+
+| | blocker | money-signin | broken | wrong | look | total |
+|---|---|---|---|---|---|---|
+| Phase A (code, A6-01…A6-71) | 0 | 18 | 8 | 23 | 21 | 70 (+1 no-issue note, A6-63) |
+| Phase B (walk, A6-B01…A6-B24) | 0 | 3 | 3 | 12 | 6 | 24 |
+| **Area 6** | **0** | **21** | **11** | **35** | **27** | **94** |
+
+Walked: 18 of 22 pages and 12 of 12 forwards on the staging copy (preview `bd86936`). Not walkable on the copy, said so in
+place: booking-fees/[orderId] (no bill), contracts/[contractId] (no contract, and upload is broken: A6-B13), on-the-day/live
+and its Papic page (no booked event today). DARK: yes 1 page · no 21. Shots: `build-sessions/final-check/shots/area-6/`.
+Known gap: the sensitive flags (`NEXT_PUBLIC_CHAT_LIVE_ENABLED` and the others) use the code default on the copy — no
+finding here depends on them (chat findings are about what is drawn, not live updates).
 
 Phase A = code pass (`SOURCE: CODE`). Phase B = browser walk on staging (`SOURCE: WALK`).
 
 ## BLOCKERS
 
-None so far.
+None. (The copy's slowness, A6-B01, made every page slow but stopped no flow.)
 
 ## Progress
 
@@ -1199,6 +1211,75 @@ RULE      FINAL-CHECK Add 10
 SEVERITY  wrong
 SOURCE    WALK
 ```
+
+### Lock link · Clients in dark
+
+```
+A6-B23
+PAGE      /vendor/lock/[token]
+STEPS     1. Open a lock link whose token is unknown (an old, mistyped or deleted code).
+EXPECTED  The page's own words for a code that does not work ("This Locked QR is no longer valid.") and what to do next.
+ACTUAL    The generic 404: "This page doesn't exist on Setnayan." A couple who scans a dead booked QR at an expo is not told
+          it was a QR from this shop, nor to ask the supplier for a new one. (A real token could not be walked: none exists
+          on the copy, and making one would hold a date on a seeded event.)
+RULE      kit § 5.9 (honest states) · Add 5 (clear errors)
+SEVERITY  wrong
+SOURCE    WALK
+```
+
+```
+A6-B24
+PAGE      /vendor-dashboard/customers (the one dark-ready page) at 768 and 1280, dark
+ACTUAL    The open days on the month grid are pastel-green tiles on the navy page — a light surface on a dark page (Add 7
+          "half dark"); "Handled by" is printed twice in the client panel (the label, then a button reading "Handled by");
+          at 768 the two-pane split leaves the list ~330 px wide, so every row wraps to 3–4 lines and "Open the chat" is cut
+          off at the bottom of the panel.
+RULE      DARK_MODE_STANDARD · Add 2 CLEAN / BALANCED · Add 7 (tablet designed for)
+SEVERITY  look
+SOURCE    WALK
+```
+
+### Phase B progress — every page (Add 6 counts · Add 7 · Add 2)
+
+Button counts are the controls a person can press on the page as drawn (the top bar's 4 and the bottom bar's 4 included),
+at 375 / 768 / 1280. "Pressed" counts real presses that were checked (a press, its result, then Escape or Back). The
+copy answered in 3–200 s per load (A6-B01), so not every control could be pressed in the session; the ones left are
+named. Nothing was paid, sent, confirmed, declined or deleted.
+
+| Page | Buttons 375 / 768 / 1280 | Pressed | Failed | Left, and why | DARK | CLEAN · BALANCED · EFFECTIVE |
+|---|---|---|---|---|---|---|
+| /vendor-dashboard/customers (Events · Dates) | 97 / 68 / 77 | 14 | 5? (week-strip days S 22, M 23, T 24, F 27, S 28 showed no visible change at 375 — may only move a marker) | 56 links (row doors, bottom bar) checked by where they lead, not pressed; 22 row/ⓘ presses blocked by an open sheet in the script; "Archived and closed chats" (would change data) | yes (partly: A6-B24) | CLEAN: ⓘ on every block, "Handled by" twice · BALANCED: ok at 375, squeezed at 768 · EFFECTIVE: no — Booked dates read open (A6-B20) |
+| …?seg=money | 42 / – / – | 16 | 1 ("Bookings" fold: no change on first press) | 24 links; "This year" and "Contracts" folds (left by the script's safe list) | yes | EFFECTIVE: no — logged payments not surfaced (A6-B07), "0% … booked" (A6-B06) |
+| /vendor-dashboard/messages | 26 / 11* / 37 | 1 (a chat row → the client chat) | 0 | All/Unread, search | no | ok · ok · ok (*768 opens the first chat in a pane) |
+| /vendor-dashboard/messages/[threadId] → client ?tab=chat | ~170 at 1280 | 0 | — | the composer, quick replies, Ask for ₱…, Confirm received: would send or confirm on a shared seeded thread | no | CLEAN: inquiry card on a booked client (A6-B10) |
+| /vendor-dashboard/notifications | 12 / 13 / (load timed out) | 0 | — | the one notification (opens area 2's message) | no | ok · ok · ok |
+| /vendor-dashboard/booking-fees | 12 / 13 / 22 | 0 | — | 2 ⓘ (16 px) | no | CLEAN: the free rule said twice (A6-B14) |
+| /vendor-dashboard/booking-fees/[orderId] | — | — | — | NOT WALKED: no fee bill exists for this shop on the copy | — | — |
+| /vendor-dashboard/calendar/[date] | forward | 1 | 0 | — | (Dates) | lands on the day sheet; wrong count (A6-B20) |
+| /vendor-dashboard/clients/[eventId] | 17–19 while loading · ~170 drawn | 2 (open, tab=payments) | 1 (first load stuck, A6-B09) | Confirm received / Not received / Record a refund / Ask: money on seeded data | no | EFFECTIVE: payments to confirm are three screens deep |
+| …/challenge-photos · /cocktail · /editorial-media · /mood-board · /production-sheet | 9 each (Back + shell) | 1 (Back to the booking) | 0 | — | no | EFFECTIVE: no — a lock with no way forward (A6-B17) |
+| …/their-event/[part] (schedule · numbers · guests · hub) | 9–10 | 0 | 0 | hub load timed out at 150 s | no | numbers do not add up (A6-B19) |
+| /vendor-dashboard/contracts/[contractId] | — | — | — | NOT WALKED: no contract exists, and none can be uploaded (A6-B13) | — | — |
+| /vendor-dashboard/contracts/new | 12 / 13 / 22 | 1 ("messages" link) | 0 | the form never draws (A6-B13) | no | EFFECTIVE: no |
+| /vendor-dashboard/disputes | 11 / 12 / 21 | 0 | — | ⓘ; no dispute rows to open | no | ok · ok · ok |
+| /vendor-dashboard/manpower | 11 / 12 / 21 | 0 | — | no gigs on the copy | no | ok · ok · ok |
+| /vendor-dashboard/on-the-day | 11 / 12 / 21 | 0 | — | "See your customers" | no | BALANCED: a lone line in a wide page at 1280 · EFFECTIVE: no (A6-B12) |
+| /vendor-dashboard/on-the-day/live/[eventId] · /papic | — | — | — | NOT WALKABLE: both redirect away unless a booked event is today; none is on the copy | — | — |
+| /vendor/lock/[token] | 2 (404 page) | 0 | — | a real token needs a date hold on a seeded event | light only (public) | A6-B23 |
+
+Forwards: 12 of 12 land (11 at their anchor in view; `/recaps` lands but not in view, A6-B21).
+
+### Add 5 · the area's main jobs, on a phone, as a first-timer
+
+| Job | Rating | The step that makes it hard |
+|---|---|---|
+| Reply to a chat | OK | the chat takes 10–170 s to draw on the copy; a booked client still shows "Reply with an offer" (A6-B10) |
+| Confirm a payment the couple logged | HARD | nothing on Clients or Money says one is waiting (A6-B07); it is Clients › a client › Payments (3 taps) and the method reads "bank_transfer" |
+| See whether a date is open | HARD | the day sheet says "0 booked · Still has room" on a booked date (A6-B20) |
+| Upload a contract | HARD (cannot) | the form never appears for a shop with 7 chats (A6-B13) |
+| Open the caterer's production sheet | HARD (cannot) | the fee lock with no button (A6-B17) |
+| Make a booked QR for a couple | OK | 3 taps to the invite page (area 5); nothing warns the date is already booked (A6-71, A6-B20) |
+| Pay a booking fee | not walked | no bill on the copy |
 
 ## Add 4 · Where area 6 sells (buy and upgrade points)
 

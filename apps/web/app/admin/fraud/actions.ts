@@ -30,6 +30,7 @@
 import { requireAdminCan } from '@/lib/admin/can.server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import * as Sentry from '@sentry/nextjs';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -196,12 +197,14 @@ export async function unsuspendVendor(formData: FormData) {
  * INITIATION here too, so a mis-click can't even open the request.
  */
 /**
- * A8·E-12: the expected refusals come back as a sentence the dialog shows (a thrown message is hidden in production,
- * so a second press used to land on the crash page); success tells the dialog to close and say it was sent.
+ * A8·E-12: the expected refusals come back to the queue as a sentence (a thrown message is hidden in production, so a
+ * second press used to land on the crash page); success says it was sent and waits for a second admin.
  */
-export type WipeBanInitResult = { ok: true } | { ok: false; message: string };
+function wipeBanBack(kind: 'wipe_error' | 'wipe_sent', msg: string): never {
+  redirect(`/admin/fraud?${kind}=${encodeURIComponent(msg)}`);
+}
 
-export async function initiateFraudWipeBan(formData: FormData): Promise<WipeBanInitResult> {
+export async function initiateFraudWipeBan(formData: FormData): Promise<void> {
   const { userId } = await requireAdmin();
   // Areas × levels (DECISION_LOG 2026-11-13): fraud · escalated.
   await requireAdminCan('fraud', 'escalated');
@@ -211,7 +214,7 @@ export async function initiateFraudWipeBan(formData: FormData): Promise<WipeBanI
   const rationale = typeof rationaleRaw === 'string' ? rationaleRaw.trim() : '';
 
   if (rationale.length < 3) {
-    return { ok: false, message: 'Say why in a few words — it is recorded in the audit trail.' };
+    wipeBanBack('wipe_error', 'Say why in a few words — it is recorded in the audit trail.');
   }
 
   const admin = createAdminClient();
@@ -221,19 +224,19 @@ export async function initiateFraudWipeBan(formData: FormData): Promise<WipeBanI
     .select('vendor_profile_id, business_name, fraud_banned_at')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  if (!vendorRow) throw new Error('Supplier not found');
+  if (!vendorRow) wipeBanBack('wipe_error', 'That supplier couldn’t be found, so nothing was sent.');
   const vendor = vendorRow as {
     business_name: string | null;
     fraud_banned_at: string | null;
   };
   if (vendor.fraud_banned_at) {
-    throw new Error('This supplier is already permanently banned.');
+    wipeBanBack('wipe_error', 'This supplier is already permanently banned.');
   }
 
   // Typed-confirmation gate — the admin must retype the exact business name.
   const expected = (vendor.business_name ?? '').trim();
   if (!expected || typedName !== expected) {
-    return { ok: false, message: 'The business name did not match. Type the supplier’s exact business name.' };
+    wipeBanBack('wipe_error', 'The business name did not match. Type the supplier’s exact business name.');
   }
 
   // Guard against a duplicate pending request for the same vendor.
@@ -245,7 +248,7 @@ export async function initiateFraudWipeBan(formData: FormData): Promise<WipeBanI
     .eq('status', 'pending')
     .limit(1);
   if (existing && existing.length > 0) {
-    return { ok: false, message: 'A wipe + ban request for this supplier is already waiting for a second admin in Approvals.' };
+    wipeBanBack('wipe_error', 'A wipe + ban request for this supplier is already pending a second admin’s confirmation in Approvals.');
   }
 
   const { error: insErr } = await admin.from('admin_approval_requests').insert({
@@ -254,7 +257,10 @@ export async function initiateFraudWipeBan(formData: FormData): Promise<WipeBanI
     rationale: rationale.slice(0, 2000),
     initiated_by: userId,
   });
-  if (insErr) throw new Error(`Could not open the wipe + ban request: ${insErr.message}`);
+  if (insErr) {
+    logQueryError('initiateFraudWipeBan.insert', insErr);
+    wipeBanBack('wipe_error', 'The wipe + ban request couldn’t be opened, so nothing was sent. Try again.');
+  }
 
   // Audit the intent (not the execution — that's logged on confirm). Uses the
   // canonical admin_audit_log columns (target_table / target_id TEXT / reason /
@@ -275,7 +281,7 @@ export async function initiateFraudWipeBan(formData: FormData): Promise<WipeBanI
   revalidatePath('/admin/fraud');
   revalidatePath('/admin/approvals');
   revalidatePath('/admin');
-  return { ok: true };
+  wipeBanBack('wipe_sent', 'Sent — waiting for a second admin in Approvals.');
 }
 
 /**

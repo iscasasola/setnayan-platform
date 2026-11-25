@@ -73,13 +73,18 @@ test('H-15 · menus: every nav_slot_override write is checked before its audit r
   assert.equal(count(src, 'if (writeErr) throw'), writes, 'one check per write');
 });
 
-test('E-12 · fraud wipe-ban: a refusal comes back as words, success says it is waiting', () => {
+test('E-12 · fraud wipe-ban: a refusal comes back as words on the queue, success says it is waiting', () => {
   const act = code('app/admin/fraud/actions.ts');
-  assert.ok(act.includes('WipeBanInitResult'));
-  assert.ok(count(act, 'ok: false') >= 3, 'three refusals return a message');
+  const body = act.slice(act.indexOf('export async function initiateFraudWipeBan('));
+  const fn = body.slice(0, body.indexOf('\nexport '));
+  assert.ok(!/throw new Error\(/.test(fn.slice(0, fn.indexOf("wipeBanBack('wipe_sent'"))), 'no expected refusal is thrown');
+  assert.ok(count(fn, "wipeBanBack('wipe_error'") >= 3, 'three refusals come back as a sentence');
+  assert.ok(fn.includes("wipeBanBack('wipe_sent'"), 'success is said');
+  const page = code('app/admin/fraud/page.tsx');
+  assert.ok(page.includes('{wipe.wipe_error ? <FormFlash tone="error">'), 'the queue shows the refusal');
+  assert.ok(page.includes('{wipe.wipe_sent ? <FormFlash tone="success">'), 'the queue says it was sent');
   const dlg = code('app/admin/fraud/_components/wipe-ban-dialog.tsx');
-  assert.ok(dlg.includes('waiting for a second admin'), 'success is said');
-  assert.ok(dlg.includes('refusal'), 'a refusal is shown');
+  assert.ok(dlg.includes('action={initiateFraudWipeBan}'), 'the form still runs the action directly');
 });
 
 test('H-6 · connection logs: a refused resolve reverts and says so', () => {

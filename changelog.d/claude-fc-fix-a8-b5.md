@@ -11,7 +11,7 @@ Final check, area 8 fixer, batch 5 (lane A only; no amounts, plans or rules chan
 - **A8·I-1**: integrations: the Resend, AI paywall, OAuth and Maya saves check their write.
 - **A8·I-2**: integrations: the four "clear" buttons say cleared, or that the clear failed.
 - **A8·H-15**: menus: every menu-slot write is checked before its audit row.
-- **A8·E-12**: fraud wipe-ban: a refusal comes back as a sentence; a sent request says it waits for a second admin.
+- **A8·E-12**: fraud wipe-ban: every refusal (no reason, name mismatch, already pending, already banned) comes back to the queue as a sentence instead of the crash page; a sent request says it waits for a second admin in Approvals. The dialog still runs the action directly.
 - **A8·H-6**: connection logs: a refused resolve or archive reverts the rows and says so.
 - **A8·B-6**: budget planner: a typo in a price is refused (nothing saved) and every save shows its failure.
 

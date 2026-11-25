@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { saveResendConfig, clearResendKey, setAiPaywall } from './actions';
@@ -187,13 +188,7 @@ export default async function AdminIntegrationsPage({
         </p>
       ) : null}
       {error === 'clear_failed' ? (
-        <p
-          role="alert"
-          className="inline-flex items-center gap-2 rounded-2xl border border-rose-300/70 bg-rose-50 px-4 py-3 text-sm text-rose-900"
-        >
-          <ShieldAlert aria-hidden className="h-4 w-4" strokeWidth={1.75} /> That key wasn&rsquo;t cleared, so it is
-          still stored. Try again.
-        </p>
+        <FormFlash tone="error">That key wasn&rsquo;t cleared, so it is still stored. Try again.</FormFlash>
       ) : null}
       {error === 'invalid_config' ? (
         <p

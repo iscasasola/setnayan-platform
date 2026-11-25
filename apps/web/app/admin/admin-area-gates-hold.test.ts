@@ -132,6 +132,12 @@ test('A8·L-8 · hide for everyone, combine and retire ask Catalogue · Escalate
   }
   assert.match(body(s, 'requireCatalogueEscalated', f), gateFor('catalogue', 'escalated'));
   before(body(s, 'deleteTileWithDestination', f), gateFor('catalogue', 'escalated'), 'createAdminClient()', 'deleteTileWithDestination');
+  before(body(s, 'mergeCanonicalService', f), gateFor('catalogue', 'escalated'), 'createAdminClient()', 'mergeCanonicalService');
+  const flag = body(s, 'setServiceFlag', f);
+  before(flag, /=== 'marketplace_hidden'\) await requireCatalogueEscalated\(formData\)/, 'createAdminClient()', 'setServiceFlag (hide for everyone)');
+  const status = body(s, 'setEventTypeStatus', f);
+  before(status, /askedWord === 'retired' \|\| askedWord === 'hidden'\) await requireCatalogueEscalated\(formData\)/, 'answerEventTypeAsk(', 'setEventTypeStatus (retire / hide)');
+  before(status, 'await requireCatalogueEscalated(formData)', 'createAdminClient()', 'setEventTypeStatus');
   const map = read('app/admin/categories/four-level-actions.ts');
   const hide = map.slice(map.indexOf("case 'hidePart':"), map.indexOf("case 'onePerEvent':"));
   before(hide, gateFor('catalogue', 'escalated'), 'setPartHiddenCore(', 'mapWrite hidePart');

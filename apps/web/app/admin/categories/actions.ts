@@ -2058,6 +2058,10 @@ type EventTypeStatusWord = keyof typeof EVENT_TYPE_STATUSES;
  */
 export async function setEventTypeStatus(formData: FormData): Promise<never> {
   const user = await requireAdmin();
+  // A8·L-8: Retired and Hidden from couples are "retire · hide for everyone" — Catalogue · Escalated, asked before
+  // anything is written (the host-ask answer below writes too).
+  const askedWord = String(formData.get('status') ?? '').trim();
+  if (askedWord === 'retired' || askedWord === 'hidden') await requireCatalogueEscalated(formData);
   // ➕ An answer to a host's "Ask us to add it" rides this action (+0 actions — owner 2026-10-28).
   if (formData.has('request_id')) await answerEventTypeAsk(formData, user.id);
   const key = String(formData.get('event_type') ?? '').trim();
@@ -2657,6 +2661,8 @@ const SERVICE_BOOLEAN_FLAGS: Record<string, string> = {
  */
 export async function setServiceFlag(formData: FormData): Promise<never> {
   const user = await requireAdmin();
+  // A8·L-8: `marketplace_hidden` hides a trade for everyone — Catalogue · Escalated. The other flags classify (Basic).
+  if (String(formData.get('flag') ?? '').trim() === 'marketplace_hidden') await requireCatalogueEscalated(formData);
   const canonical = String(formData.get('canonical_service') ?? '').trim();
   const flag = String(formData.get('flag') ?? '').trim();
   const value = String(formData.get('value') ?? '') === '1';
@@ -2812,6 +2818,13 @@ export async function mergeCanonicalService(
 ): Promise<StudioActionResult> {
   const gate = await requireAdminJson();
   if ('error' in gate) return { ok: false, error: gate.error };
+  // A8·L-8: merging one trade into another is "combine" — Catalogue · Escalated.
+  try {
+    await requireAdminCan('catalogue', 'escalated');
+  } catch (err) {
+    if (err instanceof AdminAreaRefusal) return { ok: false, error: err.message };
+    throw err;
+  }
 
   const source = String(sourceKey ?? '').trim();
   const dest = String(destinationKey ?? '').trim();

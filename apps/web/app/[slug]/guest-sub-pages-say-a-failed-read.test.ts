@@ -21,6 +21,7 @@
  *   print: the story reads swallow a failure ............................. A4-46
  *   request: a failed request-key read redirects as a stranger ........... A4-49
  *   join-flow: any of its three reads drops its error .................... A4-38
+ *   a guest link or QR falls back to a *.vercel.app address .............. A4-S01 (second pass)
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -114,5 +115,18 @@ test('A4-38 · the join flow throws on each of its three reads', () => {
   for (const name of ['askErr', 'existingErr', 'claimErr']) {
     assert.match(src, new RegExp(`error: ${name} \\}`), `${name} is bound`);
     assert.match(src, new RegExp(`if \\(${name}\\) throw`), `${name} is consulted`);
+  }
+});
+
+test('A4-S01 · a guest link or QR never falls back to a *.vercel.app address', () => {
+  for (const rel of [
+    'app/[slug]/_lib/plus-one-seats.server.ts',
+    'app/[slug]/_lib/loaders.ts',
+    'app/[slug]/request/page.tsx',
+    'app/[slug]/find-seat/page.tsx',
+    'app/[slug]/welcome/page.tsx',
+    'app/[slug]/invite/enter/page.tsx',
+  ]) {
+    assert.doesNotMatch(code(rel), /vercel\.app/, `${rel} prints a preview address into a guest's QR`);
   }
 });

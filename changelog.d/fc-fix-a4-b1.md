@@ -14,6 +14,7 @@ the hosts:
 - `/[slug]/print`: a failed event read is no longer a 404 (A4-45); the story reads no longer fall back to "not
   ready yet" or the automatic layout (A4-46).
 - `/[slug]/request`: a failed request-key read throws instead of sending the requester away as a stranger (A4-49).
+- Guest links and QR codes on `/find-seat`, `/welcome`, `/request`, `/invite/enter` and the plus-one seats fall back to `SITE_URL` (setnayan.com), never a preview address (A4-S01, second pass).
 - `/[slug]/invite` and `/join/[eventId]` (join flow): its three reads throw instead of drawing default questions,
   the form for a member, or a second form for someone who already asked (A4-38).
 

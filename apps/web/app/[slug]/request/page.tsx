@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SITE_URL } from '@/lib/feature-pages/seo';
 import { notFound, redirect } from 'next/navigation';
 import { Clock, Send } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
@@ -107,7 +108,7 @@ export default async function RequestPage({ params, searchParams }: Props) {
   }
 
   const link = buildInvitationUrl({
-    appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
+    appUrl: SITE_URL,
     slug: home,
     qrToken: key.qrToken,
     ownerSlug: await resolveEventOwnerSlug(admin, event.event_id as string),

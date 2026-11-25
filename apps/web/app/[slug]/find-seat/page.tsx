@@ -1,4 +1,5 @@
 import type { RoomLink } from '../_lib/room-links';
+import { SITE_URL } from '@/lib/feature-pages/seo';
 import { RoomFooter } from '../_components/room-footer';
 import { loadRoomLinks } from '../_lib/room-links.server';
 import { partDoorHidden } from '../_lib/part-door.server';
@@ -288,7 +289,7 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
         .eq('guest_id', guestId)
         .maybeSingle(),
       renderInvitationQrSvg({
-        appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
+        appUrl: SITE_URL,
         slug: event.slug ?? slug,
         qrToken: guestToken,
       }),

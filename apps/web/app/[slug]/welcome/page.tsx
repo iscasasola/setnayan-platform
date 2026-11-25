@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { SITE_URL } from '@/lib/feature-pages/seo';
 import { cookies, headers } from 'next/headers';
 import { notFound, redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -178,7 +179,7 @@ export default async function WelcomePage({ params, searchParams }: Props) {
   // where no provider can sign in and nothing is emailed (owner 2026-09-29).
   const linkParams = guest.qr_token
     ? {
-        appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
+        appUrl: SITE_URL,
         slug: home,
         qrToken: guest.qr_token as string,
         ownerSlug: await resolveEventOwnerSlug(admin, event.event_id as string),

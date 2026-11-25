@@ -6,6 +6,7 @@ import {
   getFollowState,
   unfollowUser,
 } from '../_actions/audience-actions';
+import { useToast } from '@/app/_components/toast/toast-provider';
 
 // The Follow control on a public /u profile. A client island so the profile page
 // stays ISR-cacheable — it resolves its own state (is the viewer signed in? are
@@ -51,6 +52,7 @@ export function FollowButton({
     following: boolean;
   }>({ resolved: false, show: false, following: false });
   const [pending, startTransition] = useTransition();
+  const toast = useToast();
 
   useEffect(() => {
     let alive = true;
@@ -78,6 +80,13 @@ export function FollowButton({
       const res = wasFollowing
         ? await unfollowUser(followedUserId)
         : await followUser(followedUserId);
+      // A refusal is said, and the button goes back to what is true (final check A1-072): it used to flip back with
+      // no word, so the press looked like it did nothing.
+      if (!res.ok) {
+        setState((s) => ({ ...s, following: wasFollowing }));
+        toast.error(wasFollowing ? 'Couldn’t unfollow just now. Press again to try.' : 'Couldn’t follow just now. Press again to try.');
+        return;
+      }
       setState((s) => ({ ...s, following: res.following }));
     });
   };

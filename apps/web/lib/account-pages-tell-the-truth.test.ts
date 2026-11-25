@@ -36,3 +36,28 @@ test('A1-063 · the consent box names no retired feature', () => {
   const card = src('app/signup/you/_components/you-card.tsx');
   assert.doesNotMatch(card, /realstories|Stories showcase/i);
 });
+
+test('A1-070 · every public-profile read throws when refused, never folds into "no profile" / "nothing public"', () => {
+  const lib = src('lib/public-profile.ts');
+  for (const what of ['users by slug', 'users by public id', 'event_members', 'events']) {
+    assert.match(lib, new RegExp(`throw new PublicProfileReadError\\('${what}'`), `${what}: a refused read is folded again`);
+  }
+  assert.match(src('app/dashboard/(account)/profile/page.tsx'), /resolvePublicProfile\(currentSlug\)\.catch\(\(\) => null\)/);
+});
+
+test('A1-071 · the hidden-profile banner names the real path and links to it', () => {
+  const page = src('app/u/[userSlug]/page.tsx');
+  assert.doesNotMatch(page, /URL &amp; handle/);
+  assert.match(page, /routes\.dashboard\.profile\.index\(\)\}#privacy/);
+});
+
+test('A1-072 · a refused follow is said and the button goes back to the truth', () => {
+  const btn = src('app/u/_components/follow-button.tsx');
+  assert.match(btn, /if \(!res\.ok\) \{[\s\S]{0,200}toast\.error\(/);
+});
+
+test('A1-073 · the chapter page names the person as /u does and claims no unmeasured Papic Memories', () => {
+  const ch = src('app/u/[userSlug]/c/[chapterId]/page.tsx');
+  assert.match(ch, /profileShownName\(user\) \?\? 'A Setnayan creator'/);
+  assert.doesNotMatch(ch, /Papic Memories of candid photos/);
+});

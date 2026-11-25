@@ -56,7 +56,12 @@ Phase B, staging copy at preview commit bd86936 (`/api/health` env preview), sig
 
 ## BLOCKERS
 
-None found.
+None found. (Phase B, so far: the copy is slow under all eight checkers, but every admin page opens.)
+
+## Raised at once in phase B (money-signin)
+
+- **G-4 confirmed live:** any signed-in non-admin account gets an upload URL for the homepage background-video
+  folder (`/api/upload`, `homepage-bg/…` → 200; `hub-music/…` → 403). See G-4 under Group G.
 
 ## Progress
 
@@ -2501,6 +2506,7 @@ SHOTS     —
 RULE      checklist 2(b): API routes an admin page calls must check admin on the server
 SEVERITY  money-signin
 SOURCE    CODE
+PHASE B   **CONFIRMED on the copy, 25 Nov ~08:10 UTC.** Signed in as the shared non-admin `messy-one`, from an ordinary page, `POST /api/upload` with `{ bucket: 'media', pathPrefix: 'homepage-bg/slot-0', contentType: 'video/mp4' }` → **200** with an `uploadUrl` and an object key under `homepage-bg/slot-0/`. The same call for `hub-music/x` → **403** "That upload location isn't allowed." So the admin test exists for hub music and is missing for the homepage videos. Only the presign was asked for: **no bytes were PUT, nothing was created.**
 
 #### G-5 · "Open couple page ↗" goes to /{public_id}, which is not an Event Hub address
 PAGE      /admin/studio   (tab: reveal-studio)

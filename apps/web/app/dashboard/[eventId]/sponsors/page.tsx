@@ -23,6 +23,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { addSponsor } from './actions';
 import { formatCount } from '@/lib/format-number';
 import { InfoTip } from '@/app/_components/info-tip';
+import { sponsorErrorWords } from './sponsor-error-copy';
 
 export const metadata = {
   title: 'Sponsors',
@@ -201,7 +202,8 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
   const justInvited = search.invited === '1';
   const justAccepted = search.accepted === '1';
   const justDeclined = search.declined === '1';
-  const errorMessage = search.error ?? null;
+  // A2-I18: fixed words for a known key, the plain fallback otherwise — never the address bar's own text.
+  const errorMessage = sponsorErrorWords(search.error);
 
   return (
     <section className="sn-col space-y-6 pb-12">

@@ -11,6 +11,12 @@ import { FlagCard, NewFlagForm, type EventVendorRow, type FlagRow } from './_com
 
 export const metadata = { title: 'Disputes' };
 
+/** The only words this page prints for `?error=` (A2-S1). Unknown keys read as the plain fallback. */
+const DISPUTE_ERROR_COPY: Record<string, string> = {
+  upload_failed: 'Couldn’t upload that photo. Try a smaller image (JPG, PNG or WEBP), then file again.',
+  save_failed: 'Couldn’t file that — nothing was changed. Try again.',
+};
+
 type Props = {
   params: Promise<{ eventId: string }>;
   searchParams: Promise<{ filed?: string; error?: string }>;
@@ -97,7 +103,8 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
           role="alert"
           className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
-          {search.error}
+          {/* A2-S1: fixed words only; a crafted ?error= cannot put text on the page. */}
+          {DISPUTE_ERROR_COPY[search.error] ?? DISPUTE_ERROR_COPY.save_failed}
         </p>
       ) : null}
 

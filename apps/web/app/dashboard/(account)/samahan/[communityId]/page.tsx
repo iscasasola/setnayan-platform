@@ -137,8 +137,8 @@ export default async function SamahanSpacePage({
   // stories expire by RLS the moment the clock passes; this reclaims bytes.
   after(() => maybeRunSamahanStorySweep());
 
-  const rawError = sp.error ? decodeURIComponent(sp.error) : null;
-  const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
+  // A2-C6 (SW-RAWDB): fixed words for a known key, else the plain fallback — never the address bar's own text.
+  const errorMessage = sp.error ? (ERROR_COPY[sp.error] ?? ERROR_COPY.save_failed) : null;
   const successMessage =
     sp.created === '1'
       ? 'Set na ’yan. Share the invite link to bring people in.'

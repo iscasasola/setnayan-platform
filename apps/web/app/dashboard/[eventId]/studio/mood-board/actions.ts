@@ -1,5 +1,7 @@
 'use server';
 
+import { hostRefusal } from '@/lib/host-refusal';
+
 import { extractPaletteFromBytes } from '@/lib/extract-palette.server';
 import { safeFetchImageBytes } from '@/lib/safe-image-fetch';
 import { revalidatePath } from 'next/cache';
@@ -955,7 +957,7 @@ export async function applyGalleryPick(input: {
     .not('approved_at', 'is', null)
     .is('retired_at', null)
     .maybeSingle();
-  if (assetErr) return { status: 'error', message: assetErr.message };
+  if (assetErr) return { status: 'error', message: hostRefusal('moodBoard.asset', assetErr, 'add that photo') };
   if (!assetRow) return { status: 'error', message: 'That photo is no longer available.' };
 
   const { assets } = shapeGalleryPage(input.slotKey, [
@@ -1005,7 +1007,7 @@ export async function applyGalleryPick(input: {
     sampled_hex_5: asset.swatches[4],
     sampled_hex_6: asset.swatches[5],
   });
-  if (insertErr) return { status: 'error', message: insertErr.message };
+  if (insertErr) return { status: 'error', message: hostRefusal('moodBoard.insert', insertErr, 'add that photo') };
 
   revalidatePath(`/dashboard/${input.eventId}/studio/mood-board`);
   return { status: 'ok', imageUrl: asset.imageUrl };

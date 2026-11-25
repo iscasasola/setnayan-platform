@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { plainRefusal } from '@/app/dashboard/[eventId]/guests/_components/plain-refusal';
 import Link from 'next/link';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { MEAL_LABELS, MEAL_PREFERENCES } from '@/lib/guests';
@@ -402,7 +403,9 @@ export default async function ProfilePage({ searchParams }: Props) {
   const flash = (
     <>
       {search.error ? (
-        <FormFlash tone="error">{decodeURIComponent(search.error)}</FormFlash>
+        // A2-C6 (SW-RAWDB): only a plain sentence from the address is shown; anything carrying database words reads
+        // as the plain fallback.
+        <FormFlash tone="error">{plainRefusal(decodeURIComponent(search.error), 'Couldn’t save that — nothing was changed. Try again.')}</FormFlash>
       ) : null}
       {search.saved ? <FormFlash tone="success">Saved.</FormFlash> : null}
       {search.tour_restarted ? (
@@ -443,7 +446,7 @@ export default async function ProfilePage({ searchParams }: Props) {
         <FormFlash tone="success">Your public handle has been updated.</FormFlash>
       ) : null}
       {search.slug_error ? (
-        <FormFlash tone="error">{decodeURIComponent(search.slug_error)}</FormFlash>
+        <FormFlash tone="error">{plainRefusal(decodeURIComponent(search.slug_error), 'Couldn’t save that address — nothing was changed. Try again.')}</FormFlash>
       ) : null}
       {search.public_profile_saved ? (
         <FormFlash tone="success">Public profile setting saved.</FormFlash>

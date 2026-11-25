@@ -1,5 +1,7 @@
 'use server';
 
+import { hostRefusal } from '@/lib/host-refusal';
+
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
@@ -75,11 +77,11 @@ async function updateSyncMode(
     .eq('event_id', eventId);
 
   if (error) {
+    hostRefusal('photoDelivery.syncMode', error, 'change the sync mode');
     return {
       ok: false,
-      redirectTo: `/dashboard/${eventId}/studio/photo-delivery?sync_mode_error=${encodeURIComponent(
-        error.message.slice(0, 64),
-      )}`,
+      // SW-RAWDB (A3·P-09): a fixed key; the database's words go to the log only.
+      redirectTo: `/dashboard/${eventId}/studio/photo-delivery?sync_mode_error=save_failed`,
     };
   }
 

@@ -80,10 +80,13 @@ test('the target: production is refused wherever its ref appears, and only a rea
 });
 
 function run(env: Record<string, string>): { status: number | null; out: string } {
+  // Only PATH and HOME from this shell: no STAGING / STAGING_DB_URL leaks in from the caller's environment.
+  const childEnv: NodeJS.ProcessEnv = { NODE_ENV: 'test', PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '' };
+  Object.assign(childEnv, env);
   const r = spawnSync(TSX, [join(ROOT, 'scripts/staging/apply-migrations.ts'), '--dry-run'], {
     cwd: ROOT,
     encoding: 'utf8',
-    env: { PATH: process.env.PATH ?? '', HOME: process.env.HOME ?? '', ...env },
+    env: childEnv,
     timeout: 60_000,
   });
   return { status: r.status, out: `${r.stdout}${r.stderr}` };

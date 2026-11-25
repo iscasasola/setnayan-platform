@@ -551,3 +551,8 @@ their cover photo… if they go to Pro, they go to Ultra, the full editorial wil
 - Nothing already written is deleted when a plan is lower: it stays saved and shows again on upgrade.
 - **Look APPROVED (owner 25 Nov: "A newspaper looks good.")** for the Our Day Paper drawing. Function stays the controller's (Add 31).
 - **Grandfathering ANSWERED (owner 25 Nov: "Ultra only.")**: Our Day Paper prints for Event Ultra ONLY. Do NOT reuse `eventCanvasPrintsActive` (it lets early-Pro canvas through); gate on `eventUltraActive` alone. Supersedes the "Default until he says" line above.
+- **Sold alone too (owner 25 Nov):** "If they decide to buy the newspaper, then we can charge them an extra for it… it will be
+  a lot more expensive because they bought it differently than purchasing it from Event Ultra." Non-Ultra events can buy
+  Our Day Paper as a separate one-time add-on, priced clearly ABOVE what it is worth inside Ultra (Ultra stays the better deal).
+  PRICE: NOT SET. Never guess; the owner names it. Open: which plans may buy it alone (proposed: Pro only, since Free has no
+  editorial to print). Until both are answered, the build shows the Ultra upsell only, with no buy-alone button.

@@ -12,7 +12,6 @@
  * through the admin client AFTER verifying the vendor owns the booking.
  */
 
-import { routes } from '@/lib/routes';
 import { supplierThreadPageHref } from '@/lib/upcoming-schedule-door';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -175,7 +174,7 @@ async function notifyCoupleOfSurchargeChange(
         type: 'pax_surcharge_changed',
         title: `${vendorName} ${direction} a guest-count charge`,
         body: `Based on ${formatCount(r.livePax)} guests, the booking total is now ${formatPhp(newTotal)}.`,
-        relatedUrl: routes.dashboard.budget(r.eventId),
+        relatedUrl: `/dashboard/${r.eventId}/budget`,
       });
     }
   } catch (e) {

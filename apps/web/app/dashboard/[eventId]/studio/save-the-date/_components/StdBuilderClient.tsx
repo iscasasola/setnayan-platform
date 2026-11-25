@@ -242,6 +242,10 @@ export function StdBuilderClient({
         ? initialRevealTemplate
         : firstAllowed,
   );
+  const openingLine =
+    previewing === NO_REVEAL
+      ? 'No reveal — your Save the Date opens straight away.'
+      : `${REVEAL_LIBRARY.find((t) => t.id === previewing)?.label ?? 'Your reveal'} — plays in the preview.`;
   // True once the opening has auto-played + lifted away, revealing the film.
   const [revealDone, setRevealDone] = useState(false);
   // Per-opening effect toggles (butterflies / petals); saved on Render.
@@ -876,19 +880,9 @@ export function StdBuilderClient({
 
           {/* Step 5 · Opening (reveal) — the premium opening that lifts away to
               reveal the film. Last step: the film is built, now choose its entrance. */}
-          {/* 🎭 ADD 18 (owner, 25 Nov — final check N-10): the reveal is edited in the Event Hub only. This step names
-              the opening the preview plays and links to the one picker; it is never a second picker. */}
           <section className="space-y-3">
-            <p className="flex items-center gap-2 font-mono text-[11px] uppercase tracking-[0.2em] text-terracotta">
-              <Sparkles aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
-              Step 5 · Opening
-            </p>
-            <h2 className="font-serif text-xl italic">How your page opens</h2>
-            <p className="text-sm text-ink/75">
-              {previewing === NO_REVEAL
-                ? 'No reveal — your Save the Date opens straight away.'
-                : `${REVEAL_LIBRARY.find((t) => t.id === previewing)?.label ?? 'Your reveal'} — plays in the preview.`}
-            </p>
+            <h2 className="font-serif text-xl italic">Step 5 · How your page opens</h2>
+            <p className="text-sm text-ink/75">{openingLine}</p>
             <Link href={detailsItemHref(eventId, 'reveal')} className={actionButtonClass('neutral')}>
               <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
               Choose your reveal in the Event Hub

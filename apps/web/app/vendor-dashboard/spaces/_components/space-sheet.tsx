@@ -349,7 +349,7 @@ export function SpaceSheet({
         ) : null}
 
         {refusal ? (
-          <p className="mt-3 text-sn-13 font-medium text-ink" role="alert" data-space-refusal="">
+          <p className="mt-3 text-sn-md font-medium text-ink" role="alert" data-space-refusal="">
             {refusal}
           </p>
         ) : null}

@@ -2,12 +2,12 @@ STATUS: phase B done (25 Nov 2026, staging copy commit bd86936)
 **Phase B counts:** 74 pages + 2 forwards walked at 375 · 768 · 1280, light and dark (456 loads) · **controls 2,837 counted, 2,629 pressed, 10 failed** (8 = the sign-in ✕, A1-172; 2 = a shop link answering 500, A1-154); the 208 left are search boxes, submits, Google/Apple, disabled controls and a tour blocking /pricing, named per page · **19 new findings (A1-154 – A1-172): blocker 1 · money-signin 2 · broken 1 · wrong 9 · look 6**; A1-056 blocker **confirmed** · **File total 172: blocker 2 · money-signin 14 · broken 15 · wrong 92 · look 49** · DARK: light only 64 · yes 6 · n/a 4 · no sideways scroll at any size.
 
 
+# Final check — AREA 1 · Front door & public pages (signed out), incl. the sign-in pages
+
 > Checker 1 of 8. **Report only — nothing here was fixed.** Pinned check commit: `fb3f72d` (main, frozen).
 > Kit: `build-sessions/FINAL-CHECK-KIT.md` §§ 3–6. Rules: `docs/brand.md`, corpus `HOUSE_DESIGN_STANDARD_2026-11-20.md` (Parts H, K, I).
 > Phase A = code pass (`SOURCE: CODE`) + a read-only walk of LIVE https://setnayan.com signed out (`SOURCE: SEEN-LIVE`).
 > Phase B = the staging walk (`SOURCE: SEEN`), when the controller sends the address. Anchors are strings, never line numbers.
-
-# Final check — AREA 1 · Front door & public pages (signed out), incl. the sign-in pages
 
 ## BLOCKERS
 

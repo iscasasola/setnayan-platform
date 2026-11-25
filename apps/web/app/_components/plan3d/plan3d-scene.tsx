@@ -1462,8 +1462,8 @@ export function Plan3DScene({
     let frame = 0;
     const step = (now: number) => {
       const elapsed = now - start;
+      // The orbit re-aims the camera itself (drei's OrbitControls runs its own update every frame).
       controls.setAzimuthalAngle(turnAzimuthAt(from, turnSignal.dir, elapsed, reducedMotion));
-      controls.update();
       if (!reducedMotion && elapsed < TURN_MS) frame = requestAnimationFrame(step);
     };
     frame = requestAnimationFrame(step);

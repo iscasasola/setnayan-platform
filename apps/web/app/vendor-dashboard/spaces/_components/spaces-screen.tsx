@@ -15,13 +15,16 @@
  */
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, RotateCw, SlidersHorizontal } from 'lucide-react';
+import { MapPin, Plus, RotateCw, SlidersHorizontal } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { ThumbRow } from '@/components/thumb-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { FormRows } from '@/app/_components/form-row';
 import { LockedFeature } from '@/app/_components/lock/locked-feature';
 import { ShopNotice } from '../../_components/kit';
+import { EmptyState } from '@/app/_components/states/empty-state';
+import { useToast } from '@/app/_components/toast/toast-provider';
+import { PeekToast } from '@/app/_components/toast/peek-toast';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import {
   SHOW_CHOICES,
@@ -65,21 +68,29 @@ export function SpacesScreen({
   const [q, setQ] = useState('');
   const [sheet, setSheet] = useState<SheetMode | null>(null);
   const [last, setLast] = useState<KindChoice | null>(null);
-  const [msg, setMsg] = useState<{ tone: 'success' | 'warn'; text: string } | null>(null);
+  // Warnings that need reading stay in the page (a refused write, a day that could not be read); a save that landed is
+  // the house toast (B4, drawing § 4a), and a removal is the Undo toast (§ 4b).
+  const [msg, setMsg] = useState<{ tone: 'warn'; text: string } | null>(null);
+  const [removed, setRemoved] = useState<{ id: string; name: string; connectsTo: string | null } | null>(null);
+  const toast = useToast();
   const [pending, start] = useTransition();
 
   const run = (op: SpacesOp, done?: string, day = date) =>
-    new Promise<boolean>((resolve) =>
+    new Promise<boolean>((resolve) => {
+      // The space as it was, read BEFORE it goes: Undo puts back its "connects to" too.
+      const was = op.op === 'removeSpace' ? read?.spaces.find((x) => x.id === op.id) ?? null : null;
       start(async () => {
         const r = await spacesWrite(op, day);
         if (r.ok) {
           setRead(r.read);
-          setMsg(done ? { tone: 'success', text: done } : null);
+          setMsg(null);
+          if (op.op === 'removeSpace' && was) setRemoved({ id: was.id, name: was.name, connectsTo: was.connectsTo });
+          else if (done) toast.success(done);
           if (op.op === 'addSpaces') setLast(choiceOf(op.input.kind));
         } else setMsg({ tone: 'warn', text: r.error });
         resolve(r.ok);
-      }),
-    );
+      });
+    });
 
   /** Opens the add sheet; a message left from an earlier save is cleared so the sheet's own refusal line starts empty. */
   const openNew = (typed: string) => {
@@ -117,10 +128,12 @@ export function SpacesScreen({
 
   return (
     <div className="mt-3 space-y-4 pb-28" aria-busy={pending} data-spaces-screen="">
+      {/* B4 (§ 4c): with no spaces the date row is not drawn — there is nothing for a date to describe. */}
+      {read.spaces.length > 0 ? (
       <div className="flex min-h-11 items-center justify-between gap-3" data-spaces-date="">
         <span className="min-w-0">
           <span className="block text-[15px] font-semibold text-ink">{dayLabel}</span>
-          <span className="block text-[12.5px] text-ink/70">Tiles follow this date</span>
+          <span className="block text-sn-sm text-ink/70">Tiles follow this date</span>
         </span>
         <PickMenu
           label="Date"
@@ -137,9 +150,10 @@ export function SpacesScreen({
           }}
         />
       </div>
+      ) : null}
 
       {msg ? (
-        <ShopNotice tone={msg.tone} role={msg.tone === 'warn' ? 'alert' : 'status'}>
+        <ShopNotice tone="warn" role="alert">
           {msg.text}
         </ShopNotice>
       ) : null}
@@ -150,18 +164,15 @@ export function SpacesScreen({
       ) : null}
 
       {read.spaces.length === 0 ? (
-        <div className="space-y-3" data-spaces-empty="">
-          {/* A7-31: the empty state states the fact and offers ONE action — the box it used to point at is an icon
-              until tapped (search is an icon), so a first-timer never found it. */}
-          <p className="text-[14px] text-ink/70">No spaces yet.</p>
-          <ActionButton
-            tone="brand"
-            main
-            icon={Plus}
-            label="Add a space"
-            className="!h-11"
-            onClick={() => openNew('')}
-            data-spaces-add-first=""
+        // B4 (drawing § 4c) + A7-31: the house empty state — the fact, how the page fills, and ONE action that opens
+        // the same New space sheet the ＋ in the search box opens.
+        <div data-spaces-empty="">
+          <EmptyState
+            Icon={MapPin}
+            title="No spaces yet"
+            blurb="Halls, rooms and what you rent out. Set once; your cards pick from here."
+            readPermitted
+            action={<ActionButton tone="brand" main icon={Plus} label="Add a space" className="!h-11" onClick={() => openNew('')} data-spaces-add-first="" />}
           />
         </div>
       ) : shown.length === 0 ? (
@@ -222,6 +233,25 @@ export function SpacesScreen({
           />
         }
       />
+
+      {removed ? (
+        // B4 (drawing § 4b): gone at once, with Undo — the guest list's removal toast, 6 s.
+        <PeekToast
+          key={removed.id}
+          data="spaces-removed"
+          onGone={() => setRemoved(null)}
+          action={{
+            label: 'Undo',
+            onPress: () => {
+              const back = removed;
+              setRemoved(null);
+              void run({ op: 'restoreSpace', id: back.id, connectsTo: back.connectsTo }, `${back.name} is back`);
+            },
+          }}
+        >
+          {removed.name} removed
+        </PeekToast>
+      ) : null}
 
       {sheet ? (
         <SpaceSheet

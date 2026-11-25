@@ -499,7 +499,13 @@ export default async function PayPage({ params, searchParams }: Props) {
     return (
       <main className="mx-auto max-w-[560px] px-4 pb-16 pt-6" data-pay-maya-checking-page="">
         {summaryFor(true)}
-        <MayaChecking back={payable.back ?? { href: payable.home, label: 'Back to Setnayan' }} />
+        <MayaChecking />
+        {/* A2-F5: never a dead end — the way back, beside the waiting card. */}
+        <p className="mt-4 text-center">
+          <Link href={payable.back?.href ?? payable.home} className="text-sm text-link underline">
+            {payable.back?.label ?? 'Back to Setnayan'}
+          </Link>
+        </p>
       </main>
     );
   }

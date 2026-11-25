@@ -9,7 +9,6 @@ import { getCurrentUser } from '@/lib/auth';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { closeOutTheDay } from './actions';
 import { ConfirmForm } from '@/app/_components/confirm-form';
-import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { eventClockOf } from '@/lib/event-clock.server';
 import { closeOutOpen } from '@/lib/close-out-open';
 import { liveStudioControllerHref } from '@/lib/live-studio-control';
@@ -51,10 +50,10 @@ export default async function ClearancePage({ params, searchParams }: Props) {
     redirect(`/dashboard/${eventId}`);
   }
 
-  const { data: event, error: eventError } = await eventRowOnce(supabase, eventId, `event_type, ${EVENT_CLOCK_COLUMNS}`, () =>
+  const { data: event, error: eventError } = await eventRowOnce(supabase, eventId, 'event_type, event_date, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, cleared_at, venue_latitude, venue_longitude', () =>
       supabase
     .from('events')
-    .select(`event_type, ${EVENT_CLOCK_COLUMNS}`)
+    .select('event_type, event_date, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, cleared_at, venue_latitude, venue_longitude')
     .eq('event_id', eventId)
     .maybeSingle());
   if (eventError) {

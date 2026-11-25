@@ -178,8 +178,7 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
           className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
           data-order-cancel-refused=""
         >
-          This order can’t be cancelled — it is already paid, already cancelled, or no longer on your account. Nothing
-          was changed.
+          This order can’t be cancelled any more. Nothing was changed.
         </p>
       ) : null}
 

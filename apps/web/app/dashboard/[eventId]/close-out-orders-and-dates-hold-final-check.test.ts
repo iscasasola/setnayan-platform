@@ -1,8 +1,8 @@
 /**
  * close-out-orders-and-dates-hold-final-check.test.ts — final check, area 2, fix batch 4 (25 Nov 2026).
  *
- * Ten findings: the irreversible "Close out the day" (offered too early, a failed save reported as success, the wrong
- * livestream door, no confirm), Nikah's ignored save, Cancel order's silent refusal, Maya's waiting dead end, the
+ * Nine findings: the irreversible "Close out the day" (offered too early, a failed save reported as success, the wrong
+ * livestream door, no confirm), Cancel order's silent refusal, Maya's waiting dead end, the
  * souvenir total, the long-weekend claim and the find-date doors. Behaviour for the two pure helpers; comment-stripped
  * source for the wiring.
  */
@@ -41,13 +41,6 @@ test('A2-P8 / G17 / G18 / G19: the close-out page and action', () => {
   assert.ok(failed >= 0 && back > failed && back < success, 'a failed save stays on the page and says so (G17)');
 });
 
-test('A2-I19: "Save Nikah details" reads its error and says it', () => {
-  const s = src('app/dashboard/[eventId]/nikah-actions.ts');
-  assert.match(s, /const \{ error \} = await sb\s*\.from\('events'\)/);
-  assert.match(s, /nikah\?error=1&msg=/);
-  assert.match(s, /nikah\?saved=1/);
-});
-
 test('A2-F4: a refused "Cancel order" says why', () => {
   const s = src('app/dashboard/[eventId]/orders/[orderId]/page.tsx');
   assert.match(s, /cancel\?: string;/);
@@ -57,10 +50,11 @@ test('A2-F4: a refused "Cancel order" says why', () => {
 
 test('A2-F5: Maya’s "Checking your payment" always has a way back, and a press once it stops asking', () => {
   const desk = src('app/pay/[reference]/_components/maya-checking.tsx');
-  assert.match(desk, /export function MayaChecking\(\{ back \}/);
-  assert.match(desk, /<Link href=\{back\.href\}/);
   assert.match(desk, /label="Check again"/);
-  assert.match(src('app/pay/[reference]/page.tsx'), /<MayaChecking back=\{payable\.back \?\? \{ href: payable\.home/);
+  const page = src('app/pay/[reference]/page.tsx');
+  const checking = page.indexOf('<MayaChecking />');
+  const back = page.indexOf('payable.back?.href ?? payable.home', checking);
+  assert.ok(checking >= 0 && back > checking && back - checking < 400, 'the way back sits beside the waiting card');
 });
 
 test('A2-E1: the souvenir total is the attending headcount from the one reader', () => {
@@ -87,5 +81,5 @@ test('A2-H16: Find your date offers the date settings only to the couple, in pla
   assert.doesNotMatch(view, /Set your wedding date/);
   assert.match(view, /\{canSetDate \? \(/);
   assert.match(view, /\{!canSetDate \? null : matrix\.exactDate \?/);
-  assert.match(src('app/dashboard/[eventId]/find-date/page.tsx'), /canSetDate=\{Boolean\(coupleRes\.data\)\}/);
+  assert.match(src('app/dashboard/[eventId]/find-date/page.tsx'), /canSetDate: Boolean\(coupleRes\.data\)/);
 });

@@ -33,7 +33,7 @@ import { formatCount } from '@/lib/format-number';
 
 /** A2-H16: `canSetDate` = the viewer may open the date settings (the couple). Anyone else gets plain words, never a
  *  door that 404s for them. */
-type Props = { eventId: string; matrix: ScheduleMatrix; canSetDate: boolean };
+type Props = { eventId: string; matrix: ScheduleMatrix & { canSetDate?: boolean } };
 
 function Shell({ children }: { children: ReactNode }) {
   return (
@@ -219,7 +219,8 @@ function DateCard({
   );
 }
 
-export function FindYourDate({ eventId, matrix, canSetDate }: Props) {
+export function FindYourDate({ eventId, matrix }: Props) {
+  const canSetDate = matrix.canSetDate ?? false;
   const base = `/dashboard/${eventId}`;
 
   if (!matrix.hasDate) {

@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 
@@ -17,8 +16,8 @@ import { ActionButton } from '@/components/action-button';
 const EVERY_MS = 3_000;
 const TRIES = 20;
 
-/** A2-F5: never a dead end — the way back to the event, and a press to check again once it stops asking. */
-export function MayaChecking({ back }: { back: { href: string; label: string } }) {
+/** A2-F5: never a dead end — a press to check again once it stops asking (the page draws the way back beside it). */
+export function MayaChecking() {
   const router = useRouter();
   const [tries, setTries] = useState(0);
   useEffect(() => {
@@ -51,16 +50,12 @@ export function MayaChecking({ back }: { back: { href: string; label: string } }
           label="Check again"
           className="mt-4"
           onClick={() => {
+            // one-render: keep (retry) — the person asked to check again; the pay page's server render re-verifies with Maya.
             router.refresh();
             setTries(0);
           }}
         />
       ) : null}
-      <p className="mt-4">
-        <Link href={back.href} className="text-sm text-link underline">
-          {back.label}
-        </Link>
-      </p>
     </section>
   );
 }

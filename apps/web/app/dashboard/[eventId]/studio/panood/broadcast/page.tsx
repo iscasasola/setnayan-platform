@@ -1,5 +1,7 @@
 import { eventRowOnce } from '@/lib/event-row-once';
 import { getCurrentUser } from '@/lib/auth';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -127,8 +129,13 @@ export default async function PanoodControlRoomPage({ params }: Props) {
   // console for a coordinator added via event_moderators (the control-plane RLS
   // keys off event_members.member_type, a different membership notion). All degrade
   // to []/null on a pre-bootstrap DB.
+  // L-08 (final check): a refused cameras read is said, never "No cameras provisioned yet".
+  let camerasReadFailed = false;
   const [camerasRaw, screensRaw, moments] = await Promise.all([
-    fetchPanoodCameras(admin, eventId).catch(() => []),
+    fetchPanoodCameras(admin, eventId).catch(() => {
+      camerasReadFailed = true;
+      return [];
+    }),
     fetchPanoodScreens(admin, eventId).catch(() => []),
     fetchPanoodMoments(admin, eventId).catch(() => []),
   ]);
@@ -182,6 +189,7 @@ export default async function PanoodControlRoomPage({ params }: Props) {
     // mid-show conversion is impossible by construction. An upsell that cannot convert is chrome.
     // The free tier's paywall is the SETNAYAN overlay on every surface, which is unmissable.
     <section className="contents">
+      {camerasReadFailed ? <ReadRefusedNotice what="your cameras" partial /> : null}
       <PanoodControlRoom
         eventId={eventId}
         eventName={event.display_name}

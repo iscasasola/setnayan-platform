@@ -1,5 +1,10 @@
 import { getCurrentUser } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
+import Link from 'next/link';
+import { Users } from 'lucide-react';
+import { EmptyState } from '@/app/_components/states/empty-state';
+import { actionButtonClass } from '@/components/action-button-class';
+import { routes } from '@/lib/routes';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -24,13 +29,15 @@ export default async function PrintSheetPage({ params }: Props) {
   const user = await getCurrentUser();
   if (!user) redirect('/login');
 
-  const { data: event } = await supabase
+  const { data: event, error: eventReadError } = await supabase
     .from('events')
     // The CANONICAL monogram list + the QR look's two columns (lib/qr-look.server.ts).
     // + `print_details` for the event's Name style (owner 2026-09-30).
     .select(`event_id, display_name, event_date, slug, print_details, ${QR_LOOK_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
+  // I-07 (final check): a refused read is a failure (the error page says so), not a 404.
+  if (eventReadError) throw new Error("Couldn't read this event just now.");
   if (!event) notFound();
 
   const slug = event.slug ?? eventId;
@@ -45,6 +52,23 @@ export default async function PrintSheetPage({ params }: Props) {
     );
   }
   const guests = guestsRead.rows;
+  // I-07 (final check): zero guests is said, not an empty dashed sheet.
+  if (guests.length === 0) {
+    return (
+      <section className="mx-auto w-full max-w-3xl px-4 py-6">
+        <EmptyState
+          Icon={Users}
+          title="No guests to print yet."
+          blurb="Add guests first — each one gets their own card with a QR here."
+          action={
+            <Link href={routes.dashboard.guests.index(eventId)} className={actionButtonClass('neutral')}>
+              Open your guest list
+            </Link>
+          }
+        />
+      </section>
+    );
+  }
   const appUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
   const admin = createAdminClient();

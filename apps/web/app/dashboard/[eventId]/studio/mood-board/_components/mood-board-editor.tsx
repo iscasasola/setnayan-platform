@@ -335,6 +335,12 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     if (inMaker) return { ok: false as const };
     notFound();
   }
+  /* S-05 (final check): a refused inspirations or sign-off read drew an empty board and every part "never signed off".
+     Both are the board itself, so the board says it could not load (every caller draws `CouldNotLoad`). */
+  if (inspirationRes.error || finalizationRes.error) {
+    console.error(`[moodBoard] board read refused for event_id=${eventId}`, inspirationRes.error ?? finalizationRes.error);
+    return { ok: false as const };
+  }
 
   /* ✅ THE DO'S AND DON'TS (owner 2026-09-30). In the Maker they are read
      through the couple's draft — the same place the Dress code scene saves —

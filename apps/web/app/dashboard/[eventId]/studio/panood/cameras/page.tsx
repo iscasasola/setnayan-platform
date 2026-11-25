@@ -1,5 +1,6 @@
 import { eventRowOnce } from '@/lib/event-row-once';
 import { getCurrentUser } from '@/lib/auth';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { Video } from 'lucide-react';
@@ -90,7 +91,12 @@ export default async function PanoodCamerasPage({ params }: Props) {
   // Provision before reading, so a first visit on the free tier shows seats immediately rather
   // than an empty page that self-heals on reload. Idempotent top-up; never destructive.
   await provisionPanoodCamerasAdmin(admin, eventId, cap).catch(() => 0);
-  const cameras = await fetchPanoodCameras(admin, eventId).catch(() => []);
+  // L-08 (final check): a refused read is not "No cameras yet".
+  let camerasReadFailed = false;
+  const cameras = await fetchPanoodCameras(admin, eventId).catch(() => {
+    camerasReadFailed = true;
+    return [];
+  });
 
   const h = await headers();
   const host = h.get('host') ?? 'www.setnayan.com';
@@ -171,7 +177,9 @@ export default async function PanoodCamerasPage({ params }: Props) {
         </Link>
       </div>
 
-      {rows.length === 0 ? (
+      {camerasReadFailed ? (
+        <ReadRefusedNotice what="your camera seats" />
+      ) : rows.length === 0 ? (
         <QuietStart
           Icon={Video}
           title="No cameras yet."

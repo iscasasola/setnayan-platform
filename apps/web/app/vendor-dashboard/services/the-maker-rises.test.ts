@@ -82,10 +82,12 @@ test('B7 · a booked card: the name reads from its start with no pencil; no add 
   const form = maker.slice(maker.indexOf('id={CARD_FORM_ID}'), maker.indexOf('</form>', maker.indexOf('id={CARD_FORM_ID}')));
   assert.match(form, /<FormRowsReadOnly\.Provider value=\{editLocked\}>/, 'the booked card’s rows still draw pencils');
   assert.ok(form.indexOf('</FormRowsReadOnly.Provider>') > form.indexOf('<FormRowsReadOnly.Provider'), 'the read-only form does not wrap the rows');
-  for (const row of ['data-maker-row="description"', 'data-maker-row="video-link"', 'data-maker-row="name"']) {
-    const at = maker.indexOf(row);
-    assert.ok(at > maker.indexOf('<FormRowsReadOnly.Provider') || at > maker.indexOf('function AboutRows'), `${row} sits outside the read-only rows`);
-  }
+  // Name is drawn in the form; Description and Video link are AboutRows, which the form mounts — both inside the provider.
+  const inside = form.slice(form.indexOf('<FormRowsReadOnly.Provider'), form.indexOf('</FormRowsReadOnly.Provider>'));
+  assert.match(inside, /data-maker-row="name"/, 'the Name row sits outside the read-only rows');
+  assert.match(inside, /<AboutRows\b/, 'Description and Video link sit outside the read-only rows');
+  const about = maker.slice(maker.indexOf('function AboutRows'));
+  assert.match(about.slice(0, about.indexOf('\n}\n')), /data-maker-row="description"[\s\S]*<TypedRow[\s\S]*data-maker-row="video-link"[\s\S]*<TypedRow/, 'Description / Video link are no longer the TypedRows inside AboutRows');
   // Every TypedRow honours it: no pencil, no field opens (by a tap or by the screen's ask).
   assert.match(row, /const asRead = readOnly \|\| lockedByForm;/);
   assert.match(row, /if \(mode !== 'shut' \|\| asRead\) return;/, 'a read-only row still opens on a tap');

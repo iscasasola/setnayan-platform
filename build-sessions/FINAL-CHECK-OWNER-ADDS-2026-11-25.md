@@ -536,3 +536,16 @@ decides and verifies behaviour, wiring, doors and states (money, prices, plan co
   couple's theme (no house glow), as the guest pages do today.
 Every fixer PR is function-checked by the controller before it lands: the change is reachable (Add 27 door check),
 wired end to end, honest on failure, and its test holds the claim.
+
+## Add 32 · OWNER RULING (25 Nov): what each plan gets after the event (Lane C, money/rule)
+Owner: "if it's for free, then it will be very basic, like no editorials, no write-ups, and just photos, their gallery,
+their cover photo… if they go to Pro, they go to Ultra, the full editorial will be created and the printout as well."
+- **Free (below Pro):** the post-event link shows the cover photo and the photo gallery only. No editorial, no write-ups,
+  no story chapters. Gate the write-up tools and the writing helper (this replaces Add 31 (5) "the writing helper is free").
+- **Event Pro:** the full editorial (write-ups, story play, chapters, Save the Date videos).
+- **Event Ultra:** the full editorial plus "Our Day Paper", the broadsheet print download (drawing
+  https://claude.ai/artifact/Ev7VMomriwQT4GgYqVS9f7; sizes are the existing DAY_POSTER_SIZES, largest first; gate through
+  the existing `eventCanvasPrintsActive`/`eventUltraActive`).
+- Open for the owner: is Pro's print excluded even for Pro bought before canvas left Pro (`CANVAS_LEFT_PRO_AT` grandfathering)?
+  Default until he says: follow the same grandfathering rule as canvas.
+- Nothing already written is deleted when a plan is lower: it stays saved and shows again on upgrade.

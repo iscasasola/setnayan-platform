@@ -857,12 +857,14 @@ export function StdBuilderClient({
                   pathPrefix={`events/${eventId}/site-music`}
                   acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
                   audioGuard
-                  maxSizeMB={40}
+                  /* N-04 (final check): the same song file (`site-music`) is 20 MB in the Maker and in Set the mood;
+                     this box said 40 MB. One limit; the box itself already prints the types and the limit. */
+                  maxSizeMB={20}
                   variant="wide"
                   currentValue={siteMusicKey}
                   onFilePicked={handleMusicFilePicked}
                   onChange={(v) => handleMusicUpload(typeof v === 'string' ? v : null)}
-                  help="MP3/M4A/AAC/OGG/WAV, up to 40 MB. This becomes your wedding-site song."
+                  help="This becomes your Event Hub song."
                 />
               ) : (
                 uploadLock('song')

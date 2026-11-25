@@ -1,6 +1,6 @@
 # Final check · Area 7 · Coordinator, Spaces & venue, maps
 
-FIXER: batch 1 of 3 · PR #8307 · draft, waiting for CI · batch 2 · PR #8308 · draft, waiting for CI · batch 3 · PR #8312 · draft, migration (needs GO) · A7-16 proposed lane B · 🟠 A7-32 (owner)
+FIXER: batch 1 of 3 · PR #8307 · ready, CI running (screens map left for Ship) · batch 2 · PR #8308 · ready · batch 3 · PR #8312 · ready, migration needs GO · A7-16 proposed lane B · 🟠 A7-32 (owner)
 
 STATUS: phase B done · 10 of 10 pages walked at 375 / 768 / 1280, light and dark · 36 findings (27 code + 9 seen):
 blocker 0 · money-signin 2 · broken 3 · wrong 18 · look 13 · product blockers 0, two checks blocked by the seed (see BLOCKERS)

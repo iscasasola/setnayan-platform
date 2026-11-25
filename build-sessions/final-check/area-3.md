@@ -27,7 +27,7 @@ Marks: **OFFLINE** NEEDED (where signal is lost) / READ-ONLY / NOT NEEDED · **S
 - [ ] /dashboard/[eventId]/invitation
 - [ ] /dashboard/[eventId]/invitation/print
 - [x] /dashboard/[eventId]/launch · OFFLINE READ-ONLY (planned at home; "Go live" on the day is rare) · SHAPE PAGE → PAGE
-- [ ] /dashboard/[eventId]/live
+- [x] /dashboard/[eventId]/live · OFFLINE NEEDED (at the venue on the day: hiding a photo mid-party; disagree with read-only) · SHAPE PAGE → PAGE
 - [ ] /dashboard/[eventId]/memories
 - [ ] /dashboard/[eventId]/memories/download-all
 - [ ] /dashboard/[eventId]/memories/thank-you
@@ -37,15 +37,15 @@ Marks: **OFFLINE** NEEDED (where signal is lost) / READ-ONLY / NOT NEEDED · **S
 - [x] /dashboard/[eventId]/story · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
 - [ ] /dashboard/[eventId]/studio/about/[addon]
 - [ ] /dashboard/[eventId]/studio/guest-columns
-- [ ] /dashboard/[eventId]/studio/live-studio-control
-- [ ] /dashboard/[eventId]/studio/live-studio-control/setup
+- [x] /dashboard/[eventId]/studio/live-studio-control · OFFLINE READ-ONLY · SHAPE PAGE → PAGE
+- [x] /dashboard/[eventId]/studio/live-studio-control/setup · OFFLINE NOT NEEDED · SHAPE forward (to `/panood/control/[eventId]`; 404 when `NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED` is off; Ugat marks it no-door) → list as a forward
 - [ ] /dashboard/[eventId]/studio/mood-board
 - [ ] /dashboard/[eventId]/studio/pakanta
-- [ ] /dashboard/[eventId]/studio/panood
-- [ ] /dashboard/[eventId]/studio/panood/broadcast
-- [ ] /dashboard/[eventId]/studio/panood/cameras
-- [ ] /dashboard/[eventId]/studio/panood/cameras/print
-- [ ] /dashboard/[eventId]/studio/panood/setup
+- [x] /dashboard/[eventId]/studio/panood · OFFLINE NOT NEEDED · SHAPE forward (to live-studio-control, or `/studio/panood/setup` with the flag off)
+- [x] /dashboard/[eventId]/studio/panood/broadcast · OFFLINE NEEDED with the flag off (old day-of control room at the venue) · SHAPE PAGE → PAGE (forward to `/panood/control` with the flag on)
+- [x] /dashboard/[eventId]/studio/panood/cameras · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (with the flag on its only doors are in the old control room)
+- [x] /dashboard/[eventId]/studio/panood/cameras/print · OFFLINE READ-ONLY · SHAPE PAGE → PAGE (print)
+- [x] /dashboard/[eventId]/studio/panood/setup · OFFLINE NEEDED with the flag off (Go live / End at the venue), else READ-ONLY · SHAPE PAGE → PAGE
 - [ ] /dashboard/[eventId]/studio/papic/challenges
 - [ ] /dashboard/[eventId]/studio/papic/crew
 - [ ] /dashboard/[eventId]/studio/papic/crew/poster
@@ -60,22 +60,22 @@ Marks: **OFFLINE** NEEDED (where signal is lost) / READ-ONLY / NOT NEEDED · **S
 - [ ] /dashboard/[eventId]/studio/save-the-date
 - [ ] /dashboard/[eventId]/studio/save-the-date/stamp
 - [ ] /dashboard/[eventId]/studio/setnayan-ai
-- [ ] /dashboard/[eventId]/studio/website-pro
+- [x] /dashboard/[eventId]/studio/website-pro · OFFLINE NOT NEEDED (buying needs signal; a saved price list could mislead) · SHAPE PAGE → PAGE
 - [x] /dashboard/[eventId]/website/editor · OFFLINE READ-ONLY · SHAPE forward into the Maker (`/launch?…&open=…`) → keep; `open=colors` opens Look, `special-message` and `what-to-bring` (Reminders) open their rows
 - [x] /dashboard/[eventId]/website/hero-photo · OFFLINE NOT NEEDED (an upload; I disagree with read-only: a saved copy does nothing) · SHAPE PAGE → FULL-SCREEN POPUP (differs)
 - [x] /dashboard/[eventId]/website/living-hero · OFFLINE NOT NEEDED (a video upload) · SHAPE PAGE → FULL-SCREEN POPUP (differs)
 - [x] /dashboard/[eventId]/website/our-photos · OFFLINE NOT NEEDED (an upload) · SHAPE PAGE → FULL-SCREEN POPUP (differs)
-- [ ] /dashboard/[eventId]/website/our-story
-- [ ] /dashboard/[eventId]/website/photo-moments
-- [ ] /dashboard/[eventId]/website/privacy
-- [ ] /dashboard/[eventId]/website/site-chrome
-- [ ] /dashboard/[eventId]/website/stories
-- [ ] /dashboard/[eventId]/website/widgets
+- [x] /dashboard/[eventId]/website/our-story · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs; weddings already forward into the Maker; a birthday has no visible door)
+- [x] /dashboard/[eventId]/website/photo-moments · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs)
+- [x] /dashboard/[eventId]/website/privacy · OFFLINE READ-ONLY (disagree in part: "Who can watch on the day" is pressed at the venue) · SHAPE PAGE → FULL-SCREEN POPUP (differs)
+- [x] /dashboard/[eventId]/website/site-chrome · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs; video upload)
+- [x] /dashboard/[eventId]/website/stories · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs)
+- [x] /dashboard/[eventId]/website/widgets · OFFLINE READ-ONLY · SHAPE PAGE → FULL-SCREEN POPUP (differs)
 - [ ] /dashboard/creator
 - [ ] /dashboard/library
 - [ ] /dashboard/life-flash
-- [ ] /panood/control/[eventId]
-- [ ] /panood/program/[eventId]
+- [x] /panood/control/[eventId] · OFFLINE NEEDED (host/coordinator at the venue on the day; a read-only copy is NOT enough for a live control: every tap is a form POST + redirect with ~15 reads, no queue, no offline sign) · SHAPE PAGE → PAGE; its Setup half-sheet should be a FULL-SCREEN POPUP (differs)
+- [x] /panood/program/[eventId] · OFFLINE NEEDED (second window captured by OBS at the venue; re-attaches every 2 s) · SHAPE PAGE → PAGE
 
 ### Forwards (13)
 
@@ -268,6 +268,357 @@ ACTUAL    Each is a separate page with a "Back to Event Hub" link (our-photos ha
 WHERE     website/hero-photo/page.tsx · website/living-hero/page.tsx · website/our-photos/page.tsx
 SHOTS     375 px light
 RULE      SHAPE
+SEVERITY  look
+SOURCE    CODE
+```
+
+### Event Hub editor sub-pages (our-story · photo-moments · privacy · site-chrome · stories · widgets · website-pro)
+
+#### E-10 · Saving the story words after a failed read wipes the couple's moments
+
+```
+PAGE      /dashboard/[eventId]/website/our-story   (event: stg-mika-turns-7)
+BUTTON    "Save our story"
+STEPS     1. The read of `events.love_story` fails. 2. Press Save our story.
+EXPECTED  The save refuses ("Couldn't read your story"); nothing is overwritten.
+ACTUAL    `const { data: current } = await supabase.from('events').select('love_story')` — error unread; `mergeStoryWords(base, …)` then starts from nothing, so the written blob drops `moments` and every key the form does not carry.
+WHERE     apps/web/app/dashboard/[eventId]/website/our-story/actions.ts `updateOurStory` · lib/love-story-words.ts `mergeStoryWords`
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 (a failed read never acts as empty)
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### E-11 · Photo moments and widget toggles say "Saved" when the write changed no row
+
+```
+PAGE      /dashboard/[eventId]/website/photo-moments, /website/widgets   (sign in as a non-couple member)
+BUTTON    "Save changes" · "Visible" toggle · move up/down
+STEPS     1. As a member who is not the couple (no host check on the live path), save.
+EXPECTED  A refused write says so.
+ACTUAL    Live path `.update({ photo_moments_config: config }).eq('event_id', …)` with no `.select()` and no `requireHostMembership` (only the draft path checks); an RLS-filtered update returns no error and 0 rows → `{ ok: true }` → "Saved." Same shape in widgets `toggleWidgetVisibility`, `moveWidget`. (unsure whether RLS admits a non-couple writer)
+WHERE     website/photo-moments/actions.ts `updatePhotoMoments` · website/widgets/actions.ts
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 · design-and-wiring B6
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### E-12 · Event Hub locks: "Event Pro" typed by hand beside a heading that reads Event Plus; no price; badge "Pro" labelled Event Plus
+
+```
+PAGE      /dashboard/[eventId]/website/our-story, /website/site-chrome, /website/widgets   (event: stg-mika-turns-7)
+BUTTON    "Go Event Pro" · "photos come with Event Pro" · "Unlock {plan}" ×2 · the "Pro" paid mark
+STEPS     1. Open each without the part.
+EXPECTED  One plan name read from the catalogue, its price, one button.
+ACTUAL    `LOVE_STORY_PRO_CTA = 'Go Event Pro'`; site-chrome "It's part of Event Pro." under "Part of {planName}" (= Event Plus); site-chrome stacks two lock cards, two unlock buttons, no price; widgets `<PaidMark word="PLUS" label={paidMarkLabel(proMark, 'Event Plus')} text="Pro">`. Same family as E-04.
+WHERE     lib/love-story-moments.ts · our-story/_components/love-story-book.tsx · website/site-chrome/page.tsx · website/_components/website-pro-lock.tsx · website/widgets/page.tsx
+SHOTS     375 px light
+RULE      design-and-wiring B7 · CLAUDE.md §1 plans
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### E-13 · Our story: a failed price or plan read drops the price and offers Pro to a couple who may own it
+
+```
+PAGE      /dashboard/[eventId]/website/our-story   (event: stg-mika-turns-7)
+BUTTON    "Add more stories and your photos · Go Event Pro"
+STEPS     1. The SKU or entitlement read fails. 2. Open the page.
+EXPECTED  "Couldn't read" for the price; no upsell on an unread plan.
+ACTUAL    `formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null)` → price dropped; `eventHubPartActive(...).catch(() => false)` and `eventOwnsCoupleWebsitePro(...).catch(() => false)` → the upsell shows.
+WHERE     website/our-story/page.tsx · our-story/_components/love-story-pro-line.tsx
+SHOTS     375 px light
+RULE      CLAUDE.md §1 money · design-and-wiring B7
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### E-14 · Event services in the iPhone app: screen reader reads "₱0" on packs and photo sizes
+
+```
+PAGE      /dashboard/[eventId]/studio/website-pro   (iPhone app shell)
+BUTTON    pack rows · photo-size chips (aria-labels)
+STEPS     1. Open in the app with VoiceOver. 2. Focus a pack or chip.
+EXPECTED  Apple's price, or no price, never ₱0.
+ACTUAL    In the app `withoutWebFigures` / `appleFacts` set `php: 0`, but labels still run `formatPhp(p.php)`: "Event Plus, ₱0", "500 photos, ₱0".
+WHERE     studio/website-pro/_components/event-services-view.tsx (aria-label on pack rows and chips; `appleFacts`) · website-pro/page.tsx `withoutWebFigures`
+SHOTS     375 px light (app)
+RULE      CLAUDE.md §1 (never ₱0)
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### E-15 · Privacy: tapping another visibility choice shows nothing until saved
+
+```
+PAGE      /dashboard/[eventId]/website/privacy   (event: stg-carla-miguel)
+BUTTON    Public · Unlisted · Only guests with a Setnayan account · Private
+STEPS     1. Tap "Private" (currently Public). 2. Look before Save.
+EXPECTED  The tapped choice shows as chosen.
+ACTUAL    The radio is `sr-only`; the border and "Current" badge come from `const selected = value === currentValue` (the server value), not `:checked`.
+WHERE     website/privacy/page.tsx `VisibilityCard`
+SHOTS     375 px light
+RULE      design-and-wiring B6
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### E-16 · Failed reads read as real (privacy consent, story authors, page loads bounce to Home)
+
+```
+PAGE      /dashboard/[eventId]/website/privacy, /website/stories, /website/photo-moments, /website/site-chrome, /website/widgets
+BUTTON    "Feature our wedding" · "by …" · page load
+STEPS     1. Make the read fail.
+EXPECTED  "Couldn't read".
+ACTUAL    privacy: `catch { showcaseOptedIn = false }` → "Off — your wedding stays private" + an offer about a consent never read; stories: authors read "A Setnayan storyteller" and "Read it" drops; photo-moments/site-chrome/privacy/widgets: `const { data: event }` (error unread) then `redirect(/dashboard/${eventId})`.
+WHERE     website/privacy/page.tsx (`showcaseOptedIn`) · website/stories/page.tsx (`peopleError`) · the four page.tsx event reads
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### E-17 · Site chrome: with both parts locked, "Save" still shows and says "Saved"
+
+```
+PAGE      /dashboard/[eventId]/website/site-chrome   (a Free event)
+BUTTON    "Save music & video"
+STEPS     1. Both fields locked. 2. Press Save.
+EXPECTED  No Save shown.
+ACTUAL    Form posts no fields → `hasWrite` false → lands `?saved=1` → "Saved — your guests will see this on your Event Hub." Also three accent-filled buttons on one screen (two lock `ab-main` + Save).
+WHERE     website/site-chrome/page.tsx · site-chrome/actions.ts `updateSiteChrome`
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 · Part K1
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### E-18 · Words: "landing page", "wedding URL", "monogram", "load-bearing", and a guest-gate claim that disagrees with Privacy
+
+```
+PAGE      /dashboard/[eventId]/website/photo-moments, /website/site-chrome, /website/widgets
+BUTTON    ⓘ texts, list header, footer, errors, tab title
+STEPS     1. Read the copy on a birthday event.
+EXPECTED  "Event Hub", the event's own noun, plain words, one true statement.
+ACTUAL    "displayed in order on your landing page" · "your wedding URL" · "loops behind your monogram" · `title: 'Customize widgets'` · "your wedding's load-bearing surfaces" · widgets ⓘ says the public page shows a "scan your QR" gate to anyone without an invitation, while Privacy says Public = "Anyone can open your page and read it" (unsure which is true today)
+WHERE     website/photo-moments/page.tsx, _components/photo-moments-editor.tsx · website/site-chrome/page.tsx (Video hero ⓘ) · website/widgets/page.tsx
+SHOTS     375 px light
+RULE      brand.md word rules and tone
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### E-19 · Editor sub-pages: hand-built moment sheet (92 dvh), animate-pulse, wrong skeletons, no way back, K1, legacy pieces
+
+```
+PAGE      /dashboard/[eventId]/website/our-story, /photo-moments, /privacy, /site-chrome, /stories, /widgets, /dashboard/[eventId]/studio/website-pro
+BUTTON    moment sheet · loading · Back · buttons
+STEPS     1. Open each; add a moment; load slowly.
+EXPECTED  Sheet/RiseScreen; Sk/Ghost; the skeleton draws only what the page draws; a Back to the Maker; one main button.
+ACTUAL    moment-sheet(-studio).tsx: `createPortal(<div className="fixed inset-0 …"><OverlayBackdrop/><div role="dialog" … max-h-[92dvh]>`; `animate-pulse` in moment-order-cards.tsx; `scrollIntoView({behavior:'smooth'})` with no reduced-motion check; our-story/stories/site-chrome inherit `FormPageSkeleton` (a form card none of them draws), widgets loading draws a toolbar it does not have; no Back on photo-moments/site-chrome/widgets; privacy "Manage launch" `ab ab-brand` beside `ab-main` Save; widgets "Visible" `ab-ok` + hand-styled pills; our-story `button-primary`, `bg-red-50`, no PageMasthead; website-pro InfoDot `transition-all text-[10px]`, a hand-built `.es-step` fixed scrim layer during Apple Pay, `font-size: 28px` off scale; typed `/dashboard/${eventId}/launch` hrefs where `routes.dashboard.website.*` exist
+WHERE     website/our-story/_components/{moment-sheet,moment-sheet-studio,moment-order-cards}.tsx · website/loading.tsx, privacy/loading.tsx, widgets/loading.tsx · privacy/page.tsx · widgets/page.tsx · studio/website-pro/_components/event-services-view.tsx, event-services-website.css
+SHOTS     375 px light
+RULE      HOUSE_DESIGN_STANDARD Parts K1, K3, F1 · MOTION_STANDARD E2 · CLAUDE.md §3
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### E-20 · Six editor sub-pages are addresses; they should rise over the Maker (two may have no visible door)
+
+```
+PAGE      /dashboard/[eventId]/website/our-story, /photo-moments, /privacy, /site-chrome, /stories, /widgets
+BUTTON    the page itself
+STEPS     1. Reach each from the Maker.
+EXPECTED  FULL-SCREEN POPUP over the Maker (long, not shared); ✕ returns to the row.
+ACTUAL    All six are pages; four already have an inline Maker panel. photo-moments and widgets are reached only through editor rows' `href` (which editor-shell may not render) and the nav-registry "website-editor" area no menu reads (unsure: confirm in phase B).
+WHERE     the six page.tsx files · website/editor/page.tsx (row `href`s) · lib/nav-registry-defaults.ts
+SHOTS     375 px light
+RULE      SHAPE · design-and-wiring A3
+SEVERITY  look
+SOURCE    CODE
+```
+
+### Live studio (live · live-studio-control · panood · panood/control · panood/program)
+
+> Three pages change with `NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED` (value on staging not readable from code). Phase B: note it.
+
+#### L-01 · Live controller: about a dozen controls show success after a failed write (cut, ★ default, delete channel, on-air light, watch links)
+
+```
+PAGE      /panood/control/[eventId]   (event: stg-carla-miguel)
+BUTTON    camera tile cut ("Now on Channel 1.") · "Clear Channel 1" · ★ default · delete channel · delete moment · remove film · "Save watch link" · Facebook save/remove · "We're on air" on/off · "End (on air by hand)"
+STEPS     1. Press each while the write fails.
+EXPECTED  An error banner; the state unchanged.
+ACTUAL    Every listed write is unchecked, then the success banner: `cutToMainStage` both `update({ is_main_stage … })` unchecked → "Now on Channel 1." (if only the second fails, NOTHING is on air); `deleteRoamZone`: the delete is unchecked, then `revokeChannelCamera` runs anyway → "Camera channel removed." (the camera link dies while the channel stays); `endManualOnAir` returns `{ ok: true }` so the on-air light can stay on.
+WHERE     apps/web/app/panood/control/[eventId]/actions.ts (`cutToMainStage`, `clearMainStage`, `setFeaturedRoamZone`, `deleteRoamZone`, `deleteHighlight`, `removeEventFilm`, `saveControlWatchUrl`, `saveControlFacebookUrl`, `setControlManualAir`, `clearControlManualAir`, `endManualOnAir`; all in lib/supabase-unread-error.baseline.txt)
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 · design-and-wiring B6
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### L-02 · Live controller reads "Off air" while live when its reads fail
+
+```
+PAGE      /panood/control/[eventId]
+BUTTON    On air / Off air tally · Go live / End row · channel tiles
+STEPS     1. While live, reload with the broadcast, on-air, grant or camera read failing.
+EXPECTED  "Couldn't check whether you're on air", never "Off air".
+ACTUAL    `try { activeBroadcast = await getActivePanoodBroadcast(eventId) } catch {}`; the manual-on-air read error only logged → `isLive` false → "Off air" + Go live; a grant read error hides Go live behind "connect first"; cameras `.catch(() => new Map())` → every channel looks unbound.
+WHERE     apps/web/app/panood/control/[eventId]/page.tsx (`activeBroadcast`, `isLive`, `hasRouteToAir`) · transport-row.tsx
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### L-03 · Live controller: a paying host is sent to the buy page mid-show when the plan read fails; unlock price silently dropped
+
+```
+PAGE      /panood/control/[eventId]
+BUTTON    ⚡ "Mark moment" · delete moment · "Rehearse free — unlock…" bar · tile "Unlock" chip
+STEPS     1. An owning host marks a moment while the entitlement read fails. 2. Open with the catalogue read failing.
+EXPECTED  An error; "Couldn't read" by the price; unlock opens a checkout.
+ACTUAL    `eventEntitlementClient(eventId).catch(() => null)` → `owned=false` → `redirect(DETAIL_PATH)`; `formatV2Sku(LIVE_STUDIO_SKU).catch(() => null)` → "… · one event" with no price; every unlock door goes to the detail page, not a checkout.
+WHERE     panood/control/[eventId]/actions.ts `requireLiveStudioOwned` · page.tsx (unlock bar)
+SHOTS     375 px light
+RULE      CLAUDE.md §1 money · design-and-wiring B7
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### L-04 · Program window: a failed channel read skips the paid-channel gate (falls back to the old watermark paywall)
+
+```
+PAGE      /panood/program/[eventId]   (an unpaid event with Live Studio channels)
+BUTTON    program output
+STEPS     1. The `live_studio_roam_zones` read fails while the program window opens.
+EXPECTED  Fail closed: only the ★ channel can go to air.
+ACTUAL    `fetchProgramChannels(admin, eventId).catch(() => [])` and `if (error || !data) return []` → `if (channels.length > 0)` skipped → `air` null → `sourceAllowed = air ? … : true`: any camera the controller sends is painted. The comment says the legacy path "keeps its own paywall (lib/panood-watermark.ts)", so a watermark may still apply (unsure). Also `const { data: event } …; if (!event) notFound()` → OBS captures a 404 on a failed read.
+WHERE     apps/web/app/panood/program/[eventId]/page.tsx `fetchProgramChannels` · program-surface.tsx `sourceAllowed`
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 · design-and-wiring B7
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### L-05 · Live Watch setup: "Saved — guests see Watch Live" after a failed write; Go live / End report ok after failed writes
+
+```
+PAGE      /dashboard/[eventId]/studio/panood/setup   (event: stg-carla-miguel)
+BUTTON    "Save watch link" · Facebook "Save" · "Remove link" · "Go live" · "End broadcast"
+STEPS     1. Press each while the `events` update fails.
+EXPECTED  An error; nothing marked saved.
+ACTUAL    6 `events.update` results unread (baseline) → `redirect(…?watch_url_saved=1)`; `goLivePanood` and `endPanoodBroadcast` return `{ ok: true }` after unchecked writes, so the Event Hub may never show the player, or keep showing a finished broadcast.
+WHERE     studio/panood/setup/actions.ts (`savePanoodWatchUrl`, `savePanoodFacebookUrl`, `clearPanoodFacebookUrl`, `goLivePanood`, `endPanoodBroadcast`, `clearPanoodWatchUrl`)
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4 · design-and-wiring B6
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### L-06 · Memory lane: the Flash switch ignores a failed save
+
+```
+PAGE      /dashboard/[eventId]/live   (event: stg-carla-miguel)
+BUTTON    "Flash to Memory lane" switch
+STEPS     1. Tap while the save fails.
+EXPECTED  An error; the switch goes back.
+ACTUAL    `await toggleFlashAutoWall(eventId, !enabled);` — the result is discarded.
+WHERE     live/_components/flash-auto-wall-toggle.tsx `FlashAutoWallToggle`
+SHOTS     375 px light
+RULE      design-and-wiring B6
+SEVERITY  broken
+SOURCE    CODE
+```
+
+#### L-07 · Live studio prices: a failed catalogue read shows "—" and sends ₱0 into checkout; the Logo pack has no buy door
+
+```
+PAGE      /dashboard/[eventId]/studio/live-studio-control, /dashboard/[eventId]/studio/panood/setup
+BUTTON    Pricing tile · "(—, one price per event)" · "Add Live Watch" sheet · "Animated Monogram" pack card
+STEPS     1. Open with the catalogue read failing. 2. Look for a way to buy the pack.
+EXPECTED  "Couldn't read" and buying held back; the pack opens a real checkout.
+ACTUAL    `priceLabel = sku ? formatPhp(…) : '—'`, `priceCentavos: String(sku?.price_centavos ?? 0)` into ChoosePlanSheet; pack card "Open the orders page to purchase." with no link, and "Price set in the Setnayan catalog" on a failed read.
+WHERE     studio/live-studio-control/page.tsx · studio/panood/setup/page.tsx `PackCard`
+SHOTS     375 px light
+RULE      CLAUDE.md §1 money · design-and-wiring B7
+SEVERITY  money-signin
+SOURCE    CODE
+```
+
+#### L-08 · Failed reads read as real across the live pages (counts 0, "Auto", no cameras, nothing to print, not connected)
+
+```
+PAGE      /dashboard/[eventId]/live, /studio/live-studio-control, /studio/panood/broadcast, /cameras, /cameras/print, /setup
+BUTTON    counts · mode · camera lists · print sheet · Connect YouTube · Go live
+STEPS     1. Open each with its read failing.
+EXPECTED  "Couldn't read".
+ACTUAL    /live `String(visibleCount ?? 0)`, mode "Auto", Flash ON; live-studio-control `youtubeGrant = (grantRaw ?? null)` → offers Connect again, stats errors → "No reviews yet"; broadcast and cameras `fetchPanoodCameras(…).catch(() => [])` → "No cameras provisioned yet"/"No cameras yet", `eventSkuActive(...).catch(() => false)` treats a paid event as the free 3-camera tier; print `(zoneRows ?? [])` → "There are no join cards to print yet."; setup active broadcast in `try{}catch{}` → Go live shows while live.
+WHERE     live/page.tsx · studio/live-studio-control/page.tsx, lib/add-on-stats.ts · studio/panood/broadcast/page.tsx · cameras/page.tsx · cameras/print/page.tsx · studio/panood/setup/page.tsx
+SHOTS     375 px light
+RULE      CLAUDE.md §5 rule 4
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### L-09 · Cameras page and print sheet disagree on what a guest camera joins (seat vs channel)
+
+```
+PAGE      /dashboard/[eventId]/studio/panood/cameras vs /cameras/print
+BUTTON    camera cards · QR
+STEPS     1. Compare the two pages.
+EXPECTED  One description of what can be joined.
+ACTUAL    cameras hands out a QR per seat ("Camera N"); print reads per channel and says seat cards with no channel "lead nowhere … on a day that cannot be re-run". Also "Copy" fails silently (`catch { // Fall back silently }`) and print has no Print button on a phone (only "Press ⌘P").
+WHERE     studio/panood/cameras/page.tsx · cameras/print/page.tsx · studio/panood/_components/copy-link.tsx
+SHOTS     375 px light
+RULE      design-and-wiring C8 · kit §5.3
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### L-10 · Live pages advertise features still coming, promise "free" and speed; wedding words on every event; "Monogram"
+
+```
+PAGE      /dashboard/[eventId]/studio/live-studio-control, /studio/panood/setup, /panood/control/[eventId]
+BUTTON    "Not included" list · rollout cards · overlay switch · masthead
+STEPS     1. Read the copy on stg-mika-turns-7.
+EXPECTED  No coming features, price promises or speed claims; "Logo Maker"; the event's own word.
+ACTUAL    "rolls out as the streaming infrastructure comes online", "We'll email you the moment the Connect button lights up", "Coming soon — admin setup pending", "Coming with rollout" cards, "Cast to projector: Coming with the rollout", "Coming soon — Setnayan's YouTube app review is still with Google"; "free for every couple", "Free, always available"; "~10 seconds", "Takes about 20 seconds"; "Broadcast your wedding live", "your wedding page"; `label="Monogram"`, "Monogram — placed", "Animated Monogram", "Your bespoke monogram".
+WHERE     studio/live-studio-control/page.tsx · studio/panood/setup/page.tsx · panood/control/[eventId]/page.tsx
+SHOTS     375 px light
+RULE      brand.md claims #3, #6, #9 · word rules
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+#### L-11 · Live pages: many accent fills per screen, spinners, pulsing dot, hand-built menus/toasts, half-pixel type, `bg-white`
+
+```
+PAGE      /dashboard/[eventId]/live, /studio/live-studio-control, /studio/panood/*, /panood/control/[eventId], /panood/program/[eventId]
+BUTTON    Go live · End · Connect · unlock CTAs · saves · tally dot · ✎ rename
+STEPS     1. Open each at 375 px.
+EXPECTED  One main button per screen; Sk not spinners; Sheet/Toast; tokens.
+ACTUAL    setup: five accent fills (`ab-main`, `bg-mulberry` ×2, `bg-burgundy` ×2); control: `bg-mulberry` on ~9 buttons + `bg-danger-600` + `bg-burgundy`; live-studio-control: `main` + `ab-main` Connect + `bg-mulberry` plan trigger; `Loader2 animate-spin` (live mode-control, live-wall-controls, ingest-health-strip); `animate-pulse` tally (control-room.tsx, control page); ✎ rename is a `<details>` with an absolute form, no backdrop; banners are a hand-rolled `ToastLayer`; `text-[9.5px]`…`[12.5px]`; `bg-white`; program lower third `bg-[#D96B4A]`; cameras buttons hand-built; /studio/panood and broadcast skeletons drawn for redirects; "Back to Live Watch" points at a redirect.
+WHERE     studio/panood/setup/page.tsx, go-live-card.tsx · panood/control/[eventId]/page.tsx, transport-row.tsx, _components/{toast-layer,ingest-health-strip}.tsx · live/_components/mode-control.tsx · studio/panood/broadcast/control-room.tsx · panood/program/[eventId]/program-surface.tsx
+SHOTS     375 px light
+RULE      HOUSE_DESIGN_STANDARD Parts K1, K3 · CLAUDE.md §3 (Loading, Toast, Type, Colour)
+SEVERITY  look
+SOURCE    CODE
+```
+
+#### L-12 · Live controller Setup (~740 lines, seven sections) opens in a half sheet
+
+```
+PAGE      /panood/control/[eventId]
+BUTTON    "Setup"
+STEPS     1. Open Setup at 375 px.
+EXPECTED  FULL-SCREEN POPUP (many screens long).
+ACTUAL    `<Sheet … wide>` holds connect, add camera, overlays, moments, watch links, films, venue screens.
+WHERE     panood/control/[eventId]/_components/setup-sheet.tsx `SetupSheet`
+SHOTS     375 px light
+RULE      SHAPE · Part K3
 SEVERITY  look
 SOURCE    CODE
 ```

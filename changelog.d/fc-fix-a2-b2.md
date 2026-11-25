@@ -6,7 +6,7 @@ so a crafted link could also put any words under Setnayan's name. Now the raw wo
 one plain sentence; pages print fixed words for a known key only.
 
 - Host invitation (`/host/accept/[token]`): fixed sentence + Try again; no `msg` / `expected` read from the address (A2-A9).
-- Profile and Groups (samahan) actions: plain sentences, fixed keys; pages fall back to a plain line (A2-C6).
+- Profile and Groups (samahan) actions: plain sentences, fixed keys; the Groups pages fall back to a plain line (A2-C6).
   Lane R pages named by the finding (API keys, linked events) are left for retirement.
 - Add a guest and Import: `dup_<role>` / `save_failed` / `plus_one_failed` keys; import says one plain sentence (A2-D7).
   Quick add is lane R and left.

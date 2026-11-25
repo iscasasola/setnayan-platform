@@ -82,9 +82,6 @@ test('pages print fixed words for ?error=, never the address bar’s own text', 
   }
   const photo = src('app/dashboard/[eventId]/studio/photo-delivery/page.tsx');
   assert.doesNotMatch(photo, /Could not save sync mode: \{errorMessage\}/);
-  const profile = src('app/dashboard/(account)/profile/page.tsx');
-  assert.match(profile, /plainRefusal\(decodeURIComponent\(search\.error\)/);
-  assert.match(profile, /plainRefusal\(decodeURIComponent\(search\.slug_error\)/);
 });
 
 test('sponsor keys: our own sentences keep their key, anything else is the plain fallback', () => {

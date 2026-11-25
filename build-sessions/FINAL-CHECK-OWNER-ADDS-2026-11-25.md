@@ -517,3 +517,7 @@ Article/ImageObject structured data, `max-image-preview:large`, readable by scre
 (research 25 Nov): Google reduced Web Stories in Feb 2024 and rarely shows them in PH; FB/Messenger previews are the
 main share path; articles keep, print and index. Drawing first (Fable), then a build plan; lane C until the drawing
 is approved. Findings that point at the post-event story are kept and placed in this page.
+**Add 30 detail (owner, 25 Nov):** once the event ENDS, the Event Hub ceases to exist as a hub, and its SAME LINK
+(`/[slug]`) becomes the editorial. The editorial holds everything: all stories, all videos, the uploaded Save the Date
+videos, all photos and all write-ups. It need not look like the Event Hub. "Play the story" plays the Facebook-style
+tap-through of the same content.

@@ -47,7 +47,7 @@ export const metadata = {
   openGraph: {
     images: BRAND_OG_IMAGES,
     title: 'Memories · Maria & Jose · Setnayan',
-    description: 'The day, captured by everyone — explore a real wedding’s Memory lane and palette.',
+    description: 'The day, captured by everyone — explore a sample wedding’s Memory lane and palette.',
     url: '/tour/gallery',
     type: 'website',
   },
@@ -68,6 +68,10 @@ type InspirationItem = {
 };
 
 /** Friendly labels for the inspiration slot_keys the seed writes. */
+/** The wall opens with this many photos; the newest `WALL_INCOMING` drift in on "Bring Memory lane to life". */
+const WALL_SHOWN = 12;
+const WALL_INCOMING = 4;
+
 const INSPIRATION_SLOT_LABEL: Record<string, string> = {
   overall: 'Overall vibe',
   venue: 'Venue',
@@ -110,34 +114,29 @@ export default async function TourGalleryPage() {
   // limit:12 mirrors the guest-phone block (a dozen tiles, sliced before
   // presigning). If the sample has no wall_feed rows, snap.tiles is [] and the
   // wall renders its "warming up" empty state (see RISK note).
-  const snap = await getWallSnapshot(id, null, { limit: 12 });
-  const initialTiles: TourWallTile[] = snap.tiles.map((t) => ({
+  /*
+    🎞 "BRING MEMORY LANE TO LIFE" ADDS PHOTOS THAT ARE NOT YET ON THE WALL (final check A1-014). It used to clone the
+    first four tiles under new ids, so the same photos showed twice and the count rose by four. The read now takes the
+    newest sixteen: the wall opens with the older twelve and the four newest drift in, each a real photo with its own
+    id and time, and the counter ends on the real total.
+  */
+  const snap = await getWallSnapshot(id, null, { limit: WALL_SHOWN + WALL_INCOMING });
+  const feedFailed = !snap.feedRead;
+  const allTiles: TourWallTile[] = snap.tiles.map((t) => ({
     feedId: t.feedId,
     url: t.url,
     widthPx: t.widthPx,
     heightPx: t.heightPx,
     sortAt: t.sortAt,
   }));
-  const initialCount = snap.count;
+  const holdBack = allTiles.length > WALL_SHOWN ? allTiles.length - WALL_SHOWN : 0;
+  const initialTiles = allTiles.slice(0, allTiles.length - holdBack);
+  const incomingTiles = allTiles.slice(allTiles.length - holdBack);
+  const initialCount = Math.max(0, snap.count - incomingTiles.length);
   const initialCaption = snap.caption
     ? { text: snap.caption.text, author: snap.caption.author }
     : null;
 
-  // A few pre-seeded "about to arrive" tiles for the client-only timer to drip
-  // in. These are SYNTHETIC display tiles cloned from real wall tiles (so the
-  // imagery is the couple's own screened feed) with fresh feedIds + later
-  // sortAt values, so mergeTiles() treats them as genuine new arrivals and the
-  // wall's `animate-wall-enter` rise+fade fires. If the wall is empty, there's
-  // nothing to clone and the timer simply has no tiles to add (the empty state
-  // still reads correctly). No network, no server — resets on reload.
-  const nowMs = Date.now();
-  const incomingTiles: TourWallTile[] = initialTiles.slice(0, 4).map((t, i) => ({
-    feedId: `tour-incoming-${i}-${t.feedId}`,
-    url: t.url,
-    widthPx: t.widthPx,
-    heightPx: t.heightPx,
-    sortAt: new Date(nowMs + (i + 1) * 1000).toISOString(),
-  }));
 
   // ── Mood-board palette ───────────────────────────────────────────────────
   const palette = sanitizeRolePalette(ev.role_palette ?? {});
@@ -207,16 +206,23 @@ export default async function TourGalleryPage() {
           <h2 className="font-serif text-2xl text-[#1B1A17]">Memory lane, live</h2>
         </div>
         <p className="mt-2 text-sm text-[#5F5E5A]">
-          Watch new moments drift in. On a real wedding day these appear the instant they&rsquo;re taken &mdash; here, tap
+          Watch new moments drift in. On a wedding day these appear as guests take them &mdash; here, tap
           &ldquo;Bring Memory lane to life&rdquo; to see it fill. Nothing is saved; reload to start fresh.
         </p>
         <div className="mt-6">
-          <TourLiveWall
-            initialTiles={initialTiles}
-            initialCount={initialCount}
-            initialCaption={initialCaption}
-            incomingTiles={incomingTiles}
-          />
+          {feedFailed ? (
+            // A refused photo read is said — never the "warming up" empty wall (final check A1-007).
+            <p className="text-sm text-ink/70" role="status" data-tour-unread="wall">
+              Couldn&rsquo;t load the photos just now. Reload the page to try again.
+            </p>
+          ) : (
+            <TourLiveWall
+              initialTiles={initialTiles}
+              initialCount={initialCount}
+              initialCaption={initialCaption}
+              incomingTiles={incomingTiles}
+            />
+          )}
         </div>
       </section>
 
@@ -309,7 +315,7 @@ export default async function TourGalleryPage() {
         <h2 className="font-serif text-2xl text-[#1B1A17] sm:text-3xl">That&rsquo;s the whole wedding.</h2>
         <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
           The invitation, the suppliers, the seating, the budget, Memories &mdash; one place, start to finish. Start your
-          own on Setnayan, free, in minutes. Set na &rsquo;yan.
+          own on Setnayan, free. Set na &rsquo;yan.
         </p>
         <Link
           href="/onboarding/wedding?from=tour"

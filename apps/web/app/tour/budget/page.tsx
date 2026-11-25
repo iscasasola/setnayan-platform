@@ -3,7 +3,9 @@ import { Wallet, Receipt, CheckCircle2, ArrowRight } from 'lucide-react';
 import { getSampleEvent, getSampleEventId } from '@/app/tour/_lib/sample-event';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchBudgetSnapshot } from '@/lib/budget';
-import { formatPhp } from '@/lib/orders';
+import { resolveEventMoney } from '@/lib/budget-truth';
+import { TRIGGER_THRESHOLDS } from '@/lib/setnayan-ai-triggers';
+import { formatPhp } from '@/lib/php';
 import { VENDOR_CATEGORY_LABEL } from '@/lib/vendors';
 import type { PlannerLeafInput } from '@/lib/budget-allocation-data';
 import { DEFAULT_ALLOCATION_CONFIG } from '@/lib/budget-allocation';
@@ -38,7 +40,7 @@ export const metadata = {
   openGraph: {
     images: BRAND_OG_IMAGES,
     title: 'The budget · Maria & Jose · Setnayan',
-    description: 'Every peso tracked, every deadline in view — explore a real wedding budget.',
+    description: 'Every peso tracked, every deadline in view — explore a sample wedding budget.',
     url: '/tour/budget',
     type: 'website',
   },
@@ -48,11 +50,18 @@ export default async function TourBudgetPage() {
   const ev = await getSampleEvent();
   const id = await getSampleEventId();
   const admin = createAdminClient();
-  const snapshot = await fetchBudgetSnapshot(admin, id);
+  // 💰 THE HEADLINE IS THE ONE MONEY READER (final check A1-002): `resolveEventMoney` counts only confirmed bookings
+  // as committed. The second reader (`fetchBudgetSnapshot`) summed every supplier row, whatever its status; it still
+  // draws the per-supplier itemization below. A refused money read is said, never ₱0.
+  const [snapshot, money] = await Promise.all([
+    fetchBudgetSnapshot(admin, id),
+    resolveEventMoney(admin, id).catch(() => null),
+  ]);
+  const moneyRead = money !== null && money.reads.suppliers === 'ok';
 
   // 🔀 The sample couple in the order its own name keeps (`coupleNamesLine`, owner 2026-10-21).
   const couple = coupleNamesLine({ display_name: ev.display_name, bride_name: ev.bride_name ?? 'Maria', groom_name: ev.groom_name ?? 'Jose' });
-  const { vendors, totals } = snapshot;
+  const { vendors } = snapshot;
 
   // Derive planner leaves from the couple's ACTUAL booked vendors. We group
   // their itemized totals by category and feed each as a `benchmarkPhp` —
@@ -70,14 +79,12 @@ export default async function TourBudgetPage() {
       canonicalService: category,
       label: VENDOR_CATEGORY_LABEL[category as keyof typeof VENDOR_CATEGORY_LABEL] ?? category,
       benchmarkPhp: Math.round(amount),
-      // A modest band around the benchmark so the shopping range reads sensibly.
-      p25Php: Math.round(amount * 0.85),
-      p75Php: Math.round(amount * 1.15),
+      // No p25/p75: the sample has no market data, so no "typical range" is drawn (final check A1-013).
     }));
 
   // The planner's "total budget" is the sum of what the couple has committed —
   // their real plan total. Falls back to a sensible figure if the seed is empty.
-  const plannerBudget = totals.budget > 0 ? Math.round(totals.budget) : null;
+  const plannerBudget = moneyRead && money.committed > 0 ? Math.round(money.committed) : null;
 
   return (
     <main className="mx-auto w-full max-w-5xl px-5 pb-20 pt-12 sm:pt-16">
@@ -98,23 +105,25 @@ export default async function TourBudgetPage() {
       >
         <SummaryStat
           label="Committed"
-          value={formatPhp(totals.budget)}
+          value={moneyRead ? formatPhp(money.committed) : 'Couldn’t read'}
           hint="across every booked supplier"
           tone="gold"
         />
         <SummaryStat
           label="Paid so far"
-          value={formatPhp(totals.paid)}
+          value={moneyRead ? formatPhp(money.paid) : 'Couldn’t read'}
           hint="logged against suppliers"
           tone="mulberry"
         />
         <SummaryStat
           label="Left to pay"
-          value={formatPhp(totals.remaining)}
+          value={moneyRead ? formatPhp(money.stillOwed) : 'Couldn’t read'}
           hint={
-            totals.upcomingDueCount > 0
-              ? `${formatPhp(totals.upcomingDueAmount)} due in 30 days`
-              : 'nothing due in 30 days'
+            !moneyRead
+              ? 'reload to try again'
+              : money.due.overdueCount + money.due.dueSoonCount + money.due.upcomingCount > 0
+                ? `${formatPhp(money.due.overduePhp + money.due.dueSoonPhp + money.due.upcomingPhp)} due in ${TRIGGER_THRESHOLDS.paymentHorizonDays} days`
+                : `nothing due in ${TRIGGER_THRESHOLDS.paymentHorizonDays} days`
           }
           tone="ink"
         />
@@ -150,7 +159,7 @@ export default async function TourBudgetPage() {
           <h2 className="font-serif text-2xl text-[#1B1A17]">Try the budget planner</h2>
         </div>
         <p className="mt-2 text-sm text-[#5F5E5A]">
-          Tap any service to splurge, save, or set your own number — the split and your cushion recompute instantly.
+          Tap any service to splurge, save, or set your own number — the split and your cushion follow.
           It&rsquo;s a guide, never a rule. Nothing here is saved; reload to start fresh.
         </p>
 

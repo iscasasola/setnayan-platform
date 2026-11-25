@@ -558,6 +558,11 @@ export interface WallSnapshot {
    *  above — `challengeMeasured: false` means unknown, never "none". */
   challenge: WallArmedChallenge | null;
   challengeMeasured: boolean;
+  /**
+   * False when the wall's photo read (`wall_visible_photos`) was refused. The tiles are then [] because the read
+   * failed, not because nobody has shared a photo, so a surface can say "couldn't load" (final check A1-007).
+   */
+  feedRead: boolean;
 }
 
 /** The projection read: visible tiles since a cursor + count + mode. */
@@ -576,7 +581,7 @@ export async function getWallSnapshot(
 ): Promise<WallSnapshot> {
   const admin = createAdminClient();
 
-  const [{ data: feedData }, { data: event }, challengeRead] = await Promise.all([
+  const [{ data: feedData, error: feedError }, { data: event }, challengeRead] = await Promise.all([
     admin.rpc('wall_visible_photos', {
       p_event_id: eventId,
       p_since: sinceIso ?? '-infinity',
@@ -669,5 +674,6 @@ export async function getWallSnapshot(
     eventDate: (event?.event_date as string) ?? null,
     challenge: challengeRead.challenge,
     challengeMeasured: challengeRead.measured,
+    feedRead: !feedError,
   };
 }

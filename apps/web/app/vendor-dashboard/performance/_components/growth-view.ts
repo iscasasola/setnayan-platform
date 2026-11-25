@@ -120,6 +120,8 @@ export type GrowthView = {
     unread: boolean;
     when: string;
     positioned: { own: string; low: string; med: string; high: string; at: number | null; word: string } | null;
+    /** Why `positioned` is empty (final check B5-20): only `no_own_price` may ask for a starting price. */
+    emptyWhy: 'no_own_price' | 'no_data' | null;
   };
   compare: { line: string };
   /**
@@ -407,6 +409,7 @@ export function buildGrowthView(inp: GrowthInputs): GrowthView {
       unread: Boolean(p && p.status === 'unreadable'),
       when: `${inp.category ?? 'your category'} · ${inp.regionLabel ?? 'your region'}`,
       positioned,
+      emptyWhy: p && p.status === 'no_own_price' ? 'no_own_price' : p && p.status === 'no_data' ? 'no_data' : null,
     },
     compare: {
       line: compareLine(

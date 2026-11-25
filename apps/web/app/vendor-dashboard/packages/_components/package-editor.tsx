@@ -92,6 +92,8 @@ const wholePesos = (v: string) => {
   return Number.isFinite(n) ? n : 0;
 };
 const php = formatPhpRounded;
+/** 🪪 No total is a price until the bundle has its two cards (final check B5-10): "—", never ₱0 standing for "not yet". */
+const NOT_YET = '—';
 
 function emptyItem(): DraftItem {
   return {
@@ -206,6 +208,8 @@ export function PackageEditor({
   const problemsFor = (itemRef: string, optionRef?: string) =>
     (shown.filter((p) => 'itemRef' in p && p.itemRef === itemRef && (optionRef ? p.optionRef === optionRef : !p.optionRef)) as DraftProblem[]);
   const extraErr = sums.extraPhp > 0 && sums.extraPhp >= sums.cardsTotalPhp ? 'The extra discount has to be below the total.' : null;
+  const ready = sums.lines.length >= 2;
+  const totalOrDash = (n: number) => (ready ? php(n) : NOT_YET);
   const planErr = resolved.balances ? null : `The payments add up to more than ${php(sums.newTotalPhp)}.`;
   const gathered = gatherInclusions(picked);
 
@@ -456,7 +460,7 @@ export function PackageEditor({
               )}
             </span>
             <span className="shrink-0 font-mono text-[18px] font-semibold text-ink" data-bundle-total="">
-              {php(sums.newTotalPhp)}
+              {totalOrDash(sums.newTotalPhp)}
             </span>
           </div>
 
@@ -681,12 +685,12 @@ export function PackageEditor({
             ) : (
               <div className={kv}>
                 <span>No cards yet</span>
-                <span className="font-mono">{php(0)}</span>
+                <span className="font-mono">{NOT_YET}</span>
               </div>
             )}
             <div className={`${kv} border-t border-ink/10 pt-1 font-semibold`}>
               <span>Cards at their lowest</span>
-              <span className="font-mono" data-bundle-cards-total="">{php(sums.cardsTotalPhp)}</span>
+              <span className="font-mono" data-bundle-cards-total="">{totalOrDash(sums.cardsTotalPhp)}</span>
             </div>
           </div>
 
@@ -719,23 +723,23 @@ export function PackageEditor({
                 onChange={(e) => patch({ extra_discount_centavos: wholePesos(e.target.value) * 100 })}
               />
             </div>
-            {extraErr ? <Note>{extraErr}</Note> : <p className={hint}>Pesos only, never a percent · above ₱0 and below {php(sums.cardsTotalPhp)}.</p>}
+            {extraErr ? <Note>{extraErr}</Note> : <p className={hint}>Pesos only, never a percent · {ready ? <>above ₱0 and below {php(sums.cardsTotalPhp)}</> : 'less than the cards’ total'}.</p>}
           </div>
 
           {/* ---- The new total — the bundle's one price ---- */}
           <div className={topic}>
             <div className="flex items-center justify-between gap-3 text-[17px] font-semibold text-ink">
               <span>New total</span>
-              <span className="font-mono">{php(sums.newTotalPhp)}</span>
+              <span className="font-mono">{totalOrDash(sums.newTotalPhp)}</span>
             </div>
-            <p className={hint}>{php(sums.cardsTotalPhp)} − {php(sums.extraPhp)} · the bundle’s one price.</p>
+            <p className={hint}>{ready ? <>{php(sums.cardsTotalPhp)} − {php(sums.extraPhp)} · the bundle’s one price.</> : 'Pick two or more cards to see the bundle’s one price.'}</p>
           </div>
 
           {/* ---- The bundle's own payment plan — a copy of the default, adjusted here ---- */}
           <div className={topic} data-bundle-plan="">
             <p className={lab}>Payment plan for the bundle</p>
             <p className="mb-1.5 text-[12.5px] leading-snug text-ink/60">
-              A copy of your default plan · adjust it here · adds up to {php(sums.newTotalPhp)} · the last payment is the balance.
+              A copy of your default plan · adjust it here · adds up to {ready ? php(sums.newTotalPhp) : 'the new total'} · the last payment is the balance.
             </p>
             <ul className="divide-y divide-ink/10 overflow-hidden rounded-xl border border-ink/15">
               {plan.manual.map((m, i) => {
@@ -793,7 +797,7 @@ export function PackageEditor({
             ) : (
               <p className="mt-1.5 flex items-center gap-1.5 text-[12.5px] text-success-700" data-bundle-plan-ok="">
                 <Check aria-hidden className="h-4 w-4" strokeWidth={2} />
-                {resolved.installments.length} {resolved.installments.length === 1 ? 'payment' : 'payments'} · adds up to {php(sums.newTotalPhp)}
+                {resolved.installments.length} {resolved.installments.length === 1 ? 'payment' : 'payments'} · adds up to {totalOrDash(sums.newTotalPhp)}
               </p>
             )}
             {!frozen && plan.manual.length < MAX_INSTALLMENTS ? (

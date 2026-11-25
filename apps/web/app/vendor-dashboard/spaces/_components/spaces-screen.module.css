@@ -60,3 +60,21 @@
 .state[data-tone='closed'] {
   color: rgb(var(--color-warn));
 }
+
+/* B4 (drawing final-check-area-7 § 4 motion): a removed tile leaves with Quick 200 (opacity), and Undo returns it with
+   Move 320. Opacity only — the grid does not dance. Reduced motion: 120 ms fades. */
+.leaving {
+  opacity: 0;
+  transition: opacity var(--sn-m-quick) var(--sn-m-settle);
+}
+.returning {
+  animation: spaces-return var(--sn-m-move) var(--sn-m-settle) both;
+}
+@keyframes spaces-return {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .leaving { transition-duration: var(--sn-dur-rise-reduced); }
+  .returning { animation-duration: var(--sn-dur-rise-reduced); }
+}

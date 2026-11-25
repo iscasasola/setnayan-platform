@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { SUPPLIER_FLOOR_PLAN_MIN_TIER } from '@/lib/seat-plan-engine';
-import { PartPin } from '../_components/set-two/parts';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -59,10 +59,10 @@ export default async function SpacesPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-8 pt-4 sm:px-6 lg:max-w-4xl" data-spaces="">
-      {/* B4 (drawing final-check-area-7 § 4a, approved 25 Nov): the house pinned row — the round Back (from the one
-          page-home map) and the title, as the other supplier pages draw it; no hand-made 22-px title, caption or Back
-          round (the caption's fact moved to the empty state). */}
-      <PartPin route="/vendor-dashboard/spaces" title={metadata.title} />
+      {/* B4 (drawing final-check-area-7 § 4a, approved 25 Nov): the title and its Back move to the app's top bar through
+          PageMasthead, as on Chats and the other supplier pages — no in-page title, caption or Back round (the
+          caption's fact moved to the empty state, 4c). */}
+      <PageMasthead title={metadata.title} />
       <SpacesScreen initial={read} today={today} proOpen={proOpen} shopKind={kindForShop(categories)} firstHall={firstHall} planPrice={planPrice} />
     </div>
   );

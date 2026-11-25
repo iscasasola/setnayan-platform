@@ -13,7 +13,7 @@
  * A save never resets the screen: every op hands back the page's one read for the same day. A refused read says so
  * (never "no spaces yet"); a refused DAY read draws the tiles with no day words rather than "Free".
  */
-import { useMemo, useState, useTransition } from 'react';
+import { useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, Plus, RotateCw, SlidersHorizontal } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -42,6 +42,7 @@ import type { SpacesRead } from '@/lib/spaces.server';
 import { spacesWrite, type SpacesOp } from '../actions';
 import { SpaceSheet, paidNeed, type SheetMode } from './space-sheet';
 import styles from './spaces-screen.module.css';
+import { QUICK_MS } from '@/lib/motion-table';
 
 export function SpacesScreen({
   initial,
@@ -72,6 +73,12 @@ export function SpacesScreen({
   // the house toast (B4, drawing § 4a), and a removal is the Undo toast (§ 4b).
   const [msg, setMsg] = useState<{ tone: 'warn'; text: string } | null>(null);
   const [removed, setRemoved] = useState<{ id: string; name: string; connectsTo: string | null } | null>(null);
+  // B4 motion (drawing § 4): the tile that is fading out (Quick 200) before it leaves the grid, and the one Undo brought
+  // back, fading in (Move 320).
+  const [leaving, setLeaving] = useState<string | null>(null);
+  const [returning, setReturning] = useState<string | null>(null);
+  // The pending "leave the grid" step — cleared when Undo lands first, so a late leave can never drop a returned tile.
+  const leaveTimer = useRef<number | null>(null);
   const toast = useToast();
   const [pending, start] = useTransition();
 
@@ -82,10 +89,26 @@ export function SpacesScreen({
       start(async () => {
         const r = await spacesWrite(op, day);
         if (r.ok) {
-          setRead(r.read);
           setMsg(null);
-          if (op.op === 'removeSpace' && was) setRemoved({ id: was.id, name: was.name, connectsTo: was.connectsTo });
-          else if (done) toast.success(done);
+          if (op.op === 'removeSpace' && was) {
+            // Gone at once, with Undo: the toast shows now; the tile fades (Quick) and then leaves the grid.
+            setRemoved({ id: was.id, name: was.name, connectsTo: was.connectsTo });
+            setLeaving(was.id);
+            leaveTimer.current = window.setTimeout(() => {
+              leaveTimer.current = null;
+              setRead(r.read);
+              setLeaving(null);
+            }, QUICK_MS);
+          } else {
+            if (leaveTimer.current !== null) {
+              window.clearTimeout(leaveTimer.current);
+              leaveTimer.current = null;
+              setLeaving(null);
+            }
+            setRead(r.read);
+            if (op.op === 'restoreSpace') setReturning(op.id);
+            if (done) toast.success(done);
+          }
           if (op.op === 'addSpaces') setLast(choiceOf(op.input.kind));
         } else setMsg({ tone: 'warn', text: r.error });
         resolve(r.ok);
@@ -182,7 +205,12 @@ export function SpacesScreen({
       ) : (
         <ul className={styles.grid} data-spaces-grid="">
           {shown.map((s) => (
-            <li key={s.id}>
+            <li
+              key={s.id}
+              className={s.id === leaving ? styles.leaving : s.id === returning ? styles.returning : undefined}
+              onAnimationEnd={s.id === returning ? () => setReturning(null) : undefined}
+              data-spaces-tile-motion={s.id === leaving ? 'leaving' : s.id === returning ? 'returning' : undefined}
+            >
               <Tile
                 space={s}
                 state={states.get(s.id) ?? null}

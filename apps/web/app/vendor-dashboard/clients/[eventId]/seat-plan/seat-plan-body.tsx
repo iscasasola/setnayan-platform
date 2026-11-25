@@ -1,6 +1,7 @@
 import { Eye, Info, MapPin } from 'lucide-react';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
+import { effectiveCapacity } from '@/lib/seat-plan-engine/geometry';
 import { ShopPill } from '@/app/vendor-dashboard/_components/kit';
 import { PartList, PartNote, PartRow, PartSec, PartText, setTwo } from '@/app/vendor-dashboard/_components/set-two/parts';
 import { ReadFailedBody } from '@/app/vendor-dashboard/_components/set-two/read-failed';
@@ -20,7 +21,19 @@ type PlanTable = {
   sort_order: number;
   seated: number;
   meal_counts: Record<string, number> | null;
+  /** A7-17: the chairs the hosts removed (`get_vendor_seat_plan`, 20271363213887). Absent on an older read → none. */
+  removed_seats?: number[] | null;
 };
+
+/** A7-17: the hosts' own "seats at this table" — capacity less the removed chairs, the ONE count the hosts' plan shows. */
+function seatsAt(t: PlanTable): number {
+  return effectiveCapacity(t.capacity, t.removed_seats ?? []);
+}
+
+/** A7-17: the covers on a table (its meal counts added up) — fewer than "seated" when some seated guests are not counted for this supplier. */
+function coversAt(t: PlanTable): number | null {
+  return t.meal_counts ? Object.values(t.meal_counts).reduce((n, v) => n + v, 0) : null;
+}
 
 type PlanObject = {
   object_id: string;
@@ -208,11 +221,11 @@ export function SeatPlanBody({ eventId, eventName, plan }: { eventId: string; ev
                 isRound(t.table_type) ? 'rounded-full' : 'rounded-[var(--m-r-sm)]'
               }`}
               style={{ left: `${t.x}%`, top: `${t.y}%`, transform: `translate(-50%, -50%) rotate(${t.rotation_deg}deg)` }}
-              title={`${t.label} · ${t.seated}/${t.capacity} seated`}
+              title={`${t.label} · ${t.seated}/${seatsAt(t)} seated`}
             >
               <span className="px-0.5 text-[9px] font-bold leading-tight text-ink">{t.label}</span>
               <span className="text-[9px] tabular-nums text-[color:var(--m-slate-2)]">
-                {formatCount(t.seated)}/{formatCount(t.capacity)}
+                {formatCount(t.seated)}/{formatCount(seatsAt(t))}
               </span>
             </div>
           ))}
@@ -229,12 +242,18 @@ export function SeatPlanBody({ eventId, eventName, plan }: { eventId: string; ev
 
       {/* The tables, as rows — the same row as every list */}
       <PartSec>{plan.dietary_included ? 'Covers per table' : 'Tables'}</PartSec>
+      {plan.dietary_included && plan.tables.some((t) => (coversAt(t) ?? t.seated) < t.seated) ? (
+        // A7-17: the covers add up to fewer than "seated" on some tables — say why, so the caterer does not plate short.
+        <PartNote icon={Info}>
+          Covers leave out seated guests the hosts did not count for you, so a table&rsquo;s covers can be fewer than its seated guests.
+        </PartNote>
+      ) : null}
       <PartList>
         {[...placed, ...unplaced].map((t) => (
           <PartRow
             key={t.table_id}
             title={t.label}
-            sub={`${formatCount(t.seated)} of ${formatCount(t.capacity)} seated${t.x === null ? ' · not placed on the map yet' : ''}`}
+            sub={`${formatCount(t.seated)} of ${formatCount(seatsAt(t))} seated${t.x === null ? ' · not placed on the map yet' : ''}`}
             end={
               plan.dietary_included && t.meal_counts ? (
                 <span className="flex max-w-[55%] flex-wrap justify-end gap-1">

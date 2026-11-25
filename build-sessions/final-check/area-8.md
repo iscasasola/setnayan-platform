@@ -1,4 +1,4 @@
-FIXER (checker 8): b1–b6 · b1 #8322 READY (+ A-1; the other 8 A1 guards are #8332, checker 8-1) · b2 #8327 handed over · b3 #8344 READY · b4 #8350 handed over · b5 preflight running · b6 (+ A-6) preflight running · b7–b10 belong to checker 8-1
+FIXER (checker 8): b1–b6 · b1 #8322 READY (+ A-1; the other 8 A1 guards are #8332) · b2 #8327 handed over · b3 #8344 READY · b4 #8350 READY · b5 preflight running · b6 preflight running (A-6 left to #8332) · still owed in plan A2–A6, all on checker 8-1’s split list, not taken by me: A-2 A-18 A-20 A-8 A-7 A-22 A-5 · E-1 E-5 E-8 E-9 D-12 (E-13 partly #8332) · D-11 D-13 D-14 · F-15 F-13 F-14 F-16 F-18 F-21
 STATUS: phase B done · 71/71 pages walked (375 light+dark, 768, 1280; dark sample at 768/1280) · 36/36 forwards land · 156/156 links ok · buttons 3,311 · pressed 2,303 · failed 0 confirmed · left 1,008 · phase-B findings 22 (blocker 0 · broken 0 · wrong 7 · look 15) + G-4 confirmed (money-signin) · checker-made changes disclosed and restored
 
 # Final check · Area 8 · Admin (/admin/* and the internal pages)
@@ -18,7 +18,7 @@ So no finding is fixed twice. IDs are the lane A entries in `ALL-FINDINGS.md` §
 | b3 | checker 8 | `claude/fc-fix-a8-b3` · #8344 | F-5 · D-8 · A-23 · A-19 · B-16 · I-10 · I-12 · C-5 |
 | b4 | checker 8 | `claude/fc-fix-a8-b4` · #8350 | Work/Focus/catalogue honest reads: C-1 · C-6 · C-7 · C-8 · C-9 · C-10 · H-14 · B-14 · B-15 · E-10 · F-20 · D-15 |
 | b5 | checker 8 | `claude/fc-fix-a8-b5` | Saves that hide a failure: F-6 · D-9 · F-7 · H-6 · H-15 · I-1 · I-2 · B-6 · H-10 · D-10 · A-10 · E-12 |
-| b6 | checker 8 | `claude/fc-fix-a8-b6` | Money desks, display only (never an amount): A-6 · A-3 · A-11 · H-1 · H-3 · E-3 · E-4 · B-1 · B-4 · B-7 · B-8 · A-9 · F-1 · F-3 · D-6 |
+| b6 | checker 8 | `claude/fc-fix-a8-b6` | Money desks, display only (never an amount): A-3 · A-11 · H-1 · H-3 · E-3 · E-4 · B-1 · B-4 · B-7 · B-8 · A-9 · F-1 · F-3 · D-6 |
 | b7–b10 | **checker 8-1** | yours to cut | Everything else in area 8 lane A: the permission guards (D-1 · D-2 · D-3 · D-4 · D-5 · B-2 · L-8), A-2 · A-5 · A-6 · A-7 · A-8 · A-18 · A-20 · A-22 · C-4 · C-11 · D-11 · D-12 · D-13 · D-14 · E-1 · E-2 · E-5 · E-8 · E-9 · E-13 · F-8 · F-13 · F-14 · F-15 · F-16 · F-17 · F-18 · F-21 · F-25 · G-3 · G-5 · G-6 · G-7 · G-8 · G-10 · G-11 · H-7 · H-8 · H-9 · H-11 · H-16 · I-3 · I-6 · L-5 · L-9 · P-B-3 · P-B-14 · P-B-18 · P-B-22 |
 
 Shared files the batches touch (so 8-1 can avoid collisions): `lib/admin/admin-pages.ts` (b3: `notInMenus`), `app/admin/_components/tab-landing.tsx` (b1), `app/admin/_components/admin-tab-rows.tsx` (b3), `app/_components/help-ask/*` (b3), `app/admin/gifts/page.tsx` (b2), `lib/spotlight-awards.ts` + `lib/background-videos.ts` (b2). If b4–b6 must move an ID, this table is edited first.

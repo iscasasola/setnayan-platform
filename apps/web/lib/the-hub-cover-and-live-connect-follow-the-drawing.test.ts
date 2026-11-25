@@ -66,21 +66,24 @@ test('A4-B04 · /live Connect shows pressed at once, holds until the answer, nev
   // The component's file uses the automatic JSX runtime; under this runner it needs React in scope.
   (globalThis as { React?: typeof React }).React = React;
   const { SubmitButton } = await import('@/app/_components/submit-button');
+  // Children as the third argument (react/no-children-prop); the props are cast because the button's type requires them.
+  const draw = (props: Record<string, unknown>, child: string) =>
+    renderToStaticMarkup(React.createElement(SubmitButton as unknown as React.FC<Record<string, unknown>>, props, child));
   const form = code('app/live/_components/connect-fields.tsx');
   assert.match(form, /setSent\(true\);/);
-  assert.match(form, /readOnly=\{sent\}/, 'the code field does not lock');
+  assert.match(form, /const box = e\.currentTarget\.elements\.namedItem\('code'\);\s*if \(box instanceof HTMLInputElement\) \{\s*box\.readOnly = true;/, 'the code field does not lock');
   assert.match(form, /<SubmitButton\s+pending=\{sent\}\s+overlay=\{false\}\s+spinner=\{false\}\s+pendingLabel="Connecting…"/);
   assert.match(code('app/live/page.tsx'), /data-\[pending=true\]:opacity-60/, 'the pressed button does not dim');
   assert.match(code('app/live/page.tsx'), /read-only:opacity-60/, 'the locked field does not dim');
   const page = code('app/live/page.tsx');
-  assert.match(page, /<ConnectForm key=\{renderKey\} action=\{pairLiveScreen\} prefill=\{prefill\} message=\{message \?\? null\} look=\{CONNECT_LOOK\} \/>/, 'an answer does not unlock a fresh form');
+  assert.match(page, /<ConnectForm\s+key=\{renderKey\}\s+action=\{pairLiveScreen\}\s+prefill=\{prefill\}\s+message=\{message \?\? null\}\s+look=\{CONNECT_LOOK\}/, 'an answer does not unlock a fresh form');
   assert.match(page, /const renderKey = `\$\{error \?\? 'none'\}-\$\{Date\.now\(\)\}`;/);
 
   // The shared button: the opt-out removes the spinner; every other form keeps it.
-  const quiet = renderToStaticMarkup(React.createElement(SubmitButton, { pending: true, spinner: false, overlay: false, pendingLabel: 'Connecting…', children: 'Connect' }));
+  const quiet = draw({ pending: true, spinner: false, overlay: false, pendingLabel: 'Connecting…' }, 'Connect');
   assert.ok(quiet.includes('Connecting…') && !quiet.includes('<svg'), 'spinner={false} still draws a spinner');
   assert.match(quiet, /disabled=""/, 'a pressed Connect can be pressed again');
-  const usual = renderToStaticMarkup(React.createElement(SubmitButton, { pending: true, overlay: false, pendingLabel: 'Saving…', children: 'Save' }));
+  const usual = draw({ pending: true, overlay: false, pendingLabel: 'Saving…' }, 'Save');
   assert.ok(usual.includes('<svg'), 'the default SubmitButton lost its spinner');
 });
 

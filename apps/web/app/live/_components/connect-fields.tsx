@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { LIVE_EMPTY_CODE_LINE } from '../_lib/connect-words';
 
@@ -19,8 +19,6 @@ import { LIVE_EMPTY_CODE_LINE } from '../_lib/connect-words';
  * a screen with no script.
  */
 export type ConnectLook = {
-  /** The code field (the venue screen's own dark stage — the page owns its colours). */
-  field: string;
   /** The Connect button; its pressed state dims through `data-[pending=true]`. */
   button: string;
   /** The page's one answer line. */
@@ -32,12 +30,16 @@ export function ConnectForm({
   prefill,
   message,
   look,
+  field,
 }: {
   action: (formData: FormData) => Promise<void>;
   prefill: string;
   /** The page's answer (the shipped messages), drawn under the form in the page's one alert line. */
   message: string | null;
   look: ConnectLook;
+  /** The code field, drawn by the page (the venue screen's own big box). It is locked on submit through the form's own
+   *  element, `form.elements.code` — the page remounts this form with every answer, which unlocks it. */
+  field: ReactNode;
 }) {
   const [sent, setSent] = useState(false);
   const [empty, setEmpty] = useState(false);
@@ -55,27 +57,15 @@ export function ConnectForm({
           }
           setEmpty(false);
           setSent(true);
+          const box = e.currentTarget.elements.namedItem('code');
+          if (box instanceof HTMLInputElement) {
+            box.readOnly = true;
+            box.setAttribute('aria-readonly', 'true');
+          }
         }}
         className="mt-10 flex w-full max-w-md flex-col items-stretch gap-4"
       >
-        <label htmlFor="code" className="sr-only">
-          Screen code
-        </label>
-        <input
-          id="code"
-          name="code"
-          defaultValue={prefill}
-          readOnly={sent}
-          aria-readonly={sent || undefined}
-          autoFocus
-          autoComplete="off"
-          autoCapitalize="characters"
-          spellCheck={false}
-          inputMode="text"
-          maxLength={12}
-          placeholder="ABC123"
-          className={look.field}
-        />
+        {field}
         <SubmitButton
           pending={sent}
           overlay={false}

@@ -29,8 +29,6 @@ const ERRORS: Record<string, string> = {
 
 /** The venue screen's own dark stage for the Connect form (shipped colours, drawn by `ConnectForm`). */
 const CONNECT_LOOK: ConnectLook = {
-  field:
-    'h-20 rounded-2xl border-2 border-[#F5EFE6]/25 bg-black/30 text-center font-mono text-5xl uppercase tracking-[0.35em] text-[#F5EFE6] placeholder:text-[#F5EFE6]/20 read-only:opacity-60 focus:border-[#E5794E] focus:outline-none',
   button:
     'h-16 rounded-2xl bg-[#E5794E] text-2xl font-semibold text-[#17160F] transition-opacity hover:opacity-90 focus:outline-none focus:ring-4 focus:ring-[#E5794E]/40 data-[pending=true]:opacity-60',
   alert: 'mt-6 max-w-md text-lg text-[#F5A98A]',
@@ -64,7 +62,28 @@ export default async function LivePairPage({ searchParams }: Props) {
       {/* 🔘 A4-B04: the field and the button answer the press at once and stay pressed until this page answers
           (`ConnectForm`); an empty press is the page's own line, never the browser's bubble. A new `key` per render, so
           every answer (a redirect back here) starts a fresh, unlocked form. */}
-      <ConnectForm key={renderKey} action={pairLiveScreen} prefill={prefill} message={message ?? null} look={CONNECT_LOOK} />
+      <ConnectForm key={renderKey} action={pairLiveScreen} prefill={prefill} message={message ?? null} look={CONNECT_LOOK}
+        field={
+          <>
+            <label htmlFor="code" className="sr-only">
+              Screen code
+            </label>
+            <input
+              id="code"
+              name="code"
+              defaultValue={prefill}
+              autoFocus
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              inputMode="text"
+              maxLength={12}
+              placeholder="ABC123"
+              className="h-20 rounded-2xl border-2 border-[#F5EFE6]/25 bg-black/30 text-center font-mono text-5xl uppercase tracking-[0.35em] text-[#F5EFE6] placeholder:text-[#F5EFE6]/20 read-only:opacity-60 focus:border-[#E5794E] focus:outline-none"
+            />
+          </>
+        }
+      />
 
       {loaded.state === 'revoked' ? (
         <p className="mt-6 max-w-md text-base text-[#F5EFE6]/65">

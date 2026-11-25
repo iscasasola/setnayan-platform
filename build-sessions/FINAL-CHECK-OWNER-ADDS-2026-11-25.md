@@ -653,3 +653,15 @@ One shared engine: the 3D faceless mannequin, measurements driving the body, and
 - The B-4 booking-fee minimum (`minPhp`) stays as it is typed in code for launch. It is not moved to a database read now.
 - After launch it moves to an admin setting, but only after checking that the setting's value matches today's typed number. No money number changes without the owner's word.
 - Area 8: checker 8.1's unbuilt rows (A-2, A-18, A-20, A-8, A-7, A-22, A-5, E-1, E-5, E-8, E-9, D-11–D-14, F-13–F-21, and the rest of E-13) moved to checker 8 as batch 12 (`claude/fc-fix-a8-b12`).
+
+## Add 44: launch in two steps (owner, 26 Nov)
+
+Owner: "supplier. then clients and events".
+
+1. **Supplier launch first.**
+   - L1–L12: ship batch 1 (merged), ship batch 2 (area 5: #8314, #8338, #8335, #8318, #8320) and ship batch 3 (#8324, #8329, #8322, #8332), plus #8348 shipped on its own (migration). #8346 waits for the owner's OK on its baselines.
+   - Live only when /api/health shows the commit.
+   - One staging walkthrough with the owner signing in: supplier sign-up, open a shop, admin approves, take a booking.
+2. **Clients and events next:** lane A (areas 2–4) in batches, plus Add 41 (sponsors into the guest list, a pipeline migration on its own PR, with Checker 2). The Apple upload follows the clients step.
+
+Build-time rule: launch PRs ship in batches (`claude/ship-batch-N`, merge commits, one CI run each). Migrations ship alone. The owner merges.

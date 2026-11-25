@@ -648,3 +648,8 @@ This updates Add 38 for attire. The Cake Maker stays separate.
 3. **Suit Maker** (men: suit, three-piece, tuxedo, barong Tagalog)
 
 One shared engine: the 3D faceless mannequin, measurements driving the body, and garments built from the body surface (approved 26 Nov: "it follow the body structure"). Each maker is sold separately. All are offline-ready and usable in chat. They are prototyped now in artifacts; the app build comes after launch.
+
+## Add 43 — booking-fee minimum stays typed for launch (owner, 26 Nov)
+- The B-4 booking-fee minimum (`minPhp`) stays as it is typed in code for launch. It is not moved to a database read now.
+- After launch it moves to an admin setting, but only after checking that the setting's value matches today's typed number. No money number changes without the owner's word.
+- Area 8: checker 8.1's unbuilt rows (A-2, A-18, A-20, A-8, A-7, A-22, A-5, E-1, E-5, E-8, E-9, D-11–D-14, F-13–F-21, and the rest of E-13) moved to checker 8 as batch 12 (`claude/fc-fix-a8-b12`).

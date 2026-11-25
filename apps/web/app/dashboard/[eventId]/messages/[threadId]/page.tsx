@@ -106,7 +106,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.event_id !== eventId) notFound();
   // A2-H3: only a host books or pays (owner 21 Nov "no booking, no paying"). Who the viewer is, started now and read
-  // where the stream is drawn — the same reader and rule as the Suppliers page (`fetchEventViewer` → `isCouple`).
+  // where Book and the pay card are worked out — the same reader and rule as the Suppliers page (`fetchEventViewer` → `isCouple`).
   // A failed read fails CLOSED: no Book and no Pay drawn (the server refuses a non-host anyway).
   const viewerRead = fetchEventViewer(supabase, eventId, user.id).catch(() => null);
 
@@ -250,6 +250,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
         );
       }
     }
+    // A2-H3: only a host books — a non-host is handed no lock target, so the stream draws no Book.
+    if (!((await viewerRead)?.isCouple ?? false)) quoteLockTarget = null;
     return { workspaceHref, quoteLockTarget };
   })();
 
@@ -332,7 +334,13 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       otherName: vendorLabel,
     });
     let couplePay: React.ComponentProps<typeof ChatMessageStream>['couplePay'] = null;
-    if (bookedMoney.step.kind !== 'not_booked' && bookedMoney.eventVendorId && bookedMoney.deposit) {
+    // A2-H3: only a host pays — a non-host is handed no pay card ("Amount to pay").
+    if (
+      bookedMoney.step.kind !== 'not_booked' &&
+      bookedMoney.eventVendorId &&
+      bookedMoney.deposit &&
+      ((await viewerRead)?.isCouple ?? false)
+    ) {
       let payMethods: CoupleFacingMethod[] = [];
       let payMethodsState: CouplePayMethodsState = 'unreadable';
       try {
@@ -827,7 +835,6 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     ),
   };
 
-  const viewerBooks = (await viewerRead)?.isCouple ?? false;
   const chatBox = (
         <ChatBox
           // 🪞 Inside the picked supplier its pinned row IS the head, so the full-screen head is drawn only on the route.
@@ -999,7 +1006,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             counterHref={`?compose=deal`}
             // S5 · an accepted quote mounts the ONE action that books.
             // The Book confirm tells the couple when this shop is not yet verified (owner 16 Nov) — the same read as the head's line.
-            lockTarget={viewerBooks ? quoteLockTarget : null}
+            lockTarget={quoteLockTarget}
             // 🚦 RW-26: the live switch, so a closed booking door says so before the press.
             bookingsOpen={quoteLockTarget ? await areBookingsOpen() : true}
             threadId={threadId}
@@ -1020,7 +1027,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             initialView={initialView}
             lockHandshake={lockHandshake}
             bookedStep={bookedMoney.step}
-            couplePay={viewerBooks ? couplePay : null}
+            couplePay={couplePay}
             theirLastReadAt={receipts.theirLastReadAt}
             senderNames={receipts.senderNames}
             fileExpiry={{

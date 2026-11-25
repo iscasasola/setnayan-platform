@@ -76,7 +76,7 @@ export default async function TeaCeremonyPage({ params }: Props) {
   // A2-E3: a REFUSED event read says so; only an answered read that is not a Chinese wedding is "not found".
   if (eventRowError) {
     return (
-      <section className="mx-auto w-full max-w-3xl space-y-6">
+      <section className="mx-auto w-full max-w-3xl tab:max-w-3xl space-y-6">
         <ReadRefusedNotice what="this event" />
       </section>
     );

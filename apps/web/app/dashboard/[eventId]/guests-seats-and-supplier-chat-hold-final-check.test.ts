@@ -65,9 +65,8 @@ test('A2-G4: the stored payment notes read as "reservation fee" and "supplier"; 
 test('A2-H3: in a supplier thread only a host is handed Book and Pay', () => {
   const s = src('app/dashboard/[eventId]/messages/[threadId]/page.tsx');
   assert.match(s, /fetchEventViewer\(supabase, eventId, user\.id\)\.catch\(\(\) => null\)/);
-  assert.match(s, /const viewerBooks = \(await viewerRead\)\?\.isCouple \?\? false;/);
-  assert.match(s, /lockTarget=\{viewerBooks \? quoteLockTarget : null\}/);
-  assert.match(s, /couplePay=\{viewerBooks \? couplePay : null\}/);
+  assert.match(s, /if \(!\(\(await viewerRead\)\?\.isCouple \?\? false\)\) quoteLockTarget = null;/, 'no Book for a non-host');
+  assert.match(s, /bookedMoney\.deposit &&\s*\(\(await viewerRead\)\?\.isCouple \?\? false\)/, 'no pay card for a non-host');
 });
 
 test('A2-H2: a money-hidden viewer is handed no payment facts in the thread', () => {

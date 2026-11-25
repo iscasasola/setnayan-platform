@@ -48,6 +48,10 @@ const STATUS_COPY: Record<string, string> = {
   taken: 'This Locked QR has already been used.',
   void: 'This Locked QR is no longer valid.',
   invalid: 'This Locked QR link is not valid.',
+  // 🗓 A6-71 · LAUNCH L9 (owner 25 Nov: the first registered wins) — another couple's claim on this supplier's date
+  // registered first, so this one booked nothing. The code is still the supplier's to move to another date.
+  date_full:
+    'Someone booked this supplier for this date just before you, so nothing was booked or charged. Ask the supplier for another date or another option.',
   // 🚪 owner 2026-11-02 — bookings closed (`lib/bookings-open.ts`, door 7b). The code stays unused.
   bookings_closed: BOOKINGS_CLOSED_COUPLE_MESSAGE,
   not_verified: LOCKED_QR_SHOP_NOT_VERIFIED,

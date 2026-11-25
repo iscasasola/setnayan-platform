@@ -1,5 +1,6 @@
 'use server';
 
+import { TEAM_ROLES_HREF } from '@/lib/team-sections';
 import { revalidatePath } from 'next/cache';
 import { gearReturn } from '@/lib/gear-return.server';
 import { redirect } from 'next/navigation';
@@ -720,7 +721,8 @@ export async function setVendorAgentServices(formData: FormData) {
 
 // ── 🏷 Team › Roles — the shop's own name for each role (owner 19 Nov 2026) ─────────────────────────────────────────
 
-const ROLES = '/vendor-dashboard/team/roles';
+// Roles opens in place inside the Team layer (final check B13): a save lands back on that section.
+const ROLES = TEAM_ROLES_HREF;
 
 /**
  * Save the shop's names for the six roles. A blank box keeps the fixed name (its row is removed). Renaming changes
@@ -743,7 +745,7 @@ export async function setVendorRoleNames(formData: FormData) {
       clear.push(duty);
     }
   }
-  const back = (status: string): never => redirect(`${ROLES}?${status}`);
+  const back = (status: string): never => redirect(`${ROLES}&${status}`);
   if (keep.length > 0) {
     const { error } = await supabase.from('vendor_role_names').upsert(keep, { onConflict: 'vendor_profile_id,duty' });
     if (error) {
@@ -763,7 +765,7 @@ export async function setVendorRoleNames(formData: FormData) {
     }
   }
   revalidateShopPage(ctx.vendorProfileId);
-  revalidatePath(ROLES);
+  revalidatePath(TEAM_SECTIONS_PATH);
   revalidatePath(TEAM);
   return back('saved=1');
 }
@@ -774,7 +776,8 @@ export async function setVendorRoleNames(formData: FormData) {
 // so these ride `setVendorRoleNames` (a form with an `op` field). `op` names the write; each op checks its own caller.
 
 const ROLES_RETURN = ['/vendor-dashboard/customers', '/vendor-dashboard/team'];
-const INQUIRIES = '/vendor-dashboard/team/roles/inquiries';
+// Who gets new inquiries opens in place inside the Team layer (final check B14); both sections live on Team's path.
+const TEAM_SECTIONS_PATH = '/vendor-dashboard/team';
 
 async function runSupplierRolesOp(formData: FormData) {
   const supabase = await createClient();
@@ -804,7 +807,7 @@ async function runSupplierRolesOp(formData: FormData) {
     if (op === 'split-adjust' && !cut) return done(`error=${encodeURIComponent('Pick one of the cuts shown.')}`);
     const { writeSplitCut } = await import('@/lib/inquiry-split-cuts.server');
     const r = await writeSplitCut(createAdminClient(), user.id, { serviceId, eventType, cut });
-    revalidatePath(INQUIRIES);
+    revalidatePath(TEAM_SECTIONS_PATH);
     return r.ok ? done('saved=1') : done(`error=${encodeURIComponent(r.message)}`);
   }
   return done(`error=${encodeURIComponent('Unknown change')}`);

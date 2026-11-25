@@ -18,7 +18,13 @@ Phase B, staging copy at preview commit bd86936 (`/api/health` env preview), sig
   No Resend key is set, so nothing is being sent." Key source **Not configured**; "No emails were sent in the last 7
   days." Integrations › Resend also reads **Off · Not configured**. With no key, `sendEmail` cannot reach any
   address → **no real send is possible. Lock holds.** Checker 2's chat message: not visible yet at 06:48 (the 7-day
-  list is empty); re-check below.
+  list is empty).
+- **(b) re-check, 07:35 UTC:** the 7-day list now holds 3 rows, all **"Not sent"** with the reason "staging copy: no
+  allowlisted test inbox (STAGING_EMAIL_SINK) — email dropped": checker 2's **"New message from Bea & Paolo" (chat
+  message, to a masked `su•••@final-check.test`)** and two "You earned SETNAYAN Verified" badge emails. Counters:
+  Delivered 0 · Did not arrive 3. → **the chat message went nowhere; logged as dropped. Lock holds.**
+  (Note, not a finding: on the copy a lock-dropped email is counted under "Did not arrive", the same bucket as a real
+  bounce. Expected on the copy per kit § 5.)
 
 ## Phase A summary (code pass, 25 Nov 2026)
 

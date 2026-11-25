@@ -21,12 +21,12 @@ None yet.
 - [x] /[slug]/hub → forward to /[slug] (every branch lands) — OFFLINE: NEEDED (installed home-screen tile at the venue door) · SHAPE: forward = forward
 - [x] /[slug]/invite — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE
 - [x] /[slug]/invite/enter — OFFLINE: READ-ONLY IS ENOUGH (ticket at the door; ?tab=me copy is the fallback) · SHAPE: PAGE = PAGE (its ticket popup: A4-40)
-- [ ] /[slug]/invite/reply
-- [ ] /[slug]/pabuya
-- [ ] /[slug]/print
-- [ ] /[slug]/recap
-- [ ] /[slug]/request
-- [ ] /[slug]/seat
+- [x] /[slug]/invite/reply — OFFLINE: NOT NEEDED (before the day) · SHAPE: PAGE → FULL-SCREEN POPUP (DIFFERS, A4-41)
+- [x] /[slug]/pabuya — OFFLINE: READ-ONLY IS ENOUGH (money dance in the hall; the bank app needs signal anyway) · SHAPE: PAGE = PAGE
+- [x] /[slug]/print — OFFLINE: NOT NEEDED (after the event) · SHAPE: PAGE = PAGE
+- [x] /[slug]/recap — forward to /[slug]?story=later (lands) — OFFLINE: NOT NEEDED · SHAPE: forward = forward
+- [x] /[slug]/request — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE
+- [x] /[slug]/seat — OFFLINE: NEEDED (table-sign QR in the hall; personal pass at the door) — not kept today · SHAPE: PAGE = PAGE
 - [x] /[slug]/welcome — OFFLINE: NOT NEEDED (one-time plus-one form) · SHAPE: PAGE = PAGE
 - [x] /claim/[token] — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE
 - [x] /join/[eventId] — OFFLINE: NOT NEEDED (but scanned at the venue door; no Setnayan offline line) · SHAPE: PAGE = PAGE
@@ -647,6 +647,195 @@ EXPECTED  `Sheet` (a small popup).
 ACTUAL    A hand-rolled centred card `<div ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true"` (it does use the shared `OverlayBackdrop`). The `OpenInBrowser` layer here is A4-20. Anchor: `apps/web/app/[slug]/_components/ticket-popup.tsx` `TicketPopup`.
 SHOTS     375 px light
 RULE      K3 · SHAPE (small popup = Sheet)
+SEVERITY  look
+SOURCE    CODE
+```
+
+### /[slug]/invite/reply
+
+The write is clean: `admin.from('guests').update({ rsvp_status, rsvp_set_by: 'guest', … })` on the row the couple's
+list reads; a decline frees the seat (trigger `guests_free_seat_on_decline`); a failed write shows "it has not been
+recorded yet"; `/dashboard/${eventId}/guests` is revalidated.
+
+```
+ID        A4-41
+PAGE      /[slug]/invite/reply   (event: stg-bea-paolo, a pending guest)
+BUTTON    "Reply to the invitation"
+STEPS     1. A guest presses Reply on a phone.
+EXPECTED  SHAPE tests: nobody shares this address (test 1 no); with meal, dietary, mobile, one box set per +1, tagging, chapters and Terms it is more than one short screen (test 2 yes) → FULL-SCREEN POPUP over the invitation; ✕ returns to the same place. (An event that asks nothing beyond yes/no would fit a SMALL POPUP.)
+ACTUAL    A full page navigation to `/{slug}/invite/reply` (`inviteReplyPath`); only the desktop gets a layer (`ReplyPanel`, a Sheet framing the page).
+SHOTS     375 px light + desktop
+RULE      SHAPE
+SEVERITY  look
+SOURCE    CODE
+```
+
+### /[slug]/pabuya (E-Gifts)
+
+```
+ID        A4-42
+PAGE      /[slug]/pabuya   (event: stg-carla-miguel)
+BUTTON    the header label and the eyebrow
+STEPS     1. Open the E-Gifts page.
+EXPECTED  "E-Gifts" only; "Pabuya" never visible.
+ACTUAL    The header shows `Pabuya` and the eyebrow reads `'The pabuya · digital money dance'` / `'The pabuya · E-Gifts'`. Anchor: `apps/web/app/[slug]/pabuya/page.tsx` `PabuyaPublicPage`.
+SHOTS     375 px light
+RULE      brand.md word rules (E-Gifts, never Pabuya)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-43
+PAGE      /[slug]/pabuya   (event: stg-carla-miguel)
+BUTTON    the footer
+STEPS     1. Scroll to the foot.
+EXPECTED  No "safe" promise about Setnayan.
+ACTUAL    `Kept safe on Setnayan`. Anchor: `apps/web/app/[slug]/pabuya/page.tsx` "Kept safe on Setnayan".
+SHOTS     375 px light
+RULE      brand.md claims #10 ("safe")
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-44
+PAGE      /[slug]/pabuya   (event: stg-carla-miguel)
+BUTTON    the ways-to-give list
+STEPS     1. Open the page while the `event_egift_methods` read fails.
+EXPECTED  "Couldn't read", or the error boundary (the reader's own comment says a failed read throws).
+ACTUAL    `readEgiftMethods` returns `{ methods: [], read: false }` and `fetchEgiftMethods` drops the flag (`return (await asked).methods;`), so the page says "{hosts} hasn't set up e-gifts yet. Check back soon". Anchor: `apps/web/lib/egift.ts` `fetchEgiftMethods`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /[slug]/print
+
+```
+ID        A4-45
+PAGE      /[slug]/print   (event: stg-mika-turns-7)
+BUTTON    page load
+STEPS     1. Open /print while the event read fails.
+EXPECTED  The error boundary (siblings use `guestRead`).
+ACTUAL    The error is dropped (`const { data } = await admin.from('events')`) and the page answers 404 for an event that exists. Anchor: `apps/web/app/[slug]/print/page.tsx` `fetchEvent`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-46
+PAGE      /[slug]/print   (event: stg-mika-turns-7)
+BUTTON    page load
+STEPS     1. The story loader throws, or the arranged-pages read fails.
+EXPECTED  A failure state.
+ACTUAL    `} catch { data = null; }` around `loadEditorialData` → "This keepsake isn't ready to print yet." (a claim about the hosts); `.catch(() => [])` around `loadStoryPages` prints the automatic layout as if nothing were arranged. Anchor: `apps/web/app/[slug]/print/page.tsx` `loadEditorialData`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-47
+PAGE      /[slug]/print   (event: stg-mika-turns-7, a birthday)
+BUTTON    the headline
+STEPS     1. `composeCopy` throws.
+EXPECTED  The event type's own words.
+ACTUAL    The fallback prints a wedding headline for any event: `headline: `${data.displayName} Are Married`,`. Anchor: `apps/web/app/[slug]/print/page.tsx` "Are Married".
+SHOTS     375 px light
+RULE      Words (event words)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /[slug]/recap
+
+No findings. A forward to `/{slug}?story=later`.
+
+### /[slug]/request
+
+```
+ID        A4-48
+PAGE      /[slug]/request   (any non-wedding event that takes requests)
+BUTTON    the title and lines
+STEPS     1. Ask to join a birthday or a wake. 2. Land on ?sent=1.
+EXPECTED  The event's own word (the page's comment promises "never 'the couple' to a family at a wake").
+ACTUAL    `sentTitle: 'Sent to the couple',` / `waiting: 'Waiting for the couple to confirm you',` for every event type. Anchor: `apps/web/lib/request-key.ts` `REQUEST_WORDS`.
+SHOTS     375 px light
+RULE      Words (event words)
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-49
+PAGE      /[slug]/request   (an event that takes requests)
+BUTTON    landing right after "Send"
+STEPS     1. Send a request while the `guests` read by token fails.
+EXPECTED  A failure state.
+ACTUAL    `logQueryError('request-key.read', error, {}, 'graceful_degrade'); return null;` → `if (!key) redirect(`/${home}`);` sends the requester to the event page as a stranger with no word that the request was sent. Anchors: `apps/web/lib/request-key.server.ts` `readRequestKeyByToken`; `apps/web/app/[slug]/request/page.tsx`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+### /[slug]/seat
+
+The table-reader copy is in A4-34; the check-in read in A4-37.
+
+```
+ID        A4-50
+PAGE      /[slug]/seat   (event: stg-carla-miguel)
+BUTTON    the personal pass
+STEPS     1. Scan a personal QR while the `event_tables` read fails.
+EXPECTED  "We couldn't load your seat pass".
+ACTUAL    `const { rows: tables, failed: tablesFailed } = await fetchTables(admin, event.event_id);` is followed by `<PersonalPass … tables={tables}` without checking `tablesFailed`, so an empty list draws "The floor plan is on its way… still arranging". Anchor: `apps/web/app/[slug]/seat/page.tsx` `tablesFailed`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-51
+PAGE      /[slug]/seat   (event: stg-carla-miguel, on the day)
+BUTTON    the table view and the personal pass
+STEPS     1. Scan on the day while the `event_floor_plan` or `events` read fails.
+EXPECTED  The error boundary, as /find-seat and /find-my-table do (`throwOnReadError: true`).
+ACTUAL    `const published = await guestsMaySeeSeatsFor(admin, event.event_id);` (both calls, no `throwOnReadError`) returns false on a failed read, so a guest at the venue is told seats "show on the day", on the day. Anchor: `apps/web/app/[slug]/seat/page.tsx` `guestsMaySeeSeatsFor(admin, event.event_id)`.
+SHOTS     375 px light
+RULE      Honest states
+SEVERITY  wrong
+SOURCE    CODE
+```
+
+```
+ID        A4-52
+PAGE      /[slug]/seat   (event: stg-carla-miguel)
+BUTTON    "Turn on alerts" ("Get seat & schedule alerts")
+STEPS     1. Press "Turn on alerts". 2. A coordinator reseats the guest.
+EXPECTED  "We'll let you know on this device if your table changes… even if you close this page" happens.
+ACTUAL    `guest_push_subscriptions` has a writer (`seat/actions/guest-push-actions.ts`) and no reader or sender anywhere in `app/` or `lib/`, so the promise is never kept. A failed subscribe or save is silent too (`await subscribeAndSave();`, try/finally with no catch; the banner just disappears). Anchor: `apps/web/app/[slug]/seat/_components/guest-push-prompt.tsx` `handleEnable`.
+SHOTS     375 px light
+RULE      design-and-wiring B5/B10 (every control does something real; a table with a writer has a reader) · honest states
+SEVERITY  broken
+SOURCE    CODE
+```
+
+```
+ID        A4-53
+PAGE      /[slug]/seat   (not visible)
+BUTTON    the file's header comment
+STEPS     1. Read the header comment.
+EXPECTED  No price written into code or comments.
+ACTUAL    `gated on the paid CUSTOM_QR_GUEST SKU, ₱1,499`. Anchor: `apps/web/app/[slug]/seat/page.tsx` header comment "CUSTOM_QR_GUEST SKU".
+SHOTS     n/a
+RULE      CLAUDE.md §1 (never write a price into a comment)
 SEVERITY  look
 SOURCE    CODE
 ```

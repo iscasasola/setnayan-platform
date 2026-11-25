@@ -52,8 +52,9 @@ import u from './unihome.module.css';
  *   right on a phone (the top of the rail on a computer).
  *
  * What it REMOVES from the Home before it (all listed in the drawing's Notes): the `Events ▾` pinned row
- * (`home-pin.tsx` → PinnedRow → PickMenu), the bottom bar (`account-bottom-nav.tsx`) and the account switcher pill —
- * both hidden while this page is on screen (`[data-unihome]`, globals.css) — and the one-section-at-a-time swap. The
+ * (`home-pin.tsx` → PinnedRow → PickMenu), the bottom bar (`account-bottom-nav.tsx`) — hidden while this page is on
+ * screen (`unihome.module.css`) — and the one-section-at-a-time swap. The round photo at the top right STAYS on Home
+ * (owner 24 Nov 2026: "just return the profile icon on the upper right"). The
  * full section pages are unchanged and one tap away (`?seg=events|people|shop|memories`).
  *
  * A VIEW, NOT A READER: the Home page reads everything in one batched wait and hands it here as plain data (so the

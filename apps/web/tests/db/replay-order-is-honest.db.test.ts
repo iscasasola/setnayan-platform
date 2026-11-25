@@ -38,6 +38,7 @@ import path from 'node:path';
 
 import {
   createReplayedDb,
+  EXPECTED_OUT_OF_ORDER,
   replayInFilenameOrder,
   parseMissingObject,
   settleOrder,
@@ -379,22 +380,12 @@ after(async () => {
   await db?.close();
 });
 
-/**
- * ⚠ THE FILES THAT STILL CANNOT APPLY AT THEIR OWN POSITION — measured
- * 2026-08-31, down from seven. Both are the 2026-05-30 amendment pair, both
- * need `vendor_billing_catalog`, and both now land immediately after the file
- * that creates it instead of after the whole corpus.
- *
- * ⛔ DO NOT ADD A ROW HERE TO GO GREEN. A new entry means a new back-numbered
- * migration, and the question to answer is what it WRITES and what it jumped
- * over — not how to make this line pass.
+/*
+ * ⚠ THE FILES THAT STILL CANNOT APPLY AT THEIR OWN POSITION live in
+ * `EXPECTED_OUT_OF_ORDER` (./migration-order.ts) — moved there 2026-11-25 so the
+ * staging branch's dry run prints the same list this test pins. ⛔ Adding a row
+ * there to go green is still the wrong fix: read what the new file WRITES.
  */
-const EXPECTED_OUT_OF_ORDER: Record<string, string> = {
-  '20260530010000_iteration_0006_v2_1_amendment_2.sql':
-    '20260631000000_v2_pricing_table_alignment.sql',
-  '20260530030000_iteration_0006_v2_1_amendment_2_titles.sql':
-    '20260631000000_v2_pricing_table_alignment.sql',
-};
 
 test('nothing landed after the whole corpus, and the fast path is not inert', () => {
   const late = replay.outOfOrder.filter((o) => o.viaFinalPass);

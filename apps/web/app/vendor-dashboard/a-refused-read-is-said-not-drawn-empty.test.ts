@@ -160,6 +160,12 @@ test('L-4 · a refused scheduled-change / credit read never prices "Today"', () 
 test('L-6 · L-7 · the stop-paying row is a statement, and it leads with the date', () => {
   const rows = dash('subscription/_components/plan-rows.tsx');
   assert.doesNotMatch(rows, /title="Cancel the plan"/, 'a row worded as a door with nowhere to go');
-  assert.match(rows, /`Free after \$\{expiresOn\} if you skip the next payment`/);
-  assert.doesNotMatch(rows, /you are on Free after \$\{expiresOn\}/, 'the date sat at the end of an 85-character line and was cut off');
+  // 🔁 2026-11-24: the words moved to the one renewal source (lib/plan-renewal-words.ts) — the row asks it.
+  assert.match(rows, /line=\{isPaid \? renewal\.howToStop\(expiresOn\) :/);
+  const words = web('lib/plan-renewal-words.ts');
+  assert.match(words, /`Free after \$\{expiresOn\} if you skip the next payment`/);
+  assert.match(words, /`Renews \$\{expiresOn\} · cancel in Settings › Apple ID`/, 'the Apple line no longer leads with the date');
+  for (const src of [rows, words]) {
+    assert.doesNotMatch(src, /you are on Free after \$\{expiresOn\}/, 'the date sat at the end of an 85-character line and was cut off');
+  }
 });

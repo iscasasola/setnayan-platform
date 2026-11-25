@@ -122,7 +122,6 @@ export const FEATURE_ROWS = {
   a60: F({ icon: 'gift', name: 'Pabuya e-gifts', line: 'Straight to your own GCash, Maya, bank or PayPal.', price: 'free', status: 'live', reg: ['A60'], page: 'e-gifts', problem: 'Cash in envelopes gets lost; guests abroad cannot give.', solution: 'Gifts go straight to your account and follow your wish list. Setnayan never touches the money.', why: 'Safe, traceable, from anywhere.' }),
   a66: F({ icon: 'print', name: 'Photo prints', line: 'Guests order prints, no account needed.', price: 'paid', status: 'live', reg: ['A66'], problem: 'Nobody prints anything any more.', solution: 'Order prints from the album, without an account.', why: 'Something on the wall.' }),
   a45: F({ icon: 'book', name: 'The story, Love Story and Post Event', line: 'Five word-only stories free; the Post Event story writes itself.', price: 'free-plus', status: 'live', reg: ['A45'], problem: 'The invitation link goes dead after the day.', solution: 'The same page becomes the story of the day; Pro adds media and custom scenes.', why: 'One link, for life.' }),
-  a46: F({ icon: 'book', name: 'Real Stories', line: 'Share your event as a story others can read.', price: 'free', status: 'live', reg: ['A46'], page: 'real-stories', problem: 'The next couple starts from zero, asking “who was your supplier?”.', solution: 'If you share it, your day becomes a Real Story with suppliers credited.', why: 'Your day helps the next family.' }),
   a47: F({ icon: 'book', name: 'Editorial and guest columns', line: 'A magazine story of the day, with guests’ columns.', price: 'paid', status: 'live', reg: ['A47'], problem: 'The story of the day is told in captions.', solution: 'An editorial written from the day, with guest columns.', why: 'Told properly.' }),
   a74: F({ icon: 'check', name: 'Clearance, launch, activity, progress, refer', line: 'Close out the day; see what happened; refer a couple.', price: 'free', status: 'live', reg: ['A74'], problem: 'The event never formally ends.', solution: 'Clearance closes the day; activity and progress show the record; refer a couple from the same place.', why: 'A clean ending.' }),
   a01: F({ icon: 'home', name: 'Home: all your events', line: 'Events · People · Shop · Memories · Discover, one bar.', price: 'free', status: 'live', reg: ['A01'], problem: 'A wedding app is used once and deleted.', solution: 'Every event you host or help with, in one list; create the next one from the same place.', why: 'One home for a family’s events.' }),
@@ -268,7 +267,7 @@ export const PERSONAS: readonly Persona[] = [
       { eye: 'The day', title: 'The Hub turns live. Your guests become the crew.', line: 'From the morning of, the Event Hub switches to the day: the schedule, the tables, the stream for family abroad, and every phone shooting into one album.', moment: 'hub', photo: P.wall,
         groups: [['The door', ['a18']], ['Papic', ['a52', 'a53', 'a54', 'a55', 'a56']], ['The show', ['a61', 'a68', 'a64', 'a65']]] },
       { eye: 'After', title: 'The day ends. The page doesn’t.', line: 'The same link becomes the story of the day: your guests’ photos sorted by face, the family’s words, the thank-yous, and gifts that went straight to you.', moment: 'memories',
-        groups: [['Keep', ['a57', 'a58', 'a59', 'a60', 'a66']], ['Tell', ['a45', 'a46', 'a47', 'a74']]] },
+        groups: [['Keep', ['a57', 'a58', 'a59', 'a60', 'a66']], ['Tell', ['a45', 'a47', 'a74']]] },
       { eye: 'Every event after this one', title: 'A wedding is the way in. The family is why you stay.', line: 'Your people are saved once. The christening, the debut, the 60th and the golden anniversary each start pre-filled, and every memory stays in one library.', moment: 'family', photo: P.christening,
         groups: [['Your account', ['a01', 'a05', 'a06', 'a07', 'a08', 'a10', 'a11', 'a12', 'a13']], ['The house', ['a75', 'a76', 'a77']]] },
     ],
@@ -330,6 +329,7 @@ export const EXCLUDED: readonly (readonly [row: string, why: string])[] = [
   ['A70', 'Pabati — retired (migration retire_pabati)'],
   ['A62', 'Patiktok — retired 2026-11-20 (migration retire_patiktok_and_music_maker)'],
   ['A63', 'Music Maker — retired 2026-11-20 (migration retire_patiktok_and_music_maker)'],
+  ['A46', 'Real Stories — retired 2026-11-16 (DECISION_LOG "THE BLOG AND REAL STORIES ARE RETIRED"); /features/real-stories forwards to Discover like /realstories'],
   ['C36', 'Storage packs, 3D booth, photo challenge, tokens — off sale in the catalogue (read 10 Nov)'],
 ];
 

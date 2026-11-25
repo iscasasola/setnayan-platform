@@ -1,6 +1,6 @@
 # Final check · Area 6 · Supplier: bookings, chat, payments, calendar
 
-FIXER: L9 done + batch 4 · PRs #8311 (b1) · #8324 (b2) · #8331 (b3, READY) · #8343 (b4 + owner Add 35) · #8348 (LAUNCH L9 · A6-71, migration, needs GO) · next: plan batch A4
+FIXER: L9 + review + Add 37 done; batch 5 (plan A4 rest) in preflight · PRs #8311 (b1) · #8324 (b2) · #8331 (b3, READY) · #8343 (b4 + Add 35 + re-check) · #8348 (LAUNCH L9 · A6-71 + Add 37, migration, needs GO) · b5 = A6-07 · A6-08 · A6-15 · waiting: A6-38(c) after #8331 · 🟠 A6-15 masthead, A6-38(a)(b) · A6-B21 · A6-B01 need a production walk
 
 Checker 6 of 8. Checked commit: `fb3f72d` (the pinned check commit). Report only.
 STATUS: phase B done

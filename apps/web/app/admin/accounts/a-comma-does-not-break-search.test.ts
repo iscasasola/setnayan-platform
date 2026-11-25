@@ -23,7 +23,7 @@ for (const file of ['_surfaces/users-surface.tsx', '_surfaces/venues-surface.tsx
   test(`${file}: the .or() filter is built from the sanitised term, never the raw query`, () => {
     const src = stripComments(readFileSync(resolve(here, file), 'utf8'));
     assert.match(src, /const term = sanitizeIlikeTerm\(q\)/);
-    const ors = [...src.matchAll(/\.or\(\s*`([^`]*)`/g)].map((m) => m[1]).filter((f) => f.includes('ilike'));
+    const ors = [...src.matchAll(/\.or\(\s*`([^`]*)`/g)].map((m) => m[1] ?? '').filter((f) => f.includes('ilike'));
     assert.ok(ors.length > 0);
     for (const f of ors) {
       assert.doesNotMatch(f, /\$\{q\}/, `raw query in ${f}`);

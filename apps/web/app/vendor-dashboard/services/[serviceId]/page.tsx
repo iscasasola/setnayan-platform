@@ -4,15 +4,11 @@ import Link from 'next/link';
 import { loadRequestTree } from '@/lib/service-requests.server';
 import { TellUsHost } from '../requests/_components/tell-us-host';
 import { notFound, redirect } from 'next/navigation';
-<<<<<<< HEAD
-import { ChevronLeft } from 'lucide-react';
-import { BackWhenNotRisen } from '../../_components/back-when-not-risen';
-=======
 import { ChevronLeft, RotateCw } from 'lucide-react';
+import { BackWhenNotRisen } from '../../_components/back-when-not-risen';
 import { routes } from '@/lib/routes';
 import { ErrorState } from '@/app/_components/states/error-state';
 import { ActionButton } from '@/components/action-button';
->>>>>>> origin/claude/fc-fix-a5-b4
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { CanvasMaker } from '../_components/canvas-maker';

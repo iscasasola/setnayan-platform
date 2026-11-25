@@ -91,6 +91,34 @@ SOURCE    SEEN 25 Nov 07:00–07:14 UTC · 200 again at 07:15 · 500 again from 
 - [x] /samahan/join/[token] — OFFLINE: NOT NEEDED · SHAPE: PAGE = PAGE
 - [x] /wall/[eventId] — OFFLINE: NOT NEEDED (live wall never saved; freezes on last frame) · SHAPE: PAGE = PAGE
 
+## Phase B progress (on the copy; SOURCE: SEEN)
+
+Each line: **sizes** 375 · 768 · 1280, light and dark asked of the browser · **DARK** · **buttons N · pressed N · failed N** (375 / 1280 where they differ) · time to DOM (calm / during A4-B01). Pages reached by a real token need a token the seed does not hand to area 4; these lines walk the door a person reaches with a dead or missing token, which is what a stranger, a forwarded link or an old QR shows.
+
+- [x] /live — sizes ok · DARK: self-forced dark (same in both) · buttons 3 · pressed 3 · failed 1 (Connect gives no pressed state, A4-B04) · 0.6–0.9 s
+- [x] /live/screen — not paired → shows /live's form (by design) · DARK: self-forced dark · buttons 3 · pressed 3 · failed 0 · 1.1–1.5 s
+- [x] /wall/[eventId] — sizes ok · DARK: self-forced dark · buttons 3 · pressed 3 · failed 1 (a non-uuid address says "Something hiccuped", A4-B07) · 0.6–1.1 s
+- [x] /claim/[token] (dead) — sizes ok · light only (signed out) · buttons 2 · pressed 2 · failed 0 · 4.8 s calm, 16–26 s in the stall (slow, A4-B01)
+- [x] /join/[eventId] — guest-list-only event forwards to its Hub (by design, `anyoneMayAskToJoin`); dead id "This invite link isn't valid" · buttons 2 · pressed 2 · failed 0 · 0.6–1.1 s · A4-06 NOT reproduced: no seeded event is "Anyone, I approve", and a checker does not change a shared event's setting
+- [x] /join/[eventId]/connect/confirm — signed out → /login?next=/join/<id>/connect (the route handler; returns there) · signed in as `guest` → /dashboard (no seat to link)
+- [x] /join/[eventId]/set-password — signed out → /login?next=…/set-password (phase A's "next dropped" is NOT seen: the next is kept) · signed in: buttons 6 (field, show, Set password, Skip for now, wordmark, label) · pressed 2 (show, Skip → /dashboard/<eventId>) · Set password not pressed (would change the shared `guest` password)
+- [x] /join/[eventId]/success — signed out → /login with no return path (confirmed) · signed in: → /join/<id> → the Hub
+- [x] /join/crew/[token] (dead) — sizes ok · light only · **buttons 0** (A4-B02) · 0.7–0.9 s
+- [x] /panood/cam/[token] (dead) — sizes ok · light only · buttons 2 · pressed 2 · failed 1 (a dead token greeted as valid, A4-B03) · 0.8 s
+- [x] /samahan/join/[token] (dead) — sizes ok · light only · buttons 2 · pressed 2 · failed 0 · 0.7–1.1 s
+- [x] /papic/claim/[token] (dead) — sizes ok · light only · buttons 2 · pressed 2 · failed 1 (A4-B03; the press took 45 s in the stall) · 0.7–1.1 s
+- [x] /papic/decorate (no session) — sizes ok · light only · buttons 1 (wordmark only) · pressed 1 · 0.7–0.9 s
+- [x] /papic/demo/[token] (expired) — sizes ok · light only · buttons 1 (wordmark only) · pressed 1 · 1.8–3.4 s calm, up to 37 s in the stall · its words send people to "the Papic tile on the Setnayan homepage"; the try-with-a-friend demo is drawn client-side and could not be confirmed from the HTML (unverified, not counted)
+- [x] /papic/guest (no session) — sizes ok · light only · buttons 1 (wordmark only) · pressed 1 · 0.7–1.0 s
+- [x] /papic/join/[token] (dead) — sizes ok · light only · buttons 1 (wordmark only) · pressed 1 · 2.5–24 s (one 120 s time-out in the stall)
+- [x] /papic/lightcheck — sizes ok · light only · buttons 5 · pressed 5 · failed 0 (fake camera: "ImageCapture.takePhoto(): OK") · 0.4–0.9 s · A4-73 CONFIRMED: a public operator tool, "Throwaway diagnostic", reachable by anyone
+- [x] /papic/me/[token] (dead) — sizes ok · light only · buttons 1 (wordmark only) · pressed 1 · 3.8–16 s (slow, A4-B01)
+- [x] /papic/order/[token] — **404 on the copy**: `NEXT_PUBLIC_PAPIC_GUEST_BUY` is off here, so A4-64/77/78 stay latent (code-only, behind the flag)
+- [x] /papic/pool (no session) — **404 "This page doesn't exist on Setnayan"** under the tab title "Everyone's photos · Papic · Setnayan" (A4-B08)
+- [x] /papic/seat/[token] (dead) — sizes ok · light only · buttons 2 · pressed 2 · failed 1 (greeted as valid, lands on /papic/claim/<token>?state=invalid, A4-B03) · 0.6–0.8 s
+- [x] /papic/try — sizes ok · light only (signed out) · buttons 11 at 375 / 24 at 1280 · pressed 8 (5 look chips: each marks itself pressed and changes its line; the link; Sign in; wordmark) · failed 0 · ☰ and Search under 44 px (shell, area 1) · 0.6–0.9 s
+- [ ] /[slug] and its 14 pages, /[slug]/hub — WAITING on A4-B01 (every Hub address answers 500 since 07:19 UTC). Seen once at 06:45: /[slug] signed out at all six views (shots/area-4), /[slug]/everyone 200 in 110 s.
+
 ## Offline today: what ships for guests (read once, applies to every page below)
 
 From `apps/web/public/sw.js` (`isDayOfGuestNavigation`, `maybeServeOfflineCopy`), `lib/offline-copies.ts`,
@@ -163,7 +191,7 @@ PAGE      /panood/cam/[token] and /papic/claim/[token]   (a token that does not 
 BUTTON    "Sign in to join this camera" / "Join & open my camera" · "Start shooting"
 STEPS     1. Open /panood/cam/zzz signed out, then signed in as `guest`. 2. Open /papic/claim/zzz and press "Start shooting".
 EXPECTED  A link that opens nothing says so on arrival, before asking for a sign-in or a press.
-ACTUAL    /panood/cam/zzz greets the person as valid: "You're invited to operate a camera … Sign in to join this camera"; after sign-in "Join as a live camera … Join & open my camera". /papic/claim/zzz says "Claim your photo-crew seat … Start shooting"; only after the press (45 s during the A4-B01 stall) does it land on ?state=invalid "This link isn't active". The person signs in or waits for nothing.
+ACTUAL    /papic/seat/zzz too ("Claim your photo-crew seat · Start shooting" → /papic/claim/zzz?state=invalid). /panood/cam/zzz greets the person as valid: "You're invited to operate a camera … Sign in to join this camera"; after sign-in "Join as a live camera … Join & open my camera". /papic/claim/zzz says "Claim your photo-crew seat … Start shooting"; only after the press (45 s during the A4-B01 stall) does it land on ?state=invalid "This link isn't active". The person signs in or waits for nothing.
 SHOTS     375 px light (both screens)
 RULE      Add 2 EFFECTIVE · honest states (CLAUDE.md §5 rule 4)
 SEVERITY  wrong
@@ -205,6 +233,32 @@ EXPECTED  Words that fit every event type (a debut, a birthday, a reunion).
 ACTUAL    "Enter the screen code from the couple's Setnayan dashboard." · "Type the code shown under Venue screens in the couple's Live Studio controller." Same pattern as A4-08/16/48 ("the couple" on every event type). /wall/zzz also carries the generic tab title "Setnayan · The home of every Filipino celebration".
 SHOTS     375 px light
 RULE      brand.md (event words) · A4-08 pattern
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+```
+ID        A4-B07
+PAGE      /wall/[eventId]   (an address whose id is not an event id: /wall/zzz)
+BUTTON    "Start Memory lane"
+STEPS     1. Open /wall/zzz. 2. Type ZZZ999. 3. Press Start Memory lane.
+EXPECTED  "This screen link is wrong — open it again from the host's dashboard" (or the code-mismatch line).
+ACTUAL    The form is drawn for an event that does not exist, and the press answers "Something hiccuped — try again." (any non-401 from /api/wall/claim). A wrong link is told it is a passing fault, so the person at the projector keeps retrying. With a well-formed id the same press reads the 401 line. Anchor: `apps/web/app/wall/[eventId]/_components/wall-claim.tsx` "Something hiccuped — try again.".
+SHOTS     1280 px (a projector)
+RULE      honest states (CLAUDE.md §5 rule 4)
+SEVERITY  wrong
+SOURCE    SEEN
+```
+
+```
+ID        A4-B08
+PAGE      /papic/pool   (opened with no Papic session, e.g. a forwarded link)
+BUTTON    none
+STEPS     1. Open /papic/pool signed out with no pass.
+EXPECTED  The same door as /papic/guest and /papic/decorate: "Open your invitation first. Scan your personal QR or open your invite link…".
+ACTUAL    The site 404 page "This page doesn't exist on Setnayan … Take me home / Browse suppliers", HTTP 404, while the tab reads "Everyone's photos · Papic · Setnayan". A guest who saved the album link is told it never existed.
+SHOTS     375 px light
+RULE      honest states · Add 2 EFFECTIVE (one way per door)
 SEVERITY  wrong
 SOURCE    SEEN
 ```

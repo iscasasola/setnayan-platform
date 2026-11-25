@@ -1538,7 +1538,7 @@ SOURCE    CODE
 |---|---|---|---|---|
 | `/papic/order/[token]` + "Add credits" on the guest camera | Papic photo credits bought by a guest | from code, not the catalogue (A4-64) | camera › out of credits › Add credits | **off**: `NEXT_PUBLIC_PAPIC_GUEST_BUY` unset, the route 404s; A4-64/77/78 stay latent |
 | guest camera / "Add from your phone" when the event pool is empty | the wall: "The event's credits ran out, so these shots are kept on this phone…" / "Out of Credits" | none (the guest is not the buyer; the line tells them the hosts add more) | the camera | waits on a seeded event with an empty pool and a Hub that loads |
-| `/[slug]/pabuya` (E-Gifts) | a guest's gift to the host (not a Setnayan sale): bank / GCash details | the guest types the amount | Hub › E-Gifts | waits on A4-B01 |
+| `/[slug]/pabuya` (E-Gifts) | a guest's gift to the host (not a Setnayan sale): bank / GCash details | the guest types the amount | Hub › E-Gifts | flag ON · seen: "haven't set up e-gifts yet" (A4-44) · forbidden 0% wording (A4-B12) |
 
 Taps from the wall to "payment logged": not measurable on the copy (the guest buy is off). Never paid anything.
 
@@ -1546,7 +1546,10 @@ Taps from the wall to "payment logged": not measurable on the copy (the guest bu
 - Connect a venue screen (`/live`): OK. Two taps, but a press gives no feedback (A4-B04) and the field takes 12 characters with `autocomplete=off` (right).
 - Join an event and set a password (`/join` › set-password): HARD. The last step, Skip, lands on a 404 (A4-B09).
 - Claim a crew seat with an old link (`/papic/claim`, `/papic/seat`): HARD. It asks for a press, then says the link is dead (A4-B03).
-- Open the invitation, reply, find my seat, shoot photos: wait on A4-B01.
+- Open my invitation, signed in (`guest`): HARD. The seat holder's own Hub failed 6 times in 8 (A4-B01), and when it draws, the ticket card fails (A4-B11).
+- Reply (`/invite/reply`): OK. One screen, meal is a dropdown, the phone field opens with +63, consent box, Send. Not sent (seeded data).
+- Find my seat, signed in: HARD. /find-seat knows the account, /find-my-table and /seat ask for the invite link (A4-B11).
+- Shoot photos (`/papic/guest`), signed in: HARD. "Open your invitation first" even though the account holds a seat (A4-B11).
 
 **Add 6 · Buttons.** Counted per page in Phase B progress (375 / 1280). Running total for the 22 non-Hub pages: controls 51 at 375 (64 at 1280: `/papic/try` adds the shell's desktop menu) · pressed 51 · failed 6 (A4-B03 ×3, A4-B04, A4-B07, A4-B09). The wordmark and "Back home" links were checked by their destination (`/` answers 200), not clicked one by one. Not pressed: a valid "Set password" (would change the shared `guest` sign-in).
 

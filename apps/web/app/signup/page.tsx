@@ -61,7 +61,6 @@ import { getOAuthGate } from '@/lib/request-platform';
 import { safeNext, getCurrentUser } from '@/lib/auth';
 import { accountHomePath } from '@/lib/account-security';
 import { createClient } from '@/lib/supabase/server';
-import { readGuestSession } from '@/lib/guest-session';
 import { accountTypeForSignup } from '@/lib/signup-intent';
 import { signUp } from './actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
@@ -74,7 +73,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 export const metadata: Metadata = {
   title: 'Create account',
   description:
-    'Create a Setnayan account in seconds. Free to start for anyone planning an event. Free baseline listing for Filipino suppliers.',
+    'Create a Setnayan account. Free to start for anyone planning an event. Free baseline listing for Filipino suppliers.',
   alternates: { canonical: '/signup' },
 };
 
@@ -158,9 +157,6 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
       ? params.refc.trim().toUpperCase()
       : '';
   const loginHref = `/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`;
-  // Persistent guest accounts: a signed guest session on this browser means the
-  // action will link the guest's tagged photos to the new account.
-  const hasGuestSession = (await readGuestSession()) !== null;
 
   // A paper base under the greige dim, exactly as /login does, so a hard load
   // never flashes a void behind the card.
@@ -192,12 +188,9 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </p>
           ) : null}
 
-          {hasGuestSession ? (
-            <p role="status" className="hr-si-banner">
-              Your event photos will be saved to your new account.
-            </p>
-          ) : null}
-
+          {/* ⛔ No "Your event photos will be saved to your new account." (final check A1-061): since 2026-09-30 signing
+              up links no seat and no photos ("SIGNING UP BINDS NO SEAT", actions.ts); only /join/{id}/connect does,
+              on its own Yes. A promise the sign-up does not keep is not shown. */}
           {referralCode ? (
             <p role="status" className="hr-si-banner">
               A couple invited you to Setnayan.{' '}

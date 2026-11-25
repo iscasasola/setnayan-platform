@@ -16,6 +16,9 @@
  * asks their name. A signed-out visitor is sent to /signup; a signed-in one who
  * types the URL later simply sees their current values.
  */
+import Link from 'next/link';
+import { ErrorState } from '@/app/_components/states/error-state';
+import { actionButtonClass } from '@/components/action-button-class';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -47,13 +50,33 @@ export default async function YouPage({ searchParams }: { searchParams: SearchPa
   if (!user) redirect(`/signup?next=${encodeURIComponent(next)}`);
 
   // Own row (RLS). Read exactly the columns the card shows; nothing else.
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('users')
     .select(
       'display_name, slug, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, profile_focal_x, profile_focal_y, profile_zoom, account_type, public_summary_consent_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
+  // 🔒 A REFUSED READ IS NOT A NEW ACCOUNT (final check A1-062). The card used to draw blanks, and Done then posted the
+  // blanks over the saved photo, phone and name. Now it says it couldn't read, and nothing is posted.
+  if (profileError) {
+    logQueryError('YouPage.profile', profileError, { user_id: user.id }, 'graceful_degrade');
+    return (
+      <main className="mx-auto w-full max-w-xl px-4 py-12">
+        <ErrorState
+          title="Couldn’t read your details"
+          broke="Your saved details did not load just now."
+          survived="Nothing was changed. Your account and events are as you left them."
+          todo="Reload the page to try again, or come back to this later."
+          actions={
+            <Link href={next} className={actionButtonClass('neutral')}>
+              <span className="lbl">Later</span>
+            </Link>
+          }
+        />
+      </main>
+    );
+  }
   const me = (profile ?? {}) as YouCardMe;
 
   // 🚪 Done → the event-type picker when the account holds no event yet (`youCardOnward`). A count, not the

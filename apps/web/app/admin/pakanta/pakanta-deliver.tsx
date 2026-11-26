@@ -74,7 +74,7 @@ export function PakantaDeliver({
         onChange={handleChange}
         variant="wide"
         label="Finished song file"
-        help="MP3, M4A, AAC, OGG, or WAV. Up to 20 MB. It auto-plays on the couple's site once delivered (unless they already set their own song)."
+        help="MP3, M4A, AAC, OGG, or WAV. Up to 20 MB. It auto-plays on the couple's Event Hub once delivered (unless they already set their own song)."
         disabled={pending}
       />
 
@@ -88,7 +88,7 @@ export function PakantaDeliver({
         <p className="mt-2 inline-flex items-center gap-1.5 text-sm text-success-700">
           <CheckCircle2 aria-hidden className="h-4 w-4" strokeWidth={2} />
           {result.adopted
-            ? 'Delivered and now playing on the couple’s site.'
+            ? 'Delivered and now playing on the couple’s Event Hub.'
             : 'Delivered. The couple already set their own Event Hub song — they can switch to this one in their Studio.'}
         </p>
       ) : null}

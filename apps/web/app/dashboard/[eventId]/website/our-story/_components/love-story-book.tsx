@@ -66,6 +66,8 @@ export type LoveStoryBookProps = {
   appleIap?: boolean;
   proHref: string;
   proPrice: string | null;
+  /** The plan read failed (Add 45): every Pro line says "We couldn't check your plan" instead of selling. */
+  planUnread?: boolean;
   /** `?pro=` from a refused write — the line is drawn at the top. */
   refused: 'stories' | 'photos' | null;
   /** Is the Love Story section itself off the Event Hub (widget mode hidden)? */
@@ -113,10 +115,11 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
     storeShell: p.storeShell,
     proHref: p.proHref,
     proPrice: p.proPrice,
+    planUnread: p.planUnread,
     eventId: p.eventId,
     mediaUrls: p.mediaUrls,
   };
-  const proLine = <LoveStoryProLine storeShell={p.storeShell} href={p.proHref} price={p.proPrice} />;
+  const proLine = <LoveStoryProLine storeShell={p.storeShell} href={p.proHref} price={p.proPrice} planUnread={p.planUnread} />;
   /* `opensFor="add"` on ONE of the two add buttons (the foot's) — the Maker's
      panel asks it to open under a chapter (`love-story-open.ts`). */
   const addButton = (opensFor?: string) => canAdd ? (

@@ -85,11 +85,22 @@ test('signed IN keeps the create button — the picker is added, never swapped i
 });
 
 test('the create row reuses the signed-out destination, inventing no second route', () => {
+  /*
+    Final check A1-045: on /marketplace the PRIMARY is "Browse the marketplace", so the create row opened Discover.
+    The row now takes the page's own start door — one of the two links the page already draws (`primary` by default,
+    the one that opens onboarding when the page passes it) — so it still invents no second route.
+  */
   const src = strip(cta);
   assert.ok(
-    /createHref=\{primary\.href\}/.test(src),
+    /createHref=\{create\.href\}/.test(src) && /create = primary,/.test(src),
     '"Start a new celebration" must go where "start planning" already goes. Two ' +
       'routes into creating a celebration from one page will drift apart.',
+  );
+  const doorway = strip(readFileSync(join(HERE, '_doorway.tsx'), 'utf8'));
+  assert.match(
+    doorway,
+    /create=\{\s*\[primary, secondary\]\.find\(/,
+    'the doorway picks the start door from the two links it already draws',
   );
 });
 
@@ -168,8 +179,9 @@ test('every doorway that sells an addable service passes its key', () => {
     // The last two free workspace tools, 2026-09-06 (owner: "add these").
     'budget',
     'schedule',
-    // Samahan's doorway, 2026-09-06 — a Together row, not a Studio one.
-    'samahan',
+    // ⛔ NOT 'samahan' (final check A1-003): a group belongs to the ACCOUNT, not to an event, so its page keeps
+    // "Create a group" for everybody. With a key, a signed-in person's main button became "Add Groups to…" and each
+    // row opened an event dashboard with no group on it.
   ].sort();
   const found: string[] = [];
   for (const dir of readdirSync(SHELL, { withFileTypes: true })) {

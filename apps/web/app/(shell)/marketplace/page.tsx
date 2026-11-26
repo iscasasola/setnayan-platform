@@ -47,6 +47,7 @@
  * paid planner picks a suggested team. Nothing more.
  */
 
+import { routes } from '@/lib/routes';
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
 import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
 import { studioDescription } from '@/lib/studio-apps';
@@ -103,12 +104,12 @@ const APP_LD = {
   description: PAGE_DESCRIPTION,
   offers: { '@type': 'Offer', price: '0', priceCurrency: 'PHP' },
   featureList: [
-    'Search verified Filipino wedding suppliers and Setnayan’s own services from one box',
+    'Search verified Filipino suppliers and Setnayan’s own services from one box',
     'Browse by category and by city',
     'Every supplier listed passed a business check and a video call with a Setnayan admin',
     'Save the suppliers you like to your shortlist',
     'Compare two saved suppliers side by side — location, rating, services, faith fit',
-    'A free preview of how well each supplier fits your wedding',
+    'A free preview of how well each supplier fits your event',
     'Free to browse. Hosts pay 0% commission.',
   ],
   areaServed: 'Philippines',
@@ -122,7 +123,7 @@ const FAQ = [
   },
   {
     q: 'Is it free? Do we need an account?',
-    a: 'Browsing is free and open to anyone. Saving a supplier and comparing two are tied to your wedding, so you start an event when you want to keep one — that is free too. Hosts pay 0% commission: nothing you pay a supplier comes back to us.',
+    a: 'Browsing is free and open to anyone. Saving a supplier and comparing two are tied to your event, so you start one when you want to keep one — that is free too. Hosts pay 0% commission: nothing you pay a supplier comes back to us.',
   },
   {
     q: 'What does “verified” mean?',
@@ -134,7 +135,7 @@ const FAQ = [
   },
   {
     q: 'Is the match preview the same as Setnayan AI?',
-    a: 'No. The preview of how well a supplier fits your wedding is free, once you have an event to match against — it reads your ceremony, venue, budget and date, and never hides anyone. Setnayan AI is the separate, paid planner that picks a suggested team for you and keeps watching them. You never need it to use the Marketplace.',
+    a: 'No. The preview of how well a supplier fits your event is free, once you have an event to match against — it reads your ceremony, venue, budget and date, and never hides anyone. Setnayan AI is the separate, paid planner that picks a suggested team for you and keeps watching them. You never need it to use the Marketplace.',
   },
   {
     q: 'What happens after we pick someone?',
@@ -159,7 +160,7 @@ const STEPS = [
   },
   {
     t: 'Save the ones you like',
-    d: 'Every supplier shows their services, location and rating. Keep the ones you are considering in your shortlist, and once you have added your wedding, see a preview of how well each one fits it.',
+    d: 'Every supplier shows their services, location and rating. Keep the ones you are considering in your shortlist, and once you have added your event, see a preview of how well each one fits it.',
   },
   {
     t: 'Put two side by side, then decide',
@@ -196,7 +197,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   {
     chip: 'Your shortlist',
     t: 'Keep the ones you like',
-    d: 'Save a supplier to your event picks the moment you find them. Once your wedding is on Setnayan, you also see a free preview of how well each one fits it — your ceremony, venue, budget and date — and no one is ever hidden from you.',
+    d: 'Save a supplier to your event picks the moment you find them. Once your event is on Setnayan, you also see a free preview of how well each one fits it — your ceremony, venue, budget and date — and no one is ever hidden from you.',
     media: { kind: 'photo', src: '/demo/maria-jose/vendor-florist.webp', alt: 'A cascade of white roses, peonies and greenery along a candlelit reception table' },
   },
   {
@@ -224,7 +225,7 @@ export default function MarketplaceLandingPage() {
         first door is the thing itself. Starting a wedding is the second door.
       */
       primary={{ href: '/?browse=1', label: 'Browse the marketplace' }}
-      secondary={{ href: '/onboarding/wedding?from=marketplace', label: 'Start planning · free' }}
+      secondary={{ href: routes.start(), label: 'Start planning · free' }}
       productName="Marketplace"
       studioKey="marketplace"
       steps={STEPS}
@@ -236,7 +237,7 @@ export default function MarketplaceLandingPage() {
       faq={FAQ}
       closing={{
         heading: 'Start with who you need',
-        body: 'The Marketplace is free to browse. Hosts pay 0% commission. Find your suppliers here, save the ones you like, compare two — and when you start your wedding on Setnayan, they carry into your event’s supplier ledger, beside your guest list, budget and schedule.',
+        body: 'The Marketplace is free to browse. Hosts pay 0% commission. Find your suppliers here, save the ones you like, compare two — and when you start your event on Setnayan, they carry into your event’s supplier ledger, beside your guest list, budget and schedule.',
         href: '/?browse=1',
         label: 'Browse the marketplace',
       }}

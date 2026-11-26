@@ -284,6 +284,13 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   event_render_share_consent:
     'TABLE DROPPED 2026-10-26 (migration 20271289858095, owner-approved) — the retired renders\u2019 share ' +
     'consent; its one row (the owner\u2019s own, withdrawn) was erased with owner approval. Nothing to export.',
+  // Same parser limit: the retired clusters and AI abuse desk, dropped with the years_you_grouped reader.
+  event_clusters:
+    'TABLE DROPPED 2026-11-26 (migration 20271363906595, owner ruling R7) — the retired "years you grouped" ' +
+    'clusters; its years_you_grouped export reader went with it. Nothing to export.',
+  concierge_abuse_flags:
+    'TABLE DROPPED 2026-11-26 (migration 20271363906595, owner ruling R7) — the retired AI Concierge abuse ' +
+    'queue, with its admin desk. Nothing to export.',
   vendor_release_history:
     'TABLE DROPPED 2026-09-18 (migration 20271234083820, S37) — the soft-hold ' +
     'release audit whose writers never shipped; 0 rows in prod ever. Nothing to export.',
@@ -368,8 +375,6 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   seating_editor_locks: 'Ephemeral advisory lock; holds no durable personal data.',
   event_part_editor_locks: 'Ephemeral one-editor-per-part pen (frees itself 5 s after the last edit); holds no durable personal data.',
   blacklisted_emails:
-    'Anti-abuse investigation record — disclosure defeats detection (NPC investigation carve-out; counsel-reviewed).',
-  concierge_abuse_flags:
     'Anti-abuse investigation record — disclosure defeats detection (NPC investigation carve-out; counsel-reviewed).',
   chat_decision_topics:
     'A chat\'s shared decision topic (a title, open or closed) — every member of the conversation reads, closes and reopens it; opened_by_user_id / closed_by_user_id only stamp who pressed (same call as communities.created_by). The topic\'s substance is the chat lines, which the export already carries; erasure nulls both stamps (lib/erasure/coverage.ts).',
@@ -519,7 +524,8 @@ const KNOWN_GAPS: Record<string, string> = {
   event_playlist_slot_vibes:
     'TODO(RA10173-backlog): the vibe the subject chose per moment — taste data, same class as event_playlist_picks above.',
   event_schedule_suggestions: 'TODO(RA10173-backlog): suggestions the subject authored.',
-  event_sponsors: 'TODO(RA10173-backlog): sponsor rows naming the subject.',
+  event_sponsors:
+    'TODO(RA10173-backlog): TABLE DROPPED 2026-11-27 (migration 20271364844438, brief Add 41 / A2-I14) — sponsors moved into the guest list; nothing to export. Entry stays because this guard’s parser unions every historical CREATE TABLE and does not read DROP TABLE (see docblock note 5).',
   event_walkthrough_zones: 'TODO(RA10173-backlog): walkthrough notes the subject authored.',
   feature_reviews: 'TODO(RA10173-backlog): the subject’s own feature feedback.',
   force_majeure_flags: 'TODO(RA10173-backlog): flags raised by or about the subject.',

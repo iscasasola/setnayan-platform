@@ -312,12 +312,17 @@ export async function deleteUser(formData: FormData) {
   }
 
   const admin = createAdminClient();
-  const { data: target } = await admin
+  // A8·D-2: FAILS CLOSED — an unread target is refused, never erased as
+  // "not internal" (lib/erasure/purge.ts has no internal check of its own).
+  const { data: target, error: targetErr } = await admin
     .from('users')
     .select('is_internal')
     .eq('user_id', targetUserId)
     .maybeSingle();
-  if (target?.is_internal) {
+  if (targetErr || !target) {
+    throw new Error('Couldn’t check the account just now. Nothing was erased. Refresh and try again.');
+  }
+  if (target.is_internal) {
     throw new Error('Cannot delete an internal account');
   }
 

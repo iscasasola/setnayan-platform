@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { syncExtraSeats } from '@/lib/extra-seats-sync';
 import { createClient } from '@/lib/supabase/server';
 import { guestEditsLocked } from '@/lib/pax';
@@ -11,7 +12,6 @@ import { maybeAutoSurfaceEventForGuest } from '@/lib/account-autosurface';
 import {
   INVITED_TO_BLOCKS,
   SINGLETON_GUEST_ROLES,
-  singletonRoleDuplicateMessage,
   singletonRoleFromIndexError,
   type GuestGroupCategory,
   type GuestRole,
@@ -222,12 +222,10 @@ export async function createGuest(eventId: string, formData: FormData) {
       error && (error as { code?: string }).code === '23505'
         ? singletonRoleFromIndexError(error.message)
         : null;
-    const friendly = dupRole
-      ? singletonRoleDuplicateMessage(dupRole)
-      : (error?.message ?? 'insert_failed');
-    return redirect(
-      `/dashboard/${eventId}/guests/new?error=${encodeURIComponent(friendly)}`,
-    );
+    // A2-D7 (SW-RAWDB): a fixed key in the address — `dup_<role>` for a second singleton, else `save_failed`. The
+    // page writes the sentence; the database's own message goes to the log only.
+    if (!dupRole) logQueryError('NewGuest.insert', error, { eventId }, 'graceful_degrade');
+    return redirect(`/dashboard/${eventId}/guests/new?error=${dupRole ? `dup_${dupRole}` : 'save_failed'}`);
   }
 
   if (groupIds.length > 0) {
@@ -273,7 +271,8 @@ export async function createGuest(eventId: string, formData: FormData) {
       .eq('event_id', eventId)
       .eq('guest_id', (waitingSeat as { guest_id: string }).guest_id);
     if (nameErr) {
-      return redirect(`/dashboard/${eventId}/guests/new?error=${encodeURIComponent('plus_one_failed: ' + nameErr.message)}`);
+      logQueryError('NewGuest.plusOneName', nameErr, { eventId }, 'graceful_degrade');
+      return redirect(`/dashboard/${eventId}/guests/new?error=plus_one_failed`);
     }
   } else if (namedPlusOne) {
     const { error: plusOneErr } = await supabase.from('guests').insert({
@@ -292,9 +291,8 @@ export async function createGuest(eventId: string, formData: FormData) {
     });
 
     if (plusOneErr) {
-      return redirect(
-        `/dashboard/${eventId}/guests/new?error=${encodeURIComponent('plus_one_failed: ' + plusOneErr.message)}`,
-      );
+      logQueryError('NewGuest.plusOneInsert', plusOneErr, { eventId }, 'graceful_degrade');
+      return redirect(`/dashboard/${eventId}/guests/new?error=plus_one_failed`);
     }
   }
 
@@ -302,9 +300,8 @@ export async function createGuest(eventId: string, formData: FormData) {
   if (plus_one_count > 0) {
     const seats = await syncExtraSeats(supabase, eventId, inserted.guest_id);
     if (!seats.ok) {
-      return redirect(
-        `/dashboard/${eventId}/guests/new?error=${encodeURIComponent('plus_one_failed: ' + seats.error)}`,
-      );
+      logQueryError('NewGuest.extraSeats', seats.error, { eventId }, 'graceful_degrade');
+      return redirect(`/dashboard/${eventId}/guests/new?error=plus_one_failed`);
     }
   }
 

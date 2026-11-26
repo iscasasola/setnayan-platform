@@ -26,6 +26,8 @@ import {
 } from './store-shell';
 import { EVERY_ADD_ON } from './add-ons-catalog';
 import { stripComments as stripCode } from './strip-comments';
+import { routes as appRoutes } from '@/lib/routes';
+import { inlineBuilderCalls, routeExists } from '../scripts/lib/route-builders.mjs';
 
 const CAPACITOR_UA =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 26_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 SetnayanApp';
@@ -655,9 +657,12 @@ test('C14 — the upsell lines whose links the guard hid say nothing in the stor
     /if \(!advancedActive && \(await isStoreShellRequest\(\)\)\) return null;/,
   );
   // (The chat's call launcher, which carried a store-shell return here, is gone — owner 2026-10-28, no calls in the chat.)
-  const otd = src('app/vendor-dashboard/on-the-day/page.tsx');
+  // 🧭 Add 47 (26 Nov 2026 — the route builders win): the plan link is read through the REAL lib/routes.ts builder,
+  // never as literal text, and the address it builds must be a screen in lib/ugat/screens.generated.json.
+  const otd = inlineBuilderCalls(src('app/vendor-dashboard/on-the-day/page.tsx'), appRoutes);
   assert.match(otd, /\{storeShell\s*\?\s*'Your booking and shop listing are unaffected\.'/);
-  assert.match(otd, /\{storeShell \? null : \(\s*<Link\s*href="\/vendor-dashboard\/subscription"/);
+  assert.match(otd, /\{storeShell \? null : \(\s*<Link\s*href=(?:"|\{`)\/vendor-dashboard\/subscription[`"]/);
+  assert.ok(routeExists('/vendor-dashboard/subscription'), 'the plan screen is not in lib/ugat/screens.generated.json');
   // The Suppliers search overlay's last-minute "Unlock with Setnayan AI" (sweep
   // 2026-10-19 leftover): its button points at a refused Studio page, so the link
   // guard would leave the pitch with no button. In the app the plain empty line shows.

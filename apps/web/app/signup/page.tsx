@@ -60,10 +60,10 @@ import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { getOAuthGate } from '@/lib/request-platform';
 import { safeNext, getCurrentUser } from '@/lib/auth';
+import { signupShouldBypass } from '@/lib/signup-bypass';
 import { accountHomePath } from '@/lib/account-security';
 import { createClient } from '@/lib/supabase/server';
-import { readGuestSession } from '@/lib/guest-session';
-import { accountTypeForSignup } from '@/lib/signup-intent';
+import { accountTypeForSignup, signInHrefKeepingIntent } from '@/lib/signup-intent';
 import { signUp } from './actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
@@ -75,8 +75,10 @@ import { InfoTip } from '@/app/_components/info-tip';
 export const metadata: Metadata = {
   title: 'Create account',
   description:
-    'Create a Setnayan account in seconds. Free to start for anyone planning an event. Free baseline listing for Filipino suppliers.',
+    'Create a Setnayan account. Free to start for anyone planning an event. Free baseline listing for Filipino suppliers.',
   alternates: { canonical: '/signup' },
+  // A sign-in page is a door, not a page to find in search (final check A1-160, Add 9 SEO).
+  robots: { index: false, follow: true },
 };
 
 /** The one Terms box (above Google / Apple, a field of the email form by `form=`) and that form — one id each. */
@@ -131,7 +133,8 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   {
     const supabase = await createClient();
     const user = await getCurrentUser();
-    if (user) {
+    // An anonymous host (no account yet) is NOT signed in here: they came to make one (A1-056).
+    if (user && signupShouldBypass(user)) {
       if (next !== '/') {
         redirect(next);
       }
@@ -163,10 +166,8 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
     typeof params.refc === 'string' && /^S89R-[0-9A-Z]{10}$/i.test(params.refc.trim())
       ? params.refc.trim().toUpperCase()
       : '';
-  const loginHref = `/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`;
-  // Persistent guest accounts: a signed guest session on this browser means the
-  // action will link the guest's tagged photos to the new account.
-  const hasGuestSession = (await readGuestSession()) !== null;
+  // 🔁 The shop intent survives the round trip to sign-in and back (A1-059, Add 33).
+  const loginHref = signInHrefKeepingIntent(next, accountType);
 
   // A paper base under the greige dim, exactly as /login does, so a hard load
   // never flashes a void behind the card.
@@ -198,12 +199,9 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </p>
           ) : null}
 
-          {hasGuestSession ? (
-            <p role="status" className="hr-si-banner">
-              Your event photos will be saved to your new account.
-            </p>
-          ) : null}
-
+          {/* ⛔ No "Your event photos will be saved to your new account." (final check A1-061): since 2026-09-30 signing
+              up links no seat and no photos ("SIGNING UP BINDS NO SEAT", actions.ts); only /join/{id}/connect does,
+              on its own Yes. A promise the sign-up does not keep is not shown. */}
           {referralCode ? (
             <p role="status" className="hr-si-banner">
               A couple invited you to Setnayan.{' '}

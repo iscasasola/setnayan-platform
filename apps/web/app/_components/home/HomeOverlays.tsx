@@ -27,6 +27,7 @@
  * threaded in via the `oauth` prop, mirroring /login's getClientShell() logic.
  */
 
+import { routes } from '@/lib/routes';
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
@@ -584,7 +585,7 @@ function SetnayanAiOverlay({
 
       <div style={{ display: 'flex', gap: 14, alignItems: 'center', marginTop: 10, flexWrap: 'wrap' }}>
         <Link
-          href="/onboarding/wedding?from=setnayan-ai"
+          href={routes.start()}
           onClick={onClose}
           style={{ background: '#211f1b', color: '#f4f1ea', fontSize: 14, fontWeight: 500, padding: '11px 20px', borderRadius: 'var(--m-r-full)', textDecoration: 'none' }}
         >

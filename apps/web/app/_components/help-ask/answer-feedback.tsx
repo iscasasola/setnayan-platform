@@ -17,6 +17,7 @@ export function AnswerFeedback({
   coverage,
   askAgainHref,
   messageHref,
+  messageLabel = 'Message us',
   question = 'Did this answer it?',
 }: {
   slug: string;
@@ -25,6 +26,8 @@ export function AnswerFeedback({
   coverage: string;
   askAgainHref: string;
   messageHref: string;
+  /** The words on the message button (A8·C-5). */
+  messageLabel?: string;
   /** The line over Yes / No — a guide asks "Did this help?" (Guide & Help drawing, screen 5). */
   question?: string;
 }) {
@@ -55,7 +58,7 @@ export function AnswerFeedback({
         <p className="text-sm text-ink/70">Sorry about that. Ask another way, or message us and a person will help.</p>
         <p className="mt-2 flex flex-wrap gap-2">
           <ActionButton tone="neutral" icon={RotateCcw} label="Ask another way" href={askAgainHref} />
-          <ActionButton tone="info" icon={MessageSquare} label="Message us" href={messageHref} />
+          <ActionButton tone="info" icon={MessageSquare} label={messageLabel} href={messageHref} />
         </p>
       </div>
     );

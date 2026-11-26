@@ -24,6 +24,7 @@
  * links to /pricing). Copy sells BENEFITS only (public-surface hygiene).
  */
 
+import { routes } from '@/lib/routes';
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
 import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
 import { studioDescription } from '@/lib/studio-apps';
@@ -119,7 +120,7 @@ const APP_LD = {
   featureList: [
     'One home for your whole wedding — one address to share',
     'Save-the-date that announces the day beautifully',
-    'RSVP your guests answer in seconds',
+    'RSVP your guests answer from one link',
     'Event details: when, where, what to wear, how to get there',
     'Your love story, told like a magazine feature',
     'Looks designed, not templated — on every phone and laptop',
@@ -237,7 +238,7 @@ export default function PawebsiteLandingPage() {
   return (
     <DoorwayPage
       title={'One beautiful home for your whole wedding.'}
-      primary={{ href: '/onboarding/wedding?from=pawebsite', label: 'Start planning · free' }}
+      primary={{ href: routes.start(), label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Event Hub"
       studioKey="pawebsite"
@@ -251,7 +252,7 @@ export default function PawebsiteLandingPage() {
       closing={{
         heading: 'Give your wedding its home',
         body: 'Your Event Hub lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating, and Memories. Start planning free, and make it yours.',
-        href: '/onboarding/wedding?from=pawebsite',
+        href: routes.start(),
         label: 'Start planning · free',
       }}
       structuredData={[APP_LD, FAQ_LD]}

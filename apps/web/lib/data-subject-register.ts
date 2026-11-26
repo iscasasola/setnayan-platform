@@ -235,7 +235,7 @@ export const NAME_COLUMNS_THAT_ARE_NOT_PEOPLE: Readonly<Record<string, string>> 
   events:
     'The title of an event ("Ice & Claire\'s Wedding"). It can contain the customers\' names, but the customer is already a declared category and the event record is listed among their personal data — the event is not a separate data subject.',
   event_clusters:
-    'The name one person gives a GROUP of their own celebrations — "Our year", "The Cruz wedding" (item 7 phase 7a, migration 20271189765490). Exactly the settled line already drawn for `events` above and `households` below: it can contain the owner\'s own name, but the owner is a declared category, the row is readable by nobody else, and it is exported to them as `years_you_grouped`. A grouping is not a separate data subject. ⚠ It names no THIRD party — the celebrations it groups are joined by uuid, and each carries its own subjects.',
+    'TABLE DROPPED 2026-11-26 (migration 20271363906595, owner ruling R7) — the retired "years you grouped": the name one person gave a group of their own celebrations. Listed only because the migration parser unions every historical CREATE TABLE and cannot see a DROP. Nothing is held.',
   event_wish_items:
     'The name of a THING the couple would love as a gift — "Air fryer", "Luggage set" (the E-Gifts wish list, migration 20271266228704). Not a person. Its sibling `event_gift_records` DOES record a person — `giver_name`, their words and a screenshot of their own bank or e-wallet screen — under a column name this scan does not match; that is the GUEST category\'s data and is anchored there (`event_gift_records.giver_name`, since the change that first wrote a record — wish list 4/5).',
   vendor_role_names:
@@ -282,6 +282,9 @@ export const UNCLASSIFIED_PERSON_TABLES: Readonly<Record<string, string>> = {
     'Table DROPPED 2026-09-18 — the pre-launch couple waitlist (full name + email, no account). Never held a row in production. Nothing is stored; no DPO question remains.',
   dependents:
     'A guardian-held person — a child under 18 or an elder — whose birthdate, sex and religion a user stores. The most sensitive record on the platform and counsel-gated: the table exists but every write is held behind a default-OFF flag, so it is empty in production. DPO: this needs its own category and almost certainly its own DPIA before the flag is ever flipped.',
+  // ⚠ TABLE DROPPED 2026-11-27 (migration 20271364844438, owner: brief Add 41 / A2-I14). Sponsors are guests
+  // with a sponsor role now; every row was linked or copied into `guests` first (20271363480132). The key STAYS
+  // for the same parser reason as couple_waitlist_signups above.
   event_sponsors:
-    'A principal or secondary sponsor (ninong / ninang) named by the couple: full name, and the role they carry at the ceremony. A real named third party who never touches the app. DPO: likely folds into "guests", but it has never been said so in writing.',
+    'Table DROPPED 2026-11-27 — sponsors now live in the guest list (a guest with a sponsor role), so they are "guests" data. Nothing is stored here; no DPO question remains.',
 };

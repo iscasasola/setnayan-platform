@@ -349,7 +349,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
                     step="any"
                     defaultValue={gcashGate?.maxPhp != null ? String(gcashGate.maxPhp) : ''}
                     inputMode="decimal"
-                    placeholder="1000"
+                    placeholder="amount in pesos"
                     className="input-field font-mono"
                   />
                 </Field>
@@ -362,7 +362,7 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
                     step="any"
                     defaultValue={gcashGate?.allowancePhp != null ? String(gcashGate.allowancePhp) : ''}
                     inputMode="decimal"
-                    placeholder="100000"
+                    placeholder="amount in pesos"
                     className="input-field font-mono"
                   />
                 </Field>
@@ -428,10 +428,9 @@ export default async function PaymentMethodsAdminPage({ searchParams }: Props) {
           Setnayan writes each order&rsquo;s exact amount into the code
           itself, down to the centavo, so the payer never types a figure. If
           you use the QR your wallet app generates <em>with</em> an amount
-          baked in, that app applies its own minimum (GCash asks for
-          &#8369;100) and every order would be charged that one frozen
-          amount. Our own smallest item sells for &#8369;70, so an
-          amount-baked QR would break it.
+          baked in, that app applies its own minimum and every order would
+          be charged that one frozen amount. Some of our items sell for less
+          than that minimum, so an amount-baked QR would break them.
         </p>
       </div>
 
@@ -841,7 +840,7 @@ function ChannelSwitch({
             name={`${kind}_monthly_cap_php`}
             defaultValue={capPhp != null ? String(capPhp) : ''}
             inputMode="decimal"
-            placeholder={kind === 'gcash' ? '500000' : 'leave blank if none'}
+            placeholder={kind === 'gcash' ? 'read it from the app' : 'leave blank if none'}
             className="input-field font-mono"
           />
         </Field>

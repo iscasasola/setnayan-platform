@@ -48,6 +48,8 @@ type Props = {
     slug_error?: string;
     mono_saved?: string;
     mono_error?: string;
+    invite?: string;
+    n?: string;
   }>;
 };
 
@@ -57,7 +59,11 @@ type Props = {
 const SLUG_ERROR_COPY: Record<string, string> = {
   ...SLUG_CONFLICT_MESSAGE,
   taken: 'That address is already taken by another event.',
+  // I-02 (final check): the refusal used to print as the bare key "needs_custom_address".
+  needs_custom_address: 'Choosing your own address isn’t open for this event. Your address stays as it is.',
 };
+/** A refusal this page has no sentence for is said plainly — never the raw key from the address bar. */
+const SLUG_ERROR_FALLBACK = 'That address was not saved. Please try again.';
 
 
 export default async function InvitationAdminPage({ params, searchParams }: Props) {
@@ -181,10 +187,25 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   const slugSaved = search.slug_saved === '1';
   const slugErrorKey = search.slug_error ?? null;
   const slugError = slugErrorKey
-    ? (SLUG_ERROR_COPY[slugErrorKey] ?? decodeURIComponent(slugErrorKey))
+    ? (SLUG_ERROR_COPY[slugErrorKey] ?? SLUG_ERROR_FALLBACK)
     : null;
 
   const monoSaved = search.mono_saved === '1';
+  // I-04 (final check): the Mark sent actions came back with `?invite=…` and the page never read it.
+  const inviteMarkedN = Number.parseInt(search.n ?? '', 10);
+  const inviteLine: { tone: 'alert' | 'status'; text: string } | null =
+    search.invite === 'failed'
+      ? { tone: 'alert', text: "Couldn't save that. Nothing changed — try again." }
+      : search.invite === 'none'
+        ? { tone: 'alert', text: 'Pick at least one guest first.' }
+        : (search.invite === 'marked' || search.invite === 'unmarked') && Number.isFinite(inviteMarkedN)
+          ? {
+              tone: 'status',
+              text: `${formatCount(inviteMarkedN)} guest${inviteMarkedN === 1 ? '' : 's'} marked ${
+                search.invite === 'marked' ? 'sent' : 'not sent yet'
+              }.`,
+            }
+          : null;
   const monoErrorKey = search.mono_error ?? null;
   const monoError = monoErrorKey
     ? (MONO_ERROR_COPY[monoErrorKey] ?? decodeURIComponent(monoErrorKey))
@@ -242,6 +263,15 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           </div>
         }
       />
+
+      {inviteLine ? (
+        <p
+          role={inviteLine.tone}
+          className={`text-sm ${inviteLine.tone === 'alert' ? 'text-danger-600' : 'text-ink'}`}
+        >
+          {inviteLine.text}
+        </p>
+      ) : null}
 
       {reissuedGuestId ? (
         <p

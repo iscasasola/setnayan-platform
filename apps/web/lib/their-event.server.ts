@@ -17,7 +17,8 @@ export type GroupGuest = { name: string; rsvp: string | null; diet: string | nul
  * live Shop Manager and the live seat that handles this client; anybody else on the team gets `not_your_client`.
  */
 export type BookingGroupRead =
-  | { status: 'ok'; label: string; booked: number | null; guests: GroupGuest[] }
+  /** `counted` = the group's number by the one guest rule, without the declined (A6-57); null = an older answer without it. */
+  | { status: 'ok'; label: string; booked: number | null; counted: number | null; guests: GroupGuest[] }
   | { status: 'no_group' | 'not_booked' | 'not_your_client' | 'is_host' | 'not_signed_in' }
   | null;
 
@@ -27,10 +28,16 @@ export async function readBookingGroup(supabase: SupabaseClient, eventId: string
     logQueryError('readBookingGroup', error, { event_id: eventId }, 'graceful_degrade');
     return null;
   }
-  const r = (data ?? null) as { status?: string; label?: string; booked?: number | null; guests?: GroupGuest[] } | null;
+  const r = (data ?? null) as { status?: string; label?: string; booked?: number | null; counted?: number | null; guests?: GroupGuest[] } | null;
   if (!r?.status) return null;
   if (r.status === 'ok') {
-    return { status: 'ok', label: r.label ?? 'Your group', booked: typeof r.booked === 'number' ? r.booked : null, guests: Array.isArray(r.guests) ? r.guests : [] };
+    return {
+      status: 'ok',
+      label: r.label ?? 'Your group',
+      booked: typeof r.booked === 'number' ? r.booked : null,
+      counted: typeof r.counted === 'number' ? r.counted : null,
+      guests: Array.isArray(r.guests) ? r.guests : [],
+    };
   }
   // 'not_your_client' (ship review, 22 Nov 2026): on the booked shop's team, but not its owner, a live Shop Manager or
   // the live seat that handles this client — said as itself, never as "the hosts have not filled it yet".

@@ -30,8 +30,8 @@ export function ShopGiftsLedger({
   ledgerError: { message: string } | null;
   holds: ShopGiftHoldRow[] | null;
   holdsError: { message: string } | null;
-  /** The live gift limit (`getGiftLimitPct`) — the same setting this page edits. Never typed. */
-  giftLimitPct: number;
+  /** The live gift limit (`getGiftLimitPctRead`) — the same setting this page edits. Never typed; null = unread. */
+  giftLimitPct: number | null;
 }) {
   return (
     <div data-admin-shop-gifts="">
@@ -39,7 +39,7 @@ export function ShopGiftsLedger({
       label="Supplier gifts"
       tip={
         <>
-          A shop&rsquo;s gifts on one booking are capped at {giftLimitPct}% of that booking&rsquo;s fee, at the
+          A shop&rsquo;s gifts on one booking are capped at {giftLimitPct === null ? 'the gift limit (couldn’t read it just now)' : `${giftLimitPct}%`} of that booking&rsquo;s fee, at the
           price couples pay — the same share as the Setnayan gift. The smallest Papic pack is always allowed. Every gift is
           at its catalogue list price; the only way to pay less is a buy-10-get-1 Papic bundle, which lands as packs.
         </>

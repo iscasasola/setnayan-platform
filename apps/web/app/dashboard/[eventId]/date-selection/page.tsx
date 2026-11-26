@@ -25,6 +25,7 @@
  * when date_status != 'locked'). No new orphan routes.
  */
 
+import { spanTouchesWeekend } from '@/lib/long-weekend';
 import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
 import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { blockClosesDay, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
@@ -152,11 +153,8 @@ function holidayNote(dateKey: string): string | null {
     if (!name) continue;
     // Only call it a long weekend when the gap touches an actual weekend:
     // candidate is Sat/Sun, OR the holiday is Sat/Sun, OR they bridge one.
-    const candDow = base.getDay();
-    const holDow = probe.getDay();
-    const touchesWeekend =
-      candDow === 0 || candDow === 6 || holDow === 0 || holDow === 6 || Math.abs(delta) <= 2;
-    if (touchesWeekend) {
+    // A2-H13: the span from the date to the holiday (both included) must hold a Saturday or Sunday.
+    if (spanTouchesWeekend(base, probe)) {
       return `${name} is ${Math.abs(delta)} day${Math.abs(delta) === 1 ? '' : 's'} away — a long weekend gives guests time to travel`;
     }
   }

@@ -1,4 +1,5 @@
 import 'server-only';
+import { emailMayBindRow } from '@/lib/guest-requests';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { sendEmail } from '@/lib/email';
@@ -283,12 +284,18 @@ export async function findSeatToConnect(
     if (!userEmail) return null;
     const { data: row } = await admin
       .from('guests')
-      .select(COLUMNS)
+      .select(`${COLUMNS}, entry_source`)
       .eq('event_id', eventId)
       .ilike('email', userEmail)
       .is('deleted_at', null)
       .maybeSingle();
     if (!row || (await heldByOther(row.guest_id as string))) return null;
+    // 🔒 A4-06 (final check, 25 Nov): ONLY A ROW THE COUPLE PUT ON THE LIST MAY BE BOUND BY EMAIL (`emailMayBindRow`).
+    // A request row carries the address the asker typed themselves; the connect ROUTE refused it
+    // (`onlyARequestHoldsThisEmail`), but the confirm PAGE asked here directly and offered the request as a seat, so
+    // "Yes, save it" let the asker in before the hosts pressed Keep or Link. Keep/Link binds through the claim or the
+    // guest pass, never through this branch.
+    if (!emailMayBindRow((row as { entry_source?: string | null }).entry_source ?? null)) return null;
     return await shape(row, 'email');
   } catch {
     return null;

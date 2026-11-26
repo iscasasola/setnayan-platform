@@ -14,6 +14,7 @@ import { MANPOWER } from './manpower';
 import { MEMORIES } from './memories';
 import { MONOGRAM } from './monogram';
 import { PANOOD_SETUP } from './panoodSetup';
+import { PAPERWORK } from './paperwork';
 import { PAPIC } from './papic';
 import { PATIKTOK } from './patiktok';
 import { PHOTO_DELIVERY } from './photoDelivery';
@@ -31,6 +32,7 @@ import { SUP_PAYMENTS } from './supPayments';
 import { SUP_TEAM } from './supTeam';
 import { SV_CONTRACTS } from './svContracts';
 import { SV_CREATORS } from './svCreators';
+import { SV_DISPUTES } from './svDisputes';
 import { SV_MESSAGES } from './svMessages';
 import { SV_PARTNERSHIPS } from './svPartnerships';
 import { SV_PROPOSALS } from './svProposals';
@@ -59,6 +61,7 @@ export const DOORS: Readonly<Record<StayDoor, Door>> = {
   ...MEMORIES,
   ...MONOGRAM,
   ...PANOOD_SETUP,
+  ...PAPERWORK,
   ...PAPIC,
   ...PATIKTOK,
   ...PHOTO_DELIVERY,
@@ -76,6 +79,7 @@ export const DOORS: Readonly<Record<StayDoor, Door>> = {
   ...SUP_TEAM,
   ...SV_CONTRACTS,
   ...SV_CREATORS,
+  ...SV_DISPUTES,
   ...SV_MESSAGES,
   ...SV_PARTNERSHIPS,
   ...SV_PROPOSALS,

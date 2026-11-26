@@ -395,7 +395,12 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
 
   // ── anti-abuse: disclosure or deletion defeats detection ──
   blacklisted_emails: 'Anti-abuse block-list — deleting the row re-opens signup to the blocked address (and `blacklistUser` writes it deliberately, at erasure time).',
-  concierge_abuse_flags: 'Anti-abuse investigation record (NPC investigation carve-out).',
+  // ⚠ TABLES DROPPED 2026-11-26 (migration 20271363906595, owner ruling R7): the
+  // retired AI abuse desk's queue and the retired "years you grouped" clusters.
+  // event_clusters' CASCADE purge rule left coverage.ts in the same change.
+  // Listed only because the migration parser cannot see a DROP.
+  concierge_abuse_flags: 'Table DROPPED 2026-11-26 — the retired AI Concierge abuse queue; no writer left. Nothing left to erase.',
+  event_clusters: 'Table DROPPED 2026-11-26 — the retired "years you grouped" clusters (with event_cluster_members). Nothing left to erase.',
   chat_message_flags: 'Anti-abuse enforcement record — metadata only, never message text.',
   fraud_signals: 'Fraud-detection signal; deleting it on request makes the control trivially defeatable.',
   integrity_flags: 'Price-under-declaration integrity signal.',
@@ -416,7 +421,9 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   event_members: 'Membership is the event’s record of who was on it — and erasure’s own lookups resolve through it.',
   event_manual_vendors:
     'Third-party contact PII the subject entered ABOUT someone else — excluded by the same rule as event_vendors. Removed with the event (event_id ON DELETE CASCADE). ⚠ Since 2026-09-20 this row ALSO holds the supplier’s street address + map pin and `payment_method_note` — free text that will routinely contain a supplier’s GCash or BANK ACCOUNT NUMBER, a heavier category than a name and phone. The classification is unchanged (it is still the supplier’s data, not the subject’s), but the DPO question it raises is OPEN: a supplier who later claims an account has no path to erase a couple’s note of their account number, because this table is keyed to the couple’s event, not to them.',
-  event_sponsors: 'Third-party PII (sponsor name/email/phone) the subject entered about others.',
+  // ⚠ TABLE DROPPED 2026-11-27 (migration 20271364844438, brief Add 41 / A2-I14) — sponsors are guests now. The
+  // entry stays only because the parser unions every historical CREATE TABLE and does not read DROP TABLE.
+  event_sponsors: 'Table DROPPED 2026-11-27 — sponsors moved into the guest list. Nothing left to erase.',
 
   // ── the uid is a staff actor, not the subject ──
   vendor_verifications: 'Admin decision record — the uid on it is the reviewing staff member.',

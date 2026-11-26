@@ -337,10 +337,6 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
   { file: 'secrets/page.tsx', namesItself: 'title="Secrets & Rotation"' },
   // ── PR 4/4 · the judgement queues ───────────────────────────────────────
   { file: 'chat-flags/page.tsx', namesItself: 'title="Chat contact flags"' },
-  {
-    file: 'concierge-abuse/page.tsx',
-    namesItself: 'title="Today’s Focus enforcement"',
-  },
   { file: 'integrity-watch/page.tsx', namesItself: 'title="Integrity watch"' },
   { file: 'repost-watch/page.tsx', namesItself: 'title="Repost watch"' },
   { file: 'reviews/page.tsx', namesItself: 'title="Review moderation"' },

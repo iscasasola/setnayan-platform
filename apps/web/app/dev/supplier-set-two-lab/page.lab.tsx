@@ -107,9 +107,13 @@ const SEAT: Plan = {
   cocktail: { label: 'Cocktail Area', x: 16, y: 72, w: 26, h: 34, venue: { width_m: null, length_m: null }, window: { label: 'Cocktails', start_at: '2026-12-12T18:00:00', end_at: '2026-12-12T19:00:00' } },
   dietary_included: true,
   tables: Array.from({ length: 8 }, (_, i) => ({
-    table_id: `st${i}`, label: `Table ${i + 1}`, table_type: i % 3 === 0 ? 'rect_8' : 'round_10', capacity: 10,
+    table_id: `st${i}`, label: `Table ${i + 1}`, table_type: i % 3 === 0 ? 'long_banquet_10' : 'round_10', capacity: 10,
     x: i < 7 ? 38 + (i % 4) * 15 : null, y: i < 7 ? 52 + Math.floor(i / 4) * 20 : null, rotation_deg: 0, sort_order: i,
     seated: 8 + (i % 3), meal_counts: { chicken: 4, beef: 3, fish: 1 + (i % 2) },
+    // A7-16: Tables 5 and 6 are joined by the hosts — one row under the group's name, one chain on the map.
+    removed_seats: i === 1 ? [9] : [],
+    link_group_id: i === 4 || i === 5 ? 'lab-family' : null,
+    link_group_label: i === 4 || i === 5 ? 'Family table' : null,
   })),
   objects: [
     { object_id: 'o1', zone: 'cocktail', object_type: 'dessert_station', label: 'Dessert Station', x: 12, y: 70, is_mine: true, vendor_name: null },

@@ -12,6 +12,7 @@ import { GuestStoryMaker } from './_components/guest-story-maker';
 import { GuestSpotlight } from '@/app/_components/guest-spotlight';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { TOURS } from '@/lib/tours';
+import { RiseDoor } from './_components/rise-door';
 
 // Papic · MY camera (guest personal-QR → Limited roll camera).
 //
@@ -66,13 +67,15 @@ async function PoolDoorway({ eventId, token }: { eventId: string; token: string 
     .maybeSingle();
   if (!ev?.pool_gallery_open) return null;
   return (
-    <a
+    /* ⤴ A4-81 (drawing § 06): rises over My photos (`RiseDoor`); the bridge stays the link without script. */
+    <RiseDoor
       href={`/papic/me/${encodeURIComponent(token)}/session?next=pool`}
+      pageHref="/papic/pool"
       className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-ink/10"
     >
       <Images aria-hidden className="h-4 w-4" strokeWidth={2} />
       Browse everyone&rsquo;s photos
-    </a>
+    </RiseDoor>
   );
 }
 
@@ -150,16 +153,17 @@ async function GuestGallery({
       </SaveFileLink>
       {/* Kwento Decorator — go through the token→session bridge (route handler)
           so a guest who only has the raw token link still gets a session before
-          the session-scoped /papic/decorate. Plain <a> = full nav that sets the
-          cookie; it's a route handler (not a page), so no-html-link-for-pages
-          doesn't apply. */}
-      <a
+          the session-scoped /papic/decorate. ⤴ A4-55 (drawing § 05): with script the
+          bridge is asked in the background and the decorator RISES over this page
+          (`RiseDoor`); the bridge stays the link without script. */}
+      <RiseDoor
         href={`/papic/me/${token}/session`}
+        pageHref="/papic/decorate"
         className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-ink/10"
       >
         <Sparkles aria-hidden className="h-4 w-4" strokeWidth={2} />
         Decorate a photo
-      </a>
+      </RiseDoor>
       {/* FREE Guest Stories — one-tap 30s reel from these tagged photos. */}
       <GuestStoryMaker token={token} />
     </section>

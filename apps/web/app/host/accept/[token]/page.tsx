@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CheckCircle2, ShieldAlert, Sparkles, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   ROLE_SUBTYPE_LABEL,
@@ -48,7 +49,7 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
   const search = await searchParams;
 
   const admin = createAdminClient();
-  const { data: inviteRaw } = await admin
+  const { data: inviteRaw, error: inviteError } = await admin
     .from('event_moderators')
     .select(
       'moderator_id, event_id, user_id, role_subtype, display_label, invitation_email, invitation_sent_at, invitation_expires_at, accepted_at, removed_at, invited_by_user_id',
@@ -56,6 +57,19 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
     .eq('invitation_token', token)
     .maybeSingle();
 
+  // A2-A10: a refused read is "we couldn't read this invitation — try again", never the dead link's "not found".
+  if (inviteError) {
+    logQueryError('HostAcceptPage (event_moderators)', inviteError);
+    return (
+      <TerminalCard
+        tone="warn"
+        eyebrow="Invitation"
+        title="We couldn’t read this invitation just now."
+        body="The link may still be good. Try again in a moment."
+        cta={{ href: `/host/accept/${token}`, label: 'Try again' }}
+      />
+    );
+  }
   if (!inviteRaw) {
     // Could be (a) already accepted (token rotated to NULL on accept) or
     // (b) malformed token. Either way, render not-found.
@@ -229,7 +243,7 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
             <>
               You&apos;re signed in as <span className="font-semibold">{user.email}</span>, but
               this invitation was sent to{' '}
-              <span className="font-semibold">{search.expected ?? invite.invitation_email}</span>.
+              <span className="font-semibold">{invite.invitation_email}</span>.
               Sign out and back in with the correct account, or ask the inviter to
               re-send to your current address.
             </>
@@ -246,7 +260,10 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
           tone="warn"
           eyebrow="Something went wrong"
           title="We couldn't complete that just now."
-          body={`Error: ${search.error}${search.msg ? ' — ' + search.msg : ''}. Try again, or ask the inviter to re-send.`}
+          // A2-A9 (SW-RAWDB): fixed words only. Nothing from the address bar is printed, so a crafted link cannot put
+          // text on Setnayan's invitation card, and a refusal never shows the database's own message.
+          body="Nothing was changed. Try again, or ask the person who invited you to send a new link."
+          cta={{ href: `/host/accept/${token}`, label: 'Try again' }}
         />
     );
   }

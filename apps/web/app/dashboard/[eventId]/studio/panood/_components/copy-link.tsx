@@ -22,16 +22,18 @@ type Props = {
 // mint short-lived signed links with a session token.
 export function CopyLink({ label, url, hint }: Props) {
   const [copied, setCopied] = useState(false);
+  const [blocked, setBlocked] = useState(false);
 
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(url);
+      setBlocked(false);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      // Clipboard API may be blocked in some embedded contexts (PWA in
-      // restricted mode). Fall back silently — the URL is still visible in
-      // the input so the user can long-press to copy manually.
+      // Clipboard API may be blocked in some embedded contexts (PWA in restricted mode). The URL is still in the
+      // box above — L-09 (final check): say so instead of a press that does nothing.
+      setBlocked(true);
     }
   }
 
@@ -66,6 +68,11 @@ export function CopyLink({ label, url, hint }: Props) {
           )}
         </button>
       </div>
+      {blocked ? (
+        <p role="status" className="text-[12px] text-ink/70">
+          Couldn&rsquo;t copy on this device. Press and hold the link above to copy it.
+        </p>
+      ) : null}
       {hint ? <p className="text-[12px] text-ink/70">{hint}</p> : null}
     </div>
   );

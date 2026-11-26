@@ -3,6 +3,7 @@
 // legacy route is now a redirect (or, for pricing/settings, the studio shell).
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { TemplateFail, TemplateSection } from '@/app/_components/template-rows';
+import { ReadFailed } from '@/app/admin/_components/read-failed';
 import { actionButtonClass } from '@/components/action-button-class';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -128,17 +129,17 @@ const VENDOR_OFFERING_LABEL: Record<VendorOfferingType, string> = {
   subscription_monthly: 'Subscription · monthly',
   subscription_annual: 'Subscription · annual',
   token_pack: 'Token pack',
-  branch: 'Add-on · +1 branch (Supplier Ultra)',
-  seat: 'Add-on · +1 team seat (Supplier Ultra)',
+  branch: 'Add-on · +1 branch (Ultra)',
+  seat: 'Add-on · +1 team seat (Ultra)',
   custom_addon: 'Custom plan part',
   vendor_addon_recurring: 'Add-on · every 4 weeks',
   vendor_addon_per_event: 'Add-on · per event',
   vendor_addon_metered: 'Add-on · per use',
   // Ultra add-ons, owner 2026-11-06 ("ULTRA ADD-ON PRICES").
-  category: 'Add-on · +1 category (Supplier Ultra)',
-  service_card: 'Add-on · +1 service card (Supplier Ultra)',
-  waitlist: 'Add-on · +1 wait list (Supplier Ultra)',
-  booking_per_date: 'Add-on · +1 booking per date (Supplier Ultra)',
+  category: 'Add-on · +1 category (Ultra)',
+  service_card: 'Add-on · +1 service card (Ultra)',
+  waitlist: 'Add-on · +1 wait list (Ultra)',
+  booking_per_date: 'Add-on · +1 booking per date (Ultra)',
 };
 
 export async function PricingSurface(_props: Props) {
@@ -405,12 +406,16 @@ export async function PricingSurface(_props: Props) {
         />
       )}
 
-      <PriceCatalogBrowser
-        rows={rows}
-        retailTitlesForReplacement={retailTitlesForReplacement}
-        freeCreditsPerEvent={freeCreditsPerEvent}
-        formula={formula}
-      />
+      {/* A8·B-8: under a failed catalogue read the browser is not mounted — its empty lines ("Nothing is switched
+          off.", "No price on sale has a cost yet.") and its counts would describe rows that failed to load. */}
+      {retailRes.error || bundleRes.error || vendorRes.error ? null : (
+        <PriceCatalogBrowser
+          rows={rows}
+          retailTitlesForReplacement={retailTitlesForReplacement}
+          freeCreditsPerEvent={freeCreditsPerEvent}
+          formula={formula}
+        />
+      )}
 
       {/*
         ⚖ 2026-10-02 (owner d18): the SET-UP DISCOUNT IS BACK as the ONE
@@ -460,6 +465,11 @@ export async function PricingSurface(_props: Props) {
         tip="What a supplier pays Setnayan for an introduction that turns into a booking. Owner-set: the rate below the threshold, the threshold itself, and the rate above it. The minimum is fixed; the lock, the every-Nth free booking fee and the new-client free window are shown under the form. Charged to the supplier when Setnayan introduces them to a couple — never to the couple, and never a commission. The couple pays the supplier directly."
         data="booking-fee"
       >
+        {/* A8·B-4: an unread settings row is "Couldn't read", with no Save — the code schedule is never shown as the
+            live one, and a save could write it over the real numbers. */}
+        {settingsRes.error ? (
+          <ReadFailed what="the booking fee settings, so they can’t be changed until they load" />
+        ) : (
         <BookingFeeForm
           action={saveBookingFeeSchedule}
           ratePct={bookingFee.ratePct}
@@ -472,6 +482,7 @@ export async function PricingSurface(_props: Props) {
           isFromDb={bookingFee.isFromDb}
           enabled={isBookingFeeEnabled()}
         />
+        )}
       </TemplateSection>
 
       <TemplateSection

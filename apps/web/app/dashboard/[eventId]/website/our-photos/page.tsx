@@ -49,11 +49,13 @@ export default async function OurPhotosEditorPage({
   if (!user) redirect('/login');
 
   const supabase = await createClient();
-  const { data: event } = await supabase
+  const { data: event, error: eventReadError } = await supabase
     .from('events')
     .select('event_id, display_name, slug, our_photos')
     .eq('event_id', eventId)
     .maybeSingle();
+  // E-05 (final check): a refused read used to bounce to Home with no word. It is a failure: the error page says so.
+  if (eventReadError) throw new Error("Couldn't read this event just now.");
 
   if (!event) redirect(`/dashboard/${eventId}`);
 

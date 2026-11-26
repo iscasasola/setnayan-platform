@@ -135,7 +135,7 @@ export default async function PabuyaPublicPage({
             <Logo height={26} />
           </Link>
           <span className="font-mono text-xs uppercase tracking-[0.18em] text-ink/70">
-            Pabuya
+            E-Gifts
           </span>
         </div>
       </header>
@@ -152,8 +152,8 @@ export default async function PabuyaPublicPage({
             {words.solemn
               ? 'A gift of sympathy'
               : giftIsMoneyDance(words)
-                ? 'The pabuya · digital money dance'
-                : 'The pabuya · E-Gifts'}
+                ? 'E-Gifts · digital money dance'
+                : 'E-Gifts'}
           </p>
           <h1 className="mt-2 font-display text-3xl font-medium italic sm:text-4xl">
             E-Gifts for {hostName}
@@ -186,7 +186,7 @@ export default async function PabuyaPublicPage({
           </p>
           <p className="mt-1 text-sm text-ink/70">— {hostName}</p>
           <p className="mt-6 font-mono text-xs uppercase tracking-[0.14em] text-ink/70">
-            Kept safe on Setnayan
+            Shared on Setnayan
           </p>
         </footer>
       </div>

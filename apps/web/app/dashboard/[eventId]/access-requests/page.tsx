@@ -155,7 +155,9 @@ export default async function AccessRequestsPage({
       {/* 🔌 A refused read is never "Nothing waiting on you." (reads-are-honest, 2026-11-02 audit #20). */}
       {dataError ? (
         <ReadRefusedNotice what="the access requests" className="mt-6" />
-      ) : pending.length === 0 && !(claimsRead.measured && claimsRead.asks.length > 0) ? (
+      ) : pending.length === 0 && claimsRead.measured && claimsRead.asks.length === 0 ? (
+        // A2-E7: "Nothing waiting on you." is a claim about BOTH lists, so it is only made when both were read.
+        // When the link check failed, the line above already says so and this one stays silent.
         <p className="sn-tile mt-6 p-6 text-center text-sm text-ink/70">
           Nothing waiting on you.
         </p>

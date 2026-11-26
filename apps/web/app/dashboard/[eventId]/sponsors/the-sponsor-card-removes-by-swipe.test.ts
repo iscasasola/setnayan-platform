@@ -22,12 +22,13 @@ test('1 · no trash on the card — the card is the swipe', () => {
   assert.doesNotMatch(page, /<form action=\{removeSponsor\}>/);
   assert.doesNotMatch(card, /<form action=\{removeSponsor\}>/);
   assert.match(page, /<SponsorCard\b/);
-  assert.match(card, /<SponsorSwipe eventId=\{eventId\} sponsorId=\{sponsor\.id\} name=\{sponsor\.full_name\}>\s*\{card\}\s*<\/SponsorSwipe>/);
+  // Since sponsors are guests (owner, brief Add 41), one guest may hold two sponsor roles — the swipe names its tier.
+  assert.match(card, /<SponsorSwipe eventId=\{eventId\} sponsorId=\{sponsor\.id\} tier=\{sponsor\.sponsor_tier\} name=\{sponsor\.full_name\}>\s*\{card\}\s*<\/SponsorSwipe>/);
 });
 
 test('2 · the swipe is the same removeSponsor, with Undo, and a refusal brings the card back', () => {
   const swipe = read('_components/sponsor-swipe.tsx');
-  assert.match(swipe, /deleteWithUndo\(\{[\s\S]*?fd\.set\('event_id', eventId\);\s*fd\.set\('sponsor_id', sponsorId\);\s*return saveInPlace\('sponsors\.removeSponsor', fd\);/, 'the swipe no longer removes through the same removeSponsor, in place');
+  assert.match(swipe, /deleteWithUndo\(\{[\s\S]*?fd\.set\('event_id', eventId\);\s*fd\.set\('sponsor_id', sponsorId\);\s*fd\.set\('sponsor_tier', tier\);\s*return saveInPlace\('sponsors\.removeSponsor', fd\);/, 'the swipe no longer removes through the same removeSponsor, in place');
   assert.match(swipe, /useSearchParams\(\)\?\.get\('error'\)[\s\S]*?if \(refused\) setGone\(false\);/);
   assert.match(swipe, /<UndoToastHost \/>/);
 });

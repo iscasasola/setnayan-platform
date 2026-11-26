@@ -43,6 +43,8 @@ import {
 } from '@/lib/auspicious-date';
 import { isChineseWedding } from '@/lib/chinese-wedding';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { updateEventDate } from '@/app/dashboard/[eventId]/actions';
 
 const ALLOWED_KINDS: MeaningfulDateKind[] = [
   'honor',
@@ -71,18 +73,22 @@ function isKind(value: unknown): value is MeaningfulDateKind {
  * event_date and ≥1 confirmed vendor, the action refuses changes. Phase 0
  * is typically pre-vendor so this rarely fires, but defense-in-depth.
  */
+const LOCK_NOT_SAVED = 'That date did not save. Nothing changed — please try again.';
+
 export async function lockEventDate(formData: FormData): Promise<{ ok: false; error: string } | void> {
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = formData.get('event_id');
   const dateRaw = formData.get('event_date');
   const precisionRaw = formData.get('precision');
-  if (typeof eventId !== 'string') throw new Error('event_id required');
+  /* Every refusal is RETURNED and said beside the date (A2-H12): a throw from a pick on this page went to the error
+     screen, and production strips its words. */
+  if (typeof eventId !== 'string' || !eventId) return { ok: false, error: LOCK_NOT_SAVED };
   if (typeof dateRaw !== 'string' || dateRaw.trim().length === 0) {
-    throw new Error('Pick a date before locking');
+    return { ok: false, error: 'Pick a date before locking it in.' };
   }
   const trimmed = dateRaw.trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-    throw new Error('Invalid date format — use YYYY-MM-DD');
+    return { ok: false, error: 'That date could not be read.' };
   }
 
   // Phase 0 produces a fully-specified date — precision defaults to 'day'.
@@ -104,11 +110,12 @@ export async function lockEventDate(formData: FormData): Promise<{ ok: false; er
   if (!user) redirect('/login');
 
   // Read prior event state for the vendor-lock gate.
-  const { data: priorRow } = await supabase
+  const { data: priorRow, error: priorErr } = await supabase
     .from('events')
     .select('event_date, event_date_precision, ceremony_type, secondary_ceremony_type')
     .eq('event_id', eventId)
     .maybeSingle();
+  if (priorErr || !priorRow) return { ok: false, error: LOCK_NOT_SAVED };
 
   // 💍 No event before December 19, 2026 (owner 2026-11-01, lib/event-date-floor.ts) — RETURNED
   // in the owner's words, said beside the date (a thrown message is generic in production).
@@ -124,15 +131,18 @@ export async function lockEventDate(formData: FormData): Promise<{ ok: false; er
   const dateChanged = wasSet && trimmed !== priorRow?.event_date;
 
   if (dateChanged) {
-    const { count } = await supabase
+    const { count, error: countErr } = await supabase
       .from('event_vendors')
       .select('vendor_id', { count: 'exact', head: true })
       .eq('event_id', eventId)
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
+    /* A refused count is never read as "no booked suppliers" (A2-H12). */
+    if (countErr) return { ok: false, error: 'We could not check your booked suppliers. Nothing changed — please try again.' };
     if ((count ?? 0) > 0) {
-      throw new Error(
-        `Date is locked — ${count} confirmed supplier${count === 1 ? '' : 's'}. Contact support to discuss changes.`,
-      );
+      return {
+        ok: false,
+        error: `Your date is set — ${count} confirmed supplier${count === 1 ? ' is' : 's are'} booked on it. Contact support to discuss changes.`,
+      };
     }
   }
 
@@ -175,18 +185,27 @@ export async function lockEventDate(formData: FormData): Promise<{ ok: false; er
     isChineseWedding(priorRow),
   );
 
-  const { error } = await supabase
-    .from('events')
-    .update({
-      event_date: trimmed,
-      event_date_precision: precision,
-      date_status: 'locked',
-      auspicious_reasons: reasons,
-    })
-    .eq('event_id', eventId);
-  if (error) throw new Error(error.message);
+  /* 📅 THE DATE GOES THROUGH ITS ONE WRITER (A2-H12): `updateEventDate` checks the suppliers' calendars, moves the
+     Schedule with the day, tells booked suppliers, and refreshes every page and the guest Event Hub. This page then
+     adds only what is its own — the lock and the reasons it showed. */
+  const dateFd = new FormData();
+  dateFd.set('event_id', eventId);
+  dateFd.set('event_date', trimmed);
+  dateFd.set('precision', precision);
+  const applied = await updateEventDate(dateFd);
+  if (!applied.ok) return { ok: false, error: applied.error };
 
-  revalidatePath(`/dashboard/${eventId}`);
+  const { data: wrote, error } = await supabase
+    .from('events')
+    .update({ date_status: 'locked', auspicious_reasons: reasons })
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (error || !wrote?.length) {
+    if (error) logQueryError('lockEventDate (events lock)', error);
+    return { ok: false, error: 'Your date is saved, but it could not be locked in. Please try again.' };
+  }
+
+  revalidatePath(`/dashboard/${eventId}`, 'layout');
   redirect(`/dashboard/${eventId}?date_locked=1`);
 }
 

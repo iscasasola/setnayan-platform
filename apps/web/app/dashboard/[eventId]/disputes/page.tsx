@@ -7,9 +7,17 @@ import { displayUrlsForPrivateStoredAssets } from '@/lib/uploads';
 import { disputeEvidencePolicy } from '@/lib/r2-client-ref';
 import { sweepEscalateStaleFlags } from '@/lib/force-majeure';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ReadRefusedNotice } from '../_components/read-refused-notice';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { FlagCard, NewFlagForm, type EventVendorRow, type FlagRow } from './_components/dispute-parts';
 
 export const metadata = { title: 'Disputes' };
+
+/** The only words this page prints for `?error=` (A2-S1). Unknown keys read as the plain fallback. */
+const DISPUTE_ERROR_COPY: Record<string, string> = {
+  upload_failed: 'Couldn’t upload that photo. Try a smaller image (JPG, PNG or WEBP), then file again.',
+  save_failed: 'Couldn’t file that — nothing was changed. Try again.',
+};
 
 type Props = {
   params: Promise<{ eventId: string }>;
@@ -46,6 +54,11 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
       .order('vendor_name', { ascending: true }),
   ]);
 
+  // A2-G15: a refused read is never "No disputes on record" / "Existing flags (0)". The error reaches the render.
+  const flagsRefused = Boolean(flagsRes.error);
+  const vendorsRefused = Boolean(vendorsRes.error);
+  if (flagsRes.error) logQueryError('CoupleDisputesPage.flags', flagsRes.error, { eventId }, 'graceful_degrade');
+  if (vendorsRes.error) logQueryError('CoupleDisputesPage.vendors', vendorsRes.error, { eventId }, 'graceful_degrade');
   const flags = (flagsRes.data ?? []) as FlagRow[];
   const vendors = (vendorsRes.data ?? []) as EventVendorRow[];
 
@@ -97,10 +110,12 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
           role="alert"
           className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
-          {search.error}
+          {/* A2-S1: fixed words only; a crafted ?error= cannot put text on the page. */}
+          {DISPUTE_ERROR_COPY[search.error] ?? DISPUTE_ERROR_COPY.save_failed}
         </p>
       ) : null}
 
+      {vendorsRefused ? <ReadRefusedNotice what="your booked suppliers" /> : null}
       <NewFlagForm eventId={eventId} vendors={vendors} />
 
       <section aria-labelledby="existing-flags" className="space-y-3">
@@ -108,9 +123,11 @@ export default async function CoupleDisputesPage({ params, searchParams }: Props
           id="existing-flags"
           className="sn-eye"
         >
-          Existing flags ({flags.length})
+          {flagsRefused ? 'Existing flags' : `Existing flags (${flags.length})`}
         </h2>
-        {flags.length === 0 ? (
+        {flagsRefused ? (
+          <ReadRefusedNotice what="your disputes" />
+        ) : flags.length === 0 ? (
           <div className="sn-row border-dashed p-8 text-center text-sm text-ink/70">
             No disputes on record. Open one above when something goes
             sideways.

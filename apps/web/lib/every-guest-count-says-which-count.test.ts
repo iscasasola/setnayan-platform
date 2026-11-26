@@ -216,6 +216,8 @@ test('the raw guest-count columns are only ever handed to the helper or a fetche
     /paxAtInquiry: thread\.pax_at_inquiry/, // → fetchVendorPaxProposals + the rail builder
     /requestedPax=\{thread\.pax_at_inquiry \?\? headerPax \?\? null\}/, // → the quote seed (no guessed count, 24 Nov)
     /const headerPax = livePax \?\? thread\.pax_current;/, // → the live count, read once
+    // → the same line under owner Add 35 (25 Nov): an unread live count is said, never replaced by the snapshot.
+    /const headerPax = livePaxUnread \? null : \(livePax \?\? thread\.pax_current\);/,
   ];
 
   const offending = [...linesWith(threadSrc, 'pax_at_inquiry'), ...linesWith(threadSrc, 'pax_current')]

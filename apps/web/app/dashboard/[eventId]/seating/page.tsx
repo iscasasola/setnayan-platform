@@ -25,10 +25,11 @@ import {
   effectiveCapacity,
   fetchAssignments,
   fetchBooths,
-  fetchFloorPlan,
+  fetchFloorPlanMeasured,
   fetchSeatingConstraints,
-  fetchSigns,
+  fetchSignsMeasured,
   fetchTables,
+  countStillToSeat,
   groupColorFor,
 } from '@/lib/seating';
 import { fetchBookedVendorsForBooths } from '@/lib/vendors';
@@ -37,7 +38,7 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER, MAKER_INNER_TOURS_AFTER } from '@/lib/host-page-tours';
 import { guestsViewHref, parseSeatView } from '@/lib/guests-views';
-import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE, SIDE_ORDER } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE, SIDE_ORDER, computeGuestStats, countsTowardEvent, headcountForBasis } from '@/lib/guests';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { peopleLabels } from '@/lib/details-your-event';
 import type { SeatingDetailsShell, SeatingGuest, SeatingGroup } from './_components/seating-editor';
@@ -47,7 +48,7 @@ import { loadRoleNames } from '@/lib/role-names.server';
 import { roleSeatingLabels } from '@/lib/role-seating-labels';
 import { setSeatingAutoplace, setSeatingGroupAdjacency } from './actions';
 import { PLAN3D_BOOTH_ADS_ENABLED } from '@/lib/ghost-booths';
-import SeatingLabPage from './lab/page';
+import SeatingLabPage from './lab/_components/seating-room';
 import { SeatPlanInGuests } from './_components/seat-plan-in-guests';
 
 export const metadata = { title: 'Seating chart' };
@@ -108,16 +109,24 @@ export default async function SeatingPage({ params, searchParams }: Props) {
     return <NotSharedWithYou title="Seating chart" thing="seat plan" />;
   }
 
-  const [tables, assignments, guestsRead, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet, bookedVendors, venueRoomSize, roleNames, avatarCount] =
+  const [tables, assignments, guestsRead, groupsRaw, memberships, floorPlanRead, booths, signsRead, eventRow, constraints, roleSet, bookedVendors, venueRoomSize, roleNames, avatarCount] =
     await Promise.all([
-      fetchTables(supabase, eventId),
-      fetchAssignments(supabase, eventId),
+      // A2-D1: these two THROW on a refused read, and inside Guests › Seats no error boundary sits between them and the
+      // whole Guests page. Caught here: a refusal is said in the Seats view, the List stays.
+      fetchTables(supabase, eventId).catch((e: unknown) => {
+        logQueryError('SeatingPage.tables', e, { event_id: eventId }, 'graceful_degrade');
+        return null;
+      }),
+      fetchAssignments(supabase, eventId).catch((e: unknown) => {
+        logQueryError('SeatingPage.assignments', e, { event_id: eventId }, 'graceful_degrade');
+        return null;
+      }),
       fetchGuestsByEventMeasured(supabase, eventId),
       fetchGuestGroupsByEvent(supabase, eventId),
       fetchGroupMembershipsByEvent(supabase, eventId),
-      fetchFloorPlan(supabase, eventId),
+      fetchFloorPlanMeasured(supabase, eventId),
       fetchBooths(supabase, eventId, { brandedReader: createAdminClient() }),
-      fetchSigns(supabase, eventId),
+      fetchSignsMeasured(supabase, eventId),
       supabase
         .from('events')
         .select(`event_date_precision, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled, seating_group_adjacency, slug, timezone, ${EVENT_CLOCK_COLUMNS}`)
@@ -145,6 +154,13 @@ export default async function SeatingPage({ params, searchParams }: Props) {
         .is(REPRESENTED_BY, null)
         .not('avatar_config', 'is', null),
     ]);
+  if (tables === null || assignments === null) {
+    return (
+      <section className="mx-auto w-full max-w-3xl px-4 py-6">
+        <ReadRefusedNotice what="your seat plan" />
+      </section>
+    );
+  }
   // 🔌 A refused guest read is never an empty room to seat (reads-are-honest, 2026-11-02 audit #14).
   if (!guestsRead.measured) {
     return (
@@ -153,6 +169,17 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       </section>
     );
   }
+  // 🔌 A7-10 (final check 25 Nov): a refused floor-plan or signs read is not the couple's room — never the default
+  // room drawn as theirs, never the "Show guests their seats early" switch drawn Off because the read was refused.
+  if (!floorPlanRead.measured || !signsRead.measured) {
+    return (
+      <section className="mx-auto w-full max-w-3xl px-4 py-6">
+        <ReadRefusedNotice what="your floor plan" />
+      </section>
+    );
+  }
+  const floorPlan = floorPlanRead.plan;
+  const signs = signsRead.rows;
   /* 🪑 SEATS FOLLOW THE INVITATION (owner 2026-11-02): a guest taken off every seated chapter ("after party only") is
      not offered a seat. That read refused → everyone is offered, as before (the arranging actions stop instead). */
   const noSeat = await readNoSeatGuestIds(supabase, eventId);
@@ -236,10 +263,13 @@ export default async function SeatingPage({ params, searchParams }: Props) {
   // Seat-reservation summary (RSVP "holds a place" → couple seats them).
   // Reserved = guests who confirmed attendance; seated = those already in a
   // chair; the rest still need a seat. Plus-ones are their own guest rows.
-  const reservedGuests = seatingGuests.filter((g) => g.rsvp_status === 'attending');
-  const reservedCount = reservedGuests.length;
-  const seatedCount = reservedGuests.filter((g) => g.seated_table_id !== null).length;
-  const toSeatCount = reservedCount - seatedCount;
+  // Reserved and still-to-seat come from the ONE readers (A2-D2 / A2-E4): the guest count from `computeGuestStats` ·
+  // `headcountForBasis`, the seats still to fill from `countStillToSeat` — never a filter of this page's own.
+  const countedGuestIds = new Set(guests.filter(countsTowardEvent).map((g) => g.guest_id));
+  const countedSeatingGuests = seatingGuests.filter((g) => countedGuestIds.has(g.guest_id));
+  const guestStats = computeGuestStats(guests);
+  const reservedCount = headcountForBasis(guestStats, 'attending');
+  const toSeatCount = countStillToSeat(countedSeatingGuests);
 
   // Smart Seat-Plan Phase 5: live auto-seating on/off + a capacity check.
   // Reconcile can only seat as many guests as there are chairs, so surface when
@@ -260,7 +290,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
     if (gb.error) logQueryError('SeatingPage.ghostBooths', gb.error, { event_id: eventId }, 'graceful_degrade');
     else ghostBoothsEnabled = (gb.data?.ghost_booths_enabled as boolean | null | undefined) ?? true;
   }
-  const nonDeclinedCount = seatingGuests.filter((g) => g.rsvp_status !== 'declined').length;
+  const nonDeclinedCount = headcountForBasis(guestStats, 'invited');
   const totalSeats = tables.reduce(
     (sum, t) => sum + effectiveCapacity(t.capacity, t.removed_seats),
     0,

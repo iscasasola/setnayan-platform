@@ -242,14 +242,20 @@ export default async function PapicGuestOrderPage({
             read is session-scoped, so the style is what moves here — not the
             route. The mint happens on the server above, exactly as /pay does
             it, so this screen gains the amount-carrying code it never had. */}
-        {rails.length > 0 ? (
+        {/* 💱 A4-77 (final check, SW-PHP): the payment details need the real amount. With none, they are not drawn —
+            never "₱0.00" with a Copy button offering "0.00". */}
+        {rails.length > 0 && amount !== null ? (
           <div className="border-t border-ink/10 pt-4">
             <PayRailsBlock
               rails={rails}
-              amountPhp={amount ?? 0}
+              amountPhp={amount}
               referenceCode={referenceCode}
             />
           </div>
+        ) : rails.length > 0 ? (
+          <p className="border-t border-ink/10 pt-4 text-sm text-ink/60">
+            We couldn&rsquo;t read this order&rsquo;s amount. Reload this page before you send anything.
+          </p>
         ) : (
           <p className="border-t border-ink/10 pt-4 text-sm text-ink/60">
             Payment details are being set up. Please check back shortly.

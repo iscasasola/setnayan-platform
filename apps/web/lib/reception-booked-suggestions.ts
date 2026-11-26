@@ -45,7 +45,7 @@
  * a VALUE from here fails the production build, and NOTHING ELSE CAN SEE IT —
  * `tsc` is not a bundler and `tsx --test` resolves it happily in node. MB12
  * shipped exactly that chain to CI. So the candidates are resolved in
- * `seating/lab/page.tsx` and handed to the editor as plain props, and the
+ * `seating/lab/_components/seating-room.tsx` and handed to the editor as plain props, and the
  * half the editor runs on every tap — which offers to DRAW, given the room as
  * it stands — lives in `lib/reception-suggestion-chips.ts`, which imports no
  * taxonomy at all. Import the shapes from THERE in a client component, never

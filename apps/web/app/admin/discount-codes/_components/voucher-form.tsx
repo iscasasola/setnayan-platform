@@ -64,6 +64,11 @@ type Props = {
   submitLabel: string;
   /** Pending-state label on the submit button. */
   submitPendingLabel: string;
+  /**
+   * A8·A-9: true when any catalogue read was refused. The list is then partial, so the form says so and holds the
+   * save back: saving would drop every covered service that failed to load.
+   */
+  catalogFailed?: boolean;
 };
 
 /**
@@ -102,6 +107,7 @@ export function VoucherForm({
   action,
   submitLabel,
   submitPendingLabel,
+  catalogFailed = false,
 }: Props) {
   const isEdit = initial.discount_code_id !== null;
   const [discountType, setDiscountType] = useState<DiscountType>(
@@ -375,7 +381,12 @@ export function VoucherForm({
         data="voucher-services"
       >
         <div className={`${ADMIN_FRAME} space-y-4 p-4`}>
-          {grouped.size === 0 ? (
+          {catalogFailed ? (
+            <p role="alert" className="rounded-lg bg-[var(--sn-warning-soft)] px-3 py-2 text-sm text-ink">
+              Couldn’t read the whole catalogue, so this list may be missing services. Saving is off until it loads.
+            </p>
+          ) : null}
+          {grouped.size === 0 && catalogFailed ? null : grouped.size === 0 ? (
             <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
               No active services in the catalog right now.
             </p>
@@ -463,7 +474,11 @@ export function VoucherForm({
 
       {/* Submit */}
       <div className="flex items-center gap-3 pt-4">
-        <SubmitButton className={actionButtonClass('brand', { main: true })} pendingLabel={submitPendingLabel}>
+        <SubmitButton
+          className={actionButtonClass('brand', { main: true })}
+          pendingLabel={submitPendingLabel}
+          disabled={catalogFailed}
+        >
           {submitLabel}
         </SubmitButton>
         <Link

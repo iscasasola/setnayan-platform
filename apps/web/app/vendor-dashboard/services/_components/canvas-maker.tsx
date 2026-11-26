@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-import { ChosenRow, FORM_PILL_CLASS, FORM_PILL_WIDTH, FormRow, FormRows, OpensRow, PillWords, TypedRow } from '@/app/_components/form-row';
+import { ChosenRow, FORM_PILL_CLASS, FORM_PILL_WIDTH, FormRow, FormRows, FormRowsReadOnly, OpensRow, PillWords, TypedRow } from '@/app/_components/form-row';
 import { FormCounter } from '@/app/_components/form-counter';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Fold } from '@/app/_components/fold';
@@ -1260,6 +1260,8 @@ export function CanvasMaker({
           inert={editLocked || undefined}
           data-card-edit-lock={editLock?.state ?? 'free'}
         >
+            {/* 🔒 A booked card: every row in it reads as plain words, no pencil (final check B7). */}
+            <FormRowsReadOnly.Provider value={editLocked}>
           <PendingWatch onChange={setPending} />
           <input type="hidden" name="category" value={category} />
           {/* C3 2026-08-28 — set only when the current kind resolved a genuine search miss. */}
@@ -1366,6 +1368,8 @@ export function CanvasMaker({
                       }}
                       data="title"
                       pillAttrs={{ 'data-maker-name': '' }}
+                      // 🔒 A booked card's name reads as plain words from its start — no pencil (final check B7).
+                      readOnly={editLocked}
                     />
                     {/* The kept name, posted under its shipped field name (the live read picks it up on its next tick). */}
                     <input type="hidden" name="title" value={title} />
@@ -1393,6 +1397,7 @@ export function CanvasMaker({
                 <div className="pt-1" data-maker-gallery="">
                   <CardPhotoGallery
                     vendorProfileId={vendorProfileId}
+                    locked={editLocked}
                     primaryCurrent={editing?.coverKey ?? initial?.coverPhotoR2Key ?? null}
                     showcaseCurrent={initial?.showcasePhotoR2Keys}
                     displayUrls={initial?.mediaDisplayUrls}
@@ -1933,6 +1938,7 @@ export function CanvasMaker({
           {askResult && askResult.tone === 'ok' ? (
             <p role="status" className="mt-3 text-[14px]" style={{ color: 'rgb(var(--color-ok))' }}>{askResult.text}</p>
           ) : null}
+            </FormRowsReadOnly.Provider>
         </form>
 
         {/* ═══ AS COUPLES SEE IT — the shipped face, painted from the live form; beside the surface from 701 up ═══ */}

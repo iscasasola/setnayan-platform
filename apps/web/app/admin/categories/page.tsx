@@ -148,8 +148,9 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
       `${formatCount(cats.categories.length)} categories`,
       // A refused services read is unknown, not zero (the banner above says so; this number must not contradict it).
       `${cats.failed.includes('services') ? '—' : formatCount(cats.services.length)} services`,
-      `${formatCount(cats.requests.length)} requests`,
-      `${formatCount(waiting)} words waiting`,
+      // A8·B-14: a refused read is "—", never 0 — the banner above promises it.
+      `${cats.failed.includes('supplier requests') ? '—' : formatCount(cats.requests.length)} requests`,
+      `${cats.failed.includes('search words') || cats.failed.includes('services') ? '—' : formatCount(waiting)} words waiting`,
       unfiled > 0 ? `${formatCount(unfiled)} unfiled` : null,
       noDeadline > 0 ? `${formatCount(noDeadline)} categories have no deadline` : null,
       // ③b · in the map this number moved to "Surfaces disagreeing" (the Category key family).
@@ -160,12 +161,12 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
   } else if (state.list === 'event-types') {
     const inPicker = vocab.eventTypes.filter((e) => e.status === 'active' && e.enabled).length;
     const retired = vocab.eventTypes.filter((e) => e.status === 'retired').length;
-    counts = `${formatCount(vocab.eventTypes.length)} event types · ${formatCount(inPicker)} in the picker · ${formatCount(vocab.eventTypes.length - inPicker - retired)} hidden · ${formatCount(retired)} retired${asks && asks.asks.length > 0 ? ` · ${formatCount(asks.asks.length)} asked for by hosts` : ''}`;
+    counts = vocab.failed.includes('event types') ? 'Couldn’t read the event types' : `${formatCount(vocab.eventTypes.length)} event types · ${formatCount(inPicker)} in the picker · ${formatCount(vocab.eventTypes.length - inPicker - retired)} hidden · ${formatCount(retired)} retired${asks && asks.asks.length > 0 ? ` · ${formatCount(asks.asks.length)} asked for by hosts` : ''}`;
   } else if (state.list === 'religions' && rel) {
     const live = vocab.religions.filter((r) => r.launch?.status === 'active').length;
     const soon = vocab.religions.filter((r) => r.launch?.status === 'coming_soon').length;
     const tagged = rel.services.filter((s) => s.faith).length;
-    counts = `${formatCount(vocab.religions.length)} religions · ${formatCount(live)} live for couples · ${formatCount(soon)} coming soon · ${formatCount(tagged)} services tagged`;
+    counts = vocab.failed.includes('religions') ? 'Couldn’t read the religions' : `${formatCount(vocab.religions.length)} religions · ${formatCount(live)} live for couples · ${formatCount(soon)} coming soon · ${formatCount(tagged)} services tagged`;
   }
 
   // ── The list ──────────────────────────────────────────────────────────────
@@ -208,6 +209,8 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
         requests={cats.requests}
         eventLabel={eventLabel}
         failed={cats.failed.includes('the category tree')}
+        waitingFailed={cats.failed.includes('search words') || cats.failed.includes('services')}
+        requestsFailed={cats.failed.includes('supplier requests')}
       />
     );
   } else if (state.list === 'event-types') {
@@ -238,7 +241,7 @@ export default async function CategoriesPage({ searchParams }: { searchParams: P
     if (state.show === 'requests' && !state.open) {
       panel = (
         <section aria-label="Supplier requests" data-panel="requests">
-          <h2 className="pb-3 text-xl font-semibold text-ink">Requests ({formatCount(cats.requests.length)})</h2>
+          <h2 className="pb-3 text-xl font-semibold text-ink">Requests ({cats.failed.includes('supplier requests') ? '—' : formatCount(cats.requests.length)})</h2>
           <ul className="space-y-3">
             {cats.requests.map((r) => (
               <RequestRow

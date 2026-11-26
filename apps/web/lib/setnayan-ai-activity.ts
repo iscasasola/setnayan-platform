@@ -48,6 +48,7 @@ import {
 } from './paperwork';
 import { formatCount } from '@/lib/format-number';
 import { withBookingMoney } from '@/lib/event-vendor-money';
+import { querySponsorGuests } from '@/lib/sponsor-guests';
 
 /** The live snapshot the studio ACTIVE state renders. */
 export type AiActivity = {
@@ -132,10 +133,8 @@ export async function loadAiActivity(
     })(),
     (async () => {
       try {
-        return await supabase
-          .from('event_sponsors')
-          .select('sponsor_tier, invitation_status')
-          .eq('event_id', eventId);
+        // 👥 Sponsors are guests with a sponsor role (owner, brief Add 41) — the guest list's rows.
+        return await querySponsorGuests(supabase, [eventId]);
       } catch {
         return { data: [] as unknown[], error: { message: 'threw' } };
       }

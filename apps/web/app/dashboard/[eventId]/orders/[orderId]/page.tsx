@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { plainRefusal } from '@/app/dashboard/[eventId]/guests/_components/plain-refusal';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ExternalLink, Trash2, Send } from 'lucide-react';
@@ -41,6 +42,7 @@ type Props = {
     created?: string;
     paid_logged?: string;
     error?: string;
+    cancel?: string;
   }>;
 };
 
@@ -165,7 +167,18 @@ export default async function OrderDetailPage({ params, searchParams }: Props) {
           role="alert"
           className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
         >
-          {decodeURIComponent(search.error)}
+          {/* Only a plain sentence from the address is shown; database words read as the plain fallback. */}
+          {plainRefusal(decodeURIComponent(search.error), 'Couldn’t do that — nothing was changed. Try again.')}
+        </p>
+      ) : null}
+      {/* A2-F4: a refused "Cancel order" says why, instead of the same page reloading unchanged. */}
+      {search.cancel === 'refused' ? (
+        <p
+          role="alert"
+          className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-sm text-terracotta-700"
+          data-order-cancel-refused=""
+        >
+          This order can’t be cancelled any more. Nothing was changed.
         </p>
       ) : null}
 

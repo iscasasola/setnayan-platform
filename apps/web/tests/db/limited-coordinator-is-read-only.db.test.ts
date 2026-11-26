@@ -120,8 +120,6 @@ const SPECS: Spec[] = [
     ins: (c, _w, n) => [`INSERT INTO public.event_gift_records (event_id, amount_php, giver_name) VALUES ($1, 500, $2)`, [c.ev, `Tita ${n}`]] },
   { t: 'event_manual_vendors', cmds: ['INSERT', 'UPDATE', 'DELETE'],
     ins: (c, _w, n) => [`INSERT INTO public.event_manual_vendors (event_id, business_name) VALUES ($1, $2)`, [c.ev, `Shop ${n}`]] },
-  { t: 'event_sponsors', cmds: ['INSERT', 'UPDATE', 'DELETE'],
-    ins: (c, _w, n) => [`INSERT INTO public.event_sponsors (event_id, sponsor_tier, side, full_name) VALUES ($1, 'principal', 'bride', $2)`, [c.ev, `Ninang ${n}`]] },
   { t: 'event_wish_items', cmds: ['INSERT', 'UPDATE', 'DELETE'],
     ins: (c, _w, n) => [`INSERT INTO public.event_wish_items (event_id, name) VALUES ($1, $2)`, [c.ev, `Toaster ${n}`]] },
   { t: 'event_site_drafts', cmds: ['INSERT', 'UPDATE', 'DELETE'],

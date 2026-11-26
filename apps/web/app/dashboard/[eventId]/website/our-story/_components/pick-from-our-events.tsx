@@ -41,6 +41,7 @@ export function PickFromOurEvents({
   storeShell,
   proHref,
   proPrice,
+  planUnread = false,
   action,
 }: {
   /** NULL = the read was refused — said on screen, never drawn as "none". */
@@ -50,6 +51,7 @@ export function PickFromOurEvents({
   storeShell: boolean;
   proHref: string;
   proPrice: string | null;
+  planUnread?: boolean;
   action: (formData: FormData) => void | Promise<void>;
 }) {
   if (events === null) {
@@ -96,7 +98,7 @@ export function PickFromOurEvents({
 
       {!ownsPro ? (
         withPhotos.length > 0 ? (
-          <LoveStoryProLine storeShell={storeShell} href={proHref} price={proPrice} />
+          <LoveStoryProLine storeShell={storeShell} href={proHref} price={proPrice} planUnread={planUnread} />
         ) : null
       ) : withPhotos.length > 0 && moments.length > 0 ? (
         <SafeForm action={action} className="mt-5 space-y-4">

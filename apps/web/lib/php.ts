@@ -136,3 +136,7 @@ export function formatPhpRounded(amount: number | null | undefined): string {
 /** The words a price slot shows when its catalogue read failed — one sentence for every page (CLAUDE.md §1:
  *  a failed read shows "Couldn't read", never ₱0, "Free" or empty). */
 export const PRICE_UNREAD = 'Couldn’t read the price';
+
+/** The words a plan-gated line shows when the plan read failed (owner ruling, final check Add 45): no upsell and no
+ *  paid limit is drawn from a read that failed. */
+export const PLAN_UNREAD = 'We couldn’t check your plan, try again.';

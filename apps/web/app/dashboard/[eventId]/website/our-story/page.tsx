@@ -188,10 +188,19 @@ export default async function OurStoryEditorPage({
 
   // The EVENT holds Pro, not the person who paid (owner 2026-10-02).
   const ent = await eventEntitlementClient(eventId);
+  /* E-13 (owner ruling, final check Add 45): a failed plan read says "We couldn't check your plan, try again" — no
+     upsell and no paid limit is drawn from it. */
+  let planReadFailed = false;
   const [proActive, proOwned, proRead, iapGate, look, otherEvents] = await Promise.all([
     // 👁 As the viewer is shown it — the Maker's Love Story is this page.
-    asViewed(eventHubPartActive(ent, eventId, 'photos').catch(() => false)),
-    asViewed(eventOwnsCoupleWebsitePro(ent, eventId).catch(() => false)),
+    asViewed(eventHubPartActive(ent, eventId, 'photos').catch(() => {
+      planReadFailed = true;
+      return false;
+    })),
+    asViewed(eventOwnsCoupleWebsitePro(ent, eventId).catch(() => {
+      planReadFailed = true;
+      return false;
+    })),
     readV2Sku('COUPLE_WEBSITE_PRO').catch(() => ({ record: null, readFailed: true })),
     getIapGate(),
     resolveHubTheme(event).catch(() => null),
@@ -262,6 +271,7 @@ export default async function OurStoryEditorPage({
       storeShell={storeShell}
       proHref={`${base}/studio/website-pro`}
       proPrice={proPrice}
+      planUnread={planReadFailed}
       action={action}
     />
   );
@@ -285,6 +295,7 @@ export default async function OurStoryEditorPage({
     appleIap: iapGate.iap,
     proHref: proOwned && !proActive ? `${base}/launch` : `${base}/studio/website-pro`,
     proPrice,
+    planUnread: planReadFailed,
     refused,
     sectionHidden: !widgetError && widget?.mode === 'hidden',
     mediaUrls,

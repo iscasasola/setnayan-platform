@@ -296,6 +296,11 @@ export function SupplierDesk({
                   </>
                 ) : null}
               </>
+            ) : desk.blocksUnread ? (
+              // 🔌 A4-22: a refused read is never "they haven't written it" — the same honesty as the on-the-day console.
+              <p role="status" className="text-sm leading-relaxed text-ink/70">
+                Couldn’t read the running order just now. Reload this page in a moment.
+              </p>
             ) : isPast ? (
               <p className="text-sm leading-relaxed text-ink/70">
                 {words.TheOrganizer} never wrote a timeline for the day.

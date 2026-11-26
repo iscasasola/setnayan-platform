@@ -4,7 +4,6 @@
 #   pnpm --filter @setnayan/web root-map --baseline
 # Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
 # be dropped by re-running the command above — CI fails while it is still listed.
-/dashboard/[eventId]/guests/quick	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dashboard/[eventId]/studio/live-studio-control/setup	# first run 2026-10-02 · host app · a page nobody can reach without typing its address
 /dev/account-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/add-your-own-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
@@ -125,7 +124,10 @@
 /dev/visits-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/you-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /onboarding/simple	# first run 2026-10-02 · sign-in & onboarding · a page nobody can reach without typing its address
-/papic/lightcheck	# first run 2026-10-02 · guest app · a page nobody can reach without typing its address
 /sample/[...rest]	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /waitlist	# first run 2026-10-02 · public site · a page nobody can reach without typing its address
 /dev/drive-copy-lab	# 2026-11-22 · internal (dev lab, 404 in production) · Copy to Google Drive per event on fixtures (#8170); reached by typing its address
+/api/v1	# 2026-11-26 · retired address (final check lane R, L6; owner Add 48) · draws nothing and forwards permanently; nothing should link to it
+/dashboard/[eventId]/seating/lab	# 2026-11-26 · retired address (final check lane R, L6; owner Add 48) · draws nothing and forwards permanently; nothing should link to it
+/dashboard/[eventId]/studio/setnayan-ai	# 2026-11-26 · retired address (final check lane R, L6; owner Add 48) · draws nothing and forwards permanently; nothing should link to it
+/dashboard/api-keys	# 2026-11-26 · retired address (final check lane R, L6; owner Add 48) · draws nothing and forwards permanently; nothing should link to it

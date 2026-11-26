@@ -22,7 +22,6 @@ app/admin/categories/actions.ts	discarded	from:taxonomy_category_requests.update
 app/admin/categories/actions.ts	discarded	from:wedding_type_launch_status.upsert	1
 app/admin/categories/event-type-actions.ts	discarded	from:admin_audit_log.insert	5
 app/admin/completions/actions.ts	discarded-in-try	from:admin_audit_log.insert	1
-app/admin/concierge-abuse/actions.ts	discarded	from:concierge_abuse_flags.update	1
 app/admin/corrections/actions.ts	discarded	from:vendor_correction_requests.insert	1
 app/admin/corrections/actions.ts	discarded	from:vendor_profiles.update	1
 app/admin/disputes/actions.ts	discarded-in-try	from:admin_audit_log.insert	3

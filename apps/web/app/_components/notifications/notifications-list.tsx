@@ -629,19 +629,27 @@ export function NotificationsHead({
       ) : (
         <h2 className="text-[17px] font-semibold text-ink">Notifications</h2>
       )}
-      {unreadCount > 0 ? (
-        <form action={markAllNotificationsRead} onSubmit={onMarkAll}>
-          <input type="hidden" name="return_to" value={returnTo} />
-          <SubmitButton
-            overlay={false}
-            pendingLabel="Marking…"
-            className="-mr-1.5 inline-flex h-11 items-center rounded-lg px-1.5 text-[13px] font-semibold text-[var(--m-nav-active)] hover:bg-ink/5"
-            data-mark-all-read=""
-          >
-            Mark all read
-          </SubmitButton>
-        </form>
-      ) : null}
+      {unreadCount > 0 ? <MarkAllRead returnTo={returnTo} onMarkAll={onMarkAll} /> : null}
     </div>
+  );
+}
+
+/**
+ * The quiet "Mark all read" text button — one piece, shared by the head row above and by a page that carries its title
+ * in the house `PageMasthead` (the supplier's Notifications, A6-15, owner 26 Nov: "Move it now"). A 44 px press.
+ */
+export function MarkAllRead({ returnTo, onMarkAll }: { returnTo: string; onMarkAll?: () => void }) {
+  return (
+    <form action={markAllNotificationsRead} onSubmit={onMarkAll}>
+      <input type="hidden" name="return_to" value={returnTo} />
+      <SubmitButton
+        overlay={false}
+        pendingLabel="Marking…"
+        className="-mr-1.5 inline-flex h-11 items-center rounded-lg px-1.5 text-[13px] font-semibold text-[var(--m-nav-active)] hover:bg-ink/5"
+        data-mark-all-read=""
+      >
+        Mark all read
+      </SubmitButton>
+    </form>
   );
 }

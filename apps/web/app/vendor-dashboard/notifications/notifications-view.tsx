@@ -1,6 +1,7 @@
 import type { NotificationRow } from '@/lib/notifications';
 import type { NotificationPlaceFacts } from '@/lib/notification-place';
-import { NotificationsHead, NotificationsList } from '@/app/_components/notifications/notifications-list';
+import { MarkAllRead, NotificationsList } from '@/app/_components/notifications/notifications-list';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { DatesRow } from '../customers/_components/dates-row';
 import { ReadFailedBody } from '../_components/set-two/read-failed';
 
@@ -31,7 +32,12 @@ export function NotificationsView({
   const unreadCount = items.filter((n) => !n.read_at).length;
   return (
     <div className="mx-auto w-full max-w-xl pb-16 pt-4 sm:pt-7" data-supplier-notifications="">
-      <NotificationsHead unreadCount={unreadCount} returnTo={returnTo} level="page" />
+      {/* A6-15 (owner 26 Nov: "Move it now"): the title is the house PageMasthead; "Mark all read" is its action. */}
+      <PageMasthead
+        title="Notifications"
+        className="justify-end px-4 pb-2 pt-1"
+        actions={unreadCount > 0 ? <MarkAllRead returnTo={returnTo} /> : undefined}
+      />
 
       {unread ? (
         <ReadFailedBody mark="notifications">{NOTIFICATIONS_UNREAD_WORDS}</ReadFailedBody>

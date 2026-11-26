@@ -101,6 +101,7 @@ import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-
 import { formatCount } from '@/lib/format-number';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { ActionButton } from '@/components/action-button';
+import { MAX_PER_TYPE } from '@/lib/editorial-vendor-media';
 
 export const metadata = { title: 'Hub · Supplier' };
 
@@ -140,7 +141,8 @@ export const metadata = { title: 'Hub · Supplier' };
  */
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
-const MAX_MEDIA_PER_TYPE = 3; // mirrors editorial-vendor-media MAX_PER_TYPE
+// A6-19: the media cap is the one in lib/editorial-vendor-media — never a second constant here.
+const MAX_MEDIA_PER_TYPE = MAX_PER_TYPE;
 /** A printed QR's ink and paper — the review QR and the crew QR, one pair. */
 const QR_COLOURS = { dark: '#1B1A17', light: '#FBFBFA' } as const;
 
@@ -746,7 +748,7 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
             icon={Clapperboard}
             title="Recap capture"
             value={mediaUnread ? 'Couldn’t load' : `${clipCount} ${clipCount === 1 ? 'clip' : 'clips'}`}
-            sub="5s each · up to 3"
+            sub={`5s each · up to ${formatCount(MAX_MEDIA_PER_TYPE)}`}
             href={`/vendor-dashboard/clients/${booking.eventId}/editorial-media`}
             hint={!mediaUnread && clipCount >= MAX_MEDIA_PER_TYPE ? 'Limit reached' : null}
           />
@@ -754,7 +756,7 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
             icon={Images}
             title="Photos"
             value={mediaUnread ? 'Couldn’t load' : `${photoCount} ${photoCount === 1 ? 'photo' : 'photos'}`}
-            sub="for your portfolio · up to 3"
+            sub={`for your portfolio · up to ${formatCount(MAX_MEDIA_PER_TYPE)}`}
             href={`/vendor-dashboard/clients/${booking.eventId}/editorial-media`}
             hint={!mediaUnread && photoCount >= MAX_MEDIA_PER_TYPE ? 'Limit reached' : null}
           />

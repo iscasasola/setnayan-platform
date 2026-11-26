@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Master song list + vendor repertoire helpers.
@@ -300,11 +301,16 @@ export async function findOrCreateSongId(
   if (!t) return null;
   const nk = normalizedKey(t, a);
 
-  const { data: found } = await supabase
+  const { data: found, error: foundError } = await supabase
     .from('songs')
     .select('song_id')
     .eq('normalized_key', nk)
     .maybeSingle();
+  // A refused read is not "no such song": say it and stop, never insert a duplicate on a blind read.
+  if (foundError) {
+    logQueryError('findOrCreateSongId.find', foundError, {}, 'graceful_degrade');
+    return null;
+  }
   if (found?.song_id) return found.song_id as number;
 
   const { data: inserted } = await supabase
@@ -315,11 +321,15 @@ export async function findOrCreateSongId(
   if (inserted?.song_id) return inserted.song_id as number;
 
   // Insert lost a race (another vendor added the same song) → re-select.
-  const { data: again } = await supabase
+  const { data: again, error: againError } = await supabase
     .from('songs')
     .select('song_id')
     .eq('normalized_key', nk)
     .maybeSingle();
+  if (againError) {
+    logQueryError('findOrCreateSongId.reselect', againError, {}, 'graceful_degrade');
+    return null;
+  }
   return (again?.song_id as number) ?? null;
 }
 

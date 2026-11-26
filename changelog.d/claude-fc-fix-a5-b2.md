@@ -17,3 +17,4 @@
   A5-G1-11. Skipped 🟠 A5-G4-01 (the payment cap's ruled default is a money rule).
 
 SPEC IMPACT: None. No amount, plan or rule changes; only how a failed read shows.
+- Four reads that dropped their error silently now log it (song lookup ×2, the host-events read, the claim's card count). Found by ugat-both-ends.

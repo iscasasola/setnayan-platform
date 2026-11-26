@@ -24,6 +24,7 @@ import { SHORTLIST_QR_SOURCE } from '@/lib/booking-fee-gate';
 import { recomputeReceptionAnchor } from '@/lib/events';
 import { VENDOR_CATEGORIES, type VendorCategory } from '@/lib/vendors';
 import { resolveVendorCategory } from '@/lib/vendor-packages';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 const PRIMARY_HOST_ROLE_SUBTYPES = ['couple', 'co_host'] as const;
 
@@ -149,7 +150,11 @@ export async function readHostEvents(
     .not('accepted_at', 'is', null)
     .neq('role_subtype', 'viewer') // a limited helper views, never edits (owner 2026-09-28)
     .in('role_subtype', PRIMARY_HOST_ROLE_SUBTYPES as unknown as string[]);
-  if (memberError || modError) return null;
+  if (memberError || modError) {
+    if (memberError) logQueryError('readHostEvents.members', memberError, { user_id: userId }, 'graceful_degrade');
+    if (modError) logQueryError('readHostEvents.moderators', modError, { user_id: userId }, 'graceful_degrade');
+    return null;
+  }
 
   const byId = new Map<string, EventStub>();
   for (const row of [...(memberRows ?? []), ...(modRows ?? [])]) {

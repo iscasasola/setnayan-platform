@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import { FIRST_CARD_EDIT_UNREAD, WELCOME_CLAIMED_PATH, claimCardFrom, claimedWelcomePath, firstCardLanding, welcomeEditUnreadPath } from '@/lib/supplier-onboarding';
 import Link from 'next/link';
@@ -269,6 +270,7 @@ export default async function FinalizeClaimPage({ params, searchParams }: Props 
         .select('vendor_service_id', { count: 'exact', head: true })
         .eq('vendor_profile_id', vendorProfileId);
       // 🪪 A refused count is not "no cards" (final check A5-G1-13): the shop lands where it normally does instead.
+      if (countError) logQueryError('claimFinalize.serviceCount', countError, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
       if (!countError && (count ?? 0) === 0) {
         redirect(
           `/vendor-dashboard/services/new/${encodeURIComponent(category)}?claim=${encodeURIComponent(token)}`,

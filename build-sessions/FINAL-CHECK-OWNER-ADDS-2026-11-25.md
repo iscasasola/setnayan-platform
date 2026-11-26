@@ -727,3 +727,18 @@ All of these go in one PR, `claude/fc-fix-a6-b7`.
 - Setnayan AI stays on the supplier top row.
 
 The owner said "keep them": both features stay, at their new homes. #8346's port and route baseline update covers these two forwards as well as R1–R9.
+
+## Add 49: the client batches go next, before the Apple submit (owner, 26 Nov)
+
+Owner: ship the client batches first, "so we prevent rejection due to bugs and errors". The app loads the live site, so Apple reviews whatever setnayan.com shows.
+
+Order:
+1. The last supplier PRs: #8314 and #8346.
+2. C1: #8349, #8342, #8326, #8340, #8359
+3. C2: #8313, #8316, #8317, #8339, #8367
+4. C3: #8319, #8325, #8345, #8356, #8347, #8308
+5. Migrations, each alone: #8371, #8312, #8351.
+6. A reviewer walkthrough: the owner signs in with the demo account himself, and every error is fixed.
+7. Submit build 9 (no new build needed).
+
+The Main Controller builds and merges these batches under the owner's merge rule.

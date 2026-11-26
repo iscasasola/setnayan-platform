@@ -479,6 +479,11 @@ export const routes = {
       detail: (token: string) => `/papic/seat/${token}`,
     },
   },
+  /** The public 3D Plan demo, and its share-link twin where fresh demo codes are made. */
+  pa3d: {
+    index: () => `/pa3d`,
+    try: () => `/pa3d/try`,
+  },
   pricing: () => `/pricing`,
   privacy: () => `/privacy`,
   proposals: {

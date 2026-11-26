@@ -60,7 +60,6 @@ export const STAY_NAVIGATION: Readonly<Record<string, string>> = {
   "app/vendor-dashboard/branches/actions.ts › createBranch": "checkout → /pay",
   "app/vendor-dashboard/branches/actions.ts › renewBranch": "checkout → /pay",
   "app/vendor-dashboard/clients/[eventId]/booth-event-actions.ts › buyBoothBrandingForEvent": "checkout → /pay",
-  "app/vendor-dashboard/contracts/actions.ts › uploadVendorContract": "upload → contract page",
   "app/vendor-dashboard/on-the-day/live/[eventId]/papic/portfolio-pack-actions.ts › buyVendorPapicPortfolioPack": "checkout → /pay",
   "app/vendor-dashboard/proposals/actions.ts › createProposal": "create → quote page",
   "app/vendor-dashboard/proposals/actions.ts › deleteDraftProposal": "delete → quotes list (leave)",

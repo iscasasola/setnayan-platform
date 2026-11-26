@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from './supabase/admin';
 import { guestListIsClosed } from './guest-list-closed';
 import { computeAddedPaxSurcharge } from './added-pax-surcharge';
@@ -23,11 +24,13 @@ export type HeadcountBasis = 'attending' | 'attending_plus_maybe' | 'invited';
 
 // Live headcount on a basis (the count query, shared by resolveLivePax +
 // finalizeGuestList so the floor math and the finalize snapshot never diverge).
+// 🧾 A6-03 (final check 25 Nov): `null` = the count was refused — never 0. Finalizing then refuses rather than freeze a
+// guess, and `resolveLivePax` answers PAX_UNREAD (owner Add 35: an unread guest count prices NOTHING).
 async function liveHeadcount(
   supabase: SupabaseClient,
   eventId: string,
   basis: HeadcountBasis,
-): Promise<number> {
+): Promise<number | null> {
   let q = supabase
     .from('guests')
     .select('guest_id', { count: 'exact', head: true })
@@ -42,7 +45,11 @@ async function liveHeadcount(
   } else {
     q = q.eq('rsvp_status', 'attending');
   }
-  const { count } = await q;
+  const { count, error } = await q;
+  if (error) {
+    logQueryError('lib/pax.ts liveHeadcount', error, { eventId }, 'graceful_degrade');
+    return null;
+  }
   return count ?? 0;
 }
 
@@ -53,6 +60,8 @@ export type FinalizeState = {
   finalPax: number | null;
   estimatedPax: number | null;
   basis: HeadcountBasis;
+  /** The event row was refused — nothing here was read (Add 35: an unread count prices nothing). */
+  unread?: boolean;
 };
 
 /**
@@ -73,7 +82,7 @@ export async function readFinalizeState(
 ): Promise<FinalizeState> {
   // From the dashboard's one read of the row when this render opened it (lib/event-row-once.ts);
   // in an action — outside a render — always this read, as before.
-  const { data: ev } = await eventRowOnce(supabase, eventId, 'estimated_pax, headcount_basis, guest_count_locked_at, final_pax', () =>
+  const { data: ev, error: evError } = await eventRowOnce(supabase, eventId, 'estimated_pax, headcount_basis, guest_count_locked_at, final_pax', () =>
     supabase
       .from('events')
       .select('estimated_pax, headcount_basis, guest_count_locked_at, final_pax')
@@ -83,6 +92,10 @@ export async function readFinalizeState(
 
   const estimatedPax: number | null = ev?.estimated_pax ?? null;
   const basis = (ev?.headcount_basis ?? 'attending') as HeadcountBasis;
+  if (evError) {
+    logQueryError('lib/pax.ts readFinalizeState', evError, { eventId }, 'graceful_degrade');
+    return { locked: false, finalPax: null, estimatedPax: null, basis, unread: true };
+  }
   if (!ev) return { locked: false, finalPax: null, estimatedPax, basis };
   const locked = guestListIsClosed({ lockedAt: ev.guest_count_locked_at });
   return { locked, finalPax: locked ? (ev.final_pax ?? null) : null, estimatedPax, basis };
@@ -144,6 +157,8 @@ export async function finalizeGuestList(
   if (!ev.guest_count_locked_at) {
     const basis = (ev.headcount_basis ?? 'attending') as HeadcountBasis;
     const count = await liveHeadcount(admin, eventId, basis);
+    // A refused count would freeze the estimate as the binding headcount — refuse instead, nothing changed.
+    if (count === null) return { ok: false, error: 'Couldn’t count your guests just now — nothing was changed.' };
     const computed = Math.max(ev.estimated_pax ?? 0, count);
     const { error: upErr } = await admin
       .from('events')
@@ -210,12 +225,27 @@ export async function guestEditsLocked(
 export async function resolveLivePax(
   supabase: SupabaseClient,
   eventId: string,
-): Promise<number | null> {
+): Promise<LivePax> {
   const fin = await readFinalizeState(supabase, eventId);
+  // ⚖ OWNER ADD 35 (25 Nov): a refused read prices NOTHING — never the estimate, never a floor of 0. Every caller
+  // treats PAX_UNREAD as "no price" and says PAX_UNREAD_WORDS.
+  if (fin.unread) return PAX_UNREAD;
   if (fin.locked) return fin.finalPax;
   const headcount = await liveHeadcount(supabase, eventId, fin.basis);
+  if (headcount === null) return PAX_UNREAD;
   if (fin.estimatedPax == null && headcount === 0) return null;
   return Math.max(fin.estimatedPax ?? 0, headcount);
+}
+
+/** The guest count could not be read (owner Add 35): no price is computed and nothing is charged. */
+export const PAX_UNREAD = 'unread' as const;
+/** `resolveLivePax`'s answer: the count · null (nothing to price yet) · PAX_UNREAD (the read was refused). */
+export type LivePax = number | null | typeof PAX_UNREAD;
+/** What a person reads when the count could not be read (owner Add 35, verbatim). */
+export const PAX_UNREAD_WORDS = 'Couldn’t read the guest count. Try again.';
+/** A count a price may use: the number, or null for "no price" — PAX_UNREAD and "nothing yet" both price nothing. */
+export function priceablePax(pax: LivePax): number | null {
+  return pax === PAX_UNREAD ? null : pax;
 }
 
 // ---------------------------------------------------------------------------

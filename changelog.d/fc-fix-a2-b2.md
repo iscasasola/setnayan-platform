@@ -7,7 +7,7 @@ one plain sentence; pages print fixed words for a known key only.
 
 - Host invitation (`/host/accept/[token]`): fixed sentence + Try again; no `msg` / `expected` read from the address (A2-A9).
 - Profile and Groups (samahan) actions: plain sentences, fixed keys; the Groups pages fall back to a plain line (A2-C6).
-  Linked events (`clusters/actions.ts`) now speak through the mapper too; API keys (lane R) is left.
+  API keys (lane R) is left. (Linked events were retired on main, #8346.)
 - Add a guest and Import: `dup_<role>` / `save_failed` / `plus_one_failed` keys; import says one plain sentence (A2-D7).
   Quick add is lane R and left.
 - Sponsors: `sponsor-error-copy.ts` maps keys to words; unknown keys read as the fallback (A2-I18). Disputes: the same

@@ -36,7 +36,7 @@ import { readEventNeedsFor } from '@/lib/event-needs-read.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { agreedTotalNow, fetchChangeLinesByVendor } from '@/lib/agreed-total-and-its-changes';
 import { buildBenchStandings } from '@/lib/conversation-list';
-import { resolveLivePax } from '@/lib/pax';
+import { priceablePax, resolveLivePax } from '@/lib/pax';
 import { readSelfAddedPriceLines } from '@/lib/self-added-price-basis.server';
 import type { SupplierStanding } from '@/lib/supplier-standing';
 import { emitNotification } from '@/lib/notification-emit';
@@ -2035,7 +2035,8 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         nowMs: Date.now(),
         // One headcount for the whole bench — each card compares it with the
         // count that supplier was asked with ("Guest count changed", SUP-2).
-        livePax: await livePaxRead,
+        // Owner Add 35: an unread count compares nothing (no "Guest count changed"), never the estimate.
+        livePax: priceablePax(await livePaxRead),
         vendors: contactable.map((v) => ({
           key: v.vendorId,
           vendorProfileId: v.marketplaceVendorId as string,

@@ -748,7 +748,7 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
             icon={Clapperboard}
             title="Recap capture"
             value={mediaUnread ? 'Couldn’t load' : `${clipCount} ${clipCount === 1 ? 'clip' : 'clips'}`}
-            sub="5s each · up to 3"
+            sub={`5s each · up to ${formatCount(MAX_MEDIA_PER_TYPE)}`}
             href={`/vendor-dashboard/clients/${booking.eventId}/editorial-media`}
             hint={!mediaUnread && clipCount >= MAX_MEDIA_PER_TYPE ? 'Limit reached' : null}
           />
@@ -756,7 +756,7 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
             icon={Images}
             title="Photos"
             value={mediaUnread ? 'Couldn’t load' : `${photoCount} ${photoCount === 1 ? 'photo' : 'photos'}`}
-            sub="for your portfolio · up to 3"
+            sub={`for your portfolio · up to ${formatCount(MAX_MEDIA_PER_TYPE)}`}
             href={`/vendor-dashboard/clients/${booking.eventId}/editorial-media`}
             hint={!mediaUnread && photoCount >= MAX_MEDIA_PER_TYPE ? 'Limit reached' : null}
           />

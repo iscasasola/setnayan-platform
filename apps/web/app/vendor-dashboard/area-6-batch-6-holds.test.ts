@@ -56,6 +56,8 @@ test('A6-19 · On the day reads the media cap from lib/editorial-vendor-media �
   const src = read('app/vendor-dashboard/on-the-day/page.tsx');
   assert.doesNotMatch(src, /MAX_MEDIA_PER_TYPE = \d/, 'a second media-cap number');
   assert.match(src, /const MAX_MEDIA_PER_TYPE = MAX_PER_TYPE;/);
+  assert.doesNotMatch(src, /up to 3/, 'the cap is typed as words instead of read from the constant');
+  assert.equal((src.match(/up to \$\{formatCount\(MAX_MEDIA_PER_TYPE\)\}/g) ?? []).length, 2);
 });
 
 test('A6-29 · the lock page says a refused date-options or shortlist read — never a silent "changes your date"', () => {

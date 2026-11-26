@@ -81,7 +81,10 @@ test('repertoire and recommendations say "couldn\'t load" (A5-G6-11, A5-G6-10)',
   assert.match(rep, /readVendorSongs\(supabase, profile\.vendor_profile_id\)/);
   assert.match(rep, /if \(setList\.failed \|\| results === null\) return <RepertoireUnread \/>;/);
   const songs = src('lib/songs.ts');
-  assert.equal((songs.match(/if \(error\) return null;/g) ?? []).length >= 2, true, 'search + curated return null when refused');
+  // Each refused read is logged, then returns null — never an empty list (#8314, ugat-both-ends).
+  for (const name of ['searchSongs', 'fetchCuratedSongs']) {
+    assert.match(songs, new RegExp(`if \\(error\\) \\{\\s*logQueryError\\('${name}', error[^;]*;\\s*return null;\\s*\\}`), `${name}: a refused read is not null`);
+  }
 
   const rec = src('app/vendor-dashboard/recommendations/page.tsx');
   assert.match(rec, /readFailed=\{firstReadFailed\}/);

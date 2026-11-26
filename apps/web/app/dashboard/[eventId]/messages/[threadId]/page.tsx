@@ -17,7 +17,7 @@ import { withdrawInquiry } from '@/app/dashboard/[eventId]/messages/actions';
 import { nameForThread, readCoupleThreadSupplierNames } from '@/lib/chat-supplier-names';
 import { canonicalServiceToPlanGroupId } from '@/lib/wedding-plan-groups';
 import { closingCopy } from '@/lib/thread-closing-copy';
-import { resolveLivePax } from '@/lib/pax';
+import { PAX_UNREAD, PAX_UNREAD_WORDS, resolveLivePax } from '@/lib/pax';
 import { parseThreadView } from '@/lib/thread-view';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { deriveThreadStage } from '@/lib/vendor-thread-stage';
@@ -695,7 +695,9 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
     hasQuote: threadHasQuote({ stage: threadStage, liveQuoteTotalPhp }),
   });
 
-  const headerPax = livePax ?? thread.pax_current;
+  // ⚖ OWNER ADD 35: an unread count is said, never replaced by the inquiry's snapshot or the estimate.
+  const livePaxUnread = livePax === PAX_UNREAD;
+  const headerPax = livePaxUnread ? null : (livePax ?? thread.pax_current);
   const lastThreadMessage = initialMessages[initialMessages.length - 1];
   const threadStanding = buildSupplierStanding({
     stage: threadStage,
@@ -837,6 +839,7 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
                 <>
                   <ThreadInterestChips supabase={supabase} threadId={threadId} compact />
                   {eventDate ? <span>{formatLongDate(eventDate)}</span> : null}
+                  {livePaxUnread ? <span className="whitespace-nowrap">{PAX_UNREAD_WORDS}</span> : null}
                   {headerPax ? (
                     <span className="whitespace-nowrap">
                       ~{formatCount(headerPax)} guests

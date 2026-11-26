@@ -113,11 +113,13 @@ export async function JoinFlow({
   // 📬 + the reply window's columns, on THIS read: a request refused before replies open is told the
   // same words and day as the Reply card ("Replies open on Saturday, 14 November"), on the venue's clock.
   const admin = createAdminClient();
-  const { data: askRow } = await admin
+  const { data: askRow, error: askErr } = await admin
     .from('events')
     .select(REPLY_WINDOW_EVENT_COLUMNS)
     .eq('event_id', eventId)
     .maybeSingle();
+  // 🔌 A4-38: a failed read is not "the default questions" — it throws (the page's error boundary).
+  if (askErr) throw new Error(`join-flow: could not read the event's questions: ${askErr.message}`);
   const ask = sanitizeRsvpAskConfig(askRow?.rsvp_ask_config);
   const repliesShut =
     askRow && (errorKey === 'replies_not_yet' || errorKey === 'replies_closed')
@@ -203,12 +205,14 @@ export async function JoinFlow({
   }
 
   // Already a member?
-  const { data: existing } = await admin
+  const { data: existing, error: existingErr } = await admin
     .from('event_members')
     .select('member_type')
     .eq('event_id', eventId)
     .eq('user_id', user.id)
     .maybeSingle();
+  // 🔌 A4-38: a failed read is not "not a member" — a member is never shown the join form on a blip.
+  if (existingErr) throw new Error(`join-flow: could not read the membership: ${existingErr.message}`);
 
   if (existing) {
     if (existing.member_type === 'couple') {
@@ -224,12 +228,14 @@ export async function JoinFlow({
 
   // Already asked, and the couple has not decided yet → the same "Request
   // sent" the asking ended on, not a second form.
-  const { data: claim } = await admin
+  const { data: claim, error: claimErr } = await admin
     .from('guest_claims')
     .select('status, target_guest_id')
     .eq('event_id', eventId)
     .eq('claimer_user_id', user.id)
     .maybeSingle();
+  // 🔌 A4-38: a failed read is not "never asked" — someone who already asked never gets a second form on a blip.
+  if (claimErr) throw new Error(`join-flow: could not read the earlier request: ${claimErr.message}`);
   if (claim?.status === 'pending_review' && claim.target_guest_id) {
     return <RequestSentScreen event={shellEvent} organizer={Organizer} slug={event.slug} skin={skin} brand={brand} />;
   }

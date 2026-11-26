@@ -46,6 +46,7 @@
         "_actions/stay-registry/supTeam.ts",
         "_actions/stay-registry/svContracts.ts",
         "_actions/stay-registry/svCreators.ts",
+        "_actions/stay-registry/svDisputes.ts",
         "_actions/stay-registry/svMessages.ts",
         "_actions/stay-registry/svPartnerships.ts",
         "_actions/stay-registry/svProposals.ts",
@@ -3022,10 +3023,15 @@
         "3d_plan/demo/[token]/_components/plan3d-guest-view.tsx",
         "3d_plan/demo/[token]/page.tsx"
       ],
-      "destinations": [],
-      "actions": [],
+      "destinations": [
+        "/3d_plan/demo/[seg]"
+      ],
+      "actions": [
+        "routes.pa3d.try"
+      ],
       "blocks": [
         "DoorShell",
+        "Link",
         "Phase",
         "Plan3DGuestView",
         "Plan3DSceneLoader"
@@ -4331,7 +4337,7 @@
       "destinations": [
         "/[seg]",
         "/[seg]/avatar",
-        "/[seg]/venue"
+        "/[seg]/venue?t=[seg]"
       ],
       "actions": [],
       "blocks": [
@@ -9378,7 +9384,8 @@
         "FeedPageSkeleton",
         "Link",
         "PageMasthead",
-        "QuietStart"
+        "QuietStart",
+        "ReadRefusedNotice"
       ]
     },
     "/dashboard/[eventId]/alaala": {
@@ -9561,7 +9568,8 @@
         "ContractsEmptyState",
         "Link",
         "ListPageSkeleton",
-        "PageMasthead"
+        "PageMasthead",
+        "ReadRefusedNotice"
       ]
     },
     "/dashboard/[eventId]/contracts/[contractId]": {
@@ -9574,9 +9582,11 @@
       ],
       "actions": [],
       "blocks": [
+        "BackButton",
         "Link",
         "OpenFileLink",
-        "PageMasthead"
+        "PageMasthead",
+        "ReadRefusedNotice"
       ]
     },
     "/dashboard/[eventId]/date-selection": {
@@ -9768,6 +9778,7 @@
         "NewFlagForm",
         "PageMasthead",
         "PostedPick",
+        "ReadRefusedNotice",
         "StayForm",
         "SubmitButton"
       ]
@@ -9795,6 +9806,7 @@
         "OrdersSection",
         "PageMasthead",
         "PaperworkSection",
+        "ReadRefusedNotice",
         "ReceiptsSection",
         "SectionEmpty",
         "SectionHeader",
@@ -9839,6 +9851,8 @@
         "FindYourDateBody",
         "FormPageSkeleton",
         "Link",
+        "PageMasthead",
+        "ReadRefusedNotice",
         "Shell"
       ]
     },
@@ -11357,6 +11371,7 @@
         "Link",
         "PageMasthead",
         "PostGigDrawer",
+        "ReadRefusedNotice",
         "SearchParams",
         "StayForm",
         "SubmitButton"
@@ -11765,6 +11780,7 @@
         "PaperworkDocumentType",
         "PaperworkRow",
         "PaperworkStatus",
+        "ReadRefusedNotice",
         "SeedPrompt",
         "StatusPill",
         "SubmitButton",
@@ -11786,7 +11802,8 @@
       "blocks": [
         "Link",
         "ListPageSkeleton",
-        "PageMasthead"
+        "PageMasthead",
+        "ReadRefusedNotice"
       ]
     },
     "/dashboard/[eventId]/plan3d": {
@@ -12402,6 +12419,7 @@
       "blocks": [
         "ActionButton",
         "AddSponsorModal",
+        "BackButton",
         "Badge",
         "Banner",
         "EditSponsorModal",
@@ -12415,6 +12433,7 @@
         "PairTargetPicker",
         "PickMenu",
         "PrincipalPairRow",
+        "ReadRefusedNotice",
         "Sheet",
         "SponsorCard",
         "SponsorSwipe",
@@ -14816,7 +14835,10 @@
         "/help",
         "/help/[seg]"
       ],
-      "actions": [],
+      "actions": [
+        "routes.help.topic",
+        "routes.help.topics"
+      ],
       "blocks": [
         "Link",
         "Logo"
@@ -15497,14 +15519,18 @@
         "panood/demo/[token]/page.tsx"
       ],
       "destinations": [],
-      "actions": [],
+      "actions": [
+        "routes.liveWatch"
+      ],
       "blocks": [
         "CamJoinFlow",
         "CamSlot",
         "CameraPublisher",
         "DoorShell",
         "HTMLVideoElement",
+        "Link",
         "MediaStream",
+        "OpenLiveWatch",
         "PeerConnectionState",
         "Shell",
         "Step"
@@ -16662,6 +16688,7 @@
         "/open-shop",
         "/vendor-dashboard",
         "/vendor-dashboard/clients/[seg]",
+        "/vendor-dashboard/clients/[seg]?tab=chat",
         "/vendor-dashboard/clients/[seg]?tab=schedule",
         "/vendor-dashboard/collections",
         "/vendor-dashboard/customers",
@@ -16940,7 +16967,6 @@
         "UnreadBellBadge",
         "UnreadMessagesBadge",
         "VendorBottomNav",
-        "VendorDealFacts",
         "VendorNoticeTop",
         "VendorRailContext",
         "VerifySection",
@@ -17960,6 +17986,8 @@
         "PartPage",
         "PartPin",
         "ReadFailedBody",
+        "ReadFailedNote",
+        "StayForm",
         "SubmitButton",
         "TypedRow",
         "UploadContractBody"
@@ -18240,6 +18268,7 @@
         "DossierView",
         "ListPageSkeleton",
         "PageMasthead",
+        "ReadFailedNote",
         "Section",
         "SharePdfButton",
         "VendorDeepSearchActionState"
@@ -18278,6 +18307,7 @@
         "Fold",
         "InfoTip",
         "ListPager",
+        "StayForm",
         "SubmitButton",
         "ToolChip",
         "ToolEmpty",
@@ -19327,6 +19357,7 @@
         "PaymentOptionsSurface",
         "ProfileChecklistEditor",
         "PublicLineCard",
+        "ReadFailedNote",
         "RequestCorrectionCard",
         "RowIcon",
         "SharePdfButton",
@@ -19703,6 +19734,7 @@
         "CardRecordUnread",
         "HallsUsesPick",
         "Link",
+        "ReadFailedNote",
         "RefinementsEditor"
       ]
     },
@@ -20722,6 +20754,7 @@
       "blocks": [
         "Image",
         "ListPageSkeleton",
+        "ReadFailedNote",
         "RoleLock",
         "TemplateRows",
         "TheftWatchView",
@@ -20953,6 +20986,7 @@
         "Image",
         "Link",
         "LoadingActivity",
+        "LockLinkMessage",
         "SubmitButton",
         "TemplateRow",
         "TemplateRows",

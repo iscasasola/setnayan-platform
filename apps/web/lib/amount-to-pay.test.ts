@@ -443,3 +443,18 @@ test('the booked proposal page says so, before it would offer a lock', () => {
   const send = src('lib/proposal-send.ts');
   assert.match(send, /\$\{DEFAULT_QUOTE_NOTE_TAIL\}/, 'the default note and its booked rule drifted apart');
 });
+
+// A7-33 (final check 25 Nov): with no schedule to read, the couple's line used to say "Amount to pay: Next payment" —
+// a label and a step name, no peso, read as a broken figure. It now says no amount is set, on both ends.
+test('no schedule to read → no "Amount to pay:" line without a peso, on either end', () => {
+  const s = moneyStep({ ...base, terms: null, ledger: { count: 1, paidCentavos: 1436400, recordedFirstCentavos: null } });
+  assert.equal(s.kind, 'installment_due');
+  if (s.kind !== 'installment_due') return;
+  assert.equal(s.amountCentavos, null);
+  const couple = moneyStepLine(s, 'couple', 'Tala') ?? '';
+  const vendor = moneyStepLine(s, 'vendor', 'Bea') ?? '';
+  assert.doesNotMatch(couple, /Amount to pay: Next payment/);
+  assert.doesNotMatch(vendor, /Next from the couple: Next payment/);
+  assert.match(couple, /No payment amount is set yet/);
+  assert.match(vendor, /No payment amount is set yet/);
+});

@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -34,7 +34,7 @@ export default async function VendorDisputesPage({ searchParams }: Props) {
   const search = await searchParams;
   const supabase = await createClient();
   const user = await getCurrentUser();
-  if (!user) redirect('/login');
+  if (!user) redirect(loginRedirectPath('/vendor-dashboard/disputes')); // A6-65
 
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) {

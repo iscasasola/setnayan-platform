@@ -26,18 +26,42 @@ import { BREAKPOINTS } from '@/lib/use-responsive';
 
 /** The supplier dashboard's phone/tablet line — the same 701 its shell and every sheet switch at. */
 export const SHOP_DOOR_PANEL_QUERY = `(min-width: ${BREAKPOINTS.tab}px)`;
+/**
+ * 🖥 The other line a door may switch at: the desktop line (1024), where a surface OUTSIDE the supplier dashboard (no
+ * `tab` boundary mounted — Open a shop) turns its sheets into panels. Final check B1 (drawing
+ * `final-check-area-5_2026-11-25.html` § B1: phone full screen, desktop a large centred dialog).
+ */
+export const SHOP_DOOR_DESKTOP_QUERY = `(min-width: ${BREAKPOINTS.lg}px)`;
 
-function subscribe(onChange: () => void): () => void {
-  const mql = window.matchMedia(SHOP_DOOR_PANEL_QUERY);
-  mql.addEventListener('change', onChange);
-  return () => mql.removeEventListener('change', onChange);
+/** Where a door stops rising and becomes the panel: 701 (the supplier dashboard, the default) or the desktop line. */
+export type ShopDoorAt = 'tab' | 'lg';
+const QUERY_AT: Record<ShopDoorAt, string> = { tab: SHOP_DOOR_PANEL_QUERY, lg: SHOP_DOOR_DESKTOP_QUERY };
+
+function subscribeAt(query: string) {
+  return (onChange: () => void): (() => void) => {
+    const mql = window.matchMedia(query);
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  };
 }
-const panelNow = () => window.matchMedia(SHOP_DOOR_PANEL_QUERY).matches;
+const SUBSCRIBE: Record<ShopDoorAt, (onChange: () => void) => () => void> = { tab: subscribeAt(QUERY_AT.tab), lg: subscribeAt(QUERY_AT.lg) };
+const PANEL_NOW: Record<ShopDoorAt, () => boolean> = {
+  tab: () => window.matchMedia(QUERY_AT.tab).matches,
+  lg: () => window.matchMedia(QUERY_AT.lg).matches,
+};
 const panelOnServer = () => false;
 
+export type ShopDoorScreenProps = Omit<RiseScreenProps, 'info'> & {
+  /** The line it becomes the panel at. Default `tab` (701) — every Shop door as shipped. */
+  at?: ShopDoorAt;
+  /** From that line, the centred form page (`Sheet` `page`) instead of the 440 right panel. Default false. */
+  page?: boolean;
+};
+
 /** A Shop door's screen. Same props as `RiseScreen` (no ⓘ — no Shop door carries one). */
-export function ShopDoorScreen(props: Omit<RiseScreenProps, 'info'>) {
-  const panel = useSyncExternalStore(subscribe, panelNow, panelOnServer);
+export function ShopDoorScreen(props: ShopDoorScreenProps) {
+  const at = props.at ?? 'tab';
+  const panel = useSyncExternalStore(SUBSCRIBE[at], PANEL_NOW[at], panelOnServer);
   /* ↘ A door that opened as the panel STAYS the panel until it closes: when the window narrows below 701 the panel
      shuts itself (below), so its Sheet takes its own history entry off and the caller unmounts the door. Swapping to
      RiseScreen mid-open would hand that entry to a full-screen door the supplier never opened. */
@@ -45,11 +69,12 @@ export function ShopDoorScreen(props: Omit<RiseScreenProps, 'info'>) {
   useEffect(() => {
     if (panel) setWasPanel(true);
   }, [panel]);
+  // `at` / `page` ride along unused: RiseScreen has no panel.
   if (!panel && !wasPanel) return <RiseScreen {...props} />;
   return <ShopDoorPanel {...props} />;
 }
 
-export function ShopDoorPanel({ title, line, labelledById, actions, thumb, fill = false, onClose, data, children }: Omit<RiseScreenProps, 'info'>) {
+export function ShopDoorPanel({ title, line, labelledById, actions, thumb, fill = false, onClose, data, children, at = 'tab', page = false }: ShopDoorScreenProps) {
   const headingId = useId();
   /* The panel closes through its own `open` (✕ · Esc · the backdrop · Back), and only THEN tells the caller, so the
      Sheet's history entry is taken off before the caller unmounts the door. */
@@ -63,13 +88,13 @@ export function ShopDoorPanel({ title, line, labelledById, actions, thumb, fill 
   /* ↘ The window narrowed below 701 while the panel was open → close it the ordinary way (no back-button entry is
      left behind; the caller's onClose runs once the Sheet has taken its entry off). */
   useEffect(() => {
-    const mql = window.matchMedia(SHOP_DOOR_PANEL_QUERY);
+    const mql = at === 'lg' ? window.matchMedia(SHOP_DOOR_DESKTOP_QUERY) : window.matchMedia(SHOP_DOOR_PANEL_QUERY);
     const onChange = () => {
       if (!mql.matches) setOpen(false);
     };
     mql.addEventListener('change', onChange);
     return () => mql.removeEventListener('change', onChange);
-  }, []);
+  }, [at]);
 
   return (
     <Sheet
@@ -77,6 +102,7 @@ export function ShopDoorPanel({ title, line, labelledById, actions, thumb, fill 
       onClose={shut}
       labelledById={title ? headingId : (labelledById ?? headingId)}
       rise
+      page={page}
       head={
         title ? (
           <div className="flex min-h-[60px] items-center gap-2.5 border-b border-ink/10 px-4 py-2" data-shop-door-head="">

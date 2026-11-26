@@ -69,6 +69,12 @@ export function promoteQrModeOf(raw: unknown): PromoteQrMode {
  */
 export const MY_QRS_HREF = '/vendor-dashboard/shop/qrs';
 
+/**
+ * 🔗 "Name your shop first" lands on the field that makes the web address (final check A5-G4-06): Your details › Name
+ * and logo, opened. It used to point at the Shop tab, which reloaded the page the supplier was already on.
+ */
+export const SHOP_NAME_SETUP_HREF = '/vendor-dashboard/profile#name';
+
 /** The "Your shop" group, in the drawing's order: Your page · Reviews · Shortlist · Check a date. Same four codes. */
 export const MY_QRS_SHOP_ORDER = ['page', 'reviews', 'shortlist', 'dates'] as const satisfies readonly PromoteQrMode[];
 

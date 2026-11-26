@@ -241,6 +241,6 @@ test('7 · wired: the VIP column + the +1 pick are read, marked in List / 2D / 3
   const seatList = read('app/dashboard/[eventId]/seating/_components/seat-list.tsx');
   assert.match(seatList, /\{u\.vip \? \(\s*<span[^>]*>\s*<VipMark \/>/, 'the List’s table card does not mark VIP');
   assert.match(seatList, /\$\{unit\.vip \? 'VIP table · ' : ''\}/, 'the risen table does not say it is a VIP table');
-  assert.match(read('app/dashboard/[eventId]/seating/lab/page.tsx'), /vip: t\.is_vip === true/, 'the 3D room is not told which tables are VIP');
+  assert.match(read('app/dashboard/[eventId]/seating/lab/_components/seating-room.tsx'), /vip: t\.is_vip === true/, 'the 3D room is not told which tables are VIP');
   assert.match(read('app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx'), /\{table\.vip \? <VipTableMark \/> : null\}/, 'the 3D room does not mark VIP');
 });

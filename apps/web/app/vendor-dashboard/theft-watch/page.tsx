@@ -5,12 +5,15 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRole, resolveVendorStanding, canManageVendor } from '@/lib/vendor-role';
 import { RoleLock } from '@/app/vendor-dashboard/_components/role-lock';
-import { canSeeTheftWatch } from '@/lib/vendor-tier-caps';
+import { canSeeTheftWatch, firstPlanWith, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import { isVendorFeatureGateEnabled, readVendorTier } from '@/lib/vendor-feature-gate';
 import { ReadFailedNote } from '../_components/set-two/read-failed';
 import { VendorTierGate } from '../_components/tier-gate';
 import { fetchVendorReposts } from '@/lib/vendor-theft-watch';
 import { TheftWatchView } from './_components/theft-watch-view';
+
+// The plan Theft Watch first appears on, read from the plan table — never a typed "Pro" (final check A5-G5-10).
+const THEFT_WATCH_PLAN = firstPlanWith((c) => c.theftWatch) ?? 'pro';
 
 export const metadata = { title: 'Theft Watch · Supplier' };
 
@@ -50,8 +53,8 @@ export default async function VendorTheftWatchPage() {
     return (
       <VendorTierGate
         feature="Theft Watch"
-        requiredTier="pro"
-        blurb="We fingerprint every photo you upload and scan the marketplace for copies, flagging reposts as yours. Portfolio protection is a Pro feature."
+        requiredTier={THEFT_WATCH_PLAN}
+        blurb={`We fingerprint every photo you upload and scan the marketplace for copies, flagging reposts as yours. Portfolio protection is part of ${TIER_LABEL[THEFT_WATCH_PLAN]}.`}
         icon={<ShieldAlert aria-hidden className="h-5 w-5" strokeWidth={1.75} />}
       />
     );

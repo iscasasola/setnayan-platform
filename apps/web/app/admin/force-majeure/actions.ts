@@ -78,14 +78,16 @@ export async function resolveFlag(formData: FormData) {
   if (typeof flagId !== 'string' || flagId.length === 0) {
     throw new Error('Invalid input');
   }
+  // A8·E-13: a refusal is said on the flag's own page (the app-wide `?error=` + `msg` toast) — a production build
+  // hides a thrown server-action message behind the crash page.
+  const refuse: (msg: string) => never = (msg) =>
+    redirect(`/admin/force-majeure/${encodeURIComponent(flagId)}?error=1&msg=${encodeURIComponent(msg)}`);
   if (!isResolutionAction(action)) {
-    throw new Error('Invalid resolution action');
+    refuse('Pick how it was resolved, then press again.');
   }
   // Encourage notes for the financial outcomes so there's an audit trail.
   if ((action === 'refund_issued' || action === 'partial_credit') && !notes) {
-    throw new Error(
-      `${FLAG_STATUS_LABEL[action]} needs notes — record the amount + payment channel.`,
-    );
+    refuse(`${FLAG_STATUS_LABEL[action as ResolutionAction]} needs notes — record the amount + payment channel.`);
   }
 
   const admin = createAdminClient();
@@ -99,9 +101,14 @@ export async function resolveFlag(formData: FormData) {
       admin_handler_user_id: userId, // ensure the resolver is on the row
     })
     .eq('flag_id', flagId)
+    // A8·E-2: a resolved flag is closed to re-resolution (like resolveDispute's
+    // open-only guard) — otherwise a second press overwrites the refund record
+    // and tells the couple again.
+    .is('resolved_at', null)
     .select('flag_id, public_id, event_id, couple_user_id')
-    .single();
-  if (error) throw new Error(error.message);
+    .maybeSingle();
+  if (error) refuse('Couldn’t save the resolution. Nothing changed. Try again.');
+  if (!updated) refuse('This flag is already resolved. Nothing was changed.');
 
   // Notify the couple. The notification type list is small; `order_quoted`
   // already serves "admin update needs your attention" elsewhere in the app.

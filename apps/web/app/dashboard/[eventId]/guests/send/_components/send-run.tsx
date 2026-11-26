@@ -112,6 +112,9 @@ export function SendRun({
   const inRun = useMemo(() => (picked ? sendable : sendable.filter((g) => !g.replied)), [picked, sendable]);
   const [queue, setQueue] = useState<RunGuest[]>(() => (picked ? sendable : sendable.filter((g) => runToInvite(g))));
   const [at, setAt] = useState(0);
+  // N-09 (final check): a QR that did not load left an empty white frame on the card. Its guest id is remembered so
+  // the frame says so instead.
+  const [qrFailedFor, setQrFailedFor] = useState<string | null>(null);
   const [sentHere, setSentHere] = useState<Record<string, string | null>>({});
   const [later, setLater] = useState<string[]>([]);
   const [template, setTemplate] = useState(initialTemplate);
@@ -324,8 +327,22 @@ export function SendRun({
         {oneLink?.qrSvg ? (
           <div className="qr-slot h-[168px] w-[168px] [&_svg]:h-full [&_svg]:w-full" aria-label="The event’s QR" role="img" dangerouslySetInnerHTML={{ __html: oneLink.qrSvg }} />
         ) : oneLink ? null : (
-          // eslint-disable-next-line @next/next/no-img-element -- our own gated QR route, the same bytes as Download
-          <img src={`/api/website/qr/guest/${current.guestId}`} alt={`${current.fullName}’s QR`} width={168} height={168} className="h-[168px] w-[168px] object-contain" draggable={false} />
+          qrFailedFor === current.guestId ? (
+            <p role="status" className="flex h-[168px] w-[168px] items-center justify-center px-3 text-center text-sm text-ink/70">
+              Couldn&rsquo;t load {current.fullName}&rsquo;s QR. Their link still works — Send shares it.
+            </p>
+          ) : (
+            // eslint-disable-next-line @next/next/no-img-element -- our own gated QR route, the same bytes as Download
+            <img
+              src={`/api/website/qr/guest/${current.guestId}`}
+              alt={`${current.fullName}’s QR`}
+              width={168}
+              height={168}
+              className="h-[168px] w-[168px] object-contain"
+              draggable={false}
+              onError={() => setQrFailedFor(current.guestId)}
+            />
+          )
         )}
       </div>
       <p className="mt-5 text-[12px] uppercase tracking-[0.2em] text-ink/50" data-send-run-position="">

@@ -112,7 +112,6 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // already carried.
   { table: 'event_vendor_working_notes', decision: 'exported', as: 'vendor_working_notes_authored' },
   { table: 'event_day_requests', decision: 'exported', as: 'day_requests_authored' },
-  { table: 'event_clusters', decision: 'exported', as: 'years_you_grouped' },
   { table: 'event_colour_grants_coordinator', decision: 'exported', as: 'own_colour_access_held' },
   { table: 'event_colour_changes', decision: 'exported', as: 'own_colour_changes_made' },
   // Read by the SHOP (vendor_profile_id), not by `created_by`: the photos are the

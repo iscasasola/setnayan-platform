@@ -1,8 +1,9 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 
+import { isClaimedByReact } from '@/lib/react-claimed';
 import { useHydrated } from '@/lib/use-hydrated';
 
 import { ScheduleSavedMark } from './schedule-saved-mark';
@@ -34,7 +35,8 @@ type SlotFacts = {
   eventEndDate: string | null;
 };
 
-/** Read once hydrated (`useHydrated` — the server and the hydration pass both draw nothing, so they match). */
+/** Read once hydrated (`useHydrated` — the server and the hydration pass both draw nothing, so they match), and only
+ *  into a slot React has already claimed (`isClaimedByReact`). */
 function readSlot(): SlotFacts | null {
   const el = document.querySelector<HTMLElement>(`[${SCHEDULE_COPY_SLOT}]`);
   const d = el?.dataset;
@@ -50,9 +52,29 @@ function readSlot(): SlotFacts | null {
   };
 }
 
+/* 💧 WHY THE MARK WAITS FOR THE SLOT ITSELF (final check A2-P11, SW-HYDR: React error #418 on every Schedule load):
+   the layout hydrates FIRST, but the page streams in its own Suspense boundary and hydrates later. Drawing the mark into
+   the slot as soon as the layout had hydrated put children into a div the server had sent empty, BEFORE React claimed
+   it — React then found nodes the server never drew, threw a hydration mismatch and re-drew the page on the phone. So
+   the mark is drawn only into a slot React has already claimed (`isClaimedByReact`). */
+/** How long to keep looking for a claimed slot (~10 s of frames); a slot never claimed simply draws no mark. */
+const SLOT_LOOKS = 600;
+
 export function ScheduleSavedSlot() {
   const hydrated = useHydrated();
-  const slot = useMemo(() => (hydrated ? readSlot() : null), [hydrated]);
+  const [slot, setSlot] = useState<SlotFacts | null>(null);
+  useEffect(() => {
+    if (!hydrated) return;
+    let frame = 0;
+    let looks = 0;
+    const look = () => {
+      const found = readSlot();
+      if (found && isClaimedByReact(found.el)) return setSlot(found);
+      if (++looks < SLOT_LOOKS) frame = requestAnimationFrame(look);
+    };
+    frame = requestAnimationFrame(look);
+    return () => cancelAnimationFrame(frame);
+  }, [hydrated]);
   if (!slot) return null;
   return createPortal(
     <ScheduleSavedMark

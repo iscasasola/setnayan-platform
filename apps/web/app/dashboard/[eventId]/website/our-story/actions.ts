@@ -66,12 +66,22 @@ export async function updateOurStory(eventId: string, formData: FormData): Promi
   if (drafting) await requireHostMembership(eventId);
 
   // Read the stored blob first so unedited/unknown keys survive the merge.
-  const { data: current } = await supabase
+  const { data: current, error: currentError } = await supabase
     .from('events')
     .select('love_story')
     .eq('event_id', eventId)
     .maybeSingle();
   const draftedStory = drafting ? await draftedEventColumn(eventId, 'love_story') : null;
+  // E-10 (final check): the merge starts from the stored blob. If that read failed (or found no row), merging from
+  // nothing would write a blob without the couple's moments and every key this form does not carry. Refuse instead;
+  // nothing is overwritten. A drafted copy is a complete base of its own, so it does not need the live read.
+  if (!draftedStory?.drafted && (currentError || !current)) {
+    redirect(
+      `/dashboard/${eventId}/website/our-story?error=${encodeURIComponent(
+        "Couldn't read your story, so nothing was saved. Please try again.",
+      )}`,
+    );
+  }
   const base: unknown = draftedStory?.drafted ? draftedStory.value : current?.love_story;
   // MERGE, never clobber (`mergeStoryWords`): keys this form does not edit survive.
   // together_since is DUAL-STORED: onboarding writes both the blob and the

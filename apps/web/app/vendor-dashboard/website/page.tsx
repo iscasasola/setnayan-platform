@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { micrositeCan } from '@/lib/vendor-microsite';
-import { tierCaps, asVendorTier, firstPlanWith, TIER_LABEL } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, firstPlanWith, FIRST_PAID_SIZE, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import { TemplateFail } from '@/app/_components/template-rows';
 import { DomainManager } from './_domain-manager';
 import { loadPageData } from './page-data';
@@ -55,6 +55,9 @@ export default async function YourPage({
   const ownAddressAsks = !d.planUnread && vendorPaywallApplies(tierCaps(asVendorTier(d.tier)).customWebsiteName) && !d.storeShell;
   const proPartsAsk = !d.planUnread && vendorPaywallApplies(tierCaps(asVendorTier(d.tier)).premiumPage) && !d.storeShell;
   const addressPlan = TIER_LABEL[firstPlanWith((c) => c.customWebsiteName) ?? 'pro'];
+  // The plans the ◆ parts name, from the plan table — never a typed "Pro" / "Plus" (final check A5-G5-10).
+  const proPartsPlan = TIER_LABEL[firstPlanWith((c) => c.premiumPage) ?? 'pro'];
+  const personalizePlan = TIER_LABEL[FIRST_PAID_SIZE];
   const whereLine = d.city
     ? d.outerRadiusKm
       ? `${d.city} · travels up to ${d.outerRadiusKm} km`
@@ -99,6 +102,8 @@ export default async function YourPage({
           proAsks: proPartsAsk,
           addressAsks: ownAddressAsks,
           addressPlan,
+          proPartsPlan,
+          personalizePlan,
           storeShell: d.storeShell,
           plans: d.plans,
           badges: d.badges,

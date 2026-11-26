@@ -17,6 +17,7 @@
  * identical whether or not an account exists for that email (see ./actions.ts).
  * Do not "improve" it into telling someone their email was not found.
  */
+import { passwordResetWaitMessage } from '@/lib/password-reset-limit';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -30,6 +31,8 @@ export const metadata: Metadata = {
   description:
     'Request a password-reset link for your Setnayan account. One account for couples planning their wedding and suppliers selling their services.',
   alternates: { canonical: '/forgot-password' },
+  // A sign-in page is a door, not a page to find in search (final check A1-160, Add 9 SEO).
+  robots: { index: false, follow: true },
 };
 
 type SearchParams = Promise<{
@@ -39,8 +42,7 @@ type SearchParams = Promise<{
 
 const ERROR_COPY: Record<string, string> = {
   missing: 'Enter the email you signed up with.',
-  rate_limited:
-    'Too many reset requests in a row — please wait a minute, then try again.',
+  rate_limited: passwordResetWaitMessage(),
   // A FAILED BOT CHECK SAYS SO, instead of the neutral "we've sent a link".
   // Nothing was sent in this case, and this is the one page a person reaches
   // when they already cannot get in — telling them to wait for a mail that is

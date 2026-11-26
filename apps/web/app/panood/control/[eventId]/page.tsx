@@ -334,6 +334,7 @@ type Props = {
     screen_code?: string;
     screen_removed?: string;
     screen_error?: string;
+    write_error?: string;
   }>;
 };
 
@@ -370,6 +371,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     screen_code,
     screen_removed,
     screen_error,
+    write_error,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -652,11 +654,15 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
 
   let activeBroadcast: Awaited<ReturnType<typeof getActivePanoodBroadcast>> = null;
   let activeStreamKey: string | null = null;
+  // L-02 (final check): a failed air read is never drawn as "Off air" — it is drawn as "not checked".
+  let airReadFailed = false;
   try {
     activeBroadcast = await getActivePanoodBroadcast(eventId);
     if (activeBroadcast) activeStreamKey = await getActivePanoodStreamKey(eventId);
-  } catch {
-    // pre-migration env — no active broadcast
+  } catch (e) {
+    // pre-migration env — no active broadcast; but the room no longer claims to know it is off air.
+    console.error('[panood/control] broadcast read refused', e);
+    airReadFailed = true;
   }
 
   // ── BY-HAND ON AIR ────────────────────────────────────────────────────────
@@ -683,7 +689,10 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
       .select('panood_manual_on_air_at')
       .eq('event_id', eventId)
       .maybeSingle();
-    if (onAirError) console.error('[panood/control] manual on-air read refused', onAirError);
+    if (onAirError) {
+      console.error('[panood/control] manual on-air read refused', onAirError);
+      airReadFailed = true;
+    }
     manualOnAirAt = (data as { panood_manual_on_air_at?: string | null } | null)
       ?.panood_manual_on_air_at ?? null;
   }
@@ -698,6 +707,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     manualOnAirAt,
   });
   const isLive = liveAir.isLive;
+  const airUnknown = airReadFailed && !isLive;
   // Is the by-hand switch on right now, and should it be on screen at all? Both
   // answers come from the shared module so this page and the transport button cannot
   // disagree about whether one-tap go-live is available.
@@ -961,7 +971,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             aria-hidden
             className={`h-1.5 w-1.5 rounded-full ${isLive ? 'animate-pulse bg-cream' : 'bg-ink/40'}`}
           />
-          {isLive ? 'On air' : 'Off air'}
+          {isLive ? 'On air' : airUnknown ? 'Not checked' : 'Off air'}
         </span>
       </div>
 
@@ -981,6 +991,12 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
       {zone_renamed ? <Banner tone="success" Icon={Pencil}>Channel renamed.</Banner> : null}
       {zone_deleted ? <Banner tone="muted" Icon={Trash2}>Camera channel removed.</Banner> : null}
       {featured_set ? <Banner tone="success" Icon={Star}>Default channel updated.</Banner> : null}
+      {write_error ? <Banner tone="error" Icon={AlertCircle}>{PANOOD_REFUSAL.write}</Banner> : null}
+      {airUnknown ? (
+        <Banner tone="error" Icon={AlertCircle}>
+          Couldn’t check whether you’re on air. Reload before you go live or end.
+        </Banner>
+      ) : null}
       {main_stage_cut ? <Banner tone="success" Icon={Scissors}>Now on Channel 1.</Banner> : null}
       {main_stage_cleared ? <Banner tone="muted" Icon={PowerOff}>Channel 1 cleared.</Banner> : null}
       {watch_url_saved ? <Banner tone="success" Icon={CheckCircle2}>Watch link saved — guests see “Watch Live”.</Banner> : null}

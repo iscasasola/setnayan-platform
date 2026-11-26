@@ -150,12 +150,6 @@ export const ADMIN_NAV_GROUPS: NavGroup[] = [
         icon: Star,
       },
       {
-        key: 'concierge-abuse',
-        label: "Setnayan AI abuse",
-        href: '/admin/concierge-abuse',
-        icon: Flag,
-      },
-      {
         // Self-serve account-deletion request queue (App Store 5.1.1(v) /
         // Google Play data-deletion). Couples + vendors file deletion requests
         // from Profile → Privacy & data; an admin approves (runs the existing

@@ -80,9 +80,11 @@ test('📈 adoption only ever grows', () => {
   const adopters = files.filter(
     (f) => !f.endsWith('quiet-start.tsx') && /<QuietStart/.test(strip(readFileSync(f, 'utf8'))),
   );
+  // 4 when this shipped; 3 since the final check's R5/R6 retire batch (25 Nov) DELETED one wearer — the one way a
+  // screen may leave this list.
   assert.ok(
-    adopters.length >= 4,
-    `only ${adopters.length} screens wear the quiet-start card; 4 wore it when ` +
+    adopters.length >= 3,
+    `only ${adopters.length} screens wear the quiet-start card; 3 wore it after a wearer was deleted (R batch) — ` +
       'this shipped. A screen may only leave this list by being deleted — ' +
       'raise the floor when more adopt it, never lower it.',
   );

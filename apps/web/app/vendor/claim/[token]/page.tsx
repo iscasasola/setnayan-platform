@@ -14,6 +14,7 @@ import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { supplierCommissionShort } from '@/lib/commission-promise';
 import { claimDatePhrase } from '@/lib/claim-invite-words';
 import { claimDoorHref } from '@/lib/claim-door';
+import { routes } from '@/lib/routes';
 import { CoupleLinkDoor, Perk, SnapshotField, TeamInviteDoor } from './_components/claim-parts';
 
 export const metadata = {
@@ -85,7 +86,8 @@ export default async function VendorClaimPage({ params }: Props) {
       <TerminalCard
         eyebrow="Already claimed"
         title="This invite has already been claimed."
-        body="If this wasn't you, please contact support."
+        body="If this wasn't you, tell us and we'll look into it."
+        help
       />
     );
   }
@@ -103,7 +105,8 @@ export default async function VendorClaimPage({ params }: Props) {
       <TerminalCard
         eyebrow="No longer active"
         title="This invite is no longer active."
-        body="If you believe this is a mistake, please contact support."
+        body="If you think this is a mistake, tell us and we'll look into it."
+        help
       />
     );
   }
@@ -333,13 +336,22 @@ function TerminalCard({
   eyebrow,
   title,
   body,
+  help = false,
 }: {
   eyebrow: string;
   title: string;
   body: string;
+  /** 🪪 A dead end that asks the person to reach us carries the one door to do it (final check A5-G1-11). */
+  help?: boolean;
 }) {
   return (
     <DoorShell tone="dead_end" eyebrow={eyebrow} title={title} sub={body} width="lg">
+      {help ? (
+        <Link href={`${routes.help.index()}?for=shop#contact`} className={actionButtonClass('brand', { main: true })} data-tone="brand" data-main="">
+          <Mail aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+          Message us
+        </Link>
+      ) : null}
     </DoorShell>
   );
 }

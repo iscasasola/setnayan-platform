@@ -24,6 +24,7 @@ import ts from 'typescript';
 export const SUPPLIER_WORD_ALLOWED: ReadonlyArray<{ prefix: string; why: string }> = [
   { prefix: 'app/admin/', why: 'the staff console — read by Setnayan staff, not a host or a supplier' },
   { prefix: 'lib/admin/', why: 'the staff console’s helpers' },
+  { prefix: 'lib/payment-note-words.ts', why: 'matches the two stored payment notes (SUPPLIER_WORD_DATA) so the screen says "reservation fee" and "supplier" instead — the notes themselves are never shown' },
   { prefix: 'app/api/', why: 'API routes — developer payloads and error codes, not screen copy' },
   { prefix: 'lib/api-keys.ts', why: 'the public API’s key descriptions (developer-facing)' },
   { prefix: 'lib/ugat/', why: 'the admin Root map’s own vocabulary (staff-facing)' },

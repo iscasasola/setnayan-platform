@@ -4,6 +4,7 @@
 // action and the vendor page can call it with an admin client.
 // ============================================================================
 
+import { logQueryError } from '@/lib/supabase/error-detect';
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { isReviewable, type CompletionFields } from '@/lib/completion-handshake';
 
@@ -80,6 +81,8 @@ export type EditorialEligibility = {
   isDisputed: boolean;
   eligible: boolean;
   eventVendorId: string | null;
+  /** 🧾 A6-54: a read behind the answer was refused — "couldn't read", never "not available for this event". */
+  unread?: boolean;
 };
 
 /**
@@ -102,24 +105,32 @@ export async function getEditorialEligibility(
     eventVendorId: null,
   };
 
-  const { data: evRows } = await admin
+  const { data: evRows, error: evRowsError } = await admin
     .from('event_vendors')
     .select(
       'vendor_id, service_id, status, completion_status, service_marked_complete_at, customer_confirmed_received_at',
     )
     .eq('event_id', eventId)
     .eq('selection_match_rank', 1);
+  if (evRowsError) {
+    logQueryError('getEditorialEligibility.bookings', evRowsError, { eventId }, 'graceful_degrade');
+    return { ...none, unread: true };
+  }
   const rows = (evRows ?? []) as EventVendorGateRow[];
   const withService = rows.filter((r) => r.service_id);
   if (withService.length === 0) return none;
 
-  const { data: svcRows } = await admin
+  const { data: svcRows, error: svcRowsError } = await admin
     .from('vendor_services')
     .select('vendor_service_id, vendor_profile_id')
     .in(
       'vendor_service_id',
       withService.map((r) => r.service_id as string),
     );
+  if (svcRowsError) {
+    logQueryError('getEditorialEligibility.cards', svcRowsError, { eventId }, 'graceful_degrade');
+    return { ...none, unread: true };
+  }
   const svcToProfile = new Map<string, string>();
   for (const s of (svcRows ?? []) as Array<{
     vendor_service_id: string;

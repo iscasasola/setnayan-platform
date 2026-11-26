@@ -18,6 +18,9 @@
  */
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
+import { actionButtonClass } from '@/components/action-button-class';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext, getCurrentUser } from '@/lib/auth';
 import { signInDestination } from '@/lib/sign-in-landing';
@@ -54,13 +57,26 @@ export default async function YouPage({ searchParams }: { searchParams: SearchPa
   if (!user) redirect(`/signup?next=${encodeURIComponent(next)}`);
 
   // Own row (RLS). Read exactly the columns the card shows; nothing else.
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('users')
     .select(
       'display_name, slug, name_prefix, first_name, middle_name, last_name, name_suffix, phone, profile_photo_url, profile_focal_x, profile_focal_y, profile_zoom, account_type, public_summary_consent_at',
     )
     .eq('user_id', user.id)
     .maybeSingle();
+  // A2-A7: a refused read never draws an empty card whose Done would write blanks over saved values. It says so and
+  // lets the person go on; the card can be filled in later from Profile.
+  if (profileError) {
+    logQueryError('YouPage.profile', profileError, { user_id: user.id }, 'graceful_degrade');
+    return (
+      <main className="mx-auto w-full max-w-md space-y-4 px-4 py-10">
+        <ReadRefusedNotice what="your profile" />
+        <Link href={next} className={actionButtonClass('brand', { main: true })}>
+          Continue
+        </Link>
+      </main>
+    );
+  }
   const me = (profile ?? {}) as YouCardMe;
 
   // 🚪 Done → the event-type picker when the account holds no event yet (`youCardOnward`). A count, not the

@@ -128,6 +128,9 @@ const UNLOCK_FALLBACK_TITLE: Readonly<Record<(typeof SHOP_GIFT_UNLOCK_KINDS)[num
 /** One ticket in "Available": a gift on sale, or one the shop still holds that is no longer on sale. */
 type Tile = { pack: ShopGiftPack; onSale: boolean; stock: ShopGiftStock | null };
 
+/** The name of a held Papic gift the catalogue no longer sells (a badge reward, a retired pack). */
+const HELD_PAPIC_TITLE = 'Papic credits';
+
 /**
  * The tickets, in the store's order: every Papic pack (smallest first) then Event Plus / Pro / Ultra — each on sale or
  * held. A gift neither on sale nor held draws no ticket (never a tile for nothing).
@@ -138,8 +141,9 @@ function tiles(packs: readonly ShopGiftPack[], stock: ShopGiftStocks | null): Ti
   papic.forEach((p) => out.push({ pack: p, onSale: true, stock: stock ? (stock.packs[p.code] ?? { balance: 0, held: 0 }) : null }));
   for (const [code, st] of Object.entries(stock?.packs ?? {})) {
     if (out.some((t) => t.pack.code === code) || (st.balance === 0 && st.held === 0)) continue;
-    // Held but off sale: its title is its code (the catalogue no longer names it); 1 credit so the Papic ticket prints.
-    out.push({ pack: { code, title: code, kind: 'papic', credits: 1, srpCentavos: 0 }, onSale: false, stock: st });
+    // Held but off sale: the catalogue no longer names it, so it reads as the plain word, never its code
+    // (final check B5-09: a supplier saw `PAPIC_GUEST_150`); 1 credit so the Papic ticket prints.
+    out.push({ pack: { code, title: HELD_PAPIC_TITLE, kind: 'papic', credits: 1, srpCentavos: 0 }, onSale: false, stock: st });
   }
   for (const k of SHOP_GIFT_UNLOCK_KINDS) {
     const pack = packs.find((p) => p.kind === k);

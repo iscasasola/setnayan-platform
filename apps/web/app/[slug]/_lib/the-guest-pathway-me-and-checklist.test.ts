@@ -66,34 +66,36 @@ test('6 · shown only in the 30 days before the day — never on the day, never 
 
 test('6 · an item with nothing true to say is not drawn; the pass always is', () => {
   const bare = buildChecklist({
-    wear: null, wearNote: null, motif: [], arriveBy: null, venueName: null, mapsHref: null, tableLabel: null,
+    wear: null, wearNote: null, arriveBy: null, venueName: null, mapsHref: null, tableLabel: null,
     passHref: '/api/guest/qr',
   });
   assert.deepEqual(bare.map((i) => i.key), ['pass']);
   const full = buildChecklist({
-    wear: 'Filipiniana formal', wearNote: 'Guests, in the motif', motif: ['#F4EFE6', '#C9A15A', 'nope'],
+    wear: 'Filipiniana formal', wearNote: 'Guests, in the motif',
     arriveBy: '2:30 PM', venueName: 'San Agustin Church', mapsHref: 'https://maps', tableLabel: 'Table 7',
     passHref: '/api/guest/qr',
   });
-  assert.deepEqual(full.map((i) => i.key), ['wear', 'motif', 'arrive', 'table', 'pass']);
-  assert.deepEqual(full.find((i) => i.key === 'motif')?.swatches, ['#F4EFE6', '#C9A15A'], 'a non-hex swatch was drawn');
+  assert.deepEqual(full.map((i) => i.key), ['wear', 'arrive', 'table', 'pass']);
   assert.equal(full.find((i) => i.key === 'arrive')?.title, 'Arrive by 2:30 PM');
   assert.equal(full.find((i) => i.key === 'arrive')?.link?.label, 'Open in Maps');
   // No maps link where the venue is withheld (they have not replied).
   const withheld = buildChecklist({
-    wear: null, wearNote: null, motif: [], arriveBy: '2:30 PM', venueName: 'San Agustin Church', mapsHref: null,
+    wear: null, wearNote: null, arriveBy: '2:30 PM', venueName: 'San Agustin Church', mapsHref: null,
     tableLabel: null, passHref: '/api/guest/qr',
   });
   assert.equal(withheld.find((i) => i.key === 'arrive')?.link ?? null, null);
 });
 
-test('6 · "3 of 5 ready" → all set; only drawn items count; stored ticks are sanitised', () => {
+test('6 · "2 of 4 ready" → all set; only drawn items count; stored ticks are sanitised', () => {
   const items = buildChecklist({
-    wear: 'Formal', wearNote: null, motif: ['#111111'], arriveBy: '3 PM', venueName: null, mapsHref: null,
+    wear: 'Formal', wearNote: null, arriveBy: '3 PM', venueName: null, mapsHref: null,
     tableLabel: 'Table 7', passHref: '/api/guest/qr',
   });
-  assert.deepEqual(checklistProgress(items, ['wear', 'motif', 'table']), { ready: 3, total: 5, allSet: false });
-  assert.deepEqual(checklistProgress(items, ['wear', 'motif', 'arrive', 'table', 'pass']), { ready: 5, total: 5, allSet: true });
+  assert.deepEqual(checklistProgress(items, ['wear', 'table']), { ready: 2, total: 4, allSet: false });
+  assert.deepEqual(checklistProgress(items, ['wear', 'arrive', 'table', 'pass']), { ready: 4, total: 4, allSet: true });
+  // An old stored 'motif' tick (the colours item, removed 2026-11-26) counts for nothing and is dropped.
+  assert.deepEqual(checklistProgress(items, ['wear', 'motif', 'arrive', 'table', 'pass']), { ready: 4, total: 4, allSet: true });
+  assert.deepEqual(sanitizeTicks(['wear', 'motif']), ['wear']);
   assert.deepEqual(sanitizeTicks(['wear', 'wear', 'hack', 7, 'pass']), ['wear', 'pass']);
   assert.deepEqual(applyTick(['wear'], 'pass', true), ['wear', 'pass']);
   assert.deepEqual(applyTick(['wear', 'pass'], 'wear', false), ['pass']);
@@ -138,22 +140,34 @@ test('6 · the checklist renders the count and ticks as checkboxes', async () =>
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { GuestChecklist } = await import('../_components/guest-checklist');
   const items = buildChecklist({
-    wear: 'Formal', wearNote: null, motif: ['#111111'], arriveBy: '3 PM', venueName: null, mapsHref: null,
+    wear: 'Formal', wearNote: null, arriveBy: '3 PM', venueName: null, mapsHref: null,
     tableLabel: 'Table 7', passHref: '/api/guest/qr',
   });
   const html = renderToStaticMarkup(
     React.createElement(GuestChecklist, {
-      items, initialTicks: ['wear', 'motif', 'table'], save: async () => {}, daysLeft: 21, dateLabel: '18 December',
+      items, initialTicks: ['wear', 'table'], save: async () => {}, daysLeft: 21, dateLabel: '18 December',
     }),
   );
-  assert.match(html, /3 of 5 ready/);
-  assert.equal((html.match(/role="checkbox"/g) ?? []).length, 5);
-  assert.equal((html.match(/aria-checked="true"/g) ?? []).length, 3);
+  assert.match(html, /2 of 4 ready/);
+  assert.equal((html.match(/role="checkbox"/g) ?? []).length, 4);
+  assert.equal((html.match(/aria-checked="true"/g) ?? []).length, 2);
   assert.match(html, /href="\/api\/guest\/qr"[^>]*download/);
   const failed = renderToStaticMarkup(
     React.createElement(GuestChecklist, { items, initialTicks: [], save: async () => {}, daysLeft: null, dateLabel: null, readFailed: true }),
   );
   assert.match(failed, /could not load your ticks/, 'a failed read looks like "nothing ticked"');
+});
+
+test('6 · NO COLOURS ITEM (owner 2026-11-26: "remove motif colors. just keep what to wear") — wear · arrive · table · pass only', () => {
+  const FACTS = read('app/[slug]/_lib/guest-checklist-facts.ts');
+  const LIST = read('lib/guest-checklist.ts');
+  const VIEW = read('app/[slug]/_components/guest-checklist.tsx');
+  const MAIL = read('lib/guest-reminder-emails-core.ts');
+  assert.match(LIST, /CHECKLIST_KEYS = \['wear', 'arrive', 'table', 'pass'\] as const/, 'the checklist keys changed');
+  assert.doesNotMatch(LIST, /'motif'|swatches/, 'the builder draws a colours item again');
+  assert.doesNotMatch(FACTS, /paletteSwatches|motif/, 'the checklist reads the Mood Board motif again');
+  assert.doesNotMatch(VIEW, /swatches|backgroundColor/, 'the checklist draws colour swatches again');
+  assert.doesNotMatch(MAIL, /'motif'|swatches/, 'the reminder email lists a colours item again');
 });
 
 // ═══ 4 · ME ═══════════════════════════════════════════════════════════════

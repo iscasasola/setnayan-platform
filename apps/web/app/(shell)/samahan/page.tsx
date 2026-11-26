@@ -225,7 +225,10 @@ export default function SamahanLandingPage() {
       primary={{ href: '/dashboard/samahan/new', label: 'Create a group' }}
       secondary={{ href: '/features', label: 'See what else is free' }}
       productName="Groups"
-      studioKey="samahan"
+      /*
+        ⛔ NO `studioKey` (final check A1-003): it turned the signed-in hero into "Add to an event", and a group is not
+        added to an event. "Create a group" stays the one main button for everybody.
+      */
       steps={STEPS}
       differentiator={{
         heading: 'A group that belongs to you, not to one event',

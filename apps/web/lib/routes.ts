@@ -470,6 +470,12 @@ export const routes = {
     wedding: () => `/onboarding/wedding`,
   },
   ourStory: () => `/our-story`,
+  /**
+   * 🚪 THE PUBLIC START DOOR: "What kind of event are you planning?" — every type goes to its own onboarding, and the
+   * account is asked for at save. Every host "Start planning" button opens this (final check A1-031, A1-050, A1-112),
+   * never `/signup` first and never the wedding flow for a debut.
+   */
+  start: () => `/start`,
   papic: {
     claim: {
       detail: (token: string) => `/papic/claim/${token}`,

@@ -197,7 +197,6 @@
  "vendor-dashboard/shop": 24,
  "vendor-dashboard/subscription": 9,
  "vendor-dashboard/team": 1,
- "vendor-dashboard/track-record": 2,
  "vendor/claim/[token]": 3,
  "vendor/lock/[token]": 2
 }

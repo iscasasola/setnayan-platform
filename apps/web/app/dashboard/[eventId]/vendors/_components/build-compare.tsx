@@ -25,6 +25,7 @@
  *   • "Clear candidates" MOVED to "Your team" in PR-E (spec §8.3) — one place.
  */
 
+import { useViewerBooks } from './viewer-books';
 import { useMemo, useState, useTransition } from 'react';
 import {
   Bookmark,
@@ -149,6 +150,8 @@ export function BuildCompare({
   /** B5 — the day-precision counterpart of `availability`. Never both. */
   anchoredDate?: CompareAnchoredDate | null;
 }) {
+  // A2-G1: only a host books; the coordinator's compare rows offer load / modify / delete, never "book".
+  const books = useViewerBooks();
   // PR-F: every user-visible delta below is gated on this. Read once so the
   // whole surface agrees within a render.
   const replan = isExploreReplanEnabled();
@@ -607,6 +610,7 @@ export function BuildCompare({
                                 </>
                               )}
                             </button>
+                            {books ? (
                             <button
                               type="button"
                               onClick={() => onApply(c.snapshot, 'lock', c.title)}
@@ -616,6 +620,7 @@ export function BuildCompare({
                             >
                               <Lock className="h-3 w-3" strokeWidth={1.75} aria-hidden /> book
                             </button>
+                            ) : null}
                             <button
                               type="button"
                               onClick={() => onDelete(c.key, c.title)}

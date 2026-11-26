@@ -769,7 +769,6 @@
         "/login?next=[seg]",
         "/monogram",
         "/onboarding/wedding",
-        "/onboarding/wedding?from=setnayan-ai",
         "/open-shop",
         "/our-story",
         "/papic",
@@ -822,6 +821,7 @@
         "routes.help.topic",
         "routes.help.topics",
         "routes.join",
+        "routes.start",
         "saveAction",
         "sendCustomProposalFromChat",
         "setVendorCapturesHidden",
@@ -1738,6 +1738,7 @@
         "SlashList",
         "Slide",
         "SlotBadge",
+        "SlotFacts",
         "SmallStars",
         "SnapState",
         "Snapshot",
@@ -2038,14 +2039,15 @@
       ],
       "destinations": [
         "/",
-        "/?browse=1",
         "/features",
         "/help",
         "/pricing",
-        "/signup",
+        "/suppliers",
         "/tl/about"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "AboutHero",
         "HTMLDivElement",
@@ -2080,7 +2082,6 @@
         "(shell)/alaala/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=alaala",
         "/our-story",
         "/pa3d",
         "/palogo",
@@ -2089,7 +2090,9 @@
         "/pawebsite",
         "/pricing"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "AlaalaOrb",
         "HowItWorksPanel",
@@ -2148,10 +2151,11 @@
         "(shell)/budget/page.tsx"
       ],
       "destinations": [
-        "/features",
-        "/onboarding/wedding?from=budget"
+        "/features"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2287,10 +2291,11 @@
         "/for-suppliers",
         "/open-shop",
         "/pricing",
-        "/signup",
         "/suppliers"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "Bar",
         "ChapterBlock",
@@ -2415,10 +2420,11 @@
         "(shell)/guest-list/page.tsx"
       ],
       "destinations": [
-        "/features",
-        "/onboarding/wedding?from=guest-list"
+        "/features"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2463,10 +2469,11 @@
         "(shell)/marketplace/page.tsx"
       ],
       "destinations": [
-        "/?browse=1",
-        "/onboarding/wedding?from=marketplace"
+        "/?browse=1"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2484,7 +2491,9 @@
         "/onboarding/wedding?from=monogram",
         "/signup?next=/monogram"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "Blob",
         "ClosingCta",
@@ -2509,10 +2518,11 @@
         "(shell)/mood-board/page.tsx"
       ],
       "destinations": [
-        "/features",
-        "/onboarding/wedding?from=mood-board"
+        "/features"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2568,10 +2578,11 @@
         "(shell)/pa3d/try/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=pa3d-try",
         "/pa3d"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "Link",
         "Pa3dRoom"
@@ -2591,10 +2602,11 @@
         "(shell)/palogo/page.tsx"
       ],
       "destinations": [
-        "/monogram",
-        "/onboarding/wedding?from=palogo"
+        "/monogram"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2608,11 +2620,12 @@
         "panood/guest-pick-actions.ts"
       ],
       "destinations": [
-        "/onboarding/wedding?from=panood",
         "/pricing",
         "/privacy"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "GuestPickSessionResult",
@@ -2708,10 +2721,11 @@
         "(shell)/pawebsite/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=pawebsite",
         "/pricing"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2844,10 +2858,11 @@
         "(shell)/schedule/page.tsx"
       ],
       "destinations": [
-        "/features",
-        "/onboarding/wedding?from=schedule"
+        "/features"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2859,10 +2874,11 @@
         "(shell)/seat-plan/page.tsx"
       ],
       "destinations": [
-        "/features",
-        "/onboarding/wedding?from=seat-plan"
+        "/features"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2874,10 +2890,11 @@
         "(shell)/setnayan-ai/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=setnayan-ai",
         "/pricing"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2956,14 +2973,15 @@
       ],
       "destinations": [
         "/",
-        "/?browse=1",
         "/about",
         "/help",
         "/pricing",
-        "/signup",
+        "/suppliers",
         "/tl/features"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "Icon",
         "Link"
@@ -2997,10 +3015,11 @@
       ],
       "destinations": [
         "/?browse=1",
-        "/for-suppliers",
-        "/onboarding/wedding"
+        "/for-suppliers"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "Link"
       ]
@@ -8465,7 +8484,8 @@
       "actions": [],
       "blocks": [
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "ReadRefusedNotice"
       ]
     },
     "/dashboard/(account)/profile": {
@@ -8523,6 +8543,7 @@
         "ProfilePhotoField",
         "ProfileShareButton",
         "PushToggle",
+        "ReadRefusedNotice",
         "RestorePurchasesRow",
         "Row",
         "SaveFileLink",
@@ -8607,6 +8628,7 @@
         "MessageBubble",
         "OverlayBackdrop",
         "PickMenu",
+        "ReadRefusedNotice",
         "ReturnInPlace",
         "SamahanIdentityHeader",
         "SamahanStories",
@@ -14662,6 +14684,7 @@
       ],
       "destinations": [
         "/dashboard/[seg]",
+        "/host/accept/[seg]",
         "/login?next=",
         "/login?next=[seg]",
         "/signup?next=[seg]&email=[seg]"
@@ -15807,10 +15830,10 @@
         "sample/layout.tsx",
         "sample/page.tsx"
       ],
-      "destinations": [
-        "/onboarding/wedding"
+      "destinations": [],
+      "actions": [
+        "routes.start"
       ],
-      "actions": [],
       "blocks": [
         "Link",
         "Metadata"
@@ -15894,6 +15917,7 @@
         "Link",
         "PrefixSelect",
         "ProfilePhotoField",
+        "ReadRefusedNotice",
         "RequiredRowsHold",
         "SubmitButton",
         "TypedRow",
@@ -15941,13 +15965,14 @@
       ],
       "destinations": [
         "/maria-and-jose",
-        "/onboarding/wedding?from=tour",
         "/tour/budget",
         "/tour/gallery",
         "/tour/seating",
         "/tour/vendors"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "HTMLTextAreaElement",
         "Link",
@@ -15961,11 +15986,12 @@
         "tour/budget/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=tour",
         "/tour",
         "/tour/gallery"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "AllocationConfig",
         "ConfidenceChip",
@@ -15993,11 +16019,12 @@
         "tour/gallery/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=tour",
         "/tour",
         "/tour/budget"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "Link",
         "PaletteKey",
@@ -16011,11 +16038,12 @@
         "tour/seating/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=tour",
         "/tour",
         "/tour/vendors"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "FindYourSeat",
         "Link",
@@ -16029,10 +16057,11 @@
       ],
       "destinations": [
         "/maria-and-jose",
-        "/onboarding/wedding?from=tour",
         "/tour"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "Link",
         "SwitchTrack",

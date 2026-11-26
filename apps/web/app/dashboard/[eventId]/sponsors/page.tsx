@@ -106,7 +106,7 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
       .eq('event_id', eventId)
       .maybeSingle(),
     // 👥 Sponsors are GUESTS with a sponsor role (owner, brief Add 41 · A2-I14) — the guest list's own rows, the
-    // same list the entourage and the printed invitation read. `event_sponsors` is a read-only record.
+    // same list the entourage and the printed invitation read. The old `event_sponsors` table is dropped (owner 27 Nov 2026).
     readEventSponsorGuests(admin, eventId),
   ]);
   if (eventRowError) {

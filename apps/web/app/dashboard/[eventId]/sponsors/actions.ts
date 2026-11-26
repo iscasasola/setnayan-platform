@@ -15,8 +15,9 @@ import { refuseLimitedHelper, requireHostMembershipOrThrow } from '@/lib/host-ga
  * Iteration · Principal + Secondary Sponsor coordination — server actions.
  *
  * 👥 SPONSORS ARE GUESTS (owner, brief Add 41 · final check A2-I14): every action here writes the GUEST LIST — a
- * sponsor is a guest with a sponsor role (`lib/sponsor-guests.ts`). `event_sponsors` is a read-only record since
- * migration 20271363480132; nothing here writes it. `sponsor_id` is the guest's id.
+ * sponsor is a guest with a sponsor role (`lib/sponsor-guests.ts`). Migration 20271363480132 moved every
+ * `event_sponsors` row into the guest list and 20271364844438 drops that table (owner 27 Nov 2026). `sponsor_id` is
+ * the guest's id.
  * Per CLAUDE.md 2026-05-22 row "Principal Sponsor list builder".
  *
  * All form actions go through requireSponsorHost() — caller must be an

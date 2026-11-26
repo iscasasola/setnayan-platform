@@ -13,8 +13,9 @@ import { acceptedTheNamedRole, querySponsorGuests } from '@/lib/sponsor-guests';
  * the entourage, the tita who carried the flowers. The people she is sending
  * the link to are looking for themselves, and they are not there."*
  *
- * 🔑 RULE 0 PAID: NONE OF THIS DATA IS NEW. `event_sponsors` has shipped since
- * 2026-06-04 with the Filipino structure already right — principal sponsors
+ * 🔑 RULE 0 PAID: NONE OF THIS DATA IS NEW. `event_sponsors` shipped on
+ * 2026-06-04 (its rows moved into the guest list and the table was dropped,
+ * owner 27 Nov 2026 — sponsors are guests now) with the Filipino structure already right — principal sponsors
  * pair-grouped by `pair_index`, and the four secondary tiers (cord · veil ·
  * coin · candle) each an independent slot, because one half of a pair may
  * accept while the other declines.

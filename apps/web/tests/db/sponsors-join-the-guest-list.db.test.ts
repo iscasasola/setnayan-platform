@@ -10,17 +10,27 @@
  *   · a linked guest keeps their own role; the sponsor role goes to `extra_roles`;
  *   · another event's guest is never a match;
  *   · running it again changes nothing (idempotent).
+ * Then the DROP (20271364844438, owner 27 Nov 2026): the table is gone and the live godparent edges
+ * (generate_event_connections) read the guest list's accepted principal sponsors instead.
+ *
+ * The replay stops BEFORE the drop migration (and any later one), so `event_sponsors` exists to seed.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import type { PGlite } from '@electric-sql/pglite';
 import { createReplayedDb, type ReplayResult } from './replay-migrations';
 
-const MIGRATION = readFileSync(
-  join(import.meta.dirname, '../../../../supabase/migrations/20271363480132_sponsors_join_the_guest_list.sql'),
-  'utf8',
+const MIGRATIONS_DIR = join(import.meta.dirname, '../../../../supabase/migrations');
+const MIGRATION = readFileSync(join(MIGRATIONS_DIR, '20271363480132_sponsors_join_the_guest_list.sql'), 'utf8');
+const DROP_VERSION = '20271364844438';
+const DROP = readFileSync(join(MIGRATIONS_DIR, `${DROP_VERSION}_drop_event_sponsors.sql`), 'utf8');
+/** Every migration version before the drop — the database as it stood when the move ran. */
+const BEFORE_DROP = new Set(
+  readdirSync(MIGRATIONS_DIR)
+    .map((f) => /^(\d+)_.*\.sql$/.exec(f)?.[1])
+    .filter((v): v is string => !!v && v < DROP_VERSION),
 );
 
 let replay: ReplayResult;
@@ -70,7 +80,7 @@ const ids = { gTito: '', gTita: '', gLola: '', gAunt: '', gElsewhere: '', sTito:
 type IdKey = keyof typeof ids;
 
 before(async () => {
-  replay = await createReplayedDb();
+  replay = await createReplayedDb({ only: BEFORE_DROP });
   db = replay.db;
   ev = await newEvent('Bea & Paolo');
   other = await newEvent('Another wedding');
@@ -176,4 +186,44 @@ test('running it again changes nothing — no second copy of anyone', async () =
   assert.deepEqual((await guestRow(ids.gAunt)).extra_roles, ['veil_sponsor'], 'the extra role is not added twice');
   // 7 seeded guests on this event = 4 already there + 3 copies (Andres, Gabriela, Jose).
   assert.equal(before, 4 + 3);
+});
+
+test('the DROP: event_sponsors is gone, and godparent edges come from the guest list', async () => {
+  // a wedding: bride + groom resolve to people; one accepted principal sponsor (a guest) does too
+  const wed = (await one<{ event_id: string }>(
+    `INSERT INTO public.events (display_name, event_type, ceremony_type) VALUES ('Wedding', 'wedding', 'civil') RETURNING event_id`,
+  )).event_id;
+  // a person WITH an account (the kin pilot stores a connection only between two account holders)
+  const person = async (name: string) => {
+    const uid = (await one<{ id: string }>(
+      `INSERT INTO auth.users (email, raw_user_meta_data) VALUES ($1, jsonb_build_object('account_type','customer')) RETURNING id`,
+      [`${name.toLowerCase()}@sponsors-drop.test`],
+    )).id;
+    return (await one<{ person_id: string }>(`SELECT person_id FROM public.people WHERE claimed_by_user_id = $1`, [uid])).person_id;
+  };
+  const [pBride, pGroom, pNinong, pDeclined] = [await person('Bride'), await person('Groom'), await person('Ninong'), await person('No')];
+  const bride = await guest(wed, 'Bea', 'Cruz', { role: 'bride' });
+  const groom = await guest(wed, 'Paolo', 'Reyes', { role: 'groom' });
+  const ninong = await guest(wed, 'Ramon', 'Lim', { role: 'principal_sponsor' });
+  const declined = await guest(wed, 'Elena', 'Tan', { role: 'guest' });
+  for (const [g, p] of [[bride, pBride], [groom, pGroom], [ninong, pNinong], [declined, pDeclined]] as const) {
+    await db.query(`UPDATE public.guests SET person_id = $2 WHERE guest_id = $1`, [g, p]);
+  }
+  await db.query(`UPDATE public.guests SET rsvp_status = 'attending' WHERE guest_id = $1`, [ninong]);
+  await db.query(
+    `UPDATE public.guests SET extra_roles = ARRAY['principal_sponsor']::public.guest_role[], rsvp_status = 'declined' WHERE guest_id = $1`,
+    [declined],
+  );
+
+  await db.exec(DROP);
+  assert.equal((await one<{ t: string | null }>(`SELECT to_regclass('public.event_sponsors')::text AS t`)).t, null);
+  await db.exec(DROP); // idempotent
+
+  await db.query(`SELECT public.generate_event_connections($1, NULL)`, [wed]);
+  const godparents = (await db.query<{ from_person_id: string }>(
+    `SELECT from_person_id FROM public.person_connections WHERE created_by_event_id = $1 AND relation = 'godparent'`,
+    [wed],
+  )).rows.map((r) => r.from_person_id);
+  assert.deepEqual([...new Set(godparents)], [pNinong], 'the accepted principal sponsor only — never a declined one');
+  assert.equal(godparents.length, 2, 'one edge to each principal');
 });

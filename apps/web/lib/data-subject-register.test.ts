@@ -265,7 +265,8 @@ test('G4 · every person-bearing table is accounted for', () => {
 
 test('G4 · the unclassified backlog never grows', () => {
   // 4 as of 2026-08-09: people, couple_waitlist_signups, dependents,
-  // event_sponsors. Raised from 3 in the same change that made `people` visible
+  // event_sponsors (the waitlist and sponsors keys are DROPPED tables, kept
+  // for the parser). Raised from 3 in the same change that made `people` visible
   // to the scan — the bound tracks what is actually parked, and only shrinks.
   assert.ok(
     Object.keys(UNCLASSIFIED_PERSON_TABLES).length <= 4,

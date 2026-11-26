@@ -5,8 +5,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * 👥 SPONSORS ARE GUESTS — owner, brief Add 41 (25 Nov 2026, final check A2-I14): "One list; a sponsor is a guest with
- * the sponsor role." The Sponsors page reads and writes `guests` through this file; `event_sponsors` is a read-only
- * record since migration 20271363480132 (which linked or copied every row into the guest list).
+ * the sponsor role." The Sponsors page reads and writes `guests` through this file; migration 20271363480132 linked or
+ * copied every `event_sponsors` row into the guest list, and 20271364844438 drops that table (owner 27 Nov 2026).
  *
  *   · a guest is a sponsor of a tier when their `role` — or one of their `extra_roles` — is that tier's role;
  *   · principal is any of `principal_sponsor` (not yet specified) · `_ninong` · `_ninang`. Adding one writes

@@ -5,7 +5,9 @@
  * Filipino-cultural V1 surface — type definitions, tier metadata, default
  * pair counts, invitation-template builder, and guest auto-link helpers.
  *
- * Schema basis: supabase/migrations/20260604040000_event_sponsors_table.sql
+ * Schema basis: supabase/migrations/20260604040000_event_sponsors_table.sql — that table is DROPPED
+ * (20271364844438, owner 27 Nov 2026); sponsors are guests with a sponsor role (`lib/sponsor-guests.ts`). The types
+ * and helpers here still shape the Sponsors page.
  *
  * Architectural notes:
  *   - Principal sponsors are pair-grouped via pair_index (one row per
@@ -94,9 +96,9 @@ export const SPONSOR_SIDE_LABEL: Record<SponsorSide, string> = {
  * sponsor" is correct for every sponsor alive; "ninang" is wrong for half of
  * them.
  *
- * ⚠ TO GET THE WARMER WORD BACK, GIVE THE TABLE THE FACT — an explicit
- * ninong/ninang column on `event_sponsors`, chosen by the couple the way the
- * guest list now does it. Do NOT re-derive it from `side`, `full_name`, or a
+ * ⚠ TO GET THE WARMER WORD BACK, READ THE FACT — the guest's own
+ * principal_sponsor_ninong / _ninang role, chosen by the couple on the guest
+ * list (`event_sponsors` is dropped). Do NOT re-derive it from `side`, `full_name`, or a
  * name-prefix guess.
  */
 export function sponsorRoleHonorific(tier: SponsorTier, _side: SponsorSide): string {

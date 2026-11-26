@@ -484,7 +484,7 @@ export async function EventDashboard({
         return await querySponsorGuests(supabase, [eventId]);
       } catch (caught) {
         logQueryError(
-          'EventDashboard (event_sponsors SELECT threw)',
+          'EventDashboard (sponsor guests SELECT threw)',
           caught instanceof Error ? caught : new Error(String(caught)),
           { event_id: eventId, user_id: user.id },
           'graceful_degrade',

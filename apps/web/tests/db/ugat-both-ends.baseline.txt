@@ -76,9 +76,8 @@ rpc-no-caller	finalize_guest_claim	1	no 'finalize_guest_claim' literal in any ap
 rpc-no-caller	guest_visible_messages	1	no 'guest_visible_messages' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 rpc-no-caller	set_service_slot_day_capacity	1	no 'set_service_slot_day_capacity' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
 table-no-writer	feature_reviews	1	no .from('feature_reviews').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
-# ══ COUPLE-FACING — guests, invitations, the celebration itself (14) ══
+# ══ COUPLE-FACING — guests, invitations, the celebration itself (13) ══
 rpc-no-caller	open_submit_song_request	1	no 'open_submit_song_request' literal in any app file; no SQL body, policy, trigger, view, default or CHECK names it
-table-no-writer	event_sponsors	1	no .from('event_sponsors').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	event_feature_policy_override	1	no .from('event_feature_policy_override').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	event_scene_objects	1	no .from('event_scene_objects').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay
 table-no-writer	papic_seat_day_usage	1	no .from('papic_seat_day_usage').insert/upsert/update/delete in the app, no SQL body writes it, 0 rows after replay

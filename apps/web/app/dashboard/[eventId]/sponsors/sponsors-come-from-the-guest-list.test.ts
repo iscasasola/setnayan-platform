@@ -3,7 +3,8 @@
  * "One list; a sponsor is a guest with the sponsor role."
  *
  * Holds: the Sponsors page draws its sponsors from guest rows (`sponsorsFromGuests`, behaviour below); Add, Edit,
- * Remove, Invite and Mark-response write the GUEST LIST and never `event_sponsors` (a read-only record now); a
+ * Remove, Invite and Mark-response write the GUEST LIST; `event_sponsors` is DROPPED (owner 27 Nov 2026, migration
+ * 20271364844438) and nothing in the app names it; a
  * principal sponsor added here is `principal_sponsor`, never ninong or ninang from the side; removing a sponsor
  * takes the role, not the person.
  */
@@ -82,7 +83,7 @@ test('a principal sponsor added here is "not yet specified" — never ninong or 
   assert.doesNotMatch(src('actions.ts'), /principal_sponsor_nin(ong|ang)/);
 });
 
-test('every Sponsors action writes the guest list; nothing in the app writes event_sponsors', () => {
+test('every Sponsors action writes the guest list; nothing in the app reads or writes event_sponsors', () => {
   const actions = src('actions.ts');
   for (const fn of ['addSponsor', 'updateSponsor', 'removeSponsor', 'sendInvitation', 'markResponse']) {
     const start = actions.indexOf(`export async function ${fn}(`);
@@ -98,13 +99,26 @@ test('every Sponsors action writes the guest list; nothing in the app writes eve
       if (statSync(p).isDirectory()) walk(p);
       else if (/\.(ts|tsx)$/.test(name) && !/\.test\.tsx?$/.test(name)) {
         const s = stripComments(readFileSync(p, 'utf8'));
-        if (/\.from\('event_sponsors'\)\s*\.(insert|update|upsert|delete)\(/.test(s)) writers.push(relative(web, p));
+        if (/\.from\(\s*['"`]event_sponsors['"`]\s*\)/.test(s)) writers.push(relative(web, p));
       }
     }
   };
   walk(join(web, 'app'));
   walk(join(web, 'lib'));
-  assert.deepEqual(writers, [], 'event_sponsors is a read-only record (brief Add 41)');
+  assert.deepEqual(writers, [], 'event_sponsors is dropped (owner 27 Nov 2026, brief Add 41)');
+});
+
+test('event_sponsors is dropped by a migration that runs after the guest-list move', () => {
+  const dir = join(web, '..', '..', 'supabase', 'migrations');
+  const files = readdirSync(dir).filter((f) => /^\d{14}_.*\.sql$/.test(f)).sort();
+  const move = files.indexOf('20271363480132_sponsors_join_the_guest_list.sql');
+  const drop = files.findIndex((f) => /DROP TABLE IF EXISTS public\.event_sponsors;/.test(readFileSync(join(dir, f), 'utf8')));
+  assert.ok(move >= 0, 'the guest-list move migration is missing');
+  assert.ok(drop > move, 'event_sponsors must be dropped AFTER its rows join the guest list');
+  const sql = readFileSync(join(dir, files[drop]), 'utf8');
+  const fn = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.generate_event_connections('));
+  assert.ok(fn.length < sql.length, 'generate_event_connections is re-created before the drop');
+  assert.doesNotMatch(fn.slice(0, fn.indexOf('$$;')), /event_sponsors/, 'the live function no longer reads the table');
 });
 
 test('the page draws the guest list’s sponsors, and a refused read stops it', () => {

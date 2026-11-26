@@ -1,3 +1,4 @@
+import { customDomainShopPath, setnayanAddressFor } from '@/lib/custom-domain-shop-path';
 import { NextResponse, after, type NextRequest } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { updateSession } from '@/lib/supabase/middleware';
@@ -338,10 +339,16 @@ async function middlewareCore(request: NextRequest) {
         return NextResponse.rewrite(rewrite);
       }
       if (target.startsWith('/v/')) {
-        // Vendor sub-path → under the vendor route (vendors have no subroutes,
-        // so this simply 404s for unknown paths — expected).
-        rewrite.pathname = `${target}${pathname}`;
-        return NextResponse.rewrite(rewrite);
+        // Vendor sub-path: the shop's own links (`/{shop}…`) and its sub-pages go under the vendor route; any other
+        // path is redirected to setnayan.com (final check A1-124, `lib/custom-domain-shop-path.ts`).
+        const internalShopPath = customDomainShopPath(target, pathname);
+        if (internalShopPath) {
+          rewrite.pathname = internalShopPath;
+          return NextResponse.rewrite(rewrite);
+        }
+        // 🔒 Anything else (sign-in, the dashboard, another shop) goes to Setnayan's own address: it is never served
+        // under a domain the supplier controls.
+        return NextResponse.redirect(setnayanAddressFor(pathname, request.nextUrl.search), 307);
       }
       // User sub-path → the event subtree lives at the bare root (this mirrors
       // the /u/{user}/{event} → /{event} strip, which a rewrite can't re-trigger).

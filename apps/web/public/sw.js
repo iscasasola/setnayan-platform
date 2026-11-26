@@ -82,6 +82,8 @@ const FONT_CACHE = `setnayan-fonts-${VERSION}`;
 // stale-while-revalidate so a guest at a venue with flaky signal still sees
 // their schedule / table / floorplan from the last good fetch.
 const DAYOF_CACHE = `setnayan-dayof-${VERSION}`;
+// 📖 Help answers kept for a person with no signal (final check A1-166): network-first, the last copy offline.
+const HELP_CACHE = `setnayan-help-${VERSION}`;
 // Content-hashed build files. NOT suffixed by VERSION — survives deploys (see
 // "KEEP THE CODE ON THE PHONE" in the header). Never derive this from VERSION.
 const IMMUTABLE_CACHE = 'setnayan-static-immutable-v1';
@@ -97,6 +99,7 @@ const KNOWN_CACHES = [
   STATIC_CACHE,
   FONT_CACHE,
   DAYOF_CACHE,
+  HELP_CACHE,
   IMMUTABLE_CACHE,
   OFFLINE_PAGES_CACHE,
 ];
@@ -354,6 +357,18 @@ const RESERVED = new Set([
 // personal landing page; `/[slug]/find-my-table` is the table/floorplan view.
 // Dashboard + marketing routes are intentionally excluded (they stay on the
 // network-first navigation fallback below).
+// 📖 HELP, READ-ONLY OFFLINE (final check A1-166, 25 Nov 2026). The help answers are fixed text a guest or supplier
+// needs most where the signal is worst ("what if the venue has no signal"). With no signal they used to get the
+// browser's blank error. `/help` and the pages under it are fetched network-first and the last copy is kept; offline,
+// the copy (or Setnayan's own offline page) answers. Only GET navigations; a `?error=` / `?submitted=` answer page is
+// never kept.
+function isHelpNavigation(url) {
+  if (url.origin !== self.location.origin) return false;
+  if (url.pathname !== '/help' && !url.pathname.startsWith('/help/')) return false;
+  if (url.searchParams.has('error') || url.searchParams.has('submitted')) return false;
+  return true;
+}
+
 function isDayOfGuestNavigation(url) {
   const segments = url.pathname.split('/').filter(Boolean);
   if (segments.length === 0) return false;
@@ -398,6 +413,10 @@ const EXPIRATION = {
     maxEntries: 50, // a handful of guests' landing pages per device
     maxAgeMs: 2 * 24 * 60 * 60 * 1000, // 2 days — the event-day window
   },
+  [HELP_CACHE]: {
+    maxEntries: 40, // the help answers this phone has opened
+    maxAgeMs: 30 * 24 * 60 * 60 * 1000, // 30 days — fixed text that changes rarely
+  },
 };
 
 // LRU metadata lives in an in-memory map per-cache; the SW process is shared
@@ -410,6 +429,7 @@ const lru = {
   [STATIC_CACHE]: new Map(),
   [FONT_CACHE]: new Map(),
   [DAYOF_CACHE]: new Map(),
+  [HELP_CACHE]: new Map(),
 };
 
 function recordAccess(cacheName, url) {
@@ -1485,6 +1505,28 @@ self.addEventListener('fetch', (event) => {
         .catch(() =>
           caches.match(request).then((c) => c ?? caches.match('/offline.html')),
         ),
+    );
+    return;
+  }
+
+  if (isNavigation && request.method === 'GET' && isHelpNavigation(url)) {
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (response && response.ok) {
+            const clone = response.clone();
+            caches
+              .open(HELP_CACHE)
+              .then((cache) => cache.put(request, clone))
+              .then(() => {
+                recordAccess(HELP_CACHE, request.url);
+                return enforceLimits(HELP_CACHE);
+              })
+              .catch(() => undefined);
+          }
+          return response;
+        })
+        .catch(() => caches.match(request).then((c) => c ?? caches.match('/offline.html'))),
     );
     return;
   }

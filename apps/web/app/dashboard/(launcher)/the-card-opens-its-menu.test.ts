@@ -46,6 +46,9 @@ test('1 · six rows in the drawing’s order; Dashboard is the one filled row; D
 test('2 · Open your Event Hub is the hub itself, in the app’s view, for every organiser and helper', () => {
   assert.doesNotMatch(ROWS, /openEventHub|target="_blank"|\/launch|maker/i, 'the hub row must not leave the app’s view or open the Maker');
   assert.match(ROWS, /href: menu\.hubHref,[\s\S]{0,200}'Set up your Event Hub first\.'/, 'no address must say why');
+  // Walkthrough 27 Nov (iPhone app): the in-app switch to /[slug] half-finished and never drew the hub. It loads whole.
+  assert.match(ROWS, /mark: 'hub',[\s\S]{0,600}fullLoad: true/, 'the hub row loads the hub as a whole page');
+  assert.match(ROWS, /props\.fullLoad[\s\S]{0,400}<a key=\{props\.mark\} href=\{props\.href\}/, 'a fullLoad row is a plain <a>, not next/link');
   assert.match(ROWS, /props\.href && !props\.locked \? \(\s*<Link/, 'an open row must be an in-app link');
   assert.match(PAGE, /hubHref: e\.slug \? publicEventPath\(e\.slug\) : null/, 'the hub row must not be gated on Public/Unlisted');
 });

@@ -21,10 +21,13 @@ const code = stripComments;
 test('the Papic layout draws the @rise slot after the page', () => {
   const src = code(read('papic/layout.tsx'));
   assert.match(src, /\{children\}\s*\{rise\}/);
-  for (const f of ['default.tsx', 'page.tsx', '[...rest]/page.tsx']) {
+  for (const f of ['default.tsx', '[...rest]/page.tsx']) {
     assert.ok(existsSync(join(APP, 'papic/@rise', f)), `@rise/${f} missing`);
     assert.match(code(read(`papic/@rise/${f}`)), /return null/);
   }
+  // NO @rise/page.tsx: /papic itself is the marketing page in app/(shell)/papic, a different route tree. A slot page
+  // for /papic is never built, and Vercel's deploy failed on its missing client-reference manifest (26 Nov, f303b87).
+  assert.equal(existsSync(join(APP, 'papic/@rise/page.tsx')), false, '@rise/page.tsx breaks the Vercel deploy');
   assert.equal(existsSync(join(APP, 'papic/me/[token]/@rise')), false, 'a slot under me/[token] never intercepts a sibling');
 });
 

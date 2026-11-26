@@ -41,10 +41,16 @@ const SECONDARY_CTA =
 export async function AddToEventCta({
   studioKey,
   primary,
+  create = primary,
 }: {
   /** the `STUDIO_APPS` key for this page — absent means "no picker here" */
   studioKey: string;
   primary: { href: string; label: string };
+  /**
+   * Where the dialog's "Start a new event" row goes: the page's OWN start door. It is `primary` on most pages, but on
+   * /marketplace the primary is "Browse the marketplace", so the row opened Discover (final check A1-045).
+   */
+  create?: { href: string; label: string };
 }) {
   const state = await resolveAddToEvent(studioKey);
 
@@ -62,6 +68,7 @@ export async function AddToEventCta({
         serviceName={state.serviceName}
         options={state.options}
         emptyReason={state.emptyReason}
+        readFailed={state.readFailed ?? false}
       /*
         The create row goes exactly where the signed-out button goes, so this
         page has ONE route into starting a celebration rather than two that can
@@ -70,8 +77,8 @@ export async function AddToEventCta({
         every event-type profile to stay true, and would rot the first time an
         admin changed one.
       */
-        createHref={primary.href}
-        createLabel={primary.label}
+        createHref={create.href}
+        createLabel={create.label}
       />
       {/*
         THE CREATE BUTTON IS NEVER TAKEN AWAY. It is the same link a stranger

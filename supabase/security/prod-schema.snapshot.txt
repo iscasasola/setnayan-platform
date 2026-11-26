@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 2017
-# tables: 548
-# columns: 6583
-# notnull: 3948
+# ledger: 2021
+# tables: 547
+# columns: 6567
+# notnull: 3940
 [ledger]
 20260512000000
 20260513000000
@@ -2027,8 +2027,12 @@
 20271362487248
 20271362770154
 20271363111049
+20271363213887
 20271363279746
+20271363442215
+20271363480132
 20271363906595
+20271364844438
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -3696,23 +3700,6 @@ event_song_requests.request_id
 event_song_requests.requester_name
 event_song_requests.song_id
 event_song_requests.status
-event_sponsors.created_at
-event_sponsors.created_by_user_id
-event_sponsors.decline_note
-event_sponsors.email
-event_sponsors.event_id
-event_sponsors.full_name
-event_sponsors.id
-event_sponsors.invitation_sent_at
-event_sponsors.invitation_status
-event_sponsors.linked_guest_id
-event_sponsors.pair_index
-event_sponsors.phone
-event_sponsors.relationship_note
-event_sponsors.responded_at
-event_sponsors.side
-event_sponsors.sponsor_tier
-event_sponsors.updated_at
 event_stage_notes.author_user_id
 event_stage_notes.body
 event_stage_notes.created_at
@@ -4666,6 +4653,7 @@ guests.scan_tracking_opt_out
 guests.seating_priority
 guests.seniority_rank
 guests.side
+guests.sponsor_asked_at
 guests.std_sent_at
 guests.ugc_terms_accepted_at
 guests.updated_at
@@ -9645,14 +9633,6 @@ event_song_requests.origin
 event_song_requests.request_id
 event_song_requests.song_id
 event_song_requests.status
-event_sponsors.created_at
-event_sponsors.event_id
-event_sponsors.full_name
-event_sponsors.id
-event_sponsors.invitation_status
-event_sponsors.side
-event_sponsors.sponsor_tier
-event_sponsors.updated_at
 event_stage_notes.body
 event_stage_notes.created_at
 event_stage_notes.event_id

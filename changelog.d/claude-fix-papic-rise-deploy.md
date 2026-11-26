@@ -1,0 +1,1 @@
+- Live fault: the Vercel deploy of f303b87 (ship-batch-c3) failed with ENOENT on `papic/@rise/page_client-reference-manifest.js`. `/papic` itself is the marketing page in `app/(shell)/papic`, so the new `app/papic/@rise/page.tsx` slot page (from #8376) was never built. It is removed; `@rise/default.tsx` already draws nothing. The test now holds that the file stays absent.

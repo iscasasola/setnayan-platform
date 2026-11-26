@@ -31,7 +31,7 @@ test('🔒 a refused rating read is said on the shop page, never "none yet" (A1-
 
 test('🔒 "Show more reviews" stops when the public list runs out (A1-130)', () => {
   const page = stripComments(readFileSync(join(process.cwd(), 'app/v/[slug]/page.tsx'), 'utf8'));
-  assert.match(page, /const hasMore = reviews\.length >= limit && reviewStats\.total_count > reviews\.length;/);
+  assert.match(page, /const hasMore = (?:!reviewsReadFailed && )?reviews\.length >= limit && reviewStats\.total_count > reviews\.length;/);
 });
 
 test('🔒 an unverified shop hands its cards no reviews (A1-131)', () => {

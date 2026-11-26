@@ -10,7 +10,7 @@ import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
 import { CLOSED_DAY_COUPLE_MESSAGE, closedDayRefusal } from '@/lib/closed-day.server';
 import { bookingWindowRefusal } from '@/lib/booking-window.server';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
-import { resolveLivePax } from '@/lib/pax';
+import { PAX_UNREAD, PAX_UNREAD_WORDS, resolveLivePax } from '@/lib/pax';
 import { packageCreditEnabled } from '@/lib/package-credit-flag';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { emitNotification } from '@/lib/notification-emit';
@@ -317,7 +317,10 @@ export async function lockPackage(
   // it multiplies money, so it must never come from the client. Null (no
   // headcount yet) reads as 0 and each option's own `min_pax` floors it, so a
   // per-head upgrade prices at its minimum rather than at nothing.
-  const livePax = (await resolveLivePax(supabase, eventId)) ?? 0;
+  // ⚖ OWNER ADD 35: an unread guest count prices NOTHING — the package is not priced and nothing is saved.
+  const livePaxRead = await resolveLivePax(supabase, eventId);
+  if (livePaxRead === PAX_UNREAD) return { status: 'error', message: PAX_UNREAD_WORDS };
+  const livePax = livePaxRead ?? 0;
 
   // ONE pricer, shared with removeItemFromPackage — see priceCustomizedPackage
   // for why computing this in two places was a live money bug.

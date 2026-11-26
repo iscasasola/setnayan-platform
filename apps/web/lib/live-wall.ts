@@ -100,12 +100,15 @@ export async function readWallDisplayCookie(): Promise<WallDisplaySession | null
 /** A claimed screen is valid while its session row is unrevoked. */
 export async function isWallSessionLive(session: WallDisplaySession): Promise<boolean> {
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from('wall_display_sessions')
     .select('session_id, revoked_at')
     .eq('session_id', session.session_id)
     .eq('event_id', session.event_id)
     .maybeSingle();
+  // 🔌 A4-15: a refused read is not "this TV was never claimed" — it throws (the page's boundary; the feed's 500,
+  // which the projector answers by freezing on its last collage), never the code-entry screen on a claimed TV.
+  if (error) throw new Error(`isWallSessionLive: could not read the wall session: ${error.message}`);
   return Boolean(data && !data.revoked_at);
 }
 
@@ -558,6 +561,11 @@ export interface WallSnapshot {
    *  above — `challengeMeasured: false` means unknown, never "none". */
   challenge: WallArmedChallenge | null;
   challengeMeasured: boolean;
+  /**
+   * 🔌 A4-15 (final check, 25 Nov): the feed or the event read FAILED — `tiles: []` here is not "no photos". The
+   * venue feed answers 503 on it, so the projector freezes on its last collage instead of emptying the wall.
+   */
+  unreadable?: boolean;
 }
 
 /** The projection read: visible tiles since a cursor + count + mode. */
@@ -576,7 +584,7 @@ export async function getWallSnapshot(
 ): Promise<WallSnapshot> {
   const admin = createAdminClient();
 
-  const [{ data: feedData }, { data: event }, challengeRead] = await Promise.all([
+  const [{ data: feedData, error: feedError }, { data: event, error: eventError }, challengeRead] = await Promise.all([
     admin.rpc('wall_visible_photos', {
       p_event_id: eventId,
       p_since: sinceIso ?? '-infinity',
@@ -669,5 +677,6 @@ export async function getWallSnapshot(
     eventDate: (event?.event_date as string) ?? null,
     challenge: challengeRead.challenge,
     challengeMeasured: challengeRead.measured,
+    unreadable: Boolean(feedError || eventError),
   };
 }

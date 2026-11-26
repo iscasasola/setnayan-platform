@@ -17,7 +17,7 @@ import {
   type HubHeroElementKey,
 } from '@/lib/element-style';
 import { HERO_DESIGN_ATTR, HERO_DESIGN_DEFAULT, type HeroDesignId } from '@/lib/hero-design';
-import { COVER_FOOT_ATTR, COVER_SCENE_ATTR, COVER_SCENE_FOOT, COVER_SCENE_SCREEN, COVER_SCENE_UPPER, COVER_SWIPE_HINT } from '@/lib/cover-scene';
+import { COVER_FOOT_ATTR, COVER_SCENE_ATTR, COVER_SCENE_FOOT, COVER_SCENE_SCREEN, COVER_SCENE_UPPER, COVER_SCROLL_HINT, COVER_SWIPE_HINT } from '@/lib/cover-scene';
 import { COVER_RSVP_CHANGE, COVER_RSVP_DECLINED, COVER_RSVP_GOING, type CoverRsvp } from '@/lib/cover-rsvp';
 import { HUB_RSVP_DEFAULT_WORDS } from '@/lib/element-style';
 import type { CoverSceneLayer } from '../_lib/cover-scene-layer';
@@ -450,11 +450,21 @@ export function PahinaMasthead({
           smaller, and only then whole parts move below the whole foot — never onto the date or the place. Not in the
           Maker's canvas (`fitFoot`, default off while the canvas stamps its parts): the couple edits the cover as written. */}
       {fitFoot && !door && rsvp && 'href' in rsvp ? <FirstScreenDoor foot rsvp /> : null}
+      {/* 🖱 A4-B05 (approved drawing § 01): a pointer screen (hover + fine pointer) reads "Scroll for the event" under a
+          down chevron; a touch screen keeps "Swipe up for the event". CSS picks one — no script, no flash. */}
       <p {...line()} data-cover-hint="" aria-hidden className="flex flex-col items-center gap-0.5 text-[0.62rem] font-semibold uppercase tracking-[0.2em] text-ink/70">
-        <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 animate-[cover-hint-nod_2.4s_ease-in-out_infinite] fill-none stroke-current motion-reduce:animate-none" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
-          <path d="M6 15l6-6 6 6" />
-        </svg>
-        {COVER_SWIPE_HINT}
+        <span data-cover-hint-touch="" className="flex flex-col items-center gap-0.5 [@media(hover:hover)_and_(pointer:fine)]:hidden">
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 animate-[cover-hint-nod_2.4s_ease-in-out_infinite] fill-none stroke-current motion-reduce:animate-none" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 15l6-6 6 6" />
+          </svg>
+          {COVER_SWIPE_HINT}
+        </span>
+        <span data-cover-hint-pointer="" className="hidden flex-col items-center gap-0.5 [@media(hover:hover)_and_(pointer:fine)]:flex">
+          <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 animate-[cover-hint-nod_2.4s_ease-in-out_infinite] fill-none stroke-current motion-reduce:animate-none" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round">
+            <path d="M6 9l6 6 6-6" />
+          </svg>
+          {COVER_SCROLL_HINT}
+        </span>
       </p>
     </div>
   );

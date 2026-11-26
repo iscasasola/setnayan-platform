@@ -131,6 +131,13 @@ function legacyVenues(event: EventRow): EventVenue[] {
  */
 const VENUE_CHIP_GROUND = { '--color-cream': 'var(--color-paper-deep)' } as CSSProperties;
 
+/**
+ * 🖼 ONE FRAME (final check A4-B05 (b), approved drawing § 01): the photo-card venue's photo and its words share the
+ * plate's one hairline edge. The plate's printed inner frame (`.pahina-plate::after`) drew a second bordered box
+ * inside the card — a frame in a frame — so it is switched off here through its own knob, `--pahina-frame-opacity`.
+ */
+const VENUE_PLATE_STYLE = { ...VENUE_CHIP_GROUND, '--pahina-frame-opacity': '0' } as CSSProperties;
+
 function VenuePlate({ venue, event, ownMap }: { venue: EventVenue; event: EventRow; ownMap: boolean }) {
   const hasCoords = venue.latitude != null && venue.longitude != null;
   // ⛪ The parish's drawing (`lib/parish-drawings.ts`), when the couple PICKED
@@ -170,7 +177,7 @@ function VenuePlate({ venue, event, ownMap }: { venue: EventVenue; event: EventR
           deferUntilNear
         />
       ) : null}
-      <div className="pahina-plate space-y-3" style={VENUE_CHIP_GROUND}>
+      <div className="pahina-plate space-y-3" style={VENUE_PLATE_STYLE}>
         {drawing ? <ParishDrawingFigure drawing={drawing} /> : null}
         {/* The label is words a guest reads, so it takes the plate's ink — the
             gild is a decor metal and measured 1.76 : 1 here (cale-ice, 2026-09-30). */}

@@ -36,6 +36,8 @@ export function AdoptSeatSession({
     adoptSeatSessionAction(eventId)
       .then((held) => {
         if (!thenRefresh) return;
+        // one-render: keep (no-revalidate) — adoptSeatSessionAction only writes the guest-pass cookie and revalidates
+        // nothing, so this refresh is the one render that lets the camera door read the new pass.
         if (held) router.refresh();
         else setFailed(true);
       })

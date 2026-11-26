@@ -36,7 +36,7 @@ export const TOPIC_TILES: Record<TileAccount, Record<string, TopicTile>> = {
     'getting-started': { name: 'Getting started', line: 'Open your shop and find your way around.' },
     'supplier-fees': { name: 'Fees & plans', line: 'What you pay Setnayan, and when.' },
     'getting-verified': { name: 'Getting verified', line: 'The papers you need, one step at a time.' },
-    messaging: { name: 'Messaging', line: 'Reply to couples. It is always free.' },
+    messaging: { name: 'Messaging', line: 'Reply to couples.' },
     'people-memories': { name: 'People & Memories', line: 'Your people and every photo you keep.' },
     'account-privacy': { name: 'Account & privacy', line: 'Your settings and your data.' },
     'about-setnayan': { name: 'About Setnayan', line: 'What Setnayan is and how it works.' },

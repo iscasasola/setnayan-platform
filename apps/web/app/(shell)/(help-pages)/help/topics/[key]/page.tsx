@@ -21,7 +21,15 @@ export async function generateMetadata({ params }: Props) {
   const { key } = await params;
   const topic = HELP_TOPICS.find((t) => t.key === key);
   return topic
-    ? { title: `${topic.label} · Help`, alternates: { canonical: routes.help.topic(key) } }
+    ? {
+        title: `${topic.label} · Help`,
+        // Its own description, built from the topic's own answers, not the site-wide one (final check A1-161).
+        description: `Setnayan help on ${topic.label.toLowerCase()}: ${topic.articles
+          .slice(0, 3)
+          .map((a) => a.title)
+          .join(' · ')}`,
+        alternates: { canonical: routes.help.topic(key) },
+      }
     : { title: 'Help', robots: { index: false, follow: true } };
 }
 

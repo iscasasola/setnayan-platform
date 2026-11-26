@@ -23,6 +23,7 @@ import { SponsorCard, type EventMini, type SponsorRow } from './_components/spon
 import { PairTargetPicker } from './_components/pair-target-picker';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { addSponsor } from './actions';
+import { readEventSponsorGuests } from '@/lib/sponsor-guests';
 import { formatCount } from '@/lib/format-number';
 import { InfoTip } from '@/app/_components/info-tip';
 import { sponsorErrorWords } from './sponsor-error-copy';
@@ -97,28 +98,19 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
 
   // Event meta + sponsor rows both key off eventId and are independent — one
   // parallel batch instead of two serial reads (owner perf pass 2026-06-03).
-  const [{ data: eventRow, error: eventRowError }, { data: sponsorRows, error: sponsorRowsError }] = await Promise.all([
+  const [{ data: eventRow, error: eventRowError }, sponsorRows] = await Promise.all([
     // Event meta — used for the invitation template + page header.
     admin
       .from('events')
       .select('display_name, event_date, ceremony_type, secondary_ceremony_type, venue_name')
       .eq('event_id', eventId)
       .maybeSingle(),
-    // Sponsors — all rows on this event.
-    admin
-      .from('event_sponsors')
-      .select(
-        'id, event_id, pair_index, sponsor_tier, side, full_name, relationship_note, email, phone, invitation_status, invitation_sent_at, responded_at, decline_note, linked_guest_id',
-      )
-      .eq('event_id', eventId)
-      .order('pair_index', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: true }),
+    // 👥 Sponsors are GUESTS with a sponsor role (owner, brief Add 41 · A2-I14) — the guest list's own rows, the
+    // same list the entourage and the printed invitation read. The old `event_sponsors` table is dropped (owner 27 Nov 2026).
+    readEventSponsorGuests(admin, eventId),
   ]);
   if (eventRowError) {
     logQueryError('SponsorsPage.eventRow', eventRowError, { event_id: eventId }, 'graceful_degrade');
-  }
-  if (sponsorRowsError) {
-    logQueryError('SponsorsPage.sponsorRows', sponsorRowsError, { event_id: eventId }, 'graceful_degrade');
   }
   const event = (eventRow as EventMini | null) ?? {
     display_name: null,
@@ -149,7 +141,9 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
 
   const eventName = event.display_name ?? 'Your event';
   const coupleNames = event.display_name ?? 'we';
-  const sponsors = (sponsorRows ?? []) as SponsorRow[];
+  // A refused guest-list read is said below (A2-I13) — `sponsorRowsError`, before any slot is counted.
+  const sponsorRowsError = sponsorRows === null;
+  const sponsors: SponsorRow[] = sponsorRows ?? [];
 
   // Highest pair_index already in use — guards the picker.
   const highestUsedPair = sponsors.reduce(

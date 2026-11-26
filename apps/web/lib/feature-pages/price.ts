@@ -8,7 +8,7 @@
  * "See pricing" and NO structured-data Offer — a missing price is recoverable,
  * a confidently wrong one quoted by a search result is not.
  */
-import { formatPeso } from '@/lib/v2-catalog-pure';
+import { formatPhp } from '@/lib/php';
 import type { FeatureLocale, FeaturePrice } from './types';
 
 export type CatalogueRow = Readonly<{
@@ -25,6 +25,8 @@ export type CatalogueRow = Readonly<{
 export type ResolvedFeaturePrice =
   | { kind: 'free' }
   | { kind: 'unknown' }
+  /** The catalogue read failed: the page says it couldn't read the price, never a guess (final check A1-114). */
+  | { kind: 'unread' }
   | {
       kind: 'paid' | 'free-plus';
       lowPhp: number;
@@ -60,7 +62,7 @@ export function resolveFeaturePrice(
   rows: readonly CatalogueRow[] | null,
 ): ResolvedFeaturePrice {
   if (price.kind === 'free') return { kind: 'free' };
-  if (!rows) return { kind: 'unknown' };
+  if (!rows) return { kind: 'unread' };
   const usable = rows.filter(
     (r) =>
       r.catalogue === price.catalogue &&
@@ -87,7 +89,8 @@ export function featurePriceLabel(p: ResolvedFeaturePrice, locale: FeatureLocale
   const tl = locale === 'tl';
   if (p.kind === 'free') return tl ? 'Libre' : 'Free';
   if (p.kind === 'unknown') return tl ? 'Tingnan ang presyo' : 'See pricing';
-  const fig = `₱${formatPeso(p.lowPhp)}${p.suffix[locale]}`;
+  if (p.kind === 'unread') return tl ? 'Hindi mabasa ang presyo' : 'Couldn’t read the price';
+  const fig = `${formatPhp(p.lowPhp)}${p.suffix[locale]}`;
   if (p.kind === 'free-plus') {
     return tl ? `Libre · may upgrade mula ${fig}` : `Free · upgrades from ${fig}`;
   }
@@ -103,7 +106,7 @@ export function featurePriceLabel(p: ResolvedFeaturePrice, locale: FeatureLocale
  * caller emits no `offers` at all rather than a guess.
  */
 export function featureOffer(p: ResolvedFeaturePrice, url: string): Record<string, unknown> | null {
-  if (p.kind === 'unknown') return null;
+  if (p.kind === 'unknown' || p.kind === 'unread') return null;
   if (p.kind === 'free' || p.kind === 'free-plus') {
     return { '@type': 'Offer', price: '0', priceCurrency: 'PHP', url, availability: 'https://schema.org/InStock' };
   }

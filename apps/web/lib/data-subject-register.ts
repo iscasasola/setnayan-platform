@@ -282,6 +282,9 @@ export const UNCLASSIFIED_PERSON_TABLES: Readonly<Record<string, string>> = {
     'Table DROPPED 2026-09-18 — the pre-launch couple waitlist (full name + email, no account). Never held a row in production. Nothing is stored; no DPO question remains.',
   dependents:
     'A guardian-held person — a child under 18 or an elder — whose birthdate, sex and religion a user stores. The most sensitive record on the platform and counsel-gated: the table exists but every write is held behind a default-OFF flag, so it is empty in production. DPO: this needs its own category and almost certainly its own DPIA before the flag is ever flipped.',
+  // ⚠ TABLE DROPPED 2026-11-27 (migration 20271364844438, owner: brief Add 41 / A2-I14). Sponsors are guests
+  // with a sponsor role now; every row was linked or copied into `guests` first (20271363480132). The key STAYS
+  // for the same parser reason as couple_waitlist_signups above.
   event_sponsors:
-    'A principal or secondary sponsor (ninong / ninang) named by the couple: full name, and the role they carry at the ceremony. A real named third party who never touches the app. DPO: likely folds into "guests", but it has never been said so in writing.',
+    'Table DROPPED 2026-11-27 — sponsors now live in the guest list (a guest with a sponsor role), so they are "guests" data. Nothing is stored here; no DPO question remains.',
 };

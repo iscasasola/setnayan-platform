@@ -12,7 +12,8 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { TEMPLATE_SUBLINE, TemplateSection } from '@/app/_components/template-rows';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { listHostEvents, coerceVendorCategory } from '@/lib/vendor-couple-invite';
+import { readHostEvents, coerceVendorCategory } from '@/lib/vendor-couple-invite';
+import { ErrorState } from '@/app/_components/states/error-state';
 import {
   VENDOR_CATEGORIES,
   VENDOR_CATEGORY_LABEL,
@@ -72,7 +73,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
   const ci = clientInviteTokenOf(rawCi);
 
   const admin = createAdminClient();
-  const { data: vendor } = await admin
+  const { data: vendor, error: vendorError } = await admin
     .from('vendor_profiles')
     // The two liveness columns are spelled out rather than interpolated from
     // SHOP_LIVE_COLUMNS: a template literal costs PostgREST's literal-type
@@ -94,6 +95,20 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
   // exactly as it does on its public shop page, because this screen publishes
   // the business name, logo, tagline and services to anyone holding the slug.
   // What changed is only WHICH definition of "approved" is asked.
+  // 🪪 A refused read is not "this supplier is gone" (final check A5-G1-09): said, with Try again.
+  if (vendorError) {
+    return (
+      <div className="mx-auto w-full max-w-lg px-4 py-8 sm:px-6" data-invite-read="failed">
+        <ErrorState
+          title="Couldn’t open this supplier just now"
+          broke="We couldn’t read this supplier’s page."
+          survived="Nothing was added to your plan."
+          todo="Try again in a moment."
+          actions={<ActionButton tone="brand" main icon={<Store aria-hidden />} label="Try again" href={shopInvitePath(slug)} />}
+        />
+      </div>
+    );
+  }
   if (!vendor || !isShopLive(vendor)) notFound();
 
   // Resolved ONCE for this render — see resolveDisplayUrl: the stored value is
@@ -120,7 +135,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
   const supabase = await createClient();
   const user = await getCurrentUser();
 
-  const hostEvents = user ? await listHostEvents(admin, user.id) : [];
+  const hostEvents = user ? await readHostEvents(admin, user.id) : [];
   // Preserve the QR's event/service scope across the sign-up + create-event
   // round-trips so the couple returns to the same scoped invite.
   const scopeQs = new URLSearchParams();
@@ -203,6 +218,15 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
               href={`/login?next=${encodeURIComponent(nextPath)}`}
             />
           </div>
+        ) : hostEvents === null ? (
+          // 🪪 Unread events are not "no event yet" (final check A5-G1-09).
+          <ErrorState
+            title="Couldn’t read your events just now"
+            broke="We couldn’t load the events you host."
+            survived={`${vendor.business_name} is still here; nothing was added.`}
+            todo="Try again in a moment."
+            actions={<ActionButton tone="brand" main icon={<CalendarDays aria-hidden />} label="Try again" href={nextPath} />}
+          />
         ) : hostEvents.length === 0 ? (
           // Signed in, no event yet → create one, returning here to finish.
           <div className="space-y-3 text-center">

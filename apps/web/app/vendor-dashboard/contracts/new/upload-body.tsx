@@ -4,7 +4,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { uploadVendorContract } from '../actions';
 import { formatFileSize, CONTRACT_MAX_BYTES } from '@/lib/contracts';
 import { PartNote, PartPage, PartPin } from '../../_components/set-two/parts';
-import { ReadFailedBody } from '../../_components/set-two/read-failed';
+import { ReadFailedBody, ReadFailedNote } from '../../_components/set-two/read-failed';
 import { ContractUploadForm } from './upload-form';
 import { pageBackLink } from '@/lib/page-home';
 
@@ -13,9 +13,12 @@ const ROUTE = '/vendor-dashboard/contracts/new';
 /** Upload a contract, drawn from the page's reads (the lab draws it from fixtures). `eventOptions: null` = unread. */
 export function UploadContractBody({
   eventOptions,
+  someCouplesUnread = false,
   defaultEventId,
 }: {
   eventOptions: ReadonlyArray<{ id: string; title: string }> | null;
+  /** Some of the shop's couples could not be named just now — the picker lists the rest and says so (A6-B13). */
+  someCouplesUnread?: boolean;
   defaultEventId: string;
 }) {
   return (
@@ -43,6 +46,12 @@ export function UploadContractBody({
           first.
         </PartNote>
       ) : (
+        <>
+        {someCouplesUnread ? (
+          <ReadFailedNote mark="contract-some-couples">
+            Some of your couples couldn&rsquo;t load just now, so they are not in the list below.
+          </ReadFailedNote>
+        ) : null}
         <ContractUploadForm
           action={uploadVendorContract}
           events={eventOptions}
@@ -50,6 +59,7 @@ export function UploadContractBody({
           maxSizeLabel={formatFileSize(CONTRACT_MAX_BYTES)}
           cancelHref={pageBackLink(ROUTE)?.href ?? '/vendor-dashboard'}
         />
+        </>
       )}
     </PartPage>
   );

@@ -294,7 +294,8 @@ export async function fetchShopWalletEventPots(
       if (grants.error) {
         // came-from unknown — say nothing rather than guess
       } else if (!m || m.size === 0) {
-        if (pc.left != null) parts.push(SOURCE_WORD.launch_offer!(pc.left + pc.spent));
+        // A6-24: only a ledger that was read names how many it gave (an unread one is `left: 0`, never a count).
+        if (pc.credits != null && pc.left != null) parts.push(SOURCE_WORD.launch_offer!(pc.left + pc.spent));
       } else {
         for (const [src, n] of m) if (n > 0) parts.push((SOURCE_WORD[src] ?? SOURCE_WORD.admin!)(n));
       }

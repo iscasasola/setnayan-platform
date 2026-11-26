@@ -22,6 +22,7 @@ import {
   isVendorDuty,
   roleNameOf,
   roleOptionLabel,
+  rolesRowLine,
   type VendorDuty,
   type VendorRoleNames,
 } from '@/lib/vendor-duties';
@@ -266,7 +267,7 @@ export function HelpersView({
         <DatesRow
           data="helpers-roles"
           title="Roles"
-          line={`${VENDOR_DUTIES.map((d) => roleNameOf(roleNames, d)).slice(0, 3).join(' · ')} · and 3 more`}
+          line={rolesRowLine(VENDOR_DUTIES.map((d) => roleNameOf(roleNames, d)))}
           href="/vendor-dashboard/team/roles"
         />
         <DatesRow

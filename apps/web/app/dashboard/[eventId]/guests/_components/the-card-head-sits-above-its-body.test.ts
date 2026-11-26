@@ -147,8 +147,8 @@ test('6c · the pinned Invite is the SAME cell’s button, drawn only while its 
   assert.match(CELL, /useHeadPin\(ref, layout === 'card'\)/, 'only the card’s Invite pins, observed on the body button itself');
   const portal = CELL.slice(CELL.indexOf('createPortal(') - 40, CELL.indexOf('pin.slot,') + 9);
   assert.match(portal, /^[\s\S]*\{pin\.pinned && pin\.slot\s*\?\s*createPortal\(/, 'the copy must be drawn ONLY while pinned');
-  // 🎟 Since 2026-10-28 the card's send is the ONE Share (ticket row: Share · NFC · New QR) — the copy runs the same rowShare().
-  assert.match(portal, /onClick=\{\(\) => rowShare\('head'\)\}/, 'the copy must run the same rowShare()');
+  // 🎟 The copy runs the card's ONE send — the same cardSend() as the body's Send invite (owner 2026-11-26).
+  assert.match(portal, /onClick=\{\(\) => cardSend\('head'\)\}/, 'the copy must run the same cardSend()');
   assert.match(portal, /icon=\{Share\}/, 'the copy is the Share icon');
   assert.equal((CELL.match(/createPortal\(/g) ?? []).length, 1, 'one portal — the header copy');
   assert.match(CELL, /<Popover anchorRef=\{from === 'head' && pin\.pinned \? pinRef : ref\}/, 'the sheet opens under whichever Invite was pressed');

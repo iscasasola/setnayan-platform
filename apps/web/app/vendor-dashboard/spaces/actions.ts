@@ -439,7 +439,10 @@ export async function spacesWrite(o: SpacesOp, date: string): Promise<SpacesResu
     case 'read': {
       // The date pick: the same read for another day (no write). A read, not a save, so nothing is revalidated.
       const s = await shop();
-      return s ? fresh(s, day) : NO_SHOP;
+      if (!s) return NO_SHOP;
+      // A7-13: a refused read on a date pick is a read, never "Saved, but…" — nothing was saved.
+      const read = await readSpaces(s.supabase, s.profile.vendor_profile_id, day);
+      return read ? { ok: true, read } : { ok: false, error: 'Couldn’t read that day just now. The tiles still show the day before.' };
     }
     default:
       return { ok: false, error: 'Unknown change.' };

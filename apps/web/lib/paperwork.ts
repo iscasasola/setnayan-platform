@@ -566,6 +566,28 @@ export function expiryTone(expiresAt: string | null): DeadlineTone {
  * UI can display in a stable order (the same order
  * DOCUMENTS_BY_CEREMONY_TYPE lists for the matched ceremony type).
  */
+/**
+ * The same read, said honestly (A2-I8 / A2-I5): `null` = refused, `[]` = answered with none. `fetchEventPaperwork`
+ * folds the two, which is how a refused read used to offer "Start your checklist" over paperwork already received.
+ */
+export async function readEventPaperwork(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<PaperworkRow[] | null> {
+  const { data, error } = await supabase
+    .from('event_paperwork')
+    .select(
+      'id, event_id, document_type, status, requested_at, received_at, expected_completion_date, expires_at, tracking_reference, document_r2_key, notes, created_at, updated_at',
+    )
+    .eq('event_id', eventId)
+    .order('created_at', { ascending: true });
+  if (error) {
+    console.error('[paperwork] readEventPaperwork:', error.message);
+    return null;
+  }
+  return (data ?? []) as PaperworkRow[];
+}
+
 export async function fetchEventPaperwork(
   supabase: SupabaseClient,
   eventId: string,

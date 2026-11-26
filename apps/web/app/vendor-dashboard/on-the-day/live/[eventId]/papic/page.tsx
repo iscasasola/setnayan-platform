@@ -174,7 +174,9 @@ export default async function VendorPapicCapturePage({
         <PortfolioAlbumSection
           supabase={supabase}
           eventId={eventId}
-          creditsLeft={portfolioCredits.left}
+          // A6-24: an unread ledger is not "0 left" — the album does not refuse an import on a guess (null = unknown; the
+          // import itself still meters on the server).
+          creditsLeft={portfolioCredits.credits === null ? null : portfolioCredits.left}
           canPutOnPage={canPutOnPage}
           vendorProfileId={profile.vendor_profile_id}
           eventEnded={Boolean(booking.bookedDate) && String(booking.bookedDate) < phToday()}

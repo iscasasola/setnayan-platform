@@ -37,6 +37,7 @@ import {
   INGEST_LIMIT_PER_INSTANCE,
   INGEST_LIMIT_PER_IP,
   countsFromWire,
+  faultIngestAnswer,
   wireToRecord,
 } from '@/lib/telemetry/ingest-shape';
 import { loadsFromWire } from '@/lib/telemetry/load-timing';
@@ -44,6 +45,7 @@ import { hasSessionCookie, recordLoads, toRoutePattern } from '@/lib/telemetry/l
 import { enforceRateLimit } from '@/lib/with-rate-limit';
 import { rateLimit } from '@/lib/rate-limit';
 import { clientIp } from '@/lib/client-ip';
+import { backgroundWritesAllowed } from '@/lib/background-writes';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -107,11 +109,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const id = await recordFault(shaped.record);
-  if (!id) {
-    // Insert failed (env / DB). Report it but keep the contract simple — the
-    // client swallows non-2xx anyway; a fault report must never break the app.
-    return NextResponse.json({ ok: false, error: 'insert_failed' }, { status: 500 });
-  }
-  return NextResponse.json({ ok: true, id }, { status: 201 });
+  // Never a 5xx from the fault door (`faultIngestAnswer`, SW-TELE): a preview or dev server keeps no faults by design
+  // (202); a production write that failed is 202 too, and is logged here so the lost fault is still on record.
+  const answer = faultIngestAnswer(await recordFault(shaped.record), backgroundWritesAllowed());
+  if (answer.log) console.error('[telemetry] client-fault: production write failed; fault not stored', { kind: shaped.record.kind });
+  return NextResponse.json(answer.body, { status: answer.status });
 }

@@ -582,10 +582,10 @@ test('all three surfaces resolve their materials through resolveRoomPalette', ()
 });
 
 test('all three surfaces dress their people from the palette section 02 shows', () => {
-  /* The couple lab's people are dressed by its PAGE (`seating/lab/page.tsx` resolves every guest's attire colour) — the
+  /* The couple lab's people are dressed by its PAGE (`seating/lab/_components/seating-room.tsx` resolves every guest's attire colour) — the
      room component's own display palette fed only the old Build panel's concept illustration, gone since the room
      became view-only (owner 2026-10-30). So for the lab it is the page that must read the display palette. */
-  for (const rel of SURFACES.map((f) => f.replace('_components/seating-lab-3d.tsx', 'page.tsx'))) {
+  for (const rel of SURFACES.map((f) => f.replace('_components/seating-lab-3d.tsx', '_components/seating-room.tsx'))) {
     const src = stripComments(readFileSync(join(APP, rel), 'utf8'));
     assert.match(
       src,
@@ -613,7 +613,7 @@ test('the raw palette never reaches the attire chain in the couple lab or the gu
   assert.doesNotMatch(walk, /guestAttireColor\(scene\.rolePalette,/);
 
   const page = stripComments(
-    readFileSync(join(APP, 'dashboard/[eventId]/seating/lab/page.tsx'), 'utf8'),
+    readFileSync(join(APP, 'dashboard/[eventId]/seating/lab/_components/seating-room.tsx'), 'utf8'),
   );
   assert.match(page, /resolveAttirePaletteColor\(g\.role, displayPalette, sideAttireColor\(displayPalette, g\.side\)\)/);
 });

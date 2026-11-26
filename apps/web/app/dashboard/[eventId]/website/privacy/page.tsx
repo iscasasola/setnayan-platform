@@ -56,7 +56,7 @@ export default async function PrivacyEditorPage({
 
   const supabase = await createClient();
 
-  const { data: event } = await supabase
+  const { data: event, error: eventReadError } = await supabase
     .from('events')
     .select(
       'event_id, event_type, display_name, slug, landing_page_visibility, scheduled_launch_at, std_launched_at, live_media_public, same_date_count_opt_out',
@@ -64,6 +64,9 @@ export default async function PrivacyEditorPage({
     .eq('event_id', eventId)
     .maybeSingle();
 
+  // E-16 (final check): a refused read used to bounce the couple to Home as if the page did not exist. It is a
+  // failure: the error page says so and offers Try again.
+  if (eventReadError) throw new Error("Couldn't read this event just now.");
   if (!event) redirect(`/dashboard/${eventId}`);
 
   const currentVisibility = (event.landing_page_visibility ?? 'public') as
@@ -130,6 +133,9 @@ export default async function PrivacyEditorPage({
   // the toggle reflects the true state regardless of users-table RLS; defaults
   // to off on any error.
   let showcaseOptedIn = false;
+  // E-16 (final check): a refused or thrown read used to draw "Off — your wedding stays private" with an offer to
+  // switch on a consent that was never read. Now it says it could not read, and offers no switch.
+  let showcaseReadFailed = false;
   try {
     const admin = createAdminClient();
     const { data: me, error: meError } = await admin
@@ -145,9 +151,11 @@ export default async function PrivacyEditorPage({
         'graceful_degrade',
       );
     }
+    if (meError) showcaseReadFailed = true;
     showcaseOptedIn = Boolean(me?.public_summary_consent_at);
   } catch {
     showcaseOptedIn = false;
+    showcaseReadFailed = true;
   }
 
   return (
@@ -427,6 +435,11 @@ export default async function PrivacyEditorPage({
           🔑 CONSENT IS NOT ELIGIBILITY. The badge now says which of the two is
           missing, in the words of the control that fixes it.
         */}
+        {showcaseReadFailed ? (
+          <p role="status" className="text-sm text-ink/75">
+            Couldn&rsquo;t read whether featuring is on. Refresh the page in a moment.
+          </p>
+        ) : (
         <div className="flex flex-wrap items-center gap-3">
           <Badge tone={showcaseOptedIn ? (showcaseBlocker ? 'wait' : 'ok') : 'quiet'}>
             {showcaseOptedIn
@@ -443,6 +456,7 @@ export default async function PrivacyEditorPage({
             </SubmitButton>
           </SafeForm>
         </div>
+        )}
 
         <p className="text-[13px] text-ink/75">
           Your {eventNoun(event.event_type)} only ever appears after the day itself (a 30-day grace
@@ -474,9 +488,9 @@ function VisibilityCard({
   const selected = value === currentValue;
   return (
     <label
-      className={`group flex min-h-14 cursor-pointer items-start gap-4 border-l-2 py-4 pl-3 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-terracotta ${
-        selected ? 'border-mulberry' : 'border-transparent'
-      }`}
+      /* E-15 (final check): the mark follows the radio the person TAPPED (`:checked`), not the saved value, so a
+         new pick shows before Save. "Current" below still names the saved one. */
+      className="group flex min-h-14 cursor-pointer items-start gap-4 border-l-2 border-transparent py-4 pl-3 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-terracotta has-[:checked]:border-mulberry"
     >
       <input
         type="radio"

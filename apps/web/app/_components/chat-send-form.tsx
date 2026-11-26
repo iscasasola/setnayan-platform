@@ -385,8 +385,8 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
   editingRef.current = editing;
   const [savingEdit, setSavingEdit] = useState(false);
   /* ⌨ THE COMPOSER RIDES WITH NO BAND (owner 2026-10-24, on the band's "Typing · …" + ✓ Done: *"can this be gone? just
-     tap away and keyboard should disappear"*). The row stays whole (＋ · message · Send): Send is its verb and the
-     phone's Enter is a new line; a tap or a drag on the thread — or Escape — leaves the box (`useTapAway`), so the
+     tap away and keyboard should disappear"*). The row stays whole (＋ · message · Send): Send is its verb, and Enter
+     sends on every device (`shouldSendOnEnter`), so the phone's key is labelled "Send" (`enterKeyHint`, A2-H4); a tap or a drag on the thread — or Escape — leaves the box (`useTapAway`), so the
      keyboard closes. Supersedes the composer's "Typing · Message" band of #6860. */
   const [typing, setTyping] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -1218,6 +1218,8 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
           name="body"
           rows={1}
           maxLength={4000}
+          // A2-H4: Enter sends on every device (`shouldSendOnEnter`), so the phone's key says Send, not return.
+          enterKeyHint="send"
           // 💬 While the suggested step shows it is the box's invitation: at 390 px "Message" cannot sit beside it with
           // ＋ · 🔒 · sliders · Send, and wrapped under it — the name stays for a screen reader (`aria-label`).
           placeholder={suggestOn ? '' : privateTo ? privateBoxPlaceholder(privateNames) : whisperOn ? WHISPER_PLACEHOLDER : MESSAGE_PLACEHOLDER}

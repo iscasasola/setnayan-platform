@@ -211,7 +211,6 @@ const KNOWN_UNBOUND: Record<string, number> = {
   'app/dashboard/(account)/library/_data/saved-vendors.ts::profileData': 1,
   'app/dashboard/(account)/library/_data/saved-vendors.ts::statsData': 1,
   'app/dashboard/(account)/people/life-stories.ts::data': 1,
-  'app/dashboard/(account)/profile/concierge/page.tsx::eventDetail': 1,
   'app/dashboard/(account)/profile/page.tsx::consentEvents': 1,
   'app/dashboard/(account)/profile/page.tsx::faceProfile': 1,
   'app/dashboard/(account)/profile/page.tsx::shareConsentRows': 1,
@@ -304,7 +303,6 @@ function parallelElements(src: string): Array<{ body: string; at: number }> {
 /** The same bill, for parallel reads. */
 const KNOWN_UNBOUND_PARALLEL: Record<string, number> = {
   // Outside the couple's event tree, like the sixteen on the bill above.
-  'app/dashboard/(account)/profile/concierge/page.tsx::profile': 1,
 };
 
 test('a read inside a parallel batch binds its error too', () => {

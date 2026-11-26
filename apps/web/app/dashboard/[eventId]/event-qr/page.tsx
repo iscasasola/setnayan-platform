@@ -52,10 +52,12 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Event QR' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = { params: Promise<{ eventId: string }>; searchParams?: Promise<{ qr?: string }> };
 
-export default async function EventQrPage({ params }: Props) {
+export default async function EventQrPage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  // I-05 (final check): Regenerate threw its result away. It now comes back with `?qr=new` or `?qr=failed`.
+  const qrFlag = (await searchParams)?.qr;
 
   // Authorization FIRST, and stated here — the read below bypasses RLS.
   // requireHostMembership redirects to /login with no session and to /dashboard
@@ -138,7 +140,8 @@ export default async function EventQrPage({ params }: Props) {
             <form
               action={async (data: FormData) => {
                 'use server';
-                await regenerateEventMasterQR(data);
+                const result = await regenerateEventMasterQR(data);
+                redirect(`/dashboard/${eventId}/event-qr?qr=${result.ok ? 'new' : 'failed'}`);
               }}
             >
               <input type="hidden" name="event_id" value={event.event_id as string} />
@@ -146,6 +149,15 @@ export default async function EventQrPage({ params }: Props) {
                 <RefreshCcw aria-hidden className="h-4 w-4" strokeWidth={2} />
                 Regenerate QR
               </SubmitButton>
+              {qrFlag === 'new' ? (
+                <p role="status" className="mt-2 text-[13px] font-medium text-ink">
+                  New QR made. Print or share this one; the old code no longer pairs new devices.
+                </p>
+              ) : qrFlag === 'failed' ? (
+                <p role="alert" className="mt-2 text-[13px] text-danger-600">
+                  Couldn&rsquo;t make a new QR. The code above still works — try again.
+                </p>
+              ) : null}
               <p className="mt-2 text-[13px] text-ink/75">
                 Rotating prints a new code. Crew devices already paired
                 stay paired — only new pairings using the old code will

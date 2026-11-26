@@ -1,3 +1,4 @@
+import { routes } from '@/lib/routes';
 import Link from 'next/link';
 import { getSampleEvent } from './_lib/sample-event';
 import { coupleNamesLine } from '@/lib/typed-names';
@@ -96,7 +97,7 @@ export default async function TourIntroPage() {
           Start your own wedding on Setnayan — free, in minutes. Set na &rsquo;yan.
         </p>
         <Link
-          href="/onboarding/wedding?from=tour"
+          href={routes.start()}
           className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1B1A17] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning &middot; free

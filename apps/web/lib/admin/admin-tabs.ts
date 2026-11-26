@@ -113,7 +113,6 @@ export const ADMIN_TABS: readonly AdminTab[] = [
       { key: 'force-majeure', label: 'Force majeure', group: 'Every shipped queue', href: '/admin/force-majeure', queue: 'force-majeure' },
       { key: 'user-reports', label: 'User reports', group: 'Every shipped queue', href: '/admin/user-reports', queue: 'user-reports' },
       { key: 'fraud', label: 'Fraud queue', group: 'Every shipped queue', href: '/admin/fraud', queue: 'fraud' },
-      { key: 'ai-abuse', label: 'Setnayan AI abuse', group: 'Every shipped queue', href: '/admin/concierge-abuse', queue: 'concierge-abuse' },
       { key: 'integrity', label: 'Integrity watch', group: 'Every shipped queue', href: '/admin/integrity-watch', queue: 'integrity-watch' },
       { key: 'repost', label: 'Repost watch', group: 'Every shipped queue', href: '/admin/repost-watch', queue: 'repost-watch' },
       { key: 'chat-flags', label: 'Chat contact flags', group: 'Every shipped queue', href: '/admin/chat-flags', queue: 'chat-flags' },

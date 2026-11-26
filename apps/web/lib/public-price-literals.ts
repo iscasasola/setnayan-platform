@@ -132,24 +132,6 @@ export const PUBLIC_PRICE_LITERALS: readonly PriceLiteral[] = [
       'pricing their OWN booth — never stored or shown as a value.',
   },
   {
-    file: 'app/vendor-dashboard/shop/_components/voice-match-card.tsx',
-    literal: '₱48,000',
-    sku: null,
-    reason: 'Example reply in PREVIEW_ANSWER, a made-up supplier package price — not a Setnayan SKU.',
-  },
-  {
-    file: 'app/vendor-dashboard/shop/_components/voice-match-card.tsx',
-    literal: '₱28,000',
-    sku: null,
-    reason: 'Example reply in PREVIEW_ANSWER, a made-up supplier package price — not a Setnayan SKU.',
-  },
-  {
-    file: 'app/vendor-dashboard/shop/_components/voice-match-card.tsx',
-    literal: '₱85,000',
-    sku: null,
-    reason: 'Example reply in PREVIEW_ANSWER, a made-up supplier package price — not a Setnayan SKU.',
-  },
-  {
     file: 'app/dev/supplier-lab/couple-photos-lab.tsx',
     literal: '₱8,500',
     sku: null,

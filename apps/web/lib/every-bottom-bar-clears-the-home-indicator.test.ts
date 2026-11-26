@@ -36,6 +36,10 @@ const EXEMPT: Record<string, [string, string]> = {
     'scroll body by the inset (e.g. `details-workspace.tsx`, `print-paper.tsx`). Its folded slim bar, defined in the ' +
     'same file, is checked like any other bar. (The Maker is at its 507 KB first-load budget, so the frame was not ' +
     'given a second pad on top of its children\'s.)'],
+  'app/vendor-dashboard/shop/store/_components/store-screens.tsx': ['z-[4] tab:hidden',
+    "the Toolkit's phone fade (final check B12) is not a bar: it holds no content and takes no press " +
+    '(`pointer-events-none`, `aria-hidden`), and its height is `--sn-thumb-clear`, the thumb row\'s own clearance, ' +
+    'which already counts the inset through `--sn-bottomdock-h` / `env(safe-area-inset-bottom)`'],
 };
 const exempt = (b: { file: string; cls: string }) => Boolean(EXEMPT[b.file] && b.cls.includes(EXEMPT[b.file]![0]));
 const SKIP_DIR = /^app\/dev\//;

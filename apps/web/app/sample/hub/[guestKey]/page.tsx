@@ -98,7 +98,7 @@ export default async function SampleGuestHubPage({ params }: { params: Promise<{
 
           <MeGreeting greeting={greeting} />
 
-          <GuestTicket state="pass" name={sampleGuestName(guest)} invitationUrl={`${siteOrigin()}/sample/hub/${guest.guestKey}`} src={samplePassSrc(guest.guestKey)} qrSrc={null} />
+          <GuestTicket state="pass" name={sampleGuestName(guest)} invitationUrl={`${siteOrigin()}/sample/hub/${guest.guestKey}`} src={samplePassSrc(guest.guestKey)} fallbackCode={false} />
 
           <GuestMeParts parts={meParts} words={SAMPLE_WORDS} look={look} comingWith={comingWith} />
 

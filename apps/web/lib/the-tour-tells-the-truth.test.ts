@@ -92,10 +92,10 @@ test('A1-015 · A1-016 · the sample guest Hub speaks to a guest and copies a wh
   assert.match(hub, /Opens on the \{SAMPLE_WORDS\.eventWord\} day/);
   assert.equal(SAMPLE_WORDS.eventWord, 'wedding');
   assert.match(hub, /invitationUrl=\{`\$\{siteOrigin\(\)\}\/sample\/hub\/\$\{guest\.guestKey\}`\}/);
-  assert.match(hub, /qrSrc=\{null\}/, 'the sample never draws the real guest’s cookie QR');
+  assert.match(hub, /fallbackCode=\{false\}/, 'the sample never draws the real guest’s cookie QR');
   const ticket = src('app/[slug]/_components/guest-ticket.tsx');
-  assert.match(ticket, /qrSrc = '\/api\/guest\/qr',/, 'a real guest keeps the door code');
-  assert.match(ticket, /\{pending \|\| !qrSrc \? null : \(/);
+  assert.match(ticket, /fallbackCode = true,/, 'a real guest keeps the door code');
+  assert.match(ticket, /\{pending \|\| !fallbackCode \? null : \(/);
 });
 
 test('A1-004 · every persona /sample offers opens a built view', () => {

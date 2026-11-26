@@ -45,6 +45,7 @@ export function GuestTicket({
   invitationUrl,
   src = PASS_CARD_ROUTE,
   qrSrc = '/api/guest/qr',
+  fallbackCode = true,
   replyHref = null,
   mark = null,
   appleWallet = null,
@@ -53,12 +54,13 @@ export function GuestTicket({
   state: PassCardEligibility;
   name: string;
   invitationUrl: string;
+  /** 🔑 A4-B11: the bare code's route — the Hub passes one naming its event (`passRouteForEvent`). */
+  qrSrc?: string;
   /**
-   * 🔑 A4-B11: the bare code's route — the Hub passes one naming its event (`passRouteForEvent`). It is also the code
-   * drawn when the ticket picture fails. Null draws no code: the sample hub has no guest cookie, so that route could
-   * never answer and "still works at the door" was untrue there (final check A1-016).
+   * Draw the bare code when the ticket picture fails (default). False draws none: the sample hub has no guest cookie,
+   * so that route could never answer and "still works at the door" was untrue there (final check A1-016).
    */
-  qrSrc?: string | null;
+  fallbackCode?: boolean;
   /**
    * ✉ REPLY FIRST (`meLeadsWithReply`, lib/arrival-action.ts): set for a guest
    * who has not replied yet. Me then leads with the one reply button — the
@@ -126,7 +128,7 @@ export function GuestTicket({
         alt={`${name}’s ${PASS_CARD_WORDS.digitalTicket}`}
         fallback={
           <div data-ticket-fallback="" className="mx-auto w-[min(300px,100%)]">
-            {pending || !qrSrc ? null : (
+            {pending || !fallbackCode ? null : (
               // The bare code, from the route that needs no drawing — the door
               // still works when the picture could not be made.
               // eslint-disable-next-line @next/next/no-img-element -- cookie-authenticated PNG
@@ -139,7 +141,7 @@ export function GuestTicket({
               />
             )}
             <p role="alert" className="mt-2 text-xs text-ink/70">
-              {pending || !qrSrc
+              {pending || !fallbackCode
                 ? `We couldn’t draw your ${PASS_CARD_WORDS.noun} just now.`
                 : `We couldn’t draw your ${PASS_CARD_WORDS.noun} just now — this code still works at the door.`}
             </p>
@@ -149,7 +151,7 @@ export function GuestTicket({
       <p className="mx-auto mt-3 max-w-prose text-sm text-ink/70">
         {pending ? REQUEST_WORDS.sentUnlocks : 'Show this at the door.'}
       </p>
-      <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-3" passCardHref={src} qrHref={qrSrc ?? undefined} />
+      <GuestCodeKeepers invitationUrl={invitationUrl} className="mt-3" passCardHref={src} qrHref={qrSrc} />
       {/* 🍎 Under Save · Copy link, sized to its words and centred — a second control, never wider than the row above. */}
       {state === 'pass' ? <AppleWalletButton link={appleWallet} className="mx-auto mt-2 w-fit" /> : null}
       {state === 'pass' && keep ? <div data-ticket-keep="" className="mt-8 text-left">{keep}</div> : null}

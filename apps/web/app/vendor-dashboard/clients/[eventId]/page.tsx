@@ -48,6 +48,7 @@ import { OpenTheirEvent } from './_components/open-their-event';
 import { Badge } from '@/app/_components/badge';
 import { getEditorialEligibility } from '@/lib/editorial-vendor-media';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
+import { briefHeadcount, headcountBasisWords, type HeadcountBasis } from '@/lib/brief-headcount';
 import { BoothPosterCard } from './_components/booth-poster-card';
 import { BoothStudioCard } from './_components/booth-studio-card';
 import { boothStudioEnabled } from '@/lib/booth-studio-flag';
@@ -353,7 +354,8 @@ type Brief = {
     ceremony_type: string | null;
   };
   booked_categories: string[];
-  pax: { invited: number; attending: number; maybe: number; pending: number; declined: number };
+  // A6-48: `headcount_basis` = which guests the hosts count (migration the_brief_says_how_the_hosts_count).
+  pax: { invited: number; attending: number; maybe: number; pending: number; declined: number; headcount_basis?: HeadcountBasis | null };
   dietary: { meal_counts: Record<string, number>; restriction_notes: number } | null;
   // Couple opt-in budget RANGE for this vendor's category (Customer Card respine
   // PR-5). NULL unless the couple opted in AND allocated to the vendor's
@@ -3538,10 +3540,12 @@ function OverviewTab(props: {
             <SupplierCountTile count={headcountRule} names={headcountNames} />
           ) : brief.pax.invited > 0 ? (
             <>
-              <p className="mt-3 text-3xl font-semibold tracking-tight">
-                {brief.pax.attending}
+              {/* A6-48: the count the hosts go by (events.headcount_basis, the basis a supplier's pax follows), counted by
+                  the one reader — never "attending" when the hosts count coming-or-maybe, or everyone not declined. */}
+              <p className="mt-3 text-3xl font-semibold tracking-tight" data-headcount-basis={brief.pax.headcount_basis ?? 'attending'}>
+                {formatCount(briefHeadcount(brief.pax))}
                 <span className="ml-2 text-sm font-normal text-ink/55">
-                  attending of {brief.pax.invited} invited
+                  {headcountBasisWords(brief.pax.headcount_basis)} of {formatCount(brief.pax.invited)} invited
                 </span>
               </p>
               <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink/60">

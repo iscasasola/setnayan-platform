@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { LOVE_STORY_PRO_CTA, LOVE_STORY_PRO_LINE } from '@/lib/love-story-moments';
-import { PLAN_UNREAD } from '@/lib/php';
+import { PLAN_UNREAD } from '@/lib/plan-unread';
 
 /**
  * THE ONE QUIET LINE — owner 2026-09-25, verbatim ruling: a sixth story or any

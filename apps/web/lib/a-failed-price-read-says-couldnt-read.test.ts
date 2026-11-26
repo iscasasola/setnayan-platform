@@ -91,7 +91,7 @@ test('I-02 · the custom-address refusal is a sentence, and an unknown key is ne
 });
 
 test('E-13 (owner ruling, Add 45) · a failed plan read says "We couldn\'t check your plan" — no upsell from it', async () => {
-  const { PLAN_UNREAD } = await import('./php');
+  const { PLAN_UNREAD } = await import('./plan-unread');
   assert.equal(PLAN_UNREAD, 'We couldn’t check your plan, try again.');
   const page = read('website/our-story/page.tsx');
   assert.equal((page.match(/\.catch\(\(\) => \{\s*planReadFailed = true;\s*return false;\s*\}\)/g) ?? []).length, 2);

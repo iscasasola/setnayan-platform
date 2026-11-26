@@ -34,8 +34,8 @@ import { deviceOs } from '@/lib/apple-device';
 // WHY IT'S MOSTLY DORMANT TODAY — the apps are built but not yet published
 // (App Store / Play enrollment is owner-gated). So the store links are
 // env-configured: until NEXT_PUBLIC_IOS_APP_STORE_URL / _ANDROID_PLAY_STORE_URL
-// are set, the banner shows a single "available soon" line with no dead badges,
-// rather than linking to a 404 store page. The moment the owner publishes and
+// are set, the banner shows NOTHING (A4-72, 25 Nov 2026: no "coming soon" claim), rather
+// than linking to a 404 store page. The moment the owner publishes and
 // sets those env vars, the matching badge lights up automatically — no code
 // change. We also hide the banner entirely inside the native shell (a friend
 // already in the app never needs an install nudge).
@@ -82,6 +82,9 @@ export function AppInstallBanner({
   if (!show) return null;
 
   const storeUrl = platform === 'ios' ? iosUrl : platform === 'android' ? androidUrl : undefined;
+  /* 🔕 A4-72 (final check, SW-COMING): no app claim before it is live. Until this device's store link is set, the
+     banner says nothing at all — never "The app is coming soon" (docs/brand.md, claims rule 9). */
+  if (!storeUrl) return null;
 
   return (
     <InlineNotice
@@ -89,19 +92,11 @@ export function AppInstallBanner({
       ask
       noticeKey="app-install:papic-join"
       title="Shoot from the Setnayan app"
-      detail={
-        storeUrl ? (
-          'Keeps Setnayan one tap away. The camera works exactly the same either way.'
-        ) : (
-          <span data-coming-soon="">The app is coming soon — for now, keep going right here in your browser. Nothing to install.</span>
-        )
-      }
+      detail="Keeps Setnayan one tap away. The camera works exactly the same either way."
       actions={
-        storeUrl ? (
-          <a href={storeUrl} className={NOTICE_ACTION}>
-            {platform === 'ios' ? 'Get it on the App Store' : 'Get it on Google Play'}
-          </a>
-        ) : null
+        <a href={storeUrl} className={NOTICE_ACTION}>
+          {platform === 'ios' ? 'Get it on the App Store' : 'Get it on Google Play'}
+        </a>
       }
       legacy={(): CloseRecord | null => {
         try {

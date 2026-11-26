@@ -713,8 +713,10 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             .select('vendor_service_id, linked_label')
             .in('vendor_service_id', activeIds)
             .order('display_order', { ascending: true })
-        : Promise.resolve({ data: null }),
+        : Promise.resolve({ data: null, error: null }),
     ]);
+    // A refused links read is said on the card (A6-07), never an empty "comes with".
+    if (linkRows.error) logQueryError('vendorThread.serviceLinks', linkRows.error, { threadId }, 'graceful_degrade');
     return { activeServices, addonsByService, linkRows };
   })();
 
@@ -1287,6 +1289,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
    * when a card is picked (`loadServiceCardLinesForQuote`).
    */
   const comesWith = new Map<string, string[]>();
+  const comesWithUnread = Boolean(linkRows.error);
   for (const r of ((linkRows as { data: { vendor_service_id: string; linked_label: string | null }[] | null }).data ?? [])) {
     if (!r.linked_label) continue;
     comesWith.set(r.vendor_service_id, [...(comesWith.get(r.vendor_service_id) ?? []), r.linked_label]);
@@ -1302,6 +1305,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           : s.starting_price_php,
     addons: (addonsByService.get(s.vendor_service_id) ?? []).map((a) => ({ id: a.id, label: a.label, fromPhp: a.from_price_php })),
     comesWith: comesWith.get(s.vendor_service_id) ?? [],
+    ...(comesWithUnread ? { comesWithUnread: true } : {}),
     giftOn: Boolean(s.includes_setnayan_gift),
   }));
 

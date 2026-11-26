@@ -118,7 +118,7 @@ test('L-08 · Live Watch: an unread order offers no buy press; an unread price s
   assert.match(src, /caption: skuRead\.readFailed \? 'Couldn’t read' : 'per event'/);
 });
 
-test('E-13 · Our story: an unread plan draws no "trying", no free count, and the plan line offers a retry', () => {
+test('E-13 · Our story: an unread plan draws no "trying" and no free count — only the plan line', () => {
   const page = read(`${D}/website/our-story/page.tsx`);
   assert.match(page, /tryingPro: proUsable && !proActive && !planReadFailed,/);
   const book = read(`${D}/website/our-story/_components/love-story-book.tsx`);
@@ -128,5 +128,5 @@ test('E-13 · Our story: an unread plan draws no "trying", no free count, and th
   const unread = line.indexOf('if (planUnread)');
   const offer = line.indexOf('LOVE_STORY_PRO_CTA}');
   assert.ok(unread > 0 && offer > unread);
-  assert.match(line.slice(unread, offer), /<p>\{PLAN_UNREAD\}<\/p>\s*<TryAgain \/>/);
+  assert.match(line.slice(unread, offer), /\{PLAN_UNREAD\}/);
 });

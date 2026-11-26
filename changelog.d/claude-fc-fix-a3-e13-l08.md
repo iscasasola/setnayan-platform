@@ -7,7 +7,7 @@ The rest of A3·L-08 and A3·E-13, after #8357 and #8364. Owner ruling (Add 45):
 - **Join-card print sheet:** a refused seat read is said, instead of listing every channel as waiting with "no join cards to print".
 - **Memory lane (/live):** a refused screens read draws "—", not 0 screens. Refused screens or photos reads are said above the controls. A refused FaceBlock count is said instead of hiding the FaceBlock line, and the blur-ready count says "Couldn’t read" instead of a zero.
 - **Live Watch:** when the catalogue read fails, the Pricing tile says "Couldn’t read".
-- **Our story (E-13):** when the plan read fails, the page no longer says "trying Pro", states no free-story limit or count, and the plan line has a Try again.
+- **Our story (E-13):** when the plan read fails, the page no longer says "trying Pro" and states no free-story limit or count. The plan line stands in their place. It has no Try again press, because that client button would push the Maker's first-load JS over its 508 KB budget (the launch page renders this page).
 - Guard: `lib/a-failed-plan-read-decides-nothing.test.ts`. No migration, no new server action, no price touched.
 
 SPEC IMPACT: None. Honest-state fixes on shipped pages.

@@ -1,5 +1,6 @@
 import 'server-only';
 
+import { isServiceCardId } from '@/lib/service-card-id';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   VENDOR_CATEGORY_LABEL,
@@ -461,7 +462,7 @@ export async function loadCardForEdit(
   vendorProfileId: string,
   serviceId: string,
 ): Promise<CardForEdit | null | 'unread'> {
-  if (!/^[0-9a-fA-F-]{36}$/.test(serviceId)) return null;
+  if (!isServiceCardId(serviceId)) return null;
   const { data: row, error } = await supabase
     .from('vendor_services')
     .select(

@@ -10,7 +10,8 @@
  * The RENDERED card (the real `GuestCardBody` with the real Invite cell, ticket and its buttons handed in):
  *   1. the quick row: Send invite (the ONE filled button) · Add mobile · Seat · Note, in that order; then "Their ticket", one
  *      row wearing "Not sent yet · Not linked"; no NFC / New QR / ⋯ icon outside the ticket; no big "Invite ▾".
- *   2. Send invite is the ROW's one sender (`rowShare` → our own menu on every device, owner 2026-11-05), never a second path.
+ *   2. Send invite is the card's ONE sender (`cardSend`): a phone opens the phone's share sheet at once, message + ticket
+ *      (owner 2026-11-26, replacing 2026-11-05's "always our menu"); a computer — or a sheet that refuses — gets our menu.
  *   3. New QR asks first, in the ruled words, and posts the shipped `releaseGuestClaim` › `new_qr` door.
  *   4. NFC · New QR · Unlink are labelled buttons, handed INTO the opened ticket — NFC the shipped writer, Unlink only while linked.
  *
@@ -118,16 +119,26 @@ test('1 · the RENDERED card: Send invite · Add mobile · Seat · Note, then "T
   assert.doesNotMatch(unlinked, /More for Cita Ramos|aria-label="Make a new QR for|aria-label="Write Cita/, 'an NFC / New QR / ⋯ icon is still outside the ticket');
 });
 
-test('2 · Send invite is the row’s ONE sender — `rowShare` → our own menu (app rows + Copy) on every device', () => {
+test('2 · Send invite is the card’s ONE sender — a phone’s share sheet at once (owner 2026-11-26), else our menu', () => {
   const card = CELL.slice(CELL.lastIndexOf("if (layout === 'card') {"));
   const body = card.slice(0, card.indexOf('\n  }\n'));
-  assert.match(body, /label="Send invite"[\s\S]*?onClick=\{\(\) => rowShare\('body'\)\}/, 'the card’s Send invite does not run the row’s share');
+  assert.match(body, /label="Send invite"[\s\S]*?onClick=\{\(\) => cardSend\('body'\)\}/, 'the card’s Send invite does not run cardSend');
   assert.equal((body.match(/\bmain\b/g) ?? []).length, 1, 'the quick row has more than one filled step');
   assert.doesNotMatch(body, /invite\('body'\)|caret/, 'the card still opens the old Invite sheet / draws the Invite ▾');
-  const fn = CELL.slice(CELL.indexOf('function rowShare('));
-  const share = fn.slice(0, fn.indexOf('\n  }\n'));
-  assert.match(share, /invite\(at\);\s*setTouch\(false\);/, 'the card’s Send invite does not open our own menu');
-  assert.doesNotMatch(share, /shareInvite|navigator/, 'the card’s Send invite jumps to the system sheet (owner 2026-11-05: always our menu)');
+  const fn = CELL.slice(CELL.indexOf('async function cardSend('));
+  const send = fn.slice(0, fn.indexOf('\n  }\n'));
+  // A phone: the ONE share (message + ticket), at once — and an app taking it is the send.
+  assert.match(send, /if \(!isTouchDevice\(\) \|\| file === undefined\) return rowShare\(at\);/, 'a computer (or a ticket still on its way) does not get our menu');
+  assert.match(send, /await shareInvite\(file, message\)/, 'a phone’s Send invite does not open the phone’s share sheet');
+  assert.match(send, /if \(out === 'shared'\) return mark\(true\);/, 'an app taking it does not stamp Sent ✓');
+  assert.match(send, /if \(out === 'closed'\) return;\s*rowShare\(at\);/, 'a refused sheet is a dead tap — it must fall back to our menu');
+  assert.doesNotMatch(send, /navigator\.share|nav\.share/, 'a second share path — `shareInvite` is the one share');
+  // The ticket must be in hand BEFORE the tap on the one open card — a share sheet opens only inside the tap.
+  assert.match(CELL, /if \(layout === 'card'\) setCardPhone\(isTouchDevice\(\)\);/, 'the card does not know it is on a phone until the tap');
+  assert.match(CELL, /\(\(open && touch\) \|\| cardPhone\) && Boolean\(guest\.inviteUrl\)/, 'the card’s ticket is not fetched ahead of the tap');
+  const fn2 = CELL.slice(CELL.indexOf('function rowShare('));
+  const share = fn2.slice(0, fn2.indexOf('\n  }\n'));
+  assert.match(share, /invite\(at\);\s*setTouch\(false\);/, 'our menu no longer draws the app rows');
   assert.match(CELL, /data-invite-apps=""/, 'the computer’s app rows are gone');
 });
 

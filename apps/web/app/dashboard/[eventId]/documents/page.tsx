@@ -19,15 +19,17 @@ import { createClient } from '@/lib/supabase/server';
 import { resolveProfile, resolveProfileByEvent } from '@/lib/event-type-profile';
 import { term } from '@/lib/event-term-copy';
 import { getCurrentUser } from '@/lib/auth';
-import { fetchEventContracts, statusLabel as contractStatusLabel } from '@/lib/contracts';
+import { readEventContracts, type VendorContractRow, statusLabel as contractStatusLabel } from '@/lib/contracts';
+import { ReadRefusedNotice } from '../_components/read-refused-notice';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import {
   DOCUMENT_META,
   STATUS_LABEL as PAPERWORK_STATUS_LABEL,
   STATUS_TONE as PAPERWORK_STATUS_TONE,
-  fetchEventPaperwork,
+  readEventPaperwork,
   formatLongDate,
   type PaperworkStatus,
+  type PaperworkRow,
 } from '@/lib/paperwork';
 import {
   ORDER_STATUS_LABEL,
@@ -94,17 +96,21 @@ export default async function EventDocumentsPage({ params }: Props) {
   // Pull every source in parallel — one request fan-out, five queries.
   // RLS scopes every read to the host's events; orders + receipts
   // additionally filter by event_id on the SELECT side.
-  const [eventRes, paperworkRows, contracts, allOrders] = await Promise.all([
+  // A2-I5: every source keeps its failure. `null` = refused, so a refused read is said, never drawn as "no documents".
+  const [eventRes, paperworkRead, contractsRead, ordersRead] = await Promise.all([
     eventRowOnce(supabase, eventId, 'event_id, display_name, event_date, ceremony_type, event_type', () =>
       supabase
       .from('events')
       .select('event_id, display_name, event_date, ceremony_type, event_type')
       .eq('event_id', eventId)
       .maybeSingle()),
-    fetchEventPaperwork(supabase, eventId).catch(() => []),
-    fetchEventContracts(supabase, eventId).catch(() => []),
-    fetchOrdersForEvent(supabase, eventId).catch(() => []),
+    readEventPaperwork(supabase, eventId).catch(() => null),
+    readEventContracts(supabase, eventId).catch(() => null),
+    fetchOrdersForEvent(supabase, eventId).catch(() => null),
   ]);
+  const paperworkRows = paperworkRead ?? [];
+  const contracts = contractsRead ?? [];
+  const allOrders = ordersRead ?? [];
 
   if (!eventRes.data) {
     redirect('/dashboard');
@@ -134,6 +140,10 @@ export default async function EventDocumentsPage({ params }: Props) {
           .in('order_id', orderIdsForReceipts)
           .order('issued_at', { ascending: false })
       : { data: [], error: null };
+  const receiptsRefused = Boolean(receiptsRes.error);
+  if (receiptsRes.error) {
+    logQueryError('DocumentsPage.receipts', receiptsRes.error, { eventId }, 'graceful_degrade');
+  }
   const receipts =
     (receiptsRes.data ?? []) as Array<{
       receipt_id: string;
@@ -187,6 +197,13 @@ export default async function EventDocumentsPage({ params }: Props) {
     }
   }
 
+  const refusedParts = [
+    paperworkRead === null ? 'your paperwork' : null,
+    contractsRead === null ? 'your contracts' : null,
+    ordersRead === null ? 'your orders' : null,
+    receiptsRefused ? 'your receipts' : null,
+  ].filter((x): x is string => x !== null);
+
   const totalDocs =
     paperworkRows.length +
     contracts.length +
@@ -207,7 +224,11 @@ export default async function EventDocumentsPage({ params }: Props) {
         ) : null}
       </div>
 
-      {totalDocs === 0 ? (
+      {refusedParts.length > 0 ? (
+        <ReadRefusedNotice what={refusedParts.join(', ')} partial={totalDocs > 0} />
+      ) : null}
+
+      {totalDocs === 0 && refusedParts.length > 0 ? null : totalDocs === 0 ? (
         <EmptyState eventId={eventId} />
       ) : (
         <div className="space-y-10">
@@ -277,7 +298,7 @@ function PaperworkSection({
   eventDate,
 }: {
   eventId: string;
-  rows: Awaited<ReturnType<typeof fetchEventPaperwork>>;
+  rows: PaperworkRow[];
   eventDate: string | null;
 }) {
   return (
@@ -385,7 +406,7 @@ function ContractsSection({
   vendorMap,
 }: {
   eventId: string;
-  rows: Awaited<ReturnType<typeof fetchEventContracts>>;
+  rows: VendorContractRow[];
   vendorMap: Map<string, { business_name: string }>;
 }) {
   return (

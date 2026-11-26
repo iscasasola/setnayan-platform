@@ -15,7 +15,7 @@
  */
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { RotateCw, SlidersHorizontal } from 'lucide-react';
+import { Plus, RotateCw, SlidersHorizontal } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { ThumbRow } from '@/components/thumb-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -37,7 +37,7 @@ import {
 } from '@/lib/spaces';
 import type { SpacesRead } from '@/lib/spaces.server';
 import { spacesWrite, type SpacesOp } from '../actions';
-import { SpaceSheet, PAID_NEED, type SheetMode } from './space-sheet';
+import { SpaceSheet, paidNeed, type SheetMode } from './space-sheet';
 import styles from './spaces-screen.module.css';
 
 export function SpacesScreen({
@@ -46,6 +46,7 @@ export function SpacesScreen({
   proOpen,
   shopKind,
   firstHall,
+  planPrice = null,
 }: {
   initial: SpacesRead | null;
   /** The shop's calendar day (Asia/Manila), YYYY-MM-DD. */
@@ -54,6 +55,8 @@ export function SpacesScreen({
   /** The kind the shop's categories point to — first in the add sheet. */
   shopKind: KindChoice | null;
   firstHall: { widthM: number | null; lengthM: number | null; seated: number | null } | null;
+  /** A7-14: the Plus plan's catalogue price, worded by the page ("₱… / month"); null = unread, no figure. */
+  planPrice?: string | null;
 }) {
   const router = useRouter();
   const [read, setRead] = useState<SpacesRead | null>(initial);
@@ -77,6 +80,12 @@ export function SpacesScreen({
         resolve(r.ok);
       }),
     );
+
+  /** Opens the add sheet; a message left from an earlier save is cleared so the sheet's own refusal line starts empty. */
+  const openNew = (typed: string) => {
+    setMsg(null);
+    setSheet({ mode: 'new', choice: last ?? shopKind ?? 'hall', typed });
+  };
 
   const dates = useMemo(() => dateChoices(today), [today]);
   const states = useMemo(
@@ -120,8 +129,11 @@ export function SpacesScreen({
           dataAttr="data-spaces-date-pick"
           options={dates}
           onPick={(k) => {
-            setDate(k);
-            void run({ op: 'read' }, undefined, k);
+            // A7-13: the heading moves to the new day only once that day's tiles are read — a refused read keeps the
+            // old day's heading over the old day's tiles, and says so.
+            void run({ op: 'read' }, undefined, k).then((ok) => {
+              if (ok) setDate(k);
+            });
           }}
         />
       </div>
@@ -138,9 +150,20 @@ export function SpacesScreen({
       ) : null}
 
       {read.spaces.length === 0 ? (
-        <p className="text-[14px] text-ink/70" data-spaces-empty="">
-          No spaces yet. Type in the box below to add your first.
-        </p>
+        <div className="space-y-3" data-spaces-empty="">
+          {/* A7-31: the empty state states the fact and offers ONE action — the box it used to point at is an icon
+              until tapped (search is an icon), so a first-timer never found it. */}
+          <p className="text-[14px] text-ink/70">No spaces yet.</p>
+          <ActionButton
+            tone="brand"
+            main
+            icon={Plus}
+            label="Add a space"
+            className="!h-11"
+            onClick={() => openNew('')}
+            data-spaces-add-first=""
+          />
+        </div>
       ) : shown.length === 0 ? (
         <p className="text-[14px] text-ink/70" data-spaces-none-match="">
           Nothing matches. Tap ＋ in the box to add it.
@@ -149,7 +172,14 @@ export function SpacesScreen({
         <ul className={styles.grid} data-spaces-grid="">
           {shown.map((s) => (
             <li key={s.id}>
-              <Tile space={s} state={states.get(s.id) ?? null} onOpen={() => setSheet({ mode: 'edit', space: s, state: states.get(s.id) ?? null })} />
+              <Tile
+                space={s}
+                state={states.get(s.id) ?? null}
+                onOpen={() => {
+                  setMsg(null);
+                  setSheet({ mode: 'edit', space: s, state: states.get(s.id) ?? null });
+                }}
+              />
             </li>
           ))}
         </ul>
@@ -157,7 +187,7 @@ export function SpacesScreen({
 
       {hasHallsOrRooms && !proOpen ? (
         <FormRows width="wide" data="spaces-floor-plan-lock">
-          <LockedFeature lock="space_floor_plan" need={PAID_NEED} line="Halls and rooms only" data="spaces-floor-plan" />
+          <LockedFeature lock="space_floor_plan" need={paidNeed(planPrice)} line="Halls and rooms only" data="spaces-floor-plan" />
         </FormRows>
       ) : null}
 
@@ -171,7 +201,7 @@ export function SpacesScreen({
               placeholder: 'Search or add a space',
               input: { value: q, onChange: (e) => setQ(e.currentTarget.value), 'data-spaces-search': '' },
               onClear: () => setQ(''),
-              onAdd: (typed) => setSheet({ mode: 'new', choice: last ?? shopKind ?? 'hall', typed }),
+              onAdd: (typed) => openNew(typed),
               query: q,
               matches: shown.length > 0,
             }}
@@ -204,6 +234,8 @@ export function SpacesScreen({
           proOpen={proOpen}
           dayLabel={dayLabel}
           firstHall={firstHall}
+          refusal={msg?.tone === 'warn' ? msg.text : null}
+          planPrice={planPrice}
           run={(op, done) => run(op, done)}
         />
       ) : null}

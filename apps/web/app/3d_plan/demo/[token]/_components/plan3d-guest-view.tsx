@@ -124,7 +124,7 @@ export function Plan3DGuestView({ scene, guest }: { scene: Plan3DScene; guest: P
               You&rsquo;re at {table?.label ?? 'your table'}
             </div>
             <p style={{ margin: '10px 0 0', fontSize: 12, color: '#a8a4a0' }}>
-              A sample guest, on a sample table — every real Setnayan guest gets this on the day.
+              A sample guest, on a sample table. Guests get this on the day when their hosts share the seat plan.
             </p>
             <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 14 }}>
               <button type="button" onClick={() => setPhase('roam')} className="rounded-full" style={PILL_GHOST}>

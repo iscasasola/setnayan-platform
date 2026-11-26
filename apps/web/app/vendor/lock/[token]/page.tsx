@@ -330,13 +330,18 @@ async function countIncompatibleShortlist(
   adminClient: ReturnType<typeof createAdminClient>,
   eventId: string,
   dateKey: string,
-): Promise<{ incompatible: number; total: number }> {
-  const { data: rows } = await adminClient
+): Promise<{ incompatible: number; total: number } | null> {
+  const { data: rows, error } = await adminClient
     .from('event_vendors')
     .select('marketplace_vendor_id')
     .eq('event_id', eventId)
     .in('status', ['considering', 'shortlisted'])
     .not('marketplace_vendor_id', 'is', null);
+  // A6-29: a refused shortlist read is `null` (said as "couldn't check"), never "0 of 0" — the warning never vanishes.
+  if (error) {
+    console.error('[supabase-error] app/vendor/lock/[token]/page.tsx · from:event_vendors.select (shortlist)', error);
+    return null;
+  }
   const ids = Array.from(
     new Set(
       ((rows ?? []) as { marketplace_vendor_id: string | null }[])
@@ -398,14 +403,21 @@ async function ClaimForm({
   // event does to their date and how many shortlisted services may not be free
   // on it. Nothing is committed here; the claim RPC applies it on submit.
   const metaById = new Map<string, EventDateMeta>();
+  // A6-29: a refused date-options read is said ("couldn't check it against your date options"), never a silent
+  // "changes your date" over a date that may be one of their options.
+  let metaUnread = false;
   if (agreedDate) {
-    const { data: metaRows } = await adminClient
+    const { data: metaRows, error: metaError } = await adminClient
       .from('events')
       .select('event_id, date_candidates, date_window_start, date_window_end')
       .in(
         'event_id',
         hostEvents.map((e) => e.event_id),
       );
+    if (metaError) {
+      metaUnread = true;
+      console.error('[supabase-error] app/vendor/lock/[token]/page.tsx · from:events.select (date options)', metaError);
+    }
     for (const m of (metaRows ?? []) as ({ event_id: string } & EventDateMeta)[]) {
       metaById.set(m.event_id, {
         date_candidates: m.date_candidates,
@@ -425,16 +437,20 @@ async function ClaimForm({
           meta?.date_window_end != null &&
           agreedDate >= meta.date_window_start &&
           agreedDate <= meta.date_window_end);
-      const message = inOptions
-        ? `Locking in finalizes your date to ${fmt} — one of your options.`
-        : ev.event_date
-          ? `Locking in changes your date to ${fmt}.`
-          : `Locking in sets your wedding date to ${fmt}.`;
+      const message = metaUnread
+        ? `Locking in sets your event date to ${fmt}. We couldn’t check it against your date options.`
+        : inOptions
+          ? `Locking in finalizes your date to ${fmt} — one of your options.`
+          : ev.event_date
+            ? `Locking in changes your date to ${fmt}.`
+            : `Locking in sets your event date to ${fmt}.`;
       const compat = await countIncompatibleShortlist(adminClient, ev.event_id, agreedDate);
       const warn =
-        compat.incompatible > 0
-          ? `${formatCount(compat.incompatible)} of ${formatCount(compat.total)} shortlisted service${compat.total === 1 ? '' : 's'} may not be free then.`
-          : null;
+        compat === null
+          ? 'We couldn’t check whether your shortlisted suppliers are free then.'
+          : compat.incompatible > 0
+            ? `${formatCount(compat.incompatible)} of ${formatCount(compat.total)} shortlisted service${compat.total === 1 ? '' : 's'} may not be free then.`
+            : null;
       return { message, warn };
     }),
   );

@@ -115,7 +115,7 @@ test('event_sponsors is dropped by a migration that runs after the guest-list mo
   const drop = files.findIndex((f) => /DROP TABLE IF EXISTS public\.event_sponsors;/.test(readFileSync(join(dir, f), 'utf8')));
   assert.ok(move >= 0, 'the guest-list move migration is missing');
   assert.ok(drop > move, 'event_sponsors must be dropped AFTER its rows join the guest list');
-  const sql = readFileSync(join(dir, files[drop]), 'utf8');
+  const sql = readFileSync(join(dir, files[drop] ?? ''), 'utf8');
   const fn = sql.slice(sql.indexOf('CREATE OR REPLACE FUNCTION public.generate_event_connections('));
   assert.ok(fn.length < sql.length, 'generate_event_connections is re-created before the drop');
   assert.doesNotMatch(fn.slice(0, fn.indexOf('$$;')), /event_sponsors/, 'the live function no longer reads the table');

@@ -176,7 +176,7 @@ export function SupplierSchedule({
   if (!day) {
     return (
       <p role="alert" data-supplier-schedule="unread" className="text-sm font-semibold text-danger-700">
-        The schedule couldn’t be read just now. Nothing is lost — pull to refresh.
+        The schedule couldn’t be read just now. Nothing is lost — try again in a moment.
       </p>
     );
   }
@@ -259,7 +259,7 @@ export function SupplierSchedule({
       {/* 📍 WHERE — the chapters they serve: one dropdown, sent as a request; the details sit in the ⓘ. */}
       {where === null ? (
         <p role="alert" data-supplier-where="unread" className="text-sm font-semibold text-danger-700">
-          Your chapters couldn’t be read just now. Nothing is lost — pull to refresh.
+          Your chapters couldn’t be read just now. Nothing is lost — try again in a moment.
         </p>
       ) : where.length > 0 && day.chapters.length > 0 ? (
         <section data-supplier-where="" aria-label="Where you go">
@@ -390,7 +390,7 @@ export function SupplierSchedule({
       {/* 🗓 Asked of you (D2) — a host's or the coordinator's ask, answered in place (v113: after your times and the lock). */}
       {asked === null ? (
         <p role="alert" data-asked-of-you="unread" className="text-sm font-semibold text-danger-700">
-          What the hosts asked of you couldn’t be read just now. Nothing is lost — pull to refresh.
+          What the hosts asked of you couldn’t be read just now. Nothing is lost — try again in a moment.
         </p>
       ) : asked.filter((a) => !answeredNow.includes(a.suggestion_id)).length > 0 ? (
         <section data-asked-of-you="" aria-label="Asked of you">
@@ -1110,7 +1110,7 @@ function OwnTimesForm({ own, eventDate, send }: { own: OwnTimes | null | undefin
     <section id={CALL_TIME_ANCHOR} data-own-times="" data-tour="client-own-times" aria-label="Your times" className="scroll-mt-24 space-y-1">
       {own === null ? (
         <p role="alert" className="text-sm font-semibold text-danger-700">
-          Your times couldn’t be read just now. Nothing is lost — pull to refresh.
+          Your times couldn’t be read just now. Nothing is lost — try again in a moment.
         </p>
       ) : null}
       <div className="flex items-baseline justify-between gap-2">

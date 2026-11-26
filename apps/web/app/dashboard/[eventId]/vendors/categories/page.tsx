@@ -170,6 +170,21 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
           </Suspense>
         </form>
 
+        {/* A2-G10: a refused category search is never "0 suppliers" / "none listed" — the same honest line as the
+            name search below, with Try again on this tile. */}
+        {res.unreadable ? (
+          <p role="alert" className="mt-6 text-sm text-ink/70" data-find-category-unreadable="">
+            Couldn’t load suppliers just now. This does not mean there are none.{' '}
+            <Link
+              href={`${base}?c=${encodeURIComponent(openTile.tile)}${q ? `&q=${encodeURIComponent(q)}` : ''}`}
+              prefetch={false}
+              className="font-semibold text-sn-accent"
+            >
+              Try again
+            </Link>
+          </p>
+        ) : (
+          <>
         {empty === 'nobody_free' ? null : (
           <p className="mt-3 text-[13px] text-ink/55">
             {rows.length === 1 ? '1 supplier' : `${formatCount(rows.length)} suppliers`}
@@ -260,6 +275,8 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
             })}
           </ul>
         )}
+          </>
+        )}
       </div>
     );
   }
@@ -270,7 +287,8 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
   // matched only category words — so shops are searched by name too, with the
   // bench's own whole-marketplace search (one rule for who may be listed).
   const shopsRead = q && profile.marketplaceEnabled ? await searchMarketplaceForBench(eventId, q) : { results: [], unreadable: false };
-  const shops = shopsRead.results;
+  // A2-G11: a shop with no address cannot be opened, so it is left out of the answer — never drawn as a link to "#".
+  const shops = shopsRead.results.flatMap((r) => (r.slug ? [{ ...r, slug: r.slug }] : []));
 
   return (
     // 📏 16 px gutters on a phone (house rule): the event layout's wrapper already pads 16 px, so this page adds none
@@ -317,7 +335,7 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
                 {shops.map((r) => (
                   <li key={r.vendorProfileId} className="border-t border-ink/10">
                     <Link
-                      href={r.slug ? shopHrefForEvent(r.slug, eventId) : '#'}
+                      href={shopHrefForEvent(r.slug, eventId)}
                       prefetch={false}
                       className="flex min-h-11 items-center gap-3 py-3"
                       data-find-shop={r.vendorProfileId}

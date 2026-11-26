@@ -75,6 +75,8 @@ type Props = {
   releaseStartedFlash: boolean;
   alreadyComplete: boolean;
   disconnectedFlash: boolean;
+  /** P-03 · the Disconnect write was refused (`?disconnect_error=1`): say so, never "Drive disconnected". */
+  disconnectFailed?: boolean;
   job: JobRollup | null;
   // 2026-05-20 graceful-fallback: when the Google Drive OAuth env isn't
   // set (the #19g verified-app review hasn't cleared yet), the Connect
@@ -109,6 +111,7 @@ export function PhotoDeliveryPanel({
   releaseStartedFlash,
   alreadyComplete,
   disconnectedFlash,
+  disconnectFailed = false,
   job,
   oauthReady,
   needsReauth,
@@ -116,19 +119,32 @@ export function PhotoDeliveryPanel({
   storeShell = false,
 }: Props) {
   const folderNamePreview = buildFolderNamePreview(eventName, eventDate);
+  const disconnectFailedLine = disconnectFailed ? (
+    <p
+      role="alert"
+      className="rounded-md border border-terracotta/30 bg-terracotta/10 px-3 py-2 text-xs text-terracotta-700"
+    >
+      Couldn&rsquo;t disconnect your Google Drive. It may still be connected — try again.
+    </p>
+  ) : null;
 
   if (status === 'idle') {
     return (
+      <>
+      {disconnectFailedLine}
       <IdleState
         eventId={eventId}
         disconnectedFlash={disconnectedFlash}
         oauthReady={oauthReady}
         storeShell={storeShell}
       />
+      </>
     );
   }
 
   return (
+    <>
+    {disconnectFailedLine}
     <ConnectedState
       eventId={eventId}
       syncMode={syncMode}
@@ -146,6 +162,7 @@ export function PhotoDeliveryPanel({
       needsReauth={needsReauth}
       loginEmail={loginEmail}
     />
+    </>
   );
 }
 

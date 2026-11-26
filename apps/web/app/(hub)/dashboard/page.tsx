@@ -15,7 +15,11 @@ import { HomeFindRow, HomePinnedRow } from '@/app/dashboard/(launcher)/_componen
 import { HomeShopSegment } from '@/app/dashboard/(launcher)/_components/home-shop-segment';
 import { Unihome } from '@/app/dashboard/(launcher)/_components/unihome';
 import { readUnihomeDiscover, readUnihomeMemories, readUnihomePeople, readUnihomeShop } from '@/lib/unihome.server';
-import { UNIHOME_EVENTS_ALL, type UnihomeEventCard, type UnihomeEvents } from '@/lib/unihome';
+import { UNIHOME_EVENTS_ALL, type UnihomeCardMenu, type UnihomeEventCard, type UnihomeEvents } from '@/lib/unihome';
+import { memoriesKeptFromViewer } from '@/lib/memories-rules';
+import { permissionsWithinWindow } from '@/lib/delegate-access-window';
+import { storyGate } from '@/lib/story-opens-when-untold';
+import type { ModeratorPermissions } from '@/lib/delegate-areas';
 import { readWorthPlanning, worthPlanningDay } from '@/lib/worth-planning.server';
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { PeopleSegment } from '@/app/dashboard/(account)/people/_components/people-segment';
@@ -47,6 +51,7 @@ import { guestMePath } from '@/lib/offline-copy-addresses';
 import { offlineSavingOpen } from '@/lib/offline-copies';
 import { QUIET_MAX_COPIES, type QuietCopy } from '@/lib/quiet-schedule-refresh';
 import { publicEventPath } from '@/lib/public-event-url';
+import { routes } from '@/lib/routes';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, fetchUserEventsOrReconnect, userEventsReadRefused, type EventWithRole } from '@/lib/events';
 import { PlanningExample, ShelfExample } from '@/app/dashboard/(launcher)/_components/board-examples';
@@ -464,6 +469,27 @@ async function UnihomeHome({
     );
     return new Map(withSlug.filter((e) => open.has(e.event_id)).map((e) => [e.event_id, publicEventPath(e.slug as string)]));
   })().catch(() => new Map<string, string>());
+  // 📋 The tap menu's Memories row for a HELPER follows their Photos grant (Add 40) — the Memories page's own rule
+  // (`memoriesKeptFromViewer`), asked of their live, accepted seats in one read. A refused read draws no Memories row:
+  // showing less than they have is recoverable, a door that refuses is not.
+  const helperIds = shownCards.filter((e) => eventStance(e.member_type) === 'helper').map((e) => e.event_id);
+  const helperGrantRead = (async (): Promise<Map<string, ModeratorPermissions | null>> => {
+    if (helperIds.length === 0) return new Map();
+    const { data, error } = await supabase
+      .from('event_moderators')
+      .select('event_id, permissions_json')
+      .eq('user_id', userId)
+      .in('event_id', helperIds)
+      .not('accepted_at', 'is', null)
+      .is('removed_at', null);
+    if (error) {
+      logQueryError('Unihome (helper grants)', error, { user_id: userId }, 'graceful_degrade');
+      return new Map();
+    }
+    return new Map(
+      ((data ?? []) as Array<{ event_id: string; permissions_json: ModeratorPermissions | null }>).map((r) => [r.event_id, r.permissions_json ?? null]),
+    );
+  })().catch(() => new Map<string, ModeratorPermissions | null>());
   const progressRead = Promise.all(
     shownCards
       .filter((e) => e.member_type === 'couple')
@@ -489,7 +515,7 @@ async function UnihomeHome({
   );
 
   // ─── HOME'S ONE WAIT ─────────────────────────────────────────────────────
-  const [handle, shop, people, memories, discover, worth, vocab, ownHero, posters, hubs, progress] = await Promise.all([
+  const [handle, shop, people, memories, discover, worth, vocab, ownHero, posters, hubs, progress, helperGrants] = await Promise.all([
     handleRead,
     shopRead,
     peopleRead,
@@ -501,9 +527,42 @@ async function UnihomeHome({
     posterRead,
     hubRead,
     progressRead,
+    helperGrantRead,
   ]);
   const typeHero = new Map(vocab.map((t) => [t.key, eventTypePhotoSrc(t)]));
   const progressById = new Map(progress);
+
+  /*
+    📋 THE CARD'S TAP MENU (owner-approved 25 Nov 2026, brief Add 40): Dashboard · Event Hub · Chat · Memories ·
+    Publish Story · Delete. The Event Hub row is the hub ITSELF for anyone who runs the event — no Public/Unlisted gate,
+    because a private hub admits its signed-in host; only an event with no address yet draws it disabled.
+  */
+  const cardMenu = (e: EventWithRole, stance: EventStance): UnihomeCardMenu => {
+    const organiser = stance === 'organiser';
+    const memoriesOpen = organiser
+      ? true
+      : !memoriesKeptFromViewer({
+          isCouple: false,
+          delegatePermissions: permissionsWithinWindow(helperGrants.get(e.event_id) ?? null, {
+            isCouple: false,
+            eventDate: e.event_date,
+            eventEndDate: e.event_end_date ?? null,
+            now: new Date(),
+          }),
+        });
+    return {
+      hubHref: e.slug ? publicEventPath(e.slug) : null,
+      chatHref: routes.dashboard.messages.index(e.event_id),
+      memoriesHref: memoriesOpen ? routes.dashboard.memories(e.event_id) : null,
+      story: organiser
+        ? {
+            href: routes.dashboard.story(e.event_id, 'publish'),
+            open: storyGate({ event_date: e.event_date, event_end_date: e.event_end_date ?? null, archived: e.archived }).open,
+          }
+        : null,
+      canDelete: organiser,
+    };
+  };
 
   const toCard = (e: EventWithRole): UnihomeEventCard => {
     const v = deriveEventView(e, null, false, todayISO);
@@ -536,6 +595,7 @@ async function UnihomeHome({
         cover: sceneCoverFor(posters.get(e.event_id)),
       },
       archived: !!e.archived,
+      menu: stance === 'invited' ? null : cardMenu(e, stance),
     };
   };
 

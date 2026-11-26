@@ -18,7 +18,8 @@ export const metadata = { title: 'Your requests · Supplier' };
  *
  * 🔑 A refused read says so — "Couldn't load your requests" — and never draws "No requests yet".
  */
-export default async function YourRequestsPage() {
+export default async function YourRequestsPage({ searchParams }: { searchParams: Promise<{ gone?: string }> }) {
+  const sp = await searchParams;
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -26,5 +27,5 @@ export default async function YourRequestsPage() {
   if (!profile) redirect('/vendor-dashboard');
 
   const [mine, tree] = await Promise.all([loadMyRequests(supabase, profile.vendor_profile_id), loadRequestTree()]);
-  return <YourRequestsView mine={mine} tree={tree} />;
+  return <YourRequestsView mine={mine} tree={tree} gone={sp.gone === '1'} />;
 }

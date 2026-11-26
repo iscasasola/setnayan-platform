@@ -39,7 +39,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * /[slug]/seat — the personalized Seat Pass + public QR resolver
- * (seat-finding PR 4/6 · gated on the paid CUSTOM_QR_GUEST SKU, ₱1,499 · 'live').
+ * (seat-finding PR 4/6 · gated on the paid CUSTOM_QR_GUEST SKU (price read from the catalogue) · 'live').
  *
  * TWO entry shapes, branched on whether `?t=` is present:
  *
@@ -234,7 +234,7 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     const { rows: tables, failed: tablesFailed } = await fetchTables(admin, event.event_id);
     const entrance = await fetchEntrance(admin, event.event_id);
     if (tablesFailed) return <SeatCouldNotLoad event={event} slug={slug} roomLinks={roomLinks} />;
-    const published = await guestsMaySeeSeatsFor(admin, event.event_id);
+    const published = await guestsMaySeeSeatsFor(admin, event.event_id, { throwOnReadError: true });
 
     if (!published) {
       return (
@@ -300,6 +300,8 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
 
   const { rows: tables, failed: tablesFailed } = await fetchTables(admin, event.event_id);
   const entrance = await fetchEntrance(admin, event.event_id);
+  // 🔌 A4-50: a failed table read is not "the floor plan is on its way" — same exit as the table view above.
+  if (tablesFailed) return <SeatCouldNotLoad event={event} slug={slug} roomLinks={roomLinks} />;
 
   return (
     <PersonalPass
@@ -421,7 +423,7 @@ async function PersonalPass({
   // guest's NAME is fine to greet; the room + seat marker stay hidden until the
   // couple publishes the seating pack. (The /claim hop already recorded the
   // personal scan; no scan insert here.)
-  const published = await guestsMaySeeSeatsFor(admin, event.event_id);
+  const published = await guestsMaySeeSeatsFor(admin, event.event_id, { throwOnReadError: true });
   if (!published) {
     // 🪑 The one waiting state, for a named guest too (owner 2026-10-11) — this branch had a card of its own, with
     // no word that an event with no date has no day yet.

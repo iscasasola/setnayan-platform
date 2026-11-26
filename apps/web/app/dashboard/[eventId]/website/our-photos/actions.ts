@@ -54,7 +54,8 @@ import { galleryChange } from '@/lib/hub-look-pro';
 import { requireLookPro } from '@/lib/hub-look-gate';
 import { revalidateGuestSite, revalidateWebsiteEditor } from '@/lib/revalidate-site';
 import { formatCount } from '@/lib/format-number';
-import { draftEventsAndReturn, isHubDraftWrite } from '@/lib/hub-draft-store';
+import { draftEventsAndReturn, isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
+import { resolveReturnTo } from '@/lib/editor-return';
 
 /** Hard cap on the gallery size — keeps the page light + bounds R2 cost. */
 const MAX_PHOTOS = 24;
@@ -134,8 +135,28 @@ export async function updateOurPhotos(
   }
   const cleared = deduped.filter((ref) => !blocked.includes(ref));
 
+  // Say so plainly when something was rejected — a photo that silently vanishes reads as a bug, and the host is the
+  // only one who can choose a different image. ONE sentence for both paths.
+  const blockedNote =
+    blocked.length > 0
+      ? blocked.length === 1
+        ? "One photo couldn't be added — it didn't pass our automatic check. Please try a different image."
+        : `${formatCount(blocked.length)} photos couldn't be added — they didn't pass our automatic check. Please try different images.`
+      : null;
+
   if (drafting) {
     // A photo the screen blocked is left out of the draft, as it is left out live.
+    if (blockedNote) {
+      // E-02 (final check): the draft path returned before the note, so the person read only "Saved in your draft".
+      await saveHubDraftPatch(eventId, { events: { our_photos: cleared } }, { formData, fallback: `/dashboard/${eventId}/website/editor?open=gallery` });
+      redirect(
+        resolveReturnTo(
+          formData,
+          `/dashboard/${eventId}/website/our-photos?error=${encodeURIComponent(blockedNote)}`,
+          `?error=${encodeURIComponent(blockedNote)}`,
+        ),
+      );
+    }
     return draftEventsAndReturn(eventId, { our_photos: cleared }, formData, `/dashboard/${eventId}/website/editor?open=gallery`);
   }
 
@@ -159,13 +180,9 @@ export async function updateOurPhotos(
 
   // Say so plainly when something was rejected — a photo that silently vanishes
   // reads as a bug, and the host is the only one who can choose a different image.
-  if (blocked.length > 0) {
-    const note =
-      blocked.length === 1
-        ? "One photo couldn't be added — it didn't pass our automatic check. Please try a different image."
-        : `${formatCount(blocked.length)} photos couldn't be added — they didn't pass our automatic check. Please try different images.`;
+  if (blockedNote) {
     redirect(
-      `/dashboard/${eventId}/website/our-photos?error=${encodeURIComponent(note)}`,
+      `/dashboard/${eventId}/website/our-photos?error=${encodeURIComponent(blockedNote)}`,
     );
   }
 

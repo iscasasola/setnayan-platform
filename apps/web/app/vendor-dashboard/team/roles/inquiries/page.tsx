@@ -6,7 +6,8 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { enrichTeamWithUsers, fetchTeamManagerContext, fetchVendorRoleNames, fetchVendorTeam } from '@/lib/vendor-team';
+import { enrichTeamWithUsers, readTeamManagerContext, fetchVendorRoleNames, fetchVendorTeam } from '@/lib/vendor-team';
+import { TeamUnread } from '../../_components/team-unread';
 import { resolveVendorStanding } from '@/lib/vendor-role';
 import { roleNameOf } from '@/lib/vendor-duties';
 import { eventTypeLabel } from '@/lib/demand-radar';
@@ -41,7 +42,18 @@ export default async function WhoGetsInquiriesPage({ searchParams }: { searchPar
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) redirect('/login');
-  const [ctx, standing] = await Promise.all([fetchTeamManagerContext(supabase, user.id), resolveVendorStanding(supabase, user.id)]);
+  const [ctx, standing] = await Promise.all([readTeamManagerContext(supabase, user.id), resolveVendorStanding(supabase, user.id)]);
+  if (ctx === 'unread') {
+    return (
+      <section className="mx-auto w-full max-w-xl px-4 pb-32 pt-3 sm:px-6" data-team-inquiries="unread">
+        <BackButton route={ROUTE} className="mb-0" />
+        <h1 className="sn-h1 pt-3">Who gets new inquiries</h1>
+        <div className="mt-4">
+          <TeamUnread retryHref={ROUTE} />
+        </div>
+      </section>
+    );
+  }
   if (!ctx) {
     return (
       <section className="mx-auto w-full max-w-xl px-4 pb-32 pt-3 sm:px-6" data-team-inquiries="locked">
@@ -182,7 +194,8 @@ export default async function WhoGetsInquiriesPage({ searchParams }: { searchPar
       ) : null}
 
       <div className="mt-4 space-y-4">
-        {sections.length === 0 ? <p className="text-[14px] text-ink/65">No live cards on this branch yet.</p> : null}
+        {/* 🪪 A failed read is not "no live cards" (final check A5-G5-08): only the failure note above shows. */}
+        {sections.length === 0 && !readFailed ? <p className="text-[14px] text-ink/65">No live cards on this branch yet.</p> : null}
         {sections.map((s) => (
           <article key={s.card.vendor_service_id} className="border-t border-ink/10 pt-4" data-team-inquiries-card={s.card.vendor_service_id}>
             <h2 className="text-[15px] font-semibold text-ink">{s.title} card</h2>

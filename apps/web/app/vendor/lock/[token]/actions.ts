@@ -121,6 +121,6 @@ export async function claimLockedQr(formData: FormData): Promise<void> {
     revalidatePath(`/dashboard/${eventId}/vendors`);
     redirect(`/dashboard/${eventId}/vendors?locked=1`);
   }
-  // taken | void | invalid | not_your_event | unauthenticated
+  // taken | void | invalid | not_your_event | unauthenticated | date_full (A6-71: the first registered claim won the date)
   backToLock(token, verdict);
 }

@@ -40,6 +40,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { buildBaseline } from './port-controls.mjs';
+import { loadRoutes, routeExists } from './lib/route-builders.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..');
@@ -51,7 +52,24 @@ if (!existsSync(BASELINE)) {
 }
 
 const base = JSON.parse(readFileSync(BASELINE, 'utf8'));
-const now = buildBaseline(join(WEB, 'app'));
+// 🧭 Add 47 (26 Nov 2026): a link built by lib/routes.ts counts as the door it builds, and every address a builder
+// resolves to must be a screen in lib/ugat/screens.generated.json (or an /api route handler). See lib/route-builders.mjs.
+const builderRoutes = await loadRoutes();
+const builtAddresses = new Map();
+const now = buildBaseline(join(WEB, 'app'), {
+  routes: builderRoutes,
+  onBuilder: (url, file) => builtAddresses.set(url, file),
+});
+const unbuilt = [...builtAddresses].filter(([url]) => !routeExists(url));
+if (unbuilt.length > 0) {
+  console.error('❌ A lib/routes.ts builder builds an address that is no screen in lib/ugat/screens.generated.json:');
+  for (const [url, file] of unbuilt) console.error(`   ${url}   ← ${file.slice(WEB.length + 1)}`);
+  process.exit(1);
+}
+if (builtAddresses.size < 20) {
+  console.error(`❌ Only ${builtAddresses.size} route-builder calls were resolved — the builder reader is not seeing the app.`);
+  process.exit(1);
+}
 
 // ── NON-VACUITY ─────────────────────────────────────────────────────────────
 // A guard that cannot fail is decoration. If the app root moved, or the

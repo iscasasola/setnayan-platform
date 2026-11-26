@@ -149,6 +149,7 @@ import {
   cannotFitWords,
   parseVipPlusOneSeating,
   type VipPlusOneSeating,
+  countStillToSeat,
 } from '@/lib/seating';
 // 🪑⚙ Tables, chairs, the room box and the wall rule come from the ONE seat-plan engine the supplier's Spaces uses too
 // (DECISION_LOG 2026-11-20, "ONE SEAT-PLAN ENGINE FOR THE COUPLE AND THE SUPPLIER").
@@ -1335,8 +1336,10 @@ export function SeatingEditor({
   };
 
   const seatedCount = guests.filter((g) => g.seated_table_id).length;
-  const totalCapacity = tables.reduce((acc, t) => acc + t.capacity, 0);
-  const unseatedCount = guests.length - seatedCount;
+  // The tooltip's seats and still-to-seat are the page's own figures (A2-E4): chairs a removed seat no longer offers do
+  // not count, and a declined guest is not "unseated".
+  const totalCapacity = tables.reduce((acc, t) => acc + effectiveCapacity(t.capacity, t.removed_seats), 0);
+  const unseatedCount = countStillToSeat(guests);
 
   // Linked tables collapse into ONE display unit (combined name + summed seats)
   // for the panel + caterer lists, so a joined set reads as a single pooled
@@ -6817,7 +6820,7 @@ export function SeatingEditor({
     ? seatPlanGuestSections(guests, { query: search, onlyUnseated, sides: details.sides, groups })
     : null;
   const nextUp = nextUnseatedGuest(guests, pickedId);
-  const unseatedComing = guests.filter((g) => !g.seated_table_id && g.rsvp_status !== 'declined').length;
+  const unseatedComing = countStillToSeat(guests);
   const detailsTable = details && highlightId ? tables.find((t) => t.table_id === highlightId) ?? null : null;
   const togglePick = (g: SeatingGuest) => setPickedId((id) => (id === g.guest_id ? null : g.guest_id));
   const seatAtMenu = (g: SeatingGuest) =>

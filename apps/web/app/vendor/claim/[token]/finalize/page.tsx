@@ -3,6 +3,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import { FIRST_CARD_EDIT_UNREAD, WELCOME_CLAIMED_PATH, claimCardFrom, claimedWelcomePath, firstCardLanding, welcomeEditUnreadPath } from '@/lib/supplier-onboarding';
 import Link from 'next/link';
+import { plainRefusal } from '@/app/dashboard/[eventId]/guests/_components/plain-refusal';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchClaimLandingByToken } from '@/lib/vendor-invites';
@@ -104,6 +105,7 @@ export default async function FinalizeClaimPage({ params, searchParams }: Props 
         <ErrorShell
           title="We couldn't check your account."
           body="Nothing was changed and your link still works. Please try again in a moment."
+          retryHref={`/vendor/claim/${token}`}
         />
       );
     }
@@ -147,7 +149,8 @@ export default async function FinalizeClaimPage({ params, searchParams }: Props 
       return (
         <ErrorShell
           title="Couldn't set up your supplier profile."
-          body={readyErr?.message ?? 'Please try again or contact support.'}
+          body={refusedSetup(readyErr)}
+          retryHref={`/vendor/claim/${token}`}
         />
       );
     }
@@ -168,7 +171,8 @@ export default async function FinalizeClaimPage({ params, searchParams }: Props 
       return (
         <ErrorShell
           title="Couldn't set up your supplier profile."
-          body={readyErr?.message ?? 'Please try again or contact support.'}
+          body={refusedSetup(readyErr)}
+          retryHref={`/vendor/claim/${token}`}
         />
       );
     }
@@ -231,7 +235,13 @@ export default async function FinalizeClaimPage({ params, searchParams }: Props 
     });
 
     if (!linked.ok) {
-      return <ErrorShell title="Couldn't finish connecting." body={linked.message} />;
+      return (
+        <ErrorShell
+          title="Couldn't finish connecting."
+          body={plainRefusal(linked.message, CLAIM_TRY_AGAIN)}
+          retryHref={`/vendor/claim/${token}`}
+        />
+      );
     }
 
     // The couple who invited them is their CUSTOMER, not a new inquiry (owner
@@ -313,12 +323,29 @@ function firstCardToEdit(v: string | undefined): string | null {
  * person only reaches this page mid-claim, already part-way through an account,
  * so signing in is the step that actually un-sticks them.
  */
-function ErrorShell({ title, body }: { title: string; body?: string }) {
+/** A5-G1-12 (SW-RAWDB): one plain sentence for a refused setup; the database's own words go to the log only. */
+const CLAIM_TRY_AGAIN = 'Nothing was changed and your link still works. Please try again in a moment.';
+function refusedSetup(error: unknown): string {
+  if (error) logQueryError('ClaimFinalize.ready', error, {}, 'graceful_degrade');
+  return CLAIM_TRY_AGAIN;
+}
+
+/**
+ * A failure offers the way forward: open the invite again when that can work (`retryHref`). Otherwise it keeps the
+ * page's one way out, "Back to sign in" — someone signed in to the wrong account needs it to switch.
+ */
+function ErrorShell({ title, body, retryHref }: { title: string; body?: string; retryHref?: string }) {
   return (
     <DoorShell tone="dead_end" eyebrow="Claim" title={title} sub={body}>
-      <Link href="/login" className={actionButtonClass('neutral', { extra: '!h-11' })}>
-        Back to sign in
-      </Link>
+      {retryHref ? (
+        <Link href={retryHref} className={actionButtonClass('neutral', { extra: '!h-11' })}>
+          Try again
+        </Link>
+      ) : (
+        <Link href="/login" className={actionButtonClass('neutral', { extra: '!h-11' })}>
+          Back to sign in
+        </Link>
+      )}
     </DoorShell>
   );
 }

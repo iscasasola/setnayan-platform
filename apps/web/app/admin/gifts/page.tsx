@@ -48,10 +48,11 @@ import {
   createFreeWindow,
   setFreeWindowActive,
 } from '@/app/admin/pricing/_surfaces/free-windows-actions';
+import { ReadFailed } from '@/app/admin/_components/read-failed';
 import { FREE_WINDOW_CREATE_ERROR_COPY } from '@/app/admin/pricing/_surfaces/free-windows-copy';
 import {
-  fetchV2VendorCatalog,
-  fetchV2CustomerCatalog,
+  fetchV2VendorCatalogRead,
+  fetchV2CustomerCatalogRead,
   formatPeso,
   type V2VendorSku,
   type V2CustomerSku,
@@ -66,7 +67,7 @@ import { ShopGiftsLedger } from './_components/shop-gifts-ledger';
 import { GiftLimitForm } from './_components/gift-limit-form';
 import { SetnayanGiftPicks } from './_components/setnayan-gift-picks';
 import { saveGiftLimitPct } from './gift-limit-actions';
-import { getGiftLimitPct } from '@/lib/gift-limit-settings.server';
+import { getGiftLimitPctRead } from '@/lib/gift-limit-settings.server';
 import { readShopGiftsForAdmin } from '@/lib/setnayan-shop-gift.server';
 import { SHOP_GIFT_MAX_UNITS, SHOP_GIFT_PLAN_TIERS, adminGiftLine } from '@/lib/setnayan-shop-gift';
 
@@ -215,7 +216,8 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
   // What a deal can make free — READ FROM vendor_billing_catalog, never typed.
   // Only the tier rows can be picked: a deal is a tier promotion, and no
   // add-on has a shared gate a window could reach today.
-  const vendorCatalog = await fetchV2VendorCatalog();
+  // A8·F-3: a refused catalogue read is said in the picker and Create is held back — never an empty list.
+  const { rows: vendorCatalog, ok: vendorCatalogRead } = await fetchV2VendorCatalogRead();
   const tierSkus = vendorCatalog.filter((r) => vendorTierOfSku(r.sku_code) !== null);
   const dealsFlagOn = isPromoFreeWindowsEnabled();
 
@@ -240,14 +242,14 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
     fetchBadgeRewardLedger(admin),
     readRewardNames(admin),
     fetchBadgeUpgradeLedger(admin),
-    getGiftLimitPct(admin),
+    getGiftLimitPctRead(admin),
   ]);
   const badgeUpgradesError = badgeUpgrades ? null : { message: 'the badge upgrades read was refused' };
   const badgeRewardsError = badgeRewards ? null : { message: 'the badge rewards read was refused' };
   const shopGiftLedgerError = shopGiftLedger ? null : { message: 'the supplier gift ledger read was refused' };
   const shopGiftHoldsError = shopGiftHolds ? null : { message: 'the quote gift lines read was refused' };
 
-  const customerCatalog = await fetchV2CustomerCatalog();
+  const { rows: customerCatalog, ok: customerCatalogRead } = await fetchV2CustomerCatalogRead();
   const coupleTitleFor = new Map<string, string>(
     customerCatalog.map((s: V2CustomerSku) => [s.service_code, s.title]),
   );
@@ -749,6 +751,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
               }}
               below={
                 <div className="flex flex-wrap gap-x-4 gap-y-2 pb-3">
+                  {vendorCatalogRead ? null : <ReadFailed what="the supplier catalogue — Create deal is off until it loads" />}
                   {tierSkus.map((sku: V2VendorSku) => (
                     <label key={sku.sku_code} className="text-sm">
                       <input type="checkbox" name="service_keys" value={sku.sku_code} />{' '}
@@ -770,7 +773,11 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
             <label className="text-xs text-ink/60">
               <input type="checkbox" name="show_banner" /> Show a banner to suppliers
             </label>
-            <SubmitButton className={actionButtonClass('brand', { main: true })} pendingLabel="Creating…">
+            <SubmitButton
+              className={actionButtonClass('brand', { main: true })}
+              pendingLabel="Creating…"
+              disabled={!vendorCatalogRead}
+            >
               Create deal
             </SubmitButton>
           </div>
@@ -930,6 +937,7 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
               name="Services to make free"
               below={
                 <div className="flex flex-wrap gap-x-4 gap-y-2 pb-3">
+                  {customerCatalogRead ? null : <ReadFailed what="the services — Create free window is off until they load" />}
                   {customerCatalog.map((s: V2CustomerSku) => (
                     <label key={s.service_code} className="text-sm">
                       <input type="checkbox" name="service_keys" value={s.service_code} />{' '}
@@ -952,7 +960,11 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
             <label className="text-xs text-ink/60">
               <input type="checkbox" name="show_banner" defaultChecked /> Show a banner to couples
             </label>
-            <SubmitButton className={actionButtonClass('brand', { main: true })} pendingLabel="Creating…">
+            <SubmitButton
+              className={actionButtonClass('brand', { main: true })}
+              pendingLabel="Creating…"
+              disabled={!customerCatalogRead}
+            >
               Create free window
             </SubmitButton>
           </div>
@@ -963,7 +975,12 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
           for the couple's event when that couple's first payment clears. Read-only here: the money moves through the
           order (approve / refund on Orders) and the one delivery door. */}
       {/* 🎁 GIFT LIMIT (owner v112, 8 Nov 2026) — one setting for the Setnayan gift and shop gifts. Audited save. */}
-      <GiftLimitForm action={saveGiftLimitPct} giftLimitPct={giftLimitPct} />
+      {/* A8·F-1: a refused read says so and holds Save back — the ruled default is never shown as the live setting. */}
+      {giftLimitPct === null ? (
+        <ReadFailed what="the gift limit, so it can’t be changed until it loads" />
+      ) : (
+        <GiftLimitForm action={saveGiftLimitPct} giftLimitPct={giftLimitPct} />
+      )}
       <ShopGiftsLedger
         giftLimitPct={giftLimitPct}
         ledger={shopGiftLedger}

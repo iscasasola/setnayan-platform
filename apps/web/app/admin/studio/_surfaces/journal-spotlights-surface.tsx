@@ -53,6 +53,7 @@ import {
 } from '@/app/admin/journal-spotlights/actions';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ReadFailed } from '@/app/admin/_components/read-failed';
 
 type PendingApproval = { approval_id: string; target_id: string; initiated_by: string | null };
 
@@ -102,20 +103,22 @@ export async function JournalSpotlightsSurface({
   } = await supabase.auth.getUser();
   const meId = user?.id ?? '';
 
+  // A8·G-3: an unread approvals list never offers "Start 2-admin approval" again over one that may be waiting.
+  const pendingUnread = Boolean(pendingRes.error);
   const pendingByTarget = new Map<string, PendingApproval>();
   for (const p of (pendingRes.data ?? []) as PendingApproval[]) {
     pendingByTarget.set(p.target_id, p);
   }
 
-  const drafts = rows.filter((r) => r.admin_approved_at === null);
-  const published = rows.filter((r) => r.admin_approved_at !== null);
+  const drafts = (rows ?? []).filter((r) => r.admin_approved_at === null);
+  const published = (rows ?? []).filter((r) => r.admin_approved_at !== null);
 
   // Resolved ONCE for the whole render, in a single batch — each call is its own
   // R2 signing round trip, and SpotlightRow is a plain (non-async) component so
   // it cannot await. Keyed by spotlight_id because the rows are split into two
   // lists below.
   const logoUrlEntries = await Promise.all(
-    rows.map(async (r) => [r.spotlight_id, await resolveDisplayUrl(r.logo_url)] as const),
+    (rows ?? []).map(async (r) => [r.spotlight_id, await resolveDisplayUrl(r.logo_url)] as const),
   );
   const logoUrlById = new Map<string, string | null>(logoUrlEntries);
 
@@ -141,7 +144,9 @@ export async function JournalSpotlightsSurface({
       <div className="mb-6 flex items-start gap-3 border-warn-300/70 bg-warn-50 py-3 border-t border-ink/10">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-warn-700" strokeWidth={1.75} aria-hidden />
         <p className="text-sm text-ink/80">
-          {price && price.isActive ? (
+          {price === 'unread' ? (
+            <>Couldn&rsquo;t read the sponsored-slot price from the pricing catalog, so whether it is on sale is not known. Refresh to try again.</>
+          ) : price && price.isActive ? (
             <>
               Sponsored slots are <strong>live</strong> at{' '}
               <strong>{formatCentavos(price.priceCentavos)}</strong> per placement
@@ -219,9 +224,11 @@ export async function JournalSpotlightsSurface({
       {/* Drafts queue */}
       <section className="mb-8">
         <h2 className="mb-3 sn-eye" style={{ color: 'var(--m-slate)' }}>
-          Drafts · awaiting approval ({drafts.length})
+          Drafts · awaiting approval ({rows === null ? '—' : drafts.length})
         </h2>
-        {drafts.length === 0 ? (
+        {rows === null ? (
+          <ReadFailed what="the spotlight credits" />
+        ) : drafts.length === 0 ? (
           <EmptyRow text="No drafts. Credit a supplier above to get started." />
         ) : (
           <ul className="space-y-3">
@@ -231,6 +238,7 @@ export async function JournalSpotlightsSurface({
                 row={r}
                 logoUrl={logoUrlById.get(r.spotlight_id) ?? null}
                 pending={pendingByTarget.get(r.spotlight_id) ?? null}
+                pendingUnread={pendingUnread}
                 meId={meId}
               />
             ))}
@@ -241,9 +249,11 @@ export async function JournalSpotlightsSurface({
       {/* Published */}
       <section>
         <h2 className="mb-3 sn-eye" style={{ color: 'var(--m-slate)' }}>
-          Published ({published.length})
+          Published ({rows === null ? '—' : published.length})
         </h2>
-        {published.length === 0 ? (
+        {rows === null ? (
+          <ReadFailed what="the published spotlights" />
+        ) : published.length === 0 ? (
           <EmptyRow text="Nothing published yet." />
         ) : (
           <ul className="space-y-3">
@@ -253,6 +263,7 @@ export async function JournalSpotlightsSurface({
                 row={r}
                 logoUrl={logoUrlById.get(r.spotlight_id) ?? null}
                 pending={null}
+                pendingUnread={false}
                 meId={meId}
               />
             ))}
@@ -275,12 +286,15 @@ function SpotlightRow({
   row,
   logoUrl,
   pending,
+  pendingUnread,
   meId,
 }: {
   row: JournalSpotlightAdminRow;
   /** Already resolved by the server parent — never `row.logo_url` itself. */
   logoUrl: string | null;
   pending: PendingApproval | null;
+  /** The approvals list could not be read: whether a 2nd-admin request is waiting is not known. */
+  pendingUnread: boolean;
   meId: string;
 }) {
   const article = findBlogArticle(row.blog_slug);
@@ -345,7 +359,11 @@ function SpotlightRow({
           </form>
         ) : null}
 
-        {!isPublished && row.is_sponsored && !pending ? (
+        {!isPublished && row.is_sponsored && !pending && pendingUnread ? (
+          <span className="text-xs text-ink/60">Couldn&rsquo;t check for a waiting approval. Refresh to try again.</span>
+        ) : null}
+
+        {!isPublished && row.is_sponsored && !pending && !pendingUnread ? (
           <form action={initiateSponsored}>
             <input type="hidden" name="spotlight_id" value={row.spotlight_id} />
             <ActionButton tone="brand" main icon={<ShieldCheck aria-hidden />} label="Start 2-admin approval" type="submit" />

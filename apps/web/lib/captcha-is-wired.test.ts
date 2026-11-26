@@ -396,7 +396,9 @@ test('🔴 a refused claim can still be RETRIED — it must not hit the dead-end
     );
 
     // The terminal branch must NOT swallow the retryable state.
-    const terminal = /if \(state === 'invalid' \|\| state === 'error'\)/.exec(pageSrc);
+    // (A4-54 / A4-10 / A4-B03, 25 Nov: our own `error` joined the retryable notice, and a dead token is also read on
+    // arrival — the terminal branch is the dead token alone, in either shape.)
+    const terminal = /if \(state === 'invalid'(?: \|\| (?:state === 'error'|arrival === 'invalid'))?\)/.exec(pageSrc);
     assert.notEqual(terminal, null, `${page}: terminal branch not found — re-check this guard`);
     const terminalCond = pageSrc.slice(terminal!.index, terminal!.index + 120);
     assert.equal(

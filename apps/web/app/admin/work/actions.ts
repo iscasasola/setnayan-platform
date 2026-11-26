@@ -79,6 +79,8 @@ export async function approvePaymentFromWorkList(formData: FormData): Promise<vo
     const fd = new FormData();
     fd.set('payment_id', String(formData.get('payment_id') ?? ''));
     fd.set('admin_resubmit_notice', notice);
+    // The desk says a refusal on its own page; Work shows it here instead (A8·A-2).
+    fd.set('refusal', 'throw');
     try {
       await requestPaymentResubmit(fd);
     } catch (e) {

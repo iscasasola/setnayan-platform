@@ -546,6 +546,12 @@ export const routes = {
       productionSheet: (eventId: string) => `/vendor-dashboard/clients/${eventId}/production-sheet`,
       seatPlan: (eventId: string) => `/vendor-dashboard/clients/${eventId}/seat-plan`,
     },
+    // 👥 Clients (the customers hub). Its views and sheets are query words — `{ seg: 'dates' }`, `{ gear: '1' }`,
+    // `{ door: 'asking' }` — in the order given, so no caller types `?gear=1` by hand (A6-38).
+    customers: (q?: Readonly<Record<string, string>>) => {
+      const qs = q ? new URLSearchParams(q).toString() : '';
+      return `/vendor-dashboard/customers${qs ? `?${qs}` : ''}`;
+    },
     contracts: {
       index: () => `/vendor-dashboard/contracts`,
       detail: (contractId: string) => `/vendor-dashboard/contracts/${contractId}`,

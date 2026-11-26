@@ -180,6 +180,8 @@ export type SupplierWorkItem = {
       papers: Array<{ slot: string; label: string; present: boolean; r2Key: string | null; previewUrl: string | null }>;
       /** The checks the verify desk already runs, condensed: label + ok / not / manual. */
       checks: Array<{ label: string; outcome: 'pass' | 'mismatch' | 'manual'; detail: string | null }>;
+      /** A8·C-10: false = the checks could not run (not "no checks") — the row says so before Approve. */
+      checksRan?: boolean;
     }
   | {
       kind: 'names';

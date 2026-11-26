@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 // Allowed walima seating postures — must mirror the events_gender_separation_check
 // DB constraint (migration 20270308998862). Belt-and-suspenders: the DB guards
@@ -36,13 +37,20 @@ export async function updateNikahDetails(eventId: string, formData: FormData) {
   const gender = GENDER_SEPARATION.has(genderRaw) ? genderRaw : 'none';
 
   const sb = await createClient();
-  await sb
+  /* A refused or unmatched write is said where the button is (the `nikah.updateNikahDetails` stay door turns this
+     throw into the line under the form), never revalidated as a save (A2-I19). */
+  const { data: saved, error } = await sb
     .from('events')
     .update({
       mahr_description: mahr,
       gender_separation: gender,
     })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (error || !saved?.length) {
+    if (error) logQueryError('updateNikahDetails (events update)', error);
+    throw new Error('Your Nikah details were not saved. Please try again.');
+  }
 
   revalidatePath(`/dashboard/${eventId}`);
   revalidatePath(`/dashboard/${eventId}/nikah`);

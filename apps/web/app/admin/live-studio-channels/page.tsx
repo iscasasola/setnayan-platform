@@ -1,3 +1,4 @@
+import { poolConnectErrorLine, poolStatusWord } from '@/lib/live-studio-pool-words';
 import { notFound } from 'next/navigation';
 import { AlertCircle } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -81,10 +82,12 @@ function ago(iso: string | null): string {
   return `${Math.floor(hours / 24)}d ago`;
 }
 
-function grantSummary(grant: PoolChannelGrantView | undefined): {
+function grantSummary(grant: PoolChannelGrantView | undefined, unread: boolean): {
   text: string;
   tone: 'ok' | 'warn' | 'bad';
 } {
+  // A8·F-16: an unread connections list is said, never "Not connected".
+  if (unread) return { text: 'Couldn’t read the connection', tone: 'warn' };
   if (!grant || !grant.connected) return { text: 'Not connected', tone: 'bad' };
   if (grant.health === 'needs_reauth') return { text: 'Needs re-connect', tone: 'warn' };
   return { text: `Connected${grant.displayName ? ` · ${grant.displayName}` : ''}`, tone: 'ok' };
@@ -99,7 +102,8 @@ export default async function LiveStudioChannelsPage({
   if (!liveStudioRoamEnabled()) notFound();
 
   const sp = await searchParams;
-  const flashError = typeof sp.error === 'string' ? sp.error : null;
+  // A8·F-18: the routes' codes become plain words; a code is never shown as typed.
+  const flashError = poolConnectErrorLine(typeof sp.error === 'string' ? sp.error : null);
   const connected = sp.connected === '1';
   const released = sp.released === '1';
   const disconnected = sp.disconnected === '1';
@@ -114,7 +118,9 @@ export default async function LiveStudioChannelsPage({
   // The refusal's own words go to the log, not the screen — they name a column.
   if (error) logQueryError('LiveStudioChannelsPage (channel pool)', error);
   const rows = (data ?? []) as PoolRow[];
-  const grants = await fetchPoolChannelGrants(admin);
+  const grantsRead = await fetchPoolChannelGrants(admin);
+  const grantsUnread = grantsRead === null;
+  const grants = grantsRead ?? new Map<number, PoolChannelGrantView>();
 
   // Event titles for the checked-out rows — one query, not one per row.
   const heldEventIds = rows.map((r) => r.checked_out_event_id).filter((v): v is string => Boolean(v));
@@ -132,6 +138,8 @@ export default async function LiveStudioChannelsPage({
   const readyCount = rows.filter(
     (r) => r.verified && r.status === 'available' && grants.get(r.id)?.connected,
   ).length;
+  const readyLine = grantsUnread ? 'ready to claim: couldn’t read' : `${formatCount(readyCount)} ready to claim`;
+  const poolCountLine = error ? '—' : `${rows.length} channel${rows.length === 1 ? '' : 's'} · ${readyLine}`;
 
 
   return (
@@ -226,7 +234,7 @@ export default async function LiveStudioChannelsPage({
       </div>
 
       <p className="mb-1 mt-4 text-[13px] text-ink/65" data-pool-count="">
-        {error ? '—' : `${rows.length} channel${rows.length === 1 ? '' : 's'} · ${formatCount(readyCount)} ready to claim`}
+        {poolCountLine}
       </p>
 
       {error ? null : rows.length === 0 ? (
@@ -238,11 +246,11 @@ export default async function LiveStudioChannelsPage({
       <ul className="[&>li:first-child]:border-t-0" aria-label="Channels in the pool">
         {rows.map((row) => {
           const grant = grants.get(row.id);
-          const summary = grantSummary(grant);
+          const summary = grantSummary(grant, grantsUnread);
           const held = row.status === 'checked_out';
           const orphaned = held && !row.checked_out_event_id;
           const name = row.label ?? `Channel #${row.id}`;
-          const statusLine = `${summary.text} · ${row.verified ? 'Verified' : 'Not verified'} · ${row.status} · cap ${row.concurrent_cap}`;
+          const statusLine = `${summary.text} · ${row.verified ? 'Verified' : 'Not verified'} · ${poolStatusWord(row.status)} · cap ${row.concurrent_cap}`;
           const heldLine = held
             ? orphaned
               ? 'Checked out with no event (the event was deleted) — release it.'
@@ -264,7 +272,7 @@ export default async function LiveStudioChannelsPage({
                   ) : ready ? (
                     <Badge tone="ok">ready</Badge>
                   ) : (
-                    <Badge>{row.status}</Badge>
+                    <Badge>{poolStatusWord(row.status)}</Badge>
                   )
                 }
                 data="pool-channel"
@@ -287,7 +295,7 @@ export default async function LiveStudioChannelsPage({
                         {summary.text}
                       </span>,
                     ],
-                    ['Status', `${row.verified ? 'Verified' : 'Not verified'} · ${row.status} · cap ${row.concurrent_cap}`],
+                    ['Status', `${row.verified ? 'Verified' : 'Not verified'} · ${poolStatusWord(row.status)} · cap ${row.concurrent_cap}`],
                     ...(heldLine
                       ? ([
                           [
@@ -341,7 +349,7 @@ export default async function LiveStudioChannelsPage({
                       Re-connect
                     </a>
                   ) : null}
-                  {!grant?.connected ? (
+                  {!grantsUnread && !grant?.connected ? (
                     // eslint-disable-next-line @next/next/no-html-link-for-pages
                     <a href={`/api/oauth/youtube/pool/start?channel_pool_id=${row.id}`} className={BTN_BRAND}>
                       Connect

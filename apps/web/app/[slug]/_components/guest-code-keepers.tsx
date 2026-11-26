@@ -27,10 +27,14 @@ import { PASS_CARD_WORDS } from '@/lib/pass-card';
  * own physical tags. Pinned by `every-qr-carries-the-strip.test.ts`, which now
  * forbids the button anywhere in the guest tree.
  */
+/** The bare code's own route — a page that knows its event passes one naming it (A4-B11, `passRouteForEvent`). */
+const OWN_CODE = { href: '/api/guest/qr' } as const;
+
 export function GuestCodeKeepers({
   invitationUrl,
   className,
   passCardHref = null,
+  qrHref = OWN_CODE.href,
 }: {
   invitationUrl: string;
   className?: string;
@@ -41,6 +45,8 @@ export function GuestCodeKeepers({
    * with their name on it and in its filename; otherwise the bare code below.
    */
   passCardHref?: string | null;
+  /** 🔑 A4-B11: the bare code's route — the page passes one naming its event (`passRouteForEvent`). */
+  qrHref?: string;
 }) {
   const [copied, setCopied] = useState<'idle' | 'done' | 'failed'>('idle');
 
@@ -69,7 +75,7 @@ export function GuestCodeKeepers({
           <SavePassCardButton hrefs={[passCardHref]} label={PASS_CARD_WORDS.saveOwn} />
         ) : (
         <SaveFileLink
-          href="/api/guest/qr"
+          href={qrHref}
           filename="setnayan-qr.png"
           className="inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-ink/15 bg-cream px-3 py-1.5 text-xs font-medium text-ink/70 transition hover:border-terracotta hover:text-terracotta-700"
         >

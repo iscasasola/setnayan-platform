@@ -31,7 +31,8 @@ export function NotificationsView({
   const unreadCount = items.filter((n) => !n.read_at).length;
   return (
     <div className="mx-auto w-full max-w-xl pb-16 pt-4 sm:pt-7" data-supplier-notifications="">
-      <NotificationsHead unreadCount={unreadCount} returnTo={returnTo} level="page" />
+      {/* A6-15 (owner 26 Nov: "Move it now"): the title is the house PageMasthead; "Mark all read" is its action. */}
+      <NotificationsHead unreadCount={unreadCount} returnTo={returnTo} level="masthead" />
 
       {unread ? (
         <ReadFailedBody mark="notifications">{NOTIFICATIONS_UNREAD_WORDS}</ReadFailedBody>

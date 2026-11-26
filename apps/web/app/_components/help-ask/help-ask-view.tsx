@@ -57,6 +57,9 @@ export type AnswerCtx = {
   coverage: string;
   askAgainHref: string;
   messageHref: string;
+  /** The words on the message button (default "Message us"). A8·C-5: the team Help's button only jumps to the
+   *  "No answer yet" list, so it says so instead of promising a message. */
+  messageLabel?: string;
   doorFor: (topicKey: string) => HelpDoor | null;
   /** 📘 The guide over this answer's topic ("Full guide" beside Take me there — Guide & Help drawing, screen 2), or null. */
   guideFor?: (topicKey: string) => string | null;
@@ -83,7 +86,7 @@ export function BestAnswer({ hit, ctx }: { hit: AskHit; ctx: AnswerCtx }) {
         </details>
       ) : null}
       <div className="mt-2 border-t border-ink/10 pt-1">
-        <AnswerFeedback slug={hit.slug} words={ctx.words} coverage={ctx.coverage} askAgainHref={ctx.askAgainHref} messageHref={ctx.messageHref} />
+        <AnswerFeedback slug={hit.slug} words={ctx.words} coverage={ctx.coverage} askAgainHref={ctx.askAgainHref} messageHref={ctx.messageHref} messageLabel={ctx.messageLabel} />
       </div>
     </section>
   );
@@ -121,7 +124,7 @@ export function AnswerRows({
             </summary>
             <p className="mt-2 whitespace-pre-line text-sm text-ink/75">{h.body}</p>
             {h.notInApp ? null : <Door door={ctx.doorFor(h.topicKey)} />}
-            <AnswerFeedback slug={h.slug} words={ctx.words} coverage={ctx.coverage} askAgainHref={ctx.askAgainHref} messageHref={ctx.messageHref} />
+            <AnswerFeedback slug={h.slug} words={ctx.words} coverage={ctx.coverage} askAgainHref={ctx.askAgainHref} messageHref={ctx.messageHref} messageLabel={ctx.messageLabel} />
           </details>
         </li>
       ))}
@@ -137,7 +140,7 @@ export function NoAnswer({ result, ctx }: { result: AskResult; ctx: AnswerCtx })
       <p className="mt-1 text-sm text-ink/70">Questions we can’t answer yet go to the team, so we can write one.</p>
       <p className="mt-3 flex flex-wrap gap-2">
         <ActionButton tone="neutral" icon={<RotateCcw aria-hidden className="h-4 w-4" strokeWidth={1.75} />} label="Ask another way" href={ctx.askAgainHref} />
-        <ActionButton tone="info" icon={<MessageSquare aria-hidden className="h-4 w-4" strokeWidth={1.75} />} label="Message us" href={ctx.messageHref} />
+        <ActionButton tone="info" icon={<MessageSquare aria-hidden className="h-4 w-4" strokeWidth={1.75} />} label={ctx.messageLabel ?? 'Message us'} href={ctx.messageHref} />
       </p>
       {result.near.length > 0 ? (
         <div className="mt-6" data-help-near="">
@@ -154,7 +157,7 @@ export function AnswerWays({ ctx }: { ctx: AnswerCtx }) {
   return (
     <p className="mt-4 flex flex-wrap gap-2">
       <ActionButton tone="neutral" icon={<RotateCcw aria-hidden className="h-4 w-4" strokeWidth={1.75} />} label="Ask another way" href={ctx.askAgainHref} />
-      <ActionButton tone="info" icon={<MessageSquare aria-hidden className="h-4 w-4" strokeWidth={1.75} />} label="Message us" href={ctx.messageHref} />
+      <ActionButton tone="info" icon={<MessageSquare aria-hidden className="h-4 w-4" strokeWidth={1.75} />} label={ctx.messageLabel ?? 'Message us'} href={ctx.messageHref} />
     </p>
   );
 }

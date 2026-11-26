@@ -115,7 +115,8 @@ test('🔑 every column the entourage renders from is named in ONE place, and bo
     // 🔁 AND 2026-10-11 (N19): the gated guest-list read on /everyone also asks for each guest's own answer
     // (`rsvp_status` — "Also coming" is the guests who said yes). It still reads the ONE list, plus one column
     // only it uses, asked for by that read itself — the pattern `ENTOURAGE_COLUMNS`' own note prescribes.
-    const uses = (src.match(/\.select\((?:ENTOURAGE_COLUMNS|`\$\{ENTOURAGE_COLUMNS\}, \$\{ENTOURAGE_COUPLE_FIELDS\}, \$\{ENTOURAGE_PARENT_FIELDS\}`|`\$\{ENTOURAGE_COLUMNS\}, rsvp_status`)\)/g) ?? []).length;
+    // (A4-30, 25 Nov: + who COUNTS toward the event — entry_source, passed_away, represented_by_guest_id.)
+    const uses = (src.match(/\.select\((?:ENTOURAGE_COLUMNS|`\$\{ENTOURAGE_COLUMNS\}, \$\{ENTOURAGE_COUPLE_FIELDS\}, \$\{ENTOURAGE_PARENT_FIELDS\}`|`\$\{ENTOURAGE_COLUMNS\}, rsvp_status, entry_source, passed_away, represented_by_guest_id`)\)/g) ?? []).length;
     assert.equal(
       (src.match(/\.select\(`\$\{ENTOURAGE_COLUMNS\}, \$\{ENTOURAGE_COUPLE_FIELDS\}, \$\{ENTOURAGE_PARENT_FIELDS\}`\)/g) ?? []).length,
       1,

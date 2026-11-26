@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { SUPPLIER_FLOOR_PLAN_MIN_TIER } from '@/lib/seat-plan-engine';
-import { BackButton } from '@/app/_components/back-button';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -59,11 +59,10 @@ export default async function SpacesPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-4 pb-8 pt-4 sm:px-6 lg:max-w-4xl" data-spaces="">
-      <div className="mb-2 flex min-h-11 items-center gap-2">
-        <BackButton route="/vendor-dashboard/spaces" />
-      </div>
-      <h1 className="text-[22px] font-semibold text-ink">Spaces</h1>
-      <p className="mt-1 text-[14px] text-ink/70">Set once for the shop. Your cards pick from here.</p>
+      {/* B4 (drawing final-check-area-7 § 4a, approved 25 Nov): the title and its Back move to the app's top bar through
+          PageMasthead, as on Chats and the other supplier pages — no in-page title, caption or Back round (the
+          caption's fact moved to the empty state, 4c). */}
+      <PageMasthead title={metadata.title} />
       <SpacesScreen initial={read} today={today} proOpen={proOpen} shopKind={kindForShop(categories)} firstHall={firstHall} planPrice={planPrice} />
     </div>
   );

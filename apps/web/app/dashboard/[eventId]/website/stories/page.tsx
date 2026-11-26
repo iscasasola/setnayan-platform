@@ -87,6 +87,8 @@ export default async function EventStoriesPage({
   const chapters = (rows ?? []) as Row[];
 
   const authors = new Map<string, { name: string; slug: string | null }>();
+  // E-16 (final check): a refused people read is said on each row, never drawn as "A Setnayan storyteller".
+  let authorsUnread = false;
   if (chapters.length > 0) {
     const { data: people, error: peopleError } = await admin
       .from('users')
@@ -95,6 +97,7 @@ export default async function EventStoriesPage({
     // ⚠ the people whose stories attach here. Refused, each reads as unnamed.
     if (peopleError) {
       logQueryError('WebsiteStoriesPage.people', peopleError, { eventId }, 'graceful_degrade');
+      authorsUnread = true;
     }
     for (const p of (people ?? []) as Array<{
       user_id: string;
@@ -148,6 +151,7 @@ export default async function EventStoriesPage({
           {chapters.map((c) => {
             const author = authors.get(c.user_id);
             const on = Boolean(c.host_included_at);
+            const byline = author ? `by ${author.name}` : authorsUnread ? 'Couldn’t read who wrote this' : 'by A Setnayan storyteller';
             return (
               <li
                 key={c.chapter_id}
@@ -156,7 +160,7 @@ export default async function EventStoriesPage({
                 <div className="min-w-0">
                   <p className="text-[15px] font-semibold text-ink">{c.title}</p>
                   <p className="text-[13px] text-ink/75">
-                    by {author?.name ?? 'A Setnayan storyteller'}
+                    {byline}
                     {author?.slug ? (
                       <>
                         {' · '}

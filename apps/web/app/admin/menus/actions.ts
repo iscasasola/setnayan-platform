@@ -79,7 +79,7 @@ export async function setSlotLabel(slotKey: string, labelRaw: string) {
   assertKnownSlot(slotKey);
   const label = labelRaw.trim();
   const admin = createAdminClient();
-  await admin.from('nav_slot_override').upsert(
+  const { error: writeErr } = await admin.from('nav_slot_override').upsert(
     {
       slot_key: slotKey,
       label: label.length ? label : null,
@@ -88,6 +88,8 @@ export async function setSlotLabel(slotKey: string, labelRaw: string) {
     },
     { onConflict: 'slot_key' },
   );
+  // A8·H-15: a refused write is a failure — no audit row, no "Saved".
+  if (writeErr) throw new Error(`The menu change was not saved. (${writeErr.message})`);
   await audit(admin, user.id, 'nav.set_label', slotKey, { label: label || null });
   revalidateRegistry();
 }
@@ -98,7 +100,7 @@ export async function setSlotLucideIcon(slotKey: string, lucideName: string) {
   assertKnownSlot(slotKey);
   if (!KNOWN_ICONS.has(lucideName)) throw new Error(`Unknown icon: ${lucideName}`);
   const admin = createAdminClient();
-  await admin.from('nav_slot_override').upsert(
+  const { error: writeErr } = await admin.from('nav_slot_override').upsert(
     {
       slot_key: slotKey,
       icon_kind: 'lucide',
@@ -109,6 +111,8 @@ export async function setSlotLucideIcon(slotKey: string, lucideName: string) {
     },
     { onConflict: 'slot_key' },
   );
+  // A8·H-15: a refused write is a failure — no audit row, no "Saved".
+  if (writeErr) throw new Error(`The menu change was not saved. (${writeErr.message})`);
   await audit(admin, user.id, 'nav.set_icon_lucide', slotKey, { lucide_name: lucideName });
   revalidateRegistry();
 }
@@ -118,7 +122,7 @@ export async function setSlotNoIcon(slotKey: string) {
   const user = await requireAdmin();
   assertKnownSlot(slotKey);
   const admin = createAdminClient();
-  await admin.from('nav_slot_override').upsert(
+  const { error: writeErr } = await admin.from('nav_slot_override').upsert(
     {
       slot_key: slotKey,
       icon_kind: 'none',
@@ -129,6 +133,8 @@ export async function setSlotNoIcon(slotKey: string) {
     },
     { onConflict: 'slot_key' },
   );
+  // A8·H-15: a refused write is a failure — no audit row, no "Saved".
+  if (writeErr) throw new Error(`The menu change was not saved. (${writeErr.message})`);
   await audit(admin, user.id, 'nav.set_icon_none', slotKey, {});
   revalidateRegistry();
 }
@@ -138,7 +144,7 @@ export async function setSlotHidden(slotKey: string, hidden: boolean) {
   const user = await requireAdmin();
   assertKnownSlot(slotKey);
   const admin = createAdminClient();
-  await admin.from('nav_slot_override').upsert(
+  const { error: writeErr } = await admin.from('nav_slot_override').upsert(
     {
       slot_key: slotKey,
       is_hidden: hidden,
@@ -147,6 +153,8 @@ export async function setSlotHidden(slotKey: string, hidden: boolean) {
     },
     { onConflict: 'slot_key' },
   );
+  // A8·H-15: a refused write is a failure — no audit row, no "Saved".
+  if (writeErr) throw new Error(`The menu change was not saved. (${writeErr.message})`);
   await audit(admin, user.id, 'nav.set_hidden', slotKey, { is_hidden: hidden });
   revalidateRegistry();
 }
@@ -156,7 +164,9 @@ export async function resetSlot(slotKey: string) {
   const user = await requireAdmin();
   assertKnownSlot(slotKey);
   const admin = createAdminClient();
-  await admin.from('nav_slot_override').delete().eq('slot_key', slotKey);
+  const { error: writeErr } = await admin.from('nav_slot_override').delete().eq('slot_key', slotKey);
+  // A8·H-15: a refused write is a failure — no audit row, no "Saved".
+  if (writeErr) throw new Error(`The menu change was not saved. (${writeErr.message})`);
   await audit(admin, user.id, 'nav.reset', slotKey, {});
   revalidateRegistry();
 }
@@ -179,7 +189,7 @@ export async function uploadSlotIcon(formData: FormData) {
   const url = await r2Upload({ bucket: R2_BUCKETS.media, key, body: bytes, contentType: file.type });
 
   const admin = createAdminClient();
-  await admin.from('nav_slot_override').upsert(
+  const { error: writeErr } = await admin.from('nav_slot_override').upsert(
     {
       slot_key: slotKey,
       icon_kind: 'custom',
@@ -190,6 +200,8 @@ export async function uploadSlotIcon(formData: FormData) {
     },
     { onConflict: 'slot_key' },
   );
+  // A8·H-15: a refused write is a failure — no audit row, no "Saved".
+  if (writeErr) throw new Error(`The menu change was not saved. (${writeErr.message})`);
   await audit(admin, user.id, 'nav.set_icon_custom', slotKey, { custom_url: url });
   revalidateRegistry();
 }

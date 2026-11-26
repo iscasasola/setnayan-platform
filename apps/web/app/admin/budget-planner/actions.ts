@@ -47,12 +47,26 @@ function parsePhp(raw: FormDataEntryValue | null): number | null {
 
 export type AdminActionResult = { ok: true } | { ok: false; error: string };
 
+/**
+ * A8·B-6: a typo is refused, never stored as a blank. `parsePhp` reads text that is not a number as null, which used
+ * to clear a benchmark (and make a band median 0). This tells blank (allowed: "no price") from not-a-number (refused).
+ */
+function isTypo(raw: FormDataEntryValue | null): boolean {
+  if (raw == null) return false;
+  const cleaned = String(raw).replace(/[₱,\s]/g, '').trim();
+  return cleaned !== '' && parsePhp(raw) === null;
+}
+const TYPO_ERROR = 'Prices must be whole pesos, numbers only. Nothing was saved.';
+
 /** Upsert one leaf's benchmark prices. */
 export async function updateLeafBenchmark(formData: FormData): Promise<AdminActionResult> {
   const { supabase } = await requireAdmin();
   const planGroupId = String(formData.get('plan_group_id') ?? '').trim();
   if (!planGroupId) return { ok: false, error: 'Missing leaf.' };
 
+  if (['benchmark_php', 'floor_php', 'p25_php', 'p75_php'].some((k) => isTypo(formData.get(k)))) {
+    return { ok: false, error: TYPO_ERROR };
+  }
   const benchmark = parsePhp(formData.get('benchmark_php'));
   const floor = parsePhp(formData.get('floor_php'));
   const p25 = parsePhp(formData.get('p25_php'));
@@ -96,6 +110,7 @@ export async function updateBudgetBand(formData: FormData): Promise<AdminActionR
 
   // Per-head median entered in PESOS → stored centavos. parsePhp returns null on
   // blank/invalid; for a median that means "0" (no amount), matching no_limit.
+  if (isTypo(formData.get('per_head_median_pesos'))) return { ok: false, error: TYPO_ERROR };
   const medianPesos = parsePhp(formData.get('per_head_median_pesos'));
   const perHeadMedianCentavos = medianPesos == null ? 0 : medianPesos * 100;
   const isActive = formData.get('is_active') != null;
@@ -136,7 +151,7 @@ export async function updateAllocationConfig(formData: FormData): Promise<AdminA
     return { ok: false, error: 'Check the values — counts must be ≥ 1 and band must be 0–1.' };
   }
 
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from('budget_allocation_config')
     .update({
       min_sample_n: Math.round(minSampleN),
@@ -146,9 +161,12 @@ export async function updateAllocationConfig(formData: FormData): Promise<AdminA
       surplus_mode: surplusMode,
       updated_at: new Date().toISOString(),
     })
-    .eq('config_key', 'default');
+    .eq('config_key', 'default')
+    .select('config_key');
 
   if (error) return { ok: false, error: error.message };
+  // A8·B-6: an update that changed no row is not a save.
+  if (!data || data.length === 0) return { ok: false, error: 'The settings row was not found, so nothing was saved.' };
   revalidatePath('/admin/budget-planner');
   return { ok: true };
 }

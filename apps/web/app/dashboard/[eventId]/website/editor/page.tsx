@@ -1355,6 +1355,8 @@ export default async function WebsiteEditorPage({
           blurb: 'What appears on your site, and in what order.',
           href: `${w}/widgets`,
           status: (() => {
+            // E-05 (final check): a refused sections read is never "0 showing".
+            if (widgetsRawError) return todo('Couldn’t read');
             const showing = sectionRows.filter((r) => r.is_visible).length;
             return showing > 0 ? done(`${showing} showing`) : todo('0 showing');
           })(),

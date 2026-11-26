@@ -26,8 +26,9 @@ export const metadata = { title: 'Booking fees · Supplier' };
 
 /**
  * /vendor-dashboard/booking-fees — the vendor-facing list of their Setnayan
- * booking-fee orders (5% of a booked total, then 3% beyond ₱100,000, never more than ₱100,000, minimum ₱50,
- * owner 2026-11-20; NOT a flat rate). Each row links to
+ * booking-fee orders (a tapered rate, NOT a flat one — owner 2026-11-20; the rates, the cap and the minimum are the
+ * live schedule's, said on the page by `<BookingFeeLine>` and never typed here: A6-61a, "no price in a comment"
+ * wins). Each row links to
  * the same manual-QR pay flow couples use, reachable from the Plan hub
  * doorway. READ-ONLY surfacing: this never mints or mutates a fee — it lists the
  * orders the fee-charge path already created (RLS scopes to the caller's own).

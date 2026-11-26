@@ -1,3 +1,4 @@
+import { FACE_MODE_ERROR, FACE_MODE_NOTICE } from '@/lib/admin/face-mode-notices';
 import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-names.server';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
@@ -73,8 +74,7 @@ const COULD_NOT_LOAD = "Couldn't load";
 const NOTICE: Record<string, string> = {
   guest_list_reopened:
     'Guest list reopened. The hosts can add, remove and change replies again; it stays open until a host presses Finalize.',
-  face_mode_on: 'Face auto-tagging is now ON for this event (unless the couple declined).',
-  face_mode_off: 'Face auto-tagging is now OFF for this event.',
+  ...FACE_MODE_NOTICE,
 };
 const ERROR: Record<string, string> = {
   missing_event: 'No event was named, so nothing changed.',
@@ -83,8 +83,7 @@ const ERROR: Record<string, string> = {
   reopen_failed: 'The database refused the reopen. Nothing changed.',
   reopen_not_applied:
     'The reopen did not land — the row came back still finalized. Reload and check before trying again.',
-  face_mode_failed: 'The database refused the face-tagging change. Nothing changed.',
-  face_mode_not_applied: 'The face-tagging change did not land. Reload and check before trying again.',
+  ...FACE_MODE_ERROR,
 };
 
 function fmtDate(v: string | null | undefined): string {

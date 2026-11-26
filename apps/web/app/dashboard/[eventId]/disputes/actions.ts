@@ -95,9 +95,9 @@ export async function fileForceMajeureFlag(formData: FormData) {
         file: f,
       });
       if (!result.ok) {
-        return redirect(
-          `/dashboard/${eventId}/disputes?error=${encodeURIComponent(result.error)}`,
-        );
+        // A2-S1 (SW-RAWDB): a fixed key; the upload's own words go to the log, never into the address.
+        console.error('[force-majeure] evidence upload refused:', result.error);
+        return redirect(`/dashboard/${eventId}/disputes?error=upload_failed`);
       }
       evidenceUrls.push(result.publicUrl);
       if (evidenceUrls.length >= 5) break;

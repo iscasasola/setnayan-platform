@@ -5,6 +5,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { mayPutAwayEvent } from '@/lib/event-put-away';
 
 /**
  * archive-actions.ts — putting a celebration away, and taking it back out.
@@ -86,31 +87,13 @@ export async function setEventArchived(formData: FormData): Promise<ArchiveResul
     return { ok: false, code: 'unauthorized', message: 'Sign in required' };
   }
 
-  const { data: memberRow } = await supabase
-    .from('event_members')
-    .select('member_type')
-    .eq('event_id', eventId)
-    .eq('user_id', user.id)
-    .in('member_type', ['couple', 'coordinator'])
-    .maybeSingle();
-  let isHost = !!memberRow;
-  if (!isHost) {
-    const { data: modRow } = await supabase
-      .from('event_moderators')
-      .select('moderator_id')
-      .eq('event_id', eventId)
-      .eq('user_id', user.id)
-      .is('removed_at', null)
-      .not('accepted_at', 'is', null)
-      .neq('role_subtype', 'viewer') // a limited helper views, never edits (owner 2026-09-28)
-      .maybeSingle();
-    isHost = !!modRow;
-  }
-  if (!isHost) {
+  // 👑 Only the couple puts their event away (owner, brief Add 39 · A2-H10) — `mayPutAwayEvent` is the one answer.
+  const mayPutAway = await mayPutAwayEvent(supabase, eventId, user.id);
+  if (!mayPutAway) {
     return {
       ok: false,
       code: 'unauthorized',
-      message: 'Only a host of this event can put it away.',
+      message: 'Only the couple can put this event away.',
     };
   }
 

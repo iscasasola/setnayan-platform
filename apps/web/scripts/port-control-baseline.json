@@ -4358,6 +4358,7 @@
         "[slug]/venue/_components/guest-venue-3d.tsx",
         "[slug]/venue/_components/guest-venue-loader.tsx",
         "[slug]/venue/_components/use-live-scene.ts",
+        "[slug]/venue/_lib/venue-scene-joins.server.ts",
         "[slug]/venue/page.tsx"
       ],
       "destinations": [
@@ -4397,6 +4398,7 @@
         "RemoteMap",
         "RemotePlayers",
         "RoomFooter",
+        "S",
         "SceneLighting",
         "SeatDestinationMarker",
         "SeatedFigure",
@@ -13762,6 +13764,7 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/change-order-trail.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/costs-form.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-photo-approvals-sheet.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-photo-approvals.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-story-shares-card.tsx",
@@ -13812,8 +13815,7 @@
         "inviteHost",
         "revokeHostInvite",
         "routes.dashboard.messages.detail",
-        "routes.dashboard.messages.index",
-        "updateVendorCosts"
+        "routes.dashboard.messages.index"
       ],
       "blocks": [
         "ActionButton",
@@ -13833,6 +13835,9 @@
         "ContactShortlistVendorButton",
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
+        "CostsForm",
+        "CostsFormPending.Provider",
+        "CostsSubmit",
         "CouplePhotoApprovals",
         "CouplePhotoApprovalsSheet",
         "CoupleStoryShares",

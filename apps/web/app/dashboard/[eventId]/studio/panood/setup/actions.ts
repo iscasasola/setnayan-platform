@@ -62,6 +62,11 @@ import { refuseLimitedHelper, requireHostMembership } from '@/lib/host-gate';
 
 // Host gate: the shared `requireHostMembership` (lib/host-gate.ts) — this file carried a byte-equal copy.
 
+/** L-05 (final check): a refused link write (RLS matches zero rows, no error) comes back with a failure line. Never returns. */
+function linkNotSaved(eventId: string): never {
+  redirect(`/dashboard/${eventId}/studio/panood/setup?link_not_saved=1`);
+}
+
 export async function savePanoodWatchUrl(formData: FormData): Promise<void> {
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventIdRaw = formData.get('event_id');
@@ -78,10 +83,12 @@ export async function savePanoodWatchUrl(formData: FormData): Promise<void> {
 
   await requireHostMembership(eventId);
   const supabase = await createClient();
-  await supabase
+  const { data: savedRows, error: saveError } = await supabase
     .from('events')
     .update({ panood_watch_url: normalized })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (saveError || !savedRows?.length) linkNotSaved(eventId);
 
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
   revalidatePath('/[slug]', 'page');
@@ -117,10 +124,12 @@ export async function savePanoodFacebookUrl(formData: FormData): Promise<void> {
 
   await requireHostMembership(eventId);
   const supabase = await createClient();
-  await supabase
+  const { data: savedRows, error: saveError } = await supabase
     .from('events')
     .update({ panood_watch_url_facebook: normalized })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (saveError || !savedRows?.length) linkNotSaved(eventId);
 
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
   revalidatePath('/[slug]', 'page');
@@ -135,10 +144,12 @@ export async function clearPanoodFacebookUrl(formData: FormData): Promise<void> 
 
   await requireHostMembership(eventId);
   const supabase = await createClient();
-  await supabase
+  const { data: savedRows, error: saveError } = await supabase
     .from('events')
     .update({ panood_watch_url_facebook: null })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (saveError || !savedRows?.length) linkNotSaved(eventId);
 
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
   revalidatePath('/[slug]', 'page');
@@ -358,11 +369,16 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
   const watchUrl = normalizeYouTubeWatchUrl(
     `https://www.youtube.com/watch?v=${broadcastId}`,
   );
+  let mirrorFailed = false;
   if (watchUrl) {
-    await supabase
+    const { data: mirrored, error: mirrorError } = await supabase
       .from('events')
       .update({ panood_watch_url: watchUrl })
-      .eq('event_id', eventId);
+      .eq('event_id', eventId)
+      .select('event_id');
+    // L-05 (final check): the broadcast IS live on YouTube; only the Event Hub's player link did not land — say so.
+    mirrorFailed = Boolean(mirrorError) || !mirrored?.length;
+    if (mirrorFailed) console.error('[panood/setup] go-live watch link mirror refused', mirrorError ?? 'zero rows');
   }
 
   // (g) ⭐ WAVE 7 · STAMP THE BROADCAST-WINDOW ANCHOR
@@ -439,6 +455,10 @@ export async function goLivePanood(eventId: string): Promise<GoLiveResult> {
   revalidatePath(`/dashboard/${eventId}`); // 🏠 Home's Live stream card says on/off air — one render, from the answer
   revalidatePath(liveStudioControlPath(eventId));
   revalidatePath('/[slug]', 'page');
+  if (mirrorFailed) {
+    const hubLine = 'You’re live on YouTube, but your Event Hub couldn’t show the player yet. Paste the watch link below.';
+    return { ok: true, notice: notice ? `${notice} ${hubLine}` : hubLine };
+  }
   return { ok: true, notice };
 }
 
@@ -545,15 +565,21 @@ export async function endPanoodBroadcast(eventId: string): Promise<GoLiveResult>
   // end-then-restart. The Facebook link is host-removable above and stops
   // rendering on its own when the live window closes.
   const supabase = await createClient();
-  await supabase
+  const { data: clearedRows, error: clearError } = await supabase
     .from('events')
     .update({ panood_watch_url: null })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('event_id');
 
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
   revalidatePath(`/dashboard/${eventId}`); // 🏠 Home's Live stream card says on/off air — one render, from the answer
   revalidatePath(liveStudioControlPath(eventId));
   revalidatePath('/[slug]', 'page');
+  // L-05 (final check): the broadcast ended; a refused clear leaves the finished player up — say so, with the way out.
+  if (clearError || !clearedRows?.length) {
+    console.error('[panood/setup] end-broadcast watch link clear refused', clearError ?? 'zero rows');
+    return { ok: true, notice: 'The broadcast ended, but your Event Hub still shows the player. Press Remove link below.' };
+  }
   return { ok: true };
 }
 
@@ -565,10 +591,12 @@ export async function clearPanoodWatchUrl(formData: FormData): Promise<void> {
 
   await requireHostMembership(eventId);
   const supabase = await createClient();
-  await supabase
+  const { data: savedRows, error: saveError } = await supabase
     .from('events')
     .update({ panood_watch_url: null })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (saveError || !savedRows?.length) linkNotSaved(eventId);
 
   revalidatePath(`/dashboard/${eventId}/studio/panood/setup`);
   revalidatePath('/[slug]', 'page');

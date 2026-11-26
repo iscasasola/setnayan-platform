@@ -18,7 +18,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { emitNotification } from '@/lib/notification-emit';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { resolveLivePax, computeAddedPaxSurcharge } from '@/lib/pax';
+import { PAX_UNREAD, resolveLivePax, computeAddedPaxSurcharge } from '@/lib/pax';
 import { formatCount } from '@/lib/format-number';
 import { formatPhp } from '@/lib/php';
 
@@ -63,8 +63,10 @@ async function resolve(formData: FormData): Promise<Resolved | null> {
   // Ownership gate: the vendor may only touch a booking that is theirs.
   if (!ev || ev.marketplace_vendor_id !== profile.vendor_profile_id) return null;
 
-  const livePax = await resolveLivePax(admin, ev.event_id);
-  if (livePax == null) return null;
+  const livePaxRead = await resolveLivePax(admin, ev.event_id);
+  // ⚖ OWNER ADD 35: an unread guest count prices NOTHING — no surcharge is computed, nothing is written or charged.
+  if (livePaxRead == null || livePaxRead === PAX_UNREAD) return null;
+  const livePax = livePaxRead;
 
   // Base = the count the price covers; defaults to the inquiry snapshot.
   const { data: thread } = await admin

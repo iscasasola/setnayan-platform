@@ -137,7 +137,7 @@ test('the matrix: for every role × woman/man/unknown × stored attire, a said o
 /* ── 2 · both 3D surfaces dress from the one reading ───────────────────────────────────────────── */
 
 test('the couple\'s 3D lab dresses every guest from guestOutfitOf — guests.attire only as the person\'s last-resort word', () => {
-  const page = read('dashboard', '[eventId]', 'seating', 'lab', 'page.tsx');
+  const page = read('dashboard', '[eventId]', 'seating', 'lab', '_components', 'seating-room.tsx');
   assert.doesNotMatch(page, /resolveGuestAttire\(/, 'the lab dresses from guests.attire again');
   assert.match(page, /seatPlanOutfitOf\(\s*guestOutfitOf\(/, 'the lab does not read the role dress code');
   assert.match(page, /dress_code_config/, 'the lab does not read the dress code');

@@ -1,4 +1,4 @@
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, loginRedirectPath } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -23,7 +23,7 @@ export default async function VendorContractDetailPage({ params }: Props) {
   const { contractId } = await params;
   const supabase = await createClient();
   const user = await getCurrentUser();
-  if (!user) redirect('/login');
+  if (!user) redirect(loginRedirectPath(`/vendor-dashboard/contracts/${contractId}`)); // A6-65: back to this contract
   const profile = await fetchOwnVendorProfile(supabase, user.id);
   if (!profile) redirect('/vendor-dashboard');
 

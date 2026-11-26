@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { CheckCircle2, ShieldAlert, Sparkles, Users } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   ROLE_SUBTYPE_LABEL,
@@ -48,7 +49,7 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
   const search = await searchParams;
 
   const admin = createAdminClient();
-  const { data: inviteRaw } = await admin
+  const { data: inviteRaw, error: inviteError } = await admin
     .from('event_moderators')
     .select(
       'moderator_id, event_id, user_id, role_subtype, display_label, invitation_email, invitation_sent_at, invitation_expires_at, accepted_at, removed_at, invited_by_user_id',
@@ -56,6 +57,19 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
     .eq('invitation_token', token)
     .maybeSingle();
 
+  // A2-A10: a refused read is "we couldn't read this invitation — try again", never the dead link's "not found".
+  if (inviteError) {
+    logQueryError('HostAcceptPage (event_moderators)', inviteError);
+    return (
+      <TerminalCard
+        tone="warn"
+        eyebrow="Invitation"
+        title="We couldn’t read this invitation just now."
+        body="The link may still be good. Try again in a moment."
+        cta={{ href: `/host/accept/${token}`, label: 'Try again' }}
+      />
+    );
+  }
   if (!inviteRaw) {
     // Could be (a) already accepted (token rotated to NULL on accept) or
     // (b) malformed token. Either way, render not-found.

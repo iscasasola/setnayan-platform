@@ -87,7 +87,9 @@ export default async function VendorEditorialMediaPage({
     );
   }
 
-  const view: EditorialEligibilityView = eventVendorId
+  const view: EditorialEligibilityView = eligibility.unread
+    ? { kind: 'unread' }
+    : eventVendorId
     ? { kind: 'open', existing, existingUnread }
     : eligibility.isRecommendedPick
       ? { kind: 'almost', disputed: Boolean(eligibility.isDisputed) }

@@ -121,7 +121,7 @@ export async function DemoModeSurface({ toggled }: { toggled?: string }) {
         }
       />
       <TemplateRow
-        title={`View /vendors ${isOn ? '(demo suppliers visible)' : '(without demo)'}`}
+        title={`View the supplier marketplace ${isOn ? '(demo suppliers visible)' : '(without demo)'}`}
         line="The marketplace as a visitor sees it now"
         href="/?browse=1"
         data="demo-view-vendors"

@@ -60,6 +60,7 @@ import {
   type VendorPriceSource,
 } from '@/lib/budget';
 import { formatPhp } from '@/lib/orders';
+import { paymentNoteWords } from '@/lib/payment-note-words';
 import {
   VENDOR_CATEGORY_LABEL,
   VENDOR_STATUS_LABEL,
@@ -937,7 +938,7 @@ function PaymentSection({
           {payments.map((p) => {
             const line = lineItems.find((li) => li.line_item_id === p.line_item_id);
             const fallbackLabel =
-              !line && p.notes && p.notes.length > 0 ? p.notes : 'Generic payment';
+              !line && p.notes && p.notes.length > 0 ? paymentNoteWords(p.notes) : 'Generic payment';
             return (
               /* 👈 A logged payment's Delete is its swipe (owner 2026-11-03) — the same ask, then Undo. */
               <ConfirmSwipe

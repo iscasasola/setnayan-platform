@@ -279,11 +279,14 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
     name_prefix: string | null;
     gender: string | null;
   };
+  // A7-03: a refused guests read is a failure, never "nobody is seated" — the room says it didn't load and a
+  // scanned demo code says it couldn't open, instead of drawing an empty room or calling the code expired.
+  if (guestResult.error) throw new Error('plan3d demo: the sample guests could not be read');
   const guestRows = (guestResult.data ?? []) as GuestNameRow[];
 
   // Resolve each guest's stored `photo_url` (an r2:// ref or raw avatar URL) to
   // a display URL so the 3D avatars wear the guest's actual selfie — mirrors the
-  // couple lab's resolver (seating/lab/page.tsx), signed in parallel. The sample
+  // couple lab's resolver (seating/lab/_components/seating-room.tsx), signed in parallel. The sample
   // event's guests are fictional, so these photos carry zero privacy surface.
   const photoDisplayUrls = await guestPhotoDisplayUrls(guestRows);
 
@@ -471,7 +474,9 @@ export type Plan3DGuestView = {
   guest: Plan3DGuest;
 };
 
-export type ResolvePlan3DResult = { ok: true; view: Plan3DGuestView } | { ok: false };
+export type ResolvePlan3DResult =
+  | { ok: true; view: Plan3DGuestView }
+  | { ok: false; reason: 'expired' | 'read_failed' };
 
 /**
  * Phone-side resolve: turns a scanned token into the bound guest's view of the
@@ -483,11 +488,16 @@ export async function resolvePlan3DGuestToken(token: string): Promise<ResolvePla
   const clean = token?.trim();
   const resolved = clean ? await resolveDemoToken(clean) : null;
   after(() => purgeExpiredDemoSessions());
-  if (!resolved || resolved.demoKind !== '3d_plan' || !resolved.boundRef) return { ok: false };
+  if (!resolved || resolved.demoKind !== '3d_plan' || !resolved.boundRef) return { ok: false, reason: 'expired' };
 
-  const scene = await loadPlan3DDemoScene();
+  let scene: Plan3DScene;
+  try {
+    scene = await loadPlan3DDemoScene();
+  } catch {
+    return { ok: false, reason: 'read_failed' };
+  }
   const guest = scene.guests.find((g) => g.id === resolved.boundRef);
-  if (!guest) return { ok: false };
+  if (!guest) return { ok: false, reason: 'expired' };
 
   return { ok: true, view: { scene, guest } };
 }

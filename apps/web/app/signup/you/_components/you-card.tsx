@@ -27,6 +27,7 @@ import { AccountNameField } from './account-name-field';
 import { DisplayNameField } from './display-name-field';
 import { FormRows } from '@/app/_components/form-row';
 import '@/app/_components/home/home-reskin.css';
+import { FORM_READ_FIELD } from '@/lib/form-read';
 
 /** The columns the card shows — exactly what the page selects, nothing else. */
 export type YouCardMe = {
@@ -95,6 +96,8 @@ export function YouCard({
 
           <form action={action} className="hr-si-form">
             <input type="hidden" name="next" value={next} />
+            {/* Drawn only from an answered read (the page stops at a refusal): the save refuses a card without it (A2-A7). */}
+            <input type="hidden" name={FORM_READ_FIELD} value="1" />
             {/* The photo control posts nothing when cleared; the marker tells a
                 cleared photo from a form without the control. */}
             <input type="hidden" name={PRESENCE_MARKERS.profile_photo_url} value="1" />
@@ -211,9 +214,8 @@ export function YouCard({
                   style={{ marginTop: 3 }}
                 />
                 <span>
-                  Include my events in Setnayan&rsquo;s Stories showcase. 30 days after each
-                  event, its editorial page becomes publicly searchable on setnayan.com/realstories.
-                  I can keep any of them private at any time.
+                  Let Setnayan show my events on Discover. 30 days after each event, its story can
+                  appear there for anyone to see. I can keep any of them private at any time.
                 </span>
               </label>
             ) : null}

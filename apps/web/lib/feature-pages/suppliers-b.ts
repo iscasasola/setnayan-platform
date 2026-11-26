@@ -199,7 +199,7 @@ export const SUPPLIERS_B_FEATURES: readonly FeaturePageEntry[] = [
       tl: [
         { q: 'Libre ba ang Setnayan para sa suppliers?', a: 'Oo. Libre ang Free, kasama ang Verified, at kasama ang buong dashboard: calendar, inquiries, quotes, bookings, tala ng bayad, contracts at public page mo.' },
         { q: 'Kumukuha ba ng commission ang Setnayan?', a: `Hindi kumukuha ang Setnayan ng parte sa deal. May booking fee ang bawat booking, maliban kung ikaw ang unang nagdala ng event. ${FEE_FREE_RULE_TL} Nasa For Suppliers page ang kasalukuyang rate.` },
-        { q: 'Kusa bang nagre-renew ang paid plans?', a: 'Hindi. Prepaid ang Plus, Pro at Ultra, bawat apat na linggo. Lumaktaw ng susunod na bayad at nasa Free ka na.' },
+        { q: 'Kusa bang nagre-renew ang paid plans?', a: 'Hindi. Prepaid ang Plus, Pro at Ultra, buwan-buwan. Lumaktaw ng susunod na bayad at nasa Free ka na.' },
         { q: 'Ano ang idinadagdag ng paid plans?', a: 'Mas maraming categories at service cards, team seats at branches, at sariling web address. Hindi plan ang abot: sa pagpa-Verified ito nanggagaling, libre.' },
       ],
     },

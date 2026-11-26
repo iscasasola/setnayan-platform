@@ -29,7 +29,7 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 
 const PAGE_TITLE = 'Try Papic with a friend — right now, no sign-up';
 const PAGE_DESCRIPTION =
-  'Two codes, two phones, one minute. Scan one each, your phone reads your own face, and the photos you take of each other come back knowing who is in them. Nothing is kept.';
+  'Two codes, two phones. Scan one each, your phone reads your own face, and the photos you take of each other come back knowing who is in them. Nothing is kept.';
 
 export const metadata = {
   title: PAGE_TITLE,
@@ -64,7 +64,7 @@ export default function PapicTryPage() {
         Try it with whoever is next to you.
       </h1>
       <p className="mt-3 text-[0.98rem] text-[var(--m-slate-2)]">
-        Two codes, two phones, about a minute. Scan one each — your phone reads your own face, and
+        Two codes, two phones. Scan one each — your phone reads your own face, and
         the photos you take of each other come back knowing who is in them. No app, no sign-up.
       </p>
 
@@ -74,7 +74,7 @@ export default function PapicTryPage() {
 
       <p className="mt-8 text-sm text-[var(--m-slate-2)]">
         This is the real thing, in miniature. At a real event it never rotates away, never leaves
-        the people you invited, and never expires —{' '}
+        the people you invited, and every photo is kept for life —{' '}
         <Link href="/papic" className="font-medium text-[var(--m-mulberry)] hover:opacity-80">
           see what Papic does →
         </Link>

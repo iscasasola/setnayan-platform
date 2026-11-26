@@ -28,8 +28,6 @@ const WEB = join(__dirname, '..');
  * line here is a decision, not a way to go green.
  */
 const EXEMPT: Record<string, string> = {
-  'app/papic/lightcheck/_components/lightcheck-client.tsx':
-    'a throwaway capability probe ("do not improve"): a reopen would wipe the very readings it exists to take',
   'app/_components/thread-call-room.tsx':
     'a live 1:1 call — reopening means leaving and re-joining, and its teardown ends the call row (endThreadCall); needs a replaceTrack path in lib/call-webrtc.ts, not a restart',
   'lib/camera-bridge/internal-bridge.ts':

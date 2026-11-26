@@ -1,3 +1,4 @@
+import { guestsViewHref } from '@/lib/guests-views';
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
 import { notFound } from 'next/navigation';
@@ -920,7 +921,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
           <p className="mt-3 text-sm text-ink/70">You design the room in your Seat plan.</p>
         ) : (
           <Link
-            href={`/dashboard/${eventId}/seating/lab`}
+            href={guestsViewHref(eventId, 'seats', { seat: '3d' })}
             className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
           >
             Edit in Seat Plan →

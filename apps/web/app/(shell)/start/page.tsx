@@ -42,12 +42,14 @@ export default async function StartPage() {
   for (const t of types) hrefs[t.key] = startHrefFor(t, quizOn);
 
   return (
-    <div className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8" data-start-picker="">
+    // The shell gives the page its landmark (`front-door-shell.tsx` · `MainEl`), so the page owns its `<main>`
+    // (final check A1-121), as /pricing and the other (shell) pages do.
+    <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8" data-start-picker="">
       <header className="mb-8 space-y-2">
         <h1 className="sn-h1">What kind of event are you planning?</h1>
         <p className="text-base text-ink/65">Tap a type to begin.</p>
       </header>
       <StartTypeGrid types={types} hrefs={hrefs} />
-    </div>
+    </main>
   );
 }

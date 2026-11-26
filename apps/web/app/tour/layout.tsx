@@ -1,3 +1,4 @@
+import { routes } from '@/lib/routes';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 
@@ -19,7 +20,7 @@ export default function TourLayout({ children }: { children: ReactNode }) {
         <span>
           You&rsquo;re exploring <strong>Maria &amp; Jose</strong> — a sample wedding. Nothing you tap here is saved.
         </span>
-        <Link href="/onboarding/wedding?from=tour" className="underline decoration-[#FBF6EA]/40 underline-offset-2 hover:decoration-[#FBF6EA]">
+        <Link href={routes.start()} className="underline decoration-[#FBF6EA]/40 underline-offset-2 hover:decoration-[#FBF6EA]">
           Start your own, free
         </Link>
       </div>

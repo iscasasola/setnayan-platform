@@ -297,8 +297,9 @@ export function storeShellRefusesMenuRow(href: string, storeShell: boolean | und
 export const STUDIO_ABSORBED: Readonly<
   Record<string, { into: string; routes: (base: string) => string[] }>
 > = {
-  /* 🗂 R4: the 3D room is inside Guests › Seats (owner 2026-10-28, "3D plan: yes, inside Seats"); `/plan3d` forwards there. */
-  pa3d: { into: 'guests', routes: (base) => [`${base}/seating/lab`] },
+  /* 🗂 R4: the 3D room is inside Guests › Seats (owner 2026-10-28, "3D plan: yes, inside Seats"); `/plan3d` and — since
+     the final check's R5 (25 Nov) — `/seating/lab` forward there, so no address of its own is left to light. */
+  pa3d: { into: 'guests', routes: () => [] },
   palogo: { into: 'launch', routes: (base) => [`${base}/monogram`] },
   'mood-board': { into: 'launch', routes: (base) => [`${base}/studio/mood-board`] },
   /* 🎬 R3: the Thank-You Video maker is a Memories page (owner 2026-10-27); its keepsake row is the door. */

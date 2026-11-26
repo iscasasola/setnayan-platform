@@ -213,7 +213,7 @@ const UNEXPLAINED_EMPTY_BILL: Readonly<Record<string, string>> = {
     'previews one guest; empty degrades to a placeholder rather than a claim',
   'app/dashboard/[eventId]/invitation/print/page.tsx':
     'the print sheet for the invitation page',
-  'app/dashboard/[eventId]/seating/lab/page.tsx':
+  'app/dashboard/[eventId]/seating/lab/_components/seating-room.tsx':
     'an experimental seating sandbox behind its own flag',
   'app/dashboard/[eventId]/studio/indoor-blueprint/page.tsx':
     'a retired SKU whose orders are hard-rejected',

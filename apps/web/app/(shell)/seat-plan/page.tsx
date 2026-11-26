@@ -41,6 +41,7 @@
  * rides on this plan; its claims are its own.
  */
 
+import { routes } from '@/lib/routes';
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
 import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
 import { studioDescription } from '@/lib/studio-apps';
@@ -217,7 +218,7 @@ export default function SeatPlanLandingPage() {
       title={'Drag, drop, done.'}
       /* The secondary is /features, not /pricing — this tool is free, and
          /features is where the rest of the free workspace is described. */
-      primary={{ href: '/onboarding/wedding?from=seat-plan', label: 'Start planning · free' }}
+      primary={{ href: routes.start(), label: 'Start planning · free' }}
       secondary={{ href: '/features', label: 'See what else is free' }}
       productName="Seat plan"
       studioKey="seat-plan"
@@ -231,7 +232,7 @@ export default function SeatPlanLandingPage() {
       closing={{
         heading: 'Start with where everyone sits',
         body: 'The Seat Plan is free with every Setnayan wedding — beside your guest list, your schedule, your budget and your mood board. Nothing to buy, and it is the floor everything else stands on.',
-        href: '/onboarding/wedding?from=seat-plan',
+        href: routes.start(),
         label: 'Start planning · free',
       }}
       structuredData={[APP_LD, FAQ_LD]}

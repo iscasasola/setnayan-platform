@@ -100,7 +100,7 @@ import {
   type VendorVenueEvent,
 } from '@/lib/vendor-venue-events';
 import { VenueMatchedEvents } from './_components/venue-matched-events';
-import { resolveLivePax } from '@/lib/pax';
+import { PAX_UNREAD, PAX_UNREAD_WORDS, resolveLivePax } from '@/lib/pax';
 import { PackageCard } from '@/app/_components/vendor-packages/package-card';
 import { coupleBundleGift, packageGiftOf, PACKAGE_GIFT_SETNAYAN, type PackageGift } from '@/lib/package-gift';
 import { fetchShopGiftPacks } from '@/lib/shop-gifts.server';
@@ -2079,10 +2079,14 @@ export async function renderVendorBySlug({
   // for itself — quoting a per-head upgrade at anything else is a display total
   // that drifts from the charge. Only fetched when a package can actually be
   // configured: flag on, signed-in host with an event, packages to show.
-  const packageLivePax =
+  const packageLivePaxRead =
     packageCreditEnabled() && coupleEventId && vendorPackages.length > 0
-      ? ((await resolveLivePax(supabase, coupleEventId)) ?? 0)
+      ? await resolveLivePax(supabase, coupleEventId)
       : 0;
+  // ⚖ OWNER ADD 35: an unread guest count prices NOTHING — the configurator shows no per-guest totals (prices hidden
+  // below) and its Lock is refused with PAX_UNREAD_WORDS by `lockPackage` itself.
+  const packagePaxUnread = packageLivePaxRead === PAX_UNREAD;
+  const packageLivePax = packagePaxUnread ? 0 : (packageLivePaxRead ?? 0);
 
   // ── "Ask the vendor about this build instead" — the lock modal's secondary
   //    action (same flag).
@@ -3438,6 +3442,12 @@ export async function renderVendorBySlug({
             here; locking one cascade-locks every included planning-card
             category. Public read; the LockPackageModal CTA only renders
             for signed-in hosts with an active event. */}
+        {/* ⚖ OWNER ADD 35: hidden per-guest prices say WHY — an unread guest count prices nothing. */}
+        {vendorPackages.length > 0 && packagePaxUnread ? (
+          <p role="alert" data-package-pax-unread="" className="text-sn-sm text-ink/70">
+            {PAX_UNREAD_WORDS}
+          </p>
+        ) : null}
         {vendorPackages.length > 0 ? (
           <VendorPackagesSection
             packages={vendorPackages}
@@ -3448,7 +3458,7 @@ export async function renderVendorBySlug({
             isComingSoon={isComingSoon || !bookable}
             paused={shopPaused}
             bookingsOpen={bookingsOpen}
-            hidePrices={hidePricesPublicly}
+            hidePrices={hidePricesPublicly || packagePaxUnread}
             paxCount={packageLivePax}
             /* Flag-dark secondary action: send the configured build to the
                vendor as a question instead of locking it. Empty ⇒ the modal is

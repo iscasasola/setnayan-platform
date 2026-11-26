@@ -684,7 +684,8 @@ test('no loading boundary promises a title to a route that INHERITS it and draws
   /** A stub whose whole job is to send you somewhere else draws nothing. */
   const isRedirectStub = (pg: string) => {
     const body = src(pg);
-    return /redirect\(/.test(body) && !/<[A-Za-z]/.test(body);
+    // `permanentRedirect(` too: the final check's retired addresses (R2 · R5 · R8) forward permanently and draw nothing.
+    return /\b(?:redirect|permanentRedirect)\(/.test(body) && !/<[A-Za-z]/.test(body);
   };
 
   /** Promised through a template prop, or painted by hand. */

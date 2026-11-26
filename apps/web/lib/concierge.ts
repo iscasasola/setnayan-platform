@@ -158,8 +158,8 @@ export async function sweepExpiredConcierge(
  * HANDOFF_2026-05-17 § 3 — fuzzy similarity check on wedding_date / venue /
  * couple-name is deferred to V1.1 (TODO: see iteration 0016 § 0 anti-abuse).
  *
- * Returns the matched-user IDs and the signals row to insert into
- * `concierge_abuse_flags`. Empty match list = no flag, trial proceeds.
+ * Returns the matched-user IDs and the signals. Empty match list = no flag,
+ * trial proceeds. (The flags table and its admin desk were dropped, R7 25 Nov.)
  */
 export type AbuseSignalRow = {
   matchedUserIds: string[];

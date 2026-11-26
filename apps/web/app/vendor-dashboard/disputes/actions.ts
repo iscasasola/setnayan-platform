@@ -89,9 +89,9 @@ export async function submitDisputeContest(formData: FormData) {
       .eq('vendor_profile_id', profile.vendor_profile_id)
       .maybeSingle();
     if (!existing) throw new Error('Dispute not found.');
-    throw new Error(
-      `This dispute has already been reviewed (status: ${existing.status}) — your response can no longer be edited. Reach out to the Setnayan team if you have new information.`,
-    );
+    // A6-68: said under the box as it is (`plainRefusal` passes a plain sentence of ≤ 160 characters, no codes) — so no
+    // raw status word in it.
+    throw new Error('The team has already ruled on this dispute, so your response can no longer be changed.');
   }
 
   revalidatePath('/vendor-dashboard/disputes');

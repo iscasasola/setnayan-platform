@@ -114,7 +114,8 @@ test('🔒 the join door hands the key on Send — its OWN cookie, never a guest
 
 test('🔒 the request screen reads only THIS browser’s remembered key, and sends an accepted one through redeem', () => {
   const p = read('app/[slug]/request/page.tsx');
-  assert.match(p, /const key = await readRememberedRequest\(event\.event_id as string\)/);
+  // (A4-49, 25 Nov: the read now asks to throw, so a failed read is never answered as "no request".)
+  assert.match(p, /const key = await readRememberedRequest\(event\.event_id as string, \{ throwOnReadError: true \}\)/);
   assert.doesNotMatch(p, /searchParams[\s\S]{0,40}(token|guest)/, 'the screen takes a key from the address');
   assert.match(p, /key\.state\.kind === 'accepted' \|\| key\.state\.kind === 'linked'\) \{\s*redirect\(`\/\$\{home\}\/redeem/);
   for (const w of ['sentTitle', 'waiting', 'declined', 'saveThis']) assert.match(p, new RegExp(`REQUEST_WORDS\\.${w}\\b`), `frame copy ${w} is not drawn`);

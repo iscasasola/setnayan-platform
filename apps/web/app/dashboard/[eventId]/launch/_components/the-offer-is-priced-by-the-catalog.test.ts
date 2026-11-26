@@ -68,7 +68,7 @@ test('the figure is READ, from the live catalog, through the shipped reader', ()
   const page = read(SHIPPED['launch/page.tsx']);
   assert.match(
     page,
-    /formatV2Sku\(\s*'COUPLE_WEBSITE_PRO'\s*\)/,
+    /(?:formatV2Sku|readV2Sku)\(\s*'COUPLE_WEBSITE_PRO'\s*\)/,
     'the price must come from platform_retail_catalog_v2 via the shipped reader',
   );
   assert.match(page, /formatPhp\(/, 'and be formatted, not concatenated with a sign');

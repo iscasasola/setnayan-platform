@@ -26,6 +26,7 @@ test('C-1 · Focus answers with the queue count, and "Couldn\'t read" for an unr
   assert.match(src, /if \(q && q\.count === null\) \{\s*answerRows = null;/);
   assert.match(src, /answerCount = q\?\.count \?\? 0;/);
   assert.match(src, /`\$\{formatCount\(answerCount\)\} · answered here`/);
+  assert.match(src, /'Couldn’t count this queue just now — not the same as none\.'/, 'an unread queue says it could not count');
   assert.doesNotMatch(src, /formatCount\(answerRows\.length\)\} · answered here/);
 });
 

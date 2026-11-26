@@ -191,7 +191,7 @@ export async function FocusHome({
   const notice = settle ? SETTLE_NOTICES[settle] : undefined;
   const answerLine =
     answerRows === null || answerCount === null
-      ? 'Couldn’t read this just now — not the same as none.'
+      ? 'Couldn’t count this queue just now — not the same as none.'
       : `${formatCount(answerCount)} · answered here`;
 
   return (

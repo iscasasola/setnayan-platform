@@ -338,23 +338,41 @@ export async function fetchPendingVendorPayments(opts: {
   eventId: string;
   vendorProfileId: string;
 }): Promise<PendingVendorPayment[]> {
+  return (await readPendingVendorPayments(opts)).payments;
+}
+
+/**
+ * 🧾 THE SAME READ, WITH WHETHER IT ANSWERED (A6-02 · A6-45, final check 25 Nov). The bookings and the unconfirmed
+ * payments reads used to drop their errors, so a refused read came back `[]` and the supplier read "No payments to
+ * confirm yet" over a payment the couple really logged. `complete: false` = one of them was refused — a surface says
+ * the payments couldn't load. (The plan-label read stays best-effort: a missing label never hides a payment.)
+ */
+export async function readPendingVendorPayments(opts: {
+  adminClient: SupabaseClient;
+  eventId: string;
+  vendorProfileId: string;
+}): Promise<{ payments: PendingVendorPayment[]; complete: boolean }> {
   const { adminClient, eventId, vendorProfileId } = opts;
 
   // 1. The vendor's bookings on this event (ownership-scoped) — with the
   //    deposit's refusal, which lives on the booking (lib/payment-refusal).
-  const { data: bookings } = await adminClient
+  const { data: bookings, error: bookingsError } = await adminClient
     .from('event_vendors')
     .select(`vendor_id, ${DEPOSIT_DISPUTE_COLUMNS}`)
     .eq('event_id', eventId)
     .eq('marketplace_vendor_id', vendorProfileId);
+  if (bookingsError) {
+    logQueryError('readPendingVendorPayments.bookings', bookingsError, { eventId }, 'graceful_degrade');
+    return { payments: [], complete: false };
+  }
   const bookingById = new Map(
     ((bookings ?? []) as Array<DepositDisputeRow & { vendor_id: string }>).map((b) => [b.vendor_id, b]),
   );
   const eventVendorIds = Array.from(bookingById.keys()).filter(Boolean);
-  if (eventVendorIds.length === 0) return [];
+  if (eventVendorIds.length === 0) return { payments: [], complete: true };
 
   // 2. Unconfirmed payments on those bookings.
-  const { data: rows } = await adminClient
+  const { data: rows, error: rowsError } = await adminClient
     .from('event_vendor_payments')
     .select(
       `payment_id, vendor_id, amount_php, paid_at, method, reference, notes, proof_r2_key, schedule_instance_seq, vendor_confirmed_at, ${LEDGER_DISPUTE_COLUMNS}`,
@@ -362,6 +380,10 @@ export async function fetchPendingVendorPayments(opts: {
     .in('vendor_id', eventVendorIds)
     .is('vendor_confirmed_at', null)
     .order('paid_at', { ascending: false });
+  if (rowsError) {
+    logQueryError('readPendingVendorPayments.payments', rowsError, { eventId }, 'graceful_degrade');
+    return { payments: [], complete: false };
+  }
   const payments = (rows ?? []) as Array<LedgerDisputeRow & {
     payment_id: string;
     vendor_id: string;
@@ -373,7 +395,7 @@ export async function fetchPendingVendorPayments(opts: {
     proof_r2_key: string | null;
     schedule_instance_seq: number | null;
   }>;
-  if (payments.length === 0) return [];
+  if (payments.length === 0) return { payments: [], complete: true };
 
   // 3. Resolve installment labels from each booking's frozen plan (seq → label).
   //    ONE batched read keyed by event_vendor_id — not N per-vendor round-trips
@@ -397,7 +419,7 @@ export async function fetchPendingVendorPayments(opts: {
   }
 
   // 4. Presign proof receipts in parallel + assemble.
-  return await Promise.all(
+  const assembled = await Promise.all(
     payments.map(async (p): Promise<PendingVendorPayment> => {
       const label =
         p.schedule_instance_seq != null
@@ -429,6 +451,7 @@ export async function fetchPendingVendorPayments(opts: {
       };
     }),
   );
+  return { payments: assembled, complete: true };
 }
 
 // ===========================================================================

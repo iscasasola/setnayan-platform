@@ -1,3 +1,4 @@
+import { TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
 import Link from 'next/link';
 import { AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -516,7 +517,7 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
                     <div className="mt-2 flex flex-wrap gap-1.5">
                       {isVendorDealAudience(row.audience_type) ? (
                         <span className="inline-flex rounded-md bg-terracotta/10 px-2 py-0.5 text-[11px] font-medium capitalize text-terracotta-700">
-                          Suppliers → {row.promoted_vendor_tier ?? '—'} tier, free
+                          Suppliers → {row.promoted_vendor_tier ? (TIER_LABEL[row.promoted_vendor_tier as VendorTier] ?? row.promoted_vendor_tier) : '—'} tier, free
                         </span>
                       ) : (
                         row.covered_service_keys.map((code) => (

@@ -55,7 +55,7 @@ export function shopsStillSettingUp(
  */
 export function unfilteredEmptyGridCopy(stillSettingUp: number): { line: string; sub: string } {
   const line = 'No services listed yet.';
-  if (stillSettingUp <= 0) return { line, sub: 'Check back soon — suppliers are landing every week.' };
+  if (stillSettingUp <= 0) return { line, sub: 'A supplier shows here once they list a service.' };
   return {
     line,
     sub:

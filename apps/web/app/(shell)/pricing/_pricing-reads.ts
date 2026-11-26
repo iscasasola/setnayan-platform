@@ -9,8 +9,9 @@
  *
  * Numbers only. The pages format them (`formatPeso`).
  */
+import { formatPhp } from '@/lib/php';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchV2CustomerCatalog, type V2CustomerSku } from '@/lib/v2-catalog';
+import { fetchV2CustomerCatalogRead, type V2CustomerSku } from '@/lib/v2-catalog';
 import { resolveAiPrices } from '@/app/_components/home/pricing-data';
 import { HUB_PARTS, HUB_PART_SKUS } from '@/lib/hub-parts';
 import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
@@ -162,14 +163,19 @@ export function ourPricesFrom(customerSkus: readonly V2CustomerSku[], extras: re
   };
 }
 
-/** Both reads, in parallel. Each degrades to "no rows" on error, so the page still renders (with no figure). */
-export async function readOurPrices(): Promise<{ prices: OurPrices; customerSkus: V2CustomerSku[] }> {
-  const [customerSkus, extras] = await Promise.all([fetchV2CustomerCatalog(), readPricingExtras()]);
-  return { prices: ourPricesFrom(customerSkus, extras), customerSkus };
+/**
+ * Both reads, in parallel. Each degrades to "no rows" on error, so the page still renders (with no figure) — and
+ * `pricesRead: false` says the catalogue was REFUSED, so the page can say "Couldn't read the prices" where the paid
+ * rows go instead of looking complete with none (final check A1-100).
+ */
+export async function readOurPrices(): Promise<{ prices: OurPrices; customerSkus: V2CustomerSku[]; pricesRead: boolean }> {
+  const [catalog, extras] = await Promise.all([fetchV2CustomerCatalogRead(), readPricingExtras()]);
+  const customerSkus = catalog.rows;
+  return { prices: ourPricesFrom(customerSkus, extras), customerSkus, pricesRead: catalog.ok };
 }
 
 /** "₱70 adds 100 credits, ₱700 adds 1,000" — the two round rungs (100 · 1,000 · 10,000 credits), else the first two. */
-export function papicRungWords(rungs: OurPrices['papicRungs'], fmt: (n: number) => string): string {
+export function papicRungWords(rungs: OurPrices['papicRungs']): string {
   const creditsOf = (label: string) => Number((/([\d,]+)\s+credits?/i.exec(label)?.[1] ?? '').replace(/,/g, ''));
   const round = rungs.filter((b) => {
     const n = creditsOf(b.label);
@@ -177,6 +183,6 @@ export function papicRungWords(rungs: OurPrices['papicRungs'], fmt: (n: number) 
   });
   return (round.length >= 2 ? round : rungs)
     .slice(0, 2)
-    .map((b, i) => `₱${fmt(b.php)} ${b.label.replace(/^add\b/i, 'adds').replace(i > 0 ? /\s+credits?$/i : /$^/, '')}`)
+    .map((b, i) => `${formatPhp(b.php)} ${b.label.replace(/^add\b/i, 'adds').replace(i > 0 ? /\s+credits?$/i : /$^/, '')}`)
     .join(', ');
 }

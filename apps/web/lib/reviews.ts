@@ -501,6 +501,19 @@ export async function fetchTrustedReviewStatsForMany(
   supabase: SupabaseClient,
   vendorProfileIds: ReadonlyArray<string>,
 ): Promise<Map<string, TrustedReviewStatsRow>> {
+  return (await fetchTrustedReviewStatsForManyRead(supabase, vendorProfileIds)) ?? new Map();
+}
+
+/**
+ * The same read with its failure kept: `null` = the read was REFUSED, distinct from an empty Map ("read fine, no
+ * reviews"). A surface that prints "New to Setnayan" for a shop with no stats must read this one, or a failed read
+ * tells couples that every established supplier is brand new (final check A1-041; Discover's own fix in
+ * `marketplace-view.tsx`).
+ */
+export async function fetchTrustedReviewStatsForManyRead(
+  supabase: SupabaseClient,
+  vendorProfileIds: ReadonlyArray<string>,
+): Promise<Map<string, TrustedReviewStatsRow> | null> {
   const ids = Array.from(new Set(vendorProfileIds));
   const m = new Map<string, TrustedReviewStatsRow>();
   if (ids.length === 0) return m;
@@ -508,8 +521,10 @@ export async function fetchTrustedReviewStatsForMany(
     .from('vendor_trusted_review_stats')
     .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
     .in('vendor_profile_id', ids);
-  if (error) console.error('[supabase-error] lib/reviews.ts · from:vendor_trusted_review_stats.select', error);
-  if (error) return m;
+  if (error) {
+    console.error('[supabase-error] lib/reviews.ts · from:vendor_trusted_review_stats.select', error);
+    return null;
+  }
   for (const row of data ?? []) {
     m.set(row.vendor_profile_id as string, {
       vendor_profile_id: row.vendor_profile_id as string,

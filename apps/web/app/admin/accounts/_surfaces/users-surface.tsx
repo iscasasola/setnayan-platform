@@ -1,5 +1,6 @@
 import { sanitizeIlikeTerm } from '@/lib/ugat/data-pure';
 import Link from 'next/link';
+import { ERASURE_WORDS } from '@/lib/erasure/erasure-words';
 import { Search, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2, Gift, ChevronRight, XCircle, LogOut } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { after } from 'next/server';
@@ -600,9 +601,9 @@ function PersonActions({
           </ConfirmForm>
           <ConfirmForm
             action={deleteUser}
-            title="Hard-delete this account?"
+            title="Erase this account?"
             confirmLabel="Delete permanently"
-            message={`Hard-delete ${u.email ?? 'this user'}? Their auth identity is gone; all related data cascade-deletes; the EMAIL is freed for re-signup (e.g., switching from supplier to customer). Not reversible from this page.`}
+            message={`Erase ${u.email ?? 'this user'}? ${ERASURE_WORDS} Their email is freed, so they can sign up again. Not reversible from this page.`}
           >
             <input type="hidden" name="user_id" value={u.user_id} />
             <SubmitButton
@@ -619,7 +620,7 @@ function PersonActions({
             action={blacklistUser}
             title="Blacklist this email?"
             confirmLabel="Blacklist & delete"
-            message={`Blacklist ${u.email ?? 'this user'}? The user is hard-deleted AND the email is permanently blocked from signing up again. Reverse via the Blacklisted filter → Unblacklist.`}
+            message={`Blacklist ${u.email ?? 'this user'}? ${ERASURE_WORDS} The email is also blocked from signing up again. The block (not the erasure) can be lifted from the Blacklisted filter → Unblacklist.`}
           >
             <input type="hidden" name="user_id" value={u.user_id} />
             <SubmitButton

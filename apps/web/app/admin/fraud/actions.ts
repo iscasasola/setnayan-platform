@@ -170,9 +170,10 @@ export async function unsuspendVendor(formData: FormData) {
     .maybeSingle();
   // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
   clearHomeShelf('shops');
-  if (error) throw new Error(`Could not un-suspend: ${error.message}`);
+  // A8·E-13: said on the page (the app-wide `?error=` + `msg` toast), never the crash page.
+  if (error) redirect(`/admin/fraud?error=1&msg=${encodeURIComponent('Couldn’t un-suspend just now. Nothing changed. Try again.')}`);
   if (!updated) {
-    throw new Error('Supplier is not currently auto-suspended (or is already banned).');
+    redirect(`/admin/fraud?error=1&msg=${encodeURIComponent('This supplier is not auto-suspended any more (or is already banned). Nothing changed.')}`);
   }
 
   await writeFraudEnforcementAudit(admin, {

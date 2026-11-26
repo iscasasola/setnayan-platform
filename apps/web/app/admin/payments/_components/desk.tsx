@@ -549,7 +549,8 @@ export function PaymentsList({
    * ⛔ RENDERED, NEVER CONSULTED. `decisive` is computed without it and a guard
    * pins that: `lib/an-ai-may-not-approve-money.test.ts`.
    */
-  receiptReads: Record<string, ReceiptReadRow>;
+  /** null = the reads were refused (A8·A-20). */
+  receiptReads: Record<string, ReceiptReadRow> | null;
 }) {
   // A8·A-11: no pending payments is not "nothing to reconcile" while money sits in the BDO pile (or its read
   // failed). With an empty queue the pile, its failure line and its drop tile stay on screen above the empty line.
@@ -669,7 +670,7 @@ export function PaymentsList({
                   what={whatTheyBought(d.p, deskBills)}
                   channel={isMayaPayment(d.p.channel) ? MAYA_TAG : channelLabel(channelSettings, d.p.channel)}
                   verdict={rowVerdict(d.p, deskBills)}
-                  read={receiptReads[d.p.payment_id]}
+                  read={receiptReads?.[d.p.payment_id]}
                   age={ageShort(d.p.created_at, nowMs)}
                 />
               ))}
@@ -822,7 +823,8 @@ export function OpenedPayment({
   screenshotUrlMap: Record<string, string>;
   sameDayOrderIds: Set<string>;
   /** ⛔ RENDERED, NEVER CONSULTED (`lib/an-ai-may-not-approve-money.test.ts`). */
-  receiptReads: Record<string, ReceiptReadRow>;
+  /** null = the reads were refused (A8·A-20). */
+  receiptReads: Record<string, ReceiptReadRow> | null;
   eventInfo: OrderEventInfoResult;
   deskBills: Map<string, DeskBill>;
   dupExposure: DuplicateExposureResult;
@@ -920,7 +922,7 @@ export function OpenedPayment({
       ) : null}
 
       <ReceiptReadCard
-        read={receiptReads[p.payment_id]}
+        read={receiptReads ? receiptReads[p.payment_id] : 'unread'}
         paymentId={p.payment_id}
         hasScreenshot={Boolean(p.screenshot_url)}
         imageUrl={screenshotUrlMap[p.payment_id] ?? null}
@@ -1699,12 +1701,13 @@ export type DuplicateExposureResult = {
  * a colour edit on somebody else's badge belongs in its own change.
  */
 export function ReceiptReadCard({
-  read,
+  read: given,
   paymentId,
   hasScreenshot,
   imageUrl,
 }: {
-  read: ReceiptReadRow | undefined;
+  /** 'unread' = the reads were refused: said as such, never "Nobody has read this picture yet" (A8·A-20). */
+  read: ReceiptReadRow | undefined | 'unread';
   paymentId: string;
   hasScreenshot: boolean;
   /** The signed link this screen already shows — the admin's phone reads it (no outside AI). */
@@ -1714,6 +1717,8 @@ export function ReceiptReadCard({
   // number alone (the form allows it), and an empty "we could not read it" card
   // on that row would look like a fault where there is none.
   if (!hasScreenshot) return null;
+  const unread = given === 'unread';
+  const read = unread ? undefined : given;
 
   const tone: 'agrees' | 'disagrees' | 'unknown' =
     read?.status !== 'ok'
@@ -1751,9 +1756,11 @@ export function ReceiptReadCard({
         data-read-tone={tone}
         style={toneVar ? { color: `rgb(var(--color-${toneVar}))` } : undefined}
       >
-        {read
-          ? (read.summary ?? read.error ?? 'Nothing came back.')
-          : 'Nobody has read this picture yet.'}
+        {unread
+          ? 'Couldn’t read what the reader saw. Refresh to try again.'
+          : read
+            ? (read.summary ?? read.error ?? 'Nothing came back.')
+            : 'Nobody has read this picture yet.'}
       </p>
 
       {/* ➕ ADMIN REORG v7 (owner 17 Nov 2026): one line per field read off the photo — "Matches ✓" or

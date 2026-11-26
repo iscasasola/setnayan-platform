@@ -1,5 +1,7 @@
 'use server';
 
+import { isRedirectError } from 'next/dist/client/components/redirect-error';
+
 import { requireAdminCan } from '@/lib/admin/can.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { revalidatePath } from 'next/cache';
@@ -157,6 +159,34 @@ function deskUrl(q: string | null, notice?: string, warn = false): string {
   return `/admin/payments?${parts.join('&')}`;
 }
 
+/**
+ * A8·A-2 / A8·E-13: a refusal is said ON THE DESK, never as the crash page.
+ * A production build hides a thrown server-action message, so "needs a second
+ * admin — the request is open in Approvals", "already refunded" and Maya's own
+ * refusal never reached the admin. Every throw these presses make is a plain
+ * sentence; it lands back on the opened payment (or the searched order) as a
+ * warn notice. Redirects and not-found pass straight through.
+ */
+async function sayRefusalOnTheDesk(formData: FormData, run: () => Promise<unknown>): Promise<void> {
+  // A server caller that shows the refusal in its own place (Admin › Work) asks for the throw.
+  if (formData.get('refusal') === 'throw') {
+    await run();
+    return;
+  }
+  try {
+    await run();
+  } catch (err) {
+    if (isRedirectError(err) || !(err instanceof Error)) throw err;
+    const paymentId = nullIfBlank(formData.get('payment_id'));
+    if (paymentId) {
+      redirect(
+        `/admin/payments?open=${encodeURIComponent(paymentId)}&notice=${encodeURIComponent(err.message)}&noticeType=warn`,
+      );
+    }
+    redirect(deskUrl(deskQuery(formData.get('q')), err.message, true));
+  }
+}
+
 /** A Focus `next` address — only `/admin` or `/admin?card=…`, never a URL from elsewhere. */
 function focusNext(raw: FormDataEntryValue | null): string | null {
   if (typeof raw !== 'string') return null;
@@ -239,6 +269,8 @@ export async function approvePayment(formData: FormData) {
     }
     const fd = new FormData();
     fd.set('payment_id', paymentId);
+    // The desk's own handler says the refusal, so it asks for the throw (as Work does).
+    fd.set('refusal', 'throw');
     if (reason === 'unreadable') {
       fd.set('admin_resubmit_notice', NOT_RECEIVED_REASONS.unreadable.notes);
       await requestPaymentResubmit(fd);
@@ -1345,132 +1377,134 @@ async function issueReceiptForOrder(args: {
 }
 
 export async function rejectPayment(formData: FormData) {
-  const { userId } = await requireAdmin();
-  // Areas × levels (DECISION_LOG 2026-11-13): payments · basic.
-  await requireAdminCan('payments', 'basic');
-  const paymentId = formData.get('payment_id');
-  const adminNotes = nullIfBlank(formData.get('admin_notes'));
-  if (typeof paymentId !== 'string') throw new Error('Invalid input');
+  return sayRefusalOnTheDesk(formData, async () => {
+    const { userId } = await requireAdmin();
+    // Areas × levels (DECISION_LOG 2026-11-13): payments · basic.
+    await requireAdminCan('payments', 'basic');
+    const paymentId = formData.get('payment_id');
+    const adminNotes = nullIfBlank(formData.get('admin_notes'));
+    if (typeof paymentId !== 'string') throw new Error('Invalid input');
 
-  const admin = createAdminClient();
-  // State-machine guard (Task 8 pilot hardening, 2026-06-01): only flip
-  // pending → rejected. Mirrors approvePayment guard — if another admin
-  // already approved or rejected this payment, the WHERE filter zeros the
-  // update and we surface "already resolved" rather than overwriting a
-  // matched payment + double-notifying the customer.
-  const { data: payment, error } = await admin
-    .from('payments')
-    .update({
-      status: 'rejected',
-      admin_notes: adminNotes,
-      reviewed_by_user_id: userId,
-      reviewed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('payment_id', paymentId)
-    .eq('status', 'pending')
-    .select('order_id, user_id, amount_php')
-    .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!payment) {
-    const { data: existing } = await admin
+    const admin = createAdminClient();
+    // State-machine guard (Task 8 pilot hardening, 2026-06-01): only flip
+    // pending → rejected. Mirrors approvePayment guard — if another admin
+    // already approved or rejected this payment, the WHERE filter zeros the
+    // update and we surface "already resolved" rather than overwriting a
+    // matched payment + double-notifying the customer.
+    const { data: payment, error } = await admin
       .from('payments')
-      .select('status')
+      .update({
+        status: 'rejected',
+        admin_notes: adminNotes,
+        reviewed_by_user_id: userId,
+        reviewed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       .eq('payment_id', paymentId)
+      .eq('status', 'pending')
+      .select('order_id, user_id, amount_php')
       .maybeSingle();
-    if (!existing) throw new Error('Payment not found');
-    throw new Error(
-      `Payment already resolved (status: ${existing.status}). Refresh the page.`,
-    );
-  }
+    if (error) throw new Error(error.message);
+    if (!payment) {
+      const { data: existing } = await admin
+        .from('payments')
+        .select('status')
+        .eq('payment_id', paymentId)
+        .maybeSingle();
+      if (!existing) throw new Error('Payment not found');
+      throw new Error(
+        `Payment already resolved (status: ${existing.status}). Refresh the page.`,
+      );
+    }
 
-  const { data: order } = await admin
-    .from('orders')
-    .select('event_id, user_id, vendor_profile_id, status, service_key')
-    .eq('order_id', payment.order_id)
-    .maybeSingle();
+    const { data: order } = await admin
+      .from('orders')
+      .select('event_id, user_id, vendor_profile_id, status, service_key')
+      .eq('order_id', payment.order_id)
+      .maybeSingle();
 
-  // PR4 dead-unlock repair (2026-06-15): a permanent rejection must REVOKE
-  // access. checkOrderOwnership() treats any order whose status is NOT in
-  // {cancelled, refunded, lapsed} as OWNED — so leaving the order at
-  // 'submitted' after rejecting its only payment let the couple keep the
-  // unlocked SKU ("pay nothing, keep everything"). Move the order out of the
-  // owned set by flipping it to 'cancelled'. This is the HARD-reject path; the
-  // separate requestPaymentResubmit() action keeps the order alive on purpose
-  // (the couple re-uploads against the same order_id), so it must NOT cancel.
-  //
-  // Only flip orders that are still in a pre-fulfillment, non-terminal state —
-  // never stomp a 'paid'/'fulfilled' order (e.g. a later payment already
-  // settled it) or one already 'cancelled'/'refunded'/'lapsed'. The .in()
-  // WHERE makes this idempotent + race-safe.
-  const { data: cancelledOrder, error: cancelErr } = await admin
-    .from('orders')
-    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
-    .eq('order_id', payment.order_id)
-    .in('status', ['draft', 'submitted', 'awaiting_payment'])
-    .select('order_id')
-    .maybeSingle();
-  if (cancelErr) {
-    // Non-fatal: the payment is already rejected + the couple is notified
-    // below. A failed cancel leaves a recoverable state (admin re-runs /
-    // flips the row manually) rather than blocking the rejection. Log it so
-    // the order-status drift is visible.
-    await insertFaultLog({
-      event_type: 'SUPABASE_SAVE_ERROR',
-      element_name: 'Reject payment — cancel order to revoke access',
-      file_path: 'app/admin/payments/actions.ts',
-      error_message: cancelErr.message,
-      payload_snapshot: { paymentId, orderId: payment.order_id, priorStatus: order?.status ?? null },
+    // PR4 dead-unlock repair (2026-06-15): a permanent rejection must REVOKE
+    // access. checkOrderOwnership() treats any order whose status is NOT in
+    // {cancelled, refunded, lapsed} as OWNED — so leaving the order at
+    // 'submitted' after rejecting its only payment let the couple keep the
+    // unlocked SKU ("pay nothing, keep everything"). Move the order out of the
+    // owned set by flipping it to 'cancelled'. This is the HARD-reject path; the
+    // separate requestPaymentResubmit() action keeps the order alive on purpose
+    // (the couple re-uploads against the same order_id), so it must NOT cancel.
+    //
+    // Only flip orders that are still in a pre-fulfillment, non-terminal state —
+    // never stomp a 'paid'/'fulfilled' order (e.g. a later payment already
+    // settled it) or one already 'cancelled'/'refunded'/'lapsed'. The .in()
+    // WHERE makes this idempotent + race-safe.
+    const { data: cancelledOrder, error: cancelErr } = await admin
+      .from('orders')
+      .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+      .eq('order_id', payment.order_id)
+      .in('status', ['draft', 'submitted', 'awaiting_payment'])
+      .select('order_id')
+      .maybeSingle();
+    if (cancelErr) {
+      // Non-fatal: the payment is already rejected + the couple is notified
+      // below. A failed cancel leaves a recoverable state (admin re-runs /
+      // flips the row manually) rather than blocking the rejection. Log it so
+      // the order-status drift is visible.
+      await insertFaultLog({
+        event_type: 'SUPABASE_SAVE_ERROR',
+        element_name: 'Reject payment — cancel order to revoke access',
+        file_path: 'app/admin/payments/actions.ts',
+        error_message: cancelErr.message,
+        payload_snapshot: { paymentId, orderId: payment.order_id, priorStatus: order?.status ?? null },
+      });
+    }
+
+    // If the reject actually cancelled the order, revoke any flag-backed
+    // entitlement it granted (today: SETNAYAN_AI). deactivateOrderSku re-derives
+    // ownership from the post-cancel state and clears events.setnayan_ai_active
+    // iff the event no longer owns AI by any other live order/bundle — symmetric
+    // to refundOrder. (In practice reject only cancels pre-paid orders, which
+    // never stamped the flag, so this is defensive symmetry; the re-derive makes
+    // it safe either way — it never clears a flag the couple still owns.)
+    if (cancelledOrder) {
+      await deactivateOrderSku({
+        admin,
+        orderId: payment.order_id,
+        eventId: order?.event_id ?? null,
+        serviceKey: order?.service_key ?? '',
+        actorUserId: userId,
+      });
+    }
+
+    // Day 3 voucher sprint: ledger write for the payment_rejected transition.
+    // Snapshot the rejected amount + admin reasoning.
+    await appendLedger(admin, {
+      order_id: payment.order_id,
+      event_type: 'payment_rejected',
+      actor_user_id: userId,
+      actor_role: 'admin',
+      amount_centavos: Math.round(Number(payment.amount_php) * 100),
+      payment_id: paymentId,
+      metadata: {
+        admin_notes: adminNotes,
+        // Record whether the reject also cancelled the order (it's a no-op when
+        // the order had already settled to paid/fulfilled by another payment).
+        order_cancelled: Boolean(cancelledOrder),
+        prior_order_status: order?.status ?? null,
+      },
     });
-  }
 
-  // If the reject actually cancelled the order, revoke any flag-backed
-  // entitlement it granted (today: SETNAYAN_AI). deactivateOrderSku re-derives
-  // ownership from the post-cancel state and clears events.setnayan_ai_active
-  // iff the event no longer owns AI by any other live order/bundle — symmetric
-  // to refundOrder. (In practice reject only cancels pre-paid orders, which
-  // never stamped the flag, so this is defensive symmetry; the re-derive makes
-  // it safe either way — it never clears a flag the couple still owns.)
-  if (cancelledOrder) {
-    await deactivateOrderSku({
-      admin,
-      orderId: payment.order_id,
-      eventId: order?.event_id ?? null,
-      serviceKey: order?.service_key ?? '',
-      actorUserId: userId,
+    await notifyBuyerIfAny(payment.user_id, {
+      type: 'payment_rejected',
+      title: `Payment of ${formatPhp(payment.amount_php)} couldn't be matched`,
+      body: adminNotes ?? 'Please review and try again, or reach out to support.',
+      relatedUrl: noticeLinkFor(order, payment.order_id, payment.user_id),
     });
-  }
 
-  // Day 3 voucher sprint: ledger write for the payment_rejected transition.
-  // Snapshot the rejected amount + admin reasoning.
-  await appendLedger(admin, {
-    order_id: payment.order_id,
-    event_type: 'payment_rejected',
-    actor_user_id: userId,
-    actor_role: 'admin',
-    amount_centavos: Math.round(Number(payment.amount_php) * 100),
-    payment_id: paymentId,
-    metadata: {
-      admin_notes: adminNotes,
-      // Record whether the reject also cancelled the order (it's a no-op when
-      // the order had already settled to paid/fulfilled by another payment).
-      order_cancelled: Boolean(cancelledOrder),
-      prior_order_status: order?.status ?? null,
-    },
+    revalidatePath('/admin/payments');
+    // PR4: the reject may have cancelled the order (revoking a SKU), so force the
+    // couple's gated surfaces to re-render locked — mirrors the layout-level
+    // revalidate approvePayment + refundOrder use for the access flip.
+    revalidatePath('/dashboard', 'layout');
   });
-
-  await notifyBuyerIfAny(payment.user_id, {
-    type: 'payment_rejected',
-    title: `Payment of ${formatPhp(payment.amount_php)} couldn't be matched`,
-    body: adminNotes ?? 'Please review and try again, or reach out to support.',
-    relatedUrl: noticeLinkFor(order, payment.order_id, payment.user_id),
-  });
-
-  revalidatePath('/admin/payments');
-  // PR4: the reject may have cancelled the order (revoking a SKU), so force the
-  // couple's gated surfaces to re-render locked — mirrors the layout-level
-  // revalidate approvePayment + refundOrder use for the access flip.
-  revalidatePath('/dashboard', 'layout');
 }
 
 // ============================================================================
@@ -1523,100 +1557,102 @@ export async function rejectPayment(formData: FormData) {
 // ============================================================================
 
 export async function requestPaymentResubmit(formData: FormData) {
-  const { userId } = await requireAdmin();
-  // Areas × levels (DECISION_LOG 2026-11-13): payments · basic.
-  await requireAdminCan('payments', 'basic');
-  const paymentId = formData.get('payment_id');
-  const noticeRaw = formData.get('admin_resubmit_notice');
-  if (typeof paymentId !== 'string') throw new Error('Invalid input');
+  return sayRefusalOnTheDesk(formData, async () => {
+    const { userId } = await requireAdmin();
+    // Areas × levels (DECISION_LOG 2026-11-13): payments · basic.
+    await requireAdminCan('payments', 'basic');
+    const paymentId = formData.get('payment_id');
+    const noticeRaw = formData.get('admin_resubmit_notice');
+    if (typeof paymentId !== 'string') throw new Error('Invalid input');
 
-  // Resubmit notice is REQUIRED — the couple needs to know what was wrong
-  // so they can fix it before re-uploading. A blank notice would be worse
-  // than a hard rejection (at least rejection has a clear next-action:
-  // contact support). Enforce server-side too · the admin form already
-  // has minLength=10 client-side but a hand-rolled POST could slip past.
-  if (typeof noticeRaw !== 'string') {
-    throw new Error('Resubmit notice is required.');
-  }
-  const notice = noticeRaw.trim();
-  if (notice.length < 10) {
-    throw new Error(
-      'Resubmit notice needs at least 10 characters so the couple knows what to fix.',
-    );
-  }
-  if (notice.length > 2000) {
-    throw new Error('Resubmit notice is too long — please keep it under 2000 characters.');
-  }
+    // Resubmit notice is REQUIRED — the couple needs to know what was wrong
+    // so they can fix it before re-uploading. A blank notice would be worse
+    // than a hard rejection (at least rejection has a clear next-action:
+    // contact support). Enforce server-side too · the admin form already
+    // has minLength=10 client-side but a hand-rolled POST could slip past.
+    if (typeof noticeRaw !== 'string') {
+      throw new Error('Resubmit notice is required.');
+    }
+    const notice = noticeRaw.trim();
+    if (notice.length < 10) {
+      throw new Error(
+        'Resubmit notice needs at least 10 characters so the couple knows what to fix.',
+      );
+    }
+    if (notice.length > 2000) {
+      throw new Error('Resubmit notice is too long — please keep it under 2000 characters.');
+    }
 
-  const admin = createAdminClient();
+    const admin = createAdminClient();
 
-  // State-machine guard: only flip pending → resubmit_requested. Mirrors the
-  // race-guard pattern from approvePayment + rejectPayment above. If the
-  // payment is already matched/rejected/resubmit_requested by a parallel
-  // admin (race · double-click · stale page), surface "already resolved"
-  // instead of overwriting.
-  const { data: payment, error: pErr } = await admin
-    .from('payments')
-    .update({
-      status: 'resubmit_requested',
-      admin_resubmit_notice: notice,
-      reviewed_by_user_id: userId,
-      reviewed_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    })
-    .eq('payment_id', paymentId)
-    .eq('status', 'pending')
-    .select('order_id, user_id, amount_php')
-    .maybeSingle();
-  if (pErr) throw new Error(pErr.message);
-  if (!payment) {
-    const { data: existing } = await admin
+    // State-machine guard: only flip pending → resubmit_requested. Mirrors the
+    // race-guard pattern from approvePayment + rejectPayment above. If the
+    // payment is already matched/rejected/resubmit_requested by a parallel
+    // admin (race · double-click · stale page), surface "already resolved"
+    // instead of overwriting.
+    const { data: payment, error: pErr } = await admin
       .from('payments')
-      .select('status')
+      .update({
+        status: 'resubmit_requested',
+        admin_resubmit_notice: notice,
+        reviewed_by_user_id: userId,
+        reviewed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
       .eq('payment_id', paymentId)
+      .eq('status', 'pending')
+      .select('order_id, user_id, amount_php')
       .maybeSingle();
-    if (!existing) throw new Error('Payment not found');
-    throw new Error(
-      `Payment already resolved (status: ${existing.status}). Refresh the page.`,
-    );
-  }
+    if (pErr) throw new Error(pErr.message);
+    if (!payment) {
+      const { data: existing } = await admin
+        .from('payments')
+        .select('status')
+        .eq('payment_id', paymentId)
+        .maybeSingle();
+      if (!existing) throw new Error('Payment not found');
+      throw new Error(
+        `Payment already resolved (status: ${existing.status}). Refresh the page.`,
+      );
+    }
 
-  // Look up the order so the couple's email + in-app notification can deep-
-  // link directly to the order detail page where they re-upload.
-  const { data: order } = await admin
-    .from('orders')
-    .select('event_id, user_id, vendor_profile_id, service_key, public_id, reference_code')
-    .eq('order_id', payment.order_id)
-    .maybeSingle();
+    // Look up the order so the couple's email + in-app notification can deep-
+    // link directly to the order detail page where they re-upload.
+    const { data: order } = await admin
+      .from('orders')
+      .select('event_id, user_id, vendor_profile_id, service_key, public_id, reference_code')
+      .eq('order_id', payment.order_id)
+      .maybeSingle();
 
-  // Day 3 voucher sprint: ledger write for the payment_resubmit_requested
-  // transition. Snapshot the admin's reasoning in the metadata.
-  await appendLedger(admin, {
-    order_id: payment.order_id,
-    event_type: 'payment_resubmit_requested',
-    actor_user_id: userId,
-    actor_role: 'admin',
-    amount_centavos: Math.round(Number(payment.amount_php) * 100),
-    payment_id: paymentId,
-    metadata: { admin_resubmit_notice: notice },
+    // Day 3 voucher sprint: ledger write for the payment_resubmit_requested
+    // transition. Snapshot the admin's reasoning in the metadata.
+    await appendLedger(admin, {
+      order_id: payment.order_id,
+      event_type: 'payment_resubmit_requested',
+      actor_user_id: userId,
+      actor_role: 'admin',
+      amount_centavos: Math.round(Number(payment.amount_php) * 100),
+      payment_id: paymentId,
+      metadata: { admin_resubmit_notice: notice },
+    });
+
+    // emitNotification auto-fires both the in-app row AND a Resend email when
+    // RESEND_API_KEY is configured (lib/notification-emit.ts:46). The email
+    // body is composed from the title + body + relatedUrl — brand-voice copy
+    // here surfaces verbatim to the couple's inbox.
+    await notifyBuyerIfAny(payment.user_id, {
+      type: 'payment_resubmit_requested',
+      title: customerOrderName(order)
+        ? `Please re-upload your payment for order ${customerOrderName(order)}`
+        : 'Please re-upload your payment',
+      // The admin's notice IS the body — they know what the couple needs to
+      // fix. We don't editorialize · we pass it through verbatim.
+      body: notice,
+      relatedUrl: noticeLinkFor(order, payment.order_id, payment.user_id),
+    });
+
+    revalidatePath('/admin/payments');
   });
-
-  // emitNotification auto-fires both the in-app row AND a Resend email when
-  // RESEND_API_KEY is configured (lib/notification-emit.ts:46). The email
-  // body is composed from the title + body + relatedUrl — brand-voice copy
-  // here surfaces verbatim to the couple's inbox.
-  await notifyBuyerIfAny(payment.user_id, {
-    type: 'payment_resubmit_requested',
-    title: customerOrderName(order)
-      ? `Please re-upload your payment for order ${customerOrderName(order)}`
-      : 'Please re-upload your payment',
-    // The admin's notice IS the body — they know what the couple needs to
-    // fix. We don't editorialize · we pass it through verbatim.
-    body: notice,
-    relatedUrl: noticeLinkFor(order, payment.order_id, payment.user_id),
-  });
-
-  revalidatePath('/admin/payments');
 }
 
 // ============================================================================
@@ -1657,111 +1693,115 @@ export async function requestPaymentResubmit(formData: FormData) {
 // ============================================================================
 
 export async function refundOrder(formData: FormData) {
-  const { userId: adminUserId } = await requireAdmin();
-  // Areas × levels (DECISION_LOG 2026-11-13): refunds · escalated.
-  await requireAdminCan('refunds', 'escalated');
-  // ── A SERVICE THEY CANNOT USE (owner 2026-11-05 "yes to refund"; /refunds) ──
-  // Two intent branches, not new exported actions: the server-action budget is
-  // at its ceiling, and both sit beside this refund tool on the same order row.
-  // Neither moves money. See lib/admin/service-remedies.server.ts.
-  const intent = formData.get('intent');
-  if (intent === 'convert_to_papic_credits' || intent === 'move_to_next_event') {
-    return serviceRemedy(adminUserId, intent, formData);
-  }
-  // ── 💳 A MAYA-PAID ORDER IS HANDED BACK THROUGH MAYA (owner 2026-11-22 · specs 86f20253) ──
-  // An intent branch, not a new action (the budget is at its ceiling). Maya is asked FIRST; only its yes is
-  // recorded, through applyRefund below — the same flip, revocations, ledger row, audit and notice.
-  if (intent === 'maya_reverse') {
-    return mayaReverse(adminUserId, formData);
-  }
-  const orderId = formData.get('order_id');
-  const reason = nullIfBlank(formData.get('reason'));
-  const proofUrl = nullIfBlank(formData.get('proof_url'));
-  const amountRaw = formData.get('refund_amount_php');
+  // A8·A-2: the whole press runs inside the desk's refusal catcher, so the two-admin request, "already refunded"
+  // and Maya's own refusal land on the opened payment as a notice — never the crash page.
+  return sayRefusalOnTheDesk(formData, async () => {
+    const { userId: adminUserId } = await requireAdmin();
+    // Areas × levels (DECISION_LOG 2026-11-13): refunds · escalated.
+    await requireAdminCan('refunds', 'escalated');
+    // ── A SERVICE THEY CANNOT USE (owner 2026-11-05 "yes to refund"; /refunds) ──
+    // Two intent branches, not new exported actions: the server-action budget is
+    // at its ceiling, and both sit beside this refund tool on the same order row.
+    // Neither moves money. See lib/admin/service-remedies.server.ts.
+    const intent = formData.get('intent');
+    if (intent === 'convert_to_papic_credits' || intent === 'move_to_next_event') {
+      return serviceRemedy(adminUserId, intent, formData);
+    }
+    // ── 💳 A MAYA-PAID ORDER IS HANDED BACK THROUGH MAYA (owner 2026-11-22 · specs 86f20253) ──
+    // An intent branch, not a new action (the budget is at its ceiling). Maya is asked FIRST; only its yes is
+    // recorded, through applyRefund below — the same flip, revocations, ledger row, audit and notice.
+    if (intent === 'maya_reverse') {
+      return mayaReverse(adminUserId, formData);
+    }
+    const orderId = formData.get('order_id');
+    const reason = nullIfBlank(formData.get('reason'));
+    const proofUrl = nullIfBlank(formData.get('proof_url'));
+    const amountRaw = formData.get('refund_amount_php');
 
-  if (typeof orderId !== 'string') {
-    throw new Error('Refund missing order_id.');
-  }
-  if (!reason || reason.length < 20) {
-    throw new Error(
-      'Refund needs a reason (at least 20 characters) so we have a paper trail for the couple.',
-    );
-  }
-  if (typeof amountRaw !== 'string') {
-    throw new Error('Refund amount is required.');
-  }
-  const amountPhp = Number(amountRaw);
-  if (!Number.isFinite(amountPhp) || amountPhp <= 0) {
-    throw new Error('Refund amount must be a positive number.');
-  }
-  // Inherit the same ₱100M paste-typo guard confirmOrderTotal uses below —
-  // wedding totals never approach this in practice.
-  const MAX_REFUND_AMOUNT_PHP = 100_000_000;
-  if (amountPhp > MAX_REFUND_AMOUNT_PHP) {
-    throw new Error(
-      `Refund amount ${amountPhp} exceeds the ₱${MAX_REFUND_AMOUNT_PHP.toLocaleString()} sanity ceiling — double-check the input.`,
-    );
-  }
-  const refundCentavos = Math.round(amountPhp * 100);
+    if (typeof orderId !== 'string') {
+      throw new Error('Refund missing order_id.');
+    }
+    if (!reason || reason.length < 20) {
+      throw new Error(
+        'Refund needs a reason (at least 20 characters) so we have a paper trail for the couple.',
+      );
+    }
+    if (typeof amountRaw !== 'string') {
+      throw new Error('Refund amount is required.');
+    }
+    const amountPhp = Number(amountRaw);
+    if (!Number.isFinite(amountPhp) || amountPhp <= 0) {
+      throw new Error('Refund amount must be a positive number.');
+    }
+    // Inherit the same ₱100M paste-typo guard confirmOrderTotal uses below —
+    // wedding totals never approach this in practice.
+    const MAX_REFUND_AMOUNT_PHP = 100_000_000;
+    if (amountPhp > MAX_REFUND_AMOUNT_PHP) {
+      throw new Error(
+        `Refund amount ${amountPhp} exceeds the ₱${MAX_REFUND_AMOUNT_PHP.toLocaleString()} sanity ceiling — double-check the input.`,
+      );
+    }
+    const refundCentavos = Math.round(amountPhp * 100);
 
-  const admin = createAdminClient();
+    const admin = createAdminClient();
 
-  // Step 1: read current order state so the audit-log carries before-JSON +
-  // we can surface useful messages when the idempotent flip is a no-op.
-  const { data: orderBefore, error: readErr } = await admin
-    .from('orders')
-    .select(
-      'order_id, user_id, vendor_profile_id, event_id, public_id, status, service_key, requested_total_php, confirmed_total_php',
-    )
-    .eq('order_id', orderId)
-    .maybeSingle();
-  if (readErr) throw new Error(readErr.message);
-  if (!orderBefore) throw new Error('Order not found.');
+    // Step 1: read current order state so the audit-log carries before-JSON +
+    // we can surface useful messages when the idempotent flip is a no-op.
+    const { data: orderBefore, error: readErr } = await admin
+      .from('orders')
+      .select(
+        'order_id, user_id, vendor_profile_id, event_id, public_id, status, service_key, requested_total_php, confirmed_total_php',
+      )
+      .eq('order_id', orderId)
+      .maybeSingle();
+    if (readErr) throw new Error(readErr.message);
+    if (!orderBefore) throw new Error('Order not found.');
 
-  // Idempotent no-op when the order is already refunded — surface a friendly
-  // message rather than re-firing the notification and audit row. The same
-  // path catches the case where a concurrent admin refunded a few seconds
-  // ago: the read here would already show status='refunded'.
-  if (orderBefore.status === 'refunded') {
-    revalidatePath('/admin/payments');
-    throw new Error(
-      `Order ${orderBefore.public_id} is already marked refunded. Nothing to do — refresh the page.`,
-    );
-  }
+    // Idempotent no-op when the order is already refunded — surface a friendly
+    // message rather than re-firing the notification and audit row. The same
+    // path catches the case where a concurrent admin refunded a few seconds
+    // ago: the read here would already show status='refunded'.
+    if (orderBefore.status === 'refunded') {
+      revalidatePath('/admin/payments');
+      throw new Error(
+        `Order ${orderBefore.public_id} is already marked refunded. Nothing to do — refresh the page.`,
+      );
+    }
 
-  // Only paid / fulfilled orders can be refunded. Cancelled / draft /
-  // submitted / awaiting_payment orders shouldn't surface a refund button
-  // in the UI, but we guard server-side too so a hand-rolled form post
-  // can't slip past.
-  if (!(orderBefore.status === 'paid' || orderBefore.status === 'fulfilled')) {
-    throw new Error(
-      `Refund only applies to paid or fulfilled orders. This order is ${orderBefore.status} — cancel or close it instead.`,
-    );
-  }
+    // Only paid / fulfilled orders can be refunded. Cancelled / draft /
+    // submitted / awaiting_payment orders shouldn't surface a refund button
+    // in the UI, but we guard server-side too so a hand-rolled form post
+    // can't slip past.
+    if (!(orderBefore.status === 'paid' || orderBefore.status === 'fulfilled')) {
+      throw new Error(
+        `Refund only applies to paid or fulfilled orders. This order is ${orderBefore.status} — cancel or close it instead.`,
+      );
+    }
 
-  // ── VENDOR AGREEMENT § 9.1 · a refund over ₱25,000 takes two admins ───────
-  //
-  // The clause is explicit in both directions: "Refund any single transaction
-  // > ₱25,000" is a major decision, and "Process a refund ≤ ₱25,000" is named
-  // as single-admin authority for the Disputes and Payments Handlers. So this
-  // gate is STRICT — at exactly ₱25,000 one admin is enough, and widening it
-  // would take back authority the vendor was promised.
-  //
-  // Gated HERE, after the order has been read and proved refundable, so a
-  // second admin is never asked to approve a refund against an order that is
-  // already refunded or was never paid.
-  if (refundNeedsTwoAdmins(amountPhp)) {
-    await openLargeRefundApproval(admin, { orderId, orderBefore, amountPhp, reason, proofUrl, adminUserId });
-  }
+    // ── VENDOR AGREEMENT § 9.1 · a refund over ₱25,000 takes two admins ───────
+    //
+    // The clause is explicit in both directions: "Refund any single transaction
+    // > ₱25,000" is a major decision, and "Process a refund ≤ ₱25,000" is named
+    // as single-admin authority for the Disputes and Payments Handlers. So this
+    // gate is STRICT — at exactly ₱25,000 one admin is enough, and widening it
+    // would take back authority the vendor was promised.
+    //
+    // Gated HERE, after the order has been read and proved refundable, so a
+    // second admin is never asked to approve a refund against an order that is
+    // already refunded or was never paid.
+    if (refundNeedsTwoAdmins(amountPhp)) {
+      await openLargeRefundApproval(admin, { orderId, orderBefore, amountPhp, reason, proofUrl, adminUserId });
+    }
 
-  await applyRefund(admin, {
-    orderId,
-    orderBefore,
-    reason,
-    proofUrl,
-    amountPhp,
-    refundCentavos,
-    actingAdminId: adminUserId,
+    await applyRefund(admin, {
+      orderId,
+      orderBefore,
+      reason,
+      proofUrl,
+      amountPhp,
+      refundCentavos,
+      actingAdminId: adminUserId,
+    });
   });
 }
 
@@ -2172,61 +2212,63 @@ async function applyRefund(
 }
 
 export async function confirmOrderTotal(formData: FormData) {
-  await requireAdmin();
-  // Areas × levels (DECISION_LOG 2026-11-13): payments · basic.
-  await requireAdminCan('payments', 'basic');
-  const orderId = formData.get('order_id');
-  const confirmedRaw = formData.get('confirmed_total_php');
-  const adminNotes = nullIfBlank(formData.get('admin_notes'));
-  if (typeof orderId !== 'string' || typeof confirmedRaw !== 'string') {
-    throw new Error('Invalid input');
-  }
-  const amount = Number(confirmedRaw);
-  if (!Number.isFinite(amount) || amount < 0) {
-    throw new Error('Confirmed amount must be a non-negative number');
-  }
-  // Sanity ceiling. ₱100M is well above any realistic wedding total
-  // (the largest V1 SKU bundles are well under ₱1M) so anything
-  // higher is a paste-typo, not a real number. Catching it here
-  // beats baking the wrong value into orders + payouts.
-  const MAX_CONFIRMED_AMOUNT_PHP = 100_000_000;
-  if (amount > MAX_CONFIRMED_AMOUNT_PHP) {
-    throw new Error(
-      `Confirmed amount ${amount} exceeds the ₱${MAX_CONFIRMED_AMOUNT_PHP.toLocaleString()} sanity ceiling — double-check the input.`,
-    );
-  }
+  return sayRefusalOnTheDesk(formData, async () => {
+    await requireAdmin();
+    // Areas × levels (DECISION_LOG 2026-11-13): payments · basic.
+    await requireAdminCan('payments', 'basic');
+    const orderId = formData.get('order_id');
+    const confirmedRaw = formData.get('confirmed_total_php');
+    const adminNotes = nullIfBlank(formData.get('admin_notes'));
+    if (typeof orderId !== 'string' || typeof confirmedRaw !== 'string') {
+      throw new Error('Invalid input');
+    }
+    const amount = Number(confirmedRaw);
+    if (!Number.isFinite(amount) || amount < 0) {
+      throw new Error('Confirmed amount must be a non-negative number');
+    }
+    // Sanity ceiling. ₱100M is well above any realistic wedding total
+    // (the largest V1 SKU bundles are well under ₱1M) so anything
+    // higher is a paste-typo, not a real number. Catching it here
+    // beats baking the wrong value into orders + payouts.
+    const MAX_CONFIRMED_AMOUNT_PHP = 100_000_000;
+    if (amount > MAX_CONFIRMED_AMOUNT_PHP) {
+      throw new Error(
+        `Confirmed amount ${amount} exceeds the ₱${MAX_CONFIRMED_AMOUNT_PHP.toLocaleString()} sanity ceiling — double-check the input.`,
+      );
+    }
 
-  const admin = createAdminClient();
-  const { data: order, error } = await admin
-    .from('orders')
-    .update({
-      confirmed_total_php: Math.round(amount * 100) / 100,
-      admin_notes: adminNotes,
-      status: 'awaiting_payment',
-      updated_at: new Date().toISOString(),
-    })
-    .eq('order_id', orderId)
-    .select('user_id, vendor_profile_id, service_key, event_id, public_id, confirmed_total_php')
-    .single();
-  if (error || !order) {
-    await insertFaultLog({
-      event_type: 'SUPABASE_SAVE_ERROR',
-      element_name: 'Confirm order total — quote and set awaiting_payment',
-      file_path: 'app/admin/payments/actions.ts',
-      error_message: error?.message ?? 'Could not update order',
-      payload_snapshot: { orderId, amount },
+    const admin = createAdminClient();
+    const { data: order, error } = await admin
+      .from('orders')
+      .update({
+        confirmed_total_php: Math.round(amount * 100) / 100,
+        admin_notes: adminNotes,
+        status: 'awaiting_payment',
+        updated_at: new Date().toISOString(),
+      })
+      .eq('order_id', orderId)
+      .select('user_id, vendor_profile_id, service_key, event_id, public_id, confirmed_total_php')
+      .single();
+    if (error || !order) {
+      await insertFaultLog({
+        event_type: 'SUPABASE_SAVE_ERROR',
+        element_name: 'Confirm order total — quote and set awaiting_payment',
+        file_path: 'app/admin/payments/actions.ts',
+        error_message: error?.message ?? 'Could not update order',
+        payload_snapshot: { orderId, amount },
+      });
+      throw new Error(error?.message ?? 'Could not update order');
+    }
+
+    await notifyBuyerIfAny(order.user_id, {
+      type: 'order_quoted',
+      title: `Order ${order.public_id} quoted at ${formatPhp(order.confirmed_total_php)}`,
+      body: adminNotes ?? 'Open the order to view payment instructions.',
+      relatedUrl: noticeLinkFor(order, orderId, order.user_id),
     });
-    throw new Error(error?.message ?? 'Could not update order');
-  }
 
-  await notifyBuyerIfAny(order.user_id, {
-    type: 'order_quoted',
-    title: `Order ${order.public_id} quoted at ${formatPhp(order.confirmed_total_php)}`,
-    body: adminNotes ?? 'Open the order to view payment instructions.',
-    relatedUrl: noticeLinkFor(order, orderId, order.user_id),
+    revalidatePath('/admin/payments');
   });
-
-  revalidatePath('/admin/payments');
 }
 
 /**
@@ -2299,7 +2341,13 @@ export async function rereadPaymentReceipt(formData: FormData): Promise<void> {
     .select('payment_id,screenshot_url,reference_number,amount_php,channel')
     .eq('payment_id', paymentId)
     .maybeSingle();
-  if (readError) console.error('[rereadPaymentReceipt] payment read failed', readError.message);
+  const back = `/admin/payments?open=${encodeURIComponent(paymentId)}`;
+  if (readError) {
+    console.error('[rereadPaymentReceipt] payment read failed', readError.message);
+    // A8·A-18: a refused read is said, never redirected as if it worked.
+    revalidatePath('/admin/payments');
+    redirect(`${back}&notice=${encodeURIComponent('Couldn’t read this payment, so nothing was read. Try again.')}&noticeType=warn`);
+  }
 
   const row = data as {
     screenshot_url: string | null;
@@ -2320,5 +2368,6 @@ export async function rereadPaymentReceipt(formData: FormData): Promise<void> {
   }
 
   revalidatePath('/admin/payments');
-  redirect('/admin/payments');
+  // A8·A-18: back to the same opened payment, where the read card shows the result.
+  redirect(back);
 }

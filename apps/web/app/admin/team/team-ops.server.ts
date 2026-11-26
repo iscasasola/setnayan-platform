@@ -28,6 +28,7 @@ import 'server-only';
  */
 
 import { revalidatePath } from 'next/cache';
+import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isAdminProfile } from '@/lib/admin/admin-predicate';
 import { requireAdminCan } from '@/lib/admin/can.server';
@@ -90,11 +91,46 @@ async function maybeStartOwnerWait(
   return true;
 }
 
+/**
+ * A8·D-14: one pending request per person and kind — a second press of Add or
+ * Save must not open a second request that two admins could each approve
+ * (the same rule as `requestTeamMemberGrant`). Fails closed: an unread check
+ * changes nothing.
+ */
+async function pendingRequestFor(
+  admin: AdminClient,
+  actionType: 'grant_team_member' | 'grant_admin_escalated',
+  targetUserId: string,
+): Promise<string | null> {
+  const { data, error } = await admin
+    .from('admin_approval_requests')
+    .select('approval_id')
+    .eq('action_type', actionType)
+    .eq('target_user_id', targetUserId)
+    .eq('status', 'pending')
+    .gt('expires_at', new Date().toISOString())
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(`Couldn’t check for an open request, so nothing was changed: ${error.message}`);
+  return (data?.approval_id as string | undefined) ?? null;
+}
+
+/** A8·D-14: the Team screen says what happened, as a small toast (the app-wide `?saved=` + `msg` bridge). */
+function backToTeam(message: string): never {
+  redirect(`/admin/team?saved=1&msg=${encodeURIComponent(message)}`);
+}
+
+const WAITING_LINE = 'Waiting on a second admin in Approvals.';
+const ALREADY_WAITING_LINE = 'A request for this person is already waiting in Approvals — nothing new was opened.';
+
 async function raiseEscalatedRequest(
   admin: AdminClient,
   args: { actor: string; targetUserId: string; areas: AdminArea[]; rationale: string },
-): Promise<string | null> {
-  if (args.areas.length === 0) return null;
+): Promise<{ approvalId: string | null; already: boolean }> {
+  if (args.areas.length === 0) return { approvalId: null, already: false };
+  if (await pendingRequestFor(admin, 'grant_admin_escalated', args.targetUserId)) {
+    return { approvalId: null, already: true };
+  }
   const { data, error } = await admin
     .from('admin_approval_requests')
     .insert({
@@ -114,7 +150,7 @@ async function raiseEscalatedRequest(
     reason: args.rationale,
     after: { action_type: 'grant_admin_escalated', areas: args.areas },
   });
-  return data.approval_id as string;
+  return { approvalId: data.approval_id as string, already: false };
 }
 
 /**
@@ -148,9 +184,13 @@ export async function addAdminOp(formData: FormData) {
 
   const rationale = `${name ? `${name} · ` : ''}${why}`;
 
+  let said: string;
   if (isAdminProfile(target)) {
     // Already an admin: Basic now, Escalated as a request.
-    await applyAreas(admin, { actor: userId, targetUserId: target.user_id as string, basic, escalated, rationale, callerIsOwner: powers.isOwner, formData });
+    said = await applyAreas(admin, { actor: userId, targetUserId: target.user_id as string, basic, escalated, rationale, callerIsOwner: powers.isOwner, formData });
+  } else if (await pendingRequestFor(admin, 'grant_team_member', target.user_id as string)) {
+    // A8·D-14: a second press never opens a second request.
+    said = ALREADY_WAITING_LINE;
   } else {
     const { data: req, error: insErr } = await admin
       .from('admin_approval_requests')
@@ -171,11 +211,13 @@ export async function addAdminOp(formData: FormData) {
       reason: rationale,
       after: { action_type: 'grant_team_member', target_email: target.email, basic, escalated },
     });
-    await maybeStartOwnerWait(admin, formData, powers.isOwner, req.approval_id as string, userId);
+    const ownerWait = await maybeStartOwnerWait(admin, formData, powers.isOwner, req.approval_id as string, userId);
+    said = ownerWait ? 'Asked. It runs after the 24-hour wait.' : `Asked. ${WAITING_LINE}`;
   }
 
   revalidatePath('/admin/team');
   revalidatePath('/admin/approvals');
+  backToTeam(said);
 }
 
 async function applyAreas(
@@ -189,7 +231,7 @@ async function applyAreas(
     callerIsOwner: boolean;
     formData: FormData;
   },
-) {
+): Promise<string> {
   const { data: current, error } = await admin
     .from('admin_scopes')
     .select('area, level')
@@ -237,13 +279,18 @@ async function applyAreas(
 
   // Giving Escalated — a two-admin request (the owner: typed + 24 h).
   const addEscalated = args.escalated.filter((a) => !has(a, 'escalated'));
-  const approvalId = await raiseEscalatedRequest(admin, {
+  const { approvalId, already } = await raiseEscalatedRequest(admin, {
     actor: args.actor,
     targetUserId: args.targetUserId,
     areas: addEscalated,
     rationale: args.rationale,
   });
-  await maybeStartOwnerWait(admin, args.formData, args.callerIsOwner, approvalId, args.actor);
+  const ownerWait = await maybeStartOwnerWait(admin, args.formData, args.callerIsOwner, approvalId, args.actor);
+  // A8·D-14: the one sentence the Team screen says about this press.
+  const changed = dropBasic.length + dropEscalated.length + addBasic.length > 0;
+  if (already) return ALREADY_WAITING_LINE;
+  if (approvalId) return ownerWait ? 'Saved. Escalated runs after the 24-hour wait.' : `Saved. Escalated is ${WAITING_LINE.charAt(0).toLowerCase()}${WAITING_LINE.slice(1)}`;
+  return changed ? 'Saved.' : 'Nothing changed.';
 }
 
 /** Save one admin's areas × levels. */
@@ -261,10 +308,11 @@ export async function saveAdminAreasOp(formData: FormData) {
 
   const { basic, escalated } = tickedAreas(formData);
   const why = String(formData.get('why') ?? '').trim() || 'Areas changed on the Team screen';
-  await applyAreas(admin, { actor: userId, targetUserId, basic, escalated, rationale: why, callerIsOwner: powers.isOwner, formData });
+  const said = await applyAreas(admin, { actor: userId, targetUserId, basic, escalated, rationale: why, callerIsOwner: powers.isOwner, formData });
 
   revalidatePath('/admin/team');
   revalidatePath('/admin/approvals');
+  backToTeam(said);
 }
 
 /** Take every area away. Immediate; they keep their account (and /admin opens to nothing). */
@@ -293,4 +341,5 @@ export async function takeAllAreasAwayOp(formData: FormData) {
     after: { scopes: [] },
   });
   revalidatePath('/admin/team');
+  backToTeam('Every area taken away. They keep their account.');
 }

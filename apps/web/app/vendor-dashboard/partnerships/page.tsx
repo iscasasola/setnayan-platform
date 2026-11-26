@@ -152,7 +152,8 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   }
   const otherName = (p: PartnershipRow) => {
     const id = p.recommending_vendor_id === myId ? p.recommended_vendor_id : p.recommending_vendor_id;
-    return nameMap.get(id) ?? id;
+    // 🪪 Never a raw id as a shop's name (final check A5-G6-06).
+    return nameMap.get(id) ?? 'Couldn\u2019t read this shop\u2019s name';
   };
 
   // Partition into the three inbox buckets + accepted partners.
@@ -290,7 +291,7 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
       {/* ── INCOMING PROPOSALS (accept / decline) ─────────────────────────── */}
       <section className="mb-8">
         <h2 className="mb-3 flex items-center gap-2 m-mono text-[11px] uppercase tracking-[0.2em] text-ink/55">
-          <Inbox className="h-3.5 w-3.5" /> Incoming requests ({incoming.length})
+          <Inbox className="h-3.5 w-3.5" /> Incoming requests{partnershipsMeasured ? ` (${incoming.length})` : ''}
         </h2>
         {!partnershipsMeasured ? (
           <p

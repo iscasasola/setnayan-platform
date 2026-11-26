@@ -98,6 +98,11 @@ export type SwitcherData = {
    * life, not a missing list.
    */
   eventsMeasured: boolean;
+  /**
+   * A2-B2: false when the whole read threw and `context.shops` is the empty fallback — it then means nothing, and Home's
+   * Shop part must not tell an owner they have no shop. Absent = read normally.
+   */
+  shopsMeasured?: boolean;
   context: SwitcherContext;
   /** Other logins parked on this device (avatar sheet PR2) — display only, never a credential; never this one. */
   otherAccounts?: ParkedAccount[];
@@ -295,6 +300,8 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
     photoFrame: profile ? readProfilePhotoFrame(profile) : null,
     events,
     eventsMeasured: !membershipRes.error,
+    // A2-B2: a refused owned-shops read reaches Home as "couldn't read", never "you have no shop".
+    shopsMeasured: roles.shopsMeasured,
     context,
     // A refused users read is NOT "never chosen": undefined, so the menu reconciles nothing.
     themePreference: userRes.error ? undefined : (profile?.theme_preference ?? null),
@@ -309,6 +316,7 @@ async function loadSwitcherData(userId: string): Promise<SwitcherData> {
       photoUrl: null,
       events: [],
       eventsMeasured: false,
+      shopsMeasured: false,
       context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false, shops: [] },
     };
   }

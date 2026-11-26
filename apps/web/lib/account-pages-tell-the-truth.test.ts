@@ -28,7 +28,9 @@ test('A1-065 · the reset refusal names the limiter’s real wait', () => {
 
 test('A1-062 · a refused You-card read is said, and a save without the saved row is refused', () => {
   const page = src('app/signup/you/page.tsx');
-  assert.match(page, /if \(profileError\) \{[\s\S]{0,400}Couldn’t read your details/);
+  // The same fix landed from area 2 (A2-A7) as the shared `ReadRefusedNotice`; the claim is that a refused read is
+  // said before any card is drawn.
+  assert.match(page, /if \(profileError\) \{[\s\S]{0,400}<ReadRefusedNotice what="your profile" \/>/);
   assert.match(src('app/signup/you/actions.ts'), /if \(mineError\) backWithError\(/);
 });
 

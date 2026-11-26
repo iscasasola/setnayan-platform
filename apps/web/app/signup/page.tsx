@@ -76,6 +76,8 @@ export const metadata: Metadata = {
   description:
     'Create a Setnayan account. Free to start for anyone planning an event. Free baseline listing for Filipino suppliers.',
   alternates: { canonical: '/signup' },
+  // A sign-in page is a door, not a page to find in search (final check A1-160, Add 9 SEO).
+  robots: { index: false, follow: true },
 };
 
 /** The one Terms box (above Google / Apple, a field of the email form by `form=`) and that form — one id each. */

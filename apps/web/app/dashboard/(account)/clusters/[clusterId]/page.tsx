@@ -4,6 +4,7 @@ import { Anchor, ArrowLeft, CalendarRange, Users, Wallet } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { ActionButton } from '@/components/action-button';
 import {
   clusterSpan,
@@ -12,6 +13,7 @@ import {
   fetchClusterTimeline,
   fetchLinkableCelebrations,
   isApproximate,
+  readCluster,
   orderRoster,
   timelineDateLabel,
 } from '@/lib/clusters';
@@ -100,7 +102,17 @@ export default async function ClusterTimelinePage({ params }: Props) {
   if (!user) redirect('/login');
 
   const supabase = await createClient();
-  const cluster = await fetchCluster(supabase, clusterId);
+  const clusterRead = await readCluster(supabase, clusterId);
+  // A2-C12: a refused read is "couldn't read", never a 404 for a group that may well be there.
+  if (!clusterRead.measured) {
+    return (
+      <div className="sn-col space-y-6">
+        <PageMasthead title="Linked events" />
+        <ReadRefusedNotice what="this group" />
+      </div>
+    );
+  }
+  const cluster = clusterRead.cluster;
   // RLS filters a group that is not yours to zero rows, so "not found" and
   // "not yours" arrive here as the same value — and should, since telling the
   // two apart would confirm the group exists.

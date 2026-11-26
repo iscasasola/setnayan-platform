@@ -31,6 +31,8 @@ export const metadata: Metadata = {
   description:
     'Request a password-reset link for your Setnayan account. One account for couples planning their wedding and suppliers selling their services.',
   alternates: { canonical: '/forgot-password' },
+  // A sign-in page is a door, not a page to find in search (final check A1-160, Add 9 SEO).
+  robots: { index: false, follow: true },
 };
 
 type SearchParams = Promise<{

@@ -52,6 +52,8 @@ import {
 import { accountFaceProfileEnabled } from '@/lib/account-face-profile';
 import { slugForwardingLabel } from '@/lib/slug-forwarding-window';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { FORM_READ_FIELD } from '@/lib/form-read';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { PillButton, PillTrack } from '@/app/_components/pill-track';
 import {
   atTag,
@@ -112,6 +114,9 @@ type Props = {
 // Preferences until 2026-10-25, when it MOVED to the account menu (owner: one place for everything) —
 // `app/_components/account-switcher/appearance-choice.tsx`. Preferences no longer draws it.
 
+/** A2-C8: the account type in the person's words (house words: supplier, never vendor). */
+const ACCOUNT_TYPE_WORDS: Record<string, string> = { customer: 'Host', vendor: 'Supplier', admin: 'Setnayan team' };
+
 export default async function ProfilePage({ searchParams }: Props) {
   const search = await searchParams;
   const supabase = await createClient();
@@ -148,6 +153,13 @@ export default async function ProfilePage({ searchParams }: Props) {
       profileErr,
       { user_id: user.id },
       'graceful_degrade',
+    );
+    // A2-C7: a refused read never draws blank forms that Save would write over the saved name, phone and birthday.
+    return (
+      <div className="mx-auto w-full max-w-5xl px-4 py-10 sm:px-6 tab:max-w-3xl lg:px-8">
+        <PageMasthead title="Profile &amp; settings" />
+        <ReadRefusedNotice what="your profile" />
+      </div>
     );
   }
 
@@ -464,6 +476,7 @@ export default async function ProfilePage({ searchParams }: Props) {
       <GroupHeader eyebrow="Who you are" title="Profile" />
       <StayForm door="accProfile.updatePersonalInfo" action={updatePersonalInfo} className="space-y-6">
         <input type="hidden" name="tab" value="profile" />
+        <input type="hidden" name={FORM_READ_FIELD} value="1" />
         {/* The photo control is on this form, so a cleared photo (which posts
             no value at all) is told apart from a form without the photo. */}
         <input type="hidden" name={PRESENCE_MARKERS.profile_photo_url} value="1" />
@@ -607,6 +620,7 @@ export default async function ProfilePage({ searchParams }: Props) {
       {formalNameOffer ? (
         <StayForm door="accProfile.updatePersonalInfo" id="use-event-name" action={updatePersonalInfo} className="hidden">
           <input type="hidden" name="tab" value="profile" />
+          <input type="hidden" name={FORM_READ_FIELD} value="1" />
         </StayForm>
       ) : null}
     </>
@@ -622,6 +636,7 @@ export default async function ProfilePage({ searchParams }: Props) {
       />
       <StayForm door="accProfile.updatePersonalInfo" action={updatePersonalInfo} className="sn-tile space-y-6">
         <input type="hidden" name="tab" value="guest-details" />
+        <input type="hidden" name={FORM_READ_FIELD} value="1" />
         {/* ── AT THE TABLE (owner 2026-08-21) ────────────────────────────
             *"if they create an account to sync, these information will be
             saved on their account automatically."* A guest answers these on
@@ -1276,6 +1291,7 @@ export default async function ProfilePage({ searchParams }: Props) {
               help="Product updates, new templates, seasonal promos. RA 10173 opt-in. Default off."
             >
               <input type="hidden" name="tab" value="preferences" />
+              <input type="hidden" name={FORM_READ_FIELD} value="1" />
               <input type="hidden" name={PRESENCE_MARKERS.marketing_opt_in} value="1" />
               {/* The switch submits the state it is turning TO. */}
               {profile?.marketing_opt_in ? null : (
@@ -1306,18 +1322,13 @@ export default async function ProfilePage({ searchParams }: Props) {
       <div className="space-y-6">
         <dl className="sn-tile grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Row label="Account ID" value={profile?.public_id ?? '—'} mono />
-          <Row label="Account type" value={profile?.account_type ?? '—'} />
+          {/* A2-C8: plain words, never the database's enum ("vendor", "customer"). */}
+          <Row label="Account type" value={ACCOUNT_TYPE_WORDS[profile?.account_type ?? ''] ?? '—'} />
           <Row label="Language" value={activeLocale === 'tl' ? 'Tagalog' : 'English'} />
-          <Row
-            label="Internal account"
-            value={
-              profile?.is_internal
-                ? 'Yes (§ 10a — owner)'
-                : profile?.is_team_member
-                  ? 'Yes (§ 10b — team member)'
-                  : 'No'
-            }
-          />
+          {/* A2-C8: shown only to Setnayan's own people, in plain words — never internal section codes. */}
+          {profile?.is_internal || profile?.is_team_member ? (
+            <Row label="Setnayan team" value={profile?.is_internal ? 'Owner account' : 'Team member'} />
+          ) : null}
         </dl>
 
         <div className="sn-row divide-y divide-ink/10 overflow-hidden">
@@ -1368,7 +1379,10 @@ export default async function ProfilePage({ searchParams }: Props) {
           that is NOT a sign-out.
         */}
 
-        {pendingDeletion ? (
+        {/* A2-C7: a refused read of a pending request never re-offers "Delete my account" (a second filing). */}
+        {pendingDeletionErr ? (
+          <ReadRefusedNotice what="whether you already asked to delete your account" />
+        ) : pendingDeletion ? (
           <div className="space-y-3 rounded-xl border border-warn-300/60 bg-warn-50/60 p-4">
             <div className="flex items-start gap-2">
               <AlertTriangle

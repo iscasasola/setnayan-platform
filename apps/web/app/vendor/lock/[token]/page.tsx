@@ -31,6 +31,7 @@ import {
 } from '@/app/_components/template-rows';
 import { claimLockedQr } from './actions';
 import { formatCount } from '@/lib/format-number';
+import { routes } from '@/lib/routes';
 
 export const metadata = {
   title: 'Lock in your supplier',
@@ -48,6 +49,10 @@ const STATUS_COPY: Record<string, string> = {
   taken: 'This Locked QR has already been used.',
   void: 'This Locked QR is no longer valid.',
   invalid: 'This Locked QR link is not valid.',
+  // 🗓 A6-71 · LAUNCH L9 (owner 25 Nov: the first registered wins) — another couple's claim on this supplier's date
+  // registered first, so this one booked nothing. The code is still the supplier's to move to another date.
+  date_full:
+    'Someone booked this supplier for this date just before you. Nothing was booked. Ask the supplier for another date, or see their other options.',
   // 🚪 owner 2026-11-02 — bookings closed (`lib/bookings-open.ts`, door 7b). The code stays unused.
   bookings_closed: BOOKINGS_CLOSED_COUPLE_MESSAGE,
   not_verified: LOCKED_QR_SHOP_NOT_VERIFIED,
@@ -105,7 +110,7 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
 
   const { data: vendor, error: vendorError } = await admin
     .from('vendor_profiles')
-    .select('business_name, tagline, logo_url, location_city, is_published')
+    .select('business_name, business_slug, tagline, logo_url, location_city, is_published')
     .eq('vendor_profile_id', tok.vendor_profile_id)
     .maybeSingle();
   if (vendorError) {
@@ -254,6 +259,17 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
           {statusMessage}
         </p>
       ) : null}
+      {/* 🗓 A6-71: a date someone else registered first — the shop's page shows the supplier's other options. */}
+      {status === 'date_full' && vendor.business_slug ? (
+        <Link
+          href={routes.v.detail(vendor.business_slug)}
+          data-date-full-shop=""
+          className={actionButtonClass('neutral', { extra: 'mt-3' })}
+        >
+          <Store aria-hidden className="h-4 w-4" />
+          See {vendor.business_name}’s options
+        </Link>
+      ) : null}
 
       {/* Action zone */}
       <div className="mt-6">
@@ -314,13 +330,18 @@ async function countIncompatibleShortlist(
   adminClient: ReturnType<typeof createAdminClient>,
   eventId: string,
   dateKey: string,
-): Promise<{ incompatible: number; total: number }> {
-  const { data: rows } = await adminClient
+): Promise<{ incompatible: number; total: number } | null> {
+  const { data: rows, error } = await adminClient
     .from('event_vendors')
     .select('marketplace_vendor_id')
     .eq('event_id', eventId)
     .in('status', ['considering', 'shortlisted'])
     .not('marketplace_vendor_id', 'is', null);
+  // A6-29: a refused shortlist read is `null` (said as "couldn't check"), never "0 of 0" — the warning never vanishes.
+  if (error) {
+    console.error('[supabase-error] app/vendor/lock/[token]/page.tsx · from:event_vendors.select (shortlist)', error);
+    return null;
+  }
   const ids = Array.from(
     new Set(
       ((rows ?? []) as { marketplace_vendor_id: string | null }[])
@@ -382,14 +403,21 @@ async function ClaimForm({
   // event does to their date and how many shortlisted services may not be free
   // on it. Nothing is committed here; the claim RPC applies it on submit.
   const metaById = new Map<string, EventDateMeta>();
+  // A6-29: a refused date-options read is said ("couldn't check it against your date options"), never a silent
+  // "changes your date" over a date that may be one of their options.
+  let metaUnread = false;
   if (agreedDate) {
-    const { data: metaRows } = await adminClient
+    const { data: metaRows, error: metaError } = await adminClient
       .from('events')
       .select('event_id, date_candidates, date_window_start, date_window_end')
       .in(
         'event_id',
         hostEvents.map((e) => e.event_id),
       );
+    if (metaError) {
+      metaUnread = true;
+      console.error('[supabase-error] app/vendor/lock/[token]/page.tsx · from:events.select (date options)', metaError);
+    }
     for (const m of (metaRows ?? []) as ({ event_id: string } & EventDateMeta)[]) {
       metaById.set(m.event_id, {
         date_candidates: m.date_candidates,
@@ -409,16 +437,20 @@ async function ClaimForm({
           meta?.date_window_end != null &&
           agreedDate >= meta.date_window_start &&
           agreedDate <= meta.date_window_end);
-      const message = inOptions
-        ? `Locking in finalizes your date to ${fmt} — one of your options.`
-        : ev.event_date
-          ? `Locking in changes your date to ${fmt}.`
-          : `Locking in sets your wedding date to ${fmt}.`;
+      const message = metaUnread
+        ? `Locking in sets your event date to ${fmt}. We couldn’t check it against your date options.`
+        : inOptions
+          ? `Locking in finalizes your date to ${fmt} — one of your options.`
+          : ev.event_date
+            ? `Locking in changes your date to ${fmt}.`
+            : `Locking in sets your event date to ${fmt}.`;
       const compat = await countIncompatibleShortlist(adminClient, ev.event_id, agreedDate);
       const warn =
-        compat.incompatible > 0
-          ? `${formatCount(compat.incompatible)} of ${formatCount(compat.total)} shortlisted service${compat.total === 1 ? '' : 's'} may not be free then.`
-          : null;
+        compat === null
+          ? 'We couldn’t check whether your shortlisted suppliers are free then.'
+          : compat.incompatible > 0
+            ? `${formatCount(compat.incompatible)} of ${formatCount(compat.total)} shortlisted service${compat.total === 1 ? '' : 's'} may not be free then.`
+            : null;
       return { message, warn };
     }),
   );

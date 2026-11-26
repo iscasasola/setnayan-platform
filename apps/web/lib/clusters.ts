@@ -103,10 +103,11 @@ export async function fetchMyClusters(
   return { rows: (data ?? []) as ClusterSummary[], measured: true };
 }
 
-export async function fetchCluster(
-  supabase: SupabaseClient,
-  clusterId: string,
-): Promise<ClusterSummary | null> {
+/** A group read: `measured: false` = the read was refused (say "couldn't read"); `cluster: null` = it answered, and
+ *  there is no such group for you (not found and not yours read the same, on purpose). Final check A2-C12. */
+export type ClusterRead = { measured: false } | { measured: true; cluster: ClusterSummary | null };
+
+export async function readCluster(supabase: SupabaseClient, clusterId: string): Promise<ClusterRead> {
   const { data, error } = await supabase
     .from('event_clusters')
     .select('event_cluster_id, public_id, display_name, created_at')
@@ -115,9 +116,15 @@ export async function fetchCluster(
 
   if (error) {
     logQueryError('fetchCluster', error, { cluster_id: clusterId }, 'graceful_degrade');
-    return null;
+    return { measured: false };
   }
-  return (data as ClusterSummary | null) ?? null;
+  return { measured: true, cluster: (data as ClusterSummary | null) ?? null };
+}
+
+/** The group, or null when it could not be read or is not yours — for a caller that only needs a name. */
+export async function fetchCluster(supabase: SupabaseClient, clusterId: string): Promise<ClusterSummary | null> {
+  const read = await readCluster(supabase, clusterId);
+  return read.measured ? read.cluster : null;
 }
 
 /**

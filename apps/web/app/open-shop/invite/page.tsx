@@ -12,6 +12,7 @@ import { INVITE_SHOPS_HEAD, INVITE_SHOPS_LINE, INVITE_SHOPS_PATH, WELCOME_OPENED
 import { QrCard } from '@/app/_components/qr-card';
 import { ActionButton } from '@/components/action-button';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';
+import { OpenShopHeadMark } from '../_components/open-shop-layer';
 import '@/app/vendor-dashboard/_components/supplier-look.css';
 
 /**
@@ -52,16 +53,12 @@ export default async function InviteShopsYouTrustPage({ searchParams }: { search
   const name = row.business_name.trim();
 
   return (
-    <main className="mx-auto grid min-h-[100dvh] w-full max-w-[620px] content-start gap-5 px-4 pb-10 pt-6" data-supplier-look="" data-onboarding-invite="">
+    // ⤴ The closing step of the one open-shop layer (final check B3): its title and line ride in the head; Later and
+    // Done sit in the bar at its foot and both land where the first card's way lands (as does ✕ — the shop is open).
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-clip overscroll-contain" data-supplier-look="" data-onboarding-invite="">
+      <OpenShopHeadMark title={title} line={line} leaveTo={done} />
+      <div className="mx-auto grid w-full max-w-[620px] flex-1 content-start gap-5 px-4 pt-6 md:px-7">
       <FirstRunBrand color="var(--m-ink)" size={13} />
-      <div className="grid gap-[3px]">
-        <h1 className="text-[22px] font-semibold leading-[1.1] tracking-[-0.01em]" style={{ color: 'var(--m-ink)' }}>
-          {title}
-        </h1>
-        <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          {line}
-        </p>
-      </div>
       {url ? (
         <QrCard
           svg={svg}
@@ -83,11 +80,17 @@ export default async function InviteShopsYouTrustPage({ searchParams }: { search
           {INVITE_SHOPS_LINE}
         </p>
       )}
-      {/* PC7: "Later" — share another time (the QR stays in Shop › Partnerships); both go where the first card lands. */}
-      <span className="flex items-center gap-2">
+      </div>
+      {/* PC7: "Later" — share another time (the QR stays in Shop › Partnerships); both go where the first card lands.
+          The layer's bar at its foot (final check B3) — the same bar the steps before it carry. */}
+      <div
+        className="sticky bottom-0 z-10 mt-auto flex items-center gap-2 border-t px-4 pb-[calc(12px+env(safe-area-inset-bottom))] pt-3 md:px-7"
+        style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
+        data-open-shop-bar=""
+      >
         <ActionButton tone="neutral" quiet icon={<Clock aria-hidden className="h-4 w-4" strokeWidth={1.75} />} label="Later" href={done} data-onboarding-invite-later="" />
         <ActionButton tone="brand" main icon={<Check aria-hidden className="h-4 w-4" strokeWidth={1.9} />} label="Done" href={done} className="ml-auto" />
-      </span>
-    </main>
+      </div>
+    </div>
   );
 }

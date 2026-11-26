@@ -1,4 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
+import { ReadFailedBody } from '../../../_components/set-two/read-failed';
+import { PartPage } from '../../../_components/set-two/parts';
 import Link from 'next/link';
 import { TheirEventLine } from '../_components/their-event-line';
 import { redirect } from 'next/navigation';
@@ -104,6 +106,16 @@ export default async function VendorMoodBoardPage({ params, searchParams }: Prop
   const { data, error } = await supabase.rpc('get_vendor_mood_board', {
     p_event_id: eventId,
   });
+  // 🧾 A6-55 (final check 25 Nov): only the RPC's own refusals (42501 · P0002: not booked, fee, not published …) send
+  // the supplier back to the brief; any other error is a read that did not answer — said here, never a silent bounce.
+  if (error && error.code !== '42501' && error.code !== 'P0002') {
+    logQueryError('vendorMoodBoard.board', error, { eventId }, 'graceful_degrade');
+    return (
+      <PartPage column="mx-auto w-full tab:max-w-3xl" mark="mood-board">
+        <ReadFailedBody mark="mood-board">We couldn&rsquo;t load their mood board right now.</ReadFailedBody>
+      </PartPage>
+    );
+  }
   if (error || !data) redirect(vendorClientSurfaceHref(eventId, 'brief', { shellOn: isRelationshipWorkspaceEnabled() }));
 
   const board = data as MoodBoardData;

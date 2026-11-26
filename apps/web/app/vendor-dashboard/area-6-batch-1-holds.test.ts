@@ -74,3 +74,10 @@ test('A6-B13 · some couples unnamed is said on the upload page, not a shorter l
   assert.match(page, /someCouplesUnread=\{someCouplesUnread\}/);
   assert.match(read('app/vendor-dashboard/contracts/new/upload-body.tsx'), /someCouplesUnread \? \(\s*<ReadFailedNote mark="contract-some-couples">/);
 });
+
+test('A6-61(c) · the bill’s own charge row is read ONCE, its failure logged', () => {
+  const src = readFileSync(join(__dirname, 'booking-fees/[orderId]/page.tsx'), 'utf8');
+  assert.equal((src.match(/\.from\('booking_fee_charges'\)/g) ?? []).length, 1, 'booking_fee_charges is read more than once');
+  assert.match(src, /\.select\('event_id, vendor_profile_id, kind, expires_at'\)/);
+  assert.match(src, /if \(chargeErr\) logQueryError\(/);
+});

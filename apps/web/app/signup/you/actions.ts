@@ -1,5 +1,4 @@
 'use server';
-
 /**
  * /signup/you — the one card after the account exists (owner 2026-09-22).
  *
@@ -25,6 +24,7 @@ import { findSlugConflict, SLUG_CONFLICT_MESSAGE, SLUG_FORMAT } from '@/lib/slug
 import { isReservedSlug } from '@/lib/reserved-slugs';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
 import { planYouCard, youHref, YOU_ERRORS } from '@/lib/signup-landing';
+import { formReadRefusal } from '@/lib/form-read';
 
 function backWithError(next: string, error: string): never {
   const sep = youHref(next).includes('?') ? '&' : '?';
@@ -39,6 +39,9 @@ export async function saveYou(formData: FormData): Promise<void> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect(`/signup?next=${encodeURIComponent(next)}`);
+  // A2-A7: a "You" card not drawn from an answered read never writes (Done would clear saved values).
+  const unread = formReadRefusal(formData);
+  if (unread) backWithError(next, unread);
 
   const { data: mine, error: mineError } = await supabase
     .from('users')

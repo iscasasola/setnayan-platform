@@ -196,7 +196,10 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
         .select('venue_latitude, venue_longitude')
         .eq('event_id', coupleEventId)
         .maybeSingle();
-      if (evError) venueReadFailed = true;
+      if (evError) {
+        console.error('[compare] venue read failed', evError.message);
+        venueReadFailed = true;
+      }
       if (
         ev?.venue_latitude !== null &&
         ev?.venue_latitude !== undefined &&
@@ -315,7 +318,10 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
         rows.map((r) => r.vendor_profile_id),
       );
     // A refused read is not "not saved" — the Save cell says it couldn't read (A1-041).
-    if (savedError) savedReadFailed = true;
+    if (savedError) {
+      console.error('[compare] saved suppliers read failed', savedError.message);
+      savedReadFailed = true;
+    }
     savedSet = new Set(
       (saved ?? [])
         .map((s) => s.marketplace_vendor_id)

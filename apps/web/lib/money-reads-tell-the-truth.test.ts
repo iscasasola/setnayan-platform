@@ -114,7 +114,7 @@ test('A1-041 · Compare says each failed read in its own place', () => {
   assert.match(s, /fetchTrustedReviewStatsForManyRead\(/);
   assert.match(s, /if \(trustedReviewStats === null\) \{[\s\S]*?Couldn&rsquo;t read reviews/);
   assert.match(s, /if \(eventReadFailed \|\| venueReadFailed\) \{[\s\S]*?Couldn&rsquo;t read your venue/);
-  assert.match(s, /if \(savedError\) savedReadFailed = true;/);
+  assert.match(s, /if \(savedError\) \{\s*console\.error\([^)]*savedError\.message\);\s*savedReadFailed = true;/);
   assert.match(s, /\{savedReadFailed \? \([\s\S]*?Couldn&rsquo;t read whether it&rsquo;s already saved/);
   const reviews = src('lib/reviews.ts');
   const read = reviews.slice(reviews.indexOf('export async function fetchTrustedReviewStatsForManyRead('));

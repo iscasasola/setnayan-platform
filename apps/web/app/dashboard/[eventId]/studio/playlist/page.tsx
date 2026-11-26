@@ -43,7 +43,8 @@ import {
   PLAYLIST_SLOT_HINTS,
   type PlaylistSlotType,
 } from '@/lib/playlist';
-import { fetchEventSongRequests } from '@/lib/songs';
+import { readEventSongRequests } from '@/lib/songs';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { buildUnsortedTray } from '@/lib/song-desk';
 import { fetchEventSetsForHost, buildVendorSets } from '@/lib/vendor-sets';
 import { PlaylistSlotSection } from './_components/playlist-slot-section';
@@ -67,14 +68,14 @@ export default async function PlaylistPage({ params }: Props) {
   // Fetch event + booked Music vendor (if any) in parallel with picks.
   // Music vendor detection: scan event_vendors for confirmed bookings
   // matching the four Music canonical categories.
-  const [picksRaw, vibes, flatPicks, eventRow, musicVendorRow, hostSets, actNameRows] =
+  const [picksRaw, vibes, flatRead, eventRow, musicVendorRow, hostSets, actNameRows] =
     await Promise.all([
     fetchPlaylistPicks(supabase, eventId),
     // The feel per moment (PR 4) — same event scope, so it joins the batch.
     fetchSlotVibes(supabase, eventId),
     // The couple's FLAT onboarding picks (PR 3) — the tray is these minus
     // whatever is already placed in a moment.
-    fetchEventSongRequests(supabase, eventId),
+    readEventSongRequests(supabase, eventId),
     // ⚠ `display_name`, NOT `event_name` — public.events has no `event_name`
     // column and never has. PostgREST 42703'd the WHOLE query, so
     // `eventRow.data` was always null and the `if (!eventRow.data) redirect(…)`
@@ -115,6 +116,8 @@ export default async function PlaylistPage({ params }: Props) {
   // (lib/playlist.ts). On a failed read this page says so and draws neither the
   // slots nor the tray (below): empty slots and a tray of "unplaced" songs over
   // a list that could not be read invited the host to add every song twice.
+  // S-05 (final check): a refused read of the couple's own picks is said — never a tray that looks "all placed".
+  const flatPicks = flatRead.rows;
   const unsorted = buildUnsortedTray({ flatPicks, placed: picksRaw.rows });
   const grouped = groupPicksBySlot(picksRaw.rows);
 
@@ -163,8 +166,13 @@ export default async function PlaylistPage({ params }: Props) {
         title="Your wedding playlist"
       />
 
-      {/* Sync status chip · whether a Music vendor is already booked. */}
-      {bookedMusic ? (
+      {flatRead.failed ? <ReadRefusedNotice what="the songs you picked when you started" partial className="mb-6" /> : null}
+
+      {/* Sync status chip · whether a Music vendor is already booked. S-05 (final check): a refused read is not
+          "book your DJ first". */}
+      {musicVendorRow.error ? (
+        <ReadRefusedNotice what="whether your DJ or band is booked" className="mb-6" />
+      ) : bookedMusic ? (
         <div className="mb-6 rounded-xl border border-success-300/50 bg-success-50/60 p-4">
           <p className="inline-flex items-start gap-2 text-sm text-success-900">
             <Sparkles

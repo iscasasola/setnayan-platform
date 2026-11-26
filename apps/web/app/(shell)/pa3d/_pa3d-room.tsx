@@ -26,10 +26,10 @@
  */
 
 import { useCallback, useState } from 'react';
-import { Loader2, QrCode, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, QrCode, RotateCcw } from 'lucide-react';
 import { Plan3DSceneLoader } from '@/app/_components/plan3d/plan3d-scene-loader';
 import { useIsMobile } from '@/lib/use-responsive';
-import { actionButtonClass } from '@/components/action-button';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import {
   loadPlan3DDemoScene,
   mintPlan3DGuestQr,
@@ -52,6 +52,8 @@ export function Pa3dRoom({ introduced = false }: { introduced?: boolean } = {}) 
   const [returnSignal, setReturnSignal] = useState(0);
   const [qr, setQr] = useState<Plan3DGuestQr | null>(null);
   const [qrPending, setQrPending] = useState(false);
+  /** A7-05: the last "Turn left / Turn right" tap — a direction and a counter the room reads once per change. */
+  const [turn, setTurn] = useState<{ dir: -1 | 1; n: number } | null>(null);
   /** A7-06: the guest whose code could not be made — drawn as a failure with Try again, never as nothing. */
   const [qrFailedFor, setQrFailedFor] = useState<string | null>(null);
   const isMobile = useIsMobile();
@@ -189,7 +191,21 @@ export function Pa3dRoom({ introduced = false }: { introduced?: boolean } = {}) 
           returnToSeatSignal={returnSignal}
           quality={isMobile ? 'low' : 'high'}
           cinematic
+          pageScroll
+          turnSignal={turn ?? undefined}
         />
+        {/* 🔄 A7-05 (drawing final-check-area-7 § 3): the visible tap path on touch only — two 44-px neutral rounds at the
+            room's bottom corners, each turning the camera one step. With a mouse there is no trap, so none on desktop. */}
+        {!roaming ? (
+          <>
+            <span className="absolute bottom-3 left-3 hidden [@media(pointer:coarse)]:inline-flex" data-pa3d-turn="left">
+              <ActionButton tone="neutral" iconOnly icon={ChevronLeft} label="Turn left" onClick={() => setTurn((t) => ({ dir: -1, n: (t?.n ?? 0) + 1 }))} />
+            </span>
+            <span className="absolute bottom-3 right-3 hidden [@media(pointer:coarse)]:inline-flex" data-pa3d-turn="right">
+              <ActionButton tone="neutral" iconOnly icon={ChevronRight} label="Turn right" onClick={() => setTurn((t) => ({ dir: 1, n: (t?.n ?? 0) + 1 }))} />
+            </span>
+          </>
+        ) : null}
       </div>
 
       {/* The controls are the argument, so they are labelled as claims rather
@@ -233,7 +249,9 @@ export function Pa3dRoom({ introduced = false }: { introduced?: boolean } = {}) 
       <p className="mt-3 text-sm text-[var(--m-slate-2)]">
         {roaming
           ? 'Tap the floor to walk there. Tap the dance floor to dance.'
-          : 'Drag to look around. Tap any seated guest to open the room from their seat.'}
+          : isMobile
+            ? 'Drag sideways or tap the arrows to look around. Tap any seated guest to open the room from their seat.'
+            : 'Drag to look around. Tap any seated guest to open the room from their seat.'}
       </p>
 
       {/* The QR is the pitch's second half: the room is not just yours to look

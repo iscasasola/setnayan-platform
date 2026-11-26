@@ -51,6 +51,8 @@ export default async function AdminHelpGuidesPage({ searchParams }: Props) {
     coverage: 'team',
     askAgainHref: '/admin/help/guides#ask',
     messageHref: '#no-answer-yet',
+    // A8·C-5: the press jumps to the unanswered list on this page; the label says that, not "Message us".
+    messageLabel: 'See what is unanswered',
     doorFor: (key) => helpDoorFor('team', key),
     kind: 'Team guide',
   };

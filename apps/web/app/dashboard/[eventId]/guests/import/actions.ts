@@ -1,5 +1,7 @@
 'use server';
 
+import { logQueryError } from '@/lib/supabase/error-detect';
+
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
@@ -111,7 +113,11 @@ export async function importGuestsCsv(
       .from('guests')
       .insert(fresh.map((r) => ({ ...r.record, event_id: eventId, photo_consent: true })))
       .select('guest_id, plus_one_count');
-    if (insertErr) return { stage: 'error', message: `We could not add them: ${insertErr.message}` };
+    // A2-D7 (SW-RAWDB): one plain sentence; the database's own words go to the log only.
+    if (insertErr) {
+      logQueryError('ImportGuests.insert', insertErr, { eventId }, 'graceful_degrade');
+      return { stage: 'error', message: 'We couldn’t add them — nothing was saved. Try again in a moment.' };
+    }
     touched.push(...((insertedRows ?? []) as typeof touched));
   }
 

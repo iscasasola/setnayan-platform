@@ -1,6 +1,6 @@
 import { ActionButton } from '@/components/action-button';
 import type { ReactNode } from 'react';
-import { Hourglass, LogIn, QrCode, ShieldCheck } from 'lucide-react';
+import { Home, Hourglass, LogIn, QrCode, RotateCw, ShieldCheck } from 'lucide-react';
 import { HubRunOfShow } from '@/app/vendor-dashboard/on-the-day/_components/hub-screen';
 import type { RunOfShowBlock } from '@/lib/run-of-show';
 import { CREW_NO_SCANNER_LINE, CREW_ROLE_LABEL, crewRoleOpens, crewToolsWords, type CrewRole } from '@/lib/crew-pass';
@@ -53,7 +53,8 @@ export function CrewStatus({ title, line, waiting = false, children }: { title: 
         )}
         <h1 className="text-[22px] font-medium leading-snug text-ink">{title}</h1>
         <p className="text-[14.5px] text-ink/70">{line}</p>
-        {children}
+        {/* 🔌 A4-B02: a closed door always offers one way on — never a page with nothing to press. */}
+        {children ?? (waiting ? null : <ActionButton tone="neutral" icon={<Home aria-hidden strokeWidth={1.9} />} label="Go to Setnayan" href="/" />)}
       </div>
     </CrewFrame>
   );
@@ -146,4 +147,9 @@ export function CrewEventHub({
       </div>
     </CrewFrame>
   );
+}
+
+/** 🔌 A4-B02: a failed read on the crew door — "open this page again" becomes a button that does it. */
+export function CrewTryAgain({ token }: { token: string }) {
+  return <ActionButton tone="brand" main icon={<RotateCw aria-hidden strokeWidth={1.9} />} label="Try again" href={`/join/crew/${token}`} />;
 }

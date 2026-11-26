@@ -103,6 +103,8 @@ type Props = {
     override?: string;
     rejected?: string;
     escalated?: string;
+    /** A8·F-14: a reject or escalate that found the appeal already decided. */
+    already?: string;
     flag_dismissed?: string;
   }>;
 };
@@ -193,10 +195,12 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
       : search.rejected === '1'
         ? 'Appeal rejected. Reviewer is notified via email.'
         : search.escalated === '1'
-          ? 'Appeal escalated to the two-admin queue.'
+          ? 'Appeal marked Escalated. It stays in this queue for a second admin to decide.'
           : search.flag_dismissed === '1'
             ? 'Supplier fake-review flag dismissed.'
-            : null;
+            : search.already === '1'
+              ? 'That appeal was already decided by another admin. Nothing was changed.'
+              : null;
 
   // ── Flagged review-mods queue (admin override-publish audit trail) ────
   const { data: flaggedData, error: flaggedError } = await admin
@@ -312,7 +316,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
         first
         data="fake-flags"
         right={!fakeFlagError && fakeFlags.length > 0 ? fakeFlags.length : undefined}
-        tip="Suppliers flag reviews they believe are fake or fraudulent. Dismiss to close, or escalate to the two-admin override queue. SLA: 48 hours."
+        tip="Suppliers flag reviews they believe are fake or fraudulent. Read the review, then dismiss the flag to close it. SLA: 48 hours."
       >
 
         {fakeFlagError ? (
@@ -465,7 +469,7 @@ function AppealCard({
             {SELF_REVIEW_SIGNAL_LABEL[appeal.matched_signal]}
           </p>
         </div>
-        {decided && appeal.decision ? (
+        {(decided || appeal.decision === 'escalated') && appeal.decision ? (
           <span
             className={`rounded-full px-2 py-0.5 text-[12px] font-medium ${
               DECISION_TONE[appeal.decision]
@@ -575,7 +579,7 @@ function AppealCard({
               required
               maxLength={4000}
               rows={2}
-              placeholder="Why escalate? (Routes to two-admin queue)"
+              placeholder="Why escalate? (It stays here for a second admin)"
               className="input-field min-h-[60px] w-full py-2 text-xs"
             />
             <SubmitButton className={actionButtonClass('info')} pendingLabel="Escalating…">

@@ -2561,6 +2561,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "Blob",
         "DemoFilm",
         "Image",
@@ -4056,7 +4057,6 @@
       ],
       "actions": [],
       "blocks": [
-        "EntrancePos",
         "EventHubHeaderBrand",
         "EventSetnayanMarkLine",
         "Link",
@@ -5419,15 +5419,14 @@
         "ColoursActionState",
         "ColoursEditor",
         "ColoursPreview",
+        "ConfirmForm",
         "FormRows",
         "InfoTip",
-        "JobKey",
         "LookAlikeLine",
         "PageMasthead",
         "PickMenu",
         "Sample",
         "Slider",
-        "SwitchRow",
         "TypedRow"
       ]
     },
@@ -6533,6 +6532,7 @@
         "Facts",
         "OldPhotosButton",
         "PageMasthead",
+        "Row",
         "Sec"
       ]
     },
@@ -7016,9 +7016,7 @@
         "admin/reveal-studio/std-video-moderation.tsx",
         "admin/reveal-studio/studio.tsx"
       ],
-      "destinations": [
-        "/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ActionButton",
@@ -12854,7 +12852,9 @@
         "dashboard/[eventId]/studio/panood/setup/venue-check/actions.ts",
         "dashboard/[eventId]/studio/panood/setup/venue-check/page.tsx"
       ],
-      "destinations": [],
+      "destinations": [
+        "/dashboard/[seg]/studio/panood/setup/venue-check"
+      ],
       "actions": [],
       "blocks": [
         "ActionButton",
@@ -20408,6 +20408,7 @@
         "vendor-dashboard/spaces/_components/spaces-screen.tsx",
         "vendor-dashboard/spaces/_components/venue-seat-plan.tsx",
         "vendor-dashboard/spaces/actions.ts",
+        "vendor-dashboard/spaces/loading.tsx",
         "vendor-dashboard/spaces/page.tsx"
       ],
       "destinations": [
@@ -20418,17 +20419,20 @@
         "ActionButton",
         "AddTables",
         "Along",
-        "BackButton",
         "BaseLayout",
         "ChosenRow",
         "CountRow",
         "Counter",
         "DoorKind",
         "DoorList",
+        "EmptyState",
         "Fold",
         "FormRows",
+        "GridPageSkeleton",
         "KindChoice",
         "LockedFeature",
+        "PageMasthead",
+        "PeekToast",
         "PickMenu",
         "PlanPoster",
         "RiseScreen",

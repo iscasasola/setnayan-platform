@@ -451,12 +451,14 @@ export function generateCommunityInviteToken(): string {
 export type PendingCommunityInvite = {
   community_id: string;
   name: string;
-  member_count: number;
+  /** 🔌 A4-13: null when the count could not be read — never drawn as "0 members". */
+  member_count: number | null;
 };
 
 export type CommunityInviteResolution =
   | { status: 'ok'; invite: PendingCommunityInvite }
-  | { status: 'not_found' | 'revoked' | 'expired' | 'archived' };
+  /** 🔌 A4-12: `unreadable` — a read failed; never "This invite link doesn't work". */
+  | { status: 'not_found' | 'revoked' | 'expired' | 'archived' | 'unreadable' };
 
 /**
  * Resolve a public invite token (admin client — the token IS the secret;
@@ -469,11 +471,12 @@ export async function fetchPendingCommunityInvite(
 ): Promise<CommunityInviteResolution> {
   if (!token || token.length < 32) return { status: 'not_found' };
 
-  const { data } = await admin
+  const { data, error } = await admin
     .from('community_invite_tokens')
     .select('community_id, revoked_at, expires_at')
     .eq('token', token)
     .maybeSingle();
+  if (error) return { status: 'unreadable' };
   if (!data) return { status: 'not_found' };
   const row = data as {
     community_id: string;
@@ -485,7 +488,7 @@ export async function fetchPendingCommunityInvite(
     return { status: 'expired' };
   }
 
-  const [{ data: community }, { count }] = await Promise.all([
+  const [{ data: community, error: communityError }, { count, error: countError }] = await Promise.all([
     admin
       .from('communities')
       .select('community_id, name, archived')
@@ -496,6 +499,7 @@ export async function fetchPendingCommunityInvite(
       .select('id', { count: 'exact', head: true })
       .eq('community_id', row.community_id),
   ]);
+  if (communityError) return { status: 'unreadable' };
   if (!community) return { status: 'not_found' };
   const c = community as {
     community_id: string;
@@ -509,7 +513,7 @@ export async function fetchPendingCommunityInvite(
     invite: {
       community_id: c.community_id,
       name: c.name,
-      member_count: count ?? 0,
+      member_count: countError ? null : (count ?? 0),
     },
   };
 }

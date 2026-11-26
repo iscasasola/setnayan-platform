@@ -3,7 +3,7 @@
  * 25 Nov). No sign-in, no database. DEV-ONLY: production builds 404 this route first thing.
  *
  *   ?s=pins   the one pinned row (`ToolPin`) as the supplier pages now draw it — Your details · Settings · Team ·
- *             Their work · Spaces · Deep Search · Packages · Albums by event · Partnerships · Your requests · a request
+ *             Their work · Deep Search · Packages · Albums by event · Partnerships · Your requests · a request
  *   ?s=busy   the three busy frames: Shop › Analytics loading (the skeleton), the QR code maker’s proof photo uploading and
  *             failed (the real `UploadSlotControl`), and a form button working (the real `SubmitButton`) beside a
  *             working `ActionButton`
@@ -17,7 +17,6 @@ const PINS: ReadonlyArray<readonly [route: string, title: string, sub?: string]>
   ['/vendor-dashboard/settings', 'Settings'],
   ['/vendor-dashboard/team', 'Team'],
   ['/vendor-dashboard/services/their-work', 'Their work', 'Photos from every event your cards were booked for'],
-  ['/vendor-dashboard/spaces', 'Spaces', 'Set once for the shop. Your cards pick from here.'],
   ['/vendor-dashboard/deep-search', 'Deep Search'],
   ['/vendor-dashboard/packages', 'Packages'],
   ['/vendor-dashboard/collections/albums', 'Albums by event'],

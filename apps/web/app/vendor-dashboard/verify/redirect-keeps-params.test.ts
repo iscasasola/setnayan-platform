@@ -19,6 +19,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
+import { routes } from '@/lib/routes';
+import { inlineBuilderCalls, routeExists } from '../../../scripts/lib/route-builders.mjs';
 
 const HERE = import.meta.dirname;
 
@@ -54,17 +56,18 @@ test('the route no longer renders the retired 12-document form', () => {
 });
 
 test('the Event Hub "Get verified" link points straight at the papers (Your details › Your documents since step 5)', () => {
-  const src = stripComments(
-    readFileSync(
-      path.join(HERE, '..', 'on-the-day', 'page.tsx'),
-      'utf8',
-    ),
+  // 🧭 Add 47 (26 Nov 2026 — the route builders win): the link is read through the REAL lib/routes.ts builder
+  // (`${routes.vendorDashboard.profile()}#docs`), never as literal text, and the address must be a screen in the map.
+  const src = inlineBuilderCalls(
+    stripComments(readFileSync(path.join(HERE, '..', 'on-the-day', 'page.tsx'), 'utf8')),
+    routes,
   );
   assert.match(
     src,
-    /href="\/vendor-dashboard\/profile#docs"/,
+    /href=(?:"|\{`)\/vendor-dashboard\/profile#docs/,
     'on-the-day/page.tsx "Get verified" link still points at the retired /vendor-dashboard/verify route.',
   );
+  assert.ok(routeExists('/vendor-dashboard/profile'), 'the papers screen is not in lib/ugat/screens.generated.json');
 });
 
 test('the sidebar nav entry points straight at the papers anchor', () => {

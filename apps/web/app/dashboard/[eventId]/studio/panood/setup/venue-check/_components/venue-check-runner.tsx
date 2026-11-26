@@ -279,7 +279,13 @@ export function VenueCheckBusy({
         aria-label="Check progress"
         className="h-2 w-full overflow-hidden rounded-full bg-ink/10"
       >
-        <div className="h-full rounded-full bg-terracotta transition-[width] duration-500" style={{ width: `${pct}%` }} />
+        {/* A7-20 (drawing final-check-area-7 § 2c): the fill is full width and SCALED — transform at Move 320 with the
+            settle curve, never `width` over 500 ms (house E2.2). Reduced motion: it jumps to each value. */}
+        <div
+          className="h-full w-full origin-left rounded-full bg-terracotta motion-reduce:transition-none"
+          style={{ transform: `scaleX(${pct / 100})`, transition: 'transform var(--sn-m-move) var(--sn-m-settle)' }}
+          data-venue-check-fill=""
+        />
       </div>
       <p className="text-sm text-ink/70">
         Upload right now: <span className="font-semibold text-ink">{liveBps !== null ? formatMbps(liveBps) : '—'}</span>
@@ -289,7 +295,7 @@ export function VenueCheckBusy({
   );
 }
 
-/** After a run: the colour, one plain sentence, the four numbers, and the way back. */
+/** After a run: the colour, the one hero number against what the stream needs, one plain sentence, two quiet rows, and the way back. */
 export function VenueCheckDone({
   judgement,
   delayMs,
@@ -313,13 +319,20 @@ export function VenueCheckDone({
           <span aria-hidden className={`inline-block h-3 w-3 rounded-full ${TONE_DOT[tone]}`} />
           {verdictHeadline(judgement.verdict)}
         </p>
+        {/* A7-20 (drawing final-check-area-7 § 2a): ONE hero number (house Part I.3) — the average upload, 30/700, inside
+            the verdict block, said against the stream's yardstick. */}
+        <p data-venue-check-hero="">
+          <span className="block text-sn-title text-ink">{formatMbps(judgement.averageBps)}</span>
+          <span className="mt-1 block text-sn-md text-ink/70">
+            upload · the stream needs {formatMbps(STREAM_FULL_BPS).replace(/ Mbps$/, '')}
+          </span>
+        </p>
         <p className="text-base text-ink/85">{verdictLine(judgement)}</p>
       </div>
-      <dl className="grid grid-cols-2 gap-3">
-        <Fact label="Upload" value={formatMbps(judgement.averageBps)} />
+      {/* The other two numbers are quiet rows: label left, value right, a hairline between, no fill. */}
+      <dl className="divide-y divide-ink/10" data-venue-check-rows="">
         <Fact label="Slowest second" value={formatMbps(judgement.slowestBps)} />
         <Fact label="Delay" value={delayMs === null ? '—' : `${Math.round(delayMs)} ms`} />
-        <Fact label="Stream needs" value={formatMbps(STREAM_FULL_BPS)} />
       </dl>
       <p className="text-sm text-ink/70">
         {checkedOnLine({ finishedAt: checkedAt, placeName, verdict: judgement.verdict })}. Saved to Live Watch setup.
@@ -334,9 +347,9 @@ export function VenueCheckDone({
 
 function Fact({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-ink/5 p-3">
-      <dt className="text-xs text-ink/70">{label}</dt>
-      <dd className="mt-0.5 text-lg font-semibold tracking-tight text-ink">{value}</dd>
+    <div className="flex min-h-11 items-center justify-between gap-3 lg:min-h-9">
+      <dt className="text-sn-base text-ink/70">{label}</dt>
+      <dd className="text-sn-base font-semibold text-ink">{value}</dd>
     </div>
   );
 }

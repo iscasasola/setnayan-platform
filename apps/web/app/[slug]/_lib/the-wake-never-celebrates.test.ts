@@ -227,7 +227,9 @@ const TONE_SITES: Array<[string, string, string]> = [
   ],
   [
     'pabuya/page.tsx',
-    "'The pabuya · digital money dance'",
+    // ✎ Re-frozen 25 Nov 2026 (final check A4-42, SW-WORDS): "Pabuya" is a word a guest never reads (docs/brand.md
+    // § Word rules: E-Gifts, never Pabuya). The celebratory arm is otherwise unchanged; the solemn arm is untouched.
+    "'E-Gifts · digital money dance'",
     "'A gift of sympathy'",
   ],
   [

@@ -20,6 +20,12 @@
  *   - Hash anchors (`#concierge`) are stripped before path resolution since
  *     they only affect in-page scroll, not route resolution.
  *
+ * 🧭 BUILDERS ARE READ, NOT SKIPPED (Add 47, 26 Nov 2026 — the route builders win). A link written through
+ * `lib/routes.ts` — `relatedUrl: routes.dashboard.budget(id)` or `` `${routes.dashboard.vendors.workspace(e, v)}?tab=x` ``
+ * — is resolved by calling the REAL builder (scripts/lib/route-builders.mjs), and the address it builds must be a
+ * screen in lib/ugat/screens.generated.json. Before this, a builder-built link was invisible here, so the house
+ * rule (no typed `/dashboard/…` string) and this guard could not both hold.
+ *
  * Why static + literal-only
  *   - Notifications are emitted from server actions, not at build time, so we
  *     can't dynamically trace every variable. The literal patterns ARE the
@@ -39,6 +45,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, resolve, dirname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadRoutes, inlineBuilderCalls, routeExists } from './lib/route-builders.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const WEB_ROOT = resolve(__dirname, '..');
@@ -114,7 +121,7 @@ const RELATED_URL_RE = /relatedUrl:\s*(?:`([^`]*)`|'([^']*)'|"([^"]*)")/g;
 // ---------------------------------------------------------------------------
 
 function normalize(literal) {
-  let p = literal;
+  let p = literal.split('[seg]').join('${seg}');
   // Strip query + hash before any other processing.
   p = p.split('#')[0].split('?')[0];
   // Replace each `${...}` with a placeholder we'll match against `[*]` later.
@@ -170,8 +177,12 @@ function matchesAnyRoute(normalized) {
 let problemCount = 0;
 const checked = [];
 
+const ROUTE_BUILDERS = await loadRoutes();
+let builtChecked = 0;
+
 for (const file of SOURCE_FILES) {
-  const text = readFileSync(file, 'utf8');
+  const built = new Set();
+  const text = inlineBuilderCalls(readFileSync(file, 'utf8'), ROUTE_BUILDERS, (url) => built.add(url));
   RELATED_URL_RE.lastIndex = 0;
   let m;
   while ((m = RELATED_URL_RE.exec(text)) !== null) {
@@ -179,6 +190,16 @@ for (const file of SOURCE_FILES) {
     if (literal === undefined || literal === '' || literal === 'null') continue;
     const normalized = normalize(literal);
     const rel = relative(WEB_ROOT, file);
+    // A link a builder built must also be a screen in the generated map.
+    if ([...built].some((u) => literal.includes(u))) {
+      builtChecked++;
+      if (!routeExists(literal)) {
+        const lineNo = text.slice(0, m.index).split('\n').length;
+        console.error(`❌ ${rel}:${lineNo} — relatedUrl ${JSON.stringify(literal)} is built by lib/routes.ts but names no screen in lib/ugat/screens.generated.json.`);
+        problemCount++;
+        continue;
+      }
+    }
     if (!matchesAnyRoute(normalized)) {
       // line number for friendlier error message
       const lineNo = text.slice(0, m.index).split('\n').length;
@@ -193,7 +214,7 @@ for (const file of SOURCE_FILES) {
 }
 
 if (problemCount === 0) {
-  console.log(`✅ All ${checked.length} email-template relatedUrl(s) resolve to real routes.`);
+  console.log(`✅ All ${checked.length} email-template relatedUrl(s) resolve to real routes (${builtChecked} built by lib/routes.ts, each a screen in the generated map).`);
   process.exit(0);
 } else {
   console.error(`\n${problemCount} broken email link(s). Fix the route path or add the missing page.tsx.`);

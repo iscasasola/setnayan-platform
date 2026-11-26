@@ -1,5 +1,6 @@
 import { eventRowOnce } from '@/lib/event-row-once';
 import { getCurrentUser } from '@/lib/auth';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { headers } from 'next/headers';
@@ -180,7 +181,12 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
         </div>
       ) : null}
 
-      {cards.length === 0 ? (
+      {zoneRowsError ? (
+        <div className="screen-only" style={{ padding: 24 }}>
+          {/* L-08 (final check): a refused read is not "no join cards". */}
+          <ReadRefusedNotice what="your join cards" />
+        </div>
+      ) : cards.length === 0 ? (
         <div className="screen-only" style={{ padding: 24 }}>
           <InfoTip labelAs="p" label="There are no join cards to print yet." labelClassName="text-sm text-ink/70" align="start">
             Open the control room and make a join QR for

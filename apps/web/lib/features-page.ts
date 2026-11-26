@@ -34,7 +34,7 @@ import type { CatalogueRow } from '@/lib/feature-pages/price';
 import { FEE_SCOPE } from '@/lib/booking-fee-who-words';
 import { formatCount } from '@/lib/format-number';
 import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
-import { TIER_LABEL } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
 
 export type RowStatus = 'live' | 'coming';
 export type RowPrice = 'free' | 'free-plus' | 'paid' | 'credits' | 'per-day' | 'in-plans';
@@ -162,7 +162,7 @@ export const FEATURE_ROWS = {
   c05: F({ icon: 'tag', name: 'The plan sheet', line: 'Going past a limit asks to upgrade; Change plan shows what changes and what you pay.', price: 'free', status: 'live', reg: ['C05'], problem: 'Limits appear as errors; plan changes are a bare dropdown.', solution: 'One sheet: the lowest plan that allows it, what else unlocks, what you pay today.', why: 'Upgrade with your eyes open.' }),
   c06: F({ icon: 'crown', name: 'Supplier plans: Free · Plus · Pro · Ultra', line: 'Operate, grow, scale.', price: 'paid', status: 'live', reg: ['C06'], problem: 'Platforms charge listing fees up front.', solution: 'Free to join; paid plans add seats, reach and insights. Prices from the catalogue.', why: 'Start with nothing.' }),
   c11: F({ icon: 'store', name: 'My Shop', line: 'Profile, photos, cover and logo menu, share, QR, badges.', price: 'free', status: 'live', reg: ['C11'], problem: 'Your business lives on someone else’s page.', solution: 'Your shop with cover, logo, photos, QR codes and badges.', why: 'Your page.' }),
-  c12: F({ icon: 'store', name: 'A public sample shop (SetnaProd)', line: 'See what a full shop looks like.', price: 'free', status: 'coming', reg: ['C12'], plan: 'Build 5 · Lane H', problem: 'A new shop cannot picture the finished look.', solution: 'A public sample shop filled with cards, photos and inspiration.', why: 'Seeing the goal.' }),
+  c12: F({ icon: 'store', name: 'A public sample shop', line: 'See what a full shop looks like.', price: 'free', status: 'coming', reg: ['C12'], plan: 'Build 5 · Lane H', problem: 'A new shop cannot picture the finished look.', solution: 'A public sample shop filled with cards, photos and inspiration.', why: 'Seeing the goal.' }),
   c13: F({ icon: 'door', name: 'Your public shop page', line: 'Dates, booth, guest reviews; written for Google and AI.', price: 'free', status: 'live', reg: ['C13'], problem: 'Nobody finds you from search.', solution: 'A page with your services, dates and reviews that search engines understand.', why: 'Free customers from search.' }),
   c40: F({ icon: 'tag', name: 'The for-suppliers page and plan table', line: 'Free · Plus · Pro · Ultra, side by side.', price: 'free', status: 'live', reg: ['C40'], problem: 'A public plan table can promise more than the plan gives.', solution: 'Each plan shows what it really unlocks for a shop today.', why: 'No surprises after signing up.' }),
   c41: F({ icon: 'grid', name: 'Your category comes from one list', line: 'Group › Category › Service › Part, one source.', price: 'free', status: 'live', reg: ['C41'], problem: 'Categories copied in many places drift apart.', solution: 'One taxonomy; your services, Find and the sheet all read it.', why: 'Couples find the right supplier.' }),
@@ -379,12 +379,31 @@ export const EVENT_PLANS: readonly PlanColumn[] = [
   { name: 'Event Ultra', tag: 'Shared live, kept longer.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_ULTRA'] }, lines: ['Everything in Pro, the most Papic credits', 'Live Watch for one day', 'Full-size photos kept 12 months', `${formatMakerMediaMB(coupleMediaCapBytes('ultra'))} of uploads`], credits: { index: 0, said: (n) => `Everything in Pro, ${n} Papic credits` } },
 ];
 
+/*
+  📏 THE SUPPLIER PLAN FACTS ARE READ FROM `TIER_CAPS` (final check A1-110). They were typed by hand and wrong:
+  Verified said "Unlimited live cards" (its cap is 3), Plus said "operate alone" (it allows the owner plus 2), and
+  Ultra sold "branches and a bigger team" that Pro already has. Each line below is built from the one cap.
+*/
+const capWords = (n: number, one: string, many: string): string =>
+  !Number.isFinite(n) ? `No limit on ${many}` : `${formatCount(n)} ${n === 1 ? one : many}`;
+const cardsLine = (tier: VendorTier) => capWords(TIER_CAPS[tier].serviceCardsTotal, 'live card', 'live cards');
+const peopleLine = (tier: VendorTier) => {
+  const n = TIER_CAPS[tier].agentAccounts;
+  return n === 0 ? 'Just you' : !Number.isFinite(n) ? 'No limit on people' : `You plus ${formatCount(n)} ${n === 1 ? 'person' : 'people'}`;
+};
+const branchesLine = (tier: VendorTier) => {
+  const n = TIER_CAPS[tier].branchesIncluded;
+  return !Number.isFinite(n) ? 'Branches, no limit' : n === 0 ? null : `${formatCount(n)} ${n === 1 ? 'branch' : 'branches'}`;
+};
+const capLines = (tier: VendorTier): string[] =>
+  [cardsLine(tier), peopleLine(tier), branchesLine(tier)].filter((l): l is string => l !== null);
+
 export const SUPPLIER_PLANS: readonly PlanColumn[] = [
-  { name: 'Free', tag: 'Open and sell.', price: { kind: 'free' }, lines: ['Shop page, cards, bundles', 'Chat, quotes, payment plans', 'Full basic dashboard'] },
-  { name: 'Verified', tag: 'Found in search.', price: { kind: 'free' }, lines: ['The badge on every card', 'Unlimited live cards', 'AI chatbot included', 'Everything in Free'] },
-  { name: 'Plus', tag: 'One person, no friction.', price: { kind: 'paid', catalogue: 'supplier', codes: ['solo_vendor_monthly'] }, lines: ['Everything in Verified', 'Operate the business alone, smoothly', 'All specialized tools included'] },
-  { name: 'Pro', tag: 'Grow.', price: { kind: 'paid', catalogue: 'supplier', codes: ['pro_vendor_monthly'] }, lines: ['Team seats', 'Performance insights', 'The smarter AI chatbot included'] },
-  { name: 'Ultra', tag: 'Scale.', price: { kind: 'paid', catalogue: 'supplier', codes: ['enterprise_vendor_monthly'] }, lines: ['Branches and a bigger team', 'Everything in Pro'] },
+  { name: 'Free', tag: 'Open and sell.', price: { kind: 'free' }, lines: ['Shop page, cards, bundles', 'Chat, quotes, payment plans', ...capLines('free')] },
+  { name: 'Verified', tag: 'Found in search.', price: { kind: 'free' }, lines: ['The badge on every card', ...capLines('verified'), 'AI chatbot included', 'Everything in Free'] },
+  { name: 'Plus', tag: 'More room to sell.', price: { kind: 'paid', catalogue: 'supplier', codes: ['solo_vendor_monthly'] }, lines: ['Everything in Verified', ...capLines('solo'), 'All specialized tools included'] },
+  { name: 'Pro', tag: 'Grow.', price: { kind: 'paid', catalogue: 'supplier', codes: ['pro_vendor_monthly'] }, lines: [...capLines('pro'), 'Performance insights', 'The smarter AI chatbot included'] },
+  { name: 'Ultra', tag: 'Scale.', price: { kind: 'paid', catalogue: 'supplier', codes: ['enterprise_vendor_monthly'] }, lines: ['Everything in Pro', ...capLines('enterprise')] },
 ];
 
 /** RW-12 · a plan's lines with its credits line naming the catalogue's count, when the row is read and active. */

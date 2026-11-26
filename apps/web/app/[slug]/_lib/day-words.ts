@@ -14,7 +14,7 @@
  *     words and is followed by one plain sentence saying the date is not set.
  *
  * The words are the repo's own for the dateless case — "Date to be confirmed"
- * (`lib/clusters.ts`, and the note on `formatEventDateWithPrecision`).
+ * (the note on `formatEventDateWithPrecision`).
  *
  * 🛡 lib/a-dateless-event-prints-no-hole.test.ts
  */

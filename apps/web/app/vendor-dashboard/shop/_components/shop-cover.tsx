@@ -1,5 +1,6 @@
 'use client';
 
+import { shownAddress } from '@/lib/shop-address';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -150,10 +151,10 @@ function sheetInAddress(params: { get(k: string): string | null }): CoverSheet |
 }
 
 /** A cover door's screen, whose body came with the page (null = still on its way) — risen full screen out of its door. */
-function ParamSheet({ open, onClose, title, body, data }: { open: boolean; onClose: () => void; title: string; body: ReactNode | null; data: string }) {
+function ParamSheet({ open, onClose, title, body, data, half = false }: { open: boolean; onClose: () => void; title: string; body: ReactNode | null; data: string; half?: boolean }) {
   if (!open) return null;
   return (
-    <ShopDoorScreen title={title} onClose={onClose} data={`shop-${data}`}>
+    <ShopDoorScreen title={title} onClose={onClose} data={`shop-${data}`} half={half}>
       <div className="px-4 pb-6 pt-3" data-shop-sheet={data}>
         {body ?? (
           <p role="status" className="py-4 text-[13.5px] text-ink/60">
@@ -271,7 +272,7 @@ export function ShopCover({
           the cover photo (Your page's pick, else the first portfolio photo), or the category placeholder (item 12). */}
       <div ref={coverRef} data-shop-cover="" data-tour="shop-details">
         <SupplierHero
-          eyebrow={<>Shop{d.shareUrl ? ` · ${d.shareUrl.replace(/^https?:\/\/(www\.)?/, '')}` : d.city ? ` · ${d.city}` : ''}</>}
+          eyebrow={<>Shop{d.shareUrl ? ` · ${shownAddress(d.shareUrl)}` : d.city ? ` · ${d.city}` : ''}</>}
           gear={
             <button
               type="button"
@@ -437,10 +438,10 @@ export function ShopCover({
         data="promote"
       />
       {d.storage ? (
-        <ParamSheet open={sheet === 'storage'} onClose={() => closeSheet('storage')} title="Storage" body={<StorageBody storage={d.storage} plan={d.planLabel} />} data="storage" />
+        <ParamSheet open={sheet === 'storage'} onClose={() => closeSheet('storage')} title="Storage" body={<StorageBody storage={d.storage} plan={d.planLabel} />} data="storage" half />
       ) : null}
-      <ParamSheet open={sheet === 'logo'} onClose={() => closeSheet('logo')} title="Logo" body={logoBody ? <PickedLogoFiles.Provider value={logoFiles}>{logoBody}</PickedLogoFiles.Provider> : null} data="logo" />
-      <ParamSheet open={sheet === 'cover'} onClose={() => closeSheet('cover')} title="Cover photo" body={coverBody} data="cover" />
+      <ParamSheet open={sheet === 'logo'} onClose={() => closeSheet('logo')} title="Logo" body={logoBody ? <PickedLogoFiles.Provider value={logoFiles}>{logoBody}</PickedLogoFiles.Provider> : null} data="logo" half />
+      <ParamSheet open={sheet === 'cover'} onClose={() => closeSheet('cover')} title="Cover photo" body={coverBody} data="cover" half />
     </>
   );
 }
@@ -550,7 +551,7 @@ function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | 
         <div className="flex items-center justify-between gap-3 py-3">
           <span className="min-w-0">
             <b className="block text-[14.5px] font-medium text-ink">Copy your link</b>
-            <span className="block truncate text-[12.5px] text-ink/60">{url.replace(/^https?:\/\//, '')}</span>
+            <span className="block truncate text-[12.5px] text-ink/60">{shownAddress(url)}</span>
           </span>
           <CopyButton value={url} label="Copy" copiedLabel="Copied" className={SHARE_DOOR_PRESS} />
         </div>
@@ -601,7 +602,7 @@ function ShareSheet({ url, slug, name, onClose }: { url: string; slug: string | 
  * a redrawn copy. Before the page is approved for couples it is the team preview, and the line says so.
  */
 function ViewShopScreen({ path, live, shareUrl, onClose }: { path: string; live: boolean; shareUrl: string | null; onClose: () => void }) {
-  const where = shareUrl ? shareUrl.replace(/^https?:\/\/(www\.)?/, '') : path;
+  const where = shareUrl ? shownAddress(shareUrl) : path;
   // ↩ The page carries "came from Shop" (its Back reads Back → Shop, in a new tab too), and inside this frame its Back
   // closes the frame — the supplier is on Shop as they left it (owner 21 Nov: "back should go back to their last screen
   // before they viewed it"). 🔒 lib/back-from-view-shop-returns-to-shop.test.ts

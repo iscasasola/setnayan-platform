@@ -384,11 +384,11 @@ function walkTsFiles(dir: string, out: string[] = []): string[] {
 test('no cluster surface reaches the Papic pot', () => {
   const files = [
     path.join(__dirname, 'cluster-budgets.ts'),
-    path.join(__dirname, 'clusters.ts'),
-    ...walkTsFiles(path.join(__dirname, '..', 'app', 'dashboard', '(account)', 'clusters')),
+    // The /dashboard/clusters pages retired at launch (L6, R3), and lib/clusters.ts went with the cluster
+    // tables (migration 20271363906595); the budget module is what remains.
   ];
   // A sweep that finds nothing to check is a broken guard, not a pass.
-  assert.ok(files.length >= 6, `the cluster sweep found only ${files.length} files`);
+  assert.ok(files.length >= 1, `the cluster sweep found only ${files.length} files`);
 
   const offenders: string[] = [];
   for (const file of files) {

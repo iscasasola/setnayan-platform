@@ -21,6 +21,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
+import { CREATOR_SEND_PLAN_LINE } from '@/lib/creator-send-plan';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { emitNotification } from '@/lib/notification-emit';
 
@@ -52,11 +53,11 @@ function humanizeOfferError(message: string): string {
   // 2026-07-16). The old TIER_FREE_NO_REACH mapping is kept for a stale-deploy
   // window where the previous RPC is still live.
   if (message.includes('TIER_BELOW_PRO_NO_REACH'))
-    return 'Creator collabs are a Pro-and-up feature. Upgrade your plan to offer discounts to storytellers.';
+    return CREATOR_SEND_PLAN_LINE;
   if (message.includes('CREATOR_OFFERS_OFF'))
     return 'This creator isn’t accepting supplier offers right now.';
   if (message.includes('TIER_FREE_NO_REACH'))
-    return 'Creator collabs are a Pro-and-up feature. Upgrade your plan to offer discounts to storytellers.';
+    return CREATOR_SEND_PLAN_LINE;
   // INSUFFICIENT_WALLET_BALANCES can no longer be raised — sending is free
   // since 2026-08-07. Kept only for a stale-deploy window where the previous
   // token-charging RPC is still live, and worded without naming a currency the

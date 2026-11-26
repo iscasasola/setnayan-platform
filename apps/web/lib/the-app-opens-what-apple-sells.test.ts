@@ -460,20 +460,7 @@ test('5 · Our Story: the ◆ mark shows where Pro is tried in the app; gate off
 const STUDIO = 'app/dashboard/[eventId]/studio';
 const MEMORIES = 'app/dashboard/[eventId]/memories';
 const DOORS: Array<[file: string, gate: RegExp[]]> = [
-  [
-    `${STUDIO}/setnayan-ai/page.tsx`,
-    [
-      /const appleIap = \(await getIapGate\(\)\)\.iap;/,
-      /const appleTier = appleIap && paywallOn \? await setnayanAiTierInApp\(createAdminClient\(\), eventId\) : null;/,
-      /const appleSells = appleProduct !== null;/,
-      // A paid Sai — bought, owned or for sale — is shown in the app only where Apple sells this event's tier.
-      /if \(appleIap && paywallOn && !appleSells\) redirect\(`\/dashboard\/\$\{eventId\}`\);/,
-      /price=\{pricePhp != null && !appleIap \? priceLabel : undefined\}/,
-      /appleProduct && showBuy \? \(\s*<IapUnlockSheet\b/,
-      // 🛒 2026-11-23: the web's Unlock is a door to Event services (Setnayan AI ticked), past Apple's branch above.
-      /\) : pricePhp != null \? \(\s*<ActionButton\b[\s\S]{0,200}?routes\.dashboard\.eventServices\(eventId, 'ai'\)/,
-    ],
-  ],
+  // Setnayan AI's buy page retired at launch (L6, R2: it forwards to Event services), and its Apple door with it.
   [`${STUDIO}/pakanta/page.tsx`, [/const appleIap = \(await getIapGate\(\)\)\.iap;/, /const skuRecord = appleIap \? null :/]],
   [
     `${STUDIO}/pakanta/_components/pakanta-music-form.tsx`,
@@ -509,7 +496,6 @@ test('6 · the doors (the Mood Board pack retired 2026-10-26): each page reads t
     `${MEMORIES}/thank-you/_components/thank-you-maker.tsx`,
     `${STUDIO}/pakanta/_components/pakanta-music-form.tsx`,
     `${STUDIO}/patiktok/page.tsx`,
-    `${STUDIO}/setnayan-ai/page.tsx`,
   ]);
   // GATE OFF: with `apple` false each component takes the web branch it always took.
   assert.match(code(`${STUDIO}/pakanta/_components/pakanta-music-form.tsx`), /\) : readyToPay && pricePhp != null \? \(\s*<InlineCheckoutDrawer\b/);

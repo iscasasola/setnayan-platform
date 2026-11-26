@@ -369,7 +369,8 @@ test('the seat plan still opens the 3D view, and /plan3d forwards to it (R4)', (
   const editor = src('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
   const frame = src('app/dashboard/[eventId]/seating/_components/seating-frame.tsx');
   const lab = src('app/dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx');
-  assert.match(editor, /labUrl\s*=\s*`\/dashboard\/\$\{eventId\}\/seating\/lab`/, 'the 2D seat plan lost its URL to the 3D view');
+  // L6 (R5): the 3D room's home is Guests › Seats › 3D — the 2D plan links straight there, not through the lab's forward.
+  assert.match(editor, /labUrl\s*=\s*guestsViewHref\(eventId, 'seats', \{ seat: '3d' \}\)/, 'the 2D seat plan lost its URL to the 3D view');
   assert.match(editor, /<SeatingViewSegment\b/, 'the 2D seat plan lost its List · 2D · 3D segment');
   assert.match(frame, /key:\s*'3d',\s*label:\s*'3D'/, 'the segment lost its 3D option');
   assert.doesNotMatch(lab, /\/plan3d`/, 'the 3D view still links the retired control centre — it forwards to Seats’ 3D room');

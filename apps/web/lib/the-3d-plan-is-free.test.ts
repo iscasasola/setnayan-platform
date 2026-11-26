@@ -58,7 +58,7 @@ test('no couple-facing buy surface for the 3D Plan survives', () => {
   ]) {
     assert.ok(!existsSync(join(ROOT, gone)), `${gone} must be retired, not left orphaned`);
   }
-  const lab = read('app/dashboard/[eventId]/seating/lab/page.tsx');
+  const lab = read('app/dashboard/[eventId]/seating/lab/_components/seating-room.tsx');
   assert.ok(!/Couple3dPlan(Buy|UnlockNotice)/.test(lab), 'the lab page must mount no buy card or unlock notice');
   assert.ok(!lab.includes('couple-3d-plan'), 'the lab page must import nothing from the retired components');
 });

@@ -246,7 +246,7 @@ test('5 · the live ticket check: a refused crew read is "unreadable", never "un
 // ═══ 6 · THE ROOMS ══════════════════════════════════════════════════════════
 
 test('6 · the entrance chart, the 3D plan and the tea ceremony never draw from an unmeasured guest list', () => {
-  for (const f of ['seating/chart/page.tsx', 'seating/lab/page.tsx', 'guests/tea-ceremony/page.tsx']) {
+  for (const f of ['seating/chart/page.tsx', 'seating/lab/_components/seating-room.tsx', 'guests/tea-ceremony/page.tsx']) {
     const code = src(`app/dashboard/[eventId]/${f}`);
     assert.doesNotMatch(code, /fetchGuestsByEvent\(/, `${f} reads the guest list unmeasured`);
     assert.match(code, /fetchGuestsByEventMeasured\(supabase, eventId\)/, `${f} reads the guest list measured`);
@@ -255,7 +255,7 @@ test('6 · the entrance chart, the 3D plan and the tea ceremony never draw from 
   // Said BEFORE anything is counted or drawn.
   const chart = src('app/dashboard/[eventId]/seating/chart/page.tsx');
   before(chart, 'if (!guestsRead.measured) {', 'seatingUnits(tables, assignments, guests)', 'the chart counts "0 seated" first');
-  const lab = src('app/dashboard/[eventId]/seating/lab/page.tsx');
+  const lab = src('app/dashboard/[eventId]/seating/lab/_components/seating-room.tsx');
   before(lab, 'if (!guestsRead.measured) {', 'guestPhotoDisplayUrls(guestsRaw)', 'the 3D plan draws first');
   const tea = src('app/dashboard/[eventId]/guests/tea-ceremony/page.tsx');
   before(tea, '{!guestsRead.measured ? (', '<EmptyState eventId={eventId} />', 'the tea ceremony says "add your families" first');

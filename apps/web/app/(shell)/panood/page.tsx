@@ -24,6 +24,7 @@
  * transmits the video (panood-youtube.ts:266-274).
  */
 
+import { routes } from '@/lib/routes';
 import Link from 'next/link';
 import { studioApp, studioDescription } from '@/lib/studio-apps';
 import { DoorwayPage, DOORWAY_TONE } from '@/app/_components/marketing/_doorway';
@@ -249,14 +250,14 @@ export default function PanoodLandingPage() {
     <DoorwayPage
       demo={studioApp('panood')?.demo}
       title={'Everyone you love, in the room — even from afar.'}
-      primary={{ href: '/onboarding/wedding?from=panood', label: 'Start planning · free' }}
+      primary={{ href: routes.start(), label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Live Watch"
       studioKey="panood"
       steps={STEPS}
       differentiator={{ heading: 'Presence, not just a link', lede: 'A live stream shouldn’t feel like homework. Live Watch lives where your guests already are — your wedding.', rows: VS }}
       faq={FAQ}
-      closing={{ heading: 'Let everyone be there', body: 'Live Watch lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating and Event Hub. Start planning free, and add Live Watch when you’re ready.', href: '/onboarding/wedding?from=panood', label: 'Start planning · free' }}
+      closing={{ heading: 'Let everyone be there', body: 'Live Watch lives inside your free Setnayan wedding — alongside your guest list, RSVP, seating and Event Hub. Start planning free, and add Live Watch when you’re ready.', href: routes.start(), label: 'Start planning · free' }}
       structuredData={[APP_LD, FAQ_LD]}
       // Kept deliberately, and kept AFTER the questions: this is the
       // YouTube-API-Services disclosure an OAuth reviewer looks for. The 2026-06-29

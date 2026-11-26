@@ -104,7 +104,7 @@ import {
   PRICE_FIT_NEUTRAL,
   type ServicePricingRow,
 } from '@/lib/smart-sort';
-import { resolveLivePax } from '@/lib/pax';
+import { priceablePax, resolveLivePax } from '@/lib/pax';
 import { resolveAllocationInputs } from '@/lib/budget-allocation-data';
 import { computeBudgetAllocation } from '@/lib/budget-allocation';
 import { refuseLimitedHelper } from '@/lib/host-gate';
@@ -1098,7 +1098,8 @@ export async function searchCategoryVendors(input: {
   // smart-sort SOFT re-rank + "raise your budget" pressure below stay flag-gated.
   {
     try {
-      livePax = await resolveLivePax(supabase, eventId);
+      // Owner Add 35: an unread count is no budget fit (neutral), never the estimate.
+      livePax = priceablePax(await resolveLivePax(supabase, eventId));
     } catch {
       livePax = null;
     }

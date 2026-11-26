@@ -51,18 +51,19 @@ const block = (from: string) => {
 const WIDE = block('@media (min-width: 1280px)');
 const WIDER = SHOP.slice(SHOP.indexOf(WIDE) + WIDE.length);
 
-test('3 · from 1280: the 400px side column (one token), analytics as a grid, cards 2 across', () => {
-  assert.match(CSS, /:root\s*\{[^}]*--desk-gap:\s*28px;[^}]*--shop-desk-side:\s*400px;/, 'the side column is said once, as tokens');
+test('3 · from 1280: the 320px side column (one token), analytics as a grid, cards one per row until each has 320 (B11)', () => {
+  assert.match(CSS, /:root\s*\{[^}]*--desk-gap:\s*28px;[^}]*--shop-desk-side:\s*320px;[^}]*--shop-card-min:\s*320px;/, 'the side column and the card floor are said once, as tokens');
+  assert.match(PAGE, /className="mx-auto w-full max-w-3xl pb-32 xl:max-w-none" data-shop-tab=""/, 'the Shop tab is still a 768 column at 1280');
   assert.match(WIDE, /\[data-shop-desk\]\s*\{[^}]*grid-template-columns:\s*var\(--shop-desk-side\) minmax\(0, 1fr\)/);
   assert.match(WIDE, /column-gap:\s*var\(--desk-gap\)/);
   assert.match(WIDE, /\[data-shop-analytics\] \[data-snap-track\]\s*\{[^}]*display:\s*grid/);
-  assert.match(WIDE, /\[data-shop-card-list\]\s*\{[^}]*grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
+  assert.match(WIDE, /\[data-shop-card-list\]\s*\{[^}]*grid-template-columns:\s*repeat\(auto-fill, minmax\(var\(--shop-card-min\), 1fr\)\)/, 'cards are split two-up before each has 320');
   assert.match(WIDE, /\[data-shop-card-group\]\s*\{\s*grid-column:\s*1 \/ -1;/, 'a group name does not span the row');
 });
 
-test('4 · from 1600: the 440px side column, cards 3 across', () => {
-  assert.match(CSS, /@media \(min-width: 1600px\)\s*\{\s*:root\s*\{[^}]*--shop-desk-side:\s*440px;/);
-  assert.match(WIDER, /\[data-shop-card-list\]\s*\{[^}]*grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)/);
+test('4 · from 1600: the side column stays 320 and no fixed card count returns (B11)', () => {
+  assert.doesNotMatch(CSS, /--shop-desk-side:\s*(?!320px)\d+px/, 'the side column changes size again');
+  assert.doesNotMatch(WIDER, /\[data-shop-card-list\]\s*\{[^}]*grid-template-columns:\s*repeat\(\d/, 'a fixed card count is back');
   assert.doesNotMatch(CSS, /grid-template-columns:[^;]*\d+px/, 'a desk column width is typed again instead of read');
   assert.doesNotMatch(CSS, /column-gap:\s*\d+px/, 'a desk gap is typed again instead of read');
 });

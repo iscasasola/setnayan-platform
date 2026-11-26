@@ -79,7 +79,7 @@ export async function AgreedNow({
         <h2 className="text-[15px] font-semibold text-ink">Agreed now</h2>
         {/* What the page itself read still stands; the Event row is not guessed without the event's own read. */}
         <AgreedFacts facts={facts} />
-        <p className="mt-1 text-[15px] text-ink/75">Couldn&rsquo;t load what is agreed. Pull to refresh, or open it again in a moment.</p>
+        <p className="mt-1 text-[15px] text-ink/75">Couldn&rsquo;t load what is agreed. Nothing is lost — try again in a moment.</p>
       </section>
     );
   }

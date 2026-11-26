@@ -1,5 +1,6 @@
 import { eventRowOnce } from '@/lib/event-row-once';
 import { getCurrentUser } from '@/lib/auth';
+import { PLAN_UNREAD } from '@/lib/plan-unread';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
@@ -81,16 +82,25 @@ export default async function PanoodCamerasPage({ params }: Props) {
   // did not place the order would read 'free' under their own session and see the
   // same false sentence. The Cast tier used to be read that way — it no longer is.
   const ent = await eventEntitlementClient(eventId);
+  /* L-08 (owner ruling, final check Add 45): a failed plan read says "We couldn't check your plan, try again" — no paid
+     limit is drawn from it, so no seats are provisioned against a guessed tier. */
+  let planReadFailed = false;
   const [castTier, liveStudioOwned] = await Promise.all([
-    resolvePanoodTier(ent, eventId),
-    eventSkuActive(ent, eventId, LIVE_STUDIO_SKU).catch(() => false),
+    resolvePanoodTier(ent, eventId).catch(() => {
+      planReadFailed = true;
+      return 'free' as const;
+    }),
+    eventSkuActive(ent, eventId, LIVE_STUDIO_SKU).catch(() => {
+      planReadFailed = true;
+      return false;
+    }),
   ]);
   const unlocked = castTier !== 'free' || liveStudioOwned;
   const cap = panoodCameraCapForTier(unlocked ? 'paid' : 'free');
 
   // Provision before reading, so a first visit on the free tier shows seats immediately rather
   // than an empty page that self-heals on reload. Idempotent top-up; never destructive.
-  await provisionPanoodCamerasAdmin(admin, eventId, cap).catch(() => 0);
+  if (!planReadFailed) await provisionPanoodCamerasAdmin(admin, eventId, cap).catch(() => 0);
   // L-08 (final check): a refused read is not "No cameras yet".
   let camerasReadFailed = false;
   const cameras = await fetchPanoodCameras(admin, eventId).catch(() => {
@@ -145,6 +155,12 @@ export default async function PanoodCamerasPage({ params }: Props) {
         }
       />
 
+      {planReadFailed ? (
+        <p role="status" className="text-sm text-ink/70">
+          {PLAN_UNREAD}
+        </p>
+      ) : null}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-ink/70">
           {formatCount(claimedCount)} of {formatCount(rows.length)} connected
@@ -179,7 +195,7 @@ export default async function PanoodCamerasPage({ params }: Props) {
 
       {camerasReadFailed ? (
         <ReadRefusedNotice what="your camera seats" />
-      ) : rows.length === 0 ? (
+      ) : rows.length === 0 && planReadFailed ? null : rows.length === 0 ? (
         <QuietStart
           Icon={Video}
           title="No cameras yet."

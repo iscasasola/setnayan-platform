@@ -92,3 +92,12 @@ test('S-05 · mood board, playlist, Setnayan AI and guest columns say a refused 
   );
   assert.match(read(`${D}/studio/guest-columns/page.tsx`), /\{columnsError \? \(\s*<ReadRefusedNotice /);
 });
+
+test('L-08 (owner ruling, Add 45) · cameras: a failed plan read says so and provisions nothing against a guessed tier', async () => {
+  const { PLAN_UNREAD } = await import('./plan-unread');
+  assert.equal(PLAN_UNREAD, 'We couldn’t check your plan, try again.');
+  const src = read(`${D}/studio/panood/cameras/page.tsx`);
+  assert.equal((src.match(/planReadFailed = true;/g) ?? []).length, 2, 'both plan reads mark a failure');
+  assert.match(src, /if \(!planReadFailed\) await provisionPanoodCamerasAdmin\(/);
+  assert.match(src, /\{planReadFailed \? \(\s*<p role="status"[^>]*>\s*\{PLAN_UNREAD\}/);
+});

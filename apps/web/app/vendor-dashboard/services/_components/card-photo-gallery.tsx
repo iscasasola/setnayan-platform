@@ -57,8 +57,11 @@ export function CardPhotoGallery({
   primaryCurrent,
   showcaseCurrent,
   displayUrls,
+  locked = false,
 }: {
   vendorProfileId: string;
+  /** 🔒 A booked card: its photos show, the add tile is not drawn (final check B7). Default false. */
+  locked?: boolean;
   /** The stored primary (`primary_photo_r2_key`) when editing; null on a new card. */
   primaryCurrent: string | null;
   /** The stored showcase photos when editing. */
@@ -129,7 +132,8 @@ export function CardPhotoGallery({
         bucket="media"
         pathPrefix={`vendors/${vendorProfileId}/services/showcase`}
         multiple
-        maxFiles={limit}
+        // 🔒 A booked card takes no more photos: its limit is what it holds, so the add tile is gone (final check B7).
+        maxFiles={locked ? n : limit}
         maxSizeMB={5}
         acceptedTypes={['image/png', 'image/jpeg', 'image/webp']}
         mark="supplier"

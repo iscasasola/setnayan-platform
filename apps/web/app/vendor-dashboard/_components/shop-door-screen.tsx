@@ -56,6 +56,12 @@ export type ShopDoorScreenProps = Omit<RiseScreenProps, 'info'> & {
   at?: ShopDoorAt;
   /** From that line, the centred form page (`Sheet` `page`) instead of the 440 right panel. Default false. */
   page?: boolean;
+  /**
+   * 📱 A SHORT DOOR — the shared `Sheet` at every width: at half height on a phone (it grows on a drag), the same right
+   * panel from 701. Shop › Logo · Cover photo · Storage (final check B10, drawing `final-check-area-5_2026-11-25.html`
+   * § B10: "one short screen" each). Default false: below the line a door rises full screen, as shipped.
+   */
+  half?: boolean;
 };
 
 /** A Shop door's screen. Same props as `RiseScreen` (no ⓘ — no Shop door carries one). */
@@ -69,12 +75,14 @@ export function ShopDoorScreen(props: ShopDoorScreenProps) {
   useEffect(() => {
     if (panel) setWasPanel(true);
   }, [panel]);
+  // A short door is the Sheet at every width — never the full screen (B10).
+  if (props.half) return <ShopDoorPanel {...props} />;
   // `at` / `page` ride along unused: RiseScreen has no panel.
   if (!panel && !wasPanel) return <RiseScreen {...props} />;
   return <ShopDoorPanel {...props} />;
 }
 
-export function ShopDoorPanel({ title, line, labelledById, actions, thumb, fill = false, onClose, data, children, at = 'tab', page = false }: ShopDoorScreenProps) {
+export function ShopDoorPanel({ title, line, labelledById, actions, thumb, fill = false, onClose, data, children, at = 'tab', page = false, half = false }: ShopDoorScreenProps) {
   const headingId = useId();
   /* The panel closes through its own `open` (✕ · Esc · the backdrop · Back), and only THEN tells the caller, so the
      Sheet's history entry is taken off before the caller unmounts the door. */
@@ -90,11 +98,13 @@ export function ShopDoorPanel({ title, line, labelledById, actions, thumb, fill 
   useEffect(() => {
     const mql = at === 'lg' ? window.matchMedia(SHOP_DOOR_DESKTOP_QUERY) : window.matchMedia(SHOP_DOOR_PANEL_QUERY);
     const onChange = () => {
+      // A short door is the Sheet on both sides of the line: narrowing keeps it open.
+      if (half) return;
       if (!mql.matches) setOpen(false);
     };
     mql.addEventListener('change', onChange);
     return () => mql.removeEventListener('change', onChange);
-  }, [at]);
+  }, [at, half]);
 
   return (
     <Sheet

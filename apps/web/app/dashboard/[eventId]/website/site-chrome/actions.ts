@@ -163,7 +163,8 @@ export async function updateSiteChrome(
         .eq('event_id', eventId)
         .maybeSingle();
 
-  if (error) {
+  // E-17 (final check): a write that matched no row (RLS refused) is not "Saved".
+  if (error || (hasWrite && !event)) {
     redirect(
       `/dashboard/${eventId}/website/site-chrome?error=${encodeURIComponent(
         'Could not save. Please try again.',

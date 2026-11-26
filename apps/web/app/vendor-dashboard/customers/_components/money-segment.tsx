@@ -191,7 +191,8 @@ export async function CustomersMoney({ search }: { search: SP }) {
   for (const t of [...threadsRead.rows].sort((a, b) => b.updated_at.localeCompare(a.updated_at))) {
     if (!threadOf.has(t.event_id)) threadOf.set(t.event_id, t.thread_id);
   }
-  const logCustomers: MoneyLogCustomer[] = picture.customers.map((c) => ({
+  // 🧾 A6-31 (final check 25 Nov): an incomplete bookings read is `null` — Log a payment says it, never "No booked customer yet".
+  const logCustomers: MoneyLogCustomer[] | null = paydayIncomplete ? null : picture.customers.map((c) => ({
     eventId: c.eventId,
     name: c.name,
     line: c.line,

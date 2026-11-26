@@ -66,7 +66,6 @@ const BUSY: AdminQueueCounts = {
   'event-deletions': 0,
   'force-majeure': 0,
   reviews: 2,
-  'concierge-abuse': 0,
   'vendor-partnerships': 0,
   'user-reports': 0,
   'integrity-watch': 0,

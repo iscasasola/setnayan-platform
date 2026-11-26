@@ -66,8 +66,13 @@ test('dismissHref null draws no ✕, and Escape and the backdrop do nothing', ()
   assert.match(modal, /const dismissible = dismissHref !== null;/);
   assert.match(modal, /const dismiss = \(\) => \{\s*if \(dismissHref === null\) return;/, 'Escape / backdrop would still navigate');
   // Every ✕ in the card sits behind `dismissible`.
+  // Final check A1-172: the ✕ is a real link when there is a page to go to, and the button (router.back) otherwise —
+  // two spellings of the one ✕, and BOTH sit behind `dismissible`.
   const xs = modal.match(/aria-label="Close"/g) ?? [];
-  assert.equal(xs.length, 1, 'one close button expected');
-  const at = modal.indexOf('aria-label="Close"');
-  assert.match(modal.slice(Math.max(0, at - 160), at), /\{dismissible \? \(\s*<button/, 'the ✕ renders without asking whether there is anywhere to go');
+  assert.equal(xs.length, 2, 'the link ✕ and the back ✕ expected');
+  const first = modal.indexOf('aria-label="Close"');
+  const second = modal.indexOf('aria-label="Close"', first + 1);
+  assert.match(modal.slice(Math.max(0, first - 200), first), /\{dismissible && dismissHref \? \(\s*<a href=\{dismissHref\}/, 'the link ✕ renders without asking whether there is anywhere to go');
+  assert.match(modal.slice(first, second), /\) : dismissible \? \(\s*<button/, 'the back ✕ renders without asking whether there is anywhere to go');
+  assert.match(modal.slice(second), /^[\s\S]*?\) : null\}/, 'with nowhere to go, no ✕ at all');
 });

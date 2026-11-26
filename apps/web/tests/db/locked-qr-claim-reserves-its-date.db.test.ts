@@ -26,8 +26,10 @@
  *      a suite where the pool never resolves would report "did not abort" while
  *      measuring nothing at all.)
  *   2. THE RULE — a BLOCKED date still completes the claim, and holds no
- *      reservation.
- *   3. A FULL pool still completes the claim.
+ *      reservation. (Only a FULL date refuses, case 3: a block is the supplier's
+ *      own hold and degrades open, as before.)
+ *   3. A FULL date REFUSES the second claim and writes nothing (A6-71 · LAUNCH L9, owner 25 Nov: the first registered
+ *      claim wins the date; this case used to pin the opposite, before that ruling).
  *   4. A refused acquire rolls back NOTHING ELSE — the booking, the frozen
  *      payment plan and the recorded downpayment all survive.
  *   5. An UNEXPECTED ERROR inside the acquire still completes the claim. This is
@@ -47,6 +49,13 @@ let replay: ReplayResult;
 let db: PGlite;
 
 const AGREED_DAY = '2027-09-18';
+// 🗓 A6-71 · LAUNCH L9 (owner 25 Nov: the first registered claim wins a date): a claim on a FULL date is now refused in
+// step (0), before anything is written. So every case that measures the acquire's degrade-open runs on its OWN open day
+// — only the block / the forced failure acts on it, never the capacity.
+const BLOCKED_DAY = '2027-09-19';
+const KEEPS_DAY = '2027-09-20';
+const EXPLODE_DAY = '2027-09-21';
+const SABOTAGE_DAY = '2027-09-22';
 
 let coupleUid = '';
 let vendorUserUid = '';
@@ -119,7 +128,7 @@ async function newHostedEvent(name: string): Promise<string> {
   return eventId;
 }
 
-async function newToken(): Promise<string> {
+async function newToken(day: string = AGREED_DAY): Promise<string> {
   const r = await db.query<{ token: string }>(
     `INSERT INTO public.vendor_locked_qr_tokens (
        vendor_profile_id, created_by_user_id, event_type, category,
@@ -129,7 +138,7 @@ async function newToken(): Promise<string> {
     [
       vendorProfileId,
       vendorUserUid,
-      AGREED_DAY,
+      day,
       JSON.stringify([
         { seq: 1, label: 'Downpayment', amount_value: 25000, due_date: '2026-12-01' },
         { seq: 2, label: 'Balance', amount_value: 55000, due_date: '2027-08-01' },
@@ -271,11 +280,11 @@ test('a BLOCKED date still completes the claim — the couple has already paid',
     `INSERT INTO public.vendor_calendar_blocks
        (vendor_profile_id, pool_id, blocked_at, blocked_until, block_label, block_source)
      VALUES ($1, $2, ($3::date)::timestamptz, ($3::date + 1)::timestamptz, 'Stale hold', 'manual')`,
-    [vendorProfileId, pool, AGREED_DAY],
+    [vendorProfileId, pool, BLOCKED_DAY],
   );
 
   const eventId = await newHostedEvent('Blocked But Paid');
-  const res = await claim(await newToken(), eventId);
+  const res = await claim(await newToken(BLOCKED_DAY), eventId);
 
   assert.equal(res.status, 'ok', 'a blocked date must NEVER refuse a claim — the token is single-use and the money has moved');
   const evId = res.event_vendor_id!;
@@ -285,12 +294,11 @@ test('a BLOCKED date still completes the claim — the couple has already paid',
   await db.query(`DELETE FROM public.vendor_calendar_blocks WHERE vendor_profile_id = $1`, [vendorProfileId]);
 });
 
-/* ── 3. FULL ───────────────────────────────────────────────────────────────*/
+/* ── 3. FULL — THE FIRST REGISTERED WINS (A6-71 · LAUNCH L9, owner 25 Nov) ───────────────────────────────────*/
 
-test('a FULL pool still completes the claim', async () => {
+test('a FULL date refuses the second claim and writes nothing — the first registered claim keeps it', async () => {
   const pool = await poolId();
-  // Capacity is 1 by default and case 1 already consumed it for AGREED_DAY, so
-  // this second claim on the same day meets 'full'.
+  // Capacity is 1 by default and case 1 already took it for AGREED_DAY.
   const r = await db.query<{ n: number }>(
     `SELECT count(*)::int AS n FROM public.vendor_schedule_pool_bookings
       WHERE pool_id = $1 AND booked_date = $2::date AND released_at IS NULL`,
@@ -298,19 +306,31 @@ test('a FULL pool still completes the claim', async () => {
   );
   assert.equal(r.rows[0]!.n, 1, 'case 1 must still hold the only slot');
 
-  const eventId = await newHostedEvent('Full But Paid');
-  const res = await claim(await newToken(), eventId);
+  const eventId = await newHostedEvent('Second On A Full Date');
+  const token = await newToken();
+  const res = await claim(token, eventId);
 
-  assert.equal(res.status, 'ok', 'a full pool must never refuse a claim');
-  assert.equal(await liveReservations(res.event_vendor_id!), 0);
+  assert.equal(res.status, 'date_full', 'the second claim on a full date is told the date was just taken');
+  const ev = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.event_vendors WHERE event_id = $1`, [eventId]);
+  assert.equal(ev.rows[0]!.n, 0, 'a refused claim books nothing');
+  const tok = await db.query<{ status: string }>(`SELECT status FROM public.vendor_locked_qr_tokens WHERE token = $1`, [token]);
+  assert.equal(tok.rows[0]!.status, 'pending', 'a refused claim leaves the code pending — the supplier can still move it');
 });
 
 /* ── 4. NOTHING ELSE ROLLS BACK ────────────────────────────────────────────*/
 
 test('a refused acquire rolls back nothing else — plan and downpayment survive', async () => {
-  // Reuse the full-pool refusal: same day, capacity already consumed.
+  // A blocked day: the acquire refuses ('blocked'), the step-(0) capacity gate does not (it counts places, not blocks).
+  const pool = await poolId();
+  await db.query(
+    `INSERT INTO public.vendor_calendar_blocks
+       (vendor_profile_id, pool_id, blocked_at, blocked_until, block_label, block_source)
+     VALUES ($1, $2, ($3::date)::timestamptz, ($3::date + 1)::timestamptz, 'Stale hold', 'manual')`,
+    [vendorProfileId, pool, KEEPS_DAY],
+  );
   const eventId = await newHostedEvent('Refused Acquire Keeps Everything');
-  const res = await claim(await newToken(), eventId);
+  const res = await claim(await newToken(KEEPS_DAY), eventId);
+  await db.query(`DELETE FROM public.vendor_calendar_blocks WHERE vendor_profile_id = $1`, [vendorProfileId]);
   assert.equal(res.status, 'ok');
   const evId = res.event_vendor_id!;
   assert.equal(await liveReservations(evId), 0, 'the acquire must genuinely have been refused for this case to mean anything');
@@ -348,7 +368,7 @@ test('an UNEXPECTED error inside the acquire still completes the claim', async (
 
   try {
     const eventId = await newHostedEvent('Acquire Exploded But Paid');
-    const res = await claim(await newToken(), eventId);
+    const res = await claim(await newToken(EXPLODE_DAY), eventId);
     assert.equal(
       res.status,
       'ok',
@@ -400,11 +420,11 @@ test('NEUTRALISATION: strip the degrade-open and the blocked claim starts failin
       `INSERT INTO public.vendor_calendar_blocks
          (vendor_profile_id, pool_id, blocked_at, blocked_until, block_label, block_source)
        VALUES ($1, $2, ($3::date)::timestamptz, ($3::date + 1)::timestamptz, 'Sabotage hold', 'manual')`,
-      [vendorProfileId, pool, AGREED_DAY],
+      [vendorProfileId, pool, SABOTAGE_DAY],
     );
 
     const eventId = await newHostedEvent('Sabotaged Abort');
-    const token = await newToken();
+    const token = await newToken(SABOTAGE_DAY);
     await assert.rejects(
       () => claim(token, eventId),
       /schedule NOT reserved/,

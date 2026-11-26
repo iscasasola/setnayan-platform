@@ -35,7 +35,8 @@ import { readEventsYouRun } from '@/lib/events-you-run.server';
 import type { EventYouRun } from '@/lib/events-you-run';
 import { isCoordinatorP3Enabled } from '@/lib/coordinator-broadcasts-server';
 import { CheckinDeskRows, MessageEveryoneRows, SeatFinderRow } from '../_components/events-you-run-rows';
-import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
+import { fetchVendorRoomEventsDetailed } from '@/lib/vendor-room-access';
+import { ReadFailedBody } from '../_components/set-two/read-failed';
 import { resolveDayOfConsoleKind, type DayOfConsoleKind } from '@/lib/vendor-day-of';
 import { resolveModules } from '@/lib/vendor-dayof-modules';
 import { readHubToolSuggestions } from '@/lib/hub-tool-suggestions.server';
@@ -100,6 +101,7 @@ import { VENDOR_BOOKING_FEES_PATH, vendorBookingFeePayPath } from '@/lib/vendor-
 import { formatCount } from '@/lib/format-number';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { ActionButton } from '@/components/action-button';
+import { MAX_PER_TYPE } from '@/lib/editorial-vendor-media';
 
 export const metadata = { title: 'Hub · Supplier' };
 
@@ -139,7 +141,8 @@ export const metadata = { title: 'Hub · Supplier' };
  */
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
-const MAX_MEDIA_PER_TYPE = 3; // mirrors editorial-vendor-media MAX_PER_TYPE
+// A6-19: the media cap is the one in lib/editorial-vendor-media — never a second constant here.
+const MAX_MEDIA_PER_TYPE = MAX_PER_TYPE;
 /** A printed QR's ink and paper — the review QR and the crew QR, one pair. */
 const QR_COLOURS = { dark: '#1B1A17', light: '#FBFBFA' } as const;
 
@@ -228,7 +231,9 @@ export default async function VendorOnTheDayPage({
   // paths that never write a pool row (the supplier's own Agree, and a Locked QR
   // the couple scanned). `fetchVendorRoomEvents` already collapses to one entry
   // per (event, date).
-  const bookings = await fetchVendorRoomEvents(supabase, profile.vendor_profile_id);
+  // 🧾 A6-17 (final check 25 Nov): the read's `complete` is kept — an empty list from a read that did not reach the
+  // end is not "No events yet" (below, `eventsUnread`).
+  const { events: bookings, complete: bookingsComplete } = await fetchVendorRoomEventsDetailed(supabase, profile.vendor_profile_id);
 
   // ONE ROW PER DAY YOU ARE ON, never one per event. The rule (and the bug
   // it replaces) lives in `lib/vendor-day-picker.ts`, pure and tested; this file
@@ -261,7 +266,8 @@ export default async function VendorOnTheDayPage({
   );
 
   // 🗓 THE HUB'S ONE LIST — booked days + events you run, one row per event (`lib/hub-events.ts`).
-  const [{ events: runEvents }, announceOn] = await Promise.all([eventsYouRunP, announceOnP]);
+  const [{ events: runEvents, measured: runsMeasured }, announceOn] = await Promise.all([eventsYouRunP, announceOnP]);
+  const eventsUnread = !bookingsComplete || !runsMeasured;
   const hub = hubEvents({
     days: pickerBookings,
     runs: runEvents.map((e) => ({ eventId: e.eventId, name: e.name, date: e.date, href: e.href, canAnnounce: e.canAnnounce, rank: e.rank })),
@@ -277,6 +283,15 @@ export default async function VendorOnTheDayPage({
       <div className="px-4 py-6 text-sm text-[color:var(--m-slate-2)]" data-picked-client-page="hub" data-empty="not-in-hub">
         <p>This event&rsquo;s Hub opens here once they book you, or once you run it for the hosts.</p>
       </div>
+    );
+  }
+
+  if (!selected && eventsUnread) {
+    // A6-17: the bookings or the events-you-run read did not answer in full — said, never the empty Hub.
+    return (
+      <section className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6" data-hub-screen="unread">
+        <ReadFailedBody mark="hub-events">We couldn&rsquo;t load your events right now.</ReadFailedBody>
+      </section>
     );
   }
 
@@ -668,6 +683,10 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
         color: QR_COLOURS,
       })
     : null;
+  // 🧾 A6-18 (final check 25 Nov): the three reads above bind their errors now — a refused read draws "—" and
+  // "couldn't load", never "0% done · Not started yet", "0 clips" or "Not yet".
+  const deliveryUnread = Boolean(completionRes.error || handoverRes.error);
+  const mediaUnread = Boolean(mediaRes.error);
   const DELIVERY_PCT = [0, 60, 100][deliveryStage];
   const DELIVERY_LABEL = ['Not started yet', 'In progress', 'Delivered'][deliveryStage];
 
@@ -688,11 +707,11 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
               <p className="text-sm font-semibold text-ink">Delivery to the couple</p>
             </div>
             <div className="mt-3 flex items-baseline gap-2">
-              <span className="tabular-nums text-2xl font-bold text-ink">{DELIVERY_PCT}%</span>
-              <span className="text-sm text-[color:var(--m-slate-2)]">done · {DELIVERY_LABEL}</span>
+              <span className="tabular-nums text-2xl font-bold text-ink">{deliveryUnread ? '—' : `${DELIVERY_PCT}%`}</span>
+              <span className="text-sm text-[color:var(--m-slate-2)]">{deliveryUnread ? 'couldn’t load' : `done · ${DELIVERY_LABEL}`}</span>
             </div>
             <div className="mt-3 h-2 overflow-hidden rounded-full" style={{ background: 'var(--m-line-soft)' }}>
-              <div className="h-full rounded-full transition-all" style={{ width: `${DELIVERY_PCT}%`, background: 'var(--m-sage-deep)' }} />
+              <div className="h-full rounded-full transition-all" style={{ width: `${deliveryUnread ? 0 : DELIVERY_PCT}%`, background: 'var(--m-sage-deep)' }} />
             </div>
             <p className="mt-3 text-xs text-[color:var(--m-slate-2)]">They see these updates live. Post your album link + mark complete from the brief.</p>
           </div>
@@ -728,24 +747,26 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
           <CaptureCard
             icon={Clapperboard}
             title="Recap capture"
-            value={`${clipCount} ${clipCount === 1 ? 'clip' : 'clips'}`}
-            sub="5s each · up to 3"
+            value={mediaUnread ? 'Couldn’t load' : `${clipCount} ${clipCount === 1 ? 'clip' : 'clips'}`}
+            sub={`5s each · up to ${formatCount(MAX_MEDIA_PER_TYPE)}`}
             href={`/vendor-dashboard/clients/${booking.eventId}/editorial-media`}
-            hint={clipCount >= MAX_MEDIA_PER_TYPE ? 'Limit reached' : null}
+            hint={!mediaUnread && clipCount >= MAX_MEDIA_PER_TYPE ? 'Limit reached' : null}
           />
           <CaptureCard
             icon={Images}
             title="Photos"
-            value={`${photoCount} ${photoCount === 1 ? 'photo' : 'photos'}`}
-            sub="for your portfolio · up to 3"
+            value={mediaUnread ? 'Couldn’t load' : `${photoCount} ${photoCount === 1 ? 'photo' : 'photos'}`}
+            sub={`for your portfolio · up to ${formatCount(MAX_MEDIA_PER_TYPE)}`}
             href={`/vendor-dashboard/clients/${booking.eventId}/editorial-media`}
-            hint={photoCount >= MAX_MEDIA_PER_TYPE ? 'Limit reached' : null}
+            hint={!mediaUnread && photoCount >= MAX_MEDIA_PER_TYPE ? 'Limit reached' : null}
           />
           <CaptureCard
             icon={reviewState === 'confirmed' ? Star : Circle}
             title="Review the couple"
             value={
-              reviewState === 'confirmed'
+              deliveryUnread
+                ? 'Couldn’t load'
+                : reviewState === 'confirmed'
                 ? 'Ready'
                 : reviewState === 'awaiting_confirm'
                   ? 'Awaiting couple'
@@ -754,7 +775,9 @@ async function onTheDayBody(input: SetupInput, booking: { eventId: string }): Pr
                     : 'Not yet'
             }
             sub={
-              reviewState === 'confirmed'
+              deliveryUnread
+                ? 'Try again in a moment'
+                : reviewState === 'confirmed'
                 ? 'They’ve confirmed — reviews are open'
                 : reviewState === 'awaiting_confirm'
                   ? 'Waiting for them to confirm delivery'

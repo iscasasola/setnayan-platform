@@ -116,17 +116,6 @@ export function GuestChecklist({
               </button>
               <span className="min-w-0 flex-1">
                 <span className="block font-serif text-lg leading-snug text-ink">{item.title}</span>
-                {item.swatches && item.swatches.length > 0 ? (
-                  <span className="mt-1.5 flex gap-2" aria-label="Motif colors">
-                    {item.swatches.map((hex) => (
-                      <span
-                        key={hex}
-                        className="h-5 w-5 rounded-full border border-ink/15"
-                        style={{ backgroundColor: hex }}
-                      />
-                    ))}
-                  </span>
-                ) : null}
                 {item.sub || item.link ? (
                   <span className="mt-0.5 block text-sm text-ink/70">
                     {item.sub}

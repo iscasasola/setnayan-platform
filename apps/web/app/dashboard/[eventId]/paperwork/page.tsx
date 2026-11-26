@@ -25,7 +25,7 @@ import {
   completeByDate,
   deadlineTone,
   expiryTone,
-  fetchEventPaperwork,
+  readEventPaperwork,
   formatLongDate,
   resolveCeremonyType,
   summarize,
@@ -42,6 +42,7 @@ import {
 } from '@/lib/wedding-traditions';
 import { isChineseWedding, isChineseOverlay } from '@/lib/chinese-wedding';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ReadRefusedNotice } from '../_components/read-refused-notice';
 import {
   markPaperworkReceived,
   markPaperworkRequested,
@@ -63,7 +64,7 @@ export default async function PaperworkPage({ params }: Props) {
 
   // Pull the event + paperwork rows in parallel — same one-round-trip
   // pattern as /budget.
-  const [eventRes, rows] = await Promise.all([
+  const [eventRes, rowsRead] = await Promise.all([
     supabase
       .from('events')
       .select(
@@ -71,7 +72,7 @@ export default async function PaperworkPage({ params }: Props) {
       )
       .eq('event_id', eventId)
       .maybeSingle(),
-    fetchEventPaperwork(supabase, eventId),
+    readEventPaperwork(supabase, eventId),
   ]);
 
   const event = eventRes.data as
@@ -107,9 +108,33 @@ export default async function PaperworkPage({ params }: Props) {
         <PageMasthead
         title="Paperwork"
       />
+        {/* A2-I9: never a blank page. Only a wedding carries statutory paperwork; say so, and point to where the
+            event's other papers live. */}
+        <p className="text-sm text-ink/70">
+          This event has no government paperwork to track. Contracts and receipts are in{' '}
+          <Link href={`/dashboard/${eventId}/documents`} className="font-semibold text-terracotta-700 hover:underline">
+            Documents
+          </Link>
+          .
+        </p>
       </section>
     );
   }
+
+  // A2-I8: a refused paperwork read is never "Start your checklist" (paperwork already received would read as never
+  // started, and building the checklist again would seed a second copy).
+  if (rowsRead === null) {
+    return (
+      <section className="sn-col sn-col-wide space-y-6">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <BackLink eventId={eventId} />
+        </div>
+        <PageMasthead title="Your wedding paperwork" />
+        <ReadRefusedNotice what="your paperwork" />
+      </section>
+    );
+  }
+  const rows = rowsRead;
 
   const ceremony = resolveCeremonyType(event.ceremony_type);
 

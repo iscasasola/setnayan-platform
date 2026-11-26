@@ -6,7 +6,6 @@ import { ATTIRE_STYLE_LABEL, sanitizeRoleAttire } from '@/lib/role-dress-code';
 import { guestAttireOf, readerAttire, type ReaderPerson } from '@/lib/attire-rows';
 import { singleWearerOf } from '@/lib/role-figure';
 import { sanitizeRolePalette } from '@/lib/mood-board';
-import { paletteSwatches } from '@/lib/site-palette';
 import type { GuestRole } from '@/lib/guests';
 
 /**
@@ -16,8 +15,9 @@ import type { GuestRole } from '@/lib/guests';
  *   · what to wear   — the reader's own role's dress code (the shipped per-role
  *                      resolver the Dress code section uses), else the general
  *                      dress-code title;
- *   · motif colours  — the Mood Board palette's swatches (swatches only for
- *                      now; the illustrated person comes after Apple);
+ *   · (no colours item — owner 2026-11-26: the motif is the event's palette,
+ *                      not what a guest wears; the checklist keeps What to wear,
+ *                      Arrive by, Your table and Your QR pass only);
  *   · arrive by      — their role's own call time, else the run of show's
  *                      first block, formatted by the programme's own
  *                      formatter (passed in) — `guestArriveBy`;
@@ -52,7 +52,6 @@ export function guestChecklistItems(input: {
     title?: unknown;
     roles?: unknown;
     groups?: unknown;
-    palette?: unknown;
   } | null;
   const palette = sanitizeRolePalette(input.rolePalette);
   const resolved = resolveGuestAttireWithGroups({
@@ -79,12 +78,6 @@ export function guestChecklistItems(input: {
     : null;
   const mine = resolved.panel && own ? { ...resolved.panel, styleLabel: own.styleLabel } : resolved.panel;
   const generalTitle = typeof config?.title === 'string' && config.title.trim() ? config.title.trim() : null;
-  const dressPalette = Array.isArray(config?.palette)
-    ? (config!.palette as unknown[])
-        .map((p) => (p && typeof p === 'object' ? (p as { hex?: unknown }).hex : null))
-        .filter((h): h is string => typeof h === 'string')
-    : [];
-  const motif = paletteSwatches(palette);
   const mapsHref =
     input.venueLatitude != null && input.venueLongitude != null
       ? googleMapsNavUrl(input.venueLatitude, input.venueLongitude)
@@ -94,7 +87,6 @@ export function guestChecklistItems(input: {
   return buildChecklist({
     wear: mine?.styleLabel ?? generalTitle,
     wearNote: mine?.note ?? null,
-    motif: motif.length > 0 ? motif : dressPalette,
     /* ⏰ Their own call time first, else the doors' time (`guestArriveBy` — the ticket's and Me's one reading). */
     arriveBy: guestArriveBy({ role: input.role, config, general: input.arriveBy }),
     venueName: input.venueName,

@@ -175,10 +175,8 @@ const STATIC_ROUTES: ReadonlyArray<{
   { path: '/cookies', lastmod: '2026-06-30', changefreq: 'monthly', priority: '0.5' },
   { path: '/acceptable-use', lastmod: '2026-06-30', changefreq: 'monthly', priority: '0.5' },
 
-  // /login + /signup — auth surfaces, structurally stable. OAuth providers
-  // last updated 2026-05-23 (PR #422 Google + Facebook).
-  { path: '/login', lastmod: '2026-05-23', changefreq: 'yearly', priority: '0.5' },
-  { path: '/signup', lastmod: '2026-05-23', changefreq: 'yearly', priority: '0.6' },
+  // ⛔ /login and /signup are NOT listed (final check A1-160): sign-in pages carry `noindex`, and a sitemap must not
+  // ask search engines for a page that tells them not to index it.
 
   // Keynote scroll decks de-listed 2026-06-13 — the 2026-05-28 deck snapshot
   // drifted from the live product (carried retired ₱1,499 verification fee,

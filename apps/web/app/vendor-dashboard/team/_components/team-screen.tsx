@@ -1,3 +1,4 @@
+import { routes } from '@/lib/routes';
 import { redirect } from 'next/navigation';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { createClient } from '@/lib/supabase/server';
@@ -13,7 +14,7 @@ import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
 import { formatCount } from '@/lib/format-number';
 import {
   enrichTeamWithUsers,
-  fetchTeamManagerContext,
+  readTeamManagerContext,
   fetchVendorRoleNames,
   fetchAgentServiceAssignments,
   fetchAssignableServices,
@@ -35,6 +36,7 @@ import {
   voteAdminMotion,
 } from '../actions';
 import { HelpersView } from './helpers-view';
+import { TeamUnread } from './team-unread';
 
 /**
  * /vendor-dashboard/team — HELPERS (simpler supplier dashboard step 6). The reads — the same ones the Team page made —
@@ -64,7 +66,9 @@ export async function TeamScreen({ search, embedded = false }: { search: TeamSea
   // model, 2026-07-01). Non-admin members are bounced. The admin-client email
   // enrichment below bypasses RLS, so confirming admin first is load-bearing.
   // 🧑‍🤝‍🧑 Six roles (owner 19 Nov 2026): a Shop Manager runs the whole team; a Branch Manager, their branch's.
-  const ctx = await fetchTeamManagerContext(supabase, user.id);
+  const ctx = await readTeamManagerContext(supabase, user.id);
+  // A refused read is not "you may not manage the team": say it, with Try again (final check A5-G5-07).
+  if (ctx === 'unread') return <TeamUnread retryHref={routes.vendorDashboard.team()} />;
   if (!ctx) redirect('/vendor-dashboard');
   const vendorProfileId = ctx.vendorProfileId;
 

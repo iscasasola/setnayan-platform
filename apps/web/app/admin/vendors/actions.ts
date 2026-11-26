@@ -1,6 +1,6 @@
 'use server';
 
-import { requireAdminCan } from '@/lib/admin/can.server';
+import { AdminAreaRefusal, requireAdminCan } from '@/lib/admin/can.server';
 import { randomBytes } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
@@ -125,6 +125,17 @@ export async function createAdminVendorInvite(
   );
   if (!parsedOffer.ok) return { status: 'error', message: parsedOffer.message };
   const offer = parsedOffer.offer;
+  // A8·D-4: an invite that carries a free paid plan is the same act as
+  // setVendorTier, so it asks the same gate (Plans · Escalated) before anything
+  // is written. A plain invite (no plan) stays an "is admin" act.
+  if (offer.tier) {
+    try {
+      await requireAdminCan('plans', 'escalated');
+    } catch (err) {
+      if (err instanceof AdminAreaRefusal) return { status: 'error', message: err.message };
+      throw err;
+    }
+  }
 
   const admin = createAdminClient();
 

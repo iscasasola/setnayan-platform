@@ -33,6 +33,11 @@ const ALLOW: readonly WordAllow[] = [
     text: /^(Deposit \(date held|Downpayment \(lock) · awaiting|the deposit stamp trigger matches it/,
     why: 'SUPPLIER_WORD_DATA — the registry of the same two stored payment notes (and why each is data), read by the supplier-word guard, never rendered',
   },
+  {
+    prefix: 'lib/payment-note-words.ts',
+    text: /^(Deposit \(date held|Downpayment \(lock) · awaiting/,
+    why: 'A2-G4 — matches the same two stored payment notes so the screen says "reservation fee" instead; the notes are never rendered',
+  },
 ];
 
 test('the scanner flags the retired money words where a person reads them', () => {

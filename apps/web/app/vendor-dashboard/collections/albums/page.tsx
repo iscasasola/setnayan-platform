@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { ReadFailedNote } from '../../_components/set-two/read-failed';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -88,6 +89,9 @@ export default async function AlbumsByEventPage({
         <TemplateEmpty data="albums-off">
           <span data-albums-off="">Albums open here once Papic for suppliers is switched on.</span>
         </TemplateEmpty>
+      ) : upcoming.length + past.length === 0 && !room.complete ? (
+        // 🪪 Nothing read is not "no booked events" (final check A5-G6-01).
+        <ReadFailedNote mark="albums-bookings">We couldn&rsquo;t load your booked events right now.</ReadFailedNote>
       ) : upcoming.length + past.length === 0 ? (
         <TemplateEmpty data="albums">
           No booked events yet — an album fills when a couple shares their Papic photos with you.

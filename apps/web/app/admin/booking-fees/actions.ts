@@ -4,6 +4,7 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
+import { adminCanRefusal } from '@/lib/admin/can.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 
 export type ReviewMinState = { ok: boolean; message: string | null };
@@ -15,6 +16,9 @@ export type ReviewMinState = { ok: boolean; message: string | null };
  */
 export async function saveFeeReviewMin(_prev: ReviewMinState, formData: FormData): Promise<ReviewMinState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // A8·L-8: the booking-fee switches are Prices & promos · Escalated.
+  const refused = await adminCanRefusal('prices_promos', 'escalated');
+  if (refused) return { ok: false, message: refused };
   const raw = String(formData.get('fee_review_unsettled_events_min') ?? '').trim();
   if (!/^\d+$/.test(raw) || Number(raw) < 1) {
     return { ok: false, message: 'The count must be a whole number, 1 or more.' };
@@ -57,6 +61,8 @@ export type BookingsOpenState = { ok: boolean; message: string | null };
  */
 export async function setBookingsOpen(_prev: BookingsOpenState, formData: FormData): Promise<BookingsOpenState> {
   const { userId: adminUserId } = await requireAdminAction();
+  const refused = await adminCanRefusal('prices_promos', 'escalated');
+  if (refused) return { ok: false, message: refused };
   const want = String(formData.get('bookings_open') ?? '');
   if (want !== 'open' && want !== 'closed') return { ok: false, message: 'Pick open or closed.' };
   const value = want === 'open';

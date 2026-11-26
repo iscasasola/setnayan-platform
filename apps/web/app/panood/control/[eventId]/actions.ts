@@ -106,6 +106,12 @@ function landing(eventId: string, formData: FormData, query: string): string {
 
 // The Live Studio detail/buy surface — where a locked (free) host is bounced if
 // they somehow POST a multi-camera action without owning LIVE_STUDIO.
+/** L-01 (final check): a write that failed — or matched zero rows, which is how RLS refuses — lands on the
+ *  controller with the failure banner, never with the success one. Never returns. */
+function writeFailed(eventId: string): never {
+  redirect(`${SETUP_PATH(eventId)}?write_error=1`);
+}
+
 const DETAIL_PATH = (eventId: string) =>
   `/dashboard/${eventId}/studio/live-studio-control`;
 
@@ -254,11 +260,14 @@ export async function deleteRoamZone(formData: FormData): Promise<void> {
   const boundCameraId =
     (bound as { camera_operator_id: number | null } | null)?.camera_operator_id ?? null;
 
-  await supabase
+  const { data: deletedZones, error: deleteError } = await supabase
     .from('live_studio_roam_zones')
     .delete()
     .eq('event_id', eventId)
-    .eq('id', zoneId);
+    .eq('id', zoneId)
+    .select('id');
+  // The channel stays, so its camera link must stay too — revoke only after the row is really gone.
+  if (deleteError || !deletedZones?.length) writeFailed(eventId);
 
   await revokeChannelCamera(createAdminClient(), eventId, boundCameraId);
 
@@ -404,16 +413,22 @@ export async function cutToMainStage(formData: FormData): Promise<void> {
   // Clear the current cut, then set the chosen one. Two writes (Supabase JS has no
   // multi-statement txn); a transient partial state degrades to "no cut → featured"
   // rather than error (selectMainStageZone).
-  await supabase
+  const { error: offError } = await supabase
     .from('live_studio_roam_zones')
     .update({ is_main_stage: false })
     .eq('event_id', eventId)
     .eq('is_main_stage', true);
-  await supabase
+  if (offError) writeFailed(eventId);
+  const { data: cutRows, error: cutError } = await supabase
     .from('live_studio_roam_zones')
     .update({ is_main_stage: true })
     .eq('event_id', eventId)
-    .eq('id', zoneId);
+    .eq('id', zoneId)
+    .select('id');
+  if (cutError || !cutRows?.length) {
+    revalidatePath(SETUP_PATH(eventId));
+    writeFailed(eventId);
+  }
 
   revalidatePath(SETUP_PATH(eventId));
   redirect(landing(eventId, formData, 'main_stage_cut=1'));
@@ -428,11 +443,12 @@ export async function clearMainStage(formData: FormData): Promise<void> {
 
   await requireHostMembership(eventId);
   const supabase = await createClient();
-  await supabase
+  const { error: clearError } = await supabase
     .from('live_studio_roam_zones')
     .update({ is_main_stage: false })
     .eq('event_id', eventId)
     .eq('is_main_stage', true);
+  if (clearError) writeFailed(eventId);
 
   revalidatePath(SETUP_PATH(eventId));
   redirect(`${SETUP_PATH(eventId)}?main_stage_cleared=1`);
@@ -453,16 +469,22 @@ export async function setFeaturedRoamZone(formData: FormData): Promise<void> {
   // Clear existing featured, then set the chosen one. Two writes (Supabase JS has
   // no multi-statement txn); the picker's selectFeaturedZone tolerates zero-or-one
   // featured, so a transient partial state degrades to "first live" rather than error.
-  await supabase
+  const { error: unfeatureError } = await supabase
     .from('live_studio_roam_zones')
     .update({ is_featured: false })
     .eq('event_id', eventId)
     .eq('is_featured', true);
-  await supabase
+  if (unfeatureError) writeFailed(eventId);
+  const { data: featuredRows, error: featureError } = await supabase
     .from('live_studio_roam_zones')
     .update({ is_featured: true })
     .eq('event_id', eventId)
-    .eq('id', zoneId);
+    .eq('id', zoneId)
+    .select('id');
+  if (featureError || !featuredRows?.length) {
+    revalidatePath(SETUP_PATH(eventId));
+    writeFailed(eventId);
+  }
 
   revalidatePath(SETUP_PATH(eventId));
   redirect(`${SETUP_PATH(eventId)}?featured_set=1`);
@@ -705,11 +727,13 @@ export async function deleteHighlight(formData: FormData): Promise<void> {
   await requireHostMembership(eventId);
   await requireLiveStudioOwned(eventId);
   const supabase = await createClient();
-  await supabase
+  const { data: removedMoments, error: removeError } = await supabase
     .from('live_studio_highlights')
     .delete()
     .eq('event_id', eventId)
-    .eq('id', highlightId);
+    .eq('id', highlightId)
+    .select('id');
+  if (removeError || !removedMoments?.length) writeFailed(eventId);
 
   revalidatePath(SETUP_PATH(eventId));
   redirect(`${SETUP_PATH(eventId)}?highlight=removed`);
@@ -742,7 +766,12 @@ export async function saveControlWatchUrl(formData: FormData): Promise<void> {
 
   await requireHostMembership(eventId);
   const supabase = await createClient();
-  await supabase.from('events').update({ panood_watch_url: normalized }).eq('event_id', eventId);
+  const { data: savedRows, error: saveError } = await supabase
+    .from('events')
+    .update({ panood_watch_url: normalized })
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (saveError || !savedRows?.length) writeFailed(eventId);
 
   revalidatePath(SETUP_PATH(eventId));
   revalidatePath('/[slug]', 'page');
@@ -814,7 +843,13 @@ export async function removeEventFilm(formData: FormData): Promise<void> {
   // .eq('event_id') as well as the id: RLS already scopes this, and a delete keyed on
   // an id alone would depend on that policy being the only thing standing between one
   // event and another's row.
-  await supabase.from('event_films').delete().eq('id', Number(idRaw)).eq('event_id', eventId);
+  const { data: removedFilms, error: filmError } = await supabase
+    .from('event_films')
+    .delete()
+    .eq('id', Number(idRaw))
+    .eq('event_id', eventId)
+    .select('id');
+  if (filmError || !removedFilms?.length) writeFailed(eventId);
 
   revalidatePath(SETUP_PATH(eventId));
   revalidatePath('/[slug]', 'page');
@@ -830,7 +865,12 @@ export async function clearControlWatchUrl(formData: FormData): Promise<void> {
 
   await requireHostMembership(eventId);
   const supabase = await createClient();
-  await supabase.from('events').update({ panood_watch_url: null }).eq('event_id', eventId);
+  const { data: clearedRows, error: clearError } = await supabase
+    .from('events')
+    .update({ panood_watch_url: null })
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (clearError || !clearedRows?.length) writeFailed(eventId);
 
   revalidatePath(SETUP_PATH(eventId));
   revalidatePath('/[slug]', 'page');
@@ -864,10 +904,12 @@ export async function saveControlFacebookUrl(formData: FormData): Promise<void> 
 
   await requireHostMembership(eventId);
   const supabase = await createClient();
-  await supabase
+  const { data: fbRows, error: fbError } = await supabase
     .from('events')
     .update({ panood_watch_url_facebook: normalized })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (fbError || !fbRows?.length) writeFailed(eventId);
 
   revalidatePath(SETUP_PATH(eventId));
   revalidatePath('/[slug]', 'page');
@@ -883,10 +925,12 @@ export async function clearControlFacebookUrl(formData: FormData): Promise<void>
 
   await requireHostMembership(eventId);
   const supabase = await createClient();
-  await supabase
+  const { data: fbRows, error: fbError } = await supabase
     .from('events')
     .update({ panood_watch_url_facebook: null })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (fbError || !fbRows?.length) writeFailed(eventId);
 
   revalidatePath(SETUP_PATH(eventId));
   revalidatePath('/[slug]', 'page');
@@ -924,10 +968,12 @@ export async function setControlManualAir(formData: FormData): Promise<void> {
   // ISO string rather than a literal keeps this readable; sending the wrong one
   // cannot matter, and that is the point of putting the stamp in the database.
   const admin = createAdminClient();
-  await admin
+  const { data: airRows, error: airError } = await admin
     .from('events')
     .update({ panood_manual_on_air_at: new Date().toISOString() })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (airError || !airRows?.length) writeFailed(eventId);
 
   revalidatePath(SETUP_PATH(eventId));
   redirect(`${SETUP_PATH(eventId)}?on_air=1`);
@@ -943,10 +989,12 @@ export async function clearControlManualAir(formData: FormData): Promise<void> {
   await requireHostMembership(eventId);
 
   const admin = createAdminClient();
-  await admin
+  const { data: offRows, error: offError } = await admin
     .from('events')
     .update({ panood_manual_on_air_at: null })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (offError || !offRows?.length) writeFailed(eventId);
 
   revalidatePath(SETUP_PATH(eventId));
   redirect(`${SETUP_PATH(eventId)}?on_air=0`);
@@ -973,10 +1021,15 @@ export async function endManualOnAir(eventId: string): Promise<{ ok: true } | { 
   await requireHostMembership(eventId);
 
   const admin = createAdminClient();
-  await admin
+  const { data: offRows, error: offError } = await admin
     .from('events')
     .update({ panood_manual_on_air_at: null })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('event_id');
+  // L-01 (final check): the on-air light stays on when this write fails — say so instead of "ended".
+  if (offError || !offRows?.length) {
+    return { error: 'Couldn’t turn off the on-air light. You may still read as live — please try again.' };
+  }
 
   revalidatePath(SETUP_PATH(eventId));
   revalidatePath(`/dashboard/${eventId}`); // 🏠 Home's Live stream card says on/off air — one render, from the answer

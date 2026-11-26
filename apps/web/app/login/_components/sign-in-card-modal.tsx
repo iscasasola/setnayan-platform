@@ -41,9 +41,14 @@ export function SignInCardModal({
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
   const dismissible = dismissHref !== null;
+  /*
+    🚪 A DISMISS WITH SOMEWHERE TO GO IS A REAL NAVIGATION (final check A1-172). On a /login opened directly the ✕ ran a
+    client `router.push`, and the card stayed — same address, same card. Escape and the backdrop now load the page
+    outright, and the ✕ is a real link, so it lands even before (or without) the page's script.
+  */
   const dismiss = () => {
     if (dismissHref === null) return;
-    if (dismissHref) router.push(dismissHref);
+    if (dismissHref) window.location.assign(dismissHref);
     else router.back();
   };
   // open is constant true — the modal IS the route. onClose dismisses per above.
@@ -77,7 +82,11 @@ export function SignInCardModal({
         two links on the sign-in page were the last thing still painted in it.
       */}
       <div className="hr-ov-card sn-signin-terra" style={{ maxWidth: 460 }}>
-        {dismissible ? (
+        {dismissible && dismissHref ? (
+          <a href={dismissHref} className="hr-ov-x" aria-label="Close">
+            <X aria-hidden size={18} strokeWidth={1.8} />
+          </a>
+        ) : dismissible ? (
           <button type="button" className="hr-ov-x" onClick={dismiss} aria-label="Close">
             <X aria-hidden size={18} strokeWidth={1.8} />
           </button>

@@ -145,9 +145,8 @@ export default async function VendorDeepSearchPage() {
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-      <PageMasthead
-        title="Learn what the web knows about your business."
-      />
+      {/* The page's name, as its metadata says it (final check B5-12); the masthead keeps it screen-reader only. */}
+      <PageMasthead title="Deep Search" />
 
       <section className="sn-tile mt-6 p-6">
         <div className="flex items-start gap-3">

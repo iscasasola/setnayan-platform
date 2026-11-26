@@ -29,7 +29,7 @@ import type {
   BundleChargeResolution as BundleChargeResolutionType,
 } from '@/lib/order-charge-math';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
-import { resolveLivePax } from '@/lib/pax';
+import { PAX_UNREAD, PAX_UNREAD_WORDS, resolveLivePax } from '@/lib/pax';
 import {
   computePaxPriceCentavos,
   formatBillingPeriodSuffix,
@@ -655,7 +655,11 @@ export async function resolveRetailChargeCentavos(
   // pax surface in the app already quotes resolveLivePax.
   let pax: number | null = null;
   if (config.is_pax_priced) {
-    pax = await resolveLivePax(admin, eventId);
+    const read = await resolveLivePax(admin, eventId);
+    // ⚖ OWNER ADD 35: an unread guest count prices NOTHING — never the floor price. The charge path treats `error` as a
+    // hard stop, so nothing is charged; the words are the owner's.
+    if (read === PAX_UNREAD) return { status: 'error', message: PAX_UNREAD_WORDS };
+    pax = read;
   }
 
   const standardCentavos = computePaxPriceCentavos(config, pax);

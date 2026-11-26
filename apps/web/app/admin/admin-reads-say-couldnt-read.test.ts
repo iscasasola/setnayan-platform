@@ -49,7 +49,7 @@ test('Account card: every read binds its error, and a refused profile is not a 4
   for (const name of [
     'userError', 'membershipsError', 'eventsError', 'vendorTeamError', 'vendorProfilesError',
     'ordersError', 'paymentsError', 'refundsError', 'helpError', 'disputesError',
-    'reportsError', 'abuseError', 'accessLogError', 'adminActionsError',
+    'reportsError', 'accessLogError', 'adminActionsError',
   ]) {
     assert.match(s, new RegExp(`error: ${name}\\b`), `${name} is never bound`);
   }
@@ -190,12 +190,7 @@ test('Corrections: a refused queue read is not "No correction requests"', () => 
   assert.match(s, /\{!rowsOk \? \(\s*<ReadFailed/);
 });
 
-test('Concierge abuse: an unread queue is not "The queue is clear."', () => {
-  const s = src('app/admin/concierge-abuse/page.tsx');
-  assert.match(s, /const pendingUnread = Boolean\(pendingFlagsRes\.error\);/);
-  assert.match(s, /pendingUnread \? \(\s*<ReadFailed what="the pending flags" \/>/);
-  assert.match(s, /value=\{pendingUnread \? '—' : /);
-});
+// Concierge abuse: its desk (/admin/concierge-abuse) is retired (final check R7, 25 Nov) — nothing left to hold.
 
 test('Completions / User reports / Demo thread / Removals: a refused lookup is not a fact about the thing', () => {
   assert.match(src('app/admin/completions/page.tsx'), /\{eventError \? \(\s*<div[^>]*>\s*<ReadFailed/);

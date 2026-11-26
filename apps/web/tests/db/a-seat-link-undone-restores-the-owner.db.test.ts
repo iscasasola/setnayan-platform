@@ -16,9 +16,9 @@
  *      person that account put there while re-sending the row's own email —
  *      the creator's person comes back, the stranger stops being a celebrant,
  *      and the creator's couple membership is untouched;
- *   3. 20271254506023: a same-name row in another celebration of the cluster
- *      does NOT inherit a person an account has claimed, while two unclaimed
- *      name-only rows still converge (7b unchanged).
+ *   3. 20271254506023: a same-name row in another celebration does NOT
+ *      inherit a person an account has claimed. Since the cluster name match
+ *      was dropped (20271363906595) a name-only row is never linked by name.
  */
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -126,22 +126,11 @@ test('an unlink gives the creator their own row back, and the stranger stops bei
   assert.equal(couple.rows.length, 1, 'the unlink touched the couple’s own membership');
 });
 
-test('a name in another celebration of the cluster never inherits a CLAIMED person', async () => {
+test('a name in another celebration never inherits a CLAIMED person', async () => {
   const owner = await newUser('seat-unlink-cluster-owner@example.com');
   const guestAccount = await newUser('seat-unlink-cluster-guest@example.com');
   const wedding = await newEvent('Cluster wedding', owner.id);
   const shower = await newEvent('Cluster shower', owner.id);
-  const c = await db.query<{ event_cluster_id: string }>(
-    `INSERT INTO public.event_clusters (owner_user_id, display_name) VALUES ($1,'Cluster year') RETURNING event_cluster_id`,
-    [owner.id],
-  );
-  const cluster = c.rows[0]!.event_cluster_id;
-  for (const ev of [wedding, shower]) {
-    await db.query(
-      `INSERT INTO public.event_cluster_members (event_cluster_id, event_id, linked_by) VALUES ($1,$2,$3)`,
-      [cluster, ev, owner.id],
-    );
-  }
 
   // A wedding row holding an ACCOUNT's person (bound — rightly or wrongly).
   const w = await db.query<{ guest_id: string }>(
@@ -165,10 +154,10 @@ test('a name in another celebration of the cluster never inherits a CLAIMED pers
   assert.equal(
     s.rows[0]!.person_id,
     null,
-    'a typed name inherited somebody’s ACCOUNT across the cluster (20271254506023 regressed)',
+    'a typed name inherited somebody’s ACCOUNT across celebrations (20271254506023 regressed)',
   );
 
-  // 7b unchanged: two UNCLAIMED name-only rows still converge.
+  // No name match is left (clusters dropped): two UNCLAIMED name-only rows stay unlinked.
   const a = await db.query<{ guest_id: string }>(
     `INSERT INTO public.guests (event_id, first_name, last_name, side, group_category)
      VALUES ($1,'Lito','Ramos','both','family') RETURNING guest_id`,
@@ -179,8 +168,8 @@ test('a name in another celebration of the cluster never inherits a CLAIMED pers
      VALUES ($1,'Lito','Ramos','both','family') RETURNING person_id`,
     [shower],
   );
-  assert.ok(b.rows[0]!.person_id, 'the gate also stopped two unclaimed cluster-mates converging (7b broken)');
-  assert.equal(await personOf(a.rows[0]!.guest_id), b.rows[0]!.person_id);
+  assert.equal(b.rows[0]!.person_id, null, 'a name-only row was linked by its name alone');
+  assert.equal(await personOf(a.rows[0]!.guest_id), null, 'a name-only row was linked by its name alone');
 });
 
 test('a couple row’s key + a typed email never makes the typist a celebrant (20271255305468)', async () => {

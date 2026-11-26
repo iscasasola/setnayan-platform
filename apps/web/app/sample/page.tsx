@@ -1,3 +1,4 @@
+import { routes } from '@/lib/routes';
 import Link from 'next/link';
 import { loadSampleOrNotFound } from '@/lib/sample-event/switch.server';
 
@@ -41,7 +42,7 @@ export default async function SampleLandingPage() {
 
         <p className="mt-10">
           <Link
-            href="/onboarding/wedding"
+            href={routes.start()}
             className="inline-flex min-h-11 items-center rounded-full bg-mulberry px-5 text-sm font-medium text-cream hover:bg-mulberry-600"
           >
             Start your own event

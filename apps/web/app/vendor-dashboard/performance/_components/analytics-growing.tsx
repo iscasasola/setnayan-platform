@@ -503,6 +503,11 @@ export function graphSpecsFor({ view, graphs, win }: { view: GrowthView; graphs:
   };
 
   const priceEmpty = !view.price.positioned;
+  // 🪪 Only a shop with no starting price is asked for one; "not enough prices around you" is said as itself (B5-20).
+  const priceEmptyLine =
+    view.price.emptyWhy === 'no_data'
+      ? 'Not enough published prices in your region yet to place yours.'
+      : 'Add a starting price to see where you sit.';
   // Words only on the rail — no amount on a tile (the risen details carry your own starting price).
   const priceRail = view.price.show ? <PriceRail positioned={{ low: '', med: '', high: '', at: priceEmpty ? S.price.at : view.price.positioned!.at }} unread={view.price.unread} /> : null;
   const price: GraphSpec | null = priceRail
@@ -513,8 +518,8 @@ export function graphSpecsFor({ view, graphs, win }: { view: GrowthView; graphs:
         src: 'Your starting price against the low · median · high of published prices for your service in your region · words, never another shop’s price',
         tag: 'absorb',
         state: st(view.price.unread, priceEmpty),
-        line: priceEmpty ? 'Add a starting price to see where you sit.' : view.price.positioned!.word,
-        problem: priceEmpty ? 'Add a starting price to see where you sit.' : view.price.positioned!.word,
+        line: priceEmpty ? priceEmptyLine : view.price.positioned!.word,
+        problem: priceEmpty ? priceEmptyLine : view.price.positioned!.word,
         rec: recOf('price'),
         details: (
           <>
@@ -526,7 +531,7 @@ export function graphSpecsFor({ view, graphs, win }: { view: GrowthView; graphs:
             )}
           </>
         ),
-        door: { label: 'Set a starting price', href: '/vendor-dashboard/shop' },
+        door: { label: view.price.emptyWhy === 'no_own_price' ? 'Set a starting price' : 'Your cards', href: '/vendor-dashboard/shop' },
       }
     : null;
 

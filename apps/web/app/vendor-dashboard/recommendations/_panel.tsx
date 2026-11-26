@@ -12,6 +12,7 @@ import { Sheet } from '@/app/_components/sheet';
 import { SupplierToast } from '../_components/supplier-toast';
 import { ToolChip, ToolEmpty, ToolFail, ToolPage, ToolPin, ToolSection } from '../_components/tool-page';
 import { StayForm } from '@/app/_components/stay-form';
+import { routes } from '@/lib/routes';
 
 /**
  * RecommendationsPanel — the vendor's private "Recommend to your couples"
@@ -79,6 +80,7 @@ export function RecommendationsPanel({
   flaggedFlash,
   suggestedFlash,
   errorFlash,
+  readFailed = false,
 }: {
   groups: LeafGroup[];
   suggestSkuOptions: SkuOption[];
@@ -90,6 +92,8 @@ export function RecommendationsPanel({
   flaggedFlash: boolean;
   suggestedFlash: boolean;
   errorFlash: string | null;
+  /** 🪪 A read the cards depend on was refused: said, never "no recommendations", raw codes or a wrong On/Off. */
+  readFailed?: boolean;
 }) {
   const suggestedSet = new Set(suggestedKeys);
   return (
@@ -112,7 +116,14 @@ export function RecommendationsPanel({
       {flaggedFlash ? <SupplierToast tone="ok" text="Thanks — we’ll review your note and get back to you." line={false} /> : null}
       {suggestedFlash ? <SupplierToast tone="ok" text="Suggested — the couple will see it in their Studio." line={false} /> : null}
 
-      {groups.length === 0 ? (
+      {readFailed ? (
+        <ToolFail
+          data="recommend-read"
+          title="Couldn’t load your recommendations"
+          line="Nothing was changed."
+          retryHref={routes.vendorDashboard.recommendations()}
+        />
+      ) : groups.length === 0 ? (
         <ToolEmpty data="recommend">
           No recommendations for your categories yet. Add the services you offer to unlock matches.
         </ToolEmpty>

@@ -2,4 +2,6 @@
  *  save (`app/_actions/stay-registry/invitation.ts`). */
 export const MONO_ERROR_COPY: Record<string, string> = {
   invalid_color: 'Monogram color must be a hex code like #C97B4B.',
+  // I-04 (final check): a refused or zero-row save used to land as "saved".
+  not_saved: "Couldn't save your logo. Nothing changed — try again.",
 };

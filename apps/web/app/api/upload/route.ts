@@ -2,6 +2,7 @@ import { chatFileLimitFor } from '@/lib/chat-file-rules';
 import { CHAT_ATTACHMENT_MIME } from '@/lib/chat-attachment-limits';
 import { randomUUID } from 'node:crypto';
 import {
+  isAdminOnlyUploadPrefix,
   tenancyForPathPrefix,
   UPLOAD_TENANCY_REFUSAL,
 } from '@/lib/upload-prefix-tenancy';
@@ -914,6 +915,21 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
   // What is INSIDE the file (an .m4a can hold Opus, which is silent on some
   // iPhones) is read from the stored bytes when the track is added —
   // app/admin/hub-music/actions.ts.
+  // ── THE SITE'S OWN FOLDERS ARE AN ADMIN'S TOO (final check 25 Nov, A8·G-4) ──
+  // `homepage-bg/` and `onboarding/` are presigned from admin screens and name no id, so the
+  // tenancy rule above has nothing to assert; without this any signed-in account could put a
+  // file there. Same admin test as hub music, same non-specific refusal.
+  if (!seatMode && isAdminOnlyUploadPrefix(pathPrefix)) {
+    const { data: me } = await supabase
+      .from('users')
+      .select('is_internal, is_team_member, account_type')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (!isAdminProfile(me)) {
+      return NextResponse.json({ error: UPLOAD_TENANCY_REFUSAL }, { status: 403 });
+    }
+  }
+
   if (!seatMode && hubMusicUploadRule(pathPrefix)) {
     const { data: me } = await supabase
       .from('users')

@@ -486,11 +486,23 @@ export async function approvePaymentCore(args: {
   // outright — the same transfer counted twice against the same bill, which
   // the shortfall guard would otherwise add up into a false "fully paid".
   {
-    const { data: me } = await admin
+    const { data: me, error: meErr } = await admin
       .from('payments')
       .select('order_id, reference_number')
       .eq('payment_id', paymentId)
       .maybeSingle();
+    // A8·A-1: the same rule as the priors read below — a money guard that cannot read must not pass. An unread
+    // payment row used to skip the whole duplicate check and approve.
+    if (meErr) {
+      return {
+        ok: false,
+        duplicate: true,
+        blocking: true,
+        message:
+          'Couldn’t check this payment against previous payments, so it is not safe to confirm yet. ' +
+          'Nothing was approved — try again in a moment.',
+      };
+    }
     const mine = me as { order_id: string; reference_number: string | null } | null;
     if (mine && normalizeReference(mine.reference_number) !== '') {
       // Cast a wide net and let the pure rule narrow it: an exact SQL match

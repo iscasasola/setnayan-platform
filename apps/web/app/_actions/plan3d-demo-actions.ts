@@ -286,7 +286,7 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
 
   // Resolve each guest's stored `photo_url` (an r2:// ref or raw avatar URL) to
   // a display URL so the 3D avatars wear the guest's actual selfie — mirrors the
-  // couple lab's resolver (seating/lab/page.tsx), signed in parallel. The sample
+  // couple lab's resolver (seating/lab/_components/seating-room.tsx), signed in parallel. The sample
   // event's guests are fictional, so these photos carry zero privacy surface.
   const photoDisplayUrls = await guestPhotoDisplayUrls(guestRows);
 

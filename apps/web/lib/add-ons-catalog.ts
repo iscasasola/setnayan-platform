@@ -39,6 +39,7 @@ import type { PlanGroupId } from '@/lib/wedding-plan-groups';
 import type { ProfileSurface } from '@/lib/event-type-profile';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { thankYouVideoHref } from '@/lib/memories-keepsakes';
+import { guestsViewHref } from '@/lib/guests-views';
 
 /**
  * The cinema-poster look each add-on carries (motion + colours + badge tint).
@@ -279,7 +280,7 @@ export function addOnHref(key: string, eventId: string): string {
   if (key === 'seating') {
     return process.env.NEXT_PUBLIC_SEATING_3D === 'false'
       ? `/dashboard/${eventId}/seating`
-      : `/dashboard/${eventId}/seating/lab`;
+      : guestsViewHref(eventId, 'seats', { seat: '3d' }); // L6 (R5): the 3D room's home, not the lab's forward
   }
   // The three website "parts" (RSVP · Event · Editorial) open the full-screen
   // editor jumped straight to that phase. Unified Website Editor (2026-07-25):

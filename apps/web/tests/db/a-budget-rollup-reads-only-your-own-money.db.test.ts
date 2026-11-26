@@ -15,11 +15,11 @@
  * on a new page. `fetchClusterBudgets` therefore re-asks COUPLE membership per
  * read and shows the money of nothing else.
  *
- * ─── 🔑 AND MEMBERSHIP IS RE-ASKED, NOT INHERITED FROM THE LINK ───────────
- * 7a's INSERT policy checks both halves — your cluster AND your celebration —
- * but only at LINK time. Nothing revokes a membership row when a person leaves
- * an event, so a cluster can outlive the access that justified it. The last
- * test builds exactly that row.
+ * ─── 🔑 AND MEMBERSHIP IS RE-ASKED, NEVER REMEMBERED ─────────────────────
+ * A person can leave a celebration after a surface first listed it. The last
+ * test removes the membership and asserts the budget leaves with it. (The
+ * cluster tables the rollup was first built over were dropped, 20271363906595;
+ * the two reads pinned here touch neither.)
  *
  * ⚠ ASSERTS THE OUTCOME, NEVER A THROW. Under RLS a refused SELECT is filtered
  * to zero rows and resolves happily, so counting what is VISIBLE survives
@@ -83,23 +83,6 @@ async function newEventWithBudget(
   return eventId;
 }
 
-async function newCluster(ownerId: string, name: string): Promise<string> {
-  const c = await db.query<{ event_cluster_id: string }>(
-    `INSERT INTO public.event_clusters (owner_user_id, display_name)
-     VALUES ($1,$2) RETURNING event_cluster_id`,
-    [ownerId, name],
-  );
-  return c.rows[0]!.event_cluster_id;
-}
-
-async function link(clusterId: string, eventId: string, ownerId: string): Promise<void> {
-  await db.query(
-    `INSERT INTO public.event_cluster_members (event_cluster_id, event_id, linked_by)
-     VALUES ($1,$2,$3)`,
-    [clusterId, eventId, ownerId],
-  );
-}
-
 /**
  * THE ROLLUP'S TWO READS, as `lib/cluster-budgets.ts` actually issues them:
  * COUPLE membership first, then `events_host` — and a target is reported ONLY
@@ -139,9 +122,6 @@ test('a host sees the budgets of the celebrations in their own year', async () =
   const me = await newUser('rollup-owner@example.com');
   const wedding = await newEventWithBudget('My wedding', me, 80_000_000); // ₱800,000
   const shower = await newEventWithBudget('My shower', me, 4_500_000); // ₱45,000
-  const cluster = await newCluster(me, 'Our year');
-  await link(cluster, wedding, me);
-  await link(cluster, shower, me);
 
   const seen = await rollupVisibleTargets(me, [wedding, shower]);
   assert.equal(seen.length, 2, 'the host cannot read their own budgets');
@@ -253,15 +233,11 @@ test('an ACCEPTED DELEGATE is inside events_host — and still gets no budget fr
 
 test('losing your place at a celebration takes its budget out of your year', async () => {
   /*
-   * 🔑 THE ONE THE LINK POLICY CANNOT CATCH. 7a checks both halves at INSERT;
-   * nothing re-checks them afterwards, so a cluster outlives the membership
-   * that justified it. If the rollup trusted the membership row instead of
-   * re-asking, this budget would keep printing forever.
+   * 🔑 If the rollup remembered who could read a budget instead of re-asking
+   * on every read, this budget would keep printing forever.
    */
   const me = await newUser('rollup-departed@example.com');
   const wedding = await newEventWithBudget('A wedding I left', me, 55_000_000);
-  const cluster = await newCluster(me, 'A year I kept');
-  await link(cluster, wedding, me);
 
   const before = await rollupVisibleTargets(me, [wedding]);
   assert.equal(before.length, 1, 'setup failed — the budget was never visible to begin with');
@@ -271,40 +247,11 @@ test('losing your place at a celebration takes its budget out of your year', asy
     me,
   ]);
 
-  // The link survives; the access does not.
-  const stillLinked = await db.query<{ n: number }>(
-    `SELECT COUNT(*)::int AS n FROM public.event_cluster_members WHERE event_cluster_id = $1`,
-    [cluster],
-  );
-  assert.equal(stillLinked.rows[0]!.n, 1, 'the membership row vanished, so this proves nothing');
-
   const after = await rollupVisibleTargets(me, [wedding]);
   assert.deepEqual(
     after,
     [],
-    'a cluster kept printing the budget of a celebration its owner no longer ' +
-      'hosts — the link outlived the access and the rollup never re-asked',
-  );
-});
-
-/* ── the cluster still holds no money of its own ─────────────────────────── */
-
-test('7d added no money column to either cluster table', async () => {
-  const cols = await db.query<{ table_name: string; column_name: string }>(
-    `SELECT table_name, column_name
-       FROM information_schema.columns
-      WHERE table_schema = 'public'
-        AND table_name IN ('event_clusters','event_cluster_members')`,
-  );
-  assert.ok(cols.rows.length >= 12, 'both cluster tables must exist to be checked');
-  const offenders = cols.rows
-    .filter((r) => /(budget|amount|price|peso|centavo|total|balance)/i.test(r.column_name))
-    .map((r) => `${r.table_name}.${r.column_name}`);
-  assert.deepEqual(
-    offenders,
-    [],
-    `a cluster grew a money column (${offenders.join(', ')}). The rollup is ` +
-      'DERIVED ON READ; a stored total is stale the first time a host edits ' +
-      'their budget, and a stale money number is read as fact.',
+    'the rollup kept printing the budget of a celebration its owner no longer ' +
+      'hosts — it never re-asked',
   );
 });

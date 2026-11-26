@@ -37,7 +37,6 @@ export const routes = {
     approvals: () => `/admin/approvals`,
     brain: () => `/admin/ugat?tab=brain`,
     budgetPlanner: () => `/admin/budget-planner`,
-    conciergeAbuse: () => `/admin/concierge-abuse`,
     connectionLogs: () => `/admin/app-performance?tab=connection-logs`,
     demoVendors: {
       index: () => `/admin/demo-vendors`,
@@ -338,9 +337,8 @@ export const routes = {
       photoDelivery: (eventId: string) => `/dashboard/${eventId}/studio/photo-delivery`,
       playlist: (eventId: string) => `/dashboard/${eventId}/studio/playlist`,
       saveTheDate: (eventId: string) => `/dashboard/${eventId}/studio/save-the-date`,
-      setnayanAi: (eventId: string) => `/dashboard/${eventId}/studio/setnayan-ai`,
+      // `setnayanAi` removed (final check R2, 25 Nov): the buy page is retired; doors use `eventServices`.
     },
-    apiKeys: () => `/dashboard/api-keys`,
     budget: (eventId: string) => `/dashboard/${eventId}/budget`,
     /** The Hub (the Maker) — the hosts' "Hub" tab. */
     launch: (eventId: string) => `/dashboard/${eventId}/launch`,
@@ -364,7 +362,6 @@ export const routes = {
       detail: (eventId: string, guestId: string) => `/dashboard/${eventId}/guests/${guestId}`,
       'import': (eventId: string) => `/dashboard/${eventId}/guests/import`,
       new: (eventId: string) => `/dashboard/${eventId}/guests/new`,
-      quick: (eventId: string) => `/dashboard/${eventId}/guests/quick`,
     },
     hosts: (eventId: string) => `/dashboard/${eventId}/hosts`,
     invitation: {
@@ -390,7 +387,6 @@ export const routes = {
     accessRequests: (eventId: string) => `/dashboard/${eventId}/access-requests`,
     profile: {
       index: () => `/dashboard/profile`,
-      concierge: () => `/dashboard/profile/concierge`,
     },
     schedule: (eventId: string) => `/dashboard/${eventId}/schedule`,
     seating: {

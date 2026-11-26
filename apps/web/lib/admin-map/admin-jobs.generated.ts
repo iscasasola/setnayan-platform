@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:jobs
 //
 // Every job the admin can perform and what it asks for, read out of the action
-// that performs it. 332 jobs, 218 of them form-driven, as of e4ac59b2c9.
+// that performs it. 329 jobs, 215 of them form-driven, as of afbd8c6f03.
 // admin-jobs-are-generated.test.ts fails if this drifts from the code.
 
 import type { AdminJob } from './scan-admin-jobs';
@@ -143,36 +143,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
     "destructive": false
   },
   {
-    "name": "adminClearConciergeFlag",
-    "phrase": "admin clear concierge flag",
-    "ownerPath": "/admin/concierge-abuse",
-    "resolvedPath": "/admin/concierge-abuse",
-    "fields": [
-      "flag_id",
-      "admin_notes"
-    ],
-    "refusedWhenEmpty": [
-      "flag_id",
-      "admin_notes"
-    ],
-    "destructive": false
-  },
-  {
-    "name": "adminConfirmConciergeAbuse",
-    "phrase": "admin confirm concierge abuse",
-    "ownerPath": "/admin/concierge-abuse",
-    "resolvedPath": "/admin/concierge-abuse",
-    "fields": [
-      "flag_id",
-      "admin_notes"
-    ],
-    "refusedWhenEmpty": [
-      "flag_id",
-      "admin_notes"
-    ],
-    "destructive": false
-  },
-  {
     "name": "adminDeclineInquiry",
     "phrase": "admin decline inquiry",
     "ownerPath": "/admin/demo-vendors/inquiries",
@@ -181,21 +151,6 @@ export const ADMIN_JOBS: readonly AdminJob[] = [
       "reason"
     ],
     "refusedWhenEmpty": [],
-    "destructive": false
-  },
-  {
-    "name": "adminLiftConciergeEnforcement",
-    "phrase": "admin lift concierge enforcement",
-    "ownerPath": "/admin/concierge-abuse",
-    "resolvedPath": "/admin/concierge-abuse",
-    "fields": [
-      "user_id",
-      "admin_notes"
-    ],
-    "refusedWhenEmpty": [
-      "user_id",
-      "admin_notes"
-    ],
     "destructive": false
   },
   {

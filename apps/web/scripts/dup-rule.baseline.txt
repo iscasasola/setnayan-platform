@@ -234,8 +234,8 @@ omit	app/dashboard/[eventId]/monogram/studio-actions.ts	events	HERO_MONOGRAM_COL
 omit	app/dashboard/[eventId]/monogram/studio-actions.ts	events	HERO_MONOGRAM_COLUMNS	monogram_style
 omit	app/dashboard/[eventId]/seating/export/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
 omit	app/dashboard/[eventId]/seating/export/route.ts	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
-omit	app/dashboard/[eventId]/seating/lab/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
-omit	app/dashboard/[eventId]/seating/lab/page.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
+omit	app/dashboard/[eventId]/seating/lab/_components/seating-room.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_motion_key
+omit	app/dashboard/[eventId]/seating/lab/_components/seating-room.tsx	events	HERO_MONOGRAM_COLUMNS	monogram_studio_config
 omit	app/dashboard/[eventId]/story/_lib/load-desk.ts	guests	ENTOURAGE_COLUMNS	extra_roles
 omit	app/dashboard/[eventId]/story/_lib/load-desk.ts	guests	ENTOURAGE_COLUMNS	middle_name
 omit	app/dashboard/[eventId]/story/_lib/load-desk.ts	guests	ENTOURAGE_COLUMNS	name_prefix

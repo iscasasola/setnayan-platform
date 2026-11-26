@@ -37,8 +37,15 @@ import { groupChat } from '../actions';
 
 export const metadata = { title: 'Group chat', robots: { index: false, follow: false } };
 
-export default async function GroupChatPage({ params }: { params: Promise<{ threadId: string }> }) {
+export default async function GroupChatPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ threadId: string }>;
+  searchParams: Promise<{ error?: string }>;
+}) {
   const { threadId } = await params;
+  const rejoinFailed = (await searchParams).error === 'rejoin';
   const user = await getCurrentUser();
   if (!user) redirect(`/login?next=${encodeURIComponent(groupChatHref(threadId))}`);
   const supabase = await createClient();
@@ -58,6 +65,11 @@ export default async function GroupChatPage({ params }: { params: Promise<{ thre
           Join this chat again? You left{head.left_at ? ` on ${formatLongDate(head.left_at.slice(0, 10))}` : ''}
           {head.left_note ? ` — ${head.left_note}` : ''}.
         </p>
+        {rejoinFailed ? (
+          <p role="alert" className="mt-3 text-sm text-terracotta">
+            You were not added back just now. Press Join chat to try again.
+          </p>
+        ) : null}
         {canLeaveGroup(head.my_kind) ? (
           <form action={groupChat.bind(null, 'rejoin')} className="mt-4">
             <input type="hidden" name="thread_id" value={threadId} />
@@ -94,7 +106,7 @@ export default async function GroupChatPage({ params }: { params: Promise<{ thre
         youId={user.id}
         backHref={back.href}
         backLabel={back.label}
-        switcher={(groups ?? []).map((g) => ({
+        switcher={groups === null ? null : groups.map((g) => ({
           threadId: g.thread_id,
           name: g.group_name,
           line: `${formatCount(g.member_count)} inside · ${groupListLine(g)}`,

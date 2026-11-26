@@ -167,8 +167,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"): its old parent `/explore` now only redirects.
   '/explore/compare': { home: '/?browse=1', label: 'Suppliers' },
   /* ── account ─────────────────────────────────────────────────────────────────────────────────────── */
-  // Settings is where API keys are opened (audit ✅ "looked odd but fine").
-  '/dashboard/api-keys': { home: '/dashboard/profile' },
+  // L6 (R8): API keys retired at launch — the address forwards to the dashboard, so its home is the dashboard.
+  '/dashboard/api-keys': { home: '/dashboard' },
   // Groups live in People since the People & Groups merge — `/dashboard/samahan` is the retired index.
   '/dashboard/samahan': { home: '/dashboard?seg=people&view=samahan' },
   '/dashboard/samahan/**': { home: '/dashboard?seg=people&view=samahan' },
@@ -255,8 +255,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/[slug]': { none: 'computed', by: 'lib/discover-way-back.ts' },
   '/suppliers/[event]/[category]': { home: '/suppliers' },
   '/tl/*': { home: '/' },
-  // The API reference is read by whoever holds a key, made in Settings › API keys.
-  '/api/v1': { home: '/dashboard/api-keys', label: 'API keys' },
+  // L6 (R8): the API reference retired with API keys — the address forwards to the dashboard.
+  '/api/v1': { home: '/dashboard' },
   // Each works out its back per visit — who sent you (`lib/pay-back-link.ts`, `lib/proposal-back.ts`).
   '/pay/[reference]': { none: 'computed', by: 'lib/pay-back-link.ts' },
   '/proposals/[publicId]': { none: 'computed', by: 'lib/proposal-back.ts' },

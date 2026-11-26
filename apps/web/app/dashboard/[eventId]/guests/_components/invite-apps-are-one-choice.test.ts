@@ -98,3 +98,20 @@ test('⓷ opening an app is not a send — it never stamps, and it offers Mark a
   assert.match(SEND, /said\?\.kind === 'app'[\s\S]{0,400}sentAt \? null[\s\S]{0,200}Mark as sent[\s\S]{0,60}mark\(true\)/);
   assert.doesNotMatch(LIB, /invitation_sent_at|setGuestInvitationSent|from '@\/app\//, 'the link builder reaches for the Sent ✓ writer');
 });
+
+test('⓸ the app links read the DEVICE, never the sheet’s shape — a phone opens the Messenger and Viber apps', () => {
+  // Owner 2026-11-26 (phone browser): *"Messenger opens the website of messenger but not the app. viber does not load
+  // anything."* `rowShare` sets `touch` false on a phone to draw the app rows, and `viaApp` read that same `touch`, so
+  // every phone took the computer branch: messenger.com, and a Viber copy with nothing opened.
+  const cell = bodyOf(CELL, 'GuestInviteCell');
+  const via = bodyOf(cell, 'viaApp');
+  assert.match(via, /inviteAppPlan\(app, text, \{ touch: phone,/, 'viaApp plans the link from something other than the device');
+  assert.match(via, /runInviteAppPlan\(plan, text, phone\)/, 'viaApp opens the link by something other than the device');
+  assert.doesNotMatch(via, /\btouch\b(?!:)/, 'viaApp reads the sheet-shape switch, which rowShare forces false on a phone');
+  // The device is measured at every open and nothing else writes it.
+  assert.match(bodyOf(cell, 'invite'), /setPhone\(isTouchDevice\(\)\)/, 'the device is not measured when the sheet opens');
+  assert.equal((cell.match(/setPhone\(/g) ?? []).length, 1, 'something other than the open writes the device');
+  assert.doesNotMatch(bodyOf(cell, 'rowShare'), /setPhone/, 'the row’s Share overrides the device');
+  // The row hints say what THIS device does.
+  assert.match(cell, /const device = \{ touch: phone,/, 'the app-row hints describe the sheet shape, not the device');
+});

@@ -287,7 +287,8 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
   // matched only category words — so shops are searched by name too, with the
   // bench's own whole-marketplace search (one rule for who may be listed).
   const shopsRead = q && profile.marketplaceEnabled ? await searchMarketplaceForBench(eventId, q) : { results: [], unreadable: false };
-  const shops = shopsRead.results;
+  // A2-G11: a shop with no address cannot be opened, so it is left out of the answer — never drawn as a link to "#".
+  const shops = shopsRead.results.flatMap((r) => (r.slug ? [{ ...r, slug: r.slug }] : []));
 
   return (
     // 📏 16 px gutters on a phone (house rule): the event layout's wrapper already pads 16 px, so this page adds none
@@ -334,7 +335,7 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
                 {shops.map((r) => (
                   <li key={r.vendorProfileId} className="border-t border-ink/10">
                     <Link
-                      href={r.slug ? shopHrefForEvent(r.slug, eventId) : '#'}
+                      href={shopHrefForEvent(r.slug, eventId)}
                       prefetch={false}
                       className="flex min-h-11 items-center gap-3 py-3"
                       data-find-shop={r.vendorProfileId}

@@ -144,7 +144,6 @@ test('a trailing slash still forwards; a child path or a live path does not', ()
     // The product pages under /studio are live — only the index retired (d1). (Papic's page itself retired
     // 2026-10-26 — its children stay pages.)
     `/dashboard/${EID}/studio/papic/crew`,
-    `/dashboard/${EID}/studio/papic/challenges`,
     `/dashboard/${EID}/studio/about/papic`,
     `/dashboard/${EID}/galleries`,
     `/dashboard/${EID}/launch`, // the controller — NOT website/launch

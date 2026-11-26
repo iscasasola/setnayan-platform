@@ -24,6 +24,7 @@
 /dev/booth-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/budget-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/bundle-maker-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/busy-and-back-lab	# 2026-11-27 · internal (dev lab, 404 in production) · final check B18 · B19 proof frames on sample data; reached by typing its address
 /dev/cake-maker-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/card-maker-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/card-moderation-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address

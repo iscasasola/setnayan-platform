@@ -155,7 +155,7 @@ export function StepUp({ children, slug }: { children: React.ReactNode; slug: st
       <span>
         {children}{' '}
         <Link href={`/${slug}`} className="whitespace-nowrap text-terracotta-700 underline underline-offset-[3px]">
-          Confirm your Booking
+          Open your invitation
         </Link>
       </span>
     </div>

@@ -197,9 +197,11 @@ test('both actions require an admin before doing anything', () => {
   for (const name of ['viewVerificationDoc', 'deleteVerificationDoc']) {
     const fn = ACTIONS.slice(ACTIONS.indexOf(`export async function ${name}`));
     const head = fn.slice(0, fn.indexOf('\n}'));
+    // A8·E-8 (final check, 25 Nov 2026): the gate is `requireVerificationArea` — the SHARED admin gate
+    // (`requireAdminAction`) plus the Verification area — in place of a narrower hand-rolled copy.
+    const gate = head.search(/await requireVerificationArea\((?:'escalated')?\)/);
     assert.ok(
-      head.indexOf('await requireAdmin()') >= 0 &&
-        head.indexOf('await requireAdmin()') < head.indexOf('formData.get'),
+      gate >= 0 && gate < head.indexOf('formData.get'),
       `${name} must gate on admin before reading the form`,
     );
   }
@@ -2088,36 +2090,32 @@ test('R6 · the page binds ONE deletable expression, and it comes from the shelf
  * reference-set field mapping, no `try/catch` around the delete. Every one of
  * those has been a green sabotage on this page.
  */
+/*
+ * Updated for A8·E-8 (final check, 25 Nov 2026): the one thing this file now decides differently is WHO may press —
+ * `requireVerificationArea` is the shared admin gate plus the Verification area (Basic to download, Escalated to
+ * delete), replacing a hand-rolled is_internal check that sent a team-member admin to `/` with no reason.
+ */
 const ACTIONS_BODY_PIN = `
 'use server';
 
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 
-import { createClient } from '@/lib/supabase/server';
+import { requireAdminAction } from '@/lib/admin/require-admin';
+import { adminCanRefusal } from '@/lib/admin/can.server';
 import { R2_BUCKETS, r2Delete, r2SignedGet } from '@/lib/r2';
 import { contentDispositionAttachment } from '@/lib/content-disposition';
 import { referencedVerificationKeys } from '@/lib/verification-docs-server';
 import { performVerificationDelete } from '@/lib/verification-docs';
 
-async function requireAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) redirect('/login');
-  const { data } = await supabase
-    .from('users')
-    .select('is_internal')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if ((data as { is_internal?: boolean } | null)?.is_internal !== true) {
-    redirect('/');
-  }
+async function requireVerificationArea(level: 'basic' | 'escalated' = 'basic') {
+  await requireAdminAction();
+  const refused = await adminCanRefusal('verification', level);
+  if (refused) redirect(\`/admin/verification-docs?error=1&msg=\${encodeURIComponent(refused)}\`);
 }
 
 export async function viewVerificationDoc(formData: FormData): Promise<void> {
-  await requireAdmin();
+  await requireVerificationArea();
   const key = String(formData.get('key') ?? '').trim();
   if (!key) redirect('/admin/verification-docs?error=nokey');
 
@@ -2131,7 +2129,7 @@ export async function viewVerificationDoc(formData: FormData): Promise<void> {
 }
 
 export async function deleteVerificationDoc(formData: FormData): Promise<void> {
-  await requireAdmin();
+  await requireVerificationArea('escalated');
   const key = String(formData.get('key') ?? '').trim();
   if (!key) redirect('/admin/verification-docs?error=nokey');
 

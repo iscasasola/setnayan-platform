@@ -17,6 +17,7 @@
  */
 
 import { cache } from 'react';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { GLOBAL_SETTINGS_TAGS, rememberedGlobalRead } from '@/lib/global-settings-cache';
 import {
@@ -55,3 +56,19 @@ export const fetchRevealConfig = cache(async (): Promise<RevealStudioConfig> => 
     return DEFAULT_REVEAL_CONFIG;
   }
 });
+
+/**
+ * The admin editor's read (A8·G-8): the same row, but a refused read is `null`
+ * — never the locked defaults drawn as the live house settings, where pressing
+ * "Save — make it live" would overwrite the real config with them. Couple
+ * pages keep `fetchRevealConfig` and its quiet fallback.
+ */
+export async function readRevealConfigForAdmin(): Promise<RevealStudioConfig | null> {
+  const db = createAdminClient();
+  const { data, error } = await db.from('reveal_studio_config').select('config').eq('id', 1).maybeSingle();
+  if (error) {
+    logQueryError('readRevealConfigForAdmin', error, {}, 'graceful_degrade');
+    return null;
+  }
+  return mergeRevealConfig((data as { config?: unknown } | null)?.config ?? null);
+}

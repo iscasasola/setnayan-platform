@@ -59,7 +59,11 @@ type Props = {
 const SLUG_ERROR_COPY: Record<string, string> = {
   ...SLUG_CONFLICT_MESSAGE,
   taken: 'That address is already taken by another event.',
+  // I-02 (final check): the refusal used to print as the bare key "needs_custom_address".
+  needs_custom_address: 'Choosing your own address isn’t open for this event. Your address stays as it is.',
 };
+/** A refusal this page has no sentence for is said plainly — never the raw key from the address bar. */
+const SLUG_ERROR_FALLBACK = 'That address was not saved. Please try again.';
 
 
 export default async function InvitationAdminPage({ params, searchParams }: Props) {
@@ -183,7 +187,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
   const slugSaved = search.slug_saved === '1';
   const slugErrorKey = search.slug_error ?? null;
   const slugError = slugErrorKey
-    ? (SLUG_ERROR_COPY[slugErrorKey] ?? decodeURIComponent(slugErrorKey))
+    ? (SLUG_ERROR_COPY[slugErrorKey] ?? SLUG_ERROR_FALLBACK)
     : null;
 
   const monoSaved = search.mono_saved === '1';

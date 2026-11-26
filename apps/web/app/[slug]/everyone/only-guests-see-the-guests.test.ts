@@ -138,7 +138,8 @@ test('✅ the page lists "Also coming" from the guests who said yes — read wit
   const built = src.indexOf('plainGuestNames(');
   assert.ok(gate > 0 && built > gate);
   const read = src.slice(gate, built + 200);
-  assert.match(read, /\.select\(`\$\{ENTOURAGE_COLUMNS\}, rsvp_status`\)/, 'the guest read does not ask for each guest’s answer');
+  // (A4-30, 25 Nov: the read also asks who COUNTS toward the event, so a pending request's own Yes is not listed.)
+  assert.match(read, /\.select\(`\$\{ENTOURAGE_COLUMNS\}, rsvp_status, entry_source, passed_away, represented_by_guest_id`\)/, 'the guest read does not ask for each guest’s answer and who counts');
   assert.match(read, /plainGuestNames\(\s*guestsWhoSaidYes\(/, 'the names under "Also coming" are not the guests who said yes');
   // One list, one rule: the page builds the names once.
   assert.equal(src.split('plainGuestNames(').length - 1, 1, 'the page builds a second guest list');

@@ -24,7 +24,7 @@ const ERRORS: Record<string, string> = {
   slow: 'Too many tries from this screen. Wait a few minutes, then try again.',
   down: 'We couldn’t reach Setnayan just now. Try again in a moment.',
   // Owner ruling 2026-09-20: screens come WITH the paid Live Studio unlock.
-  locked: 'This event hasn’t unlocked Live Watch, so its screens aren’t active yet. Ask the couple to unlock it first.',
+  locked: 'This event hasn’t unlocked Live Watch, so its screens aren’t active yet. Ask the host to unlock it first.',
 };
 
 /** The venue screen's own dark stage for the Connect form (shipped colours, drawn by `ConnectForm`). */
@@ -55,7 +55,7 @@ export default async function LivePairPage({ searchParams }: Props) {
       <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#E5794E]">Setnayan · Live Watch</p>
       <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-6xl">Connect this screen</h1>
       <p className="mt-4 max-w-xl text-lg text-[#F5EFE6]/75 sm:text-xl">
-        Type the code shown under <strong className="text-[#F5EFE6]">Venue screens</strong> in the couple&rsquo;s Live
+        Type the code shown under <strong className="text-[#F5EFE6]">Venue screens</strong> in the host&rsquo;s Live
         Studio controller.
       </p>
 

@@ -13,7 +13,16 @@ import { Loader2, MonitorPlay } from 'lucide-react';
 import { DISPLAY_CODE_LENGTH } from '@/lib/live-wall-logic';
 import { actionButtonClass } from '@/components/action-button';
 
-export function WallClaim({ eventId }: { eventId: string }) {
+export function WallClaim({
+  eventId,
+  theOrganizer,
+  theOrganizerPossessive,
+}: {
+  eventId: string;
+  /** 🔌 A4-16: "the couple" / "the celebrant" / "the hosts" — the event's own word, never "the couple" on a debut. */
+  theOrganizer: string;
+  theOrganizerPossessive: string;
+}) {
   const router = useRouter();
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -36,7 +45,7 @@ export function WallClaim({ eventId }: { eventId: string }) {
       }
       setError(
         res.status === 401
-          ? "That code didn't match — codes are single-use; ask the couple to generate a fresh one."
+          ? `That code didn't match — codes are single-use; ask ${theOrganizer} to generate a fresh one.`
           : 'Something hiccuped — try again.',
       );
     } catch {
@@ -44,7 +53,7 @@ export function WallClaim({ eventId }: { eventId: string }) {
     } finally {
       setBusy(false);
     }
-  }, [busy, code, eventId, router]);
+  }, [busy, code, eventId, router, theOrganizer]);
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-ink px-6 text-cream">
@@ -52,7 +61,7 @@ export function WallClaim({ eventId }: { eventId: string }) {
         <MonitorPlay aria-hidden className="mx-auto h-10 w-10 text-cream/60" strokeWidth={1.5} />
         <h1 className="mt-4 text-2xl font-semibold tracking-tight">Light up Memory lane</h1>
         <p className="mt-2 text-sm text-cream/60">
-          Enter the screen code from the couple&rsquo;s Setnayan dashboard.
+          Enter the screen code from {theOrganizerPossessive} Setnayan dashboard.
         </p>
         <form
           onSubmit={(e) => {

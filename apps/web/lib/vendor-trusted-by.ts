@@ -14,6 +14,8 @@ export type TrustedByRelationship =
 export type TrustedByVendor = {
   vendorProfileId: string;
   displayName: string;
+  /** Setnayan verified this partner's papers — the only partner that wears the check badge (final check A1-139). */
+  isVerified: boolean;
   /**
    * Microsite link — set whenever the endorser has a slug (owner ruling 2026-11-16 (15)/(18): every shop's real name
    * shows and its page is open by link, so nothing is withheld). Was: only once the name was revealed.
@@ -244,6 +246,7 @@ export async function fetchTrustedByVendors(
     out.push({
       vendorProfileId: p.vendor_profile_id as string,
       displayName,
+      isVerified,
       // 🏷 Every partner links to its page and wears its logo (owner ruling 2026-11-16 (15) real name everywhere ·
       // (18) the page is open to anyone with the link). Was: both only once `isVendorNameRevealed`.
       href: slug ? `${shopPath(slug)}` : null,

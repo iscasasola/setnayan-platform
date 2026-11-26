@@ -332,6 +332,9 @@ export function PriceCatalogBrowser({
           title="Nothing is switched off."
           body="A price you take off sale lands here, with what is still holding it in place and how far it is from being gone for good."
         />
+      ) : filtered.length === 0 && !q.trim() ? (
+        // A8·B-16: a kind with nothing on sale is not a failed search — no 'Nothing matches "".'
+        <EmptyState title="Nothing of this kind is on sale." body="Pick another kind, or switch the view to see what is off sale." />
       ) : filtered.length === 0 ? (
         <EmptyState title={`Nothing matches "${q}".`} body="Try part of the name, or the product code." />
       ) : view === 'off' ? (

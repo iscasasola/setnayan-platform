@@ -1,4 +1,4 @@
-import { guestFullName, guestNickBeside, guestRoleLabel, type GuestRole } from '@/lib/guests';
+import { countsTowardEvent, guestFullName, guestNickBeside, guestRoleLabel, type GuestRole } from '@/lib/guests';
 import { roleNameMany, roleNameOne, sectionName, type RoleNames } from '@/lib/role-names';
 import type { NameStyle } from '@/lib/name-style';
 import { genderOfTitleWords, womanOrManOf, type TitleGender } from '@/lib/guest-title';
@@ -1660,8 +1660,18 @@ function pairUp(people: readonly EntouragePerson[], sides: GroupSpec['sides']): 
  * WHO may read these names at all is still the 2026-09-15 ruling and still the
  * page's gate (`plainGuestNames` below): this only decides WHICH names.
  */
-export function guestsWhoSaidYes<T extends { rsvp_status?: string | null }>(rows: readonly T[]): T[] {
-  return rows.filter((r) => r.rsvp_status === 'attending');
+export function guestsWhoSaidYes<
+  T extends {
+    rsvp_status?: string | null;
+    entry_source?: string | null;
+    passed_away?: boolean | null;
+    represented_by_guest_id?: string | null;
+  },
+>(rows: readonly T[]): T[] {
+  // 🔌 A4-30 (final check, 25 Nov): a Yes counts only from someone who COUNTS TOWARD THE EVENT — the one rule
+  // (`countsTowardEvent`). A join request is stored with the asker's own answer, so without this a stranger's pending
+  // Yes printed under "Also coming" before the hosts pressed Keep.
+  return rows.filter((r) => r.rsvp_status === 'attending' && countsTowardEvent(r));
 }
 
 /**

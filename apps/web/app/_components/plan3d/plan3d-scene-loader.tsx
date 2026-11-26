@@ -66,6 +66,10 @@ export function Plan3DSceneLoader(props: {
   /** Cinematic Tier A grade + string lights (Fable §3.5) — the phone guest
    *  walk passes it; the neutral desktop overlay stays ungraded. */
   cinematic?: boolean;
+  /** A7-05: the room sits inside a scrolling page — an up or down swipe scrolls it (touch-action: pan-y). */
+  pageScroll?: boolean;
+  /** A7-05: bump `n` to turn the camera one step in `dir`. */
+  turnSignal?: { dir: -1 | 1; n: number };
 }) {
   return <Plan3DSceneInner {...props} />;
 }

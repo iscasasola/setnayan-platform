@@ -234,7 +234,13 @@ test('"save the code" is a real download, not a button that does nothing', async
   const route = readWeb('app/api/guest/qr/route.ts');
   assert.match(route, /Content-Disposition/, 'the route stopped naming the file — a browser ignoring `download` would render it instead');
   assert.match(route, /attachment; filename=/, 'the route no longer sends the PNG as an attachment');
-  assert.match(route, /readGuestSession\(\)/, 'the download stopped authenticating on the cookie');
+  // A4-B11 (Add 34): the route reads through `readGuestSessionForPassRoute`, which is the cookie and only the cookie
+  // when no `?event=` rides along (this anchor appends none, asserted above); `?event=` adds the signed-in
+  // seat-holder's own seat. Follow the reader, so the cookie stays the credential of this door.
+  assert.match(route, /readGuestSessionForPassRoute\(/, 'the download stopped authenticating on the guest session');
+  const reader = readWeb('lib/guest-one-path.server.ts');
+  const body = reader.slice(reader.indexOf('export async function readGuestSessionForPassRoute'));
+  assert.match(body.slice(0, body.indexOf('\n}\n')), /\n  return readGuestSession\(\);/, 'the download stopped authenticating on the cookie');
 });
 
 // ═══ B · a guest who already answered is not stuck ═════════════════════════

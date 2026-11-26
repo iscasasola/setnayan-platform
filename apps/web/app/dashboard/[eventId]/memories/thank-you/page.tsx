@@ -4,7 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
 import { buildThankYouVideoPlan } from '@/lib/thank-you-video';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { readV2Sku } from '@/lib/v2/sku-catalog-v2';
 import { resolveServiceSellability } from '@/lib/v2-catalog';
 import { fetchPlatformSettings, getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -103,6 +103,7 @@ export default async function ThankYouVideoPage({
     ]);
     checkout = {
       pending: pendingOrder,
+      priceUnread: false,
       priceCentavos: null,
       pricePhp: null,
       vatRatePct: 0,
@@ -110,15 +111,18 @@ export default async function ThankYouVideoPage({
       apple: sellability === 'sellable',
     };
   } else if (!owned) {
-    const [pendingOrder, sellability, sku, settings, vatRatePct] = await Promise.all([
+    const [pendingOrder, sellability, skuRead, settings, vatRatePct] = await Promise.all([
       eventOwnsSku(ent, eventId, SKU_CODE).catch(() => false),
       resolveServiceSellability(SKU_CODE),
-      formatV2Sku(SKU_CODE).catch(() => null),
+      readV2Sku(SKU_CODE).catch(() => ({ record: null, readFailed: true })),
       fetchPlatformSettings(supabase),
       getEffectiveVatRatePct(supabase),
     ]);
+    const sku = skuRead.record;
     checkout = {
       pending: pendingOrder,
+      // M-03 (final check): a failed price read is said, never drawn as "isn't on sale".
+      priceUnread: sellability === 'sellable' && skuRead.readFailed,
       priceCentavos:
         sellability === 'sellable' && sku?.price_centavos != null ? String(sku.price_centavos) : null,
       pricePhp: sellability === 'sellable' ? (sku?.price_php ?? null) : null,

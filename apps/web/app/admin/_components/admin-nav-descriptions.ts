@@ -70,7 +70,6 @@ export const ADMIN_NAV_DESCRIPTIONS: Record<string, string> = {
   'force-majeure': 'Event-impacting flags to triage.',
   completions: 'Booking completions awaiting the final handshake.',
   reviews: 'Review appeals awaiting a decision.',
-  'concierge-abuse': 'Trial-cycling flags to review.',
   'account-deletions': 'Self-serve account-deletion requests to review.',
   'event-deletions': 'A couple has asked us to remove an event money is holding.',
   'user-reports': 'Reported guest Memories content awaiting moderation.',

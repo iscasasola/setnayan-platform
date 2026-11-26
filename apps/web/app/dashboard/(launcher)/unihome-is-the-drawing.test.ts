@@ -5,7 +5,8 @@
  *   1 · plain `/dashboard` is Unihome; a named `?seg=` is its full page, unchanged.
  *   2 · the jump icons: a nav named "Jump to", six in page order, `aria-current` on the lit one, marks only for > 0.
  *   3 · Home draws no pinned row and no bottom bar; the photo at the top right stays (owner 24 Nov 2026).
- *   4 · event cards: organiser Dashboard · Event Hub · remove (the SHIPPED sheet), helper no remove, invited Hub only.
+ *   4 · event cards (brief Add 40, 25 Nov 2026): the card opens its menu — `the-card-opens-its-menu.test.ts` holds the
+ *       rows; invited rows open the hub, as before.
  *   5 · Create an event: one labelled terracotta button, right after the icon row, opening the shipped sheet.
  *   6 · every "See all" and every ☰ door lands on a real address.
  *   7 · failed reads draw "couldn't", never 0.
@@ -59,14 +60,18 @@ test('3 · Home draws no pinned row, hides the bottom bar, and KEEPS the photo a
   assert.match(src, /<AccountSwitcher data=\{switcher\} trigger="gear" \/>/);
 });
 
-test('4 · event cards: organiser Dashboard · Event Hub · remove (the shipped sheet); helper no remove; invited Hub only', () => {
+test('4 · event cards: the card is the menu’s button (Add 40); invited rows keep the hub button', () => {
   const src = view();
-  assert.match(src, /card\.stance === 'organiser' \? \([\s\S]{0,200}<EventCardMenu trigger="remove"/, 'remove must be the organiser’s, through the shipped sheet');
-  assert.match(src, /\{card\.hubUrl \? <UnihomeHubButton/, 'Event Hub must be drawn only when guests can open the hub');
-  assert.match(page(), /r\.landing_page_visibility === 'public' \|\| r\.landing_page_visibility === 'unlisted'/, 'the hub rule changed');
+  assert.match(src, /<EventCardMenu\s+trigger="card"/, 'the organiser’s and helper’s card must open the card menu');
+  assert.doesNotMatch(src, /data-unihome-dashboard|<EventCardMenu trigger="remove"/, 'the Dashboard · trash buttons are back under the card');
+  // Invited: no menu, the hub button, only where guests can open the hub.
+  const invited = src.slice(src.indexOf('function InvitedRow'));
+  assert.match(invited.slice(0, 900), /\{card\.hubUrl \? <UnihomeHubButton/, 'the invited row must open the hub');
+  assert.match(page(), /r\.landing_page_visibility === 'public' \|\| r\.landing_page_visibility === 'unlisted'/, 'the guests’ hub rule changed');
   assert.match(page(), /dashboardHref: stance === 'invited' \? null : v\.href/, 'an invited card must not open a dashboard');
+  assert.match(page(), /menu: stance === 'invited' \? null : cardMenu\(e, stance\)/, 'an invited card must not get a menu');
   const menu = read('_components', 'event-card-menu.tsx');
-  assert.match(menu, /data-remove-put-away=""/, 'Put this away left the remove sheet');
+  assert.match(menu, /data-remove-put-away=""/, 'Put this away left the delete steps');
 });
 
 test('5 · Create an event: one labelled terracotta button after the icon row, into the shipped New event sheet', () => {

@@ -17,7 +17,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { cardKindLabeller } from '@/lib/card-kind-labeller';
-import { PROMOTE_QR_MODES, type PromoteQrMode } from '@/lib/supplier-qr-codes';
+import { PROMOTE_QR_MODES, type PromoteQrMode, SHOP_NAME_SETUP_HREF } from '@/lib/supplier-qr-codes';
 import { printLine } from '@/lib/supplier-prints-shop';
 import { MyQrsList } from '../../qrs/_components/my-qrs-list';
 
@@ -91,11 +91,11 @@ export async function PromoteBody({
 
   return (
     <div className="space-y-4" data-promote-body={part}>
-      {withQr ? <MyQrsList canShare={canShare} setupHref="/vendor-dashboard/shop" embedded hide={hide} /> : null}
+      {withQr ? <MyQrsList canShare={canShare} setupHref={SHOP_NAME_SETUP_HREF} embedded hide={hide} /> : null}
       {withPromote ? (
         <ShopPrintsSection
           canShare={canShare}
-          setupHref="/vendor-dashboard/shop"
+          setupHref={SHOP_NAME_SETUP_HREF}
           member={member}
           facts={printFacts}
           backTo={part === 'prints' ? 'Prints' : 'Promote'}

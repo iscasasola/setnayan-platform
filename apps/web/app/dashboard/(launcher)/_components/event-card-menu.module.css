@@ -1,0 +1,293 @@
+/* 📋 THE EVENT CARD'S TAP MENU (owner-approved 25 Nov 2026, final-check brief Add 40; drawing
+   `build-sessions/final-check/drawings/event-card-menu.html` on `final-check/brief`). Values are the drawing's, read
+   from the house tokens — no hex, no typed px sizes, no raw timings. */
+
+.wrap {
+  position: relative;
+}
+
+/* The whole card is the press. Tap, Enter or Space opens the menu; long-press and right-click open it too. */
+.hit {
+  display: block;
+  width: 100%;
+  border-radius: var(--m-r-lg);
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-user-select: none;
+  user-select: none;
+  transition: transform var(--sn-m-release) var(--sn-m-spring);
+}
+.hit:active {
+  transform: scale(0.985);
+  transition: transform var(--sn-m-tap) var(--sn-m-settle);
+}
+.hit:focus-visible {
+  outline: 2px solid rgb(var(--color-mulberry));
+  outline-offset: 4px;
+}
+
+/* ⋯ on the picture's corner — the same menu, for a person who looks for one. */
+.more {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  z-index: 3;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: var(--m-r-full);
+  background: rgb(var(--color-raised) / 0.85);
+  color: rgb(var(--color-ink));
+  cursor: pointer;
+  transition: transform var(--sn-m-release) var(--sn-m-spring);
+}
+.more:active {
+  transform: scale(0.97);
+  transition: transform var(--sn-m-tap) var(--sn-m-settle);
+}
+.more svg {
+  width: 20px;
+  height: 20px;
+}
+/* From 1024 the card is two columns (`unihome.module.css` .dgrid2: 1.25fr 1fr, gap 24): the ⋯ sits on the picture's
+   corner, as drawn — 1.25 / 2.25 of the row less the gap. */
+@media (min-width: 1024px) {
+  .more {
+    right: auto;
+    left: calc((100% - 24px) * 0.5556 - 48px);
+  }
+}
+
+/* Desktop: a small menu anchored to the ⋯, over the one scrim. */
+.panel {
+  position: fixed;
+  z-index: var(--sn-z-panel);
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-bottom: 8px;
+  border: 1px solid var(--m-line);
+  border-radius: var(--m-r-md);
+  background: rgb(var(--color-raised));
+  color: rgb(var(--color-ink));
+  box-shadow: var(--m-shadow-lg);
+  animation: ecm-in var(--sn-m-quick) var(--sn-m-settle) both;
+  transform-origin: 16px 0;
+}
+@keyframes ecm-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The menu's own head: the event, its day and where you stand. */
+.head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 8px 12px 16px;
+}
+.thumb {
+  position: relative;
+  flex: none;
+  width: 56px;
+  height: 40px;
+  overflow: hidden;
+  border-radius: var(--m-r-sm);
+  background: rgb(var(--color-wash));
+}
+.headText {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+}
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--sn-fs-xl);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+}
+.meta {
+  font-size: var(--sn-fs-md);
+  color: rgb(var(--color-ink-3));
+}
+.stance {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  margin-top: 4px;
+  padding: 0 9px;
+  border-radius: var(--m-r-full);
+  background: rgb(var(--color-wash));
+  color: rgb(var(--color-ink));
+  font-size: var(--sn-fs-xs);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.stance svg {
+  width: 13px;
+  height: 13px;
+}
+.close {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border: 0;
+  border-radius: var(--m-r-full);
+  background: none;
+  color: rgb(var(--color-ink));
+  cursor: pointer;
+}
+.close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.body {
+  padding: 0 16px 8px;
+}
+
+.row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 60px;
+  padding: 8px 0;
+  border: 0;
+  border-radius: var(--m-r-sm);
+  background: none;
+  color: rgb(var(--color-ink));
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition:
+    transform var(--sn-m-release) var(--sn-m-spring),
+    background-color var(--sn-m-quick) var(--sn-m-settle);
+}
+.row:active:not([aria-disabled='true']) {
+  transform: scale(0.985);
+  transition: transform var(--sn-m-tap) var(--sn-m-settle);
+}
+.row:focus-visible {
+  outline: 2px solid rgb(var(--color-mulberry));
+  outline-offset: 2px;
+}
+.row > svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+}
+.tx {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+}
+.lb {
+  font-size: var(--sn-fs-lg);
+  font-weight: 600;
+}
+.hp {
+  font-size: var(--sn-fs-md);
+  line-height: 1.35;
+  color: rgb(var(--color-ink-3));
+}
+.row > svg.end {
+  width: 16px;
+  height: 16px;
+  color: rgb(var(--color-mulberry));
+}
+
+/* Open Dashboard is the one filled row. */
+.main {
+  margin-bottom: 4px;
+  padding: 8px 12px 8px 16px;
+  border-radius: var(--m-r-md);
+  background: rgb(var(--color-mulberry));
+  color: rgb(var(--color-on-accent));
+}
+.main .hp,
+.main > svg.end {
+  color: inherit;
+}
+
+.rows .row + .row::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 32px;
+  right: 0;
+  height: 1px;
+  background: var(--m-line);
+}
+
+.row[aria-disabled='true'] {
+  cursor: default;
+}
+.row[aria-disabled='true'] .lb,
+.row[aria-disabled='true'] > svg {
+  color: rgb(var(--color-ink-3));
+}
+
+/* Delete Event: last, under a divider, in the danger colour. */
+.divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--m-line);
+}
+.danger .lb,
+.danger > svg,
+.danger > svg.end {
+  color: rgb(var(--color-danger));
+}
+
+/* Desktop rows carry a hover wash and a little side room. */
+.panel .rows .row,
+.panel .danger {
+  width: calc(100% + 16px);
+  margin: 0 -8px;
+  padding-left: 8px;
+  padding-right: 8px;
+}
+.panel .rows .row + .row::before {
+  left: 40px;
+  right: 8px;
+}
+.panel .rows .row:hover:not([aria-disabled='true']),
+.panel .danger:hover {
+  background: rgb(var(--color-ink) / 0.05);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation-duration: var(--sn-dur-rise-reduced);
+  }
+  .hit,
+  .more,
+  .row {
+    transition: none;
+  }
+  .hit:active,
+  .more:active,
+  .row:active:not([aria-disabled='true']) {
+    transform: none;
+  }
+}

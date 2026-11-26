@@ -192,3 +192,27 @@ export function tenancyForPathPrefix(sanitizedPrefix: string): UploadTenancy {
  * turn this guard into the existence oracle it was written to remove.
  */
 export const UPLOAD_TENANCY_REFUSAL = 'That upload location isn’t allowed.';
+
+/**
+ * 🔒 THE SITE'S OWN FOLDERS ARE AN ADMIN'S (final check 25 Nov, A8·G-4).
+ *
+ * Two flat roots in the `media` bucket hold site furniture every visitor sees, and both are
+ * presigned through `/api/upload` from an admin screen:
+ *   - `homepage-bg/` ← `app/admin/background-videos/background-videos-manager.tsx`
+ *   - `onboarding/`  ← `app/admin/ugat/_surfaces/onboarding-surface.tsx` (background music)
+ * They name no id, so `tenancyForPathPrefix` has nothing to assert and the presign used to be
+ * granted to ANY signed-in account (measured on the staging copy: a couple got a 200 and an upload
+ * URL under `homepage-bg/slot-0/`). Publishing a slot was still gated, so nothing reached the
+ * homepage — but the files landed as "left over" on /admin/website-media.
+ *
+ * `hub-music/` is the same kind of folder with its own content-type rules (`lib/hub-music.ts`);
+ * it is not repeated here. The route asks `isAdminProfile` for these roots, exactly as it does for
+ * hub music.
+ */
+export const ADMIN_ONLY_UPLOAD_ROOTS: ReadonlySet<string> = new Set(['homepage-bg', 'onboarding']);
+
+/** True when the sanitised prefix's first segment is one of the site's admin-only folders. */
+export function isAdminOnlyUploadPrefix(sanitizedPrefix: string): boolean {
+  const root = sanitizedPrefix.split('/').find((s) => s.length > 0)?.toLowerCase() ?? '';
+  return ADMIN_ONLY_UPLOAD_ROOTS.has(root);
+}

@@ -86,7 +86,7 @@ test('the doors leave before the live write: the redirecting door returns never;
   assert.match(fn(store, 'draftEventsAndReturn'), /Promise<void>[\s\S]*return landAfterWrite\(formData, fallback\)/);
   const photo = fn(read(`${W}photo-moments/actions.ts`), 'updatePhotoMoments');
   const door = photo.slice(photo.search(/if \(isHubDraftWrite\(formData\)\)/), photo.search(/\.update\s*\(/));
-  assert.match(door, /saveHubDraftPatch\([\s\S]*return \{ ok: true \};\s*\}\s*const \{ error \} = await supabase/, 'the Camera cues door must return before the live write');
+  assert.match(door, /saveHubDraftPatch\([\s\S]*return \{ ok: true \};\s*\}\s*const \{[^}]*\berror\b[^}]*\} = await supabase/, 'the Camera cues door must return before the live write');
 });
 
 test('a Pro colour is tried in the draft: updateSiteColors leaves for the draft BEFORE its Pro gate', () => {

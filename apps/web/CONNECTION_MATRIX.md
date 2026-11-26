@@ -130,7 +130,6 @@
 | **Promote category request** | `…/taxonomy/actions.ts:496` | `taxonomy_category_requests`→promoted + leaf + audit | — | **Risk** | Status flip lacks `.eq('status','pending')` (reads at `:509`, TOCTOU window); siblings have it. Dup caught downstream → LOW |
 | Discount code CRUD | `…/discount-codes/actions.ts:315–655` | `discount_codes` + audit | type-specific validation | Operational | 23505 collision msg; expiry guard |
 | Settings (identity/payment instruments/QR) | `…/settings/actions.ts:55–227` | `platform_settings` (id=1) + R2 | business_name→'Setnayan'; VAT 12 | Operational | QR cleanup after row update |
-| Concierge-abuse clear/confirm/lift | `…/concierge-abuse/actions.ts:53–250` | `concierge_abuse_flags`, `users` (strikes) + notify | notes ≥10/20 | Operational | `pending_review` guard; strike ladder |
 | **Review appeal reject/escalate** | `app/admin/reviews/actions.ts:128,217` | `vendor_review_appeals` + audit + email | reason required | **Risk** | UPDATE lacks `decided_at IS NULL` filter → re-decide re-fires email/audit. `overridePublishReview` correctly guards. LOW |
 | Force-majeure ownership/resolve | `…/force-majeure/actions.ts:45,88` | `force_majeure_flags` + couple notify | notes for refund/credit | Operational | — |
 | Help ticket status/reply | `…/help/actions.ts:33` | `help_messages` + reply email | adminNotes nullable | Operational | Diffs notes to fire reply only on change |

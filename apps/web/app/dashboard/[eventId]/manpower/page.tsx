@@ -11,6 +11,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { StayForm } from '@/app/_components/stay-form';
 import { InfoTip } from '@/app/_components/info-tip';
+import { ReadRefusedNotice } from '../_components/read-refused-notice';
 
 // RW-312: the tab reads "Manpower · Setnayan" (the root template adds the brand), like Sponsors.
 export const metadata = {
@@ -218,7 +219,10 @@ export default async function HostManpowerPage({
           </div>
         </aside>
 
-        {/* Gigs lists, grouped by status */}
+        {/* Gigs lists, grouped by status. A2-H5: a refused gig read is said once, never as three empty groups. */}
+        {gigsError ? (
+          <ReadRefusedNotice what="your posted gigs" className="mt-10" />
+        ) : (
         <section className="mt-10 space-y-10">
           <GigGroup
             title="Open for suppliers"
@@ -248,6 +252,7 @@ export default async function HostManpowerPage({
             allowComplete={false}
           />
         </section>
+        )}
       </div>
     </div>
   );

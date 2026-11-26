@@ -11,7 +11,7 @@
  *     `sendCreatorOffer` action, through the same `StayForm` door.
  */
 import { useId, useState } from 'react';
-import { Send, Users } from 'lucide-react';
+import { ArrowUpRight, Send, Users } from 'lucide-react';
 import { usePathname } from 'next/navigation';
 import { ActionButton } from '@/components/action-button';
 import { SortFace, sortLabel } from '@/components/sort-face';
@@ -24,6 +24,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { TypedRow } from '@/app/_components/form-row';
 import { SupplierThumbRow } from '../../_components/supplier-thumb-row';
 import { sendCreatorOffer } from '../actions';
+import { CREATOR_SEND_PLAN } from '@/lib/creator-send-plan';
+import { routes } from '@/lib/routes';
 
 const FIELD = 'input-field w-full rounded-full text-[15px]';
 
@@ -142,10 +144,14 @@ export function SendOfferButton({
               Couldn&rsquo;t read your plan just now. Send checks it.
             </p>
           ) : sendNeedsPro ? (
-            <p className="inline-flex items-center gap-1.5 text-[14px] text-[color:var(--m-slate-2)]">
-              <PaidMark state="try" label="Part of every paid plan — draft it here; Send asks for a plan" size="xs" />
-              Sending an offer is part of every paid plan. Draft it here — Send asks for the plan.
-            </p>
+            <div className="flex flex-col items-start gap-2" data-creator-send-plan="">
+              {/* One plan named, the same as the refusal on Send, plus a real door to the plans (final check A5-G2-04). */}
+              <p className="inline-flex items-center gap-1.5 text-sn-base text-[color:var(--m-slate-2)]">
+                <PaidMark state="try" label={`Part of every paid plan, from ${CREATOR_SEND_PLAN} — draft it here; Send asks for a plan`} size="xs" />
+                Sending an offer is part of every paid plan, from {CREATOR_SEND_PLAN}. Draft it here — Send asks for the plan.
+              </p>
+              <ActionButton tone="neutral" icon={ArrowUpRight} label="See plans" href={routes.vendorDashboard.subscription()} />
+            </div>
           ) : null}
           <SubmitButton className="button-primary inline-flex w-full items-center justify-center gap-2" pendingLabel="Sending…">
             <Send aria-hidden className="h-4 w-4" strokeWidth={1.75} />

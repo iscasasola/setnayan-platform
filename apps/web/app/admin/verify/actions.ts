@@ -3,6 +3,8 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
+import { headers } from 'next/headers';
+import { verifyBackHref } from '@/lib/admin/verify-back';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -51,6 +53,11 @@ import { clearHomeShelf } from '@/lib/home-shelf-clear';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 import { grantVerificationPlanReward } from '@/lib/verification-plan-reward.server';
 import { applyApplicationDecision } from '@/lib/verification-decision.server';
+
+/** A8·E-9: back to the surface, tab and shop the press came from, with this press's flash. */
+async function verifyBack(flash: Record<string, string>): Promise<never> {
+  redirect(verifyBackHref((await headers()).get('referer'), flash));
+}
 
 /**
  * Server actions backing the admin Verification Queue. Two surfaces share
@@ -287,7 +294,7 @@ export async function approveVendor(formData: FormData) {
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
   revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
-  redirect('/admin/verify?approved=1');
+  await verifyBack({ approved: '1' });
 }
 
 /**
@@ -343,7 +350,7 @@ export async function archiveVendor(formData: FormData) {
   revalidatePath('/admin/verify');
   revalidatePath('/admin/vendors');
   revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
-  redirect('/admin/verify?archived=1');
+  await verifyBack({ archived: '1' });
 }
 
 
@@ -380,7 +387,7 @@ export async function verifyVendorExperience(formData: FormData) {
   revalidateShopPage(vendorProfileId);
   revalidatePath('/admin/verify');
   revalidatePath('/'); // 2026-11-12: the marketplace lives on Discover now (/explore forwards to /)
-  redirect('/admin/verify?exp_verified=1');
+  await verifyBack({ saved: '1', msg: 'Experience verified — the badge shows on their card.' });
 }
 
 // ---------------------------------------------------------------------------
@@ -743,7 +750,7 @@ export async function runVendorDeepSearchAction(formData: FormData) {
   }
 
   revalidatePath('/admin/verify');
-  redirect('/admin/verify?deep_search=1');
+  await verifyBack({ deep_search: '1' });
 }
 
 /**
@@ -883,7 +890,7 @@ export async function saveManualDossierAction(formData: FormData) {
   }
 
   revalidatePath('/admin/verify');
-  redirect('/admin/verify?deep_search=1');
+  await verifyBack({ deep_search: '1' });
 }
 
 // ---------------------------------------------------------------------------
@@ -1012,7 +1019,7 @@ export async function openApplicationDocument(formData: FormData) {
       await readVerificationPaper({ admin, applicationId, slotKey });
     });
     revalidatePath('/admin/verify');
-    redirect('/admin/verify?reread=1');
+    await verifyBack({ reread: '1' });
   }
 
   const url = await r2SignedGet({

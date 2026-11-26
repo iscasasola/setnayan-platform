@@ -305,10 +305,14 @@ function LaneChips({
   /* 🚨 A CHIP SUMMED AN UNREAD QUEUE AS ZERO — "All 0" under "19 queues couldn't
      be read" (slice 1b walk, 13 Nov). A chip whose lane holds an uncounted queue
      prints "—", never a number that leaves the unread one out. */
-  const waiting = (rows: TriageItem[]): string =>
-    rows.some((i) => i.count === null)
+  // A8·C-6: a trail to watch (`watchOnly`) is never summed as work waiting — the chip agrees with "N need you",
+  // the same rule as `triageTotals` and `workBadge`.
+  const waiting = (all: TriageItem[]): string => {
+    const rows = all.filter((i) => !i.watchOnly);
+    return rows.some((i) => i.count === null)
       ? '—'
       : String(rows.reduce((sum, i) => sum + Math.max(0, i.count ?? 0), 0));
+  };
 
   const present = ADMIN_LANE_ORDER.filter((l) => items.some((i) => i.lane === l));
   if (present.length < 2) return null; // a filter with one option is not a filter

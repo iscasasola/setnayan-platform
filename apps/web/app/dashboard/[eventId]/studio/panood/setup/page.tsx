@@ -127,6 +127,7 @@ type Props = {
     watch_url_error?: string;
     facebook_url_saved?: string;
     facebook_url_error?: string;
+    link_not_saved?: string;
   }>;
 };
 
@@ -140,6 +141,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
     watch_url_error: watchUrlError,
     facebook_url_saved: facebookUrlSaved,
     facebook_url_error: facebookUrlError,
+    link_not_saved: linkNotSaved,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -309,6 +311,11 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
           </span>
         }
       />
+      {linkNotSaved ? (
+        <p role="alert" className="text-sm text-danger-600">
+          That did not save. Nothing changed — please try again.
+        </p>
+      ) : null}
 
       {youtubeConnected ? (
         <p

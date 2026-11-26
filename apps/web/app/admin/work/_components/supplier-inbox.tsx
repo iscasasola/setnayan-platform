@@ -61,8 +61,8 @@ export type SupplierInboxProps = {
   itemKey?: string;
   /** This page's address WITHOUT `item`/`settle` — where every form comes back to. */
   basePath: string;
-  /** The event types an ask can be pointed to. */
-  eventTypes: ReadonlyArray<{ key: string; label: string }>;
+  /** The event types an ask can be pointed to. `null` = the read failed (A8·C-9): the picker says so, never opens empty. */
+  eventTypes: ReadonlyArray<{ key: string; label: string }> | null;
   nowMs: number;
 };
 
@@ -159,6 +159,11 @@ function DocsBody({ item, back }: { item: Extract<SupplierWorkItem, { kind: 'doc
         {item.papers.map((p) => (
           <Fact key={p.slot} name={p.label} badge={p.present ? '✓ in' : 'Not in'} tone={p.present ? 'ok' : 'wait'} />
         ))}
+        {item.checksRan === false ? (
+          <p role="alert" className="py-2 text-[14px] text-ink" data-work-checks-failed="">
+            The automatic checks could not run for these papers. Look at each paper yourself before you approve.
+          </p>
+        ) : null}
         {item.checks.map((c) => (
           <Fact
             key={c.label}
@@ -273,7 +278,7 @@ function TypesBody({
   eventTypes: SupplierInboxProps['eventTypes'];
 }) {
   if (item.status === 'linked') {
-    const linked = eventTypes.find((t) => t.key === item.eventType)?.label ?? item.eventType ?? 'the new type';
+    const linked = (eventTypes ?? []).find((t) => t.key === item.eventType)?.label ?? item.eventType ?? 'the new type';
     return (
       <div className="max-w-2xl">
         <Fact name={`Added as ${linked}`} sub="Couples cannot pick it yet. Putting it in the picker tells everyone who asked, in the app." badge="Hidden" tone="wait" />
@@ -335,14 +340,20 @@ function TypesBody({
         <input type="hidden" name="return_to" value={back} />
         <div className="flex min-h-[52px] flex-wrap items-center gap-2.5 border-t border-ink/10 py-1.5">
           <span className="min-w-[10rem] flex-1 text-[14px] text-ink">Or it is an existing type</span>
-          <FormPick
-            name="event_type"
-            form={link}
-            label="It is this event type"
-            placeholder="Pick the type…"
-            options={eventTypes.map((t) => ({ key: t.key, label: t.label }))}
-            dataAttr="data-type-pick"
-          />
+          {eventTypes === null ? (
+            <span role="alert" className="text-[14px] text-ink" data-type-pick-failed="">
+              Couldn’t read the event types. Refresh to try again.
+            </span>
+          ) : (
+            <FormPick
+              name="event_type"
+              form={link}
+              label="It is this event type"
+              placeholder="Pick the type…"
+              options={eventTypes.map((t) => ({ key: t.key, label: t.label }))}
+              dataAttr="data-type-pick"
+            />
+          )}
         </div>
       </form>
       <div className="mt-2.5 flex flex-wrap gap-2">
@@ -393,8 +404,17 @@ export function SupplierInbox({ read, kind, itemKey, basePath, eventTypes, nowMs
   const unread = read.failed.map((k) => SUPPLIER_WORK_CHIP[k]);
   // 📐 ADMIN CLEAN PORT (owner 19 Nov 2026): the chip row is ONE dropdown — same `?kind=` addresses, same words.
   const kindOptions = [
-    { key: 'all', label: `All ${formatCount(read.items.length)}`, href: href(back, { kind: undefined }) },
-    ...SUPPLIER_WORK_KINDS.map((k) => ({ key: k, label: `${SUPPLIER_WORK_CHIP[k]} ${formatCount(counts[k])}`, href: href(back, { kind: k }) })),
+    // A8·C-8: a kind whose read failed says "—", never 0, and "All" says it is a lower bound.
+    {
+      key: 'all',
+      label: read.failed.length > 0 ? `All ${formatCount(read.items.length)}+ (some unread)` : `All ${formatCount(read.items.length)}`,
+      href: href(back, { kind: undefined }),
+    },
+    ...SUPPLIER_WORK_KINDS.map((k) => ({
+      key: k,
+      label: `${SUPPLIER_WORK_CHIP[k]} ${read.failed.includes(k) ? '—' : formatCount(counts[k])}`,
+      href: href(back, { kind: k }),
+    })),
   ];
   return (
     <div className="mb-6" data-supplier-inbox="">

@@ -36,6 +36,8 @@ export type TrustedByTile = {
   kindHint: string;
   logoUrl: string | null;
   initials: string;
+  /** Only a verified partner wears the check badge (final check A1-139); the read had the fact and never passed it. */
+  verified: boolean;
 };
 
 // The browser's layout effect, or the plain effect on the server (where neither runs).
@@ -190,9 +192,11 @@ function Tile({ tile, hidden }: { tile: TrustedByTile; hidden: boolean }) {
         ) : (
           <span aria-hidden>{tile.initials}</span>
         )}
-        <span className="absolute -bottom-0.5 -right-0.5 grid h-[22px] w-[22px] place-items-center rounded-full bg-cream shadow-[0_0_0_1px_rgba(44,42,41,0.12)]">
-          <BadgeCheck aria-hidden className="h-[15px] w-[15px] text-success-700" strokeWidth={2} />
-        </span>
+        {tile.verified ? (
+          <span className="absolute -bottom-0.5 -right-0.5 grid h-[22px] w-[22px] place-items-center rounded-full bg-cream shadow-[0_0_0_1px_rgba(44,42,41,0.12)]">
+            <BadgeCheck aria-hidden className="h-[15px] w-[15px] text-success-700" strokeWidth={2} />
+          </span>
+        ) : null}
       </span>
       <span className="text-[13px] font-semibold leading-tight text-ink [overflow-wrap:anywhere]">{tile.name}</span>
       <span

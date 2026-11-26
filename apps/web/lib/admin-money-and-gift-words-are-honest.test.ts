@@ -181,7 +181,8 @@ test('every gift surface asks giftIsMoneyDance, and the other arm names E-Gifts'
     // the event page's tab (`dayHubLanding`). Its gift door's home is the event page's doorway strip, first above.)
     [
       'app/[slug]/pabuya/page.tsx',
-      /words\.solemn\s*\?\s*'A gift of sympathy'\s*:\s*giftIsMoneyDance\(words\)\s*\?\s*'The pabuya · digital money dance'\s*:\s*'The pabuya · E-Gifts'/,
+      // (A4-42, final check 25 Nov 2026: "E-Gifts" only — "Pabuya" is never a word a guest reads, docs/brand.md.)
+      /words\.solemn\s*\?\s*'A gift of sympathy'\s*:\s*giftIsMoneyDance\(words\)\s*\?\s*'E-Gifts · digital money dance'\s*:\s*'E-Gifts'/,
     ],
   ];
   for (const [rel, shape] of sites) {

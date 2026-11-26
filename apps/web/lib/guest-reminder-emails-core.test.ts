@@ -110,7 +110,6 @@ test('the dates the sender asks for are exactly the seven that could owe a remin
 const ITEMS = buildChecklist({
   wear: 'Filipiniana formal',
   wearNote: null,
-  motif: ['#7A2E3B', '#C5A059'],
   arriveBy: '2:30 PM',
   venueName: 'San Agustin Church',
   mapsHref: 'https://maps.example/x',
@@ -121,22 +120,20 @@ const ITEMS = buildChecklist({
 test('ONLY THE UNTICKED ITEMS are listed — a ticked one never comes back', () => {
   assert.deepEqual(
     ITEMS.map((i) => i.key),
-    ['wear', 'motif', 'arrive', 'table', 'pass'],
+    ['wear', 'arrive', 'table', 'pass'],
   );
   assert.deepEqual(
     untickedItems(ITEMS, ['wear', 'pass']).map((i) => i.key),
-    ['motif', 'arrive', 'table'],
+    ['arrive', 'table'],
   );
-  assert.deepEqual(untickedItems(ITEMS, ['wear', 'motif', 'arrive', 'table', 'pass']), []);
-  assert.deepEqual(untickedItems(ITEMS, []).length, 5);
+  assert.deepEqual(untickedItems(ITEMS, ['wear', 'arrive', 'table', 'pass']), []);
+  assert.deepEqual(untickedItems(ITEMS, []).length, 4);
 });
 
-test('an unticked line carries the fact; the motif line sends them to the swatches, never hex codes', () => {
+test('an unticked line carries the fact', () => {
   assert.equal(pendingLine(ITEMS[0]!), 'What to wear — Filipiniana formal');
-  assert.equal(pendingLine(ITEMS[1]!), 'Motif colors — 2 colors, see them on your page');
-  assert.doesNotMatch(pendingLine(ITEMS[1]!), /#[0-9A-Fa-f]{6}/);
-  assert.equal(pendingLine(ITEMS[2]!), 'Arrive by 2:30 PM — San Agustin Church');
-  assert.equal(pendingLine(ITEMS[4]!), 'Your QR pass saved');
+  assert.equal(pendingLine(ITEMS[1]!), 'Arrive by 2:30 PM — San Agustin Church');
+  assert.equal(pendingLine(ITEMS[3]!), 'Your QR pass saved');
 });
 
 test('"Reply by" goes to an UNREPLIED guest while the date is still ahead — and to nobody else', () => {
@@ -187,7 +184,7 @@ test('the email: reply-by FIRST, then only what is still to do, then the guest�
   const reply = mail.text.indexOf('Reply by Wednesday, November 18, 2026');
   const list = mail.text.indexOf('Still to do on your checklist:');
   assert.ok(reply > 0 && list > reply, 'the reply ask comes before the list');
-  assert.match(mail.text, /• Motif colors — 2 colors, see them on your page/);
+  assert.doesNotMatch(mail.text, /colors/i, 'the removed colours item is listed');
   assert.match(mail.text, /• Arrive by 2:30 PM — San Agustin Church/);
   assert.match(mail.text, /• Your table — Table 4/);
   assert.doesNotMatch(mail.text, /What to wear/, 'ticked — not listed');

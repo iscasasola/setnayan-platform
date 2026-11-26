@@ -1,3 +1,4 @@
+import { routes } from '@/lib/routes';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { BackButton } from '@/app/_components/back-button';
@@ -6,11 +7,14 @@ import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { fetchTeamManagerContext, fetchVendorRoleNames } from '@/lib/vendor-team';
+import { readTeamManagerContext, fetchVendorRoleNames } from '@/lib/vendor-team';
+import { TeamUnread } from '../_components/team-unread';
 import { resolveVendorStanding } from '@/lib/vendor-role';
 import { fetchVendorBranches } from '@/lib/vendor-branches';
 import { shopLocations } from '@/lib/branch-copy';
 import { TIER_LABEL, asVendorTier } from '@/lib/vendor-tier-caps';
+import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
+import { formatCount } from '@/lib/format-number';
 import {
   VENDOR_DUTIES,
   VENDOR_DUTY_DETAIL,
@@ -45,10 +49,21 @@ export default async function TeamRolesPage({ searchParams }: { searchParams: Pr
   if (!user) redirect('/login');
 
   const [ctx, standing] = await Promise.all([
-    fetchTeamManagerContext(supabase, user.id),
+    readTeamManagerContext(supabase, user.id),
     resolveVendorStanding(supabase, user.id),
   ]);
 
+  if (ctx === 'unread') {
+    return (
+      <section className="mx-auto w-full max-w-xl px-4 pb-32 pt-3 sm:px-6" data-team-roles="unread">
+        <BackButton route="/vendor-dashboard/team/roles" className="mb-0" />
+        <h1 className="sn-h1 pt-3">Roles</h1>
+        <div className="mt-4">
+          <TeamUnread retryHref={`${routes.vendorDashboard.team()}/roles`} />
+        </div>
+      </section>
+    );
+  }
   if (!ctx) {
     return (
       <section className="mx-auto w-full max-w-xl px-4 pb-32 pt-3 sm:px-6" data-team-roles="locked">
@@ -77,8 +92,11 @@ export default async function TeamRolesPage({ searchParams }: { searchParams: Pr
   const planLine = [
     TIER_LABEL[asVendorTier(ctx.tierState ?? 'free')],
     locations ? locations.map((l) => l.label).join(' + ') : 'We couldn’t read your branches just now',
-    '1 Helper free',
-  ].join(' · ');
+    // From the one constant, never typed (final check A5-G5-10); no clause when the free Helper is off.
+    FREE_HELPER_SEATS > 0 ? `${formatCount(FREE_HELPER_SEATS)} Helper free` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   return (
     <section className="mx-auto w-full max-w-xl px-4 pb-32 pt-3 sm:px-6" data-team-roles="">

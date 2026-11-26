@@ -49,7 +49,7 @@ test('Account card: every read binds its error, and a refused profile is not a 4
   for (const name of [
     'userError', 'membershipsError', 'eventsError', 'vendorTeamError', 'vendorProfilesError',
     'ordersError', 'paymentsError', 'refundsError', 'helpError', 'disputesError',
-    'reportsError', 'abuseError', 'accessLogError', 'adminActionsError',
+    'reportsError', 'accessLogError', 'adminActionsError',
   ]) {
     assert.match(s, new RegExp(`error: ${name}\\b`), `${name} is never bound`);
   }
@@ -156,11 +156,13 @@ test('Papic ladder: a refused clamp read never mounts the editor whose Save writ
 
 test('Discount codes: a service the picker did not return is kept, not dropped on save', () => {
   const edit = src('app/admin/discount-codes/[id]/edit/page.tsx');
-  assert.match(edit, /fetchV2CustomerCatalog\(\{ forAdmin: true \}\)/);
+  // A8·A-9 (25 Nov): the pages call the outcome-keeping twin `fetchV2CustomerCatalogRead` — the same query; the claim
+  // held here (the admin read passes `forAdmin: true`) is unchanged.
+  assert.match(edit, /fetchV2CustomerCatalog(?:Read)?\(\{ forAdmin: true \}\)/);
   assert.match(edit, /for \(const key of code\.covered_service_keys \?\? \[\]\) \{\s*if \(knownSkus\.has\(key\)\) continue;\s*services\.push\(/);
   assert.doesNotMatch(edit, /Supplier tokens|Vendor tokens/);
   const nw = src('app/admin/discount-codes/new/page.tsx');
-  assert.match(nw, /fetchV2CustomerCatalog\(\{ forAdmin: true \}\)/);
+  assert.match(nw, /fetchV2CustomerCatalog(?:Read)?\(\{ forAdmin: true \}\)/);
   const cat = src('lib/v2-catalog.ts');
   // The dark-launch exclusion stays INSIDE both gates (also pinned by live-studio-pricing-row).
   assert.match(cat, /if \(!opts\.forAdmin\) \{\s*if \(!liveStudioRoamEnabled\(\)\) \{/);
@@ -188,12 +190,7 @@ test('Corrections: a refused queue read is not "No correction requests"', () => 
   assert.match(s, /\{!rowsOk \? \(\s*<ReadFailed/);
 });
 
-test('Concierge abuse: an unread queue is not "The queue is clear."', () => {
-  const s = src('app/admin/concierge-abuse/page.tsx');
-  assert.match(s, /const pendingUnread = Boolean\(pendingFlagsRes\.error\);/);
-  assert.match(s, /pendingUnread \? \(\s*<ReadFailed what="the pending flags" \/>/);
-  assert.match(s, /value=\{pendingUnread \? '—' : /);
-});
+// Concierge abuse: its desk (/admin/concierge-abuse) is retired (final check R7, 25 Nov) — nothing left to hold.
 
 test('Completions / User reports / Demo thread / Removals: a refused lookup is not a fact about the thing', () => {
   assert.match(src('app/admin/completions/page.tsx'), /\{eventError \? \(\s*<div[^>]*>\s*<ReadFailed/);

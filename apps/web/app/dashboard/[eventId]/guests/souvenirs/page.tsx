@@ -7,7 +7,7 @@ import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.serv
 import { NotSharedWithYou } from '../../_components/not-shared-with-you';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
-import { guestDisplayName, type GuestRole, type GuestSide } from '@/lib/guests';
+import { computeGuestStats, guestDisplayName, headcountForBasis, type GuestRole, type GuestSide } from '@/lib/guests';
 import { SouvenirDesk, type DeskGuest, type DeskClaim } from './_components/souvenir-desk';
 import { LiveRefresher } from '@/app/_components/live-refresher';
 import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
@@ -152,6 +152,12 @@ export default async function SouvenirTablePage({ params }: Props) {
     tableLabel: tableByGuestId.get(g.guest_id) ?? null,
   }));
 
+  // A2-E1: the total is the guests expected at the door, read through the ONE headcount reader (attending only, as the
+  // check-in desk's "expected" is) — never every row on the list (declined, no reply, maybe).
+  // The desk's row carries every column the one reader looks at (rsvp_status and the +1 columns); the count filters
+  // (requests, passed away, represented) are already applied by the query above, as `countsTowardEvent` would.
+  const expected = headcountForBasis(computeGuestStats(roster as unknown as Parameters<typeof computeGuestStats>[0]), 'attending');
+
   const claims: DeskClaim[] = (claimsRaw ?? []).map((c) => ({
     guestId: c.guest_id,
     claimedAt: c.claimed_at,
@@ -185,7 +191,12 @@ export default async function SouvenirTablePage({ params }: Props) {
       </header>
 
       <div className="mt-5">
-        <SouvenirDesk eventId={eventId} guests={guests} initialClaims={claims} />
+        {/* A2-E2: a refused guest read stops the desk (never "0 / 0" with every scan blamed on the guest). */}
+        {guestsRawError ? (
+          <ReadRefusedNotice what="the guest list for this table" />
+        ) : (
+          <SouvenirDesk eventId={eventId} guests={guests} initialClaims={claims} expected={expected} />
+        )}
       </div>
 
       <SupplierScanList claims={supplierScans} />

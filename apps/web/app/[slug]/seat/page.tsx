@@ -9,7 +9,7 @@ import { ArrowLeft, DoorOpen, MapPin, Users } from 'lucide-react';
 import { guestAvatarsEnabled } from '@/lib/venue-avatars';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { withSchemaRetry } from '@/lib/read-retry';
-import { readGuestSession } from '@/lib/guest-session';
+import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFor } from '../_lib/event-words';
 import { eventNoun } from '@/lib/event-noun';
@@ -21,7 +21,7 @@ import {
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { resolveMonogram } from '@/lib/monogram';
-import type { EventTableRow } from '@/lib/seating';
+import { fetchPublicTables, type EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { publicDisplayName } from '@/lib/find-your-seat';
 import { PulsedLiveRefresher } from '@/app/_components/pulsed-live-refresher';
@@ -29,6 +29,7 @@ import type { TheDayWhen } from '@/lib/event-clock';
 import { theDayFor } from '@/lib/event-clock.server';
 import { ArrivalBloom } from './_components/arrival-bloom';
 import { GuestPushPrompt } from './_components/guest-push-prompt';
+import { TABLE_CHANGE_ALERTS_SEND } from '@/lib/table-change-alerts';
 import { SeatsShowOnTheDay } from '../_components/seats-show-on-the-day';
 import { seatNumberWords } from '@/lib/table-words';
 
@@ -39,7 +40,7 @@ export const dynamic = 'force-dynamic';
 
 /**
  * /[slug]/seat — the personalized Seat Pass + public QR resolver
- * (seat-finding PR 4/6 · gated on the paid CUSTOM_QR_GUEST SKU, ₱1,499 · 'live').
+ * (seat-finding PR 4/6 · gated on the paid CUSTOM_QR_GUEST SKU (price read from the catalogue) · 'live').
  *
  * TWO entry shapes, branched on whether `?t=` is present:
  *
@@ -93,9 +94,6 @@ type Props = {
   params: Promise<{ slug: string }>;
   searchParams: Promise<{ t?: string }>;
 };
-
-const TABLES_SELECT =
-  'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos';
 
 export default async function SeatPassPage({ params, searchParams }: Props) {
   const { slug } = await params;
@@ -231,10 +229,10 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     if (await partDoorHidden(admin, event.event_id, 'seat')) redirect(`/${slug}`);
 
     // Table hit → stateless public table view (publication-gated below).
-    const { rows: tables, failed: tablesFailed } = await fetchTables(admin, event.event_id);
+    const { rows: tables, failed: tablesFailed } = await readTables(admin, event.event_id);
     const entrance = await fetchEntrance(admin, event.event_id);
     if (tablesFailed) return <SeatCouldNotLoad event={event} slug={slug} roomLinks={roomLinks} />;
-    const published = await guestsMaySeeSeatsFor(admin, event.event_id);
+    const published = await guestsMaySeeSeatsFor(admin, event.event_id, { throwOnReadError: true });
 
     if (!published) {
       return (
@@ -260,7 +258,8 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
   // 👁 …and none on a stage the couple hid "Your seat" on — the same exit as above. This is where the claim hop lands,
   // so a guest who scanned their own code arrives on the event's page, signed in, with no seat shown.
   if (await partDoorHidden(admin, event.event_id, 'seat')) redirect(`/${slug}`);
-  const session = await readGuestSession();
+  // 🔑 A4-B11 (owner, Add 34): the invite-link cookie, else the seat the SIGNED-IN account holds here — its own seat only.
+  const session = await readGuestSessionForEvent(event.event_id);
   if (!session || session.event_id !== event.event_id) {
     return (
       <SeatPassShell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug} eventDate={theDayFor(event)}>
@@ -298,8 +297,10 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
     );
   }
 
-  const { rows: tables, failed: tablesFailed } = await fetchTables(admin, event.event_id);
+  const { rows: tables, failed: tablesFailed } = await readTables(admin, event.event_id);
   const entrance = await fetchEntrance(admin, event.event_id);
+  // 🔌 A4-50: a failed table read is not "the floor plan is on its way" — same exit as the table view above.
+  if (tablesFailed) return <SeatCouldNotLoad event={event} slug={slug} roomLinks={roomLinks} />;
 
   return (
     <PersonalPass
@@ -350,22 +351,18 @@ function SeatCouldNotLoad({
 
 // Shared seating fetch. Admin client; constrained to event_id. Same select
 // string find-my-table uses.
-async function fetchTables(
+async function readTables(
   admin: ReturnType<typeof createAdminClient>,
   eventId: string,
 ): Promise<{ rows: EventTableRow[]; failed: boolean }> {
-  // 🔴 `return (data ?? [])` threw the error away, and an empty list is exactly
-  // what this page renders as "the floor plan is on its way" — i.e. a failed
-  // read was shown to the guest as the COUPLE not having done their seating.
-  // supabase-js resolves with `data: null` on failure, which is the same value
-  // as "no tables yet"; only the error tells them apart.
-  const { data, error } = await admin
-    .from('event_tables')
-    .select(TABLES_SELECT)
-    .eq('event_id', eventId)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
-  return { rows: (data ?? []) as EventTableRow[], failed: Boolean(error) };
+  // 🔌 A4-34 (final check, 25 Nov): the guest-safe seat-plan reader (`lib/seating.ts` `fetchPublicTables` — fetchTables' order, its
+  // capacity and coordinate clean-up). This page had its own copy that SHADOWED the shared name. A refused read is
+  // still told apart from "no tables yet" — the shared reader throws, and this page answers with SeatCouldNotLoad.
+  try {
+    return { rows: await fetchPublicTables(admin, eventId), failed: false };
+  } catch {
+    return { rows: [], failed: true };
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -421,7 +418,7 @@ async function PersonalPass({
   // guest's NAME is fine to greet; the room + seat marker stay hidden until the
   // couple publishes the seating pack. (The /claim hop already recorded the
   // personal scan; no scan insert here.)
-  const published = await guestsMaySeeSeatsFor(admin, event.event_id);
+  const published = await guestsMaySeeSeatsFor(admin, event.event_id, { throwOnReadError: true });
   if (!published) {
     // 🪑 The one waiting state, for a named guest too (owner 2026-10-11) — this branch had a card of its own, with
     // no word that an event with no date has no day yet.
@@ -491,7 +488,8 @@ async function PersonalPass({
           solemn={words.solemn}
         />
 
-        <GuestPushPrompt />
+        {/* 🔕 A4-52 (owner, Add 34): the alerts ask stays hidden until something sends them (lib/table-change-alerts.ts). */}
+        {TABLE_CHANGE_ALERTS_SEND ? <GuestPushPrompt /> : null}
 
         <header className="space-y-2 text-center">
           <p className="font-mono text-xs uppercase tracking-[0.2em] text-terracotta-700">

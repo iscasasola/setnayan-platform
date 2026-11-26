@@ -11,7 +11,6 @@ app/dashboard/[eventId]/guests/_components/guest-group-picker.tsx 1
 app/dashboard/[eventId]/guests/_components/guest-ticket-parts.tsx 1
 app/dashboard/[eventId]/guests/_components/guests-screen.tsx 1
 app/dashboard/[eventId]/guests/_components/section-head-toolbar.tsx 1
-app/dashboard/[eventId]/guests/quick/_components/quick-add-list.tsx 1
 app/dashboard/[eventId]/launch/_components/maker-logo.tsx 3
 app/dashboard/[eventId]/launch/_components/stage-panel/camera-face.tsx 1
 app/dashboard/[eventId]/launch/_components/studio-prints-six.tsx 1

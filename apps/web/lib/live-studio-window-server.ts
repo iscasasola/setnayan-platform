@@ -71,16 +71,25 @@ export async function resolveBroadcastWindow(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<WindowDecision> {
-  if (!eventId) return decideBroadcastWindow({ owned: false });
+  return (await readBroadcastWindow(supabase, eventId)).decision;
+}
 
-  let owned = false;
+/**
+ * 🔌 A4-09 (final check, 25 Nov): the same decision, WITH whether the ownership read worked. `resolveBroadcastWindow`
+ * still fails closed for every gate; a paired venue TV asks this instead, so a refused read keeps its last picture
+ * ("down", reconnecting) and never tells the room "Live Watch isn't active for this event" on a paid event.
+ */
+export async function readBroadcastWindow(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ ok: boolean; decision: WindowDecision }> {
+  if (!eventId) return { ok: true, decision: decideBroadcastWindow({ owned: false }) };
   try {
-    owned = await eventSkuActive(supabase, eventId, LIVE_STUDIO_SKU);
+    const owned = await eventSkuActive(supabase, eventId, LIVE_STUDIO_SKU);
+    return { ok: true, decision: decideBroadcastWindow({ owned }) };
   } catch {
-    owned = false; // fail closed
+    return { ok: false, decision: decideBroadcastWindow({ owned: false }) }; // fail closed
   }
-
-  return decideBroadcastWindow({ owned });
 }
 
 /**

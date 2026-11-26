@@ -153,7 +153,6 @@ const OFFER_SITES = [
   'app/onboarding/simple/actions.ts', // the simple commit
   'app/onboarding/_shared/commit-event.ts', // the generic commit
   'app/dashboard/[eventId]/page.tsx', // Home: comeback card · Next card · Your services row
-  'app/dashboard/[eventId]/studio/setnayan-ai/page.tsx', // the Setnayan AI page's buy state
   'app/dashboard/[eventId]/vendors/page.tsx', // the Suppliers page's Unlock banner
   'app/dashboard/[eventId]/_components/event-dashboard.tsx', // the free venue-shortlist upsell
 ] as const;

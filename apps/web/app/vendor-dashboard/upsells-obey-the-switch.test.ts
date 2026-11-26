@@ -74,7 +74,6 @@ const NOT_THE_SWITCH: Record<string, string> = {
   // Enforced by the DATABASE unconditionally, so the switch cannot lift it:
   // offer_creator_reach_hold raises TIER_BELOW_PRO_NO_REACH (owner decision
   // #4, 2026-07-16). The page is try-first (browse + draft); Send asks.
-  'creators/actions.ts': 'maps the database’s own Pro floor (TIER_BELOW_PRO_NO_REACH) at Send',
   // The ◆ note moved into the Send offer sheet with the tool pages redraw (v3, 21 Nov 2026) — the same words.
   'creators/_components/creators-tools.tsx': 'try-first browse; the ◆ note describes the database’s Pro floor at Send',
   // Day-of tools lapse with a paid Papic/day-of order, not the plan tier.

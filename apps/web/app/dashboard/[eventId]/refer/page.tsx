@@ -6,6 +6,7 @@ import { getMyReferral, type ReferralRedemptionSummary } from '@/lib/referral-ac
 import { isReferralProgramEnabled } from '@/lib/platform-settings';
 import { CopyButton } from '@/app/_components/copy-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { formatCount } from '@/lib/format-number';
 
 export const metadata = { title: 'Refer a couple' };
@@ -53,7 +54,7 @@ export default async function ReferACouplePage({ params }: Props) {
     );
   }
 
-  const { code, shareLink, redemptions, qualifiedCount } = referral;
+  const { code, shareLink, redemptions, qualifiedCount, redemptionsRefused } = referral;
 
   return (
     <div className="space-y-6 tab:mx-auto tab:w-full tab:max-w-3xl">
@@ -102,7 +103,9 @@ export default async function ReferACouplePage({ params }: Props) {
           ) : null}
         </h2>
 
-        {redemptions.length === 0 ? (
+        {redemptionsRefused ? (
+          <ReadRefusedNotice what="the couples you referred" />
+        ) : redemptions.length === 0 ? (
           <div className="sn-row border-dashed flex items-start gap-3 p-4 text-sm text-ink/60">
             <UserPlus aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
             <p>

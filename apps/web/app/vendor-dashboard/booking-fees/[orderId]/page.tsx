@@ -17,6 +17,7 @@ import { asDisputeStatus, foundYouLine } from '@/lib/booking-fee-dispute';
 import { TOP_UP_CHARGE_KIND, topUpStage, type TopUpStage } from '@/lib/booking-fee-top-up';
 import { manilaToday } from '@/lib/std-views';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { batchOrUnread } from '@/lib/booking-fees-page-reads';
 
 export const metadata = { title: 'Booking fee · Supplier' };
 
@@ -67,7 +68,11 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
   // only of `order`, proven above. The dispute read never throws (it hands back its error), so the batch rejects
   // exactly when, and with what, the two-read batch did.
   const chargeId = chargeIdFromBookingFeeLockServiceKey(order.service_key);
-  const [payments, settings, disputeRead] = await Promise.all([
+  // 🧾 A6-60 (final check 25 Nov): `fetchPaymentsForOrder` and the settings read THROW on a refused read — inside this
+  // batch that used to reach the dashboard's error screen. Said in place, like the bill's own read above.
+  const batch = await batchOrUnread(
+    () =>
+      Promise.all([
     fetchPaymentsForOrder(supabase, orderId),
     fetchPlatformSettings(supabase),
     chargeId
@@ -77,7 +82,11 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
           .eq('charge_id', chargeId)
           .maybeSingle()
       : { data: null, error: null },
-  ]);
+    ]),
+    (err) => logQueryError('booking-fees/[orderId]: payments or settings', { message: err instanceof Error ? err.message : String(err) }),
+  );
+  if (!batch) return <BookingFeeReadFailed orderId={orderId} />;
+  const [payments, settings, disputeRead] = batch;
   // Fee orders are `vendor_`-prefixed → VAT-INCLUSIVE: the stored total IS the
   // gross the vendor pays. Pass vatRatePct=0 so no VAT line is added on top.
   const totals = computeOrderTotals(order, payments, 0);
@@ -131,14 +140,20 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
   */
   let disputeViewCount: number | null = null;
   let foundLine: string | null = null;
+  // 💸 A TOP-UP (owner 2026-11-12, `lib/booking-fee-top-up.ts`): the fee grew with a booked quote. It is due on the
+  // event day — "Settle early" before it (rule 2), "Due today" on it, overdue after. A6-61(c): THIS bill's own charge is
+  // read ONCE (service role, proven the caller's above) for both the found-you line and the top-up; a failed read is
+  // logged and draws no found-you line and the bill exactly as shipped.
+  let topUp: { stage: TopUpStage; dueOn: string | null } | null = null;
   if (chargeId) {
     const admin = createAdminClient();
-    const { data: charge } = await admin
+    const { data: charge, error: chargeErr } = await admin
       .from('booking_fee_charges')
-      .select('event_id, vendor_profile_id')
+      .select('event_id, vendor_profile_id, kind, expires_at')
       .eq('charge_id', chargeId)
       .maybeSingle();
-    const c = charge as { event_id: string | null; vendor_profile_id: string } | null;
+    if (chargeErr) logQueryError('booking-fees/[orderId]: the bill’s charge', chargeErr);
+    const c = charge as { event_id: string | null; vendor_profile_id: string; kind: string | null; expires_at: string | null } | null;
     if (c?.event_id) {
       const { data: found, error: foundErr } = await admin
         .from('event_vendor_found')
@@ -151,27 +166,13 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
       if (disputeStatus === 'auto_accepted') disputeViewCount = f?.view_count ?? null;
       foundLine = foundYouLine(f?.first_found_at, f?.first_source);
     }
-  }
-  // Disputable: an open bill, no dispute yet, and the dispute read answered.
-  const canDispute = payable && Boolean(chargeId) && dispute === null;
-
-  // 💸 A TOP-UP (owner 2026-11-12, `lib/booking-fee-top-up.ts`): the fee grew with a booked quote. It is due on the
-  // event day — "Settle early" before it (rule 2), "Due today" on it, overdue after. Service-role read of THIS bill's
-  // own charge (proven the caller's above); a failed read draws the bill exactly as shipped.
-  let topUp: { stage: TopUpStage; dueOn: string | null } | null = null;
-  if (payable && chargeId) {
-    const { data: ch, error: chErr } = await createAdminClient()
-      .from('booking_fee_charges')
-      .select('kind, expires_at')
-      .eq('charge_id', chargeId)
-      .maybeSingle();
-    if (chErr) logQueryError('booking-fees/[orderId]: top-up kind', chErr);
-    const c = ch as { kind: string | null; expires_at: string | null } | null;
-    if (c?.kind === TOP_UP_CHARGE_KIND) {
+    if (payable && c?.kind === TOP_UP_CHARGE_KIND) {
       const dueOn = c.expires_at ? c.expires_at.slice(0, 10) : null;
       topUp = { stage: topUpStage(dueOn, manilaToday()), dueOn };
     }
   }
+  // Disputable: an open bill, no dispute yet, and the dispute read answered.
+  const canDispute = payable && Boolean(chargeId) && dispute === null;
 
   const paymentScreenshotMap: Record<string, string> = {};
   await Promise.all(

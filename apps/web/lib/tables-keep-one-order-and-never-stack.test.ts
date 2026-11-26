@@ -62,7 +62,7 @@ test('2 · no stack: one spot is fanned out, an edge table drawn inside, nothing
   }
   assert.equal(at('t01').x_pos, 10, 'a table on its own spot was moved');
   assert.match(read('app/dashboard/[eventId]/seating/page.tsx'), /tables=\{spreadForDisplay\(tables\)\}/, 'the 2D plan draws the stored spots');
-  assert.match(read('app/dashboard/[eventId]/seating/lab/page.tsx'), /spreadForDisplay\(tablesRaw\)\.map\(/, 'the 3D room draws the stored spots');
+  assert.match(read('app/dashboard/[eventId]/seating/lab/_components/seating-room.tsx'), /spreadForDisplay\(tablesRaw\)\.map\(/, 'the 3D room draws the stored spots');
 });
 
 test('3 · a new table takes the next sort_order', () => {

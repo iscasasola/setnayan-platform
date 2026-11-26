@@ -239,6 +239,14 @@ export async function fetchCommunityEvents(
   supabase: SupabaseClient,
   communityId: string,
 ): Promise<CommunityEventRow[]> {
+  return (await readCommunityEvents(supabase, communityId)) ?? [];
+}
+
+/** A2-C14: the same read, said honestly — `null` = refused (the page says so), `[]` = answered with none. */
+export async function readCommunityEvents(
+  supabase: SupabaseClient,
+  communityId: string,
+): Promise<CommunityEventRow[] | null> {
   const { data, error } = await supabase
     .from('events')
     .select('event_id, display_name, event_type, event_date, date_candidates, archived, slug, created_at')
@@ -252,6 +260,7 @@ export async function fetchCommunityEvents(
         { community_id: communityId },
         'graceful_degrade',
       );
+      return null;
     }
     return [];
   }
@@ -342,6 +351,16 @@ export async function fetchCommunityRoster(
   communityId: string,
   viewerId: string,
 ): Promise<CommunityRosterEntry[]> {
+  return (await readCommunityRoster(supabase, admin, communityId, viewerId)) ?? [];
+}
+
+/** A2-C14: the roster, said honestly — `null` = refused, never an empty roster with no "(you)" and no Leave. */
+export async function readCommunityRoster(
+  supabase: SupabaseClient,
+  admin: SupabaseClient,
+  communityId: string,
+  viewerId: string,
+): Promise<CommunityRosterEntry[] | null> {
   const { data: memberRows, error } = await supabase
     .from('community_members')
     .select('id, user_id, role, joined_at')
@@ -354,7 +373,7 @@ export async function fetchCommunityRoster(
       { community_id: communityId },
       'graceful_degrade',
     );
-    return [];
+    return null;
   }
   const rows = (memberRows ?? []) as Array<{
     id: number;
@@ -393,6 +412,18 @@ export async function fetchInviteToken(
   supabase: SupabaseClient,
   communityId: string,
 ): Promise<string | null> {
+  const read = await readInviteToken(supabase, communityId);
+  return read.measured ? read.token : null;
+}
+
+/**
+ * A2-C14: the token, said honestly. `measured: false` = refused — the organizer is told it could not be read, never
+ * "No active link — rotate", because rotating would kill a link that still works.
+ */
+export async function readInviteToken(
+  supabase: SupabaseClient,
+  communityId: string,
+): Promise<{ measured: true; token: string | null } | { measured: false }> {
   const { data, error } = await supabase
     .from('community_invite_tokens')
     .select('token, revoked_at')
@@ -400,11 +431,11 @@ export async function fetchInviteToken(
     .maybeSingle();
   if (error) {
     console.error('[supabase-error] communities: community_invite_tokens', error);
-    return null;
+    return { measured: false };
   }
-  if (!data) return null;
+  if (!data) return { measured: true, token: null };
   const row = data as { token: string; revoked_at: string | null };
-  return row.revoked_at ? null : row.token;
+  return { measured: true, token: row.revoked_at ? null : row.token };
 }
 
 /**
@@ -420,12 +451,14 @@ export function generateCommunityInviteToken(): string {
 export type PendingCommunityInvite = {
   community_id: string;
   name: string;
-  member_count: number;
+  /** 🔌 A4-13: null when the count could not be read — never drawn as "0 members". */
+  member_count: number | null;
 };
 
 export type CommunityInviteResolution =
   | { status: 'ok'; invite: PendingCommunityInvite }
-  | { status: 'not_found' | 'revoked' | 'expired' | 'archived' };
+  /** 🔌 A4-12: `unreadable` — a read failed; never "This invite link doesn't work". */
+  | { status: 'not_found' | 'revoked' | 'expired' | 'archived' | 'unreadable' };
 
 /**
  * Resolve a public invite token (admin client — the token IS the secret;
@@ -438,11 +471,12 @@ export async function fetchPendingCommunityInvite(
 ): Promise<CommunityInviteResolution> {
   if (!token || token.length < 32) return { status: 'not_found' };
 
-  const { data } = await admin
+  const { data, error } = await admin
     .from('community_invite_tokens')
     .select('community_id, revoked_at, expires_at')
     .eq('token', token)
     .maybeSingle();
+  if (error) return { status: 'unreadable' };
   if (!data) return { status: 'not_found' };
   const row = data as {
     community_id: string;
@@ -454,7 +488,7 @@ export async function fetchPendingCommunityInvite(
     return { status: 'expired' };
   }
 
-  const [{ data: community }, { count }] = await Promise.all([
+  const [{ data: community, error: communityError }, { count, error: countError }] = await Promise.all([
     admin
       .from('communities')
       .select('community_id, name, archived')
@@ -465,6 +499,7 @@ export async function fetchPendingCommunityInvite(
       .select('id', { count: 'exact', head: true })
       .eq('community_id', row.community_id),
   ]);
+  if (communityError) return { status: 'unreadable' };
   if (!community) return { status: 'not_found' };
   const c = community as {
     community_id: string;
@@ -478,7 +513,7 @@ export async function fetchPendingCommunityInvite(
     invite: {
       community_id: c.community_id,
       name: c.name,
-      member_count: count ?? 0,
+      member_count: countError ? null : (count ?? 0),
     },
   };
 }

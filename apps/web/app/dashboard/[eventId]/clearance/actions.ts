@@ -7,6 +7,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
+import { eventClockOf } from '@/lib/event-clock.server';
+import { closeOutOpen } from '@/lib/close-out-open';
 
 /**
  * "Close out the day" — the event-level clearance that flips the lifecycle phase
@@ -34,6 +37,20 @@ export async function closeOutTheDay(eventId: string): Promise<void> {
   }
 
   const admin = createAdminClient();
+  // A2-P8: never before The Day has opened at the venue — the same rule the page draws (`closeOutOpen`).
+  const { data: clockRow, error: clockError } = await admin
+    .from('events')
+    .select(EVENT_CLOCK_COLUMNS)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (clockError || !clockRow) {
+    logQueryError('closeOutTheDay (clock read)', clockError, { event_id: eventId }, 'graceful_degrade');
+    redirect(`/dashboard/${eventId}/clearance?error=save_failed`);
+  }
+  if (!closeOutOpen(eventClockOf(clockRow))) {
+    redirect(`/dashboard/${eventId}/clearance?error=too_early`);
+  }
+
   const { error } = await admin
     .from('events')
     .update({ cleared_at: new Date().toISOString(), cleared_by_user_id: user.id })
@@ -41,6 +58,8 @@ export async function closeOutTheDay(eventId: string): Promise<void> {
     .is('cleared_at', null); // idempotent — don't overwrite an earlier close-out
   if (error) {
     logQueryError('closeOutTheDay (events update)', error, { event_id: eventId }, 'graceful_degrade');
+    // A2-G17: a failed save stays on the page and says so — never the success landing.
+    redirect(`/dashboard/${eventId}/clearance?error=save_failed`);
   }
 
   revalidatePath(`/dashboard/${eventId}`, 'layout');

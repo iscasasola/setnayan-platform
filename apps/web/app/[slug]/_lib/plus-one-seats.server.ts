@@ -1,4 +1,5 @@
 import 'server-only';
+import { SITE_URL } from '@/lib/feature-pages/seo';
 
 import type { createAdminClient } from '@/lib/supabase/admin';
 import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
@@ -83,7 +84,7 @@ export async function yourGuestsFor(
 }> {
   const seats = (await plusOneSeatsFor(admin, event.event_id, bringerGuestId)) ?? [];
   if (seats.length === 0) return { guests: [], passes: {} };
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+  const appUrl = SITE_URL;
   const ownerSlug = await resolveEventOwnerSlug(admin, event.event_id);
   const passes: Record<string, string> = {};
   const guests = await Promise.all(

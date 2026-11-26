@@ -17,6 +17,7 @@
  * top-nav link — it surfaces as a contextual CTA + footer link.
  */
 
+import { routes } from '@/lib/routes';
 import Link from 'next/link';
 import { PublicMonogramStudio } from '@/app/monogram/public-monogram-studio';
 import { MonogramHeadline, StepsReveal, ClosingCta } from '@/app/monogram/_monogram-motion';
@@ -155,7 +156,7 @@ export default function PublicMonogramPage() {
           </p>
           <Link
             data-premium-item
-            href="/onboarding/wedding?from=monogram"
+            href={routes.start()}
             className={actionButtonClass('brand', { main: true, extra: 'mt-5 !h-11' })}
           >
             Start planning · free

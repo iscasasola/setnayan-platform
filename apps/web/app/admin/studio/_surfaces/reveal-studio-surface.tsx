@@ -1,6 +1,7 @@
+import { publicEventPath } from '@/lib/public-event-url';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { fetchRevealConfig } from '@/lib/reveal-config';
+import { readRevealConfigForAdmin } from '@/lib/reveal-config';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ReadFailed } from '../../_components/read-failed';
@@ -47,7 +48,7 @@ async function fetchStdVideosNeedingReview(): Promise<PendingStdVideo[] | null> 
     const admin = createAdminClient();
     const { data, error } = await admin
       .from('events')
-      .select('event_id, public_id, display_name, std_media')
+      .select('event_id, public_id, slug, display_name, std_media')
       .filter('std_media->>type', 'eq', 'video')
       .limit(200);
     // 🔑 `null` = could not look. An EMPTY review queue is the dangerous failure
@@ -104,6 +105,8 @@ async function fetchStdVideosNeedingReview(): Promise<PendingStdVideo[] | null> 
         return {
           eventId: r.event_id as string,
           publicId: (r.public_id as string) ?? '',
+          // A8·G-5: the couple's Event Hub is found by its slug, never its public id.
+          hubPath: typeof r.slug === 'string' && r.slug ? publicEventPath(r.slug) : null,
           name: (r.display_name as string) || 'Untitled wedding',
           status: s,
           grandfathered,
@@ -125,7 +128,7 @@ async function fetchStdVideosNeedingReview(): Promise<PendingStdVideo[] | null> 
 
 export async function RevealStudioSurface() {
   const [config, stdVideos] = await Promise.all([
-    fetchRevealConfig(),
+    readRevealConfigForAdmin(),
     fetchStdVideosNeedingReview(),
   ]);
   return (
@@ -141,12 +144,18 @@ export async function RevealStudioSurface() {
       <div className="mb-6 mt-2 max-w-2xl">
         <InfoTip label="What this tab does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
           The opening reveal on every Save-the-Date couple site — the bridal veil, envelopes and
-        doors guests lift to uncover the invitation. Turn it on or off, choose which templates
+        doors guests lift to uncover the invitation. Choose which templates
         couples may use, toggle features, and tune the veil look with the live sliders. Changes
         save as the house default and go live on couple sites.
         </InfoTip>
       </div>
-      <RevealStudio initial={config} />
+      {/* A8·G-8: a refused read withholds the editor — the locked defaults are not the live settings, and a
+          save over them would overwrite the real house config. */}
+      {config === null ? (
+        <ReadFailed what="the house reveal settings — the editor is withheld so a save cannot overwrite them" />
+      ) : (
+        <RevealStudio initial={config} />
+      )}
       {stdVideos === null ? (
         <div className="mt-6">
           <ReadFailed what="the video review queue — a video waiting for review would not show here" />

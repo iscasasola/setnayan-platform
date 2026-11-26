@@ -35,6 +35,8 @@ import { ActionButton } from '@/components/action-button';
 export type PendingStdVideo = {
   eventId: string;
   publicId: string;
+  /** The couple's Event Hub address (`publicEventPath(slug)`); null when the event has no slug yet. */
+  hubPath: string | null;
   name: string;
   status: 'pending' | 'in_review' | 'approved' | 'rejected';
   /** Serving on the SEC-6 cutover carry-over rather than a real examination. */
@@ -230,14 +232,16 @@ export function StdVideoModeration({ initial }: { initial: PendingStdVideo[] }) 
                 label="Reject"
               />
             </div>
-            <a
-              href={`/${row.publicId}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-[11px] font-medium text-[var(--m-slate)] hover:text-mulberry"
-            >
-              Open couple page ↗
-            </a>
+            {row.hubPath ? (
+              <a
+                href={row.hubPath}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[11px] font-medium text-[var(--m-slate)] hover:text-mulberry"
+              >
+                Open their Event Hub ↗
+              </a>
+            ) : null}
           </li>
         ))}
       </ul>

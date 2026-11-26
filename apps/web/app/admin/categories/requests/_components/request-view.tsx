@@ -129,7 +129,7 @@ export function ServiceRequestAdminView({
               filedCategoryLabel={filedCategory}
               suggestedName={draft?.suggestedLabel ?? null}
               suggestedTarget={draft?.verdict === 'existing' ? draft.closestExisting?.canonical ?? null : null}
-              cards={cards ?? 0}
+              cards={cards ?? null}
               shops={shops}
               categories={categories}
               services={services}

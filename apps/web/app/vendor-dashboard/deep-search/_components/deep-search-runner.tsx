@@ -86,7 +86,8 @@ export function DeepSearchRunner({ verified, included, allowance }: DeepSearchRu
           ? 'No searches are set for this month yet.'
           : `${deepSearchRunsWords(left)} left this month, of ${deepSearchRunsWords(perMonth)} your plan includes.`}
         <span className="block text-xs text-ink/60">
-          {left > 0 ? `Unused searches don’t carry over. ` : ''}New searches on {shortDate(resetsAtIso)}.
+          {/* "Unused searches don't carry over" is said once, in the card's intro (final check B5-12). */}
+          New searches on {shortDate(resetsAtIso)}.
         </span>
       </p>
 

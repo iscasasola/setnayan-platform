@@ -63,3 +63,18 @@ export async function requireAdminCan(
   }
   return { userId: powers.userId, powers };
 }
+
+/**
+ * The same gate as `requireAdminCan`, for an action that answers with a state
+ * or a redirect instead of a crash: null when allowed, else the plain refusal
+ * sentence to show. Anything that is not an area refusal still throws.
+ */
+export async function adminCanRefusal(area: AdminArea, level: AdminLevel): Promise<string | null> {
+  try {
+    await requireAdminCan(area, level);
+    return null;
+  } catch (err) {
+    if (err instanceof AdminAreaRefusal) return err.message;
+    throw err;
+  }
+}

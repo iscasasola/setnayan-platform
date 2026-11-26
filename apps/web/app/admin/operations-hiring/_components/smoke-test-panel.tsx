@@ -57,13 +57,12 @@ export function SmokeTestPanel() {
         setLastError(`Expected HTTP 500 (controlled throw), got ${res.status}`);
       }
     } catch (err) {
-      // Some browsers / proxies surface 500-from-throw as a network error.
-      // Treat that as success too.
+      // A8·H-10: a network failure means the test never reached the server — that is not "fired ✓".
       setLastResult({
-        ok: true,
+        ok: false,
         type: 'sentry',
-        recipient: 'Sentry dashboard',
-        via: 'network-error-from-throw',
+        reason: 'The test did not reach the server, so nothing was sent to Sentry. Check the connection and try again.',
+        error: err instanceof Error ? err.message : String(err),
       });
     } finally {
       setSentryBusy(false);

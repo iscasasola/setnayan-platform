@@ -1,3 +1,4 @@
+import { readEveryPage } from '@/lib/read-every-page';
 import Link from 'next/link';
 import { Database, MapPin, ExternalLink, AlertTriangle, MessageSquare } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -121,29 +122,51 @@ export async function DemoVendorsSurface() {
 
   // Aggregate counts — full table scan over is_demo=TRUE rows. The partial
   // index on vendor_profiles_is_demo_idx makes this cheap.
-  const [totalRes, batchesRes, categoryRes, cityRes] = await Promise.all([
+  // A8·D-11: each scan is read page by page up to its named ceiling — one
+  // request is cut at 1,000 rows by the database first, which kept the
+  // "floors" note below from ever firing.
+  const [totalRes, batchesPaged, categoryPaged, cityPaged] = await Promise.all([
     admin
       .from('vendor_profiles')
       .select('vendor_profile_id', { count: 'exact', head: true })
       .eq('is_demo', true),
-    admin
-      .from('vendor_profiles')
-      .select('demo_batch_id, created_at, business_slug')
-      .eq('is_demo', true)
-      .not('demo_batch_id', 'is', null)
-      .order('created_at', { ascending: false })
-      .limit(BATCH_SCAN_LIMIT),
-    admin
-      .from('vendor_profiles')
-      .select('services')
-      .eq('is_demo', true)
-      .limit(CATEGORY_SCAN_LIMIT),
-    admin
-      .from('vendor_profiles')
-      .select('location_city')
-      .eq('is_demo', true)
-      .limit(CITY_SCAN_LIMIT),
+    readEveryPage<{ demo_batch_id: string; created_at: string; business_slug: string | null }>(
+      (from, to) =>
+        admin
+          .from('vendor_profiles')
+          .select('demo_batch_id, created_at, business_slug')
+          .eq('is_demo', true)
+          .not('demo_batch_id', 'is', null)
+          .order('created_at', { ascending: false })
+          .order('vendor_profile_id')
+          .range(from, to),
+      BATCH_SCAN_LIMIT,
+    ),
+    readEveryPage<{ services: string[] | null }>(
+      (from, to) =>
+        admin
+          .from('vendor_profiles')
+          .select('services')
+          .eq('is_demo', true)
+          .order('vendor_profile_id')
+          .range(from, to),
+      CATEGORY_SCAN_LIMIT,
+    ),
+    readEveryPage<{ location_city: string | null }>(
+      (from, to) =>
+        admin
+          .from('vendor_profiles')
+          .select('location_city')
+          .eq('is_demo', true)
+          .order('vendor_profile_id')
+          .range(from, to),
+      CITY_SCAN_LIMIT,
+    ),
   ]);
+  const refused = (what: string) => new Error(`${what}: a page was refused`);
+  const batchesRes = batchesPaged ? { data: batchesPaged.rows, error: null } : { data: null, error: refused('batch scan') };
+  const categoryRes = categoryPaged ? { data: categoryPaged.rows, error: null } : { data: null, error: refused('category scan') };
+  const cityRes = cityPaged ? { data: cityPaged.rows, error: null } : { data: null, error: refused('city scan') };
 
   if (totalRes.error) logQueryError('AdminDemoVendors (total count)', totalRes.error);
   if (batchesRes.error) logQueryError('AdminDemoVendors (batch scan)', batchesRes.error);
@@ -201,7 +224,8 @@ export async function DemoVendorsSurface() {
   // This is the truthful disclosure for an aggregated read; `cap` alone cannot
   // say it, because the rows the table holds are batches and the ceiling is on
   // vendors.
-  const batchScanFilled = (batchScan?.length ?? 0) >= BATCH_SCAN_LIMIT;
+  const batchScanFilled =
+    batchesPaged?.complete === false || categoryPaged?.complete === false || cityPaged?.complete === false;
 
   // Per-canonical-service counts — extract the canonical_service from
   // services[] (first element by convention from the seed script).
@@ -316,13 +340,10 @@ export async function DemoVendorsSurface() {
       {/* ───────────────────── Preview link ───────────────────── */}
       <section className="mb-8 sn-tile p-4">
         <h2 className="mb-2 text-lg font-semibold">View as a couple</h2>
+        {/* A8·D-13: one true statement (DECISION_LOG 2026-11-06: demo shops are public, marked "(DEMO ONLY)"),
+            and links named for where they go — the marketplace on Discover. */}
         <p className="text-sm text-ink/65">
-          Demo suppliers are hidden from the public marketplace by default.
-          Append{' '}
-          <code className="rounded bg-ink/5 px-1 py-0.5 font-mono text-[12px]">
-            ?demo=1
-          </code>{' '}
-          to any /vendors URL to surface them.
+          Demo suppliers show beside real ones, marked (DEMO ONLY). These links open the marketplace on Discover.
         </p>
         <div className="mt-3 flex flex-wrap gap-2">
           <Link
@@ -330,7 +351,7 @@ export async function DemoVendorsSurface() {
             className="inline-flex items-center gap-1.5 rounded-full bg-ink px-4 py-2 text-sm text-cream hover:bg-ink/90"
           >
             <ExternalLink className="h-4 w-4" />
-            /explore?demo=1
+            Marketplace on Discover
           </Link>
           <Link
             href="/?browse=1&demo=1&category=photography"
@@ -352,8 +373,7 @@ export async function DemoVendorsSurface() {
           </Link>
         </div>
         <p className="mt-2 text-xs text-ink/55">
-          Demo suppliers are hidden from real visitors — they surface in browse
-          only while demo mode is on (open any page with{' '}
+          Create works only while demo mode is on for your session (open any page with{' '}
           <code className="rounded bg-ink/5 px-1">?demo=1</code>).{' '}
           {demoMode
             ? 'Demo mode is on for your session, so Create works here.'
@@ -536,25 +556,6 @@ export async function DemoVendorsSurface() {
         )}
       </section>
 
-      {/* ───────────────────── Footer cross-PR coordination ───────────────────── */}
-      <section className="mt-12 rounded-xl border border-dashed border-ink/15 p-4 text-xs text-ink/55">
-        <p>
-          <strong>Workstream:</strong> Marketplace simulation (owner-approved
-          2026-05-22).
-        </p>
-        <ul className="mt-1 list-disc pl-5">
-          <li>
-            <strong>PR 1</strong> (this PR): seed script + schema columns + admin
-            cleanup UI.
-          </li>
-          <li>
-            <strong>PR 2</strong>: ?demo=1 query-param gate on /vendors browse.
-          </li>
-          <li>
-            <strong>PR 3</strong>: supplier compare view (2-3 suppliers side-by-side).
-          </li>
-        </ul>
-      </section>
     </div>
   );
 }

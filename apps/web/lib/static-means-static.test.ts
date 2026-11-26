@@ -67,7 +67,7 @@ const EXEMPT: Record<string, string> = {
   'app/dashboard/[eventId]/studio/panood/setup/page.tsx': 'pack card — decides Owned vs the price, not what guests see',
   // The 3D seating lab uses ownership to gate an arrival BLOOM, a different
   // effect from the monogram reveal.
-  'app/dashboard/[eventId]/seating/lab/page.tsx': 'gates the arrival bloom, not the mark reveal',
+  'app/dashboard/[eventId]/seating/lab/_components/seating-room.tsx': 'gates the arrival bloom, not the mark reveal',
 };
 
 function walk(dir: string, out: string[] = []): string[] {

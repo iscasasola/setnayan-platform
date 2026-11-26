@@ -10,14 +10,10 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { eventWordsFromProfile } from '../_lib/event-words';
-import { readGuestSession } from '@/lib/guest-session';
+import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { canViewSlugEvent } from '@/lib/slug-access';
-import {
-  DEFAULT_ENTRANCE,
-  type EntrancePos,
-  clampPct,
-} from '@/lib/indoor-blueprint';
-import type { EventTableRow } from '@/lib/seating';
+import { fetchEntrance } from '@/lib/indoor-blueprint';
+import { fetchPublicTables, type EventTableRow } from '@/lib/seating';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { PulsedLiveRefresher } from '@/app/_components/pulsed-live-refresher';
 import { theDayFor } from '@/lib/event-clock.server';
@@ -97,8 +93,10 @@ export default async function FindMyTablePage({ params }: Props) {
     redirect(`/${slug}`);
   }
 
-  // Guest must be signed in for THIS event (the redeem flow sets the cookie).
-  const session = await readGuestSession();
+  // 🔑 A4-B11 (owner, Add 34): the guest for THIS event — the invite-link cookie, else the seat the SIGNED-IN account
+  // holds here (`readGuestSessionForEvent`, the resolver /find-seat and the Hub use). Only that account's own seat;
+  // anyone else still gets "Open this from your invitation".
+  const session = await readGuestSessionForEvent(event.event_id);
   if (!session || session.event_id !== event.event_id) {
     return (
       <Shell eventId={event.event_id} roomLinks={roomLinks} displayName={event.display_name} slug={slug}>
@@ -137,17 +135,16 @@ export default async function FindMyTablePage({ params }: Props) {
     .maybeSingle();
   if (assignmentErr) console.error('[supabase-error] app/[slug]/find-my-table/page.tsx · from:event_seat_assignments.select', assignmentErr);
 
-  // Fetch this event's tables (admin client; constrained to event_id).
-  const { data: tablesRaw, error: tablesErr } = await admin
-    .from('event_tables')
-    .select(
-      'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos',
-    )
-    .eq('event_id', event.event_id)
-    .order('sort_order', { ascending: true })
-    .order('created_at', { ascending: true });
-  if (tablesErr) console.error('[supabase-error] app/[slug]/find-my-table/page.tsx · from:event_tables.select', tablesErr);
-  const tables = (tablesRaw ?? []) as EventTableRow[];
+  // 🔌 A4-34: the guest-safe seat-plan reader (`lib/seating.ts` `fetchPublicTables` — fetchTables' order, its capacity and coordinate
+  // clean-up), never a raw read with its own order. It throws on a refused read; the honest card below still answers.
+  let tables: EventTableRow[] = [];
+  let tablesErr: unknown = null;
+  try {
+    tables = await fetchPublicTables(admin, event.event_id);
+  } catch (e) {
+    tablesErr = e;
+    console.error('[supabase-error] app/[slug]/find-my-table/page.tsx · fetchPublicTables', e);
+  }
 
   // 🔴 A failed read renders as "the floor plan is on its way" — a confident
   // statement about the COUPLE'S progress produced by our own outage. Neither
@@ -165,7 +162,9 @@ export default async function FindMyTablePage({ params }: Props) {
 
   // Entrance marker (optional columns from migration 20260717000000) →
   // bottom-center default when unset / pre-migration.
-  const entrance = await resolveEntrance(admin, event.event_id);
+  // 🔌 A4-33: the ONE entrance reader (`fetchEntrance`) — the floor plan's door wins, the same door /seat and
+  // /find-seat draw. (It took only the event's old pin before, and every page drew its own door.)
+  const entrance = await fetchEntrance(admin, event.event_id);
 
   const targetTableId = (assignment?.table_id as string | null) ?? null;
   const targetTable = tables.find((t) => t.table_id === targetTableId) ?? null;
@@ -243,27 +242,6 @@ export default async function FindMyTablePage({ params }: Props) {
       </div>
     </Shell>
   );
-}
-
-// Entrance resolver scoped to the admin read on this route (lib/fetchEntrance
-// uses the RLS client; here we already hold the admin client + event_id).
-async function resolveEntrance(
-  admin: ReturnType<typeof createAdminClient>,
-  eventId: string,
-): Promise<EntrancePos> {
-  const { data, error } = await admin
-    .from('events')
-    .select('venue_entrance_x, venue_entrance_y')
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (error) console.error('[supabase-error] app/[slug]/find-my-table/page.tsx · from:events.select', error);
-  if (error) return DEFAULT_ENTRANCE;
-  const x = data?.venue_entrance_x;
-  const y = data?.venue_entrance_y;
-  if (typeof x === 'number' && typeof y === 'number') {
-    return { x: clampPct(x), y: clampPct(y) };
-  }
-  return DEFAULT_ENTRANCE;
 }
 
 // ─────────────────────────────────────────────────────────────────────────

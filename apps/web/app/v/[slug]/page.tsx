@@ -42,7 +42,7 @@ import {
   VENDOR_PLACEHOLDER_PHOTO,
   type ServiceGroupKey,
 } from '@/lib/vendors';
-import { formatPhpRounded } from '@/lib/php';
+import { formatPhp, formatPhpRounded } from '@/lib/php';
 import {
   isBookable,
   isShopBookable,
@@ -101,7 +101,7 @@ import {
   type VendorVenueEvent,
 } from '@/lib/vendor-venue-events';
 import { VenueMatchedEvents } from './_components/venue-matched-events';
-import { resolveLivePax } from '@/lib/pax';
+import { PAX_UNREAD, PAX_UNREAD_WORDS, resolveLivePax } from '@/lib/pax';
 import { PackageCard } from '@/app/_components/vendor-packages/package-card';
 import { coupleBundleGift, packageGiftOf, PACKAGE_GIFT_SETNAYAN, type PackageGift } from '@/lib/package-gift';
 import { fetchShopGiftPacks } from '@/lib/shop-gifts.server';
@@ -200,6 +200,7 @@ import {
   pinReviewFirst,
   fetchReviewStats,
   fetchTrustedReviewStats,
+  fetchTrustedReviewStatsRead,
   fetchCardHostReviewStats,
   fetchVendorCompletedEvents,
   formatStarRating,
@@ -782,7 +783,7 @@ function formatAttrFactValue(
   }
   if (typeof raw === 'number') {
     return /centavos/i.test(key)
-      ? `₱${Math.round(raw / 100).toLocaleString('en-PH')}`
+      ? formatPhpRounded(Math.round(raw / 100))
       : String(raw);
   }
   if (typeof raw === 'string') {
@@ -1175,14 +1176,14 @@ export async function renderVendorBySlug({
       console.error(`[shop page] ${what} read failed`, e instanceof Error ? e.message : e);
       return null;
     });
-  const [reviewStatsRead, trustedReviewStats, reviewsRead, allServicesRead, vendorPackages, recommendingCouples, finalizedBookingRead, completedEvents, hidePricesPublicly] = await Promise.all([
+  const [reviewStatsRead, trustedRead, reviewsRead, allServicesRead, vendorPackages, recommendingCouples, finalizedBookingRead, completedEvents, hidePricesPublicly] = await Promise.all([
     sectionRead(fetchReviewStats(admin, vendor.vendor_profile_id), 'review stats'),
     // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the PUBLIC headline average
     // + review count read the TRUSTED (receipt-backed, arm's-length) stat, so
     // fake / self-dealt reviews can't inflate the number couples see. The raw
     // `reviewStats` above still backs the per-star histogram bars + the review
     // LIST pagination (`hasMore`), which stay as-is.
-    fetchTrustedReviewStats(admin, vendor.vendor_profile_id),
+    fetchTrustedReviewStatsRead(admin, vendor.vendor_profile_id),
     // 🛡 Fake proof fixes (owner 2026-11-23, b89e2420 C + D): the PUBLIC read — a held review never lists, and each row
     // says whether it counts (a booked review that does not wears the supplier's-own-client pill, `reviewIsOwnClient`).
     sectionRead(fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0, excludeEventIds: [...unlistedEvents], publicOnly: true }), 'reviews'),
@@ -1235,6 +1236,13 @@ export async function renderVendorBySlug({
     // peso figure on this page when the vendor opted in; default false = show.
     fetchVendorHidesPricesPublicly(admin, vendor.vendor_profile_id),
   ]);
+  // A refused rating read is said, never drawn as "none yet" (A1-129); the zero row only keeps the badges hidden.
+  const trustedReadFailed = trustedRead === null;
+  const trustedReviewStats: TrustedReviewStatsRow = trustedRead ?? {
+    vendor_profile_id: vendor.vendor_profile_id,
+    trusted_avg_rating: 0,
+    trusted_review_count: 0,
+  };
 
   // "Trusted by" — vendors who endorsed this one via the vendor↔vendor
   // mutual-accept handshake (accepted + active vendor_partnerships pointing at
@@ -1463,7 +1471,10 @@ export async function renderVendorBySlug({
   };
   const reviews = reviewsRead ?? [];
   const allServices = allServicesRead ?? [];
-  const hasMore = !reviewsReadFailed && reviewStats.total_count > reviews.length;
+  // 🔒 "Show more reviews" ends when the LIST does (final check A1-130): the raw count includes reviews the public list
+  // never shows (held, unlisted events), so comparing against it kept the pager alive for ever, reloading the same rows.
+  // A page that came back short of what it asked for has nothing after it.
+  const hasMore = !reviewsReadFailed && reviews.length >= limit && reviewStats.total_count > reviews.length;
   const activeServices = allServices.filter((s) => s.is_active);
 
   // Service-card enrichment (redesign · Phase 4) — FREE inclusions + the
@@ -1929,6 +1940,7 @@ export async function renderVendorBySlug({
           kindHint: trustedByHint({ origin: v.origin, shop: displayLabel, other: v.displayName, direction: v.direction, events: v.events }),
           logoUrl: v.logoRef ? await shopFileUrl(v.logoRef, partnerServes, (r) => displayUrlForStoredAsset(r)).catch(() => null) : null,
           initials: shopInitials(v.displayName, 2, 'SN'),
+          verified: v.isVerified,
         })),
       )
     : [];
@@ -2114,10 +2126,14 @@ export async function renderVendorBySlug({
   // for itself — quoting a per-head upgrade at anything else is a display total
   // that drifts from the charge. Only fetched when a package can actually be
   // configured: flag on, signed-in host with an event, packages to show.
-  const packageLivePax =
+  const packageLivePaxRead =
     packageCreditEnabled() && coupleEventId && vendorPackages.length > 0
-      ? ((await resolveLivePax(supabase, coupleEventId)) ?? 0)
+      ? await resolveLivePax(supabase, coupleEventId)
       : 0;
+  // ⚖ OWNER ADD 35: an unread guest count prices NOTHING — the configurator shows no per-guest totals (prices hidden
+  // below) and its Lock is refused with PAX_UNREAD_WORDS by `lockPackage` itself.
+  const packagePaxUnread = packageLivePaxRead === PAX_UNREAD;
+  const packageLivePax = packagePaxUnread ? 0 : (packageLivePaxRead ?? 0);
 
   // ── "Ask the vendor about this build instead" — the lock modal's secondary
   //    action (same flag).
@@ -2395,7 +2411,7 @@ export async function renderVendorBySlug({
     );
     const minPeso = Math.min(...pkgPesos);
     const maxPeso = Math.max(...pkgPesos);
-    const peso = (n: number) => `₱${n.toLocaleString('en-PH')}`;
+    const peso = (n: number) => formatPhp(n);
     vendorJsonLd.priceRange =
       minPeso === maxPeso ? peso(minPeso) : `${peso(minPeso)}–${peso(maxPeso)}`;
   }
@@ -2575,7 +2591,9 @@ export async function renderVendorBySlug({
     inquireMode: canMessage ? 'anchor' : 'none',
     openServicePublicId: openServicePublicId,
     inspirationByService: inspirationByService,
-    reviewsByService: reviewsByService,
+    // 🔒 No review and no stars anywhere on a shop Setnayan has not verified (final check A1-131) — the same gate as the
+    // card's record rating and the page's own Reviews section.
+    reviewsByService: isVerifiedShop ? reviewsByService : new Map<string, CardReviews>(),
 
   };
   const photoServiceViews = activeServices.length > 0 ? servicesFromCards(buildServiceGroups(servicesProps).flatMap((g) => g.cards)) : [];
@@ -3473,6 +3491,12 @@ export async function renderVendorBySlug({
             here; locking one cascade-locks every included planning-card
             category. Public read; the LockPackageModal CTA only renders
             for signed-in hosts with an active event. */}
+        {/* ⚖ OWNER ADD 35: hidden per-guest prices say WHY — an unread guest count prices nothing. */}
+        {vendorPackages.length > 0 && packagePaxUnread ? (
+          <p role="alert" data-package-pax-unread="" className="text-sn-sm text-ink/70">
+            {PAX_UNREAD_WORDS}
+          </p>
+        ) : null}
         {vendorPackages.length > 0 ? (
           <VendorPackagesSection
             packages={vendorPackages}
@@ -3483,7 +3507,7 @@ export async function renderVendorBySlug({
             isComingSoon={isComingSoon || !bookable}
             paused={shopPaused}
             bookingsOpen={bookingsOpen}
-            hidePrices={hidePricesPublicly}
+            hidePrices={hidePricesPublicly || packagePaxUnread}
             paxCount={packageLivePax}
             /* Flag-dark secondary action: send the configured build to the
                vendor as a question instead of locking it. Empty ⇒ the modal is
@@ -3695,6 +3719,7 @@ export async function renderVendorBySlug({
           reviewStats={reviewStats}
           trustedReviewStats={trustedReviewStats}
           readFailed={reviewsReadFailed}
+          trustedFailed={trustedReadFailed}
           reviews={orderedReviews}
           reviewCardsById={reviewCardsById}
           guestReviews={guestReviews}
@@ -4427,6 +4452,7 @@ function TrustedBySection({
 
 function ReviewsSection({
   readFailed,
+  trustedFailed = false,
   slug,
   businessName,
   reviewStats,
@@ -4476,6 +4502,8 @@ function ReviewsSection({
   sampleShop?: boolean;
   /** The reviews read failed (A1-125): the section says so instead of drawing "no reviews". */
   readFailed?: boolean;
+  /** The rating read was refused (A1-129). */
+  trustedFailed?: boolean;
 }) {
   if (readFailed) {
     return (
@@ -4492,7 +4520,7 @@ function ReviewsSection({
             Reviews
           </h2>
           <p className="mt-1 text-sm text-ink/65">
-            From verified couples who&rsquo;ve booked {businessName} via Setnayan.
+            From hosts who booked {businessName}.
           </p>
         </div>
         {recommendingCouples > 0 ? (
@@ -4514,7 +4542,7 @@ function ReviewsSection({
       ) : null}
 
       {showStars ? (
-        <ReviewHeroMetrics stats={reviewStats} trusted={trustedReviewStats} guestReviews={guestReviews} />
+        <ReviewHeroMetrics stats={reviewStats} trusted={trustedReviewStats} trustedFailed={trustedFailed} guestReviews={guestReviews} />
       ) : null}
 
       <ReviewGroupHead>From the hosts</ReviewGroupHead>
@@ -4579,8 +4607,11 @@ function ReviewsSection({
 function ReviewHeroMetrics({
   stats,
   trusted,
+  trustedFailed = false,
   guestReviews,
 }: {
+  /** The rating read was refused (A1-129): say so; never "none yet". */
+  trustedFailed?: boolean;
   stats: ReviewStatsRow;
   /** ANTI-FRAUD (2026-07-05): headline average + count read the TRUSTED stat. */
   trusted: TrustedReviewStatsRow;
@@ -4609,8 +4640,9 @@ function ReviewHeroMetrics({
    * 🔒 lib/shop-review-count-is-the-bars-count.test.ts
    */
   const reviewCount = totals.reduce((sum, t) => sum + t.count, 0);
-  const starsNote =
-    trustedCount >= reviewCount
+  const starsNote = trustedFailed
+    ? 'Couldn’t load the rating just now. Reload to try again.'
+    : trustedCount >= reviewCount
       ? null
       : trustedCount === 0
         ? 'Stars count reviews booked through Setnayan · none yet'
@@ -4753,10 +4785,10 @@ function VerifiedWeddingPill() {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full bg-mulberry/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-mulberry"
-      title="This couple booked this supplier through Setnayan — verified by the platform."
+      title="This host booked this supplier through Setnayan — verified by the platform."
     >
       <BadgeCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
-      Verified wedding
+      Verified event
     </span>
   );
 }

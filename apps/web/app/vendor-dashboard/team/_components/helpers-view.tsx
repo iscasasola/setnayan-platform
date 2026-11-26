@@ -1,6 +1,7 @@
 import { Check, Gavel, LogOut, Trash2, UserPlus, X } from 'lucide-react';
 import { TEAM_ROLES_HREF } from '@/lib/team-sections';
 import { Badge } from '@/app/_components/badge';
+import { ToolPin } from '@/app/vendor-dashboard/_components/tool-page';
 import { Fold } from '@/app/_components/fold';
 import { formatPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
@@ -161,9 +162,10 @@ export function HelpersView({
     : `You run ${labelOfKey.get(myBranchKey) ?? 'your branch'}’s team — Account Managers, Event Crew and Helpers.`;
 
   return (
-    <section className={embedded ? 'pb-2' : 'mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6 sm:pt-10'} data-helpers-screen="">
+    <section className={embedded ? 'pb-2' : 'mx-auto w-full max-w-xl px-4 pb-32 sm:px-6'} data-helpers-screen="">
+      {/* ‹ + the title, the one pinned row (final check B18). Risen from the avatar, the layer's head names it instead. */}
+      {embedded ? null : <ToolPin route="/vendor-dashboard/team" inPlace title="Team" />}
       <header className="space-y-1">
-        {embedded ? null : <h1 className="sn-h1">Team</h1>}
         <p className="text-[14px] text-ink/65">{introLine}</p>
       </header>
 

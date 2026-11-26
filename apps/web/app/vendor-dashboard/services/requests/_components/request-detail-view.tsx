@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react';
-import { ChevronLeft, Layers, PenLine, Plus, Search } from 'lucide-react';
+import { Layers, PenLine, Plus, Search } from 'lucide-react';
 
 import { ActionButton } from '@/components/action-button';
 import { actionButtonClass } from '@/components/action-button-class';
 import { Badge } from '@/app/_components/badge';
-import { PageMasthead } from '@/app/_components/page-masthead';
+import { ToolPin } from '../../../_components/tool-page';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   TEMPLATE_SUBLINE,
@@ -43,9 +43,11 @@ export function RequestDetailView({
   sp: RequestDetailSearch;
   sameNameOthers: number | null;
 }) {
-  const shell = (children: ReactNode) => (
-    <div className="mx-auto w-full max-w-3xl space-y-2 px-4 py-4 sm:px-6" data-request-detail="">
-      <ActionButton tone="neutral" quiet icon={<ChevronLeft aria-hidden />} label="Your requests" href={SERVICE_REQUESTS_HREF} />
+  // ‹ + the title, the one pinned row (final check B18): ‹ goes to Your requests (`lib/page-home.ts`), the title is the
+  // request's own name once it is read.
+  const shell = (children: ReactNode, title = 'Your request') => (
+    <div className="mx-auto w-full max-w-3xl space-y-2 px-4 pb-4 sm:px-6" data-request-detail="">
+      <ToolPin route="/vendor-dashboard/services/requests/[requestId]" title={title} />
       {children}
     </div>
   );
@@ -103,7 +105,6 @@ export function RequestDetailView({
         </p>
       ) : null}
 
-      <PageMasthead title={r.proposed_label} />
       {/* Rule 13 — the top of the page: the one thing that matters now, on the warm surface. */}
       <div className="rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] px-4 py-3">
         <p className={TEMPLATE_SUBLINE}>{dateFmt.format(new Date(r.created_at))}</p>
@@ -196,5 +197,6 @@ export function RequestDetailView({
         ) : null}
       </div>
     </>,
+    r.proposed_label,
   );
 }

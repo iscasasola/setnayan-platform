@@ -18,6 +18,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { formatCentavosPhp } from '@/lib/vendor-packages';
+import { ToolPin } from '../_components/tool-page';
 
 /**
  * /vendor-dashboard/packages — the vendor's package list.
@@ -59,9 +60,9 @@ export default async function VendorPackagesPage() {
   const rows = packages ?? [];
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-2 px-4 py-4 sm:px-6">
-      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
-      <h1 className="sr-only">Your packages</h1>
+    <div className="mx-auto w-full max-w-3xl space-y-2 px-4 pb-4 sm:px-6">
+      {/* ‹ + the title, the one pinned row (final check B18). */}
+      <ToolPin route="/vendor-dashboard/packages" title="Packages" />
 
       <ActionButton
         tone="brand"

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowLeft, ArrowRight, Check, CheckCheck, ChevronRight, Eraser, Info, Loader2, LogIn, MailCheck, PenLine, RotateCw, SkipForward } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Check, CheckCheck, ChevronRight, Eraser, Info, LogIn, MailCheck, PenLine, RotateCw, SkipForward } from 'lucide-react';
 
 import { ActionButton, useFitRow } from '@/components/action-button';
 import { Count, Fill } from '@/components/count';
@@ -472,13 +472,14 @@ export function OpenShopWizard({
   /**
    * ⏳ CONTINUE ANSWERS THE TAP AT ONCE (walk 13 Nov, F-W1-04). Drawing the next step takes a phone a second or two; the
    * button used to sit unchanged through it, so a second tap — or the next letters typed — landed on the new step's
-   * search box. Now the press is drawn FIRST (a spinner, the button busy), every further tap is ignored, the focus
+   * search box. Now the press is drawn FIRST (the button held pressed, "Continuing…"), every further tap is ignored, the focus
    * leaves the box being typed in, and only then is the step changed.
    */
   const [moving, setMoving] = useState(false);
   const movingRef = useRef(false);
-  /** Continue's icon: the arrow, or the spinner while the next step is being drawn. */
-  const continueIcon = moving ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : ArrowRight;
+  /** Continue's icon: the arrow. While the next step is being drawn the button stays pressed and says so (B19). */
+  const continueIcon = ArrowRight;
+  const continueBusy = moving ? 'Continuing…' : null;
   // The form is ALWAYS MOUNTED (values survive step switches), so the gate can
   // read any step's inputs live instead of duplicating them all into state.
   const formRef = useRef<HTMLFormElement>(null);
@@ -2101,6 +2102,7 @@ export function OpenShopWizard({
                     tone="neutral"
                     icon={continueIcon}
                     label="Continue"
+                    busy={continueBusy}
                     className="ml-auto"
                     onClick={go}
                     data-busy={moving ? '' : undefined}
@@ -2112,6 +2114,7 @@ export function OpenShopWizard({
                     main
                     icon={continueIcon}
                     label="Continue"
+                    busy={continueBusy}
                     className="ml-auto"
                     onClick={go}
                     data-busy={moving ? '' : undefined}

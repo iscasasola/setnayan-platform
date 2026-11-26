@@ -4,6 +4,7 @@ import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { ChevronDown } from 'lucide-react';
 import { useRef, type ReactNode } from 'react';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
+import { Sk } from '@/components/skeletons';
 
 /**
  * FeatureAccordion — the one-page vendor-hub accordion (owner-locked
@@ -140,9 +141,9 @@ function Section({ s, isOpen, onToggle, children }: { s: AccordionSection; isOpe
 export function AccordionSkeleton() {
   return (
     <div className="space-y-3 px-5 py-6" aria-hidden>
-      <div className="h-5 w-40 animate-pulse rounded-md bg-ink/10" />
-      <div className="h-24 animate-pulse rounded-xl bg-ink/[0.06]" />
-      <div className="h-24 animate-pulse rounded-xl bg-ink/[0.06]" />
+      <Sk className="h-5 w-40 rounded-md" />
+      <Sk className="h-24 rounded-xl" />
+      <Sk className="h-24 rounded-xl" />
     </div>
   );
 }

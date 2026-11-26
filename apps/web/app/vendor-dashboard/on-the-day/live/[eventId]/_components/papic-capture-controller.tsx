@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Camera, Check, Eye, Images, Loader2, Lock, SwitchCamera, Trash2 } from 'lucide-react';
+import { ArrowLeft, Camera, Check, Eye, Images, Lock, SwitchCamera, Trash2 } from 'lucide-react';
 import { usePapicCamera } from '@/lib/use-papic-camera';
 import { newClientCaptureId } from '@/lib/papic-client-capture-id';
 import { papicUploader, saveShot } from '@/lib/papic-upload/browser';
@@ -335,8 +335,8 @@ export function PapicCaptureController({
       <canvas ref={canvasRef} className="hidden" />
 
       {!cam.ready && !cam.camError ? (
-        <div className={setTwo.camCover}>
-          <Loader2 aria-hidden className="animate-spin" strokeWidth={1.75} />
+        <div className={setTwo.camCover} role="status">
+          Opening the camera…
         </div>
       ) : null}
       {cam.camError ? (

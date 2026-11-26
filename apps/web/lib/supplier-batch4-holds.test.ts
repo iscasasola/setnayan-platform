@@ -74,7 +74,8 @@ test('refused Creators lists are said, never "No creators match yet" or an empty
 });
 
 test('Deep Search is named and says "don’t carry over" once (B5-12)', () => {
-  assert.match(src('app/vendor-dashboard/deep-search/page.tsx'), /<PageMasthead title="Deep Search" \/>/);
+  // Seen in the one pinned row since final check B18 (`app/vendor-dashboard/one-pinned-row.test.ts`).
+  assert.match(src('app/vendor-dashboard/deep-search/page.tsx'), /<ToolPin route="\/vendor-dashboard\/deep-search" title="Deep Search" \/>/);
   assert.doesNotMatch(src('app/vendor-dashboard/deep-search/_components/deep-search-runner.tsx'), /carry over/);
 });
 

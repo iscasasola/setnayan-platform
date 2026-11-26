@@ -8,6 +8,7 @@ import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
 import { numberState, numberStateWords, scanNumberLabel, type ScanNumberRow } from '@/lib/supplier-scan';
 import { supplierScan } from '@/app/_actions/supplier-scan-actions';
+import { Sk } from '@/components/skeletons';
 
 /**
  * 🎟 YOUR NUMBERS — the supplier's own list, newest first (approved prototype `supplier_scan_2026-10-03_fable.html`,
@@ -104,8 +105,8 @@ export function YourNumbers({
             <span className="sr-only">Loading…</span>
             {[0, 1, 2].map((i) => (
               <div key={i} aria-hidden className="flex min-h-14 items-center gap-3 py-2">
-                <span className="h-5 w-14 flex-none animate-pulse rounded-md bg-ink/10" />
-                <span className="h-4 flex-1 animate-pulse rounded-md bg-ink/[0.06]" />
+                <Sk className="h-5 w-14 flex-none rounded-md" />
+                <Sk className="h-4 flex-1 rounded-md" />
               </div>
             ))}
           </div>

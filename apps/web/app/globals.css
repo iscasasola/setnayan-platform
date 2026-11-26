@@ -6303,8 +6303,19 @@ html.dark [data-art='candlelight'] {
   overflow: hidden;
 }
 
-/* BUSY (#35) — the button's label gives way to the spinner in Tap, on Settle; the button keeps its size
-   (`submit-button.tsx` holds its width). DONE (#14) — "✓" pops in Quick on Spring. Reduced: at once. */
+/* BUSY (#35) — the button's label gives way to its step's words in Tap, on Settle; the button keeps its size
+   (`submit-button.tsx` holds its width). DONE (#14) — "✓" pops in Quick on Spring. Reduced: at once.
+   WORKING (final check B19, approved 25 Nov): a button that is working STAYS PRESSED — Tap to 0.97, Release back — and
+   names its step in words; no spinner, no pulse (`SubmitButton`, `ActionButton busy`). The `scale` PROPERTY, so it
+   composes with any transform the control carries; on release the base press transition carries it back. Reduced
+   motion: held at once, no travel (the reduced-motion block below drops transitions). */
+button[aria-busy='true'],
+a[aria-busy='true'],
+label[aria-busy='true'] {
+  scale: 0.97;
+  cursor: progress;
+  transition: scale var(--sn-m-tap) var(--sn-m-settle);
+}
 .sn-m-busy {
   transition: opacity var(--sn-m-tap) var(--sn-m-settle);
 }

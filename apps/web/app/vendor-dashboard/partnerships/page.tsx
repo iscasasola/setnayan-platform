@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { FormFlash } from '@/app/_components/forms/form-flash';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { PageMasthead } from '@/app/_components/page-masthead';
+import { ToolPin } from '../_components/tool-page';
 import { Fold } from '@/app/_components/fold';
 import { eventTypeLabel } from '@/lib/demand-radar';
 import {
@@ -241,10 +241,9 @@ export default async function VendorPartnershipsPage({ searchParams }: Props) {
   }
 
   return (
-    <div className="mx-auto w-full tab:max-w-3xl px-4 py-10 sm:px-6">
-      <PageMasthead
-        title="Partnerships"
-      />
+    <div className="mx-auto w-full tab:max-w-3xl px-4 pb-10 sm:px-6">
+      {/* ‹ + the title, the one pinned row (final check B18). */}
+      <ToolPin route="/vendor-dashboard/partnerships" title="Partnerships" />
 
       {sp.error ? <FormFlash tone="error">{decodeURIComponent(sp.error)}</FormFlash> : null}
       {sp.changed ? (

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Check, Loader2 } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { LOADER_STEPS, useOptionalLoader } from '@/components/sd-loader';
 
 type Props = Omit<
@@ -14,8 +14,8 @@ type Props = Omit<
   /**
    * External disable signal. Task #44 (2026-05-22) — required-field gating
    * on the create-event form needs to keep Save disabled until a ceremony
-   * type is picked. The button is ALWAYS disabled while pending (regardless
-   * of this value); this flag adds an additional reason to disable.
+   * type is picked. While pending the button always refuses a press (regardless
+   * of this value); this flag adds a reason to disable it outright.
    */
   disabled?: boolean;
   /**
@@ -65,9 +65,10 @@ export const DONE_HOLD_MS = 1000;
  * Drop-in replacement for `<button type="submit">` inside a `<form action={…}>`.
  *
  * Hooks `useFormStatus` so the button:
- *   • Disables itself while the server action is pending — prevents double-click
- *     submissions that previously caused duplicate inserts.
- *   • Swaps its content for a spinner + pendingLabel during the action.
+ *   • Refuses a second press while the server action is pending — prevents double-click
+ *     submissions that previously caused duplicate inserts. (Not the native `disabled`: that greys it out, and a
+ *     working button stays pressed in its own colour — final check B19.)
+ *   • Says its step (pendingLabel) and stays pressed during the action — no spinner (final check B19).
  *   • Adds `data-pending="true"` + `cursor-wait`.
  *   • Raises the shared no-touch veil (useOptionalLoader) for the duration of
  *     the save, so the whole screen is locked — not just the button — while the
@@ -75,10 +76,10 @@ export const DONE_HOLD_MS = 1000;
  *     handler side is `useSaveLoader()`. Opt out per-form with `overlay={false}`.
  *
  * 🎞 BUSY (the motion standard, owner 18 Nov 2026 — § 4 #35; "the saving veil stays … quick inline saves keep
- * `overlay={false}`"): the label gives way to the spinner in Tap on Settle (`.sn-m-busy`, an `@starting-style`
+ * `overlay={false}`"): the label gives way to the step's words in Tap on Settle (`.sn-m-busy`, an `@starting-style`
  * entrance — no remount trick), and the button KEEPS ITS SIZE: the width it had when it was pressed is held as a
  * floor while it is busy, so a shorter "Saving…" never makes it jump narrower. The veil is unchanged and still sits
- * over it. Reduced motion: the swap is at once (the spinner keeps turning — it carries meaning).
+ * over it. Reduced motion: the swap is at once. While busy it is HELD PRESSED (`[aria-busy='true']`, globals.css).
  * 🔒 lib/the-motion-core-moves-by-transform.test.ts
  */
 export function SubmitButton({
@@ -98,7 +99,9 @@ export function SubmitButton({
 }: Props) {
   const { pending: formPending } = useFormStatus();
   const pending = ownedPending ?? formPending;
-  const isDisabled = pending || disabled;
+  // Working is NOT disabled (final check B19): a disabled button greys out, and a working one stays pressed in its
+  // own colour. A second press (a tap, or Enter's implicit submit, which clicks this button) is refused below instead.
+  const isDisabled = disabled;
 
   // The width at the press — the button's floor while it is busy (and while ✓ shows), so it never jumps narrower.
   const pressedWidth = useRef<number | null>(null);
@@ -157,19 +160,25 @@ export function SubmitButton({
       className={`${className ?? ''} ${pending ? 'cursor-wait' : ''} ${disabled && !pending ? 'opacity-50 cursor-not-allowed' : ''}`.trim()}
       style={floor ? { ...style, minWidth: floor } : style}
       onClick={(e) => {
+        if (pending) {
+          e.preventDefault();
+          return;
+        }
         pressedWidth.current = e.currentTarget.offsetWidth;
         onClick?.(e);
       }}
       {...rest}
     >
       {pending ? (
+        // WORKING (final check B19, approved 25 Nov): the button stays pressed (`[aria-busy='true']`) and NAMES ITS
+        // STEP in words — no spinner. An icon-only submit (no pending words) keeps its icon, said aloud as working.
         <span className="sn-m-busy inline-flex items-center gap-2" data-busy="">
-          <Loader2
-            aria-hidden
-            className="h-4 w-4 animate-spin"
-            strokeWidth={2.25}
-          />
-          {pendingLabel || <span className="sr-only">Working…</span>}
+          {pendingLabel || (
+            <>
+              {children}
+              <span className="sr-only">Working…</span>
+            </>
+          )}
         </span>
       ) : settled ? (
         <span className="sn-m-done inline-flex items-center gap-2" data-done="">

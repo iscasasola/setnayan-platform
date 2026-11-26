@@ -299,6 +299,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/vendor-dashboard/calendar/[date]': { home: '/vendor-dashboard/customers?seg=dates', label: 'Dates' },
   // `/services` is a redirect into the Shop (audit ⚠, kept).
   '/vendor-dashboard/services/*': { home: '/vendor-dashboard/shop' },
+  // A request's ‹ is the list it sits in (final check B18 — the pinned row kept the old "‹ Your requests" link's place).
+  '/vendor-dashboard/services/requests/[requestId]': { home: '/vendor-dashboard/services/requests', label: 'Your requests' },
   '/vendor-dashboard/on-the-day/live/[eventId]': { home: '/vendor-dashboard/on-the-day' },
   // THE ONE BUILD (8 Nov 2026): the Event Hub room left the bar — it lives under a picked client, so ‹ goes to Clients;
   // the inspiration library is Portfolio's (spec A1 F-registry: it lights Portfolio, so ‹ goes there too).
@@ -321,6 +323,10 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/vendor-dashboard/lines': { home: '/vendor-dashboard/customers' },
   // 🛏 Rooms & seating opens from Shop › Makers › Specialized tools (owner 2026-11-18), so ‹ goes back to the Shop.
   '/vendor-dashboard/spaces': { home: '/vendor-dashboard/shop' },
+  // Partnerships opens from Shop ⚙'s Working with others shelf, Packages from the card maker (Shop): ‹ goes to the Shop
+  // (final check B18 — the pinned row they gained).
+  '/vendor-dashboard/partnerships': { home: '/vendor-dashboard/shop' },
+  '/vendor-dashboard/packages': { home: '/vendor-dashboard/shop' },
 
   /* ── admin ───────────────────────────────────────────────────────────────────────────────────────── */
   // Both sit in the Root map menu (`admin-nav-groups.tsx` key `ugat`, hub `/admin/ugat`) (audit ❌ ×2).

@@ -44,9 +44,15 @@ export function ToolPin({
   title,
   right,
   sub,
+  params,
+  inPlace,
 }: {
   /** This page's route as on disk — the ‹ reads its home from `lib/page-home.ts`. */
   route: string;
+  /** Values for the home's `[params]`. */
+  params?: Readonly<Record<string, string>>;
+  /** ‹ returns in place (the browser's back when we came from a page of ours) — Your details · Settings · Team. */
+  inPlace?: boolean;
   title: string;
   /** The page's count or status — a `ToolChip`, a few words. */
   right?: ReactNode;
@@ -57,7 +63,7 @@ export function ToolPin({
   // the ‹ and the title step aside there (`BackWhenNotRisen`); a row with nothing else in it is not drawn at all.
   const backAndTitle = (
     <BackWhenNotRisen>
-      <BackButton route={route} variant="tool" />
+      <BackButton route={route} params={params} variant="tool" inPlace={inPlace} />
       <h1 className="min-w-0 flex-1 truncate text-[22px] font-bold leading-tight tracking-[-0.015em] text-ink tab:text-[26px]">
         {title}
       </h1>

@@ -26,7 +26,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Loader2, Radio, Square, Volume2, VolumeX } from 'lucide-react';
+import { Loader2, Radio, RotateCw, Square, Volume2, VolumeX } from 'lucide-react';
+import { actionButtonClass } from '@/components/action-button-class';
 import { OverlayShell, type OverlayId } from './HomeOverlays';
 import { getDemoIceServers, startDemoSession, type DemoQrPair } from '@/app/_actions/demo-session-actions';
 import { watchDemoCameras, type CamSlot, type PeerConnectionState } from '@/lib/demo-webrtc';
@@ -135,6 +136,8 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
   const [pair, setPair] = useState<DemoQrPair | null>(null);
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
+  // Try again re-mints a fresh pair without closing the overlay (final check A1-036).
+  const [attempt, setAttempt] = useState(0);
   const [streams, setStreams] = useState<Record<CamSlot, MediaStream | null>>({ a: null, b: null });
   const [slotStates, setSlotStates] = useState<Record<CamSlot, PeerConnectionState>>({ a: 'waiting', b: 'waiting' });
   const [program, setProgram] = useState<CamSlot>('a');
@@ -191,7 +194,7 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
     return () => {
       cancelled = true;
     };
-  }, [open]);
+  }, [open, attempt]);
 
   // The viewer half of the peer connection — lives exactly as long as the
   // overlay is open with a minted session; closing tears every peer down
@@ -263,10 +266,13 @@ export function PanoodDemoOverlay({ current, onClose }: { current: OverlayId; on
       </p>
 
       {failed ? (
-        <p style={{ marginTop: 24, fontSize: 13, color: '#8c8884' }}>
-          Couldn&rsquo;t start the demo right now. Close this and try again in
-          a moment.
-        </p>
+        <div style={{ marginTop: 24 }}>
+          <p style={{ fontSize: 13, color: '#8c8884' }}>Couldn&rsquo;t start the demo right now.</p>
+          <button type="button" onClick={() => setAttempt((n) => n + 1)} className={actionButtonClass('neutral', { extra: 'mt-3' })}>
+            <RotateCw aria-hidden strokeWidth={1.9} />
+            <span className="lbl">Try again</span>
+          </button>
+        </div>
       ) : pending || !pair ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 24, color: '#8c8884', fontSize: 13 }}>
           <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />

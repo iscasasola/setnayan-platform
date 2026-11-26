@@ -151,11 +151,6 @@ export interface DeclaredScreenNodes {
 }
 
 export const DECLARED_SCREEN_NODES: Readonly<Record<string, DeclaredScreenNodes>> = {
-  '/vendor-dashboard/help': {
-    nodes: ['TYPE-VENDORS'],
-    anchor: 'SUPPLIER_HELP_ROWS',
-    why: 'Settings › Help for a supplier: the address forwards to Settings with the Help sheet open (final check B6), which draws SUPPLIER_HELP_ROWS (settings-rows.ts), five doors to supplier pages (the fee article, the help centre, Shop › How clients pay you, Disputes, contact) and reads nothing beyond sign-in.',
-  },
   '/vendor-dashboard/calendar/[date]': {
     nodes: ['TYPE-AVAILABILITY'],
     anchor: 'daySheetHref(',

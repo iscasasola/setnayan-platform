@@ -47,7 +47,7 @@ import { searchCategoryVendors } from './category-search';
 import { followVendor } from '@/lib/follow-actions';
 import { sendChatMessage } from '@/lib/chat-actions';
 import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
-import { resolveLivePax } from '@/lib/pax';
+import { priceablePax, resolveLivePax } from '@/lib/pax';
 import {
   resolveIsReturning,
   stampThreadProvenance,
@@ -157,7 +157,8 @@ export async function unlockCategoryWithInquiry(input: {
   const tax = await getTaxonomy();
   // Live pax to snapshot onto each new inquiry (Adaptive Pax Pricing Phase 3).
   // Same for every vendor in this event → resolve once. null = nothing to send.
-  const livePax = await resolveLivePax(supabase, eventId);
+  // Owner Add 35: an unread count snapshots nothing.
+  const livePax = priceablePax(await resolveLivePax(supabase, eventId));
 
   for (const cand of candidates) {
     const vendorProfileId = cand.vendorProfileId;

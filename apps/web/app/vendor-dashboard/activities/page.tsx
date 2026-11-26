@@ -41,7 +41,8 @@ export default async function VendorActivitiesPage({
   const user = await getCurrentUser();
   if (!user) redirect('/login?next=/vendor-dashboard/activities');
   const profile = await fetchOwnVendorProfile(supabase, user.id);
-  if (!profile) redirect('/vendor-dashboard/verify');
+  // The one "no shop" landing, as every other tool (final check A5-G2-12).
+  if (!profile) redirect('/vendor-dashboard');
 
   const { data, error: activitiesError } = await supabase
     .from('vendor_activities')

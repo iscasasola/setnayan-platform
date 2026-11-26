@@ -610,10 +610,15 @@ export async function saveEditorial(
   if (typeof input.lastWord === 'string') {
     const lastWord = input.lastWord.trim().slice(0, LAST_WORD_MAX);
     const session = await createClient();
-    await session
+    const { data: wordRows, error: wordError } = await session
       .from('events')
       .update({ special_message: lastWord || null })
-      .eq('event_id', eventId);
+      .eq('event_id', eventId)
+      .select('event_id');
+    // E-01 (final check): the story saved, but a refused last word (zero rows, no error) is said, never landed as saved.
+    if (wordError || !wordRows?.length) {
+      return { ok: false, error: 'Your story saved, but your last word did not. Please save again.' };
+    }
   }
 
   revalidatePath(`/dashboard/${eventId}/story`);

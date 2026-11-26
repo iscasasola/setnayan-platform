@@ -1,6 +1,7 @@
 'use server';
 
 import { redirect } from 'next/navigation';
+import type { HelpMessageErrorCode } from '@/lib/help-message-errors';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { notifyAdminsOfHelpMessage } from '@/lib/help-message-notify.server';
@@ -157,10 +158,20 @@ export async function submitHelpMessage(formData: FormData) {
     ? `${typed}\n\n— Asked in Help: “${asked}”${shown ? ` · shown: ${shown}` : ' · no answer shown'}`.slice(0, 4000)
     : typed;
 
+  // 🔒 A refusal sends a CODE (never our database's text) and carries the typed words back, so nothing is lost
+  // (final check A1-083). The page pre-fills `subject` / `body` / `topic`; the long tail of a message is cut to keep
+  // the address a sane length.
+  const backWith = (code: HelpMessageErrorCode): string => {
+    const keep = new URLSearchParams();
+    keep.set('error', code);
+    if (subject) keep.set('subject', subject);
+    if (typed) keep.set('body', typed.slice(0, 2000));
+    if (topic) keep.set('topic', topic);
+    return `${back}${keep.toString()}`;
+  };
+
   if (email.length === 0 || subject.length === 0 || body.length === 0) {
-    return redirect(
-      `${back}error=${encodeURIComponent('Email, subject, and message are required.')}`,
-    );
+    return redirect(backWith('missing'));
   }
 
   // Attach user_id when the submitter is signed in — doesn't reveal identity
@@ -191,9 +202,8 @@ export async function submitHelpMessage(formData: FormData) {
     .single();
 
   if (error || !data) {
-    return redirect(
-      `${back}error=${encodeURIComponent(error?.message ?? 'Could not submit. Try again.')}`,
-    );
+    if (error) console.error('[help] message insert failed', error.message);
+    return redirect(backWith('not_sent'));
   }
 
   // Notify every internal admin so they see a count in their dashboard bell (the shared loop — the supplier Report

@@ -43,6 +43,9 @@ import {
   type PageKey,
 } from '@/lib/supplier-landing';
 import { formatPhp } from '@/lib/php';
+import { routes } from '@/lib/routes';
+import { withArticle } from '@/lib/a-sample-says-what-it-is';
+import { discoverSupplierHref } from '@/lib/discover-suppliers';
 import { forwardTile } from '@/lib/taxonomy';
 import { COUPLE_COMMISSION_PROMISE } from '@/lib/commission-promise';
 import { formatCount } from '@/lib/format-number';
@@ -129,10 +132,10 @@ export async function landingMetadata(params: LandingParams): Promise<Metadata> 
   const title = heading(r);
   const description =
     cards.length === 0
-      ? `Verified ${r.tileLabel.toLowerCase()} suppliers for a ${r.eventLabel.toLowerCase()} in ${r.place}, on Setnayan.`
-      : `${cards.length} ${r.tileLabel.toLowerCase()} services for a ${r.eventLabel.toLowerCase()} in ${r.place} from ${shops} verified Filipino supplier${shops === 1 ? '' : 's'}` +
+      ? `Verified ${r.tileLabel.toLowerCase()} suppliers for ${withArticle(r.eventLabel)} in ${r.place}, on Setnayan.`
+      : `${cards.length} ${r.tileLabel.toLowerCase()} services for ${withArticle(r.eventLabel)} in ${r.place} from ${shops} verified Filipino supplier${shops === 1 ? '' : 's'}` +
         (fixed ? `, packages from ${formatPhp(fixed.low)}` : '') +
-        '. Real prices from the suppliers themselves. 0% commission — you pay them directly.';
+        '. Real prices from the suppliers themselves. Hosts pay 0% commission.';
   return {
     title,
     description,
@@ -186,11 +189,20 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
     : null;
   const eventLower = eventLabel.toLowerCase();
   const tileLower = tileLabel.toLowerCase();
+  // "See them all" opens Discover's supplier view narrowed to THIS page — its category, event and city (final check
+  // A1-051); it used to open the unfiltered view.
+  const allOnDiscover = discoverSupplierHref(
+    new URLSearchParams([
+      ['tile', page.tile],
+      ['event_type', page.event],
+      ...(page.city ? [['city', page.city] as [string, string]] : []),
+    ]),
+  );
 
   const costAnswer =
     summaries.length === 0
       ? `The ${tileLower} suppliers here quote on request — message them from Setnayan for a price.`
-      : `On Setnayan, ${cards.length} ${tileLower} service${cards.length === 1 ? '' : 's'} for a ${eventLower} in ${place} come from ${shops} verified supplier${shops === 1 ? '' : 's'}. ` +
+      : `On Setnayan, ${cards.length} ${tileLower} service${cards.length === 1 ? '' : 's'} for ${withArticle(eventLower)} in ${place} come from ${shops} verified supplier${shops === 1 ? '' : 's'}. ` +
         summaries.map(basisSentence).join(' ') +
         ' These are the suppliers’ own published starting prices, read live.';
   const faq = [
@@ -298,7 +310,7 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
         {cards.length === 0 ? (
           <div className="mt-4 max-w-2xl space-y-3 text-base text-ink/70">
             <p>
-              No verified supplier has published a {tileLower} service for a {eventLower} in {place} yet. This page fills
+              No verified supplier has published a {tileLower} service for {withArticle(eventLower)} in {place} yet. This page fills
               itself the moment one does.
             </p>
             <p>
@@ -342,7 +354,7 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
             {cards.length > CARDS_SHOWN ? (
               <p className="mt-4 text-sm text-ink/60">
                 Showing {formatCount(CARDS_SHOWN)} of {formatCount(cards.length)}.{' '}
-                <Link href="/?browse=1" className="underline underline-offset-4">See them all on the marketplace</Link>
+                <Link href={allOnDiscover} className="underline underline-offset-4">See them all on the marketplace</Link>
               </p>
             ) : null}
 
@@ -377,13 +389,13 @@ export async function SupplierLanding({ params }: { params: LandingParams }) {
         ) : null}
 
         <section className="mt-12 max-w-2xl border-t border-ink/10 pt-8">
-          <h2 className="text-lg font-semibold">Planning a {eventLower}?</h2>
+          <h2 className="text-lg font-semibold">Planning {withArticle(eventLower)}?</h2>
           <p className="mt-2 text-ink/75">
             Setnayan is free to plan with — guest list, RSVP, seat plan, budget and schedule — and every supplier here
             is one message away from it.
           </p>
           <p className="mt-3">
-            <Link href="/signup" className="font-medium text-ink underline underline-offset-4">Start planning free</Link>
+            <Link href={routes.start()} className="font-medium text-ink underline underline-offset-4">Start planning free</Link>
             {' · '}
             <Link href="/for-suppliers" className="text-ink/70 underline underline-offset-4">Are you a supplier? List your services</Link>
           </p>

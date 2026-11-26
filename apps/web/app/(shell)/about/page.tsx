@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { routes } from '@/lib/routes';
 import {
   Heart,
   MapPin,
@@ -105,7 +106,7 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
   },
   {
     icon: ShieldCheck,
-    label: '0% commission, ever',
+    label: 'Hosts pay 0% commission.',
     value:
       'Setnayan never takes a cut of what couples pay suppliers. Couples and suppliers transact directly; revenue comes from software services and supplier subscriptions.',
   },
@@ -327,12 +328,12 @@ export default async function AboutPage() {
               card required to begin.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <Link href="/signup" className={actionButtonClass('brand', { main: true, extra: 'px-6 text-sm !h-11' })}>
-                Create your account
+              <Link href={routes.start()} className={actionButtonClass('brand', { main: true, extra: 'px-6 text-sm !h-11' })}>
+                Start planning · free
                 <ArrowRight aria-hidden className="ml-1.5 h-4 w-4" strokeWidth={2} />
               </Link>
               <Link
-                href="/?browse=1"
+                href="/suppliers"
                 className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
               >
                 Browse suppliers

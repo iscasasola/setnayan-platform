@@ -21,6 +21,18 @@ const CHOICES: Array<{ value: WallMode | null; label: string; hint: string }> = 
   { value: 'recap', label: 'Recap', hint: 'frozen highlight collage' },
 ];
 
+/**
+ * N-02 (final check): "Showing now" printed the internal mode name ("coming-soon (auto)"). Each mode now reads as
+ * the words a couple understands; `coming_soon` and `archive` are the two the picker never offers.
+ */
+const SHOWING_NOW: Record<WallMode, string> = {
+  coming_soon: 'a waiting screen until the days before your event',
+  pre_event: 'the teaser — join QR and countdown',
+  live: 'your photos as they happen',
+  recap: 'the highlight collage',
+  archive: 'nothing — your event is over',
+};
+
 export function WallModeControl({
   eventId,
   override,
@@ -68,8 +80,8 @@ export function WallModeControl({
         ) : null}
       </div>
       <p className="mt-1.5 text-xs text-ink/70">
-        Showing now: <span className="font-medium text-ink/80">{resolved.replace('_', '-')}</span>
-        {override === null ? ' (auto)' : ' (manual override)'}
+        Showing now: <span className="font-medium text-ink/80">{SHOWING_NOW[resolved]}</span>
+        {override === null ? ' (set by your event date)' : ' (you picked this)'}
       </p>
       {error ? <p className="mt-1 text-xs text-terracotta">{error}</p> : null}
     </div>

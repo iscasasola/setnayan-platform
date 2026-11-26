@@ -30,6 +30,8 @@ export type DoorPassData = {
   seal: string;
   /** "5:42 pm" once the door has scanned this guest in, else null. */
   checkedInAt: string | null;
+  /** 🔌 A4-37: the check-in read FAILED — the pass says nothing about arrival (never "not checked in"). */
+  checkInUnread?: boolean;
 };
 
 /** "Table 3" → the eyebrow "Table" over a huge "3"; any other label is drawn whole. */
@@ -129,7 +131,7 @@ export function DoorPass({
             />
             <span className="mt-4 inline-flex items-center gap-2 rounded-[var(--hub-radius,0.375rem)] border border-ink/50 bg-cream px-3 py-2 text-[0.6875rem] uppercase tracking-[0.16em] text-terracotta-700">
               <QrGlyph small />
-              {pass.checkedInAt ? `Checked in · ${pass.checkedInAt}` : 'Show this at the door'}
+              {pass.checkedInAt ? `Checked in · ${pass.checkedInAt}` : pass.checkInUnread ? 'Your pass · show it at the door' : 'Show this at the door'}
             </span>
           </div>
           <p className="pt-4 text-center text-xs uppercase tracking-[0.14em] text-cream/75">

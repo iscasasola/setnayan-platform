@@ -61,7 +61,7 @@ test('L-08 · Live Watch: stats say "Couldn\'t read"; a refused grant read never
 test('L-08 · cameras, broadcast and print say a refused read', () => {
   assert.match(read(`${D}/studio/panood/cameras/page.tsx`), /\{camerasReadFailed \? \(\s*<ReadRefusedNotice what="your camera seats" \/>/);
   assert.match(read(`${D}/studio/panood/broadcast/page.tsx`), /\{camerasReadFailed \? <ReadRefusedNotice /);
-  assert.match(read(`${D}/studio/panood/cameras/print/page.tsx`), /\{zoneRowsError \? \(/);
+  assert.match(read(`${D}/studio/panood/cameras/print/page.tsx`), /\{zoneRowsError(?: \|\| camerasReadFailed)? \? \(/);
 });
 
 test('I-07 · the invite panel keeps the requests door on a refused count', () => {
@@ -98,6 +98,8 @@ test('L-08 (owner ruling, Add 45) · cameras: a failed plan read says so and pro
   assert.equal(PLAN_UNREAD, 'We couldn’t check your plan, try again.');
   const src = read(`${D}/studio/panood/cameras/page.tsx`);
   assert.equal((src.match(/planReadFailed = true;/g) ?? []).length, 2, 'both plan reads mark a failure');
-  assert.match(src, /if \(!planReadFailed\) await provisionPanoodCamerasAdmin\(/);
-  assert.match(src, /\{planReadFailed \? \(\s*<p role="status"[^>]*>\s*\{PLAN_UNREAD\}/);
+  // A yes from either read still unlocks (a-failed-plan-read-decides-nothing.test.ts holds the rest).
+  assert.match(src, /const planUnread = planReadFailed && !unlocked;/);
+  assert.match(src, /if \(!planUnread\) await provisionPanoodCamerasAdmin\(/);
+  assert.match(src, /\{planUnread \? \(\s*<div role="status"[^>]*>\s*<p>\{PLAN_UNREAD\}/);
 });

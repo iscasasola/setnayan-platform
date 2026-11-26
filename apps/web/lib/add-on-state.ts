@@ -58,6 +58,9 @@ export type AddOnStateContext = {
   blockReason: string | null;
   // For expired: the calendar date the event hit grace cutoff.
   expiredAt: string | null;
+  // The orders read was refused, so 'add' here means "we couldn't check the plan", not "not bought" (final check
+  // L-08, owner Add 45). A page that shows a buy press reads this and says it couldn't check, instead of an upsell.
+  ordersUnread?: boolean;
 };
 
 // Days of post-wedding tail before a feature flips to "expired". Sized to
@@ -215,12 +218,16 @@ export async function resolveAddOnState(
   }
 
   // ----- 5. add (default) ---------------------------------------------------
+  // A refused orders read cannot tell bought from not bought: it is still 'add' for the callers that only gate
+  // on state, but it carries `ordersUnread` so a page never offers the buy to a couple who may own it.
+  const ordersUnread = Boolean(ordersRes.error) && ordersRes.error?.code !== '42P01' && ordersRes.error?.code !== '42703';
   return {
     state: 'add',
     href: null,
     pendingOrderPublicId: null,
     blockReason: null,
     expiredAt: null,
+    ...(ordersUnread ? { ordersUnread: true } : {}),
   };
 }
 

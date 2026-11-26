@@ -1,3 +1,4 @@
+import { routes } from '@/lib/routes';
 import { shopPath } from '@/lib/shop-address';
 import { ProfileHeader, PROFILE_HEADER_CSS } from '../_components/profile-header';
 import { ShopLink } from '@/app/_components/shop-link';
@@ -602,8 +603,9 @@ export default async function AccountProfilePage({ params }: Props) {
         <ProfileBack />
         {isOwnerPreview ? (
           <div className="uprof-preview" role="status">
-            Preview · your public profile is <strong>hidden</strong>. Turn it on in
-            Profile &amp; settings → URL &amp; handle to share it.
+            Preview · your public profile is <strong>hidden</strong>. Turn it on in{' '}
+            <Link href={`${routes.dashboard.profile.index()}#privacy`}>Profile &amp; settings › Privacy › Public profile</Link>{' '}
+            to share it.
           </div>
         ) : null}
         {/* 🪪 THE ONE PROFILE HEADER, IN HOME'S SHAPE (owner 13 Nov 2026, "THREE PUBLIC PAGES APPROVED": the person

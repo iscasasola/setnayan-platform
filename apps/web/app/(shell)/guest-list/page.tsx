@@ -49,6 +49,7 @@
  * file ("Import a file"), not a pasted spreadsheet.
  */
 
+import { routes } from '@/lib/routes';
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
 import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
 import { studioDescription } from '@/lib/studio-apps';
@@ -241,7 +242,7 @@ export default function GuestListLandingPage() {
       title={'Every guest, every detail, one row each.'}
       /* The secondary is /features, not /pricing — this tool is free, and
          /features is where the rest of the free workspace is described. */
-      primary={{ href: '/onboarding/wedding?from=guest-list', label: 'Start planning · free' }}
+      primary={{ href: routes.start(), label: 'Start planning · free' }}
       secondary={{ href: '/features', label: 'See what else is free' }}
       productName="Guest list"
       studioKey="guest-list"
@@ -255,7 +256,7 @@ export default function GuestListLandingPage() {
       closing={{
         heading: 'Start with who is coming',
         body: 'The Guest List is free with every Setnayan account — beside your schedule, your budget, your seat plan and your mood board. Add the first name, and the rest of your planning reads from it.',
-        href: '/onboarding/wedding?from=guest-list',
+        href: routes.start(),
         label: 'Start planning · free',
       }}
       structuredData={[APP_LD, FAQ_LD]}

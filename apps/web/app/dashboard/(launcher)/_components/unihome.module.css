@@ -448,18 +448,6 @@
   font-size: var(--sn-fs-md);
   color: var(--uh-m1);
 }
-.eact {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 12px;
-}
-.eact > :last-child[data-event-remove] {
-  margin-left: auto;
-}
-.eactEnd {
-  margin-left: auto;
-}
 @media (min-width: 1024px) {
   .dgrid2 {
     display: grid;

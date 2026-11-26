@@ -25,7 +25,7 @@ const WEB = path.resolve(import.meta.dirname, '../..');
 const DRAWING_ROUTES = `/admin /admin/account-deletions /admin/accounts /admin/addons /admin/app-performance /admin/approvals /admin/ask
 /admin/background-videos /admin/booking-fees /admin/brain /admin/budget-planner /admin/business /admin/categories /admin/categories/requests
 /admin/categories/requests/[requestId] /admin/chat-flags /admin/colours /admin/completions /admin/compliance /admin/compliance/data-sheet
-/admin/concierge-abuse /admin/connection-logs /admin/corrections /admin/data-privacy /admin/demand /admin/demo-vendors
+/admin/connection-logs /admin/corrections /admin/data-privacy /admin/demand /admin/demo-vendors
 /admin/demo-vendors/inquiries /admin/demo-vendors/inquiries/[threadId] /admin/directory /admin/discount-codes /admin/discount-codes/[id]/edit
 /admin/discount-codes/new /admin/disputes /admin/editorial-review /admin/editorial-review/[editorialId] /admin/email-delivery
 /admin/event-deletions /admin/events /admin/events/[eventId] /admin/force-majeure /admin/force-majeure/[flagId] /admin/founder-seats
@@ -55,7 +55,8 @@ function resolve(address: string): { at: string; ok: boolean } {
 }
 
 test('1 · every address in the drawing resolves to a home in the reorganised admin', () => {
-  assert.equal(DRAWING_ROUTES.length, 114, 'the drawing lists 114 addresses');
+  // 114 on the drawing; /admin/concierge-abuse left with its desk (final check R7, 25 Nov).
+  assert.equal(DRAWING_ROUTES.length, 113, 'the drawing lists 113 live addresses');
   const lost = DRAWING_ROUTES.map(sample).filter((r) => !resolve(r).ok);
   assert.deepEqual(lost, [], `these addresses lead nowhere: ${lost.join(', ')}`);
 });

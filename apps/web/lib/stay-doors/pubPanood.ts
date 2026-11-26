@@ -50,6 +50,8 @@ export const PANOOD_REFUSAL = {
   screenMissing: 'That screen is no longer connected to this event. Reload to see the current list.',
   screenLocked: `${VENUE_SCREENS_LOCKED_MESSAGE} — unlock below to use them.`,
   screenSave: 'Couldn’t save that — please try again.',
+  /** L-01 (final check): any controller write that failed or matched no row (`write_error`). */
+  write: 'That did not go through. Check the screen and try again.',
 } as const;
 
 /** The refusal a controller redirect carries, in its own words — `null` when it is not a refusal. */
@@ -57,6 +59,7 @@ export function panoodRefusal(q: URLSearchParams): string | null {
   if (q.get('watch_url_error')) return PANOOD_REFUSAL.watchUrl;
   if (q.get('facebook_url_error')) return PANOOD_REFUSAL.facebookUrl;
   if (q.get('film_error')) return PANOOD_REFUSAL.film;
+  if (q.get('write_error')) return PANOOD_REFUSAL.write;
   const zone = q.get('zone_error');
   if (zone) return zone === 'label' ? PANOOD_REFUSAL.zoneLabel : zone === 'cap' ? PANOOD_REFUSAL.zoneCap : PANOOD_REFUSAL.zoneSave;
   if (q.get('overlay_error')) return PANOOD_REFUSAL.overlay;

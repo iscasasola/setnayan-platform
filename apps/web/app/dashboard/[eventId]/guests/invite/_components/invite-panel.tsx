@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { countsTowardEvent, fetchGuestsByEventMeasured } from '@/lib/guests';
 import { readHubDraft } from '@/lib/hub-draft-store';
-import { readFinalizeState, resolveLivePax } from '@/lib/pax';
+import { priceablePax, readFinalizeState, resolveLivePax } from '@/lib/pax';
 import { resolveReplyBy, sanitizeRsvpAskConfig } from '@/lib/rsvp-ask';
 import { GuestSetupRows } from '../../../_components/guest-setup/guest-setup-rows';
 import { readOneLink } from '../../../_components/guest-setup/one-link.server';
@@ -103,7 +103,7 @@ export async function InvitePanel({
           fallback: resolveReplyBy({ deadline: null, eventDate: row.event_date })?.date ?? null,
         }}
         oneLink={oneLink}
-        headcount={{ locked: finalize.locked, attending, heads: finalize.locked ? finalize.finalPax : livePax }}
+        headcount={{ locked: finalize.locked, attending, heads: finalize.locked ? finalize.finalPax : priceablePax(livePax) }}
         requests={requests}
       />
     </div>

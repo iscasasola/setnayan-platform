@@ -1,5 +1,7 @@
 'use server';
 
+import { plainSaveError } from '@/lib/plain-save-error';
+
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -372,7 +374,7 @@ export async function approveKwento(
     .eq('message_id', messageId)
     .eq('event_id', eventId)
     .eq('status', 'pending');
-  if (error) return { ok: false, error: error.message.slice(0, 80) };
+  if (error) return { ok: false, error: plainSaveError('papicModeration', error) };
   revalidateKwentoSurfaces(eventId);
   return { ok: true };
 }
@@ -395,7 +397,7 @@ export async function rejectKwento(
     })
     .eq('message_id', messageId)
     .eq('event_id', eventId);
-  if (error) return { ok: false, error: error.message.slice(0, 80) };
+  if (error) return { ok: false, error: plainSaveError('papicModeration', error) };
   revalidateKwentoSurfaces(eventId);
   return { ok: true };
 }
@@ -417,7 +419,7 @@ export async function kwentoToWall(
       ok: false,
       error: error.message.includes('kwento:not_clean')
         ? 'Held messages can never go on Memory lane.'
-        : error.message.slice(0, 80),
+        : plainSaveError('papicModeration.approve', error),
     };
   }
   revalidateKwentoSurfaces(eventId);
@@ -435,7 +437,7 @@ export async function kwentoOffWall(
   const { error } = await supabase.rpc('wall_clear_caption', {
     p_message_id: messageId,
   });
-  if (error) return { ok: false, error: error.message.slice(0, 80) };
+  if (error) return { ok: false, error: plainSaveError('papicModeration', error) };
   revalidateKwentoSurfaces(eventId);
   return { ok: true };
 }
@@ -478,7 +480,7 @@ export async function blockKwentoGuest(
     guest_id: guestId,
   });
   if (error && !error.message.includes('uq_guest_message_block')) {
-    return { ok: false, error: error.message.slice(0, 80) };
+    return { ok: false, error: plainSaveError('papicModeration.block', error) };
   }
   revalidateKwentoSurfaces(eventId);
   return { ok: true };

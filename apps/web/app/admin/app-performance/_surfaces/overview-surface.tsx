@@ -21,6 +21,7 @@ import {
   type AppPerfStats,
 } from '@/lib/admin/app-performance-stats';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ReadFailed } from '@/app/admin/_components/read-failed';
 import { DEMO_MODE_COOKIE_NAME } from '@/lib/demo-mode';
 
 import {
@@ -142,7 +143,10 @@ export async function CockpitSurface({ searchParams }: Props) {
       return { label: s.label, color: INDEX_COLORS[i] ?? 'var(--sn-ink-700)', index: idx };
     })
     .filter((s): s is NonNullable<typeof s> => s !== null);
-  if (perf.monetization.prevTotalPhp >= 500) {
+  // A8·H-1: a refused sales read is not ₱0. Its card says "Couldn't read", it leaves the leaderboard, and it draws
+  // no revenue line.
+  const salesUnread = perf.errors.some((e) => e.startsWith('monetization:'));
+  if (!salesUnread && perf.monetization.prevTotalPhp >= 500) {
     let running = perf.monetization.prevTotalPhp;
     const revIdx = [100];
     const perBucket = perf.monetization.streams.reduce<number[]>((acc, s) => {
@@ -172,13 +176,17 @@ export async function CockpitSurface({ searchParams }: Props) {
       pct: null as number | null,
       note: 'net-new',
     })),
-    {
-      label: 'Revenue',
-      current: perf.monetization.totalPhp,
-      previous: perf.monetization.prevTotalPhp,
-      pct: pctDelta(perf.monetization.totalPhp, perf.monetization.prevTotalPhp),
-      note: 'realized ₱',
-    },
+    ...(salesUnread
+      ? []
+      : [
+          {
+            label: 'Revenue',
+            current: perf.monetization.totalPhp,
+            previous: perf.monetization.prevTotalPhp,
+            pct: pctDelta(perf.monetization.totalPhp, perf.monetization.prevTotalPhp),
+            note: 'realized ₱',
+          },
+        ]),
     {
       label: 'Completed services',
       current: perf.completedServices.total,
@@ -379,6 +387,10 @@ export async function CockpitSurface({ searchParams }: Props) {
             pill="live"
             source="paid orders + supplier plans · pesos"
           >
+            {salesUnread ? (
+              <ReadFailed what="the sales figures" />
+            ) : (
+            <>
             <div className="mb-2 flex flex-wrap items-baseline gap-2">
               <p
                 className="text-2xl font-semibold tabular-nums"
@@ -418,6 +430,8 @@ export async function CockpitSurface({ searchParams }: Props) {
                 </li>
               ))}
             </ul>
+            </>
+            )}
           </ChartCard>
 
           {/* G3 — completed services (the real delivery signal) */}

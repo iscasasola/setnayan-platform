@@ -2,7 +2,8 @@ import { Gift } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { fetchEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
+import { readEgiftMethods, isPabuyaPublicRouteEnabled } from '@/lib/egift';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { PabuyaManager } from './_components/pabuya-manager';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { PabuyaMessageEditor } from './_components/pabuya-message-editor';
@@ -79,7 +80,9 @@ export default async function PabuyaDashboardPage({ params }: Props) {
 
   // The couple's full set (enabled + hidden). Each row carries a resolved
   // presigned QR URL for the preview + the edit thumbnail.
-  const methods = await fetchEgiftMethods(supabase, eventId);
+  /* I-01 (final check): `readEgiftMethods` carries whether the list was READ. A refused read used to draw as
+     "No e-gift methods yet" with an add form — for the couple's money accounts. It now says it could not read. */
+  const { methods, read: methodsRead } = await readEgiftMethods(supabase, eventId);
 
   // Seed <FileUpload> thumbnails for existing QR images: r2Ref → display URL.
   const qrDisplayUrls: Record<string, string> = {};
@@ -114,6 +117,9 @@ export default async function PabuyaDashboardPage({ params }: Props) {
         templates={pabuyaTemplatesFor(words)}
       />
 
+      {!methodsRead ? (
+        <ReadRefusedNotice what="your E-Gift methods" />
+      ) : (
       <PabuyaManager
         eventId={eventId}
         coupleName={event?.display_name ?? null}
@@ -136,6 +142,7 @@ export default async function PabuyaDashboardPage({ params }: Props) {
         }))}
         qrDisplayUrls={qrDisplayUrls}
       />
+      )}
     </div>
   );
 }

@@ -224,14 +224,14 @@ export function CreatorStoryChapter() {
             <H2 onDark>One page. Your film on top, the real event underneath.</H2>
             <Lede onDark>
               Every Chapter lives on your own public page — <b style={{ color: '#fff' }}>setnayan.com/u/yourname</b>.
-              Your finished edit plays embedded from your channel, and below it sits the substrate
-              nothing else on the internet carries: the real, bookable event.
+              Your finished edit plays embedded from your channel, and below it sits the real,
+              bookable event.
             </Lede>
             <ul style={{ listStyle: 'none', padding: 0, margin: '24px 0 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[
                 { n: '1', t: 'The embed', p: 'Your YouTube / TikTok / Instagram edit, playing inside the Chapter. Views and monetization stay on your channel — we just give it a home that converts.' },
                 { n: '2', t: 'Shop this event', p: 'The suppliers who made the day — venue, photo, florals, catering — credited as cards a viewer can open and inquire with. Hosts pay 0% commission.' },
-                { n: '3', t: 'Your audience layer', p: 'Followers and view counts on your page, plus the Storyteller badge once you’ve published. Standout Chapters get featured on Setnayan’s Stories page.' },
+                { n: '3', t: 'Your audience layer', p: 'Followers and view counts on your page, plus the Storyteller badge once you’ve published. Standout Chapters can be featured on Discover.' },
               ].map((s) => (
                 <li
                   key={s.n}
@@ -367,7 +367,7 @@ export function CreatorStoryWhy() {
         <GridCard icon="📺" title="Your monetization, untouched" body="The video is embedded from your channel — its views, ads and deals stay 100% yours. Setnayan never hosts your edit." />
         <GridCard icon="🏛" title="Permanence, not a feed" body="A Chapter doesn't scroll away. Your page is a timeline of substantial events — a portfolio that compounds." />
         <GridCard icon="⭐" title="The Storyteller badge" body="Publish a public Chapter and your page carries the storyteller mark — a signal to suppliers and viewers alike." />
-        <GridCard icon="📰" title="Featured on Stories" body="Standout Chapters get pulled onto Setnayan's Stories showcase — distribution to people actively planning." />
+        <GridCard icon="📰" title="Featured on Discover" body="Standout Chapters can be featured on Discover — in front of people actively planning." />
       </CardGrid>
     </section>
   );

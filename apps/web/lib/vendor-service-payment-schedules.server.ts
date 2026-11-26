@@ -570,11 +570,13 @@ export async function fetchPolicyAcknowledgementsByVendor(opts: {
   const { adminClient, vendorProfileIds } = opts;
   const out = new Map<string, PolicyAcknowledgement[]>();
   if (vendorProfileIds.length === 0) return out;
-  const { data } = await adminClient
+  const { data, error } = await adminClient
     .from('event_vendor_policy_acknowledgements')
     .select('ack_id, event_id, event_vendor_id, vendor_profile_id, policy_snapshot_json, acknowledged_by, acknowledged_at')
     .in('vendor_profile_id', vendorProfileIds)
     .order('acknowledged_at', { ascending: false });
+  // A8·E-4: a refused read throws, so the dispute screen says "Couldn't read" instead of showing no evidence.
+  if (error) throw error;
   for (const row of (data ?? []) as Array<{
     ack_id: string;
     event_id: string;

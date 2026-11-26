@@ -189,15 +189,16 @@ export async function fetchVendorJournalSpotlights(
  */
 export async function fetchAllSpotlightsForAdmin(
   admin: SupabaseClient,
-): Promise<JournalSpotlightAdminRow[]> {
+): Promise<JournalSpotlightAdminRow[] | null> {
   const { data, error } = await admin
     .from('journal_vendor_spotlights')
     .select(SELECT_WITH_VENDOR)
     .order('created_at', { ascending: false });
 
+  // A8·G-3: null = could not read — never "No drafts" / "Nothing published yet".
   if (error) {
     console.error('[journal-spotlights] admin fetch failed', error.message);
-    return [];
+    return null;
   }
 
   return ((data ?? []) as unknown as RawJoinedRow[]).map((r) => ({
@@ -219,17 +220,19 @@ export const JOURNAL_SPONSORED_SKU = 'journal_sponsored_spotlight';
 
 export async function fetchSponsoredSlotPrice(
   admin: SupabaseClient,
-): Promise<{ priceCentavos: number; isActive: boolean; displayName: string } | null> {
+): Promise<{ priceCentavos: number; isActive: boolean; displayName: string } | null | 'unread'> {
   const { data, error } = await admin
     .from('service_catalog')
     .select('display_name, price_centavos, is_active')
     .eq('sku_code', JOURNAL_SPONSORED_SKU)
     .maybeSingle();
 
-  if (error || !data) {
-    if (error) console.error('[journal-spotlights] sku price fetch failed', error.message);
-    return null;
+  // A8·G-3: a refused read is 'unread' — never "the SKU is inactive".
+  if (error) {
+    console.error('[journal-spotlights] sku price fetch failed', error.message);
+    return 'unread';
   }
+  if (!data) return null;
   return {
     priceCentavos: Number(data.price_centavos ?? 0),
     isActive: Boolean(data.is_active),

@@ -1,3 +1,4 @@
+import { ReadFailed } from '@/app/admin/_components/read-failed';
 import { InfoTip } from '@/app/_components/info-tip';
 import { isPaidSize } from '@/lib/vendor-tier-caps';
 import { after } from 'next/server';
@@ -773,7 +774,7 @@ export async function SocialQueueSurface({
       <section id="evergreen" className="mb-8 space-y-3">
         <div className="space-y-0.5">
           <h2 className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-            Evergreen library · {evergreenItems.length}
+            Evergreen library · {evergreenErr ? '—' : evergreenItems.length}
           </h2>
           <div>
             <InfoTip label="About evergreen posts" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
@@ -784,7 +785,10 @@ export async function SocialQueueSurface({
           </div>
         </div>
 
-        {evergreenItems.length === 0 ? (
+        {/* A8·G-11: a refused read is said — never "No evergreen items yet". */}
+        {evergreenErr ? (
+          <ReadFailed what="the evergreen library" />
+        ) : evergreenItems.length === 0 ? (
           <p className="border-dashed py-6 text-center text-sm text-ink/55 border-t border-ink/10">
             No evergreen items yet — add a few planning tips or feature
             spotlights below so the page never looks abandoned.
@@ -1157,6 +1161,7 @@ function AutopilotStrip({
             </InfoTip>
           </div>
         </div>
+        {loadFailed ? null : (
         <div className="flex flex-wrap items-center gap-2">
           <span
             className={`rounded-full px-2.5 py-0.5 font-mono text-[12px] uppercase tracking-[0.15em] ${
@@ -1189,6 +1194,7 @@ function AutopilotStrip({
               : 'no flush yet'}
           </span>
         </div>
+        )}
       </div>
 
       {!fbConfigured ? (
@@ -1226,8 +1232,8 @@ function AutopilotStrip({
           role="alert"
           className="rounded-md border border-terracotta/30 bg-terracotta/10 px-4 py-3 text-xs text-terracotta-700"
         >
-          Publish settings couldn&apos;t load right now (defaults shown). We&apos;ve
-          logged the issue — saving may also fail until it clears.
+          Couldn&apos;t read the publish settings, so the switches are hidden — a save now would write the
+          defaults over the real settings. Refresh to try again.
         </p>
       ) : null}
 
@@ -1237,53 +1243,57 @@ function AutopilotStrip({
           doesn't auto-post — it turns on the assisted-manual lane below
           (the audit-gated state); auto-post starts once TIKTOK_ACCESS_TOKEN
           lands on an audited app. */}
-      <form
-        action={updatePublishSettings}
-        className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-ink/10 pt-4"
-      >
-        <label className="flex items-center gap-2 text-xs font-medium text-ink/80">
-          <input
-            type="checkbox"
-            name="autopublish_enabled"
-            defaultChecked={settings.autopublish_enabled}
-            className="h-4 w-4 rounded border-ink/30 accent-ink"
-          />
-          Autopublish (master)
-        </label>
-        <label className="flex items-center gap-2 text-xs text-ink/75">
-          <input
-            type="checkbox"
-            name="facebook_enabled"
-            defaultChecked={settings.facebook_enabled}
-            className="h-4 w-4 rounded border-ink/30 accent-ink"
-          />
-          Facebook
-        </label>
-        <label className="flex items-center gap-2 text-xs text-ink/75">
-          <input
-            type="checkbox"
-            name="instagram_enabled"
-            defaultChecked={settings.instagram_enabled}
-            className="h-4 w-4 rounded border-ink/30 accent-ink"
-          />
-          Instagram
-        </label>
-        <label
-          className="flex items-center gap-2 text-xs text-ink/75"
-          title="On with a token (audited app) → auto-posts the 9:16 card. On without one → the assisted-manual lane."
+      {/* A8·G-11: an unread settings row withholds the form (as on Referrals) — its checkboxes would be the
+          hard-coded defaults, and Save would write them over the real settings. */}
+      {loadFailed ? null : (
+        <form
+          action={updatePublishSettings}
+          className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-ink/10 pt-4"
         >
-          <input
-            type="checkbox"
-            name="tiktok_enabled"
-            defaultChecked={settings.tiktok_enabled}
-            className="h-4 w-4 rounded border-ink/30 accent-ink"
-          />
-          TikTok
-        </label>
-        <SubmitButton pendingLabel="Saving…" className="button-primary h-9 px-3 text-xs">
-          Save
-        </SubmitButton>
-      </form>
+          <label className="flex items-center gap-2 text-xs font-medium text-ink/80">
+            <input
+              type="checkbox"
+              name="autopublish_enabled"
+              defaultChecked={settings.autopublish_enabled}
+              className="h-4 w-4 rounded border-ink/30 accent-ink"
+            />
+            Autopublish (master)
+          </label>
+          <label className="flex items-center gap-2 text-xs text-ink/75">
+            <input
+              type="checkbox"
+              name="facebook_enabled"
+              defaultChecked={settings.facebook_enabled}
+              className="h-4 w-4 rounded border-ink/30 accent-ink"
+            />
+            Facebook
+          </label>
+          <label className="flex items-center gap-2 text-xs text-ink/75">
+            <input
+              type="checkbox"
+              name="instagram_enabled"
+              defaultChecked={settings.instagram_enabled}
+              className="h-4 w-4 rounded border-ink/30 accent-ink"
+            />
+            Instagram
+          </label>
+          <label
+            className="flex items-center gap-2 text-xs text-ink/75"
+            title="On with a token (audited app) → auto-posts the 9:16 card. On without one → the assisted-manual lane."
+          >
+            <input
+              type="checkbox"
+              name="tiktok_enabled"
+              defaultChecked={settings.tiktok_enabled}
+              className="h-4 w-4 rounded border-ink/30 accent-ink"
+            />
+            TikTok
+          </label>
+          <SubmitButton pendingLabel="Saving…" className="button-primary h-9 px-3 text-xs">
+            Save
+          </SubmitButton>
+        </form>
+      )}
     </section>
   );
 }

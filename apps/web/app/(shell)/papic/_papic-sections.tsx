@@ -100,9 +100,9 @@ const SPOTLIGHTS: readonly Spotlight[] = [
     media: { kind: 'photo', src: '/demo/maria-jose/wall-8.webp', alt: 'A guest, mid-laugh, at a wedding' },
   },
   {
-    chip: 'For good',
-    t: 'Nothing here expires',
-    d: 'No renewal, no subscription, no email a year from now saying your photos are about to go. They are simply yours.',
+    chip: 'For life',
+    t: 'Every photo kept for life',
+    d: 'Full-size originals are kept for a period set by your plan, then a 720p copy of every photo is kept for life. Nothing is deleted on a timer.',
     media: { kind: 'photo', src: '/demo/maria-jose/wall-4.webp', alt: 'Two guests embracing at a wedding' },
   },
 ];
@@ -296,7 +296,7 @@ export function PapicHub() {
             and it leaves your Memories.
           </p>
           <p className="sn-gal-text mt-3 rounded-lg border-l-2 border-[var(--sn-ob-gold)] bg-[rgb(203_167_102/0.12)] px-3 py-2 text-sm">
-            These are yours to keep. Nothing here expires.
+            These are yours to keep. Every photo is kept for life.
           </p>
         </div>
       </div>

@@ -1,4 +1,5 @@
 import { UserX, Trash2, Ban } from 'lucide-react';
+import { ERASURE_WORDS } from '@/lib/erasure/erasure-words';
 import { displayAccountEmail } from '@/lib/erasure/display-email';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -59,14 +60,6 @@ const ACTIONED_WORDS: Record<string, string> = {
   erased_again: 'Erasure ran again for that account.',
   already_erased: 'That account was already erased — nothing more to do.',
 };
-
-/**
- * What approving actually does — from lib/erasure/purge.ts · eraseUserAccount,
- * which no longer hard-deletes anything (row 31: the old text promised a
- * cascade that has not happened since 2026-07).
- */
-const ERASURE_WORDS =
-  'This signs them out everywhere, locks the account, wipes their name, email, phone and photos, and removes their own records. Orders and payments are kept for the books, without their name.';
 
 type Props = {
   searchParams: Promise<{ actioned?: string }>;

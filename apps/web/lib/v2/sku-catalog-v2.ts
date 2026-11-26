@@ -190,28 +190,30 @@ export type V2SkuRecord = {
   description: string | null;
 };
 
+/** One catalogue row, read — and whether the read itself failed. A failed read is never "not on sale"
+ *  (final check, area 3: a page that cannot tell the two apart draws a missing price as no price). */
+export type V2SkuRead = { record: V2SkuRecord | null; readFailed: boolean };
+
 /**
- * Read a single V2 SKU from the live catalog.
+ * Read a single V2 SKU from the live catalog, and say whether the read failed.
  *
  * Server-component friendly · uses the admin client (RLS on
  * platform_retail_catalog_v2 is public-read so this could use anon but
  * admin is safer for server-rendered checkout / wizard surfaces that
  * need to bypass any future RLS narrowing).
  *
- * Returns null if the SKU is missing from the catalog · callers should
- * render "Service unavailable" copy in that branch.
+ * `record` is null when the SKU is missing (`readFailed: false`) or could not
+ * be read (`readFailed: true`) · callers draw "Couldn't read" only for the second.
  */
-export async function formatV2Sku(
-  sku: V2SkuCode | string,
-): Promise<V2SkuRecord | null> {
+export async function readV2Sku(sku: V2SkuCode | string): Promise<V2SkuRead> {
   // Permit raw strings for the wizard surface (which may pass V1 codes
   // upstream of mapV1SkuToV2) · validate against V2_SKU_CODES.
   if (!(V2_SKU_CODES as readonly string[]).includes(sku)) {
-    return null;
+    return { record: null, readFailed: false };
   }
   const admin = createAdminClient();
   // ⚡ One read per render for a code (speed pass 2026-11-14): the Maker asked the same row twice. Outside a render it
-  // reads fresh, as before; a failure is handed to every caller and each still logs and returns null.
+  // reads fresh, as before; a failure is handed to every caller and each still logs.
   const { data, error } = await askedOnce(admin, 'catalog_v2.sku', [sku], () =>
     Promise.resolve(
       admin
@@ -223,15 +225,28 @@ export async function formatV2Sku(
   );
   if (error) {
     console.error('[supabase-error] sku-catalog-v2: catalogue row', error);
-    return null;
+    return { record: null, readFailed: true };
   }
-  if (!data) return null;
+  if (!data) return { record: null, readFailed: false };
   return {
-    service_code: data.service_code as V2SkuCode,
-    display_name: data.title,
-    price_php: Number(data.retail_price_php),
-    price_centavos: Math.round(Number(data.retail_price_php) * 100),
-    is_token_able: data.is_token_able,
-    description: data.description ?? null,
+    record: {
+      service_code: data.service_code as V2SkuCode,
+      display_name: data.title,
+      price_php: Number(data.retail_price_php),
+      price_centavos: Math.round(Number(data.retail_price_php) * 100),
+      is_token_able: data.is_token_able,
+      description: data.description ?? null,
+    },
+    readFailed: false,
   };
+}
+
+/**
+ * Read a single V2 SKU from the live catalog (`readV2Sku`, without the failure flag).
+ *
+ * Returns null if the SKU is missing from the catalog or could not be read ·
+ * a caller that draws a price uses `readV2Sku` so a failed read says "Couldn't read".
+ */
+export async function formatV2Sku(sku: V2SkuCode | string): Promise<V2SkuRecord | null> {
+  return (await readV2Sku(sku)).record;
 }

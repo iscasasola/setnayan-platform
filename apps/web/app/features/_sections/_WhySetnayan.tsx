@@ -45,12 +45,12 @@ const BRING_ICONS: LucideIcon[] = [LayoutGrid, Images, Sparkles, HandCoins];
 export const WHY_FAQ: Record<MarketingLocale, { q: string; a: string }[]> = {
   en: [
     {
-      q: 'How is Setnayan different from other wedding apps?',
-      a: 'Most tools do one job — planning, or photo-sharing, or a supplier list. Setnayan does all three in one place, free to start, and adds what the others don’t have: live per-guest Memories, personal video reels, and an AI that finds the suppliers that fit you.',
+      q: 'What does Setnayan do?',
+      a: 'Three jobs in one place: planning, your guests’ photos, and finding suppliers. Planning is free to start; each guest gets their own Memories; and Setnayan AI shortlists suppliers that fit you.',
     },
     {
       q: 'Do I need a separate app for guest photos?',
-      a: 'No — that’s the point. A standalone photo app gives everyone one shared pile that expires. Setnayan’s Papic gives each guest their own face-tagged Memories and a personal reel, right on your Event Hub, and you keep every photo.',
+      a: 'No — that’s the point. A standalone photo app gives everyone one shared pile that expires. Setnayan’s Papic gives each guest their own face-tagged Memories, right on your Event Hub, and every photo is kept for life.',
     },
     {
       q: 'Is it really free?',
@@ -58,21 +58,21 @@ export const WHY_FAQ: Record<MarketingLocale, { q: string; a: string }[]> = {
     },
     {
       q: 'Does it work for Filipino events specifically?',
-      a: 'Setnayan is built Philippines-first — it understands Filipino customs, ceremony types, and local suppliers, and couples book suppliers at 0% commission. It’s not a generic planner with a PHP price tag bolted on.',
+      a: 'Setnayan is built for Filipino events — it understands Filipino customs, ceremony types, and local suppliers, and prices are in pesos. Hosts pay 0% commission.',
     },
     {
-      q: 'What does Setnayan bring that I can’t get elsewhere?',
-      a: 'The media layer: every guest goes home with their own photos and a souvenir reel, and an AI shortlist of suppliers that actually fit — woven into the same free platform that handles your whole plan.',
+      q: 'What do my guests get?',
+      a: 'Their own page from one link, no app and no account: the invitation, their seat, their pass, and afterwards their own photos in Memories.',
     },
   ],
   tl: [
     {
-      q: 'Ano ang pinagkaiba ng Setnayan sa ibang wedding apps?',
-      a: 'Karamihan ng tools, isang trabaho lang ang ginagawa — planning, o photo-sharing, o listahan ng supplier. Ang Setnayan, tatlo lahat sa isang lugar, libre pagsimula, at may dagdag pa na wala sa iba: live na per-guest Memories, personal na video reels, at AI na naghahanap ng suppliers na bagay sa’yo.',
+      q: 'Ano ang ginagawa ng Setnayan?',
+      a: 'Tatlong trabaho sa isang lugar: planning, litrato ng mga guest, at paghahanap ng suppliers. Libre pagsimula ang planning; may sariling Memories ang bawat guest; at may shortlist ang Setnayan AI ng suppliers na bagay sa’yo.',
     },
     {
       q: 'Kailangan ko pa ba ng hiwalay na app para sa guest photos?',
-      a: 'Hindi — yun mismo ang punto. Ang standalone photo app, isang shared pile lang na nag-e-expire. Ang Papic ng Setnayan, may sariling face-tagged Memories at personal reel ang bawat guest, nasa Event Hub mo mismo, at sa’yo nananatili ang lahat ng photo.',
+      a: 'Hindi — yun mismo ang punto. Ang standalone photo app, isang shared pile lang na nag-e-expire. Ang Papic ng Setnayan, may sariling face-tagged Memories ang bawat guest, nasa Event Hub mo mismo, at itinatago habambuhay ang bawat litrato.',
     },
     {
       q: 'Libre ba talaga?',
@@ -80,11 +80,11 @@ export const WHY_FAQ: Record<MarketingLocale, { q: string; a: string }[]> = {
     },
     {
       q: 'Gumagana ba ito para sa mga Filipino event?',
-      a: 'Philippines-first ang pagkakagawa ng Setnayan — naiintindihan nito ang kaugaliang Pilipino, ang mga uri ng seremonya, at ang mga lokal na supplier, at 0% commission ang booking ng host sa supplier. Hindi ito generic na planner na tinapalan lang ng presyong PHP.',
+      a: 'Ginawa ang Setnayan para sa mga Pilipinong event — naiintindihan nito ang kaugaliang Pilipino, ang mga uri ng seremonya, at ang mga lokal na supplier, at nasa piso ang presyo. Hosts pay 0% commission.',
     },
     {
-      q: 'Ano ang dala ng Setnayan na wala sa iba?',
-      a: 'Ang media layer: bawat guest, may sariling photos at souvenir reel na iuuwi, at may AI shortlist ng suppliers na talagang bagay — habol sa iisang libreng platform na humahawak sa buong plano mo.',
+      q: 'Ano ang makukuha ng mga guest ko?',
+      a: 'Sariling page mula sa isang link, walang app at walang account: ang imbitasyon, ang upuan nila, ang pass nila, at pagkatapos, ang sarili nilang litrato sa Memories.',
     },
   ],
 };
@@ -115,20 +115,20 @@ const COPY: Record<
     eyebrow: 'Why Setnayan · three apps’ worth, in one',
     heading: 'Three apps’ worth, in one.',
     intro:
-      'To do what Setnayan does, you’d normally juggle a planning app, a separate guest-photo app, and a supplier directory — none of which talk to each other. Setnayan brings them together, free to start, and adds what none of them have.',
-    juggleHeading: 'What you’d otherwise juggle',
+      'Planning, your guests’ photos and your suppliers, in one place that talks to itself — free to start.',
+    juggleHeading: 'Three jobs, one place',
     juggle: [
       {
         label: 'A planning app',
-        line: 'Guest list, budget, seating — but no live guest Memories, and no AI that finds your suppliers.',
+        line: 'Guest list, budget and seating, in one plan.',
       },
       {
         label: 'A photo-sharing app',
-        line: 'One shared pile of photos that expires in weeks — no per-guest Memories, no reels, and nothing to do with your plan.',
+        line: 'Every guest’s photos, sorted to the people in them.',
       },
       {
         label: 'A supplier directory',
-        line: 'A list to scroll through yourself — no matching, and rarely 0% commission.',
+        line: 'Verified suppliers to message from your plan.',
       },
     ],
     bringsHeading: 'What Setnayan brings instead',
@@ -139,15 +139,15 @@ const COPY: Record<
       },
       {
         title: 'Live guest Memories',
-        body: 'Papic: every guest gets their own face-tagged photos and a personal video reel.',
+        body: 'Papic: every guest gets their own face-tagged photos.',
       },
       {
         title: 'An AI that finds your suppliers',
-        body: 'Setnayan AI ranks a shortlist that fits your style, budget, and date — not a thousand listings.',
+        body: 'Setnayan AI ranks a shortlist that fits your style, budget, and date.',
       },
       {
-        title: '0% commission, Filipino-first',
-        body: 'Built for Filipino events and customs; you book suppliers at 0% commission and pay them directly.',
+        title: 'Built for Filipino events',
+        body: 'Filipino customs and ceremonies; you pay suppliers directly. Hosts pay 0% commission.',
       },
     ],
     faqHeading: 'Questions people ask first',
@@ -156,20 +156,20 @@ const COPY: Record<
     eyebrow: 'Bakit Setnayan · tatlong app, pinagsama',
     heading: 'Katumbas ng tatlong app, nasa isa lang.',
     intro:
-      'Para magawa ang ginagawa ng Setnayan, kadalasan kailangan mong hawakan ang planning app, hiwalay na guest-photo app, at supplier directory — na walang pinag-uusapan sa isa’t isa. Pinagsasama sila ng Setnayan, libre pagsimula, at may dagdag pa na wala sa kahit isa sa kanila.',
-    juggleHeading: 'Ang tatlong hawak mo kung wala ito',
+      'Planning, litrato ng mga guest, at suppliers mo, nasa isang lugar na magkakaugnay — libre pagsimula.',
+    juggleHeading: 'Tatlong trabaho, isang lugar',
     juggle: [
       {
         label: 'Isang planning app',
-        line: 'Guest list, budget, seating — pero walang live na guest Memories, at walang AI na maghahanap ng suppliers mo.',
+        line: 'Guest list, budget at seating, sa iisang plano.',
       },
       {
         label: 'Isang photo-sharing app',
-        line: 'Isang shared pile ng litrato na nag-e-expire sa loob ng ilang linggo — walang per-guest Memories, walang reels, at walang kinalaman sa plano mo.',
+        line: 'Litrato ng bawat guest, nakaayos ayon sa mga nasa litrato.',
       },
       {
         label: 'Isang supplier directory',
-        line: 'Listahan na ikaw mismo ang mag-i-scroll — walang matching, at bihirang 0% commission.',
+        line: 'Verified suppliers na ma-message mula sa plano mo.',
       },
     ],
     bringsHeading: 'Ito ang dala ng Setnayan',
@@ -180,15 +180,15 @@ const COPY: Record<
       },
       {
         title: 'Live na guest Memories',
-        body: 'Papic: may sariling face-tagged photos at personal video reel ang bawat guest.',
+        body: 'Papic: may sariling face-tagged photos ang bawat guest.',
       },
       {
         title: 'AI na naghahanap ng suppliers mo',
-        body: 'Nire-rank ng Setnayan AI ang shortlist na bagay sa style, budget, at petsa mo — hindi libo-libong listing.',
+        body: 'Nire-rank ng Setnayan AI ang shortlist na bagay sa style, budget, at petsa mo.',
       },
       {
-        title: '0% commission, Filipino-first',
-        body: 'Ginawa para sa mga Pilipinong event at kaugalian; i-book ang suppliers mo nang 0% commission at direkta mo silang bayaran.',
+        title: 'Para sa mga Pilipinong event',
+        body: 'Kaugalian at seremonyang Pilipino; direkta mong babayaran ang suppliers. Hosts pay 0% commission.',
       },
     ],
     faqHeading: 'Mga unang itinatanong',

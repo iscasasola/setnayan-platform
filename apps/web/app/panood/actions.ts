@@ -1,6 +1,7 @@
 'use server';
 
 import { headers } from 'next/headers';
+import { cameraClaimability } from '@/lib/panood-camera-claimability';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -30,40 +31,6 @@ type CameraClaimStatus =
   | 'invalid'
   | 'unauthenticated'
   | string;
-
-/**
- * Resolve whether a claim token points at a CLAIMABLE camera — without an
- * account. Runs on the admin client because an unauthenticated visitor can't
- * read panood_camera_operators under the control-room-only RLS. Returns only a
- * verdict (never camera data), and is used solely to decide whether to mint a
- * login-free anonymous session, so an invalid/taken/reissued (or bot-prefetched)
- * link never leaks an orphan anon identity. Graceful-degrade: a missing/legacy
- * table reads as 'invalid'. Mirrors seatClaimability() in app/papic/actions.ts.
- */
-async function cameraClaimability(
-  token: string,
-): Promise<'claimable' | 'taken' | 'invalid'> {
-  try {
-    const admin = createAdminClient();
-    const { data: cam, error } = await admin
-      .from('panood_camera_operators')
-      .select('claimer_user_id, revoked_at, status')
-      .eq('claim_qr_token', token)
-      .maybeSingle();
-    if (error) {
-      console.error(
-        '[supabase-error] app/panood/actions.ts · from:panood_camera_operators.select',
-        error,
-      );
-    }
-    if (error || !cam) return 'invalid';
-    if (cam.revoked_at || cam.status === 'revoked') return 'invalid';
-    if (cam.claimer_user_id) return 'taken';
-    return 'claimable';
-  } catch {
-    return 'invalid';
-  }
-}
 
 /**
  * Claim the camera a token points at and route to the operator publish view.
@@ -103,6 +70,8 @@ export async function claimPanoodCamera(formData: FormData) {
       }
       const claimability = await cameraClaimability(token);
       if (claimability === 'taken') redirect(`/panood/cam/${token}?state=taken`);
+      // 🔌 A4-10: a refused read is ours, not a dead link — the retryable notice.
+      if (claimability === 'unreadable') redirect(`/panood/cam/${token}?state=error`);
       if (claimability !== 'claimable') {
         redirect(`/panood/cam/${token}?state=invalid`);
       }

@@ -71,7 +71,8 @@ export default async function RequestPage({ params, searchParams }: Props) {
 
   // The hosts' own name for this event; the event type's word when unnamed —
   // never "the couple" to a family at a wake (eventWordsForEvent).
-  const hosts = ((event.display_name as string | null) ?? '').trim() || (await eventWordsForEvent(event.event_id as string)).TheOrganizer;
+  const words = await eventWordsForEvent(event.event_id as string);
+  const hosts = ((event.display_name as string | null) ?? '').trim() || words.TheOrganizer;
   const look = await loadInviteLook(event);
   /* 🎨 THE EVENT'S THEME, NOT THE BARE DOOR (owner 2026-10-05: the guest's
      reply pages wear the event's theme). A Pro door theme brings its own skin;
@@ -124,7 +125,7 @@ export default async function RequestPage({ params, searchParams }: Props) {
             <Send aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> {hosts}
           </span>
         }
-        title={REQUEST_WORDS.sentTitle}
+        title={REQUEST_WORDS.sentTitle(words.theOrganizer)}
         sub={`${REQUEST_WORDS.sentSub(hosts)} ${REQUEST_WORDS.sentUnlocks}`}
         meta={meta}
         skin={skin}
@@ -138,7 +139,7 @@ export default async function RequestPage({ params, searchParams }: Props) {
               sub={passCardFileName({ guestName: key.name, eventName: hosts, eventDate: event.event_date as string | null })}
             />
           </section>
-          <CopyMyLink link={link} heading={null} note={REQUEST_WORDS.saveThis} />
+          <CopyMyLink link={link} heading={null} note={REQUEST_WORDS.saveThis(words.theOrganizer)} />
           {back}
         </div>
       </DoorShell>
@@ -150,7 +151,7 @@ export default async function RequestPage({ params, searchParams }: Props) {
     <DoorShell
       brand="foot"
       eyebrow={key.name}
-      title={REQUEST_WORDS.waiting}
+      title={REQUEST_WORDS.waiting(words.theOrganizer)}
       sub={REQUEST_WORDS.waitingSub(hosts)}
       meta={meta}
       skin={skin}

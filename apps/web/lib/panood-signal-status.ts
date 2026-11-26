@@ -101,3 +101,30 @@ export function cameraLinkNotice({
   }
   return 'connecting to the controller…';
 }
+
+/**
+ * 🔌 A4-11 (final check, 25 Nov): the header pill, from the SAME facts as `cameraLinkNotice` — it said "Connected"
+ * with a pulsing green dot whenever the phone's own camera opened, even while the footer reported a refused or failed
+ * link to the controller. Now the pill can never claim more than the footer does.
+ */
+export type CameraPill = { label: string; live: boolean };
+
+export function cameraPill({
+  cameraState,
+  streamingEnabled,
+  link,
+  signalRefused,
+}: {
+  cameraState: 'starting' | 'live' | 'denied' | 'error';
+  streamingEnabled: boolean;
+  link: CameraLinkState | null;
+  signalRefused: boolean;
+}): CameraPill {
+  if (cameraState === 'starting') return { label: 'Starting…', live: false };
+  if (cameraState !== 'live') return { label: 'No camera', live: false };
+  // Streaming off: the footer itself says "connected · the operator will bring you live" — the pill agrees.
+  if (!streamingEnabled) return { label: 'Connected', live: true };
+  if (signalRefused || link === 'failed') return { label: 'Not connected', live: false };
+  if (link === 'connected') return { label: 'Connected', live: true };
+  return { label: 'Connecting…', live: false };
+}

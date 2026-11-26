@@ -133,6 +133,15 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
   const vendor = vendorRes.data as EventVendorLookup | null;
   const couple = coupleRes.data as UserLookup | null;
   const handler = handlerRes.data as UserLookup | null;
+  // A8·E-5: an unread lookup is SAID — a booking that could not be read is not
+  // "Whole event", a handler who could not be read is not "Unassigned".
+  for (const [what, res] of [['event', eventRes], ['booking', vendorRes], ['couple', coupleRes], ['handler', handlerRes]] as const) {
+    if (res.error) logQueryError(`AdminForceMajeureDetail (${what})`, res.error);
+  }
+  const eventUnread = Boolean(eventRes.error) || !event;
+  const vendorUnread = Boolean(row.event_vendor_id) && (Boolean(vendorRes.error) || !vendor);
+  const coupleUnread = Boolean(row.couple_user_id) && (Boolean(coupleRes.error) || !couple);
+  const handlerUnread = Boolean(row.admin_handler_user_id) && (Boolean(handlerRes.error) || !handler);
 
   // The couple's evidence is stored as `r2://setnayan-thread-files/events/<id>/
   // disputes/…` refs — a PRIVATE bucket, so the raw ref never rendered here (an
@@ -157,8 +166,13 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
   // 🔒 The deposit receipt is a PRIVATE file too: a short-lived link scoped to
   // the booking row's own event deposit folder — never the stored value as an
   // href (lib/deposit-proof.server.ts).
+  let depositProofUnread = false;
   const depositProofUrl = vendor
-    ? await depositProofDisplayUrl(vendor.deposit_proof_url, vendor.event_id).catch(() => null)
+    ? await depositProofDisplayUrl(vendor.deposit_proof_url, vendor.event_id).catch((err: unknown) => {
+        logQueryError('AdminForceMajeureDetail (deposit proof signing)', err);
+        depositProofUnread = Boolean(vendor.deposit_proof_url);
+        return null;
+      })
     : null;
 
   // Change-Order Trail (Wave 3) — the immutable both-acknowledged add-on/removal
@@ -236,6 +250,8 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                   {event.event_date ? ` · ${event.event_date}` : ''}
                 </span>
               </>
+            ) : eventUnread ? (
+              <span className="text-ink/55">Couldn&rsquo;t read</span>
             ) : (
               '—'
             )
@@ -252,6 +268,8 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                   {vendor.category}
                 </span>
               </>
+            ) : vendorUnread ? (
+              <span className="text-ink/55">Couldn&rsquo;t read the booking</span>
             ) : (
               <span className="text-ink/65">Whole event</span>
             )
@@ -267,6 +285,8 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
               >
                 {couple.display_name ?? couple.email ?? '—'}
               </a>
+            ) : coupleUnread ? (
+              <span className="text-ink/55">Couldn&rsquo;t read</span>
             ) : (
               '—'
             )
@@ -284,6 +304,8 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                 />
                 {handler.display_name ?? handler.email ?? '—'}
               </span>
+            ) : handlerUnread ? (
+              <span className="text-ink/55">Couldn&rsquo;t read</span>
             ) : (
               <span className="text-ink/55">Unassigned</span>
             )
@@ -324,6 +346,8 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                       alt="The deposit proof on file"
                       className="mt-2"
                     />
+                  ) : depositProofUnread ? (
+                    <span className="mt-2 block text-ink/55">Couldn&rsquo;t open the deposit proof just now.</span>
                   ) : null}
                 </div>
               ) : (
@@ -331,6 +355,8 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
               )
             }
           />
+        ) : vendorUnread ? (
+          <Field label="Deposit" value={<span className="text-ink/55">Couldn&rsquo;t read the deposit</span>} />
         ) : null}
       </dl>
 

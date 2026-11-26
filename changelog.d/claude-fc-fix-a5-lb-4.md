@@ -10,6 +10,7 @@
   centred dialog from 701); inside it the page's pinned ‹ row steps aside (`ToolPin`); a hard load keeps it.
 - `BackWhenNotRisen` now covers the centred dialog too; lane B 2's duplicate `HideWhenRisen` is folded into it.
 - Guards: `team/roles-open-in-place.test.ts`, `shop/the-shelf-tools-rise.test.ts`.
+- The Roles and Who gets new inquiries loaders are gone (their pages are forwards now, so they drew a heading nobody sees); Attributes and Creators show their pinned title at once while loading.
 - Depends on #8341, #8353 and #8320 (built on them).
 
 SPEC IMPACT: None.

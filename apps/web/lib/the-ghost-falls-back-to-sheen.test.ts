@@ -110,6 +110,14 @@ test('5 · a known title is the page’s own words', () => {
       /* none */
     }
     const headings = drawn.split('\n').filter((l) => l && !/sr-only/.test(l)).map((l) => l.replace(/^<h1[^>]*>/, '').replace(/<$/, '').trim());
+    // The supplier pages' one pinned row (`ToolPin`, final check B18) draws its `title` as the page's visible <h1>.
+    let pinned = '';
+    try {
+      pinned = execFileSync('grep', ['-rhoE', '<ToolPin [^>]*title="[^"]+"', dirname(loader), '--include=*.tsx'], { cwd: WEB, encoding: 'utf8' });
+    } catch {
+      /* none */
+    }
+    for (const m of pinned.matchAll(/title="([^"]+)"/g)) headings.push(m[1]!);
     assert.ok(
       headings.includes(title),
       `${loader} shows "${title}" as known, but its route draws no visible <h1> with those words (found: ${headings.join(' · ') || 'none'}). A ghost title must be the page's own words — otherwise pass title (grey).`,

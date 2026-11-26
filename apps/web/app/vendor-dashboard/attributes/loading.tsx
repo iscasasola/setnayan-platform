@@ -2,5 +2,6 @@
 import { FormPageSkeleton } from '@/components/skeletons';
 
 export default function Loading() {
-  return <FormPageSkeleton title />;
+  // 👻 Ghost: the pinned row's title is known (`ToolPin title="Attributes"`), so it shows at once.
+  return <FormPageSkeleton title="Attributes" />;
 }

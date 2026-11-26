@@ -114,7 +114,7 @@ test('F-W2-39 · an erased account reads "Erased account", never its tombstone a
   assert.equal(displayAccountEmail(null), null);
   // The tombstone the purge writes is the one the helper knows.
   assert.match(readFileSync(join(WEB, 'lib/erasure/purge.ts'), 'utf8'), /erased\+\$\{targetUserId\}@erased\.setnayan\.invalid/);
-  for (const f of ['app/admin/users/[userId]/page.tsx', 'app/admin/account-deletions/page.tsx', 'app/admin/accounts/_surfaces/vendors-surface.tsx', 'app/admin/vendors/[vendorProfileId]/team/page.tsx', 'app/admin/concierge-abuse/page.tsx']) {
+  for (const f of ['app/admin/users/[userId]/page.tsx', 'app/admin/account-deletions/page.tsx', 'app/admin/accounts/_surfaces/vendors-surface.tsx', 'app/admin/vendors/[vendorProfileId]/team/page.tsx']) {
     assert.match(code(f), /displayAccountEmail\(/, `${f} prints the raw email`);
   }
 });

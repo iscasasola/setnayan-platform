@@ -36,7 +36,7 @@ const ROOM = { w: 10, d: 10 };
 /**
  * 👗 `?people=1` — THE 3D SEAT PLAN'S PEOPLE, DRESSED BY THEIR ROLE'S DRESS CODE (owner 2026-10-20: "the attire depends on
  * the dress code of their role"). Each figure's garment is `seatPlanOutfitOf(guestOutfitOf(…))` — the very call the
- * couple's 3D lab makes per guest (`seating/lab/page.tsx`) — over ONE dress code as the Studio stores it, and every
+ * couple's 3D lab makes per guest (`seating/lab/_components/seating-room.tsx`) — over ONE dress code as the Studio stores it, and every
  * person's stored `guests.attire` set to the OPPOSITE of what their role says, so a figure that wore the stored value
  * would show it. No database, no sign-in.
  */

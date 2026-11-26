@@ -1,3 +1,4 @@
+import { profileShownName } from '@/lib/person-page-facts';
 import { shopPath } from '@/lib/shop-address';
 import type { Metadata } from 'next';
 import Link from 'next/link';
@@ -122,7 +123,8 @@ export default async function ChapterDetailPage({ params }: Props) {
 
   const { user, chapter } = resolved;
   const canonicalSlug = user.slug ?? userSlug;
-  const creatorName = user.display_name?.trim() || 'A Setnayan creator';
+  // The same name the person's own /u page shows (final check A1-073): display name, else first + last.
+  const creatorName = profileShownName(user) ?? 'A Setnayan creator';
   const date = chapter.published_at
     ? new Date(chapter.published_at).toLocaleDateString('en-PH', {
         year: 'numeric',
@@ -168,7 +170,9 @@ export default async function ChapterDetailPage({ params }: Props) {
     creatorUserId: user.user_id,
     eventId: linkedEventId,
   });
-  const hasSubstrate = !!linkedEventId || vendors.length > 0;
+  // ⛔ No "Papic Memories … sit behind this chapter" block (final check A1-073): it showed whenever a chapter named an
+  // event, was never checked against real Papic photos, and led nowhere. Only the measured part (the suppliers) stays.
+  const hasSubstrate = vendors.length > 0;
 
   // Creator Economy PR-C — the viewer promo. For each shoppable vendor with an
   // ACCEPTED collab (this chapter's creator ↔ that vendor) carrying an audience
@@ -241,16 +245,6 @@ export default async function ChapterDetailPage({ params }: Props) {
         {hasSubstrate ? (
           <section className="uchap-sub" aria-label="Behind the chapter">
             <h2 className="m-serif uchap-sub-head">Behind the chapter</h2>
-
-            {linkedEventId ? (
-              <div className="uchap-block">
-                <p className="uchap-block-label">Memories</p>
-                <p className="uchap-note">
-                  Papic Memories of candid photos + clips sit behind this
-                  chapter.
-                </p>
-              </div>
-            ) : null}
 
             {vendors.length > 0 ? (
               <div className="uchap-block">

@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { routes } from '@/lib/routes';
 import { ArrowRight } from 'lucide-react';
 
 import { LocaleSwitch } from '@/lib/marketing-i18n';
@@ -103,7 +104,7 @@ export async function FeaturePageView({ feature: f, locale }: { feature: Feature
   const isSupplier = f.group === 'suppliers';
   const start = isSupplier
     ? { href: '/open-shop', label: w.startSupplier }
-    : { href: '/signup', label: w.startHost };
+    : { href: routes.start(), label: w.startHost };
   const hubHref = locale === 'tl' ? FEATURES_HUB_PATHS.tl : FEATURES_HUB_PATHS.en;
 
   return (

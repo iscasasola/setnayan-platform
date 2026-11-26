@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 2015
-# tables: 551
-# columns: 6606
-# notnull: 3967
+# ledger: 2016
+# tables: 548
+# columns: 6583
+# notnull: 3948
 [ledger]
 20260512000000
 20260513000000
@@ -2027,6 +2027,7 @@
 20271362487248
 20271363111049
 20271363279746
+20271363906595
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -2677,16 +2678,6 @@ comp_grants.source
 comp_grants.two_admin_approval_id
 comp_grants.user_id
 comp_grants.vendor_profile_id
-concierge_abuse_flags.admin_notes
-concierge_abuse_flags.created_at
-concierge_abuse_flags.flag_id
-concierge_abuse_flags.flagged_user_id
-concierge_abuse_flags.matched_user_ids
-concierge_abuse_flags.reviewed_at
-concierge_abuse_flags.reviewed_by
-concierge_abuse_flags.signals
-concierge_abuse_flags.similarity_score
-concierge_abuse_flags.status
 concierge_brain_chunks.applies_to
 concierge_brain_chunks.body
 concierge_brain_chunks.chunk_title
@@ -3116,19 +3107,6 @@ event_checklist_items.sort_order
 event_checklist_items.status
 event_checklist_items.template_key
 event_checklist_items.title
-event_cluster_members.event_cluster_id
-event_cluster_members.event_id
-event_cluster_members.id
-event_cluster_members.is_anchor
-event_cluster_members.linked_at
-event_cluster_members.linked_by
-event_clusters.created_at
-event_clusters.display_name
-event_clusters.event_cluster_id
-event_clusters.id
-event_clusters.owner_user_id
-event_clusters.public_id
-event_clusters.updated_at
 event_colour_changes.actor_kind
 event_colour_changes.actor_label
 event_colour_changes.actor_user_id
@@ -9013,13 +8991,6 @@ comp_grants.public_id
 comp_grants.rationale
 comp_grants.scope
 comp_grants.source
-concierge_abuse_flags.created_at
-concierge_abuse_flags.flag_id
-concierge_abuse_flags.flagged_user_id
-concierge_abuse_flags.matched_user_ids
-concierge_abuse_flags.signals
-concierge_abuse_flags.similarity_score
-concierge_abuse_flags.status
 concierge_brain_chunks.applies_to
 concierge_brain_chunks.body
 concierge_brain_chunks.chunk_title
@@ -9305,18 +9276,6 @@ event_checklist_items.public_id
 event_checklist_items.sort_order
 event_checklist_items.status
 event_checklist_items.title
-event_cluster_members.event_cluster_id
-event_cluster_members.event_id
-event_cluster_members.id
-event_cluster_members.is_anchor
-event_cluster_members.linked_at
-event_clusters.created_at
-event_clusters.display_name
-event_clusters.event_cluster_id
-event_clusters.id
-event_clusters.owner_user_id
-event_clusters.public_id
-event_clusters.updated_at
 event_colour_changes.actor_kind
 event_colour_changes.change_id
 event_colour_changes.created_at

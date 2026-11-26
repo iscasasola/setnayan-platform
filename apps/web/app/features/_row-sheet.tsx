@@ -1,4 +1,5 @@
 import { featureHref, featurePage } from '@/lib/feature-pages';
+import { routes } from '@/lib/routes';
 import { FEATURE_ROWS, PRICE_WORDS, isComing, type FeatureRow, type PersonaKey, type RowId } from '@/lib/features-page';
 import s from './features-story.module.css';
 import { StoryIcon } from './_story-icons';
@@ -18,7 +19,7 @@ export function RowSheet({ id, persona }: { id: RowId; persona: PersonaKey }) {
   const start =
     persona === 'suppliers'
       ? { href: '/for-suppliers', label: 'Open a shop · free' }
-      : { href: '/signup', label: 'Start planning · free' };
+      : { href: routes.start(), label: 'Start planning · free' };
   const action = page?.tryHref
     ? { href: page.tryHref, label: 'Try it' }
     : page

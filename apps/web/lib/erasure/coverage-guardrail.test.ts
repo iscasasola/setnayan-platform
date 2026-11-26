@@ -421,7 +421,9 @@ const DELIBERATE_EXCLUSIONS: Record<string, string> = {
   event_members: 'Membership is the event’s record of who was on it — and erasure’s own lookups resolve through it.',
   event_manual_vendors:
     'Third-party contact PII the subject entered ABOUT someone else — excluded by the same rule as event_vendors. Removed with the event (event_id ON DELETE CASCADE). ⚠ Since 2026-09-20 this row ALSO holds the supplier’s street address + map pin and `payment_method_note` — free text that will routinely contain a supplier’s GCash or BANK ACCOUNT NUMBER, a heavier category than a name and phone. The classification is unchanged (it is still the supplier’s data, not the subject’s), but the DPO question it raises is OPEN: a supplier who later claims an account has no path to erase a couple’s note of their account number, because this table is keyed to the couple’s event, not to them.',
-  event_sponsors: 'Third-party PII (sponsor name/email/phone) the subject entered about others.',
+  // ⚠ TABLE DROPPED 2026-11-27 (migration 20271364844438, brief Add 41 / A2-I14) — sponsors are guests now. The
+  // entry stays only because the parser unions every historical CREATE TABLE and does not read DROP TABLE.
+  event_sponsors: 'Table DROPPED 2026-11-27 — sponsors moved into the guest list. Nothing left to erase.',
 
   // ── the uid is a staff actor, not the subject ──
   vendor_verifications: 'Admin decision record — the uid on it is the reviewing staff member.',

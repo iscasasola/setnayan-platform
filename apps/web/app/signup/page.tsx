@@ -60,6 +60,7 @@ import { DesktopOAuthButtons } from '@/app/_components/desktop-oauth-buttons';
 import { NativeOAuthButtons } from '@/app/_components/native-oauth-buttons';
 import { getOAuthGate } from '@/lib/request-platform';
 import { safeNext, getCurrentUser } from '@/lib/auth';
+import { signupShouldBypass } from '@/lib/signup-bypass';
 import { accountHomePath } from '@/lib/account-security';
 import { createClient } from '@/lib/supabase/server';
 import { accountTypeForSignup, signInHrefKeepingIntent } from '@/lib/signup-intent';
@@ -132,7 +133,8 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
   {
     const supabase = await createClient();
     const user = await getCurrentUser();
-    if (user) {
+    // An anonymous host (no account yet) is NOT signed in here: they came to make one (A1-056).
+    if (user && signupShouldBypass(user)) {
       if (next !== '/') {
         redirect(next);
       }

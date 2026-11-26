@@ -33,7 +33,9 @@ test('1 · the empty grid never says nobody has published', () => {
   }
   assert.match(unfilteredEmptyGridCopy(1).sub, /^This supplier has opened their shop/);
   assert.match(unfilteredEmptyGridCopy(2).sub, /^These suppliers have opened their shops/);
-  assert.match(unfilteredEmptyGridCopy(0).sub, /Check back soon/);
+  // Final check A1-157: no unmeasured promise ("suppliers are landing every week").
+  assert.match(unfilteredEmptyGridCopy(0).sub, /once they list a service/);
+  assert.doesNotMatch(unfilteredEmptyGridCopy(0).sub, /every week/);
 });
 
 test('2 · a live shop with no active service is named; one with a service, or no slug, is not', () => {

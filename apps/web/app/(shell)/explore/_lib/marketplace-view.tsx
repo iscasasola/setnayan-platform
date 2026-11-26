@@ -21,7 +21,9 @@ import { after } from 'next/server';
 import { runSocialFlush } from '@/lib/social/flush';
 import { runAdminDigestFlush } from '@/lib/admin/digest-flush';
 import { runDailyEmailJobs } from '@/lib/daily-email-jobs';
-import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflake, HeartHandshake } from 'lucide-react';
+import { Star, MapPin, ChevronLeft, ChevronRight, Navigation, Sparkles, Snowflake, HeartHandshake, RotateCw } from 'lucide-react';
+import { ErrorState } from '@/app/_components/states/error-state';
+import { actionButtonClass } from '@/components/action-button-class';
 import { haversineKm, formatDistanceKm } from '@/lib/geo';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
@@ -33,7 +35,7 @@ import {
 } from '@/lib/demo-mode';
 import { fetchDemoVendorIds } from '@/lib/demo-vendors';
 import { fetchFraudFrozenVendorIds } from '@/lib/fraud-enforcement-runner';
-import { fetchVendorIdsWithActiveService } from '@/lib/vendor-inquirable-gate';
+import { fetchVendorIdsWithActiveServiceRead } from '@/lib/vendor-inquirable-gate';
 import {
   PUBLIC_SURFACE_VISIBILITIES,
   isBookable,
@@ -1778,7 +1780,10 @@ export async function MarketplaceView({
   // lib/vendor-inquirable-gate.ts for the measured defect this closes —
   // `?event_type=simple_event` returned exactly one shop with 0 active
   // services and no way to message it.
-  const inquirableVendorIds = await fetchVendorIdsWithActiveService(admin);
+  const inquirableRead = await fetchVendorIdsWithActiveServiceRead(admin);
+  const inquirableVendorIds = inquirableRead ?? [];
+  // A refused read emptied the grid and drew "No services listed yet" (final check A1-157). It is said instead.
+  let gridReadFailed = inquirableRead === null;
 
   // Couple-side serves filter (2026-07-03) — resolve the faith exclusion set
   // ONCE per request; it constrains both the main grid query and the broadened
@@ -2065,10 +2070,14 @@ export async function MarketplaceView({
       break;
   }
 
-  const { data: rowsRaw, count: totalCount } = await query.range(
+  const { data: rowsRaw, count: totalCount, error: rowsError } = await query.range(
     (filters.page - 1) * PAGE_SIZE,
     filters.page * PAGE_SIZE - 1,
   );
+  if (rowsError) {
+    logQueryError('ExplorePage.vendor_market_stats', rowsError, { page: filters.page });
+    gridReadFailed = true;
+  }
   const rows = (rowsRaw ?? []) as VendorCardRow[];
 
   // PR brief 2026-05-22 evening — annotate demo rows with their
@@ -3303,6 +3312,7 @@ export async function MarketplaceView({
           broadenedCount={broadenedCount}
           stillSettingUp={stillSettingUp}
           nobodyFreeWords={nobodyFreeWords}
+          readFailed={gridReadFailed}
           eventTypeLabel={
             filters.eventType ? (eventTypeLabel.get(filters.eventType) ?? filters.eventType) : null
           }
@@ -4241,6 +4251,7 @@ function EmptyState({
   stillSettingUp,
   eventTypeLabel,
   nobodyFreeWords,
+  readFailed = false,
 }: {
   filters: {
     base?: MarketplaceBase;
@@ -4264,7 +4275,27 @@ function EmptyState({
   eventTypeLabel: string | null;
   /** "Nobody is free on <date>." — set when the date hide emptied the list (lib/supplier-find-empty.ts). */
   nobodyFreeWords: string | null;
+  /** The grid's read failed: say so with Try again — never "No services listed yet" (final check A1-157). */
+  readFailed?: boolean;
 }) {
+  if (readFailed) {
+    return (
+      <div className="mt-8" data-grid-unread="">
+        <ErrorState
+          title="Couldn’t read the suppliers"
+          broke="The supplier list could not be loaded just now."
+          survived="Your saved suppliers and your events are unchanged."
+          todo="Try again in a moment."
+          actions={
+            <Link href={browseAllVendorsHref(filters.focusedMode)} className={actionButtonClass('neutral')}>
+              <RotateCw aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+              Try again
+            </Link>
+          }
+        />
+      </div>
+    );
+  }
   const hasFilter = !!(
     filters.q ||
     filters.category ||

@@ -2,7 +2,7 @@ import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import { readOurPrices } from '../_pricing-reads';
 import { PlanQuiz } from './_plan-quiz';
 import type { PlanPrices } from './_plan-steps';
-import { formatPeso } from '@/lib/v2-catalog-pure';
+import { formatPhp } from '@/lib/php';
 import { PlanBuyCta } from '@/app/_components/marketing/plan-buy-cta';
 import { PLAN_NAME, type PlanKey } from '@/lib/plan-buy-doors';
 
@@ -39,7 +39,7 @@ export const metadata = {
 };
 
 export default async function PricingPlanPage() {
-  const { prices } = await readOurPrices();
+  const { prices, pricesRead } = await readOurPrices();
   const plan: PlanPrices = {
     pro: prices.pro,
     partsFrom: prices.hubParts.length ? Math.min(...prices.hubParts.map((p) => p.php)) : null,
@@ -70,7 +70,7 @@ export default async function PricingPlanPage() {
               <li key={key} className="border-t border-ink/10 py-3 first:border-t-0" data-plan-door-row={key}>
                 <p className="m-0 flex items-baseline justify-between gap-3">
                   <span className="text-[16.5px] font-semibold">{PLAN_NAME[key]}</span>
-                  <span className="whitespace-nowrap font-pahina text-xl text-terracotta-700">₱{formatPeso(php)}</span>
+                  <span className="whitespace-nowrap font-pahina text-xl text-terracotta-700">{formatPhp(php)}</span>
                 </p>
                 <div className="mt-2">
                   <PlanBuyCta plan={key} />
@@ -79,7 +79,14 @@ export default async function PricingPlanPage() {
             ))}
           </ul>
         </section>
-      ) : null}
+      ) : pricesRead ? null : (
+        <section aria-label="Plans for your event" className="mx-auto w-full max-w-2xl px-4 pb-12 sm:px-6" data-prices-unread="">
+          <h2 className="font-pahina text-2xl font-normal">Plans for your event</h2>
+          <p className="m-0 mt-3 text-sn-md text-ink/75" role="status">
+            Couldn&rsquo;t read the plan prices. Refresh the page to try again.
+          </p>
+        </section>
+      )}
     </main>
   );
 }

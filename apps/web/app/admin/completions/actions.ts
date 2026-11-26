@@ -195,7 +195,7 @@ export async function forceCompleteVendor(formData: FormData) {
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
-    refuse('That press was missing its supplier. Refresh and try again.');
+    return refuse('That press was missing its supplier. Refresh and try again.');
   }
   const note = nullIfBlank(formData.get('note'));
 
@@ -207,7 +207,7 @@ export async function forceCompleteVendor(formData: FormData) {
     .eq('vendor_id', vendorId)
     .maybeSingle();
   const ev = evRow as EventVendorLookup | null;
-  if (!ev) refuse('That supplier is no longer on this event. Refresh the list.');
+  if (!ev) return refuse('That supplier is no longer on this event. Refresh the list.');
 
   const now = new Date().toISOString();
   const { error } = await admin
@@ -223,7 +223,7 @@ export async function forceCompleteVendor(formData: FormData) {
     .eq('event_id', eventId)
     .eq('vendor_id', vendorId)
     .neq('completion_status', 'confirmed'); // idempotent
-  if (error) refuse('That could not be saved. Nothing changed. Try again.');
+  if (error) return refuse('That could not be saved. Nothing changed. Try again.');
 
   await writeAudit(admin, {
     action: 'force_complete_event_vendor',
@@ -289,11 +289,11 @@ export async function upholdNonDelivery(formData: FormData) {
   const eventId = formData.get('event_id');
   const vendorId = formData.get('vendor_id');
   if (typeof eventId !== 'string' || typeof vendorId !== 'string') {
-    refuse('That press was missing its supplier. Refresh and try again.');
+    return refuse('That press was missing its supplier. Refresh and try again.');
   }
   const note = nullIfBlank(formData.get('note'));
   if (!note) {
-    refuse('Upholding a non-delivery needs a note — record what was decided and why.');
+    return refuse('Upholding a non-delivery needs a note — record what was decided and why.');
   }
 
   const admin = createAdminClient();
@@ -304,9 +304,9 @@ export async function upholdNonDelivery(formData: FormData) {
     .eq('vendor_id', vendorId)
     .maybeSingle();
   const ev = evRow as EventVendorLookup | null;
-  if (!ev) refuse('That supplier is no longer on this event. Refresh the list.');
+  if (!ev) return refuse('That supplier is no longer on this event. Refresh the list.');
   if (ev.completion_status !== 'disputed') {
-    refuse('Only an open dispute can be upheld as a non-delivery. It may already be settled.');
+    return refuse('Only an open dispute can be upheld as a non-delivery. It may already be settled.');
   }
 
   const now = new Date().toISOString();
@@ -322,7 +322,7 @@ export async function upholdNonDelivery(formData: FormData) {
     .eq('vendor_id', vendorId)
     .eq('completion_status', 'disputed')
     .is('completion_resolved_at', null); // idempotent
-  if (error) refuse('That could not be saved. Nothing changed. Try again.');
+  if (error) return refuse('That could not be saved. Nothing changed. Try again.');
 
   await writeAudit(admin, {
     action: 'uphold_non_delivery_event_vendor',

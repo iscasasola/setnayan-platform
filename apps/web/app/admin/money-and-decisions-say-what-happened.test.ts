@@ -30,19 +30,21 @@ function body(src: string, name: string): string {
 test('A8·A-2 · refund, reject, ask-again and confirm-total refusals land on the desk as a notice', () => {
   const s = read('app/admin/payments/actions.ts');
   assert.match(body(s, 'refundOrder'), /export async function refundOrder\(formData: FormData\) \{[\s\S]*?return sayRefusalOnTheDesk\(formData, async \(\) => \{/);
+  // The whole body runs inside the catcher, so the admin checklist (admin-jobs.generated.ts) still reads its fields.
   for (const fn of ['rejectPayment', 'requestPaymentResubmit', 'confirmOrderTotal']) {
     assert.match(
       body(s, fn),
-      new RegExp(`return sayRefusalOnTheDesk\\(formData, \\(\\) => ${fn}Core\\(formData\\)\\)`),
+      new RegExp(`export async function ${fn}\\(formData: FormData\\) \\{\\s*return sayRefusalOnTheDesk\\(formData, async \\(\\) => \\{[\\s\\S]*formData\\.get\\(`),
       `${fn} must say its refusal on the desk`,
     );
   }
+  assert.doesNotMatch(s, /\b(?:rejectPayment|requestPaymentResubmit|confirmOrderTotal)Core\b/, 'no hidden core the checklist cannot read');
   const say = body(s, 'sayRefusalOnTheDesk');
   assert.match(say, /if \(isRedirectError\(err\) \|\| !\(err instanceof Error\)\) throw err;/, 'redirects pass straight through');
   assert.match(say, /notice=\$\{encodeURIComponent\(err\.message\)\}&noticeType=warn/, 'the sentence reaches the opened payment');
   assert.match(say, /deskUrl\(deskQuery\(formData\.get\('q'\)\), err\.message, true\)/);
-  // The desk's own "Not received" calls the cores, so its throw still reaches its own handler.
-  assert.match(s, /await requestPaymentResubmitCore\(fd\);[\s\S]*?await rejectPaymentCore\(fd\);/);
+  // The desk's own "Not received" asks for the throw, so its refusal still reaches its own handler.
+  assert.match(s, /fd\.set\('refusal', 'throw'\);[\s\S]*?await requestPaymentResubmit\(fd\);[\s\S]*?await rejectPayment\(fd\);/);
   // Work shows the refusal in its own place, so it asks for the throw.
   assert.match(read('app/admin/work/actions.ts'), /fd\.set\('refusal', 'throw'\);\s*try \{\s*await requestPaymentResubmit\(fd\);/);
 });

@@ -1,4 +1,5 @@
 import { loadSampleGuestOrNotFound } from '@/lib/sample-event/switch.server';
+import { siteOrigin } from '@/lib/site-origin';
 import {
   SAMPLE_WORDS,
   sampleArriveBy,
@@ -97,7 +98,7 @@ export default async function SampleGuestHubPage({ params }: { params: Promise<{
 
           <MeGreeting greeting={greeting} />
 
-          <GuestTicket state="pass" name={sampleGuestName(guest)} invitationUrl={`/sample/hub/${guest.guestKey}`} src={samplePassSrc(guest.guestKey)} />
+          <GuestTicket state="pass" name={sampleGuestName(guest)} invitationUrl={`${siteOrigin()}/sample/hub/${guest.guestKey}`} src={samplePassSrc(guest.guestKey)} fallbackCode={false} />
 
           <GuestMeParts parts={meParts} words={SAMPLE_WORDS} look={look} comingWith={comingWith} />
 
@@ -147,7 +148,7 @@ export default async function SampleGuestHubPage({ params }: { params: Promise<{
                     </p>
                     <p className="mt-0.5 text-sm text-ink/70">{d.line}</p>
                   </div>
-                  <span className="shrink-0 pt-0.5 text-right text-xs text-ink/70">Opens on your wedding day</span>
+                  <span className="shrink-0 pt-0.5 text-right text-xs text-ink/70">Opens on the {SAMPLE_WORDS.eventWord} day</span>
                 </li>
               ))}
             </ul>

@@ -5,6 +5,7 @@ import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { redirect } from 'next/navigation';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
+import { requireAdminCan } from '@/lib/admin/can.server';
 import { fetchV2CustomerCatalog, fetchV2VendorCatalog } from '@/lib/v2-catalog';
 import { tierRank } from '@/lib/vendor-tier-caps';
 import {
@@ -103,6 +104,8 @@ function parsePlainDate(raw: string): string | null {
 
 export async function createFreeWindow(formData: FormData): Promise<never> {
   const { userId } = await requireAdminAction();
+  // A8·B-2: every price write is Prices & promos · Escalated (lib/admin/areas.ts).
+  await requireAdminCan('prices_promos', 'escalated');
   const base = returnBase(formData);
   // A function DECLARATION, not an arrow: TS only credits a `never` call as
   // terminating inside a declared function (an arrow here is TS2534).
@@ -253,6 +256,8 @@ export async function createFreeWindow(formData: FormData): Promise<never> {
 
 export async function setFreeWindowActive(formData: FormData): Promise<never> {
   const { userId } = await requireAdminAction();
+  // A8·B-2: every price write is Prices & promos · Escalated (lib/admin/areas.ts).
+  await requireAdminCan('prices_promos', 'escalated');
   const base = returnBase(formData);
   // A function DECLARATION, not an arrow: TS only credits a `never` call as
   // terminating inside a declared function (an arrow here is TS2534).
@@ -283,6 +288,8 @@ export async function setFreeWindowActive(formData: FormData): Promise<never> {
 
 export async function deleteFreeWindow(formData: FormData): Promise<never> {
   const { userId } = await requireAdminAction();
+  // A8·B-2: every price write is Prices & promos · Escalated (lib/admin/areas.ts).
+  await requireAdminCan('prices_promos', 'escalated');
   const base = returnBase(formData);
   // A function DECLARATION, not an arrow: TS only credits a `never` call as
   // terminating inside a declared function (an arrow here is TS2534).

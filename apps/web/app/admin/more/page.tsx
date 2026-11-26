@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/admin/require-admin';
 /**
  * /admin/more — admin mobile "full menu" overflow landing.
  *
@@ -25,7 +26,9 @@ import { adaptAdminGroupsToLanding } from '../_components/admin-nav-descriptions
 
 export const metadata = { title: 'All surfaces · Admin' };
 
-export default function AdminMoreLanding() {
+export default async function AdminMoreLanding() {
+  // 🔒 A8·L-2: every /admin page checks for an admin itself, not only through the layout.
+  await requireAdmin();
   // Single source of truth: the desktop 6-menu IA, adapted to mobile cards.
   const groups = adaptAdminGroupsToLanding(ADMIN_NAV_GROUPS);
 

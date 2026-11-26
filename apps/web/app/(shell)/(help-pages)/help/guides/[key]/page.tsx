@@ -1,7 +1,7 @@
-import { notFound } from 'next/navigation';
+import { notFound, redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { findGuide, guideSteps } from '@/lib/help/guides';
-import { helpPlace } from '@/lib/help/help-place';
+import { helpPlace, helpSignInDoor } from '@/lib/help/help-place';
 import { routes } from '@/lib/routes';
 import { HelpGuideView } from './guide-view';
 
@@ -43,7 +43,14 @@ export default async function HelpGuidePage({ params, searchParams }: Props) {
   const place = helpPlace(search, Boolean(user && !user.is_anonymous));
   const guide = findGuide(key);
   // A guide belongs to its helps — another account's help (a shop, a guest, signed out) does not list it.
-  if (!guide || !guide.coverage.includes(place.coverage)) notFound();
+  if (!guide) notFound();
+  if (!guide.coverage.includes(place.coverage)) {
+    // 🚪 Signed out, an account's guide opens a sign-in door that comes back here (final check A1-081).
+    if (place.coverage === 'public' && guide.coverage.some((c) => c === 'user' || c === 'supplier')) {
+      redirect(helpSignInDoor(routes.help.guide(key), search));
+    }
+    notFound();
+  }
   if (guideSteps(guide).length === 0) notFound();
   return <HelpGuideView place={place} guide={guide} />;
 }

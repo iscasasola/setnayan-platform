@@ -40,7 +40,7 @@ import { supplierChatHref, supplierThreadPageHref } from '@/lib/upcoming-schedul
 import { uploadPublicAsset } from '@/lib/storage';
 import { uploadDepositProof } from '@/lib/deposit-proof.server';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
-import { resolveLivePax } from '@/lib/pax';
+import { PAX_UNREAD, PAX_UNREAD_WORDS, resolveLivePax } from '@/lib/pax';
 import {
   VENDOR_CATEGORIES,
   VENDOR_STATUSES,
@@ -323,7 +323,11 @@ export async function updateVendorCosts(formData: FormData) {
     crewMealCovered,
   });
   if (totalChanged) {
-    const livePax = await resolveLivePax(supabase, eventId);
+    // ⚖ OWNER ADD 35: an unread count prices nothing — the save is REFUSED with the words and nothing is written
+    // (never a price saved with its guest-count base blanked to null, never the estimate).
+    const livePaxRead = await resolveLivePax(supabase, eventId);
+    if (livePaxRead === PAX_UNREAD) throw new Error(PAX_UNREAD_WORDS);
+    const livePax = livePaxRead;
     updatePayload.pax_quote_base = livePax;
     updatePayload.pax_surcharge_php = 0;
     updatePayload.cost_basis_pax = livePax;

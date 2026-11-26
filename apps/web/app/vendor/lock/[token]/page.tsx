@@ -1,7 +1,7 @@
 import { getCurrentUser } from '@/lib/auth';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { BOOKINGS_CLOSED_COUPLE_MESSAGE } from '@/lib/bookings-open';
 import { LOCKED_QR_SHOP_NOT_VERIFIED } from '@/lib/vendor-verification';
-import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { Lock, CalendarDays, Store, CheckCircle2 } from 'lucide-react';
@@ -31,6 +31,7 @@ import {
 } from '@/app/_components/template-rows';
 import { claimLockedQr } from './actions';
 import { formatCount } from '@/lib/format-number';
+import { routes } from '@/lib/routes';
 
 export const metadata = {
   title: 'Lock in your supplier',
@@ -48,6 +49,10 @@ const STATUS_COPY: Record<string, string> = {
   taken: 'This Locked QR has already been used.',
   void: 'This Locked QR is no longer valid.',
   invalid: 'This Locked QR link is not valid.',
+  // 🗓 A6-71 · LAUNCH L9 (owner 25 Nov: the first registered wins) — another couple's claim on this supplier's date
+  // registered first, so this one booked nothing. The code is still the supplier's to move to another date.
+  date_full:
+    'Someone booked this supplier for this date just before you. Nothing was booked. Ask the supplier for another date, or see their other options.',
   // 🚪 owner 2026-11-02 — bookings closed (`lib/bookings-open.ts`, door 7b). The code stays unused.
   bookings_closed: BOOKINGS_CLOSED_COUPLE_MESSAGE,
   not_verified: LOCKED_QR_SHOP_NOT_VERIFIED,
@@ -88,21 +93,31 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
   const { status } = await searchParams;
 
   const admin = createAdminClient();
-  const { data: tok } = await admin
+  const { data: tok, error: tokError } = await admin
     .from('vendor_locked_qr_tokens')
     .select(
       'token, vendor_profile_id, event_type, category, service_description, event_date, total_php, initial_paid_php, schedule_json, status, claimed_by_user_id, claimed_event_id',
     )
     .eq('token', token)
     .maybeSingle();
-  if (!tok) notFound();
+  // 🧾 A6-26 · A6-B23 (final check 25 Nov): a read that did not answer is not a fake QR, and a code we do not know is
+  // a Locked QR that does not work — never the site-wide "This page doesn't exist". Both are said here, with what to do.
+  if (tokError) {
+    logQueryError('vendorLockPage.token', tokError, {}, 'graceful_degrade');
+    return <LockLinkMessage kind="unread" retryHref={`/vendor/lock/${token}`} />;
+  }
+  if (!tok) return <LockLinkMessage kind="invalid" />;
 
-  const { data: vendor } = await admin
+  const { data: vendor, error: vendorError } = await admin
     .from('vendor_profiles')
-    .select('business_name, tagline, logo_url, location_city, is_published')
+    .select('business_name, business_slug, tagline, logo_url, location_city, is_published')
     .eq('vendor_profile_id', tok.vendor_profile_id)
     .maybeSingle();
-  if (!vendor) notFound();
+  if (vendorError) {
+    logQueryError('vendorLockPage.shop', vendorError, {}, 'graceful_degrade');
+    return <LockLinkMessage kind="unread" retryHref={`/vendor/lock/${token}`} />;
+  }
+  if (!vendor) return <LockLinkMessage kind="invalid" />;
 
   const categoryLabel =
     VENDOR_CATEGORY_LABEL[tok.category as VendorCategory] ?? 'Supplier';
@@ -244,6 +259,17 @@ export default async function VendorLockPage({ params, searchParams }: Props) {
           {statusMessage}
         </p>
       ) : null}
+      {/* 🗓 A6-71: a date someone else registered first — the shop's page shows the supplier's other options. */}
+      {status === 'date_full' && vendor.business_slug ? (
+        <Link
+          href={routes.v.detail(vendor.business_slug)}
+          data-date-full-shop=""
+          className={actionButtonClass('neutral', { extra: 'mt-3' })}
+        >
+          <Store aria-hidden className="h-4 w-4" />
+          See {vendor.business_name}’s options
+        </Link>
+      ) : null}
 
       {/* Action zone */}
       <div className="mt-6">
@@ -304,13 +330,18 @@ async function countIncompatibleShortlist(
   adminClient: ReturnType<typeof createAdminClient>,
   eventId: string,
   dateKey: string,
-): Promise<{ incompatible: number; total: number }> {
-  const { data: rows } = await adminClient
+): Promise<{ incompatible: number; total: number } | null> {
+  const { data: rows, error } = await adminClient
     .from('event_vendors')
     .select('marketplace_vendor_id')
     .eq('event_id', eventId)
     .in('status', ['considering', 'shortlisted'])
     .not('marketplace_vendor_id', 'is', null);
+  // A6-29: a refused shortlist read is `null` (said as "couldn't check"), never "0 of 0" — the warning never vanishes.
+  if (error) {
+    console.error('[supabase-error] app/vendor/lock/[token]/page.tsx · from:event_vendors.select (shortlist)', error);
+    return null;
+  }
   const ids = Array.from(
     new Set(
       ((rows ?? []) as { marketplace_vendor_id: string | null }[])
@@ -372,14 +403,21 @@ async function ClaimForm({
   // event does to their date and how many shortlisted services may not be free
   // on it. Nothing is committed here; the claim RPC applies it on submit.
   const metaById = new Map<string, EventDateMeta>();
+  // A6-29: a refused date-options read is said ("couldn't check it against your date options"), never a silent
+  // "changes your date" over a date that may be one of their options.
+  let metaUnread = false;
   if (agreedDate) {
-    const { data: metaRows } = await adminClient
+    const { data: metaRows, error: metaError } = await adminClient
       .from('events')
       .select('event_id, date_candidates, date_window_start, date_window_end')
       .in(
         'event_id',
         hostEvents.map((e) => e.event_id),
       );
+    if (metaError) {
+      metaUnread = true;
+      console.error('[supabase-error] app/vendor/lock/[token]/page.tsx · from:events.select (date options)', metaError);
+    }
     for (const m of (metaRows ?? []) as ({ event_id: string } & EventDateMeta)[]) {
       metaById.set(m.event_id, {
         date_candidates: m.date_candidates,
@@ -399,16 +437,20 @@ async function ClaimForm({
           meta?.date_window_end != null &&
           agreedDate >= meta.date_window_start &&
           agreedDate <= meta.date_window_end);
-      const message = inOptions
-        ? `Locking in finalizes your date to ${fmt} — one of your options.`
-        : ev.event_date
-          ? `Locking in changes your date to ${fmt}.`
-          : `Locking in sets your wedding date to ${fmt}.`;
+      const message = metaUnread
+        ? `Locking in sets your event date to ${fmt}. We couldn’t check it against your date options.`
+        : inOptions
+          ? `Locking in finalizes your date to ${fmt} — one of your options.`
+          : ev.event_date
+            ? `Locking in changes your date to ${fmt}.`
+            : `Locking in sets your event date to ${fmt}.`;
       const compat = await countIncompatibleShortlist(adminClient, ev.event_id, agreedDate);
       const warn =
-        compat.incompatible > 0
-          ? `${formatCount(compat.incompatible)} of ${formatCount(compat.total)} shortlisted service${compat.total === 1 ? '' : 's'} may not be free then.`
-          : null;
+        compat === null
+          ? 'We couldn’t check whether your shortlisted suppliers are free then.'
+          : compat.incompatible > 0
+            ? `${formatCount(compat.incompatible)} of ${formatCount(compat.total)} shortlisted service${compat.total === 1 ? '' : 's'} may not be free then.`
+            : null;
       return { message, warn };
     }),
   );
@@ -460,5 +502,31 @@ async function ClaimForm({
         <span className="lbl">Lock it in</span>
       </SubmitButton>
     </form>
+  );
+}
+
+/**
+ * A lock link that cannot be shown (A6-26 · A6-B23): the code is unknown (old, mistyped, or the shop is gone), or the
+ * read did not answer. Same terminal block as a used or cancelled QR — the couple learns it was a supplier's Locked QR
+ * and what to do next, never the site-wide 404.
+ */
+function LockLinkMessage({ kind, retryHref }: { kind: 'invalid' | 'unread'; retryHref?: string }) {
+  return (
+    <div className="mx-auto w-full max-w-lg px-4 py-10 sm:px-6 text-center" data-lock-link={kind}>
+      <Lock aria-hidden className="mx-auto h-10 w-10" style={{ color: 'rgb(var(--color-ink-3))' }} strokeWidth={1.5} />
+      <h1 className="mt-4 text-2xl font-semibold tracking-tight">
+        {kind === 'invalid' ? STATUS_COPY.invalid : 'Couldn’t read this lock link'}
+      </h1>
+      <p className={`mt-2 ${TEMPLATE_SUBLINE}`}>
+        {kind === 'invalid'
+          ? 'Ask the supplier to show you a new Locked QR.'
+          : 'Nothing has changed. Try again in a moment.'}
+      </p>
+      {kind === 'unread' && retryHref ? (
+        <span className="mt-5 inline-flex">
+          <ActionButton tone="brand" main href={retryHref} icon={<Lock aria-hidden />} label="Try again" />
+        </span>
+      ) : null}
+    </div>
   );
 }

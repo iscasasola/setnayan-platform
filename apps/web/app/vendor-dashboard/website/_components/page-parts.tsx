@@ -101,6 +101,10 @@ export type PageClientData = {
   addressAsks: boolean;
   /** The first plan with your own web address, from the plan table ("Solo"). */
   addressPlan: string;
+  /** The plan the Pro-page parts name (`TIER_LABEL[firstPlanWith(premiumPage)]`), never typed. */
+  proPartsPlan: string;
+  /** The plan the personal parts name (`TIER_LABEL[FIRST_PAID_SIZE]`), never typed. */
+  personalizePlan: string;
   storeShell: boolean;
   plans: PagePlanLine[];
   /** 🏅 Awards and badges — the pills couples see, composed by `lib/shop-badges.ts` from today's reads. */
@@ -246,7 +250,7 @@ export function PageParts({
 
         <Fold anchor="cover" data="page-cover" lead={<RowIcon icon={ImageIcon} />} title={`Cover photo${diamond(d.proAsks)}`} line={shown.hero ? 'Your pick' : 'Automatic — your first photo'}>
           <div className="space-y-2 pb-4">
-            {d.proAsks ? <PlanAsk plan="Pro" /> : null}
+            {d.proAsks ? <PlanAsk plan={d.proPartsPlan} /> : null}
             {d.portfolio.length === 0 ? (
               <DatesRow data="page-cover-empty" title="No photos yet" line="Add photos to your collections first" href="/vendor-dashboard/collections" />
             ) : (
@@ -262,7 +266,7 @@ export function PageParts({
 
         <Fold anchor="about" data="page-about" lead={<RowIcon icon={Pencil} />} title={`About${diamond(d.personalizeAsks)}`} line={shown.about ? shown.about.split(/(?<=[.!?])\s/)[0] : 'One paragraph · optional'}>
           <div className="space-y-2 pb-4">
-            {d.personalizeAsks ? <PlanAsk plan="Plus" /> : null}
+            {d.personalizeAsks ? <PlanAsk plan={d.personalizePlan} /> : null}
             <textarea
               value={shown.about}
               onChange={(e) => change({ about: e.target.value })}
@@ -335,7 +339,7 @@ export function PageParts({
         <Fold anchor="reviews" data="page-reviews" lead={<RowIcon icon={Star} />} title="Reviews and stories" line={ratingLine ?? 'Could not be read just now'}>
           <div className="space-y-1 pb-4">
             <p className="pt-1 text-[13px] font-semibold text-ink">Pinned at the top{diamond(d.proAsks)}</p>
-            {d.proAsks ? <PlanAsk plan="Pro" /> : null}
+            {d.proAsks ? <PlanAsk plan={d.proPartsPlan} /> : null}
             {d.reviews === null ? (
               <p role="alert" className="text-sm text-[rgb(var(--color-warn))]">Your reviews could not be read just now — not the same as none.</p>
             ) : d.reviews.length === 0 ? (
@@ -428,7 +432,7 @@ export function PageParts({
           }
         >
           <div className="space-y-2 pb-4">
-            {d.personalizeAsks ? <PlanAsk plan="Plus" /> : null}
+            {d.personalizeAsks ? <PlanAsk plan={d.personalizePlan} /> : null}
             <PickMenu
               label="Your colour"
               value={shown.accent || MICROSITE_DEFAULT_ACCENT_KEY}

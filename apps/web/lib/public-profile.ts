@@ -205,6 +205,20 @@ export function filterPubliclyVisibleEventsGiven<T extends PublicGateEventFields
   );
 }
 
+/**
+ * 🔒 A REFUSED READ IS NOT "NO SUCH PROFILE" AND NOT "NOTHING PUBLIC" (final check A1-070, 25 Nov 2026). Every read
+ * here used to ignore its error: a failed user read became a 404, a failed memberships or events read became
+ * "Nothing public to show yet", and both pages are kept for 60 s, so the wrong state was served to others too. A
+ * refused read now throws this, so the page shows the error screen and the cached copy keeps its last good version.
+ */
+export class PublicProfileReadError extends Error {
+  constructor(what: string, cause: unknown) {
+    super(`public profile read failed: ${what}`);
+    this.name = 'PublicProfileReadError';
+    this.cause = cause;
+  }
+}
+
 // Wrapped in cache() so every caller in one request (page body +
 // generateMetadata; or the OG route) shares a single set of queries.
 export const resolvePublicProfile = cache(async function resolvePublicProfile(
@@ -225,7 +239,7 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
     widens which ADDRESS finds the account, never what a stranger is shown at it.
   */
   const byPublicId = ACCOUNT_PUBLIC_ID.test(userSlugRaw ?? '');
-  const { data: userRow } = await admin
+  const { data: userRow, error: userError } = await admin
     .from('users')
     .select(
       /*
@@ -246,19 +260,17 @@ export const resolvePublicProfile = cache(async function resolvePublicProfile(
     )
     .ilike('slug', userSlug)
     .maybeSingle();
-  const row =
-    userRow ??
-    (byPublicId
-      ? (
-          await admin
-            .from('users')
-            .select(
-              PROFILE_USER_COLUMNS,
-            )
-            .eq('public_id', (userSlugRaw ?? '').toUpperCase())
-            .maybeSingle()
-        ).data
-      : null);
+  if (userError) throw new PublicProfileReadError('users by slug', userError);
+  let row = userRow;
+  if (!row && byPublicId) {
+    const byId = await admin
+      .from('users')
+      .select(PROFILE_USER_COLUMNS)
+      .eq('public_id', (userSlugRaw ?? '').toUpperCase())
+      .maybeSingle();
+    if (byId.error) throw new PublicProfileReadError('users by public id', byId.error);
+    row = byId.data;
+  }
   if (!row) return null;
   return finishResolve(admin, row);
 });
@@ -284,16 +296,18 @@ async function finishResolve(
   };
 
   // Events this account owns (couple member), that have a public slug.
-  const { data: memberships } = await admin
+  const { data: memberships, error: membershipsError } = await admin
     .from('event_members')
     .select('event_id')
     .eq('user_id', user.user_id)
     .eq('member_type', 'couple');
+  if (membershipsError) throw new PublicProfileReadError('event_members', membershipsError);
   const eventIds = (memberships ?? []).map((m) => m.event_id as string);
-  const { data: events } =
+  const { data: events, error: eventsError } =
     eventIds.length === 0
-      ? { data: [] }
+      ? { data: [], error: null }
       : await admin.from('events').select(EVENT_FIELDS).in('event_id', eventIds);
+  if (eventsError) throw new PublicProfileReadError('events', eventsError);
 
   const all = (events ?? []) as PublicProfileEvent[];
   // Mirror the /[slug] target's BOTH gates — see filterPubliclyVisibleEvents.

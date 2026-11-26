@@ -4,7 +4,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
 import { ArrowRight } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { fetchEventContracts } from '@/lib/contracts';
+import { readEventContracts } from '@/lib/contracts';
+import { ReadRefusedNotice } from '../_components/read-refused-notice';
 import { ContractCard, ContractsEmptyState } from '@/app/_components/contracts/contract-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
@@ -20,7 +21,9 @@ export default async function EventContractsPage({ params }: Props) {
 
   // RLS filters draft contracts out automatically (couples only see sent
   // and later); this returns sent_for_signature / fully_signed / cancelled.
-  const contracts = await fetchEventContracts(supabase, eventId);
+  // A2-G14: `null` = refused. The page says so; it never claims "No contracts yet" for a read that never happened.
+  const contractsRead = await readEventContracts(supabase, eventId);
+  const contracts = contractsRead ?? [];
 
   // Pull joined vendor business names for each contract.
   const vendorProfileIds = Array.from(new Set(contracts.map((c) => c.vendor_profile_id)));
@@ -59,7 +62,9 @@ export default async function EventContractsPage({ params }: Props) {
         }
       />
 
-      {contracts.length === 0 ? (
+      {contractsRead === null ? (
+        <ReadRefusedNotice what="your contracts" />
+      ) : contracts.length === 0 ? (
         <ContractsEmptyState
           message="No contracts yet. Suppliers will upload PDFs here once you agree on terms in chat."
         />

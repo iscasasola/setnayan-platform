@@ -2,7 +2,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { guestRead } from '@/lib/guest-read';
 import { eventRowOnce } from '@/lib/event-row-once';
-import { fetchEgiftMethods } from '@/lib/egift';
+import { readEgiftMethods } from '@/lib/egift';
 import { giftRegistryHref } from '@/lib/gift-registry';
 import { viewerIsRecognisedForEvent } from '@/lib/pabuya-recognition';
 import { readGuestWishList } from '@/lib/wish-list.server';
@@ -91,8 +91,8 @@ export async function loadGiftPage(admin: SupabaseClient, event: GiftPageEvent):
     identifiers import (this content, and the permanent QR route
     `/api/pabuya/qr/[publicId]`).
   */
-  const [methods, wishRead, viewerIsRecognised, stored, words] = await Promise.all([
-    fetchEgiftMethods(admin, event.event_id, {
+  const [methodsRead, wishRead, viewerIsRecognised, stored, words] = await Promise.all([
+    readEgiftMethods(admin, event.event_id, {
       enabledOnly: true,
     }),
     /* 🎁 The wish list is read beside the ways to give — same service-role client, same gate
@@ -104,6 +104,10 @@ export async function loadGiftPage(admin: SupabaseClient, event: GiftPageEvent):
     // This event type's word for whoever is throwing it. Wedding → 'couple'.
     eventWordsFor(event.event_type),
   ]);
+  /* 🔌 A4-44: a refused read of the ways to give is not "they haven't set up e-gifts yet" — it throws (the guest
+     boundary), the same as the words read below. */
+  if (!methodsRead.read) throw new Error(`loadGiftPage: could not read the ways to give for ${event.event_id}`);
+  const methods = methodsRead.methods;
   /* 🔌 A refused read of the couple's words is not "they wrote none" — it throws, like every read above. */
   if (stored?.error) throw new Error(`loadGiftPage: could not read the gift words for ${event.event_id}: ${stored.error.message}`);
   const own = (stored?.data ?? null) as { pabuya_message?: string | null; gift_registry_url?: string | null } | null;

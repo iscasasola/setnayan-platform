@@ -49,7 +49,13 @@ type AppleProScreenProps = {
 function AppleProEverything({ eventId, back, sample }: Pick<AppleProScreenProps, 'eventId' | 'back'> & { sample: AppleProScreenProps['sample'] }) {
   const router = useRouter();
   const [price, setPrice] = useState<{ state: 'loading' | 'ready' | 'silent'; value: string | null }>(
-    sample ? { state: sample.price ? 'ready' : 'silent', value: sample.price } : { state: 'loading', value: null },
+    /* P-07 (final check): with no App Store product (`PRO` null) the effect below never ran, so the button stayed
+       disabled in 'loading' with no line. No product → the store's silent line at once. */
+    sample
+      ? { state: sample.price ? 'ready' : 'silent', value: sample.price }
+      : PRO
+        ? { state: 'loading', value: null }
+        : { state: 'silent', value: null },
   );
   const [buying, setBuying] = useState(false);
   const [screen, setScreen] = useState<IapScreen | null>(sample?.screen ?? null);
@@ -57,10 +63,14 @@ function AppleProEverything({ eventId, back, sample }: Pick<AppleProScreenProps,
   useEffect(() => {
     if (sample || !PRO) return;
     let alive = true;
-    void loadAppStoreProducts([PRO.productId]).then((map) => {
-      const v = map?.get(PRO.productId)?.displayPrice ?? null;
-      if (alive) setPrice(v ? { state: 'ready', value: v } : { state: 'silent', value: null });
-    });
+    void loadAppStoreProducts([PRO.productId])
+      .then((map) => {
+        const v = map?.get(PRO.productId)?.displayPrice ?? null;
+        if (alive) setPrice(v ? { state: 'ready', value: v } : { state: 'silent', value: null });
+      })
+      .catch(() => {
+        if (alive) setPrice({ state: 'silent', value: null });
+      });
     return () => {
       alive = false;
     };

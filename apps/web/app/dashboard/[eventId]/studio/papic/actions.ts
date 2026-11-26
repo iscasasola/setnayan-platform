@@ -229,7 +229,6 @@ export async function createCoupleChallengeAction(formData: FormData) {
   if (insertErr) logQueryError('createCoupleChallengeAction.insert', insertErr, { event_id: eventId }, 'graceful_degrade');
   if (replacing && !insertErr) await retireReplaced(supabase, eventId, replacing.id);
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
   redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
@@ -277,7 +276,8 @@ function challengeReturnPath(eventId: string, raw: FormDataEntryValue | null): s
   // others are the Papic page's children, still pages.
   const seat = papicSeatBack(eventId, raw);
   if (seat) return seat;
-  return raw === 'run-of-show' ? `/dashboard/${eventId}/studio/papic/run-of-show` : `/dashboard/${eventId}/studio/papic/challenges`;
+  // Final check R6 (25 Nov): the challenges and run-of-show pages are retired — every press lands back on the card's seat.
+  return papicSeatBack(eventId, 'memories')!;
 }
 
 export async function addLibraryChallengeAction(formData: FormData) {
@@ -471,7 +471,6 @@ export async function setCoupleChallengeActiveAction(formData: FormData) {
     // ✕ A removed challenge is gone for good — the switch never re-lights it (CHECK papic_missions_removed_is_off).
     .is('removed_at', null);
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
   redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
@@ -595,7 +594,7 @@ export async function setChallengesPausedAction(formData: FormData) {
   }
   // 🖼 The Papic card's Challenges switch (owner 2026-10-24) saves back to the card's seat (Memories since 2026-11-08);
   // the run of show keeps its own page.
-  const returnTo = papicSeatBack(eventId, formData.get('return_to')) ?? `/dashboard/${eventId}/studio/papic/run-of-show`;
+  const returnTo = papicSeatBack(eventId, formData.get('return_to')) ?? papicSeatBack(eventId, 'memories')!;
   if (!papicGamesEnabled()) {
     redirect(returnTo);
   }
@@ -643,7 +642,7 @@ export async function clearMomentChallengeAction(formData: FormData) {
   if (!eventId) {
     redirect('/dashboard');
   }
-  const returnTo = `/dashboard/${eventId}/studio/papic/run-of-show`;
+  const returnTo = papicSeatBack(eventId, formData.get('return_to')) ?? papicSeatBack(eventId, 'memories')!;
   if (!papicGamesEnabled()) {
     redirect(returnTo);
   }
@@ -712,7 +711,6 @@ export async function stopChallengeAction(formData: FormData) {
     logQueryError('stopChallengeAction', error, { event_id: eventId }, 'graceful_degrade');
   }
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
   redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 
@@ -793,7 +791,6 @@ export async function deleteCoupleChallengeAction(formData: FormData) {
     if (veto.error) logQueryError('deleteCoupleChallengeAction.veto', veto.error, { event_id: eventId }, 'graceful_degrade');
   }
 
-  revalidatePath(`/dashboard/${eventId}/studio/papic/challenges`);
   redirect(challengeReturnPath(eventId, formData.get('return_to')));
 }
 

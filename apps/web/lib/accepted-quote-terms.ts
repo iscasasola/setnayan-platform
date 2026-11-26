@@ -835,6 +835,13 @@ export function moneyStepLine(
           : `Overdue · ${step.installmentLabel}${amt2}${when} — not recorded by the couple`;
       }
       const lead = step.firstConfirmed ? 'First payment confirmed. ' : '';
+      // A7-33: no schedule to read (or the ledger was refused) — never "Amount to pay: Next payment", a label with no
+      // peso that reads like a broken figure. Say what is true: there is no amount set to show.
+      if (step.amountCentavos === null && step.dueOn === null) {
+        return couple
+          ? `${lead}No payment amount is set yet. Record each payment as you make it.`
+          : `${lead}No payment amount is set yet for the couple.`;
+      }
       const what = step.amountCentavos === null ? step.label : `${step.label} · ${pesoFromCentavos(step.amountCentavos)}`;
       return couple ? `${lead}Amount to pay: ${what}` : `${lead}Next from the couple: ${what}`;
     }

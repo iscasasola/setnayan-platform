@@ -47,6 +47,7 @@
  * retired here — `doors-are-designed.test.ts` had this file on its clone bill
  * for exactly that shape, and the line is deleted with it.
  */
+import { decodeParamSafely, ownMessageFromParam } from '@/lib/human-auth-error';
 import Link from 'next/link';
 import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
@@ -61,8 +62,7 @@ import { getOAuthGate } from '@/lib/request-platform';
 import { safeNext, getCurrentUser } from '@/lib/auth';
 import { accountHomePath } from '@/lib/account-security';
 import { createClient } from '@/lib/supabase/server';
-import { readGuestSession } from '@/lib/guest-session';
-import { accountTypeForSignup } from '@/lib/signup-intent';
+import { accountTypeForSignup, signInHrefKeepingIntent } from '@/lib/signup-intent';
 import { signUp } from './actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
@@ -74,8 +74,10 @@ import { InfoTip } from '@/app/_components/info-tip';
 export const metadata: Metadata = {
   title: 'Create account',
   description:
-    'Create a Setnayan account in seconds. Free to start for anyone planning an event. Free baseline listing for Filipino suppliers.',
+    'Create a Setnayan account. Free to start for anyone planning an event. Free baseline listing for Filipino suppliers.',
   alternates: { canonical: '/signup' },
+  // A sign-in page is a door, not a page to find in search (final check A1-160, Add 9 SEO).
+  robots: { index: false, follow: true },
 };
 
 /** The one Terms box (above Google / Apple, a field of the email form by `form=`) and that form — one id each. */
@@ -90,7 +92,11 @@ const ERROR_COPY: Record<string, string> = {
     'This password has appeared in a known data breach. Please choose a different one — it only takes a moment and it protects your account.',
   blacklisted:
     'This email cannot be used to create a Setnayan account. Please use a different email, or contact support if you think this is a mistake.',
+  server_config_error: 'We could not create your account just now. Please try again in a moment.',
 };
+
+/** An unknown `?error=` shows this, never the URL's own words (final check A1-058). */
+const SIGNUP_ERROR_FALLBACK = 'We could not create your account. Check your email and password, or try again in a moment.';
 
 type SearchParams = Promise<{
   error?: string;
@@ -109,8 +115,9 @@ type SearchParams = Promise<{
 
 export default async function SignupPage({ searchParams }: { searchParams: SearchParams }) {
   const params = await searchParams;
-  const rawError = params.error ? decodeURIComponent(params.error) : null;
-  const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
+  // 🔒 The URL chooses among our sentences and never supplies one; a stray "%" never throws (final check A1-058).
+  const rawError = decodeParamSafely(params.error);
+  const errorMessage = ownMessageFromParam(params.error, ERROR_COPY, SIGNUP_ERROR_FALLBACK);
   const confirmationSent = params.sent === '1';
   const next = safeNext(params.next);
   // WHO IS SIGNING UP IS DECIDED BY THE LINK, NOT BY A QUESTION (owner-locked
@@ -157,10 +164,8 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
     typeof params.refc === 'string' && /^S89R-[0-9A-Z]{10}$/i.test(params.refc.trim())
       ? params.refc.trim().toUpperCase()
       : '';
-  const loginHref = `/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`;
-  // Persistent guest accounts: a signed guest session on this browser means the
-  // action will link the guest's tagged photos to the new account.
-  const hasGuestSession = (await readGuestSession()) !== null;
+  // 🔁 The shop intent survives the round trip to sign-in and back (A1-059, Add 33).
+  const loginHref = signInHrefKeepingIntent(next, accountType);
 
   // A paper base under the greige dim, exactly as /login does, so a hard load
   // never flashes a void behind the card.
@@ -192,12 +197,9 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
             </p>
           ) : null}
 
-          {hasGuestSession ? (
-            <p role="status" className="hr-si-banner">
-              Your event photos will be saved to your new account.
-            </p>
-          ) : null}
-
+          {/* ⛔ No "Your event photos will be saved to your new account." (final check A1-061): since 2026-09-30 signing
+              up links no seat and no photos ("SIGNING UP BINDS NO SEAT", actions.ts); only /join/{id}/connect does,
+              on its own Yes. A promise the sign-up does not keep is not shown. */}
           {referralCode ? (
             <p role="status" className="hr-si-banner">
               A couple invited you to Setnayan.{' '}

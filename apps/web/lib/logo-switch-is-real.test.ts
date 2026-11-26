@@ -153,7 +153,7 @@ const READERS: Record<string, readonly [kind: 'carries' | 'via' | 'host' | 'edit
   'app/dashboard/[eventId]/launch/_components/maker-made-once.tsx': ['host', "the Maker's poster (reads the drafted switch when the draft carries it)"],
   'app/dashboard/[eventId]/layout.tsx': ['host', "the host's rail (select *: it follows the switch too)"],
   'app/dashboard/[eventId]/monogram/animated-monogram-upgrade.tsx': ['host', "the host's logo upgrade card"],
-  'app/dashboard/[eventId]/seating/lab/page.tsx': ['host', "the host's seating lab"],
+  'app/dashboard/[eventId]/seating/lab/_components/seating-room.tsx': ['host', "the host's seating lab"],
   'app/dashboard/[eventId]/studio/save-the-date/page.tsx': ['host', "the host's Save the Date studio"],
   'app/dashboard/[eventId]/studio/save-the-date/stamp/page.tsx': ['host', "the host's Save the Date stamp"],
   'app/live/_lib/load-screen.ts': ['carries', 'the live screen'],

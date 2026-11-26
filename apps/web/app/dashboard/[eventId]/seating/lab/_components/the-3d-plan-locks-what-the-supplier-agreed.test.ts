@@ -54,7 +54,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const EDITOR = join(HERE, 'accents-sheet.tsx');
 const LAB = join(HERE, 'seating-lab-3d.tsx');
 const LOADER = join(HERE, 'seating-lab-loader.tsx');
-const PAGE = join(HERE, '..', 'page.tsx');
+// The room the Seats page mounts (it was `lab/page.tsx` until the final check's R5 moved it out of the route).
+const PAGE = join(HERE, 'seating-room.tsx');
 const PANEL = join(
   HERE, '..', '..', '..', 'studio', 'mood-board', '_components', 'part-finalization-panel.tsx',
 );

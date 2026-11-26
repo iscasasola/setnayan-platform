@@ -134,6 +134,7 @@ export function ScheduleDay({
   eventDateKey,
   moments,
   requests,
+  requestsUnread = false,
   suppliers,
   role,
   canStage,
@@ -185,6 +186,8 @@ export function ScheduleDay({
   eventDateKey: string | null;
   moments: DayMoment[];
   requests: DayRequest[];
+  /** A2-I1: the requests read was refused — the sheet says so instead of "Nothing waiting". */
+  requestsUnread?: boolean;
   suppliers: DaySupplier[];
   role: DayRole;
   /** The coordinator may stage a moment hidden from the couple. */
@@ -814,6 +817,7 @@ export function ScheduleDay({
           onClose={() => setSheet(null)}
           eventId={eventId}
           requests={requests}
+          unread={requestsUnread}
           moments={merged}
         />
         {/* ↩ The Undo toast a swiped-away part or moment leaves (owner 2026-11-03) — mounted with the day, so it outlives the inspector. */}
@@ -1530,6 +1534,7 @@ export function ScheduleDay({
         onClose={() => setSheet(null)}
         eventId={eventId}
         requests={requests}
+        unread={requestsUnread}
         moments={merged}
       />
       {hostPanel ? (

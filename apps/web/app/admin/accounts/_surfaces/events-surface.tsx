@@ -1,3 +1,5 @@
+import { FACE_MODE_ERROR, FACE_MODE_NOTICE } from '@/lib/admin/face-mode-notices';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 import Link from 'next/link';
 import { CalendarDays, ScanFace, Trash2 } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -100,9 +102,14 @@ function formatUpdated(iso: string): string {
 export async function EventsSurface({
   q: qRaw,
   archived,
+  saved = null,
+  error: faceError = null,
 }: {
   q: string;
   archived: string | null;
+  /** A8·D-10: the face-tagging switch's outcome (`setEventFaceMode` → `saved=` / `error=`). */
+  saved?: string | null;
+  error?: string | null;
 }) {
   const q = (qRaw ?? '').trim();
   const showArchived = archived === '1';
@@ -335,6 +342,8 @@ export async function EventsSurface({
       <PageMasthead
         title="Events"
       />
+      {faceError && FACE_MODE_ERROR[faceError] ? <FormFlash tone="error">{FACE_MODE_ERROR[faceError]}</FormFlash> : null}
+      {saved && FACE_MODE_NOTICE[saved] ? <FormFlash tone="success">{FACE_MODE_NOTICE[saved]}</FormFlash> : null}
 
       <form className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center" method="get" action="/admin/accounts">
         <input type="hidden" name="tab" value="events" />

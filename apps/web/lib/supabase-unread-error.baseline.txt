@@ -26,7 +26,6 @@ app/admin/corrections/actions.ts	discarded	from:vendor_correction_requests.inser
 app/admin/corrections/actions.ts	discarded	from:vendor_profiles.update	1
 app/admin/disputes/actions.ts	discarded-in-try	from:admin_audit_log.insert	3
 app/admin/disputes/page.tsx	error-unused	from:vendor_disputes.select	1
-app/admin/editorial-review/[editorialId]/actions.ts	discarded	from:event_editorial.update	3
 app/admin/event-deletions/actions.ts	discarded	from:event_deletion_requests.update	2
 app/admin/founder-seats/actions.ts	discarded	from:admin_audit_log.insert	2
 app/admin/fraud/actions.ts	discarded-in-try	from:help_messages.insert	1
@@ -34,15 +33,11 @@ app/admin/fraud/actions.ts	discarded-in-try	rpc:<rpc>	1
 app/admin/fraud/actions.ts	discarded-in-try	rpc:refresh_vendor_fraud_scores	1
 app/admin/fraud/actions.ts	write-error-dropped	from:event_vendors.update	1
 app/admin/fraud/actions.ts	write-error-dropped	from:vendor_reviews.update	1
-app/admin/integrations/actions.ts	discarded	from:platform_settings.update	4
 app/admin/journal-spotlights/actions.ts	discarded	from:admin_approval_requests.update	2
 app/admin/live-studio-channels/actions.ts	discarded	from:live_studio_roam_channel_pool.update	1
 app/admin/live-studio-channels/actions.ts	discarded-in-try	from:admin_audit_log.insert	1
 app/admin/menus/actions.ts	discarded	from:admin_audit_log.insert	1
-app/admin/menus/actions.ts	discarded	from:nav_slot_override.delete	1
-app/admin/menus/actions.ts	discarded	from:nav_slot_override.upsert	5
 app/admin/payments/actions.ts	discarded	from:orders.update	1
-app/admin/payments/actions.ts	discarded	from:receipts.insert	1
 app/admin/payments/actions.ts	discarded-in-try	from:admin_audit_log.insert	1
 app/admin/pricing/_surfaces/free-windows-actions.ts	discarded	from:admin_audit_log.insert	3
 app/admin/pricing/actions.ts	discarded	from:admin_audit_log.insert	10
@@ -53,7 +48,6 @@ app/admin/secrets/actions.ts	discarded-in-try	from:platform_secret_rotations.ups
 app/admin/social-queue/actions.ts	discarded	from:social_publish_settings.update	1
 app/admin/storytellers/actions.ts	discarded	from:admin_audit_log.insert	3
 app/admin/user-reports/actions.ts	discarded	from:creator_chapters.update	1
-app/admin/user-reports/actions.ts	discarded	from:event_blocked_users.upsert	1
 app/admin/vendors/actions.ts	discarded	from:vendor_profiles.delete	2
 app/admin/vendors/actions.ts	discarded	from:vendor_profiles.update	1
 app/admin/vendors/verification-bypass-actions.ts	discarded	from:admin_audit_log.insert	2

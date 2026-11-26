@@ -172,7 +172,10 @@ export async function searchSongs(supabase: SupabaseClient, q: string): Promise<
     .order('is_curated_pick', { ascending: false })
     .order('title', { ascending: true })
     .limit(25);
-  if (error) return null;
+  if (error) {
+    logQueryError('searchSongs', error, {}, 'graceful_degrade');
+    return null;
+  }
   return (data ?? []) as Song[];
 }
 
@@ -184,7 +187,10 @@ export async function fetchCuratedSongs(supabase: SupabaseClient): Promise<Song[
     .eq('is_curated_pick', true)
     .order('song_id', { ascending: true })
     .limit(60);
-  if (error) return null;
+  if (error) {
+    logQueryError('fetchCuratedSongs', error, {}, 'graceful_degrade');
+    return null;
+  }
   return (data ?? []) as Song[];
 }
 

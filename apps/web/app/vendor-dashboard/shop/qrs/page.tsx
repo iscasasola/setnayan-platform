@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { MY_QRS_HREF } from '@/lib/supplier-qr-codes';
+import { MY_QRS_HREF, SHOP_NAME_SETUP_HREF } from '@/lib/supplier-qr-codes';
 import { readStoreLayout } from '@/lib/supplier-store.server';
 import { hiddenQrs } from '@/lib/supplier-store';
 import { ToolFail, ToolPage, ToolPin } from '../../_components/tool-page';
@@ -41,7 +41,7 @@ export default async function MyQrsPage() {
       {profile === 'unread' ? (
         <ToolFail title="Couldn’t load your QR codes" line="Every code you printed or shared still works." retryHref={MY_QRS_HREF} data="my-qrs" />
       ) : (
-        <MyQrsList canShare={Boolean((profile as { business_slug?: string | null }).business_slug)} setupHref="/vendor-dashboard/shop" hide={hide} />
+        <MyQrsList canShare={Boolean((profile as { business_slug?: string | null }).business_slug)} setupHref={SHOP_NAME_SETUP_HREF} hide={hide} />
       )}
     </ToolPage>
   );

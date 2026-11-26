@@ -4,8 +4,11 @@ import Link from 'next/link';
 import { loadRequestTree } from '@/lib/service-requests.server';
 import { TellUsHost } from '../requests/_components/tell-us-host';
 import { notFound, redirect } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, RotateCw } from 'lucide-react';
 import { HideWhenRisen } from '@/app/_components/rise/rise-route';
+import { routes } from '@/lib/routes';
+import { ErrorState } from '@/app/_components/states/error-state';
+import { ActionButton } from '@/components/action-button';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { CanvasMaker } from '../_components/canvas-maker';
@@ -57,6 +60,29 @@ export default async function EditServiceCardPage({
   if (!profile) redirect('/vendor-dashboard');
 
   const card = await loadCardForEdit(supabase, profile.vendor_profile_id, serviceId);
+  if (card === 'unread') {
+    // A refused read is not a deleted card: say it could not be loaded, with one Try again (final check A5-G3-01).
+    return (
+      <div className="mx-auto w-full tab:max-w-5xl px-4 pb-8 pt-4 sm:px-6" data-card-read="failed">
+        <h1 className="sr-only">Your service</h1>
+        <ErrorState
+          title="Couldn’t load this card"
+          broke="We couldn’t read this service card just now."
+          survived="The card is still there — nothing was changed."
+          todo="Try again in a moment."
+          actions={
+            <ActionButton
+              tone="brand"
+              main
+              icon={<RotateCw aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
+              label="Try again"
+              href={`${routes.vendorDashboard.services()}/${encodeURIComponent(serviceId)}`}
+            />
+          }
+        />
+      </div>
+    );
+  }
   if (!card) notFound();
 
   // 🏛 A VENUE'S HALLS (owner 2026-10-14, step 2): "Uses" — which halls this card books. Moved here from the retired

@@ -120,7 +120,7 @@ const APP_LD = {
   featureList: [
     'One home for your whole wedding — one address to share',
     'Save-the-date that announces the day beautifully',
-    'RSVP your guests answer in seconds',
+    'RSVP your guests answer from one link',
     'Event details: when, where, what to wear, how to get there',
     'Your love story, told like a magazine feature',
     'Looks designed, not templated — on every phone and laptop',

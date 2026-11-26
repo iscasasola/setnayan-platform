@@ -119,8 +119,7 @@ export default async function OurStoryPage() {
               Setnayan is a Filipino wedding platform — and a place that keeps
               every event you hold. The couple plans the whole
               event in one place — and on the day, every guest leaves with their
-              own tagged photos and a personal highlight reel of the moments that
-              involved them. The day doesn&rsquo;t just happen for the couple
+              own tagged photos of the moments that involved them. The day doesn&rsquo;t just happen for the couple
               anymore. It happens for everyone who showed up.
             </p>
             <ul className="mt-8 space-y-5">
@@ -143,9 +142,8 @@ export default async function OurStoryPage() {
               <li>
                 <span className="font-medium">Every guest keeps their own memories.</span>{' '}
                 <span className="text-[var(--m-slate)]">
-                  With Papic, guests receive the photos they appear in and can
-                  build a personal highlight reel from the moments that were
-                  theirs. No chasing anyone for the link — it arrives on its own.
+                  With Papic, guests receive the photos they appear in, from the
+                  moments that were theirs. No chasing anyone for the link — it arrives on its own.
                 </span>
               </li>
               <li>

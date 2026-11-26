@@ -72,6 +72,9 @@ const LISTINGS: ReadonlyArray<{ surface: string; path: string; minGates?: number
   { surface: 'Onboarding match pool', path: 'app/onboarding/wedding/actions.ts' },
   { surface: 'Date selection — who is free', path: 'app/dashboard/[eventId]/date-selection/page.tsx' },
   { surface: 'Day-of "Get help" suggestions', path: 'lib/same-day-vendors.ts' },
+  // Compare (final check A1-042): it asks the gate outside demo mode; the one re-typed pair is the post-read
+  // "verified only" narrowing an admin's demo-mode view still needs.
+  { surface: 'Compare (/explore/compare)', path: 'app/(shell)/explore/compare/page.tsx' },
 ];
 
 test('1 · every named couple-facing listing applies the one findable rule', () => {

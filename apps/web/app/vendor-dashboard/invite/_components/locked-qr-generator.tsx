@@ -490,11 +490,11 @@ function LockedQrForm({
         </div>
       ) : gown?.state === 'unread' ? (
         <p role="alert" className="text-sn-md text-[rgb(var(--color-warn))]" data-locked-qr-gown="unread">
-          We couldn&rsquo;t load the Gown design to attach. Reload to try again — a code made now carries no design.
+          Couldn&rsquo;t load the Gown design. Reload — a code made now has no design.
         </p>
       ) : gown?.state === 'gone' ? (
         <p role="status" className="text-sn-md text-[color:var(--m-slate-2)]" data-locked-qr-gown="gone">
-          That Gown design already has its Booked QR, or isn&rsquo;t yours. Share the design again to attach it to a new code.
+          That Gown design already has a code. Share it again to attach it here.
         </p>
       ) : null}
       <input type="hidden" name="proof_r2_ref" value={proof.ref} />

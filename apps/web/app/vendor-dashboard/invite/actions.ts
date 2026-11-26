@@ -360,8 +360,9 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
   if (gownId) {
     const linked = await linkGownDesignToLockedQr(createAdminClient(), { vendorProfileId, designId: gownId, token: inserted.token });
     if (!linked) {
-      await supabase.rpc('vendor_void_locked_qr', { p_token: inserted.token });
-      fail('gown_link');
+      // If the withdrawal is refused too, the code stands with no design — never say it was withdrawn.
+      const { data: voided, error: voidErr } = await supabase.rpc('vendor_void_locked_qr', { p_token: inserted.token });
+      fail(voidErr || voided !== 'void' ? 'gown_link_live' : 'gown_link');
     }
   }
 

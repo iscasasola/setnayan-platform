@@ -77,6 +77,7 @@ const BOOKED_ERRORS: Record<string, string> = {
     'The code you were changing was scanned a moment ago — it is a booking now, so it stays as it was. Nothing new was made.',
   replace_both_live:
     'The change didn’t go through, and the new code couldn’t be withdrawn — both codes are in Booked QRs now. Delete the one you don’t want.',
+  gown_link_live: 'The Gown design couldn’t be attached, and the new code couldn’t be withdrawn — it is in Booked QRs with no design. Delete it there, then share the design again.',
   gown_link: 'The Gown design couldn’t be attached to this code, so the code was withdrawn. Share the design again.',
   date_unavailable:
     'That date is already booked or blocked on your calendar — you can’t lock a second booking on it. Free it up first, or use the waitlist.',

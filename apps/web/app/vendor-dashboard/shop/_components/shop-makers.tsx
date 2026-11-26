@@ -3,7 +3,7 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowUpRight, BookOpen, CalendarDays, ClipboardList, FileText, Layers, Lock, Plus, QrCode, ReceiptText, Tag, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, BookOpen, CalendarDays, ClipboardList, FileText, Layers, Lock, Plus, ReceiptText, Share, Tag, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { routes } from '@/lib/routes';
 import { formatCount } from '@/lib/format-number';
@@ -493,7 +493,7 @@ function ToolBody({ tool, scanners, booked }: { tool: SpecializedTool; scanners:
       <div className="space-y-3" data-tool-body={tool.key}>
         <p className="text-sn-base text-ink/70">{tool.line}. Your quotations, fabrics and prices stay in its Settings — only you see them.</p>
         <ActionButton tone="brand" main icon={ArrowUpRight} label="Open Gown Maker" href={GOWN_MAKER_URL} target="_blank" className="w-full" data-tool-open={tool.key} />
-        <ActionButton tone="neutral" icon={QrCode} label="Share a design" href={gownShareHref()} className="w-full" data-gown-share-door="" />
+        <ActionButton tone="neutral" icon={Share} label="Share a design" href={gownShareHref()} className="w-full" data-gown-share-door="" />
       </div>
     );
   }

@@ -138,11 +138,11 @@ export async function updateOurPhotos(
   // Say so plainly when something was rejected — a photo that silently vanishes reads as a bug, and the host is the
   // only one who can choose a different image. ONE sentence for both paths.
   const blockedNote =
-    blocked.length === 0
-      ? null
-      : blocked.length === 1
+    blocked.length > 0
+      ? blocked.length === 1
         ? "One photo couldn't be added — it didn't pass our automatic check. Please try a different image."
-        : `${formatCount(blocked.length)} photos couldn't be added — they didn't pass our automatic check. Please try different images.`;
+        : `${formatCount(blocked.length)} photos couldn't be added — they didn't pass our automatic check. Please try different images.`
+      : null;
 
   if (drafting) {
     // A photo the screen blocked is left out of the draft, as it is left out live.

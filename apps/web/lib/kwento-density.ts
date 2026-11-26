@@ -30,7 +30,7 @@ export async function getKwentoDensity(
     .eq('event_id', eventId)
     .neq('status', 'rejected')
     .not('source_id', 'is', null);
-  if (countsError) throw new Error(`kwento density read failed: ${countsError.message}`);
+  if (countsError) throw new Error(`photo notes density read failed: ${countsError.message}`);
 
   if (!counts || counts.length === 0) return [];
 
@@ -57,7 +57,7 @@ export async function getKwentoDensity(
     .eq('status', 'approved')
     .in('source_id', photoIds)
     .order('updated_at', { ascending: false });
-  if (previewsError) throw new Error(`kwento preview read failed: ${previewsError.message}`);
+  if (previewsError) throw new Error(`photo notes preview read failed: ${previewsError.message}`);
 
   // One preview per photo: the most recent approved message (already ordered desc).
   const previewMap = new Map<string, string>();

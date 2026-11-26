@@ -10,6 +10,7 @@
  */
 import { startTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { recoverStaleTab } from '@/lib/stale-bundle';
 import { RotateCw } from 'lucide-react';
 import { ErrorState } from '@/app/_components/states/error-state';
 import { actionButtonClass } from '@/components/action-button-class';
@@ -19,6 +20,8 @@ export default function PersonPageError({ error, reset }: { error: Error & { dig
   // A crash born in the browser is recorded, as every boundary does (a server error with a digest was already
   // recorded by onRequestError). Lazy: this boundary pays nothing for it until it renders.
   useEffect(() => {
+    // 🔁 A stale open tab reloads once instead of drawing this card (Build 5 F6 — `recoverStaleTab`).
+    if (recoverStaleTab(error)) return;
     void import('@/lib/telemetry/report-crash')
       .then((m) => m.reportCrash(error, 'person-page'))
       .catch(() => {});

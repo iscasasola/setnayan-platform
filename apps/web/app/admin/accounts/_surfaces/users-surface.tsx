@@ -1,4 +1,6 @@
+import { sanitizeIlikeTerm } from '@/lib/ugat/data-pure';
 import Link from 'next/link';
+import { ERASURE_WORDS } from '@/lib/erasure/erasure-words';
 import { Search, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2, Gift, ChevronRight, XCircle, LogOut } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { after } from 'next/server';
@@ -28,10 +30,10 @@ import {
   type CompGrantRow,
 } from '@/lib/comp-grants';
 import {
-  fetchV2CustomerCatalog,
+  fetchV2CustomerCatalogRead,
   supplierSkuCategory,
-  fetchV2BundleCatalog,
-  fetchV2VendorCatalog,
+  fetchV2BundleCatalogRead,
+  fetchV2VendorCatalogRead,
 } from '@/lib/v2-catalog';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { Badge } from '@/app/_components/badge';
@@ -200,9 +202,11 @@ export async function UsersSurface({
       query = query.not('suspended_at', 'is', null);
     }
 
-    if (q.length > 0) {
+    // A8·D-8: sanitised like the Events tab, so a comma or bracket cannot break the read into "Couldn't read".
+    const term = sanitizeIlikeTerm(q);
+    if (term.length > 0) {
       query = query.or(
-        `email.ilike.%${q}%,display_name.ilike.%${q}%,public_id.ilike.%${q}%`,
+        `email.ilike.%${term}%,display_name.ilike.%${term}%,public_id.ilike.%${term}%`,
       );
     }
 
@@ -281,11 +285,17 @@ export async function UsersSurface({
   // control whose whole job is picking a SKU.
   let compGrantServices: ServiceOption[] | null = null;
   try {
-    const [customers, bundles, vendors] = await Promise.all([
-      fetchV2CustomerCatalog({ forAdmin: true }),
-      fetchV2BundleCatalog(),
-      fetchV2VendorCatalog(),
+    const [customersRead, bundlesRead, vendorsRead] = await Promise.all([
+      fetchV2CustomerCatalogRead({ forAdmin: true }),
+      fetchV2BundleCatalogRead(),
+      fetchV2VendorCatalogRead(),
     ]);
+    // A8·D-6: the catalogue reads resolve with an empty list instead of throwing, so the catch below never saw a
+    // refusal. Any refused part makes the whole picker "couldn't read" — a partial list would drop a category silently.
+    if (!customersRead.ok || !bundlesRead.ok || !vendorsRead.ok) throw new Error('catalogue read refused');
+    const customers = customersRead.rows;
+    const bundles = bundlesRead.rows;
+    const vendors = vendorsRead.rows;
     compGrantServices = [
       ...customers.map((c) => ({
         sku_code: c.service_code,
@@ -591,9 +601,9 @@ function PersonActions({
           </ConfirmForm>
           <ConfirmForm
             action={deleteUser}
-            title="Hard-delete this account?"
+            title="Erase this account?"
             confirmLabel="Delete permanently"
-            message={`Hard-delete ${u.email ?? 'this user'}? Their auth identity is gone; all related data cascade-deletes; the EMAIL is freed for re-signup (e.g., switching from supplier to customer). Not reversible from this page.`}
+            message={`Erase ${u.email ?? 'this user'}? ${ERASURE_WORDS} Their email is freed, so they can sign up again. Not reversible from this page.`}
           >
             <input type="hidden" name="user_id" value={u.user_id} />
             <SubmitButton
@@ -610,7 +620,7 @@ function PersonActions({
             action={blacklistUser}
             title="Blacklist this email?"
             confirmLabel="Blacklist & delete"
-            message={`Blacklist ${u.email ?? 'this user'}? The user is hard-deleted AND the email is permanently blocked from signing up again. Reverse via the Blacklisted filter → Unblacklist.`}
+            message={`Blacklist ${u.email ?? 'this user'}? ${ERASURE_WORDS} The email is also blocked from signing up again. The block (not the erasure) can be lifted from the Blacklisted filter → Unblacklist.`}
           >
             <input type="hidden" name="user_id" value={u.user_id} />
             <SubmitButton

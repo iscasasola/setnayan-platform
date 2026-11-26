@@ -48,16 +48,16 @@
     "sha256": "d815d84d02fb57aebe3fea03cd98e643ffc5058dc78e350009af1e0399fb78d1"
   },
   "event · guest · plain": {
-    "bytes": 41092,
-    "sha256": "df78800f7d689c422ae4cd45c8e83ca2d25250c0001b074cb441f98d80d8548c"
+    "bytes": 41117,
+    "sha256": "f838daf9f5bcbfeb53aafa9f67605d74538c4ef5b00817aa0762af79f4dd5abe"
   },
   "event · guest · hidden": {
-    "bytes": 37738,
-    "sha256": "1fc7f3a74de701b8ad4390ba0e86c0208a03af2875bdf80b50214a20fa78a79e"
+    "bytes": 37763,
+    "sha256": "e85b3ade9ec6220a53481657abc33520b6ffea892283f4e67dd724f343e61fc6"
   },
   "event · guest · browse": {
-    "bytes": 43667,
-    "sha256": "d5c4a3e02c3d7075c0c7fc81d61d7c4f7bf1ad26c17867071c6e5958cdc7eb40"
+    "bytes": 43692,
+    "sha256": "4ab0dfea3bc892cb3b2a85903cceca101813c17c21b6f933344f2510e0f30b40"
   },
   "event · anonymous · plain": {
     "bytes": 27999,

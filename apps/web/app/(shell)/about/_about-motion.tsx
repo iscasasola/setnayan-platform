@@ -69,29 +69,25 @@ export function AboutHero() {
         ref={headingRef as React.RefObject<HTMLHeadingElement>}
         className="max-w-3xl font-display text-4xl leading-tight text-ink sm:text-5xl"
       >
-        Set na &rsquo;yan. Your wedding, all set — on one Filipino platform.
+        Set na &rsquo;yan. Plan it · Live it · Keep it.
       </h1>
       <p
         data-reveal-item
         className="mt-6 max-w-2xl text-lg leading-relaxed text-ink/75"
       >
         Setnayan (<span className="font-medium">SET-na-yan</span>, from the
-        Tagalog <em>&ldquo;Set na &rsquo;yan.&rdquo;</em> — &ldquo;that&rsquo;s
-        all set&rdquo;) is the Philippines&rsquo; own all-in-one wedding and
-        life-events platform — and the first built here to do the whole
-        event in one place: plan it, hire from a 0%-commission
-        marketplace of verified local suppliers, and capture the day so every
-        guest can find the photos they&rsquo;re in.
+        Tagalog <em>&ldquo;I-set na &rsquo;yan&rdquo;</em> — &ldquo;let&rsquo;s
+        get that set&rdquo;) is one place for the whole event: plan it, hire
+        verified local suppliers, and capture the day so every guest can find
+        the photos they&rsquo;re in. Hosts pay 0% commission.
       </p>
       <p
         data-reveal-item
         className="mt-4 max-w-2xl text-lg leading-relaxed text-ink/75"
       >
-        Not a foreign directory with a Philippine filter — software built and
-        operated entirely in the Philippines, for the way Filipino couples
+        Built and run in the Philippines, for the way Filipino families
         actually plan: a free planning workspace, verified local suppliers,
-        transparent peso pricing, and zero commission on what you pay your
-        suppliers.
+        prices in pesos, and nothing added to what you pay your suppliers.
       </p>
     </section>
   );

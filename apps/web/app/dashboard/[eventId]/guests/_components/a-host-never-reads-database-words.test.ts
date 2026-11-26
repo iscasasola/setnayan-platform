@@ -16,6 +16,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { couldntDelete, isPlainSentence, plainRefusal } from './plain-refusal';
+import { DIDNT_SAVE, plainSaveError, plainSaveWords } from '@/lib/plain-save-error';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const read = (...p: string[]) => stripComments(readFileSync(join(HERE, ...p), 'utf8'));
@@ -111,4 +112,71 @@ test('the list page’s ?error= banner never prints a database message (it has s
   );
   assert.match(read('..', 'page.tsx'), /import \{ guestListErrorCopy \} from '\.\/_components\/guest-list-error-copy';/);
   assert.match(read('guest-list-error-copy.ts'), /return plainRefusal\(decoded, /);
+});
+
+/* ── SW-RAWDB (final check 25 Nov 2026, plan batch A-7): the same rule, widened to every action of the sweep ── */
+
+const WEB = join(HERE, '..', '..', '..', '..', '..');
+const readWeb = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
+
+/** Shapes that carry the database's words toward a screen. */
+const RAW_SHAPES = [
+  /encodeURIComponent\(\s*[A-Za-z_.]*(?:error|Error|Err)\??\.message/,
+  /encodeURIComponent\(\s*'[a-z_]+: ' \+ \w+\.message/,
+  /encodeURIComponent\(\(e as Error\)\.message/,
+  /error:\s*error\.message\.slice\(/,
+  /message:\s*\w*Err\.message/,
+  /:\s*error\.message\.slice\(0, 80\)/,
+  /We could not add them: \$\{/,
+  /body=\{readyErr\?\.message/,
+  /body=\{linked\.message\}/,
+  /\?error=\$\{encodeURIComponent\(result\.error\)/,
+];
+
+const SW_RAWDB_ACTION_FILES = [
+  'app/host/accept/[token]/actions.ts',
+  'app/dashboard/[eventId]/sponsors/actions.ts',
+  'app/dashboard/[eventId]/disputes/actions.ts',
+  'app/dashboard/[eventId]/guests/new/actions.ts',
+  'app/dashboard/[eventId]/guests/import/actions.ts',
+  'app/dashboard/(account)/samahan/actions.ts',
+  'app/samahan/join/[token]/actions.ts',
+  'app/vendor/claim/[token]/finalize/page.tsx',
+  'app/dashboard/[eventId]/studio/papic/moderation/actions.ts',
+  'app/dashboard/[eventId]/studio/guest-columns/actions.ts',
+  'app/dashboard/[eventId]/studio/mood-board/actions.ts',
+  'app/dashboard/[eventId]/studio/photo-delivery/actions.ts',
+];
+
+test('SW-RAWDB: no action of the sweep hands the database’s own words to a person', () => {
+  for (const f of SW_RAWDB_ACTION_FILES) {
+    const s = readWeb(f);
+    for (const re of RAW_SHAPES) assert.doesNotMatch(s, re, `${f} still carries raw database text (${re})`);
+    assert.doesNotMatch(s, /error: \w+\.message \}/, `${f} returns error.message`);
+  }
+});
+
+test('SW-RAWDB: the one mapper says what to do, and never a database word (fixtures)', () => {
+  const [origError, origWarn] = [console.error, console.warn];
+  console.error = () => {};
+  console.warn = () => {};
+  try {
+    for (const message of RAW) {
+      const words = plainSaveError('test', { message });
+      assert.ok(isPlainSentence(words.replace(' · ', ', ')), `not a plain sentence: ${words}`);
+      for (const leak of ['violates', 'constraint', 'policy', 'uuid', 'JWT', 'PGRST', 'schema', 'column']) {
+        assert.ok(!words.includes(leak), `${leak} reached the screen from: ${message}`);
+      }
+    }
+  } finally {
+    console.error = origError;
+    console.warn = origWarn;
+  }
+  assert.equal(plainSaveWords({ code: '23505', message: 'duplicate key value violates unique constraint "x"' }), 'That’s already there — check the list, then try again.');
+  assert.equal(plainSaveWords({ code: '42501', message: 'permission denied for table guests' }), 'You can’t change this here. Ask a host of this event.');
+  assert.equal(plainSaveWords({ message: 'new row violates row-level security policy for table "guests"' }), 'You can’t change this here. Ask a host of this event.');
+  assert.equal(plainSaveWords({ code: '23503' }), 'Something this needs was changed meanwhile. Reload, then try again.');
+  assert.equal(plainSaveWords({ message: 'TypeError: fetch failed' }), 'Couldn’t reach Setnayan. Check your connection, then try again.');
+  assert.equal(plainSaveWords({ code: 'XX000', message: 'column guests.foo does not exist' }), DIDNT_SAVE);
+  assert.equal(plainSaveWords(null), DIDNT_SAVE);
 });

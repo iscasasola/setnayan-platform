@@ -138,15 +138,15 @@ export default async function AdminTeamPage() {
   const people = (peopleRes.data ?? null) as Person[] | null;
   // Who is shown as the owner is the DATABASE's answer (auth sign-in address + is_internal), asked only for the rows
   // that look like the owner — a profile row's email proves nothing on its own (lib/admin/owner.server.ts).
-  const ownerIds = new Set(
-    (
-      await Promise.all(
-        (people ?? [])
-          .filter((p) => isOwnerProfile(p))
-          .map(async (p) => ((await readIsPlatformOwner(admin, p.user_id)) === true ? p.user_id : null)),
-      )
-    ).filter((id): id is string => id !== null),
+  // A8·D-15: `readIsPlatformOwner` answers `null` when it could not check. That row is NOT shown as an ordinary
+  // admin with "No areas yet" and an editable grid — it says it could not check the owner, and is locked.
+  const ownerAnswers = await Promise.all(
+    (people ?? [])
+      .filter((p) => isOwnerProfile(p))
+      .map(async (p) => [p.user_id, await readIsPlatformOwner(admin, p.user_id)] as const),
   );
+  const ownerIds = new Set(ownerAnswers.filter(([, a]) => a === true).map(([id]) => id));
+  const ownerUnchecked = new Set(ownerAnswers.filter(([, a]) => a === null).map(([id]) => id));
   const scopes = scopesRes.error ? null : ((scopesRes.data ?? []) as ScopeRow[]);
 
   return (
@@ -242,6 +242,7 @@ export default async function AdminTeamPage() {
             ) : null}
             {people.map((p) => {
               const owner = ownerIds.has(p.user_id);
+              const ownerUnknown = ownerUnchecked.has(p.user_id);
               const mine = (scopes ?? []).filter((s) => s.user_id === p.user_id);
               const has = (area: string, level: 'basic' | 'escalated') =>
                 mine.some((s) => s.area === area && s.level === level);
@@ -251,11 +252,13 @@ export default async function AdminTeamPage() {
                 .map((s) => adminAreaLabel(s.area));
               const summary = owner
                 ? 'Owner — every area, Basic and Escalated · can’t be changed'
-                : [esc.length ? `Escalated: ${esc.join(' · ')}` : '', basicOnly.length ? `Basic: ${basicOnly.join(' · ')}` : '']
+                : ownerUnknown
+                  ? 'Couldn’t check the owner — reload before changing anything here'
+                  : [esc.length ? `Escalated: ${esc.join(' · ')}` : '', basicOnly.length ? `Basic: ${basicOnly.join(' · ')}` : '']
                     .filter(Boolean)
                     .join(' — ') || 'No areas yet — can open /admin and do nothing';
               const isMe = p.user_id === meId;
-              const editable = canManage && !owner && !isMe && scopes !== null;
+              const editable = canManage && !owner && !ownerUnknown && !isMe && scopes !== null;
               return (
                 <li key={p.user_id} className="sn-row p-4">
                   <details>

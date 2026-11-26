@@ -56,11 +56,17 @@ export async function MoodboardLibrarySurface() {
   // Pull color-range tag maps in one batch
   const assetIds = (rows ?? []).map((r) => r.asset_id);
   const colorRangesByAsset = new Map<string, ColorRangeMap>();
+  let tagsUnread = false;
   if (assetIds.length > 0) {
-    const { data: ranges } = await admin
+    const { data: ranges, error: rangesErr } = await admin
       .from('moodboard_asset_color_ranges')
       .select('asset_id, slot_id, sampled_hex, tolerance_de, region_label')
       .in('asset_id', assetIds);
+    // A8·G-10: an unread tag list is said, and the editor will not save over it.
+    if (rangesErr) {
+      logQueryError('MoodboardLibrarySurface (color ranges)', rangesErr, {}, 'graceful_degrade');
+      tagsUnread = true;
+    }
     for (const r of ranges ?? []) {
       const existing = colorRangesByAsset.get(r.asset_id) ?? {};
       existing[r.slot_id] = {
@@ -106,7 +112,7 @@ export async function MoodboardLibrarySurface() {
         title="Moodboard Library"
       />
 
-      <LibraryEditor initialAssets={assets} partLabels={partLabels} />
+      <LibraryEditor initialAssets={assets} partLabels={partLabels} tagsUnread={tagsUnread} />
     </div>
   );
 }

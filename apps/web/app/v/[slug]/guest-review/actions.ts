@@ -66,7 +66,7 @@ export async function sendGuestReview(_prev: GuestReviewSendState, form: FormDat
     .select('first_name')
     .eq('guest_id', session.guest_id)
     .maybeSingle();
-  const firstName = (guest as { first_name?: string | null } | null)?.first_name?.trim() || 'you';
+  const firstName = (guest as { first_name?: string | null } | null)?.first_name?.trim() || '';
   const gift = await guestReviewGiftFor(vendorProfileId);
 
   // The shop's page and its own Reviews list read the new row on their next render.

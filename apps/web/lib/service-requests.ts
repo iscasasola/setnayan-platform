@@ -155,7 +155,9 @@ export function decisionProblem(d: DecisionInput): string | null {
  * "n cards move from A to B" — printed on the admin's decision before they press. A choice that leaves
  * the cards where they are says so instead of pretending to move them.
  */
-export function cardsMoveLine(n: number, from: string, to: string | null): string {
+export function cardsMoveLine(n: number | null, from: string, to: string | null): string {
+  // A8·B-15: an unread count is not "no cards" — say it could not be counted.
+  if (n === null) return 'Couldn’t count the cards on this request — reload before deciding.';
   if (n === 0) return 'No cards to move — the shop has not made one here yet.';
   const cards = `${n} card${n === 1 ? '' : 's'}`;
   if (!to || to === from) return `${cards} ${n === 1 ? 'stays' : 'stay'} under ${from}.`;

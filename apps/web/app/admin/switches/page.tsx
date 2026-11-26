@@ -189,7 +189,7 @@ async function AdminSwitchesPage({
             data="sample-event"
             name="Sample event at /sample"
             tip="Maria and Jose at /sample. While it is off, only internal accounts can open it; everyone else gets a page-not-found. A pick saves at once."
-            below={unread ? <SettingValue>{null}</SettingValue> : <SampleEventSwitch initial={sampleMode} />}
+            below={unread ? <SettingValue>{null}</SettingValue> : <SampleEventSwitch initial={sampleMode} envDefaultOn={envFlagEnabled(process.env.SAMPLE_EVENT_ENABLED)} />}
           />
           <TemplateRow title="Open the sample" line="/sample — Maria and Jose" href="/sample" data="sample-open" />
         </TemplateRows>

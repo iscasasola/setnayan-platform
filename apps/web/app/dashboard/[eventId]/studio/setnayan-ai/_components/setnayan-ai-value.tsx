@@ -1,5 +1,6 @@
 import { ShieldCheck, Sparkles } from 'lucide-react';
 import { AI_LIVE_FIGURES as LIVE_FIGURES, type AiActivity } from '@/lib/setnayan-ai-activity';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { Spotlights } from '@/app/_components/marketing/_spotlights';
 import {
   buildAiValueSpotlights,
@@ -73,7 +74,10 @@ export function SetnayanAiValue({
       {/* Live briefing — the headline per-event number, then the real figures
           behind it. Only in live mode; the preview state shows no numbers at
           all rather than plausible-looking ones. */}
-      {live && activity ? (
+      {/* S-05 (final check): an unmeasured briefing is not "0% booked · 0 suppliers". */}
+      {live && activity && !activity.measured ? (
+        <ReadRefusedNotice what="your planning numbers" />
+      ) : live && activity ? (
         <div className="border-t border-ink/10 space-y-3 py-5">
           <p className="inline-flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-mulberry">
             <ShieldCheck aria-hidden className="h-4 w-4" strokeWidth={2} />

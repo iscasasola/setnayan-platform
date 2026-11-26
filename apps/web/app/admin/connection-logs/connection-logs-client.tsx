@@ -35,6 +35,7 @@ import { useModalA11y } from '@/lib/use-modal-a11y';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
 
 import { useSaveLoader } from '@/components/sd-loader';
+import { useToast } from '@/app/_components/toast/toast-provider';
 
 import { resolveAllActive, setLogStatus } from './actions';
 
@@ -129,6 +130,7 @@ export function ConnectionLogsClient({
   const [live, setLive] = useState(false);
   const [pending, startTransition] = useTransition();
   const save = useSaveLoader();
+  const toast = useToast();
 
   // ── Realtime stream ──────────────────────────────────────────────────────
   useEffect(() => {
@@ -188,18 +190,25 @@ export function ConnectionLogsClient({
       setResolved((prev) => [updated, ...prev.filter((r) => r.id !== row.id)]);
       if (selected?.id === row.id) setSelected(null);
       startTransition(async () => {
-        const res = await save.run(() => setLogStatus(row.id, status), {
-          steps: ['Updating the log'],
-          hint: 'Saving',
-        });
-        if (!res.ok) {
-          // Revert on failure.
+        // A8·H-6: a refused save ({ ok:false }) is a failure — no "Saved" beat; the row goes back to Active and a
+        // plain reason says to try again.
+        try {
+          await save.run(
+            async () => {
+              const res = await setLogStatus(row.id, status);
+              if (!res.ok) throw new Error(res.error ?? 'refused');
+              return res;
+            },
+            { steps: ['Updating the log'], hint: 'Saving' },
+          );
+        } catch {
           setResolved((prev) => prev.filter((r) => r.id !== row.id));
           setActive((prev) => (prev.some((r) => r.id === row.id) ? prev : [row, ...prev]));
+          toast.error('That log was not updated. Try again.');
         }
       });
     },
-    [selected, save],
+    [selected, save, toast],
   );
 
   const archiveAll = useCallback(() => {
@@ -215,12 +224,23 @@ export function ConnectionLogsClient({
     setActive((prev) => prev.filter((r) => !ids.has(r.id)));
     setResolved((prev) => [...stamped, ...prev]);
     startTransition(async () => {
-      await save.run(() => resolveAllActive(scope), {
-        steps: ['Archiving the logs'],
-        hint: 'Saving',
-      });
+      // A8·H-6: a refused archive puts every row back under Active and says so.
+      try {
+        await save.run(
+          async () => {
+            const res = await resolveAllActive(scope);
+            if (!res.ok) throw new Error(res.error ?? 'refused');
+            return res;
+          },
+          { steps: ['Archiving the logs'], hint: 'Saving' },
+        );
+      } catch {
+        setResolved((prev) => prev.filter((r) => !ids.has(r.id)));
+        setActive((prev) => [...target.filter((r) => !prev.some((p) => p.id === r.id)), ...prev]);
+        toast.error('The logs were not archived. Try again.');
+      }
     });
-  }, [active, filter, save]);
+  }, [active, filter, save, toast]);
 
   return (
     <div className="space-y-6">

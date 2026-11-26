@@ -28,9 +28,14 @@ type Props = {
 };
 
 const TERMINAL_COPY: Record<
-  'not_found' | 'revoked' | 'expired' | 'archived',
+  'not_found' | 'revoked' | 'expired' | 'archived' | 'unreadable',
   { title: string; body: string }
 > = {
+  // 🔌 A4-12: our read failed — the link is probably fine.
+  unreadable: {
+    title: 'We couldn’t check this invite just now.',
+    body: 'Your link is probably fine. Give it a moment and try again.',
+  },
   not_found: {
     title: 'This invite link doesn’t work.',
     body: 'It may have been rotated by an organizer, or the link was copied incompletely. Ask an organizer for a fresh one.',
@@ -72,9 +77,18 @@ export default async function SamahanJoinPage({ params, searchParams }: Props) {
         title={copy.title}
         sub={copy.body}
       >
-        <Link href="/" className={actionButtonClass('neutral', { extra: '!h-11' })}>
-          Go home
-        </Link>
+        {resolution.status === 'unreadable' ? (
+          <Link
+            href={`/samahan/join/${encodeURIComponent(token)}`}
+            className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
+          >
+            Try again
+          </Link>
+        ) : (
+          <Link href="/" className={actionButtonClass('neutral', { extra: '!h-11' })}>
+            Go home
+          </Link>
+        )}
       </DoorShell>
     );
   }
@@ -112,8 +126,12 @@ export default async function SamahanJoinPage({ params, searchParams }: Props) {
           </>
         }
         title="We couldn’t complete that just now."
-        sub={`Error: ${search.error}. Try again, or ask an organizer for a fresh link.`}
+        // A4-14 (SW-RAWDB): fixed words; nothing from the address bar is printed.
+        sub="Nothing was changed. Try again, or ask an organizer for a fresh link."
       >
+        <Link href={`/samahan/join/${token}`} className={actionButtonClass('brand', { main: true, extra: '!h-11' })}>
+          Try again
+        </Link>
         <Link href="/" className={actionButtonClass('neutral', { extra: '!h-11' })}>
           Go home
         </Link>
@@ -152,7 +170,7 @@ function InviteDoor({
   sub,
   children,
 }: {
-  invite: { name: string; member_count: number };
+  invite: { name: string; member_count: number | null };
   sub?: string;
   children: React.ReactNode;
 }) {
@@ -166,7 +184,8 @@ function InviteDoor({
       }
       title={`Join ${invite.name}?`}
       sub={sub}
-      meta={`${formatCount(invite.member_count)} ${invite.member_count === 1 ? 'member' : 'members'}`}
+      // 🔌 A4-13: an unread count is left out, never "0 members".
+      meta={invite.member_count === null ? undefined : `${formatCount(invite.member_count)} ${invite.member_count === 1 ? 'member' : 'members'}`}
     >
       {children}
     </DoorShell>

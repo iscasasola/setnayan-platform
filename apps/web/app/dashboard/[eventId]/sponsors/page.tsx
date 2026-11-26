@@ -15,6 +15,7 @@ import {
   SPONSOR_SIDE_LABEL,
   SPONSOR_TIER_HINT,
   SPONSOR_TIER_LABEL,
+  sponsorRoleHonorific,
   type SponsorTier,
 } from '@/lib/event-sponsors';
 import { AddSponsorModal } from './_components/add-sponsor-modal';
@@ -25,6 +26,7 @@ import { addSponsor } from './actions';
 import { readEventSponsorGuests } from '@/lib/sponsor-guests';
 import { formatCount } from '@/lib/format-number';
 import { InfoTip } from '@/app/_components/info-tip';
+import { sponsorErrorWords } from './sponsor-error-copy';
 import { ReadRefusedNotice } from '../_components/read-refused-notice';
 
 export const metadata = {
@@ -197,7 +199,8 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
   const justInvited = search.invited === '1';
   const justAccepted = search.accepted === '1';
   const justDeclined = search.declined === '1';
-  const errorMessage = search.error ?? null;
+  // A2-I18: fixed words for a known key, the plain fallback otherwise — never the address bar's own text.
+  const errorMessage = sponsorErrorWords(search.error);
 
   // A2-I13: a refused sponsor read is never "0 of N slots filled" with an Add button on every slot (pressing them
   // would add second copies of sponsors who are already there). The page says it could not read, and stops.
@@ -464,7 +467,7 @@ function PrincipalPairRow({
         {/* Groom's side */}
         <div className="space-y-2">
           <p className="sn-eye">
-            {SPONSOR_SIDE_LABEL.groom} · ninong
+            {SPONSOR_SIDE_LABEL.groom} · {sponsorRoleHonorific('principal', 'groom')}
           </p>
           {groomSponsor ? (
             <SponsorCard
@@ -479,7 +482,7 @@ function PrincipalPairRow({
               sponsorTier="principal"
               side="groom"
               pairIndex={pairIndex}
-              triggerLabel="Add ninong"
+              triggerLabel="Add sponsor"
               formAction={addSponsor}
             />
           )}
@@ -488,7 +491,7 @@ function PrincipalPairRow({
         {/* Bride's side */}
         <div className="space-y-2">
           <p className="sn-eye">
-            {SPONSOR_SIDE_LABEL.bride} · ninang
+            {SPONSOR_SIDE_LABEL.bride} · {sponsorRoleHonorific('principal', 'bride')}
           </p>
           {brideSponsor ? (
             <SponsorCard
@@ -503,7 +506,7 @@ function PrincipalPairRow({
               sponsorTier="principal"
               side="bride"
               pairIndex={pairIndex}
-              triggerLabel="Add ninang"
+              triggerLabel="Add sponsor"
               formAction={addSponsor}
             />
           )}

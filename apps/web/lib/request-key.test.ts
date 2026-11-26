@@ -63,8 +63,10 @@ test('Undo stays for a moment, then closes', () => {
 });
 
 test('the words are the approved prototype’s, verbatim', () => {
-  assert.equal(REQUEST_WORDS.sentTitle, 'Sent to the couple');
-  assert.equal(REQUEST_WORDS.waiting, 'Waiting for the couple to confirm you');
+  // 🗣 A4-48 (final check): the prototype's words at a wedding, the event's own word everywhere else.
+  assert.equal(REQUEST_WORDS.sentTitle('the couple'), 'Sent to the couple');
+  assert.equal(REQUEST_WORDS.waiting('the couple'), 'Waiting for the couple to confirm you');
+  assert.equal(REQUEST_WORDS.waiting('the family'), 'Waiting for the family to confirm you');
   assert.equal(REQUEST_WORDS.declined, 'Sorry, your request was not approved.');
   assert.equal(REQUEST_WORDS.inTitle, 'You’re in!');
   assert.equal(REQUEST_WORDS.saveUpdated, 'Save your Digital ticket');

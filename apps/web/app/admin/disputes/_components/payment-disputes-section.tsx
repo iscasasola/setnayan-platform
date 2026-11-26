@@ -69,7 +69,8 @@ export async function PaymentDisputesSection() {
 
   // The couple's receipt sits in the PRIVATE thread-files bucket; sign it from
   // the one folder its writer accepts, exactly as the supplier's card does.
-  const receiptByPayment = new Map<string, string | null>();
+  // A8·E-4: a receipt on file that could not be signed is 'unsigned' — said as such, never "no receipt on file".
+  const receiptByPayment = new Map<string, string | null | 'unsigned'>();
   for (const r of rows ?? []) {
     if (!r.proof_r2_key || !r.event_id) continue;
     try {
@@ -78,7 +79,7 @@ export async function PaymentDisputesSection() {
         await displayUrlForPrivateStoredAsset(r.proof_r2_key, budgetPaymentProofPolicy(r.event_id)),
       );
     } catch {
-      receiptByPayment.set(r.payment_id, null);
+      receiptByPayment.set(r.payment_id, 'unsigned');
     }
   }
 
@@ -126,13 +127,15 @@ export async function PaymentDisputesSection() {
                   {r.method ? ` via ${r.method}` : ''}
                   {r.reference ? ` · ref ${r.reference}` : ''}
                   {r.paid_at ? ` · paid ${relativeTime(r.paid_at)}` : ''}
-                  {receipt ? (
+                  {receipt && receipt !== 'unsigned' ? (
                     <>
                       {' · '}
                       <a className="underline" href={receipt} target="_blank" rel="noopener noreferrer">
                         receipt
                       </a>
                     </>
+                  ) : receipt === 'unsigned' ? (
+                    ' · a receipt is on file but couldn’t be opened just now'
                   ) : (
                     ' · no receipt on file'
                   )}

@@ -37,9 +37,9 @@
  *     changed are also pinned by name in § 2, where the use is a throw or the
  *     in-place answer.
  *   · "Used again" is counted by NAME across the file. A read that binds the
- *     bare name `error` is satisfied by any other `error` in the file; today
- *     one read does (seat/page.tsx `fetchTables`, which returns
- *     `failed: Boolean(error)`). Bind a named error (`castError`) in new code.
+ *     bare name `error` is satisfied by any other `error` in the file (seat/
+ *     page.tsx's own table read did, until it moved to `fetchPublicTables` on
+ *     25 Nov). Bind a named error (`castError`) in new code.
  *   · It sees reads written in THESE files. A read inside a helper they call
  *     (`fetchEgiftMethods`, `isRecapPublished`, `loadRoomLinks`,
  *     `eventRecognisesViewer`'s client) is that helper's business and is not
@@ -79,6 +79,10 @@ const FILES = [
   'seat/page.tsx',
   'seat/claim/route.ts',
   'redeem/route.ts',
+  // 🔒 The seat plan's guest-safe read (A4-34, 25 Nov): seat/page.tsx's own `event_tables` read moved here, so it is
+  // walked here and the count below stays 24. Only this one function is walked — the rest of lib/seating.ts is the
+  // couple's editor, not a guest page.
+  '../../lib/seating.ts#fetchPublicTables',
 ] as const;
 
 /**
@@ -102,7 +106,15 @@ type Read = { file: string; table: string; line: number; bound: string; verdict:
 const WRITES = new Set(['update', 'insert', 'upsert', 'delete']);
 
 function readsOf(file: string): Read[] {
-  const text = readFileSync(join(HERE, file), 'utf8');
+  /* `path#name` walks one exported function of a shared reader, not the whole file. */
+  const [path = file, only] = file.split('#');
+  let text = readFileSync(join(HERE, path), 'utf8');
+  if (only) {
+    const start = text.indexOf(`export async function ${only}(`);
+    assert.ok(start > -1, `${path} no longer exports ${only}`);
+    const end = text.indexOf('\n}\n', start);
+    text = text.slice(start, end + 3);
+  }
   const sf = ts.createSourceFile(file, text, ts.ScriptTarget.Latest, true, file.endsWith('.tsx') ? ts.ScriptKind.TSX : ts.ScriptKind.TS);
   /** How many times each identifier is written in the file — a bound error used again counts ≥ 2. */
   const uses = new Map<string, number>();

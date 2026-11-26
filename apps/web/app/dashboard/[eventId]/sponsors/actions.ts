@@ -2,9 +2,10 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { SPONSOR_ERROR_COPY, sponsorErrorKey } from './sponsor-error-copy';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { parseSponsorTier, parseSponsorSide, sponsorGuestSide } from '@/lib/event-sponsors';
-import { logQueryError } from '@/lib/supabase/error-detect';
 import { SPONSOR_ROLE_BY_TIER, sponsorTierOfRole, takeSponsorRole } from '@/lib/sponsor-guests';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { generateEventConnections } from '@/app/dashboard/(account)/people/actions';
@@ -52,22 +53,19 @@ function parsePairIndex(raw: FormDataEntryValue | null): number | null {
   return n;
 }
 
-/** The plain sentence for a refused save — the database's own words go to the log (SW-RAWDB). */
-const NOT_SAVED = 'That sponsor could not be saved. Nothing changed — please try again.';
-
 function back(eventId: string, query: string): never {
   redirect(`/dashboard/${eventId}/sponsors?${query}`);
 }
 
+/**
+ * A refused save goes back with a fixed KEY (A2-I18 / SW-RAWDB, `./sponsor-error-copy`): our own validation sentences
+ * keep their key, anything else is `save_failed` and its raw message goes to the log only.
+ */
 function refused(eventId: string, e: unknown): never {
   if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
-  const own = e instanceof Error && (e as Error & { plain?: boolean }).plain ? e.message : NOT_SAVED;
-  back(eventId, `error=${encodeURIComponent(own.slice(0, 120))}`);
-}
-
-/** Our own sentence for a person — said as is (never the database's). */
-function plain(message: string): Error {
-  return Object.assign(new Error(message), { plain: true });
+  const key = sponsorErrorKey(e);
+  if (key === 'save_failed') logQueryError('SponsorsAction', e, { eventId }, 'graceful_degrade');
+  back(eventId, `error=${key}`);
 }
 
 function revalidateSponsors(eventId: string): void {
@@ -91,12 +89,12 @@ export async function addSponsor(formData: FormData): Promise<void> {
     const tier = parseSponsorTier(formData.get('sponsor_tier'));
     const side = parseSponsorSide(formData.get('side'));
     const fullName = clean(formData.get('full_name'), 200);
-    if (fullName.length === 0) throw plain('Full name is required.');
+    if (fullName.length === 0) throw new Error(SPONSOR_ERROR_COPY.name_required);
     const relationshipNote = nullIfBlank(formData.get('relationship_note'), 200);
     const email = nullIfBlank(formData.get('email'), 200);
     const phone = nullIfBlank(formData.get('phone'), 40);
     const pairIndex = tier === 'principal' ? parsePairIndex(formData.get('pair_index')) : null;
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw plain('Email looks invalid.');
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error(SPONSOR_ERROR_COPY.email_invalid);
 
     const [firstName, ...rest] = fullName.split(/\s+/).filter(Boolean);
     const admin = createAdminClient();
@@ -139,11 +137,11 @@ export async function updateSponsor(formData: FormData): Promise<void> {
     await requireSponsorHost(eventId);
 
     const fullName = clean(formData.get('full_name'), 200);
-    if (fullName.length === 0) throw plain('Full name is required.');
+    if (fullName.length === 0) throw new Error(SPONSOR_ERROR_COPY.name_required);
     const relationshipNote = nullIfBlank(formData.get('relationship_note'), 200);
     const email = nullIfBlank(formData.get('email'), 200);
     const phone = nullIfBlank(formData.get('phone'), 40);
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw plain('Email looks invalid.');
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error(SPONSOR_ERROR_COPY.email_invalid);
 
     const [firstName, ...rest] = fullName.split(/\s+/).filter(Boolean);
     const admin = createAdminClient();
@@ -198,7 +196,7 @@ export async function removeSponsor(formData: FormData): Promise<void> {
     const g = row as GuestRoleRow;
     const posted = formData.get('sponsor_tier');
     const tier = typeof posted === 'string' && posted ? parseSponsorTier(posted) : sponsorTierOfRole(g.role);
-    if (!tier) throw plain('That guest is not a sponsor.');
+    if (!tier) throw new Error(SPONSOR_ERROR_COPY.not_found);
 
     const { error } = await admin
       .from('guests')

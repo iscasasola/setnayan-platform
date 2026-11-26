@@ -524,7 +524,8 @@ const KNOWN_GAPS: Record<string, string> = {
   event_playlist_slot_vibes:
     'TODO(RA10173-backlog): the vibe the subject chose per moment — taste data, same class as event_playlist_picks above.',
   event_schedule_suggestions: 'TODO(RA10173-backlog): suggestions the subject authored.',
-  event_sponsors: 'TODO(RA10173-backlog): sponsor rows naming the subject.',
+  event_sponsors:
+    'TODO(RA10173-backlog): TABLE DROPPED 2026-11-27 (migration 20271364844438, brief Add 41 / A2-I14) — sponsors moved into the guest list; nothing to export. Entry stays because this guard’s parser unions every historical CREATE TABLE and does not read DROP TABLE (see docblock note 5).',
   event_walkthrough_zones: 'TODO(RA10173-backlog): walkthrough notes the subject authored.',
   feature_reviews: 'TODO(RA10173-backlog): the subject’s own feature feedback.',
   force_majeure_flags: 'TODO(RA10173-backlog): flags raised by or about the subject.',

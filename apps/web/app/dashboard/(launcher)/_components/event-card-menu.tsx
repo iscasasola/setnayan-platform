@@ -1626,6 +1626,8 @@ function CardMenuRows({
     main?: boolean;
     locked?: boolean;
     mark: string;
+    /** Load the address as a whole page instead of an in-app switch (see the hub row). */
+    fullLoad?: boolean;
   }) => {
     const Icon = props.icon;
     const inner = (
@@ -1643,6 +1645,13 @@ function CardMenuRows({
       </>
     );
     const cls = `${ecm.row} ${props.main ? ecm.main : ''}`;
+    if (props.href && !props.locked && props.fullLoad) {
+      return (
+        <a key={props.mark} href={props.href} className={cls} onClick={onNavigate} data-ecm-row={props.mark} data-full-load="">
+          {inner}
+        </a>
+      );
+    }
     return props.href && !props.locked ? (
       <Link key={props.mark} href={props.href} className={cls} onClick={onNavigate} data-ecm-row={props.mark}>
         {inner}
@@ -1666,6 +1675,11 @@ function CardMenuRows({
           label: 'Open your Event Hub',
           help: menu.hubHref ? 'See your hub as your QR opens it.' : 'Set up your Event Hub first.',
           mark: 'hub',
+          // 🔁 A WHOLE-PAGE LOAD, not an in-app switch (walkthrough 27 Nov, as testnayan1 on the iPhone app): the hub
+          // `/[slug]` lives under a different root layout than Home, and the in-app switch half-finished: the title
+          // changed, the address stayed /dashboard and the iPhone never drew the hub. The same host, so it stays in
+          // the app's view and the session rides along.
+          fullLoad: true,
         })}
         {row({ href: menu.chatHref, icon: MessageCircle, label: 'Open Chat', help: 'Messages with your suppliers.', mark: 'chat' })}
         {menu.memoriesHref

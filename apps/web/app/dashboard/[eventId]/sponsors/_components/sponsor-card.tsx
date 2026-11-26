@@ -19,24 +19,11 @@ import { InvitationTemplateModal } from './invitation-template-modal';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { StayForm } from '@/app/_components/stay-form';
 import { SponsorSwipe } from './sponsor-swipe';
+import type { GuestSponsor } from '@/lib/sponsor-guests';
 import { markResponse, sendInvitation, updateSponsor } from '../actions';
 
-export type SponsorRow = {
-  id: string;
-  event_id: string;
-  pair_index: number | null;
-  sponsor_tier: SponsorTier;
-  side: SponsorSide;
-  full_name: string;
-  relationship_note: string | null;
-  email: string | null;
-  phone: string | null;
-  invitation_status: SponsorInvitationStatus;
-  invitation_sent_at: string | null;
-  responded_at: string | null;
-  decline_note: string | null;
-  linked_guest_id: string | null;
-};
+/** A sponsor as the page draws it — a guest with a sponsor role (`lib/sponsor-guests.ts`; owner, brief Add 41). */
+export type SponsorRow = GuestSponsor;
 
 export type EventMini = {
   display_name: string | null;
@@ -161,7 +148,7 @@ export function SponsorCard({
     </article>
   );
   return (
-    <SponsorSwipe eventId={eventId} sponsorId={sponsor.id} name={sponsor.full_name}>
+    <SponsorSwipe eventId={eventId} sponsorId={sponsor.id} tier={sponsor.sponsor_tier} name={sponsor.full_name}>
       {card}
     </SponsorSwipe>
   );

@@ -31,22 +31,28 @@ import { dirname, join } from 'node:path';
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (...seg: string[]) => readFileSync(join(WEB, ...seg), 'utf8');
 
-const PAGE = read('app', 'dashboard', '[eventId]', 'studio', 'setnayan-ai', 'page.tsx');
+// The studio buy page is retired (final check R2, 25 Nov); the two LIVE displays of the AI price are held instead.
+const DISPLAYS = [
+  read('app', 'dashboard', '[eventId]', 'page.tsx'),
+  read('app', 'dashboard', '[eventId]', '_components', 'event-dashboard.tsx'),
+];
 const CHARGE = read('lib', 'order-charge-authority.ts');
 const PRICING = read('lib', 'setnayan-ai-server.ts');
 
-test('the studio DISPLAY goes through the shared resolver, not the raw per-type one', () => {
-  assert.match(
-    PAGE,
-    /resolveSetnayanAiDisplayPricePhp\(supabase, eventType\)/,
-    'the display must use the resolver that consults the same flag as the charge path',
-  );
-  assert.equal(
-    /await resolveSetnayanAiTypePricePhp\(/.test(PAGE),
-    false,
-    'calling the per-type resolver directly here is the bug: it ignores the flag the '
-      + 'charge path obeys, so an OFF flag shows ₱99 and charges ₱1,499',
-  );
+test('every AI price DISPLAY goes through the shared resolver, not the raw per-type one', () => {
+  for (const page of DISPLAYS) {
+    assert.match(
+      page,
+      /resolveSetnayanAiDisplayPricePhp\(supabase, /,
+      'the display must use the resolver that consults the same flag as the charge path',
+    );
+    assert.equal(
+      /await resolveSetnayanAiTypePricePhp\(/.test(page),
+      false,
+      'calling the per-type resolver directly here is the bug: it ignores the flag the '
+        + 'charge path obeys, so an OFF flag shows ₱99 and charges ₱1,499',
+    );
+  }
 });
 
 test('ONE switch governs both sides', () => {

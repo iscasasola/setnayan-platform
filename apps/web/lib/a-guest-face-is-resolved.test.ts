@@ -34,7 +34,7 @@ const LOADERS = [
   'app/dashboard/[eventId]/guests/checkin/page.tsx',
   'app/dashboard/[eventId]/guests/souvenirs/page.tsx',
   'app/dashboard/[eventId]/seating/page.tsx',
-  'app/dashboard/[eventId]/seating/lab/page.tsx',
+  'app/dashboard/[eventId]/seating/lab/_components/seating-room.tsx',
   'app/dashboard/[eventId]/studio/patiktok/booth/page.tsx',
   'app/_actions/plan3d-demo-actions.ts',
 ];

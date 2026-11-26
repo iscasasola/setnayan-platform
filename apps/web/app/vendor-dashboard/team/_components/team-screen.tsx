@@ -1,3 +1,4 @@
+import { routes } from '@/lib/routes';
 import { redirect } from 'next/navigation';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { createClient } from '@/lib/supabase/server';
@@ -6,13 +7,14 @@ import { tierCaps, asVendorTier, canBuyExtraSeats, entryTierAllowance } from '@/
 import { vendorAllowance } from '@/lib/vendor-feature-gate';
 import {
   effectiveSeatCap,
-  fetchExtraAgentSeats,
+  readExtraAgentSeats,
   fetchSeatFeePhp,
 } from '@/lib/vendor-seats';
 import { seatLine, teamSeats } from '@/lib/vendor-free-helper';
+import { formatCount } from '@/lib/format-number';
 import {
   enrichTeamWithUsers,
-  fetchTeamManagerContext,
+  readTeamManagerContext,
   fetchVendorRoleNames,
   fetchAgentServiceAssignments,
   fetchAssignableServices,
@@ -34,6 +36,7 @@ import {
   voteAdminMotion,
 } from '../actions';
 import { HelpersView } from './helpers-view';
+import { TeamUnread } from './team-unread';
 
 /**
  * /vendor-dashboard/team — HELPERS (simpler supplier dashboard step 6). The reads — the same ones the Team page made —
@@ -63,7 +66,9 @@ export async function TeamScreen({ search, embedded = false }: { search: TeamSea
   // model, 2026-07-01). Non-admin members are bounced. The admin-client email
   // enrichment below bypasses RLS, so confirming admin first is load-bearing.
   // 🧑‍🤝‍🧑 Six roles (owner 19 Nov 2026): a Shop Manager runs the whole team; a Branch Manager, their branch's.
-  const ctx = await fetchTeamManagerContext(supabase, user.id);
+  const ctx = await readTeamManagerContext(supabase, user.id);
+  // A refused read is not "you may not manage the team": say it, with Try again (final check A5-G5-07).
+  if (ctx === 'unread') return <TeamUnread retryHref={routes.vendorDashboard.team()} />;
   if (!ctx) redirect('/vendor-dashboard');
   const vendorProfileId = ctx.vendorProfileId;
 
@@ -93,14 +98,18 @@ export async function TeamScreen({ search, embedded = false }: { search: TeamSea
     entryTierAllowance('agentAccounts'),
   );
   const [extraSeats, seatFeePhp] = await Promise.all([
-    fetchExtraAgentSeats(supabase, vendorProfileId),
+    readExtraAgentSeats(supabase, vendorProfileId),
     canBuySeats ? fetchSeatFeePhp(supabase) : Promise.resolve(null),
   ]);
-  const effectiveCap = effectiveSeatCap(baseSeatCap, extraSeats);
+  // 🪪 Refused, the bought seats are unknown: the cap is NOT lowered on a guess (final check A5-G5-02).
+  const effectiveCap = effectiveSeatCap(baseSeatCap, extraSeats ?? 0);
   // 🧑‍🤝‍🧑 One Helper rides free on every plan (lib/vendor-free-helper.ts) — the SAME
   // rule the invite and role-change actions apply, read off the rows already here.
   const seats = teamSeats(enriched, ctx.founderUserId);
-  const seatsLine = seatLine(seats, effectiveCap);
+  const seatsLine =
+    extraSeats === null && Number.isFinite(effectiveCap)
+      ? `${formatCount(seats.counted)} with you · couldn\u2019t read your extra seats`
+      : seatLine(seats, effectiveCap);
 
   const storeShell = await isStoreShellRequest();
   return (

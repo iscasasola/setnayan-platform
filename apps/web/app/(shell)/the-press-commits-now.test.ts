@@ -139,7 +139,6 @@ const KNOWN_TOKEN_ROUTES = [
   'host/accept/[token]',
   'vendor-invite/[slug]',
   'vendor/claim/[token]',
-  'vendor/lock/[token]',
 ];
 
 test('the anchor: the walk actually found the routes', () => {

@@ -43,7 +43,8 @@ test('the gallery is the shipped FileUpload in tiles mode, capped at the card li
   const mount = GALLERY.slice(GALLERY.indexOf('<FileUpload'), GALLERY.indexOf('/>', GALLERY.indexOf('<FileUpload')));
   assert.match(mount, /variant="gallery"/);
   assert.match(mount, /multiple/);
-  assert.match(mount, /maxFiles=\{limit\}/);
+  // The card limit on every card a person can edit; a booked card takes no more (its limit is what it holds — final check B7).
+  assert.match(mount, /maxFiles=\{locked \? n : limit\}/);
   assert.match(GALLERY, /useState\(\(\) => cardPhotoLimit\(seed\.length\)\)/, 'the limit is fixed at open from what the card held');
   assert.match(mount, /failedSays=\{CARD_PHOTO_FAILED_SAYS\}/);
   assert.match(mount, /tiles=\{\{/);

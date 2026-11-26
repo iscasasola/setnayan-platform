@@ -1,7 +1,12 @@
 import { getCurrentUser } from '@/lib/auth';
+import { ReadFailedNote } from '../../_components/set-two/read-failed';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, RotateCw } from 'lucide-react';
+import { HideWhenRisen } from '@/app/_components/rise/rise-route';
+import { routes } from '@/lib/routes';
+import { ErrorState } from '@/app/_components/states/error-state';
+import { ActionButton } from '@/components/action-button';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { CanvasMaker } from '../_components/canvas-maker';
@@ -53,6 +58,29 @@ export default async function EditServiceCardPage({
   if (!profile) redirect('/vendor-dashboard');
 
   const card = await loadCardForEdit(supabase, profile.vendor_profile_id, serviceId);
+  if (card === 'unread') {
+    // A refused read is not a deleted card: say it could not be loaded, with one Try again (final check A5-G3-01).
+    return (
+      <div className="mx-auto w-full tab:max-w-5xl px-4 pb-8 pt-4 sm:px-6" data-card-read="failed">
+        <h1 className="sr-only">Your service</h1>
+        <ErrorState
+          title="Couldn’t load this card"
+          broke="We couldn’t read this service card just now."
+          survived="The card is still there — nothing was changed."
+          todo="Try again in a moment."
+          actions={
+            <ActionButton
+              tone="brand"
+              main
+              icon={<RotateCw aria-hidden className="h-4 w-4" strokeWidth={1.9} />}
+              label="Try again"
+              href={`${routes.vendorDashboard.services()}/${encodeURIComponent(serviceId)}`}
+            />
+          }
+        />
+      </div>
+    );
+  }
   if (!card) notFound();
 
   // 🏛 A VENUE'S HALLS (owner 2026-10-14, step 2): "Uses" — which halls this card books. Moved here from the retired
@@ -141,12 +169,15 @@ export default async function EditServiceCardPage({
   return (
     // No page title: the maker's surface carries the card's name (makers prototype 7 Nov 2026 § 3).
     <div className="mx-auto w-full tab:max-w-5xl px-4 pb-8 pt-4 sm:px-6">
+      {/* ‹ only on the whole page: risen over Shop, ✕ is the way out (final check B8). */}
+      <HideWhenRisen>
       <div className="mb-2 flex min-h-11 items-center gap-2">
         <Link href="/vendor-dashboard/shop" className="sn-press inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">
           <ChevronLeft aria-hidden className="h-5 w-5" strokeWidth={2} />
           Shop
         </Link>
       </div>
+      </HideWhenRisen>
       <CanvasMaker
         library={library}
         categoryValue={card.category}
@@ -207,11 +238,14 @@ export default async function EditServiceCardPage({
         </p>
       ) : venueHalls.length > 0 ? (
         <HallsUsesPick serviceId={serviceId} halls={venueHalls} uses={hallUses} action={setServiceHalls} />
+      ) : sellsVenue && ('error' in tierRes ? Boolean(tierRes.error) || !tierRes.data : false) && vendorPaywallApplies(false) ? (
+        // 🪪 A refused plan read is SAID (final check A5-G3-02), never the Pro lock and its upgrade door to a payer.
+        <ReadFailedNote mark="card-first-space-plan">We couldn&rsquo;t load your plan right now.</ReadFailedNote>
       ) : sellsVenue ? (
         // 🏛 No hall yet: "add the first" (drawing screen 8) — the way into Spaces for a new venue.
         <AddFirstSpace
           today={new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' })}
-          // A refused tier read reads as below Pro: the lock holds, never a wrong "you have it". The server refuses the same.
+          // A refused tier read never reaches here (said above); the server still refuses below Pro.
           proOpen={!vendorPaywallApplies(isTierAtLeast((tierRes.data as { tier_state?: string | null } | null)?.tier_state ?? null, SUPPLIER_FLOOR_PLAN_MIN_TIER))}
           firstHall={
             profile.venue_width_m != null || profile.capacity_max != null

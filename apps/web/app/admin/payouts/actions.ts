@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { markPayoutPaid, holdPayout } from '@/lib/payouts';
+import { adminCanRefusal } from '@/lib/admin/can.server';
 
 /**
  * Server actions backing the admin Vendor Payouts queue.
@@ -43,6 +44,9 @@ function readFormString(formData: FormData, key: string): string {
 
 export async function markPayoutPaidAction(formData: FormData) {
   const actor = await requireAdmin();
+  // A8·L-8: marking a payout paid records a payment by hand — Payments · Escalated.
+  const refused = await adminCanRefusal('payments', 'escalated');
+  if (refused) redirect(`/admin/payouts?error=${encodeURIComponent(refused)}`);
   const payoutId = readFormString(formData, 'payout_id');
   if (!payoutId) throw new Error('Missing payout_id.');
 
@@ -74,6 +78,9 @@ export async function markPayoutPaidAction(formData: FormData) {
 
 export async function holdPayoutAction(formData: FormData) {
   const actor = await requireAdmin();
+  // A8·L-8: holding a payout is a Payments act (Basic: work the desk).
+  const refused = await adminCanRefusal('payments', 'basic');
+  if (refused) redirect(`/admin/payouts?error=${encodeURIComponent(refused)}`);
   const payoutId = readFormString(formData, 'payout_id');
   const reason = readFormString(formData, 'reason');
   if (!payoutId) throw new Error('Missing payout_id.');

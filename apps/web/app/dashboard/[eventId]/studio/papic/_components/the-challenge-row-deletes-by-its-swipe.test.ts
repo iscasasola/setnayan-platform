@@ -16,7 +16,6 @@ import { stripComments } from '@/lib/strip-comments';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const MANAGER = stripComments(readFileSync(join(HERE, '..', 'couple-challenges-manager.tsx'), 'utf8'));
 const SWIPE = stripComments(readFileSync(join(HERE, 'challenge-row-swipe.tsx'), 'utf8'));
-const PAGE = stripComments(readFileSync(join(HERE, '..', 'challenges', 'page.tsx'), 'utf8'));
 
 test('the challenge row draws no trash — only the couple’s own row is a swipe', () => {
   const at = MANAGER.indexOf('function ChallengeRow(');
@@ -27,10 +26,10 @@ test('the challenge row draws no trash — only the couple’s own row is a swip
   assert.match(row, /<ChallengeRowSwipe eventId=\{eventId\} missionId=\{m\.mission_id\}/);
 });
 
-test('the swipe reaches the same soft remove, through Undo, and the page carries the toast', () => {
+test('the swipe reaches the same soft remove, through Undo', () => {
   assert.match(SWIPE, /<SwipeToDelete\b[\s\S]{0,80}label=\{`Delete challenge: \$\{name\}`\}/);
   assert.match(SWIPE, /deleteWithUndo\(\{[\s\S]*hide: \(\) => setHidden\(true\)[\s\S]*restore: \(\) => setHidden\(false\)/);
   assert.match(SWIPE, /papicSaveInPlace\('deleteCoupleChallengeAction', fd\)/);
   assert.match(SWIPE, /fd\.set\('mission_id', missionId\)/);
-  assert.match(PAGE, /<UndoToastHost \/>/);
+  // (The challenges PAGE that carried the toast host is retired — final check R6, 25 Nov.)
 });

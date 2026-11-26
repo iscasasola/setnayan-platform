@@ -48,6 +48,7 @@
  * costs with NO supplier (the rings, the licence, tips). Deliberately absent.
  */
 
+import { routes } from '@/lib/routes';
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
 import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
 import { studioDescription } from '@/lib/studio-apps';
@@ -225,7 +226,7 @@ export default function BudgetLandingPage() {
       title={'The truth, in PHP.'}
       /* The secondary is /features, not /pricing — this tool is free, and
          /features is where the rest of the free workspace is described. */
-      primary={{ href: '/onboarding/wedding?from=budget', label: 'Start planning · free' }}
+      primary={{ href: routes.start(), label: 'Start planning · free' }}
       secondary={{ href: '/features', label: 'See what else is free' }}
       productName="Budget"
       studioKey="budget"
@@ -239,7 +240,7 @@ export default function BudgetLandingPage() {
       closing={{
         heading: 'Start with the number',
         body: 'The Budget is free with every Setnayan wedding — beside your guest list, your schedule, your seat plan and your mood board. Set your target once, and every payment you log tells you where you stand.',
-        href: '/onboarding/wedding?from=budget',
+        href: routes.start(),
         label: 'Start planning · free',
       }}
       structuredData={[APP_LD, FAQ_LD]}

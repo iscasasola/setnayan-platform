@@ -22,6 +22,7 @@ import {
   isVendorDuty,
   roleNameOf,
   roleOptionLabel,
+  rolesRowLine,
   type VendorDuty,
   type VendorRoleNames,
 } from '@/lib/vendor-duties';
@@ -110,7 +111,8 @@ export function HelpersView({
   seatsLine: string;
   canBuySeats: boolean;
   storeShell: boolean;
-  extraSeats: number;
+  /** null = the read was refused (said, never "0 added"). */
+  extraSeats: number | null;
   /** The live `vendor_extra_seat` price; null when unread — then no figure is shown. */
   seatFeePhp: number | null;
   search: HelpersSearch;
@@ -265,7 +267,7 @@ export function HelpersView({
         <DatesRow
           data="helpers-roles"
           title="Roles"
-          line={`${VENDOR_DUTIES.map((d) => roleNameOf(roleNames, d)).slice(0, 3).join(' · ')} · and 3 more`}
+          line={rolesRowLine(VENDOR_DUTIES.map((d) => roleNameOf(roleNames, d)))}
           href="/vendor-dashboard/team/roles"
         />
         <DatesRow
@@ -281,7 +283,7 @@ export function HelpersView({
           <DatesRow
             data="helpers-add-seat"
             title="Add a seat"
-            line={`${seatFeePhp !== null ? `${formatPhp(seatFeePhp)} ${PLAN_PERIOD.slash} each · ` : ''}${formatCount(extraSeats)} added · joins your renewal`}
+            line={`${seatFeePhp !== null ? `${formatPhp(seatFeePhp)} ${PLAN_PERIOD.slash} each · ` : ''}${extraSeats === null ? 'couldn\u2019t read how many you added' : `${formatCount(extraSeats)} added · joins your renewal`}`}
             end={
               <form action={actions.buySeat}>
                 <SupplierSubmit

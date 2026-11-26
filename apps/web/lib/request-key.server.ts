@@ -50,7 +50,10 @@ export type RequestKeyRead = {
 };
 
 /** A key's row and what it opens now — removed rows included (Decline / Link). */
-export async function readRequestKeyByToken(qrToken: string | null | undefined): Promise<RequestKeyRead | null> {
+export async function readRequestKeyByToken(
+  qrToken: string | null | undefined,
+  opts: { throwOnReadError?: boolean } = {},
+): Promise<RequestKeyRead | null> {
   const token = (qrToken ?? '').trim().toLowerCase();
   if (!HEX32.test(token)) return null;
   const { data, error } = await createAdminClient()
@@ -59,6 +62,9 @@ export async function readRequestKeyByToken(qrToken: string | null | undefined):
     .eq('qr_token', token)
     .maybeSingle();
   if (error) {
+    // 🔌 A4-49: a page that would answer "no request" with a redirect asks for the throw instead — a failed read
+    // is not a stranger.
+    if (opts.throwOnReadError) throw new Error(`request-key: could not read the request: ${error.message}`);
     logQueryError('request-key.read', error, {}, 'graceful_degrade');
     return null;
   }
@@ -81,8 +87,11 @@ export async function readRequestKeyByToken(qrToken: string | null | undefined):
 }
 
 /** This browser's remembered request for THIS event, or null. */
-export async function readRememberedRequest(eventId: string): Promise<RequestKeyRead | null> {
+export async function readRememberedRequest(
+  eventId: string,
+  opts: { throwOnReadError?: boolean } = {},
+): Promise<RequestKeyRead | null> {
   const jar = await cookies();
-  const read = await readRequestKeyByToken(jar.get(REQUEST_KEY_COOKIE)?.value);
+  const read = await readRequestKeyByToken(jar.get(REQUEST_KEY_COOKIE)?.value, opts);
   return read && read.eventId === eventId ? read : null;
 }

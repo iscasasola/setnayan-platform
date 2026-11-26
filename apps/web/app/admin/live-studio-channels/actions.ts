@@ -233,11 +233,20 @@ export async function disconnectChannel(formData: FormData) {
   // transition it on YouTube, and a re-provision would fail. Same posture as
   // setChannelStatus — an admin who really means it releases first, which is a
   // deliberate act with the checkout age on screen beside it.
-  const { data: current } = await admin
+  const { data: current, error: currentErr } = await admin
     .from('live_studio_roam_channel_pool')
     .select('status')
     .eq('id', id)
     .maybeSingle();
+  // A8·F-17: FAILS CLOSED — an unread status is refused, never taken as "not
+  // checked out" (that would revoke a channel an event may be holding).
+  if (currentErr || !current) {
+    redirect(
+      `${BOARD}?error=${encodeURIComponent(
+        'Couldn’t check whether an event is holding this channel. Nothing was disconnected. Try again.',
+      )}`,
+    );
+  }
   if ((current as { status?: string } | null)?.status === 'checked_out') {
     redirect(
       `${BOARD}?error=${encodeURIComponent(

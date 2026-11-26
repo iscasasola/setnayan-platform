@@ -2,6 +2,7 @@ import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
+import { HideWhenRisen } from '@/app/_components/rise/rise-route';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { NewServiceMaker } from './_components/new-service-maker';
@@ -54,6 +55,8 @@ export default async function NewServiceCardPage({
 
   return (
     <div className="mx-auto w-full max-w-5xl px-4 pb-8 pt-4 sm:px-6">
+      {/* ‹ only on the whole page: risen over Shop, ✕ is the way out (final check B8). */}
+      <HideWhenRisen>
       <div className="mb-2 flex min-h-11 items-center gap-2">
         {quoteReturn ? (
           <Link href={quoteReturn} className="sn-press inline-flex min-h-11 items-center gap-1 text-[15px] font-medium text-sn-accent">
@@ -69,6 +72,7 @@ export default async function NewServiceCardPage({
         {/* Rule 1 — the way out is the back arrow; the page's name stays for a screen reader only. */}
         <h1 className="sr-only">New service</h1>
       </div>
+      </HideWhenRisen>
       <NewServiceMaker vendorProfileId={profile.vendor_profile_id} shopName={profile.business_name ?? ''} ctx={ctx} details={details} error={typeof error === 'string' && error.length > 0 ? error : null} quoteReturn={quoteReturn} picker={{ tree, specialties }} />
     </div>
   );

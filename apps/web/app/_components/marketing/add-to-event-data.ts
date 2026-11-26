@@ -25,7 +25,8 @@ import 'server-only';
 import { cache } from 'react';
 
 import { createClient } from '@/lib/supabase/server';
-import { fetchUserEvents } from '@/lib/events';
+import { fetchUserEvents, userEventsReadRefused } from '@/lib/events';
+import { routes } from '@/lib/routes';
 import { resolveProfile, type EventTypeProfile } from '@/lib/event-type-profile';
 import { manilaTodayISO } from '@/lib/event-board';
 import { addOnHref } from '@/lib/add-ons-catalog';
@@ -55,6 +56,11 @@ export type AddToEventState =
       options: AddToEventOption[];
       /** null when there IS something to pick */
       emptyReason: string | null;
+      /**
+       * The events read failed. The dialog says "Couldn't read your events" with Try again — never "You don't have an
+       * event yet", and never the signed-out look for somebody who is signed in (final check A1-033).
+       */
+      readFailed?: boolean;
     };
 
 /**
@@ -65,21 +71,33 @@ export type AddToEventState =
 export const resolveAddToEvent = cache(
   async (studioKey: string): Promise<AddToEventState> => {
     const signedOut = { signedIn: false } as const;
+    const app = studioApp(studioKey);
+    if (!app) return signedOut;
+    let supabase: Awaited<ReturnType<typeof createClient>>;
+    let userId: string;
     try {
-      const app = studioApp(studioKey);
-      if (!app) return signedOut;
-
-      const supabase = await createClient();
+      supabase = await createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return signedOut;
+      userId = user.id;
+    } catch {
+      return signedOut;
+    }
+    const readFailed: AddToEventState = { signedIn: true, serviceName: app.name, options: [], emptyReason: null, readFailed: true };
+    try {
 
       // ORGANISER events only — `fetchUserEvents` already drops memberships a
       // person has hidden. Being invited to a wedding is not permission to bolt
       // a service onto it; `eventsForStudioApp` enforces that again from the
       // member_type, so this is a narrowing rather than the gate itself.
-      const events = await fetchUserEvents(supabase, user.id, 'couple');
+      const [events, refused] = await Promise.all([
+        fetchUserEvents(supabase, userId, 'couple'),
+        userEventsReadRefused(supabase, userId, 'couple'),
+      ]);
+      // `fetchUserEvents` degrades a refused read to [] — which drew "You don't have an event yet" (A1-033).
+      if (refused) return readFailed;
 
       /*
         One profile read per DISTINCT type, not per event. `resolveProfile` is
@@ -125,16 +143,20 @@ export const resolveAddToEvent = cache(
           // the neutral one rather than to a guessed label.
           kindWord: e.profile?.terminology?.eventWord ?? 'event',
           dateISO: e.eventDate,
-          // A service with no in-app surface of its own opens the celebration
-          // itself, so every row lands somewhere real.
-          href: app.addOnKey
-            ? addOnHref(app.addOnKey, e.eventId)
-            : `/dashboard/${e.eventId}`,
+          // The same order as the studio rail (`lib/studio-rail.ts`): a free tool's own room (`eventHref`, e.g. the
+          // marketplace → that event's Suppliers desk), then the add-on, then the event itself — so every row lands
+          // where the service lives (final check A1-045).
+          href: app.eventHref
+            ? app.eventHref(e.eventId)
+            : app.addOnKey
+              ? addOnHref(app.addOnKey, e.eventId)
+              : routes.dashboard.detail(e.eventId),
         })),
         emptyReason: emptyPickerReason(result),
       };
     } catch {
-      return signedOut;
+      // Signed in, and the read threw: an honest failure, never the signed-out look.
+      return readFailed;
     }
   },
 );

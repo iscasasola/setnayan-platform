@@ -7,6 +7,7 @@ import { ArrowLeft } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { formatPeso } from '@/lib/v2-catalog-pure';
+import { formatPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
 import { EVENT_TYPES, moneyWords, questionsFor, resultFor, stepsFor, type PlanPrices, type PlanState } from './_plan-steps';
 
@@ -23,7 +24,7 @@ import { EVENT_TYPES, moneyWords, questionsFor, resultFor, stepsFor, type PlanPr
 
 const PICK_FRAME = 'border border-ink/10';
 const fmt = (n: number) => formatPeso(n);
-const peso = (n: number) => `₱${formatPeso(n)}`;
+const peso = (n: number) => formatPhp(n);
 
 export function PlanQuiz({ prices }: { prices: PlanPrices }) {
   const [s, setS] = useState<PlanState>({ type: 'A', count: 150, setup: true, answers: {} });

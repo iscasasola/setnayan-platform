@@ -44,18 +44,31 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export async function fetchVendorIdsWithActiveService(
   admin: Pick<SupabaseClient, 'from'>,
 ): Promise<string[]> {
+  return (await fetchVendorIdsWithActiveServiceRead(admin)) ?? [];
+}
+
+/**
+ * The same read with its failure kept: `null` = REFUSED, not "nobody has a service". The supplier grid reads this, so
+ * a failed read says "Couldn't read the suppliers" instead of "No services listed yet" (final check A1-157).
+ */
+export async function fetchVendorIdsWithActiveServiceRead(
+  admin: Pick<SupabaseClient, 'from'>,
+): Promise<string[] | null> {
   try {
     const { data, error } = await admin
       .from('vendor_services')
       .select('vendor_profile_id')
       .eq('is_active', true);
-    if (error) console.error('[supabase-error] lib/vendor-inquirable-gate.ts · from:vendor_services.select', error);
-    if (error || !data) return [];
+    if (error) {
+      console.error('[supabase-error] lib/vendor-inquirable-gate.ts · from:vendor_services.select', error);
+      return null;
+    }
+    if (!data) return [];
     const ids = new Set(
       (data as { vendor_profile_id: string }[]).map((r) => r.vendor_profile_id),
     );
     return Array.from(ids);
   } catch {
-    return [];
+    return null;
   }
 }

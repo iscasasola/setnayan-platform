@@ -474,9 +474,9 @@ function VisibilityCard({
   const selected = value === currentValue;
   return (
     <label
-      className={`group flex min-h-14 cursor-pointer items-start gap-4 border-l-2 py-4 pl-3 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-terracotta ${
-        selected ? 'border-mulberry' : 'border-transparent'
-      }`}
+      /* E-15 (final check): the mark follows the radio the person TAPPED (`:checked`), not the saved value, so a
+         new pick shows before Save. "Current" below still names the saved one. */
+      className="group flex min-h-14 cursor-pointer items-start gap-4 border-l-2 border-transparent py-4 pl-3 transition-colors focus-within:outline focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-terracotta has-[:checked]:border-mulberry"
     >
       <input
         type="radio"

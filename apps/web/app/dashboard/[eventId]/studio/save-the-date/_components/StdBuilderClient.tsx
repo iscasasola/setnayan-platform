@@ -857,12 +857,12 @@ export function StdBuilderClient({
                   pathPrefix={`events/${eventId}/site-music`}
                   acceptedTypes={['audio/mpeg', 'audio/mp4', 'audio/aac', 'audio/ogg', 'audio/wav']}
                   audioGuard
-                  maxSizeMB={40}
+                  maxSizeMB={20}
                   variant="wide"
                   currentValue={siteMusicKey}
                   onFilePicked={handleMusicFilePicked}
                   onChange={(v) => handleMusicUpload(typeof v === 'string' ? v : null)}
-                  help="MP3/M4A/AAC/OGG/WAV, up to 40 MB. This becomes your wedding-site song."
+                  help="This becomes your Event Hub song."
                 />
               ) : (
                 uploadLock('song')

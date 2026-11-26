@@ -1,6 +1,6 @@
 # Final check · Area 6 · Supplier: bookings, chat, payments, calendar
 
-FIXER: all lane A batches up · PRs #8311 (b1 + A6-61c, CI green) · #8324 (b2 + A6-01, READY) · #8331 (b3) · #8343 (b4 + Add 35, READY) · #8348 (L9 + Add 37, READY, migration GO) · #8362 (b5, READY) · #8372 (b6, migration GO) · #8377 (b7, migration GO) · 🟠 typed links (A6-08 · A6-19 links · A6-38c: guards read literal links) · A6-15 masthead · A6-38(a)(b) · A6-61a · waiting: A6-19 "up to 3" after #8324, A6-38(c) after the typed-link ruling · A6-B01 needs a production measurement
+FIXER: merged · #8311 (b1) · #8324 (b2) · #8331 (b3) · #8343 (b4 + Add 35) · #8348 (L9 + Add 37) · #8362 (b5) · open, CI green, need migration GO · #8372 (b6: A6-57) · #8377 (b7: A6-48) · 🟠 typed links (A6-08 · A6-19 links · A6-38c: guards read literal links) · A6-15 masthead · A6-38(a)(b) · A6-61a · A6-B01 needs a production measurement
 
 Checker 6 of 8. Checked commit: `fb3f72d` (the pinned check commit). Report only.
 STATUS: phase B done

@@ -40,13 +40,13 @@ test('A8·P-B-22 · "Make Memory lane copies" asks first and is named for what i
   assertAsksBeforeRunning(src, 'backfillTileDerivativesAction');
   assert.doesNotMatch(src, /Fill in missing/, 'no word for a repair on a press that starts a job');
   assert.match(src, /'Make Memory lane copies'/);
-  assert.match(src, /This starts as soon as you confirm\. Up to \$\{TILES_PER_PRESS\}/);
+  assert.match(src, /This starts as soon as you confirm\. Up to \$\{formatCount\(TILES_PER_PRESS\)\}/);
 });
 
 test('A8·P-B-22 · "Make small copies of old photos" asks first too', () => {
   const src = read('old-photos-button.tsx');
   assertAsksBeforeRunning(src, 'makeSmallCopiesOfOldPhotosAction');
-  assert.match(src, /This starts as soon as you confirm\. Up to \$\{COPIES_PER_PRESS\}/);
+  assert.match(src, /This starts as soon as you confirm\. Up to \$\{formatCount\(COPIES_PER_PRESS\)\}/);
 });
 
 test('A8·P-B-22 · the tile job\'s per-press number has one home, read by the action, the page and the box', () => {
@@ -57,6 +57,6 @@ test('A8·P-B-22 · the tile job\'s per-press number has one home, read by the a
   for (const file of ['backfill-tiles-button.tsx', 'page.tsx']) {
     const src = read(file);
     assert.doesNotMatch(src, new RegExp(`\\b${TILES_PER_PRESS} per press|up to ${TILES_PER_PRESS}\\b`, 'i'), `${file} types the number`);
-    assert.match(src, /\$\{TILES_PER_PRESS\}|\{TILES_PER_PRESS\}/, `${file} reads TILES_PER_PRESS`);
+    assert.match(src, /formatCount\(TILES_PER_PRESS\)/, `${file} reads TILES_PER_PRESS`);
   }
 });

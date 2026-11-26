@@ -6,6 +6,7 @@ import { ImageDown, AlertTriangle } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { useConfirm } from '@/app/_components/confirm-dialog';
 import { TILES_PER_PRESS } from '@/lib/papic-tile-backfill';
+import { formatCount } from '@/lib/format-number';
 import { backfillTileDerivativesAction, type BackfillResult } from './actions';
 
 /**
@@ -40,7 +41,7 @@ export function BackfillTilesButton({ pending }: { pending: number | null }) {
   async function run() {
     const ok = await confirm({
       title: 'Make Memory lane copies now?',
-      body: `This starts as soon as you confirm. Up to ${TILES_PER_PRESS} photos without one get a 640px Memory lane copy. The photos themselves are not changed.`,
+      body: `This starts as soon as you confirm. Up to ${formatCount(TILES_PER_PRESS)} photos without one get a 640px Memory lane copy. The photos themselves are not changed.`,
       confirmLabel: 'Make copies',
     });
     if (!ok) return;
@@ -66,7 +67,7 @@ export function BackfillTilesButton({ pending }: { pending: number | null }) {
                 : `${pending} photo${pending === 1 ? '' : 's'} still without one`}
           </span>
           <span className="mt-px block text-[13px] text-ink/65">
-            Up to {TILES_PER_PRESS} per press, after you confirm — press again if more remain
+            Up to {formatCount(TILES_PER_PRESS)} per press, after you confirm — press again if more remain
           </span>
         </span>
         <ActionButton

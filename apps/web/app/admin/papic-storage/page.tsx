@@ -202,7 +202,7 @@ export default async function PapicStoragePage() {
       <section data-papic-memory-lane="">
         <Sec
           title="Memory lane copies"
-          about={`The 640px copy Memory lane renders. Photos taken before it existed fall back to the full-view copy — sharp, but about four times heavier than the tile needs. Each press makes up to ${TILES_PER_PRESS} copies, after you confirm — press again if more remain.`}
+          about={`The 640px copy Memory lane renders. Photos taken before it existed fall back to the full-view copy — sharp, but about four times heavier than the tile needs. Each press makes up to ${formatCount(TILES_PER_PRESS)} copies, after you confirm — press again if more remain.`}
         />
         <BackfillTilesButton pending={pendingTiles} />
       </section>

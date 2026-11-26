@@ -9,6 +9,7 @@ import { useConfirm } from '@/app/_components/confirm-dialog';
 import { makeSmallCopiesOfOldPhotosAction } from './old-photos-actions';
 import type { CopyRun } from '@/lib/old-photo-copies.server';
 import { COPIES_PER_PRESS, formatBytes } from '@/lib/old-photo-copies';
+import { formatCount } from '@/lib/format-number';
 
 /**
  * The press for "Make small copies of old photos". The count beside it is the dry run; nothing is written until this
@@ -30,7 +31,7 @@ export function OldPhotosButton({ oversized, children }: { oversized: number; ch
   async function run() {
     const ok = await confirm({
       title: 'Make small copies now?',
-      body: `This starts as soon as you confirm. Up to ${COPIES_PER_PRESS} of the largest covers get a web-size copy beside the original, and the cover shows the copy. The original stays, and prints still use it.`,
+      body: `This starts as soon as you confirm. Up to ${formatCount(COPIES_PER_PRESS)} of the largest covers get a web-size copy beside the original, and the cover shows the copy. The original stays, and prints still use it.`,
       confirmLabel: 'Make copies',
     });
     if (!ok) return;

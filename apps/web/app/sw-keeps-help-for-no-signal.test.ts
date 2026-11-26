@@ -19,7 +19,6 @@ test('help navigations are kept network-first with an offline fallback', () => {
 
 test('the help matcher keeps answer pages, never a ?error= or ?submitted= page', () => {
   const fnSrc = sw.slice(sw.indexOf('function isHelpNavigation(url)'), sw.indexOf('function isDayOfGuestNavigation(url)'));
-  // eslint-disable-next-line @typescript-eslint/no-implied-eval
   const isHelp = new Function('self', `${fnSrc}; return isHelpNavigation;`)({ location: { origin: 'https://www.setnayan.com' } }) as (u: URL) => boolean;
   assert.equal(isHelp(new URL('https://www.setnayan.com/help')), true);
   assert.equal(isHelp(new URL('https://www.setnayan.com/help/what-is-setnayan')), true);

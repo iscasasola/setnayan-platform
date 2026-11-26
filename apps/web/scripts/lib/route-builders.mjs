@@ -8,7 +8,7 @@
  * the guards learn to read them.
  *
  * What this does, for one `routes.<chain>(<args>)` call:
- *   1. Loads the REAL `lib/routes.ts` (through tsx, with the app's own tsconfig paths) — never a copy of it.
+ *   1. Loads the REAL `lib/routes.ts` with Node alone (built-in type stripping; see `loadRoutes`) — never a copy of it.
  *   2. Calls the builder with its own arguments. A value the guard cannot know (a variable, a property, a call)
  *      becomes the dynamic-segment placeholder `[seg]`; string, number and object literals keep their value, so
  *      `routes.vendorDashboard.customers({ door: 'asking' })` resolves to `/vendor-dashboard/customers?door=asking`.
@@ -17,8 +17,11 @@
  *
  * A call this cannot evaluate is REPORTED by the caller, never silently passed.
  */
-import { readFileSync, readdirSync, statSync } from 'node:fs';
-import { join, dirname } from 'node:path';
+import { readFileSync, readdirSync, statSync, writeFileSync, mkdtempSync, mkdirSync, existsSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { stripTypeScriptTypes } from 'node:module';
+import { pathToFileURL } from 'node:url';
+import { join, dirname, relative, resolve as resolvePath } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -26,18 +29,45 @@ export const SEG = '[seg]';
 const SENTINEL = '__SN_SEG__';
 
 let routesModule = null;
+
+/**
+ * Load `lib/routes.ts` and the app modules it imports WITH NODE ALONE — no tsx, no node_modules. In CI these guards run
+ * in the `guards` job BEFORE dependencies are installed, so a loader that needs a package cannot run there. Node 22's
+ * built-in `stripTypeScriptTypes` turns each .ts file into JavaScript; `@/…` and relative imports are rewritten to the
+ * converted copies in a temp folder. A package import (anything not `@/` or relative) is refused loudly: the builders
+ * must stay plain, dependency-free functions for this guard to read them.
+ */
+function convertGraph(entryAbs, outDir) {
+  const done = new Map();
+  const visit = (abs) => {
+    if (done.has(abs)) return done.get(abs);
+    const out = join(outDir, relative(WEB, abs)).replace(/\.tsx?$/, '.mjs');
+    done.set(abs, out);
+    let code = stripTypeScriptTypes(readFileSync(abs, 'utf8'), { mode: 'transform' });
+    // Only real module statements at the start of a line — `import … from '…'`, `export … from '…'`, `import '…'` —
+    // never a word like an object key named `import:` inside the code.
+    code = code.replace(/^(\s*(?:import|export)\b[^;'"`]*?\bfrom\s*|\s*import\s+)(['"])([^'"]+)\2/gm, (whole, pre, q, spec) => {
+      let target;
+      if (spec.startsWith('@/')) target = join(WEB, spec.slice(2));
+      else if (spec.startsWith('.')) target = resolvePath(dirname(abs), spec);
+      else throw new Error(`route-builders: ${relative(WEB, abs)} imports the package "${spec}"; the route builders must stay dependency-free`);
+      const file = ['', '.ts', '.tsx', '/index.ts'].map((e) => target + e).find((f) => existsSync(f) && statSync(f).isFile());
+      if (!file) throw new Error(`route-builders: cannot find "${spec}" imported by ${relative(WEB, abs)}`);
+      return `${pre}${q}${pathToFileURL(visit(file)).href}${q}`;
+    });
+    mkdirSync(dirname(out), { recursive: true });
+    writeFileSync(out, code);
+    return out;
+  };
+  return visit(entryAbs);
+}
+
 /** The app's own `routes` object, loaded once. */
 export async function loadRoutes() {
   if (routesModule) return routesModule;
-  const api = await import('tsx/cjs/api');
-  const cwd = process.cwd();
-  process.chdir(WEB); // tsx reads the app's tsconfig `paths` (`@/…`) from the working directory
-  try {
-    api.register({ tsconfig: join(WEB, 'tsconfig.json') });
-    routesModule = api.require(join(WEB, 'lib/routes.ts'), import.meta.url).routes;
-  } finally {
-    process.chdir(cwd);
-  }
+  const outDir = mkdtempSync(join(tmpdir(), 'sn-route-builders-'));
+  const entry = convertGraph(join(WEB, 'lib/routes.ts'), outDir);
+  routesModule = (await import(pathToFileURL(entry).href)).routes;
   if (!routesModule || typeof routesModule !== 'object') throw new Error('route-builders: lib/routes.ts exported no `routes` object');
   return routesModule;
 }

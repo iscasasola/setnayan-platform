@@ -1,4 +1,5 @@
 import { ownMessageFromParam } from '@/lib/human-auth-error';
+import { INVITE_PARTNERS_AT_ONCE } from '@/lib/supplier-invite';
 import { INVITE_ERRORS, INVITE_JOIN_FAILED } from '@/lib/supplier-invite-errors';
 import { notFound } from 'next/navigation';
 import { LogIn, Handshake } from 'lucide-react';
@@ -94,7 +95,7 @@ export default async function SupplierInvitePage({
           isSelf
             ? 'This is your own invite link — share it with the suppliers you work with.'
             : hasShop
-              ? `You join as partners. ${inviter.businessName} shows on your Trusted partners, and you on theirs, once you have served an event together.`
+              ? `${INVITE_PARTNERS_AT_ONCE}: ${inviter.businessName} shows on your Trusted partners, and you on theirs.`
               : null
         }
       />

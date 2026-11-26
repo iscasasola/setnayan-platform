@@ -34,11 +34,6 @@ const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const APP = join(WEB, 'app');
 
 const KNOWN: Readonly<Record<string, string>> = {
-  'app/(shell)/acceptable-use/page.tsx': 'legal page — legal text has its own review; not this sweep',
-  'app/(shell)/cookies/page.tsx': 'legal page — owned by the privacy-pages PR in flight',
-  'app/(shell)/privacy/page.tsx': 'legal page — owned by the privacy-pages PR in flight (rd/privacy-pages-say-what-is-true)',
-  'app/(shell)/terms/page.tsx': 'legal page — owned by the privacy-pages PR in flight',
-  'app/(shell)/refunds/page.tsx': 'legal page — #6798 just reworded it; the owner approves those words first',
   'app/v/[slug]/booth/page.tsx': "an event's booth page — its picture should be the event's own card, not the brand card",
 };
 

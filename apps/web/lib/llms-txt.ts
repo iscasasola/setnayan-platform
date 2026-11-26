@@ -417,6 +417,8 @@ export const LINKED_ROUTES = [
   '/',
   // '/explore' left 2026-11-12 — it forwards to Discover `/` (Find suppliers moved inside Discover).
   '/explore/compare',
+  // The public supplier directory — a stranger can open it (final check A1-163; Discover's supplier view asks for sign-in).
+  '/suppliers',
   // '/v/' left 2026-11-16 — the bare /v/ directory is a 404 (W1-B20); shops live at setnayan.com/{shop}, found on Discover `/`.
   '/pricing',
   '/for-suppliers',
@@ -698,7 +700,7 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
   // names this file is guarded never to print (lib/seo/stale-claims.ts, the-retired-words-stay-gone.test.ts).
   return `# Setnayan
 
-> Setnayan is the home of every Filipino celebration: plan any event free, invite every guest with their own QR pass, capture the day on your guests' phones, book verified Filipino suppliers at 0% commission, and keep every photo in one album for life.
+> Setnayan is the home of every Filipino celebration: plan any event free, invite every guest with their own QR pass, capture the day on your guests' phones, book verified Filipino suppliers (Hosts pay 0% commission.), and keep every photo in one album for life.
 
 ## Setnayan at a glance
 
@@ -792,7 +794,7 @@ ${pillarPages('Keep it')}
 - **The chat is the record:** inquiry, quote, payment plan and receipts in one thread.
 - **QR codes for every moment:** shortlist, check a date, my page, reviews, a client's booking, the crew.
 - **Get Verified, free:** three business papers (DTI or SEC, BIR 2303, Mayor's or Business Permit). Verified shops are shown in search and read by Google and AI.
-- **Reviews only from real bookings.** "No fake reviews. No paid stars. Ever."
+- **Reviews only from real bookings.** Stars are not sold.
 ${pillarPages('For suppliers')}
 ### Privacy and trust
 
@@ -810,7 +812,7 @@ Setnayan is compared here by the job a host needs done — what Setnayan itself 
 | An event website, invitation and RSVP | Filipino customs built in (ninang, entourage, faith paperwork, pesos); no guest limit; one guest list runs the invitation, seat, door, camera and album. |
 | Guest photos | Kept for life, a 720p copy free. Each photo finds the people in it. Papic lives inside the Event Hub guests already opened. |
 | A livestream | Guests' phones join as cameras by link, with no install; the stream plays on the event's own page. |
-| Finding and booking suppliers | Verified suppliers booked in writing inside the event; 0% commission for hosts${marketFee}. |
+| Finding and booking suppliers | Verified suppliers booked in writing inside the event; Hosts pay 0% commission.${marketFee ? ` Suppliers pay a booking fee, ${FEE_SCOPE_THIRD}.` : ''} |
 | Keeping everyone on one page | One link that everyone in the room sees, and every photo in one album. |
 
 What Setnayan puts together: a guest list that becomes each guest's pass, seat, camera and photos; a livestream on the invitation's own page; suppliers booked in writing; and a family's events kept on one page for life.
@@ -838,15 +840,15 @@ Use these names, so every engine names things the same way. Plain words first, b
 ${llmsArticlesSection(input.articles ?? [], ORIGIN)}## Currently shipped public surfaces
 
 - [Setnayan Home](${url('/')}) — Platform overview, transparent PHP pricing, and Discover.
-- [Find suppliers on Discover](${url('/')}) — Browse verified Filipino event suppliers on the front page: pick a category, filter by city, event type and faith; compare shortlisted suppliers at [/explore/compare](${url('/explore/compare')}).
+- [Find suppliers](${url('/suppliers')}) — The public directory of verified Filipino event suppliers, by category and city. Signed in, Discover's supplier view filters by event type and faith, and compares shortlisted suppliers at [/explore/compare](${url('/explore/compare')}).
 - [Supplier pages](${url('/')}) — Each supplier has a public page at setnayan.com/[slug] (the old /v/[slug] address forwards there) with services, packages, coverage cities, and plan badge.
 - [Pricing](${url('/pricing')}) — Free, Event Plus, Event Pro and Event Ultra for an event, the à-la-carte services, and the supplier plans.
-- [For Suppliers](${url('/for-suppliers')}) — List your business. A free shop page and free Get Verified, for good — no listing fee, no per-lead fee. ${supplierFee}
+- [For Suppliers](${url('/for-suppliers')}) — List your business. A free shop page and free Get Verified — no listing fee, no per-lead fee. ${supplierFee}
 - [For Coordinators](${url('/for-coordinators')}) — For event coordinators: every client's event from one login, with the access each couple grants area by area, on the same supplier plans.
 - [Setnayan AI](${url('/setnayan-ai')}) — Supplier matchmaking, guided planning, and the guard engine that watches for budget/timeline/missing-supplier risk.
 - [Features](${url('/features')}) — What the platform does, who each surface is for, and why it exists: the planning toolkit, the day-of apparatus, the six roles, and the case for one app instead of three. (Absorbed /why-setnayan and /how-it-works, 2026-09-01.)
 - [Our Story](${url('/our-story')}) — Brand narrative and the day-of media layer.
-- Service landing pages: [Papic](${url('/papic')}) · [Live Watch](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Logo Maker](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Memories](${url('/alaala')}) · free [Monogram Maker](${url('/monogram')}) (no sign-up).
+- Service landing pages: [Papic](${url('/papic')}) · [Live Watch](${url('/panood')}) · [3D Plan](${url('/pa3d')}) · [Logo Maker](${url('/palogo')}) · [Event Hub](${url('/pawebsite')}) · [Memories](${url('/alaala')}) · free [Logo Maker preview](${url('/monogram')}) (no sign-up).
 - [About](${url('/about')}) · [Help](${url('/help')}) · [Download](${url('/download')}).
 - [Sign in](${url('/login')}) · [Create account](${url('/signup')}) · [Privacy](${url('/privacy')}) · [Terms](${url('/terms')}) — RA 10173 compliant. NPC registration in progress.
 
@@ -880,7 +882,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **3D Plan** — free. Walk the reception in 3D before it is real — every table and detail in place, drawn from the seat plan, the guest list and the mood board; guests walk it from their own phones.
 - **Thank You Video** — free. A short film made from the guests' shared photos, for everyone who came.
 - **Memory lane** — free. Live photo collage with live attendance count, shown on a screen at the venue and mirrored on every guest's own phone during the celebration.
-- **Monogram Maker** — free. A bespoke monogram generated from the couple's inputs; Event Pro animates it.
+- **Logo Maker** — free. A logo made from the couple's initials and colours; Event Pro animates it.
 - **Event Hub** — free. The event's own website, from save-the-date through RSVP and the day itself to the after-the-event page, with unlimited RSVP; every plan designs every part of it, or the Event Hub on its own at ${R('EVENT_HUB')}.
 - **Editorial authoring** — free. Arrange your own story: the order of the day, the moments worth naming, the wishes worth showing.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
@@ -900,7 +902,7 @@ ${supplierPlanTable(input)}
 
 ${supplierFee}
 
-A shop starts on **Free** the moment it is opened. Couples reach it by its own link and QR code (the plan table's "${FREE_FINDABLE}") and can message and book it there, with Setnayan's booking fee; **Verified** adds it to Discover and Suppliers › Find: the supplier sends three business papers (DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit) and proves their email, a Setnayan admin reviews them and contacts the supplier for a final confirmation — free, for good. Every shop's real business name is shown to couples on every plan, and a shop's name and inbox are never gated: couples can always see who is there and message them for free. Reach is not a plan allowance: an unverified shop is not distance-searched, and a verified shop sets its own service range on any plan. Paid plans add categories, service cards in total, team seats, branches and storage — never the right to take bookings: no plan, Free included, limits bookings, inquiries, shortlists or the waitlist, and a supplier sets how many bookings a day each service takes, up to ${DAILY_CAPACITY_MAX}.
+A shop starts on **Free** the moment it is opened. Couples reach it by its own link and QR code (the plan table's "${FREE_FINDABLE}") and can message and book it there, with Setnayan's booking fee; **Verified** adds it to Discover and Suppliers › Find: the supplier sends three business papers (DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit) and proves their email, a Setnayan admin reviews them and contacts the supplier for a final confirmation — free. Every shop's real business name is shown to couples on every plan, and a shop's name and inbox are never gated: couples can always see who is there and message them for free. Reach is not a plan allowance: an unverified shop is not distance-searched, and a verified shop sets its own service range on any plan. Paid plans add categories, service cards in total, team seats, branches and storage — never the right to take bookings: no plan, Free included, limits bookings, inquiries, shortlists or the waitlist, and a supplier sets how many bookings a day each service takes, up to ${DAILY_CAPACITY_MAX}.
 
 Plus, Pro and Ultra are billed monthly, one calendar month at a time. There is no yearly plan. ${NOTHING_RENEWS}: a reminder comes by email and on the dashboard 7 days before the month ends.${input.appleIapOn ? ` ${APPLE_PLANS_RENEW_SENTENCE}` : ''}${ultraAddonSentence(input)}
 
@@ -916,7 +918,7 @@ Supplier-side: public page editor · inquiry inbox · calendar with intra-day bl
 
 ## Common questions Setnayan answers
 
-- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus (${R('EVENT_PLUS')}), Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}) are the three paid plans for an event; Setnayan AI comes inside Event Pro and Event Ultra. Everything else is à la carte. Supplier side: Free and Verified cost nothing, for good; every month, ${TIER_LABEL.solo} is ${V('solo_vendor_monthly')} · ${TIER_LABEL.pro} ${V('pro_vendor_monthly')} · ${TIER_LABEL.enterprise} ${V('enterprise_vendor_monthly')} (no yearly plan). Couples pay no commission. Suppliers pay a booking fee, ${FEE_SCOPE_THIRD} (see the supplier plans).
+- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus (${R('EVENT_PLUS')}), Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}) are the three paid plans for an event; Setnayan AI comes inside Event Pro and Event Ultra. Everything else is à la carte. Supplier side: Free and Verified cost nothing; every month, ${TIER_LABEL.solo} is ${V('solo_vendor_monthly')} · ${TIER_LABEL.pro} ${V('pro_vendor_monthly')} · ${TIER_LABEL.enterprise} ${V('enterprise_vendor_monthly')} (no yearly plan). Couples pay no commission. Suppliers pay a booking fee, ${FEE_SCOPE_THIRD} (see the supplier plans).
 - **Is Setnayan free?** Starting is free and the planning workspace stays free. The Event Hub with unlimited RSVP is free; designing every part of it comes with every plan, or on its own at ${R('EVENT_HUB')}. A single-camera livestream is included.
 - **What is Setnayan AI?** The assisted-planning layer — supplier matchmaking plus the guided planning workspace, until the event date. It comes with Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}), or on its own at ${R('SETNAYAN_AI')} one-time per event.
 - **What is Papic?** Guests' phones become a coordinated capture crew. Credits come with an event plan or as packs — ${papicLadderCompact(R)} — and every guest shoots from that shared pot. Cameras are free and unlimited. Photos are matched to the guests in them (face matching only with each guest's consent), so each guest can find the photos they're in.
@@ -924,7 +926,7 @@ Supplier-side: public page editor · inquiry inbox · calendar with intra-day bl
 - **Does Setnayan support discount codes?** Yes — admins issue codes for promos or comp grants. Three types: percentage, capped percentage, and 100% free. One voucher per order, one redemption per couple per code, 8-character alphanumeric, with expiry and optional max-uses cap.
 - **Does Setnayan work for Filipino celebrations specifically?** Yes — built and operated in the Philippines. Seven ceremony types (Catholic, Civil, INC, Christian, Muslim, Cultural, Mixed) and seven venue settings. More than 30 Filipino ceremony roles, including Nikah roles. Multi-faith supplier compatibility tagging.
 - **Where does Setnayan operate?** Philippines.
-- **How are suppliers verified?** The supplier sends three business papers — DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit — and proves their email; a Setnayan admin reviews them and contacts the supplier for a final confirmation. Free, for good.
+- **How are suppliers verified?** The supplier sends three business papers — DTI or SEC registration, BIR 2303, and a Mayor’s or Business Permit — and proves their email; a Setnayan admin reviews them and contacts the supplier for a final confirmation. Free.
 - **What about my privacy?** RA 10173 compliant. Guest list and event details are never publicly shared without explicit opt-in. If a real event story is ever published it publishes 30 days post-event, with explicit consent; every showcase on the site today is a labelled sample. NPC registration in progress. DPO contact: dpo@setnayan.com.
 - **How do I contact support?** The contact form at /help.
 

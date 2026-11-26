@@ -48,6 +48,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 import { VendorAvatar, deriveVendorInitials } from '@/app/_components/vendor-avatar';
 import { LogoMark } from '@/app/_components/brand-marks';
 import { WhereNoticeOk } from './where-notice-ok';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
  * Shared notifications list — THE BELL'S POP-OVER AND ITS "VIEW ALL" PAGE DRAW THE SAME ROWS.
@@ -614,10 +615,22 @@ export function NotificationsHead({
 }: {
   unreadCount: number;
   returnTo: string;
-  /** The page carries the h1; the pop-over an h2. */
-  level: 'page' | 'popover';
+  /**
+   * The page carries the h1; the pop-over an h2. `masthead`: the title is the house `PageMasthead` (an sr-only h1) and
+   * "Mark all read" is its action — the supplier's Notifications (A6-15, owner 26 Nov: "Move it now").
+   */
+  level: 'page' | 'popover' | 'masthead';
   onMarkAll?: () => void;
 }) {
+  if (level === 'masthead') {
+    return (
+      <PageMasthead
+        title="Notifications"
+        className="justify-end px-4 pb-2 pt-1"
+        actions={unreadCount > 0 ? <MarkAllRead returnTo={returnTo} onMarkAll={onMarkAll} /> : undefined}
+      />
+    );
+  }
   return (
     <div
       className={`flex items-center justify-between ${level === 'page' ? 'px-4 pb-2 pt-1' : 'px-4 pb-1.5 pt-3.5'}`}

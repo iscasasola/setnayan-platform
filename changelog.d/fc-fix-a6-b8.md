@@ -12,7 +12,7 @@ Rulings of 26 Nov (Main Controller + owner, Add 47). No money value changes, no 
   - `couple-supplier-notices-reach-email.test.ts`: builder links are resolved like helper links; new test 3b holds every built notice address to the map.
   - `redirect-keeps-params.test.ts` and `store-shell.test.ts` read On the day's links through the builder and assert the screen exists.
   - Proved: breaking the subscription, workspace or profile builder turns each guard red.
-- **The supplier Notifications title moves (A6-15, owner: "Move it now").** The page title is the house `PageMasthead`; "Mark all read" (a shared `MarkAllRead`, a 44 px press) is its action. The loading screen reserves that action and draws no title bar.
+- **The supplier Notifications title moves (A6-15, owner: "Move it now").** The page title is the house `PageMasthead` (the shared `NotificationsHead` gained a `masthead` level, so the page keeps its block); "Mark all read" (a shared `MarkAllRead`, a 44 px press) is its action. The loading screen reserves that action and draws no title bar.
 - **No rate in a comment (A6-61a, "no price in a comment" wins).** The booking-fees page docblock no longer types the fee rate, cap or minimum. `lib/booking-fee-copy.test.ts` now requires the page to draw the live `<BookingFeeLine fee={schedule}>` and checks that the minimum it states is `BOOKING_FEE.minPhp`, and that no fee figure is typed in the page.
 - **Not changed:** A6-38(a)(b) (owner to pick the words); A6-B01 (measured on production after launch).
 

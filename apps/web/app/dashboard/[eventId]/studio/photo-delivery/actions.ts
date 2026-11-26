@@ -214,7 +214,7 @@ export async function disconnectPhotoDelivery(formData: FormData) {
 
   if (grant && !grant.revoked_at && grant.refresh_token) {
     await revokeDriveToken(grant.refresh_token as string);
-    await admin
+    const { error: grantError } = await admin
       .from('oauth_grants')
       .update({
         // ⚠ refresh_token WAS MISSING HERE — the fourth and last of the four
@@ -230,11 +230,13 @@ export async function disconnectPhotoDelivery(formData: FormData) {
         access_token_expires_at: null,
       })
       .eq('grant_id', grant.grant_id);
+    // P-03 (final check): a refused write used to land on "Drive disconnected" while the token stayed stored.
+    if (grantError) redirect(`/dashboard/${auth.eventId}/studio/photo-delivery?disconnect_error=1`);
   }
 
   // Clear events.photo_delivery_* back to idle. Folder pointer wiped so a
   // re-connect produces a fresh folder rather than reusing a stale id.
-  await admin
+  const { error: eventError } = await admin
     .from('events')
     .update({
       photo_delivery_provider: null,
@@ -250,6 +252,7 @@ export async function disconnectPhotoDelivery(formData: FormData) {
       photos_released_at: null,
     })
     .eq('event_id', auth.eventId);
+  if (eventError) redirect(`/dashboard/${auth.eventId}/studio/photo-delivery?disconnect_error=1`);
 
   revalidatePath(`/dashboard/${auth.eventId}/studio/photo-delivery`);
   redirect(`/dashboard/${auth.eventId}/studio/photo-delivery?disconnected=1`);

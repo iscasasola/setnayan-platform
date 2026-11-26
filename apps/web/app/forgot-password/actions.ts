@@ -28,6 +28,7 @@
  * account exists for the submitted email.
  */
 
+import { PASSWORD_RESET_PER_EMAIL_LIMIT, PASSWORD_RESET_PER_IP_LIMIT, PASSWORD_RESET_WINDOW_MS } from '@/lib/password-reset-limit';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { rateLimit } from '@/lib/rate-limit';
@@ -54,10 +55,11 @@ import { verifyTurnstileToken } from '@/lib/turnstile-verify';
  * guaranteeing a global cap. It is defence in depth with zero new infra, not
  * the last word. The durable version is the same follow-up that file names.
  */
-const PER_EMAIL_LIMIT = 3;
-const PER_EMAIL_WINDOW_MS = 15 * 60_000;
-const PER_IP_LIMIT = 10;
-const PER_IP_WINDOW_MS = 15 * 60_000;
+// The numbers live in lib/password-reset-limit.ts so the page can say the real wait (final check A1-065).
+const PER_EMAIL_LIMIT = PASSWORD_RESET_PER_EMAIL_LIMIT;
+const PER_EMAIL_WINDOW_MS = PASSWORD_RESET_WINDOW_MS;
+const PER_IP_LIMIT = PASSWORD_RESET_PER_IP_LIMIT;
+const PER_IP_WINDOW_MS = PASSWORD_RESET_WINDOW_MS;
 
 export async function requestPasswordReset(formData: FormData) {
   const email = String(formData.get('email') ?? '').trim();

@@ -214,9 +214,8 @@ export function YouCard({
                   style={{ marginTop: 3 }}
                 />
                 <span>
-                  Include my events in Setnayan&rsquo;s Stories showcase. 30 days after each
-                  event, its editorial page becomes publicly searchable on setnayan.com/realstories.
-                  I can keep any of them private at any time.
+                  Let Setnayan show my events on Discover. 30 days after each event, its story can
+                  appear there for anyone to see. I can keep any of them private at any time.
                 </span>
               </label>
             ) : null}

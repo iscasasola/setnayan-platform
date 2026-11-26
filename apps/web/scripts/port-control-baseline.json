@@ -4056,7 +4056,6 @@
       ],
       "actions": [],
       "blocks": [
-        "EntrancePos",
         "EventHubHeaderBrand",
         "EventSetnayanMarkLine",
         "Link",

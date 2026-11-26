@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { MONEY_NOT_OWED, ReadFailedNote } from '../../_components/set-two/read-failed';
 import Link from 'next/link';
 import { resolveFeeEnforcement } from '@/lib/vendor-event-fee-access.server';
 import { readWordsOnlyTopUp } from '@/lib/booking-fee-top-up.server';
@@ -99,8 +100,8 @@ import {
 } from '@/lib/thread-decision-sources.server';
 import { buildSupplierStanding } from '@/lib/supplier-standing';
 import {
-  fetchPendingVendorPayments,
-  fetchPlanProgressForVendor,
+  readPendingVendorPayments,
+  readPlanProgressForVendor,
 } from '@/lib/vendor-service-payment-schedules.server';
 import { acceptPaxSurcharge, declinePaxSurcharge } from './pax-actions';
 import { confirmVendorPayment, refuseVendorPayment } from './pay-confirm-actions';
@@ -600,24 +601,25 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       : Promise.resolve(null),
     // Live pax — started above as `livePaxRead` (it can write; see there).
     livePaxRead,
-    // Phase 2 PR-C — couple-logged payments awaiting confirmation. Best-effort:
-    // a failure degrades to no cards.
-    fetchPendingVendorPayments({
+    // Phase 2 PR-C — couple-logged payments awaiting confirmation. 🧾 A6-02 (final check 25 Nov): read WITH whether it
+    // answered — a refused read is said above the cards (`pendingUnread`), never "no payment from them to confirm".
+    readPendingVendorPayments({
       adminClient: paxAdmin,
       eventId: thread.event_id,
       vendorProfileId: profile.vendor_profile_id,
-    }).catch((e): Awaited<ReturnType<typeof fetchPendingVendorPayments>> => {
-      console.error('[vendor-thread] fetchPendingVendorPayments threw', e);
-      return [];
+    }).catch((e): Awaited<ReturnType<typeof readPendingVendorPayments>> => {
+      console.error('[vendor-thread] readPendingVendorPayments threw', e);
+      return { payments: [], complete: false };
     }),
-    // Phase 2 PR-D — plan progress for this vendor's bookings. Best-effort.
-    fetchPlanProgressForVendor({
+    // Phase 2 PR-D — plan progress for this vendor's bookings. A6-01: with whether it answered — a refused bookings,
+    // plans or payments read is said, never "₱0 of ₱X received".
+    readPlanProgressForVendor({
       adminClient: paxAdmin,
       eventId: thread.event_id,
       vendorProfileId: profile.vendor_profile_id,
-    }).catch((e): Awaited<ReturnType<typeof fetchPlanProgressForVendor>> => {
-      console.error('[vendor-thread] fetchPlanProgressForVendor threw', e);
-      return [];
+    }).catch((e): Awaited<ReturnType<typeof readPlanProgressForVendor>> => {
+      console.error('[vendor-thread] readPlanProgressForVendor threw', e);
+      return { plans: [], complete: false };
     }),
     // Won & Lost Reasons (Wave 6) — live admin-managed reason taxonomy.
     fetchReasonCodes(supabase),
@@ -726,6 +728,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
    * Null when there is nothing live to revise: the builder then opens empty,
    * which is the ordinary Build-a-quote, not an error.
    */
+  // 🧾 A6-05 (final check 25 Nov): a refused read of the live quote is said above the builder (`quoteRevisionUnread`) —
+  // the builder opening blank looked like "there is no quote to revise".
+  let quoteRevisionUnread = false;
   const quoteRevisionRead = (async () => {
     let quoteRevision: QuoteRevisionSeed | null = null;
     // The picked client's draw always seeds it: its Quotation node opens on the live quote.
@@ -745,6 +750,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
         .maybeSingle();
       if (liveQuoteErr) {
         console.error('[vendor thread] live quote read for revision refused', liveQuoteErr);
+        quoteRevisionUnread = true;
       } else if (liveQuote) {
         quoteRevision = seedQuoteRevision(liveQuote as QuoteRevisionSource);
       }
@@ -1170,8 +1176,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       [tplRes, pkgRes],
       returningMap,
       livePax,
-      pendingPayments,
-      planProgress,
+      pendingRead,
+      planRead,
       reasonCodes,
       { data: existingOutcome },
       customerPlan,
@@ -1230,6 +1236,11 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     receiptsRead,
     eventFileDayRead,
   ]);
+  const pendingPayments = pendingRead.payments;
+  const pendingUnread = !pendingRead.complete;
+  // A6-01: an unread plan draws no plan card at all (no "₱0 of ₱X received") and says so.
+  const plansUnread = !planRead.complete;
+  const planProgress = plansUnread ? [] : planRead.plans;
   const heldAskService = await heldServiceRead;
   const agreeGiftBasis = await agreeGiftBasisRead;
   const chatPins = await chatPinsRead;
@@ -1498,6 +1509,11 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     */
     'build-quote': (
       <div className="space-y-3">
+        {cm === 'quote' && quoteRevisionUnread ? (
+          <ReadFailedNote mark="quote-revision">
+            We couldn&rsquo;t load your last quotation right now, so this one starts empty.
+          </ReadFailedNote>
+        ) : null}
         <ProposalMaker
           threadId={threadId}
           eventDate={event?.event_date ? String(event.event_date).slice(0, 10) : null}
@@ -1809,6 +1825,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     paymentsToConfirm: pendingPayments.length,
     guestCountChanges: paxProposals.length,
   };
+  // A6-02: an unread list never shuts the confirm door with "No payment from them to confirm yet" — the door stays open
+  // and the Payment page it opens says what it could read.
+  if (pendingUnread) toolsState.paymentsToConfirm = Math.max(1, pendingPayments.length);
 
   /* THE ANSWER LINE — the couple's initials, their date and the day's answer (`ThreadAnswerLine`). */
   const eventDay = event?.event_date ? String(event.event_date).slice(0, 10) : null;
@@ -1937,6 +1956,13 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
      44 px row that opens in place; "Payment ›" opens the picked client's Payment page. The customer card's Payment tab
      mounts it unfolded. */
   const paymentLive = (
+    <>
+    {pendingUnread ? (
+      <ReadFailedNote mark="thread-pending-payments">We couldn&rsquo;t load the payments to confirm right now. {MONEY_NOT_OWED}</ReadFailedNote>
+    ) : null}
+    {plansUnread ? (
+      <ReadFailedNote mark="thread-plan-progress">We couldn&rsquo;t read payments for this booking right now. {MONEY_NOT_OWED}</ReadFailedNote>
+    ) : null}
     <VendorPaymentLive
       threadId={threadId}
       eventId={thread.event_id}
@@ -1945,6 +1971,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
       fold={{ paymentHref: customerCardHref(thread.event_id, 'payments') }}
       todayIso={todayIso}
     />
+    </>
   );
   const chatBox = (
         <ChatBox

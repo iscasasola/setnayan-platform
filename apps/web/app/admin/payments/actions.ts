@@ -203,6 +203,12 @@ export async function approvePayment(formData: FormData) {
     redirect(deskUrl(q, res.notice, res.warn));
   }
   if (intent === 'received-leave') {
+    // A8·A-19: "Set aside" with no reason picked used to do nothing and say nothing; it now says what to do,
+    // the same way "Not received" does.
+    const leaveReason = formData.get('reason');
+    if (leaveReason !== 'later' && leaveReason !== 'not_setnayan') {
+      redirect(deskUrl(q, 'Pick why to set it aside.', true));
+    }
     await leaveReceived(formData);
     revalidatePath('/admin/payments');
     revalidatePath('/admin');

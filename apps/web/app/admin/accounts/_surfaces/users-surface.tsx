@@ -1,3 +1,4 @@
+import { sanitizeIlikeTerm } from '@/lib/ugat/data-pure';
 import Link from 'next/link';
 import { Search, Sparkle, MailCheck, Trash2, Ban, KeyRound, Undo2, Gift, ChevronRight, XCircle, LogOut } from 'lucide-react';
 import type { ReactNode } from 'react';
@@ -200,9 +201,11 @@ export async function UsersSurface({
       query = query.not('suspended_at', 'is', null);
     }
 
-    if (q.length > 0) {
+    // A8·D-8: sanitised like the Events tab, so a comma or bracket cannot break the read into "Couldn't read".
+    const term = sanitizeIlikeTerm(q);
+    if (term.length > 0) {
       query = query.or(
-        `email.ilike.%${q}%,display_name.ilike.%${q}%,public_id.ilike.%${q}%`,
+        `email.ilike.%${term}%,display_name.ilike.%${term}%,public_id.ilike.%${term}%`,
       );
     }
 

@@ -6,11 +6,18 @@ import { setSampleEventSwitch } from '../actions';
 
 type Mode = 'default' | 'on' | 'off';
 
-const OPTIONS = [
-  { key: 'default', label: 'Default — off' },
-  { key: 'on', label: 'On — everyone can open it' },
-  { key: 'off', label: 'Off — internal accounts only' },
-] as const;
+/**
+ * A8·I-10: the Default row says what the default IS — the server's `SAMPLE_EVENT_ENABLED`
+ * (`resolveSampleEventEnabled`, lib/sample-event/switch.server.ts) — instead of stating "off" as fact,
+ * the way the AI paywall row says "Use environment default (env says OFF)".
+ */
+function optionsFor(envDefaultOn: boolean) {
+  return [
+    { key: 'default', label: `Use the server default (it says ${envDefaultOn ? 'on' : 'off'})` },
+    { key: 'on', label: 'On — everyone can open it' },
+    { key: 'off', label: 'Off — internal accounts only' },
+  ] as const;
+}
 
 /**
  * 🎭 The Maria and Jose sample's switch, in place on Admin › Settings › Demo
@@ -18,7 +25,8 @@ const OPTIONS = [
  * resets the screen); a failed save says so and the picker goes back to what is
  * really stored.
  */
-export function SampleEventSwitch({ initial }: { initial: Mode }) {
+export function SampleEventSwitch({ initial, envDefaultOn }: { initial: Mode; envDefaultOn: boolean }) {
+  const OPTIONS = optionsFor(envDefaultOn);
   const [mode, setMode] = useState<Mode>(initial);
   const [note, setNote] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
   const [pending, start] = useTransition();

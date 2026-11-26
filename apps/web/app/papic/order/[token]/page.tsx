@@ -109,7 +109,7 @@ export default async function PapicGuestOrderPage({
   if (!order) notFound();
 
   const orderId = String((row as unknown as { order_id: string }).order_id);
-  const [{ data: payments }, settings] = await Promise.all([
+  const [{ data: payments, error: paymentsErr }, settings] = await Promise.all([
     admin
       .from('payments')
       .select('payment_id, amount_php, status, created_at')
@@ -118,6 +118,10 @@ export default async function PapicGuestOrderPage({
     fetchPlatformSettings(admin),
   ]);
 
+  // 🔌 A4-78: a failed read of what this guest already logged is not "nothing logged" — the list says it could not be
+  // read and the log form waits, so the same transfer is never logged twice.
+  if (paymentsErr) console.error('[supabase-error] app/papic/order/[token]/page.tsx · from:payments.select', paymentsErr);
+  const paymentsUnread = Boolean(paymentsErr);
   const status = order.status ?? '';
   const paid = status === 'paid' || status === 'fulfilled';
   const cancelled = status === 'cancelled';
@@ -263,21 +267,27 @@ export default async function PapicGuestOrderPage({
         )}
       </section>
 
-      {(payments ?? []).length > 0 ? (
+      {paymentsUnread || (payments ?? []).length > 0 ? (
         <section className="mt-6 space-y-2 rounded-2xl border border-ink/10 bg-surface p-5">
           <p className="sn-eye">What you&rsquo;ve logged</p>
-          <ul className="space-y-1 text-sm text-ink/70">
-            {(payments ?? []).map((p) => (
-              <li key={(p as { payment_id: string }).payment_id}>
-                {formatPhp(Number((p as { amount_php: number }).amount_php))}{' '}
-                — {(p as { status: string }).status === 'matched' ? 'confirmed' : 'waiting for review'}
-              </li>
-            ))}
-          </ul>
+          {paymentsUnread ? (
+            <p role="status" className="text-sm text-ink/70">
+              Couldn&rsquo;t read your logged payments. Reload before logging a transfer.
+            </p>
+          ) : (
+            <ul className="space-y-1 text-sm text-ink/70">
+              {(payments ?? []).map((p) => (
+                <li key={(p as { payment_id: string }).payment_id}>
+                  {formatPhp(Number((p as { amount_php: number }).amount_php))}{' '}
+                  — {(p as { status: string }).status === 'matched' ? 'confirmed' : 'waiting for review'}
+                </li>
+              ))}
+            </ul>
+          )}
         </section>
       ) : null}
 
-      {canLog ? (
+      {canLog && !paymentsUnread ? (
         <section className="mt-6 space-y-4 rounded-2xl border border-ink/10 bg-surface p-5">
           <div className="space-y-1">
             <p className="sn-eye">Already sent it?</p>

@@ -268,7 +268,8 @@ test('the guest camera warns without naming the balance', () => {
   // this, blanking the whole header would turn every assertion above green.
   assert.match(
     s,
-    /\{low \? `Running low — \$\{formatCount\(remaining\)\} \$\{remaining === 1 \? 'credit' : 'credits'\} left` : `\$\{formatCount\(remaining\)\} \$\{remaining === 1 \? 'credit' : 'credits'\} left`\}/,
+    // (A4-66, 25 Nov: an unread spent count reads "Credits: couldn't read" first — the counter itself stays.)
+    /\{(?:countUnread \? 'Credits: couldn’t read' : )?low \? `Running low — \$\{formatCount\(remaining\)\} \$\{remaining === 1 \? 'credit' : 'credits'\} left` : `\$\{formatCount\(remaining\)\} \$\{remaining === 1 \? 'credit' : 'credits'\} left`\}/,
     `${S}: the guest's PERSONAL counter is gone. That number is the reader's own ` +
       'allowance, not the couple\'s balance — PRIV-1 does not touch it',
   );

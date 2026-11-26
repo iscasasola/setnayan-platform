@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowRight, Camera, CircleAlert } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { DoorShell } from '@/app/_components/door/door-shell';
+import { actionButtonClass } from '@/components/action-button-class';
 import { AppInstallBanner } from './_components/app-install-banner';
 import { JoinForwarder } from './_components/join-forwarder';
 
@@ -55,44 +56,51 @@ type Kind = 'seat' | 'guest';
  * lookups on the admin client. Returns null when the token resolves to neither
  * (reissued / deleted / never valid) so the page can show a clean dead-end.
  */
-async function resolveKind(token: string, hint?: Kind): Promise<Kind | null> {
+async function resolveKind(token: string, hint?: Kind): Promise<Kind | 'unreadable' | null> {
   const admin = createAdminClient();
+  // 🔌 A4-71: each check answers yes / no / couldn't-read. A failed read is never folded into "no" — a link we
+  // could not check is told so ("your link is fine"), not sent to whoever shared it for a new one.
+  type Answer = boolean | 'unreadable';
 
-  const isSeat = async (): Promise<boolean> => {
+  const isSeat = async (): Promise<Answer> => {
     try {
-      const { data } = await admin
+      const { data, error } = await admin
         .from('paparazzi_seats')
         .select('seat_id')
         .eq('claim_qr_token', token)
         .maybeSingle();
+      if (error) return 'unreadable';
       return Boolean(data);
     } catch {
-      return false;
+      return 'unreadable';
     }
   };
 
-  const isGuest = async (): Promise<boolean> => {
+  const isGuest = async (): Promise<Answer> => {
     try {
-      const { data } = await admin
+      const { data, error } = await admin
         .from('guests')
         .select('guest_id')
         .eq('qr_token', token)
         .is('deleted_at', null)
         .maybeSingle();
+      if (error) return 'unreadable';
       return Boolean(data);
     } catch {
-      return false;
+      return 'unreadable';
     }
   };
 
   // Honor the hint first; if it doesn't resolve, fall through to the other kind
   // (a hint is an optimization, never a hard assertion).
   const order: Kind[] = hint === 'guest' ? ['guest', 'seat'] : ['seat', 'guest'];
+  let unreadable = false;
   for (const kind of order) {
-    if (kind === 'seat' && (await isSeat())) return 'seat';
-    if (kind === 'guest' && (await isGuest())) return 'guest';
+    const answer = kind === 'seat' ? await isSeat() : await isGuest();
+    if (answer === true) return kind;
+    if (answer === 'unreadable') unreadable = true;
   }
-  return null;
+  return unreadable ? 'unreadable' : null;
 }
 
 export default async function PapicJoinPage({ params, searchParams }: Props) {
@@ -103,6 +111,27 @@ export default async function PapicJoinPage({ params, searchParams }: Props) {
     kindParam === 'seat' ? 'seat' : kindParam === 'guest' ? 'guest' : undefined;
 
   const kind = cleanToken ? await resolveKind(cleanToken, hint) : null;
+
+  // 🔌 A4-71: we could not check — the link is probably fine; one tap tries again.
+  if (cleanToken && kind === 'unreadable') {
+    return (
+      <DoorShell
+        tone="dead_end"
+        eyebrow={
+          <>
+            <CircleAlert aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+            Papic
+          </>
+        }
+        title="We couldn’t check your link just now."
+        sub="Your link is probably fine. Give it a moment and try again."
+      >
+        <Link className={actionButtonClass('brand', { main: true, extra: '!h-11' })} href={`/papic/join/${encodeURIComponent(cleanToken)}`}>
+          Try again
+        </Link>
+      </DoorShell>
+    );
+  }
 
   // Neither a live seat nor a live guest QR → friendly dead-end (never leak why).
   if (!cleanToken || !kind) {

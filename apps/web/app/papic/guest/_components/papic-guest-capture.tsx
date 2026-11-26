@@ -185,6 +185,8 @@ type Props = {
    *  never record as another pass on a shared phone. */
   uploadOwner: string | null;
   initialRemaining: number;
+  /** 🔌 A4-66: the spent count could not be read — say so until the server's own figure arrives. */
+  remainingUnread?: boolean;
   total: number;
   /** Has this guest already accepted the one-time UGC terms of use? */
   termsAccepted: boolean;
@@ -284,6 +286,10 @@ type Props = {
    *  newest first) — the rest of "My shots" after this visit's (owner
    *  2026-10-24: this phone's shots, as a sheet over the camera). */
   myShots?: ReadonlyArray<{ id: string; url: string }> | null;
+  /** 🔌 A4-61: the earlier-shots read FAILED — the sheet says so instead of "Your shots land here". */
+  myShotsUnread?: boolean;
+  /** 🔌 A4-65: the live soft-stop line (`papic_event_pool_config.soft_stop_pct`); null = unread → last-resort default. */
+  softStopPct?: number | null;
   /**
    * 📷 ONE CAMERA, AND ITS PRO DRESS (owner 2026-10-24, final: *"Free: plain
    * camera with a small Setnayan mark on saved photos. Pro: their logo on the
@@ -378,6 +384,7 @@ export function PapicGuestCapture({
   eventId,
   uploadOwner,
   initialRemaining,
+  remainingUnread = false,
   total,
   termsAccepted,
   needsFaceEnroll = false,
@@ -394,6 +401,8 @@ export function PapicGuestCapture({
   exitTo = null,
   lastShotUrl = null,
   myShots = null,
+  myShotsUnread = false,
+  softStopPct = null,
   dress = null,
   photoMark = null,
   seat = null,
@@ -465,6 +474,7 @@ export function PapicGuestCapture({
 
   const [busy, setBusy] = useState(false);
   const [remaining, setRemaining] = useState(initialRemaining);
+  const [countUnread, setCountUnread] = useState(remainingUnread);
   // The pot's soft-stop STATE (never its figure — PRIV-1): set at open, and raised by a recorded shot's answer (a seat's
   // record step reports `poolLow` when the event's pool crosses its own line, as the old seat screen warned).
   const [poolLow, setPoolLow] = useState(poolLowAtOpen);
@@ -681,7 +691,7 @@ export function PapicGuestCapture({
     capApplies &&
     !exhausted &&
     total > 0 &&
-    remaining <= Math.floor((total * (100 - DEFAULT_EVENT_POOL_CONFIG.softStopPct)) / 100);
+    remaining <= Math.floor((total * (100 - (softStopPct ?? DEFAULT_EVENT_POOL_CONFIG.softStopPct))) / 100);
 
   // ⚠ EVERY SHOT SPENDS LATER. A shot is saved on this phone at the shutter
   // and recorded by the uploader (lib/papic-upload/) when there is signal —
@@ -802,7 +812,11 @@ export function PapicGuestCapture({
   // 📲 Add from your phone (guest upload v2, approved 2026-11-13) — opened from My shots' head; the files join THIS
   // camera's queue (same owner tag, same mark), priced at the upload price by the route.
   const [phoneOpen, setPhoneOpen] = useState(false);
-  const openPhone = useCallback(() => setPhoneOpen(true), []);
+  // 🔌 A4-63: never a popup on top of a popup — "Add from your phone" takes the place of My shots.
+  const openPhone = useCallback(() => {
+    setShotsOpen(false);
+    setPhoneOpen(true);
+  }, []);
   const closePhone = useCallback(() => setPhoneOpen(false), []);
 
   // ---- clip recording (Option A) --------------------------------------------
@@ -1005,6 +1019,7 @@ export function PapicGuestCapture({
             .shots.filter((s) => s.lane === lane && s.eventId === eventId && !s.settled.record && s.id !== e.shot.id)
             .reduce((n, s) => n + papicCaptureCost(s.media, s.durationMs ?? null), 0);
           setRemaining(Math.max(0, b.remaining - unsent));
+          setCountUnread(false);
         }
         // Kwento + scan-to-tag anchor on the LATEST shot only.
         if (b.captureId && e.shot.id === latestShotRef.current) {
@@ -1021,6 +1036,7 @@ export function PapicGuestCapture({
         */
         if (e.code === 'quota_exhausted') {
           setRemaining(0);
+          setCountUnread(false);
           setCapReached(true);
           setCapReason(typeof e.body?.reason === 'string' ? e.body.reason : null);
         } else {
@@ -1778,7 +1794,7 @@ export function PapicGuestCapture({
         {capApplies && !poolEmpty ? (
           <span className="inline-flex items-center gap-1.5 rounded-full bg-cream/10 px-3 py-1 text-xs font-medium text-cream" data-tour="camera-credits">
             <ImageIcon aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-            {low ? `Running low — ${formatCount(remaining)} ${remaining === 1 ? 'credit' : 'credits'} left` : `${formatCount(remaining)} ${remaining === 1 ? 'credit' : 'credits'} left`}
+            {countUnread ? 'Credits: couldn’t read' : low ? `Running low — ${formatCount(remaining)} ${remaining === 1 ? 'credit' : 'credits'} left` : `${formatCount(remaining)} ${remaining === 1 ? 'credit' : 'credits'} left`}
             {sponsorShare ? <span className="text-cream/60">· a sponsor’s share</span> : null}
           </span>
         ) : poolEmpty ? null /* run out: the camera says so itself — "running low" would be false */ : poolLow ? (
@@ -2423,6 +2439,7 @@ export function PapicGuestCapture({
         open={shotsOpen}
         onClose={closeShots}
         shots={myShotsList}
+        earlierUnread={myShotsUnread}
         eventId={eventId}
         onAddFromPhone={uploadOwner && !seat ? openPhone : null}
       />

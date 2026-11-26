@@ -74,7 +74,9 @@ export default async function PapicSeatPage({ params, searchParams }: Props) {
     .eq('claim_qr_token', token)
     .maybeSingle();
 
-  if (error || !seat || seat.claimer_user_id !== user.id) {
+  // 🔌 A4-82: a failed read is not "you never claimed this seat" — the claim page's retryable notice says so.
+  if (error) redirect(`/papic/claim/${token}?state=unreadable`);
+  if (!seat || seat.claimer_user_id !== user.id) {
     redirect(`/papic/claim/${token}`);
   }
 

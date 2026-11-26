@@ -1,7 +1,8 @@
 import { papicOwnerTag } from '@/lib/papic-upload/owner-tag.server';
+import { readPoolSoftStopPct } from '@/lib/papic-event-pool';
 import { guestReusesAccountFace } from '@/lib/account-face-profile';
 import { formatPapicDayInWords } from '@/lib/papic-window';
-import { Camera, Images } from 'lucide-react';
+import { Camera, Images, MailOpen } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { DoorShell } from '@/app/_components/door/door-shell';
 import Link from 'next/link';
@@ -9,6 +10,8 @@ import { redirect } from 'next/navigation';
 import { hostCameraDoor } from '@/lib/papic-host-door.server';
 import { hostCameraHref } from '@/lib/papic-host-door';
 import { readGuestSession } from '@/lib/guest-session';
+import { readGuestViewerForEvent } from '@/lib/guest-one-path.server';
+import { AdoptSeatSession } from '@/app/[slug]/_components/adopt-seat-session';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventPapicGuestAccess, fetchGuestQuota } from '@/lib/papic-guest';
 import { guestCaptureGate, GUEST_CAPTURE_GATE_COLUMNS } from '@/lib/papic-guest-window';
@@ -107,6 +110,37 @@ export default async function PapicGuestPage({
         </DoorShell>
       );
     }
+    /* 🔑 A4-B11 (owner, final check Add 34): a SIGNED-IN account that holds a seat on the event this camera was opened
+       from is a guest here, with no invite link in this browser. The camera's uploads read the pass, so the existing
+       adopt action writes it (that account's own seat only) and the page reloads into the camera. Anyone else — no
+       account, no seat, another guest's seat — still meets "Open your invitation first." */
+    if (backSlug) {
+      const { data: fromEvent, error: fromEventErr } = await createAdminClient()
+        .from('events')
+        .select('event_id')
+        .eq('slug', backSlug)
+        .maybeSingle();
+      if (fromEventErr) throw new Error(`papic/guest: could not read the event: ${fromEventErr.message}`);
+      const fromEventId = (fromEvent?.event_id as string | undefined) ?? null;
+      if (fromEventId && (await readGuestViewerForEvent(fromEventId)).kind === 'seat') {
+        return (
+          <DoorShell
+            eyebrow={
+              <>
+                <Camera aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
+                Guest camera
+              </>
+            }
+            title="Opening your camera…"
+            sub="You’re signed in with your invitation."
+          >
+            <AdoptSeatSession eventId={fromEventId} thenRefresh />
+            {/* The one way on while it opens (or if it cannot): the invitation this camera was opened from. */}
+            <ActionButton tone="brand" icon={<MailOpen aria-hidden strokeWidth={1.9} />} label="Open your invitation" href={`/${backSlug}`} />
+          </DoorShell>
+        );
+      }
+    }
     return (
       <DoorShell
         tone="dead_end"
@@ -165,6 +199,8 @@ export default async function PapicGuestPage({
   /** This event's own Event Hub, for the camera's ✕ when it was not opened from a hub tab (re-checked as a slug). */
   const ownHubSlug = typeof (ev as { slug?: unknown } | null)?.slug === 'string' && /^[a-z0-9][a-z0-9-]{0,79}$/.test((ev as { slug: string }).slug) ? (ev as { slug: string }).slug : null;
   const eventName = (ev?.display_name as string | null) || 'this event';
+  /** 🔌 A4-60: every refusal below offers the way back to THIS event's Event Hub — the tab it came from, else its own. */
+  const exitSlug = backSlug ?? ownHubSlug;
   // Face-tag mode gate (One-Pool spec §3.4). Fail-closed to mode_b: a
   // pre-migration DB (column absent → null) yields no embedding on this camera.
   // The couple's own "turn it off for my event" is the last word here too: the
@@ -212,8 +248,8 @@ export default async function PapicGuestPage({
             : `Guest cameras haven’t been turned on for ${eventName} yet. Sit back and enjoy the event!`
         }
       >
-        {backSlug ? (
-          <Link href={`/${backSlug}`} className="button-secondary">
+        {exitSlug ? (
+          <Link href={`/${exitSlug}`} className="button-secondary">
             Back to the invitation
           </Link>
         ) : null}
@@ -287,8 +323,8 @@ export default async function PapicGuestPage({
             See your photos
           </Link>
         ) : null}
-        {backSlug ? (
-          <Link href={`/${backSlug}`} className="button-secondary">
+        {exitSlug ? (
+          <Link href={`/${exitSlug}`} className="button-secondary">
             Back to the invitation
           </Link>
         ) : null}
@@ -341,11 +377,13 @@ export default async function PapicGuestPage({
     (g?.first_name as string | null) || (g?.display_name as string | null) || 'friend';
   // "Reuse the face on my account for this event" (owner 2026-09-30) → no
   // selfie to ask for. Flag OFF → false with no read (lib/account-face-profile.ts).
-  const [reusesAccountFace, ownShots] = await Promise.all([
+  const [reusesAccountFace, ownShots, softStopPct] = await Promise.all([
     guestReusesAccountFace(admin, session.event_id, session.guest_id),
     // 📸 The guest's OWN shots: the newest is the thumbnail beside the shutter,
     // and the rest fill "My shots", the sheet over the camera (owner 2026-10-24).
     getGuestOwnShots(session.event_id, session.guest_id, 30),
+    // 🔌 A4-65: the owner's live soft-stop line for the "running low" pill (not the last-resort default).
+    readPoolSoftStopPct(admin),
   ]);
   // The guest's own "Want to be tagged in the photos?" answer — null when never
   // answered. A FAILED read turns the catch off (below) rather than reading as
@@ -365,14 +403,16 @@ export default async function PapicGuestPage({
     (g as { ugc_terms_accepted_at?: string | null } | null)?.ugc_terms_accepted_at,
   );
 
-  const { data: blockRow } = await admin
+  const { data: blockRow, error: blockErr } = await admin
     .from('event_blocked_users')
     .select('id')
     .eq('event_id', session.event_id)
     .eq('blocked_guest_id', session.guest_id)
     .maybeSingle();
 
-  if (blockRow) {
+  // 🔌 A4-67: an unread block list does not hand out the camera (the capture route would then refuse every shot) —
+  // the closed door below says "we couldn't check", as the pool gate above does. One door, one way back.
+  if (blockErr || blockRow) {
     return (
       <DoorShell
         tone="dead_end"
@@ -382,11 +422,15 @@ export default async function PapicGuestPage({
             Guest camera
           </>
         }
-        title="Camera unavailable."
-        sub={`Your guest camera for ${eventName} has been turned off. Photos you already shared stay in Memories. If you think this is a mistake, reach out to the host directly.`}
+        title={blockErr ? 'We couldn’t check just now.' : 'Camera unavailable.'}
+        sub={
+          blockErr
+            ? 'Something on our side didn’t answer, so we can’t open your camera yet. Give it a moment and try again — nothing is wrong with your invitation.'
+            : `Your guest camera for ${eventName} has been turned off. Photos you already shared stay in Memories. If you think this is a mistake, reach out to the host directly.`
+        }
       >
-        {backSlug ? (
-          <Link href={`/${backSlug}`} className="button-secondary">
+        {exitSlug ? (
+          <Link href={`/${exitSlug}`} className="button-secondary">
             Back to the invitation
           </Link>
         ) : null}
@@ -428,6 +472,7 @@ export default async function PapicGuestPage({
       eventId={session.event_id}
       uploadOwner={papicOwnerTag('guest', session.guest_id, session.event_id)}
       initialRemaining={quota.remaining}
+      remainingUnread={quota.countUnread === true}
       total={quota.total}
       termsAccepted={termsAccepted}
       /* ⚖ Owner 2026-09-29: the face step depends ONLY on whether the guest
@@ -460,6 +505,8 @@ export default async function PapicGuestPage({
       dress={cameraDress}
       photoMark={photoMark}
       myShots={ownShots?.shots ?? null}
+      myShotsUnread={ownShots === null}
+      softStopPct={softStopPct}
       chapter={chapter}
     />
     {/* ✍ "WRITE A COLUMN" ON THE DAY LIVES IN THE CAMERA (owner 2026-10-04,

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { HardDrive } from 'lucide-react';
+import { PRICE_UNREAD } from '@/lib/php';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
@@ -64,6 +65,8 @@ export async function MemoriesSettings({
     fetchPlatformSettings(supabase),
   ]);
   const price = priceRes.data?.is_active ? Number(priceRes.data.retail_price_php) : null;
+  // M-02 (final check): a failed catalogue read is never drawn as "not on sale" (a bare icon, no door).
+  const priceUnread = Boolean(priceRes.error);
 
   return (
     <>
@@ -116,6 +119,10 @@ export async function MemoriesSettings({
               triggerLabel={`Turn on · ${formatPhp(price)}/yr`}
               triggerClassName="inline-flex shrink-0 items-center justify-center gap-2 rounded-full border border-terracotta/40 px-3.5 py-2 text-[13px] font-medium text-terracotta hover:bg-terracotta/5"
             />
+          ) : priceUnread ? (
+            <span role="status" className="shrink-0 text-sn-12 text-ink/70">
+              {PRICE_UNREAD}
+            </span>
           ) : (
             <HardDrive aria-hidden className="h-4 w-4 shrink-0 text-ink/70" strokeWidth={1.75} />
           )}

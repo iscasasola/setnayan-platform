@@ -227,8 +227,9 @@ test('the remaining 9 shape-1 sites each carry at least one [supabase-error] log
       needle: '[supabase-error] lib/business-alaga-ensure.ts · from:dependents.select',
     },
     {
-      file: 'app/panood/actions.ts',
-      needle: '[supabase-error] app/panood/actions.ts · from:panood_camera_operators.select',
+      // (A4-B03, 25 Nov: the camera-token read moved here so the join page asks it on arrival too.)
+      file: 'lib/panood-camera-claimability.ts',
+      needle: '[supabase-error] lib/panood-camera-claimability.ts · from:panood_camera_operators.select',
     },
     {
       file: 'app/u/_actions/audience-actions.ts',

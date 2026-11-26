@@ -25,7 +25,6 @@ const PAGES: ReadonlyArray<readonly [route: string, file: string, title: string]
   ['/vendor-dashboard/settings', 'settings/settings-view.tsx', '"Settings"'],
   ['/vendor-dashboard/team', 'team/_components/helpers-view.tsx', '"Team"'],
   ['/vendor-dashboard/services/their-work', 'services/their-work/page.tsx', '"Their work"'],
-  ['/vendor-dashboard/spaces', 'spaces/page.tsx', '"Spaces"'],
   ['/vendor-dashboard/deep-search', 'deep-search/page.tsx', '"Deep Search"'],
   ['/vendor-dashboard/packages', 'packages/page.tsx', '"Packages"'],
   ['/vendor-dashboard/collections/albums', 'collections/albums/page.tsx', '"Albums by event"'],
@@ -75,6 +74,5 @@ test('B18 · a request’s ‹ still goes to Your requests (the map, not a typed
     label: 'Your requests',
   });
   assert.equal(pageBackLink('/vendor-dashboard/services/their-work')?.href, '/vendor-dashboard/shop', 'Their work’s ‹ moved');
-  assert.equal(pageBackLink('/vendor-dashboard/spaces')?.href, '/vendor-dashboard/shop', 'Spaces’ ‹ moved');
   assert.equal(pageBackLink('/vendor-dashboard/collections/albums')?.href, '/vendor-dashboard/collections', 'Albums’ ‹ moved');
 });

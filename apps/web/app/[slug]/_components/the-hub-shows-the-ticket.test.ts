@@ -106,7 +106,10 @@ test('a failed picture is never an empty box: it swaps to the plain code and say
   assert.match(pic, /onError=\{\(\) => setState\('failed'\)\}/);
   assert.match(pic, /img\.complete[\s\S]{0,80}naturalWidth > 0 \? 'shown' : 'failed'/, 'an error before hydration is missed');
   assert.match(pic, /if \(state === 'failed'\) return <>\{fallback\}<\/>;/);
-  assert.match(read('guest-ticket.tsx'), /src="\/api\/guest\/qr"/, 'the fallback has no code to show at the door');
+  // A4-B11 (Add 34): the fallback's route is a prop defaulting to the bare guest route; the Hub passes its own event.
+  const ticket = read('guest-ticket.tsx');
+  assert.match(ticket, /qrSrc = '\/api\/guest\/qr',/, 'the fallback has no code to show at the door');
+  assert.match(ticket, /src=\{qrSrc\}/, 'the fallback has no code to show at the door');
 });
 
 // ─── 3 · Where it is mounted ────────────────────────────────────────────────
@@ -121,7 +124,11 @@ test('the ticket is on Me — mounted into the Me section, first', () => {
   // return of the page — the Maker's See as sample (PR-10), the ONLY mount that
   // hands in a picture of its own.
   assert.equal(page.split('<GuestTicket').length - 1, 2, 'a third ticket mount appeared');
-  assert.doesNotMatch(me, /\bsrc=/, 'a real guest’s ticket was handed another picture');
+  // A4-B11 (Add 34): the real guest's ticket is handed its OWN two routes, only scoped to this event (`?event=`) so a
+  // signed-in seat-holder sees its own pass — never another picture.
+  const handed = [...me.matchAll(/\b(\w*[sS]rc)=\{([^}]*\))\}/g)].map((m) => `${m[1]}=${m[2]}`);
+  assert.deepEqual(handed, ['src=passRouteForEvent(PASS_CARD_ROUTE, event.event_id)', 'qrSrc=passRouteForEvent(GUEST_QR_ROUTE, event.event_id)'], 'a real guest’s ticket was handed another picture');
+  assert.equal((me.match(/\bsrc=/g) ?? []).length, 1, 'a real guest’s ticket was handed another picture');
   const sample = page.slice(page.indexOf('const seeAs = resolveSampleViewer('), page.indexOf("if (guestViewer.kind === 'anonymous')"));
   assert.match(sample, /<GuestTicket[\s\S]*?src=\{sampleTicketSrc\(event\.event_id\)\}/, 'the second mount is not the See as sample');
 });

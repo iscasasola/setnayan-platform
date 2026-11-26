@@ -596,8 +596,9 @@ async function ApplicationsSurface({
   // Optional: a "demoted" tab also surfaces vendor rows that aren't tied to a
   // pending application — vendors who got auto-demoted via the dispute cron.
   let demotedFallback: ApplicationRow['vendor'][] = [];
+  let demotedReadFailed = false;
   if (statusParam === 'demoted') {
-    const { data: demotedVendors } = await admin
+    const { data: demotedVendors, error: demotedErr } = await admin
       .from('vendor_profiles')
       .select(
         'vendor_profile_id,user_id,business_name,business_slug,contact_email,contact_phone,location_city,hq_address,verification_state,demotion_count',
@@ -605,6 +606,10 @@ async function ApplicationsSurface({
       .eq('verification_state', 'demoted')
       .order('last_demoted_at', { ascending: false })
       .limit(100);
+    if (demotedErr) {
+      demotedReadFailed = true;
+      logQueryError('AdminVerifyPage (vendor_profiles demoted)', demotedErr);
+    }
     demotedFallback = (demotedVendors ?? []).map((v) => ({
       vendor_profile_id: v.vendor_profile_id,
       business_name: v.business_name ?? '',
@@ -755,6 +760,7 @@ async function ApplicationsSurface({
     'post_demotion',
   );
 
+  const listUnread = demotedReadFailed || (autoReadFailed && statusParam === 'auto');
   return (
     <>
       <ApplicationsTabs current={statusParam ?? 'pending_review'} />
@@ -788,10 +794,20 @@ async function ApplicationsSurface({
         </FormFlash>
       ) : null}
 
+      {/* A8·E-10: a failed read (the automatic checks on the Auto tab, or the demoted list) shows only its "couldn't
+          load" line — never the empty hint under it (`listUnread`). */}
+      {demotedReadFailed ? (
+        <FormFlash tone="error">
+          The demoted suppliers couldn&apos;t load. Refresh to try again.
+        </FormFlash>
+      ) : null}
+
       {appErr ? null : shownRows.length === 0 && demotedFallback.length === 0 ? (
-        <p className="rounded-card border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-[color:var(--sn-ink-400)]">
-          {tabFilter.emptyHint}
-        </p>
+        listUnread ? null : (
+          <p className="rounded-card border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-[color:var(--sn-ink-400)]">
+            {tabFilter.emptyHint}
+          </p>
+        )
       ) : (
         <>
           <ul className="grid gap-3">
@@ -2231,7 +2247,8 @@ async function VisibilitySurface({
 
       {error ? null : null}
 
-      {vendors.length === 0 ? (
+      {/* A8·E-10: under a failed read only the "couldn't load" line shows — never "Queue is empty". */}
+      {queryError ? null : vendors.length === 0 ? (
         <p className="rounded-card border border-dashed border-ink/15 bg-white/50 p-10 text-center text-sm text-[color:var(--sn-ink-400)]">
           Queue is empty for this filter. Try widening the status.
         </p>

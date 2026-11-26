@@ -14,7 +14,8 @@ import { isPasswordLeaked } from '@/lib/leaked-password';
 export async function setPasswordAction(eventId: string, formData: FormData) {
   const password = String(formData.get('password') ?? '');
   const next = safeNext(formData.get('next'));
-  const dest = next === '/' ? `/dashboard/${eventId}` : next;
+  // 🔌 A4-B09: the join door routes each role to its own home (never the host's dashboard for a guest).
+  const dest = next === '/' ? `/join/${eventId}` : next;
 
   const supabase = await createClient();
   const {

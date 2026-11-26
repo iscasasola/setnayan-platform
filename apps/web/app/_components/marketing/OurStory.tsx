@@ -132,7 +132,7 @@ export function OurStoryManifesto({ clips = [] }: { clips?: string[] }) {
                 className="mt-4 text-center lg:text-left"
                 style={{ color: 'rgba(251,251,250,.5)', fontSize: 'clamp(0.9rem, 2.1vw, 1rem)', lineHeight: 1.68, maxWidth: 440 }}
               >
-                Every guest goes home with a personal highlight reel — the moments, the
+                Every guest goes home with their own photos — the moments, the
                 people, the stories. Yours to keep.
               </p>
             </Reveal>

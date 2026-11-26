@@ -39,9 +39,9 @@ import { REPORT_INK, REPORT_MUTED } from '@/lib/print-report';
 import { guestDisplayName, guestPrintName, type GuestRow } from '@/lib/guests';
 import { PLACEHOLDER_FIRST_NAME } from '@/lib/extra-seats';
 import { registryKeyCompare, surnameFirst } from '@/lib/print-guest-registry';
-import { isDeclined } from '@/lib/seat-plan-details';
 import { formatCount } from '@/lib/format-number';
 import type { EventTableRow, SeatAssignmentRow } from '@/lib/seating';
+import { countStillToSeat } from '@/lib/seating';
 
 // ─── The two choices ────────────────────────────────────────────────────────
 
@@ -167,8 +167,9 @@ export function unseatedCount(
   guests: readonly SeatPlanPerson[],
 ): number {
   const tableIds = new Set(tables.map((t) => t.table_id));
-  const seated = new Set(assignments.filter((a) => tableIds.has(a.table_id)).map((a) => a.guest_id));
-  return guests.filter((g) => !seated.has(g.guest_id) && !isDeclined(g)).length;
+  const seatAt = new Map(assignments.filter((a) => tableIds.has(a.table_id)).map((a) => [a.guest_id, a.table_id]));
+  // The seat plan's ONE count (A2-E4): `countStillToSeat` in lib/seating.ts, given each guest's chair.
+  return countStillToSeat(guests.map((g) => ({ rsvp_status: g.rsvp_status, seated_table_id: seatAt.get(g.guest_id) ?? null })));
 }
 
 export type ChartName = { guestId: string; name: string };

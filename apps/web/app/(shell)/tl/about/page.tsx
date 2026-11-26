@@ -29,9 +29,9 @@ const SITE_URL = (
   process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
 ).replace(/\/$/, '');
 
-const PAGE_TITLE = 'Tungkol sa Setnayan — ang Philippines-first wedding platform';
+const PAGE_TITLE = 'Tungkol sa Setnayan — plan it, live it, keep it';
 const PAGE_DESCRIPTION =
-  'Ang Setnayan ang all-in-one wedding at life-events platform ng Pilipinas — ang una ditong gawa para i-plan ang kasal, mag-run ng 0%-commission marketplace ng verified local suppliers, at i-capture ang araw para mahanap ng bawat guest ang mga litratong kasama sila.';
+  'Ang Setnayan ang isang lugar para sa buong Pinoy event: i-plan ito, mag-hire ng verified local suppliers, at i-capture ang araw para mahanap ng bawat guest ang mga litratong kasama sila.';
 
 // Reciprocal hreflang — both /about and /tl/about list the same alternates.
 const LANGUAGES = {
@@ -94,11 +94,11 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
 const FAQ: Array<{ q: string; a: string }> = [
   {
     q: 'Ano ang Setnayan?',
-    a: 'Ang Setnayan (SET-na-yan, galing sa “Set na ’yan.”) ang Philippines-first na wedding at life-events software platform. Gawa at pinapatakbo sa Pilipinas para sa Pinoy weddings. Free ang simula ng couples sa planning workspace; nagla-list ang verified Pinoy suppliers nang walang booking commission.',
+    a: 'Ang Setnayan (SET-na-yan, galing sa “I-set na ’yan”: “let’s get that set”) ang lugar para i-plan, i-live at i-keep ang bawat Pinoy event. Gawa at pinapatakbo sa Pilipinas para sa Pinoy weddings. Free ang simula ng couples sa planning workspace; nagla-list ang verified Pinoy suppliers nang walang booking commission.',
   },
   {
     q: 'Free ba ang Setnayan para sa couples?',
-    a: 'Free ang simula — schedule, budget, guest list, seat plan, at mood board, kasama na ang marketplace browse at preview ng supplier matches mo. Bayad ang premium tools tulad ng Setnayan AI, Event Hub, at premium RSVP. Babayaran mo lang ang gusto mong i-add.',
+    a: 'Free ang simula — schedule, budget, guest list, seat plan, at mood board, kasama na ang marketplace browse at preview ng supplier matches mo. Libre rin ang Event Hub at RSVP. Bayad ang ilang dagdag tulad ng Setnayan AI at Papic credits; nasa Pricing page ang presyo. Babayaran mo lang ang gusto mong i-add.',
   },
   {
     q: 'May commission ba ang Setnayan sa supplier bookings?',
@@ -176,23 +176,19 @@ export default async function AboutPageTaglish() {
           </nav>
 
           <h1 className="max-w-3xl font-display text-4xl leading-tight text-ink sm:text-5xl">
-            Set na &rsquo;yan. Your whole wedding, all set — sa isang Filipino platform.
+            Set na &rsquo;yan. Plan it · Live it · Keep it.
           </h1>
           <p className="mt-6 max-w-2xl text-lg leading-relaxed text-ink/75">
             Ang Setnayan (<span className="font-medium">SET-na-yan</span>, galing sa
-            Tagalog na <em>&ldquo;Set na &rsquo;yan.&rdquo;</em>) ang all-in-one
-            wedding at life-events platform ng Pilipinas — at ang una ditong gawa
-            para gawin ang buong event sa isang place: i-plan ang event,
-            mag-hire from a 0%-commission marketplace ng verified local suppliers, at
-            i-capture ang araw para mahanap ng bawat guest ang mga litratong
-            kasama sila.
+            Tagalog na <em>&ldquo;I-set na &rsquo;yan&rdquo;</em>) ang isang lugar para
+            sa buong event: i-plan ito, mag-hire ng verified local suppliers, at
+            i-capture ang araw para mahanap ng bawat guest ang mga litratong kasama
+            sila. Hosts pay 0% commission.
           </p>
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink/75">
-            Hindi &rsquo;to foreign directory na may Philippine filter — software
-            na gawa at pinapatakbo dito mismo sa Pilipinas, para sa paraan ng
+            Gawa at pinapatakbo dito mismo sa Pilipinas, para sa paraan ng
             pag-plan ng mga Pinoy: free planning workspace, verified local suppliers,
-            transparent peso pricing, at zero commission sa binabayad mo sa
-            suppliers mo.
+            presyo sa piso, at walang dagdag sa binabayad mo sa suppliers mo.
           </p>
         </section>
 
@@ -221,9 +217,9 @@ export default async function AboutPageTaglish() {
               seating, budget, at schedule; free mood board; marketplace ng
               verified Pinoy wedding suppliers na direkta mong ma-message; at
               in-app services — libreng single-camera livestreaming sa sarili
-              mong YouTube (Live Watch), candid photo capture (Papic), at bespoke monograms. Libre ang simula
-              ng ilan, gaya ng isang Papic camera sa bawat event at single-camera
-              stream; nasa Pricing page ang presyo ng iba. Kayo ng supplier ang nag-uusap sa booking;
+              mong YouTube (Live Watch ang lahat ng camera nang sabay), candid photo capture (Papic), at Logo Maker.
+              Walang limit ang Papic cameras: credits ang gamit ng bawat litrato, at may libreng credits
+              ang unang event mo; nasa Pricing page ang presyo ng iba. Kayo ng supplier ang nag-uusap sa booking;
               hindi hinahawakan ng Setnayan ang pera.
             </p>
             <p className="text-base leading-relaxed text-ink/75">

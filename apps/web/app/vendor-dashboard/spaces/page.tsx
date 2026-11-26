@@ -1,6 +1,6 @@
 import { redirect } from 'next/navigation';
 import { SUPPLIER_FLOOR_PLAN_MIN_TIER } from '@/lib/seat-plan-engine';
-import { ToolPin } from '../_components/tool-page';
+import { PageMasthead } from '@/app/_components/page-masthead';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -58,9 +58,11 @@ export default async function SpacesPage() {
       : null;
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-8 sm:px-6 lg:max-w-4xl" data-spaces="">
-      {/* ‹ + the title, the one pinned row (final check B18). */}
-      <ToolPin route="/vendor-dashboard/spaces" title="Spaces" sub="Set once for the shop. Your cards pick from here." />
+    <div className="mx-auto w-full max-w-2xl px-4 pb-8 pt-4 sm:px-6 lg:max-w-4xl" data-spaces="">
+      {/* B4 (drawing final-check-area-7 § 4a, approved 25 Nov): the title and its Back move to the app's top bar through
+          PageMasthead, as on Chats and the other supplier pages — no in-page title, caption or Back round (the
+          caption's fact moved to the empty state, 4c). */}
+      <PageMasthead title={metadata.title} />
       <SpacesScreen initial={read} today={today} proOpen={proOpen} shopKind={kindForShop(categories)} firstHall={firstHall} planPrice={planPrice} />
     </div>
   );

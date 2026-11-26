@@ -2,6 +2,7 @@
 
 import { SAMAHAN_MESSAGE_ID_FIELD, isDuplicateSend, postedSamahanMessageId } from '@/lib/samahan-message-id';
 import { revalidatePath } from 'next/cache';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { after } from 'next/server';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -90,9 +91,8 @@ export async function createCommunity(formData: FormData) {
     .select('community_id')
     .single();
   if (insertError || !inserted) {
-    redirect(
-      `/dashboard/samahan/new?error=${encodeURIComponent(insertError?.message ?? 'unknown')}`,
-    );
+    logQueryError('createCommunity.insert', insertError, {}, 'graceful_degrade');
+    redirect('/dashboard/samahan/new?error=save_failed');
   }
   const communityId = (inserted as { community_id: string }).community_id;
 
@@ -102,9 +102,8 @@ export async function createCommunity(formData: FormData) {
     role: 'organizer',
   });
   if (memberError) {
-    redirect(
-      `/dashboard/samahan/new?error=${encodeURIComponent('member_link_failed: ' + memberError.message)}`,
-    );
+    logQueryError('createCommunity.memberLink', memberError, { communityId }, 'graceful_degrade');
+    redirect('/dashboard/samahan/new?error=save_failed');
   }
 
   // The standing invite link, minted at create (plan §6). Non-fatal on error —
@@ -159,9 +158,8 @@ export async function leaveCommunity(formData: FormData) {
     .eq('id', self.id)
     .select('id');
   if (error) {
-    redirect(
-      `/dashboard/samahan/${communityId}?tab=members&error=${encodeURIComponent(error.message)}`,
-    );
+    logQueryError('leaveCommunity.delete', error, { communityId }, 'graceful_degrade');
+    redirect(`/dashboard/samahan/${communityId}?tab=members&error=leave_failed`);
   }
   if (!removed || removed.length === 0) {
     // Refused with no error — RLS returns zero rows rather than throwing.
@@ -233,9 +231,8 @@ export async function promoteMember(formData: FormData) {
       .update({ role: 'organizer' })
       .eq('id', target.id);
     if (error) {
-      redirect(
-        `/dashboard/samahan/${communityId}?tab=members&error=${encodeURIComponent(error.message)}`,
-      );
+      logQueryError('samahanMembers.write', error, { communityId }, 'graceful_degrade');
+      redirect(`/dashboard/samahan/${communityId}?tab=members&error=save_failed`);
     }
   }
   revalidatePath(`/dashboard/samahan/${communityId}`);
@@ -258,9 +255,8 @@ export async function demoteMember(formData: FormData) {
       .update({ role: 'member' })
       .eq('id', target.id);
     if (error) {
-      redirect(
-        `/dashboard/samahan/${communityId}?tab=members&error=${encodeURIComponent(error.message)}`,
-      );
+      logQueryError('samahanMembers.write', error, { communityId }, 'graceful_degrade');
+      redirect(`/dashboard/samahan/${communityId}?tab=members&error=save_failed`);
     }
   }
   revalidatePath(`/dashboard/samahan/${communityId}`);
@@ -283,9 +279,8 @@ export async function removeMember(formData: FormData) {
     .delete()
     .eq('id', target.id);
   if (error) {
-    redirect(
-      `/dashboard/samahan/${communityId}?tab=members&error=${encodeURIComponent(error.message)}`,
-    );
+    logQueryError('samahanMembers.write', error, { communityId }, 'graceful_degrade');
+    redirect(`/dashboard/samahan/${communityId}?tab=members&error=save_failed`);
   }
   revalidatePath(`/dashboard/samahan/${communityId}`);
   redirect(`/dashboard/samahan/${communityId}?tab=members&removed=1`);
@@ -320,9 +315,8 @@ export async function rotateInviteToken(formData: FormData) {
     { onConflict: 'community_id' },
   );
   if (error) {
-    redirect(
-      `/dashboard/samahan/${communityId}?tab=members&error=${encodeURIComponent(error.message)}`,
-    );
+    logQueryError('samahanMembers.write', error, { communityId }, 'graceful_degrade');
+    redirect(`/dashboard/samahan/${communityId}?tab=members&error=save_failed`);
   }
 
   revalidatePath(`/dashboard/samahan/${communityId}`);

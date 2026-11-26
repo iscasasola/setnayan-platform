@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { guestListUnreadResponse } from '@/lib/guest-list-unread-response';
 import { fetchGuestsByEventMeasured, guestPrintName } from '@/lib/guests';
+import { readNoSeatGuestIds } from '@/lib/guest-chapter-invites';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { layoutSeatingPack, seatingSignLine, type SeatingPackUnit } from '@/lib/print-seating-pack';
@@ -104,14 +105,16 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   const chart = parseChartLayout(params.get('chart'));
   if (chart) {
     const size = parseChartSize(params.get('size'));
-    const [cTables, cAssignments, cGuestsRead] = await Promise.all([
+    const [cTables, cAssignments, cGuestsRead, cNoSeat] = await Promise.all([
       fetchTables(supabase, eventId),
       fetchAssignments(supabase, eventId),
       fetchGuestsByEventMeasured(supabase, eventId),
+      readNoSeatGuestIds(supabase, eventId),
     ]);
     // 🔌 A refused guest read is never an entrance chart of nobody (audit #14).
     if (!cGuestsRead.measured) return guestListUnreadResponse();
-    const cGuests = cGuestsRead.rows;
+    // 🪑 The seat plan's own list (A2-E4): an "after party only" guest is never counted as "no seat yet".
+    const cGuests = cNoSeat && cNoSeat.size > 0 ? cGuestsRead.rows.filter((g) => !cNoSeat.has(g.guest_id)) : cGuestsRead.rows;
     const cUnits = seatingUnits(cTables, cAssignments, cGuests);
     const untitledChart = ((event as { event_type?: string | null }).event_type ?? 'wedding') === 'wedding' ? 'Our Wedding' : 'Our Event';
     const coupleName = event.monogram_text || event.display_name || untitledChart;

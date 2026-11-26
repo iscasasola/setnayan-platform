@@ -14,6 +14,7 @@ import {
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { FileUpload } from '@/app/_components/file-upload';
+import { StayForm } from '@/app/_components/stay-form';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { displayUrlForPrivateStoredAsset } from '@/lib/uploads';
 import { paperworkScanPolicy } from '@/lib/r2-client-ref';
@@ -454,8 +455,8 @@ function SeedPrompt({
   ceremonyLabel: string;
 }) {
   return (
-    <form
-      action={seedPaperworkForEvent}
+    <StayForm
+      door="paperwork.seedPaperworkForEvent" action={seedPaperworkForEvent}
       className="py-2"
     >
       <input type="hidden" name="event_id" value={eventId} />
@@ -473,7 +474,7 @@ function SeedPrompt({
         <ScrollText className="h-4 w-4" strokeWidth={1.75} />
         Build my checklist
       </SubmitButton>
-    </form>
+    </StayForm>
   );
 }
 
@@ -760,7 +761,7 @@ function ActionsBlock({
       {/* Primary actions row — what the host clicks first */}
       <div className="flex flex-wrap gap-2">
         {status === 'not_started' ? (
-          <form action={markPaperworkRequested}>
+          <StayForm door="paperwork.markPaperworkRequested" action={markPaperworkRequested}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="paperwork_id" value={row.id} />
             <SubmitButton
@@ -769,11 +770,11 @@ function ActionsBlock({
             >
               Mark as requested
             </SubmitButton>
-          </form>
+          </StayForm>
         ) : null}
 
         {(status === 'requested' || status === 'in_processing') ? (
-          <form action={markPaperworkReceived}>
+          <StayForm door="paperwork.markPaperworkReceived" action={markPaperworkReceived}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="paperwork_id" value={row.id} />
             <input type="hidden" name="document_type" value={documentType} />
@@ -784,11 +785,11 @@ function ActionsBlock({
               <CheckCircle2 className="h-3.5 w-3.5" strokeWidth={2} />
               Mark as received
             </SubmitButton>
-          </form>
+          </StayForm>
         ) : null}
 
         {status === 'received' ? (
-          <form action={setPaperworkStatus}>
+          <StayForm door="paperwork.setPaperworkStatus" action={setPaperworkStatus}>
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="paperwork_id" value={row.id} />
             <input type="hidden" name="status" value="not_started" />
@@ -798,7 +799,7 @@ function ActionsBlock({
             >
               Reset status
             </SubmitButton>
-          </form>
+          </StayForm>
         ) : null}
 
         {/* Helpful external link to the PSA portal when relevant. */}
@@ -868,8 +869,8 @@ function TrackingReferenceForm({
   current: string | null;
 }) {
   return (
-    <form
-      action={markPaperworkRequested}
+    <StayForm
+      door="paperwork.markPaperworkRequested" action={markPaperworkRequested}
       className="flex flex-wrap items-center gap-2 rounded-md border border-ink/10 bg-ink/[0.02] px-3 py-2"
     >
       <input type="hidden" name="event_id" value={eventId} />
@@ -894,7 +895,7 @@ function TrackingReferenceForm({
       >
         Save
       </SubmitButton>
-    </form>
+    </StayForm>
   );
 }
 
@@ -912,7 +913,7 @@ function UploadBlock({
   displayUrl: string | undefined;
 }) {
   return (
-    <form action={uploadPaperworkScan} className="space-y-2">
+    <StayForm door="paperwork.uploadPaperworkScan" action={uploadPaperworkScan} className="space-y-2">
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="paperwork_id" value={paperworkId} />
       <input type="hidden" name="document_type" value={documentType} />
@@ -944,7 +945,7 @@ function UploadBlock({
       >
         Save scan
       </SubmitButton>
-    </form>
+    </StayForm>
   );
 }
 
@@ -958,7 +959,7 @@ function NotesForm({
   currentNotes: string | null;
 }) {
   return (
-    <form action={setPaperworkNotes} className="space-y-1">
+    <StayForm door="paperwork.setPaperworkNotes" action={setPaperworkNotes} className="space-y-1">
       <input type="hidden" name="event_id" value={eventId} />
       <input type="hidden" name="paperwork_id" value={paperworkId} />
       <label
@@ -984,7 +985,7 @@ function NotesForm({
           Save note
         </SubmitButton>
       </div>
-    </form>
+    </StayForm>
   );
 }
 

@@ -1351,8 +1351,12 @@ export function ChatSendForm({ threadId, sendAction, lead, attachInputId, userId
             {filtering && !chipsShown ? <span aria-hidden className="absolute right-2 top-2 h-1.5 w-1.5 rounded-full bg-sn-accent" data-chat-kind-dot="" /> : null}
           </button>
         ) : null}
+        {/* 💬 NO VEIL ON A CHAT SEND (owner, 26 Nov: "this kind of refresh doesn't happen on messenger … the status
+            says what is happening, the one with deliver status"). The bubble already shows at once and its delivery
+            line says Sending… / Sent / Not sent — the app-wide "Saving your changes" cover read as the page reloading. */}
         <SubmitButton
           aria-label={editing ? 'Save your edit' : 'Send'}
+          overlay={false}
           pending={savingEdit ? true : undefined}
           pendingLabel=""
           className={`sn-whisper-send h-11 w-11 shrink-0 items-center justify-center rounded-full ${toolInBox || micShown ? 'hidden' : 'inline-flex'} ${wordsMode ? PRIVATE_MARK : 'text-ink'} hover:bg-ink/[0.05] disabled:opacity-60`}

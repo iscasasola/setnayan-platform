@@ -19,6 +19,14 @@ import { GIFT_LIMIT_PCT_DEFAULT, giftLimitPctOrDefault } from '@/lib/setnayan-gi
  * the same action, so a new limit is read on the next page.
  */
 export async function getGiftLimitPct(admin: SupabaseClient): Promise<number> {
+  return (await getGiftLimitPctRead(admin)) ?? GIFT_LIMIT_PCT_DEFAULT;
+}
+
+/**
+ * The same read, honest (A8·F-1): `null` when the read was refused. Admin › Gifts shows "Couldn't read" and holds its
+ * Save back instead of pre-filling the ruled default as if it were the live setting.
+ */
+export async function getGiftLimitPctRead(admin: SupabaseClient): Promise<number | null> {
   try {
     const pct = await rememberedGlobalRead('platform_settings-gift-limit-v1', GLOBAL_SETTINGS_TAGS.platformSettings, async () => {
       const res = await admin.from('platform_settings').select('gift_limit_pct').eq('id', 1).maybeSingle();
@@ -29,6 +37,6 @@ export async function getGiftLimitPct(admin: SupabaseClient): Promise<number> {
     });
     return giftLimitPctOrDefault(pct);
   } catch {
-    return GIFT_LIMIT_PCT_DEFAULT;
+    return null;
   }
 }

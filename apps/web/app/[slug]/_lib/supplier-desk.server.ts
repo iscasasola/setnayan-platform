@@ -96,6 +96,8 @@ export type SupplierDeskModel = {
   /** Every running-order line this supplier may see, private ones included and
    *  flagged. Never filtered here — the marking is the whole point. */
   blocks: RunOfShowBlock[];
+  /** 🔌 A4-22: the running order could not be read — `blocks: []` is then not "no timeline yet". */
+  blocksUnread: boolean;
   /** Their own tools that live at an address of their own. */
   tools: DeskTool[];
   /**
@@ -292,6 +294,7 @@ export async function loadSupplierDesk(
       bookedCategories,
       vendorRoster,
       blocks: blocks ?? [],
+      blocksUnread: blocks === null,
       tools: deskTools(modules, capability.vendorEventId),
       alsoToday,
       threadId: (thread.data as { thread_id?: string } | null)?.thread_id ?? null,

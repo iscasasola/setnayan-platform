@@ -27,6 +27,7 @@ import { deskIsClear, percentDecided } from '@/lib/story-desk';
 import { loadDesk } from './_lib/load-desk';
 import { hostUserId } from './_lib/host-authority';
 import { TheDesk } from './_components/the-desk';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { siteMediaServeRef } from '@/lib/site-media-ref';
 import { siteUrl } from '@/lib/social/urls';
@@ -354,11 +355,14 @@ export default async function EditorialEditorPage({
     not take the shipped editor down with it.
   */
   let desk: Awaited<ReturnType<typeof loadDesk>> | null = null;
+  // E-05 (final check): a desk that could not load is SAID, never just absent.
+  let deskReadFailed = false;
   if (await hostUserId(eventId)) {
     try {
       desk = await loadDesk(eventId);
     } catch {
       desk = null;
+      deskReadFailed = true;
     }
   }
 
@@ -403,10 +407,13 @@ export default async function EditorialEditorPage({
     cards: [],
     overrides: [],
   };
+  // E-05 (final check): a refused chapters read hides the panel, so it is SAID — a non-Papic event (no cards) is not.
+  let chaptersReadFailed = false;
   try {
     chapterCards = await loadEditorialChaptersForEditor(eventId);
   } catch {
     chapterCards = { cards: [], overrides: [] };
+    chaptersReadFailed = true;
   }
 
   /*
@@ -624,6 +631,9 @@ export default async function EditorialEditorPage({
           gone. Reload before writing again &mdash; saving now would replace them.
         </p>
       ) : null}
+
+      {deskReadFailed ? <ReadRefusedNotice what="your story desk" partial className="mb-4" /> : null}
+      {chaptersReadFailed ? <ReadRefusedNotice what="your day’s chapters" partial className="mb-4" /> : null}
 
       <EditorialEditor
         eventId={eventId}

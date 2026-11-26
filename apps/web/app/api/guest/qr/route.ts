@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { readGuestSession } from '@/lib/guest-session';
 import { renderInvitationQrPng } from '@/lib/qr';
 import { QR_LOOK_COLUMNS, resolveEventQrLook } from '@/lib/qr-look.server';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
@@ -116,8 +115,11 @@ export function decideGuestQrAccess(
   return { allow: true };
 }
 
-export async function GET() {
-  const session = await readGuestSession();
+export async function GET(req: Request) {
+  // 🔑 A4-B11: `?event=` lets a signed-in account that holds the seat save its own code (its own seat only). Loaded
+  // here, not at the top, so this file's pure `decideGuestQrAccess` stays importable outside a server (its tests).
+  const { readGuestSessionForPassRoute } = await import('@/lib/guest-one-path.server');
+  const session = await readGuestSessionForPassRoute(new URL(req.url).searchParams.get('event'));
 
   const admin = createAdminClient();
 

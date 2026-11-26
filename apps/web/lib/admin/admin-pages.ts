@@ -30,6 +30,7 @@
  * Words: supplier, never vendor (in anything a person reads). Plain data only — no icons, no React.
  */
 
+import { envFlagEnabled } from '@/lib/env-flag';
 import { claimScore, type AdminParams, type AdminTab, type AdminView } from './admin-tabs';
 
 export type AdminPlaceKey = 'focus' | 'work' | 'money' | 'people' | 'catalogue' | 'insights' | 'setup';
@@ -41,6 +42,11 @@ export type AdminPageView = AdminView & {
   olds?: readonly string[];
   /** A heading inside the page's own dropdown (Queue's Kind ▾ is grouped as the Work landing draws it). */
   kindGroup?: string;
+  /**
+   * The view keeps its home (and its forward) but no menu offers it: its page is flag-dark and answers 404.
+   * A8·F-5 (final check 25 Nov): "Live Watch channels" sat in the Setup menu with its flag off.
+   */
+  notInMenus?: boolean;
 };
 
 export type AdminMergedPage = {
@@ -421,7 +427,11 @@ export const ADMIN_MERGED_PAGES: readonly AdminMergedPage[] = [
         olds: ['/admin/email-delivery'],
         match: ['/admin/switches?view=email', '/admin/email-delivery', '/admin/settings?tab=notifications', '/admin/notifications'],
       }),
-      v('live-watch', 'Live Watch channels', '/admin/switches?view=live-watch', { olds: ['/admin/live-studio-channels'] }),
+      v('live-watch', 'Live Watch channels', '/admin/switches?view=live-watch', {
+        olds: ['/admin/live-studio-channels'],
+        // Same flag as the page's own `notFound()` (`liveStudioRoamEnabled`, lib/live-studio-roam.ts).
+        notInMenus: !envFlagEnabled(process.env.NEXT_PUBLIC_LIVE_STUDIO_ROAM_ENABLED),
+      }),
       v('colours', 'Colours', '/admin/switches?view=colours', { olds: ['/admin/colours'] }),
     ],
   },

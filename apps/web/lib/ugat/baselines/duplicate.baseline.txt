@@ -4,4 +4,6 @@
 #   pnpm --filter @setnayan/web root-map --baseline
 # Never add a line by hand to make CI pass — fix the finding. A fixed one MUST
 # be dropped by re-running the command above — CI fails while it is still listed.
+/dashboard/[eventId]/guests shows guests-coming	# 2026-11-26 · final check A2-D2/A2-E4 (#8352) · not a second count: the seating page now reads "coming" from the ONE reader (computeGuestStats · headcountForBasis), and the seat list's "N coming with no seat yet" is the still-to-seat fact (countStillToSeat) — the render pattern "# coming" matches both words
+/dashboard/[eventId]/seating shows guests-coming	# 2026-11-26 · final check A2-D2/A2-E4 (#8352) · not a second count: the seating page now reads "coming" from the ONE reader (computeGuestStats · headcountForBasis), and the seat list's "N coming with no seat yet" is the still-to-seat fact (countStillToSeat) — the render pattern "# coming" matches both words
 /vendor-dashboard/clients/[eventId] shows guests-coming	# tab-level: Hub tab and chat-tab right column are separate views of one route; both read get_vendor_event_brief.pax.attending (controller 23 Nov)

@@ -21,6 +21,7 @@ import {
   type AppPerfStats,
 } from '@/lib/admin/app-performance-stats';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ReadFailed } from '@/app/admin/_components/read-failed';
 import { DEMO_MODE_COOKIE_NAME } from '@/lib/demo-mode';
 
 import {
@@ -181,13 +182,18 @@ export async function CockpitSurface({ searchParams }: Props) {
       note: '',
       notComputed: true,
     })),
-    {
-      label: 'Revenue',
-      current: perf.monetization.totalPhp,
-      previous: perf.monetization.prevTotalPhp,
-      pct: salesUnread ? null : pctDelta(perf.monetization.totalPhp, perf.monetization.prevTotalPhp),
-      note: salesUnread ? 'couldn’t read' : 'realized ₱',
-    },
+    // A8·H-1: a refused sales read leaves the leaderboard.
+    ...(salesUnread
+      ? []
+      : [
+          {
+            label: 'Revenue',
+            current: perf.monetization.totalPhp,
+            previous: perf.monetization.prevTotalPhp,
+            pct: pctDelta(perf.monetization.totalPhp, perf.monetization.prevTotalPhp),
+            note: 'realized ₱',
+          },
+        ]),
     {
       label: 'Completed services',
       current: perf.completedServices.total,
@@ -398,9 +404,7 @@ export async function CockpitSurface({ searchParams }: Props) {
             source="paid orders + supplier plans · pesos"
           >
             {salesUnread ? (
-              <p role="alert" className="text-sm" style={{ color: 'var(--sn-ink-700)' }} data-sales-unread="">
-                Couldn&rsquo;t read the sales. Refresh to try again.
-              </p>
+              <ReadFailed what="the sales figures" />
             ) : (
               <>
                 <div className="mb-2 flex flex-wrap items-baseline gap-2">

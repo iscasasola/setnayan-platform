@@ -11,9 +11,9 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import {
-  fetchV2CustomerCatalog,
-  fetchV2BundleCatalog,
-  fetchV2VendorCatalog,
+  fetchV2CustomerCatalogRead,
+  fetchV2BundleCatalogRead,
+  fetchV2VendorCatalogRead,
   supplierSkuCategory,
 } from '@/lib/v2-catalog';
 import { ChevronLeft } from 'lucide-react';
@@ -73,7 +73,7 @@ export default async function EditDiscountCodePage({ params }: Props) {
     .eq('discount_code_id', id)
     .order('added_at', { ascending: true });
 
-  const [codeRes, customers, bundles, vendors, eligibilityRes] = await Promise.all([
+  const [codeRes, customersRead, bundlesRead, vendorsRead, eligibilityRes] = await Promise.all([
     admin
       .from('discount_codes')
       .select(
@@ -82,9 +82,9 @@ export default async function EditDiscountCodePage({ params }: Props) {
       )
       .eq('discount_code_id', id)
       .maybeSingle(),
-    fetchV2CustomerCatalog({ forAdmin: true }),
-    fetchV2BundleCatalog(),
-    fetchV2VendorCatalog(),
+    fetchV2CustomerCatalogRead({ forAdmin: true }),
+    fetchV2BundleCatalogRead(),
+    fetchV2VendorCatalogRead(),
     eligibilityResPromise,
   ]);
 
@@ -113,6 +113,11 @@ export default async function EditDiscountCodePage({ params }: Props) {
 
   // Map V2 shape onto the form's ServiceRow contract. Pricing held in
   // pesos in V2 — convert to centavos for the form display layer.
+  // A8·A-9: a refused catalogue read is said, never shown as "no active services".
+  const catalogFailed = !customersRead.ok || !bundlesRead.ok || !vendorsRead.ok;
+  const customers = customersRead.rows;
+  const bundles = bundlesRead.rows;
+  const vendors = vendorsRead.rows;
   const services: ServiceRow[] = [
     ...customers.map((c) => ({
       sku_code: c.service_code,
@@ -225,6 +230,7 @@ export default async function EditDiscountCodePage({ params }: Props) {
         action={updateDiscountCode}
         submitLabel="Save"
         submitPendingLabel="Saving…"
+        catalogFailed={catalogFailed}
       />
     </div>
   );

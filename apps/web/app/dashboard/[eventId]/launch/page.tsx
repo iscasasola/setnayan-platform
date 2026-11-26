@@ -151,7 +151,8 @@ import {
   eventOwnsCoupleWebsitePro,
   hubPartPrices,
 } from '@/lib/couple-website-pro';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { readV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { PRICE_UNREAD } from '@/lib/php';
 import { formatPhp } from '@/lib/orders';
 import { hubNamedGuestPreviewEnabled } from '@/lib/hub-named-guest-flag';
 import { asViewed, asViewedOwnership, viewAsFreeSwitch } from '@/lib/view-as-free.server';
@@ -423,7 +424,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     guestRead,
     proActive,
     proOwned,
-    proSku,
+    proRead,
     guestColumnsOn,
   ] = await Promise.all([
     eventSkuActive(ent, eventId, 'LIVE_WALL'),
@@ -477,7 +478,7 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
       is the only figure a customer is ever charged. Null on failure, and the
       panel then renders with no number rather than a remembered one.
     */
-    formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
+    readV2Sku('COUPLE_WEBSITE_PRO').catch(() => ({ record: null, readFailed: true })),
     /*
       The Guest Columns door's gate, carried over with the door from the retired
       /website hub — the env flag AND the `guest_columns` DPO control, asked
@@ -644,7 +645,9 @@ export default async function LaunchHubPage({ params, searchParams }: Props) {
     phase: standing.phase,
     ownsPro: proActive || proOwned,
   });
-  const proPriceLabel = proSku?.price_php != null ? formatPhp(proSku.price_php) : null;
+  const proSku = proRead.record;
+  // E-03 (final check): a failed catalogue read says so where the price goes — never a price that silently vanished.
+  const proPriceLabel = proRead.readFailed ? PRICE_UNREAD : proSku?.price_php != null ? formatPhp(proSku.price_php) : null;
 
   // 🔒 The Event Hub itself is a planning surface and stays open in the store
   // shell; only the PRO upsell — which prints a peso price for a digital SKU —

@@ -142,7 +142,7 @@ export async function rejectAppeal(formData: FormData) {
     .eq('appeal_id', appealId)
     .maybeSingle();
 
-  const { error } = await admin
+  const { data: rejected, error } = await admin
     .from('vendor_review_appeals')
     .update({
       decided_at: new Date().toISOString(),
@@ -150,8 +150,13 @@ export async function rejectAppeal(formData: FormData) {
       decision: 'rejected',
       decision_reason: reason,
     })
-    .eq('appeal_id', appealId);
+    .eq('appeal_id', appealId)
+    // A8·F-14: only an undecided appeal — a stale page must not flip an
+    // override-published one (the review stays live) and email the reviewer.
+    .is('decided_at', null)
+    .select('appeal_id');
   if (error) throw new Error(error.message);
+  if (!rejected || rejected.length === 0) redirect('/admin/reviews?already=1');
 
   // Per CLAUDE.md 2026-05-12 § 9.1 admin discipline + System_Wiring_Map_2026-05-28
   // RED #3. Every admin mutation logs to admin_audit_log so the owner can
@@ -233,16 +238,22 @@ export async function escalateAppeal(formData: FormData) {
     .eq('appeal_id', appealId)
     .maybeSingle();
 
-  const { error } = await admin
+  // A8·F-13: escalating does NOT close the appeal. No separate two-admin queue
+  // exists, so it stays undecided (`decided_at` null) in this queue and in the
+  // Work counts, marked Escalated, until a second admin override-publishes or
+  // rejects it. A8·F-14: only an undecided appeal can be escalated.
+  const { data: escalated, error } = await admin
     .from('vendor_review_appeals')
     .update({
-      decided_at: new Date().toISOString(),
       decided_by_admin: userId,
       decision: 'escalated',
       decision_reason: reason,
     })
-    .eq('appeal_id', appealId);
+    .eq('appeal_id', appealId)
+    .is('decided_at', null)
+    .select('appeal_id');
   if (error) throw new Error(error.message);
+  if (!escalated || escalated.length === 0) redirect('/admin/reviews?already=1');
 
   // Per CLAUDE.md 2026-05-12 § 9.1 admin discipline + System_Wiring_Map_2026-05-28
   // RED #3. Every admin mutation logs to admin_audit_log so the owner can

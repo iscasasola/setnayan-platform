@@ -33,11 +33,13 @@ export async function claimAlaga(formData: FormData): Promise<void> {
   if (!user) redirect(`/login?next=${encodeURIComponent(`/claim/${token}`)}`);
 
   const admin = createAdminClient();
-  const { data: row } = await admin
+  const { data: row, error: rowErr } = await admin
     .from('dependents')
     .select('dependent_id, claim_token_purpose, owner_user_id')
     .eq('claim_token', token)
     .maybeSingle();
+  // 🔌 A4-03: a failed read is not a dead link — the page says "we couldn't check" and offers the link again.
+  if (rowErr) redirect(`/claim/${token}?error=unreadable`);
   if (!row) redirect(`/claim/${token}?error=invalid`);
   if (row.owner_user_id === user.id) redirect(`/claim/${token}?error=own_link`);
 
@@ -66,10 +68,16 @@ export async function claimAlaga(formData: FormData): Promise<void> {
     // Godparent edges follow the profile — while guardian-owned their
     // ON DELETE CASCADE would erase the adult's ninong/ninang record with the
     // GUARDIAN's account. Post-claim they belong to the subject.
-    await admin
-      .from('godparents')
-      .update({ owner_user_id: user.id })
-      .eq('dependent_id', row.dependent_id);
+    // 🔌 A4-04: the move is CHECKED. A refused write is tried once more; if it still fails the person is told the
+    // profile moved and its godparent records did not — never the plain success.
+    const moveGodparents = () =>
+      admin.from('godparents').update({ owner_user_id: user.id }).eq('dependent_id', row.dependent_id);
+    let { error: godparentsErr } = await moveGodparents();
+    if (godparentsErr) ({ error: godparentsErr } = await moveGodparents());
+    if (godparentsErr) {
+      console.error('[supabase-error] app/claim/[token]/actions.ts · godparents.update', godparentsErr);
+      redirect(`/claim/${token}?error=godparents_pending`);
+    }
   } else if (row.claim_token_purpose === 'rehome') {
     const { data: updated } = await admin
       .from('dependents')

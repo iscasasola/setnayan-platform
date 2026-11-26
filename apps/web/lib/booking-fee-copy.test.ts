@@ -24,7 +24,7 @@
  * than the rate it replaced. That lineage is load-bearing; deleting it would
  * destroy the record of WHY the taper exists.
  */
-import { BOOKING_FEE } from './booking-fee';
+import { BOOKING_FEE, bookingFeeMinimumAmount } from './booking-fee';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -42,6 +42,16 @@ const SWEPT_FILES = [
 
 function read(rel: string): string {
   return readFileSync(new URL(rel, import.meta.url), 'utf8');
+}
+
+/** The booking-fees page hands its body the LIVE schedule, and the body draws `<BookingFeeLine fee={schedule}>`. */
+function pageDrawsLiveFeeLine(pageSrc: string): boolean {
+  const body = read('../app/vendor-dashboard/booking-fees/booking-fees-body.tsx');
+  return (
+    /<BookingFeesBody[\s\S]*?schedule=\{feeSchedule\}/.test(pageSrc) &&
+    /getLiveBookingFeeSchedule|feeSchedule\]\s*=\s*await Promise\.all/.test(pageSrc) &&
+    /<BookingFeeLine\s+fee=\{schedule\}/.test(body)
+  );
 }
 
 /**
@@ -104,7 +114,10 @@ for (const rel of SWEPT_FILES) {
       // 23 Nov redesign (v4.3.1): /for-suppliers states "5%, 3% above ₱100,000" through `feeRowWords(schedule)`, which is
       // `bookingFeeFigures` on the same live schedule (app/for-suppliers/_components/supplier-front-data.ts).
       /feeRowWords\(schedule\)/.test(src) ||
-      /supplierCommission(Promise|Short)\(/.test(src);
+      /supplierCommission(Promise|Short)\(/.test(src) ||
+      // A6-61a (Add 47, 26 Nov 2026 — "no price in a comment" wins): the supplier's booking-fees page states the taper
+      // by drawing its body's live `<BookingFeeLine fee={schedule}>`; its docblock no longer types a rate.
+      (rel === '../app/vendor-dashboard/booking-fees/page.tsx' && pageDrawsLiveFeeLine(src));
     assert.ok(
       statesLiteral || derivesIt,
       `${rel} must still name the tail rate beyond ₱100,000 — the taper is half the claim. ` +
@@ -119,13 +132,19 @@ for (const rel of SWEPT_FILES) {
  * part of the actual charge and dominates below ₱1,000). Marketing copy is
  * deliberately NOT held to this.
  */
-test('the booking-fee explainer states the ₱50 minimum', () => {
-  const src = read('../app/vendor-dashboard/booking-fees/page.tsx');
-  assert.match(
-    src,
-    /₱50/,
-    'the vendor booking-fee page is a fee explainer read beside real bills — it must state the ₱50 minimum.',
-  );
+test('the booking-fee explainer states the minimum — read from BOOKING_FEE, never typed', () => {
+  // A6-61a (Add 47, 26 Nov 2026 — "no price in a comment" wins). The page used to satisfy this with "₱50" typed in
+  // its own docblock. The explainer now states the minimum through the live fee line, whose figure is the schedule's
+  // `minPhp` — the constant `bookingFeePhp` charges from — so the number cannot drift from what is charged.
+  const page = read('../app/vendor-dashboard/booking-fees/page.tsx');
+  assert.ok(pageDrawsLiveFeeLine(page), 'the booking-fees page no longer draws the live fee line');
+  const line = read('../app/_components/booking-fee-line.tsx');
+  assert.match(line, /The smallest fee is \$\{bookingFeeMinimumAmount\(fee\)\} a booking\./, 'the fee line no longer states the minimum');
+  assert.equal(bookingFeeMinimumAmount(BOOKING_FEE).replace(/[^\d]/g, ''), String(BOOKING_FEE.minPhp), 'the minimum is not the constant’s');
+  assert.ok(BOOKING_FEE.minPhp > 0, 'the schedule has no minimum to state');
+  // And the page's own text carries no typed peso figure or rate.
+  // (₱0 is not a fee figure — the page's docblock names the read-failure state that must never render as ₱0.)
+  assert.doesNotMatch(page, /₱\s?[1-9]|\b[1-9]\d?\s?%/, 'a fee figure is typed into the booking-fees page (comments included)');
 });
 
 /**

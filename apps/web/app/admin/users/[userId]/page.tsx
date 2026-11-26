@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { ERASURE_WORDS } from '@/lib/erasure/erasure-words';
 import Link from 'next/link';
 import { displayAccountEmail } from '@/lib/erasure/display-email';
 import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-names.server';
@@ -937,13 +938,13 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                 />
                 <RecordRow
                   title="Blacklist"
-                  line="Hard-delete AND block the email from signing up again. Reverse via People › Blocked → Unblacklist."
+                  line="Erase the account AND block the email from signing up again. The block can be lifted from People › Blocked → Unblacklist."
                   right={
                     <ConfirmForm
                       action={blacklistUser}
                       title="Blacklist this email?"
                       confirmLabel="Blacklist & delete"
-                      message={`Blacklist ${email ?? 'this user'}? The user is hard-deleted AND the email is permanently blocked from signing up again. Reverse via the Blacklisted filter → Unblacklist.`}
+                      message={`Blacklist ${email ?? 'this user'}? ${ERASURE_WORDS} The email is also blocked from signing up again. The block (not the erasure) can be lifted from the Blacklisted filter → Unblacklist.`}
                     >
                       <input type="hidden" name="user_id" value={userId} />
                       <ActionButton tone="danger" icon={<Ban aria-hidden strokeWidth={1.9} />} label="Blacklist" type="submit" />
@@ -952,13 +953,13 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                 />
                 <RecordRow
                   title="Delete account"
-                  line="Their identity is gone · the email is freed for re-signup · not reversible from here"
+                  line="Erased, not deleted: orders and payments are kept without their name · the email is freed · not reversible from here"
                   right={
                     <ConfirmForm
                       action={deleteUser}
-                      title="Hard-delete this account?"
+                      title="Erase this account?"
                       confirmLabel="Delete permanently"
-                      message={`Hard-delete ${email ?? 'this user'}? Their auth identity is gone; all related data cascade-deletes; the EMAIL is freed for re-signup (e.g., switching from supplier to customer). Not reversible from this page.`}
+                      message={`Erase ${email ?? 'this user'}? ${ERASURE_WORDS} Their email is freed, so they can sign up again. Not reversible from this page.`}
                     >
                       <input type="hidden" name="user_id" value={userId} />
                       <ActionButton tone="danger" icon={<Trash2 aria-hidden strokeWidth={1.9} />} label="Delete" type="submit" />

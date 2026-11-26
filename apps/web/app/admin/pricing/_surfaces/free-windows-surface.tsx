@@ -12,7 +12,7 @@ import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
 import { FieldPick } from '@/app/admin/_components/field-pick';
 import { ReadFailed } from '../../_components/read-failed';
 import {
-  fetchV2CustomerCatalog,
+  fetchV2CustomerCatalogRead,
   formatPeso,
   type V2CustomerSku,
 } from '@/lib/v2-catalog';
@@ -115,15 +115,18 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
   const sp = await searchParams;
   const admin = createAdminClient();
 
-  const [{ data, error }, catalog] = await Promise.all([
+  const [{ data, error }, catalogRead] = await Promise.all([
     admin
       .from('promo_free_windows')
       .select(
         'promo_window_id, title, blurb, covered_service_keys, audience_type, promoted_vendor_tier, starts_at, ends_at, is_active, show_banner, created_at, deal_length_days, event_date_from, event_date_to',
       )
       .order('created_at', { ascending: false }),
-    fetchV2CustomerCatalog(),
+    fetchV2CustomerCatalogRead(),
   ]);
+  // A8·B-7: a refused catalogue read is said, and Create is off — never "no live services".
+  const catalog = catalogRead.rows;
+  const catalogFailed = !catalogRead.ok;
   if (error) logQueryError('FreeWindowsSurface', error);
   const rows = (data ?? []) as PromoRow[];
   const now = Date.now();
@@ -301,7 +304,9 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
           <legend className="text-sm font-medium text-ink/80">
             Services to make free
           </legend>
-          {catalog.length === 0 ? (
+          {catalogFailed ? (
+            <ReadFailed what="the services — Create is off until they load" />
+          ) : catalog.length === 0 ? (
             <p className="text-xs text-ink/55">
               No live customer SKUs found in the catalog.
             </p>
@@ -355,7 +360,11 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
         </label>
 
         <div className="flex items-center gap-3 pt-1">
-          <SubmitButton className={actionButtonClass('brand', { main: true })} pendingLabel="Creating…">
+          <SubmitButton
+            className={actionButtonClass('brand', { main: true })}
+            pendingLabel="Creating…"
+            disabled={catalogFailed}
+          >
             Create couple free window
           </SubmitButton>
           <span className="text-xs text-ink/50">Audience: all couples.</span>

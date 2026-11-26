@@ -149,6 +149,6 @@ test('A8·H-1 · a failed sales read shows no ₱0, no flat bars and no "Live" p
   assert.match(card, /pill=\{salesUnread \? null : 'live'\}/);
   const unread = card.indexOf('salesUnread ? (');
   assert.ok(unread > 0 && unread < card.indexOf('php.format(perf.monetization.totalPhp)'), 'the peso total is drawn only on a real read');
-  assert.match(s, /pct: salesUnread \? null :/);
+  assert.match(s, /\.\.\.\(salesUnread\s*\? \[\]/, 'the Revenue row leaves the leaderboard');
   assert.match(read('app/admin/app-performance/_components/charts.tsx'), /\{pill \? <StatusPill state=\{pill\} \/> : null\}/);
 });

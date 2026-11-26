@@ -263,7 +263,10 @@ function pageExists(href: string): boolean {
   const path = href.split('#')[0]!.split('?')[0]!;
   const segs = path.split('/').filter(Boolean);
   const roots = [APP, join(APP, '(shell)'), join(APP, '(hub)')];
-  return roots.some((root) => existsSync(join(root, ...segs, 'page.tsx')));
+  // A route group directly under the path serves it too: `/suppliers` is `suppliers/(index)/page.tsx`.
+  const inGroup = (dir: string) =>
+    existsSync(dir) && readdirSync(dir).some((d) => /^\(.+\)$/.test(d) && existsSync(join(dir, d, 'page.tsx')));
+  return roots.some((root) => existsSync(join(root, ...segs, 'page.tsx')) || inGroup(join(root, ...segs)));
 }
 
 test('every feature page names the shipped code behind it, and that code still exists', () => {

@@ -6,6 +6,7 @@ import { ActionButton, EqualRow } from '@/components/action-button';
 import { actionButtonClass } from '@/components/action-button-class';
 import { ChosenRow, FormRow, FormRows, TypedRow } from '@/app/_components/form-row';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { StayForm } from '@/app/_components/stay-form';
 import { PartFoot, PartList, setTwo } from '../../_components/set-two/parts';
 
 /**
@@ -37,7 +38,9 @@ export function ContractUploadForm({
   const [fileName, setFileName] = useState('');
 
   return (
-    <form id={FORM} action={action} data-contract-upload="">
+    // A6-64: a refusal ("Title must be 1–200 characters.", the PDF check's reason) is said under the form and what was
+    // typed stays; a landed upload still goes to its new contract (the door's redirect navigates).
+    <StayForm id={FORM} door="svContracts.uploadVendorContract" action={action} resetOnSaved={false} data-contract-upload="">
       <input type="hidden" name="event_id" value={eventId} />
       <PartList>
         <FormRows width="wide">
@@ -98,6 +101,6 @@ export function ContractUploadForm({
           </SubmitButton>
         </EqualRow>
       </PartFoot>
-    </form>
+    </StayForm>
   );
 }

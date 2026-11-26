@@ -95,12 +95,15 @@ export default async function WidgetsEditorPage({
 
   const supabase = await createClient();
 
-  const { data: event } = await supabase
+  const { data: event, error: eventReadError } = await supabase
     .from('events')
     .select(`event_id, display_name, slug, event_type, ${SECTION_CONTENT_EVENT_COLUMNS}`)
     .eq('event_id', eventId)
     .maybeSingle();
 
+  // E-16 (final check): a refused read used to bounce the couple to Home as if the page did not exist. It is a
+  // failure: the error page says so and offers Try again.
+  if (eventReadError) throw new Error("Couldn't read this event just now.");
   if (!event) redirect(`/dashboard/${eventId}`);
 
   // 🔒💎 The Pro rows' mark follows the event's MEASURED Event Pro — a

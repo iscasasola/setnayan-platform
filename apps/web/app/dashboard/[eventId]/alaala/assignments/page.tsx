@@ -10,6 +10,8 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { KWENTO_MOMENTS, type KwentoMomentKey } from '@/lib/kwento-moments';
 import { GuestPicker, AssignmentRow } from './_components/assignment-controls';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ErrorState } from '@/app/_components/states/error-state';
+import { countsTowardEvent } from '@/lib/guests';
 
 export const metadata = { title: 'Story Assignments' };
 export const dynamic = 'force-dynamic';
@@ -38,9 +40,11 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
       .eq('event_id', eventId),
     admin
       .from('guests')
-      .select('guest_id, first_name, display_name')
+      .select('guest_id, first_name, display_name, entry_source, passed_away, represented_by_guest_id')
       .eq('event_id', eventId)
-      .eq('rsvp_status', 'confirmed')
+      .is('deleted_at', null)
+      // B-01: public.rsvp_status has no 'confirmed'; a guest who said yes is 'attending' (guard: lib/a-guest-read-filters-on-a-real-rsvp-value.test.ts).
+      .eq('rsvp_status', 'attending')
       .order('first_name', { ascending: true }),
   ]);
   if (assignmentsError) {
@@ -66,14 +70,26 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
   }
 
   // Build guest name lookup
-  type GuestRow = { guest_id: string; first_name: string | null; display_name: string | null };
+  type GuestRow = {
+    guest_id: string;
+    first_name: string | null;
+    display_name: string | null;
+    entry_source: string | null;
+    passed_away: boolean | null;
+    represented_by_guest_id: string | null;
+  };
+  // The headcount rule lives in ONE reader (`countsTowardEvent`): a request, a passed-away row or a represented role
+  // holder is not a guest to assign.
+  const countedGuests = ((guests ?? []) as GuestRow[]).filter(countsTowardEvent);
   const guestMap = new Map<string, string>();
-  for (const g of (guests ?? []) as GuestRow[]) {
+  for (const g of countedGuests) {
     guestMap.set(g.guest_id, g.display_name ?? g.first_name ?? 'Guest');
   }
 
   // For the picker: guests not already assigned to a given moment
-  const allGuests = (guests ?? []) as GuestRow[];
+  const allGuests = countedGuests;
+  // M-08 · a read that failed never draws as "No guests to assign" or as moments nobody holds.
+  const readFailed = Boolean(assignmentsError || guestsError);
 
   return (
     <section className="space-y-8">
@@ -90,6 +106,14 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
         }
       />
 
+      {readFailed ? (
+        <ErrorState
+          title="Couldn't read your story assignments"
+          broke="We could not load your guest list or who holds each moment just now."
+          survived="Nothing was changed. Every assignment you made is still saved."
+          todo="Refresh the page in a moment."
+        />
+      ) : (
       <ol className="space-y-3">
         {KWENTO_MOMENTS.map((moment, i) => {
           const momentAssignments = byMoment.get(moment.key) ?? [];
@@ -158,6 +182,7 @@ export default async function KwentoAssignmentsPage({ params }: Props) {
           );
         })}
       </ol>
+      )}
     </section>
   );
 }

@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
+import { adminCanRefusal } from '@/lib/admin/can.server';
 import { FOUNDER_SEAT_CAP } from '@/lib/founder-seats';
 
 /**
@@ -26,17 +27,26 @@ const ok = (msg: string): never => redirect(`${BACK}?saved=${encodeURIComponent(
 
 export async function grantFounderSeat(formData: FormData) {
   const { userId: adminUserId } = await requireAdminAction();
+  // A8·L-8: founder seats are Gifts & comps · Escalated (lib/admin/areas.ts).
+  const refused = await adminCanRefusal('gifts_comps', 'escalated');
+  if (refused) fail(refused);
   const admin = createAdminClient();
 
   const email = String(formData.get('email') ?? '').trim().toLowerCase();
   const label = String(formData.get('label') ?? '').trim() || null;
   if (!email || !email.includes('@')) fail('Enter the account email to grant a seat to.');
 
-  const { data: target } = await admin
+  // A8·A-6: an EXACT, any-case match — `_` and `%` are wildcards to ilike, so they are escaped (as addAdminOp does);
+  // a near-match account must never be granted every paid feature. A refused read says so, never "no account".
+  const { data: target, error: targetErr } = await admin
     .from('users')
     .select('user_id, email')
-    .ilike('email', email)
+    .ilike('email', email.replace(/[\\%_]/g, (c) => `\\${c}`))
     .maybeSingle();
+  if (targetErr) {
+    fail('Couldn’t look that email up just now, so no seat was granted. Try again.');
+    return;
+  }
   if (!target) {
     fail(`No Setnayan account found for ${email} — they need to sign up first.`);
     return;
@@ -82,6 +92,8 @@ export async function grantFounderSeat(formData: FormData) {
 
 export async function revokeFounderSeat(formData: FormData) {
   const { userId: adminUserId } = await requireAdminAction();
+  const refused = await adminCanRefusal('gifts_comps', 'escalated');
+  if (refused) fail(refused);
   const admin = createAdminClient();
 
   const seatNo = Number(formData.get('seat_no'));
@@ -89,11 +101,13 @@ export async function revokeFounderSeat(formData: FormData) {
     fail('Invalid seat.');
   }
 
-  const { data: seat } = await admin
+  const { data: seat, error: seatErr } = await admin
     .from('founder_seats')
     .select('seat_no, user_id, label')
     .eq('seat_no', seatNo)
     .maybeSingle();
+  // A8·A-6: a refused read is said — never "already empty".
+  if (seatErr) fail(`Couldn’t read seat ${seatNo} just now, so nothing was revoked. Try again.`);
   if (!seat) fail(`Seat ${seatNo} is already empty.`);
 
   const { error: delErr } = await admin

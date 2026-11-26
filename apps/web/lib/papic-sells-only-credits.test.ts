@@ -194,5 +194,5 @@ test('the challenges card names what fills the board — the parts add up to wha
   assert.equal(boardShowingWords({ total: 3, yours: 3, suppliers: 0, suggested: 0 }), 'Guests see 3: your 3');
   const card = stripComments(read(join(PAPIC, 'couple-challenges-manager.tsx')));
   assert.doesNotMatch(card, /showing to guests/, 'the bare "N showing to guests" is back beside "N of M chosen"');
-  assert.match(card, /boardShowingWords\(boardLaneCounts\(missions\)\)/);
+  // L6 (R6): the "Guests see N: …" line lived on the retired full board; the words stay held above.
 });

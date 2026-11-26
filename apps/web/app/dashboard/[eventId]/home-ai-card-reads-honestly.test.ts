@@ -73,7 +73,8 @@ test('3 · it grows in place — Sai on watch, Your picks, the door last — and
   assert.ok(at('data-home-ai-section="watch"') > 0 && at('data-home-ai-section="watch"') < at('data-home-ai-section="picks"'), 'Sai on watch does not come before the picks');
   assert.match(card, /settings=\{/, 'the card has nothing to grow — it would be a door');
   assert.match(card, /door=\{door\}/);
-  assert.match(card, /const door = \{ label: 'Open Setnayan AI', href: `\/dashboard\/\$\{eventId\}\/studio\/setnayan-ai` \};/);
+  // The AI buy page is retired (final check R2, 25 Nov): the door opens the event's plans page (Event services).
+  assert.match(card, /const door = \{ label: 'Open Setnayan AI', href: routes\.dashboard\.eventServices\(eventId, 'ai'\) \};/);
   assert.match(card, /tile=\{\{ label: brand, big: formatCount\(n\), unit: n === 1 \? 'alert' : 'alerts'/);
   assert.match(card, /activity\.cockpit\.decisions\.slice\(0, 3\)/, 'the picks are not the planner’s own ranked decisions');
 });

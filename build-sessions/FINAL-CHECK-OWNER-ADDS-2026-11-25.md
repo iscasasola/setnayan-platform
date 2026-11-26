@@ -675,33 +675,31 @@ Build-time rule: launch PRs ship in batches (`claude/ship-batch-N`, merge commit
 - **S-01: Setnayan AI shows two prices.** The owner will give the exact price. Until then, nothing changes a price; it isn't guessed. Once he does, the price is set in the live price list first, and every screen and checkout reads that one row.
 - **I-02** (lock, price and checkout door before Save) **and M-02** (checkout on top of the ⚙ sheet): after launch, in lane C, each with a drawing first.
 
-## Add 46: the makers we will make (after launch; list only)
+## Add 46: makers for the high-cost suppliers (after launch)
 
-Attire:
-1. Wedding Gown Maker
-2. Gown & Dress Maker
-3. Suit Maker (men)
-4. Veil & Headpiece Maker
-5. Jewelry Set Maker
-6. Men's Accessories Maker
-7. Kids' Entourage Outfit Maker
+The owner's aim: "we want to create makers for the high cost generating suppliers … so they can up their game and add our profit".
 
-Flowers:
-8. Bouquet Maker (bridal + entourage)
-9. Boutonnière Maker (men, pinned to the clothes)
-10. Corsage Maker
-11. Centerpiece & Table Setting Maker
-12. Arch & Backdrop Maker
+Makers go first where suppliers charge the most:
+- the client designs with the maker;
+- the supplier gets a clear, measured brief and quotes from it;
+- a bigger, better booking raises our share.
 
-Rings and shoes:
-13. Ring Maker
-14. Shoe Maker
-15. Heels Maker
+The order is by typical Philippine wedding spend (not yet checked against our own booking data). No peso figures: each maker's price comes from the owner.
 
-Filipino ceremony pieces:
-16. Cord, Veil & Arras Maker
-17. Ring Pillow & Arrhae Box Maker
+**High cost: build first**
+1. Venue & Styling Maker (arch, backdrop, stage, centerpieces and tables, on the seat plan)
+2. Catering Menu Maker (courses, buffet or plated, food stations)
+3. Wedding Gown Maker (in progress on the second account)
+4. Gown & Dress Maker (entourage and family)
+5. Suit Maker (men)
+6. Ring Maker
+7. Photo & Video Package Maker (hours, shot list, same-day edit, prenup)
+8. Lights & Sound Maker (stage, lighting looks, LED wall)
 
-Event:
-18. Cake Maker
-19. Souvenir Maker
+**Mid cost: next**
+9. Bouquet + Boutonnière + Corsage Maker (one flower engine)
+10. Veil & Headpiece Maker
+11. Cake Maker
+12. Shoe & Heels Maker
+
+**Low cost: a pick list, not a maker:** jewelry, men's accessories, kids' outfits, cord / veil / arras, ring pillow and arrhae box, souvenirs.

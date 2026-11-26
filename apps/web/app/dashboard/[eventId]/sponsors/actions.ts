@@ -3,21 +3,21 @@
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { sponsorErrorKey } from './sponsor-error-copy';
+import { SPONSOR_ERROR_COPY, sponsorErrorKey } from './sponsor-error-copy';
 import { createAdminClient } from '@/lib/supabase/admin';
-import {
-  parseSponsorTier,
-  parseSponsorSide,
-  sponsorGuestRole,
-  sponsorGuestSide,
-  type SponsorTier,
-} from '@/lib/event-sponsors';
+import { parseSponsorTier, parseSponsorSide, sponsorGuestSide } from '@/lib/event-sponsors';
+import { SPONSOR_ROLE_BY_TIER, sponsorTierOfRole, takeSponsorRole } from '@/lib/sponsor-guests';
 import { peopleConnectionsEnabled } from '@/lib/people-connections';
 import { generateEventConnections } from '@/app/dashboard/(account)/people/actions';
 import { refuseLimitedHelper, requireHostMembershipOrThrow } from '@/lib/host-gate';
 
 /**
  * Iteration · Principal + Secondary Sponsor coordination — server actions.
+ *
+ * 👥 SPONSORS ARE GUESTS (owner, brief Add 41 · final check A2-I14): every action here writes the GUEST LIST — a
+ * sponsor is a guest with a sponsor role (`lib/sponsor-guests.ts`). Migration 20271363480132 moved every
+ * `event_sponsors` row into the guest list and 20271364844438 drops that table (owner 27 Nov 2026). `sponsor_id` is
+ * the guest's id.
  * Per CLAUDE.md 2026-05-22 row "Principal Sponsor list builder".
  *
  * All form actions go through requireSponsorHost() — caller must be an
@@ -54,305 +54,252 @@ function parsePairIndex(raw: FormDataEntryValue | null): number | null {
   return n;
 }
 
+function back(eventId: string, query: string): never {
+  redirect(`/dashboard/${eventId}/sponsors?${query}`);
+}
+
 /**
- * Add a sponsor row. Used by both Add-ninong-on-pair-N (principal) and
- * Add-cord/veil/coin/candle-sponsor flows. The tier + side are part of the
- * form so this is one action for both shapes.
+ * A refused save goes back with a fixed KEY (A2-I18 / SW-RAWDB, `./sponsor-error-copy`): our own validation sentences
+ * keep their key, anything else is `save_failed` and its raw message goes to the log only.
+ */
+function refused(eventId: string, e: unknown): never {
+  if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
+  const key = sponsorErrorKey(e);
+  if (key === 'save_failed') logQueryError('SponsorsAction', e, { eventId }, 'graceful_degrade');
+  back(eventId, `error=${key}`);
+}
+
+function revalidateSponsors(eventId: string): void {
+  revalidatePath(`/dashboard/${eventId}/sponsors`);
+  revalidatePath(`/dashboard/${eventId}/guests`);
+}
+
+type GuestRoleRow = { role: string; extra_roles: string[] | null };
+
+/**
+ * Add a sponsor: a NEW guest on the list with the sponsor role (one form for every tier). The tier, side and walking
+ * pair come from the slot the host pressed. A principal sponsor is `principal_sponsor` — ninong or ninang is set on the
+ * guest by the couple, never guessed from the side (owner ruling 2026-09-15).
  */
 export async function addSponsor(formData: FormData): Promise<void> {
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = parseEventId(formData);
-  let userId: string;
   try {
-    userId = await requireSponsorHost(eventId);
+    await requireSponsorHost(eventId);
 
     const tier = parseSponsorTier(formData.get('sponsor_tier'));
     const side = parseSponsorSide(formData.get('side'));
     const fullName = clean(formData.get('full_name'), 200);
-    if (fullName.length === 0) {
-      throw new Error('Full name is required.');
-    }
+    if (fullName.length === 0) throw new Error(SPONSOR_ERROR_COPY.name_required);
     const relationshipNote = nullIfBlank(formData.get('relationship_note'), 200);
     const email = nullIfBlank(formData.get('email'), 200);
     const phone = nullIfBlank(formData.get('phone'), 40);
     const pairIndex = tier === 'principal' ? parsePairIndex(formData.get('pair_index')) : null;
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error(SPONSOR_ERROR_COPY.email_invalid);
 
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      throw new Error('Email looks invalid.');
-    }
-
+    const [firstName, ...rest] = fullName.split(/\s+/).filter(Boolean);
     const admin = createAdminClient();
-    const { error } = await admin.from('event_sponsors').insert({
+    const { error } = await admin.from('guests').insert({
       event_id: eventId,
-      pair_index: pairIndex,
-      sponsor_tier: tier,
-      side,
-      full_name: fullName,
-      relationship_note: relationshipNote,
+      first_name: firstName ?? fullName,
+      last_name: rest.length > 0 ? rest.join(' ') : '—',
+      side: sponsorGuestSide(side),
+      group_category: 'family', // sponsors are family-tier by convention
+      role: SPONSOR_ROLE_BY_TIER[tier],
       email,
-      phone,
-      created_by_user_id: userId,
+      mobile: phone,
+      notes: relationshipNote,
+      entourage_order: pairIndex,
+      photo_consent: true,
+      invited_to_blocks: ['ceremony', 'reception'],
     });
-
     if (error) {
-      throw new Error(error.message || 'Could not add sponsor.');
+      logQueryError('addSponsor (guests insert)', error, { event_id: eventId });
+      throw new Error('insert refused');
     }
 
-    revalidatePath(`/dashboard/${eventId}/sponsors`);
-    redirect(`/dashboard/${eventId}/sponsors?added=1#tier-${tier}`);
+    revalidateSponsors(eventId);
+    back(eventId, `added=1#tier-${tier}`);
   } catch (e) {
-    // redirect() throws a NEXT_REDIRECT — re-throw so Next handles it. Only
-    // wrap genuine error states.
-    if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
-    // A2-I18: a fixed key in the address; the raw message goes to the log only.
-    const key = sponsorErrorKey(e);
-    if (key === 'save_failed') logQueryError('SponsorsAction', e, { eventId }, 'graceful_degrade');
-    redirect(`/dashboard/${eventId}/sponsors?error=${key}`);
+    refused(eventId, e);
   }
 }
 
 /**
- * Update an existing sponsor row (host edits name / contact / relationship
- * note before sending the invitation). Tier + side are immutable post-
- * insert — moving a sponsor between tiers means removing + re-adding.
+ * Update a sponsor's name, contact and note — on their guest row. Tier and side stay as they are; moving tiers is
+ * remove + add.
  */
 export async function updateSponsor(formData: FormData): Promise<void> {
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = parseEventId(formData);
-  const sponsorId = clean(formData.get('sponsor_id'), 40);
-  if (!sponsorId) redirect(`/dashboard/${eventId}/sponsors`);
-
+  const guestId = clean(formData.get('sponsor_id'), 40);
+  if (!guestId) redirect(`/dashboard/${eventId}/sponsors`);
   try {
     await requireSponsorHost(eventId);
 
     const fullName = clean(formData.get('full_name'), 200);
-    if (fullName.length === 0) {
-      throw new Error('Full name is required.');
-    }
+    if (fullName.length === 0) throw new Error(SPONSOR_ERROR_COPY.name_required);
     const relationshipNote = nullIfBlank(formData.get('relationship_note'), 200);
     const email = nullIfBlank(formData.get('email'), 200);
     const phone = nullIfBlank(formData.get('phone'), 40);
+    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error(SPONSOR_ERROR_COPY.email_invalid);
 
-    if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      throw new Error('Email looks invalid.');
-    }
-
+    const [firstName, ...rest] = fullName.split(/\s+/).filter(Boolean);
     const admin = createAdminClient();
-    const { error } = await admin
-      .from('event_sponsors')
+    const { data, error } = await admin
+      .from('guests')
       .update({
-        full_name: fullName,
-        relationship_note: relationshipNote,
+        first_name: firstName ?? fullName,
+        last_name: rest.length > 0 ? rest.join(' ') : '—',
+        notes: relationshipNote,
         email,
-        phone,
+        mobile: phone,
       })
-      .eq('id', sponsorId)
-      .eq('event_id', eventId);
-
-    if (error) {
-      throw new Error(error.message || 'Could not update sponsor.');
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId)
+      .is('deleted_at', null)
+      .select('guest_id');
+    if (error || !data?.length) {
+      if (error) logQueryError('updateSponsor (guests update)', error, { event_id: eventId });
+      throw new Error('update refused');
     }
 
-    revalidatePath(`/dashboard/${eventId}/sponsors`);
-    redirect(`/dashboard/${eventId}/sponsors?updated=1`);
+    revalidateSponsors(eventId);
+    back(eventId, 'updated=1');
   } catch (e) {
-    if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
-    // A2-I18: a fixed key in the address; the raw message goes to the log only.
-    const key = sponsorErrorKey(e);
-    if (key === 'save_failed') logQueryError('SponsorsAction', e, { eventId }, 'graceful_degrade');
-    redirect(`/dashboard/${eventId}/sponsors?error=${key}`);
+    refused(eventId, e);
   }
 }
 
 /**
- * Remove a sponsor row entirely. Soft-delete is overkill here — sponsor
- * lists pre-invitation are draft state and hosts add/remove freely.
- *
- * If the sponsor was already accepted and has a linked_guest_id, we DO NOT
- * automatically delete the guests row (the host may want to keep them as
- * a regular guest even after declining the sponsor role). Surfaced as a
- * note in the UI.
+ * Remove a sponsor: the sponsor ROLE leaves their guest row; the person stays on the guest list (their reply, seat and
+ * invitation are theirs). Removing them from the list is the guest list's own Delete.
  */
 export async function removeSponsor(formData: FormData): Promise<void> {
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = parseEventId(formData);
-  const sponsorId = clean(formData.get('sponsor_id'), 40);
-  if (!sponsorId) redirect(`/dashboard/${eventId}/sponsors`);
-
+  const guestId = clean(formData.get('sponsor_id'), 40);
+  if (!guestId) redirect(`/dashboard/${eventId}/sponsors`);
   try {
     await requireSponsorHost(eventId);
-
     const admin = createAdminClient();
-    await admin.from('event_sponsors').delete().eq('id', sponsorId).eq('event_id', eventId);
+    const { data: row, error: readErr } = await admin
+      .from('guests')
+      .select('role, extra_roles')
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (readErr || !row) {
+      if (readErr) logQueryError('removeSponsor (guests read)', readErr, { event_id: eventId });
+      throw new Error('read refused');
+    }
+    const g = row as GuestRoleRow;
+    const posted = formData.get('sponsor_tier');
+    const tier = typeof posted === 'string' && posted ? parseSponsorTier(posted) : sponsorTierOfRole(g.role);
+    if (!tier) throw new Error(SPONSOR_ERROR_COPY.not_found);
 
-    revalidatePath(`/dashboard/${eventId}/sponsors`);
-    redirect(`/dashboard/${eventId}/sponsors?removed=1`);
+    const { error } = await admin
+      .from('guests')
+      .update(takeSponsorRole(g, tier))
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId);
+    if (error) {
+      logQueryError('removeSponsor (guests update)', error, { event_id: eventId });
+      throw new Error('update refused');
+    }
+
+    revalidateSponsors(eventId);
+    back(eventId, 'removed=1');
   } catch (e) {
-    if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
-    // A2-I18: a fixed key in the address; the raw message goes to the log only.
-    const key = sponsorErrorKey(e);
-    if (key === 'save_failed') logQueryError('SponsorsAction', e, { eventId }, 'graceful_degrade');
-    redirect(`/dashboard/${eventId}/sponsors?error=${key}`);
+    refused(eventId, e);
   }
 }
 
 /**
- * Mark invitation as sent. Sets invitation_status='invited' +
- * invitation_sent_at=NOW(). The actual message delivery is owner-side in V1
- * (host copies the template text to clipboard + pastes into Messenger/Viber/
- * email). V1.x integrates Resend per 0028 email template pattern.
+ * Mark the sponsor invitation as sent — on the guest row (`sponsor_asked_at`; never `invitation_sent_at`, which is the
+ * formal RSVP invitation with one writer of its own). The message itself is the host's to send (they copy the template).
  */
 export async function sendInvitation(formData: FormData): Promise<void> {
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = parseEventId(formData);
-  const sponsorId = clean(formData.get('sponsor_id'), 40);
-  if (!sponsorId) redirect(`/dashboard/${eventId}/sponsors`);
-
+  const guestId = clean(formData.get('sponsor_id'), 40);
+  if (!guestId) redirect(`/dashboard/${eventId}/sponsors`);
   try {
     await requireSponsorHost(eventId);
-
     const admin = createAdminClient();
-    const { error } = await admin
-      .from('event_sponsors')
-      .update({
-        invitation_status: 'invited',
-        invitation_sent_at: new Date().toISOString(),
-      })
-      .eq('id', sponsorId)
-      .eq('event_id', eventId);
-
-    if (error) {
-      throw new Error(error.message || 'Could not mark invitation as sent.');
+    const { data, error } = await admin
+      .from('guests')
+      .update({ sponsor_asked_at: new Date().toISOString() })
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId)
+      .is('deleted_at', null)
+      .select('guest_id');
+    if (error || !data?.length) {
+      if (error) logQueryError('sendInvitation (guests update)', error, { event_id: eventId });
+      throw new Error('update refused');
     }
 
-    revalidatePath(`/dashboard/${eventId}/sponsors`);
-    redirect(`/dashboard/${eventId}/sponsors?invited=1`);
+    revalidateSponsors(eventId);
+    back(eventId, 'invited=1');
   } catch (e) {
-    if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
-    // A2-I18: a fixed key in the address; the raw message goes to the log only.
-    const key = sponsorErrorKey(e);
-    if (key === 'save_failed') logQueryError('SponsorsAction', e, { eventId }, 'graceful_degrade');
-    redirect(`/dashboard/${eventId}/sponsors?error=${key}`);
+    refused(eventId, e);
   }
 }
 
 /**
- * Mark response (accepted / declined). On acceptance, auto-create a guests
- * row with the matching sponsor role + link via linked_guest_id.
- *
- * Skips guest creation if the sponsor already has linked_guest_id set
- * (idempotent — host can flip status without duplicating guest rows).
+ * Mark the sponsor's answer — the guest's own reply on their row: accepted → attending, declined → declined, set by
+ * the guest (`rsvp_set_by: 'guest'`, as a sponsor's answer always was). The person was already on the guest list, so
+ * nothing is created.
  */
 export async function markResponse(formData: FormData): Promise<void> {
   await refuseLimitedHelper(formData.get('event_id'), null);
   const eventId = parseEventId(formData);
-  const sponsorId = clean(formData.get('sponsor_id'), 40);
-  if (!sponsorId) redirect(`/dashboard/${eventId}/sponsors`);
-
+  const guestId = clean(formData.get('sponsor_id'), 40);
+  if (!guestId) redirect(`/dashboard/${eventId}/sponsors`);
   const rawStatus = clean(formData.get('status'), 16);
-  if (rawStatus !== 'accepted' && rawStatus !== 'declined') {
-    redirect(`/dashboard/${eventId}/sponsors`);
-  }
+  if (rawStatus !== 'accepted' && rawStatus !== 'declined') redirect(`/dashboard/${eventId}/sponsors`);
   const status = rawStatus as 'accepted' | 'declined';
 
   try {
     await requireSponsorHost(eventId);
-
     const admin = createAdminClient();
-
-    // Fetch the existing row so we know the tier + side + name for guest
-    // auto-creation, and check whether it's already linked.
-    const { data: existing, error: fetchErr } = await admin
-      .from('event_sponsors')
-      .select(
-        'id, event_id, sponsor_tier, side, full_name, email, linked_guest_id, invitation_status',
-      )
-      .eq('id', sponsorId)
+    const now = new Date().toISOString();
+    // An answer means they were asked: keep the asked moment if there is one, else it is now (the consent gate for
+    // naming a sponsor in public reads both — `acceptedTheNamedRole`).
+    const { data: before, error: beforeErr } = await admin
+      .from('guests')
+      .select('sponsor_asked_at')
+      .eq('guest_id', guestId)
       .eq('event_id', eventId)
+      .is('deleted_at', null)
       .maybeSingle();
-
-    if (fetchErr || !existing) {
-      throw new Error('Sponsor not found.');
+    if (beforeErr || !before) {
+      if (beforeErr) logQueryError('markResponse (guests read)', beforeErr, { event_id: eventId });
+      throw new Error('read refused');
+    }
+    const { data, error } = await admin
+      .from('guests')
+      .update({
+        rsvp_status: status === 'accepted' ? 'attending' : 'declined',
+        rsvp_set_by: 'guest',
+        rsvp_responded_at: now,
+        sponsor_asked_at: (before as { sponsor_asked_at: string | null }).sponsor_asked_at ?? now,
+      })
+      .eq('guest_id', guestId)
+      .eq('event_id', eventId)
+      .is('deleted_at', null)
+      .select('role, extra_roles');
+    if (error || !data?.length) {
+      if (error) logQueryError('markResponse (guests update)', error, { event_id: eventId });
+      throw new Error('update refused');
     }
 
-    type Existing = {
-      id: string;
-      event_id: string;
-      sponsor_tier: SponsorTier;
-      side: 'groom' | 'bride' | 'neutral';
-      full_name: string;
-      email: string | null;
-      linked_guest_id: string | null;
-      invitation_status: string;
-    };
-
-    const sponsor = existing as Existing;
-
-    let linkedGuestId = sponsor.linked_guest_id;
-    const declineNote = nullIfBlank(formData.get('decline_note'), 400);
-
-    // On acceptance: auto-create + link guest row (idempotent — skip if
-    // already linked).
-    if (status === 'accepted' && !linkedGuestId) {
-      const [firstName, ...rest] = sponsor.full_name.split(/\s+/).filter(Boolean);
-      const lastName = rest.length > 0 ? rest.join(' ') : '—';
-
-      const { data: insertedGuest, error: guestErr } = await admin
-        .from('guests')
-        .insert({
-          event_id: eventId,
-          first_name: firstName ?? sponsor.full_name,
-          last_name: lastName,
-          side: sponsorGuestSide(sponsor.side),
-          group_category: 'family', // sponsors are family-tier by convention
-          role: sponsorGuestRole(sponsor.sponsor_tier),
-          email: sponsor.email,
-          rsvp_status: 'attending', // they've accepted the sponsor invitation
-          rsvp_set_by: 'guest', // 🖐 their own acceptance, never a host's mark (owner 2026-10-21)
-          photo_consent: true,
-          invited_to_blocks: ['ceremony', 'reception'],
-        })
-        .select('guest_id')
-        .single();
-
-      if (guestErr || !insertedGuest) {
-        throw new Error(guestErr?.message ?? 'Could not auto-create guest row.');
-      }
-
-      linkedGuestId = (insertedGuest as { guest_id: string }).guest_id;
-    }
-
-    const updatePatch: {
-      invitation_status: 'accepted' | 'declined';
-      responded_at: string;
-      linked_guest_id?: string | null;
-      decline_note?: string | null;
-    } = {
-      invitation_status: status,
-      responded_at: new Date().toISOString(),
-    };
-    if (status === 'accepted' && linkedGuestId) {
-      updatePatch.linked_guest_id = linkedGuestId;
-    }
-    if (status === 'declined') {
-      updatePatch.decline_note = declineNote;
-    }
-
-    const { error: updErr } = await admin
-      .from('event_sponsors')
-      .update(updatePatch)
-      .eq('id', sponsorId)
-      .eq('event_id', eventId);
-
-    if (updErr) {
-      throw new Error(updErr.message || 'Could not record response.');
-    }
-
-    // Phase 2 (person-graph · flag-off in prod): an accepted PRINCIPAL sponsor
-    // becomes a godparent connection PROPOSAL (ninong/ninang → each principal).
-    // Idempotent + flag-guarded + host-authorized inside the action. Best-effort
-    // — connection generation must never break sponsor acceptance.
-    if (status === 'accepted' && sponsor.sponsor_tier === 'principal' && peopleConnectionsEnabled()) {
+    // Phase 2 (person-graph · flag-off in prod): an accepted PRINCIPAL sponsor becomes a godparent connection
+    // PROPOSAL. Idempotent + flag-guarded + host-authorized inside the action; never breaks the answer.
+    const g = data[0] as GuestRoleRow;
+    const principal = [g.role, ...(g.extra_roles ?? [])].some((r) => sponsorTierOfRole(r) === 'principal');
+    if (status === 'accepted' && principal && peopleConnectionsEnabled()) {
       try {
         await generateEventConnections(eventId);
       } catch {
@@ -360,16 +307,9 @@ export async function markResponse(formData: FormData): Promise<void> {
       }
     }
 
-    revalidatePath(`/dashboard/${eventId}/sponsors`);
-    revalidatePath(`/dashboard/${eventId}/guests`);
-    redirect(
-      `/dashboard/${eventId}/sponsors?${status === 'accepted' ? 'accepted' : 'declined'}=1`,
-    );
+    revalidateSponsors(eventId);
+    back(eventId, `${status === 'accepted' ? 'accepted' : 'declined'}=1`);
   } catch (e) {
-    if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
-    // A2-I18: a fixed key in the address; the raw message goes to the log only.
-    const key = sponsorErrorKey(e);
-    if (key === 'save_failed') logQueryError('SponsorsAction', e, { eventId }, 'graceful_degrade');
-    redirect(`/dashboard/${eventId}/sponsors?error=${key}`);
+    refused(eventId, e);
   }
 }

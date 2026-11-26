@@ -19,5 +19,5 @@
 Guards: `tests/db/sponsors-join-the-guest-list.db.test.ts` (the match rule, on a replayed database) ·
 `app/dashboard/[eventId]/sponsors/sponsors-come-from-the-guest-list.test.ts`.
 
-SPEC IMPACT: Sponsors move into the guest list (owner, brief Add 41). DECISION_LOG row owed — this session cannot
-write the specs corpus.
+SPEC IMPACT: Sponsors move into the guest list (owner, brief Add 41). DECISION_LOG row written: specs corpus
+`46e6a72`, "Sponsors live in the guest list".

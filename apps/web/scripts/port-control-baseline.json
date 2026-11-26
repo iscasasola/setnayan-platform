@@ -19627,7 +19627,6 @@
         "CardRecordUnread",
         "ErrorState",
         "HallsUsesPick",
-        "HideWhenRisen",
         "Link",
         "ReadFailedNote",
         "RefinementsEditor"
@@ -19649,7 +19648,6 @@
         "AddServicePicker",
         "CanvasMaker",
         "CoverageMeter",
-        "HideWhenRisen",
         "Link",
         "NewServiceMaker",
         "RefinementsEditor",
@@ -19670,7 +19668,6 @@
       "actions": [],
       "blocks": [
         "CanvasMaker",
-        "HideWhenRisen",
         "Link",
         "RefinementsEditor",
         "ServiceWizard"
@@ -19736,8 +19733,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "TellUsSearch",
-        "TellUsWhatYouDoView"
+        "TellUsSearch"
       ]
     },
     "/vendor-dashboard/services/their-work": {
@@ -20553,9 +20549,7 @@
         "vendor-dashboard/team/loading.tsx",
         "vendor-dashboard/team/page.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/team/roles"
-      ],
+      "destinations": [],
       "actions": [
         "action",
         "routes.vendorDashboard.team"
@@ -20600,30 +20594,14 @@
         "vendor-dashboard/team/roles/page.tsx",
         "vendor-dashboard/team/roles/roles-form.tsx"
       ],
-      "destinations": [
-        "/vendor-dashboard/subscription",
-        "/vendor-dashboard/team/roles/inquiries"
-      ],
+      "destinations": [],
       "actions": [
-        "action",
-        "routes.vendorDashboard.team",
-        "setVendorRoleNames"
+        "action"
       ],
       "blocks": [
-        "BackButton",
-        "DatesRow",
-        "FormPageSkeleton",
         "FormRows",
-        "InfoTip",
-        "Link",
-        "RoleLock",
-        "RolesForm",
-        "RolesList",
-        "Search",
-        "ShopNotice",
         "StayForm",
         "SupplierSubmit",
-        "TeamUnread",
         "TypedRow",
         "VendorRoleNames"
       ]
@@ -20634,22 +20612,8 @@
         "vendor-dashboard/team/roles/inquiries/page.tsx"
       ],
       "destinations": [],
-      "actions": [
-        "setVendorRoleNames"
-      ],
-      "blocks": [
-        "AdjustPanel",
-        "BackButton",
-        "FormPageSkeleton",
-        "InfoTip",
-        "Link",
-        "RoleLock",
-        "Search",
-        "ShopNotice",
-        "StayForm",
-        "SupplierSubmit",
-        "TeamUnread"
-      ]
+      "actions": [],
+      "blocks": []
     },
     "/vendor-dashboard/theft-watch": {
       "files": [

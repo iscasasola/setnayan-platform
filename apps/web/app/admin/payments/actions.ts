@@ -22,7 +22,6 @@ import { receivingAccounts } from '@/lib/payment-channels';
 import { NOT_RECEIVED_REASONS, dropReceived, isNotReceivedReason, leaveReceived, matchReceived } from './received';
 import { undoAutoMatch } from './received-auto';
 import { createClient } from '@/lib/supabase/server';
-import { logQueryError } from '@/lib/supabase/error-detect';
 import { classifyDuplicate, normalizeReference, MONEY_STATUSES } from '@/lib/payment-reference-match';
 import { emitNotification } from '@/lib/notification-emit';
 import {

@@ -516,7 +516,7 @@ test('the stored dismissal list is read through a total boundary', () => {
    the editor takes the prop and never draws it. */
 
 test('the lab page loads bookings the way the finalization panel does', () => {
-  const page = readFileSync(join(REPO, 'app/dashboard/[eventId]/seating/lab/page.tsx'), 'utf8');
+  const page = readFileSync(join(REPO, 'app/dashboard/[eventId]/seating/lab/_components/seating-room.tsx'), 'utf8');
   const panel = readFileSync(
     join(REPO, 'app/dashboard/[eventId]/studio/mood-board/_components/mood-board-editor.tsx'),
     'utf8',

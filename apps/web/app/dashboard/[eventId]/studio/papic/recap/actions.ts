@@ -52,6 +52,11 @@ async function revalidateRecap(eventId: string, slug: string | null): Promise<vo
   }
 }
 
+/** Back to the recap page with the one failure line it reads (`?recap=`). */
+function recapFailedHref(eventId: string, which: 'publish' | 'private'): string {
+  return `/dashboard/${eventId}/studio/papic/recap?recap=${which === 'publish' ? 'publish-failed' : 'private-failed'}`;
+}
+
 async function slugFor(eventId: string): Promise<string | null> {
   const admin = createAdminClient();
   const { data } = await admin.from('events').select('slug').eq('event_id', eventId).maybeSingle();
@@ -65,7 +70,7 @@ export async function publishRecap(formData: FormData): Promise<void> {
 
   const admin = createAdminClient();
   const nowIso = new Date().toISOString();
-  await admin.from('event_recaps').upsert(
+  const { error: publishError } = await admin.from('event_recaps').upsert(
     {
       event_id: eventId,
       status: 'published',
@@ -75,6 +80,8 @@ export async function publishRecap(formData: FormData): Promise<void> {
     },
     { onConflict: 'event_id' },
   );
+  // P-05 (final check): a refused write used to re-render the page unchanged, saying nothing.
+  if (publishError) redirect(recapFailedHref(eventId, 'publish'));
 
   await revalidateRecap(eventId, await slugFor(eventId));
 
@@ -127,7 +134,7 @@ export async function unpublishRecap(formData: FormData): Promise<void> {
 
   const admin = createAdminClient();
   const nowIso = new Date().toISOString();
-  await admin.from('event_recaps').upsert(
+  const { error: unpublishError } = await admin.from('event_recaps').upsert(
     {
       event_id: eventId,
       status: 'unpublished',
@@ -136,6 +143,7 @@ export async function unpublishRecap(formData: FormData): Promise<void> {
     },
     { onConflict: 'event_id' },
   );
+  if (unpublishError) redirect(recapFailedHref(eventId, 'private'));
 
   await revalidateRecap(eventId, await slugFor(eventId));
 }

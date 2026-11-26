@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { Badge } from '@/app/_components/badge';
-import { guestRoleLabel, type GuestRole, type GuestSide } from '@/lib/guests';
+import { guestRoleLabel, RSVP_LIST_WORDS, type GuestRole, type GuestSide } from '@/lib/guests';
 import { useRoleNames } from '../../_components/role-names-context';
 import { parseGuestQrPayload, guestInitials } from '@/lib/checkin';
 import { guestTokenFromTag, nfcReadFailureCopy } from '@/lib/nfc-tag';
@@ -805,7 +805,8 @@ export function CheckinDesk({
                   </span>
                 ) : null}
                 {selected.rsvpStatus !== 'attending' ? (
-                  <Badge tone="wait">RSVP&rsquo;d {selected.rsvpStatus}</Badge>
+                  // A2-D16: the reply in the guest list's own words ("No reply", "Can’t come"), never the database value.
+                  <Badge tone="wait">{RSVP_LIST_WORDS[selected.rsvpStatus]}</Badge>
                 ) : null}
               </div>
             </div>

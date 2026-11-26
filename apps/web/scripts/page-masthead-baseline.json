@@ -1,5 +1,4 @@
 [
-  "app/dashboard/(account)/profile/concierge/page.tsx",
   "app/dashboard/[eventId]/_components/day-of-mode/whats-happening-card.tsx",
   "app/dashboard/[eventId]/invitation/page.tsx",
   "app/dashboard/[eventId]/launch/page.tsx",

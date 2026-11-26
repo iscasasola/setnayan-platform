@@ -21,7 +21,14 @@ import { DatesRow } from './dates-row';
  */
 export type MoneyLogCustomer = { eventId: string; name: string; line: string; href: string };
 
-export function MoneyLog({ customers, startOpen = false }: { customers: readonly MoneyLogCustomer[]; startOpen?: boolean }) {
+export function MoneyLog({
+  customers,
+  startOpen = false,
+}: {
+  /** `null` = the bookings read did not answer (A6-31) — said, never "No booked customer yet". */
+  customers: readonly MoneyLogCustomer[] | null;
+  startOpen?: boolean;
+}) {
   const [open, setOpen] = useState(startOpen);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
@@ -35,7 +42,11 @@ export function MoneyLog({ customers, startOpen = false }: { customers: readonly
         </h2>
         <p className="mt-1 text-[13px] text-[color:var(--m-slate-2)]">Whose payment?</p>
         <div className="mt-2">
-          {customers.length === 0 ? (
+          {customers === null ? (
+            <p role="alert" className="py-3 text-[15px] text-ink/70" data-money-log-unread="">
+              We couldn&rsquo;t load your booked customers right now. Nothing has changed — try again in a moment.
+            </p>
+          ) : customers.length === 0 ? (
             <p className="py-3 text-[15px] text-ink/70" data-money-log-none="">
               No booked customer yet. A payment is logged on a booking — once a couple books you, they are listed here.
             </p>

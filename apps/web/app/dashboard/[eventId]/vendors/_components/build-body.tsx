@@ -40,6 +40,7 @@
  * EVERY POP-UP IS THE ONE HOUSE TEMPLATE — `ScheduleSheet` + `SheetFoot` (PR 1's "one pop-up template": the house
  * bottom sheet, title and what it is about on one line, the answers in the thumb zone). 🔒 lib/the-build-is-the-approved-frame.test.ts
  */
+import { useViewerBooks } from './viewer-books';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useRouter } from 'next/navigation';
@@ -733,6 +734,8 @@ function BuildLineRow({
   priceHref: (vendorId: string) => string;
   eventId: string;
 }) {
+  // A2-G1: only a host books (owner 21 Nov "no booking, no paying"); the coordinator sees no "Ask to book".
+  const books = useViewerBooks();
   const who = line.booked ?? line.pick;
   // The pick is always in its own dropdown, even while it cannot be booked.
   const options = [
@@ -799,7 +802,7 @@ function BuildLineRow({
       {/* 🛒 ONE NEXT STEP PER PICK (owner 2026-11-17, drawing v15 — "Book this build" and its sheet go): a priced pick
           not yet asked gets "Ask to book" on its own line, through the one booking path (`AccordionLockButton` →
           `finalizeVendor`). Asking moves it to Book; a pick that cannot be booked keeps its note and offers nothing. */}
-      {askable(line) ? (
+      {books && askable(line) ? (
         <div className="col-span-2 justify-self-end" data-build-ask={line.tile}>
           <AccordionLockButton
             eventId={eventId}

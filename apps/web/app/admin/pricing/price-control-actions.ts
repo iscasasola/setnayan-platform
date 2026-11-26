@@ -4,6 +4,7 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 import { GLOBAL_SETTINGS_TAGS } from '@/lib/global-settings-tags';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminAction } from '@/lib/admin/require-admin';
+import { requireAdminCan } from '@/lib/admin/can.server';
 import { BOOKING_FEE } from '@/lib/booking-fee';
 import { VENDOR_BOOKING_FEES_PATH } from '@/lib/vendor-booking-fees';
 import {
@@ -93,6 +94,8 @@ export async function saveBookingFeeSchedule(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // A8·B-2: every price write is Prices & promos · Escalated (lib/admin/areas.ts).
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
 
   const rate = parsePct(formData.get('booking_fee_rate_pct'));
@@ -216,6 +219,8 @@ export async function savePapicLadder(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // A8·B-2: every price write is Prices & promos · Escalated (lib/admin/areas.ts).
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
 
   // The typed prices — every priced rung since 2026-10-28 — read by the shot count they anchor.
@@ -345,6 +350,8 @@ export async function saveSignupDiscount(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // A8·B-2: every price write is Prices & promos · Escalated (lib/admin/areas.ts).
+  await requireAdminCan('prices_promos', 'escalated');
   // 🧮 The price formula's save / apply rides on this action (see `pricingFormulaOp` — the route budget is full).
   const formulaOp = String(formData.get('pricing_formula_op') ?? '');
   if (formulaOp) return pricingFormulaOp(formulaOp, formData, adminUserId);
@@ -461,6 +468,8 @@ export async function setEventTypeBand(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // A8·B-2: every price write is Prices & promos · Escalated (lib/admin/areas.ts).
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
 
   const eventType = String(formData.get('event_type') ?? '').trim();
@@ -536,6 +545,8 @@ export async function saveAiBandPrice(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // A8·B-2: every price write is Prices & promos · Escalated (lib/admin/areas.ts).
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
 
   const band = String(formData.get('band') ?? '').trim();
@@ -650,6 +661,8 @@ export async function savePapicProductPrice(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // A8·B-2: every price write is Prices & promos · Escalated (lib/admin/areas.ts).
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
 
   const code = String(formData.get('service_code') ?? '').trim().toUpperCase();
@@ -732,6 +745,8 @@ export async function savePapicTypeSizing(
   formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // A8·B-2: every price write is Prices & promos · Escalated (lib/admin/areas.ts).
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
 
   const key = String(formData.get('config_key') ?? '').trim();
@@ -827,6 +842,8 @@ export async function recomputePapicPoolLearning(
   _formData: FormData,
 ): Promise<RowActionState> {
   const { userId: adminUserId } = await requireAdminAction();
+  // A8·B-2: every price write is Prices & promos · Escalated (lib/admin/areas.ts).
+  await requireAdminCan('prices_promos', 'escalated');
   const admin = createAdminClient();
 
   const { data, error } = await admin.rpc('papic_recompute_pool_learning');

@@ -9,6 +9,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { PageMasthead } from '@/app/_components/page-masthead';
 
 /**
@@ -132,8 +133,14 @@ export default async function AlaalaPage({ params }: Props) {
   // Fetch density map and recent approved stories in parallel.
   // If either fails (Papic not active, no data), we silently hide the sections.
   const admin = createAdminClient();
+  // M-08 (final check): a failed read used to make both sections vanish, exactly like an event with no stories yet.
+  // It is now marked, and the page says it could not read them.
+  let densityFailed = false;
   const [densityRows, { data: recentStories, error: recentStoriesError }] = await Promise.all([
-    getKwentoDensity(eventId, 5).catch(() => []),
+    getKwentoDensity(eventId, 5).catch(() => {
+      densityFailed = true;
+      return [];
+    }),
     admin
       .from('photo_messages')
       .select('message_id, body_text, source_id, guest_id')
@@ -141,8 +148,9 @@ export default async function AlaalaPage({ params }: Props) {
       .eq('status', 'approved')
       .order('updated_at', { ascending: false })
       .limit(3)
-      .then((r) => r, () => ({ data: null, error: null })),
+      .then((r) => r, () => ({ data: null, error: { message: 'photo_messages read threw' } })),
   ]);
+  const storiesReadFailed = densityFailed || Boolean(recentStoriesError);
   if (recentStoriesError) {
     logQueryError('AlaalaPage.recentStories', recentStoriesError, { event_id: eventId }, 'graceful_degrade');
   }
@@ -258,6 +266,8 @@ export default async function AlaalaPage({ params }: Props) {
       <PageMasthead
         title="Your wedding, kept alive."
       />
+
+      {storiesReadFailed ? <ReadRefusedNotice what="your guests' stories" /> : null}
 
       {/* ── Most storied moments (only when Kwentos exist) ── */}
       {densityCards.length > 0 ? (

@@ -258,7 +258,9 @@ test('d · the services row is on the first screen, last, under the control row'
   assert.equal(count(html.slice(at), 'See all'), 0, 'there is nothing under the row to "see all" of');
   // 📷 Without the couple's card (the page was removed 2026-10-26), the Papic row opens Papic's photos, in Memories.
   assert.match(html, /<a data-home-service="papic"[^>]*href="\/dashboard\/e1\/memories"[^>]*>[\s\S]*?On · 12 photos/, 'Papic opens its photos with its status');
-  assert.match(html, /<a data-home-service="ai"[^>]*href="\/dashboard\/e1\/studio\/setnayan-ai"[^>]*>[\s\S]*?Try it/, 'Setnayan AI opens its page with its status');
+  // The AI buy page is retired (final check R2, 25 Nov): the row opens the event's plans page (Event services).
+  // L6 (R2, controller ruling 25 Nov): Setnayan AI opens Event services with the AI choice ready (`?add=ai`).
+  assert.match(html, /<a data-home-service="ai"[^>]*href="\/dashboard\/e1\/studio\/website-pro\?add=ai"[^>]*>[\s\S]*?Try it/, 'Setnayan AI opens the plans page with its status');
 });
 
 test('d · each status is the shipped reader\'s answer, and a failed read is "—"', () => {
@@ -396,8 +398,9 @@ test('e · each removed tile\'s content is reachable at its home', () => {
     // 📷 The Papic page was removed 2026-10-26 — the couple's card is on Today; the photos are Memories.
     ['Papic · N shots / photos → the Papic card on Today, then its photos', 'memories', null, null],
     // The share's word is "booked" since d19 (2026-10-02, "couples read book, never lock").
-    ['Sai · your briefing · % booked → the Setnayan AI page (live state)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /% booked/],
-    ['Setnayan AI · The Watch → the Setnayan AI page (deadlines + payments it keeps; the alerts themselves are notifications)', 'studio/setnayan-ai', 'studio/setnayan-ai/_components/setnayan-ai-value.tsx', /every supplier, deadline and payment/],
+    // 🟠 'Sai · your briefing' and 'The Watch' lived on the Setnayan AI page, which the owner retired (final check R2,
+    // Add 19/20, 25 Nov): its address forwards to the plans page. Their home is the owner's open AI-panel question
+    // (Add 23), so they are not listed here until it has one.
     ['Schedule · next → the Schedule page', 'schedule', null, null],
     ['Messages · unread → the chat icon\'s page', 'messages', null, null],
     ['Needs you this week → the Next card, and the suppliers\' own book / pick steps', 'vendors', 'vendors/_components/build-locked.tsx', />Booked</],
@@ -417,7 +420,7 @@ test('e · each removed tile\'s content is reachable at its home', () => {
   const html = draw();
   // The money opens the Budget page, Home's own page since 2026-11-01 (owner: "Okay place it in home").
   // 📷 Papic: without the couple's card, the row opens Papic's photos (Memories) — the Papic page is gone (2026-10-26).
-  for (const href of ['/dashboard/e1/memories', '/dashboard/e1/studio/setnayan-ai', '/dashboard/e1/budget']) {
+  for (const href of ['/dashboard/e1/memories', '/dashboard/e1/studio/website-pro?add=ai', '/dashboard/e1/budget']) {
     assert.ok(html.includes(`href="${href}"`), `the first screen must link ${href}`);
   }
 });

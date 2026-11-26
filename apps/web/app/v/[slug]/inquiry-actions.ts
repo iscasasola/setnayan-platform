@@ -35,7 +35,7 @@ import { ownLinkArrival } from '@/lib/own-clients.server';
 import { fetchUserEvents } from '@/lib/events';
 import { followVendor } from '@/lib/follow-actions';
 import { recordThreadInterests, type InterestSeed } from '@/lib/thread-interests';
-import { resolveLivePax } from '@/lib/pax';
+import { priceablePax, resolveLivePax } from '@/lib/pax';
 import { setEventPreference } from '@/lib/event-preferences';
 import {
   buildRequirementsBlock,
@@ -473,7 +473,8 @@ export async function startServiceInquiry(input: {
   }
 
   // Live pax to snapshot onto this inquiry (Adaptive Pax Pricing Phase 3).
-  const livePax = await resolveLivePax(supabase, eventId);
+  // Owner Add 35: an unread count snapshots nothing (never a guess onto the inquiry).
+  const livePax = priceablePax(await resolveLivePax(supabase, eventId));
 
   const { data: thread, error: threadErr } = await supabase
     .from('chat_threads')

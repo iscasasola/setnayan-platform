@@ -32,6 +32,7 @@ import { headers } from 'next/headers';
 import { notFound } from 'next/navigation';
 
 import { OpenShopWizard } from '@/app/open-shop/_components/open-shop-wizard';
+import { OpenShopLayer } from '@/app/open-shop/_components/open-shop-layer';
 import { ClaimDoor } from '@/app/open-shop/_components/claim-door';
 import { renderUrlQrSvg } from '@/lib/qr';
 import type { ClaimDoorRecord } from '@/lib/claim-door';
@@ -262,6 +263,7 @@ export default async function OpenShopLabPage({
   }
   if (q.screen === 'logo') {
     return (
+      <OpenShopLayer>
       <AddYourLogo
         vendorProfileId="lab-shop"
         shopName="Banawe Florals"
@@ -270,6 +272,7 @@ export default async function OpenShopLabPage({
         frame={q.framed === '1' ? { x: 70, y: 35, zoom: 140 } : DEFAULT_LOGO_FRAME}
         saveAction={labSaveLogo}
       />
+      </OpenShopLayer>
     );
   }
   if (q.screen === 'invite') {
@@ -305,6 +308,7 @@ export default async function OpenShopLabPage({
         }
       : LAB_CLAIM_RECORD;
     return (
+      <OpenShopLayer>
       <ClaimDoor
         key={basis ?? 'shipped'}
         record={q.from === 'setnayan' ? LAB_TEAM_RECORD : record}
@@ -319,11 +323,14 @@ export default async function OpenShopLabPage({
         taken={q.taken === '1'}
         sentTo={q.check_inbox ?? null}
       />
+      </OpenShopLayer>
     );
   }
   const step = (['1', '2', '3', '4', '5'].includes(q.step ?? '') ? Number(q.step) : 1) as 1 | 2 | 3 | 4 | 5;
   const guest = q.guest !== '0';
+  // ⤴ The real open-shop layer (final check B1): the lab draws what /open-shop draws.
   return (
+    <OpenShopLayer>
     <OpenShopWizard
       mode="create"
       // No rate is typed in a lab: the disclosure's own "could not load the rate" wording.
@@ -356,5 +363,6 @@ export default async function OpenShopLabPage({
       sentTo={q.check_inbox ?? null}
       initialStep={step}
     />
+    </OpenShopLayer>
   );
 }

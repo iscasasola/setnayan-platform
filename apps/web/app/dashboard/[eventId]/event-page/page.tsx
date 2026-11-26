@@ -74,7 +74,13 @@ export default async function HostEventPageRedirect({
       'graceful_degrade',
     );
   }
-  if (!membership || membership.member_type !== 'couple') {
+  // F-01 (final check): a refused read is a failure, never "this page does not exist" — the error page says so and
+  // offers Try again. And the guest Event Hub is public, so every member of the event (a coordinator, a co-host) is
+  // sent to it, not only the couple.
+  if (membershipError || eventRes.error) {
+    throw new Error("Couldn't read this event just now.");
+  }
+  if (!membership) {
     notFound();
   }
 
@@ -84,7 +90,8 @@ export default async function HostEventPageRedirect({
   // No slug yet → the couple hasn't set up their public URL. Send them to the
   // Website hub where they pick a slug + style the page, rather than 404.
   if (!event.slug) {
-    redirect(`/dashboard/${eventId}/launch`);
+    // Only the couple opens the Maker; anyone else lands on the event's home.
+    redirect(membership.member_type === 'couple' ? `/dashboard/${eventId}/launch` : `/dashboard/${eventId}`);
   }
 
   // Same-origin RELATIVE redirect so the host's auth session carries through.

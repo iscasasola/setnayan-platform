@@ -290,7 +290,8 @@ export default async function OurStoryEditorPage({
     makerHref: `${base}/launch`,
     guestHref: event.slug ? `${publicEventPath(event.slug)}?phase=rsvp` : null,
     ownsPro: proUsable,
-    tryingPro: proUsable && !proActive,
+    // E-13: an unread plan is not "trying Pro" — no limit or ◆ is drawn from a failed read.
+    tryingPro: proUsable && !proActive && !planReadFailed,
     storeShell,
     appleIap: iapGate.iap,
     proHref: proOwned && !proActive ? `${base}/launch` : `${base}/studio/website-pro`,

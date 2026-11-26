@@ -87,7 +87,19 @@ export function TableShapeSvg({
  * no tools and no chrome, its name and size in the corner. Shown while something heavier loads over it: the couple's
  * 3D room draws it at once instead of a blank screen (owner 2026-11-20, "never a blank screen").
  */
-export function PlanPoster({ plan, roomName, className = '' }: { plan: Plan; roomName?: string | null; className?: string }) {
+export function PlanPoster({
+  plan,
+  roomName,
+  className = '',
+  seated,
+}: {
+  plan: Plan;
+  roomName?: string | null;
+  className?: string;
+  /** Seated guests per table id — that many chairs drawn filled, as the couple's own plan draws them. Counts only,
+   *  never names (A7-16: the supplier's read-only seat plan). Absent → every chair drawn empty. */
+  seated?: Readonly<Record<string, number>>;
+}) {
   const room = planRoomM(plan.room);
   const H = W / planAspect(plan.room);
   const pxPerM = W / room.widthM;
@@ -114,7 +126,7 @@ export function PlanPoster({ plan, roomName, className = '' }: { plan: Plan; roo
         const s = (planFootprintM(t) * pxPerM) / g.box.w;
         return (
           <g key={t.id} transform={`translate(${(p.x / 100) * W} ${(p.y / 100) * H}) scale(${s}) rotate(${t.rotationDeg ?? 0})`} data-plan-table={t.id}>
-            <TableShapeSvg g={g} label={t.label} seated={0} names={null} marked={false} selected={false} fontPx={Math.max(18, 24 / s)} />
+            <TableShapeSvg g={g} label={t.label} seated={seated?.[t.id] ?? 0} names={null} marked={false} selected={false} fontPx={Math.max(18, 24 / s)} />
           </g>
         );
       })}

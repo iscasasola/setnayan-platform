@@ -1,3 +1,6 @@
+import { FACE_MODE_ERROR, FACE_MODE_NOTICE } from '@/lib/admin/face-mode-notices';
+import { FormFlash } from '@/app/_components/forms/form-flash';
+import { readEveryPage, type EveryPage } from '@/lib/read-every-page';
 import Link from 'next/link';
 import { CalendarDays, ScanFace, Trash2 } from 'lucide-react';
 import { ConfirmForm } from '@/app/_components/confirm-form';
@@ -97,12 +100,26 @@ function formatUpdated(iso: string): string {
  * 🪤 The old empty row spanned `colSpan={10}` over ELEVEN columns. Harmless, and
  * exactly the kind of hand-counted number that stops existing here.
  */
+/** The most rows one Events-tab rollup reads before it says "not measured". */
+const ROLLUP_MAX_ROWS = 200_000;
+
+/** A paged read in the `{ data, error }` shape the rollups below already judge: incomplete = unread. */
+function pagedAsResult<T>(paged: EveryPage<T> | null, what: string): { data: T[] | null; error: Error | null } {
+  if (paged && paged.complete) return { data: paged.rows, error: null };
+  return { data: null, error: new Error(paged ? `${what}: more rows than one tab reads` : `${what}: a page was refused`) };
+}
+
 export async function EventsSurface({
   q: qRaw,
   archived,
+  saved = null,
+  error: faceError = null,
 }: {
   q: string;
   archived: string | null;
+  /** A8·D-10: the face-tagging switch's outcome (`setEventFaceMode` → `saved=` / `error=`). */
+  saved?: string | null;
+  error?: string | null;
 }) {
   const q = (qRaw ?? '').trim();
   const showArchived = archived === '1';
@@ -166,23 +183,41 @@ export async function EventsSurface({
   let setnayanMoneyMeasured = true;
 
   if (eventIds.length > 0) {
-    const [guestsRes, paidOrdersRes, stdViewsRes] = await Promise.all([
-      admin
-        .from('guests')
-        .select('event_id')
-        .in('event_id', eventIds)
-        .is('deleted_at', null),
+    // A8·D-11: guests and save-the-date views (one row per day) outgrow the
+    // database's 1,000-row reply ceiling, so they are read page by page; a read
+    // that stops at its ceiling is NOT MEASURED rather than a silent undercount.
+    const [guestsPaged, paidOrdersRes, stdViewsPaged] = await Promise.all([
+      readEveryPage<{ event_id: string }>(
+        (from, to) =>
+          admin
+            .from('guests')
+            .select('event_id')
+            .in('event_id', eventIds)
+            .is('deleted_at', null)
+            .order('id')
+            .range(from, to),
+        ROLLUP_MAX_ROWS,
+      ),
       admin
         .from('orders')
         .select('event_id,vendor_profile_id')
         .in('event_id', eventIds)
         .eq('status', 'paid')
         .not('vendor_profile_id', 'is', null),
-      admin
-        .from('event_std_views')
-        .select('event_id,views')
-        .in('event_id', eventIds),
+      readEveryPage<{ event_id: string; views: number | null }>(
+        (from, to) =>
+          admin
+            .from('event_std_views')
+            .select('event_id,views')
+            .in('event_id', eventIds)
+            .order('event_id')
+            .order('view_date')
+            .range(from, to),
+        ROLLUP_MAX_ROWS,
+      ),
     ]);
+    const guestsRes = pagedAsResult(guestsPaged, 'guest rollup');
+    const stdViewsRes = pagedAsResult(stdViewsPaged, 'save-the-date view rollup');
 
     if (guestsRes.error) logQueryError('AdminEventsPage (guest rollup)', guestsRes.error);
     if (paidOrdersRes.error) {
@@ -335,6 +370,8 @@ export async function EventsSurface({
       <PageMasthead
         title="Events"
       />
+      {faceError && FACE_MODE_ERROR[faceError] ? <FormFlash tone="error">{FACE_MODE_ERROR[faceError]}</FormFlash> : null}
+      {saved && FACE_MODE_NOTICE[saved] ? <FormFlash tone="success">{FACE_MODE_NOTICE[saved]}</FormFlash> : null}
 
       <form className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center" method="get" action="/admin/accounts">
         <input type="hidden" name="tab" value="events" />

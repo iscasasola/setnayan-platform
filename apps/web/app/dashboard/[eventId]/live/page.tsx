@@ -34,6 +34,7 @@ import { KwentoQueue } from '../studio/papic/moderation/_components/kwento-queue
 import { WallModeControl } from './_components/mode-control';
 import { FlashAutoWallToggle } from './_components/flash-auto-wall-toggle';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { formatCount } from '@/lib/format-number';
 
 import { InfoTip } from '@/app/_components/info-tip';
@@ -251,12 +252,13 @@ export default async function LiveWallConsolePage({
     {
       icon: <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={2} />,
       label: 'on Memory lane',
-      value: String(visibleCount ?? 0),
+      // L-08 (final check): a refused count draws "—", never 0.
+      value: visibleCountError ? '—' : String(visibleCount ?? 0),
     },
     {
       icon: <EyeOff aria-hidden className="h-4 w-4" strokeWidth={2} />,
       label: 'hidden',
-      value: String(hiddenCount ?? 0),
+      value: hiddenCountError ? '—' : String(hiddenCount ?? 0),
     },
     {
       icon: <Tv aria-hidden className="h-4 w-4" strokeWidth={2} />,
@@ -278,7 +280,12 @@ export default async function LiveWallConsolePage({
 
       <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <WallModeControl eventId={eventId} override={override} resolved={resolved} />
+          {/* L-08 (final check): an unread event row is not "Auto" — the picker waits for a real read. */}
+          {eventError ? (
+            <ReadRefusedNotice what="what Memory lane is showing" />
+          ) : (
+            <WallModeControl eventId={eventId} override={override} resolved={resolved} />
+          )}
           <dl className="flex items-center gap-5">
             {stats.map((s) => (
               <div key={s.label} className="text-center">
@@ -338,7 +345,7 @@ export default async function LiveWallConsolePage({
               kill any one from the queue. Stories (≤280 chars) always go to review first.
             </InfoTip>
           </div>
-          <FlashAutoWallToggle eventId={eventId} enabled={flashAutoWall} />
+          {eventError ? null : <FlashAutoWallToggle eventId={eventId} enabled={flashAutoWall} />}
         </div>
         <div className="mt-4">
           <KwentoQueue eventId={eventId} />

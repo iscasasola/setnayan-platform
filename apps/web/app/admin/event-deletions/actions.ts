@@ -223,7 +223,8 @@ export async function rejectEventDeletion(formData: FormData) {
 
   const req = await loadPending(requestId);
 
-  await createAdminClient()
+  // A8·D-9: "Keep it" is recorded first; a refused write is a failure and the couple is told nothing.
+  const { error: keepErr } = await createAdminClient()
     .from('event_deletion_requests')
     .update({
       status: 'rejected',
@@ -232,6 +233,7 @@ export async function rejectEventDeletion(formData: FormData) {
       admin_note: note.slice(0, 2000),
     })
     .eq('id', req.id);
+  if (keepErr) throw new Error(`Couldn’t record “Keep it” — the couple was not told. (${keepErr.message})`);
 
   try {
     await emitNotification({

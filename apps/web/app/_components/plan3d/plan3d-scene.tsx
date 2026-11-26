@@ -88,11 +88,12 @@
  * today the remote-mover list is empty and the pass is skipped.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react';
 import { Canvas, useFrame, type ThreeEvent } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
+import { TURN_MS, turnAzimuthAt } from '@/lib/plan3d-turn-step';
 import {
   roomSize,
   pctToWorld,
@@ -809,6 +810,8 @@ export function Plan3DScene({
   interactive = true,
   quality = 'high',
   cinematic = false,
+  pageScroll = false,
+  turnSignal,
 }: {
   tables: Lab3DTable[];
   floor: Lab3DFloor;
@@ -847,6 +850,12 @@ export function Plan3DScene({
    *  static instances + light knobs, no per-frame cost); dust motes + the
    *  vignette stay lab-Play concerns, this surface adds neither. */
   cinematic?: boolean;
+  /** A7-05 (drawing final-check-area-7 § 3): the room sits inside a scrolling PAGE (/pa3d, /pa3d/try). On touch an up or
+   *  down swipe scrolls the page (`touch-action: pan-y`); a sideways drag turns the room, two fingers pinch. Default off:
+   *  every other room keeps today's whole-canvas drag. */
+  pageScroll?: boolean;
+  /** A7-05: bump `n` to turn the orbit camera one step in `dir` (the visible tap path, house D3). Only the change matters. */
+  turnSignal?: { dir: -1 | 1; n: number };
 }) {
   // 📱 The phone's 3D budget (`phone-gpu-budget.tsx`, owner 2026-10-29): a capped pixel ratio on a phone, and an honest
   // line instead of a dead canvas when the browser takes WebGL away.
@@ -1440,6 +1449,27 @@ export function Plan3DScene({
     walkToPoint(point, roamObstacles);
   };
 
+  // 🔄 A7-05: one tap of "Turn left / Turn right" eases the orbit camera one step (Move 320, settle); reduced motion cuts.
+  const orbitRef = useRef<ComponentRef<typeof OrbitControls> | null>(null);
+  const turnSeen = useRef(turnSignal?.n ?? 0);
+  useEffect(() => {
+    if (!turnSignal || turnSignal.n === turnSeen.current) return;
+    turnSeen.current = turnSignal.n;
+    const controls = orbitRef.current;
+    if (!controls) return;
+    const from = controls.getAzimuthalAngle();
+    const start = performance.now();
+    let frame = 0;
+    const step = (now: number) => {
+      const elapsed = now - start;
+      // The orbit re-aims the camera itself (drei's OrbitControls runs its own update every frame).
+      controls.setAzimuthalAngle(turnAzimuthAt(from, turnSignal.dir, elapsed, reducedMotion));
+      if (!reducedMotion && elapsed < TURN_MS) frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(frame);
+  }, [turnSignal, reducedMotion]);
+
   const roomSpan = Math.max(room.w, room.d);
   const initialCamPos: [number, number, number] = interactive
     ? [0, roomSpan * 0.62, roomSpan * 0.62]
@@ -1460,7 +1490,7 @@ export function Plan3DScene({
       dpr={canvasDpr(phoneGpu, 2)}
       onCreated={webgl.onCreated}
       camera={{ position: initialCamPos, fov: 48, near: 0.1, far: 200 }}
-      style={{ width: '100%', height: '100%', touchAction: 'none' }}
+      style={{ width: '100%', height: '100%', touchAction: pageScroll ? 'pan-y' : 'none' }}
       gl={{ ...RECOMMENDED_TONEMAP }}
       onPointerMissed={() => {}}
       {...canvasLookHandlers}
@@ -1709,6 +1739,7 @@ export function Plan3DScene({
 
       {interactive && !walk && !sit && !roam ? (
         <OrbitControls
+          ref={orbitRef}
           target={[0, 0.6, 0]}
           maxPolarAngle={Math.PI / 2.15}
           minDistance={roomSpan * 0.25}

@@ -48,6 +48,8 @@ export function CategoriesList({
   requests,
   eventLabel,
   failed,
+  waitingFailed = false,
+  requestsFailed = false,
 }: {
   state: BackState;
   groups: Extract<CategoryListRow, { kind: 'group' }>[];
@@ -57,6 +59,10 @@ export function CategoriesList({
   waiting: Array<{ service: Service; word: SearchWord }> | null;
   requests: SupplierRequest[] | null;
   failed: boolean;
+  /** A8·B-14: the search words (or services) read was refused — not "No words waiting". */
+  waitingFailed?: boolean;
+  /** A8·B-14: the supplier requests read was refused — not "No supplier requests waiting". */
+  requestsFailed?: boolean;
 }) {
   const href = (open: string) => categoriesHref({ ...state, open });
   if (failed) return <p role="alert" className="px-3 py-4 text-sm text-ink">Couldn’t load the categories — refresh to try again.</p>;
@@ -77,6 +83,9 @@ export function CategoriesList({
     );
   }
 
+  if (state.show === 'words' && waitingFailed) {
+    return <p role="alert" className="px-3 py-4 text-sm text-ink">Couldn’t read the search words — refresh to try again.</p>;
+  }
   if (state.show === 'words' && waiting) {
     return (
       <ul className="space-y-1" data-list="words">
@@ -93,6 +102,9 @@ export function CategoriesList({
     );
   }
 
+  if (state.show === 'requests' && requestsFailed) {
+    return <p role="alert" className="px-3 py-4 text-sm text-ink">Couldn’t read the supplier requests — refresh to try again.</p>;
+  }
   if (state.show === 'requests' && requests) {
     return (
       <ul className="space-y-1" data-list="requests">

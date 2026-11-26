@@ -27,13 +27,13 @@ import { iosAppStoreUrl } from '@/lib/where-setnayan-runs';
 export const metadata = {
   title: 'Download Setnayan for Mac or Windows',
   description:
-    'Install Setnayan as a native desktop app for Mac or Windows. It opens straight to your account — your guest list, invitations, planner and seating in their own window.',
+    'The Setnayan desktop app for Mac or Windows streams your event with Live Watch. Planning needs no install — it works in your browser.',
   alternates: { canonical: '/download' },
   openGraph: {
     images: BRAND_OG_IMAGES,
     title: 'Download Setnayan for Mac or Windows',
     description:
-      'A native desktop app for Mac or Windows that opens straight to your Setnayan account.',
+      'The Setnayan desktop app streams your event with Live Watch. Planning needs no install.',
     url: '/download',
   },
 };
@@ -85,9 +85,9 @@ export default async function DownloadPage() {
             </LineRevealH1>
 
             <p data-reveal-item className="max-w-md text-lg leading-relaxed text-ink/65">
-              In its own window, with its own Dock icon — your guest list,
-              invitations, planner and seating, one launch away. It opens straight
-              to your account, no browser tab in sight.
+              The desktop app is for streaming your event with Live Watch. Planning
+              needs no install — your guest list, invitations and seating work in
+              your browser.
             </p>
 
             {/* READINESS GATE — rendered verbatim, above both download buttons
@@ -233,7 +233,7 @@ export default async function DownloadPage() {
               */}
               <Value
                 icon={<ShieldCheck aria-hidden className="h-5 w-5" strokeWidth={1.5} />}
-                title="Trusted & always signed in"
+                title="Signed, and remembers you"
                 body={
                   mac?.notarized
                     ? 'Signed with an Apple Developer ID and notarized by Apple. Sign in once — it remembers you after that.'

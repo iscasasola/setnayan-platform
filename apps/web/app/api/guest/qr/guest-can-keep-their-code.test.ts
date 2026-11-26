@@ -247,14 +247,21 @@ test('NEITHER renderer spells the invite url itself — one builder, no drift', 
 
 // ── The route takes no parameters, and that is the security property ────────
 
-test('the route accepts NO caller-supplied identifier', () => {
-  // With no id in the path there is no other guest this route can be asked
-  // about, so there is no authorization decision left to get wrong. Adding a
-  // parameter re-opens that whole class — hence this guard.
+test('the route accepts NO caller-supplied GUEST identifier', () => {
+  // With no guest id in the request there is no other guest this route can be
+  // asked about, so there is no authorization decision left to get wrong.
+  // 🔑 A4-B11 (owner ruling, final check Add 34, 25 Nov 2026): a signed-in account
+  // that holds the seat gets its own code. The route carries no event in its
+  // path, so the ONE query parameter it reads is `event` — and that only scopes
+  // the lookup of the CALLER'S OWN seat (`readGuestSessionForPassRoute`: the
+  // cookie for that event, else the account's own seat there, uuid-checked).
+  // It never names a guest. Any other parameter re-opens the class — this guard.
   const src = stripComments(readFileSync(resolve(HERE, 'route.ts'), 'utf8'));
-  assert.ok(!/export async function GET\s*\([^)]+\)/.test(src),
-    'GET grew an argument — a request-derived id must not select the guest');
-  assert.ok(!src.includes('searchParams'), 'route reads a query parameter');
+  const reads = [...src.matchAll(/searchParams\.get\('([^']+)'\)/g)].map((m) => m[1]);
+  assert.deepEqual(reads, ['event'], 'route reads a query parameter other than ?event=');
+  assert.equal(src.split('searchParams').length - 1, 1, 'route reads its query some other way');
+  assert.match(src, /readGuestSessionForPassRoute\(new URL\(req\.url\)\.searchParams\.get\('event'\)\)/,
+    '?event= may only reach the caller’s own-seat resolver');
   assert.ok(!src.includes('ctx.params') && !src.includes('params:'),
     'route reads a route parameter');
 });

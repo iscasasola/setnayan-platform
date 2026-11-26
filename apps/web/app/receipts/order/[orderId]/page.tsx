@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { loginRedirectPath, getCurrentUser } from '@/lib/auth';
-import { fetchPlatformSettings, getEffectiveVatRatePct } from '@/lib/platform-settings';
+import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { ORDER_STATUS_LABEL, fetchOrderById, formatPhp, isVatInclusiveServiceKey } from '@/lib/orders';
 import { computeVatFromBase, computeVatFromGross, fetchReceiptByOrderId, formatPhpFromString } from '@/lib/receipts';
 import { isStoreShellRequest } from '@/lib/request-platform';
@@ -35,8 +35,7 @@ export default async function OrderSlipPage({ params }: Props) {
   const receipt = await fetchReceiptByOrderId(supabase, orderId);
   if (receipt) redirect(`/receipts/${receipt.receipt_id}`);
 
-  const [settings, vatRatePct, storeShell] = await Promise.all([
-    fetchPlatformSettings(supabase),
+  const [vatRatePct, storeShell] = await Promise.all([
     getEffectiveVatRatePct(supabase),
     isStoreShellRequest(),
   ]);
@@ -65,14 +64,10 @@ export default async function OrderSlipPage({ params }: Props) {
 
   const rows: SlipRow[] = [];
   if (payHref) {
-    const payTo = settings.gcash_enabled && settings.gcash_number
-      ? `GCash ${mask(settings.gcash_number)}`
-      : settings.bdo_enabled && settings.bdo_account_number
-        ? `BDO ${mask(settings.bdo_account_number)}`
-        : null;
-    if (payTo) rows.push({ label: 'Pay to', value: payTo });
+    // Where the money goes is decided by the pay page alone (`pickPayerRail`, Maya first when open) — the slip never
+    // names a rail of its own, which could disagree with it, nor a step that is gone (final check A2-F7).
     rows.push({ label: 'Reference', value: order.reference_code });
-    rows.push({ label: 'Then', value: 'log the payment below' });
+    rows.push({ label: 'Then', value: 'press Pay — it shows where to send it' });
   } else {
     rows.push({ label: 'Status', value: ORDER_STATUS_LABEL[order.status] });
   }
@@ -111,10 +106,4 @@ export default async function OrderSlipPage({ params }: Props) {
       />
     </ReceiptPage>
   );
-}
-
-/** "0917 ··· 4821" — enough to recognise the account on the slip; the full number and QR are on the pay page. */
-function mask(n: string): string {
-  const d = n.replace(/\s+/g, '');
-  return d.length > 8 ? `${d.slice(0, 4)} ··· ${d.slice(-4)}` : d;
 }

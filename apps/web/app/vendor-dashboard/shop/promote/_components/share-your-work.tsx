@@ -2,6 +2,7 @@ import { publicEventPath } from '@/lib/public-event-url';
 import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import { Fold } from '@/app/_components/fold';
+import { LandsAtHash } from '@/app/_components/lands-at-hash';
 import { InfoTip } from '@/app/_components/info-tip';
 import { TemplateEmpty } from '@/app/_components/template-rows';
 import { ShareButtons } from '@/app/realstories/_components/share-buttons';
@@ -84,6 +85,8 @@ export function ShareYourWork({ data }: { data: ShareYourWorkData }) {
   const { stories, recaps, recapsGated, ultra } = data;
   return (
     <section id="share" className="mt-8 scroll-mt-24" data-share-your-work="" aria-labelledby="share-your-work-title">
+      {/* A6-B21: the old Recaps / Real stories addresses forward here with #share — land on it, in view. */}
+      <LandsAtHash id="share" />
       <InfoTip label="Share your work" labelAs="h2" labelClassName="sn-sec" labelId="share-your-work-title" align="start">
         When a couple you worked with publishes their event to Stories, or publishes their recap, it shows here with your
         shop credited. Share it to your Facebook Page or Pinterest, copy the link, or save the story card for Instagram and

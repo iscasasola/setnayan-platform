@@ -76,6 +76,7 @@ export function MomentSheet({
   storeShell,
   proHref,
   proPrice,
+  planUnread = false,
   eventId,
   mediaUrls = {},
   trigger,
@@ -93,6 +94,7 @@ export function MomentSheet({
   storeShell: boolean;
   proHref: string;
   proPrice: string | null;
+  planUnread?: boolean;
   eventId: string;
   mediaUrls?: Readonly<Record<string, string>>;
   trigger: React.ReactNode;
@@ -258,7 +260,7 @@ export function MomentSheet({
                 ) : (
                   <div className="py-1">
                     <p className={eye}>Photos</p>
-                    <LoveStoryProLine storeShell={storeShell} href={proHref} price={proPrice} />
+                    <LoveStoryProLine storeShell={storeShell} href={proHref} price={proPrice} planUnread={planUnread} />
                   </div>
                 )}
               </div>

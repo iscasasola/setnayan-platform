@@ -119,10 +119,12 @@ export async function resolveFlag(
     } satisfies ScanFlag;
   });
 
-  await admin
+  // A8·F-6: a refused write is a failure, never a silent "done".
+  const { error: flagErr } = await admin
     .from('event_editorial')
     .update({ scan_flags: flags })
     .eq('editorial_id', editorialId);
+  if (flagErr) throw new Error(`Couldn’t save the flag — nothing changed. (${flagErr.message})`);
 
   revalidatePath(`/admin/editorial-review/${editorialId}`);
 }
@@ -151,13 +153,15 @@ export async function unlockForCouple(editorialId: string) {
     throw new Error(`${unresolvedRed.length} red flag(s) still pending`);
   }
 
-  await admin
+  // A8·F-6: the couple is told only after the unlock is recorded — a refused write sends nothing.
+  const { error: unlockErr } = await admin
     .from('event_editorial')
     .update({
       scan_status: 'admin_cleared',
       unlocked_for_couple_at: new Date().toISOString(),
     })
     .eq('editorial_id', editorialId);
+  if (unlockErr) throw new Error(`Couldn’t unlock the editorial — nothing was sent to the couple. (${unlockErr.message})`);
 
   // Tell the couple their editorial cleared review and is unlocked (approve).
   await notifyCoupleEditorialDecision(
@@ -174,7 +178,7 @@ export async function unlockForCouple(editorialId: string) {
 export async function triggerRescan(editorialId: string) {
   const { admin } = await requireAdminWithServiceClient();
 
-  await admin
+  const { error: rescanErr } = await admin
     .from('event_editorial')
     .update({
       scan_status: 'pending',
@@ -182,6 +186,8 @@ export async function triggerRescan(editorialId: string) {
       scan_completed_at: null,
     })
     .eq('editorial_id', editorialId);
+  // A8·F-6: a refused reset does not start a re-scan over the old state.
+  if (rescanErr) throw new Error(`Couldn’t start the re-scan — nothing changed. (${rescanErr.message})`);
 
   after(() => scanEditorial(editorialId));
 

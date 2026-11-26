@@ -14,6 +14,7 @@ import { MANPOWER } from './manpower';
 import { MEMORIES } from './memories';
 import { MONOGRAM } from './monogram';
 import { PANOOD_SETUP } from './panoodSetup';
+import { PAPERWORK } from './paperwork';
 import { PAPIC } from './papic';
 import { PATIKTOK } from './patiktok';
 import { PHOTO_DELIVERY } from './photoDelivery';
@@ -60,6 +61,7 @@ export const DOORS: Readonly<Record<StayDoor, Door>> = {
   ...MEMORIES,
   ...MONOGRAM,
   ...PANOOD_SETUP,
+  ...PAPERWORK,
   ...PAPIC,
   ...PATIKTOK,
   ...PHOTO_DELIVERY,

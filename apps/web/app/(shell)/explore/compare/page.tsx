@@ -62,13 +62,13 @@ async function resolveDisplayUrl(value: string | null | undefined): Promise<stri
 export const metadata = {
   title: 'Compare suppliers',
   description:
-    'Side-by-side comparison of up to 2 saved Filipino wedding suppliers.',
+    'Side-by-side comparison of up to 2 saved Filipino suppliers.',
   alternates: { canonical: '/explore/compare' },
   openGraph: {
     images: BRAND_OG_IMAGES,
-    title: 'Compare Filipino wedding suppliers — Setnayan',
+    title: 'Compare Filipino suppliers — Setnayan',
     description:
-      'Side-by-side comparison of up to 2 saved Filipino wedding suppliers.',
+      'Side-by-side comparison of up to 2 saved Filipino suppliers.',
     url: '/explore/compare',
     type: 'website',
   },
@@ -416,7 +416,7 @@ export default async function CompareVendorsPage({ searchParams }: Props) {
           <p className="max-w-prose text-sm text-ink/65">
             Specs that matter — location, rating, services, faith fit, distance
             from your reception venue if you&rsquo;ve booked one. Save the ones
-            you like; their state stays in sync with your wedding shortlist.
+            you like; their state stays in sync with your event’s shortlist.
           </p>
         </div>
 

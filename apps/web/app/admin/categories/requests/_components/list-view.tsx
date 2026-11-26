@@ -31,12 +31,15 @@ export function ServiceRequestsListView({
   ok,
 }: {
   rows: Row[] | null;
-  shopName: ReadonlyMap<string, string>;
+  /** `null` = the shop names read was refused (A8·B-15). */
+  shopName: ReadonlyMap<string, string> | null;
   tree: RequestTree | null;
   ok: string | null;
 }) {
-  const nameOf = (id: string) => shopName.get(id) ?? 'a shop';
-  const categoryOf = (tile: string | null) => (tile ? tree?.categoryLabel.get(tile) ?? 'A retired category' : 'No category picked');
+  // A8·B-15: a refused read is said, never a guess stated as fact ("a shop", "A retired category").
+  const nameOf = (id: string) => (shopName === null ? 'Couldn’t read the shop' : shopName.get(id) ?? 'a shop');
+  const categoryOf = (tile: string | null) =>
+    tile ? (tree === null ? 'Couldn’t read the category' : tree.categoryLabel.get(tile) ?? 'A retired category') : 'No category picked';
 
   // Pending: one row per same name, oldest request first inside it (that is the one opened).
   const pendingGroups = new Map<string, Row[]>();

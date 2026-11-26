@@ -126,8 +126,12 @@ export default async function SamahanJoinPage({ params, searchParams }: Props) {
           </>
         }
         title="We couldn’t complete that just now."
-        sub={`Error: ${search.error}. Try again, or ask an organizer for a fresh link.`}
+        // A4-14 (SW-RAWDB): fixed words; nothing from the address bar is printed.
+        sub="Nothing was changed. Try again, or ask an organizer for a fresh link."
       >
+        <Link href={`/samahan/join/${token}`} className={actionButtonClass('brand', { main: true, extra: '!h-11' })}>
+          Try again
+        </Link>
         <Link href="/" className={actionButtonClass('neutral', { extra: '!h-11' })}>
           Go home
         </Link>

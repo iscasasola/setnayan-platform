@@ -15,6 +15,7 @@ import {
   type MealPreference,
   type RsvpStatus,
   PLUS_ONE_CHOICES,
+  singletonRoleDuplicateMessage,
 } from '@/lib/guests';
 import { createClient } from '@/lib/supabase/server';
 import { loadRoleNames } from '@/lib/role-names.server';
@@ -43,7 +44,19 @@ const ERROR_COPY: Record<string, string> = {
   invalid_rsvp: 'Invalid RSVP status.',
   invalid_meal: 'Invalid meal preference.',
   finalized: 'Your guest list is finalized — the guest count is locked and can no longer be changed.',
+  save_failed: 'Couldn’t add this guest — nothing was saved. Try again.',
+  plus_one_failed: 'The guest was added, but their plus-one couldn’t be saved. Add the plus-one from their card.',
 };
+
+/** A2-D7 (SW-RAWDB): fixed words for a known key; `dup_<role>` names the role; anything else is the fallback. The
+ *  address bar's own text is never printed. */
+function errorWords(raw: string): string {
+  const known = ERROR_COPY[raw];
+  if (known) return known;
+  const dup = /^dup_(bride|groom|wali|imam|wakil)$/.exec(raw);
+  if (dup) return singletonRoleDuplicateMessage(dup[1] as GuestRole);
+  return 'Couldn’t add this guest — nothing was saved. Try again.';
+}
 
 const SIDE_OPTIONS: GuestSide[] = ['bride', 'groom', 'both'];
 const RSVP_OPTIONS: RsvpStatus[] = ['pending', 'attending', 'declined', 'maybe'];
@@ -59,8 +72,7 @@ type Props = {
 export default async function NewGuestPage({ params, searchParams }: Props) {
   const { eventId } = await params;
   const search = await searchParams;
-  const rawError = search.error ? decodeURIComponent(search.error) : null;
-  const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
+  const errorMessage = search.error ? errorWords(search.error) : null;
 
   // Hide bride/groom from the dropdown when already assigned in the event;
   // the DB partial unique indexes (migration 20260531010000) make a second

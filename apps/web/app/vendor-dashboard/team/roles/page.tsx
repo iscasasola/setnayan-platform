@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import { TEAM_ROLES_HREF } from '@/lib/team-sections';
 
 export const metadata = { title: 'Roles · Team · Supplier' };
 
@@ -14,5 +13,6 @@ export default async function TeamRolesForward({ searchParams }: { searchParams:
   if (sp.saved) to.set('saved', sp.saved);
   if (sp.error) to.set('error', sp.error);
   const rest = to.toString();
-  redirect(rest ? `${TEAM_ROLES_HREF}&${rest}` : TEAM_ROLES_HREF);
+  // The address is written out (it equals TEAM_ROLES_HREF, held by the guard) so the root map reads this page as a forward.
+  redirect(`/vendor-dashboard/team?section=roles${rest ? `&${rest}` : ''}`);
 }

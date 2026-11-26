@@ -1,5 +1,4 @@
 import { redirect } from 'next/navigation';
-import { TEAM_INQUIRIES_HREF } from '@/lib/team-sections';
 
 export const metadata = { title: 'Who gets new inquiries · Roles · Supplier' };
 
@@ -17,5 +16,6 @@ export default async function TeamInquiriesForward({
   const to = new URLSearchParams();
   for (const k of ['branch', 'adjust', 'type', 'saved', 'error'] as const) if (sp[k]) to.set(k, sp[k]!);
   const rest = to.toString();
-  redirect(rest ? `${TEAM_INQUIRIES_HREF}&${rest}` : TEAM_INQUIRIES_HREF);
+  // The address is written out (it equals TEAM_INQUIRIES_HREF, held by the guard) so the root map reads this page as a forward.
+  redirect(`/vendor-dashboard/team?section=inquiries${rest ? `&${rest}` : ''}`);
 }

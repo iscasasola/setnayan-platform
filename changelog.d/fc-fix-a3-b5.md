@@ -10,7 +10,8 @@ From the final check of the staging copy (area 3, money-signin rows, display onl
 - **M-03:** the Thank-You film says it couldn't read the price, instead of "isn't on sale" (dormant while the SKU is free for all).
 - **S-01:** an add-on's About page says it couldn't read the price; a refused order read shows "Couldn't check your order" (to the orders list) instead of offering "Get" again.
 - **I-02:** the custom-address refusal is a sentence, not the key `needs_custom_address`; an unknown refusal never prints the raw address-bar text.
-- **🟠 left for the controller:** I-02's lock + price + checkout door (a new surface; needs a drawing) · M-02's checkout opening over the ⚙ sheet (a layering change) · S-01's two Setnayan AI prices (which price is read) · E-13's upsell and free cap on a failed plan read (whether an unread plan counts as owned is a plan rule).
+- **E-13 (owner ruling, Add 45):** a failed plan read on Our story says "We couldn’t check your plan, try again." in every place the Event Pro offer stood; no upsell and no paid limit is drawn from it (`PLAN_UNREAD`, lib/php.ts).
+- **After launch (owner):** I-02’s lock + price + checkout door · M-02’s checkout over the ⚙ sheet. **Waits for the owner’s price:** S-01’s two Setnayan AI prices.
 - Guard: `lib/a-failed-price-read-says-couldnt-read.test.ts`.
 
 SPEC IMPACT: None. Honest-state wording on shipped pages; no price, plan or product decision changes.

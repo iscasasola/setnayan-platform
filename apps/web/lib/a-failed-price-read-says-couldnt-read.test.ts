@@ -89,3 +89,17 @@ test('I-02 · the custom-address refusal is a sentence, and an unknown key is ne
   assert.match(src, /SLUG_ERROR_COPY\[slugErrorKey\] \?\? SLUG_ERROR_FALLBACK/);
   assert.doesNotMatch(src, /decodeURIComponent\(slugErrorKey\)/);
 });
+
+test('E-13 (owner ruling, Add 45) · a failed plan read says "We couldn\'t check your plan" — no upsell from it', async () => {
+  const { PLAN_UNREAD } = await import('./php');
+  assert.equal(PLAN_UNREAD, 'We couldn’t check your plan, try again.');
+  const page = read('website/our-story/page.tsx');
+  assert.equal((page.match(/\.catch\(\(\) => \{\s*planReadFailed = true;\s*return false;\s*\}\)/g) ?? []).length, 2);
+  assert.match(page, /planUnread=\{planReadFailed\}/);
+  assert.match(page, /planUnread: planReadFailed,/);
+  const line = read('website/our-story/_components/love-story-pro-line.tsx');
+  // The unread branch returns BEFORE the offer (the link to Event Pro) is drawn.
+  const unread = line.indexOf('if (planUnread)');
+  const offer = line.indexOf('LOVE_STORY_PRO_CTA}');
+  assert.ok(unread > 0 && offer > unread, 'a failed plan read must return before the upsell');
+});

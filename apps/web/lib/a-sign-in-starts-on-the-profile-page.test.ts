@@ -12,7 +12,7 @@
  * always Home either: its single-event auto-jump and empty-console bounce carry a person off it without `?hub=1`.
  *
  * WHAT IS HELD, door by door, for a sign-in that names no destination (`next` = `/`):
- *   · the rule (`landingForAccount`) — customer / admin / unknown → Home `?hub=1`; vendor → Home `?seg=shop`;
+ *   · the rule (`landingForAccount`) — customer / admin / unknown → Home `?hub=1`; vendor → Home `?hub=1` too (Unihome v5);
  *     never `/`; a named `next` is honoured exactly, for every account type;
  *   · password, whole page (`signInWithPassword`) — its destination is the rule WITH the account type;
  *   · password, in place (`signInInPlace` → the panel) — hands back `landing` only for `/`, and the panel goes there;
@@ -48,7 +48,7 @@ const EXPECTED: ReadonlyArray<readonly [string | null, string]> = [
   ['customer', HOME],
   ['admin', HOME],
   [null, HOME],
-  ['vendor', HOME_ON_SHOP],
+  ['vendor', HOME], // Unihome v5 (23 Nov): one Home for every account; Shop is a part of it
 ];
 const NAMED = ['/v/saysay', '/maria-and-jose/invite', '/dashboard/abc/guests?tab=rsvp', '/open-shop', '/vendors?q=cake'];
 

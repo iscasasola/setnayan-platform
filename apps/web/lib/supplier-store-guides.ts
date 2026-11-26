@@ -52,6 +52,17 @@ export const WIDGET_GUIDES: Record<SpecializedToolKey, WidgetGuide> = {
       step('Let couples design in your chat', 'Couples find Design a cake under ＋ in your chat. You can also send Ask for a cake design from ＋ in the chat.'),
     ],
   },
+  // ToolBody gown_tool · lib/gown-maker.ts (parseGownExport) · invite/_components/gown-share-form.tsx · gown-design-card.tsx
+  gown_tool: {
+    key: 'gown_tool',
+    title: 'Gown Maker',
+    steps: [
+      step('Open the Gown Maker', 'Tap Gown Maker in Your widgets. It opens the 3D designer in a new tab. Your quotations, fabrics, inspirations and prices are its own Settings, seen only by you.'),
+      step('Save the design to share', 'In the Gown Maker, use Share → Save .gown.json. It saves the picture, the summary lines and the price your client sees.'),
+      step('Make its QR', 'In Customers › QR codes › Gown design, choose that file, pick the event type it is for, and pick Shortlist or Booked. Booked takes you to the Booked QR form with the design attached.'),
+      step('Your client scans it', 'Shortlist adds your shop to their event’s shortlist; Booked books you. The design shows as a card in your chat with them.'),
+    ],
+  },
   // repertoire-view.tsx · repertoire-tools.tsx · app/v/[slug] performance_url · isMusicVendor
   song_bank: {
     key: 'song_bank',

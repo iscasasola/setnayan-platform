@@ -17,7 +17,7 @@ import { withVia, type MaterialVia } from '@/lib/material-tags';
  *
  * Pure: the page reads, this decides. 🔒 lib/supplier-qr-codes.test.ts
  */
-export const SUPPLIER_QR_MODES = ['shortlist', 'locked', 'dates', 'page', 'crew', 'reviews'] as const;
+export const SUPPLIER_QR_MODES = ['shortlist', 'locked', 'dates', 'page', 'crew', 'reviews', 'gown'] as const;
 export type SupplierQrMode = (typeof SUPPLIER_QR_MODES)[number];
 
 /** `?mode=` → the code to show. Anything unknown is the Shortlist code, as before this list grew. */
@@ -43,12 +43,18 @@ export function supplierQrModeOf(raw: unknown): SupplierQrMode {
  */
 export const PROMOTE_QR_MODES = ['dates', 'shortlist', 'page', 'reviews'] as const satisfies readonly SupplierQrMode[];
 export type PromoteQrMode = (typeof PROMOTE_QR_MODES)[number];
-export const CUSTOMERS_QR_MODES = ['locked', 'crew'] as const satisfies readonly SupplierQrMode[];
+// 👗 Gown design (owner 26 Nov 2026): a design shared from the Gown Maker — Shortlist or Booked, made for one client.
+export const CUSTOMERS_QR_MODES = ['locked', 'crew', 'gown'] as const satisfies readonly SupplierQrMode[];
 
 /** Shop › Promote — where the shop's marketing codes live. */
 export const PROMOTE_HREF = '/vendor-dashboard/shop/promote';
 /** Customers › QR codes — Booked · one-use and Crew for an event. */
 export const CUSTOMERS_QR_HREF = '/vendor-dashboard/invite';
+
+/** 👗 Customers › QR codes › Gown design, its sheet open — the Gown Maker panel's "Share a design" door. */
+export function gownShareHref(): string {
+  return `${CUSTOMERS_QR_HREF}?mode=gown&open=1`;
+}
 
 export function isPromoteQrMode(mode: SupplierQrMode): mode is PromoteQrMode {
   return (PROMOTE_QR_MODES as readonly string[]).includes(mode);
@@ -131,6 +137,7 @@ export const SUPPLIER_QR_MODE_LABEL: Readonly<Record<SupplierQrMode, string>> = 
   page: 'My page',
   crew: 'Crew for an event',
   reviews: 'Reviews',
+  gown: 'Gown design',
 };
 
 /** The page "My page" opens. `origin` has no trailing slash (`siteOrigin()`). */

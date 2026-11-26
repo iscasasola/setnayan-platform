@@ -74,6 +74,15 @@ export type IssuedRow = {
 const WORDS: Record<CustomersQrMode, { name: string; sub?: string; perEvent?: boolean; line: string; sheetLine: string }> = {
   locked: { name: 'Booked', sub: 'one-use', perEvent: true, line: 'One use — give it to that one customer', sheetLine: 'One use — give it to that one customer. A Locked QR means you’ve agreed on a date.' },
   crew: { name: 'Crew for an event', perEvent: true, line: 'They scan, then wait for your Allow', sheetLine: 'They scan, then wait for your Allow.' },
+  // 👗 Owner 26 Nov 2026: a Gown Maker design as a QR — Shortlist or Booked; the design lands in that client's chat.
+  gown: { name: 'Gown design', sub: 'from the Gown Maker', line: 'They scan, your design lands in your chat', sheetLine: 'A design from the Gown Maker. They scan it: Shortlist adds you to their event, Booked books you, and the design shows as a card in your chat with them.' },
+};
+
+/** 👗 The Gown design sheet: the Shortlist code just made, or the share form. `issued: 'unread'` = it could not be read back. */
+export type GownShareSheet = {
+  error: string | null;
+  issued: { url: string; svg: string | null; title: string; line: string } | 'unread' | null;
+  form: ReactNode | null;
 };
 
 
@@ -97,9 +106,12 @@ export function QrCodes({
   setupHref,
   booked,
   crew = null,
+  gown = null,
   hrefs = {},
   addClient = null,
 }: {
+  /** 👗 The Gown design sheet — drawn only on a visit that reads it (`?mode=gown`). */
+  gown?: GownShareSheet | null;
   /** 🎁 Own clients v4: the "Add a client" row + promise line, above Booked and Crew. */
   addClient?: ReactNode;
   /** The code whose sheet opens on arrival — a link that names one (`?mode=` with something to show). */
@@ -120,12 +132,13 @@ export function QrCodes({
     body,
     href: hrefs[key],
     // The Booked code is a deal form to fill (client · date · service · schedule · proof) — it rises full screen.
-    rise: key === 'locked',
+    rise: key === 'locked' || key === 'gown',
   });
 
   const rows: QrRow[] = [
     row('locked', booked?.issued?.svg ?? null, booked ? <BookedBody booked={booked} /> : null),
     row('crew', crew?.code?.state === 'ready' ? crew.code.svg : null, crew ? <CrewCode crew={crew} /> : null),
+    row('gown', gown && gown.issued && gown.issued !== 'unread' ? gown.issued.svg : null, gown ? <GownBody gown={gown} newHref={hrefs.gown ?? null} /> : null),
   ];
 
   return (
@@ -138,7 +151,7 @@ export function QrCodes({
           the ⓘ beside the one line under it (rule 7). */}
       <h1 className="sr-only">QR codes</h1>
       <InfoTip label="Tap a code to see it big and share it" align="start" className="mt-1" labelClassName="text-[13px] text-[color:var(--m-slate-2)]">
-        Booked and Crew belong to one event. Tap a row to open it big, share it, copy its link, download it or write it to an NFC tag. Your codes are built from your shop’s web address.
+        Booked, Crew and a Gown design belong to one event. Tap a row to open it big, share it, copy its link, download it or write it to an NFC tag. Your codes are built from your shop’s web address.
       </InfoTip>
 
       {!canShare ? (
@@ -214,6 +227,35 @@ function BookedBody({ booked }: { booked: Booked }) {
           </div>
         </Fold>
       </div>
+    </>
+  );
+}
+
+/** 👗 Gown design's sheet: the refusal in words · the Shortlist code just made + Share another, or the share form. */
+function GownBody({ gown, newHref }: { gown: GownShareSheet; newHref: string | null }) {
+  return (
+    <>
+      {gown.error ? (
+        <p role="alert" className="mt-3 text-[13.5px] text-[rgb(var(--color-danger))]" data-qr-error="">
+          {gown.error}
+        </p>
+      ) : null}
+      {gown.issued === 'unread' ? (
+        <p role="alert" className="flex min-h-11 items-center py-2 text-[14px] text-[rgb(var(--color-warn))]" data-qr-gown="unread">
+          We couldn&rsquo;t load the code you just made. It still works — reload to see it.
+        </p>
+      ) : gown.issued ? (
+        <div className="mt-3.5" data-qr-gown="ready">
+          <QrCard svg={gown.issued.svg} url={gown.issued.url} title={gown.issued.title} line={gown.issued.line} filename="setnayan-gown-design-qr.svg" data="gown" />
+          {newHref ? (
+            <div className="mt-2">
+              <DatesRow title="Share another design" line="Shortlist or Booked, for one client" href={newHref} />
+            </div>
+          ) : null}
+        </div>
+      ) : (
+        <div className="mt-3">{gown.form}</div>
+      )}
     </>
   );
 }

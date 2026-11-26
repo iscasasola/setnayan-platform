@@ -47,8 +47,10 @@ const MYQR_PAGE = stripComments(fs.readFileSync(path.join(ROOT, 'app/vendor-dash
 
 // Retargeted 2026-11-06 (QR codes Option B, owner "B"): the dropdown became ONE LIST, a row per code, and Reviews joined
 // it (the prototype's fourth Promote row) — the six codes, the two live ones still first.
-test('the one list holds the six codes, the two live ones first', () => {
-  assert.deepEqual([...SUPPLIER_QR_MODES], ['shortlist', 'locked', 'dates', 'page', 'crew', 'reviews']);
+// 👗 26 Nov 2026: the Gown design code (a Gown Maker share) joined, last, in Customers › QR codes.
+test('the one list holds the seven codes, the two live ones first', () => {
+  assert.deepEqual([...SUPPLIER_QR_MODES], ['shortlist', 'locked', 'dates', 'page', 'crew', 'reviews', 'gown']);
+  assert.equal(SUPPLIER_QR_MODE_LABEL.gown, 'Gown design');
   assert.equal(SUPPLIER_QR_MODE_LABEL.page, 'My page');
   assert.equal(SUPPLIER_QR_MODE_LABEL.reviews, 'Reviews');
   assert.equal(SUPPLIER_QR_MODE_LABEL.crew, 'Crew for an event');
@@ -62,7 +64,7 @@ test('📣 every code has ONE home: Shop › Promote markets the shop, Customers
   assert.deepEqual([...PROMOTE_QR_MODES, ...CUSTOMERS_QR_MODES].sort(), [...SUPPLIER_QR_MODES].sort());
   // Option B's Promote rows, in the prototype's order: Check a date · Shortlist · My page · Reviews.
   assert.deepEqual([...PROMOTE_QR_MODES], ['dates', 'shortlist', 'page', 'reviews']);
-  assert.deepEqual([...CUSTOMERS_QR_MODES], ['locked', 'crew']);
+  assert.deepEqual([...CUSTOMERS_QR_MODES], ['locked', 'crew', 'gown']);
   for (const m of SUPPLIER_QR_MODES) assert.equal(isPromoteQrMode(m), (PROMOTE_QR_MODES as readonly string[]).includes(m));
   // Promote is Shop's own section, and every link to a code is built for its home.
   assert.equal(PROMOTE_HREF, SHOP_SEGMENT_HREF.promote);

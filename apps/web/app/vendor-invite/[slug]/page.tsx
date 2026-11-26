@@ -25,6 +25,8 @@ import { isShopLive } from '@/lib/vendor-visibility';
 import { isShopPaused, SHOP_PAUSED_DETAIL, SHOP_PAUSED_LINE } from '@/lib/shop-status';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { claimVendorInviteToEvent } from './actions';
+import { GOWN_SHARE_PARAM, gownPriceWords, gownShareCodeOf, gownWhichWords } from '@/lib/gown-maker';
+import { readGownShare } from '@/lib/gown-maker.server';
 
 export const metadata = {
   title: 'Add a supplier to your plan',
@@ -34,7 +36,7 @@ export const metadata = {
 
 type Props = {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ status?: string; et?: string; cat?: string; ci?: string }>;
+  searchParams: Promise<{ status?: string; et?: string; cat?: string; ci?: string; gown?: string }>;
 };
 
 const STATUS_COPY: Record<string, string> = {
@@ -66,7 +68,9 @@ async function resolveDisplayUrl(value: string | null | undefined): Promise<stri
 
 export default async function VendorInvitePage({ params, searchParams }: Props) {
   const { slug } = await params;
-  const { status, et, cat, ci: rawCi } = await searchParams;
+  const { status, et, cat, ci: rawCi, gown: rawGown } = await searchParams;
+  // 👗 A Gown Maker design shared as a Shortlist code (owner 26 Nov 2026): its preview sits above the add-to-plan form.
+  const gownCode = gownShareCodeOf(rawGown);
   // 🎁 An Add-a-client invite (Own clients v4): the client's token rides every round-trip, shape-checked only — the
   // claim action decides whether it is this shop's own waiting invite.
   const ci = clientInviteTokenOf(rawCi);
@@ -120,13 +124,19 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
   const supabase = await createClient();
   const user = await getCurrentUser();
 
-  const hostEvents = user ? await listHostEvents(admin, user.id) : [];
+  const [hostEvents, gownRead] = await Promise.all([
+    user ? listHostEvents(admin, user.id) : Promise.resolve([]),
+    gownCode ? readGownShare(admin, gownCode) : Promise.resolve(null),
+  ]);
+  // Only a design of THIS shop is shown (and posted by the claim); a refused read says so, never "no design".
+  const gownShare = gownRead && gownRead !== 'unread' && gownRead.vendorProfileId === vendor.vendor_profile_id ? gownRead : null;
   // Preserve the QR's event/service scope across the sign-up + create-event
   // round-trips so the couple returns to the same scoped invite.
   const scopeQs = new URLSearchParams();
   if (et) scopeQs.set('et', et);
   if (cat) scopeQs.set('cat', cat);
   if (ci) scopeQs.set(CLIENT_INVITE_PARAM, ci);
+  if (gownCode) scopeQs.set(GOWN_SHARE_PARAM, gownCode);
   const scopeSuffix = scopeQs.toString() ? `?${scopeQs.toString()}` : '';
   const nextPath = `${shopInvitePath(slug)}${scopeSuffix}`;
   // ⏸ Owner 2026-11-16 (answer 4 to PR #7890): a paused shop's Shortlist QR adds nothing — the page says so in place
@@ -164,6 +174,33 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
           <p className={`mt-1 ${TEMPLATE_SUBLINE}`}>{vendor.location_city}</p>
         ) : null}
       </div>
+
+      {gownRead === 'unread' ? (
+        <p role="alert" className="mt-4 py-2 text-[14px]" style={{ color: 'rgb(var(--color-warn))' }} data-gown-share="unread">
+          We couldn&rsquo;t load the gown design just now. You can still add {vendor.business_name} — the design comes with a reload.
+        </p>
+      ) : gownShare ? (
+        <div className="sn-frame mt-4 flex gap-3 p-3" data-gown-share="ready">
+          {/* eslint-disable-next-line @next/next/no-img-element -- the Gown Maker's own small PNG still (a data URL) */}
+          <img src={gownShare.thumbDataUrl} alt="The gown design" width={72} height={96} className="h-24 w-[72px] flex-none rounded-lg object-cover" />
+          <div className="min-w-0 text-sn-md">
+            <b className="block text-sn-lg font-semibold text-ink">Gown design · {gownWhichWords(gownShare.which)}</b>
+            <ul className="mt-1 space-y-0.5 text-[color:var(--m-slate-2)]">
+              {gownShare.summary.slice(0, 4).map((l, i) => (
+                <li key={i} className="truncate">
+                  {l}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-1 font-semibold text-ink">{gownPriceWords(gownShare.priceShownCentavos)}</p>
+            <p className="text-sn-sm text-[color:var(--m-slate-2)]">It lands in your chat with {vendor.business_name} once you add them.</p>
+          </div>
+        </div>
+      ) : gownCode ? (
+        <p role="status" className="mt-4 py-2 text-[14px] text-[color:var(--m-slate-2)]" data-gown-share="gone">
+          This gown design is no longer shared. You can still add {vendor.business_name} to your plan.
+        </p>
+      ) : null}
 
       {statusMessage ? (
         <p role="alert" className="mt-4 py-2 text-[14px] font-semibold" style={{ color: 'rgb(var(--color-warn))' }}>
@@ -229,6 +266,7 @@ export default async function VendorInvitePage({ params, searchParams }: Props) 
             ) : null}
             {et ? <input type="hidden" name="et" value={et} /> : null}
             {ci ? <input type="hidden" name={CLIENT_INVITE_PARAM} value={ci} /> : null}
+            {gownShare ? <input type="hidden" name={GOWN_SHARE_PARAM} value={gownCode ?? ''} /> : null}
             <TemplateSection label="Add to which event?" first>
               <fieldset className="[&>label+label]:border-t [&>label+label]:border-[color:var(--m-line)]">
                 <legend className="sr-only">Add to which event?</legend>

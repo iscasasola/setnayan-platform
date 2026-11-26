@@ -15,11 +15,11 @@ import { stripComments } from './strip-comments';
 
 const WEB = process.cwd();
 
-test('the widgets, Scanner first: the owner’s eleven (Cake Maker joined 21 Nov), then Spaces, then the seven shipped Event Hub widgets (v19 PR 2, "Yes, include them")', () => {
+test('the widgets, Scanner first: the owner’s twelve (Cake Maker joined 21 Nov, Gown Maker 26 Nov), then Spaces, then the seven shipped Event Hub widgets (v19 PR 2, "Yes, include them")', () => {
   assert.deepEqual(
     SPECIALIZED_TOOLS.map((t) => t.title),
     [
-      'Scanner', 'Cake Maker', 'Song bank', 'Song Desk', 'Emcee script', 'Floor Command + March', 'Run of show', 'Headcount', 'Live Watch', 'Papic challenge', '3D plan', 'Spaces',
+      'Scanner', 'Cake Maker', 'Gown Maker', 'Song bank', 'Song Desk', 'Emcee script', 'Floor Command + March', 'Run of show', 'Headcount', 'Live Watch', 'Papic challenge', '3D plan', 'Spaces',
       'Shot list', 'Issues log', 'Production sheet', 'Live reviews', 'Hand over to the couple', 'Seat plan', 'Papic camera',
     ],
   );

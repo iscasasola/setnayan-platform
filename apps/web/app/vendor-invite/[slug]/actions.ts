@@ -20,6 +20,9 @@ import { isShopLive } from '@/lib/vendor-visibility';
 import { CLIENT_INVITE_PARAM, clientInviteTokenOf, importIsOwnClient, shopIsVerified } from '@/lib/own-clients';
 import { fetchClientInvite, giveOwnClientGift, markOwnClientRow } from '@/lib/own-clients.server';
 import { isShopPaused } from '@/lib/shop-status';
+import { GOWN_SHARE_PARAM, gownShareCodeOf } from '@/lib/gown-maker';
+import { postGownDesignCard, readGownShare } from '@/lib/gown-maker.server';
+import { routes } from '@/lib/routes';
 
 function backToInvite(slug: string, status: string, scope = ''): never {
   const sep = scope ? `&${scope}` : '';
@@ -32,6 +35,8 @@ export async function claimVendorInviteToEvent(formData: FormData): Promise<void
   const cat = String(formData.get('cat') ?? '').trim();
   const et = String(formData.get('et') ?? '').trim();
   const ci = clientInviteTokenOf(String(formData.get(CLIENT_INVITE_PARAM) ?? '').trim());
+  // 👗 A Gown Maker design shared as a Shortlist code (owner 26 Nov 2026) — shape only; it is checked against THIS shop.
+  const gown = gownShareCodeOf(String(formData.get(GOWN_SHARE_PARAM) ?? '').trim());
   if (!slug) redirect('/');
 
   // Preserve the QR's event/service scope across any bounce-back redirect.
@@ -39,6 +44,7 @@ export async function claimVendorInviteToEvent(formData: FormData): Promise<void
   if (et) scopeParams.set('et', et);
   if (cat) scopeParams.set('cat', cat);
   if (ci) scopeParams.set(CLIENT_INVITE_PARAM, ci);
+  if (gown) scopeParams.set(GOWN_SHARE_PARAM, gown);
   const scope = scopeParams.toString();
 
   if (!eventId) backToInvite(slug, 'pick_event', scope);
@@ -120,9 +126,19 @@ export async function claimVendorInviteToEvent(formData: FormData): Promise<void
   if (result.status === 'vendor_not_found') backToInvite(slug, 'not_found', scope);
   if (result.status === 'paused') backToInvite(slug, 'paused', scope);
 
+  // 👗 The Gown design this code carries lands in the couple's chat with the shop — only a design of THIS shop, once per
+  // chat — and the couple lands there to see it. A design that cannot be read or posted never undoes the shortlist.
+  revalidatePath(`/dashboard/${eventId}/vendors`);
+  if (gown) {
+    const share = await readGownShare(admin, gown);
+    if (share && share !== 'unread' && share.vendorProfileId === vendor!.vendor_profile_id) {
+      const threadId = await postGownDesignCard(admin, { designId: share.designId, eventId, openedBy: user!.id });
+      if (threadId) redirect(routes.dashboard.messages.detail(eventId, threadId));
+    }
+  }
+
   // Success (new or already-saved) → land the couple on that event's vendor
   // shortlist so they immediately see the vendor they just added.
-  revalidatePath(`/dashboard/${eventId}/vendors`);
   redirect(
     `/dashboard/${eventId}/vendors?invited=${result.status === 'already_saved' ? 'already' : '1'}`,
   );

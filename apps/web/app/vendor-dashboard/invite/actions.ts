@@ -26,6 +26,9 @@ import { NOT_AVAILABLE_COLUMNS, blockOnDay, notAvailableShapeOf } from '@/lib/no
 import { getVendorAvailableDays, formatDayKey } from '@/lib/vendor-availability';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { isMarketplaceVendorBookable } from '@/lib/vendor-verification';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { gownShareCategory, parseGownExport, type GownShareAs } from '@/lib/gown-maker';
+import { linkGownDesignToLockedQr, storeGownDesign } from '@/lib/gown-maker.server';
 
 function toAmount(v: FormDataEntryValue | null): number | null {
   // Tolerate thousands separators — the generator submits clean numbers, but a
@@ -39,8 +42,58 @@ function toAmount(v: FormDataEntryValue | null): number | null {
 /** A code made for one outside booking (Customers › People, "Send their code") keeps naming it through a refusal. */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-function failTo(reason: string, blockId: string | null): never {
-  redirect(`/vendor-dashboard/invite?mode=locked&error=${reason}${blockId ? `&block=${blockId}` : ''}`);
+function failTo(reason: string, blockId: string | null, gownId: string | null = null): never {
+  redirect(`/vendor-dashboard/invite?mode=locked&error=${reason}${blockId ? `&block=${blockId}` : ''}${gownId ? `&gown=${gownId}` : ''}`);
+}
+
+/** 👗 A refused Gown design share goes back to its own sheet, with the words' key. */
+function gownFail(reason: string): never {
+  redirect(`/vendor-dashboard/invite?mode=gown&error=${reason}`);
+}
+
+/**
+ * 👗 SHARE A GOWN DESIGN (owner, 26 Nov 2026) — a MODE of `issueLockedQr`, not a new action (the server-action budget
+ * is at its ceiling). The supplier's `.gown.json` (lib/gown-maker.ts `parseGownExport`, re-checked here — the browser's
+ * check is a convenience, never trusted) is stored once (`gown_designs`), then:
+ *   · Shortlist → its reusable code is shown (it rides the Shortlist QR landing, `/{shop}/invite?gown=<code>`);
+ *   · Booked    → the Booked QR form opens with the design attached (`?mode=locked&gown=<design>`). The code made there
+ *                 is linked to it below — every Booked QR refusal stays the Booked QR's own.
+ * Bookings closed and an unverified shop are refused BEFORE a booked design is stored, the same two doors as below.
+ */
+async function shareGownDesign(formData: FormData): Promise<never> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const profile = await fetchOwnVendorProfile(supabase, user.id);
+  if (!profile) redirect('/vendor-dashboard');
+  const vendorProfileId = (profile as { vendor_profile_id: string }).vendor_profile_id;
+  const services = ((profile as { services?: string[] | null }).services ?? []) as string[];
+
+  const parsed = parseGownExport(String(formData.get('gown_json') ?? ''));
+  if (!parsed.ok) gownFail('gown_file');
+  const shareAs: GownShareAs = String(formData.get('gown_share_as') ?? '') === 'booked' ? 'booked' : 'shortlist';
+  const rawEt = String(formData.get('event_type') ?? '').trim();
+  const eventType = rawEt && (await getCreatableEventTypes()).some((t) => t.key === rawEt) ? rawEt : null;
+
+  if (shareAs === 'booked') {
+    if (!(await areBookingsOpen())) gownFail('bookings_closed');
+    if (!(await isMarketplaceVendorBookable(supabase, vendorProfileId))) gownFail('not_verified');
+  }
+
+  const stored = await storeGownDesign(createAdminClient(), {
+    vendorProfileId,
+    shareAs,
+    eventType,
+    category: gownShareCategory(parsed.design.which, services),
+    design: parsed.design,
+    userId: user.id,
+  });
+  if (!stored) gownFail('gown_save');
+  revalidatePath('/vendor-dashboard/invite');
+  if (shareAs === 'booked') redirect(`/vendor-dashboard/invite?mode=locked&gown=${stored.designId}`);
+  redirect(`/vendor-dashboard/invite?mode=gown&issued=${stored.shareCode}`);
 }
 
 /** Parse a hidden JSON-array field into a clean string[] (empty on any junk). */
@@ -84,13 +137,19 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
     revalidatePath('/vendor-dashboard/invite');
     return;
   }
+  // 👗 A Gown Maker design shared as a QR — its own mode (see `shareGownDesign`).
+  if (String(formData.get('gown_share') ?? '') === '1') return shareGownDesign(formData);
   // The outside booking this code is for (Customers › People › "Send their code"), when it came from one. The
   // database refuses a booking that is not this shop's own outside booking (trigger
   // `vendor_locked_qr_block_is_own_outside`); here it is only shape-checked and carried through every refusal.
   const rawBlock = String(formData.get('block_id') ?? '').trim();
   const blockId = UUID_RE.test(rawBlock) ? rawBlock : null;
+  // 👗 The Gown Maker design this code carries (a booked share). Shape only here; the link below takes only this shop's
+  // own waiting booked share, and it rides every refusal so the form reopens with the design still attached.
+  const rawGown = String(formData.get('gown_design_id') ?? '').trim();
+  const gownId = UUID_RE.test(rawGown) ? rawGown.toLowerCase() : null;
   // Typed on the NAME (not only the arrow) so a call narrows like the old function did — TS needs that for `never`.
-  const fail: (reason: string) => never = (reason) => failTo(reason, blockId);
+  const fail: (reason: string) => never = (reason) => failTo(reason, blockId, gownId);
   const supabase = await createClient();
   const {
     data: { user },
@@ -295,6 +354,16 @@ export async function issueLockedQr(formData: FormData): Promise<void> {
     .single();
 
   if (error || !inserted) fail('issue');
+
+  // 👗 The design this code carries is linked to it — once, only this shop's own waiting booked share. A code that
+  // cannot carry its design is withdrawn at once: a scan would book the client with no design in their chat.
+  if (gownId) {
+    const linked = await linkGownDesignToLockedQr(createAdminClient(), { vendorProfileId, designId: gownId, token: inserted.token });
+    if (!linked) {
+      await supabase.rpc('vendor_void_locked_qr', { p_token: inserted.token });
+      fail('gown_link');
+    }
+  }
 
   // ✏ #34 CHANGING A WAITING CODE = VOID + REISSUE (a printed code cannot change; a scanned one is a booking). The new
   // code exists FIRST, then the old one is voided — so a refusal never leaves the customer with no code at all, and two

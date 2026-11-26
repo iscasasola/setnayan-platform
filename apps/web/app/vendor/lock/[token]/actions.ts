@@ -15,6 +15,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { openTheCoordinatorsSeatForBooking } from '@/lib/coordinator-grant';
 import { mintBookingFeeForBooking } from '@/lib/booking-fee-mint.server';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { gownDesignOfLockedQr, postGownDesignCard } from '@/lib/gown-maker.server';
+import { routes } from '@/lib/routes';
 
 function backToLock(token: string, status: string): never {
   redirect(`/vendor/lock/${encodeURIComponent(token)}?status=${status}`);
@@ -119,6 +121,17 @@ export async function claimLockedQr(formData: FormData): Promise<void> {
     // is safe too; a no-op unless the row is BOOKED and a coordinator's).
     await openTheCoordinatorsSeatForBooking(createAdminClient(), { eventVendorId: result?.event_vendor_id, actorUserId: user.id });
     revalidatePath(`/dashboard/${eventId}/vendors`);
+    // 👗 A Booked QR that carries a Gown Maker design (owner 26 Nov 2026): the design lands in this couple's chat with
+    // the shop, and the couple lands there to see it. Idempotent (once per design per chat), so a re-scan is safe.
+    // A failed post never undoes the booking — the couple lands on Suppliers as before.
+    const gown = await gownDesignOfLockedQr(createAdminClient(), token);
+    if (gown && gown !== 'unread') {
+      const threadId = await postGownDesignCard(createAdminClient(), { designId: gown, eventId, openedBy: user.id });
+      if (threadId) {
+        revalidatePath(routes.dashboard.messages.detail(eventId, threadId));
+        redirect(routes.dashboard.messages.detail(eventId, threadId));
+      }
+    }
     redirect(`/dashboard/${eventId}/vendors?locked=1`);
   }
   // taken | void | invalid | not_your_event | unauthenticated | date_full (A6-71: the first registered claim won the date)

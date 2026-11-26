@@ -2478,6 +2478,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
 
   // The crew this supplier brings — logistics, not price, so it stays editable
   // whichever way the price is settled.
+  // One read of the trade per row (lib/no-taxonomy-literals: the compare count may only shrink).
+  const isCaterer = ev.category === 'catering';
+  const isCrewMealProvider = ev.category === 'crew_meals';
   const crewFields = (
         <>
           {/* Crew-meal coverage (2026-07-09). On the crew-meal PROVIDER: the
@@ -2486,9 +2489,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               so the cost is counted once — in the provider's package). */}
           {/* The caterer's own row says how many crews it feeds (the crew-meal provider's row below already does). */}
           {/* A7-23: a refused crew read is not "Feeding 0 crew meals" — the count the caterer plates from. */}
-          {(ev.category === 'catering' || ev.category === 'crew_meals') && eventVendorCrewRowsError ? (
+          {(isCaterer || isCrewMealProvider) && eventVendorCrewRowsError ? (
             <ReadRefusedNotice what="the crew meal count" />
-          ) : ev.category === 'catering' ? (
+          ) : isCaterer ? (
             <p className="rounded-md bg-cream/60 px-3 py-2 text-xs text-ink/70" data-crew-meals-covering="">
               Feeding{' '}
               <span className="font-medium text-ink">
@@ -2497,7 +2500,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               across the suppliers you&rsquo;ve marked as fed — they see this count on their production sheet.
             </p>
           ) : null}
-          {ev.category === 'crew_meals' ? (
+          {isCrewMealProvider ? (
             eventVendorCrewRowsError ? null : (
             <p className="rounded-md bg-cream/60 px-3 py-2 text-xs text-ink/70">
               Covering{' '}
@@ -2581,7 +2584,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             <input type="hidden" name="vendor_id" value={ev.vendor_id} />
             {crewFields}
             {paidSoFarRow}
-            {ev.category === 'crew_meals' ? null : (
+            {isCrewMealProvider ? null : (
               <CostsSubmit className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save crew</CostsSubmit>
             )}
           </CostsForm>

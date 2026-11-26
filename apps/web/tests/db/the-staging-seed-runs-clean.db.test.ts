@@ -253,3 +253,28 @@ test('the catalogue copy: every listed table is still copyable, and its upsert l
   const kept = await one<{ e: string | null }>('SELECT maya_checkout_endpoint AS e FROM public.platform_settings WHERE id = 1');
   assert.notEqual(kept.e, 'https://pg.maya.ph/checkout/v1/checkouts');
 });
+
+test('area 2 · the couple rows hold their own names: the creator is linked to the row with their name (A2-P6)', async () => {
+  // Plan batch A-5's "seed/the-couple-rows-hold-their-own-names" — here, where the seed is already replayed.
+  const owner = await uid('couple_plan');
+  const link = await one<{ role: string; first_name: string; last_name: string }>(
+    `SELECT m.role, g.first_name, g.last_name
+       FROM public.event_members m
+       JOIN public.events e ON e.event_id = m.event_id
+       JOIN public.guests g ON g.guest_id = m.guest_id
+      WHERE e.slug = 'stg-bea-paolo' AND m.user_id = $1`,
+    [owner],
+  );
+  assert.deepEqual(link, { role: 'bride', first_name: 'Bea', last_name: 'Villanueva' }, 'Bea’s account is linked to Paolo’s row');
+  const rows = (
+    await replay.db.query(
+      `SELECT g.role, g.first_name || ' ' || g.last_name AS name FROM public.guests g
+         JOIN public.events e ON e.event_id = g.event_id
+        WHERE e.slug = 'stg-bea-paolo' AND g.role IN ('bride', 'groom') ORDER BY g.role`,
+    )
+  ).rows as { role: string; name: string }[];
+  assert.deepEqual(rows, [
+    { role: 'bride', name: 'Bea Villanueva' },
+    { role: 'groom', name: 'Paolo Garcia' },
+  ]);
+});

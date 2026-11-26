@@ -1,4 +1,5 @@
 import { Clock, Lock } from 'lucide-react';
+import { ReadFailedNote } from '../../../_components/set-two/read-failed';
 import { InfoTip } from '@/app/_components/info-tip';
 import { MAX_PER_TYPE } from '@/lib/editorial-vendor-media';
 import { PartNote } from '@/app/vendor-dashboard/_components/set-two/parts';
@@ -10,7 +11,9 @@ const ROUTE = '/vendor-dashboard/clients/[eventId]/editorial-media';
 export type EditorialEligibilityView =
   | { kind: 'open'; existing: ExistingMedia[]; existingUnread: boolean }
   | { kind: 'almost'; disputed: boolean }
-  | { kind: 'not-recommended' };
+  | { kind: 'not-recommended' }
+  /** 🧾 A6-54: the eligibility read was refused — said, never "Not available for this event yet". */
+  | { kind: 'unread' };
 
 /**
  * From your camera, drawn from the page's reads (the lab draws it from fixtures). Supplier pages set two, page 4: the
@@ -65,6 +68,10 @@ export function EditorialMediaBody({
             ? `${who} reported a problem with the delivery. Once that’s sorted out, you’ll be able to add a photo or a 5-second clip to their story.`
             : `Once ${who} marks your service complete, you can add a photo or a 5-second clip to their story. Mark your service complete on the event brief, then confirm with them.`}
         </PartNote>
+      ) : view.kind === 'unread' ? (
+        <ReadFailedNote mark="editorial-eligibility">
+          We couldn&rsquo;t read whether you can add to their story right now. Nothing has changed.
+        </ReadFailedNote>
       ) : (
         <PartNote icon={Lock}>
           <strong className="block">Not available for this event yet</strong>

@@ -709,3 +709,13 @@ The order is by typical Philippine wedding spend (not yet checked against our ow
 - Each part of the design (for example the neckline or the veil) can also carry its own short note.
 - The notes go into the brief sent to the supplier, next to the design and the measurements, so nothing the client wants is lost because the tool couldn't draw it.
 - The maker says plainly what it can't do (for example "Embroidery patterns: describe them in Notes"). It never fakes a look it can't make.
+
+## Add 47: area 6's open items (26 Nov)
+
+- **A6-08, A6-19 links, A6-38c (controller):** the shared route builders win. Each guard is rewritten to resolve the link through the builder and check that the route exists, instead of matching literal text.
+- **A6-15 (owner: "Move it now"):** the Notifications title moves, and "Mark all read" may shift.
+- **A6-38(a) and (b) (owner):** he sees the exact current words first. Nothing changes until he picks.
+- **A6-61a (controller):** "no price in a comment" wins. The guard reads the fee rate from the constant the app uses.
+- **A6-B01:** measured on production after launch, before any change.
+
+All of these go in one PR, `claude/fc-fix-a6-b7`.

@@ -28,7 +28,7 @@ export function VenueMatchedEvents({
 
   return (
     <section className="mt-8">
-      <h2 className="sn-sec">{hasMatch ? 'Weddings at your venue' : 'Recent weddings'}</h2>
+      <h2 className="sn-sec">{hasMatch ? 'Events at your venue' : 'Recent events'}</h2>
       <p className="mt-1 text-sm" style={{ color: 'var(--m-slate-2)' }}>
         {hasMatch
           ? 'This supplier has worked at your venue — see their track record there first.'

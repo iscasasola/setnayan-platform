@@ -60,6 +60,7 @@ export default async function ShopEndLab({
       kindHint: PARTNERSHIP_PUBLIC_HINT[kind],
       logoUrl: null,
       initials: shopInitials(name, 2, 'SN'),
+      verified: i % 3 !== 2,
       kind,
     }))
     .sort((a, b) => ['included_in_package', 'discounted_together', 'accredited', 'general'].indexOf(a.kind) - ['included_in_package', 'discounted_together', 'accredited', 'general'].indexOf(b.kind));

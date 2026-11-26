@@ -3,6 +3,7 @@ import Link from 'next/link';
 // storage limitation binds us to the period we DECLARE — so the sentence below
 // renders the same constant the sweep deletes by. Two hand-typed numbers
 // agreeing today is how `llms.txt` drifted for three weeks with green CI.
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 import { CONNECTION_REQUEST_RETENTION_DAYS } from '@/lib/connection-request-expiry-core';
 import { DB_BACKUP_RETENTION_DAYS, ERROR_LOG_RETENTION_DAYS } from '@/lib/rule-constants';
 // The sign-in button's own words, so this page quotes the button exactly (lib/one-oauth-wording.test.ts).
@@ -32,6 +33,8 @@ export const metadata = {
     'How Setnayan handles personal data under the Philippine Data Privacy Act (RA 10173). Guest data, couple consent, supplier data, receipts, and DPO contact.',
   alternates: { canonical: '/privacy' },
   openGraph: {
+    // Every page carries a share picture (final check A1-161).
+    images: BRAND_OG_IMAGES,
     title: 'Privacy policy · Setnayan',
     description:
       'How Setnayan handles personal data under the Philippine Data Privacy Act (RA 10173).',
@@ -608,9 +611,9 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <Section title="Gift-receiving details (Pabuya)">
+        <Section title="Gift-receiving details (E-Gifts)">
           <p>
-            If you set up Pabuya (digital gift-giving), you can display your own
+            If you set up E-Gifts (digital gift-giving), you can display your own
             gift-receiving details to your guests — for example a GCash, Maya,
             bank, or PayPal handle and a receiving QR image. This is your own
             information, shown to your guests at your choice.
@@ -757,8 +760,8 @@ export default function PrivacyPage() {
         <Section title="Featuring your event on Setnayan&rsquo;s own social channels">
           <p>
             Setnayan may feature finished work from real events — such as a
-            published event recap, or a consented artifact like an animated
-            monogram, save-the-date, Event Hub, or personal reel — on
+            published event recap, or a consented artifact like a logo,
+            save-the-date or Event Hub — on
             Setnayan&rsquo;s own social channels (for example our
             Facebook, Instagram, or TikTok) to showcase what the platform makes.
             This is optional and governed by consent:
@@ -1134,8 +1137,7 @@ export default function PrivacyPage() {
             <code className="font-mono text-[12px]">setnayan.com/{'{event-slug}'}</code>{' '}
             transitions from invitation and day-of mode into a public editorial
             article 30 days after the event date. The page becomes publicly
-            indexable on <code className="font-mono text-[12px]">setnayan.com/realstories</code>{' '}
-            and discoverable by search engines.
+            discoverable on Setnayan&rsquo;s Discover page and by search engines.
           </p>
           <p className="pt-2">
             <strong>Eight safeguards apply</strong> under RA 10173 § 16(e) right
@@ -1147,7 +1149,8 @@ export default function PrivacyPage() {
               disclosure.
             </li>
             <li>
-              Phase 4 starts at T+1d in archive mode (public via slug only).
+              From the day after the event until it goes public, the page is
+              reachable only by its own link.
             </li>
             <li>
               Index inclusion auto-activates at T+30d unless the host opts out.
@@ -1270,7 +1273,8 @@ export default function PrivacyPage() {
             <li>
               <strong>Photos and video</strong> — the{' '}
               <strong>full-resolution originals</strong> are kept until{' '}
-              <strong>3 months</strong> after the event&rsquo;s last day, and are
+              <strong>3 months</strong> after the event&rsquo;s last day — longer
+              on a plan that includes a longer keep, such as Event Ultra — and are
               then replaced by a 720p copy with small thumbnails. That{' '}
               <strong>compressed copy of your Memories stays online, free, for life</strong> —
               we do not delete your photos, and there is no end date on those
@@ -1329,7 +1333,7 @@ export default function PrivacyPage() {
               yet.
             </li>
             <li>
-              <strong>Gift records (Pabuya)</strong> — until the event is
+              <strong>Gift records (E-Gifts)</strong> — until the event is
               deleted.
             </li>
             <li>

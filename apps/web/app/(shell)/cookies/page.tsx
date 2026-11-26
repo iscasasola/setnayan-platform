@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome';
 
 
@@ -20,6 +21,8 @@ export const metadata = {
     'The cookies and browser storage Setnayan uses and why, under the Philippine Data Privacy Act (RA 10173). Essential cookies only — no analytics, advertising or tracking cookies, so there is no cookie banner.',
   alternates: { canonical: '/cookies' },
   openGraph: {
+    // Every page carries a share picture (final check A1-161).
+    images: BRAND_OG_IMAGES,
     title: 'Cookie policy · Setnayan',
     description:
       'Setnayan uses essential cookies only. No analytics, advertising or tracking cookies.',

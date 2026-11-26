@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome';
 import { REFUND_REPORT_WINDOW_DAYS } from '@/lib/rule-constants';
 
@@ -22,6 +23,8 @@ export const metadata = {
     'Setnayan does not refund purchases. If you paid for a service you then cannot use, its value becomes Papic credits for your event. Payments to suppliers are settled with the supplier.',
   alternates: { canonical: '/refunds' },
   openGraph: {
+    // Every page carries a share picture (final check A1-161).
+    images: BRAND_OG_IMAGES,
     title: 'Refund & cancellation policy · Setnayan',
     description:
       'No refunds. A paid service you cannot use becomes Papic credits for your event.',

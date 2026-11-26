@@ -144,7 +144,8 @@ test('the 2026-08-01 fixes (17 then; one table dropped since) no longer refuse a
     'event_egift_methods.created_by_user_id',
     'event_manual_vendors.created_by_user_id',
     'event_moderators.invited_by_user_id',
-    'event_sponsors.created_by_user_id',
+    // (event_sponsors.created_by_user_id was here; the table was dropped 2026-11-27, brief Add 41 /
+    // A2-I14, migration 20271364844438 — a dropped table cannot refuse anything.)
     'guest_columns.reviewed_by_user_id',
     'guest_message_blocks.blocked_by',
     'photo_messages.reviewed_by_user_id',

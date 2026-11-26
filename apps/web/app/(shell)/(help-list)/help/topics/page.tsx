@@ -10,6 +10,8 @@ import { HelpRow, HelpRows } from '@/app/_components/help-ask/help-rows';
 
 export const metadata = {
   title: 'All topics · Help',
+  // Its own description, not the site-wide one (final check A1-161).
+  description: 'Every Setnayan help topic in one list: getting started, your event, suppliers and budget, guests, photos, account and privacy.',
   alternates: { canonical: routes.help.topics() },
 };
 

@@ -31,7 +31,10 @@ const feed = read('queues/_components/queues-triage-feed.tsx');
 test('/admin renders the work list itself — not a copy, not the old Overview', () => {
   assert.match(home, /import AdminWorkLanding from '\.\/work\/page';/);
   // ➕ FOCUS | FULL (owner 14 Nov 2026): in FULL /admin is still the work list itself; in FOCUS it is the decide list.
-  assert.match(home, /if \(mode === 'full'\) return AdminWorkLanding\(props\);/);
+  // A8·C-4 (final check, 25 Nov 2026): the one exception is an "Answered on Focus" ask (`?ask=` naming a key of
+  // FOCUS_ASK_ANSWERS), which is answered in place in either mode. Everything else in FULL is still the work list.
+  assert.match(home, /if \(mode === 'full' && !answersInPlace\) return AdminWorkLanding\(props\);/);
+  assert.match(home, /const answersInPlace = Boolean\(asked && Object\.hasOwn\(FOCUS_ASK_ANSWERS, asked\)\);/);
   assert.match(home, /return <FocusHome /);
   // One list: /admin draws nothing of its own beyond choosing which.
   assert.doesNotMatch(home, /<section|<div|return \(/, '/admin draws its own body again — it must be the work list or Focus');

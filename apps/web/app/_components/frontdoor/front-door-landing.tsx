@@ -46,7 +46,7 @@ import {
 } from '@/app/dashboard/(account)/create-event/_components/event-types';
 import { sampleSnapshot } from '@/lib/sample-event/hub';
 import { formatCount } from '@/lib/format-number';
-import { formatPeso } from '@/lib/v2-catalog-pure';
+import { formatPhp } from '@/lib/php';
 import { PLUS_MORE, PRO_PEEK, ULTRA_PEEK, plusPeek, proMore, type PlanFacts } from './front-door-landing-data';
 
 /* The plan readers live in `lib/event-plans.ts` so non-front-door code never imports this component file; re-exported
@@ -156,7 +156,7 @@ function What({ label, children }: { label: string; children: ReactNode }) {
 function PlanPrice({ php }: { php: number }) {
   return (
     <span className="fl-pp">
-      ₱{formatPeso(php)}
+      {formatPhp(php)}
       <small> per event</small>
     </span>
   );
@@ -239,10 +239,16 @@ const PLAN_COUNT_WORD: Record<number, string> = { 2: 'two', 3: 'three', 4: 'four
 
 export function FrontDoorLanding({
   planPrices,
+  pricesRead = true,
   planFacts,
 }: {
   /** Event Plus, Event Pro and Event Ultra from the price list (`planPricesFrom`). */
   planPrices: PlanPrices;
+  /**
+   * False when the price list could not be read. The paid rows then cannot draw, so the list says so where they go —
+   * never a Free-only list that looks complete (final check A1-100).
+   */
+  pricesRead?: boolean;
   /** The included credits the plan rows may say (`planCreditsFrom`). */
   planFacts: PlanFacts;
 }) {
@@ -263,7 +269,8 @@ export function FrontDoorLanding({
             <span>Same event. Each guest sees their own.</span>
           </h2>
           <p className="fl-lede">
-            {couple.bride.first} and {couple.groom.first}&rsquo;s wedding, as their guests see it.
+            {/* Named as a SAMPLE (final check A1-168, Add 3): no made-up couple is presented as a real one. */}
+            A sample wedding, {couple.bride.first} and {couple.groom.first}&rsquo;s, as their guests see it.
           </p>
         </div>
         <div className="fl-car fl-rv">
@@ -454,7 +461,7 @@ export function FrontDoorLanding({
           </h2>
         </div>
         <details className="fl-all">
-          <summary>{planCount === 1 ? 'See the Free plan' : `See the ${PLAN_COUNT_WORD[planCount] ?? formatCount(planCount)} plans`}</summary>
+          <summary>{planCount === 1 && pricesRead ? 'See the Free plan' : planCount === 1 ? 'See the plans' : `See the ${PLAN_COUNT_WORD[planCount] ?? formatCount(planCount)} plans`}</summary>
           <div className="fl-list">
             <PlanRow
               name="Free"
@@ -469,6 +476,11 @@ export function FrontDoorLanding({
               ]}
               under="Free, not a trial. Nothing expires."
             />
+            {pricesRead ? null : (
+              <p className="fl-fine fl-under" role="status">
+                Couldn&rsquo;t read the prices of the paid plans. Refresh the page to try again.
+              </p>
+            )}
             {planPrices.plus !== null ? (
               <PlanRow
                 name="Event Plus"

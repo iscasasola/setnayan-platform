@@ -34,6 +34,7 @@ import { KwentoQueue } from '../studio/papic/moderation/_components/kwento-queue
 import { WallModeControl } from './_components/mode-control';
 import { FlashAutoWallToggle } from './_components/flash-auto-wall-toggle';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { formatCount } from '@/lib/format-number';
 
 import { InfoTip } from '@/app/_components/info-tip';
@@ -195,6 +196,7 @@ export default async function LiveWallConsolePage({
   // derivative (P2). Surface coverage so "why is the wall thin?" is
   // answerable at a glance.
   let bakedCount = 0;
+  let bakedUnread = false;
   if ((faceblockGuests ?? 0) > 0 && (feed?.length ?? 0) > 0) {
     const photoIds = (feed ?? [])
       .filter((r) => r.source_table === 'papic_photos')
@@ -224,6 +226,7 @@ export default async function LiveWallConsolePage({
     if (bakedCapsError) {
       logQueryError('EventLivePage.bakedCaps', bakedCapsError, { event_id: eventId }, 'graceful_degrade');
     }
+    bakedUnread = Boolean(bakedPhotosError || bakedCapsError);
     bakedCount = (bakedPhotos ?? 0) + (bakedCaps ?? 0);
   }
 
@@ -251,17 +254,19 @@ export default async function LiveWallConsolePage({
     {
       icon: <ImageIcon aria-hidden className="h-4 w-4" strokeWidth={2} />,
       label: 'on Memory lane',
-      value: String(visibleCount ?? 0),
+      // L-08 (final check): a refused count draws "—", never 0.
+      value: visibleCountError ? '—' : String(visibleCount ?? 0),
     },
     {
       icon: <EyeOff aria-hidden className="h-4 w-4" strokeWidth={2} />,
       label: 'hidden',
-      value: String(hiddenCount ?? 0),
+      value: hiddenCountError ? '—' : String(hiddenCount ?? 0),
     },
     {
       icon: <Tv aria-hidden className="h-4 w-4" strokeWidth={2} />,
       label: claimedScreens === 1 ? 'screen connected' : 'screens connected',
-      value: String(claimedScreens),
+      // L-08: a refused screens read is "—", not "0 screens connected".
+      value: sessionsError ? '—' : String(claimedScreens),
     },
   ];
 
@@ -278,7 +283,12 @@ export default async function LiveWallConsolePage({
 
       <section className="border-t border-ink/10 bg-surface py-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <WallModeControl eventId={eventId} override={override} resolved={resolved} />
+          {/* L-08 (final check): an unread event row is not "Auto" — the picker waits for a real read. */}
+          {eventError ? (
+            <ReadRefusedNotice what="what Memory lane is showing" />
+          ) : (
+            <WallModeControl eventId={eventId} override={override} resolved={resolved} />
+          )}
           <dl className="flex items-center gap-5">
             {stats.map((s) => (
               <div key={s.label} className="text-center">
@@ -307,9 +317,23 @@ export default async function LiveWallConsolePage({
               </span>{' '}
               Every photo is projected with faces blurred; photos still waiting for
               their blurred copy stay off Memory lane automatically.{' '}
-              {formatCount(bakedCount)}/{formatCount(feed?.length ?? 0)} recent tiles are blur-ready.
+              {bakedUnread
+                ? 'Couldn’t read how many recent tiles are blur-ready.'
+                : `${formatCount(bakedCount)}/${formatCount(feed?.length ?? 0)} recent tiles are blur-ready.`}
             </span>
           </p>
+        ) : faceblockGuestsError ? (
+          // L-08: a refused FaceBlock count is said — never read as "nobody asked for FaceBlock".
+          <ReadRefusedNotice what="which guests asked for FaceBlock" className="mt-4" />
+        ) : null}
+
+        {/* L-08: a refused screens or photos read is said above the controls, not drawn as none. */}
+        {sessionsError || feedError ? (
+          <ReadRefusedNotice
+            what={sessionsError && feedError ? 'your screens and recent photos' : sessionsError ? 'your screens' : 'your recent photos'}
+            partial
+            className="mt-4"
+          />
         ) : null}
 
         <LiveWallControls
@@ -338,7 +362,7 @@ export default async function LiveWallConsolePage({
               kill any one from the queue. Stories (≤280 chars) always go to review first.
             </InfoTip>
           </div>
-          <FlashAutoWallToggle eventId={eventId} enabled={flashAutoWall} />
+          {eventError ? null : <FlashAutoWallToggle eventId={eventId} enabled={flashAutoWall} />}
         </div>
         <div className="mt-4">
           <KwentoQueue eventId={eventId} />

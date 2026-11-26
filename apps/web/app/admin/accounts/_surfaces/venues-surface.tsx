@@ -1,3 +1,4 @@
+import { sanitizeIlikeTerm } from '@/lib/ugat/data-pure';
 import Link from 'next/link';
 import { MapPin, Plus } from 'lucide-react';
 
@@ -102,8 +103,10 @@ export async function VenuesSurface({
     )
     .order('name', { ascending: true })
     .limit(VENUE_ROW_LIMIT);
-  if (q.length > 0) {
-    query = query.or(`name.ilike.%${q}%,slug.ilike.%${q}%`);
+  // A8·D-8: sanitised like the Events tab, so a comma or bracket cannot break the read into "Couldn't read".
+  const term = sanitizeIlikeTerm(q);
+  if (term.length > 0) {
+    query = query.or(`name.ilike.%${term}%,slug.ilike.%${term}%`);
   }
   if (typeFilter.length > 0) {
     query = query.eq('venue_type', typeFilter);

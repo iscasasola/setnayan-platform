@@ -1,10 +1,11 @@
 'use client';
 import { InfoTip } from '@/app/_components/info-tip';
 
+import { ConfirmForm } from '@/app/_components/confirm-form';
 import { useActionState, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
+import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { Slider } from '@/app/_components/slider';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import {
@@ -18,8 +19,6 @@ import {
   JOB_NAME,
   LOOK_KIND_NAME,
   MOODS,
-  TILE_KEYS,
-  TILE_LABEL,
   appColoursEqual,
   applyFix,
   judgeAppColours,
@@ -31,8 +30,6 @@ import {
   type ColourKey,
   type JobKey,
   type LookAlike,
-  type TileKey,
-  type TouchKey,
 } from '@/lib/app-colours';
 import type { ColoursActionState } from '../actions';
 import { ColoursPreview, Sample } from './colours-sample';
@@ -62,10 +59,13 @@ const JOB_WHERE: Record<JobKey, string> = {
   tiles: 'The four category colours a frame marks rows with — a soft tinted square, a coloured glyph, a thin progress bar.',
 };
 
-/** Jobs saved now but drawn by a later update (band on the page tops, frames on the cards, icon tiles on the lists). */
-const NEXT_UPDATE: ReadonlySet<JobKey> = new Set(['band', 'frame', 'tiles']);
-
-const JOB_ORDER: readonly JobKey[] = ['page', 'band', 'frame', 'money', 'decision', 'private', 'toggle', 'tiles'];
+/**
+ * A8·F-8: only jobs a screen really reads are offered. The band and the frames are live (`.sn-band` and
+ * `.sn-frame` in globals.css read their tokens), so their "applies in the next update" tag is gone. The icon
+ * tile colours and the Liveliness switches are not drawn anywhere yet (`appColourTokens` emits neither, and
+ * nothing reads `--sn-cat-*`), so they are not pressable here; their saved values ride along untouched.
+ */
+const JOB_ORDER: readonly JobKey[] = ['page', 'band', 'frame', 'money', 'decision', 'private', 'toggle'];
 const PICKERS: Record<JobKey, readonly { k: ColourKey; label: string }[]> = {
   page: [{ k: 'page', label: 'Page' }],
   band: [
@@ -80,11 +80,6 @@ const PICKERS: Record<JobKey, readonly { k: ColourKey; label: string }[]> = {
   tiles: [],
 };
 
-const TOUCHES: readonly { k: TouchKey; name: string; line: string }[] = [
-  { k: 'wave', name: 'Curved edge on the band', line: 'The band’s bottom edge bows softly instead of cutting straight across.' },
-  { k: 'overlap', name: 'First frame overlaps the band', line: 'The top card rides up over the band’s edge, so the band and the page read as one surface.' },
-  { k: 'press', name: 'Press ring', line: 'A press shows pressed at once (it always does); this adds a soft ring in the button’s own colour.' },
-];
 
 const LEGEND: Record<'money' | 'decision' | 'toggle' | 'private', string> = {
   money: 'Money',
@@ -217,7 +212,6 @@ export function ColoursEditor({
     setSaid({ text: words, tone: 'quiet' });
   };
   const setColour = (k: ColourKey, hex: string) => change({ ...draft, [k]: hex });
-  const setTile = (k: TileKey, hex: string) => change({ ...draft, tiles: { ...draft.tiles, [k]: hex } });
 
   const firstRefusal = verdict.refusals[0] ?? null;
   const firstBadJob: JobKey | null =
@@ -293,7 +287,6 @@ export function ColoursEditor({
                   <div>
                     <h3 className={`text-[15px] font-semibold ${bad ? 'text-danger-700' : ''}`}>
                       {JOB_NAME[job]}
-                      {NEXT_UPDATE.has(job) ? <span className="ml-2 text-[12px] font-medium text-ink/50">· applies in the next update</span> : null}
                     </h3>
                     <p className="mt-0.5 text-[13px] text-ink/60">{JOB_WHERE[job]}</p>
                   </div>
@@ -336,13 +329,6 @@ export function ColoursEditor({
                       />
                     </div>
                   ) : null}
-                  {job === 'tiles' ? (
-                    <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
-                      {TILE_KEYS.map((k) => (
-                        <ColourField key={k} name={TILE_LABEL[k]} value={draft.tiles[k]} onSet={(hex) => setTile(k, hex)} />
-                      ))}
-                    </div>
-                  ) : null}
                   <Sample job={job} d={draft} />
                   <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-[13px]" data-colours-checks={job}>
                     {checks.map((c, i) => (
@@ -360,21 +346,6 @@ export function ColoursEditor({
             })}
           </div>
 
-          <h2 className="mb-1 mt-6 text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-            Liveliness, beyond colour <span className="normal-case tracking-normal text-ink/45">· applies in the next update</span>
-          </h2>
-          <FormRows>
-            {TOUCHES.map((t) => (
-              <SwitchRow
-                key={t.k}
-                name={t.name}
-                line={t.line}
-                on={draft.touches[t.k]}
-                onChange={(next) => change({ ...draft, touches: { ...draft.touches, [t.k]: next } })}
-                data={`colours-touch-${t.k}`}
-              />
-            ))}
-          </FormRows>
         </div>
 
         <div className="min-w-0 lg:sticky lg:top-4">
@@ -410,15 +381,20 @@ export function ColoursEditor({
         >
           {pending ? 'Saving…' : bar.text}
         </p>
-        <form
+        {/* A8·F-25: this replaces the LIVE colour set for every screen at once (op=reset saves NULL), so it is
+            named for what it does and asks first — it is not a discard of the draft. */}
+        <ConfirmForm
           action={formAction}
-          onSubmit={() => {
+          title="Go back to the built-in colours?"
+          confirmLabel="Use the built-in colours"
+          message="Every screen goes back to the app's built-in colours now, and the saved colour set is replaced. This can't be undone here."
+          onConfirmedSubmit={() => {
             lastOp.current = 'reset';
           }}
         >
           <input type="hidden" name="op" value="reset" />
-          <ActionButton type="submit" tone="neutral" icon={RotateCcw} label="Reset to current" waiting={pending} />
-        </form>
+          <ActionButton type="submit" tone="neutral" icon={RotateCcw} label="Built-in colours" waiting={pending} />
+        </ConfirmForm>
         <form
           action={formAction}
           onSubmit={(e) => {

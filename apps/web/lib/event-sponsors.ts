@@ -5,7 +5,9 @@
  * Filipino-cultural V1 surface — type definitions, tier metadata, default
  * pair counts, invitation-template builder, and guest auto-link helpers.
  *
- * Schema basis: supabase/migrations/20260604040000_event_sponsors_table.sql
+ * Schema basis: supabase/migrations/20260604040000_event_sponsors_table.sql — that table is DROPPED
+ * (20271364844438, owner 27 Nov 2026); sponsors are guests with a sponsor role (`lib/sponsor-guests.ts`). The types
+ * and helpers here still shape the Sponsors page.
  *
  * Architectural notes:
  *   - Principal sponsors are pair-grouped via pair_index (one row per
@@ -94,9 +96,9 @@ export const SPONSOR_SIDE_LABEL: Record<SponsorSide, string> = {
  * sponsor" is correct for every sponsor alive; "ninang" is wrong for half of
  * them.
  *
- * ⚠ TO GET THE WARMER WORD BACK, GIVE THE TABLE THE FACT — an explicit
- * ninong/ninang column on `event_sponsors`, chosen by the couple the way the
- * guest list now does it. Do NOT re-derive it from `side`, `full_name`, or a
+ * ⚠ TO GET THE WARMER WORD BACK, READ THE FACT — the guest's own
+ * principal_sponsor_ninong / _ninang role, chosen by the couple on the guest
+ * list (`event_sponsors` is dropped). Do NOT re-derive it from `side`, `full_name`, or a
  * name-prefix guess.
  */
 export function sponsorRoleHonorific(tier: SponsorTier, _side: SponsorSide): string {
@@ -129,54 +131,6 @@ export const SECONDARY_TIERS: ReadonlyArray<Exclude<SponsorTier, 'principal'>> =
   'candle',
 ];
 
-/**
- * Map a sponsor tier to the canonical guest_role enum value used when
- * auto-creating a guests row on invitation acceptance.
- *
- * ⚠ THE OLD CONTRACT HERE IS DEAD, AND THIS WAS THE LAST PLACE THAT COULD MINT
- * IT. This file's header described the pre-split model — "ONE
- * 'principal_sponsor' value with side distinguishing ninong vs ninang" — and it
- * was wrong twice over (corrected in the same change as this):
- *
- *   1. Side is not gender. A Ninong standing on the BRIDE's side was called a
- *      "ninang" by `sponsorRoleHonorific` below, which is the defect the
- *      2026-09-14 role split exists to remove.
- *   2. The plain `principal_sponsor` was RETIRED by the owner on 2026-09-15
- *      ("the same rule across all other weddings"). Every picker dropped it;
- *      this function was the one writer left, so leaving it would have made an
- *      accepted invitation the only way back into a dead role.
- *
- * `event_sponsors` carries no gender column either, so this cannot resolve the
- * half on its own. Owner's call, asked directly on 2026-09-15: an unspecified
- * principal sponsor is a NINONG — the same answer the capture bar's bare
- * `sponsor` token now gives, so the two doors agree. A Ninang is one dropdown.
- *
- * 🔑 This surface is currently DORMANT — `event_sponsors` held 0 rows when this
- * was written — which is precisely why it needed fixing now rather than later:
- * nothing on screen would have revealed it, and the first couple ever to use
- * the page would have been the one to find it.
- */
-export function sponsorGuestRole(
-  tier: SponsorTier,
-):
-  | 'principal_sponsor_ninong'
-  | 'cord_sponsor'
-  | 'veil_sponsor'
-  | 'coin_sponsor'
-  | 'candle_sponsor' {
-  switch (tier) {
-    case 'principal':
-      return 'principal_sponsor_ninong';
-    case 'cord':
-      return 'cord_sponsor';
-    case 'veil':
-      return 'veil_sponsor';
-    case 'coin':
-      return 'coin_sponsor';
-    case 'candle':
-      return 'candle_sponsor';
-  }
-}
 
 /**
  * Map our sponsor side (groom/bride/neutral) to the guest_side enum used

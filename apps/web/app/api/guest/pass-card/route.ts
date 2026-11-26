@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
 import { getHostUserId } from '@/lib/host-gate';
-import { readGuestSession } from '@/lib/guest-session';
+import { readGuestSessionForPassRoute } from '@/lib/guest-one-path.server';
 import { PASS_CARD_REFUSED, PASS_CARD_WORDS, decidePassCardAccess } from '@/lib/pass-card';
 import { REQUEST_WORDS } from '@/lib/request-key';
 import {
@@ -70,7 +70,8 @@ export async function GET(req: Request) {
   const asked = url.searchParams.get('guest');
   if (asked !== null && !UUID.test(asked)) return new NextResponse(PASS_CARD_REFUSED, { status: 404 });
 
-  const session = await readGuestSession();
+  // 🔑 A4-B11: `?event=` lets a signed-in account that holds the seat save its own card (its own seat only).
+  const session = await readGuestSessionForPassRoute(url.searchParams.get('event'));
   const guestId = asked ?? session?.guest_id ?? null;
   if (!guestId) return new NextResponse('Open your invitation link first.', { status: 401 });
 

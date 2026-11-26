@@ -67,6 +67,8 @@ import {
   type CoupleSupplierNotice,
 } from './couple-supplier-notices';
 import type { NotificationType } from './notifications';
+import { routes as appRoutes } from '@/lib/routes';
+import { inlineBuilderCalls, routeExists } from '../scripts/lib/route-builders.mjs';
 
 const WEB = process.cwd();
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -235,6 +237,8 @@ type EmitSite = {
   links: string[];
   /** TRUE when the call hands the emitter the event explicitly. */
   passesEventId: boolean;
+  /** The addresses `lib/routes.ts` builders built for this link (Add 47 — a builder is read, never skipped). */
+  built: string[];
 };
 
 /** Path literals (`'/x'`, `` `/x/${y}` ``) in an expression. */
@@ -269,7 +273,13 @@ function emitSites(): EmitSite[] {
         `${file}: emitNotification with type \`${typeExpr}\` — this guard cannot read which notice that is. ` +
           'Write the type as a literal, or declare what the variable can hold in VARIABLE_TYPE_SITES.',
       );
-      const linkExpr = propertyValue(block, 'relatedUrl') ?? '';
+      // 🧭 Add 47 (26 Nov 2026 — the route builders win): a link built by `lib/routes.ts` is resolved by calling the
+      // REAL builder (scripts/lib/route-builders.mjs); its unknown values come back as `${seg}`, which isRealRoute
+      // reads as a dynamic segment. Test 3b also holds every built address to the generated screens map.
+      const built: string[] = [];
+      const linkExpr = inlineBuilderCalls(propertyValue(block, 'relatedUrl') ?? '', appRoutes, (u: string) => built.push(u))
+        .split('[seg]')
+        .join('${seg}');
       let links = pathLiterals(linkExpr);
       // A link held in a constant (`relatedUrl: SUPPLIER_DESK`) is read from
       // where the constant is assigned, in the same file.
@@ -298,6 +308,7 @@ function emitSites(): EmitSite[] {
         types,
         links,
         passesEventId: /(^|[\s,{])eventId\b/.test(block),
+        built,
       });
     }
   }
@@ -688,4 +699,13 @@ test('9 · the "released" notice says the approved 2026-09-22 sentence, read fro
   assert.doesNotMatch(fn, /let you know if it reopens/, 'the notice promises a reopening notice that does not exist');
   // And it stays in the app.
   assert.equal(NOTICES.inquiry_displaced?.reach, 'app_only');
+});
+
+test('3b · every notice link a lib/routes.ts builder builds is a screen in lib/ugat/screens.generated.json', () => {
+  const built = SITES.flatMap((site) => site.built.map((url) => ({ file: site.file, url })));
+  // Non-vacuity: the chat's payment and guest-count notices are built through the builders (A6-08).
+  assert.ok(built.length >= 4, `only ${built.length} builder-built notice links were read`);
+  for (const { file, url } of built) {
+    assert.ok(routeExists(url), `${file}: a notice links to ${url}, which no screen in the generated map is`);
+  }
 });

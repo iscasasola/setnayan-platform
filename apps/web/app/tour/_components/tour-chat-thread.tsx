@@ -29,18 +29,26 @@ type ScriptMsg = { role: 'couple' | 'vendor'; body: string };
  * gentle closing line and stops. Wording mirrors a warm PH wedding-vendor DM —
  * no prices committed, no real identity beyond the (demo) business name.
  */
-const VENDOR_SCRIPT: string[] = [
-  "Hi! Thanks so much for reaching out about Maria & Jose's wedding — congratulations to the couple! 🤍 We'd love to be part of the day.",
-  "Yes, December 12, 2026 is still open on our calendar. We pencil dates in lightly until there's a signed agreement, so it's a good idea to book it soon.",
-  "Our coverage usually runs the full event day — prep, ceremony, and reception. I can send our package details and Portfolio so you can see if our style fits your moodboard.",
-  "Perfect. I'll put together a quote based on your guest count and venue, and we can hop on a quick call this week to walk through everything. Talk soon! ✨",
-];
-
-const VISITOR_PROMPTS: string[] = [
-  'Hi! Are you available for our wedding on December 12, 2026?',
-  'That’s wonderful — what does your coverage include?',
-  'Sounds great. Could you send over a quote?',
-];
+/**
+ * The script, built from the sample event (final check A1-012): the date and the couple come from the event row the
+ * page reads — never a typed "December 12, 2026" that will have passed, nor typed names.
+ */
+function scriptFor(couple: string, dateWords: string | null): { vendor: string[]; visitor: string[] } {
+  const when = dateWords ?? 'your date';
+  return {
+    vendor: [
+      `Hi! Thanks so much for reaching out about ${couple}'s wedding — congratulations to the couple! 🤍 We'd love to be part of the day.`,
+      `Yes, ${when} is still open on our calendar. We pencil dates in lightly until there's a signed agreement, so it's a good idea to book it soon.`,
+      "Our coverage usually runs the full event day — prep, ceremony, and reception. I can send our package details and Portfolio so you can see if our style fits your moodboard.",
+      "Perfect. I'll put together a quote based on your guest count and venue, and we can hop on a quick call this week to walk through everything. Talk soon! ✨",
+    ],
+    visitor: [
+      dateWords ? `Hi! Are you available for our wedding on ${dateWords}?` : 'Hi! Are you available on our wedding date?',
+      'That’s wonderful — what does your coverage include?',
+      'Sounds great. Could you send over a quote?',
+    ],
+  };
+}
 
 /** Local, dependency-free timestamp formatter (mirrors lib/chat formatChatTimestamp's
  *  same-day shape) — kept inline so this client component imports no chat module. */
@@ -58,8 +66,19 @@ function useHydrated(): boolean {
   return useSyncExternalStore(noSubscribe, () => true, () => false);
 }
 
-export function TourChatThread({ counterpartyLabel }: { counterpartyLabel: string }) {
+export function TourChatThread({
+  counterpartyLabel,
+  couple,
+  dateWords,
+}: {
+  counterpartyLabel: string;
+  /** The sample couple, as the page names them (`coupleNamesLine`). */
+  couple: string;
+  /** The sample event's date in words (`formatLongDate(ev.event_date)`), or null when it has none. */
+  dateWords: string | null;
+}) {
   const hydrated = useHydrated();
+  const { vendor: VENDOR_SCRIPT, visitor: VISITOR_PROMPTS } = scriptFor(couple, dateWords);
   const [messages, setMessages] = useState<Array<ScriptMsg & { id: number; at: Date }>>([
     { id: 0, role: 'vendor', body: VENDOR_SCRIPT[0]!, at: new Date() },
   ]);

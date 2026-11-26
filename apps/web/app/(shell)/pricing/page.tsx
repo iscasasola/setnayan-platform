@@ -6,7 +6,8 @@ import type { ReactNode } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { GuestSpotlight } from '@/app/_components/guest-spotlight';
 import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
-import { fetchV2VendorCatalog, formatPeso, type BuildStatus } from '@/lib/v2-catalog';
+import { fetchV2VendorCatalog, type BuildStatus } from '@/lib/v2-catalog';
+import { formatPhp } from '@/lib/php';
 import { COMMISSION_PCT, supplierCommissionShort } from '@/lib/commission-promise';
 import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
@@ -154,7 +155,7 @@ function Moment({ children }: { children: ReactNode }) {
 function Figure({ php, from = false, suffix }: { php: number; from?: boolean; suffix?: string }) {
   return (
     <>
-      {from ? <small className="mr-1 font-sans text-xs text-ink/65">from</small> : null}₱{formatPeso(php)}
+      {from ? <small className="mr-1 font-sans text-xs text-ink/65">from</small> : null}{formatPhp(php)}
       {suffix ? <small className="ml-1 font-sans text-xs text-ink/65">{suffix}</small> : null}
     </>
   );
@@ -162,7 +163,7 @@ function Figure({ php, from = false, suffix }: { php: number; from?: boolean; su
 
 export default async function PricingPage() {
   // Reads in parallel · each degrades to no rows, so the page renders with no figure rather than 500'ing.
-  const [{ prices, customerSkus }, vendorSkus, feeSchedule] = await Promise.all([
+  const [{ prices, customerSkus, pricesRead }, vendorSkus, feeSchedule] = await Promise.all([
     readOurPrices(),
     // The supplier plans and the LIVE booking-fee schedule, for the structured data only (never the code default —
     // audit 2026-10-12, item 5).
@@ -170,7 +171,7 @@ export default async function PricingPage() {
     getLiveBookingFeeSchedule(),
   ]);
 
-  const peso = (n: number) => `₱${formatPeso(n)}`;
+  const peso = (n: number) => formatPhp(n);
   // 💳 The four supplier plans (2026-11-14, drawing § 4) — names from TIER_LABEL, prices from the supplier catalogue's
   // monthly rows, what each adds from the gates (specialized tools, the chatbot). Never a typed figure. ⚖ This page's own
   // rule (pricing-ours-only.test.ts) holds here too: the entry plan reads "No fee", never a zero or the giveaway word.
@@ -449,6 +450,12 @@ export default async function PricingPage() {
           <div className="mt-2.5" data-tour="pricing-prices">
             <IncludedGroup rows={included} />
 
+            {pricesRead ? null : (
+              <p className="m-0 pt-5 text-sn-md text-ink/75" role="status" data-prices-unread="">
+                Couldn&rsquo;t read the prices of the paid extras. Refresh the page to try again.
+              </p>
+            )}
+
             {prices.pro ? (
               <>
                 <Moment>Make it yours</Moment>
@@ -518,7 +525,7 @@ export default async function PricingPage() {
                   {papicFrom ? (
                     <PriceRowShell
                       name="Papic credits"
-                      tip={`One pot every guest’s camera spends from: ${papicRungWords(prices.papicRungs, formatPeso)}.${papicCheaperAtSetup ? ' Cheaper while you set up your event.' : ''}`}
+                      tip={`One pot every guest’s camera spends from: ${papicRungWords(prices.papicRungs)}.${papicCheaperAtSetup ? ' Cheaper while you set up your event.' : ''}`}
                       what="Top up the pot every guest’s camera spends from."
                       figure={<Figure php={papicFrom.php} from />}
                     />

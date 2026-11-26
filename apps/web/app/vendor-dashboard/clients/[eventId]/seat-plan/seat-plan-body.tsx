@@ -1,6 +1,9 @@
 import { Eye, Info, MapPin } from 'lucide-react';
 import { formatWallClock } from '@/lib/schedule-datetime-local';
 import { formatCount } from '@/lib/format-number';
+import { doorPoint, planAspect } from '@/lib/seat-plan-engine';
+import { mealsOf, supplierPlanOf, tableUnits, type Plan, type PlanObject } from '@/lib/supplier-seat-plan';
+import { PlanPoster } from '@/app/_components/plan-poster';
 import { ShopPill } from '@/app/vendor-dashboard/_components/kit';
 import { PartList, PartNote, PartRow, PartSec, PartText, setTwo } from '@/app/vendor-dashboard/_components/set-two/parts';
 import { ReadFailedBody } from '@/app/vendor-dashboard/_components/set-two/read-failed';
@@ -9,52 +12,7 @@ import { TheirEventPart } from '@/app/vendor-dashboard/_components/set-two/their
 const ROUTE = '/vendor-dashboard/clients/[eventId]/seat-plan';
 const COLUMN = 'mx-auto w-full tab:max-w-5xl';
 
-type PlanTable = {
-  table_id: string;
-  label: string;
-  table_type: string;
-  capacity: number;
-  x: number | null;
-  y: number | null;
-  rotation_deg: number;
-  sort_order: number;
-  seated: number;
-  meal_counts: Record<string, number> | null;
-};
-
-type PlanObject = {
-  object_id: string;
-  zone: 'reception' | 'cocktail';
-  object_type: string;
-  label: string;
-  x: number;
-  y: number;
-  is_mine: boolean;
-  vendor_name: string | null;
-};
-
-type PlanCocktail = {
-  label: string;
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  venue: { width_m: number | null; length_m: number | null };
-  window: { label: string; start_at: string | null; end_at: string | null } | null;
-};
-
-export type Plan = {
-  published_at: string;
-  venue: { width_m: number | null; length_m: number | null };
-  stage: { x: number; y: number; w: number; h: number };
-  dance: { x: number; y: number; w: number; h: number } | null;
-  entrance: { x: number; y: number } | null;
-  service_entrance: { x: number; y: number } | null;
-  cocktail: PlanCocktail | null;
-  dietary_included: boolean;
-  tables: PlanTable[];
-  objects: PlanObject[];
-};
+export type { Plan } from '@/lib/supplier-seat-plan';
 
 const MEAL_LABELS: Record<string, string> = {
   beef: 'Beef',
@@ -80,7 +38,7 @@ function PinMarker({ o }: { o: PlanObject }) {
       title={o.vendor_name ? `${o.label} · ${o.vendor_name}` : o.label}
     >
       <span
-        className={`flex h-7 w-7 items-center justify-center rounded-full border text-[10px] font-semibold shadow-sm ${
+        className={`flex h-7 w-7 items-center justify-center rounded-full border text-sn-2xs font-semibold shadow-sm ${
           o.is_mine
             ? 'border-transparent bg-sn-accent text-sn-on-accent shadow-[0_0_0_3px_var(--surface-soft)]'
             : 'border-[color:var(--m-line)] bg-[rgb(var(--sn-frame-bg))] text-[color:var(--m-slate-2)]'
@@ -88,16 +46,13 @@ function PinMarker({ o }: { o: PlanObject }) {
       >
         {o.is_mine ? 'YOU' : '•'}
       </span>
-      <span className="mt-0.5 max-w-24 truncate rounded bg-[rgb(var(--sn-frame-bg))] px-1 text-[9px] font-semibold leading-tight text-ink">
+      <span className="mt-0.5 max-w-24 truncate rounded bg-[rgb(var(--sn-frame-bg))] px-1 text-sn-3xs font-semibold leading-tight text-ink">
         {o.label}
       </span>
     </div>
   );
 }
 
-function isRound(tableType: string): boolean {
-  return tableType.startsWith('round') || tableType.startsWith('crescent');
-}
 
 
 /**
@@ -108,13 +63,21 @@ function isRound(tableType: string): boolean {
  */
 export function SeatPlanBody({ eventId, eventName, plan }: { eventId: string; eventName: string | null; plan: Plan }) {
   const placed = plan.tables.filter((t) => t.x !== null && t.y !== null);
-  const unplaced = plan.tables.filter((t) => t.x === null || t.y === null);
   const totalSeated = plan.tables.reduce((n, t) => n + t.seated, 0);
-  // Canvas aspect from real venue dimensions when set; editor default 4:3.
-  const aspect =
-    plan.venue.width_m && plan.venue.length_m
-      ? plan.venue.width_m / plan.venue.length_m
-      : 4 / 3;
+  // A7-16: the engine's plan — its room (sized, or the default room), its doors on their walls, its tables.
+  const drawn = supplierPlanOf(plan);
+  const seatedById = Object.fromEntries(placed.map((t) => [t.table_id, t.seated]));
+  const doorAt = (id: string) => {
+    const d = drawn.doors.find((x) => x.id === id);
+    if (!d) return null;
+    // The door sits ON its wall; its word pill is kept inside the frame so it is never clipped.
+    const p = doorPoint(d);
+    const inside = (v: number) => Math.min(92, Math.max(8, v));
+    return { x: inside(p.x), y: inside(p.y) };
+  };
+  const entranceAt = doorAt('entrance');
+  const serviceAt = doorAt('service');
+  const units = tableUnits([...placed, ...plan.tables.filter((t) => t.x === null || t.y === null)]);
   const objects = plan.objects ?? [];
   const myPins = objects.filter((o) => o.is_mine);
   const cocktail = plan.cocktail;
@@ -157,42 +120,44 @@ export function SeatPlanBody({ eventId, eventName, plan }: { eventId: string; ev
       {showMap ? (
         <div
           className="relative mx-3 mt-2 overflow-hidden rounded-[var(--m-r-md)] bg-[rgb(var(--sn-frame-bg))] shadow-[var(--sn-frame-shadow-tile)] tab:mx-0"
-          style={{ aspectRatio: `${aspect}` }}
+          style={{ aspectRatio: `${planAspect(drawn.room)}` }}
           data-seat-plan-map=""
         >
+          {/* A7-16: the walls, doors and tables are the engine's own drawing — the hosts' picture, chairs filled as seated. */}
+          <PlanPoster plan={drawn} roomName="Reception room" seated={seatedById} className="absolute inset-0 h-full w-full text-ink/70" />
           <div
-            className="absolute flex items-center justify-center rounded-[var(--m-r-sm)] bg-[color:var(--surface-soft)] text-[9px] font-bold uppercase tracking-wider text-[rgb(var(--color-link))]"
+            className="absolute flex items-center justify-center rounded-[var(--m-r-sm)] bg-[color:var(--surface-soft)] text-sn-3xs font-bold uppercase tracking-wider text-[rgb(var(--color-link))]"
             style={{ left: `${plan.stage.x - plan.stage.w / 2}%`, top: `${plan.stage.y - plan.stage.h / 2}%`, width: `${plan.stage.w}%`, height: `${plan.stage.h}%` }}
           >
             Stage
           </div>
           {plan.dance ? (
             <div
-              className="absolute flex items-center justify-center rounded-[var(--m-r-sm)] border border-dashed border-[color:var(--m-line)] text-[9px] font-bold uppercase tracking-wider text-[color:var(--m-slate-2)]"
+              className="absolute flex items-center justify-center rounded-[var(--m-r-sm)] border border-dashed border-[color:var(--m-line)] text-sn-3xs font-bold uppercase tracking-wider text-[color:var(--m-slate-2)]"
               style={{ left: `${plan.dance.x - plan.dance.w / 2}%`, top: `${plan.dance.y - plan.dance.h / 2}%`, width: `${plan.dance.w}%`, height: `${plan.dance.h}%` }}
             >
               Dance floor
             </div>
           ) : null}
-          {plan.entrance ? (
+          {entranceAt ? (
             <span
-              className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full px-1.5 py-0.5 text-[9px] font-bold ${setTwo.mapPill}`}
-              style={{ left: `${plan.entrance.x}%`, top: `${plan.entrance.y}%` }}
+              className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full px-1.5 py-0.5 text-sn-3xs font-bold ${setTwo.mapPill}`}
+              style={{ left: `${entranceAt.x}%`, top: `${entranceAt.y}%` }}
             >
               Entrance
             </span>
           ) : null}
-          {plan.service_entrance ? (
+          {serviceAt ? (
             <span
-              className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full bg-[rgb(var(--color-ok))] px-1.5 py-0.5 text-[9px] font-bold text-[rgb(var(--sn-frame-bg))]"
-              style={{ left: `${plan.service_entrance.x}%`, top: `${plan.service_entrance.y}%` }}
+              className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full bg-[rgb(var(--color-ok))] px-1.5 py-0.5 text-sn-3xs font-bold text-[rgb(var(--sn-frame-bg))]"
+              style={{ left: `${serviceAt.x}%`, top: `${serviceAt.y}%` }}
             >
               Service
             </span>
           ) : null}
           {cocktail ? (
             <div
-              className="absolute flex items-start justify-start rounded-[var(--m-r-md)] border-2 border-dashed border-sn-accent/60 bg-[color:var(--surface-soft)] p-1.5 text-[9px] font-bold uppercase tracking-wider text-sn-accent"
+              className="absolute flex items-start justify-start rounded-[var(--m-r-md)] border-2 border-dashed border-sn-accent/60 bg-[color:var(--surface-soft)] p-1.5 text-sn-3xs font-bold uppercase tracking-wider text-sn-accent"
               style={{ left: `${cocktail.x - cocktail.w / 2}%`, top: `${cocktail.y - cocktail.h / 2}%`, width: `${cocktail.w}%`, height: `${cocktail.h}%` }}
             >
               {cocktail.label}
@@ -200,21 +165,6 @@ export function SeatPlanBody({ eventId, eventName, plan }: { eventId: string; ev
           ) : null}
           {objects.map((o) => (
             <PinMarker key={o.object_id} o={o} />
-          ))}
-          {placed.map((t) => (
-            <div
-              key={t.table_id}
-              className={`absolute flex h-[9%] min-h-9 w-[9%] min-w-9 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center bg-[color:var(--m-paper-2)] text-center ${
-                isRound(t.table_type) ? 'rounded-full' : 'rounded-[var(--m-r-sm)]'
-              }`}
-              style={{ left: `${t.x}%`, top: `${t.y}%`, transform: `translate(-50%, -50%) rotate(${t.rotation_deg}deg)` }}
-              title={`${t.label} · ${t.seated}/${t.capacity} seated`}
-            >
-              <span className="px-0.5 text-[9px] font-bold leading-tight text-ink">{t.label}</span>
-              <span className="text-[9px] tabular-nums text-[color:var(--m-slate-2)]">
-                {formatCount(t.seated)}/{formatCount(t.capacity)}
-              </span>
-            </div>
           ))}
         </div>
       ) : null}
@@ -229,27 +179,45 @@ export function SeatPlanBody({ eventId, eventName, plan }: { eventId: string; ev
 
       {/* The tables, as rows — the same row as every list */}
       <PartSec>{plan.dietary_included ? 'Covers per table' : 'Tables'}</PartSec>
+      {plan.dietary_included &&
+      units.some((u) => {
+        const seated = u.members.reduce((n, m) => n + m.src.seated, 0);
+        const meals = mealsOf(u.members.map((m) => m.src));
+        return meals !== null && Object.values(meals).reduce((n, v) => n + v, 0) < seated;
+      }) ? (
+        // A7-17: the covers add up to fewer than "seated" on some tables — say why, so the caterer does not plate short.
+        <PartNote icon={Info}>
+          Covers leave out seated guests the hosts did not count for you, so a table&rsquo;s covers can be fewer than its seated guests.
+        </PartNote>
+      ) : null}
       <PartList>
-        {[...placed, ...unplaced].map((t) => (
-          <PartRow
-            key={t.table_id}
-            title={t.label}
-            sub={`${formatCount(t.seated)} of ${formatCount(t.capacity)} seated${t.x === null ? ' · not placed on the map yet' : ''}`}
-            end={
-              plan.dietary_included && t.meal_counts ? (
-                <span className="flex max-w-[55%] flex-wrap justify-end gap-1">
-                  {Object.entries(t.meal_counts)
-                    .sort((a, b) => b[1] - a[1])
-                    .map(([pref, n]) => (
-                      <ShopPill key={pref}>
-                        {MEAL_LABELS[pref] ?? pref} · {n}
-                      </ShopPill>
-                    ))}
-                </span>
-              ) : null
-            }
-          />
-        ))}
+        {units.map((u) => {
+          const members = u.members.map((m) => m.src);
+          const seated = members.reduce((n, m) => n + m.seated, 0);
+          const meals = plan.dietary_included ? mealsOf(members) : null;
+          const joined = u.isLinked && members.length > 1 ? ` · ${members.map((m) => m.label).join(' & ')}` : '';
+          const notPlaced = members.every((m) => m.x === null || m.y === null) ? ' · not placed on the map yet' : '';
+          return (
+            <PartRow
+              key={u.key}
+              title={u.label}
+              sub={`${formatCount(seated)} of ${formatCount(u.capacity)} seated${notPlaced}${joined}`}
+              end={
+                meals ? (
+                  <span className="flex max-w-[55%] flex-wrap justify-end gap-1">
+                    {Object.entries(meals)
+                      .sort((a, b) => b[1] - a[1])
+                      .map(([pref, n]) => (
+                        <ShopPill key={pref}>
+                          {MEAL_LABELS[pref] ?? pref} · {n}
+                        </ShopPill>
+                      ))}
+                  </span>
+                ) : null
+              }
+            />
+          );
+        })}
       </PartList>
     </TheirEventPart>
   );

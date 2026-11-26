@@ -249,15 +249,24 @@ async function AdminPaymentsPage({ searchParams }: Props) {
   //
   // ⛔ NOTHING BELOW GATES ON THIS. It renders a card and nothing else: no row
   // is hidden, no button is disabled, and `decisive` is computed without it.
-  const receiptReads: Record<string, ReceiptReadRow> = {};
+  // A8·A-20: null = the reads were refused — the card says "couldn't read",
+  // never "Nobody has read this picture yet".
+  let receiptReads: Record<string, ReceiptReadRow> | null = {};
   if (payments.length > 0) {
-    const { data: reads } = await admin
+    const { data: reads, error: readsErr } = await admin
       .from('payment_receipt_reads')
       .select('payment_id,status,reference_matches,amount_matches,seen_references,seen_amounts,summary,error,created_at')
       .in('payment_id', payments.map((p) => p.payment_id))
       .order('created_at', { ascending: false });
-    for (const r of (reads ?? []) as unknown as ReceiptReadRow[]) {
-      if (!receiptReads[r.payment_id]) receiptReads[r.payment_id] = r;
+    if (readsErr) {
+      console.error('[supabase-error] app/admin/payments/page.tsx · from:payment_receipt_reads.select', readsErr);
+      receiptReads = null;
+    } else {
+      const byPayment: Record<string, ReceiptReadRow> = {};
+      for (const r of (reads ?? []) as unknown as ReceiptReadRow[]) {
+        if (!byPayment[r.payment_id]) byPayment[r.payment_id] = r;
+      }
+      receiptReads = byPayment;
     }
   }
 
@@ -277,7 +286,10 @@ async function AdminPaymentsPage({ searchParams }: Props) {
   //
   // Same function the guest-facing buy panel uses to PROMISE the priority, so
   // the promise and the queue position cannot drift apart.
-  const sameDayOrderIds = await fetchSameDayOrderIds(admin, payments);
+  // A8·A-20: null = the events read failed. The queue keeps its order without
+  // the same-day jump, and the "Event today" tile says it couldn't read.
+  const sameDayRead = await fetchSameDayOrderIds(admin, payments);
+  const sameDayOrderIds = sameDayRead ?? new Set<string>();
 
   // ── WHAT THE CARD MUST BE ABLE TO SAY (owner 2026-08-28) ──────────────────
   // "we should also know what they ordered and what event and what they will
@@ -357,7 +369,7 @@ async function AdminPaymentsPage({ searchParams }: Props) {
           <DeskHead here={here} />
 
           {nums ? <DeskNums nums={nums} sameDay={
-                readFailed
+                readFailed || sameDayRead === null
                   ? null
                   : payments.filter((p) => p.status === 'pending' && sameDayOrderIds.has(p.order_id)).length
               } /> : null}
@@ -666,14 +678,14 @@ async function fetchDuplicateExposure(
  * query, and never a join that could drop rows if it failed. Returns order_ids
  * rather than event_ids so the caller matches on what it already holds.
  *
- * Degrades to an EMPTY set on any failure: losing the same-day jump costs the
- * queue its ordering, which an admin can still work around by reading the event
- * date on the row. Throwing here would take down the payments console itself.
+ * Returns null on any failure (A8·A-20): the caller keeps the queue without the
+ * same-day jump, and the "Event today" tile says it couldn't read rather than
+ * printing 0. Throwing here would take down the payments console itself.
  */
 async function fetchSameDayOrderIds(
   admin: ReturnType<typeof createAdminClient>,
   payments: readonly PaymentJoined[],
-): Promise<Set<string>> {
+): Promise<Set<string> | null> {
   const out = new Set<string>();
   const byEvent = new Map<string, string[]>();
   for (const p of payments) {
@@ -690,7 +702,7 @@ async function fetchSameDayOrderIds(
       .select('event_id, event_date')
       .in('event_id', [...byEvent.keys()]);
     if (error) console.error('[supabase-error] app/admin/payments/page.tsx · from:events.select', error);
-    if (error || !Array.isArray(data)) return out;
+    if (error || !Array.isArray(data)) return null;
     for (const row of data) {
       const date = (row as { event_date?: string | null }).event_date ?? null;
       if (!isSameDayInManila(date)) continue;
@@ -700,7 +712,7 @@ async function fetchSameDayOrderIds(
     }
     return out;
   } catch {
-    return out;
+    return null;
   }
 }
 

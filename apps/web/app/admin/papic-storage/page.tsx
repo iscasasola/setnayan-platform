@@ -1,3 +1,4 @@
+import { readEveryPage } from '@/lib/read-every-page';
 import { HardDrive, CloudOff } from 'lucide-react';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -9,6 +10,7 @@ import {
   type StorageRow,
 } from '@/lib/papic-storage-telemetry';
 import { BackfillTilesButton } from './backfill-tiles-button';
+import { TILES_PER_PRESS } from '@/lib/papic-tile-backfill';
 import { OldPhotosButton } from './old-photos-button';
 import { listOldPhotos, type OldPhotoList } from '@/lib/old-photo-copies.server';
 import { OVERSIZED_BYTES, WEB_LONG_EDGE, formatBytes } from '@/lib/old-photo-copies';
@@ -49,16 +51,33 @@ export default async function PapicStoragePage() {
   await requireAdmin();
   const admin = createAdminClient();
 
-  const [photos, guests] = await Promise.all([
-    admin
-      .from('papic_photos')
-      .select('event_id, orig_bytes, display_bytes, tile_bytes, thumb_bytes')
-      .limit(ROW_CAP),
-    admin
-      .from('papic_guest_captures')
-      .select('event_id, orig_bytes, display_bytes, tile_bytes, thumb_bytes')
-      .limit(ROW_CAP),
+  // A8·F-21: each table is read page by page — one request is cut at the
+  // database's 1,000-row reply ceiling with `error: null`, so a single read
+  // undercounted while reading as measured. A read that stops at ROW_CAP says
+  // the numbers are a lower bound (`capped` below).
+  const [photosPaged, guestsPaged] = await Promise.all([
+    readEveryPage<Row>(
+      (from, to) =>
+        admin
+          .from('papic_photos')
+          .select('event_id, orig_bytes, display_bytes, tile_bytes, thumb_bytes')
+          .order('id')
+          .range(from, to),
+      ROW_CAP,
+    ),
+    readEveryPage<Row>(
+      (from, to) =>
+        admin
+          .from('papic_guest_captures')
+          .select('event_id, orig_bytes, display_bytes, tile_bytes, thumb_bytes')
+          .order('id')
+          .range(from, to),
+      ROW_CAP,
+    ),
   ]);
+  const refused = new Error('a page of the storage readout was refused');
+  const photos = photosPaged ? { data: photosPaged.rows, error: null } : { data: null, error: refused };
+  const guests = guestsPaged ? { data: guestsPaged.rows, error: null } : { data: null, error: refused };
 
   /**
    * ⚠ NEITHER READ'S ERROR WAS EVER BOUND, ON A PAGE WHOSE ONLY JOB IS
@@ -137,7 +156,7 @@ export default async function PapicStoragePage() {
   const portfolioRatio =
     totalMeasuredOrig > 0 ? totalMeasuredStillWeb / totalMeasuredOrig : null;
   const overCeiling = rows === null ? null : perEventRows.filter((e) => e.summary.overWebCopyCeiling).length;
-  const capped = measured.length >= ROW_CAP * 2;
+  const capped = photosPaged?.complete === false || guestsPaged?.complete === false;
 
   // Drive copies stranded past the retry ceiling (Papic storage PR-4). Each one
   // is a couple's full-res original that never reached their Google Drive after
@@ -183,7 +202,7 @@ export default async function PapicStoragePage() {
       <section data-papic-memory-lane="">
         <Sec
           title="Memory lane copies"
-          about="The 640px copy Memory lane renders. Photos taken before it existed fall back to the full-view copy — sharp, but about four times heavier than the tile needs. Runs up to 40 per press — press again if more remain."
+          about={`The 640px copy Memory lane renders. Photos taken before it existed fall back to the full-view copy — sharp, but about four times heavier than the tile needs. Each press makes up to ${formatCount(TILES_PER_PRESS)} copies, after you confirm — press again if more remain.`}
         />
         <BackfillTilesButton pending={pendingTiles} />
       </section>

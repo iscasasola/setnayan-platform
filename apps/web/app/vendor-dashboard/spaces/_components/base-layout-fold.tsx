@@ -164,7 +164,7 @@ function AddTables({ spaceId, run }: { spaceId: string; run: Run }) {
           }
         }}
       />
-      <p className="text-[12.5px] text-ink/70">Couples never see which table. You assign it.</p>
+      <p className="text-sn-sm text-ink/70">Couples never see which table. You assign it.</p>
     </div>
   );
 }
@@ -178,7 +178,7 @@ function DoorList({ doors, spaceId, run }: { doors: SpaceTables['doors']; spaceI
   return (
     <div className="space-y-2" data-doors={spaceId}>
       <h3 className="text-[14px] font-semibold text-ink">Doors</h3>
-      {doors.length === 0 ? <p className="text-[13.5px] text-ink/70">No doors yet.</p> : null}
+      {doors.length === 0 ? <p className="text-sn-md text-ink/70">No doors yet.</p> : null}
       <ul className="divide-y divide-ink/10">
         {doors.map((d) => (
           <SwipeToDelete key={d.id} as="li" word="Remove" label={`Remove ${doorWords(d)}`} onDelete={() => void run({ op: 'deleteDoor', id: d.id }, 'Door removed')}>

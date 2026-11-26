@@ -93,12 +93,40 @@ test('the migration FKs the subscription to a real guest and event, cascading on
   );
 });
 
-test('the seat pass mounts the push ask on the personal-pass render, not on every page load', () => {
+test('the seat pass mounts the push ask on the personal-pass render, behind the sender switch (A4-52)', () => {
   const src = seatPage();
   assert.ok(
     count(src, 'GuestPushPrompt') >= 1,
-    'the ask must actually be mounted on the Seat Pass — the whole point of C8 is that nothing asked before.',
+    'the ask stays wired on the Seat Pass — the whole point of C8 is that nothing asked before.',
   );
+  /* 🔕 Owner ruling, final check Add 34 (A4-52, 25 Nov 2026): "We'll let you know if your table changes" is a promise
+     nothing keeps — no code reads guest_push_subscriptions or sends anything — so the ask stays HIDDEN until a sender
+     exists. The mount is gated on TABLE_CHANGE_ALERTS_SEND (lib/table-change-alerts.ts). */
+  assert.match(src, /\{TABLE_CHANGE_ALERTS_SEND \? <GuestPushPrompt \/> : null\}/, 'the ask is mounted without the sender switch');
+});
+
+test('A4-52 · the alerts ask is hidden while nothing sends table-change alerts', () => {
+  const WEB = resolve(HERE, '..', '..', '..');
+  const readers: string[] = [];
+  const walk = (dir: string) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, entry.name);
+      if (entry.isDirectory()) {
+        if (entry.name !== 'node_modules' && entry.name !== '.next') walk(full);
+      } else if (/\.(ts|tsx)$/.test(entry.name) && !/\.test\.tsx?$/.test(entry.name)) {
+        if (read(full).includes("from('guest_push_subscriptions')")) readers.push(full);
+      }
+    }
+  };
+  walk(join(WEB, 'app'));
+  walk(join(WEB, 'lib'));
+  const writer = join(HERE, 'actions', 'guest-push-actions.ts');
+  assert.ok(readers.includes(writer), 'anti-vacuity: the scan no longer finds the writer');
+  const sender = readers.filter((f) => f !== writer);
+  const flag = read(join(WEB, 'lib', 'table-change-alerts.ts'));
+  if (sender.length === 0) {
+    assert.match(flag, /export const TABLE_CHANGE_ALERTS_SEND = false;/, 'the ask is shown while nothing reads guest_push_subscriptions to send an alert');
+  }
 });
 
 test('the push ask is a graceful, one-time, non-blocking banner — never a re-prompt loop', () => {

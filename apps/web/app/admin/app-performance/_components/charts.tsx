@@ -199,6 +199,7 @@ export function LeaderRow({
   pct,
   inverseGood = false,
   insufficient = false,
+  notComputed = false,
   note,
 }: {
   label: string;
@@ -207,6 +208,8 @@ export function LeaderRow({
   /** True when a RISING number is bad (reports). */
   inverseGood?: boolean;
   insufficient?: boolean;
+  /** A8·H-8: the comparison is not computed at all — said as such, never "not enough data". */
+  notComputed?: boolean;
   note?: string;
 }) {
   const shown = pct === null ? null : Math.max(-2, Math.min(2, pct));
@@ -247,7 +250,9 @@ export function LeaderRow({
           color: insufficient || shown === null ? 'var(--m-slate-3)' : barColor,
         }}
       >
-        {insufficient || pct === null
+        {notComputed
+          ? 'not computed'
+          : insufficient || pct === null
           ? 'not enough data'
           : `${pct > 0 ? '+' : ''}${Math.round(pct * 100)}%`}
       </span>
@@ -287,7 +292,8 @@ export function ChartCard({
   className = '',
 }: {
   title: string;
-  pill: 'live' | 'wiring';
+  /** null = no pill: a card whose read failed is not "Live" (A8·H-1). */
+  pill: 'live' | 'wiring' | null;
   source: string;
   children: ReactNode;
   muted?: boolean;
@@ -303,7 +309,7 @@ export function ChartCard({
         <h3 className="text-sm font-semibold" style={{ color: 'var(--m-ink)' }}>
           {title}
         </h3>
-        <StatusPill state={pill} />
+        {pill ? <StatusPill state={pill} /> : null}
       </div>
       <p className="mb-3 font-mono text-[10px] uppercase tracking-[0.12em]" style={{ color: 'var(--m-slate-2)' }}>
         {source}
@@ -313,20 +319,26 @@ export function ChartCard({
   );
 }
 
-/** ▲/▼ %Δ chip vs the previous equal-length window. */
+/**
+ * ▲/▼ %Δ chip. A8·H-16: every caller names what it compares against
+ * ("vs last month", "vs the 90 days before") — never a bare "vs prev period".
+ */
 export function DeltaPct({
   current,
   previous,
+  against,
   inverseGood = false,
 }: {
   current: number;
   previous: number;
+  /** What `previous` is, in words: "vs last month", "vs the 90 days before". */
+  against: string;
   inverseGood?: boolean;
 }) {
   if (previous < 1) {
     return (
       <span className="text-[11px]" style={{ color: 'var(--m-slate-3)' }}>
-        no prior-period base
+        nothing to compare {against}
       </span>
     );
   }
@@ -341,7 +353,7 @@ export function DeltaPct({
         color: good ? '#2E4A2A' : '#7C3A22',
       }}
     >
-      {positive ? '▲' : '▼'} {Math.abs(Math.round(pct * 100))}% vs prev period
+      {positive ? '▲' : '▼'} {Math.abs(Math.round(pct * 100))}% {against}
     </span>
   );
 }

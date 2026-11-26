@@ -80,7 +80,8 @@ test('3 · every peso is read from the catalogue — none is typed', () => {
     assert.deepEqual(typed, [], `${f} types a peso figure: ${typed.join(', ')}`);
   }
   const reads = SRC['_pricing-reads.ts'];
-  assert.match(reads, /fetchV2CustomerCatalog\(\)/, 'the customer catalogue is no longer read');
+  // `fetchV2CustomerCatalogRead` is the same read with its failure kept (final check A1-100).
+  assert.match(reads, /fetchV2CustomerCatalog(?:Read)?\(\)/, 'the customer catalogue is no longer read');
   assert.match(reads, /\.from\('platform_retail_catalog_v2'\)/, 'the parts + AI bands read is gone');
   assert.match(reads, /\.in\('service_code', \[\.\.\.HUB_PART_SKUS, \.\.\.aiCodes\]\)/);
   for (const code of ['COUPLE_WEBSITE_PRO', 'LIVE_STUDIO', 'PATIKTOK_COMPILER', 'PAPIC_ADDON_THANK_YOU', 'PAKANTA']) {

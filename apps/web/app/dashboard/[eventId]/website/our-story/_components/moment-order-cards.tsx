@@ -641,7 +641,7 @@ export function MomentPhotos({
         </>
       ) : (
         <div className="text-center">
-          <LoveStoryProLine storeShell={sheet.storeShell} href={sheet.proHref} price={sheet.proPrice} />
+          <LoveStoryProLine storeShell={sheet.storeShell} href={sheet.proHref} price={sheet.proPrice} planUnread={sheet.planUnread} />
         </div>
       )}
       {/* Said, never silent: what the slots hold is kept when they close. */}

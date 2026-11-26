@@ -146,7 +146,8 @@ export { DEAD_LINK_WORDS } from './dead-link-words';
  * "HOME PAGE v3 APPROVED" — "the supplier's Home opening on Shop with one 'Open the Shop dashboard' door"):
  *   · a host / guest / admin → Home on its Events section, `?hub=1` — so the board's auto-jump into a single
  *     wedding and its empty-console bounce never carry them off the profile page;
- *   · a supplier (a coordinator is a supplier account) → Home on its Shop section.
+ *   · a supplier (a coordinator is a supplier account) → the same Home (Unihome v5, 23 Nov, supersedes "opening on Shop");
+ *     the shop is Home's Shop part with its "Open shop dashboard" door.
  * Both addresses are Home's own (`homeSegHref`), never spelled here.
  *
  * Every door goes through this: the password sign-in (`signInDestination`, lib/sign-in-landing.ts, which delegates
@@ -173,5 +174,9 @@ export function landingForAccount(
     const business = at.hasShop ?? accountType === 'vendor';
     return business ? doorShopHomeHref() : doorOpenShopHref(at.door);
   }
-  return accountType === 'vendor' ? homeSegHref('shop') : homeSegHref('events');
+  // 🏠 UNIHOME (owner, DECISION_LOG 2026-11-23 "UNIHOME v5 APPROVED", built #8239): ONE signed-in Home for the whole
+  // account, its Shop a part of that page ("Open shop dashboard"). A supplier used to land on `?seg=shop` — the full
+  // old Shop section — so a supplier who also hosts (the App Review account) never saw their events. Every account
+  // type now lands on Home's top; `accountType` still decides the door branch above.
+  return homeSegHref('events');
 }

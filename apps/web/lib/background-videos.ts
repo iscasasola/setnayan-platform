@@ -124,10 +124,13 @@ async function rowToSlot(row: Row, publishedOnly: boolean): Promise<BackgroundVi
 
 async function fetchRows(): Promise<Row[]> {
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from('homepage_background_videos')
     .select(SELECT_COLS)
     .order('slot', { ascending: true });
+  // A8·G-12: a refused read THROWS here, so it can never arrive as "no videos". The public homepage still
+  // degrades to nothing (its catch below); the admin editor says it could not read.
+  if (error) throw new Error(`homepage_background_videos read refused: ${error.message}`);
   return (data as Row[] | null) ?? [];
 }
 
@@ -160,8 +163,17 @@ export async function fetchPublishedBackgroundVideos(): Promise<PublishedBackgro
   return { main, pillars };
 }
 
-/** Full state (incl. drafts) for the admin editor — all six slots, ordered. */
-export async function fetchBackgroundVideosForAdmin(): Promise<BackgroundVideoSlot[]> {
-  const rows = await fetchRows();
+/**
+ * Full state (incl. drafts) for the admin editor — all six slots, ordered.
+ * `null` = the read failed (A8·G-12): the page says "Couldn't read" and draws no editor over an unread state.
+ */
+export async function fetchBackgroundVideosForAdmin(): Promise<BackgroundVideoSlot[] | null> {
+  let rows: Row[];
+  try {
+    rows = await fetchRows();
+  } catch (e) {
+    console.error('[background-videos] admin read failed', e);
+    return null;
+  }
   return Promise.all(rows.map((r) => rowToSlot(r, false)));
 }

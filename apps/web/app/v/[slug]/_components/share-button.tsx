@@ -3,6 +3,10 @@
 import { useState } from 'react';
 import { Check, Share } from 'lucide-react';
 import { shareableShopUrl } from '@/lib/shop-back';
+import { useToast } from '@/app/_components/toast/toast-provider';
+
+/** A share that could neither open the share sheet nor copy (final check A1-127): said, with the way to try again. */
+export const SHARE_FAILED_MESSAGE = 'Couldn’t copy the link on this device. Press Share to try again.';
 
 /**
  * Share the vendor page. Uses the native share sheet where available
@@ -21,6 +25,7 @@ export function ShareButton({
   iconOnly?: boolean;
 }) {
   const [copied, setCopied] = useState(false);
+  const toast = useToast();
 
   async function onShare() {
     // The shop page — never where THIS visitor came from (`?src=` / `?event=`): a friend's copy is a fresh arrival.
@@ -30,16 +35,21 @@ export function ShareButton({
       try {
         await nav.share({ title, url });
         return;
-      } catch {
-        // user cancelled or share failed — fall through to copy
+      } catch (e) {
+        // The person closed the share sheet: that is their answer, not a failure.
+        if (e instanceof DOMException && e.name === 'AbortError') return;
+        // The share itself failed — fall through to copy.
       }
     }
+    // 🔒 A press always ends in a result the person can see (A1-127): copied, or a plain reason. A phone with no
+    // clipboard used to show "Copied" for a copy that never happened; a refused copy did nothing at all.
     try {
-      await nav?.clipboard?.writeText(url);
+      if (!nav?.clipboard?.writeText || !url) throw new Error('no clipboard');
+      await nav.clipboard.writeText(url);
       setCopied(true);
       setTimeout(() => setCopied(false), 1600);
     } catch {
-      /* no-op */
+      toast.error(SHARE_FAILED_MESSAGE);
     }
   }
 

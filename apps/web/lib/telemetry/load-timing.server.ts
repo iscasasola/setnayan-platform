@@ -101,6 +101,9 @@ export const LOAD_READ_CAP = 20_000;
 const SELECT =
   'created_at,kind,route,total_ms,server_ms,download_ms,render_ms,lcp_ms,inp_ms,outcome,device,connection,signed_in,build_sha,weight';
 
+/** The errors[] entry that means the rows themselves were not read (A8·H-7) — a card then says so, never "0 measured". */
+export const LOAD_TIMES_UNREAD = 'load times unread';
+
 export type LoadTimeRead = LoadTimeSummary & {
   targets: Record<string, number>;
   errors: string[];
@@ -129,11 +132,11 @@ export async function fetchLoadTimeStats(minN: number, now: Date = new Date()): 
           .limit(LOAD_READ_CAP);
         if (error) {
           logQueryError('lib/telemetry/load-timing.server.ts: app_load_timings', error);
-          return { rows: [], error: 'load times unread' };
+          return { rows: [], error: LOAD_TIMES_UNREAD };
         }
         return { rows: (data ?? []) as LoadRow[], error: null };
       } catch {
-        return { rows: [], error: 'load times unread' };
+        return { rows: [], error: LOAD_TIMES_UNREAD };
       }
     })(),
   ]);

@@ -211,6 +211,41 @@ export async function fetchTables(
   }));
 }
 
+/**
+ * 🔒 The seat plan a GUEST'S page may hold (final check, area 4 — A4-34, review on #8329). The same order and the same
+ * capacity/coordinate clean-up as `fetchTables`, but only the columns the guest map draws: never `qr_token` (a table's
+ * QR opens that table's guest list), `qr_published_at`, the linked-unit fields or `is_vip`. Every guest-facing page —
+ * `/[slug]/seat`, `/find-seat`, `/find-my-table` — reads tables through this, never through `fetchTables`, because
+ * these rows are handed to a client component and so reach the browser. Throws on a refused read, like `fetchTables`.
+ * (The column list is written in the select, not exported: it is a deliberately narrow read, not the canonical set.)
+ */
+export async function fetchPublicTables(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<EventTableRow[]> {
+  const { data, error: publicTablesErr } = await supabase
+    .from('event_tables')
+    .select('table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos')
+    .eq('event_id', eventId)
+    .order('sort_order', { ascending: true })
+    .order('created_at', { ascending: true });
+  if (publicTablesErr) throw new Error(`fetchPublicTables failed: ${publicTablesErr.message}`);
+  return sortTables((data ?? []).map((t) => {
+    const r = t as EventTableRow;
+    return {
+      table_id: r.table_id,
+      public_id: r.public_id,
+      event_id: r.event_id,
+      table_label: r.table_label,
+      table_type: r.table_type,
+      sort_order: r.sort_order,
+      capacity: sanitizeCapacity(r.capacity),
+      x_pos: sanitizePersistedCoord(r.x_pos),
+      y_pos: sanitizePersistedCoord(r.y_pos),
+    };
+  }));
+}
+
 export async function fetchAssignments(
   supabase: SupabaseClient,
   eventId: string,
@@ -4254,4 +4289,17 @@ export function solveAutoLayout(input: SolveLayoutInput): SolveLayoutResult {
     altPlacedAtFloor = Object.keys(floor.placed).length;
   }
   return { placed: primary.placed, unplaced: primary.unplaced, altPlacedAtFloor };
+}
+
+/**
+ * 🪑 HOW MANY GUESTS STILL NEED A SEAT — the ONE count every seat surface shows (final check A2-E4 / A2-D2: the
+ * desktop chip, its tooltip, the phone line and the entrance chart each counted their own way and disagreed).
+ * The rule is the seat plan's own: not declined and in no chair. A pending guest holds a seat until a person releases
+ * it (CLAUDE.md §4 Guest); a declined guest never does. The caller passes the guests the seat plan offers a seat to
+ * (requests, and "after party only" guests from `readNoSeatGuestIds`, already off the list).
+ */
+export function countStillToSeat(
+  guests: readonly { rsvp_status?: string | null; seated_table_id?: string | null }[],
+): number {
+  return guests.filter((g) => g.rsvp_status !== 'declined' && !g.seated_table_id).length;
 }

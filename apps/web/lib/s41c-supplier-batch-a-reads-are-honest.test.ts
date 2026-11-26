@@ -117,12 +117,15 @@ test('frontdoor/data.ts: both vendor_profiles reads are logged on error (searchL
   assert.ok(loadAt < loadLogAt && loadLogAt < loadReturnAt);
 });
 
-test('use-live-scene.ts: a refused public_venue_scene call is logged before the "not news" early return', () => {
+test('use-live-scene.ts: a refused scene read is logged before the "not news" early return', () => {
+  // A7-01 (final check 25 Nov): the hook asks /api/venue-scene (the page's own joins) instead of the raw RPC; a non-2xx
+  // answer and a thrown fetch are both logged before the "not news" return.
   const s = src('app/[slug]/venue/_components/use-live-scene.ts');
-  const rpcAt = indexAfter(s, "supabase.rpc('public_venue_scene'");
-  const logAt = indexAfter(s, 'logQueryError(', rpcAt);
-  const returnAt = indexAfter(s, 'if (cancelled || error || !data) return;', logAt);
-  assert.ok(rpcAt < logAt && logAt < returnAt);
+  const askAt = indexAfter(s, 'await fetch(url');
+  const logAt = indexAfter(s, 'logQueryError(', askAt);
+  const thrownLogAt = indexAfter(s, 'logQueryError(', logAt + 1);
+  const returnAt = indexAfter(s, 'if (cancelled || !data) return;', thrownLogAt);
+  assert.ok(askAt < logAt && logAt < thrownLogAt && thrownLogAt < returnAt);
 });
 
 test('admin actions.ts sites (corrections, event-types, verify): the dropped error is now logged', () => {

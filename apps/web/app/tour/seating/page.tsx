@@ -36,7 +36,7 @@ import { coupleNamesLine } from '@/lib/typed-names';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'The seating · A real wedding on Setnayan',
+  title: 'The seating · A sample wedding on Setnayan',
   description:
     'See how every guest finds their table on Setnayan — type a name and the seat lights up on the floor plan. No sign-up, nothing saved.',
   alternates: { canonical: '/tour/seating' },
@@ -126,11 +126,14 @@ export default async function TourSeatingPage() {
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
           {couple} arranged{' '}
-          {tableCount > 0 ? (
+          {/* A refused guest read never prints "for 0 guests" (final check A1-007). */}
+          {tableCount > 0 && !guestsUnreadable ? (
             <>
               <span className="font-medium text-[#1B1A17]">{formatCount(tableCount)} tables</span> for{' '}
               <span className="font-medium text-[#1B1A17]">{formatCount(seatedCount)} guests</span>
             </>
+          ) : tableCount > 0 ? (
+            <span className="font-medium text-ink">{formatCount(tableCount)} tables</span>
           ) : (
             'their reception floor'
           )}
@@ -180,7 +183,7 @@ export default async function TourSeatingPage() {
         <h2 className="font-serif text-2xl text-[#1B1A17] sm:text-3xl">Seat your own crowd.</h2>
         <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
           Build your floor plan on Setnayan and every guest gets a clear path to their table —
-          free, in minutes. Set na &rsquo;yan.
+          free. Set na &rsquo;yan.
         </p>
         <Link
           href={routes.start()}

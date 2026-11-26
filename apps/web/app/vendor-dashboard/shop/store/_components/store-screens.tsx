@@ -210,7 +210,7 @@ export function StoreFront({ d }: { d: StoreData }) {
       </p>
       {/* Phone: the list fades out behind the thumb row, so the search button never sits on a tile's Install button —
           a tile under the row is faded until it is scrolled clear; the column already ends with the row's room. */}
-      <div aria-hidden className="pointer-events-none fixed inset-x-0 bottom-0 z-[4] tab:hidden" style={{ height: 'var(--sn-thumb-clear)', background: 'linear-gradient(to top, var(--sn-canvas) 55%, transparent)' }} data-store-fade="" />
+      <div aria-hidden data-safe-x="" className="pointer-events-none fixed inset-x-0 bottom-0 z-[4] tab:hidden" style={{ height: 'var(--sn-thumb-clear)', background: 'linear-gradient(to top, var(--sn-canvas) 55%, transparent)' }} data-store-fade="" />
       <StoreThumb name="front" placeholder="Search the Toolkit" />
     </>
   );

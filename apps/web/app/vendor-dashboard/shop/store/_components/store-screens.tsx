@@ -183,9 +183,13 @@ export function StoreFront({ d }: { d: StoreData }) {
         Included
       </h2>
       <p className="text-sn-base text-[color:var(--m-slate-2)]">Free with every shop.</p>
-      {shelves.map((sh) => (
-        <FrontShelf key={sh} shelf={sh} d={d} tools={tools.filter((r) => !isPaidStoreTool(r.tool.key))} count={shelfItems(items, sh).filter((i) => !(i.kind === 'widget' && isPaidStoreTool(i.key))).length} />
-      ))}
+      {/* From the tablet line the shelves sit side by side as blocks — two per row at 768, three at 1280 — each with
+          its own title, "See all" and tiles, so a one-tile shelf no longer leaves a wide empty row (final check B12). */}
+      <div className="tab:grid tab:grid-cols-2 tab:gap-x-4 lg:grid-cols-3" data-store-shelves="">
+        {shelves.map((sh) => (
+          <FrontShelf key={sh} shelf={sh} d={d} tools={tools.filter((r) => !isPaidStoreTool(r.tool.key))} count={shelfItems(items, sh).filter((i) => !(i.kind === 'widget' && isPaidStoreTool(i.key))).length} />
+        ))}
+      </div>
       {paid.length > 0 ? (
         <section className="mt-[18px]" data-store-block="" data-store-with-plan="">
           <h2 className="hc-k2">With a plan</h2>
@@ -204,6 +208,9 @@ export function StoreFront({ d }: { d: StoreData }) {
       <p hidden data-store-none="" className="py-6 text-center text-sn-lg text-[color:var(--m-slate-2)]">
         Nothing in the Toolkit matches that.
       </p>
+      {/* Phone: the list fades out behind the thumb row, so the search button never sits on a tile's Install button —
+          a tile under the row is faded until it is scrolled clear; the column already ends with the row's room. */}
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 bottom-0 z-[4] tab:hidden" style={{ height: 'var(--sn-thumb-clear)', background: 'linear-gradient(to top, var(--sn-canvas) 55%, transparent)' }} data-store-fade="" />
       <StoreThumb name="front" placeholder="Search the Toolkit" />
     </>
   );

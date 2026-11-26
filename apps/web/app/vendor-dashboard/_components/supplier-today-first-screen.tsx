@@ -266,8 +266,6 @@ export type SupplierTodayFirstScreenProps = {
   setup?: ReactNode;
   /** 🔍 The thumb row (`TodayThumbRow`: Search today · Show ▾) — drawn by the page. */
   thumb?: ReactNode;
-  /** 🖥 The side pane's three small cards (`TodayShopMinis`: Opened · Asked · Booked) — from the stats already read. */
-  minis?: ReactNode;
   /**
    * 📋 TODAY v2 (owner 18 Nov, `Today, one task` v2): the Needs-you rows drawn by `TodayV2Needs` — quick rows answered
    * in place, bigger ones opening ONE focused screen. Given → it replaces the jumping rows below; the pinned heading
@@ -316,7 +314,6 @@ export function SupplierTodayFirstScreen({
   library = false,
   setup = null,
   thumb = null,
-  minis = null,
   needsRows = null,
   nextBadge = null,
   grow = null,
@@ -360,7 +357,8 @@ export function SupplierTodayFirstScreen({
           className={
             setup
               ? 'hc-k2'
-              : 'hc-k2 sticky top-0 z-[5] -mx-4 min-h-11 px-4 sm:-mx-6 sm:px-6'
+              : // From the computer width the band starts at the same gutter as the rows under it (final check B4).
+                'hc-k2 sticky top-0 z-[5] -mx-4 min-h-11 px-4 sm:-mx-6 sm:px-6 lg:mx-0 lg:px-0'
           }
           // 🧼 THE CLEAN LOOK (owner 17 Nov, `dashboards_clean_look_2026-11-16`): the title sits ON the page — no band,
           // no line under it, no ⚙ (the one ⚙ stays in the header). It still pins (owner 10 Nov), so it wears the
@@ -497,7 +495,8 @@ export function SupplierTodayFirstScreen({
             rowIcon="shop"
           />
           <TodayRow href="/vendor-dashboard/shop#analytics" label="How is business" line={business?.line ?? 'Views, asks and bookings'} marker="business" rowIcon="chart" />
-          {minis ? <div data-today-side-minis="">{minis}</div> : null}
+          {/* The Opened · Asked · Booked cards that sat here were the same counts as the row above (final check B4):
+              gone. How is business still opens the business view. */}
           {library ? (
             <TodayRow
               href={INSPIRATION_LIBRARY_HREF}

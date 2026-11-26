@@ -37,6 +37,7 @@ import {
   TemplateSection,
 } from '@/app/_components/template-rows';
 import { SubmitButton } from '@/app/_components/submit-button';
+import { LinkPickMenu } from '@/app/_components/link-pick-menu';
 import { addVendorFromFit } from './actions';
 
 type Props = {
@@ -272,23 +273,19 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
           </div>
         ) : (
           <TemplateSection label="Check against your event" first data="fit-event">
-            <div className="flex flex-wrap gap-2">
-              {hostEvents.map((e) => {
-                const on = activeEvent?.event_id === e.event_id;
-                return (
-                  <Link
-                    key={e.event_id}
-                    href={`${nextPath}?event=${encodeURIComponent(e.event_id)}`}
-                    aria-current={on ? 'true' : undefined}
-                    className={`inline-flex min-h-11 items-center rounded-full border px-4 text-[14px] font-medium ${
-                      on ? 'border-transparent bg-ink text-cream' : 'border-[color:var(--m-line)] text-ink hover:bg-[color:var(--m-paper-2)]'
-                    }`}
-                  >
-                    {e.display_name ?? 'Your event'}
-                  </Link>
-                );
-              })}
-            </div>
+            {/* One dropdown showing the picked event, whatever the count (final check B17 · A5-G1-15): a sheet on a
+                phone, a list on a computer. Each choice is an address, so the page stays server-rendered. */}
+            <LinkPickMenu
+              label="Your event"
+              value={activeEvent?.event_id ?? null}
+              dataAttr="data-fit-event-pick"
+              className="w-full tab:w-auto"
+              options={hostEvents.map((e) => ({
+                key: e.event_id,
+                label: e.display_name ?? 'Your event',
+                href: `${nextPath}?event=${encodeURIComponent(e.event_id)}`,
+              }))}
+            />
 
             {verdictChecks ? (
               <div className="mt-4">

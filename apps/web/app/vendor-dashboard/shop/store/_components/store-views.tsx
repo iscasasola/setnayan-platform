@@ -349,7 +349,8 @@ export function StoreShelfRow({ title, count, href, children, data }: { title: s
           <ChevronRight aria-hidden className="h-4 w-4" strokeWidth={2} />
         </Link>
       </h2>
-      <ul className="sn-glide-x -mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none]" data-store-list="">
+      {/* Side by side from the tablet line (B12): the row stays inside its block, never bleeding into the next. */}
+      <ul className="sn-glide-x -mx-4 flex snap-x scroll-px-4 gap-2 overflow-x-auto px-4 pb-2 [scrollbar-width:none] tab:mx-0 tab:scroll-px-0 tab:px-0" data-store-list="">
         {children}
       </ul>
     </section>

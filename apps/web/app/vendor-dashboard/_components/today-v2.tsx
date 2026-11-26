@@ -475,7 +475,7 @@ export function TodayGrow({ stage }: { stage: GrowStage | null }) {
             <i
               key={n}
               className="h-1.5 flex-1 rounded-full"
-              style={{ background: n < stage.n ? 'rgb(var(--color-ok))' : n === stage.n ? 'rgb(var(--sn-accent-rgb, 194 78 37))' : 'rgb(var(--color-ink) / 0.08)' }}
+              style={{ background: n < stage.n ? 'rgb(var(--color-ok))' : n === stage.n ? 'rgb(var(--color-mulberry))' : 'rgb(var(--color-ink) / 0.08)' }}
             />
           ))}
         </span>

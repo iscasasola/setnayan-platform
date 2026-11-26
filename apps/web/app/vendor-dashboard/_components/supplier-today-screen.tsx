@@ -6,7 +6,7 @@ import type { SupplierTodayView } from '@/lib/supplier-today-view';
 import type { EventYouRun } from '@/lib/events-you-run';
 import { SupplierTodayFirstScreen, type TodayOutcome } from './supplier-today-first-screen';
 import { TodayCover } from './today-cover';
-import { TodayStats, TodayShopMinis } from './today-stats';
+import { TodayStats } from './today-stats';
 
 type Act = (formData: FormData) => void | Promise<void>;
 
@@ -135,7 +135,6 @@ export function SupplierTodayScreen({
           ) : null
         }
         thumb={thumb}
-        minis={<TodayShopMinis stats={view.stats} />}
         needsRows={v2?.needsRows ?? null}
         nextBadge={v2?.nextBadge ?? null}
         grow={v2?.grow ?? null}

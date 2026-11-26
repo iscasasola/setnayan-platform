@@ -106,7 +106,10 @@ const REGISTRY = ['lib/notifications.ts', 'lib/notification-emit.ts'];
 // engine (J2, #7825) adds the same seal_awarded key, so it shares that one row.
 // 48 → 47 on 2026-11-17: J3 (#7819) ships the card_badge_earned emitter (lib/card-badges.server.ts announce) and
 // takes that row out.
-const EXPECTED_BASELINE_ROWS = 47;
+// 47 → 48 on 2026-11-26: sponsors join the guest list (owner, brief Add 41; migration 20271363480132). The
+// Sponsors page writes `guests`; `event_sponsors` is KEPT as a READ-ONLY record by the owner's order (not dropped),
+// so it has no writer on purpose. Its row leaves when the owner retires the table.
+const EXPECTED_BASELINE_ROWS = 48;
 
 function walk(dir: string, out: string[]) {
   for (const name of fs.readdirSync(dir)) {

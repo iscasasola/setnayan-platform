@@ -31,7 +31,7 @@ test('the app claims the same domain for passwords as for links', () => {
   const xml = readFileSync(ENT, 'utf8');
   const domains = xml.match(/<key>com\.apple\.developer\.associated-domains<\/key>\s*<array>([\s\S]*?)<\/array>/);
   assert.ok(domains, 'associated-domains entitlement exists');
-  const entries = [...domains[1].matchAll(/<string>([^<]+)<\/string>/g)].map((m) => m[1]);
+  const entries = [...(domains[1] ?? "").matchAll(/<string>([^<]+)<\/string>/g)].map((m) => m[1]);
   assert.ok(entries.includes('applinks:www.setnayan.com'));
   assert.ok(entries.includes('webcredentials:www.setnayan.com'), 'webcredentials claim for the sign-in domain');
 });

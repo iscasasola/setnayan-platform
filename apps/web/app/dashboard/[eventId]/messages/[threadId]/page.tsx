@@ -68,6 +68,7 @@ import { formatCount } from '@/lib/format-number';
 import { MarkReadWhenShown } from '@/app/vendor-dashboard/messages/[threadId]/_components/mark-read-when-shown';
 import { displayLogoUrl } from '@/lib/uploads';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
+import { fetchEventViewer } from '@/lib/event-viewer.server';
 
 export const metadata = { title: 'Thread' };
 
@@ -104,6 +105,10 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
 
   const thread = await fetchThreadById(supabase, threadId);
   if (!thread || thread.event_id !== eventId) notFound();
+  // A2-H3: only a host books or pays (owner 21 Nov "no booking, no paying"). Who the viewer is, started now and read
+  // where Book and the pay card are worked out — the same reader and rule as the Suppliers page (`fetchEventViewer` → `isCouple`).
+  // A failed read fails CLOSED: no Book and no Pay drawn (the server refuses a non-host anyway).
+  const viewerRead = fetchEventViewer(supabase, eventId, user.id).catch(() => null);
 
   // ═══ EVERY READ BELOW STARTS AT ONCE (perf, 2026-09-29) ══════════════════
   // This page used to make its database trips ONE AFTER ANOTHER — event date,
@@ -245,6 +250,8 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
         );
       }
     }
+    // A2-H3: only a host books — a non-host is handed no lock target, so the stream draws no Book.
+    if (!((await viewerRead)?.isCouple ?? false)) quoteLockTarget = null;
     return { workspaceHref, quoteLockTarget };
   })();
 
@@ -327,7 +334,13 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
       otherName: vendorLabel,
     });
     let couplePay: React.ComponentProps<typeof ChatMessageStream>['couplePay'] = null;
-    if (bookedMoney.step.kind !== 'not_booked' && bookedMoney.eventVendorId && bookedMoney.deposit) {
+    // A2-H3: only a host pays — a non-host is handed no pay card ("Amount to pay").
+    if (
+      bookedMoney.step.kind !== 'not_booked' &&
+      bookedMoney.eventVendorId &&
+      bookedMoney.deposit &&
+      ((await viewerRead)?.isCouple ?? false)
+    ) {
       let payMethods: CoupleFacingMethod[] = [];
       let payMethodsState: CouplePayMethodsState = 'unreadable';
       try {
@@ -1011,7 +1024,9 @@ export default async function CoupleThreadPage({ params, searchParams }: Props) 
             shopLogoUrl={shopLogoUrl}
             eventDate={eventDate}
             standing={threadStanding}
-            decisionPayments={decisionPayments}
+            // A2-H2: a viewer whose amounts the database hides gets no payment facts at all — they were read with the
+            // admin client, past the per-column close (lib/event-vendor-money.ts), so they never reach that viewer.
+            decisionPayments={chatPins.streamMasked ? [] : decisionPayments}
             initialView={initialView}
             lockHandshake={lockHandshake}
             bookedStep={bookedMoney.step}

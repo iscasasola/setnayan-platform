@@ -78,90 +78,90 @@ export { scoreUgatMatch } from './data-pure';
 
 /* ── the nine live counts that fill the type nodes ── */
 export interface UgatCounts {
-  user: number;
-  event: number;
-  guest: number;
+  user: number | null;
+  event: number | null;
+  guest: number | null;
   /** VERIFIED, publishable vendors — the marketplace predicate (reused). */
-  vendor: number;
-  service: number;
-  order: number;
-  thread: number;
+  vendor: number | null;
+  service: number | null;
+  order: number | null;
+  thread: number | null;
   /** Active subscriptions + summed token balances (a composite billing count). */
-  billing: number;
+  billing: number | null;
   /** Taxonomy: folders · tiles · leaves · refinement sets (leaf count as the node number). */
-  taxonomy: number;
+  taxonomy: number | null;
   /** Samahan: non-archived communities (the live groups). */
-  community: number;
+  community: number | null;
   /** Papic: provisioned paparazzi seats — the unit of entitlement. */
-  papic: number;
+  papic: number | null;
   /** Person: durable identities. Reads 0 until the counsel-gated spine lands. */
-  person: number;
+  person: number | null;
   /** Package: what vendors have authored for sale. */
-  package: number;
+  package: number | null;
   /** Proposal: offers made to a specific event. */
-  proposal: number;
+  proposal: number | null;
   /** Contract: signed artefacts. */
-  contract: number;
+  contract: number | null;
   /** Availability: bookable pools. */
-  availability: number;
+  availability: number | null;
   /** Geography: the shared region vocabulary. */
-  geography: number;
+  geography: number | null;
   /** Seat Plan: tables laid out in the room. */
-  seatplan: number;
+  seatplan: number | null;
   /** Run of Show: schedule blocks in the day. */
-  runofshow: number;
+  runofshow: number | null;
   /** Live Studio: claimed camera operators. */
-  livestudio: number;
+  livestudio: number | null;
   /**
    * Mood Board library: EVERY asset in the pool — admin placeholders, generated
    * attire figures, florals AND suppliers' own gallery photos. Not "supplier
    * photos uploaded"; for that slice, filter on
    * asset_type = 'supplier_gallery'.
    */
-  gallery: number;
+  gallery: number | null;
   /**
    * Design sign-offs: EVERY per-part finalization handshake ever opened,
    * including closed rounds (declined / cancelled / expired). Not "parts
    * currently settled"; for that slice, filter on state = 'agreed'.
    */
-  signoff: number;
+  signoff: number | null;
   /**
    * Colour access: every LIVE grant row — vendors and coordinators together,
    * one row per DOMAIN. A stylist's single on-screen switch is two rows. Not
    * "how many people hold access"; for that, count distinct subjects.
    */
-  colourgrant: number;
+  colourgrant: number | null;
   /**
    * Wedding March: every walk row — one per person placed in a march, across
    * every event. Not "how many walks"; for that, count distinct (event_id,
    * walk_no).
    */
-  march: number;
+  march: number | null;
   /** Inspiration parts: every part row, hidden ones included (they still hold photos). */
-  inspirationpart: number;
+  inspirationpart: number | null;
   /** Supplier scans: every claim a supplier's scanner recorded (souvenir-desk rows written by a supplier are not repeated). */
-  supplierscan: number;
+  supplierscan: number | null;
   /** Sub-figures surfaced on the type-node cards. */
   detail: {
-    vendorTotalOrgs: number;
-    billingActiveSubs: number;
-    billingTokensInCirculation: number;
-    taxonomyFolders: number;
-    taxonomyTiles: number;
-    taxonomyLeaves: number;
-    taxonomyRefinementSets: number;
-    ordersPending: number;
+    vendorTotalOrgs: number | null;
+    billingActiveSubs: number | null;
+    billingTokensInCirculation: number | null;
+    taxonomyFolders: number | null;
+    taxonomyTiles: number | null;
+    taxonomyLeaves: number | null;
+    taxonomyRefinementSets: number | null;
+    ordersPending: number | null;
     /**
      * Total membership ROWS across all communities — a tally, never identities.
      * The roster is personal data about third parties (RA 10173), so the admin
      * map counts memberships and stops there; naming members needs its own
      * stated basis and its own surface.
      */
-    communityMembers: number;
+    communityMembers: number | null;
     /** Captures across the whole platform (papic_photos rows). */
-    papicPhotos: number;
+    papicPhotos: number | null;
     /** Guest-side captures (the Papic One shape). */
-    papicGuestCaptures: number;
+    papicGuestCaptures: number | null;
   };
   /** Epoch ms the counts were computed (shown as "live · updated Xs ago"). */
   computedAt: number;
@@ -188,22 +188,23 @@ async function headCount(
   admin: SupabaseClient,
   table: string,
   build?: (q: any) => any,
-): Promise<number> {
+): Promise<number | null> {
+  // A8·H-3: a refused count is null ("—" on the map), never 0 under a "live" label.
   try {
     let q = admin.from(table).select('*', { count: 'exact', head: true });
     if (build) q = build(q);
     const { count, error } = await q;
     if (error) {
       logQueryError(`ugat headCount (${table})`, error);
-      return 0;
+      return null;
     }
-    return count ?? 0;
+    return count ?? null;
   } catch (e) {
     logQueryError(
       `ugat headCount threw (${table})`,
       e instanceof Error ? e : new Error(String(e)),
     );
-    return 0;
+    return null;
   }
 }
 
@@ -281,14 +282,14 @@ async function loadUgatCounts(): Promise<UgatCounts> {
       .then(({ data, error }) => {
         if (error) {
           logQueryError('ugat wallets sum', error);
-          return 0;
+          return null;
         }
         return (data ?? []).reduce(
           (sum: number, r: { purchased_tokens: number | null; earned_tokens: number | null }) =>
             sum + (r.purchased_tokens ?? 0) + (r.earned_tokens ?? 0),
           0,
         );
-      }, () => 0),
+      }, () => null),
     // Samahan: LIVE groups only — `archived` is a soft-retire, so counting all
     // rows would inflate the node with groups nobody is in anymore.
     headCount(admin, 'communities', (q) => q.eq('archived', false)),
@@ -355,7 +356,7 @@ async function loadUgatCounts(): Promise<UgatCounts> {
     livestudio: cameraRows,
     gallery: libraryRows,
     signoff: signoffRows,
-    colourgrant: colourGrantRows + colourGrantHostRows,
+    colourgrant: colourGrantRows == null || colourGrantHostRows == null ? null : colourGrantRows + colourGrantHostRows,
     march: marchRows,
     inspirationpart: inspirationPartRows,
     supplierscan: supplierScanRows,
@@ -441,6 +442,8 @@ export interface UgatTablePage {
   total: number;
   /** Aggregate-only tables carry a note instead of PII rows. */
   note?: string;
+  /** A8·H-3: the read was refused — `total` is not a count, and the table says so instead of "0 rows · live". */
+  readFailed?: true;
 }
 
 const TABLE_COLUMNS: Record<UgatTableKey, string[]> = {
@@ -870,7 +873,7 @@ async function loadUgatTableInner(
       `ugat loadTable (${key})`,
       e instanceof Error ? e : new Error(String(e)),
     );
-    return { ...base, note: 'Could not load this table right now.' };
+    return { ...base, note: 'Could not load this table right now.', readFailed: true };
   }
 }
 

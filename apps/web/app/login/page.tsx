@@ -29,6 +29,8 @@ export const metadata: Metadata = {
   description:
     'Sign in to your Setnayan account. One account for couples planning their wedding and suppliers selling their services.',
   alternates: { canonical: '/login' },
+  // A sign-in page is a door, not a page to find in search (final check A1-160, Add 9 SEO).
+  robots: { index: false, follow: true },
 };
 
 export default async function LoginPage({

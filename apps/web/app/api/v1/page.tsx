@@ -4,6 +4,9 @@ export const metadata = {
   title: 'Setnayan API v1 — Reference',
   description:
     'Read-only endpoints for the Setnayan platform. Bearer-authenticated for events/guests; public for vendor browse.',
+  alternates: { canonical: '/api/v1' },
+  // "No public API endpoints in V1" is a locked decision: this reference stays out of search (final check A1-160).
+  robots: { index: false, follow: false },
 };
 
 type Endpoint = {

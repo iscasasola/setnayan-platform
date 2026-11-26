@@ -5419,15 +5419,14 @@
         "ColoursActionState",
         "ColoursEditor",
         "ColoursPreview",
+        "ConfirmForm",
         "FormRows",
         "InfoTip",
-        "JobKey",
         "LookAlikeLine",
         "PageMasthead",
         "PickMenu",
         "Sample",
         "Slider",
-        "SwitchRow",
         "TypedRow"
       ]
     },
@@ -6533,6 +6532,7 @@
         "Facts",
         "OldPhotosButton",
         "PageMasthead",
+        "Row",
         "Sec"
       ]
     },
@@ -7016,9 +7016,7 @@
         "admin/reveal-studio/std-video-moderation.tsx",
         "admin/reveal-studio/studio.tsx"
       ],
-      "destinations": [
-        "/[seg]"
-      ],
+      "destinations": [],
       "actions": [],
       "blocks": [
         "ActionButton",

@@ -9,6 +9,7 @@ import type { VendorCreatorRoiRow } from '@/lib/creator-analytics';
 import { TemplateRows } from '@/app/_components/template-rows';
 import { ToolChip, ToolEmpty, ToolLead, ToolPage, ToolPin, ToolRow, ToolSection, type ToolChipTone } from '../../_components/tool-page';
 import { CreatorsReach, SendOfferButton } from './creators-tools';
+import { ReadFailedNote } from '../../_components/set-two/read-failed';
 
 /**
  * Creators — the screen (owner-approved redraw v3, 21 Nov 2026 · `supplier_tools_redraw_v3_fable.html` § 04). Look only:
@@ -39,8 +40,10 @@ export function CreatorsView({
   sendNeedsPro,
   flash,
 }: {
-  creators: EligibleCreator[];
-  sentOffers: VendorSentOffer[];
+  /** null = the creators read was refused — said, never "No creators match yet" (final check A5-G2-05). */
+  creators: EligibleCreator[] | null;
+  /** null = the offers read was refused — said, never an empty Sent list. */
+  sentOffers: VendorSentOffer[] | null;
   roi: VendorCreatorRoiRow[];
   minReach: number;
   /** Creators this shop already has an OUTSTANDING offer to — "Offer pending" in place of Send. */
@@ -63,7 +66,9 @@ export function CreatorsView({
       ) : null}
 
       {/* Sent offers */}
-      {sentOffers.length > 0 ? (
+      {sentOffers === null ? (
+        <ReadFailedNote mark="creators-offers">Couldn&rsquo;t load your offers just now.</ReadFailedNote>
+      ) : sentOffers.length > 0 ? (
         <ToolSection label="Your offers" count={sentOffers.length} data="creators-offers">
           <TemplateRows label="Your offers">
             {sentOffers.map((o) => (
@@ -107,11 +112,13 @@ export function CreatorsView({
       {/* Eligible creators */}
       <ToolSection
         label="Eligible creators"
-        count={creators.length}
+        count={creators?.length}
         right={minReach > 0 ? `${formatAudienceCount(minReach)}+ followers` : undefined}
         data="creators-eligible"
       >
-        {creators.length === 0 ? (
+        {creators === null ? (
+          <ReadFailedNote mark="creators-eligible">Couldn&rsquo;t load creators just now.</ReadFailedNote>
+        ) : creators.length === 0 ? (
           <ToolEmpty data="creators">
             No creators match{minReach > 0 ? ' this reach bar' : ' yet'}. A
             creator is any account with a published chapter on a public

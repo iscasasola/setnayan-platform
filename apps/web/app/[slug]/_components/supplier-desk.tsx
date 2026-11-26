@@ -244,7 +244,7 @@ export function SupplierDesk({
                   {desk.blocks.map((b) => (
                     <li key={b.block_id} className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                       <span className="font-mono text-xs text-ink/70">
-                        {formatBlockTimeRange(b.start_at, b.end_at) || 'Time TBD'}
+                        {formatBlockTimeRange(b.start_at, b.end_at) || 'Time to follow'}
                       </span>
                       <span className="text-sm font-medium text-ink">{b.label}</span>
                       {b.location ? (
@@ -296,6 +296,11 @@ export function SupplierDesk({
                   </>
                 ) : null}
               </>
+            ) : desk.blocksUnread ? (
+              // 🔌 A4-22: a refused read is never "they haven't written it" — the same honesty as the on-the-day console.
+              <p role="status" className="text-sm leading-relaxed text-ink/70">
+                Couldn’t read the running order just now. Reload this page in a moment.
+              </p>
             ) : isPast ? (
               <p className="text-sm leading-relaxed text-ink/70">
                 {words.TheOrganizer} never wrote a timeline for the day.

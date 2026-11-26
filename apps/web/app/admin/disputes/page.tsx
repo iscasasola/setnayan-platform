@@ -24,6 +24,7 @@ import {
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { disputesOutcomeLine } from './_components/outcome-line';
 import { KpiStatCard } from '@/app/admin/_components/kpi-stat-card';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 
@@ -156,6 +157,8 @@ type Props = {
     status?: string;
     category?: string;
     fee_dispute?: string;
+    /** A8·E-1: what a settle / resolve press did (`disputesOutcomeLine`). */
+    settled?: string;
   }>;
 };
 
@@ -214,20 +217,25 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   // from each other — one parallel batch instead of two serial round-trips
   // (owner perf pass 2026-06-03). An empty id list resolves to {data:[]} with
   // no query (same pattern as vendor-dashboard/bookings).
-  const [{ data: vendorData }, { data: openerData }] = await Promise.all([
+  const [{ data: vendorData, error: vendorErr }, { data: openerData, error: openerErr }] = await Promise.all([
     vendorIds.length > 0
       ? admin
           .from('vendor_profiles')
           .select('vendor_profile_id, business_name, tier_state')
           .in('vendor_profile_id', vendorIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
     openerIds.length > 0
       ? admin
           .from('users')
           .select('user_id, display_name, email')
           .in('user_id', openerIds)
-      : Promise.resolve({ data: [] }),
+      : Promise.resolve({ data: [], error: null }),
   ]);
+  // A8·E-4: a refused name / opener read is said on the row — never "Unnamed supplier" with a "Free" chip.
+  if (vendorErr) logQueryError('AdminDisputesPage (suppliers)', vendorErr);
+  if (openerErr) logQueryError('AdminDisputesPage (openers)', openerErr);
+  const suppliersUnread = Boolean(vendorErr);
+  const openersUnread = Boolean(openerErr);
 
   const vendorMap = new Map<string, string>();
   // Priority-dispute sort — resolve each disputed vendor's tier_state so premium
@@ -284,7 +292,8 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   // are the immutable evidence rows a forfeit dispute (esp. category=no_show)
   // is adjudicated against. Admin-only surface (the layout already gates on
   // is_admin), so the service-role read is in-bounds.
-  let policyAcksByVendor = new Map<string, PolicyAcknowledgement[]>();
+  // A8·E-4: null = the read was refused, said on each row ("Couldn't read"), never shown as no evidence.
+  let policyAcksByVendor: Map<string, PolicyAcknowledgement[]> | null = null;
   try {
     policyAcksByVendor = await fetchPolicyAcknowledgementsByVendor({
       adminClient: admin,
@@ -298,7 +307,7 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   // every vendor in view, keyed by vendor_profile_id. Surfaced beside a dispute
   // so support can see whether the vendor delivered and whether the couple
   // confirmed receipt. Admin-only surface (layout gates is_admin).
-  let handoversByVendor = new Map<string, HandoverEvidenceRow[]>();
+  let handoversByVendor: Map<string, HandoverEvidenceRow[]> | null = null;
   try {
     handoversByVendor = await fetchHandoversByVendor({
       adminClient: admin,
@@ -351,12 +360,28 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
   // The banner is a COUNT, so a truncated scan does not shorten it — it makes it
   // WRONG, which is worse than a truncated list and has no visible symptom.
   const statsTruncated = (statRows?.length ?? 0) >= STATS_SCAN_LIMIT;
+  const outcome = disputesOutcomeLine(search.settled, search.fee_dispute);
 
   return (
     <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-8 sm:px-6 lg:px-8">
       <PageMasthead
         title="Disputes"
       />
+
+      {outcome ? (
+        <p
+          role={outcome.tone === 'warn' ? 'alert' : 'status'}
+          data-disputes-outcome={outcome.tone}
+          className={
+            outcome.tone === 'warn'
+              ? 'mb-4 rounded-lg bg-[var(--sn-warning-soft)] px-4 py-3 text-xs text-[color:var(--sn-warning)]'
+              : 'mb-4 px-1 text-xs'
+          }
+          style={outcome.tone === 'ok' ? { color: 'rgb(var(--color-ok))' } : undefined}
+        >
+          {outcome.text}
+        </p>
+      ) : null}
 
       <div className="mb-6">
         <InfoTip label="How to resolve" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
@@ -386,6 +411,8 @@ export default async function AdminDisputesPage({ searchParams }: Props) {
           policyAcksByVendor={policyAcksByVendor}
           handoversByVendor={handoversByVendor}
           quoteVersionsByVendor={quoteVersionsByVendor}
+          suppliersUnread={suppliersUnread}
+          openersUnread={openersUnread}
         />
       </div>
 
@@ -501,16 +528,21 @@ function DisputesTable({
   policyAcksByVendor,
   handoversByVendor,
   quoteVersionsByVendor,
+  suppliersUnread,
+  openersUnread,
 }: {
   rows: DisputeRow[] | null;
   readError?: { message?: string } | null;
   vendorMap: Map<string, string>;
   vendorTierMap: Map<string, VendorTier>;
   openerMap: Map<string, { name: string; email: string | null }>;
-  policyAcksByVendor: Map<string, PolicyAcknowledgement[]>;
-  handoversByVendor: Map<string, HandoverEvidenceRow[]>;
+  policyAcksByVendor: Map<string, PolicyAcknowledgement[]> | null;
+  handoversByVendor: Map<string, HandoverEvidenceRow[]> | null;
   /** null = the read was refused — each row says so rather than showing nothing. */
   quoteVersionsByVendor: QuoteVersionsByVendor | null;
+  /** A8·E-4: the supplier-name / opener reads were refused — the rows say so. */
+  suppliersUnread: boolean;
+  openersUnread: boolean;
 }) {
   return (
     <ConsoleTable
@@ -547,8 +579,10 @@ function DisputesTable({
           header: 'Supplier',
           cell: (r) => (
             <span className="font-medium text-ink">
-              <span className="block">{vendorMap.get(r.vendor_profile_id) ?? 'Unnamed supplier'}</span>
-              <TierChip tier={vendorTierMap.get(r.vendor_profile_id) ?? 'free'} />
+              <span className="block">
+                {vendorMap.get(r.vendor_profile_id) ?? (suppliersUnread ? 'Couldn’t read the supplier' : 'Unnamed supplier')}
+              </span>
+              {suppliersUnread ? null : <TierChip tier={vendorTierMap.get(r.vendor_profile_id) ?? 'free'} />}
             </span>
           ),
         },
@@ -565,7 +599,7 @@ function DisputesTable({
                 ) : null}
               </>
             ) : (
-              <span className="text-ink/70">—</span>
+              <span className="text-ink/70">{openersUnread ? 'Couldn’t read' : '—'}</span>
             );
           },
         },
@@ -581,8 +615,8 @@ function DisputesTable({
           header: 'Description',
           hideBelow: 'lg',
           cell: (r) => {
-            const acks = policyAcksByVendor.get(r.vendor_profile_id) ?? [];
-            const handovers = handoversByVendor.get(r.vendor_profile_id) ?? [];
+            const acks = policyAcksByVendor?.get(r.vendor_profile_id) ?? [];
+            const handovers = handoversByVendor?.get(r.vendor_profile_id) ?? [];
             return (
               <div className="text-ink/80">
                 <p title={r.description}>{truncate(r.description, 80)}</p>
@@ -596,6 +630,12 @@ function DisputesTable({
                       {r.vendor_contest}
                     </p>
                   </details>
+                ) : null}
+                {policyAcksByVendor === null ? (
+                  <p className="mt-2 text-[12px] text-ink/70">Couldn&rsquo;t read the reservation policy evidence.</p>
+                ) : null}
+                {handoversByVendor === null ? (
+                  <p className="mt-2 text-[12px] text-ink/70">Couldn&rsquo;t read the delivery handovers.</p>
                 ) : null}
                 {acks.length > 0 ? (
                   <details className="mt-2">

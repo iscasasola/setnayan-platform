@@ -40,7 +40,9 @@ export default async function SetPasswordPage({ params, searchParams }: Props) {
   const sp = await searchParams;
   // THE ONE RULE (lib/safe-next.ts): this lands in a <Link href> and a hidden
   // `next` field, so a raw `?next=` here was an off-site link on our own page.
-  const next = safeNext(sp.next, `/dashboard/${eventId}`);
+  // 🔌 A4-B09: the fallback is the join door, which sends each person to THEIR place (the couple to the dashboard, a
+  // seated guest to the Event Hub) — `/dashboard/<eventId>` was a 404 for every guest who pressed "Skip for now".
+  const next = safeNext(sp.next, `/join/${eventId}`);
 
   // Authenticated (they just clicked the magic link). If not, bounce to login.
   const supabase = await createClient();

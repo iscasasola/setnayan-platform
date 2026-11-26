@@ -68,7 +68,7 @@ export default async function VendorPackagesPage() {
         main
         icon={<Plus aria-hidden strokeWidth={2} />}
         label="Build a package"
-        href="/vendor-dashboard/packages/new"
+        href="/vendor-dashboard/packages/new?from=packages"
       />
 
       <TemplateSection
@@ -90,7 +90,7 @@ export default async function VendorPackagesPage() {
             {rows.map((p) => (
               <TemplateRow
                 key={p.package_id}
-                href={`/vendor-dashboard/packages/${p.package_id}`}
+                href={`/vendor-dashboard/packages/${p.package_id}?from=packages`}
                 lead={
                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[color:var(--m-paper-2)] text-terracotta">
                     <PackageIcon aria-hidden className="h-4 w-4" strokeWidth={1.75} />

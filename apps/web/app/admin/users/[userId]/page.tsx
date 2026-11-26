@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { ERASURE_WORDS } from '@/lib/erasure/erasure-words';
 import Link from 'next/link';
 import { displayAccountEmail } from '@/lib/erasure/display-email';
 import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-names.server';
@@ -336,13 +337,6 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
     .order('created_at', { ascending: false })
     .limit(50);
 
-  const { data: abuseFlags, error: abuseError } = await admin
-    .from('concierge_abuse_flags')
-    .select('flag_id, similarity_score, status, created_at, reviewed_at')
-    .eq('flagged_user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(50);
-
   // --- governance: who viewed this account -----------------------------------
   const { data: accessLog, error: accessLogError } = await admin
     .from('admin_data_access_log')
@@ -390,7 +384,6 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
     ['help', helpError],
     ['disputes', disputesError],
     ['reports', reportsError],
-    ['abuse', abuseError],
     ['access log', accessLogError],
     ['admin actions', adminActionsError],
   ];
@@ -442,9 +435,8 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
   // 🔒 F-W2 (#7677): an erased account's stored placeholder address is shown as words, never as the raw value.
   const email = displayAccountEmail(user.email as string | null) ?? null;
   const openFold = FOLD_FOR_TAB[tab];
-  const supportFailed = Boolean(helpError || disputesError || reportsError || abuseError);
-  const supportCount =
-    (helpTickets ?? []).length + (disputes ?? []).length + (userReports ?? []).length + (abuseFlags ?? []).length;
+  const supportFailed = Boolean(helpError || disputesError || reportsError);
+  const supportCount = (helpTickets ?? []).length + (disputes ?? []).length + (userReports ?? []).length;
   const unpaidOrders = (orders ?? []).filter((o) => o.status === 'awaiting_payment').length;
   const lastReached = [...lifecycle].reverse().find((s) => s.reached);
 
@@ -780,21 +772,6 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
               at: (r.reviewed_at as string) ?? (r.created_at as string),
             }))}
           />
-          <SupportSection
-            title="AI abuse flags"
-            loadFailed={Boolean(abuseError)}
-            icon={null}
-            count={(abuseFlags ?? []).length}
-            href="/admin/concierge-abuse"
-            hrefLabel="Open abuse queue"
-            empty="No abuse flags."
-            rows={(abuseFlags ?? []).map((f) => ({
-              key: f.flag_id as string,
-              primary: `Similarity ${Math.round((f.similarity_score as number) * 100)}%`,
-              status: f.status as string,
-              at: (f.reviewed_at as string) ?? (f.created_at as string),
-            }))}
-          />
         </RecordFold>
 
         <RecordFold title="Activity" anchor="activity" defaultOpen={openFold === 'activity'} summary="newest first">
@@ -961,13 +938,13 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                 />
                 <RecordRow
                   title="Blacklist"
-                  line="Hard-delete AND block the email from signing up again. Reverse via People › Blocked → Unblacklist."
+                  line="Erase the account AND block the email from signing up again. The block can be lifted from People › Blocked → Unblacklist."
                   right={
                     <ConfirmForm
                       action={blacklistUser}
                       title="Blacklist this email?"
                       confirmLabel="Blacklist & delete"
-                      message={`Blacklist ${email ?? 'this user'}? The user is hard-deleted AND the email is permanently blocked from signing up again. Reverse via the Blacklisted filter → Unblacklist.`}
+                      message={`Blacklist ${email ?? 'this user'}? ${ERASURE_WORDS} The email is also blocked from signing up again. The block (not the erasure) can be lifted from the Blacklisted filter → Unblacklist.`}
                     >
                       <input type="hidden" name="user_id" value={userId} />
                       <ActionButton tone="danger" icon={<Ban aria-hidden strokeWidth={1.9} />} label="Blacklist" type="submit" />
@@ -976,13 +953,13 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
                 />
                 <RecordRow
                   title="Delete account"
-                  line="Their identity is gone · the email is freed for re-signup · not reversible from here"
+                  line="Erased, not deleted: orders and payments are kept without their name · the email is freed · not reversible from here"
                   right={
                     <ConfirmForm
                       action={deleteUser}
-                      title="Hard-delete this account?"
+                      title="Erase this account?"
                       confirmLabel="Delete permanently"
-                      message={`Hard-delete ${email ?? 'this user'}? Their auth identity is gone; all related data cascade-deletes; the EMAIL is freed for re-signup (e.g., switching from supplier to customer). Not reversible from this page.`}
+                      message={`Erase ${email ?? 'this user'}? ${ERASURE_WORDS} Their email is freed, so they can sign up again. Not reversible from this page.`}
                     >
                       <input type="hidden" name="user_id" value={userId} />
                       <ActionButton tone="danger" icon={<Trash2 aria-hidden strokeWidth={1.9} />} label="Delete" type="submit" />
@@ -1045,8 +1022,9 @@ function SupportSection({
   icon: React.ReactNode;
   title: string;
   count: number;
-  href: string;
-  hrefLabel: string;
+  /** The queue this section opens, when it has one. */
+  href?: string;
+  hrefLabel?: string;
   empty: string;
   rows: { key: string; primary: string; status: string; at: string | null }[];
 }) {
@@ -1054,9 +1032,11 @@ function SupportSection({
     <RecordSection
       label={`${title} (${loadFailed ? '—' : formatCount(count)})`}
       right={
-        <Link href={href} className={RECORD_LINK}>
-          {hrefLabel} ›
-        </Link>
+        href ? (
+          <Link href={href} className={RECORD_LINK}>
+            {hrefLabel} ›
+          </Link>
+        ) : undefined
       }
     >
       {loadFailed ? (

@@ -185,7 +185,7 @@ export function SpaceSheet({
         </h2>
         <p className="mt-1 text-[13px] text-ink/70">{KIND_LINE[kind]}</p>
         {stateLine ? (
-          <p className="mt-2 text-[13.5px] font-medium text-ink" data-space-holder="">
+          <p className="mt-2 text-sn-md font-medium text-ink" data-space-holder="">
             {stateLine}
           </p>
         ) : null}
@@ -390,7 +390,7 @@ function CountRow({ name, value, min, max, set, words, data }: { name: string; v
     <div className="flex min-h-11 items-center justify-between gap-3 border-t border-ink/10 py-1 first:border-t-0" data-form-row="" data-space-count={data}>
       <span className="min-w-0">
         <span className="block text-[15px] font-medium leading-tight text-ink">{name}</span>
-        {words ? <span className="block text-[12.5px] text-ink/70">{words}</span> : null}
+        {words ? <span className="block text-sn-sm text-ink/70">{words}</span> : null}
       </span>
       <Counter value={value} label={name} onLess={() => set(Math.max(min, value - 1))} onMore={() => set(Math.min(max, value + 1))} lessDisabled={value <= min} moreDisabled={value >= max} data={data} />
     </div>

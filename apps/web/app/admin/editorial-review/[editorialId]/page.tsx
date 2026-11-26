@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailed } from '@/app/admin/_components/read-failed';
 import { SubmitButton } from '@/app/_components/submit-button';
 import type { ScanFlag } from '@/lib/editorial-scan';
 import { resolveFlag, unlockForCouple, triggerRescan } from './actions';
@@ -24,7 +26,7 @@ export default async function EditorialReviewDetailPage({
   const { editorialId } = await params;
   const admin = createAdminClient();
 
-  const { data: row } = await admin
+  const { data: row, error: rowErr } = await admin
     .from('event_editorial')
     .select(`
       editorial_id, scan_status, scan_flags, scan_completed_at,
@@ -34,6 +36,16 @@ export default async function EditorialReviewDetailPage({
     .eq('editorial_id', editorialId)
     .maybeSingle();
 
+  // A8·F-20: a refused read is not "not found" — say it could not be read.
+  if (rowErr) {
+    logQueryError('admin/editorial-review/[editorialId] (event_editorial)', rowErr);
+    return (
+      <div className="mx-auto w-full max-w-[760px] space-y-4 px-4 pb-8 pt-2 sm:px-6">
+        <PageMasthead title="Editorial review" />
+        <ReadFailed what="this editorial" />
+      </div>
+    );
+  }
   if (!row) notFound();
 
   const flags = (row.scan_flags ?? []) as ScanFlag[];

@@ -16,7 +16,8 @@ import { SubmitButton } from '@/app/_components/submit-button';
 import { MiniTour } from '@/app/_components/mini-tour';
 import { eventHubPartActive, eventOwnsCoupleWebsitePro } from '@/lib/couple-website-pro';
 import { asViewed } from '@/lib/view-as-free.server';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { readV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { PRICE_UNREAD } from '@/lib/php';
 import { formatPhp } from '@/lib/php';
 import { getIapGate } from '@/lib/request-platform';
 import { formatEventDate } from '@/lib/events';
@@ -187,15 +188,25 @@ export default async function OurStoryEditorPage({
 
   // The EVENT holds Pro, not the person who paid (owner 2026-10-02).
   const ent = await eventEntitlementClient(eventId);
-  const [proActive, proOwned, proSku, iapGate, look, otherEvents] = await Promise.all([
+  /* E-13 (owner ruling, final check Add 45): a failed plan read says "We couldn't check your plan, try again" — no
+     upsell and no paid limit is drawn from it. */
+  let planReadFailed = false;
+  const [proActive, proOwned, proRead, iapGate, look, otherEvents] = await Promise.all([
     // 👁 As the viewer is shown it — the Maker's Love Story is this page.
-    asViewed(eventHubPartActive(ent, eventId, 'photos').catch(() => false)),
-    asViewed(eventOwnsCoupleWebsitePro(ent, eventId).catch(() => false)),
-    formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
+    asViewed(eventHubPartActive(ent, eventId, 'photos').catch(() => {
+      planReadFailed = true;
+      return false;
+    })),
+    asViewed(eventOwnsCoupleWebsitePro(ent, eventId).catch(() => {
+      planReadFailed = true;
+      return false;
+    })),
+    readV2Sku('COUPLE_WEBSITE_PRO').catch(() => ({ record: null, readFailed: true })),
     getIapGate(),
     resolveHubTheme(event).catch(() => null),
     inStudio ? Promise.resolve<OtherEvent[] | null>(null) : readOurEventsOffer(user.id, eventId),
   ]);
+  const proSku = proRead.record;
   const theme = INVITE_THEMES[look?.theme ?? 'house'];
   const storeShell = iapGate.storeShell;
   /* 🍎 The store shell FOR PRO TRYING only (the Maker editor's `proShell`, owner 2026-10-18): where Apple sells Pro at
@@ -240,7 +251,10 @@ export default async function OurStoryEditorPage({
   const base = `/dashboard/${eventId}`;
   const action = loveStoryMomentAction.bind(null, eventId);
   const updateAction = updateOurStory.bind(null, eventId);
-  const proPrice = !storeShell && proSku?.price_php != null ? formatPhp(proSku.price_php) : null;
+  // E-13 (final check): a failed catalogue read says so where the price goes, never a price that silently vanished.
+  const proPrice = !storeShell && proSku?.price_php != null
+    ? formatPhp(proSku.price_php)
+    : !storeShell && proRead.readFailed ? PRICE_UNREAD : null;
   /* 💎 Every save here drafts, so on the web more stories and photos are TRIED
      without Pro (◆ PRO) and Apply asks (owner 2026-09-28); the app-store shell
      keeps the free cap in the UI. */
@@ -257,6 +271,7 @@ export default async function OurStoryEditorPage({
       storeShell={storeShell}
       proHref={`${base}/studio/website-pro`}
       proPrice={proPrice}
+      planUnread={planReadFailed}
       action={action}
     />
   );
@@ -280,6 +295,7 @@ export default async function OurStoryEditorPage({
     appleIap: iapGate.iap,
     proHref: proOwned && !proActive ? `${base}/launch` : `${base}/studio/website-pro`,
     proPrice,
+    planUnread: planReadFailed,
     refused,
     sectionHidden: !widgetError && widget?.mode === 'hidden',
     mediaUrls,

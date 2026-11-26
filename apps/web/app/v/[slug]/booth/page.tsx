@@ -20,6 +20,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { isPubliclyVisible, type VendorPublicVisibility } from '@/lib/vendor-visibility';
 import { type Lab3DBooth } from '@/lib/seating-3d';
 import { boothTierCanBrand } from '@/lib/booth-branding-tier-gate';
+import { effectiveSeoTier } from '@/lib/vendor-seo-tier';
+import { actionButtonClass } from '@/components/action-button-class';
+import { ChevronLeft } from 'lucide-react';
 import { resolveVendorCategory } from '@/lib/vendor-packages';
 import { boothTemplateFor } from '@/app/_components/plan3d/kit/booth-templates';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
@@ -45,6 +48,7 @@ type BoothVendorRow = {
   location_city: string | null;
   logo_url: string | null;
   tier_state: string | null;
+  tier_expires_at: string | null;
   public_visibility: VendorPublicVisibility;
   verification_state: string | null;
   name_revealed_at: string | null;
@@ -61,7 +65,7 @@ async function fetchBoothVendor(
   const { data, error } = await admin
     .from('vendor_profiles')
     .select(
-      'vendor_profile_id, business_name, business_slug, services, location_city, logo_url, tier_state, public_visibility, verification_state, name_revealed_at, screen_name',
+      'vendor_profile_id, business_name, business_slug, services, location_city, logo_url, tier_state, tier_expires_at, public_visibility, verification_state, name_revealed_at, screen_name',
     )
     .ilike('business_slug', slug)
     .maybeSingle();
@@ -198,7 +202,8 @@ export default async function VendorBoothShowcasePage({ params, searchParams }: 
   // add-on model is live (3D Plan Ads is then a buyable add-on on Free/Solo too,
   // so they get to preview what they'd be buying). A gated vendor gets a soft
   // card, not a broken canvas.
-  if (!boothTierCanBrand(vendor.tier_state)) {
+  // 🔒 A paid plan that has run out is Free here too (final check A1-136), the same rule the shop page uses.
+  if (!boothTierCanBrand(effectiveSeoTier({ tier_state: vendor.tier_state, tier_expires_at: vendor.tier_expires_at }))) {
     return <SoftGate shopHref={shopHref} name={name} message="A 3D booth showcase is a Pro feature — this supplier hasn't set theirs up yet." />;
   }
 
@@ -240,5 +245,15 @@ export default async function VendorBoothShowcasePage({ params, searchParams }: 
     return <SoftGate shopHref={shopHref} name={name} message="This supplier's service doesn't have a 3D booth yet." />;
   }
 
-  return <BoothShowcaseLoader booth={booth} vendorName={name} />;
+  return (
+    <>
+      <BoothShowcaseLoader booth={booth} vendorName={name} />
+      {/* The way back (final check A1-126): the canvas fills the screen and had no exit, in the installed app none at all.
+          The same link the not-set-up state already shows. */}
+      <Link href={shopHref} className={`fixed left-[calc(var(--sn-safe-l)+1rem)] top-[calc(env(safe-area-inset-top)+1rem)] z-10 ${actionButtonClass('neutral')}`}>
+        <ChevronLeft aria-hidden strokeWidth={1.9} />
+        <span className="lbl">Back to {name}&rsquo;s shop page</span>
+      </Link>
+    </>
+  );
 }

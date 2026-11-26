@@ -74,7 +74,7 @@ export function BackfillTilesButton({ pending }: { pending: number | null }) {
 
       {result?.ok ? (
         <p role="status" className="mt-2 text-[13px] text-ink/70">
-          Made {result.filled} copy{result.filled === 1 ? '' : 's'}
+          Made {result.filled} {result.filled === 1 ? 'copy' : 'copies'}
           {result.skipped > 0 ? `, skipped ${result.skipped}` : ''}.{' '}
           {result.remaining == null
             ? 'How many remain could not be measured — press again and re-check.'

@@ -395,14 +395,17 @@ export function KwentoDecorator({
   return (
     <main className="min-h-screen bg-cream px-4 py-8 text-ink">
       <div className="mx-auto w-full max-w-md">
+        {/* ⤴ A4-55: risen over My photos (`app/papic/@rise/(.)decorate`), the head carries the title and ✕ is the way back,
+            so this link and the heading step aside there (`data-rise-hide`); a hard load keeps both. */}
         <Link
           href={myPhotosHref}
+          data-rise-hide=""
           className="mb-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink/70 hover:text-ink"
         >
           <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           Back to my photos
         </Link>
-        <h1 className="text-xl font-semibold tracking-tight">Decorate a photo</h1>
+        <h1 data-rise-hide="" className="text-xl font-semibold tracking-tight">Decorate a photo</h1>
         <p className="mt-1 text-sm text-ink/60">
           Add stickers, text, and a filter, then save it to {eventName}&rsquo;s Memories.
         </p>

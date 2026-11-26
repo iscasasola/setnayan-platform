@@ -4,6 +4,8 @@
  * event's people with a tick each — a plain form, no script. The database re-checks everything
  * (`chat_group_create`: a host makes it; everyone in it is someone on this event).
  */
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ErrorState } from '@/app/_components/states/error-state';
 import { notFound, redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
@@ -25,8 +27,26 @@ export default async function NewGroupPage({ searchParams }: { searchParams: Pro
   if (!user) redirect(`/login?next=${encodeURIComponent(`/samahan/chat/new?event=${eventId}`)}`);
   const supabase = await createClient();
   const { data: me, error: meError } = await supabase.rpc('chat_group_my_kind', { p_event_id: eventId });
-  if (meError || me !== 'host') notFound();
-  const people = ((await readGroupPeople(supabase, eventId)) ?? []).filter((p) => p.user_id !== user.id);
+  // 🔒 A refused read is said (final check A1-008): a failed role read used to be a 404, and a failed people read an
+  // empty "Who is in it", the same as an event with nobody else.
+  // The host check comes FIRST: a non-host gets the 404 even when the people read would have failed.
+  if (!meError && me !== 'host') notFound();
+  const peopleRead = meError ? null : await readGroupPeople(supabase, eventId);
+  if (meError || peopleRead === null) {
+    if (meError) logQueryError('NewGroupPage.my_kind', meError, { event_id: eventId }, 'graceful_degrade');
+    return (
+      <main className="mx-auto w-full max-w-md px-4 pb-10 pt-4" data-new-group="">
+        <BackButton href={`/dashboard/${eventId}/messages`} label="Chats" />
+        <ErrorState
+          title="Couldn’t open New group"
+          broke="Who can be in a group did not load just now."
+          survived="Your chats are as you left them."
+          todo="Reload the page to try again."
+        />
+      </main>
+    );
+  }
+  const people = peopleRead.filter((p) => p.user_id !== user.id);
 
   return (
     <main className="mx-auto w-full max-w-md px-4 pb-10 pt-4" data-new-group="">
@@ -34,7 +54,7 @@ export default async function NewGroupPage({ searchParams }: { searchParams: Pro
       <h1 className="mt-3 text-[22px] font-semibold text-ink">New group</h1>
       {error ? (
         <p role="alert" className="mt-2 text-sm text-terracotta">
-          The group was not made. Give it a name and try again.
+          {error === 'name' ? 'The group was not made. Give it a name and try again.' : 'The group was not made just now. Try again.'}
         </p>
       ) : null}
       <form action={groupChat.bind(null, 'create')} className="mt-4 space-y-4">

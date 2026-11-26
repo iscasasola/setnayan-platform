@@ -1,3 +1,4 @@
+import { routes } from '@/lib/routes';
 import Link from 'next/link';
 import { formatLongDate } from '@/lib/format-date';
 import { getSampleEvent, getSampleEventId } from '../_lib/sample-event';
@@ -290,7 +291,7 @@ export default async function TourVendorsPage() {
           Set na &rsquo;yan.
         </p>
         <Link
-          href="/onboarding/wedding?from=tour"
+          href={routes.start()}
           className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1B1A17] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning &middot; free

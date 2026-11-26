@@ -94,6 +94,15 @@ export type CountToOptions = {
  * final value (SSR-safe); after mount it animates from the remembered value
  * (or 0) to `value`.
  */
+/**
+ * 🎞 ONE FRAME OF A COUNT. Whole numbers on the way (a count reads as whole steps), and on the LAST frame the true value
+ * itself — never `Math.round(value)`. Owner, brief Add 39 (final check A2-P1): money counts up too, ending on the exact
+ * amount, so ₱120,450.50 lands on ₱120,450.50, not on ₱120,451.
+ */
+export function countFrame(from: number, value: number, t: number): number {
+  return t >= 1 ? value : Math.round(from + (value - from) * easeOutCubic(t));
+}
+
 export function useCountTo(value: number, opts: CountToOptions = {}): number {
   const { id, durationMs, delayMs = 0, alwaysFromZero = false, fromZeroOnLoad = false, changeDurationMs, skipNonPositive = false } = opts;
   const [display, setDisplay] = useState(value);
@@ -126,7 +135,7 @@ export function useCountTo(value: number, opts: CountToOptions = {}): number {
       const tick = (now: number) => {
         if (!start) start = now;
         const t = Math.min(1, (now - start) / d);
-        shown = Math.round(from + (value - from) * easeOutCubic(t));
+        shown = countFrame(from, value, t);
         setDisplay(shown);
         if (t < 1) raf = requestAnimationFrame(tick);
         else done = true;

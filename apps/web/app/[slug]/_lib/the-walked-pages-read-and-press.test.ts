@@ -108,13 +108,13 @@ const READ: Array<[string, string]> = [
   ['_components/selfie-capture.tsx', '>Face tagging</p>'],
   ['_components/not-you-switch.tsx', '{SIGN_OUT_ERASES_SELFIE}'],
   ['_components/rsvp-widget.tsx', 'Required\n      </span>'],
-  ['pabuya/page.tsx', 'Pabuya\n          </span>'],
+  ['pabuya/page.tsx', 'E-Gifts\n          </span>'],
   // 🏷 Build 6 Lane L: the header brand and the footer mark follow the event's plan — read where they are drawn now.
   ['_components/event-setnayan-mark.tsx', '>Setnayan</span>'],
   ['seat/page.tsx', 'Scanning your'],
   ['seat/page.tsx', 'See you soon.</p>'],
   ['find-my-table/page.tsx', ' />\n      </footer>\n      <RoomFooter'],
-  ['pabuya/page.tsx', 'Kept safe on Setnayan'],
+  ['pabuya/page.tsx', 'Shared on Setnayan'],
   ['_components/save-to-account.tsx', 'Use my email instead'],
 ];
 

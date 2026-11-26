@@ -1,3 +1,4 @@
+import { routes } from '@/lib/routes';
 import Link from 'next/link';
 import { Camera, Palette, ArrowRight, Sparkles } from 'lucide-react';
 import { getSampleEvent, getSampleEventId } from '@/app/tour/_lib/sample-event';
@@ -121,7 +122,7 @@ export default async function TourGalleryPage() {
     id and time, and the counter ends on the real total.
   */
   const snap = await getWallSnapshot(id, null, { limit: WALL_SHOWN + WALL_INCOMING });
-  const feedFailed = !snap.feedRead;
+  const feedFailed = snap.unreadable === true;
   const allTiles: TourWallTile[] = snap.tiles.map((t) => ({
     feedId: t.feedId,
     url: t.url,
@@ -318,7 +319,7 @@ export default async function TourGalleryPage() {
           own on Setnayan, free. Set na &rsquo;yan.
         </p>
         <Link
-          href="/onboarding/wedding?from=tour"
+          href={routes.start()}
           className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1B1A17] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning &middot; free

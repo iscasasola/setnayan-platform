@@ -23,6 +23,7 @@ import { AddOnStateCta, statusPillForState } from '@/app/_components/app-store/s
 import { ChoosePlanSheet, type ChoosePlanSheetProps } from '@/app/_components/app-store/choose-plan-sheet';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { fetchAddOnStats } from '@/lib/add-on-stats';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { resolveAddOnState } from '@/lib/add-on-state';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
@@ -163,6 +164,8 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
   }
   const oauthReady = oauthConfig.ready;
   const youtubeGrant = (grantRaw ?? null) as YoutubeGrant | null;
+  // L-08 (final check): a refused grant read is not "not connected" — the panel would offer Connect again.
+  const grantUnread = Boolean(grantRawError);
 
   // ⭐ WAVE 8: the controller moved out of /dashboard (chrome-less, § 4g) — resolve
   // it through the shared helper so this doorway can never point at the old URL.
@@ -221,16 +224,18 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
       eyebrow: 'Rating',
       value: stats.avgRating === null ? '—' : stats.avgRating.toFixed(1),
       starFill: stats.avgRating ?? 0,
-      caption:
-        stats.reviewCount === 0
+      caption: stats.readFailed
+        ? 'Couldn’t read'
+        : stats.reviewCount === 0
           ? 'No reviews yet'
           : `${formatCount(stats.reviewCount)} review${stats.reviewCount === 1 ? '' : 's'}`,
     },
     {
       eyebrow: 'Purchased',
       value: stats.paidOrderCount === 0 ? '—' : stats.paidOrderCount.toLocaleString('en-PH'),
-      caption:
-        stats.paidOrderCount === 0
+      caption: stats.readFailed
+        ? 'Couldn’t read'
+        : stats.paidOrderCount === 0
           ? 'Be one of the first'
           : `${formatCount(stats.eventsWithFeature)} event${stats.eventsWithFeature === 1 ? '' : 's'}`,
     },
@@ -440,12 +445,16 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
         }}
       />
 
-      <YoutubeChannelPanel
-        eventId={eventId}
-        oauthReady={oauthReady}
-        grant={youtubeGrant}
-        ownsHostedChannel={ownsHostedChannel}
-      />
+      {grantUnread ? (
+        <ReadRefusedNotice what="whether your YouTube channel is connected" />
+      ) : (
+        <YoutubeChannelPanel
+          eventId={eventId}
+          oauthReady={oauthReady}
+          grant={youtubeGrant}
+          ownsHostedChannel={ownsHostedChannel}
+        />
+      )}
 
       <HostedChannelUpsell
         eventId={eventId}

@@ -73,7 +73,8 @@ test('A1-007 · a failed read on the tour is said, never an empty or zero sample
   assert.doesNotMatch(vendors, /'Liwanag Studios'/, 'no typed shop name');
   const gallery = src('app/tour/gallery/page.tsx');
   assert.match(gallery, /\{feedFailed \? \([\s\S]*?Couldn&rsquo;t load the photos/);
-  assert.match(src('lib/live-wall.ts'), /feedRead: !feedError,/);
+  assert.match(gallery, /const feedFailed = snap\.unreadable === true;/);
+  assert.match(src('lib/live-wall.ts'), /unreadable: Boolean\(feedError \|\| eventError\),/);
   const seating = src('app/tour/seating/page.tsx');
   assert.match(seating, /tableCount > 0 && !guestsUnreadable \?/, 'a refused guest read never prints "for 0 guests"');
 });
@@ -91,10 +92,10 @@ test('A1-015 · A1-016 · the sample guest Hub speaks to a guest and copies a wh
   assert.match(hub, /Opens on the \{SAMPLE_WORDS\.eventWord\} day/);
   assert.equal(SAMPLE_WORDS.eventWord, 'wedding');
   assert.match(hub, /invitationUrl=\{`\$\{siteOrigin\(\)\}\/sample\/hub\/\$\{guest\.guestKey\}`\}/);
-  assert.match(hub, /fallbackQrSrc=\{null\}/, 'the sample never draws the real guest’s cookie QR');
+  assert.match(hub, /qrSrc=\{null\}/, 'the sample never draws the real guest’s cookie QR');
   const ticket = src('app/[slug]/_components/guest-ticket.tsx');
-  assert.match(ticket, /fallbackQrSrc = '\/api\/guest\/qr',/, 'a real guest keeps the door code');
-  assert.match(ticket, /\{pending \|\| !fallbackQrSrc \? null : \(/);
+  assert.match(ticket, /qrSrc = '\/api\/guest\/qr',/, 'a real guest keeps the door code');
+  assert.match(ticket, /\{pending \|\| !qrSrc \? null : \(/);
 });
 
 test('A1-004 · every persona /sample offers opens a built view', () => {

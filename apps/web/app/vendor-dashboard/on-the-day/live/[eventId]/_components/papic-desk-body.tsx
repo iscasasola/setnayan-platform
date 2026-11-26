@@ -46,6 +46,17 @@ export function PapicReadFailed({ eventId }: { eventId: string }) {
   );
 }
 
+/** The day's console could not be read (A6-22, final check 25 Nov): the same shell and words as Papic's — never the
+ *  Hub's "opens on <date>" for a bookings read that did not answer, never the shop-papers page for a crew member. */
+export function DayReadFailed({ eventId }: { eventId: string }) {
+  return (
+    <PartPage column="mx-auto w-full tab:max-w-3xl" mark="event-day">
+      <PapicPin title="The day" backHref={hubHref(eventId)} backLabel="Back to the Hub" />
+      <ReadFailedBody mark="event-day">We couldn&rsquo;t load this event&rsquo;s day right now.</ReadFailedBody>
+    </PartPage>
+  );
+}
+
 export type PapicCapture = {
   uploadOwner: string | null;
   /** The shop's plan — its event limit comes from TIER_CAPS (owner 2026-11-23). */

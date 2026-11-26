@@ -30,6 +30,7 @@
 import { requireAdminCan } from '@/lib/admin/can.server';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import * as Sentry from '@sentry/nextjs';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -169,9 +170,10 @@ export async function unsuspendVendor(formData: FormData) {
     .maybeSingle();
   // The home page remembers this for 60 s — forget it now (lib/home-shelf-clear.ts).
   clearHomeShelf('shops');
-  if (error) throw new Error(`Could not un-suspend: ${error.message}`);
+  // A8·E-13: said on the page (the app-wide `?error=` + `msg` toast), never the crash page.
+  if (error) redirect(`/admin/fraud?error=1&msg=${encodeURIComponent('Couldn’t un-suspend just now. Nothing changed. Try again.')}`);
   if (!updated) {
-    throw new Error('Supplier is not currently auto-suspended (or is already banned).');
+    redirect(`/admin/fraud?error=1&msg=${encodeURIComponent('This supplier is not auto-suspended any more (or is already banned). Nothing changed.')}`);
   }
 
   await writeFraudEnforcementAudit(admin, {
@@ -195,7 +197,15 @@ export async function unsuspendVendor(formData: FormData) {
  * /admin/approvals. A typed-confirmation ("type the business name") guards the
  * INITIATION here too, so a mis-click can't even open the request.
  */
-export async function initiateFraudWipeBan(formData: FormData) {
+/**
+ * A8·E-12: the expected refusals come back to the queue as a sentence (a thrown message is hidden in production, so a
+ * second press used to land on the crash page); success says it was sent and waits for a second admin.
+ */
+function wipeBanBack(kind: 'wipe_error' | 'wipe_sent', msg: string): never {
+  redirect(`/admin/fraud?${kind}=${encodeURIComponent(msg)}`);
+}
+
+export async function initiateFraudWipeBan(formData: FormData): Promise<void> {
   const { userId } = await requireAdmin();
   // Areas × levels (DECISION_LOG 2026-11-13): fraud · escalated.
   await requireAdminCan('fraud', 'escalated');
@@ -205,7 +215,7 @@ export async function initiateFraudWipeBan(formData: FormData) {
   const rationale = typeof rationaleRaw === 'string' ? rationaleRaw.trim() : '';
 
   if (rationale.length < 3) {
-    throw new Error('A rationale (≥3 chars) is required to initiate a wipe + ban.');
+    wipeBanBack('wipe_error', 'Say why in a few words — it is recorded in the audit trail.');
   }
 
   const admin = createAdminClient();
@@ -215,21 +225,19 @@ export async function initiateFraudWipeBan(formData: FormData) {
     .select('vendor_profile_id, business_name, fraud_banned_at')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  if (!vendorRow) throw new Error('Supplier not found');
+  if (!vendorRow) wipeBanBack('wipe_error', 'That supplier couldn’t be found, so nothing was sent.');
   const vendor = vendorRow as {
     business_name: string | null;
     fraud_banned_at: string | null;
   };
   if (vendor.fraud_banned_at) {
-    throw new Error('This supplier is already permanently banned.');
+    wipeBanBack('wipe_error', 'This supplier is already permanently banned.');
   }
 
   // Typed-confirmation gate — the admin must retype the exact business name.
   const expected = (vendor.business_name ?? '').trim();
   if (!expected || typedName !== expected) {
-    throw new Error(
-      'Business-name confirmation did not match. Type the supplier’s exact business name to initiate the wipe + ban.',
-    );
+    wipeBanBack('wipe_error', 'The business name did not match. Type the supplier’s exact business name.');
   }
 
   // Guard against a duplicate pending request for the same vendor.
@@ -241,9 +249,7 @@ export async function initiateFraudWipeBan(formData: FormData) {
     .eq('status', 'pending')
     .limit(1);
   if (existing && existing.length > 0) {
-    throw new Error(
-      'A wipe + ban request for this supplier is already pending a second admin’s confirmation.',
-    );
+    wipeBanBack('wipe_error', 'A wipe + ban request for this supplier is already pending a second admin’s confirmation in Approvals.');
   }
 
   const { error: insErr } = await admin.from('admin_approval_requests').insert({
@@ -252,7 +258,10 @@ export async function initiateFraudWipeBan(formData: FormData) {
     rationale: rationale.slice(0, 2000),
     initiated_by: userId,
   });
-  if (insErr) throw new Error(`Could not open the wipe + ban request: ${insErr.message}`);
+  if (insErr) {
+    logQueryError('initiateFraudWipeBan.insert', insErr);
+    wipeBanBack('wipe_error', 'The wipe + ban request couldn’t be opened, so nothing was sent. Try again.');
+  }
 
   // Audit the intent (not the execution — that's logged on confirm). Uses the
   // canonical admin_audit_log columns (target_table / target_id TEXT / reason /
@@ -273,6 +282,7 @@ export async function initiateFraudWipeBan(formData: FormData) {
   revalidatePath('/admin/fraud');
   revalidatePath('/admin/approvals');
   revalidatePath('/admin');
+  wipeBanBack('wipe_sent', 'Sent — waiting for a second admin in Approvals.');
 }
 
 /**

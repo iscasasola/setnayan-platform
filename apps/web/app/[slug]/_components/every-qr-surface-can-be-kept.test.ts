@@ -111,7 +111,13 @@ test('the keepers point at the guest download route, and it takes no id', () => 
   );
   // 2026-10-27: a bare `<a download>` was rendered in place by the iPhone app's web view — the save is SaveFileLink
   // (which keeps `download` on its anchor as the no-JS fallback and SAVES the tap: share sheet / download).
-  assert.match(src, /<SaveFileLink\s+href="\/api\/guest\/qr"/, 'the save is not SaveFileLink at the guest route — the app would show the PNG in place');
+  // A4-B11 (Add 34): the route is a prop whose DEFAULT is the bare guest route; a page that knows its event passes
+  // `passRouteForEvent(GUEST_QR_ROUTE, id)` (adds `?event=`, never an id or token) so a signed-in seat-holder saves its own.
+  assert.match(src, /OWN_CODE = \{ href: '\/api\/guest\/qr' \}/, 'the keepers lost the bare guest route as their default');
+  assert.match(src, /qrHref = OWN_CODE\.href/, 'the keepers no longer default to the bare guest route');
+  assert.match(src, /<SaveFileLink\s+href=\{qrHref\}/, 'the save is not SaveFileLink at the guest route — the app would show the PNG in place');
+  const passCard = readFileSync(resolve(SLUG_ROOT, '../../lib/pass-card.ts'), 'utf8');
+  assert.match(passCard, /return `\$\{route\}\$\{route\.includes\('\?'\) \? '&' : '\?'\}event=\$\{encodeURIComponent\(eventId\)\}`;/, 'passRouteForEvent may add only ?event=');
   // The paid branded PNG is a different file behind an ownership gate; pointing
   // a free guest button at it would 401 or 403 every guest who pressed it.
   assert.ok(

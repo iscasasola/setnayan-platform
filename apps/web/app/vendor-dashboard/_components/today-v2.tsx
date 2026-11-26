@@ -398,7 +398,7 @@ export function TodayV2Needs({
           <span aria-hidden className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full text-[30px] font-extrabold" style={{ background: 'color-mix(in srgb, rgb(var(--color-ok)) 14%, transparent)', color: 'rgb(var(--color-ok))' }}>
             ✓
           </span>
-          <b className="block text-[22px] font-extrabold leading-tight text-ink">You’re done for today</b>
+          {/* Said once (final check B5-27): the cover's heading already reads "✓ You’re done for today". */}
           <span className="mt-1 block text-[14px] text-[color:var(--m-slate-2)]">Nothing waiting on you. New asks land here first.</span>
         </div>
       ) : null}

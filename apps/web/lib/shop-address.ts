@@ -59,3 +59,17 @@ export function shopSubPageRewrite(pathname: string, reserved: (word: string) =>
   if (!m || reserved(m[1]!.toLowerCase())) return null;
   return `/v/${m[1]}/${m[2]}${m[3] ?? ''}`;
 }
+
+/**
+ * The address a link opens, as a person reads it: no `https://`, no `www.`, no tracking tag (`?src=own&via=link`).
+ * The ONE place for this (final check B5-07): the Shop hero, its share sheet, View shop and every My QRs code. The link
+ * that is copied or shared keeps its tags; only the words drop them.
+ */
+export function shownAddress(url: string): string {
+  try {
+    const u = new URL(url);
+    return `${u.host.replace(/^www\./, '')}${u.pathname}`;
+  } catch {
+    return url.replace(/^https?:\/\/(www\.)?/, '').replace(/[?#].*$/, '');
+  }
+}

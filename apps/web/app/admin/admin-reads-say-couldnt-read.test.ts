@@ -49,7 +49,7 @@ test('Account card: every read binds its error, and a refused profile is not a 4
   for (const name of [
     'userError', 'membershipsError', 'eventsError', 'vendorTeamError', 'vendorProfilesError',
     'ordersError', 'paymentsError', 'refundsError', 'helpError', 'disputesError',
-    'reportsError', 'abuseError', 'accessLogError', 'adminActionsError',
+    'reportsError', 'accessLogError', 'adminActionsError',
   ]) {
     assert.match(s, new RegExp(`error: ${name}\\b`), `${name} is never bound`);
   }

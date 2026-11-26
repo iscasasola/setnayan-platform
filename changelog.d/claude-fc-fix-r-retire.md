@@ -11,6 +11,7 @@ Final check, lane R (Add 17; ALL-FINDINGS § Lane R). Door check first; the page
 - R7 `/admin/concierge-abuse` — gone with its Work view, admin menu, tabs, work row, nav default and route builder; the user record keeps its "AI abuse flags" list without the queue link.
 - R8 `/dashboard/api-keys` and the `/api/v1` reference page — forward to the dashboard; Profile rows and the route builder gone. The `/api/v1/*` endpoints are untouched.
 - R9 `/papic/lightcheck` — gone.
+- Schema (owner ruling: drop) — migration `20271363906595_drop_retired_clusters_and_concierge_abuse_flags.sql` drops `event_cluster_members`, `event_clusters`, `concierge_abuse_flags` and the cluster-only functions (`cluster_guest_roster`, `cluster_timeline`, `resolve_cluster_guest_person`, `backfill_cluster_guest_matches` + its trigger); `set_guest_person` is re-created without the cluster name match (a name-only guest still gets no person); `lib/clusters.ts`, the "years you grouped" export section and the user record's "AI abuse flags" list (it replaces the R7 note above) go with them.
 
 Test: `lib/retired-pages-are-gone.test.ts` (each route gone or forwarding; no menu/nav/builder names a retired address). Tests that read a deleted file drop only that file's entry; two count floors move by exactly the deleted item (admin drawing 114 → 113, pill selectors 22 → 21).
 

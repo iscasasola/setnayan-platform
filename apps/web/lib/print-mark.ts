@@ -591,5 +591,27 @@ export function rasterMarkPayload(svg: string | null | undefined): { mime: 'imag
   const w = Number(m[1]);
   const h = Number(m[2]);
   if (!(w > 0 && h > 0)) return null;
-  return { mime: `image/${m[3]}` as 'image/png' | 'image/jpeg' | 'image/webp', bytes: new Uint8Array(Buffer.from(m[4]!, 'base64')), w, h };
+  return { mime: `image/${m[3]}` as 'image/png' | 'image/jpeg' | 'image/webp', bytes: base64Bytes(m[4]!), w, h };
+}
+
+/**
+ * Base64 → bytes WITHOUT Node's `Buffer`. ⚖ 8 KB of the Maker's first load:
+ * this file reaches the browser (event-monogram → monogram-svg-safe →
+ * logo-layers → here), and on a client build a bare `Buffer` makes Next
+ * inject the whole `buffer` polyfill (+ base64-js + ieee754, ~8.2 KB gzipped)
+ * into the event layout's chunk, even though only the print server calls
+ * `rasterMarkPayload`. `atob` exists in every browser and in Node ≥ 16.
+ * Same bytes as `Buffer.from(s, 'base64')` for anything the regex above lets
+ * through (`[A-Za-z0-9+/]+={0,2}`): padding is dropped and re-added, and a
+ * lone trailing sextet (length ≡ 1 mod 4, no whole byte in it) is dropped as
+ * Buffer drops it, where `atob` would throw.
+ * 🛡 lib/print-mark-has-no-buffer.test.ts.
+ */
+function base64Bytes(b64: string): Uint8Array {
+  let s = b64.replace(/=+$/, '');
+  if (s.length % 4 === 1) s = s.slice(0, -1);
+  const bin = atob(s + '='.repeat((4 - (s.length % 4)) % 4));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
 }

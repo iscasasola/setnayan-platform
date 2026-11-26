@@ -402,6 +402,7 @@
         "_components/live-refresher.tsx",
         "_components/live-studio-recordings-card.tsx",
         "_components/live-studio/broadcast-readiness.tsx",
+        "_components/load-whole.tsx",
         "_components/loader-config-provider.tsx",
         "_components/lock-answer-forms.tsx",
         "_components/lock/limit-sheet.tsx",
@@ -1277,6 +1278,7 @@
         "Image",
         "ImageBadge",
         "Impl",
+        "InRiseRoute.Provider",
         "InSheet.Provider",
         "InfoTip",
         "InlineCheckoutDrawer",
@@ -1715,6 +1717,7 @@
         "ShellSearchContext",
         "ShopBadgePill",
         "ShopCard",
+        "ShopDoorScreen",
         "ShopHitCard",
         "ShopLine",
         "ShopLink",
@@ -4479,7 +4482,6 @@
         "/admin/chat-flags",
         "/admin/colours",
         "/admin/completions",
-        "/admin/concierge-abuse",
         "/admin/corrections",
         "/admin/data-privacy",
         "/admin/demand",
@@ -5462,42 +5464,6 @@
         "Link",
         "Note",
         "One"
-      ]
-    },
-    "/admin/concierge-abuse": {
-      "files": [
-        "admin/concierge-abuse/_components/abuse-tabs.tsx",
-        "admin/concierge-abuse/actions.ts",
-        "admin/concierge-abuse/loading.tsx",
-        "admin/concierge-abuse/page.tsx"
-      ],
-      "destinations": [
-        "/admin/concierge-abuse?tab=enforcement",
-        "/admin/concierge-abuse?tab=queue"
-      ],
-      "actions": [
-        "adminClearConciergeFlag",
-        "adminConfirmConciergeAbuse",
-        "adminLiftConciergeEnforcement"
-      ],
-      "blocks": [
-        "AbuseTabs",
-        "EnforcementTab",
-        "FormFlash",
-        "InfoTip",
-        "Link",
-        "MatchedAccounts",
-        "Metric",
-        "PageMasthead",
-        "PillThumb",
-        "QueueTab",
-        "ReadFailed",
-        "SignalsTable",
-        "SimilarityBar",
-        "StrikePill",
-        "SubmitButton",
-        "TemplateEmpty",
-        "TemplateRows"
       ]
     },
     "/admin/connection-logs": {
@@ -7609,7 +7575,6 @@
         "/admin/accounts?tab=users",
         "/admin/accounts?tab=users&q=[seg]&expand=[seg]",
         "/admin/approvals",
-        "/admin/concierge-abuse",
         "/admin/disputes",
         "/admin/events/[seg]",
         "/admin/help",
@@ -8072,13 +8037,11 @@
       "files": [
         "api/v1/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/api-keys"
+      "destinations": [],
+      "actions": [
+        "routes.dashboard.index"
       ],
-      "actions": [],
-      "blocks": [
-        "Link"
-      ]
+      "blocks": []
     },
     "/claim/[token]": {
       "files": [
@@ -8101,28 +8064,13 @@
     },
     "/dashboard/(account)/api-keys": {
       "files": [
-        "dashboard/(account)/api-keys/actions.ts",
-        "dashboard/(account)/api-keys/loading.tsx",
         "dashboard/(account)/api-keys/page.tsx"
       ],
-      "destinations": [
-        "/api/v1",
-        "/dashboard/profile"
-      ],
+      "destinations": [],
       "actions": [
-        "createApiKey",
-        "revokeApiKey"
+        "routes.dashboard.index"
       ],
-      "blocks": [
-        "ActionButton",
-        "Badge",
-        "FormFlash",
-        "InfoTip",
-        "Link",
-        "PageMasthead",
-        "ScopeCheckbox",
-        "SubmitButton"
-      ]
+      "blocks": []
     },
     "/dashboard/(account)/billing": {
       "files": [
@@ -8147,47 +8095,6 @@
         "Row",
         "SupplierBillingSections",
         "Unread"
-      ]
-    },
-    "/dashboard/(account)/clusters": {
-      "files": [
-        "dashboard/(account)/clusters/_components/create-cluster-form.tsx",
-        "dashboard/(account)/clusters/actions.ts",
-        "dashboard/(account)/clusters/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/clusters/[seg]"
-      ],
-      "actions": [],
-      "blocks": [
-        "ActionButton",
-        "ActionResult",
-        "CreateClusterForm",
-        "InfoTip",
-        "Link",
-        "PageMasthead",
-        "QuietStart"
-      ]
-    },
-    "/dashboard/(account)/clusters/[clusterId]": {
-      "files": [
-        "dashboard/(account)/clusters/[clusterId]/_components/cluster-tools.tsx",
-        "dashboard/(account)/clusters/[clusterId]/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/[seg]",
-        "/dashboard/clusters"
-      ],
-      "actions": [],
-      "blocks": [
-        "ActionButton",
-        "ClusterTools",
-        "InfoTip",
-        "Link",
-        "PageMasthead",
-        "PostedPick",
-        "Result",
-        "SwipeToDelete"
       ]
     },
     "/dashboard/(account)/create-event": {
@@ -8574,9 +8481,7 @@
       "destinations": [
         "/admin",
         "/api/profile/export",
-        "/dashboard/api-keys",
         "/dashboard/profile",
-        "/dashboard/profile/concierge",
         "/help",
         "/signup?next=%2Fdashboard%2Fprofile",
         "/u/[seg]"
@@ -8629,30 +8534,6 @@
         "SwitchRow",
         "SwitchTrack",
         "TurnstileField"
-      ]
-    },
-    "/dashboard/(account)/profile/concierge": {
-      "files": [
-        "dashboard/(account)/profile/concierge/actions.ts",
-        "dashboard/(account)/profile/concierge/loading.tsx",
-        "dashboard/(account)/profile/concierge/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/profile",
-        "/dashboard/profile/concierge?event=[seg]",
-        "/pricing"
-      ],
-      "actions": [],
-      "blocks": [
-        "ActionButton",
-        "ActionContext",
-        "EventPicker",
-        "FactRow",
-        "FormPageSkeleton",
-        "InfoTip",
-        "Link",
-        "PageMasthead",
-        "StatusPanel"
       ]
     },
     "/dashboard/(account)/samahan": {
@@ -8929,7 +8810,6 @@
         "/dashboard/[seg]/seating",
         "/dashboard/[seg]/studio/mood-board",
         "/dashboard/[seg]/studio/pakanta",
-        "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors",
         "/dashboard/[seg]/vendors/[seg]/workspace?tab=quote",
         "/dashboard/[seg]/vendors?tab=budget",
@@ -10436,31 +10316,6 @@
         "RoleNamesProvider",
         "Select",
         "SubmitButton"
-      ]
-    },
-    "/dashboard/[eventId]/guests/quick": {
-      "files": [
-        "dashboard/[eventId]/guests/quick/_components/quick-add-list.tsx",
-        "dashboard/[eventId]/guests/quick/actions.ts",
-        "dashboard/[eventId]/guests/quick/loading.tsx",
-        "dashboard/[eventId]/guests/quick/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/[seg]/guests",
-        "/dashboard/[seg]/guests/import",
-        "/dashboard/[seg]/guests/new"
-      ],
-      "actions": [
-        "action"
-      ],
-      "blocks": [
-        "FormFlash",
-        "FormPageSkeleton",
-        "HTMLInputElement",
-        "InfoTip",
-        "Link",
-        "QuickAddList",
-        "UploadButton"
       ]
     },
     "/dashboard/[eventId]/guests/send": {
@@ -12296,6 +12151,7 @@
         "dashboard/[eventId]/seating/lab/_components/room-view-tools.tsx",
         "dashboard/[eventId]/seating/lab/_components/seating-lab-3d.tsx",
         "dashboard/[eventId]/seating/lab/_components/seating-lab-loader.tsx",
+        "dashboard/[eventId]/seating/lab/_components/seating-room.tsx",
         "dashboard/[eventId]/seating/lab/page.tsx"
       ],
       "destinations": [
@@ -12661,7 +12517,6 @@
         "dashboard/[eventId]/studio/mood-board/suggestion-actions.ts"
       ],
       "destinations": [
-        "/dashboard/[seg]/seating/lab",
         "/dashboard/[seg]/studio/mood-board",
         "/v/[seg]"
       ],
@@ -12994,21 +12849,6 @@
         "VenueCheckStatusProps"
       ]
     },
-    "/dashboard/[eventId]/studio/papic/challenges": {
-      "files": [
-        "dashboard/[eventId]/studio/papic/challenges/loading.tsx",
-        "dashboard/[eventId]/studio/papic/challenges/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "CoupleChallengesManager",
-        "InfoTip",
-        "Link",
-        "ListPageSkeleton",
-        "UndoToastHost"
-      ]
-    },
     "/dashboard/[eventId]/studio/papic/crew": {
       "files": [
         "dashboard/[eventId]/studio/papic/crew/_components/copy-button.tsx",
@@ -13105,26 +12945,6 @@
         "Stat",
         "SubmitButton",
         "SwitchTrack"
-      ]
-    },
-    "/dashboard/[eventId]/studio/papic/run-of-show": {
-      "files": [
-        "dashboard/[eventId]/studio/papic/run-of-show/page.tsx"
-      ],
-      "destinations": [
-        "/dashboard/[seg]/studio/papic/challenges"
-      ],
-      "actions": [
-        "addLibraryChallengeAction",
-        "armChallengeAction",
-        "clearMomentChallengeAction",
-        "setChallengesPausedAction"
-      ],
-      "blocks": [
-        "InfoTip",
-        "Link",
-        "MomentShelf",
-        "StayForm"
       ]
     },
     "/dashboard/[eventId]/studio/patiktok": {
@@ -13386,22 +13206,12 @@
         "dashboard/[eventId]/studio/setnayan-ai/_components/setnayan-ai-value.tsx",
         "dashboard/[eventId]/studio/setnayan-ai/page.tsx"
       ],
-      "destinations": [
-        "/dashboard/[seg]/vendors"
-      ],
+      "destinations": [],
       "actions": [
         "routes.dashboard.eventServices"
       ],
       "blocks": [
-        "ActionButton",
-        "IapUnlockSheet",
-        "InfoTip",
-        "Link",
-        "PageMasthead",
-        "PaidMark",
-        "SetnayanAiValue",
-        "Spotlights",
-        "StudioBuyHero"
+        "Spotlights"
       ]
     },
     "/dashboard/[eventId]/studio/website-pro": {
@@ -13523,7 +13333,6 @@
         "/dashboard/[seg]/budget",
         "/dashboard/[seg]/disputes",
         "/dashboard/[seg]/messages/[seg]",
-        "/dashboard/[seg]/studio/setnayan-ai",
         "/dashboard/[seg]/vendors",
         "/dashboard/[seg]/vendors/[seg]/review",
         "/dashboard/[seg]/vendors/[seg]/workspace?tab=payments",
@@ -13536,7 +13345,8 @@
         "acceptVendorReuseForm",
         "cancelVendorReuseForm",
         "deleteVendor",
-        "requestVendorReuseForm"
+        "requestVendorReuseForm",
+        "routes.dashboard.eventServices"
       ],
       "blocks": [
         "AccordionBuildButton",
@@ -15269,6 +15079,7 @@
         "open-shop/_components/event-tiles.tsx",
         "open-shop/_components/first-card-draft.tsx",
         "open-shop/_components/name-hold.tsx",
+        "open-shop/_components/open-shop-layer.tsx",
         "open-shop/_components/open-shop-wizard.tsx",
         "open-shop/_components/phone-field.tsx",
         "open-shop/_components/plan-sheet.tsx",
@@ -15280,6 +15091,7 @@
         "open-shop/address-actions.ts",
         "open-shop/city-actions.ts",
         "open-shop/claim-actions.ts",
+        "open-shop/layout.tsx",
         "open-shop/page.tsx"
       ],
       "destinations": [
@@ -15332,6 +15144,8 @@
         "NameHold",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "OpenShopHead",
+        "OpenShopLayer",
         "OpenShopWizard",
         "OverlayBackdrop",
         "PasswordField",
@@ -15346,7 +15160,9 @@
         "ServiceCards",
         "ServicePicker",
         "ServicesAtEvents",
+        "SetHead.Provider",
         "Sheet",
+        "ShopDoorScreen",
         "SignInHereLink",
         "Specialties",
         "SpecialtiesBar",
@@ -15369,6 +15185,7 @@
       "blocks": [
         "ActionButton",
         "FirstRunBrand",
+        "OpenShopHeadMark",
         "QrCard"
       ]
     },
@@ -15694,20 +15511,6 @@
         "Kind",
         "Link",
         "Platform"
-      ]
-    },
-    "/papic/lightcheck": {
-      "files": [
-        "papic/lightcheck/_components/lightcheck-client.tsx",
-        "papic/lightcheck/page.tsx"
-      ],
-      "destinations": [],
-      "actions": [],
-      "blocks": [
-        "Blob",
-        "HTMLVideoElement",
-        "LightcheckClient",
-        "MediaStreamTrack"
       ]
     },
     "/papic/me/[token]": {
@@ -16778,6 +16581,7 @@
         "DueFeeBill",
         "EarnedArt",
         "EarnedMark",
+        "ErrorState",
         "EventCard",
         "EventLinesBody",
         "EventLockedByFee",
@@ -16868,6 +16672,7 @@
         "QuickBody",
         "QuickGroup.Provider",
         "QuoteDraftBody",
+        "ReadFailedNote",
         "RecRow",
         "ReviewBody",
         "RiseScreen",
@@ -16995,6 +16800,38 @@
       "blocks": [
         "RiseRoute"
       ]
+    },
+    "/vendor-dashboard/@rise/(.)services/[serviceId]": {
+      "files": [
+        "vendor-dashboard/@rise/(.)services/[serviceId]/layout.tsx",
+        "vendor-dashboard/@rise/(.)services/[serviceId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "CardMakerPage",
+        "LoadWhole",
+        "RiseRoute"
+      ]
+    },
+    "/vendor-dashboard/@rise/(.)services/new": {
+      "files": [
+        "vendor-dashboard/@rise/(.)services/new/layout.tsx",
+        "vendor-dashboard/@rise/(.)services/new/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "RiseRoute"
+      ]
+    },
+    "/vendor-dashboard/@rise/(.)services/new/[category]": {
+      "files": [
+        "vendor-dashboard/@rise/(.)services/new/[category]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": []
     },
     "/vendor-dashboard/@rise/(.)settings": {
       "files": [
@@ -17526,6 +17363,7 @@
         "OwnTimesForm",
         "P",
         "Part",
+        "PartPage",
         "PaymentAskOutcome",
         "PaymentAsksPanel",
         "PaymentHistoryList",
@@ -17550,6 +17388,8 @@
         "QuotationPage",
         "QuoteTab",
         "QuoteTopLines",
+        "ReadFailedBody",
+        "ReadFailedNote",
         "ReplyControls",
         "ReportForm",
         "ReportPage",
@@ -17690,6 +17530,7 @@
         "InfoTip",
         "PartNote",
         "PartSec",
+        "ReadFailedNote",
         "StatusBadge",
         "SupplierThumbRow",
         "TheirEventPart"
@@ -17708,6 +17549,8 @@
         "ColourLaneEditor",
         "EventLockedPage",
         "Link",
+        "PartPage",
+        "ReadFailedBody",
         "SuggestResult",
         "SuggestionPoolResult",
         "SupplierSuggestBoard",
@@ -17794,6 +17637,8 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "PartPage",
+        "ReadFailedBody",
         "TheirEventLine",
         "TheirEventPartBody"
       ]
@@ -17900,6 +17745,7 @@
       "actions": [],
       "blocks": [
         "DatesRow",
+        "ReadFailedNote",
         "ShopSegments",
         "TemplateEmpty",
         "TemplateSection"
@@ -18006,6 +17852,7 @@
       ],
       "actions": [
         "path",
+        "routes.vendorDashboard.subscription",
         "sendCreatorOffer"
       ],
       "blocks": [
@@ -18019,6 +17866,7 @@
         "Link",
         "ListPageSkeleton",
         "PaidMark",
+        "ReadFailedNote",
         "RoiRow",
         "SearchParams",
         "SendOfferButton",
@@ -18634,6 +18482,7 @@
         "QuoteSeed",
         "QuoteVersionLine",
         "RailBody",
+        "ReadFailedNote",
         "RefundAnswer",
         "Resolved",
         "SendProposalCard",
@@ -18730,6 +18579,7 @@
         "NotificationsList",
         "NotificationsView",
         "PermissionState",
+        "ReadFailedBody",
         "UnblockGuide"
       ]
     },
@@ -18814,6 +18664,7 @@
         "PickMenu",
         "QrActions",
         "ReactNode",
+        "ReadFailedBody",
         "RequestsInbox",
         "RowIcon",
         "SeatFinderRow",
@@ -18924,6 +18775,7 @@
         "CueCard",
         "DateRow",
         "DatedPlanTool",
+        "DayReadFailed",
         "DayRunOfShow",
         "DietarySheet",
         "Drawn",
@@ -19066,8 +18918,8 @@
         "vendor-dashboard/packages/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/packages/[seg]",
-        "/vendor-dashboard/packages/new"
+        "/vendor-dashboard/packages/[seg]?from=packages",
+        "/vendor-dashboard/packages/new?from=packages"
       ],
       "actions": [],
       "blocks": [
@@ -19423,6 +19275,7 @@
       "destinations": [],
       "actions": [
         "flagFeedback",
+        "routes.vendorDashboard.recommendations",
         "setOptIn",
         "suggestToCouple"
       ],
@@ -19622,6 +19475,7 @@
         "FormCounter",
         "FormRow",
         "FormRows",
+        "FormRowsReadOnly.Provider",
         "Fragment",
         "FramedImg",
         "GalleryTilesHandle",
@@ -19724,15 +19578,19 @@
         "/vendor-dashboard/shop"
       ],
       "actions": [
+        "routes.vendorDashboard.services",
         "setServiceHalls"
       ],
       "blocks": [
+        "ActionButton",
         "AddFirstSpace",
         "CanvasMaker",
         "CardPortfolioSection",
         "CardRecordSection",
         "CardRecordUnread",
+        "ErrorState",
         "HallsUsesPick",
+        "HideWhenRisen",
         "Link",
         "ReadFailedNote",
         "RefinementsEditor"
@@ -19754,6 +19612,7 @@
         "AddServicePicker",
         "CanvasMaker",
         "CoverageMeter",
+        "HideWhenRisen",
         "Link",
         "NewServiceMaker",
         "RefinementsEditor",
@@ -19774,6 +19633,7 @@
       "actions": [],
       "blocks": [
         "CanvasMaker",
+        "HideWhenRisen",
         "Link",
         "RefinementsEditor",
         "ServiceWizard"
@@ -20646,6 +20506,7 @@
         "vendor-dashboard/team/_components/helpers-view.tsx",
         "vendor-dashboard/team/_components/member-card.tsx",
         "vendor-dashboard/team/_components/team-screen.tsx",
+        "vendor-dashboard/team/_components/team-unread.tsx",
         "vendor-dashboard/team/_components/who-works-what-services.tsx",
         "vendor-dashboard/team/actions.ts",
         "vendor-dashboard/team/loading.tsx",
@@ -20655,7 +20516,8 @@
         "/vendor-dashboard/team/roles"
       ],
       "actions": [
-        "action"
+        "action",
+        "routes.vendorDashboard.team"
       ],
       "blocks": [
         "ActionButton",
@@ -20666,6 +20528,7 @@
         "BranchScope",
         "ChosenRow",
         "DatesRow",
+        "ErrorState",
         "Fold",
         "FormPageSkeleton",
         "FormRows",
@@ -20686,6 +20549,7 @@
         "TeamMemberCard",
         "TeamScreen",
         "TeamSearch",
+        "TeamUnread",
         "TypedRow"
       ]
     },
@@ -20701,6 +20565,7 @@
       ],
       "actions": [
         "action",
+        "routes.vendorDashboard.team",
         "setVendorRoleNames"
       ],
       "blocks": [
@@ -20717,6 +20582,7 @@
         "ShopNotice",
         "StayForm",
         "SupplierSubmit",
+        "TeamUnread",
         "TypedRow",
         "VendorRoleNames"
       ]
@@ -20740,7 +20606,8 @@
         "Search",
         "ShopNotice",
         "StayForm",
-        "SupplierSubmit"
+        "SupplierSubmit",
+        "TeamUnread"
       ]
     },
     "/vendor-dashboard/theft-watch": {
@@ -20777,7 +20644,9 @@
       "destinations": [
         "/vendor-dashboard/shop"
       ],
-      "actions": [],
+      "actions": [
+        "routes.vendorDashboard.trackRecord"
+      ],
       "blocks": [
         "ActionButton",
         "RoleLock",
@@ -20892,6 +20761,7 @@
       "blocks": [
         "ActionButton",
         "Badge",
+        "ErrorState",
         "Image",
         "InfoTip",
         "Link",
@@ -20908,7 +20778,8 @@
       ],
       "destinations": [],
       "actions": [
-        "declineVendorInviteByToken"
+        "declineVendorInviteByToken",
+        "routes.help.index"
       ],
       "blocks": [
         "ActionButton",
@@ -20978,7 +20849,8 @@
         "/signup?as=couple&next=[seg]"
       ],
       "actions": [
-        "claimLockedQr"
+        "claimLockedQr",
+        "routes.v.detail"
       ],
       "blocks": [
         "ActionButton",

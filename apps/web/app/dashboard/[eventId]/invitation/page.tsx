@@ -48,6 +48,8 @@ type Props = {
     slug_error?: string;
     mono_saved?: string;
     mono_error?: string;
+    invite?: string;
+    n?: string;
   }>;
 };
 
@@ -185,6 +187,21 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
     : null;
 
   const monoSaved = search.mono_saved === '1';
+  // I-04 (final check): the Mark sent actions came back with `?invite=…` and the page never read it.
+  const inviteMarkedN = Number.parseInt(search.n ?? '', 10);
+  const inviteLine: { tone: 'alert' | 'status'; text: string } | null =
+    search.invite === 'failed'
+      ? { tone: 'alert', text: "Couldn't save that. Nothing changed — try again." }
+      : search.invite === 'none'
+        ? { tone: 'alert', text: 'Pick at least one guest first.' }
+        : (search.invite === 'marked' || search.invite === 'unmarked') && Number.isFinite(inviteMarkedN)
+          ? {
+              tone: 'status',
+              text: `${formatCount(inviteMarkedN)} guest${inviteMarkedN === 1 ? '' : 's'} marked ${
+                search.invite === 'marked' ? 'sent' : 'not sent yet'
+              }.`,
+            }
+          : null;
   const monoErrorKey = search.mono_error ?? null;
   const monoError = monoErrorKey
     ? (MONO_ERROR_COPY[monoErrorKey] ?? decodeURIComponent(monoErrorKey))
@@ -242,6 +259,15 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           </div>
         }
       />
+
+      {inviteLine ? (
+        <p
+          role={inviteLine.tone}
+          className={`text-sm ${inviteLine.tone === 'alert' ? 'text-danger-600' : 'text-ink'}`}
+        >
+          {inviteLine.text}
+        </p>
+      ) : null}
 
       {reissuedGuestId ? (
         <p

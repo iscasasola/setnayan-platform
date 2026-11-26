@@ -159,6 +159,9 @@ test('the monthly log round-trips: rationale → id, newest per question, due af
 /** Public routes deliberately in no sitemap — each with its reason. */
 const NOT_IN_A_SITEMAP: Record<string, string> = {
   '/explore/compare': "the visitor's own shortlist side by side — nothing on it a search engine could index",
+  // Final check A1-160 (Add 9 SEO): sign-in pages carry `noindex`, so a sitemap must not ask for them.
+  '/login': 'a sign-in page — noindex, nothing to find in search',
+  '/signup': 'the account form — noindex, nothing to find in search',
   // '/weddings' left 2026-11-16 — it forwards to / and is no longer a known public route (PR #7847).
 };
 

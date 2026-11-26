@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { adminCanRefusal } from '@/lib/admin/can.server';
 import type { ModerationStatus } from '@/lib/vendor-payment-methods';
 
 /**
@@ -101,6 +102,10 @@ async function transitionModeration(opts: {
 
 export async function approvePaymentMethod(formData: FormData) {
   const { adminUserId } = await requireAdmin();
+  // A8·L-8: approving, holding or removing a supplier's payment destination is
+  // Verification · Escalated ("approve · reject · hide a listing").
+  const refused = await adminCanRefusal('verification', 'escalated');
+  if (refused) throw new Error(refused);
   const paymentMethodId = readFormString(formData, 'payment_method_id');
   if (!paymentMethodId) throw new Error('Missing payment_method_id.');
 
@@ -115,6 +120,10 @@ export async function approvePaymentMethod(formData: FormData) {
 
 export async function holdPaymentMethod(formData: FormData) {
   const { adminUserId } = await requireAdmin();
+  // A8·L-8: approving, holding or removing a supplier's payment destination is
+  // Verification · Escalated ("approve · reject · hide a listing").
+  const refused = await adminCanRefusal('verification', 'escalated');
+  if (refused) throw new Error(refused);
   const paymentMethodId = readFormString(formData, 'payment_method_id');
   if (!paymentMethodId) throw new Error('Missing payment_method_id.');
 
@@ -129,6 +138,10 @@ export async function holdPaymentMethod(formData: FormData) {
 
 export async function removePaymentMethod(formData: FormData) {
   const { adminUserId } = await requireAdmin();
+  // A8·L-8: approving, holding or removing a supplier's payment destination is
+  // Verification · Escalated ("approve · reject · hide a listing").
+  const refused = await adminCanRefusal('verification', 'escalated');
+  if (refused) throw new Error(refused);
   const paymentMethodId = readFormString(formData, 'payment_method_id');
   if (!paymentMethodId) throw new Error('Missing payment_method_id.');
 

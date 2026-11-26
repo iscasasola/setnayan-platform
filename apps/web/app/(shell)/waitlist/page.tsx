@@ -1,3 +1,4 @@
+import { routes } from '@/lib/routes';
 import Link from 'next/link';
 import { ArrowRight } from 'lucide-react';
 import { BRAND_OG_IMAGES } from '@/lib/brand-og';
@@ -16,7 +17,7 @@ import { actionButtonClass } from '@/components/action-button-class';
 export const metadata = {
   title: 'Plan your wedding free',
   description:
-    'Setnayan is live for couples. Start planning free today — guest list, seating, budget, mood board, and a verified supplier marketplace with 0% commission on bookings.',
+    'Setnayan is live for couples. Start planning free today — guest list, seating, budget, mood board, and a verified supplier marketplace. Hosts pay 0% commission.',
   alternates: { canonical: '/waitlist' },
   openGraph: {
     images: BRAND_OG_IMAGES,
@@ -50,7 +51,7 @@ export default function WaitlistPage() {
 
           <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
             <Link
-              href="/onboarding/wedding"
+              href={routes.start()}
               className={actionButtonClass('brand', { main: true, extra: 'min-h-[48px] gap-2 px-7 text-sm font-semibold sm:text-base !h-11' })}
             >
               Plan your wedding free

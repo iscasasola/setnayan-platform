@@ -1,7 +1,7 @@
 import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { fetchOwnNotifications } from '@/lib/notifications';
+import { readOwnNotifications } from '@/lib/notifications';
 import { fetchNotificationEventPlaces } from '@/lib/notification-places';
 import { placeWhoFromSwitcher } from '@/lib/notification-place';
 import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
@@ -22,9 +22,17 @@ export default async function VendorNotificationsPage() {
   if (!user) redirect('/login');
 
   // 📍 Each row's PLACE: one batch for the rows' events, and the account menu's facts the layout already read.
-  const [items, switcherData] = await Promise.all([fetchOwnNotifications(supabase, user.id), getSwitcherData(user.id)]);
-  const events = await fetchNotificationEventPlaces(supabase, user.id, items);
+  // A refused read is said (A6-15), never "Nothing yet.".
+  const [{ items, unread }, switcherData] = await Promise.all([readOwnNotifications(supabase, user.id), getSwitcherData(user.id)]);
+  const events = unread ? null : await fetchNotificationEventPlaces(supabase, user.id, items);
   const returnTo = '/vendor-dashboard/notifications';
 
-  return <NotificationsView items={items} places={{ events, who: placeWhoFromSwitcher(switcherData) }} returnTo={returnTo} />;
+  return (
+    <NotificationsView
+      items={items}
+      unread={unread}
+      places={events ? { events, who: placeWhoFromSwitcher(switcherData) } : null}
+      returnTo={returnTo}
+    />
+  );
 }

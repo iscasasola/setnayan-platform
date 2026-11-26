@@ -74,12 +74,22 @@ test('the remove frame is a top-layer dialog, not a panel hung off the card', ()
   //     everything above can pass while the typed-name field still lives in
   //     the anchored popover. Anchored to the field, because that is the
   //     control the owner could not reach.
+  //     Since brief Add 40 (25 Nov 2026) the frame's content is ONE body, `deleteBody`, drawn by this dialog for the
+  //     board and the trash icon and inside Home's card menu for `trigger="card"` — so the claim is held in two halves:
+  //     the dialog holds that body and nothing else, and the typed-name field lives in that body.
   const dialogAt = src.indexOf('<RemoveDialog');
   const dialogEnd = src.indexOf('</RemoveDialog>');
-  const typedAt = src.indexOf('value={typed}');
   assert.ok(dialogAt > 0 && dialogEnd > dialogAt, 'the dialog must wrap a body');
+  assert.match(
+    src.slice(dialogAt, dialogEnd),
+    /^<RemoveDialog[^>]*>\s*\{deleteBody\}\s*$/,
+    'The dialog no longer holds the delete body — the frame is only on top if the frame’s CONTENT is what it holds.',
+  );
+  const bodyAt = src.indexOf('const deleteBody = (');
+  const bodyEnd = src.indexOf('\n  );', bodyAt);
+  const typedAt = src.indexOf('value={typed}');
   assert.ok(
-    typedAt > dialogAt && typedAt < dialogEnd,
+    bodyAt > 0 && typedAt > bodyAt && typedAt < bodyEnd,
     'The type-the-name field is back outside the dialog. The frame is only ' +
       'on top if the frame’s CONTENT is what the dialog holds.',
   );
@@ -88,7 +98,7 @@ test('the remove frame is a top-layer dialog, not a panel hung off the card', ()
   //     for one decision is the menu still painting under its own dialog.
   assert.match(
     src,
-    /\{open && !confirming \? \(/,
+    /\{trigger !== 'card' && open && !confirming \? \(/,
     'The anchored menu no longer stands down while the remove frame is open.',
   );
 

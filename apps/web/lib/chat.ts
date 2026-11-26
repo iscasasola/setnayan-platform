@@ -634,7 +634,10 @@ export async function fetchVendorThreadsDetailed(
     threads: rows.map(
       (row) => ({ ...(row as object), archived: false }) as unknown as VendorThreadWithEvent,
     ),
-    complete: plain.complete && rows.length === plain.rows.length,
+    // 🧾 A6-13 (final check 25 Nov): the archive state did not load, so `archived: false` above is a guess — an archived
+    // chat would come back among the active ones as if it were measured. Reported as NOT complete, so a list that
+    // renders these says part of it could not load instead of silently un-archiving.
+    complete: false,
   };
 }
 

@@ -5,6 +5,8 @@ import { ArrowRight, Clock } from 'lucide-react';
 
 import { FileUpload } from '@/app/_components/file-upload';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';
+import { useOpenShopHead } from '../../_components/open-shop-layer';
+import '@/app/vendor-dashboard/_components/supplier-look.css';
 import { PictureFrameControl } from '@/app/_components/picture-frame-control';
 import { updateVendorProfileField, type FieldSaveResult } from '@/app/vendor-dashboard/actions';
 import { ActionButton } from '@/components/action-button';
@@ -88,30 +90,30 @@ export function AddYourLogo({
   }
 
   const status = queued || saving ? 'saving' : state?.ok ? 'saved' : null;
+  // ⤴ A step of the one open-shop layer (final check B2): its title and "<shop> is open." ride in the head; ✕ lands
+  // where Skip and Continue go — the shop is open.
+  useOpenShopHead({ title: hasSaved ? 'Your logo' : 'Add your logo', line: `${shopName} is open.`, leaveTo: doneHref });
 
   return (
     /* 🧱 THE WIZARD'S OWN SHELL (walk 13 Nov 2026, F-W1-08). This screen used to be a centred card — no progress, the
        button floating mid-page, and the whole block re-centring (jumping) as the picture and its controls grew in. It
        now wears `/open-shop`'s frame: top-aligned, the wordmark over the five step bars (all filled — the shop is open),
        the step's title + line, and the same sticky bottom bar holding the one button. */
-    <main className="flex min-h-[100dvh] flex-col overflow-x-clip md:block md:min-h-[70vh]" data-open-shop-logo="">
-      <div className="flex flex-1 flex-col gap-[18px] px-4 pt-6 md:mx-auto md:max-w-[620px] md:px-7 md:pb-9">
+    // ⤴ Inside the one open-shop layer, in the supplier look (final check B2): no page shell, no warm page.
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-clip overscroll-contain" data-open-shop-logo="" data-supplier-look="">
+      <div className="flex flex-1 flex-col gap-[18px] px-4 pt-6 md:mx-auto md:w-full md:max-w-[620px] md:px-7 md:pb-9">
         <div className="grid gap-3">
           <FirstRunBrand color="var(--m-ink)" size={13} />
           <div className="flex gap-1.5" role="progressbar" aria-valuemin={1} aria-valuemax={5} aria-valuenow={5} aria-label="Your shop is open" data-open-shop-segments="">
             {[1, 2, 3, 4, 5].map((n) => (
-              <div key={n} className="h-1 flex-1 rounded-full" style={{ background: 'var(--m-orange-deep)' }} />
+              <div key={n} className="h-1 flex-1 rounded-full" style={{ background: 'rgb(var(--color-mulberry))' }} />
             ))}
           </div>
         </div>
-        <div className="grid gap-[3px]">
-        <h1 className="text-[22px] font-semibold leading-[1.1] tracking-[-0.01em]" style={{ color: 'var(--m-ink)' }}>
-          {hasSaved ? 'Your logo' : 'Add your logo'}
-        </h1>
+        {/* The title and "<shop> is open." are in the layer's head; the rest of the line stays here. */}
         <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-          {shopName} is open. Couples see your logo on every supplier card. Changes save on their own.
+          Couples see your logo on every supplier card. Changes save on their own.
         </p>
-        </div>
         {state && !state.ok ? (
           <p
             className="mt-4 rounded-lg p-3 text-xs"
@@ -189,6 +191,6 @@ export function AddYourLogo({
             )}
           </div>
       </div>
-    </main>
+    </div>
   );
 }

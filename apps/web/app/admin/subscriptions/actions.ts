@@ -42,6 +42,7 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { adminCanRefusal } from '@/lib/admin/can.server';
 import {
   notifyVendorSubscriptionActivated,
   notifyVendorSubscriptionRejected,
@@ -70,6 +71,9 @@ export async function approveSubscription(formData: FormData): Promise<void> {
     redirect('/admin/subscriptions?error=' + encodeURIComponent('Missing order id.'));
   }
   const supabase = await requireAdmin();
+  // A8·L-8: confirming a plan's payment is "confirm a logged payment" — Payments · Basic.
+  const refused = await adminCanRefusal('payments', 'basic');
+  if (refused) redirect('/admin/subscriptions?error=' + encodeURIComponent(refused));
 
   const { data, error } = await supabase.rpc('approve_vendor_subscription', {
     p_purchase_id: id,
@@ -107,6 +111,8 @@ export async function rejectSubscription(formData: FormData): Promise<void> {
     redirect('/admin/subscriptions?error=' + encodeURIComponent('Missing order id.'));
   }
   const supabase = await requireAdmin();
+  const refused = await adminCanRefusal('payments', 'basic');
+  if (refused) redirect('/admin/subscriptions?error=' + encodeURIComponent(refused));
 
   const rejectReason =
     typeof reason === 'string' && reason.trim() ? reason.trim() : 'Payment not received';

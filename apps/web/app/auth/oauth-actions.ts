@@ -53,6 +53,7 @@
  *     only people with a role on the app can complete the login.
  */
 
+import { signInHrefKeepingIntent } from '@/lib/signup-intent';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { safeNext } from '@/lib/auth';
@@ -90,9 +91,8 @@ async function signInWithProvider(
   });
 
   if (error) {
-    return redirect(
-      `/login?error=${encodeURIComponent(error.message)}&next=${encodeURIComponent(next)}`,
-    );
+    // The shop intent rides the error back to the card (A1-059, Add 33).
+    return redirect(signInHrefKeepingIntent(next, accountType, error.message));
   }
 
   if (data?.url) {
@@ -104,9 +104,11 @@ async function signInWithProvider(
   // hit this path it's likely a misconfigured provider in Supabase
   // Studio (provider toggled OFF or missing credentials).
   return redirect(
-    `/login?error=${encodeURIComponent(
+    signInHrefKeepingIntent(
+      next,
+      accountType,
       `${provider} sign-in is not configured. Please use email + password or contact support.`,
-    )}&next=${encodeURIComponent(next)}`,
+    ),
   );
 }
 

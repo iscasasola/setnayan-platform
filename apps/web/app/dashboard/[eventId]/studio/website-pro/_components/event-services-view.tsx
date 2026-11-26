@@ -306,6 +306,10 @@ export function EventServicesView({
     [apple],
   );
   const appleCount = apple ? cart.lines.filter((l) => apple.products[l.code]).length : 0;
+  /** 🍎 The price a screen reader hears: Apple's own label in the app (never the `php: 0` that only makes an Apple row
+   *  tickable), the web figure on the web; none when the app has no Apple label for it. */
+  const priceSaid = (code: string, php: number | null): string | null =>
+    appleLabel ? appleLabel(code) : php !== null ? formatPhp(php) : null;
 
   return (
     <AppleCtx.Provider value={appleLabel}>
@@ -376,7 +380,7 @@ export function EventServicesView({
                       type="button"
                       className="es-hit sn-press"
                       aria-pressed={picked}
-                      aria-label={`${p.name}${p.php !== null && p.state === 'buy' ? `, ${formatPhp(p.php)}` : ''}`}
+                      aria-label={`${p.name}${p.state === 'buy' && priceSaid(p.code, p.php) ? `, ${priceSaid(p.code, p.php)}` : ''}`}
                       disabled={!buyable}
                       onClick={() => togglePack(p.key)}
                     />
@@ -456,7 +460,7 @@ export function EventServicesView({
                     even={false}
                     label="Photo sizes"
                     data="event-services-photos"
-                    options={facts.photos.map((p) => ({ key: p.code, label: formatCount(p.points), ariaLabel: `${formatCount(p.points)} photos, ${formatPhp(p.php)}` }))}
+                    options={facts.photos.map((p) => ({ key: p.code, label: formatCount(p.points), ariaLabel: `${formatCount(p.points)} photos${priceSaid(p.code, p.php) ? `, ${priceSaid(p.code, p.php)}` : ''}` }))}
                     value={pick.photos ? [pick.photos] : []}
                     onToggle={pickPhotos}
                   />

@@ -76,7 +76,7 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
   // ⏱ ONE ROUND TRIP for the three reads that ask only of the shop: the threads, the suggestions already sent (below)
   // and the shop's tiles (1 below). Only fetchVendorThreads can throw; the two query builders hand back their errors,
   // so the batch rejects exactly when, and with what, the threads read alone did.
-  const [allThreads, { data: sentRows }, taxRead] = await Promise.all([
+  const [allThreads, { data: sentRows, error: sentError }, taxRead] = await Promise.all([
     fetchVendorThreads(supabase, vendorProfileId),
     supabase
       .from('vendor_feature_recommendations')
@@ -121,10 +121,14 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
     );
   }
 
+  // 🪪 A refused read is said, never "no recommendations" (final check A5-G6-10).
+  const firstReadFailed = Boolean(sentError) || Boolean(taxRead?.error);
+
   // No leaves with a tile → nothing to recommend. Render the empty state.
-  if (tileIds.length === 0) {
+  if (firstReadFailed || tileIds.length === 0) {
     return (
       <RecommendationsPanel
+        readFailed={firstReadFailed}
         groups={[]}
         suggestSkuOptions={[]}
         connectedCouples={connectedCouples}
@@ -143,7 +147,7 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
   // 3) This vendor's own opt-in state + open (pending) feedback rows.
   // ⏱ 2) and 3) are ONE ROUND TRIP: each asks only of the shop and its tiles, and none of the five query builders
   //    throws (each hands back its own error).
-  const [{ data: recRows }, optinRes, feedbackRes, catalogRes, leafRes] = await Promise.all([
+  const [{ data: recRows, error: recError }, optinRes, feedbackRes, catalogRes, leafRes] = await Promise.all([
     supabase
       .from('vendor_service_recommendations')
       .select('tile_id, service_code, is_opt_in, priority, rationale')
@@ -174,6 +178,8 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
       .select('id, label_en')
       .in('id', tileIds),
   ]);
+  // 🪪 Any refused read here would draw "none", a raw service code with no price, or a wrong On/Off (A5-G6-10).
+  const cardsReadFailed = Boolean(recError || optinRes.error || feedbackRes.error || catalogRes.error || leafRes.error);
   const recs = (recRows ?? []) as {
     tile_id: string;
     service_code: string;
@@ -311,8 +317,9 @@ export default async function VendorRecommendationsPage({ searchParams }: Props)
 
   return (
     <RecommendationsPanel
-      groups={groups}
-      suggestSkuOptions={suggestSkuOptions}
+      readFailed={cardsReadFailed}
+      groups={cardsReadFailed ? [] : groups}
+      suggestSkuOptions={cardsReadFailed ? [] : suggestSkuOptions}
       connectedCouples={connectedCouples}
       suggestedKeys={[...suggestedKeys]}
       savedFlash={!!search.saved}

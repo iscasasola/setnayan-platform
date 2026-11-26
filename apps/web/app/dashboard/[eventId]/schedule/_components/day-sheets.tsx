@@ -518,12 +518,15 @@ export function RequestsSheet({
   eventId,
   requests,
   moments,
+  unread = false,
 }: {
   open: boolean;
   onClose: () => void;
   eventId: string;
   requests: DayRequest[];
   moments: DayMoment[];
+  /** A2-I1: the requests could not be read — never "Nothing waiting". */
+  unread?: boolean;
 }) {
   const { resolveScheduleSuggestion } = useDayActions();
   const [allProblem, setAllProblem] = useState<string | null>(null);
@@ -544,7 +547,11 @@ export function RequestsSheet({
           }
           tip="Booked suppliers propose; you or your approved coordinator decide. Approve applies it to the schedule; Decline tells them. They never edit the schedule themselves."
         />
-        {requests.length === 0 ? (
+        {unread ? (
+          <p role="alert" className="py-5 text-[13.5px] text-ink/70" data-requests-unread="">
+            Couldn’t load suppliers’ requests just now. This does not mean there are none — close this and try again.
+          </p>
+        ) : requests.length === 0 ? (
           <p className="py-5 text-[13.5px] text-ink/55">
             Nothing waiting. Suppliers’ requests land here and as dashed moments on the schedule.
           </p>

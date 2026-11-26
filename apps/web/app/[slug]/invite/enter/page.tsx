@@ -1,4 +1,5 @@
 import { Suspense, cache } from 'react';
+import { SITE_URL } from '@/lib/feature-pages/seo';
 import { appleWalletLink } from '@/lib/wallet-pass';
 import { appleWalletOffered } from '@/lib/wallet-pass-config.server';
 import { AppleWalletButton } from '../../_components/apple-wallet-button';
@@ -476,7 +477,7 @@ async function inviteEnterPage({ params, searchParams }: Props) {
      THIS event above. The panel receives a rendered image and a url — never an
      id it could be asked to look something up with. Same renderer, same url
      as the Event Hub's own card (`buildInvitationUrl` is the only speller). */
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+  const appUrl = SITE_URL;
   const ownerSlug = await ownerSlugAhead;
   const qrParams = {
     appUrl,

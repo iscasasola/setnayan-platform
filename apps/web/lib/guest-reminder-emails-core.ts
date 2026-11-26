@@ -164,16 +164,8 @@ export function reminderHeadline(milestone: ReminderMilestone, daysLeft: number)
   return `${daysLeft} day${daysLeft === 1 ? '' : 's'} to go`;
 }
 
-/**
- * One line per unticked item, for both the text and the HTML body. The motif
- * is colours, and an email body here is text — a guest is sent to the swatches
- * on their page rather than handed hex codes.
- */
+/** One line per unticked item, for both the text and the HTML body. */
 export function pendingLine(item: ChecklistItem): string {
-  if (item.key === 'motif') {
-    const n = item.swatches?.length ?? 0;
-    return `${item.title} — ${n > 0 ? `${n} color${n === 1 ? '' : 's'}, ` : ''}see them on your page`;
-  }
   return item.sub ? `${item.title} — ${item.sub}` : item.title;
 }
 

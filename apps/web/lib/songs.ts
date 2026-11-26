@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /**
  * Master song list + vendor repertoire helpers.
@@ -160,27 +161,36 @@ export async function readVendorSongs(
 }
 
 /** Search the master catalogue by title (public-read). Curated picks first. */
-export async function searchSongs(supabase: SupabaseClient, q: string): Promise<Song[]> {
+/** null = the read was refused (said by the caller, never "No songs match"; final check A5-G6-11). */
+export async function searchSongs(supabase: SupabaseClient, q: string): Promise<Song[] | null> {
   const safe = q.replace(/[%,()]/g, ' ').trim();
   if (!safe) return [];
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('songs')
     .select('song_id, title, artist')
     .ilike('title', `%${safe}%`)
     .order('is_curated_pick', { ascending: false })
     .order('title', { ascending: true })
     .limit(25);
+  if (error) {
+    logQueryError('searchSongs', error, {}, 'graceful_degrade');
+    return null;
+  }
   return (data ?? []) as Song[];
 }
 
 /** The curated picks (the seeded MUSIC100) — the default browse list. */
-export async function fetchCuratedSongs(supabase: SupabaseClient): Promise<Song[]> {
-  const { data } = await supabase
+export async function fetchCuratedSongs(supabase: SupabaseClient): Promise<Song[] | null> {
+  const { data, error } = await supabase
     .from('songs')
     .select('song_id, title, artist')
     .eq('is_curated_pick', true)
     .order('song_id', { ascending: true })
     .limit(60);
+  if (error) {
+    logQueryError('fetchCuratedSongs', error, {}, 'graceful_degrade');
+    return null;
+  }
   return (data ?? []) as Song[];
 }
 
@@ -297,11 +307,16 @@ export async function findOrCreateSongId(
   if (!t) return null;
   const nk = normalizedKey(t, a);
 
-  const { data: found } = await supabase
+  const { data: found, error: foundError } = await supabase
     .from('songs')
     .select('song_id')
     .eq('normalized_key', nk)
     .maybeSingle();
+  // A refused read is not "no such song": say it and stop, never insert a duplicate on a blind read.
+  if (foundError) {
+    logQueryError('findOrCreateSongId.find', foundError, {}, 'graceful_degrade');
+    return null;
+  }
   if (found?.song_id) return found.song_id as number;
 
   const { data: inserted } = await supabase
@@ -312,11 +327,15 @@ export async function findOrCreateSongId(
   if (inserted?.song_id) return inserted.song_id as number;
 
   // Insert lost a race (another vendor added the same song) → re-select.
-  const { data: again } = await supabase
+  const { data: again, error: againError } = await supabase
     .from('songs')
     .select('song_id')
     .eq('normalized_key', nk)
     .maybeSingle();
+  if (againError) {
+    logQueryError('findOrCreateSongId.reselect', againError, {}, 'graceful_degrade');
+    return null;
+  }
   return (again?.song_id as number) ?? null;
 }
 

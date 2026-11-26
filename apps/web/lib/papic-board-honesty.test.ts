@@ -184,43 +184,13 @@ test('only ONE branch may ask for a deletion, and it needs a measured board', ()
 // 2 · THE WIRING — what the SCREEN actually passes
 // ---------------------------------------------------------------------------
 
-test('the screen passes the REAL reading, not a literal', () => {
+test('the card makes no board-occupancy claim — the "make room" board retired with /papic/challenges (L6, R6)', () => {
+  // The full board (its "waiting for a free spot" group and the one deletion instruction) lived only on the
+  // retired standalone page. The card in the Papic seat draws the couple's rows and never tells them to delete
+  // something to make room — the occupancy rule above stays the ONE answer if a screen ever asks again.
   const mgr = read(MANAGER);
-  // It must keep the resolver's answer rather than discarding it, as it did.
-  assert.match(
-    mgr,
-    /const board = await ensurePapicBoard\(supabase, eventId\)/,
-    'the screen stopped keeping whether the board resolver actually ran',
-  );
-  // And feed that answer in. `resolved: true` hardcoded would make every
-  // assertion in section 1 pass while the screen lied exactly as before.
-  assert.match(
-    mgr,
-    /resolved:\s*board\.resolved/,
-    'the screen stopped passing the resolver\'s real answer into the rule',
-  );
-  assert.match(mgr, /onBoardCount:\s*onBoard\.length/, 'the screen stopped passing the real on-board count');
-  assert.match(mgr, /waitingCount:\s*waiting\.length/, 'the screen stopped passing the real waiting count');
-});
-
-test('the "make room" sentence is the claim\'s decision, not the JSX\'s', () => {
-  const mgr = read(MANAGER);
-  assert.match(mgr, /boardOccupancyClaim\(reading\)/, 'the screen stopped asking the shared rule');
-  // The instruction to delete may appear ONCE, and only under the `waiting`
-  // branch. A second copy is how the two groups quietly drift apart.
-  const makeRoom = mgr.match(/hide one above to make room/g) ?? [];
-  assert.equal(makeRoom.length, 1, `"hide one above to make room" appears ${makeRoom.length}× — it may appear once, under the waiting branch only`);
-  assert.match(
-    mgr,
-    /notShowingClaim\.kind === 'waiting'[\s\S]{0,400}hide one above to make room/,
-    'the deletion instruction escaped the waiting branch',
-  );
-  // And the honest fallback must exist, or "unknown" renders as nothing.
-  assert.match(
-    mgr,
-    /nothing needs removing/,
-    'the "we could not work it out" wording is gone — unknown would render silently',
-  );
+  assert.doesNotMatch(mgr, /make room/, 'a "make room" instruction is back without the shared occupancy rule behind it');
+  assert.doesNotMatch(mgr, /boardOccupancyClaim|onBoardCount/, 'an occupancy reading is computed for nothing');
 });
 
 test('the guest route keeps failing soft, and says that is deliberate', () => {

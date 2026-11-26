@@ -1,6 +1,6 @@
 # Final check · Area 7 · Coordinator, Spaces & venue, maps
 
-FIXER: area 7 done · lane A #8307 · #8308 · #8312 (migration needs GO) · A7-16 #8351 (stacked on #8312, migration needs GO) · L6 retire #8346 · lane B #8347 · all ready, regens named for the GitHub Controller · 🟠 A7-32 (owner) · waiting
+FIXER: area 7 done · lane A #8307 · #8308 · #8312 (migration needs GO) · A7-16 #8351 (stacked on #8312, migration needs GO) · L6 retire #8346 merged 26 Nov · lane B #8347 · all ready, regens named for the GitHub Controller · 🟠 A7-32 (owner) · waiting
 
 STATUS: phase B done · 10 of 10 pages walked at 375 / 768 / 1280, light and dark · 36 findings (27 code + 9 seen):
 blocker 0 · money-signin 2 · broken 3 · wrong 18 · look 13 · product blockers 0, two checks blocked by the seed (see BLOCKERS)

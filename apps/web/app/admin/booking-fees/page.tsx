@@ -390,6 +390,10 @@ export default async function AdminBookingFeesPage() {
         ) : review.rows.length === 0 ? (
           <TemplateEmpty data="review">No supplier has {review.minEvents} or more such events.</TemplateEmpty>
         ) : (
+          <>
+          <p className={`py-1 ${TEMPLATE_SUBLINE}`} data-review-note="">
+            Listed for review only. Being listed charges nothing and tells nobody.
+          </p>
           <TemplateRows label="Suppliers to review">
             {review.rows.map((r) => (
               <TemplateRow
@@ -398,14 +402,17 @@ export default async function AdminBookingFeesPage() {
                 href={`/admin/vendors/${r.vendorProfileId}`}
                 title={r.name ?? 'A supplier'}
                 line={
-                  <span className="tabular-nums">
-                    {r.events} {r.events === 1 ? 'event' : 'events'} · couples recorded{' '}
+                  <span className="tabular-nums" data-review-why="">
+                    {/* A8·P-B-3: each row says WHY it is listed — the rule, not a judgement about the amount. */}
+                    Listed: {r.events} {r.events === 1 ? 'event' : 'events'} treated as booked with no settled booking
+                    fee (the line is {review.minEvents}) · couples recorded{' '}
                     {formatCentavosPhp(Math.round(r.paymentsPhp * 100))} · fee owed {formatCentavosPhp(r.owedCentavos)}
                   </span>
                 }
               />
             ))}
           </TemplateRows>
+          </>
         )}
       </TemplateSection>
     </div>

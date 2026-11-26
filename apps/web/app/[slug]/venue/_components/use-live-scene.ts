@@ -14,7 +14,6 @@
  * in lib/venue-live-scene.ts so they can be tested without a browser.
  */
 import { useEffect, useRef, useState } from 'react';
-import { createClient } from '@/lib/supabase/client';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import {
   LIVE_SCENE_POLL_MS,
@@ -37,23 +36,25 @@ export function useLiveScene(
     if (!enabled || !slug) return;
     let cancelled = false;
     let inFlight = false;
-    const supabase = createClient();
+    // A7-01: ask the route that makes the SAME joins as the page (the table's name, the couple's colours, guest photos,
+    // booth logos and shop facts) — the raw RPC lacked them, so the first poll always "differed" and swapped in a
+    // poorer room. A non-2xx answer is a failed call: not news.
+    const url = `/api/venue-scene/${encodeURIComponent(slug)}${token ? `?t=${encodeURIComponent(token)}` : ''}`;
 
     const ask = async () => {
       if (cancelled || inFlight) return;
       if (typeof document !== 'undefined' && !shouldPollScene(document.visibilityState)) return;
       inFlight = true;
       try {
-        const { data, error } = await supabase.rpc('public_venue_scene', { p_slug: slug, p_token: token });
-        if (error) {
-          // a failed call is not news to the guest — the last good scene stays —
-          // but the reason should not vanish; a stuck room and a slow poll look
-          // identical without this.
-          logQueryError('app/[slug]/venue/_components/use-live-scene.ts: public_venue_scene', error, {
-            slug,
-          });
+        let data: unknown = null;
+        try {
+          const res = await fetch(url, { cache: 'no-store' });
+          if (res.ok) data = await res.json();
+          else logQueryError('app/[slug]/venue/_components/use-live-scene.ts: /api/venue-scene', { message: `HTTP ${res.status}` }, { slug });
+        } catch (err) {
+          logQueryError('app/[slug]/venue/_components/use-live-scene.ts: /api/venue-scene', err, { slug });
         }
-        if (cancelled || error || !data) return; // a failed call is not news
+        if (cancelled || !data) return; // a failed call is not news
         if (sceneWasTakenDown(data)) {
           setTakenDown(true);
           return;

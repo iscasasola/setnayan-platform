@@ -357,6 +357,11 @@ export default async function CheckinDeskPage({ params }: Props) {
         access={desk.access}
         doorCandidates={doorCandidates}
         guests={
+          // A2-D13: a refused guest read never draws the desk as "0 / 0 attending" (every scan would then blame the
+          // guest, and the desk would hand this phone an empty roster). The guests part says it could not read instead.
+          guestsRawError ? (
+            <ReadRefusedNotice className="mt-3" what="the guest list for this desk" />
+          ) : (
           <RoleNamesProvider names={roleNames}>
             <CheckinDesk
               eventId={eventId}
@@ -367,6 +372,7 @@ export default async function CheckinDeskPage({ params }: Props) {
               hasSides={hasSides}
             />
           </RoleNamesProvider>
+          )
         }
         suppliers={<SuppliersPart lines={board.lines} here={board.here} unread={suppliersUnread} />}
         team={<TeamPart lines={team} unread={Boolean(checkinsRawError) || Boolean(souvenirsRawError) || Boolean(seatsRawError) || Boolean(couplesRawError)} />}

@@ -17,6 +17,7 @@ import { asDisputeStatus, foundYouLine } from '@/lib/booking-fee-dispute';
 import { TOP_UP_CHARGE_KIND, topUpStage, type TopUpStage } from '@/lib/booking-fee-top-up';
 import { manilaToday } from '@/lib/std-views';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { batchOrUnread } from '@/lib/booking-fees-page-reads';
 
 export const metadata = { title: 'Booking fee · Supplier' };
 
@@ -67,7 +68,11 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
   // only of `order`, proven above. The dispute read never throws (it hands back its error), so the batch rejects
   // exactly when, and with what, the two-read batch did.
   const chargeId = chargeIdFromBookingFeeLockServiceKey(order.service_key);
-  const [payments, settings, disputeRead] = await Promise.all([
+  // 🧾 A6-60 (final check 25 Nov): `fetchPaymentsForOrder` and the settings read THROW on a refused read — inside this
+  // batch that used to reach the dashboard's error screen. Said in place, like the bill's own read above.
+  const batch = await batchOrUnread(
+    () =>
+      Promise.all([
     fetchPaymentsForOrder(supabase, orderId),
     fetchPlatformSettings(supabase),
     chargeId
@@ -77,7 +82,11 @@ export default async function VendorBookingFeeDetailPage({ params, searchParams 
           .eq('charge_id', chargeId)
           .maybeSingle()
       : { data: null, error: null },
-  ]);
+    ]),
+    (err) => logQueryError('booking-fees/[orderId]: payments or settings', { message: err instanceof Error ? err.message : String(err) }),
+  );
+  if (!batch) return <BookingFeeReadFailed orderId={orderId} />;
+  const [payments, settings, disputeRead] = batch;
   // Fee orders are `vendor_`-prefixed → VAT-INCLUSIVE: the stored total IS the
   // gross the vendor pays. Pass vatRatePct=0 so no VAT line is added on top.
   const totals = computeOrderTotals(order, payments, 0);

@@ -1,5 +1,7 @@
 'use server';
 
+import { logQueryError } from '@/lib/supabase/error-detect';
+
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -79,9 +81,9 @@ export async function acceptHostInvite(formData: FormData) {
     .eq('moderator_id', invite.moderator_id);
 
   if (error) {
-    redirect(
-      `/host/accept/${token}?error=accept_failed&msg=${encodeURIComponent(error.message.slice(0, 80))}`,
-    );
+    // A2-A9 (SW-RAWDB): the database's words go to the log, never into the address or onto the card.
+    logQueryError('HostAccept.accept', error, { moderator_id: invite.moderator_id }, 'graceful_degrade');
+    redirect(`/host/accept/${token}?error=accept_failed`);
   }
 
   // The coordinator event_members row is minted by the DATABASE now —

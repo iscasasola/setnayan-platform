@@ -17,6 +17,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { referralShareLink } from '@/lib/referrals';
 import { isReferralProgramEnabled } from '@/lib/platform-settings';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 export type ReferralRedemptionSummary = {
   referred_user_id: string;
@@ -30,6 +31,9 @@ export type MyReferral = {
   redemptions: ReferralRedemptionSummary[];
   /** How many referred couples reached a paid order (qualified or rewarded). */
   qualifiedCount: number;
+  /** The referred-couples read was refused: `redemptions` is empty because it could not be read, not because nobody
+   *  signed up (final check A2-F10 — the page says so, never "No referrals yet"). */
+  redemptionsRefused: boolean;
 };
 
 /**
@@ -77,11 +81,12 @@ export async function getMyReferral(): Promise<MyReferral | null> {
   if (!code) return null;
 
   // Their referred-couple statuses (RLS: referrer_user_id = auth.uid()).
-  const { data: rows } = await supabase
+  const { data: rows, error: rowsError } = await supabase
     .from('referral_redemptions')
     .select('referred_user_id, status, created_at')
     .eq('referrer_user_id', user.id)
     .order('created_at', { ascending: false });
+  if (rowsError) logQueryError('getMyReferral (referral_redemptions)', rowsError);
 
   const redemptions: ReferralRedemptionSummary[] = (rows ?? []).map((r) => ({
     referred_user_id: r.referred_user_id as string,
@@ -92,7 +97,7 @@ export async function getMyReferral(): Promise<MyReferral | null> {
     (r) => r.status === 'qualified' || r.status === 'rewarded',
   ).length;
 
-  return { code, shareLink: referralShareLink(code), redemptions, qualifiedCount };
+  return { code, shareLink: referralShareLink(code), redemptions, qualifiedCount, redemptionsRefused: Boolean(rowsError) };
 }
 
 /**

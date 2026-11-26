@@ -12,6 +12,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 // view keyed by feature_key.
 
 export type AddOnStats = {
+  /** A read behind these numbers was refused: draw "Couldn't read", never the zeros. */
+  readFailed: boolean;
   // Number of distinct events that have purchased at least one SKU under
   // this feature (the customer-facing "events that used it" count).
   eventsWithFeature: number;
@@ -145,6 +147,8 @@ export async function fetchAddOnStats(
     avgRating,
     reviewCount,
     hasLaunchSignal,
+    // L-08 (final check): any refused read — the zeros above are then not a measurement.
+    readFailed: Boolean(orderRes.error || totalRes.error || reviewRes.error),
   };
 }
 

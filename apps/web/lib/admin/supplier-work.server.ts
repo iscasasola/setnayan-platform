@@ -109,7 +109,13 @@ async function readDocs(admin: Admin): Promise<SupplierWorkItem[] | 'failed'> {
     updated_at: string | null;
   }>;
   const shops = await shopNames(admin, rows.map((r) => r.vendor_profile_id));
-  const checks = await buildVerificationChecksForVendors(rows.map((r) => r.vendor_profile_id)).catch(() => ({}) as Record<string, never>);
+  // A8·C-10: a failed run is remembered, so each Documents row says the checks did not run (not "no checks").
+  let checksRan = true;
+  const checks = await buildVerificationChecksForVendors(rows.map((r) => r.vendor_profile_id)).catch((e) => {
+    checksRan = false;
+    console.error('[supplier-work] verification checks did not run', e);
+    return {} as Record<string, never>;
+  });
   return Promise.all(
     rows.map(async (r): Promise<SupplierWorkItem> => {
       const uploads = r.doc_uploads ?? {};
@@ -141,6 +147,7 @@ async function readDocs(admin: Admin): Promise<SupplierWorkItem[] | 'failed'> {
         shopName: shop,
         papers,
         checks: (report?.results ?? []).slice(0, 6).map((c) => ({ label: c.label, outcome: c.outcome, detail: c.detail ?? null })),
+        checksRan,
       };
     }),
   );

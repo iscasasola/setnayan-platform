@@ -23,7 +23,8 @@ export function DayOfBanner({
           closable={false}
           noticeKey="live-now"
           title="Live now"
-          detail={`The ${words.eventWord} is happening. Your schedule, QR, and venue info are pinned below — they work offline if WiFi cuts out.`}
+          // 🔌 A4-23: only what this phone already opened is kept — never a promise that the QR and venue info work offline.
+          detail={`The ${words.eventWord} is happening. Your schedule and venue info are pinned below — open them once now so this page still shows if the WiFi cuts out.`}
         />
       </section>
     );

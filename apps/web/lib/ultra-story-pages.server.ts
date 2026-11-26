@@ -126,7 +126,9 @@ export async function loadShopStoryPage(
       .eq('event_id', eventId)
       .maybeSingle(),
     admin
-      .from('vendor_reviews')
+      // Only a review a PUBLIC page may list (final check A1-132): `vendor_reviews_public` leaves out one the screener
+      // has held (integrity_flags open / confirmed fraud), as the shop page's own list does.
+      .from('vendor_reviews_public')
       .select('rating_overall, body, voided_by_fraud')
       .eq('vendor_profile_id', vendorProfileId)
       .eq('event_id', eventId)

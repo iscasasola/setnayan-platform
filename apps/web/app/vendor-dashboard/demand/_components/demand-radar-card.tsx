@@ -62,9 +62,8 @@ export function DemandRadarCard({
           ) : (
             <>
               No market cell has cleared the min-N privacy floor yet. As demand
-              grows across regions, de-identified rollups will appear here. You
-              can lower the floor in platform settings, but only down to a value
-              that still protects individual couples.
+              grows across regions, de-identified rollups will appear here. The
+              floor is set in the database; no screen changes it today.
             </>
           )}
         </InfoTip>

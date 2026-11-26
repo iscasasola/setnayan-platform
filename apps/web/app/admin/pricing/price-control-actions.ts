@@ -266,11 +266,13 @@ export async function savePapicLadder(
   // THE one sign-up discount in force (owner d18), so the sign-up half is
   // recomputed in the same save rather than left stale against the new regular
   // prices.
-  const { data: settings } = await admin
+  const { data: settings, error: settingsErr } = await admin
     .from('platform_settings')
     .select('onboarding_discount_pct')
     .eq('id', 1)
     .maybeSingle();
+  // A8·B-1: an unread discount is not 0% — saving with it would erase every sign-up price. Refuse instead.
+  if (settingsErr) return { ok: false, message: 'Couldn’t read the sign-up discount, so nothing was saved. Try again.' };
   const discountPct = readOnboardingDiscountPct(settings?.onboarding_discount_pct);
 
   const phpByShots = new Map(rungs.map((r) => [r.shots, r.php]));
@@ -578,11 +580,13 @@ export async function saveAiBandPrice(
   if (readErr) return { ok: false, message: `Couldn't read that price — ${readErr.message}` };
   if (!prior) return { ok: false, message: 'That price row no longer exists.' };
 
-  const { data: settings } = await admin
+  const { data: settings, error: settingsErr } = await admin
     .from('platform_settings')
     .select('onboarding_discount_pct')
     .eq('id', 1)
     .maybeSingle();
+  // A8·B-1: an unread discount is not 0% — saving with it would erase every sign-up price. Refuse instead.
+  if (settingsErr) return { ok: false, message: 'Couldn’t read the sign-up discount, so nothing was saved. Try again.' };
   const discountPct = readOnboardingDiscountPct(settings?.onboarding_discount_pct);
 
   // THE one sign-up discount decides the sign-up half — the same function the

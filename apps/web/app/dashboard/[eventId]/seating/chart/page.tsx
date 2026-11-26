@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
 import { fetchGuestsByEventMeasured } from '@/lib/guests';
+import { readNoSeatGuestIds } from '@/lib/guest-chapter-invites';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
@@ -60,10 +61,11 @@ export default async function EntranceChartPage({ params }: Props) {
   if (isDelegateWithoutArea(viewer, 'guest_list')) return <NotSharedWithYou title="Entrance seating chart" thing="guest list" />;
   if (isDelegateWithoutArea(viewer, 'seat_plan')) return <NotSharedWithYou title="Entrance seating chart" thing="seat plan" />;
 
-  const [tables, assignments, guestsRead] = await Promise.all([
+  const [tables, assignments, guestsRead, noSeat] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEventMeasured(supabase, eventId),
+    readNoSeatGuestIds(supabase, eventId),
   ]);
   // 🔌 A REFUSED GUEST READ IS NOT AN EMPTY ROOM (reads-are-honest, 2026-11-05).
   // The array-only read turned it into `[]`, and this page then drew "0 seated",
@@ -78,7 +80,8 @@ export default async function EntranceChartPage({ params }: Props) {
       </section>
     );
   }
-  const guests = guestsRead.rows;
+  // 🪑 The seat plan's own list (A2-E4): an "after party only" guest is offered no seat, so is never "no seat yet".
+  const guests = noSeat && noSeat.size > 0 ? guestsRead.rows.filter((g) => !noSeat.has(g.guest_id)) : guestsRead.rows;
   const units = seatingUnits(tables, assignments, guests);
   const shared = { coupleName: '', dateLabel: null, units: chartUnits(units), entries: azEntries(units, guests) };
   const seated = shared.entries.length;

@@ -19,7 +19,10 @@ import { clearHomeShelf } from '@/lib/home-shelf-clear';
 //                  actioned.
 //   · blocked    — event-scoped block of the uploading guest AND mark actioned.
 //   · escalated  — leave the content up but flag the report as escalated
-//                  (action_taken note) for owner/legal review; status actioned.
+//                  (action_taken note) for owner/legal review. A8·F-15: the
+//                  status STAYS open — it is not settled, so it stays in the
+//                  Open view and the Work count until a person hides, blocks
+//                  or dismisses it (it used to read "Resolved" and vanish).
 //   · dismissed  — no action; status dismissed.
 //
 // Mirrors the requireAdmin + revalidatePath shape of app/admin/disputes/actions.ts.
@@ -38,10 +41,10 @@ const ACTION_NOTE: Record<Action, string> = {
   dismiss: 'Dismissed — no policy violation found.',
 };
 
-const ACTION_STATUS: Record<Action, 'actioned' | 'dismissed'> = {
+const ACTION_STATUS: Record<Action, 'open' | 'actioned' | 'dismissed'> = {
   hide: 'actioned',
   block: 'actioned',
-  escalate: 'actioned',
+  escalate: 'open',
   dismiss: 'dismissed',
 };
 
@@ -145,8 +148,11 @@ export async function resolveReport(formData: FormData) {
         .maybeSingle();
       guestId = (cap?.guest_id as string | null) ?? null;
     }
-    if (guestId) {
-      await admin.from('event_blocked_users').upsert(
+    // A8·F-7: "Block uploader" that cannot find the uploader, or whose block is refused, fails — the report stays
+    // open and is never stamped "Uploader blocked".
+    if (!guestId) throw new Error('Couldn’t find who uploaded this, so nobody was blocked. The report stays open.');
+    {
+      const { error: blockErr } = await admin.from('event_blocked_users').upsert(
         {
           event_id: report.event_id as string,
           blocked_guest_id: guestId,
@@ -155,6 +161,7 @@ export async function resolveReport(formData: FormData) {
         },
         { onConflict: 'event_id,blocked_guest_id', ignoreDuplicates: true },
       );
+      if (blockErr) throw new Error(`Couldn’t block the uploader — the report stays open. (${blockErr.message})`);
       // Also hide the offending photo when we block off a photo report.
       if (report.target_type === 'photo') {
         hiddenIn = await hideReportedPhoto(admin, report.event_id as string, report.target_id as string);

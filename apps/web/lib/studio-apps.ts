@@ -238,7 +238,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Papic',
     href: '/papic',
     description:
-      'Papic turns your guests into your photo crew. Everyone shoots, every photo finds the people in it, and each guest goes home with their own Memories — plus a personal video reel set to music. The candid wedding moments one photographer can’t be everywhere for, delivered to everyone. Philippines-first.',
+      'Papic turns your guests into your photo crew. Everyone shoots, every photo finds the people in it, and each guest goes home with their own Memories. The candid moments one photographer can’t be everywhere for, delivered to everyone.',
     demo: {
       id: 'papic-demo',
       label: 'Try it now with a friend',
@@ -375,7 +375,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Marketplace',
     href: '/marketplace',
     description:
-      'Browse verified Filipino wedding suppliers — photographers, caterers, coordinators, florists, hair and makeup and more — free. Hosts pay 0% commission. Save the ones you like and put any two side by side before you decide.',
+      'Browse verified Filipino suppliers for any event — photographers, caterers, coordinators, florists, hair and makeup and more — free. Hosts pay 0% commission. Save the ones you like and put any two side by side before you decide.',
     eventHref: (eventId) => `/dashboard/${eventId}/vendors`,
     doorwayOnly: true,
     railGroup: 'planner',
@@ -418,7 +418,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Budget',
     href: '/budget',
     description:
-      'Set your total wedding budget in pesos, take a suggested split from typical Filipino wedding costs, and see what you have agreed, paid and still owe — only finalized bookings, never a quote. Free with every Setnayan account, beside your guest list, schedule, seat plan and mood board.',
+      'Set your event’s budget in pesos and see what you have agreed, paid and still owe — only finalized bookings, never a quote. Free with every Setnayan account, beside your guest list, schedule, seat plan and mood board.',
     eventHref: (eventId) => `/dashboard/${eventId}/budget`,
     doorwayOnly: true,
     railGroup: 'planner',

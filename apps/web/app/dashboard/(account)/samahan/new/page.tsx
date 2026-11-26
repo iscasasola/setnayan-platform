@@ -23,8 +23,8 @@ export default async function NewSamahanPage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const sp = await searchParams;
-  const rawError = sp.error ? decodeURIComponent(sp.error) : null;
-  const errorMessage = rawError ? (ERROR_COPY[rawError] ?? rawError) : null;
+  // A2-C6 (SW-RAWDB): fixed words for a known key, else the plain fallback — never the address bar's own text.
+  const errorMessage = sp.error ? (ERROR_COPY[sp.error] ?? 'Couldn’t create the group — nothing was saved. Try again.') : null;
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 py-10 sm:px-6 lg:px-8">

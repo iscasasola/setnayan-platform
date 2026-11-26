@@ -18,6 +18,7 @@ import 'server-only';
 import { revalidatePath } from 'next/cache';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdminCan } from '@/lib/admin/can.server';
+import { requireAdminAction } from '@/lib/admin/require-admin';
 import { isAdminArea } from '@/lib/admin/areas';
 
 export async function escalateItemOp(formData: FormData) {
@@ -68,6 +69,8 @@ export async function escalateItemOp(formData: FormData) {
 export async function resolveEscalationOp(formData: FormData) {
   const escalationId = String(formData.get('escalation_id') ?? '');
   if (!escalationId) throw new Error('Invalid escalation');
+  // 🔒 A8·C-3: the admin gate runs BEFORE the service-role read; the area check follows it.
+  await requireAdminAction();
   const admin = createAdminClient();
   const { data: row, error: readErr } = await admin
     .from('work_escalations')

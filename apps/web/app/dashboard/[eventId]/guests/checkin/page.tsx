@@ -11,7 +11,7 @@ import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.serv
 import { NotSharedWithYou } from '../../_components/not-shared-with-you';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
-import { guestDisplayName, type GuestRole, type GuestSide } from '@/lib/guests';
+import { computeGuestStats, guestDisplayName, headcountForBasis, type GuestRole, type GuestSide } from '@/lib/guests';
 import { CheckinDesk, type DeskGuest, type DeskCheckin } from './_components/checkin-desk';
 import { LiveRefresher } from '@/app/_components/live-refresher';
 import { guestPhotoDisplayUrls } from '@/lib/uploads';
@@ -229,7 +229,8 @@ export default async function CheckinDeskPage({ params }: Props) {
     checkedInAt: c.checked_in_at,
   }));
 
-  const expected = guests.filter((g) => g.rsvpStatus === 'attending').length;
+  // Check-in "expected" = attending only, from the ONE guest reader (CLAUDE.md §4; final check A2-D2).
+  const expected = headcountForBasis(computeGuestStats(roster as unknown as Parameters<typeof computeGuestStats>[0]), 'attending');
 
   // ── 🛂 Suppliers: the arrivals board — their own presets against their own times ──
   const nowMs = Date.now();
@@ -357,6 +358,11 @@ export default async function CheckinDeskPage({ params }: Props) {
         access={desk.access}
         doorCandidates={doorCandidates}
         guests={
+          // A2-D13: a refused guest read never draws the desk as "0 / 0 attending" (every scan would then blame the
+          // guest, and the desk would hand this phone an empty roster). The guests part says it could not read instead.
+          guestsRawError ? (
+            <ReadRefusedNotice className="mt-3" what="the guest list for this desk" />
+          ) : (
           <RoleNamesProvider names={roleNames}>
             <CheckinDesk
               eventId={eventId}
@@ -367,6 +373,7 @@ export default async function CheckinDeskPage({ params }: Props) {
               hasSides={hasSides}
             />
           </RoleNamesProvider>
+          )
         }
         suppliers={<SuppliersPart lines={board.lines} here={board.here} unread={suppliersUnread} />}
         team={<TeamPart lines={team} unread={Boolean(checkinsRawError) || Boolean(souvenirsRawError) || Boolean(seatsRawError) || Boolean(couplesRawError)} />}

@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/admin/require-admin';
 import { after } from 'next/server';
 import { RefreshCw } from 'lucide-react';
 import { PageMasthead } from '@/app/_components/page-masthead';
@@ -47,6 +48,8 @@ export default async function AdminDemandPage({
 }: {
   searchParams: Promise<{ ok?: string; error?: string }>;
 }) {
+  // 🔒 A8·L-2: this page schedules a service-role rebuild (`after(maybeRefreshDemandRadar)`); it checks for an admin itself.
+  await requireAdmin();
   const sp = await searchParams;
   const supabase = await createClient();
 

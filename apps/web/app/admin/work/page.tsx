@@ -63,7 +63,6 @@ import FraudPage from '../fraud/page';
 import ChatFlagsPage from '../chat-flags/page';
 import RepostWatchPage from '../repost-watch/page';
 import IntegrityWatchPage from '../integrity-watch/page';
-import AiAbusePage from '../concierge-abuse/page';
 import ReviewAppealsPage from '../reviews/page';
 import EditorialPage from '../editorial-review/page';
 import AccountDeletionsPage from '../account-deletions/page';
@@ -251,7 +250,7 @@ async function WorkAllList({
           kind={supplierKind}
           itemKey={itemKey}
           basePath={basePath}
-          eventTypes={((typesRead.data ?? []) as Array<{ event_type: string; label_en: string }>).map((t) => ({ key: t.event_type, label: t.label_en }))}
+          eventTypes={typesRead.error ? null : ((typesRead.data ?? []) as Array<{ event_type: string; label_en: string }>).map((t) => ({ key: t.event_type, label: t.label_en }))}
           nowMs={nowMs}
         />
         </>
@@ -301,7 +300,6 @@ const QUEUE_KINDS = {
   'chat-flags': ChatFlagsPage,
   repost: RepostWatchPage,
   integrity: IntegrityWatchPage,
-  'ai-abuse': AiAbusePage,
   reviews: ReviewAppealsPage,
   editorial: EditorialPage,
   'account-deletions': AccountDeletionsPage,

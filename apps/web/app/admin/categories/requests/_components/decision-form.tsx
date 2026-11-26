@@ -57,7 +57,8 @@ export function DecisionForm({
   filedCategoryLabel: string | null;
   suggestedName: string | null;
   suggestedTarget: string | null;
-  cards: number;
+  /** `null` = the count could not be read (A8·B-15). */
+  cards: number | null;
   shops: number;
   categories: readonly DecisionCategory[];
   services: readonly DecisionService[];
@@ -256,7 +257,7 @@ export function DecisionForm({
         className={`min-h-11 rounded-full px-6 text-sm font-semibold disabled:opacity-40 ${choice ? BUTTON[choice].cls : 'bg-terracotta-700 text-white'}`}
         pendingLabel="Deciding…"
       >
-        {choice ? BUTTON[choice].word(cards) : 'Decide'}
+        {choice ? BUTTON[choice].word(cards ?? 0) : 'Decide'}
       </SubmitButton>
     </form>
   );

@@ -652,13 +652,6 @@ const QUEUE_DEFS: QueueDef[] = [
     filter: (q) => q.is('decided_at', null),
     tsCol: 'submitted_at',
   },
-  {
-    key: 'concierge-abuse',
-    table: 'concierge_abuse_flags',
-    lane: 'trust',
-    slaHours: 48,
-    filter: (q) => q.eq('status', 'pending_review'),
-  },
   // lane trust — RA 10173 / store rule.
   {
     key: 'account-deletions',

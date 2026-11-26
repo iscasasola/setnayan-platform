@@ -10,6 +10,7 @@ import {
 } from '@/lib/event-media-sweep';
 import { emitNotification } from '@/lib/notification-emit';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { requireAdminCan } from '@/lib/admin/can.server';
 
 /**
  * /admin/event-deletions — a couple has asked us to remove a celebration that
@@ -100,6 +101,8 @@ async function loadPending(requestId: string) {
  */
 export async function approveEventDeletion(formData: FormData) {
   const { adminUserId } = await requireAdmin();
+  // A8·D-3: "remove an event" is Deletions · Escalated (lib/admin/areas.ts).
+  await requireAdminCan('deletions', 'escalated');
   const requestId = String(formData.get('request_id') ?? '').trim();
   const note = String(formData.get('admin_note') ?? '').trim();
   if (!requestId) throw new Error('Which request?');
@@ -130,8 +133,13 @@ export async function approveEventDeletion(formData: FormData) {
     .update({ status: 'cancelled', updated_at: new Date().toISOString() })
     .eq('event_id', req.event_id)
     .in('status', ['submitted', 'awaiting_payment']);
+  // A8·D-5: a refused cancel STOPS the removal — otherwise the unpaid bills
+  // outlive the event with their link wiped (orders.event_id is SET NULL).
   if (strandErr) {
     console.error('[event-deletions] could not cancel unpaid bills', strandErr);
+    throw new Error(
+      'Couldn’t cancel the unpaid bills, so the event was not removed. Try again.',
+    );
   }
 
   const { data: deleted, error: delErr } = await admin
@@ -149,7 +157,7 @@ export async function approveEventDeletion(formData: FormData) {
     request and this press — the answer still has to be recorded, or the queue
     keeps a row nobody can ever drain.
   */
-  await admin
+  const { error: markErr } = await admin
     .from('event_deletion_requests')
     .update({
       status: 'approved',
@@ -158,6 +166,13 @@ export async function approveEventDeletion(formData: FormData) {
       admin_note: note.slice(0, 2000),
     })
     .eq('id', req.id);
+  // A8·D-5: the event is gone; say plainly that the answer was not recorded.
+  if (markErr) {
+    console.error('[event-deletions] could not record the answer', markErr);
+    throw new Error(
+      'The event was removed, but the request could not be marked answered. Refresh and check the queue.',
+    );
+  }
 
   if (deleted && deleted.length > 0 && mediaRefs && mediaRefs.length > 0) {
     const swept = await sweepEventMedia(mediaRefs);
@@ -199,6 +214,8 @@ export async function approveEventDeletion(formData: FormData) {
  */
 export async function rejectEventDeletion(formData: FormData) {
   const { adminUserId } = await requireAdmin();
+  // A8·D-3: answering a removal request is Deletions · Escalated.
+  await requireAdminCan('deletions', 'escalated');
   const requestId = String(formData.get('request_id') ?? '').trim();
   const note = String(formData.get('admin_note') ?? '').trim();
   if (!requestId) throw new Error('Which request?');
@@ -206,7 +223,8 @@ export async function rejectEventDeletion(formData: FormData) {
 
   const req = await loadPending(requestId);
 
-  await createAdminClient()
+  // A8·D-9: "Keep it" is recorded first; a refused write is a failure and the couple is told nothing.
+  const { error: keepErr } = await createAdminClient()
     .from('event_deletion_requests')
     .update({
       status: 'rejected',
@@ -215,6 +233,7 @@ export async function rejectEventDeletion(formData: FormData) {
       admin_note: note.slice(0, 2000),
     })
     .eq('id', req.id);
+  if (keepErr) throw new Error(`Couldn’t record “Keep it” — the couple was not told. (${keepErr.message})`);
 
   try {
     await emitNotification({

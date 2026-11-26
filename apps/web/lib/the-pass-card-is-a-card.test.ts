@@ -335,7 +335,9 @@ test('RENDERS 1080 × 1440 and the QR DECODES from the PNG — every design, a l
 
 test('the card route decides access BEFORE it draws, and needs the guest’s key or a host', () => {
   const r = src('app/api/guest/pass-card/route.ts');
-  assert.match(r, /readGuestSession\(\)/, 'the guest key is the signed session cookie');
+  // 🔑 A4-B11 (owner, final check Add 34): the key is the signed session cookie, or — when the page names its event —
+  // the seat the signed-in account holds there (`readGuestSessionForPassRoute`, its own seat only).
+  assert.match(r, /readGuestSessionForPassRoute\(url\.searchParams\.get\('event'\)\)/, 'the guest key is the signed session cookie or the account’s own seat');
   assert.match(r, /getHostUserId\(/, 'or a host of the event');
   const gate = r.indexOf('decidePassCardAccess(');
   const refuse = r.indexOf('if (!verdict.allow)');
@@ -412,7 +414,7 @@ test('the Event Hub shows the ticket on Me — pending shows the pending ticket,
   assert.match(t, /if \(state === 'none'\) return null;/);
   assert.match(t, /state === 'cannotCome'[\s\S]{0,300}passCardLine\(state\)/, 'can’t come says the one line, no ticket');
   assert.match(t, /\bsrc = PASS_CARD_ROUTE,[\s\S]*<TicketPicture\s+src=\{src\}/, 'the picture is the ticket route');
-  const items = buildChecklist({ wear: null, wearNote: null, motif: [], arriveBy: null, venueName: null, mapsHref: null, tableLabel: null, passHref: null });
+  const items = buildChecklist({ wear: null, wearNote: null, arriveBy: null, venueName: null, mapsHref: null, tableLabel: null, passHref: null });
   assert.equal(items.find((i) => i.key === 'pass'), undefined, 'no "Save to Photos" in the checklist without a card');
 });
 

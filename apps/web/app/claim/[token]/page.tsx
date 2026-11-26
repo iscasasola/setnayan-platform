@@ -37,11 +37,45 @@ export default async function ClaimAlagaPage({ params, searchParams }: Props) {
   const search = await searchParams;
 
   const admin = createAdminClient();
-  const { data: row } = await admin
+  const { data: row, error: rowErr } = await admin
     .from('dependents')
     .select('name, dependent_kind, claim_token_purpose, claim_token_expires_at, handed_over_at, owner_user_id')
     .eq('claim_token', token)
     .maybeSingle();
+
+  // 🔌 A4-04: the profile moved to this account, its godparent records did not (the claim cleared the token, so this
+  // address now reads as used — the message comes first).
+  if (search.error === 'godparents_pending') {
+    return (
+      <DoorShell
+        tone="dead_end"
+        eyebrow="Loved ones"
+        title="Your profile is yours — one part didn’t finish."
+        sub="The profile moved to your account, but its godparent records didn’t come with it. Contact Setnayan support and we’ll move them for you."
+      >
+        <Link className={actionButtonClass('neutral', { extra: '!h-11' })} href="/dashboard?seg=people">
+          Go to your people
+        </Link>
+      </DoorShell>
+    );
+  }
+
+  // 🔌 A4-03: a failed read is not a dead link — a valid link is never called dead.
+  if (rowErr || search.error === 'unreadable') {
+    if (rowErr) console.error('[supabase-error] app/claim/[token]/page.tsx · dependents.select', rowErr);
+    return (
+      <DoorShell
+        tone="dead_end"
+        eyebrow="Loved ones"
+        title="We couldn’t check this link just now."
+        sub="Your link is probably fine. Give it a moment and try again."
+      >
+        <Link className={actionButtonClass('brand', { main: true, extra: '!h-11' })} href={`/claim/${encodeURIComponent(token)}`}>
+          Try again
+        </Link>
+      </DoorShell>
+    );
+  }
 
   const valid =
     !!row &&

@@ -140,7 +140,8 @@ export function PoolGrid({
           {/* One heading per chapter that actually has photos — a couple who shot
               on four days sees four headings, not thirty empty ones. */}
           <h2 className="sn-eye mb-2 text-ink/55">{chapter.label}</h2>
-          <ul className="grid grid-cols-3 gap-2">
+          {/* A4-81 (drawing § 06): on a wide screen the grid uses the width — 6 across. */}
+          <ul className="grid grid-cols-3 gap-2 lg:grid-cols-6">
         {chapter.items.map((tile) => {
           const busy = busyId === tile.id;
           const state: LinkState = busy ? 'busy' : 'idle';

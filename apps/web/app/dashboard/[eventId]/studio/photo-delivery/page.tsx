@@ -32,6 +32,7 @@ type Props = {
     already_complete?: string;
     release_error?: string;
     disconnected?: string;
+    disconnect_error?: string;
   }>;
 };
 
@@ -137,6 +138,7 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
   const alreadyCompleteFlash = search.already_complete === '1';
   const releaseErrorMsg = search.release_error ?? null;
   const disconnectedFlash = search.disconnected === '1';
+  const disconnectFailed = search.disconnect_error === '1';
   // getPhotoDeliveryOAuthConfig is now async (DB-first) — resolve before render.
   const photoDeliveryOauthReady = (await getPhotoDeliveryOAuthConfig()).ready;
 
@@ -227,6 +229,7 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
         releaseStartedFlash={releaseStartedFlash}
         alreadyComplete={alreadyCompleteFlash}
         disconnectedFlash={disconnectedFlash}
+        disconnectFailed={disconnectFailed}
         oauthReady={photoDeliveryOauthReady}
         needsReauth={needsReauth}
         loginEmail={user.email ?? null}
@@ -306,7 +309,10 @@ function SyncModeSection({
           role="alert"
           className="rounded-md border border-terracotta/30 bg-terracotta/10 px-3 py-2 text-xs text-terracotta-700"
         >
-          Could not save sync mode: {errorMessage}
+          {/* SW-RAWDB (A3·P-09): fixed words; nothing from the address bar is printed. */}
+          {errorMessage === 'not_a_couple'
+            ? 'Only the couple can change how photos are released.'
+            : 'Couldn’t change the sync mode — nothing was changed. Try again.'}
         </p>
       ) : null}
 

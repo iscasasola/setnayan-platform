@@ -29,7 +29,7 @@ import type {
   BundleChargeResolution as BundleChargeResolutionType,
 } from '@/lib/order-charge-math';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
-import { resolveLivePax } from '@/lib/pax';
+import { PAX_UNREAD, PAX_UNREAD_WORDS, resolveLivePax } from '@/lib/pax';
 import {
   computePaxPriceCentavos,
   formatBillingPeriodSuffix,
@@ -208,9 +208,11 @@ export async function fetchV2CustomerCatalog(
 }
 
 /**
- * The same read with its outcome kept: `ok: false` = REFUSED (or no admin client), NOT "nothing on sale". The public
- * price pages read this, because an empty list there dropped every paid plan and add-on without a word, so Home,
- * /pricing and /papic looked complete and free (final check A1-100, A1-023).
+ * The same read with its outcome kept (A8·A-9 / B-7 / F-3 / D-6): `ok: false` = REFUSED (or no admin client), NOT
+ * "nothing on sale". The admin pickers read this so a refused read says "Couldn't read the catalogue" instead of
+ * "No active services". Same query, same rows — only the outcome is kept. The public price pages read it too,
+ * because an empty list there dropped every paid plan and add-on without a word, so Home, /pricing and /papic looked
+ * complete and free (final check A1-100, A1-023).
  */
 export async function fetchV2CustomerCatalogRead(
   opts: { forAdmin?: boolean } = {},
@@ -277,10 +279,7 @@ export async function fetchV2CustomerCatalogRead(
 
   const { data, error } = await query.order('service_code', { ascending: true });
 
-  if (error) {
-    console.error('[supabase-error] v2-catalog: platform_retail_catalog_v2', error);
-    return { rows: [], ok: false };
-  }
+  if (error) return { rows: [], ok: false };
   if (!data) return { rows: [], ok: true };
 
   const rows = data.map((row) => ({
@@ -312,12 +311,17 @@ export async function fetchV2CustomerCatalogRead(
 }
 
 export async function fetchV2BundleCatalog(): Promise<V2BundleSku[]> {
+  return (await fetchV2BundleCatalogRead()).rows;
+}
+
+/** The bundle read with its outcome kept — see `fetchV2CustomerCatalogRead`. */
+export async function fetchV2BundleCatalogRead(): Promise<{ rows: V2BundleSku[]; ok: boolean }> {
   // Same build-time tolerance as fetchV2CustomerCatalog above — see WHY there.
   let admin;
   try {
     admin = createAdminClient();
   } catch {
-    return [];
+    return { rows: [], ok: false };
   }
   const { data, error } = await admin
     .from('platform_package_catalog')
@@ -333,15 +337,16 @@ export async function fetchV2BundleCatalog(): Promise<V2BundleSku[]> {
 
   if (error) {
     console.error('[supabase-error] v2-catalog: platform_package_catalog', error);
-    return [];
+    return { rows: [], ok: false };
   }
-  if (!data) return [];
+  if (!data) return { rows: [], ok: true };
 
-  return data.map((row) => ({
+  const rows = data.map((row) => ({
     package_code: row.package_code as string,
     title: row.title as string,
     retail_price_php: Number(row.retail_price_php),
   }));
+  return { rows, ok: true };
 }
 
 export async function fetchV2VendorCatalog(): Promise<V2VendorSku[]> {
@@ -652,7 +657,11 @@ export async function resolveRetailChargeCentavos(
   // pax surface in the app already quotes resolveLivePax.
   let pax: number | null = null;
   if (config.is_pax_priced) {
-    pax = await resolveLivePax(admin, eventId);
+    const read = await resolveLivePax(admin, eventId);
+    // ⚖ OWNER ADD 35: an unread guest count prices NOTHING — never the floor price. The charge path treats `error` as a
+    // hard stop, so nothing is charged; the words are the owner's.
+    if (read === PAX_UNREAD) return { status: 'error', message: PAX_UNREAD_WORDS };
+    pax = read;
   }
 
   const standardCentavos = computePaxPriceCentavos(config, pax);

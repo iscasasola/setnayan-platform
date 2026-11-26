@@ -68,3 +68,24 @@ export function accountTypeForSignup(as: string | string[] | undefined): SignupA
 export function showsCoupleConsent(as: string | string[] | undefined): boolean {
   return accountTypeForSignup(as) === 'customer';
 }
+
+/**
+ * 🔁 THE SIGN-IN ADDRESS THAT KEEPS THE SHOP INTENT (final check A1-059 · owner ruling Add 33, 25 Nov 2026: "a supplier
+ * is a user with a shop").
+ *
+ * A supplier who went /signup?as=vendor → "Have an account? Sign in" → "New here? Create account" lost `as=vendor` on
+ * the first hop (the sign-up card's sign-in link carried only `next`), and a Google / Apple start error from the
+ * supplier sign-up landed on /login without it too — so the account was made as a couple and sign-in opened a couple's
+ * Home. Every hop between the two cards now carries the intent, and a supplier's bare `/` becomes `/open-shop` (the same
+ * rule `signUp` applies), so the round trip lands where they continue their shop. Being filed as a couple never blocks
+ * a shop: `/open-shop` takes any signed-in user and self-heals `account_type`.
+ */
+export function signInHrefKeepingIntent(next: string, accountType: SignupAccountType, error?: string): string {
+  const params = new URLSearchParams();
+  if (error) params.set('error', error);
+  const landsAt = accountType === 'vendor' && next === '/' ? '/open-shop' : next;
+  if (landsAt !== '/') params.set('next', landsAt);
+  if (accountType === 'vendor') params.set('as', 'vendor');
+  const q = params.toString();
+  return `/login${q ? `?${q}` : ''}`;
+}

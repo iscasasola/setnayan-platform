@@ -260,7 +260,6 @@ async function cleanupTestContext(admin: SupabaseClient, ctx: TestContext): Prom
   await admin.from('comp_grants').delete().like('reason', `${TEST_PREFIX}%`);
   await admin.from('orders').delete().eq('event_id', ctx.eventId);
   await admin.from('payments').delete().eq('user_id', ctx.authUserId);
-  await admin.from('concierge_abuse_flags').delete().eq('flagged_user_id', ctx.authUserId);
   await admin.from('events').delete().eq('event_id', ctx.eventId);
   await admin.from('users').delete().eq('user_id', ctx.authUserId);
   await admin.auth.admin.deleteUser(ctx.authUserId).catch(() => {});

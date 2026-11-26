@@ -150,7 +150,8 @@ export default async function VendorFitPage({ params, searchParams }: Props) {
       const d = new Date(`${eventDate}T00:00:00`);
       vendorAvailableOnDate = await getVendorAvailableDays(admin, vendorId, d, d)
         .then((days) => days.has(formatDayKey(d)))
-        .catch(() => true);
+        // 🪪 A refused calendar read is unknown — never "free on your date" (final check A5-G1-14).
+        .catch(() => null);
     }
 
     const evLat = (ev?.venue_latitude as number | null) ?? null;

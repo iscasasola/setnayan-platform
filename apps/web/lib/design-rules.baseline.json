@@ -37,7 +37,6 @@
   "app/dashboard/[eventId]/guests/import/page.tsx": 1,
   "app/dashboard/[eventId]/guests/invite/page.tsx": 1,
   "app/dashboard/[eventId]/guests/new/page.tsx": 1,
-  "app/dashboard/[eventId]/guests/quick/page.tsx": 1,
   "app/dashboard/[eventId]/guests/souvenirs/page.tsx": 1,
   "app/dashboard/[eventId]/guests/tea-ceremony/page.tsx": 1,
   "app/dashboard/[eventId]/hosts/page.tsx": 1,

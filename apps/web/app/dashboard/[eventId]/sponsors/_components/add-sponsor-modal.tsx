@@ -15,7 +15,7 @@ type Props = {
   eventId: string;
   /** Tier slot being filled. Pre-filled into the hidden field. */
   sponsorTier: SponsorTier;
-  /** Side slot is fixed when the host clicks "Add ninong" or "Add ninang";
+  /** Side slot is fixed when the host clicks a walk's "Add sponsor" (the side is never the honorific — A2-I15);
    *  free-pick when the host opens a generic Add (cord/veil/coin/candle). */
   side: SponsorSide;
   /** Pair index for principal sponsors. NULL for secondary tiers. */

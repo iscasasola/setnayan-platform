@@ -20,6 +20,7 @@ import {
   reopenLanded,
 } from '@/lib/admin-reopen-guest-list';
 import { clearHomeShelf } from '@/lib/home-shelf-clear';
+import { requireAdminCan } from '@/lib/admin/can.server';
 
 async function requireAdmin() {
   const supabase = await createClient();
@@ -53,6 +54,8 @@ async function requireAdmin() {
  */
 export async function deleteEvent(formData: FormData) {
   const { adminUserId } = await requireAdmin();
+  // A8·D-3: "remove an event" is Deletions · Escalated (lib/admin/areas.ts).
+  await requireAdminCan('deletions', 'escalated');
   const eventId = formData.get('event_id');
   if (typeof eventId !== 'string' || eventId.length === 0) {
     throw new Error('Invalid event_id');

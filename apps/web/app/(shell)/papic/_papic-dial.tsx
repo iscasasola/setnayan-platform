@@ -250,7 +250,7 @@ export function PapicDial({
       <p className="mt-3.5 rounded-xl bg-[rgb(138_107_57/0.07)] px-3 py-2.5 text-left text-sm text-[var(--m-slate-2)]">
         <b className="font-semibold text-[var(--m-ink)]">Not enough? Add more any time.</b>{' '}
         You are never locked into what you pick now — top up in the middle of the party if the
-        night is going well, and the new credits land in seconds on top of what you already have.
+        night is going well, and the new credits are added on top of what you already have.
       </p>
 
       <div className="mt-4 border-t border-[var(--m-line)] pt-3.5 text-left">

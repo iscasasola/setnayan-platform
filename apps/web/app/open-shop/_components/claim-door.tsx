@@ -43,9 +43,10 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { ServicePicker, type PickerParentView } from '@/app/_components/service-picker';
 import { PLAN_AGREE_ERROR, PlanAgree, PlanOnLastScreen } from './plan-sheet';
 import { Sheet } from '@/app/_components/sheet';
-import { ACCEPT_LABEL, ACCEPT_LINE, CHECK_FACT_LABEL, FIRST_CARD_PRICED_LINE, CLAIM_CARDS_MADE_AS, CLAIM_CHECK_HEAD, CLAIM_CHECK_LABEL, CLAIM_CHECK_NOTES, DONE_FREE_LINE, LOOKS_RIGHT, claimCheckLine, type ClaimCheckRow, DONE_FREE_ROW, NOT_MY_BUSINESS, ONBOARDING_STEP_NAMES, ONBOARDING_HEADS, ONBOARDING_SCREENS, type CheckFact, type FirstCardChoice } from '@/lib/supplier-onboarding';
+import { ACCEPT_LABEL, ACCEPT_LINE, CHECK_FACT_LABEL, FIRST_CARD_PRICED_LINE, CLAIM_CARDS_MADE_AS, CLAIM_CHECK_HEAD, CLAIM_CHECK_LABEL, CLAIM_CHECK_NOTES, DONE_FREE_LINE, LOOKS_RIGHT, claimCheckLine, type ClaimCheckRow, DONE_FREE_ROW, NOT_MY_BUSINESS, ONBOARDING_STEP_NAMES, ONBOARDING_HEADS, ONBOARDING_SCREENS, OPEN_YOUR_SHOP_HEAD, type CheckFact, type FirstCardChoice } from '@/lib/supplier-onboarding';
 // 🔵 The supplier blue look (owner 19 Nov) — the dashboard's own token scope, re-used.
 import '@/app/vendor-dashboard/_components/supplier-look.css';
+import { useOpenShopHead } from './open-shop-layer';
 import type { SpecialtyField } from './service-cards';
 import { finishClaimDoor } from '../claim-actions';
 
@@ -1385,6 +1386,9 @@ export function ClaimDoor({
 
   const main = slide(d.screen);
   const { title, line, body, primary } = main;
+  // ⤴ The open-shop layer's head names the layer (final check B1). The screen's own label + title stay in the body,
+  // the label over the title (controller P1, 21 Nov) — so the head never repeats them.
+  useOpenShopHead({ title: OPEN_YOUR_SHOP_HEAD[0], line: null });
   const sheetView = sheet ? slide(sheet) : null;
   /**
    * The email way's boxes (email · password · Terms), signed out. Typed on the account screen (SECOND) and kept
@@ -1397,14 +1401,13 @@ export function ClaimDoor({
   const canSubmit = last && (!!signedInAs || emailMounted);
   const total = ONBOARDING_SCREENS.length;
   return (
-    <main className="flex min-h-[100dvh] flex-col overflow-x-clip md:block md:min-h-[70vh]" data-claim-door="" data-claim-door-screen={d.screen} data-supplier-look="">
-      <div className="hidden h-[60px] items-center gap-4 border-b px-7 md:flex lg:px-8" style={{ borderColor: 'var(--m-line)' }}>
-        <FirstRunBrand color="var(--m-ink)" size={13} />
-      </div>
-      <div className="grid flex-1 gap-7 px-4 pt-6 md:grid-cols-[minmax(0,1fr)_280px] md:px-7 md:pb-9 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-14 lg:px-12 lg:pb-12 lg:pt-9">
+    // ⤴ Inside the one open-shop layer (final check B1): the layer's body is the scroller; no page shell of its own.
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-clip overscroll-contain" data-claim-door="" data-claim-door-screen={d.screen} data-supplier-look="">
+      <div className="grid flex-1 gap-7 px-4 pt-6 md:grid-cols-[minmax(0,1fr)_280px] md:px-7 md:pb-9">
         <div className="flex min-w-0 flex-col gap-[18px] md:grid md:content-start">
           <div className="grid gap-3 md:block">
-            <FirstRunBrand className="md:hidden" color="var(--m-ink)" size={13} />
+            {/* The SETNAYAN line above the bars, at every width (owner 25 Nov). */}
+            <FirstRunBrand color="var(--m-ink)" size={13} />
             <div className="flex gap-1.5 md:sr-only" role="progressbar" aria-valuemin={1} aria-valuemax={total} aria-valuenow={step} aria-label={`Step ${step} of ${total}`}>
               {Array.from({ length: total }, (_, n) => (
                 <div key={n} className="h-1 flex-1 rounded-full" style={{ background: n < step ? 'rgb(var(--color-mulberry))' : 'var(--m-line)' }} />
@@ -1552,7 +1555,7 @@ export function ClaimDoor({
           </div>
         </aside>
       </div>
-    </main>
+    </div>
   );
 }
 

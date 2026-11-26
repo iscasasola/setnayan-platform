@@ -56,7 +56,7 @@ export default async function TheirWorkPage() {
         <BackButton route="/vendor-dashboard/services/their-work" />
       </div>
       <h1 className="text-[22px] font-semibold text-ink">Their work</h1>
-      <p className="mt-1 text-[14px] text-ink/60">Photos from the events this card was booked for</p>
+      <p className="mt-1 text-[14px] text-ink/60">Photos from every event your cards were booked for</p>
 
       <TheirWorkList
         albums={

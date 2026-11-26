@@ -1,5 +1,6 @@
 'use server';
 
+import { formReadRefusal } from '@/lib/form-read';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -7,6 +8,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { RESERVED_SLUGS } from '@/lib/reserved-slugs';
 import { findSlugConflict, SLUG_CONFLICT_MESSAGE } from '@/lib/slug-availability';
 import { insertFaultLog } from '@/lib/telemetry/fault-log';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { planPersonalInfoPatch } from '@/lib/profile-personal-info-patch';
 import { isSettingsGroup } from '@/lib/profile-settings-groups';
 import { seatNameOfferFor } from '@/lib/seat-name-offer.server';
@@ -79,6 +81,10 @@ export async function updatePersonalInfo(formData: FormData) {
   const tabRaw = formData.get('tab');
   const tabQs = isSettingsGroup(tabRaw) ? `&tab=${tabRaw}` : '';
 
+  // A2-C7: a form not drawn from an answered profile read never writes (its boxes would be blanks).
+  const unread = formReadRefusal(formData);
+  if (unread) return redirect(`/dashboard/profile?error=${encodeURIComponent(unread)}${tabQs}`);
+
   // RA 10173 durable proof-of-consent (migration 20270705000000). Read the
   // current state so consent stamps move only on an actual transition —
   // opting in sets now(), opting out clears it to NULL, and an unrelated save
@@ -107,7 +113,8 @@ export async function updatePersonalInfo(formData: FormData) {
         columns: Object.keys(plan.patch),
       },
     });
-    return redirect(`/dashboard/profile?error=${encodeURIComponent(error.message)}${tabQs}`);
+    // A2-C6 (SW-RAWDB): the fault log above keeps the database's words; the person reads a plain sentence.
+    return redirect(`/dashboard/profile?error=${encodeURIComponent('Couldn’t save that — nothing was changed. Try again.')}${tabQs}`);
   }
 
   revalidatePath('/dashboard', 'layout');
@@ -182,7 +189,7 @@ export async function adoptSeatNameOnProfile(input: {
 export async function requestAccountDeletion(formData: FormData) {
   const confirm = formData.get('confirm');
   if (typeof confirm !== 'string' || confirm !== 'DELETE') {
-    return redirect('/dashboard/profile?error=Type+DELETE+to+confirm');
+    return redirect('/dashboard/profile?error=Type+DELETE+to+confirm.');
   }
 
   const reasonRaw = formData.get('reason');
@@ -227,7 +234,7 @@ export async function requestAccountDeletion(formData: FormData) {
       error_message: error.message,
       payload_snapshot: { userId: user.id, hasReason: reason !== null },
     });
-    return redirect(`/dashboard/profile?error=${encodeURIComponent(error.message)}#settings`);
+    return redirect(`/dashboard/profile?error=${encodeURIComponent('Couldn’t save that — nothing was changed. Try again.')}#settings`);
   }
 
   revalidatePath('/dashboard/profile');
@@ -242,7 +249,7 @@ export async function requestAccountDeletion(formData: FormData) {
 export async function cancelAccountDeletionRequest(formData: FormData) {
   const requestId = formData.get('request_id');
   if (typeof requestId !== 'string' || requestId.length === 0) {
-    return redirect('/dashboard/profile?error=Invalid+request#settings');
+    return redirect('/dashboard/profile?error=Something+was+missing+from+that+request.+Try+again.#settings');
   }
 
   const supabase = await createClient();
@@ -259,7 +266,8 @@ export async function cancelAccountDeletionRequest(formData: FormData) {
     .eq('status', 'pending');
 
   if (error) {
-    return redirect(`/dashboard/profile?error=${encodeURIComponent(error.message)}#settings`);
+    logQueryError('cancelAccountDeletion', error, {}, 'graceful_degrade');
+    return redirect(`/dashboard/profile?error=${encodeURIComponent('Couldn’t save that — nothing was changed. Try again.')}#settings`);
   }
 
   revalidatePath('/dashboard/profile');
@@ -425,7 +433,7 @@ export async function updateUserSlug(formData: FormData) {
       payload_snapshot: { userId: user.id },
     });
     return redirect(
-      `/dashboard/profile?slug_error=${encodeURIComponent(updateErr.message)}#url-slug`,
+      `/dashboard/profile?slug_error=${encodeURIComponent('Couldn’t save that address — nothing was changed. Try again.')}#url-slug`,
     );
   }
 

@@ -29,6 +29,16 @@
 
 /** Where a guest's (or a host's) card is fetched — `?guest=<id>` for a plus-one. */
 export const PASS_CARD_ROUTE = '/api/guest/pass-card';
+/** The guest's bare QR code (cookie- or seat-authenticated PNG). */
+export const GUEST_QR_ROUTE = '/api/guest/qr';
+
+/**
+ * 🔑 A4-B11 (owner, final check Add 34): a pass route that names its event, so a SIGNED-IN account holding the seat
+ * (and no invite-link cookie) gets its own card or code — `readGuestSessionForPassRoute`. Keeps any query already on it.
+ */
+export function passRouteForEvent(route: string, eventId: string): string {
+  return `${route}${route.includes('?') ? '&' : '?'}event=${encodeURIComponent(eventId)}`;
+}
 /** The couple's zip of every card (free since 2026-10-22) — `?event=<id>`. */
 export const PASS_CARDS_ZIP_ROUTE = '/api/guest/pass-card/all';
 

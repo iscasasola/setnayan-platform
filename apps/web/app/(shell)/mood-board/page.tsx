@@ -53,6 +53,7 @@
  * and the Event Hub's template gradient (`lib/site-palette.ts`).
  */
 
+import { routes } from '@/lib/routes';
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
 import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
 import { studioDescription } from '@/lib/studio-apps';
@@ -132,7 +133,7 @@ const FAQ = [
   },
   {
     q: 'Is it really free?',
-    a: 'Yes. The Mood Board is included with every Setnayan account, like your guest list, your schedule, your budget and your seat plan. There is nothing to buy and nothing that expires.',
+    a: 'Yes. The Mood Board is included with every Setnayan account, like your guest list, your schedule, your budget and your seat plan. There is nothing to buy.',
   },
   {
     q: 'Do we have to be good at design?',
@@ -230,7 +231,7 @@ const SPOTLIGHTS: readonly Spotlight[] = [
   },
   {
     chip: 'Free',
-    t: 'Nothing to buy, nothing that expires',
+    t: 'Nothing to buy',
     d: 'The Mood Board is free with every Setnayan account, beside your guest list, your schedule and your seat plan. Change your mind as often as you like — nothing here is locked, and everything that reads from your board picks up the change.',
     media: { kind: 'photo', src: '/demo/maria-jose/moodboard.webp', alt: 'A flat lay of a ribbon, a ring, a compact and a bouquet on linen' },
   },
@@ -248,7 +249,7 @@ export default function MoodBoardLandingPage() {
         where the rest of the free workspace (guest list, schedule, budget, seat
         plan) is actually described.
       */
-      primary={{ href: '/onboarding/wedding?from=mood-board', label: 'Start planning · free' }}
+      primary={{ href: routes.start(), label: 'Start planning · free' }}
       secondary={{ href: '/features', label: 'See what else is free' }}
       productName="Mood Board"
       studioKey="mood-board"
@@ -262,7 +263,7 @@ export default function MoodBoardLandingPage() {
       closing={{
         heading: 'Start with how it should feel',
         body: 'The Mood Board is free with every Setnayan wedding — beside your guest list, your schedule and your seat plan. Nothing to buy, and your colors carry into everything you make afterwards.',
-        href: '/onboarding/wedding?from=mood-board',
+        href: routes.start(),
         label: 'Start planning · free',
       }}
       structuredData={[APP_LD, FAQ_LD]}

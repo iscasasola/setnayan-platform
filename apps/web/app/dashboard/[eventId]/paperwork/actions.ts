@@ -14,6 +14,8 @@ import {
   type PaperworkStatus,
 } from '@/lib/paperwork';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { cleanupDelete } from '@/lib/cleanup-delete';
+import { paperworkScope } from '@/lib/cleanup-delete-scope';
 
 /**
  * Server actions for the paperwork pipeline.
@@ -339,10 +341,11 @@ export async function uploadPaperworkScan(formData: FormData): Promise<void> {
   // Read current status so we know whether to auto-flip to 'received'.
   const { data: current } = await supabase
     .from('event_paperwork')
-    .select('status')
+    .select('status, document_r2_key')
     .eq('id', paperworkId)
     .eq('event_id', eventId)
     .maybeSingle();
+  const previousKey = (current as { document_r2_key?: string | null } | null)?.document_r2_key ?? null;
 
   const currentStatus = (current as { status?: PaperworkStatus } | null)?.status
     ?? 'not_started';
@@ -391,6 +394,16 @@ export async function uploadPaperworkScan(formData: FormData): Promise<void> {
     throw new Error(
       'Could not save your scan. Please try uploading again, or reach out from /help if it keeps failing.',
     );
+  }
+  /* 🗑 The scan this one REPLACED leaves the private bucket (final check A2-I11) — through the one pinned cleanup path,
+     which deletes only an object under this event's own paperwork folder. Best-effort: a failed delete leaves an
+     orphan, never a lost scan, and never un-saves the new one. */
+  if (previousKey && previousKey !== documentR2Key) {
+    const previousRef = previousKey.startsWith('r2://') ? previousKey : `r2://${paperworkScanPolicy(eventId).bucket}/${previousKey}`;
+    await cleanupDelete(previousRef, paperworkScope(eventId)).catch((e: unknown) => {
+      console.error('[paperwork] uploadPaperworkScan: the replaced scan was not deleted:', e);
+      return 'refused' as const;
+    });
   }
   revalidateBoth(eventId);
 }

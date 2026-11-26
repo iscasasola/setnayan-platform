@@ -81,6 +81,8 @@ async function subscribeAndSave(): Promise<boolean> {
 export function GuestPushPrompt() {
   const [visible, setVisible] = useState(false);
   const [busy, setBusy] = useState(false);
+  // 🔌 A4-52: a failed subscribe or save is said — never a banner that simply disappears as if it worked.
+  const [failed, setFailed] = useState(false);
 
   useEffect(() => {
     const supported =
@@ -102,14 +104,20 @@ export function GuestPushPrompt() {
 
   async function handleEnable() {
     setBusy(true);
+    setFailed(false);
+    let saved = true;
     try {
       const permission = await Notification.requestPermission();
       if (permission === 'granted') {
-        await subscribeAndSave();
+        saved = await subscribeAndSave();
       }
+    } catch {
+      saved = false;
     } finally {
       setBusy(false);
-      setVisible(false);
+      // A browser answer (granted and saved, or declined) ends the ask; a failed save keeps it, and says so.
+      if (saved) setVisible(false);
+      else setFailed(true);
     }
   }
 
@@ -121,7 +129,11 @@ export function GuestPushPrompt() {
       ask
       noticeKey="alerts-ask:guest-seat"
       title="Get seat & schedule alerts"
-      detail="We’ll let you know on this device if your table changes or something at the venue needs your attention — even if you close this page."
+      detail={
+        failed
+          ? 'Alerts didn’t turn on — check your signal and try again.'
+          : 'We’ll let you know on this device if your table changes or something at the venue needs your attention — even if you close this page.'
+      }
       actions={
         <button type="button" onClick={handleEnable} disabled={busy} className={NOTICE_ACTION}>
           {busy ? 'Turning on…' : 'Turn on alerts'}

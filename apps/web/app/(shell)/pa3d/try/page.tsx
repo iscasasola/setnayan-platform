@@ -19,13 +19,14 @@
  * empty jar and serves a signed-in person a signed-out rail from the edge cache.
  */
 
+import { routes } from '@/lib/routes';
 import Link from 'next/link';
 import { studioDescription } from '@/lib/studio-apps';
 import { Pa3dRoom } from '../_pa3d-room';
 
 const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com').replace(/\/$/, '');
 
-const PAGE_TITLE = 'Walk a real reception in 3D — right now, no sign-up';
+const PAGE_TITLE = 'Walk a sample reception in 3D — no sign-up';
 const PAGE_DESCRIPTION = studioDescription('pa3d');
 const OG_IMAGE = `${SITE_URL}/brand/og-card-2026-11.png`;
 
@@ -63,14 +64,14 @@ export default function ThreeDPlanTryPage() {
           3D Plan · live demo
         </p>
         <h1 className="mt-2 font-serif text-[2.05rem] leading-[1.14] tracking-tight text-[var(--m-ink)] sm:text-5xl">
-          Stand in a real reception.
+          Stand in a sample reception.
         </h1>
         <p className="mt-3 text-[0.98rem] text-[var(--m-slate-2)]">
           This is Maria &amp; Jose’s sample room — their tables, their seats, their colours. Walk
           it, or tap anyone seated to open the room from that guest’s own chair.
         </p>
         <div className="mt-6">
-          <Pa3dRoom />
+          <Pa3dRoom introduced />
         </div>
         <p className="mt-6 text-sm text-[var(--m-slate-2)]">
           This is what 3D Plan does with your own seating plan —{' '}
@@ -79,7 +80,7 @@ export default function ThreeDPlanTryPage() {
           </Link>{' '}
           or{' '}
           <Link
-            href="/onboarding/wedding?from=pa3d-try"
+            href={routes.start()}
             className="font-medium text-[var(--m-mulberry)] hover:opacity-80"
           >
             start planning free

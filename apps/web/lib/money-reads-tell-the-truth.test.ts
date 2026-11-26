@@ -17,7 +17,7 @@ test('A1-100 · the customer catalogue read keeps its failure, and Home, /pricin
   const cat = src('lib/v2-catalog.ts');
   const read = cat.slice(cat.indexOf('export async function fetchV2CustomerCatalogRead('));
   const body = read.slice(0, read.indexOf('\nexport '));
-  assert.match(body, /if \(error\) \{[\s\S]*?return \{ rows: \[\], ok: false \};/, 'a refused read must say ok: false');
+  assert.match(body, /if \(error\) return \{ rows: \[\], ok: false \};/, 'a refused read must say ok: false');
   assert.match(body, /catch \{\s*return \{ rows: \[\], ok: false \};/, 'no admin client is a failure, not "nothing on sale"');
 
   const door = src('app/_components/frontdoor/front-door.tsx');

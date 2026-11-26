@@ -451,6 +451,24 @@ export async function fetchTrustedReviewStats(
   supabase: SupabaseClient,
   vendorProfileId: string,
 ): Promise<TrustedReviewStatsRow> {
+  return (
+    (await fetchTrustedReviewStatsRead(supabase, vendorProfileId)) ?? {
+      vendor_profile_id: vendorProfileId,
+      trusted_avg_rating: 0,
+      trusted_review_count: 0,
+    }
+  );
+}
+
+/**
+ * The same read, but a REFUSED read is `null`, never a zero row (final check A1-129, 25 Nov 2026): the shop page said
+ * "Stars count reviews booked through Setnayan · none yet" and dropped the rating badge when this read failed, a claim
+ * about somebody's business made from a failure. `fetchTrustedReviewStats` keeps the zero for callers that only rank.
+ */
+export async function fetchTrustedReviewStatsRead(
+  supabase: SupabaseClient,
+  vendorProfileId: string,
+): Promise<TrustedReviewStatsRow | null> {
   const zero: TrustedReviewStatsRow = {
     vendor_profile_id: vendorProfileId,
     trusted_avg_rating: 0,
@@ -461,8 +479,11 @@ export async function fetchTrustedReviewStats(
     .select('vendor_profile_id, trusted_avg_rating, trusted_review_count')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
-  if (error) console.error('[supabase-error] lib/reviews.ts · from:vendor_trusted_review_stats.select', error);
-  if (error || !data) return zero;
+  if (error) {
+    console.error('[supabase-error] lib/reviews.ts · from:vendor_trusted_review_stats.select', error);
+    return null;
+  }
+  if (!data) return zero;
   return {
     vendor_profile_id: data.vendor_profile_id as string,
     trusted_avg_rating: Number(data.trusted_avg_rating ?? 0),

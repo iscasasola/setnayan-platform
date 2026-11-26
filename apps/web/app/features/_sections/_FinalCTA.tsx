@@ -1,5 +1,6 @@
 import Image from 'next/image';
 import Link from 'next/link';
+import { routes } from '@/lib/routes';
 
 import type { MarketingLocale } from '@/lib/marketing-i18n';
 import s from '../features-story.module.css';
@@ -41,7 +42,7 @@ export function FinalCTA({ locale }: { locale: MarketingLocale }) {
         <h2 id="close-h">{c.heading}</h2>
         <p className={s.closeLine}>{c.body}</p>
         <div className={s.closeBtns}>
-          <Link className={`${s.btn} ${s.btnFill}`} href="/signup">
+          <Link className={`${s.btn} ${s.btnFill}`} href={routes.start()}>
             <StoryIcon name="home" className={s.bi} />
             <span>{c.ctaPrimary}</span>
           </Link>

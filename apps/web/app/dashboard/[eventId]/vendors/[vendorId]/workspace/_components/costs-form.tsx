@@ -10,7 +10,7 @@
  * handed to the form's button through `CostsFormPending` (SubmitButton's `pending`).
  */
 import { createContext, useContext, useState, useTransition, type FormEvent, type ReactNode } from 'react';
-import { unstable_rethrow, useRouter } from 'next/navigation';
+import { unstable_rethrow } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { updateVendorCosts } from '../../../actions';
 
@@ -22,15 +22,15 @@ export const CostsFormPending = createContext(false);
 export function CostsForm({ className, children }: { className?: string; children: ReactNode }) {
   const [failed, setFailed] = useState(false);
   const [pending, start] = useTransition();
-  const router = useRouter();
   const onSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     setFailed(false);
     start(async () => {
       try {
+        // ⚡ No refresh: `updateVendorCosts` revalidates the workspace, and an action that revalidates answers WITH the
+        // page's new render (lib/a-save-renders-once.test.ts). A refresh here would draw the page twice.
         await updateVendorCosts(formData);
-        router.refresh();
       } catch (err) {
         unstable_rethrow(err);
         setFailed(true);

@@ -132,7 +132,7 @@ export function QrCodes({
     body,
     href: hrefs[key],
     // The Booked code is a deal form to fill (client · date · service · schedule · proof) — it rises full screen.
-    rise: key === 'locked' || key === 'gown',
+    rise: key === 'locked',
   });
 
   const rows: QrRow[] = [

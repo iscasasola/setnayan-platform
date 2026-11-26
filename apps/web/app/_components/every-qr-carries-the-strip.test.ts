@@ -91,7 +91,8 @@ test('every link-QR mounts the strip, exactly as many times as it has QRs', () =
 test('the supplier’s codes are drawn by the QR card (kind 24), so each carries the strip', () => {
   // Customers › QR codes draws the two per-event codes: the issued Booked code · Crew for an event.
   const page = read('app/vendor-dashboard/invite/_components/qr-codes.tsx');
-  assert.equal(count(page, '<QrCard'), 2, 'the issued Booked code and the crew code are not both QR cards');
+  // 👗 26 Nov 2026: the Gown design code is the third.
+  assert.equal(count(page, '<QrCard'), 3, 'the issued Booked code, the crew code and the Gown design code are not all QR cards');
   assert.match(page, /from '@\/app\/_components\/qr-card'/);
   // 🔳 Shop › My QRs (owner 23 Nov 2026): Your page · Reviews · Shortlist · Check a date each open on their OWN page
   // ("One QR, opened"), which draws its code as ONE QR card — so every shop code still carries the strip.

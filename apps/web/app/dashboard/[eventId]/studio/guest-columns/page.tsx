@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { PenLine } from 'lucide-react';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { QuietStart } from '@/app/_components/states/quiet-start';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect, notFound } from 'next/navigation';
@@ -154,7 +155,10 @@ export default async function GuestColumnsQueuePage({
           page (and in your editorial after the day); return one to its writer with a
           note if it needs another pass. Held columns stay hidden until you decide.
         </InfoTip>
-        {rows.length === 0 ? (
+        {/* S-05 (final check): a refused read is not "No one has written yet." */}
+        {columnsError ? (
+          <ReadRefusedNotice what="your guests' columns" />
+        ) : rows.length === 0 ? (
           /* NO ACTION, deliberately. Only a guest can write a column, from
              their own invitation page — a button here would be one the host
              can never press, which is worse than no button. */

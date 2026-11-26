@@ -172,6 +172,8 @@ export async function ShareLinkPanel({
         ? `${appUrl}/join/${eventId}?token=${tokenRes.data.token}`
         : null;
   const pendingClaims = pendingRes.count ?? 0;
+  // I-07 (final check): a refused count is not "no requests" — the door stays, and says it could not count them.
+  const pendingUnread = Boolean(pendingRes.error);
   if (askRes.error) {
     logQueryError('GuestInvitePage (events.rsvp_ask_config)', askRes.error, { event_id: eventId }, 'graceful_degrade');
   }
@@ -310,16 +312,22 @@ export async function ShareLinkPanel({
         <span className="shrink-0 text-xs font-medium text-ink/55">Change in Event Details</span>
       </Link>
 
-      {pendingClaims > 0 ? (
+      {pendingClaims > 0 || pendingUnread ? (
         <Link
           href={`/dashboard/${eventId}/guests/claims`}
           className="group mt-4 flex items-center justify-between gap-3 rounded-xl border border-terracotta/30 bg-terracotta/5 px-4 py-3 transition-colors hover:border-terracotta/50 hover:bg-terracotta/10"
         >
           <span className="text-sm text-ink">
-            <span className="font-semibold text-terracotta-700">
-              {pendingClaims} {pendingClaims === 1 ? 'request' : 'requests'}
-            </span>{' '}
-            waiting for you to confirm
+            {pendingUnread ? (
+              'We couldn’t count the requests waiting for you — open them to check'
+            ) : (
+              <>
+                <span className="font-semibold text-terracotta-700">
+                  {pendingClaims} {pendingClaims === 1 ? 'request' : 'requests'}
+                </span>{' '}
+                waiting for you to confirm
+              </>
+            )}
           </span>
           <ArrowRight
             aria-hidden

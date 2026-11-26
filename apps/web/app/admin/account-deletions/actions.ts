@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { requireAdminCan } from '@/lib/admin/can.server';
 import { blacklistUser, deleteUser } from '@/app/admin/users/actions';
 
 /**
@@ -82,6 +83,11 @@ async function loadPendingRequest(requestId: string, expect: 'pending' | 'approv
  */
 async function approveRequest(formData: FormData, mode: 'delete' | 'blacklist') {
   const { adminUserId } = await requireAdmin();
+  // A8·D-1: every check the delegated delete/blacklist would run is asked
+  // HERE, before the request is marked approved — a refusal after that write
+  // would strand an "approved" request on an open account.
+  await requireAdminCan('deletions', 'escalated');
+  if (mode === 'blacklist') await requireAdminCan('fraud', 'escalated');
   const requestId = formData.get('request_id');
   if (typeof requestId !== 'string' || requestId.length === 0) {
     throw new Error('Invalid input');
@@ -91,6 +97,7 @@ async function approveRequest(formData: FormData, mode: 'delete' | 'blacklist') 
     typeof noteRaw === 'string' && noteRaw.trim().length > 0 ? noteRaw.trim() : null;
 
   const { admin, req } = await loadPendingRequest(requestId);
+  await assertErasable(admin, adminUserId, req.user_id);
 
   // Mark approved before the cascade removes the row.
   const { error: updErr } = await admin
@@ -122,6 +129,32 @@ async function approveRequest(formData: FormData, mode: 'delete' | 'blacklist') 
   redirect('/admin/account-deletions?actioned=approved');
 }
 
+/**
+ * The self and internal-account guards of deleteUser / blacklistUser, asked
+ * before anything is written (A8·D-1). FAILS CLOSED (A8·D-2): an unreadable
+ * target is refused, never treated as "not internal".
+ */
+async function assertErasable(
+  admin: ReturnType<typeof createAdminClient>,
+  adminUserId: string,
+  targetUserId: string,
+) {
+  if (targetUserId === adminUserId) {
+    throw new Error('You cannot delete your own account from this page');
+  }
+  const { data: target, error } = await admin
+    .from('users')
+    .select('is_internal')
+    .eq('user_id', targetUserId)
+    .maybeSingle();
+  if (error || !target) {
+    throw new Error('Couldn’t check the account just now. Nothing was changed. Refresh and try again.');
+  }
+  if ((target as { is_internal: boolean | null }).is_internal) {
+    throw new Error('Cannot delete an internal account');
+  }
+}
+
 export async function approveAndDelete(formData: FormData) {
   // Row 31 (2026-10-01) — an intent branch, not a new action (the server-action
   // budget is at its ceiling).
@@ -141,6 +174,7 @@ export async function approveAndDelete(formData: FormData) {
  */
 async function rerunErasure(formData: FormData) {
   await requireAdmin();
+  await requireAdminCan('deletions', 'escalated');
   const requestId = formData.get('request_id');
   if (typeof requestId !== 'string' || requestId.length === 0) {
     throw new Error('Invalid input');
@@ -174,6 +208,8 @@ export async function approveAndBlacklist(formData: FormData) {
  */
 export async function rejectRequest(formData: FormData) {
   const { adminUserId } = await requireAdmin();
+  // A8·D-1: deciding a request is Deletions · Escalated (lib/admin/areas.ts).
+  await requireAdminCan('deletions', 'escalated');
   const requestId = formData.get('request_id');
   if (typeof requestId !== 'string' || requestId.length === 0) {
     throw new Error('Invalid input');

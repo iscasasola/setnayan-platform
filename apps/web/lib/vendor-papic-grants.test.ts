@@ -131,4 +131,5 @@ test('portfolio-import credits: left clamps at 0, and an unread ledger leaves no
   );
   assert.equal(unread.credits, null, 'an unread ledger is null — the card says it could not read');
   assert.equal(unread.left, 0, 'a metering outage never mints credits');
+  assert.equal(unread.offerPack, false, 'A6-24: an unread ledger sells nothing — no pack on a guessed 0');
 });

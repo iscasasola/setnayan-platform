@@ -15,7 +15,9 @@
  * never to the device, and are private to them.
  */
 
-export const CHECKLIST_KEYS = ['wear', 'motif', 'arrive', 'table', 'pass'] as const;
+/* 🎨 No 'motif' (owner 2026-11-26, "remove motif colors. just keep what to wear"): the motif is the event's palette,
+   not what a guest wears. An old stored 'motif' tick is dropped by `sanitizeTicks` on read — no migration. */
+export const CHECKLIST_KEYS = ['wear', 'arrive', 'table', 'pass'] as const;
 export type ChecklistKey = (typeof CHECKLIST_KEYS)[number];
 
 export function isChecklistKey(v: unknown): v is ChecklistKey {
@@ -68,20 +70,14 @@ export type ChecklistItem = {
   title: string;
   /** One quiet line under the title. */
   sub: string | null;
-  /** Swatches for the motif item. */
-  swatches?: string[];
   /** One link on the line (Open in Maps · Save to Photos). */
   link?: { label: string; href: string; download?: boolean } | null;
 };
-
-const HEX = /^#[0-9a-fA-F]{6}$/;
 
 export function buildChecklist(input: {
   /** "Filipiniana formal" — the reader's own role's style, else the general dress code title. */
   wear: string | null;
   wearNote: string | null;
-  /** Motif colours — the Mood Board palette (swatches only for now). */
-  motif: readonly string[];
   /** "2:30 PM" — the first block of the run of show. */
   arriveBy: string | null;
   venueName: string | null;
@@ -96,8 +92,6 @@ export function buildChecklist(input: {
   if (input.wear || input.wearNote) {
     items.push({ key: 'wear', title: 'What to wear', sub: [input.wear, input.wearNote].filter(Boolean).join(' · ') || null });
   }
-  const swatches = input.motif.filter((h) => HEX.test(h)).slice(0, 6);
-  if (swatches.length > 0) items.push({ key: 'motif', title: 'Motif colors', sub: null, swatches });
   if (input.arriveBy || input.venueName) {
     items.push({
       key: 'arrive',

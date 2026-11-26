@@ -1,6 +1,6 @@
 'use client';
 
-import { useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { toggleFlashAutoWall } from '../actions';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 
@@ -12,6 +12,8 @@ export function FlashAutoWallToggle({
   enabled: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  // L-06 (final check): the result was thrown away, so a refused save looked like a working switch.
+  const [failed, setFailed] = useState(false);
 
   return (
     <label className="flex cursor-pointer items-center gap-3 select-none">
@@ -29,15 +31,22 @@ export function FlashAutoWallToggle({
         // the switch needs its own accessible name.
         aria-label="Flash to Memory lane"
         disabled={pending}
-        onClick={() =>
+        onClick={() => {
+          setFailed(false);
           startTransition(async () => {
-            await toggleFlashAutoWall(eventId, !enabled);
-          })
-        }
+            const res = await toggleFlashAutoWall(eventId, !enabled).catch(() => ({ ok: false }));
+            if (!res.ok) setFailed(true);
+          });
+        }}
         className={SWITCH_BUTTON}
       >
         <SwitchTrack on={enabled} />
       </button>
+      {failed ? (
+        <span role="alert" className="text-xs text-danger-600">
+          Couldn&rsquo;t save. Try again.
+        </span>
+      ) : null}
     </label>
   );
 }

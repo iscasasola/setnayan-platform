@@ -111,7 +111,6 @@ export const ADMIN_MERGED_PAGES: readonly AdminMergedPage[] = [
       v('chat-flags', 'Chat flags', '/admin/work?view=chat-flags', { kindGroup: 'Reports & safety', queue: 'chat-flags', olds: ['/admin/chat-flags'] }),
       v('repost', 'Repost watch', '/admin/work?view=repost', { kindGroup: 'Reports & safety', queue: 'repost-watch', olds: ['/admin/repost-watch'] }),
       v('integrity', 'Integrity watch', '/admin/work?view=integrity', { kindGroup: 'Reports & safety', queue: 'integrity-watch', olds: ['/admin/integrity-watch'] }),
-      v('ai-abuse', 'AI abuse', '/admin/work?view=ai-abuse', { kindGroup: 'Reports & safety', queue: 'concierge-abuse', olds: ['/admin/concierge-abuse'] }),
       v('reviews', 'Review appeals', '/admin/work?view=reviews', { kindGroup: 'Reviews & writing', queue: 'reviews', olds: ['/admin/reviews'] }),
       v('editorial', 'Editorial', '/admin/work?view=editorial', {
         kindGroup: 'Reviews & writing',

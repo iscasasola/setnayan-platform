@@ -185,7 +185,12 @@ export default async function SouvenirTablePage({ params }: Props) {
       </header>
 
       <div className="mt-5">
-        <SouvenirDesk eventId={eventId} guests={guests} initialClaims={claims} />
+        {/* A2-E2: a refused guest read stops the desk (never "0 / 0" with every scan blamed on the guest). */}
+        {guestsRawError ? (
+          <ReadRefusedNotice what="the guest list for this table" />
+        ) : (
+          <SouvenirDesk eventId={eventId} guests={guests} initialClaims={claims} />
+        )}
       </div>
 
       <SupplierScanList claims={supplierScans} />

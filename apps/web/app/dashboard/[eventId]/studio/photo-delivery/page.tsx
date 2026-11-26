@@ -32,6 +32,7 @@ type Props = {
     already_complete?: string;
     release_error?: string;
     disconnected?: string;
+    disconnect_error?: string;
   }>;
 };
 
@@ -137,6 +138,7 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
   const alreadyCompleteFlash = search.already_complete === '1';
   const releaseErrorMsg = search.release_error ?? null;
   const disconnectedFlash = search.disconnected === '1';
+  const disconnectFailed = search.disconnect_error === '1';
   // getPhotoDeliveryOAuthConfig is now async (DB-first) — resolve before render.
   const photoDeliveryOauthReady = (await getPhotoDeliveryOAuthConfig()).ready;
 
@@ -227,6 +229,7 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
         releaseStartedFlash={releaseStartedFlash}
         alreadyComplete={alreadyCompleteFlash}
         disconnectedFlash={disconnectedFlash}
+        disconnectFailed={disconnectFailed}
         oauthReady={photoDeliveryOauthReady}
         needsReauth={needsReauth}
         loginEmail={user.email ?? null}

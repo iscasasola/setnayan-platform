@@ -65,7 +65,7 @@ function serviceHref(key: HomeServiceKey, eventId: string): string {
   const doors: ReadonlyArray<{ key: HomeServiceKey; href: string }> = [
     // A viewer with no Papic card (the couple's card is on Today): Papic's photos, in Memories (the page is gone).
     { key: 'papic', href: `/dashboard/${eventId}/memories` },
-    { key: 'ai', href: `/dashboard/${eventId}/studio/setnayan-ai` },
+    { key: 'ai', href: routes.dashboard.eventServices(eventId, 'ai') },
     { key: 'nikah', href: `/dashboard/${eventId}/nikah` },
   ];
   return doors.find((d) => d.key === key)?.href ?? `/dashboard/${eventId}`;

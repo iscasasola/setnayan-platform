@@ -169,9 +169,14 @@ export type QuoteCardOption = {
   addons: { id: number; label: string; fromPhp: number | null }[];
   /** "Comes with" — the kinds this card bundles, as the wizard's links name them. */
   comesWith: string[];
+  /** The "comes with" read was refused: the card says so, never an empty bundle (A6-07). */
+  comesWithUnread?: boolean;
   /** The card's Setnayan-gift switch — shown, not yet a control on the quote (slice G). */
   giftOn: boolean;
 };
+
+/** Said under a picked card when its "comes with" read was refused (A6-07). */
+export const COMES_WITH_UNREAD_WORDS = 'We couldn’t read what this card comes with. Try again in a moment.';
 
 /** One manual installment row in the editor (peso/percent-facing). */
 type SchedRow = InstallmentDraft & { key: string };
@@ -1871,6 +1876,13 @@ export function ProposalMaker({
                   );
                 })}
               </div>
+            ))}
+          {cards
+            .filter((c) => pickedCards[c.id] && c.comesWithUnread)
+            .map((c) => (
+              <p key={`xu-${c.id}`} role="alert" data-testid="quote-card-comes-with-unread" className="pl-1 text-sn-xs text-ink/55">
+                {c.label}: {COMES_WITH_UNREAD_WORDS}
+              </p>
             ))}
           {cardWarnings.length > 0 ? (
             <p data-testid="quote-card-warnings" className="text-[11px] text-warn-900">

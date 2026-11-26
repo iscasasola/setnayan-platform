@@ -60,6 +60,25 @@ export type UnihomeEventCard = {
   scene: { eventType: string; photoSrc: string; ownPhotoSrc: string | null; cover: SceneCover | null };
   /** The organiser's remove sheet needs these (the shipped two-screen sheet). */
   archived: boolean;
+  /**
+   * 📋 THE CARD'S TAP MENU (owner-approved 25 Nov 2026, final-check brief Add 40; drawing
+   * `build-sessions/final-check/drawings/event-card-menu.html`). Organiser and helper only; an invited card has none and
+   * opens the hub as before.
+   */
+  menu: UnihomeCardMenu | null;
+};
+
+/** What the event card's tap menu offers. Every href is a real address; a row the person may not open is absent. */
+export type UnihomeCardMenu = {
+  /** "Open your Event Hub" — the hub page itself (`/{slug}`), signed in, view only; null = no address yet (row disabled). */
+  hubHref: string | null;
+  chatHref: string;
+  /** null = this helper was not given Photos (`memoriesKeptFromViewer`): the row is not drawn. */
+  memoriesHref: string | null;
+  /** Organisers only: the Story's publish step. `open` is the app's story gate (`storyGate`) — the day after the event. */
+  story: { href: string; open: boolean } | null;
+  /** Organisers only (`deleteOwnEvent` refuses anyone else). */
+  canDelete: boolean;
 };
 
 export type UnihomeEvents = {

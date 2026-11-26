@@ -203,20 +203,20 @@ export function GuestInviteCell({
     the two, and Share waits for it rather than sending without it.
   */
   /*
-    📲 THE CARD'S SEND INVITE ON A PHONE IS THE PHONE'S SHARE SHEET, AT ONCE (owner 2026-11-26, replacing 2026-11-05's
+    📲 THE CARD'S SEND INVITE IS THE DEVICE'S SHARE SHEET, AT ONCE (owner 2026-11-26, replacing 2026-11-05's
     "always our menu": *"it was supposed to be a Send Invite … on the share, we get to see where they want to send it"*).
-    A share sheet must open inside the tap, so the ticket cannot be fetched after it: the ONE open card, on a phone,
-    fetches its ticket when it is drawn. Still never a list row — rows wait for their sheet (the 2026-10-02 rule above).
+    — and for a computer, *"Computer too"*). A share sheet must open inside the tap, so the ticket cannot be fetched
+    after it: the ONE open card, on any device that has a share sheet, fetches its ticket when it is drawn. Still never a list row — rows wait for their sheet (the 2026-10-02 rule above).
   */
-  const [cardPhone, setCardPhone] = useState(false);
+  const [cardShares, setCardShares] = useState(false);
   useEffect(() => {
-    if (layout === 'card') setCardPhone(isTouchDevice());
+    if (layout === 'card') setCardShares(typeof navigator !== 'undefined' && typeof navigator.share === 'function');
   }, [layout]);
   const fileName = ticketFileName(guest.fullName);
   const file = useTicketFile(
     guest.guestId,
     fileName,
-    ((open && touch) || cardPhone) && Boolean(guest.inviteUrl) && guest.hasTicket !== false,
+    ((open && touch) || cardShares) && Boolean(guest.inviteUrl) && guest.hasTicket !== false,
     guest.ticketVersion,
   );
 
@@ -349,14 +349,14 @@ export function GuestInviteCell({
   }
 
   /*
-    📲 THE CARD'S SEND INVITE (owner 2026-11-26 — see `cardPhone` above). A phone: the phone's own share sheet at once,
+    📲 THE CARD'S SEND INVITE (owner 2026-11-26 — see `cardShares` above). Any device with a share sheet: that sheet at once,
     the message + their ticket (`shareInvite`, the one share); the host picks the app and the person there. An app
     taking it stamps Sent ✓; closing the sheet is nothing. A sheet that refuses (a webview without sharing) or a ticket
     still on its way opens this cell's own menu instead — never a dead tap, never the message without its ticket.
-    A computer keeps the menu (`rowShare`): its share sheet is Mail and AirDrop, not Messenger and Viber.
+    A device with no share sheet at all (Firefox on a computer) gets the menu (`rowShare`).
   */
   async function cardSend(at: 'body' | 'head') {
-    if (!isTouchDevice() || file === undefined) return rowShare(at);
+    if (typeof navigator.share !== 'function' || file === undefined) return rowShare(at);
     setSaid(null);
     const out = await shareInvite(file, message);
     if (out === 'shared') return mark(true);
@@ -606,8 +606,8 @@ export function GuestInviteCell({
 
   /* 🪪 THE CARD'S QUICK ROW AND ITS TICKET ROW (owner-approved drawing `guests_redesign_2026-11-20_fable.html` § 3, "Yes,
      build it" 20 Nov 2026 — it replaces the 27 Oct "ticket row = three icon buttons"): SEND INVITE is the first of the
-     four quick actions, with its word, filled — still the card's ONE send (`cardSend`: a phone opens the phone's share sheet at once, message + ticket, owner
-      2026-11-26; a computer, or a sheet that refuses, gets this cell's own menu — the app rows + Copy). The other
+     four quick actions, with its word, filled — still the card's ONE send (`cardSend`: the device's share sheet at once, message + ticket, owner
+      2026-11-26; no share sheet, or one that refuses, gets this cell's own menu — the app rows + Copy). The other
      three (`quick`: Call · Seat · Note) follow it in the same row. Under it, "Their ticket" is ONE row (`ticket`) wearing
      this cell's status in words; NFC · New QR · Unlink account are labelled buttons inside the opened ticket.
      🔒 guests/_components/the-ticket-row-is-three-icons.test.ts · the-guest-card-is-the-20-nov-card.test.ts */

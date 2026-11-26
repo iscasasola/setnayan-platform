@@ -10,8 +10,8 @@
  * The RENDERED card (the real `GuestCardBody` with the real Invite cell, ticket and its buttons handed in):
  *   1. the quick row: Send invite (the ONE filled button) · Add mobile · Seat · Note, in that order; then "Their ticket", one
  *      row wearing "Not sent yet · Not linked"; no NFC / New QR / ⋯ icon outside the ticket; no big "Invite ▾".
- *   2. Send invite is the card's ONE sender (`cardSend`): a phone opens the phone's share sheet at once, message + ticket
- *      (owner 2026-11-26, replacing 2026-11-05's "always our menu"); a computer — or a sheet that refuses — gets our menu.
+ *   2. Send invite is the card's ONE sender (`cardSend`): the device's share sheet at once, message + ticket, phone AND
+ *      computer (owner 2026-11-26, replacing 2026-11-05's "always our menu"); no sheet, or one that refuses, gets our menu.
  *   3. New QR asks first, in the ruled words, and posts the shipped `releaseGuestClaim` › `new_qr` door.
  *   4. NFC · New QR · Unlink are labelled buttons, handed INTO the opened ticket — NFC the shipped writer, Unlink only while linked.
  *
@@ -119,7 +119,7 @@ test('1 · the RENDERED card: Send invite · Add mobile · Seat · Note, then "T
   assert.doesNotMatch(unlinked, /More for Cita Ramos|aria-label="Make a new QR for|aria-label="Write Cita/, 'an NFC / New QR / ⋯ icon is still outside the ticket');
 });
 
-test('2 · Send invite is the card’s ONE sender — a phone’s share sheet at once (owner 2026-11-26), else our menu', () => {
+test('2 · Send invite is the card’s ONE sender — the device’s share sheet at once, phone and computer (owner 2026-11-26), else our menu', () => {
   const card = CELL.slice(CELL.lastIndexOf("if (layout === 'card') {"));
   const body = card.slice(0, card.indexOf('\n  }\n'));
   assert.match(body, /label="Send invite"[\s\S]*?onClick=\{\(\) => cardSend\('body'\)\}/, 'the card’s Send invite does not run cardSend');
@@ -128,14 +128,15 @@ test('2 · Send invite is the card’s ONE sender — a phone’s share sheet at
   const fn = CELL.slice(CELL.indexOf('async function cardSend('));
   const send = fn.slice(0, fn.indexOf('\n  }\n'));
   // A phone: the ONE share (message + ticket), at once — and an app taking it is the send.
-  assert.match(send, /if \(!isTouchDevice\(\) \|\| file === undefined\) return rowShare\(at\);/, 'a computer (or a ticket still on its way) does not get our menu');
+  assert.match(send, /if \(typeof navigator\.share !== 'function' \|\| file === undefined\) return rowShare\(at\);/, 'no share sheet (or a ticket still on its way) does not get our menu');
   assert.match(send, /await shareInvite\(file, message\)/, 'a phone’s Send invite does not open the phone’s share sheet');
   assert.match(send, /if \(out === 'shared'\) return mark\(true\);/, 'an app taking it does not stamp Sent ✓');
   assert.match(send, /if \(out === 'closed'\) return;\s*rowShare\(at\);/, 'a refused sheet is a dead tap — it must fall back to our menu');
-  assert.doesNotMatch(send, /navigator\.share|nav\.share/, 'a second share path — `shareInvite` is the one share');
+  assert.doesNotMatch(send, /isTouchDevice/, 'a computer is kept off its share sheet — owner 2026-11-26: "Computer too"');
+  assert.doesNotMatch(send, /navigator\.share\(|nav\.share\(/, 'a second share path — `shareInvite` is the one share');
   // The ticket must be in hand BEFORE the tap on the one open card — a share sheet opens only inside the tap.
-  assert.match(CELL, /if \(layout === 'card'\) setCardPhone\(isTouchDevice\(\)\);/, 'the card does not know it is on a phone until the tap');
-  assert.match(CELL, /\(\(open && touch\) \|\| cardPhone\) && Boolean\(guest\.inviteUrl\)/, 'the card’s ticket is not fetched ahead of the tap');
+  assert.match(CELL, /if \(layout === 'card'\) setCardShares\(typeof navigator !== 'undefined' && typeof navigator\.share === 'function'\);/, 'the card does not know it can share until the tap');
+  assert.match(CELL, /\(\(open && touch\) \|\| cardShares\) && Boolean\(guest\.inviteUrl\)/, 'the card’s ticket is not fetched ahead of the tap');
   const fn2 = CELL.slice(CELL.indexOf('function rowShare('));
   const share = fn2.slice(0, fn2.indexOf('\n  }\n'));
   assert.match(share, /invite\(at\);\s*setTouch\(false\);/, 'our menu no longer draws the app rows');

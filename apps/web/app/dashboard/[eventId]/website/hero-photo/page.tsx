@@ -38,10 +38,13 @@ import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
 
 export default async function HeroPhotoEditorPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ eventId: string }>;
+  searchParams: Promise<{ hero?: string }>;
 }) {
   const { eventId } = await params;
+  const heroNotSaved = (await searchParams).hero === 'not-saved';
   const supabase = await createClient();
 
   const { data: event, error } = await supabase
@@ -85,6 +88,11 @@ export default async function HeroPhotoEditorPage({
       <PageMasthead
         title="Hero photo"
       />
+      {heroNotSaved ? (
+        <p role="alert" className="mb-6 text-sm text-danger-600">
+          That did not save. Nothing changed — please try again.
+        </p>
+      ) : null}
 
       {/* 📐 DESIGN TEMPLATE (14 Nov 2026, rules 1 · 2 · 3 · 13 · 14): the living-hero door is a plain hairline row with a
           terracotta ›; the sections are grey capitals over plain content (no tiles, no serif-italic headings); the

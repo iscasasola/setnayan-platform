@@ -235,7 +235,8 @@ export default async function ProfilePage({ searchParams }: Props) {
   // sharing on a dormant/empty profile.
   let hasPublicChapter = false;
   if (publicProfileOn && currentSlug) {
-    const pub = await resolvePublicProfile(currentSlug);
+    // A refused read only hides the share row here; it never takes the profile page down (A1-070 throws now).
+    const pub = await resolvePublicProfile(currentSlug).catch(() => null);
     hasPublicChapter = (pub?.publicWebsiteEvents.length ?? 0) > 0;
   }
   const publicProfileUrl = `https://${publicHost}/u/${currentSlug ?? ''}`;

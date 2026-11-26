@@ -43,11 +43,14 @@ export async function saveYou(formData: FormData): Promise<void> {
   const unread = formReadRefusal(formData);
   if (unread) backWithError(next, unread);
 
-  const { data: mine } = await supabase
+  const { data: mine, error: mineError } = await supabase
     .from('users')
     .select('slug, account_type')
     .eq('user_id', user.id)
     .maybeSingle();
+  // Fail closed (final check A1-062): without the saved @name and account type, a posted @name would replace the old
+  // one and skip the rename limit. Refuse, in the card's own words; nothing is written.
+  if (mineError) backWithError(next, YOU_ERRORS.notSaved);
   const plan = planYouCard(formData, {
     slug: (mine?.slug as string | null) ?? null,
     accountType: (mine?.account_type as string | null) ?? null,

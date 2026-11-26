@@ -210,7 +210,9 @@ export async function fetchV2CustomerCatalog(
 /**
  * The same read with its outcome kept (A8·A-9 / B-7 / F-3 / D-6): `ok: false` = REFUSED (or no admin client), NOT
  * "nothing on sale". The admin pickers read this so a refused read says "Couldn't read the catalogue" instead of
- * "No active services". Same query, same rows — only the outcome is kept.
+ * "No active services". Same query, same rows — only the outcome is kept. The public price pages read it too,
+ * because an empty list there dropped every paid plan and add-on without a word, so Home, /pricing and /papic looked
+ * complete and free (final check A1-100, A1-023).
  */
 export async function fetchV2CustomerCatalogRead(
   opts: { forAdmin?: boolean } = {},

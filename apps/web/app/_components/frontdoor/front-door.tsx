@@ -39,7 +39,7 @@ import type { PlanFacts } from './front-door-landing-data';
 import { papicFreeCreditPromise } from '@/lib/papic-free-credit-promise';
 import { readPapicFreeGrantRead } from '@/lib/papic-tier-config-read';
 import type { PapicFreeGrantRead } from '@/lib/papic-tier-copy';
-import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
+import { fetchV2CustomerCatalogRead } from '@/lib/v2-catalog';
 import { opensSupplierView } from '@/lib/discover-suppliers';
 import { marketplaceFaithOptions } from '@/lib/marketplace-faith-options';
 import { DiscoverCategoryButton, DiscoverFiltersButton } from './discover-supplier-controls';
@@ -116,7 +116,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
       !acct.signedIn && !searchQuery && !supplierView && signedOutRedirect(params as Record<string, string | string[] | undefined>) === null
         ? Promise.all([
             getCreatableEventTypes(),
-            fetchV2CustomerCatalog().catch(() => []),
+            fetchV2CustomerCatalogRead().catch(() => ({ rows: [], ok: false })),
             readPapicFreeGrantRead().catch((): PapicFreeGrantRead => ({ kind: 'unknown' })),
           ])
         : null,
@@ -206,7 +206,8 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
   // ONE catalogue read feeds both the plan prices and (Lane J) the credits each plan grants — never typed.
   // Started the moment the account was known (`landingRead`, above) — only for this same signed-out landing.
   const landingReads = landing ? await landingRead : null;
-  const [eventTypes, catalog, freeGrant] = landingReads ?? [[], [], null];
+  const [eventTypes, catalogRead, freeGrant] = landingReads ?? [[], { rows: [], ok: true }, null];
+  const catalog = catalogRead.rows;
   /*
     🛒 THE SHOPS SHELF'S TWO DOORS INTO THE SUPPLIER VIEW (2026-11-12 · the drawing's "All categories ▾" and
     "Filters" under the shelf heading). Drawn only when the shelf shows shops. 💸 No new request: the categories are
@@ -335,7 +336,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
         )
       ) : signedOut ? (
         /* The 20 Nov front page (prototypes/front_page_home_2026-11-19 v5): see it as a guest, plan it, keep it, plans. */
-        <FrontDoorLanding planPrices={planPrices} planFacts={planFacts} />
+        <FrontDoorLanding planPrices={planPrices} pricesRead={catalogRead.ok} planFacts={planFacts} />
       ) : (
         <>
           {view.kind === 'stories' ? (

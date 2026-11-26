@@ -11,6 +11,7 @@
  * whose price could not be read is NOT ASKED — the result can never show a product without its figure. The old-way
  * figures (`lib/old-way-costs.ts`) are about printing and time, never about another company.
  */
+import { formatPhp } from '@/lib/php';
 import { OLD_WAY, oldWayMoney, type OldWayMoney } from '@/lib/old-way-costs';
 import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 import type { AiBand, TwoPrices } from '../_pricing-reads';
@@ -74,7 +75,7 @@ export type Question = {
 
 /** The questions for this state — paid ones only when their price was read. */
 export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => string): Question[] {
-  const peso = (n: number) => `₱${fmt(n)}`;
+  const peso = (n: number) => formatPhp(n);
   const at = (two: TwoPrices) => (s.setup && two.signup != null ? two.signup : two.regular);
   const ai = p.ai[s.type] ?? null;
   const type = EVENT_TYPES.find((t) => t.band === s.type) ?? EVENT_TYPES[0]!;
@@ -269,10 +270,10 @@ export function resultFor(s: PlanState, qs: readonly Question[], p: PlanPrices):
 /** The ⓘ under "Money kept": each counted piece, in words, at the shop price. */
 export function moneyWords(m: OldWayMoney, fmt: (n: number) => string): string {
   const words: Record<keyof typeof OLD_WAY, (n: number) => string> = {
-    printedInvitation: (n) => `${fmt(n)} printed invitations at ₱${fmt(OLD_WAY.printedInvitation.value)}`,
-    placeCard: (n) => `${fmt(n)} place cards at ₱${fmt(OLD_WAY.placeCard.value)}`,
-    tableNumber: (n) => `${fmt(n)} table numbers at ₱${fmt(OLD_WAY.tableNumber.value)}`,
-    welcomeSign: () => `a welcome sign ₱${fmt(OLD_WAY.welcomeSign.value)}`,
+    printedInvitation: (n) => `${fmt(n)} printed invitations at ${formatPhp(OLD_WAY.printedInvitation.value)}`,
+    placeCard: (n) => `${fmt(n)} place cards at ${formatPhp(OLD_WAY.placeCard.value)}`,
+    tableNumber: (n) => `${fmt(n)} table numbers at ${formatPhp(OLD_WAY.tableNumber.value)}`,
+    welcomeSign: () => `a welcome sign ${formatPhp(OLD_WAY.welcomeSign.value)}`,
     guestListHours: (n) => `${fmt(n)} hours`,
   };
   return m.parts.map((part) => words[part.figure](part.count)).join(' · ');

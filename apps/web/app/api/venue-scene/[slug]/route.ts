@@ -3,6 +3,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { resolveBoothStudioContent } from '@/lib/booth-studio';
 import { withYourTableName } from '@/lib/venue-your-table';
+import { sanitizeRolePalette } from '@/lib/mood-board';
+import { withBoothShopFacts } from '@/app/[slug]/venue/_lib/venue-scene-joins.server';
 
 // Guest photos in the payload (present only for a token holder + a host setting
 // that returns them) arrive as RAW stored refs (r2:// or bare URL). A client
@@ -86,7 +88,7 @@ async function resolveBoothLogos(data: unknown): Promise<unknown> {
 // geometry + ANONYMISED occupancy always, guest NAMES only for a caller holding
 // a valid per-guest qr_token (their own invite link) and only that guest's OWN
 // table. No token → zero names. This route just adds a best-effort per-IP
-// throttle and never 500s (a missing RPC / read error degrades to unpublished).
+// throttle and never 500s (a failed read answers 503, which the live refresh treats as "not news").
 
 export const dynamic = 'force-dynamic';
 
@@ -120,11 +122,28 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const token = new URL(req.url).searchParams.get('t')?.trim() || null;
 
   const admin = createAdminClient();
-  const { data, error } = await admin.rpc('public_venue_scene', { p_slug: slug, p_token: token });
-  if (error || !data) return NextResponse.json({ published: false });
+  const [{ data, error }, eventRow] = await Promise.all([
+    admin.rpc('public_venue_scene', { p_slug: slug, p_token: token }),
+    // A7-01: the couple's colours and the event id for the booth join — the same row the page reads (`.ilike`).
+    admin.from('events').select('event_id, role_palette').ilike('slug', slug).maybeSingle(),
+  ]);
+  // A7-01: a failed read is NOT "taken down" — the walk's live refresh keeps the last good scene on a non-2xx answer,
+  // while `{published:false}` tells it the couple took the room down.
+  if (error || eventRow.error) return NextResponse.json({ error: 'unavailable' }, { status: 503 });
+  if (!data) return NextResponse.json({ published: false });
 
   // The guest's own table by its NAME (the RPC sends only the public id): the same join the page makes,
   // so a live refresh never puts the code back in the caption.
   const named = await withYourTableName(admin, data as { you?: { table: string } | null });
-  return NextResponse.json(await resolveBoothLogos(await resolveScenePhotos(named)));
+  const row = eventRow.data as { event_id?: string | null; role_palette?: unknown } | null;
+  const resolved = (await resolveBoothLogos(await resolveScenePhotos(named))) as Record<string, unknown>;
+  if (resolved.published === false) return NextResponse.json(resolved);
+  // A7-01: the booth shop facts and the couple's colours — the page's own joins, so a refresh changes nothing that
+  // did not really move.
+  const withShops = await withBoothShopFacts(
+    admin,
+    resolved as { booths?: Array<{ id: string; vendor?: Record<string, unknown> | null }> | null },
+    row?.event_id ?? null,
+  );
+  return NextResponse.json({ ...withShops, rolePalette: sanitizeRolePalette(row?.role_palette ?? null) });
 }

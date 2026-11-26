@@ -13762,6 +13762,7 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/change-order-trail.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/costs-form.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-photo-approvals-sheet.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-photo-approvals.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-story-shares-card.tsx",
@@ -13812,8 +13813,7 @@
         "inviteHost",
         "revokeHostInvite",
         "routes.dashboard.messages.detail",
-        "routes.dashboard.messages.index",
-        "updateVendorCosts"
+        "routes.dashboard.messages.index"
       ],
       "blocks": [
         "ActionButton",
@@ -13833,6 +13833,9 @@
         "ContactShortlistVendorButton",
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
+        "CostsForm",
+        "CostsFormPending.Provider",
+        "CostsSubmit",
         "CouplePhotoApprovals",
         "CouplePhotoApprovalsSheet",
         "CoupleStoryShares",

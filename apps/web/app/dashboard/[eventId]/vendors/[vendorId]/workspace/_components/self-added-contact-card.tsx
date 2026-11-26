@@ -112,6 +112,9 @@ export function SelfAddedContactCard({
         fd.set('contact_number', number);
         fd.set('address', address);
         fd.set('payment_method_note', methodNote);
+        // A7-22: what this card READ, so the save writes only what the couple changed.
+        fd.set('address_was', initialAddress ?? '');
+        fd.set('payment_method_note_was', initialPaymentMethodNote ?? '');
         await save.run(() => saveSelfAddedServiceCard(fd), {
           steps: ['Saving their details'],
           hint: 'Saving',

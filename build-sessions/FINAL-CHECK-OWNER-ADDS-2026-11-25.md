@@ -674,3 +674,34 @@ Build-time rule: launch PRs ship in batches (`claude/ship-batch-N`, merge commit
   - A paying user is never shown as Free, and the camera cap and free limits are never applied from a failed read.
 - **S-01: Setnayan AI shows two prices.** The owner will give the exact price. Until then, nothing changes a price; it isn't guessed. Once he does, the price is set in the live price list first, and every screen and checkout reads that one row.
 - **I-02** (lock, price and checkout door before Save) **and M-02** (checkout on top of the ⚙ sheet): after launch, in lane C, each with a drawing first.
+
+## Add 46: the makers we will make (after launch; list only)
+
+Attire:
+1. Wedding Gown Maker
+2. Gown & Dress Maker
+3. Suit Maker (men)
+4. Veil & Headpiece Maker
+5. Jewelry Set Maker
+6. Men's Accessories Maker
+7. Kids' Entourage Outfit Maker
+
+Flowers:
+8. Bouquet Maker (bridal + entourage)
+9. Boutonnière Maker (men, pinned to the clothes)
+10. Corsage Maker
+11. Centerpiece & Table Setting Maker
+12. Arch & Backdrop Maker
+
+Rings and shoes:
+13. Ring Maker
+14. Shoe Maker
+15. Heels Maker
+
+Filipino ceremony pieces:
+16. Cord, Veil & Arras Maker
+17. Ring Pillow & Arrhae Box Maker
+
+Event:
+18. Cake Maker
+19. Souvenir Maker

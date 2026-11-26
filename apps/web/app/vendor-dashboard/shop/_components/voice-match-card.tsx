@@ -52,9 +52,11 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
  * Mirrors `buildPrice()` in `lib/vendor-autoreply/answer.ts`.
  */
 
+// 🪪 The SHAPE of the real price answer (two cards, then a bundle) with no typed peso figure and no one trade's
+// words (final check A5-X-05): every supplier sees it, so it names no service and invents no price.
 const PREVIEW_ANSWER =
-  'Our starting rates — Full-Day Coverage from ₱48,000; Half-Day Coverage from ₱28,000. ' +
-  'Our Signature package is ₱85,000.';
+  'Our starting rates — your first card from its starting price; your second card from its starting price. ' +
+  'Our bundle is its own price.';
 
 const LANGUAGE_LABEL: Record<string, string> = {
   english: 'English',

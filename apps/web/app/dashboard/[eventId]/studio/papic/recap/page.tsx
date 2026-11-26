@@ -39,10 +39,20 @@ const SITE_URL = (process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
 
 export default async function CoupleRecapPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ eventId: string }>;
+  searchParams?: Promise<{ recap?: string }>;
 }) {
   const { eventId } = await params;
+  // P-05 · the publish / make-private actions come back here with `?recap=…-failed` when the write was refused.
+  const recapFlag = (await searchParams)?.recap;
+  const recapFailedLine =
+    recapFlag === 'publish-failed'
+      ? "Couldn't publish your recap. Nothing changed — try again."
+      : recapFlag === 'private-failed'
+        ? "Couldn't make your recap private. It is still public — try again."
+        : null;
 
   const supabase = await createClient();
   const user = await getCurrentUser();
@@ -130,9 +140,9 @@ export default async function CoupleRecapPage({
           <ReadRefusedNotice what="what is in your recap" className="mt-3" />
         ) : (
           <dl className="mt-3 grid grid-cols-3 gap-3 text-center">
-            <Stat n={summary.privatePhotos} label="photos" />
-            <Stat n={summary.approvedKwentos} label="messages" />
-            <Stat n={summary.guests ?? 0} label="guests" />
+            <Stat n={summary.privatePhotos} one="photo" many="photos" />
+            <Stat n={summary.approvedKwentos} one="message" many="messages" />
+            <Stat n={summary.guests} one="guest" many="guests" />
           </dl>
         )}
       </section>
@@ -184,6 +194,12 @@ export default async function CoupleRecapPage({
                   image={shareImage}
                 />
               </div>
+            ) : null}
+
+            {recapFailedLine ? (
+              <p role="alert" className="mt-3 text-sm text-danger-600">
+                {recapFailedLine}
+              </p>
             ) : null}
 
             {!isPublished ? (
@@ -292,11 +308,12 @@ export default async function CoupleRecapPage({
   );
 }
 
-function Stat({ n, label }: { n: number; label: string }) {
+/** N-11 (final check): "1 PHOTOS" — the label follows the count. A count that is not known draws "—", never 0. */
+function Stat({ n, one, many }: { n: number | null; one: string; many: string }) {
   return (
     <div>
-      <dd className="font-display text-2xl text-mulberry">{n}</dd>
-      <dt className="text-[12px] uppercase tracking-[0.18em] text-ink/70">{label}</dt>
+      <dd className="font-display text-2xl text-mulberry">{n === null ? '—' : formatCount(n)}</dd>
+      <dt className="text-[12px] uppercase tracking-[0.18em] text-ink/70">{n === 1 ? one : many}</dt>
     </div>
   );
 }

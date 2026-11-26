@@ -18,6 +18,7 @@
  * `--m-*` tokens + next/font families.
  */
 
+import { routes } from '@/lib/routes';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { useIsStoreShell } from '@/lib/use-store-shell';
@@ -661,7 +662,7 @@ export function CategorySearchOverlay({
               main
               icon={Sparkles}
               label="Unlock with Setnayan AI"
-              href={`/dashboard/${eventId}/studio/setnayan-ai`}
+              href={routes.dashboard.eventServices(eventId, 'ai')}
             />
           </div>
         ) : results.length === 0 && nobodyFree ? (

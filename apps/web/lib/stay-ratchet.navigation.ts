@@ -13,7 +13,6 @@ export const STAY_NAVIGATION: Readonly<Record<string, string>> = {
   "app/auth/oauth-actions.ts › signInWithFacebook": "OAuth hop to provider",
   "app/auth/oauth-actions.ts › signInWithGoogle": "OAuth hop to provider",
   "app/claim/[token]/actions.ts › claimAlaga": "claim → /dashboard/people",
-  "app/dashboard/(account)/clusters/actions.ts › createCluster": "create → cluster page",
   "app/dashboard/(account)/create-event/actions.ts › createWeddingEvent": "create event → dashboard",
   "app/dashboard/(account)/create-event/actions.ts › planNextYearEvent": "create next-year event → its dashboard (errors stay)",
   "app/dashboard/(account)/samahan/actions.ts › createCommunity": "create Group → its page",
@@ -23,7 +22,6 @@ export const STAY_NAVIGATION: Readonly<Record<string, string>> = {
   "app/dashboard/[eventId]/date-selection/actions.ts › markDateUndecided": "date wizard → Home",
   "app/dashboard/[eventId]/guests/import/actions.ts › importGuestsCsv": "import page → guest list",
   "app/dashboard/[eventId]/guests/new/actions.ts › createGuest": "add-guest page → guest list",
-  "app/dashboard/[eventId]/guests/quick/actions.ts › bulkAddGuests": "quick-add page → guest list",
   "app/dashboard/[eventId]/messages/actions.ts › startThreadByVendorEmail": "start thread → thread page",
   "app/dashboard/[eventId]/messages/actions.ts › openGroupChat": "open a group on a tap → that group's chat (or back to the list with ?group=unopened when refused)",
   "app/dashboard/[eventId]/messages/actions.ts › withdrawInquiry": "withdraw → messages list (leave)",
@@ -108,7 +106,6 @@ export const STAY_NAVIGATION: Readonly<Record<string, string>> = {
   "app/[slug]/actions.ts › submitRsvp": "RSVP reply commit → the reply's thank-you (`/<slug>?rsvp=<outcome>` or the invite's door 03) — the outcome in the URL draws the thank-you, so staying would lose it",
   "app/[slug]/invite/actions.ts › submitInviteReply": "invite door 02 (reply) → door 03, the thank-you (`/invite/enter?rsvp=`) — a wizard step",
   "app/[slug]/welcome/actions.ts › confirmPlusOneName": "+1 welcome step → the event page (or `?pass=1`, their pass) — a wizard step that claims the seat",
-  "app/dashboard/(account)/api-keys/actions.ts › createApiKey": "create key → `?just_created=<key>` shows the new key ONCE; in place it would never be shown",
   "app/samahan/chat/actions.ts › groupChat": "+ New group → the new group's chat (create-then-open); Join chat → the group you left, now open (join). Send · Add · Leave never redirect",
   "app/open-shop/claim-actions.ts › finishClaimDoor": "claim a shop → the claim's finalize step / the shop profile — a claim flow",
 };

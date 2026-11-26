@@ -15,6 +15,7 @@ export type KwentoDensityRow = {
  * that haven't been moderated yet still show density before couple approval.
  *
  * Returns [] if the event has no Kwentos yet — callers should hide the section.
+ * THROWS when either read fails (final check M-08): a failed read is never "no stories yet".
  */
 export async function getKwentoDensity(
   eventId: string,
@@ -23,12 +24,13 @@ export async function getKwentoDensity(
   const admin = createAdminClient();
 
   // COUNT per source_id, excluding rejected messages.
-  const { data: counts } = await admin
+  const { data: counts, error: countsError } = await admin
     .from('photo_messages')
     .select('source_id')
     .eq('event_id', eventId)
     .neq('status', 'rejected')
     .not('source_id', 'is', null);
+  if (countsError) throw new Error(`photo notes density read failed: ${countsError.message}`);
 
   if (!counts || counts.length === 0) return [];
 
@@ -48,13 +50,14 @@ export async function getKwentoDensity(
 
   // Fetch the most recent approved Story preview text for each top photo.
   const photoIds = topN.map((r) => r.photoId);
-  const { data: previews } = await admin
+  const { data: previews, error: previewsError } = await admin
     .from('photo_messages')
     .select('source_id, body_text')
     .eq('event_id', eventId)
     .eq('status', 'approved')
     .in('source_id', photoIds)
     .order('updated_at', { ascending: false });
+  if (previewsError) throw new Error(`photo notes preview read failed: ${previewsError.message}`);
 
   // One preview per photo: the most recent approved message (already ordered desc).
   const previewMap = new Map<string, string>();

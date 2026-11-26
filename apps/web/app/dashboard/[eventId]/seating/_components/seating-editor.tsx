@@ -4792,7 +4792,8 @@ export function SeatingEditor({
 
   // ── Scroll-less frame plumbing (council verdict 2026-07-15) ───────────────
   const router = useRouter();
-  const labUrl = `/dashboard/${eventId}/seating/lab`;
+  // L6 (R5): the 3D room's home is Guests › Seats › 3D — straight there, not through the retired lab's forward.
+  const labUrl = guestsViewHref(eventId, 'seats', { seat: '3d' });
 
   // The canvas cell now absorbs all remaining height (verdict §1). Measure it so
   // to-scale mode can letterbox the room ratio INSIDE the fill (not a vh guess),

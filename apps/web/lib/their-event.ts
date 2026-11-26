@@ -227,6 +227,15 @@ export function theirEventLine(eventName: string | null | undefined): string {
  * 🧮 THE BOOKING GROUP'S DRIFT ("YES TO ALL" (1): *"a drift from the booked count is shown to both sides and never
  * changes the price by itself"*). Words only — the price is the quote's.
  */
+/**
+ * The booking group's number (A6-57): the reader's `counted` — `supplier_booking_group` applies the one guest rule
+ * (countsTowardEvent) and leaves out the declined. An answer without it (before the migration lands) counts the listed
+ * guests who did not decline, never every row.
+ */
+export function groupCounted(g: { counted: number | null; guests: readonly { rsvp: string | null }[] }): number {
+  return g.counted ?? g.guests.filter((x) => x.rsvp !== 'declined').length;
+}
+
 export function groupDriftWords(live: number, booked: number | null): string | null {
   if (booked === null || !Number.isFinite(booked)) return null;
   const d = live - booked;

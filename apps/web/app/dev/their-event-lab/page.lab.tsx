@@ -19,6 +19,7 @@ const GROUP = {
   status: 'ok' as const,
   label: 'Special meals',
   booked: 12,
+  counted: null,
   guests: [
     { name: 'Ana Reyes', rsvp: 'attending', diet: 'Table 4 · no pork' },
     { name: 'Carla Lim', rsvp: null, diet: 'Table 7 · vegetarian' },

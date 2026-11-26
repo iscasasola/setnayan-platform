@@ -150,8 +150,9 @@ export function EventDayBody({
   showRunOfShow: boolean;
   /** The Wedding March (read-only), or null when nobody walks / it is not this trade's. */
   march: ReactNode;
-  /** The headcount row (attending of invited), or null when the module is off. */
-  headcount: { attending: number; invited: number } | null;
+  /** The headcount row (attending of invited), `'unread'` when the brief read failed (A6-21: never "0 / 0"), or null when
+   *  the module is off. */
+  headcount: { attending: number; invited: number } | 'unread' | null;
   tools: readonly DayTool[];
   /** The hub tools switched on for this booking, drawn inline by their templates (23 Nov), or null for none. */
   hubTools?: ReactNode;
@@ -237,8 +238,8 @@ export function EventDayBody({
                   {headcount ? (
                     <PartRow
                       icon={Users}
-                      title={`${formatCount(headcount.attending)} / ${formatCount(headcount.invited)}`}
-                      sub="attending · pulled live from RSVPs"
+                      title={headcount === 'unread' ? '—' : `${formatCount(headcount.attending)} / ${formatCount(headcount.invited)}`}
+                      sub={headcount === 'unread' ? 'couldn’t load the headcount · try again in a moment' : 'attending · pulled live from RSVPs'}
                       mark="headcount"
                     />
                   ) : null}

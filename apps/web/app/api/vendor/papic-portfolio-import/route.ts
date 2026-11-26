@@ -37,6 +37,10 @@ import { revalidateShopPage } from '@/lib/shop-page-cache';
 // vendor's own RLS client (the insert policy is the hard booked/own-profile
 // gate) → NSFW-screen in the background (always-on, cannot be disabled).
 
+
+/** What the supplier reads when the credit ledger could not be read (never "out of credits"). */
+const PAPIC_CREDITS_UNREAD = 'Couldn’t read your Papic credits just now. Nothing was spent — try again.';
+
 export const runtime = 'nodejs';
 
 const MAX_PHOTO_BYTES = 12_000_000; // 12 MB — matches the capture route's cap
@@ -162,7 +166,13 @@ export async function POST(req: Request) {
   // from the client, the same posture canCapture uses for the camera. `null`
   // means Unli (uncapped) — nothing to check.
   const admin = createAdminClient();
-  const { left } = await fetchVendorPapicPortfolioCredits(admin, vendorProfileId, eventId);
+  const { credits: ledger, left } = await fetchVendorPapicPortfolioCredits(admin, vendorProfileId, eventId);
+  // 🧾 A6-24 · owner Add 35's rule for credits: an unread ledger is "couldn't read", never "out of credits" on a
+  // guessed 0. Nothing is spent or stored; the supplier can try again.
+  if (ledger === null) {
+    await dropVideo();
+    return NextResponse.json({ error: 'credits_unread', message: PAPIC_CREDITS_UNREAD }, { status: 503 });
+  }
   if (left != null && left < credits) {
     await dropVideo();
     return NextResponse.json({ error: 'out_of_credits', left, needs: credits }, { status: 409 });

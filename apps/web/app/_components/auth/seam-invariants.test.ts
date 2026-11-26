@@ -471,19 +471,22 @@ test('the sign-in never enters the shared client bundle', () => {
   );
 
   /*
-    ⚠ AND NO NEW ASYNC CHUNK EITHER. Removing the provider was not enough: with
-    the panel behind a lazy `import()` the build STILL measured 200.4 KB, and
-    diffing the per-chunk breakdown against a passing run put the whole overage
-    in `webpack-*.js` — the runtime carrying the CHUNK MANIFEST — which grew
-    3.2 → 3.8 KB gz because a new async chunk existed to be indexed. Splitting
-    is not free. Every consumer here is already a route chunk or the
-    already-lazy HomeOverlays chunk, so the panel needs no chunk of its own.
+    🔁 THE PANEL IS ITS OWN ASYNC CHUNK NOW (2026-11-26). It was held static
+    while the shared bundle had 0.2 KB of room, because an async chunk adds a
+    chunk-manifest entry to `webpack-*.js` (measured then: 3.2 → 3.8 KB gz).
+    That premise is gone: `scripts/check-bundle-size.mjs` measured 104.6 KB
+    against the 202.3 KB lock on main f14a1c387, so one manifest entry is
+    tens of bytes against ~97 KB of room, and the budget script still holds it. The
+    static import had a cost of its own: `FrontDoorShell` wraps every signed-in
+    page, so the whole sign-in card sat in the event layout's first load, the
+    Event Hub Maker's included (0.2 KB under its ceiling). The lazy door lives
+    in `sign-in-here.tsx` alone; `lib/the-maker-first-load-stays-light.test.ts`.
   */
   const hook = code(read('_components/auth/sign-in-here.tsx'));
-  assert.doesNotMatch(
+  assert.match(
     hook,
-    /import\(/,
-    'The panel must NOT get its own async chunk — the chunk manifest it adds to webpack-*.js costs more shared bytes than the budget has.',
+    /import\(\s*['"]\.\/sign-in-here-panel['"]\s*\)/,
+    'The panel loads by import() from the hook, on the first press of Sign in, never in a signed-in page\'s first load.',
   );
 
   /*

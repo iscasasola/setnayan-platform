@@ -591,5 +591,18 @@ export function rasterMarkPayload(svg: string | null | undefined): { mime: 'imag
   const w = Number(m[1]);
   const h = Number(m[2]);
   if (!(w > 0 && h > 0)) return null;
-  return { mime: `image/${m[3]}` as 'image/png' | 'image/jpeg' | 'image/webp', bytes: new Uint8Array(Buffer.from(m[4]!, 'base64')), w, h };
+  return { mime: `image/${m[3]}` as 'image/png' | 'image/jpeg' | 'image/webp', bytes: base64Bytes(m[4]!), w, h };
+}
+
+/*
+  ⚡ `atob`, never `Buffer`: this module also runs in the browser (the logo layers' matrix maths, through
+  `logo-layers.ts`, in the event layout), and naming `Buffer` once ships webpack's ~7 KB gz buffer polyfill in
+  every event page's first load, the Event Hub Maker's included (`scripts/check-maker-js-budget.mjs`). Same
+  bytes: the regex above has already held the payload to plain base64.
+*/
+function base64Bytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
 }

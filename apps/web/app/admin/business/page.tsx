@@ -2,8 +2,9 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { TemplateFail, TemplateRow, TemplateRows, TemplateSection, TEMPLATE_SUBLINE } from '@/app/_components/template-rows';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { fetchDriveSpeed, fetchPlatformSettingsMeasured } from '@/lib/platform-settings';
-import { getLoaderSettings } from '@/lib/loader-settings';
+import { fetchDriveSpeed, fetchGrowLines, fetchPlatformSettingsMeasured } from '@/lib/platform-settings';
+import { fetchDeepSearchRunsPerMonth } from '@/lib/vendor-deep-search-addon';
+import { readLoaderSettingsMeasured } from '@/lib/loader-settings';
 import { removeBrandIcon } from '@/app/admin/settings/actions';
 import { BrandIconUploadForm } from '@/app/admin/settings/_components/brand-icon-form';
 import { LoaderAppearanceCard } from '@/app/admin/settings/_components/loader-appearance-card';
@@ -51,9 +52,30 @@ async function AdminBusinessPage({
   const admin = createAdminClient();
   // 🔒 MEASURED, NOT FALLBACK (2026-09-30). A refused read seeds the form with FALLBACK blanks/defaults; Save would
   // write them over the real values printed on every receipt. Save is off instead.
-  const { settings, readFailed: settingsReadFailed } = await fetchPlatformSettingsMeasured(admin);
-  const driveSpeed = await fetchDriveSpeed(admin);
-  const loaderConfig = await getLoaderSettings();
+  const [{ settings, readFailed: settingsReadFailed }, driveSpeed, loaderConfig, growLines, deepSearchRuns] = await Promise.all([
+    fetchPlatformSettingsMeasured(admin),
+    fetchDriveSpeed(admin),
+    // A8·I-3: measured — a refused read is null, never the defaults drawn as the live choice.
+    readLoaderSettingsMeasured(),
+    // A8·I-6: the owner's numbers, editable again from this page.
+    fetchGrowLines(admin),
+    fetchDeepSearchRunsPerMonth(admin),
+  ]);
+  const num = (n: number | null | undefined) => (n == null ? '' : String(n));
+  const ownerNumbers =
+    growLines.read && deepSearchRuns.read
+      ? {
+          grow_few_inquiries_28d: num(growLines.fewInquiries),
+          grow_few_bookings_month: num(growLines.fewBookings),
+          story_photo_silence_days: num(growLines.silenceDays),
+          today_soon_ask_hours: num(growLines.soonAskHours),
+          today_soon_event_days: num(growLines.soonEventDays),
+          inquiry_split_own_enough: num(growLines.splitOwnEnough),
+          proof_real_guests_min: num(growLines.proofRealGuestsMin),
+          trust_search_step: num(growLines.trustSearchStep),
+          deep_search_runs_per_month: num(deepSearchRuns.perMonth),
+        }
+      : null;
 
   const hasIcon = Boolean(settings.brand_icon_master_url);
   const bust = (url: string | null) => (url ? `${url}${url.includes('?') ? '&' : '?'}v=${settings.brand_icon_version}` : null);
@@ -93,7 +115,11 @@ async function AdminBusinessPage({
           first
           label="Business identity"
           tip="Business identity printed on every transaction receipt. Everything here is read everywhere across the app; only internal and team-member admins can edit. The actual BIR Official Receipt for a paid order is issued separately, offline — these are not BIR ORs."
-          right={`Last updated ${new Date(settings.updated_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' })}`}
+          right={
+            settingsReadFailed
+              ? 'Last updated: couldn’t read'
+              : `Last updated ${new Date(settings.updated_at).toLocaleString('en-PH', { timeZone: 'Asia/Manila', dateStyle: 'medium', timeStyle: 'short' })}`
+          }
         >
           <BusinessIdentityForm
             readFailed={settingsReadFailed}
@@ -105,6 +131,7 @@ async function AdminBusinessPage({
               default_vat_rate_pct: String(settings.default_vat_rate_pct ?? ''),
               repost_watch_hamming_threshold: String(settings.repost_watch_hamming_threshold ?? ''),
               drive_speed_kmh: driveSpeed.read ? (driveSpeed.kmh !== null ? String(driveSpeed.kmh) : '') : null,
+              owner_numbers: ownerNumbers,
             }}
           />
         </TemplateSection>
@@ -114,7 +141,11 @@ async function AdminBusinessPage({
         label="Default brand icon"
         tip="Upload one square image and we’ll generate the whole set — the browser-tab favicon, the iOS/Android home-screen icon, and the in-app logo. It propagates everywhere immediately. PNG, JPEG, WebP, or SVG; a square logo on a transparent background works best. Safari may keep the old tab icon until its website data is cleared (Safari → Settings → Privacy → Manage Website Data → remove setnayan.com)."
       >
-        {hasIcon && logoSrc ? (
+        {settingsReadFailed ? (
+          <p className={`py-2 text-[14px] ${TEMPLATE_SUBLINE}`} data-brand-unread="">
+            Couldn&rsquo;t read which brand icon is live. Upload and reset are off until it loads.
+          </p>
+        ) : hasIcon && logoSrc ? (
           <div className="flex flex-wrap items-center gap-5 py-2">
             <figure className="flex flex-col items-center gap-1.5">
               <span className="flex h-9 items-center rounded-md border border-[color:var(--m-line)] bg-white px-2">
@@ -153,18 +184,27 @@ async function AdminBusinessPage({
             Using the default gold Setnayan mark. Upload a square image below to replace it everywhere.
           </p>
         )}
-        <div className="border-t border-[color:var(--m-line)] pt-3">
-          <BrandIconUploadForm replace={hasIcon} />
-        </div>
+        {settingsReadFailed ? null : (
+          <div className="border-t border-[color:var(--m-line)] pt-3">
+            <BrandIconUploadForm replace={hasIcon} />
+          </div>
+        )}
       </TemplateSection>
 
       <TemplateSection label="Loading animation">
-        <LoaderAppearanceCard
-          initialVariant={loaderConfig.variant}
-          initialVeilOpacity={loaderConfig.veilOpacity}
-          initialStepIntervalMs={loaderConfig.stepIntervalMs}
-          initialPopEnabled={loaderConfig.popEnabled}
-        />
+        {loaderConfig === null ? (
+          <TemplateFail retryHref="/admin/business" data="loader-unread">
+            Couldn&rsquo;t read the loading animation settings. Saving is off until they load, so the defaults
+            can&rsquo;t overwrite the live choice.
+          </TemplateFail>
+        ) : (
+          <LoaderAppearanceCard
+            initialVariant={loaderConfig.variant}
+            initialVeilOpacity={loaderConfig.veilOpacity}
+            initialStepIntervalMs={loaderConfig.stepIntervalMs}
+            initialPopEnabled={loaderConfig.popEnabled}
+          />
+        )}
       </TemplateSection>
 
       <TemplateSection label="System health" tip="Verify production observability is wired and routing alerts correctly. One-shot owner actions — no background sweeps.">

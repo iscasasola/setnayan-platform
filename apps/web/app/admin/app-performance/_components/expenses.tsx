@@ -195,7 +195,7 @@ export async function ExpensesZone() {
               {/* A delta against an unread month is a comparison of two numbers
                   we do not have — it read "0%", which looks like "flat". */}
               {measured ? (
-                <DeltaPct current={ov.totalThisMonth} previous={ov.totalPrevMonth} inverseGood />
+                <DeltaPct current={ov.totalThisMonth} previous={ov.totalPrevMonth} against="vs last month" inverseGood />
               ) : null}
             </span>
           }

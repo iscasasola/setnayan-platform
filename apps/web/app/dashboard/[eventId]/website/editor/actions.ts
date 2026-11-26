@@ -37,6 +37,10 @@ import { resolveReturnTo } from '@/lib/editor-return';
 import { isHubDraftWrite, saveHubDraftPatch } from '@/lib/hub-draft-store';
 
 /** Set the RSVP-phase spatial backdrop (theme + intensity). */
+/* E-01 (final check): a refused live write (RLS matches zero rows with no error) is thrown, never landed as saved.
+   Inside the Maker the caller catches it and puts the control back; a plain form reaches the error page. */
+const NOT_SAVED = 'That did not save. Nothing changed — please try again.';
+
 export async function saveRsvpBackdrop(formData: FormData): Promise<void> {
   await refuseLimitedHelper(formData.get('event_id'), 'invitations');
   const eventIdRaw = formData.get('event_id');
@@ -71,10 +75,12 @@ export async function saveRsvpBackdrop(formData: FormData): Promise<void> {
     'background',
   );
 
-  await supabase
+  const { data: savedRows, error: saveError } = await supabase
     .from('events')
     .update({ rsvp_backdrop: { theme: themeRaw, intensity } })
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (saveError || !savedRows?.length) throw new Error(NOT_SAVED);
 
   revalidatePath(`/dashboard/${eventId}/website/editor`);
   revalidatePath('/[slug]', 'page');
@@ -92,7 +98,12 @@ export async function clearRsvpBackdrop(formData: FormData): Promise<void> {
   if (isHubDraftWrite(formData)) return draftBackdrop(formData, eventId, null);
   const supabase = await createClient();
 
-  await supabase.from('events').update({ rsvp_backdrop: null }).eq('event_id', eventId);
+  const { data: clearedRows, error: clearError } = await supabase
+    .from('events')
+    .update({ rsvp_backdrop: null })
+    .eq('event_id', eventId)
+    .select('event_id');
+  if (clearError || !clearedRows?.length) throw new Error(NOT_SAVED);
 
   revalidatePath(`/dashboard/${eventId}/website/editor`);
   revalidatePath('/[slug]', 'page');
@@ -116,12 +127,14 @@ export async function setOpenBrowse(formData: FormData): Promise<void> {
   await requireHostMembership(eventId);
   const supabase = await createClient();
 
-  const { data: event } = await supabase
+  const { data: event, error: browseError } = await supabase
     .from('events')
     .update({ website_open_browse: openRaw === '1' })
     .eq('event_id', eventId)
     .select('slug')
     .maybeSingle();
+  // The Maker's "Which version guests see" catches this and puts the choice back (`studio-tools.tsx` `pickVersion`).
+  if (browseError || !event) throw new Error(NOT_SAVED);
 
   revalidatePath(`/dashboard/${eventId}/website/editor`);
   if (event?.slug) revalidatePath(`/${event.slug}`);

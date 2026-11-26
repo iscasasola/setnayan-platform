@@ -37,7 +37,6 @@ export const routes = {
     approvals: () => `/admin/approvals`,
     brain: () => `/admin/ugat?tab=brain`,
     budgetPlanner: () => `/admin/budget-planner`,
-    conciergeAbuse: () => `/admin/concierge-abuse`,
     connectionLogs: () => `/admin/app-performance?tab=connection-logs`,
     demoVendors: {
       index: () => `/admin/demo-vendors`,
@@ -338,9 +337,8 @@ export const routes = {
       photoDelivery: (eventId: string) => `/dashboard/${eventId}/studio/photo-delivery`,
       playlist: (eventId: string) => `/dashboard/${eventId}/studio/playlist`,
       saveTheDate: (eventId: string) => `/dashboard/${eventId}/studio/save-the-date`,
-      setnayanAi: (eventId: string) => `/dashboard/${eventId}/studio/setnayan-ai`,
+      // `setnayanAi` removed (final check R2, 25 Nov): the buy page is retired; doors use `eventServices`.
     },
-    apiKeys: () => `/dashboard/api-keys`,
     budget: (eventId: string) => `/dashboard/${eventId}/budget`,
     /** The Hub (the Maker) — the hosts' "Hub" tab. */
     launch: (eventId: string) => `/dashboard/${eventId}/launch`,
@@ -364,7 +362,6 @@ export const routes = {
       detail: (eventId: string, guestId: string) => `/dashboard/${eventId}/guests/${guestId}`,
       'import': (eventId: string) => `/dashboard/${eventId}/guests/import`,
       new: (eventId: string) => `/dashboard/${eventId}/guests/new`,
-      quick: (eventId: string) => `/dashboard/${eventId}/guests/quick`,
     },
     hosts: (eventId: string) => `/dashboard/${eventId}/hosts`,
     invitation: {
@@ -377,8 +374,15 @@ export const routes = {
       index: (eventId: string) => `/dashboard/${eventId}/messages`,
       detail: (eventId: string, threadId: string) => `/dashboard/${eventId}/messages/${threadId}`,
     },
+    /** The event's Memories — its photos and videos (the album is Memories; the Papic page is gone). */
+    memories: (eventId: string) => `/dashboard/${eventId}/memories`,
     monogram: (eventId: string) => `/dashboard/${eventId}/monogram`,
     more: (eventId: string) => `/dashboard/${eventId}/more`,
+    /**
+     * The Story maker. `step` opens one of its steps by the hash it already reads (`STORY_STEPS` in
+     * `story/_components/story-rail.tsx`): `'publish'` is the publish step, where the clear desk and the consent tick live.
+     */
+    story: (eventId: string, step?: 'publish') => `/dashboard/${eventId}/story${step ? `#${step}` : ''}`,
     notifications: () => `/dashboard/notifications`,
     orders: {
       index: (eventId: string) => `/dashboard/${eventId}/orders`,
@@ -390,7 +394,6 @@ export const routes = {
     accessRequests: (eventId: string) => `/dashboard/${eventId}/access-requests`,
     profile: {
       index: () => `/dashboard/profile`,
-      concierge: () => `/dashboard/profile/concierge`,
     },
     schedule: (eventId: string) => `/dashboard/${eventId}/schedule`,
     seating: {
@@ -474,6 +477,12 @@ export const routes = {
     wedding: () => `/onboarding/wedding`,
   },
   ourStory: () => `/our-story`,
+  /**
+   * 🚪 THE PUBLIC START DOOR: "What kind of event are you planning?" — every type goes to its own onboarding, and the
+   * account is asked for at save. Every host "Start planning" button opens this (final check A1-031, A1-050, A1-112),
+   * never `/signup` first and never the wedding flow for a debut.
+   */
+  start: () => `/start`,
   papic: {
     claim: {
       detail: (token: string) => `/papic/claim/${token}`,
@@ -560,6 +569,8 @@ export const routes = {
     proposals: () => `/vendor-dashboard/proposals`,
     recaps: () => `/vendor-dashboard/recaps`,
     repertoire: () => `/vendor-dashboard/repertoire`,
+    recommendations: () => `/vendor-dashboard/recommendations`,
+    trackRecord: () => `/vendor-dashboard/track-record`,
     reviews: () => `/vendor-dashboard/reviews`,
     services: () => `/vendor-dashboard/services`,
     performance: () => `/vendor-dashboard/performance`,

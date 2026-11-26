@@ -1,10 +1,8 @@
-import { getCurrentUser } from '@/lib/auth';
+import { requireAdmin } from '@/lib/admin/require-admin';
 import { InfoTip } from '@/app/_components/info-tip';
 import { Trash2, Undo2 } from 'lucide-react';
 import { actionButtonClass } from '@/components/action-button-class';
-import { redirect } from 'next/navigation';
 import { PageMasthead } from '@/app/_components/page-masthead';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { deletionReasonLabel } from '@/lib/event-deletion-reasons';
 import { approveEventDeletion, rejectEventDeletion } from './actions';
@@ -31,18 +29,8 @@ export const dynamic = 'force-dynamic';
  * the body of the notice the couple receives, which is why it cannot be blank.
  */
 export default async function EventDeletionsPage() {
-  const supabase = await createClient();
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-
-  const { data: me } = await supabase
-    .from('users')
-    .select('is_internal, is_team_member, account_type')
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (!(me?.is_internal || me?.is_team_member || me?.account_type === 'admin')) {
-    redirect('/dashboard');
-  }
+  // 🔒 A8·L-2: the shared admin gate, not a hand-rolled copy of it (`lib/admin/require-admin.ts`).
+  await requireAdmin();
 
   const admin = createAdminClient();
 

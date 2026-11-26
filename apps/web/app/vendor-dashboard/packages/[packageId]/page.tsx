@@ -25,8 +25,10 @@ import { loadClaimWordsFor } from '@/lib/service-card-checks.server';
  */
 export const dynamic = 'force-dynamic';
 
-/** ✕ goes back to where the maker is opened from: Shop › Your bundles and services. */
+/** ✕ goes back to where the maker is opened from: Shop › Your bundles and services, unless the opener said otherwise. */
 const SHOP_SERVICES = '/vendor-dashboard/shop#services';
+/** The other opener: Your packages (`?from=packages`). Only these two places — never a free-form return address. */
+const CLOSE_TO: Record<string, string> = { packages: '/vendor-dashboard/packages' };
 
 const CANONICAL_SERVICES = Object.keys(PACKAGE_CANONICAL_TO_VENDOR_CATEGORY)
   .map((value) => ({
@@ -48,11 +50,15 @@ const EMPTY: DraftPackage = {
 
 export default async function EditPackagePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ packageId: string }>;
+  searchParams: Promise<{ from?: string }>;
 }) {
   if (!packageAuthoringEnabled()) notFound();
-  const { packageId } = await params;
+  const [{ packageId }, sp] = await Promise.all([params, searchParams]);
+  // ✕ returns to the place that opened the maker (final check A5-G6-04), not always to Shop.
+  const closeHref = sp.from && Object.hasOwn(CLOSE_TO, sp.from) ? CLOSE_TO[sp.from]! : SHOP_SERVICES;
 
   const supabase = await createClient();
   const user = await getCurrentUser();
@@ -83,7 +89,7 @@ export default async function EditPackagePage({
             console.error('[supabase-error] packages/[packageId] · latest application', err);
             return null;
           });
-    return <BundleMakerLocked need={{ kind: 'verify', progress: papersProgress(papers) }} closeHref={SHOP_SERVICES} />;
+    return <BundleMakerLocked need={{ kind: 'verify', progress: papersProgress(papers) }} closeHref={closeHref} />;
   }
 
   let initial = EMPTY;
@@ -130,7 +136,7 @@ export default async function EditPackagePage({
       initial={initial}
       frozen={frozen}
       canonicalServices={CANONICAL_SERVICES}
-      closeHref={SHOP_SERVICES}
+      closeHref={closeHref}
       now={new Date().toISOString()}
     />
   );

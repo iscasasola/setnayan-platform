@@ -52,7 +52,6 @@ const QUEUE_CARDS: QueueCardDef[] = [
   { key: 'approvals', label: 'Two-admin approvals', todo: 'A colleague is blocked on your sign-off.' },
   { key: 'account-deletions', label: 'Account deletions', todo: 'RA 10173 deletion request — process it.' },
   { key: 'payment-options', label: 'Payment options', todo: 'Fraud-screen the submitted payment method.' },
-  { key: 'concierge-abuse', label: 'AI abuse queue', todo: 'Review the trial-cycling flag.' },
   { key: 'help', label: 'Help tickets', todo: 'Answer within the 24-hr SLA.' },
   { key: 'integrity-watch', label: 'Integrity watch', todo: 'Check the review-fraud / ghost-listing flag.' },
 ];

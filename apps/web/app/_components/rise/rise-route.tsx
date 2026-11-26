@@ -14,15 +14,47 @@
  * page again; a tab that navigates instead lands on its own page, and the slot's catch-all clears the slot.
  * 🔒 app/_components/rise/the-rise-screen-is-one-full-screen.test.ts § 7
  */
-import type { ReactNode } from 'react';
+import { createContext, useContext, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import { RiseScreen } from '@/app/_components/rise/rise-screen';
+import { ShopDoorScreen } from '@/app/vendor-dashboard/_components/shop-door-screen';
 import type { RiseKind } from '@/lib/rise-screen';
+
+/**
+ * True inside a risen page (either frame). A page that also loads whole (a hard load: no ✕) keeps its own "‹ Back" link
+ * and hides it here, where ✕ is the way out — `HideWhenRisen`. Final check B8.
+ */
+const InRiseRoute = createContext(false);
+
+/** Draws its children only on the whole page, never inside a risen one (✕ replaces a "‹ Shop" link there). */
+export function HideWhenRisen({ children }: { children: ReactNode }) {
+  return useContext(InRiseRoute) ? null : <>{children}</>;
+}
 
 /** `useBackCloses`' mark on the history entry it pushes (lib/use-back-closes.ts). */
 const LAYER_MARK = 'snLayer';
 
-export function RiseRoute({ title, line, data, kind, children }: { title: string; line?: string; data: string; /** The full-screen map's kind for this page (`RiseScreen`'s `kind`). */ kind?: RiseKind; children: ReactNode }) {
+export function RiseRoute({
+  title,
+  line,
+  data,
+  kind,
+  page = false,
+  children,
+}: {
+  title: string;
+  line?: string;
+  data: string;
+  /** The full-screen map's kind for this page (`RiseScreen`'s `kind`). */
+  kind?: RiseKind;
+  /**
+   * 🖥 From the supplier dashboard's 701 line, the large centred dialog (`ShopDoorScreen` `page` → `Sheet` `page`) over
+   * the page you were on, instead of full screen — the service card maker (final check B8, drawing
+   * `final-check-area-5_2026-11-25.html` § B8). Default false: every risen page as shipped.
+   */
+  page?: boolean;
+  children: ReactNode;
+}) {
   const router = useRouter();
   const leave = () => {
     const st = window.history.state as Record<string, unknown> | null;
@@ -30,9 +62,17 @@ export function RiseRoute({ title, line, data, kind, children }: { title: string
     if (st?.[LAYER_MARK]) window.history.go(-2);
     else router.back();
   };
+  const body = <InRiseRoute.Provider value>{children}</InRiseRoute.Provider>;
+  if (page) {
+    return (
+      <ShopDoorScreen page title={title} line={line} onClose={leave} data={data} kind={kind}>
+        {body}
+      </ShopDoorScreen>
+    );
+  }
   return (
     <RiseScreen title={title} line={line} onClose={leave} data={data} kind={kind}>
-      {children}
+      {body}
     </RiseScreen>
   );
 }

@@ -1101,11 +1101,16 @@ export type NotificationRow = {
   event_id?: string | null;
 };
 
-export async function fetchOwnNotifications(
+/**
+ * Your own notifications, or `unread: true` when they could not be read (A6-15). A missing relation (code before SQL by
+ * one push cycle) is a failed read like any other: it is said as "couldn't load", never drawn as "Nothing yet." — an
+ * empty list would tell a supplier no couple wrote. Logged either way.
+ */
+export async function readOwnNotifications(
   supabase: SupabaseClient,
   userId: string,
   limit = 50,
-): Promise<NotificationRow[]> {
+): Promise<{ items: NotificationRow[]; unread: boolean }> {
   const { data, error } = await supabase
     .from('notifications')
     .select('notification_id,user_id,type,title,body,related_url,read_at,created_at,event_id')
@@ -1113,35 +1118,29 @@ export async function fetchOwnNotifications(
     .order('created_at', { ascending: false })
     .limit(limit);
   if (error) {
-    // 4th hotfix pass (2026-05-23): missing-relation → graceful empty
-    // list. The notifications table + every type enum value has been in
-    // prod since 2026-05-13, but a future ADD VALUE to `NotificationType`
-    // (most recent: `photo_delivery_*` 2026-05-19) lands on code-before-
-    // SQL by 1 push cycle. The bell badge calling `fetchOwnNotifications`
-    // shouldn't crash the entire /dashboard/notifications page when the
-    // schema cache hasn't caught up. Empty list is the safer fallback.
-    if (isMissingRelationError(error)) {
-      logQueryError(
-        'fetchOwnNotifications',
-        error,
-        { user_id: userId, limit },
-        'graceful_degrade',
-      );
-      return [];
-    }
-    // Real bug (auth, RLS denial, real network failure) — log structured
-    // context BEFORE throwing so the breadcrumb survives even if the
-    // request-error hook misses it. Previous shape threw without
-    // logging, which left the call_site invisible in Sentry.
     logQueryError(
       'fetchOwnNotifications',
       error,
-      { user_id: userId, limit },
-      'will_throw',
+      { user_id: userId, limit, missing_relation: isMissingRelationError(error) },
+      'graceful_degrade',
     );
-    throw new Error(`fetchOwnNotifications failed: ${error.message}`);
+    return { items: [], unread: true };
   }
-  return (data ?? []) as NotificationRow[];
+  return { items: (data ?? []) as NotificationRow[], unread: false };
+}
+
+/**
+ * The same read for callers that draw a thrown read as a failure (the bell says it; the pages' error boundary says it).
+ * It throws on EVERY refused read — a missing relation included — so no caller can turn a failure into an empty list.
+ */
+export async function fetchOwnNotifications(
+  supabase: SupabaseClient,
+  userId: string,
+  limit = 50,
+): Promise<NotificationRow[]> {
+  const r = await readOwnNotifications(supabase, userId, limit);
+  if (r.unread) throw new Error('fetchOwnNotifications failed: the notifications could not be read');
+  return r.items;
 }
 
 // Wrapped in React `cache()` so the dashboard chrome's unread-bell badge

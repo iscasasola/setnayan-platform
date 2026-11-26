@@ -41,6 +41,7 @@
  * price (admin-managed + provisional — links to /pricing).
  */
 
+import { routes } from '@/lib/routes';
 import Link from 'next/link';
 import { AlaalaOrb } from '@/app/_components/marketing/AlaalaOrb';
 import { Reveal } from '@/app/_components/marketing/_motion';
@@ -244,7 +245,7 @@ export default function AlaalaLandingPage() {
             </p>
             <div data-reveal-item className="mt-7 flex flex-wrap items-center justify-center gap-3">
               <Link
-                href="/onboarding/wedding?from=alaala"
+                href={routes.start()}
                 className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
               >
                 Start planning · free
@@ -360,7 +361,7 @@ export default function AlaalaLandingPage() {
             </p>
             <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
               <Link
-                href="/onboarding/wedding?from=alaala"
+                href={routes.start()}
                 className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
               >
                 Start planning · free

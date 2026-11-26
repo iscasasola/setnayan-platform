@@ -3055,7 +3055,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // 💬 The first inquiry, as a card (drawing screen 10): what the supplier may already see of the event. A fact the
   // brief holds back until they book is `undefined` (said as "After they book"), never "Not given".
   const paxAsked = thread?.pax_current ?? thread?.pax_at_inquiry ?? null;
-  const inquiryFacts = threadId
+  // A6-B10: a BOOKED client's first inquiry is history, not a turn — no "An inquiry · Your turn · Reply with an offer".
+  const inquiryFacts = threadId && !isBooked
     ? {
         date: brief.event.event_date ?? null,
         guests: paxAsked && paxAsked > 0 ? `~${paxAsked.toLocaleString('en-PH')}` : brief.pax.invited > 0 ? brief.pax.invited.toLocaleString('en-PH') : null,

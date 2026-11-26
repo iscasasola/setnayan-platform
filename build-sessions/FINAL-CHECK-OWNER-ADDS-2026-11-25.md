@@ -719,3 +719,11 @@ The order is by typical Philippine wedding spend (not yet checked against our ow
 - **A6-B01:** measured on production after launch, before any change.
 
 All of these go in one PR, `claude/fc-fix-a6-b7`.
+
+## Add 48: #8346 goes as built (owner, 26 Nov)
+
+- The old `…/seating/lab` forwards to **Guests › Seats › 3D**. The couple's 3D seat plan stays; it now lives in Guests.
+- The old `…/studio/setnayan-ai` (the couple's AI buy page) forwards to **Services › AI** (R2).
+- Setnayan AI stays on the supplier top row.
+
+The owner said "keep them": both features stay, at their new homes. #8346's port and route baseline update covers these two forwards as well as R1–R9.

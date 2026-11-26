@@ -703,3 +703,9 @@ The order is by typical Philippine wedding spend (not yet checked against our ow
 12. Shoe & Heels Maker
 
 **Low cost: a pick list, not a maker:** jewelry, men's accessories, kids' outfits, cord / veil / arras, ring pillow and arrhae box, souvenirs.
+
+**Every maker has a Notes field** (owner: "if our tools cannot make it, then they must leave notes to add more details that our makers cannot provide for them").
+- Each maker ends with "Anything the maker can't show?". It's a free-text note, with an optional reference photo upload.
+- Each part of the design (for example the neckline or the veil) can also carry its own short note.
+- The notes go into the brief sent to the supplier, next to the design and the measurements, so nothing the client wants is lost because the tool couldn't draw it.
+- The maker says plainly what it can't do (for example "Embroidery patterns: describe them in Notes"). It never fakes a look it can't make.

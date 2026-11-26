@@ -116,7 +116,8 @@ export default async function FindDatePage({ params }: Props) {
 
   const picks = schedulePicksFromVendors(vendors);
 
-  const matrix = await buildScheduleMatrix({ admin, eventDate, precision, picks });
+  // A2-H16: only the couple may open the date settings (`date-selection` 404s for anyone else) — carried on the matrix.
+  const matrix = { ...(await buildScheduleMatrix({ admin, eventDate, precision, picks })), canSetDate: Boolean(coupleRes.data) };
 
   return <FindYourDate eventId={eventId} matrix={matrix} />;
 }

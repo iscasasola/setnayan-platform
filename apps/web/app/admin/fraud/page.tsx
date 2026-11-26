@@ -22,6 +22,7 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { FormFlash } from '@/app/_components/forms/form-flash';
 import { formatCount } from '@/lib/format-number';
 import {
   TEMPLATE_SUBLINE,
@@ -119,8 +120,14 @@ function StateBadge({ state }: { state: VendorFraudState }) {
   );
 }
 
-export default async function AdminFraudQueuePage() {
+export default async function AdminFraudQueuePage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ wipe_error?: string; wipe_sent?: string }>;
+}) {
   await requireAdmin();
+  // A8·E-12: a wipe + ban request's outcome — sent, or the refusal's own sentence — is said on the queue.
+  const wipe = (await searchParams) ?? {};
   const admin = createAdminClient();
 
   // 1. The queue: vendors with open fraud signals, worst first.
@@ -221,6 +228,8 @@ export default async function AdminFraudQueuePage() {
       <PageMasthead
         title="Fraud queue"
       />
+      {wipe.wipe_error ? <FormFlash tone="error">{wipe.wipe_error}</FormFlash> : null}
+      {wipe.wipe_sent ? <FormFlash tone="success">{wipe.wipe_sent}</FormFlash> : null}
 
       {/* 📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): the two bars are one numbers frame, the queue
           is hairline rows in one white frame, the trail sits under a section label. Same reads, same three actions. */}

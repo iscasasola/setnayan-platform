@@ -8,7 +8,7 @@ import { logoPlaysFor } from '@/lib/logo-plays.server';
 import { deriveMonogram } from '@/lib/monogram';
 import { readEventWatchUrls, resolveWatchLinks } from '@/lib/watch-live-links';
 import { canUseVenueScreens, decideScreenPicture, shouldWriteCheckIn, type ScreenPicture } from '@/lib/live-screens';
-import { resolveBroadcastWindow } from '@/lib/live-studio-window-server';
+import { readBroadcastWindow } from '@/lib/live-studio-window-server';
 import {
   LIVE_SCREEN_COOKIE_NAME,
   liveScreenTokenMatchesRow,
@@ -101,7 +101,10 @@ export async function loadLiveScreen(): Promise<LoadedScreen> {
   // picture. Same resolver the controller page and pairing already use. Read
   // before the check-in write and the event query below: a locked TV must
   // never reach the read that produces its picture.
-  const broadcastWindow = await resolveBroadcastWindow(admin, row.event_id);
+  // 🔌 A4-09: a refused ownership read is `down` (the TV keeps its last picture, reconnecting), never `locked`.
+  const windowRead = await readBroadcastWindow(admin, row.event_id);
+  if (!windowRead.ok) return { state: 'down' };
+  const broadcastWindow = windowRead.decision;
   if (!canUseVenueScreens({ liveStudioActive: broadcastWindow.multiCam })) return { state: 'locked' };
 
   const now = Date.now();

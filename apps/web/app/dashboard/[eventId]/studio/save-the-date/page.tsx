@@ -42,7 +42,8 @@ import {
   type RevealTemplate,
   type RevealChoice,
 } from '@/app/[slug]/_components/reveal/reveal-templates';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { readV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { PRICE_UNREAD } from '@/lib/php';
 import { resolveServiceSellability } from '@/lib/v2-catalog';
 import { formatPhp } from '@/lib/orders';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
@@ -248,10 +249,10 @@ export default async function SaveTheDatePage({ params }: Props) {
       ? await displayUrlForStoredAsset(stdMedia.posterKey)
       : null;
 
-  const [ownsOpenings, openingsSku, settings, revealConfig, openingsSellability, websiteProSku, ownsHubPro] =
+  const [ownsOpenings, openingsRead, settings, revealConfig, openingsSellability, websiteProRead, ownsHubPro] =
     await Promise.all([
       eventOwnsStdOpenings(ent, eventId),
-      formatV2Sku(STD_PREMIUM_OPENINGS_SERVICE_KEY).catch(() => null),
+      readV2Sku(STD_PREMIUM_OPENINGS_SERVICE_KEY).catch(() => ({ record: null, readFailed: true })),
       fetchPlatformSettings(supabase),
       fetchRevealConfig(),
       // The Cinematic Reveal is bundle-only (2026-07-22): once its catalog row is
@@ -259,7 +260,7 @@ export default async function SaveTheDatePage({ params }: Props) {
       // gate on real sellability and upsell Event Pro instead. Reads DB
       // is_active → self-heals through the migration-push window.
       resolveServiceSellability(STD_PREMIUM_OPENINGS_SERVICE_KEY),
-      formatV2Sku('COUPLE_WEBSITE_PRO').catch(() => null),
+      readV2Sku('COUPLE_WEBSITE_PRO').catch(() => ({ record: null, readFailed: true })),
       // The couple's OWN photo / film / song are Event Pro (owner
       // 2026-09-24). The one host-facing resolver (service client, host of THIS
       // event), as the save action's gate reads it, so a co-host who did not
@@ -267,9 +268,14 @@ export default async function SaveTheDatePage({ params }: Props) {
       // 💎 The Save-the-Date's own film is the Reveal part's (owner 2026-10-22, gate 3).
       eventHubPartActive(ent, eventId, 'reveal'),
     ]);
-  const openingsPricePhp = openingsSku?.price_php ?? null;
+  const openingsPricePhp = openingsRead.record?.price_php ?? null;
   const openingsStandaloneSellable = openingsSellability === 'sellable';
-  const websiteProPricePhp = websiteProSku?.price_php ?? null;
+  const websiteProPricePhp = websiteProRead.record?.price_php ?? null;
+  /* I-03 (final check): a failed price read never falls through to "part of Event Pro" — that claim is about how the
+     opening is sold, and a read that failed knows nothing about it. */
+  const openingsPriceUnread = openingsStandaloneSellable && openingsRead.readFailed;
+  const websiteProPriceText =
+    websiteProPricePhp != null ? formatPhp(websiteProPricePhp) : websiteProRead.readFailed ? PRICE_UNREAD : null;
 
   // Presigned media — resolved server-side once; passed as initial content to
   // the client builder (so presigned URLs never expire mid-session).
@@ -470,7 +476,11 @@ export default async function SaveTheDatePage({ params }: Props) {
             lifts to reveal your page on your live site.
           </p>
         </div>
-      ) : storeShell ? null /* 🔒 no price, no unlock in the App Store / Play Store shell — lib/store-shell.ts */ : openingsStandaloneSellable && openingsPricePhp != null && openingsPricePhp > 0 ? (
+      ) : storeShell ? null /* 🔒 no price, no unlock in the App Store / Play Store shell — lib/store-shell.ts */ : openingsPriceUnread ? (
+        <p role="status" className="text-sm text-ink/70">
+          {PRICE_UNREAD} of the cinematic opening. Reload to try again.
+        </p>
+      ) : openingsStandaloneSellable && openingsPricePhp != null && openingsPricePhp > 0 ? (
         <section className="space-y-3 rounded-2xl border border-mulberry/20 bg-mulberry/5 p-5 sm:p-6">
           <div className="flex items-start gap-3">
             <Sparkles
@@ -529,12 +539,12 @@ export default async function SaveTheDatePage({ params }: Props) {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-ink/65">
               One unlock for your whole Event Hub
-              {websiteProPricePhp != null ? (
+              {websiteProPriceText != null ? (
                 <>
                   {' '}
                   ·{' '}
                   <span className="font-mono text-base text-ink">
-                    {formatPhp(websiteProPricePhp)}
+                    {websiteProPriceText}
                   </span>
                 </>
               ) : null}

@@ -169,6 +169,9 @@ test('🪤 the queue read fails OPEN on the ordering, never on the page', () => 
   // down the payments console — during the event it was meant to rescue.
   const src = (read('app/admin/payments/page.tsx') + '\n' + read('app/admin/payments/_components/desk.tsx'));
   const fn = src.slice(src.indexOf('async function fetchSameDayOrderIds'));
-  assert.match(fn, /catch\s*\{\s*\n?\s*return out;/, 'must swallow and return empty');
-  assert.match(fn, /if \(error \|\| !Array\.isArray\(data\)\) return out;/);
+  // A8·A-20 (final check, 25 Nov 2026): a failed read is now `null`, never an empty set, so the "Event today" tile
+  // says "couldn't read" instead of 0. It still never THROWS, and the page still orders the queue without the jump.
+  assert.match(fn, /catch\s*\{\s*\n?\s*return null;/, 'must swallow (never throw) and say it could not read');
+  assert.match(src, /const sameDayOrderIds = sameDayRead \?\? new Set<string>\(\);/, 'the queue still orders without the jump');
+  assert.match(fn, /if \(error \|\| !Array\.isArray\(data\)\) return null;/);
 });

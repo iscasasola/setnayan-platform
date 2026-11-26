@@ -8,7 +8,8 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { displayServiceLabel, VENDOR_CATEGORIES } from '@/lib/vendors';
-import { readPersonalInvitePlanPrices } from '@/lib/personal-invite-prices.server';
+import { readPersonalInvitePlanPricesRead } from '@/lib/personal-invite-prices.server';
+import { ReadFailed } from '@/app/admin/_components/read-failed';
 import {
   VENDOR_PUBLIC_VISIBILITY_LABEL,
   isShopLive,
@@ -290,7 +291,8 @@ export async function VendorsSurface({
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com'
   ).replace(/\/$/, '');
   // 🎁 The personal invite's plan dropdown reads the catalogue's prices (owner 2026-10-23) — never a typed number.
-  const invitePrices = await readPersonalInvitePlanPrices();
+  // A8·D-6: a refused read is said above the form, so a plan listed with no price is not read as "no price".
+  const { prices: invitePrices, ok: invitePricesRead } = await readPersonalInvitePlanPricesRead();
   const inviteCategories = VENDOR_CATEGORIES.map((key) => ({ key, label: displayServiceLabel(key) }));
 
   return (
@@ -299,6 +301,7 @@ export async function VendorsSurface({
         title="Suppliers"
       />
 
+      {invitePricesRead ? null : <ReadFailed what="the plan prices for the invite" />}
       <InviteVendorForm prices={invitePrices} categories={inviteCategories} />
 
       {/* New vendor requests — couples' manual-adds awaiting a vendor claim

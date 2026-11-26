@@ -535,7 +535,8 @@ export default async function AdminUserReportsPage({
                       “{r.details}”
                     </p>
                   )}
-                  {r.status !== 'open' && r.action_taken && (
+                  {/* A8·F-15: an escalated report stays open, so its note shows on an open row too. */}
+                  {r.action_taken && (
                     <p className="text-xs text-ink/55">
                       {r.action_taken}
                       {r.reviewed_at ? ` · ${relativeTime(r.reviewed_at)}` : ''}

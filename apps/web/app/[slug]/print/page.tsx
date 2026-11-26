@@ -37,7 +37,7 @@ import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { eventProPlanActive } from '@/lib/couple-website-pro';
 import { loadStoryPages, type DrawnSheet } from '@/lib/story-pages';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
-import { eventWordsFor } from '../_lib/event-words';
+import { eventWordsFor, untitledEventName } from '../_lib/event-words';
 import { belongsToThisEvent } from '../_lib/belongs-to-this-event';
 import { viewerIsBookedSupplier } from '@/lib/booked-supplier';
 import { readGuestSession } from '@/lib/guest-session';
@@ -254,9 +254,12 @@ export default async function EditorialPrintPage({
   try {
     copy = composeCopy(data);
   } catch {
+    /* 🗣 A4-47 (final check, SW-WEDDING): the bare fallback never announces a marriage. It prints the event's own
+       name under the event type's own word ("The Wedding", "The Birthday", "The Gathering" at a wake) —
+       `untitledEventName` reads the ONE solemn signal inside event-words.ts, so this page makes no second check. */
     copy = {
-      superKicker: 'A celebration',
-      headline: `${data.displayName} Are Married`,
+      superKicker: untitledEventName(words),
+      headline: data.displayName?.trim() || untitledEventName(words),
       deck: '',
       byline: 'By the Setnayan Desk',
       leadParagraphs: [],

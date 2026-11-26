@@ -70,7 +70,9 @@ export async function AiPricesSurface(_props: Props) {
   if (catalogRes.error) logQueryError('AdminAiPrices (catalog)', catalogRes.error);
   if (settingsRes.error) logQueryError('AdminAiPrices (settings)', settingsRes.error);
 
-  const unreadable = Boolean(vocabRes.error || catalogRes.error);
+  // A8·B-1: an unread sign-up discount is not 0% — it locks saving like a half-read price list, because a save would
+  // write the sign-up prices from a discount nobody read.
+  const unreadable = Boolean(vocabRes.error || catalogRes.error || settingsRes.error);
 
   const catalogByCode = new Map(
     ((catalogRes.data ?? []) as {

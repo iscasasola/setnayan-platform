@@ -225,15 +225,13 @@ export function PabuyaTrustNote({
               Guests send directly to your account — Setnayan never holds your
               money.
             </b>{' '}
-            We only display the handles and QR codes you add here. There is no
-            commission, no middleman, and no fees.
+            We only display the handles and QR codes you add here. Hosts pay 0% commission.
           </>
         ) : (
           <>
             <b className="text-ink-on-light">Setnayan never touches your money.</b> We
             only show you where to send it — it goes directly to{' '}
-            {organizerPossessive} own account. No commission, no middleman, no
-            fees.
+            {organizerPossessive} own account.
           </>
         )}
       </p>

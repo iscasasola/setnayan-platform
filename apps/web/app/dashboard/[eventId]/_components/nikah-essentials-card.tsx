@@ -12,6 +12,7 @@ import {
   Shirt,
 } from 'lucide-react';
 import { updateNikahDetails } from '../nikah-actions';
+import { StayForm } from '@/app/_components/stay-form';
 import { formatCount } from '@/lib/format-number';
 import { guestsWithRole } from '@/lib/nikah-essentials';
 import { ActionButton } from '@/components/action-button';
@@ -184,12 +185,14 @@ export function NikahEssentialsCard({
           ))}
         </ul>
 
-        {/* Inline editor: mahr description + walima gender-separation posture. A
-            plain server-action form — no client JS. */}
-        <form
+        {/* Inline editor: mahr description + walima gender-separation posture. Saves in place (a stay door); a
+            refused save is said under the form (A2-I19). */}
+        <StayForm
+          door="paperwork.updateNikahDetails"
           action={updateNikahDetails.bind(null, eventId)}
           className="space-y-4 rounded-xl border border-emerald-200/60 dark:border-[rgb(var(--color-ok)/0.4)] bg-cream/60 p-4"
         >
+          <input type="hidden" name="event_id" value={eventId} />
           <div className="space-y-1.5">
             <label
               htmlFor="mahr_description"
@@ -238,7 +241,7 @@ export function NikahEssentialsCard({
           </div>
 
           <ActionButton tone="brand" main type="submit" icon={<CheckCircle2 aria-hidden strokeWidth={1.9} />} label="Save Nikah details" />
-        </form>
+        </StayForm>
 
         <Link
           href={`/dashboard/${eventId}/studio/mood-board`}

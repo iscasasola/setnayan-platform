@@ -132,3 +132,7 @@ export function formatPhpRounded(amount: number | null | undefined): string {
     maximumFractionDigits: 0,
   })}`;
 }
+
+/** The words a price slot shows when its catalogue read failed — one sentence for every page (CLAUDE.md §1:
+ *  a failed read shows "Couldn't read", never ₱0, "Free" or empty). */
+export const PRICE_UNREAD = 'Couldn’t read the price';

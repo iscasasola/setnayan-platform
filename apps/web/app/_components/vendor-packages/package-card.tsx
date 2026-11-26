@@ -4,6 +4,7 @@ import {
   type VendorPackageWithItems,
 } from '@/lib/vendor-packages';
 import { SetnayanGiftLine } from '@/app/_components/setnayan-gift-line';
+import { PRICE_ON_REQUEST } from '@/lib/shop-inquire';
 import type { CoupleBundleGift } from '@/lib/package-gift';
 
 /**
@@ -56,7 +57,7 @@ export function PackageCard({
           </h3>
           {ctaBesidePrice && ctaSlot ? null : (
             <p className="mt-1 font-mono text-lg text-ink">
-              {hidePrice ? 'Price on inquiry' : formatCentavosPhp(pkg.total_price_centavos)}
+              {hidePrice ? 'Price on inquiry' : pkg.total_price_centavos > 0 ? formatCentavosPhp(pkg.total_price_centavos) : PRICE_ON_REQUEST}
             </p>
           )}
         </div>
@@ -65,7 +66,7 @@ export function PackageCard({
       {ctaBesidePrice && ctaSlot ? (
         <div data-package-price-row="" className="mt-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
           <p className="font-mono text-lg text-ink">
-            {hidePrice ? 'Price on inquiry' : formatCentavosPhp(pkg.total_price_centavos)}
+            {hidePrice ? 'Price on inquiry' : pkg.total_price_centavos > 0 ? formatCentavosPhp(pkg.total_price_centavos) : PRICE_ON_REQUEST}
           </p>
           <div className="min-w-0 shrink-0">{ctaSlot}</div>
         </div>
@@ -134,3 +135,4 @@ export function PackageCard({
     </article>
   );
 }
+

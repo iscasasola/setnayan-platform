@@ -15,4 +15,7 @@ export const GROUP_ERROR_WORDS: Readonly<Record<string, string>> = {
   last_organizer:
     'You are the last organizer. Promote someone first, or archive the group.',
   member_gone: 'That member is no longer on the roster.',
+  // A2-C6 (SW-RAWDB): fixed words for a refused leave or role change; the database's text goes to the log only.
+  leave_failed: 'Couldn’t take you off this group just now. Try again.',
+  save_failed: 'Couldn’t save that — nothing was changed. Try again.',
 };

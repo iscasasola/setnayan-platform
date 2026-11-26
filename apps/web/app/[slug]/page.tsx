@@ -82,7 +82,7 @@ import { RSVP_TERMS_COOKIE, rsvpTermsCarried } from '@/lib/terms-agreement';
 import { yourGuestsFor } from './_lib/plus-one-seats.server';
 import { GuestMe } from './_components/guest-me';
 import { passCardEligibilityFor, plusOnePassCardIds } from '@/lib/pass-card.server';
-import { PASS_CARD_ROUTE, type PassCardEligibility } from '@/lib/pass-card';
+import { GUEST_QR_ROUTE, PASS_CARD_ROUTE, passRouteForEvent, type PassCardEligibility } from '@/lib/pass-card';
 import { appleWalletLink, appleWalletLinkFor } from '@/lib/wallet-pass';
 import { hubUaFacts } from '@/lib/hub-view-key';
 import { cachedHubViewer, onTheCachedHub } from '@/lib/hub-request';
@@ -2479,8 +2479,11 @@ async function invitationBody({
   const passCardHrefs =
     passCard === 'pass'
       ? {
-          own: PASS_CARD_ROUTE,
-          plusOnes: Object.fromEntries([...plusOnePassIds].map((id) => [id, `${PASS_CARD_ROUTE}?guest=${id}`])),
+          // 🔑 A4-B11: each route names this event, so a signed-in seat holder with no invite-link cookie gets its own card.
+          own: passRouteForEvent(PASS_CARD_ROUTE, event.event_id),
+          plusOnes: Object.fromEntries(
+            [...plusOnePassIds].map((id) => [id, passRouteForEvent(`${PASS_CARD_ROUTE}?guest=${id}`, event.event_id)]),
+          ),
         }
       : null;
   // "The celebrants" (owner 2026-09-28) — Follow or Add the people this event
@@ -2596,6 +2599,8 @@ async function invitationBody({
           state={passCard}
           name={guest.display_name?.trim() || `${guest.first_name ?? ''} ${guest.last_name ?? ''}`.trim() || 'You'}
           invitationUrl={invitationUrl}
+          src={passRouteForEvent(PASS_CARD_ROUTE, event.event_id)}
+          qrSrc={passRouteForEvent(GUEST_QR_ROUTE, event.event_id)}
           replyHref={me.inMe ? null : replyHref}
           appleWallet={meAppleWallet}
           keep={keepOnTicket ? keepNode : null}

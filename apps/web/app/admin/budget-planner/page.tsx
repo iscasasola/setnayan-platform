@@ -1,6 +1,8 @@
 import { InfoTip } from '@/app/_components/info-tip';
 import { FieldPick } from '@/app/admin/_components/field-pick';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { FormFlash } from '@/app/_components/forms/form-flash';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { formatPhpRounded } from '@/lib/php';
@@ -67,8 +69,14 @@ const CONFIG_FALLBACK = {
   surplus_mode: 'park' as const,
 };
 
-export default async function AdminBudgetPlannerPage() {
+export default async function AdminBudgetPlannerPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ error?: string }>;
+}) {
   await requireAdmin();
+  // A8·B-6: a refused save comes back as `?error=` and is said, never swallowed.
+  const saveError = (await searchParams)?.error ?? null;
   const supabase = await createClient();
 
   // Benchmarks + config read via the authed admin client (both tables carry an
@@ -139,6 +147,7 @@ export default async function AdminBudgetPlannerPage() {
           clear it. Nothing else on the screen says that, and it is the one
           gesture an operator would otherwise guess wrong. */}
       <PageMasthead title="Budget Planner" />
+      {saveError ? <FormFlash tone="error">{saveError}</FormFlash> : null}
       <div className="mb-8">
         <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">
           Seed the fallback benchmark prices, tune the allocation engine, and
@@ -279,7 +288,8 @@ export default async function AdminBudgetPlannerPage() {
         <form
           action={async (fd: FormData) => {
             'use server';
-            await updateAllocationConfig(fd);
+            const res = await updateAllocationConfig(fd);
+            if (!res.ok) redirect(`/admin/budget-planner?error=${encodeURIComponent(res.error)}`);
           }}
           className={`${ADMIN_FRAME} p-5`}
         >
@@ -476,7 +486,8 @@ function BudgetBandRowForm({ row }: { row: BudgetBandRow }) {
     <form
       action={async (fd: FormData) => {
         'use server';
-        await updateBudgetBand(fd);
+        const res = await updateBudgetBand(fd);
+        if (!res.ok) redirect(`/admin/budget-planner?error=${encodeURIComponent(res.error)}`);
       }}
       className="grid grid-cols-1 gap-3 border-b border-ink/5 p-4 last:border-b-0 sm:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)_minmax(0,1fr)_auto_auto] sm:items-center"
     >
@@ -553,7 +564,8 @@ function BenchmarkRowForm({ row }: { row: BenchmarkRow }) {
     <form
       action={async (fd: FormData) => {
         'use server';
-        await updateLeafBenchmark(fd);
+        const res = await updateLeafBenchmark(fd);
+        if (!res.ok) redirect(`/admin/budget-planner?error=${encodeURIComponent(res.error)}`);
       }}
       className="grid grid-cols-1 gap-3 border-b border-ink/5 p-4 last:border-b-0 sm:grid-cols-[minmax(0,1.4fr)_repeat(4,minmax(0,1fr))_auto_auto] sm:items-center"
     >

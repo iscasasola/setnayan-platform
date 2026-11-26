@@ -8,14 +8,21 @@
  * 🔁 Try again re-asks the server: in Next 15 `reset()` alone re-renders the failed page the browser already holds, so
  * the press runs `router.refresh()` and `reset()` together (the same reason as `app/[slug]/error.tsx`).
  */
-import { startTransition } from 'react';
+import { startTransition, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { RotateCw } from 'lucide-react';
 import { ErrorState } from '@/app/_components/states/error-state';
 import { actionButtonClass } from '@/components/action-button-class';
 
-export default function PersonPageError({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
+export default function PersonPageError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
   const router = useRouter();
+  // A crash born in the browser is recorded, as every boundary does (a server error with a digest was already
+  // recorded by onRequestError). Lazy: this boundary pays nothing for it until it renders.
+  useEffect(() => {
+    void import('@/lib/telemetry/report-crash')
+      .then((m) => m.reportCrash(error, 'person-page'))
+      .catch(() => {});
+  }, [error]);
   return (
     <main className="mx-auto w-full max-w-md px-4 pb-10 pt-6" data-person-unread="">
       <ErrorState

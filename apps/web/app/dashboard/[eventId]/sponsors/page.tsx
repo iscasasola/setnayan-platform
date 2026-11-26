@@ -15,6 +15,7 @@ import {
   SPONSOR_SIDE_LABEL,
   SPONSOR_TIER_HINT,
   SPONSOR_TIER_LABEL,
+  sponsorRoleHonorific,
   type SponsorTier,
 } from '@/lib/event-sponsors';
 import { AddSponsorModal } from './_components/add-sponsor-modal';
@@ -472,7 +473,7 @@ function PrincipalPairRow({
         {/* Groom's side */}
         <div className="space-y-2">
           <p className="sn-eye">
-            {SPONSOR_SIDE_LABEL.groom} · ninong
+            {SPONSOR_SIDE_LABEL.groom} · {sponsorRoleHonorific('principal', 'groom')}
           </p>
           {groomSponsor ? (
             <SponsorCard
@@ -487,7 +488,7 @@ function PrincipalPairRow({
               sponsorTier="principal"
               side="groom"
               pairIndex={pairIndex}
-              triggerLabel="Add ninong"
+              triggerLabel="Add sponsor"
               formAction={addSponsor}
             />
           )}
@@ -496,7 +497,7 @@ function PrincipalPairRow({
         {/* Bride's side */}
         <div className="space-y-2">
           <p className="sn-eye">
-            {SPONSOR_SIDE_LABEL.bride} · ninang
+            {SPONSOR_SIDE_LABEL.bride} · {sponsorRoleHonorific('principal', 'bride')}
           </p>
           {brideSponsor ? (
             <SponsorCard
@@ -511,7 +512,7 @@ function PrincipalPairRow({
               sponsorTier="principal"
               side="bride"
               pairIndex={pairIndex}
-              triggerLabel="Add ninang"
+              triggerLabel="Add sponsor"
               formAction={addSponsor}
             />
           )}

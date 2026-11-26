@@ -63,7 +63,7 @@ import { safeNext, getCurrentUser } from '@/lib/auth';
 import { accountHomePath } from '@/lib/account-security';
 import { createClient } from '@/lib/supabase/server';
 import { readGuestSession } from '@/lib/guest-session';
-import { accountTypeForSignup } from '@/lib/signup-intent';
+import { accountTypeForSignup, signInHrefKeepingIntent } from '@/lib/signup-intent';
 import { signUp } from './actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
@@ -77,6 +77,8 @@ export const metadata: Metadata = {
   description:
     'Create a Setnayan account in seconds. Free to start for anyone planning an event. Free baseline listing for Filipino suppliers.',
   alternates: { canonical: '/signup' },
+  // A sign-in page is a door, not a page to find in search (final check A1-160, Add 9 SEO).
+  robots: { index: false, follow: true },
 };
 
 /** The one Terms box (above Google / Apple, a field of the email form by `form=`) and that form — one id each. */
@@ -163,7 +165,8 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
     typeof params.refc === 'string' && /^S89R-[0-9A-Z]{10}$/i.test(params.refc.trim())
       ? params.refc.trim().toUpperCase()
       : '';
-  const loginHref = `/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`;
+  // 🔁 The shop intent survives the round trip to sign-in and back (A1-059, Add 33).
+  const loginHref = signInHrefKeepingIntent(next, accountType);
   // Persistent guest accounts: a signed guest session on this browser means the
   // action will link the guest's tagged photos to the new account.
   const hasGuestSession = (await readGuestSession()) !== null;

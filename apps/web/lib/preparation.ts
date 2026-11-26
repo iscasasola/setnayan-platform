@@ -241,6 +241,12 @@ export type PreparationAgenda = {
    * (Home, the events board), and a refused read must say so, never count as "nothing to do".
    */
   unread: PreparationSource[];
+  /**
+   * A2-I3: sources that are NOT counted anywhere (paperwork deadlines, meetings) but whose read was refused. Kept apart
+   * from `unread` so Home's counts are unchanged; the planning list says it could not load them, never drops them
+   * silently.
+   */
+  missing?: PreparationSource[];
 };
 
 // ----------------------------------------------------------------------------
@@ -434,7 +440,7 @@ async function fetchPaperworkItems(
   eventId: string,
   eventDate: string | null,
   now: Date,
-): Promise<PreparationItem[]> {
+): Promise<PreparationItem[] | null> {
   // A complete-by deadline is only meaningful once a wedding date exists.
   if (!eventDate) return [];
 
@@ -445,7 +451,7 @@ async function fetchPaperworkItems(
   if (error) {
     if (isMissingRelation(error)) return [];
     console.error('[preparation] paperwork:', error.message);
-    return [];
+    return null;
   }
   const rows = (data ?? []) as PaperworkSourceRow[];
 
@@ -503,7 +509,7 @@ async function fetchAppointmentItems(
   supabase: SupabaseClient,
   eventId: string,
   now: Date,
-): Promise<PreparationItem[]> {
+): Promise<PreparationItem[] | null> {
   const { data, error } = await supabase
     .from('event_appointments')
     .select('appointment_id, vendor_profile_id, kind, type, custom_label, location, scheduled_at')
@@ -514,7 +520,7 @@ async function fetchAppointmentItems(
   if (error) {
     if (isMissingRelation(error)) return [];
     console.error('[preparation] appointments:', error.message);
-    return [];
+    return null;
   }
   const rows = (data ?? []) as AppointmentRow[];
   if (rows.length === 0) return [];
@@ -1109,8 +1115,13 @@ export async function fetchPreparationAgenda(
   if (manual === null) unread.push('manual');
   if (payments === null) unread.push('payment');
 
-  return assemblePlanningList(
-    [...(tasks ?? []), ...(payments ?? []), ...paperwork, ...appointments, ...milestones, ...(manual ?? [])],
+  const missing: PreparationSource[] = [];
+  if (paperwork === null) missing.push('paperwork');
+  if (appointments === null) missing.push('meeting');
+
+  const list = assemblePlanningList(
+    [...(tasks ?? []), ...(payments ?? []), ...(paperwork ?? []), ...(appointments ?? []), ...milestones, ...(manual ?? [])],
     unread,
   );
+  return missing.length > 0 ? { ...list, missing } : list;
 }

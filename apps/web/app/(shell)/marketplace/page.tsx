@@ -47,6 +47,7 @@
  * paid planner picks a suggested team. Nothing more.
  */
 
+import { routes } from '@/lib/routes';
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
 import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
 import { studioDescription } from '@/lib/studio-apps';
@@ -224,7 +225,7 @@ export default function MarketplaceLandingPage() {
         first door is the thing itself. Starting a wedding is the second door.
       */
       primary={{ href: '/?browse=1', label: 'Browse the marketplace' }}
-      secondary={{ href: '/onboarding/wedding?from=marketplace', label: 'Start planning · free' }}
+      secondary={{ href: routes.start(), label: 'Start planning · free' }}
       productName="Marketplace"
       studioKey="marketplace"
       steps={STEPS}

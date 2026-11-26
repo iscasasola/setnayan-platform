@@ -1,4 +1,6 @@
 import { supplierChatHref, customerCardHref, supplierThreadNoticeSearch } from '@/lib/upcoming-schedule-door';
+import { MONEY_NOT_OWED, ReadFailedBody, ReadFailedNote } from '../../_components/set-two/read-failed';
+import { PartPage } from '../../_components/set-two/parts';
 import Link from 'next/link';
 import { Suspense } from 'react';
 import { dayMonth, weekdayDateWithYear } from '@/lib/format-date';
@@ -62,6 +64,7 @@ import {
   fetchPlanProgressForVendor,
   readPlanProgressForVendor,
   fetchPendingVendorPayments,
+  readPendingVendorPayments,
 } from '@/lib/vendor-service-payment-schedules.server';
 import { computePlanRollup } from '@/lib/vendor-service-payment-schedules';
 import { awaitsTheSupplier } from '@/lib/payment-refusal';
@@ -669,6 +672,17 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   const { data, error } = await supabase.rpc('get_vendor_event_brief', {
     p_event_id: eventId,
   });
+  // 🧾 A6-47 (final check 25 Nov): only the RPC's own REFUSALS bounce to Clients ('not_a_vendor' / 'not_booked' raise
+  // 42501, 'event_not_found' raises P0002). Any other error is a read that did not answer — said here, with Try
+  // again, never a bounce that reads as "this is not your client".
+  if (error && error.code !== '42501' && error.code !== 'P0002') {
+    logQueryError('VendorClientPage.brief', error, { eventId }, 'graceful_degrade');
+    return (
+      <PartPage column="mx-auto w-full tab:max-w-3xl" mark="client">
+        <ReadFailedBody mark="client">We couldn&rsquo;t load this client right now.</ReadFailedBody>
+      </PartPage>
+    );
+  }
   if (error || !data) redirect('/vendor-dashboard/clients');
   const rawBrief = data as Brief;
   const isBooked = rawBrief.stage === 'booked';
@@ -821,9 +835,9 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   //   • editorial-media eligibility, cocktail-editability probe, live timeline
   //     rows, this org's suggestion history — all as before.
   const [
-    { data: evRow },
+    { data: evRow, error: evRowError },
     { data: proposalRows, error: proposalRowsError },
-    { data: contractRows },
+    { data: contractRows, error: contractRowsError },
     threads,
     editorialEligibility,
     { data: cocktailEdit },
@@ -1129,7 +1143,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         eventId,
         vendorProfileId: profile.vendor_profile_id,
       }),
-      fetchPendingVendorPayments({
+      readPendingVendorPayments({
         adminClient: admin,
         eventId,
         vendorProfileId: profile.vendor_profile_id,
@@ -1295,7 +1309,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         }
       : null;
   const contracts = (contractRows ?? []) as ContractRow[];
-  const hasContract = contracts.length > 0;
+  // 🧾 A6-47 (final check 25 Nov): a refused contracts read is not "no contract" — the Contract door then opens the
+  // contracts list (which says what it could read), never a second upload for a couple who may already have one.
+  if (contractRowsError) logQueryError('VendorClientPage.contracts', contractRowsError, { eventId }, 'graceful_degrade');
+  const hasContract = contracts.length > 0 || Boolean(contractRowsError);
 
   // Thread for THIS event → drives [Open chat] + [Log payment] (the pay-confirm
   // flow lives inside the thread) in the header action row.
@@ -1481,7 +1498,12 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
     // eventVendorId matches the completion row (there is normally exactly one).
     planStepRows =
       plans.find((p) => p.eventVendorId === eventVendorId) ?? plans[0] ?? null;
-    pendingPayments = pending;
+    pendingPayments = pending.payments;
+    // 🧾 A6-45 (final check 25 Nov): a refused pending-payments read is not "No payments to confirm yet" — the
+    // Payments tab says the payments couldn't load (`LedgerUnreadableNote`), as it already does for the ledger.
+    if (!pending.complete) ledgerUnreadable = true;
+    // A6-43: the booking row the ledger hangs off was refused → nothing about this booking's money was measured.
+    if (evRowError) ledgerUnreadable = true;
   }
   // 💸 B2-E · THE REFUNDS THIS SHOP GAVE THIS CLIENT (`event_vendor_refunds`, read under the shop's own RLS and scoped to
   // this booking). Booked-only, like the Payment page that draws them. ONE request (plus a signed link per proof photo,
@@ -1525,7 +1547,11 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
       'graceful_degrade',
     );
   }
-  const changeOrdersMeasured = !changeOrderRowsError;
+  // 🧾 A6-43 (final check 25 Nov): the booking row these reads hang off (`evRow` → `eventVendorId`) can itself be
+  // refused. Then nothing was measured — change orders, asks and refunds are unread, never "none" / ₱0.
+  const bookingRowUnread = Boolean(evRowError);
+  if (evRowError) logQueryError('VendorClientDetail.bookingRow', evRowError, { eventId }, 'graceful_degrade');
+  const changeOrdersMeasured = !changeOrderRowsError && !bookingRowUnread;
   const changeOrders = (changeOrderRows ?? []) as VendorChangeOrderRow[];
 
   /*
@@ -1543,7 +1569,10 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   */
   // Read to the END (`readOpenPaymentAsks`): it was `.limit(20)`, so a 21st
   // open ask was hidden and the shop could bill the same thing twice.
-  const askRead = isBooked && eventVendorId
+  // A6-43: a refused booking row is an unread ask list (`complete: false`), never "nothing asked".
+  const askRead = bookingRowUnread
+    ? { rows: [] as OpenPaymentAskRow[], error: null, complete: false }
+    : isBooked && eventVendorId
     ? (await openAsksP)!
     : { rows: [] as OpenPaymentAskRow[], error: null, complete: true };
   const askRowsError = askRead.error;
@@ -2137,7 +2166,18 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
           };
         }}
       />
-      <WaivedFeeRows charges={clientWaived} />
+      {/* 🧾 A6-44 (final check 25 Nov): an unread bill list is said in its place — never an absent fee that reads as
+          "nothing owed for this couple". */}
+      {clientFeeBillsRead === FEE_BILLS_UNREADABLE ? (
+        <ReadFailedNote mark="client-fee-bills">
+          We couldn&rsquo;t load your booking fees for this couple right now. {MONEY_NOT_OWED}
+        </ReadFailedNote>
+      ) : null}
+      {clientWaivedRead === FEE_BILLS_UNREADABLE ? (
+        <ReadFailedNote mark="client-fee-waived">We couldn&rsquo;t load your waived fees for this couple just now.</ReadFailedNote>
+      ) : (
+        <WaivedFeeRows charges={clientWaived} />
+      )}
     </>
   );
 
@@ -2328,7 +2368,7 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
         // ⚖ A plan read cut short (bookings, plans or payments refused) is not a booking with nothing paid: the whole
         // view says "couldn't load" — the same rule the Details tiles follow (`plan: !planReadComplete ? 'unread'`).
         ledgerUnreadable: ledgerUnreadable || !planReadComplete,
-        refundedPhp: clientRefunds ? (clientRefunds.measured ? refundedTotalPhp(clientRefunds.rows) : null) : 0,
+        refundedPhp: clientRefunds ? (clientRefunds.measured ? refundedTotalPhp(clientRefunds.rows) : null) : bookingRowUnread ? null : 0,
       })
     : null;
   // 🧾 The agreed quotation (Details › Your booking names what it covers): the newest accepted one.
@@ -3015,7 +3055,8 @@ export default async function VendorCustomerCardPage({ params, searchParams }: P
   // 💬 The first inquiry, as a card (drawing screen 10): what the supplier may already see of the event. A fact the
   // brief holds back until they book is `undefined` (said as "After they book"), never "Not given".
   const paxAsked = thread?.pax_current ?? thread?.pax_at_inquiry ?? null;
-  const inquiryFacts = threadId
+  // A6-B10: a BOOKED client's first inquiry is history, not a turn — no "An inquiry · Your turn · Reply with an offer".
+  const inquiryFacts = threadId && !isBooked
     ? {
         date: brief.event.event_date ?? null,
         guests: paxAsked && paxAsked > 0 ? `~${paxAsked.toLocaleString('en-PH')}` : brief.pax.invited > 0 ? brief.pax.invited.toLocaleString('en-PH') : null,

@@ -212,7 +212,7 @@ export function WidgetList({ widgets, page }: Props) {
 
             {/* Touch/keyboard fallback for reorder — drag-and-drop alone
                 isn't reachable for keyboard or touch users. */}
-            <div className="hidden flex-col gap-1 sm:flex">
+            <div className="flex flex-col gap-1" data-widget-move="">
               <button
                 type="button"
                 disabled={idx === 0 || pending}

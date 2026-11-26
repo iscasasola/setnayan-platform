@@ -10,7 +10,7 @@ import { isCoordinatorTrade } from '@/lib/coordinator-trade';
 import { CREW_STATUS_WORDS, crewRequestStatusOf, crewRoleOf, crewRoleReadsRunOfShow, isCrewToken } from '@/lib/crew-pass';
 import { crewPassAnonEnabled } from '@/lib/crew-pass-flag';
 import { resolveEventFeeGate } from '@/lib/vendor-event-fee-access.server';
-import { CrewEventHub, CrewNameForm, CrewSignIn, CrewStatus } from './_components/crew-screens';
+import { CrewEventHub, CrewNameForm, CrewSignIn, CrewStatus, CrewTryAgain } from './_components/crew-screens';
 import { CrewWaitingRefresh } from './_components/crew-waiting-refresh';
 import { SeatScanner } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/seat-scanner';
 import { ChangeTheSchedule } from '@/app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/change-the-schedule';
@@ -59,7 +59,11 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
   const { data: asked, error: askedError } = await supabase.rpc('crew_pass_request', { p_token: token, p_name: '' });
   if (askedError) {
     logQueryError('CrewJoin.request', askedError, {}, 'graceful_degrade');
-    return <CrewStatus title="Couldn’t reach Setnayan" line="Check the signal and open this page again — nothing was lost." />;
+    return (
+      <CrewStatus title="Couldn’t reach Setnayan" line="Check the signal and open this page again — nothing was lost.">
+        <CrewTryAgain token={token} />
+      </CrewStatus>
+    );
   }
   const answer = (asked ?? {}) as { status?: unknown; event_id?: string };
   const status = crewRequestStatusOf(answer.status);
@@ -79,7 +83,13 @@ export default async function CrewJoinPage({ params }: { params: Promise<{ token
     | { vendor_profile_id: string; display_name: string; crew_role: string; ends_at: string; effective: boolean }
     | null;
   if (passError) logQueryError('CrewJoin.pass', passError, { eventId }, 'graceful_degrade');
-  if (passError || !pass) return <CrewStatus title="Couldn’t open the Event Hub" line="Open this page again in a moment — nothing was lost." />;
+  if (passError || !pass) {
+    return (
+      <CrewStatus title="Couldn’t open the Event Hub" line="Open this page again in a moment — nothing was lost.">
+        <CrewTryAgain token={token} />
+      </CrewStatus>
+    );
+  }
   if (!pass.effective) return <CrewStatus {...CREW_STATUS_WORDS.ended} />;
   // THE BOOKING FEE UNLOCKS THE EVENT (owner 2026-09-20) — for the shop's crew too, exactly as for its day-of
   // grantees: the gate is the SHOP's, and a crew member has no fee of their own and is never asked to pay one.

@@ -22,6 +22,7 @@
  * locked prices and feeds them here. See that file for the price-source
  * decision (couple-confirmed `event_vendors.total_cost_php`).
  */
+import { formatPhpRounded } from '@/lib/php';
 
 /**
  * Minimum number of qualifying locked bookings before a verified median is
@@ -145,5 +146,5 @@ export function roundToTypicalBand(php: number): number {
  * deliberately does not have.
  */
 export function formatMedianPhp(php: number): string {
-  return `₱${Math.round(php).toLocaleString('en-PH', { maximumFractionDigits: 0 })}`;
+  return formatPhpRounded(Math.round(php));
 }

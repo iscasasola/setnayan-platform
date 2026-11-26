@@ -162,9 +162,21 @@ export async function FocusHome({
   // the list lives. A queue answer is this list filtered to that queue; badge progress is the Badges & seals shop list.
   const answer = ask ? FOCUS_ASK_ANSWERS[ask] : undefined;
   let answerRows: FocusRowData[] | null = null;
-  if (answer?.queue) answerRows = rows.filter((r) => r.key.startsWith(`${answer.queue}:`));
+  // A8·C-1: the count is the QUEUE's own number (the rows are a peek of 3 + one "N more"), and an unread queue is
+  // "Couldn't read", never "0 · answered here".
+  let answerCount: number | null = null;
+  if (answer?.queue) {
+    const q = queues.find((x) => x.key === answer.queue);
+    if (q && q.count === null) {
+      answerRows = null;
+    } else {
+      answerRows = rows.filter((r) => r.key.startsWith(`${answer.queue}:`));
+      answerCount = q?.count ?? 0;
+    }
+  }
   if (answer && !answer.queue) {
     const { list, error } = await readBadgeShopList(createAdminClient());
+    answerCount = error ? null : list.length;
     answerRows = error
       ? null
       : list.map((s) => ({ key: `badges:${s.vendor_profile_id}`, kind: 'reply' as const, title: s.business_name ?? 'Unnamed shop', sub: 'Five badges · tap for the trace', href: badgeTraceHref(s.vendor_profile_id), late: false, level: null, pageHref: badgeTraceHref(s.vendor_profile_id) }));
@@ -177,6 +189,10 @@ export async function FocusHome({
   const { now: listed, tomorrow } = splitFocusPutOffs(orderFocusRows(rows), putOff);
 
   const notice = settle ? SETTLE_NOTICES[settle] : undefined;
+  const answerLine =
+    answerRows === null || answerCount === null
+      ? 'Couldn’t count this queue just now — not the same as none.'
+      : `${formatCount(answerCount)} · answered here`;
 
   return (
     <div className="mx-auto flex w-full max-w-[760px] flex-col pb-36 lg:pb-12" data-admin-focus>
@@ -225,7 +241,7 @@ export async function FocusHome({
           <p className="text-[13px] text-[color:var(--sn-ink-500)]">You asked</p>
           <p className="text-[18px] font-semibold text-[color:var(--sn-ink-900)]">“{answer.question}”</p>
           <p className="text-[13px] text-[color:var(--sn-ink-500)]">
-            {answerRows === null ? 'Couldn’t read this just now — not the same as none.' : `${formatCount(answerRows.length)} · answered here`}
+            {answerLine}
           </p>
           <ul>
             {(answerRows ?? []).map((r) => (

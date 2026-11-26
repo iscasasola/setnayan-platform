@@ -44,6 +44,7 @@
  * controls and gets its own baseline entry.
  */
 
+import { inlineBuilderCalls } from './lib/route-builders.mjs';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 
@@ -633,8 +634,16 @@ export function extractBlocks(maybeRaw) {
   return blocks;
 }
 
+/**
+ * 🧭 A BUILDER CALL IS THE DOOR IT BUILDS (Add 47, 26 Nov 2026: the route builders win). `href={routes.x.y(id)}` and
+ * `` `${routes.x.y(id)}?tab=z` `` are rewritten to the address the REAL `lib/routes.ts` returns for them (unknown values
+ * as `[seg]`, see scripts/lib/route-builders.mjs), so a link moved onto its builder still counts as the destination it
+ * always was — and a builder that builds the wrong address is a LOST door, not a hidden one. The original text still
+ * supplies the recorded `routes.*` actions. Only callers that load the builders pass `opts.routes`; without it, nothing
+ * here changes. `opts.onBuilder(url, file)` hears every address a builder call resolved to.
+ */
 /** The control set for a whole route folder, merged across its files. */
-export function controlsForRoute(routeDir, appRoot) {
+export function controlsForRoute(routeDir, appRoot, opts = {}) {
   const destinations = new Set();
   const actions = new Set();
   const blocks = new Set();
@@ -646,6 +655,10 @@ export function controlsForRoute(routeDir, appRoot) {
     d.forEach((x) => destinations.add(x));
     a.forEach((x) => actions.add(x));
     b.forEach((x) => blocks.add(x));
+    if (opts.routes) {
+      const built = inlineBuilderCalls(stripComments(text), opts.routes, opts.onBuilder, f);
+      extractControls(built).destinations.forEach((x) => destinations.add(x));
+    }
   }
   return {
     files: files.map((f) => relative(appRoot, f).split(sep).join('/')).sort(),
@@ -686,11 +699,11 @@ export function routeKey(routeDir, appRoot) {
   return '/' + rel;
 }
 
-export function buildBaseline(appRoot) {
+export function buildBaseline(appRoot, opts = {}) {
   const routes = {};
   for (const dir of allRouteDirs(appRoot)) {
     const key = routeKey(dir, appRoot);
-    routes[key] = controlsForRoute(dir, appRoot);
+    routes[key] = controlsForRoute(dir, appRoot, opts);
   }
   return routes;
 }

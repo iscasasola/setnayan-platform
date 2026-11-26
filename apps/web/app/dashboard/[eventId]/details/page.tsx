@@ -84,6 +84,7 @@ import {
 import { HubDraftDock } from '../website/_components/hub-draft-dock';
 import { readHomeGuide } from '../_components/details-guide-home-card';
 import { PutAwayCard } from './_components/put-away-card';
+import { mayPutAwayEvent } from '@/lib/event-put-away';
 import { PeopleWithAccess } from './_components/people-with-access';
 import { RecordFold } from './_components/record-fold';
 import { SupplierChangesRow } from './_components/supplier-changes-row';
@@ -187,10 +188,11 @@ export default async function EventDetailsPage({
   const now = new Date();
   const budgetTruth = isBudgetTruthEnabled();
 
-  const [profile, viewer, budgetAccess] = await Promise.all([
+  const [profile, viewer, budgetAccess, mayPutAway] = await Promise.all([
     resolveProfile(str('event_type') ?? 'wedding'),
     fetchEventViewer(supabase, eventId, user.id),
     resolveBudgetVisibility(supabase, eventId, user.id),
+    mayPutAwayEvent(supabase, eventId, user.id),
   ]);
   /*
     ⚙ THE COUPLE'S EVENT DETAILS IS HOME'S ⚙ EVENT SETTINGS NOW (owner 2026-10-30, verbatim: *"no. that shoud be
@@ -957,14 +959,16 @@ export default async function EventDetailsPage({
         ) : null}
       </div>
 
-      {/* ── Put this away — last and quiet, as shipped. ── */}
-      <div data-section="put-away">
-        <PutAwayCard
-          eventId={eventId}
-          archived={Boolean(e.archived)}
-          eventName={typeof e.display_name === 'string' && e.display_name.trim() ? e.display_name : 'this event'}
-        />
-      </div>
+      {/* ── Put this away — last and quiet, as shipped; only for someone its writer lets put it away (A2-H10). ── */}
+      {mayPutAway ? (
+        <div data-section="put-away">
+          <PutAwayCard
+            eventId={eventId}
+            archived={Boolean(e.archived)}
+            eventName={typeof e.display_name === 'string' && e.display_name.trim() ? e.display_name : 'this event'}
+          />
+        </div>
+      ) : null}
       </PartEditGate>
     </section>
     </LastSeenCapture>

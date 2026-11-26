@@ -200,7 +200,7 @@ const FAQ = [
   },
   {
     q: 'What happens to the photos after the event?',
-    a: 'They are kept for life, free, with nothing to renew. Nothing is ever deleted — three months after the event’s last day the original file is replaced by a 720p copy, and the photograph stays.',
+    a: 'Every photo is kept for life, free, with nothing to renew. Full-size originals are kept for a period set by your plan, then a 720p copy of every photo is kept for life. Nothing is deleted on a timer.',
   },
   {
     q: 'What if the venue has no signal?',
@@ -739,7 +739,7 @@ export default async function PapicLandingPage() {
         <PapicFreeCreditClosing read={freeGrant} />
         <p className="mt-3 text-sm text-[var(--m-slate-2)]">
           Papic lives on the Event Hub you already have, beside the guest list, the RSVP and
-          the seating. There is nothing separate to buy, and nothing that expires.
+          the seating, and every photo it takes is kept for life.
         </p>
       </section>
     </main>

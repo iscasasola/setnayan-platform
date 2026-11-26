@@ -29,6 +29,7 @@ import {
   fetchSeatingConstraints,
   fetchSignsMeasured,
   fetchTables,
+  countStillToSeat,
   groupColorFor,
 } from '@/lib/seating';
 import { fetchBookedVendorsForBooths } from '@/lib/vendors';
@@ -37,7 +38,7 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER, MAKER_INNER_TOURS_AFTER } from '@/lib/host-page-tours';
 import { guestsViewHref, parseSeatView } from '@/lib/guests-views';
-import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE, SIDE_ORDER } from '@/lib/guests';
+import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE, SIDE_ORDER, computeGuestStats, countsTowardEvent, headcountForBasis } from '@/lib/guests';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { peopleLabels } from '@/lib/details-your-event';
 import type { SeatingDetailsShell, SeatingGuest, SeatingGroup } from './_components/seating-editor';
@@ -262,10 +263,13 @@ export default async function SeatingPage({ params, searchParams }: Props) {
   // Seat-reservation summary (RSVP "holds a place" → couple seats them).
   // Reserved = guests who confirmed attendance; seated = those already in a
   // chair; the rest still need a seat. Plus-ones are their own guest rows.
-  const reservedGuests = seatingGuests.filter((g) => g.rsvp_status === 'attending');
-  const reservedCount = reservedGuests.length;
-  const seatedCount = reservedGuests.filter((g) => g.seated_table_id !== null).length;
-  const toSeatCount = reservedCount - seatedCount;
+  // Reserved and still-to-seat come from the ONE readers (A2-D2 / A2-E4): the guest count from `computeGuestStats` ·
+  // `headcountForBasis`, the seats still to fill from `countStillToSeat` — never a filter of this page's own.
+  const countedGuestIds = new Set(guests.filter(countsTowardEvent).map((g) => g.guest_id));
+  const countedSeatingGuests = seatingGuests.filter((g) => countedGuestIds.has(g.guest_id));
+  const guestStats = computeGuestStats(guests);
+  const reservedCount = headcountForBasis(guestStats, 'attending');
+  const toSeatCount = countStillToSeat(countedSeatingGuests);
 
   // Smart Seat-Plan Phase 5: live auto-seating on/off + a capacity check.
   // Reconcile can only seat as many guests as there are chairs, so surface when
@@ -286,7 +290,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
     if (gb.error) logQueryError('SeatingPage.ghostBooths', gb.error, { event_id: eventId }, 'graceful_degrade');
     else ghostBoothsEnabled = (gb.data?.ghost_booths_enabled as boolean | null | undefined) ?? true;
   }
-  const nonDeclinedCount = seatingGuests.filter((g) => g.rsvp_status !== 'declined').length;
+  const nonDeclinedCount = headcountForBasis(guestStats, 'invited');
   const totalSeats = tables.reduce(
     (sum, t) => sum + effectiveCapacity(t.capacity, t.removed_seats),
     0,

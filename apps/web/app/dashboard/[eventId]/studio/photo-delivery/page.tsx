@@ -309,7 +309,10 @@ function SyncModeSection({
           role="alert"
           className="rounded-md border border-terracotta/30 bg-terracotta/10 px-3 py-2 text-xs text-terracotta-700"
         >
-          Could not save sync mode: {errorMessage}
+          {/* SW-RAWDB (A3·P-09): fixed words; nothing from the address bar is printed. */}
+          {errorMessage === 'not_a_couple'
+            ? 'Only the couple can change how photos are released.'
+            : 'Couldn’t change the sync mode — nothing was changed. Try again.'}
         </p>
       ) : null}
 

@@ -243,7 +243,7 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
             <>
               You&apos;re signed in as <span className="font-semibold">{user.email}</span>, but
               this invitation was sent to{' '}
-              <span className="font-semibold">{search.expected ?? invite.invitation_email}</span>.
+              <span className="font-semibold">{invite.invitation_email}</span>.
               Sign out and back in with the correct account, or ask the inviter to
               re-send to your current address.
             </>
@@ -260,7 +260,10 @@ export default async function HostAcceptPage({ params, searchParams }: Props) {
           tone="warn"
           eyebrow="Something went wrong"
           title="We couldn't complete that just now."
-          body={`Error: ${search.error}${search.msg ? ' — ' + search.msg : ''}. Try again, or ask the inviter to re-send.`}
+          // A2-A9 (SW-RAWDB): fixed words only. Nothing from the address bar is printed, so a crafted link cannot put
+          // text on Setnayan's invitation card, and a refusal never shows the database's own message.
+          body="Nothing was changed. Try again, or ask the person who invited you to send a new link."
+          cta={{ href: `/host/accept/${token}`, label: 'Try again' }}
         />
     );
   }

@@ -124,22 +124,22 @@ function toView(row: GrantRow): PoolChannelGrantView {
  */
 export async function fetchPoolChannelGrants(
   admin: SupabaseClient,
-): Promise<Map<number, PoolChannelGrantView>> {
+): Promise<Map<number, PoolChannelGrantView> | null> {
   const out = new Map<number, PoolChannelGrantView>();
   try {
     const { data, error } = await admin.from('live_studio_channel_grants').select(GRANT_SELECT);
     if (error) {
-      // includes 42P01 on a pre-migration DB — still logged so a genuinely
-      // refused read (not a missing table) doesn't look identical to "no grants".
+      // A8·F-16: null = could not read. The board says so — never "Not
+      // connected" on every row with a Connect button beside it.
       console.error('[supabase-error] lib/live-studio-channel-grants.ts · from:live_studio_channel_grants.select', error);
-      return out;
+      return null;
     }
     for (const row of (data ?? []) as GrantRow[]) {
       out.set(row.channel_pool_id, toView(row));
     }
     return out;
   } catch {
-    return out;
+    return null;
   }
 }
 

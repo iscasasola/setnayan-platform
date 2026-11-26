@@ -2,6 +2,8 @@
 
 import { redirect } from 'next/navigation';
 import { revalidatePath } from 'next/cache';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { sponsorErrorKey } from './sponsor-error-copy';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
   parseSponsorTier,
@@ -102,9 +104,10 @@ export async function addSponsor(formData: FormData): Promise<void> {
     // redirect() throws a NEXT_REDIRECT — re-throw so Next handles it. Only
     // wrap genuine error states.
     if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
-    redirect(
-      `/dashboard/${eventId}/sponsors?error=${encodeURIComponent((e as Error).message.slice(0, 120))}`,
-    );
+    // A2-I18: a fixed key in the address; the raw message goes to the log only.
+    const key = sponsorErrorKey(e);
+    if (key === 'save_failed') logQueryError('SponsorsAction', e, { eventId }, 'graceful_degrade');
+    redirect(`/dashboard/${eventId}/sponsors?error=${key}`);
   }
 }
 
@@ -154,9 +157,10 @@ export async function updateSponsor(formData: FormData): Promise<void> {
     redirect(`/dashboard/${eventId}/sponsors?updated=1`);
   } catch (e) {
     if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
-    redirect(
-      `/dashboard/${eventId}/sponsors?error=${encodeURIComponent((e as Error).message.slice(0, 120))}`,
-    );
+    // A2-I18: a fixed key in the address; the raw message goes to the log only.
+    const key = sponsorErrorKey(e);
+    if (key === 'save_failed') logQueryError('SponsorsAction', e, { eventId }, 'graceful_degrade');
+    redirect(`/dashboard/${eventId}/sponsors?error=${key}`);
   }
 }
 
@@ -185,9 +189,10 @@ export async function removeSponsor(formData: FormData): Promise<void> {
     redirect(`/dashboard/${eventId}/sponsors?removed=1`);
   } catch (e) {
     if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
-    redirect(
-      `/dashboard/${eventId}/sponsors?error=${encodeURIComponent((e as Error).message.slice(0, 120))}`,
-    );
+    // A2-I18: a fixed key in the address; the raw message goes to the log only.
+    const key = sponsorErrorKey(e);
+    if (key === 'save_failed') logQueryError('SponsorsAction', e, { eventId }, 'graceful_degrade');
+    redirect(`/dashboard/${eventId}/sponsors?error=${key}`);
   }
 }
 
@@ -224,9 +229,10 @@ export async function sendInvitation(formData: FormData): Promise<void> {
     redirect(`/dashboard/${eventId}/sponsors?invited=1`);
   } catch (e) {
     if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
-    redirect(
-      `/dashboard/${eventId}/sponsors?error=${encodeURIComponent((e as Error).message.slice(0, 120))}`,
-    );
+    // A2-I18: a fixed key in the address; the raw message goes to the log only.
+    const key = sponsorErrorKey(e);
+    if (key === 'save_failed') logQueryError('SponsorsAction', e, { eventId }, 'graceful_degrade');
+    redirect(`/dashboard/${eventId}/sponsors?error=${key}`);
   }
 }
 
@@ -361,8 +367,9 @@ export async function markResponse(formData: FormData): Promise<void> {
     );
   } catch (e) {
     if (e instanceof Error && e.message === 'NEXT_REDIRECT') throw e;
-    redirect(
-      `/dashboard/${eventId}/sponsors?error=${encodeURIComponent((e as Error).message.slice(0, 120))}`,
-    );
+    // A2-I18: a fixed key in the address; the raw message goes to the log only.
+    const key = sponsorErrorKey(e);
+    if (key === 'save_failed') logQueryError('SponsorsAction', e, { eventId }, 'graceful_degrade');
+    redirect(`/dashboard/${eventId}/sponsors?error=${key}`);
   }
 }

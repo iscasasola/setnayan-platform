@@ -18,6 +18,9 @@ import { publicEventPath } from '@/lib/public-event-url';
 import { shopPath } from '@/lib/shop-address';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/vendor-funnel';
+import { shopPageGate, type ShopPageGateRow } from '@/lib/own-shop-preview';
+import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { getGuestOwnShots } from '@/lib/guest-live-gallery';
@@ -32,7 +35,8 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = { title: 'Rate a supplier', robots: { index: false, follow: false } };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const BOOKED = ['contracted', 'deposit_paid', 'delivered', 'complete'];
+// The ONE "booked" (final check A1-135): never a page's own copy of the statuses.
+const BOOKED: readonly string[] = BOOKED_EVENT_VENDOR_STATUSES;
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ event?: string }> };
 
@@ -43,7 +47,7 @@ export default async function GuestReviewPage({ params, searchParams }: Props) {
 
   const { data: shopRow, error: shopErr } = await admin
     .from('vendor_profiles')
-    .select('vendor_profile_id, business_name')
+    .select('vendor_profile_id, business_name, public_visibility, verification_state, is_demo, self_published_at, find_locked_at, fraud_suspended_at, fraud_banned_at, fraud_tombstoned, papers_current, paused_at')
     .eq('business_slug', slug)
     .maybeSingle();
   if (shopErr) {
@@ -51,6 +55,11 @@ export default async function GuestReviewPage({ params, searchParams }: Props) {
     return <Shell><CouldNotLoad /></Shell>;
   }
   if (!shopRow) notFound();
+  // 🔒 THE SHOP PAGE'S OWN RULE (final check A1-133): a shop a stranger cannot open gets the same 404 here, so this page
+  // never confirms it exists or prints its real name (and its back link would only lead to that 404).
+  if (shopPageGate(shopRow as ShopPageGateRow, { isTeam: false, adminDemoMode: false, bookingsOpen: await areBookingsOpen() }).open !== 'public') {
+    notFound();
+  }
   const shop = shopRow as { vendor_profile_id: string; business_name: string | null };
   const shopName = shop.business_name?.trim() || 'This supplier';
   const shopHref = `${shopPath(slug)}#reviews`;
@@ -85,7 +94,10 @@ export default async function GuestReviewPage({ params, searchParams }: Props) {
   const ev = evRes.data as { display_name: string | null; event_type: string | null; slug: string | null } | null;
   if (!ev) return <Shell><NotOnDoorList shopName={shopName} shopHref={shopHref} /></Shell>;
   const backHref = ev.slug ? `${publicEventPath(ev.slug)}` : shopHref;
-  const eventTitle = `${ev.display_name?.trim() || 'the'}’s ${formatEventTypeLabel(ev.event_type).toLowerCase()}`;
+  // A missing name reads "this wedding", never "the's wedding" (final check A1-134).
+  const hostName = ev.display_name?.trim();
+  const eventKind = formatEventTypeLabel(ev.event_type).toLowerCase();
+  const eventTitle = hostName ? `${hostName}’s ${eventKind}` : `this ${eventKind}`;
 
   const checkedInAt = (checkinRes.data as { checked_in_at?: string } | null)?.checked_in_at ?? null;
   // 🚪 THIS door is the door check-in. The scanner's "received" door (#7291) asks in its own pop-up and calls the same

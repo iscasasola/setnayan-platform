@@ -9,6 +9,8 @@ import { TemplateNums, TemplateSection } from '@/app/_components/template-rows';
 import { InsightsParamPick } from '@/app/admin/app-performance/_components/insights-param-pick';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
+import { formatCount } from '@/lib/format-number';
+import { manilaMonthLabel, manilaMonthRange, manilaMonthsSince } from '@/lib/receipt-months';
 export const metadata = { title: 'Receipts · Admin' };
 
 /** One number, read by the query AND disclosed by the table. Never two hand-typed copies. */
@@ -32,20 +34,6 @@ type Props = {
   searchParams: Promise<{ month?: string }>;
 };
 
-function monthBucket(iso: string): string {
-  const d = new Date(iso);
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-}
-
-function monthLabel(bucket: string): string {
-  const [year, month] = bucket.split('-');
-  if (!year || !month) return bucket;
-  return new Date(Number(year), Number(month) - 1, 1).toLocaleString(undefined, { timeZone: 'Asia/Manila',
-    year: 'numeric',
-    month: 'long',
-  });
-}
-
 export default async function AdminReceiptsPage({ searchParams }: Props) {
   await requireAdmin();
   const search = await searchParams;
@@ -59,30 +47,34 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
     )
     .order('issued_at', { ascending: false })
     .limit(ROW_LIMIT);
-  if (filterMonth) {
-    const [year, month] = filterMonth.split('-');
-    if (year && month) {
-      const start = new Date(Number(year), Number(month) - 1, 1).toISOString();
-      const end = new Date(Number(year), Number(month), 1).toISOString();
-      query = query.gte('issued_at', start).lt('issued_at', end);
-    }
-  }
+  // A8·A-7: the MANILA month (BIR reconciliation runs on it), never the
+  // server clock's UTC month.
+  const range = filterMonth ? manilaMonthRange(filterMonth) : null;
+  if (range) query = query.gte('issued_at', range.start).lt('issued_at', range.end);
+  // A8·A-22: the picker is built from the OLDEST receipt, not the rows on
+  // screen (those are month-filtered and capped), so one pick never hides the
+  // other months. Same batch as the list.
+  const oldestQuery = admin.from('receipts').select('issued_at').order('issued_at', { ascending: true }).limit(1);
   // This read had NO error branch at all. Supabase resolves with `{ error }`, so
   // a rejected query arrived as `data: null`, became `[]`, and the page said
   // "No receipts in this view." — on the surface an accountant reconciles BIR
   // filings against. `null` now travels to the render as NOT MEASURED.
-  const { data, error } = await query;
+  const [{ data, error }, oldestRes] = await Promise.all([query, oldestQuery]);
+  if (oldestRes.error) logQueryError('AdminReceiptsPage.oldest', oldestRes.error, {}, 'graceful_degrade');
   if (error) {
     logQueryError('AdminReceiptsPage', error, { filterMonth }, 'graceful_degrade');
   }
   const receipts = data as ReceiptListRow[] | null;
 
-  // Build a list of available months for the filter dropdown.
-  const allMonths = new Set<string>();
-  for (const r of receipts ?? []) {
-    allMonths.add(monthBucket(r.issued_at));
-  }
-  const monthOptions = Array.from(allMonths).sort().reverse();
+  const oldest = (oldestRes.data?.[0] as { issued_at?: string } | undefined)?.issued_at ?? null;
+  const monthOptions = oldest ? manilaMonthsSince(oldest) : [];
+  // The picked month stays offered even when the oldest-receipt read failed.
+  if (filterMonth && manilaMonthRange(filterMonth) && !monthOptions.includes(filterMonth)) monthOptions.unshift(filterMonth);
+
+  // A8·A-8: the list is capped at ROW_LIMIT, so when it is full the tiles sum
+  // the newest ROW_LIMIT only and say so — never a partial sum read as whole.
+  const capped = receipts !== null && receipts.length >= ROW_LIMIT;
+  const scope = capped ? ` · newest ${formatCount(ROW_LIMIT)}` : '';
 
   // Totals across the visible filter — null when nothing was measured, so the
   // tiles show an em-dash rather than a confident ₱0.
@@ -127,7 +119,7 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
           value={filterMonth ?? ''}
           options={[
             { key: '', label: 'All months' },
-            ...monthOptions.map((m) => ({ key: m, label: monthLabel(m) })),
+            ...monthOptions.map((m) => ({ key: m, label: manilaMonthLabel(m) })),
           ]}
         />
 
@@ -135,10 +127,10 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
             total. A zero here would read as "no money came in". */}
         <TemplateNums
           items={[
-            { label: 'Receipts', value: receipts ? String(receipts.length) : '—', tone: receipts ? undefined : 'warn' },
-            { label: 'Pre-VAT sales', value: totals ? formatPhpFromString(totals.preVat) : '—', tone: totals ? undefined : 'warn' },
-            { label: 'VAT collected', value: totals ? formatPhpFromString(totals.vat) : '—', tone: totals ? undefined : 'warn' },
-            { label: 'Gross', value: totals ? formatPhpFromString(totals.gross) : '—', tone: totals ? undefined : 'warn' },
+            { label: `Receipts${scope}`, value: receipts ? formatCount(receipts.length) : '—', tone: receipts ? undefined : 'warn' },
+            { label: `Pre-VAT sales${scope}`, value: totals ? formatPhpFromString(totals.preVat) : '—', tone: totals ? undefined : 'warn' },
+            { label: `VAT collected${scope}`, value: totals ? formatPhpFromString(totals.vat) : '—', tone: totals ? undefined : 'warn' },
+            { label: `Gross${scope}`, value: totals ? formatPhpFromString(totals.gross) : '—', tone: totals ? undefined : 'warn' },
           ]}
         />
       </TemplateSection>

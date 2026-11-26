@@ -93,7 +93,8 @@ export async function PapicLadderSurface(_props: Props) {
   if (learningRes.error) logQueryError('AdminPapicLadder (learning state)', learningRes.error);
   if (vocabRes.error) logQueryError('AdminPapicLadder (type clamps)', vocabRes.error);
 
-  const unreadable = Boolean(tierRes.error || catRes.error);
+  // A8·B-1: an unread sign-up discount is not 0% — the ladder (and its save) stays hidden like a half-read ladder.
+  const unreadable = Boolean(tierRes.error || catRes.error || settingsRes.error);
   const sizingUnread = Boolean(vocabRes.error || learningRes.error);
 
   // ⚠ The rung SET comes from the tier table + the catalog, never from a list in
@@ -250,11 +251,16 @@ export async function PapicLadderSurface(_props: Props) {
         />
       )}
 
-      <PapicRestEditor
-        freeCreditsPerEvent={freeCreditsPerEvent}
-        products={otherPapic}
-        savePriceAction={savePapicProductPrice}
-      />
+      {/* A8·B-8: a refused catalogue read is said here too — the other Papic prices never just vanish. */}
+      {catRes.error ? (
+        <ReadFailed what="the other Papic prices" />
+      ) : (
+        <PapicRestEditor
+          freeCreditsPerEvent={freeCreditsPerEvent}
+          products={otherPapic}
+          savePriceAction={savePapicProductPrice}
+        />
+      )}
     </div>
   );
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { after } from 'next/server';
 import { redirect } from 'next/navigation';
+import { logQueryError } from '@/lib/supabase/error-detect';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPendingCommunityInvite } from '@/lib/communities';
@@ -63,9 +64,9 @@ export async function acceptCommunityInvite(formData: FormData) {
     { onConflict: 'community_id,user_id', ignoreDuplicates: true },
   );
   if (error) {
-    redirect(
-      `/samahan/join/${token}?error=${encodeURIComponent(error.message.slice(0, 80))}`,
-    );
+    // A4-14 (SW-RAWDB): a fixed key; the database's words go to the log only.
+    logQueryError('samahanJoin.upsert', error, {}, 'graceful_degrade');
+    redirect(`/samahan/join/${token}?error=join_failed`);
   }
 
   /*

@@ -39,10 +39,13 @@ export function SouvenirDesk({
   eventId,
   guests,
   initialClaims,
+  expected,
 }: {
   eventId: string;
   guests: DeskGuest[];
   initialClaims: DeskClaim[];
+  /** Guests expected at the door (attending), from `headcountForBasis(computeGuestStats(…), 'attending')`. */
+  expected: number;
 }) {
   const [claims, setClaims] = useState<Map<string, string>>(
     () => new Map(initialClaims.map((c) => [c.guestId, c.claimedAt])),
@@ -230,7 +233,8 @@ export function SouvenirDesk({
   );
 
   const received = claims.size;
-  const total = guests.length;
+  // A2-E1: the expected-at-the-door count from the page's one headcount reader, never every row on the list.
+  const total = expected;
   const selected = selectedId ? guestById.get(selectedId) ?? null : null;
   const selectedClaimedAt = selectedId ? claims.get(selectedId) ?? null : null;
 

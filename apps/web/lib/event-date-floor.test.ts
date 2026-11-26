@@ -151,9 +151,16 @@ test('every door that sets an event’s date asks the rule', () => {
 test('a NEW file that writes an event date is a door or says why it is not', () => {
   const writers = dateWriters();
   // Anchor: the scan must find the doors it knows — a scan that finds nothing would pass everything.
-  for (const known of ['app/dashboard/[eventId]/actions.ts', 'app/dashboard/[eventId]/date-selection/actions.ts', 'app/onboarding/wedding/actions.ts']) {
+  // (date-selection/actions.ts left this list on 25 Nov 2026, final check A2-H12: its lockEventDate now hands the date to
+  //  updateEventDate in app/dashboard/[eventId]/actions.ts — held below — instead of writing event_date itself.)
+  for (const known of ['app/dashboard/[eventId]/actions.ts', 'app/onboarding/wedding/actions.ts']) {
     assert.ok(writers.includes(known), `the scan no longer finds ${known}`);
   }
+  assert.match(
+    fs.readFileSync(path.join(ROOT, 'app/dashboard/[eventId]/date-selection/actions.ts'), 'utf8'),
+    /const applied = await updateEventDate\(dateFd\);/,
+    'Pick your date locks through the date’s one writer',
+  );
   const unexplained = writers.filter((f) => !DOORS.includes(f) && !(f in NOT_AN_EVENT_DATE_WRITE));
   assert.deepEqual(
     unexplained,

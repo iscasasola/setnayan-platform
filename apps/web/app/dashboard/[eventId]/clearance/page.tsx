@@ -8,11 +8,15 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { getCurrentUser } from '@/lib/auth';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { closeOutTheDay } from './actions';
+import { ConfirmForm } from '@/app/_components/confirm-form';
+import { eventClockOf } from '@/lib/event-clock.server';
+import { closeOutOpen } from '@/lib/close-out-open';
+import { liveStudioControllerHref } from '@/lib/live-studio-control';
 import { eventNoun } from '@/lib/event-noun';
 
 export const metadata = { title: 'Close out the day' };
 
-type Props = { params: Promise<{ eventId: string }> };
+type Props = { params: Promise<{ eventId: string }>; searchParams: Promise<{ error?: string }> };
 
 /**
  * Wrap-up / clearance (Event Lifecycle Menu PR3) — the event-level gate that
@@ -21,8 +25,9 @@ type Props = { params: Promise<{ eventId: string }> };
  * each down) and a single "Close out the day" action that stamps
  * events.cleared_at. Couple OR delegated coordinator.
  */
-export default async function ClearancePage({ params }: Props) {
+export default async function ClearancePage({ params, searchParams }: Props) {
   const { eventId } = await params;
+  const { error: errorKey } = await searchParams;
   const user = await getCurrentUser();
   if (!user) redirect('/login');
   const supabase = await createClient();
@@ -45,10 +50,10 @@ export default async function ClearancePage({ params }: Props) {
     redirect(`/dashboard/${eventId}`);
   }
 
-  const { data: event, error: eventError } = await eventRowOnce(supabase, eventId, 'cleared_at, event_type', () =>
+  const { data: event, error: eventError } = await eventRowOnce(supabase, eventId, 'event_type, event_date, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, cleared_at, venue_latitude, venue_longitude', () =>
       supabase
     .from('events')
-    .select('cleared_at, event_type')
+    .select('event_type, event_date, event_end_date, launch_mode, manual_phase, std_invitation_launch_date, cleared_at, venue_latitude, venue_longitude')
     .eq('event_id', eventId)
     .maybeSingle());
   if (eventError) {
@@ -70,6 +75,7 @@ export default async function ClearancePage({ params }: Props) {
   const cleared = Boolean((event as { cleared_at?: string | null } | null)?.cleared_at);
 
   const base = `/dashboard/${eventId}`;
+  const open = closeOutOpen(eventClockOf(event));
 
   if (cleared) {
     return (
@@ -94,7 +100,8 @@ export default async function ClearancePage({ params }: Props) {
   }
 
   const steps = [
-    { label: 'Stop the livestream', href: `${base}/launch`, Icon: Sparkles, note: 'End any live broadcast that is still running.' },
+    // A2-G18: the live controller, where the broadcast is ended — not the Event Hub Maker one hop away.
+    { label: 'Stop the livestream', href: liveStudioControllerHref(eventId), Icon: Sparkles, note: 'End any live broadcast that is still running.' },
     { label: 'Freeze Memory lane', href: `${base}/live`, Icon: MonitorPlay, note: 'Lock Memory lane so it becomes the recap.' },
     { label: 'Close check-in', href: `${base}/guests/checkin`, Icon: QrCode, note: 'Last arrivals are in — close the desk.' },
   ];
@@ -132,15 +139,36 @@ export default async function ClearancePage({ params }: Props) {
         })}
       </ul>
 
-      <form action={closeOutTheDay.bind(null, eventId)} className="mt-6">
-        <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Closing out…">
-          Close out the day
-        </SubmitButton>
-        <p className="mt-2 text-xs text-ink/70">
-          You can do this once the event is over. It can&rsquo;t be undone from here, so wrap
-          up the live services first.
+      {errorKey ? (
+        <p role="alert" className="mt-6 text-sm text-terracotta-700" data-close-out-error={errorKey}>
+          {errorKey === 'too_early'
+            ? 'Close out opens on the day itself — nothing was changed.'
+            : 'Couldn’t close out the day — nothing was changed. Try again.'}
         </p>
-      </form>
+      ) : null}
+
+      {/* A2-P8: the irreversible button is offered only once The Day has opened at the venue (`closeOutOpen`). */}
+      {open ? (
+        // A2-G19: irreversible, so one confirm asks first (confirm only for the irreversible).
+        <ConfirmForm
+          action={closeOutTheDay.bind(null, eventId)}
+          className="mt-6"
+          title="Close out the day?"
+          message="Your dashboard moves to the summary of the day. This can’t be undone from here."
+          confirmLabel="Close out the day"
+        >
+          <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Closing out…">
+            Close out the day
+          </SubmitButton>
+          <p className="mt-2 text-xs text-ink/70">
+            It can&rsquo;t be undone from here, so wrap up the live services first.
+          </p>
+        </ConfirmForm>
+      ) : (
+        <p className="mt-6 text-sm text-ink/70" data-close-out-not-yet="">
+          Close out opens on the day itself. Until then there is nothing to wrap up.
+        </p>
+      )}
     </div>
   );
 }

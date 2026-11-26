@@ -56,3 +56,16 @@ export function inHelp(path: string, place: HelpPlace, extra: Record<string, str
   ).toString();
   return `${path}${params ? `?${params}` : ''}${hash ? `#${hash}` : ''}`;
 }
+
+/**
+ * 🚪 A SIGNED-OUT LINK TO AN ACCOUNT'S GUIDE OR TOPIC OPENS A SIGN-IN DOOR, NOT A 404 (final check A1-081, 25 Nov).
+ *
+ * Guides and most topics belong to a signed-in help (`coverage: ['user']` / `'supplier'`), so a link someone shared
+ * (`/help/guides/guests`) was a dead 404 for the person it was shared with. When the reader is signed out and the item
+ * exists in an account's help, the page sends them to sign in and brings them back to the same address. A signed-in
+ * reader of ANOTHER account's help still gets the 404 (never another account's answers).
+ */
+export function helpSignInDoor(path: string, search: { for?: string }): string {
+  const back = search.for === 'shop' ? `${path}?for=shop` : path;
+  return `/login?next=${encodeURIComponent(back)}`;
+}

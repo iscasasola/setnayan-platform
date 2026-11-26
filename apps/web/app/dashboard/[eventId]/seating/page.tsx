@@ -25,9 +25,9 @@ import {
   effectiveCapacity,
   fetchAssignments,
   fetchBooths,
-  fetchFloorPlan,
+  fetchFloorPlanMeasured,
   fetchSeatingConstraints,
-  fetchSigns,
+  fetchSignsMeasured,
   fetchTables,
   groupColorFor,
 } from '@/lib/seating';
@@ -47,7 +47,7 @@ import { loadRoleNames } from '@/lib/role-names.server';
 import { roleSeatingLabels } from '@/lib/role-seating-labels';
 import { setSeatingAutoplace, setSeatingGroupAdjacency } from './actions';
 import { PLAN3D_BOOTH_ADS_ENABLED } from '@/lib/ghost-booths';
-import SeatingLabPage from './lab/page';
+import SeatingLabPage from './lab/_components/seating-room';
 import { SeatPlanInGuests } from './_components/seat-plan-in-guests';
 
 export const metadata = { title: 'Seating chart' };
@@ -108,16 +108,24 @@ export default async function SeatingPage({ params, searchParams }: Props) {
     return <NotSharedWithYou title="Seating chart" thing="seat plan" />;
   }
 
-  const [tables, assignments, guestsRead, groupsRaw, memberships, floorPlan, booths, signs, eventRow, constraints, roleSet, bookedVendors, venueRoomSize, roleNames, avatarCount] =
+  const [tables, assignments, guestsRead, groupsRaw, memberships, floorPlanRead, booths, signsRead, eventRow, constraints, roleSet, bookedVendors, venueRoomSize, roleNames, avatarCount] =
     await Promise.all([
-      fetchTables(supabase, eventId),
-      fetchAssignments(supabase, eventId),
+      // A2-D1: these two THROW on a refused read, and inside Guests › Seats no error boundary sits between them and the
+      // whole Guests page. Caught here: a refusal is said in the Seats view, the List stays.
+      fetchTables(supabase, eventId).catch((e: unknown) => {
+        logQueryError('SeatingPage.tables', e, { event_id: eventId }, 'graceful_degrade');
+        return null;
+      }),
+      fetchAssignments(supabase, eventId).catch((e: unknown) => {
+        logQueryError('SeatingPage.assignments', e, { event_id: eventId }, 'graceful_degrade');
+        return null;
+      }),
       fetchGuestsByEventMeasured(supabase, eventId),
       fetchGuestGroupsByEvent(supabase, eventId),
       fetchGroupMembershipsByEvent(supabase, eventId),
-      fetchFloorPlan(supabase, eventId),
+      fetchFloorPlanMeasured(supabase, eventId),
       fetchBooths(supabase, eventId, { brandedReader: createAdminClient() }),
-      fetchSigns(supabase, eventId),
+      fetchSignsMeasured(supabase, eventId),
       supabase
         .from('events')
         .select(`event_date_precision, ceremony_type, secondary_ceremony_type, gender_separation, seating_autoplace_enabled, seating_group_adjacency, slug, timezone, ${EVENT_CLOCK_COLUMNS}`)
@@ -145,6 +153,13 @@ export default async function SeatingPage({ params, searchParams }: Props) {
         .is(REPRESENTED_BY, null)
         .not('avatar_config', 'is', null),
     ]);
+  if (tables === null || assignments === null) {
+    return (
+      <section className="mx-auto w-full max-w-3xl px-4 py-6">
+        <ReadRefusedNotice what="your seat plan" />
+      </section>
+    );
+  }
   // 🔌 A refused guest read is never an empty room to seat (reads-are-honest, 2026-11-02 audit #14).
   if (!guestsRead.measured) {
     return (
@@ -153,6 +168,17 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       </section>
     );
   }
+  // 🔌 A7-10 (final check 25 Nov): a refused floor-plan or signs read is not the couple's room — never the default
+  // room drawn as theirs, never the "Show guests their seats early" switch drawn Off because the read was refused.
+  if (!floorPlanRead.measured || !signsRead.measured) {
+    return (
+      <section className="mx-auto w-full max-w-3xl px-4 py-6">
+        <ReadRefusedNotice what="your floor plan" />
+      </section>
+    );
+  }
+  const floorPlan = floorPlanRead.plan;
+  const signs = signsRead.rows;
   /* 🪑 SEATS FOLLOW THE INVITATION (owner 2026-11-02): a guest taken off every seated chapter ("after party only") is
      not offered a seat. That read refused → everyone is offered, as before (the arranging actions stop instead). */
   const noSeat = await readNoSeatGuestIds(supabase, eventId);

@@ -22,6 +22,7 @@ import {
   type TimelineShopRow,
 } from '@/lib/dependent-timeline';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 
 export const metadata = {
   title: 'Loved one',
@@ -82,6 +83,13 @@ export default async function DependentPage({
   // draw either, so it is logged and 404s with the reason on the record.
   if (depError) {
     logQueryError('DependentPage.dependent', depError, { dependentId }, 'graceful_degrade');
+    // A2-C12: a refused read is "couldn't read — try again", never a 404 that says the record is gone.
+    return (
+      <div className="mx-auto w-full max-w-2xl px-4 py-6">
+        <PageMasthead title="Loved one" />
+        <ReadRefusedNotice what="this loved one’s page" />
+      </div>
+    );
   }
   if (!depRow) notFound();
 

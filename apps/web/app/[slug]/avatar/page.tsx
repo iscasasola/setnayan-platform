@@ -2,6 +2,7 @@ import { notFound, redirect } from 'next/navigation';
 import Link from 'next/link';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readGuestSession } from '@/lib/guest-session';
+import { guestRead } from '@/lib/guest-read';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
 import { guestAvatarsEnabled } from '@/lib/venue-avatars';
 import { AvatarMakerLoader } from './_components/avatar-maker-loader';
@@ -77,13 +78,16 @@ export default async function AvatarMakerPage({
     redirect(`/${slug}`);
   }
 
-  const { data: guest } = await admin
-    .from('guests')
-    .select('guest_id, avatar_config, display_name, first_name')
-    .eq('event_id', eventId)
-    .eq('guest_id', session.guest_id)
-    .is('deleted_at', null)
-    .maybeSingle();
+  // 🔌 A4-28: a failed read is not "no such guest" — it throws (the guest boundary), as the event read above does.
+  const guest = await guestRead('avatar (guest)', () =>
+    admin
+      .from('guests')
+      .select('guest_id, avatar_config, display_name, first_name')
+      .eq('event_id', eventId)
+      .eq('guest_id', session.guest_id)
+      .is('deleted_at', null)
+      .maybeSingle(),
+  );
 
   // The session named a guest this event does not have (a deleted row, a stale
   // cookie). Same destination as a missing session — the event's own page.

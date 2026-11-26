@@ -1,4 +1,5 @@
 import type { RoomLink } from '../_lib/room-links';
+import { SITE_URL } from '@/lib/feature-pages/seo';
 import { RoomFooter } from '../_components/room-footer';
 import { loadRoomLinks } from '../_lib/room-links.server';
 import { partDoorHidden } from '../_lib/part-door.server';
@@ -280,7 +281,7 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
         .sort((a, b) => Number(b.you) - Number(a.you));
     }
 
-    const [{ data: checkin }, qrSvg] = await Promise.all([
+    const [{ data: checkin, error: checkinErr }, qrSvg] = await Promise.all([
       admin
         .from('guest_checkins')
         .select('checked_in_at')
@@ -288,7 +289,7 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
         .eq('guest_id', guestId)
         .maybeSingle(),
       renderInvitationQrSvg({
-        appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
+        appUrl: SITE_URL,
         slug: event.slug ?? slug,
         qrToken: guestToken,
       }),
@@ -312,7 +313,8 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
       partyLine: companions.length > 0 ? `party of ${companions.length + 1} · ${companionWords.join(', ')}` : null,
       qrSvg,
       seal: resolveMonogram(event).text,
-      checkedInAt: checkedInClock(checkedIn, venueTz),
+      checkedInAt: checkinErr ? null : checkedInClock(checkedIn, venueTz),
+      checkInUnread: Boolean(checkinErr),
     };
 
     if (dayOf) {

@@ -191,12 +191,12 @@ test('the 30 decided on 2026-08-02 carry the behaviour they were given', async (
   // Named individually, like the 17 above, so a regression reads as "THIS one
   // reopened" rather than "the count changed". The split is the interesting part:
   // an ACTOR stamp survives its author (SET NULL), a row whose SUBJECT is the
-  // user does not (CASCADE). concierge_abuse_flags carries BOTH, deliberately.
-  // (event_delegates was the second; it was dropped 2026-09-18, S37 —
-  // superseded by event_moderators, no writer ever shipped.)
+  // user does not (CASCADE). (concierge_abuse_flags carried BOTH; it was
+  // dropped 2026-11-26 with its retired admin desk, 20271363906595.
+  // event_delegates was dropped 2026-09-18, S37 — superseded by
+  // event_moderators, no writer ever shipped.)
   const expected: Record<string, 'n' | 'c'> = {
     // ── actor / authorship stamp → SET NULL ──────────────────────────────
-    'concierge_abuse_flags.reviewed_by': 'n',
     'concierge_brain_chunks.last_verified_by_user_id': 'n',
     'concierge_plan_templates.admin_edited_by_user_id': 'n',
     'concierge_response_cache.admin_edited_by_user_id': 'n',
@@ -218,7 +218,6 @@ test('the 30 decided on 2026-08-02 carry the behaviour they were given', async (
     'users.concierge_banned_by': 'n',
     'vendor_contracts.uploaded_by_user_id': 'n',
     // ── the user is the row's SUBJECT → CASCADE ──────────────────────────
-    'concierge_abuse_flags.flagged_user_id': 'c',
     'discount_code_redemptions.couple_user_id': 'c',
     // 'event_delegates.delegate_user_id': 'c' — REMOVED (S37, migration
     // 20271234083820): the table is dropped, nothing left to CASCADE.
@@ -367,27 +366,15 @@ test('END-TO-END · a user with activity can actually be deleted', async () => {
      VALUES ($1, 'FK_SWEEP', $2) RETURNING job_id`,
     [eventId, leaver],
   );
-  // Same table, both verdicts: the reviewer is a stamp…
-  const { rows: fl1 } = await db.query<{ flag_id: string }>(
-    `INSERT INTO public.concierge_abuse_flags
-       (flagged_user_id, matched_user_ids, similarity_score, signals, reviewed_by)
-     VALUES ($1, ARRAY[$2::uuid], 0.91, '{}'::jsonb, $2) RETURNING flag_id`,
-    [other, leaver],
-  );
   // Self-referential: a ban must not lift because the admin who issued it left.
   await db.query(`UPDATE public.users SET concierge_banned_by = $1 WHERE user_id = $2`, [
     leaver,
     other,
   ]);
 
-  // ── SUBJECT rows: must disappear with the user ────────────────────────────
-  const { rows: fl2 } = await db.query<{ flag_id: string }>(
-    `INSERT INTO public.concierge_abuse_flags
-       (flagged_user_id, matched_user_ids, similarity_score, signals, reviewed_by)
-     VALUES ($1, ARRAY[$2::uuid], 0.77, '{}'::jsonb, $2) RETURNING flag_id`,
-    [leaver, other],
-  );
-  // event_delegates insert REMOVED (S37, migration 20271234083820) and
+  // ── SUBJECT rows ──────────────────────────────────────────────────────────
+  // concierge_abuse_flags insert REMOVED (migration 20271363906595, the table
+  // is dropped); event_delegates insert REMOVED (S37, migration 20271234083820) and
   // founder_time_log insert REMOVED (S40, migration 20271233873951): both
   // tables are dropped -- nothing left to seed or assert against.
 
@@ -418,7 +405,6 @@ test('END-TO-END · a user with activity can actually be deleted', async () => {
     ['discount_code_eligible_users', 'added_by_admin_id', 'discount_code_id', codeId],
     ['event_playlist_picks', 'created_by_user_id', 'pick_id', pp[0]!.pick_id],
     ['render_jobs', 'requested_by', 'job_id', rj[0]!.job_id],
-    ['concierge_abuse_flags', 'reviewed_by', 'flag_id', fl1[0]!.flag_id],
   ];
   for (const [table, col, pk, value] of survived) {
     const row = await one(
@@ -439,16 +425,4 @@ test('END-TO-END · a user with activity can actually be deleted', async () => {
     null,
     'users.concierge_banned_by: the self-referential stamp was not nulled',
   );
-
-  // 3 · SUBJECT rows are gone.
-  const gone: Array<[string, string, string]> = [
-    ['concierge_abuse_flags', 'flag_id', fl2[0]!.flag_id],
-  ];
-  for (const [table, pk, value] of gone) {
-    assert.equal(
-      (await one(`SELECT count(*)::int AS n FROM public.${table} WHERE ${pk} = $1`, [value]))!.n,
-      0,
-      `${table}: a row whose SUBJECT is the deleted user outlived them`,
-    );
-  }
 });

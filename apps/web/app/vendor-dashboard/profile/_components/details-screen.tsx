@@ -11,6 +11,7 @@ import { asksVenueType } from '@/lib/vendor-venue-type';
 import { PublicLineCard } from '../../shop/_components/public-line-card';
 import { SuggestedCoverageCard } from '../../shop/_components/suggested-coverage-card';
 import { VisibilityCard } from '../../shop/_components/visibility-card';
+import { ReadFailedNote } from '../../_components/set-two/read-failed';
 import { RequestCorrectionCard } from '../../shop/_components/request-correction-card';
 import { CouldNotLoad } from '../../shop/_components/could-not-load';
 import { ShopSegments } from '../../shop/_components/shop-segments';
@@ -247,13 +248,18 @@ export function DetailsScreen({
                 asks={asks}
               />
               <PublicLineCard initialTagline={d.tagline} initialWebsite={d.website} fairWords={d.fairWords} />
-              <VisibilityCard
-                initialSameDayAvailable={d.sameDayAvailable}
-                initialSocialFeatureOptOut={d.socialFeatureOptOut}
-                isVerified={d.isVerified}
-                isPaidTier={d.tier != null && d.tier !== 'free'}
-                alreadyFeatured={d.socialAlreadyFeatured}
-              />
+              {d.visibilityMeasured ? (
+                <VisibilityCard
+                  initialSameDayAvailable={d.sameDayAvailable}
+                  initialSocialFeatureOptOut={d.socialFeatureOptOut}
+                  isVerified={d.isVerified}
+                  isPaidTier={d.tier != null && d.tier !== 'free'}
+                  alreadyFeatured={d.socialAlreadyFeatured}
+                />
+              ) : (
+                // 🪪 Refused, the card is not drawn with its switches OFF and a Save that would write OFF (A5-G5-05).
+                <ReadFailedNote mark="details-visibility">We couldn&rsquo;t load where else you show up right now.</ReadFailedNote>
+              )}
             </div>
           </Fold>
 

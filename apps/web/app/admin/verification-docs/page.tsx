@@ -1,3 +1,4 @@
+import { requireAdmin } from '@/lib/admin/require-admin';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -98,6 +99,9 @@ function first(v: string | string[] | undefined): string | undefined {
 }
 
 export default async function VerificationDocsPage({ searchParams }: Props) {
+  // 🔒 A8·L-1: the government-ID shelf is read with the service role, so the page asks for an admin itself
+  // (`lib/admin/require-admin.ts`: a layout is not a safe auth boundary).
+  await requireAdmin();
   const params = await searchParams;
   const errorKey = first(params.error);
   const deleted = first(params.deleted) === '1';

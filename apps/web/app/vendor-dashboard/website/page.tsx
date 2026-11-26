@@ -5,7 +5,7 @@ import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { vendorPaywallApplies } from '@/lib/vendor-feature-gate';
 import { micrositeCan } from '@/lib/vendor-microsite';
-import { tierCaps, asVendorTier, firstPlanWith, TIER_LABEL } from '@/lib/vendor-tier-caps';
+import { tierCaps, asVendorTier, firstPlanWith, FIRST_PAID_SIZE, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import { TemplateFail } from '@/app/_components/template-rows';
 import { DomainManager } from './_domain-manager';
 import { loadPageData } from './page-data';
@@ -51,9 +51,13 @@ export default async function YourPage({
   // while VENDOR_TIER_FEATURE_GATE is off; never in the App Store shell (lib/store-shell.ts). Your own web address
   // (owner 2026-10-15; Solo+ since 2026-11-04) reads `customWebsiteName`; the Pro page parts read `premiumPage` — two
   // caps since the address moved down to Solo. The domain card reads the address one, so it never also says "free".
-  const ownAddressAsks = vendorPaywallApplies(tierCaps(asVendorTier(d.tier)).customWebsiteName) && !d.storeShell;
-  const proPartsAsk = vendorPaywallApplies(tierCaps(asVendorTier(d.tier)).premiumPage) && !d.storeShell;
+  // 🪪 A refused plan read draws NO ask (final check A5-G5-03): a paying shop is never asked for the plan it has.
+  const ownAddressAsks = !d.planUnread && vendorPaywallApplies(tierCaps(asVendorTier(d.tier)).customWebsiteName) && !d.storeShell;
+  const proPartsAsk = !d.planUnread && vendorPaywallApplies(tierCaps(asVendorTier(d.tier)).premiumPage) && !d.storeShell;
   const addressPlan = TIER_LABEL[firstPlanWith((c) => c.customWebsiteName) ?? 'pro'];
+  // The plans the ◆ parts name, from the plan table — never a typed "Pro" / "Plus" (final check A5-G5-10).
+  const proPartsPlan = TIER_LABEL[firstPlanWith((c) => c.premiumPage) ?? 'pro'];
+  const personalizePlan = TIER_LABEL[FIRST_PAID_SIZE];
   const whereLine = d.city
     ? d.outerRadiusKm
       ? `${d.city} · travels up to ${d.outerRadiusKm} km`
@@ -64,6 +68,11 @@ export default async function YourPage({
     <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-page="">
       <ShopSegments on="page" figures={pageFigures({ views30: d.views30, reviewCount: d.reviewCount, rating: d.rating })} gearBody={shopGearBody(sp)} />
       <h1 className="sr-only">Your page</h1>
+      {d.planUnread ? (
+        <TemplateFail data="page-plan">
+          We couldn&rsquo;t load your plan right now — not the same as Free. Nothing here asks for a plan until it loads.
+        </TemplateFail>
+      ) : null}
       <PageParts
         d={{
           vendorId: d.vendorId,
@@ -89,10 +98,12 @@ export default async function YourPage({
           stories: d.stories,
           // 💳 ◆ is information, asked through the ONE flag-aware question (lib/vendor-feature-gate.ts): false for
           // every plan while VENDOR_TIER_FEATURE_GATE is off; never in the App Store shell (lib/store-shell.ts).
-          personalizeAsks: vendorPaywallApplies(micrositeCan(d.tier).canPersonalize) && !d.storeShell,
+          personalizeAsks: !d.planUnread && vendorPaywallApplies(micrositeCan(d.tier).canPersonalize) && !d.storeShell,
           proAsks: proPartsAsk,
           addressAsks: ownAddressAsks,
           addressPlan,
+          proPartsPlan,
+          personalizePlan,
           storeShell: d.storeShell,
           plans: d.plans,
           badges: d.badges,

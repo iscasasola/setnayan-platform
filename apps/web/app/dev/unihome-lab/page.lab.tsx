@@ -56,6 +56,17 @@ function card(over: Partial<UnihomeEventCard> & Pick<UnihomeEventCard, 'eventId'
     hubUrl: '#hub',
     scene: { eventType: 'wedding', photoSrc: photo('wedding'), ownPhotoSrc: null, cover: null },
     archived: false,
+    // 📋 The card's tap menu (brief Add 40) — the organiser's full set; a helper's has no Story and no Delete.
+    menu:
+      over.stance === 'invited'
+        ? null
+        : {
+            hubHref: '#hub',
+            chatHref: '#chat',
+            memoriesHref: '#memories',
+            story: over.stance === 'organiser' ? { href: '#story-publish', open: false } : null,
+            canDelete: over.stance === 'organiser',
+          },
     ...over,
   };
 }
@@ -156,7 +167,27 @@ function propsFor(who: string, fail: boolean): Omit<UnihomeViewProps, 'incoming'
     events: {
       cards: fail
         ? []
-        : [card({ eventId: 'e1', stance: 'organiser', title: 'Ana & Miguel', countdown: '110 days to go', progress: '12 of 40 done' })],
+        : [
+            card({ eventId: 'e1', stance: 'organiser', title: 'Ana & Miguel', countdown: '110 days to go', progress: '12 of 40 done' }),
+            // 📋 Add 40: after the day, Publish Story is ready; a helper's menu has no Story, no Delete, and no Memories
+            // without Photos; an event with no address draws its hub row waiting.
+            card({
+              eventId: 'e3',
+              stance: 'organiser',
+              title: 'Lola Nena at 80',
+              kind: 'BIRTHDAY',
+              when: 'Sat 14 Nov 2026 · Quezon City',
+              scene: { eventType: 'birthday', photoSrc: photo('birthday'), ownPhotoSrc: null, cover: null },
+              menu: { hubHref: '#hub', chatHref: '#chat', memoriesHref: '#memories', story: { href: '#story-publish', open: true }, canDelete: true },
+            }),
+            card({
+              eventId: 'e4',
+              stance: 'helper',
+              title: 'Rico & Tess',
+              when: 'Sat 22 May 2027 · Iloilo',
+              menu: { hubHref: null, chatHref: '#chat', memoriesHref: null, story: null, canDelete: false },
+            }),
+          ],
       invited: fail
         ? []
         : [card({ eventId: 'e2', stance: 'invited', title: 'Jun & Bea’s Wedding', when: 'Sat 6 Feb 2027 · Batangas', scene: { eventType: 'wedding', photoSrc: photo('date'), ownPhotoSrc: null, cover: null } })],

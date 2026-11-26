@@ -11,7 +11,25 @@ import {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { useHydrated } from '@/lib/use-hydrated';
-import { Archive, ArrowLeft, CalendarPlus, ChevronRight, Eye, MessageCircle, MoreVertical, Send, Trash2, X } from 'lucide-react';
+import Link from 'next/link';
+import {
+  Archive,
+  ArrowLeft,
+  BookOpen,
+  CalendarPlus,
+  ChevronRight,
+  Eye,
+  HeartHandshake,
+  Images,
+  LayoutDashboard,
+  Lock,
+  MessageCircle,
+  MoreHorizontal,
+  MoreVertical,
+  Send,
+  Trash2,
+  X,
+} from 'lucide-react';
 import { ActionButton, EQUAL_ROW_CLASS } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 
@@ -35,6 +53,12 @@ import { useOneOpen } from '@/lib/one-open';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { openEventHub } from '@/lib/open-external';
 import { menuShiftIntoView } from '@/lib/menu-place';
+import { Sheet } from '@/app/_components/sheet';
+import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { useIsDesktop } from '@/lib/use-responsive';
+import { HOLD_MS } from '@/lib/motion-table';
+import type { UnihomeCardMenu } from '@/lib/unihome';
+import ecm from './event-card-menu.module.css';
 
 /**
  * event-card-menu.tsx — the per-card "⋯" on My Events.
@@ -102,6 +126,7 @@ export function EventCardMenu({
   align = 'right',
   hubUrl = null,
   trigger = 'menu',
+  card,
 }: {
   eventId: string;
   eventName: string;
@@ -145,7 +170,28 @@ export function EventCardMenu({
    *     the name typed. Add to calendar moved into the event dashboard. No new delete flow — the same sheet, actions
    *     and guards.
    */
-  trigger?: 'menu' | 'remove';
+  trigger?: 'menu' | 'remove' | 'card';
+  /**
+   * 📋 `trigger="card"` — HOME'S EVENT CARD IS THE MENU'S BUTTON (owner-approved 25 Nov 2026, final-check brief Add 40;
+   * drawing `build-sessions/final-check/drawings/event-card-menu.html`). Tapping the card (or its ⋯, a long-press or a
+   * right-click) opens one menu: Open Dashboard · Open your Event Hub · Open Chat · Open your Memories · Publish Story
+   * · Delete Event. Phone: the house `Sheet`. Desktop: a small menu anchored to the ⋯, over the one scrim. It replaces
+   * the Dashboard · Event Hub · trash buttons under the card. Delete opens INSIDE the same sheet or menu and is the
+   * shipped flow, word for word: what goes, "Put this away" first, an optional reason, then the typed name — the same
+   * server actions and guards.
+   */
+  card?: {
+    /** The card itself, without links or buttons of its own — the whole of it is the press. */
+    body: ReactNode;
+    /** The picture for the menu's head. */
+    thumb: ReactNode;
+    /** "Sat 13 Mar 2027 · Tagaytay". */
+    meta: string;
+    /** "You organise this". */
+    stance: string;
+    dashboardHref: string;
+    menu: UnihomeCardMenu;
+  };
 }) {
   const [open, setOpen] = useState(false);
   const [confirming, setConfirming] = useState(false);
@@ -392,220 +438,15 @@ export function EventCardMenu({
     return ics ? icsDataHref(ics) : null;
   }, [finished, eventName, eventDateIso, venueName, venueAddress, eventId]);
 
-  return (
-    /*
-      🪤 A FRAGMENT, NOT A POSITIONED WRAPPER — AND THAT IS THE WHOLE FIX.
-      This used to be `<div className="absolute right-2 top-2 z-20">` holding
-      both the button and the popover, which made that ~32px box the popover's
-      containing block. `right-0` then measured from the BUTTON's right edge
-      (not the card's), so the 280px popover hung off the left of a narrow chip;
-      and `left-0` would have measured from the button's LEFT edge and hung off
-      the right instead. Anchoring to a 32px box can never place a 280px panel.
-
-      Both children are now positioned against `BoardCardWithMenu`'s
-      `relative h-full` wrapper — the CARD's box — so `left-0` / `right-0` mean
-      the card's edges and `align` can actually put the panel on screen.
-    */
-    <>
-      {trigger === 'remove' ? (
-        <ActionButton
-          tone="neutral"
-          quiet
-          iconOnly
-          icon={Trash2}
-          label="Remove"
-          name={`Remove ${eventName}`}
-          aria-haspopup="dialog"
-          onClick={openDelete}
-          disabled={pending}
-          data-event-remove={eventId}
-        />
-      ) : (
-      <button
-        type="button"
-        onClick={() => (open ? close() : setOpen(true))}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        aria-label={`Options for ${eventName}`}
-        className={`absolute right-1 top-1 z-20 grid h-11 w-11 place-items-center rounded-full backdrop-blur-sm transition-colors duration-sn-control ${
-          dark
-            ? 'bg-black/35 text-white/80 hover:bg-black/55 hover:text-white'
-            : 'bg-raised/80 text-ink/75 shadow-sn-sm hover:bg-raised hover:text-ink'
-        }`}
-      >
-        <MoreVertical aria-hidden className="h-4 w-4" strokeWidth={2} />
-      </button>
-      )}
-
-      {open && !confirming ? (
-        <>
-          {/* Backdrop — closes on any outside press. `fixed` so it covers the
-              whole board, not just this card. */}
-          <button
-            type="button"
-            aria-hidden
-            tabIndex={-1}
-            onClick={close}
-            className="fixed inset-0 z-40 cursor-default"
-          />
-          <div
-            ref={menuRef}
-            role="menu"
-            data-board-menu=""
-            style={menuShift ? { transform: `translateX(${menuShift}px)` } : undefined}
-            className={`absolute top-12 z-50 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 text-left shadow-sn-float ${
-              align === 'left' ? 'left-0' : 'right-0'
-            }`}
-          >
-            {hubUrl ? (
-              <>
-                <a
-                  href={hubUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  role="menuitem"
-                  data-board-menu-hub=""
-                  onClick={(e) => {
-                    e.preventDefault();
-                    close();
-                    openEventHub(hubUrl);
-                  }}
-                  className="flex min-h-14 w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
-                >
-                  <Eye aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/70" strokeWidth={2} />
-                  <span>
-                    <span className="block font-semibold">View Event Hub</span>
-                    <span className="mt-0.5 block text-[13px] leading-snug text-ink/70">What your guests see.</span>
-                  </span>
-                </a>
-                <div className="my-1 h-px bg-ink/10" />
-              </>
-            ) : null}
-            {icsHref ? (
-              <>
-                {/* 📥 Saved, never shown in place: the app's web view ignores `download` and renders the .ics with no way
-                    back (owner 2026-10-27). SaveFileLink runs the share sheet / download; the wrapper's capture still
-                    closes the menu on the same tap. */}
-                <div className="contents" onClickCapture={close}>
-                <SaveFileLink
-                  href={icsHref}
-                  filename={`${eventName}.ics`}
-                  role="menuitem"
-                  className="flex min-h-14 w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
-                >
-                  <CalendarPlus
-                    aria-hidden
-                    className="mt-0.5 h-4 w-4 shrink-0 text-ink/70"
-                    strokeWidth={2}
-                  />
-                  <span>
-                    <span className="block font-semibold">
-                      Add to calendar
-                    </span>
-                    <span className="mt-0.5 block text-[13px] leading-snug text-ink/70">
-                      Just this event, on your phone.
-                    </span>
-                  </span>
-                </SaveFileLink>
-                </div>
-                <div className="my-1 h-px bg-ink/10" />
-              </>
-            ) : null}
-
-            <button
-              type="button"
-              role="menuitem"
-              onClick={putAway}
-              disabled={pending}
-              className="flex min-h-14 w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5 disabled:opacity-60"
-            >
-              <Archive
-                aria-hidden
-                className="mt-0.5 h-4 w-4 shrink-0 text-ink/70"
-                strokeWidth={2}
-              />
-              <span>
-                <span className="block font-semibold">
-                  {archived ? 'Bring it back' : 'Put this away'}
-                </span>
-                <span className="mt-0.5 block text-[13px] leading-snug text-ink/70">
-                  {archived
-                    ? 'Back onto your active list.'
-                    : 'Off your list. Nothing is deleted.'}
-                </span>
-              </span>
-            </button>
-
-            <div className="my-1 h-px bg-ink/10" />
-
-            <button
-              type="button"
-              role="menuitem"
-              onClick={openDelete}
-              disabled={pending}
-              className="flex min-h-14 w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-[color:var(--sn-danger)] hover:bg-[color:var(--sn-danger-soft)] disabled:opacity-60"
-            >
-              <Trash2
-                aria-hidden
-                className="mt-0.5 h-4 w-4 shrink-0"
-                strokeWidth={2}
-              />
-              <span>
-                <span className="block font-semibold">Remove for good</span>
-                <span className="mt-0.5 block text-[13px] leading-snug text-ink/70">
-                  Photos and everything else, gone for good.
-                </span>
-              </span>
-            </button>
-
-            {error ? (
-              <p
-                role="alert"
-                className="px-3 pb-2 pt-1 text-[13px] font-semibold text-[color:var(--sn-danger)]"
-              >
-                {error}
-              </p>
-            ) : null}
-          </div>
-        </>
-      ) : null}
-
-      {/*
-        🚪 THE REMOVE FRAME IS A DIALOG IN THE BROWSER'S TOP LAYER — IT IS NOT
-        A PANEL HANGING OFF THE CARD, AND THAT IS THE WHOLE FIX.
-
-        Owner, 2026-08-29, on a phone: *"i cannot click on the delete this
-        frame should be on top and not under."* He was right, and the panel was
-        not broken — it was OUTRANKED. It rendered as `absolute z-50` inside the
-        card's wrapper, so the only thing keeping it above the shelves below was
-        a z-index, and a z-index is only worth anything INSIDE its own stacking
-        context. Anything on this board that opens one — an animated section, a
-        blurred card, a sticky bar — clamps the panel inside it, and then the
-        next shelf paints straight over the bottom of it: over Cancel, and over
-        the one button the whole frame exists to offer.
-
-        🔑 A TALLER PANEL IS ALSO A TRAPPED ONE. Six reason chips, a notes box
-        and a type-the-name field made this frame ~590px. Hung 44px below a card
-        on a 780px phone it runs out of screen with the buttons at the bottom,
-        and nothing about `absolute` lets a person scroll to them — the page
-        scrolls, the panel goes with the card.
-
-        `showModal()` answers both at once and answers them structurally, not by
-        out-bidding anybody: the top layer is above every stacking context by
-        construction, so no future z-index anywhere can get in front of it, and
-        the frame scrolls inside itself when the screen is short. It is the
-        idiom already shipping in `app/_components/confirm-dialog.tsx` —
-        reproduced, not invented, and the browser hands us the focus trap, ESC,
-        and the inert background with it.
-
-        ⛔ DO NOT "SIMPLIFY" THIS BACK INTO THE POPOVER. The panel above is
-        small, anchored, and correct where it is; this one is a decision about
-        somebody's photographs and belongs in front of the whole page.
-      */}
-      <RemoveDialog open={confirming} onDismiss={close} label={`Remove ${eventName}?`}>
+  /* Home's card menu says Delete (the drawing's word, brief Add 40); the board's ⋯ keeps Remove. Same flow. */
+  const verb = trigger === 'card' ? 'Delete' : 'Remove';
+  const headingId = `ecm-del-${eventId}`;
+  /* THE SHIPPED DELETE FLOW, ONCE — drawn in the dialog below for the board and the trash icon, and inside the card
+     menu for `trigger="card"`. One body, so the two can never drift. */
+  const deleteBody = (
         <div className="p-4">
-          <p className="text-base font-bold text-ink">
-            Remove {eventName}?
+          <p className="text-base font-bold text-ink" id={headingId}>
+            {verb} {eventName}?
           </p>
 
           {!impact ? (
@@ -756,7 +597,7 @@ export function EventCardMenu({
               <ImpactLines impact={impact} />
               {/* 📦 THE GENTLE CHOICE FIRST (Unihome v5): on Home the ⋯ is gone, so its "Put this away" leads this
                   screen — the undoable answer before the permanent one. The board's ⋯ still carries it. */}
-              {trigger === 'remove' ? (
+              {trigger === 'remove' || trigger === 'card' ? (
                 <button
                   type="button"
                   onClick={putAway}
@@ -767,7 +608,7 @@ export function EventCardMenu({
                 >
                   <Archive aria-hidden className="h-5 w-5 shrink-0" strokeWidth={1.9} />
                   <span className="min-w-0 flex-1">
-                    <span className="block text-sn-lg font-semibold">{archived ? 'Bring it back' : 'Put this away'}</span>
+                    <span className="block text-sn-lg font-semibold">{archived ? 'Bring it back' : trigger === 'card' ? 'Put this away instead' : 'Put this away'}</span>
                     <span className="block text-sn-sm text-ink/70">
                       {archived ? 'Back onto your active list.' : 'Off your list. Nothing is deleted.'}
                     </span>
@@ -775,7 +616,7 @@ export function EventCardMenu({
                   <ChevronRight aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
                 </button>
               ) : null}
-              {trigger === 'remove' && error ? (
+              {(trigger === 'remove' || trigger === 'card') && error ? (
                 <p role="alert" className="mt-1.5 text-sn-md font-semibold text-[color:var(--sn-danger)]">
                   {error}
                 </p>
@@ -962,7 +803,7 @@ export function EventCardMenu({
                 tone="danger"
                 filled
                 icon={Trash2}
-                label={pending ? 'Removing…' : 'Remove for good'}
+                label={pending ? (verb === 'Delete' ? 'Deleting…' : 'Removing…') : `${verb} for good`}
                 onClick={confirmDelete}
                 disabled={pending || typed.trim().length === 0}
                 waiting={pending}
@@ -970,7 +811,244 @@ export function EventCardMenu({
             ) : null}
           </div>
         </div>
-      </RemoveDialog>
+  );
+
+  return (
+    /*
+      🪤 A FRAGMENT, NOT A POSITIONED WRAPPER — AND THAT IS THE WHOLE FIX.
+      This used to be `<div className="absolute right-2 top-2 z-20">` holding
+      both the button and the popover, which made that ~32px box the popover's
+      containing block. `right-0` then measured from the BUTTON's right edge
+      (not the card's), so the 280px popover hung off the left of a narrow chip;
+      and `left-0` would have measured from the button's LEFT edge and hung off
+      the right instead. Anchoring to a 32px box can never place a 280px panel.
+
+      Both children are now positioned against `BoardCardWithMenu`'s
+      `relative h-full` wrapper — the CARD's box — so `left-0` / `right-0` mean
+      the card's edges and `align` can actually put the panel on screen.
+    */
+    <>
+      {trigger === 'card' && card ? (
+        <CardMenuFrame
+          eventName={eventName}
+          card={card}
+          open={open || confirming}
+          deleting={confirming}
+          onOpen={() => setOpen(true)}
+          onClose={close}
+          onBack={() => {
+            setConfirming(false);
+            setImpact(null);
+            setTyped('');
+            setError(null);
+            setStep('why');
+          }}
+          onDelete={openDelete}
+          pending={pending}
+          error={confirming ? null : error}
+          deleteBody={deleteBody}
+          deleteHeadingId={headingId}
+        />
+      ) : trigger === 'remove' ? (
+        <ActionButton
+          tone="neutral"
+          quiet
+          iconOnly
+          icon={Trash2}
+          label="Remove"
+          name={`Remove ${eventName}`}
+          aria-haspopup="dialog"
+          onClick={openDelete}
+          disabled={pending}
+          data-event-remove={eventId}
+        />
+      ) : (
+      <button
+        type="button"
+        onClick={() => (open ? close() : setOpen(true))}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Options for ${eventName}`}
+        className={`absolute right-1 top-1 z-20 grid h-11 w-11 place-items-center rounded-full backdrop-blur-sm transition-colors duration-sn-control ${
+          dark
+            ? 'bg-black/35 text-white/80 hover:bg-black/55 hover:text-white'
+            : 'bg-raised/80 text-ink/75 shadow-sn-sm hover:bg-raised hover:text-ink'
+        }`}
+      >
+        <MoreVertical aria-hidden className="h-4 w-4" strokeWidth={2} />
+      </button>
+      )}
+
+      {trigger !== 'card' && open && !confirming ? (
+        <>
+          {/* Backdrop — closes on any outside press. `fixed` so it covers the
+              whole board, not just this card. */}
+          <button
+            type="button"
+            aria-hidden
+            tabIndex={-1}
+            onClick={close}
+            className="fixed inset-0 z-40 cursor-default"
+          />
+          <div
+            ref={menuRef}
+            role="menu"
+            data-board-menu=""
+            style={menuShift ? { transform: `translateX(${menuShift}px)` } : undefined}
+            className={`absolute top-12 z-50 w-72 max-w-[calc(100vw-2rem)] overflow-hidden rounded-xl border border-ink/10 bg-cream p-1 text-left shadow-sn-float ${
+              align === 'left' ? 'left-0' : 'right-0'
+            }`}
+          >
+            {hubUrl ? (
+              <>
+                <a
+                  href={hubUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  role="menuitem"
+                  data-board-menu-hub=""
+                  onClick={(e) => {
+                    e.preventDefault();
+                    close();
+                    openEventHub(hubUrl);
+                  }}
+                  className="flex min-h-14 w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
+                >
+                  <Eye aria-hidden className="mt-0.5 h-4 w-4 shrink-0 text-ink/70" strokeWidth={2} />
+                  <span>
+                    <span className="block font-semibold">View Event Hub</span>
+                    <span className="mt-0.5 block text-[13px] leading-snug text-ink/70">What your guests see.</span>
+                  </span>
+                </a>
+                <div className="my-1 h-px bg-ink/10" />
+              </>
+            ) : null}
+            {icsHref ? (
+              <>
+                {/* 📥 Saved, never shown in place: the app's web view ignores `download` and renders the .ics with no way
+                    back (owner 2026-10-27). SaveFileLink runs the share sheet / download; the wrapper's capture still
+                    closes the menu on the same tap. */}
+                <div className="contents" onClickCapture={close}>
+                <SaveFileLink
+                  href={icsHref}
+                  filename={`${eventName}.ics`}
+                  role="menuitem"
+                  className="flex min-h-14 w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5"
+                >
+                  <CalendarPlus
+                    aria-hidden
+                    className="mt-0.5 h-4 w-4 shrink-0 text-ink/70"
+                    strokeWidth={2}
+                  />
+                  <span>
+                    <span className="block font-semibold">
+                      Add to calendar
+                    </span>
+                    <span className="mt-0.5 block text-[13px] leading-snug text-ink/70">
+                      Just this event, on your phone.
+                    </span>
+                  </span>
+                </SaveFileLink>
+                </div>
+                <div className="my-1 h-px bg-ink/10" />
+              </>
+            ) : null}
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={putAway}
+              disabled={pending}
+              className="flex min-h-14 w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-ink hover:bg-ink/5 disabled:opacity-60"
+            >
+              <Archive
+                aria-hidden
+                className="mt-0.5 h-4 w-4 shrink-0 text-ink/70"
+                strokeWidth={2}
+              />
+              <span>
+                <span className="block font-semibold">
+                  {archived ? 'Bring it back' : 'Put this away'}
+                </span>
+                <span className="mt-0.5 block text-[13px] leading-snug text-ink/70">
+                  {archived
+                    ? 'Back onto your active list.'
+                    : 'Off your list. Nothing is deleted.'}
+                </span>
+              </span>
+            </button>
+
+            <div className="my-1 h-px bg-ink/10" />
+
+            <button
+              type="button"
+              role="menuitem"
+              onClick={openDelete}
+              disabled={pending}
+              className="flex min-h-14 w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-[color:var(--sn-danger)] hover:bg-[color:var(--sn-danger-soft)] disabled:opacity-60"
+            >
+              <Trash2
+                aria-hidden
+                className="mt-0.5 h-4 w-4 shrink-0"
+                strokeWidth={2}
+              />
+              <span>
+                <span className="block font-semibold">Remove for good</span>
+                <span className="mt-0.5 block text-[13px] leading-snug text-ink/70">
+                  Photos and everything else, gone for good.
+                </span>
+              </span>
+            </button>
+
+            {error ? (
+              <p
+                role="alert"
+                className="px-3 pb-2 pt-1 text-[13px] font-semibold text-[color:var(--sn-danger)]"
+              >
+                {error}
+              </p>
+            ) : null}
+          </div>
+        </>
+      ) : null}
+
+      {/*
+        🚪 THE REMOVE FRAME IS A DIALOG IN THE BROWSER'S TOP LAYER — IT IS NOT
+        A PANEL HANGING OFF THE CARD, AND THAT IS THE WHOLE FIX.
+
+        Owner, 2026-08-29, on a phone: *"i cannot click on the delete this
+        frame should be on top and not under."* He was right, and the panel was
+        not broken — it was OUTRANKED. It rendered as `absolute z-50` inside the
+        card's wrapper, so the only thing keeping it above the shelves below was
+        a z-index, and a z-index is only worth anything INSIDE its own stacking
+        context. Anything on this board that opens one — an animated section, a
+        blurred card, a sticky bar — clamps the panel inside it, and then the
+        next shelf paints straight over the bottom of it: over Cancel, and over
+        the one button the whole frame exists to offer.
+
+        🔑 A TALLER PANEL IS ALSO A TRAPPED ONE. Six reason chips, a notes box
+        and a type-the-name field made this frame ~590px. Hung 44px below a card
+        on a 780px phone it runs out of screen with the buttons at the bottom,
+        and nothing about `absolute` lets a person scroll to them — the page
+        scrolls, the panel goes with the card.
+
+        `showModal()` answers both at once and answers them structurally, not by
+        out-bidding anybody: the top layer is above every stacking context by
+        construction, so no future z-index anywhere can get in front of it, and
+        the frame scrolls inside itself when the screen is short. It is the
+        idiom already shipping in `app/_components/confirm-dialog.tsx` —
+        reproduced, not invented, and the browser hands us the focus trap, ESC,
+        and the inert background with it.
+
+        ⛔ DO NOT "SIMPLIFY" THIS BACK INTO THE POPOVER. The panel above is
+        small, anchored, and correct where it is; this one is a decision about
+        somebody's photographs and belongs in front of the whole page.
+      */}
+      {trigger !== 'card' ? (
+        <RemoveDialog open={confirming} onDismiss={close} label={`Remove ${eventName}?`}>
+          {deleteBody}
+        </RemoveDialog>
+      ) : null}
     </>
   );
 }
@@ -1279,5 +1357,350 @@ function ReasonNote({
         className="mt-1 w-full rounded-xl border border-ink/20 bg-raised px-3 py-2 text-base font-normal leading-snug text-ink outline-none focus:border-mulberry"
       />
     </label>
+  );
+}
+
+/**
+ * 📋 THE CARD AND ITS MENU (`trigger="card"`, brief Add 40). The card is the press; the menu is the house `Sheet` on a
+ * phone and a small menu anchored to the ⋯ on a computer, over the one scrim (`OverlayBackdrop`), so the page behind
+ * cannot be pressed. Keyboard: Enter or Space opens, Tab stays inside, the arrows move between rows, Esc closes and the
+ * focus goes back to the card.
+ */
+function CardMenuFrame({
+  eventName,
+  card,
+  open,
+  deleting,
+  onOpen,
+  onClose,
+  onBack,
+  onDelete,
+  pending,
+  error,
+  deleteBody,
+  deleteHeadingId,
+}: {
+  eventName: string;
+  card: NonNullable<CardProp>;
+  open: boolean;
+  deleting: boolean;
+  onOpen: () => void;
+  onClose: () => void;
+  onBack: () => void;
+  onDelete: () => void;
+  pending: boolean;
+  /** A refused check before Delete (the impact read) — said under the rows, never a press that does nothing. */
+  error: string | null;
+  deleteBody: ReactNode;
+  deleteHeadingId: string;
+}) {
+  const desktop = useIsDesktop();
+  const hitRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLButtonElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const wasOpen = useRef(false);
+  const press = useRef<{ timer: number | null; x: number; y: number }>({ timer: null, x: 0, y: 0 });
+  const [pos, setPos] = useState<{ top: number; left: number } | null>(null);
+  const hydrated = useHydrated();
+  const nameId = `ecm-name-${card.dashboardHref.replace(/[^a-zA-Z0-9]/g, '')}`;
+
+  // Focus goes back to the card when the menu closes — wherever the close came from.
+  useEffect(() => {
+    if (wasOpen.current && !open) hitRef.current?.focus();
+    wasOpen.current = open;
+  }, [open]);
+
+  // 📐 Desktop: anchored under the card's ⋯, kept inside the screen (flipped above when there is no room below).
+  useLayoutEffect(() => {
+    if (!open || !desktop) {
+      setPos(null);
+      return;
+    }
+    const anchor = moreRef.current?.getBoundingClientRect();
+    const panel = panelRef.current;
+    if (!anchor) return;
+    const w = panel?.offsetWidth ?? 360;
+    const h = panel?.offsetHeight ?? 0;
+    const vw = document.documentElement.clientWidth;
+    const vh = window.innerHeight;
+    const left = Math.min(Math.max(16, anchor.right - w), vw - w - 16);
+    let top = anchor.bottom + 8;
+    if (h && top + h > vh - 16) top = Math.max(16, anchor.top - h - 8);
+    setPos({ top, left });
+  }, [open, desktop, deleting]);
+
+  // Desktop: the first row takes the focus on open.
+  useEffect(() => {
+    if (!open || !desktop) return;
+    const first = panelRef.current?.querySelector<HTMLElement>('[data-ecm-row]:not([aria-disabled="true"]), input, button');
+    first?.focus();
+  }, [open, desktop, deleting, pos === null]);
+
+  function clearPress() {
+    if (press.current.timer !== null) window.clearTimeout(press.current.timer);
+    press.current.timer = null;
+  }
+
+  function onPanelKey(e: React.KeyboardEvent<HTMLDivElement>) {
+    const panel = panelRef.current;
+    if (!panel) return;
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      onClose();
+      return;
+    }
+    const focusables = Array.from(
+      panel.querySelectorAll<HTMLElement>('a[href], button:not([disabled]), input:not([disabled]), textarea, select, [tabindex]:not([tabindex="-1"])'),
+    ).filter((el) => el.getAttribute('aria-disabled') !== 'true');
+    if (e.key === 'Tab' && focusables.length > 0) {
+      const i = focusables.indexOf(document.activeElement as HTMLElement);
+      const next = e.shiftKey ? (i <= 0 ? focusables.length - 1 : i - 1) : i === focusables.length - 1 ? 0 : i + 1;
+      e.preventDefault();
+      focusables[next]?.focus();
+      return;
+    }
+    if ((e.key === 'ArrowDown' || e.key === 'ArrowUp') && !deleting) {
+      const rows = Array.from(panel.querySelectorAll<HTMLElement>('[data-ecm-row]')).filter(
+        (el) => el.getAttribute('aria-disabled') !== 'true',
+      );
+      const i = rows.indexOf(document.activeElement as HTMLElement);
+      const next = e.key === 'ArrowDown' ? (i + 1) % rows.length : i <= 0 ? rows.length - 1 : i - 1;
+      e.preventDefault();
+      rows[next]?.focus();
+    }
+  }
+
+  const head = deleting ? (
+    <div className={ecm.head}>
+      <button type="button" className={ecm.close} onClick={onBack} disabled={pending} aria-label="Back to the menu">
+        <ArrowLeft aria-hidden strokeWidth={2} />
+      </button>
+      <span className={ecm.headText}>
+        <span className={ecm.meta}>{eventName}</span>
+      </span>
+      <button type="button" className={ecm.close} onClick={onClose} disabled={pending} aria-label="Close">
+        <X aria-hidden strokeWidth={2} />
+      </button>
+    </div>
+  ) : (
+    <div className={ecm.head}>
+      <span className={ecm.thumb} aria-hidden>
+        {card.thumb}
+      </span>
+      <span className={ecm.headText}>
+        <b className={ecm.name} id={nameId}>
+          {eventName}
+        </b>
+        <span className={ecm.meta}>{card.meta}</span>
+        <span className={ecm.stance}>
+          <HeartHandshake aria-hidden strokeWidth={2.25} />
+          {card.stance}
+        </span>
+      </span>
+      <button type="button" className={ecm.close} onClick={onClose} aria-label="Close">
+        <X aria-hidden strokeWidth={2} />
+      </button>
+    </div>
+  );
+
+  const body = deleting ? (
+    <div data-ecm-delete="">{deleteBody}</div>
+  ) : (
+    <div className={ecm.body}>
+      <CardMenuRows card={card} onNavigate={onClose} onDelete={onDelete} pending={pending} />
+      {error ? (
+        <p role="alert" className="pb-1 pt-2 text-sn-md font-semibold text-[color:var(--sn-danger)]" data-ecm-error="">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+
+  return (
+    <div className={ecm.wrap} data-ecm-card="">
+      <div
+        ref={hitRef}
+        role="button"
+        tabIndex={0}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`${eventName}: open its menu`}
+        className={ecm.hit}
+        data-ecm-hit=""
+        onClick={onOpen}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            onOpen();
+          }
+        }}
+        onContextMenu={(e) => {
+          e.preventDefault();
+          clearPress();
+          onOpen();
+        }}
+        onPointerDown={(e) => {
+          if (e.pointerType === 'mouse') return;
+          clearPress();
+          press.current = {
+            x: e.clientX,
+            y: e.clientY,
+            timer: window.setTimeout(() => {
+              press.current.timer = null;
+              onOpen();
+            }, HOLD_MS),
+          };
+        }}
+        onPointerMove={(e) => {
+          if (Math.abs(e.clientX - press.current.x) > 10 || Math.abs(e.clientY - press.current.y) > 10) clearPress();
+        }}
+        onPointerUp={clearPress}
+        onPointerCancel={clearPress}
+        onPointerLeave={clearPress}
+      >
+        {card.body}
+      </div>
+      <button
+        ref={moreRef}
+        type="button"
+        className={ecm.more}
+        aria-haspopup="dialog"
+        aria-expanded={open}
+        aria-label={`Options for ${eventName}`}
+        onClick={onOpen}
+        data-ecm-more=""
+      >
+        <MoreHorizontal aria-hidden strokeWidth={2} />
+      </button>
+
+      {desktop ? (
+        open && hydrated
+          ? createPortal(
+              <>
+                <OverlayBackdrop onClose={onClose} label="Close the menu" className="z-[74]" />
+                <div
+                  ref={panelRef}
+                  role="dialog"
+                  aria-labelledby={deleting ? deleteHeadingId : nameId}
+                  className={ecm.panel}
+                  style={pos ? { top: pos.top, left: pos.left } : { visibility: 'hidden', top: 0, left: 0 }}
+                  onKeyDown={onPanelKey}
+                  data-ecm-panel=""
+                >
+                  {head}
+                  {body}
+                </div>
+              </>,
+              document.body,
+            )
+          : null
+      ) : (
+        <Sheet open={open} onClose={onClose} labelledById={deleting ? deleteHeadingId : nameId} head={head}>
+          <div data-ecm-sheet="">{body}</div>
+        </Sheet>
+      )}
+    </div>
+  );
+}
+
+type CardProp = Parameters<typeof EventCardMenu>[0]['card'];
+
+/** The six rows, in the drawing's order. A row the person may not open is not drawn; one that waits says why. */
+function CardMenuRows({
+  card,
+  onNavigate,
+  onDelete,
+  pending,
+}: {
+  card: NonNullable<CardProp>;
+  onNavigate: () => void;
+  onDelete: () => void;
+  pending: boolean;
+}) {
+  const { menu } = card;
+  const row = (props: {
+    href: string | null;
+    icon: React.ComponentType<{ 'aria-hidden'?: boolean; strokeWidth?: number; className?: string }>;
+    label: string;
+    help: string;
+    main?: boolean;
+    locked?: boolean;
+    mark: string;
+  }) => {
+    const Icon = props.icon;
+    const inner = (
+      <>
+        <Icon aria-hidden strokeWidth={1.9} />
+        <span className={ecm.tx}>
+          <span className={ecm.lb}>{props.label}</span>
+          <span className={ecm.hp}>{props.help}</span>
+        </span>
+        {props.locked ? (
+          <Lock aria-hidden className={ecm.end} strokeWidth={2} />
+        ) : props.href ? (
+          <ChevronRight aria-hidden className={ecm.end} strokeWidth={2} />
+        ) : null}
+      </>
+    );
+    const cls = `${ecm.row} ${props.main ? ecm.main : ''}`;
+    return props.href && !props.locked ? (
+      <Link key={props.mark} href={props.href} className={cls} onClick={onNavigate} data-ecm-row={props.mark}>
+        {inner}
+      </Link>
+    ) : (
+      <div key={props.mark} className={cls} aria-disabled="true" data-ecm-row={props.mark}>
+        {inner}
+      </div>
+    );
+  };
+
+  return (
+    <>
+      {row({ href: card.dashboardHref, icon: LayoutDashboard, label: 'Open Dashboard', help: 'Tasks, guests, suppliers and budget.', main: true, mark: 'dashboard' })}
+      <div className={ecm.rows}>
+        {/* 👁 The hub ITSELF, signed in as you, the way your own QR opens it — view only, never the Maker. A plain
+            in-app link: the session rides along (never `openEventHub`, which leaves the app's view). */}
+        {row({
+          href: menu.hubHref,
+          icon: Eye,
+          label: 'Open your Event Hub',
+          help: menu.hubHref ? 'See your hub as your QR opens it.' : 'Set up your Event Hub first.',
+          mark: 'hub',
+        })}
+        {row({ href: menu.chatHref, icon: MessageCircle, label: 'Open Chat', help: 'Messages with your suppliers.', mark: 'chat' })}
+        {menu.memoriesHref
+          ? row({ href: menu.memoriesHref, icon: Images, label: 'Open your Memories', help: 'Photos and videos from this event.', mark: 'memories' })
+          : null}
+        {menu.story
+          ? row({
+              href: menu.story.href,
+              icon: BookOpen,
+              label: 'Publish Story',
+              help: menu.story.open ? 'Your day has passed. Choose who reads it.' : 'Opens the day after your event.',
+              locked: !menu.story.open,
+              mark: 'story',
+            })
+          : null}
+      </div>
+      {menu.canDelete ? (
+        <>
+          <div className={ecm.divider} />
+          <button
+            type="button"
+            className={`${ecm.row} ${ecm.danger}`}
+            onClick={onDelete}
+            disabled={pending}
+            data-ecm-row="delete"
+          >
+            <Trash2 aria-hidden strokeWidth={1.9} />
+            <span className={ecm.tx}>
+              <span className={ecm.lb}>Delete Event</span>
+              <span className={ecm.hp}>Photos and everything else, gone for good.</span>
+            </span>
+            <ChevronRight aria-hidden className={ecm.end} strokeWidth={2} />
+          </button>
+        </>
+      ) : null}
+    </>
   );
 }

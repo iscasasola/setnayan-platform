@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { SITE_URL } from '@/lib/feature-pages/seo';
 import { notFound, redirect } from 'next/navigation';
 import { Clock, Send } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
@@ -59,7 +60,8 @@ export default async function RequestPage({ params, searchParams }: Props) {
   if (!event?.slug) notFound();
   const home = event.slug as string;
 
-  const key = await readRememberedRequest(event.event_id as string);
+  // 🔌 A4-49: a failed read throws (the guest boundary) — never the event page as a stranger.
+  const key = await readRememberedRequest(event.event_id as string, { throwOnReadError: true });
   if (!key) redirect(`/${home}`);
   // Accepted or Linked → the same key opens their invitation (frame D).
   if (key.state.kind === 'accepted' || key.state.kind === 'linked') {
@@ -106,7 +108,7 @@ export default async function RequestPage({ params, searchParams }: Props) {
   }
 
   const link = buildInvitationUrl({
-    appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
+    appUrl: SITE_URL,
     slug: home,
     qrToken: key.qrToken,
     ownerSlug: await resolveEventOwnerSlug(admin, event.event_id as string),

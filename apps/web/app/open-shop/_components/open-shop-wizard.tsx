@@ -100,6 +100,7 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { COORDINATOR_TRADE_SERVICES, firstCoordinationPick } from '@/lib/coordinator-trade';
 // 🔵 The supplier blue look (owner 19 Nov: the onboarding wears it) — the dashboard's own token scope, re-used.
 import '@/app/vendor-dashboard/_components/supplier-look.css';
+import { useOpenShopHead } from './open-shop-layer';
 
 /**
  * The supplier sign-up door — `/open-shop`. 🚪 SINCE 19 NOV 2026 IT IS DOOR B OF THE ONE SUPPLIER ONBOARDING (owner
@@ -958,9 +959,44 @@ export function OpenShopWizard({
   // on a sheet that lives INSIDE the one form (see `sheetClass`).
   useModalA11y({ open: step === CHECK_STEP && sheet !== null, onClose: () => setSheet(null), containerRef: sheetRef });
 
+  // ── THE WORDS AT THE TOP OF EACH SCREEN — `lib/supplier-onboarding.ts`, the one vocabulary of every door ───────
+  const heads: Record<Step, readonly [string, string | null]> = {
+    1: coordinator ? OPEN_YOUR_COORDINATION_HEAD : OPEN_YOUR_SHOP_HEAD,
+    // Signed in there is no account to create — the screen holds only the shop's email.
+    2: guest ? ONBOARDING_HEADS.account : ['Your shop’s email', 'Where couples and Setnayan reach your shop.'],
+    3: ONBOARDING_HEADS.check,
+    // PB4 → PB4·b: the line turns once a price is typed.
+    // PC4: on Door C the step is their PAGE, drafted with the first card on it — the same lines.
+    4: [coordinating ? YOUR_PAGE_HEAD : ONBOARDING_HEADS.card[0], parseCardPrice(cardPrice) ? FIRST_CARD_PRICED_LINE : ONBOARDING_HEADS.card[1]],
+    5: ONBOARDING_HEADS.done,
+  };
+  const [title, line] = heads[step];
+  const phoneOk = phoneBoxState(phoneDigits, true).state === 'ok';
+
+  const signInLine = guest ? (
+    <>
+      Have an account?{' '}
+      <SignInHereLink href={signInHref} pane className="font-medium text-terracotta">
+        Sign in
+      </SignInHereLink>{' '}
+      — what you typed stays.
+    </>
+  ) : null;
+
+  // ⤴ The step's title and line ride in the layer's head (final check B1); the desktop sign-in line sits at its right.
+  useOpenShopHead({
+    title,
+    line,
+    actions: signInLine ? (
+      <span className="hidden text-sn-base lg:inline" style={{ color: 'var(--m-slate)' }} data-open-shop-head-sign-in="">
+        {signInLine}
+      </span>
+    ) : null,
+  });
+
   if (sentTo && !hardLoading) {
     return (
-      <main className="flex min-h-[70vh] items-center justify-center px-4 py-10">
+      <div className="flex flex-1 items-center justify-center px-4 py-10">
         <div
           className="w-full max-w-lg rounded-2xl border p-5 text-center sm:p-7"
           style={{ borderColor: 'var(--m-line)', background: 'var(--m-paper)' }}
@@ -985,33 +1021,9 @@ export function OpenShopWizard({
             once you have tapped it.
           </p>
         </div>
-      </main>
+      </div>
     );
   }
-
-  // ── THE WORDS AT THE TOP OF EACH SCREEN — `lib/supplier-onboarding.ts`, the one vocabulary of every door ───────
-  const heads: Record<Step, readonly [string, string | null]> = {
-    1: coordinator ? OPEN_YOUR_COORDINATION_HEAD : OPEN_YOUR_SHOP_HEAD,
-    // Signed in there is no account to create — the screen holds only the shop's email.
-    2: guest ? ONBOARDING_HEADS.account : ['Your shop’s email', 'Where couples and Setnayan reach your shop.'],
-    3: ONBOARDING_HEADS.check,
-    // PB4 → PB4·b: the line turns once a price is typed.
-    // PC4: on Door C the step is their PAGE, drafted with the first card on it — the same lines.
-    4: [coordinating ? YOUR_PAGE_HEAD : ONBOARDING_HEADS.card[0], parseCardPrice(cardPrice) ? FIRST_CARD_PRICED_LINE : ONBOARDING_HEADS.card[1]],
-    5: ONBOARDING_HEADS.done,
-  };
-  const [title, line] = heads[step];
-  const phoneOk = phoneBoxState(phoneDigits, true).state === 'ok';
-
-  const signInLine = guest ? (
-    <>
-      Have an account?{' '}
-      <SignInHereLink href={signInHref} pane className="font-medium text-terracotta">
-        Sign in
-      </SignInHereLink>{' '}
-      — what you typed stays.
-    </>
-  ) : null;
 
   const glanceRow = (label: string, value: React.ReactNode) =>
     value ? (
@@ -1139,32 +1151,21 @@ export function OpenShopWizard({
 
   return (
     // `overflow-x-clip`: a step sliding in from 40px right never widens the page (clip, not hidden — the bar stays sticky).
-    <main className="flex min-h-[100dvh] flex-col overflow-x-clip md:block md:min-h-[70vh]" data-open-shop-wizard="" data-supplier-look="">
+    // ⤴ Inside the one open-shop layer (final check B1): the layer's body is the scroller, so the bar sits at its foot.
+    <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overflow-x-clip overscroll-contain" data-open-shop-wizard="" data-supplier-look="">
       {/* v18 — the ONE Undo toast (a swiped-away service comes back from here). */}
       <UndoToastHost />
-      {/* ── THE TOP LINE (≥768): the wordmark, and "Have an account? Sign in — what you typed stays." ─────────── */}
       <div
-        className="hidden h-[60px] items-center gap-4 border-b px-7 md:flex lg:px-8"
-        style={{ borderColor: 'var(--m-line)' }}
-      >
-        <FirstRunBrand color="var(--m-ink)" size={13} />
-        <span className="flex-1" />
-        {signInLine ? (
-          <span className="text-sm" style={{ color: 'var(--m-slate)' }}>
-            {signInLine}
-          </span>
-        ) : null}
-      </div>
-
-      <div
-        className="grid flex-1 gap-7 px-4 pb-0 pt-6 md:grid-cols-[minmax(0,1fr)_280px] md:px-7 md:pb-9 md:pt-6 lg:grid-cols-[minmax(0,1fr)_380px] lg:gap-14 lg:px-12 lg:pb-12 lg:pt-9"
+        className="grid flex-1 gap-7 px-4 pb-0 pt-6 md:grid-cols-[minmax(0,1fr)_280px] md:px-7 md:pb-9 md:pt-6"
       >
         <div className="flex min-w-0 flex-col gap-[18px] md:grid md:content-start">
           {/* ── PROGRESS, NOT PROSE (owner 2026-08-10) — on a phone, the wordmark over five segments that fill. At
               ≥768 the count is the last line of "Your shop at a glance". `aria-valuenow` + the label keep it for a
               screen reader at every size. */}
           <div className="grid gap-3 md:block">
-            <FirstRunBrand className="md:hidden" color="var(--m-ink)" size={13} />
+            {/* The SETNAYAN line, above the bars on every step and at every width (owner 25 Nov: keep it; the desktop
+                strip that carried it is gone with the page's own shell — final check B1). */}
+            <FirstRunBrand color="var(--m-ink)" size={13} />
             {invitedBy ? (
               <p className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--m-slate)' }} data-invited-by="">
                 <span
@@ -1213,16 +1214,9 @@ export function OpenShopWizard({
 
           {/* Keyed by the screen, so the words slide in with the step (v19) — a re-render keeps the node, no replay. */}
           <div key={step} className={`grid gap-[3px] ${slide}`}>
-            <h1 className="text-[22px] font-semibold leading-[1.1] tracking-[-0.01em]" style={{ color: 'var(--m-ink)' }}>
-              {title}
-            </h1>
-            {line ? (
-              <p className="text-sm" style={{ color: 'var(--m-slate)' }}>
-                {line}
-              </p>
-            ) : null}
+            {/* The title and its line ride in the layer's head (final check B1) — never said twice. */}
             {step === ACCOUNT_STEP && signInLine ? (
-              <p className="text-xs md:hidden" style={{ color: 'var(--m-slate-3)' }}>
+              <p className="text-xs lg:hidden" style={{ color: 'var(--m-slate-3)' }}>
                 {signInLine}
               </p>
             ) : null}
@@ -2176,6 +2170,6 @@ export function OpenShopWizard({
           )}
         </aside>
       </div>
-    </main>
+    </div>
   );
 }

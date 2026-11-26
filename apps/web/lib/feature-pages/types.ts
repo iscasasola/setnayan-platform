@@ -122,8 +122,9 @@ export type FeatureShot = {
 };
 
 /** The existing pages a visitor can try a feature on — no new try pages here.
- *  `/?browse=1` is Discover's supplier view — supplier browsing moved there from `/explore` (2026-11-12 ruling). */
-export type FeatureTryHref = '/papic' | '/panood' | '/pa3d/try' | '/pawebsite' | '/?browse=1' | '/explore/compare';
+ *  `/suppliers` is the public supplier directory: Discover's supplier view (`/?browse=1`) asks a stranger to sign in
+ *  first, so a "Try it" there landed on the sign-in page (final check A1-113). */
+export type FeatureTryHref = '/papic' | '/panood' | '/pa3d/try' | '/pawebsite' | '/suppliers' | '/explore/compare';
 
 export type FeaturePageEntry = Readonly<{
   slug: FeatureSlug;

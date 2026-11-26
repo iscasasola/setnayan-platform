@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { routes } from '@/lib/routes';
 import {
   Heart,
   MapPin,
@@ -78,7 +79,7 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
   },
   {
     icon: ShieldCheck,
-    label: '0% commission, forever',
+    label: 'Hosts pay 0% commission.',
     value:
       'Hindi kailanman kumukuha ang Setnayan ng cut sa binabayad mo sa supplier. Direkta kayong nag-uusap ng supplier; galing ang kita sa software services at supplier subscriptions.',
   },
@@ -101,7 +102,7 @@ const FAQ: Array<{ q: string; a: string }> = [
   },
   {
     q: 'May commission ba ang Setnayan sa supplier bookings?',
-    a: 'Wala. 0% commission sa bawat booking, sa bawat tier. Hindi kailanman hinahawakan ng Setnayan ang pera sa pagitan ng couple at supplier — galing ang kita sa software services at supplier subscriptions.',
+    a: 'Wala. Hosts pay 0% commission — sa bawat booking, sa bawat tier. Hindi kailanman hinahawakan ng Setnayan ang pera sa pagitan ng couple at supplier — galing ang kita sa software services at supplier subscriptions.',
   },
   {
     q: 'Supported ba ang mga Pinoy wedding traditions?',
@@ -289,12 +290,12 @@ export default async function AboutPageTaglish() {
               needed para magsimula.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">
-              <Link href="/signup" className={actionButtonClass('brand', { main: true, extra: 'px-6 text-sm !h-11' })}>
-                Gumawa ng account
+              <Link href={routes.start()} className={actionButtonClass('brand', { main: true, extra: 'px-6 text-sm !h-11' })}>
+                Magsimula · libre
                 <ArrowRight aria-hidden className="ml-1.5 h-4 w-4" strokeWidth={2} />
               </Link>
               <Link
-                href="/?browse=1"
+                href="/suppliers"
                 className={actionButtonClass('brand', { main: true, extra: '!h-11' })}
               >
                 Browse suppliers

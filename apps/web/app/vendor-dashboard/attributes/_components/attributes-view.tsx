@@ -25,7 +25,7 @@ export type AttributesNotices = {
 };
 
 const INTRO =
-  'Fill in the per-category fields couples will use to find suppliers like you. Each service you offer has its own set of attributes — silhouettes if you design gowns, cuisine specialties if you cater, edit aesthetics if you shoot. Completing more fields raises your marketplace ranking and unlocks listing visibility.';
+  'Fill in the per-category fields couples will use to find suppliers like you. Each service you offer has its own set of attributes — silhouettes if you design gowns, cuisine specialties if you cater, edit aesthetics if you shoot. Couples filter by these fields, so a service with them filled in shows up in more searches.';
 
 export function AttributesView({
   rows,
@@ -58,11 +58,11 @@ export function AttributesView({
       ) : null}
       {/* Saved and removed are toasts now (the drawing); a save that left the gate unmet is said inside its own row. */}
       {savedService && missing.length === 0 ? <SupplierToast tone="ok" text={`Saved attributes for ${savedService}.`} line={false} /> : null}
-      {removed ? <SupplierToast tone="ok" text="Removed that service’s attribute payload." line={false} /> : null}
+      {removed ? <SupplierToast tone="ok" text="Removed that service’s fields." line={false} /> : null}
 
       <ToolSection label="Your services" count={rows.length > 0 ? rows.length : undefined} right={rows.length > 0 ? 'Swipe left to remove' : undefined} data="attributes">
         {rows.length === 0 && !fresh ? (
-          <ToolEmpty data="attributes">No services yet. Tap ＋ to add your first one — it shows in the marketplace under its category once saved.</ToolEmpty>
+          <ToolEmpty data="attributes">No fields filled in yet. Tap ＋ to pick a service you offer and fill in its fields.</ToolEmpty>
         ) : (
           <ServiceRows rows={rows} fresh={fresh} justSaved={savedKey} missing={missing} />
         )}

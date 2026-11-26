@@ -402,6 +402,7 @@
         "_components/live-refresher.tsx",
         "_components/live-studio-recordings-card.tsx",
         "_components/live-studio/broadcast-readiness.tsx",
+        "_components/load-whole.tsx",
         "_components/loader-config-provider.tsx",
         "_components/lock-answer-forms.tsx",
         "_components/lock/limit-sheet.tsx",
@@ -768,7 +769,6 @@
         "/login?next=[seg]",
         "/monogram",
         "/onboarding/wedding",
-        "/onboarding/wedding?from=setnayan-ai",
         "/open-shop",
         "/our-story",
         "/papic",
@@ -821,6 +821,7 @@
         "routes.help.topic",
         "routes.help.topics",
         "routes.join",
+        "routes.start",
         "saveAction",
         "sendCustomProposalFromChat",
         "setVendorCapturesHidden",
@@ -1277,6 +1278,7 @@
         "Image",
         "ImageBadge",
         "Impl",
+        "InRiseRoute.Provider",
         "InSheet.Provider",
         "InfoTip",
         "InlineCheckoutDrawer",
@@ -1715,6 +1717,7 @@
         "ShellSearchContext",
         "ShopBadgePill",
         "ShopCard",
+        "ShopDoorScreen",
         "ShopHitCard",
         "ShopLine",
         "ShopLink",
@@ -1735,6 +1738,7 @@
         "SlashList",
         "Slide",
         "SlotBadge",
+        "SlotFacts",
         "SmallStars",
         "SnapState",
         "Snapshot",
@@ -2035,14 +2039,15 @@
       ],
       "destinations": [
         "/",
-        "/?browse=1",
         "/features",
         "/help",
         "/pricing",
-        "/signup",
+        "/suppliers",
         "/tl/about"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "AboutHero",
         "HTMLDivElement",
@@ -2077,7 +2082,6 @@
         "(shell)/alaala/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=alaala",
         "/our-story",
         "/pa3d",
         "/palogo",
@@ -2086,7 +2090,9 @@
         "/pawebsite",
         "/pricing"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "AlaalaOrb",
         "HowItWorksPanel",
@@ -2145,10 +2151,11 @@
         "(shell)/budget/page.tsx"
       ],
       "destinations": [
-        "/features",
-        "/onboarding/wedding?from=budget"
+        "/features"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2284,10 +2291,11 @@
         "/for-suppliers",
         "/open-shop",
         "/pricing",
-        "/signup",
         "/suppliers"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "Bar",
         "ChapterBlock",
@@ -2412,10 +2420,11 @@
         "(shell)/guest-list/page.tsx"
       ],
       "destinations": [
-        "/features",
-        "/onboarding/wedding?from=guest-list"
+        "/features"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2460,10 +2469,11 @@
         "(shell)/marketplace/page.tsx"
       ],
       "destinations": [
-        "/?browse=1",
-        "/onboarding/wedding?from=marketplace"
+        "/?browse=1"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2481,7 +2491,9 @@
         "/onboarding/wedding?from=monogram",
         "/signup?next=/monogram"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "Blob",
         "ClosingCta",
@@ -2506,10 +2518,11 @@
         "(shell)/mood-board/page.tsx"
       ],
       "destinations": [
-        "/features",
-        "/onboarding/wedding?from=mood-board"
+        "/features"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2565,10 +2578,11 @@
         "(shell)/pa3d/try/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=pa3d-try",
         "/pa3d"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "Link",
         "Pa3dRoom"
@@ -2588,10 +2602,11 @@
         "(shell)/palogo/page.tsx"
       ],
       "destinations": [
-        "/monogram",
-        "/onboarding/wedding?from=palogo"
+        "/monogram"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2605,11 +2620,12 @@
         "panood/guest-pick-actions.ts"
       ],
       "destinations": [
-        "/onboarding/wedding?from=panood",
         "/pricing",
         "/privacy"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "GuestPickSessionResult",
@@ -2705,10 +2721,11 @@
         "(shell)/pawebsite/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=pawebsite",
         "/pricing"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2841,10 +2858,11 @@
         "(shell)/schedule/page.tsx"
       ],
       "destinations": [
-        "/features",
-        "/onboarding/wedding?from=schedule"
+        "/features"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2856,10 +2874,11 @@
         "(shell)/seat-plan/page.tsx"
       ],
       "destinations": [
-        "/features",
-        "/onboarding/wedding?from=seat-plan"
+        "/features"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2871,10 +2890,11 @@
         "(shell)/setnayan-ai/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=setnayan-ai",
         "/pricing"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "DoorwayPage",
         "SpotlightSection"
@@ -2953,14 +2973,15 @@
       ],
       "destinations": [
         "/",
-        "/?browse=1",
         "/about",
         "/help",
         "/pricing",
-        "/signup",
+        "/suppliers",
         "/tl/features"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "Icon",
         "Link"
@@ -2994,10 +3015,11 @@
       ],
       "destinations": [
         "/?browse=1",
-        "/for-suppliers",
-        "/onboarding/wedding"
+        "/for-suppliers"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "Link"
       ]
@@ -8186,6 +8208,7 @@
         "Link",
         "PageMasthead",
         "PostedPick",
+        "ReadRefusedNotice",
         "Result",
         "SwipeToDelete"
       ]
@@ -8558,7 +8581,8 @@
       "actions": [],
       "blocks": [
         "Link",
-        "PageMasthead"
+        "PageMasthead",
+        "ReadRefusedNotice"
       ]
     },
     "/dashboard/(account)/profile": {
@@ -8618,6 +8642,7 @@
         "ProfilePhotoField",
         "ProfileShareButton",
         "PushToggle",
+        "ReadRefusedNotice",
         "RestorePurchasesRow",
         "Row",
         "SaveFileLink",
@@ -8726,6 +8751,7 @@
         "MessageBubble",
         "OverlayBackdrop",
         "PickMenu",
+        "ReadRefusedNotice",
         "ReturnInPlace",
         "SamahanIdentityHeader",
         "SamahanStories",
@@ -14852,6 +14878,7 @@
       ],
       "destinations": [
         "/dashboard/[seg]",
+        "/host/accept/[seg]",
         "/login?next=",
         "/login?next=[seg]",
         "/signup?next=[seg]&email=[seg]"
@@ -15269,6 +15296,7 @@
         "open-shop/_components/event-tiles.tsx",
         "open-shop/_components/first-card-draft.tsx",
         "open-shop/_components/name-hold.tsx",
+        "open-shop/_components/open-shop-layer.tsx",
         "open-shop/_components/open-shop-wizard.tsx",
         "open-shop/_components/phone-field.tsx",
         "open-shop/_components/plan-sheet.tsx",
@@ -15280,6 +15308,7 @@
         "open-shop/address-actions.ts",
         "open-shop/city-actions.ts",
         "open-shop/claim-actions.ts",
+        "open-shop/layout.tsx",
         "open-shop/page.tsx"
       ],
       "destinations": [
@@ -15332,6 +15361,8 @@
         "NameHold",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "OpenShopHead",
+        "OpenShopLayer",
         "OpenShopWizard",
         "OverlayBackdrop",
         "PasswordField",
@@ -15346,7 +15377,9 @@
         "ServiceCards",
         "ServicePicker",
         "ServicesAtEvents",
+        "SetHead.Provider",
         "Sheet",
+        "ShopDoorScreen",
         "SignInHereLink",
         "Specialties",
         "SpecialtiesBar",
@@ -15369,6 +15402,7 @@
       "blocks": [
         "ActionButton",
         "FirstRunBrand",
+        "OpenShopHeadMark",
         "QrCard"
       ]
     },
@@ -16004,10 +16038,10 @@
         "sample/layout.tsx",
         "sample/page.tsx"
       ],
-      "destinations": [
-        "/onboarding/wedding"
+      "destinations": [],
+      "actions": [
+        "routes.start"
       ],
-      "actions": [],
       "blocks": [
         "Link",
         "Metadata"
@@ -16091,6 +16125,7 @@
         "Link",
         "PrefixSelect",
         "ProfilePhotoField",
+        "ReadRefusedNotice",
         "RequiredRowsHold",
         "SubmitButton",
         "TypedRow",
@@ -16138,13 +16173,14 @@
       ],
       "destinations": [
         "/maria-and-jose",
-        "/onboarding/wedding?from=tour",
         "/tour/budget",
         "/tour/gallery",
         "/tour/seating",
         "/tour/vendors"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "HTMLTextAreaElement",
         "Link",
@@ -16158,11 +16194,12 @@
         "tour/budget/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=tour",
         "/tour",
         "/tour/gallery"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "AllocationConfig",
         "ConfidenceChip",
@@ -16190,11 +16227,12 @@
         "tour/gallery/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=tour",
         "/tour",
         "/tour/budget"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "Link",
         "PaletteKey",
@@ -16208,11 +16246,12 @@
         "tour/seating/page.tsx"
       ],
       "destinations": [
-        "/onboarding/wedding?from=tour",
         "/tour",
         "/tour/vendors"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "FindYourSeat",
         "Link",
@@ -16226,10 +16265,11 @@
       ],
       "destinations": [
         "/maria-and-jose",
-        "/onboarding/wedding?from=tour",
         "/tour"
       ],
-      "actions": [],
+      "actions": [
+        "routes.start"
+      ],
       "blocks": [
         "Link",
         "SwitchTrack",
@@ -16778,6 +16818,7 @@
         "DueFeeBill",
         "EarnedArt",
         "EarnedMark",
+        "ErrorState",
         "EventCard",
         "EventLinesBody",
         "EventLockedByFee",
@@ -16868,6 +16909,7 @@
         "QuickBody",
         "QuickGroup.Provider",
         "QuoteDraftBody",
+        "ReadFailedNote",
         "RecRow",
         "ReviewBody",
         "RiseScreen",
@@ -16995,6 +17037,38 @@
       "blocks": [
         "RiseRoute"
       ]
+    },
+    "/vendor-dashboard/@rise/(.)services/[serviceId]": {
+      "files": [
+        "vendor-dashboard/@rise/(.)services/[serviceId]/layout.tsx",
+        "vendor-dashboard/@rise/(.)services/[serviceId]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "CardMakerPage",
+        "LoadWhole",
+        "RiseRoute"
+      ]
+    },
+    "/vendor-dashboard/@rise/(.)services/new": {
+      "files": [
+        "vendor-dashboard/@rise/(.)services/new/layout.tsx",
+        "vendor-dashboard/@rise/(.)services/new/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": [
+        "RiseRoute"
+      ]
+    },
+    "/vendor-dashboard/@rise/(.)services/new/[category]": {
+      "files": [
+        "vendor-dashboard/@rise/(.)services/new/[category]/page.tsx"
+      ],
+      "destinations": [],
+      "actions": [],
+      "blocks": []
     },
     "/vendor-dashboard/@rise/(.)settings": {
       "files": [
@@ -17526,6 +17600,7 @@
         "OwnTimesForm",
         "P",
         "Part",
+        "PartPage",
         "PaymentAskOutcome",
         "PaymentAsksPanel",
         "PaymentHistoryList",
@@ -17550,6 +17625,8 @@
         "QuotationPage",
         "QuoteTab",
         "QuoteTopLines",
+        "ReadFailedBody",
+        "ReadFailedNote",
         "ReplyControls",
         "ReportForm",
         "ReportPage",
@@ -17690,6 +17767,7 @@
         "InfoTip",
         "PartNote",
         "PartSec",
+        "ReadFailedNote",
         "StatusBadge",
         "SupplierThumbRow",
         "TheirEventPart"
@@ -17708,6 +17786,8 @@
         "ColourLaneEditor",
         "EventLockedPage",
         "Link",
+        "PartPage",
+        "ReadFailedBody",
         "SuggestResult",
         "SuggestionPoolResult",
         "SupplierSuggestBoard",
@@ -17794,6 +17874,8 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "PartPage",
+        "ReadFailedBody",
         "TheirEventLine",
         "TheirEventPartBody"
       ]
@@ -17900,6 +17982,7 @@
       "actions": [],
       "blocks": [
         "DatesRow",
+        "ReadFailedNote",
         "ShopSegments",
         "TemplateEmpty",
         "TemplateSection"
@@ -18006,6 +18089,7 @@
       ],
       "actions": [
         "path",
+        "routes.vendorDashboard.subscription",
         "sendCreatorOffer"
       ],
       "blocks": [
@@ -18019,6 +18103,7 @@
         "Link",
         "ListPageSkeleton",
         "PaidMark",
+        "ReadFailedNote",
         "RoiRow",
         "SearchParams",
         "SendOfferButton",
@@ -18634,6 +18719,7 @@
         "QuoteSeed",
         "QuoteVersionLine",
         "RailBody",
+        "ReadFailedNote",
         "RefundAnswer",
         "Resolved",
         "SendProposalCard",
@@ -18730,6 +18816,7 @@
         "NotificationsList",
         "NotificationsView",
         "PermissionState",
+        "ReadFailedBody",
         "UnblockGuide"
       ]
     },
@@ -18814,6 +18901,7 @@
         "PickMenu",
         "QrActions",
         "ReactNode",
+        "ReadFailedBody",
         "RequestsInbox",
         "RowIcon",
         "SeatFinderRow",
@@ -18924,6 +19012,7 @@
         "CueCard",
         "DateRow",
         "DatedPlanTool",
+        "DayReadFailed",
         "DayRunOfShow",
         "DietarySheet",
         "Drawn",
@@ -19066,8 +19155,8 @@
         "vendor-dashboard/packages/page.tsx"
       ],
       "destinations": [
-        "/vendor-dashboard/packages/[seg]",
-        "/vendor-dashboard/packages/new"
+        "/vendor-dashboard/packages/[seg]?from=packages",
+        "/vendor-dashboard/packages/new?from=packages"
       ],
       "actions": [],
       "blocks": [
@@ -19423,6 +19512,7 @@
       "destinations": [],
       "actions": [
         "flagFeedback",
+        "routes.vendorDashboard.recommendations",
         "setOptIn",
         "suggestToCouple"
       ],
@@ -19622,6 +19712,7 @@
         "FormCounter",
         "FormRow",
         "FormRows",
+        "FormRowsReadOnly.Provider",
         "Fragment",
         "FramedImg",
         "GalleryTilesHandle",
@@ -19724,15 +19815,19 @@
         "/vendor-dashboard/shop"
       ],
       "actions": [
+        "routes.vendorDashboard.services",
         "setServiceHalls"
       ],
       "blocks": [
+        "ActionButton",
         "AddFirstSpace",
         "CanvasMaker",
         "CardPortfolioSection",
         "CardRecordSection",
         "CardRecordUnread",
+        "ErrorState",
         "HallsUsesPick",
+        "HideWhenRisen",
         "Link",
         "ReadFailedNote",
         "RefinementsEditor"
@@ -19754,6 +19849,7 @@
         "AddServicePicker",
         "CanvasMaker",
         "CoverageMeter",
+        "HideWhenRisen",
         "Link",
         "NewServiceMaker",
         "RefinementsEditor",
@@ -19774,6 +19870,7 @@
       "actions": [],
       "blocks": [
         "CanvasMaker",
+        "HideWhenRisen",
         "Link",
         "RefinementsEditor",
         "ServiceWizard"
@@ -20646,6 +20743,7 @@
         "vendor-dashboard/team/_components/helpers-view.tsx",
         "vendor-dashboard/team/_components/member-card.tsx",
         "vendor-dashboard/team/_components/team-screen.tsx",
+        "vendor-dashboard/team/_components/team-unread.tsx",
         "vendor-dashboard/team/_components/who-works-what-services.tsx",
         "vendor-dashboard/team/actions.ts",
         "vendor-dashboard/team/loading.tsx",
@@ -20655,7 +20753,8 @@
         "/vendor-dashboard/team/roles"
       ],
       "actions": [
-        "action"
+        "action",
+        "routes.vendorDashboard.team"
       ],
       "blocks": [
         "ActionButton",
@@ -20666,6 +20765,7 @@
         "BranchScope",
         "ChosenRow",
         "DatesRow",
+        "ErrorState",
         "Fold",
         "FormPageSkeleton",
         "FormRows",
@@ -20686,6 +20786,7 @@
         "TeamMemberCard",
         "TeamScreen",
         "TeamSearch",
+        "TeamUnread",
         "TypedRow"
       ]
     },
@@ -20701,6 +20802,7 @@
       ],
       "actions": [
         "action",
+        "routes.vendorDashboard.team",
         "setVendorRoleNames"
       ],
       "blocks": [
@@ -20717,6 +20819,7 @@
         "ShopNotice",
         "StayForm",
         "SupplierSubmit",
+        "TeamUnread",
         "TypedRow",
         "VendorRoleNames"
       ]
@@ -20740,7 +20843,8 @@
         "Search",
         "ShopNotice",
         "StayForm",
-        "SupplierSubmit"
+        "SupplierSubmit",
+        "TeamUnread"
       ]
     },
     "/vendor-dashboard/theft-watch": {
@@ -20777,7 +20881,9 @@
       "destinations": [
         "/vendor-dashboard/shop"
       ],
-      "actions": [],
+      "actions": [
+        "routes.vendorDashboard.trackRecord"
+      ],
       "blocks": [
         "ActionButton",
         "RoleLock",
@@ -20892,6 +20998,7 @@
       "blocks": [
         "ActionButton",
         "Badge",
+        "ErrorState",
         "Image",
         "InfoTip",
         "Link",
@@ -20908,7 +21015,8 @@
       ],
       "destinations": [],
       "actions": [
-        "declineVendorInviteByToken"
+        "declineVendorInviteByToken",
+        "routes.help.index"
       ],
       "blocks": [
         "ActionButton",
@@ -20978,7 +21086,8 @@
         "/signup?as=couple&next=[seg]"
       ],
       "actions": [
-        "claimLockedQr"
+        "claimLockedQr",
+        "routes.v.detail"
       ],
       "blocks": [
         "ActionButton",

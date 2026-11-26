@@ -15,6 +15,7 @@
 //
 // ============================================================================
 
+import { fieldChanged } from '@/lib/field-changed';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -570,10 +571,15 @@ export async function saveSelfAddedServiceCard(formData: FormData): Promise<void
     // RLS refusal would otherwise be indistinguishable from a save and the card
     // would print "Saved" over unchanged text.
     const update: Record<string, unknown> = {
-      address: address.value,
       updated_at: new Date().toISOString(),
     };
-    if (carriesMethodNote) update.payment_method_note = paymentMethodNote;
+    // A7-22 (final check 25 Nov): a field is written only when it CHANGED from what the posting form read. The
+    // workspace card posts what it read (`address_was`, `payment_method_note_was`); a form that posts no `_was` keeps
+    // today's behaviour. So a save can never write a blank over a value the page did not show.
+    if (fieldChanged(formData, 'address_was', address.value)) update.address = address.value;
+    if (carriesMethodNote && fieldChanged(formData, 'payment_method_note_was', paymentMethodNote)) {
+      update.payment_method_note = paymentMethodNote;
+    }
     if (payWays?.ok) update.pay_ways = payWays.ways;
     if (carriesPin) {
       update.address_latitude = pinLat;

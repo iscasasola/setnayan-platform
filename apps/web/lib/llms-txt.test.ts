@@ -248,7 +248,7 @@ test('the monogram no longer promises the LED background — and is no longer so
   assert.match(out, /\[Logo Maker\]\([^)]*\/palogo\)/, 'the /palogo link must name the product the page sells');
   // 2026-10-26 (owner, "just have the upgrade Event Pro"): the Logo & QR part is off sale too — the animation's
   // home is Event Pro itself, named on the Monogram Maker's own line.
-  assert.match(out, /\*\*Monogram Maker\*\* — free\.[^\n]*Event Pro animates it/, "the animation's real home (Event Pro) must still be named");
+  assert.match(out, /\*\*Logo Maker\*\* — free\.[^\n]*Event Pro animates it/, "the animation's real home (Event Pro) must still be named");
   assert.ok(!/part by part|Logo & QR part/i.test(out), 'llms.txt still sells Event Pro part by part');
   assert.ok(
     !/includes the LED Live Background/i.test(out),

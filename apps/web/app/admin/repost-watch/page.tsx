@@ -472,7 +472,8 @@ export default async function AdminRepostWatchPage({
           </FormFlash>
         )}
 
-        {qrRows.length === 0 ? (
+        {/* A8·F-19: on a failed read the flash above is the only line — never "No QR flags" under it. */}
+        {qrError ? null : qrRows.length === 0 ? (
           <TemplateEmpty data="qr-media">
             No QR flags. Run “Scan QR codes” to sweep already-uploaded supplier
             media.

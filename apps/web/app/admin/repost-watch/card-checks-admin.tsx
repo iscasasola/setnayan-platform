@@ -1,3 +1,4 @@
+import { ReadFailed } from '@/app/admin/_components/read-failed';
 import { TemplateEmpty, TemplateFail, TemplateSection } from '@/app/_components/template-rows';
 import { Plus, Trash2 } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -197,7 +198,10 @@ export async function CardChecksAdmin() {
         data="claim-allowances"
         right={allowances.length > 0 ? formatCount(allowances.length) : undefined}
       >
-      {allowances.length === 0 ? (
+      {allowRes.error ? (
+        // A8·F-19: a refused read is not "no shop holds an allowance".
+        <ReadFailed what="the allowances" />
+      ) : allowances.length === 0 ? (
         <TemplateEmpty data="claim-allowances">No shop holds an allowance.</TemplateEmpty>
       ) : (
         <ul className="mt-2 divide-y divide-ink/10">

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome';
 import { DB_BACKUP_RETENTION_DAYS } from '@/lib/rule-constants';
 
@@ -24,6 +25,8 @@ export const metadata = {
     'The terms couples and suppliers agree to when using Setnayan. Eligibility, account responsibilities, payments and refunds, content ownership, supplier rules, liability, and governing law (Philippines).',
   alternates: { canonical: '/terms' },
   openGraph: {
+    // Every page carries a share picture (final check A1-161).
+    images: BRAND_OG_IMAGES,
     title: 'Terms of service · Setnayan',
     description: 'The terms couples and suppliers agree to when using Setnayan.',
     url: '/terms',

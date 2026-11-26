@@ -1,5 +1,6 @@
 import { routes } from '@/lib/routes';
 import Link from 'next/link';
+import { formatLongDate } from '@/lib/format-date';
 import { getSampleEvent, getSampleEventId } from '../_lib/sample-event';
 import { createAdminClient } from '@/lib/supabase/admin';
 import {
@@ -43,9 +44,9 @@ import { coupleNamesLine } from '@/lib/typed-names';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'The suppliers · A real wedding on Setnayan',
+  title: 'The suppliers · A sample wedding on Setnayan',
   description:
-    'See how Setnayan AI shortlists a wedding team that fits — ranked by distance, reviews, and verification. No sign-up, nothing saved.',
+    'See how Setnayan AI shortlists a wedding team that fits — ranked by reviews and verification. No sign-up, nothing saved.',
   alternates: { canonical: '/tour/vendors' },
 };
 
@@ -167,6 +168,8 @@ export default async function TourVendorsPage() {
   // sample event carries no ceremony/venue/region, so those dimensions admit-all.
   // `matchEventId` pins the (read-only) preference/song re-rank to the sample
   // event — a no-op here since it has no song picks or preferences.
+  // A refused read is said, never "0 found" in every category (final check A1-007).
+  let shortlistRefused = false;
   const results = await Promise.all(
     TOUR_CATEGORIES.map((cat) =>
       fetchWizardVendorRecommendations(admin, {
@@ -184,6 +187,9 @@ export default async function TourVendorsPage() {
         // 🧪 The tour runs on the sample (demo) event, so it searches demo shops ONLY — the one demo-scope rule
         // (lib/demo-scope.ts, owner 2026-11-06: "the demo events can only see demo suppliers").
         demoScope: { is_demo: true },
+        onReadRefused: () => {
+          shortlistRefused = true;
+        },
       }),
     ),
   );
@@ -212,9 +218,9 @@ export default async function TourVendorsPage() {
     .order('business_name', { ascending: true })
     .limit(1)
     .maybeSingle();
+  // No typed shop name to fall back on (final check A1-007): an unread name reads as "the supplier".
   const vendorLabel =
-    (counterparty as { business_name?: string | null } | null)?.business_name ??
-    'Liwanag Studios';
+    (counterparty as { business_name?: string | null } | null)?.business_name ?? 'the supplier';
 
   // 🔀 The sample couple in the order its own name keeps (`coupleNamesLine`, owner 2026-10-21).
   const couple = coupleNamesLine({ display_name: ev.display_name, bride_name: ev.bride_name ?? 'Maria', groom_name: ev.groom_name ?? 'Jose' });
@@ -226,14 +232,20 @@ export default async function TourVendorsPage() {
           The AI did the hard part
         </h1>
         <p className="mx-auto mt-4 max-w-xl text-base text-[#5F5E5A] sm:text-lg">
-          {couple} didn&rsquo;t scroll through hundreds of suppliers. Setnayan AI
-          shortlisted a team that fits the wedding — ranked by distance, reviews, and
+          {couple} didn&rsquo;t scroll through every supplier. Setnayan AI
+          shortlisted a team that fits the wedding — ranked by reviews and
           verification. Flip the switch to see how it sorts.
         </p>
       </header>
 
       <section className="mt-12">
-        <TourShortlist categories={categories} vendorCount={vendorCount} />
+        {shortlistRefused ? (
+          <p className="text-center text-sm text-ink/70" role="status" data-tour-unread="shortlist">
+            Couldn&rsquo;t load the sample suppliers just now. Reload the page to try again.
+          </p>
+        ) : (
+          <TourShortlist categories={categories} vendorCount={vendorCount} />
+        )}
       </section>
 
       {/* Scripted chat — what reaching out to a shortlisted vendor feels like */}
@@ -249,7 +261,11 @@ export default async function TourVendorsPage() {
           </p>
         </div>
         <div className="mt-6 rounded-2xl border border-[#A9834B]/40 bg-[#FBF8F1] p-4 sm:p-6">
-          <TourChatThread counterpartyLabel={vendorLabel} />
+          <TourChatThread
+            counterpartyLabel={vendorLabel}
+            couple={couple}
+            dateWords={ev.event_date ? formatLongDate(ev.event_date) : null}
+          />
         </div>
       </section>
 
@@ -271,7 +287,7 @@ export default async function TourVendorsPage() {
       <section className="mx-auto mt-12 max-w-2xl rounded-3xl border border-[#A9834B]/40 bg-[#FBF6EA] px-6 py-10 text-center">
         <h2 className="font-serif text-2xl text-[#1B1A17] sm:text-3xl">Find your suppliers next.</h2>
         <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
-          Start your own wedding on Setnayan and let the AI shortlist for you — free, in minutes.
+          Start your own wedding on Setnayan and let the AI shortlist for you — free.
           Set na &rsquo;yan.
         </p>
         <Link

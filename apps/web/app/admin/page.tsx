@@ -31,7 +31,7 @@
  */
 import { cookies } from 'next/headers';
 import AdminWorkLanding from './work/page';
-import { FocusHome } from './_components/focus-home';
+import { FOCUS_ASK_ANSWERS, FocusHome } from './_components/focus-home';
 import { ADMIN_MODE_COOKIE, readAdminMode } from '@/lib/admin/admin-mode';
 import { requireAdmin } from '@/lib/admin/require-admin';
 
@@ -47,8 +47,12 @@ export default async function AdminHome(props: {
   // The gate first, before any service-role read — the same rule the work list follows.
   const { userId } = await requireAdmin();
   const mode = readAdminMode((await cookies()).get(ADMIN_MODE_COOKIE)?.value);
-  if (mode === 'full') return AdminWorkLanding(props);
   const sp = (await props.searchParams) ?? {};
   const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
+  // A8·C-4: an "Answered on Focus" row (`/admin?ask=…`) is answered in place in EITHER mode — in Full it used to
+  // open the Work list, which ignores `ask`.
+  const asked = one(sp.ask);
+  const answersInPlace = Boolean(asked && Object.hasOwn(FOCUS_ASK_ANSWERS, asked));
+  if (mode === 'full' && !answersInPlace) return AdminWorkLanding(props);
   return <FocusHome viewerUserId={userId} cardKey={one(sp.card)} settle={one(sp.settle)} why={one(sp.why)} ask={one(sp.ask)} />;
 }

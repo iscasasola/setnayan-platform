@@ -45,6 +45,7 @@ export function GuestTicket({
   invitationUrl,
   src = PASS_CARD_ROUTE,
   qrSrc = '/api/guest/qr',
+  fallbackCode = true,
   replyHref = null,
   mark = null,
   appleWallet = null,
@@ -55,6 +56,11 @@ export function GuestTicket({
   invitationUrl: string;
   /** 🔑 A4-B11: the bare code's route — the Hub passes one naming its event (`passRouteForEvent`). */
   qrSrc?: string;
+  /**
+   * Draw the bare code when the ticket picture fails (default). False draws none: the sample hub has no guest cookie,
+   * so that route could never answer and "still works at the door" was untrue there (final check A1-016).
+   */
+  fallbackCode?: boolean;
   /**
    * ✉ REPLY FIRST (`meLeadsWithReply`, lib/arrival-action.ts): set for a guest
    * who has not replied yet. Me then leads with the one reply button — the
@@ -122,7 +128,7 @@ export function GuestTicket({
         alt={`${name}’s ${PASS_CARD_WORDS.digitalTicket}`}
         fallback={
           <div data-ticket-fallback="" className="mx-auto w-[min(300px,100%)]">
-            {pending ? null : (
+            {pending || !fallbackCode ? null : (
               // The bare code, from the route that needs no drawing — the door
               // still works when the picture could not be made.
               // eslint-disable-next-line @next/next/no-img-element -- cookie-authenticated PNG
@@ -135,7 +141,7 @@ export function GuestTicket({
               />
             )}
             <p role="alert" className="mt-2 text-xs text-ink/70">
-              {pending
+              {pending || !fallbackCode
                 ? `We couldn’t draw your ${PASS_CARD_WORDS.noun} just now.`
                 : `We couldn’t draw your ${PASS_CARD_WORDS.noun} just now — this code still works at the door.`}
             </p>

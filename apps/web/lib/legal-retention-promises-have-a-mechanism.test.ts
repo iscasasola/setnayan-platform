@@ -232,7 +232,7 @@ const PROMISES: readonly Promise_[] = [
   { page: 'privacy', quote: 'We run no deletion of our own for them', m: { kind: 'kept', why: 'True by absence; see the Sentry row.' } },
   { page: 'privacy', quote: 'The fraud-prevention device identifier — kept, and not deleted', m: { kind: 'kept', why: 'See the device rows above.' } },
   { page: 'privacy', quote: 'Nothing deletes it on a timer yet.', m: { kind: 'kept', why: 'See the device rows above.' } },
-  { page: 'privacy', quote: 'Gift records (Pabuya) — until the event is deleted', m: { kind: 'code', where: GIFTS_CASCADE } },
+  { page: 'privacy', quote: 'Gift records (E-Gifts) — until the event is deleted', m: { kind: 'code', where: GIFTS_CASCADE } },
   { page: 'privacy', quote: 'Daily visit codes — deleted the next day', m: { kind: 'code', where: VISITS_SQL } },
   { page: 'privacy', quote: 'our database provider keeps a daily backup for N days', m: { kind: 'vendor', who: 'Supabase daily physical backups, 7-day retention (owner screenshot 2026-10-23, Breach Policy § 3.1).' } },
   { page: 'privacy', quote: 'Something deleted from Setnayan can stay in a backup until that backup ages out', m: { kind: 'vendor', who: 'Supabase backup retention, as above.' } },

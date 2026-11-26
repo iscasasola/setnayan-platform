@@ -45,7 +45,10 @@ const MAX_SUGGESTIONS = 6;
 
 export function FindYourSeat({ tables, seats, entrance }: Props) {
   const [query, setQuery] = useState('');
-  const [targetTableId, setTargetTableId] = useState<string | null>(null);
+  // The PICKED seat, not its table: two guests share a table, and the greeting names the one who was picked
+  // (final check A1-006 — it took the table's first seat and greeted somebody else).
+  const [picked, setPicked] = useState<TourSeat | null>(null);
+  const targetTableId = picked?.tableId ?? null;
 
   // In-memory filter. Pure substring match on the already-loaded list — no
   // network, no fetch. Empty query shows nothing (the map stays in its calm,
@@ -58,20 +61,17 @@ export function FindYourSeat({ tables, seats, entrance }: Props) {
       .slice(0, MAX_SUGGESTIONS);
   }, [seats, query]);
 
-  const selected = useMemo(
-    () => seats.find((s) => s.tableId === targetTableId) ?? null,
-    [seats, targetTableId],
-  );
+  const selected = picked;
 
   function pick(seat: TourSeat) {
-    setTargetTableId(seat.tableId);
+    setPicked(seat);
     setQuery(seat.name);
   }
 
   function onChange(value: string) {
     setQuery(value);
     // Typing again clears the highlight so the map doesn't lie about a stale pick.
-    if (targetTableId !== null) setTargetTableId(null);
+    if (picked !== null) setPicked(null);
   }
 
   return (
@@ -114,7 +114,7 @@ export function FindYourSeat({ tables, seats, entrance }: Props) {
           {matches.length > 0 ? (
             <ul className="flex flex-col gap-1.5" aria-label="Matching guests">
               {matches.map((seat) => {
-                const isActive = seat.tableId === targetTableId && seat.name === query;
+                const isActive = seat === picked;
                 return (
                   <li key={`${seat.name}-${seat.tableId}`}>
                     <button

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 import { LegalLayout, LegalSection } from '@/app/_components/legal/legal-chrome';
 
 
@@ -20,6 +21,8 @@ export const metadata = {
     'The rules for content and conduct on Setnayan — for couples, suppliers, and event guests. Prohibited content, the always-on NSFW filter, reporting and takedown, and enforcement.',
   alternates: { canonical: '/acceptable-use' },
   openGraph: {
+    // Every page carries a share picture (final check A1-161).
+    images: BRAND_OG_IMAGES,
     title: 'Acceptable use policy · Setnayan',
     description: 'Content and conduct rules for couples, suppliers, and guests.',
     url: '/acceptable-use',

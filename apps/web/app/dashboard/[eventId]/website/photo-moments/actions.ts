@@ -155,12 +155,14 @@ export async function updatePhotoMoments(
     return { ok: true };
   }
 
-  const { error } = await supabase
+  const { data: savedRows, error } = await supabase
     .from('events')
     .update({ photo_moments_config: config })
-    .eq('event_id', eventIdRaw);
+    .eq('event_id', eventIdRaw)
+    .select('event_id');
 
-  if (error) {
+  // E-11 (final check): RLS refuses an update by matching zero rows with no error — that used to read "Saved".
+  if (error || !savedRows || savedRows.length === 0) {
     // RLS denial or any other Postgres error — translate to brand voice
     // so the host sees a polite message, not a raw error string. The
     // help link gives them a clean escape hatch if it keeps failing.

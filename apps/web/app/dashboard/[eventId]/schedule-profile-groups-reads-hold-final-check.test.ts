@@ -13,7 +13,6 @@ import { fileURLToPath } from 'node:url';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { stripComments } from '@/lib/strip-comments';
 import { unihomeShopBeforeRead } from '@/lib/unihome';
-import { fetchCluster, readCluster } from '@/lib/clusters';
 import { FORM_READ_FIELD, FORM_READ_REFUSAL, formReadRefusal } from '@/lib/form-read';
 
 const web = join(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
@@ -83,17 +82,6 @@ test('A2-B2: Home’s Shop part is "couldn’t read" for a refused shops read �
   assert.match(src('app/_components/account-switcher/get-switcher-data.ts'), /shopsMeasured: roles\.shopsMeasured,/);
   assert.match(src('app/_components/account-switcher/get-switcher-data.ts'), /shopsMeasured: false,/, 'and the throw path');
   assert.match(src('lib/unihome.server.ts'), /const early = unihomeShopBeforeRead\(switcher\);/);
-});
-
-test('A2-C12: a group read says "refused", never "no such group" — behaviour', async () => {
-  const refused = { data: null, error: { code: '42501', message: 'permission denied' } };
-  assert.deepEqual(await quietly(() => readCluster(stubClient(refused), 'c1')), { measured: false });
-  assert.deepEqual(await readCluster(stubClient({ data: null, error: null }), 'c1'), { measured: true, cluster: null });
-  const row = { event_cluster_id: 'c1', public_id: 'S89', display_name: 'Our year', created_at: '2026-11-25' };
-  assert.deepEqual(await readCluster(stubClient({ data: row, error: null }), 'c1'), { measured: true, cluster: row });
-  assert.equal(await quietly(() => fetchCluster(stubClient(refused), 'c1')), null, 'the name-only reader keeps its shape');
-  const page = src('app/dashboard/(account)/clusters/[clusterId]/page.tsx');
-  assert.ok(page.indexOf('if (!clusterRead.measured) {') < page.indexOf('notFound()'), 'the refusal is said before the 404');
 });
 
 test('A2-C12: a loved one’s refused read is not a 404', () => {

@@ -9,13 +9,11 @@ import {
   ChevronRight,
   Compass,
   KeyRound,
-  Gem,
   MonitorSmartphone,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isPlaceholderEmail } from '@/lib/anon-onboarding';
-import { CONCIERGE_ENABLED } from '@/lib/concierge';
 import { restartTour } from '@/lib/tour-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Field } from '@/app/_components/forms/field';
@@ -237,7 +235,8 @@ export default async function ProfilePage({ searchParams }: Props) {
   // sharing on a dormant/empty profile.
   let hasPublicChapter = false;
   if (publicProfileOn && currentSlug) {
-    const pub = await resolvePublicProfile(currentSlug);
+    // A refused read only hides the share row here; it never takes the profile page down (A1-070 throws now).
+    const pub = await resolvePublicProfile(currentSlug).catch(() => null);
     hasPublicChapter = (pub?.publicWebsiteEvents.length ?? 0) > 0;
   }
   const publicProfileUrl = `https://${publicHost}/u/${currentSlug ?? ''}`;
@@ -1335,22 +1334,8 @@ export default async function ProfilePage({ searchParams }: Props) {
             {tr('common.help')}
             <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.8} />
           </Link>
-          {/* Route URL stays `/dashboard/profile/concierge` to avoid
-              cross-iteration import + spec-corpus churn. Visible label is the
-              V2 brand "Setnayan AI" per the 2026-05-28 V1→V2 cutover lock. */}
-          {CONCIERGE_ENABLED ? (
-            <Link href="/dashboard/profile/concierge" className={ACCOUNT_ROW}>
-              <span className="inline-flex items-center gap-2">
-                <Gem aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-                Setnayan AI
-              </span>
-              <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.8} />
-            </Link>
-          ) : null}
-          <Link href="/dashboard/api-keys" className={ACCOUNT_ROW}>
-            API keys
-            <ChevronRight aria-hidden className="h-4 w-4 text-ink/40" strokeWidth={1.8} />
-          </Link>
+          {/* Final check R1 + R8 (25 Nov): the Setnayan AI settings row and the API keys row went with their retired
+              pages (/dashboard/profile/concierge, /dashboard/api-keys). */}
           {/* 🍎 Restore purchases — only where the iPhone app sells through Apple (owner 2026-10-18). */}
           {appleIap ? <RestorePurchasesRow className={ACCOUNT_ROW} /> : null}
           <form action={restartTour}>
@@ -1480,14 +1465,6 @@ export default async function ProfilePage({ searchParams }: Props) {
     <>
       <Link href="/help" className={ACCOUNT_ROW}>
         {tr('common.help')}
-      </Link>
-      {CONCIERGE_ENABLED ? (
-        <Link href="/dashboard/profile/concierge" className={ACCOUNT_ROW}>
-          Setnayan AI
-        </Link>
-      ) : null}
-      <Link href="/dashboard/api-keys" className={ACCOUNT_ROW}>
-        API keys
       </Link>
       {isAdmin ? (
         <Link href="/admin" className={ACCOUNT_ROW}>

@@ -28,6 +28,8 @@ export type InviteSetup = {
   /** The couple's own wording, or null = ours. */
   template: string | null;
   slug: string | null;
+  /** I-07 (final check): the events read failed — `slug: null` then means "unknown", never "no address yet". */
+  readFailed?: boolean;
 };
 
 export async function loadInviteSetup(
@@ -69,5 +71,6 @@ export async function loadInviteSetup(
     },
     template: stored.inviteMessage,
     slug: row?.slug ?? null,
+    readFailed: Boolean(error),
   };
 }

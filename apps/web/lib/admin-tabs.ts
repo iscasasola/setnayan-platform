@@ -73,7 +73,6 @@ export const ADMIN_TAB_MAP: readonly AdminTabEntry[] = [
   { route: '/admin/force-majeure', tab: 'work' },
   { route: '/admin/force-majeure/[flagId]', tab: 'work' },
   { route: '/admin/reviews', tab: 'work' },
-  { route: '/admin/concierge-abuse', tab: 'work' },
   { route: '/admin/fraud', tab: 'work' },
   { route: '/admin/integrity-watch', tab: 'work' },
   { route: '/admin/user-reports', tab: 'work', note: 'Reports.' },

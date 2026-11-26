@@ -47,7 +47,7 @@ import { loadRoleNames } from '@/lib/role-names.server';
 import { roleSeatingLabels } from '@/lib/role-seating-labels';
 import { setSeatingAutoplace, setSeatingGroupAdjacency } from './actions';
 import { PLAN3D_BOOTH_ADS_ENABLED } from '@/lib/ghost-booths';
-import SeatingLabPage from './lab/page';
+import SeatingLabPage from './lab/_components/seating-room';
 import { SeatPlanInGuests } from './_components/seat-plan-in-guests';
 
 export const metadata = { title: 'Seating chart' };

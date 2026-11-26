@@ -1938,18 +1938,6 @@ export const NAV_SLOT_DEFAULTS: readonly NavSlotDefault[] = [
     sortOrder: 10,
   },
   {
-    key: "admin.sidebar.concierge-abuse",
-    scope: "admin",
-    area: "admin-sidebar",
-    route: "/admin/concierge-abuse",
-    label: "Setnayan AI abuse",
-    labelKind: "literal",
-    iconKind: "lucide",
-    lucideName: "Flag",
-    customRef: null,
-    sortOrder: 11,
-  },
-  {
     key: "admin.sidebar.account-deletions",
     scope: "admin",
     area: "admin-sidebar",

@@ -162,6 +162,10 @@ export function GuestInviteCell({
   });
   // The sheet's shape: a phone shares; a computer copies in three steps.
   const [touch, setTouch] = useState(false);
+  // 🪤 WHAT THE DEVICE IS — never the sheet's shape. `rowShare` sets `touch` false on a phone to draw the app rows, and
+  // the app links used to read that same switch: on a phone's browser Messenger opened messenger.com and Viber only
+  // copied (owner 2026-11-26). The WhatsApp · Viber · Messenger links read THIS, measured at every open.
+  const [phone, setPhone] = useState(false);
   const [said, setSaid] = useState<
     | { kind: 'ticket-saved' }
     | { kind: 'no-ticket' }
@@ -306,6 +310,7 @@ export function GuestInviteCell({
     setSaid(null);
     setDone({ message: false, ticket: false, link: false });
     setTouch(isTouchDevice());
+    setPhone(isTouchDevice());
     setOpen(true);
   }
 
@@ -342,11 +347,11 @@ export function GuestInviteCell({
   async function viaApp(app: InviteApp) {
     setSaid(null);
     const text = message(false);
-    const plan = inviteAppPlan(app, text, { touch, share: typeof navigator.share === 'function' });
+    const plan = inviteAppPlan(app, text, { touch: phone, share: typeof navigator.share === 'function' });
     if (plan.kind === 'share') return share();
     // Armed AT the press: opening an app can hide this page before the promise below settles.
     if (!sentAt) back.arm();
-    const out = await runInviteAppPlan(plan, text, touch);
+    const out = await runInviteAppPlan(plan, text, phone);
     setSaid(out === 'manual' ? { kind: 'manual', text } : { kind: 'app', text: inviteAppSaid(app, plan, first) });
   }
 
@@ -412,7 +417,7 @@ export function GuestInviteCell({
   );
 
   const APP_ICON = { whatsapp: MessageCircle, viber: PhoneCall, messenger: MessagesSquare } as const;
-  const device = { touch, share: typeof navigator !== 'undefined' && typeof navigator.share === 'function' };
+  const device = { touch: phone, share: typeof navigator !== 'undefined' && typeof navigator.share === 'function' };
   // Title + one short line each; what happens in full is in the ⓘ beside "Invite …".
   const twoLines = (title: string, hint: string) => (
     <span className="min-w-0 flex-1 leading-tight">
@@ -445,8 +450,8 @@ export function GuestInviteCell({
       <div className="space-y-1 p-1.5" data-guest-invite-panel="">
         <div className="px-1 pb-1">
           <InfoTip label={`Invite ${first}`} labelId={titleId} labelClassName="text-sm font-medium text-ink" align="start">
-            WhatsApp{touch ? ' and Viber open' : ' opens'} with the message ready — you pick {first} and press send.
-            {touch ? '' : ' Viber on a computer can’t take a message from a link, so we copy it.'} Messenger can’t take one
+            WhatsApp{phone ? ' and Viber open' : ' opens'} with the message ready — you pick {first} and press send.
+            {phone ? '' : ' Viber on a computer can’t take a message from a link, so we copy it.'} Messenger can’t take one
             either: we copy it and open Messenger for you to paste. Nothing goes out until you send it in your app.
           </InfoTip>
         </div>

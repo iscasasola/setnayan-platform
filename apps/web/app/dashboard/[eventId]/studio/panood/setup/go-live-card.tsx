@@ -120,6 +120,7 @@ export function GoLiveCard({
         hint: 'Please wait',
       });
       if ('error' in result) setError(result.error);
+      else setNotice(result.notice ?? null);
       // S8 Part C: forget whatever key Rust is holding for this broadcast —
       // a no-op outside the desktop shell. Stands in for S5's real
       // `encoder_stop` (not landed on this branch) calling this same command;

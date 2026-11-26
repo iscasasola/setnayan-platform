@@ -43,7 +43,7 @@ const ACTIONS = 'app/dashboard/[eventId]/seating/actions.ts';
 /* The 3D room's own Show early / Hide until the day left it when the room became view-only (owner 2026-10-30); the
    ONE switch is the 2D plan's "Show guests their seats early" (`doorStrip` in the seat-plan editor). */
 const EDITOR = 'app/dashboard/[eventId]/seating/_components/seating-editor.tsx';
-const PAGE = 'app/dashboard/[eventId]/seating/lab/page.tsx';
+const PAGE = 'app/dashboard/[eventId]/seating/lab/_components/seating-room.tsx';
 
 const read = (rel: string) => stripComments(readFileSync(join(ROOT, rel), 'utf8'));
 

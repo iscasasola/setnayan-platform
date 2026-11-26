@@ -33,6 +33,7 @@
  * locked tokens, because they arrive from the kit.
  */
 
+import { routes } from '@/lib/routes';
 import { DoorwayPage, type DoorwayVersus } from '@/app/_components/marketing/_doorway';
 import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
 import { studioDescription } from '@/lib/studio-apps';
@@ -246,7 +247,7 @@ export default function SetnayanAiLandingPage() {
   return (
     <DoorwayPage
       title="It doesn’t chat. It watches your wedding for you."
-      primary={{ href: '/onboarding/wedding?from=setnayan-ai', label: 'Start planning · free' }}
+      primary={{ href: routes.start(), label: 'Start planning · free' }}
       secondary={{ href: '/pricing', label: 'See pricing' }}
       productName="Setnayan AI"
       studioKey="setnayan-ai"
@@ -260,7 +261,7 @@ export default function SetnayanAiLandingPage() {
       closing={{
         heading: 'Let it watch your back',
         body: 'Planning on Setnayan is free to start — guest list, RSVP, seating, budget, and your Event Hub. Setnayan AI is the paid brain that watches your suppliers so you don’t have to — a job you’d otherwise need a small team for. Add it when you want it; 0% supplier commission, so it recommends what fits you, never what pays us.',
-        href: '/onboarding/wedding?from=setnayan-ai',
+        href: routes.start(),
         label: 'Start planning · free',
       }}
       structuredData={[APP_LD, FAQ_LD]}

@@ -20,6 +20,7 @@ import { isRedirectError } from 'next/dist/client/components/redirect-error';
 import { getURLFromRedirectError } from 'next/dist/client/components/redirect';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { AdminAreaRefusal, requireAdminCan } from '@/lib/admin/can.server';
 import { CATEGORIES_PATH } from './_components/back';
 import {
   addCategoryCore,
@@ -128,7 +129,16 @@ export async function mapWrite(op: MapOp): Promise<WriteResult> {
     case 'renamePart':
       return asAdmin((a) => renamePartCore(admin, a, str(op.slotKey), str(op.label)));
     case 'hidePart':
-      return asAdmin((a) => setPartHiddenCore(admin, a, str(op.slotKey), op.hidden === true));
+      // A8·L-8: hiding a part for everyone is Catalogue · Escalated.
+      return asAdmin(async (a) => {
+        try {
+          await requireAdminCan('catalogue', 'escalated');
+        } catch (err) {
+          if (err instanceof AdminAreaRefusal) return { ok: false, error: err.message };
+          throw err;
+        }
+        return setPartHiddenCore(admin, a, str(op.slotKey), op.hidden === true);
+      });
     case 'onePerEvent':
       return asAdmin((a) => setOnePerEventCore(admin, a, str(op.categoryId), op.on === true));
     case 'defaultChapter':

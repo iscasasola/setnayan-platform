@@ -220,3 +220,13 @@ export function cleanRoleName(raw: unknown): string | null {
   const t = raw.replace(/\s+/g, ' ').trim().slice(0, 40);
   return t.length > 0 ? t : null;
 }
+
+/**
+ * The Team screen's Roles row: the first three role names, then "and N more" — N counted from the list, never typed
+ * (final check A5-G5-10: it read "· and 3 more" whatever the list held). Three or fewer names show them all.
+ */
+export function rolesRowLine(names: ReadonlyArray<string>, shown = 3): string {
+  const head = names.slice(0, shown).join(' · ');
+  const rest = names.length - Math.min(shown, names.length);
+  return rest > 0 ? `${head} · and ${rest} more` : head;
+}

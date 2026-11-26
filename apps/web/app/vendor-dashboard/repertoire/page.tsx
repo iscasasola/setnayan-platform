@@ -2,7 +2,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
-import { fetchVendorSongs, searchSongs, fetchCuratedSongs, isMusicVendor } from '@/lib/songs';
+import { readVendorSongs, searchSongs, fetchCuratedSongs, isMusicVendor } from '@/lib/songs';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { readShopSpecialToolOpen } from '@/lib/paid-widget-open.server';
 import { readPaidWidgetStatus } from '@/lib/supplier-store.server';
@@ -33,13 +33,16 @@ export default async function RepertoirePage({ searchParams }: Props) {
   // Ultra — the database's one answer. Beside it, the Toolkit's own status for the widget, so a shut lock says WHICH
   // door: owned off-plan → "Works again when you subscribe" and the plans door, never a second Buy. One batch.
   const admin = createAdminClient();
-  const [open, widget, repertoire, results] = await Promise.all([
+  const [open, widget, setList, results] = await Promise.all([
     readShopSpecialToolOpen(admin, profile.vendor_profile_id, 'song_bank'),
     readPaidWidgetStatus(admin, profile.vendor_profile_id, 'song_bank').catch((): ToolStatus => ({ kind: 'unread' })),
-    fetchVendorSongs(supabase, profile.vendor_profile_id),
+    readVendorSongs(supabase, profile.vendor_profile_id),
     query ? searchSongs(supabase, query) : fetchCuratedSongs(supabase),
   ]);
   if (open.status === 'unread') return <RepertoireUnread />;
+  // 🪪 A refused set-list or library read is said, never an empty list (final check A5-G6-11).
+  if (setList.failed || results === null) return <RepertoireUnread />;
+  const repertoire = setList.rows;
   if (open.status !== 'ok' || !open.data) {
     // A shut Song bank whose status could not be read is said as a failed read — never a Buy offered to an owner by guess.
     if (widget.kind === 'unread') return <RepertoireUnread />;

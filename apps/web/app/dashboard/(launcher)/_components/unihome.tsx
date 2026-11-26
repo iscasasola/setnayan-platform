@@ -5,7 +5,6 @@ import {
   ArrowUpRight,
   ChevronRight,
   HeartHandshake,
-  LayoutDashboard,
   Plus,
   Search,
   Settings,
@@ -149,9 +148,14 @@ function Scene({ card }: { card: UnihomeEventCard }) {
   );
 }
 
-/** An event you organise (Dashboard · Event Hub · remove) or help with (Dashboard · Event Hub). */
+/**
+ * An event you organise or help with. 📋 THE CARD IS THE MENU'S BUTTON (owner-approved 25 Nov 2026, final-check brief
+ * Add 40; drawing `build-sessions/final-check/drawings/event-card-menu.html`): a tap on the card, its ⋯, a long-press or
+ * a right-click opens Open Dashboard · Open your Event Hub · Open Chat · Open your Memories · Publish Story · Delete
+ * Event. It replaces the Dashboard · Event Hub · trash buttons that sat under the card (Unihome v5). Delete is the
+ * shipped flow inside the same menu — organisers only.
+ */
 function EventCard({ card }: { card: UnihomeEventCard }) {
-  const open = card.dashboardHref ?? card.hubUrl;
   const cover = (
     <span className={u.cover}>
       <Scene card={card} />
@@ -164,7 +168,7 @@ function EventCard({ card }: { card: UnihomeEventCard }) {
   const words = (
     <>
       <span className={u.poK}>{card.kind}</span>
-      <h3 className={u.poT}>{open ? <Link href={open}>{card.title}</Link> : card.title}</h3>
+      <h3 className={u.poT}>{card.title}</h3>
       <span className={u.poS}>{card.when}</span>
       {card.countdown || card.progress ? (
         <span className={u.poM}>
@@ -173,38 +177,30 @@ function EventCard({ card }: { card: UnihomeEventCard }) {
           {card.progress}
         </span>
       ) : null}
-      <div className={u.eact}>
-        {card.dashboardHref ? (
-          <ActionButton
-            tone="neutral"
-            icon={<LayoutDashboard aria-hidden />}
-            label="Dashboard"
-            name={`Dashboard for ${card.title}`}
-            href={card.dashboardHref}
-            data-unihome-dashboard=""
-          />
-        ) : null}
-        {card.hubUrl ? <UnihomeHubButton href={card.hubUrl} eventName={card.title} /> : null}
-        {card.stance === 'organiser' ? (
-          <span className={u.eactEnd}>
-            <EventCardMenu trigger="remove" eventId={card.eventId} eventName={card.title} archived={card.archived} hubUrl={card.hubUrl} />
-          </span>
-        ) : null}
-      </div>
     </>
   );
-  return (
+  const body = (
     <article className={`${u.ecard} ${u.dgrid2}`} data-unihome-event={card.stance} aria-label={card.title}>
-      {/* Tapping the picture also opens the dashboard, as today. A duplicate of the title's link: out of the tab order. */}
-      {open ? (
-        <Link href={open} tabIndex={-1} aria-hidden>
-          {cover}
-        </Link>
-      ) : (
-        cover
-      )}
+      {cover}
       <div className={u.dright}>{words}</div>
     </article>
+  );
+  if (!card.menu || !card.dashboardHref) return body;
+  return (
+    <EventCardMenu
+      trigger="card"
+      eventId={card.eventId}
+      eventName={card.title}
+      archived={card.archived}
+      card={{
+        body,
+        thumb: <Scene card={card} />,
+        meta: card.when,
+        stance: stanceLabel(card.stance),
+        dashboardHref: card.dashboardHref,
+        menu: card.menu,
+      }}
+    />
   );
 }
 
@@ -306,6 +302,14 @@ function CreateShopTile() {
 }
 
 function ShopPart({ shop }: { shop: UnihomeShop }) {
+  if (shop.kind === 'unread') {
+    return (
+      <section id="shop" aria-labelledby="unihome-shop" className={u.part} data-unihome-part="shop" data-unihome-shop="unread">
+        <SecHead id="unihome-shop" title="Shop" />
+        <p role="alert" className={u.line}>Couldn’t read your shop just now. Nothing has changed — reload in a moment.</p>
+      </section>
+    );
+  }
   if (shop.kind === 'none') {
     // No shop, and the account may not open one (or the shops read was refused — a duplicate shop is permanent).
     return (

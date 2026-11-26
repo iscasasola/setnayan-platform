@@ -414,7 +414,7 @@ test('the Event Hub shows the ticket on Me — pending shows the pending ticket,
   assert.match(t, /if \(state === 'none'\) return null;/);
   assert.match(t, /state === 'cannotCome'[\s\S]{0,300}passCardLine\(state\)/, 'can’t come says the one line, no ticket');
   assert.match(t, /\bsrc = PASS_CARD_ROUTE,[\s\S]*<TicketPicture\s+src=\{src\}/, 'the picture is the ticket route');
-  const items = buildChecklist({ wear: null, wearNote: null, motif: [], arriveBy: null, venueName: null, mapsHref: null, tableLabel: null, passHref: null });
+  const items = buildChecklist({ wear: null, wearNote: null, arriveBy: null, venueName: null, mapsHref: null, tableLabel: null, passHref: null });
   assert.equal(items.find((i) => i.key === 'pass'), undefined, 'no "Save to Photos" in the checklist without a card');
 });
 

@@ -65,8 +65,16 @@ async function sendGroupMessage(formData: FormData): Promise<void> {
 async function addToGroup(threadId: string, userIds: string[]): Promise<void> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('chat_group_add', { p_thread_id: threadId, p_people: userIds });
-  if (error) logQueryError('addToGroup (chat_group_add)', error, { thread_id: threadId }, 'graceful_degrade');
-  else if (data !== 'added' && data !== 'already') logQueryError('addToGroup (refused)', { message: String(data) }, { thread_id: threadId }, 'graceful_degrade');
+  // 🔒 A refusal is loud (final check A1-005): it used to log and refresh, so the press looked like it worked. The
+  // strip catches the throw and says so in plain words with a way to try again.
+  if (error) {
+    logQueryError('addToGroup (chat_group_add)', error, { thread_id: threadId }, 'will_throw');
+    throw new Error('add refused');
+  }
+  if (data !== 'added' && data !== 'already') {
+    logQueryError('addToGroup (refused)', { message: String(data) }, { thread_id: threadId }, 'will_throw');
+    throw new Error('add refused');
+  }
   revalidatePath(groupChatHref(threadId));
 }
 
@@ -74,8 +82,14 @@ async function addToGroup(threadId: string, userIds: string[]): Promise<void> {
 async function leaveGroup(threadId: string, note: string | null): Promise<void> {
   const supabase = await createClient();
   const { data, error } = await supabase.rpc('chat_group_leave', { p_thread_id: threadId, p_note: note });
-  if (error) logQueryError('leaveGroup (chat_group_leave)', error, { thread_id: threadId }, 'graceful_degrade');
-  else if (data !== 'left') logQueryError('leaveGroup (refused)', { message: String(data) }, { thread_id: threadId }, 'graceful_degrade');
+  if (error) {
+    logQueryError('leaveGroup (chat_group_leave)', error, { thread_id: threadId }, 'will_throw');
+    throw new Error('leave refused');
+  }
+  if (data !== 'left') {
+    logQueryError('leaveGroup (refused)', { message: String(data) }, { thread_id: threadId }, 'will_throw');
+    throw new Error('leave refused');
+  }
   revalidatePath(groupChatHref(threadId));
 }
 
@@ -86,8 +100,13 @@ async function rejoinGroup(threadId: string): Promise<void> {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) redirect('/login');
-  const { error } = await supabase.rpc('chat_group_add', { p_thread_id: threadId, p_people: [user.id] });
-  if (error) logQueryError('rejoinGroup (chat_group_add)', error, { thread_id: threadId }, 'graceful_degrade');
+  const { data, error } = await supabase.rpc('chat_group_add', { p_thread_id: threadId, p_people: [user.id] });
+  // A refusal returned as data (`not_found`, `unauthenticated`, …) is a refusal too, as in `addToGroup`.
+  if (error || (data !== 'added' && data !== 'already')) {
+    logQueryError('rejoinGroup (chat_group_add)', error ?? { message: String(data) }, { thread_id: threadId }, 'graceful_degrade');
+    // The page says it (final check A1-005), instead of reloading the same question.
+    redirect(`${groupChatHref(threadId)}?error=rejoin`);
+  }
   revalidatePath(groupChatHref(threadId));
   redirect(groupChatHref(threadId));
 }
@@ -98,7 +117,8 @@ async function createGroup(eventId: string, name: string, people: string[]): Pro
   const { data, error } = await supabase.rpc('chat_group_create', { p_event_id: eventId, p_name: name, p_people: people });
   if (error || typeof data !== 'string') {
     logQueryError('createGroup (chat_group_create)', error, { event_id: eventId }, 'graceful_degrade');
-    redirect(`/samahan/chat/new?event=${eventId}&error=1`);
+    // `name` = the name was missing; `refused` = anything else (final check A1-005: every refusal said "give it a name").
+    redirect(`/samahan/chat/new?event=${eventId}&error=${name.trim() ? 'refused' : 'name'}`);
   }
   revalidatePath(`/dashboard/${eventId}/messages`);
   redirect(groupChatHref(data));

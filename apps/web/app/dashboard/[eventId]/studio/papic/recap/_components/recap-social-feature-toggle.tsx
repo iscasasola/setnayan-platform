@@ -18,6 +18,7 @@ export function RecapSocialFeatureToggle({
 }) {
   const [allowed, setAllowed] = useState(initialAllowed);
   const [pending, startTransition] = useTransition();
+  const [failed, setFailed] = useState(false);
 
   return (
     <label className="flex cursor-pointer items-start gap-3 select-none">
@@ -30,9 +31,14 @@ export function RecapSocialFeatureToggle({
         onClick={() => {
           const next = !allowed;
           setAllowed(next); // optimistic
+          setFailed(false);
           startTransition(async () => {
-            const res = await setRecapSocialFeatureAllowed(eventId, next);
-            if (!res.ok) setAllowed(!next); // revert on failure
+            // P-05: the switch used to flip back with no word. It now says why it moved.
+            const res = await setRecapSocialFeatureAllowed(eventId, next).catch(() => ({ ok: false }));
+            if (!res.ok) {
+              setAllowed(!next); // revert on failure
+              setFailed(true);
+            }
           });
         }}
         className={SWITCH_BUTTON}
@@ -47,6 +53,11 @@ export function RecapSocialFeatureToggle({
           Only ever posted after your event, and only while your recap page is public. You can turn
           this off anytime — if a post already went out, our team takes it down within 24 hours.
         </span>
+        {failed ? (
+          <span role="alert" className="mt-1 block text-danger-600">
+            Couldn&rsquo;t save that change. Try again.
+          </span>
+        ) : null}
       </span>
     </label>
   );

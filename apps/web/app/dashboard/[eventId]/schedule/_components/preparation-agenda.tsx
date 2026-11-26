@@ -83,7 +83,8 @@ export function PreparationAgendaView({
   /** eventNoun(event_type) — a birthday is not told to set its "wedding date". */
   eventWord?: 'wedding' | 'event';
 }) {
-  const unread = agenda.unread ?? [];
+  // A2-I3: the uncounted sources (paperwork deadlines, meetings) that could not be read are said too, never dropped.
+  const unread = [...(agenda.unread ?? []), ...(agenda.missing ?? [])];
   if (agenda.items.length === 0 && unread.length === 0) {
     return (
       <PreparationEmptyState eventId={eventId} hasEventDate={hasEventDate} eventWord={eventWord} />
@@ -98,7 +99,15 @@ export function PreparationAgendaView({
         /* 🛑 A refused read says so — never an empty "nothing to do" (house rule). */
         <p role="alert" data-planning-unread={unread.join(' ')} className="rounded-xl bg-danger-50 px-3 py-2.5 text-sm text-danger-700">
           We couldn’t load{' '}
-          {unread.includes('task') ? 'your to-do tasks' : unread.includes('manual') ? 'the steps you added' : 'your payment steps'}. They’re safe — pull to
+          {unread.includes('task')
+            ? 'your to-do tasks'
+            : unread.includes('manual')
+              ? 'the steps you added'
+              : unread.includes('payment')
+                ? 'your payment steps'
+                : unread.includes('paperwork')
+                  ? 'your paperwork deadlines'
+                  : 'your meetings'}. They’re safe — pull to
           refresh or try again in a moment.
         </p>
       ) : null}

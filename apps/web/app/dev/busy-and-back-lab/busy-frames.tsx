@@ -1,7 +1,7 @@
 'use client';
 
 /**
- * The three busy frames of final check B19, drawn with the REAL parts: the skeleton (`Sk`), the Locked QR upload slot
+ * The three busy frames of final check B19, drawn with the REAL parts: the skeleton (`Sk`), the QR code maker’s upload slot
  * (`UploadSlotControl`), `SubmitButton` (pending) and `ActionButton busy`. Lab only — sample data.
  */
 import { Save, Send } from 'lucide-react';
@@ -34,7 +34,7 @@ export function BusyFrames() {
         </section>
       </section>
       <section data-lab-frame="upload">
-        <p className="text-sn-sm text-[color:var(--m-slate-2)]">2 · Locked QR › proof photo while it uploads</p>
+        <p className="text-sn-sm text-[color:var(--m-slate-2)]">2 · A proof photo while it uploads (the QR code maker)</p>
         <UploadSlotControl slot={slot({ busy: true })} accept="image/*" />
         <UploadSlotControl slot={slot({ err: 'Didn’t upload' })} accept="image/*" />
       </section>

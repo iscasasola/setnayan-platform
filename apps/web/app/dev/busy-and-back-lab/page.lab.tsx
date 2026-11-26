@@ -4,7 +4,7 @@
  *
  *   ?s=pins   the one pinned row (`ToolPin`) as the supplier pages now draw it — Your details · Settings · Team ·
  *             Their work · Spaces · Deep Search · Packages · Albums by event · Partnerships · Your requests · a request
- *   ?s=busy   the three busy frames: Shop › Analytics loading (the skeleton), Locked QR › proof photo uploading and
+ *   ?s=busy   the three busy frames: Shop › Analytics loading (the skeleton), the QR code maker’s proof photo uploading and
  *             failed (the real `UploadSlotControl`), and a form button working (the real `SubmitButton`) beside a
  *             working `ActionButton`
  */

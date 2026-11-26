@@ -18,3 +18,7 @@ Final check, area 8 fixer, batch 5 (lane A only; no amounts, plans or rules chan
 Guard: `apps/web/app/admin/batch-5-saves-say-failures.test.ts` (mutation-checked).
 
 SPEC IMPACT: None.
+
+Unread-error baseline (`apps/web/lib/supabase-unread-error.baseline.txt`): the six entries this batch paid down to zero
+are removed (editorial review, integrations, menus ×2, the payments receipt, the user-report block), as the guard
+asks ("lower the count when you pay one down"). Only those six lines; nothing added, no other line touched.

@@ -33,7 +33,6 @@ const PAGES: ReadonlyArray<readonly [string, string]> = [
   ['refer/page.tsx', READING],
   ['guests/new/page.tsx', READING],
   ['guests/import/page.tsx', READING],
-  ['guests/quick/page.tsx', READING],
   ['guests/[guestId]/page.tsx', READING],
   ['guests/send/page.tsx', READING],
   ['guests/invite/page.tsx', READING],

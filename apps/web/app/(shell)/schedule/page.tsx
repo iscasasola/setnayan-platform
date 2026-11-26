@@ -34,6 +34,7 @@
  * 🔴 A PROMISE THAT EDITING NOTIFIES ANYONE. See above.
  */
 
+import { routes } from '@/lib/routes';
 import { DoorwayPage } from '@/app/_components/marketing/_doorway';
 import { SpotlightSection, type Spotlight } from '@/app/_components/marketing/_spotlights';
 import { studioDescription } from '@/lib/studio-apps';
@@ -204,7 +205,7 @@ export default function ScheduleLandingPage() {
   return (
     <DoorwayPage
       title={'The day, minute by minute.'}
-      primary={{ href: '/onboarding/wedding?from=schedule', label: 'Start planning · free' }}
+      primary={{ href: routes.start(), label: 'Start planning · free' }}
       secondary={{ href: '/features', label: 'See what else is free' }}
       productName="Schedule"
       studioKey="schedule"
@@ -218,7 +219,7 @@ export default function ScheduleLandingPage() {
       closing={{
         heading: 'Start with the day itself',
         body: 'The Schedule is free with every Setnayan wedding — beside your guest list, seat plan, budget and mood board. Nothing to buy, and it is the timeline your Event Hub, your suppliers and your emcee all read from.',
-        href: '/onboarding/wedding?from=schedule',
+        href: routes.start(),
         label: 'Start planning · free',
       }}
       structuredData={[APP_LD, FAQ_LD]}

@@ -168,8 +168,9 @@ test('every doorway that sells an addable service passes its key', () => {
     // The last two free workspace tools, 2026-09-06 (owner: "add these").
     'budget',
     'schedule',
-    // Samahan's doorway, 2026-09-06 — a Together row, not a Studio one.
-    'samahan',
+    // ⛔ NOT 'samahan' (final check A1-003): a group belongs to the ACCOUNT, not to an event, so its page keeps
+    // "Create a group" for everybody. With a key, a signed-in person's main button became "Add Groups to…" and each
+    // row opened an event dashboard with no group on it.
   ].sort();
   const found: string[] = [];
   for (const dir of readdirSync(SHELL, { withFileTypes: true })) {

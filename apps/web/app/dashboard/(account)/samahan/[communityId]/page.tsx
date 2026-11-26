@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { siteOrigin } from '@/lib/site-origin';
 import { notFound } from 'next/navigation';
 import { Plus, RefreshCw } from 'lucide-react';
@@ -9,9 +10,9 @@ import { CopyButton } from '@/app/_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
 import {
   fetchCommunity,
-  fetchCommunityEvents,
-  fetchCommunityRoster,
-  fetchInviteToken,
+  readCommunityEvents,
+  readCommunityRoster,
+  readInviteToken,
   fetchSamahanMessages,
   fetchViewerEventMemberships,
   type CommunityEventRow,
@@ -112,19 +113,20 @@ export default async function SamahanSpacePage({
   // Per-view data — the chatroom reads the events (pinned + cards), the stories (the strip + the hourly collage) and
   // Usapan; each one-tap view reads only its own list. `?tab=usapan` is not a view any more, so it opens the chatroom.
   const home = view === 'home';
-  const [roster, events, viewerMemberships, inviteToken, stories, messages] = await Promise.all([
+  // A2-C14: each list keeps its failure (`null` / `measured: false`) so the render can say "couldn't read".
+  const [rosterRead, eventsRead, viewerMemberships, tokenRead, stories, messages] = await Promise.all([
     view === 'members'
-      ? fetchCommunityRoster(supabase, createAdminClient(), communityId, user.id)
+      ? readCommunityRoster(supabase, createAdminClient(), communityId, user.id)
       : Promise.resolve([] as CommunityRosterEntry[]),
     home || view === 'events'
-      ? fetchCommunityEvents(supabase, communityId)
+      ? readCommunityEvents(supabase, communityId)
       : Promise.resolve([] as CommunityEventRow[]),
     home || view === 'events'
       ? fetchViewerEventMemberships(supabase, user.id)
       : Promise.resolve(new Map<string, EventMemberType>()),
     isOrganizer && view === 'members'
-      ? fetchInviteToken(supabase, communityId)
-      : Promise.resolve(null),
+      ? readInviteToken(supabase, communityId)
+      : Promise.resolve({ measured: true as const, token: null }),
     home
       ? fetchSamahanStories(supabase, createAdminClient(), communityId, user.id)
       : Promise.resolve([] as SamahanStory[] | null),
@@ -132,6 +134,10 @@ export default async function SamahanSpacePage({
       ? fetchSamahanMessages(supabase, createAdminClient(), communityId, user.id)
       : Promise.resolve([] as SamahanMessage[] | null),
   ]);
+
+  const roster = rosterRead ?? [];
+  const events = eventsRead ?? [];
+  const inviteToken = tokenRead.measured ? tokenRead.token : null;
 
   // Cron-free expiry sweep, fired from the surface whose audience visits —
   // stories expire by RLS the moment the clock passes; this reclaims bytes.
@@ -231,7 +237,9 @@ export default async function SamahanSpacePage({
         isOrganizer={isOrganizer}
         memberCount={memberCount}
         roster={roster}
+        rosterUnread={rosterRead === null}
         inviteToken={inviteToken}
+        tokenUnread={!tokenRead.measured}
       />
       </>
     );
@@ -240,6 +248,7 @@ export default async function SamahanSpacePage({
       <EventsTab
         communityId={community.community_id}
         events={events}
+        eventsUnread={eventsRead === null}
         isOrganizer={isOrganizer}
         viewerMemberships={viewerMemberships}
       />
@@ -267,14 +276,18 @@ function MembersTab({
   isOrganizer,
   memberCount,
   roster,
+  rosterUnread,
   inviteToken,
+  tokenUnread,
 }: {
   communityId: string;
   publicId: string;
   isOrganizer: boolean;
   memberCount: number | null;
   roster: CommunityRosterEntry[];
+  rosterUnread: boolean;
   inviteToken: string | null;
+  tokenUnread: boolean;
 }) {
   // One resolver (lib/site-origin.ts). This chain omitted NEXT_PUBLIC_APP_URL,
   // so a preview deploy handed testers a PRODUCTION invite link.
@@ -287,6 +300,7 @@ function MembersTab({
           ? 'Anyone in the group can rename it or change its photo.'
           : `${formatCount(memberCount)} ${memberCount === 1 ? 'member' : 'members'} · anyone can rename the group or change its photo.`}
       </p>
+      {rosterUnread ? <ReadRefusedNotice what="who is in this group" /> : null}
       <div className="divide-y divide-ink/10">
         {roster.map((m) => (
           <div key={m.member_row_id} className="flex min-h-[60px] items-center gap-3 py-2">
@@ -344,6 +358,8 @@ function MembersTab({
             tip="Rotate it to kill a leaked link — the old one stops working immediately. Or open someone on People and pick “Ask into a group”: Setnayan emails them this link, and nothing happens until they open it."
             line="Anyone with this link can join."
             action={
+              // A refused token read offers no Rotate: the link may still work, and rotating would kill it (A2-C14).
+              tokenUnread ? null : (
               <StayForm door="accGroup.rotateInviteToken" action={rotateInviteToken}>
                 <input name="community_id" type="hidden" value={communityId} />
                 <SubmitButton overlay={false} pendingLabel="Rotating…" className={QUIET_ACTION}>
@@ -351,6 +367,7 @@ function MembersTab({
                   Rotate link
                 </SubmitButton>
               </StayForm>
+              )
             }
           />
           {inviteUrl ? (
@@ -358,6 +375,10 @@ function MembersTab({
               <span className="min-w-0 flex-1 truncate py-2.5 text-sm text-ink/75">{inviteUrl}</span>
               <CopyButton value={inviteUrl} label="Copy" />
             </div>
+          ) : tokenUnread ? (
+            <p role="alert" className="text-sm text-ink/75">
+              Couldn’t read the invite link just now. It may still work — reload before making a new one.
+            </p>
           ) : (
             <p className="text-sm text-ink/75">No active link — rotate to mint a fresh one.</p>
           )}
@@ -381,11 +402,13 @@ function MembersTab({
 function EventsTab({
   communityId,
   events,
+  eventsUnread,
   isOrganizer,
   viewerMemberships,
 }: {
   communityId: string;
   events: CommunityEventRow[];
+  eventsUnread: boolean;
   isOrganizer: boolean;
   viewerMemberships: Map<string, EventMemberType>;
 }) {
@@ -396,7 +419,9 @@ function EventsTab({
   return (
     <div>
       <p className="mb-2 text-[13px] text-ink/75">What this group is going to.</p>
-      {events.length === 0 ? (
+      {eventsUnread ? (
+        <ReadRefusedNotice what="this group's events" />
+      ) : events.length === 0 ? (
         <div className="py-2">
           <p className="text-sm font-semibold text-ink">Walang event pa.</p>
           <p className="text-[13px] text-ink/75">When an organizer plans a reunion or outing, it shows up here.</p>

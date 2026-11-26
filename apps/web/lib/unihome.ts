@@ -95,8 +95,11 @@ export type UnihomeShop =
     }
   | { kind: 'helper'; name: string; initials: string; logoUrl: string | null; canOpenShop: boolean }
   | { kind: 'create' }
-  /** No shop, may not open one (or the shops read was refused — a duplicate shop is permanent, so it stays closed). */
-  | { kind: 'none' };
+  /** No shop, and the account may not open one. */
+  | { kind: 'none' }
+  /** A2-B2: the shops read was refused — said as such, never as "you have none" (and no Open-a-shop door either: a
+   *  duplicate shop is permanent). */
+  | { kind: 'unread' };
 
 export type UnihomeFace = { key: string; name: string; initials: string; photoUrl: string | null; href: string };
 
@@ -134,4 +137,31 @@ export function unihomeInitials(name: string): string {
   if (words.length === 0) return '·';
   if (words.length === 1) return words[0]!.slice(0, 2).toUpperCase();
   return (words[0]!.charAt(0) + words[1]!.charAt(0)).toUpperCase();
+}
+
+/**
+ * 🛍 HOME'S SHOP PART, BEFORE ANY READ OF ITS OWN — final check A2-B2. A refused shops read (or no switcher at all) is
+ * `unread` ("Couldn't read your shop"), never `none` ("Yours shows here once you have one"). An owned shop returns
+ * `null`: the server reader goes on to read that shop. Pure, so the rule is held by behaviour, not by source text.
+ */
+export function unihomeShopBeforeRead(
+  switcher: {
+    shopsMeasured?: boolean;
+    context: { canOpenShop: boolean; shops?: readonly { name: string; logoUrl: string | null; owned?: boolean }[] };
+  } | null,
+): UnihomeShop | null {
+  if (!switcher || switcher.shopsMeasured === false) return { kind: 'unread' };
+  const shops = switcher.context.shops ?? [];
+  if (shops.some((s) => s.owned)) return null;
+  const helping = shops[0] ?? null;
+  if (helping) {
+    return {
+      kind: 'helper',
+      name: helping.name,
+      initials: unihomeInitials(helping.name),
+      logoUrl: helping.logoUrl,
+      canOpenShop: switcher.context.canOpenShop,
+    };
+  }
+  return switcher.context.canOpenShop ? { kind: 'create' } : { kind: 'none' };
 }

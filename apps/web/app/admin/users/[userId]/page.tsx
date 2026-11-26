@@ -336,13 +336,6 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
     .order('created_at', { ascending: false })
     .limit(50);
 
-  const { data: abuseFlags, error: abuseError } = await admin
-    .from('concierge_abuse_flags')
-    .select('flag_id, similarity_score, status, created_at, reviewed_at')
-    .eq('flagged_user_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(50);
-
   // --- governance: who viewed this account -----------------------------------
   const { data: accessLog, error: accessLogError } = await admin
     .from('admin_data_access_log')
@@ -390,7 +383,6 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
     ['help', helpError],
     ['disputes', disputesError],
     ['reports', reportsError],
-    ['abuse', abuseError],
     ['access log', accessLogError],
     ['admin actions', adminActionsError],
   ];
@@ -442,9 +434,8 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
   // 🔒 F-W2 (#7677): an erased account's stored placeholder address is shown as words, never as the raw value.
   const email = displayAccountEmail(user.email as string | null) ?? null;
   const openFold = FOLD_FOR_TAB[tab];
-  const supportFailed = Boolean(helpError || disputesError || reportsError || abuseError);
-  const supportCount =
-    (helpTickets ?? []).length + (disputes ?? []).length + (userReports ?? []).length + (abuseFlags ?? []).length;
+  const supportFailed = Boolean(helpError || disputesError || reportsError);
+  const supportCount = (helpTickets ?? []).length + (disputes ?? []).length + (userReports ?? []).length;
   const unpaidOrders = (orders ?? []).filter((o) => o.status === 'awaiting_payment').length;
   const lastReached = [...lifecycle].reverse().find((s) => s.reached);
 
@@ -780,21 +771,6 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
               at: (r.reviewed_at as string) ?? (r.created_at as string),
             }))}
           />
-          <SupportSection
-            title="AI abuse flags"
-            loadFailed={Boolean(abuseError)}
-            icon={null}
-            count={(abuseFlags ?? []).length}
-            href="/admin/concierge-abuse"
-            hrefLabel="Open abuse queue"
-            empty="No abuse flags."
-            rows={(abuseFlags ?? []).map((f) => ({
-              key: f.flag_id as string,
-              primary: `Similarity ${Math.round((f.similarity_score as number) * 100)}%`,
-              status: f.status as string,
-              at: (f.reviewed_at as string) ?? (f.created_at as string),
-            }))}
-          />
         </RecordFold>
 
         <RecordFold title="Activity" anchor="activity" defaultOpen={openFold === 'activity'} summary="newest first">
@@ -1045,8 +1021,9 @@ function SupportSection({
   icon: React.ReactNode;
   title: string;
   count: number;
-  href: string;
-  hrefLabel: string;
+  /** The queue this section opens, when it has one. */
+  href?: string;
+  hrefLabel?: string;
   empty: string;
   rows: { key: string; primary: string; status: string; at: string | null }[];
 }) {
@@ -1054,9 +1031,11 @@ function SupportSection({
     <RecordSection
       label={`${title} (${loadFailed ? '—' : formatCount(count)})`}
       right={
-        <Link href={href} className={RECORD_LINK}>
-          {hrefLabel} ›
-        </Link>
+        href ? (
+          <Link href={href} className={RECORD_LINK}>
+            {hrefLabel} ›
+          </Link>
+        ) : undefined
       }
     >
       {loadFailed ? (

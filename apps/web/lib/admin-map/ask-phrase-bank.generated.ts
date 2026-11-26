@@ -2,7 +2,7 @@
 // Regenerate with: pnpm --filter @setnayan/web admin:phrases
 //
 // The ⌘K box's phrase bank: every phrase and the ONE place its first row must open.
-// 1690 phrases — 344 page names · 345 job phrasings · 986 keyword-table phrasings · 15 misspellings.
+// 1683 phrases — 340 page names · 342 job phrasings · 986 keyword-table phrasings · 15 misspellings.
 // ask-phrase-bank.test.ts fails if this drifts from buildPhraseBank(), and holds the box's accuracy over it.
 
 import { parsePhraseBank } from './ask-phrase-bank';
@@ -38,10 +38,6 @@ reviews	/admin/reviews	page
 open reviews	/admin/reviews	page
 where is reviews	/admin/reviews	page
 hanapin reviews	/admin/reviews	page
-setnayan ai abuse	/admin/concierge-abuse	page
-open setnayan ai abuse	/admin/concierge-abuse	page
-where is setnayan ai abuse	/admin/concierge-abuse	page
-hanapin setnayan ai abuse	/admin/concierge-abuse	page
 account deletions	/admin/account-deletions	page
 open account deletions	/admin/account-deletions	page
 where is account deletions	/admin/account-deletions	page
@@ -451,10 +447,7 @@ gumawa trade alias	/admin/categories	job
 magdagdag trade alias	/admin/categories	job
 dagdag trade alias	/admin/categories	job
 idagdag trade alias	/admin/categories	job
-admin clear concierge flag	/admin/concierge-abuse	job
-admin confirm concierge abuse	/admin/concierge-abuse	job
 admin decline inquiry	/admin/demo-vendors/inquiries	job
-admin lift concierge enforcement	/admin/concierge-abuse	job
 admin reply as vendor	/admin/demo-vendors/inquiries	job
 admin takedown recap	/admin/studio?tab=recaps	job
 admin team act	/admin/approvals	job

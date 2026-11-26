@@ -142,7 +142,6 @@ const SW_RAWDB_ACTION_FILES = [
   'app/dashboard/(account)/samahan/actions.ts',
   'app/samahan/join/[token]/actions.ts',
   'app/vendor/claim/[token]/finalize/page.tsx',
-  'app/dashboard/(account)/clusters/actions.ts',
   'app/dashboard/[eventId]/studio/papic/moderation/actions.ts',
   'app/dashboard/[eventId]/studio/guest-columns/actions.ts',
   'app/dashboard/[eventId]/studio/mood-board/actions.ts',
@@ -180,9 +179,4 @@ test('SW-RAWDB: the one mapper says what to do, and never a database word (fixtu
   assert.equal(plainSaveWords({ message: 'TypeError: fetch failed' }), 'Couldn’t reach Setnayan. Check your connection, then try again.');
   assert.equal(plainSaveWords({ code: 'XX000', message: 'column guests.foo does not exist' }), DIDNT_SAVE);
   assert.equal(plainSaveWords(null), DIDNT_SAVE);
-  // A screen that is not an event's says its own "not allowed"; every other refusal keeps the shared words.
-  const voice = { notAllowed: 'You can’t change this group of events. Only the person who made it can.' };
-  assert.equal(plainSaveWords({ code: '42501' }, voice), voice.notAllowed);
-  assert.equal(plainSaveWords({ code: '23505' }, voice), 'That’s already there — check the list, then try again.');
-  assert.match(readWeb('app/dashboard/(account)/clusters/actions.ts'), /plainSaveError\('clusters', \w+, CLUSTER_VOICE\)/);
 });

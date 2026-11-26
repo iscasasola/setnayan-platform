@@ -306,6 +306,14 @@ function CreateShopTile() {
 }
 
 function ShopPart({ shop }: { shop: UnihomeShop }) {
+  if (shop.kind === 'unread') {
+    return (
+      <section id="shop" aria-labelledby="unihome-shop" className={u.part} data-unihome-part="shop" data-unihome-shop="unread">
+        <SecHead id="unihome-shop" title="Shop" />
+        <p role="alert" className={u.line}>Couldn’t read your shop just now. Nothing has changed — reload in a moment.</p>
+      </section>
+    );
+  }
   if (shop.kind === 'none') {
     // No shop, and the account may not open one (or the shops read was refused — a duplicate shop is permanent).
     return (

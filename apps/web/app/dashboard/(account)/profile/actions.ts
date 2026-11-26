@@ -1,5 +1,6 @@
 'use server';
 
+import { formReadRefusal } from '@/lib/form-read';
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
@@ -79,6 +80,10 @@ export async function updatePersonalInfo(formData: FormData) {
   // Which group to reopen after the save — whitelisted, never echoed raw.
   const tabRaw = formData.get('tab');
   const tabQs = isSettingsGroup(tabRaw) ? `&tab=${tabRaw}` : '';
+
+  // A2-C7: a form not drawn from an answered profile read never writes (its boxes would be blanks).
+  const unread = formReadRefusal(formData);
+  if (unread) return redirect(`/dashboard/profile?error=${encodeURIComponent(unread)}${tabQs}`);
 
   // RA 10173 durable proof-of-consent (migration 20270705000000). Read the
   // current state so consent stamps move only on an actual transition —

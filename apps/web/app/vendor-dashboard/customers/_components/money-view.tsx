@@ -108,7 +108,9 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
                   <MoneyFill value={totals.pct} id="money-received-of-booked" />
                 </div>
                 <p className="mt-1.5 text-[13px] text-[color:var(--m-slate-2)]">
-                  {formatCount(totals.pct)}% of {formatPhp(totals.bookedPhp)} booked
+                  {/* A6-B06 (final check 25 Nov): the bar measures what was RECEIVED of the booked total — the words say so
+                      ("0% booked" read as "you have no bookings" to a shop with three). */}
+                  {formatCount(totals.pct)}% of {formatPhp(totals.bookedPhp)} received
                   {totals.overdue > 0 ? ` · ${formatCount(totals.overdue)} overdue` : ''}
                   {totals.unresolved > 0 ? ` · ${formatCount(totals.unresolved)} with no amount set` : ''}
                 </p>

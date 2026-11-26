@@ -281,6 +281,7 @@ export async function fetchVendorPapicPortfolioCredits(
     left: credits === null ? 0 : Math.max(0, credits - portfolioSpent),
     packCredits: VENDOR_PAPIC_PORTFOLIO_PACK_CREDITS,
     packs,
-    offerPack: offerPack(credits ?? 0),
+    // 🧾 A6-24 (final check 25 Nov): an unread ledger sells nothing — no pack offered on a guessed 0.
+    offerPack: credits === null ? false : offerPack(credits),
   };
 }

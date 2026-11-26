@@ -19736,8 +19736,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "TellUsSearch",
-        "TellUsWhatYouDoView"
+        "TellUsSearch"
       ]
     },
     "/vendor-dashboard/services/their-work": {

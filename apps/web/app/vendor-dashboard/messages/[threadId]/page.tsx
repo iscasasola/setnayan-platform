@@ -91,7 +91,7 @@ import { isFeeUnlocksEventEnabled } from '@/lib/event-access-stage';
 import { FEEL_OPTIONS } from '@/lib/match-criteria';
 import { CEREMONY_TYPE_TO_FAITH } from '@/lib/taxonomy-filters';
 import { isCanonicalService, VENDOR_CATEGORY_LABEL, type VendorCategory } from '@/lib/vendors';
-import { resolveLivePax, fetchVendorPaxProposals } from '@/lib/pax';
+import { PAX_UNREAD, PAX_UNREAD_WORDS, priceablePax, resolveLivePax, fetchVendorPaxProposals } from '@/lib/pax';
 import { standingQuoteFollowsGuestList } from '@/lib/quote-pax-follow.server';
 import {
   fetchThreadPayments,
@@ -713,8 +713,10 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
             .select('vendor_service_id, linked_label')
             .in('vendor_service_id', activeIds)
             .order('display_order', { ascending: true })
-        : Promise.resolve({ data: null }),
+        : Promise.resolve({ data: null, error: null }),
     ]);
+    // A refused links read is said on the card (A6-07), never an empty "comes with".
+    if (linkRows.error) logQueryError('vendorThread.serviceLinks', linkRows.error, { threadId }, 'graceful_degrade');
     return { activeServices, addonsByService, linkRows };
   })();
 
@@ -816,7 +818,8 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
     return fetchVendorPaxProposals(paxAdmin, {
       eventId: thread.event_id,
       vendorProfileId: profile.vendor_profile_id,
-      livePax,
+      // Owner Add 35: an unread count proposes no surcharge (null), never one on a guess.
+      livePax: priceablePax(livePax),
       paxAtInquiry: thread.pax_at_inquiry,
       quoteFollowsGuestList,
     });
@@ -1286,6 +1289,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
    * when a card is picked (`loadServiceCardLinesForQuote`).
    */
   const comesWith = new Map<string, string[]>();
+  const comesWithUnread = Boolean(linkRows.error);
   for (const r of ((linkRows as { data: { vendor_service_id: string; linked_label: string | null }[] | null }).data ?? [])) {
     if (!r.linked_label) continue;
     comesWith.set(r.vendor_service_id, [...(comesWith.get(r.vendor_service_id) ?? []), r.linked_label]);
@@ -1301,6 +1305,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
           : s.starting_price_php,
     addons: (addonsByService.get(s.vendor_service_id) ?? []).map((a) => ({ id: a.id, label: a.label, fromPhp: a.from_price_php })),
     comesWith: comesWith.get(s.vendor_service_id) ?? [],
+    ...(comesWithUnread ? { comesWithUnread: true } : {}),
     giftOn: Boolean(s.includes_setnayan_gift),
   }));
 
@@ -1338,7 +1343,9 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
 
   const returning = returningMap ? returningMap.get(thread.event_id) : undefined;
 
-  const headerPax = livePax ?? thread.pax_current;
+  // ⚖ OWNER ADD 35: an unread count is said ("Planning for" says PAX_UNREAD_WORDS), never the stored snapshot.
+  const livePaxUnread = livePax === PAX_UNREAD;
+  const headerPax = livePaxUnread ? null : (livePax ?? thread.pax_current);
 
   /*
     THE TWO GUEST COUNTS, READ ONCE.
@@ -2009,6 +2016,7 @@ async function drawVendorThread(threadId: string, sp: ThreadSearch, embedded: bo
                   <ThreadInterestChips supabase={supabase} threadId={threadId} compact />
                   {event?.event_date ? <span>{formatLongDate(event.event_date)}</span> : dateOptions ? <span>{dateOptions}</span> : null}
                   {answerInHead(false)}
+                  {livePaxUnread ? <span className="font-semibold text-ink">{PAX_UNREAD_WORDS}</span> : null}
                   {guestCountLine(guestCounts) ? (
                     <span className="font-semibold text-ink">
                       Planning for {guestCountLine(guestCounts)}

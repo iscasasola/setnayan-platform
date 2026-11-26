@@ -94,7 +94,7 @@ export function SupplierLocksView({
     <section data-supplier-locks="" data-read={failed ? 'failed' : empty ? 'empty' : 'ok'} className="mb-5">
       <h2 className="home-k2 !m-0">Your locks</h2>
       {failed ? (
-        <p role="status" className="mt-1 text-[15px] font-semibold text-warn-800">Couldn&rsquo;t load your locks. Pull to refresh, or open it again in a moment.</p>
+        <p role="status" className="mt-1 text-[15px] font-semibold text-warn-800">Couldn&rsquo;t load your locks. Nothing is lost — try again in a moment.</p>
       ) : empty ? (
         <div className="mt-1 flex min-h-14 items-center border-b border-ink/10 text-[15px] text-ink/70">
           <InfoTip label="Nothing to lock yet." align="start">

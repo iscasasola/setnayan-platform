@@ -3,6 +3,7 @@ import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { LOVE_STORY_PRO_CTA, LOVE_STORY_PRO_LINE } from '@/lib/love-story-moments';
 import { PLAN_UNREAD } from '@/lib/plan-unread';
+import { TryAgain } from '@/app/vendor-dashboard/_components/set-two/try-again';
 
 /**
  * THE ONE QUIET LINE — owner 2026-09-25, verbatim ruling: a sixth story or any
@@ -27,11 +28,13 @@ export function LoveStoryProLine({
   /** The plan read failed (owner ruling, final check Add 45): no upsell from a failed read — say so instead. */
   planUnread?: boolean;
 }) {
+  // No upsell and no price from a failed plan read — the sentence and a retry that re-asks in place (Add 45).
   if (planUnread) {
     return (
-      <p role="status" data-love-story-pro-line="unread" className="mt-1 text-sn-14 text-[color:var(--ls-muted)]">
-        {PLAN_UNREAD}
-      </p>
+      <div role="status" data-love-story-pro-line="unread" className="mt-1 flex flex-wrap items-center gap-3 text-sn-14 text-[color:var(--ls-muted)]">
+        <p>{PLAN_UNREAD}</p>
+        <TryAgain />
+      </div>
     );
   }
   if (storeShell) {

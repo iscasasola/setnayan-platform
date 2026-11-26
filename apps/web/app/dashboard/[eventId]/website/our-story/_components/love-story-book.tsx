@@ -131,9 +131,12 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
     />
   ) : (
     <div data-love-story-cap="reached">
-      <p className="text-[13px] text-[color:var(--ls-muted)]">
-        {formatCount(FREE_MOMENT_CAP)} of {formatCount(FREE_MOMENT_CAP)} free stories told
-      </p>
+      {/* E-13: no "free stories" count is stated from a failed plan read — the plan-unread line alone. */}
+      {p.planUnread ? null : (
+        <p className="text-[13px] text-[color:var(--ls-muted)]">
+          {formatCount(FREE_MOMENT_CAP)} of {formatCount(FREE_MOMENT_CAP)} free stories told
+        </p>
+      )}
       {proLine}
     </div>
   );
@@ -364,6 +367,9 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
           })}
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[color:var(--ls-rule)] pt-6">
+            {/* E-13 (Add 45): a failed plan read states no free limit and no ownership — the plan-unread line and
+                its retry stand where the limit sentence goes. */}
+            {p.planUnread ? (canAdd ? proLine : null) : (
             <p className="text-[14px] text-[color:var(--ls-muted)]">
               {p.tryingPro && (!p.storeShell || p.appleIap) ? (
                 <span className="inline-flex flex-wrap items-center gap-1.5">
@@ -374,6 +380,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                 ? 'Add as many moments as you like, with your photos.'
                 : `Up to ${FREE_MOMENT_CAP} stories, in your words, are free.`}
             </p>
+            )}
             {addButton('add')}
           </div>
 

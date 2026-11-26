@@ -1,6 +1,8 @@
 import { eventRowOnce } from '@/lib/event-row-once';
 import { getCurrentUser } from '@/lib/auth';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
+import { PLAN_UNREAD } from '@/lib/plan-unread';
+import { TryAgain } from '@/app/vendor-dashboard/_components/set-two/try-again';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
@@ -12,7 +14,7 @@ import {
   fetchPanoodCameras,
   panoodCameraCapForTier,
   provisionPanoodCamerasAdmin,
-  resolvePanoodTier,
+  readPanoodTier,
 } from '@/lib/panood-camera-seats';
 import { fetchPanoodScreens } from '@/lib/panood-screens';
 import {
@@ -106,7 +108,20 @@ export default async function PanoodControlRoomPage({ params }: Props) {
   // ⚠️ This also fixes a LIVE defect: the old check was `eventSkuActive(…, 'PANOOD_SYSTEM')`
   // alone, so a couple who paid ₱1,500 for the MOBILE Controller was shown an upsell wall on the
   // control room they had just bought. resolvePanoodTier checks both SKUs.
-  const tier = await resolvePanoodTier(await eventEntitlementClient(eventId), eventId);
+  const tier = await readPanoodTier(await eventEntitlementClient(eventId), eventId);
+
+  // L-08 (owner ruling, final check Add 45): a failed plan read decides nothing. No camera cap is provisioned from
+  // it and a paying couple is never shown the free overlay — the room says it couldn't check the plan, with a retry.
+  if (tier === null) {
+    return (
+      <section className="space-y-3 p-4">
+        <div role="status" data-plan-unread="" className="flex flex-wrap items-center gap-3 text-sm text-ink/70">
+          <p>{PLAN_UNREAD}</p>
+          <TryAgain />
+        </div>
+      </section>
+    );
+  }
   const owned = tier !== 'free';
 
   // Seed defaults + get-or-create control state through the service-role admin client (the

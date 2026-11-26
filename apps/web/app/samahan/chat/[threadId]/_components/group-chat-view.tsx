@@ -94,7 +94,8 @@ export function GroupChatView({
   youId: string;
   backHref: string;
   backLabel: string;
-  switcher: readonly SwitcherGroup[];
+  /** null = the groups read failed (final check A1-008): the name is drawn plain, never an empty "Your groups" sheet. */
+  switcher: readonly SwitcherGroup[] | null;
   sendAction: (formData: FormData) => Promise<void>;
   /** Hosts and the coordinator only — the people on the event not in this group yet, and the server action. */
   add: { candidates: readonly AddableHost[]; add: (userIds: string[], how: 'all' | 'picked') => Promise<void> } | null;
@@ -107,7 +108,7 @@ export function GroupChatView({
       header={
         <ChatThreadHead
           back={<BackButton href={backHref} label={backLabel} variant="chat" />}
-          name={<GroupSwitcher name={head.group_name} currentId={threadId} groups={switcher} />}
+          name={switcher ? <GroupSwitcher name={head.group_name} currentId={threadId} groups={switcher} /> : head.group_name}
           initials={head.group_kind === 'general' ? 'All' : head.group_name.slice(0, 2).toUpperCase()}
           line={<span data-group-head-line="">{groupHeadLine(head)}</span>}
           actions={null}

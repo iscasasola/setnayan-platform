@@ -2,6 +2,10 @@ import type { NotificationRow } from '@/lib/notifications';
 import type { NotificationPlaceFacts } from '@/lib/notification-place';
 import { NotificationsHead, NotificationsList } from '@/app/_components/notifications/notifications-list';
 import { DatesRow } from '../customers/_components/dates-row';
+import { ReadFailedBody } from '../_components/set-two/read-failed';
+
+/** Said when the notifications could not be read (A6-15) — never "Nothing yet.". */
+export const NOTIFICATIONS_UNREAD_WORDS = 'We couldn’t load your notifications right now. Nothing is lost — try again in a moment.';
 
 /**
  * NOTIFICATIONS › RECENT — the screen (simpler supplier dashboard step 6; prototype SCREENS.notifs): the shipped
@@ -15,8 +19,11 @@ export function NotificationsView({
   items,
   returnTo,
   places = null,
+  unread = false,
 }: {
   items: NotificationRow[];
+  /** The read was refused: say so, never the empty "Nothing yet.". */
+  unread?: boolean;
   returnTo: string;
   /** Each row's place (`lib/notification-place.ts`); absent → the rows that need it say "Place didn't load". */
   places?: NotificationPlaceFacts | null;
@@ -26,15 +33,19 @@ export function NotificationsView({
     <div className="mx-auto w-full max-w-xl pb-16 pt-4 sm:pt-7" data-supplier-notifications="">
       <NotificationsHead unreadCount={unreadCount} returnTo={returnTo} level="page" />
 
-      <NotificationsList
-        items={items}
-        places={places}
-        returnTo={returnTo}
-        emptyState={{
-          title: 'Nothing yet.',
-          body: <>When a couple writes, books or pays — or someone else is booked on a date you were asked for — it shows here.</>,
-        }}
-      />
+      {unread ? (
+        <ReadFailedBody mark="notifications">{NOTIFICATIONS_UNREAD_WORDS}</ReadFailedBody>
+      ) : (
+        <NotificationsList
+          items={items}
+          places={places}
+          returnTo={returnTo}
+          emptyState={{
+            title: 'Nothing yet.',
+            body: <>When a couple writes, books or pays — or someone else is booked on a date you were asked for — it shows here.</>,
+          }}
+        />
+      )}
 
       <div className="mx-4 mt-4 border-t border-[color:var(--m-line)]">
         <DatesRow data="notifications-settings" title="Push and email" line="How we reach you · Settings" href="/vendor-dashboard/settings" />

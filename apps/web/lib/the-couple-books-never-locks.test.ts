@@ -100,6 +100,7 @@ const ALLOW: readonly WordAllow[] = [
   { prefix: 'app/dashboard/[eventId]/launch/_components/logo-layer-cards.tsx', text: /^Lock$/, why: "the picked layer card's ⋯ Lock — a logo layer's lock, never a booking" },
   // ── 3 · strings the database matches on ─────────────────────────────────────
   { prefix: 'app/dashboard/[eventId]/vendors/actions.ts', text: /awaiting vendor confirmation|^Lock \(finalize\) supplier booking$/, why: 'the payment stamp note the deposit trigger matches, and an analytics element name' },
+  { prefix: 'lib/payment-note-words.ts', text: /^Downpayment \(lock · awaiting/, why: 'A2-G4: the same stored payment note, matched (never shown) so the screen says "reservation fee" instead' },
 ];
 
 test('the scanner flags "lock" where a person reads it', () => {

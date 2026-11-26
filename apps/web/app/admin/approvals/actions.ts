@@ -397,6 +397,8 @@ const CLAIM_COLUMNS =
  * guard against a double decision.
  */
 async function requireDeciderFor(approvalId: string) {
+  // 🔒 A8·C-3: the admin gate runs BEFORE the service-role read, never after it.
+  await requireAdmin();
   const admin = createAdminClient();
   const { data: row, error } = await admin
     .from('admin_approval_requests')

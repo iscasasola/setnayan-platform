@@ -162,3 +162,31 @@ test('🍎 one plan per event in the app: an event on a plan is offered no pack 
     assert.match(app, new RegExp(`data-event-services-plan="${plan}"`), 'the plan card still says the plan');
   }
 });
+
+/* ── 🍎 Add 36 (owner, 25 Nov): Setnayan AI alone is sold on the WEB ONLY ────────────────────────────────────── */
+
+test('🍎 Add 36 · arriving with ?add=ai inside the app shows no AI-alone buy, no price, and no link to the web checkout', async () => {
+  // Every Setnayan AI door now lands here with `?add=ai` (L6, R2: the AI buy page forwards to the same place).
+  const { routes } = await import('@/lib/routes');
+  assert.equal(routes.dashboard.eventServices('EVENT', 'ai'), '/dashboard/EVENT/studio/website-pro?add=ai');
+  // In the app the page strips every web figure first (`withoutWebFigures`), then hands in the arrival's pick: AI alone.
+  const stripped = facts({
+    packs: [pack('plus', null, 4321), pack('pro', null, 8765), pack('ultra', null, 3456)],
+    singles: [
+      { key: 'hub', code: 'EVENT_HUB', php: null, state: 'buy' },
+      { key: 'ai', code: 'SETNAYAN_AI', php: null, state: 'buy' },
+      { key: 'live', code: 'LIVE_STUDIO', php: null, state: 'buy' },
+    ],
+  });
+  const html = drawApple(stripped, { pack: null, singles: ['ai'], photos: null });
+  assert.doesNotMatch(html, /data-event-services-single="ai"/, 'AI alone is offered in the app');
+  assert.doesNotMatch(html, /₱/, 'a web price reached the app');
+  assert.doesNotMatch(html, /href="[^"]*(\/pay\/|\/checkout|setnayan\.com)/, 'a link out to the web checkout in the app');
+  assert.doesNotMatch(html, /on the web|in your browser|setnayan\.com/i, 'a steer to buy on the web (Apple anti-steering)');
+  // AI still reaches an app couple through the event plans Apple sells.
+  for (const k of ['plus', 'pro', 'ultra']) assert.match(html, new RegExp(`data-event-services-pack="${k}"`));
+  // The page passes the app's stripped facts, never the web read, and Setnayan AI has no Apple product.
+  const page = stripComments(readFileSync(join(HERE, 'page.tsx'), 'utf8'));
+  assert.match(page, /const facts = appleProducts \? withoutWebFigures\(read\) : read;/);
+  assert.doesNotMatch(page, /SINGLE_CODES\.ai/, 'an Apple product for Setnayan AI alone appeared');
+});

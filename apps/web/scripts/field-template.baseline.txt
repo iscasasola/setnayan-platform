@@ -3,7 +3,7 @@
 # GENERATED — never hand-edit, never hand-merge (on a conflict take either side, then):
 #   node apps/web/scripts/lint-field-template.mjs --update-baseline
 # A RATCHET BOTH WAYS: a count may not rise, and a fall must be written here in the same PR.
-# 299 files · 699 boxes
+# 293 files · 689 boxes
 2 apps/web/app/_components/amendment-builder.tsx
 3 apps/web/app/_components/appointments-section.tsx
 1 apps/web/app/_components/chat-send-form.tsx
@@ -59,7 +59,6 @@
 4 apps/web/app/admin/categories/_components/what-suppliers-fill-in.tsx
 2 apps/web/app/admin/completions/page.tsx
 21 apps/web/app/admin/compliance/_components/compliance-form.tsx
-3 apps/web/app/admin/concierge-abuse/page.tsx
 3 apps/web/app/admin/corrections/page.tsx
 1 apps/web/app/admin/data-privacy/_components/control-actions.tsx
 2 apps/web/app/admin/data-privacy/_components/task-actions.tsx
@@ -105,9 +104,6 @@
 1 apps/web/app/admin/verify/_components/deep-search-chat.tsx
 3 apps/web/app/admin/verify/page.tsx
 1 apps/web/app/admin/website-media/clear-folder-button.tsx
-1 apps/web/app/dashboard/(account)/api-keys/page.tsx
-1 apps/web/app/dashboard/(account)/clusters/_components/create-cluster-form.tsx
-1 apps/web/app/dashboard/(account)/clusters/[clusterId]/_components/cluster-tools.tsx
 1 apps/web/app/dashboard/(account)/create-event/_components/ask-for-event-type.tsx
 1 apps/web/app/dashboard/(account)/create-event/_components/create-location-picker.tsx
 2 apps/web/app/dashboard/(account)/create-event/_components/event-type-picker.tsx
@@ -147,7 +143,6 @@
 1 apps/web/app/dashboard/[eventId]/guests/claims/link-picker.tsx
 1 apps/web/app/dashboard/[eventId]/guests/invite/_components/invite-link.tsx
 3 apps/web/app/dashboard/[eventId]/guests/new/page.tsx
-3 apps/web/app/dashboard/[eventId]/guests/quick/_components/quick-add-list.tsx
 1 apps/web/app/dashboard/[eventId]/guests/send/_components/send-run.tsx
 1 apps/web/app/dashboard/[eventId]/invitation/_components/guest-invite-modal.tsx
 1 apps/web/app/dashboard/[eventId]/invitation/_components/reissue-qr-button.tsx
@@ -200,7 +195,6 @@
 1 apps/web/app/dashboard/[eventId]/studio/panood/_components/copy-link.tsx
 1 apps/web/app/dashboard/[eventId]/studio/panood/setup/page.tsx
 1 apps/web/app/dashboard/[eventId]/studio/papic/_components/challenge-add-sheet.tsx
-1 apps/web/app/dashboard/[eventId]/studio/papic/couple-challenges-manager.tsx
 1 apps/web/app/dashboard/[eventId]/studio/patiktok/_components/tag-sheet.tsx
 3 apps/web/app/dashboard/[eventId]/studio/playlist/_components/playlist-pick-row.tsx
 3 apps/web/app/dashboard/[eventId]/studio/playlist/_components/playlist-slot-section.tsx

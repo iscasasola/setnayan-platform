@@ -300,6 +300,7 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
        read as the caller: the hosts and the booked coordinator see them; anybody else reads none. */
     inMaker ? Promise.resolve({ measured: true, rows: [] }) : readOpenChangeRequests(supabase, eventId),
   ]);
+  if (suggestionsRes.error) logQueryError('SchedulePage.suggestions', suggestionsRes.error, { event_id: eventId }, 'graceful_degrade');
   const openSuggestions = (suggestionsRes.data ?? []) as VendorSuggestion[];
   const eventRow = eventRes.data as
     | {
@@ -1114,6 +1115,8 @@ export default async function CoupleSchedulePage({ params, searchParams }: Props
             eventDateKey={eventDateKey}
             moments={dayMoments}
             requests={dayRequests}
+            // A2-I1: a refused requests read is said in the sheet, never "Nothing waiting".
+            requestsUnread={Boolean(suggestionsRes.error)}
             suppliers={rosVendors}
             role={dayRole}
             canStage={canPrep}

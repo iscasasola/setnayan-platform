@@ -240,16 +240,29 @@ export async function fetchAdminVendorContext(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<VendorAdminContext | null> {
+  const read = await readAdminVendorContext(supabase, userId);
+  return read === 'unread' ? null : read;
+}
+
+/**
+ * The honest twin of `fetchAdminVendorContext` for a SCREEN: `'unread'` when the shop or membership read was refused,
+ * so the page can say "Couldn't load your team" instead of a role lock or a silent bounce (final check A5-G5-07).
+ * Actions keep `fetchAdminVendorContext`, which fails closed.
+ */
+export async function readAdminVendorContext(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<VendorAdminContext | null | 'unread'> {
   let activeShopId: string | null;
   try {
     // Lazy, like `resolveVendorRole`: the resolver reads the request's cookies and must stay out of client bundles.
     const { resolveActiveShopId } = await import('@/lib/active-shop');
     activeShopId = await resolveActiveShopId(supabase, userId);
   } catch {
-    return null;
+    return 'unread';
   }
   if (!activeShopId) return null;
-  const { data: membership } = await supabase
+  const { data: membership, error: membershipError } = await supabase
     .from('vendor_team_members')
     .select('vendor_profile_id, role, vendor_profiles!inner(user_id, tier_state)')
     .eq('vendor_profile_id', activeShopId)
@@ -257,6 +270,10 @@ export async function fetchAdminVendorContext(
     .in('role', ['admin', 'owner'])
     .limit(1)
     .maybeSingle();
+  if (membershipError) {
+    console.error('[supabase-error] lib/vendor-team.ts · readAdminVendorContext', membershipError.message);
+    return 'unread';
+  }
   if (!membership) return null;
   // Supabase types an embedded FK as an array; normalize to a single row.
   const vpRaw = (membership as {
@@ -289,14 +306,28 @@ export async function fetchTeamManagerContext(
   supabase: SupabaseClient,
   userId: string,
 ): Promise<VendorTeamManagerContext | null> {
-  const admin = await fetchAdminVendorContext(supabase, userId);
+  const read = await readTeamManagerContext(supabase, userId);
+  return read === 'unread' ? null : read;
+}
+
+/**
+ * The honest twin of `fetchTeamManagerContext` for Team, Roles and Who gets new inquiries: `'unread'` on a refused
+ * read, so a Shop Manager is told "Couldn't load your team · Try again", never shown a role lock or bounced home
+ * (final check A5-G5-07). `null` still means "not a manager here". Actions keep the fail-closed reader above.
+ */
+export async function readTeamManagerContext(
+  supabase: SupabaseClient,
+  userId: string,
+): Promise<VendorTeamManagerContext | null | 'unread'> {
+  const admin = await readAdminVendorContext(supabase, userId);
+  if (admin === 'unread') return 'unread';
   if (admin) return { ...admin, duty: 'shop_manager', branchId: null };
   let activeShopId: string | null;
   try {
     const { resolveActiveShopId } = await import('@/lib/active-shop');
     activeShopId = await resolveActiveShopId(supabase, userId);
   } catch {
-    return null;
+    return 'unread';
   }
   if (!activeShopId) return null;
   const { data: seat, error } = await supabase
@@ -309,9 +340,9 @@ export async function fetchTeamManagerContext(
     .limit(1)
     .maybeSingle();
   if (error) {
-    // Management is gated on this read: a refusal blocks (null), and the reason is logged, never dropped.
-    console.error('[supabase-error] lib/vendor-team.ts · fetchTeamManagerContext', error.message);
-    return null;
+    // Management is gated on this read: a refusal is 'unread' here and blocks (null) in `fetchTeamManagerContext`.
+    console.error('[supabase-error] lib/vendor-team.ts · readTeamManagerContext', error.message);
+    return 'unread';
   }
   if (!seat) return null;
   const vpRaw = (seat as {

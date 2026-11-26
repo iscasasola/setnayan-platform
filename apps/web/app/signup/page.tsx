@@ -62,7 +62,7 @@ import { getOAuthGate } from '@/lib/request-platform';
 import { safeNext, getCurrentUser } from '@/lib/auth';
 import { accountHomePath } from '@/lib/account-security';
 import { createClient } from '@/lib/supabase/server';
-import { accountTypeForSignup } from '@/lib/signup-intent';
+import { accountTypeForSignup, signInHrefKeepingIntent } from '@/lib/signup-intent';
 import { signUp } from './actions';
 import { TurnstileField } from '@/app/_components/auth/turnstile-field';
 import { TERMS_FIELD, TERMS_REQUIRED_MESSAGE } from '@/lib/terms-agreement';
@@ -162,7 +162,8 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
     typeof params.refc === 'string' && /^S89R-[0-9A-Z]{10}$/i.test(params.refc.trim())
       ? params.refc.trim().toUpperCase()
       : '';
-  const loginHref = `/login${next !== '/' ? `?next=${encodeURIComponent(next)}` : ''}`;
+  // 🔁 The shop intent survives the round trip to sign-in and back (A1-059, Add 33).
+  const loginHref = signInHrefKeepingIntent(next, accountType);
 
   // A paper base under the greige dim, exactly as /login does, so a hard load
   // never flashes a void behind the card.

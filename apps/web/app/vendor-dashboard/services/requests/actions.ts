@@ -44,7 +44,8 @@ export async function putCardUnderRequest(formData: FormData) {
     .eq('proposed_by_vendor_id', vendorProfileId)
     .maybeSingle();
   if (reqErr) return redirect(`${here}?error=${encodeURIComponent('We couldn’t read that request. Try again.')}`);
-  if (!req) return redirect(`${SERVICE_REQUESTS_HREF}?error=${encodeURIComponent('That request is gone.')}`);
+  // A fixed key the list draws as a fixed sentence (final check A5-G3-07; never URL text on screen).
+  if (!req) return redirect(`${SERVICE_REQUESTS_HREF}?gone=1`);
   if ((req as { status: string }).status !== 'pending') {
     return redirect(`${here}?error=${encodeURIComponent('We already decided on this one — your cards moved with it.')}`);
   }

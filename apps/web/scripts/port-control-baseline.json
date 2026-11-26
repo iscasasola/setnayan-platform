@@ -1914,7 +1914,11 @@
         "/signup?next=[seg]",
         "/vendor-dashboard"
       ],
-      "actions": [],
+      "actions": [
+        "routes.dashboard.memories",
+        "routes.dashboard.messages.index",
+        "routes.dashboard.story"
+      ],
       "blocks": [
         "ActionButton",
         "AnonGateProvider",
@@ -9429,6 +9433,7 @@
         "Link",
         "ListPageSkeleton",
         "PageMasthead",
+        "ReadRefusedNotice",
         "Stage"
       ]
     },
@@ -9446,6 +9451,7 @@
       "blocks": [
         "ActionResult",
         "AssignmentRow",
+        "ErrorState",
         "GuestPicker",
         "Link",
         "ListPageSkeleton",
@@ -13362,7 +13368,6 @@
         "RevealChoice",
         "RevealEffects",
         "RevealPreview",
-        "RevealPreviewCard",
         "SaveTheDateFilm",
         "SchedulePicker",
         "StdBackground",
@@ -16003,6 +16008,7 @@
       "actions": [],
       "blocks": [
         "BackButton",
+        "ErrorState",
         "FormRows",
         "GroupNameRow",
         "SubmitButton",
@@ -16287,7 +16293,9 @@
         "/u/[seg]/c/[seg]",
         "/v/[seg]"
       ],
-      "actions": [],
+      "actions": [
+        "routes.dashboard.profile.index"
+      ],
       "blocks": [
         "ChapterTimeline",
         "ConnectionAnswer",

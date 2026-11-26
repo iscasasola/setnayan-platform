@@ -88,7 +88,7 @@ test('the dead-link screen has a "Send a new link" button that re-sends — thro
 test('W1-B25 · a link with no destination lands a SUPPLIER on the shop — from both email routes', async () => {
   const { landingForAccount } = await import('./auth-confirm-link');
   // 22 Nov 2026 ("start on their profile page"): the shop is Home's Shop section; everyone else opens on Home.
-  assert.equal(landingForAccount('/', 'vendor'), '/dashboard?seg=shop');
+  assert.equal(landingForAccount('/', 'vendor'), '/dashboard?hub=1');
   assert.equal(landingForAccount('/', 'customer'), '/dashboard?hub=1');
   assert.equal(landingForAccount('/x', 'vendor'), '/x', 'a real destination is honoured');
   const confirm = stripComments(read('app/auth/confirm/route.ts'));

@@ -57,6 +57,7 @@ import {
 } from '@/lib/seat-plan-engine';
 import { parseRestoreSeats, parseSeatScope, restorableSeats, seatsThatStay, seatsToClear, type RestoreSeat } from '@/lib/seat-plan-scope';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { checkAutoSeatPlan } from '@/lib/seat-plan-validator';
 import { autoDefaultLabel, hostNameClash, isDefaultTableLabel } from '@/lib/table-auto-name';
 import { readTableDisplayNames } from '@/lib/table-auto-name.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -2534,6 +2535,27 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
       vipPlusOnes: floorPlan.vip_plus_ones,
       cannotFit,
     });
+  // 🛡 The independent check (seat plan § 5 step 7, lib/seat-plan-validator.ts — it shares no code with the solver): a
+  // plan that breaks a hard rule is never written. The seats "Seat everyone again" took off go back first, so a
+  // refusal leaves the plan exactly as it was.
+  const planBreaks = checkAutoSeatPlan({ tables: arrangedTables, guests: autoSeatGuestList, existing: assignments, added: rows });
+  if (planBreaks.length > 0) {
+    if (restoreSeats.length > 0) {
+      const { error: backErr } = await supabase
+        .from('event_seat_assignments')
+        .insert(restoreSeats.map((r) => ({ event_id: eventId, ...r })));
+      if (backErr) throw new Error(backErr.message);
+    }
+    // …and the tables this run added for the room come off again.
+    const before = new Set(existingTables.map((t) => t.table_id));
+    const added = tables.filter((t) => !before.has(t.table_id)).map((t) => t.table_id);
+    if (added.length > 0) {
+      const { error: dropErr } = await supabase.from('event_tables').delete().eq('event_id', eventId).in('table_id', added);
+      if (dropErr) throw new Error(dropErr.message);
+    }
+    logQueryError('autoArrange.validator', { message: `plan refused: ${planBreaks.map((b) => b.rule).join(',')}` }, { event_id: eventId }, 'will_throw');
+    throw new Error("Couldn't make a plan. Nothing changed.");
+  }
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
       rows.map((r) => ({

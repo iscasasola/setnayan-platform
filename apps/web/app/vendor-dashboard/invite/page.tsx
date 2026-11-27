@@ -26,7 +26,7 @@ import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { hubDayWords, hubHref } from '@/lib/hub-events';
 import { crewJoinPath } from '@/lib/crew-pass';
 import { canManageVendor, resolveVendorRole } from '@/lib/vendor-role';
-import { CUSTOMERS_QR_MODES, crewQrEvents, myQrHref, isPromoteQrMode, pickCrewQrEvent, supplierQrModeOf } from '@/lib/supplier-qr-codes';
+import { CUSTOMERS_QR_MODES, crewQrEvents, myQrHref, isPromoteQrMode, pickCrewQrEvent, supplierQrModeOf, SHOP_NAME_SETUP_HREF } from '@/lib/supplier-qr-codes';
 import { LockedQrGenerator, type LockedQrInitial } from './_components/locked-qr-generator';
 import { customerCardHref } from '@/lib/upcoming-schedule-door';
 import { QrCodes, type CrewQr, type IssuedRow } from './_components/qr-codes';
@@ -197,7 +197,7 @@ export default async function VendorQrCodesPage({
   const open = search.open === '1' || Boolean(search.issued || search.error || search.ledger || search.date || search.block || search.event || search.edit) ? mode : null;
 
   if (!canShare) {
-    return <QrCodes backHref={DATES_HREF} canShare={false} setupHref="/vendor-dashboard/shop" booked={null} />;
+    return <QrCodes backHref={DATES_HREF} canShare={false} setupHref={SHOP_NAME_SETUP_HREF} booked={null} />;
   }
 
   // 🎁 OWN CLIENTS v4 (owner 16 Nov, drawing part 1): "Add a client" sits above Booked and Crew. Its gift step reads the
@@ -220,7 +220,7 @@ export default async function VendorQrCodesPage({
         addClient={addClient}
         backHref={DATES_HREF}
         canShare
-        setupHref="/vendor-dashboard/shop"
+        setupHref={SHOP_NAME_SETUP_HREF}
         booked={null}
         crew={await readCrewQr(supabase, user.id, vendorProfileId, today, search.event ?? null)}
       />
@@ -365,7 +365,7 @@ export default async function VendorQrCodesPage({
       // Came from an outside booking's "Send their code" → back to that customer's row, open (Customers › People).
       backHref={blockId ? `/vendor-dashboard/customers?block=${blockId}#outside` : DATES_HREF}
       canShare
-      setupHref="/vendor-dashboard/shop"
+      setupHref={SHOP_NAME_SETUP_HREF}
       booked={{
         issued,
         error: search.error ? (BOOKED_ERRORS[search.error] ?? 'Could not make the code. Please try again.') : null,

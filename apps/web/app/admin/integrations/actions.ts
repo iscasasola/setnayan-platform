@@ -59,10 +59,12 @@ export async function saveResendConfig(formData: FormData): Promise<void> {
   // From-address — non-secret config on platform_settings.
   const fromRaw = formData.get('resend_from_address');
   const fromAddress = typeof fromRaw === 'string' ? fromRaw.trim() : '';
-  await admin
+  // A8·I-1: a refused write is "save_failed", never "Saved".
+  const { error: fromErr } = await admin
     .from('platform_settings')
     .update({ resend_from_address: fromAddress || null })
     .eq('id', 1);
+  if (fromErr) redirect('/admin/integrations?error=save_failed');
   revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
 
   // API key — secret. Encrypt + store ONLY if a new value was entered; a blank
@@ -94,10 +96,12 @@ export async function setAiPaywall(formData: FormData): Promise<void> {
   // PaywallEnabled() reads this DB-first and takes effect on the next request.
   const mode = formData.get('mode');
   const value = mode === 'on' ? true : mode === 'off' ? false : null;
-  await admin
+  // A8·I-1: a refused write is a failure (shown on the Integrations card), never "Saved".
+  const { error: paywallErr } = await admin
     .from('platform_settings')
     .update({ setnayan_ai_paywall_enabled: value })
     .eq('id', 1);
+  if (paywallErr) redirect('/admin/integrations?error=save_failed');
   revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
 
   revalidatePath('/admin/integrations');
@@ -140,10 +144,12 @@ export async function clearIntegrationSecret(formData: FormData): Promise<void> 
   const def = typeof id === 'string' ? getSecretIntegration(id) : undefined;
   if (!def) throw new Error('Unknown integration');
 
-  await clearIntegrationSecretColumns([def.secretColumn]);
+  // A8·I-2: a refused clear says so; a cleared key is named.
+  const res = await clearIntegrationSecretColumns([def.secretColumn]);
+  if (!res.ok) redirect('/admin/integrations?error=clear_failed');
 
   revalidatePath('/admin/integrations');
-  redirect('/admin/integrations?cleared=1');
+  redirect(`/admin/integrations?cleared=${encodeURIComponent(def.id)}`);
 }
 
 // ── Credentialed integration config (PR3b · OAuth clients + PR4a · social) ──
@@ -188,7 +194,9 @@ export async function saveOAuthConfig(formData: FormData): Promise<void> {
     }
     patch[field.column] = val;
   }
-  await admin.from('platform_settings').update(patch).eq('id', 1);
+  // A8·I-1: a refused write is "save_failed", never "Saved".
+  const { error: patchErr } = await admin.from('platform_settings').update(patch).eq('id', 1);
+  if (patchErr) redirect('/admin/integrations?error=save_failed');
   revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
 
   // Client secret → encrypted, only if a new value was entered.
@@ -211,18 +219,21 @@ export async function clearOAuthSecret(formData: FormData): Promise<void> {
   const def = typeof id === 'string' ? getOAuthIntegration(id) : undefined;
   if (!def) throw new Error('Unknown integration');
 
-  await clearIntegrationSecretColumns([def.secretColumn]);
+  // A8·I-2: a refused clear says so; a cleared key is named.
+  const res = await clearIntegrationSecretColumns([def.secretColumn]);
+  if (!res.ok) redirect('/admin/integrations?error=clear_failed');
 
   revalidatePath('/admin/integrations');
-  redirect('/admin/integrations?cleared=1');
+  redirect(`/admin/integrations?cleared=${encodeURIComponent(def.id)}`);
 }
 
 export async function clearResendKey(): Promise<void> {
   await requireAdmin();
   // `last_verified_at` clears with it — see COMPANION_NULL_ON_CLEAR.
-  await clearIntegrationSecretColumns(['resend_api_key_enc']);
+  const res = await clearIntegrationSecretColumns(['resend_api_key_enc']);
+  if (!res.ok) redirect('/admin/integrations?error=clear_failed');
   revalidatePath('/admin/integrations');
-  redirect('/admin/integrations?cleared=1');
+  redirect('/admin/integrations?cleared=resend');
 }
 
 // ── Maya / PayMaya (PR4c) — bespoke 2-secret integration ────────────────────
@@ -257,10 +268,12 @@ export async function saveMayaConfig(formData: FormData): Promise<void> {
     }
     if (!ok) redirect('/admin/integrations?error=invalid_config');
   }
-  await admin
+  // A8·I-1: a refused write is "save_failed", never "Saved".
+  const { error: endpointErr } = await admin
     .from('platform_settings')
     .update({ [MAYA_INTEGRATION.endpointColumn]: endpoint })
     .eq('id', 1);
+  if (endpointErr) redirect('/admin/integrations?error=save_failed');
   revalidateTag(GLOBAL_SETTINGS_TAGS.platformSettings);
 
   // Secrets → write only the keys that were entered. Both Maya columns map to
@@ -330,12 +343,13 @@ async function registerMayaWebhooksFromCard(adminUserId: string): Promise<never>
 
 export async function clearMayaSecrets(): Promise<void> {
   await requireAdmin();
-  await clearIntegrationSecretColumns([
+  const res = await clearIntegrationSecretColumns([
     MAYA_INTEGRATION.publicKeyColumn,
     MAYA_INTEGRATION.secretKeyColumn,
   ]);
+  if (!res.ok) redirect('/admin/integrations?error=clear_failed');
   revalidatePath('/admin/integrations');
-  redirect('/admin/integrations?cleared=1');
+  redirect('/admin/integrations?cleared=maya');
 }
 
 /**

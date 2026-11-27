@@ -1,7 +1,7 @@
 import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { Search } from 'lucide-react';
-import { PageMasthead } from '@/app/_components/page-masthead';
+import { ToolChip, ToolPin } from '../_components/tool-page';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -17,6 +17,7 @@ import {
 import { SharePdfButton } from '@/app/_components/share-pdf-button';
 import { DeepSearchRunner } from './_components/deep-search-runner';
 import { DossierView } from './_components/dossier-view';
+import { ReadFailedNote } from '../_components/set-two/read-failed';
 
 /**
  * /vendor-dashboard/deep-search — the Deep Search surface (owner-locked
@@ -79,11 +80,13 @@ export default async function VendorDeepSearchPage() {
   const vendorProfileId = profile.vendor_profile_id;
 
   // Soft-probe tier + expiry + verification (none in FULL_VENDOR_PROFILE_SELECT).
-  const { data: tierRow } = await supabase
+  const { data: tierRow, error: tierError } = await supabase
     .from('vendor_profiles')
     .select('tier_state, tier_expires_at, verification_state')
     .eq('vendor_profile_id', vendorProfileId)
     .maybeSingle();
+  // 🪪 A refused plan read is SAID (final check A5-G6-13): never the Free demo, "Included in Plus" or a runner on a guess.
+  const planUnread = Boolean(tierError) || !tierRow;
   const tier = (tierRow as { tier_state?: string | null } | null)?.tier_state ?? null;
   const tierExpiresAt =
     (tierRow as { tier_expires_at?: string | null } | null)?.tier_expires_at ?? null;
@@ -93,8 +96,12 @@ export default async function VendorDeepSearchPage() {
   // 🔎 Plan, verification and this month's searches: the ONE resolver Shop › Details' card uses too
   // (`lib/vendor-deep-search-offer.ts`). Nothing is priced — the plans include the searches (owner 2026-11-22).
   const admin = createAdminClient();
-  const offer = await loadDeepSearchOffer(supabase, admin, { vendorProfileId, tier, tierExpiresAt, verification });
-  const allowanceLine = !offer.included
+  const offer = planUnread
+    ? null
+    : await loadDeepSearchOffer(supabase, admin, { vendorProfileId, tier, tierExpiresAt, verification });
+  const allowanceLine = !offer
+    ? null
+    : !offer.included
     ? deepSearchAllowanceWords(null)
     : offer.allowance.read
       ? deepSearchAllowanceWords(offer.allowance.perMonth)
@@ -102,21 +109,25 @@ export default async function VendorDeepSearchPage() {
 
   // History — the vendor's own uses (RLS-scoped), resolved to their dossiers by
   // the explicit id list (admin-read; verification dossiers have no use row).
-  const { data: usesData } = await supabase
+  const { data: usesData, error: usesError } = await supabase
     .from('vendor_deep_search_uses')
     .select('id, used_at, was_free, order_id, dossier_id')
     .eq('vendor_profile_id', vendorProfileId)
     .order('used_at', { ascending: false })
     .limit(12);
+  // 🪪 A refused history read is said, never drawn as "never searched" (final check A5-G6-14).
+  const historyUnread = Boolean(usesError);
   const uses = (usesData ?? []) as UseRow[];
   const dossierIds = uses.map((u) => u.dossier_id).filter((v): v is number => v != null);
 
   const dossierById = new Map<number, DossierRow>();
+  let dossiersUnread = false;
   if (dossierIds.length > 0) {
-    const { data: dData } = await admin
+    const { data: dData, error: dError } = await admin
       .from('vendor_web_dossiers')
       .select('id, status, dossier, created_at')
       .in('id', dossierIds);
+    dossiersUnread = Boolean(dError);
     for (const d of (dData ?? []) as DossierRow[]) dossierById.set(d.id, d);
   }
 
@@ -133,30 +144,34 @@ export default async function VendorDeepSearchPage() {
       : null;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-      <PageMasthead
-        title="Learn what the web knows about your business."
-      />
+    <div className="mx-auto max-w-3xl px-4 pb-6 sm:px-6 sm:pb-10">
+      {/* The page's name, as its metadata says it (final check B5-12), seen in the one pinned row (B18). */}
+      <ToolPin route="/vendor-dashboard/deep-search" title="Deep Search" />
 
       <section className="sn-tile mt-6 p-6">
-        <div className="flex items-start gap-3">
-          <span
-            aria-hidden
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-            style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
-          >
-            <Search className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-base font-semibold text-ink">Run a Deep Search</h2>
-            <p className="mt-1 max-w-prose text-sm text-ink/65">
-              {allowanceLine}
-            </p>
+        {/* The icon sits beside the heading at the text's size — no icon tile (final check B5, Part I.2). */}
+        <div className="min-w-0">
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
+              <Search aria-hidden className="h-4 w-4 shrink-0 text-[color:var(--m-slate-2)]" strokeWidth={1.75} />
+              Run a Deep Search
+            </h2>
+            {allowanceLine ? (
+              <p className="mt-1 max-w-prose text-sm text-ink/65">
+                {allowanceLine}
+              </p>
+            ) : null}
           </div>
         </div>
 
+        {!offer ? (
+          <div className="mt-4">
+            <ReadFailedNote mark="deep-search-plan">We couldn&rsquo;t load your plan right now.</ReadFailedNote>
+          </div>
+        ) : null}
+
         {/* What it finds — the demo a Free or Verified shop sees above its "Included in Plus · Upgrade". */}
-        {!offer.included ? (
+        {offer && !offer.included ? (
           <ul className="mt-4 divide-y divide-[color:var(--m-line)]" data-deep-search-findings="">
             {DEEP_SEARCH_FINDINGS.map((f) => (
               <li key={f.key} className="flex min-h-12 items-center justify-between gap-3 py-2">
@@ -167,7 +182,9 @@ export default async function VendorDeepSearchPage() {
           </ul>
         ) : null}
 
-        <DeepSearchRunner verified={offer.verified} included={offer.included} allowance={offer.allowance} />
+        {offer ? (
+          <DeepSearchRunner verified={offer.verified} included={offer.included} allowance={offer.allowance} />
+        ) : null}
       </section>
 
       {latestDossier ? (
@@ -179,13 +196,19 @@ export default async function VendorDeepSearchPage() {
         </section>
       ) : null}
 
-      {uses.length > 0 ? (
+      {historyUnread || uses.length > 0 ? (
         <section className="sn-tile mt-6 p-6">
           <p className="sn-eye">Search history</p>
+          {historyUnread ? (
+            <div className="mt-3">
+              <ReadFailedNote mark="deep-search-history">We couldn&rsquo;t load your searches right now.</ReadFailedNote>
+            </div>
+          ) : (
           <ul className="mt-3 divide-y" style={{ borderColor: 'var(--m-line)' }}>
             {uses.map((u) => {
               const d = u.dossier_id != null ? dossierById.get(u.dossier_id) : undefined;
-              const status = d?.status ?? 'running';
+              // A refused dossier read is not "Running" (final check A5-G6-14).
+              const status = d?.status ?? (dossiersUnread ? 'unread' : 'running');
               return (
                 <li key={u.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
                   <span className="text-sm text-ink/80">{fmtDateTime(u.used_at)}</span>
@@ -201,23 +224,16 @@ export default async function VendorDeepSearchPage() {
                       {/* An included run, or one bought before the per-search sale retired (2026-11-22). */}
                       {u.was_free ? 'Included' : 'Bought'}
                     </span>
-                    <span
-                      className={
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ' +
-                        (status === 'complete'
-                          ? 'bg-success-100 text-success-800'
-                          : status === 'failed'
-                            ? 'bg-danger-100 text-danger-800'
-                            : 'bg-ink/5 text-ink/60')
-                      }
-                    >
-                      {status === 'complete' ? 'Done' : status === 'failed' ? 'Failed' : 'Running'}
-                    </span>
+                    {/* The house chip — a dot and the word on its own tint, by token (final check B5). */}
+                    <ToolChip tone={status === 'complete' ? 'ok' : status === 'failed' ? 'no' : status === 'unread' ? 'wait' : 'quiet'} data="deep-search-status">
+                      {status === 'complete' ? 'Done' : status === 'failed' ? 'Failed' : status === 'unread' ? 'Couldn\u2019t read' : 'Running'}
+                    </ToolChip>
                   </span>
                 </li>
               );
             })}
           </ul>
+          )}
         </section>
       ) : null}
     </div>

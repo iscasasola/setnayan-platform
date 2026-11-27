@@ -1,5 +1,7 @@
 import { Check, Gavel, LogOut, Trash2, UserPlus, X } from 'lucide-react';
+import { TEAM_ROLES_HREF } from '@/lib/team-sections';
 import { Badge } from '@/app/_components/badge';
+import { ToolPin } from '@/app/vendor-dashboard/_components/tool-page';
 import { Fold } from '@/app/_components/fold';
 import { formatPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
@@ -22,6 +24,7 @@ import {
   isVendorDuty,
   roleNameOf,
   roleOptionLabel,
+  rolesRowLine,
   type VendorDuty,
   type VendorRoleNames,
 } from '@/lib/vendor-duties';
@@ -110,7 +113,8 @@ export function HelpersView({
   seatsLine: string;
   canBuySeats: boolean;
   storeShell: boolean;
-  extraSeats: number;
+  /** null = the read was refused (said, never "0 added"). */
+  extraSeats: number | null;
   /** The live `vendor_extra_seat` price; null when unread — then no figure is shown. */
   seatFeePhp: number | null;
   search: HelpersSearch;
@@ -158,9 +162,10 @@ export function HelpersView({
     : `You run ${labelOfKey.get(myBranchKey) ?? 'your branch'}’s team — Account Managers, Event Crew and Helpers.`;
 
   return (
-    <section className={embedded ? 'pb-2' : 'mx-auto w-full max-w-xl px-4 pb-32 pt-6 sm:px-6 sm:pt-10'} data-helpers-screen="">
+    <section className={embedded ? 'pb-2' : 'mx-auto w-full max-w-xl px-4 pb-32 sm:px-6'} data-helpers-screen="">
+      {/* ‹ + the title, the one pinned row (final check B18). Risen from the avatar, the layer's head names it instead. */}
+      {embedded ? null : <ToolPin route="/vendor-dashboard/team" inPlace title="Team" />}
       <header className="space-y-1">
-        {embedded ? null : <h1 className="sn-h1">Team</h1>}
         <p className="text-[14px] text-ink/65">{introLine}</p>
       </header>
 
@@ -265,8 +270,8 @@ export function HelpersView({
         <DatesRow
           data="helpers-roles"
           title="Roles"
-          line={`${VENDOR_DUTIES.map((d) => roleNameOf(roleNames, d)).slice(0, 3).join(' · ')} · and 3 more`}
-          href="/vendor-dashboard/team/roles"
+          line={rolesRowLine(VENDOR_DUTIES.map((d) => roleNameOf(roleNames, d)))}
+          href={TEAM_ROLES_HREF}
         />
         <DatesRow
           data="helpers-plan"
@@ -281,7 +286,7 @@ export function HelpersView({
           <DatesRow
             data="helpers-add-seat"
             title="Add a seat"
-            line={`${seatFeePhp !== null ? `${formatPhp(seatFeePhp)} ${PLAN_PERIOD.slash} each · ` : ''}${formatCount(extraSeats)} added · joins your renewal`}
+            line={`${seatFeePhp !== null ? `${formatPhp(seatFeePhp)} ${PLAN_PERIOD.slash} each · ` : ''}${extraSeats === null ? 'couldn\u2019t read how many you added' : `${formatCount(extraSeats)} added · joins your renewal`}`}
             end={
               <form action={actions.buySeat}>
                 <SupplierSubmit

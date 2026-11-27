@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
 import { LOVE_STORY_PRO_CTA, LOVE_STORY_PRO_LINE } from '@/lib/love-story-moments';
+import { PLAN_UNREAD } from '@/lib/plan-unread';
 
 /**
  * THE ONE QUIET LINE — owner 2026-09-25, verbatim ruling: a sixth story or any
@@ -18,11 +19,21 @@ export function LoveStoryProLine({
   storeShell,
   href,
   price,
+  planUnread = false,
 }: {
   storeShell: boolean;
   href: string;
   price: string | null;
+  /** The plan read failed (owner ruling, final check Add 45): no upsell from a failed read — say so instead. */
+  planUnread?: boolean;
 }) {
+  if (planUnread) {
+    return (
+      <p role="status" data-love-story-pro-line="unread" className="mt-1 text-sn-14 text-[color:var(--ls-muted)]">
+        {PLAN_UNREAD}
+      </p>
+    );
+  }
   if (storeShell) {
     return (
       <p data-love-story-pro-line="shell" className="mt-1 text-[14px] text-[color:var(--ls-muted)]">

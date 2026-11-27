@@ -40,6 +40,9 @@ const ATTEMPTS_PER_WINDOW = 10;
 const WINDOW_SECS = 10 * 60;
 
 export async function pairLiveScreen(formData: FormData): Promise<void> {
+  // 🔘 A4-B04: an empty press is answered with the page's own line, before the rate limit — it guesses nothing, so it
+  // never spends one of the screen's tries.
+  if (String(formData.get('code') ?? '').trim() === '') redirect('/live?error=empty');
   const h = await headers();
   const ip = clientIp(h) ?? 'unknown';
   // 📶 DURABLE (event-day L1·8): the in-memory limiter counted per warm

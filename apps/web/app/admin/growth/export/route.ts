@@ -5,8 +5,8 @@ import {
   fetchGrowthStats,
   buildDemoGrowthStats,
   type GrowthRangeKey,
-  type GrowthStats,
 } from '@/lib/admin/growth-stats';
+import { toCsv } from '@/lib/admin/growth-csv';
 
 /**
  * GET /admin/growth/export?range=3m|6m|12m[&demo=1]
@@ -25,67 +25,6 @@ export const dynamic = 'force-dynamic';
 
 function parseRange(raw: string | null): GrowthRangeKey {
   return raw === '3m' || raw === '6m' || raw === '12m' ? raw : '6m';
-}
-
-function cell(v: string | number): string {
-  const s = String(v);
-  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-}
-
-function toCsv(stats: GrowthStats): string {
-  const rows: (string | number)[][] = [['section', 'series', 'period', 'value']];
-  const genDate = stats.generatedAtIso.slice(0, 10);
-
-  rows.push(['meta', 'range', '', stats.range]);
-  rows.push(['meta', 'generated_at', '', genDate]);
-  rows.push(['meta', 'demo', '', String(stats.demo)]);
-
-  const p = stats.population;
-  rows.push(['population', 'account_holders', '', p.accountHolders]);
-  rows.push(['population', 'customers', '', p.customers]);
-  rows.push(['population', 'vendors', '', p.vendors]);
-  rows.push(['population', 'vendors_published', '', p.vendorsPublished]);
-  rows.push(['population', 'services', '', p.services]);
-  rows.push(['population', 'services_active', '', p.servicesActive]);
-  rows.push(['population', 'events', '', p.events]);
-  rows.push(['population', 'guests', '', p.guests]);
-
-  for (const s of stats.series) {
-    for (const pt of s.points) {
-      rows.push(['growth_cumulative', s.key, pt.at.slice(0, 10), pt.cumulative]);
-    }
-    for (const pt of s.points) {
-      rows.push(['growth_new', s.key, pt.at.slice(0, 10), pt.added]);
-    }
-  }
-
-  const c = stats.conversion;
-  rows.push(['conversion', 'rate', '', c.rate.toFixed(4)]);
-  rows.push(['conversion', 'converted', '', c.converted]);
-  rows.push(['conversion', 'total_guests', '', c.totalGuests]);
-  rows.push(['conversion', 'new_in_range', '', c.newInRange]);
-  rows.push([
-    'conversion',
-    'median_days_to_convert',
-    '',
-    c.medianDaysToConvert ?? '',
-  ]);
-  rows.push(['conversion', 'sample_size', '', c.sampleSize]);
-  for (const pt of c.points) {
-    rows.push(['conversion_cumulative', 'guests', pt.at.slice(0, 10), pt.cumulative]);
-  }
-  for (const pt of c.points) {
-    rows.push(['conversion_new', 'guests', pt.at.slice(0, 10), pt.added]);
-  }
-
-  for (const r of stats.breakdowns.eventsByType) {
-    rows.push(['breakdown_events_by_type', r.label, '', r.count]);
-  }
-  for (const r of stats.breakdowns.eventsByRegion) {
-    rows.push(['breakdown_events_by_region', r.label, '', r.count]);
-  }
-
-  return rows.map((r) => r.map(cell).join(',')).join('\n') + '\n';
 }
 
 export async function GET(request: NextRequest): Promise<NextResponse> {

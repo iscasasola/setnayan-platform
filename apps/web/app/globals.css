@@ -6303,8 +6303,14 @@ html.dark [data-art='candlelight'] {
   overflow: hidden;
 }
 
-/* BUSY (#35) — the button's label gives way to the spinner in Tap, on Settle; the button keeps its size
-   (`submit-button.tsx` holds its width). DONE (#14) — "✓" pops in Quick on Spring. Reduced: at once. */
+/* BUSY (#35) — the label gives way to its step's words; the button keeps its size. DONE (#14) — "✓" pops.
+   WORKING (final check B19): a working button stays pressed and names its step — no spinner. */
+button[aria-busy='true'],
+a[aria-busy='true'],
+label[aria-busy='true'] {
+  scale: 0.97;
+  transition: scale var(--sn-m-tap) var(--sn-m-settle);
+}
 .sn-m-busy {
   transition: opacity var(--sn-m-tap) var(--sn-m-settle);
 }

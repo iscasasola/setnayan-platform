@@ -1,3 +1,4 @@
+import { guestsViewHref } from '@/lib/guests-views';
 import Link from 'next/link';
 import { studioHubHref } from '@/lib/studio-hub';
 import { notFound } from 'next/navigation';
@@ -335,6 +336,12 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
     if (inMaker) return { ok: false as const };
     notFound();
   }
+  /* S-05 (final check): a refused inspirations or sign-off read drew an empty board and every part "never signed off".
+     Both are the board itself, so the board says it could not load (every caller draws `CouldNotLoad`). */
+  if (inspirationRes.error || finalizationRes.error) {
+    console.error(`[moodBoard] board read refused for event_id=${eventId}`, inspirationRes.error ?? finalizationRes.error);
+    return { ok: false as const };
+  }
 
   /* ✅ THE DO'S AND DON'TS (owner 2026-09-30). In the Maker they are read
      through the couple's draft — the same place the Dress code scene saves —
@@ -503,12 +510,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
   // been signed off — the failure shape this repo has shipped twice (the guest
   // list and the vendor workspace). So an error is logged and the panels are
   // told, rather than silently drawing the blank state.
-  if (finalizationRes.error) {
-    console.error(
-      `[moodBoard] part finalizations unreadable for event_id=${eventId}:`,
-      finalizationRes.error.message,
-    );
-  }
+  // (A refused read returned `ok: false` above — S-05, final check — so here the read is real.)
   const finalizationRecords: PartFinalizationRecord[] = (finalizationRes.data ??
     []) as unknown as PartFinalizationRecord[];
 
@@ -920,7 +922,7 @@ const buildMoodBoard = cache(async (eventId: string, inMaker: boolean) => {
           <p className="mt-3 text-sm text-ink/70">You design the room in your Seat plan.</p>
         ) : (
           <Link
-            href={`/dashboard/${eventId}/seating/lab`}
+            href={guestsViewHref(eventId, 'seats', { seat: '3d' })}
             className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-terracotta hover:underline"
           >
             Edit in Seat Plan →

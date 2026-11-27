@@ -28,6 +28,7 @@ import { getCurrentUser } from '@/lib/auth';
 
 export const metadata = {
   title: 'Not available in the app',
+  description: 'This part of Setnayan opens on setnayan.com in your browser, not in the app.',
   robots: { index: false, follow: false },
 };
 

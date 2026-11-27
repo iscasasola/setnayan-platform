@@ -7,6 +7,7 @@ import {
   readWallDisplayCookie,
 } from '@/lib/live-wall';
 import { asWallTileLayout, clampWallPhotoCount } from '@/lib/live-wall-logic';
+import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { WallClaim } from './_components/wall-claim';
 import { WallProjection } from './_components/wall-projection';
 
@@ -25,11 +26,24 @@ import { WallProjection } from './_components/wall-projection';
 // event simply shows the waiting state.
 
 export const dynamic = 'force-dynamic';
+/* 🏷 A4-B06 (final check): the venue screen's tab carries its own title (never the generic site title), and, like
+   `/live`, a screen address is never indexed. */
+export const metadata = { title: 'Live photo wall', robots: { index: false, follow: false } };
 
 type Props = { params: Promise<{ eventId: string }> };
 
 export default async function WallPage({ params }: Props) {
   const { eventId } = await params;
+
+  // 🔌 A4-B07: an address that cannot be an event (not a uuid) is a wrong link — the quiet dead end, before any code
+  // form whose press could only fail as "Something hiccuped".
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(eventId)) {
+    return (
+      <main className="flex min-h-screen items-center justify-center bg-ink px-6 text-cream">
+        <p className="text-sm text-cream/50">This Memory lane link isn&rsquo;t right. Open it again from the event&rsquo;s Setnayan dashboard.</p>
+      </main>
+    );
+  }
 
   // G0 at the door: no LIVE_WALL ownership → a quiet dead end (no oracle
   // about whether the event exists). Ownership reads off orders.status via
@@ -40,22 +54,30 @@ export default async function WallPage({ params }: Props) {
   const owns = await eventSkuActive(admin, eventId, 'LIVE_WALL');
 
   if (!owns) {
+    // 🔒 The same words for every address: naming "the couple" or "the family" here would tell a stranger the event
+    // exists and what kind it is — the oracle this door exists to refuse.
     return (
       <main className="flex min-h-screen items-center justify-center bg-ink px-6 text-cream">
-        <p className="text-sm text-cream/50">This Memory lane isn&rsquo;t lit. Check the link with the couple.</p>
+        <p className="text-sm text-cream/50">This Memory lane isn&rsquo;t lit. Check the link with whoever sent it.</p>
       </main>
     );
   }
+
+  // 🔌 A4-16 / A4-B06: the event's own word for whoever runs it ("the couple" only on a wedding) — read only once the
+  // event is known to own the wall.
+  const words = await eventWordsForEvent(eventId);
 
   const session = await readWallDisplayCookie();
   const claimed =
     session?.event_id === eventId && (await isWallSessionLive(session));
 
   if (!claimed) {
-    return <WallClaim eventId={eventId} />;
+    return <WallClaim eventId={eventId} theOrganizer={words.theOrganizer} theOrganizerPossessive={words.theOrganizerPossessive} />;
   }
 
   const snapshot = await getWallSnapshot(eventId);
+  // 🔌 A4-15: the first frame of a claimed TV is not an empty wall on a failed read — the boundary says so.
+  if (snapshot.unreadable) throw new Error('wall: could not read the wall feed');
   // The couple's canonical mark for the venue screen — resolved exactly like the
   // public hero (animates iff they own the paid ANIMATED_MONOGRAM). Serializable,
   // so it crosses to the client projection as a prop. Best-effort: null → the

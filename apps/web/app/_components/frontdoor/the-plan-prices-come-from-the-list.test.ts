@@ -44,7 +44,8 @@ test('a row on sale gives its price; a missing, empty or zero row gives none —
 test('the front page reads the catalogue and types no plan price', () => {
   const door = stripComments(readFileSync(path.join(HERE, 'front-door.tsx'), 'utf8'));
   // Lane J: one catalogue read now feeds the prices AND the included credits (`planCreditsFrom`).
-  assert.match(door, /fetchV2CustomerCatalog\(\)/, 'front-door.tsx no longer reads the catalogue');
+  // `fetchV2CustomerCatalogRead` is the same read with its failure kept (final check A1-100).
+  assert.match(door, /fetchV2CustomerCatalog(?:Read)?\(\)/, 'front-door.tsx no longer reads the catalogue');
   assert.match(door, /planPricesFrom\(catalog\)/, 'front-door.tsx no longer reads the plan prices from the catalogue');
   assert.match(door, /planCreditsFrom\(catalog\)/, 'front-door.tsx no longer reads the plan credits from the catalogue');
   const landing = stripComments(readFileSync(path.join(HERE, 'front-door-landing.tsx'), 'utf8'));

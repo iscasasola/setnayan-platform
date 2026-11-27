@@ -65,8 +65,10 @@ test('(1) ONE action button: Restore is its neutral tone, Reset… its danger to
   assert.doesNotMatch(waiting, / disabled=""/, 'a waiting button left a screen reader’s path');
   assert.equal(pressed, 0);
   const src = read('components/action-button.tsx');
-  assert.match(src, /onClick=\{waiting \? undefined : p\.onClick\}/, 'a waiting button still runs its handler');
-  assert.match(src, /type=\{waiting \? 'button' : \(p\.type \?\? 'button'\)\}/, 'a waiting submit still posts its form');
+  // Waiting or working (final check B19 — `busy`): a press does nothing.
+  assert.match(src, /const stopped = Boolean\(waiting \|\| working\);/, 'a waiting button still runs its handler');
+  assert.match(src, /onClick=\{stopped \? undefined : p\.onClick\}/, 'a waiting button still runs its handler');
+  assert.match(src, /type=\{stopped \? 'button' : \(p\.type \?\? 'button'\)\}/, 'a waiting submit still posts its form');
   // Its look, in the stylesheet: a grey fill and word, a line, FULL opacity — after the tone, main and disabled rules.
   const css = readFileSync(join(WEB, 'app/globals.css'), 'utf8');
   const at = css.indexOf(':is(button, a).ab[data-waiting],');

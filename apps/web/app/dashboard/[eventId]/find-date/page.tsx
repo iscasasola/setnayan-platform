@@ -29,6 +29,8 @@ import { fetchEventVendors } from '@/lib/vendors';
 import { buildScheduleMatrix, schedulePicksFromVendors } from '@/lib/schedule-matrix';
 import type { EventDatePrecision } from '@/lib/events';
 import { FindYourDate } from './_components/find-your-date';
+import { PageMasthead } from '@/app/_components/page-masthead';
+import { ReadRefusedNotice } from '../_components/read-refused-notice';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { detailsItemHref } from '@/lib/maker-details-items';
 
@@ -94,6 +96,13 @@ export default async function FindDatePage({ params }: Props) {
   // rest of the repo does (console + Sentry, non-fatal): the page still renders.
   if (eventRes.error) {
     logQueryError('find-date/page events date read', eventRes.error, { event_id: eventId });
+    // A2-H15: the measurement reaches the render. A couple who HAS a date is never told to "set your dates first".
+    return (
+      <section className="sn-col space-y-6">
+        <PageMasthead title="Find your date" />
+        <ReadRefusedNotice what="your event date" />
+      </section>
+    );
   }
 
   const ev =
@@ -107,7 +116,8 @@ export default async function FindDatePage({ params }: Props) {
 
   const picks = schedulePicksFromVendors(vendors);
 
-  const matrix = await buildScheduleMatrix({ admin, eventDate, precision, picks });
+  // A2-H16: only the couple may open the date settings (`date-selection` 404s for anyone else) — carried on the matrix.
+  const matrix = { ...(await buildScheduleMatrix({ admin, eventDate, precision, picks })), canSetDate: Boolean(coupleRes.data) };
 
   return <FindYourDate eventId={eventId} matrix={matrix} />;
 }

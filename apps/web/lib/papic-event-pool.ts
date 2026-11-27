@@ -296,3 +296,25 @@ async function readEventPoolStatusNow(admin: SupabaseClient, eventId: string): P
     return { ok: false, status: EVENT_POOL_ABSENT };
   }
 }
+
+/**
+ * 🔌 A4-65 (final check, 25 Nov): the LIVE soft-stop line, from the one global row of
+ * public.papic_event_pool_config (`soft_stop_pct`, admin-editable). The guest camera's "running low" pill read the
+ * last-resort `DEFAULT_EVENT_POOL_CONFIG.softStopPct` instead, so the owner's setting never reached it.
+ * Null when the row could not be read — the caller then uses the last-resort default, as this file's own rule says.
+ */
+export async function readPoolSoftStopPct(supabase: SupabaseClient): Promise<number | null> {
+  try {
+    const { data, error } = await supabase
+      .from('papic_event_pool_config')
+      .select('soft_stop_pct')
+      .eq('config_key', 'default')
+      .maybeSingle();
+    if (error) console.error('[supabase-error] lib/papic-event-pool.ts · from:papic_event_pool_config.select soft_stop_pct', error);
+    if (error || !data) return null;
+    const n = Number((data as { soft_stop_pct?: unknown }).soft_stop_pct);
+    return Number.isFinite(n) && n > 0 && n <= 100 ? n : null;
+  } catch {
+    return null;
+  }
+}

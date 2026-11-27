@@ -1,3 +1,6 @@
+import { ownMessageFromParam } from '@/lib/human-auth-error';
+import { INVITE_PARTNERS_AT_ONCE } from '@/lib/supplier-invite';
+import { INVITE_ERRORS, INVITE_JOIN_FAILED } from '@/lib/supplier-invite-errors';
 import { notFound } from 'next/navigation';
 import { LogIn, Handshake } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -37,6 +40,8 @@ export default async function SupplierInvitePage({
   searchParams: Promise<{ error?: string }>;
 }) {
   const [{ slug: raw }, sp] = await Promise.all([params, searchParams]);
+  // 🔒 One of the invite's own refusals, never the URL's words; a stray "%" never throws (final check A1-058).
+  const inviteError = ownMessageFromParam(sp.error, Object.values(INVITE_ERRORS), INVITE_JOIN_FAILED);
   const slug = cleanInviteSlug(raw);
   if (!slug) notFound();
 
@@ -76,9 +81,9 @@ export default async function SupplierInvitePage({
 
   return (
     <div data-supplier-look="">
-      {sp.error ? (
+      {inviteError ? (
         <div className="mx-auto max-w-xl px-4 pt-6">
-          <FormFlash tone="error">{decodeURIComponent(sp.error).slice(0, 200)}</FormFlash>
+          <FormFlash tone="error">{inviteError}</FormFlash>
         </div>
       ) : null}
       <SupplierInviteDoor
@@ -90,7 +95,7 @@ export default async function SupplierInvitePage({
           isSelf
             ? 'This is your own invite link — share it with the suppliers you work with.'
             : hasShop
-              ? `You join as partners. ${inviter.businessName} shows on your Trusted partners, and you on theirs, once you have served an event together.`
+              ? `${INVITE_PARTNERS_AT_ONCE}: ${inviter.businessName} shows on your Trusted partners, and you on theirs.`
               : null
         }
       />

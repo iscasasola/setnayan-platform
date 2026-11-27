@@ -1,10 +1,11 @@
+import { routes } from '@/lib/routes';
 import Link from 'next/link';
 import { getSampleEvent } from './_lib/sample-event';
 import { coupleNamesLine } from '@/lib/typed-names';
 import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 
 /**
- * /tour — the public "walk through a real wedding" intro + stop index.
+ * /tour — the public "walk through a sample wedding" intro + stop index.
  *
  * Resolving getSampleEvent() here means a missing/de-flagged sample 404s the
  * whole tour up front (fail-safe). Stop 1 (the Save-the-Date) deep-links to the
@@ -14,13 +15,13 @@ import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 export const dynamic = 'force-dynamic';
 
 export const metadata = {
-  title: 'Walk through a real wedding',
+  title: 'Walk through a sample wedding',
   description:
     'Explore a complete sample wedding on Setnayan — the invitation, the suppliers, the seating, the budget, and Memories. No sign-up, and nothing is saved.',
   alternates: { canonical: '/tour' },
   openGraph: {
     images: BRAND_OG_IMAGES,
-    title: 'Walk through a real wedding · Setnayan',
+    title: 'Walk through a sample wedding · Setnayan',
     description: 'Explore a complete sample wedding on Setnayan — no sign-up, nothing saved.',
     url: '/tour',
     type: 'website',
@@ -93,10 +94,10 @@ export default async function TourIntroPage() {
       <section className="mx-auto mt-14 max-w-2xl rounded-3xl border border-[#A9834B]/40 bg-[#FBF6EA] px-6 py-10 text-center">
         <h2 className="font-serif text-2xl text-[#1B1A17] sm:text-3xl">Like what you see?</h2>
         <p className="mx-auto mt-3 max-w-lg text-base text-[#5F5E5A]">
-          Start your own wedding on Setnayan — free, in minutes. Set na &rsquo;yan.
+          Start your own wedding on Setnayan — free. Set na &rsquo;yan.
         </p>
         <Link
-          href="/onboarding/wedding?from=tour"
+          href={routes.start()}
           className="mt-5 inline-flex min-h-[48px] items-center justify-center rounded-full bg-[#1B1A17] px-7 py-3 text-sm font-semibold text-[#FBFBFA] transition-opacity hover:opacity-90"
         >
           Start planning &middot; free

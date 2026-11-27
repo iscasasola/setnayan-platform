@@ -97,15 +97,21 @@ export function PoolGrid({
             return [...prev, ...data.tiles!.filter((t) => !seen.has(t.id))];
           });
           setCursor(data.nextCursor ?? null);
-        } else if (data?.error === 'unreadable') {
-          // A refused read is not the end of the gallery — keep the cursor so
-          // the guest can tap again (S41b).
-          setNotice('We couldn’t load more photos just now. Tap to try again.');
-        } else {
+        } else if (data?.error === 'unavailable') {
+          // The shared photos were switched off: a real end, said in words (🔌 A4-80 — never a silent vanish).
           setCursor(null);
+          setNotice('The shared photos are closed now.');
+        } else if (data?.error === 'no_session') {
+          setCursor(null);
+          setNotice('Open your invitation link again to see more photos.');
+        } else {
+          // 🔌 A4-80: a refused read or a broken answer is not the end of the gallery — keep the cursor and the
+          // button, and say so (S41b).
+          setNotice('We couldn’t load more photos just now. Tap to try again.');
         }
       } catch {
-        // Leave the cursor so the guest can retry on venue WiFi.
+        // Leave the cursor so the guest can retry on venue WiFi — and say why nothing came (A4-80).
+        setNotice('We couldn’t load more photos just now. Tap to try again.');
       }
     });
   }
@@ -140,7 +146,8 @@ export function PoolGrid({
           {/* One heading per chapter that actually has photos — a couple who shot
               on four days sees four headings, not thirty empty ones. */}
           <h2 className="sn-eye mb-2 text-ink/55">{chapter.label}</h2>
-          <ul className="grid grid-cols-3 gap-2">
+          {/* A4-81 (drawing § 06): on a wide screen the grid uses the width — 6 across. */}
+          <ul className="grid grid-cols-3 gap-2 lg:grid-cols-6">
         {chapter.items.map((tile) => {
           const busy = busyId === tile.id;
           const state: LinkState = busy ? 'busy' : 'idle';

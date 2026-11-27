@@ -1,5 +1,6 @@
 import { eventRowOnce } from '@/lib/event-row-once';
 import { getCurrentUser } from '@/lib/auth';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { headers } from 'next/headers';
@@ -116,9 +117,12 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
   // un-bootstrapped database yields an empty map and the honest "nothing to print
   // yet" note below, rather than a crash.
   const admin = createAdminClient();
-  const cameras = await fetchChannelCameras(admin, eventId, zones, appUrl).catch(
-    () => new Map<number, ChannelCameraView>(),
-  );
+  // L-08 (final check): a refused seat read is said, never drawn as every channel "waiting" with no card.
+  let camerasReadFailed = false;
+  const cameras = await fetchChannelCameras(admin, eventId, zones, appUrl).catch(() => {
+    camerasReadFailed = true;
+    return new Map<number, ChannelCameraView>();
+  });
 
   // ONE function decides what is printable and what is merely waiting — the same
   // one the controller calls to size its "Print" doorway, so the door can never
@@ -164,7 +168,7 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
         </Link>
       </div>
 
-      {waiting.length > 0 ? (
+      {waiting.length > 0 && !camerasReadFailed ? (
         <div className="print-note screen-only">
           <p className="text-sm font-semibold text-ink/80">
             {waiting.length === 1 ? 'One channel has' : `${waiting.length} channels have`} no card
@@ -180,7 +184,12 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
         </div>
       ) : null}
 
-      {cards.length === 0 ? (
+      {zoneRowsError || camerasReadFailed ? (
+        <div className="screen-only" style={{ padding: 24 }}>
+          {/* L-08 (final check): a refused read is not "no join cards". */}
+          <ReadRefusedNotice what="your join cards" />
+        </div>
+      ) : cards.length === 0 ? (
         <div className="screen-only" style={{ padding: 24 }}>
           <InfoTip labelAs="p" label="There are no join cards to print yet." labelClassName="text-sm text-ink/70" align="start">
             Open the control room and make a join QR for

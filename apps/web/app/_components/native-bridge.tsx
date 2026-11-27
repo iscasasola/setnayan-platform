@@ -30,6 +30,8 @@ type AppPlugin = {
 type SplashScreenPlugin = { hide: (opts?: { fadeOutDuration?: number }) => Promise<void> };
 type StatusBarPlugin = {
   setOverlaysWebView: (opts: { overlay: boolean }) => Promise<void>;
+  /** iOS: the colour of the strip the plugin lays behind the status bar. Hex, `#RRGGBB` or `#RRGGBBAA`. */
+  setBackgroundColor?: (opts: { color: string }) => Promise<void>;
   /** Capacitor's `Style`: 'DARK' = light text (for a dark page), 'LIGHT' = dark text (for a light page). */
   setStyle?: (opts: { style: 'DARK' | 'LIGHT' }) => Promise<void>;
 };
@@ -64,6 +66,24 @@ export function clockFollowsTheme(
   const watch = new Observer(paint);
   watch.observe(root as unknown as Node, { attributes: true, attributeFilter: ['class'] });
   return () => watch.disconnect();
+}
+
+/**
+ * ⬛ THE STRIP BEHIND THE CLOCK IS CLEAR, so the page's own colour shows (Apple build 10 screenshots, 27 Nov 2026: a
+ * black band above the top bar on every screen). `setOverlaysWebView({ overlay: false })` makes @capacitor/status-bar
+ * (iOS) lay its OWN view over the status-bar strip, and that view's colour is the plugin's `backgroundColor`, which is
+ * `UIColor.black` unless someone sets it. Nobody did, so the strip SideSafeAreaHost.swift paints in the page's colour
+ * (`underPageBackgroundColor`) sat under a black one. A fully transparent strip (`#RRGGBBAA` with alpha 00 —
+ * Capacitor's hex reader takes eight digits) lets the host's page colour through, in Light and Dark and on a dark
+ * invitation alike. The colour is set BEFORE the strip is laid, so it never draws black for a frame. Web code only: the
+ * plugin and its `setBackgroundColor` are already in the shipped build, so no new iOS build. Exported for
+ * `the-strip-behind-the-clock-is-clear.test.ts`.
+ */
+export const STATUS_STRIP_CLEAR = '#00000000';
+
+export function keepTheStripClear(StatusBar: StatusBarPlugin | undefined, swallow: () => void = () => undefined): void {
+  Promise.resolve(StatusBar?.setBackgroundColor?.({ color: STATUS_STRIP_CLEAR })).catch(swallow);
+  Promise.resolve(StatusBar?.setOverlaysWebView({ overlay: false })).catch(swallow);
 }
 
 export function NativeBridge() {
@@ -132,8 +152,9 @@ export function NativeBridge() {
     Promise.resolve(SplashScreen?.hide({ fadeOutDuration: 200 })).catch(swallow);
 
     // 4. Keep the WebView below the status bar so content isn't drawn under the
-    //    notch / system clock. (The clock's colour follows the theme — step 5.)
-    Promise.resolve(StatusBar?.setOverlaysWebView({ overlay: false })).catch(swallow);
+    //    notch / system clock — with the plugin's strip clear, so the page's colour shows behind the clock, never
+    //    the plugin's default black (`keepTheStripClear`). (The clock's colour follows the theme — step 5.)
+    keepTheStripClear(StatusBar, swallow);
 
     // 5. 🌗 The clock follows the screen's theme (dark B1, 2026-10-23). The host
     //    paints the strip behind the status bar in the PAGE's own colour

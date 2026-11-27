@@ -44,6 +44,9 @@ export const COVER_SCENE_FOOT = 'mt-auto flex w-full flex-col items-center gap-3
 export const COVER_FOOT_ATTR = 'data-cover-foot';
 /** The hint's words — "the event", never "website" (owner 2026-10-04 · 2026-10-16). */
 export const COVER_SWIPE_HINT = 'Swipe up for the event';
+/** 🖱 The same hint on a pointer screen (hover + fine pointer): there is no swipe with a mouse (final check A4-B05,
+ *  approved drawing § 01). Touch screens keep `COVER_SWIPE_HINT`. */
+export const COVER_SCROLL_HINT = 'Scroll for the event';
 
 /** The attribute the cover's first screen carries — the guard and the Maker find the Cover Scene by it. */
 export const COVER_SCENE_ATTR = 'data-cover-scene';

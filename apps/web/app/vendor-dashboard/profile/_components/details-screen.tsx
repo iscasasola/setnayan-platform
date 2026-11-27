@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { Globe, ListChecks, MapPin, MessageSquareWarning, Pencil, Phone, Wallet } from 'lucide-react';
 import { RowIcon } from '../../_components/row-icon';
+import { ToolPin } from '@/app/vendor-dashboard/_components/tool-page';
 import { Fold } from '@/app/_components/fold';
 import { Badge } from '@/app/_components/badge';
 import { detailsLine, DETAILS_CHECKLIST_KEYS, type DetailsKey } from '@/lib/supplier-details';
@@ -11,6 +12,7 @@ import { asksVenueType } from '@/lib/vendor-venue-type';
 import { PublicLineCard } from '../../shop/_components/public-line-card';
 import { SuggestedCoverageCard } from '../../shop/_components/suggested-coverage-card';
 import { VisibilityCard } from '../../shop/_components/visibility-card';
+import { ReadFailedNote } from '../../_components/set-two/read-failed';
 import { RequestCorrectionCard } from '../../shop/_components/request-correction-card';
 import { CouldNotLoad } from '../../shop/_components/could-not-load';
 import { ShopSegments } from '../../shop/_components/shop-segments';
@@ -103,9 +105,10 @@ export function DetailsScreen({
 
   return (
     <>
-      <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-details="">
+      <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 sm:px-6" data-supplier-details="">
+        {/* ‹ + the title, the one pinned row (final check B18). Risen from the avatar, the layer's head names it instead. */}
+        <ToolPin route="/vendor-dashboard/profile" inPlace title="Your details" />
         <ShopSegments on="details" figures={detailsFigures({ verified: d.isVerified, docsIn: d.docsIn, docsTotal: d.docsTotal, done: count ? count.done : null, of: count ? count.of : null, steps: live !== null })} gearBody={gearBody} />
-        <h1 className="sn-h1">Your details</h1>
         <div>
           <p className="text-[15px] text-ink" data-details-line="" aria-live="polite">
             <b className="font-semibold">{head}</b>
@@ -247,13 +250,18 @@ export function DetailsScreen({
                 asks={asks}
               />
               <PublicLineCard initialTagline={d.tagline} initialWebsite={d.website} fairWords={d.fairWords} />
-              <VisibilityCard
-                initialSameDayAvailable={d.sameDayAvailable}
-                initialSocialFeatureOptOut={d.socialFeatureOptOut}
-                isVerified={d.isVerified}
-                isPaidTier={d.tier != null && d.tier !== 'free'}
-                alreadyFeatured={d.socialAlreadyFeatured}
-              />
+              {d.visibilityMeasured ? (
+                <VisibilityCard
+                  initialSameDayAvailable={d.sameDayAvailable}
+                  initialSocialFeatureOptOut={d.socialFeatureOptOut}
+                  isVerified={d.isVerified}
+                  isPaidTier={d.tier != null && d.tier !== 'free'}
+                  alreadyFeatured={d.socialAlreadyFeatured}
+                />
+              ) : (
+                // 🪪 Refused, the card is not drawn with its switches OFF and a Save that would write OFF (A5-G5-05).
+                <ReadFailedNote mark="details-visibility">We couldn&rsquo;t load where else you show up right now.</ReadFailedNote>
+              )}
             </div>
           </Fold>
 

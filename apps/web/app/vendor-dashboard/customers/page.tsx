@@ -21,6 +21,7 @@ import {
   fetchVendorDayStates,
   fetchVendorMonthDayStates,
   fetchVendorPoolBookings,
+  fetchVendorPoolBookingsDetailed,
   fetchVendorPools,
   fetchVendorPoolsOrNull,
 } from '@/lib/vendor-schedule';
@@ -28,6 +29,7 @@ import {
   asksByDate,
   clockWords,
   dayAnswerOfGroups,
+  DAY_UNREAD_ANSWER,
   dayGroupsOf,
   daySheetHref,
   daysFrom,
@@ -150,6 +152,7 @@ import BookingsSurface from '../bookings/surface';
 import { CustomersMoney } from './_components/money-segment';
 import ContractsSurface from '../contracts/surface';
 import ProposalsSurface from '../proposals/surface';
+import { routes } from '@/lib/routes';
 
 export const metadata = { title: 'Clients' };
 
@@ -241,7 +244,7 @@ type SP = Record<string, string | string[] | undefined>;
 
 /** An outside client's Add / Remove, said once by the toast and kept as the status line. */
 const EVENTS_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; retry?: boolean }> = {
-  client_imported: { tone: 'ok', text: 'Booking from outside added — free. It holds that date on your schedule now.' },
+  client_imported: { tone: 'ok', text: 'Booking from outside added. It holds that date on your schedule now.' },
   block_removed: { tone: 'ok', text: 'Booking from outside removed. The date is open again.' },
   bad_dates: { tone: 'bad', text: 'Those dates don’t work. Check the first and last day.', retry: true },
   bad_name: { tone: 'bad', text: 'The client needs a name. Nothing was added.', retry: true },
@@ -674,8 +677,13 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
   // "Lead Stylist · Bea Santos · Makati"; Branch and Card group by where the client's card is filed.
   const [branchesRes, roleNames] = await rolesWhereRead;
   const branchLabel = new Map(((branchesRes.data ?? []) as { branch_id: string; branch_label: string | null }[]).map((b) => [b.branch_id, b.branch_label?.trim() || 'Branch']));
-  const hasBranches = branchLabel.size > 0;
-  const whereOf = (branchId: string | null) => (branchId ? (branchLabel.get(branchId) ?? 'Branch') : 'Main');
+  // 🧾 A6-35: a refused branches read is logged and said on the row ("a branch, its name couldn't load"), never every
+  // client quietly grouped under "Main".
+  const branchesUnread = Boolean(branchesRes.error);
+  if (branchesRes.error) logQueryError('customers.branches', branchesRes.error, { vendorProfileId }, 'graceful_degrade');
+  const hasBranches = branchLabel.size > 0 || branchesUnread;
+  const whereOf = (branchId: string | null) =>
+    branchId ? (branchLabel.get(branchId) ?? (branchesUnread ? 'A branch (its name couldn’t load)' : 'Branch')) : 'Main';
   const cardById = new Map((servicesRead ?? []).map((sv) => [sv.vendor_service_id, sv]));
   const seatHeading = (id: string) => {
     const m = teamRead?.find((t) => t.vendor_team_member_id === id);
@@ -958,7 +966,17 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
             otherMatches={isBooked ? outsideMatched.length : 0}
             otherTotal={isBooked ? outsideAll.length : 0}
             anchor={null}
-            emptyLine={doorTotal(k) === 0 ? (monthScoped ? 'No events booked this month.' : DOOR_EMPTY[k]) : undefined}
+            // 🧾 A6-35 (final check 25 Nov): the month's read fell short (the tile says couldn't load) → the list says so too,
+            // never "No events booked this month." under a tile that could not count them.
+            emptyLine={
+              doorTotal(k) === 0
+                ? monthScoped
+                  ? monthCount === null
+                    ? 'We couldn’t load this month’s bookings right now.'
+                    : 'No events booked this month.'
+                  : DOOR_EMPTY[k]
+                : undefined
+            }
             lines={lines}
             list={k === 'all' ? null : k}
             groupOf={groupKey}
@@ -1143,7 +1161,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
                 <OtherChatsFold
                   paged={othersPage}
                   keepParams={keepParamsFrom(sp, ['opage', 'notice', 'add', 'gear'])}
-                  returnTo="/vendor-dashboard/customers?door=asking"
+                  returnTo={routes.vendorDashboard.customers({ door: 'asking' })}
                   rollup={<InquiryOutcomesRollup rollup={outcomeRollup} />}
                   incomplete={!threadsRead.complete}
                 />
@@ -1204,7 +1222,7 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
             action={importExternalClient}
             startOpen={search.add === 'outside'}
             today={todayIso}
-            setupHref="/vendor-dashboard/customers?gear=1"
+            setupHref={routes.vendorDashboard.customers({ gear: '1' })}
             halls={pools.length > 0 && pools.every((p) => p.isHall)}
             seats={seatsByPool(pools, bookings, blocksRead.blocks, todayIso)}
           />
@@ -1505,14 +1523,17 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
   const todayIso = manilaTodayIso();
   const notice = search.notice ? DATES_NOTICES[search.notice] : undefined;
 
-  const [pools, bookings, blocksRead, dayStates, waitlist, threadsRead, tierProbe, cardStyles, poolTaken] = await Promise.all([
-    fetchVendorPools(supabase, vendorProfileId),
+  const [poolsRead, bookingsRead, blocksRead, dayStates, waitlistRead, threadsRead, tierProbe, cardStyles, poolTaken] = await Promise.all([
+    // 🧾 A6-36 (final check 25 Nov): the honest twins of the pools, bookings and waiting-list reads — a refused or short
+    // read makes the day "Couldn't read" (`DAY_UNREAD_ANSWER`) and says the waiting list did not load, never an open day
+    // with 0 waiting (at an expo, this is the answer a supplier gives a couple).
+    fetchVendorPoolsOrNull(supabase, vendorProfileId),
     // CAPACITY, not the room: the day's seats are counted per pool (pool-grain, as `acquire_schedule_pools` enforces),
     // and an event with a seat is booked — the holders are the open conversations without one.
-    fetchVendorPoolBookings(supabase, vendorProfileId),
+    fetchVendorPoolBookingsDetailed(supabase, vendorProfileId),
     fetchVendorBlocksDetailed(supabase, vendorProfileId),
     fetchVendorDayStates(supabase, vendorProfileId, day, day),
-    fetchVendorWaitlist(supabase, vendorProfileId, day),
+    fetchVendorWaitlistRead(supabase, vendorProfileId, day),
     fetchVendorThreadsDetailed(supabase, vendorProfileId),
     supabase.from('vendor_profiles').select('tier_state').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
     // 🗓 Step 4: how each card books (its AV label on the group, its Day bar) — one read, the shop's own cards.
@@ -1522,6 +1543,10 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     // (`service_card_bookings_on` · `service_card_daily_limit`, what the yes refuses by).
     supabase.rpc('vendor_day_pool_taken', { p_day: day }),
   ]);
+  const pools = poolsRead ?? [];
+  const bookings = bookingsRead.bookings;
+  const waitlist = waitlistRead.groups;
+  const daySeatsUnread = poolsRead === null || !bookingsRead.complete;
   if (cardStyles.error) logQueryError('VendorCustomersPage.cardStyles', cardStyles.error, {}, 'graceful_degrade');
   if (poolTaken.error) logQueryError('VendorCustomersPage.poolTaken', poolTaken.error, {}, 'graceful_degrade');
   const takenRows = (poolTaken.data ?? []) as { pool_id: string; taken: number; in_progress: number; pieces_out: number | null; pieces_have: number | null }[];
@@ -1720,8 +1745,8 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
     ]
       .filter(Boolean)
       .join(' · '),
-    backHref: `/vendor-dashboard/customers?seg=dates&m=${day.slice(0, 7)}`,
-    answer: dayAnswerOfGroups(groups, holders.length),
+    backHref: routes.vendorDashboard.customers({ seg: 'dates', m: day.slice(0, 7) }),
+    answer: daySeatsUnread ? DAY_UNREAD_ANSWER : dayAnswerOfGroups(groups, holders.length),
     groups,
     holders,
     holdersMeasured: asksMeasured && threadsRead.complete,
@@ -1759,6 +1784,11 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
           Some of your blocked dates couldn&rsquo;t load, so this day may show as open. Reload the page to try again.
         </p>
       ) : null}
+      {!waitlistRead.ok ? (
+        <p role="status" className="mb-3 text-[13px]" style={{ color: 'rgb(var(--color-warn))' }} data-dates-day-waitlist-unread="">
+          This day&rsquo;s waiting list couldn&rsquo;t load, so couples waiting for it may not show. Reload the page to try again.
+        </p>
+      ) : null}
       {dayStates === null ? (
         <p role="status" className="mb-3 text-[13px]" style={{ color: 'rgb(var(--color-warn))' }} data-dates-day-unread="">
           This day&rsquo;s hold couldn&rsquo;t load, so a day you held may show as open. Reload the page to try again.
@@ -1778,7 +1808,7 @@ async function CustomersDay({ day, search }: { day: string; search: Awaited<Prop
                   pools={pools.map((p) => ({ poolId: p.poolId, label: p.label }))}
                   action={importExternalClient}
                   today={todayIso}
-                  setupHref="/vendor-dashboard/customers?seg=dates&gear=1"
+                  setupHref={routes.vendorDashboard.customers({ seg: 'dates', gear: '1' })}
                   returnTo="dates"
                   halls={pools.length > 0 && pools.every((p) => p.isHall)}
                   day={day}

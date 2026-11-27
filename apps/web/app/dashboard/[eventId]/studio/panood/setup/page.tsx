@@ -31,9 +31,12 @@ import {
 import { formatPhp } from '@/lib/orders';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import {
-  getActivePanoodBroadcast,
   getActivePanoodStreamKey,
+  readActivePanoodBroadcast,
 } from '@/lib/panood-broadcast';
+import { PRICE_UNREAD } from '@/lib/php';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
+import { TryAgain } from '@/app/vendor-dashboard/_components/set-two/try-again';
 import {
   fetchEventRecordings,
   type RoamRecording,
@@ -127,6 +130,7 @@ type Props = {
     watch_url_error?: string;
     facebook_url_saved?: string;
     facebook_url_error?: string;
+    link_not_saved?: string;
   }>;
 };
 
@@ -140,6 +144,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
     watch_url_error: watchUrlError,
     facebook_url_saved: facebookUrlSaved,
     facebook_url_error: facebookUrlError,
+    link_not_saved: linkNotSaved,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -235,15 +240,22 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   // the secret stream_key, RLS-policy-less). Wrapped so a pre-migration env
   // (missing panood_broadcasts table) renders "no active broadcast" instead of
   // crashing the page — same graceful-degrade posture as the watch-URL read.
-  let activeBroadcast: Awaited<ReturnType<typeof getActivePanoodBroadcast>> = null;
+  //
+  // L-08 (final check): "we couldn't check" is NOT "nothing is live". A refused read (or no service key to ask
+  // with) used to land here as null and the page offered Go live to a couple who might be live right now; it now
+  // says it couldn't check, with a retry, and draws no Go live. A missing table is still "nothing is live".
+  let activeBroadcast: Awaited<ReturnType<typeof readActivePanoodBroadcast>>['broadcast'] = null;
   let activeStreamKey: string | null = null;
+  let broadcastReadFailed = false;
   try {
-    activeBroadcast = await getActivePanoodBroadcast(eventId);
+    const read = await readActivePanoodBroadcast(eventId);
+    activeBroadcast = read.broadcast;
+    broadcastReadFailed = read.readFailed;
     if (activeBroadcast) {
       activeStreamKey = await getActivePanoodStreamKey(eventId);
     }
   } catch {
-    // pre-migration env — keep null (no active broadcast)
+    broadcastReadFailed = true;
   }
 
   // REAL pricing from the admin catalog (formatV2Sku). PANOOD_SYSTEM is NOT
@@ -260,8 +272,10 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
   const monogramPrices = await hubPartPrices(createAdminClient()).catch(() => null);
   const monogramPartSku = hubPart('logo_qr').sku;
   const monogramPartPhp = monogramPrices?.onSale.has(monogramPartSku) ? monogramPrices.parts.get(monogramPartSku) : undefined;
-  const monogramPriceLabel =
-    monogramPartPhp != null
+  // A failed catalogue read says so where the price goes (CLAUDE.md §1), never the "set in the catalog" line.
+  const monogramPriceLabel = monogramPrices === null || monogramPrices.readFailed
+    ? PRICE_UNREAD
+    : monogramPartPhp != null
       ? formatPhp(monogramPartPhp)
       : monogramPrices?.everything != null
         ? // 🏛 The part is in Event Plus, the whole Event Hub (owner 20 Nov) — its name and price, read.
@@ -309,6 +323,11 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
           </span>
         }
       />
+      {linkNotSaved ? (
+        <p role="alert" className="text-sm text-danger-600">
+          That did not save. Nothing changed — please try again.
+        </p>
+      ) : null}
 
       {youtubeConnected ? (
         <p
@@ -370,6 +389,12 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         grantMeasured={grantMeasured}
       />
 
+      {broadcastReadFailed ? (
+        <div className="space-y-2" data-broadcast-unread="">
+          <ReadRefusedNotice what="whether you are live right now" />
+          <TryAgain />
+        </div>
+      ) : (
       <GoLiveCard
         eventId={eventId}
         oauthReady={oauthReady}
@@ -397,6 +422,7 @@ export default async function PanoodSetupPage({ params, searchParams }: Props) {
         }
         streamKey={activeStreamKey}
       />
+      )}
 
       <LiveStudioRecordingsCard recordings={recordings} />
 

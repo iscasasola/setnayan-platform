@@ -97,7 +97,7 @@ export function TourLiveWall({
 
       {display.length === 0 ? (
         <p className="mx-auto mt-3 max-w-prose text-center text-sm text-[#5F5E5A]">
-          Memory lane is warming up &mdash; photos appear here the moment they&rsquo;re taken.
+          Memory lane is warming up &mdash; photos appear here as guests take them.
         </p>
       ) : (
         <div className="mt-4 grid grid-cols-3 gap-1.5 sm:gap-2">

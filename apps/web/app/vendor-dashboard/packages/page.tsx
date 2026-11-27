@@ -18,6 +18,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { packageAuthoringEnabled } from '@/lib/package-authoring-flag';
 import { formatCentavosPhp } from '@/lib/vendor-packages';
+import { ToolPin } from '../_components/tool-page';
 
 /**
  * /vendor-dashboard/packages — the vendor's package list.
@@ -59,16 +60,16 @@ export default async function VendorPackagesPage() {
   const rows = packages ?? [];
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-2 px-4 py-4 sm:px-6">
-      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
-      <h1 className="sr-only">Your packages</h1>
+    <div className="mx-auto w-full max-w-3xl space-y-2 px-4 pb-4 sm:px-6">
+      {/* ‹ + the title, the one pinned row (final check B18). */}
+      <ToolPin route="/vendor-dashboard/packages" title="Packages" />
 
       <ActionButton
         tone="brand"
         main
         icon={<Plus aria-hidden strokeWidth={2} />}
         label="Build a package"
-        href="/vendor-dashboard/packages/new"
+        href="/vendor-dashboard/packages/new?from=packages"
       />
 
       <TemplateSection
@@ -90,7 +91,7 @@ export default async function VendorPackagesPage() {
             {rows.map((p) => (
               <TemplateRow
                 key={p.package_id}
-                href={`/vendor-dashboard/packages/${p.package_id}`}
+                href={`/vendor-dashboard/packages/${p.package_id}?from=packages`}
                 lead={
                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-[color:var(--m-paper-2)] text-terracotta">
                     <PackageIcon aria-hidden className="h-4 w-4" strokeWidth={1.75} />

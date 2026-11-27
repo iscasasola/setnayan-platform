@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { ReadFailedNote } from '../../_components/set-two/read-failed';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -9,6 +10,7 @@ import { formatCount } from '@/lib/format-number';
 import { TEMPLATE_SUBLINE, TemplateEmpty, TemplateSection } from '@/app/_components/template-rows';
 import { ShopSegments } from '../../shop/_components/shop-segments';
 import { DatesRow } from '../../customers/_components/dates-row';
+import { ToolPin } from '../../_components/tool-page';
 import { albumEventRows } from '@/lib/album-event-rows';
 import { shopGearBody } from '../../shop/_components/shop-settings-body';
 
@@ -77,10 +79,10 @@ export default async function AlbumsByEventPage({
   );
 
   return (
-    <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 pt-4 sm:px-6" data-supplier-albums="">
+    <section className="mx-auto w-full max-w-3xl space-y-4 px-4 pb-32 sm:px-6" data-supplier-albums="">
+      {/* ‹ + the title, the one pinned row (final check B18). */}
+      <ToolPin route="/vendor-dashboard/collections/albums" title="Albums by event" />
       <ShopSegments on="gallery" gearBody={shopGearBody(sp)} />
-      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
-      <h1 className="sr-only">Albums by event</h1>
       <p className={`text-[15px] ${TEMPLATE_SUBLINE}`}>
         Only you see these. Open one and tap <b className="font-semibold text-ink">Put on my page</b> on a photo.
       </p>
@@ -88,6 +90,9 @@ export default async function AlbumsByEventPage({
         <TemplateEmpty data="albums-off">
           <span data-albums-off="">Albums open here once Papic for suppliers is switched on.</span>
         </TemplateEmpty>
+      ) : upcoming.length + past.length === 0 && !room.complete ? (
+        // 🪪 Nothing read is not "no booked events" (final check A5-G6-01).
+        <ReadFailedNote mark="albums-bookings">We couldn&rsquo;t load your booked events right now.</ReadFailedNote>
       ) : upcoming.length + past.length === 0 ? (
         <TemplateEmpty data="albums">
           No booked events yet — an album fills when a couple shares their Papic photos with you.

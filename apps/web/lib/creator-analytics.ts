@@ -74,7 +74,8 @@ export async function fetchVendorCreatorRoi(
   if (!vendorProfileId) return [];
 
   const offers = await fetchVendorSentOffers(supabase, vendorProfileId);
-  if (offers.length === 0) return [];
+  // A refused offers read: the page already says "Couldn't load your offers" above this table, so it draws nothing.
+  if (!offers || offers.length === 0) return [];
 
   // Reach-token debits for this vendor, keyed by offer_id (ledger truth: an
   // expired-refunded offer's debit was reversed, so it won't be summed here —

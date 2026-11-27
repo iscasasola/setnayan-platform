@@ -123,10 +123,11 @@ export function doorVerdict(row: (RequestKeyRow & { guest_id: string }) | null |
 export const DOOR_WORDS = {
   valid: 'Valid ticket',
   pending: 'Not confirmed yet',
-  pendingWhy: 'Asked to join from the general link · the couple hasn’t accepted this request. No table, nothing to admit yet.',
+  // 🗣 A4-48 (final check, SW-WEDDING): no "the couple" on every event type — these two lines need no noun at all.
+  pendingWhy: 'Asked to join from the general link · this request isn’t accepted yet. No table, nothing to admit yet.',
   pendingOpen: 'Open in Guest List → Pending',
   declined: 'Not approved',
-  declinedWhy: 'The couple declined this request. This code does not admit anyone.',
+  declinedWhy: 'This request was declined. This code does not admit anyone.',
   next: 'Scan the next guest',
   checkedLive: (time: string, arrived: number, of: number) => `Checked live at ${time} · ${formatCount(arrived)} of ${formatCount(of)} arrived`,
 } as const;
@@ -135,11 +136,13 @@ export const DOOR_WORDS = {
 
 /** The requester's words, verbatim from frames B · C · D · E. */
 export const REQUEST_WORDS = {
-  sentTitle: 'Sent to the couple',
+  // 🗣 A4-48: the event's own word (`eventWordsForEvent(…).theOrganizer`: "the couple" at a wedding, "the family" at a wake).
+  sentTitle: (theOrganizer: string) => `Sent to ${theOrganizer}`,
   sentSub: (couple: string) => `${couple} will check their list.`,
   sentUnlocks: 'Your Digital ticket unlocks the moment they confirm you.',
-  saveThis: 'Save this — it opens your invitation once the couple confirms you. The same QR unlocks; nothing new is sent.',
-  waiting: 'Waiting for the couple to confirm you',
+  saveThis: (theOrganizer: string) =>
+    `Save this — it opens your invitation once ${theOrganizer} confirms you. The same QR unlocks; nothing new is sent.`,
+  waiting: (theOrganizer: string) => `Waiting for ${theOrganizer} to confirm you`,
   waitingSub: (couple: string) => `${couple} have your request.`,
   waitingKeep: 'This link and your QR stay yours — they open your invitation the moment you’re in.',
   back: 'Back to the details',

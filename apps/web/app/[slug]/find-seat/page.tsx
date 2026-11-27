@@ -1,4 +1,5 @@
 import type { RoomLink } from '../_lib/room-links';
+import { SITE_URL } from '@/lib/feature-pages/seo';
 import { RoomFooter } from '../_components/room-footer';
 import { loadRoomLinks } from '../_lib/room-links.server';
 import { partDoorHidden } from '../_lib/part-door.server';
@@ -14,7 +15,7 @@ import { fetchEntrance } from '@/lib/indoor-blueprint';
 import { readGuestBooths } from '@/lib/booth-card-from-row';
 import { parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
 import type { Lab3DBooth } from '@/lib/seating-3d';
-import type { EventTableRow } from '@/lib/seating';
+import { fetchPublicTables, type EventTableRow } from '@/lib/seating';
 import { renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram } from '@/lib/monogram';
 import { formatEventDate } from '@/lib/events';
@@ -87,9 +88,6 @@ type Props = {
   searchParams?: Promise<Record<string, string | string[] | undefined>>;
 };
 
-const TABLES_SELECT =
-  'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos';
-
 export default async function FindSeatPage({ params, searchParams }: Props) {
   const { slug } = await params;
   if (!slug) notFound();
@@ -140,16 +138,9 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
   let tables: EventTableRow[] = [];
   const entrance = await fetchEntrance(admin, event.event_id);
   if (published) {
-    const { data, error } = await admin
-      .from('event_tables')
-      .select(TABLES_SELECT)
-      .eq('event_id', event.event_id)
-      .order('sort_order', { ascending: true })
-      .order('created_at', { ascending: true });
-    // 🔴 A failed read is not an empty room: an empty list would draw "your
-    // table will appear here" to a seated guest. Throw to the error boundary.
-    if (error) throw new Error(`find-seat: could not read the tables: ${error.message}`);
-    tables = (data ?? []) as EventTableRow[];
+    // 🔌 A4-34: the guest-safe seat-plan reader (`lib/seating.ts` `fetchPublicTables`, no QR tokens). A failed read is not an empty room — it
+    // throws to the error boundary, as before.
+    tables = await fetchPublicTables(admin, event.event_id);
   }
   /* 🪑 How the couple chose guests see their seat (owner 2026-11-01) and 🏪 the booked suppliers' booths — both read only
      once the seat gate opened the room, like the tables. An unread choice is today's (Both); an unread booth list draws
@@ -280,7 +271,7 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
         .sort((a, b) => Number(b.you) - Number(a.you));
     }
 
-    const [{ data: checkin }, qrSvg] = await Promise.all([
+    const [{ data: checkin, error: checkinErr }, qrSvg] = await Promise.all([
       admin
         .from('guest_checkins')
         .select('checked_in_at')
@@ -288,7 +279,7 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
         .eq('guest_id', guestId)
         .maybeSingle(),
       renderInvitationQrSvg({
-        appUrl: process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app',
+        appUrl: SITE_URL,
         slug: event.slug ?? slug,
         qrToken: guestToken,
       }),
@@ -312,7 +303,8 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
       partyLine: companions.length > 0 ? `party of ${companions.length + 1} · ${companionWords.join(', ')}` : null,
       qrSvg,
       seal: resolveMonogram(event).text,
-      checkedInAt: checkedInClock(checkedIn, venueTz),
+      checkedInAt: checkinErr ? null : checkedInClock(checkedIn, venueTz),
+      checkInUnread: Boolean(checkinErr),
     };
 
     if (dayOf) {

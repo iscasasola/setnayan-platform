@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { Explain } from '@/app/_components/explain';
 import { FormRow, FormRows } from '@/app/_components/form-row';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
@@ -72,9 +72,7 @@ export function ModuleConfigurator({
         <span className="flex items-center gap-1.5">
           <span className="inline-flex items-center gap-1 text-[12px] text-[color:var(--m-slate-2)]" aria-live="polite">
             {pending ? (
-              <>
-                <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} /> Saving…
-              </>
+              <>Saving…</>
             ) : savedAt ? (
               <>
                 <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} /> Saved

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { Explain } from '@/app/_components/explain';
 import { FormRow, FormRows } from '@/app/_components/form-row';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
@@ -55,7 +55,7 @@ export function AccessGrants({
       <div className="flex items-center justify-between gap-2 pt-4">
         <p className="home-k2">Your team on this event</p>
         <span className="flex items-center gap-1.5">
-          {pending ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin text-[color:var(--m-slate-2)]" strokeWidth={1.75} /> : null}
+          {pending ? <span className="text-[12px] text-[color:var(--m-slate-2)]" aria-live="polite">Saving…</span> : null}
           <Explain title="Your team on this event">
             You always have access. Switch a teammate on to let them open just this event’s Hub — nothing else
             of your shop changes.

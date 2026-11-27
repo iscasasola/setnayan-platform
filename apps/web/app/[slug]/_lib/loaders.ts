@@ -8,6 +8,7 @@
 //
 // The benefit is PER-REQUEST dedup + orchestrator shrinkage, NOT cross-route
 // sharing — do NOT import these loaders from other routes (`cache()` scopes to
+import { SITE_URL } from '@/lib/feature-pages/seo';
 // a single server request; the loaders assume this route's gating has already
 // run).
 //
@@ -1556,8 +1557,7 @@ export const loadGuestContext = cache(
       return { kind: 'unconfirmed_tba' };
     }
 
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL ?? 'https://setnayan-platform-web.vercel.app';
+    const appUrl = SITE_URL;
     // Encode the guest's QR + shareable link at the canonical form — nested /u/
     // under the cutover flag, bare root otherwise (owner resolve self-noops OFF).
     /* ⏩ SIDE BY SIDE (2026-10-12). From here this loader asked more than a
@@ -1883,6 +1883,7 @@ export const loadGuestContext = cache(
           })()),
           uploadOwner: papicOwnerTag('guest', guest.guest_id, event.event_id),
           initialRemaining: quota.remaining,
+          remainingUnread: quota.countUnread === true,
           total: quota.total,
           termsAccepted: Boolean(
             (ugcRow as { ugc_terms_accepted_at?: string | null } | null)

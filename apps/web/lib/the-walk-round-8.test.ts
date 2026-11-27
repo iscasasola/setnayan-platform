@@ -84,7 +84,8 @@ test('RW-167 · one service, one row: an older spelling of the same key is not a
 
 test('RW-167 · Their work speaks to the supplier, not in spec words', () => {
   const page = code('app/vendor-dashboard/services/their-work/page.tsx');
-  assert.match(page, />Photos from the events this card was booked for</);
+  // The page is shop-wide, so the line says "every event your cards" (final check A5-G3-12), still in supplier words.
+  assert.match(page, /sub="Photos from every event your cards were booked for"/);
   assert.doesNotMatch(page, /newest first · type · venue/);
 });
 

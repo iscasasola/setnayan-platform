@@ -1,4 +1,5 @@
 import { getCurrentUser } from '@/lib/auth';
+import { seatClaimability } from '@/lib/papic-seat-claimability';
 import Link from 'next/link';
 import { Camera, LogIn, CircleAlert, Sparkles } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -48,6 +49,10 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
   // ---- Terminal states (checked first so they show whether or not a session
   //      was minted — the claim action redirects back here with ?state=…). ----
 
+  // 🔌 A4-B03: a link that opens nothing says so ON ARRIVAL, before "Start shooting". Only a dead token or a refused
+  // read changes the page — a TAKEN seat keeps its path (a returning claimer presses through to their own seat).
+  const arrival = state ? null : await seatClaimability(token);
+
   // Already taken by someone else.
   if (state === 'taken') {
     return (
@@ -81,10 +86,12 @@ export default async function PapicClaimPage({ params, searchParams }: Props) {
   // 🔴 OUR READ WAS REFUSED — the link may well be fine. Not the terminal
   // "isn't active" branch below: that sends a crew member to the host for a new
   // link when the fault was ours. Falls through to the claim form (S41b).
-  const checkUnreadable = state === 'unreadable';
+  // 🔌 A4-54: `?state=error` is OUR failure too (the claim RPC or the anon sign-in answered with an error) — a
+  // retryable notice over the form, never the terminal "isn't active".
+  const checkUnreadable = state === 'unreadable' || state === 'error' || arrival === 'unreadable';
 
-  // Invalid / expired / soft error.
-  if (state === 'invalid' || state === 'error') {
+  // Invalid / expired (a soft error is retryable above).
+  if (state === 'invalid' || arrival === 'invalid') {
     return (
       <DoorShell
         tone="dead_end"

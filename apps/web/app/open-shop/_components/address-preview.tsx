@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Loader2, Info, Lock } from 'lucide-react';
+import { Check, Info, Lock } from 'lucide-react';
 
 import { previewShopAddress, slugifyBusinessName, clipBusinessSlug } from '@/lib/business-slug';
 import { checkShopAddress, type AddressCheck } from '../address-actions';
@@ -186,7 +186,6 @@ export function AddressPreview({
 
       {checking ? (
         <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate-2)' }} aria-live="polite">
-          <Loader2 aria-hidden className="h-3 w-3 shrink-0 animate-spin" strokeWidth={2} />
           Checking…
         </span>
       ) : check?.state === 'free' ? (

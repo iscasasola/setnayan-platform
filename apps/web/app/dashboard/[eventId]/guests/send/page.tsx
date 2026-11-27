@@ -104,6 +104,17 @@ export default async function SendInvitesPage({ params, searchParams }: Props) {
 
   // 📨 FULL SCREEN (owner 2026-10-27): no title, no "← Guest list" — the run IS the page; its ✕ and Done for now
   // always land on the Guest list. A one-link event needs no personal address; a personal one does.
+  if (!invitationBase && !oneLink && setup.readFailed) {
+    // I-07 (final check): a failed read is not "no address yet".
+    return (
+      <div className="mx-auto w-full max-w-xl tab:max-w-3xl px-4 pb-24 pt-4 sm:px-6">
+        <p role="status" className="mt-6 rounded-xl bg-ink/[0.04] p-4 text-sm text-ink/70">
+          Couldn&rsquo;t read your Event Hub&rsquo;s address just now, so the personal links can&rsquo;t be shown. Try
+          again in a moment.
+        </p>
+      </div>
+    );
+  }
   if (!invitationBase && !oneLink) {
     return (
       <div className="mx-auto w-full max-w-xl tab:max-w-3xl px-4 pb-24 pt-4 sm:px-6">

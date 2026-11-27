@@ -1,11 +1,12 @@
 import Link from 'next/link';
+import { ToolPin } from '@/app/vendor-dashboard/_components/tool-page';
 import { Bell, CircleHelp, Repeat, Store, UserRound, Wallet, Wrench } from 'lucide-react';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PAYMENT_OPTIONS_HREF } from '../_components/payout-method-nudge';
 import { formatCount } from '@/lib/format-number';
 import { Fold } from '@/app/_components/fold';
 import { DatesRow } from '../customers/_components/dates-row';
-import { SETTINGS_HELP_HREF } from './settings-rows';
+import { HelpSheetRow } from './_components/help-sheet';
 import { POLICY_LINKS } from '@/lib/policy-links';
 import type { ShopToolShelf } from '../shop/shop-tool-shelves';
 
@@ -27,6 +28,7 @@ export function SettingsView({
   manager,
   payout,
   tools,
+  helpOpen = false,
 }: {
   /** `null` = the count could not be read (`readUnreadNotificationCount`) — said, never drawn as "nothing new". */
   unread: number | null;
@@ -34,14 +36,16 @@ export function SettingsView({
   manager: boolean;
   payout: PayoutReadiness;
   tools: readonly ShopToolShelf[];
+  /** Arrived from `/vendor-dashboard/help` (`?help=1`): the Help sheet opens at once. */
+  helpOpen?: boolean;
 }) {
   const toolCount = tools.reduce((n, g) => n + g.tools.length, 0);
   const ic = (Icon: typeof Bell) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.75} />;
 
   return (
-    <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-4 sm:px-6" data-settings-screen="">
-      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
-      <h1 className="sr-only">Settings</h1>
+    <div className="mx-auto w-full max-w-xl px-4 pb-16 sm:px-6" data-settings-screen="">
+      {/* ‹ + the title, the one pinned row (final check B18). Risen from the avatar, the layer's head names it instead. */}
+      <ToolPin route="/vendor-dashboard/settings" inPlace title="Settings" />
       <div className="mt-1" data-settings-rows="">
         <DatesRow data="settings-account" lead={ic(UserRound)} title="Account" line="Profile · password · delete account" href="/dashboard/profile" />
 
@@ -106,7 +110,8 @@ export function SettingsView({
           </>
         ) : null}
 
-        <DatesRow data="settings-help" lead={ic(CircleHelp)} title="Help" line="How fees work · how booking works · report a problem" href={SETTINGS_HELP_HREF} />
+        {/* Help opens in place as the shared Sheet (final check B6); /vendor-dashboard/help forwards here with it open. */}
+        <HelpSheetRow lead={ic(CircleHelp)} initialOpen={helpOpen} />
         <DatesRow data="settings-switch" lead={ic(Repeat)} title="Your events" line="Switch to Home — the events you plan yourself · another shop from the account menu" href="/dashboard?hub=1" />
       </div>
       <div className="mt-4 border-t border-[color:var(--m-line)] pt-1">

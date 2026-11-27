@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
+
 import { InfoTip } from '@/app/_components/info-tip';
 import { REQUIRED_DOC_SLOT_KEYS, sentBackOf, type DocUpload } from '@/lib/vendor-verification';
 import { loadInlineDocs, type InlineDocsPayload } from '../shop/inline-docs-actions';
 import { PaperUploadPlace } from '../shop/_components/paper-upload-place';
 import { CouldNotLoad } from '../shop/_components/could-not-load';
+import { Sk } from '@/components/skeletons';
 
 /**
  * 🧾 STEP 5 · SEND YOUR DOCUMENTS — THE ONE UPLOAD PLACE (owner 2026-11-14, DECISION_LOG "supplier papers demo approved";
@@ -85,10 +86,10 @@ export function SetupPaperPlace({
       {payload ? (
         <PaperUploadPlace payload={payload} vendorProfileId={vendorProfileId} isVerified={isVerified} onSaved={reload} />
       ) : (
-        <p className="inline-flex min-h-11 items-center gap-2 text-sm text-ink/70" role="status">
-          <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />
-          Loading your papers…
-        </p>
+        <div role="status" aria-busy="true">
+          <span className="sr-only">Loading your papers…</span>
+          <Sk className="h-11 w-full rounded-xl" />
+        </div>
       )}
     </div>
   );

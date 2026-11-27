@@ -42,6 +42,9 @@ import { MineName, YourPlaceLine, anchorOnce, entourageMeOf, type EntourageMe } 
  * pairs under it, and no role beside any name. `roleLayout` picks the owner's
  * two drawings — `stacked` (default) or `inline` ("Candle: names").
  */
+/** 📏 A4-B05 (c): 24 px (the house 24 step) above the section, on the host/stranger tree only (`gapAbove`). */
+const ENTOURAGE_GAP_ABOVE = { marginTop: '1.5rem' } as const;
+
 export function EntourageSection({
   groups,
   id,
@@ -50,9 +53,15 @@ export function EntourageSection({
   roleLayout = DEFAULT_ENTOURAGE_ROLE_LAYOUT,
   sceneStyle = null,
   myGuestId = null,
+  gapAbove = false,
 }: {
   groups: readonly EntourageGroup[];
   id?: string;
+  /**
+   * 📏 24 px above the section (final check A4-B05 (c), approved drawing § 01): on the host/stranger tree "The
+   * entourage" sat flush under the block above. The guest tree's own wrapper already pads it, so only that tree asks.
+   */
+  gapAbove?: boolean;
   /**
    * When set, this is the PREVIEW: the first `previewGroups` groups, then a
    * door to the full list. Omit it and the whole cast renders — which is what
@@ -103,7 +112,7 @@ export function EntourageSection({
   const anchor = anchorOnce(me);
 
   return (
-    <section id={id} className="scroll-mt-6 space-y-6" data-scene-style={look === 'lines' ? 'lines' : 'roll-call'}>
+    <section id={id} className="scroll-mt-6 space-y-6" data-scene-style={look === 'lines' ? 'lines' : 'roll-call'} style={gapAbove ? ENTOURAGE_GAP_ABOVE : undefined}>
       <header className="space-y-2">
         <p className="pahina-eyebrow">
           <span>The entourage</span>

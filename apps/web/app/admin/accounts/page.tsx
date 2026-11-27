@@ -74,7 +74,7 @@ export default async function AdminAccountsPage({ searchParams }: Props) {
           city={first(search.city) ?? ''}
         />
       ) : tab === 'events' ? (
-        <EventsSurface q={first(search.q) ?? ''} archived={first(search.archived) ?? null} />
+        <EventsSurface q={first(search.q) ?? ''} archived={first(search.archived) ?? null} saved={first(search.saved) ?? null} error={first(search.error) ?? null} />
       ) : tab === 'vendors' ? (
         <VendorsSurface q={first(search.q) ?? ''} status={first(search.status) ?? ''} />
       ) : (

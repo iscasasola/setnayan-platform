@@ -171,6 +171,12 @@ export function GuestStoryMaker({ token }: { token: string }) {
     }
     try {
       const freshPlan = await prepareGuestStory(token);
+      if (freshPlan.readFailed) {
+        // 🔌 A4-75: a failed read says so — never "none tagged yet".
+        setErrorMsg('Couldn’t load your photos. Try again in a moment.');
+        setPhase('error');
+        return;
+      }
       setPlan(freshPlan);
       setPhotoCount(freshPlan.taggedPhotoCount);
       setPickableCount(freshPlan.media.length);
@@ -197,6 +203,12 @@ export function GuestStoryMaker({ token }: { token: string }) {
     }
     try {
       const freshPlan = await prepareGuestStory(token);
+      if (freshPlan.readFailed) {
+        // 🔌 A4-75: a failed read says so — never "none tagged yet".
+        setErrorMsg('Couldn’t load your photos. Try again in a moment.');
+        setPhase('error');
+        return;
+      }
       setPlan(freshPlan);
       setPhotoCount(freshPlan.taggedPhotoCount);
       setPickableCount(freshPlan.media.length);

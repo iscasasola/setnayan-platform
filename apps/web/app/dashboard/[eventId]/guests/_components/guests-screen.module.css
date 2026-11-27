@@ -110,7 +110,8 @@
   .screen:not([data-guests-full]) .stick.pinned[data-pinned]::after {
     content: '';
     position: absolute;
-    bottom: 100%;
+    /* Stops at the coordinator's line while it shows (`--gs-under`, 0 for everyone else), so the band never paints it out. */
+    bottom: calc(100% + var(--gs-under, 0px));
     left: calc(-1 * var(--gs-pin-l, 0px));
     width: 100vw;
     height: 100vh;
@@ -254,6 +255,32 @@
     padding-left: var(--gs-pin-l, 0px);
     padding-right: calc(100% - var(--gs-pin-l, 0px) - var(--gs-pin-w, 100%));
   }
+}
+/* 📌 A7-35 (drawing final-check-area-7 § 1, approved 25 Nov): when the counts do not fit beside the menu and the rounds
+   (`data-counts-wrap`, measured by the screen through `countsNeedOwnLine` — a rule on the row, not a screen width), they
+   take their own line under it: line 1 keeps the menu left and the rounds right; line 2 holds the same count doors, left,
+   12 px apart, each a 44 px press. When they fit, the row is today's one line. No motion: the line is part of the row from
+   the first paint. 🔒 lib/guests-counts-line.test.ts */
+.topRow[data-counts-wrap] {
+  flex-wrap: wrap;
+  height: auto;
+  row-gap: 0;
+}
+.topRow[data-counts-wrap] .face {
+  display: contents;
+}
+.topRow[data-counts-wrap] .pinMenu {
+  flex: 1 1 auto;
+}
+.topRow[data-counts-wrap] .pinCounts {
+  order: 99;
+  flex: 1 0 100%;
+  justify-content: flex-start;
+  gap: 12px;
+  min-height: 44px;
+}
+.stick.pinned[data-has-gear] .topRow[data-counts-wrap] .pinCounts {
+  gap: 12px;
 }
 /* ⚙ THE MENU'S ONE ⚙ ends the row on every view (owner 2026-10-27, "EVERY MENU'S ⚙ RIDES ITS PINNED ROW TOO"); beside
    it the counts close up a little so the row stays one line at 390. 🔒 lib/the-pinned-row-is-one-row.test.ts */

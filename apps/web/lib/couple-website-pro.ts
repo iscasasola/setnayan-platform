@@ -304,6 +304,8 @@ export function hubPartPrices(
   everything: number | null;
   /** 💎 …and its name, read from that row. */
   everythingTitle: string | null;
+  /** The catalogue read was refused — every price above is unread, not absent (a page says "Couldn't read"). */
+  readFailed?: boolean;
 }> {
   return askedOnce(supabase, 'hub-part-prices', [], async () => {
     const { data, error } = await supabase
@@ -313,7 +315,7 @@ export function hubPartPrices(
       .in('service_code', [...HUB_PART_SKUS, FULL_PRO_SKU, EVENT_PLUS_SKU]);
     if (error || !data) {
       if (error) console.error('[supabase-error] couple-website-pro: hub part prices', error);
-      return { parts: new Map(), full: null, onSale: new Set<string>(), fullTitle: null, everything: null, everythingTitle: null };
+      return { parts: new Map(), full: null, onSale: new Set<string>(), fullTitle: null, everything: null, everythingTitle: null, readFailed: true };
     }
     const parts = new Map<string, number>();
     const onSale = new Set<string>();

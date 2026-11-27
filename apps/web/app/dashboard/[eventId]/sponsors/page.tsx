@@ -2,6 +2,7 @@ import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, CheckCircle2 } from 'lucide-react';
+import { BackButton } from '@/app/_components/back-button';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -14,6 +15,7 @@ import {
   SPONSOR_SIDE_LABEL,
   SPONSOR_TIER_HINT,
   SPONSOR_TIER_LABEL,
+  sponsorRoleHonorific,
   type SponsorTier,
 } from '@/lib/event-sponsors';
 import { AddSponsorModal } from './_components/add-sponsor-modal';
@@ -21,8 +23,11 @@ import { SponsorCard, type EventMini, type SponsorRow } from './_components/spon
 import { PairTargetPicker } from './_components/pair-target-picker';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { addSponsor } from './actions';
+import { readEventSponsorGuests } from '@/lib/sponsor-guests';
 import { formatCount } from '@/lib/format-number';
 import { InfoTip } from '@/app/_components/info-tip';
+import { sponsorErrorWords } from './sponsor-error-copy';
+import { ReadRefusedNotice } from '../_components/read-refused-notice';
 
 export const metadata = {
   title: 'Sponsors',
@@ -93,28 +98,19 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
 
   // Event meta + sponsor rows both key off eventId and are independent — one
   // parallel batch instead of two serial reads (owner perf pass 2026-06-03).
-  const [{ data: eventRow, error: eventRowError }, { data: sponsorRows, error: sponsorRowsError }] = await Promise.all([
+  const [{ data: eventRow, error: eventRowError }, sponsorRows] = await Promise.all([
     // Event meta — used for the invitation template + page header.
     admin
       .from('events')
       .select('display_name, event_date, ceremony_type, secondary_ceremony_type, venue_name')
       .eq('event_id', eventId)
       .maybeSingle(),
-    // Sponsors — all rows on this event.
-    admin
-      .from('event_sponsors')
-      .select(
-        'id, event_id, pair_index, sponsor_tier, side, full_name, relationship_note, email, phone, invitation_status, invitation_sent_at, responded_at, decline_note, linked_guest_id',
-      )
-      .eq('event_id', eventId)
-      .order('pair_index', { ascending: true, nullsFirst: false })
-      .order('created_at', { ascending: true }),
+    // 👥 Sponsors are GUESTS with a sponsor role (owner, brief Add 41 · A2-I14) — the guest list's own rows, the
+    // same list the entourage and the printed invitation read. The old `event_sponsors` table is dropped (owner 27 Nov 2026).
+    readEventSponsorGuests(admin, eventId),
   ]);
   if (eventRowError) {
     logQueryError('SponsorsPage.eventRow', eventRowError, { event_id: eventId }, 'graceful_degrade');
-  }
-  if (sponsorRowsError) {
-    logQueryError('SponsorsPage.sponsorRows', sponsorRowsError, { event_id: eventId }, 'graceful_degrade');
   }
   const event = (eventRow as EventMini | null) ?? {
     display_name: null,
@@ -145,7 +141,9 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
 
   const eventName = event.display_name ?? 'Your event';
   const coupleNames = event.display_name ?? 'we';
-  const sponsors = (sponsorRows ?? []) as SponsorRow[];
+  // A refused guest-list read is said below (A2-I13) — `sponsorRowsError`, before any slot is counted.
+  const sponsorRowsError = sponsorRows === null;
+  const sponsors: SponsorRow[] = sponsorRows ?? [];
 
   // Highest pair_index already in use — guards the picker.
   const highestUsedPair = sponsors.reduce(
@@ -201,7 +199,20 @@ export default async function SponsorsPage({ params, searchParams }: Props) {
   const justInvited = search.invited === '1';
   const justAccepted = search.accepted === '1';
   const justDeclined = search.declined === '1';
-  const errorMessage = search.error ?? null;
+  // A2-I18: fixed words for a known key, the plain fallback otherwise — never the address bar's own text.
+  const errorMessage = sponsorErrorWords(search.error);
+
+  // A2-I13: a refused sponsor read is never "0 of N slots filled" with an Add button on every slot (pressing them
+  // would add second copies of sponsors who are already there). The page says it could not read, and stops.
+  if (sponsorRowsError) {
+    return (
+      <section className="sn-col space-y-6 pb-12">
+        <BackButton route="/dashboard/[eventId]/sponsors" params={{ eventId }} />
+        <PageMasthead title="Your principal sponsors" />
+        <ReadRefusedNotice what="your sponsors" />
+      </section>
+    );
+  }
 
   return (
     <section className="sn-col space-y-6 pb-12">
@@ -456,7 +467,7 @@ function PrincipalPairRow({
         {/* Groom's side */}
         <div className="space-y-2">
           <p className="sn-eye">
-            {SPONSOR_SIDE_LABEL.groom} · ninong
+            {SPONSOR_SIDE_LABEL.groom} · {sponsorRoleHonorific('principal', 'groom')}
           </p>
           {groomSponsor ? (
             <SponsorCard
@@ -471,7 +482,7 @@ function PrincipalPairRow({
               sponsorTier="principal"
               side="groom"
               pairIndex={pairIndex}
-              triggerLabel="Add ninong"
+              triggerLabel="Add sponsor"
               formAction={addSponsor}
             />
           )}
@@ -480,7 +491,7 @@ function PrincipalPairRow({
         {/* Bride's side */}
         <div className="space-y-2">
           <p className="sn-eye">
-            {SPONSOR_SIDE_LABEL.bride} · ninang
+            {SPONSOR_SIDE_LABEL.bride} · {sponsorRoleHonorific('principal', 'bride')}
           </p>
           {brideSponsor ? (
             <SponsorCard
@@ -495,7 +506,7 @@ function PrincipalPairRow({
               sponsorTier="principal"
               side="bride"
               pairIndex={pairIndex}
-              triggerLabel="Add ninang"
+              triggerLabel="Add sponsor"
               formAction={addSponsor}
             />
           )}

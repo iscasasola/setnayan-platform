@@ -68,6 +68,7 @@ import { GuestPeek } from './guest-peek';
 import { ThumbRow, type ThumbField, type ThumbMenu } from '@/components/thumb-row';
 import { Count } from '@/components/count';
 import { formatCount } from '@/lib/format-number';
+import { countsNeedOwnLine } from '@/lib/guests-counts-line';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { AddKindPick } from './add-kind-pick';
 import { InspectorColumn, useInspectorSelect } from '@/app/_components/inspector/inspector-column';
@@ -454,6 +455,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const [toolsSlot, setToolsSlot] = useState<HTMLElement | null>(null);
   /** The top row's seat for the view's own counts (Seats' seated · unseated · tables) — the plan portals them in. */
   const [countsSlot, setCountsSlot] = useState<HTMLElement | null>(null);
+  const topRowRef = useRef<HTMLDivElement | null>(null);
   const seatsApi = useRef<SeatsChannel | null>(null);
   const seatWanted = useRef<SeatMode | null>(null);
   const registerSeats = useCallback((api: SeatsChannel | null) => {
@@ -548,7 +550,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<HTMLInputElement>(null);
-  useShellBarOffset(rootRef);
+  // The coordinator's dark line sits between the bar and this page: the pinned row sits under it, never over it.
+  useShellBarOffset(rootRef, '--gs-top', { under: '[data-coordinating-line]' });
 
   // ── The optimistic overlay: a removed guest vanishes at once, Undo returns them.
   const optimistic = useGuestOptimistic();
@@ -838,6 +841,48 @@ export function GuestsScreen(props: GuestsScreenProps) {
     const root = rootRef.current;
     return root ? followColumn(root) : undefined;
   }, []);
+
+  // ── 📌 A7-35 (drawing final-check-area-7 § 1, approved 25 Nov): the counts take their own line ONLY when they do not fit
+  //    beside the menu and the rounds (a rule on the row, `countsNeedOwnLine`), so the last count never slides under the
+  //    ⋯ round. Written as an attribute on the row, never as state (no re-render); the block's height follows through the
+  //    ResizeObserver below, so the pinned holder and the heads under it move with it.
+  useEffect(() => {
+    const row = topRowRef.current;
+    const counts = countsSlot;
+    if (!row || !counts) return;
+    let frame = 0;
+    const px = (v: string) => (Number.isFinite(parseFloat(v)) ? parseFloat(v) : 0);
+    const measure = () => {
+      frame = 0;
+      const menu = row.querySelector<HTMLElement>('[data-guests-pin-segmented]');
+      const face = row.querySelector<HTMLElement>('[data-guests-pin-face]');
+      const others = Array.from(row.children).filter((el) => el !== face && el.getBoundingClientRect().width > 0) as HTMLElement[];
+      const wrap = countsNeedOwnLine({
+        rowWidth: row.clientWidth,
+        // The menu's OWN width (its pill), not its box: on two lines the box stretches to push the rounds right.
+        menuWidth: (menu?.firstElementChild as HTMLElement | null)?.getBoundingClientRect().width ?? 0,
+        otherWidths: others.map((el) => el.getBoundingClientRect().width),
+        rowGap: px(getComputedStyle(row).columnGap),
+        countWidths: (Array.from(counts.children) as HTMLElement[]).map((el) => el.getBoundingClientRect().width).filter((w) => w > 0),
+        // The one-line gap (`.pinCounts` 4 px, 0 beside the ⚙ — the CSS module), so the test asks "would they fit on line 1".
+        countGap: row.closest('[data-has-gear]') ? 0 : 4,
+      });
+      if (wrap !== row.hasAttribute('data-counts-wrap')) row.toggleAttribute('data-counts-wrap', wrap);
+    };
+    const soon = () => {
+      if (!frame) frame = requestAnimationFrame(measure);
+    };
+    measure();
+    const ro = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(soon) : null;
+    ro?.observe(row);
+    const mo = typeof MutationObserver !== 'undefined' ? new MutationObserver(soon) : null;
+    mo?.observe(counts, { childList: true, subtree: true, characterData: true });
+    return () => {
+      if (frame) cancelAnimationFrame(frame);
+      ro?.disconnect();
+      mo?.disconnect();
+    };
+  }, [countsSlot]);
 
   // ── The sticky block's height → the pinned section header sits under it.
   useEffect(() => {
@@ -2166,7 +2211,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
               plan — `lens.countsSlot`) · the view's own rounds (Seats: Edit · ⋯ — `lens.toolsSlot`) · the ⚙. It is the
               menu's first row (the ⚙'s spot) and the block pins under the bar from the start, on every view.
               🔒 lib/guests-top-row-and-full-screen.test.ts · lib/the-pinned-row-is-one-row.test.ts */}
-          <div className={styles.topRow} data-first-row="" data-guests-top-row="">
+          <div ref={topRowRef} className={styles.topRow} data-first-row="" data-guests-top-row="">
             <PinnedSummary
               menu={pinMenu}
               countsRef={setCountsSlot}

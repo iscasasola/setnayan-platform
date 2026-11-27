@@ -167,8 +167,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   // "DISCOVER WITH SUPPLIERS — PROTOTYPE APPROVED"): its old parent `/explore` now only redirects.
   '/explore/compare': { home: '/?browse=1', label: 'Suppliers' },
   /* ── account ─────────────────────────────────────────────────────────────────────────────────────── */
-  // Settings is where API keys are opened (audit ✅ "looked odd but fine").
-  '/dashboard/api-keys': { home: '/dashboard/profile' },
+  // L6 (R8): API keys retired at launch — the address forwards to the dashboard, so its home is the dashboard.
+  '/dashboard/api-keys': { home: '/dashboard' },
   // Groups live in People since the People & Groups merge — `/dashboard/samahan` is the retired index.
   '/dashboard/samahan': { home: '/dashboard?seg=people&view=samahan' },
   '/dashboard/samahan/**': { home: '/dashboard?seg=people&view=samahan' },
@@ -255,8 +255,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/[slug]': { none: 'computed', by: 'lib/discover-way-back.ts' },
   '/suppliers/[event]/[category]': { home: '/suppliers' },
   '/tl/*': { home: '/' },
-  // The API reference is read by whoever holds a key, made in Settings › API keys.
-  '/api/v1': { home: '/dashboard/api-keys', label: 'API keys' },
+  // L6 (R8): the API reference retired with API keys — the address forwards to the dashboard.
+  '/api/v1': { home: '/dashboard' },
   // Each works out its back per visit — who sent you (`lib/pay-back-link.ts`, `lib/proposal-back.ts`).
   '/pay/[reference]': { none: 'computed', by: 'lib/pay-back-link.ts' },
   '/proposals/[publicId]': { none: 'computed', by: 'lib/proposal-back.ts' },
@@ -299,6 +299,8 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/vendor-dashboard/calendar/[date]': { home: '/vendor-dashboard/customers?seg=dates', label: 'Dates' },
   // `/services` is a redirect into the Shop (audit ⚠, kept).
   '/vendor-dashboard/services/*': { home: '/vendor-dashboard/shop' },
+  // A request's ‹ is the list it sits in (final check B18 — the pinned row kept the old "‹ Your requests" link's place).
+  '/vendor-dashboard/services/requests/[requestId]': { home: '/vendor-dashboard/services/requests', label: 'Your requests' },
   '/vendor-dashboard/on-the-day/live/[eventId]': { home: '/vendor-dashboard/on-the-day' },
   // THE ONE BUILD (8 Nov 2026): the Event Hub room left the bar — it lives under a picked client, so ‹ goes to Clients;
   // the inspiration library is Portfolio's (spec A1 F-registry: it lights Portfolio, so ‹ goes there too).
@@ -321,6 +323,10 @@ export const HOMES: Readonly<Record<string, Entry>> = {
   '/vendor-dashboard/lines': { home: '/vendor-dashboard/customers' },
   // 🛏 Rooms & seating opens from Shop › Makers › Specialized tools (owner 2026-11-18), so ‹ goes back to the Shop.
   '/vendor-dashboard/spaces': { home: '/vendor-dashboard/shop' },
+  // Partnerships opens from Shop ⚙'s Working with others shelf, Packages from the card maker (Shop): ‹ goes to the Shop
+  // (final check B18 — the pinned row they gained).
+  '/vendor-dashboard/partnerships': { home: '/vendor-dashboard/shop' },
+  '/vendor-dashboard/packages': { home: '/vendor-dashboard/shop' },
 
   /* ── admin ───────────────────────────────────────────────────────────────────────────────────────── */
   // Both sit in the Root map menu (`admin-nav-groups.tsx` key `ugat`, hub `/admin/ugat`) (audit ❌ ×2).

@@ -1,3 +1,4 @@
+import { ErrorState } from '@/app/_components/states/error-state';
 import { getCurrentUser } from '@/lib/auth';
 import { startAhead } from '@/lib/start-ahead';
 import { shopPath } from '@/lib/shop-address';
@@ -41,7 +42,7 @@ import {
   VENDOR_PLACEHOLDER_PHOTO,
   type ServiceGroupKey,
 } from '@/lib/vendors';
-import { formatPhpRounded } from '@/lib/php';
+import { formatPhp, formatPhpRounded } from '@/lib/php';
 import {
   isBookable,
   isShopBookable,
@@ -100,7 +101,7 @@ import {
   type VendorVenueEvent,
 } from '@/lib/vendor-venue-events';
 import { VenueMatchedEvents } from './_components/venue-matched-events';
-import { resolveLivePax } from '@/lib/pax';
+import { PAX_UNREAD, PAX_UNREAD_WORDS, resolveLivePax } from '@/lib/pax';
 import { PackageCard } from '@/app/_components/vendor-packages/package-card';
 import { coupleBundleGift, packageGiftOf, PACKAGE_GIFT_SETNAYAN, type PackageGift } from '@/lib/package-gift';
 import { fetchShopGiftPacks } from '@/lib/shop-gifts.server';
@@ -199,6 +200,7 @@ import {
   pinReviewFirst,
   fetchReviewStats,
   fetchTrustedReviewStats,
+  fetchTrustedReviewStatsRead,
   fetchCardHostReviewStats,
   fetchVendorCompletedEvents,
   formatStarRating,
@@ -518,7 +520,15 @@ async function viewerIsShopTeam(vendor: Pick<PublicVendorRow, 'vendor_profile_id
 // this one the next time a column is added or renamed here).
 // ⚡ One read per render (speed pass 2026-11-14): `generateMetadata` and the page body each asked for the same shop row
 // before the first byte. `cache()` hands them one answer; outside a render (the OG route) it reads as before.
-export const fetchVendor = cache(async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
+/**
+ * 🔒 A REFUSED SHOP READ IS NOT "NO SUCH SHOP" (final check A1-128, 25 Nov 2026). The read used to fold every error
+ * into `null`, which became `notFound()`: a stranger saw "Page not found" for a real shop, and the copy kept for
+ * strangers held that 404 until its refresh. `fetchVendorRead` says which it was; `fetchVendor` keeps its old
+ * answer (null for both) for the callers that only need a row (the OG image).
+ */
+export const fetchVendorRead = cache(async function fetchVendorRead(
+  slug: string,
+): Promise<{ vendor: PublicVendorRow | null; failed: boolean }> {
   const admin = createAdminClient();
   // The `is_demo` column ships in a parallel PR (marketplace simulation
   // workstream, Agent 1). If that PR hasn't landed yet on `main`,
@@ -561,14 +571,22 @@ export const fetchVendor = cache(async function fetchVendor(slug: string): Promi
       error.message,
     )
   ) {
-    ({ data } = await admin
+    ({ data, error } = await admin
       .from('vendor_profiles')
       .select(legacySelect)
       .ilike('business_slug', slug)
       .maybeSingle());
   }
-  return (data ?? null) as PublicVendorRow | null;
+  if (error) {
+    console.error('[shop page] vendor_profiles read failed', error.message);
+    return { vendor: null, failed: true };
+  }
+  return { vendor: (data ?? null) as PublicVendorRow | null, failed: false };
 });
+
+export async function fetchVendor(slug: string): Promise<PublicVendorRow | null> {
+  return (await fetchVendorRead(slug)).vendor;
+}
 
 /**
  * 🪤 `logo_url` DOES NOT ALWAYS HOLD A URL. It holds `r2://bucket/key` for
@@ -605,6 +623,9 @@ async function viewerIsSignedIn(): Promise<boolean> {
 // Named, slug-resolved so the bare-root dispatcher (app/[slug]/page.tsx) can
 // reuse the exact same vendor metadata when a bare slug resolves to a vendor.
 export async function vendorMetadataBySlug(slug: string) {
+  // A refused read is not a missing page: no "Page not found" tab, and nothing indexed (A1-128). `fetchVendorRead` is
+  // `cache()`d, so the `fetchVendor` below reuses this same read.
+  if ((await fetchVendorRead(slug)).failed) return { title: { absolute: 'Setnayan' }, robots: { index: false, follow: false } };
   const vendor = await fetchVendor(slug);
   // 🔎 NO SHOP BY THIS NAME (logged-out crawl #12): `/faq`, `/contact`, any unknown top-level path lands here through
   // `app/[slug]` and is a 404 — its tab must not read "Supplier · Setnayan" as if a shop were behind it.
@@ -762,7 +783,7 @@ function formatAttrFactValue(
   }
   if (typeof raw === 'number') {
     return /centavos/i.test(key)
-      ? `₱${Math.round(raw / 100).toLocaleString('en-PH')}`
+      ? formatPhpRounded(Math.round(raw / 100))
       : String(raw);
   }
   if (typeof raw === 'string') {
@@ -1009,7 +1030,12 @@ export async function renderVendorBySlug({
     detailsEnabled && typeof search.service === 'string' && search.service.trim()
       ? search.service.trim()
       : null;
-  const vendor = await fetchVendor(slug);
+  const { vendor, failed: vendorReadFailed } = await fetchVendorRead(slug);
+  if (vendorReadFailed) {
+    // The copy kept for strangers must never store this: throwing keeps its last good version (A1-128).
+    if (cachedCopy) throw new Error('shop read failed; keeping the last good copy');
+    return <ShopCouldNotOpen />;
+  }
 
   // 🔁 A CORRECTED SHOP ADDRESS FORWARDS HERE TOO.
   //
@@ -1142,18 +1168,26 @@ export async function renderVendorBySlug({
   const unlistedEvents = await readOverdueTopUpEventIds(vendor.vendor_profile_id, manilaToday());
   const unlistedPageRefs = await readPageRefsFromEvents(vendor.vendor_profile_id, unlistedEvents);
   const logoDisplayUrl = await logoDisplayRead;
-  const [reviewStats, trustedReviewStats, reviews, allServices, vendorPackages, recommendingCouples, finalizedBookingRead, completedEvents, hidePricesPublicly] = await Promise.all([
-    fetchReviewStats(admin, vendor.vendor_profile_id),
+  // 🔒 ONE FAILED SECTION READ NEVER TAKES THE PAGE DOWN (final check A1-125, 25 Nov 2026). These three readers
+  // throw on a refused read and this `Promise.all` had no catch, so a stranger got the root error screen instead of
+  // the shop. Each now settles to `null`; its own section says it couldn't load and the rest of the page still draws.
+  const sectionRead = <T,>(p: Promise<T>, what: string): Promise<T | null> =>
+    p.catch((e: unknown) => {
+      console.error(`[shop page] ${what} read failed`, e instanceof Error ? e.message : e);
+      return null;
+    });
+  const [reviewStatsRead, trustedRead, reviewsRead, allServicesRead, vendorPackages, recommendingCouples, finalizedBookingRead, completedEvents, hidePricesPublicly] = await Promise.all([
+    sectionRead(fetchReviewStats(admin, vendor.vendor_profile_id), 'review stats'),
     // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the PUBLIC headline average
     // + review count read the TRUSTED (receipt-backed, arm's-length) stat, so
     // fake / self-dealt reviews can't inflate the number couples see. The raw
     // `reviewStats` above still backs the per-star histogram bars + the review
     // LIST pagination (`hasMore`), which stay as-is.
-    fetchTrustedReviewStats(admin, vendor.vendor_profile_id),
+    fetchTrustedReviewStatsRead(admin, vendor.vendor_profile_id),
     // 🛡 Fake proof fixes (owner 2026-11-23, b89e2420 C + D): the PUBLIC read — a held review never lists, and each row
     // says whether it counts (a booked review that does not wears the supplier's-own-client pill, `reviewIsOwnClient`).
-    fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0, excludeEventIds: [...unlistedEvents], publicOnly: true }),
-    fetchVendorServices(admin, vendor.vendor_profile_id),
+    sectionRead(fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0, excludeEventIds: [...unlistedEvents], publicOnly: true }), 'reviews'),
+    sectionRead(fetchVendorServices(admin, vendor.vendor_profile_id), 'services'),
     // Vendor packages (owner directive 2026-05-22) — bundled multi-category
     // wedding offerings. Public-read via RLS when is_active=TRUE. The fetch
     // is best-effort: if the table doesn't exist yet in a deploy environment
@@ -1202,6 +1236,13 @@ export async function renderVendorBySlug({
     // peso figure on this page when the vendor opted in; default false = show.
     fetchVendorHidesPricesPublicly(admin, vendor.vendor_profile_id),
   ]);
+  // A refused rating read is said, never drawn as "none yet" (A1-129); the zero row only keeps the badges hidden.
+  const trustedReadFailed = trustedRead === null;
+  const trustedReviewStats: TrustedReviewStatsRow = trustedRead ?? {
+    vendor_profile_id: vendor.vendor_profile_id,
+    trusted_avg_rating: 0,
+    trusted_review_count: 0,
+  };
 
   // "Trusted by" — vendors who endorsed this one via the vendor↔vendor
   // mutual-accept handshake (accepted + active vendor_partnerships pointing at
@@ -1416,7 +1457,24 @@ export async function renderVendorBySlug({
     }
   }
 
-  const hasMore = reviewStats.total_count > reviews.length;
+  const reviewsReadFailed = reviewStatsRead === null || reviewsRead === null;
+  const servicesReadFailed = allServicesRead === null;
+  const reviewStats: ReviewStatsRow = reviewStatsRead ?? {
+    vendor_profile_id: vendor.vendor_profile_id,
+    avg_rating_overall: 0,
+    total_count: 0,
+    count_5_star: 0,
+    count_4_star: 0,
+    count_3_star: 0,
+    count_2_star: 0,
+    count_1_star: 0,
+  };
+  const reviews = reviewsRead ?? [];
+  const allServices = allServicesRead ?? [];
+  // 🔒 "Show more reviews" ends when the LIST does (final check A1-130): the raw count includes reviews the public list
+  // never shows (held, unlisted events), so comparing against it kept the pager alive for ever, reloading the same rows.
+  // A page that came back short of what it asked for has nothing after it.
+  const hasMore = !reviewsReadFailed && reviews.length >= limit && reviewStats.total_count > reviews.length;
   const activeServices = allServices.filter((s) => s.is_active);
 
   // Service-card enrichment (redesign · Phase 4) — FREE inclusions + the
@@ -1882,6 +1940,7 @@ export async function renderVendorBySlug({
           kindHint: trustedByHint({ origin: v.origin, shop: displayLabel, other: v.displayName, direction: v.direction, events: v.events }),
           logoUrl: v.logoRef ? await shopFileUrl(v.logoRef, partnerServes, (r) => displayUrlForStoredAsset(r)).catch(() => null) : null,
           initials: shopInitials(v.displayName, 2, 'SN'),
+          verified: v.isVerified,
         })),
       )
     : [];
@@ -2067,10 +2126,14 @@ export async function renderVendorBySlug({
   // for itself — quoting a per-head upgrade at anything else is a display total
   // that drifts from the charge. Only fetched when a package can actually be
   // configured: flag on, signed-in host with an event, packages to show.
-  const packageLivePax =
+  const packageLivePaxRead =
     packageCreditEnabled() && coupleEventId && vendorPackages.length > 0
-      ? ((await resolveLivePax(supabase, coupleEventId)) ?? 0)
+      ? await resolveLivePax(supabase, coupleEventId)
       : 0;
+  // ⚖ OWNER ADD 35: an unread guest count prices NOTHING — the configurator shows no per-guest totals (prices hidden
+  // below) and its Lock is refused with PAX_UNREAD_WORDS by `lockPackage` itself.
+  const packagePaxUnread = packageLivePaxRead === PAX_UNREAD;
+  const packageLivePax = packagePaxUnread ? 0 : (packageLivePaxRead ?? 0);
 
   // ── "Ask the vendor about this build instead" — the lock modal's secondary
   //    action (same flag).
@@ -2348,7 +2411,7 @@ export async function renderVendorBySlug({
     );
     const minPeso = Math.min(...pkgPesos);
     const maxPeso = Math.max(...pkgPesos);
-    const peso = (n: number) => `₱${n.toLocaleString('en-PH')}`;
+    const peso = (n: number) => formatPhp(n);
     vendorJsonLd.priceRange =
       minPeso === maxPeso ? peso(minPeso) : `${peso(minPeso)}–${peso(maxPeso)}`;
   }
@@ -2528,7 +2591,9 @@ export async function renderVendorBySlug({
     inquireMode: canMessage ? 'anchor' : 'none',
     openServicePublicId: openServicePublicId,
     inspirationByService: inspirationByService,
-    reviewsByService: reviewsByService,
+    // 🔒 No review and no stars anywhere on a shop Setnayan has not verified (final check A1-131) — the same gate as the
+    // card's record rating and the page's own Reviews section.
+    reviewsByService: isVerifiedShop ? reviewsByService : new Map<string, CardReviews>(),
 
   };
   const photoServiceViews = activeServices.length > 0 ? servicesFromCards(buildServiceGroups(servicesProps).flatMap((g) => g.cards)) : [];
@@ -3371,7 +3436,9 @@ export async function renderVendorBySlug({
 
         {/* ── SERVICES: the cards, the typical price, the packages (Lock lives on each package card, nowhere else). */}
         <div id="shop-services" data-shop-section="" className="scroll-mt-14">
-        {activeServices.length > 0 ? (
+        {servicesReadFailed ? (
+          <ShopSectionCouldNotLoad what="services" />
+        ) : activeServices.length > 0 ? (
           /* Hybrid-anonymity (V2.1 amendment #2): pass displayLabel so
              the services section's section heading + per-service
              cards' "by {vendor}" copy don't leak the hidden name. */
@@ -3424,6 +3491,12 @@ export async function renderVendorBySlug({
             here; locking one cascade-locks every included planning-card
             category. Public read; the LockPackageModal CTA only renders
             for signed-in hosts with an active event. */}
+        {/* ⚖ OWNER ADD 35: hidden per-guest prices say WHY — an unread guest count prices nothing. */}
+        {vendorPackages.length > 0 && packagePaxUnread ? (
+          <p role="alert" data-package-pax-unread="" className="text-sn-sm text-ink/70">
+            {PAX_UNREAD_WORDS}
+          </p>
+        ) : null}
         {vendorPackages.length > 0 ? (
           <VendorPackagesSection
             packages={vendorPackages}
@@ -3434,7 +3507,7 @@ export async function renderVendorBySlug({
             isComingSoon={isComingSoon || !bookable}
             paused={shopPaused}
             bookingsOpen={bookingsOpen}
-            hidePrices={hidePricesPublicly}
+            hidePrices={hidePricesPublicly || packagePaxUnread}
             paxCount={packageLivePax}
             /* Flag-dark secondary action: send the configured build to the
                vendor as a question instead of locking it. Empty ⇒ the modal is
@@ -3645,6 +3718,8 @@ export async function renderVendorBySlug({
           businessName={displayLabel}
           reviewStats={reviewStats}
           trustedReviewStats={trustedReviewStats}
+          readFailed={reviewsReadFailed}
+          trustedFailed={trustedReadFailed}
           reviews={orderedReviews}
           reviewCardsById={reviewCardsById}
           guestReviews={guestReviews}
@@ -4376,6 +4451,8 @@ function TrustedBySection({
 }
 
 function ReviewsSection({
+  readFailed,
+  trustedFailed = false,
   slug,
   businessName,
   reviewStats,
@@ -4423,7 +4500,18 @@ function ReviewsSection({
   hasVenueMatch: boolean;
   /** 🏪 A demo shop (`is_demo`) — its reviews are SAMPLES and each one says so (DECISION_LOG 2026-11-10 🏪). */
   sampleShop?: boolean;
+  /** The reviews read failed (A1-125): the section says so instead of drawing "no reviews". */
+  readFailed?: boolean;
+  /** The rating read was refused (A1-129). */
+  trustedFailed?: boolean;
 }) {
+  if (readFailed) {
+    return (
+      <section id="reviews" aria-label="Reviews" className="space-y-6 border-b border-ink/10 py-8">
+        <ShopSectionCouldNotLoad what="reviews" />
+      </section>
+    );
+  }
   return (
     <section id="reviews" className="space-y-6 border-b border-ink/10 py-8">
       <header className="flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
@@ -4432,7 +4520,7 @@ function ReviewsSection({
             Reviews
           </h2>
           <p className="mt-1 text-sm text-ink/65">
-            From verified couples who&rsquo;ve booked {businessName} via Setnayan.
+            From hosts who booked {businessName}.
           </p>
         </div>
         {recommendingCouples > 0 ? (
@@ -4454,7 +4542,7 @@ function ReviewsSection({
       ) : null}
 
       {showStars ? (
-        <ReviewHeroMetrics stats={reviewStats} trusted={trustedReviewStats} guestReviews={guestReviews} />
+        <ReviewHeroMetrics stats={reviewStats} trusted={trustedReviewStats} trustedFailed={trustedFailed} guestReviews={guestReviews} />
       ) : null}
 
       <ReviewGroupHead>From the hosts</ReviewGroupHead>
@@ -4519,8 +4607,11 @@ function ReviewsSection({
 function ReviewHeroMetrics({
   stats,
   trusted,
+  trustedFailed = false,
   guestReviews,
 }: {
+  /** The rating read was refused (A1-129): say so; never "none yet". */
+  trustedFailed?: boolean;
   stats: ReviewStatsRow;
   /** ANTI-FRAUD (2026-07-05): headline average + count read the TRUSTED stat. */
   trusted: TrustedReviewStatsRow;
@@ -4549,8 +4640,9 @@ function ReviewHeroMetrics({
    * 🔒 lib/shop-review-count-is-the-bars-count.test.ts
    */
   const reviewCount = totals.reduce((sum, t) => sum + t.count, 0);
-  const starsNote =
-    trustedCount >= reviewCount
+  const starsNote = trustedFailed
+    ? 'Couldn’t load the rating just now. Reload to try again.'
+    : trustedCount >= reviewCount
       ? null
       : trustedCount === 0
         ? 'Stars count reviews booked through Setnayan · none yet'
@@ -4693,10 +4785,10 @@ function VerifiedWeddingPill() {
   return (
     <span
       className="inline-flex items-center gap-1 rounded-full bg-mulberry/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-[0.08em] text-mulberry"
-      title="This couple booked this supplier through Setnayan — verified by the platform."
+      title="This host booked this supplier through Setnayan — verified by the platform."
     >
       <BadgeCheck aria-hidden className="h-3 w-3" strokeWidth={2} />
-      Verified wedding
+      Verified event
     </span>
   );
 }
@@ -5070,5 +5162,34 @@ function HeroBadge({ badge, title, drawn = false }: { badge: ShopBadge; title: s
     <span className="inline-flex leading-[0]" title={title} data-shop-badge={badge.key}>
       <ImageBadge {...badgeImageOf(badge)} uid={`shop-${badge.key}`} size={48} label={badge.label} drawn={drawn} />
     </span>
+  );
+}
+
+/**
+ * One shop section whose read failed (final check A1-125): the shipped `ErrorState`, in its three beats, so the
+ * person knows what broke, that the rest of the page is real, and what to do. Never "no reviews" or an empty gallery.
+ */
+function ShopSectionCouldNotLoad({ what }: { what: 'reviews' | 'services' }) {
+  return (
+    <ErrorState
+      title={what === 'reviews' ? 'Couldn’t load the reviews' : 'Couldn’t load the services'}
+      broke={what === 'reviews' ? 'The reviews did not load just now.' : 'The services and their prices did not load just now.'}
+      survived="Everything else on this page is current."
+      todo="Reload the page to try again."
+    />
+  );
+}
+
+/** A refused shop read (A1-128): the shop exists as far as we know, so never the not-found page. */
+function ShopCouldNotOpen() {
+  return (
+    <main className="mx-auto w-full max-w-xl px-4 py-12">
+      <ErrorState
+        title="Couldn’t open this shop"
+        broke="The shop did not load just now."
+        survived="Nothing about the shop has changed."
+        todo="Reload the page to try again."
+      />
+    </main>
   );
 }

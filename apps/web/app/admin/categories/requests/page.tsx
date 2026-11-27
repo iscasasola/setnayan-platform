@@ -33,12 +33,12 @@ export default async function ServiceRequestsAdminPage({ searchParams }: { searc
   if (reqRes.error) logQueryError('ServiceRequestsAdminPage (taxonomy_category_requests)', reqRes.error);
   const rows = reqRes.error ? null : ((reqRes.data ?? []) as Array<Row & { status: string }>).filter((r) => isRequestStatus(r.status)) as Row[];
 
-  let shopName = new Map<string, string>();
+  let shopName: Map<string, string> | null = new Map<string, string>();
   if (rows && rows.length > 0) {
     const ids = [...new Set(rows.map((r) => r.proposed_by_vendor_id))];
     const { data, error } = await admin.from('vendor_profiles').select('vendor_profile_id, business_name').in('vendor_profile_id', ids);
     if (error) logQueryError('ServiceRequestsAdminPage (vendor_profiles)', error);
-    shopName = new Map(((data ?? []) as Array<{ vendor_profile_id: string; business_name: string | null }>).map((v) => [v.vendor_profile_id, v.business_name ?? 'a shop']));
+    shopName = error ? null : new Map(((data ?? []) as Array<{ vendor_profile_id: string; business_name: string | null }>).map((v) => [v.vendor_profile_id, v.business_name ?? 'a shop']));
   }
   return <ServiceRequestsListView rows={rows} shopName={shopName} tree={tree} ok={sp.ok ?? null} />;
 }

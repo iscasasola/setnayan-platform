@@ -7,6 +7,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { r2Upload, R2_BUCKETS } from '@/lib/r2';
 import { validateContractFile } from '@/lib/contracts';
+import { revalidateContractViews } from '@/lib/contract-views';
 
 // ----------------------------------------------------------------------------
 // Helpers
@@ -209,7 +210,7 @@ export async function publishContractToCouple(formData: FormData) {
   const admin = createAdminClient();
   const { data: row } = await admin
     .from('vendor_contracts')
-    .select('vendor_profile_id, status')
+    .select('vendor_profile_id, status, event_id')
     .eq('contract_id', contractId)
     .maybeSingle();
   if (!row || row.vendor_profile_id !== profile.vendor_profile_id) {
@@ -234,8 +235,7 @@ export async function publishContractToCouple(formData: FormData) {
     throw new Error(error.message);
   }
 
-  revalidatePath(`/vendor-dashboard/contracts/${contractId}`);
-  revalidatePath('/vendor-dashboard/contracts');
+  revalidateContractViews(revalidatePath, contractId, row.event_id);
 }
 
 // ----------------------------------------------------------------------------
@@ -252,7 +252,7 @@ export async function cancelContract(formData: FormData) {
   const admin = createAdminClient();
   const { data: row } = await admin
     .from('vendor_contracts')
-    .select('vendor_profile_id, status')
+    .select('vendor_profile_id, status, event_id')
     .eq('contract_id', contractId)
     .maybeSingle();
   if (!row || row.vendor_profile_id !== profile.vendor_profile_id) {
@@ -273,6 +273,5 @@ export async function cancelContract(formData: FormData) {
 
   if (error) throw new Error(error.message);
 
-  revalidatePath(`/vendor-dashboard/contracts/${contractId}`);
-  revalidatePath('/vendor-dashboard/contracts');
+  revalidateContractViews(revalidatePath, contractId, row.event_id);
 }

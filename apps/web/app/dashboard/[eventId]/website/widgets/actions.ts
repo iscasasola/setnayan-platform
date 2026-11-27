@@ -208,14 +208,16 @@ export async function toggleWidgetVisibility(formData: FormData): Promise<void> 
   if (isHubDraftWrite(formData)) {
     return saveWidgetToDraft(formData, eventId, row.widget_type as WidgetType, { is_visible: nextVisible });
   }
-  const { error: updateErr } = await supabase
+  const { data: visibleRows, error: updateErr } = await supabase
     .from('invitation_widgets')
     .update({ is_visible: nextVisible })
     .eq('widget_id', widgetId)
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('widget_id');
 
-  if (updateErr) {
-    throw new Error(`Failed to update widget visibility: ${updateErr.message}`);
+  // E-11 (final check): a zero-row update (RLS refused) is a failure, not "Saved".
+  if (updateErr || !visibleRows || visibleRows.length === 0) {
+    throw new Error(`Failed to update widget visibility: ${updateErr?.message ?? 'no row was written'}`);
   }
 
   await revalidateForWidgetChange(eventId);
@@ -343,13 +345,14 @@ export async function setSectionMode(formData: FormData): Promise<void> {
   if (isHubDraftWrite(formData)) {
     return saveWidgetToDraft(formData, eventId, widgetType, { mode: nextMode });
   }
-  const { error: updateErr } = await supabase
+  const { data: modeRows, error: updateErr } = await supabase
     .from('invitation_widgets')
     .update({ mode: nextMode })
     .eq('widget_id', widgetId)
-    .eq('event_id', eventId);
+    .eq('event_id', eventId)
+    .select('widget_id');
 
-  if (updateErr) {
+  if (updateErr || !modeRows || modeRows.length === 0) {
     redirect(
       resolveReturnTo(
         formData,
@@ -481,21 +484,24 @@ async function moveWidget(formData: FormData, direction: 'up' | 'down'): Promise
   // remain valid invitation_widgets rows; only the ordering is
   // temporarily duplicated. The next read will surface the duplicate
   // and the user can manually re-order. Acceptable for V1.
-  const [{ error: updErr1 }, { error: updErr2 }] = await Promise.all([
+  const [{ data: moved1, error: updErr1 }, { data: moved2, error: updErr2 }] = await Promise.all([
     supabase
       .from('invitation_widgets')
       .update({ display_order: neighborRow.display_order })
       .eq('widget_id', movingRow.widget_id)
-      .eq('event_id', eventId),
+      .eq('event_id', eventId)
+      .select('widget_id'),
     supabase
       .from('invitation_widgets')
       .update({ display_order: movingRow.display_order })
       .eq('widget_id', neighborRow.widget_id)
-      .eq('event_id', eventId),
+      .eq('event_id', eventId)
+      .select('widget_id'),
   ]);
 
-  if (updErr1 || updErr2) {
-    const msg = updErr1?.message || updErr2?.message || 'Unknown swap error';
+  // E-11 (final check): either half written as zero rows is a refused move, never "Saved".
+  if (updErr1 || updErr2 || !moved1?.length || !moved2?.length) {
+    const msg = updErr1?.message || updErr2?.message || 'no row was written';
     throw new Error(`Failed to reorder widgets: ${msg}`);
   }
 

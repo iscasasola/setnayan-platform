@@ -56,7 +56,7 @@ test('signed in, the bare `/` lands where a sign-in lands — the one rule, ever
     assert.notEqual(want, '/', `${type} must never stay on Discover`);
   }
   assert.equal(signedInRootLanding({}, SIGNED_IN('customer')), homeSegHref('events'));
-  assert.equal(signedInRootLanding({}, SIGNED_IN('vendor')), homeSegHref('shop'));
+  assert.equal(signedInRootLanding({}, SIGNED_IN('vendor')), homeSegHref('events'));
   // A marketing link carries only tracking tags — that is still "nowhere of my own".
   assert.equal(signedInRootLanding({ utm_source: 'fb', utm_campaign: 'x', fbclid: 'a', gclid: 'b' }, SIGNED_IN(null)), homeSegHref('events'));
 });

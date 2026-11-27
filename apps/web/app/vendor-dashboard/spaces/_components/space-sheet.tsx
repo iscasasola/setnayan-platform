@@ -50,7 +50,13 @@ export type SheetMode =
   | { mode: 'edit'; space: Space; state: TileState | null };
 
 /** Every paid plan, from Plus (owner 22 Nov, "SAME FEATURES IN EVERY SIZE") — the plan lock both Spaces locks open with (the price is the Plan page's, never typed here). */
-export const PAID_NEED: LockNeed = { kind: 'plan', plan: 'solo', price: null, href: '/vendor-dashboard/subscription' };
+/**
+ * The Spaces locks' need: every paid plan, from Plus. A7-14 — the price is the catalogue's Plus monthly price, worded by
+ * the page from `getVendorPrices` + `monthlyPlanPrice` (never typed); `null` (an unread catalogue) shows no figure.
+ */
+export function paidNeed(planPrice: string | null): LockNeed {
+  return { kind: 'plan', plan: 'solo', price: planPrice, href: '/vendor-dashboard/subscription' };
+}
 
 const CLOTHING_TYPES = ['Gown', 'Barong', 'Suit', 'Dress', 'Filipiniana', 'Accessory'] as const;
 const NAMINGS_ROOM: ReadonlyArray<{ key: RoomNaming; label: string; hint: string }> = [
@@ -71,6 +77,8 @@ export function SpaceSheet({
   proOpen,
   dayLabel,
   firstHall,
+  refusal = null,
+  planPrice = null,
   run,
 }: {
   open: boolean;
@@ -84,6 +92,10 @@ export function SpaceSheet({
   dayLabel: string;
   /** The shop's shipped Room size & capacity — the FIRST hall opens filled from it. */
   firstHall: { widthM: number | null; lengthM: number | null; seated: number | null } | null;
+  /** A7-30: why the last save in this sheet was refused, drawn IN the sheet — the page's notice sits behind it. */
+  refusal?: string | null;
+  /** The Plus plan's catalogue price, worded ("₱… / month"); null = unread. */
+  planPrice?: string | null;
   run: Run;
 }) {
   const headingId = useId();
@@ -173,7 +185,7 @@ export function SpaceSheet({
         </h2>
         <p className="mt-1 text-[13px] text-ink/70">{KIND_LINE[kind]}</p>
         {stateLine ? (
-          <p className="mt-2 text-[13.5px] font-medium text-ink" data-space-holder="">
+          <p className="mt-2 text-sn-md font-medium text-ink" data-space-holder="">
             {stateLine}
           </p>
         ) : null}
@@ -206,7 +218,7 @@ export function SpaceSheet({
         <div className="mt-1" data-space-name="">
           {!proOpen ? (
             <FormRows width="wide">
-              <LockedFeature lock="space_names" need={PAID_NEED} line={`Given for you: ${editing ? editing.name : preview?.ok ? preview.names[0] : '…'}`} data="space-name-lock" />
+              <LockedFeature lock="space_names" need={paidNeed(planPrice)} line={`Given for you: ${editing ? editing.name : preview?.ok ? preview.names[0] : '…'}`} data="space-name-lock" />
             </FormRows>
           ) : editing ? (
             <FormRows width="wide">
@@ -336,6 +348,12 @@ export function SpaceSheet({
           </p>
         ) : null}
 
+        {refusal ? (
+          <p className="mt-3 text-sn-md font-medium text-ink" role="alert" data-space-refusal="">
+            {refusal}
+          </p>
+        ) : null}
+
         <div className="mt-4 flex flex-col gap-2">
           <ActionButton
             tone="brand"
@@ -372,7 +390,7 @@ function CountRow({ name, value, min, max, set, words, data }: { name: string; v
     <div className="flex min-h-11 items-center justify-between gap-3 border-t border-ink/10 py-1 first:border-t-0" data-form-row="" data-space-count={data}>
       <span className="min-w-0">
         <span className="block text-[15px] font-medium leading-tight text-ink">{name}</span>
-        {words ? <span className="block text-[12.5px] text-ink/70">{words}</span> : null}
+        {words ? <span className="block text-sn-sm text-ink/70">{words}</span> : null}
       </span>
       <Counter value={value} label={name} onLess={() => set(Math.max(min, value - 1))} onMore={() => set(Math.min(max, value + 1))} lessDisabled={value <= min} moreDisabled={value >= max} data={data} />
     </div>

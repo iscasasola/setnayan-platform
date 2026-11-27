@@ -63,18 +63,19 @@ export async function resolveDispute(formData: FormData) {
   const resolution = formData.get('resolution');
   const notes = nullIfBlank(formData.get('resolution_notes'));
 
+  // A8·E-13: every refusal below lands back on the page as a plain sentence
+  // (`?settled=` → disputesOutcomeLine), never the crash page — a production
+  // build hides a thrown server-action message.
   if (typeof disputeId !== 'string' || disputeId.length === 0) {
-    throw new Error('Invalid input');
+    redirect('/admin/disputes?settled=invalid');
   }
   if (!isResolution(resolution)) {
-    throw new Error('Pick a resolution');
+    redirect('/admin/disputes?settled=invalid');
   }
   // Require notes for the adjudicated outcomes — a "resolved for X" with no
   // rationale is useless six months later when a pattern is being reviewed.
   if (resolution !== 'withdrawn' && !notes) {
-    throw new Error(
-      `${RESOLUTION_LABEL[resolution]} needs notes — record what was decided and why.`,
-    );
+    redirect('/admin/disputes?settled=needs_notes');
   }
 
   const admin = createAdminClient();
@@ -118,10 +119,8 @@ export async function resolveDispute(formData: FormData) {
       .select('status')
       .eq('dispute_id', disputeId)
       .maybeSingle();
-    if (!existing) throw new Error('Dispute not found');
-    throw new Error(
-      `Dispute already resolved (status: ${existing.status}). Refresh the page.`,
-    );
+    revalidatePath('/admin/disputes');
+    redirect(`/admin/disputes?settled=${existing ? 'already' : 'not_found'}`);
   }
 
   // Admin audit trail (cross-account QA, 2026-06-19). vendor_disputes had no
@@ -169,6 +168,8 @@ export async function resolveDispute(formData: FormData) {
   }
 
   revalidatePath('/admin/disputes');
+  // A8·E-1: the admin who pressed sees it landed.
+  redirect('/admin/disputes?settled=resolved');
 }
 
 /* ───────────────────────────────────────────────────────────────────────────

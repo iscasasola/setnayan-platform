@@ -86,16 +86,19 @@
    1600), Clients' picked day 420, one 28 gap. Every grid below reads these; so does the Shop's thumb row, which is drawn
    on <body> and cannot read the grid — it starts where the service cards start (the drawing's `.thumb{left:540px}`,
    580 at 1600 = the content edge + the side column + the gap). */
+/* 🛍 SHOP ON A COMPUTER (final check B11, drawing `final-check-area-5_2026-11-25.html` § B11, approved 25 Nov): the
+   side column is a fixed 320 at every desktop width, and a service card goes two-up only once each one has 320 of its
+   own — one per row at 1280 (the name no longer wraps letter by letter in a half column). */
 :root {
   --desk-gap: 28px;
   --today-side: 400px;
-  --shop-desk-side: 400px;
+  --shop-desk-side: 320px;
+  --shop-card-min: 320px;
   --clients-day: 420px;
 }
 @media (min-width: 1600px) {
   :root {
     --today-side: 420px;
-    --shop-desk-side: 440px;
   }
 }
 [data-today-pane],
@@ -107,7 +110,6 @@
 /* The side pane's own parts (`supplier-today-first-screen.tsx`): a computer's only — the phone has them at the top, or
    not at all (the drawing hides `.strip.ver` and the small cards on the phone). */
 [data-today-side-only],
-[data-today-side-minis],
 [data-today-side-verified] {
   display: none;
 }
@@ -137,7 +139,6 @@
     display: none;
   }
   [data-today-side-only],
-  [data-today-side-minis],
   [data-today-side-verified] {
     display: block;
   }
@@ -203,7 +204,7 @@
   }
   [data-shop-desk] [data-shop-card-list] {
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(var(--shop-card-min), 1fr));
     gap: 20px 16px;
     align-items: start;
   }
@@ -213,11 +214,6 @@
   }
   [data-shop-desk] [data-shop-card-list] > [data-shop-card-group] {
     grid-column: 1 / -1;
-  }
-}
-@media (min-width: 1600px) {
-  [data-shop-desk] [data-shop-card-list] {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
 

@@ -66,6 +66,8 @@ export type LoveStoryBookProps = {
   appleIap?: boolean;
   proHref: string;
   proPrice: string | null;
+  /** The plan read failed (Add 45): every Pro line says "We couldn't check your plan" instead of selling. */
+  planUnread?: boolean;
   /** `?pro=` from a refused write — the line is drawn at the top. */
   refused: 'stories' | 'photos' | null;
   /** Is the Love Story section itself off the Event Hub (widget mode hidden)? */
@@ -113,10 +115,11 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
     storeShell: p.storeShell,
     proHref: p.proHref,
     proPrice: p.proPrice,
+    planUnread: p.planUnread,
     eventId: p.eventId,
     mediaUrls: p.mediaUrls,
   };
-  const proLine = <LoveStoryProLine storeShell={p.storeShell} href={p.proHref} price={p.proPrice} />;
+  const proLine = <LoveStoryProLine storeShell={p.storeShell} href={p.proHref} price={p.proPrice} planUnread={p.planUnread} />;
   /* `opensFor="add"` on ONE of the two add buttons (the foot's) — the Maker's
      panel asks it to open under a chapter (`love-story-open.ts`). */
   const addButton = (opensFor?: string) => canAdd ? (
@@ -128,9 +131,12 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
     />
   ) : (
     <div data-love-story-cap="reached">
-      <p className="text-[13px] text-[color:var(--ls-muted)]">
-        {formatCount(FREE_MOMENT_CAP)} of {formatCount(FREE_MOMENT_CAP)} free stories told
-      </p>
+      {/* E-13: no "free stories" count is stated from a failed plan read — the plan-unread line alone. */}
+      {p.planUnread ? null : (
+        <p className="text-[13px] text-[color:var(--ls-muted)]">
+          {formatCount(FREE_MOMENT_CAP)} of {formatCount(FREE_MOMENT_CAP)} free stories told
+        </p>
+      )}
       {proLine}
     </div>
   );
@@ -361,6 +367,9 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
           })}
 
           <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[color:var(--ls-rule)] pt-6">
+            {/* E-13 (Add 45): a failed plan read states no free limit and no ownership — the plan-unread line and
+                its retry stand where the limit sentence goes. */}
+            {p.planUnread ? (canAdd ? proLine : null) : (
             <p className="text-[14px] text-[color:var(--ls-muted)]">
               {p.tryingPro && (!p.storeShell || p.appleIap) ? (
                 <span className="inline-flex flex-wrap items-center gap-1.5">
@@ -371,6 +380,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
                 ? 'Add as many moments as you like, with your photos.'
                 : `Up to ${FREE_MOMENT_CAP} stories, in your words, are free.`}
             </p>
+            )}
             {addButton('add')}
           </div>
 

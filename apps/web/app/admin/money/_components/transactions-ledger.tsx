@@ -259,6 +259,11 @@ export async function TransactionsLedger() {
   // already a ▾ view with its count. The three numbers sit between hairlines, not in cards. On a phone each
   // purchase is ONE row (who · what · when · amount + chip) and a tap opens the rest; on a computer the table
   // stays a table, inside the one 760 column.
+  // A8·A-8: the read is capped at ROW_LIMIT. When it is full, the numbers sum the
+  // newest ROW_LIMIT only and say so; the phone list says it too (the table
+  // already does, through ConsoleTable's `cap`).
+  const capped = rows !== null && rows.length >= ROW_LIMIT;
+  const capScope = capped ? ` · newest ${formatCount(ROW_LIMIT)}` : '';
   return (
     <section className="pt-2">
       {/* One honest line in place of the queue card: what needs you, or that it could not be checked. */}
@@ -268,9 +273,9 @@ export async function TransactionsLedger() {
 
       <TemplateNums
         items={[
-          { label: 'Received', value: (received == null ? null : formatPhp(received)) ?? '—' },
-          { label: 'Waiting', value: (outstanding == null ? null : formatPhp(outstanding)) ?? '—' },
-          { label: 'Purchases', value: rows ? formatCount(rows.length) : '—' },
+          { label: `Received${capScope}`, value: (received == null ? null : formatPhp(received)) ?? '—' },
+          { label: `Waiting${capScope}`, value: (outstanding == null ? null : formatPhp(outstanding)) ?? '—' },
+          { label: `Purchases${capScope}`, value: rows ? formatCount(rows.length) : '—' },
         ]}
       />
       {paidFailed ? (
@@ -316,6 +321,11 @@ export async function TransactionsLedger() {
               ))}
             </ul>
           )}
+          {capped ? (
+            <p className={`pt-2 ${TEMPLATE_SUBLINE}`} data-ledger-capped="">
+              Showing the newest {formatCount(ROW_LIMIT)}. There are more — this is not the whole list.
+            </p>
+          ) : null}
         </div>
 
         {/* COMPUTER — the table stays a table, never wider than the column. */}

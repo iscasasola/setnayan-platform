@@ -19,7 +19,7 @@
  * 🔒 app/vendor-dashboard/services/share-posts-the-card-into-a-client-chat.test.ts
  */
 import { useState } from 'react';
-import { ChevronRight, Loader2, Search } from 'lucide-react';
+import { ChevronRight, Search } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { guestToast } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 import type { ShareTarget } from '@/lib/service-share-targets';
@@ -224,7 +224,7 @@ export function ShareTargetList({
                   ) : null}
                 </span>
                 {pending === t.threadId ? (
-                  <Loader2 aria-hidden className={`h-4 w-4 shrink-0 animate-spin ${ink ? 'text-white/55' : 'text-ink/45'}`} strokeWidth={2} />
+                  <span className={`shrink-0 text-[13px] ${ink ? 'text-white/55' : 'text-ink/45'}`}>Sending…</span>
                 ) : (
                   <ChevronRight aria-hidden className={`h-4 w-4 shrink-0 ${ink ? 'text-white/40' : 'text-ink/40'}`} strokeWidth={2} />
                 )}

@@ -86,6 +86,7 @@ export function AssignmentRow({
   const [nudgePending, startNudge] = useTransition();
   const [removePending, startRemove] = useTransition();
   const [nudgeError, setNudgeError] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const [nudgeOk, setNudgeOk] = useState(false);
   const save = useSaveLoader();
 
@@ -102,12 +103,19 @@ export function AssignmentRow({
     });
   };
 
+  // M-05 (final check): a Remove that failed used to say nothing — the row simply stayed. It now says so.
   const remove = () => {
+    setRemoveError(null);
     startRemove(async () => {
-      await save.run(
-        () => removeAssignment(eventId, momentKey, assignment.guestId),
-        { steps: ['Removing the assignment'], hint: 'Saving' },
-      );
+      try {
+        const result = await save.run(
+          () => removeAssignment(eventId, momentKey, assignment.guestId),
+          { steps: ['Removing the assignment'], hint: 'Saving' },
+        );
+        if (!result.ok) setRemoveError(`Couldn't remove ${assignment.guestName}. Try again.`);
+      } catch {
+        setRemoveError(`Couldn't remove ${assignment.guestName}. Check your connection and try again.`);
+      }
     });
   };
 
@@ -153,6 +161,11 @@ export function AssignmentRow({
           {removePending ? '…' : 'Remove'}
         </button>
         {nudgeError ? <p className="text-[12px] text-danger-600">{nudgeError}</p> : null}
+        {removeError ? (
+          <p role="alert" className="text-[12px] text-danger-600">
+            {removeError}
+          </p>
+        ) : null}
       </div>
     </div>
   );

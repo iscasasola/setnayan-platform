@@ -591,7 +591,7 @@ function AnalyticsPlaceholder() {
         <span className="sn-eye">Analytics</span>
       </div>
       <div className="px-4">
-        <div className="h-[260px] animate-pulse rounded-2xl bg-ink/[0.05]" />
+        <Sk className="h-[260px] rounded-2xl" />
       </div>
     </section>
   );
@@ -713,7 +713,8 @@ async function ShopHome({
 
   return (
     <>
-      <div className="mx-auto w-full max-w-3xl pb-32" data-shop-tab="">
+      {/* From 1280 the tab takes the body's width (final check B11): 320 side column + the cards beside it. */}
+      <div className="mx-auto w-full max-w-3xl pb-32 xl:max-w-none" data-shop-tab="">
         {/* 🗂 Every cover sheet's body comes WITH the page (the picked client's pattern, `clients/[eventId]/_pages/switch.tsx`):
             Promote · QR · ⚙ stream in their own <Suspense> (the cover never waits for them), Logo · Cover are drawn from
             what the page already read. Opening or closing one is client state + `history.replaceState` — no request
@@ -859,6 +860,7 @@ import { shopGearBodyAlways } from './_components/shop-settings-body';
 import { BadgeRewardSweep } from '../_components/badge-reward-sweep';
 import { shopFormsBody } from './_components/shop-forms-body';
 import { NewThingTile } from '@/app/_components/collection-card';
+import { Sk } from '@/components/skeletons';
 
 export default async function VendorShopHub({
   searchParams,

@@ -41,6 +41,7 @@
  * wrapper lives in `lib/papic-tier-config-read.ts` (server surfaces only).
  */
 
+import { formatPhp } from '@/lib/php';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import {
   PAPIC_FREE_CAMERA_COUNT,
@@ -317,10 +318,8 @@ export async function fetchPapicFreeGrantRead(
   }
 }
 
-/** Peso formatter local to this module (avoids importing the catalog reader). */
-function peso(n: number): string {
-  return `₱${Math.round(n).toLocaleString('en-PH')}`;
-}
+/** 💱 A4-64 (final check, SW-PHP): pesos only through the one formatter, `lib/php.ts` `formatPhp` (exact, centavos kept). */
+const peso = (n: number): string => formatPhp(n);
 
 /**
  * The honest cap sentence. Caps are WEDDINGS-ONLY (owner 2026-07-17 · mirrored

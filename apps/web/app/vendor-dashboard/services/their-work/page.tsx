@@ -1,6 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
 import { notFound, redirect } from 'next/navigation';
-import { BackButton } from '@/app/_components/back-button';
+import { ToolPin } from '../../_components/tool-page';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -51,12 +51,9 @@ export default async function TheirWorkPage() {
     : null;
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-4 pb-8 pt-4 sm:px-6" data-their-work="">
-      <div className="mb-2 flex min-h-11 items-center gap-2">
-        <BackButton route="/vendor-dashboard/services/their-work" />
-      </div>
-      <h1 className="text-[22px] font-semibold text-ink">Their work</h1>
-      <p className="mt-1 text-[14px] text-ink/60">Photos from the events this card was booked for</p>
+    <div className="mx-auto w-full max-w-2xl px-4 pb-8 sm:px-6" data-their-work="">
+      {/* ‹ + the title, the one pinned row (final check B18). */}
+      <ToolPin route="/vendor-dashboard/services/their-work" title="Their work" sub="Photos from every event your cards were booked for" />
 
       <TheirWorkList
         albums={

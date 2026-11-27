@@ -51,6 +51,8 @@ import type { SwitcherData } from '@/app/_components/account-switcher/get-switch
 import { ServerTimer } from '@/lib/server-timing';
 import { PromoFreeWindowBannerVendor } from '@/app/_components/promo-free-window-banner-vendor';
 import type { VendorDealFacts } from '@/lib/promo-free-windows';
+import { readVendorTier } from '@/lib/vendor-feature-gate';
+import type { VendorTier } from '@/lib/vendor-tier-caps';
 import { GuidedTour } from '@/app/_components/guided-tour';
 import { needsTermsAgreement } from '@/lib/terms-agreement';
 import { TermsReacceptSheet } from '@/app/_components/terms-reaccept/terms-reaccept-sheet';
@@ -171,31 +173,17 @@ export default async function VendorDashboardLayout({
   const tierProbePromise = vendorProfilePromise.then(async (vp) => {
     if (!vp?.vendor_profile_id) {
       return {
-        tier: null as string | null,
+        tier: null as VendorTier | 'unread' | null,
+        storedTier: null as string | null,
         vendorId: null as string | null,
         dealFacts: null as VendorDealFacts | null,
       };
     }
     const vendorId = vp.vendor_profile_id;
-    const tierRes = await supabase
-      .from('vendor_profiles')
-      .select('tier_state, verification_state, created_at, last_verified_at')
-      .eq('vendor_profile_id', vendorId)
-      .maybeSingle();
-    const row = tierRes.data as
-      | ({ tier_state?: string | null } & Partial<VendorDealFacts>)
-      | null;
-    return {
-      tier: row?.tier_state ?? null,
-      vendorId,
-      dealFacts: row
-        ? {
-            verification_state: row.verification_state ?? null,
-            created_at: row.created_at ?? null,
-            last_verified_at: row.last_verified_at ?? null,
-          }
-        : null,
-    };
+    // 🪪 THE ONE PLAN READER (final check A5-G2-01/02): the same read the gates use, promotion applied, and a refused
+    // row is `'unread'` (the rail says "—"), never "Free".
+    const read = await readVendorTier(supabase, vendorId);
+    return { tier: read.tier, storedTier: read.storedTier, vendorId, dealFacts: read.facts };
   });
 
   // Sidebar Bookings badge — count of inquiry threads still awaiting the vendor's
@@ -366,7 +354,7 @@ export default async function VendorDashboardLayout({
     tierProbe.vendorId &&
     // 🔑 One list with the SQL (`lib/vendor-tier-lapse.ts`). This line used to be an inline ['pro','enterprise'],
     // so a Solo plan — which the sweep has lapsed since 20271286893359 — was never asked to (Lane G rows 14–15).
-    tierMayLapse(vendorTier)
+    tierMayLapse(tierProbe.storedTier)
   ) {
     const vendorId = tierProbe.vendorId;
     after(async () => {

@@ -450,7 +450,7 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
     icon: 'logo',
     name: { en: 'Logo Maker', tl: 'Logo Maker' },
     line: { en: 'Your own event logo, in layers you can move and animate.', tl: 'Sariling logo ng event, sa mga layer na puwedeng igalaw at i-animate.' },
-    title: { en: 'Wedding Monogram and Logo Maker', tl: 'Monogram at Logo Maker sa Kasal' },
+    title: { en: 'Logo Maker for your wedding', tl: 'Logo Maker para sa kasal' },
     description: {
       en: 'Build your event logo from text, image and frame layers, then let each layer draw on, rise or fade. The animated logo is an upgrade.',
       tl: 'Buuin ang logo ng event mula sa text, image at frame layers, tapos hayaang mag-draw on, umangat o mag-fade ang bawat layer. Upgrade ang animated na logo.',

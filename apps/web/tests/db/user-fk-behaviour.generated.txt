@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 311 single-column FKs onto auth.users / public.users
-# CASCADE=85  RESTRICT=1  SET NULL=225
+# 306 single-column FKs onto auth.users / public.users
+# CASCADE=83  RESTRICT=1  SET NULL=222
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -68,8 +68,6 @@ community_members.user_id                                 CASCADE      NOT NULL 
 comp_grants.approved_by                                   SET NULL     nullable  -> users
 comp_grants.granted_by                                    SET NULL     nullable  -> users
 comp_grants.user_id                                       CASCADE      nullable  -> users
-concierge_abuse_flags.flagged_user_id                     CASCADE      NOT NULL  -> users
-concierge_abuse_flags.reviewed_by                         SET NULL     nullable  -> users
 concierge_brain_chunks.last_verified_by_user_id           SET NULL     nullable  -> users
 concierge_plan_templates.admin_edited_by_user_id          SET NULL     nullable  -> users
 concierge_response_cache.admin_edited_by_user_id          SET NULL     nullable  -> users
@@ -98,8 +96,6 @@ event_blocked_users.blocked_by_user_id                    SET NULL     nullable 
 event_build_picks.picked_by                               SET NULL     nullable  -> auth.users
 event_change_requests.decided_by_user_id                  SET NULL     nullable  -> auth.users
 event_change_requests.proposer_user_id                    CASCADE      NOT NULL  -> auth.users
-event_cluster_members.linked_by                           SET NULL     nullable  -> auth.users
-event_clusters.owner_user_id                              CASCADE      NOT NULL  -> auth.users
 event_colour_changes.actor_user_id                        SET NULL     nullable  -> users
 event_colour_changes.reverted_by_user_id                  SET NULL     nullable  -> users
 event_colour_grants.granted_by_user_id                    SET NULL     nullable  -> users
@@ -134,7 +130,6 @@ event_preparation_items.created_by                        SET NULL     nullable 
 event_question_answers.answered_by                        SET NULL     nullable  -> auth.users
 event_schedule_task_contacts.created_by                   SET NULL     nullable  -> auth.users
 event_schedule_tasks.created_by                           SET NULL     nullable  -> auth.users
-event_sponsors.created_by_user_id                         SET NULL     nullable  -> auth.users
 event_stage_notes.author_user_id                          SET NULL     nullable  -> auth.users
 event_supplier_story_shares.shared_by                     SET NULL     nullable  -> auth.users
 event_today_put_offs.user_id                              CASCADE      NOT NULL  -> auth.users

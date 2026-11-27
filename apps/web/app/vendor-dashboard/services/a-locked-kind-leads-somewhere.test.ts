@@ -160,8 +160,11 @@ test('the return survives the submit — the intent is carried through the redir
     /<input type="hidden" name="from_locked_kind" value=\{fromMaker \? '1' : ''\} \/>/,
     'the request form stopped carrying the intent through the redirect',
   );
-  assert.match(page, /const fromMaker = proposeCategoryRequested\(sp\.wantCategory\);/, 'the page stopped reading the intent');
-  assert.match(page, /fromMaker \? \([\s\S]{0,300}<Link href=\{SERVICE_MAKER_HREF\}/, 'the page lost its "Back to your card"');
+  // 🔁 25 Nov (final check B9): the steps open IN PLACE inside the maker, so they always came from it — the host hands
+  // the intent to the view, and the way back is the layer's ‹ (TellUsHost), not a "Back to your card" link.
+  const host = read('app/vendor-dashboard/services/requests/_components/tell-us-host.tsx');
+  assert.match(host, /<TellUsWhatYouDoView [\s\S]{0,300}\bfromMaker\b/, 'the in-place steps stopped carrying the intent');
+  assert.match(host, /setHead\(open \? \{ title: TELL_US_TITLE, back: \{ label: 'Back', onBack: back \} \} : null\);/, 'the way back to the card is gone');
   const actions = read(ACTIONS);
   assert.match(
     actions,

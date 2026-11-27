@@ -12,6 +12,7 @@
  */
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import { ErrorState } from '@/app/_components/states/error-state';
 import { ArrowLeft, ArrowRight, CalendarCheck, Star } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { loadShopStoryPage } from '@/lib/ultra-story-pages.server';
@@ -37,6 +38,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ShopStoryPage({ params }: Props) {
   const { slug, eventSlug } = await params;
   const read = await loadShopStoryPage(slug, eventSlug);
+  if (read.kind === 'failed') {
+    return (
+      <main className="mx-auto w-full max-w-xl px-4 py-12">
+        <ErrorState
+          title="Couldn’t open this story"
+          broke="The story did not load just now."
+          survived="Nothing about it has changed."
+          todo="Reload the page to try again."
+        />
+      </main>
+    );
+  }
   if (read.kind !== 'ok') notFound();
   const { shop, story, photos, work, note, review } = read.page;
   const shopHref = shopPath(encodeURIComponent(shop.slug));

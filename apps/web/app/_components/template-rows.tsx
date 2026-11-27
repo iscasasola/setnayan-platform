@@ -98,7 +98,10 @@ export function TemplateRow({
   edge,
   lead,
   data,
+  onPress,
 }: {
+  /** The whole row is a button that runs this (a step inside the same screen, final check B9); the same › is drawn. */
+  onPress?: () => void;
   title: ReactNode;
   /** One line under the name. */
   line?: ReactNode;
@@ -128,7 +131,7 @@ export function TemplateRow({
         {line ? <span className={`mt-0.5 block truncate ${TEMPLATE_SUBLINE}`}>{line}</span> : null}
       </span>
       {right ? <span className="flex flex-none items-center gap-2 whitespace-nowrap">{right}</span> : null}
-      {href ? <ChevronRight aria-hidden className="h-4 w-4 flex-none text-mulberry" strokeWidth={2.2} /> : null}
+      {href || onPress ? <ChevronRight aria-hidden className="h-4 w-4 flex-none text-mulberry" strokeWidth={2.2} /> : null}
     </>
   );
   const shape = `flex min-h-14 w-full items-center gap-2.5 py-2 text-left${edge ? ' min-h-16' : ''}`;
@@ -138,6 +141,10 @@ export function TemplateRow({
         <Link href={href} className={`${shape} sn-press`}>
           {body}
         </Link>
+      ) : onPress ? (
+        <button type="button" onClick={onPress} className={`${shape} sn-press`}>
+          {body}
+        </button>
       ) : (
         <div className={shape}>{body}</div>
       )}

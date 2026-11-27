@@ -1,20 +1,35 @@
 import { Plus } from 'lucide-react';
 
 import { ActionButton } from '@/components/action-button';
-import { PageMasthead } from '@/app/_components/page-masthead';
+import { ToolPin } from '../../../_components/tool-page';
 import { TemplateEmpty, TemplateFail, TemplateSection } from '@/app/_components/template-rows';
 import { SERVICE_REQUEST_NEW_HREF, splitWaitingDecided, unseenDecision } from '@/lib/service-requests';
 import type { Loaded, MyRequest, RequestTree } from '@/lib/service-requests.server';
 import { DecisionNotice, RequestRowLink } from './request-bits';
 
 /** The page as drawn, from what was read — rendered by the page and, on fixtures, by /dev/service-requests-lab. */
-export function YourRequestsView({ mine, tree }: { mine: Loaded<MyRequest[]>; tree: RequestTree | null }) {
+export function YourRequestsView({
+  mine,
+  tree,
+  gone = false,
+}: {
+  mine: Loaded<MyRequest[]>;
+  tree: RequestTree | null;
+  /** A request the supplier acted on was no longer there (the action's `?gone=1`; final check A5-G3-07). */
+  gone?: boolean;
+}) {
   const notice = mine.ok ? unseenDecision(mine.value) : null;
   const { waiting, decided } = mine.ok ? splitWaitingDecided(mine.value) : { waiting: [], decided: [] };
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-2 px-4 py-4 sm:px-6" data-your-requests="">
-      <PageMasthead title="Your requests" />
+    <div className="mx-auto w-full max-w-3xl space-y-2 px-4 pb-4 sm:px-6" data-your-requests="">
+      {/* ‹ + the title, the one pinned row (final check B18). */}
+      <ToolPin route="/vendor-dashboard/services/requests" title="Your requests" />
+      {gone ? (
+        <p role="alert" className="text-sm font-semibold" style={{ color: 'rgb(var(--color-danger))' }} data-request-gone="">
+          That request is gone.
+        </p>
+      ) : null}
       {notice ? <DecisionNotice r={notice} tree={tree} /> : null}
 
       {!mine.ok ? (

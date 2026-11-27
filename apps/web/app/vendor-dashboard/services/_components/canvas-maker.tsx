@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-import { ChosenRow, FORM_PILL_CLASS, FORM_PILL_WIDTH, FormRow, FormRows, OpensRow, PillWords, TypedRow } from '@/app/_components/form-row';
+import { ChosenRow, FORM_PILL_CLASS, FORM_PILL_WIDTH, FormRow, FormRows, FormRowsReadOnly, OpensRow, PillWords, TypedRow } from '@/app/_components/form-row';
 import { FormCounter } from '@/app/_components/form-counter';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { Fold } from '@/app/_components/fold';
@@ -54,6 +54,7 @@ import { createClient as createBrowserSupabase } from '@/lib/supabase/client';
 import { clipPillLabel } from '@/lib/clip-duration-label';
 import { coverageServesKey } from '@/lib/coverage-serves-key';
 import { PROPOSE_CATEGORY_HREF } from '@/lib/service-picker-anchor';
+import { useTellUs } from '../requests/_components/tell-us-host';
 import { rankTradeMatches, type TradeMatch } from '@/lib/kind-search-trades';
 import { isTradeSearchMiss, collectiblePhraseFor } from '@/lib/collected-trade-phrase';
 import {
@@ -1033,6 +1034,15 @@ export function CanvasMaker({
   const moveTrade = checks.mismatch ? (tradeOptions.find((t) => t.key === checks.mismatch?.says.key) ?? null) : null;
   /** 🔒 Read-only while a booked client is using the card — or while that could not be checked (fails closed). */
   const editLocked = !!editLock && editLock.state !== 'free';
+  // ‹ "Tell us what you do" opens IN PLACE inside the maker's layer (final check B9): the sheet closes, the maker stays
+  // as it is under the steps. Outside a `TellUsHost` the link simply goes to its address (which forwards here).
+  const tellUs = useTellUs();
+  const tellUsInPlace = (e: React.MouseEvent) => {
+    if (!tellUs) return;
+    e.preventDefault();
+    setSheet(null);
+    tellUs.open();
+  };
   const [lockOpen, setLockOpen] = useState(false);
   const saveBlocked = unread.length > 0 || liveNeedsPrice || checks.open > 0;
   /**
@@ -1260,6 +1270,8 @@ export function CanvasMaker({
           inert={editLocked || undefined}
           data-card-edit-lock={editLock?.state ?? 'free'}
         >
+            {/* 🔒 A booked card: every row in it reads as plain words, no pencil (final check B7). */}
+            <FormRowsReadOnly.Provider value={editLocked}>
           <PendingWatch onChange={setPending} />
           <input type="hidden" name="category" value={category} />
           {/* C3 2026-08-28 — set only when the current kind resolved a genuine search miss. */}
@@ -1366,6 +1378,8 @@ export function CanvasMaker({
                       }}
                       data="title"
                       pillAttrs={{ 'data-maker-name': '' }}
+                      // 🔒 A booked card's name reads as plain words from its start — no pencil (final check B7).
+                      readOnly={editLocked}
                     />
                     {/* The kept name, posted under its shipped field name (the live read picks it up on its next tick). */}
                     <input type="hidden" name="title" value={title} />
@@ -1393,6 +1407,7 @@ export function CanvasMaker({
                 <div className="pt-1" data-maker-gallery="">
                   <CardPhotoGallery
                     vendorProfileId={vendorProfileId}
+                    locked={editLocked}
                     primaryCurrent={editing?.coverKey ?? initial?.coverPhotoR2Key ?? null}
                     showcaseCurrent={initial?.showcasePhotoR2Keys}
                     displayUrls={initial?.mediaDisplayUrls}
@@ -1933,6 +1948,7 @@ export function CanvasMaker({
           {askResult && askResult.tone === 'ok' ? (
             <p role="status" className="mt-3 text-[14px]" style={{ color: 'rgb(var(--color-ok))' }}>{askResult.text}</p>
           ) : null}
+            </FormRowsReadOnly.Provider>
         </form>
 
         {/* ═══ AS COUPLES SEE IT — the shipped face, painted from the live form; beside the surface from 701 up ═══ */}
@@ -2074,6 +2090,7 @@ export function CanvasMaker({
             ))}
             <Link
               href={PROPOSE_CATEGORY_HREF}
+              onClick={tellUsInPlace}
               className="sn-press flex min-h-[58px] items-center gap-3 py-2"
               data-kind-ask-us=""
             >
@@ -2095,7 +2112,7 @@ export function CanvasMaker({
           {lockedWhy ? (
             <p className="text-[14px] text-ink/65">
               {lockedWhy}{' '}
-              <Link href={PROPOSE_CATEGORY_HREF} className="font-semibold text-sn-accent underline-offset-2 hover:underline">
+              <Link href={PROPOSE_CATEGORY_HREF} onClick={tellUsInPlace} className="font-semibold text-sn-accent underline-offset-2 hover:underline">
                 Tell us what you do
               </Link>{' '}
               and we&rsquo;ll take it from there — this card stays exactly as you left it.

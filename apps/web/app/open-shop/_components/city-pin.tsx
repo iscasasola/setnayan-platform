@@ -3,7 +3,7 @@
 import 'leaflet/dist/leaflet.css';
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check, Crosshair, Info, Loader2, MapPin } from 'lucide-react';
+import { Check, Crosshair, Info, MapPin } from 'lucide-react';
 
 import { addressFromPin } from '@/lib/pin-address';
 import { pinConfirmCopy } from '@/lib/pin-confirm-copy';
@@ -539,7 +539,6 @@ export function CityPin({
 
       {locating ? (
         <span className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate-3)' }} aria-live="polite">
-          <Loader2 aria-hidden className="h-3 w-3 shrink-0 animate-spin" strokeWidth={2} />
           Finding it on the map…
         </span>
       ) : noMatch ? (
@@ -575,7 +574,6 @@ export function CityPin({
             aria-live="polite"
             data-open-shop-map-busy=""
           >
-            <Loader2 aria-hidden className="h-5 w-5 animate-spin" strokeWidth={2} />
             {busy}
           </div>
         ) : !pin ? (

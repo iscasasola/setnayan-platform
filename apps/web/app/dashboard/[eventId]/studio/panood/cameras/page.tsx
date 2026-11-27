@@ -1,5 +1,8 @@
 import { eventRowOnce } from '@/lib/event-row-once';
 import { getCurrentUser } from '@/lib/auth';
+import { PLAN_UNREAD } from '@/lib/plan-unread';
+import { TryAgain } from '@/app/vendor-dashboard/_components/set-two/try-again';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { Video } from 'lucide-react';
@@ -18,7 +21,7 @@ import {
   panoodCameraClaimUrl,
   panoodCameraCapForTier,
   provisionPanoodCamerasAdmin,
-  resolvePanoodTier,
+  readPanoodTier,
   PANOOD_FREE_CAMERA_COUNT,
 } from '@/lib/panood-camera-seats';
 import { CopyLink } from '../_components/copy-link';
@@ -80,17 +83,34 @@ export default async function PanoodCamerasPage({ params }: Props) {
   // did not place the order would read 'free' under their own session and see the
   // same false sentence. The Cast tier used to be read that way — it no longer is.
   const ent = await eventEntitlementClient(eventId);
+  /* L-08 (owner ruling, final check Add 45): a failed plan read says "We couldn't check your plan, try again" — no paid
+     limit is drawn from it, so no seats are provisioned against a guessed tier. */
+  let planReadFailed = false;
   const [castTier, liveStudioOwned] = await Promise.all([
-    resolvePanoodTier(ent, eventId),
-    eventSkuActive(ent, eventId, LIVE_STUDIO_SKU).catch(() => false),
+    // `readPanoodTier` answers null on a failed read — `resolvePanoodTier` would have quietly said 'free'.
+    readPanoodTier(ent, eventId).then((tier) => {
+      if (tier === null) planReadFailed = true;
+      return tier ?? ('free' as const);
+    }),
+    eventSkuActive(ent, eventId, LIVE_STUDIO_SKU).catch(() => {
+      planReadFailed = true;
+      return false;
+    }),
   ]);
   const unlocked = castTier !== 'free' || liveStudioOwned;
+  // A yes from either read is a yes; only an unanswered plan with no yes is "we couldn't check".
+  const planUnread = planReadFailed && !unlocked;
   const cap = panoodCameraCapForTier(unlocked ? 'paid' : 'free');
 
   // Provision before reading, so a first visit on the free tier shows seats immediately rather
   // than an empty page that self-heals on reload. Idempotent top-up; never destructive.
-  await provisionPanoodCamerasAdmin(admin, eventId, cap).catch(() => 0);
-  const cameras = await fetchPanoodCameras(admin, eventId).catch(() => []);
+  if (!planUnread) await provisionPanoodCamerasAdmin(admin, eventId, cap).catch(() => 0);
+  // L-08 (final check): a refused read is not "No cameras yet".
+  let camerasReadFailed = false;
+  const cameras = await fetchPanoodCameras(admin, eventId).catch(() => {
+    camerasReadFailed = true;
+    return [];
+  });
 
   const h = await headers();
   const host = h.get('host') ?? 'www.setnayan.com';
@@ -139,6 +159,13 @@ export default async function PanoodCamerasPage({ params }: Props) {
         }
       />
 
+      {planUnread ? (
+        <div role="status" data-plan-unread="" className="flex flex-wrap items-center gap-3 text-sm text-ink/70">
+          <p>{PLAN_UNREAD}</p>
+          <TryAgain />
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-xs text-ink/70">
           {formatCount(claimedCount)} of {formatCount(rows.length)} connected
@@ -171,7 +198,9 @@ export default async function PanoodCamerasPage({ params }: Props) {
         </Link>
       </div>
 
-      {rows.length === 0 ? (
+      {camerasReadFailed ? (
+        <ReadRefusedNotice what="your camera seats" />
+      ) : rows.length === 0 && planUnread ? null : rows.length === 0 ? (
         <QuietStart
           Icon={Video}
           title="No cameras yet."

@@ -47,7 +47,7 @@ import { AccountSwitcher } from '@/app/_components/account-switcher/account-swit
 import { supplierAvatarRows } from '@/app/vendor-dashboard/_components/supplier-avatar-rows';
 import { LabSeedDraft } from './lab-seed-draft';
 import { AnalyticsLab } from './analytics-lab';
-import { firstPlanWith, tierCaps, TIER_LABEL } from '@/lib/vendor-tier-caps';
+import { firstPlanWith, FIRST_PAID_SIZE, tierCaps, TIER_LABEL } from '@/lib/vendor-tier-caps';
 import type { DeepSearchOffer, LastDeepSearch } from '@/lib/vendor-deep-search-offer';
 import { shopBadgeTier, tierName } from '@/lib/badge-tiers';
 import { BadgeEarnedLine } from '@/app/vendor-dashboard/_components/badge-earned-line';
@@ -322,6 +322,7 @@ function detailsFixture(who: Who): DetailsData {
     website: null,
     about: f.about,
     sameDayAvailable: false,
+    visibilityMeasured: true,
     socialFeatureOptOut: false,
     socialAlreadyFeatured: false,
     openCorrections: [],
@@ -601,6 +602,8 @@ function pageFixture(who: Who): PageClientData {
     proAsks: vendorPaywallApplies(f.tier === 'pro'),
     addressAsks: vendorPaywallApplies(tierCaps(f.tier).customWebsiteName),
     addressPlan: TIER_LABEL[firstPlanWith((c) => c.customWebsiteName) ?? 'pro'],
+    proPartsPlan: TIER_LABEL[firstPlanWith((c) => c.premiumPage) ?? 'pro'],
+    personalizePlan: TIER_LABEL[FIRST_PAID_SIZE],
     storeShell: false,
     plans: pagePlanLines(),
     // Page keeps the pills only (owner 2026-11-06); the one tracker is the Shop tab's badge row, under the Analytics carousel.

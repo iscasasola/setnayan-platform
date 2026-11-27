@@ -1,6 +1,8 @@
 import { redirect } from 'next/navigation';
 import { loadLiveScreen } from './_lib/load-screen';
 import { pairLiveScreen } from './actions';
+import { ConnectForm, type ConnectLook } from './_components/connect-fields';
+import { LIVE_EMPTY_CODE_LINE } from './_lib/connect-words';
 
 /**
  * setnayan.com/live — where a venue screen pairs (DAY-12).
@@ -18,10 +20,18 @@ export const dynamic = 'force-dynamic';
 
 const ERRORS: Record<string, string> = {
   code: 'That code didn’t work. Check it on the controller — codes are used once and last a day.',
+  empty: LIVE_EMPTY_CODE_LINE,
   slow: 'Too many tries from this screen. Wait a few minutes, then try again.',
   down: 'We couldn’t reach Setnayan just now. Try again in a moment.',
   // Owner ruling 2026-09-20: screens come WITH the paid Live Studio unlock.
-  locked: 'This event hasn’t unlocked Live Watch, so its screens aren’t active yet. Ask the couple to unlock it first.',
+  locked: 'This event hasn’t unlocked Live Watch, so its screens aren’t active yet. Ask the host to unlock it first.',
+};
+
+/** The venue screen's own dark stage for the Connect form (shipped colours, drawn by `ConnectForm`). */
+const CONNECT_LOOK: ConnectLook = {
+  button:
+    'h-16 rounded-2xl bg-[#E5794E] text-2xl font-semibold text-[#17160F] transition-opacity hover:opacity-90 focus:outline-none focus:ring-4 focus:ring-[#E5794E]/40 data-[pending=true]:opacity-60',
+  alert: 'mt-6 max-w-md text-lg text-[#F5A98A]',
 };
 
 type Props = { searchParams: Promise<{ code?: string; error?: string }> };
@@ -37,47 +47,43 @@ export default async function LivePairPage({ searchParams }: Props) {
   const { code, error } = await searchParams;
   const message = error ? ERRORS[error] ?? ERRORS.code : null;
   const prefill = typeof code === 'string' ? code.toUpperCase().slice(0, 12) : '';
+  // A fresh form for each answer (see `ConnectForm`): the error key alone repeats when the same answer comes twice.
+  const renderKey = `${error ?? 'none'}-${Date.now()}`;
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center bg-[#17160F] px-6 py-16 text-center text-[#F5EFE6]">
       <p className="text-sm font-semibold uppercase tracking-[0.3em] text-[#E5794E]">Setnayan · Live Watch</p>
       <h1 className="mt-4 text-4xl font-semibold tracking-tight sm:text-6xl">Connect this screen</h1>
       <p className="mt-4 max-w-xl text-lg text-[#F5EFE6]/75 sm:text-xl">
-        Type the code shown under <strong className="text-[#F5EFE6]">Venue screens</strong> in the couple&rsquo;s Live
+        Type the code shown under <strong className="text-[#F5EFE6]">Venue screens</strong> in the host&rsquo;s Live
         Studio controller.
       </p>
 
-      <form action={pairLiveScreen} className="mt-10 flex w-full max-w-md flex-col items-stretch gap-4">
-        <label htmlFor="code" className="sr-only">
-          Screen code
-        </label>
-        <input
-          id="code"
-          name="code"
-          defaultValue={prefill}
-          required
-          autoFocus
-          autoComplete="off"
-          autoCapitalize="characters"
-          spellCheck={false}
-          inputMode="text"
-          maxLength={12}
-          placeholder="ABC123"
-          className="h-20 rounded-2xl border-2 border-[#F5EFE6]/25 bg-black/30 text-center font-mono text-5xl uppercase tracking-[0.35em] text-[#F5EFE6] placeholder:text-[#F5EFE6]/20 focus:border-[#E5794E] focus:outline-none"
-        />
-        <button
-          type="submit"
-          className="h-16 rounded-2xl bg-[#E5794E] text-2xl font-semibold text-[#17160F] transition-opacity hover:opacity-90 focus:outline-none focus:ring-4 focus:ring-[#E5794E]/40"
-        >
-          Connect
-        </button>
-      </form>
-
-      {message ? (
-        <p role="alert" className="mt-6 max-w-md text-lg text-[#F5A98A]">
-          {message}
-        </p>
-      ) : null}
+      {/* 🔘 A4-B04: the field and the button answer the press at once and stay pressed until this page answers
+          (`ConnectForm`); an empty press is the page's own line, never the browser's bubble. A new `key` per render, so
+          every answer (a redirect back here) starts a fresh, unlocked form. */}
+      <ConnectForm key={renderKey} action={pairLiveScreen} prefill={prefill} message={message ?? null} look={CONNECT_LOOK}
+        field={
+          <>
+            <label htmlFor="code" className="sr-only">
+              Screen code
+            </label>
+            <input
+              id="code"
+              name="code"
+              defaultValue={prefill}
+              autoFocus
+              autoComplete="off"
+              autoCapitalize="characters"
+              spellCheck={false}
+              inputMode="text"
+              maxLength={12}
+              placeholder="ABC123"
+              className="h-20 rounded-2xl border-2 border-[#F5EFE6]/25 bg-black/30 text-center font-mono text-5xl uppercase tracking-[0.35em] text-[#F5EFE6] placeholder:text-[#F5EFE6]/20 read-only:opacity-60 focus:border-[#E5794E] focus:outline-none"
+            />
+          </>
+        }
+      />
 
       {loaded.state === 'revoked' ? (
         <p className="mt-6 max-w-md text-base text-[#F5EFE6]/65">

@@ -149,6 +149,7 @@ import {
   cannotFitWords,
   parseVipPlusOneSeating,
   type VipPlusOneSeating,
+  countStillToSeat,
 } from '@/lib/seating';
 // 🪑⚙ Tables, chairs, the room box and the wall rule come from the ONE seat-plan engine the supplier's Spaces uses too
 // (DECISION_LOG 2026-11-20, "ONE SEAT-PLAN ENGINE FOR THE COUPLE AND THE SUPPLIER").
@@ -208,6 +209,7 @@ import { useSeatingLiveRefresh } from './use-seating-live-refresh';
 import { SeatingLockError } from '../seating-lock-error';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { formatCount } from '@/lib/format-number';
+import { planTableBadges } from '@/lib/plan-table-badges';
 import { guestsViewHref } from '@/lib/guests-views';
 import {
   moveTargets,
@@ -632,6 +634,8 @@ export function SeatingEditor({
             return { ...t, removed_seats: [...next].sort((a, b) => a - b) };
           }),
   );
+  // 🪑 Each table's short name on the plan, unique across the room: its number, else its initials (lib/plan-table-badges).
+  const planBadges = useMemo(() => planTableBadges(tables), [tables]);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
@@ -1335,8 +1339,10 @@ export function SeatingEditor({
   };
 
   const seatedCount = guests.filter((g) => g.seated_table_id).length;
-  const totalCapacity = tables.reduce((acc, t) => acc + t.capacity, 0);
-  const unseatedCount = guests.length - seatedCount;
+  // The tooltip's seats and still-to-seat are the page's own figures (A2-E4): chairs a removed seat no longer offers do
+  // not count, and a declined guest is not "unseated".
+  const totalCapacity = tables.reduce((acc, t) => acc + effectiveCapacity(t.capacity, t.removed_seats), 0);
+  const unseatedCount = countStillToSeat(guests);
 
   // Linked tables collapse into ONE display unit (combined name + summed seats)
   // for the panel + caterer lists, so a joined set reads as a single pooled
@@ -4789,7 +4795,8 @@ export function SeatingEditor({
 
   // ── Scroll-less frame plumbing (council verdict 2026-07-15) ───────────────
   const router = useRouter();
-  const labUrl = `/dashboard/${eventId}/seating/lab`;
+  // L6 (R5): the 3D room's home is Guests › Seats › 3D — straight there, not through the retired lab's forward.
+  const labUrl = guestsViewHref(eventId, 'seats', { seat: '3d' });
 
   // The canvas cell now absorbs all remaining height (verdict §1). Measure it so
   // to-scale mode can letterbox the room ratio INSIDE the fill (not a vh guess),
@@ -6816,7 +6823,7 @@ export function SeatingEditor({
     ? seatPlanGuestSections(guests, { query: search, onlyUnseated, sides: details.sides, groups })
     : null;
   const nextUp = nextUnseatedGuest(guests, pickedId);
-  const unseatedComing = guests.filter((g) => !g.seated_table_id && g.rsvp_status !== 'declined').length;
+  const unseatedComing = countStillToSeat(guests);
   const detailsTable = details && highlightId ? tables.find((t) => t.table_id === highlightId) ?? null : null;
   const togglePick = (g: SeatingGuest) => setPickedId((id) => (id === g.guest_id ? null : g.guest_id));
   const seatAtMenu = (g: SeatingGuest) =>
@@ -9301,9 +9308,9 @@ export function SeatingEditor({
             // refusal is legible BEFORE release.
             const snappingBack = snapBackIds.has(t.table_id);
             const showInvalidRing = dragging && dragInvalid;
-            // Linked tables render under the UNIT's name (number when it has one).
-            const displayLabel = t.link_group_label ?? t.table_label;
-            const num = displayLabel.match(/\d+/)?.[0] ?? '';
+            // Linked tables render under the UNIT's name; two tables that would read alike take a part mark ("9A", "9B"),
+            // and a table named in words wears its initials, never "·" (27 Nov 2026).
+            const num = planBadges.get(t.table_id) ?? '';
             const rot = rotationOf(t); // table orientation (deg)
             const removed = removedSeatSet(t.removed_seats, t.capacity);
             const effCap = effectiveCapacity(t.capacity, t.removed_seats);

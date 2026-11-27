@@ -238,7 +238,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Papic',
     href: '/papic',
     description:
-      'Papic turns your guests into your photo crew. Everyone shoots, every photo finds the people in it, and each guest goes home with their own Memories — plus a personal video reel set to music. The candid wedding moments one photographer can’t be everywhere for, delivered to everyone. Philippines-first.',
+      'Papic turns your guests into your photo crew. Everyone shoots, every photo finds the people in it, and each guest goes home with their own Memories. The candid moments one photographer can’t be everywhere for, delivered to everyone.',
     demo: {
       id: 'papic-demo',
       label: 'Try it now with a friend',
@@ -334,7 +334,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Mood Board',
     href: '/mood-board',
     description:
-      'The Mood Board is where your wedding decides how it looks. Pick your palette, gather the rooms and details you love, and set the dress code for every role — then your save-the-date, your Event Hub, your monogram, your QR codes and your 3D Plan all dress to match, and your booked suppliers work from the same board. Free with every Setnayan account.',
+      'The Mood Board is where your wedding decides how it looks. Pick your palette, gather the rooms and details you love, and set the dress code for every role — then your save-the-date, your Event Hub, your logo, your QR codes and your 3D Plan all dress to match, and your booked suppliers work from the same board. Free with every Setnayan account.',
     addOnKey: 'mood-board',
   },
   // 🪦 'pakanta' retired 2026-11-20 (lib/retired-products.ts) — no row, no page; /pakanta redirects to /features.
@@ -375,7 +375,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Marketplace',
     href: '/marketplace',
     description:
-      'Browse verified Filipino wedding suppliers — photographers, caterers, coordinators, florists, hair and makeup and more — free, with 0% commission on bookings. Save the ones you like and put any two side by side before you decide.',
+      'Browse verified Filipino suppliers for any event — photographers, caterers, coordinators, florists, hair and makeup and more — free. Hosts pay 0% commission. Save the ones you like and put any two side by side before you decide.',
     eventHref: (eventId) => `/dashboard/${eventId}/vendors`,
     doorwayOnly: true,
     railGroup: 'planner',
@@ -418,7 +418,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Budget',
     href: '/budget',
     description:
-      'Set your total wedding budget in pesos, take a suggested split from typical Filipino wedding costs, and see what you have agreed, paid and still owe — only finalized bookings, never a quote. Free with every Setnayan account, beside your guest list, schedule, seat plan and mood board.',
+      'Set your event’s budget in pesos and see what you have agreed, paid and still owe — only finalized bookings, never a quote. Free with every Setnayan account, beside your guest list, schedule, seat plan and mood board.',
     eventHref: (eventId) => `/dashboard/${eventId}/budget`,
     doorwayOnly: true,
     railGroup: 'planner',
@@ -466,7 +466,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Logo Maker',
     href: '/palogo',
     description:
-      'Logo Maker gives your wedding one mark of its own — your initials, drawn into a monogram that comes alive. It opens your save-the-date, signs your Event Hub, glows on the screen at the reception, and closes every video. One signature, carried beautifully across your whole day.',
+      'Logo Maker gives your wedding one mark of its own — your initials, drawn into a logo that comes alive. It opens your save-the-date, signs your Event Hub, glows on the screen at the reception, and closes every video. One signature, carried beautifully across your whole day.',
     addOnKey: 'animated-monogram',
     surface: 'monogram',
     // ⚠ /palogo IS STILL A LIVE PAGE. The LED backdrop was removed from the

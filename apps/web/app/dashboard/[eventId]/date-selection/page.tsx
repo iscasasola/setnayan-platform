@@ -25,6 +25,7 @@
  * when date_status != 'locked'). No new orphan routes.
  */
 
+import { spanTouchesWeekend } from '@/lib/long-weekend';
 import { FINDABLE_SHOP_GATE } from '@/lib/findable-shop';
 import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { blockClosesDay, notAvailableShapeOf, notAvailableWindowFilter } from '@/lib/not-available';
@@ -48,7 +49,9 @@ import { fetchEventVendors, displayServiceLabel } from '@/lib/vendors';
 import { fetchChangeLinesByVendor, withAgreedTotalNow } from '@/lib/agreed-total-and-its-changes';
 import { getBatchVendorAvailableDays } from '@/lib/vendor-availability';
 import { intersectViableCandidates } from '@/lib/candidate-dates';
-import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
+import { CONFIRMED_VENDOR_STATUSES, formatEventDateWithPrecision, type EventDatePrecision } from '@/lib/events';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import {
   VENDOR_BLOCK_SELECT,
   VENDOR_POOL_SELECT,
@@ -58,6 +61,7 @@ import { FourQuestionFlow } from './_components/four-question-flow';
 import { CandidateDatePicker, type CandidateInsight } from './_components/candidate-date-picker';
 import { ChineseSpecialistNudge } from './_components/chinese-specialist-nudge';
 import { markDateUndecided } from './actions';
+import Link from 'next/link';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { formatRecordedAt } from '@/lib/recorded-at';
 
@@ -149,11 +153,8 @@ function holidayNote(dateKey: string): string | null {
     if (!name) continue;
     // Only call it a long weekend when the gap touches an actual weekend:
     // candidate is Sat/Sun, OR the holiday is Sat/Sun, OR they bridge one.
-    const candDow = base.getDay();
-    const holDow = probe.getDay();
-    const touchesWeekend =
-      candDow === 0 || candDow === 6 || holDow === 0 || holDow === 6 || Math.abs(delta) <= 2;
-    if (touchesWeekend) {
+    // A2-H13: the span from the date to the holiday (both included) must hold a Saturday or Sunday.
+    if (spanTouchesWeekend(base, probe)) {
       return `${name} is ${Math.abs(delta)} day${Math.abs(delta) === 1 ? '' : 's'} away — a long weekend gives guests time to travel`;
     }
   }
@@ -367,8 +368,50 @@ export default async function DateSelectionPage({ params, searchParams }: Props)
     note: (r.note as string | null) ?? null,
   }));
 
-  const path = typeof search.path === 'string' ? search.path : null;
   const backToHomeHref = `/dashboard/${eventId}`;
+
+  /* 🔒 A2-P9: A SET DATE IS NOT PICKED AGAIN. Once any supplier is confirmed the date is set and only support changes it
+     — the rule Event settings states and the date's writer holds (`lockEventDate` / `updateEventDate`). So every path
+     here (the chooser, ?path=direct, ?path=guided) shows the date and why, never "Let's start with your date". A refused
+     supplier read is said, never taken for "no supplier booked". */
+  if (event.event_date) {
+    const { count: bookedCount, error: bookedErr } = await supabase
+      .from('event_vendors')
+      .select('vendor_id', { count: 'exact', head: true })
+      .eq('event_id', eventId)
+      .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]);
+    if (bookedErr) {
+      logQueryError('DateSelectionPage (booked suppliers)', bookedErr, { event_id: eventId }, 'graceful_degrade');
+      return (
+        <section className="mx-auto max-w-2xl space-y-6">
+          <PageMasthead title="Your date" />
+          <ReadRefusedNotice what="whether your date is set" />
+        </section>
+      );
+    }
+    if ((bookedCount ?? 0) > 0) {
+      const precision = (event.event_date_precision as EventDatePrecision | null) ?? 'day';
+      return (
+        <section className="mx-auto max-w-2xl space-y-6" data-date-set="">
+          <Link href={backToHomeHref} className="inline-flex items-center gap-1.5 text-sn-base text-ink/70 hover:text-ink">
+            <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
+            Back to {(event as { display_name: string }).display_name}
+          </Link>
+          <PageMasthead title="Your date is set" />
+          <p className="text-sn-2xl font-semibold text-ink">{formatEventDateWithPrecision(event.event_date, precision)}</p>
+          <p className="text-sn-base text-ink/70">
+            It&rsquo;s set because a supplier is booked on it.{' '}
+            <Link href="/help" className="font-medium text-terracotta underline-offset-2 hover:underline">
+              Contact support
+            </Link>{' '}
+            to change it.
+          </p>
+        </section>
+      );
+    }
+  }
+
+  const path = typeof search.path === 'string' ? search.path : null;
   const backToChooserHref = `/dashboard/${eventId}/date-selection`;
 
   // Path: direct calendar pick

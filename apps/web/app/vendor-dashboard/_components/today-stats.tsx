@@ -4,6 +4,7 @@ import { formatCount } from '@/lib/format-number';
 import { formatPesoCompact } from '@/lib/vendors-plan-budget';
 import type { TodayStats as Stats } from '@/lib/supplier-today-view';
 import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
+import { routes } from '@/lib/routes';
 
 /**
  * 📊 TODAY'S FIVE STATS (THE ONE BUILD A4, v113 Today — v103/v104 "stats jump"): Views · Inquiries · Booked ·
@@ -21,7 +22,7 @@ import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
  */
 export const TODAY_STAT_HREFS = {
   views: '/vendor-dashboard/shop',
-  inquiries: '/vendor-dashboard/customers?door=asking',
+  inquiries: routes.vendorDashboard.customers({ door: 'asking' }),
   // Owner 75a46e3c item 9: Clients filtered to this month, so it shows this same number (`lib/booked-this-month.ts`).
   booked: BOOKED_THIS_MONTH_HREF,
   portfolio: '/vendor-dashboard/collections',
@@ -56,16 +57,18 @@ export function todayStatsOf(s: Stats): Stat[] {
 
 export function TodayStats({ stats }: { stats: Stats }) {
   return (
-    <nav aria-label="Your numbers" data-today-stats="" data-tour="today-stats" className="-mx-4 mb-5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
-      <ul className="flex snap-x gap-2">
+    // Phone: a snap row with a peek, as shipped. From the tablet line a grid that fits its column — three across, then
+    // two — never a row cut off at the right edge (final check B4 · B5-11).
+    <nav aria-label="Your numbers" data-today-stats="" data-tour="today-stats" className="-mx-4 mb-5 overflow-x-auto px-4 [scrollbar-width:none] sm:mx-0 sm:px-0 tab:overflow-visible">
+      <ul className="flex snap-x gap-2 tab:grid tab:grid-cols-3">
         {todayStatsOf(stats).map((s) => (
-          <li key={s.id} className="snap-start">
+          <li key={s.id} className="snap-start tab:min-w-0">
             <Link
               href={TODAY_STAT_HREFS[s.id]}
               data-today-stat={s.id}
               // 🔦 the app-wide supplier tour's "Get paid" stop (it lit the retired money count).
               data-tour={s.id === 'money' ? 'today-money' : undefined}
-              className="flex min-h-[88px] w-[104px] flex-col justify-center rounded-2xl bg-ink/[0.045] px-3 py-2.5"
+              className="flex min-h-[88px] w-[104px] flex-col justify-center rounded-2xl bg-ink/[0.045] px-3 py-2.5 tab:w-full"
             >
               {s.figure !== null ? (
                 <span className="text-[22px] font-semibold leading-none tracking-[-0.01em] text-ink">{s.figure}</span>
@@ -97,38 +100,5 @@ export function TodayStatsPinned({ stats }: { stats: Stats }) {
         </Link>
       ))}
     </nav>
-  );
-}
-
-/** The side pane's three small cards, in the drawing's words (`.minis`: Opened · Asked · Booked). */
-const MINI_WORDS = { views: 'Opened', inquiries: 'Asked', booked: 'Booked' } as const;
-
-/**
- * 🖥 THE SHOP BLOCK'S THREE SMALL CARDS (owner 17 Nov, approved pick 2; P1 drawing `supplier_desktop_main_2026-11-16`,
- * `.minis`) — Opened · Asked · Booked, each opening How is business. Built from the SAME stats Today already read (no new
- * request), so a figure that could not be read says "couldn’t load", never 0. The drawing's week-on-week change and
- * the little bars need the analytics series, which Today does not read — they wait for the owner's word on one more
- * read (STATUS, owner row).
- */
-export function TodayShopMinis({ stats }: { stats: Stats }) {
-  const cards = todayStatsOf(stats).filter((s): s is Stat & { id: keyof typeof MINI_WORDS } => s.id in MINI_WORDS);
-  return (
-    <ul data-today-minis="" className="grid grid-cols-3 gap-2 px-1 pb-2">
-      {cards.map((s) => (
-        <li key={s.id} className="min-w-0">
-          <Link
-            href="/vendor-dashboard/shop#analytics"
-            data-today-mini={s.id}
-            className="flex min-h-[72px] flex-col justify-center rounded-2xl bg-[var(--surface-soft)] px-3 py-2"
-          >
-            <span className="text-[12px] leading-tight text-ink/60">{MINI_WORDS[s.id]}</span>
-            <span className="text-[20px] font-semibold leading-tight text-ink">{s.figure ?? '—'}</span>
-            <span className={`truncate text-[11.5px] leading-tight ${s.line === UNREAD ? 'text-[rgb(var(--color-danger))]' : 'text-ink/55'}`}>
-              {s.line}
-            </span>
-          </Link>
-        </li>
-      ))}
-    </ul>
   );
 }

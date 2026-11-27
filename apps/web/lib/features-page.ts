@@ -34,7 +34,7 @@ import type { CatalogueRow } from '@/lib/feature-pages/price';
 import { FEE_SCOPE } from '@/lib/booking-fee-who-words';
 import { formatCount } from '@/lib/format-number';
 import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
-import { TIER_LABEL } from '@/lib/vendor-tier-caps';
+import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
 
 export type RowStatus = 'live' | 'coming';
 export type RowPrice = 'free' | 'free-plus' | 'paid' | 'credits' | 'per-day' | 'in-plans';
@@ -119,7 +119,7 @@ export const FEATURE_ROWS = {
   a57: F({ icon: 'mem', name: 'Memories', line: 'Everything from the day, download all, say thank you.', price: 'free', status: 'live', reg: ['A57'], page: 'alaala', problem: 'Photos scatter across 150 phones, get deleted, or cost money to keep.', solution: 'Guests’ photos, the broadcast and the page, in one place you can return to.', why: 'The memory outlives the day.' }),
   a58: F({ icon: 'reel', name: 'Thank-You Video', line: 'A longer produced film, after the day.', price: 'paid', status: 'live', reg: ['A58'], problem: 'The thank-you is a text message.', solution: 'A produced film from the day’s photos and clips.', why: 'A thank-you worth keeping.' }),
   a59: F({ icon: 'book', name: 'Photo Notes and the Photo Notes Magazine', line: 'Guests write on a photo; a storybook designs itself.', price: 'free-plus', status: 'live', reg: ['A59'], problem: 'The stories behind the photos are lost.', solution: 'Guests write a short story on a photo; the magazine gathers them. Free digital, print with Pro.', why: 'Words kept with the pictures.' }),
-  a60: F({ icon: 'gift', name: 'Pabuya e-gifts', line: 'Straight to your own GCash, Maya, bank or PayPal.', price: 'free', status: 'live', reg: ['A60'], page: 'e-gifts', problem: 'Cash in envelopes gets lost; guests abroad cannot give.', solution: 'Gifts go straight to your account and follow your wish list. Setnayan never touches the money.', why: 'Safe, traceable, from anywhere.' }),
+  a60: F({ icon: 'gift', name: 'E-Gifts', line: 'Straight to your own GCash, Maya, bank or PayPal.', price: 'free', status: 'live', reg: ['A60'], page: 'e-gifts', problem: 'Cash in envelopes gets lost; guests abroad cannot give.', solution: 'Gifts go straight to your account and follow your wish list. Setnayan never touches the money.', why: 'Traceable, from anywhere.' }),
   a66: F({ icon: 'print', name: 'Photo prints', line: 'Guests order prints, no account needed.', price: 'paid', status: 'live', reg: ['A66'], problem: 'Nobody prints anything any more.', solution: 'Order prints from the album, without an account.', why: 'Something on the wall.' }),
   a45: F({ icon: 'book', name: 'The story, Love Story and Post Event', line: 'Five word-only stories free; the Post Event story writes itself.', price: 'free-plus', status: 'live', reg: ['A45'], problem: 'The invitation link goes dead after the day.', solution: 'The same page becomes the story of the day; Pro adds media and custom scenes.', why: 'One link, for life.' }),
   a47: F({ icon: 'book', name: 'Editorial and guest columns', line: 'A magazine story of the day, with guests’ columns.', price: 'paid', status: 'live', reg: ['A47'], problem: 'The story of the day is told in captions.', solution: 'An editorial written from the day, with guest columns.', why: 'Told properly.' }),
@@ -151,7 +151,7 @@ export const FEATURE_ROWS = {
   b06: F({ icon: 'mem', name: 'See everyone’s photos', line: 'The whole album as it fills.', price: 'free', status: 'live', reg: ['B06'], problem: 'You see only what is posted later.', solution: 'Everyone’s photos, live, on the event page.', why: 'The party sees itself.' }),
   b09: F({ icon: 'live', name: 'Watch from abroad (Live Watch)', line: 'The stream plays on the event’s own page.', price: 'free', status: 'live', reg: ['B09'], problem: 'A Facebook Live link forwarded five times.', solution: 'Open the Event Hub; the stream is there.', why: 'Family overseas in the room.' }),
   b10: F({ icon: 'book', name: 'Photo Notes and guest columns', line: 'Write a short story on a photo.', price: 'free', status: 'live', reg: ['B10'], problem: 'Your story about that photo is never told.', solution: 'Write it on the photo; it joins the magazine.', why: 'Words kept with the picture.' }),
-  b07: F({ icon: 'gift', name: 'Send a gift (Pabuya)', line: 'Straight to the host, from anywhere.', price: 'free', status: 'live', reg: ['B07'], problem: 'No envelope from abroad.', solution: 'GCash, Maya, bank or PayPal, straight to the host; follow the wish list.', why: 'Traceable, from anywhere.' }),
+  b07: F({ icon: 'gift', name: 'Send an E-Gift', line: 'Straight to the host, from anywhere.', price: 'free', status: 'live', reg: ['B07'], problem: 'No envelope from abroad.', solution: 'GCash, Maya, bank or PayPal, straight to the host; follow the wish list.', why: 'Traceable, from anywhere.' }),
   b08: F({ icon: 'print', name: 'Order prints without an account', line: 'Pick your photos; prints arrive.', price: 'paid', status: 'live', reg: ['B08'], problem: 'You never print the photos you were in.', solution: 'Order prints from the album, no account.', why: 'Something to keep.' }),
   b11: F({ icon: 'book', name: 'The recap after the day', line: 'The story of the day, with you in it.', price: 'free', status: 'live', reg: ['B11'], problem: 'The link goes dead after the party.', solution: 'The same page becomes the recap.', why: 'You can return to it.' }),
   // ───────── C · SUPPLIERS ─────────
@@ -162,7 +162,7 @@ export const FEATURE_ROWS = {
   c05: F({ icon: 'tag', name: 'The plan sheet', line: 'Going past a limit asks to upgrade; Change plan shows what changes and what you pay.', price: 'free', status: 'live', reg: ['C05'], problem: 'Limits appear as errors; plan changes are a bare dropdown.', solution: 'One sheet: the lowest plan that allows it, what else unlocks, what you pay today.', why: 'Upgrade with your eyes open.' }),
   c06: F({ icon: 'crown', name: 'Supplier plans: Free · Plus · Pro · Ultra', line: 'Operate, grow, scale.', price: 'paid', status: 'live', reg: ['C06'], problem: 'Platforms charge listing fees up front.', solution: 'Free to join; paid plans add seats, reach and insights. Prices from the catalogue.', why: 'Start with nothing.' }),
   c11: F({ icon: 'store', name: 'My Shop', line: 'Profile, photos, cover and logo menu, share, QR, badges.', price: 'free', status: 'live', reg: ['C11'], problem: 'Your business lives on someone else’s page.', solution: 'Your shop with cover, logo, photos, QR codes and badges.', why: 'Your page.' }),
-  c12: F({ icon: 'store', name: 'A public sample shop (SetnaProd)', line: 'See what a full shop looks like.', price: 'free', status: 'coming', reg: ['C12'], plan: 'Build 5 · Lane H', problem: 'A new shop cannot picture the finished look.', solution: 'A public sample shop filled with cards, photos and inspiration.', why: 'Seeing the goal.' }),
+  c12: F({ icon: 'store', name: 'A public sample shop', line: 'See what a full shop looks like.', price: 'free', status: 'coming', reg: ['C12'], plan: 'Build 5 · Lane H', problem: 'A new shop cannot picture the finished look.', solution: 'A public sample shop filled with cards, photos and inspiration.', why: 'Seeing the goal.' }),
   c13: F({ icon: 'door', name: 'Your public shop page', line: 'Dates, booth, guest reviews; written for Google and AI.', price: 'free', status: 'live', reg: ['C13'], problem: 'Nobody finds you from search.', solution: 'A page with your services, dates and reviews that search engines understand.', why: 'Free customers from search.' }),
   c40: F({ icon: 'tag', name: 'The for-suppliers page and plan table', line: 'Free · Plus · Pro · Ultra, side by side.', price: 'free', status: 'live', reg: ['C40'], problem: 'A public plan table can promise more than the plan gives.', solution: 'Each plan shows what it really unlocks for a shop today.', why: 'No surprises after signing up.' }),
   c41: F({ icon: 'grid', name: 'Your category comes from one list', line: 'Group › Category › Service › Part, one source.', price: 'free', status: 'live', reg: ['C41'], problem: 'Categories copied in many places drift apart.', solution: 'One taxonomy; your services, Find and the sheet all read it.', why: 'Couples find the right supplier.' }),
@@ -379,12 +379,31 @@ export const EVENT_PLANS: readonly PlanColumn[] = [
   { name: 'Event Ultra', tag: 'Shared live, kept longer.', price: { kind: 'paid', catalogue: 'retail', codes: ['EVENT_ULTRA'] }, lines: ['Everything in Pro, the most Papic credits', 'Live Watch for one day', 'Full-size photos kept 12 months', `${formatMakerMediaMB(coupleMediaCapBytes('ultra'))} of uploads`], credits: { index: 0, said: (n) => `Everything in Pro, ${n} Papic credits` } },
 ];
 
+/*
+  📏 THE SUPPLIER PLAN FACTS ARE READ FROM `TIER_CAPS` (final check A1-110). They were typed by hand and wrong:
+  Verified said "Unlimited live cards" (its cap is 3), Plus said "operate alone" (it allows the owner plus 2), and
+  Ultra sold "branches and a bigger team" that Pro already has. Each line below is built from the one cap.
+*/
+const capWords = (n: number, one: string, many: string): string =>
+  !Number.isFinite(n) ? `No limit on ${many}` : `${formatCount(n)} ${n === 1 ? one : many}`;
+const cardsLine = (tier: VendorTier) => capWords(TIER_CAPS[tier].serviceCardsTotal, 'live card', 'live cards');
+const peopleLine = (tier: VendorTier) => {
+  const n = TIER_CAPS[tier].agentAccounts;
+  return n === 0 ? 'Just you' : !Number.isFinite(n) ? 'No limit on people' : `You plus ${formatCount(n)} ${n === 1 ? 'person' : 'people'}`;
+};
+const branchesLine = (tier: VendorTier) => {
+  const n = TIER_CAPS[tier].branchesIncluded;
+  return !Number.isFinite(n) ? 'Branches, no limit' : n === 0 ? null : `${formatCount(n)} ${n === 1 ? 'branch' : 'branches'}`;
+};
+const capLines = (tier: VendorTier): string[] =>
+  [cardsLine(tier), peopleLine(tier), branchesLine(tier)].filter((l): l is string => l !== null);
+
 export const SUPPLIER_PLANS: readonly PlanColumn[] = [
-  { name: 'Free', tag: 'Open and sell.', price: { kind: 'free' }, lines: ['Shop page, cards, bundles', 'Chat, quotes, payment plans', 'Full basic dashboard'] },
-  { name: 'Verified', tag: 'Trusted.', price: { kind: 'free' }, lines: ['The badge on every card', 'Unlimited live cards', 'AI chatbot included', 'Everything in Free'] },
-  { name: 'Plus', tag: 'One person, no friction.', price: { kind: 'paid', catalogue: 'supplier', codes: ['solo_vendor_monthly'] }, lines: ['Everything in Verified', 'Operate the business alone, smoothly', 'All specialized tools included'] },
-  { name: 'Pro', tag: 'Grow.', price: { kind: 'paid', catalogue: 'supplier', codes: ['pro_vendor_monthly'] }, lines: ['Team seats', 'Performance insights', 'The smarter AI chatbot included'] },
-  { name: 'Ultra', tag: 'Scale.', price: { kind: 'paid', catalogue: 'supplier', codes: ['enterprise_vendor_monthly'] }, lines: ['Branches and a bigger team', 'Everything in Pro'] },
+  { name: 'Free', tag: 'Open and sell.', price: { kind: 'free' }, lines: ['Shop page, cards, bundles', 'Chat, quotes, payment plans', ...capLines('free')] },
+  { name: 'Verified', tag: 'Found in search.', price: { kind: 'free' }, lines: ['The badge on every card', ...capLines('verified'), 'AI chatbot included', 'Everything in Free'] },
+  { name: 'Plus', tag: 'More room to sell.', price: { kind: 'paid', catalogue: 'supplier', codes: ['solo_vendor_monthly'] }, lines: ['Everything in Verified', ...capLines('solo'), 'All specialized tools included'] },
+  { name: 'Pro', tag: 'Grow.', price: { kind: 'paid', catalogue: 'supplier', codes: ['pro_vendor_monthly'] }, lines: [...capLines('pro'), 'Performance insights', 'The smarter AI chatbot included'] },
+  { name: 'Ultra', tag: 'Scale.', price: { kind: 'paid', catalogue: 'supplier', codes: ['enterprise_vendor_monthly'] }, lines: ['Everything in Pro', ...capLines('enterprise')] },
 ];
 
 /** RW-12 · a plan's lines with its credits line naming the catalogue's count, when the row is read and active. */

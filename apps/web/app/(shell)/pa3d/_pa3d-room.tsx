@@ -26,10 +26,10 @@
  */
 
 import { useCallback, useState } from 'react';
-import { Loader2, QrCode, RotateCcw } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, QrCode, RotateCcw } from 'lucide-react';
 import { Plan3DSceneLoader } from '@/app/_components/plan3d/plan3d-scene-loader';
 import { useIsMobile } from '@/lib/use-responsive';
-import { actionButtonClass } from '@/components/action-button';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import {
   loadPlan3DDemoScene,
   mintPlan3DGuestQr,
@@ -39,7 +39,11 @@ import {
 
 type Phase = 'poster' | 'loading' | 'ready' | 'failed';
 
-export function Pa3dRoom() {
+/**
+ * `introduced` — the page above already says whose sample room this is (/pa3d/try's heading and lede), so the
+ * card does not say it a second time (A7-28: one heading per block, never a title that repeats the one above).
+ */
+export function Pa3dRoom({ introduced = false }: { introduced?: boolean } = {}) {
   const [phase, setPhase] = useState<Phase>('poster');
   const [scene, setScene] = useState<Plan3DScene | null>(null);
   /** Owner 2026-07-03: the couple's palette is the whole point — default ON. */
@@ -48,6 +52,10 @@ export function Pa3dRoom() {
   const [returnSignal, setReturnSignal] = useState(0);
   const [qr, setQr] = useState<Plan3DGuestQr | null>(null);
   const [qrPending, setQrPending] = useState(false);
+  /** A7-05: the last "Turn left / Turn right" tap — a direction and a counter the room reads once per change. */
+  const [turn, setTurn] = useState<{ dir: -1 | 1; n: number } | null>(null);
+  /** A7-06: the guest whose code could not be made — drawn as a failure with Try again, never as nothing. */
+  const [qrFailedFor, setQrFailedFor] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   const enter = useCallback(() => {
@@ -63,9 +71,16 @@ export function Pa3dRoom() {
 
   const handleGuestClick = useCallback((guestId: string) => {
     setQrPending(true);
+    setQrFailedFor(null);
     mintPlan3DGuestQr(guestId, window.location.origin)
-      .then((r) => setQr(r))
-      .catch(() => setQr(null))
+      .then((r) => {
+        setQr(r);
+        if (!r) setQrFailedFor(guestId);
+      })
+      .catch(() => {
+        setQr(null);
+        setQrFailedFor(guestId);
+      })
       .finally(() => setQrPending(false));
   }, []);
 
@@ -115,12 +130,17 @@ export function Pa3dRoom() {
             </div>
           ) : (
             <>
-              <p className="relative text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
-                A real reception, not a mock-up
-              </p>
-              <p className="relative max-w-sm font-serif text-xl leading-snug text-[var(--m-ink)] sm:text-2xl">
-                Maria &amp; Jose’s room — their tables, their seats, their colours.
-              </p>
+              {/* A7-28: a sample is called a sample — Maria & Jose is the seeded sample event (`is_sample`). */}
+              {introduced ? null : (
+                <>
+                  <p className="relative text-xs font-bold uppercase tracking-[0.1em] text-[color:var(--m-slate-2)]">
+                    A sample reception
+                  </p>
+                  <p className="relative max-w-sm font-serif text-xl leading-snug text-[var(--m-ink)] sm:text-2xl">
+                    Maria &amp; Jose’s sample room — their tables, their seats, their colours.
+                  </p>
+                </>
+              )}
               <button
                 type="button"
                 onClick={enter}
@@ -171,7 +191,21 @@ export function Pa3dRoom() {
           returnToSeatSignal={returnSignal}
           quality={isMobile ? 'low' : 'high'}
           cinematic
+          pageScroll
+          turnSignal={turn ?? undefined}
         />
+        {/* 🔄 A7-05 (drawing final-check-area-7 § 3): the visible tap path on touch only — two 44-px neutral rounds at the
+            room's bottom corners, each turning the camera one step. With a mouse there is no trap, so none on desktop. */}
+        {!roaming ? (
+          <>
+            <span className="absolute bottom-3 left-3 hidden [@media(pointer:coarse)]:inline-flex" data-pa3d-turn="left">
+              <ActionButton tone="neutral" iconOnly icon={ChevronLeft} label="Turn left" onClick={() => setTurn((t) => ({ dir: -1, n: (t?.n ?? 0) + 1 }))} />
+            </span>
+            <span className="absolute bottom-3 right-3 hidden [@media(pointer:coarse)]:inline-flex" data-pa3d-turn="right">
+              <ActionButton tone="neutral" iconOnly icon={ChevronRight} label="Turn right" onClick={() => setTurn((t) => ({ dir: 1, n: (t?.n ?? 0) + 1 }))} />
+            </span>
+          </>
+        ) : null}
       </div>
 
       {/* The controls are the argument, so they are labelled as claims rather
@@ -215,12 +249,14 @@ export function Pa3dRoom() {
       <p className="mt-3 text-sm text-[var(--m-slate-2)]">
         {roaming
           ? 'Tap the floor to walk there. Tap the dance floor to dance.'
-          : 'Drag to look around. Tap any seated guest to open the room from their seat.'}
+          : isMobile
+            ? 'Drag sideways or tap the arrows to look around. Tap any seated guest to open the room from their seat.'
+            : 'Drag to look around. Tap any seated guest to open the room from their seat.'}
       </p>
 
       {/* The QR is the pitch's second half: the room is not just yours to look
           at, it is every guest's to find their seat in. */}
-      {qrPending || qr ? (
+      {qrPending || qr || qrFailedFor ? (
         <div className="mt-4 flex items-center gap-4 rounded-2xl p-4">
           {qrPending ? (
             <>
@@ -251,6 +287,18 @@ export function Pa3dRoom() {
                 </a>
               </div>
             </>
+          ) : qrFailedFor ? (
+            <div role="alert">
+              <p className="text-sm text-[var(--m-ink)]">Couldn’t make their code.</p>
+              <button
+                type="button"
+                onClick={() => handleGuestClick(qrFailedFor)}
+                className="mt-1 inline-flex min-h-[44px] items-center gap-2 text-sm font-medium text-[var(--m-mulberry)] hover:opacity-80"
+              >
+                <RotateCcw aria-hidden className="h-3.5 w-3.5" />
+                Try again
+              </button>
+            </div>
           ) : null}
         </div>
       ) : null}

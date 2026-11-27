@@ -59,11 +59,13 @@ export default async function PapicPoolPage() {
   // owner's "no dead door" rule). The RPC re-checks the same gate on every
   // read, so closing is retroactive even mid-session.
   const admin = createAdminClient();
-  const { data: ev } = await admin
+  const { data: ev, error: evErr } = await admin
     .from('events')
     .select('display_name, pool_gallery_open, event_date, event_type, papic_window_start')
     .eq('event_id', session.event_id)
     .maybeSingle();
+  // 🔌 A4-79: a failed read is not "the couple closed the gallery" (a 404) — it throws (the error boundary).
+  if (evErr) throw new Error(`papic/pool: could not read the event: ${evErr.message}`);
   if (!ev?.pool_gallery_open) notFound();
 
   const firstPage = await getPoolGalleryPage(session.guest_id);
@@ -75,8 +77,11 @@ export default async function PapicPoolPage() {
             photos page (/papic/me/[token] → the session bridge), and it had no
             link back — only the browser's back button. The session already
             names the guest's token, exactly as /papic/guest links it. */}
+        {/* ⤴ A4-81: risen over My photos (`app/papic/@rise/(.)pool`), the head carries the title and ✕ is the way back, so
+            this link and the heading step aside there (`data-rise-hide`); a hard load keeps both. */}
         <Link
           href={`/papic/me/${encodeURIComponent(session.qr_token)}`}
+          data-rise-hide=""
           className="mb-4 inline-flex min-h-11 items-center gap-1.5 text-sm font-medium text-ink/70 hover:text-ink"
         >
           <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -85,7 +90,7 @@ export default async function PapicPoolPage() {
         {/* The eyebrow said "Everyone's photos" directly above a title ending
             "— the whole gallery". One of the two was the other one, and this is
             a page a guest meets once, on a phone, at a party. */}
-        <h1 className="text-2xl font-semibold tracking-tight">
+        <h1 data-rise-hide="" className="text-2xl font-semibold tracking-tight">
           {(ev.display_name as string | null) ?? 'The event'} — all Memories
         </h1>
         <p className="mt-2 text-sm text-ink/65">

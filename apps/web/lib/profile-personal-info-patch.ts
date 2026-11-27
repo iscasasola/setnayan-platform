@@ -41,6 +41,9 @@ import {
 } from '@/lib/profile-personalization';
 import { DEFAULT_PICTURE_FRAME, PICTURE_FRAME_FIELDS, profilePhotoFrameColumns, readProfilePhotoFrame } from '@/lib/picture-frame';
 
+/** The one birthday refusal (also on the You card's closed list, `YOU_ERRORS.birthday`). */
+export const BIRTHDAY_INVALID = 'Birthday must be a valid date (YYYY-MM-DD).';
+
 /** Hidden inputs that say "this control is on the form" for controls that can post nothing. */
 export const PRESENCE_MARKERS = {
   marketing_opt_in: 'has_marketing_opt_in',
@@ -121,7 +124,7 @@ export function planPersonalInfoPatch(
     const raw = form.get('birth_date');
     const s = typeof raw === 'string' ? raw.trim() : '';
     if (s && !/^\d{4}-\d{2}-\d{2}$/.test(s)) {
-      return { ok: false, error: 'Birthday must be a valid date (YYYY-MM-DD).' };
+      return { ok: false, error: BIRTHDAY_INVALID };
     }
     patch.birth_date = s || null;
   }

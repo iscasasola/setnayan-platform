@@ -20,11 +20,14 @@ import { saveInPlace } from '@/app/_actions/save-in-place';
 export function SponsorSwipe({
   eventId,
   sponsorId,
+  tier,
   name,
   children,
 }: {
   eventId: string;
   sponsorId: string;
+  /** Which sponsor role this card is — one guest may hold two (A2-I14: sponsors are guests). */
+  tier: string;
   name: string;
   children: ReactNode;
 }) {
@@ -53,6 +56,7 @@ export function SponsorSwipe({
               const fd = new FormData();
               fd.set('event_id', eventId);
               fd.set('sponsor_id', sponsorId);
+              fd.set('sponsor_tier', tier);
               return saveInPlace('sponsors.removeSponsor', fd);
             },
             failed: `Couldn’t remove ${name}. They’re back — try again.`,

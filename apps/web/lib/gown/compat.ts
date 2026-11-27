@@ -33,6 +33,8 @@ export type GownRule = {
   apply?: (g: GownConfig) => void;
   note?: string | ((g: GownConfig) => string);
   tell?: boolean;
+  /** Say nothing when an earlier rule already put its line in the Undo line (v195: one line, not two). */
+  quietAfterTell?: boolean;
 };
 
 const strapless = (g: GownConfig) => GOWN_STRAPLESS.includes(g.neck);
@@ -111,7 +113,7 @@ export const GOWN_RULES: readonly GownRule[] = [
   },
   {
     id: 'flutter-sheer', on: ['sleeve'], when: (g) => g.sleeve === 'flutter' && g.sleeveFab === 'fabric' && !accented(g) && gownFabricType(g.fabric).props.sheer <= 0.3,
-    apply: (g) => { g.sleeveFab = 'chiffon'; }, note: 'Flutter sleeves are made in sheer chiffon, so her arm shows through. Change it under "Sleeves made of".',
+    apply: (g) => { g.sleeveFab = 'chiffon'; }, note: 'Flutter sleeves are made in sheer chiffon, so her arm shows through. Change it under "Sleeves made of".', quietAfterTell: true,
   },
   { id: 'sweetheart-no-flutter', on: ['neck'], when: (g) => g.neck === 'sweetheart' && g.sleeve === 'flutter', apply: (g) => { g.sleeve = 'none'; }, note: 'Sleeves are now none: flutter sleeves need a shoulder or an off-shoulder line.', tell: true },
   {
@@ -146,7 +148,7 @@ export function gownChoose(config: GownConfig, choice: GownChoice): GownChosen {
     if (!r.on.includes(choice.key) || !r.when(g, choice.key, was)) continue;
     r.apply?.(g);
     const n = typeof r.note === 'function' ? r.note(g) : r.note;
-    if (n) notes.push(n);
+    if (n && !(r.quietAfterTell && tell)) notes.push(n);
     if (r.tell) tell = true;
   }
   const changed = (Object.keys(g) as (keyof GownConfig)[]).filter((k) => k !== choice.key && JSON.stringify(g[k]) !== JSON.stringify(config[k]));

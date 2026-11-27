@@ -206,6 +206,8 @@ test('flutter pairings (v195): off-shoulder on a sweetheart, no side cape or cap
   assert.equal(a.config.neck, 'off', 'a sweetheart becomes off-shoulder');
   assert.equal(a.config.sleeveFab, 'chiffon', 'satin is opaque: the flutter is sheer chiffon');
   assert.equal(a.tell, true);
+  assert.deepEqual(a.notes, ['Flutter sleeves hang from the shoulder line, so the neckline is now off-shoulder.'], 'one line, as v195');
+  assert.equal(gownChoose({ ...startingGownConfig(), neck: 'bateau' }, { key: 'sleeve', value: 'flutter' }).notes[0], 'Flutter sleeves are made in sheer chiffon, so her arm shows through. Change it under "Sleeves made of".');
   const b = gownChoose({ ...startingGownConfig(), neck: 'bateau', cape: 'capelet' }, { key: 'sleeve', value: 'flutter' });
   assert.equal(b.config.cape, 'none');
   const c = gownChoose({ ...startingGownConfig(), neck: 'bateau', sleeve: 'flutter' }, { key: 'cape', value: 'side' });

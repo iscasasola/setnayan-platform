@@ -22,6 +22,7 @@ import { guestsMaySeeSeatsFor } from '@/lib/guests-may-see-seats';
 import { eventOwnsAnimatedMonogram } from '@/lib/animated-monogram';
 import { resolveMonogram } from '@/lib/monogram';
 import { fetchPublicTables, type EventTableRow } from '@/lib/seating';
+import { guestTablesWithShownNames } from '@/lib/table-auto-name.server';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { publicDisplayName } from '@/lib/find-your-seat';
 import { PulsedLiveRefresher } from '@/app/_components/pulsed-live-refresher';
@@ -247,7 +248,8 @@ export default async function SeatPassPage({ params, searchParams }: Props) {
         admin={admin}
         event={event}
         slug={slug}
-        table={tableRow!}
+        // 🪑 The sign's name is the one the table SHOWS (read in `readTables`), never the stored label.
+        table={{ table_id: tableRow!.table_id, table_label: tables.find((x) => x.table_id === tableRow!.table_id)?.table_label ?? tableRow!.table_label }}
         tables={tables}
         entrance={entrance}
       />
@@ -359,7 +361,8 @@ async function readTables(
   // capacity and coordinate clean-up). This page had its own copy that SHADOWED the shared name. A refused read is
   // still told apart from "no tables yet" — the shared reader throws, and this page answers with SeatCouldNotLoad.
   try {
-    return { rows: await fetchPublicTables(admin, eventId), failed: false };
+    // 🪑 …each under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+    return { rows: await guestTablesWithShownNames(admin, eventId, await fetchPublicTables(admin, eventId)), failed: false };
   } catch {
     return { rows: [], failed: true };
   }

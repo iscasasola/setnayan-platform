@@ -6,6 +6,8 @@ import { resolveEventQrLook } from '@/lib/qr-look.server';
 import { guestListUnreadResponse } from '@/lib/guest-list-unread-response';
 import { fetchGuestsByEventMeasured, guestPrintName } from '@/lib/guests';
 import { fetchAssignments, fetchBooths, fetchFloorPlan, fetchSigns, fetchTables } from '@/lib/seating';
+import { withDisplayNames } from '@/lib/table-auto-name';
+import { readTableNameGroups, shownNamesFrom } from '@/lib/table-auto-name.server';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { sanitizeRolePalette } from '@/lib/mood-board';
@@ -54,15 +56,18 @@ export async function GET(
   // 🪑 The A3 seat plan (owner 2026-10-01): the SAME layout as the 2D and 3D
   // plan — every placed element (booths and signs included), every table with
   // its chairs, who sits where, and who still needs a seat.
-  const [tables, assignments, guestsRead, floorPlan, booths, signs, roleSet] = await Promise.all([
+  const [tablesRead, assignments, nameGroups, guestsRead, floorPlan, booths, signs, roleSet] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
+    readTableNameGroups(supabase, eventId),
     fetchGuestsByEventMeasured(supabase, eventId),
     fetchFloorPlan(supabase, eventId),
     fetchBooths(supabase, eventId, { brandedReader: createAdminClient() }),
     fetchSigns(supabase, eventId),
     resolveRoleSetForEvent(eventId),
   ]);
+  // 🪑 Each table under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+  const tables = withDisplayNames(tablesRead, shownNamesFrom(nameGroups, tablesRead, assignments));
   // 🔌 A refused guest read is never a seat plan of empty tables (audit #14).
   if (!guestsRead.measured) return guestListUnreadResponse();
   const guests = guestsRead.rows;

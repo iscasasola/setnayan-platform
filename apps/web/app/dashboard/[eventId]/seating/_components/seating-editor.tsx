@@ -210,6 +210,8 @@ import { SeatingLockError } from '../seating-lock-error';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { formatCount } from '@/lib/format-number';
 import { planTableBadges } from '@/lib/plan-table-badges';
+import { hostNameClash, tableDisplayNames, withDisplayNames } from '@/lib/table-auto-name';
+import { TableNameSheet } from './table-name-row';
 import { guestsViewHref } from '@/lib/guests-views';
 import {
   moveTargets,
@@ -302,6 +304,8 @@ export type SeatingGuest = {
   photo_url: string | null;
   side: 'bride' | 'groom' | 'both';
   group_id: string | null;
+  /** 🪑 Every group the guest is in (`guest_group_memberships`) — what a table's auto name counts (lib/table-auto-name.ts). */
+  group_ids?: string[];
   rsvp_status: string;
   seated_table_id: string | null;
   seat_number: number | null;
@@ -634,8 +638,24 @@ export function SeatingEditor({
             return { ...t, removed_seats: [...next].sort((a, b) => a - b) };
           }),
   );
-  // 🪑 Each table's short name on the plan, unique across the room: its number, else its initials (lib/plan-table-badges).
-  const planBadges = useMemo(() => planTableBadges(tables), [tables]);
+  /* 🪑 THE NAME EACH TABLE SHOWS (owner R6, seat plan § 4.3) — read live from who sits there through the ONE reader,
+     `tableDisplayNames` (lib/table-auto-name.ts), so it follows every seat, unseat, move and auto arrange at once. */
+  const nameInputs = useMemo(
+    () => ({
+      seated: guests.flatMap((g) => (g.seated_table_id ? [{ guest_id: g.guest_id, table_id: g.seated_table_id }] : [])),
+      groups: {
+        labels: groups.map((g) => ({ group_id: g.group_id, label: g.label })),
+        members: guests.flatMap((g) => (g.group_ids ?? (g.group_id ? [g.group_id] : [])).map((group_id) => ({ guest_id: g.guest_id, group_id }))),
+        broughtBy: guests.map((g) => ({ guest_id: g.guest_id, plus_one_of_guest_id: g.plus_one_of ?? null })),
+      },
+    }),
+    [guests, groups],
+  );
+  const shownNames = useMemo(() => tableDisplayNames(tables, nameInputs.seated, nameInputs.groups), [tables, nameInputs]);
+  const [nameSheetFor, setNameSheetFor] = useState<string | null>(null);
+  // 🪑 Each table's short name on the plan, unique across the room: its number, else its initials (lib/plan-table-badges) —
+  // taken from the name the table SHOWS, so the badges stay unique on the auto names too.
+  const planBadges = useMemo(() => planTableBadges(withDisplayNames(tables, shownNames)), [tables, shownNames]);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
@@ -2169,8 +2189,17 @@ export function SeatingEditor({
   const renameTable = (tableId: string, label: string) => {
     if (!canEdit) return;
     const trimmed = label.trim();
-    const current = tables.find((t) => t.table_id === tableId)?.table_label ?? '';
-    if (!trimmed || trimmed === current) return;
+    const table = tables.find((t) => t.table_id === tableId);
+    const current = table?.table_label ?? '';
+    // 🪑 An empty name returns a host-named table to its auto name (the Name row); on an auto table it is a no-op.
+    if (!trimmed && table?.label_is_auto !== false) return;
+    if (trimmed && trimmed === current && table?.label_is_auto === false) return;
+    // A name another table already shows is refused (updateTableLabel refuses it too).
+    const clash = hostNameClash(tableId, trimmed, shownNames);
+    if (clash) {
+      setNotice(clash);
+      return;
+    }
     // Advisory only (never blocks): a Chinese-wedding couple renaming a table to a
     // ones-digit-4 number gets a gentle heads-up; the rename proceeds regardless.
     if (chineseTradition && tableNumberEndsInFour(trimmed)) setNotice(TABLE_FOUR_ADVISORY);
@@ -5991,6 +6020,11 @@ export function SeatingEditor({
             {isVenue ? null : (
             <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); setEditChairs(true); setPickerOpen(false); setShapePickerOpen(false); }} className="flex min-h-11 w-full items-center rounded-full px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
               Edit chairs…
+            </button>
+            )}
+            {isVenue ? null : (
+            <button type="button" role="menuitem" data-table-name-open="" onClick={() => { setDockOverflow(false); setNameSheetFor(t.table_id); }} className="flex min-h-11 w-full items-center rounded-full px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
+              Name…
             </button>
             )}
             <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); rotateTable(t, 180); }} className="flex min-h-11 w-full items-center rounded-full px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
@@ -10241,6 +10275,19 @@ export function SeatingEditor({
       ) : null}
       {/* ↩ The Undo a swiped-away table, rule or seat leaves (owner 2026-11-03) — one toast, however many hosts. */}
       <UndoToastHost />
+      {/* 🪑 The Name row (seat plan § 4.3) — opened from the table's ⋯ › Name…; L10's table screen T mounts the same piece. */}
+      {nameSheetFor ? (
+        <TableNameSheet
+          open
+          onClose={() => setNameSheetFor(null)}
+          tableId={nameSheetFor}
+          tables={tables}
+          seated={nameInputs.seated}
+          groups={nameInputs.groups}
+          canEdit={canEdit}
+          onSave={(label) => renameTable(nameSheetFor, label)}
+        />
+      ) : null}
       {confirmDelete ? (
         <GuestPopup kind="confirm" onClose={() => setConfirmDelete(null)} labelledById="seat-delete-confirm-title">
           {(() => {

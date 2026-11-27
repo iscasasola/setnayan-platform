@@ -57,6 +57,8 @@ import {
 } from '@/lib/seat-plan-engine';
 import { parseRestoreSeats, parseSeatScope, restorableSeats, seatsThatStay, seatsToClear, type RestoreSeat } from '@/lib/seat-plan-scope';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { autoDefaultLabel, hostNameClash, isDefaultTableLabel } from '@/lib/table-auto-name';
+import { readTableDisplayNames } from '@/lib/table-auto-name.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { placedByAuto, placedByCouple } from '@/lib/seat-why';
 
@@ -206,6 +208,8 @@ export async function createTable(formData: FormData) {
     .insert({
       event_id: eventId,
       table_label: trimmed,
+      // 🪑 A name the host typed is kept as typed; the default "Table N" names itself (lib/table-auto-name.ts).
+      label_is_auto: isDefaultTableLabel(trimmed),
       table_type: type,
       capacity,
       sort_order: nextSort,
@@ -1592,9 +1596,22 @@ async function updateTableVip(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
+  // 🪑 The table's kind is the VIP read now (seat plan § 6); `is_vip` is written in step until a cleanup drops it.
+  // Turning VIP off returns only a VIP table to Regular — an Elders or Spare table keeps its kind.
+  const vip = vipRaw === 'true';
+  const { data: was, error: wasErr } = await supabase
+    .from('event_tables')
+    .select('table_kind')
+    .eq('table_id', tableId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (wasErr) throw new Error(wasErr.message);
+  if (!was) throw new Error('That table was not saved — it may have been removed.');
+  const wasKind = (was as { table_kind?: string | null }).table_kind ?? 'regular';
+  const kind = vip ? 'vip' : wasKind === 'vip' ? 'regular' : wasKind;
   const { data, error } = await supabase
     .from('event_tables')
-    .update({ is_vip: vipRaw === 'true', updated_at: new Date().toISOString() })
+    .update({ is_vip: vip, table_kind: kind, updated_at: new Date().toISOString() })
     .eq('table_id', tableId)
     .eq('event_id', eventId)
     .select('table_id');
@@ -1605,10 +1622,11 @@ async function updateTableVip(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
-// Rename a table (the per-table popup's inline rename). Mirrors
-// updateTableRotation: a single guarded UPDATE under the couple's RLS.
-// `table_label` already exists — no schema change. Trim + 1–64 chars, matching
-// createTable's validation.
+// Rename a table (the per-table popup's inline rename, the Name row). Mirrors
+// updateTableRotation: a single guarded UPDATE under the couple's RLS. Trim + up to 64 chars, matching createTable.
+// 🪑 Table names (seat plan § 4.3, owner R6): a typed name is the host's (`label_is_auto = false`) and never changes
+// when guests move; an EMPTY name returns the table to its auto name (`label_is_auto = true`, its default label back
+// to "Table N"); a name another table already shows is refused (`hostNameClash`, lib/table-auto-name.ts).
 export async function updateTableLabel(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   // 🪑 The table's other own setting — VIP or not — shares this route (see updateTableVip).
@@ -1622,8 +1640,8 @@ export async function updateTableLabel(formData: FormData) {
   // Strip control characters (NULL/newline/tab/…) — they'd survive into the
   // printed sign sheets and break the HTML layout. esc() covers entities only.
   // eslint-disable-next-line no-control-regex
-  const label = labelRaw.replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim();
-  if (label.length === 0 || label.length > 64) throw new Error('Label must be 1–64 chars');
+  const typed = labelRaw.replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (typed.length > 64) throw new Error('Label must be 1–64 chars');
 
   const supabase = await createClient();
   const {
@@ -1633,9 +1651,16 @@ export async function updateTableLabel(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
+  // The plan as it stands, for the clash check and the auto name's default label. A refused read stops here.
+  const [tables, seats] = await Promise.all([fetchTables(supabase, eventId), fetchAssignments(supabase, eventId)]);
+  const names = await readTableDisplayNames(supabase, eventId, tables, seats);
+  const clash = hostNameClash(tableId, typed, names);
+  if (clash) throw new Error(clash);
+  const label = typed.length > 0 ? typed : autoDefaultLabel(tableId, tables);
+
   const { error } = await supabase
     .from('event_tables')
-    .update({ table_label: label, updated_at: new Date().toISOString() })
+    .update({ table_label: label, label_is_auto: typed.length === 0, updated_at: new Date().toISOString() })
     .eq('table_id', tableId)
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
@@ -2417,6 +2442,7 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
         return {
           event_id: eventId,
           table_label: t.label,
+          label_is_auto: isDefaultTableLabel(t.label),
           table_type: t.type,
           capacity: t.capacity,
           sort_order: maxSort + 1 + i,
@@ -2689,6 +2715,7 @@ export async function buildSeatingDraft(
     recommended.map((t, i) => ({
       event_id: eventId,
       table_label: t.label,
+      label_is_auto: isDefaultTableLabel(t.label),
       table_type: t.type,
       capacity: t.capacity,
       sort_order: i,

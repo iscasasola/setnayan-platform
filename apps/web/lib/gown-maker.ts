@@ -80,19 +80,21 @@ export const GOWN_PRICE_ITEMS = [
   { key: 'piping', label: 'Piping', unit: 'm' },
   { key: 'fringe', label: 'Fringe', unit: 'm' },
   { key: 'feather', label: 'Feather trim', unit: 'm' },
+  // Owner 2026-11-27: small bows come back as a labour line, per piece, unpriced until the designer prices it.
+  { key: 'bow', label: 'Bow (small): making and attaching', unit: 'pc' },
   { key: 'rate', label: 'Labour rate', unit: 'hour' },
 ] as const satisfies readonly Item[];
 export type GownPriceKey = (typeof GOWN_PRICE_ITEMS)[number]['key'];
 const PRICE_KEYS: ReadonlySet<string> = new Set(GOWN_PRICE_ITEMS.map((i) => i.key));
 
-/** The price list's groups, in the order the designer reads them (prototype `PRICE_GROUPS`, men's and bows removed). */
+/** The price list's groups, in the order the designer reads them (prototype `PRICE_GROUPS`, men's removed; small bows returned as one Trims line, owner 2026-11-27). */
 export const GOWN_PRICE_GROUPS: ReadonlyArray<readonly [string, (key: GownPriceKey) => boolean]> = [
   ['Starting prices', (k) => k.startsWith('base_')],
   ['Fabrics', (k) => k.startsWith('fab_')],
   ['Lining and inside', (k) => /^(lin_|net$|hoop$|illusion$|boning$|waiststay$|horsehair$)/.test(k)],
   ['Closures', (k) => /^(zipper|button|eyelet|cord)$/.test(k)],
   ['Lace and beads', (k) => /^(lace_|bead_)/.test(k)],
-  ['Trims', (k) => /^(piping|fringe|feather)$/.test(k)],
+  ['Trims', (k) => /^(piping|fringe|feather|bow)$/.test(k)],
   // v195: flutter cape sleeves and a skirt overlay, each its own labour line (their fabric is the fabric items).
   ['Sleeves', (k) => k === 'flutter'],
   ['Skirt', (k) => k === 'overlay'],

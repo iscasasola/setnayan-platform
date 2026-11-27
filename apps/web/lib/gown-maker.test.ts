@@ -213,3 +213,9 @@ test('8 · custom gown makers only; no peso typed, no money formatted here', () 
   assert.doesNotMatch(src, /₱|toLocaleString|Intl\.NumberFormat/, 'gown-maker.ts formats money itself; use lib/php.ts');
   assert.ok(!GOWN_ADD_ONS.some((a) => /bow/i.test(a.label)), 'owner: no bows');
 });
+
+test('7d · owner 2026-11-27: a small bow is a Trims line, per piece, unpriced until priced', () => {
+  assert.deepEqual(GOWN_PRICE_ITEMS.find((i) => i.key === 'bow'), { key: 'bow', label: 'Bow (small): making and attaching', unit: 'pc' });
+  assert.equal(GOWN_PRICE_GROUPS.find(([, f]) => f('bow'))?.[0], 'Trims');
+  assert.equal(gownShopTemplate().prices.bow, undefined);
+});

@@ -78,7 +78,7 @@ export async function copyText(text: string): Promise<boolean> {
 /** The link in a field the guest can select and copy by hand — the honest fallback when no copy worked. */
 export function LinkToCopyByHand({ link }: { link: string }) {
   return (
-    <input
+    <input // field-ok: the guest Event Hub — a read-only link to select by hand, never a typed answer
       type="text"
       readOnly
       value={link}

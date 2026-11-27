@@ -54,7 +54,8 @@ const selectorsBefore = (lastSelector: string): string[] => {
 test('(1) ONE listener plays the press — the dip to .93 and the spring back — on every control the app owns; it composes with any transition', async () => {
   const { PRESS_TARGETS, pressMs } = await import('../app/_components/press-feel');
   // The same seven the stylesheet's universal press names.
-  assert.deepEqual(PRESS_TARGETS.split(',').map((x) => x.trim()), ['button', "[role='button']", 'a.button', '.sn-press', "input[type='submit']", "input[type='button']", 'summary']);
+  // + `a[href]` (27 Nov 2026, MASTER-PLAN A9): a plain link — the bottom nav, the header icons, the Home tiles — presses too.
+  assert.deepEqual(PRESS_TARGETS.split(',').map((x) => x.trim()), ['button', "[role='button']", 'a.button', 'a[href]', '.sn-press', "input[type='submit']", "input[type='button']", 'summary']);
   const src = read('app/_components/press-feel.tsx');
   // ONE delegated set of listeners on the document (down · up · cancel) — never one per element — all taken off again.
   assert.equal((src.match(/document\.addEventListener\(/g) ?? []).length, 3, 'the document listeners are not exactly down · up · cancel');
@@ -91,7 +92,7 @@ test('(1) ONE listener plays the press — the dip to .93 and the spring back �
   const off = rule('summary:active:not(.sn-editorial *)');
   assert.match(off, /\{\s*scale: none;\s*$/, 'the stylesheet still scales a press the listener already plays');
   assert.match(css, /summary:active \{\s*scale: 0\.96;\s*filter: brightness\(0\.97\);\s*\}/, 'the no-script dimming is gone');
-  const SEVEN = ['button', "[role='button']", 'a.button', '.sn-press', "input[type='submit']", "input[type='button']", 'summary'];
+  const SEVEN = ['button', "[role='button']", 'a.button', 'a[href]', '.sn-press', "input[type='submit']", "input[type='button']", 'summary'];
   const bare = (x: string) => x.replace(/:not\(\.sn-editorial \*\)/g, '').replace(/:not\(:disabled\)|:not\(\[aria-disabled='true'\]\)|:active/g, '');
   assert.deepEqual(selectorsBefore('summary:active:not(.sn-editorial *)').map(bare), SEVEN, 'a control keeps the stylesheet’s scale AND gets the listener’s');
   // A SECOND PRESS MECHANISM is the bug this replaced: no CSS spring on :active, no `.93` in the stylesheet's press.
@@ -112,7 +113,11 @@ test('(2) the ONE exemption is the guest’s Event Hub; a disabled control and �
   const scrim = { closest: () => null, matches: (sel: string) => sel.includes('[data-overlay-backdrop]') };
   assert.equal(pressable(scrim), false, 'the scrim dips on a tap — its edges flash as a frame of the page');
   assert.match(src, /if \(still\.matches \|\| !\(e\.target instanceof Element\)\) return;/, 'the press plays under “reduce motion”');
-  assert.match(src, /if \(!el \|\| !pressable\(el\) \|\| !el\.animate\) return;/);
+  assert.match(src, /if \(!hit \|\| !pressable\(hit\)\) return;/);
+  // 🚪 A see-through door over a card (Event Home's `.hc-door`) hands the press to the card it covers.
+  assert.match(src, /export const DOOR_OVER_CARD = '\.hc-door';/);
+  assert.match(src, /const el = hit\.matches\(DOOR_OVER_CARD\) \? \(hit\.parentElement \?\? hit\) : hit;/);
+  assert.match(read('app/dashboard/[eventId]/_components/home-tile.tsx'), /const doorClass = 'hc-door';/, 'the Home tile door was renamed — DOOR_OVER_CARD presses nothing');
   // An EXCLUSION, never a list of surfaces — a new screen gets the feel by default.
   assert.doesNotMatch(src, /app-surface|dashboard|admin|vendor/);
   for (const sel of selectorsBefore('summary:active:not(.sn-editorial *)')) assert.ok(sel.endsWith(':not(.sn-editorial *)'), `${sel}: the guest page loses its own press`);

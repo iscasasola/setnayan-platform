@@ -603,6 +603,43 @@
     color: rgb(var(--color-ink));
   }
 
+  /*
+   * ✋ NO TEXT SELECTION, APP-WIDE (owner 27 Nov 2026, MASTER-PLAN R1 + R5 · DECISION_LOG 2026-11-27 "No text
+   * highlighting or copying app-wide"): a long-press or a drag never paints a highlight and never opens the
+   * system's copy / save callout — `/admin` included (R5: admin tasks have their own buttons). Where a person must
+   * copy a value there is a Copy button (`CopyButton`), and a photo has a Save button.
+   *
+   * What STAYS selectable — the person's own words:
+   *   · every text box: `input`, `textarea`, `select` and an editor (`[contenteditable]`, not its `="false"` parts) —
+   *     the explicit `-webkit-user-select: text` is what keeps an iOS box focusable and typeable under a `none` body;
+   *   · `[data-selectable]` — the one opt-in mark: a chat message's words, a copy box a blocked clipboard falls back to.
+   * Held by `lib/no-text-selection-app-wide.test.ts`.
+   */
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  input,
+  textarea,
+  select,
+  [contenteditable]:not([contenteditable='false']),
+  [data-selectable] {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
+  /* A tick box, a radio, a slider and a button-shaped input hold no words to select. */
+  input[type='checkbox'],
+  input[type='radio'],
+  input[type='range'],
+  input[type='button'],
+  input[type='submit'],
+  input[type='reset'] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
   /* Touch targets ≥ 44pt per kickoff multi-platform rules. */
   button,
   [role='button'],
@@ -719,9 +756,13 @@
    * moment rows, the Play pill), which the button-shaped selectors below can't
    * match. Base-layer on purpose so Tailwind transition utilities on the same
    * element keep winning exactly as they do for buttons. */
+  /* 🔗 `a[href]` (27 Nov 2026, MASTER-PLAN A9): a plain link is a control too — the listener's list
+   * (`PRESS_TARGETS`) names it, so this sheet does. Inside the guest's Event Hub a link keeps what it had
+   * (no dip of ours), and an inline text link is not transformable, so only a link drawn as a box dips. */
   button,
   [role='button'],
   a.button,
+  a[href],
   .sn-press,
   input[type='submit'],
   input[type='button'],
@@ -740,6 +781,7 @@
   button:not(:disabled):active,
   [role='button']:not([aria-disabled='true']):active,
   a.button:active,
+  a[href]:not(.sn-editorial *):active,
   input[type='submit']:not(:disabled):active,
   input[type='button']:not(:disabled):active,
   summary:active {
@@ -767,6 +809,7 @@
   button:not(:disabled):active:not(.sn-editorial *),
   [role='button']:not([aria-disabled='true']):active:not(.sn-editorial *),
   a.button:active:not(.sn-editorial *),
+  a[href]:active:not(.sn-editorial *),
   .sn-press:active:not(.sn-editorial *),
   input[type='submit']:not(:disabled):active:not(.sn-editorial *),
   input[type='button']:not(:disabled):active:not(.sn-editorial *),

@@ -9,6 +9,7 @@
  * If any upload fails, the feed post is never made (no half posts), the error is returned, and the unpublished
  * photos already uploaded are deleted (best effort: an unpublished photo is never shown on the Page either way).
  */
+import { formatCount } from '@/lib/format-number';
 
 export type GraphResult = { ok: true; body: Record<string, unknown> } | { ok: false; error: string };
 
@@ -36,7 +37,7 @@ export async function publishMultiPhoto(
 ): Promise<MultiPhotoResult> {
   if (urls.length < 2) return { ok: false, error: 'A multi-photo post needs at least two photos.', uploaded: 0 };
   if (urls.length > FACEBOOK_MAX_ATTACHED_PHOTOS) {
-    return { ok: false, error: `A post holds at most ${FACEBOOK_MAX_ATTACHED_PHOTOS} photos; this one has ${urls.length}.`, uploaded: 0 };
+    return { ok: false, error: `A post holds at most ${formatCount(FACEBOOK_MAX_ATTACHED_PHOTOS)} photos; this one has ${formatCount(urls.length)}.`, uploaded: 0 };
   }
 
   const mediaIds: string[] = [];
@@ -51,7 +52,7 @@ export async function publishMultiPhoto(
     if (!id) {
       await cleanUp();
       const why = res.ok ? 'no photo id returned' : res.error;
-      return { ok: false, error: `Photo ${i + 1} of ${urls.length} did not upload (${why}); nothing was posted.`.slice(0, 500), uploaded: mediaIds.length };
+      return { ok: false, error: `Photo ${formatCount(i + 1)} of ${formatCount(urls.length)} did not upload (${why}); nothing was posted.`.slice(0, 500), uploaded: mediaIds.length };
     }
     mediaIds.push(id);
   }
@@ -65,7 +66,7 @@ export async function publishMultiPhoto(
   if (!postId) {
     await cleanUp();
     const why = feed.ok ? 'no post id returned' : feed.error;
-    return { ok: false, error: `The post with ${urls.length} photos was refused (${why}); nothing was posted.`.slice(0, 500), uploaded: mediaIds.length };
+    return { ok: false, error: `The post with ${formatCount(urls.length)} photos was refused (${why}); nothing was posted.`.slice(0, 500), uploaded: mediaIds.length };
   }
   return { ok: true, externalId: postId, mediaIds };
 }

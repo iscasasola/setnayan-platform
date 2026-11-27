@@ -209,6 +209,7 @@ import { useSeatingLiveRefresh } from './use-seating-live-refresh';
 import { SeatingLockError } from '../seating-lock-error';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
 import { formatCount } from '@/lib/format-number';
+import { planTableBadges } from '@/lib/plan-table-badges';
 import { guestsViewHref } from '@/lib/guests-views';
 import {
   moveTargets,
@@ -633,6 +634,8 @@ export function SeatingEditor({
             return { ...t, removed_seats: [...next].sort((a, b) => a - b) };
           }),
   );
+  // 🪑 Each table's short name on the plan, unique across the room: its number, else its initials (lib/plan-table-badges).
+  const planBadges = useMemo(() => planTableBadges(tables), [tables]);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
@@ -9305,9 +9308,9 @@ export function SeatingEditor({
             // refusal is legible BEFORE release.
             const snappingBack = snapBackIds.has(t.table_id);
             const showInvalidRing = dragging && dragInvalid;
-            // Linked tables render under the UNIT's name (number when it has one).
-            const displayLabel = t.link_group_label ?? t.table_label;
-            const num = displayLabel.match(/\d+/)?.[0] ?? '';
+            // Linked tables render under the UNIT's name; two tables that would read alike take a part mark ("9A", "9B"),
+            // and a table named in words wears its initials, never "·" (27 Nov 2026).
+            const num = planBadges.get(t.table_id) ?? '';
             const rot = rotationOf(t); // table orientation (deg)
             const removed = removedSeatSet(t.removed_seats, t.capacity);
             const effCap = effectiveCapacity(t.capacity, t.removed_seats);

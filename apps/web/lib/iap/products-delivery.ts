@@ -110,3 +110,11 @@ export const RETIRED_PAPIC_CREDIT_PRODUCT_IDS: readonly string[] = RETIRED_PAPIC
 /** 🗑 `event_hub_pro`, the four Setnayan AI product ids (retired 2026-11-04), `music_maker` and `patiktok` (retired
  *  2026-11-20) — delivered, never sold again. */
 export const RETIRED_EVENT_PRODUCT_IDS: readonly string[] = RETIRED_EVENT_PRODUCTS.map((p) => p.productId);
+
+/** 🗑 True for every retired product id above — delivered when its intent exists, never sold, never re-asked. */
+export function isRetiredIapProduct(productId: string | null | undefined): boolean {
+  return (
+    typeof productId === 'string' &&
+    (RETIRED_PAPIC_CREDIT_PRODUCT_IDS.includes(productId) || RETIRED_EVENT_PRODUCT_IDS.includes(productId))
+  );
+}

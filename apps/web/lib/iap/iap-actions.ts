@@ -184,6 +184,8 @@ function outcomeToResult(o: FulfilOutcome): IapConfirmResult {
         : { status: 'on', eventId: o.eventId, serviceKey: o.serviceKey };
     case 'refunded':
       return { status: 'refunded' };
+    case 'retired':
+      return { status: 'retired' };
     case 'refused':
       return { status: 'refused', reason: o.reason };
     default:
@@ -239,7 +241,11 @@ async function signedInUserId(): Promise<string | null> {
   return user && !user.is_anonymous ? user.id : null;
 }
 
-export async function confirmAppStorePurchase(input: { jws: string }): Promise<IapConfirmResult> {
+export async function confirmAppStorePurchase(input: {
+  jws: string;
+  /** Which phone door handed it over — the buy sheet's answer, or a launch-time replay. Only labels the fault log. */
+  via?: 'confirm' | 'replay';
+}): Promise<IapConfirmResult> {
   const userId = await signedInUserId();
   if (!userId) return { status: 'refused', reason: 'not_yours' };
   // 🏪 A supplier plan (auto-renewable, the shop's own) has its own confirm; null = not one, the event path goes on.
@@ -247,7 +253,10 @@ export async function confirmAppStorePurchase(input: { jws: string }): Promise<I
   if (plan) return plan;
   const verified = verifyAppleTransaction(typeof input.jws === 'string' ? input.jws : '');
   if (!verified.ok) return { status: 'invalid' };
-  const outcome = await fulfilAppleTransaction(createMoneyWriterClient(), verified.tx, { expectUserId: userId });
+  const outcome = await fulfilAppleTransaction(createMoneyWriterClient(), verified.tx, {
+    expectUserId: userId,
+    via: input.via === 'replay' ? 'replay' : 'confirm',
+  });
   revalidateOn(outcome);
   return outcomeToResult(outcome);
 }
@@ -268,7 +277,7 @@ export async function restoreAppStorePurchases(input: { jwsList: string[] }): Pr
     if (!verified.ok) continue;
     // Restore matches only THIS person's intents; another account's purchase on
     // the same Apple ID is theirs to restore, signed in as them.
-    const o = await fulfilAppleTransaction(writer, verified.tx, { expectUserId: userId });
+    const o = await fulfilAppleTransaction(writer, verified.tx, { expectUserId: userId, via: 'restore' });
     if (o.status === 'on' && o.eventId) on.push({ eventId: o.eventId, serviceKey: o.serviceKey });
     // 💝 A shop's gift landed in its stock — nothing to name on Profile's event list, but the gifts page re-reads.
     else if (o.status === 'on' && o.vendorProfileId) gifts = true;

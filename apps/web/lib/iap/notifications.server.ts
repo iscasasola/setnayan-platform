@@ -65,7 +65,7 @@ export async function handleAppStoreNotification(
   }
 
   if (n.notificationType === 'ONE_TIME_CHARGE') {
-    const o = await fulfilAppleTransaction(admin, inner.tx);
+    const o = await fulfilAppleTransaction(admin, inner.tx, { via: 'notification' });
     if (o.status === 'error') return { http: 500, what: `fulfil error at ${o.where}` };
     return { http: 200, what: `fulfil ${o.status}` };
   }

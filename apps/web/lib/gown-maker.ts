@@ -28,6 +28,7 @@ import {
   type GownSilhouette,
 } from './gown-config';
 import { GOWN_ADD_ONS, type GownAddOnKey } from './gown-add-ons';
+import { formatCentavosPhp } from './php';
 
 /** The suppliers the Attire Maker is suggested for (owner Q3, 2026-11-27: custom gown makers only for now). */
 export const GOWN_KINDS: ReadonlySet<string> = new Set(['bridal_gown_custom']);
@@ -47,7 +48,7 @@ const MAX_MARKUP_PCT = 500;
 // ─────────────────────────────────────────────────────────────────────────────
 
 type Item = { readonly key: string; readonly label: string; readonly unit: GownPriceUnit };
-export type GownPriceUnit = 'gown' | 'm' | 'pc' | '100 pcs' | 'hour';
+export type GownPriceUnit = 'gown' | 'm' | 'pc' | 'pair' | '100 pcs' | 'hour';
 
 const SIL_LABEL = Object.fromEntries(GOWN_SILHOUETTES.map((s) => [s.id, s.label])) as Record<GownSilhouette, string>;
 
@@ -74,22 +75,29 @@ export const GOWN_PRICE_ITEMS = [
   { key: 'bead_seed', label: 'Seed beads', unit: '100 pcs' },
   { key: 'bead_sequin', label: 'Sequins', unit: '100 pcs' },
   { key: 'cape', label: 'Cape: cutting, sewing and finishing', unit: 'pc' },
+  { key: 'flutter', label: 'Flutter cape sleeves: cutting, sewing and finishing', unit: 'pair' },
+  { key: 'overlay', label: 'Overlay: cutting, sewing and finishing', unit: 'pc' },
   { key: 'piping', label: 'Piping', unit: 'm' },
   { key: 'fringe', label: 'Fringe', unit: 'm' },
   { key: 'feather', label: 'Feather trim', unit: 'm' },
+  // Owner 2026-11-27: small bows come back as a labour line, per piece, unpriced until the designer prices it.
+  { key: 'bow', label: 'Bow (small): making and attaching', unit: 'pc' },
   { key: 'rate', label: 'Labour rate', unit: 'hour' },
 ] as const satisfies readonly Item[];
 export type GownPriceKey = (typeof GOWN_PRICE_ITEMS)[number]['key'];
 const PRICE_KEYS: ReadonlySet<string> = new Set(GOWN_PRICE_ITEMS.map((i) => i.key));
 
-/** The price list's groups, in the order the designer reads them (prototype `PRICE_GROUPS`, men's and bows removed). */
+/** The price list's groups, in the order the designer reads them (prototype `PRICE_GROUPS`, men's removed; small bows returned as one Trims line, owner 2026-11-27). */
 export const GOWN_PRICE_GROUPS: ReadonlyArray<readonly [string, (key: GownPriceKey) => boolean]> = [
   ['Starting prices', (k) => k.startsWith('base_')],
   ['Fabrics', (k) => k.startsWith('fab_')],
   ['Lining and inside', (k) => /^(lin_|net$|hoop$|illusion$|boning$|waiststay$|horsehair$)/.test(k)],
   ['Closures', (k) => /^(zipper|button|eyelet|cord)$/.test(k)],
   ['Lace and beads', (k) => /^(lace_|bead_)/.test(k)],
-  ['Trims', (k) => /^(piping|fringe|feather)$/.test(k)],
+  ['Trims', (k) => /^(piping|fringe|feather|bow)$/.test(k)],
+  // v195: flutter cape sleeves and a skirt overlay, each its own labour line (their fabric is the fabric items).
+  ['Sleeves', (k) => k === 'flutter'],
+  ['Skirt', (k) => k === 'overlay'],
   // v193: the cape as part of the gown (the bride's detachable cape is the add-on `cape`; the designer may price either).
   ['Cover-ups', (k) => k === 'cape'],
   ['Labour', (k) => k === 'rate'],
@@ -468,3 +476,37 @@ export function gownDesignOf(
 
 /** The silhouette's starting-price label ("Starting price: A-line"). */
 export const gownBaseLabel = (sil: GownSilhouette) => `Starting price: ${SIL_LABEL[sil]}`;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The chat's words (the design card and the invite card read these; step B8 draws them)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const GOWN_DESIGN_HEAD = '👗 Gown design · ';
+export const GOWN_INVITE_BODY = '👗 Design your gown with us. Your measurements first, then the shape, fabric and details in 3D. We’ll quote from your design.';
+export const GOWN_DESIGN_REF = 'Design ref: ';
+export const GOWN_DESIGN_UNREADABLE = "We couldn't check your design against the shop's Attire Maker, so nothing was sent. Try again.";
+export const GOWN_DESIGN_NOT_SENT = 'Your design didn’t go into the chat. It is kept here, so send it again.';
+
+/** The design in a few words for the message ("A-line in satin"); the card draws the rest from the stored row. */
+export function gownDesignWords(design: Pick<GownConfig, 'sil' | 'fabric'>): string {
+  return `${SIL_LABEL[design.sil] ?? 'Gown'} in ${fabricLabel(design.fabric).toLowerCase()}`;
+}
+
+/** The one message a sent design posts. Only the estimate (or "Ask for a quote") — never a cost. */
+export function formatGownDesignBlock(design: Pick<GownConfig, 'sil' | 'fabric'>, forBride: GownDesignForBride, designId: string): string {
+  return [
+    `${GOWN_DESIGN_HEAD}${gownDesignWords(design)}`,
+    forBride.estimateCentavos != null ? `Estimate: ${formatCentavosPhp(forBride.estimateCentavos)}. The quote decides.` : 'Ask for a quote: the designer prices this design.',
+    `${GOWN_DESIGN_REF}${designId}`,
+  ].join('\n');
+}
+
+/** The stored row a design message names, or null. */
+export function gownDesignRefOf(body: string | null | undefined): string | null {
+  const text = body ?? '';
+  if (!text.startsWith(GOWN_DESIGN_HEAD)) return null;
+  const at = text.lastIndexOf(GOWN_DESIGN_REF);
+  if (at < 0) return null;
+  const m = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*$/i.exec(text.slice(at + GOWN_DESIGN_REF.length));
+  return m ? m[1]!.toLowerCase() : null;
+}

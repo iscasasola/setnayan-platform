@@ -124,14 +124,18 @@ test('1b · free widgets open from Verified up — the day-of gate’s own rule 
   assert.match(gate, /!freeWidgetsOpen\(subscription, input\.verified\)/);
 });
 
-test('1 · four paid tools, one catalog SKU each, seeded by the migration; no price typed in code', () => {
-  assert.deepEqual([...PAID_STORE_TOOLS], ['cake_tool', 'song_bank', 'papic_challenge', 'plan_3d']);
+test('1 · five paid tools (the Attire Maker joined 27 Nov), one catalog SKU each, seeded by a migration; no price typed in code', () => {
+  assert.deepEqual([...PAID_STORE_TOOLS], ['cake_tool', 'attire_tool', 'song_bank', 'papic_challenge', 'plan_3d']);
   for (const k of PAID_STORE_TOOLS) assert.equal(toolOfSku(storeToolSku(k)), k);
   assert.equal(toolOfSku('vendor_tool_nope'), null);
   const mig = readdirSync(join(WEB, '../../supabase/migrations')).find((f) => f.endsWith('_supplier_store_tools_graphs_badges.sql'));
   assert.ok(mig, 'the Store migration is missing');
   const sql = readFileSync(join(WEB, '../../supabase/migrations', mig!), 'utf8');
-  for (const sku of STORE_TOOL_SKUS) assert.match(sql, new RegExp(`'${sku}'`), `${sku} is not seeded`);
+  // The Attire Maker's row is seeded by the gown maker's own migration, priced by copying the Cake Maker's row.
+  const gownMig = readdirSync(join(WEB, '../../supabase/migrations')).find((f) => f.endsWith('_gown_maker_shop_designs_and_fittings.sql'));
+  assert.ok(gownMig, 'the gown maker migration is missing');
+  const seeded = sql + readFileSync(join(WEB, '../../supabase/migrations', gownMig!), 'utf8');
+  for (const sku of STORE_TOOL_SKUS) assert.match(seeded, new RegExp(`'${sku}'`), `${sku} is not seeded`);
   for (const f of ['lib/supplier-store.ts', 'lib/supplier-store.server.ts', 'app/vendor-dashboard/shop/store/store-actions.ts']) {
     assert.doesNotMatch(stripComments(readFileSync(join(WEB, f), 'utf8')), /₱\s*\d|price(?:_?[pP]hp)?\s*[:=]\s*\d{2,}/, `${f} types a price`);
   }

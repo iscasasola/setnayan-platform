@@ -197,6 +197,14 @@ test('7b · v193: the cape is its own price item, in Cover-ups, unpriced until t
   for (const i of GOWN_PRICE_ITEMS) assert.equal(GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length, 1, `${i.key} sits in ${GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length} groups`);
 });
 
+test('7c · v195: flutter cape sleeves (per pair, Sleeves) and an overlay (per piece, Skirt), unpriced until priced', () => {
+  assert.deepEqual(GOWN_PRICE_ITEMS.find((i) => i.key === 'flutter'), { key: 'flutter', label: 'Flutter cape sleeves: cutting, sewing and finishing', unit: 'pair' });
+  assert.deepEqual(GOWN_PRICE_ITEMS.find((i) => i.key === 'overlay'), { key: 'overlay', label: 'Overlay: cutting, sewing and finishing', unit: 'pc' });
+  assert.equal(GOWN_PRICE_GROUPS.find(([, f]) => f('flutter'))?.[0], 'Sleeves');
+  assert.equal(GOWN_PRICE_GROUPS.find(([, f]) => f('overlay'))?.[0], 'Skirt');
+  assert.equal(gownShopTemplate().prices.flutter, undefined);
+});
+
 test('8 · custom gown makers only; no peso typed, no money formatted here', () => {
   assert.equal(isGownKind('bridal_gown_custom'), true);
   assert.equal(isGownKind('bridal_gown_rental'), false);
@@ -204,4 +212,10 @@ test('8 · custom gown makers only; no peso typed, no money formatted here', () 
   const src = readFileSync(join(__dirname, 'gown-maker.ts'), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
   assert.doesNotMatch(src, /₱|toLocaleString|Intl\.NumberFormat/, 'gown-maker.ts formats money itself; use lib/php.ts');
   assert.ok(!GOWN_ADD_ONS.some((a) => /bow/i.test(a.label)), 'owner: no bows');
+});
+
+test('7d · owner 2026-11-27: a small bow is a Trims line, per piece, unpriced until priced', () => {
+  assert.deepEqual(GOWN_PRICE_ITEMS.find((i) => i.key === 'bow'), { key: 'bow', label: 'Bow (small): making and attaching', unit: 'pc' });
+  assert.equal(GOWN_PRICE_GROUPS.find(([, f]) => f('bow'))?.[0], 'Trims');
+  assert.equal(gownShopTemplate().prices.bow, undefined);
 });

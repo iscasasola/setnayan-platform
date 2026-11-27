@@ -7,8 +7,14 @@
  * Women only: the men's collar and trouser rules are not ported. Plain data and pure functions: no DOM.
  */
 import {
+  GOWN_CAPES,
+  GOWN_CAPE_ARMS,
+  GOWN_CAPE_DEF,
+  GOWN_CAPE_LENGTHS,
+  GOWN_CAPE_STRAP,
   GOWN_SILHOUETTES,
   GOWN_STRAPLESS,
+  gownCapeNow,
   gownLayerCount,
   gownPettiOf,
   gownLookOf,
@@ -55,6 +61,11 @@ const strapless = (g: GownConfig) => GOWN_STRAPLESS.includes(g.neck);
 /** Strapless with nothing at the shoulder for a sleeve to join (off-shoulder keeps its band). */
 const bareTop = (g: GownConfig) => strapless(g) && g.neck !== 'off';
 const caped = (g: GownConfig) => g.cape !== 'none';
+const capeName = (g: GownConfig) => GOWN_CAPES.find((c) => c.id === g.cape)!.label.toLowerCase();
+/** A cape that lies over the arms (v196 `CAPE_ARMS`). */
+const armCape = (g: GownConfig) => GOWN_CAPE_ARMS.includes(g.cape);
+/** A cape down her back that a long veil would cover (v196: a back cape, or a long neck cape). */
+const longBack = (g: GownConfig) => g.cape === 'back' || (g.cape === 'neck' && gownCapeNow(g).long);
 /** A veil to the floor or beyond (v197 `VEIL_FLOOR`). */
 const longVeil = (g: GownConfig) => g.veil === 'floor' || g.veil === 'chapel' || g.veil === 'cathedral';
 /** A sheath or mermaid: too narrow at the hem for a long train, too close for a full petticoat (v197 `closeSil`). */
@@ -80,6 +91,8 @@ export const GOWN_TEXTURE_SPACING = { pintuck: 0.8, ruche: 2.2, smock: 1.5 } as 
 
 /** In the order the prototype applies them. */
 export const GOWN_RULES: readonly GownRule[] = [
+  // v196: each cape comes with its own material, length and edge (changed under Cape details).
+  { id: 'cape-own-details', on: ['cape'], when: () => true, apply: (g) => { g.capeFab = null; g.capeLen = null; g.capeEdge = null; g.capeFasten = null; } },
   { id: 'neck-own-depth', on: ['neck'], when: () => true, apply: (g) => { g.neckT = null; } },
   { id: 'corset-boned', on: ['shape'], when: () => true, apply: (g) => { if (g.shape === 'corset') g.boning = 'corset'; else if (g.boning === 'corset') g.boning = 'complement'; } },
   { id: 'boned-corset', on: ['boning'], when: () => true, apply: (g) => { if (g.boning === 'corset') g.shape = 'corset'; else if (g.shape === 'corset') g.shape = 'none'; } },
@@ -145,10 +158,26 @@ export const GOWN_RULES: readonly GownRule[] = [
   { id: 'butterfly-shoulder', on: ['sleeve'], when: (g) => g.sleeve === 'butterfly' && strapless(g), apply: (g) => { g.neck = 'bateau'; }, note: 'Butterfly sleeves sit on the shoulder, so the neckline is now bateau.' },
   { id: 'strapless-no-butterfly', on: ['neck'], when: (g) => strapless(g) && g.sleeve === 'butterfly', apply: (g) => { g.sleeve = 'none'; }, note: 'Butterfly sleeves need a shoulder, so sleeves are now none.' },
   { id: 'high-low', on: ['train'], when: (g) => g.train !== 'none' && g.hem !== 'floor', note: 'High-low: the front keeps its length; the back falls to the floor and runs on into the train.' },
-  // Design review (v193): a cape and butterfly sleeves fight over the shoulder; a back cape and a long veil cover each other.
+  // Design review (v193): a cape and butterfly sleeves fight over the shoulder.
   { id: 'cape-no-butterfly', on: ['cape'], when: (g) => caped(g) && g.sleeve === 'butterfly', apply: (g) => { g.sleeve = 'none'; }, note: 'Sleeves are now none: butterfly sleeves stand where the cape lies.', tell: true },
-  { id: 'back-cape-short-veil', on: ['cape'], when: (g) => g.cape === 'back' && longVeil(g), apply: (g) => { g.veil = 'fingertip'; }, note: 'The veil is now fingertip: a back cape and a long veil would cover each other.', tell: true },
-  { id: 'veil-under-back-cape', on: ['veil'], when: (g) => g.cape === 'back' && longVeil(g), apply: (g) => { g.veil = 'fingertip'; }, note: 'With a back cape the veil stays fingertip or shorter.' },
+  // v196: the neck cape has its own band; a cape from one shoulder (or the pair) gets a strap where the neckline has none.
+  { id: 'neck-cape-band', on: ['cape'], when: (g) => g.cape === 'neck', note: 'The neck cape fastens at its own thin band round her neck (with a clasp at the back), so it works with any neckline.', tell: true },
+  {
+    id: 'cape-strap', on: ['cape'], when: (g) => !!GOWN_CAPE_STRAP[g.cape] && strapless(g),
+    note: (g) => `This neckline has no strap, so a narrow strap is added on her ${GOWN_CAPE_STRAP[g.cape] === 'L' ? 'left' : 'right'} shoulder to hold the ${capeName(g)}.`, tell: true,
+  },
+  { id: 'pair-straps', on: ['cape'], when: (g) => g.cape === 'pair' && strapless(g), note: 'Each cape is fastened on a narrow strap over the shoulder, with a small brooch.', tell: true },
+  {
+    id: 'strapless-cape-strap', on: ['neck'], when: (g, _k, was) => strapless(g) && !GOWN_STRAPLESS.includes(was as GownConfig['neck']) && (!!GOWN_CAPE_STRAP[g.cape] || g.cape === 'pair'),
+    note: (g) => `A narrow strap is added to hold the ${capeName(g)}: this neckline has none.`, tell: true,
+  },
+  // A cape down her back and a long veil cover each other.
+  {
+    id: 'back-cape-short-veil', on: ['cape', 'capeLen'], when: (g) => longBack(g) && longVeil(g), apply: (g) => { g.veil = 'fingertip'; },
+    note: (g) => `The veil is now fingertip: the ${capeName(g)} and a long veil would cover each other.`, tell: true,
+  },
+  { id: 'veil-under-back-cape', on: ['veil'], when: (g) => longBack(g) && longVeil(g), apply: (g) => { g.veil = 'fingertip'; }, note: (g) => `With the ${capeName(g)} the veil stays fingertip or shorter.`, replaces: true },
+  { id: 'cape-accent-first', on: ['capeCol'], when: (g) => g.capeCol === 'accent' && !accented(g), note: 'Pick an accent colour first (under Sleeves); until then the cape stays in the gown colour.', replaces: true },
   // v195: flutter sleeves. They hang from the shoulder line, a side cape or capelet would lie over them, and an opaque
   // gown makes them in sheer chiffon so her arm shows through.
   {
@@ -156,8 +185,8 @@ export const GOWN_RULES: readonly GownRule[] = [
     note: 'Flutter sleeves now, in place of the butterfly sleeves the Filipiniana comes with.', tell: true,
   },
   {
-    id: 'flutter-no-cape', on: ['sleeve'], when: (g) => g.sleeve === 'flutter' && (g.cape === 'side' || g.cape === 'capelet'),
-    note: (g) => `The ${g.cape === 'side' ? 'side cape' : 'capelet'} is off: it would lie over the flutter sleeves.`, apply: (g) => { g.cape = 'none'; }, tell: true,
+    id: 'flutter-no-cape', on: ['sleeve'], when: (g) => g.sleeve === 'flutter' && armCape(g),
+    note: (g) => `The ${capeName(g)} is off: it would lie over the flutter sleeves.`, apply: (g) => { g.cape = 'none'; }, tell: true,
   },
   {
     id: 'flutter-off-shoulder', on: ['sleeve'], when: (g) => g.sleeve === 'flutter' && g.neck === 'sweetheart',
@@ -169,8 +198,8 @@ export const GOWN_RULES: readonly GownRule[] = [
   },
   { id: 'sweetheart-no-flutter', on: ['neck'], when: (g) => g.neck === 'sweetheart' && g.sleeve === 'flutter', apply: (g) => { g.sleeve = 'none'; }, note: 'Sleeves are now none: flutter sleeves need a shoulder or an off-shoulder line.', tell: true },
   {
-    id: 'cape-no-flutter', on: ['cape'], when: (g) => (g.cape === 'side' || g.cape === 'capelet') && g.sleeve === 'flutter', apply: (g) => { g.sleeve = 'none'; },
-    note: (g) => `Sleeves are now none: the ${g.cape === 'side' ? 'side cape' : 'capelet'} would lie over the flutter sleeves.`, tell: true,
+    id: 'cape-no-flutter', on: ['cape'], when: (g) => armCape(g) && g.sleeve === 'flutter', apply: (g) => { g.sleeve = 'none'; },
+    note: (g) => `Sleeves are now none: the ${capeName(g)} would lie over the flutter sleeves.`, tell: true,
   },
   { id: 'butterfly-no-cape', on: ['sleeve', 'sil'], when: (g) => g.sleeve === 'butterfly' && caped(g), apply: (g) => { g.cape = 'none'; }, note: 'The cape is off: butterfly sleeves stand where it would lie.' },
   // v195: over a ball gown an overlay sits as soft tiers.
@@ -226,11 +255,12 @@ export function gownChoose(config: GownConfig, choice: GownChoice, ctx: GownChoo
  */
 export function gownHiddenChoices(g: GownConfig): {
   sleeve: string[]; veil: string[]; waist: string[]; slits: boolean; overlay: string[]; petti: string[]; train: string[]; pleat: boolean; drape: string[]; blusher: boolean; longSleeveLabel: string;
+  capeLen: string[]; capeFasten: boolean; capeCol: boolean; capeCm: boolean;
 } {
   return {
     overlay: g.sil === 'ball' ? ['asym', 'cascade'] : [],
     sleeve: [...(caped(g) ? ['butterfly'] : []), ...(bareTop(g) ? ['cap'] : [])],
-    veil: g.cape === 'back' ? ['floor', 'chapel', 'cathedral'] : [],
+    veil: longBack(g) ? ['floor', 'chapel', 'cathedral'] : [],
     waist: (['natural', 'empire', 'dropped', 'basque', 'basqueU'] as const).filter((w) => !GOWN_WAIST_FOR[g.pieces].includes(w)),
     slits: !!GOWN_NO_SLIT[g.sil],
     petti: closeSil(g) ? ['full', 'hoop'] : [],
@@ -239,6 +269,12 @@ export function gownHiddenChoices(g: GownConfig): {
     drape: strapless(g) ? ['cowl'] : [],
     blusher: g.veil !== 'none' && g.veilStyle === 'classic',
     longSleeveLabel: bareTop(g) ? 'Detachable' : 'Long',
+    // v196 Cape details: the lengths this cape can be; where a back cape fastens; its colour once there is an accent;
+    // its own train once it has one.
+    capeLen: g.cape === 'none' ? [] : GOWN_CAPE_LENGTHS.map((l) => l.id).filter((l) => !GOWN_CAPE_DEF[g.cape as Exclude<GownConfig['cape'], 'none'>].lens.includes(l)),
+    capeFasten: g.cape !== 'back',
+    capeCol: !accented(g),
+    capeCm: gownCapeNow(g).len !== 'train',
   };
 }
 

@@ -141,3 +141,39 @@ test('the server refuses the v197 pairings the maker would have changed', () => 
     assert.equal(sanitizeGownConfig(old.config, OFFER).ok, true, 'and reads again unchanged');
   }
 });
+
+// v196 cape catalogue: the lines are the prototype's own (`setGown`, `capeRules`).
+test('a cape comes with its own details, gets a strap on a strapless neckline, and keeps a long veil off a long back', () => {
+  const a = gownChoose(start({ cape: 'back', capeLen: 'train', capeFab: 'tulle', capeEdge: 'lace', capeFasten: 'shoulders' }), { key: 'cape', value: 'side' });
+  assert.deepEqual([a.config.capeFab, a.config.capeLen, a.config.capeEdge, a.config.capeFasten], [null, null, null, null], 'each cape starts with its own');
+  assert.deepEqual(a.notes, ['This neckline has no strap, so a narrow strap is added on her left shoulder to hold the side cape.']);
+  assert.deepEqual(gownChoose(start({ neck: 'sweetheart' }), { key: 'cape', value: 'pair' }).notes, ['Each cape is fastened on a narrow strap over the shoulder, with a small brooch.']);
+  assert.deepEqual(gownChoose(start({ neck: 'bateau' }), { key: 'cape', value: 'drape' }).notes, [], 'a neckline with a shoulder needs no strap');
+  assert.deepEqual(gownChoose(start({ neck: 'bateau', cape: 'drape' }), { key: 'neck', value: 'straight' }).notes.slice(-1), ['A narrow strap is added to hold the one-shoulder drape: this neckline has none.']);
+  assert.deepEqual(gownChoose(start(), { key: 'cape', value: 'neck' }).notes, ['The neck cape fastens at its own thin band round her neck (with a clasp at the back), so it works with any neckline.']);
+  // A neck cape to the floor (its own default) and a long veil would cover each other; an elbow-length one would not.
+  const n = gownChoose(start({ veil: 'cathedral' }), { key: 'cape', value: 'neck' });
+  assert.equal(n.config.veil, 'fingertip');
+  assert.match(n.notes.join(' '), /The veil is now fingertip: the neck cape and a long veil would cover each other\./);
+  const e = gownChoose(start({ veil: 'cathedral', cape: 'neck' }), { key: 'capeLen', value: 'elbow' });
+  assert.equal(e.config.veil, 'cathedral');
+  const v = gownChoose(start({ cape: 'neck' }), { key: 'veil', value: 'floor' });
+  assert.equal(v.config.veil, 'fingertip');
+  assert.deepEqual(v.notes, ['With the neck cape the veil stays fingertip or shorter.']);
+  assert.deepEqual(gownHiddenChoices(start({ cape: 'neck', capeLen: 'elbow' })).veil, []);
+  assert.deepEqual(gownHiddenChoices(start({ cape: 'capelet' })).capeLen, ['fingertip', 'floor', 'train']);
+  assert.deepEqual(gownChoose(start(), { key: 'capeCol', value: 'accent' }).notes, ['Pick an accent colour first (under Sleeves); until then the cape stays in the gown colour.']);
+});
+
+test('flutter sleeves and every cape over the arms keep off each other; the server refuses the pairs v196 rules out', () => {
+  for (const cape of ['neck', 'pair', 'side', 'capelet', 'drape'] as const) {
+    const a = gownChoose(start({ neck: 'bateau', sleeve: 'flutter' }), { key: 'cape', value: cape });
+    assert.equal(a.config.sleeve, 'none', cape);
+    assert.equal(sanitizeGownConfig(start({ neck: 'bateau', sleeve: 'flutter', cape }), OFFER).ok, false, cape);
+  }
+  assert.equal(gownChoose(start({ neck: 'bateau', cape: 'back' }), { key: 'sleeve', value: 'flutter' }).config.cape, 'back', 'a back cape is not over the arms');
+  assert.equal(sanitizeGownConfig(start({ cape: 'neck', veil: 'chapel' }), OFFER).ok, false, 'a floor-length neck cape and a long veil');
+  assert.equal(sanitizeGownConfig(start({ cape: 'neck', capeLen: 'elbow', veil: 'chapel' }), OFFER).ok, true);
+  assert.equal(sanitizeGownConfig(start({ cape: 'capelet', capeLen: 'floor' }), OFFER).ok, false, 'a length the cape cannot be');
+  assert.equal(sanitizeGownConfig(start({ cape: 'side', capeFab: 'velvet' as never }), OFFER).ok, false);
+});

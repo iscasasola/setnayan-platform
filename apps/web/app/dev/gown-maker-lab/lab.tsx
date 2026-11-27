@@ -9,6 +9,12 @@ import {
   GOWN_CLOSURES,
   GOWN_SLEEVES,
   GOWN_VEILS,
+  GOWN_CAPE_COLOURS,
+  GOWN_CAPE_EDGES,
+  GOWN_CAPE_FABRICS,
+  GOWN_CAPE_FASTENINGS,
+  GOWN_CAPE_LENGTHS,
+  gownCapeNow,
   GOWN_VEIL_ORDER,
   GOWN_BLUSHERS,
   GOWN_BOWS,
@@ -43,7 +49,7 @@ import {
   type GownBodyVals,
   type GownConfig,
 } from '@/lib/gown-config';
-import { gownChoose, type GownChoice } from '@/lib/gown/compat';
+import { gownChoose, gownHiddenChoices, type GownChoice } from '@/lib/gown/compat';
 import { gownBraNote, gownLimit, gownSetNumber, gownSnapBustT } from '@/lib/gown/body-rules';
 import { GOWN_SCENES, GOWN_SCENE_IDS, type GownSceneId } from '@/lib/gown/scenes';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -174,8 +180,11 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
     );
   }
 
+  // The cape's details as they really are (its own defaults until she picks), and the choices the design rules out.
+  const now = gownCapeNow(design), hidden = gownHiddenChoices(design);
+  const capeNow = { capeFab: now.fab, capeLen: now.len, capeEdge: now.edge, capeFasten: now.fasten };
   // Every pick goes through the pairing rules, so the lab shows what the maker will (one line, then Undo in the maker).
-  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
+  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
     const out = gownChoose(design, { key: k, value: v } as GownChoice);
     setDesign(out.config);
     setNote(out.notes.join(' '));
@@ -218,6 +227,14 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 ['hem', 'Length', GOWN_HEMS],
                 ['train', 'Train', GOWN_TRAINS],
                 ['cape', 'Cape', GOWN_CAPES],
+                // v196 Cape details: what the cape really is (its own defaults until she picks), only the lengths it can be.
+                ...(design.cape === 'none' ? [] : ([
+                  ['capeFab', 'Cape made of', GOWN_CAPE_FABRICS],
+                  ['capeLen', 'Cape length', GOWN_CAPE_LENGTHS.filter((l) => !hidden.capeLen.includes(l.id))],
+                  ['capeEdge', 'Cape edge', GOWN_CAPE_EDGES],
+                  ...(hidden.capeFasten ? [] : [['capeFasten', 'Back cape fastened', GOWN_CAPE_FASTENINGS] as const]),
+                  ...(hidden.capeCol ? [] : [['capeCol', 'Cape colour', GOWN_CAPE_COLOURS] as const]),
+                ] as const)),
                 ['sleeve', 'Sleeves', GOWN_SLEEVES],
                 ['back', 'Back', GOWN_BACKS],
                 ['closure', 'Closure', GOWN_CLOSURES],
@@ -245,7 +262,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 <span>{label}</span>
                 <PickMenu
                   label={label}
-                  value={design[k] as string}
+                  value={(k in capeNow ? capeNow[k as keyof typeof capeNow] : design[k]) as string}
                   options={list.map((o) => ({ key: o.id, label: o.label }))}
                   onPick={(v) => choose(k, v)}
                   dataAttr={`data-lab-pick-${k.toLowerCase()}`}

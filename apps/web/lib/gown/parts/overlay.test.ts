@@ -29,8 +29,7 @@ const body = () => {
   return rig;
 };
 const arr = (g: THREE.BufferGeometry, k = 'position') => (g.attributes[k] as THREE.BufferAttribute).array as Float32Array;
-// `firstPanel`: v197's back cape numbers its first panel as ours, then its later panels and trim (they come with A6f).
-const worstCm = (B: GownRig, P: ArrayLike<number>, sample: Pt[], firstPanel = false) => { let w = 0; for (const [i, x, y, z] of sample) if (!firstPanel || i * 3 < P.length) w = Math.max(w, Math.hypot(P[i * 3]! - x, P[i * 3 + 1]! - y, P[i * 3 + 2]! - z)); return w * B.P.S * 100; };
+const worstCm = (B: GownRig, P: ArrayLike<number>, sample: Pt[]) => { let w = 0; for (const [i, x, y, z] of sample) w = Math.max(w, Math.hypot(P[i * 3]! - x, P[i * 3 + 1]! - y, P[i * 3 + 2]! - z)); return w * B.P.S * 100; };
 
 test('the overlay rides the skirt as v197 lays it, and a back cape and a veil keep outside it', async () => {
   const B = await body();
@@ -49,7 +48,7 @@ test('the overlay rides the skirt as v197 lays it, and a back cape and a veil ke
     assert.ok(Math.abs(m - r.ovM) < 1e-3, `${r.name}: overlay metres ${m} vs ${r.ovM}`);
     const caped = buildCape(B, T, D, C, K, g, { floorY, pose: 'a', overlayOut: out });
     assert.equal(caped, !!r.cape, `${r.name}: cape`);
-    if (r.cape) assert.ok(worstCm(B, arr(K.geo, 'rest'), r.cape, true) < 0.1, `${r.name}: the cape over the overlay (worst ${worstCm(B, arr(K.geo, 'rest'), r.cape, true).toFixed(2)} cm)`);
+    if (r.cape) assert.ok(worstCm(B, arr(K.geo, 'rest'), r.cape) < 0.1, `${r.name}: the cape over the overlay (worst ${worstCm(B, arr(K.geo, 'rest'), r.cape).toFixed(2)} cm)`);
     assert.equal(fabricMetres(B, D, caped ? K : null, g.ovFab === 'gown' ? m : 0), r.metres, `${r.name}: outer fabric`);
     if (r.veil) {
       const V = emptyVeil();

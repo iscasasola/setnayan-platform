@@ -191,3 +191,34 @@ export function drawGownLaceTile(g: GownLaceCanvas, lace: GownLace): void {
 }
 /** How the stage draws sheer lace (v197). */
 export const GOWN_LACE_TILE_DRAW = { roughness: 0.75 } as const;
+
+/** A cape border's canvas size (px): lace is a band, appliqué a square tile. */
+export const GOWN_CAPE_EDGE_PX = { lace: { w: 256, h: 128 }, applique: { w: 256, h: 256 } } as const;
+/**
+ * A cape's border (v196 `capeEdgeMat`): lace is a continuous band with a scalloped outer edge (the canvas bottom);
+ * appliqué is separate motifs, dense along the outer edge and thinning into the cloth. The gown's lace, or Chantilly
+ * (lace) or Floral (appliqué) when it has none. The stage tints it with the lace colour.
+ */
+export function drawGownCapeEdge(g: GownLaceCanvas, kind: 'lace' | 'applique', lace: GownLace): void {
+  const id = lace === 'none' ? (kind === 'applique' ? 'floral' : 'chantilly') : lace, { w: W, h: H } = GOWN_CAPE_EDGE_PX[kind];
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, W, H);
+  if (kind === 'lace') {
+    g.fillStyle = 'rgba(255,255,255,0.18)';
+    g.beginPath(); g.moveTo(0, 0); g.lineTo(W, 0); g.lineTo(W, H - 22);
+    for (let k = 3; k >= 0; k--) g.arc(((k + 0.5) * W) / 4, H - 22, W / 8, 0, Math.PI, false);
+    g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(255,255,255,0.9)'; g.lineWidth = 3;
+    g.beginPath(); for (let k = 0; k < 4; k++) g.arc(((k + 0.5) * W) / 4, H - 22, W / 8, Math.PI, 0, true); g.stroke();
+    g.beginPath(); g.moveTo(0, 3); g.lineTo(W, 3); g.stroke();
+    for (const [x, sz] of [[0.25, 92], [0.75, 92], [0, 44], [0.5, 44], [1, 44]] as const) { g.setTransform(sz, 0, 0, sz, x * W, x % 0.5 ? H * 0.5 : H * 0.28); drawGownMotif(g, id); }
+  } else {
+    for (const [x, y, sz] of [[0.125, 0.84, 0.3], [0.375, 0.86, 0.3], [0.625, 0.84, 0.3], [0.875, 0.86, 0.3], [0, 0.68, 0.22], [0.25, 0.66, 0.24], [0.5, 0.69, 0.22], [0.75, 0.66, 0.24], [0.14, 0.47, 0.17], [0.6, 0.44, 0.18], [0.38, 0.27, 0.12], [0.86, 0.24, 0.11]] as const) {
+      for (const dx of [-1, 0, 1]) for (let rep = 0; rep < 2; rep++) { g.setTransform(sz * W, 0, 0, sz * W, (x + dx) * W, y * H); g.rotate(((x * 13 + y * 7) % 1.2) - 0.6); drawGownMotif(g, id); }
+    }
+    g.setTransform(1, 0, 0, 1, 0, 0);
+    g.strokeStyle = 'rgba(255,255,255,0.85)'; g.lineWidth = 4;
+    g.beginPath(); g.moveTo(0, H - 6); g.lineTo(W, H - 6); g.stroke();
+  }
+  g.setTransform(1, 0, 0, 1, 0, 0);
+}

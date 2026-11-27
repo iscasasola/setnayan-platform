@@ -55,3 +55,8 @@ test('(4) ActionButton carries tabIndex={-1} to its button', () => {
   assert.match(src, /tabIndex\?: -1;/);
   assert.match(src, /tabIndex=\{p\.tabIndex\}/);
 });
+
+test('(5) the ✕ that appears in every type box while typing is not a Tab stop — Tab goes box → box', () => {
+  assert.match(read('components/clear-field.tsx'), /tabIndex=\{tabIndex\}/);
+  assert.match(read('app/_components/global-clear-field.tsx'), /<ClearButton\s+label="Clear"\s+tabIndex=\{-1\}/, 'the app-wide ✕ sits between Email and Password in the Tab order');
+});

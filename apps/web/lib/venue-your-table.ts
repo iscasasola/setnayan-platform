@@ -24,13 +24,14 @@ export function yourTableName(row: TableNameRow | null): string | null {
   return name || null;
 }
 
-/** The event's shown table names — `readShownTableNames` (lib/table-auto-name.server.ts); a test hands in its own. */
-type NamesOf = (admin: SupabaseClient, eventId: string) => Promise<Map<string, string>>;
-const shownNamesOf: NamesOf = async (admin, eventId) =>
-  // Loaded here, not at the top: the client caption imports `youAreAtWords` from this file.
-  (await import('@/lib/table-auto-name.server')).readShownTableNames(admin, eventId);
+/**
+ * The event's shown table names — the server callers pass `readShownTableNames` (lib/table-auto-name.server.ts). It is
+ * handed in, never imported here: the client caption imports `youAreAtWords` from this file, so a server-only import
+ * (even a dynamic one) would pull the database reader into the browser bundle.
+ */
+export type NamesOf = (admin: SupabaseClient, eventId: string) => Promise<Map<string, string>>;
 
-export async function withYourTableName<T extends WithYou>(admin: SupabaseClient, scene: T, namesOf: NamesOf = shownNamesOf): Promise<T> {
+export async function withYourTableName<T extends WithYou>(admin: SupabaseClient, scene: T, namesOf: NamesOf): Promise<T> {
   const you = scene.you;
   if (!you?.table) return scene;
   const { data, error } = await admin

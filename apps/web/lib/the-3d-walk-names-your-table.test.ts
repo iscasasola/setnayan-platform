@@ -67,17 +67,17 @@ test("the join reads only the guest's own table, by its public id", async () => 
 test('no token, no read; a failed read is "your table", not the code', async (t) => {
   t.mock.method(console, 'error', () => {});
   const none = fakeAdmin({ data: null, error: null });
-  const anon = await withYourTableName<WithYou>(none.admin, { you: null });
+  const anon = await withYourTableName<WithYou>(none.admin, { you: null }, async () => new Map());
   assert.equal(none.asked.table, undefined, 'a tokenless scene names no table');
   assert.equal(anon.you, null);
   const failed = fakeAdmin({ data: { table_label: 'Family', link_group_label: null }, error: { message: 'boom' } });
-  const out = await withYourTableName<WithYou>(failed.admin, { you: { table: 'S89TBL-LAB0000006' } });
+  const out = await withYourTableName<WithYou>(failed.admin, { you: { table: 'S89TBL-LAB0000006' } }, async () => new Map());
   assert.equal(out.you?.tableName, null);
   assert.equal(youAreAtWords(out.you!), 'your table');
 });
 
 test('the page and the live-refresh route both join the name; the caption reads it', () => {
-  assert.match(read('app', '[slug]', 'venue', 'page.tsx'), /withYourTableName\(admin, scene\)/, 'the page draws the code');
+  assert.match(read('app', '[slug]', 'venue', 'page.tsx'), /withYourTableName\(admin, scene, readShownTableNames\)/, 'the page draws the code');
   assert.match(read('app', 'api', 'venue-scene', '[slug]', 'route.ts'), /withYourTableName\(admin, /, 'a live refresh brings the code back');
   const walk = read('app', '[slug]', 'venue', '_components', 'guest-venue-3d.tsx');
   assert.match(walk, /You&rsquo;re at \{youAreAtWords\(scene\.you\)\}/);

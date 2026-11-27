@@ -1,4 +1,4 @@
-import { Screen, Sk, SkCircle, SkSection } from '@/components/skeletons';
+import { RowSkeleton, Screen, Sk, SkCircle, SkSection } from '@/components/skeletons';
 
 /**
  * Skeleton for /vendor-dashboard — Today, in Today's own shape (L6 · S4, walk 27 Nov 2026: a supplier's first load read
@@ -41,18 +41,11 @@ export default function VendorLoading() {
 
         {/* 3 · Needs you today — the pinned heading is known; its rows are not. */}
         <SkSection name="Needs you today" className="space-y-1">
-          <ul aria-hidden className="divide-y divide-[color:var(--m-line)]">
+          <div className="space-y-2.5">
             {Array.from({ length: 4 }).map((_, i) => (
-              <li key={i} className="flex items-center gap-3 py-3">
-                <SkCircle size="h-9 w-9" />
-                <div className="min-w-0 flex-1 space-y-2">
-                  <Sk className="h-3.5 w-3/5 rounded" />
-                  <Sk className="h-3 w-2/5 rounded" />
-                </div>
-                <Sk className="h-9 w-20 rounded-full" />
-              </li>
+              <RowSkeleton key={i} />
             ))}
-          </ul>
+          </div>
         </SkSection>
       </Screen>
     </div>

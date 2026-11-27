@@ -10,9 +10,11 @@
  * PURE — client components and tests share it.
  * 🔒 lib/shop-count-window.test.ts
  */
+import { formatCount } from '@/lib/format-number';
 
 /** The days a "lately" count covers — Analytics' first window ('30'). */
 export const SHOP_COUNT_WINDOW_DAYS = 30;
+
 
 const DAY_MS = 86_400_000;
 
@@ -27,7 +29,10 @@ export function shopCountSinceMs(nowMs: number): number {
 }
 
 /** "last 30 days" — Today's stat line. */
-export const SHOP_COUNT_WINDOW_WORDS = `last ${SHOP_COUNT_WINDOW_DAYS} days`;
+export const SHOP_COUNT_WINDOW_WORDS = `last ${formatCount(SHOP_COUNT_WINDOW_DAYS)} days`;
 
-/** "30 d" — the short form a pinned figure wears ("opened · 30 d"). */
-export const SHOP_COUNT_WINDOW_SHORT = `${SHOP_COUNT_WINDOW_DAYS} d`;
+/** "30 d" — the short form a pinned figure wears. */
+export const SHOP_COUNT_WINDOW_SHORT = `${formatCount(SHOP_COUNT_WINDOW_DAYS)} d`;
+
+/** "opened · 30 d" — Your page's pinned "opened" figure. */
+export const SHOP_OPENED_WORD = `opened · ${SHOP_COUNT_WINDOW_SHORT}`;

@@ -513,7 +513,7 @@ export function growStage(i: GrowInput): GrowStage | null {
   }
   // 🔑 Stage 2 could not be judged (the cards were unread): the shop is NOT moved on to stage 3+ on a guess.
   if (i.coversUnread) return null;
-  const looked = i.views != null && i.inquiries28 != null ? `${formatCount(i.views)} looked · ${formatCount(i.inquiries28)} asked in ${SHOP_COUNT_WINDOW_DAYS} days` : null;
+  const looked = i.views != null && i.inquiries28 != null ? `${formatCount(i.views)} looked · ${formatCount(i.inquiries28)} asked in ${formatCount(SHOP_COUNT_WINDOW_DAYS)} days` : null;
   if (i.cutoffs.fewInquiries !== null && i.inquiries28 !== null && i.inquiries28 < i.cutoffs.fewInquiries) {
     return {
       n: 3,

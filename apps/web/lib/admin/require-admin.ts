@@ -1,5 +1,5 @@
 import { cache } from 'react';
-import { notFound, redirect } from 'next/navigation';
+import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { loginRedirectPath } from '@/lib/auth';
 import { isAdminProfile } from './admin-predicate';
@@ -50,14 +50,25 @@ const getAdminGate = cache(
 );
 
 /**
- * Page/layout gate: unauthenticated → login redirect; authenticated non-admin
- * → 404 (never a redirect, so the /admin route doesn't leak its own existence
- * — same contract the admin layout has always had).
+ * Where a signed-in account that is not on the team is sent from any admin page: Home (`/`, which opens the
+ * account's own Home by `landingForAccount`). Pure so a test can hold it.
+ */
+export const NOT_ADMIN_LANDING = '/';
+
+/**
+ * Page/layout gate: unauthenticated → login redirect; authenticated non-admin → Home.
+ *
+ * 🏠 A NON-ADMIN GOES HOME, NOT TO A 404 (Batch 0 · L1, MASTER-PLAN A8 + D6, walk 27 Nov). This answered `notFound()`
+ * so the console would not "leak its own existence". In practice it stranded people: a sign-in whose `next` was
+ * `/admin` (an account added on a phone an admin had used) landed on "This page doesn't exist", and every such visit
+ * was logged in Admin › Problems as a not_found, noise the team had to read. The owner's ruling is Home: the account
+ * is sent to its own Home instead, and nothing is logged. A server ACTION still
+ * refuses with Forbidden below (an action cannot redirect a person who never asked to go anywhere).
  */
 export async function requireAdmin(): Promise<{ userId: string }> {
   const gate = await getAdminGate();
   if (!gate.userId) redirect(loginRedirectPath('/admin'));
-  if (!gate.isAdmin) notFound();
+  if (!gate.isAdmin) redirect(NOT_ADMIN_LANDING);
   return { userId: gate.userId };
 }
 

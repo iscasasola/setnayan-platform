@@ -10,8 +10,11 @@ import { join } from 'node:path';
 import vm from 'node:vm';
 import {
   APP_STYLESHEET_PATH,
+  ERROR_SCREEN_FLAG,
+  LOAD_BAR_ID,
   STYLESHEET_FAILURE_KEY,
   STYLESHEET_RELOAD_KEY,
+  standDownLoadBar,
   stylesheetRecoveryScript,
 } from './stylesheet-recovery';
 
@@ -24,7 +27,7 @@ function link(href: string, sheet: Sheet): FakeLink {
 const OK = { cssRules: [{}] };
 const APP_CSS = `https://www.setnayan.com${APP_STYLESHEET_PATH}f616be75862301ea.css?dpl=dpl_x`;
 
-function run(opts: { links: FakeLink[]; storage?: Record<string, string>; storageThrows?: boolean }) {
+function run(opts: { links: FakeLink[]; storage?: Record<string, string>; storageThrows?: boolean; errorScreen?: boolean }) {
   const store = new Map(Object.entries(opts.storage ?? {}));
   const listeners: Record<string, (e: { target: unknown }) => void> = {};
   const docListeners: Record<string, (e: { target: unknown }) => void> = {};
@@ -65,6 +68,7 @@ function run(opts: { links: FakeLink[]; storage?: Record<string, string>; storag
     documentElement: { appendChild: (el: { id: string }) => appended.push(el) },
   };
   const window = {
+    ...(opts.errorScreen ? { [ERROR_SCREEN_FLAG]: true } : {}),
     get sessionStorage() {
       if (opts.storageThrows) throw new Error('SecurityError');
       return storage;
@@ -165,4 +169,26 @@ test('the root layout mounts the script exactly once, inside <head>', () => {
   const headOpen = src.indexOf('<head>');
   const headClose = src.indexOf('</head>');
   assert.ok(headOpen !== -1 && headOpen < at && at < headClose, 'the mount must sit between <head> and </head>');
+});
+
+// 🧱 Batch 0 · L1 (walk 27 Nov): the supplier Plan page showed this bar ON TOP OF "Something on our end didn't work".
+test('the bar never draws over an error screen: one failure, one screen', () => {
+  const r = run({ links: [link(APP_CSS, null)], storage: { [STYLESHEET_RELOAD_KEY]: '1' }, errorScreen: true });
+  r.load();
+  assert.equal(r.reloads(), 0);
+  assert.equal(r.bar(), false, 'an error screen is showing, so the bar stands down');
+});
+
+test('an error screen that mounts AFTER the bar takes it down, and every boundary does it through reportCrash', () => {
+  let removed = 0;
+  const win: Record<string, unknown> & { document: { getElementById(id: string): { remove(): void } | null } } = {
+    document: { getElementById: (id: string) => (id === LOAD_BAR_ID ? { remove: () => void removed++ } : null) },
+  };
+  standDownLoadBar(win);
+  assert.equal(removed, 1);
+  assert.equal(win[ERROR_SCREEN_FLAG], true);
+  const crash = readFileSync(join(process.cwd(), 'lib/telemetry/report-crash.ts'), 'utf8');
+  const call = crash.indexOf('standDownLoadBar(');
+  assert.ok(call > 0, 'reportCrash stands the bar down');
+  assert.ok(call < crash.indexOf('error.digest) return'), 'before the server-born early return: a server crash shows a screen too');
 });

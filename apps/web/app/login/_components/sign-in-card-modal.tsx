@@ -32,12 +32,15 @@ import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { SignInCard, type SignInCardProps } from './sign-in-card';
+import { OtherAccountRow } from '@/app/_components/account-switcher/other-account-row';
+import type { ParkedAccount } from '@/lib/account-jars';
 import '@/app/_components/home/home-reskin.css';
 
 export function SignInCardModal({
   dismissHref,
+  parked = [],
   ...card
-}: SignInCardProps & { dismissHref?: string | null }) {
+}: SignInCardProps & { dismissHref?: string | null; parked?: readonly ParkedAccount[] }) {
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
   const dismissible = dismissHref !== null;
@@ -92,6 +95,24 @@ export function SignInCardModal({
           </button>
         ) : null}
         <SignInCard {...card} />
+        {/* 🔁 THE ACCOUNTS PARKED ON THIS PHONE (Batch 0 · L5, walk 27 Nov 12a). "Add another account" parks the
+            session and opens this page; without these rows the parked account was unreachable until someone signed
+            in. One tap switches back, no password: the avatar sheet's own row (`OtherAccountRow`), same switch route. */}
+        {parked.length > 0 ? (
+          <section aria-label="Switch to" data-login-parked="" className="mt-6">
+            <span className="sn-sheet-k pb-1.5">Switch to</span>
+            <div className="divide-y divide-[var(--m-line)] overflow-hidden rounded-lg bg-[var(--m-paper)]">
+              {parked.map((acct) => (
+                <OtherAccountRow
+                  key={acct.uid}
+                  acct={acct}
+                  next={card.next}
+                  className="flex min-h-[62px] w-full items-center gap-3 py-2 pl-3 pr-3.5 text-left transition-colors hover:bg-[var(--m-paper-2)]"
+                />
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
     </div>
   );

@@ -5,8 +5,10 @@
  * This step ports the estimates that read the body alone. The ones that run a tape down the dress's body table
  * (nape to waist, front length, hollow to hem, waist to hem) need the dress layer and land with it in step A5.
  *
- * Kept as v186 behaves: its hip-line "waist to hip" sits inside a code comment, so v186 always uses its fall-back
- * (natural waist to the hip joint + 3 cm). That fall-back is what is ported here; changing it is a separate decision.
+ * Waist to hip: the prototype's hip-line version sits inside a code comment, so it always uses its fall-back (natural
+ * waist to the hip joint + 3 cm), and so does this port. KNOWN OPEN ITEM (coordinator, 27 Nov): the estimate runs long,
+ * about +3 cm (23.5 cm at 155 cm, where a real woman measures about 19–20 cm). The hip line measured worse (26 cm), so
+ * the fall-back stays. It is only a faded estimate: her tape, and the designer's, replace it.
  */
 import * as THREE from 'three';
 import type { GownMeasureKey } from '../../gown-config';

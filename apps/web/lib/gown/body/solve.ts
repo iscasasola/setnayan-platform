@@ -10,7 +10,7 @@ import * as THREE from 'three';
 import type { GownBodyKey, GownBodyVals } from '../../gown-config';
 import { GOWN_ATHLETIC_KG, GOWN_LEG_SHARE, gownEstimateKg, gownFatPercent, gownLimit, gownShapedVals, halfCm } from '../body-rules';
 import { computeBones, jointP, jointY } from './bones';
-import { BODY_K, BUILD_MAX, BUILD_MIN, BUST_POS, CUP_MAX_STEP, CUP_MIN, HEAD_SHARE, RIB_REST } from './constants';
+import { BODY_K, BODY_KG_CALIBRATION, BUILD_MAX, BUILD_MIN, BUST_POS, CUP_MAX_STEP, CUP_MIN, HEAD_SHARE, RIB_REST } from './constants';
 import { bodyNormals, morph } from './shape';
 import { clamp, type GownRig } from './rig';
 import { skin } from './skin';
@@ -26,7 +26,7 @@ export function weightTarget(B: GownRig): number {
 
 /**
  * The body as built weighs: its volume × the density of a body with her fat share (Siri), less about 2.5 L of air in
- * the lungs, × 1.12 (v183: the mannequin weighs about 8–17 % less than a woman with the same tape).
+ * the lungs, × the mannequin calibration (`BODY_KG_CALIBRATION`).
  */
 export function bodyKg(B: GownRig): number {
   const ix = B.geo.index!.array, V = B.V;
@@ -35,7 +35,7 @@ export function bodyKg(B: GownRig): number {
     const a = ix[t]! * 3, b = ix[t + 1]! * 3, c = ix[t + 2]! * 3;
     s += V[a]! * (V[b + 1]! * V[c + 2]! - V[b + 2]! * V[c + 1]!) - V[a + 1]! * (V[b]! * V[c + 2]! - V[b + 2]! * V[c]!) + V[a + 2]! * (V[b]! * V[c + 1]! - V[b + 1]! * V[c]!);
   }
-  return ((Math.max(0, (s / 6) * B.P.S ** 3 * 1000 - 2.5) * 495) / (gownFatPercent(B.vals, B.fine.athletic) + 450)) * 1.12;
+  return ((Math.max(0, (s / 6) * B.P.S ** 3 * 1000 - 2.5) * 495) / (gownFatPercent(B.vals, B.fine.athletic) + 450)) * BODY_KG_CALIBRATION;
 }
 
 /** v186 `solveG`: fit the bones to her lengths and the girths to her tape. Mutates the rig; returns what the tape read (cm). */

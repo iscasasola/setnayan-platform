@@ -14,7 +14,7 @@ import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import type { GownBodyKey, GownBodyVals, GownShapewear } from '@/lib/gown-config';
+import type { GownBodyKey, GownBodyVals, GownConfig, GownShapewear } from '@/lib/gown-config';
 import { createGownFrameGovernor, type GownFrameGovernor } from '@/lib/gown/frame-governor';
 import { GOWN_MANNEQUIN, GOWN_SCENES, gownSkyTexture, type GownSceneId } from '@/lib/gown/scenes';
 import { installGownToneMapping } from '@/lib/gown/tone';
@@ -22,6 +22,11 @@ import { GOWN_BODY_URL, parseGownBody } from '@/lib/gown/body/load';
 import type { GownRig } from '@/lib/gown/body/rig';
 import { solveGownBody } from '@/lib/gown/body/solve';
 import { tapeLoops, type GownTapeKey } from '@/lib/gown/body/tape';
+import { buildDress, emptyDress, floorOf } from '@/lib/gown/dress/build';
+import { restingCloth, writeDress } from '@/lib/gown/dress/cloth';
+import { buildEnvelope, emptyEnvelope } from '@/lib/gown/dress/table';
+import { applyGownSheer, applyGownShine, gownClothColour, gownClothShader, tintGownSheen } from '@/lib/gown/fabric/shine';
+import { gownClothFeel, gownFabricType } from '@/lib/gown/fabric/types';
 import { canvasDpr } from '@/lib/phone-gpu-budget';
 import { ContextLostNotice, usePhoneGpu, useWebglContextLost } from '@/app/_components/plan3d/phone-gpu-budget';
 
@@ -37,6 +42,8 @@ export type GownFigureProps = {
   guides?: boolean;
   /** Turn her to this angle (radians, 0 = facing you). */
   turn?: number;
+  /** The gown she wears; none = the mannequin alone (the Measurements steps). */
+  design?: GownConfig | null;
   onShow2d: () => void;
   onSolved?: (s: GownSolved) => void;
 };
@@ -141,26 +148,62 @@ function SceneLights({ scene }: { scene: GownSceneId }) {
 
 const TAPE_ORDER: GownTapeKey[] = ['bust', 'underbust', 'waist', 'hips'];
 
-function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, onSolved }: { rig: GownRig } & GownFigureProps) {
+function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, design = null, scene = 'studio', onSolved }: { rig: GownRig } & GownFigureProps) {
   const pivot = useRef<THREE.Group>(null);
   const mat = useMemo(() => new THREE.MeshStandardMaterial({ color: GOWN_MANNEQUIN.color, roughness: GOWN_MANNEQUIN.roughness, metalness: 0 }), []);
-  const [frame, setFrame] = useState({ S: 1, floor: 0, top: 1.7, ver: 0 });
+  // The gown: one mesh, its cloth material and the light coming through a sheer from behind.
+  const cloth = useMemo(() => {
+    const sheerBack = { value: 0 };
+    const m = new THREE.MeshPhysicalMaterial({ color: GOWN_MANNEQUIN.color, sheen: 1, side: THREE.DoubleSide });
+    m.onBeforeCompile = gownClothShader(sheerBack) as unknown as THREE.Material['onBeforeCompile'];
+    const mesh = new THREE.Mesh(new THREE.BufferGeometry(), m);
+    mesh.frustumCulled = false;
+    return { mesh, m, sheerBack, T: emptyEnvelope(), D: emptyDress() };
+  }, []);
+  const [frame, setFrame] = useState({ S: 1, floor: 0, top: 1.7, ver: 0, width: 0.6 });
   const [loops, setLoops] = useState<Record<GownTapeKey, number[]> | null>(null);
-  const key = JSON.stringify([vals, fine, shape]);
+  const key = JSON.stringify([vals, fine, shape, design]);
   useEffect(() => {
     Object.assign(rig.vals, vals);
     rig.fine = { athletic: fine.athletic, bustT: fine.bustT, given: [...fine.given] };
     rig.shape = shape;
     solveGownBody(rig);
     rig.mesh.material = mat;
-    let floor = 1e9;
-    for (let i = 1; i < rig.n * 3; i += 3) if (rig.V[i]! < floor) floor = rig.V[i]!;
-    setFrame({ S: rig.P.S, floor, top: rig.top, ver: rig.ver });
+    const floor = floorOf(rig);
+    let width = 0.6;
+    const root = rig.mesh.parent ?? rig.mesh;
+    if (design) {
+      // Clothes follow the body: the gown is built on the body just solved.
+      const ft = gownFabricType(design.fabric), feel = gownClothFeel(ft.props, design.skirtLayers);
+      cloth.D.hold = feel.hold;
+      cloth.D.foldK = feel.foldK;
+      buildEnvelope(rig, cloth.T);
+      buildDress(rig, cloth.T, cloth.D, design, floor);
+      writeDress(cloth.D, cloth.T, restingCloth(), { pleat: design.pleat, n: design.pleatN, amp: design.pleatCm / 100 / rig.P.S });
+      if (cloth.D.geo && cloth.mesh.geometry !== cloth.D.geo) cloth.mesh.geometry = cloth.D.geo;
+      cloth.m.color.setHex(gownClothColour(design.colour, design.colourHex));
+      applyGownShine(cloth.m, ft.drawAs, GOWN_SCENES[scene].env);
+      tintGownSheen(cloth.m);
+      applyGownSheer(cloth.m, ft.props, design.lining !== 'none');
+      cloth.sheerBack.value = ft.props.sheer > 0.3 ? ft.props.sheer * GOWN_SCENES[scene].back : 0;
+      if (cloth.mesh.parent !== root) root.add(cloth.mesh);
+      cloth.mesh.visible = true;
+      width = Math.max(0.6, 2 * cloth.D.hemR); // the hem's width (a train runs back, not sideways)
+    } else cloth.mesh.visible = false;
+    setFrame({ S: rig.P.S, floor, top: rig.top, ver: rig.ver, width: width * rig.P.S });
     setLoops(guides ? tapeLoops(rig) : null);
     onSolved?.({ got: { bust: rig.got.bust, underbust: rig.got.underbust, waist: rig.got.waist, hips: rig.got.hips }, kg: rig.kg, vals: { ...rig.vals } });
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` is the numbers; the callback is read fresh each solve
-  }, [rig, key, guides, mat]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `key` is the numbers and the design; the callback is read fresh each solve
+  }, [rig, key, guides, mat, cloth, scene]);
   useEffect(() => () => mat.dispose(), [mat]);
+  useEffect(
+    () => () => {
+      cloth.mesh.removeFromParent();
+      cloth.m.dispose();
+      cloth.D.geo?.dispose();
+    },
+    [cloth],
+  );
   const root = rig.mesh.parent ?? rig.mesh;
   const h = (frame.top - frame.floor) * frame.S;
   useEffect(() => {
@@ -173,21 +216,21 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, onSol
         {loops ? <TapeGuides loops={loops} /> : null}
       </group>
       <OrbitControls enablePan={false} enableDamping minDistance={1.2} maxDistance={9} minPolarAngle={Math.PI * 0.3} maxPolarAngle={Math.PI * 0.55} target={[0, h * 0.5, 0]} />
-      <FitCamera height={h} />
+      <FitCamera height={h} width={frame.width} />
     </>
   );
 }
 
 /** Fit her whole, head to toe, at any screen shape (v186 `frame`). */
-function FitCamera({ height }: { height: number }) {
+function FitCamera({ height, width }: { height: number; width: number }) {
   const { camera, size } = useThree();
   useEffect(() => {
     const cam = camera as THREE.PerspectiveCamera;
     const vfov = THREE.MathUtils.degToRad(cam.fov), hfov = 2 * Math.atan(Math.tan(vfov / 2) * (size.width / Math.max(1, size.height)));
-    const dist = Math.max((height * 1.12) / 2 / Math.tan(vfov / 2), (0.6 * 1.2) / 2 / Math.tan(hfov / 2));
+    const dist = Math.max((height * 1.12) / 2 / Math.tan(vfov / 2), (width * 1.2) / 2 / Math.tan(hfov / 2));
     cam.position.set(0, height * 0.52, dist);
     cam.lookAt(0, height * 0.5, 0);
-  }, [camera, size, height]);
+  }, [camera, size, height, width]);
   return null;
 }
 

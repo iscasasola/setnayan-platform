@@ -20,6 +20,14 @@
  *      word allowed is the shared `<Screen>`'s one `sr-only` announcement.
  *   5. No spinner and no `animate-pulse`: the Sheen is the one allowed loop.
  *
+ * ── Who is NOT here, on purpose ─────────────────────────────────────────────
+ * Ten more routes the audit named (pay, proposals, the Samahan chats, Panood,
+ * the onboarding wizard, the fit check, two Papic pages) call `notFound()` on a
+ * crawlable path. A boundary there streams HTTP 200 for a thing that does not
+ * exist, the `/v/[slug]` soft-404, and `(shell)/the-press-commits-now.test.ts`
+ * forbids it. Their wait needs a fix that keeps the 404 (a `<Suspense>` inside
+ * the page after the existence check), not a `loading.tsx`.
+ *
  * ── Why a list here ─────────────────────────────────────────────────────────
  * These are the routes the audit found frozen. The list is the finding, so it
  * is kept as the finding: a route here losing its boundary is the regression.
@@ -45,27 +53,17 @@ const APP = resolve(__dirname, '..');
 /** Route folders (relative to `app/`) the audit found with no boundary. */
 const ROUTES = [
   // Group J (named by the audit)
-  'pay/[reference]',
   'receipts/order/[orderId]',
   'receipts/payment/[paymentId]',
-  'proposals/[publicId]',
-  'samahan/chat/[threadId]',
-  'samahan/chat/new',
-  'panood/control/[eventId]',
-  'panood/program/[eventId]',
   'claim/[token]',
   'join/crew/[token]',
   'open-shop',
-  'onboarding/[type]',
   'onboarding/simple',
-  'vendor/fit/[ref]',
   // ⓛ with 3+ reads before paint (the per-route table)
   'open-shop/invite',
   'open-shop/logo',
   'wall/[eventId]',
   'papic/decorate',
-  'papic/pool',
-  'papic/order/[token]',
   'tour/budget',
   'tour/gallery',
   'tour/vendors',
@@ -106,7 +104,7 @@ function visibleText(html: string): string {
 }
 
 test('the audit found enough routes for this to ask something', () => {
-  assert.ok(ROUTES.length >= 20, `only ${ROUTES.length} routes listed (floor 20)`);
+  assert.ok(ROUTES.length >= 13, `only ${ROUTES.length} routes listed (floor 13)`);
 });
 
 for (const route of ROUTES) {

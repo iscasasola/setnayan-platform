@@ -1,5 +1,6 @@
 import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
+import { CopyButton } from '@/app/_components/copy-button';
 import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ArrowRight, CheckCircle2, Send, Trash2, XCircle } from 'lucide-react';
@@ -643,6 +644,12 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
                   </p>
                 ) : m.account_number ? (
                   <p className="mt-1 text-xs text-ink/70">{m.account_number}</p>
+                ) : null}
+                {/* 📋 Text is not selectable (owner 27 Nov 2026, R1): the account number is copied with a button. */}
+                {m.account_number ? (
+                  <div className="mt-1.5">
+                    <CopyButton value={m.account_number} label="Copy account no." />
+                  </div>
                 ) : null}
                 {m.method_type === 'link' && m.link_url ? (
                   <a

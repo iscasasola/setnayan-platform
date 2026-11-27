@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Check, Loader2, Share } from 'lucide-react';
+import { Check, Download, Loader2, Share } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { GalleryLightbox } from './gallery-lightbox';
-import { canShareFiles, saveFileToDevice } from '@/lib/save-to-device';
+import { canShareFiles, saveFileToDevice, saveImageToDevice } from '@/lib/save-to-device';
 import { shareExtension, shareWords, type ShareSource } from '@/lib/memories-viewer';
 import { formatCount } from '@/lib/format-number';
 
@@ -73,6 +73,29 @@ export function PhotoViewer({
   onPanelClose?: () => void;
   blur?: boolean;
 }) {
+  /* 💾 EVERY PHOTO HAS A SAVE (owner 27 Nov 2026, R1 — "photos need Save buttons, because long-press save goes
+     away"): a viewer whose caller gives no Share or Save of its own gets one, last in the row — the photo as shown,
+     through the same `saveImageToDevice` the tiles use (the phone's share sheet → "Save to Photos", else a download).
+     It says what happened in its own word: Saving… · Saved · Try again. A clip keeps its caller's buttons. */
+  const [saving, setSaving] = useState<'idle' | 'saving' | 'done' | 'failed'>('idle');
+  useEffect(() => setSaving('idle'), [photo.src]);
+  const ownSave = photo.kind === 'photo' && !actions.some((a) => a.key === 'share' || a.key === 'save');
+  const row: ViewerAction[] = ownSave
+    ? [
+        ...actions,
+        {
+          key: 'save',
+          label: saving === 'saving' ? 'Saving…' : saving === 'done' ? 'Saved' : saving === 'failed' ? 'Try again' : 'Save',
+          icon: saving === 'saving' ? Loader2 : saving === 'done' ? Check : Download,
+          enabled: saving !== 'saving',
+          onPress: () => {
+            if (saving === 'saving') return;
+            setSaving('saving');
+            void saveImageToDevice(photo.src, viewerFileName(photo.label)).then((r) => setSaving(r === 'failed' ? 'failed' : 'done'));
+          },
+        },
+      ]
+    : actions;
   return (
     <GalleryLightbox
       src={photo.src}
@@ -91,10 +114,16 @@ export function PhotoViewer({
         blur,
         panel,
         onPanelClose,
-        toolbar: actions.length ? <ViewerToolbar actions={actions} /> : undefined,
+        toolbar: row.length ? <ViewerToolbar actions={row} /> : undefined,
       }}
     />
   );
+}
+
+/** A saved photo's file name — the viewer's label, made file-safe ("Setnayan photo" when it has none). */
+export function viewerFileName(label: string | undefined): string {
+  const base = (label ?? '').replace(/[^\p{L}\p{N} _-]+/gu, ' ').replace(/\s+/g, ' ').trim().slice(0, 60);
+  return `${base || 'Setnayan photo'}.jpg`;
 }
 
 /** The one row of equal buttons — icon over its word, every one a 56 px press (the thumb zone). */

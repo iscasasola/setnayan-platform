@@ -556,6 +556,11 @@ export type GownShopFabricInput = {
 };
 
 export type GownShopLookInput = { id: string | null; name: string; photoKey: string | null; config: unknown; active: boolean };
+/** A row of the shop's stock list (server → the shop's own panel only; never in a bride's read). */
+export type ShopGownStockFabric = GownShopFabricInput & { id: string; thumbUrl: string | null; tileUrl: string | null };
+export type ShopGownStockLook = Omit<GownShopLookInput, 'id'> & { id: string; photoUrl: string | null };
+/** A fabric type the designer can pick, with its own values (the sliders start there). */
+export type GownFabricTypeOption = { id: string; name: string; sheen: number; sheer: number; stiff: number; verified: boolean };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const HEX_RE = /^#[0-9a-f]{6}$/i;

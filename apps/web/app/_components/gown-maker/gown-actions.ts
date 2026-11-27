@@ -119,7 +119,7 @@ export type GownActionResult =
   | { ok: true; op: 'send' | 'invite' | 'save' | 'fit' }
   | { ok: true; op: 'status'; on: boolean; side: 'couple' | 'vendor' }
   | { ok: true; op: 'options'; options: GownShopOptions; saved: boolean; locked: boolean }
-  | { ok: true; op: 'stock'; fabrics: ShopGownStockFabric[]; looks: ShopGownStockLook[]; types: GownFabricTypeOption[]; locked: boolean }
+  | { ok: true; op: 'stock'; shop: string; fabrics: ShopGownStockFabric[]; looks: ShopGownStockLook[]; types: GownFabricTypeOption[]; locked: boolean }
   | { ok: true; op: 'fabric_save' | 'look_save'; id: string }
   | { ok: false; message: string };
 
@@ -156,7 +156,7 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
       // The shop's own stock list, hidden rows and prices included (the shop's panel only — never a bride's read).
       const [stock, types] = await Promise.all([readShopGownStock(admin, shop), readGownFabricTypes(supabase)]);
       if (stock.status !== 'ok' || types.status !== 'ok') return fail('Couldn’t load your fabrics and looks. Try again.');
-      return { ok: true, op, fabrics: stock.data.fabrics, looks: stock.data.looks, types: types.data, locked: !allowed.data };
+      return { ok: true, op, shop, fabrics: stock.data.fabrics, looks: stock.data.looks, types: types.data, locked: !allowed.data };
     }
     if (!allowed.data) return fail('The Attire Maker isn’t on for your shop yet. Open it in the Toolkit; your saved price list is kept.');
     if (op === 'fabric_save') {

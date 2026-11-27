@@ -19,7 +19,33 @@ function sample(mode: GownShopOptions['mode']): GownShopOptions {
   return o;
 }
 
+const SHOP = '11111111-2222-4333-8444-555555555555';
+const TYPES = [
+  { id: 'satin', name: 'Satin', sheen: 0.8, sheer: 0, stiff: 0.45, verified: false },
+  { id: 'mikado', name: 'Mikado', sheen: 0.55, sheer: 0, stiff: 0.8, verified: false },
+  { id: 'tulle', name: 'Tulle', sheen: 0.1, sheer: 0.85, stiff: 0.3, verified: false },
+];
+const STOCK = {
+  shop: SHOP,
+  types: TYPES,
+  locked: false,
+  fabrics: [
+    { id: 'aaaaaaaa-0000-4000-8000-000000000001', kind: 'fabric' as const, name: 'Duchess satin', code: 'DS-01', typeId: 'satin', colours: [{ name: 'Ivory', hex: '#f0e8d6' }], pricePerMetreCentavos: 450 * P, tune: { shine: 0.1 }, thumbKey: null, tileKey: null, thumbUrl: null, tileUrl: null, active: true },
+    { id: 'aaaaaaaa-0000-4000-8000-000000000002', kind: 'fabric' as const, name: 'Silk mikado', code: null, typeId: 'mikado', colours: [], pricePerMetreCentavos: null, tune: {}, thumbKey: null, tileKey: null, thumbUrl: null, tileUrl: null, active: true },
+    { id: 'aaaaaaaa-0000-4000-8000-000000000003', kind: 'lace' as const, name: 'Chantilly', code: 'CH-7', typeId: 'tulle', colours: [], pricePerMetreCentavos: 1200 * P, tune: {}, thumbKey: null, tileKey: null, thumbUrl: null, tileUrl: null, active: false },
+  ],
+  looks: [{ id: 'bbbbbbbb-0000-4000-8000-000000000001', name: 'Garden A-line', photoKey: null, photoUrl: null, config: { sil: 'aline', neck: 'v' }, active: true }],
+};
+
 export default function Lab({ view }: { view: string }) {
+  if (view === 'fabrics' || view === 'looks' || view === 'stock-empty') {
+    const stockSeed = view === 'stock-empty' ? { ...STOCK, fabrics: [], looks: [] } : STOCK;
+    return (
+      <main className="mx-auto max-w-xl p-4" data-gown-shop-lab={view}>
+        <GownMakerPanel key={view} seed={{ options: sample('covers'), saved: true, locked: false }} startView={view === 'looks' ? 'looks' : 'fabrics'} stockSeed={stockSeed} />
+      </main>
+    );
+  }
   const seed =
     view === 'fresh'
       ? { options: gownShopTemplate(), saved: false, locked: false }

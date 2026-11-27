@@ -11,6 +11,7 @@ import 'server-only';
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { r2PublicUrl } from '@/lib/r2';
 import { readShopSpecialToolOpen } from '@/lib/paid-widget-open.server';
 import {
   GOWN_STOCK_FABRICS,
@@ -40,6 +41,9 @@ import {
   type GownFabricTune,
   type GownShopFabricInput,
   type GownShopLookInput,
+  type GownFabricTypeOption,
+  type ShopGownStockFabric,
+  type ShopGownStockLook,
   type GownAddOnKey,
   type GownDesignForBride,
   type GownShopFabric,
@@ -340,11 +344,13 @@ export async function readGownFitting(supabase: SupabaseClient, designId: string
 
 // ── B5 · the shop's own stock: every fabric, lace and look, hidden ones too, with prices (the shop only) ─────────────
 
-/** A row of the shop's stock list. Server → the shop's own panel only; never in a bride's read. */
-export type ShopGownStockFabric = GownShopFabricInput & { id: string };
-export type ShopGownStockLook = Omit<GownShopLookInput, 'id'> & { id: string };
-/** A fabric type the designer can pick, with its own values (the sliders start there). */
-export type GownFabricTypeOption = { id: string; name: string; sheen: number; sheer: number; stiff: number; verified: boolean };
+export type { ShopGownStockFabric, ShopGownStockLook, GownFabricTypeOption } from '@/lib/gown-maker';
+
+/** The public address of a photo in the media bucket (the shop's own gown folder), or null. */
+function mediaUrlOf(ref: string | null): string | null {
+  const m = ref ? /^r2:\/\/setnayan-media\/(.+)$/.exec(ref) : null;
+  return m ? r2PublicUrl('setnayan-media', m[1]!) : null;
+}
 
 export async function readGownFabricTypes(client: SupabaseClient): Promise<Read<GownFabricTypeOption[]>> {
   const { data, error } = await client.from('gown_fabric_types').select('type_id, name, sheen, sheer, stiff, verified').eq('active', true).order('sort');
@@ -387,9 +393,11 @@ export async function readShopGownStock(admin: SupabaseClient, vendorProfileId: 
         tune: r.tune ?? {},
         thumbKey: r.thumb_key,
         tileKey: r.tile_key,
+        thumbUrl: mediaUrlOf(r.thumb_key),
+        tileUrl: mediaUrlOf(r.tile_key),
         active: r.active,
       })),
-      looks: ((l.data ?? []) as L[]).map((r) => ({ id: r.look_id, name: r.name, photoKey: r.photo_key, config: r.config, active: r.active })),
+      looks: ((l.data ?? []) as L[]).map((r) => ({ id: r.look_id, name: r.name, photoKey: r.photo_key, photoUrl: mediaUrlOf(r.photo_key), config: r.config, active: r.active })),
     },
   };
 }

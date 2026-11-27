@@ -95,3 +95,18 @@ test('5 · the ops ride the one dispatcher, are the Shop Manager’s, and the st
   const open = src.slice(src.indexOf("if (op !== 'open')"));
   assert.doesNotMatch(open, /readShopGownStock|ShopGownStock/, 'a bride’s read reaches the shop’s stock list');
 });
+
+test('6 · the screens: every control reaches the action; photos go to the shop’s own folder; no dead button', () => {
+  const read = (p: string) => readFileSync(join(__dirname, '..', p), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  const stock = read('app/vendor-dashboard/shop/_components/gown-stock-panel.tsx');
+  assert.match(stock, /gownAction\(\{ op: 'stock' \}\)/);
+  assert.match(stock, /op: 'fabric_save'/);
+  assert.match(stock, /op: 'look_save'/);
+  assert.match(stock, /pathPrefix: `\$\{gownShopMediaPrefix\(shop\)\}\$\{folder\}`/, 'a photo goes outside the shop’s own gown folder');
+  assert.match(stock, /'Not priced'/, 'an unpriced fabric reads as something else');
+  assert.doesNotMatch(stock, /onClick=\{\(\) => \{\}\}|href="#"|console\.log/);
+  // Brides never meet this screen: nothing in the bride's flow imports it.
+  assert.doesNotMatch(read('app/_components/gown-maker/gown-actions.ts'), /gown-stock-panel/);
+  const panel = read('app/vendor-dashboard/shop/_components/gown-maker-panel.tsx');
+  assert.match(panel, /import\('\.\/gown-stock-panel'\)/, 'the stock screens are in the panel’s first load');
+});

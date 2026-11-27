@@ -31,7 +31,7 @@ const STOCK = {
   types: TYPES,
   locked: false,
   fabrics: [
-    { id: 'aaaaaaaa-0000-4000-8000-000000000001', kind: 'fabric' as const, name: 'Duchess satin', code: 'DS-01', typeId: 'satin', colours: [{ name: 'Ivory', hex: '#f0e8d6' }], pricePerMetreCentavos: 450 * P, tune: { shine: 0.1 }, thumbKey: null, tileKey: null, thumbUrl: null, tileUrl: null, active: true },
+    { id: 'aaaaaaaa-0000-4000-8000-000000000001', kind: 'fabric' as const, name: 'Duchess satin', code: 'DS-01', typeId: 'satin', colours: [], pricePerMetreCentavos: 450 * P, tune: { shine: 0.1 }, thumbKey: null, tileKey: null, thumbUrl: null, tileUrl: null, active: true },
     { id: 'aaaaaaaa-0000-4000-8000-000000000002', kind: 'fabric' as const, name: 'Silk mikado', code: null, typeId: 'mikado', colours: [], pricePerMetreCentavos: null, tune: {}, thumbKey: null, tileKey: null, thumbUrl: null, tileUrl: null, active: true },
     { id: 'aaaaaaaa-0000-4000-8000-000000000003', kind: 'lace' as const, name: 'Chantilly', code: 'CH-7', typeId: 'tulle', colours: [], pricePerMetreCentavos: 1200 * P, tune: {}, thumbKey: null, tileKey: null, thumbUrl: null, tileUrl: null, active: false },
   ],

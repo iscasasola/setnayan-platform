@@ -11,7 +11,7 @@ import 'server-only';
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { r2PublicUrl } from '@/lib/r2';
+import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { readShopSpecialToolOpen } from '@/lib/paid-widget-open.server';
 import {
   GOWN_STOCK_FABRICS,
@@ -349,8 +349,7 @@ export type { ShopGownStockFabric, ShopGownStockLook, GownFabricTypeOption } fro
 
 /** The public address of a photo in the media bucket (the shop's own gown folder), or null. */
 function mediaUrlOf(ref: string | null): string | null {
-  const m = ref ? /^r2:\/\/setnayan-media\/(.+)$/.exec(ref) : null;
-  return m ? r2PublicUrl('setnayan-media', m[1]!) : null;
+  return ref ? publicUrlForStoredAsset(ref) : null;
 }
 
 export async function readGownFabricTypes(client: SupabaseClient): Promise<Read<GownFabricTypeOption[]>> {

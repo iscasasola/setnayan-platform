@@ -1206,12 +1206,10 @@ export async function renderVendorBySlug({
     fetchTrustedReviewStatsRead(admin, vendor.vendor_profile_id),
     // 🛡 Fake proof fixes (owner 2026-11-23, b89e2420 C + D): the PUBLIC read — a held review never lists, and each row
     // says whether it counts (a booked review that does not wears the supplier's-own-client pill, `reviewIsOwnClient`).
-    sectionRead(
-      unlistedP.then(({ events: unlistedEvents }) =>
-        fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0, excludeEventIds: [...unlistedEvents], publicOnly: true }),
-      ),
-      'reviews',
-    ),
+    (async () => {
+      const { events: unlistedEvents } = await unlistedP;
+      return sectionRead(fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0, excludeEventIds: [...unlistedEvents], publicOnly: true }), 'reviews');
+    })(),
     allServicesP,
     // Vendor packages (owner directive 2026-05-22) — bundled multi-category
     // wedding offerings. Public-read via RLS when is_active=TRUE. The fetch
@@ -1418,24 +1416,26 @@ export async function renderVendorBySlug({
       ? readShopSpecialToolOpen(admin, vendor.vendor_profile_id, 'song_bank')
       : Promise.resolve({ status: 'none' } as const),
   );
-  const ownAddressP: Promise<string | null> = viewerTierCaps.customWebsiteName
-    ? startRead(
-        (async () => {
-          const { data: domainRow, error: domainError } = await admin
-            .from('custom_domains')
-            .select('domain, verified_at')
-            .eq('owner_type', 'vendor')
-            .eq('owner_id', vendor.vendor_profile_id)
-            .not('verified_at', 'is', null)
-            .order('verified_at', { ascending: true })
-            .limit(1)
-            .maybeSingle();
-          if (domainError) logQueryError('PublicVendorPage.customDomain', domainError, { slug }, 'graceful_degrade');
-          const d = domainRow as { domain?: string | null; verified_at?: string | null } | null;
-          return ownWebAddress({ planAllows: true, domain: d?.domain, verifiedAt: d?.verified_at });
-        })(),
-      )
-    : Promise.resolve(null);
+  // Solo+ own web address — started with the rest (⚡ E1), read only when the plan shows it.
+  const ownAddressP: Promise<string | null> = startRead(
+    (async () => {
+      if (viewerTierCaps.customWebsiteName) {
+        const { data: domainRow, error: domainError } = await admin
+          .from('custom_domains')
+          .select('domain, verified_at')
+          .eq('owner_type', 'vendor')
+          .eq('owner_id', vendor.vendor_profile_id)
+          .not('verified_at', 'is', null)
+          .order('verified_at', { ascending: true })
+          .limit(1)
+          .maybeSingle();
+        if (domainError) logQueryError('PublicVendorPage.customDomain', domainError, { slug }, 'graceful_degrade');
+        const d = domainRow as { domain?: string | null; verified_at?: string | null } | null;
+        return ownWebAddress({ planAllows: true, domain: d?.domain, verifiedAt: d?.verified_at });
+      }
+      return null;
+    })(),
+  );
   // 🔗🖼 ONE batched, paged read of the shop's approved inspiration — started here so it runs beside the card batch
   // below. `null` = it could not be read to the end: no Inspiration section and no looks strip (never a partial one).
   const shopInspirationRead: Promise<ShopInspirationLook[] | null> = getInspirationParts()
@@ -1535,25 +1535,11 @@ export async function renderVendorBySlug({
   // 👤 The viewer — read once (getCurrentUser is per-request cached); the viewer's own reads chain off it.
   const supabaseP = startRead(createClient());
   const userP = startRead(getCurrentUser());
-  const viewerSignedInOf = (u: Awaited<typeof userP>) => u !== null && !(u.is_anonymous ?? false);
   const viewerRunsShopP = startRead(
     userP.then(async (u) => detailsEnabled && !cachedCopy && u !== null && !isDemoVendor && (await viewerRunsShop(vendor.vendor_profile_id))),
   );
   const coupleEventsP = startRead(
     Promise.all([supabaseP, userP]).then(([sb, u]) => (u ? fetchUserEvents(sb, u.id, 'couple') : null)),
-  );
-  const bookedChatHrefP = startRead(
-    Promise.all([supabaseP, userP]).then(([sb, u]) =>
-      canMessage && viewerSignedInOf(u) && !(typeof vendor.user_id === 'string' && vendor.user_id === u?.id)
-        ? viewerBookedChatHref(sb, vendor.vendor_profile_id)
-        : null,
-    ),
-  );
-  const inquireEventStateP = startRead(
-    userP.then((u) => (canMessage && viewerSignedInOf(u) ? resolveAddShopToEvent(slug) : null)),
-  );
-  const inquireKindLabelP = startRead(
-    canMessage && (vendor.services ?? []).length > 0 ? cardKindLabeller() : Promise.resolve(null),
   );
   // 🧺 The unverified shop's "N more" count — asked only where it is drawn (`!isVerifiedShop`), beside the rest.
   const heldServicesReadP: PromiseLike<{ count: number | null; error: { message?: string; code?: string } | null }> = !isVerifiedShop
@@ -2216,7 +2202,8 @@ export async function renderVendorBySlug({
   const shopTop = shopTopBack(shopArrival, viewerSignedIn);
   // 💬 CHAT-08: a couple already BOOKED with this shop has nothing to inquire about — their button opens the chat they
   // already have (the door their Messages list opens). Null for everyone else, and the shipped Inquire stays.
-  const [bookedChatHref, inquireEventState] = await Promise.all([bookedChatHrefP, inquireEventStateP]);
+  const bookedChatHref = canMessage && viewerSignedIn && !viewerOwnsShop ? await viewerBookedChatHref(supabase, vendor.vendor_profile_id) : null;
+  const inquireEventState = canMessage && viewerSignedIn ? await resolveAddShopToEvent(slug) : null;
   const inquireEvents: InquireEvent[] =
     inquireEventState?.signedIn === true
       ? inquireEventState.options.map((o) => ({
@@ -2231,7 +2218,7 @@ export async function renderVendorBySlug({
   // (`cardKindLabeller`, Admin › Categories), "Price on request". Inquire is never a dead end for a shop with no card.
   // Read only when the pop-up is mounted and the shop lists services — a shop with none never asks for a name.
   const inquireProvidedKeys = canMessage ? (vendor.services ?? []) : [];
-  const inquireKindLabel = (await inquireKindLabelP) ?? ((key: string) => key);
+  const inquireKindLabel = inquireProvidedKeys.length > 0 ? await cardKindLabeller() : (key: string) => key;
   const inquireServices: InquireService[] = inquireServiceList(
     activeServices.map((s) => ({
       serviceId: s.vendor_service_id,

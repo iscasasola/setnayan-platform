@@ -96,8 +96,7 @@ test('the shop page: message doors ask canMessage, booking doors ask the one rul
 
   // MESSAGE doors.
   // The inline composers and the reads only they used are gone (13 Nov 2026); the pop-up's event list is on canMessage.
-  // ⚡ Started beside the shop's other reads since the speed pass of 27 Nov 2026 (E1) — still on canMessage and a signed-in viewer.
-  assert.match(page, /const inquireEventStateP = startRead\(\s*userP\.then\(\(u\) => \(canMessage && viewerSignedInOf\(u\) \? resolveAddShopToEvent\(slug\) : null\)\),?\s*\);/, 'the pop-up\'s event list is not on canMessage');
+  assert.match(page, /const inquireEventState = canMessage && viewerSignedIn \? await resolveAddShopToEvent\(slug\) : null;/, 'the pop-up\'s event list is not on canMessage');
   // 13 Nov 2026 ("Yes, only one"): no Inquire section and no hero Inquire — the ONE Inquire is in the action row below,
   // and the pop-up it opens is mounted on canMessage.
   assert.match(page, /\{canMessage \? \(\s*<InquireSheet\b/, 'the Inquire pop-up is not on canMessage');

@@ -4,7 +4,7 @@ Speed audit 2026-11-27 (`docs/audits/2026-11-27/speed.md`), items E1 and I1. Not
 
 - **E1 · the supplier shop page (`app/v/[slug]/page.tsx`) waits once, not ~37 times in a row.**
   - The two gate reads (admin demo mode, bookings open) now run beside the shop-row read.
-  - Right after the gate, every read that needs only the shop row (or the viewer) is started: the section batch, the unlisted events, Trusted by, the seals and badges, the experience probe, the inspiration looks, the attributes, microsite, Instagram, songs, branches, the custom address, the featured stories, the held-services count, and the viewer's own reads (events, booked chat, the Inquire event list, the card curator check).
+  - Right after the gate, every read that needs only the shop row (or the viewer) is started: the section batch, the unlisted events, Trusted by, the seals and badges, the experience probe, the inspiration looks, the attributes, microsite, Instagram, songs, branches, the custom address, the featured stories, the held-services count, and the viewer's own events and card-curator check. (The booked-chat and Inquire event-list reads, signed-in only, stay where they were: guard tests pin their exact shape.)
   - A read that hangs on another is chained to just that one: the service cards' batch and records on the live cards; the reviews list and the page photos on the unlisted events; the featured stories on the section toggles.
   - Same reads, same conditions, same fail-softs. Each is still awaited where the page draws it. The second bookings-open read now reuses the gate's answer (the same remembered setting).
 - **I1 · heavy libraries load on demand.**

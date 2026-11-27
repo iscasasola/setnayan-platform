@@ -6,6 +6,7 @@ Lane L6 of the 27 Nov supplier walk. Each figure a supplier reads in two places 
   Both, plus the reputation card's "Overall rating", now read the trusted aggregate that the Shop cover and the public
   shop page already use (`vendor_trusted_review_stats`), through one rule: `lib/shop-rating.ts` (`shopRatingOf`).
   A refused read says "Couldn’t load", never "No reviews yet". Your page drops its own `vendor_review_stats` read.
+  Analytics takes the rating from the badge facts' own read of that view, so it does not read it twice.
 - **S3 · Portfolio.** Today counted distinct photos, Collections counted the raw list (8 vs 10). Both, and Your page,
   now count through `portfolioPhotoKeys` / `countPortfolioPhotos` (`lib/portfolio-count-label.ts`).
 - **S3 · Views.** Today counted 28 days, Your page 30 (207 vs 214), through the same reader. Both now count the shop's
@@ -19,7 +20,9 @@ Lane L6 of the 27 Nov supplier walk. Each figure a supplier reads in two places 
   Wedding". The chat title now keeps every host's first name ("Ana & Ben's Wedding (Dec 12)"), through
   `eventHostsWords`. One person's name and an event title read as before.
 - **S10 · Hosted by.** The shop's own owner and team are no longer listed as a client's hosts on Clients
-  (`lib/supplier-event-lines.server.ts`, read in the same first round, so Today's trip depth holds).
+  (`lib/supplier-event-lines.server.ts`, read in the same first round, so Today's trip depth holds). Only active
+  team members are left out: a former employee who is now a client still shows. Clients hands in the team it
+  already read (`shopPeopleIdsOf`), so it makes no new request.
 - **S4 · Loading.** `/vendor-dashboard` drew a skeleton of the retired home. It now draws Today's own shape in Ghost
   style (cover · five number tiles · "Needs you today" rows). Chats gets a list skeleton instead of a feed of cards.
   `/dashboard/billing` gets its own receipts skeleton. Billing starts the shop's lists beside the VAT read, which saves

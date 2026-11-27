@@ -16,6 +16,7 @@ import {
   eventCelebrantWords,
   forYourServicePages,
   requestedServices,
+  shopPeopleIdsOf,
   type AskedInterest,
   eventDayWords,
   hostRoleWord,
@@ -23,6 +24,7 @@ import {
   type EventLineHost,
   type EventLines,
   type EventStage,
+  type ShopPeopleSource,
 } from '@/lib/supplier-event-lines';
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -52,6 +54,11 @@ export async function readSupplierEventLines(
      * reservation in the shop's own schedule — `fetchVendorPoolBookings`). Never a list from the address bar.
      */
     vouched?: ReadonlySet<string>;
+    /**
+     * The shop's owner and team as the caller ALREADY read them (Clients holds both — its profile and `teamRead`), so
+     * the shop's people cost no second request. Absent → read here, beside the first round.
+     */
+    shopPeople?: ShopPeopleSource;
   },
 ): Promise<Map<string, EventLines>> {
   const out = new Map<string, EventLines>();
@@ -151,7 +158,7 @@ export async function readSupplierEventLines(
     // 👥 RW-08: this shop's claimed per-guest bookings (null = refused → the shipped count).
     readShopPerGuest(admin, me, ids).catch(() => null),
     // 🏪 THE SHOP'S OWN PEOPLE (L6 · S10): needs only the shop id, so it rides this first round (Today's depth holds).
-    readShopPeopleIds(admin, me),
+    input.shopPeople ? Promise.resolve(shopPeopleIdsOf(input.shopPeople)) : readShopPeopleIds(admin, me),
   ]);
   for (const [site, r] of [
     ['threads', threadsRead],
@@ -406,24 +413,24 @@ export async function readSupplierEventLines(
 }
 
 /**
- * 🏪 Who works for this shop — its owner (`vendor_profiles.user_id`) and every team seat (`vendor_team_members.user_id`).
+ * 🏪 Who works for this shop — its owner (`vendor_profiles.user_id`) and every ACTIVE team seat
+ * (`vendor_team_members.user_id`, `deactivated_at` null; the rule is `shopPeopleIdsOf`).
  * Null when either read is refused (the caller then filters nothing — a person left in is said; a host left out is not).
  */
 async function readShopPeopleIds(admin: Admin, vendorProfileId: string): Promise<Set<string> | null> {
   try {
     const [own, team] = await Promise.all([
       admin.from('vendor_profiles').select('user_id').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
-      admin.from('vendor_team_members').select('user_id').eq('vendor_profile_id', vendorProfileId),
+      admin.from('vendor_team_members').select('user_id, deactivated_at').eq('vendor_profile_id', vendorProfileId).is('deactivated_at', null),
     ]);
     if (own.error || team.error) {
       logQueryError('readSupplierEventLines.shopPeople', (own.error ?? team.error)!, { vendorProfileId }, 'graceful_degrade');
       return null;
     }
-    const ids = new Set<string>();
-    const ownId = (own.data as { user_id?: string | null } | null)?.user_id;
-    if (ownId) ids.add(ownId);
-    for (const r of (team.data ?? []) as { user_id?: string | null }[]) if (r.user_id) ids.add(r.user_id);
-    return ids;
+    return shopPeopleIdsOf({
+      ownerUserId: (own.data as { user_id?: string | null } | null)?.user_id,
+      team: (team.data ?? []) as ShopPeopleSource['team'],
+    });
   } catch {
     return null;
   }

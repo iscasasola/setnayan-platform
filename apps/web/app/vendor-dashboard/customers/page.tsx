@@ -915,6 +915,9 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     shopServices: (profile.services ?? null) as string[] | null,
     events: onScreen.map((r) => ({ eventId: r.eventId, stage: stageOfLane(r.lane) })),
     vouched: new Set(bookedByEvent.keys()),
+    // 🏪 The shop's people from the reads this page already holds (its profile, `teamRead`) — no second request.
+    // A refused team read hands nothing, and the lines read it themselves.
+    shopPeople: teamRead ? { ownerUserId: profile.user_id, team: teamRead } : undefined,
   }).catch(() => null);
   const lines = linesRead ? Object.fromEntries(linesRead) : {};
 

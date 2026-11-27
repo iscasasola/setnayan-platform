@@ -32,8 +32,8 @@ test('1 · refused is "Couldn’t load", no trusted review is "No reviews yet", 
 
 test('2 · Shop, Analytics and Your page read the one rating — never the Bayesian or the raw average', () => {
   const analytics = read('app/vendor-dashboard/performance/_components/one-analytics-section.tsx');
-  assert.match(analytics, /fetchTrustedReviewStatsRead\(supabase, profile\.vendor_profile_id\)/, 'Analytics no longer reads the trusted aggregate');
-  assert.match(analytics, /const shopRating = shopRatingOf\(trustedRating\)/);
+  assert.match(analytics, /const shopRating = shopRatingOf\(badgeFacts\?\.trusted \?\? null\)/, 'Analytics no longer reads the rating off the badge facts');
+  assert.doesNotMatch(analytics, /fetchTrustedReviewStatsRead/, 'Analytics reads the trusted aggregate a second time — the badge facts already carry it');
   assert.match(analytics, /rating: ratingLine\(shopRating\)/);
   assert.doesNotMatch(analytics, /ratingAvg:\s*statsRow\?\.review_avg_bayesian/, 'Analytics prints the Bayesian ranking average as the rating again');
 

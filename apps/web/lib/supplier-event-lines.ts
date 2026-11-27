@@ -127,6 +127,23 @@ export type EventLines = {
 export const UNNAMED_HOST = 'Host';
 
 /**
+ * 🏪 WHO WORKS FOR THIS SHOP (L6 · S10) — the people "Hosted by" leaves out: the owner (`vendor_profiles.user_id`) and
+ * every ACTIVE team seat. A deactivated seat (`deactivated_at` set — let go, or paused by a smaller plan) is not the
+ * shop's person today: a former employee who is now a real client stays in "Hosted by".
+ */
+export type ShopPeopleSource = {
+  ownerUserId: string | null | undefined;
+  team: ReadonlyArray<{ user_id?: string | null; deactivated_at?: string | null }>;
+};
+
+export function shopPeopleIdsOf({ ownerUserId, team }: ShopPeopleSource): Set<string> {
+  const ids = new Set<string>();
+  if (ownerUserId) ids.add(ownerUserId);
+  for (const m of team) if (m.user_id && !m.deactivated_at) ids.add(m.user_id);
+  return ids;
+}
+
+/**
  * The hosts in the order the row lists them: the one who asked first, then the rest as the event lists them. With
  * `roleOf` (user → role word, for THIS event) each carries its role.
  */

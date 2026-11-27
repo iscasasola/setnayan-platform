@@ -82,7 +82,6 @@ import { milestoneLadder, stepName, type TrackerFacts } from '@/lib/shop-badges'
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ratingLine, unmeasuredStats, type MeasuredStatsRow } from '@/lib/business-doing';
 import { shopRatingOf } from '@/lib/shop-rating';
-import { fetchTrustedReviewStatsRead } from '@/lib/reviews';
 import { buildGrowthView, type PricePositionUnreadable } from './growth-view';
 import { canUse, papersProgress } from '@/lib/locks';
 import { badgeGate, graphUnlocks, type UnlockFacts } from '@/lib/graph-unlocks';
@@ -413,7 +412,6 @@ const readOneAnalytics = cache(async (supabase: SupabaseClient, userId: string, 
     upcomingBooked,
     badgeFacts,
     bookedSeries,
-    trustedRating,
   ] = await Promise.all([
     safeRead(
       supabase
@@ -541,11 +539,11 @@ const readOneAnalytics = cache(async (supabase: SupabaseClient, userId: string, 
     // 📈 VS LAST YEAR (owner 21 Nov 2026): the Booked stage by day and month, last year and three seasons — the views
     // and inquiries series above carry theirs. `event_vendors` on `bookingsAdmin` (no vendor SELECT policy, see above).
     safeRead(fetchBookedSeries(bookingsAdmin as unknown as SeriesClient, profile.vendor_profile_id, nowMs), null, 'booked_series'),
-    // ⭐ THE SHOP'S ONE RATING (L6 · S2, `lib/shop-rating.ts`): the trusted aggregate couples are shown — never the
-    // Bayesian ranking average this card printed as "4.2 ★" beside Your page's 4.7. A refusal is `null` → "Couldn’t load".
-    safeRead(fetchTrustedReviewStatsRead(supabase, profile.vendor_profile_id), null, 'trusted_rating'),
   ]);
-  const shopRating = shopRatingOf(trustedRating);
+  // ⭐ THE SHOP'S ONE RATING (L6 · S2, `lib/shop-rating.ts`): the trusted aggregate couples are shown — never the
+  // Bayesian ranking average this card printed as "4.2 ★" beside Your page's 4.7. It rides the badge facts' own read of
+  // `vendor_trusted_review_stats` (`readShopTrackerFacts`), so no second read; a refusal is `null` → "Couldn’t load".
+  const shopRating = shopRatingOf(badgeFacts?.trusted ?? null);
   // 📈 The five new graphs' cards — the same list Batch A read (`servicesRead`, already settled).
   const graphCards = await graphCardsRead;
   // Started before Batch A (beside the badges), so this wait costs no extra round trip.

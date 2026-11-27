@@ -2408,7 +2408,9 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
     ]);
 
   // 🪑 "Seat everyone again": every unlocked seat comes off first (kept for Undo); a locked seat never moves.
-  const restoreSeats = scope === 'all' ? seatsToClear(assignmentsRead, true) : [];
+  // 🔒 …and a LOCKED TABLE keeps everyone at it (seat plan § 5: a locked table is kept exactly as it is).
+  const lockedTables = new Set(existingTables.filter((t) => t.locked === true).map((t) => t.table_id));
+  const restoreSeats = scope === 'all' ? seatsToClear(assignmentsRead, true, lockedTables) : [];
   if (restoreSeats.length > 0) {
     const { error } = await supabase
       .from('event_seat_assignments')
@@ -2418,7 +2420,7 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
       .in('guest_id', restoreSeats.map((r) => r.guest_id));
     if (error) throw new Error(error.message);
   }
-  const assignments = scope === 'all' ? seatsThatStay(assignmentsRead, true) : assignmentsRead;
+  const assignments = scope === 'all' ? seatsThatStay(assignmentsRead, true, lockedTables) : assignmentsRead;
 
   // Room first: when the guests who haven't declined outnumber the open chairs,
   // add the room's default table until they fit — decided HERE from fresh data
@@ -2583,7 +2585,9 @@ async function clearAllSeats(eventId: string, formData: FormData): Promise<AutoA
   await assertSeatingLockHeld(supabase, eventId, lockId);
 
   const keepLocked = formData.get('keep_locked') !== 'false';
-  const restoreSeats = seatsToClear(await fetchAssignments(supabase, eventId), keepLocked);
+  const [seatsNow, tablesNow] = await Promise.all([fetchAssignments(supabase, eventId), fetchTables(supabase, eventId)]);
+  const lockedTables = new Set(tablesNow.filter((t) => t.locked === true).map((t) => t.table_id));
+  const restoreSeats = seatsToClear(seatsNow, keepLocked, lockedTables);
   if (restoreSeats.length > 0) {
     let del = supabase.from('event_seat_assignments').delete().eq('event_id', eventId).in('guest_id', restoreSeats.map((r) => r.guest_id));
     if (keepLocked) del = del.eq('locked', false);

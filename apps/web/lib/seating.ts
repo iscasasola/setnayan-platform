@@ -156,6 +156,23 @@ export function isVipTable(t: { table_kind?: string | null; is_vip?: boolean | n
   return parseTableKind(t.table_kind, t.is_vip) === 'vip';
 }
 
+/**
+ * 🔒 MAY AUTO ARRANGE SEAT PEOPLE AT THIS TABLE? (seat plan § 5, hard rules) — the ONE answer, read by the seater's pool
+ * (`computeAutoSeat`), its room count (`autoSeatRoom`) and the keep-apart repair (`solveSeatPlan`):
+ *   · never the Sweetheart (the couple's);
+ *   · never a LOCKED table (`locked`): it is kept exactly as it is — nobody added, nobody moved;
+ *   · never a SPARE table (`table_kind = 'spare'`): it is kept empty for walk-ins.
+ * A person can still seat someone there by hand; this rule binds the automatic seater only.
+ */
+export function autoSeatTakesTable(t: {
+  table_type: TableType | string;
+  locked?: boolean | null;
+  table_kind?: string | null;
+  is_vip?: boolean | null;
+}): boolean {
+  return t.table_type !== 'sweetheart_2' && t.locked !== true && parseTableKind(t.table_kind, t.is_vip) !== 'spare';
+}
+
 export type SeatAssignmentRow = {
   assignment_id: string;
   table_id: string;
@@ -887,8 +904,9 @@ export function computeAutoSeat(
 
   // Table pool: everything except sweetheart (reserved for the couple),
   // sorted highest priority score first (= nearest to the stage).
+  // 🔒 Never a locked table or a Spare one (`autoSeatTakesTable`, seat plan § 5 hard rules).
   const pool = rankTablesByStage(tables, stage)
-    .filter((r) => r.table.table_type !== 'sweetheart_2')
+    .filter((r) => autoSeatTakesTable(r.table))
     .map((r) => r.table);
 
   // Eligible: everyone NOT declined (so pending/maybe get a HELD seat too — the
@@ -1301,9 +1319,13 @@ export function solveSeatPlan(input: SolveInput): SolveResult {
   for (const u of units) for (const m of u.members) unitKeyOfTable.set(m.table_id, u.key);
   const seen = new Set<string>();
   const unitOrder: string[] = [];
+  // 🔒 A unit holding a locked or Spare table is never a place to move someone to (`autoSeatTakesTable`).
+  const closedUnits = new Set(
+    tables.filter((t) => !autoSeatTakesTable(t)).map((t) => unitKeyOfTable.get(t.table_id)).filter((k): k is string => Boolean(k)),
+  );
   for (const r of rankTablesByStage(tables, stage)) {
     const uk = unitKeyOfTable.get(r.table.table_id);
-    if (uk && !seen.has(uk)) {
+    if (uk && !seen.has(uk) && !closedUnits.has(uk)) {
       seen.add(uk);
       unitOrder.push(uk);
     }
@@ -1772,7 +1794,7 @@ export function guestsStillToSeat<G extends { guest_id: string; role: string | n
 // Mirrors computeAutoSeat's own bookkeeping exactly (its `eligible` filter and
 // its per-table `freeCount`), so "room" here is the room the seater will see.
 export function autoSeatRoom(
-  tables: ReadonlyArray<Pick<EventTableRow, 'table_id' | 'table_type' | 'capacity' | 'removed_seats'>>,
+  tables: ReadonlyArray<Pick<EventTableRow, 'table_id' | 'table_type' | 'capacity' | 'removed_seats' | 'locked' | 'table_kind' | 'is_vip'>>,
   guests: ReadonlyArray<Pick<AutoSeatGuest, 'guest_id' | 'role' | 'rsvp_status'>>,
   assignments: ReadonlyArray<Pick<SeatAssignmentRow, 'guest_id' | 'table_id'>>,
   roleSet: RoleSet = WEDDING_ROLE_SET,
@@ -1783,7 +1805,8 @@ export function autoSeatRoom(
   for (const a of assignments) taken.set(a.table_id, (taken.get(a.table_id) ?? 0) + 1);
   let freeSeats = 0;
   for (const t of tables) {
-    if (t.table_type === 'sweetheart_2') continue;
+    // 🔒 A locked or Spare table's empty chairs are not room the seater may use (`autoSeatTakesTable`).
+    if (!autoSeatTakesTable(t)) continue;
     freeSeats += Math.max(0, effectiveCapacity(t.capacity, t.removed_seats) - (taken.get(t.table_id) ?? 0));
   }
   return { toSeat, freeSeats, shortfall: Math.max(0, toSeat - freeSeats) };

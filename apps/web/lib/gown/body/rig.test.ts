@@ -1,6 +1,6 @@
 /**
- * 👗 gown/body — the faceless mannequin, solved headless on three 0.184, held to the prototype's own numbers (v188).
- * The reference (`v188-sweep.fixture.json`) is the prototype itself at v188 (the owner's body corrections), run in headless Chromium on three 0.160: the v164 sweep of
+ * 👗 gown/body — the faceless mannequin, solved headless on three 0.184, held to the prototype's own numbers (v189).
+ * The reference (`v189-sweep.fixture.json`) is the prototype itself at v189 (the owner-approved design review), run in headless Chromium on three 0.160: the v164 sweep of
  * 10 bodies × bust Higher / Average / Lower, solved in turn as the prototype's tests/sweep.js does.
  */
 import { test } from 'node:test';
@@ -21,7 +21,7 @@ type Row = {
   shoulders: number;
   est: Record<string, number>;
 };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v188-sweep.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v189-sweep.fixture.json'), 'utf8')) as { rows: Row[] };
 const GLB = join(__dirname, '../../../public/gown/female.glb');
 
 let rig: Promise<GownRig> | null = null;
@@ -75,8 +75,9 @@ test('the bust grows without the ribs (v165/v184/v185): bust 129 on underbust 72
   Object.assign(B.vals, { height: 155, bust: 84, underbust: 72, waist: 68, hips: 90 });
   B.fine.bustT = 0;
   solveGownBody(B);
-  // v188 (owner's design review): the limbs were about 20 % too thick; the default body now solves at a build of ~0.99.
-  assert.ok(Math.abs(B.P.f - 0.985) <= 0.02, `the default build is ${B.P.f.toFixed(3)} (v188: 0.985)`);
+  // v188/v189 (owner-approved design review): the limbs were about 20 % too thick; the default body now solves at a
+  // build just under 1 (v189 reads 0.974 with the broader shoulders).
+  assert.ok(Math.abs(B.P.f - 0.974) <= 0.02, `the default build is ${B.P.f.toFixed(3)} (v189: 0.974)`);
   const ribs = { sUb: B.P.sUb, cR: B.P.cR };
   // She asks for 129: the measurement step stops the bust at underbust + 28 (v185), and the ribs keep their size.
   const set = gownSetNumber(B.vals, [], 'bust', 129);

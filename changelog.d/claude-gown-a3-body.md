@@ -12,11 +12,16 @@
   - the gown measurements estimated on the body.
 
   Her choices are passed in, not read from globals.
-- Owner's body corrections (v187–v188): no trapezius fill (it built a hood each side of the neck base); the weight
-  calibration is 1.25 (the limbs were about 20 % too thick); the hip curves into the waist; the seat is rounded on
-  slim and average bodies too.
+- The owner-approved design review (v187–v189):
+  - no trapezius fill (it built a hood each side of the neck base);
+  - the weight calibration is 1.25 (the limbs were about 20 % too thick);
+  - the hip curves into the waist, and the seat is rounded on slim and average bodies too;
+  - her shoulders start at 24.5 % of her height (was 23 %). This also changes the contract's default (38 cm) and
+    the body rules' one shoulder estimate, which the solver now calls instead of keeping its own copy.
+- Contract: the veil's tulle is its own quantity (`veilM`), apart from the petticoat's, so a priced veil add-on is
+  never counted twice (asked by Builder B).
 - Held to the prototype's own numbers: the v164 sweep (10 bodies × bust Higher / Average / Lower) was run in the prototype
-  itself at v188 and saved as a fixture. The port fits every tape within 0.1 cm, matches the prototype within 0.1 cm, weighs the
+  itself at v189 and saved as a fixture. The port fits every tape within 0.1 cm, matches the prototype within 0.1 cm, weighs the
   same within 0.5 kg, and estimates the same measurements. The bust stops at underbust + 28 cm with the ribcage
   unchanged.
 - Nothing loads it yet: the stage arrives in A4, lazily, outside the shared bundle.

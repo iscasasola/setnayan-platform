@@ -12,7 +12,7 @@ import { Ghost, Screen, Sk, SkLine } from '@/components/skeletons';
 
 export default function CrewJoinLoading() {
   return (
-    <Screen className="app-surface mx-auto min-h-screen w-full max-w-xl bg-paper px-4 pb-16 pt-6">
+    <Screen className="mx-auto min-h-screen w-full max-w-xl bg-paper px-4 pb-16 pt-6">
       <div>
         <Ghost className="h-3 w-48 rounded" />
         {/* The dark event tile. */}

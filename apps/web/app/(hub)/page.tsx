@@ -85,7 +85,8 @@ const HOME_DESCRIPTION =
   'Plan any Filipino event free — wedding, debut, christening, birthday, graduation, anniversary, reunion, corporate and more — with every guest’s photo in one album. Verified supplier marketplace. Hosts pay 0% commission.';
 
 export const metadata = {
-  title: HOME_TITLE,
+  // The title already opens with the brand, so the layout template must not add it again (final check A1-161).
+  title: { absolute: HOME_TITLE },
   description: HOME_DESCRIPTION,
   // 🔒 Restated, not inherited-by-luck. `applicationName` renders
   // <meta name="application-name"> — one of the two places a machine reader

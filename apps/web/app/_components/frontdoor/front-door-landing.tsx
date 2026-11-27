@@ -269,7 +269,8 @@ export function FrontDoorLanding({
             <span>Same event. Each guest sees their own.</span>
           </h2>
           <p className="fl-lede">
-            {couple.bride.first} and {couple.groom.first}&rsquo;s wedding, as their guests see it.
+            {/* Named as a SAMPLE (final check A1-168, Add 3): no made-up couple is presented as a real one. */}
+            A sample wedding, {couple.bride.first} and {couple.groom.first}&rsquo;s, as their guests see it.
           </p>
         </div>
         <div className="fl-car fl-rv">

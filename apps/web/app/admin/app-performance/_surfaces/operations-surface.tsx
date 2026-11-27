@@ -23,7 +23,7 @@ import type { ReactNode } from 'react';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { ConsoleTable } from '@/app/admin/_components/console-table';
 import {
-  getBottleneckSignals,
+  readBottleneckSignals,
   getHiringRoadmapResult,
   getMilestoneForecasts,
   getRecentAlerts,
@@ -37,6 +37,7 @@ import {
 } from '@/lib/hiring-guide/types';
 import { SmokeTestPanel } from '@/app/admin/operations-hiring/_components/smoke-test-panel';
 import { formatCount } from '@/lib/format-number';
+import { formatManilaDateTime } from '@/lib/auto-verify-audit';
 import { Badge, Facts, One, Row, Rows, Sec, type NumTone } from '../_components/insights-parts';
 
 const SIGNAL_TONE: Record<SignalLevel, NumTone> = {
@@ -85,13 +86,21 @@ export async function OperationsHiringSurface() {
     return { alertsFired: 0, emailsSent: 0, emailsFailed: 0, errors: [String(err)] };
   });
 
-  const [signals, roadmapRes, alerts] = await Promise.all([
-    getBottleneckSignals(),
+  const [signalsRead, roadmapRes, alerts] = await Promise.all([
+    readBottleneckSignals(),
     getHiringRoadmapResult(),
     getRecentAlerts(),
   ]);
   // Nullable all the way to the render — see the loader's own note.
   const roadmap = roadmapRes.rows;
+  // A8·H-9: a refused read is said; and the view's own `refreshed_at` is shown, labelled stale when old — the
+  // refresh function it calls does not exist (lib/hiring-guide/queries.ts), so "Live" was not true.
+  const signalsUnread = signalsRead === 'unread';
+  const signals = signalsUnread ? null : signalsRead;
+  const signalsStale = signals ? Date.now() - new Date(signals.refreshed_at).getTime() > 2 * 60 * 60 * 1000 : false;
+  const signalsAbout = signals
+    ? `As of ${formatManilaDateTime(signals.refreshed_at)}${signalsStale ? ' — stale: this view is not refreshing, so these numbers are old.' : '.'}`
+    : 'Read from the bottleneck view each time this page opens.';
 
   const verifiedActive = signals?.verified_active ?? 0;
   const milestones = await getMilestoneForecasts(verifiedActive);
@@ -125,7 +134,13 @@ export async function OperationsHiringSurface() {
       )}
 
       {/* Unacknowledged alerts */}
-      {alerts.length > 0 && (
+      {alerts === null ? (
+        <section aria-labelledby="ops-alerts">
+          <Sec id="ops-alerts" title="Unacknowledged alerts" />
+          <p role="alert" className="text-[13px] text-ink/70">Couldn&rsquo;t read the alerts. Refresh to try again.</p>
+        </section>
+      ) : null}
+      {alerts !== null && alerts.length > 0 && (
         <section aria-labelledby="ops-alerts">
           <Sec id="ops-alerts" title={`Unacknowledged alert${alerts.length === 1 ? '' : 's'}`} count={alerts.length} />
           <Rows label="Unacknowledged alerts" data="ops-alerts">
@@ -195,7 +210,7 @@ export async function OperationsHiringSurface() {
 
       {/* Bottleneck signals */}
       <section aria-labelledby="ops-signals">
-        <Sec id="ops-signals" title="Bottleneck signals" about="Live — refreshed when stale, each time this page opens." />
+        <Sec id="ops-signals" title="Bottleneck signals" about={signalsAbout} />
         {signals ? (
           <Rows label="Bottleneck signals" data="ops-signals">
             <SignalRow
@@ -238,7 +253,11 @@ export async function OperationsHiringSurface() {
             />
           </Rows>
         ) : (
-          <p className="text-[13px] text-ink/60">These signals haven&rsquo;t been calculated yet — check back later.</p>
+          signalsUnread ? (
+            <p role="alert" className="text-[13px] text-ink/70">Couldn&rsquo;t read the bottleneck signals. Refresh to try again.</p>
+          ) : (
+            <p className="text-[13px] text-ink/60">These signals haven&rsquo;t been calculated yet — check back later.</p>
+          )
         )}
       </section>
 

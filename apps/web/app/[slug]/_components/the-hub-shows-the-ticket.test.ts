@@ -110,6 +110,10 @@ test('a failed picture is never an empty box: it swaps to the plain code and say
   const ticket = read('guest-ticket.tsx');
   assert.match(ticket, /qrSrc = '\/api\/guest\/qr',/, 'the fallback has no code to show at the door');
   assert.match(ticket, /src=\{qrSrc\}/, 'the fallback has no code to show at the door');
+  // Only the sample hub turns the fallback code off (`fallbackCode={false}`): it has no guest cookie, so that route could never answer there (final check A1-016).
+  const page = stripComments(readFileSync(join(HERE, '..', 'page.tsx'), 'utf8'));
+  assert.match(ticket, /fallbackCode = true,/, 'a real guest’s ticket lost its door code');
+  assert.doesNotMatch(page, /fallbackCode=\{false\}/, 'a real guest’s ticket lost its door code');
 });
 
 // ─── 3 · Where it is mounted ────────────────────────────────────────────────

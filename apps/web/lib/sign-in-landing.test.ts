@@ -49,7 +49,7 @@ const count = (haystack: string, needle: string) =>
 test('the bare front door becomes the profile page, Home (22 Nov 2026: "start on their profile page")', () => {
   assert.equal(SIGNED_IN_LANDING, '/dashboard?hub=1');
   assert.equal(signInDestination('/'), '/dashboard?hub=1');
-  assert.equal(signInDestination('/', 'vendor'), '/dashboard?seg=shop', "a supplier's Home opens on Shop");
+  assert.equal(signInDestination('/', 'vendor'), '/dashboard?hub=1', "a supplier lands on Unihome like every account");
 });
 
 test('a real destination is always honoured, exactly as given', () => {

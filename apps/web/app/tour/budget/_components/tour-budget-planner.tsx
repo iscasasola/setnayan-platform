@@ -405,8 +405,9 @@ function TiltEditor({
           {label}
         </h2>
         <p className="mt-2 text-sm text-[#5F5E5A]">
-          Suggested <strong className="font-medium text-[#1B1A17]">{formatPhpRounded(recommendedAmountPhp)}</strong> · typical
-          range {formatPhpRounded(leaf.rangeLowPhp)}–{formatPhpRounded(leaf.rangeHighPhp)}.
+          {/* No "typical range" on the tour (final check A1-013): the sample's leaves carry no market data
+              (`budget_leaf_benchmarks`), and a band typed around its own spend is not a typical anything. */}
+          Suggested <strong className="font-medium text-[#1B1A17]">{formatPhpRounded(recommendedAmountPhp)}</strong>.
         </p>
 
         {/* Save · Standard · Splurge — ONE dropdown (owner rule 2026-09-28: a

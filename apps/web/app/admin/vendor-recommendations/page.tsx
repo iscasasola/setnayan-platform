@@ -8,6 +8,7 @@ import {
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { ReadFailed } from '@/app/admin/_components/read-failed';
 import {
   RecommendationRow,
   AddRecommendation,
@@ -235,10 +236,11 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
 
       <TemplateNums
         items={[
-          { label: 'Leaves with recs', value: String(groupedLeaves.length) },
-          { label: 'Active recs', value: String(activeCount) },
-          { label: 'Total recs', value: String(recs.length) },
-          { label: 'Pending flags', value: String(feedbackRows.length) },
+          { label: 'Leaves with recs', value: recRes.error ? '—' : String(groupedLeaves.length) },
+          { label: 'Active recs', value: recRes.error ? '—' : String(activeCount) },
+          // A8·I-7: a refused read is "—", never 0.
+          { label: 'Total recs', value: recRes.error ? '—' : String(recs.length) },
+          { label: 'Pending flags', value: feedbackRes.error ? '—' : String(feedbackRows.length) },
         ]}
       />
 
@@ -246,7 +248,7 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
       <TemplateSection
         label="Recommendation map"
         data="map"
-        right={`(${recs.length})`}
+        right={recRes.error ? '(—)' : `(${recs.length})`}
         tip={
           <>
             Recommend only what helps them — a SKU appears for a leaf only when it amplifies that
@@ -256,7 +258,9 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
           </>
         }
       >
-        {groupedLeaves.length === 0 ? (
+        {recRes.error ? (
+          <ReadFailed what="the recommendation map" />
+        ) : groupedLeaves.length === 0 ? (
           <TemplateEmpty data="map">No recommendations yet — add one below.</TemplateEmpty>
         ) : (
           <div className="space-y-4">
@@ -299,7 +303,7 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
       <TemplateSection
         label="Supplier flags"
         data="flags"
-        right={`(${feedbackRows.length} pending)`}
+        right={feedbackRes.error ? '(— pending)' : `(${feedbackRows.length} pending)`}
         tip={
           <>
             Suppliers flag the map as <span className="font-medium">not a fit</span> or{' '}
@@ -308,7 +312,9 @@ export default async function AdminVendorRecommendationsPage({ searchParams }: P
           </>
         }
       >
-        {feedbackRows.length === 0 ? (
+        {feedbackRes.error ? (
+          <ReadFailed what="the supplier flags" />
+        ) : feedbackRows.length === 0 ? (
           <TemplateEmpty data="flags">No pending flags.</TemplateEmpty>
         ) : (
           <TemplateRows label="Supplier flags">

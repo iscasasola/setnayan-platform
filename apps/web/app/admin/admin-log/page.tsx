@@ -1,3 +1,4 @@
+import { adminLogActionWords } from '@/lib/admin/admin-log-words';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { ADMIN_AREA_LIST, adminAreaLabel, auditRowArea, isAdminArea } from '@/lib/admin/areas';
@@ -52,9 +53,6 @@ function when(iso: string): string {
   });
 }
 
-function actionWords(action: string): string {
-  return action.replace(/^approval_/, 'request ').replace(/[_:]+/g, ' ').trim();
-}
 
 export default async function AdminLogPage({
   searchParams,
@@ -191,7 +189,7 @@ export default async function AdminLogPage({
               return (
                 <li key={`${r.created_at}-${i}`} className="sn-row p-3">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
-                    <span className="text-sm font-semibold text-ink">{actionWords(r.action)}</span>
+                    <span className="text-sm font-semibold text-ink">{adminLogActionWords(r.action)}</span>
                     <span className="rounded-md bg-ink/5 px-2 py-0.5 text-[11px] font-semibold text-ink/70">
                       {a ? adminAreaLabel(a) : 'No area'}
                       {derived ? ' · from the action' : ''}
@@ -199,7 +197,6 @@ export default async function AdminLogPage({
                   </div>
                   <p className="mt-1 text-xs text-ink/60">
                     by <strong className="text-ink/80">{nameOf(r.actor_user_id)}</strong> · {when(r.created_at)}
-                    {r.target_table ? ` · ${r.target_table}` : ''}
                   </p>
                   {r.reason ? <p className="mt-1 text-sm text-ink/75">“{r.reason}”</p> : null}
                 </li>

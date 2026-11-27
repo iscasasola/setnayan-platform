@@ -250,9 +250,10 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
         label="Open proposals"
         first
         data="proposals"
-        right={`(${proposed.length})`}
+        // A8·I-8: a refused read says "not measured" in the heading too, as Live partnerships does.
+        right={proposedRowsRaw === null ? '(not measured)' : `(${proposed.length})`}
         tip={
-          proposed.length === 0 ? (
+          proposedRowsRaw !== null && proposed.length === 0 ? (
             'No proposals awaiting a recipient response.'
           ) : (
             <>

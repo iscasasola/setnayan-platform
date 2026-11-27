@@ -374,7 +374,7 @@ function FunnelTable({ funnel }: { funnel: Funnel }) {
             cell: (s) => <span className="font-semibold text-ink">{formatCount(s.count)}</span>,
           },
           {
-            header: 'vs previous',
+            header: 'of previous step',
             align: 'right',
             mono: true,
             hideBelow: 'md',

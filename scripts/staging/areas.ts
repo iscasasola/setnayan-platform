@@ -19,6 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ADMIN_ROUTES } from '../../apps/web/lib/admin-map/admin-routes.generated';
+import { adminMergedForward } from '../../apps/web/lib/admin/admin-pages';
 import type { StagingAccountKey } from './accounts';
 
 export type AreaId = 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
@@ -90,7 +91,12 @@ export function shippedScreens(): Screen[] {
     screens: Array<{ route: string; area: string; redirectsTo: string | null }>;
   };
   const screens: Screen[] = map.screens.map((s) => ({ route: s.route, area: s.area, redirectsTo: s.redirectsTo ?? null }));
-  for (const a of ADMIN_ROUTES) screens.push({ route: a.path, area: 'admin', redirectsTo: a.redirectsTo ?? null });
+  // A8·L-9: where an admin address REALLY lands. `middleware.ts` runs `adminMergedForward` (the `olds` lists in
+  // lib/admin/admin-pages.ts) before any page, so a stub page's own `redirect(...)` body never runs for those
+  // addresses; the kit read those dead bodies and listed four forwards wrong (and 43 moved pages as pages).
+  for (const a of ADMIN_ROUTES) {
+    screens.push({ route: a.path, area: 'admin', redirectsTo: adminMergedForward(a.path) ?? a.redirectsTo ?? null });
+  }
   return screens;
 }
 

@@ -45,7 +45,9 @@ import {
 } from '@/app/creators/_components/creator-story-sections';
 import { RevealOnView } from '@/app/creators/_components/creators-motion';
 
-const TITLE = 'Setnayan for Storytellers · Publish your events as bookable Chapters — free';
+// Short enough to show whole, and the brand once: the template adds "· Setnayan" (final check A1-161).
+const TITLE = 'For storytellers: publish your events as Chapters';
+const SHARE_TITLE = `${TITLE} · Setnayan`;
 const DESCRIPTION =
   'Everywhere else, they watch. Here, they book. Publish your real events as public Chapters on your own page — your edit embedded from your channel, the real suppliers behind it shoppable. Free to publish; you keep your own monetization, and suppliers who like your audience send you exclusive discount offers.';
 
@@ -54,7 +56,7 @@ export const metadata: Metadata = {
   description: DESCRIPTION,
   alternates: { canonical: '/creators' },
   openGraph: {
-    title: TITLE,
+    title: SHARE_TITLE,
     description:
       'Publish your real events as Chapters — your edit embedded, the suppliers shoppable. Free to publish · your channel keeps its monetization · suppliers court you with exclusive rates.',
     url: '/creators',
@@ -72,7 +74,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: TITLE,
+    title: SHARE_TITLE,
     description:
       'Everywhere else, they watch. Here, they book. Chapters are free for storytellers — and your edit stays earning on your own channel.',
     images: ['/brand/og-card-2026-11.png'],

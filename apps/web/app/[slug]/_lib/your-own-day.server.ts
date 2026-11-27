@@ -246,6 +246,7 @@ async function loadTable(
       .eq('event_id', eventId)
       .eq('guest_id', guestId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] app/[slug]/_lib/your-own-day.server.ts · from:event_seat_assignments.select', error);
     if (error || !data?.table_id) return null;
     // 🪑 The name the table SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts). A refused read throws
     // to the catch below: no table line, never a guessed name.

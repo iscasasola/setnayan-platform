@@ -99,6 +99,7 @@ export function solveBody(B: GownRig): GownRig['got'] {
   B.posAttr.needsUpdate = true;
   bodyNormals(B);
   B.heelDrawn = 0;
+  B.neutral = { knee: jointY(B, 'lowerleg01.L'), ankle: jointY(B, 'foot.L') };
   return B.got;
 }
 

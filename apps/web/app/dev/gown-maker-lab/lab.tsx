@@ -2,9 +2,24 @@
 
 /** The Gown Maker lab's body (see page.lab.tsx). Fixture numbers only: a SAMPLE body, never a person's. */
 import { useState } from 'react';
-import { GOWN_BODY_RANGE, GOWN_STEP_LABELS, startingGownBody, type GownBodyKey, type GownBodyVals } from '@/lib/gown-config';
+import {
+  GOWN_BODY_RANGE,
+  GOWN_COLOURS,
+  GOWN_HEMS,
+  GOWN_NECKLINES,
+  GOWN_SILHOUETTES,
+  GOWN_STEP_LABELS,
+  GOWN_STOCK_FABRICS,
+  GOWN_TRAINS,
+  startingGownBody,
+  startingGownConfig,
+  type GownBodyKey,
+  type GownBodyVals,
+  type GownConfig,
+} from '@/lib/gown-config';
 import { gownBraNote, gownLimit, gownSetNumber, gownSnapBustT } from '@/lib/gown/body-rules';
 import { GOWN_SCENES, GOWN_SCENE_IDS, type GownSceneId } from '@/lib/gown/scenes';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { GownView } from '@/app/_components/plan3d/kit/gown-view';
 import type { GownSolved } from '@/app/_components/plan3d/kit/gown-figure-3d';
 
@@ -12,14 +27,37 @@ const isScene = (s: string): s is GownSceneId => (GOWN_SCENE_IDS as readonly str
 const SLIDERS: GownBodyKey[] = ['height', 'weight', 'bust', 'waist', 'hips', 'underbust'];
 const STEP: Partial<Record<GownBodyKey, number>> = { height: 1, weight: 1 };
 
-export default function GownMakerLab({ view, scene: sceneIn, guides }: { view: string; scene: string; guides: boolean }) {
+/** SAMPLE bodies for the silhouette check (v169: thin, default, severe at about 155 cm). */
+const LAB_BODIES = {
+  thin: { height: 155, bust: 70, underbust: 64, waist: 54, hips: 76 },
+  default: { height: 155, bust: 84, underbust: 72, waist: 68, hips: 90 },
+  severe: { height: 155, bust: 140, underbust: 116, waist: 130, hips: 150 },
+} as const;
+
+export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyIn }: { view: string; scene: string; guides: boolean; body: string }) {
   const scene: GownSceneId = isScene(sceneIn) ? sceneIn : 'studio';
   const [vals, setVals] = useState<GownBodyVals>(() => ({ ...startingGownBody().vals }));
   const [given, setGiven] = useState<GownBodyKey[]>([]);
   const [bustT, setBustT] = useState(0);
   const [solved, setSolved] = useState<GownSolved | null>(null);
+  const [design, setDesign] = useState<GownConfig>(() => startingGownConfig());
   const fine = { athletic: false, bustT, given };
 
+  if (view === 'silhouettes') {
+    // A5 check: the four silhouettes on one body (&body=thin · default · severe).
+    const b = LAB_BODIES[bodyIn as keyof typeof LAB_BODIES] ?? LAB_BODIES.default;
+    const v = { ...startingGownBody().vals, ...b };
+    return (
+      <main className="grid grid-cols-4 gap-2 p-2" data-lab-view="silhouettes">
+        {(['aline', 'ball', 'mermaid', 'sheath'] as const).map((sil) => (
+          <figure key={sil}>
+            <GownView vals={v} fine={fine} scene={scene} design={{ ...startingGownConfig(), sil }} />
+            <figcaption className="text-sn-12">{GOWN_SILHOUETTES.find((x) => x.id === sil)?.label}</figcaption>
+          </figure>
+        ))}
+      </main>
+    );
+  }
   if (view === 'faceless') {
     return (
       <main className="grid grid-cols-2 gap-2 p-2" data-lab-view="faceless">
@@ -48,7 +86,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides }: { view: s
   };
   return (
     <main className="mx-auto grid max-w-3xl gap-4 p-4 md:grid-cols-2" data-lab-view={view}>
-      <GownView vals={vals} fine={fine} scene={scene} guides={guides} force2d={view === 'fallback'} onSolved={setSolved} />
+      <GownView vals={vals} fine={fine} scene={scene} guides={guides} force2d={view === 'fallback'} design={view === 'dress' ? design : null} onSolved={setSolved} />
       <section className="sn-frame grid gap-3 p-4" aria-label="Her numbers">
         {SLIDERS.map((k) => {
           const [lo, hi] = k === 'height' ? GOWN_BODY_RANGE.height : gownLimit(vals, k);
@@ -68,6 +106,32 @@ export default function GownMakerLab({ view, scene: sceneIn, guides }: { view: s
           <span>{GOWN_STEP_LABELS.bustPos}</span>
           <input type="range" min={-1} max={1} step={0.02} value={bustT} onChange={(e) => setBustT(gownSnapBustT(Number(e.target.value)))} aria-label={GOWN_STEP_LABELS.bustPos} />
         </label>
+        {view === 'dress' ? (
+          <div className="grid grid-cols-2 gap-2 text-sn-13" aria-label="The gown">
+            {(
+              [
+                ['sil', 'Silhouette', GOWN_SILHOUETTES],
+                ['neck', 'Neckline', GOWN_NECKLINES],
+                ['fabric', 'Fabric', GOWN_STOCK_FABRICS],
+                ['colour', 'Colour', GOWN_COLOURS.filter((c) => c.id !== 'custom')],
+                ['hem', 'Length', GOWN_HEMS],
+                ['train', 'Train', GOWN_TRAINS],
+              ] as const
+            ).map(([k, label, list]) => (
+              <div key={k} className="grid gap-1">
+                <span>{label}</span>
+                <PickMenu
+                  label={label}
+                  value={design[k] as string}
+                  options={list.map((o) => ({ key: o.id, label: o.label }))}
+                  onPick={(v) => setDesign({ ...design, [k]: v })}
+                  dataAttr={`data-lab-pick-${k}`}
+                  className="w-full !min-h-11"
+                />
+              </div>
+            ))}
+          </div>
+        ) : null}
         <p className="text-sn-12" data-lab-bra>{gownBraNote(vals, given)}</p>
         <p className="text-sn-12" data-lab-tape>
           {solved

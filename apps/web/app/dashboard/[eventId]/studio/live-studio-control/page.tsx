@@ -26,7 +26,9 @@ import { fetchAddOnStats } from '@/lib/add-on-stats';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { resolveAddOnState } from '@/lib/add-on-state';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
-import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { formatV2Sku, readV2Sku } from '@/lib/v2/sku-catalog-v2';
+import { PLAN_UNREAD } from '@/lib/plan-unread';
+import { TryAgain } from '@/app/vendor-dashboard/_components/set-two/try-again';
 import { getCustomerSkuPriceLabel } from '@/lib/v2-catalog';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { liveStudioControlPath, LIVE_STUDIO_HOSTED_CHANNEL_SKU } from '@/lib/live-studio-control';
@@ -177,12 +179,12 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
   // the server gate (checkoutPoolChannel → eventHoldsHostedChannel) decides.
   const ent = await eventEntitlementClient(eventId);
 
-  const [stats, stateCtx, settings, sku, hostedChannelSku, ownsHostedChannel, hostedChannelOnSale] =
+  const [stats, stateCtx, settings, skuRead, hostedChannelSku, ownsHostedChannel, hostedChannelOnSale] =
     await Promise.all([
       fetchAddOnStats(supabase, FEATURE_KEY),
       resolveAddOnState(ent, eventId, FEATURE_KEY, 'couple', controllerHref),
       fetchPlatformSettings(supabase),
-      formatV2Sku(LIVE_STUDIO_SKU_CODE).catch(() => null),
+      readV2Sku(LIVE_STUDIO_SKU_CODE).catch(() => ({ record: null, readFailed: true })),
       formatV2Sku(LIVE_STUDIO_HOSTED_CHANNEL_SKU).catch(() => null),
       // ⭐ Does this event own the OPTIONAL hosted-channel add-on (owner ruling
       // 2026-09-02)? Read directly via eventSkuActive — NOT via ADD_ON_SKU_MAP /
@@ -205,6 +207,7 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
 
   // Live catalog price (display only; the charge is re-resolved server-side from
   // LIVE_STUDIO_SKU_CODE in submitOrderAction, so a catalog miss only blanks the label).
+  const sku = skuRead.record;
   const centavos = sku?.price_centavos ?? 0;
   const priceLabel = sku ? formatPhp(sku.price_php) : '—';
   const hostedChannelCentavos = hostedChannelSku?.price_centavos ?? 0;
@@ -247,7 +250,8 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
     {
       eyebrow: 'Pricing',
       value: priceLabel,
-      caption: 'per event',
+      // L-08: a refused catalogue read says so, never a bare "—" that reads as no price.
+      caption: skuRead.readFailed ? 'Couldn’t read' : 'per event',
     },
   ];
 
@@ -276,7 +280,14 @@ export default async function LiveStudioPage({ params, searchParams }: Props) {
       ) : null}
       {/* 🛒 One place to buy (owner 2026-11-23): on the web, Add opens Event services with Live Watch ticked — the one
           cart and the one pay page. Every other state (open, verifying, blocked, expired) is the shipped control. */}
-      {stateCtx.state === 'add' && !(await isStoreShellRequest()) ? (
+      {/* L-08 (owner ruling, final check Add 45): a refused orders read is "we couldn't check your plan" with a
+          retry — no buy press is offered to a couple who may already own Live Watch. */}
+      {stateCtx.ordersUnread ? (
+        <div role="status" data-plan-unread="" className="flex flex-wrap items-center gap-3 text-sm text-ink/70">
+          <p>{PLAN_UNREAD}</p>
+          <TryAgain />
+        </div>
+      ) : stateCtx.state === 'add' && !(await isStoreShellRequest()) ? (
         <ActionButton tone="brand" main icon={<Plus aria-hidden strokeWidth={1.9} />} label="Add Live Watch" href={routes.dashboard.eventServices(eventId, 'live')} />
       ) : (
       <AddOnStateCta

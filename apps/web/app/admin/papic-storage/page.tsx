@@ -10,6 +10,7 @@ import {
   type StorageRow,
 } from '@/lib/papic-storage-telemetry';
 import { BackfillTilesButton } from './backfill-tiles-button';
+import { TILES_PER_PRESS } from '@/lib/papic-tile-backfill';
 import { OldPhotosButton } from './old-photos-button';
 import { listOldPhotos, type OldPhotoList } from '@/lib/old-photo-copies.server';
 import { OVERSIZED_BYTES, WEB_LONG_EDGE, formatBytes } from '@/lib/old-photo-copies';
@@ -201,7 +202,7 @@ export default async function PapicStoragePage() {
       <section data-papic-memory-lane="">
         <Sec
           title="Memory lane copies"
-          about="The 640px copy Memory lane renders. Photos taken before it existed fall back to the full-view copy — sharp, but about four times heavier than the tile needs. Runs up to 40 per press — press again if more remain."
+          about={`The 640px copy Memory lane renders. Photos taken before it existed fall back to the full-view copy — sharp, but about four times heavier than the tile needs. Each press makes up to ${formatCount(TILES_PER_PRESS)} copies, after you confirm — press again if more remain.`}
         />
         <BackfillTilesButton pending={pendingTiles} />
       </section>

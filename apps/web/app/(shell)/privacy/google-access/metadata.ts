@@ -21,7 +21,7 @@
  * analysis sees the export it expects, not a re-export chain.
  */
 
-const TITLE = 'What connecting Google does · Setnayan';
+const TITLE = 'What connecting Google does';
 const DESCRIPTION =
   'Plain-English explanation of the two optional Google connections Setnayan offers: YouTube, to set up the live broadcast of a wedding, and Google Drive, so photos land in a folder the couple owns. Setnayan only ever touches files it created itself.';
 

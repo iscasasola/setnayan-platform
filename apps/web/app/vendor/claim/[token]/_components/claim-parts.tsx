@@ -5,6 +5,7 @@
  * unchanged, so the page and `CoupleLinkDoor` draw the SAME field and the same
  * perk. `CoupleLinkDoor` is the door a supplier meets on a COUPLE'S OWN LINK.
  */
+import { INVITE_PARTNERS_AT_ONCE } from '@/lib/supplier-invite';
 import type { ReactNode } from 'react';
 import { LogIn, Phone, Sparkles, UserPlus } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
@@ -308,7 +309,7 @@ export function SupplierInviteDoor({
             {inviterName}
             {category ? <span className="font-normal text-ink/60" data-supplier-invite-category=""> · {category}</span> : null}
           </b>
-          <span className="text-sm text-ink/70">Joining makes you partners at once</span>
+          <span className="text-sm text-ink/70">{INVITE_PARTNERS_AT_ONCE}</span>
           <span className="text-sm text-ink/70">Free. Tools for your own clients.</span>
         </section>
 

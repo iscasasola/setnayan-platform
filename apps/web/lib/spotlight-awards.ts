@@ -417,6 +417,17 @@ export async function fetchSpotlightAwards(
   client: SupabaseClient,
   opts: { periodMonth?: string; featuredOnly?: boolean } = {},
 ): Promise<SpotlightAwardRow[]> {
+  return (await readSpotlightAwards(client, opts)) ?? [];
+}
+
+/**
+ * The same read, but a refused read is `null`, never `[]` (A8·G-9): the admin console must say "Couldn't read"
+ * instead of "No awards for this month yet" and zeroes. The homepage strip keeps the quiet `[]` above.
+ */
+export async function readSpotlightAwards(
+  client: SupabaseClient,
+  opts: { periodMonth?: string; featuredOnly?: boolean } = {},
+): Promise<SpotlightAwardRow[] | null> {
   const periodMonth = opts.periodMonth ?? currentPeriodMonth();
 
   let query = client
@@ -433,7 +444,7 @@ export async function fetchSpotlightAwards(
   const { data, error } = await query;
   if (error) {
     console.error('[spotlight-awards] fetch awards failed', error);
-    return [];
+    return null;
   }
 
   const rows: SpotlightAwardRow[] = ((data ?? []) as unknown[]).map((raw) => {

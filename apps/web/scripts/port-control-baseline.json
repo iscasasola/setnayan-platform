@@ -4626,9 +4626,7 @@
         "ReceivedTileBlock",
         "RequestCardView",
         "Row",
-        "Screen",
         "Sheet",
-        "Sk",
         "TabSettingsRows",
         "TemplateFail",
         "TermsReacceptSheet",
@@ -4759,6 +4757,7 @@
     },
     "/admin/admin-log": {
       "files": [
+        "admin/admin-log/loading.tsx",
         "admin/admin-log/page.tsx"
       ],
       "destinations": [],
@@ -4936,6 +4935,7 @@
     },
     "/admin/ask": {
       "files": [
+        "admin/ask/loading.tsx",
         "admin/ask/page.tsx",
         "admin/ask/print-button.tsx"
       ],
@@ -5031,6 +5031,7 @@
     "/admin/business": {
       "files": [
         "admin/business/_components/business-identity-form.tsx",
+        "admin/business/loading.tsx",
         "admin/business/page.tsx"
       ],
       "destinations": [
@@ -7429,6 +7430,7 @@
     },
     "/admin/switches": {
       "files": [
+        "admin/switches/loading.tsx",
         "admin/switches/page.tsx"
       ],
       "destinations": [
@@ -7460,6 +7462,7 @@
     "/admin/team": {
       "files": [
         "admin/team/_components/team-fields.tsx",
+        "admin/team/loading.tsx",
         "admin/team/page.tsx",
         "admin/team/team-ops.server.ts"
       ],
@@ -7640,6 +7643,7 @@
     "/admin/vendor-partnerships": {
       "files": [
         "admin/vendor-partnerships/actions.ts",
+        "admin/vendor-partnerships/loading.tsx",
         "admin/vendor-partnerships/page.tsx"
       ],
       "destinations": [],
@@ -7868,6 +7872,7 @@
     "/admin/verification-docs": {
       "files": [
         "admin/verification-docs/actions.ts",
+        "admin/verification-docs/loading.tsx",
         "admin/verification-docs/page.tsx"
       ],
       "destinations": [],
@@ -8004,6 +8009,7 @@
         "admin/work/_components/supplier-inbox.tsx",
         "admin/work/_components/work-row-head.tsx",
         "admin/work/actions.ts",
+        "admin/work/loading.tsx",
         "admin/work/page.tsx"
       ],
       "destinations": [
@@ -13762,6 +13768,7 @@
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/change-order-trail.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/colour-access-card.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/consent-gated-invite-form.tsx",
+        "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/costs-form.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-photo-approvals-sheet.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-photo-approvals.tsx",
         "dashboard/[eventId]/vendors/[vendorId]/workspace/_components/couple-story-shares-card.tsx",
@@ -13812,8 +13819,7 @@
         "inviteHost",
         "revokeHostInvite",
         "routes.dashboard.messages.detail",
-        "routes.dashboard.messages.index",
-        "updateVendorCosts"
+        "routes.dashboard.messages.index"
       ],
       "blocks": [
         "ActionButton",
@@ -13833,6 +13839,9 @@
         "ContactShortlistVendorButton",
         "CoordinatorColourDomains",
         "CoordinatorGrantChips",
+        "CostsForm",
+        "CostsFormPending.Provider",
+        "CostsSubmit",
         "CouplePhotoApprovals",
         "CouplePhotoApprovalsSheet",
         "CoupleStoryShares",

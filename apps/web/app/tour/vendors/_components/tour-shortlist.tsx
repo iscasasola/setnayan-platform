@@ -121,7 +121,7 @@ function VendorCard({ v, aiOn }: { v: TourVendor; aiOn: boolean }) {
           {showMatch ? (
             <span
               className={`hmatch ${v.matchTier}`}
-              title="How well this candidate fits the wedding — based on distance, reviews, and verification."
+              title="How well this candidate fits the wedding — based on reviews and verification."
             >
               {v.matchScore}% match
             </span>

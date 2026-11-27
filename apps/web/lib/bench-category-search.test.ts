@@ -237,7 +237,8 @@ test('the empty state does not tell a couple to widen filters they never set', (
     /\{query\.trim\(\) \|\| filterCount > 0 \? \(/,
     'the empty copy must branch on whether anything is actually narrowing the search',
   );
-  assert.match(src, /suppliers here yet/);
+  // 🧹 R3 (27 Nov): the first-open line is the one Find line, never a promise about who joins when.
+  assert.match(src, /findNoneListedWords\(label\)/);
 });
 
 test('the accordion call site is untouched — tile + onAdded are optional', () => {

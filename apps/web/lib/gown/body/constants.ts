@@ -34,6 +34,13 @@ export const HEAD_SHARE = 1 / 7.5;
 /** v171: the bust position, [slide, tilt] at Higher and Lower; anywhere between by the bar. */
 export const BUST_POS = { high: [0.011, -0.12], low: [-0.009, 0.065] } as const;
 
+/**
+ * The mannequin weighs less than a woman with the same tape, so its volume is scaled up (v183: 1.12). v188 (owner's
+ * design review): 1.25, because at 1.12 the weight fit made the limbs about 20 % too thick; the default body now
+ * solves at a build of about 0.99.
+ */
+export const BODY_KG_CALIBRATION = 1.25;
+
 /** v169: the build factor, from severely underweight to severe obesity. */
 export const BUILD_MIN = 0.6;
 export const BUILD_MAX = 2.2;
@@ -53,5 +60,12 @@ export const RIB_REST = 0.95;
 /** The cup's range (`b`). */
 export const CUP_MIN = 0.55;
 export const CUP_MAX_STEP = 5;
+/** v188: a control point between the hip and the waist (above the hip line), so the hip curves instead of making a ledge. */
+export const HIP_TO_WAIST_DY = 0.09;
+/** v188: how far that control point sits from the waist toward the hip (0 = the waist's girth, 1 = the hip's). */
+export const HIP_TO_WAIST_SHARE = 0.55;
+/** v188: a rounded seat on slim and average bodies too (was flat or hollow below a hip scale of 1): base and range. */
+export const SEAT_BASE = 0.1;
+export const SEAT_MAX = 0.35;
 /** "A big tummy always carries some hip with it": inner thighs come together softly, never through each other. */
 export const THIGH_GAP = 0.011;

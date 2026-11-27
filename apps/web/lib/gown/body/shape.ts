@@ -2,7 +2,7 @@
  * 👗 gown/body/shape — girths: one smooth scale profile up the body, applied to the bind-pose vertices, plus the soft
  * fullness and a fuller cup (prototype v186 `morph`, `bodyNormals`).
  */
-import { BODY_K, BREAST, FAT, PROFILE_DY, PROFILE_N, THIGH_GAP } from './constants';
+import { BODY_K, BREAST, FAT, HIP_TO_WAIST_DY, HIP_TO_WAIST_SHARE, PROFILE_DY, PROFILE_N, SEAT_BASE, SEAT_MAX, THIGH_GAP } from './constants';
 import { clamp, smoothstep, type GownRig } from './rig';
 
 const PROF = new Float32Array(PROFILE_N), BELLY = new Float32Array(PROFILE_N), BUTT = new Float32Array(PROFILE_N);
@@ -10,14 +10,16 @@ const PROF = new Float32Array(PROFILE_N), BELLY = new Float32Array(PROFILE_N), B
 export function morph(B: GownRig): void {
   const P = B.P, k = BODY_K, f = P.f, ank = B.rp[B.ix['foot.L']!]!.y, knee = B.rp[B.ix['lowerleg01.L']!]!.y;
   const hipJy = B.rp[B.ix['upperleg01.L']!]!.y;
-  const ys = [0.03, ank + 0.12, knee + 0.08, (hipJy + knee) / 2 - 0.02, hipJy - 0.12, k.yHip, k.belly[1] + 0.02, k.yUb, k.yCh, k.yChestTop, k.yTop, k.yNeck];
+  const ys = [0.03, ank + 0.12, knee + 0.08, (hipJy + knee) / 2 - 0.02, hipJy - 0.12, k.yHip, k.yHip + HIP_TO_WAIST_DY, k.belly[1] + 0.02, k.yUb, k.yCh, k.yChestTop, k.yTop, k.yNeck];
   // v169: waist-to-hip ratio decides how much goes to the belly.
   const apple = smoothstep(B.vals.waist / Math.max(1, B.vals.hips), 0.76, 0.95);
   const fz0 = !B.fine.athletic ? clamp((f - FAT.from) / (1.65 - FAT.from), 0, 1.6) : 0;
   const pinch = 1 - FAT.waistIn * fz0 * apple;
+  const waistVal = 0.5 * (P.sHip + P.sUb) * (P.gB < 0 ? 1 + P.gB : 1 + 0.15 * P.gB) * pinch;
   const vs = [
     1 + (f - 1) * 0.5, f, f, f + 0.55 * (P.sHip - f), P.sHip, P.sHip,
-    0.5 * (P.sHip + P.sUb) * (P.gB < 0 ? 1 + P.gB : 1 + 0.15 * P.gB) * pinch, P.sUb,
+    waistVal + HIP_TO_WAIST_SHARE * (P.sHip - waistVal), // v188: the hip curves into the waist
+    waistVal, P.sUb,
     P.sUb * P.cR, P.sUb * P.cR, P.sTop, P.nk || 1 + (f - 1) * 0.45, // v176: the neck is fitted to her weight
   ];
   for (let j = 0; j < PROFILE_N; j++) {
@@ -43,7 +45,7 @@ export function morph(B: GownRig): void {
     BELLY[j] = y <= b0 || y >= b2 ? 0 : 0.5 * (1 + Math.cos(Math.PI * (y < b1 ? (b1 - y) / (b1 - b0) : (y - b1) / (b2 - b1))));
     if (y < b1) BELLY[j] = BELLY[j]! * BELLY[j]!;
   }
-  const gB = Math.max(0, P.gB), hB = clamp(0.35 * (P.sHip - 1), -0.05, 0.3), hF = -0.45 * clamp(P.sHip - 1, 0, 1), yS = k.yHip + 0.02;
+  const gB = Math.max(0, P.gB), hB = clamp(SEAT_BASE + 0.35 * (P.sHip - 1), 0, SEAT_MAX), hF = -0.45 * clamp(P.sHip - 1, 0, 1), yS = k.yHip + 0.02;
   for (let j = 0; j < PROFILE_N; j++) {
     const y = j * PROFILE_DY, d = y > yS ? (y - yS) / 0.26 : (yS - y) / 0.16;
     BUTT[j] = d >= 1 ? 0 : 0.5 * (1 + Math.cos(Math.PI * d)); // seat fullness at the back

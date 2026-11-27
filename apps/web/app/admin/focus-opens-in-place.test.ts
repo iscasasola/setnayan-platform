@@ -20,7 +20,7 @@ const ROW = read('app/admin/_components/focus-row.tsx');
 
 test('1 · the tapped item opens where it sits — no sheet over the list', () => {
   assert.doesNotMatch(HOME, /<FocusCardSheet\b|<Sheet\b/, 'Focus opens a card in a sheet over the list again');
-  assert.match(HOME, /open=\{r\.key === cardKey\}/);
+  assert.match(HOME, /open=\{!r\.goes && r\.key === cardKey\}/);
   assert.match(HOME, /<RequestCardView card=\{opened\.item\.card\}/);
 });
 
@@ -37,4 +37,18 @@ test('3 · the drags are Today’s, and tomorrow is this admin’s only — neve
   assert.match(ROW, /\{canPutOff\(level\) \? \(/, '"Do it tomorrow" is offered on a red item');
   assert.match(ROW, /onOpen: \(\) => router\.push\(pageHref\)/);
   assert.doesNotMatch(ROW, /Trash2|data-swipe-delete/, 'a Focus item can be deleted');
+});
+
+/**
+ * L7 · D2 (walk 27 Nov 2026): Problems took three hops — a row whose card said "Nothing to press here", then
+ * "Open in page ›", then Work's "Open Problems". A list worked on its own page is now ONE tap to that page.
+ * 🛡 SABOTAGE (seen RED, then restored): the Problems row pointed back at `/admin/work?open=` (red: 4) · the
+ * "Nothing to press here" card put back (red: 4) · `goes` dropped from the row's tap (red: 4).
+ */
+test('4 · a list worked on its own page is one tap to that page', () => {
+  assert.doesNotMatch(HOME, /Nothing to press here/, 'the empty in-place card for a list is back');
+  assert.match(HOME, /href: items\.length > 0 \|\| settlesHere \? `\/admin\/work\?open=\$\{encodeURIComponent\(q\.key\)\}` : q\.href,/);
+  assert.match(HOME, /goes: true,/);
+  assert.match(HOME, /goes=\{r\.goes === true\}/);
+  assert.match(ROW, /onClick=\{goes \? undefined : intend\}/, 'a list row still tries to open a card in place');
 });

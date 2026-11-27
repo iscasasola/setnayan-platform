@@ -305,9 +305,9 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
   // panel on Categories & event types, which names itself the same way.
   { file: 'categories/page.tsx', namesItself: 'title="Categories & event types"' },
   // ── PR 3/4 · the money and records desks ────────────────────────────────
-  { file: 'receipts/page.tsx', namesItself: 'title="Transaction receipts"' },
+  { file: 'receipts/page.tsx', namesItself: 'title="Receipts"' },
   { file: 'subscriptions/page.tsx', namesItself: 'title="Subscriptions"' },
-  { file: 'budget-planner/page.tsx', namesItself: 'title="Budget Planner"' },
+  { file: 'budget-planner/page.tsx', namesItself: 'title="Budget planner"' },
   { file: 'founder-seats/page.tsx', namesItself: 'title="Founder seats"' },
   {
     file: 'settings/payment-methods/page.tsx',
@@ -315,31 +315,31 @@ const PORTED: Array<{ file: string; namesItself: string }> = [
   },
   {
     file: 'verification-docs/page.tsx',
-    namesItself: 'title="Supplier verification documents"',
+    namesItself: 'title="Verification documents"',
   },
   { file: 'website-media/page.tsx', namesItself: 'title="Website media"' },
   {
     file: 'background-videos/page.tsx',
-    namesItself: 'title="Homepage background videos"',
+    namesItself: 'title="Background videos"',
   },
   {
     file: 'live-studio-channels/page.tsx',
-    namesItself: 'title="Setnayan channel pool"',
+    namesItself: 'title="Live Watch channels"',
   },
   { file: 'pakanta/page.tsx', namesItself: 'title="Music Maker queue"' },
-  { file: 'demand/page.tsx', namesItself: 'title="Demand Radar"' },
+  { file: 'demand/page.tsx', namesItself: 'title="Demand radar"' },
   {
     file: 'vendor-recommendations/page.tsx',
     namesItself: 'title="Supplier recommendations"',
   },
   { file: 'help/page.tsx', namesItself: 'title="Messages"' },
   { file: 'integrations/page.tsx', namesItself: 'title="Integrations"' },
-  { file: 'secrets/page.tsx', namesItself: 'title="Secrets & Rotation"' },
+  { file: 'secrets/page.tsx', namesItself: 'title="Secrets & rotation"' },
   // ── PR 4/4 · the judgement queues ───────────────────────────────────────
   { file: 'chat-flags/page.tsx', namesItself: 'title="Chat contact flags"' },
   { file: 'integrity-watch/page.tsx', namesItself: 'title="Integrity watch"' },
   { file: 'repost-watch/page.tsx', namesItself: 'title="Repost watch"' },
-  { file: 'reviews/page.tsx', namesItself: 'title="Review moderation"' },
+  { file: 'reviews/page.tsx', namesItself: 'title="Reviews"' },
   { file: 'user-reports/page.tsx', namesItself: 'title="User reports"' },
   { file: 'force-majeure/page.tsx', namesItself: 'title="Force majeure"' },
   { file: 'editorial-review/page.tsx', namesItself: 'title="Editorial review"' },

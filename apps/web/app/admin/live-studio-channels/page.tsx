@@ -151,7 +151,7 @@ export default async function LiveStudioChannelsPage({
           Somebody about to "simplify" this by asking couples to connect their
           own channel needs to meet that sentence first. It now lives in the
           first ⓘ, whose label says the rule in six words. */}
-      <PageMasthead title="Setnayan channel pool" />
+      <PageMasthead title="Live Watch channels" />
       <One
         label="One channel per event, then returned"
         extra={

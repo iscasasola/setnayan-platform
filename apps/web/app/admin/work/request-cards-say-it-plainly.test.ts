@@ -160,3 +160,16 @@ test('7 · an order already paid is not counted as waiting (walk RW-308a)', () =
   assert.match(lights, /order:orders!inner\(/, 'the payments read no longer joins the order');
   assert.match(lights, /\.neq\('order\.status', 'paid'\)/, 'the payments read shows paid orders again — the cards and the count disagree');
 });
+
+/**
+ * L7 · D3 (walk 27 Nov 2026): "TEST W1 Baseline Blooms added a new payment link to be paid on" — the title ended on a
+ * bare "on", so the row read as if its date had been cut off. No request-card title ends on a preposition.
+ */
+test('6 · no request-card title ends on a dangling preposition', () => {
+  const src = code(read('lib/admin/queue-peek.ts'));
+  const titles = [...src.matchAll(/title: `([^`]*)`/g)].map((m) => m[1]!);
+  assert.ok(titles.length >= 10, `expected the card titles, found ${titles.length}`);
+  for (const t of titles) {
+    assert.doesNotMatch(t.trim(), /\b(on|to|for|of|with|at|by|in)$/i, `a card title ends on a preposition: ${t}`);
+  }
+});

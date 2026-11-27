@@ -25,14 +25,70 @@ import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
  * nothing reads as a broken page.
  */
 
-async function copyText(text: string): Promise<boolean> {
+/* 📋 WHY "COPY MY LINK" DID NOTHING (owner walk 2026-11-27, MASTER-PLAN L3). Inside Messenger / Facebook / Instagram
+   the clipboard API is often missing or refused — and on some versions its promise NEVER SETTLES, so the button sat at
+   "Copy my link" with no answer either way: a dead tap. So the copy now (1) copies by selection first, synchronously,
+   inside the tap — the way an in-app browser still allows; (2) only then asks the clipboard API, with a time limit
+   (`COPY_WAIT_MS`); and (3) if both fail, says so and hands over the link in a field the guest can select. */
+
+/** How long the clipboard API may take before the copy is called failed. */
+export const COPY_WAIT_MS = 1500;
+
+/** Copy by selecting a hidden, read-only field — synchronous, so it runs inside the tap itself. */
+function copyBySelection(text: string): boolean {
+  if (typeof document === 'undefined' || typeof document.execCommand !== 'function') return false;
+  const before = document.activeElement as HTMLElement | null;
+  const field = document.createElement('textarea');
+  field.value = text;
+  field.setAttribute('readonly', '');
+  field.setAttribute('aria-hidden', 'true');
+  // Off screen but focusable; 16 px so iOS never zooms to it.
+  field.style.cssText = 'position:fixed;top:0;left:-9999px;opacity:0;font-size:16px;';
+  document.body.appendChild(field);
   try {
-    if (!navigator.clipboard?.writeText) return false;
-    await navigator.clipboard.writeText(text);
-    return true;
+    field.focus({ preventScroll: true });
+    field.select();
+    field.setSelectionRange(0, text.length);
+    return document.execCommand('copy');
+  } catch {
+    return false;
+  } finally {
+    field.remove();
+    before?.focus?.({ preventScroll: true });
+  }
+}
+
+/** Copy `text`: true only when a copy is known to have happened; never hangs. */
+export async function copyText(text: string): Promise<boolean> {
+  if (copyBySelection(text)) return true;
+  try {
+    if (typeof navigator === 'undefined' || !navigator.clipboard?.writeText) return false;
+    return await Promise.race([
+      navigator.clipboard.writeText(text).then(
+        () => true,
+        () => false,
+      ),
+      new Promise<boolean>((resolve) => setTimeout(() => resolve(false), COPY_WAIT_MS)),
+    ]);
   } catch {
     return false;
   }
+}
+
+/** The link in a field the guest can select and copy by hand — the honest fallback when no copy worked. */
+export function LinkToCopyByHand({ link }: { link: string }) {
+  return (
+    <input
+      type="text"
+      readOnly
+      value={link}
+      aria-label="Your link — press and hold to copy it"
+      onFocus={(e) => e.currentTarget.select()}
+      onClick={(e) => e.currentTarget.select()}
+      data-link-by-hand=""
+      className="input-field w-full text-center font-mono text-xs"
+    />
+  );
 }
 
 /** `https://www.setnayan.com/x?invite=…` → `setnayan.com/x?invite=…` — how the link is printed. */
@@ -85,9 +141,10 @@ export function CopyMyLink({
           Link copied — paste it anywhere you’ll find it again.
         </p>
       ) : state === 'failed' ? (
-        <p role="alert" className="text-xs text-ink/70">
-          Couldn&rsquo;t copy it for you — press and hold the link above to copy it.
-        </p>
+        <div role="alert" className="space-y-2">
+          <p className="text-xs text-ink/70">Couldn&rsquo;t copy it for you — press and hold the link to copy it:</p>
+          <LinkToCopyByHand link={link} />
+        </div>
       ) : null}
       {note ? <p className="mx-auto w-full text-xs text-ink/70">{note}</p> : null}
     </section>
@@ -171,10 +228,10 @@ export function OpenInBrowser({ link }: { link: string }) {
                 Copied ✓ — now paste it in Safari or Chrome
               </p>
             ) : copied === false ? (
-              <p role="alert" className="text-center text-xs text-ink/70">
-                Couldn&rsquo;t copy it for you — press and hold the link to copy it:{' '}
-                <span className="select-all break-all font-mono text-ink">{shownLink(link)}</span>
-              </p>
+              <div role="alert" className="space-y-2 text-center">
+                <p className="text-xs text-ink/70">Couldn&rsquo;t copy it for you — press and hold the link to copy it:</p>
+                <LinkToCopyByHand link={link} />
+              </div>
             ) : null}
             <p className="text-center">
               <button type="button" onClick={() => setOpen(false)} className="inline-flex min-h-[44px] items-center text-sm text-ink/70 underline-offset-4 hover:underline">

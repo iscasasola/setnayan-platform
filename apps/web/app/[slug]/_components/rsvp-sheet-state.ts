@@ -143,6 +143,9 @@ export type RsvpSheetTriggerInput = {
  * there is exactly one per screen. This row is quiet; the accent belongs to the
  * two answers inside the sheet.
  */
+/** The press that opens an unanswered reply, and the heading of what it opens — one set of words. */
+export const REPLY_SHEET_HEADING = 'Reply to the invitation';
+
 export function rsvpSheetTrigger(input: RsvpSheetTriggerInput): { label: string } {
   // The answer is frozen but the meal, the allergy note and the phone number
   // are not — and the list finalizes about two weeks out, which is exactly when
@@ -151,7 +154,7 @@ export function rsvpSheetTrigger(input: RsvpSheetTriggerInput): { label: string 
   if (input.status === 'attending' || input.status === 'declined') {
     return { label: 'Need to change your reply or your details?' };
   }
-  return { label: 'Reply to the invitation' };
+  return { label: REPLY_SHEET_HEADING };
 }
 
 export type RsvpSheetHeadingInput = RsvpSheetTriggerInput & {
@@ -173,8 +176,11 @@ export type RsvpSheetHeadingInput = RsvpSheetTriggerInput & {
 export function rsvpSheetHeading(input: RsvpSheetHeadingInput): string {
   if (input.guestListClosed) return 'Your details';
   if (input.status === 'attending' || input.status === 'declined') return 'Change your reply';
-  // "Your reply", not a question: the form's first line already asks "Will you
-  // be there?", and the sheet asked it a second time above it (guest text
-  // audit 2026-09-30). One question, asked once — by the form.
-  return 'Your reply';
+  // Not a question: the form's first line already asks "Will you be there?",
+  // and the sheet asked it a second time above it (guest text audit
+  // 2026-09-30). One question, asked once — by the form. And not "Your reply"
+  // either: that is the form's own eyebrow, so the sheet read "Your reply"
+  // twice (owner walk 2026-11-27, MASTER-PLAN B8). The heading is the press
+  // that opened it — `rsvpSheetTrigger`'s words.
+  return REPLY_SHEET_HEADING;
 }

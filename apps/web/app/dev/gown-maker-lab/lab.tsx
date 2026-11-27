@@ -9,6 +9,12 @@ import {
   GOWN_CLOSURES,
   GOWN_SLEEVES,
   GOWN_VEILS,
+  GOWN_BONE_SHOWS,
+  GOWN_BONING,
+  GOWN_ILLUSIONS,
+  GOWN_ILLUSION_BACKS,
+  GOWN_ILLUSION_COLOURS,
+  GOWN_ILLUSION_CUPS,
   GOWN_CAPE_COLOURS,
   GOWN_CAPE_EDGES,
   GOWN_CAPE_FABRICS,
@@ -184,7 +190,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   const now = gownCapeNow(design), hidden = gownHiddenChoices(design);
   const capeNow = { capeFab: now.fab, capeLen: now.len, capeEdge: now.edge, capeFasten: now.fasten };
   // Every pick goes through the pairing rules, so the lab shows what the maker will (one line, then Undo in the maker).
-  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
+  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'illu' | 'illuBase' | 'illuCol' | 'illuBack' | 'boneShow' | 'boning' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
     const out = gownChoose(design, { key: k, value: v } as GownChoice);
     setDesign(out.config);
     setNote(out.notes.join(' '));
@@ -221,7 +227,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
             {(
               [
                 ['sil', 'Silhouette', GOWN_SILHOUETTES],
-                ['neck', 'Neckline', GOWN_NECKLINES],
+                ['neck', 'Neckline', GOWN_NECKLINES.filter((n) => !hidden.neck.includes(n.id))],
                 ['fabric', 'Fabric', GOWN_STOCK_FABRICS],
                 ['colour', 'Colour', GOWN_COLOURS.filter((c) => c.id !== 'custom')],
                 ['hem', 'Length', GOWN_HEMS],
@@ -237,6 +243,12 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 ] as const)),
                 ['sleeve', 'Sleeves', GOWN_SLEEVES],
                 ['back', 'Back', GOWN_BACKS],
+                // v198: the bodice in sheer tulle, an illusion back, boning you can see.
+                ['illu', 'Bodice made of', GOWN_ILLUSIONS],
+                ...(hidden.illuDetails ? [] : ([['illuBase', 'Lined cups', GOWN_ILLUSION_CUPS], ['illuCol', 'Tulle colour', GOWN_ILLUSION_COLOURS]] as const)),
+                ...(hidden.illuBack ? [] : [['illuBack', 'Illusion back', GOWN_ILLUSION_BACKS] as const]),
+                ['boning', 'Boning', GOWN_BONING],
+                ['boneShow', 'Boning you can see', GOWN_BONE_SHOWS],
                 ['closure', 'Closure', GOWN_CLOSURES],
                 ['veil', 'Veil', GOWN_VEIL_ORDER.map((id) => GOWN_VEILS.find((o) => o.id === id)!)],
                 ['veilStyle', 'Veil style', GOWN_VEIL_STYLES],

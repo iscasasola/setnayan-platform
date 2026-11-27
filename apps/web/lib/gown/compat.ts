@@ -56,6 +56,12 @@ export type GownRule = {
  * may be cut on her (v197 `backCapT`; 1 when it is not strapless). Without it, the back's limit is left to the stage.
  */
 export type GownChooseContext = { backCapT?: number };
+/** v198: an illusion back holds a strapless bodice up, so the bra-line cap does not apply. */
+const capLifted = (g: GownConfig) => g.illuBack === 'on' && g.back !== 'closed' && strapless(g);
+/** v198: a cape's narrow strap holds the bodice up too (`illuStrapsHeld`). */
+const strapsHeld = (g: GownConfig) => (!!GOWN_CAPE_STRAP[g.cape] || g.cape === 'pair') && strapless(g);
+/** v198 `illuBackLow`: a strapless back below the bra line, with no illusion back holding it. */
+const backTooLow = (g: GownConfig, ctx: GownChooseContext) => strapless(g) && g.back !== 'closed' && !capLifted(g) && ctx.backCapT !== undefined && g.backT > ctx.backCapT + 0.002;
 
 const strapless = (g: GownConfig) => GOWN_STRAPLESS.includes(g.neck);
 /** Strapless with nothing at the shoulder for a sleeve to join (off-shoulder keeps its band). */
@@ -72,7 +78,7 @@ const longVeil = (g: GownConfig) => g.veil === 'floor' || g.veil === 'chapel' ||
 const closeSil = (g: GownConfig) => g.sil === 'sheath' || g.sil === 'mermaid';
 const silName = (s: GownSilhouette) => GOWN_SILHOUETTES.find((x) => x.id === s)!.label.toLowerCase();
 /** v197 `BACK_CAP_MSG`. */
-export const GOWN_BACK_CAP_NOTE = 'The back stops at the bra line: a strapless bodice is held up all the way round there.';
+export const GOWN_BACK_CAP_NOTE = 'The back stops at the bra line: a strapless bodice is held up all the way round there. Add an illusion back (under Back) to go lower.';
 const accented = (g: GownConfig) => !!(g.accentFabric || g.accentHex);
 
 /** Silhouettes made without a slit, and why (v193 `NO_SLIT`). */
@@ -103,7 +109,7 @@ export const GOWN_RULES: readonly GownRule[] = [
   // Accuracy review (v197): a strapless bodice is held up all the way round at the bra line, so its back stops there; it
   // has nothing at the shoulder for a cap sleeve or a cowl; its long sleeves are detachable.
   {
-    id: 'strapless-back-cap', on: ['neck'], when: (g, _k, _w, ctx) => strapless(g) && g.back !== 'closed' && ctx.backCapT !== undefined && g.backT > ctx.backCapT + 1e-3,
+    id: 'strapless-back-cap', on: ['neck'], when: (g, _k, _w, ctx) => strapless(g) && g.back !== 'closed' && !capLifted(g) && ctx.backCapT !== undefined && g.backT > ctx.backCapT + 1e-3,
     apply: (g, _w, ctx) => { g.backT = ctx.backCapT!; }, note: GOWN_BACK_CAP_NOTE, tell: true, replaces: true,
   },
   { id: 'strapless-no-cap', on: ['neck'], when: (g) => bareTop(g) && g.sleeve === 'cap', apply: (g) => { g.sleeve = 'none'; }, note: 'Cap sleeves need a shoulder to sit on, so sleeves are now none.', tell: true },
@@ -212,6 +218,28 @@ export const GOWN_RULES: readonly GownRule[] = [
     id: 'border-lace-on-hem', on: ['lace'], when: (g) => GOWN_BORDER_LACES.includes(g.lace) && g.laceAt !== 'neck' && g.laceAt !== 'hem',
     apply: (g) => { g.laceAt = 'hem'; }, note: 'This is border lace, so it is placed along the hem. Neckline edge works too.',
   },
+  // v198: the illusion bodice, the illusion back and the boning you can see. Their lines go in the Undo line.
+  {
+    id: 'illusion-needs-neckline', on: ['illu'], when: (g) => g.illu === 'neck' && bareTop(g), apply: (g) => { g.neck = 'bateau'; g.neckT = null; },
+    note: 'An illusion neckline needs a neckline above the cups, so the neckline is now bateau: sheer tulle from the cups up to it.', tell: true,
+  },
+  {
+    id: 'strapless-no-illusion', on: ['neck'], when: (g) => bareTop(g) && g.illu === 'neck', apply: (g) => { g.illu = 'none'; },
+    note: 'A strapless neckline is the top of the cups, so there is no sheer part above it: the bodice is the gown fabric again ("Sheer corset" keeps tulle below the cups).', tell: true,
+  },
+  { id: 'sheer-corset-boned', on: ['illu'], when: (g) => g.illu === 'corset' && g.boning === 'soft', apply: (g) => { g.boning = 'complement'; }, note: 'A sheer corset is boned so it keeps its shape: boning is now Complement.', tell: true },
+  { id: 'show-bones-adds-bones', on: ['boneShow'], when: (g) => g.boneShow === 'on' && g.boning === 'soft', apply: (g) => { g.boning = 'complement'; }, note: 'Bones are added (Complement) so there is boning to show. Change them under Inside, Boning.', tell: true },
+  { id: 'soft-hides-bones', on: ['boning'], when: (g) => g.boning === 'soft' && g.boneShow === 'on', apply: (g) => { g.boneShow = 'off'; }, note: 'Visible boning is off: a soft bodice has no bones.', tell: true },
+  { id: 'closed-back-no-illusion', on: ['back'], when: (g) => g.back === 'closed' && g.illuBack === 'on', apply: (g) => { g.illuBack = 'off'; } },
+  {
+    // Owner: a strapless low back needs straps or an illusion back. Turning the illusion back off raises the back.
+    id: 'illusion-back-off-raises', on: ['illuBack'], when: (g, _k, _w, ctx) => g.illuBack === 'off' && backTooLow(g, ctx) && !strapsHeld(g),
+    apply: (g, _w, ctx) => { g.backT = Math.round(ctx.backCapT! * 500) / 500; }, note: 'The back is raised to the bra line: a strapless bodice with no straps needs its back (or an illusion back) to stay up.', tell: true,
+  },
+  {
+    id: 'low-back-adds-illusion', on: ['back', 'neck', 'cape', 'backT'], when: (g, _k, _w, ctx) => backTooLow(g, ctx) && !strapsHeld(g) && g.illuBack !== 'on',
+    apply: (g) => { g.illuBack = 'on'; }, note: "A strapless bodice can't stay up with a back this low, so an illusion back is added: sheer tulle closes it up to the top edge, and the back still looks open.", tell: true,
+  },
   // v192: the layers under the skirt and the petticoat always agree.
   {
     id: 'layers-follow-petticoat', on: ['petti', 'skirtLayers', 'sil'], when: () => true,
@@ -255,7 +283,7 @@ export function gownChoose(config: GownConfig, choice: GownChoice, ctx: GownChoo
  */
 export function gownHiddenChoices(g: GownConfig): {
   sleeve: string[]; veil: string[]; waist: string[]; slits: boolean; overlay: string[]; petti: string[]; train: string[]; pleat: boolean; drape: string[]; blusher: boolean; longSleeveLabel: string;
-  capeLen: string[]; capeFasten: boolean; capeCol: boolean; capeCm: boolean;
+  capeLen: string[]; capeFasten: boolean; capeCol: boolean; capeCm: boolean; neck: string[]; illuDetails: boolean; illuBack: boolean;
 } {
   return {
     overlay: g.sil === 'ball' ? ['asym', 'cascade'] : [],
@@ -275,6 +303,10 @@ export function gownHiddenChoices(g: GownConfig): {
     capeFasten: g.cape !== 'back',
     capeCol: !accented(g),
     capeCm: gownCapeNow(g).len !== 'train',
+    // v198: an illusion neckline needs a neckline above the cups; the illusion details while it is on; no illusion back on a closed back.
+    neck: g.illu === 'neck' ? GOWN_STRAPLESS.filter((n) => n !== 'off') : [],
+    illuDetails: g.illu === 'none',
+    illuBack: g.back === 'closed',
   };
 }
 

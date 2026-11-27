@@ -27,6 +27,7 @@ import { GOWN_CAPE_JEWEL, GOWN_CAPE_SHEER_OPACITY, buildCape, emptyCape } from '
 import { GOWN_EYELET, GOWN_LACE_UP_DRAW, buildGownClosure } from '@/lib/gown/parts/closure';
 import { GOWN_CUT_MAP, buildGownCuts } from '@/lib/gown/parts/cuts';
 import { buildGownTechShell } from '@/lib/gown/parts/technique';
+import { GOWN_ILLU_DRAW, GOWN_ILLU_MAP, GOWN_ILLU_TULLE, buildGownIllu, gownIlluDressShader, gownIlluTulleShader, gownIlluUniforms } from '@/lib/gown/parts/illusion';
 import { GOWN_TRIM_SHADE, buildGownTrims, placeGownTrims } from '@/lib/gown/parts/trims';
 import { GOWN_CAPE_EDGE_PX, GOWN_LACE_COLOUR, GOWN_LACE_MAP, GOWN_LACE_TILE_DRAW, GOWN_LACE_TILE_PX, buildGownLace, drawGownCapeEdge, drawGownLaceTile } from '@/lib/gown/parts/lace';
 import { gownSurfaceShader, gownSurfaceUniforms, type GownSurfaceUniforms } from '@/lib/gown/fabric/surface';
@@ -227,7 +228,21 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
     const m = new THREE.MeshPhysicalMaterial({ color: GOWN_MANNEQUIN.color, sheen: 1, side: THREE.DoubleSide });
     // The cloth's surface first (weave, lace, cut-outs), then the sheen patch, as v195 chains them.
     const su = gownSurfaceUniforms(), surface = gownSurfaceShader(su), sheen = gownClothShader(sheerBack);
-    m.onBeforeCompile = ((sh: Parameters<typeof surface>[0]) => { surface(sh); sheen(sh); }) as unknown as THREE.Material['onBeforeCompile'];
+    // v198: the illusion zone and the bone channels patch the cloth after its surface (they read the cut-out block's start).
+    const ilU = gownIlluUniforms<THREE.Texture>(), ilDress = gownIlluDressShader(ilU);
+    ilU.ilY.value = new THREE.Vector2(0, 1) as unknown as typeof ilU.ilY.value;
+    ilU.ilBoneCol.value = new THREE.Color();
+    ilU.ilEdgeCol.value = new THREE.Color();
+    m.onBeforeCompile = ((sh: Parameters<typeof surface>[0]) => { surface(sh); ilDress(sh); sheen(sh); }) as unknown as THREE.Material['onBeforeCompile'];
+    // The sheer tulle: a second mesh on the gown's own geometry, shown only inside the zone, after the gown and before the
+    // sheer capes and the veil.
+    const ilMat = new THREE.MeshPhysicalMaterial({ side: THREE.DoubleSide, transparent: true, depthWrite: false, polygonOffset: true, polygonOffsetFactor: GOWN_ILLU_DRAW.polygonOffsetFactor, polygonOffsetUnits: GOWN_ILLU_DRAW.polygonOffsetUnits });
+    const ilTulle = gownIlluTulleShader(ilU), ilSheen = gownClothShader(sheerBack);
+    ilMat.onBeforeCompile = ((sh: Parameters<typeof ilTulle>[0]) => { ilSheen(sh); ilTulle(sh); }) as unknown as THREE.Material['onBeforeCompile'];
+    const ilMesh = new THREE.Mesh(new THREE.BufferGeometry(), ilMat);
+    ilMesh.frustumCulled = false;
+    ilMesh.renderOrder = GOWN_ILLU_DRAW.renderOrder;
+    const ilMap = { canvas: null as HTMLCanvasElement | null, tex: null as THREE.CanvasTexture | null };
     const mesh = new THREE.Mesh(new THREE.BufferGeometry(), m);
     mesh.frustumCulled = false;
     // v196 capes: one mesh, four groups: its cloth (the gown's own, or a sheer, or lace), its border, the bands and straps
@@ -285,7 +300,7 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
     const tm = { trim: new THREE.MeshPhysicalMaterial({ roughness: 0.45, sheen: 1, sheenRoughness: 0.3, side: THREE.DoubleSide }), ruffle: new THREE.MeshStandardMaterial({ roughness: 0.55, side: THREE.DoubleSide }), fringe: new THREE.LineBasicMaterial({ transparent: true, opacity: 0.9 }), band: new THREE.MeshStandardMaterial({ roughness: 0.7, side: THREE.DoubleSide }), seam: new THREE.MeshStandardMaterial({ roughness: 0.7, side: THREE.DoubleSide }) };
     // The surface's canvases: made once, in the browser, when first needed.
     const maps = { weave: null as HTMLCanvasElement | null, lace: null as HTMLCanvasElement | null, cut: null as HTMLCanvasElement | null, tex: { weave: null as THREE.CanvasTexture | null, lace: null as THREE.CanvasTexture | null, cut: null as THREE.CanvasTexture | null } };
-    return { su, maps, mesh, m, sheerBack, T: emptyEnvelope(), D: emptyDress(), K, cape, capeSheer, capeBand, capeJewel, capeEdge, sleeves, V, veil, vm, laceTile, lm, veilEdge, veilCap, bm, veilBand, closure, em, mdm, cdm, sm, om, overlay, ov: null as GownOverlayMesh | null, im, inner, extras, tm };
+    return { su, maps, mesh, m, sheerBack, ilU, ilMat, ilMesh, ilMap, T: emptyEnvelope(), D: emptyDress(), K, cape, capeSheer, capeBand, capeJewel, capeEdge, sleeves, V, veil, vm, laceTile, lm, veilEdge, veilCap, bm, veilBand, closure, em, mdm, cdm, sm, om, overlay, ov: null as GownOverlayMesh | null, im, inner, extras, tm };
   }, []);
   const [frame, setFrame] = useState({ S: 1, floor: 0, top: 1.7, ver: 0, width: 0.6 });
   const [loops, setLoops] = useState<Record<GownTapeKey, number[]> | null>(null);
@@ -432,6 +447,27 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       cloth.sheerBack.value = ft.props.sheer > 0.3 ? ft.props.sheer * GOWN_SCENES[scene].back : 0;
       if (cloth.mesh.parent !== root) root.add(cloth.mesh);
       cloth.mesh.visible = true;
+      {
+        // v198: the sheer zone, its map, the bones you can see, and the tulle on the gown's own mesh.
+        const mp = cloth.ilMap;
+        mp.canvas ??= Object.assign(document.createElement('canvas'), { width: GOWN_ILLU_MAP.w, height: GOWN_ILLU_MAP.h });
+        mp.tex ??= Object.assign(new THREE.CanvasTexture(mp.canvas), { wrapS: THREE.RepeatWrapping, wrapT: THREE.ClampToEdgeWrapping, generateMipmaps: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+        cloth.ilU.ilMap.value = mp.tex;
+        const ig = mp.canvas.getContext('2d'), il = buildGownIllu(rig, cloth.T, cloth.D, design, cloth.ilU, ig);
+        if (il.zoneOn) mp.tex.needsUpdate = true;
+        const gownHex = gownClothColour(design.colour, design.colourHex), tulle = design.illuCol === 'match' ? gownHex : GOWN_ILLU_TULLE[design.illuCol];
+        (cloth.ilU.ilBoneCol.value as unknown as THREE.Color).setHex(gownHex).lerp(new THREE.Color(1, 1, 1), GOWN_ILLU_DRAW.boneTint);
+        (cloth.ilU.ilEdgeCol.value as unknown as THREE.Color).setHex(tulle);
+        cloth.ilMat.color.setHex(tulle);
+        applyGownShine(cloth.ilMat, 'tulle', GOWN_SCENES[scene].env);
+        cloth.ilMat.transparent = true;
+        cloth.ilMat.depthWrite = false;
+        cloth.ilMat.opacity = design.illuCol === 'match' ? GOWN_ILLU_DRAW.opacityMatch : GOWN_ILLU_DRAW.opacity;
+        if (cloth.D.geo && cloth.ilMesh.geometry !== cloth.D.geo) cloth.ilMesh.geometry = cloth.D.geo;
+        if (cloth.ilMesh.parent !== root) root.add(cloth.ilMesh);
+        // Shown only with the gown (not while the Inside view draws it see-through).
+        cloth.ilMesh.visible = il.zoneOn && !inside;
+      }
       width = Math.max(0.6, 2 * cloth.D.hemR); // the hem's width (a train runs back, not sideways)
       // Trims along the gown's own edges, a two-piece's band, a shaped waistline's seam, a small bow in the gown's cloth,
       // and the techniques as real folds.
@@ -468,7 +504,7 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
         }
         if (cloth.inner.parent !== root) root.add(cloth.inner);
       }
-    } else for (const o of [cloth.overlay, cloth.mesh, cloth.cape, cloth.sleeves.L, cloth.sleeves.R, cloth.veil, cloth.closure.cloth, cloth.closure.eyelets]) o.visible = false;
+    } else for (const o of [cloth.overlay, cloth.mesh, cloth.cape, cloth.sleeves.L, cloth.sleeves.R, cloth.veil, cloth.closure.cloth, cloth.closure.eyelets, cloth.ilMesh]) o.visible = false;
     setFrame({ S: rig.P.S, floor, top: rig.top, ver: rig.ver, width: width * rig.P.S });
     setLoops(guides ? tapeLoops(rig) : null);
     onSolved?.({ got: { bust: rig.got.bust, underbust: rig.got.underbust, waist: rig.got.waist, hips: rig.got.hips }, kg: rig.kg, vals: { ...rig.vals } });
@@ -482,6 +518,9 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       cloth.m.dispose();
       cloth.vm.dispose();
       cloth.lm.dispose();
+      cloth.ilMat.dispose();
+      cloth.ilMap.tex?.dispose();
+      cloth.ilMesh.removeFromParent();
       cloth.capeSheer.dispose();
       cloth.capeBand.dispose();
       cloth.capeJewel.dispose();

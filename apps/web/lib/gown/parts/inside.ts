@@ -10,11 +10,12 @@
  */
 import * as THREE from 'three';
 import { GOWN_LAYER_COLOURS, GOWN_LAYER_TYPES, gownLayerCount, gownSyncLayers, type GownConfig, type GownLayerColour, type GownLayerType } from '../../gown-config';
-import { BODY_K, RING_N } from '../body/constants';
+import { BODY_K, RING_N, TAU } from '../body/constants';
 import type { GownRig } from '../body/rig';
 import type { GownDress } from '../dress/build';
 import { gownLayerMetres } from '../dress/layers';
 import { bodyReach, type GownEnvelope } from '../dress/table';
+import { gownBoneSet } from './illusion';
 
 const N = RING_N;
 
@@ -153,10 +154,9 @@ export function buildGownInside(
   }
   const bones: THREE.BufferGeometry[] = [];
   if (d.boning !== 'soft') {
-    // The bones: straight lines from the waist up the bodice.
-    const nB = d.boning === 'corset' ? 16 : 12;
-    for (let b = 0; b < nB; b++) {
-      const q = Math.round((b * N) / nB) % N, pts: THREE.Vector3[] = [];
+    // The bones: straight lines from the waist up the bodice (v198: one list with the visible channels and the quote).
+    for (const ang of gownBoneSet(B, D.L, d.boning).angs) {
+      const q = ((Math.round(ang / (TAU / N)) % N) + N) % N, pts: THREE.Vector3[] = [];
       for (let j = 0; j < R; j++) {
         const y = C[j]![1];
         if (y < yW - 0.04 || y > yA + 0.01) continue;

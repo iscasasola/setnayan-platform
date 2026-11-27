@@ -14,7 +14,7 @@ import { clamp, smoothstep, type GownRig } from '../body/rig';
 import { apexOf } from '../body/tape';
 import { GOWN_PETTI_HOLD } from '../fabric/types';
 import { gownShapedVals } from '../body-rules';
-import { GOWN_BALL_HEM_CM, GOWN_EASE_MM, GOWN_SIL, GOWN_TRAIN_CM, gownFromWaist, hemPreset, neckTop, trainShare, waistY, type GownDressDesign, type GownNeckLandmarks } from './lines';
+import { GOWN_BALL_HEM_CM, GOWN_EASE_MM, GOWN_SIL, GOWN_TRAIN_CM, gownFromWaist, hemPreset, gownIlluOuterTop, trainShare, waistY, type GownDressDesign, type GownNeckLandmarks } from './lines';
 import { RING_COS, RING_SIN, lerpRow, type GownEnvelope } from './table';
 
 const N = RING_N, DY = SLICE_DY, DTH = TAU / N;
@@ -91,7 +91,8 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
   for (let q = 0; q < N; q++) {
     let ph = q * DTH;
     if (ph > Math.PI) ph = TAU - ph;
-    T.top[q] = Math.min(neckTop(g, ph, L), T.y0 + (n - 3) * DY);
+    // v198: the top edge as cut, which an illusion bodice or back reaches.
+    T.top[q] = Math.min(gownIlluOuterTop(g, ph, L), T.y0 + (n - 3) * DY);
     if (T.top[q]! > topMax) topMax = T.top[q]!;
   }
   const fl = floorY;

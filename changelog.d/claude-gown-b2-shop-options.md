@@ -9,6 +9,7 @@ Gown maker port, step B2 (corpus `WHATS_NEXT_Gown_Maker_Port_2026-11-27.md` § 5
 - `gownDesignOf` prices a design's quantities with the shop's own list and returns two halves:
   - for the shop: every line grouped Attire Setup (by stage) → Labour → Add-ons, with totals and a count of unpriced lines;
   - for the bride: the estimate (or none: "Ask for a quote"), whether it is within the starting price, and her add-ons' words. No line, cost, markup or hour.
+- v193 (coordinator 27 Nov): a new price item "Cape: cutting, sewing and finishing" (per piece) in a new "Cover-ups" group, unpriced until the designer prices it. It is separate from the bride's detachable cape add-on, and the designer may price either. Inside layers price by material per metre: tulle as `net`, organza and chiffon on their fabric items, the hoop per piece. The design's cape choice and per-layer metres arrive in the contract (Builder A); pricing reads them then.
 - `isGownKind`: suggested for custom gown makers only (owner Q3).
 - **Guard:** `lib/gown-maker.test.ts` (9). Both pricing modes on three gowns, worked by hand; unpriced stays unpriced; no estimate without a price; the four add-on states; the bride's half carries no cost; the options check refuses. Sabotage-checked: an unpriced line read as zero, lines leaking to the bride, and add-ons defaulting to free each turn it red.
 - **Not in this PR:** the Toolkit tile (`lib/specialized-tools.ts`, `lib/supplier-store.ts`). It lands in B4 with the setup panel it opens, so no shop sees a tile that opens nothing.

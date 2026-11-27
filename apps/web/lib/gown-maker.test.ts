@@ -22,6 +22,8 @@ import {
   GOWN_ADD_ONS,
   GOWN_ADD_ON_ASK,
   GOWN_ADD_ON_INCLUDED,
+  GOWN_PRICE_GROUPS,
+  GOWN_PRICE_ITEMS,
   gownAddOnsOffered,
   gownDesignOf,
   gownShopTemplate,
@@ -183,6 +185,16 @@ test('7 · the options check refuses, never repairs', () => {
   const ok = sanitizeGownShopOptions({ ...t, prices: { base_aline: C(1), fab_satin: null } });
   assert.ok(ok.ok);
   if (ok.ok) assert.deepEqual(ok.options.prices, { base_aline: C(1) }, 'an empty price was stored as something');
+});
+
+test('7b · v193: the cape is its own price item, in Cover-ups, unpriced until the designer prices it', () => {
+  const item = GOWN_PRICE_ITEMS.find((i) => i.key === 'cape');
+  assert.deepEqual(item, { key: 'cape', label: 'Cape: cutting, sewing and finishing', unit: 'pc' });
+  const group = GOWN_PRICE_GROUPS.find(([, f]) => f('cape'));
+  assert.equal(group?.[0], 'Cover-ups');
+  assert.equal(gownShopTemplate().prices.cape, undefined);
+  assert.ok(GOWN_ADD_ONS.some((a) => a.id === 'cape'), 'the bride’s detachable cape add-on is still there');
+  for (const i of GOWN_PRICE_ITEMS) assert.equal(GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length, 1, `${i.key} sits in ${GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length} groups`);
 });
 
 test('8 · custom gown makers only; no peso typed, no money formatted here', () => {

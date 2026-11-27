@@ -58,6 +58,8 @@ export type GownRig = {
   tt: Uint32Array;
   ttB: Uint8Array;
   torsoV: number[]; breastV: number[]; headV: number[];
+  /** The breast's front skin (weight over 0.3): its lowest point is the underbust fold the bodice follows. */
+  foldV: Uint32Array;
   armV: { L: number[]; R: number[] };
   armS: { L: number[]; R: number[] };
   breastP: THREE.Vector3;
@@ -88,6 +90,8 @@ export type GownRig = {
   foldN: [number, number[]][] | null;
   /** Bumped on every solve, so a skirt ring measured on an older body is measured again. */
   ver: number;
+  /** Knee and ankle heights standing (model units), measured at the end of each solve: the hem presets read them. */
+  neutral: { knee: number; ankle: number };
 };
 
 const ONE = new THREE.Vector3(1, 1, 1);
@@ -282,7 +286,8 @@ export function makeGownRig(mesh: THREE.SkinnedMesh): GownRig {
   return {
     mesh, geo, posAttr, n, pos0, cur, V: new Float32Array(n * 3), SI, SW, idx, bones, nb, inv, name, parent, restPos, restQuat, rw, rwq, rwqInv, rp,
     aw, lw, hw, bw, bMask, fatW, px, pz, bA, bL, bk, bf, inner, nonArm, aperp,
-    tt: Uint32Array.from(tt), ttB: Uint8Array.from(ttB), torsoV, breastV, headV, armV, armS, breastP, zcAt, top, bot,
+    tt: Uint32Array.from(tt), ttB: Uint8Array.from(ttB), torsoV, breastV, headV,
+    foldV: Uint32Array.from(breastV.filter((i) => bw[i]! > 0.3 && pos0[i * 3 + 2]! > zcAt(pos0[i * 3 + 1]!))), armV, armS, breastP, zcAt, top, bot,
     own: bones.map(() => new THREE.Vector3(1, 1, 1)), over: new Array(nb).fill(null), mw: bones.map(() => new THREE.Matrix4()), bm: new Float32Array(nb * 16),
     armR: 0.3, headLen: top - chinY, handLen, cTop: top - rp[find('head')]!.y, cSole: Math.min(rp[find('foot.L')]!.y, rp[find('foot.R')]!.y) - bot,
     ix,
@@ -292,6 +297,6 @@ export function makeGownRig(mesh: THREE.SkinnedMesh): GownRig {
     fine: { athletic: false, bustT: 0, given: [] },
     shape: 'none',
     fFix: 0, kg: 0, kgTarget: 0, bal: null,
-    heelA: 0, heelM: null, heelDrawn: 0, foldN: null, ver: 0,
+    heelA: 0, heelM: null, heelDrawn: 0, foldN: null, ver: 0, neutral: { knee: 0, ankle: 0 },
   };
 }

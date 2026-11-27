@@ -472,7 +472,10 @@ export type GownConfig = {
   veil: GownVeil;
   veilStyle: GownVeilStyle;
   hem: GownHem;
-  /** Shortens the hem from the picked length, in cm (≤ 0). */
+  /**
+   * The length slider's own value (v189 `#g-hem`): 0 = the picked length (`hem`); below 0, the hem sits that many cm
+   * above the floor (a length between the presets; the slider snaps back to Knee, Tea or Floor within 2 cm).
+   */
   hemCm: number;
   /** Her wedding shoes, cm (Elevation). */
   heel: number;

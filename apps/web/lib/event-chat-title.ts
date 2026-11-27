@@ -4,6 +4,7 @@
  * 84b87fe8: suppliers list customers and chats BY EVENT — *"each user can have multiple chats to the supplier"*).
  *
  *   eventChatTitle({ name: 'Indalecio Casasola', kind: 'Wedding', date: '2026-12-18', nowMs })  → "Indalecio's Wedding (Dec 18)"
+ *   …two hosts ("Ana & Ben")                                                                  → "Ana & Ben's Wedding (Dec 18)" (`eventHostsWords`)
  *   …date in another year                                                                     → "Indalecio's Wedding (Dec 18, 2027)"
  *   …the event's own name already reads that way ("Ana's Debut")                              → "Ana's Debut (Mar 2)"
  *   …no name                                                                                  → "Wedding (Dec 18)"
@@ -71,6 +72,23 @@ export function firstNameOf(name: string | null | undefined): string | null {
   return first ? first : null;
 }
 
+/**
+ * 👥 WHOSE EVENT, IN THE CHAT TITLE — every host's first name (L6 · S5, walk 27 Nov 2026: Chats said "Ana's Wedding"
+ * while Clients said "Ana & Ben · Wedding", so one event read as two). A name of two hosts keeps both, each by their
+ * first name ("Ana Marie & Ben Cruz" → "Ana & Ben"); one person's name stays their first name ("Indalecio Casasola" →
+ * "Indalecio"), and an event title stays its first word ("TEST walk 2 birthday" → "TEST"), as before. The Clients row
+ * (`eventRowTitle`) carries the same people — the whole name as the customer wrote it.
+ */
+export function eventHostsWords(name: string | null | undefined): string | null {
+  const parts = (name ?? '')
+    .trim()
+    .split(/\s*(?:&|\+|,|\band\b)\s*/i)
+    .map((p) => firstNameOf(p))
+    .filter((p): p is string => Boolean(p));
+  if (parts.length === 0) return null;
+  return parts.length === 1 ? parts[0]! : `${parts.slice(0, -1).join(', ')} & ${parts[parts.length - 1]}`;
+}
+
 /** "(Dec 18)" · "(Dec 18, 2027)" · "(date not set)" — Manila calendar year. */
 export function eventChatDate(date: string | null | undefined, nowMs: number): string {
   const iso = (date ?? '').slice(0, 10);
@@ -98,7 +116,8 @@ export function eventChatTitle(args: {
   const kind = args.kind?.trim() || 'Event';
   const own = (args.name ?? '').trim();
   // The event's own title already reads "<someone>'s <thing>" — keep it as the customer wrote it.
-  const base = /\S['’]s\s+\S/.test(own) ? own : firstNameOf(own) ? `${firstNameOf(own)}'s ${kind}` : kind;
+  const hosts = eventHostsWords(own);
+  const base = /\S['’]s\s+\S/.test(own) ? own : hosts ? `${hosts}'s ${kind}` : kind;
   const day = eventChatDate(args.date, args.nowMs);
   return `${base} ${day === '(date not set)' && args.options?.trim() ? `(${args.options.trim()})` : day}`;
 }

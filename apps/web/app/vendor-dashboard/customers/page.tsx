@@ -716,7 +716,8 @@ async function CustomersPipeline({ search }: { search: Awaited<Props['searchPara
     const card = cardOfEvent(r.eventId) as { branch_id?: string | null } | null;
     const cardBranch = card?.branch_id ?? null;
     const mayMove = viewer ? mayMoveClient(viewer, cardBranch) : false;
-    if (!current && !h?.handOver && !mayMove) continue;
+    // 👤 L6 · A4: a client nobody handles draws no "Handled by" row (it named nobody, twice) — only a Hand over asks.
+    if (!current && !h?.handOver) continue;
     const movable = teamRead.filter(
       (m) =>
         !m.deactivated_at &&

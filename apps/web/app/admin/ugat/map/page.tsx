@@ -4,6 +4,7 @@ import { runSavedSearch } from '@/lib/ugat/data';
 import { UGAT_SAVED_SEARCHES } from '@/lib/ugat/data';
 import { latestVerdictByJoint } from '@/lib/interconnect/verdicts';
 import { UgatConsole } from '../_components/ugat-console';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
 export const metadata = { title: 'Entity map · Root map · Admin' };
 
@@ -56,11 +57,14 @@ export default async function AdminUgatMapPage() {
   // console. Reading Date.now() inside the client component would render one
   // age on the server and another in the browser — a hydration mismatch.
   return (
-    <UgatConsole
-      counts={counts}
-      savedSearches={savedSearches}
-      probeVerdicts={probeVerdicts}
-      nowMs={Date.now()}
-    />
+    <>
+      <PageMasthead title="Entity map" />
+      <UgatConsole
+        counts={counts}
+        savedSearches={savedSearches}
+        probeVerdicts={probeVerdicts}
+        nowMs={Date.now()}
+      />
+    </>
   );
 }

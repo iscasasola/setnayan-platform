@@ -5,6 +5,7 @@
  * admin and supplier's today"*; ruled: *"Admin Focus opens in place too. The tapped item becomes a card where it sits.
  * No sheet over the list"*; drawing `Today, tap opens a card` v3.5, V3 · 4).
  *
+ *   · TAP on a list row (`goes`) — straight to the list's own page: it has nothing to open here (L7 · D2, 27 Nov).
  *   · TAP — the row becomes a card in place (the shipped request card, drawn on the server and handed in as children).
  *     The open card is still the address (`/admin?card=<key>`), so a reload keeps it; a tap on its top closes it.
  *   · DRAG RIGHT — the item's own page (the queue page — the row's href without `?card=`).
@@ -17,7 +18,7 @@ import { useRouter } from 'next/navigation';
 import { createContext, useCallback, useContext, useMemo, useRef, useState, useTransition, type CSSProperties, type ReactNode } from 'react';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { createPortal } from 'react-dom';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronRight, ChevronUp } from 'lucide-react';
 import { PeekToast, type PeekToastTone } from '@/app/_components/toast/peek-toast';
 import { TwoWayPanes, useTodayDrag } from '@/app/_components/two-way-drag';
 import { todayPutOff } from '@/app/_actions/today-put-off-actions';
@@ -67,6 +68,7 @@ export function FocusRow({
   sub,
   level,
   open,
+  goes = false,
   openHref,
   pageHref,
   children,
@@ -78,6 +80,8 @@ export function FocusRow({
   sub: string;
   level: 'red' | 'amber' | null;
   open: boolean;
+  /** A list worked on its own page: the tap IS the way there (`openHref` = that page), and no card opens. */
+  goes?: boolean;
   openHref: string;
   pageHref: string;
   children?: ReactNode;
@@ -124,11 +128,12 @@ export function FocusRow({
         <Link
           ref={head}
           href={open ? '/admin' : openHref}
-          scroll={false}
-          onClick={intend}
-          aria-expanded={open}
+          scroll={goes}
+          onClick={goes ? undefined : intend}
+          aria-expanded={goes ? undefined : open}
           className="flex min-h-16 items-center gap-3 px-4 py-2.5"
           data-focus-row=""
+          data-focus-goes={goes ? '' : undefined}
         >
           <span aria-hidden className="grid h-[34px] w-[34px] shrink-0 place-items-center rounded-md font-extrabold" style={markStyle}>
             {mark}
@@ -139,7 +144,9 @@ export function FocusRow({
               {sub}
             </span>
           </span>
-          {open ? (
+          {goes ? (
+            <ChevronRight aria-hidden className="h-5 w-5 shrink-0 text-[color:var(--sn-ink-500)]" />
+          ) : open ? (
             <ChevronUp aria-hidden className="h-5 w-5 shrink-0 text-sn-accent" />
           ) : (
             <ChevronDown aria-hidden className="h-5 w-5 shrink-0 text-[color:var(--sn-ink-500)]" />

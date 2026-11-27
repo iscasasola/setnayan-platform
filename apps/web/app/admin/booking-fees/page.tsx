@@ -23,8 +23,9 @@ import { readSuppliersToReview } from '@/lib/admin/suppliers-to-review.server';
 import { ReviewMinForm } from './review-min-form';
 import { BookingsOpenForm } from './bookings-open-form';
 import { bookingsOpenFromSetting } from '@/lib/bookings-open';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
-export const metadata = { title: 'Booking fees · Admin' };
+export const metadata = { title: 'Fees owed · Admin' };
 
 export const dynamic = 'force-dynamic';
 
@@ -243,6 +244,7 @@ export default async function AdminBookingFeesPage() {
   // saves itself; a failed read is amber with its own Try again, never "none".
   return (
     <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6">
+      <PageMasthead title="Fees owed" />
       {/* 🚪 BOOKINGS (owner 2026-11-02, "for now, they cannot add bookings"). `lib/bookings-open.ts`. */}
       <TemplateSection label="Bookings" first data="bookings">
         <div className="flex min-h-14 flex-wrap items-center gap-x-3 gap-y-1 py-2">

@@ -86,7 +86,7 @@ export default async function AdminDemandPage({
           is ever identifiable. That is a privacy claim about a screen full of
           other people's plans, and it should not be somewhere else — it now
           lives in the opening ⓘ. */}
-      <PageMasthead title="Demand Radar" />
+      <PageMasthead title="Demand radar" />
       <One label="Counts only; no couple is ever identifiable">
         De-identified demand across every market — by month, region, event type, and capture look. This is the operator
         view of the same rollup suppliers see, scoped to their own region. Counts only; no couple is ever identifiable.

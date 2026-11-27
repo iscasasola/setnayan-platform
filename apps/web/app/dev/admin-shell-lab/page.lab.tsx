@@ -15,6 +15,7 @@
  *   ?at=/admin/secrets                 an avatar page (no tab lit)
  *   ?counts=fail                       every queue unread → "—", "Couldn't count — not the same as none"
  *   ?counts=empty                      every queue zero → "Nothing waiting", no badge
+ *   ?at=/admin&mode=focus              Focus rows (L7 · D2): a list row goes to its page in one tap; a request row opens in place
  *
  * The page body is a placeholder: this slice changes only the shell around each page, never the page — EXCEPT
  * Work › All (`?at=/admin`), which since slice 1b (13 Nov, "we do not want the old page") draws the REAL work list
@@ -35,6 +36,7 @@ import type { AdminQueueCounts } from '@/lib/admin/queue-counts';
 import { ADMIN_QUEUE_META } from '@/lib/admin/queue-counts';
 import { BASE_ROWS } from '@/lib/admin/work-rows';
 import { QueuesTriageFeed, type TriageItem } from '@/app/admin/queues/_components/queues-triage-feed';
+import { FocusList, FocusRow } from '@/app/admin/_components/focus-row';
 
 const ACCOUNT = { signedIn: true, initials: 'SA', shopName: null, isAdmin: true } as const;
 
@@ -116,6 +118,26 @@ export default async function AdminShellLab({
           <AdminPinnedRow queueCounts={allCounts} at={at} />
           {place?.kind === 'landing' ? (
             <TabLanding tab={place.tab.key as 'work'} digest={digest} />
+          ) : sp.mode === 'focus' ? (
+            <section aria-label="Needs you" className="mx-auto mt-3 w-full max-w-[760px]" data-lab-focus="">
+              <FocusList>
+                {LAB_FOCUS_ROWS.map((r) => (
+                  <FocusRow
+                    key={r.key}
+                    itemKey={r.key}
+                    mark={r.mark}
+                    markStyle={r.markStyle}
+                    title={r.title}
+                    sub={r.sub}
+                    level={null}
+                    open={false}
+                    goes={r.goes}
+                    openHref={r.href}
+                    pageHref={r.href}
+                  />
+                ))}
+              </FocusList>
+            </section>
           ) : place?.kind === 'tab' && place.view.key === 'queue.all' ? (
             <QueuesTriageFeed
               title="Work"
@@ -168,3 +190,25 @@ function labWorkItems(counts: AdminQueueCounts): TriageItem[] {
     } as TriageItem;
   }).sort((a, b) => rank(a.key, a.count) - rank(b.key, b.count));
 }
+
+/** L7 · D2: a list worked on its own page (one tap to it) beside a request that opens in place — fixture rows. */
+const LAB_FOCUS_ROWS = [
+  {
+    key: 'problems:queue',
+    mark: '!',
+    markStyle: { background: 'var(--sn-warning-soft)', color: 'var(--sn-warning-deep)' },
+    title: 'Problems · 24 waiting',
+    sub: 'Things failing in the app right now. · oldest 3d',
+    href: '/admin/app-performance?tab=connection-logs',
+    goes: true,
+  },
+  {
+    key: 'payment-options:lab-1',
+    mark: '↩',
+    markStyle: { background: 'rgb(var(--sn-accent) / 0.12)', color: 'rgb(var(--sn-accent))' },
+    title: 'Liwanag Lights & Sound added a payment link',
+    sub: 'Payment option · 2 hours ago',
+    href: '/dev/admin-shell-lab?at=/admin&mode=focus',
+    goes: false,
+  },
+];

@@ -6,6 +6,7 @@ import { BODY_K, RING_N, TAU } from '../body/constants';
 import type { GownRig } from '../body/rig';
 import { smoothstep } from '../body/rig';
 import type { GownBack, GownConfig, GownHem, GownNeckline, GownPetticoat, GownSilhouette, GownTrain, GownVeil, GownWaistline } from '../../gown-config';
+import { GOWN_STRAPLESS } from '../../gown-config';
 
 const N = RING_N, DTH = TAU / N;
 
@@ -56,6 +57,8 @@ export type GownNeckLandmarks = {
   yN: number; ySh: number; yW: number; yUB: number;
   /** The front's highest and lowest; the back's highest and lowest. */
   fTop: number; fLow: number; bTop: number; bLow: number;
+  /** One centimetre in model units (v197 `L.cm`). */
+  cm: number;
 };
 
 type NeckDesign = { neck: GownNeckline; neckT: number | null; back: GownBack; backT: number };
@@ -70,8 +73,14 @@ export function neckFront(d: NeckDesign, ph: number, L: GownNeckLandmarks): numb
     }
     case 'high':
       return yN + 0.05 - 0.008 * Math.exp(-((ph / 0.5) ** 2));
-    case 'bateau':
-      return yN - 0.022 + 0.014 * Math.pow(Math.sin(ph), 2) - 0.004 * smoothstep(ph, 2, Math.PI);
+    case 'bateau': {
+      // Accuracy review (v197): wide and shallow, out along the shoulder ridge (not a round jewel neck).
+      const c = yN - 0.024 - 0.004 * smoothstep(ph, 2, Math.PI), sx = Math.min(ySh + 0.022, c);
+      return c + (sx - c) * Math.pow(Math.sin(ph), 1.6);
+    }
+    case 'straight':
+      // Strapless, straight across at the top of the cups (v197).
+      return yA + 0.058 * cup - 0.03 * smoothstep(ph, 1.25, 2.3);
     case 'off':
       return Math.min(ySh - 0.012, yA + 0.095) - 0.01 * Math.exp(-((ph / 0.4) ** 2));
     default: {
@@ -81,19 +90,38 @@ export function neckFront(d: NeckDesign, ph: number, L: GownNeckLandmarks): numb
   }
 }
 
+/** The sweetheart's own depth on its bar (0 = straight across at the top of the cups) (v197 `sweetDepth`). */
+export function gownSweetDepth(d: NeckDesign, L: GownNeckLandmarks): { cH: number; tOwn: number } {
+  const cH = neckFront(d, L.front, L), c0 = neckFront(d, 0, L);
+  return { cH, tOwn: Math.min(0.9, Math.max(0.02, (cH - c0) / Math.max(1e-4, cH - L.fLow))) };
+}
+/** A strapless bodice grips round at the bra line: its back may not be cut lower (v197 `backLimitY`). */
+export const gownBackLimitY = (d: Pick<NeckDesign, 'neck'>, L: GownNeckLandmarks) => (GOWN_STRAPLESS.includes(d.neck) && L.yUB ? L.yUB + 1.5 * L.cm : -1e9);
+/** V: straight sides to a point; scoop: a rounded U (v197 `backD`). */
+const backD = (b: GownBack, ph: number) => { const sv = Math.min(1, Math.max(0, (Math.PI - ph) / (Math.PI - 1.8))); return b === 'v' ? 1 - sv : Math.sqrt(Math.max(0, 1 - sv * sv)); };
+
 /** The bodice's top edge: the neckline in front, the chosen back behind, blended across the side seam. */
 export function neckTop(d: NeckDesign, ph: number, L: GownNeckLandmarks): number {
   let f = neckFront(d, ph, L);
   if (d.neckT !== null && ph < 1.6) {
-    // Front depth: from up at the collarbone to a plunge just above the waist (V), or a scoop for the others.
-    const c0 = neckFront(d, 0, L), yc = L.fTop + (L.fLow - L.fTop) * d.neckT, V = d.neck === 'v', raise = V || d.neck === 'sweetheart';
-    const dl = raise ? yc - c0 : Math.min(0, yc - c0), sh = V ? Math.max(0, 1 - ph / 1.32) : Math.exp(-((ph / 0.6) ** 2));
-    f += dl * sh;
+    const c0 = neckFront(d, 0, L), V = d.neck === 'v';
+    if (d.neck === 'sweetheart') {
+      // Accuracy review (v197): the sweetheart's bar runs from straight across (no point rising to the throat) down to a plunge.
+      const sw = gownSweetDepth(d, L), t = d.neckT;
+      if (t >= sw.tOwn) f += (sw.cH + (L.fLow - sw.cH) * t - c0) * Math.exp(-((ph / 0.6) ** 2));
+      else { const w = 1 - t / sw.tOwn, flat = sw.cH + (f - sw.cH) * smoothstep(ph, 0.9, 1.6); f = f * (1 - w) + flat * w; }
+    } else {
+      // Front depth: from up at the collarbone to a plunge just above the waist (V), or a scoop for the others.
+      const yc = L.fTop + (L.fLow - L.fTop) * d.neckT, dl = V ? yc - c0 : Math.min(0, yc - c0), sh = V ? Math.max(0, 1 - ph / 1.32) : Math.exp(-((ph / 0.6) ** 2));
+      f += dl * sh;
+    }
   }
   if (ph < 1.6) return f;
-  // Back depth: nape to the top of the tailbone.
-  const side = neckFront(d, 1.6, L), yB = d.back === 'closed' ? side : Math.min(side, L.bTop + (L.bLow - L.bTop) * d.backT);
-  const t = d.back === 'v' ? Math.min(1, Math.max(0, (ph - 1.8) / (Math.PI - 1.8))) : smoothstep(ph, 1.8, 2.6);
+  // Back depth: nape to the top of the tailbone. A high neck stays closed at the nape (its opening is a keyhole below);
+  // a strapless back stops at the bra line (v197).
+  const side = neckFront(d, 1.6, L), b: GownBack = d.neck === 'high' && d.back !== 'closed' ? 'closed' : d.back;
+  const yB = b === 'closed' ? side : Math.max(Math.min(side, L.bTop + (L.bLow - L.bTop) * d.backT), gownBackLimitY(d, L));
+  const t = backD(b, ph);
   const y = side + (yB - side) * t, w = smoothstep(ph, 1.6, 1.85);
   return f * (1 - w) + Math.min(y, Math.max(f, y)) * w;
 }
@@ -111,4 +139,4 @@ export function waistY(B: GownRig, waist: GownWaistline, q: number): number {
 }
 
 /** The design keys the dress build reads. */
-export type GownDressDesign = Pick<GownConfig, 'neck' | 'neckT' | 'back' | 'backT' | 'sil' | 'waist' | 'petti' | 'train' | 'slits' | 'slitCm' | 'boning' | 'hem' | 'hemCm' | 'pleat' | 'pleatN' | 'pleatCm' | 'skirtLayers' | 'fabric'>;
+export type GownDressDesign = Pick<GownConfig, 'neck' | 'neckT' | 'back' | 'backT' | 'sil' | 'waist' | 'petti' | 'train' | 'slits' | 'slitCm' | 'boning' | 'hem' | 'hemCm' | 'pleat' | 'pleatN' | 'pleatCm' | 'skirtLayers' | 'fabric' | 'bustle'>;

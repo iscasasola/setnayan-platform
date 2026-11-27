@@ -15,7 +15,7 @@ import { apexOf } from '../body/tape';
 import { GOWN_PETTI_HOLD } from '../fabric/types';
 import { gownShapedVals } from '../body-rules';
 import { GOWN_BALL_HEM_CM, GOWN_EASE_MM, GOWN_SIL, GOWN_TRAIN_CM, gownFromWaist, hemPreset, neckTop, trainShare, waistY, type GownDressDesign, type GownNeckLandmarks } from './lines';
-import { lerpRow, type GownEnvelope } from './table';
+import { RING_COS, RING_SIN, lerpRow, type GownEnvelope } from './table';
 
 const N = RING_N, DY = SLICE_DY, DTH = TAU / N;
 
@@ -62,7 +62,7 @@ export function floorOf(B: GownRig): number {
  * Build the dress on the posed body. `T` must hold the envelope of the same pose (buildEnvelope). `floorY` is where she
  * stands; `floorStand` is where she stood (the skirt is cut for her standing; seated, it keeps that length).
  */
-export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDressDesign, floorY: number, floorStand = floorY): GownDress {
+export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDressDesign, floorY: number, floorStand = floorY, view: { bustled?: boolean } = {}): GownDress {
   const P = B.P, V = B.V, k = BODY_K, off = GOWN_EASE_MM / 1000 / P.S, n = T.n, H = T.H, F = T.F, jF = Math.round((T.yF - T.y0) / DY);
   // v166: the smoothed bust point.
   let yA = 0, zA = -1e9;
@@ -78,6 +78,7 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
   const yN = jointY(B, 'neck01'), ySh = jointY(B, 'upperarm01.L');
   const L: GownNeckLandmarks = {
     yA, cup: Math.max(1, 1 + 0.8 * (P.b - 1)), front, yN, ySh, yW: k.yWaist, yUB,
+    cm: 0.01 / P.S,
     fTop: g.neck === 'high' ? yN + 0.05 : yN - 0.012,
     // v166: the front goes down at most to the underbust line, following the bust point.
     fLow: Math.min(yUB, yA - 0.02),
@@ -299,6 +300,36 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
     D.geo = geo; D.rows = rows; D.ns = ns;
   }
   let hemR = 0;
+  const TA = new Float32Array(rows * N);
+  // Accuracy review (v197): bustled, the train's cloth goes somewhere. American: picked up to points under the waist seam
+  // at the back, falling in a fan of folds; French: tucked under, a soft horizontal fold across the back of the skirt;
+  // Ballroom: hooked up inside so the hem is even.
+  const BU = ((): ((y: number, q: number, r: number) => number) | null => {
+    const LtB = view.bustled && g.train !== 'none' ? GOWN_TRAIN_CM[g.train] : 0, kind = g.bustle;
+    if (!LtB || (kind !== 'american' && kind !== 'french')) return null;
+    const cm = 0.01 / P.S, amp = Math.min(13, 3 + 0.05 * LtB) * cm, yW = k.yWaist;
+    if (kind === 'american') {
+      const yP = yW - 7 * cm, picks = LtB > 100 ? [Math.PI - 0.42, Math.PI, Math.PI + 0.42] : LtB > 50 ? [Math.PI - 0.25, Math.PI + 0.25] : [Math.PI];
+      return (y, q, r) => {
+        if (y > yP + 1 * cm) return 0;
+        let ph = q * DTH;
+        if (ph < 0.5 * Math.PI) ph += TAU;
+        const span = Math.max(20 * cm, (yP - yHem) * 0.55), sp = clamp((yP - y) / span, 0, 1), env = Math.sin(Math.PI * Math.pow(sp, 0.65)) * (1 - 0.35 * sp);
+        let best = 1e9, fan = 0;
+        for (const pk of picks) { const dx = (ph - pk) * Math.max(0.05, r), dd = Math.abs(dx); if (dd < best) { best = dd; fan = Math.atan2(dx, Math.max(0.3 * cm, yP - y)); } }
+        const w = Math.exp(-((best / (14 * cm + (yP - y) * 0.45)) ** 2));
+        return amp * env * w * (0.55 + 0.45 * Math.cos(fan * 9));
+      };
+    }
+    // French: the tuck sits about halfway down the back of the skirt, a soft curve dipping at the centre.
+    const yF = T.yF - 0.42 * (T.yF - yHem), wid = 6 * cm;
+    return (y, q) => {
+      let ph = q * DTH;
+      if (ph > Math.PI) ph = TAU - ph;
+      const bw = smoothstep(ph, 1.8, 2.6), yc = yF - 5 * cm * smoothstep(ph, 2.2, Math.PI), dd = (y - yc) / wid;
+      return amp * 0.38 * bw * (Math.exp(-dd * dd) + 0.6 * Math.exp(-(((y - yc + 9 * cm) / wid) ** 2)) - 0.25 * Math.exp(-((dd + 0.9) ** 2)));
+    };
+  })();
   for (let q = 0; q < N; q++) T.hemQ[q] = hc(q); // each direction's hem, for lace and beads that follow it
   const onFloor = (q: number) => 1 - smoothstep(hc(q) - fl, 0.025, 0.08); // only where the hem reaches the floor does the train run on
   for (let i = 0; i < rows; i++) {
@@ -315,13 +346,23 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
         const kf = onFloor(q), tw = trainShare(ph) * kf, ue = 1 - Math.pow(1 - u, 1.6), hy = hc(q) + (D.lift ? D.lift[q]! : 0);
         t = 1;
         y = hy + (fl + 0.003 - hy) * smoothstep(u, 0, 0.3) * kf + 0.012 * tw * Math.sin(Math.PI * u) * (1 - u);
-        r = lerpRow(T, F, hy, q) + Lt * tw * (0.14 + 0.86 * ue);
+        // Accuracy review (v197): the train runs straight back from the back hem, widening by about half its length at the
+        // most, then tapers to a rounded end (not a round pool spreading to the sides).
+        const r0 = lerpRow(T, F, hy, q) + Lt * tw * 0.14, sq = RING_SIN[q]!, cq = RING_COS[q]!, back = Lt * tw * 0.86 * ue, spread = 0.9 * back * Math.pow(Math.max(0, 1 - tw), 0.7) * Math.sign(sq);
+        const px = r0 * sq + spread, pz = r0 * cq - back;
+        r = Math.hypot(px, pz);
+        let ta = Math.atan2(px, pz) - q * DTH;
+        if (ta > Math.PI) ta -= TAU;
+        if (ta < -Math.PI) ta += TAU;
+        TA[o] = ta;
+        y += (0.005 / P.S) * tw * Math.sin(Math.PI * u) * (0.5 + 0.5 * Math.cos(q * DTH * 11)); // a few soft folds along its length
         D.r[o] = r; D.y[o] = y; D.t[o] = t; D.cz[o] = B.zcAt(T.yF);
         continue;
       } else {
         t = (i - nb - 1) / ns;
         y = yS + (hc(q) - yS) * t + (D.lift ? D.lift[q]! : 0) * t * t;
         r = lerpRow(T, F, y, q);
+        if (BU) r += BU(y, q, r);
         if (Lt) {
           // The back panels already lengthen on the way down, so the train is the skirt's own cloth.
           let ph = q * DTH;
@@ -341,7 +382,7 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
     // Slit: the seam between two columns opens from the slit top down to the hem; the cloth either side parts, wider
     // towards the hem (1 cm at the top to 5 cm each side lower down).
     const ang = D.ang, cut = new Map<number, number>();
-    ang.fill(0);
+    ang.set(TA); // the train's own turn away from straight out (it runs back, not round)
     for (const sn of g.slits) {
       const cs = ((Math.floor(GOWN_SLIT_ANGLE[sn] / DTH) % N) + N) % N, yTop = hc(cs) + g.slitCm / 100 / P.S;
       cut.set(cs, yTop);

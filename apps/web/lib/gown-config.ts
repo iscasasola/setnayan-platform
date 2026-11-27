@@ -89,10 +89,11 @@ export const GOWN_NECKLINES = [
   { id: 'off', label: 'Off-shoulder' },
   { id: 'high', label: 'High neck' },
   { id: 'bateau', label: 'Bateau' },
+  { id: 'straight', label: 'Straight across' },
 ] as const;
 export type GownNeckline = (typeof GOWN_NECKLINES)[number]['id'];
-/** Necklines with nothing over the shoulders (v186 `STRAPLESS`). */
-export const GOWN_STRAPLESS: readonly GownNeckline[] = ['sweetheart', 'off'];
+/** Necklines with nothing over the shoulders (v197 `STRAPLESS`). */
+export const GOWN_STRAPLESS: readonly GownNeckline[] = ['sweetheart', 'off', 'straight'];
 
 export const GOWN_SLEEVES = [
   { id: 'none', label: 'None' },

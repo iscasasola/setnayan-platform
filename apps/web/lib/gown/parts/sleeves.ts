@@ -13,17 +13,18 @@ import { RING_N, TAU } from '../body/constants';
 import { clamp, smoothstep, type GownRig } from '../body/rig';
 import { GOWN_EASE_MM } from '../dress/lines';
 import type { GownEnvelope } from '../dress/table';
+import { flutterSleeve } from './flutter';
+import { SLEEVE_COLS, SLEEVE_ROWS } from './sleeves-grid';
 
 const N = RING_N;
-/** Mesh round the arm and along it; bins along the arm (model units) and round it. */
-export const SLEEVE_COLS = 40;
-export const SLEEVE_ROWS = 44;
+export { SLEEVE_COLS, SLEEVE_ROWS };
+/** Bins along the arm (model units) and round it. */
 const SNA = SLEEVE_COLS, SNR = SLEEVE_ROWS, SDS = 0.02, SBA = 16;
 
 export type GownSleeveSide = 'L' | 'R';
 export type GownSleeveDesign = Pick<GownConfig, 'sleeve' | 'neck' | 'laceCm'>;
 /** What a sleeve is: a real sleeve, or the band an off-shoulder neckline lays over the upper arm. */
-export type GownSleeveKind = 'band' | 'cap' | 'long' | 'butterfly';
+export type GownSleeveKind = 'band' | 'cap' | 'long' | 'butterfly' | 'flutter';
 
 /** Whether she wears anything on the arm: a sleeve, or the off-shoulder band. */
 export const gownSleeveKind = (d: Pick<GownConfig, 'sleeve' | 'neck'>): GownSleeveKind | null =>
@@ -111,9 +112,10 @@ export function buildGownSleeve(B: GownRig, T: GownEnvelope, sd: GownSleeveSide,
   };
   // Where the sleeve starts: on a strapless or off-shoulder top it is cut level with the bodice edge; otherwise at the shoulder point.
   const strapless = GOWN_STRAPLESS.includes(d.neck), yCut = T.top[N / 4]! - 0.004, off = (GOWN_EASE_MM + 1) / 1000 / P.S, cm = 0.01 / P.S;
-  const len = { band: 5.5 * cm, cap: 9 * cm, long: Lu + Lf - 0.012, butterfly: 0.5 * Lu }[kind];
+  const len = { band: 5.5 * cm, cap: 9 * cm, long: Lu + Lf - 0.012, butterfly: 0.5 * Lu, flutter: 0 }[kind];
   const pos = (geo.attributes.position as THREE.BufferAttribute).array as Float32Array, uvA = (geo.attributes.uv as THREE.BufferAttribute).array as Float32Array, up = new THREE.Vector3();
-  for (let a = 0; a <= SNA; a++) {
+  if (kind === 'flutter') flutterSleeve({ B, T, S, E, u, f, Lu, Lf, frame, ctr, Rs, strapless, yCut, off, cm, pos, uvA, R, ns, s0, SDS, SBA, laceCm: d.laceCm });
+  else for (let a = 0; a <= SNA; a++) {
     const aa = a % SNA, ang = (aa / SNA) * TAU, c = Math.cos(ang), sn = Math.sin(ang);
     let sA = kind === 'butterfly' ? -0.06 : strapless ? s0 : -0.035;
     if (strapless) for (let it = 0; it < 60; it++) {

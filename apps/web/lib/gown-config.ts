@@ -85,12 +85,16 @@ export const GOWN_SLEEVES = [
   { id: 'cap', label: 'Cap' },
   { id: 'long', label: 'Long' },
   { id: 'butterfly', label: 'Butterfly' },
+  // v195: soft fabric from the shoulder over the upper arm to about the elbow, open underneath, a fluted hem.
+  { id: 'flutter', label: 'Flutter' },
 ] as const;
 export type GownSleeve = (typeof GOWN_SLEEVES)[number]['id'];
 
 export const GOWN_SLEEVE_FABRICS = [
   { id: 'fabric', label: 'The gown fabric' },
   { id: 'lace', label: 'Sheer lace' },
+  // v195: soft see-through chiffon for the sleeves, in the gown colour (or the accent colour).
+  { id: 'chiffon', label: 'Sheer chiffon' },
 ] as const;
 export type GownSleeveFabric = (typeof GOWN_SLEEVE_FABRICS)[number]['id'];
 
@@ -880,6 +884,8 @@ export type GownQuantities = {
     /** Organza and chiffon layers under the skirt (v192: each layer its own material). */
     organzaM: number;
     chiffonM: number;
+    /** Chiffon for flutter sleeves made in sheer chiffon (v195). Flutter sleeves in the gown fabric are in `outerM`; in the accent, `accentM`. */
+    sleeveChiffonM: number;
     /** The veil's own tulle, apart from the petticoat's, so a priced veil add-on is never counted twice. */
     veilM: number;
     illusionM: number;
@@ -918,11 +924,13 @@ export type GownQuantities = {
     twoPiece: boolean;
     /** The cape to cut, sew and finish (its fabric is in `outerM`). */
     cape: GownCape;
+    /** Flutter sleeves to cut, sew and finish, in pairs (v195). */
+    flutter: number;
   };
 };
 
 export const GOWN_MATERIAL_KEYS = [
-  'outerM', 'accentM', 'liningM', 'netM', 'organzaM', 'chiffonM', 'veilM', 'illusionM', 'boningM', 'laceYardM', 'laceMotifs', 'horsehairM', 'cordM', 'pipingM', 'fringeM',
+  'outerM', 'accentM', 'liningM', 'netM', 'organzaM', 'chiffonM', 'sleeveChiffonM', 'veilM', 'illusionM', 'boningM', 'laceYardM', 'laceMotifs', 'horsehairM', 'cordM', 'pipingM', 'fringeM',
   'featherM', 'ruffleM', 'zippers', 'buttons', 'eyelets', 'waistStays', 'hoops',
 ] as const satisfies readonly Exclude<keyof GownQuantities['materials'], 'beads'>[];
 type GownMaterialKey = (typeof GOWN_MATERIAL_KEYS)[number];
@@ -936,7 +944,7 @@ export function emptyGownQuantities(): GownQuantities {
   return {
     v: GOWN_CONFIG_VERSION,
     materials: { ...materials, beads },
-    labour: { sleeve: 'none', beads: 0, laceMotifs: 0, laceYardM: 0, pleats: 0, tex: 'none', darts: false, cutouts: 0, slits: 0, train: 'none', veil: 'none', trimM: 0, twoPiece: false, cape: 'none' },
+    labour: { sleeve: 'none', beads: 0, laceMotifs: 0, laceYardM: 0, pleats: 0, tex: 'none', darts: false, cutouts: 0, slits: 0, train: 'none', veil: 'none', trimM: 0, twoPiece: false, cape: 'none', flutter: 0 },
   };
 }
 
@@ -1137,6 +1145,8 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
   // Pairings that cannot be made (v193 `setGown`): the server refuses what the maker would have changed.
   if (p.cape !== 'none' && p.sleeve === 'butterfly') return no('not_a_design');
   if (p.cape === 'back' && (p.veil === 'chapel' || p.veil === 'cathedral')) return no('not_a_design');
+  // v195: flutter sleeves hang from the shoulder line (never a sweetheart), and a side cape or capelet would lie over them.
+  if (p.sleeve === 'flutter' && (p.neck === 'sweetheart' || p.cape === 'side' || p.cape === 'capelet')) return no('not_a_design');
 
   const bools = { waistStay: r.waistStay ?? false, horsehair: r.horsehair ?? false, modesty: r.modesty ?? false };
   for (const v of Object.values(bools)) if (typeof v !== 'boolean') return no('not_a_design');
@@ -1386,6 +1396,8 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
   const veil = L.veil ?? 'none';
   const cape = L.cape ?? 'none';
   if (!isOneOf(cape, ids(GOWN_CAPES))) return no('quantities');
+  const flutter = qty(L.flutter ?? 0, true, 1);
+  if (flutter === null) return no('quantities');
   if (!isOneOf(sleeve, ids(GOWN_SLEEVES)) || !isOneOf(tex, ids(GOWN_TEXTURES)) || !isOneOf(train, ids(GOWN_TRAINS)) || !isOneOf(veil, ids(GOWN_VEILS))) {
     return no('quantities');
   }
@@ -1402,7 +1414,7 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
   if (beads === null || laceMotifs === null || laceYardM === null || pleats === null || cutouts === null || slits === null || trimM === null) {
     return no('quantities');
   }
-  q.labour = { sleeve, beads, laceMotifs, laceYardM, pleats, tex, darts, cutouts, slits, train, veil, trimM, twoPiece, cape };
+  q.labour = { sleeve, beads, laceMotifs, laceYardM, pleats, tex, darts, cutouts, slits, train, veil, trimM, twoPiece, cape, flutter };
   return { ok: true, quantities: q };
 }
 

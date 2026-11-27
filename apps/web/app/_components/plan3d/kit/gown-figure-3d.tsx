@@ -29,8 +29,8 @@ import { buildGownSleeve, emptySleeve } from '@/lib/gown/parts/sleeves';
 import { GOWN_VEIL_DRAW, buildGownVeil, emptyVeil } from '@/lib/gown/parts/veil';
 import { restingCloth, writeDress } from '@/lib/gown/dress/cloth';
 import { buildEnvelope, emptyEnvelope } from '@/lib/gown/dress/table';
-import { applyGownSheer, applyGownShine, gownClothColour, gownClothShader, tintGownSheen } from '@/lib/gown/fabric/shine';
-import { gownClothFeel, gownFabricType } from '@/lib/gown/fabric/types';
+import { applyGownSheer, applyGownShine, gownClothColour, gownClothShader, gownSheerOpacity, tintGownSheen } from '@/lib/gown/fabric/shine';
+import { GOWN_FABRIC_PROPS, gownClothFeel, gownFabricType } from '@/lib/gown/fabric/types';
 import { canvasDpr } from '@/lib/phone-gpu-budget';
 import { ContextLostNotice, usePhoneGpu, useWebglContextLost } from '@/app/_components/plan3d/phone-gpu-budget';
 
@@ -175,7 +175,10 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
     const em = new THREE.MeshStandardMaterial({ color: GOWN_EYELET.colour, roughness: GOWN_EYELET.roughness, metalness: GOWN_EYELET.metalness });
     const closure = { cloth: new THREE.Mesh(new THREE.BufferGeometry(), m), eyelets: new THREE.Mesh(new THREE.BufferGeometry(), em) };
     for (const o of [sleeves.L, sleeves.R, veil, closure.cloth, closure.eyelets]) o.frustumCulled = false;
-    return { mesh, m, sheerBack, T: emptyEnvelope(), D: emptyDress(), K, cape, sleeves, V, veil, vm, closure, em };
+    // v195: sleeves in sheer chiffon (flutter): see-through, in the gown colour.
+    const sm = new THREE.MeshPhysicalMaterial({ side: THREE.DoubleSide, transparent: true, depthWrite: false });
+    sm.onBeforeCompile = gownClothShader(sheerBack) as unknown as THREE.Material['onBeforeCompile'];
+    return { mesh, m, sheerBack, T: emptyEnvelope(), D: emptyDress(), K, cape, sleeves, V, veil, vm, closure, em, sm };
   }, []);
   const [frame, setFrame] = useState({ S: 1, floor: 0, top: 1.7, ver: 0, width: 0.6 });
   const [loops, setLoops] = useState<Record<GownTapeKey, number[]> | null>(null);
@@ -200,8 +203,18 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       writeDress(cloth.D, cloth.T, swing, { pleat: design.pleat, n: design.pleatN, amp: pleatAmp });
       // Sleeves first: the cape lies over them.
       const worn: Partial<Record<'L' | 'R', ArrayLike<number>>> = {};
+      const chiffon = design.sleeveFab === 'chiffon';
+      if (chiffon) {
+        cloth.sm.color.setHex(gownClothColour(design.colour, design.colourHex));
+        applyGownShine(cloth.sm, 'chiffon', GOWN_SCENES[scene].env);
+        cloth.sm.transparent = true;
+        cloth.sm.depthWrite = false;
+        cloth.sm.opacity = gownSheerOpacity(GOWN_FABRIC_PROPS.chiffon);
+      }
       for (const sd of ['L', 'R'] as const) {
         const m = cloth.sleeves[sd], on = buildGownSleeve(rig, cloth.T, sd, design, m.geometry);
+        m.material = chiffon ? cloth.sm : cloth.m;
+        m.renderOrder = chiffon ? 3 : 0;
         if (on) worn[sd] = (m.geometry.attributes.position as THREE.BufferAttribute).array;
         if (m.parent !== root) root.add(m);
         m.visible = on;
@@ -244,6 +257,7 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       for (const g of [cloth.sleeves.L.geometry, cloth.sleeves.R.geometry, cloth.V.geo, cloth.V.edge, cloth.closure.cloth.geometry, cloth.closure.eyelets.geometry]) g.dispose();
       cloth.m.dispose();
       cloth.vm.dispose();
+      cloth.sm.dispose();
       cloth.em.dispose();
       cloth.D.geo?.dispose();
       cloth.K.geo.dispose();

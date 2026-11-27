@@ -16,6 +16,7 @@ import {
   type GownSilhouette,
   type GownWaistline,
 } from '../gown-config';
+import { gownFabricType } from './fabric/types';
 
 /** A choice she can make: one key of the design and its new value. */
 export type GownChoice = { [K in keyof GownConfig]: { key: K; value: GownConfig[K] } }[keyof GownConfig];
@@ -37,6 +38,7 @@ export type GownRule = {
 const strapless = (g: GownConfig) => GOWN_STRAPLESS.includes(g.neck);
 const caped = (g: GownConfig) => g.cape !== 'none';
 const longVeil = (g: GownConfig) => g.veil === 'chapel' || g.veil === 'cathedral';
+const accented = (g: GownConfig) => !!(g.accentFabric || g.accentHex);
 
 /** Silhouettes made without a slit, and why (v193 `NO_SLIT`). */
 export const GOWN_NO_SLIT: Partial<Record<GownSilhouette, string>> = {
@@ -93,6 +95,29 @@ export const GOWN_RULES: readonly GownRule[] = [
   { id: 'cape-no-butterfly', on: ['cape'], when: (g) => caped(g) && g.sleeve === 'butterfly', apply: (g) => { g.sleeve = 'none'; }, note: 'Sleeves are now none: butterfly sleeves stand where the cape lies.', tell: true },
   { id: 'back-cape-short-veil', on: ['cape'], when: (g) => g.cape === 'back' && longVeil(g), apply: (g) => { g.veil = 'fingertip'; }, note: 'The veil is now fingertip: a back cape and a long veil would cover each other.', tell: true },
   { id: 'veil-under-back-cape', on: ['veil'], when: (g) => g.cape === 'back' && longVeil(g), apply: (g) => { g.veil = 'fingertip'; }, note: 'With a back cape the veil stays fingertip or shorter.' },
+  // v195: flutter sleeves. They hang from the shoulder line, a side cape or capelet would lie over them, and an opaque
+  // gown makes them in sheer chiffon so her arm shows through.
+  {
+    id: 'flutter-replaces-butterfly', on: ['sleeve'], when: (g, _k, was) => g.sleeve === 'flutter' && was === 'butterfly' && g.sil === 'terno',
+    note: 'Flutter sleeves now, in place of the butterfly sleeves the Filipiniana comes with.', tell: true,
+  },
+  {
+    id: 'flutter-no-cape', on: ['sleeve'], when: (g) => g.sleeve === 'flutter' && (g.cape === 'side' || g.cape === 'capelet'),
+    note: (g) => `The ${g.cape === 'side' ? 'side cape' : 'capelet'} is off: it would lie over the flutter sleeves.`, apply: (g) => { g.cape = 'none'; }, tell: true,
+  },
+  {
+    id: 'flutter-off-shoulder', on: ['sleeve'], when: (g) => g.sleeve === 'flutter' && g.neck === 'sweetheart',
+    apply: (g) => { g.neck = 'off'; g.neckT = null; }, note: 'Flutter sleeves hang from the shoulder line, so the neckline is now off-shoulder.', tell: true,
+  },
+  {
+    id: 'flutter-sheer', on: ['sleeve'], when: (g) => g.sleeve === 'flutter' && g.sleeveFab === 'fabric' && !accented(g) && gownFabricType(g.fabric).props.sheer <= 0.3,
+    apply: (g) => { g.sleeveFab = 'chiffon'; }, note: 'Flutter sleeves are made in sheer chiffon, so her arm shows through. Change it under "Sleeves made of".',
+  },
+  { id: 'sweetheart-no-flutter', on: ['neck'], when: (g) => g.neck === 'sweetheart' && g.sleeve === 'flutter', apply: (g) => { g.sleeve = 'none'; }, note: 'Sleeves are now none: flutter sleeves need a shoulder or an off-shoulder line.', tell: true },
+  {
+    id: 'cape-no-flutter', on: ['cape'], when: (g) => (g.cape === 'side' || g.cape === 'capelet') && g.sleeve === 'flutter', apply: (g) => { g.sleeve = 'none'; },
+    note: (g) => `Sleeves are now none: the ${g.cape === 'side' ? 'side cape' : 'capelet'} would lie over the flutter sleeves.`, tell: true,
+  },
   { id: 'butterfly-no-cape', on: ['sleeve', 'sil'], when: (g) => g.sleeve === 'butterfly' && caped(g), apply: (g) => { g.cape = 'none'; }, note: 'The cape is off: butterfly sleeves stand where it would lie.' },
   // v192: the layers under the skirt and the petticoat always agree.
   {

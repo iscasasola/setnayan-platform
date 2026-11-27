@@ -21,6 +21,10 @@ import { buildEnvelope, emptyEnvelope, reach } from '../dress/table';
 import { buildGownClosure, gownLaceUpFits } from './closure';
 import { fitGownShoes, parseGownShoe, poseGownShoes } from './heels';
 import { buildGownSleeve, emptySleeve, gownSleeveKind } from './sleeves';
+import { flutterMetres } from './flutter';
+import { fabricMetres } from '../dress/flat';
+import { solveGownBody } from '../body/solve';
+import { gownChoose } from '../compat';
 import { buildGownVeil, emptyVeil } from './veil';
 
 type Pt = [number, number, number, number];
@@ -144,4 +148,71 @@ test('her shoes as v193 fits them: under her own foot at 8 cm, the stiletto stra
     computeBones(B, null);
     skin(B);
   }
+});
+
+type FlutterRow = { name: string; hem: GownConfig['hem']; gown: Partial<GownConfig>; metres: number; flutterM: number; sleeves: { L: Pt[] | null; R: Pt[] | null } };
+const FLUTTER = JSON.parse(readFileSync(join(__dirname, 'v195-flutter.fixture.json'), 'utf8')) as { rows: FlutterRow[] };
+
+test('flutter sleeves (v195) hang as the prototype hangs them, and their gown-fabric metres join the outer fabric exactly', async () => {
+  const B = await body();
+  for (const r of FLUTTER.rows) {
+    const { g, T, D, K } = dressed(B, { name: r.name, hem: r.hem, gown: r.gown });
+    const geos: (THREE.BufferGeometry | null)[] = [];
+    for (const sd of ['L', 'R'] as const) {
+      const geo = emptySleeve(), on = buildGownSleeve(B, T, sd, g, geo), ref = r.sleeves[sd];
+      assert.equal(on, !!ref, `${r.name} ${sd}: worn`);
+      if (ref) assert.ok(worstCm(B, arr(geo), ref) < 0.1, `${r.name} ${sd}: within 1 mm of v195 (worst ${worstCm(B, arr(geo), ref).toFixed(2)} cm)`);
+      geos.push(on ? geo : null);
+    }
+    const fm = g.sleeve === 'flutter' ? flutterMetres(B, geos) : 0;
+    assert.equal(fm, r.flutterM, `${r.name}: flutter metres`);
+    const inGown = g.sleeve === 'flutter' && g.sleeveFab === 'fabric' && !g.accentFabric && !g.accentHex;
+    assert.equal(fabricMetres(B, D, K, inGown ? fm : 0), r.metres, `${r.name}: outer fabric with the flutter sleeves`);
+  }
+});
+
+test('flutter cloth never goes into her skin: within the 7 mm ease less 20 %, on two bodies', async () => {
+  const B = await body();
+  const before = { ...B.vals };
+  try {
+    for (const vals of [{}, { bust: 110, underbust: 92, waist: 96, hips: 118, weight: 82 }]) {
+      Object.assign(B.vals, before, vals);
+      solveGownBody(B);
+      const { g, T } = dressed(B, { name: 'flutter', hem: 'floor', gown: { sleeve: 'flutter', neck: 'bateau' } });
+      for (const sd of ['L', 'R'] as const) {
+        const geo = emptySleeve();
+        buildGownSleeve(B, T, sd, g, geo);
+        const P = arr(geo), V = B.V;
+        let worst = 0;
+        for (let o = 0; o < P.length; o += 3) {
+          // Nearest skin vertex above the waist: the cloth must stand outside it along its normal.
+          let bd = 1e9, bi = -1;
+          for (let i = 0; i < B.n; i++) { if (V[i * 3 + 1]! < BODY_K.yWaist) continue; const dd = (P[o]! - V[i * 3]!) ** 2 + (P[o + 1]! - V[i * 3 + 1]!) ** 2 + (P[o + 2]! - V[i * 3 + 2]!) ** 2; if (dd < bd) { bd = dd; bi = i; } }
+          const NM = B.geo.attributes.normal!.array as Float32Array, nl = Math.hypot(NM[bi * 3]!, NM[bi * 3 + 1]!, NM[bi * 3 + 2]!) || 1;
+          const sdist = ((P[o]! - V[bi * 3]!) * NM[bi * 3]! + (P[o + 1]! - V[bi * 3 + 1]!) * NM[bi * 3 + 1]! + (P[o + 2]! - V[bi * 3 + 2]!) * NM[bi * 3 + 2]!) / nl;
+          worst = Math.max(worst, -sdist);
+        }
+        assert.ok(worst * B.P.S * 100 < 0.1, `${sd}: ${(worst * B.P.S * 100).toFixed(2)} cm inside her skin`);
+      }
+    }
+  } finally {
+    Object.assign(B.vals, before);
+    solveGownBody(B);
+  }
+});
+
+test('flutter pairings (v195): off-shoulder on a sweetheart, no side cape or capelet over them, sheer chiffon on an opaque gown', () => {
+  const a = gownChoose(startingGownConfig(), { key: 'sleeve', value: 'flutter' });
+  assert.equal(a.config.neck, 'off', 'a sweetheart becomes off-shoulder');
+  assert.equal(a.config.sleeveFab, 'chiffon', 'satin is opaque: the flutter is sheer chiffon');
+  assert.equal(a.tell, true);
+  const b = gownChoose({ ...startingGownConfig(), neck: 'bateau', cape: 'capelet' }, { key: 'sleeve', value: 'flutter' });
+  assert.equal(b.config.cape, 'none');
+  const c = gownChoose({ ...startingGownConfig(), neck: 'bateau', sleeve: 'flutter' }, { key: 'cape', value: 'side' });
+  assert.equal(c.config.sleeve, 'none');
+  assert.equal(gownChoose({ ...startingGownConfig(), neck: 'bateau', sleeve: 'flutter' }, { key: 'cape', value: 'back' }).config.sleeve, 'flutter', 'a back cape leaves them');
+  assert.equal(gownChoose({ ...startingGownConfig(), neck: 'off', sleeve: 'flutter' }, { key: 'neck', value: 'sweetheart' }).config.sleeve, 'none');
+  const terno = gownChoose({ ...startingGownConfig(), sil: 'terno', sleeve: 'butterfly', neck: 'bateau' }, { key: 'sleeve', value: 'flutter' });
+  assert.deepEqual(terno.notes[0], 'Flutter sleeves now, in place of the butterfly sleeves the Filipiniana comes with.');
+  assert.equal(gownChoose({ ...startingGownConfig(), fabric: 'chiffon', neck: 'bateau' }, { key: 'sleeve', value: 'flutter' }).config.sleeveFab, 'fabric', 'a sheer gown keeps its own fabric');
 });

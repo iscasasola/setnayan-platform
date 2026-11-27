@@ -1,6 +1,11 @@
 import { ChevronRight } from 'lucide-react';
 import { realNameOrNull } from '@/lib/no-name';
-import type { ParkedAccount } from '@/lib/account-jars';
+
+/**
+ * A parked account as a row draws it: display fields only, never a credential (the same shape as `ParkedAccount` in
+ * `lib/account-jars.ts`, written here so a client module never imports that file and its `Buffer` polyfill).
+ */
+export type OtherAccount = { uid: string; email: string; name: string | null };
 
 /**
  * 🔁 ONE ROW FOR "ANOTHER ACCOUNT ON THIS PHONE": the avatar sheet's Switch-to card and `/login` draw THIS, never a
@@ -11,7 +16,7 @@ import type { ParkedAccount } from '@/lib/account-jars';
  * `next` (already `safeNext`-checked by the page) is where the switch lands; without it the route's own Home.
  * Pure markup: a server page and the client sheet both mount it.
  */
-export function OtherAccountRow({ acct, next, className }: { acct: ParkedAccount; next?: string | null; className: string }) {
+export function OtherAccountRow({ acct, next, className }: { acct: OtherAccount; next?: string | null; className: string }) {
   const name = realNameOrNull(acct.name) ?? acct.email;
   return (
     <form action="/auth/accounts/switch" method="post" data-sheet-place="account" data-sheet-account={acct.uid}>

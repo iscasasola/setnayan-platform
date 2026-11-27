@@ -11,13 +11,14 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { stripComments } from '@/lib/strip-comments';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { signInDestination } from '../sign-in-landing';
 
 const ROOT = process.cwd();
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
-const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const strip = stripComments;
 
 function body(src: string, name: string): string {
   const at = src.indexOf(`export async function ${name}(`);

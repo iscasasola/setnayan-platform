@@ -32,15 +32,14 @@ import { useRouter } from 'next/navigation';
 import { X } from 'lucide-react';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { SignInCard, type SignInCardProps } from './sign-in-card';
-import { OtherAccountRow } from '@/app/_components/account-switcher/other-account-row';
-import type { ParkedAccount } from '@/lib/account-jars';
+import { OtherAccountRow, type OtherAccount } from '@/app/_components/account-switcher/other-account-row';
 import '@/app/_components/home/home-reskin.css';
 
 export function SignInCardModal({
   dismissHref,
   parked = [],
   ...card
-}: SignInCardProps & { dismissHref?: string | null; parked?: readonly ParkedAccount[] }) {
+}: SignInCardProps & { dismissHref?: string | null; parked?: readonly OtherAccount[] }) {
   const router = useRouter();
   const ref = useRef<HTMLDivElement>(null);
   const dismissible = dismissHref !== null;

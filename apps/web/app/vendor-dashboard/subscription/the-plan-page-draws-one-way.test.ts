@@ -12,6 +12,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { stripComments } from '@/lib/strip-comments';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { manilaDayOf, offerDayWords } from '@/lib/personal-invite-offer';
@@ -20,7 +21,7 @@ import { planGiftOf } from '@/lib/plan-gift';
 import { asVendorTier } from '@/lib/vendor-tier-caps';
 
 const DIR = join(process.cwd(), 'app/vendor-dashboard/subscription/_components');
-const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const strip = stripComments;
 
 test('no client piece on the Plan page formats by the runtime locale or reads the clock while drawing', () => {
   const clientFiles = readdirSync(DIR).filter((f) => f.endsWith('.tsx') && /^'use client';/.test(readFileSync(join(DIR, f), 'utf8')));

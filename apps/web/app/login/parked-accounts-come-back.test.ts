@@ -8,6 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { stripComments } from '@/lib/strip-comments';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import React, { createElement } from 'react';
@@ -18,7 +19,7 @@ import { OtherAccountRow } from '@/app/_components/account-switcher/other-accoun
 (globalThis as unknown as { React: unknown }).React = React;
 
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf8');
-const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').replace(/^\s*\/\/.*$/gm, '');
+const strip = stripComments;
 const ACCT = { uid: '0f0e0d0c-0b0a-4909-8807-060504030201', email: 'ana@example.com', name: 'Ana Reyes' };
 
 test('the row posts the account to the switch route, carrying where /login was going', () => {

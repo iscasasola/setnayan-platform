@@ -13,7 +13,8 @@ import { BODY_K, RING_N, SLICE_DY, TAU } from '../body/constants';
 import { clamp, smoothstep, type GownRig } from '../body/rig';
 import { apexOf } from '../body/tape';
 import { GOWN_PETTI_HOLD } from '../fabric/types';
-import { GOWN_EASE_MM, GOWN_SIL, GOWN_TRAIN_CM, hemPreset, neckTop, trainShare, waistY, type GownDressDesign, type GownNeckLandmarks } from './lines';
+import { gownShapedVals } from '../body-rules';
+import { GOWN_BALL_HEM_CM, GOWN_EASE_MM, GOWN_SIL, GOWN_TRAIN_CM, gownFromWaist, hemPreset, neckTop, trainShare, waistY, type GownDressDesign, type GownNeckLandmarks } from './lines';
 import { lerpRow, type GownEnvelope } from './table';
 
 const N = RING_N, DY = SLICE_DY, DTH = TAU / N;
@@ -82,7 +83,7 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
     fLow: Math.min(yUB, yA - 0.02),
     bTop: yN - 0.005,
     // The back goes down at most to her waist (and never below where the skirt starts).
-    bLow: Math.max(k.yWaist, (g.sil === 'ball' ? k.yWaist : T.yF) + 0.03),
+    bLow: Math.max(k.yWaist, (gownFromWaist(g.sil) ? k.yWaist : T.yF) + 0.03),
   };
   D.L = L;
   let topMax = 0;
@@ -125,17 +126,35 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
   }
   // Skirt, lofted from the fullest point (the hip ring, or the waist for a ball gown). Each line sets how the ring grows on
   // the way down; where a knee or thigh reaches further, cloth rides over it and hangs.
-  const sil = GOWN_SIL[g.sil];
-  const jS = g.sil === 'ball' ? Math.max(jF + 1, Math.min(jW, jTop - 2)) : jF, yS = T.y0 + jS * DY, Lf = Math.max(0.2, yS - (floorStand + 0.018));
+  const sil = GOWN_SIL[g.sil] ?? GOWN_SIL.aline;
+  const jS = gownFromWaist(g.sil) ? Math.max(jF + 1, Math.min(jW, jTop - 2)) : jF, yS = T.y0 + jS * DY, Lf = Math.max(0.2, yS - (floorStand + 0.018));
   const RB = F.slice(jS * N, jS * N + N), RH = F.slice(jF * N, jF * N + N);
   let hipR = 0, s0 = 0;
   for (let q = 0; q < N; q++) { hipR += RH[q]!; s0 += RB[q]!; }
   hipR /= N; s0 /= N;
   const soft = (u: number, c: number) => (u - c * (1 - Math.exp(-u / c))) / (1 - c * (1 - Math.exp(-1 / c)));
-  const yFl = g.sil === 'mermaid' ? Math.max(yHem + 0.12, k.yWaist - 0.6 * (k.yWaist - fl)) : -1; // mermaid releases 60 % of the way from waist to floor
+  // Accuracy review (v197): the mermaid releases at the knee, 55 % of the way from waist to floor (its cutting block's line).
+  const yFl = g.sil === 'mermaid' ? Math.max(yHem + 0.12, k.yWaist - 0.55 * (k.yWaist - fl)) : -1;
   const E = new Float32Array(N), E2 = new Float32Array(N), A = new Float32Array(N), A0 = new Float32Array(N), BASE = new Float32Array(n * N), PUSH = new Float32Array(n * N), FP = new Float32Array(N);
   let gFl = 0;
   for (let q = 0; q < N; q++) { A[q] = RB[q]!; FP[q] = F[jS * N + q]!; }
+  // The hem's size is asked in cm round (the cloth's folds add about half the fold depth).
+  const cm1 = 0.01 / B.P.S, foldM = 1 + 0.5 * sil.fold * (D.foldK || 1), hipsCm = gownShapedVals(B.vals, B.shape).hips || B.vals.hips || 90;
+  const aWS = !!sil.ease, TH = new Float32Array(N);
+  let uH = 0, gA = 0, gBall = 0;
+  if (aWS) {
+    // At the hip: her hip tape plus the ease (cm round), all round; below it, on to about 3 × hips at the hem.
+    uH = clamp((yS - T.yF) / Lf, 0.06, 0.6);
+    let per = 0;
+    for (let q = 0; q < N; q++) { const a = RH[q]! - off, b = RH[(q + 1) % N]! - off; per += Math.sqrt(a * a + b * b - 2 * a * b * Math.cos(DTH)); }
+    const kH = Math.max(1.02, ((hipsCm + sil.ease!) * cm1) / per);
+    let m = 0;
+    for (let q = 0; q < N; q++) { TH[q] = Math.max(RB[q]!, (RH[q]! - off) * kH); m += TH[q]!; }
+    m /= N;
+    gA = Math.max(0, (((sil.ratio ?? 3) * hipsCm) / TAU) * cm1 / foldM * 1.015 - m) * (D.hold || 1) * (GOWN_PETTI_HOLD[g.petti] || 1);
+  }
+  // A ball skirt's hem from its petticoat (the folds' peaks add about 3 % to a tape round the hem).
+  if (g.sil === 'ball') gBall = (Math.max(GOWN_BALL_HEM_CM[g.petti] || 0, 2.5 * hipsCm) / TAU) * cm1 / foldM / 1.03 - s0;
   for (let j = jS - 1; j >= jHem; j--) {
     const y = T.y0 + j * DY, u = (yS - y) / Lf;
     if (sil.hang) {
@@ -149,9 +168,22 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
         const v = (yFl - y) / Math.max(0.1, yFl - (fl + 0.018)), gg = gFl * soft(Math.min(1, v), 0.12);
         for (let q = 0; q < N; q++) A[q] = Math.max(A[q]!, A0[q]! + gg);
       }
+      if (g.sil === 'sheath') {
+        // Accuracy review: a sheath never narrows below her hips less 6 cm, so she can walk.
+        let m = 0;
+        for (let q = 0; q < N; q++) m += A[q]!;
+        m /= N;
+        const need = (Math.max(0, hipsCm - 6) / TAU) * cm1;
+        if (m < need) for (let q = 0; q < N; q++) A[q] = A[q]! + need - m;
+      }
       for (let q = 0; q < N; q++) col[q] = A[q]!;
+    } else if (aWS) {
+      // A-line: straight off the waistline, past the hip with its ease, then on out to the hem.
+      const uu = Math.min(1, u);
+      if (uu <= uH) { const s1 = uu / uH; for (let q = 0; q < N; q++) col[q] = RB[q]! + (TH[q]! - RB[q]!) * s1; }
+      else { const s1 = (uu - uH) / (1 - uH); for (let q = 0; q < N; q++) col[q] = TH[q]! + gA * s1; }
     } else {
-      const gg = (D.hold || 1) * (GOWN_PETTI_HOLD[g.petti] || 1) * (hipR * (sil.ratio ?? 2) - s0) * (g.sil === 'ball' ? 1 - Math.pow(1 - Math.min(1, u), 1.7) : soft(Math.min(1, u), 0.06 / Lf));
+      const gg = g.sil === 'ball' ? gBall * (1 - Math.pow(1 - Math.min(1, u), 1.7)) : (D.hold || 1) * (GOWN_PETTI_HOLD[g.petti] || 1) * (hipR * (sil.ratio ?? 2) - s0) * soft(Math.min(1, u), 0.06 / Lf);
       for (let q = 0; q < N; q++) col[q] = RB[q]! + gg;
     }
     // Below a bump (lap, knee, tummy) cloth hangs from its edge, nearly straight down; it flares only where the line is wider.
@@ -172,8 +204,16 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
     // The skirt starts at the chosen waistline: fitted above it, its own flare below it.
     const old = Float32Array.from(F.subarray(0, n * N));
     const at = (y: number, q: number) => { const f = clamp((y - T.y0) / DY, jHem, jTop - 1.001), j = f | 0; return old[j * N + q]! + (old[(j + 1) * N + q]! - old[j * N + q]!) * (f - j); };
+    // Accuracy review: an empire A-line falls nearly straight from under the bust (hem about 1.5 × hips), not a tent.
+    let empG = 0;
+    if (aWS && g.waist === 'empire') {
+      const je = Math.min(jTop, Math.round((waistY(B, g.waist, 0) - T.y0) / DY));
+      let m = 0;
+      for (let q = 0; q < N; q++) m += F[je * N + q]!;
+      empG = Math.max(0, ((1.5 * hipsCm) / TAU) * cm1 / foldM - m / N);
+    }
     for (let q = 0; q < N; q++) {
-      const wy = waistY(B, g.waist, q), st = g.sil === 'ball' || g.waist === 'empire' ? wy : Math.min(wy, yS), d = yS - st;
+      const wy = waistY(B, g.waist, q), st = gownFromWaist(g.sil) || g.waist === 'empire' ? wy : Math.min(wy, yS), d = yS - st;
       if (Math.abs(d) < 0.002) continue;
       for (let j = jHem; j <= jTop; j++) {
         const y = T.y0 + j * DY, o = j * N + q;
@@ -181,8 +221,9 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
         if (d > 0 && y >= st) { F[o] = Math.max(H[o]! + off, Math.min(old[o]!, H[o]! + off * 2.2)); continue; } // fitted between
         if (d < 0 && g.sil !== 'ball') {
           // Empire on a column skirt: one smooth fall from under the bust to the hem.
-          const rS = old[Math.min(jTop, Math.round((st - T.y0) / DY)) * N + q]!, rH = old[jHem * N + q]!, u = clamp((st - y) / Math.max(0.05, st - (T.y0 + jHem * DY)), 0, 1);
-          F[o] = Math.max(H[o]! + off * 1.7, rS + (rH - rS) * (u * (2 - u)));
+          const rS = old[Math.min(jTop, Math.round((st - T.y0) / DY)) * N + q]!, u = clamp((st - y) / Math.max(0.05, st - (T.y0 + jHem * DY)), 0, 1);
+          const rH = aWS ? rS + empG : old[jHem * N + q]!;
+          F[o] = Math.max(H[o]! + off * 1.7, rS + (rH - rS) * (aWS ? u : u * (2 - u)));
           continue;
         }
         F[o] = Math.max(H[o]! + off, at(y + d, q));
@@ -192,7 +233,7 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
   {
     // Cloth rounds over a hip shelf or the bodice-skirt join instead of following a sharp step (never inside the body).
     const jW2 = Math.min(jTop - 1, Math.round((k.yWaist - T.y0) / DY)), jLo = Math.max(jHem + 1, jS - Math.round(0.22 / DY)), G3 = new Float32Array(n * N);
-    if (g.sil !== 'ball') {
+    if (!gownFromWaist(g.sil)) {
       for (let pass = 0; pass < 48; pass++) {
         G3.set(F.subarray(0, n * N));
         for (let j = jLo; j <= jW2; j++) for (let q = 0; q < N; q++) { const o = j * N + q; F[o] = Math.max(G3[o]!, H[o]! + off, (G3[o - N]! + 2 * G3[o]! + G3[o + N]!) / 4); }

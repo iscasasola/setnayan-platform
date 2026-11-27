@@ -39,7 +39,7 @@ const refused = (got: { ok: boolean; reason?: GownRefusal }, reason: GownRefusal
  * Adding an id at the END of a list is allowed (and this pin grows with it); anything else turns this red.
  */
 const SHIPPED: Record<string, string[]> = {
-  GOWN_SILHOUETTES: ['aline', 'ball', 'mermaid', 'sheath', 'terno'],
+  GOWN_SILHOUETTES: ['aline', 'ball', 'mermaid', 'sheath', 'terno', 'fitflare'],
   GOWN_PIECES: ['one', 'two', 'crop'],
   GOWN_WAISTLINES: ['natural', 'empire', 'dropped', 'basque', 'basqueU'],
   GOWN_NECKLINES: ['sweetheart', 'v', 'off', 'high', 'bateau'],
@@ -143,7 +143,7 @@ test('the design check refuses, never repairs: each reason has its own words and
   for (const [k, w] of Object.entries(GOWN_REFUSAL_WORDS)) assert.ok(w.length > 0 && !/vendor/i.test(w), `${k} words`);
   refused(sanitizeGownConfig({ ...design(), notes: 'x'.repeat(9000) }, offer()), 'too_big', 'an oversized design');
   refused(sanitizeGownConfig([], offer()), 'not_a_design', 'not an object');
-  refused(sanitizeGownConfig(design({ v: 2 }), offer()), 'not_a_design', 'a version this code does not know');
+  refused(sanitizeGownConfig(design({ v: 99 }), offer()), 'not_a_design', 'a version this code does not know');
   refused(sanitizeGownConfig(design({ sil: 'trumpet' }), offer()), 'not_a_design', 'a silhouette not in the catalog');
   refused(sanitizeGownConfig(design({ fabric: 'Satin!' }), offer()), 'not_a_design', 'a fabric id that is not a slug');
   refused(sanitizeGownConfig(design({ fabric: 'velvet' }), offer({ fabricTypes: ['satin'] })), 'not_offered', 'a fabric type the shop does not work in');
@@ -336,4 +336,14 @@ test('every v186 stock look reads as a valid design (the prototype\'s LOOKS)', (
     assert.ok(got.ok, `${name}: ${got.ok ? '' : got.reason}`);
     for (const [k, v] of Object.entries(look)) assert.equal(got.config[k as keyof G.GownConfig], v, `${name}.${k}`);
   }
+});
+
+test('v2 (accuracy review, v197): an A-line saved at v1 opens as Fit and flare; a v2 A-line stays an A-line', () => {
+  const o = stockGownOffer();
+  const old = sanitizeGownConfig({ ...startingGownConfig(), v: 1, sil: 'aline' }, o);
+  assert.ok(old.ok && old.config.sil === 'fitflare' && old.config.v === 2, 'v1 A-line → Fit and flare, stored as v2');
+  const now = sanitizeGownConfig({ ...startingGownConfig(), sil: 'aline' }, o);
+  assert.ok(now.ok && now.config.sil === 'aline');
+  const ball = sanitizeGownConfig({ ...startingGownConfig(), v: 1, sil: 'ball' }, o);
+  assert.ok(ball.ok && ball.config.sil === 'ball', 'only the A-line moves');
 });

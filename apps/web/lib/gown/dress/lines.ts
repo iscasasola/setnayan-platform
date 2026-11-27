@@ -5,18 +5,28 @@
 import { BODY_K, RING_N, TAU } from '../body/constants';
 import type { GownRig } from '../body/rig';
 import { smoothstep } from '../body/rig';
-import type { GownBack, GownConfig, GownHem, GownNeckline, GownSilhouette, GownTrain, GownVeil, GownWaistline } from '../../gown-config';
+import type { GownBack, GownConfig, GownHem, GownNeckline, GownPetticoat, GownSilhouette, GownTrain, GownVeil, GownWaistline } from '../../gown-config';
 
 const N = RING_N, DTH = TAU / N;
 
-/** How each line hangs: hem circumference as a share of the hip at floor length, how fast a close line may draw in, and its folds. */
-export const GOWN_SIL: Record<GownSilhouette, { ratio?: number; fold: number; hang?: number }> = {
-  aline: { ratio: 2.0, fold: 0.055 },
-  ball: { ratio: 4.5, fold: 0.07 },
+/**
+ * How each line hangs: hem circumference as a share of the hip at floor length, how fast a close line may draw in, its
+ * folds; `waist` for skirts that start at the waistline, `ease` (cm) for a skirt that skims the hip with that much room.
+ * Accuracy review (owner, 27 Nov; v197): the A-line and the Filipiniana saya leave the body at the waistline, skim the
+ * hip with about 10 cm of ease and open to about 3 × hips at the hem; the old hip-hugging shape is Fit and flare.
+ */
+export const GOWN_SIL: Record<GownSilhouette, { ratio?: number; fold: number; hang?: number; waist?: boolean; ease?: number }> = {
+  aline: { ratio: 3.0, fold: 0.055, waist: true, ease: 10 },
+  fitflare: { ratio: 2.0, fold: 0.055 },
+  ball: { ratio: 4.5, fold: 0.07, waist: true },
   mermaid: { ratio: 2.2, fold: 0.05, hang: 0.3 },
   sheath: { hang: 0.08, fold: 0.012 },
-  terno: { ratio: 1.7, fold: 0.045 },
+  terno: { ratio: 3.0, fold: 0.045, waist: true, ease: 10 },
 };
+/** Skirts that start at the waistline (ball gown, A-line, Filipiniana) rather than at the hip (v197 `fromWaist`). */
+export const gownFromWaist = (s: GownSilhouette) => !!GOWN_SIL[s]?.waist;
+/** A ball skirt's hem comes from its petticoat or hoop (cm round), never below 2.5 × hips (v197 `BALL_HEM`). */
+export const GOWN_BALL_HEM_CM: Record<GownPetticoat, number> = { none: 0, soft: 320, full: 380, hoop: 420 };
 
 /** A train's usual length past the hem, on the floor (cm). */
 export const GOWN_TRAIN_CM: Record<GownTrain, number> = { none: 0, sweep: 30, chapel: 120, cathedral: 210 };

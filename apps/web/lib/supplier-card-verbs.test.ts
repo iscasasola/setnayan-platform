@@ -174,7 +174,7 @@ test('T4 · the card’s verbs come from the table — one row, every word kept'
 });
 
 test('T4 · the facts are the card’s own; Pay is the Booked row’s Pay', () => {
-  assert.match(BENCH, /booked=\{v\.status === 'locked'\}\s*hasPrice=\{v\.totalCostPhp != null\}\s*quoteIn=\{standing\?\.needsYou === true\}\s*payHref=\{payHrefs\[v\.vendorId\] \?\? null\}\s*workspaceHref=\{v\.href\}\s*onRecord=\{selfAdded \? loadDetails : undefined\}/);
+  assert.match(BENCH, /booked=\{isBookedView\(v\)\}\s*hasPrice=\{v\.totalCostPhp != null\}\s*quoteIn=\{standing\?\.needsYou === true\}\s*payHref=\{payHrefs\[v\.vendorId\] \?\? null\}\s*workspaceHref=\{v\.href\}\s*onRecord=\{selfAdded \? loadDetails : undefined\}/);
   assert.match(PAGE, /payHrefByVendorId=\{Object\.fromEntries\(\s*teamRowList\.flatMap\(\(r\) => \(r\.action\?\.kind === 'pay' \? \[\[r\.vendorId, r\.action\.href\] as const\] : \[\]\)\),\s*\)\}/);
   assert.match(CARD, /case 'pay':\s*return payHref \? /);
 });

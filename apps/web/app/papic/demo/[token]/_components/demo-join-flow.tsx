@@ -1,7 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Share, Loader2, ShieldCheck, Sparkles } from 'lucide-react';
+import { Camera, RotateCcw, Share, ShieldCheck, Sparkles } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import {
   useDemoChannel,
   untaggedReason,
@@ -321,21 +322,21 @@ export function DemoJoinFlow({
       <>
         <ShieldCheck aria-hidden className="mx-auto mt-3 h-7 w-7 text-[var(--m-mulberry)]" strokeWidth={1.75} />
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Turn your phone into a camera</h1>
-        <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
+        <p className="mt-2 text-sm text-[var(--m-slate-2)]">
           This is a live demo of Setnayan Papic — no sign-up, no real event.
           We&rsquo;ll ask for your camera to show live face-matching between
           your phone and your friend&rsquo;s. Nothing here is recorded: photos
           and face matching stay inside this demo session and are never saved
           anywhere — closing the tab forgets everything.
         </p>
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          main
+          icon={Camera}
+          label="Allow camera & continue"
           onClick={() => openCamera('user', 'camera')}
-          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[var(--m-mulberry)] px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
-        >
-          <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-          Allow camera &amp; continue
-        </button>
+          className="mt-5 w-full"
+        />
       </>
     );
   }
@@ -344,17 +345,18 @@ export function DemoJoinFlow({
     return (
       <>
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Camera access needed</h1>
-        <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
+        <p className="mt-2 text-sm text-[var(--m-slate-2)]">
           Your browser blocked camera access. Check your site permissions and
           try again.
         </p>
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          main
+          icon={RotateCcw}
+          label="Try again"
           onClick={() => openCamera('user', 'camera')}
-          className="mt-5 inline-flex w-full items-center justify-center rounded-md bg-[var(--m-mulberry)] px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
-        >
-          Try again
-        </button>
+          className="mt-5 w-full"
+        />
       </>
     );
   }
@@ -365,11 +367,11 @@ export function DemoJoinFlow({
       <>
         <div className="mt-1 flex items-center justify-between">
           <h1 className="text-lg font-semibold tracking-tight">Shoot the moment</h1>
-          <span className="text-xs font-medium text-[var(--m-grey,#8c8884)]">
+          <span className="text-xs font-medium text-[var(--m-slate-2)]">
             {capped ? 'Demo roll used up' : `${formatCount(remaining)} credit${remaining === 1 ? '' : 's'} left`}
           </span>
         </div>
-        <p className="mt-1 text-xs text-[var(--m-grey,#8c8884)]">
+        <p className="mt-1 text-xs text-[var(--m-slate-2)]">
           {friendJoined
             ? 'Point it at your friend — the tag happens on its own.'
             : 'Your friend hasn’t scanned their code yet — solo shots work too.'}
@@ -378,26 +380,23 @@ export function DemoJoinFlow({
           {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
           <video ref={videoRef} muted playsInline className="aspect-[3/4] w-full object-cover" />
         </div>
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          main
+          icon={Camera}
+          label={capped ? `That’s the ${formatCount(shotCap)} demo credits` : 'Take the shot'}
+          busy={shooting ? 'Saving the moment…' : null}
+          disabled={capped}
           onClick={takeShot}
-          disabled={shooting || capped}
-          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[var(--m-mulberry)] px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-        >
-          {shooting ? (
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-          ) : (
-            <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-          )}
-          {capped ? `That’s the ${formatCount(shotCap)} demo credits` : shooting ? 'Saving the moment…' : 'Take the shot'}
-        </button>
+          className="mt-4 w-full"
+        />
         {shotNote && (
           <p role="status" className="mt-2 text-xs text-[var(--m-slate-2)]">
             {shotNote}
           </p>
         )}
         {capped && (
-          <p className="mt-2 text-xs text-[var(--m-grey,#8c8884)]">
+          <p className="mt-2 text-xs text-[var(--m-slate-2)]">
             A real event puts no limit on how many phones shoot — every photo lands in one album.
           </p>
         )}
@@ -413,7 +412,7 @@ export function DemoJoinFlow({
                   style={{ filter: styleCss(style) }}
                 />
                 <div className="flex items-center justify-between px-3 py-2">
-                  <span className="text-xs text-[var(--m-grey,#8c8884)]">
+                  <span className="text-xs text-[var(--m-slate-2)]">
                     {p.tags.length ? p.tags.map(tagLabel).join(' · ') : untaggedReason(p.diag)}
                     {' · '}
                     {PAPIC_STYLES.find((s) => s.id === style)?.label ?? style}
@@ -434,7 +433,7 @@ export function DemoJoinFlow({
                 ) : null}
               </div>
             ))}
-            <p className="text-center text-[11px] text-[var(--m-grey,#8c8884)]">
+            <p className="text-center text-[11px] text-[var(--m-slate-2)]">
               The look is picked on the big screen — saves come out in that style.
             </p>
           </div>
@@ -447,7 +446,7 @@ export function DemoJoinFlow({
   return (
     <>
       <h1 className="text-xl font-semibold tracking-tight">Look at the camera</h1>
-      <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
+      <p className="mt-2 text-sm text-[var(--m-slate-2)]">
         We&rsquo;ll register your face for this demo session only — it&rsquo;s
         how the tagging recognizes you in your friend&rsquo;s shots, and
         it&rsquo;s never saved.
@@ -456,25 +455,21 @@ export function DemoJoinFlow({
         {/* eslint-disable-next-line jsx-a11y/media-has-caption */}
         <video ref={videoRef} muted playsInline className="aspect-square w-full scale-x-[-1] object-cover" />
       </div>
-      <button
-        type="button"
+      <ActionButton
+        tone="brand"
+        main
+        icon={Camera}
+        label="Register my face"
+        busy={step === 'registering' ? 'Registering…' : null}
         onClick={registerFace}
-        disabled={step === 'registering'}
-        className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[var(--m-mulberry)] px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
-      >
-        {step === 'registering' ? (
-          <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-        ) : (
-          <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-        )}
-        {step === 'registering' ? 'Registering…' : 'Register my face'}
-      </button>
+        className="mt-5 w-full"
+      />
       {!isFaceModelConfigured() && (
-        <p className="mt-3 text-[11px] text-[var(--m-grey,#8c8884)]">
+        <p className="mt-3 text-[11px] text-[var(--m-slate-2)]">
           Face matching is warming up on this demo — you can still shoot.
         </p>
       )}
-      <p className="mt-2 text-[11px] text-[var(--m-grey,#8c8884)]">
+      <p className="mt-2 text-[11px] text-[var(--m-slate-2)]">
         {friendJoined ? 'Your friend is in!' : 'Your friend can scan the other code any time.'}
       </p>
     </>

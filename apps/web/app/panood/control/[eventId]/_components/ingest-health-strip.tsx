@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { AlertTriangle, Radio, RadioTower, Loader2, RefreshCw, WifiOff } from 'lucide-react';
+import { AlertTriangle, Hourglass, Radio, RadioTower, RefreshCw, WifiOff } from 'lucide-react';
 import {
   decideIngestHealth,
   POLL_INTERVAL_MS,
@@ -52,7 +52,7 @@ const STATE_SKIN: Record<IngestHealthState, string> = {
 };
 
 const STATE_ICON: Record<IngestHealthState, typeof Radio> = {
-  waiting_for_encoder: Loader2,
+  waiting_for_encoder: Hourglass,
   receiving: Radio,
   degraded: AlertTriangle,
   reconnecting: RefreshCw,
@@ -60,11 +60,6 @@ const STATE_ICON: Record<IngestHealthState, typeof Radio> = {
   no_data: RadioTower,
 };
 
-/** States whose icon should spin — "still in motion", not "stopped and bad". */
-const SPINNING_STATES: ReadonlySet<IngestHealthState> = new Set([
-  'waiting_for_encoder',
-  'reconnecting',
-]);
 
 export function IngestHealthStrip({
   eventId,
@@ -189,7 +184,8 @@ export function IngestHealthStrip({
     >
       <Icon
         aria-hidden
-        className={`mt-px h-4 w-4 shrink-0 ${SPINNING_STATES.has(decision.state) ? 'animate-spin' : ''}`}
+        /* No spinner (house rule): "still in motion" is said by the icon (⏳ / ↻) and the sentence. */
+        className="mt-px h-4 w-4 shrink-0"
         strokeWidth={1.75}
       />
       <span>

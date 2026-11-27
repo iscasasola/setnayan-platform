@@ -4,7 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { actionButtonClass } from '@/components/action-button-class';
 import { routes } from '@/lib/routes';
-import { Loader2, Radio, Video, WifiOff } from 'lucide-react';
+import { Radio, RotateCcw, Video, WifiOff } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { claimPanoodDemoCamera, getDemoIceServers } from '@/app/_actions/demo-session-actions';
 import { publishDemoCamera, type CameraPublisher, type CamSlot, type PeerConnectionState } from '@/lib/demo-webrtc';
 import { useCameraThatComesBack } from '@/lib/use-camera-that-comes-back';
@@ -161,26 +162,22 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
       <>
         <Video aria-hidden className="mx-auto mt-3 h-7 w-7 text-[var(--m-mulberry)]" strokeWidth={1.75} />
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Become a live camera</h1>
-        <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
+        <p className="mt-2 text-sm text-[var(--m-slate-2)]">
           This is a live demo of the Setnayan Live Watch control room — no
           sign-up, no real event. Your phone&rsquo;s camera and sound stream
           straight to the control room on your computer.{' '}
           <strong>Live only — nothing recorded:</strong> no video or audio is
           saved anywhere, ever.
         </p>
-        <button
-          type="button"
+        <ActionButton
+          tone="brand"
+          main
+          icon={Video}
+          label="Allow camera + mic & go live"
+          busy={step === 'starting' ? 'Starting camera…' : null}
           onClick={goLive}
-          disabled={step === 'starting'}
-          className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-[var(--m-mulberry)] px-4 py-2.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
-        >
-          {step === 'starting' ? (
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-          ) : (
-            <Video aria-hidden className="h-4 w-4" strokeWidth={2} />
-          )}
-          {step === 'starting' ? 'Starting camera…' : 'Allow camera + mic & go live'}
-        </button>
+          className="mt-5 w-full"
+        />
       </>
     );
   }
@@ -189,17 +186,11 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
     return (
       <>
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Camera access needed</h1>
-        <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
+        <p className="mt-2 text-sm text-[var(--m-slate-2)]">
           Your browser blocked camera access. Check your site permissions and
           try again.
         </p>
-        <button
-          type="button"
-          onClick={goLive}
-          className="mt-5 inline-flex w-full items-center justify-center rounded-md bg-[var(--m-mulberry)] px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
-        >
-          Try again
-        </button>
+        <ActionButton tone="brand" main icon={RotateCcw} label="Try again" onClick={goLive} className="mt-5 w-full" />
       </>
     );
   }
@@ -208,7 +199,7 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
     return (
       <>
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Both cameras are taken</h1>
-        <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
+        <p className="mt-2 text-sm text-[var(--m-slate-2)]">
           This demo already has its two cameras. Open Live Watch to start your own.
         </p>
         <OpenLiveWatch />
@@ -220,7 +211,7 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
     return (
       <>
         <h1 className="mt-3 text-xl font-semibold tracking-tight">This demo link expired</h1>
-        <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
+        <p className="mt-2 text-sm text-[var(--m-slate-2)]">
           Demo codes are fresh every time. Open Live Watch for a new one.
         </p>
         <OpenLiveWatch />
@@ -233,17 +224,11 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
       <>
         <WifiOff aria-hidden className="mx-auto mt-3 h-7 w-7 text-[var(--m-mulberry)]" strokeWidth={1.75} />
         <h1 className="mt-3 text-xl font-semibold tracking-tight">Couldn&rsquo;t reach the demo</h1>
-        <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
+        <p className="mt-2 text-sm text-[var(--m-slate-2)]">
           Something got in the way of joining. Check your connection and try
           again.
         </p>
-        <button
-          type="button"
-          onClick={goLive}
-          className="mt-5 inline-flex w-full items-center justify-center rounded-md bg-[var(--m-mulberry)] px-4 py-2.5 text-sm font-medium text-white hover:opacity-90"
-        >
-          Try again
-        </button>
+        <ActionButton tone="brand" main icon={RotateCcw} label="Try again" onClick={goLive} className="mt-5 w-full" />
       </>
     );
   }
@@ -254,14 +239,14 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
       <div className="flex items-center justify-center gap-2">
         <Radio
           aria-hidden
-          className={`h-5 w-5 ${peerState === 'connected' ? 'text-[#3f6b3f]' : 'text-[var(--m-grey,#8c8884)]'}`}
+          className={`h-5 w-5 ${peerState === 'connected' ? 'text-success-700' : 'text-[var(--m-slate-2)]'}`}
           strokeWidth={2}
         />
         <h1 className="text-xl font-semibold tracking-tight">
           You&rsquo;re {slot ? SLOT_LABEL[slot] : 'a camera'}
         </h1>
       </div>
-      <p className="mt-2 text-sm text-[var(--m-grey,#8c8884)]">
+      <p className="mt-2 text-sm text-[var(--m-slate-2)]">
         {peerState === 'connected'
           ? 'Connected — you’re live in the control room. Point your phone at anything.'
           : peerState === 'failed'
@@ -275,7 +260,7 @@ export function CamJoinFlow({ token, sessionId }: { token: string; sessionId: st
           {peerState === 'connected' ? '● LIVE' : 'PREVIEW'}
         </span>
       </div>
-      <p className="mt-4 rounded-md bg-[var(--m-paper)] px-3 py-2.5 text-xs text-[var(--m-grey,#8c8884)]">
+      <p className="mt-4 rounded-md bg-[var(--m-paper)] px-3 py-2.5 text-xs text-[var(--m-slate-2)]">
         Live camera — nothing recorded. Close this page and the feed is gone.
       </p>
     </>

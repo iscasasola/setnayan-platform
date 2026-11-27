@@ -193,7 +193,7 @@ function GownMakerEditor({ start }: { start: GownShopOptions }) {
                       />
                     )}
                     {extras && supply ? (
-                      <SwitchRow name={included ? `${i.label}: in the base` : 'In the starting price'} on={included} onChange={(on) => setInBase(i.key, on)} data="gown-in-base" />
+                      <SwitchRow name={`${i.label}: in the starting price`} on={included} onChange={(on) => setInBase(i.key, on)} data="gown-in-base" />
                     ) : null}
                   </div>
                 );

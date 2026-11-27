@@ -171,8 +171,8 @@ import { CHAT_READ_BROADCAST, countsAsUnreadFor, createReadDebouncer, latestRead
 import { markThreadRead } from '@/lib/chat-actions';
 import { isCoHostMessage, ownsBubble } from '@/lib/chat-bubble-owner';
 import { LIVE_LINE_REFRESH_MS, refreshesTheChat } from '@/lib/chat-live-refresh';
-import { answeredBookAsks, cakeDesignAt, formLineTitle, isCakeInvite, streamLineKind } from '@/lib/chat-card-lines';
-import { AskChangeDoor, CakeDesignCard, CakeInviteCard, DealSheet, DroppedOfferCard, FormAnswerCard, InquiryCard, StreamLineCard, ToolShareCard } from './chat/cards/lazy-cards';
+import { answeredBookAsks, cakeDesignAt, formLineTitle, isCakeInvite, isGownDesign, streamLineKind } from '@/lib/chat-card-lines';
+import { AskChangeDoor, CakeDesignCard, CakeInviteCard, DealSheet, DroppedOfferCard, FormAnswerCard, GownDesignCard, InquiryCard, StreamLineCard, ToolShareCard } from './chat/cards/lazy-cards';
 import { approvedToolShares, toolShareFromLine } from '@/lib/chat-tool-share';
 import { StayForm } from '@/app/_components/stay-form';
 
@@ -2342,8 +2342,10 @@ export function ChatMessageStream({
           const cakeInvite = m.sender_role === 'vendor' && isCakeInvite(m.body);
           // 🧰 A tool the shop shared ("Share from your widgets") is drawn as its card INSTEAD of a bubble.
           const sharedTool = m.sender_role === 'vendor' ? toolShareFromLine(m.body) : null;
+          // 👗 A shop's Gown Maker design (posted when the couple scanned its QR) is drawn as its card INSTEAD of a bubble.
+          const gownDesign = m.sender_role === 'vendor' && isGownDesign(m.body);
           const node = (() => {
-          if (cakeInvite || sharedTool) return null;
+          if (cakeInvite || sharedTool || gownDesign) return null;
           // Proposal cards — a vendor-sent structured proposal lands in the
           // thread. Render the card (title · price · status + a Review/View
           // link to the existing /proposals page) instead of a plain bubble;
@@ -3288,6 +3290,17 @@ export function ChatMessageStream({
                       // one-render: keep (no-revalidate) — cakeAction's send revalidates nothing; the new design message must appear.
                       router.refresh();
                     }}
+                  />
+                </li>
+              ) : null}
+              {gownDesign ? (
+                <li data-gown-design-card="">
+                  <GownDesignCard
+                    threadId={threadId}
+                    messageId={m.message_id}
+                    viewer={viewerRole === 'vendor' ? 'vendor' : 'couple'}
+                    eventDate={eventDate}
+                    stamp={`${viewerRole === 'vendor' ? 'You · shared from the Gown Maker' : `${counterpartyLabel} · from the Gown Maker`} · ${formatChatTimestamp(m.created_at)}`}
                   />
                 </li>
               ) : null}

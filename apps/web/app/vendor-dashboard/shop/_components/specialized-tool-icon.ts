@@ -1,10 +1,11 @@
-import { CakeSlice, Camera, ChefHat, ClipboardList, Eye, Gamepad2, HandHeart, LayoutGrid, ListChecks, ListMusic, Megaphone, Music, ScanLine, Shapes, Star, Timer, TriangleAlert, Users, type LucideIcon } from 'lucide-react';
+import { CakeSlice, Camera, ChefHat, ClipboardList, Eye, Gamepad2, HandHeart, LayoutGrid, ListChecks, ListMusic, Megaphone, Music, ScanLine, Shapes, Shirt, Star, Timer, TriangleAlert, Users, type LucideIcon } from 'lucide-react';
 import type { SpecializedToolKey } from '@/lib/specialized-tools';
 
 /** Each Specialized tools tile's icon (kept out of `lib/specialized-tools.ts`, which stays free of UI imports). */
 const ICONS: Readonly<Record<SpecializedToolKey, LucideIcon>> = {
   scanner: ScanLine,
   cake_tool: CakeSlice,
+  gown_tool: Shirt, // the taxonomy's attire mark (lib/taxonomy-icons.ts)
   song_bank: Music,
   song_desk: ListMusic,
   emcee_script: Megaphone,

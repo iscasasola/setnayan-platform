@@ -34,6 +34,11 @@ import { AddClientBlock } from './_components/own-client-gift';
 import { ownGiftDataOf } from '@/lib/own-clients';
 import { fetchShopVerified } from '@/lib/own-clients.server';
 import { loadShopGiftsSection } from '../shop/promote/_components/shop-gifts-data';
+import { GownShareForm } from './_components/gown-share-form';
+import { createAdminClient } from '@/lib/supabase/admin';
+import { gownWhichWords } from '@/lib/gown-maker';
+import { buildGownShareUrl, readOwnBookedGownShare } from '@/lib/gown-maker.server';
+import type { GownShareSheet } from './_components/qr-codes';
 
 export const metadata = { title: 'QR codes · Supplier' };
 export const dynamic = 'force-dynamic';
@@ -72,6 +77,8 @@ const BOOKED_ERRORS: Record<string, string> = {
     'The code you were changing was scanned a moment ago — it is a booking now, so it stays as it was. Nothing new was made.',
   replace_both_live:
     'The change didn’t go through, and the new code couldn’t be withdrawn — both codes are in Booked QRs now. Delete the one you don’t want.',
+  gown_link_live: 'The Gown design couldn’t be attached, and the new code couldn’t be withdrawn — it is in Booked QRs with no design. Delete it there, then share the design again.',
+  gown_link: 'The Gown design couldn’t be attached to this code, so the code was withdrawn. Share the design again.',
   date_unavailable:
     'That date is already booked or blocked on your calendar — you can’t lock a second booking on it. Free it up first, or use the waitlist.',
 };
@@ -93,6 +100,14 @@ type TokenRow = {
 };
 
 const DATES_HREF = '/vendor-dashboard/customers?seg=dates';
+
+/** 👗 A refused Gown design share, in words (its sheet). */
+const GOWN_ERRORS: Record<string, string> = {
+  gown_file: 'That file isn’t a Gown Maker design we can keep. Export it again from the Gown Maker (Share → Save .gown.json).',
+  gown_save: 'The design didn’t save. Nothing was shared — try again.',
+  bookings_closed: BOOKINGS_CLOSED_SUPPLIER_MESSAGE,
+  not_verified: LOCKED_QR_NEEDS_VERIFIED,
+};
 
 type EditTokenRow = {
   token: string;
@@ -135,7 +150,7 @@ const QR_HREF = '/vendor-dashboard/invite';
 export default async function VendorQrCodesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ et?: string; cat?: string; mode?: string; issued?: string; error?: string; ledger?: string; date?: string; block?: string; event?: string; open?: string; edit?: string }>;
+  searchParams: Promise<{ et?: string; cat?: string; mode?: string; issued?: string; error?: string; ledger?: string; date?: string; block?: string; event?: string; open?: string; edit?: string; gown?: string }>;
 }) {
   const search = await searchParams;
   const asked = supplierQrModeOf(search.mode);
@@ -194,7 +209,7 @@ export default async function VendorQrCodesPage({
   // names something to show — an issued code, a refusal, the ledger, a day, an outside booking, an event — opens the
   // sheet on arrival; a plain visit lands on the list.
   const hrefs = Object.fromEntries(CUSTOMERS_QR_MODES.map((key) => [key, `${QR_HREF}?mode=${key}&open=1`]));
-  const open = search.open === '1' || Boolean(search.issued || search.error || search.ledger || search.date || search.block || search.event || search.edit) ? mode : null;
+  const open = search.open === '1' || Boolean(search.issued || search.error || search.ledger || search.date || search.block || search.event || search.edit || search.gown) ? mode : null;
 
   if (!canShare) {
     return <QrCodes backHref={DATES_HREF} canShare={false} setupHref={SHOP_NAME_SETUP_HREF} booked={null} />;
@@ -223,6 +238,22 @@ export default async function VendorQrCodesPage({
         setupHref={SHOP_NAME_SETUP_HREF}
         booked={null}
         crew={await readCrewQr(supabase, user.id, vendorProfileId, today, search.event ?? null)}
+      />
+    );
+  }
+
+  // ── 👗 GOWN DESIGN (owner 26 Nov 2026) — a Gown Maker design shared as a QR ─────────────────────────────────
+  if (mode === 'gown') {
+    return (
+      <QrCodes
+        open={open}
+        hrefs={hrefs}
+        addClient={addClient}
+        backHref={DATES_HREF}
+        canShare
+        setupHref={SHOP_NAME_SETUP_HREF}
+        booked={null}
+        gown={await readGownSheet(supabase, { vendorProfileId, slug: slug as string, issued: search.issued ?? null, error: search.error ?? null })}
       />
     );
   }
@@ -316,7 +347,8 @@ export default async function VendorQrCodesPage({
       </p>
     );
   } else if (!issued) {
-    const [eventTypes, services, contracts, editRead] = await Promise.all([
+    const gownAsked = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(search.gown ?? '') ? (search.gown as string) : null;
+    const [eventTypes, services, contracts, editRead, gownRead] = await Promise.all([
       getCreatableEventTypes(),
       fetchVendorServices(supabase, vendorProfileId).catch(() => []),
       fetchVendorContracts(supabase, vendorProfileId).catch(() => []),
@@ -330,8 +362,18 @@ export default async function VendorQrCodesPage({
             .eq('status', 'pending')
             .maybeSingle()
         : Promise.resolve({ data: null, error: null }),
+      // 👗 A booked Gown design share waiting for its code (this shop's own, not yet linked).
+      gownAsked ? readOwnBookedGownShare(createAdminClient(), { vendorProfileId, designId: gownAsked }) : Promise.resolve(null),
     ]);
     if (editRead.error) logQueryError('VendorQrCodesPage.edit', editRead.error, { vendorProfileId }, 'graceful_degrade');
+    const gown =
+      gownRead === 'unread'
+        ? ({ state: 'unread' } as const)
+        : gownRead
+          ? ({ state: 'ready', designId: gownRead.designId, eventType: gownRead.eventType, title: `Gown design · ${gownWhichWords(gownRead.which)}`, summary: gownRead.summary, thumb: gownRead.thumbDataUrl } as const)
+          : gownAsked
+            ? ({ state: 'gone' } as const)
+            : null;
     const initial = lockedQrInitialOf(editRead.data as EditTokenRow | null);
     const coverage = vendorCoverageCategories(profileServices);
     const live = services.filter((s) => s.is_active);
@@ -353,6 +395,7 @@ export default async function VendorQrCodesPage({
         // 🔳 RW-378: a refused Generate reopens the form with what was typed (lib/locked-qr-draft.ts).
         refused={Boolean(search.error)}
         servicePrices={Object.fromEntries(live.map((s) => [s.vendor_service_id, s.starting_price_php ?? null]))}
+        gown={gown}
       />
     );
   }
@@ -376,6 +419,42 @@ export default async function VendorQrCodesPage({
       }}
     />
   );
+}
+
+/**
+ * 👗 GOWN DESIGN's sheet: the Shortlist code just made (read back under the shop's own RLS — `gown_designs_own_read`),
+ * or the share form. A refused read says so; it is never "no code".
+ */
+async function readGownSheet(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  args: { vendorProfileId: string; slug: string; issued: string | null; error: string | null },
+): Promise<GownShareSheet> {
+  const error = args.error ? (GOWN_ERRORS[args.error] ?? 'Could not share the design. Please try again.') : null;
+  if (args.issued && /^[0-9a-f]{24}$/.test(args.issued)) {
+    const { data, error: readErr } = await supabase
+      .from('gown_designs')
+      .select('share_code, event_type, category, which, summary')
+      .eq('share_code', args.issued)
+      .eq('vendor_profile_id', args.vendorProfileId)
+      .eq('share_as', 'shortlist')
+      .maybeSingle();
+    if (readErr) {
+      logQueryError('VendorQrCodesPage.gown', readErr, { vendorProfileId: args.vendorProfileId }, 'graceful_degrade');
+      return { error, issued: 'unread', form: null };
+    }
+    const row = data as { share_code: string; event_type: string | null; category: string | null; which: 'female' | 'male'; summary: unknown } | null;
+    if (row) {
+      const url = buildGownShareUrl(args.slug, { shareCode: row.share_code, eventType: row.event_type, category: row.category });
+      const first = Array.isArray(row.summary) && typeof row.summary[0] === 'string' ? row.summary[0] : null;
+      return {
+        error,
+        issued: { url, svg: await renderUrlQrSvg(url, 220).catch(() => null), title: `Gown design · ${gownWhichWords(row.which)}`, line: first ? `${first} · Shortlist · free` : 'Shortlist · free' },
+        form: null,
+      };
+    }
+  }
+  const eventTypes = await getCreatableEventTypes();
+  return { error, issued: null, form: <GownShareForm eventTypes={eventTypes.map((t) => ({ value: t.key, label: t.label }))} /> };
 }
 
 /**

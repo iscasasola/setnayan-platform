@@ -3,13 +3,15 @@
 import { lazy, Suspense, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowUpRight, BookOpen, CalendarDays, ClipboardList, FileText, Layers, Lock, Plus, ReceiptText, Tag, type LucideIcon } from 'lucide-react';
+import { ArrowUpRight, BookOpen, CalendarDays, ClipboardList, FileText, Layers, Lock, Plus, ReceiptText, Share, Tag, type LucideIcon } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { routes } from '@/lib/routes';
 import { formatCount } from '@/lib/format-number';
 import type { ScannerChoice } from '@/lib/supplier-scan';
 import { onTheDayHref, specializedToolsFor, type SpecializedTool, type SpecializedToolKey } from '@/lib/specialized-tools';
 import { toolIcon } from './specialized-tool-icon';
+import { GOWN_MAKER_URL } from '@/lib/gown-maker';
+import { gownShareHref } from '@/lib/supplier-qr-codes';
 import { isBuiltInWidget, isPaidStoreTool } from '@/lib/supplier-store';
 import { ArrangeEdit } from '@/app/vendor-dashboard/shop/store/_components/store-client';
 import { BodyPanel } from '../../_components/body-panel';
@@ -235,8 +237,27 @@ export function ShopMakers({
             const t = tools.find((x) => x.tool.key === key)!.tool;
             const Icon = toolIcon(t.key);
             const isNew = addedTool === t.key;
+            // 👗 The Gown Maker's tile OPENS THE TOOL (owner 26 Nov: people launch it far more than they set it up) —
+            // a plain link to its own page, in a new tab. Its panel (Open · Share a design) is reached from the Store's
+            // "On its own" door (`?tool=gown_tool`). An off tile (no attire card online) opens the panel's line instead.
+            const launches = t.door.kind === 'gown_tool' && !off;
+            const tileClass = `sn-press sn-frame flex h-full min-h-[128px] w-full flex-col items-start gap-1 p-3 text-left${off ? ' opacity-60' : ''}`;
             return (
               <li key={t.key} className="w-[150px] flex-none snap-start" data-tool-row={t.key} data-tool-new={isNew ? '' : undefined}>
+                {launches ? (
+                  <a href={GOWN_MAKER_URL} target="_blank" rel="noopener noreferrer" className={tileClass} data-tool-tile={t.key} data-tool-launch="">
+                    <span aria-hidden className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-[color:var(--surface-soft)] text-ink">
+                      <Icon className="h-5 w-5" strokeWidth={1.75} />
+                    </span>
+                    <span className="mt-1 flex min-w-0 flex-col">
+                      <b className="flex flex-wrap items-center gap-1.5 text-sn-lg font-semibold leading-tight text-ink">
+                        {t.title}
+                        <ArrowUpRight aria-label="opens in a new tab" className="h-4 w-4 text-[color:var(--m-slate-2)]" strokeWidth={1.9} />
+                      </b>
+                      <span className="mt-0.5 line-clamp-2 text-sn-md leading-snug text-[color:var(--m-slate-2)]">{t.line}</span>
+                    </span>
+                  </a>
+                ) : (
                 <button
                   ref={(el) => {
                     toolTiles.current[t.key] = el;
@@ -245,7 +266,7 @@ export function ShopMakers({
                   onClick={() => setTool(t.key)}
                   aria-expanded={t.key === picked?.key}
                   aria-haspopup="dialog"
-                  className={`sn-press sn-frame flex h-full min-h-[128px] w-full flex-col items-start gap-1 p-3 text-left${off ? ' opacity-60' : ''}`}
+                  className={tileClass}
                   data-tool-tile={t.key}
                   data-tool-off={off ? '' : undefined}
                 >
@@ -260,6 +281,7 @@ export function ShopMakers({
                     <span className="mt-0.5 line-clamp-2 text-sn-md leading-snug text-[color:var(--m-slate-2)]">{off ?? t.line}</span>
                   </span>
                 </button>
+                )}
               </li>
             );
           })}
@@ -463,6 +485,16 @@ function ToolBody({ tool, scanners, booked }: { tool: SpecializedTool; scanners:
       >
         <CakeMakerPanel />
       </Suspense>
+    );
+  }
+  if (tool.door.kind === 'gown_tool') {
+    // 👗 The Gown Maker is its own page (its setup is its own Settings). Here: open it, or share a design as a QR.
+    return (
+      <div className="space-y-3" data-tool-body={tool.key}>
+        <p className="text-sn-base text-ink/70">{tool.line}. Your quotations, fabrics and prices stay in its Settings — only you see them.</p>
+        <ActionButton tone="brand" main icon={ArrowUpRight} label="Open Gown Maker" href={GOWN_MAKER_URL} target="_blank" className="w-full" data-tool-open={tool.key} />
+        <ActionButton tone="neutral" icon={Share} label="Share a design" href={gownShareHref()} className="w-full" data-gown-share-door="" />
+      </div>
     );
   }
   if (tool.door.kind === 'page') {

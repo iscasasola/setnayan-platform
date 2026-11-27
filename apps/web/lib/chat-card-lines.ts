@@ -249,6 +249,14 @@ export function streamLineKind(
 /** The head line of a couple's "Cake design" block — the SAME words as `CAKE_DESIGN_HEAD` (lib/cake-maker.ts, pinned by its test). */
 export const CAKE_DESIGN_HEAD_WORDS = '🎂 Cake design · ';
 
+/** 👗 The head of a Gown Maker design message — the SAME words as `GOWN_DESIGN_HEAD` (lib/gown-maker.ts, pinned by test). */
+export const GOWN_DESIGN_HEAD_WORDS = '👗 Gown design · ';
+
+/** Is this message a shop's Gown Maker design (posted when the couple scanned its QR)? Its block is the whole message. */
+export function isGownDesign(body: string | null | undefined): boolean {
+  return (body ?? '').startsWith(GOWN_DESIGN_HEAD_WORDS);
+}
+
 /** The supplier's "Ask for a cake design" invite — the SAME words as `CAKE_INVITE_BODY` (lib/cake-maker.ts, pinned). */
 export const CAKE_INVITE_WORDS = '🎂 Design your cake for us';
 

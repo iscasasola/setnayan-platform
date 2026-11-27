@@ -266,7 +266,17 @@ function LockedQrForm({
   initial = null,
   servicePrices = {},
   keptFromRefusal = false,
+  gown = null,
 }: {
+  /**
+   * 👗 A Gown Maker design this code carries (a booked Gown design share, owner 26 Nov 2026): posted as `gown_design_id`;
+   * a scan books the client AND lands the design in your chat. `unread`/`gone` say so — the form still makes a plain code.
+   */
+  gown?:
+    | { state: 'ready'; designId: string; eventType: string | null; title: string; summary: readonly string[]; thumb: string }
+    | { state: 'unread' }
+    | { state: 'gone' }
+    | null;
   /** RW-378: `initial` is the draft taken back after a refusal (not a code being changed). */
   keptFromRefusal?: boolean;
   /** #34: a waiting code being changed — the form opens filled, and saving voids it after the new one is made. */
@@ -295,13 +305,14 @@ function LockedQrForm({
   const [rows, setRows] = useState<Row[]>(() =>
     initial?.schedule.length ? initial.schedule.map((r) => ({ label: r.label, amount: r.amount, date: r.date })) : [downpaymentRow()],
   );
-  const [eventType, setEventType] = useState(initial?.eventType ?? '');
+  const gownReady = gown?.state === 'ready' ? gown : null;
+  const [eventType, setEventType] = useState(initial?.eventType ?? gownReady?.eventType ?? '');
   const [serviceRefs, setServiceRefs] = useState<string[]>(initial?.serviceRefs ?? []);
   const [serviceQuery, setServiceQuery] = useState('');
   const [eventDate, setEventDate] = useState(
     initial?.eventDate ?? (/^\d{4}-\d{2}-\d{2}$/.test(initialDate) ? initialDate : ''),
   );
-  const [serviceDescription, setServiceDescription] = useState(initial?.description ?? '');
+  const [serviceDescription, setServiceDescription] = useState(initial?.description ?? (gownReady ? gownReady.summary.join(' · ').slice(0, 240) : ''));
   // 👤 Who the code is for (lane B2-E, row #34's leftover): the Booked QRs list names the code by it.
   const [clientName, setClientName] = useState(initial?.clientName ?? '');
   const [contractId, setContractId] = useState(initial?.contractId ?? '');
@@ -508,6 +519,25 @@ function LockedQrForm({
       <input type="hidden" name="service_refs" value={JSON.stringify(serviceRefs)} />
       <input type="hidden" name="quote_lines_json" value={JSON.stringify(quoteLinesJson)} />
       {initial?.replaces ? <input type="hidden" name="replaces" value={initial.replaces} /> : null}
+      {gownReady ? <input type="hidden" name="gown_design_id" value={gownReady.designId} /> : null}
+      {gownReady ? (
+        <div className="sn-frame flex items-center gap-3 p-3" data-locked-qr-gown="ready">
+          {/* eslint-disable-next-line @next/next/no-img-element -- the Gown Maker's own small PNG still (a data URL) */}
+          <img src={gownReady.thumb} alt="The gown design" width={48} height={64} className="h-16 w-12 flex-none rounded-lg object-cover" />
+          <span className="min-w-0">
+            <b className="block text-sn-lg font-semibold text-ink">{gownReady.title} · attached</b>
+            <span className="block truncate text-sn-md text-[color:var(--m-slate-2)]">A scan books them and puts this design in your chat.</span>
+          </span>
+        </div>
+      ) : gown?.state === 'unread' ? (
+        <p role="alert" className="text-sn-md text-[rgb(var(--color-warn))]" data-locked-qr-gown="unread">
+          Couldn&rsquo;t load the Gown design. Reload — a code made now has no design.
+        </p>
+      ) : gown?.state === 'gone' ? (
+        <p role="status" className="text-sn-md text-[color:var(--m-slate-2)]" data-locked-qr-gown="gone">
+          That Gown design already has a code. Share it again to attach it here.
+        </p>
+      ) : null}
       <input type="hidden" name="proof_r2_ref" value={proof.ref} />
       <input type="hidden" name="remembrance_r2_ref" value={remembrance.ref} />
       <input type="hidden" name="source_contract_id" value={contractId} />

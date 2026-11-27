@@ -26,6 +26,7 @@ import { SPECIALIZED_TOOLS, WIDGET_SHELVES, listedWidgets, specializedToolsFor, 
 import { MY_QR_WORDS, PROMOTE_QR_MODES, type PromoteQrMode } from './supplier-qr-codes';
 import { HUB_TOOLS_FALLBACK, HUB_TOOLS_SEED, nameKey } from './hub-tools';
 import { isCakeKind } from './cake-maker';
+import { isGownKind } from './gown-maker';
 import { MUSIC_TOOL_CATEGORIES, isMusicToolCategory } from './songs';
 import { fallbackSnapshot, type TaxonomySnapshot } from './taxonomy-snapshot';
 import { CARD_ORDER, DEFAULT_INSTALLED_GRAPHS, FIXED_WINDOW, type CardKey } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
@@ -332,6 +333,7 @@ export function toolTags(tool: SpecializedTool, overrides: HubOverrides = new Ma
   if (tool.key === 'scanner') return [EVERY_SERVICE_TAG];
   const fits = (category: string, tools: readonly string[]): boolean => {
     if (tool.key === 'cake_tool') return isCakeKind(kindOf(category));
+    if (tool.key === 'gown_tool') return isGownKind(kindOf(category));
     if (tool.key === 'song_bank') return isMusicToolCategory([kindOf(category)]);
     return tool.hubKeys.some((k) => tools.includes(k));
   };
@@ -507,6 +509,12 @@ export function widgetPlaces(tool: SpecializedTool): WidgetPlace[] {
   if (tool.door.kind === 'cake_tool') {
     return [{ key: 'chat', place: 'Chat', line: 'Your client builds a cake from a card in your chat', href: vd.messages.index() }, { ...own, line: `${own.line}, where you set what you offer` }];
   }
+  if (tool.door.kind === 'gown_tool') {
+    return [
+      { key: 'chat', place: 'Chat', line: 'A design you share as a QR lands as a card in that client’s chat', href: vd.messages.index() },
+      { ...own, line: `${own.line}, which opens the Gown Maker` },
+    ];
+  }
   if (tool.door.kind === 'scanner') {
     return [{ ...hub, line: 'On the day, the Scanner view counts each guest you serve' }, { ...own, line: `${own.line}, where you set how a scan counts` }];
   }
@@ -581,6 +589,7 @@ export function toolServedByCards(
   if ((SHOP_LEVEL_WIDGETS as readonly string[]).includes(tool.key)) return true;
   const cardTiles = cards.map((k) => cardTileOf(k, tiles));
   if (tool.key === 'cake_tool') return cards.some((k, i) => isCakeKind(k) || isCakeKind(cardTiles[i]));
+  if (tool.key === 'gown_tool') return cards.some((k, i) => isGownKind(k) || isGownKind(cardTiles[i]));
   if (tool.key === 'song_bank') return cards.some((k, i) => MUSIC_TOOL_CATEGORIES.has(k) || (!!cardTiles[i] && MUSIC_TOOL_CATEGORIES.has(cardTiles[i]!)));
   if (tags.length === 0) return true;
   const tagTiles = tags.map((t) => seedTileOf(t.label, tiles));

@@ -181,6 +181,13 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+.still {
+  /* 👗 the Gown design card's picture — the Gown Maker's own PNG still, full card width */
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--m-r-md);
+}
 .insp {
   width: 72px;
   height: 72px;

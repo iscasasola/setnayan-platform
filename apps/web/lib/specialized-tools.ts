@@ -23,10 +23,12 @@
 import { HUB_TOOLS_SEED, nameKey } from '@/lib/hub-tools';
 import { isMusicToolCategory } from '@/lib/songs';
 import { isCakeKind } from '@/lib/cake-maker';
+import { isGownKind } from '@/lib/gown-maker';
 
 export type SpecializedToolKey =
   | 'scanner'
   | 'cake_tool'
+  | 'gown_tool'
   | 'song_bank'
   | 'song_desk'
   | 'emcee_script'
@@ -66,12 +68,15 @@ export type SpecializedTool = {
    *   page      → one shipped page
    *   per_event → the event's on-the-day screen, one door per booked event
    *   cake_tool → the shop's Cake Maker options, edited in the panel (set once per shop)
+   *   gown_tool → the Gown Maker itself (its own page; its setup is the tool's own Settings) — the tile OPENS THE TOOL,
+   *               and its panel holds Open + Share a design (Customers › QR codes › Gown design)
    *   day_console → the On the day console (`/vendor-dashboard/on-the-day`), where each booking's day-of parts sit
    *   client_page → a page of one booked client (`/vendor-dashboard/clients/<event>/<page>`), one door per booked event
    */
   door:
     | { kind: 'scanner' }
     | { kind: 'cake_tool' }
+    | { kind: 'gown_tool' }
     | { kind: 'page'; href: string }
     | { kind: 'per_event' }
     | { kind: 'day_console' }
@@ -94,6 +99,10 @@ export const SPECIALIZED_TOOLS: readonly SpecializedTool[] = [
   { key: 'scanner', title: 'Scanner', line: 'One per service · how each scan counts', door: { kind: 'scanner' }, hubKeys: [], shelves: ['hub'] },
   // 🎂 DECISION_LOG 2026-11-21 "CAKE MAKER v6 = THE BUILD REFERENCE": options set ONCE per shop here; couples design in the chat.
   { key: 'cake_tool', title: 'Cake Maker', line: 'Couples design their cake in your chat', door: { kind: 'cake_tool' }, hubKeys: [], shelves: ['chat', 'present'] },
+  // 👗 Owner 26 Nov 2026: the Gown Maker's icon opens the tool directly ("people launch it far more than they set it
+  // up"); its quotations, fabrics, inspirations and pricing are the tool's own Settings, seen only by the supplier.
+  // A design is shared as a QR (Shortlist or Booked) and lands as a card in the couple's chat (lib/gown-maker.ts).
+  { key: 'gown_tool', title: 'Gown Maker', line: 'Design gowns in 3D, then share one as a QR', door: { kind: 'gown_tool' }, hubKeys: [], shelves: ['chat', 'present'] },
   { key: 'song_bank', title: 'Song bank', line: 'The songs you play; couples request and preview', door: { kind: 'page', href: '/vendor-dashboard/repertoire' }, hubKeys: [], shelves: ['chat', 'present', 'shop_page'] },
   { key: 'song_desk', title: 'Song Desk', line: 'Requests on the day', door: { kind: 'per_event' }, hubKeys: ['song_desk'], shelves: ['hub'] },
   { key: 'emcee_script', title: 'Emcee script', line: 'The host’s lines, live', door: { kind: 'per_event' }, hubKeys: ['emcee_script'], shelves: ['chat', 'hub'] },
@@ -134,11 +143,12 @@ function hubToolsOf(categoryLabels: readonly string[]): Set<string> {
   return out;
 }
 
-/** Is this tile suggested for the shop? Scanner: every shop with a service. Song bank: music shops. Cake Maker: cake shops. Else the table. */
+/** Is this tile suggested for the shop? Scanner: every shop with a service. Song bank: music shops. Cake Maker: cake shops. Gown Maker: attire shops. Else the table. */
 export function suggestedFor(tool: SpecializedTool, categoryLabels: readonly string[], services: readonly string[]): boolean {
   if (tool.key === 'scanner') return categoryLabels.length > 0;
   if (tool.key === 'song_bank') return isMusicToolCategory(services);
   if (tool.key === 'cake_tool') return services.some(isCakeKind);
+  if (tool.key === 'gown_tool') return services.some(isGownKind);
   const have = hubToolsOf(categoryLabels);
   return tool.hubKeys.some((k) => have.has(k));
 }

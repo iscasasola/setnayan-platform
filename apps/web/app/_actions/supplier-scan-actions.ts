@@ -36,6 +36,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { runCakeAction, type CakeActionInput, type CakeActionResult } from '@/app/_components/cake-maker/cake-actions';
+import { runGownAction, type GownActionInput, type GownActionResult } from '@/app/_components/gown-maker/gown-actions';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -63,11 +64,14 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  * and shop / thread checks, exactly as when it was its own action. The client door is `cake-maker/cake-call.ts`.
  */
 export async function supplierScan(
-  req: SupplierScanRequest | { op: 'cake_tool'; input: CakeActionInput },
-): Promise<SupplierScanReply | { op: 'cake_tool'; result: CakeActionResult }> {
+  req: SupplierScanRequest | { op: 'cake_tool'; input: CakeActionInput } | { op: 'gown_tool'; input: GownActionInput },
+): Promise<SupplierScanReply | { op: 'cake_tool'; result: CakeActionResult } | { op: 'gown_tool'; result: GownActionResult }> {
   switch (req.op) {
     case 'cake_tool':
       return { op: 'cake_tool', result: await runCakeAction(req.input) };
+    // 👗 The Gown Maker's chat card (2026-11-26) — the same reason as the Cake Maker: the budget is full, so it rides here.
+    case 'gown_tool':
+      return { op: 'gown_tool', result: await runGownAction(req.input) };
     case 'set_scanner':
       return { op: 'set_scanner', result: await setServiceScanner(req.coverageId, req.choice) };
     case 'claim':

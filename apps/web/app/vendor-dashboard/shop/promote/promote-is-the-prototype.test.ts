@@ -34,13 +34,14 @@ const OPENED = 'app/vendor-dashboard/shop/qrs/_components/my-qr-code.tsx';
 test('1 · the codes are ONE list in the drawing’s order — no one-code dropdown', () => {
   assert.deepEqual([...MY_QRS_SHOP_ORDER], ['page', 'reviews', 'shortlist', 'dates'], 'My QRs’ "Your shop" rows are not the drawing’s four, in order');
   assert.deepEqual([...MY_QRS_SHOP_ORDER].sort(), [...PROMOTE_QR_MODES].sort(), 'My QRs lost (or gained) a shop code');
-  assert.deepEqual([...CUSTOMERS_QR_MODES], ['locked', 'crew'], 'Customers’ rows are not Booked · Crew');
+  // 👗 26 Nov 2026: Gown design (a Gown Maker share) joined Booked · Crew.
+  assert.deepEqual([...CUSTOMERS_QR_MODES], ['locked', 'crew', 'gown'], 'Customers’ rows are not Booked · Crew · Gown design');
   const mine = read(MINE);
   assert.match(mine, /MY_QRS_SHOP_ORDER\.map\(/, 'the My QRs rows are not built from MY_QRS_SHOP_ORDER');
   const src = read(CODES);
   const customers = [...src.matchAll(/row\('(\w+)'/g)].map((m) => m[1]);
   console.log(`My QRs rows: ${MY_QRS_SHOP_ORDER.join(' · ')} · Customers rows: ${customers.join(' · ')}`);
-  assert.deepEqual(customers, ['locked', 'crew']);
+  assert.deepEqual(customers, ['locked', 'crew', 'gown']);
   assert.match(src, /<QrCodeList rows=\{rows\} openKey=\{open\} \/>/);
   assert.doesNotMatch(src + mine, /label="Which code"|modeOptions/, 'the one-code dropdown is back');
 });
@@ -54,8 +55,8 @@ test('1 · a row is name · what it does · › — Customers’ opens its sheet
   assert.match(list, /data-qr-sheet-done/);
   assert.match(read(MINE), /href=\{myQrHref\(code\)\}/, 'a My QRs row does not open its code’s page');
   const cards = (read(CODES).match(/<QrCard\b/g) ?? []).length + (read(OPENED).match(/<QrCard\b/g) ?? []).length;
-  console.log(`QrCards behind the rows: ${cards} (Booked · Crew · the one opened shop code)`);
-  assert.equal(cards, 3, 'every code draws the shipped QR card (Share · Copy link · Download · Write to NFC)');
+  console.log(`QrCards behind the rows: ${cards} (Booked · Crew · Gown design · the one opened shop code)`);
+  assert.equal(cards, 4, 'every code draws the shipped QR card (Share · Copy link · Download · Write to NFC)');
 });
 
 test('1 · a shop code’s page ends in “Print it” › Door print · Prints — Customers’ sheets never do', () => {

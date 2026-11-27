@@ -31,6 +31,7 @@ const CARD_OF_MODE: Record<(typeof SUPPLIER_QR_MODES)[number], string> = {
   page: 'my-page',
   crew: 'crew',
   reviews: 'reviews',
+  gown: 'gown',
 };
 
 test('every shop code is drawn by QrCard — so each carries Write to NFC', () => {
@@ -54,7 +55,8 @@ test('every shop code is drawn by QrCard — so each carries Write to NFC', () =
     assert.ok(card, `the ${mode} code is not drawn by QrCard — it would lose Write to NFC`);
     assert.match(card, /\burl=\{/, `the ${mode} card must hand its own url`);
   }
-  assert.equal(cards.length, 2, `${cards.length} QrCards on Customers › QR codes for Booked · Crew`);
+  // 👗 26 Nov 2026: the Gown design code (a Gown Maker share) joined Booked and Crew.
+  assert.equal(cards.length, 3, `${cards.length} QrCards on Customers › QR codes for Booked · Crew · Gown design`);
 });
 
 test('QrCard hands the strip the SAME url the code encodes', () => {

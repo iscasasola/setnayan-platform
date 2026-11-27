@@ -162,5 +162,5 @@ test('6 · the code names its booking end to end — offered right after Add, ca
   assert.match(GEN, /\{blockId \? <input type="hidden" name="block_id" value=\{blockId\} \/> : null\}/, 'the maker drops the booking');
   const ISSUE = code('invite', 'actions.ts');
   assert.match(ISSUE, /block_id: blockId,/, 'the code is stored without its booking');
-  assert.match(ISSUE, /const fail: \(reason: string\) => never = \(reason\) => failTo\(reason, blockId\);/, 'a refusal forgets the booking');
+  assert.match(ISSUE, /const fail: \(reason: string\) => never = \(reason\) => failTo\(reason, blockId(?:, gownId)?\);/, 'a refusal forgets the booking');
 });

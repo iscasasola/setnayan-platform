@@ -65,6 +65,8 @@ const NOT_ROTATED: Record<string, string> = {
     'The nulled column is created_by — the invite’s AUTHOR, not its claimer. An invite is exactly as valid after its author leaves as before; nothing about the token’s reach changes, so there is no unclaim to pair a rotation with.',
   vendor_crew_codes:
     'The nulled column is created_by — the shop admin who ISSUED the crew QR, not a claimer; the QR belongs to the SHOP (vendor_profile_id, cascades with it). Nulling it UNLOCKS nothing: crew_seat_by_guest_qr asks the hosts’ seat-plan answer OF the issuer, and a NULL issuer fails that gate closed (seat_plan_not_shared). Replacing the QR (replaceCrewQr) is the shop’s own lever.',
+  gown_designs:
+    'Matched on locked_token, a REFERENCE to the Booked QR the design rides (vendor_locked_qr_tokens.token) — the code’s single use is that table’s and vendor_claim_locked_qr’s, unchanged. The nulled column is created_by — the supplier who SHARED the design, not a claimer; the design belongs to the SHOP (vendor_profile_id, cascades with it). Nulling it unlocks nothing: a Shortlist code’s reach is the shop’s own public invite, and the card is posted with a NULL sender exactly as a system line.',
   vendor_creator_offers:
     'Matched on reach_token_ref, which the schema comment calls an "opaque handle for the reservation (audit / spec field)" — the vendor TOKEN CURRENCY, not a bearer QR. The nulled column is holder_user_id (who pays). No credential exists here to revoke.',
 };

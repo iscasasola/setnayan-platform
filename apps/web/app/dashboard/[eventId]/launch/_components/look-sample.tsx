@@ -45,6 +45,9 @@ import { useMaker } from './maker-context';
  * the browser. It mounts no guest-page frame; the only bytes it can ask for are the background's own still and
  * film, the same stable addresses the card it was picked from already drew.
  */
+/** The plate's ink for the sample's card — the same shadow `.pahina-plate` sets on a guest page's plates. */
+const PLATE_INK = { '--color-ink': 'var(--color-ink-on-plate, var(--color-ink-page))' } as CSSProperties;
+
 export type LookSampleSeed = {
   eventId: string;
   themeId: InviteThemeId;
@@ -286,7 +289,17 @@ export function LookSample({ seed }: { seed: LookSampleSeed }) {
             caption whose code is the fixed mono no font choice changes (`--font-space-mono`) — ON A CARD, the page's
             plate (`bg-paper-deep`), so the Mood Board's Supporting ("Cards · panels") shows here too (owner 2026-10-14:
             "changing colors does not show on preview" — it had nowhere to show). */}
-        <p aria-hidden data-look-sample-styles="" data-look-sample-card="" className="mt-2.5 flex items-baseline gap-3 rounded-lg bg-paper-deep px-3 py-1.5 font-sans text-[11.5px] text-ink dark:text-ink-on-plate">
+        {/* 🖋 THE PLATE'S OWN INK, as the guest page's plates wear it (`.pahina-plate` in globals.css): `--color-ink` is
+            shadowed for this card with the look's `--color-ink-on-plate`, so its words read on the Supporting colour in
+            light AND dark. Before, light mode drew the PAGE's ink on the plate — pale on a mustard card (walkthrough
+            27 Nov, W1-16). Fallback is the page ink under its second name, never `--color-ink` itself (a cycle). */}
+        <p
+          aria-hidden
+          data-look-sample-styles=""
+          data-look-sample-card=""
+          className="mt-2.5 flex items-baseline gap-3 rounded-lg bg-paper-deep px-3 py-1.5 font-sans text-[11.5px] text-ink dark:text-ink-on-plate"
+          style={PLATE_INK}
+        >
           <span data-look-sample-style="heading" className="font-display text-[14px]">
             Our day
           </span>

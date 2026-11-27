@@ -9,6 +9,7 @@ import { ReadRefusedNotice } from '../_components/read-refused-notice';
 import { ContractCard, ContractsEmptyState } from '@/app/_components/contracts/contract-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { routes } from '@/lib/routes';
+import { BackButton } from '@/app/_components/back-button';
 
 export const metadata = { title: 'Supplier contracts' };
 
@@ -48,6 +49,8 @@ export default async function EventContractsPage({ params }: Props) {
 
   return (
     <div className="sn-col space-y-6">
+      {/* ↩ Not a bar tab, so it draws the back (DECISION_LOG 2026-11-16 back rule; walkthrough 27 Nov W2-14). */}
+      <BackButton route="/dashboard/[eventId]/contracts" params={{ eventId }} className="!mb-0" />
       <PageMasthead
         title="Supplier contracts"
         actions={

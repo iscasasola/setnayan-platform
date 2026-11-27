@@ -481,10 +481,13 @@ export function SwitcherPanelBody({
               <RowMark className="bg-[var(--m-ivory)] text-ink">{(realNameOrNull(acct.name) ?? acct.email).charAt(0).toUpperCase()}</RowMark>
               <span className="min-w-0 flex-1">
                 <span className={NAME}>{realNameOrNull(acct.name) ?? acct.email}</span>
-                <span className={SUB}>
-                  <span aria-hidden className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-[var(--m-line)] text-[9px] font-semibold text-ink">@</span>
-                  <span className="[overflow-wrap:anywhere]">{acct.email}</span>
-                </span>
+                {/* The email under a real name only — no "@" mark before it (it read "@ email", walkthrough 27 Nov), and
+                    no second copy when the email is already the row's name. */}
+                {realNameOrNull(acct.name) ? (
+                  <span className={SUB}>
+                    <span className="[overflow-wrap:anywhere]">{acct.email}</span>
+                  </span>
+                ) : null}
               </span>
               <Tag>Account</Tag>
               <Trail on={false} />

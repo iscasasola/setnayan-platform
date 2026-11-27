@@ -110,9 +110,36 @@
 .hdot {
   display: none;
 }
+/* The public address on its own line on a phone, in one piece with its "· off": it ends in "…" rather than breaking
+   mid-word. */
+.addr {
+  display: inline;
+}
+.page .prof .addr > .addrLink {
+  display: inline-block;
+  max-width: 100%;
+  min-height: 44px;
+  line-height: 44px;
+  vertical-align: middle;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow-wrap: normal;
+}
+.addrOff {
+  white-space: nowrap;
+}
 @media (max-width: 1023.98px) {
-  .page .prof :global(.uprof-head[data-layout='home'] .uprof-handle) a {
+  .addr {
     display: flex;
+    align-items: center;
+    min-width: 0;
+  }
+  .page .prof .addr > .addrLink {
+    min-width: 0;
+  }
+  .addrOff {
+    flex: none;
   }
 }
 @media (min-width: 1024px) {
@@ -448,7 +475,9 @@
   font-size: var(--sn-fs-md);
   color: var(--uh-m1);
 }
-@media (min-width: 1024px) {
+/* The drawing's computer card (cover left, words right) from a tablet's width (walkthrough 27 Nov, W2-17): in the
+   720 column at 820 a full-width 16:10 cover stood ~430 px tall and filled the iPad's first screen. */
+@media (min-width: 768px) {
   .dgrid2 {
     display: grid;
     grid-template-columns: 1.25fr 1fr;

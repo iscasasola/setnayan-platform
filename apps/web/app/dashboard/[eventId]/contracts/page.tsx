@@ -8,6 +8,7 @@ import { readEventContracts } from '@/lib/contracts';
 import { ReadRefusedNotice } from '../_components/read-refused-notice';
 import { ContractCard, ContractsEmptyState } from '@/app/_components/contracts/contract-card';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { routes } from '@/lib/routes';
 
 export const metadata = { title: 'Supplier contracts' };
 
@@ -65,9 +66,7 @@ export default async function EventContractsPage({ params }: Props) {
       {contractsRead === null ? (
         <ReadRefusedNotice what="your contracts" />
       ) : contracts.length === 0 ? (
-        <ContractsEmptyState
-          message="No contracts yet. Suppliers will upload PDFs here once you agree on terms in chat."
-        />
+        <ContractsEmptyState message="No contracts yet." action={{ href: routes.dashboard.messages.index(eventId), label: 'Open chats' }} />
       ) : (
         <ul className="space-y-3">
           {contracts.map((c) => {

@@ -17,7 +17,6 @@ import { AccountSwitcher } from '@/app/_components/account-switcher/account-swit
 import type { SwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import { AccountBottomNav } from '@/app/dashboard/(launcher)/_components/account-bottom-nav';
 import { Unihome, type UnihomeViewProps } from '@/app/dashboard/(launcher)/_components/unihome';
-import { PlanningExample } from '@/app/dashboard/(launcher)/_components/board-examples';
 import type { DiscoverEventCard } from '@/lib/discover-events-core';
 import type { UnihomeEventCard } from '@/lib/unihome';
 
@@ -156,7 +155,6 @@ function propsFor(who: string, fail: boolean): Omit<UnihomeViewProps, 'incoming'
       people: { asking: null, faces: [] },
       memories: [],
       discover,
-      eventsExample: <PlanningExample />,
     };
   }
   return {

@@ -28,6 +28,8 @@ test('the production shape: 146 guests, 5 addresses, nobody marked', () => {
 test('a whitespace-only address reaches nobody', () => {
   assert.equal(hasEmailAddress(g({ email: '   ' })), false);
   assert.equal(isReachable(g({ email: '  ', mobile: '\t' })), false);
+  // Email only (no SMS): a mobile alone reaches nobody.
+  assert.equal(isReachable(g({ mobile: '09171234567' })), false);
   assert.equal(invitationReach([g({ email: ' ' })]).unreachable, 1);
 });
 
@@ -47,9 +49,10 @@ test('marking a guest does not make them reachable', () => {
 test('the sentence appears only when it has something to say', () => {
   assert.equal(unreachableSentence(invitationReach([g({ email: 'a@b.test' })])), null);
   const all = unreachableSentence(invitationReach([g({}), g({})]));
-  assert.match(String(all), /None of your 2 guests/, 'all-unreachable gets its own wording');
+  assert.equal(all, 'No guest emails yet.', 'all-unreachable gets its own one line');
   const some = unreachableSentence(invitationReach([g({ email: 'a@b.test' }), g({})]));
-  assert.match(String(some), /1 of 2/, 'the partial case names both numbers');
+  assert.equal(some, '1 of 2 have no email.', 'the partial case names both numbers');
+  assert.doesNotMatch(String(all) + String(some), /mobile/i, 'email only: the sentence never offers a mobile number');
 });
 
 test('an empty list is answerable, not a crash', () => {

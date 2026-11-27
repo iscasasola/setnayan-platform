@@ -165,7 +165,7 @@ test('every map arrangement: a +1 is on their guest’s branch, right after them
 
 test('the drawn row names its guest and wears their side', async () => {
   const words = plusOneWordsFrom(ROSTER);
-  assert.equal(words.get('juanita-tba')!.name, 'Juanita Sacdalan’s +1 · TBA');
+  assert.equal(words.get('juanita-tba')!.name, 'Juanita Sacdalan’s +1');
   assert.equal(words.get('juanita-pedro')!.of, '+1 of Juanita Sacdalan');
   assert.equal(words.get('juanita-pedro')!.name, null);
   assert.equal(words.has('juanita'), false);
@@ -283,7 +283,7 @@ test('9 · the card on a +1 names the guest who brings them, in its title and it
   const host = { guest_id: 'rosa', first_name: 'Rosa', last_name: 'Santos', display_name: null, side: 'bride' as const };
   const tba = plusOneOfWords({ guest_id: 's1', first_name: 'TBA' }, host, 0);
   const seatRow = guestRow({ guest_id: 's1', first_name: 'TBA', last_name: '+1', display_name: '+1 · TBA', side: 'groom', plus_one_of_guest_id: 'rosa' } as Partial<GuestRow>);
-  assert.equal(guestCardTitle(seatRow, tba), 'Rosa Santos’s +1 · TBA');
+  assert.equal(guestCardTitle(seatRow, tba), 'Rosa Santos’s +1');
   assert.equal(guestCardEyebrow(seatRow, { hasSides: true, roleNames: {}, plusOneOf: tba }), "+1 of Rosa Santos · Bride's side");
   const named = plusOneOfWords({ guest_id: 's2', first_name: 'Paulo' }, host, 1);
   assert.equal(guestCardTitle(guestRow({ first_name: 'Paulo', last_name: 'Reyes' }), named), 'Paulo Reyes');

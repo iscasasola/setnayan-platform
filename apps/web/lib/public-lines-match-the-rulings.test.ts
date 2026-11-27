@@ -17,7 +17,7 @@
  *       NEXT_PUBLIC_APPLE_IAP_ENABLED); /llms.txt adds the Apple sentence when the switch is on.
  *   f · THE JOURNAL MOVED INTO ARTICLES (DECISION_LOG 2026-11-17): a reader never sees "Setnayan Journal".
  *
- * KEPT on purpose (owner-ruled, not touched): "No. 1 Supplier of the Year"; "Always free" for FaceBlock; "kept for
+ * KEPT on purpose (owner-ruled, not touched): "No. 1 Supplier of the Year"; "kept for
  * life" for Memories; the Patiktok / Music Maker stubs; /blog → /articles; sample peso figures in demo cards.
  *
  * 🛡 SABOTAGE (seen RED, then restored — 2026-11-24): "all 192 categories" typed back into front-door-results (red: c)

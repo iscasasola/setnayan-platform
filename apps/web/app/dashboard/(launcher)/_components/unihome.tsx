@@ -34,8 +34,6 @@ import {
   type UnihomePeople,
   type UnihomeShop,
 } from '@/lib/unihome';
-import { ExamplePreview } from '@/app/_components/states/empty-state';
-import { SAMPLE_MEMORY_SHELF, SAMPLE_PEOPLE } from '@/lib/empty-look-samples';
 import { EventScene } from './event-scene';
 import { EventCardMenu } from './event-card-menu';
 import { UnihomeJump } from './unihome-jump';
@@ -75,8 +73,6 @@ export type UnihomeViewProps = {
   discover: UnihomeDiscover;
   /** "Incoming requests" — the board's own block, drawn at the top of Events only while one waits. */
   incoming?: ReactNode;
-  /** Draw the greyed Example under an empty Events part — only when every membership read ANSWERED. */
-  eventsExample?: ReactNode;
 };
 
 /* ── small shared pieces ─────────────────────────────────────────────────────────────────────────────────────── */
@@ -234,7 +230,7 @@ function NewEventTile() {
   );
 }
 
-function EventsPart({ events, incoming, example }: { events: UnihomeEvents; incoming?: ReactNode; example?: ReactNode }) {
+function EventsPart({ events, incoming }: { events: UnihomeEvents; incoming?: ReactNode }) {
   const { cards, invited, counts, worth, more } = events;
   const nothing = cards.length === 0 && invited.length === 0;
   const tally = counts
@@ -257,8 +253,6 @@ function EventsPart({ events, incoming, example }: { events: UnihomeEvents; inco
           ))}
         </div>
       ) : null}
-      {nothing && example ? example : null}
-      {nothing && example ? <p className={u.line}>Guests, suppliers, the day itself. Everything you plan gathers here, soonest first.</p> : null}
       <NewEventTile />
       {nothing && counts && counts.celebrated === 0 && worth === null ? null : (
         <div>
@@ -294,7 +288,7 @@ function CreateShopTile() {
       </span>
       <span className={u.addT}>
         <b>Create your own shop</b>
-        <span className={u.hrS}>Free to start. Run the business you already have.</span>
+        <span className={u.hrS}>Run the business you already have.</span>
       </span>
       <ChevronRight className={u.chev} strokeWidth={2} aria-hidden />
     </Link>
@@ -415,19 +409,6 @@ function PeoplePart({ people }: { people: UnihomePeople }) {
         </div>
       ) : (
         <>
-          {/* 👻 The Example only when the roster was READ and is empty — a refused read (null) draws none. */}
-          {people.faces !== null && asking === null ? (
-            <ExamplePreview>
-              <div className={u.faces}>
-                {SAMPLE_PEOPLE.map((f) => (
-                  <span key={f.initials} className={u.fc}>
-                    <span className={u.av}>{f.initials}</span>
-                    <span>{f.name}</span>
-                  </span>
-                ))}
-              </div>
-            </ExamplePreview>
-          ) : null}
           <HairRow first={asking === null} href={PEOPLE_HOME} title="Find or invite your people" data="find-people" />
         </>
       )}
@@ -444,23 +425,7 @@ function MemoriesPart({ memories }: { memories: UnihomeMemories }) {
       {memories === null ? (
         <p className={u.line}>We couldn’t read your albums just now. Your photos are safe; try again in a moment.</p>
       ) : memories.length === 0 ? (
-        <>
-          <ExamplePreview>
-            <div className={u.shelf}>
-              {SAMPLE_MEMORY_SHELF.map((m) => (
-                <span key={m.title} className={u.st}>
-                  <span className={u.stImg}>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={m.photo} alt="" className={u.img} style={{ width: '100%', height: '100%' }} />
-                  </span>
-                  <span className={u.stT}>{m.title}</span>
-                  <span className={u.stS}>{m.sub}</span>
-                </span>
-              ))}
-            </div>
-          </ExamplePreview>
-          <p className={u.line}>Photos from your events are kept here, for life.</p>
-        </>
+        <p className={u.line}>No photos yet.</p>
       ) : (
         <div className={u.shelf}>
           {memories.map((m) => (
@@ -501,7 +466,7 @@ function DiscoverPart({ discover }: { discover: UnihomeDiscover }) {
           {upcoming.status === 'unavailable' ? (
             <p className={u.line}>We couldn’t check who you follow just now. This does not mean nothing is coming up.</p>
           ) : upcoming.items.length === 0 ? (
-            <HairRow first href={discoverFollowingHref(true)} title="Follow people to see their public events here" data="follow-people" />
+            <HairRow first href={discoverFollowingHref(true)} title="No events from people you follow" data="follow-people" />
           ) : (
             <div className={u.shelf}>
               {upcoming.items.map((c) => (
@@ -534,9 +499,15 @@ function DiscoverPart({ discover }: { discover: UnihomeDiscover }) {
           {suppliers.map((s) => (
             <Link key={s.key} href={s.href} className={u.st}>
               <span className={u.stImg}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={s.coverUrl} alt="" loading="lazy" className={u.img} style={{ width: '100%', height: '100%' }} />
-                {s.sample ? <span className={u.sample}>Sample photo</span> : null}
+                {/* R3 (owner 27 Nov): a shop with no photo of its own draws a plain shop mark — never a stock photo passed off as theirs. */}
+                {s.sample ? (
+                  <span className={u.noCover} aria-hidden>
+                    <Store strokeWidth={1.6} />
+                  </span>
+                ) : (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img src={s.coverUrl} alt="" loading="lazy" className={u.img} style={{ width: '100%', height: '100%' }} />
+                )}
               </span>
               <span className={u.stT}>{s.name}</span>
               {s.sub ? <span className={u.stS}>{s.sub}</span> : null}
@@ -554,7 +525,7 @@ function DiscoverPart({ discover }: { discover: UnihomeDiscover }) {
 const JUMP_H = 76;
 
 export function Unihome(props: UnihomeViewProps) {
-  const { me, handle, host, switcher, events, shop, people, memories, discover, incoming, eventsExample } = props;
+  const { me, handle, host, switcher, events, shop, people, memories, discover, incoming } = props;
   const initials = profileInitials(me.name);
   const photoStyle = pictureFrameStyle(me.photoFrame ?? null);
   const shopNew = shop.kind === 'owner' ? shop.newCount : null;
@@ -618,7 +589,7 @@ export function Unihome(props: UnihomeViewProps) {
       </div>
 
       <div className={u.col}>
-        <EventsPart events={events} incoming={incoming} example={eventsExample} />
+        <EventsPart events={events} incoming={incoming} />
         <ShopPart shop={shop} />
         <PeoplePart people={people} />
         <MemoriesPart memories={memories} />

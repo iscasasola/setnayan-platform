@@ -90,7 +90,6 @@ export function SongRequestCard({ paused }: { paused: boolean }) {
               value={title}
               maxLength={SONG_TITLE_MAX}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Ikaw"
               className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
             />
           </div>
@@ -104,7 +103,6 @@ export function SongRequestCard({ paused }: { paused: boolean }) {
               value={artist}
               maxLength={SONG_ARTIST_MAX}
               onChange={(e) => setArtist(e.target.value)}
-              placeholder="e.g. Yeng Constantino"
               className="mt-1 w-full rounded-lg border border-ink/15 bg-white px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
             />
           </div>

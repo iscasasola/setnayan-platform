@@ -208,7 +208,6 @@ function Scheduler({
             value={customName}
             onChange={(e) => setCustomName(e.target.value)}
             maxLength={120}
-            placeholder="e.g. Contract signing"
             className="w-full rounded-lg border border-ink/15 bg-cream/50 px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none"
           />
         </div>

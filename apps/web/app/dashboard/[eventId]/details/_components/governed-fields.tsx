@@ -684,7 +684,6 @@ export function GovernedFields({
           max={100000}
           value={proposed}
           onChange={(e) => setProposed(e.target.value)}
-          placeholder="e.g. 150"
           className={SELECT_CLASS}
         />
       </EditableRow>

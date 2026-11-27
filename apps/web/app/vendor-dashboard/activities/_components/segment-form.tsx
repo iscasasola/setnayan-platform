@@ -27,7 +27,6 @@ export function SegmentForm({ activity, submit }: { activity?: VendorActivity; s
       <TypedRow
         name="Segment name"
         value={label}
-        empty="e.g. Principal sponsors roll call"
         required
         maxLength={80}
         fieldName="label"

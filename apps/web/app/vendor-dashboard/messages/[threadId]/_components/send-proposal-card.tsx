@@ -220,7 +220,6 @@ export function SendProposalCard({
                 min="0"
                 step="1"
                 inputMode="numeric"
-                placeholder="e.g. 45000"
                 className={field}
                 value={totalPhp}
                 onChange={(e) => setTotalPhp(e.target.value)}

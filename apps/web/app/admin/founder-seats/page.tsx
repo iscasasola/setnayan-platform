@@ -108,7 +108,7 @@ export default async function AdminFounderSeatsPage({ searchParams }: Props) {
         <form action={grantFounderSeat} className={`${ADMIN_FRAME} px-4 py-2`}>
           <FormRows width="wide">
             <PostedFieldRow name="Account email" fieldName="email" empty="name@example.com" />
-            <PostedFieldRow name="Label (optional)" fieldName="label" empty="e.g. Cale" />
+            <PostedFieldRow name="Label (optional)" fieldName="label" />
           </FormRows>
           <div className="flex justify-end pb-2 pt-1">
             <SubmitButton pendingLabel="Granting…" className={actionButtonClass('brand', { main: true })}>

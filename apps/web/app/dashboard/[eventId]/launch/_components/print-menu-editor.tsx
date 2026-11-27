@@ -129,7 +129,7 @@ export function PrintMenuEditor({
                       maxLength={MENU_TITLE_MAX}
                       aria-label={`Moment ${i + 1}`}
                       onChange={(e) => setMoment(i, { ...m, title: e.target.value })}
-                      placeholder="Moment — e.g. Cocktail hour"
+                      placeholder="Moment"
                     />
                   }
                   actions={[
@@ -151,7 +151,7 @@ export function PrintMenuEditor({
                             maxLength={MENU_DISH_MAX}
                             aria-label={`Dish ${j + 1} of ${m.title || `moment ${i + 1}`}`}
                             onChange={(e) => setMoment(i, { ...m, dishes: m.dishes.map((x, k) => (k === j ? e.target.value : x)) })}
-                            placeholder="A dish — e.g. Lechon with liver sauce"
+                            placeholder="A dish"
                           />
                         }
                         actions={[

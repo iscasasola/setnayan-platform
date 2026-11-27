@@ -438,7 +438,6 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
                 <PostedTypedRow
                   name="Reason (logged, min. 10 characters)"
                   fieldName="reason"
-                  placeholder="e.g. Founding cohort — verified before Oct 15"
                   data="tier-reason"
                 />
               </FormRows>
@@ -1083,7 +1082,6 @@ export default async function AdminGiftsPage({ searchParams }: Props) {
                   name="SKUs"
                   fieldName="scoped_skus"
                   about={{ words: '(only used when scope is specific services)' }}
-                  placeholder="e.g. PAPIC_ONE_50, SEATING_3D"
                   data="scoped_skus"
                 />
                 <FormRow name="Expires (optional, blank = lifetime)">

@@ -272,7 +272,6 @@ export default function GiftRecordSheet({
                   onChange={(e) => setMessage(e.target.value)}
                   maxLength={GIFT_MESSAGE_MAX}
                   rows={3}
-                  placeholder="e.g. For your merienda machine!"
                   className={FIELD}
                 />
               </label>

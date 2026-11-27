@@ -48,6 +48,7 @@ test('the add sheet says what the name box understands — one example, one Tips
   // The words themselves are run through the real parser in lib/quick-add-tips.test.ts.
   assert.match(PAGE, /tips=\{quickAddTips\(\{ hasSides, offeredRoles: resolveRoleSet\(guestRoleSetKey\)\.offeredRoles\b/, 'the add sheet is not told what this event can use');
   const sheet = read('_components', 'add-guest-sheet.tsx');
-  assert.match(sheet, /<p className="text-xs text-ink\/55">\{tips\.example\}<\/p>/, 'the one example line is gone');
+  // R3 (owner 27 Nov 2026): the sheet shows no "e.g." example line; the Tips fold stays.
+  assert.doesNotMatch(sheet, /tips\.example\b/, 'the "e.g." example line is back under the name box');
   assert.match(sheet, /<details\b[\s\S]{0,400}Tips[\s\S]{0,300}\{tips\.tips\.map/, 'the tips are not one fold');
 });

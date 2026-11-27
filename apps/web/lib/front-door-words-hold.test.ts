@@ -5,7 +5,8 @@
  * A1-048 / A1-103 / SW-PROMISE: no price promises ("forever", "for good", "habambuhay", "always" free).
  * A1-027 / A1-108 / A1-152 / SW-WORDS: Logo Maker, never "Monogram maker"; E-Gifts, never "Pabuya".
  *
- * Known, owner to rule (NOT held here): /for-suppliers' approved drawing says "Free to start. Free to stay." and
+ * Owner ruled 27 Nov 2026 ("yes to all"): "Free to start" and "Free to stay" leave every marketing line
+ * (held by lib/no-free-to-start-in-marketing.test.ts). Still known, owner to rule (NOT held here): /for-suppliers' drawing said
  * "Free stays free."; /features' FaceBlock row says "Always free." (the corpus brief says it too); Home's
  * "Suppliers you can trust." is named by HOUSE_DESIGN_STANDARD H4 (and pinned by the-front-door-tells-the-truth).
  */

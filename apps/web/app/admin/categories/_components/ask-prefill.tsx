@@ -306,7 +306,6 @@ function NewCategoryForm({
         <TypedRow
           name="Name it"
           value={name}
-          placeholder="e.g. Ceremony essentials"
           empty="Add a name"
           maxLength={80}
           required

@@ -408,7 +408,6 @@ function Designer({ data, threadId, start, onClose, onSent }: { data: CakeOpenRe
                       <input // field-ok: the cake's piped message — a short line beside its letter count, as drawn
                         value={config.message}
                         maxLength={o.messageMax}
-                        placeholder="e.g. Ana & Migs · 12.19"
                         aria-label="Message on the cake"
                         onChange={(e) => patch({ message: e.target.value.slice(0, o.messageMax) })}
                       />

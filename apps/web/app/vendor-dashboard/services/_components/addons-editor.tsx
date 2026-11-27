@@ -123,7 +123,6 @@ export function AddonsEditor({
                 name="addon_label"
                 defaultValue={r.label}
                 maxLength={80}
-                placeholder="e.g. Drone coverage"
                 className="input-field flex-[2]"
               />
               <input

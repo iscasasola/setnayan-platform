@@ -1868,7 +1868,6 @@ function RowSheet({
             onChange={(e) => setText(e.target.value.slice(0, 120))}
             onBlur={put}
             maxLength={120}
-            placeholder="e.g. ivory, not white"
             aria-label={note.label}
             className="h-11 w-full rounded-xl border border-ink/15 bg-raised px-3 text-[16px] text-ink" // no-card-ok: a text field, not a container
           />
@@ -1897,7 +1896,6 @@ function NoteSheet({ label, start, onClose, onSave }: { label: string; start: st
           value={text}
           onChange={(e) => setText(e.target.value.slice(0, 120))}
           maxLength={120}
-          placeholder="e.g. ivory, not white"
           aria-label={label}
           className="h-11 w-full rounded-xl border border-ink/15 bg-raised px-3 text-[14px] text-ink" // no-card-ok: a text field, not a container
         />

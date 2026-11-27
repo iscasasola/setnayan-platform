@@ -837,7 +837,6 @@ function DownpaymentModal({
             required
             inputMode="decimal"
             defaultValue={minimumAmountPhp ?? undefined}
-            placeholder="e.g. 10000"
             aria-describedby={minimumAmountPhp ? 'downpayment_php_min' : undefined}
             className="w-full rounded-lg border border-ink/15 bg-cream px-3 py-2 text-sm text-ink focus:border-sn-accent focus:outline-none focus:ring-1 focus:ring-sn-accent"
           />

@@ -653,7 +653,7 @@ export function StdBuilderClient({
                   type="text"
                   value={ceremonyName}
                   onChange={(e) => { setCeremonyName(e.target.value); if (result !== 'idle') setResult('idle'); }}
-                  placeholder={initialContent.ceremonyVenue ?? 'e.g. San Agustin Church'}
+                  placeholder={initialContent.ceremonyVenue ?? undefined}
                   className={`mt-1.5 ${inputCls}`}
                 />
                 {!ceremonyName && initialContent.ceremonyVenue ? (
@@ -672,7 +672,7 @@ export function StdBuilderClient({
                   type="text"
                   value={venueName}
                   onChange={(e) => { setVenueName(e.target.value); if (result !== 'idle') setResult('idle'); }}
-                  placeholder={initialContent.receptionVenue ?? 'e.g. The Grand Ballroom'}
+                  placeholder={initialContent.receptionVenue ?? undefined}
                   className={`mt-1.5 ${inputCls}`}
                 />
                 {!venueName && initialContent.receptionVenue ? (
@@ -691,7 +691,7 @@ export function StdBuilderClient({
                   type="text"
                   value={venueCity}
                   onChange={(e) => { setVenueCity(e.target.value); if (result !== 'idle') setResult('idle'); }}
-                  placeholder={initialContent.receptionCity ?? 'e.g. Makati, Metro Manila'}
+                  placeholder={initialContent.receptionCity ?? undefined}
                   className={`mt-1.5 ${inputCls}`}
                 />
                 {!venueCity && initialContent.receptionCity ? (

@@ -318,7 +318,7 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
           </summary>
           {/* Keyed on the template count: a saved template joins the list above in place and this form starts empty. */}
           <StayForm key={`template-${templates.length}`} door="svProposals.saveTemplate" action={saveTemplate} className="mt-3 grid gap-2">
-            <input type="text" name="template_name" required maxLength={120} placeholder="Template name, e.g. Full wedding catering" className={shopInputClass} />
+            <input type="text" name="template_name" required maxLength={120} placeholder="Template name" className={shopInputClass} />
             <textarea
               name="body"
               rows={6}

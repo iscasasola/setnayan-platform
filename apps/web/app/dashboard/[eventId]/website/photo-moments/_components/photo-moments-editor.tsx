@@ -330,7 +330,6 @@ function MomentRow({
               )
             }
             maxLength={PHOTO_MOMENT_LIMITS.MAX_TIME_LABEL_LEN}
-            placeholder="e.g. 3:00 PM · Ceremony"
             className="input-field"
           />
         </label>
@@ -352,7 +351,6 @@ function MomentRow({
               onChange('title', e.target.value.slice(0, PHOTO_MOMENT_LIMITS.MAX_TITLE_LEN))
             }
             maxLength={PHOTO_MOMENT_LIMITS.MAX_TITLE_LEN}
-            placeholder="e.g. The Kiss"
             className="input-field"
           />
         </label>
@@ -364,7 +362,6 @@ function MomentRow({
               onChange('note', e.target.value.slice(0, PHOTO_MOMENT_LIMITS.MAX_NOTE_LEN))
             }
             maxLength={PHOTO_MOMENT_LIMITS.MAX_NOTE_LEN}
-            placeholder="e.g. After the vows · cheer when ready"
             className="input-field"
           />
         </label>

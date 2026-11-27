@@ -146,13 +146,6 @@ export function AddPreparationItem({ eventId, door = 'button', hidden = false }:
               type="text"
               required
               maxLength={200}
-              placeholder={
-                kind === 'meeting'
-                  ? 'e.g. Final venue walkthrough'
-                  : kind === 'payment'
-                    ? 'e.g. Caterer balance'
-                    : 'e.g. Final dress fitting'
-              }
               disabled={isPending}
             />
           </SheetField>
@@ -165,7 +158,6 @@ export function AddPreparationItem({ eventId, door = 'button', hidden = false }:
                 min="0"
                 step="0.01"
                 required
-                placeholder="e.g. 25000"
                 disabled={isPending}
               />
             </SheetField>

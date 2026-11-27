@@ -493,7 +493,7 @@ export function StudioMenuEditor({
                     value={m.title}
                     maxLength={MENU_TITLE_MAX}
                     label={`Moment ${i + 1}`}
-                    placeholder="A moment — e.g. Cocktail hour"
+                    placeholder="A moment"
                     bold
                     onChange={(v) => setMoment(i, { ...m, title: v })}
                     onBlur={() => void save()}
@@ -516,7 +516,7 @@ export function StudioMenuEditor({
                         value={d}
                         maxLength={MENU_DISH_MAX}
                         label={`Dish ${j + 1} of ${m.title || `moment ${i + 1}`}`}
-                        placeholder="A dish — e.g. Lechon with liver sauce"
+                        placeholder="A dish"
                         onChange={(v) => setMoment(i, { ...m, dishes: m.dishes.map((x, k) => (k === j ? v : x)) })}
                         onBlur={() => void save()}
                         onRemove={() => setMoment(i, { ...m, dishes: m.dishes.filter((_, k) => k !== j) })}

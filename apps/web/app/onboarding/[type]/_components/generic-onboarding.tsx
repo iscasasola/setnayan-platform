@@ -1400,13 +1400,6 @@ export function GenericOnboarding(props: Props) {
             onChange={(e) => setDisplayName(e.target.value)}
             // 🕊 "Wake of the Year" was the solemn type's placeholder (audit
             // 2026-09-30). A wake names a person, plainly; every other type keeps its line.
-            placeholder={
-              nameExample
-                ? `e.g. ${nameExample}`
-                : register === 'solemn'
-                  ? `e.g. ${label} for Lola Rosa`
-                  : `e.g. ${label} of the Year`
-            }
             className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
           />
         </div>
@@ -1489,7 +1482,6 @@ export function GenericOnboarding(props: Props) {
                   setHonoreeDependentId(null);
                   if (blockedBy) setBlockedBy(null);
                 }}
-                placeholder={businessHonoree ? 'e.g. Aling Nena’s Store' : 'e.g. Nina'}
                 className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
               />
             </>
@@ -1710,7 +1702,6 @@ export function GenericOnboarding(props: Props) {
             inputMode="numeric"
             value={pax}
             onChange={(e) => setPax(e.target.value)}
-            placeholder="e.g. 120"
             className="mt-6 w-full rounded-[var(--m-r-md)] border border-ink/15 bg-paper px-4 py-3 text-lg text-ink outline-none focus:border-mulberry"
           />
         </div>

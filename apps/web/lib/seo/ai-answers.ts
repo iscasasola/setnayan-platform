@@ -236,7 +236,7 @@ export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
       question: 'Does Setnayan work for coordinators?',
       // The source adds "They're in every supplier chat"; not measured on this base, so not said.
       answer:
-        "Yes, free to start. A coordinator runs every client's event from one login, with the access each couple grants, area by area, and runs the day from their phone. Coordinators use the same supplier plans and the same booking fee as any supplier.",
+        "Yes. A coordinator runs every client's event from one login, with the access each couple grants, area by area, and runs the day from their phone. Coordinators use the same supplier plans and the same booking fee as any supplier.",
       corrects: 'never mentioned',
       route: '/for-coordinators',
       evidence: 'app/(shell)/for-coordinators/_facts.ts ("Run the day") · lib/coordinator-grant.ts#autoInviteCoordinator · COORDINATOR_AREAS',

@@ -97,7 +97,6 @@ export function RsvpNameCorrection({ theOrganizer }: { /** "the couple" / "the f
           type="text"
           maxLength={NAME_CORRECTION_MAX}
           autoComplete="off"
-          placeholder="e.g. Maria Teresita Aquino-Reyes"
           className="input-field mt-1.5"
         />
         <button type="button" className="button-primary mt-5 min-h-[48px] w-full" onClick={commit}>

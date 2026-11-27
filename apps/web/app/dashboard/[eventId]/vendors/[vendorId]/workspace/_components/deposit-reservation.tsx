@@ -244,7 +244,6 @@ export function DepositReservation({
               required
               inputMode="decimal"
               defaultValue={minimumPhp ?? undefined}
-              placeholder={minimumPhp ? undefined : 'e.g. 10000'}
               aria-describedby={minimumPhp ? 'deposit_php_min' : undefined}
               className="sn-input min-h-12 w-full"
             />

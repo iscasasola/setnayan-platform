@@ -92,7 +92,6 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings, apple =
       <Field
         name="pet_names"
         label="What do you call each other?"
-        placeholder="e.g. Bibo &amp; Honey"
         defaultValue={initial?.pet_names}
         error={fieldErrors.pet_names}
       />
@@ -100,14 +99,12 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings, apple =
         <Field
           name="groom_favorite_singer"
           label="Favourite singer (partner 1)"
-          placeholder="e.g. Bruno Mars"
           defaultValue={initial?.groom_favorite_singer}
           error={fieldErrors.groom_favorite_singer}
         />
         <Field
           name="bride_favorite_singer"
           label="Favourite singer (partner 2)"
-          placeholder="e.g. Moira"
           defaultValue={initial?.bride_favorite_singer}
           error={fieldErrors.bride_favorite_singer}
         />
@@ -115,7 +112,6 @@ export function PakantaMusicForm({ eventId, initial, pricePhp, settings, apple =
       <Field
         name="music_type"
         label="What kind of music?"
-        placeholder="e.g. acoustic ballad, OPM, kundiman, upbeat pop"
         defaultValue={initial?.music_type}
         error={fieldErrors.music_type}
       />

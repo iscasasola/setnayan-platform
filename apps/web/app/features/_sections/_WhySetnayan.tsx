@@ -46,7 +46,7 @@ export const WHY_FAQ: Record<MarketingLocale, { q: string; a: string }[]> = {
   en: [
     {
       q: 'What does Setnayan do?',
-      a: 'Three jobs in one place: planning, your guests’ photos, and finding suppliers. Planning is free to start; each guest gets their own Memories; and Setnayan AI shortlists suppliers that fit you.',
+      a: 'Three jobs in one place: planning, your guests’ photos, and finding suppliers. Planning is free; each guest gets their own Memories; and Setnayan AI shortlists suppliers that fit you.',
     },
     {
       q: 'Do I need a separate app for guest photos?',
@@ -54,7 +54,7 @@ export const WHY_FAQ: Record<MarketingLocale, { q: string; a: string }[]> = {
     },
     {
       q: 'Is it really free?',
-      a: 'Yes — the planning is free to start: guest list, RSVP, seating, budget, and an Event Hub through all five stages. You only pay for more (Event Plus, Event Pro, or Papic credits) if and when you want it.',
+      a: 'Yes — planning is free: guest list, RSVP, seating, budget, and an Event Hub through all five stages. You only pay for more (Event Plus, Event Pro, or Papic credits) if and when you want it.',
     },
     {
       q: 'Does it work for Filipino events specifically?',
@@ -115,7 +115,7 @@ const COPY: Record<
     eyebrow: 'Why Setnayan · three apps’ worth, in one',
     heading: 'Three apps’ worth, in one.',
     intro:
-      'Planning, your guests’ photos and your suppliers, in one place that talks to itself — free to start.',
+      'Planning, your guests’ photos and your suppliers, in one place that talks to itself.',
     juggleHeading: 'Three jobs, one place',
     juggle: [
       {
@@ -135,7 +135,7 @@ const COPY: Record<
     brings: [
       {
         title: 'All your planning, free',
-        body: 'Guest list, RSVP, seating, budget, and an Event Hub through all five stages — free to start.',
+        body: 'Guest list, RSVP, seating, budget, and an Event Hub through all five stages.',
       },
       {
         title: 'Live guest Memories',

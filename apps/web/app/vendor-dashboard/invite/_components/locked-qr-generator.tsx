@@ -526,7 +526,6 @@ function LockedQrForm({
               fieldName="client_name"
               autoCapitalize="words"
               empty="Who it’s for"
-              placeholder="e.g. Ana & Ben"
               note="Your Booked QRs list names the code by this."
               onKeep={(t) => setClientName(t)}
             />
@@ -605,7 +604,6 @@ function LockedQrForm({
             type="text"
             inputMode="decimal"
             className="input-field w-full"
-            placeholder="e.g. 50,000"
             value={withThousands(total)}
             onChange={(e) => setTotal(cleanNumeric(e.target.value))}
             readOnly={lines.length > 0}
@@ -626,7 +624,6 @@ function LockedQrForm({
             type="text"
             inputMode="decimal"
             className={`input-field w-full ${overpaid ? 'border-terracotta' : ''}`}
-            placeholder="e.g. 15,000"
             value={withThousands(initialPaid)}
             onChange={(e) => setInitialPaid(cleanNumeric(e.target.value))}
           />
@@ -784,7 +781,6 @@ function LockedQrForm({
           rows={3}
           maxLength={2000}
           className="input-field w-full"
-          placeholder="e.g. 8 hours coverage · 2 photographers · 300+ edited photos · online album · 1 layflat album"
           value={serviceDescription}
           onChange={(e) => setServiceDescription(e.target.value)}
         />

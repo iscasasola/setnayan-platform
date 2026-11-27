@@ -217,7 +217,6 @@ export function OnboardingEditor({
                 className={`mt-1 ${FIELD}`}
                 value={intro.subcopy}
                 onChange={(e) => setIntro({ ...intro, subcopy: e.target.value })}
-                placeholder="Free to start — no account needed yet."
               />
             </label>
           </div>

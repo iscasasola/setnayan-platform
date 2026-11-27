@@ -235,7 +235,6 @@ export default async function AdminVendorPlanPage({
               type="text"
               id="reason"
               name="reason"
-              placeholder="e.g. Confirmed GCash payment off-platform, receipt on file"
               className="w-full max-w-md rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
             />
           </div>
@@ -343,7 +342,6 @@ export default async function AdminVendorPlanPage({
               type="text"
               id="sku_reason"
               name="reason"
-              placeholder="e.g. Founding cohort perk — verified before Oct 15"
               className="w-full max-w-md rounded-md border border-ink/15 bg-paper px-3 py-2 text-sm"
             />
           </div>

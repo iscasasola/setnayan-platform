@@ -342,7 +342,6 @@ export function DetailsForm({
               setBudget(e.target.value.replace(/[^0-9, ]/g, ''));
               setSaved(false);
             }}
-            placeholder="e.g. 800,000"
             className={selectClass}
           />
           <p className="text-[12px] text-ink/70">A working figure — refine it anytime. Leave blank if undecided.</p>

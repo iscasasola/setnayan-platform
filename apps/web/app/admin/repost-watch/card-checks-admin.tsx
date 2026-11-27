@@ -185,7 +185,7 @@ export async function CardChecksAdmin() {
 
       <form action={saveCardClaimWords} className="mt-3 space-y-1">
         <input type="hidden" name="op" value="add" />
-        <PostedText name="Word or phrase" fieldName="phrase" required maxLength={60} placeholder="e.g. cheapest" data="claim-word-phrase" />
+        <PostedText name="Word or phrase" fieldName="phrase" required maxLength={60} data="claim-word-phrase" />
         <PostedText name="Why (the supplier reads it)" fieldName="note" maxLength={200} placeholder="A comparison with other shops we can’t check." data="claim-word-note" />
         <SubmitButton className={BTN} pendingLabel="Adding…">
           <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Add word
@@ -230,7 +230,7 @@ export async function CardChecksAdmin() {
             <PostedPick label="Shop" fieldName="vendor_profile_id" empty="Pick a shop" options={shops.map((x) => ({ key: x.id, label: x.name }))} data="claim-allow-shop" />
             <PostedPick label="Word" fieldName="phrase" empty="Pick a word" options={words.map((w) => ({ key: w.phrase, label: w.phrase }))} data="claim-allow-word" />
           </div>
-          <PostedText name="Why (for admin)" fieldName="note" maxLength={200} placeholder="e.g. appointed caterer of the venue" data="claim-allow-note" />
+          <PostedText name="Why (for admin)" fieldName="note" maxLength={200} data="claim-allow-note" />
           <SubmitButton className={BTN} pendingLabel="Allowing…">
             <Plus aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Allow
           </SubmitButton>

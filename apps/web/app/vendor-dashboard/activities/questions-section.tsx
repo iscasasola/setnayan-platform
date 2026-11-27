@@ -192,7 +192,6 @@ export function QuestionsSectionBody({
             required
             maxLength={QUESTION_PROMPT_MAX}
             aria-label="Your question"
-            placeholder="e.g. Which song should play as you enter the reception?"
             className={FIELD}
           />
           <input

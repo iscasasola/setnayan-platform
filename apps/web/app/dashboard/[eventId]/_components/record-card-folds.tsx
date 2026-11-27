@@ -138,7 +138,6 @@ export function RecordCardFolds({
             fieldName="business_name"
             value={nameKept}
             empty="Their name"
-            placeholder="e.g. Tito Marcel"
             required
             maxLength={128}
             autoCapitalize="words"
@@ -153,7 +152,6 @@ export function RecordCardFolds({
             name="Contact person"
             fieldName="contact_person"
             value={edit.contactPerson}
-            placeholder="e.g. Marcel Santos"
             maxLength={128}
             autoCapitalize="words"
             about={{ words: 'Who to call · usually the same as Supplier name.' }}
@@ -192,7 +190,6 @@ export function RecordCardFolds({
               value={edit.inclusions}
               long
               maxLength={2000}
-              placeholder={'e.g.\nBallroom, 6am–12mn\nTables and chairs'}
               about={{ words: 'One per line — what the price covers.' }}
               attrs={{ 'data-manual-field': 'inclusions' }}
               onKeep={KEEP}

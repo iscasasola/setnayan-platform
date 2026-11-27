@@ -4762,7 +4762,7 @@ export function OnboardingShell({
           <div className="sheet-handle" />
           <div className="sheet-h">Add your own supplier</div>
           <div className="sheet-sub">We&apos;ll connect you to them on Setnayan.</div>
-          <label className="byo-l"><span className="byo-lk">Supplier name</span><input className="field" autoComplete="off" value={byoName} onChange={(e) => setByoName(e.target.value)} placeholder="e.g. Bloom & Co. Florals" /></label>
+          <label className="byo-l"><span className="byo-lk">Supplier name</span><input className="field" autoComplete="off" value={byoName} onChange={(e) => setByoName(e.target.value)} /></label>
           <label className="byo-l"><span className="byo-lk">Contact person</span><input className="field" autoComplete="off" value={byoPerson} onChange={(e) => setByoPerson(e.target.value)} placeholder="Who you talk to" /></label>
           <label className="byo-l"><span className="byo-lk">Email address</span><input className="field" type="email" autoComplete="off" value={byoEmail} onChange={(e) => setByoEmail(e.target.value)} placeholder="name@email.com" /></label>
           <ActionButton tone="brand" main icon={Send} label="Send invite & connect" className="w-full justify-center" onClick={sendByo} />

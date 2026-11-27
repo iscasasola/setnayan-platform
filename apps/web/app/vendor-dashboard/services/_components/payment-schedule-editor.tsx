@@ -388,7 +388,6 @@ export function PaymentScheduleEditor({
                       step={1}
                       value={r.value}
                       onChange={(e) => update(i, { value: e.target.value })}
-                      placeholder={r.amount_kind === 'percent' ? 'e.g. 50' : 'e.g. 10000'}
                       className="input-field font-bold tabular-nums"
                     />
                   </label>
@@ -419,7 +418,6 @@ export function PaymentScheduleEditor({
                       value={r.due_offset_days}
                       onChange={(e) => update(i, { due_offset_days: e.target.value })}
                       disabled={r.due_anchor === ''}
-                      placeholder={r.due_anchor === 'before_event' ? 'e.g. 30' : 'e.g. 7'}
                       className="input-field tabular-nums disabled:cursor-not-allowed disabled:opacity-50"
                     />
                   </label>
@@ -497,7 +495,6 @@ export function PaymentScheduleEditor({
                         step={1}
                         value={r.refund_window_days}
                         onChange={(e) => update(i, { refund_window_days: e.target.value })}
-                        placeholder="e.g. 7 — leave blank for none"
                         className="input-field tabular-nums"
                       />
                     </label>
@@ -512,7 +509,6 @@ export function PaymentScheduleEditor({
                         maxLength={2000}
                         value={r.cancellation_terms}
                         onChange={(e) => update(i, { cancellation_terms: e.target.value })}
-                        placeholder="e.g. The reservation first payment secures your date and is non-refundable. If you cancel within 7 days of booking, the first payment is returned in full."
                         className="input-field"
                       />
                     </label>

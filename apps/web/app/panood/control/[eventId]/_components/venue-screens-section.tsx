@@ -184,7 +184,7 @@ export function VenueScreensSection({
             type="text"
             name="name"
             maxLength={40}
-            placeholder="Name it — e.g. Stage left, Lobby"
+            placeholder="Name it"
             className="min-h-[44px] flex-1 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
           />
           <SubmitButton

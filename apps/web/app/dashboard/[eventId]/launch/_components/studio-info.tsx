@@ -235,7 +235,7 @@ const WORDS = {
     name: 'What to bring',
     about: 'Shown on your Event Hub in its own What to bring part, and in each guest’s welcome.',
     empty: 'Add what to bring',
-    placeholder: 'e.g. your invitation QR, a jacket for the garden',
+    placeholder: '',
     doors: 'typed',
     value: (text: string): string | null => text || null,
   },
@@ -301,7 +301,6 @@ export function StudioPhotosHeading({ eventId, value }: { eventId: string; value
         about={{ words: `A heading over your photos, in every style — e.g. "Glimpse of Us". Leave it empty and your photos keep their small "${PHOTOS_EYEBROW}" line alone.` }}
         value={text}
         empty="Add a heading"
-        placeholder="e.g. Glimpse of Us"
         maxLength={PHOTOS_HEADING_MAX}
         pillAttrs={{ 'data-same-field': 'photos_heading' }}
         onKeep={async (next) => {

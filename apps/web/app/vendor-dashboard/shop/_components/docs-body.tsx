@@ -408,7 +408,7 @@ function ClientReferencesInput({
                 type="text"
                 value={row.event}
                 onChange={(e) => update(idx, { event: e.target.value })}
-                placeholder="Event (e.g. Reyes–Cruz wedding)"
+                placeholder="Event"
                 className="input-field h-9 w-full text-sm"
               />
               <input

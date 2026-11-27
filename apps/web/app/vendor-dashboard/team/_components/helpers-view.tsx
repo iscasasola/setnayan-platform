@@ -318,7 +318,7 @@ export function HelpersView({
                         <span className="block text-[13px] text-ink/60">
                           What {m.display_name?.trim() || m.email || 'this team member'} does{' '}
                         </span>
-                        <input name="team_label" maxLength={64} defaultValue={m.team_label ?? ''} placeholder="e.g. Front desk" className="input-field min-h-11" />
+                        <input name="team_label" maxLength={64} defaultValue={m.team_label ?? ''} className="input-field min-h-11" />
                       </label>
                       <SupplierSubmit
                         tone="neutral"

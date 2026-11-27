@@ -202,8 +202,6 @@ export function WeddingCard({ card, state, patch, pickSelf, n, total, activeFait
             boxed
             name="Event name"
             value={name}
-            placeholder="e.g. Claire & Indalecio"
-            empty="e.g. Claire & Indalecio"
             required
             maxLength={WEDDING_EVENT_NAME_MAX}
             autoComplete="off"

@@ -385,7 +385,7 @@ function CustomRolesEditor() {
                   type="text"
                   value={role.label}
                   onChange={(e) => board.updateCustomRoleLabel(index, e.target.value.slice(0, MAX_CUSTOM_ROLE_LABEL_LENGTH))}
-                  placeholder="e.g. Ring bearer's dog"
+                  placeholder="Role name"
                   maxLength={MAX_CUSTOM_ROLE_LABEL_LENGTH}
                   className="min-w-0 flex-1 rounded-lg border border-ink/15 bg-raised px-3 py-1.5 text-sm font-medium text-ink placeholder:text-ink/35 focus:border-terracotta focus:outline-none"
                 />

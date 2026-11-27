@@ -23,8 +23,6 @@ import { ROLE_LABELS } from './guests';
 import type { RoleNames } from './role-names';
 
 export type QuickAddTips = {
-  /** One short line under "Type a name…" — the first of `examples`, with "e.g.". */
-  example: string;
   /** Lines a box cycles through as its hint, each one the parser reads exactly as written. No "e.g.". */
   examples: string[];
   /** The Tips ▾ fold, one line each. */
@@ -107,5 +105,5 @@ export function quickAddTips({
     ...(hasSides ? ['bride / groom / both sets the side'] : []),
     ...(roleWords.length ? [`${roleWords.join(' / ')} sets the role`] : []),
   ];
-  return { example: `e.g. ${first}`, examples, tips };
+  return { examples, tips };
 }

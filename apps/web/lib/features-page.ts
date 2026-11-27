@@ -256,7 +256,7 @@ export const PERSONAS: readonly Persona[] = [
     key: 'hosts',
     label: 'Hosts and couples',
     heroTitle: 'Every Filipino event, from the first idea to the memories.',
-    heroLine: 'Setnayan plans it, invites them, books your suppliers in writing, runs the day and keeps every photo. Free to start.',
+    heroLine: 'Setnayan plans it, invites them, books your suppliers in writing, runs the day and keeps every photo.',
     chapters: [
       { eye: 'Months before', title: 'It starts with who it is for, a date and a feeling.', line: 'Say who the event is for, pick a date your suppliers are free for, set what you can spend, choose the colours once. Everything after dresses to match.', moment: 'palette',
         groups: [['Start', ['a02', 'a03', 'a04', 'a15']], ['Plan', ['a14', 'a25', 'a50', 'a28', 'a71', 'a72']]] },

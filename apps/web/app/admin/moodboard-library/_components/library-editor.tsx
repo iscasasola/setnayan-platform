@@ -483,7 +483,7 @@ export function LibraryEditor({ initialAssets, partLabels = {}, tagsUnread = fal
               name="label"
               type="text"
               required
-              placeholder="Label (e.g. 'Manila ballroom · burgundy')"
+              placeholder="Label"
               className="w-full rounded-md border border-ink/15 bg-white px-3 py-2 text-sm focus:border-terracotta focus:outline-none"
             />
             <div className="grid grid-cols-2 gap-2">
@@ -498,7 +498,7 @@ export function LibraryEditor({ initialAssets, partLabels = {}, tagsUnread = fal
               <input
                 name="assetSubtype"
                 type="text"
-                placeholder="Subtype (e.g. 'reception')"
+                placeholder="Subtype"
                 className="rounded-md border border-ink/15 bg-white px-2 py-2 text-sm"
               />
             </div>

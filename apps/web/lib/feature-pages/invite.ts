@@ -28,7 +28,7 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
     line: { en: 'One link that changes with your event — from save-the-date to after.', tl: 'Isang link na sumasabay sa event mo — mula save-the-date hanggang pagkatapos.' },
     title: { en: 'Event Hub: One Link for Your Event', tl: 'Event Hub: Isang Link para sa Event Mo' },
     description: {
-      en: 'One address for your save-the-date, RSVP, invitation, the day itself and after. Guests reply in a tap. Free to start, with an optional Pro.',
+      en: 'One address for your save-the-date, RSVP, invitation, the day itself and after. Guests reply in a tap. Planning is free; Pro is optional.',
       tl: 'Isang address para sa save-the-date, RSVP, imbitasyon, mismong araw at pagkatapos. Isang tap ang sagot ng bisita. Libreng simulan, may optional na Pro.',
     },
     answer: {

@@ -196,7 +196,7 @@ function AddFieldForm({ service }: { service: ServiceRef }) {
         required
         minLength={2}
         maxLength={80}
-        placeholder="Add a field — e.g. Shooting style"
+        placeholder="Add a field"
         aria-label="New field name"
         className={INPUT_IN_PLACE}
       />

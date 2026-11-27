@@ -2370,7 +2370,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             <input
               type="text"
               name="film_label"
-              placeholder="What is it? e.g. Same-Day Edit"
+              placeholder="What is it?"
               className="min-h-[44px] rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none sm:w-56"
             />
             <input

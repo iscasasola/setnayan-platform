@@ -1200,7 +1200,7 @@ export function EditorialEditor({
                           // means the empty box and the live page disagree.
                           r.card.suggestedTitle
                             ? r.card.suggestedTitle
-                            : 'Name this moment (e.g. First Kiss)'
+                            : 'Name this moment'
                         }
                         aria-label="Moment name"
                       />
@@ -1419,7 +1419,7 @@ export function EditorialEditor({
                           className={`${inputCls}`}
                           value={w.author}
                           onChange={(e) => patchWish(i, { author: e.target.value })}
-                          placeholder="Who said it (e.g. Tita Bing)"
+                          placeholder="Who said it"
                           aria-label="Author"
                         />
                         <input

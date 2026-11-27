@@ -30,8 +30,8 @@ export const COUNT_MODE_WORDS: Record<CountMode, string> = {
 };
 export const COUNT_MODE_HINTS: Record<CountMode, string | undefined> = {
   all: undefined,
-  only: 'e.g. principal sponsors only',
-  except: 'e.g. no kids, no crew',
+  only: undefined,
+  except: undefined,
 };
 
 export type CountRule = { mode: CountMode; roles: GuestRole[]; groupIds: string[] };

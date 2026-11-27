@@ -3931,7 +3931,7 @@ function OverviewTab(props: {
                       type="text"
                       name="reason"
                       maxLength={200}
-                      placeholder="Reason (optional) — e.g. no payment received"
+                      placeholder="Reason (optional)"
                       className="w-full rounded-md border border-ink/15 bg-raised px-2.5 py-1.5 text-xs text-ink focus:border-danger-400 focus:outline-none focus:ring-1 focus:ring-danger-400 sm:w-64"
                     />
                     <SubmitButton
@@ -4378,7 +4378,7 @@ function ScheduleTab(props: {
               <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} sayNote className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="gallery_link" />
-                <input type="text" name="label" maxLength={200} placeholder="e.g. Full wedding album" className={shopInputClass} />
+                <input type="text" name="label" maxLength={200} className={shopInputClass} />
                 <input type="url" name="payload" required placeholder="https://…" className={shopInputClass} />
                 <p className="text-[11px] text-ink/45">Big albums stay on your link (Drive, Pixieset, etc.) — we don’t re-host them.</p>
                 <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
@@ -4394,7 +4394,7 @@ function ScheduleTab(props: {
               <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} sayNote className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="file" />
-                <input type="text" name="label" maxLength={200} placeholder="e.g. Edited preview" className={shopInputClass} />
+                <input type="text" name="label" maxLength={200} className={shopInputClass} />
                 <input type="file" name="file" accept="image/png,image/jpeg,image/webp,image/gif,image/heic" required className="text-xs" />
                 <p className="text-[11px] text-ink/45">A single image, max 6 MB. For full sets, share an album link instead.</p>
                 <SubmitButton pendingLabel="Uploading…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
@@ -4411,7 +4411,7 @@ function ScheduleTab(props: {
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="note" />
                 <input type="text" name="label" maxLength={200} placeholder="Subject (optional)" className={shopInputClass} />
-                <textarea name="payload" required maxLength={4000} rows={2} placeholder="e.g. Drive folder shared to your email — download within 30 days." className={shopInputClass} />
+                <textarea name="payload" required maxLength={4000} rows={2} className={shopInputClass} />
                 <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
                   Send note
                 </SubmitButton>
@@ -4425,7 +4425,7 @@ function ScheduleTab(props: {
               <StayForm door="supClients.vendorPostHandover" action={vendorPostHandover} sayNote className="mt-2 grid gap-2">
                 <input type="hidden" name="event_id" value={eventId} />
                 <input type="hidden" name="kind" value="signoff" />
-                <textarea name="payload" maxLength={4000} rows={2} placeholder="Closing note (optional) — e.g. Everything’s been delivered. Thank you!" className={shopInputClass} />
+                <textarea name="payload" maxLength={4000} rows={2} placeholder="Closing note (optional)" className={shopInputClass} />
                 <SubmitButton pendingLabel="Sending…" className="justify-self-start rounded-lg bg-ink px-3 py-1.5 text-xs font-medium text-cream">
                   Mark all delivered
                 </SubmitButton>
@@ -4523,7 +4523,6 @@ function ScheduleTab(props: {
                     name="title"
                     required
                     maxLength={120}
-                    placeholder="e.g. Extra hour of coverage"
                     className="mt-1 w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
                   />
                 </label>
@@ -4536,7 +4535,6 @@ function ScheduleTab(props: {
                     step="0.01"
                     required
                     inputMode="decimal"
-                    placeholder="e.g. 5000"
                     className="mt-1 w-full rounded-lg border border-ink/15 bg-raised px-3 py-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
                   />
                 </label>

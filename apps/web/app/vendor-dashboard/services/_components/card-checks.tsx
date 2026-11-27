@@ -282,7 +282,6 @@ function PhotoBlockedNote({ verdict, serviceId, position }: { verdict: CardPhoto
                   boxed
                   maxLength={REPORT_NOTE_MAX}
                   empty="Optional"
-                  placeholder="e.g. I shot this at our March wedding"
                   onKeep={(t) => setNote(t)}
                   data="card-photo-report-note"
                 />

@@ -427,7 +427,6 @@ export function FourQuestionFlow({
                     id={`meaningful-note-${idx}`}
                     type="text"
                     value={draft.note}
-                    placeholder="e.g., Tatay&apos;s birthday"
                     maxLength={80}
                     onChange={(e) => updateDraft(idx, { note: e.target.value })}
                     className="mt-1 w-full rounded-md border border-ink/20 bg-raised px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta/30"

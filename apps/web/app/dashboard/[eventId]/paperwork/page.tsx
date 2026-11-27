@@ -972,7 +972,6 @@ function NotesForm({
         id={`notes-${paperworkId}`}
         name="notes"
         defaultValue={currentNotes ?? ''}
-        placeholder="e.g., scheduled with Fr. Reyes for March 2 at 9 a.m."
         rows={2}
         maxLength={2000}
         className="block w-full rounded-md border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40"

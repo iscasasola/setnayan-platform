@@ -220,7 +220,7 @@ async function sweepCoupleCreations(admin: AdminClient, now: Date): Promise<void
       source_type: 'couple_creation',
       source_ref: consent.consent_id,
       title: `${SHARE_ARTIFACT_LABEL[consent.artifact_type] ?? consent.artifact_type} · ${
-        coupleName || 'Setnayan couple'
+        coupleName || 'A Setnayan event'
       }`,
       body: coupleCreationCaption({
         artifactType: consent.artifact_type,
@@ -296,7 +296,7 @@ async function sweepVendorFeatures(admin: AdminClient, now: Date): Promise<void>
       (!vendor.tier_expires_at || new Date(vendor.tier_expires_at).getTime() > now.getTime());
     const categoryLabel = vendor.services?.[0]
       ? displayServiceLabel(vendor.services[0])
-      : 'vendor';
+      : 'supplier';
     const region = vendor.hq_region ?? vendor.location_city ?? 'the Philippines';
 
     const { error } = await admin.from('social_posts').insert({

@@ -7,11 +7,10 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { chapterExcerpt } from '@/lib/creator-chapters';
 import { articleHref, journalArticleSlug, JOURNAL_SLUG_RENAMES } from '@/lib/journal-move';
 import { onlyPublicArticles } from '@/lib/public-articles';
-import { JOURNAL_SOCIAL_HOOKS } from '@/lib/social/journal-hooks';
 import { siteUrl } from '@/lib/social/urls';
 
 /**
- * apps/web/lib/social/articles-sweep.ts — sweep b2 of `lib/social/flush.ts`: Journal articles → Facebook teasers.
+ * apps/web/lib/social/articles-sweep.ts — sweep b2 of `lib/social/flush.ts`: Articles → Facebook teasers.
  *
  * 📰 BACK ON 2026-11-24. The sweep was switched off on 2026-11-16 with the blog (DECISION_LOG "THE BLOG AND REAL
  * STORIES ARE RETIRED"), because every teaser linked a /blog page that no longer served. On 2026-11-17 the Journal
@@ -68,23 +67,24 @@ export type ArticleTeaser = {
 };
 
 /**
- * The teaser for one article: "Articles · {title}", the curiosity hook (else the article's own excerpt) as the body,
- * and the article's /articles address as the link. `null` when there is nothing to say.
+ * The teaser for one article: "Articles · {title}", the opening lines of the LIVE article row (`chapterExcerpt` of
+ * its `creator_chapters.body`) as the body, and the article's /articles address as the link. `null` when there is
+ * nothing to say.
+ *
+ * 🔑 ONE SOURCE (content finalization S16, 2026-11-27): the teaser reads only the article row the reader will open.
+ * It used to prefer a hand-written hook from the code batch files (`HOOKS_*` in `lib/blog-batches`), but the live
+ * articles are database rows, so a fix made to a live article never reached its teaser, and the reverse. Fix the
+ * article and its teaser follows.
  */
-export function composeArticleTeaser(
-  article: { slug: string; title: string; body: string | null },
-  hooks: Readonly<Record<string, string>> = JOURNAL_SOCIAL_HOOKS,
-): ArticleTeaser | null {
-  const slugs = slugsOfArticle(article.slug);
-  const hook = slugs.map((s) => hooks[s]?.trim()).find((h): h is string => !!h);
-  const teaser = hook ?? chapterExcerpt(article.body);
+export function composeArticleTeaser(article: { slug: string; title: string; body: string | null }): ArticleTeaser | null {
+  const teaser = chapterExcerpt(article.body);
   if (!teaser || !article.title.trim()) return null;
   const slug = journalArticleSlug(article.slug) ?? article.slug;
   return {
     source_type: 'announcement',
     source_ref: journalTeaserRef(slug),
     title: `Articles · ${article.title.trim()}`,
-    body: `${teaser}\n\n#Setnayan #FilipinoWedding`,
+    body: `${teaser}\n\n#Setnayan #SetNaYan`,
     link_url: `${siteUrl().replace(/\/$/, '')}${articleHref(slug)}`,
   };
 }

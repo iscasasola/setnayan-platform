@@ -1,5 +1,5 @@
 /**
- * articles-sweep.test.ts — sweep b2 is back (2026-11-24): Journal articles → Facebook teasers, pointed at Articles.
+ * articles-sweep.test.ts — sweep b2 is back (2026-11-24): Articles → Facebook teasers, read from the live article row.
  *
  * Supersedes the 2026-11-16 pause (DECISION_LOG "THE BLOG AND REAL STORIES ARE RETIRED"), which only held while the
  * teasers had nowhere to link: on 2026-11-17 the Journal moved into Discover's Articles (DECISION_LOG "THE JOURNAL
@@ -63,21 +63,34 @@ test('1 · the teaser links the article at /articles/{slug} — never /blog', as
   assert.equal(out[0]!.title, 'Articles · Filipino wedding traditions, explained');
   assert.equal(out[0]!.source_type, 'announcement');
   assert.equal(out[0]!.source_ref, 'journal:filipino-wedding-traditions-explained');
-  assert.match(out[0]!.body, /meaning behind every Filipino wedding tradition/, 'the curiosity hook is the body');
-  assert.match(out[0]!.body, /#Setnayan #FilipinoWedding$/);
+  assert.equal(out[0]!.body, 'The cord, the veil, the coins.\n\n#Setnayan #SetNaYan', 'the live row is the body');
 });
 
-test('1b · with no hook the article excerpt is the teaser; a renamed post links its new slug', async () => {
+test('1b · the live article row is the teaser; a renamed post links its new slug', async () => {
   const { composeArticleTeaser } = await import('./articles-sweep');
-  const t = composeArticleTeaser(
-    { slug: 'holiday-season-vendor-booking-crunch', title: 'The holiday booking crunch', body: 'Book early.\n\nWhy.' },
-    {},
-  );
+  const t = composeArticleTeaser({
+    slug: 'holiday-season-vendor-booking-crunch',
+    title: 'The holiday booking crunch',
+    body: 'Book early.\n\nWhy.',
+  });
   assert.ok(t);
   assert.equal(t.link_url, 'https://www.setnayan.com/articles/holiday-season-supplier-booking-crunch');
   assert.equal(t.source_ref, 'journal:holiday-season-supplier-booking-crunch');
-  assert.equal(t.body, 'Book early.\n\n#Setnayan #FilipinoWedding');
-  assert.equal(composeArticleTeaser({ slug: 'x', title: 'Nothing to say', body: null }, {}), null);
+  assert.equal(t.body, 'Book early.\n\n#Setnayan #SetNaYan');
+  assert.equal(composeArticleTeaser({ slug: 'x', title: 'Nothing to say', body: null }), null);
+});
+
+test('1c · S16 · a fix to the live article reaches its teaser — no code hook overrides it', async () => {
+  const { composeArticleTeaser } = await import('./articles-sweep');
+  const before = composeArticleTeaser({ ...traditions, body: 'Old opening line.' });
+  const after = composeArticleTeaser({ ...traditions, body: 'Fixed opening line.' });
+  assert.equal(before?.body, 'Old opening line.\n\n#Setnayan #SetNaYan');
+  assert.equal(after?.body, 'Fixed opening line.\n\n#Setnayan #SetNaYan');
+  const fs = await import('node:fs');
+  const path = await import('node:path');
+  const src = fs.readFileSync(path.join(__dirname, 'articles-sweep.ts'), 'utf8');
+  assert.doesNotMatch(src, /from '@\/lib\/(blog-batches|social\/journal-hooks)/, 'the sweep must not read hooks from code');
+  assert.equal(fs.existsSync(path.join(__dirname, 'journal-hooks.ts')), false);
 });
 
 test('2 · an article already teased — under its new OR its old slug — is never reposted', async () => {

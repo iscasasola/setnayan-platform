@@ -135,7 +135,7 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
       if (read.status === 'unread') return fail('Couldn’t load your Attire Maker. Try again.');
       return { ok: true, op, options: read.status === 'ok' ? read.data : gownShopTemplate(), saved: read.status === 'ok', locked: !allowed.data };
     }
-    if (!allowed.data) return fail('The Attire Maker is locked. Open it in the Toolkit; your saved price list is kept.');
+    if (!allowed.data) return fail('The Attire Maker isn’t on for your shop yet. Open it in the Toolkit; your saved price list is kept.');
     if (op === 'save') {
       const checked = sanitizeGownShopOptions((input as { options: unknown }).options);
       if (!checked.ok) return fail(checked.problem);

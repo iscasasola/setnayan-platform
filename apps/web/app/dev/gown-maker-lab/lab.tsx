@@ -3,8 +3,13 @@
 /** The Gown Maker lab's body (see page.lab.tsx). Fixture numbers only: a SAMPLE body, never a person's. */
 import { useState } from 'react';
 import {
+  GOWN_BACKS,
   GOWN_BODY_RANGE,
   GOWN_CAPES,
+  GOWN_CLOSURES,
+  GOWN_SLEEVES,
+  GOWN_VEILS,
+  GOWN_VEIL_STYLES,
   GOWN_COLOURS,
   GOWN_HEMS,
   GOWN_NECKLINES,
@@ -28,6 +33,14 @@ import type { GownSolved } from '@/app/_components/plan3d/kit/gown-figure-3d';
 const isScene = (s: string): s is GownSceneId => (GOWN_SCENE_IDS as readonly string[]).includes(s);
 const SLIDERS: GownBodyKey[] = ['height', 'weight', 'bust', 'waist', 'hips', 'underbust'];
 const STEP: Partial<Record<GownBodyKey, number>> = { height: 1, weight: 1 };
+
+/** SAMPLE looks for the parts check (A6a): each made through the pairing rules' own outcome. */
+const LAB_PARTS: { label: string; turn: number; look: Partial<GownConfig> }[] = [
+  { label: 'Cap sleeves, cathedral veil', turn: 2.4, look: { sleeve: 'cap', neck: 'bateau', veil: 'cathedral' } },
+  { label: 'Long sleeves, lace-up back', turn: Math.PI, look: { sleeve: 'long', neck: 'high', back: 'closed', closure: 'lace' } },
+  { label: 'Filipiniana, butterfly sleeves', turn: 0.5, look: { sil: 'terno', sleeve: 'butterfly', neck: 'bateau' } },
+  { label: 'Off-shoulder, mantilla', turn: 0.6, look: { neck: 'off', veil: 'chapel', veilStyle: 'mantilla' } },
+];
 
 /** SAMPLE bodies for the silhouette check (v169: thin, default, severe at about 155 cm). */
 const LAB_BODIES = {
@@ -76,6 +89,21 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
       </main>
     );
   }
+  if (view === 'parts') {
+    // A6a check: sleeves, the off-shoulder band, veils and the back closure on one body (&body=thin · default · severe).
+    const b = LAB_BODIES[bodyIn as keyof typeof LAB_BODIES] ?? LAB_BODIES.default;
+    const v = { ...startingGownBody().vals, ...b };
+    return (
+      <main className="grid grid-cols-4 gap-2 p-2" data-lab-view="parts">
+        {LAB_PARTS.map(({ label, turn, look }) => (
+          <figure key={label}>
+            <GownView vals={v} fine={fine} scene={scene} turn={turn} design={{ ...startingGownConfig(), ...look }} />
+            <figcaption className="text-sn-12">{label}</figcaption>
+          </figure>
+        ))}
+      </main>
+    );
+  }
   if (view === 'faceless') {
     return (
       <main className="grid grid-cols-2 gap-2 p-2" data-lab-view="faceless">
@@ -98,7 +126,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   }
 
   // Every pick goes through the pairing rules, so the lab shows what the maker will (one line, then Undo in the maker).
-  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape', v: string) => {
+  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle', v: string) => {
     const out = gownChoose(design, { key: k, value: v } as GownChoice);
     setDesign(out.config);
     setNote(out.notes.join(' '));
@@ -141,6 +169,11 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 ['hem', 'Length', GOWN_HEMS],
                 ['train', 'Train', GOWN_TRAINS],
                 ['cape', 'Cape', GOWN_CAPES],
+                ['sleeve', 'Sleeves', GOWN_SLEEVES],
+                ['back', 'Back', GOWN_BACKS],
+                ['closure', 'Closure', GOWN_CLOSURES],
+                ['veil', 'Veil', GOWN_VEILS],
+                ['veilStyle', 'Veil style', GOWN_VEIL_STYLES],
               ] as const
             ).map(([k, label, list]) => (
               <div key={k} className="grid gap-1">
@@ -150,7 +183,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                   value={design[k] as string}
                   options={list.map((o) => ({ key: o.id, label: o.label }))}
                   onPick={(v) => choose(k, v)}
-                  dataAttr={`data-lab-pick-${k}`}
+                  dataAttr={`data-lab-pick-${k.toLowerCase()}`}
                   className="w-full !min-h-11"
                 />
               </div>

@@ -5,7 +5,7 @@
 import { BODY_K, RING_N, TAU } from '../body/constants';
 import type { GownRig } from '../body/rig';
 import { smoothstep } from '../body/rig';
-import type { GownBack, GownConfig, GownHem, GownNeckline, GownSilhouette, GownTrain, GownWaistline } from '../../gown-config';
+import type { GownBack, GownConfig, GownHem, GownNeckline, GownSilhouette, GownTrain, GownVeil, GownWaistline } from '../../gown-config';
 
 const N = RING_N, DTH = TAU / N;
 
@@ -20,6 +20,9 @@ export const GOWN_SIL: Record<GownSilhouette, { ratio?: number; fold: number; ha
 
 /** A train's usual length past the hem, on the floor (cm). */
 export const GOWN_TRAIN_CM: Record<GownTrain, number> = { none: 0, sweep: 30, chapel: 120, cathedral: 210 };
+
+/** A veil's usual run on the floor past her heel (cm): fingertip ends at the fingertips. */
+export const GOWN_VEIL_CM: Record<Exclude<GownVeil, 'none'>, number> = { fingertip: 0, chapel: 140, cathedral: 240 };
 
 /** The cloth's ease over the skin at the bodice (mm). */
 export const GOWN_EASE_MM = 7;

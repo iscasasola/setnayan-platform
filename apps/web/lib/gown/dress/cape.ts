@@ -429,3 +429,20 @@ export function capeMetres(B: GownRig, cape: GownCapeMesh | null): number {
   }
   return Math.max(L * S + 0.1, ((A * S * S) / 1.4) * 1.3 + 0.1);
 }
+
+/** The cape's own reach at a point's height and direction (v193 `capeAt`): the veil keeps outside it. Null off the cape. */
+export function capeAt(cape: GownCapeMesh | null, x: number, y: number, z: number): { r: number; env: number; c: number } | null {
+  const I = cape?.info;
+  if (!I) return null;
+  const ys = I.ys;
+  if (y > ys[0]! || y < ys[ys.length - 1]!) return null;
+  const cz = I.czAt(y);
+  let a = Math.atan2(x, z - cz);
+  if (I.ring) { while (a < I.a0) a += TAU; while (a > I.a1) a -= TAU; }
+  else { if (a < 0) a += TAU; if (a < I.a0 - 0.08 || a > I.a1 + 0.08) return null; }
+  const c = clamp(Math.round(((a - I.a0) / (I.a1 - I.a0)) * (CNA - 1)), 0, CNA - 1);
+  if (y > I.tops[c]! || y < I.hems[c]!) return null;
+  let j = 0;
+  while (j < ys.length - 1 && ys[j + 1]! > y) j++;
+  return { r: Math.hypot(x, z - cz), env: I.Rm[j * CNA + c]! * 1.07, c };
+}

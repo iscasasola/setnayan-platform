@@ -69,11 +69,9 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   // 👗 The bride's own gown design, sent from the chat (Attire Maker, gown maker port B1) — her design, the body
   // numbers she typed and its estimate. No cost line is stored on the row.
   { table: 'gown_designs', decision: 'exported', as: 'gown_designs_sent' },
-  {
-    table: 'gown_fittings',
-    decision: 'excluded',
-    why: 'The designer’s own tape on one gown design — the shop’s working record, read by that shop only (owner rule for the Attire Maker). Not keyed to a person: updated_by only stamps which shop member typed it. The bride’s own numbers are exported to her as gown_designs_sent; the row cascades away with her design.',
-  },
+  // 📏 The designer's tape on her gown design: her body, measured by the shop — personal data about HER (coordinator
+  // ruling 2026-11-27). Exported read-only, scoped to the designs she sent; in the app it stays shop-only.
+  { table: 'gown_fittings', decision: 'exported', as: 'gown_fittings_of_her_designs' },
   { table: 'admin_focus_put_offs', decision: 'exported', as: 'admin_focus_put_offs' },
   // ⏭ This subject's own "Do it tomorrow" on an event's Today (2026-11-20) — read on `user_id`.
   { table: 'event_today_put_offs', decision: 'exported', as: 'event_today_put_offs' },

@@ -12,7 +12,7 @@ import {
 } from 'react';
 import { unstable_rethrow } from 'next/navigation';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { REPLY_NOT_SENT, makeReplySender } from '@/lib/reply-send';
+import { REPLY_NOT_SENT, makeReplySender, replyAnswerMissing } from '@/lib/reply-send';
 import { MOBILE_NEEDED, mobileIsEnough, mobileNeededForPress } from '@/lib/mobile-number';
 
 /**
@@ -80,6 +80,13 @@ function answerOf(form: HTMLFormElement, submitter: HTMLElement | null): string 
 
 /** `true`/`false` inside a `ReplyForm`; `null` outside one (the button then reads React's form status). */
 const ReplySending = createContext<boolean | null>(null);
+/** ✋ The card asks yes or no and neither is picked yet (`replyAnswerMissing`): its Send waits. */
+const ReplyAnswerMissing = createContext(false);
+
+/** The `rsvp_status` radios this form drew — the answer it asks for. */
+function answerRadios(form: HTMLFormElement): HTMLInputElement[] {
+  return Array.from(form.querySelectorAll<HTMLInputElement>('input[type="radio"][name="rsvp_status"]'));
+}
 
 export function ReplyForm({
   action,
@@ -95,6 +102,14 @@ export function ReplyForm({
   /** A yes with no usable mobile number: nothing is sent, and the form says why (lib/mobile-number.ts). */
   const [mobileNeeded, setMobileNeeded] = useState(false);
   const [signal, setSignal] = useState<{ thrown: unknown } | null>(null);
+  /* ✋ SEND WAITS FOR YES OR NO (MASTER-PLAN B8). Read off the form once it is in the page and on every change — never
+     on the server: the card's HTML stays the recorded bytes, and without a script the radios' own `required` holds. */
+  const formEl = useRef<HTMLFormElement>(null);
+  const [answerMissing, setAnswerMissing] = useState(false);
+  const readAnswer = () => {
+    if (formEl.current) setAnswerMissing(replyAnswerMissing(answerRadios(formEl.current)));
+  };
+  useEffect(readAnswer, []);
   const sender = useRef<ReturnType<typeof makeReplySender> | null>(null);
   if (!sender.current) sender.current = makeReplySender({ rethrow: unstable_rethrow });
   const pressed = useRef(false);
@@ -186,7 +201,8 @@ export function ReplyForm({
 
   return (
     <ReplySending.Provider value={sending}>
-      <form action={action} onSubmit={onSubmit} {...rest}>
+      <ReplyAnswerMissing.Provider value={answerMissing}>
+      <form ref={formEl} action={action} onSubmit={onSubmit} onChange={readAnswer} {...rest}>
         {children}
         {notSent ? (
           <p ref={line} role="alert" data-reply-not-sent="" className="scroll-mb-6 text-sm font-medium text-terracotta-700">
@@ -199,6 +215,7 @@ export function ReplyForm({
           </p>
         ) : null}
       </form>
+      </ReplyAnswerMissing.Provider>
     </ReplySending.Provider>
   );
 }
@@ -211,5 +228,14 @@ export function ReplyForm({
  */
 export function ReplySubmit(props: Omit<ComponentProps<typeof SubmitButton>, 'pending'>) {
   const sending = useContext(ReplySending);
-  return <SubmitButton {...props} pending={sending ?? undefined} />;
+  // ✋ Disabled until yes or no is picked, on a card that asks (`replyAnswerMissing`).
+  const answerMissing = useContext(ReplyAnswerMissing);
+  return (
+    <SubmitButton
+      {...props}
+      disabled={Boolean(props.disabled) || answerMissing}
+      {...(answerMissing ? { 'data-waits-for-answer': '' } : {})}
+      pending={sending ?? undefined}
+    />
+  );
 }

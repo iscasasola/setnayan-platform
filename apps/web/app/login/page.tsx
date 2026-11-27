@@ -23,6 +23,8 @@ import { redirect } from 'next/navigation';
 import { getCurrentUser } from '@/lib/auth';
 import { doorFrontHref, doorLandingHref } from '@/lib/doors';
 import { siteOrigin } from '@/lib/site-origin';
+import { cookies } from 'next/headers';
+import { ACCOUNTS_LIST_COOKIE, decodeParkedList } from '@/lib/account-jars';
 
 export const metadata: Metadata = {
   title: 'Sign in',
@@ -39,7 +41,10 @@ export default async function LoginPage({
   searchParams: Promise<LoginSearchParams>;
 }) {
   const params = await searchParams;
-  const view = await getLoginView(params);
+  // 🔁 The accounts parked on this phone (Batch 0 · L5): the switcher's display list (`sn_accts`, no credential in
+  // it), read beside the view so the card offers one tap back to each. A cookie read, no query.
+  const [view, cookieStore] = await Promise.all([getLoginView(params), cookies()]);
+  const parked = decodeParkedList(cookieStore.get(ACCOUNTS_LIST_COOKIE)?.value);
   // 🚪 FROM A BUSINESS DOOR, ALREADY SIGNED IN (owner 24 Nov 2026): no card — straight on, by the same landing rule
   // (`/auth/door` → `landingForAccount` with the door). An anonymous session (a host with no account yet) is not
   // signed in. Read only when a door asked, so every other /login pays nothing.
@@ -84,6 +89,7 @@ export default async function LoginPage({
         prefilledEmail={view.prefilledEmail}
         forGuest={view.forGuest}
         linkExpired={view.linkExpired}
+        parked={parked}
       />
     </main>
   );

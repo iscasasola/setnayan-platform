@@ -115,6 +115,7 @@ import { buildTodayV2 } from './_components/today-v2-assemble';
 import { readStorySilenceDays, readWrapUpFacts } from '@/lib/today-wrap-up.server';
 import type { WrapUpFacts } from '@/lib/today-wrap-up';
 import { readGuestReviewsForVendor } from '@/lib/guest-reviews';
+import { shopCountSinceIso } from '@/lib/shop-count-window';
 
 /**
  * /vendor-dashboard — the vendor Overview (finalized 6-menu-shell prototype).
@@ -513,7 +514,7 @@ export default async function VendorOverviewPage({
     feeEnforcedP,
     // 💰 Read on an event day too now: the Money stat is always on Today (THE ONE BUILD A4).
     fetchVendorEarningsSummary(supabase, vendorProfileId).catch(() => null),
-    shopRow?.verified ? readTodayViews(supabase, vendorProfileId, new Date(Date.now() - 28 * 86_400_000).toISOString()) : Promise.resolve(null),
+    shopRow?.verified ? readTodayViews(supabase, vendorProfileId, shopCountSinceIso(Date.now())) : Promise.resolve(null),
     eventToday ? readEventDayFacts(createAdminClient(), eventToday.eventId, Date.now()).catch(() => null) : Promise.resolve(null),
     readNextEventFacts(createAdminClient(), vendorProfileId, nextDayRows).catch(() =>
       Object.fromEntries(nextDayRows.map((r) => [r.eventId, { scheduleUnread: true, hubReady: null } satisfies NextEventFacts])),

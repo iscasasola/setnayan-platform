@@ -15,6 +15,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { recoverStaleTab } from '@/lib/stale-bundle';
+import { CopyButton } from '@/app/_components/copy-button';
 import { ActionButton } from '@/components/action-button';
 import { RotateCcw } from 'lucide-react';
 
@@ -56,6 +57,13 @@ export default function AdminError({
             digest: {error.digest} · route: {typeof window !== 'undefined' ? window.location.pathname : ''}
           </p>
         ) : null}
+        {/* 📋 Text is not selectable, /admin included (owner 27 Nov 2026, R1 + R5): the whole report is one Copy. */}
+        <div className="mt-3">
+          <CopyButton
+            value={[error.message || 'No message on the error object.', error.digest ? `digest: ${error.digest}` : null, typeof window !== 'undefined' ? `route: ${window.location.pathname}` : null].filter(Boolean).join(' · ')}
+            label="Copy error"
+          />
+        </div>
       </div>
       <div className="flex items-center gap-3">
         <ActionButton tone="brand" main icon={<RotateCcw aria-hidden strokeWidth={1.9} />} onClick={reset} label="Try again" />

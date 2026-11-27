@@ -31,8 +31,9 @@ export type InvitationReach = {
   /** Not marked, and holds an email address — the set a send can actually reach. */
   sendable: number;
   /**
-   * Holds NO email and NO mobile. The number that turns "nothing happened" into
-   * something a couple can act on.
+   * Holds NO email. The number that turns "nothing happened" into something a
+   * couple can act on. Setnayan sends email only (no SMS), so a mobile number
+   * alone reaches nobody (owner R3 + brand word rules, 27 Nov 2026).
    *
    * ⚠ Counted across the WHOLE list, not only the unmarked. A guest handed a
    * printed card is still unreachable electronically, and hiding that once they
@@ -53,9 +54,9 @@ export function hasEmailAddress(g: GuestReachRow): boolean {
   return present(g.email) !== null;
 }
 
-/** Can this guest be reached electronically at all? */
+/** Can this guest be sent an invitation? Email only: Setnayan sends no SMS, so a mobile alone reaches nobody. */
 export function isReachable(g: GuestReachRow): boolean {
-  return present(g.email) !== null || present(g.mobile) !== null;
+  return hasEmailAddress(g);
 }
 
 /** One pass over the list; every number the invitation screen needs. */
@@ -87,7 +88,7 @@ export function invitationReach(guests: readonly GuestReachRow[]): InvitationRea
 export function unreachableSentence(r: InvitationReach): string | null {
   if (r.unreachable <= 0) return null;
   if (r.unreachable === r.total) {
-    return `None of your ${formatCount(r.total)} guests has an email or mobile on file, so none can be sent one — add addresses, or hand these out yourself.`;
+    return 'No guest emails yet.';
   }
-  return `${formatCount(r.unreachable)} of ${formatCount(r.total)} have no email or mobile on file, so they cannot be sent one — add an address, or hand theirs out yourself.`;
+  return `${formatCount(r.unreachable)} of ${formatCount(r.total)} have no email.`;
 }

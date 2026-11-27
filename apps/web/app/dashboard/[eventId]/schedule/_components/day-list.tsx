@@ -154,7 +154,8 @@ function ChapterRow({ r, onOpen, onMove = null }: { r: ListChapterRow; onOpen: (
           </span>
         ) : null}
         <span className="block text-[17px] font-semibold leading-tight text-ink">{r.chapter.label}</span>
-        <span className="block truncate text-[13px] text-ink/60">{r.chapter.location?.trim() || 'Venue TBA'}</span>
+        {/* R3 (owner 27 Nov): no "Venue TBA" placeholder — a chapter with no venue simply says none. */}
+        {r.chapter.location?.trim() ? <span className="block truncate text-[13px] text-ink/60">{r.chapter.location.trim()}</span> : null}
         {/* 👥 Who is on it: faces and a count; a dashed face has not picked this chapter yet. */}
         <span className="mt-1.5 flex items-center gap-1.5" data-day-faces={r.faces.length}>
           {r.faces.slice(0, 5).map((f) => (

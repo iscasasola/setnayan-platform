@@ -14,7 +14,8 @@
  *   · Two ways to price (prototype "How you price"): `covers` — the starting price covers the design until its cost
  *     (supplies + labour, with markup) is higher; `extras` — the starting price is locked, what it includes is marked
  *     "In base", every other choice adds its own price.
- *   · v193: the cape's labour is its own price item ("Cover-ups"); inside layers price by material per metre (tulle on
+ *   · v196: each cape type's labour is its own price item ("Cover-ups"; its fabric, edge and strap price on the
+ *     fabric, lace, bead and ribbon items); inside layers price by material per metre (tulle on
  *     `net`, organza and chiffon on their fabric items, the hoop per piece). The design's cape choice and per-layer
  *     metres arrive in the contract (lib/gown-config.ts, Builder A); `gownDesignOf` prices them once they do.
  * 🔒 lib/gown-maker.test.ts
@@ -74,12 +75,20 @@ export const GOWN_PRICE_ITEMS = [
   { key: 'bead_pearl', label: 'Pearls', unit: '100 pcs' },
   { key: 'bead_seed', label: 'Seed beads', unit: '100 pcs' },
   { key: 'bead_sequin', label: 'Sequins', unit: '100 pcs' },
-  { key: 'cape', label: 'Cape: cutting, sewing and finishing', unit: 'pc' },
+  // v196: one labour line per cape TYPE (its fabric, edge and strap price on the fabric, lace, bead and ribbon items).
+  { key: 'cape_neck', label: 'Cape (neck cape): cutting, sewing and finishing', unit: 'pc' },
+  { key: 'cape_back', label: 'Cape (back cape): cutting, sewing and finishing', unit: 'pc' },
+  { key: 'cape_pair', label: 'Cape (pair of shoulder capes): cutting, sewing and finishing', unit: 'pc' },
+  { key: 'cape_side', label: 'Cape (side cape): cutting, sewing and finishing', unit: 'pc' },
+  { key: 'cape_capelet', label: 'Cape (capelet): cutting, sewing and finishing', unit: 'pc' },
+  { key: 'cape_drape', label: 'Cape (one-shoulder drape): cutting, sewing and finishing', unit: 'pc' },
   { key: 'flutter', label: 'Flutter cape sleeves: cutting, sewing and finishing', unit: 'pair' },
   { key: 'overlay', label: 'Overlay: cutting, sewing and finishing', unit: 'pc' },
   { key: 'piping', label: 'Piping', unit: 'm' },
   { key: 'fringe', label: 'Fringe', unit: 'm' },
   { key: 'feather', label: 'Feather trim', unit: 'm' },
+  // v196: ribbon by the metre — the sash and bow, and the narrow strap a cape needs on a strapless neckline.
+  { key: 'ribbon', label: 'Ribbon (sash)', unit: 'm' },
   // Owner 2026-11-27: small bows come back as a labour line, per piece, unpriced until the designer prices it.
   { key: 'bow', label: 'Bow (small): making and attaching', unit: 'pc' },
   { key: 'rate', label: 'Labour rate', unit: 'hour' },
@@ -94,12 +103,13 @@ export const GOWN_PRICE_GROUPS: ReadonlyArray<readonly [string, (key: GownPriceK
   ['Lining and inside', (k) => /^(lin_|net$|hoop$|illusion$|boning$|waiststay$|horsehair$)/.test(k)],
   ['Closures', (k) => /^(zipper|button|eyelet|cord)$/.test(k)],
   ['Lace and beads', (k) => /^(lace_|bead_)/.test(k)],
-  ['Trims', (k) => /^(piping|fringe|feather|bow)$/.test(k)],
+  ['Trims', (k) => /^(piping|fringe|feather|ribbon|bow)$/.test(k)],
   // v195: flutter cape sleeves and a skirt overlay, each its own labour line (their fabric is the fabric items).
   ['Sleeves', (k) => k === 'flutter'],
   ['Skirt', (k) => k === 'overlay'],
-  // v193: the cape as part of the gown (the bride's detachable cape is the add-on `cape`; the designer may price either).
-  ['Cover-ups', (k) => k === 'cape'],
+  // v196: each cape type as part of the gown (the bride's detachable cape is the add-on `cape`; the designer may price
+  // either).
+  ['Cover-ups', (k) => k.startsWith('cape_')],
   ['Labour', (k) => k === 'rate'],
 ];
 

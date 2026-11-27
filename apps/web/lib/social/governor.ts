@@ -16,9 +16,10 @@
  *
  * The daily cap is the slots themselves: ONE post per slot instant, planned or automatic. A post that finds its
  * slot taken queues for the next free slot of its kind. Nothing is ever posted outside a slot: a slot is open from
- * its instant for `SLOT_OPEN_MS`, because the flush is cron-free (it rides page traffic through `after()`, a
- * 10-minute throttle), so the first flush inside that hour publishes it. A slot nobody's traffic reached is missed,
- * never posted late.
+ * its instant for `SLOT_OPEN_MS`, and the first flush inside that hour publishes it. The flush is opened on time by
+ * `.github/workflows/social-slots.yml` → `/api/cron/social-flush` (a run plus a retry inside every slot) and also
+ * rides page traffic through `after()`. A slot that still closes unposted is re-slotted, never posted late
+ * (`slotVerdict`).
  *
  * TIMEZONE NOTE: the Philippines has no DST and PHT is pinned at UTC+08:00, so a fixed +08:00 offset is correct
  * year-round. If PH ever reintroduced DST (last seen 1990) this file is the single place to revisit.
@@ -48,6 +49,9 @@ export const SLOT_OPEN_MS = 60 * 60 * 1000;
 
 /** The 14:00 live composer looks for real news from 12:00 Manila until its slot closes. */
 export const LIVE_COMPOSE_FROM_HOUR = 12;
+
+/** How far ahead `nextFreeSlot` looks for a free slot. */
+const SCAN_DAYS = 800;
 
 /** Fixed PHT offset (see the timezone note above). */
 const PH_UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -121,13 +125,14 @@ export function nextFreeSlot(
 ): Date {
   const held = takenSet(taken);
   const firstDay = phDayKey(from);
-  // A 400-day scan guard: a day always has the slot unless a planned post holds it, so this ends early.
-  for (let offset = 0; offset < 400; offset += 1) {
+  // An 800-day scan guard: the planned library holds a morning and an evening every day through 2027, so a missed
+  // planned morning may have to walk past the whole plan before it finds a free morning.
+  for (let offset = 0; offset < SCAN_DAYS; offset += 1) {
     const candidate = slotInstant(addPhDays(firstDay, offset), slot);
     if (candidate.getTime() + SLOT_OPEN_MS <= from.getTime()) continue; // this slot has closed
     if (!held.has(candidate.getTime())) return candidate;
   }
-  return slotInstant(addPhDays(firstDay, 400), slot);
+  return slotInstant(addPhDays(firstDay, SCAN_DAYS), slot);
 }
 
 /**
@@ -147,16 +152,16 @@ export type SlotVerdict =
   | 'wait'
   /** Its slot closed with nothing posted, or it sits at a time that is not a slot: find it a new slot. */
   | 'reslot'
-  /** A planned post (library or holiday greeting) whose slot closed unposted: it is never posted late. */
+  /** A holiday greeting whose 12:00 closed unposted: it is date-bound, so it is never posted late. */
   | 'expire';
 
 /**
  * The slot rule for one queued row. `slot` is the row's own slot column: `holiday` lets a 12:00 instant count,
  * anything else must sit on 08:00 / 14:00 / 20:00 exactly. A row with no `scheduled_for` waits for the governor.
  *
- * A missed site auto-post is re-slotted (to the next free 14:00). A missed PLANNED post — a library row or a
- * holiday greeting — expires instead: it was written for its day, and re-slotting a run of missed planned posts
- * would crowd every 14:00 for weeks. The admin queue's Retry puts one back on the next free 14:00.
+ * A missed post is re-slotted, never lost (controller 2026-11-28): a site auto-post to the next free 14:00, a
+ * planned library post to the next free slot OF ITS OWN KIND (a missed 08:00 to the next free 08:00) — the flush
+ * logs it and records it on the row. Only a holiday greeting expires: it is written for its date.
  */
 export function slotVerdict(
   row: { scheduled_for: string | null; slot: string | null; source_type?: string | null },
@@ -169,7 +174,7 @@ export function slotVerdict(
   if (!slot) return 'reslot';
   if (isSlotOpen(at, now)) return 'publish';
   if (at.getTime() > now.getTime()) return 'wait';
-  return isHoliday || row.source_type === 'library' ? 'expire' : 'reslot';
+  return isHoliday ? 'expire' : 'reslot';
 }
 
 /** Order of right to a contested slot: the plan first, then the live update, then every other auto-post. */
@@ -231,4 +236,15 @@ export function postNowSlot(taken: ReadonlyArray<Date | string | null | undefine
     if (isSlotOpen(at, now) && !held.has(at.getTime())) return { at, slot };
   }
   return { at: nextFreeSlot('afternoon', taken, now), slot: 'afternoon' };
+}
+
+/**
+ * Which daily slot a row re-slots into: a planned library post keeps its own kind (morning / afternoon / evening);
+ * every other post, and any row whose slot is unknown, takes the 14:00.
+ */
+export function reslotKind(row: { source_type: string | null; slot: string | null }): Exclude<SocialSlot, 'holiday'> {
+  if (row.source_type === 'library' && (row.slot === 'morning' || row.slot === 'afternoon' || row.slot === 'evening')) {
+    return row.slot;
+  }
+  return AUTO_POST_SLOT;
 }

@@ -1,0 +1,51 @@
+name: social-slots
+
+# Opens each Facebook posting slot on time (controller review of PR #8446, 2026-11-28).
+#
+# Facebook posts go out only inside the owner's Manila slots (lib/social/governor.ts):
+#   08:00 · 12:00 (holiday greetings only) · 14:00 · 20:00 Asia/Manila = 00:00 · 04:00 · 06:00 · 12:00 UTC.
+# The flush otherwise runs only when a page is visited, so a quiet hour left a slot unopened. This calls
+# POST /api/cron/social-flush a couple of minutes into each slot, and again ~10 minutes later in case the first
+# run was delayed or lost. A slot stays open for its hour, so both land inside it.
+#
+# ⚠ THIS IS A GITHUB ACTIONS SCHEDULE, NOT AN APPLICATION CRON. The repo's "no scheduler" decision is about
+# Postgres `cron.job` / Vercel crons (see deploy-prod.yml); workflow schedules are in-pattern here, and
+# vercel.json keeps "crons": []. Not on deploy-prod.yml on purpose: a schedule there would fire deploys.
+# :02 and :12, not :00 — the top of the hour is when every scheduled workflow on GitHub queues at once.
+#
+# Needs the repository secret CRON_SECRET (the same value as the CRON_SECRET env var in Vercel production).
+# Until it is set, the job no-ops GREEN with a ::notice:: — never a false "slot opened".
+
+on:
+  schedule:
+    - cron: '2,12 0,4,6,12 * * *'
+  workflow_dispatch:
+
+concurrency:
+  group: social-slots
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  open-slot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Run the social flush for this slot
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          if [ -z "$CRON_SECRET" ]; then
+            echo "::notice title=social-slots::CRON_SECRET is not set as a repository secret, so no slot was opened. Add it (same value as Vercel's CRON_SECRET)."
+            exit 0
+          fi
+          status=$(curl -sS -o response.json -w '%{http_code}' --max-time 90 --retry 2 --retry-delay 20 \
+            -X POST "https://www.setnayan.com/api/cron/social-flush" \
+            -H "x-cron-secret: ${CRON_SECRET}")
+          echo "HTTP ${status}: $(cat response.json)"
+          if [ "$status" != "200" ]; then
+            echo "::error title=social-slots::The slot run answered HTTP ${status}; this slot may not have opened."
+            exit 1
+          fi

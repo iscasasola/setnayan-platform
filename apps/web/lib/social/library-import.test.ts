@@ -12,6 +12,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import {
   doorToUrl,
+  isRealCalendarDate,
   type LibraryRow,
   libraryMigrationSql,
   libraryRowsFromCsv,
@@ -116,4 +117,17 @@ test('times and doors read the way people type them', () => {
   assert.equal(doorToUrl('www.setnayan.com/for-suppliers'), 'https://setnayan.com/for-suppliers');
   assert.equal(doorToUrl('setnayan.com › Open your shop'), null);
   assert.deepEqual(parseCsv('a,"b\r\nc"\r\n'), [['a', 'b\r\nc']]);
+});
+
+test('impossible dates are refused, never rolled over to the next month', () => {
+  assert.equal(isRealCalendarDate('2026-02-28'), true);
+  assert.equal(isRealCalendarDate('2028-02-29'), true); // leap year
+  assert.equal(isRealCalendarDate('2026-02-30'), false); // would roll to 2 March
+  assert.equal(isRealCalendarDate('2027-02-29'), false);
+  assert.equal(isRealCalendarDate('2026-13-01'), false);
+  assert.equal(isRealCalendarDate('2026-04-31'), false);
+  const header = 'Date,Time (Manila),Caption (primary text)\n';
+  const { rows, errors } = libraryRowsFromCsv(header + '2026-02-30,08:00,"x"\n2026-03-02,08:00,"y"\n');
+  assert.deepEqual(rows.map((r) => r.date), ['2026-03-02']);
+  assert.match(errors[0] ?? '', /^Line 2: date "2026-02-30" is not a real YYYY-MM-DD date\./);
 });

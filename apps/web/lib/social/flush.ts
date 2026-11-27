@@ -14,10 +14,11 @@ import {
   type ShareCreditMode,
 } from '@/lib/social-sharing';
 import {
-  AUTO_POST_SLOT,
   nextFreeSlot,
+  reslotKind,
   slotClashLosers,
   slotVerdict,
+  type SocialSlot,
 } from '@/lib/social/governor';
 import { sweepLiveUpdate } from '@/lib/social/live-update.server';
 import { isRecapSocialShareAllowed } from '@/lib/social/recap-post';
@@ -40,7 +41,11 @@ import { siteUrl, socialCardUrl } from '@/lib/social/urls';
  * layout · admin social queue · public /vendors marketplace), so dispatch
  * piggybacks on organic traffic. A 10-minute throttle + a single-row
  * conditional-UPDATE claim on social_publish_settings.last_flush_at keep
- * concurrent renders from double-flushing.
+ * concurrent renders from double-flushing. The SLOT CLOCK (owner 2026-11-28) is
+ * a GitHub Actions schedule, `.github/workflows/social-slots.yml`, calling
+ * POST /api/cron/social-flush inside each slot (`runSocialFlush({ scheduled:
+ * true })`, a 1-minute throttle) — not a Vercel cron or pg_cron, so the
+ * cron-free lock holds and the slots still open with nobody on the site.
  *
  * Two phases per flush:
  *   1. SWEEP-COMPOSE — always runs, even with autopublish off, so the admin
@@ -71,6 +76,13 @@ import { siteUrl, socialCardUrl } from '@/lib/social/urls';
 
 /** Min gap between flushes — makes the after() hooks effectively free. */
 const FLUSH_THROTTLE_MS = 10 * 60 * 1000;
+
+/**
+ * Min gap for a SCHEDULED flush (`/api/cron/social-flush`, fired by `.github/workflows/social-slots.yml` at each
+ * slot). Short so a traffic flush at 07:58 cannot swallow the 08:02 slot run, long enough that the claim still keeps
+ * two runners from flushing at once.
+ */
+const SCHEDULED_FLUSH_THROTTLE_MS = 60 * 1000;
 
 /** Couple-creation pull window: 48h for the team/couple to pull the post. */
 const CREATION_HOLD_MS = SHARE_PULL_WINDOW_HOURS * 60 * 60 * 1000;
@@ -119,8 +131,12 @@ type PostRow = {
  * Entry point — safe to fire-and-forget from `after()`. Never throws: every
  * failure is logged and swallowed so a flush hiccup can't surface anywhere
  * near a user-facing render.
+ *
+ * `scheduled: true` is the slot runner (`/api/cron/social-flush`): the same flush with a 1-minute throttle, so each
+ * slot opens on time whether or not anybody visits. Page traffic keeps its 10-minute throttle. Returns whether this
+ * call won the claim and ran (false = throttled, or another runner holds it).
  */
-export async function runSocialFlush(): Promise<void> {
+export async function runSocialFlush(opts: { scheduled?: boolean } = {}): Promise<boolean> {
   try {
     const admin = createAdminClient();
     const now = new Date();
@@ -129,7 +145,8 @@ export async function runSocialFlush(): Promise<void> {
     // Single-row conditional UPDATE: only the caller that successfully moves
     // last_flush_at forward owns this flush. Concurrent after() invocations
     // (or a second Vercel region) lose the claim and bail.
-    const cutoffIso = new Date(now.getTime() - FLUSH_THROTTLE_MS).toISOString();
+    const throttleMs = opts.scheduled ? SCHEDULED_FLUSH_THROTTLE_MS : FLUSH_THROTTLE_MS;
+    const cutoffIso = new Date(now.getTime() - throttleMs).toISOString();
     const { data: claim, error: claimErr } = await admin
       .from('social_publish_settings')
       .update({ last_flush_at: now.toISOString(), updated_at: now.toISOString() })
@@ -138,9 +155,9 @@ export async function runSocialFlush(): Promise<void> {
       .select('autopublish_enabled, facebook_enabled, instagram_enabled, tiktok_enabled');
     if (claimErr) {
       logQueryError('runSocialFlush (claim)', claimErr);
-      return;
+      return false;
     }
-    if (!claim || claim.length === 0) return; // throttled or lost the claim
+    if (!claim || claim.length === 0) return false; // throttled or lost the claim
     const settings = claim[0] as {
       autopublish_enabled: boolean;
       facebook_enabled: boolean;
@@ -175,8 +192,10 @@ export async function runSocialFlush(): Promise<void> {
         tiktok: ttLive,
       });
     }
+    return true;
   } catch (err) {
     logQueryError('runSocialFlush (unexpected)', err);
+    return false;
   }
 }
 
@@ -504,10 +523,19 @@ async function reslotQueue(admin: AdminClient, now: Date): Promise<void> {
   }>;
 
   const toReslot = new Set<string>(slotClashLosers(rows));
+  const missedPlanned: typeof rows = [];
   for (const row of rows) {
     if (row.status !== 'scheduled') continue;
     const verdict = slotVerdict(row, now);
-    if (verdict === 'reslot') toReslot.add(row.post_id);
+    if (verdict === 'reslot') {
+      // A planned post that missed its slot is never lost: it moves to the next free slot of its own kind
+      // (assignSchedules reads its kind from `slot`, which is kept). Logged and recorded on the row.
+      if (row.source_type === 'library' && row.scheduled_for && new Date(row.scheduled_for).getTime() < now.getTime()) {
+        missedPlanned.push(row);
+      } else {
+        toReslot.add(row.post_id);
+      }
+    }
     if (verdict === 'expire') {
       const { error: expireErr } = await admin
         .from('social_posts')
@@ -520,15 +548,34 @@ async function reslotQueue(admin: AdminClient, now: Date): Promise<void> {
               external_id: null,
               posted_at: null,
               error:
-                'Missed its planned slot: no visit reached the site in that hour, and a planned post is never posted late. Retry puts it on the next free 2 PM.',
+                'Missed its 12:00 holiday slot (no flush ran in that hour); a holiday greeting is never posted late. Retry puts it on the next free 2 PM.',
             },
           },
           updated_at: now.toISOString(),
         })
         .eq('post_id', row.post_id)
         .eq('status', 'scheduled');
-      if (expireErr) logQueryError('runSocialFlush (expire planned post)', expireErr, { post_id: row.post_id });
+      if (expireErr) logQueryError('runSocialFlush (expire holiday greeting)', expireErr, { post_id: row.post_id });
     }
+  }
+  for (const row of missedPlanned) {
+    const missed = Array.isArray(row.platform_results?.missed_slots) ? (row.platform_results.missed_slots as unknown[]) : [];
+    console.info(
+      `[social] planned post ${row.post_id} missed its ${row.slot ?? 'unknown'} slot at ${row.scheduled_for} (no flush ran in that hour); moving it to the next free ${reslotKind(row)} slot.`,
+    );
+    const { error: moveErr } = await admin
+      .from('social_posts')
+      .update({
+        scheduled_for: null,
+        platform_results: {
+          ...(row.platform_results ?? {}),
+          missed_slots: [...missed, { slot: row.slot, scheduled_for: row.scheduled_for, noticed_at: now.toISOString() }],
+        },
+        updated_at: now.toISOString(),
+      })
+      .eq('post_id', row.post_id)
+      .eq('status', 'scheduled');
+    if (moveErr) logQueryError('runSocialFlush (move missed planned post)', moveErr, { post_id: row.post_id });
   }
   if (toReslot.size === 0) return;
 
@@ -541,16 +588,17 @@ async function reslotQueue(admin: AdminClient, now: Date): Promise<void> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Governor pass: every 'scheduled' row without a slot gets the next FREE 14:00
-// (owner 2026-11-28: 2 PM carries every post that fits neither 8 AM nor 8 PM,
-// and one post per slot is the daily cap, planned posts counted). The floor is
-// max(now, publish_after, hold_until), so a slot is never burned on a row that
-// could not go out there.
+// Governor pass: every 'scheduled' row without a slot gets the next FREE slot
+// of its kind (owner 2026-11-28: 2 PM carries every post that fits neither
+// 8 AM nor 8 PM, and one post per slot is the daily cap, planned posts
+// counted). Site auto-posts take 14:00; a planned library post that missed its
+// slot keeps its own kind (reslotKind). The floor is max(now, publish_after,
+// hold_until), so a slot is never burned on a row that could not go out there.
 // ─────────────────────────────────────────────────────────────────────────────
 async function assignSchedules(admin: AdminClient, now: Date): Promise<void> {
   const { data: unscheduledData, error: unscheduledErr } = await admin
     .from('social_posts')
-    .select('post_id, publish_after, hold_until')
+    .select('post_id, source_type, slot, publish_after, hold_until')
     .eq('status', 'scheduled')
     .is('scheduled_for', null)
     .order('created_at', { ascending: true })
@@ -561,32 +609,42 @@ async function assignSchedules(admin: AdminClient, now: Date): Promise<void> {
   }
   const unscheduled = (unscheduledData ?? []) as Array<{
     post_id: string;
+    source_type: string | null;
+    slot: string | null;
     publish_after: string | null;
     hold_until: string | null;
   }>;
   if (unscheduled.length === 0) return;
 
-  // Taken = every 14:00 a post holds from the last 24h on, the planned library included (rows from before the
-  // slot column have slot NULL and count too). A planned 14:00 missed here still wins its slot in the next slot
-  // pass (slotClashLosers).
+  // Taken = every slot of that kind a post holds from the last 24h on, the planned library included (rows from
+  // before the slot column have slot NULL and count for every kind). A planned slot missed here still wins it in
+  // the next slot pass (slotClashLosers).
   const takenCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
-  const { data: takenData, error: takenErr } = await admin
-    .from('social_posts')
-    .select('scheduled_for')
-    .in('status', ['scheduled', 'publishing', 'published'])
-    .or(`slot.is.null,slot.eq.${AUTO_POST_SLOT}`)
-    .gte('scheduled_for', takenCutoff)
-    .order('scheduled_for', { ascending: true })
-    .limit(1000);
-  if (takenErr) {
-    logQueryError('runSocialFlush (taken slots)', takenErr);
-    return; // cannot see the plan — hand out nothing rather than double a slot
+  const takenByKind = new Map<Exclude<SocialSlot, 'holiday'>, Date[]>();
+  for (const kind of new Set(unscheduled.map(reslotKind))) {
+    const { data: takenData, error: takenErr } = await admin
+      .from('social_posts')
+      .select('scheduled_for')
+      .in('status', ['scheduled', 'publishing', 'published'])
+      .or(`slot.is.null,slot.eq.${kind}`)
+      .gte('scheduled_for', takenCutoff)
+      .order('scheduled_for', { ascending: true })
+      .limit(1000);
+    if (takenErr) {
+      logQueryError('runSocialFlush (taken slots)', takenErr, { kind });
+      return; // cannot see the plan — hand out nothing rather than double a slot
+    }
+    takenByKind.set(
+      kind,
+      ((takenData ?? []) as Array<{ scheduled_for: string | null }>)
+        .map((r) => (r.scheduled_for ? new Date(r.scheduled_for) : null))
+        .filter((d): d is Date => d !== null && !Number.isNaN(d.getTime())),
+    );
   }
-  const takenSlots = ((takenData ?? []) as Array<{ scheduled_for: string | null }>)
-    .map((r) => (r.scheduled_for ? new Date(r.scheduled_for) : null))
-    .filter((d): d is Date => d !== null && !Number.isNaN(d.getTime()));
 
   for (const row of unscheduled) {
+    const kind = reslotKind(row);
+    const takenSlots = takenByKind.get(kind) ?? [];
     const floor = new Date(
       Math.max(
         now.getTime(),
@@ -594,10 +652,10 @@ async function assignSchedules(admin: AdminClient, now: Date): Promise<void> {
         row.hold_until ? new Date(row.hold_until).getTime() : 0,
       ),
     );
-    const slot = nextFreeSlot(AUTO_POST_SLOT, takenSlots, floor);
+    const slot = nextFreeSlot(kind, takenSlots, floor);
     const { error } = await admin
       .from('social_posts')
-      .update({ scheduled_for: slot.toISOString(), slot: AUTO_POST_SLOT, updated_at: now.toISOString() })
+      .update({ scheduled_for: slot.toISOString(), slot: kind, updated_at: now.toISOString() })
       .eq('post_id', row.post_id)
       .eq('status', 'scheduled')
       .is('scheduled_for', null);
@@ -616,6 +674,8 @@ type PlatformLeg = {
   post_url?: string | null;
   posted_at: string | null;
   error: string | null;
+  /** Facebook multi-photo only: unpublished uploads the clean-up could not delete after a failed post. */
+  cleanup_failures?: Array<{ photo_id: string; error: string }>;
   /** Facebook only: the first comment under the post, and the pin (the Graph API cannot pin: always by hand). */
   first_comment?: {
     status: 'posted' | 'failed';
@@ -761,6 +821,9 @@ async function dispatchDuePosts(
             external_id: null,
             posted_at: null,
             error: fb.error,
+            ...(fb.cleanupFailures && fb.cleanupFailures.length > 0
+              ? { cleanup_failures: fb.cleanupFailures }
+              : {}),
           };
         }
       }

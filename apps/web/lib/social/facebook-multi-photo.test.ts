@@ -4,21 +4,24 @@
  * attaches them in that order. A failed upload or a refused feed post publishes nothing and cleans up the uploads.
  *
  * Sabotage (measured): uploading with Promise.all and attaching in completion order turns "order kept" red; making
- * the feed call after a failed upload turns "all or nothing" red.
+ * the feed call after a failed upload turns "all or nothing" red; raising the cap to 30 turns the 10-photo test red;
+ * dropping the failure push in cleanUp turns the clean-up test red.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { multiPhotoUrls, publishMultiPhoto, type GraphCall } from './facebook-multi-photo';
+import { FACEBOOK_MAX_ATTACHED_PHOTOS, multiPhotoUrls, publishMultiPhoto, type GraphCall } from './facebook-multi-photo';
 
 type Seen = { method: string; path: string; params: Record<string, string> };
 
 /** A fake Graph: uploads answer after a delay that is LONGER for earlier photos, so completion order ≠ given order. */
-function fakeGraph(opts: { failUpload?: number; failFeed?: boolean } = {}) {
+function fakeGraph(opts: { failUpload?: number; failFeed?: boolean; failDelete?: string } = {}) {
   const seen: Seen[] = [];
   let upload = 0;
   const call: GraphCall = async (method, path, params) => {
     seen.push({ method, path, params });
-    if (method === 'DELETE') return { ok: true, body: { success: true } };
+    if (method === 'DELETE') {
+      return path === `/${opts.failDelete}` ? { ok: false, error: 'Unsupported delete request' } : { ok: true, body: { success: true } };
+    }
     if (path.endsWith('/photos')) {
       const n = (upload += 1);
       await new Promise((r) => setTimeout(r, (10 - n) * 2));
@@ -73,4 +76,25 @@ test('one photo or none is not a multi-photo post (the single-photo and link pat
   const g = fakeGraph();
   assert.equal((await publishMultiPhoto(g.call, 'PAGE', 'x', urls.slice(0, 1))).ok, false);
   assert.equal(g.seen.length, 0);
+});
+
+test('at most 10 photos a post (owner): 11 is refused before anything uploads', async () => {
+  assert.equal(FACEBOOK_MAX_ATTACHED_PHOTOS, 10);
+  const eleven = Array.from({ length: 11 }, (_, i) => `https://cdn.example/${i}.jpg`);
+  const g = fakeGraph();
+  const res = await publishMultiPhoto(g.call, 'PAGE', 'x', eleven);
+  assert.equal(res.ok, false);
+  assert.match(!res.ok ? res.error : '', /at most 10 photos; this one has 11/);
+  assert.equal(g.seen.length, 0, 'something uploaded before the cap refused the post');
+  const ten = await publishMultiPhoto(fakeGraph().call, 'PAGE', 'x', eleven.slice(0, 10));
+  assert.equal(ten.ok, true);
+});
+
+test('a clean-up delete that fails is returned with its photo id, so the flush can record it', async () => {
+  const g = fakeGraph({ failFeed: true, failDelete: 'photo-b.jpg' });
+  const res = await publishMultiPhoto(g.call, 'PAGE', 'Hello', urls);
+  assert.equal(res.ok, false);
+  assert.deepEqual(!res.ok ? res.cleanupFailures : null, [{ photo_id: 'photo-b.jpg', error: 'Unsupported delete request' }]);
+  // It still tried to delete every upload, not just up to the failure.
+  assert.deepEqual(g.seen.filter((s) => s.method === 'DELETE').map((s) => s.path), ['/photo-a.jpg', '/photo-b.jpg', '/photo-c.jpg']);
 });

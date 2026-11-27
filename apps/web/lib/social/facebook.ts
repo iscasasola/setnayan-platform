@@ -90,7 +90,12 @@ async function resolvePageAccessToken(
 
 export type FacebookPostResult =
   | { ok: true; externalId: string; postUrl: string }
-  | { ok: false; error: string };
+  | {
+      ok: false;
+      error: string;
+      /** Multi-photo only: unpublished uploads the clean-up could not delete (photo id + Graph error). */
+      cleanupFailures?: Array<{ photo_id: string; error: string }>;
+    };
 
 /**
  * True once the Meta credential is set (Integration Console DB or Vercel env).
@@ -136,7 +141,7 @@ export async function postToFacebookPage({
     const multi = await publishMultiPhoto(graphCaller(postToken), pageId, message, photos);
     return multi.ok
       ? { ok: true, externalId: multi.externalId, postUrl: `https://www.facebook.com/${multi.externalId}` }
-      : { ok: false, error: multi.error };
+      : { ok: false, error: multi.error, cleanupFailures: multi.cleanupFailures };
   }
 
   // Photo route only for fetchable http(s) images — Graph downloads the URL
@@ -245,22 +250,22 @@ export async function commentOnFacebookPost(postId: string, message: string): Pr
   }
 }
 
-/** One Graph request with the Page token and the same timeout as a post. Never throws. */
+/**
+ * One Graph request with the Page token and the same timeout as a post. Never throws. The token always travels in
+ * the form BODY, for DELETE too, never in the query string — a URL ends up in proxy and server logs.
+ */
 function graphCaller(token: string): GraphCall {
   return async (method, path, params) => {
     const body = new URLSearchParams({ ...params, access_token: token });
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), GRAPH_TIMEOUT_MS);
     try {
-      const res =
-        method === 'DELETE'
-          ? await fetch(`${GRAPH_API_BASE}${path}?${body.toString()}`, { method, signal: controller.signal })
-          : await fetch(`${GRAPH_API_BASE}${path}`, {
-              method,
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              body: body.toString(),
-              signal: controller.signal,
-            });
+      const res = await fetch(`${GRAPH_API_BASE}${path}`, {
+        method,
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: body.toString(),
+        signal: controller.signal,
+      });
       const payload = (await res.json().catch(() => null)) as (Record<string, unknown> & { error?: { message?: string } }) | null;
       if (!res.ok || !payload || payload.error) {
         return { ok: false, error: (payload?.error?.message ?? `Graph API HTTP ${res.status}`).slice(0, 300) };

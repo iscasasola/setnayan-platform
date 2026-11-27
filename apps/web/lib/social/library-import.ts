@@ -123,6 +123,16 @@ export function doorToUrl(raw: string): string | null {
   return null;
 }
 
+/**
+ * A real calendar day in YYYY-MM-DD. `new Date('2026-02-30')` silently rolls over to 2 March, so the day must
+ * survive a round trip unchanged — 2026-02-30, 2026-13-01 and 2027-02-29 are refused, never moved.
+ */
+export function isRealCalendarDate(date: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return false;
+  const parsed = new Date(`${date}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === date;
+}
+
 /** Find a column by its header, case-insensitive, by prefix (library v1 says "Pinned first comment (post by hand…)"). */
 function columnIndex(header: string[], ...names: string[]): number {
   const cells = header.map((h) => h.trim().toLowerCase());
@@ -168,8 +178,8 @@ export function libraryRowsFromCsv(text: string, opts: LibraryImportOptions = {}
   table.slice(1).forEach((r, idx) => {
     const line = idx + 2;
     const date = cell(r, col.date);
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00Z`).getTime())) {
-      errors.push(`Line ${line}: date "${date}" is not YYYY-MM-DD.`);
+    if (!isRealCalendarDate(date)) {
+      errors.push(`Line ${line}: date "${date}" is not a real YYYY-MM-DD date.`);
       return;
     }
     const time = normalizeManilaTime(cell(r, col.time));

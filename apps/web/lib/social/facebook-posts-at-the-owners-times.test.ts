@@ -18,6 +18,7 @@ import {
   nextFreeSlot,
   phDayKey,
   postNowSlot,
+  reslotKind,
   slotAt,
   slotClashLosers,
   slotVerdict,
@@ -84,8 +85,8 @@ test('the dispatcher publishes only inside a slot hour', () => {
   assert.equal(slotVerdict(row, ph('2026-12-01T19:59:00')), 'wait');
   assert.equal(slotVerdict(row, ph('2026-12-01T20:00:00')), 'publish');
   assert.equal(slotVerdict(row, ph('2026-12-01T20:59:00')), 'publish');
-  // A planned post whose hour closed unposted is never posted late.
-  assert.equal(slotVerdict(row, ph('2026-12-01T21:00:00')), 'expire');
+  // A planned post whose hour closed unposted is never posted late — and never lost: it is re-slotted.
+  assert.equal(slotVerdict(row, ph('2026-12-01T21:00:00')), 'reslot');
   // A missed auto-post finds a new slot instead.
   assert.equal(slotVerdict({ ...row, slot: 'afternoon', source_type: 'vendor_feature', scheduled_for: ph('2026-12-01T14:00:00').toISOString() }, ph('2026-12-01T16:00:00')), 'reslot');
   // An old 12:30 / 19:00 window row is re-slotted, never published at its old time.
@@ -119,4 +120,18 @@ test('"Post now" takes the slot open right now, else the next free 2 PM', () => 
   assert.equal(phTime(postNowSlot([ph('2026-12-01T08:00:00')], ph('2026-12-01T08:20:00')).at), '2026-12-01 14:00');
   assert.equal(phTime(postNowSlot([], ph('2026-12-01T10:00:00')).at), '2026-12-01 14:00');
   assert.equal(phTime(postNowSlot([], ph('2026-12-01T21:30:00')).at), '2026-12-02 14:00');
+});
+
+test('a missed planned post moves to the next free slot of its OWN kind; auto-posts take 2 PM', () => {
+  assert.equal(reslotKind({ source_type: 'library', slot: 'morning' }), 'morning');
+  assert.equal(reslotKind({ source_type: 'library', slot: 'evening' }), 'evening');
+  assert.equal(reslotKind({ source_type: 'library', slot: 'holiday' }), 'afternoon');
+  assert.equal(reslotKind({ source_type: 'vendor_feature', slot: 'morning' }), 'afternoon');
+  assert.equal(reslotKind({ source_type: 'library', slot: null }), 'afternoon');
+  // A missed 1 Dec morning, with the plan holding every morning through 31 Dec 2027, lands on 1 Jan 2028.
+  const plannedMornings: Date[] = [];
+  for (let d = new Date('2026-12-02T00:00:00Z'); d.getTime() <= new Date('2027-12-31T00:00:00Z').getTime(); d = new Date(d.getTime() + 864e5)) {
+    plannedMornings.push(nextFreeSlot('morning', [], new Date(d.getTime() - 3600e3)));
+  }
+  assert.equal(phTime(nextFreeSlot('morning', plannedMornings, ph('2026-12-01T09:30:00'))), '2028-01-01 08:00');
 });

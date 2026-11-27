@@ -1,5 +1,6 @@
 import 'server-only';
 import { resolveMetaConfig } from '@/lib/integration-config';
+import { multiPhotoUrls, publishMultiPhoto, type GraphCall } from '@/lib/social/facebook-multi-photo';
 
 /**
  * apps/web/lib/social/facebook.ts
@@ -9,6 +10,9 @@ import { resolveMetaConfig } from '@/lib/integration-config';
  * Thin wrapper over the Graph API v21.0 page-publishing endpoints:
  *
  *   • photo posts  → POST /{page-id}/photos  { url, caption }
+ *   • multi-photo  → each image POST /{page-id}/photos { published: false }, in order, then
+ *                    POST /{page-id}/feed { message, attached_media } — all or nothing
+ *                    (lib/social/facebook-multi-photo.ts, controller 2026-11-28)
  *   • text/link    → POST /{page-id}/feed    { message, link }
  *
  * Env contract (owner pastes these when flipping autopublish on):
@@ -108,10 +112,13 @@ export async function postToFacebookPage({
   message,
   linkUrl,
   mediaUrl,
+  mediaUrls,
 }: {
   message: string;
   linkUrl?: string | null;
   mediaUrl?: string | null;
+  /** Two or more public images, in order → ONE multi-photo post, or nothing. */
+  mediaUrls?: readonly string[] | null;
 }): Promise<FacebookPostResult> {
   const { pageId, accessToken } = await resolveMetaConfig();
   if (!pageId || !accessToken) {
@@ -123,6 +130,14 @@ export async function postToFacebookPage({
   // will surface any genuine auth problem itself.
   const resolved = await resolvePageAccessToken(pageId, accessToken);
   const postToken = resolved.ok ? resolved.token : accessToken;
+
+  const photos = multiPhotoUrls(mediaUrls);
+  if (photos) {
+    const multi = await publishMultiPhoto(graphCaller(postToken), pageId, message, photos);
+    return multi.ok
+      ? { ok: true, externalId: multi.externalId, postUrl: `https://www.facebook.com/${multi.externalId}` }
+      : { ok: false, error: multi.error };
+  }
 
   // Photo route only for fetchable http(s) images — Graph downloads the URL
   // itself, so a data: URI or a non-image would just fail server-side there.
@@ -228,4 +243,41 @@ export async function commentOnFacebookPost(postId: string, message: string): Pr
   } finally {
     clearTimeout(timeout);
   }
+}
+
+/** One Graph request with the Page token and the same timeout as a post. Never throws. */
+function graphCaller(token: string): GraphCall {
+  return async (method, path, params) => {
+    const body = new URLSearchParams({ ...params, access_token: token });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), GRAPH_TIMEOUT_MS);
+    try {
+      const res =
+        method === 'DELETE'
+          ? await fetch(`${GRAPH_API_BASE}${path}?${body.toString()}`, { method, signal: controller.signal })
+          : await fetch(`${GRAPH_API_BASE}${path}`, {
+              method,
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: body.toString(),
+              signal: controller.signal,
+            });
+      const payload = (await res.json().catch(() => null)) as (Record<string, unknown> & { error?: { message?: string } }) | null;
+      if (!res.ok || !payload || payload.error) {
+        return { ok: false, error: (payload?.error?.message ?? `Graph API HTTP ${res.status}`).slice(0, 300) };
+      }
+      return { ok: true, body: payload };
+    } catch (err) {
+      return {
+        ok: false,
+        error:
+          err instanceof Error && err.name === 'AbortError'
+            ? `Graph API call timed out after ${GRAPH_TIMEOUT_MS / 1000}s.`
+            : err instanceof Error
+              ? err.message.slice(0, 300)
+              : 'Unknown Graph API error.',
+      };
+    } finally {
+      clearTimeout(timeout);
+    }
+  };
 }

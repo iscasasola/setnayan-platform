@@ -11,7 +11,10 @@
  *   title         Pillar · Link headline (the queue's label)
  *   body          Caption (primary text)
  *   link_url      the Door, made absolute on setnayan.com
- *   media_url     the first image, only when it is already a public http(s) URL (else the branded card is used)
+ *   media_urls    every image, in order ("Images, in this order", split on "|"): 2+ → one multi-photo Facebook post
+ *                 (controller, 28 Nov). A relative path ("slides/01.jpg") resolves under `imagesBase` + the row's
+ *                 Folder; without a base it is an error, never a silent drop
+ *   media_url     the first image (Instagram, TikTok and the single-photo path); none → the branded card
  *   first_comment the Pinned first comment
  *   slot          morning / afternoon / evening / holiday, from Time (Manila)
  *   scheduled_for Date + Time in Manila (+08:00, no DST), stored as UTC
@@ -38,7 +41,13 @@ export type LibraryRow = {
   body: string;
   linkUrl: string | null;
   mediaUrl: string | null;
+  mediaUrls: string[] | null;
   firstComment: string | null;
+};
+
+export type LibraryImportOptions = {
+  /** Public https base the relative image paths live under (e.g. the public media bucket's library folder). */
+  imagesBase?: string | null;
 };
 
 export type LibraryParse = { rows: LibraryRow[]; errors: string[]; warnings: string[] };
@@ -119,14 +128,14 @@ function columnIndex(header: string[], ...names: string[]): number {
   const cells = header.map((h) => h.trim().toLowerCase());
   for (const name of names) {
     const want = name.toLowerCase();
-    const i = cells.findIndex((h) => h === want || h.startsWith(`${want} `) || h.startsWith(`${want}(`));
+    const i = cells.findIndex((h) => h === want || [' ', '(', ','].some((sep) => h.startsWith(`${want}${sep}`)));
     if (i >= 0) return i;
   }
   return -1;
 }
 
 /** Read the library CSV into rows. Bad rows are listed in `errors` and left out; nothing is guessed. */
-export function libraryRowsFromCsv(text: string): LibraryParse {
+export function libraryRowsFromCsv(text: string, opts: LibraryImportOptions = {}): LibraryParse {
   const table = parseCsv(text);
   const errors: string[] = [];
   const warnings: string[] = [];
@@ -141,7 +150,12 @@ export function libraryRowsFromCsv(text: string): LibraryParse {
     comment: columnIndex(header, 'Pinned first comment'),
     door: columnIndex(header, 'Door'),
     images: columnIndex(header, 'Images'),
+    folder: columnIndex(header, 'Folder'),
   };
+  const base = opts.imagesBase?.trim().replace(/\/+$/, '') || null;
+  if (base && !/^https:\/\//i.test(base)) {
+    return { rows: [], errors: [`The images base "${base}" is not an https URL.`], warnings };
+  }
   for (const required of ['date', 'time', 'caption'] as const) {
     if (col[required] < 0) errors.push(`The CSV has no "${required}" column.`);
   }
@@ -184,11 +198,19 @@ export function libraryRowsFromCsv(text: string): LibraryParse {
     const doorRaw = cell(r, col.door);
     const linkUrl = doorToUrl(doorRaw);
     if (doorRaw && !linkUrl) warnings.push(`Line ${line}: door "${doorRaw}" is not a setnayan.com link; no link set.`);
-    const firstImage = cell(r, col.images).split('|')[0]?.trim() ?? '';
-    const mediaUrl = /^https?:\/\//i.test(firstImage) ? firstImage : null;
-    if (firstImage && !mediaUrl) {
-      warnings.push(`Line ${line}: image "${firstImage}" is not a public URL; the branded card is used.`);
+    const images = cell(r, col.images)
+      .split('|')
+      .map((x) => x.trim())
+      .filter(Boolean);
+    const relative = images.filter((x) => !/^https?:\/\//i.test(x));
+    if (relative.length > 0 && !base) {
+      errors.push(`Line ${line}: image "${relative[0]}" is a relative path; pass --images-base <https url>.`);
+      return;
     }
+    const folder = cell(r, col.folder).replace(/^\/+|\/+$/g, '');
+    const imageUrls = images.map((x) =>
+      /^https?:\/\//i.test(x) ? x : [base, folder, x.replace(/^\/+/, '')].filter(Boolean).join('/'),
+    );
     const pillar = cell(r, col.pillar);
     const headline = cell(r, col.headline);
 
@@ -201,7 +223,8 @@ export function libraryRowsFromCsv(text: string): LibraryParse {
       title: [pillar, headline].filter(Boolean).join(' · ') || `Planned post · ${date} ${time}`,
       body,
       linkUrl,
-      mediaUrl,
+      mediaUrl: imageUrls[0] ?? null,
+      mediaUrls: imageUrls.length >= 2 ? imageUrls : null,
       firstComment: cell(r, col.comment) || null,
     });
   });
@@ -212,6 +235,11 @@ export function libraryRowsFromCsv(text: string): LibraryParse {
 /** A SQL string literal (standard_conforming_strings: only the quote is doubled). */
 export function sqlText(value: string | null): string {
   return value === null ? 'NULL' : `'${value.replace(/'/g, "''")}'`;
+}
+
+/** A SQL text[] literal, or NULL. */
+export function sqlTextArray(values: readonly string[] | null): string {
+  return values === null || values.length === 0 ? 'NULL' : `ARRAY[${values.map(sqlText).join(', ')}]::text[]`;
 }
 
 /** The migration body that inserts every row once. Same rows in → same bytes out. */
@@ -230,7 +258,8 @@ export function libraryMigrationSql(rows: readonly LibraryRow[], sourceLabel: st
     .map(
       (r) =>
         `  (${sqlText(r.sourceRef)}, ${sqlText(r.title)}, ${sqlText(r.body)}, ${sqlText(r.mediaUrl)}, ` +
-        `${sqlText(r.linkUrl)}, ${sqlText(r.scheduledFor)}::timestamptz, ${sqlText(r.slot)}, ${sqlText(r.firstComment)})`,
+        `${sqlTextArray(r.mediaUrls)}, ${sqlText(r.linkUrl)}, ${sqlText(r.scheduledFor)}::timestamptz, ${sqlText(r.slot)}, ` +
+        `${sqlText(r.firstComment)})`,
     )
     .join(',\n');
   return [
@@ -238,11 +267,11 @@ export function libraryMigrationSql(rows: readonly LibraryRow[], sourceLabel: st
     'BEGIN;',
     '',
     'INSERT INTO public.social_posts',
-    '  (source_type, source_ref, title, body, media_url, link_url, scheduled_for, slot, first_comment, status)',
-    "SELECT 'library', v.source_ref, v.title, v.body, v.media_url, v.link_url, v.scheduled_for, v.slot, v.first_comment, 'scheduled'",
+    '  (source_type, source_ref, title, body, media_url, media_urls, link_url, scheduled_for, slot, first_comment, status)',
+    "SELECT 'library', v.source_ref, v.title, v.body, v.media_url, v.media_urls::text[], v.link_url, v.scheduled_for, v.slot, v.first_comment, 'scheduled'",
     'FROM (VALUES',
     values,
-    ') AS v(source_ref, title, body, media_url, link_url, scheduled_for, slot, first_comment)',
+    ') AS v(source_ref, title, body, media_url, media_urls, link_url, scheduled_for, slot, first_comment)',
     'WHERE NOT EXISTS (',
     '  SELECT 1 FROM public.social_posts p',
     "   WHERE p.source_type = 'library' AND p.source_ref = v.source_ref",

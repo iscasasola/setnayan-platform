@@ -20,6 +20,9 @@
 --      right after the Facebook post goes out (the library's "Pinned first
 --      comment"). The Graph API cannot pin a comment, so the flush records
 --      "pin by hand" in platform_results.facebook.first_comment.
+--   3b. social_posts.media_urls — the ordered photos of a multi-photo post
+--      (controller, 28 Nov). Facebook uploads each unpublished, in order, and
+--      attaches them to one feed post; any failed upload posts nothing.
 --   4. public.social_live_week_facts(p_from_day, p_to_day, p_since) — the
 --      real news of one week for the 2 PM composer: events held in the window
 --      and suppliers verified since p_since, with test and sample data left
@@ -69,6 +72,13 @@ ALTER TABLE public.social_posts
 
 COMMENT ON COLUMN public.social_posts.first_comment IS
   'Owner 2026-11-28: posted as the first comment right after the Facebook post goes out (the library''s "Pinned first comment"). The Graph API has no pin call, so platform_results.facebook.first_comment records the comment and "pin by hand".';
+
+-- ── 3b · the ordered photos of a multi-photo post ───────────────────────────
+ALTER TABLE public.social_posts
+  ADD COLUMN IF NOT EXISTS media_urls TEXT[];
+
+COMMENT ON COLUMN public.social_posts.media_urls IS
+  'Controller 2026-11-28: the ordered public image URLs of a multi-photo post (the library''s "Images, in this order"). Two or more → Facebook posts them as ONE post, in this order, or posts nothing (lib/social/facebook-multi-photo.ts). media_url keeps the first image for single-image platforms (Instagram, TikTok, the card fallback).';
 
 -- ── 4 · one week of real news for the 2 PM composer ───────────────────────
 CREATE OR REPLACE FUNCTION public.social_live_week_facts(

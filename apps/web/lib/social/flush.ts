@@ -111,6 +111,8 @@ type PostRow = {
   slot: string | null;
   /** Posted as the first comment right after the Facebook post (the library's "Pinned first comment"). */
   first_comment: string | null;
+  /** The ordered photos of a multi-photo post (2+ → one Facebook post, all or nothing). */
+  media_urls: string[] | null;
 };
 
 /**
@@ -662,7 +664,7 @@ async function dispatchDuePosts(
   const { data: dueData, error: dueErr } = await admin
     .from('social_posts')
     .select(
-      'post_id, source_type, source_ref, title, body, media_url, link_url, publish_after, hold_until, scheduled_for, status, platform_results, slot, first_comment',
+      'post_id, source_type, source_ref, title, body, media_url, link_url, publish_after, hold_until, scheduled_for, status, platform_results, slot, first_comment, media_urls',
     )
     .eq('status', 'scheduled')
     .lte('scheduled_for', nowIso)
@@ -732,6 +734,8 @@ async function dispatchDuePosts(
           message: post.body,
           linkUrl: post.link_url,
           mediaUrl: effectiveMedia,
+          // 2+ photos post together, in order, or not at all; Instagram and TikTok take media_url (the first).
+          mediaUrls: post.media_urls,
         });
         if (fb.ok) {
           fbUrl = fb.postUrl;

@@ -23,7 +23,10 @@ let replay: ReplayResult;
 let db: PGlite;
 
 const fixture = readFileSync(join(__dirname, '..', '..', 'lib', 'social', '__fixtures__', 'library-v2-sample.csv'), 'utf8');
-const importSql = libraryMigrationSql(libraryRowsFromCsv(fixture).rows, 'library-v2-sample.csv');
+const importSql = libraryMigrationSql(
+  libraryRowsFromCsv(fixture, { imagesBase: 'https://media.example/library' }).rows,
+  'library-v2-sample.csv',
+);
 
 async function count(where = `source_type = 'library'`): Promise<number> {
   const r = await db.query<{ n: number }>(`SELECT count(*)::int AS n FROM public.social_posts WHERE ${where}`);
@@ -63,6 +66,16 @@ test('1 · the library import inserts each planned post once, and a pulled one s
        FROM public.social_posts WHERE source_type = 'library' AND slot = 'holiday'`,
   );
   assert.deepEqual(holiday.rows, [{ slot: 'holiday', at: '2026-12-25T04:00', first_comment: null, status: 'scheduled' }]);
+
+  const photos = await db.query<{ media_urls: string[] | null; media_url: string | null }>(
+    `SELECT media_urls, media_url FROM public.social_posts WHERE source_type = 'library' ORDER BY scheduled_for`,
+  );
+  assert.deepEqual(
+    photos.rows[0]?.media_urls?.map((u) => u.split('/').pop()),
+    ['01.jpg', '02.jpg', '03.jpg'],
+    'the multi-photo order did not survive the insert',
+  );
+  assert.equal(photos.rows[1]?.media_urls, null);
 
   await db.exec(`UPDATE public.social_posts SET status = 'pulled' WHERE source_type = 'library' AND slot = 'evening'`);
   await db.exec(importSql);

@@ -21,9 +21,11 @@ import {
 } from './library-import';
 
 const fixture = readFileSync(join(__dirname, '__fixtures__', 'library-v2-sample.csv'), 'utf8');
+const BASE = 'https://media.example/library';
+const parse = (text: string) => libraryRowsFromCsv(text, { imagesBase: BASE });
 
 test('the fixture parses: four slots, Manila times to UTC, quoted newlines and quotes kept', () => {
-  const { rows: parsed, errors } = libraryRowsFromCsv(fixture);
+  const { rows: parsed, errors } = parse(fixture);
   assert.deepEqual(errors, []);
   const rows = parsed as [LibraryRow, LibraryRow, LibraryRow, LibraryRow];
   assert.deepEqual(
@@ -42,8 +44,18 @@ test('the fixture parses: four slots, Manila times to UTC, quoted newlines and q
   assert.equal(rows[2].firstComment, null);
   assert.equal(rows[0].linkUrl, 'https://setnayan.com/');
   assert.equal(rows[1].linkUrl, 'https://setnayan.com/explore');
-  assert.equal(rows[0].mediaUrl, 'https://example.org/a.jpg');
-  assert.equal(rows[1].mediaUrl, null); // a folder path is not public: the branded card is used
+  // Images, in this order: relative paths resolve under the base + the row's Folder, order kept.
+  assert.deepEqual(rows[0].mediaUrls, [
+    `${BASE}/batch-1/posts/2026-12-01-plan-live-keep/slides/01.jpg`,
+    `${BASE}/batch-1/posts/2026-12-01-plan-live-keep/slides/02.jpg`,
+    `${BASE}/batch-1/posts/2026-12-01-plan-live-keep/slides/03.jpg`,
+  ]);
+  assert.equal(rows[0].mediaUrl, rows[0].mediaUrls?.[0]);
+  // One image is a single-photo post: media_url only.
+  assert.equal(rows[1].mediaUrl, `${BASE}/batch-1/posts/2026-12-01-moment/card.jpg`);
+  assert.equal(rows[1].mediaUrls, null);
+  assert.equal(rows[2].mediaUrl, 'https://example.org/pasko.jpg');
+  assert.equal(rows[3].mediaUrl, null); // no image: the branded card is used
 });
 
 test('source_ref is a stable hash of date + slot, and nothing else', () => {
@@ -53,16 +65,25 @@ test('source_ref is a stable hash of date + slot, and nothing else', () => {
   assert.notEqual(a, librarySourceRef('2026-12-01', 'evening'));
   assert.notEqual(a, librarySourceRef('2026-12-02', 'morning'));
   const edited = fixture.replace('Plan it. Live it. Keep it.', 'Edited caption.');
-  assert.equal(libraryRowsFromCsv(edited).rows[0]?.sourceRef, a);
+  assert.equal(parse(edited).rows[0]?.sourceRef, a);
 });
 
 test('same CSV → same migration bytes (re-generating is safe)', () => {
-  const once = libraryMigrationSql(libraryRowsFromCsv(fixture).rows, 'library-v2-sample.csv');
-  const twice = libraryMigrationSql(libraryRowsFromCsv(fixture).rows, 'library-v2-sample.csv');
+  const once = libraryMigrationSql(parse(fixture).rows, 'library-v2-sample.csv');
+  const twice = libraryMigrationSql(parse(fixture).rows, 'library-v2-sample.csv');
   assert.equal(once, twice);
   assert.match(once, /WHERE NOT EXISTS \(\n  SELECT 1 FROM public\.social_posts p\n   WHERE p\.source_type = 'library' AND p\.source_ref = v\.source_ref\n\)/);
   assert.match(once, /ON CONFLICT \(source_type, source_ref\) WHERE source_type != 'evergreen' AND status != 'pulled' DO NOTHING;/);
   assert.match(once, /'Ano''ng "set na ''yan" moment mo this week\? 👇'/);
+  assert.match(once, /ARRAY\['https:\/\/media\.example\/library\/batch-1\/posts\/2026-12-01-plan-live-keep\/slides\/01\.jpg', '[^']+02\.jpg', '[^']+03\.jpg'\]::text\[\]/);
+  assert.match(once, /v\.media_urls::text\[\]/);
+});
+
+test('relative images without a base stop the import; a non-https base is refused', () => {
+  const { rows, errors } = libraryRowsFromCsv(fixture);
+  assert.equal(rows.length, 2);
+  assert.match(errors[0] ?? '', /^Line 2: image "slides\/01\.jpg" is a relative path; pass --images-base/);
+  assert.match(libraryRowsFromCsv(fixture, { imagesBase: 'http://insecure.example' }).errors[0] ?? '', /not an https URL/);
 });
 
 test('bad rows are refused with their line, never guessed', () => {

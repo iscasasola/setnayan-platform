@@ -66,6 +66,11 @@ export type EventServicesBodyProps = {
   back?: { href: string; label: string } | null;
   /** 🧪 The lab's ⓘ frame: that pack's list open in place on arrival. */
   initialInfo?: PackKey | null;
+  /**
+   * 📸 Set when this person may not buy guest photos here (the iPhone app sells Papic to the couple only —
+   * `startAppStorePurchase` refuses anyone else): the photo row shows this line instead of its sizes. Null = the buy.
+   */
+  photosRefusal?: string | null;
 };
 
 /** The ONE order's post — `submitOrderAction` with the Event services intent (handed in by the page's body). */
@@ -181,6 +186,7 @@ export function EventServicesView({
   lab = false,
   initialInfo = null,
   back = null,
+  photosRefusal = null,
   Dock = PlainDock,
   submit,
   apple = null,
@@ -450,9 +456,15 @@ export function EventServicesView({
                     <b className="es-name">More guest photos</b>
                     <span className="es-line">Papic · every guest’s phone is a camera.</span>
                   </span>
-                  <span className="es-end">{photoSize ? <Price php={photoSize.php} code={photoSize.code} /> : <small className="es-small">pick a size</small>}</span>
+                  {photosRefusal ? null : (
+                    <span className="es-end">{photoSize ? <Price php={photoSize.php} code={photoSize.code} /> : <small className="es-small">pick a size</small>}</span>
+                  )}
                 </div>
-                {facts.photos === null ? (
+                {photosRefusal ? (
+                  <p className="es-fine es-indent" data-event-services-photos-refused="">
+                    {photosRefusal}
+                  </p>
+                ) : facts.photos === null ? (
                   <p className="es-fine es-indent">The photo sizes couldn’t be read. Try again in a moment.</p>
                 ) : facts.photos.length > 0 ? (
                   <Chips

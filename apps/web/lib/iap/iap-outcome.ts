@@ -39,8 +39,18 @@ export type IapConfirmResult =
   | { status: 'on'; eventId: string | null; vendorProfileId?: string; serviceKey: string }
   | { status: 'pending' }
   | { status: 'refunded' }
+  /** 🗑 A retired product with no intent: settled (the phone finishes it), nothing granted. */
+  | { status: 'retired' }
   | { status: 'invalid' }
   | { status: 'refused'; reason: string };
+
+/**
+ * The phone FINISHES a transaction only when our server has settled it: on, already refunded by Apple, or a retired
+ * product with no intent (nothing to grant). Anything else stays unfinished so Apple re-delivers it.
+ */
+export function settled(server: IapConfirmResult): boolean {
+  return server.status === 'on' || server.status === 'refunded' || server.status === 'retired';
+}
 
 export type IapRestoreResult =
   | { ok: true; restored: Array<{ eventId: string; eventName: string | null; serviceKey: string }>; pending: number }
@@ -59,6 +69,11 @@ const START_COPY: Record<IapStartRefusal, string> = {
   not_shop_owner: 'Only the shop’s owner or an admin can buy gifts.',
   not_plan_manager: 'Only the shop’s owner or an admin can choose its plan.',
 };
+
+/** The one sentence for a refusal — the same words a page shows before offering a buy the server would refuse. */
+export function startRefusalLine(reason: IapStartRefusal): string {
+  return START_COPY[reason];
+}
 
 export function startRefusal(reason: IapStartRefusal): IapStartResult {
   return { ok: false, reason, message: START_COPY[reason] };
@@ -109,6 +124,8 @@ export function screenFor(sheet: IapSheetResult, server: IapConfirmResult | null
       return { kind: 'pending', askToBuy: false };
     case 'refunded':
       return { kind: 'refused', message: 'Apple has refunded this purchase, so it is not on your event.' };
+    case 'retired':
+      return { kind: 'refused', message: 'This item is no longer sold, so nothing was added to your event.' };
     case 'invalid':
       // We could not verify what the phone handed us: keep it, Apple re-delivers.
       return { kind: 'pending', askToBuy: false };

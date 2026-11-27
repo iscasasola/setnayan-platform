@@ -21,7 +21,7 @@
  */
 
 import { startAppStorePurchase, confirmAppStorePurchase, restoreAppStorePurchases } from './iap-actions';
-import { screenFor, type IapConfirmResult, type IapScreen, type IapSheetResult, type IapRestoreResult } from './iap-outcome';
+import { screenFor, settled, type IapConfirmResult, type IapScreen, type IapSheetResult, type IapRestoreResult } from './iap-outcome';
 import { priceMatchesStorefront } from './storefront-price';
 
 export const NATIVE_STORE_PLUGIN = 'SetnayanStore';
@@ -90,11 +90,6 @@ export async function loadAppStoreProducts(ids: readonly string[]): Promise<Map<
 
 type PurchaseAnswer = { result?: string; jws?: string; transactionId?: string };
 
-/** Finish ONLY what our server has settled (on, or already refunded by Apple). */
-function settled(server: IapConfirmResult): boolean {
-  return server.status === 'on' || server.status === 'refunded';
-}
-
 /**
  * The whole purchase, start to finish. Resolves to the ONE screen the sheet
  * shows next — never throws, never shows Apple's raw error text.
@@ -135,7 +130,7 @@ export async function buyWithApple(input: { eventId?: string; productId: string;
 
   let server: IapConfirmResult | null = null;
   try {
-    server = await confirmAppStorePurchase({ jws });
+    server = await confirmAppStorePurchase({ jws, via: 'confirm' });
   } catch {
     server = null; // network: Apple re-delivers; the screen says "switching it on"
   }
@@ -162,7 +157,7 @@ export async function deliverPendingAppStoreTransactions(): Promise<number> {
   for (const t of list) {
     if (typeof t.jws !== 'string') continue;
     try {
-      const server = await confirmAppStorePurchase({ jws: t.jws });
+      const server = await confirmAppStorePurchase({ jws: t.jws, via: 'replay' });
       if (server.status === 'on') on += 1;
       if (settled(server) && t.transactionId) await call('finish', { transactionId: t.transactionId }).catch(() => undefined);
     } catch {

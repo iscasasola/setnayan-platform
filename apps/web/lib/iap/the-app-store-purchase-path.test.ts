@@ -39,8 +39,8 @@ const PROD_FILES = ['app', 'lib']
 test('every production caller hands the minter the MONEY writer', () => {
   const actions = code('lib/iap/iap-actions.ts');
   assert.match(actions, /createPurchaseIntent\(createMoneyWriterClient\(\),/);
-  assert.match(actions, /fulfilAppleTransaction\(createMoneyWriterClient\(\), verified\.tx, \{ expectUserId: userId \}\)/);
-  assert.match(actions, /const writer = createMoneyWriterClient\(\);[\s\S]*fulfilAppleTransaction\(writer, verified\.tx, \{ expectUserId: userId \}\)/);
+  assert.match(actions, /fulfilAppleTransaction\(createMoneyWriterClient\(\), verified\.tx, \{\s*expectUserId: userId,/);
+  assert.match(actions, /const writer = createMoneyWriterClient\(\);[\s\S]*fulfilAppleTransaction\(writer, verified\.tx, \{ expectUserId: userId,/);
   const route = code('app/api/iap/app-store-notifications/route.ts');
   assert.match(route, /handleAppStoreNotification\(createMoneyWriterClient\(\), signedPayload\)/);
   // Only these modules may reach the minter at all.

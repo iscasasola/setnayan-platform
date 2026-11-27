@@ -18,6 +18,7 @@ import { getEffectiveVatRatePct } from '@/lib/platform-settings';
 import { computeVatFromBase } from '@/lib/receipts';
 import { chargedPhp, type AppleTransaction } from './apple-transaction';
 import { appleGiftDeliveryFor, appleGiftOrderKey, appleGiftPurchaseRow } from './supplier-gift.server';
+import { isRetiredIapProduct } from './products-delivery';
 
 /**
  * 🍎 APPLE SAID YES → THE SAME ORDER, THE SAME ACTIVATION.
@@ -60,12 +61,21 @@ export type FulfilOutcome =
   /** `eventId` null ⇒ a shop's gift (`vendorProfileId`), landed in its gift stock. */
   | { status: 'on'; orderId: string; eventId: string | null; vendorProfileId?: string; serviceKey: string; activatedNow: boolean }
   | { status: 'refunded' }
+  /**
+   * 🗑 A RETIRED product (lib/iap/products-delivery.ts) whose intent no longer exists — an old test purchase still
+   * unfinished on a phone (the 16 Nov migration cleared every pre-November intent). Nothing is granted; the answer
+   * lets the phone FINISH it so it stops replaying on every Home open and Restore.
+   */
+  | { status: 'retired' }
   | {
       status: 'refused';
       reason: 'unknown_token' | 'not_yours' | 'token_reused' | 'product_mismatch' | 'no_event' | 'no_shop';
     }
   /** A read or write failed — nothing is lost: Apple re-delivers, and Restore re-asks. */
   | { status: 'error'; where: string };
+
+/** How a transaction reached us — written into the no-intent fault so its source can be told apart. */
+export type AppleTransactionRoute = 'confirm' | 'notification' | 'replay' | 'restore';
 
 type IntentRow = {
   app_account_token: string;
@@ -184,7 +194,7 @@ async function orderAmountPhp(
 export async function fulfilAppleTransaction(
   admin: SupabaseClient,
   tx: AppleTransaction,
-  opts: { expectUserId?: string } = {},
+  opts: { expectUserId?: string; via?: AppleTransactionRoute } = {},
 ): Promise<FulfilOutcome> {
   // A transaction Apple has already revoked never grants anything.
   if (tx.revocationDate) {
@@ -196,13 +206,28 @@ export async function fulfilAppleTransaction(
   if (!intent.ok) return { status: 'error', where: 'read_intent' };
   const row = intent.row;
   if (!row) {
-    // A genuine Apple purchase we have no intent for. Money moved; say so loudly.
+    // 🗑 A retired product can only have been started before its retirement, and those intents are gone: settle it
+    // (finished, nothing granted) so the phone stops replaying it. One quiet line, never a fault on every open.
+    if (isRetiredIapProduct(tx.product.productId)) {
+      console.info(
+        `[iap] settled retired ${tx.product.productId} transaction ${tx.transactionId} (${tx.environment}, via ${opts.via ?? 'unknown'}) with no intent — nothing granted`,
+      );
+      return { status: 'retired' };
+    }
+    // A genuine Apple purchase of a CURRENT product we have no intent for. Money moved; say so loudly.
     await insertFaultLog({
       event_type: 'OTHER',
       element_name: 'App Store purchase — no intent for this token',
       file_path: 'lib/iap/fulfil.server.ts',
-      error_message: `transaction ${tx.transactionId} (${tx.product.productId}, ${tx.environment}) carries a token we never issued`,
-      payload_snapshot: { transactionId: tx.transactionId, productId: tx.product.productId },
+      error_message: `transaction ${tx.transactionId} (${tx.product.productId}, ${tx.environment}, via ${opts.via ?? 'unknown'}) carries a token we never issued`,
+      // `intentKey` is the appAccountToken (a key named "token" is redacted by lib/telemetry/redact.ts).
+      payload_snapshot: {
+        transactionId: tx.transactionId,
+        productId: tx.product.productId,
+        environment: tx.environment,
+        intentKey: tx.appAccountToken,
+        via: opts.via ?? 'unknown',
+      },
     });
     return { status: 'refused', reason: 'unknown_token' };
   }

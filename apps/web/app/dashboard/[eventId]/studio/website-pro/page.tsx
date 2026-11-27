@@ -10,6 +10,8 @@ import { PACK_KEYS, SINGLE_CODES, SINGLE_KEYS, singleTickable, singlesInPlan, ty
 import { PLAN_PRICE_CODES } from '@/lib/event-plans';
 import { EventServicesBody } from './_components/event-services-body';
 import { UNLOCK_AND_APPLY_PARAM } from '@/lib/hub-pro-effects';
+import { createClient } from '@/lib/supabase/server';
+import { startRefusalLine } from '@/lib/iap/iap-outcome';
 // 🎨 The website template's look for this page (v5) — loaded here and in its lab, never in a unit render.
 import './_components/event-services-website.css';
 
@@ -49,9 +51,11 @@ export default async function EventServicesPage({ params, searchParams }: Props)
      browser — and without Apple's shop (an old build, Apple off) it offers nothing: Today. */
   const gate = await getIapGate();
   if (gate.storeShell && !gate.iap) redirect(`/dashboard/${eventId}`);
-  const appleProducts = gate.storeShell ? appleProductsFor() : null;
-
-  const read = await readEventServices(eventId);
+  // 📸 In the app, Papic is the couple's alone (`startAppStorePurchase` refuses anyone else — a co-host is stored as
+  // 'coordinator'), so the same membership read decides whether the photo buy is offered at all.
+  const [read, coupleHere] = await Promise.all([readEventServices(eventId), gate.storeShell ? isCoupleOf(eventId, user.id) : Promise.resolve<boolean | null>(true)]);
+  const appleProducts = gate.storeShell ? appleProductsFor(coupleHere === true) : null;
+  const photosRefusal = coupleHere === true ? null : coupleHere === false ? startRefusalLine('couple_only') : PHOTOS_UNREAD;
   const facts = appleProducts ? withoutWebFigures(read) : read;
   /* 💎 From the Maker's Apply sheet (`?from=maker`, owner 2026-09-28): the way back is the Maker, where the draft waits
      untouched; "Unlock … and Apply" (`then=apply`) comes back with `?apply=1`, which applies the draft once its parts
@@ -91,6 +95,7 @@ export default async function EventServicesPage({ params, searchParams }: Props)
         initialOpen={add !== null}
         back={back}
         appleProducts={appleProducts}
+        photosRefusal={photosRefusal}
       />
     </>
   );
@@ -98,14 +103,31 @@ export default async function EventServicesPage({ params, searchParams }: Props)
 
 /** 🍎 What Apple sells on this page: the three plans, Live Watch and the photo packs — catalogue code → product id.
  *  Event Hub and Setnayan AI have no Apple product, so the app does not show them (no link out to the web). */
-function appleProductsFor(): Record<string, string> {
+function appleProductsFor(withPapic: boolean): Record<string, string> {
   const out: Record<string, string> = {};
   for (const code of [...Object.values(PLAN_PRICE_CODES), SINGLE_CODES.live]) {
     const p = iapProductForServiceKey(code);
     if (p) out[code] = p.productId;
   }
-  for (const p of IAP_PAPIC_PRODUCTS) out[p.serviceKey] = p.productId;
+  // 📸 Only the couple is sold Papic in the app — the same rule `startAppStorePurchase` holds on the server.
+  if (withPapic) for (const p of IAP_PAPIC_PRODUCTS) out[p.serviceKey] = p.productId;
   return out;
+}
+
+/** The photo row's own "couldn't read" line — said when who may buy could not be read (never a guess either way). */
+const PHOTOS_UNREAD = 'The photo sizes couldn’t be read. Try again in a moment.';
+
+/** 📸 Is this person the event's couple (`event_members.member_type`)? Null = the read failed. */
+async function isCoupleOf(eventId: string, userId: string): Promise<boolean | null> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('event_members')
+    .select('member_type')
+    .eq('event_id', eventId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (error) return null;
+  return (data as { member_type?: string } | null)?.member_type === 'couple';
 }
 
 /** 🍎 Every web peso out of the facts before they reach the app's browser (Apple's rule: no web price in the app). */

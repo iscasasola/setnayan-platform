@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
-import { Check, Download, Loader2, Share } from 'lucide-react';
+import { Check, Loader2, Share } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { GalleryLightbox } from './gallery-lightbox';
 import { canShareFiles, saveFileToDevice, saveImageToDevice } from '@/lib/save-to-device';
@@ -86,7 +86,7 @@ export function PhotoViewer({
         {
           key: 'save',
           label: saving === 'saving' ? 'Saving…' : saving === 'done' ? 'Saved' : saving === 'failed' ? 'Try again' : 'Save',
-          icon: saving === 'saving' ? Loader2 : saving === 'done' ? Check : Download,
+          icon: saving === 'saving' ? Loader2 : saving === 'done' ? Check : Share,
           enabled: saving !== 'saving',
           onPress: () => {
             if (saving === 'saving') return;

@@ -1,9 +1,11 @@
 import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { CopyButton } from '@/app/_components/copy-button';
+import { SaveFileLink } from '@/app/_components/save-file-link';
+import { actionButtonClass } from '@/components/action-button-class';
 import { after } from 'next/server';
 import { notFound, redirect } from 'next/navigation';
-import { ArrowLeft, ArrowRight, CheckCircle2, Send, Trash2, XCircle } from 'lucide-react';
+import { ArrowLeft, ArrowRight, CheckCircle2, Send, Share, Trash2, XCircle } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchQuoteShopGifts } from '@/lib/shop-gifts.server';
@@ -668,6 +670,15 @@ export default async function ProposalDetailPage({ params, searchParams }: Props
                     alt={`${m.label} QR code`}
                     className="mt-2 h-40 w-40 rounded-lg border border-ink/10 object-contain"
                   />
+                ) : null}
+                {/* 💾 Long-press save is gone (owner 27 Nov 2026, R1): the QR is saved with a button. */}
+                {m.method_type === 'qr' && m.qr_display_url ? (
+                  <div className="mt-1.5">
+                    <SaveFileLink href={m.qr_display_url} filename={`${m.label} QR.png`} className={actionButtonClass('neutral')}>
+                      <Share aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+                      Save QR
+                    </SaveFileLink>
+                  </div>
                 ) : null}
                 {m.note ? <p className="mt-1 text-xs text-ink/50">{m.note}</p> : null}
               </li>

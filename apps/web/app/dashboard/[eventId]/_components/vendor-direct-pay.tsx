@@ -45,13 +45,15 @@ import {
   ExternalLink,
   Link2,
   QrCode,
+  Share,
   ShieldAlert,
   Wallet,
   X,
 } from 'lucide-react';
 import type { CoupleFacingMethod } from '@/lib/vendor-payment-methods';
 import { Sheet } from '@/app/_components/sheet';
-import { ActionButton } from '@/components/action-button';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { OpenWalletButton } from '@/app/_components/open-wallet-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { qrWords, payloadCarriesOwnAmount, AGREED_AMOUNT } from '@/lib/qr-amount-truth';
@@ -503,13 +505,22 @@ function QrBody({
                 <p className="text-xs text-ink/60">Making the code&hellip;</p>
               </div>
             ) : shownUrl ? (
-              <div className="flex justify-center rounded-xl border border-ink/10 bg-cream p-3">
+              <div className="flex flex-col items-center gap-2 rounded-xl border border-ink/10 bg-cream p-3">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={shownUrl}
                   alt={`${method.label} payment QR code`}
                   className="h-56 w-56 max-w-full object-contain"
                 />
+                {/* 💾 Long-press save is gone (owner 27 Nov 2026, R1): the QR is saved with a button. */}
+                <SaveFileLink href={shownUrl} filename={`${method.label} QR.png`} className={actionButtonClass('neutral')} data-direct-pay-save="">
+                  {(state) => (
+                    <>
+                      <Share aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+                      {state === 'saving' ? 'Saving…' : 'Save QR'}
+                    </>
+                  )}
+                </SaveFileLink>
               </div>
             ) : (
               <p className="rounded-md bg-ink/[0.03] px-3 py-2 text-xs text-ink/55">

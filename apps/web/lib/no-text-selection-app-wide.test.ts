@@ -27,7 +27,7 @@ const ruleFor = (selectorList: string): string => {
 
 test('(1) the whole app takes selection and the long-press callout off', () => {
   // The first `body {` is the colour rule; find the one that carries the selection.
-  const all = [...css.matchAll(/(^|\n)\s*body \{([^}]*)\}/g)].map((m) => m[2]);
+  const all = [...css.matchAll(/(^|\n)\s*body \{([^}]*)\}/g)].map((m) => m[2] ?? "");
   const off = all.find((b) => /user-select:\s*none/.test(b));
   assert.ok(off, 'body never takes selection off');
   assert.match(off!, /-webkit-user-select:\s*none;/, 'Safari / iOS still selects');
@@ -67,7 +67,7 @@ test('(5) no surface is exempt — /admin follows the rule (R5)', () => {
   assert.doesNotMatch(css, /\.app-surface[^{]*\{[^}]*user-select:\s*text/, 'a surface turns selection back on');
   assert.doesNotMatch(css, /admin[^{]*\{[^}]*user-select:\s*text/i, '/admin is exempt (R5 says it is not)');
   // The only rules that turn selection ON are the two above (boxes + the mark).
-  const onRules = [...css.matchAll(/([^{}]+)\{[^}]*(?<!-)user-select:\s*(?:text|auto|all)/g)].map((m) => m[1].trim());
+  const onRules = [...css.matchAll(/([^{}]+)\{[^}]*(?<!-)user-select:\s*(?:text|auto|all)/g)].map((m) => (m[1] ?? '').trim());
   assert.deepEqual(
     onRules,
     ["input,\n  textarea,\n  select,\n  [contenteditable]:not([contenteditable='false']),\n  [data-selectable]"],

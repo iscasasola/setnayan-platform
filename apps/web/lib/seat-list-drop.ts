@@ -36,7 +36,8 @@ export type SeatDropPlan =
   | { kind: 'none' }
   | { kind: 'refused'; reason: SeatDropRefusal; guestId: string }
   | { kind: 'place'; guestId: string; tableId: string; seat: number; along?: ReadonlyArray<{ guestId: string; seat: number }> }
-  | { kind: 'trade'; guestId: string; otherId: string; tableId: string; seat: number }
+  /** `pairs`: the rest of two same-size units, swapped +1 for +1 after the leads (absent = two single guests). */
+  | { kind: 'trade'; guestId: string; otherId: string; tableId: string; seat: number; pairs?: ReadonlyArray<readonly [string, string]> }
   | { kind: 'unseat'; guestId: string; along?: readonly string[] };
 
 /**
@@ -50,19 +51,22 @@ export type SeatDropMover = { id: string; seated: boolean; party?: readonly stri
 export type SeatDropRoom = {
   /** The target table's free chairs, in order (the target seat among them when it is free). */
   freeSeats?: readonly number[];
-  /** The guest in the target seat holds a locked seat. */
+  /** The guest in the target seat holds a locked seat (or anyone in their unit does). */
   occupantLocked?: boolean;
+  /** The unit of the guest in the target seat (`seatDropUnit`) — a trade swaps two units of the SAME size only. */
+  occupantUnit?: { leadId: string; party: readonly string[] };
 };
 
 /** 🔒 #17 — the ONE line a locked guest's hand move answers with. 🔒 lib/a-seat-unit-moves-as-one.test.ts */
 export const SEAT_LOCKED_WORDS = 'Locked · Unlock to move';
 
-/** The words each refusal says. */
-export function seatDropRefusalWords(reason: SeatDropRefusal, name: string, partySize: number): string {
+/**
+ * The words each refusal says (drawing `prototypes/seats_names_2026-11-27/`): "Needs 2 seats" — the unit's own size, on
+ * a table without room for it or a seat whose unit is another size.
+ */
+export function seatDropRefusalWords(reason: SeatDropRefusal, partySize: number): string {
   if (reason === 'locked') return SEAT_LOCKED_WORDS;
-  const others = partySize - 1;
-  if (reason === 'no-room') return `${name} comes with ${others === 1 ? 'a +1' : `${others} +1s`} — that table has no room for them together`;
-  return `${name} comes with ${others === 1 ? 'a +1' : `${others} +1s`} — drop them on empty seats, not on someone’s seat`;
+  return `Needs ${partySize} ${partySize === 1 ? 'seat' : 'seats'}`;
 }
 
 /**
@@ -108,9 +112,19 @@ export function planSeatDrop(mover: SeatDropMover, target: SeatDropTarget | null
   if (target.occupantId === mover.id || (target.occupantId && party.includes(target.occupantId))) return { kind: 'none' };
   if (mover.locked || (target.occupantId && room.occupantLocked)) return { kind: 'refused', reason: 'locked', guestId: mover.id };
   if (target.occupantId) {
-    // A unit never trades with one person — it would split the pair (R3: pair onto a single → no trade).
-    if (party.length) return { kind: 'refused', reason: 'no-trade', guestId: mover.id };
-    return { kind: 'trade', guestId: mover.id, otherId: target.occupantId, tableId: target.tableId, seat: target.seat };
+    // A trade swaps two units of the SAME size (§ 4.1) — a pair never trades with one person, nor a single with one
+    // half of a pair (R3: either way the pair would split).
+    const other = room.occupantUnit ?? { leadId: target.occupantId, party: [] };
+    if (other.party.length !== party.length) return { kind: 'refused', reason: 'no-trade', guestId: mover.id };
+    if (!party.length) return { kind: 'trade', guestId: mover.id, otherId: target.occupantId, tableId: target.tableId, seat: target.seat };
+    return {
+      kind: 'trade',
+      guestId: mover.id,
+      otherId: other.leadId,
+      tableId: target.tableId,
+      seat: target.seat,
+      pairs: party.map((id, i) => [id, other.party[i]!] as const),
+    };
   }
   if (!party.length) return { kind: 'place', guestId: mover.id, tableId: target.tableId, seat: target.seat };
   // The unit needs a chair each at the table: the target seat, then the table's next free ones.
@@ -169,4 +183,25 @@ export function cardUnits<G extends { id: string; plusOneOf?: string | null }>(p
     out.push([g, ...people.filter((x) => x.plusOneOf === g.id)]);
   }
   return out;
+}
+
+/** "Ana" from "Ana Cruz" — the short name a Names chip wears (a courtesy title is skipped: "Dr. Jose Rizal" → "Jose"). */
+export function shortNameOf(name: string): string {
+  const words = name.trim().replace(/^(Mr|Mrs|Ms|Miss|Dr|Atty|Engr|Hon)\.?\s+/i, '').split(/\s+/);
+  return words[0] || name.trim();
+}
+
+/** How many Names chips a card draws before "+N more" (drawing `prototypes/seats_names_2026-11-27/`). */
+export const NAMES_ON_A_CARD = 12;
+
+/**
+ * 🪪 A Names chip's words (drawing `prototypes/seats_names_2026-11-27/`):
+ *   · a guest alone → "Ana";
+ *   · a guest with their +1s → "Ana" then, after a hairline, "+1" (or "+2" for a bigger party);
+ *   · a +1 sitting away from the guest who brings them (a sponsor's +1 under "nearest") → "Ramon's +1".
+ */
+export function nameChipWords(unit: ReadonlyArray<{ name: string; plusOneOf?: string | null }>, bringerName?: string | null): { name: string; plus: string | null } {
+  const lead = unit[0]!;
+  if (unit.length === 1 && lead.plusOneOf && bringerName) return { name: `${shortNameOf(bringerName)}’s +1`, plus: null };
+  return { name: shortNameOf(lead.name), plus: unit.length > 1 ? `+${unit.length - 1}` : null };
 }

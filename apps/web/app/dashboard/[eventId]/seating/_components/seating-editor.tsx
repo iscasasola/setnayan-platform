@@ -1430,9 +1430,17 @@ export function SeatingEditor({
     setNotice(SEAT_LOCKED_WORDS);
     return true;
   };
-  const tradeSeats = (aId: string, bId: string) => {
+  /** The server refused too (a lock this tab had not seen yet): the same line, and the plan reads what is saved. */
+  const saidLocked = (res: unknown): boolean => {
+    if (!res || typeof res !== 'object' || !('refused' in res)) return false;
+    setMoveNote(null);
+    setNotice(SEAT_LOCKED_WORDS);
+    return true;
+  };
+  /** `pairs`: two same-size units trade — their +1s swap one for one after the leads (seat plan § 4.1), in ONE write. */
+  const tradeSeats = (aId: string, bId: string, pairs: ReadonlyArray<readonly [string, string]> = []) => {
     if (!canEdit || aId === bId) return;
-    if (refuseLocked(aId, bId)) return;
+    if (refuseLocked(aId, bId, ...pairs.flat())) return;
     const a = guests.find((g) => g.guest_id === aId);
     const b = guests.find((g) => g.guest_id === bId);
     if (!a || !b) return;
@@ -1446,24 +1454,39 @@ export function SeatingEditor({
       return fd;
     };
     const [ta, sa, tb, sb] = [a.seated_table_id, a.seat_number, b.seated_table_id, b.seat_number];
+    // Every +1 pair: where each sits now (they take each other's chairs, as the leads do).
+    const rest = pairs.flatMap(([x, y]) => {
+      const gx = guestsById.get(x);
+      const gy = guestsById.get(y);
+      return gx && gy ? [{ x, y, tx: gx.seated_table_id, sx: gx.seat_number, ty: gy.seated_table_id, sy: gy.seat_number }] : [];
+    });
     setPickedId(null);
     startTransition(async () => {
-      if (tb) applyGuestOpt({ type: 'seat', guestId: aId, tableId: tb, seat: sb });
-      else applyGuestOpt({ type: 'unseat', guestId: aId });
-      if (ta) applyGuestOpt({ type: 'seat', guestId: bId, tableId: ta, seat: sa });
-      else applyGuestOpt({ type: 'unseat', guestId: bId });
+      for (const [id, t, seat] of [[aId, tb, sb], [bId, ta, sa], ...rest.flatMap((r) => [[r.x, r.ty, r.sy], [r.y, r.tx, r.sx]] as const)] as const) {
+        if (t) applyGuestOpt({ type: 'seat', guestId: id, tableId: t, seat });
+        else applyGuestOpt({ type: 'unseat', guestId: id });
+      }
       if (ta && tb) {
         const fd = form(aId);
         fd.delete('guest_id');
         fd.set('guest_a_id', aId);
         fd.set('guest_b_id', bId);
-        await runGated(() => swapSeats(fd));
+        if (rest.length) fd.set('pairs', rest.map((r) => `${r.x}:${r.y}`).join(','));
+        saidLocked(await runGated(() => swapSeats(fd)));
       } else if (tb) {
-        await runGated(() => unassignGuest(form(bId)));
-        await runGated(() => assignGuest(form(aId, tb, sb)));
+        const off = form(bId);
+        if (rest.length) off.set('also', rest.map((r) => r.y).join(','));
+        if (saidLocked(await runGated(() => unassignGuest(off)))) return;
+        const on = form(aId, tb, sb);
+        if (rest.length) on.set('along', JSON.stringify(rest.map((r) => ({ guest_id: r.x, seat_number: r.sy }))));
+        saidLocked(await runGated(() => assignGuest(on)));
       } else if (ta) {
-        await runGated(() => unassignGuest(form(aId)));
-        await runGated(() => assignGuest(form(bId, ta, sa)));
+        const off = form(aId);
+        if (rest.length) off.set('also', rest.map((r) => r.x).join(','));
+        if (saidLocked(await runGated(() => unassignGuest(off)))) return;
+        const on = form(bId, ta, sa);
+        if (rest.length) on.set('along', JSON.stringify(rest.map((r) => ({ guest_id: r.y, seat_number: r.sx }))));
+        saidLocked(await runGated(() => assignGuest(on)));
       }
     });
   };
@@ -1472,6 +1495,13 @@ export function SeatingEditor({
     if (!canEdit) return;
     if (!pickedId) return;
     if (refuseLocked(pickedId)) return;
+    // 🧑‍🤝‍🧑 "tap · move" onto a chair is the SAME answer as a drag (`dropSeat` → `seatDropUnit`): a picked +1 moves
+    // their bringer's unit, a pair needs a chair each.
+    if (seatNumber !== null) {
+      const occupant = guests.find((g) => g.seated_table_id === tableId && g.seat_number === seatNumber);
+      dropSeat(pickedId, { kind: 'seat', tableId, seat: seatNumber, occupantId: occupant?.guest_id ?? null });
+      return;
+    }
     const guestId = pickedId;
     const fd = new FormData();
     fd.set('event_id', eventId);
@@ -1482,28 +1512,37 @@ export function SeatingEditor({
     setPickedId(null);
     startTransition(async () => {
       applyGuestOpt({ type: 'seat', guestId, tableId, seat: seatNumber });
-      await runGated(() => assignGuest(fd));
+      saidLocked(await runGated(() => assignGuest(fd)));
     });
   };
 
   /** `quiet`: an Undo putting someone back off a seat says nothing more (its own line already spoke). */
-  const unseat = (guestId: string, quiet = false) => {
+  /** `also`: the +1s who leave the seat with this guest — ONE write, ONE Undo that puts the whole unit back (R3). */
+  const unseat = (guestId: string, quiet = false, also: readonly string[] = []) => {
     if (!canEdit) return;
+    // 🔒 #17: Remove (and its swipe) never takes a locked guest off their seat.
+    if (refuseLocked(guestId, ...also)) return;
     const was = guests.find((g) => g.guest_id === guestId);
+    const wereAlso = also.map((id) => guests.find((g) => g.guest_id === id)).filter((g): g is SeatingGuest => Boolean(g));
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('guest_id', guestId);
+    if (also.length) fd.set('also', also.join(','));
     if (pickedId === guestId) setPickedId(null);
     startTransition(async () => {
       applyGuestOpt({ type: 'unseat', guestId });
-      if ((await runGated(() => unassignGuest(fd))) === null || !was?.seated_table_id || quiet) return;
+      for (const id of also) applyGuestOpt({ type: 'unseat', guestId: id });
+      const res = await runGated(() => unassignGuest(fd));
+      if (res === null || saidLocked(res) || !was?.seated_table_id || quiet) return;
       /* ↩ Undo (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW"): back on the SAME chair, through the
-         shipped seat write (`assignGuest`) — the place it was taken from. */
+         shipped seat write (`assignGuest`) — the place it was taken from; the +1s who left with them go back in the
+         same write. */
       const tableId = was.seated_table_id;
       const seat = was.seat_number;
+      const backAlong = wereAlso.filter((g) => g.seated_table_id === tableId && g.seat_number !== null);
       pushUndo({
-        label: `${was.name} is off the seat`,
+        label: backAlong.length ? `${was.name} and ${formatCount(backAlong.length)} more are off their seats` : `${was.name} is off the seat`,
         undo: async () => {
           const back = new FormData();
           back.set('event_id', eventId);
@@ -1511,9 +1550,11 @@ export function SeatingEditor({
           back.set('table_id', tableId);
           back.set('guest_id', guestId);
           if (seat !== null) back.set('seat_number', String(seat));
+          if (backAlong.length) back.set('along', JSON.stringify(backAlong.map((g) => ({ guest_id: g.guest_id, seat_number: g.seat_number }))));
           startTransition(async () => {
             applyGuestOpt({ type: 'seat', guestId, tableId, seat });
-            await runGated(() => assignGuest(back));
+            for (const g of backAlong) applyGuestOpt({ type: 'seat', guestId: g.guest_id, tableId, seat: g.seat_number });
+            saidLocked(await runGated(() => assignGuest(back)));
           });
         },
       });
@@ -2270,9 +2311,9 @@ export function SeatingEditor({
   // Seat one guest at a table's next free chair (the picker's Guest tab —
   // also moves an already-seated guest, since assignGuest upserts per guest).
   // `seat` (Details' "tap an empty seat"): that chair, when it is still free.
-  const seatGuestHere = (t: EventTableRow, guestId: string, seat?: number) => {
+  const seatGuestHere = (t: EventTableRow, guestId: string, seat?: number, along: ReadonlyArray<{ guestId: string; seat: number }> = []) => {
     if (!canEdit) return;
-    if (refuseLocked(guestId)) return;
+    if (refuseLocked(guestId, ...along.map((x) => x.guestId))) return;
     const occ = occupantsFor(t);
     const removed = removedSeatSet(t.removed_seats, t.capacity);
     let free: number | null = null;
@@ -2289,9 +2330,12 @@ export function SeatingEditor({
     fd.set('table_id', t.table_id);
     fd.set('guest_id', guestId);
     if (free !== null) fd.set('seat_number', String(free));
+    // 🧑‍🤝‍🧑 The unit's +1s, each to their own chair — in the SAME write, so a failure never splits the pair.
+    if (along.length) fd.set('along', JSON.stringify(along.map((x) => ({ guest_id: x.guestId, seat_number: x.seat }))));
     startTransition(async () => {
       applyGuestOpt({ type: 'seat', guestId, tableId: t.table_id, seat: free });
-      await runGated(() => assignGuest(fd));
+      for (const x of along) applyGuestOpt({ type: 'seat', guestId: x.guestId, tableId: t.table_id, seat: x.seat });
+      saidLocked(await runGated(() => assignGuest(fd)));
     });
   };
 
@@ -7275,13 +7319,23 @@ export function SeatingEditor({
      there swapped nobody, and a put-back found its own chair still taken. */
   const seatOps = useRef({ tradeSeats, seatGuestHere, unseat, tables });
   seatOps.current = { tradeSeats, seatGuestHere, unseat, tables };
+  /* ↩ One write per table: a unit goes back to its chairs together (`along`), so an Undo never splits a pair either. */
   const putBack = (before: readonly SeatBefore[]) => {
     const o = seatOps.current;
+    const byTable = new Map<string, SeatBefore[]>();
+    const off: string[] = [];
     for (const b of before) {
-      const t = b.tableId ? o.tables.find((x) => x.table_id === b.tableId) : null;
-      if (t) o.seatGuestHere(t, b.id, b.seat ?? undefined);
-      else o.unseat(b.id, true);
+      if (b.tableId && o.tables.some((x) => x.table_id === b.tableId)) byTable.set(b.tableId, [...(byTable.get(b.tableId) ?? []), b]);
+      else off.push(b.id);
     }
+    for (const [tableId, rows] of byTable) {
+      const t = o.tables.find((x) => x.table_id === tableId)!;
+      const [first, ...rest] = rows;
+      const chaired = rest.filter((b): b is SeatBefore & { seat: number } => b.seat !== null);
+      o.seatGuestHere(t, first!.id, first!.seat ?? undefined, chaired.map((b) => ({ guestId: b.id, seat: b.seat })));
+      for (const b of rest) if (b.seat === null) o.seatGuestHere(t, b.id);
+    }
+    if (off.length) o.unseat(off[0]!, true, off.slice(1));
   };
   /* ↩ An Undo restores EVERYONE the move moved (`seatMoveUndo`): a swap is swapped back AND the +1 who came along goes
      back to their chair (#7906 follow-up, walk 18 Nov — the swap's Undo used to stop at the two). */
@@ -7359,6 +7413,8 @@ export function SeatingEditor({
     const g = guests.find((x) => x.guest_id === guestId);
     if (!g) return;
     if (pickedId && pickedId !== guestId) {
+      // 🧑‍🤝‍🧑 "tap · move" onto someone's chair is the drag's own answer (units of the same size trade, R3).
+      if (g.seated_table_id && g.seat_number !== null) return dropSeat(pickedId, { kind: 'seat', tableId: g.seated_table_id, seat: g.seat_number, occupantId: guestId });
       if (g.seated_table_id && askBefore(pickedId, g.seated_table_id, g.seat_number, guestId)) return;
       tradeSeats(pickedId, guestId);
       return;
@@ -7368,8 +7424,8 @@ export function SeatingEditor({
   };
   const tapBlank = (tableId: string, seat: number) => {
     if (pickedId) {
-      if (askBefore(pickedId, tableId, seat, null)) return;
-      place(tableId, seat);
+      // 🧑‍🤝‍🧑 The drag's own answer (`dropSeat` → `seatDropUnit`): a picked +1 moves their bringer's unit.
+      dropSeat(pickedId, { kind: 'seat', tableId, seat, occupantId: null });
       return;
     }
     setBlankAt({ tableId, seat });
@@ -7383,6 +7439,7 @@ export function SeatingEditor({
     side: g.side,
     placed: seatPlacedShort(g.seat_placed_by),
     plusOneOf: g.plus_one_of ?? null,
+    bringer: g.plus_one_of ? (guestsById.get(g.plus_one_of)?.name ?? null) : null,
     locked: g.seat_locked === true,
   });
   /* 🪑 S1c · Seats › List = the Guests list grouped by table: one row per seat that exists (a removed chair is no row),
@@ -7400,11 +7457,8 @@ export function SeatingEditor({
      plan's own moves, with "before a seat changes hands" asked first where it asks. */
   /* 🧑‍🤝‍🧑 R3 · A UNIT MOVES AS ONE (`seatDropUnit`): the guest and the +1s they bring; a +1 dragged moves their bringer's
      unit; a principal sponsor under "+1s of VIP guests: nearest" moves alone (their +1 sits at the nearest table). */
-  const isNearestSponsor = (id: string): boolean => {
-    const g = guestsById.get(id);
-    if (!g || g.role === 'guest' || !g.seated_table_id) return false;
-    return tables.some((t) => t.table_id === g.seated_table_id && t.is_vip === true);
-  };
+  // Only a PRINCIPAL sponsor (Ninong · Ninang; the plain legacy role too) — never anyone else with a role.
+  const isNearestSponsor = (id: string): boolean => guestsById.get(id)?.role.startsWith('principal_sponsor') === true;
   const unitOf = (guestId: string) =>
     seatDropUnit(
       guestId,
@@ -7425,22 +7479,37 @@ export function SeatingEditor({
     const g = guestsById.get(guestId);
     if (!g) return;
     const t = target.kind === 'seat' ? tables.find((x) => x.table_id === target.tableId) : undefined;
+    const lockedAny = (ids: readonly string[]) => ids.some((id) => guestsById.get(id)?.seat_locked === true);
+    // The unit in the target seat: a trade swaps two units of the SAME size only (§ 4.1).
+    const occupantUnit = target.kind === 'seat' && target.occupantId ? unitOf(target.occupantId) : null;
     const plan = planSeatDrop(
-      { id: guestId, seated: g.seated_table_id !== null, party: unit.party, locked: [guestId, ...unit.party].some((id) => guestsById.get(id)?.seat_locked === true) },
+      { id: guestId, seated: g.seated_table_id !== null, party: unit.party, locked: lockedAny([guestId, ...unit.party]) },
       target,
       target.kind === 'seat' && t
-        ? { freeSeats: freeChairsAt(t), occupantLocked: target.occupantId ? guestsById.get(target.occupantId)?.seat_locked === true : false }
+        ? {
+            freeSeats: freeChairsAt(t),
+            occupantLocked: occupantUnit ? lockedAny([occupantUnit.leadId, ...occupantUnit.party]) : false,
+            ...(occupantUnit ? { occupantUnit } : {}),
+          }
         : {},
     );
     if (plan.kind === 'refused') {
-      setNotice(seatDropRefusalWords(plan.reason, firstNameOf(g.name), unit.party.length + 1));
+      setNotice(seatDropRefusalWords(plan.reason, Math.max(unit.party.length, occupantUnit?.party.length ?? 0) + 1));
       return;
     }
     if (plan.kind === 'unseat') {
-      for (const id of plan.along ?? []) unseat(id, true);
+      // The whole unit leaves in ONE write, with ONE Undo that puts them all back.
+      if (plan.along?.length) return unseat(guestId, false, plan.along);
       return unseat(guestId);
     }
     if (plan.kind === 'trade') {
+      const pairs = plan.pairs ?? [];
+      if (pairs.length) {
+        // Two units of the same size trade (judged here — the sheet's own "+1 comes along" would ask it again), in ONE
+        // write; the Undo is the same trade again.
+        tradeSeats(guestId, plan.otherId, pairs);
+        return noteDrop(g, guestsById.get(plan.otherId) ?? null, plan.tableId, plan.seat, [], () => seatOps.current.tradeSeats(guestId, plan.otherId, pairs));
+      }
       if (askBefore(guestId, plan.tableId, plan.seat, plan.otherId)) return;
       tradeSeats(guestId, plan.otherId);
       return noteDrop(g, guestsById.get(plan.otherId) ?? null, plan.tableId, plan.seat);
@@ -7448,23 +7517,40 @@ export function SeatingEditor({
     if (plan.kind === 'place') {
       if (!t) return;
       const along = plan.along ?? [];
-      // A unit's move was judged here (a chair each, together) — the sheet's own "+1 comes along" would ask it again.
-      if (!along.length && askBefore(guestId, plan.tableId, plan.seat, null)) return;
+      if (along.length) {
+        // A unit's move was judged here (a chair each, together) — the sheet's own "+1 comes along" would ask it again.
+        // ONE write for the whole unit (`along`), so a failure never leaves the pair split.
+        setPickedId(null);
+        seatGuestHere(t, guestId, plan.seat, along);
+        return noteDrop(g, null, plan.tableId, plan.seat, along.map((x) => x.guestId));
+      }
+      if (askBefore(guestId, plan.tableId, plan.seat, null)) return;
       setPickedId(null);
       seatGuestHere(t, guestId, plan.seat);
-      for (const x of along) seatGuestHere(t, x.guestId, x.seat);
-      noteDrop(g, null, plan.tableId, plan.seat, along.map((x) => x.guestId));
+      noteDrop(g, null, plan.tableId, plan.seat);
     }
   };
   /* ↩ The drop that asked nothing still says what it did, with its Undo — the asked one's own line (`seatMoveDoneWords`). */
-  const noteDrop = (mover: SeatingGuest, other: SeatingGuest | null, tableId: string, seat: number, alongIds: readonly string[] = []) => {
+  const noteDrop = (mover: SeatingGuest, other: SeatingGuest | null, tableId: string, seat: number, alongIds: readonly string[] = [], swapBack?: () => void) => {
     const a = assessFor(mover.guest_id, tableId, seat, other?.guest_id ?? null);
     const t = tables.find((x) => x.table_id === tableId);
     if (!a || !t) return;
     const along = alongIds.map((id) => guestsById.get(id)).filter((x): x is SeatingGuest => Boolean(x));
     const before = [mover, ...along].map((x) => ({ id: x.guest_id, tableId: x.seated_table_id, seat: x.seat_number }));
+    const text = seatMoveDoneWords(a, moveGuestOf(mover), other ? moveGuestOf(other) : null, t.link_group_label?.trim() || t.table_label, seat, along.map((x) => x.name));
+    // Two units traded: the Undo is the same trade again (one write), never a pair put back one by one.
+    if (swapBack) {
+      setMoveNote({
+        text,
+        undo: () => {
+          setMoveNote(null);
+          swapBack();
+        },
+      });
+      return;
+    }
     setMoveNote({
-      text: seatMoveDoneWords(a, moveGuestOf(mover), other ? moveGuestOf(other) : null, t.link_group_label?.trim() || t.table_label, seat, along.map((x) => x.name)),
+      text,
       undo: () => undoMove(mover.guest_id, other?.guest_id ?? null, before),
     });
   };

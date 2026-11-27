@@ -1978,7 +1978,7 @@ export function PapicGuestCapture({
           </div>
         )}
         {exhausted && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[var(--sn-scrim-solid)] px-6 text-center backdrop-blur-[var(--sn-scrim-blur)]">
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-ink/85 px-6 text-center">
             {poolEmpty ? (
               /* THE CELEBRATION ran out, not this guest. No tick and no thank-you
                  — nothing was finished here, and congratulating somebody for a

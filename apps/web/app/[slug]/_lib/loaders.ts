@@ -8,7 +8,7 @@
 //
 // The benefit is PER-REQUEST dedup + orchestrator shrinkage, NOT cross-route
 // sharing — do NOT import these loaders from other routes (`cache()` scopes to
-import { readShownTableNames } from '@/lib/table-auto-name.server';
+import { shownTableRows } from '@/lib/table-auto-name.server';
 import { SITE_URL } from '@/lib/feature-pages/seo';
 // a single server request; the loaders assume this route's gating has already
 // run).
@@ -1950,12 +1950,12 @@ export const loadGuestContext = cache(
         guestTableId = assignmentRow.table_id as string;
         // 🪑 The name the table SHOWS — a linked unit's shared name included (the ONE reader, `tableDisplayNames`,
         // lib/table-auto-name.ts). A refused read is "unreadable", never a guessed name.
-        try {
-          guestTableLabel = (await readShownTableNames(admin, event.event_id)).get(assignmentRow.table_id as string) ?? null;
-        } catch (seatTableErr) {
+        const { data: shownRows, error: seatTableErr } = await shownTableRows(admin, event.event_id);
+        if (seatTableErr) {
           guestSeatUnreadable = true;
           logQueryError('loadGuestContext.seatTable', seatTableErr, { event_id: event.event_id }, 'graceful_degrade');
         }
+        guestTableLabel = (shownRows ?? []).find((t) => t.table_id === assignmentRow.table_id)?.table_label ?? null;
       }
     } catch {
       // Graceful degrade — seating tables may not exist yet on all installs.

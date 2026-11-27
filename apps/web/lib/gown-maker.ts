@@ -28,6 +28,7 @@ import {
   type GownSilhouette,
 } from './gown-config';
 import { GOWN_ADD_ONS, type GownAddOnKey } from './gown-add-ons';
+import { formatCentavosPhp } from './php';
 
 /** The suppliers the Attire Maker is suggested for (owner Q3, 2026-11-27: custom gown makers only for now). */
 export const GOWN_KINDS: ReadonlySet<string> = new Set(['bridal_gown_custom']);
@@ -468,3 +469,37 @@ export function gownDesignOf(
 
 /** The silhouette's starting-price label ("Starting price: A-line"). */
 export const gownBaseLabel = (sil: GownSilhouette) => `Starting price: ${SIL_LABEL[sil]}`;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The chat's words (the design card and the invite card read these; step B8 draws them)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const GOWN_DESIGN_HEAD = '👗 Gown design · ';
+export const GOWN_INVITE_BODY = '👗 Design your gown with us. Your measurements first, then the shape, fabric and details in 3D. We’ll quote from your design.';
+export const GOWN_DESIGN_REF = 'Design ref: ';
+export const GOWN_DESIGN_UNREADABLE = "We couldn't check your design against the shop's Attire Maker, so nothing was sent. Try again.";
+export const GOWN_DESIGN_NOT_SENT = 'Your design didn’t go into the chat. It is kept here, so send it again.';
+
+/** The design in a few words for the message ("A-line in satin"); the card draws the rest from the stored row. */
+export function gownDesignWords(design: Pick<GownConfig, 'sil' | 'fabric'>): string {
+  return `${SIL_LABEL[design.sil] ?? 'Gown'} in ${fabricLabel(design.fabric).toLowerCase()}`;
+}
+
+/** The one message a sent design posts. Only the estimate (or "Ask for a quote") — never a cost. */
+export function formatGownDesignBlock(design: Pick<GownConfig, 'sil' | 'fabric'>, forBride: GownDesignForBride, designId: string): string {
+  return [
+    `${GOWN_DESIGN_HEAD}${gownDesignWords(design)}`,
+    forBride.estimateCentavos != null ? `Estimate: ${formatCentavosPhp(forBride.estimateCentavos)}. The quote decides.` : 'Ask for a quote: the designer prices this design.',
+    `${GOWN_DESIGN_REF}${designId}`,
+  ].join('\n');
+}
+
+/** The stored row a design message names, or null. */
+export function gownDesignRefOf(body: string | null | undefined): string | null {
+  const text = body ?? '';
+  if (!text.startsWith(GOWN_DESIGN_HEAD)) return null;
+  const at = text.lastIndexOf(GOWN_DESIGN_REF);
+  if (at < 0) return null;
+  const m = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*$/i.exec(text.slice(at + GOWN_DESIGN_REF.length));
+  return m ? m[1]!.toLowerCase() : null;
+}

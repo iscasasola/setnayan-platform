@@ -10,7 +10,7 @@ import type { SupplierOutcomeTone } from '../_components/supplier-toast';
 export const DATES_NOTICES: Readonly<Record<string, { tone: SupplierOutcomeTone; text: string; retry?: boolean }>> = {
   block_added: { tone: 'ok', text: 'Marked not available. Couples see only “unavailable”.' },
   block_removed: { tone: 'ok', text: 'Open again — bookable on Setnayan.' },
-  client_imported: { tone: 'ok', text: 'Booking from outside added — free. It holds that date on your schedule now.' },
+  client_imported: { tone: 'ok', text: 'Booking from outside added. It holds that date on your schedule now.' },
   capacity_saved: { tone: 'ok', text: 'How many a day — saved.' },
   capacity_clamped: { tone: 'note', text: `Saved at ${DAILY_CAPACITY_MAX} a day — the most a calendar takes.` },
   pool_saved: { tone: 'ok', text: 'Saved — those services share that schedule now.' },

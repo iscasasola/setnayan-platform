@@ -54,6 +54,7 @@ import { createClient as createBrowserSupabase } from '@/lib/supabase/client';
 import { clipPillLabel } from '@/lib/clip-duration-label';
 import { coverageServesKey } from '@/lib/coverage-serves-key';
 import { PROPOSE_CATEGORY_HREF } from '@/lib/service-picker-anchor';
+import { useTellUs } from '../requests/_components/tell-us-host';
 import { rankTradeMatches, type TradeMatch } from '@/lib/kind-search-trades';
 import { isTradeSearchMiss, collectiblePhraseFor } from '@/lib/collected-trade-phrase';
 import {
@@ -1033,6 +1034,15 @@ export function CanvasMaker({
   const moveTrade = checks.mismatch ? (tradeOptions.find((t) => t.key === checks.mismatch?.says.key) ?? null) : null;
   /** 🔒 Read-only while a booked client is using the card — or while that could not be checked (fails closed). */
   const editLocked = !!editLock && editLock.state !== 'free';
+  // ‹ "Tell us what you do" opens IN PLACE inside the maker's layer (final check B9): the sheet closes, the maker stays
+  // as it is under the steps. Outside a `TellUsHost` the link simply goes to its address (which forwards here).
+  const tellUs = useTellUs();
+  const tellUsInPlace = (e: React.MouseEvent) => {
+    if (!tellUs) return;
+    e.preventDefault();
+    setSheet(null);
+    tellUs.open();
+  };
   const [lockOpen, setLockOpen] = useState(false);
   const saveBlocked = unread.length > 0 || liveNeedsPrice || checks.open > 0;
   /**
@@ -2080,6 +2090,7 @@ export function CanvasMaker({
             ))}
             <Link
               href={PROPOSE_CATEGORY_HREF}
+              onClick={tellUsInPlace}
               className="sn-press flex min-h-[58px] items-center gap-3 py-2"
               data-kind-ask-us=""
             >
@@ -2101,7 +2112,7 @@ export function CanvasMaker({
           {lockedWhy ? (
             <p className="text-[14px] text-ink/65">
               {lockedWhy}{' '}
-              <Link href={PROPOSE_CATEGORY_HREF} className="font-semibold text-sn-accent underline-offset-2 hover:underline">
+              <Link href={PROPOSE_CATEGORY_HREF} onClick={tellUsInPlace} className="font-semibold text-sn-accent underline-offset-2 hover:underline">
                 Tell us what you do
               </Link>{' '}
               and we&rsquo;ll take it from there — this card stays exactly as you left it.

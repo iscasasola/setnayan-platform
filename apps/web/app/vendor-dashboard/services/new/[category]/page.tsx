@@ -1,5 +1,7 @@
 import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
+import { loadRequestTree } from '@/lib/service-requests.server';
+import { TellUsHost } from '../../requests/_components/tell-us-host';
 import { HideWhenRisen } from '@/app/_components/rise/rise-route';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Heart } from 'lucide-react';
@@ -141,13 +143,15 @@ export default async function NewServicePage({
   // The vendor's OTHER offered categories → the "comes with" link options.
   // ONE loader for every door into the maker (lib/service-card-maker.server.ts). The kind is fixed by the address,
   // so the kind list is not read.
-  const [ctx, library] = await Promise.all([
+  const [ctx, library, requestTree] = await Promise.all([
     loadMakerContext(supabase, profile.vendor_profile_id, {
       fixedCategory: category,
       withKindList: false,
     }),
     // 📚 Card Maker HYBRID part 2 — saved pay plans, the shop's other cards, Setnayan's starting lists for this service.
     loadCardMakerLibrary(supabase, profile.vendor_profile_id, canonicalServiceForVendorCategory(category)),
+    // ‹ "Tell us what you do" opens in place inside the maker (final check B9) — its categories, read with the rest.
+    loadRequestTree(),
   ]);
   const otherCategories = ctx.otherCategories;
   const coverageOptions = ctx.coverages;
@@ -219,6 +223,7 @@ export default async function NewServicePage({
           </p>
         </div>
       ) : null}
+      <TellUsHost groups={requestTree?.groups ?? null} retry={`/vendor-dashboard/services/new/${category}`}>
       {canvas ? (
         <CanvasMaker
           library={library}
@@ -275,6 +280,7 @@ export default async function NewServicePage({
           giftLimitPct={giftLimitPct}
         />
       )}
+      </TellUsHost>
     </div>
   );
 }

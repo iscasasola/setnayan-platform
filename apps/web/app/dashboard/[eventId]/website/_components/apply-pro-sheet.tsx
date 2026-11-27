@@ -146,7 +146,7 @@ export function ApplyProSheet({
             type="button"
             onClick={onClose}
             aria-label="Close"
-            className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink/70 hover:bg-ink/10 hover:text-ink"
+            className="ab ab-neutral icon-only"
           >
             <X aria-hidden className="h-4 w-4" strokeWidth={2} />
           </button>
@@ -192,7 +192,7 @@ export function ApplyProSheet({
                     type="button"
                     disabled={pending}
                     onClick={onRemoveHeld}
-                    className="sn-press inline-flex min-h-11 items-center rounded-full px-3 text-sm font-medium text-ink/70 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
+                    className="ab ab-neutral quiet"
                   >
                     Remove Plus changes
                   </button>
@@ -219,9 +219,9 @@ export function ApplyProSheet({
                       <span className="min-w-0 flex-1 text-sm">
                         <span className="block font-semibold text-ink">{g.name}</span>
                         {/* Closed, a part is ONE line a part — its effects said small underneath (prototype frame 1-closer). */}
-                        {grouped.collapsed && !open ? <span className="block truncate text-[12.5px] text-ink/75">{g.summary}</span> : null}
+                        {grouped.collapsed && !open ? <span className="block truncate text-sn-sm text-ink/75">{g.summary}</span> : null}
                       </span>
-                      {g.pricePhp !== null ? <span className="text-[13px] font-semibold tabular-nums text-ink">{formatPhp(g.pricePhp)}</span> : null}
+                      {g.pricePhp !== null ? <span className="text-sn-md font-semibold tabular-nums text-ink">{formatPhp(g.pricePhp)}</span> : null}
                       {grouped.collapsed ? <ChevronDown aria-hidden className={`h-4 w-4 text-ink/75 transition-transform ${open ? 'rotate-180' : ''}`} strokeWidth={2} /> : null}
                     </button>
                     {open ? (
@@ -248,7 +248,7 @@ export function ApplyProSheet({
                                 onClick={() => onRemove(e)}
                                 aria-label={`Remove ${hubProEffectLine(e)}`}
                                 title="Remove from your draft"
-                                className="sn-press inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-ink/75 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
+                                className="ab ab-neutral quiet icon-only shrink-0"
                               >
                                 <X aria-hidden className="h-4 w-4" strokeWidth={2} />
                               </button>
@@ -264,7 +264,7 @@ export function ApplyProSheet({
                 <div className="border-t border-ink/10 px-2 pt-2" data-apply-parts-total="">
                   {buttons.paidPhp > 0 ? (
                     /* The cap band — information, not a press: the raised surface, never a border (frame 2). */
-                    <div data-apply-cap-band="" className="rounded-2xl bg-ink/[0.05] px-3 py-2.5 text-[13px] leading-snug text-ink/80">
+                    <div data-apply-cap-band="" className="rounded-2xl bg-ink/[0.05] px-3 py-2.5 text-sn-md leading-snug text-ink/80">
                       <p>
                         You&rsquo;ve paid <strong className="text-ink">{formatPhp(buttons.paidPhp)}</strong> toward everything ({formatPhp(buttons.fullPhp)}).{' '}
                         <strong className="text-ink">{formatPhp(buttons.restPhp)} more unlocks everything</strong> — {buttons.partsWord}, the other{' '}
@@ -288,12 +288,12 @@ export function ApplyProSheet({
                         <span className="font-bold tabular-nums">{formatPhp(buttons.subtotalPhp)}</span>
                       </p>
                       {buttons.lead === 'parts' ? (
-                        <p className="mt-1 text-[13px] leading-snug text-ink/75">
+                        <p className="mt-1 text-sn-md leading-snug text-ink/75">
                           Or everything — all {formatCount(buttons.allParts)} parts and no &ldquo;Powered by Setnayan&rdquo; footer — for{' '}
                           <strong className="text-ink">{formatPhp(buttons.morePhp)} more</strong>. What you pay counts toward it.
                         </p>
                       ) : (
-                        <p className="mt-1 text-[13px] leading-snug text-ink/75">
+                        <p className="mt-1 text-sn-md leading-snug text-ink/75">
                           Everything is only <strong className="text-ink">{formatPhp(buttons.morePhp)} more</strong> — the other{' '}
                           {formatCount(buttons.otherParts)} parts and no footer mark.
                         </p>
@@ -329,7 +329,7 @@ export function ApplyProSheet({
                     onClick={() => onRemove(e)}
                     aria-label={`Remove ${hubProEffectLine(e)}`}
                     title="Remove from your draft"
-                    className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full text-ink/75 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
+                    className="ab ab-neutral quiet icon-only"
                   >
                     <X aria-hidden className="h-4 w-4" strokeWidth={2} />
                   </button>
@@ -342,7 +342,7 @@ export function ApplyProSheet({
 
         <div className="flex flex-col gap-2 px-4 pt-3">
           {none ? (
-            <button type="button" disabled={pending} onClick={onApplyFree} className="button-primary sn-press min-h-11 w-full">
+            <button type="button" disabled={pending} onClick={onApplyFree} className="ab ab-brand ab-main w-full">
               {pending ? 'Applying…' : 'Apply'}
             </button>
           ) : (
@@ -384,14 +384,14 @@ export function ApplyProSheet({
               <Link
                 href={unlockAndApplyHref(proHref)}
                 data-apply-pro-unlock=""
-                className="button-primary sn-press inline-flex min-h-11 w-full items-center justify-center gap-1.5 text-center"
+                className="ab ab-brand ab-main w-full text-center"
               >
                 ◆ Get the full Event Hub and apply{priceLabel ? ` · ${priceLabel}` : ''}
               </Link>
               ) : null}
               {/* ◆ = the full Event Hub (20 Nov "MAKER PAYWALL"): it comes with Event Plus, Pro and Ultra. Nothing is lost. */}
               {proHref ? (
-                <p className="-mt-1 text-center text-[12px] text-ink/60" data-apply-pro-comes-with="">
+                <p className="-mt-1 text-center text-sn-sm text-ink/60" data-apply-pro-comes-with="">
                   {APPLY_FULL_HUB_COMES_WITH}
                 </p>
               ) : null}
@@ -400,7 +400,7 @@ export function ApplyProSheet({
                 disabled={pending}
                 onClick={onApplyFree}
                 data-apply-pro-without=""
-                className="sn-press min-h-11 w-full rounded-full text-sm font-semibold text-ink/70 hover:bg-ink/5 hover:text-ink disabled:opacity-40"
+                className="ab ab-neutral quiet w-full"
               >
                 {pending ? 'Applying…' : 'Apply without the ◆ changes'}
               </button>

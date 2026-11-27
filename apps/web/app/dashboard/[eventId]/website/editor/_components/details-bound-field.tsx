@@ -169,7 +169,7 @@ export function DetailsBoundField({
             data-details-use-details=""
             onClick={() => answer('use-details')}
             disabled={pending}
-            className="sn-press ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-full bg-ink/5 px-3 text-[12.5px] font-semibold text-ink/75 transition-colors duration-300 ease-in-out hover:bg-ink/10 disabled:opacity-50"
+            className="sn-press ml-auto inline-flex min-h-10 items-center gap-1.5 rounded-full bg-ink/5 px-3 text-[12.5px] font-semibold text-ink/75 transition-colors duration-sn-elem ease-sn hover:bg-ink/10 disabled:opacity-50"
           >
             <span className="font-normal text-ink/75">Edited here ·</span>
             <RotateCcw aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
@@ -209,7 +209,7 @@ export function DetailsBoundField({
             data-details-choice="everywhere"
             onClick={() => answer('everywhere')}
             disabled={pending}
-            className="sn-press flex min-h-11 w-full items-center justify-center rounded-full bg-ink px-4 text-sm font-semibold text-cream transition-colors duration-300 ease-in-out hover:bg-ink/90 disabled:opacity-50"
+            className="sn-press flex min-h-11 w-full items-center justify-center rounded-full bg-ink px-4 text-sm font-semibold text-cream transition-colors duration-sn-elem ease-sn hover:bg-ink/90 disabled:opacity-50"
           >
             Change it everywhere
           </button>
@@ -218,7 +218,7 @@ export function DetailsBoundField({
             data-details-choice="here"
             onClick={() => answer('here')}
             disabled={pending || blank}
-            className="sn-press flex min-h-11 w-full items-center justify-center rounded-full bg-raised px-4 text-sm font-semibold text-ink shadow-[inset_0_0_0_1px_rgba(0,0,0,.12)] transition-colors duration-300 ease-in-out hover:bg-ink/5 disabled:opacity-50"
+            className="sn-press flex min-h-11 w-full items-center justify-center rounded-full bg-raised px-4 text-sm font-semibold text-ink shadow-[inset_0_0_0_1px_rgba(0,0,0,.12)] transition-colors duration-sn-elem ease-sn hover:bg-ink/5 disabled:opacity-50"
           >
             Just this scene
           </button>
@@ -244,7 +244,7 @@ export function DetailsBoundField({
             data-details-save=""
             onClick={() => setAsking(true)}
             disabled={!changed || pending}
-            className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink px-5 text-sm font-semibold text-cream transition-colors duration-300 ease-in-out hover:bg-ink/90 disabled:opacity-40"
+            className="sn-press inline-flex min-h-11 items-center rounded-full bg-ink px-5 text-sm font-semibold text-cream transition-colors duration-sn-elem ease-sn hover:bg-ink/90 disabled:opacity-40"
           >
             Save
           </button>

@@ -1,4 +1,6 @@
-import { ArrowDown, ArrowUp, Eye, EyeOff, Lock } from 'lucide-react';
+import { ArrowDown, ArrowUp, Ban, Eye, EyeOff, Lock, Trash2 } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { chipClass } from '@/app/_components/chip-classes';
 import {
   WIDGET_CATALOG_BY_TYPE,
   type InvitationWidgetRow,
@@ -291,22 +293,13 @@ export function SectionsPanel({
                     <input type="hidden" name="widget_type" value={row.widget_type} />
                     <input type="hidden" name="next_visible" value={row.is_visible ? '0' : '1'} />
                     <input type="hidden" name="return_to" value={back} />
-                    <button
+                    <ActionButton
                       type="submit"
-                      aria-label={row.is_visible ? `Hide ${catalog?.label}` : `Show ${catalog?.label}`}
-                      className={`inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[12px] font-medium ${
-                        row.is_visible
-                          ? 'border-success-300/70 bg-success-50 text-success-800'
-                          : 'border-ink/15 bg-cream text-ink/75'
-                      }`}
-                    >
-                      {row.is_visible ? (
-                        <Eye aria-hidden className="h-3 w-3" strokeWidth={2} />
-                      ) : (
-                        <EyeOff aria-hidden className="h-3 w-3" strokeWidth={2} />
-                      )}
-                      {row.is_visible ? 'Visible' : 'Hidden'}
-                    </button>
+                      tone={row.is_visible ? 'ok' : 'neutral'}
+                      icon={row.is_visible ? Eye : EyeOff}
+                      label={row.is_visible ? 'Visible' : 'Hidden'}
+                      name={row.is_visible ? `Hide ${catalog?.label}` : `Show ${catalog?.label}`}
+                    />
                   </SafeForm>
                 ) : null}
 
@@ -316,28 +309,30 @@ export function SectionsPanel({
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="widget_id" value={row.widget_id} />
                   <input type="hidden" name="return_to" value={back} />
-                  <button
+                  <ActionButton
                     type="submit"
+                    tone="neutral"
+                    iconOnly
+                    icon={ArrowUp}
+                    label={`Move up`}
+                    name={`Move ${catalog?.label} up`}
                     disabled={i === 0}
-                    aria-label={`Move ${catalog?.label} up`}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-ink/15 bg-cream text-ink/75 disabled:opacity-35"
-                  >
-                    <ArrowUp aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  </button>
+                  />
                 </SafeForm>
                 <SafeForm action={moveDownAction}>
                   <HubDraftField />
                   <input type="hidden" name="event_id" value={eventId} />
                   <input type="hidden" name="widget_id" value={row.widget_id} />
                   <input type="hidden" name="return_to" value={back} />
-                  <button
+                  <ActionButton
                     type="submit"
+                    tone="neutral"
+                    iconOnly
+                    icon={ArrowDown}
+                    label={`Move down`}
+                    name={`Move ${catalog?.label} down`}
                     disabled={i === rows.length - 1}
-                    aria-label={`Move ${catalog?.label} down`}
-                    className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-ink/15 bg-cream text-ink/75 disabled:opacity-35"
-                  >
-                    <ArrowDown aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-                  </button>
+                  />
                 </SafeForm>
               </div>
 
@@ -375,16 +370,10 @@ export function SectionsPanel({
                                 ? 'Always show it.'
                                 : 'Keep it off your Event Hub.'
                         }
-                        className={`inline-flex h-6 items-center gap-1 rounded-full border px-2 text-[12px] font-semibold capitalize ${
-                          active
-                            ? 'border-ink bg-ink text-cream'
-                            : blocked
-                              ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/75'
-                              : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
-                        }`}
+                        className={`${chipClass(active)} gap-1 capitalize`}
                       >
                         {blocked ? (
-                          <Lock aria-hidden className="h-2.5 w-2.5" strokeWidth={2.5} />
+                          <Lock aria-hidden className="h-3 w-3" strokeWidth={2.5} />
                         ) : null}
                         {m}
                       </button>
@@ -451,11 +440,7 @@ export function SectionsPanel({
                             <button
                               type="submit"
                               aria-pressed={preset === p}
-                              className={`inline-flex h-6 items-center rounded-full border px-2 text-[12px] font-semibold ${
-                                preset === p
-                                  ? 'border-ink bg-ink text-cream'
-                                  : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
-                              }`}
+                              className={chipClass(preset === p)}
                             >
                               {HUB_MOTION_PRESET_LABEL[p]}
                             </button>
@@ -510,13 +495,7 @@ export function SectionsPanel({
                                       aria-pressed={on}
                                       disabled={locked}
                                       title={locked ? 'Comes with Event Pro.' : HUB_TRANSITION_HINT[t]}
-                                      className={`inline-flex h-5 items-center gap-1 rounded-full border px-2 text-[12px] ${
-                                        on
-                                          ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
-                                          : locked
-                                            ? 'cursor-not-allowed border-ink/10 bg-cream/60 text-ink/75'
-                                            : 'border-ink/12 bg-cream text-ink/75 hover:border-ink/30'
-                                      }`}
+                                      className={`${chipClass(on)} gap-1`}
                                     >
                                       {locked ? (
                                         <PaidMark state="try" bare word="PLUS" label={paidMarkLabel('try', 'Event Plus')} size="xs" tone="current" />
@@ -554,11 +533,7 @@ export function SectionsPanel({
                                         type="submit"
                                         aria-pressed={on}
                                         disabled={transitionLocked && !proUsable && !on}
-                                        className={`inline-flex h-5 items-center rounded-full border px-2 text-[12px] ${
-                                          on
-                                            ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
-                                            : 'border-ink/12 bg-cream text-ink/75 hover:border-ink/30 disabled:cursor-not-allowed disabled:text-ink/30'
-                                        }`}
+                                        className={chipClass(on)}
                                       >
                                         {HUB_AUTO_SPEED_LABEL[v]}
                                       </button>
@@ -595,11 +570,7 @@ export function SectionsPanel({
                                 <button
                                   type="submit"
                                   aria-pressed={on}
-                                  className={`inline-flex h-5 items-center rounded-full border px-2 text-[12px] ${
-                                    on
-                                      ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
-                                      : 'border-ink/12 bg-cream text-ink/75 hover:border-ink/30'
-                                  }`}
+                                  className={chipClass(on)}
                                 >
                                   {t === 'auto' ? 'Auto' : HUB_TIMELINE_LABEL[t]}
                                 </button>
@@ -657,11 +628,7 @@ export function SectionsPanel({
                                     <button
                                       type="submit"
                                       aria-pressed={on}
-                                      className={`inline-flex h-5 items-center rounded-full border px-2 text-[12px] ${
-                                        on
-                                          ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
-                                          : 'border-ink/12 bg-cream text-ink/75 hover:border-ink/30'
-                                      }`}
+                                      className={chipClass(on)}
                                     >
                                       {v === 'auto' ? 'Auto' : (labels[v] ?? v)}
                                     </button>
@@ -713,11 +680,7 @@ export function SectionsPanel({
                                 <button
                                   type="submit"
                                   aria-pressed={on}
-                                  className={`inline-flex h-5 items-center rounded-full border px-2 text-[12px] ${
-                                    on
-                                      ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
-                                      : 'border-ink/12 bg-cream text-ink/75 hover:border-ink/30'
-                                  }`}
+                                  className={chipClass(on)}
                                 >
                                   {q === 'auto' ? 'Auto' : HUB_SEQUENCE_LABEL[q]}
                                 </button>
@@ -778,12 +741,7 @@ export function SectionsPanel({
                         <input type="hidden" name="intent" value="delete" />
                         <input type="hidden" name="return_to" value={back} />
                         <span>Its words and layout go with it.</span>
-                        <button
-                          type="submit"
-                          className="inline-flex h-7 items-center rounded-full bg-danger-600 px-3 text-[12px] font-semibold text-cream transition-colors hover:bg-danger-700"
-                        >
-                          Remove for good
-                        </button>
+                        <ActionButton type="submit" tone="danger" filled icon={Trash2} label="Remove for good" />
                       </SafeForm>
                     </details>
                   );
@@ -901,11 +859,7 @@ export function SectionsPanel({
                             <button
                               type="submit"
                               aria-pressed={arrangement === a}
-                              className={`inline-flex h-6 items-center rounded-full border px-2 text-[12px] font-semibold transition-colors ${
-                                arrangement === a
-                                  ? 'border-ink bg-ink text-cream'
-                                  : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
-                              }`}
+                              className={chipClass(arrangement === a)}
                             >
                               {HUB_ARRANGEMENT_LABEL[a]}
                             </button>
@@ -1018,11 +972,7 @@ export function SectionsPanel({
                             <button
                               type="submit"
                               aria-pressed={canvas.kind === 'snippet'}
-                              className={`inline-flex h-9 items-center gap-1 rounded-md border px-2 text-[12px] font-semibold ${
-                                canvas.kind === 'snippet'
-                                  ? 'border-ink bg-ink text-cream'
-                                  : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
-                              }`}
+                              className={`${chipClass(canvas.kind === 'snippet')} gap-1`}
                             >
                               Your video
                             </button>
@@ -1142,11 +1092,7 @@ export function SectionsPanel({
                                         <button
                                           type="submit"
                                           aria-pressed={zoom === z}
-                                          className={`inline-flex h-6 items-center rounded-full border px-2 text-[12px] ${
-                                            zoom === z
-                                              ? 'border-ink/60 bg-ink/5 font-semibold text-ink'
-                                              : 'border-ink/12 bg-cream text-ink/75 hover:border-ink/30'
-                                          }`}
+                                          className={chipClass(zoom === z)}
                                         >
                                           {z === 100 ? 'As it is' : z === 120 ? 'Closer' : 'Closest'}
                                         </button>
@@ -1259,12 +1205,7 @@ function SectionColourChoices({
           <input type="hidden" name="kind" value="color" />
           <input type="hidden" name="color" value="" />
           <input type="hidden" name="return_to" value={back} />
-          <button
-            type="submit"
-            className="inline-flex h-7 items-center rounded-md border border-ink/15 bg-cream px-2 text-[12px] font-semibold text-ink/75 hover:border-ink/30"
-          >
-            None
-          </button>
+          <ActionButton type="submit" tone="neutral" icon={Ban} label="None" />
         </SafeForm>
       ) : null}
       {swatches.map((hex) => {
@@ -1355,10 +1296,7 @@ function SceneBackgroundChoices({
   ];
   const painted = current !== null && current !== 'none';
   const shape = canvas.shape ?? HUB_DEFAULT_SCENE_SHAPE;
-  const chip = (on: boolean) =>
-    `inline-flex h-9 items-center gap-1 rounded-md border px-2 text-[12px] font-semibold ${
-      on ? 'border-ink bg-ink text-cream' : 'border-ink/15 bg-cream text-ink/75 hover:border-ink/30'
-    }`;
+  const chip = (on: boolean) => `${chipClass(on)} gap-1`;
   const hidden = (fields: Record<string, string>) => (
     <>
       <input type="hidden" name="event_id" value={eventId} />

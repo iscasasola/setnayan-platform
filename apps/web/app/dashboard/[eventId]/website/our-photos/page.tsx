@@ -17,6 +17,7 @@ import { PageMasthead } from '@/app/_components/page-masthead';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { formatCount } from '@/lib/format-number';
 import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata = { title: 'Photos you add' };
 
@@ -143,7 +144,7 @@ export default async function OurPhotosEditorPage({
         {error ? (
           <div
             role="alert"
-            className="rounded-md border border-red-300/60 dark:border-[rgb(var(--color-danger)/0.4)] bg-red-50 dark:bg-[rgb(var(--color-danger)/0.14)] px-3 py-2 text-sm text-red-800 dark:text-[rgb(var(--color-danger))]"
+            className="rounded-md border border-danger-300/60 bg-danger-50 px-3 py-2 text-sm text-danger-800"
           >
             {error}
           </div>
@@ -173,7 +174,7 @@ export default async function OurPhotosEditorPage({
           label="Photos you add"
           help={`JPG, PNG, or WebP. Up to 10 MB each · up to ${formatCount(MAX_PHOTOS)} photos. Drag to add more; remove any you don't want before saving.`}
         />
-        <SubmitButton pendingLabel="Saving…" className="button-primary">Save photos</SubmitButton>
+        <SubmitButton pendingLabel="Saving…" className={actionButtonClass('brand', { main: true })}>Save photos</SubmitButton>
       </SafeForm>
     </section>
   );

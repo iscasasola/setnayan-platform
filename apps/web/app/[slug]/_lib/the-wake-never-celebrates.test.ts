@@ -461,10 +461,8 @@ test('🗂 onboarding: no "Wake of the Year", no cheerful services framing at a 
   const gen = appSrc('onboarding/[type]/_components/generic-onboarding.tsx');
   // Whitespace-insensitive since 2026-10-22: a birthday now leads with its own example (`eventNameExample`,
   // Host 6), so the two arms sit one ternary deeper and on their own lines — both must still be there.
-  assert.ok(
-    gen.replace(/\s+/g, ' ').includes("register === 'solemn' ? `e.g. ${label} for Lola Rosa` : `e.g. ${label} of the Year`"),
-    'the name placeholder has lost an arm',
-  );
+  // R3 (owner 27 Nov 2026): the name box shows no "e.g." example at all, so a wake can never be offered "… of the Year".
+  assert.doesNotMatch(gen, /of the Year/, 'a cheerful "… of the Year" example is back in the name box');
   assert.ok(
     gen.includes("{register === 'solemn' ? 'A place to keep the photos.' : 'Your memories are already being kept.'}"),
     'the services title has lost an arm',

@@ -31,6 +31,10 @@ const ALLOW: Record<string, string> = {
   'app/dashboard/[eventId]/seating/walkthrough/_components/walkthrough-manager.tsx':
     'Seat plan walkthrough ("New zone — e.g. …"): NEW account, L10.',
   'app/tour/seating/_components/find-your-seat.tsx': 'The public seat-plan tour (find your seat): NEW account, L10.',
+  'app/[slug]/_components/rsvp-name-correction.tsx':
+    'Guest Event Hub reply card ("e.g. Maria Teresita Aquino-Reyes"): NEW account, L2 (RSVP form). The reply card is byte-pinned by the-reply-card-is-todays-page.test.ts.',
+  'app/[slug]/_components/song-request-card.tsx': 'Guest Event Hub song request box: NEW account, L2 (Guest + Hub).',
+  'app/[slug]/pabuya/_components/gift-record-sheet.tsx': 'Guest E-Gifts note box ("e.g. For your merienda machine!"): NEW account, L2 (Guest + Hub).',
   'app/dashboard/[eventId]/guests/_components/guest-card-body.tsx':
     'Not a box: the note under the "Stays out of face recognition" switch ("e.g. a minor"). Owner\'s call if notes go too.',
   'app/dashboard/[eventId]/guests/_components/guests-screen.tsx':

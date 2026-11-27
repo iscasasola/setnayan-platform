@@ -98,5 +98,6 @@ test('the shared fields use it: the thumb row’s field and the Guests add box',
   const screen = src('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
   assert.match(screen, /hints: writesOff \? undefined : hintLines/, 'the Guests search box is not given its examples');
   assert.match(screen, /quickAddTips\(\{[^}]*groupNames: groups\.map/, 'the Guests examples do not come from this event’s groups');
-  assert.match(src('app/dashboard/[eventId]/guests/_components/add-guest-sheet.tsx'), /hints=\{tips\?\.examples/, 'the add sheet’s box is not given its examples');
+  // R3 (owner 27 Nov 2026): the add sheet's box shows no rotating "e.g." examples.
+  assert.doesNotMatch(src('app/dashboard/[eventId]/guests/_components/add-guest-sheet.tsx'), /hints=\{tips\?\.examples/, 'the add sheet’s box cycles "e.g." examples again');
 });

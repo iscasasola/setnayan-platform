@@ -10,6 +10,7 @@ Owner rule R3 (27 Nov): "a fixed app, not an app with guidelines on what should 
   - This covers about 230 boxes across couple, supplier, admin and shop sign-up screens, plus the add-guest sheet's example line (its Tips fold stays).
 - **Not touched:**
   - the seat-plan boxes (seat-plan editor, walkthrough, the public tour), which go to the NEW account;
+  - the guest Event Hub boxes (the reply card's name correction, the song request, the E-Gifts note), which go to the NEW account (L2);
   - the Guests search box, which OLD-L4 handles;
   - help lines, notes under a field, error messages, AI prompts and comments.
 - **New guards:**

@@ -296,7 +296,7 @@ export function SectionsPanel({
                     <ActionButton
                       type="submit"
                       tone={row.is_visible ? 'ok' : 'neutral'}
-                      icon={row.is_visible ? Eye : EyeOff}
+                      icon={row.is_visible ? <Eye /> : <EyeOff />}
                       label={row.is_visible ? 'Visible' : 'Hidden'}
                       name={row.is_visible ? `Hide ${catalog?.label}` : `Show ${catalog?.label}`}
                     />
@@ -313,7 +313,7 @@ export function SectionsPanel({
                     type="submit"
                     tone="neutral"
                     iconOnly
-                    icon={ArrowUp}
+                    icon={<ArrowUp />}
                     label={`Move up`}
                     name={`Move ${catalog?.label} up`}
                     disabled={i === 0}
@@ -328,7 +328,7 @@ export function SectionsPanel({
                     type="submit"
                     tone="neutral"
                     iconOnly
-                    icon={ArrowDown}
+                    icon={<ArrowDown />}
                     label={`Move down`}
                     name={`Move ${catalog?.label} down`}
                     disabled={i === rows.length - 1}
@@ -741,7 +741,7 @@ export function SectionsPanel({
                         <input type="hidden" name="intent" value="delete" />
                         <input type="hidden" name="return_to" value={back} />
                         <span>Its words and layout go with it.</span>
-                        <ActionButton type="submit" tone="danger" filled icon={Trash2} label="Remove for good" />
+                        <ActionButton type="submit" tone="danger" filled icon={<Trash2 />} label="Remove for good" />
                       </SafeForm>
                     </details>
                   );
@@ -1205,7 +1205,7 @@ function SectionColourChoices({
           <input type="hidden" name="kind" value="color" />
           <input type="hidden" name="color" value="" />
           <input type="hidden" name="return_to" value={back} />
-          <ActionButton type="submit" tone="neutral" icon={Ban} label="None" />
+          <ActionButton type="submit" tone="neutral" icon={<Ban />} label="None" />
         </SafeForm>
       ) : null}
       {swatches.map((hex) => {

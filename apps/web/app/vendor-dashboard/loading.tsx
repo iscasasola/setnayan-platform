@@ -14,7 +14,7 @@ import { Screen, Sk, SkCircle, SkSection } from '@/components/skeletons';
  */
 export default function VendorLoading() {
   return (
-    <div className="mx-auto w-full max-w-6xl tab:max-w-none px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
+    <div className="mx-auto w-full tab:max-w-3xl px-4 py-4 sm:px-6 sm:py-10 lg:px-8">
       <Screen label="Loading Today" className="space-y-0">
         {/* 1 · The cover — greeting · date, the tasks line, the ⚙. */}
         <div className="mb-1 flex items-start gap-2 pt-1">

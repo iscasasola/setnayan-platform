@@ -9,7 +9,7 @@
  * sits at shoulder-to-bust-point and half the bust-point spacing; a side bust dart points at it; waist darts under the
  * back width and the bust point; side shaping up to the constant; a waist wider than the bust flares the side out.
  * Units: mm, x across from the centre line, y down from the nape (the back neck point sits above at −backRise).
- * 🔒 lib/gown-pattern/pattern.test.ts (held to the prototype's own outputs, prototype-v189.golden.json)
+ * 🔒 lib/gown-pattern/pattern.test.ts (held to the prototype's own outputs, prototype-v197.golden.json)
  */
 import type { GownMeasureKey } from '../gown-config';
 import { GOWN_DRAFT as K } from './draft-constants';

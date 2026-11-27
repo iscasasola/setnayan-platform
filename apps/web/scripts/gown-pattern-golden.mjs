@@ -1,5 +1,5 @@
-// Regenerate: node apps/web/scripts/gown-pattern-golden.mjs <specs corpus>/prototypes/gown_maker_2026-11-27/gown_maker_v189.html > apps/web/lib/gown-pattern/prototype-v189.golden.json
-// Runs the prototype's OWN draftSkirt / draftBodice (gown_maker_v189.html) on fixed inputs and prints their outputs as
+// Regenerate: node apps/web/scripts/gown-pattern-golden.mjs <specs corpus>/prototypes/gown_maker_2026-11-27/gown_maker_v197.html > apps/web/lib/gown-pattern/prototype-v197.golden.json
+// Runs the prototype's OWN draftSkirt / draftBodice (gown_maker_v197.html) on fixed inputs and prints their outputs as
 // JSON, so the TypeScript port can be held to them. Input file is passed as argv[2]; nothing from it is imported.
 import { readFileSync } from 'node:fs';
 const html = readFileSync(process.argv[2], 'utf8');
@@ -8,10 +8,13 @@ const start = lines.findIndex((l) => l.startsWith('function draftSkirt('));
 const end = lines.findIndex((l) => l.startsWith('function blockSVG('));
 const gStart = lines.findIndex((l) => l.startsWith('const GMEAS = ['));
 const gEnd = lines.findIndex((l, i) => i > gStart && l.startsWith('];'));
-if (start < 0 || end < 0 || gStart < 0 || gEnd < 0) throw new Error('prototype functions not found');
+// v197: the silhouette table (`SIL`: A-line and saya ease 10, the skim rule) is read by draftSkirt.
+const silLine = lines.find((l) => l.startsWith('const SIL = {'));
+if (start < 0 || end < 0 || gStart < 0 || gEnd < 0 || !silLine) throw new Error('prototype functions not found');
 const src = [
   'const clamp = (x, a, b) => Math.max(a, Math.min(b, x));',
   'const isMan = () => false, STRAPLESS = {}, gown = { neck: "sweetheart", boning: "soft", sleeve: "none", sil: "aline", slits: [], train: "none" }, dress = { hem: "floor" };',
+  silLine,
   lines.slice(gStart, gEnd + 1).join('\n'),
   lines.slice(start, end).join('\n'),
   'return { draftSkirt, draftBodice, DRAFT };',
@@ -39,9 +42,11 @@ const bodiceMeas = (v) => ({
   shoulderLen: r(12.25 * v.height / 160), sideLen: r(0.122 * v.height), neck: r(36 + (v.bust - 88) * 0.12),
 });
 const out = { skirts: [], bodices: [], errors: [] };
-for (const v of bodies) for (const sil of ['aline', 'sheath', 'mermaid', 'ball']) {
-  const ease = [{ part: 'Waist', ease: 1.5 }, { part: 'Hips', ease: sil === 'sheath' ? 3 : sil === 'mermaid' ? 2 : 6 }];
-  const o = { vals: v, design3d: { gown: { sil }, hem: 'floor' }, gownMeasEst: skirtEst(v), ease };
+// v197: the A-line and saya now leave the body at the waist (10 cm hip ease); the old A-line is Fit and flare.
+const hipEase = (sil) => (sil === 'sheath' ? 3 : sil === 'mermaid' ? 2 : sil === 'aline' || sil === 'terno' ? 10 : 6);
+for (const v of bodies) for (const sil of ['aline', 'fitflare', 'terno', 'sheath', 'mermaid', 'ball']) {
+  const ease = [{ part: 'Waist', ease: 1.5 }, { part: 'Hips', ease: hipEase(sil) }];
+  const o = { vals: v, design3d: { v: 2, gown: { sil }, hem: 'floor' }, gownMeasEst: skirtEst(v), ease };
   out.skirts.push({ input: { vals: v, sil, hem: 'floor', estimate: skirtEst(v), ease }, result: X.draftSkirt(o, {}) });
 }
 for (const v of bodies) {
@@ -57,11 +62,16 @@ out.errors.push({ case: 'no length', input: { vals: v, sil: 'aline', hem: 'floor
 out.errors.push({ case: 'bodice missing', input: { vals: v, estimate: { napeWaist: 41 }, ease }, result: X.draftBodice({ vals: v, gownMeasEst: { napeWaist: 41 }, ease }, {}) });
 out.sources = {
   input: { vals: v, sil: 'sheath', hem: 'floor', typed: { waistHip: 22 }, estimate: skirtEst(v), tape: { waistFloor: 100 }, ease },
-  result: X.draftSkirt({ vals: v, design3d: { gown: { sil: 'sheath' }, hem: 'floor' }, gownMeas: { waistHip: 22 }, gownMeasEst: skirtEst(v), ease }, { waistFloor: 100 }),
+  result: X.draftSkirt({ vals: v, design3d: { v: 2, gown: { sil: 'sheath' }, hem: 'floor' }, gownMeas: { waistHip: 22 }, gownMeasEst: skirtEst(v), ease }, { waistFloor: 100 }),
 };
 out.knee = {
   input: { vals: v, sil: 'aline', hem: 'knee', estimate: { waistHip: 23, waistFloor: 98, waistHem: 60 }, ease },
-  result: X.draftSkirt({ vals: v, design3d: { gown: { sil: 'aline' }, hem: 'knee' }, gownMeasEst: { waistHip: 23, waistFloor: 98, waistHem: 60 }, ease }, {}),
+  result: X.draftSkirt({ vals: v, design3d: { v: 2, gown: { sil: 'aline' }, hem: 'knee' }, gownMeasEst: { waistHip: 23, waistFloor: 98, waistHem: 60 }, ease }, {}),
+};
+// v197: an A-line saved before the change (no design version) opens as Fit and flare, blocks included.
+out.oldAline = {
+  input: { vals: v, sil: 'aline', designV: 1, hem: 'floor', estimate: skirtEst(v), ease: [{ part: 'Waist', ease: 1.5 }, { part: 'Hips', ease: 6 }] },
+  result: X.draftSkirt({ vals: v, design3d: { gown: { sil: 'aline' }, hem: 'floor' }, gownMeasEst: skirtEst(v), ease: [{ part: 'Waist', ease: 1.5 }, { part: 'Hips', ease: 6 }] }, {}),
 };
 out.draft = X.DRAFT;
 process.stdout.write(JSON.stringify(out));

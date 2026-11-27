@@ -39,9 +39,15 @@ test('A4 · "Handled by" is said once, and never over nobody', () => {
 
 test('S10 · "Hosted by" never lists the shop’s own people', () => {
   const s = read('lib/supplier-event-lines.server.ts');
-  assert.match(s, /readShopPeopleIds\(admin, me\),/, 'the shop’s people are no longer read beside the hosts');
+  assert.match(s, /input\.shopPeople \? Promise\.resolve\(shopPeopleIdsOf\(input\.shopPeople\)\) : readShopPeopleIds\(admin, me\),/, 'the shop’s people are no longer read beside the hosts');
   assert.match(s, /from\('vendor_profiles'\)\.select\('user_id'\)\.eq\('vendor_profile_id', vendorProfileId\)/);
-  assert.match(s, /from\('vendor_team_members'\)\.select\('user_id'\)\.eq\('vendor_profile_id', vendorProfileId\)/);
+  assert.match(
+    s,
+    /from\('vendor_team_members'\)\.select\('user_id, deactivated_at'\)\.eq\('vendor_profile_id', vendorProfileId\)\.is\('deactivated_at', null\)/,
+    'a deactivated (former) team member is left out of "Hosted by" again',
+  );
+  const clients = read('app/vendor-dashboard/customers/page.tsx');
+  assert.match(clients, /shopPeople: teamRead \? \{ ownerUserId: profile\.user_id, team: teamRead \} : undefined/, 'Clients reads its own team a second time');
   assert.match(s, /if \(m\.user_id && !isShopPerson\(m\.user_id\)\)/, 'a shop person is listed as a host again');
   assert.match(s, /isShopPerson\(t\?\.created_by_user_id\) \? null/, 'a shop person is marked "Asked you" again');
 });

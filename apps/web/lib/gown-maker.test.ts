@@ -187,14 +187,35 @@ test('7 · the options check refuses, never repairs', () => {
   if (ok.ok) assert.deepEqual(ok.options.prices, { base_aline: C(1) }, 'an empty price was stored as something');
 });
 
-test('7b · v193: the cape is its own price item, in Cover-ups, unpriced until the designer prices it', () => {
-  const item = GOWN_PRICE_ITEMS.find((i) => i.key === 'cape');
-  assert.deepEqual(item, { key: 'cape', label: 'Cape: cutting, sewing and finishing', unit: 'pc' });
-  const group = GOWN_PRICE_GROUPS.find(([, f]) => f('cape'));
-  assert.equal(group?.[0], 'Cover-ups');
-  assert.equal(gownShopTemplate().prices.cape, undefined);
+test('7b · v196: one cape item per cape type, in Cover-ups, unpriced until the designer prices it', () => {
+  const capes = GOWN_PRICE_ITEMS.filter((i) => i.key.startsWith('cape_'));
+  assert.deepEqual(
+    capes.map((i) => [i.key, i.label, i.unit]),
+    [
+      ['cape_neck', 'Cape (neck cape): cutting, sewing and finishing', 'pc'],
+      ['cape_back', 'Cape (back cape): cutting, sewing and finishing', 'pc'],
+      ['cape_pair', 'Cape (pair of shoulder capes): cutting, sewing and finishing', 'pc'],
+      ['cape_side', 'Cape (side cape): cutting, sewing and finishing', 'pc'],
+      ['cape_capelet', 'Cape (capelet): cutting, sewing and finishing', 'pc'],
+      ['cape_drape', 'Cape (one-shoulder drape): cutting, sewing and finishing', 'pc'],
+    ],
+  );
+  assert.equal(GOWN_PRICE_ITEMS.find((i) => i.key === ('cape' as never)), undefined, 'the single v193 cape item is gone');
+  for (const c of capes) {
+    assert.equal(GOWN_PRICE_GROUPS.find(([, f]) => f(c.key))?.[0], 'Cover-ups');
+    assert.equal(gownShopTemplate().prices[c.key], undefined);
+  }
   assert.ok(GOWN_ADD_ONS.some((a) => a.id === 'cape'), 'the bride’s detachable cape add-on is still there');
   for (const i of GOWN_PRICE_ITEMS) assert.equal(GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length, 1, `${i.key} sits in ${GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length} groups`);
+});
+
+test('7b2 · v196: ribbon by the metre is a Trims line, unpriced until priced; the retired v193 cape key is refused', () => {
+  assert.deepEqual(GOWN_PRICE_ITEMS.find((i) => i.key === 'ribbon'), { key: 'ribbon', label: 'Ribbon (sash)', unit: 'm' });
+  assert.equal(GOWN_PRICE_GROUPS.find(([, f]) => f('ribbon'))?.[0], 'Trims');
+  assert.equal(gownShopTemplate().prices.ribbon, undefined);
+  // Nothing was ever saved under it (the gown tables are not live yet), so the old key is simply not on the list.
+  const old = sanitizeGownShopOptions({ ...gownShopTemplate(), prices: { cape: 100 } });
+  assert.equal(old.ok, false, 'a price for the retired single cape item was accepted');
 });
 
 test('7c · v195: flutter cape sleeves (per pair, Sleeves) and an overlay (per piece, Skirt), unpriced until priced', () => {

@@ -69,7 +69,6 @@ export function ConnectForm({
         <SubmitButton
           pending={sent}
           overlay={false}
-          spinner={false}
           pendingLabel="Connecting…"
           className={look.button}
         >

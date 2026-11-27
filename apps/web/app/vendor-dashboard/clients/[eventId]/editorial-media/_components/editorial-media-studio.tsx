@@ -10,7 +10,7 @@
 // ============================================================================
 
 import { useEffect, useRef, useState } from 'react';
-import { ImagePlus, Film, Info, Trash2, Loader2, Send } from 'lucide-react';
+import { ImagePlus, Film, Info, Trash2, Send } from 'lucide-react';
 import {
   bakeBoomerang,
   boomerangSupported,
@@ -342,7 +342,7 @@ export function EditorialMediaStudio({
 
       {busy ? (
         <p className="inline-flex items-center gap-2 px-4 pt-3 text-[13px] text-[color:var(--m-slate-2)] tab:px-1">
-          <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> {busy}
+          {busy}
         </p>
       ) : null}
       {error ? (

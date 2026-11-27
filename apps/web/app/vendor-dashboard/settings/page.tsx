@@ -1,6 +1,4 @@
 import { getCurrentUser } from '@/lib/auth';
-import { BackButton } from '@/app/_components/back-button';
-import { BackWhenNotRisen } from '../_components/back-when-not-risen';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -73,16 +71,11 @@ export default async function VendorSettingsPage() {
   });
 
   return (
-    <>
-    <BackWhenNotRisen>
-      <BackButton route="/vendor-dashboard/settings" inPlace className="mx-4 mt-3 mb-0" />
-    </BackWhenNotRisen>
     <SettingsView
       unread={unread}
       manager={manager}
       payout={payout}
       tools={tools}
     />
-    </>
   );
 }

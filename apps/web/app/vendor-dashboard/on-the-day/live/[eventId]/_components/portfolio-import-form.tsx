@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Film, Loader2, UploadCloud, X } from 'lucide-react';
+import { Film, UploadCloud, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { albumVideoCostWords, albumVideoCredits } from '@/lib/album-video-cost';
 import { extractClipPosterBytes } from '@/lib/clip-poster';
@@ -159,11 +159,7 @@ export function PortfolioImportForm({
           className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium"
           style={{ borderColor: 'var(--m-line)', color: 'var(--m-slate-1)' }}
         >
-          {busy ? (
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-          ) : (
-            <UploadCloud aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-          )}
+          <UploadCloud aria-hidden className="h-4 w-4" strokeWidth={1.75} />
           {busy ? 'Importing…' : 'Import a photo · 1 credit'}
           <input
             ref={inputRef}

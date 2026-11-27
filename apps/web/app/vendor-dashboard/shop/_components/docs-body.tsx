@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, useTransition } from 'react';
-import { Loader2, Plus, Trash2 } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 
 import { DocSlotCard } from '@/app/_components/verification/doc-slot-card';
 import { FileUpload } from '@/app/_components/file-upload';
@@ -243,7 +243,6 @@ function VendorSlotInput({
       />
       {pending ? (
         <p className="inline-flex items-center gap-1.5 text-xs" style={{ color: 'var(--m-slate-3)' }}>
-          <Loader2 className="h-3 w-3 animate-spin" strokeWidth={2} aria-hidden />
           Saving…
         </p>
       ) : null}

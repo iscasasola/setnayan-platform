@@ -28,7 +28,7 @@ test('both shelf tools rise as themselves, the same shape as the card maker', ()
 test('inside the layer the pinned ‹ row steps aside; a hard load keeps it; a status chip stays', () => {
   const pin = src('app/vendor-dashboard/_components/tool-page.tsx');
   const fn = pin.slice(pin.indexOf('export function ToolPin('), pin.indexOf('export function ToolSection('));
-  assert.match(fn, /<BackWhenNotRisen>\s*<BackButton route=\{route\} variant="tool" \/>\s*<h1\b/, 'the ‹ and the title still draw inside the layer');
+  assert.match(fn, /<BackWhenNotRisen>\s*<BackButton route=\{route\} params=\{params\} variant="tool" inPlace=\{inPlace\} \/>\s*<h1\b/, 'the ‹ and the title still draw inside the layer');
   assert.match(fn, /return right \|\| sub \? pin : <BackWhenNotRisen>\{pin\}<\/BackWhenNotRisen>;/, 'an empty pinned row is drawn inside the layer, or a chip is lost');
   const back = src('app/vendor-dashboard/_components/back-when-not-risen.tsx');
   assert.match(back, /return inRiseRoute \? null : outsideRise;/, 'the centred dialog (not a RiseScreen) still shows the ‹');

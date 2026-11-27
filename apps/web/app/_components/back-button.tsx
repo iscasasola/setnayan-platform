@@ -82,8 +82,9 @@ export function BackButton(
   if (props.variant === 'tool') {
     // 🧰 A supplier tool page's pinned row (owner-approved redraw v3, 21 Nov 2026 — `supplier_tools_redraw_v3_fable`):
     // on a phone the drawing's `.rb` — a 40 round on the frame's white, an ink ‹, the home named for a screen reader;
-    // from 701 the drawing's `.crumb` — "‹ Shop" in the link blue, beside the title.
-    return (
+    // from 701 the drawing's `.crumb` — "‹ Shop" in the link blue, beside the title. `inPlace` returns in place, as the
+    // pill does (final check B18: Your details · Settings · Team now wear this row).
+    const tool = (
       <Link
         href={href}
         aria-label={`Back to ${label}`}
@@ -98,6 +99,8 @@ export function BackButton(
         </span>
       </Link>
     );
+    if (!props.inPlace) return tool;
+    return <ReturnInPlace whileAt={typeof props.inPlace === 'object' ? props.inPlace.whileAt : undefined}>{tool}</ReturnInPlace>;
   }
   if (props.variant === 'chat') {
     return (

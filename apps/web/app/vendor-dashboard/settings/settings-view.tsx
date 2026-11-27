@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { ToolPin } from '@/app/vendor-dashboard/_components/tool-page';
 import { Bell, CircleHelp, Repeat, Store, UserRound, Wallet, Wrench } from 'lucide-react';
 import type { PayoutReadiness } from '@/lib/deposit-pay-step';
 import { PAYMENT_OPTIONS_HREF } from '../_components/payout-method-nudge';
@@ -39,9 +40,9 @@ export function SettingsView({
   const ic = (Icon: typeof Bell) => <Icon aria-hidden className="h-[18px] w-[18px] flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.75} />;
 
   return (
-    <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-4 sm:px-6" data-settings-screen="">
-      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
-      <h1 className="sr-only">Settings</h1>
+    <div className="mx-auto w-full max-w-xl px-4 pb-16 sm:px-6" data-settings-screen="">
+      {/* ‹ + the title, the one pinned row (final check B18). Risen from the avatar, the layer's head names it instead. */}
+      <ToolPin route="/vendor-dashboard/settings" inPlace title="Settings" />
       <div className="mt-1" data-settings-rows="">
         <DatesRow data="settings-account" lead={ic(UserRound)} title="Account" line="Profile · password · delete account" href="/dashboard/profile" />
 

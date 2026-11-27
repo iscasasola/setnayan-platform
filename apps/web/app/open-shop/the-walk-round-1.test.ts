@@ -27,9 +27,11 @@ test('F-W1-04 · Continue is drawn busy at once and takes one move per press', (
     const btn = WIZARD.slice(WIZARD.lastIndexOf('<ActionButton', at), at);
     assert.match(btn, /onClick=\{go\}/, `${id} must go through go() (busy first, one move per press)`);
     assert.match(btn, /data-busy=\{moving/, `${id} must say it is busy`);
-    assert.match(btn, /icon=\{continueIcon\}/, `${id} must show the spinner while moving`);
+    assert.match(btn, /icon=\{continueIcon\}/, `${id} lost its arrow`);
+    // Final check B19: while moving it stays pressed and says so — no spinner.
+    assert.match(btn, /busy=\{continueBusy\}/, `${id} must stay pressed and say it is moving on`);
   }
-  assert.match(WIZARD, /const continueIcon = moving \? <Loader2/, 'the spinner is gone');
+  assert.match(WIZARD, /const continueBusy = moving \? 'Continuing…' : null;/, 'Continue does not name its step while moving');
   const go = WIZARD.slice(WIZARD.indexOf('const go = () =>'), WIZARD.indexOf('const back = () =>'));
   assert.match(go, /if \(movingRef\.current\) return;/, 'a second press while moving must be ignored');
   assert.match(go, /blur/, 'the box being typed in must lose the focus, so letters do not land on the next step');

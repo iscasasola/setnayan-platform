@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
-import { Check, Clock, Loader2, Minus, UserRound } from 'lucide-react';
+import { Check, Clock, Minus, UserRound } from 'lucide-react';
 import { FileUpload } from '@/app/_components/file-upload';
 import { TypedRow } from '@/app/_components/form-row';
 import { useToast } from '@/app/_components/toast/toast-provider';
@@ -265,13 +265,11 @@ export function PaperUploadPlace({
           />
           {sending ? (
             <p className="inline-flex items-center gap-1.5 text-sm" role="status" style={{ color: 'var(--m-ink)' }}>
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />
               Checking your papers…
             </p>
           ) : null}
           {pending && checking > 0 ? (
             <p className="inline-flex items-center gap-1.5 text-sm" role="status" style={{ color: 'var(--m-ink)' }}>
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />
               Checking {checking} {checking === 1 ? 'paper' : 'papers'}…
               <span className="text-xs" style={{ color: MUTE }}>
                 {renewing ? 'A few seconds. Your file is already saved.' : 'Each one ticks as soon as we know what it is.'}

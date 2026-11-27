@@ -2,9 +2,9 @@
 
 import { EVENT_DATE_FLOOR_MESSAGE, eventDateFloorRefusal, eventDateMinFor } from '@/lib/event-date-floor';
 import { useEffect, useRef, useState } from 'react';
-import { Trash2, Upload, Check, Loader2, AlertTriangle, Search, X, Info, Plus } from 'lucide-react';
+import { Trash2, Upload, Check, AlertTriangle, Search, X, Info, Plus, RotateCcw } from 'lucide-react';
 import { SubmitButton } from '@/app/_components/submit-button';
-import { actionButtonClass } from '@/components/action-button';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
@@ -149,15 +149,18 @@ async function presignAndUpload(file: File): Promise<string> {
   return r2Ref;
 }
 
-/** One image upload slot (presign → PUT → ref), with its own busy/error state. */
+/**
+ * One image upload slot (presign → PUT → ref), with its own busy/error state. A failed upload keeps the file it was
+ * given, so Try again sends the same file again (final check B19 — "Didn't upload · Try again").
+ */
 function useUploadSlot(initialRef = '', keptLabel = 'Kept from the code you are changing') {
   const [ref, setRef] = useState(initialRef);
   const [name, setName] = useState(initialRef ? keptLabel : '');
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState('');
-  async function onChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const lastFile = useRef<File | null>(null);
+  async function upload(file: File) {
+    lastFile.current = file;
     setBusy(true);
     setErr('');
     try {
@@ -165,14 +168,52 @@ function useUploadSlot(initialRef = '', keptLabel = 'Kept from the code you are 
       setRef(r2Ref);
       setName(file.name);
     } catch {
-      setErr('Upload failed — try again.');
+      setErr('Didn’t upload');
       setRef('');
       setName('');
     } finally {
       setBusy(false);
     }
   }
-  return { ref, name, busy, err, onChange };
+  function onChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (file) void upload(file);
+  }
+  function retry() {
+    if (lastFile.current) void upload(lastFile.current);
+  }
+  return { ref, name, busy, err, onChange, retry };
+}
+
+/**
+ * The slot's one control (final check B19, drawing § B19 frame 2, approved 25 Nov): while it uploads it STAYS PRESSED
+ * and says "Uploading photo…" — no spinner; a failure is said in the danger token with Try again (the same file).
+ */
+export type UploadSlot = ReturnType<typeof useUploadSlot>;
+
+export function UploadSlotControl({ slot, accept }: { slot: UploadSlot; accept: string }) {
+  return (
+    <>
+      <label
+        aria-busy={slot.busy || undefined}
+        className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-ink/15 bg-raised px-4 py-2 text-sm text-[color:var(--m-slate-2)] hover:border-terracotta"
+      >
+        {slot.ref ? (
+          <Check className="h-4 w-4 text-[rgb(var(--color-ok))]" strokeWidth={2} />
+        ) : (
+          <Upload className="h-4 w-4" strokeWidth={1.75} />
+        )}
+        {slot.ref ? slot.name : slot.busy ? 'Uploading photo…' : 'Choose file'}
+        <input type="file" accept={accept} className="hidden" onChange={slot.onChange} disabled={slot.busy} />
+      </label>
+      {slot.err ? (
+        <p role="alert" className="mt-2 flex items-center gap-2 text-xs" style={{ color: 'rgb(var(--color-danger))' }} data-upload-failed="">
+          {slot.err}
+          <ActionButton tone="neutral" quiet icon={RotateCcw} label="Try again" onClick={slot.retry} />
+        </p>
+      ) : null}
+    </>
+  );
 }
 
 /**
@@ -527,7 +568,6 @@ function LockedQrForm({
           ) : null}
           {dateStatusLoading && !dateStatus && (
             <p className="flex items-center gap-1.5 text-xs text-[color:var(--m-slate-2)]">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={1.75} aria-hidden />
               Checking your calendar…
             </p>
           )}
@@ -889,24 +929,7 @@ function LockedQrForm({
           <p className="mt-1 text-xs text-[color:var(--m-slate-2)]">
             Upload the receipt/screenshot of the first payment you received.
           </p>
-          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-ink/15 bg-raised px-4 py-2 text-sm text-[color:var(--m-slate-2)] hover:border-terracotta">
-            {proof.busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-            ) : proof.ref ? (
-              <Check className="h-4 w-4 text-[rgb(var(--color-ok))]" strokeWidth={2} />
-            ) : (
-              <Upload className="h-4 w-4" strokeWidth={1.75} />
-            )}
-            {proof.ref ? proof.name : proof.busy ? 'Uploading…' : 'Choose file'}
-            <input
-              type="file"
-              accept="image/*,application/pdf"
-              className="hidden"
-              onChange={proof.onChange}
-              disabled={proof.busy}
-            />
-          </label>
-          {proof.err && <p className="mt-2 text-xs text-terracotta-700">{proof.err}</p>}
+          <UploadSlotControl slot={proof} accept="image/*,application/pdf" />
         </div>
         <div className="border-t border-[color:var(--m-line)] pt-4">
           <h2 className="text-sm font-semibold text-ink">
@@ -915,24 +938,7 @@ function LockedQrForm({
           <p className="mt-1 text-xs text-[color:var(--m-slate-2)]">
             A keepsake photo saved with this booking.
           </p>
-          <label className="mt-3 inline-flex cursor-pointer items-center gap-2 rounded-xl border border-ink/15 bg-raised px-4 py-2 text-sm text-[color:var(--m-slate-2)] hover:border-terracotta">
-            {remembrance.busy ? (
-              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={1.75} />
-            ) : remembrance.ref ? (
-              <Check className="h-4 w-4 text-[rgb(var(--color-ok))]" strokeWidth={2} />
-            ) : (
-              <Upload className="h-4 w-4" strokeWidth={1.75} />
-            )}
-            {remembrance.ref ? remembrance.name : remembrance.busy ? 'Uploading…' : 'Choose file'}
-            <input
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={remembrance.onChange}
-              disabled={remembrance.busy}
-            />
-          </label>
-          {remembrance.err && <p className="mt-2 text-xs text-terracotta-700">{remembrance.err}</p>}
+          <UploadSlotControl slot={remembrance} accept="image/*" />
         </div>
       </div>
 

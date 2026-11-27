@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Check, Loader2 } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { NOTICE_ACTION } from '@/app/_components/notices/notice-styles';
 import { InlineNotice } from '@/app/_components/notices/inline-notice';
 
@@ -99,9 +99,8 @@ export function SuggestedCoverageCard({
         detail="We read your own website once, for free, to look for things you offer that aren’t on your coverage yet. Nothing changes until you tick what’s right and press Add — and you can just say not now."
         onClose={notNow}
         actions={
-          <button type="button" onClick={add} disabled={pending || picked.size === 0} className={`${NOTICE_ACTION} disabled:opacity-60`}>
-            {pending ? <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2} /> : null}
-            Add {picked.size > 0 ? `(${picked.size})` : ''}
+          <button type="button" onClick={pending ? undefined : add} disabled={picked.size === 0} aria-busy={pending || undefined} className={`${NOTICE_ACTION} disabled:opacity-60`}>
+            {pending ? 'Adding…' : <>Add {picked.size > 0 ? `(${picked.size})` : ''}</>}
           </button>
         }
       />

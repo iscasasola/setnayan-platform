@@ -44,6 +44,7 @@ import { ShotPanel } from './shot-panel';
 import { YourNumbers } from './your-numbers';
 import type { EventScanService, ScanTally } from '@/lib/supplier-scan.server';
 import { supplierScan } from '@/app/_actions/supplier-scan-actions';
+import { Sk } from '@/components/skeletons';
 
 type Tally = ScanTally | null;
 
@@ -215,11 +216,11 @@ export function SupplierClaimScanner({
       <div aria-live="polite" className="min-h-14" data-supplier-scan-answer={answer?.outcome ?? ''}>
         {busy ? (
           // The house shimmer in the result line's own shape — never a spinner.
-          <p className="py-1" aria-busy="true">
+          <div className="py-1" aria-busy="true">
             <span className="sr-only">Checking…</span>
-            <span aria-hidden className="block h-5 w-48 animate-pulse rounded-md bg-ink/10" />
-            <span aria-hidden className="mt-1.5 block h-4 w-32 animate-pulse rounded-md bg-ink/[0.06]" />
-          </p>
+            <Sk className="block h-5 w-48 rounded-md" />
+            <Sk className="mt-1.5 block h-4 w-32 rounded-md" />
+          </div>
         ) : words ? (
           <p className="py-1">
             <span

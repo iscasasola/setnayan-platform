@@ -1,5 +1,3 @@
-import { BackButton } from '@/app/_components/back-button';
-import { BackWhenNotRisen } from '../_components/back-when-not-risen';
 import { TeamScreen, type TeamSearch } from './_components/team-screen';
 import { RolesSection } from './_components/roles-section';
 import { InquiriesSection } from './_components/inquiries-section';
@@ -25,12 +23,5 @@ export default async function VendorTeamPage({
   if (section === 'inquiries') {
     return <InquiriesSection search={{ branch: search.branch, adjust: search.adjust, type: search.type, saved: search.saved, error: search.error }} />;
   }
-  return (
-    <>
-      <BackWhenNotRisen>
-        <BackButton route="/vendor-dashboard/team" inPlace className="mx-4 mt-3 mb-0" />
-      </BackWhenNotRisen>
-      <TeamScreen search={search} />
-    </>
-  );
+  return <TeamScreen search={search} />;
 }

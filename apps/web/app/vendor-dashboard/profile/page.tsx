@@ -1,6 +1,4 @@
 import { getCurrentUser } from '@/lib/auth';
-import { BackButton } from '@/app/_components/back-button';
-import { BackWhenNotRisen } from '../_components/back-when-not-risen';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -55,10 +53,6 @@ export default async function YourDetailsPage({
         : shopSetupView({ d, rail, qrSaved, serviceLabel: displayServiceLabel });
 
   return (
-    <>
-    <BackWhenNotRisen>
-      <BackButton route="/vendor-dashboard/profile" inPlace className="mx-4 mt-3 mb-0" />
-    </BackWhenNotRisen>
     <DetailsScreen
       d={d}
       live={live}
@@ -66,6 +60,5 @@ export default async function YourDetailsPage({
       branchBody={<BranchPanel {...d.branch} />}
       gearBody={shopGearBody(await searchParams)}
     />
-    </>
   );
 }

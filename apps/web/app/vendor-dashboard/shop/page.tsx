@@ -591,7 +591,7 @@ function AnalyticsPlaceholder() {
         <span className="sn-eye">Analytics</span>
       </div>
       <div className="px-4">
-        <div className="h-[260px] animate-pulse rounded-2xl bg-ink/[0.05]" />
+        <Sk className="h-[260px] rounded-2xl" />
       </div>
     </section>
   );
@@ -860,6 +860,7 @@ import { shopGearBodyAlways } from './_components/shop-settings-body';
 import { BadgeRewardSweep } from '../_components/badge-reward-sweep';
 import { shopFormsBody } from './_components/shop-forms-body';
 import { NewThingTile } from '@/app/_components/collection-card';
+import { Sk } from '@/components/skeletons';
 
 export default async function VendorShopHub({
   searchParams,

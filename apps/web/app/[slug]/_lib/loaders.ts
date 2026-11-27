@@ -8,6 +8,7 @@
 //
 // The benefit is PER-REQUEST dedup + orchestrator shrinkage, NOT cross-route
 // sharing — do NOT import these loaders from other routes (`cache()` scopes to
+import { readShownTableNames } from '@/lib/table-auto-name.server';
 import { SITE_URL } from '@/lib/feature-pages/seo';
 // a single server request; the loaders assume this route's gating has already
 // run).
@@ -1947,22 +1948,13 @@ export const loadGuestContext = cache(
       }
       if (assignmentRow?.table_id) {
         guestTableId = assignmentRow.table_id as string;
-        const { data: tableRow, error: seatTableErr } = await admin
-          .from('event_tables')
-          .select('table_label, link_group_label')
-          .eq('table_id', assignmentRow.table_id)
-          .maybeSingle();
-        if (seatTableErr) {
+        // 🪑 The name the table SHOWS — a linked unit's shared name included (the ONE reader, `tableDisplayNames`,
+        // lib/table-auto-name.ts). A refused read is "unreadable", never a guessed name.
+        try {
+          guestTableLabel = (await readShownTableNames(admin, event.event_id)).get(assignmentRow.table_id as string) ?? null;
+        } catch (seatTableErr) {
           guestSeatUnreadable = true;
           logQueryError('loadGuestContext.seatTable', seatTableErr, { event_id: event.event_id }, 'graceful_degrade');
-        }
-        if (tableRow) {
-          // Prefer the linked group label (e.g. "VIP Section") over the
-          // individual table label when the table is part of a linked unit.
-          guestTableLabel =
-            (tableRow as { table_label: string; link_group_label?: string | null })
-              .link_group_label ??
-            (tableRow as { table_label: string }).table_label;
         }
       }
     } catch {

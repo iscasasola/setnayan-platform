@@ -5,6 +5,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { CHANGE_OPS, type ChangeArea, type ChangeOp, type ChangeStatus } from '@/lib/change-requests';
 import { ENTOURAGE_COLUMNS } from '@/lib/entourage';
 import { guestDisplayName } from '@/lib/guests';
+import { shownTableRows } from '@/lib/table-auto-name.server';
 
 /**
  * ✍️ THE READS BEHIND A SUPPLIER'S PROPOSED CHANGES (owner 8 Nov 2026) — all through the caller's OWN session, so RLS
@@ -132,9 +133,8 @@ export async function readProposeTargets(supabase: SupabaseClient, eventId: stri
     wantsGuests
       ? supabase.from('guests').select(ENTOURAGE_COLUMNS).eq('event_id', eventId).is('deleted_at', null).order('last_name').limit(1000)
       : Promise.resolve({ data: [], error: null }),
-    areas.has('seat_plan')
-      ? supabase.from('event_tables').select('table_id, table_label, sort_order').eq('event_id', eventId).order('sort_order').limit(200)
-      : Promise.resolve({ data: [], error: null }),
+    // 🪑 Each table under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+    areas.has('seat_plan') ? shownTableRows(supabase, eventId) : Promise.resolve({ data: [], error: null }),
     areas.has('vendors')
       ? supabase.from('event_vendors').select('vendor_id, vendor_name').eq('event_id', eventId).is('archived_at', null).limit(200)
       : Promise.resolve({ data: [], error: null }),

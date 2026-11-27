@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { shownTableRows } from '@/lib/table-auto-name.server';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { redirect } from 'next/navigation';
 import { ArrowLeft, Gift, QrCode } from 'lucide-react';
@@ -113,10 +114,8 @@ export default async function CheckinDeskPage({ params }: Props) {
       .from('event_seat_assignments')
       .select('guest_id, table_id')
       .eq('event_id', eventId),
-    supabase
-      .from('event_tables')
-      .select('table_id, table_label, link_group_label')
-      .eq('event_id', eventId),
+    // 🪑 Each table under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+    shownTableRows(supabase, eventId),
     supabase
       .from('guest_checkins')
       // 🛂 `checked_in_by_user_id` — who worked the door: the Team part reads it (no second read of this table).

@@ -26,6 +26,9 @@ export type NameTable = {
   /** FALSE = the host typed `table_label`. Absent (an older read) counts as host-typed, so nothing is ever renamed by a stale row. */
   label_is_auto?: boolean | null;
   sort_order?: number | null;
+  /** 🔗 Linked tables (one serpentine run, one sign) are ONE unit: they share one shown name, read from all their seats. */
+  link_group_id?: string | null;
+  link_group_label?: string | null;
 };
 
 export type NameSeat = { guest_id: string; table_id: string };
@@ -123,25 +126,43 @@ export function tableNameInfos(
     seatedAt.set(s.table_id, list);
   }
 
+  // 🔗 One unit per linked group (else per table), in plan order of its first table. A unit's name is decided ONCE,
+  // from every seat across its tables, and every member wears it — a linked run is one table with one sign.
   const ordered = planOrder(tables);
+  const units: Array<{ lead: NameTable; members: NameTable[] }> = [];
+  const unitOf = new Map<string, { lead: NameTable; members: NameTable[] }>();
+  for (const t of ordered) {
+    const k = t.link_group_id ? `link:${t.link_group_id}` : `table:${t.table_id}`;
+    const u = unitOf.get(k);
+    if (u) u.members.push(t);
+    else {
+      const fresh = { lead: t, members: [t] };
+      unitOf.set(k, fresh);
+      units.push(fresh);
+    }
+  }
+  const ownLabel = (u: { lead: NameTable }) => (u.lead.link_group_label ?? u.lead.table_label ?? '').trim();
   const out = new Map<string, TableNameInfo>();
+  const give = (u: { members: NameTable[] }, info: TableNameInfo) => {
+    for (const m of u.members) out.set(m.table_id, info);
+  };
   // Host names are kept as typed and claim their name first.
   const taken = new Set<string>();
-  for (const t of ordered) {
-    if (t.label_is_auto === true) continue;
-    const name = (t.table_label ?? '').trim();
-    out.set(t.table_id, { name, why: { kind: 'host' } });
+  for (const u of units) {
+    if (u.lead.label_is_auto === true) continue;
+    const name = ownLabel(u);
+    give(u, { name, why: { kind: 'host' } });
     if (name) taken.add(key(name));
   }
-  for (const t of ordered) {
-    if (t.label_is_auto !== true) continue;
-    const here = seatedAt.get(t.table_id) ?? [];
+  for (const u of units) {
+    if (u.lead.label_is_auto !== true) continue;
+    const here = u.members.flatMap((m) => seatedAt.get(m.table_id) ?? []);
     const major = majorityOf(here, groupsOf, labelOf);
-    const base = major ? major.groupLabel : (t.table_label ?? '').trim() || 'Table';
+    const base = major ? major.groupLabel : ownLabel(u) || 'Table';
     let name = base;
     for (let n = 2; taken.has(key(name)); n += 1) name = `${base} ${n}`;
     taken.add(key(name));
-    out.set(t.table_id, {
+    give(u, {
       name,
       why: major ? { kind: 'group', groupLabel: major.groupLabel, groupSeats: major.groupSeats, seated: here.length } : { kind: 'none', seated: here.length },
     });
@@ -162,7 +183,10 @@ export function tableDisplayNames(
 export function withDisplayNames<T extends NameTable>(tables: ReadonlyArray<T>, names: ReadonlyMap<string, string>): T[] {
   return tables.map((t) => {
     const name = names.get(t.table_id);
-    return name && name !== t.table_label ? { ...t, table_label: name } : t;
+    if (!name) return t;
+    // A linked member also wears the unit's name where its unit name is read (`link_group_label`).
+    if (t.link_group_id && name !== t.link_group_label) return { ...t, table_label: name, link_group_label: name };
+    return name !== t.table_label ? { ...t, table_label: name } : t;
   });
 }
 
@@ -177,6 +201,8 @@ export function hostNameClash(
 ): string | null {
   const want = key(proposed);
   if (!want) return null;
+  // Its own name (which a linked sibling wears too) is never a clash.
+  if (want === key(names.get(tableId) ?? '')) return null;
   for (const [id, shown] of names) {
     if (id !== tableId && key(shown) === want) return `${shown} already has that name. Pick another.`;
   }
@@ -210,4 +236,21 @@ export function autoNameFor(
   const label = autoDefaultLabel(tableId, tables);
   const asAuto = tables.map((t) => (t.table_id === tableId ? { ...t, table_label: label, label_is_auto: true } : t));
   return tableDisplayNames(asAuto, seated, groups).get(tableId) ?? '';
+}
+
+/**
+ * What a rename from a name field WRITES (the editor's inline fields, the Name row): `'none'` when nothing changed —
+ * the typed words are the stored label or the name the table already shows, so a field pre-filled with the shown
+ * name and merely tapped away from never turns an auto name into the host's; `'auto'` when an empty field returns a
+ * host-named table to its auto name (empty on an auto table changes nothing); else `'host'`.
+ */
+export function renameWrites(
+  table: Pick<NameTable, 'table_label' | 'label_is_auto'>,
+  typed: string,
+  shown: string | null | undefined,
+): 'none' | 'auto' | 'host' {
+  const t = typed.trim();
+  if (!t) return table.label_is_auto === false ? 'auto' : 'none';
+  if (key(t) === key(table.table_label ?? '') || key(t) === key(shown ?? '')) return 'none';
+  return 'host';
 }

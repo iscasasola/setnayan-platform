@@ -34,6 +34,7 @@ import { budgetPageHref, schedulePageHref } from '@/lib/pillar-parts';
 import { releaseOpen, type HomeScheduleFacts } from '@/lib/home-schedule';
 import { guestsViewHref } from '@/lib/guests-views';
 import { findBoardHref } from '@/lib/find-inspiration';
+import { whoCanViewLabel, type EventVisibility } from '@/lib/event-visibility';
 
 /** The six upper widgets, in the owner's order (notes: "The order, top to bottom — and the one reason"). */
 export const HOME_CONTROL_KEYS = ['count', 'guests', 'hub', 'sup', 'budget', 'plan'] as const;
@@ -180,6 +181,9 @@ export type HomeHubFacts = {
   publicUrl: string | null;
   /** "setnayan.com/ana-and-miguel · Public" — the Maker's words. */
   where: string;
+  /** Who can open the Hub (`events.landing_page_visibility`, `normalizeVisibility`) — "live" is said only when it is
+   *  Public; an Unlisted or Private Hub says so (L5 · C6). Absent on older callers = read as the stored default. */
+  visibility?: EventVisibility;
   /** The event date in short words ("Dec 12") — The Day's opening. */
   dayShort: string | null;
   /** `readHomeGuide` — the guided flow: the whole setup's count and the stage still to fill, when the reader drew one. */
@@ -187,7 +191,7 @@ export type HomeHubFacts = {
 };
 
 export type HomeSuppliersFacts = {
-  /** The dashboard's own "N of M booked" (`countUnlockedCategories` over this type's plan groups). */
+  /** "N of M booked" at Find's grain (`bookedCategoryTally`, lib/booked-tally.ts): M = categories Find lists, N = booked ones. */
   booked: number;
   of: number;
   /** Quotes out with the answer the couple's to give — `SupplierStanding.needsYou` (`buildBenchStandings`). */
@@ -678,6 +682,19 @@ export function nextHubStage(stage: LifecyclePhase | null): LifecyclePhase | nul
 export const HUB_TILE_INFO =
   'Tap to open your Event Hub — the page your guests see.';
 
+/**
+ * 📌 THE HUB'S REACH, IN WORDS (L5 · C6). The tile said "Save the Date · live · guests see it" over an UNLISTED Hub —
+ * "live" read as out in the open. One answer for the tile face and the detail row: Public is "live"; Unlisted and
+ * Private name themselves with the Maker's own words (`WHO_CAN_VIEW`); no link yet is "not shared yet".
+ */
+export function hubReachOf(h: Pick<HomeHubFacts, 'visibility' | 'publicUrl'>): { unit: string; sm: string; detail: string; open: boolean } {
+  const v = h.visibility ?? 'public';
+  if (!h.publicUrl) return { unit: v === 'public' ? 'live' : whoCanViewLabel(v).toLowerCase(), sm: 'not shared yet', detail: 'not shared yet', open: false };
+  if (v === 'public') return { unit: 'live', sm: 'guests see it', detail: 'guests see it now', open: true };
+  if (v === 'unlisted') return { unit: 'unlisted', sm: 'only guests with the link', detail: 'only guests with the link see it', open: true };
+  return { unit: whoCanViewLabel(v).toLowerCase(), sm: 'only your hosts and guests', detail: 'only your hosts and guests see it', open: true };
+}
+
 export function hubTile(input: HomeControlInput, today: HomeToday): HomeTileModel | null {
   const e = input.eventId;
   const h = input.hub;
@@ -695,11 +712,12 @@ export function hubTile(input: HomeControlInput, today: HomeToday): HomeTileMode
   const external = Boolean(h.publicUrl);
   const faces: HomeFace[] = [];
   if (h.stage) {
+    const reach = hubReachOf(h);
     faces.push({
       id: 'hub-now',
       big: PUBLIC_STAGE_LABELS[h.stage],
-      unit: 'live',
-      sm: h.publicUrl ? 'guests see it' : 'not shared yet',
+      unit: reach.unit,
+      sm: reach.sm,
       href: door,
       external,
     });

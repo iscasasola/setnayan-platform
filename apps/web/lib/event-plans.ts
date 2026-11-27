@@ -13,6 +13,22 @@
 /** The service codes the plan cards read. 💎 Event Ultra: owner 2026-11-13 (#7601). */
 export const PLAN_PRICE_CODES = { plus: 'EVENT_PLUS', pro: 'COUPLE_WEBSITE_PRO', ultra: 'EVENT_ULTRA' } as const;
 
+/**
+ * 📌 A PLAN HELD WITH NO ORDER ROW (L5 · C10). The event's plan (`readEventPlanHeld`) can come from an admin grant,
+ * a founder seat or an internal host — none of which writes an `orders` row — so "Orders and receipts" said
+ * "No orders yet" on an Event Ultra event. Returns the plan to list when it is a paid tier and no order on the event
+ * names its price code; null for Free, an unread plan (never a guess), or a plan that already has its order.
+ */
+export function planHeldWithoutOrder<K extends string>(
+  held: { key: K; name: string } | null,
+  orders: ReadonlyArray<{ service_key: string | null; status: string }>,
+): { key: K; name: string } | null {
+  if (!held || held.key === 'free' || !(held.key in PLAN_PRICE_CODES)) return null;
+  const code = PLAN_PRICE_CODES[held.key as unknown as keyof typeof PLAN_PRICE_CODES];
+  const hasOrder = orders.some((o) => o.service_key === code && o.status !== 'cancelled' && o.status !== 'lapsed');
+  return hasOrder ? null : held;
+}
+
 /** Event Plus, Event Pro and Event Ultra, in pesos — null when the row is not on sale or could not be read. */
 export type PlanPrices = { plus: number | null; pro: number | null; ultra: number | null };
 

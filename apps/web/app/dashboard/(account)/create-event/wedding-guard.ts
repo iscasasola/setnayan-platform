@@ -30,7 +30,19 @@ export type InPlanningWedding = {
   eventId: string;
   displayName: string;
   eventDate: string | null;
+  /**
+   * 📌 EVERY in-planning wedding's name, the soonest first — `displayName` is the first of them (L5 · C8: an account
+   * planning two weddings saw the tile name only one, whichever the read happened to return first).
+   */
+  allNames: string[];
 };
+
+/** "Ana & Ben" · "Ana & Ben and Cara & Dan" · "A, B and C" — the names the Wedding tile says it is already planning. */
+export function inPlanningWeddingNames(w: Pick<InPlanningWedding, 'displayName' | 'allNames'>): string {
+  const names = w.allNames.length > 0 ? w.allNames : [w.displayName];
+  if (names.length <= 1) return names[0] ?? w.displayName;
+  return `${names.slice(0, -1).join(', ')} and ${names[names.length - 1]}`;
+}
 
 type WeddingRow = {
   event_id: string;
@@ -72,14 +84,32 @@ export async function getInPlanningWedding(
 
   const today = manilaToday();
 
+  const planning: WeddingRow[] = [];
   for (const row of data ?? []) {
     const e = (row as { events: WeddingRow | WeddingRow[] | null }).events;
     const ev = Array.isArray(e) ? e[0] : e;
-    if (ev != null && isInPlanningWedding(ev, today)) {
-      return { eventId: ev.event_id, displayName: ev.display_name, eventDate: ev.event_date };
-    }
+    if (ev != null && isInPlanningWedding(ev, today)) planning.push(ev);
   }
-  return null;
+  return inPlanningWeddingOf(planning);
+}
+
+/**
+ * Pure: the in-planning weddings, soonest date first (undated last, then by name) — so the one named first is
+ * deterministic and every one is named (`allNames`).
+ */
+export function inPlanningWeddingOf(rows: ReadonlyArray<Pick<WeddingRow, 'event_id' | 'display_name' | 'event_date'>>): InPlanningWedding | null {
+  if (rows.length === 0) return null;
+  const sorted = [...rows].sort(
+    (a, b) =>
+      (a.event_date ?? '9999-12-31').localeCompare(b.event_date ?? '9999-12-31') || a.display_name.localeCompare(b.display_name),
+  );
+  const first = sorted[0]!;
+  return {
+    eventId: first.event_id,
+    displayName: first.display_name,
+    eventDate: first.event_date,
+    allNames: sorted.map((r) => r.display_name),
+  };
 }
 
 /** Authoritative boolean for the server action. */

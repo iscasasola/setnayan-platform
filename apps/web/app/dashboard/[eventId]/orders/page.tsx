@@ -14,6 +14,8 @@ import { computeVatFromBase } from '@/lib/receipts';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { BackButton } from '@/app/_components/back-button';
 import { isStoreShellRequest } from '@/lib/request-platform';
+import { readEventPlanHeld } from '@/lib/event-services.server';
+import { planHeldWithoutOrder } from '@/lib/event-plans';
 
 export const metadata = { title: 'Orders' };
 
@@ -36,7 +38,10 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
   // Effective rate from platform_settings (0 while Setnayan is non-VAT registered).
   const vatRatePct = await getEffectiveVatRatePct(supabase);
 
-  const orders = await fetchOrdersForEvent(supabase, eventId);
+  // One batched read: the orders, and the plan this event holds — a plan can be held with no order row (an admin
+  // grant, a founder seat, an internal host), and "No orders yet" over an Event Ultra event read as a lie (L5 · C10).
+  const [orders, planHeld] = await Promise.all([fetchOrdersForEvent(supabase, eventId), readEventPlanHeld(eventId)]);
+  const heldPlan = planHeldWithoutOrder(planHeld, orders);
   /**
    * 🔒 IN THE APP STORE / PLAY STORE SHELL THIS IS A RECORD, NOT A TILL. Every
    * couple order is a Setnayan digital SKU, so "New order" and each order's
@@ -86,7 +91,19 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
         </p>
       ) : null}
 
-      {orders.length === 0 ? (
+      {heldPlan ? (
+        <div className={ORDER_ROW_CLASS} data-order-plan-held={heldPlan.key}>
+          <div className="min-w-0 space-y-1">
+            <p className="line-clamp-1 text-sm font-semibold text-ink">{heldPlan.name}</p>
+            <p className="text-xs uppercase tracking-[0.06em] text-ink/70">Your plan on this event</p>
+          </div>
+          <span className={`rounded-full px-2 py-0.5 font-mono text-xs uppercase tracking-[0.06em] ${ORDER_STATUS_TONE.paid}`}>
+            Active
+          </span>
+        </div>
+      ) : null}
+
+      {orders.length === 0 && heldPlan ? null : orders.length === 0 ? (
         <div className="sn-row border-dashed p-8 text-center">
           <Receipt aria-hidden className="mx-auto mb-2 h-6 w-6 text-ink/30" strokeWidth={1.5} />
           <p className="text-sm text-ink/70">

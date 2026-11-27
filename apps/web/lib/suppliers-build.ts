@@ -145,11 +145,26 @@ export function buildLinesOf(args: {
     includedWith: v.includedWith ?? null,
     shownName: coveredRowName(v.name, v.includedWith),
   });
-  return args.tiles.map((t) => {
-    const bookedRow = t.vendors.find((v) => v.status === 'locked') ?? null;
+  return args.tiles.flatMap((t) => {
+    // 📌 EVERY BOOKED SUPPLIER IS A LINE (L5 · C1). Photo and video booked separately sit in ONE category, and the
+    // line used to keep only the first — so Alon Films vanished from the list while the header (`buildMoneyOf`,
+    // every locked row) still added its ₱95,000: the header said ₱810,000 over rows summing ₱715,000. The first
+    // booking keeps the category's own line; each further one follows it as a settled line of its own.
+    const bookedRows = t.vendors.filter((v) => v.status === 'locked');
+    const bookedRow = bookedRows[0] ?? null;
+    const alsoBooked: BuildLine[] = bookedRows.slice(1).map((v) => ({
+      tile: t.tile,
+      label: t.label,
+      booked: supplier(v),
+      pick: null,
+      pickNote: null,
+      pickAsked: false,
+      pickAnswer: null,
+      candidates: [],
+    }));
     const open = t.vendors.filter((v) => v.status !== 'locked');
     const pickRow = open.find((v) => args.inBuild.has(v.vendorId)) ?? null;
-    return {
+    const own: BuildLine = {
       tile: t.tile,
       label: t.label,
       booked: bookedRow ? supplier(bookedRow) : null,
@@ -163,7 +178,20 @@ export function buildLinesOf(args: {
         .filter((v) => v.planGroupId != null && args.priceOf(v.vendorId) != null && !args.blocked.has(v.vendorId))
         .map(supplier),
     };
+    return [own, ...alsoBooked];
   });
+}
+
+/** A line's React key and DOM handle: its category, plus the supplier on a further booked line in that category. */
+export function buildLineKey(l: BuildLine, at: number, lines: readonly BuildLine[]): string {
+  const first = lines.findIndex((x) => x.tile === l.tile) === at;
+  return first ? l.tile : `${l.tile}:${l.booked?.vendorId ?? at}`;
+}
+
+/** One line per category — a further booked line in the same category is not a category of its own. */
+function firstLinePerTile(lines: readonly BuildLine[]): BuildLine[] {
+  const seen = new Set<string>();
+  return lines.filter((l) => (seen.has(l.tile) ? false : (seen.add(l.tile), true)));
 }
 
 /** The supplier a line holds — booked first, else the pick. */
@@ -171,9 +199,11 @@ export const lineSupplier = (l: BuildLine): BuildSupplier | null => l.booked ?? 
 
 /** "N of M categories". */
 export function buildCounts(lines: readonly BuildLine[]): { filled: number; total: number; toBook: number } {
+  // Counted per CATEGORY: a second booking in a category fills nothing new.
+  const categories = firstLinePerTile(lines);
   return {
-    filled: lines.filter((l) => lineSupplier(l) != null).length,
-    total: lines.length,
+    filled: categories.filter((l) => lineSupplier(l) != null).length,
+    total: categories.length,
     // A pick that is already asked is waiting on the supplier, not on the couple.
     toBook: lines.filter((l) => l.booked == null && l.pick != null && !l.pickAsked).length,
   };
@@ -469,7 +499,7 @@ export function buildViewOf(args: {
   // A line's own plan group: its supplier's, else its first candidate's.
   // A line held through "Also covers" keeps its OWN plan group for a build's
   // own pick there; the covering supplier is the fallback, named "· with …".
-  const categories = lines.map((l) => {
+  const categories = firstLinePerTile(lines).map((l) => {
     const s = lineSupplier(l);
     const covered = s?.includedWith && s.groupId ? { vendorId: s.vendorId, groupId: s.groupId, from: s.includedWith } : null;
     return {

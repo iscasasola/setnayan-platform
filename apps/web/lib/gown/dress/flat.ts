@@ -6,6 +6,7 @@
 import { BODY_K, RING_N } from '../body/constants';
 import type { GownRig } from '../body/rig';
 import type { GownDress } from './build';
+import { capeMetres, type GownCapeMesh } from './cape';
 
 const N = RING_N;
 
@@ -32,9 +33,9 @@ export function flatGown(B: GownRig, D: GownDress): { X: Float32Array; Y: Float3
 /**
  * The outer fabric this gown needs (metres of 150 cm cloth): each half-piece on folded fabric is its own length times
  * how many widths it needs (a train is cut as part of the back panels: at most two widths), plus 15 % for matching and
- * waste, rounded up to the next 10 cm.
+ * waste, rounded up to the next 10 cm. A cape is cut from the same fabric (v193).
  */
-export function fabricMetres(B: GownRig, D: GownDress): number {
+export function fabricMetres(B: GownRig, D: GownDress, cape: GownCapeMesh | null = null): number {
   const { X, Y, half, rows } = flatGown(B, D), side = half / 2, W = half + 1;
   let m = 0;
   for (const [q0, q1, back] of [[0, side, false], [side, half, true]] as const) {
@@ -46,5 +47,6 @@ export function fabricMetres(B: GownRig, D: GownDress): number {
     }
     m += ((hi - lo + 10) * Math.min(2, Math.ceil((w + 3) / 75))) / 100;
   }
+  m += capeMetres(B, cape);
   return Math.ceil(m * 1.15 * 10) / 10;
 }

@@ -23,6 +23,7 @@ import type { GownRig } from '@/lib/gown/body/rig';
 import { solveGownBody } from '@/lib/gown/body/solve';
 import { tapeLoops, type GownTapeKey } from '@/lib/gown/body/tape';
 import { buildDress, emptyDress, floorOf } from '@/lib/gown/dress/build';
+import { buildCape, emptyCape } from '@/lib/gown/dress/cape';
 import { restingCloth, writeDress } from '@/lib/gown/dress/cloth';
 import { buildEnvelope, emptyEnvelope } from '@/lib/gown/dress/table';
 import { applyGownSheer, applyGownShine, gownClothColour, gownClothShader, tintGownSheen } from '@/lib/gown/fabric/shine';
@@ -158,7 +159,10 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
     m.onBeforeCompile = gownClothShader(sheerBack) as unknown as THREE.Material['onBeforeCompile'];
     const mesh = new THREE.Mesh(new THREE.BufferGeometry(), m);
     mesh.frustumCulled = false;
-    return { mesh, m, sheerBack, T: emptyEnvelope(), D: emptyDress() };
+    // The cape is cut from the gown's own fabric: the same material.
+    const K = emptyCape(), cape = new THREE.Mesh(K.geo, m);
+    cape.frustumCulled = false;
+    return { mesh, m, sheerBack, T: emptyEnvelope(), D: emptyDress(), K, cape };
   }, []);
   const [frame, setFrame] = useState({ S: 1, floor: 0, top: 1.7, ver: 0, width: 0.6 });
   const [loops, setLoops] = useState<Record<GownTapeKey, number[]> | null>(null);
@@ -179,7 +183,12 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       cloth.D.foldK = feel.foldK;
       buildEnvelope(rig, cloth.T);
       buildDress(rig, cloth.T, cloth.D, design, floor);
-      writeDress(cloth.D, cloth.T, restingCloth(), { pleat: design.pleat, n: design.pleatN, amp: design.pleatCm / 100 / rig.P.S });
+      const swing = restingCloth(), pleatAmp = design.pleatCm / 100 / rig.P.S;
+      writeDress(cloth.D, cloth.T, swing, { pleat: design.pleat, n: design.pleatN, amp: pleatAmp });
+      // Standing on the stage; the motion step (A8) passes her pose so a floor-length cape hides while she kneels or sits.
+      const hung = buildCape(rig, cloth.T, cloth.D, swing, cloth.K, design, { floorY: floor, pose: 'a', pleatAmp: design.pleat !== 'none' ? pleatAmp : 0 });
+      if (cloth.cape.parent !== root) root.add(cloth.cape);
+      cloth.cape.visible = hung;
       if (cloth.D.geo && cloth.mesh.geometry !== cloth.D.geo) cloth.mesh.geometry = cloth.D.geo;
       cloth.m.color.setHex(gownClothColour(design.colour, design.colourHex));
       applyGownShine(cloth.m, ft.drawAs, GOWN_SCENES[scene].env);
@@ -189,7 +198,7 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       if (cloth.mesh.parent !== root) root.add(cloth.mesh);
       cloth.mesh.visible = true;
       width = Math.max(0.6, 2 * cloth.D.hemR); // the hem's width (a train runs back, not sideways)
-    } else cloth.mesh.visible = false;
+    } else cloth.mesh.visible = cloth.cape.visible = false;
     setFrame({ S: rig.P.S, floor, top: rig.top, ver: rig.ver, width: width * rig.P.S });
     setLoops(guides ? tapeLoops(rig) : null);
     onSolved?.({ got: { bust: rig.got.bust, underbust: rig.got.underbust, waist: rig.got.waist, hips: rig.got.hips }, kg: rig.kg, vals: { ...rig.vals } });
@@ -199,8 +208,10 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
   useEffect(
     () => () => {
       cloth.mesh.removeFromParent();
+      cloth.cape.removeFromParent();
       cloth.m.dispose();
       cloth.D.geo?.dispose();
+      cloth.K.geo.dispose();
     },
     [cloth],
   );

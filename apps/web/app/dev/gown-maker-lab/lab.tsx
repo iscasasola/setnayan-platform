@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import {
   GOWN_BODY_RANGE,
+  GOWN_CAPES,
   GOWN_COLOURS,
   GOWN_HEMS,
   GOWN_NECKLINES,
@@ -17,6 +18,7 @@ import {
   type GownBodyVals,
   type GownConfig,
 } from '@/lib/gown-config';
+import { gownChoose, type GownChoice } from '@/lib/gown/compat';
 import { gownBraNote, gownLimit, gownSetNumber, gownSnapBustT } from '@/lib/gown/body-rules';
 import { GOWN_SCENES, GOWN_SCENE_IDS, type GownSceneId } from '@/lib/gown/scenes';
 import { GownView } from '@/app/_components/plan3d/kit/gown-view';
@@ -40,6 +42,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   const [bustT, setBustT] = useState(0);
   const [solved, setSolved] = useState<GownSolved | null>(null);
   const [design, setDesign] = useState<GownConfig>(() => startingGownConfig());
+  const [note, setNote] = useState('');
   const fine = { athletic: false, bustT, given };
 
   if (view === 'silhouettes') {
@@ -52,6 +55,21 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
           <figure key={sil}>
             <GownView vals={v} fine={fine} scene={scene} design={{ ...startingGownConfig(), sil }} />
             <figcaption className="text-sn-12">{GOWN_SILHOUETTES.find((x) => x.id === sil)?.label}</figcaption>
+          </figure>
+        ))}
+      </main>
+    );
+  }
+  if (view === 'capes') {
+    // A5b check: the three capes on one body, turned three-quarters to the back (&body=thin · default · severe).
+    const b = LAB_BODIES[bodyIn as keyof typeof LAB_BODIES] ?? LAB_BODIES.default;
+    const v = { ...startingGownBody().vals, ...b };
+    return (
+      <main className="grid grid-cols-3 gap-2 p-2" data-lab-view="capes">
+        {(['side', 'back', 'capelet'] as const).map((cape) => (
+          <figure key={cape}>
+            <GownView vals={v} fine={fine} scene={scene} turn={2.4} design={{ ...startingGownConfig(), cape }} />
+            <figcaption className="text-sn-12">{GOWN_CAPES.find((x) => x.id === cape)?.label}</figcaption>
           </figure>
         ))}
       </main>
@@ -78,6 +96,12 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
     );
   }
 
+  // Every pick goes through the pairing rules, so the lab shows what the maker will (one line, then Undo in the maker).
+  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape', v: string) => {
+    const out = gownChoose(design, { key: k, value: v } as GownChoice);
+    setDesign(out.config);
+    setNote(out.notes.join(' '));
+  };
   const set = (k: GownBodyKey, v: number) => {
     const next = gownSetNumber(vals, given, k, v);
     setVals(next.vals);
@@ -115,11 +139,12 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 ['colour', 'Colour', GOWN_COLOURS.filter((c) => c.id !== 'custom')],
                 ['hem', 'Length', GOWN_HEMS],
                 ['train', 'Train', GOWN_TRAINS],
+                ['cape', 'Cape', GOWN_CAPES],
               ] as const
             ).map(([k, label, list]) => (
               <label key={k} className="grid gap-1">
                 <span>{label}</span>
-                <select className="input-field" data-lab-pick={k} value={design[k] as string} onChange={(e) => setDesign({ ...design, [k]: e.target.value })}>
+                <select className="input-field" data-lab-pick={k} value={design[k] as string} onChange={(e) => choose(k, e.target.value)}>
                   {list.map((o) => (
                     <option key={o.id} value={o.id}>
                       {o.label}
@@ -128,6 +153,9 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 </select>
               </label>
             ))}
+            <p className="col-span-2 text-sn-12" data-lab-note aria-live="polite">
+              {note}
+            </p>
           </div>
         ) : null}
         <p className="text-sn-12" data-lab-bra>{gownBraNote(vals, given)}</p>

@@ -123,6 +123,9 @@ test('🔑 nobody lists the category · nobody is free on the date — two cases
   const day = describeUnbookableScope('2026-12-12', 'day');
   assert.equal(findEmptyState({ found: 0, shown: 0, hiddenForDate: 0, filtering: false }), 'none_listed');
   assert.equal(findEmptyWords('none_listed', day), FIND_NONE_LISTED);
+  // With the category's name: the one line every Find surface says — never "Check back soon" (owner R3, 27 Nov).
+  assert.equal(findEmptyWords('none_listed', day, 'Lights & Sounds'), 'No Lights & Sounds supplier on Setnayan yet.');
+  assert.doesNotMatch(FIND_NONE_LISTED, /check back/i);
   assert.equal(findEmptyState({ found: 0, shown: 0, hiddenForDate: 5, filtering: false }), 'nobody_free');
   assert.equal(findEmptyWords('nobody_free', day), 'Nobody is free on Sat, Dec 12, 2026.');
   // "Nobody is free" wins over the Filter — the Filter is not why it is empty…
@@ -165,7 +168,7 @@ test('🔑 the count and the date are the hide\'s own, and they reach Find\'s pa
     page,
     /const empty = findEmptyState\(\{\s*found: res\.results\.length,\s*shown: rows\.length,\s*hiddenForDate: res\.hiddenForDate \?\? 0,\s*filtering: picked\.length > 0,\s*\}\);/,
   );
-  assert.match(page, /\{findEmptyWords\(empty, res\.hiddenForDateScope\)\}/);
+  assert.match(page, /\{findEmptyWords\(empty, res\.hiddenForDateScope, openTile\.label\)\}/);
   assert.doesNotMatch(page, /No supplier lists this yet|No supplier matches this filter|Nobody is free/);
   assert.match(page, /\{empty === 'nobody_free' \? null : \(/, '"0 suppliers" drawn over "Nobody is free on …"');
   // The search sheet says the server's sentence before its "here yet" line.

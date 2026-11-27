@@ -44,6 +44,7 @@ import { ActionButton } from '@/components/action-button';
 import { Chips } from '@/app/_components/chips';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { findNoneListedWords } from '@/lib/explore-info-copy';
 
 const CSS = `
 /* 2026-10-12 look sweep — every colour is a FLIPPING token (html.dark turns them), no hand-typed hex or white: the page ground
@@ -676,17 +677,15 @@ export function CategorySearchOverlay({
           // catalogue is in. Telling a couple to widen filters they never set
           // reads as a broken screen; saying the category is still filling up
           // is the same news, told truthfully.
-          <div className="empty">
+          <div className="empty" data-find-empty={query.trim() || filterCount > 0 ? 'no_filter_match' : 'none_listed'}>
             {query.trim() || filterCount > 0 ? (
               <>
                 No {label.toLowerCase()} suppliers match yet. Try a different
                 search, or widen your filters.
               </>
             ) : (
-              <>
-                No {label.toLowerCase()} suppliers here yet — we&rsquo;ll show them
-                the moment they join Setnayan.
-              </>
+              // 🧹 R3 (27 Nov): the one line every Find surface says — never a promise about who joins when.
+              findNoneListedWords(label)
             )}
           </div>
         ) : (

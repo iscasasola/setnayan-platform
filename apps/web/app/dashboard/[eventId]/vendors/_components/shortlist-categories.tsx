@@ -317,7 +317,6 @@ const SLCAT_CSS = `
 .slcat .donerow{display:flex;width:100%;min-height:44px;align-items:center;justify-content:space-between;gap:8px;margin:6px 0;padding:0 2px;border-top:1px solid rgb(var(--color-ink)/.1);font-size:14px;font-weight:500;color:rgb(var(--color-ink));text-align:left}
 .slcat .slempty{padding:16px 0 8px}
 .slcat .slempty .se-t{font-size:15px;font-weight:600;color:rgb(var(--color-ink))}
-.slcat .slempty .se-s{margin-top:2px;font-size:13.5px;line-height:1.45;color:rgb(var(--color-ink)/.7)}
 
 .slcat{--paper:var(--m-paper);--ink:var(--m-ink);--ink-soft:#4F535B;
   /* --ink-faint was USED SEVEN TIMES IN THIS STYLESHEET AND DEFINED NOWHERE
@@ -2710,8 +2709,13 @@ function MoreToCompare({
       : [];
   const scopeWords = servicesScopeWords(listed.map((l) => l.service), hiddenHere);
   const left = page.totalCards - page.shownCards;
+  // 🧹 R3 (27 Nov): a category nobody lists, with none of the couple's own here — ONE line, no heading over nothing.
+  const noneListed =
+    !moreLoading && !moreError && shown === 0 && !hasOwn && !moreQ.trim() && !(narrowed && listCards.length > 0) &&
+    !(moreAll?.availability === 'checked' && freeWords && moreAll.days.length > 0);
   return (
-    <div className="morerow" data-more-to-compare={tile}>
+    <div className="morerow" data-more-to-compare={tile} data-find-none-listed={noneListed ? '' : undefined}>
+      {noneListed ? null : (
       <div className="morehead">
         <span className="mt">
           {suggest ? SUGGESTED_HEAD : moreToCompareHeading(hasOwn)}
@@ -2723,6 +2727,7 @@ function MoreToCompare({
           ) : null}
         </span>
       </div>
+      )}
       {best.length > 0 && !suggest ? (
         <section className="findbest" aria-label="Best for your event" data-find-best="">
           <div className="fb-h">
@@ -2829,7 +2834,7 @@ function MoreToCompare({
                 ? findNarrowedEmpty(label)
                 : moreAll?.availability === 'checked' && freeWords && moreAll.days.length > 0 && !moreQ
                   ? findNoneFreeEmpty(label, freeWords)
-                  : moreToCompareEmpty(label, moreQ)}
+                  : moreToCompareEmpty(label, moreQ, hasOwn)}
             </span>
             {narrowed && listCards.length > 0 && filtersOn(filters) > 0 ? (
               <ActionButton tone="neutral" quiet icon={X} label="Clear" name="Clear the filters" onClick={onClearFilters} />
@@ -4307,11 +4312,8 @@ export function ShortlistCategories({
           someone asked or booked, so before the first one there is nothing to list — said, with the way in. */}
       {replan && !searching && benchRows.length === 0 ? (
         <div className="slempty" data-find-empty="">
+          {/* 🧹 R3 (27 Nov): one line — the explaining paragraph is gone. Its action is the thumb row (search · ＋). */}
           <p className="se-t">No suppliers yet.</p>
-          <p className="se-s">
-            Search a category below, or add someone you already know with ＋. A category shows here once you ask or book
-            someone in it.
-          </p>
         </div>
       ) : null}
       {replan && stripTiles.length > 0 && coverInHeader ? null : replan && stripTiles.length > 0 ? (
@@ -5116,18 +5118,12 @@ export function ShortlistCategories({
                               marketplace read only when it is looked at) and
                               only while nothing is booked here: a booking
                               settles the category. */}
-                          {/* A category opened from search, with nobody in it yet (owner 2026-11-12). */}
-                          {replan && !coveredGroup && t.vendors.length === 0 ? (
-                            <p className="scope-none" data-find-nobody="">
-                              Nobody asked yet.
-                            </p>
-                          ) : null}
+                          {/* 🧹 R3 (27 Nov): "Nobody asked yet." is gone — an empty category says ONE line, in its list below. */}
                           {/* 💗 LIKED IDEAS — the couple's liked photos here, each linked to its shop and card (owner 2026-11-12). */}
                           {replan && tileOpen ? (
                             <FindLikedIdeas
                               board={inspiration}
                               tile={t.tile}
-                              label={t.label}
                               busyKey={likedBusy}
                               onOpenCard={(p) => openLikedCard(p, t.tile, t.label)}
                               onAsk={(p) => void askLiked(p, t.tile)}

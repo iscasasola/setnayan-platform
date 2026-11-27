@@ -195,7 +195,7 @@ const SLOT_ROLE: Record<MoodboardSlotKey, SlotRole> = {
   },
   lights: {
     kind: 'not_a_part',
-    why: 'an inspiration card (lights and sound), not a render part — the ceiling zone keeps its own trades',
+    why: 'an inspiration card (lights and sounds), not a render part — the ceiling zone keeps its own trades',
   },
   entourage_bouquets: {
     kind: 'not_a_part',

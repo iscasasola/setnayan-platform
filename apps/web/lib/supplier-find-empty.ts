@@ -7,6 +7,7 @@
  * tree's hide knows (`fitDateScope`: a day, a span, the candidate dates, a window, or a whole month).
  */
 import { suppliersDateFact } from '@/lib/suppliers-shell';
+import { findNoneListedWords } from '@/lib/explore-info-copy';
 import type { UnbookableScope } from '@/lib/bench-bookable-days';
 
 /* ─── WHY A LIST IS EMPTY ───────────────────────────────────────────────────
@@ -20,7 +21,9 @@ import type { UnbookableScope } from '@/lib/bench-bookable-days';
  * and `hiddenForDateScope`, the date(s) it judged them on. Nothing found AND somebody hidden is the "nobody is free"
  * case; nothing found and nobody hidden is the empty category.
  */
-export const FIND_NONE_LISTED = 'No supplier lists this yet. Check back soon.';
+/** With no category name in hand. Never "Check back soon" (owner R3, 27 Nov: no guidance copy); with a name, the one
+ *  line every Find surface says (`findNoneListedWords`). */
+export const FIND_NONE_LISTED = 'No supplier on Setnayan lists this yet.';
 export const FIND_NO_FILTER_MATCH = 'No supplier matches this filter. Try fewer.';
 
 export type FindEmptyState = 'nobody_free' | 'no_filter_match' | 'none_listed';
@@ -88,10 +91,11 @@ function whenWords(scope: UnbookableScope, first: string): string {
  *  function; if it ever does, the page still must not say "nobody lists this". The prototype's three words. */
 const FIND_NOBODY_FREE_BARE = 'Nobody is free.';
 
-/** The sentence for an empty list. */
-export function findEmptyWords(state: FindEmptyState, scope?: UnbookableScope | null): string {
+/** The sentence for an empty list. `label` = the category's name, for the one none-listed line. */
+export function findEmptyWords(state: FindEmptyState, scope?: UnbookableScope | null, label?: string): string {
   if (state === 'nobody_free') return findNobodyFreeWords(scope);
-  return state === 'no_filter_match' ? FIND_NO_FILTER_MATCH : FIND_NONE_LISTED;
+  if (state === 'no_filter_match') return FIND_NO_FILTER_MATCH;
+  return label ? findNoneListedWords(label) : FIND_NONE_LISTED;
 }
 
 /* ─── WHEN THE DATE COULD NOT BE CHECKED ─────────────────────────────────────

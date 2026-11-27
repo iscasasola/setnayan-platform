@@ -153,7 +153,7 @@ export const VENDOR_CATEGORY_LABEL: Record<VendorCategory, string> = {
   rings: 'Rings',
   invitations_stationery: 'Invitations & stationery',
   transportation: 'Transportation',
-  lights_and_sound: 'Lights & sound',
+  lights_and_sound: 'Lights & sounds',
   led_screens: 'LED screens',
   photobooth: 'Photobooth',
   mobile_bar: 'Mobile bar',

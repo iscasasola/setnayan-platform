@@ -16796,7 +16796,6 @@
         "TodayRecommended",
         "TodayRow",
         "TodaySettings",
-        "TodayShopMinis",
         "TodayStats",
         "TodayThumbRow",
         "TodayTomorrowLink",
@@ -18236,7 +18235,6 @@
       "destinations": [],
       "actions": [],
       "blocks": [
-        "DatesRow",
         "ListPageSkeleton"
       ]
     },
@@ -20360,7 +20358,6 @@
         "ToolFail",
         "ToolGroup",
         "ToolItem",
-        "ToolPage",
         "ToolPin",
         "ToolRow",
         "ToolSection",

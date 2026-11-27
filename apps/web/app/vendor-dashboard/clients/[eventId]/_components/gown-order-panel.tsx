@@ -21,6 +21,7 @@ import { ActionButton } from '@/components/action-button';
 import { FormRows, TypedRow } from '@/app/_components/form-row';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { formatCentavosPhp } from '@/lib/php';
+import { formatCount } from '@/lib/format-number';
 import { gownDesignWords } from '@/lib/gown-maker';
 import { GOWN_BODY_KEYS, GOWN_MATTERS, GOWN_MEASURES, GOWN_STEP_LABELS, gownMeasuresNeeded, type GownBody, type GownConfig, type GownMeasureKey, type GownMeasures } from '@/lib/gown-config';
 import { GOWN_DRAFT_ESTIMATE, GOWN_DRAFT_FROM_MEMORY, GOWN_DRAFT_TOLERANCE_CM } from '@/lib/gown-pattern/draft-constants';
@@ -81,6 +82,8 @@ function Order({ d, config, body, threadId }: { d: GownDesignRead; config: GownC
   const [blocksOpen, setBlocksOpen] = useState(false);
   const needed = useMemo(() => gownMeasuresNeeded(config), [config]);
   const measures: GownMeasures = d.measures ?? {};
+  const braLine = `Bra size: ${body.bra ? `${body.bra.us} US · ${body.bra.eu} EU${body.bra.exact ? '' : ' (estimate)'}` : 'Couldn’t read it from her numbers'}`;
+  const mattersLine = body.matters.length ? `What matters to her: ${body.matters.map((m) => GOWN_MATTERS.find((x) => x.id === m)?.label ?? m).join(', ')}` : null;
 
   const saveTape = async () => {
     setSaving(true);
@@ -115,7 +118,7 @@ function Order({ d, config, body, threadId }: { d: GownDesignRead; config: GownC
                 <span className="min-w-0 text-ink">
                   {l.label}
                   <small className="block text-ink/70">
-                    {l.group} · {Math.round(l.qty * 100) / 100} {l.unit}
+                    {l.group} · {formatCount(l.qty)} {l.unit}
                   </small>
                 </span>
                 <span className="text-ink/80">{l.included ? 'Included' : l.amountCentavos == null ? 'Not priced' : formatCentavosPhp(l.amountCentavos)}</span>
@@ -141,10 +144,8 @@ function Order({ d, config, body, threadId }: { d: GownDesignRead; config: GownC
             </li>
           ))}
         </ul>
-        <p className="text-sn-base text-ink/70">
-          Bra size: {body.bra ? `${body.bra.us} US · ${body.bra.eu} EU${body.bra.exact ? '' : ' (estimate)'}` : 'Couldn’t read it from her numbers'}
-          {body.matters.length ? ` · What matters to her: ${body.matters.map((m) => GOWN_MATTERS.find((x) => x.id === m)?.label ?? m).join(', ')}` : ''}
-        </p>
+        <p className="text-sn-base text-ink/70">{braLine}</p>
+        {mattersLine ? <p className="text-sn-base text-ink/70">{mattersLine}</p> : null}
       </section>
 
       <section className="space-y-1" data-gown-order-tape="">
@@ -229,7 +230,7 @@ function Blocks({ config, body, measures, tape }: { config: GownConfig; body: Go
             <ul className="text-sn-sm text-ink/70">
               {p.checks.map(([what, asked, drawn]) => (
                 <li key={what}>
-                  {Math.abs(drawn - asked) <= GOWN_DRAFT_TOLERANCE_CM ? '✓' : '⚠'} {what}: {Math.round(asked * 10) / 10} / {Math.round(drawn * 10) / 10} cm
+                  {Math.abs(drawn - asked) <= GOWN_DRAFT_TOLERANCE_CM ? '✓' : '⚠'} {what}: {formatCount(asked, 1)} / {formatCount(drawn, 1)} cm
                 </li>
               ))}
             </ul>

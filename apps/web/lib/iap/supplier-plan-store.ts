@@ -18,7 +18,7 @@
 
 import { callNativeStore, nativeStoreAvailable } from './native-store';
 import { confirmAppStorePurchase, startAppStorePurchase } from './iap-actions';
-import type { IapConfirmResult, IapScreen, IapStartResult } from './iap-outcome';
+import { screenFor, settled, type IapConfirmResult, type IapScreen, type IapStartResult } from './iap-outcome';
 import { supplierPlanRefusedLine } from './supplier-plans';
 
 type PurchaseAnswer = { result?: string; jws?: string; transactionId?: string };
@@ -53,11 +53,12 @@ export async function buySupplierPlanWithApple(input: { productId: string }): Pr
   } catch {
     server = null;
   }
-  if (server && (server.status === 'on' || server.status === 'refunded') && answer.transactionId) {
+  if (server && settled(server) && answer.transactionId) {
     await callNativeStore('finish', { transactionId: answer.transactionId }).catch(() => undefined);
   }
   if (!server || server.status === 'pending' || server.status === 'invalid') return { kind: 'pending', askToBuy: false };
   if (server.status === 'on') return { kind: 'on' };
   if (server.status === 'refunded') return { kind: 'refused', message: 'Apple has refunded this plan, so it is not on your shop.' };
+  if (server.status === 'retired') return screenFor('purchased', server);
   return { kind: 'refused', message: supplierPlanRefusedLine(server.reason) };
 }

@@ -300,8 +300,9 @@ test('a v186 order round-trips: the look keys, her numbers and her choices come 
   const got = gownFromPrototypeOrder(V186_ORDER, offer());
   assert.ok(got.ok, got.ok ? '' : got.reason);
   // A v186 look has no bow, blusher or overlay (v197 adds them to the look): they come back as the starting values.
+  // It opens as v197 opens an order: the mermaid's chapel train becomes a sweep (corpus a5ada15).
   const s0 = startingGownConfig();
-  assert.deepEqual(gownLookOf(got.config), { bow: s0.bow, blusher: s0.blusher, overlay: s0.overlay, ovFab: s0.ovFab, ...V186_ORDER.design3d.gown }, 'the look the designer opens on the mannequin');
+  assert.deepEqual(gownLookOf(got.config), { bow: s0.bow, blusher: s0.blusher, overlay: s0.overlay, ovFab: s0.ovFab, ...V186_ORDER.design3d.gown, train: 'sweep' }, 'the look the designer opens on the mannequin');
   assert.deepEqual(Object.keys(gownLookOf(got.config)), [...GOWN_LOOK_KEYS]);
   assert.equal(got.config.hem, 'floor');
   assert.equal(got.config.heel, 7);
@@ -328,7 +329,8 @@ test('a v186 order round-trips: the look keys, her numbers and her choices come 
 test('every v186 stock look reads as a valid design (the prototype\'s LOOKS)', () => {
   const LOOKS: [string, Record<string, string>, string][] = [
     ['Classic ball gown', { sil: 'ball', fabric: 'mikado', lace: 'alencon', laceAt: 'cascade', laceBeads: 'light', train: 'cathedral', veil: 'cathedral', closure: 'buttons' }, 'floor'],
-    ['Lace mermaid', { sil: 'mermaid', neck: 'v', back: 'v', sleeve: 'long', sleeveFab: 'lace', fabric: 'crepe', lace: 'chantilly', laceAt: 'all', train: 'chapel', veil: 'chapel' }, 'floor'],
+    // Corpus a5ada15 (v198): the Lace mermaid carries a sweep train (a mermaid is too narrow at the hem for longer).
+    ['Lace mermaid', { sil: 'mermaid', neck: 'v', back: 'v', sleeve: 'long', sleeveFab: 'lace', fabric: 'crepe', lace: 'chantilly', laceAt: 'all', train: 'sweep', veil: 'chapel' }, 'floor'],
     ['Modern minimal', { sil: 'sheath', neck: 'bateau', back: 'v', fabric: 'crepe', train: 'sweep' }, 'floor'],
     ['Filipiniana terno', { sil: 'terno', neck: 'bateau', sleeve: 'butterfly', fabric: 'pina', bead: 'pearl', beadAt: 'neck', beadCol: 'ivory' }, 'floor'],
     ['Boho garden', { neck: 'v', sleeve: 'cap', fabric: 'chiffon', lace: 'leaf', laceAt: 'scatter', train: 'sweep', veil: 'fingertip' }, 'floor'],

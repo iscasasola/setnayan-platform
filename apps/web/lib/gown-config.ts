@@ -1178,6 +1178,17 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
   };
   for (const v of Object.values(picks)) if (v === null) return no('not_a_design');
   const p = picks as { [K in keyof typeof picks]: NonNullable<(typeof picks)[K]> };
+  // A design saved before version 2 opens as v197 opens an order (through its pairing rules): a sheath or mermaid's long
+  // train becomes a sweep and its full petticoat or hoop soft tulle, a sheath loses its pleats, a strapless bodice its
+  // cap sleeves and cowl. What is stored is then a version 2 design, which the refusals below hold.
+  if (typeof r.v === 'number' && r.v < 2) {
+    const bare = GOWN_STRAPLESS.includes(p.neck), close = p.sil === 'sheath' || p.sil === 'mermaid';
+    if (close && (p.train === 'chapel' || p.train === 'cathedral')) p.train = 'sweep';
+    if (close && (p.petti === 'full' || p.petti === 'hoop')) p.petti = 'soft';
+    if (p.sil === 'sheath') p.pleat = 'none';
+    if (bare && p.neck !== 'off' && p.sleeve === 'cap') p.sleeve = 'none';
+    if (bare && p.drape === 'cowl') p.drape = 'none';
+  }
 
   // Sliders: on their own range and steps. neckT may be null (the neckline's own depth).
   const num = (k: keyof GownConfig, range: GownRangeKey): number | null => {
@@ -1220,13 +1231,12 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
   if (p.sleeve === 'flutter' && (p.neck === 'sweetheart' || p.cape === 'side' || p.cape === 'capelet')) return no('not_a_design');
   // v195: over a ball gown an overlay sits as soft tiers only.
   if (p.sil === 'ball' && (p.overlay === 'asym' || p.overlay === 'cascade')) return no('not_a_design');
-  // Accuracy review (v197): a strapless bodice has no shoulder for a cap sleeve or a cowl; a sheath or mermaid takes no
-  // full petticoat or hoop; a sheath takes no pleats. Not refused here: a longer train on a sheath or mermaid (the
-  // maker turns it to a sweep, but v197's own "Lace mermaid" look carries a chapel train), and a strapless back below
-  // the bra line (that limit depends on her body, so the maker holds it).
+  // Accuracy review (v197): a strapless bodice has no shoulder for a cap sleeve or a cowl; a sheath or mermaid carries a
+  // sweep train at most and no full petticoat or hoop; a sheath takes no pleats. (A strapless back's bra-line limit
+  // depends on her body, so the maker holds it.)
   const strapless = GOWN_STRAPLESS.includes(p.neck), close = p.sil === 'sheath' || p.sil === 'mermaid';
   if (strapless && ((p.neck !== 'off' && p.sleeve === 'cap') || p.drape === 'cowl')) return no('not_a_design');
-  if (close && (p.petti === 'full' || p.petti === 'hoop')) return no('not_a_design');
+  if (close && (p.train === 'chapel' || p.train === 'cathedral' || p.petti === 'full' || p.petti === 'hoop')) return no('not_a_design');
   if (p.sil === 'sheath' && p.pleat !== 'none') return no('not_a_design');
 
   const bools = { waistStay: r.waistStay ?? false, horsehair: r.horsehair ?? false, modesty: r.modesty ?? false };

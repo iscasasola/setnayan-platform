@@ -129,8 +129,15 @@ test('a sheath or mermaid: a sweep train at most, soft tulle at most; a sheath t
 });
 
 test('the server refuses the v197 pairings the maker would have changed', () => {
-  for (const bad of [{ neck: 'sweetheart', sleeve: 'cap' }, { neck: 'straight', drape: 'cowl' }, { sil: 'mermaid', petti: 'hoop' }, { sil: 'sheath', pleat: 'box' }, { cape: 'back', veil: 'floor' }] as Partial<GownConfig>[]) {
+  for (const bad of [{ neck: 'sweetheart', sleeve: 'cap' }, { neck: 'straight', drape: 'cowl' }, { sil: 'mermaid', train: 'chapel' }, { sil: 'sheath', train: 'cathedral' }, { sil: 'mermaid', petti: 'hoop' }, { sil: 'sheath', pleat: 'box' }, { cape: 'back', veil: 'floor' }] as Partial<GownConfig>[]) {
     assert.equal(sanitizeGownConfig(start(bad), OFFER).ok, false, JSON.stringify(bad));
   }
   assert.equal(sanitizeGownConfig(start({ neck: 'off', sleeve: 'cap' }), OFFER).ok, true, 'off-shoulder keeps its band');
+  // A design saved before version 2 opens as v197 opens an order, through these rules, and is stored as version 2.
+  const old = sanitizeGownConfig({ ...start({ sil: 'sheath', train: 'cathedral', pleat: 'box', neck: 'sweetheart', sleeve: 'cap' }), v: 1 }, OFFER);
+  assert.ok(old.ok);
+  if (old.ok) {
+    assert.deepEqual([old.config.train, old.config.pleat, old.config.sleeve, old.config.v], ['sweep', 'none', 'none', 2]);
+    assert.equal(sanitizeGownConfig(old.config, OFFER).ok, true, 'and reads again unchanged');
+  }
 });

@@ -21,7 +21,7 @@
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import { firstPlanWith, isTierAtLeast, type VendorTier } from '@/lib/vendor-tier-caps';
+import { firstPlanWith, isTierAtLeast, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
 
 /** The 4-week unlock. */
 export const SPECIALIZED_TOOLS_SKU_CODE = 'vendor_specialized_tools' as const;
@@ -126,6 +126,19 @@ export function toolNeedsUnlock(tool: string): boolean {
 export const SPECIALIZED_TOOLS_MIN_TIER: VendorTier = 'verified';
 /** The plans that INCLUDE the unlock — no purchase (Pro/Ultra owner 2026-11-09; Plus owner 2026-11-14 "SIMPLER SUPPLIER PLANS"). */
 export const SPECIALIZED_TOOLS_INCLUDED_TIERS: readonly VendorTier[] = ['solo', 'pro', 'enterprise'];
+
+/**
+ * ⚖ THE PUBLIC WORDS (owner ruling 27 Nov 2026, L9 row P3): "specialized tools are on Pro and Ultra only". Every public
+ * plan page (/pricing, /features, /for-coordinators, the /for-suppliers plan table) says it in this one sentence, and
+ * no page says "all tools on Plus" or a one-time price on Free and Verified.
+ *
+ * ⚠ OPEN: the GATE above (`SPECIALIZED_TOOLS_INCLUDED_TIERS`, its SQL twin `vendor_specialized_tools_unlocked`, and
+ * `TIER_CAPS.solo.specialTools`) still opens the tools on Plus. Narrowing it takes access away from paying Plus shops
+ * and needs its own migration PR and the owner's GO; until then the words promise less than the gate gives, never more.
+ */
+export const SPECIALIZED_TOOLS_PUBLIC_TIERS: readonly VendorTier[] = ['pro', 'enterprise'];
+/** "Specialized tools come with Pro and Ultra." — the one sentence, built from the plan names. */
+export const SPECIALIZED_TOOLS_PLAN_LINE = `Specialized tools come with ${SPECIALIZED_TOOLS_PUBLIC_TIERS.map((t) => TIER_LABEL[t]).join(' and ')}.`;
 
 /** The facts the decision reads — the same columns the SQL reads. */
 export type SpecializedToolsFacts = {

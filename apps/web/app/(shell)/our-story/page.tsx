@@ -135,8 +135,8 @@ export default async function OurStoryPage() {
               <li>
                 <span className="font-medium">Find your suppliers.</span>{' '}
                 <span className="text-[var(--m-slate)]">
-                  Browse and message verified Filipino wedding suppliers, with 0%
-                  commission on every booking.
+                  Browse and message verified Filipino wedding suppliers.
+                  Hosts pay 0% commission.
                 </span>
               </li>
               <li>

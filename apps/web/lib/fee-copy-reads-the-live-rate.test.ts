@@ -96,16 +96,15 @@ test('the pages that quote the rate read the live schedule', () => {
   }
 });
 
-test('/pricing share lines: the supplier claim carries the fee, the couple zero stands alone', () => {
-  // Audit 2026-10-12 E4 · build item 6. SABOTAGE: restore "Suppliers keep 100%"
-  // in the metadata → RED.
+test('/pricing share lines: hosts read only "Hosts pay 0% commission." — the fee lives on supplier pages and /terms', () => {
+  // ⚖ Owner 27 Nov 2026 (L9 P11): /pricing is the hosts' page. Its meta, OG and Twitter say only the ruled sentence; the
+  // booking fee is explained on /for-suppliers and in /terms. (Was: audit 2026-10-12 E4, every share line named the fee.)
+  // SABOTAGE: put "booking fee" or "keep 100%" back into the metadata → RED.
   const page = src('app/(shell)/pricing/page.tsx');
   const meta = page.slice(page.indexOf('export const metadata'), page.indexOf('};', page.indexOf('export const metadata')));
   assert.ok(meta.length > 200, `metadata slice floor: ${meta.length}`);
-  assert.doesNotMatch(meta, /keep 100%/i, 'a supplier is told they keep 100% with no fee beside it');
-  assert.doesNotMatch(meta, /Setnayan takes \$\{COMMISSION_PCT\}%/, 'a supplier is told Setnayan takes nothing');
-  const feeLines = meta.match(/booking fee/gi) ?? [];
-  assert.equal(feeLines.length, 3, `description, openGraph and twitter must each name the fee (found ${feeLines.length})`);
-  assert.doesNotMatch(page, /supplier subscription \$\{cadence\.shortLabel\}\. 0% commission on bookings\./);
-  assert.match(page, /supplierCommissionShort\(feeSchedule\)/, 'the supplier-plan JSON-LD lost its fee sentence');
+  assert.doesNotMatch(meta, /keep 100%/i, 'a supplier is told they keep 100%');
+  assert.doesNotMatch(meta, /booking fee/i, 'the hosts\' pricing page names the supplier fee in its share lines');
+  assert.equal((meta.match(/\$\{HOSTS_PAY_ZERO\}/g) ?? []).length, 3, 'description, openGraph and twitter must each say the ruled sentence');
+  assert.doesNotMatch(page, /supplierCommissionShort|booking fee/i, 'the hosts\' pricing page names the supplier fee');
 });

@@ -8,8 +8,8 @@ import { GuestSpotlight } from '@/app/_components/guest-spotlight';
 import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
 import { fetchV2VendorCatalog, type BuildStatus } from '@/lib/v2-catalog';
 import { formatPhp } from '@/lib/php';
-import { COMMISSION_PCT, supplierCommissionShort } from '@/lib/commission-promise';
-import { getLiveBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
+import { SPECIALIZED_TOOLS_PLAN_LINE } from '@/lib/specialized-tools-access';
+import { HOSTS_PAY_ZERO } from '@/lib/commission-promise';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import { PASS_CARD_DESIGNS } from '@/lib/pass-card';
 import { PRO_THEMES } from '@/lib/invite-themes';
@@ -19,7 +19,6 @@ import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limit
 import { readOurPrices, papicRungWords } from './_pricing-reads';
 // The client pieces — Event Pro's one dropdown, and the included group's "See all included ↓". Figures arrive formatted.
 import { HubProWays, IncludedGroup, PriceRowShell, type IncludedRow } from './_pricing-pickers';
-import { FEE_SCOPE_THIRD } from '@/lib/booking-fee-who-words';
 import { PLAN_PERIOD } from '@/lib/vendor-plan-change-words';
 import { MAKER_PAGE_STAGES, makerStageLabel } from '@/app/dashboard/[eventId]/launch/_components/maker-bar';
 
@@ -46,13 +45,13 @@ import { MAKER_PAGE_STAGES, makerStageLabel } from '@/app/dashboard/[eventId]/la
 export const metadata = {
   title: 'Pricing',
   description:
-    `The best place to build your event — beautifully made, for you and the people you know. Paid once, for the event and everyone on it, in Philippine peso. ${COMMISSION_PCT}% commission on supplier bookings — couples pay suppliers directly. Suppliers pay Setnayan a booking fee, ${FEE_SCOPE_THIRD}.`,
+    `Build your whole event in one place — beautifully made, for you and the people you know. Paid once, for the event and everyone on it, in Philippine peso. ${HOSTS_PAY_ZERO}`,
   alternates: { canonical: '/pricing' },
   openGraph: {
     images: BRAND_OG_IMAGES,
     title: 'Pricing · Setnayan',
     description:
-      `Crafted for every event — everything to plan is included, and what you add is paid once for the event. Couples pay suppliers directly — ${COMMISSION_PCT}% commission. Suppliers pay a booking fee, ${FEE_SCOPE_THIRD}.`,
+      `Crafted for every event — everything to plan is included, and what you add is paid once for the event. ${HOSTS_PAY_ZERO}`,
     url: '/pricing',
     type: 'website',
     siteName: 'Setnayan',
@@ -61,7 +60,7 @@ export const metadata = {
     images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: 'Pricing · Setnayan',
-    description: `The best place to build your event · paid once per event · ${COMMISSION_PCT}% commission · suppliers pay a booking fee, ${FEE_SCOPE_THIRD}.`,
+    description: `Build your whole event in one place · paid once per event · ${HOSTS_PAY_ZERO}`,
   },
 };
 
@@ -163,31 +162,27 @@ function Figure({ php, from = false, suffix }: { php: number; from?: boolean; su
 
 export default async function PricingPage() {
   // Reads in parallel · each degrades to no rows, so the page renders with no figure rather than 500'ing.
-  const [{ prices, customerSkus, pricesRead }, vendorSkus, feeSchedule] = await Promise.all([
+  const [{ prices, customerSkus, pricesRead }, vendorSkus] = await Promise.all([
     readOurPrices(),
-    // The supplier plans and the LIVE booking-fee schedule, for the structured data only (never the code default —
-    // audit 2026-10-12, item 5).
+    // The supplier plans, for the supplier strip and the structured data.
     fetchV2VendorCatalog(),
-    getLiveBookingFeeSchedule(),
   ]);
 
   const peso = (n: number) => formatPhp(n);
   // 💳 The four supplier plans (2026-11-14, drawing § 4) — names from TIER_LABEL, prices from the supplier catalogue's
-  // monthly rows, what each adds from the gates (specialized tools, the chatbot). Never a typed figure. ⚖ This page's own
-  // rule (pricing-ours-only.test.ts) holds here too: the entry plan reads "No fee", never a zero or the giveaway word.
+  // monthly rows, what each adds from the gates (specialized tools, the chatbot). Never a typed figure. ⚖ Owner 27 Nov
+  // (L9 P25): the entry plan's price reads "₱0 a month" — formatted by `lib/php.ts`, never "No fee" (a Free shop still
+  // pays the booking fee on clients Setnayan brings, and that is explained on /for-suppliers). ⚖ Owner 27 Nov (L9 P3):
+  // specialized tools are said once, "Specialized tools come with Pro and Ultra.", on the plans that carry them.
   const vendorPrice = (sku: string): number | null => vendorSkus.find((r) => r.sku_code === sku)?.price_php ?? null;
   const supplierPlans: { key: string; name: string; php: number | null; what: string }[] = [
-    { key: 'entry', name: TIER_LABEL.free, php: null, what: 'Your page, portfolio and the starter tools; the AI chatbot once Verified' },
-    { key: 'plus', name: TIER_LABEL.solo, php: vendorPrice('solo_vendor_monthly'), what: 'All specialized tools' },
-    { key: 'pro', name: TIER_LABEL.pro, php: vendorPrice('pro_vendor_monthly'), what: 'Adds the smarter AI chatbot' },
-    { key: 'ultra', name: TIER_LABEL.enterprise, php: vendorPrice('enterprise_vendor_monthly'), what: 'The highest limits and the smarter AI chatbot' },
+    { key: 'entry', name: TIER_LABEL.free, php: 0, what: 'Your page, portfolio and the starter tools; the AI chatbot once Verified' },
+    { key: 'plus', name: TIER_LABEL.solo, php: vendorPrice('solo_vendor_monthly'), what: 'More live cards, more storage and team seats' },
+    { key: 'pro', name: TIER_LABEL.pro, php: vendorPrice('pro_vendor_monthly'), what: `${SPECIALIZED_TOOLS_PLAN_LINE} Adds the smarter AI chatbot.` },
+    { key: 'ultra', name: TIER_LABEL.enterprise, php: vendorPrice('enterprise_vendor_monthly'), what: `${SPECIALIZED_TOOLS_PLAN_LINE} The highest limits and the smarter AI chatbot.` },
   ];
   const papicFrom = prices.papicRungs[0] ?? null;
   const papicCheaperAtSetup = prices.papicRungs.some((r) => r.signup != null);
-  const aiBands = Object.values(prices.ai);
-  const aiFrom = aiBands.length ? Math.min(...aiBands.map((b) => b.regular)) : null;
-  const aiWedding = prices.ai.A ?? null;
-  const aiDate = prices.ai.D ?? null;
   const partsFrom = prices.hubParts.length ? Math.min(...prices.hubParts.map((p) => p.php)) : null;
   // Counts said as words, as the prototype says them — derived, never typed (`lib/free-themes-are-free.test.ts`).
   const word = (n: number) => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][n] ?? String(n);
@@ -217,8 +212,8 @@ export default async function PricingPage() {
     },
     {
       name: 'Suppliers',
-      tip: `Find, compare and book verified suppliers; you pay them directly and Setnayan takes ${COMMISSION_PCT}% commission.`,
-      what: `Find, compare, book — ${COMMISSION_PCT}% commission.`,
+      tip: `Find, compare and book verified suppliers; you pay them directly. ${HOSTS_PAY_ZERO}`,
+      what: `Find, compare, book. ${HOSTS_PAY_ZERO}`,
     },
     {
       name: 'Door check-in by QR',
@@ -248,7 +243,7 @@ export default async function PricingPage() {
     },
   ];
 
-  const onTheDay = Boolean(papicFrom || prices.liveWatch || prices.patiktok);
+  const onTheDay = Boolean(papicFrom || prices.liveWatch);
   const after = Boolean(prices.thankYou || prices.musicMaker);
 
   /*
@@ -297,8 +292,8 @@ export default async function PricingPage() {
           '@type': 'Service',
           '@id': `${SITE_URL}/pricing#vendor-${s.sku_code}`,
           name: s.title,
-          // A supplier plan, read by suppliers: the zero owes its second sentence, at the LIVE rate (audit 2026-10-12, items 5 + 6).
-          description: `${s.title} · Setnayan supplier subscription ${cadence.shortLabel}. ${supplierCommissionShort(feeSchedule)}.`,
+          // ⚖ Owner 27 Nov: /pricing is a host page — the booking fee is explained on /for-suppliers and in /terms only.
+          description: `${s.title} · Setnayan supplier subscription ${cadence.shortLabel}.`,
           provider: ORGANIZATION_REF,
           category: 'Wedding supplier subscription',
           offers: {
@@ -334,7 +329,7 @@ export default async function PricingPage() {
         <div className={WRAP}>
           <p className={KICK}>Set na &apos;yan · Pricing</p>
           <h1 className="m-0 mt-3 font-pahina text-[40px] font-normal leading-[1.04] tracking-[-0.015em] lg:mt-4">
-            The best place to build your event.
+            Build your whole event in one place.
           </h1>
           <p className={LINE}>Beautifully made, for you and the people you know — everything to plan is included.</p>
           <div className="mt-6 flex flex-wrap items-center gap-[18px]">
@@ -538,14 +533,6 @@ export default async function PricingPage() {
                       figure={<Figure php={prices.liveWatch} />}
                     />
                   ) : null}
-                  {prices.patiktok ? (
-                    <PriceRowShell
-                      name="Patiktok"
-                      tip={`Pick the moments, the length and a song; the reel renders in your browser.${prices.patiktok.perDay ? ' Paid per day of your event.' : ''}`}
-                      what="Your guests’ moments, cut into short vertical reels."
-                      figure={<Figure php={prices.patiktok.php} suffix={prices.patiktok.perDay ? 'a day' : undefined} />}
-                    />
-                  ) : null}
                 </ul>
               </>
             ) : null}
@@ -574,17 +561,16 @@ export default async function PricingPage() {
               </>
             ) : null}
 
-            {/* ⚖ Owner 2026-11-04 (final price sheet): Setnayan AI is no longer sold on its own. 🎟 18 Nov re-cut: it
-                comes inside Event Pro and Event Ultra, no longer Event Plus (Plus works for events with no suppliers).
-                `prices.ai` is empty once SETNAYAN_AI is off sale (`_pricing-reads.ts`), so the AI row below stops
-                drawing; Event Plus, read from its own row, is the smaller paid plan. */}
+            {/* ⚖ Owner 2026-11-04 (final price sheet): Setnayan AI is not sold on its own, so it has no row here. 🎟 18 Nov
+                re-cut: it comes with Event Pro and Event Ultra, no longer Event Plus (Plus works for events with no
+                suppliers). Event Plus, read from its own row, is the smaller paid plan. */}
             {prices.plus != null ? (
               <>
                 <Moment>A nicer, bigger event</Moment>
                 <ul className="m-0 list-none p-0">
                   <PriceRowShell
                     name="Event Plus"
-                    tip={`${prices.planCredits.plus != null ? `${formatCount(prices.planCredits.plus)} Papic credits` : 'Papic credits'} for your guests’ cameras and the whole Event Hub — every ready-made theme and every part to design: your own photos, video and music, the reveal, your logo and QR, prints in your look — a cinematic opening for your Save-the-Date, ${formatMakerMediaMB(coupleMediaCapBytes('plus'))} of uploads, and one small “Made with Setnayan” mark instead of the watermark. Works for an event with no suppliers. Setnayan AI comes with Event Pro, which includes everything in Event Plus.`}
+                    tip={`${prices.planCredits.plus != null ? `${formatCount(prices.planCredits.plus)} Papic credits` : 'Papic credits'} for your guests’ cameras and the whole Event Hub — every ready-made theme and every part to design: your own photos, video and music, the reveal, your logo and QR, prints in your look — a cinematic opening for your Save-the-Date, ${formatMakerMediaMB(coupleMediaCapBytes('plus'))} of uploads, and one small “Made with Setnayan” mark instead of the watermark. Works for an event with no suppliers. Setnayan AI comes with Event Pro and Event Ultra; Event Pro includes everything in Event Plus.`}
                     what="Papic credits and the whole Event Hub, for this event."
                     figure={<Figure php={prices.plus} />}
                     action={<PlanBuyCta plan="plus" />}
@@ -593,23 +579,6 @@ export default async function PricingPage() {
               </>
             ) : null}
 
-            {aiFrom != null ? (
-              <>
-                <Moment>Help planning</Moment>
-                <ul className="m-0 list-none p-0">
-                  <PriceRowShell
-                    name="Setnayan AI"
-                    tip={`Suggests verified suppliers by fit, then watches your deadlines, budget and dates. Priced by event type${
-                      aiWedding
-                        ? ` — a wedding ${peso(aiWedding.regular)}${aiWedding.signup != null ? `, or ${peso(aiWedding.signup)} while you set up` : ''}`
-                        : ''
-                    }${aiDate ? `; a date or hangout ${peso(aiDate.regular)}` : ''}.`}
-                    what="Suggests your suppliers, then watches your plan."
-                    figure={<Figure php={aiFrom} from />}
-                  />
-                </ul>
-              </>
-            ) : null}
           </div>
         </div>
       </section>
@@ -650,7 +619,7 @@ export default async function PricingPage() {
                     <span className="text-[16.5px] font-semibold tracking-[-0.005em]">{sp.name}</span>
                   </span>
                   <span className="whitespace-nowrap font-pahina text-xl text-terracotta-700">
-                    {sp.key === 'entry' ? 'No fee' : sp.php === null ? '—' : peso(sp.php)}
+                    {sp.php === null ? '—' : peso(sp.php)}
                     {sp.php !== null ? <small className="ml-1 font-sans text-xs text-ink/65">{PLAN_PERIOD.slash}</small> : null}
                   </span>
                   <p className="col-start-1 m-0 text-[13.5px] leading-snug text-ink/65">{sp.what}</p>

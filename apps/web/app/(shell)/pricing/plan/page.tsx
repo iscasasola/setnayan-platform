@@ -45,8 +45,6 @@ export default async function PricingPlanPage() {
     partsFrom: prices.hubParts.length ? Math.min(...prices.hubParts.map((p) => p.php)) : null,
     papicFrom: prices.papicRungs[0]?.php ?? null,
     liveWatch: prices.liveWatch,
-    patiktok: prices.patiktok,
-    ai: prices.ai,
     plus: prices.plus,
   };
   /* 💰 RW-13 (owner 2026-11-13, "We want events ultra to be purchasable now"): the three plans, each with the same

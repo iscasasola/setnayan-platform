@@ -22,8 +22,7 @@ import { listedWidgets } from '@/lib/specialized-tools';
 import { SHOP_BADGE_KEYS } from '@/lib/badge-tiers';
 import { SHELF_BADGE_KEYS } from '@/lib/shop-badge-shelf';
 import { BUILT_IN_WIDGETS, PAID_STORE_TOOLS, toolkitItems } from '@/lib/supplier-store';
-import { PRO_TOOLS_MIN_TIER } from '@/lib/specialized-tools-access';
-import { isTierAtLeast } from '@/lib/vendor-tier-caps';
+import { SPECIALIZED_TOOLS_PUBLIC_TIERS } from '@/lib/specialized-tools-access';
 import { CARD_ORDER } from '@/app/vendor-dashboard/performance/_components/analytics-cards';
 import { bundleFreePacks, type ShopGiftPack } from '@/lib/shop-gifts';
 import { FEE_FIRST_SUPPLIER_LINE } from '@/lib/booking-fee-who-words';
@@ -145,12 +144,12 @@ test('the Toolkit sheet names the one Toolkit list — the page’s one count is
   assert.doesNotMatch(PAGE + CLIENT, /\b33\b|\b11 tools\b|\b17 graphs\b/, 'a Toolkit number is typed');
 });
 
-test('🔒 owner a02673ac: a paid widget is bought once and works on a paid plan — no plan says it includes one, no start date is read', () => {
-  // the plan cards mark exactly the plans a bought widget works on
-  for (const t of STAIR_TIERS) assert.equal(stairHasTools(t), isTierAtLeast(t, PRO_TOOLS_MIN_TIER), t);
-  assert.doesNotMatch(PLAN_PAID_TOOLS_OK, /includ/i, 'a plan card says the paid tools come with the plan');
-  assert.match(PLAN_PAID_TOOLS_OK, /buy each once/);
-  assert.match(PLAN_PAID_TOOLS_LOCKED, /or higher$/);
+test('🔒 owner 27 Nov (L9 P3): the plan cards say "Specialized tools come with Pro and Ultra." — no start date is read', () => {
+  // the plan cards tick exactly Pro and Ultra, read from the one public list
+  for (const t of STAIR_TIERS) assert.equal(stairHasTools(t), SPECIALIZED_TOOLS_PUBLIC_TIERS.includes(t), t);
+  assert.equal(PLAN_PAID_TOOLS_OK, 'Specialized tools come with Pro and Ultra.');
+  assert.equal(PLAN_PAID_TOOLS_LOCKED, PLAN_PAID_TOOLS_OK, 'a locked card says a different sentence');
+  assert.doesNotMatch(PLAN_PAID_TOOLS_OK + PLAN_PAID_TOOLS_LOCKED, /₱|one-time|all tools/i);
   // the old open-to-all start date opens nothing any more: the route no longer reads it and the page never decides on it
   assert.doesNotMatch(ROUTE, /readSpecialToolsPaidFrom|specialTools=/);
   assert.doesNotMatch(PAGE + CLIENT, /specialToolsOpenToAll|Every plan, for now|Included in/);

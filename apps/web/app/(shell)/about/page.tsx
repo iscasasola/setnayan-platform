@@ -108,7 +108,7 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
     icon: ShieldCheck,
     label: 'Hosts pay 0% commission.',
     value:
-      'Setnayan never takes a cut of what couples pay suppliers. Couples and suppliers transact directly; revenue comes from software services and supplier subscriptions.',
+      'Hosts pay 0% commission. Setnayan earns from the plans and services people choose.',
   },
   {
     icon: Languages,
@@ -226,8 +226,8 @@ export default async function AboutPage() {
               Software, not an agency
             </h2>
             <p className="text-base leading-relaxed text-ink/75">
-              Setnayan isn&rsquo;t a wedding coordinator and doesn&rsquo;t take a
-              cut of your supplier bills. It&rsquo;s the toolkit: a guest list,
+              Setnayan isn&rsquo;t a wedding coordinator. Hosts pay 0% commission.
+              It&rsquo;s the toolkit: a guest list,
               seating, budget, and schedule workspace, a free mood board, a
               marketplace of
               verified Filipino wedding suppliers you message directly, and
@@ -324,7 +324,7 @@ export default async function AboutPage() {
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/70">
               Build your guest list, sketch your seating and budget, and browse
-              verified Filipino wedding suppliers with 0% booking commission. No
+              verified Filipino wedding suppliers. Hosts pay 0% commission. No
               card required to begin.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">

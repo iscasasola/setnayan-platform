@@ -339,45 +339,6 @@ export type PlanFacts = {
 const creditsLine = (n: number | null): string[] =>
   n !== null && n > 0 ? [`${formatCount(n)} Papic credits — ${formatCount(n)} photos from your guests’ phones`] : [];
 
-/** The Free plan's tools, in the four groups the Features hub uses. The count on the card is this list's length. */
-export function freeGroups(f: PlanFacts): readonly { name: string; items: readonly string[] }[] {
-  return [
-    {
-      name: 'Plan it',
-      items: [
-        'Budget',
-        'Guest list',
-        'Seat plan in 2D and 3D',
-        'Schedule',
-        'Date picker',
-        'Mood board',
-        'Find, compare and book suppliers',
-      ],
-    },
-    {
-      name: 'Invite & gather',
-      items: [
-        `Your Event Hub, ${formatCount(FREE_THEMES.length)} themes`,
-        'A QR ticket and Apple Wallet pass for every guest',
-        'What everyone wears',
-        'Wedding march and entourage',
-        'E-Gifts',
-        'Groups',
-        'Your logo and prints',
-      ],
-    },
-    {
-      name: 'The day',
-      items: [
-        'Check-in at the door',
-        'The schedule, live',
-        f.freePapic ? `Papic cameras on every guest’s phone — ${f.freePapic}` : 'Papic cameras on every guest’s phone',
-      ],
-    },
-    { name: 'Keep the memories', items: ['Memories, kept for life', 'Real Stories'] },
-  ];
-}
-
 export const FREE_PEEK: readonly string[] = [
   'Guest list, seat plan, budget and schedule',
   'Your Event Hub with a QR pass for every guest',
@@ -425,7 +386,7 @@ export function proMore(f: PlanFacts): readonly string[] {
 
 /** 🏛 What the whole Event Hub opens — Event Plus's since 20 Nov (Pro and Ultra include it). */
 export const EVERYTHING_PEEK: readonly string[] = [
-  'The whole Event Hub — every theme, the ready-made Pro themes for your invite link among them, and every part to design: the reveal, background, photos, style, motion, logo & QR, music, prints, the after-the-event page and your address',
+  'The whole Event Hub — every theme, the ready-made Pro themes for your invite link among them, and every part to design: the reveal, background, photos, style, motion, logo & QR, music, prints, the after-the-event page and your Event Hub link',
   'Your own scenes, your own reveal',
 ];
 

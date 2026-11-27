@@ -71,7 +71,7 @@ function whoPaysWhat(ctx: AiAnswerContext): string {
     return 'Couples pay suppliers directly and Setnayan adds nothing to the price. Setnayan charges suppliers no booking fee while it is switched off; suppliers pay only for an optional plan.';
   }
   return (
-    `Couples pay no commission: they pay suppliers directly, to the supplier's GCash or bank, and Setnayan adds nothing to the price. ` +
+    `Hosts pay 0% commission. They pay suppliers directly, to the supplier's GCash or bank, and Setnayan adds nothing to the price. ` +
     `Suppliers pay Setnayan ${feeClause(ctx)}, ${FEE_SCOPE_THIRD}. ` +
     `${FEE_FREE_RULE_THIRD} It is billed to the supplier, never added to what a couple pays.` +
     // Unread schedule (a static page): the rate is not guessed — the reader is pointed at the page that reads it live.
@@ -89,7 +89,7 @@ function whoPaysWhat(ctx: AiAnswerContext): string {
  * answer that is a brand line (owner 20 Nov, "Yes, brand lines"), named in that guard's brand-line allowlist.
  */
 export const WHAT_IS_SETNAYAN_ANSWER =
-  "Setnayan is the home of every Filipino celebration. Plan any event free, invite every guest with their own QR pass, let guests' phones capture the day into one album, book verified Filipino suppliers at 0% commission, and keep every photo for life. It works on any phone, with no app to install.";
+  "Setnayan is the home of every Filipino celebration. Plan any event free, invite every guest with their own QR pass, let guests' phones capture the day into one album, book verified Filipino suppliers, and keep every photo for life. Hosts pay 0% commission. It works on any phone, with no app to install.";
 
 export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
   return [
@@ -124,7 +124,7 @@ export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
     },
     {
       id: 'best-wedding-app',
-      question: 'What is the best wedding planning app in the Philippines?',
+      question: 'What wedding planning app is built for Filipino weddings?',
       answer:
         "Setnayan is built for Filipino weddings: ninong and ninang, the entourage and the Wedding March, paperwork by faith and budgets in pesos. It runs the whole wedding in one link, from the Save the Date to every guest's photos, and planning is free with no guest limit.",
       corrects: 'lists foreign wedding-website builders first',
@@ -188,6 +188,9 @@ export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
       corrects: '"0% commission, no middleman fees" · to suppliers: "keep 100% of your bookings"',
       route: '/for-suppliers',
       evidence: 'lib/commission-promise.ts · lib/booking-fee.ts#bookingFeeScheduleSummary · lib/booking-fee-gate.ts (SUPPLIER_BROUGHT_SOURCES)',
+      // ⚖ Owner 27 Nov (L9 P11): the supplier booking fee is explained on supplier pages and in /terms only, so this answer
+      // (which names it, for answer engines — stale-claims) stays in llms.txt and off /features, a hosts' page.
+      onFeaturesFaq: false,
     },
     {
       id: 'storage',

@@ -2,7 +2,7 @@
  * front-door-landing.tsx — the signed-out front page below the first screen.
  *
  * BUILT FROM `prototypes/front_page_home_2026-11-20_usp/` v6 (owner "Approve v6", 20 Nov 2026, specs f29c85b3 — v5,
- * `front_page_home_2026-11-19/`, plus the USP line, the Papic heading and "Suppliers you can trust"; brief
+ * `front_page_home_2026-11-19/`, plus the USP line, the Papic heading and "Suppliers, checked and reviewed" (L9 P13, was "…you can trust"); brief
  * `FRONT_PAGES_BUILD_BRIEF_2026-11-20.md`): "the home of every Filipino celebration", redrawn in Discover's look.
  * The first screen (photo, headline, picker, chips) is `front-door-anchor.tsx`. Below it, in this order —
  *
@@ -341,7 +341,7 @@ export function FrontDoorLanding({
             </Link>
           </h2>
           <div className="fl-lede fl-hasi">
-            No guest limit. Nothing expires.
+            No guest limit.
             <What label="Every free tool">
               Free on every event: guest list with no limit, replies and a QR pass for every guest, seat plan in 2D and
               3D, budget, schedule, mood board, find and book suppliers, your Event Hub through every stage, door
@@ -370,7 +370,7 @@ export function FrontDoorLanding({
         <div className="fl-rv">
           <p className="fl-kick">Plan it · Suppliers</p>
           <h2 className="fd-sechead fl-sechead" id="h-sup">
-            <span>Suppliers you can trust.</span>
+            <span>Suppliers, checked and reviewed.</span>
           </h2>
           <p className="fl-lede">No fake reviews. No paid stars. Ever.</p>
         </div>
@@ -422,7 +422,7 @@ export function FrontDoorLanding({
           Sample · one person&rsquo;s Memories over the years
           <What label="About Memories">
             Every event you host or go to joins one Memories library. Full-size photos stay until three months after the
-            event (twelve with Event Ultra), then a 720p copy of every one is kept for life, free. Only you delete.
+            event (six with Event Pro, twelve with Event Ultra), then a 720p copy of every one is kept for life, free. Only you delete.
             People are saved once, so the next event starts pre-filled.
           </What>
         </div>
@@ -474,7 +474,7 @@ export function FrontDoorLanding({
                 'Find, compare and book suppliers',
                 'Your Event Hub, with a QR pass for every guest',
               ]}
-              under="Free, not a trial. Nothing expires."
+              under="Free, not a trial."
             />
             {pricesRead ? null : (
               <p className="fl-fine fl-under" role="status">
@@ -485,7 +485,7 @@ export function FrontDoorLanding({
               <PlanRow
                 name="Event Plus"
                 price={<PlanPrice php={planPrices.plus} />}
-                one="Setnayan AI and Papic credits for your event."
+                one="The whole Event Hub and Papic credits for your event."
                 items={plusItems}
                 under="Everything in Free is included."
               />

@@ -72,7 +72,7 @@ const SELLS: ReadonlyArray<[string, RegExp]> = [
 const NOT_A_SALE = new Map<string, { what: string; why: string }>([
   ['build-your-online-presence', { what: 'unlock', why: '"That unlocks insights" — Instagram\'s own professional-account feature, not something Setnayan sells' }],
   [
-    'sign-up-as-vendor',
+    'sign-up-as-supplier',
     {
       what: 'the supplier price-ladder page',
       why: 'OWNER CALL (Apple check 2026-10-19): the only supplier sign-up door is /for-suppliers, which the app refuses — so the app has no in-app way to open a shop. Until he rules, the web answer stands.',

@@ -34,6 +34,13 @@ export const STALE_CLAIMS: readonly StaleClaim[] = [
     pattern: /Setnayan AI (?:comes|is included) (?:with|inside|in) Event Plus\b|Event Plus (?:adds|includes|carries) Setnayan AI/i,
     why: 'Setnayan AI comes with Event Pro and Event Ultra, not Event Plus (owner 2026-11-18)',
   },
+  // 🪦 RETIRED NAMES (L9 P34, 27 Nov 2026) — none may come back to what search engines and AI read.
+  { pattern: /\bPatiktok\b/, why: 'Patiktok was retired (owner 2026-11-20, lib/retired-products.ts) — /patiktok redirects' },
+  { pattern: /\bPakanta\b|\bMusic Maker\b/, why: 'Music Maker was retired (owner 2026-11-20, lib/retired-products.ts) — its old Pa- name too' },
+  { pattern: /\bReal Stories\b/i, why: 'Real Stories was retired with the blog (PR #7847, 2026-11-16) — the stories are Articles' },
+  { pattern: /\bPailaw\b|\bPabati\b|\bCamera Bridge\b/i, why: 'a retired product name — not sold and not in the app' },
+  // The supplier plans are Free · Plus · Pro · Ultra (CLAUDE.md §1): "Max" and "Solo" are retired plan words.
+  { pattern: /\bMax plan\b|\bSolo plan\b|\bSupplier Solo\b/i, why: 'the supplier plans are Free · Plus · Pro · Ultra — Max and Solo are retired names' },
   // An unqualified "No" to the commission question is the error every AI repeats (google-ai-says-2026-11-10.md §5).
   {
     pattern: /take a commission\?\*\*\s*No\b/i,

@@ -21,13 +21,11 @@ export type PlanPrices = {
   partsFrom: number | null;
   papicFrom: number | null;
   liveWatch: number | null;
-  patiktok: { php: number; perDay: boolean } | null;
-  ai: Partial<Record<AiBand, TwoPrices>>;
   /** Event Plus — EVENT_PLUS. (Carried Setnayan AI 4 → 18 Nov 2026; since the 18 Nov re-cut the AI is Event Pro's.) */
   plus?: number | null;
 };
 
-/** Event types, in the prototype's words — each prices Setnayan AI by its band (`AI_TIER_SKU`). */
+/** Event types, in the prototype's words. (Setnayan AI is not sold on its own since owner 2026-11-04, so no band prices it here.) */
 export const EVENT_TYPES: ReadonlyArray<{ band: AiBand; label: string; words: string }> = [
   { band: 'A', label: 'A wedding', words: 'a wedding' },
   { band: 'B', label: 'A debut, corporate or gala', words: 'a debut, corporate or gala' },
@@ -46,8 +44,6 @@ export type QuestionKey =
   | 'livewatch'
   | 'plus'
   | 'pro'
-  | 'ai'
-  | 'patiktok'
   | 'together';
 
 export type PlanState = {
@@ -77,8 +73,6 @@ export type Question = {
 export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => string): Question[] {
   const peso = (n: number) => formatPhp(n);
   const at = (two: TwoPrices) => (s.setup && two.signup != null ? two.signup : two.regular);
-  const ai = p.ai[s.type] ?? null;
-  const type = EVENT_TYPES.find((t) => t.band === s.type) ?? EVENT_TYPES[0]!;
   const qs: Array<Question | null> = [
     {
       k: 'guests',
@@ -181,34 +175,6 @@ export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => st
           php: at(p.pro),
         }
       : null,
-    ai
-      ? {
-          k: 'ai',
-          q: 'Do you want help choosing suppliers?',
-          line: 'A team suggested by fit, and your plan watched.',
-          item: 'Setnayan AI',
-          tip:
-            `Suggests verified suppliers by how well they fit your event, then tracks deadlines, payments, budget and dates. For ${type.words}: ${peso(ai.regular)}` +
-            (ai.signup != null ? `, or ${peso(ai.signup)} while you set up your event` : '') +
-            '. One-time, until the event day.',
-          tool: true,
-          php: at(ai),
-        }
-      : // 🎟 18 Nov re-cut: with Setnayan AI off sale on its own, it comes with Event Pro (and Ultra) — no longer Event Plus —
-        // so the Pro question above already carries it (its tip says so). A separate "help choosing suppliers?" step
-        // priced at Event Pro would bill Pro twice when both are picked.
-        null,
-    p.patiktok
-      ? {
-          k: 'patiktok',
-          q: 'Do you want short videos of the day to share?',
-          line: 'Your guests’ moments, cut into reels.',
-          item: 'Patiktok',
-          tip: `Pick the moments, the length and a song; the reel renders in your browser. ${peso(p.patiktok.php)}${p.patiktok.perDay ? ' per day of your event' : ' for your event'}.`,
-          tool: true,
-          php: p.patiktok.php,
-        }
-      : null,
     {
       k: 'together',
       q: 'Will you plan this with other people?',
@@ -248,7 +214,6 @@ export function resultFor(s: PlanState, qs: readonly Question[], p: PlanPrices):
   const yes = proPicked ? said.filter((q) => q.k !== 'plus') : said;
   const paid = yes.filter((q) => q.php != null);
   const total = paid.reduce((sum, q) => sum + (q.php ?? 0), 0);
-  const ai = p.ai[s.type] ?? null;
   return {
     yes,
     paid,
@@ -262,8 +227,7 @@ export function resultFor(s: PlanState, qs: readonly Question[], p: PlanPrices):
       wantsPrintables: Boolean(s.answers.prints),
     }),
     hoursBack: s.answers.guests ? OLD_WAY.guestListHours.value : null,
-    showSetupSwitch:
-      (Boolean(s.answers.pro) && p.pro?.signup != null) || (Boolean(s.answers.ai) && ai?.signup != null),
+    showSetupSwitch: Boolean(s.answers.pro) && p.pro?.signup != null,
   };
 }
 

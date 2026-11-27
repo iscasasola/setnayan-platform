@@ -766,6 +766,15 @@ const nextConfig: NextConfig = {
         destination: '/help/how-are-vendors-verified',
         permanent: true,
       },
+      // 2026-11-27 — L9 P30 (docs/brand.md word rule: "supplier", never "vendor" in a reader-visible URL). Four help
+      // answers took supplier slugs; the old addresses land on the same answer instead of a 404.
+      { source: '/help/verified-filipino-wedding-vendors-no-commission', destination: '/help/verified-filipino-wedding-suppliers', permanent: true },
+      { source: '/help/sign-up-as-vendor', destination: '/help/sign-up-as-supplier', permanent: true },
+      { source: '/help/track-vendor', destination: '/help/track-supplier', permanent: true },
+      { source: '/help/start-thread-with-vendor', destination: '/help/start-thread-with-supplier', permanent: true },
+      // 2026-11-27 — L9 P29 (owner): the word rule says Logo Maker, never Monogram, so the public Logo Maker preview
+      // lives at /palogo; /monogram answers with a server redirect there.
+      { source: '/monogram', destination: '/palogo', permanent: true },
       /*
         2026-09-01 — THREE EXPLAINERS BECAME ONE. `/why-setnayan`,
         `/how-it-works` and `/features` each answered part of "what is this and

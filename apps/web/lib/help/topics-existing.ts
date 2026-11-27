@@ -87,7 +87,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'event-plus-and-event-pro',
         title: 'What do Event Plus, Event Pro and Event Ultra add?',
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'They are the three optional paid plans for one event; planning stays free without them. Event Plus adds Papic credits for your guests’ cameras and the whole Event Hub — every ready-made theme, and every part to design: the reveal, background, photos, style, motion, logo and QR, music, prints, the after-the-event page and your address — plus a cinematic opening for your Save the Date and 500 MB of uploads, and the Setnayan watermark gives way to one small “Made with Setnayan”; it works even for an event with no suppliers. Event Pro is everything in Event Plus with more Papic credits, adds Setnayan AI — it tells you what is next and flags what is at risk — and 1 GB of uploads, and takes the Setnayan watermark off your Event Hub. Event Ultra is everything in Event Pro with the most Papic credits, and adds Live Watch for one day, 2 GB of uploads and your full-size photos kept 12 months after the event. What you pay for Event Plus counts toward Event Pro, and moving from Event Plus or Event Pro to Event Ultra, you pay only the difference. Current rates are on setnayan.com/pricing.',
+        body: 'They are the three optional paid plans for one event. Planning is free. Event Plus adds Papic credits for your guests’ cameras and the whole Event Hub — every ready-made theme, and every part to design: the reveal, background, photos, style, motion, logo and QR, music, prints, the after-the-event page and your Event Hub link — plus a cinematic opening for your Save the Date and 500 MB of uploads, and the Setnayan watermark gives way to one small “Made with Setnayan”; it works even for an event with no suppliers. Event Pro is everything in Event Plus with more Papic credits, adds Setnayan AI — it tells you what is next and flags what is at risk — and 1 GB of uploads, and takes the Setnayan watermark off your Event Hub. Event Ultra is everything in Event Pro with the most Papic credits, and adds Live Watch for one day, 2 GB of uploads and your full-size photos kept 12 months after the event. What you pay for Event Plus counts toward Event Pro, and moving from Event Plus or Event Pro to Event Ultra, you pay only the difference. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'does-setnayan-take-commission',
@@ -103,7 +103,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         slug: 'what-is-todays-focus',
         title: "What is Setnayan AI?",
         appBody: HELP_NOT_IN_THE_APP,
-        body: 'Setnayan\'s assisted planner. It comes with Event Pro and Event Ultra, or on its own for one event, through your event date (current rates on setnayan.com/pricing). It matches suppliers to your date, budget, venue, guest count, religion and reviews, and walks you through each decision, from the venue to thank-you cards, with faith-specific steps and deadlines (for a Filipino wedding: Pre-Cana, marriage licence windows, sponsors).',
+        body: 'Setnayan\'s assisted planner. Setnayan AI comes with Event Pro and Event Ultra, through your event date (current rates on setnayan.com/pricing). It matches suppliers to your date, budget, venue, guest count, religion and reviews, and walks you through each decision, from the venue to thank-you cards, with faith-specific steps and deadlines (for a Filipino wedding: Pre-Cana, marriage licence windows, sponsors).',
       },
       {
         slug: 'does-setnayan-support-filipino-customs',
@@ -188,7 +188,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       // Couple-facing, so the 0% commission is unqualified (owner 2026-09-22).
       {
         slug: 'best-free-filipino-wedding-planner-app',
-        title: 'What is the best free Filipino wedding planner app?',
+        title: 'What wedding planning app is built for Filipino weddings?',
         appBody: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers and pay them directly. Hosts pay 0% commission.',
         body: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers and pay them directly. Hosts pay 0% commission. Optional paid plans — Event Plus, Event Pro and Event Ultra (Setnayan AI comes inside Event Pro and Event Ultra) — and services like the livestream are priced at setnayan.com/pricing.',
       },
@@ -203,8 +203,8 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         body: 'Yes — on Setnayan both are free, with no guest limit. The seat plan lays out tables, the head table and the dance floor, and 3D Plan stands the same layout up into a room you can walk in your browser — also free — so you can check sightlines and aisle space before the day. The budget tracker works in Philippine pesos. Both read from the same guest list and the same supplier ledger, so the numbers stay in step.',
       },
       {
-        slug: 'verified-filipino-wedding-vendors-no-commission',
-        title: 'Where can I find verified Filipino wedding suppliers with no commission?',
+        slug: 'verified-filipino-wedding-suppliers',
+        title: 'Where can I find verified Filipino suppliers?',
         body: 'Setnayan’s marketplace lists Filipino suppliers whose business papers were each checked by a Setnayan admin, and it shows their real business name. Browsing is free and open to anyone. Hosts pay 0% commission. You pay suppliers directly, and nothing you pay them comes back to Setnayan. Save two suppliers to compare them side by side — location, rating, services and distance from your venue — then message them from Setnayan, where a supplier sees your event’s name and date, never your email.',
       },
       {
@@ -257,7 +257,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       },
       {
         slug: 'setnayan-vs-free-apps-and-google-sheets',
-        title: 'How is Setnayan different from free planner apps, Google Sheets or a shared Drive?',
+        title: 'How is Setnayan different from spreadsheets and shared folders?',
         appBody: 'Everything the free tools do, Setnayan also does for free: a guest list with no limit (import your spreadsheet as CSV), RSVP, a seat plan, a budget in pesos and a schedule — in one account, where each part reads the same guest list, so a change in one place shows up everywhere.',
         body: 'Everything the free tools do, Setnayan also does for free: a guest list with no limit (import your spreadsheet as CSV), RSVP, a seat plan, a budget in pesos and a schedule — in one account, where each part reads the same guest list, so a change in one place shows up everywhere. What a spreadsheet or a Drive link cannot do is run the day itself: your guests’ phones become one photo crew filling one set of Memories, and family abroad can watch the ceremony live. Those day-of tools are optional and priced individually on setnayan.com/pricing.',
       },
@@ -274,7 +274,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         body: 'Tap Create account on setnayan.com and sign up with Google, with Apple, or with your email and a password of at least 8 characters. A sign-up from there is a couple\'s account.',
       },
       {
-        slug: 'sign-up-as-vendor',
+        slug: 'sign-up-as-supplier',
         title: 'Sign up as a supplier',
         body: 'Start from the For suppliers page (setnayan.com/for-suppliers) and open your shop from there. Then fill in your business name, services, and contact email in your supplier dashboard. One account can do both: with a shop, you can still plan your own events from Events. Couples find you by searching Setnayan and message you here — your email and phone are not shown on your public page.',
       },
@@ -372,8 +372,8 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       {
         slug: 'what-do-suppliers-pay-setnayan',
         title: 'What does Setnayan charge suppliers?',
-        appBody: `No commission — couples pay you directly and Setnayan never touches that money. Separately, a supplier pays Setnayan a booking fee, ${FEE_SCOPE_THIRD}. ${FEE_FREE_RULE_THIRD} The fee is never added to what a couple pays.`,
-        body: `No commission — couples pay you directly and Setnayan never touches that money, on every tier. Separately, a supplier pays Setnayan a booking fee, ${FEE_SCOPE_THIRD}. ${FEE_FREE_RULE_THIRD} The fee is never added to what a couple pays. Current rates are on setnayan.com/for-suppliers.`,
+        appBody: `Couples pay you directly and Setnayan never touches that money. Setnayan bills a booking fee on clients it brings you — ${FEE_SCOPE_THIRD}. ${FEE_FREE_RULE_THIRD} The fee is never added to what a couple pays.`,
+        body: `Couples pay you directly and Setnayan never touches that money, on every tier. Setnayan bills a booking fee on clients it brings you — ${FEE_SCOPE_THIRD}. ${FEE_FREE_RULE_THIRD} The fee is never added to what a couple pays. Current rates are on setnayan.com/for-suppliers.`,
       },
     ],
   },
@@ -537,7 +537,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
         body: 'No. You pay your supplier directly, so Setnayan never holds your money and cannot hold it back or return it. If something goes wrong with a supplier, open that supplier and tap Report, or choose Report a problem in your chat. It goes to the Setnayan team, and you follow it on your event’s Disputes page.',
       },
       {
-        slug: 'track-vendor',
+        slug: 'track-supplier',
         title: 'Track a supplier',
         body: 'On Suppliers, open the category — the caterer, the photographer and so on. Tap Add manually to add a supplier you found yourself, with their contact, what they cover and what you agreed to pay. Once you have booked them, they show as Booked, with what is next — like your first payment.',
       },
@@ -596,7 +596,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
     roles: ['couple', 'vendor'],
     articles: [
       {
-        slug: 'start-thread-with-vendor',
+        slug: 'start-thread-with-supplier',
         title: 'Start a thread with a supplier',
         body: 'Tap Message on a supplier in your Suppliers list, or Message on any shop’s page — Setnayan opens the conversation for you, and the shop replies in your chats. Everything you agree stays with your event. Opening a chat again with the same supplier for the same event picks up the one you had. Only hosts start a chat — suppliers reply.',
       },

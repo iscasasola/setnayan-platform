@@ -270,7 +270,8 @@ export default function TermsPage() {
           </li>
           <li>
             When a couple books a supplier, payment is between the couple and the
-            supplier. Setnayan does not hold those funds and charges no commission.
+            supplier. Setnayan does not hold those funds. Hosts pay 0% commission.
+            Suppliers pay Setnayan a booking fee under the supplier terms.
             Setnayan isn&rsquo;t a party to, and isn&rsquo;t responsible for, the
             services a supplier delivers off-platform.
           </li>

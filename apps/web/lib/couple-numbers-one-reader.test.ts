@@ -20,7 +20,7 @@ import { buildCounts, buildLineKey, buildLinesOf, buildMoneyOf, buildViewOf, typ
 import { planningCountOf } from './event-board';
 import { pickNextPayment, pickDuePayments } from './budget-page-view';
 import type { MoneyLine } from './budget-truth';
-import { planHeldWithoutOrder } from './event-plans';
+import { planHeldWithoutOrder, type PlanCoverage } from './event-plans';
 import { customerLaneOf } from './vendor-customer-pipeline';
 import { askLine } from './booking-ask-words';
 import { hubReachOf } from '../app/dashboard/[eventId]/_components/home-control-faces';
@@ -108,8 +108,44 @@ test('C2/C7 · source guard: Home reads the one booked reader, not the plan ladd
   assert.doesNotMatch(home, /countUnlockedCategories/, 'Home must not count the plan ladder again (the "of 25")');
   assert.match(home, /from\('event_category_decisions'\)[\s\S]{0,120}'excluded'/, "Home must read Find's own removed categories");
   const tally = code('lib/booked-tally.ts');
-  assert.match(tally, /BOOKED_EVENT_VENDOR_STATUSES/, 'the booked set comes from vendor-funnel, never a local copy');
+  assert.match(tally, /from '@\/lib\/booked-status'/, 'the booked test comes from the one leaf, never a local copy');
   assert.doesNotMatch(tally, /'contracted'|'deposit_paid'/, 'no hand-typed booked statuses in the reader');
+});
+
+test('C2 · Budget, Book and Build decide "booked" through the one reader — no copy of their own', () => {
+  // The set lives in ONE leaf; vendor-funnel re-exports it under the name the SQL twin pairs with.
+  const leaf = code('lib/booked-status.ts');
+  assert.match(leaf, /export const BOOKED_EVENT_VENDOR_STATUSES = \[/);
+  assert.doesNotMatch(leaf, /^import /m, 'the leaf imports nothing, so a client bundle can carry it');
+  const funnel = code('lib/vendor-funnel.ts');
+  assert.match(funnel, /import \{ BOOKED_EVENT_VENDOR_STATUSES \} from '@\/lib\/booked-status'/);
+  assert.doesNotMatch(funnel, /BOOKED_EVENT_VENDOR_STATUSES = \[/, 'vendor-funnel re-exports, never redefines');
+  // Raw `event_vendors.status` → booked: every reader under the couple's Budget, Book and Build asks isBookedStatus.
+  const raw: Record<string, string> = {
+    'Budget (resolveEventMoney)': 'lib/budget-truth.ts',
+    'Book (your-team rows → lockRequestStateOf)': 'lib/lock-request-state.ts',
+    'Book / Build shortlist': 'lib/shortlist-taxonomy.ts',
+    'plan groups': 'lib/wedding-plan-groups.ts',
+    'vendors page': 'app/dashboard/[eventId]/vendors/page.tsx',
+  };
+  for (const [surface, file] of Object.entries(raw)) {
+    const src = code(file);
+    assert.match(src, /from '(?:@\/lib|\.)\/booked-status'/, `${surface} imports the one booked reader`);
+    assert.match(src, /isBookedStatus\(/, `${surface} asks isBookedStatus`);
+    assert.doesNotMatch(src, /'contracted',\s*'deposit_paid',\s*'delivered',\s*'complete'/, `${surface} keeps no booked set of its own`);
+    assert.doesNotMatch(src, /CONFIRMED(?:_VENDOR_STATUSES)?\.has\(|LOCKED_STATUSES\.has\(/, `${surface} keeps no private booked set`);
+  }
+  // The screen rows (status 'locked', set by the reader above): Build and Book ask isBookedView, never === 'locked'.
+  const view: Record<string, string> = {
+    'Build lines': 'lib/suppliers-build.ts',
+    'Book / Find shortlist': 'app/dashboard/[eventId]/vendors/_components/shortlist-categories.tsx',
+    'vendors page counts': 'app/dashboard/[eventId]/vendors/page.tsx',
+  };
+  for (const [surface, file] of Object.entries(view)) {
+    const src = code(file);
+    assert.match(src, /isBookedView\(/, `${surface} asks isBookedView`);
+    assert.doesNotMatch(src, /\.status [!=]== 'locked'/, `${surface} must not test status === 'locked' itself`);
+  }
 });
 
 // ── C1 · THE BUILD LIST KEEPS EVERY BOOKED SUPPLIER ──────────────────────────
@@ -216,16 +252,55 @@ test('C9 · a payment 73 days past due is "overdue", never a plain "Next"', () =
 
 // ── C10 · A PLAN HELD WITH NO ORDER IS LISTED ────────────────────────────────
 
-test('C10 · Event Ultra granted with no order row is listed; a bought one is not listed twice', () => {
-  const ultra = { key: 'ultra' as const, name: 'Event Ultra' };
-  assert.deepEqual(planHeldWithoutOrder(ultra, []), ultra);
-  assert.equal(planHeldWithoutOrder(ultra, [{ service_key: 'EVENT_ULTRA', status: 'paid' }]), null);
-  assert.deepEqual(planHeldWithoutOrder(ultra, [{ service_key: 'EVENT_ULTRA', status: 'cancelled' }]), ultra);
-  assert.equal(planHeldWithoutOrder({ key: 'free' as const, name: 'Free' }, []), null);
-  assert.equal(planHeldWithoutOrder(null, []), null, 'an unread plan is never guessed');
+const live = (status: string | null) => status != null && !['cancelled', 'refunded', 'lapsed'].includes(status);
+const PRO = { key: 'pro' as const, name: 'Event Pro' };
+const ULTRA = { key: 'ultra' as const, name: 'Event Ultra' };
+/** What `readEventPlanCoverage` hands over for Event Pro: its code, its alias (Ultra) and the packs that include it. */
+const proCoverage = (over: Partial<PlanCoverage<'pro'>> = {}): PlanCoverage<'pro'> => ({
+  held: PRO,
+  coveringKeys: ['COUPLE_WEBSITE_PRO', 'EVENT_ULTRA', 'GUIDED_PACK', 'MEDIA_PACK'],
+  basketOrderIds: [],
+  granted: false,
+  ...over,
+});
+const order = (order_id: string, service_key: string | null, status = 'paid') => ({ order_id, service_key, status });
+
+test('C10 · an ADMIN GRANT with no order row is listed; once an order covers it, it is not listed twice', () => {
+  const granted = { held: ULTRA, coveringKeys: ['EVENT_ULTRA'], basketOrderIds: [], granted: true };
+  assert.deepEqual(planHeldWithoutOrder(granted, [], live), ULTRA);
+  assert.equal(planHeldWithoutOrder(granted, [order('o1', 'EVENT_ULTRA')], live), null);
+  assert.deepEqual(planHeldWithoutOrder(granted, [order('o1', 'EVENT_ULTRA', 'cancelled')], live), ULTRA, 'a cancelled order covers nothing');
+  assert.equal(planHeldWithoutOrder({ held: { key: 'free' as const, name: 'Free' }, coveringKeys: [], basketOrderIds: [], granted: true }, [], live), null);
+  assert.equal(planHeldWithoutOrder(null, [], live), null, 'an unread plan is never guessed');
+});
+
+test('C10 · a PACK that includes the plan is the plan\'s order: GUIDED_PACK never shows a second "Event Pro" row', () => {
+  assert.equal(planHeldWithoutOrder(proCoverage(), [order('o1', 'GUIDED_PACK')], live), null);
+  assert.equal(planHeldWithoutOrder(proCoverage({ granted: true }), [order('o1', 'GUIDED_PACK')], live), null);
+  assert.equal(planHeldWithoutOrder(proCoverage({ granted: true }), [order('o1', 'EVENT_ULTRA')], live), null, 'an alias covers it too');
+});
+
+test('C10 · a BASKET whose lines include the plan is the plan\'s order', () => {
+  const basket = proCoverage({ basketOrderIds: ['b1'], granted: true });
+  assert.equal(planHeldWithoutOrder(basket, [order('b1', 'EVENT_SERVICES')], live), null);
+  assert.equal(planHeldWithoutOrder(proCoverage({ basketOrderIds: ['b1'] }), [order('b1', 'ONBOARDING_SERVICES')], live), null);
+  assert.equal(planHeldWithoutOrder(basket, [order('b1', 'EVENT_SERVICES', 'refunded')], live), PRO, 'a refunded basket covers nothing');
+});
+
+test('C10 · a PROMO free window lists no plan row: nobody was given it, so there is nothing to call "Your plan"', () => {
+  assert.equal(planHeldWithoutOrder(proCoverage({ granted: false }), [], live), null);
+  assert.equal(planHeldWithoutOrder(proCoverage({ granted: false }), [order('o9', 'PAPIC_POOL_S')], live), null);
+});
+
+test('C10 · the page reads coverage in its one batch and decides with the ownership rule', () => {
   const page = code('app/dashboard/[eventId]/orders/page.tsx');
-  assert.match(page, /Promise\.all\(\[fetchOrdersForEvent\(supabase, eventId\), readEventPlanHeld\(eventId\)\]\)/);
-  assert.match(page, /planHeldWithoutOrder\(planHeld, orders\)/);
+  assert.match(page, /Promise\.all\(\[fetchOrdersForEvent\(supabase, eventId\), readEventPlanCoverage\(eventId\)\]\)/);
+  assert.match(page, /planHeldWithoutOrder\(planCoverage, orders, orderStatusConfersOwnership\)/);
+  const reader = code('lib/event-services.server.ts');
+  for (const step of ['SKU_OWNERSHIP_ALIASES', 'bundlesGrantingSku', 'eventBasketOrdersGranting', 'eventHasCompGrant', 'eventHostIsInternal', 'eventHostHoldsFounderSeat']) {
+    assert.ok(reader.includes(step), `readEventPlanCoverage walks ${step}`);
+  }
+  assert.ok(!/isSkuFreeForCouplesNow|promo/i.test(reader.slice(reader.indexOf('readEventPlanCoverage'))), 'a promo is never a grant');
 });
 
 // ── C4 · THE SUPPLIER'S ROW CARRIES THE ENDED ASK ────────────────────────────

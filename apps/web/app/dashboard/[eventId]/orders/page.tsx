@@ -14,8 +14,9 @@ import { computeVatFromBase } from '@/lib/receipts';
 import { PageMasthead } from '@/app/_components/page-masthead';
 import { BackButton } from '@/app/_components/back-button';
 import { isStoreShellRequest } from '@/lib/request-platform';
-import { readEventPlanHeld } from '@/lib/event-services.server';
+import { readEventPlanCoverage } from '@/lib/event-services.server';
 import { planHeldWithoutOrder } from '@/lib/event-plans';
+import { orderStatusConfersOwnership } from '@/lib/entitlements';
 
 export const metadata = { title: 'Orders' };
 
@@ -38,10 +39,11 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
   // Effective rate from platform_settings (0 while Setnayan is non-VAT registered).
   const vatRatePct = await getEffectiveVatRatePct(supabase);
 
-  // One batched read: the orders, and the plan this event holds — a plan can be held with no order row (an admin
-  // grant, a founder seat, an internal host), and "No orders yet" over an Event Ultra event read as a lie (L5 · C10).
-  const [orders, planHeld] = await Promise.all([fetchOrdersForEvent(supabase, eventId), readEventPlanHeld(eventId)]);
-  const heldPlan = planHeldWithoutOrder(planHeld, orders);
+  // One batched read: the orders, and what covers the event's plan. A plan held by a real grant (an admin comp, a founder
+  // seat, an internal host) writes no order row, and "No orders yet" over an Event Ultra event read as a lie (L5 · C10).
+  // A plan an order covers — its own, a pack's, a basket line — is that order's row, never a second one; a promo lists none.
+  const [orders, planCoverage] = await Promise.all([fetchOrdersForEvent(supabase, eventId), readEventPlanCoverage(eventId)]);
+  const heldPlan = planHeldWithoutOrder(planCoverage, orders, orderStatusConfersOwnership);
   /**
    * 🔒 IN THE APP STORE / PLAY STORE SHELL THIS IS A RECORD, NOT A TILL. Every
    * couple order is a Setnayan digital SKU, so "New order" and each order's

@@ -28,6 +28,7 @@ import { teamMoney, type TeamMoney } from './your-team';
 import type { TallyChild } from './suppliers-shell';
 import type { DateFit } from './calendar-truth';
 import { coveredRowName } from './covered-row-name';
+import { isBookedView } from './booked-status';
 
 /* ── THE SNAPSHOT A BUILD IS SAVED AS ─────────────────────────────────────
  * The shape `savePlanBuildNamed` has always posted (`PlanBuildSnapshot` in
@@ -150,7 +151,7 @@ export function buildLinesOf(args: {
     // line used to keep only the first — so Alon Films vanished from the list while the header (`buildMoneyOf`,
     // every locked row) still added its ₱95,000: the header said ₱810,000 over rows summing ₱715,000. The first
     // booking keeps the category's own line; each further one follows it as a settled line of its own.
-    const bookedRows = t.vendors.filter((v) => v.status === 'locked');
+    const bookedRows = t.vendors.filter((v) => isBookedView(v));
     const bookedRow = bookedRows[0] ?? null;
     const alsoBooked: BuildLine[] = bookedRows.slice(1).map((v) => ({
       tile: t.tile,
@@ -162,7 +163,7 @@ export function buildLinesOf(args: {
       pickAnswer: null,
       candidates: [],
     }));
-    const open = t.vendors.filter((v) => v.status !== 'locked');
+    const open = t.vendors.filter((v) => !isBookedView(v));
     const pickRow = open.find((v) => args.inBuild.has(v.vendorId)) ?? null;
     const own: BuildLine = {
       tile: t.tile,

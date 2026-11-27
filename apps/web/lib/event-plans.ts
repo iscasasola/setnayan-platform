@@ -14,19 +14,43 @@
 export const PLAN_PRICE_CODES = { plus: 'EVENT_PLUS', pro: 'COUPLE_WEBSITE_PRO', ultra: 'EVENT_ULTRA' } as const;
 
 /**
- * 📌 A PLAN HELD WITH NO ORDER ROW (L5 · C10). The event's plan (`readEventPlanHeld`) can come from an admin grant,
- * a founder seat or an internal host — none of which writes an `orders` row — so "Orders and receipts" said
- * "No orders yet" on an Event Ultra event. Returns the plan to list when it is a paid tier and no order on the event
- * names its price code; null for Free, an unread plan (never a guess), or a plan that already has its order.
+ * 📌 WHAT COVERS THE EVENT'S PLAN ON "ORDERS AND RECEIPTS" (L5 · C10). Read by `readEventPlanCoverage`
+ * (lib/event-services.server.ts) through the same ownership chain the gates use, so this page and the gates agree:
+ *
+ *   · `coveringKeys` — every order key that confers the plan: its own price code, an alias of it
+ *     (`SKU_OWNERSHIP_ALIASES`: an Event Ultra order confers Event Pro) and every pack that includes it
+ *     (`bundle_components`: GUIDED_PACK includes Event Pro);
+ *   · `basketOrderIds` — the one-bill orders (sign-up basket, Event services bill) whose lines include it;
+ *   · `granted` — held by a real grant that writes no order: an admin comp, an internal host, a founder seat.
+ *     A promo free window is NOT a grant: nobody was given the plan, everyone may use it for a while.
+ */
+export type PlanCoverage<K extends string> = {
+  held: { key: K; name: string } | null;
+  coveringKeys: ReadonlyArray<string>;
+  basketOrderIds: ReadonlyArray<string>;
+  granted: boolean;
+};
+
+/**
+ * The plan row to list on Orders, or null. A plan is listed ONLY when a real grant holds it and no live order on the
+ * page covers it (its own order, an alias, a pack, a basket line) — so a pack or a basket is never listed twice and a
+ * promo lists nothing nobody paid for. Null for Free and for an unread plan (never a guess). `confers` is the ownership
+ * rule (`orderStatusConfersOwnership`): a cancelled, refunded or lapsed order covers nothing.
  */
 export function planHeldWithoutOrder<K extends string>(
-  held: { key: K; name: string } | null,
-  orders: ReadonlyArray<{ service_key: string | null; status: string }>,
+  coverage: PlanCoverage<K> | null,
+  orders: ReadonlyArray<{ order_id: string; service_key: string | null; status: string }>,
+  confers: (status: string | null) => boolean,
 ): { key: K; name: string } | null {
-  if (!held || held.key === 'free' || !(held.key in PLAN_PRICE_CODES)) return null;
-  const code = PLAN_PRICE_CODES[held.key as unknown as keyof typeof PLAN_PRICE_CODES];
-  const hasOrder = orders.some((o) => o.service_key === code && o.status !== 'cancelled' && o.status !== 'lapsed');
-  return hasOrder ? null : held;
+  const held = coverage?.held ?? null;
+  if (!coverage || !held || held.key === 'free' || !(held.key in PLAN_PRICE_CODES)) return null;
+  if (!coverage.granted) return null;
+  const keys = new Set(coverage.coveringKeys);
+  const baskets = new Set(coverage.basketOrderIds);
+  const covered = orders.some(
+    (o) => confers(o.status) && ((o.service_key != null && keys.has(o.service_key)) || baskets.has(o.order_id)),
+  );
+  return covered ? null : held;
 }
 
 /** Event Plus, Event Pro and Event Ultra, in pesos — null when the row is not on sale or could not be read. */

@@ -26,15 +26,10 @@
  *
  * Pure: no reads, no clock. The caller passes the rows it already read.
  */
-import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/vendor-funnel';
 import { homeTileForRow } from '@/lib/shortlist-taxonomy';
+import { bookedSupplierCount, isBookedStatus } from '@/lib/booked-status';
 
-const BOOKED: ReadonlySet<string> = new Set(BOOKED_EVENT_VENDOR_STATUSES);
-
-/** Is this `event_vendors.status` a booking? The one test every screen asks. */
-export function isBookedStatus(status: string | null | undefined): boolean {
-  return status != null && BOOKED.has(status);
-}
+export { bookedSupplierCount, isBookedStatus };
 
 export type BookedTallyRow = {
   vendor_id: string;
@@ -42,13 +37,6 @@ export type BookedTallyRow = {
   category: string;
   category_key?: string | null;
 };
-
-/** How many suppliers the couple has booked: distinct `vendor_id`s with a booked status. */
-export function bookedSupplierCount(rows: ReadonlyArray<Pick<BookedTallyRow, 'vendor_id' | 'status'>>): number {
-  const ids = new Set<string>();
-  for (const r of rows) if (isBookedStatus(r.status)) ids.add(r.vendor_id);
-  return ids.size;
-}
 
 export type BookedCategoryTally = {
   /** Categories on the event: the rows Find lists. */

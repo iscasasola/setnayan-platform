@@ -36,6 +36,10 @@ import {
   GOWN_ADD_ON_ASK,
   GOWN_ADD_ON_INCLUDED,
   sanitizeGownShopOptions,
+  type GownFabricColour,
+  type GownFabricTune,
+  type GownShopFabricInput,
+  type GownShopLookInput,
   type GownAddOnKey,
   type GownDesignForBride,
   type GownShopFabric,
@@ -332,4 +336,103 @@ export async function readGownFitting(supabase: SupabaseClient, designId: string
   if (!data) return { status: 'none' };
   const r = data as { fit: Record<string, number>; fit_at: string };
   return { status: 'ok', data: { tape: r.fit as GownTape, fitAt: r.fit_at } };
+}
+
+// ── B5 · the shop's own stock: every fabric, lace and look, hidden ones too, with prices (the shop only) ─────────────
+
+/** A row of the shop's stock list. Server → the shop's own panel only; never in a bride's read. */
+export type ShopGownStockFabric = GownShopFabricInput & { id: string };
+export type ShopGownStockLook = Omit<GownShopLookInput, 'id'> & { id: string };
+/** A fabric type the designer can pick, with its own values (the sliders start there). */
+export type GownFabricTypeOption = { id: string; name: string; sheen: number; sheer: number; stiff: number; verified: boolean };
+
+export async function readGownFabricTypes(client: SupabaseClient): Promise<Read<GownFabricTypeOption[]>> {
+  const { data, error } = await client.from('gown_fabric_types').select('type_id, name, sheen, sheer, stiff, verified').eq('active', true).order('sort');
+  if (error) {
+    logQueryError('readGownFabricTypes', error, {}, 'graceful_degrade');
+    return { status: 'unread' };
+  }
+  type Row = { type_id: string; name: string; sheen: number | string; sheer: number | string; stiff: number | string; verified: boolean };
+  return { status: 'ok', data: ((data ?? []) as Row[]).map((r) => ({ id: r.type_id, name: r.name, sheen: Number(r.sheen), sheer: Number(r.sheer), stiff: Number(r.stiff), verified: r.verified })) };
+}
+
+export async function readShopGownStock(admin: SupabaseClient, vendorProfileId: string): Promise<Read<{ fabrics: ShopGownStockFabric[]; looks: ShopGownStockLook[] }>> {
+  const [f, l] = await Promise.all([
+    admin
+      .from('vendor_gown_fabrics')
+      .select('fabric_id, kind, name, code, type_id, colours, price_per_metre_centavos, tune, thumb_key, tile_key, active')
+      .eq('vendor_profile_id', vendorProfileId)
+      .order('kind')
+      .order('sort')
+      .order('created_at'),
+    admin.from('vendor_gown_looks').select('look_id, name, photo_key, config, active').eq('vendor_profile_id', vendorProfileId).order('sort').order('created_at'),
+  ]);
+  if (f.error || l.error) {
+    logQueryError('readShopGownStock', (f.error ?? l.error)!, { vendor_profile_id: vendorProfileId }, 'graceful_degrade');
+    return { status: 'unread' };
+  }
+  type F = { fabric_id: string; kind: 'fabric' | 'lace'; name: string; code: string | null; type_id: string; colours: GownFabricColour[] | null; price_per_metre_centavos: number | string | null; tune: GownFabricTune | null; thumb_key: string | null; tile_key: string | null; active: boolean };
+  type L = { look_id: string; name: string; photo_key: string | null; config: unknown; active: boolean };
+  return {
+    status: 'ok',
+    data: {
+      fabrics: ((f.data ?? []) as F[]).map((r) => ({
+        id: r.fabric_id,
+        kind: r.kind,
+        name: r.name,
+        code: r.code,
+        typeId: r.type_id,
+        colours: Array.isArray(r.colours) ? r.colours : [],
+        pricePerMetreCentavos: r.price_per_metre_centavos == null ? null : Number(r.price_per_metre_centavos),
+        tune: r.tune ?? {},
+        thumbKey: r.thumb_key,
+        tileKey: r.tile_key,
+        active: r.active,
+      })),
+      looks: ((l.data ?? []) as L[]).map((r) => ({ id: r.look_id, name: r.name, photoKey: r.photo_key, config: r.config, active: r.active })),
+    },
+  };
+}
+
+/** Adds or changes one fabric or lace row of THIS shop (service role; an id from another shop matches nothing). */
+export async function saveShopGownFabric(admin: SupabaseClient, args: { vendorProfileId: string; fabric: GownShopFabricInput; userId: string }): Promise<string | null> {
+  const f = args.fabric;
+  const row = {
+    kind: f.kind,
+    name: f.name,
+    code: f.code,
+    type_id: f.typeId,
+    colours: f.colours,
+    price_per_metre_centavos: f.pricePerMetreCentavos,
+    tune: f.tune,
+    thumb_key: f.thumbKey,
+    tile_key: f.tileKey,
+    active: f.active,
+    updated_by: args.userId,
+    updated_at: new Date().toISOString(),
+  };
+  const q = f.id
+    ? admin.from('vendor_gown_fabrics').update(row).eq('fabric_id', f.id).eq('vendor_profile_id', args.vendorProfileId).select('fabric_id').maybeSingle()
+    : admin.from('vendor_gown_fabrics').insert({ ...row, vendor_profile_id: args.vendorProfileId }).select('fabric_id').single();
+  const { data, error } = await q;
+  if (error || !data) {
+    if (error) logQueryError('saveShopGownFabric', error, { vendor_profile_id: args.vendorProfileId }, 'graceful_degrade');
+    return null;
+  }
+  return (data as { fabric_id: string }).fabric_id;
+}
+
+/** Adds or changes one look of THIS shop (service role; the config is already checked by `sanitizeGownConfig`). */
+export async function saveShopGownLook(admin: SupabaseClient, args: { vendorProfileId: string; look: GownShopLookInput; userId: string }): Promise<string | null> {
+  const k = args.look;
+  const row = { name: k.name, photo_key: k.photoKey, config: k.config, active: k.active, updated_by: args.userId, updated_at: new Date().toISOString() };
+  const q = k.id
+    ? admin.from('vendor_gown_looks').update(row).eq('look_id', k.id).eq('vendor_profile_id', args.vendorProfileId).select('look_id').maybeSingle()
+    : admin.from('vendor_gown_looks').insert({ ...row, vendor_profile_id: args.vendorProfileId }).select('look_id').single();
+  const { data, error } = await q;
+  if (error || !data) {
+    if (error) logQueryError('saveShopGownLook', error, { vendor_profile_id: args.vendorProfileId }, 'graceful_degrade');
+    return null;
+  }
+  return (data as { look_id: string }).look_id;
 }

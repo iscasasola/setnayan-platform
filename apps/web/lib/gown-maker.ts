@@ -30,6 +30,7 @@ import {
 } from './gown-config';
 import { GOWN_ADD_ONS, type GownAddOnKey } from './gown-add-ons';
 import { formatCentavosPhp } from './php';
+import { parseClientRef } from './r2-client-ref';
 
 /** The suppliers the Attire Maker is suggested for (owner Q3, 2026-11-27: custom gown makers only for now). */
 export const GOWN_KINDS: ReadonlySet<string> = new Set(['bridal_gown_custom']);
@@ -519,4 +520,119 @@ export function gownDesignRefOf(body: string | null | undefined): string | null 
   if (at < 0) return null;
   const m = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*$/i.exec(text.slice(at + GOWN_DESIGN_REF.length));
   return m ? m[1]!.toLowerCase() : null;
+}
+
+// ── B5 · THE SHOP'S FABRICS, LACE AND LOOKS ─────────────────────────────────────────────────────────────────────────
+// One fabric or lace row and one look, as the designer saves them (plan step B5; drawing v196 "Fabrics and lace",
+// "Inspirations"; the four sliders are prototype v188 `tune:{shine,sheer,body,tex}`).
+
+/** The four sliders, each saved as an OFFSET from the fabric type's own value, so a later type edit still carries. */
+export const GOWN_FABRIC_TUNE = [
+  { key: 'shine', label: 'Shine' },
+  { key: 'sheer', label: 'See-through' },
+  { key: 'body', label: 'Body' },
+  { key: 'tex', label: 'Texture' },
+] as const;
+export type GownFabricTuneKey = (typeof GOWN_FABRIC_TUNE)[number]['key'];
+export type GownFabricTune = Partial<Record<GownFabricTuneKey, number>>;
+
+/** A colour a fabric comes in. The hex is the cloth's own colour (product data), not a page colour. */
+export type GownFabricColour = { name: string | null; hex: string };
+
+export type GownShopFabricInput = {
+  id: string | null;
+  kind: 'fabric' | 'lace';
+  name: string;
+  code: string | null;
+  typeId: string;
+  colours: GownFabricColour[];
+  /** Null = unpriced: a quote line for it stays unpriced. */
+  pricePerMetreCentavos: number | null;
+  tune: GownFabricTune;
+  thumbKey: string | null;
+  /** Patterned cloth only. A plain fabric has none, so picking it makes no tile request. */
+  tileKey: string | null;
+  active: boolean;
+};
+
+export type GownShopLookInput = { id: string | null; name: string; photoKey: string | null; config: unknown; active: boolean };
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const HEX_RE = /^#[0-9a-f]{6}$/i;
+const MAX_COLOURS = 24;
+
+/** A photo the shop uploaded must sit in its OWN gown folder of the public media bucket. */
+export function gownShopMediaPrefix(vendorProfileId: string): string {
+  return `vendors/${vendorProfileId}/gown/`;
+}
+function shopRef(v: unknown, vendorProfileId: string): string | null | false {
+  if (v == null || v === '') return null;
+  return parseClientRef(v, { prefixes: [gownShopMediaPrefix(vendorProfileId)] }) ? String(v).trim() : false;
+}
+const text = (v: unknown, max: number): string | null => {
+  if (typeof v !== 'string') return null;
+  const t = v.replace(/\s+/g, ' ').trim();
+  return t && t.length <= max ? t : null;
+};
+
+/** One fabric or lace row from the designer's device, checked. Refused (never thinned) when anything is off. */
+export function sanitizeGownShopFabric(
+  input: unknown,
+  ctx: { vendorProfileId: string; typeIds: ReadonlySet<string> },
+): { ok: true; fabric: GownShopFabricInput } | { ok: false; problem: string } {
+  const no = (problem: string) => ({ ok: false as const, problem });
+  if (!input || typeof input !== 'object') return no('That fabric could not be read.');
+  const r = input as Record<string, unknown>;
+  const id = r.id == null || r.id === '' ? null : typeof r.id === 'string' && UUID_RE.test(r.id) ? r.id.toLowerCase() : undefined;
+  if (id === undefined) return no('That fabric could not be read.');
+  if (r.kind !== 'fabric' && r.kind !== 'lace') return no('Choose fabric or lace.');
+  const name = text(r.name, 40);
+  if (!name) return no('Give it a name (up to 40 letters).');
+  const code = r.code == null || r.code === '' ? null : text(r.code, 40);
+  if (r.code != null && r.code !== '' && !code) return no('The code is up to 40 letters.');
+  if (typeof r.typeId !== 'string' || !ctx.typeIds.has(r.typeId)) return no('Choose what kind of cloth it is.');
+  if (!Array.isArray(r.colours) || r.colours.length > MAX_COLOURS) return no(`Up to ${MAX_COLOURS} colours.`);
+  const colours: GownFabricColour[] = [];
+  for (const c of r.colours) {
+    const o = (c ?? {}) as Record<string, unknown>;
+    if (typeof o.hex !== 'string' || !HEX_RE.test(o.hex)) return no('A colour could not be read.');
+    colours.push({ name: o.name == null || o.name === '' ? null : text(o.name, 30), hex: o.hex.toLowerCase() });
+  }
+  const price = r.pricePerMetreCentavos;
+  if (price != null && !isCentavos(price)) return no('The price per metre must be more than zero, or left empty.');
+  const tune: GownFabricTune = {};
+  const rawTune = (r.tune ?? {}) as Record<string, unknown>;
+  if (typeof rawTune !== 'object' || Array.isArray(rawTune)) return no('The sliders could not be read.');
+  for (const k of Object.keys(rawTune)) if (!GOWN_FABRIC_TUNE.some((t) => t.key === k)) return no('The sliders could not be read.');
+  for (const { key } of GOWN_FABRIC_TUNE) {
+    const v = rawTune[key];
+    if (v == null) continue;
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < -1 || v > 1) return no('The sliders could not be read.');
+    const rounded = Math.round(v * 100) / 100;
+    if (rounded !== 0) tune[key] = rounded;
+  }
+  const thumbKey = shopRef(r.thumbKey, ctx.vendorProfileId);
+  const tileKey = shopRef(r.tileKey, ctx.vendorProfileId);
+  if (thumbKey === false || tileKey === false) return no('That photo could not be used. Upload it again.');
+  return {
+    ok: true,
+    fabric: { id, kind: r.kind, name, code, typeId: r.typeId, colours, pricePerMetreCentavos: (price as number | null) ?? null, tune, thumbKey, tileKey, active: r.active !== false },
+  };
+}
+
+/** One look from the designer's device: its name and photo checked here; the design itself by `sanitizeGownConfig`. */
+export function sanitizeGownShopLookShell(
+  input: unknown,
+  vendorProfileId: string,
+): { ok: true; look: Omit<GownShopLookInput, 'config'>; config: unknown } | { ok: false; problem: string } {
+  const no = (problem: string) => ({ ok: false as const, problem });
+  if (!input || typeof input !== 'object') return no('That look could not be read.');
+  const r = input as Record<string, unknown>;
+  const id = r.id == null || r.id === '' ? null : typeof r.id === 'string' && UUID_RE.test(r.id) ? r.id.toLowerCase() : undefined;
+  if (id === undefined) return no('That look could not be read.');
+  const name = text(r.name, 60);
+  if (!name) return no('Give the look a name (up to 60 letters).');
+  const photoKey = shopRef(r.photoKey, vendorProfileId);
+  if (photoKey === false) return no('That photo could not be used. Upload it again.');
+  return { ok: true, look: { id, name, photoKey, active: r.active !== false }, config: r.config };
 }

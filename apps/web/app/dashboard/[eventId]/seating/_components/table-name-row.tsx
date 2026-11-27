@@ -1,9 +1,10 @@
 'use client';
 
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo, useRef, useState } from 'react';
 import { Check } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { ActionButton } from '@/components/action-button';
+import { TypedRow } from '@/app/_components/form-row';
 import {
   autoNameFor,
   hostNameClash,
@@ -50,6 +51,7 @@ export function TableNameSheet({
   const table = tables.find((t) => t.table_id === tableId) ?? null;
   const hostName = table && table.label_is_auto !== true ? (table.table_label ?? '') : '';
   const [typed, setTyped] = useState(hostName);
+  const saved = useRef(false);
   const { info, names, autoName } = useMemo(
     () => ({
       info: tableNameInfos(tables, seated, groups).get(tableId) ?? null,
@@ -64,7 +66,9 @@ export function TableNameSheet({
   const unchanged = trimmed === hostName.trim();
 
   const save = (label: string) => {
-    if (!canEdit || hostNameClash(tableId, label, names)) return;
+    // One save per opening: the field's keep and the Save button can both fire for the same name.
+    if (saved.current || !canEdit || hostNameClash(tableId, label, names)) return;
+    saved.current = true;
     onSave(label);
     onClose();
   };
@@ -75,28 +79,25 @@ export function TableNameSheet({
         <h2 id={headingId} className="pr-10 text-sn-xl font-semibold text-ink">
           {info.name}
         </h2>
-        <form
-          className="mt-3 flex flex-col gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            save(trimmed);
-          }}
-        >
-          <label className="flex flex-col gap-1">
-            <span className="text-sn-sm font-semibold text-ink/70">Name</span>
-            <input
-              className="input-field"
-              value={typed}
-              maxLength={64}
-              autoComplete="off"
-              placeholder={autoName}
-              disabled={!canEdit}
-              aria-invalid={clash ? true : undefined}
-              aria-describedby={`${headingId}-why`}
-              onChange={(e) => setTyped(e.currentTarget.value)}
-            />
-          </label>
-          <p id={`${headingId}-why`} className={`text-sn-md ${clash ? 'text-mulberry' : 'text-ink/70'}`} data-table-name-why="">
+        <div className="mt-3 flex flex-col gap-2">
+          <TypedRow
+            name="Name"
+            boxed
+            value={hostName}
+            empty={autoName}
+            placeholder={autoName}
+            maxLength={64}
+            autoComplete="off"
+            readOnly={!canEdit}
+            check={(text) => hostNameClash(tableId, text.trim(), names)}
+            onType={setTyped}
+            onKeep={(text) => {
+              // Tap out · Enter keeps the name at once — the same save as the button below.
+              if (text.trim() !== hostName.trim()) save(text.trim());
+            }}
+            attrs={{ 'data-table-name-box': '' }}
+          />
+          <p className={`text-sn-md ${clash ? 'text-mulberry' : 'text-ink/70'}`} data-table-name-why="">
             {clash ?? tableNameWhyWords(info.why)}
           </p>
           {info.why.kind === 'host' && canEdit ? (
@@ -110,15 +111,15 @@ export function TableNameSheet({
             </button>
           ) : null}
           <ActionButton
-            type="submit"
             tone="brand"
             main
             icon={Check}
             label="Save"
+            onClick={() => save(trimmed)}
             disabled={!canEdit || Boolean(clash) || (unchanged && info.why.kind === 'host') || (trimmed === '' && info.why.kind !== 'host')}
             className="mt-2"
           />
-        </form>
+        </div>
       </div>
     </Sheet>
   );

@@ -239,6 +239,9 @@ test('what this design needs: v186 GMEAS conditions', () => {
 
 test('quantities carry no money: unknown keys (a price, a cost) are refused, counts are whole, guards hold', () => {
   const q = emptyGownQuantities();
+  // The veil's tulle is its own quantity, apart from the petticoat's (Builder B: a priced veil is never counted twice).
+  assert.equal(q.materials.veilM, 0);
+  assert.ok(sanitizeGownQuantities({ ...q, materials: { ...q.materials, netM: 6, veilM: 3.5 } }).ok);
   const keys = JSON.stringify(q);
   assert.ok(!/price|cost|centavo|peso|amount|rate|markup/i.test(keys), 'no money word in any quantity key');
   refused(sanitizeGownQuantities({ ...q, price: 1 }), 'quantities', 'a price beside the quantities');

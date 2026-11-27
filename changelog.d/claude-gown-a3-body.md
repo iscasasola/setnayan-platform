@@ -18,6 +18,8 @@
   - the hip curves into the waist, and the seat is rounded on slim and average bodies too;
   - her shoulders start at 24.5 % of her height (was 23 %). This also changes the contract's default (38 cm) and
     the body rules' one shoulder estimate, which the solver now calls instead of keeping its own copy.
+- Contract: the veil's tulle is its own quantity (`veilM`), apart from the petticoat's, so a priced veil add-on is
+  never counted twice (asked by Builder B).
 - Held to the prototype's own numbers: the v164 sweep (10 bodies × bust Higher / Average / Lower) was run in the prototype
   itself at v189 and saved as a fixture. The port fits every tape within 0.1 cm, matches the prototype within 0.1 cm, weighs the
   same within 0.5 kg, and estimates the same measurements. The bust stops at underbust + 28 cm with the ribcage

@@ -803,8 +803,10 @@ export type GownQuantities = {
     /** The accent fabric for the sleeves, when it is not the outer. */
     accentM: number;
     liningM: number;
-    /** Petticoat and veil tulle. */
+    /** Petticoat tulle (the skirt's layers only). */
     netM: number;
+    /** The veil's own tulle, apart from the petticoat's, so a priced veil add-on is never counted twice. */
+    veilM: number;
     illusionM: number;
     boningM: number;
     /** Lace by the yard (tiled lace and sheer lace sleeves). */
@@ -843,7 +845,7 @@ export type GownQuantities = {
 };
 
 export const GOWN_MATERIAL_KEYS = [
-  'outerM', 'accentM', 'liningM', 'netM', 'illusionM', 'boningM', 'laceYardM', 'laceMotifs', 'horsehairM', 'cordM', 'pipingM', 'fringeM',
+  'outerM', 'accentM', 'liningM', 'netM', 'veilM', 'illusionM', 'boningM', 'laceYardM', 'laceMotifs', 'horsehairM', 'cordM', 'pipingM', 'fringeM',
   'featherM', 'ruffleM', 'zippers', 'buttons', 'eyelets', 'waistStays', 'hoops',
 ] as const satisfies readonly Exclude<keyof GownQuantities['materials'], 'beads'>[];
 type GownMaterialKey = (typeof GOWN_MATERIAL_KEYS)[number];

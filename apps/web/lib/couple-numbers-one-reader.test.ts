@@ -10,6 +10,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from './strip-comments';
 
 import { bookedCategoryTally, bookedSupplierCount, isBookedStatus } from './booked-tally';
 import { resolveBenchRing, ringBuildCount } from './explore-in-plan';
@@ -27,8 +28,8 @@ import { inPlanningWeddingNames, inPlanningWeddingOf } from '../app/dashboard/(a
 
 const ROOT = join(__dirname, '..');
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8');
-/** Strip comments, so a guard never passes on a note that merely names the reader. */
-const code = (rel: string) => read(rel).replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+/** Strip comments (the one stripper), so a guard never passes on a note that merely names the reader. */
+const code = (rel: string) => stripComments(read(rel));
 
 /* ── the fixture: event 947e7bab, as read out of prod on 27 Nov (names kept, money illustrative) ── */
 const EVENT_947E = [

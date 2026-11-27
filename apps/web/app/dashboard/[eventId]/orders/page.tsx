@@ -97,7 +97,7 @@ export default async function CoupleOrdersPage({ params, searchParams }: Props) 
             <p className="line-clamp-1 text-sm font-semibold text-ink">{heldPlan.name}</p>
             <p className="text-xs uppercase tracking-[0.06em] text-ink/70">Your plan on this event</p>
           </div>
-          <span className={`rounded-full px-2 py-0.5 font-mono text-xs uppercase tracking-[0.06em] ${ORDER_STATUS_TONE.paid}`}>
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${ORDER_STATUS_TONE.paid}`}>
             Active
           </span>
         </div>

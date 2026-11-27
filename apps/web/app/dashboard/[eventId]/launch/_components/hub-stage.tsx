@@ -130,10 +130,13 @@ export function HubStage({
         </div>
 
         {eventId && slugAction ? (
-          <div
-            className="rounded-xl p-4"
-            style={{ backgroundColor: OB.card, border: `1px solid ${OB.hairline}` }}
-          >
+          /* 🔆 THE ADDRESS SITS IN A HOUSE FRAME, NOT ON OBSIDIAN (Apple build 10 screenshots, 27 Nov 2026: "Address"
+             and "This is your address now" dark on a dark box). `SlugField` is the shipped field and paints with
+             the house tokens (`text-ink/55`, `.input-field`, `.button-secondary`). In Light those are dark words, and on
+             `OB.card` (dark in both themes) `text-ink` is 1.27:1 (the table in `site-stage/obsidian.ts`).
+             The house frame pairs them: a light box in Light, the raised dark card in Dark, ink to match.
+             🔒 the-address-box-is-readable.test.ts */
+          <div data-hub-stage-address="" className="sn-frame">
             <SlugField eventId={eventId} initialSlug={slug ?? ''} saveAction={slugAction} />
             {/* The address is never drafted (the build plan's rule) — say so. */}
             <HubSavesImmediately className="mt-2" />

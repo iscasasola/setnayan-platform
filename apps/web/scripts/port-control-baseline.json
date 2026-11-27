@@ -13371,8 +13371,7 @@
         "/dashboard/[seg]/vendors/[seg]/workspace?tab=payments",
         "/dashboard/[seg]/vendors/categories",
         "/dashboard/[seg]/vendors?open=[seg]",
-        "/dashboard/[seg]/vendors?tab=budget&team=[seg]",
-        "/dashboard/[seg]/vendors?tab=shortlist"
+        "/dashboard/[seg]/vendors?tab=budget&team=[seg]"
       ],
       "actions": [
         "acceptVendorReuseForm",

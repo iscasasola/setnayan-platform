@@ -1,5 +1,5 @@
-import Link from 'next/link';
 import { HOSTS_KEEP_THIS } from '../../_components/hosts-keep-this';
+import { FindOpen } from './find-open';
 
 /**
  * 🧭 THE COORDINATOR'S SUPPLIERS LINE (owner 2026-11-21; drawing `their_event_door_2026-11-21`, frame "4 · Suppliers":
@@ -9,19 +9,21 @@ import { HOSTS_KEEP_THIS } from '../../_components/hosts-keep-this';
  */
 export const HELP_THE_HOSTS_CHOOSE = 'Help the hosts choose. They book and pay.';
 
-export function HelpTheHostsChoose({ eventId }: { eventId: string }) {
+// `eventId` stays in the props for the callers; the Find verb no longer builds an address from it.
+export function HelpTheHostsChoose(_props: { eventId: string }) {
   const row = 'flex min-h-11 items-center justify-between gap-3 border-t border-ink/10 py-2 first:border-t-0';
   return (
     <div className="py-2" data-help-the-hosts-choose="">
       <p className="text-sm font-medium text-ink">{HELP_THE_HOSTS_CHOOSE}</p>
       <div className="mt-2">
-        <Link href={`/dashboard/${eventId}/vendors?tab=shortlist`} className={row} data-coordinator-supplier-verb="find">
+        {/* Not a link to this same page: the shell reads `?tab=` once, so a soft navigation here moved nothing. */}
+        <FindOpen className={row}>
           <span>
             <span className="block text-[15px] text-ink">Find</span>
             <span className="block text-[13px] text-ink/60">Look through shops</span>
           </span>
           <span className="text-[14px] font-medium text-sn-accent">Open</span>
-        </Link>
+        </FindOpen>
         <div className={row} data-coordinator-supplier-verb="recommend">
           <span>
             <span className="block text-[15px] text-ink">Recommend a partner</span>

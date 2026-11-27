@@ -1,0 +1,255 @@
+/**
+ * apps/web/lib/social/library-import.ts — turns the planned Facebook library (specs corpus, library v2 CSV) into ONE
+ * migration that inserts each row into social_posts. Pure: no I/O, no env. The command line is
+ * `apps/web/scripts/social/import-library.ts`.
+ *
+ * Owner, 28 Nov 2026: posting is automatic in three Manila slots (08:00 · 14:00 · 20:00, plus the 12:00 holiday
+ * extra), and the daily cap counts the planned posts. So each library row becomes a `social_posts` row:
+ *
+ *   source_type   'library'
+ *   source_ref    a stable hash of date + slot (`librarySourceRef`) — one planned post per slot, ever
+ *   title         Pillar · Link headline (the queue's label)
+ *   body          Caption (primary text)
+ *   link_url      the Door, made absolute on setnayan.com
+ *   media_url     the first image, only when it is already a public http(s) URL (else the branded card is used)
+ *   first_comment the Pinned first comment
+ *   slot          morning / afternoon / evening / holiday, from Time (Manila)
+ *   scheduled_for Date + Time in Manila (+08:00, no DST), stored as UTC
+ *   status        'scheduled'
+ *
+ * Idempotent: the INSERT skips any row whose ('library', source_ref) already exists in ANY status (a pulled planned
+ * post stays pulled), and the partial-unique index (source_type, source_ref) is the backstop. Running the same
+ * migration twice inserts nothing the second time.
+ */
+import { createHash } from 'node:crypto';
+
+import { slotInstant, type SocialSlot } from './governor';
+
+/** The site every Door hangs off. */
+export const LIBRARY_DOOR_ORIGIN = 'https://setnayan.com';
+
+export type LibraryRow = {
+  line: number;
+  date: string;
+  slot: SocialSlot;
+  sourceRef: string;
+  scheduledFor: string;
+  title: string;
+  body: string;
+  linkUrl: string | null;
+  mediaUrl: string | null;
+  firstComment: string | null;
+};
+
+export type LibraryParse = { rows: LibraryRow[]; errors: string[]; warnings: string[] };
+
+/** RFC 4180 CSV: quoted fields, doubled quotes, newlines inside quotes, CRLF, a leading BOM. */
+export function parseCsv(text: string): string[][] {
+  const src = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let quoted = false;
+  for (let i = 0; i < src.length; i += 1) {
+    const c = src[i];
+    if (quoted) {
+      if (c === '"') {
+        if (src[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else quoted = false;
+      } else field += c;
+    } else if (c === '"') quoted = true;
+    else if (c === ',') {
+      row.push(field);
+      field = '';
+    } else if (c === '\n' || c === '\r') {
+      if (c === '\r' && src[i + 1] === '\n') i += 1;
+      row.push(field);
+      rows.push(row);
+      row = [];
+      field = '';
+    } else field += c;
+  }
+  if (field !== '' || row.length > 0) {
+    row.push(field);
+    rows.push(row);
+  }
+  return rows.filter((r) => r.some((cell) => cell.trim() !== ''));
+}
+
+/** The one place a planned post's identity is made: date + slot, hashed. Never changes for the same pair. */
+export function librarySourceRef(date: string, slot: SocialSlot): string {
+  return `lib-${createHash('sha256').update(`${date}|${slot}`).digest('hex').slice(0, 24)}`;
+}
+
+const TIME_TO_SLOT: Readonly<Record<string, SocialSlot>> = {
+  '08:00': 'morning',
+  '12:00': 'holiday',
+  '14:00': 'afternoon',
+  '20:00': 'evening',
+};
+
+/** "8:00", "08:00", "8:00 AM", "2:00 PM", "14:00" → "HH:MM", or null. */
+export function normalizeManilaTime(raw: string): string | null {
+  const m = raw.trim().match(/^(\d{1,2}):(\d{2})\s*(am|pm|nn)?$/i);
+  if (!m) return null;
+  let hour = Number(m[1]);
+  const minute = Number(m[2]);
+  const mer = m[3]?.toLowerCase();
+  if (mer === 'pm' && hour < 12) hour += 12;
+  if (mer === 'am' && hour === 12) hour = 0;
+  if (hour > 23 || minute > 59) return null;
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+/** The Door as an absolute setnayan.com URL: an http(s) URL as is, "/path", or "setnayan.com/path". */
+export function doorToUrl(raw: string): string | null {
+  const door = raw.trim();
+  if (!door) return null;
+  if (/^https?:\/\//i.test(door)) return door;
+  if (door.startsWith('/')) return `${LIBRARY_DOOR_ORIGIN}${door}`;
+  const bare = door.match(/^(?:www\.)?setnayan\.com(\/\S*)?$/i);
+  if (bare) return `${LIBRARY_DOOR_ORIGIN}${bare[1] ?? ''}`;
+  return null;
+}
+
+/** Find a column by its header, case-insensitive, by prefix (library v1 says "Pinned first comment (post by hand…)"). */
+function columnIndex(header: string[], ...names: string[]): number {
+  const cells = header.map((h) => h.trim().toLowerCase());
+  for (const name of names) {
+    const want = name.toLowerCase();
+    const i = cells.findIndex((h) => h === want || h.startsWith(`${want} `) || h.startsWith(`${want}(`));
+    if (i >= 0) return i;
+  }
+  return -1;
+}
+
+/** Read the library CSV into rows. Bad rows are listed in `errors` and left out; nothing is guessed. */
+export function libraryRowsFromCsv(text: string): LibraryParse {
+  const table = parseCsv(text);
+  const errors: string[] = [];
+  const warnings: string[] = [];
+  const header = table[0] ?? [];
+  const col = {
+    date: columnIndex(header, 'Date'),
+    time: columnIndex(header, 'Time (Manila)', 'Time'),
+    slot: columnIndex(header, 'Slot'),
+    pillar: columnIndex(header, 'Pillar'),
+    caption: columnIndex(header, 'Caption (primary text)', 'Caption'),
+    headline: columnIndex(header, 'Link headline'),
+    comment: columnIndex(header, 'Pinned first comment'),
+    door: columnIndex(header, 'Door'),
+    images: columnIndex(header, 'Images'),
+  };
+  for (const required of ['date', 'time', 'caption'] as const) {
+    if (col[required] < 0) errors.push(`The CSV has no "${required}" column.`);
+  }
+  if (errors.length > 0) return { rows: [], errors, warnings };
+
+  const cell = (r: string[], i: number) => (i >= 0 ? (r[i] ?? '').trim() : '');
+  const seen = new Map<string, number>();
+  const rows: LibraryRow[] = [];
+
+  table.slice(1).forEach((r, idx) => {
+    const line = idx + 2;
+    const date = cell(r, col.date);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || Number.isNaN(new Date(`${date}T00:00:00Z`).getTime())) {
+      errors.push(`Line ${line}: date "${date}" is not YYYY-MM-DD.`);
+      return;
+    }
+    const time = normalizeManilaTime(cell(r, col.time));
+    const slot = time ? TIME_TO_SLOT[time] : undefined;
+    if (!slot) {
+      errors.push(`Line ${line}: time "${cell(r, col.time)}" is not a slot (08:00, 12:00 holiday, 14:00, 20:00).`);
+      return;
+    }
+    const slotLabel = cell(r, col.slot).toLowerCase();
+    if (slotLabel && slotLabel.includes('holiday') !== (slot === 'holiday')) {
+      errors.push(`Line ${line}: slot "${cell(r, col.slot)}" does not match time ${time} (holidays post at 12:00).`);
+      return;
+    }
+    const body = cell(r, col.caption);
+    if (!body) {
+      errors.push(`Line ${line}: the caption is empty.`);
+      return;
+    }
+    const key = `${date}|${slot}`;
+    if (seen.has(key)) {
+      errors.push(`Line ${line}: ${date} ${time} is already planned on line ${seen.get(key)}. One post per slot.`);
+      return;
+    }
+    seen.set(key, line);
+
+    const doorRaw = cell(r, col.door);
+    const linkUrl = doorToUrl(doorRaw);
+    if (doorRaw && !linkUrl) warnings.push(`Line ${line}: door "${doorRaw}" is not a setnayan.com link; no link set.`);
+    const firstImage = cell(r, col.images).split('|')[0]?.trim() ?? '';
+    const mediaUrl = /^https?:\/\//i.test(firstImage) ? firstImage : null;
+    if (firstImage && !mediaUrl) {
+      warnings.push(`Line ${line}: image "${firstImage}" is not a public URL; the branded card is used.`);
+    }
+    const pillar = cell(r, col.pillar);
+    const headline = cell(r, col.headline);
+
+    rows.push({
+      line,
+      date,
+      slot,
+      sourceRef: librarySourceRef(date, slot),
+      scheduledFor: slotInstant(date, slot).toISOString(),
+      title: [pillar, headline].filter(Boolean).join(' · ') || `Planned post · ${date} ${time}`,
+      body,
+      linkUrl,
+      mediaUrl,
+      firstComment: cell(r, col.comment) || null,
+    });
+  });
+
+  return { rows, errors, warnings };
+}
+
+/** A SQL string literal (standard_conforming_strings: only the quote is doubled). */
+export function sqlText(value: string | null): string {
+  return value === null ? 'NULL' : `'${value.replace(/'/g, "''")}'`;
+}
+
+/** The migration body that inserts every row once. Same rows in → same bytes out. */
+export function libraryMigrationSql(rows: readonly LibraryRow[], sourceLabel: string): string {
+  const header = [
+    '-- ============================================================================',
+    `-- Planned Facebook library → social_posts (source_type 'library').`,
+    `-- Generated by apps/web/scripts/social/import-library.ts from ${sourceLabel.replace(/\n/g, ' ')}.`,
+    `-- ${rows.length} planned post(s). Idempotent: a row whose ('library', source_ref) already exists in any`,
+    '-- status is skipped, so re-running inserts nothing. Do not edit by hand; re-generate.',
+    '-- ============================================================================',
+    '',
+  ];
+  if (rows.length === 0) return [...header, '-- No rows.', ''].join('\n');
+  const values = rows
+    .map(
+      (r) =>
+        `  (${sqlText(r.sourceRef)}, ${sqlText(r.title)}, ${sqlText(r.body)}, ${sqlText(r.mediaUrl)}, ` +
+        `${sqlText(r.linkUrl)}, ${sqlText(r.scheduledFor)}::timestamptz, ${sqlText(r.slot)}, ${sqlText(r.firstComment)})`,
+    )
+    .join(',\n');
+  return [
+    ...header,
+    'BEGIN;',
+    '',
+    'INSERT INTO public.social_posts',
+    '  (source_type, source_ref, title, body, media_url, link_url, scheduled_for, slot, first_comment, status)',
+    "SELECT 'library', v.source_ref, v.title, v.body, v.media_url, v.link_url, v.scheduled_for, v.slot, v.first_comment, 'scheduled'",
+    'FROM (VALUES',
+    values,
+    ') AS v(source_ref, title, body, media_url, link_url, scheduled_for, slot, first_comment)',
+    'WHERE NOT EXISTS (',
+    '  SELECT 1 FROM public.social_posts p',
+    "   WHERE p.source_type = 'library' AND p.source_ref = v.source_ref",
+    ')',
+    "ON CONFLICT (source_type, source_ref) WHERE source_type != 'evergreen' AND status != 'pulled' DO NOTHING;",
+    '',
+    'COMMIT;',
+    '',
+  ].join('\n');
+}

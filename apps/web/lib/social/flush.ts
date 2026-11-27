@@ -13,13 +13,19 @@ import {
   type ShareArtifactType,
   type ShareCreditMode,
 } from '@/lib/social-sharing';
-import { nextAvailableSlot } from '@/lib/social/governor';
+import {
+  AUTO_POST_SLOT,
+  nextFreeSlot,
+  slotClashLosers,
+  slotVerdict,
+} from '@/lib/social/governor';
+import { sweepLiveUpdate } from '@/lib/social/live-update.server';
 import { isRecapSocialShareAllowed } from '@/lib/social/recap-post';
 import { isBadgeSocialShareAllowed } from '@/lib/social/badge-post';
 import { vendorIdFromBadgeRef } from '@/lib/social/lane-s';
 import { sweepMilestones } from '@/lib/social/milestones';
 import { sweepJournalArticles } from '@/lib/social/articles-sweep';
-import { isFacebookConfigured, postToFacebookPage } from '@/lib/social/facebook';
+import { commentOnFacebookPost, isFacebookConfigured, postToFacebookPage } from '@/lib/social/facebook';
 import { isInstagramConfigured, postToInstagramFeed } from '@/lib/social/instagram';
 import { isTikTokConfigured, postPhotoToTikTok } from '@/lib/social/tiktok';
 import { siteUrl, socialCardUrl } from '@/lib/social/urls';
@@ -44,7 +50,12 @@ import { siteUrl, socialCardUrl } from '@/lib/social/urls';
  *      (real counts with test + sample data left out · aggregate numbers
  *      only · lib/social/milestones.ts), an evergreen
  *      content floor when the page goes quiet, take-down awareness for
- *      revoked consents, then governor slot assignment (§ 8.3b cadence).
+ *      revoked consents, then the SLOTS (owner 2026-11-28, lib/social/governor.ts):
+ *      rows on a missed or non-slot time are re-slotted, a planned post wins a
+ *      contested slot, every waiting auto-post gets the next free 14:00, and
+ *      an empty 14:00 today gets the live update (lib/social/live-update.server.ts).
+ *      The planned library (source_type 'library') arrives by migration with
+ *      its own slot and is never re-composed.
  *   2. DISPATCH — only when autopublish_enabled AND at least one platform is
  *      enabled + configured (Facebook and/or Instagram): publish up to 3 due
  *      rows to every enabled+configured platform, with per-row claim
@@ -83,7 +94,9 @@ type PostRow = {
     | 'announcement'
     | 'evergreen'
     | 'event_recap'
-    | 'supplier_badge';
+    | 'supplier_badge'
+    | 'library'
+    | 'live_update';
   source_ref: string;
   title: string | null;
   body: string;
@@ -94,6 +107,10 @@ type PostRow = {
   scheduled_for: string | null;
   status: string;
   platform_results: Record<string, unknown>;
+  /** morning · afternoon · evening · holiday (migration 20271365405436); null on older rows. */
+  slot: string | null;
+  /** Posted as the first comment right after the Facebook post (the library's "Pinned first comment"). */
+  first_comment: string | null;
 };
 
 /**
@@ -137,7 +154,9 @@ export async function runSocialFlush(): Promise<void> {
     await sweepMilestones(admin);
     await sweepEvergreenFloor(admin, now);
     await sweepTakedowns(admin, now);
+    await reslotQueue(admin, now);
     await assignSchedules(admin, now);
+    await sweepLiveUpdate(admin, now);
 
     // ── Phase 2: dispatch (master switch + ≥1 enabled+configured platform) ─
     // TikTok auto-post is GATED behind isTikTokConfigured() (a token present):
@@ -445,10 +464,86 @@ async function sweepTakedowns(admin: AdminClient, now: Date): Promise<void> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Governor pass: every 'scheduled' row without a slot gets the next § 8.3b
-// slot (PH prime window · FB ≤3/day · ≥3h spacing). The eligibility floor is
-// max(now, publish_after, hold_until) so a slot is never burned on a row
-// that couldn't dispatch there anyway.
+// Slot pass (owner 2026-11-28 · lib/social/governor.ts). Every queued row must
+// sit on a slot instant: 08:00 · 14:00 · 20:00 Manila, or 12:00 for a planned
+// holiday greeting. Three fixes, before any slot is handed out:
+//   • a row whose slot closed unposted (no traffic reached the flush in that
+//     hour), or that sits on an old non-slot time (the 12–1 PM / 7–9 PM windows
+//     before 28 Nov), loses its time and is re-slotted below;
+//   • a planned post (library row or holiday greeting) whose slot passed is
+//     never posted late: it fails with the reason recorded;
+//   • two rows on one slot: the planned post keeps it (slotClashLosers).
+// ─────────────────────────────────────────────────────────────────────────────
+async function reslotQueue(admin: AdminClient, now: Date): Promise<void> {
+  // The last day (sent rows still guard their slot) through the next two days (nothing further out can be
+  // missed or contested yet — the year-long planned library waits outside this window).
+  const sinceIso = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const untilIso = new Date(now.getTime() + 48 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await admin
+    .from('social_posts')
+    .select('post_id, source_type, status, scheduled_for, slot, created_at, platform_results')
+    .in('status', ['scheduled', 'publishing', 'published'])
+    .or(`status.eq.scheduled,scheduled_for.gte.${sinceIso}`)
+    .lte('scheduled_for', untilIso)
+    .order('scheduled_for', { ascending: true })
+    .limit(1000);
+  if (error) {
+    logQueryError('runSocialFlush (slot scan)', error);
+    return;
+  }
+  const rows = (data ?? []) as Array<{
+    post_id: string;
+    source_type: string;
+    status: string;
+    scheduled_for: string | null;
+    slot: string | null;
+    created_at: string;
+    platform_results: Record<string, unknown> | null;
+  }>;
+
+  const toReslot = new Set<string>(slotClashLosers(rows));
+  for (const row of rows) {
+    if (row.status !== 'scheduled') continue;
+    const verdict = slotVerdict(row, now);
+    if (verdict === 'reslot') toReslot.add(row.post_id);
+    if (verdict === 'expire') {
+      const { error: expireErr } = await admin
+        .from('social_posts')
+        .update({
+          status: 'failed',
+          platform_results: {
+            ...(row.platform_results ?? {}),
+            dispatch: {
+              status: 'failed',
+              external_id: null,
+              posted_at: null,
+              error:
+                'Missed its planned slot: no visit reached the site in that hour, and a planned post is never posted late. Retry puts it on the next free 2 PM.',
+            },
+          },
+          updated_at: now.toISOString(),
+        })
+        .eq('post_id', row.post_id)
+        .eq('status', 'scheduled');
+      if (expireErr) logQueryError('runSocialFlush (expire planned post)', expireErr, { post_id: row.post_id });
+    }
+  }
+  if (toReslot.size === 0) return;
+
+  const { error: clearErr } = await admin
+    .from('social_posts')
+    .update({ scheduled_for: null, updated_at: now.toISOString() })
+    .in('post_id', Array.from(toReslot))
+    .eq('status', 'scheduled');
+  if (clearErr) logQueryError('runSocialFlush (re-slot)', clearErr);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Governor pass: every 'scheduled' row without a slot gets the next FREE 14:00
+// (owner 2026-11-28: 2 PM carries every post that fits neither 8 AM nor 8 PM,
+// and one post per slot is the daily cap, planned posts counted). The floor is
+// max(now, publish_after, hold_until), so a slot is never burned on a row that
+// could not go out there.
 // ─────────────────────────────────────────────────────────────────────────────
 async function assignSchedules(admin: AdminClient, now: Date): Promise<void> {
   const { data: unscheduledData, error: unscheduledErr } = await admin
@@ -469,17 +564,21 @@ async function assignSchedules(admin: AdminClient, now: Date): Promise<void> {
   }>;
   if (unscheduled.length === 0) return;
 
-  // Taken slots = everything scheduled or published in the last 24h plus the
-  // whole forward queue (anything with scheduled_for ≥ now − 24h).
+  // Taken = every 14:00 a post holds from the last 24h on, the planned library included (rows from before the
+  // slot column have slot NULL and count too). A planned 14:00 missed here still wins its slot in the next slot
+  // pass (slotClashLosers).
   const takenCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
   const { data: takenData, error: takenErr } = await admin
     .from('social_posts')
     .select('scheduled_for')
     .in('status', ['scheduled', 'publishing', 'published'])
-    .gte('scheduled_for', takenCutoff);
+    .or(`slot.is.null,slot.eq.${AUTO_POST_SLOT}`)
+    .gte('scheduled_for', takenCutoff)
+    .order('scheduled_for', { ascending: true })
+    .limit(1000);
   if (takenErr) {
     logQueryError('runSocialFlush (taken slots)', takenErr);
-    return;
+    return; // cannot see the plan — hand out nothing rather than double a slot
   }
   const takenSlots = ((takenData ?? []) as Array<{ scheduled_for: string | null }>)
     .map((r) => (r.scheduled_for ? new Date(r.scheduled_for) : null))
@@ -493,12 +592,13 @@ async function assignSchedules(admin: AdminClient, now: Date): Promise<void> {
         row.hold_until ? new Date(row.hold_until).getTime() : 0,
       ),
     );
-    const slot = nextAvailableSlot('facebook', takenSlots, floor);
+    const slot = nextFreeSlot(AUTO_POST_SLOT, takenSlots, floor);
     const { error } = await admin
       .from('social_posts')
-      .update({ scheduled_for: slot.toISOString(), updated_at: now.toISOString() })
+      .update({ scheduled_for: slot.toISOString(), slot: AUTO_POST_SLOT, updated_at: now.toISOString() })
       .eq('post_id', row.post_id)
-      .eq('status', 'scheduled');
+      .eq('status', 'scheduled')
+      .is('scheduled_for', null);
     if (error) {
       logQueryError('runSocialFlush (assign slot)', error, { post_id: row.post_id });
       continue;
@@ -514,6 +614,13 @@ type PlatformLeg = {
   post_url?: string | null;
   posted_at: string | null;
   error: string | null;
+  /** Facebook only: the first comment under the post, and the pin (the Graph API cannot pin: always by hand). */
+  first_comment?: {
+    status: 'posted' | 'failed';
+    comment_id: string | null;
+    pin: 'pin by hand';
+    error: string | null;
+  };
 };
 
 /** Short TikTok post title — the internal title, else the first body line; the
@@ -555,7 +662,7 @@ async function dispatchDuePosts(
   const { data: dueData, error: dueErr } = await admin
     .from('social_posts')
     .select(
-      'post_id, source_type, source_ref, title, body, media_url, link_url, publish_after, hold_until, scheduled_for, status, platform_results',
+      'post_id, source_type, source_ref, title, body, media_url, link_url, publish_after, hold_until, scheduled_for, status, platform_results, slot, first_comment',
     )
     .eq('status', 'scheduled')
     .lte('scheduled_for', nowIso)
@@ -570,6 +677,9 @@ async function dispatchDuePosts(
   const due = (dueData ?? []) as PostRow[];
 
   for (const post of due) {
+    // Never outside a slot (owner 2026-11-28): only a row inside its slot's open hour goes out. The slot pass at
+    // the top of this flush has already re-slotted anything missed or off-slot.
+    if (slotVerdict(post, now) !== 'publish') continue;
     try {
       // Social follow-through #2 — recap re-post GATE (dispatch half). A recap
       // post must NEVER go out when the couple opted out (recap_social_optout_at)
@@ -632,6 +742,15 @@ async function dispatchDuePosts(
             posted_at: new Date().toISOString(),
             error: null,
           };
+          // The library's "Pinned first comment", right after the post. The Graph API cannot pin, so the row
+          // says "pin by hand" either way; a failed comment never fails the post.
+          const firstComment = post.first_comment?.trim();
+          if (firstComment) {
+            const comment = await commentOnFacebookPost(fb.externalId, firstComment);
+            legs.facebook.first_comment = comment.ok
+              ? { status: 'posted', comment_id: comment.commentId, pin: 'pin by hand', error: null }
+              : { status: 'failed', comment_id: null, pin: 'pin by hand', error: comment.error };
+          }
         } else {
           legs.facebook = {
             status: 'failed',

@@ -187,3 +187,45 @@ export async function postToFacebookPage({
     clearTimeout(timeout);
   }
 }
+
+export type FacebookCommentResult = { ok: true; commentId: string } | { ok: false; error: string };
+
+/**
+ * Post the first comment under a Page post we just published (owner, 28 Nov 2026: the library's "Pinned first
+ * comment"): POST /{post-id}/comments { message } with the Page token. The Graph API has NO call to pin a comment on
+ * a Page post, so the caller records "pin by hand" — the owner pins it in Meta. Never throws.
+ */
+export async function commentOnFacebookPost(postId: string, message: string): Promise<FacebookCommentResult> {
+  const { pageId, accessToken } = await resolveMetaConfig();
+  if (!pageId || !accessToken) {
+    return { ok: false, error: 'Facebook is not configured (META_PAGE_ID / META_PAGE_ACCESS_TOKEN missing).' };
+  }
+  const resolved = await resolvePageAccessToken(pageId, accessToken);
+  const token = resolved.ok ? resolved.token : accessToken;
+
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), GRAPH_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${GRAPH_API_BASE}/${encodeURIComponent(postId)}/comments`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ access_token: token, message }).toString(),
+      signal: controller.signal,
+    });
+    const payload = (await res.json().catch(() => null)) as { id?: string; error?: { message?: string } } | null;
+    if (!res.ok || !payload?.id) {
+      return { ok: false, error: (payload?.error?.message ?? `Graph API HTTP ${res.status}`).slice(0, 500) };
+    }
+    return { ok: true, commentId: payload.id };
+  } catch (err) {
+    const message =
+      err instanceof Error && err.name === 'AbortError'
+        ? `Graph API call timed out after ${GRAPH_TIMEOUT_MS / 1000}s.`
+        : err instanceof Error
+          ? err.message
+          : 'Unknown Facebook comment error.';
+    return { ok: false, error: message.slice(0, 500) };
+  } finally {
+    clearTimeout(timeout);
+  }
+}

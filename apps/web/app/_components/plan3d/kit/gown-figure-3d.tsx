@@ -25,6 +25,7 @@ import { tapeLoops, type GownTapeKey } from '@/lib/gown/body/tape';
 import { buildDress, emptyDress, floorOf } from '@/lib/gown/dress/build';
 import { buildCape, emptyCape } from '@/lib/gown/dress/cape';
 import { GOWN_EYELET, buildGownClosure } from '@/lib/gown/parts/closure';
+import { GOWN_INSIDE_LOOK, buildGownInside, gownInsideShown, type GownInsideStage } from '@/lib/gown/parts/inside';
 import { GOWN_OVERLAY_DRAW, buildGownOverlay, gownOverlayOut, type GownOverlayMesh } from '@/lib/gown/parts/overlay';
 import { buildGownSleeve, emptySleeve } from '@/lib/gown/parts/sleeves';
 import { GOWN_VEIL_DRAW, buildGownVeil, emptyVeil } from '@/lib/gown/parts/veil';
@@ -49,6 +50,8 @@ export type GownFigureProps = {
   turn?: number;
   /** The gown she wears; none = the mannequin alone (the Measurements steps). */
   design?: GownConfig | null;
+  /** The Inside view (v191–v195): the step she is on, and the pieces she unticked in "See inside". Null = the gown as worn. */
+  inside?: { stage: GownInsideStage | null; off: readonly string[] } | null;
   onShow2d: () => void;
   onSolved?: (s: GownSolved) => void;
 };
@@ -151,9 +154,21 @@ function SceneLights({ scene }: { scene: GownSceneId }) {
   );
 }
 
+/** Empty the Inside group: its geometries, and the per-piece materials (the shared ones stay). */
+function clearInner(inner: THREE.Group, shared: Record<string, THREE.Material>) {
+  const keep = new Set(Object.values(shared));
+  for (const c of inner.children) {
+    const o = c as THREE.Mesh;
+    o.geometry.dispose();
+    const m = o.material as THREE.Material;
+    if (!keep.has(m)) m.dispose();
+  }
+  inner.clear();
+}
+
 const TAPE_ORDER: GownTapeKey[] = ['bust', 'underbust', 'waist', 'hips'];
 
-function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, design = null, scene = 'studio', onSolved }: { rig: GownRig } & GownFigureProps) {
+function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, design = null, inside = null, scene = 'studio', onSolved }: { rig: GownRig } & GownFigureProps) {
   const pivot = useRef<THREE.Group>(null);
   const mat = useMemo(() => new THREE.MeshStandardMaterial({ color: GOWN_MANNEQUIN.color, roughness: GOWN_MANNEQUIN.roughness, metalness: 0 }), []);
   // The gown: one mesh, its cloth material and the light coming through a sheer from behind.
@@ -185,11 +200,21 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
     const overlay = new THREE.Mesh(new THREE.BufferGeometry(), om);
     overlay.frustumCulled = false;
     overlay.renderOrder = GOWN_OVERLAY_DRAW.renderOrder;
-    return { mesh, m, sheerBack, T: emptyEnvelope(), D: emptyDress(), K, cape, sleeves, V, veil, vm, closure, em, sm, om, overlay, ov: null as GownOverlayMesh | null };
+    // The Inside view: one group of pieces, each kind its own material.
+    const L = GOWN_INSIDE_LOOK, im = {
+      layer: new THREE.MeshStandardMaterial({ roughness: L.layer.roughness, side: THREE.DoubleSide, transparent: true, opacity: L.layer.opacity, depthWrite: false }),
+      crisp: new THREE.MeshStandardMaterial({ roughness: L.layer.sheerRoughness, side: THREE.DoubleSide, transparent: true, opacity: L.layer.opacity, depthWrite: false }),
+      lining: new THREE.MeshStandardMaterial({ roughness: L.lining.roughness, side: THREE.DoubleSide, transparent: true, opacity: L.lining.opacity, depthWrite: false }),
+      shape: new THREE.MeshStandardMaterial({ roughness: L.shape.roughness, side: THREE.DoubleSide }),
+      bone: new THREE.MeshStandardMaterial({ color: L.bone.colour, roughness: L.bone.roughness }),
+      hoop: new THREE.MeshStandardMaterial({ color: L.hoop.colour, roughness: L.hoop.roughness, metalness: L.hoop.metalness }),
+    };
+    const inner = new THREE.Group();
+    return { mesh, m, sheerBack, T: emptyEnvelope(), D: emptyDress(), K, cape, sleeves, V, veil, vm, closure, em, sm, om, overlay, ov: null as GownOverlayMesh | null, im, inner };
   }, []);
   const [frame, setFrame] = useState({ S: 1, floor: 0, top: 1.7, ver: 0, width: 0.6 });
   const [loops, setLoops] = useState<Record<GownTapeKey, number[]> | null>(null);
-  const key = JSON.stringify([vals, fine, shape, design]);
+  const key = JSON.stringify([vals, fine, shape, design, inside]);
   useEffect(() => {
     Object.assign(rig.vals, vals);
     rig.fine = { athletic: fine.athletic, bustT: fine.bustT, given: [...fine.given] };
@@ -269,6 +294,24 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       if (cloth.mesh.parent !== root) root.add(cloth.mesh);
       cloth.mesh.visible = true;
       width = Math.max(0.6, 2 * cloth.D.hemR); // the hem's width (a train runs back, not sideways)
+      // Inside: the gown turns see-through and each piece inside shows by the step she is on.
+      clearInner(cloth.inner, cloth.im);
+      cloth.m.transparent = !!inside || cloth.m.transparent;
+      cloth.m.opacity = inside ? GOWN_INSIDE_LOOK.gownOpacity : cloth.m.opacity;
+      cloth.m.depthWrite = !inside;
+      if (inside) {
+        const off = new Set(inside.off), pieces = buildGownInside(rig, cloth.T, cloth.D, design, gownClothColour(design.colour, design.colourHex), ft.props.name);
+        cloth.mesh.visible = gownInsideShown('gown', inside.stage, off);
+        for (const p of pieces) {
+          if (p.key === 'gown' || !gownInsideShown(p.key, inside.stage, off)) continue;
+          // Layers, the lining and the shaping each wear their own colour (a copy of the kind's material); bones and hoop share theirs.
+          const base = p.kind === 'layer' ? (p.crisp ? cloth.im.crisp : cloth.im.layer) : cloth.im[p.kind];
+          const mat = p.kind === 'bone' || p.kind === 'hoop' ? base : base.clone();
+          if (mat !== base) mat.color.setHex(p.colour);
+          for (const g of p.geos) { const o = new THREE.Mesh(g, mat); o.frustumCulled = false; cloth.inner.add(o); }
+        }
+        if (cloth.inner.parent !== root) root.add(cloth.inner);
+      }
     } else for (const o of [cloth.overlay, cloth.mesh, cloth.cape, cloth.sleeves.L, cloth.sleeves.R, cloth.veil, cloth.closure.cloth, cloth.closure.eyelets]) o.visible = false;
     setFrame({ S: rig.P.S, floor, top: rig.top, ver: rig.ver, width: width * rig.P.S });
     setLoops(guides ? tapeLoops(rig) : null);
@@ -284,6 +327,9 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       cloth.vm.dispose();
       cloth.sm.dispose();
       cloth.om.dispose();
+      clearInner(cloth.inner, cloth.im);
+      cloth.inner.removeFromParent();
+      for (const mm of Object.values(cloth.im)) mm.dispose();
       cloth.ov?.geo.dispose();
       cloth.em.dispose();
       cloth.D.geo?.dispose();

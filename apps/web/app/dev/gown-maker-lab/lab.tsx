@@ -44,6 +44,20 @@ const LAB_PARTS: { label: string; turn: number; look: Partial<GownConfig> }[] = 
   { label: 'Off-shoulder, mantilla', turn: 0.6, look: { neck: 'off', veil: 'chapel', veilStyle: 'mantilla' } },
 ];
 
+/** SAMPLE gown for the Inside check (A6b): three layers (soft, full, organza), a blush lining and a corset. */
+const LAB_INSIDE: GownConfig = {
+  ...startingGownConfig(),
+  petti: 'full',
+  skirtLayers: 3,
+  layerTypes: ['soft', 'full', 'organza', 'soft', 'soft', 'soft'],
+  layerCols: ['match', 'blush', 'ivory', 'match', 'match', 'match'],
+  liningCol: 'blush',
+  shape: 'corset',
+  boning: 'corset',
+  waistStay: true,
+};
+const LAB_INSIDE_STAGES = ['Body shaping', 'Lining', 'Layer 2', 'See inside'] as const;
+
 /** SAMPLE bodies for the silhouette check (v169: thin, default, severe at about 155 cm). */
 const LAB_BODIES = {
   thin: { height: 155, bust: 70, underbust: 64, waist: 54, hips: 76 },
@@ -101,6 +115,21 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
           <figure key={label}>
             <GownView vals={v} fine={fine} scene={scene} turn={turn} design={{ ...startingGownConfig(), ...look }} />
             <figcaption className="text-sn-12">{label}</figcaption>
+          </figure>
+        ))}
+      </main>
+    );
+  }
+  if (view === 'inside') {
+    // A6b check: the Inside stage dresses her in order (v192), on a SAMPLE three-layer gown with a corset.
+    const b = LAB_BODIES[bodyIn as keyof typeof LAB_BODIES] ?? LAB_BODIES.default;
+    const v = { ...startingGownBody().vals, ...b };
+    return (
+      <main className="grid grid-cols-4 gap-2 p-2" data-lab-view="inside">
+        {LAB_INSIDE_STAGES.map((stage) => (
+          <figure key={stage}>
+            <GownView vals={v} fine={fine} scene={scene} turn={0.5} design={LAB_INSIDE} inside={{ stage, off: [] }} />
+            <figcaption className="text-sn-12">{stage}</figcaption>
           </figure>
         ))}
       </main>

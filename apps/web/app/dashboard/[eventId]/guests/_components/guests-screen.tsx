@@ -550,7 +550,8 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const thumbRef = useRef<HTMLDivElement>(null);
   const fieldRef = useRef<HTMLInputElement>(null);
-  useShellBarOffset(rootRef);
+  // The coordinator's dark line sits between the bar and this page: the pinned row sits under it, never over it.
+  useShellBarOffset(rootRef, '--gs-top', { under: '[data-coordinating-line]' });
 
   // ── The optimistic overlay: a removed guest vanishes at once, Undo returns them.
   const optimistic = useGuestOptimistic();

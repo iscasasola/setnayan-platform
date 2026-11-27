@@ -275,7 +275,9 @@ test('(8) nothing peeks above or under the pinned row — it moves with its head
   const strip = css.slice(at, css.indexOf('}', at));
   assert.match(strip, /content: '';/);
   assert.match(strip, /position: absolute;/);
-  assert.match(strip, /bottom: 100%;/, 'the paper does not start at the row’s top edge');
+  // It starts at the row's top edge, lifted only by the coordinator's dark line while that line shows (`--gs-under`,
+  // 0 px for everyone else; 27 Nov 2026), so the paper never paints the line out.
+  assert.match(strip, /bottom: calc\(100% \+ var\(--gs-under, 0px\)\);/, 'the paper does not start at the row’s top edge');
   assert.match(strip, /height: 100vh;/, 'the paper does not reach the top of the screen');
   assert.match(strip, /left: calc\(-1 \* var\(--gs-pin-l, 0px\)\);/);
   assert.match(strip, /width: 100vw;/, 'the paper is not edge to edge');

@@ -4,6 +4,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { stripComments } from '@/lib/strip-comments';
+
 /**
  * THE CLUSTER'S READS START IN THE SHELL'S BATCH (speed audit A2, 27 Nov 2026).
  *
@@ -26,7 +28,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = join(HERE, '..', '..', '..');
 const read = (p: string) => readFileSync(p, 'utf8');
 /** Strip comments so a sentence in a note can never satisfy an assertion. */
-const code = (s: string) => s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
+const code = stripComments;
 
 const shell = code(read(join(HERE, 'app-rail-shell.tsx')));
 const cluster = code(read(join(HERE, 'signed-in-cluster.tsx')));

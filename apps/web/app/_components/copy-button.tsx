@@ -9,6 +9,10 @@ import { Copy, Check } from 'lucide-react';
  * where a typo costs them (e.g. a mistyped reference breaks reconciliation).
  * (A near-identical button predates this in studio/papic/crew + panood; those
  * can fold into this later.)
+ *
+ * ✋ Text is not selectable app-wide (owner 27 Nov 2026, R1), so a blocked clipboard can no longer lean on "the
+ * value stays visible + selectable": it says so and shows the value in a box that IS selectable
+ * (`data-selectable` + `select-all`, one press-and-hold takes all of it).
  */
 export function CopyButton({
   value,
@@ -22,18 +26,21 @@ export function CopyButton({
   className?: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const [blocked, setBlocked] = useState(false);
 
   return (
+    <>
     <button
       type="button"
       aria-label={`${label}: ${value}`}
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(value);
+          setBlocked(false);
           setCopied(true);
           setTimeout(() => setCopied(false), 1500);
         } catch {
-          /* clipboard blocked — the value stays visible + selectable */
+          setBlocked(true);
         }
       }}
       className={
@@ -53,5 +60,14 @@ export function CopyButton({
         </>
       )}
     </button>
+    {blocked ? (
+      <span role="status" className="text-xs text-ink/70" data-copy-blocked="">
+        Couldn&rsquo;t copy on this device. Press and hold to copy:{' '}
+        <span data-selectable="" className="select-all break-all font-medium text-ink">
+          {value}
+        </span>
+      </span>
+    ) : null}
+    </>
   );
 }

@@ -17,7 +17,7 @@
  * row names no price, cannot be ticked, and no saving that needs it is said.
  */
 
-import { formatCount } from '@/lib/format-number';
+import { countNoun, formatCount } from '@/lib/format-number';
 
 /** The three packs, cheapest first — `PLAN_PRICE_CODES` (lib/event-plans.ts) is their catalogue key. */
 export const PACK_KEYS = ['plus', 'pro', 'ultra'] as const;
@@ -239,7 +239,7 @@ const fmtCount = (n: number): string => formatCount(n);
 
 /** A photo size's words: "1,000 photos". */
 export function photosLabel(points: number): string {
-  return `${fmtCount(points)} photos`;
+  return countNoun(points, 'photo', 'photos');
 }
 
 /** The cart for a pick — the bar's words and total, and the ONE order's lines (same function, same answer). */
@@ -297,7 +297,7 @@ export function applySwitch(pick: EventServicesPick, offer: SwitchOffer): EventS
 export function packHoldsLine(pack: PackFact, next: boolean, held: HeldPlan | null): string {
   if (next && held && held !== 'free') {
     const adds = PACK_HOLDS[pack.key].filter((s) => !PACK_HOLDS[held].includes(s)).map((s) => SINGLE_SHORT[s]);
-    const photos = pack.addsCredits !== null && pack.addsCredits > 0 ? [`${fmtCount(pack.addsCredits)} more photos`] : [];
+    const photos = pack.addsCredits !== null && pack.addsCredits > 0 ? [`${countNoun(pack.addsCredits, 'more photo', 'more photos')}`] : [];
     return `Adds ${[...adds, ...photos].join(' · ')}`;
   }
   const parts: string[] = PACK_HOLDS[pack.key].map((s) => SINGLE_SHORT[s]);
@@ -330,6 +330,6 @@ export function parsePick(raw: unknown): EventServicesPick {
  */
 export function eventServicesTodayLine(plan: { key: HeldPlan; name: string } | null, photosLeft: number | null): string {
   const planWords = plan === null ? 'Plan: couldn’t read' : plan.key === 'free' ? 'Free plan' : plan.name;
-  const photos = photosLeft === null ? 'photos left: couldn’t read' : `${fmtCount(photosLeft)} photos left`;
+  const photos = photosLeft === null ? 'photos left: couldn’t read' : `${countNoun(photosLeft, 'photo', 'photos')} left`;
   return `${planWords} · ${photos}`;
 }

@@ -74,6 +74,7 @@ export function ClearButton({
   className,
   discClassName,
   style,
+  tabIndex,
   ...data
 }: {
   /** Empty the box — usually `clearTyped(input)`, then anything the host must hear at once. */
@@ -85,11 +86,15 @@ export function ClearButton({
   /** The disc's look; the house disc when not given. */
   discClassName?: string;
   style?: CSSProperties;
+  /** ⌨ `-1`: the app-wide ✕ that appears inside every type box while typing is not a Tab stop — Tab goes box → box
+   *  (27 Nov 2026, MASTER-PLAN A1: it sat between Email and Password). A pointer presses it as before. */
+  tabIndex?: -1;
 } & Record<`data-${string}`, string | undefined>) {
   return (
     <button
       type="button"
       aria-label={label}
+      tabIndex={tabIndex}
       data-clear-x=""
       {...data}
       style={style}

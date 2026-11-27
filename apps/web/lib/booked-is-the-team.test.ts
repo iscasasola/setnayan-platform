@@ -179,7 +179,8 @@ test('7 · K1 no "Booked" heading · K2 a pill only when it says more · K3 "Use
   const { pillSaysMore } = await import('./booked-rows');
   assert.equal(pillSaysMore({ text: 'Booked', tone: 'ok' }), false);
   assert.equal(pillSaysMore({ text: 'Payment not received', tone: 'warn' }), true);
-  assert.equal((row.match(/pillSaysMore\(/g) ?? []).length, 2, 'K2: a row draws its pill without the rule');
+  // 2 → 1 on 2026-11-27: the greyed sample rows (`BookedRowsExample`) left with the Example look (owner R3).
+  assert.equal((row.match(/pillSaysMore\(/g) ?? []).length, 1, 'K2: a row draws its pill without the rule');
   assert.match(row, /className=\{`\$\{PILL\} bg-sn-accent\/10 text-sn-accent`\}>\{WAITING_PILL\}/, 'K2: the waiting pill is gone');
   // K3 — one line, no chips.
   const feeds = row.slice(row.indexOf('data-booked-feeds=""'), row.indexOf('data-booked-feeds=""') + 200);

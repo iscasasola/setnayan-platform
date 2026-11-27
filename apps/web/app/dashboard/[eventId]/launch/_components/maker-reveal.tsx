@@ -365,7 +365,7 @@ export function MakerRevealPicker({
       aria-label="Choose how your Event Hub opens"
       data-maker-reveal-options=""
     >
-      <Row id="none" label="No reveal" note="Your page opens straight away. Always free." pro={false} />
+      <Row id="none" label="No reveal" note="Your page opens straight away." pro={false} />
       {openings.map((o) => (
         <Row
           key={o.id}

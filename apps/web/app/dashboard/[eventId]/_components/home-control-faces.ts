@@ -19,7 +19,6 @@
  *
  * Pure: no React, no I/O, no clock of its own (`now` is handed in).
  */
-import { SAMPLE_FACES } from '@/lib/empty-look-samples';
 import { formatCount } from '@/lib/format-number';
 import { formatPhpRounded } from '@/lib/php';
 import type { CountFormat } from '@/components/count';
@@ -111,13 +110,6 @@ export type HomeFace = {
    */
   kicker?: string;
   rows?: Array<{ k: string; v: string }>;
-  /**
-   * 👻 THE EMPTY LOOK (owner 2026-11-09, DECISION_LOG 🧱👻 ×2; Build 5 Lane H): on a face that is honestly EMPTY — a
-   * read that answered, nothing in it — the tile's NEXT face on sample figures (`lib/empty-look-samples.ts`), drawn
-   * greyed under "Example" beneath this one (`HomeTile` → `ExamplePreview`). Never on a failed read (`failedTile` sets
-   * none), and gone the moment the part has real content (the face that carries it is the empty one).
-   */
-  example?: Pick<HomeFace, 'big' | 'unit' | 'sm' | 'meter' | 'kicker' | 'rows'>;
 };
 
 /** A door under the Schedule's faces (owner 1 Nov: *"Keep the doors"*) — a word and the page it opens. */
@@ -609,7 +601,6 @@ export function guestsTile(input: HomeControlInput, today: HomeToday): HomeTileM
       sm: 'Add your guests',
       href: `/dashboard/${e}/guests`,
       action: { icon: 'plus', label: 'Add guests', href: `/dashboard/${e}/guests`, main: isToday },
-      example: { ...SAMPLE_FACES.guests },
     });
   } else {
     faces.push({ id: 'guests-coming', big: n(g.coming), count: { value: g.coming, format: 'int' }, unit: 'coming', sm: `of ${n(g.total)} on the list`, href: `/dashboard/${e}/guests?q=coming` });
@@ -722,7 +713,7 @@ export function hubTile(input: HomeControlInput, today: HomeToday): HomeTileMode
       external,
     });
   } else {
-    faces.push({ id: 'hub-now', big: 'Not set', unit: 'yet', sm: 'pick your date to place it', href: door, external, example: { ...SAMPLE_FACES.hub } });
+    faces.push({ id: 'hub-now', big: 'Not set', unit: 'yet', sm: 'pick your date to place it', href: door, external });
   }
   const after = nextHubStage(h.stage);
   if (after) {
@@ -767,8 +758,6 @@ export function suppliersTile(input: HomeControlInput, today: HomeToday): HomeTi
       unit: s.of > 0 ? `of ${n(s.of)} booked` : 'booked',
       sm: s.of > s.booked ? `${n(s.of - s.booked)} still to book` : s.of === 0 ? 'Find your suppliers' : 'all booked',
       href: `/dashboard/${e}/vendors`,
-      // 👻 Nobody booked, asked or replying yet — the honest zero, with the tile's next face greyed under it.
-      ...(s.booked === 0 && s.toDecide.length === 0 && s.replied === 0 ? { example: { ...SAMPLE_FACES.suppliers } } : {}),
     },
   ];
   const first = s.toDecide[0];
@@ -840,7 +829,7 @@ export function checklistTile(input: HomeControlInput, today: HomeToday): HomeTi
   // 👻 An empty plan (the read answered, nothing in it) keeps its tile — never hidden for being empty (owner
   // 2026-11-09) — with the plan's next face greyed under it (prototype "Event · Today", the To do tile).
   if (faces.length === 0 && c.total === 0) {
-    faces.push({ id: 'plan-none', big: 'Nothing', unit: 'yet', sm: 'the next step is yours', href: door, example: { ...SAMPLE_FACES.plan } });
+    faces.push({ id: 'plan-none', big: 'Nothing', unit: 'yet', sm: 'the next step is yours', href: door });
   }
   if (faces.length === 0) return null;
   return { key: 'plan', label: 'To do', door, failed: false, span: false, today: isToday, faces, info: TODO_TILE_INFO };
@@ -894,8 +883,6 @@ export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileM
           : 'nothing agreed yet',
     href: budgetPageHref(e),
     meter: pct,
-    // 👻 Nothing agreed and nothing paid (the money read answered) — the summary's filled face greyed under it.
-    ...(agreed === 0 && b.paidPhp === 0 && b.pays !== 'unread' ? { example: { ...SAMPLE_FACES.budget } } : {}),
   });
   return { key: 'budget', label: null, door: budgetPageHref(e), failed: false, span: true, today: isToday, faces };
 }
@@ -938,7 +925,6 @@ export function scheduleTile(input: HomeControlInput, today: HomeToday): HomeTil
             kicker: 'What’s next',
             rows: [{ k: 'No chapters yet', v: 'Add the first in your Schedule' }],
             href: door,
-            example: { big: SAMPLE_FACES.schedule[0].k, sm: SAMPLE_FACES.schedule[0].v, rows: SAMPLE_FACES.schedule.map((r) => ({ ...r })) },
           }
         : { id: 'sched-done', big: 'Every chapter has passed', sm: 'Open the schedule', kicker: 'What’s next', rows: [{ k: 'Every chapter has passed', v: 'Open the schedule' }], href: door },
     );

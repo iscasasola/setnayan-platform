@@ -247,10 +247,6 @@
 [data-growth] .ag-gtile .ag-ln { display: block; margin: 8px 0 0; font-size: 13px; color: var(--m-slate); line-height: 1.35; }
 [data-growth] .ag-ln b { font-weight: 600; }
 [data-growth] .ag-tag { flex: none; font-size: 12px; line-height: 18px; font-weight: 600; padding: 0 8px; border-radius: var(--m-r-full); background: rgb(var(--color-info) / 0.12); color: rgb(var(--color-info)); }
-[data-growth] .ag-ex .ag-gp { opacity: 0.32; filter: saturate(0.4); }
-[data-growth] .ag-exc { position: absolute; top: 10px; right: 12px; font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: var(--m-r-full); background: color-mix(in srgb, var(--m-ink) 8%, transparent); color: var(--m-slate-2); }
-[data-growth] .ag-gtile.ag-ex .ag-th b { padding-right: 64px; }
-[data-growth] .ag-gtile.ag-ex .ag-ln { color: var(--m-slate-2); }
 [data-growth] .ag-dr { display: inline-flex; align-items: center; gap: 6px; margin-top: 6px; color: rgb(var(--color-mulberry-word, var(--color-mulberry))); font-weight: 600; font-size: 13.5px; }
 [data-growth] .ag-dr svg { width: 16px; height: 16px; }
 
@@ -334,12 +330,8 @@
 [data-growth] .ag-card .ag-gp > svg { max-height: 144px; }
 [data-growth] .ag-card .ag-foot { display: block; height: 36px; overflow: hidden; }
 [data-growth] .ag-card .ag-ln { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin: 0; font-size: 13px; line-height: 18px; color: var(--m-slate); }
-[data-growth] .ag-card.ag-ex .ag-ln { -webkit-line-clamp: 1; }
 /* A refused card: "Couldn’t load." sits in the picture's own 144-px place — no picture, never the Example. */
 [data-growth] .ag-card-in > .ag-ln[role='status'] { display: flex; align-items: center; height: 144px; }
-[data-growth] .ag-card.ag-ex .ag-gp { opacity: 0.32; filter: saturate(0.4); }
-[data-growth] .ag-card .ag-exc { position: absolute; top: 18px; right: 44px; height: 24px; display: inline-flex; align-items: center; padding-block: 0; }
-[data-growth] .ag-card.ag-ex .ag-open b { padding-right: 70px; }
 [data-growth] .ag-card .ag-dr { position: relative; z-index: 1; font-size: 13px; line-height: 18px; font-weight: 600; color: rgb(var(--color-mulberry-word, var(--color-mulberry))); display: inline-flex; align-items: center; gap: 2px; margin: 0; }
 [data-growth] .ag-card .ag-dr svg { width: 15px; height: 15px; }
 [data-growth] .ag-lockcard { display: flex; flex-direction: column; justify-content: center; }

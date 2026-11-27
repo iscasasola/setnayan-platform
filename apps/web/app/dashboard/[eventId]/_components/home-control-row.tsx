@@ -32,7 +32,6 @@ import { HomeTile, HomeTileCountKey, HubViewLink } from './home-tile';
 import { HubPickButton } from './home-cards/hub-pick-button';
 import type { HomeHubPickRead } from './home-cards/hub-pick-types';
 import { HomeLater, HomeReload } from './home-parts';
-import { ExamplePreview } from '@/app/_components/states/empty-state';
 import { budgetPageHref } from '@/lib/pillar-parts';
 
 /**
@@ -135,7 +134,6 @@ function Shell({
   brand,
   today,
   failed = false,
-  example = null,
   children,
 }: {
   k: HomeControlKey;
@@ -144,8 +142,6 @@ function Shell({
   brand?: string | null;
   today: boolean;
   failed?: boolean;
-  /** 👻 The tile's sample face (`HomeFace.example`) — set by home-control-faces.ts only on a read that ANSWERED empty. */
-  example?: HomeFace['example'] | null;
   children: ReactNode;
 }) {
   const label = `Open ${HOME_CONTROL_PAGE[k]}`;
@@ -187,51 +183,10 @@ function Shell({
       {/* The section's one grey line (its first status joins it, after a ·). */}
       {brand ? <span className="sg-brand">{brand}</span> : null}
       {children}
-      {/* 👻 THE EMPTY LOOK AT DESKTOP WIDTHS (Build 5 Lane H leftover): the phone tile's own sample face, drawn in this
-          card's own lines under "Example" — the same gate, the same fixture, so phone and desktop show one sample.
-          Never on a failed card (its read was refused). */}
-      {example && !failed ? <DetailExample face={example} /> : null}
     </article>
   );
 }
 
-/** The detail card's own lines (dot · meter · status) on the tile's sample face — greyed through the ONE slot. */
-function DetailExample({ face }: { face: NonNullable<HomeFace['example']> }) {
-  return (
-    <ExamplePreview className="hc-example">
-      {face.rows ? (
-        face.rows.map((r, i) => (
-          <span key={i} className="sg-status">
-            <span>
-              <b className="font-medium">{r.k}</b>
-              {r.v ? ` · ${r.v}` : ''}
-            </span>
-          </span>
-        ))
-      ) : (
-        <>
-          <Dot mood="ok">
-            <b className="font-medium">
-              {face.big}
-              {face.unit ? ` ${face.unit}` : ''}
-            </b>
-          </Dot>
-          {typeof face.meter === 'number' ? <GlanceMeter mood="ok" pct={face.meter} label="Example" /> : null}
-          {face.sm ? (
-            <span className="sg-status">
-              <span>{face.sm}</span>
-            </span>
-          ) : null}
-        </>
-      )}
-    </ExamplePreview>
-  );
-}
-
-/** The tile's sample face, when one of its faces carries it (home-control-faces.ts decides — this only reads). */
-function exampleOf(tile: HomeTileModel): HomeFace['example'] | null {
-  return tile.failed ? null : (tile.faces.find((f) => f.example)?.example ?? null);
-}
 
 function Dot({ mood, children, marker }: { mood: ServiceMood; children: ReactNode; marker?: string }) {
   return (
@@ -315,7 +270,7 @@ function DetailCard({
       const invite = input.next.kind === 'invite' && g.toInvite > 0;
       const seats = tile.faces.find((f) => f.id === 'guests-unseated' || f.id === 'guests-seats-unread');
       return (
-        <Shell example={exampleOf(tile)} k="guests" door={`/dashboard/${e}/guests`} brand={`${formatCount(g.total)} on the list`} today={today}>
+        <Shell k="guests" door={`/dashboard/${e}/guests`} brand={`${formatCount(g.total)} on the list`} today={today}>
           <Dot mood={g.total === 0 || g.toInvite > 0 ? 'wait' : 'ok'}>
             {g.total === 0
               ? 'Your guest list is empty'
@@ -378,7 +333,7 @@ function DetailCard({
       const at = h.stage ? PUBLIC_STAGE_ORDER.indexOf(h.stage) : -1;
       const fill = after && h.guide && h.guide.stageTitle === PUBLIC_STAGE_LABELS[after] && h.guide.left > 0 ? `${formatCount(h.guide.left)} parts to fill` : null;
       return (
-        <Shell example={exampleOf(tile)} k="hub" door={h.publicUrl ?? `/dashboard/${e}/launch`} external={Boolean(h.publicUrl)} brand={h.where} today={today}>
+        <Shell k="hub" door={h.publicUrl ?? `/dashboard/${e}/launch`} external={Boolean(h.publicUrl)} brand={h.where} today={today}>
           <Dot mood={h.stage && h.publicUrl ? 'ok' : 'plain'} marker="stage">
             {h.stage ? (
               <>
@@ -446,7 +401,7 @@ function DetailCard({
       const decide = tile.faces.find((f) => f.id === 'sup-decide');
       const board = tile.faces.find((f) => f.id === 'sup-inspiration' || f.id === 'sup-inspiration-unread');
       return (
-        <Shell example={exampleOf(tile)} k="sup" door={`/dashboard/${e}/vendors`} brand={`${formatCount(s.booked)} of ${formatCount(s.of)} booked`} today={today}>
+        <Shell k="sup" door={`/dashboard/${e}/vendors`} brand={`${formatCount(s.booked)} of ${formatCount(s.of)} booked`} today={today}>
           <Dot mood={first ? 'wait' : s.booked >= s.of ? 'ok' : 'plain'}>
             {first
               ? `${formatCount(s.toDecide.length)} ${s.toDecide.length === 1 ? 'quote' : 'quotes'} to decide · ${first.name}`
@@ -500,7 +455,7 @@ function DetailCard({
         <Shell
           k="budget"
           door={budgetPageHref(e)}
-          example={exampleOf(tile)}
+         
           brand={
             pays === null
               ? 'Payments couldn’t load'
@@ -568,7 +523,7 @@ function DetailCard({
       const pct = c.total > 0 ? Math.round((c.done / c.total) * 100) : null;
       const calm = input.next.kind === 'plan';
       return (
-        <Shell example={exampleOf(tile)} k="plan" door={planningTodoHref(e)} brand={pct !== null ? `To do · ${formatCount(pct)}% done` : 'To do'} today={today}>
+        <Shell k="plan" door={planningTodoHref(e)} brand={pct !== null ? `To do · ${formatCount(pct)}% done` : 'To do'} today={today}>
           <Dot mood={calm || c.open === 0 ? 'ok' : 'wait'}>
             {c.open === 0
               ? 'Everything is done'

@@ -21,6 +21,7 @@ import {
 import { gownChoose, type GownChoice } from '@/lib/gown/compat';
 import { gownBraNote, gownLimit, gownSetNumber, gownSnapBustT } from '@/lib/gown/body-rules';
 import { GOWN_SCENES, GOWN_SCENE_IDS, type GownSceneId } from '@/lib/gown/scenes';
+import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { GownView } from '@/app/_components/plan3d/kit/gown-view';
 import type { GownSolved } from '@/app/_components/plan3d/kit/gown-figure-3d';
 
@@ -142,16 +143,17 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 ['cape', 'Cape', GOWN_CAPES],
               ] as const
             ).map(([k, label, list]) => (
-              <label key={k} className="grid gap-1">
+              <div key={k} className="grid gap-1">
                 <span>{label}</span>
-                <select className="input-field" data-lab-pick={k} value={design[k] as string} onChange={(e) => choose(k, e.target.value)}>
-                  {list.map((o) => (
-                    <option key={o.id} value={o.id}>
-                      {o.label}
-                    </option>
-                  ))}
-                </select>
-              </label>
+                <PickMenu
+                  label={label}
+                  value={design[k] as string}
+                  options={list.map((o) => ({ key: o.id, label: o.label }))}
+                  onPick={(v) => choose(k, v)}
+                  dataAttr={`data-lab-pick-${k}`}
+                  className="w-full !min-h-11"
+                />
+              </div>
             ))}
             <p className="col-span-2 text-sn-12" data-lab-note aria-live="polite">
               {note}

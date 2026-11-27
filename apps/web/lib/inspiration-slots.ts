@@ -101,7 +101,7 @@ export function attireBoardsAfter(rowKeys: readonly string[]): StudioInspiration
 export const STUDIO_INSPIRATION_SLOTS: readonly StudioInspirationSlot[] = [
   { slotKey: 'flowers', label: 'Flowers', from: 'florists and stylists', target: { kind: 'florals' }, useLabel: 'Use for the florist’s colours' },
   { slotKey: 'table', label: 'Tables', from: 'stylists and florists', target: { kind: 'room' }, useLabel: 'Use for the room' },
-  { slotKey: 'stage', label: 'Stage', from: 'stylists, lights and sound', target: { kind: 'none' }, useLabel: null },
+  { slotKey: 'stage', label: 'Stage', from: 'stylists, lights and sounds', target: { kind: 'none' }, useLabel: null },
   { slotKey: 'ceiling', label: 'Ceiling', from: 'stylists and lights', target: { kind: 'none' }, useLabel: null },
   { slotKey: 'backdrop', label: 'Wall', from: 'stylists and LED walls', target: { kind: 'none' }, useLabel: null },
   { slotKey: 'tunnel', label: 'Tunnel', from: 'stylists', target: { kind: 'none' }, useLabel: null },
@@ -132,7 +132,7 @@ export const STUDIO_INSPIRATION_SLOTS: readonly StudioInspirationSlot[] = [
      sits on its part's block, whose own offer ("Use for Chairs") sets that part — so none carries a slot target. */
   { slotKey: 'chairs', label: 'Chairs', from: 'stylists and chair rentals', target: { kind: 'none' }, useLabel: null },
   { slotKey: 'ribbons_candles', label: 'Ribbons & candles', from: 'stylists', target: { kind: 'none' }, useLabel: null },
-  { slotKey: 'lights', label: 'Lights', from: 'lights and sound, and stylists', target: { kind: 'none' }, useLabel: null },
+  { slotKey: 'lights', label: 'Lights', from: 'lights and sounds, and stylists', target: { kind: 'none' }, useLabel: null },
   { slotKey: 'entourage_bouquets', label: 'Entourage bouquets', from: 'florists', target: { kind: 'none' }, useLabel: null },
   { slotKey: 'flower_accents', label: 'Flower accents', from: 'florists and stylists', target: { kind: 'none' }, useLabel: null },
 ];

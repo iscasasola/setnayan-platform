@@ -165,11 +165,6 @@ export function likedForTile(board: FindInspiration | null, tile: string): reado
   return board.liked[tile] ?? [];
 }
 
-/** "Nothing liked for Catering yet." — an opened category with no liked photo. */
-export function likedEmptyLine(label: string): string {
-  return `Nothing liked for ${label} yet.`;
-}
-
 /** "From Kusina ni Lola · Full buffet ›" — or the shop alone when the photo has no card. */
 export function likedFromLine(p: FindLikedPhoto): string | null {
   if (!p.shop) return null;

@@ -27,7 +27,9 @@ import { shopHrefForEvent } from '@/lib/shop-back';
 import { Suspense } from 'react';
 import { redirect, notFound } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ChevronRight, Search, Star } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Plus, Search, Star } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
+import { routes } from '@/lib/routes';
 
 import { getCurrentUser } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
@@ -193,9 +195,21 @@ export default async function FindSupplierPage({ params, searchParams }: Props) 
         )}
 
         {empty ? (
-          <p className="mt-6 text-[15px] text-ink/65" data-find-empty={empty}>
-            {findEmptyWords(empty, res.hiddenForDateScope)}
-          </p>
+          // 🧹 R3 (27 Nov): one honest line + one action. The action opens this category on Find, where its ＋ adds.
+          <div className="mt-6" data-find-empty={empty}>
+            <p className="text-sn-lg text-ink/65">{findEmptyWords(empty, res.hiddenForDateScope, openTile.label)}</p>
+            {empty === 'none_listed' ? (
+              <div className="mt-3">
+                <ActionButton
+                  tone="neutral"
+                  icon={<Plus aria-hidden strokeWidth={1.9} />}
+                  label="Add your own"
+                  name={`Add your own ${openTile.label} supplier`}
+                  href={routes.dashboard.vendors.findCategory(eventId, openTile.tile)}
+                />
+              </div>
+            ) : null}
+          </div>
         ) : (
           <ul className="mt-2">
             {rows.map((r) => {

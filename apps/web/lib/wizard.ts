@@ -478,7 +478,7 @@ const _WIZARD_TASKS_RAW: ReadonlyArray<WizardTask> = [
     order: 10,
     phase: 'style_identity',
     kind: 'vendor_pick',
-    title: 'Book your lights & sound',
+    title: 'Book your lights & sounds',
     whyItMatters:
       'Reception lighting and sound shape the whole atmosphere. PA + lights setup is technical — book 4-6 months out and confirm the venue power supply.',
     pillLabel: 'Style & Identity',

@@ -89,7 +89,7 @@ test('#22 · Find: a refused category or name search says "Couldn’t load", nev
   assert.match(src('lib/wizard-recommendations.ts'), /if \(error \|\| !data\) \{\s*if \(error\) args\.onReadRefused\?\.\(\);/);
   const overlay = src(`${D}vendors/_components/category-search-overlay.tsx`);
   assert.match(overlay, /setUnreadable\(res\.unreadable === true\)/);
-  before(overlay, 'results.length === 0 && unreadable ?', 'suppliers here yet', 'the refusal is drawn before the empty state');
+  before(overlay, 'results.length === 0 && unreadable ?', 'findNoneListedWords(label)', 'the refusal is drawn before the empty state');
   assert.match(src(`${D}vendors/_actions/bench-marketplace-search.ts`), /if \(error\) return \{ results: \[\], unreadable: true \};/);
   assert.match(src(`${D}vendors/categories/page.tsx`), /\{shopsRead\.unreadable \? \(/);
 });

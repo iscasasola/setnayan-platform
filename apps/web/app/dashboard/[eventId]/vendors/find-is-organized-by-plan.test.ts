@@ -110,8 +110,8 @@ test('5 · a liked photo links to its card; its Ask is the card’s own words, a
   assert.match(BENCH, /onAsk=\{\(p\) => void askLiked\(p, t\.tile\)\}/);
 });
 
-test('6 · a brand-new event says so, with the way in', () => {
+test('6 · a brand-new event says so in ONE line — its way in is the thumb row (owner R3, 27 Nov)', () => {
   assert.match(BENCH, /\{replan && !searching && benchRows\.length === 0 \? \(\s*<div className="slempty" data-find-empty="">/);
-  assert.match(BENCH, /No suppliers yet\./);
-  assert.match(BENCH, /A category shows here once you ask or book\s+someone in it\./);
+  assert.match(BENCH, /<p className="se-t">No suppliers yet\.<\/p>\s*<\/div>/);
+  assert.doesNotMatch(BENCH, /A category shows here once|className="se-s"/);
 });

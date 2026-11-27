@@ -180,7 +180,7 @@ export const HUB_TOOLS_SEED: ReadonlyArray<HubToolsSeedRow> = [
   { group: "Specialty", category: "Reveal Element", tools: ["reveal_cue", "run_of_show"], scan: "once" },
   { group: "Styling, flowers & lights", category: "Stylist / Decorator", tools: ["floor_plan", "load_in_and_venue_access", "tables_and_seating"], scan: "once" },
   { group: "Styling, flowers & lights", category: "Florist", tools: ["delivery_and_drop_off", "entourage", "load_in_and_venue_access"], scan: "once" },
-  { group: "Styling, flowers & lights", category: "Lights & Sound", tools: ["tech_rider", "load_in_and_venue_access", "run_of_show"], scan: "unlimited" },
+  { group: "Styling, flowers & lights", category: "Lights & Sounds", tools: ["tech_rider", "load_in_and_venue_access", "run_of_show"], scan: "unlimited" },
   { group: "Styling, flowers & lights", category: "LED Wall", tools: ["tech_rider", "load_in_and_venue_access", "run_of_show"], scan: "unlimited" },
   { group: "Styling, flowers & lights", category: "Chairs & tents", tools: ["floor_plan", "headcount", "load_in_and_venue_access"], scan: "once" },
   { group: "Styling, flowers & lights", category: "Dance Floor", tools: ["floor_plan", "load_in_and_venue_access"], scan: "once" },

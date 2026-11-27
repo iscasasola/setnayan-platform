@@ -126,8 +126,8 @@ const PRESS: Array<[string, string]> = [
   ['venue/page.tsx', '← Back to the invitation'],
   // 2026-10-12 · the rest of N23 as the live re-walk of d2e38b7 listed it.
   ['_components/not-you-switch.tsx', 'Switch\n      </button>'],
-  ['_components/terms-tick.tsx', 'Terms\n        </Link>'],
-  ['_components/terms-tick.tsx', 'Privacy Notice\n        </Link>'],
+  ['_components/terms-tick.tsx', 'Terms\n          </Link>'],
+  ['_components/terms-tick.tsx', 'Privacy Notice\n          </Link>'],
   ['find-seat/_components/seat-frame.tsx', '<path d="m15 6-6 6 6 6" />'],
   ['pabuya/page.tsx', '<Logo height={26} />'],
   ['seat/page.tsx', '<EventHubHeaderBrand eventId={eventId} />'],
@@ -139,7 +139,7 @@ const PRESS: Array<[string, string]> = [
 /** Presses a thumb finds by WIDTH too — a word or an icon narrower than 44px on its own. */
 const WIDE: Array<[string, string]> = [
   ['_components/not-you-switch.tsx', 'Switch\n      </button>'],
-  ['_components/terms-tick.tsx', 'Terms\n        </Link>'],
+  ['_components/terms-tick.tsx', 'Terms\n          </Link>'],
   ['find-seat/_components/seat-frame.tsx', '<path d="m15 6-6 6 6 6" />'],
   ['pabuya/page.tsx', '<Logo height={26} />'],
   ['avatar/_components/avatar-maker.tsx', 'style={{ backgroundColor: hex }}'],

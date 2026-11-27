@@ -247,7 +247,7 @@ import { EDITOR_CANVAS_HIDES_APP_CHROME, canvasOnlyCss, type CanvasOnlyScene, ty
 import { withStylePreview } from '../_lib/style-preview';
 import { PreviewWayBack } from './preview-way-back';
 import { coverSceneLayer, signCoverSceneMedia } from '../_lib/cover-scene-layer';
-import { COVER_RSVP_PART, coverRsvpOf } from '@/lib/cover-rsvp';
+import { COVER_RSVP_PART, coverRsvpOf, hostHasOwnReply } from '@/lib/cover-rsvp';
 import { coverEntranceIsStill, resolveCoverEntrance } from '@/lib/cover-entrance';
 import { PahinaMasthead } from './pahina-masthead';
 import { artKitView, sceneAccentsFromPreferences } from '@/lib/art-kits';
@@ -2156,9 +2156,14 @@ export async function SiteBody({
        reads that row's real answer ("You're coming · 1 seat · Change my reply" for a groom already attending). A host
        with no row of their own keeps the card (the cover always has a way on — `the-cover-always-has-a-way-on`), and
        the reply page TELLS them they are not on the list (`NoReplyHere`) — never a sample.
-       🛡 `the-reply-is-sent-as-who-the-hub-says.test.ts`. */
+       🛡 `the-reply-is-sent-as-who-the-hub-says.test.ts`.
+       🙅 …AND A HOST WITH NO ROW OF THEIR OWN IS NEVER ASKED TO CONFIRM (owner walk 2026-11-27, MASTER-PLAN L3: a host
+       on `/maria-and-jose` pressed "Confirm attendance" and met "You're not on this event's guest list"). The couple and
+       the hosts do not get the guest's Confirm: the card and the cover's button are drawn only for a host who IS a
+       guest here (`hostHasOwnReply`, a live row of their own). Without one, the cover's foot keeps its "Swipe up" hint.
+       🛡 `app/[slug]/a-host-is-not-asked-to-confirm.test.ts`. */
     const hostReplyCard =
-      viewerIsHost && pageStage === 'rsvp' && plan.rsvpShouldRender && !isEditorCanvas
+      viewerIsHost && hostHasOwnReply(hostOwnRsvp) && pageStage === 'rsvp' && plan.rsvpShouldRender && !isEditorCanvas
         ? replyCardOf({
             action: resolveArrivalAction({
               slug: event.slug ?? '',

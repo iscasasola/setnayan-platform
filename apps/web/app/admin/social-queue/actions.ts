@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { nextAvailableSlot } from '@/lib/social/governor';
+import { AUTO_POST_SLOT, nextAvailableSlot, postNowSlot } from '@/lib/social/governor';
 import { runSocialFlush } from '@/lib/social/flush';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 
@@ -218,11 +218,13 @@ export async function pullSocialPost(formData: FormData) {
 }
 
 /**
- * Post now — clears the 48h pull window and the governor slot, then runs a
- * flush so the dispatch happens in THIS request. The publish_after content
- * gate (event_date + 7d) deliberately stays: even "post now" never jumps a
- * couple's event. The flush throttle is reset first so the immediate flush
- * isn't a no-op.
+ * Post now — clears the 48h pull window and puts the post on the slot open
+ * right now (08:00 · 14:00 · 20:00 Manila, for its hour) if no post holds it,
+ * else the next free 14:00: nothing posts outside a slot (owner 2026-11-28,
+ * lib/social/governor.ts). Then runs a flush so an open slot dispatches in
+ * THIS request. The publish_after content gate (event_date + 7d) deliberately
+ * stays: even "post now" never jumps a couple's event. The flush throttle is
+ * reset first so the immediate flush isn't a no-op.
  */
 export async function postSocialPostNow(formData: FormData) {
   await requireAdmin();
@@ -230,12 +232,25 @@ export async function postSocialPostNow(formData: FormData) {
   if (!postId) failRedirect('Missing post');
 
   const admin = createAdminClient();
+  const now = new Date();
+  const { data: takenData, error: takenErr } = await admin
+    .from('social_posts')
+    .select('scheduled_for')
+    .in('status', ['scheduled', 'publishing', 'published'])
+    .neq('post_id', postId)
+    .gte('scheduled_for', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString());
+  if (takenErr) failRedirect(takenErr.message);
+  const target = postNowSlot(
+    ((takenData ?? []) as Array<{ scheduled_for: string | null }>).map((r) => r.scheduled_for),
+    now,
+  );
   const { data, error } = await admin
     .from('social_posts')
     .update({
       hold_until: null,
-      scheduled_for: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      scheduled_for: target.at.toISOString(),
+      slot: target.slot,
+      updated_at: now.toISOString(),
     })
     .eq('post_id', postId)
     .eq('status', 'scheduled')
@@ -252,7 +267,7 @@ export async function postSocialPostNow(formData: FormData) {
   okRedirect('posted_now');
 }
 
-/** Failed → scheduled, due immediately (the next flush re-dispatches it). */
+/** Failed → scheduled with no slot: the next flush hands it the next free 14:00 (owner 2026-11-28). */
 export async function retrySocialPost(formData: FormData) {
   await requireAdmin();
   const postId = readFormString(formData, 'post_id');
@@ -263,7 +278,7 @@ export async function retrySocialPost(formData: FormData) {
     .from('social_posts')
     .update({
       status: 'scheduled',
-      scheduled_for: new Date().toISOString(),
+      scheduled_for: null,
       updated_at: new Date().toISOString(),
     })
     .eq('post_id', postId)
@@ -335,6 +350,7 @@ export async function createAnnouncement(formData: FormData) {
     media_url: readHttpUrl(formData, 'media_url'),
     link_url: readHttpUrl(formData, 'link_url'),
     scheduled_for: nextAvailableSlot('facebook', takenSlots, now).toISOString(),
+    slot: AUTO_POST_SLOT,
     created_by: user_id,
   });
   if (error) failRedirect(error.message);

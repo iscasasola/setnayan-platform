@@ -60,13 +60,15 @@ async function resolvePageAccessToken(
   if (cachedPageToken && cachedPageToken.source === configuredToken) {
     return { ok: true, token: cachedPageToken.token };
   }
-  const url =
-    `${GRAPH_API_BASE}/${pageId}?fields=access_token&access_token=` +
-    encodeURIComponent(configuredToken);
+  // The token goes in the Authorization header, never the query string — a URL ends up in proxy and server logs.
+  const url = `${GRAPH_API_BASE}/${pageId}?fields=access_token`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), GRAPH_TIMEOUT_MS);
   try {
-    const res = await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${configuredToken}` },
+      signal: controller.signal,
+    });
     const payload = (await res.json().catch(() => null)) as
       | { access_token?: string; error?: { message?: string } }
       | null;

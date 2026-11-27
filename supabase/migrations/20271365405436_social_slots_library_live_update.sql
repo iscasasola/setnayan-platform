@@ -16,6 +16,9 @@
 --   2. social_posts.slot — which daily slot the row holds: morning (08:00),
 --      afternoon (14:00), evening (20:00) or holiday (12:00, the extra).
 --      NULL on rows from before this migration; the flush re-slots those.
+--   2b. social_posts_one_post_per_slot — a partial UNIQUE index: one live
+--      post per slot instant, so two overlapping flushes can never put two
+--      posts in one slot.
 --   3. social_posts.first_comment — the text posted as the first comment
 --      right after the Facebook post goes out (the library's "Pinned first
 --      comment"). The Graph API cannot pin a comment, so the flush records
@@ -65,6 +68,22 @@ ALTER TABLE public.social_posts
 
 COMMENT ON COLUMN public.social_posts.slot IS
   'Owner 2026-11-28: the daily slot this post holds — morning 08:00, afternoon 14:00, evening 20:00 Manila, or holiday 12:00 (an extra, only on planned holiday rows). One post per slot instant; the flush never publishes outside a slot (lib/social/governor.ts).';
+
+-- ── 2b · ONE POST PER SLOT, held by the database ───────────────────────────
+-- The owner's core rule. Two flushes can overlap (a page visit and the slot
+-- runner, or "Post now"), and each could hand a different row the same free
+-- slot. This index makes the second write fail (23505); the flush reads that
+-- as "slot taken" and moves the row on (lib/social/governor.ts claimFreeSlot).
+-- Keyed on the instant: every slot kind has its own Manila hour, so one
+-- instant IS one (Manila day, slot) pair — and no time-zone maths in SQL.
+-- Only slotted rows (slot set by the governor, the importer or the composer);
+-- rows from before this migration have slot NULL and are re-slotted by the
+-- flush before they publish. A pulled or failed row frees its slot.
+CREATE UNIQUE INDEX IF NOT EXISTS social_posts_one_post_per_slot
+  ON public.social_posts (scheduled_for)
+  WHERE slot IS NOT NULL
+    AND scheduled_for IS NOT NULL
+    AND status IN ('scheduled', 'publishing', 'published');
 
 -- ── 3 · the first comment ──────────────────────────────────────────────────
 ALTER TABLE public.social_posts

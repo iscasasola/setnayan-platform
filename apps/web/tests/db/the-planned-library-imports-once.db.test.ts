@@ -5,6 +5,9 @@
  *   1 · The import migration `scripts/social/import-library.ts` writes inserts each planned post once: run twice,
  *       the rows stay four; a planned post pulled by hand stays pulled and is not re-inserted.
  *   2 · `slot` refuses anything but the four slots; `library` and `live_update` are allowed source types.
+ *   2b · ONE POST PER SLOT is a database rule: a second live row on the same slot instant is refused (23505),
+ *        a pulled row frees it, an unslotted legacy row is not held to it, and the library import moves an unsent
+ *        auto-post off a planned slot (and skips a planned slot a sent post already holds) instead of aborting.
  *   3 · `social_live_week_facts` counts real events in the window only (no sample event, no event outside it) and
  *       lists only live, non-demo, not-opted-out suppliers verified in the window; service_role only.
  *
@@ -150,4 +153,46 @@ test('3 · the week facts are real: no sample event, no demo or opted-out shop; 
   } finally {
     await db.exec(`RESET ROLE`);
   }
+});
+
+test('2b · one post per slot is held by the database; the import gives a planned slot to the plan', async () => {
+  const at = '2027-01-05T06:00:00Z'; // 14:00 Manila
+  const ins = (ref: string, status = 'scheduled', slot: string | null = 'afternoon', type = 'vendor_feature') =>
+    db.query(
+      `INSERT INTO public.social_posts (source_type, source_ref, slot, scheduled_for, status) VALUES ($1, $2, $3, $4, $5)`,
+      [type, ref, slot, at, status],
+    );
+  await ins('slot-a');
+  // Two concurrent flushes giving a second row the same slot: the second write is refused.
+  await assert.rejects(ins('slot-b'), /social_posts_one_post_per_slot/);
+  await db.query(`INSERT INTO public.social_posts (source_type, source_ref) VALUES ('vendor_feature', 'slot-c')`);
+  await assert.rejects(
+    db.query(`UPDATE public.social_posts SET scheduled_for = $1, slot = 'afternoon' WHERE source_ref = 'slot-c'`, [at]),
+    /social_posts_one_post_per_slot/,
+  );
+  // A pulled row frees the slot; a legacy row with no slot is not held to it.
+  await db.query(`UPDATE public.social_posts SET status = 'pulled' WHERE source_ref = 'slot-a'`);
+  await ins('slot-b');
+  await ins('legacy-1', 'scheduled', null);
+
+  // The import: an unsent auto-post on a planned instant moves off it; a SENT post keeps its slot and the
+  // planned row is skipped — the migration never aborts.
+  const sent = '2027-01-06T06:00:00Z';
+  await db.query(
+    `INSERT INTO public.social_posts (source_type, source_ref, slot, scheduled_for, status) VALUES ('vendor_feature', 'sent-1', 'afternoon', $1, 'published')`,
+    [sent],
+  );
+  const csv =
+    'Date,Time (Manila),Caption (primary text)\n2027-01-05,14:00,"Planned A"\n2027-01-06,14:00,"Planned B"\n';
+  await db.exec(libraryMigrationSql(libraryRowsFromCsv(csv).rows, 'slots.csv'));
+  const rows = await db.query<{ source_ref: string; source_type: string; at: string | null }>(
+    `SELECT source_ref, source_type, to_char(scheduled_for AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI') AS at
+       FROM public.social_posts WHERE source_ref IN ('slot-b', 'sent-1') OR (source_type = 'library' AND body LIKE 'Planned %')
+      ORDER BY source_ref`,
+  );
+  const byRef = Object.fromEntries(rows.rows.map((r) => [r.source_ref, r]));
+  assert.equal(byRef['slot-b']?.at, null, 'the unsent auto-post kept the planned slot');
+  assert.equal(byRef['sent-1']?.at, '2027-01-06T06:00', 'a sent post lost its slot');
+  const planned = rows.rows.filter((r) => r.source_type === 'library');
+  assert.deepEqual(planned.map((r) => r.at), ['2027-01-05T06:00'], 'the planned post on the free slot landed; the one on a sent slot was skipped');
 });

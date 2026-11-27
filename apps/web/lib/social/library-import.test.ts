@@ -74,10 +74,11 @@ test('same CSV → same migration bytes (re-generating is safe)', () => {
   const twice = libraryMigrationSql(parse(fixture).rows, 'library-v2-sample.csv');
   assert.equal(once, twice);
   assert.match(once, /WHERE NOT EXISTS \(\n  SELECT 1 FROM public\.social_posts p\n   WHERE p\.source_type = 'library' AND p\.source_ref = v\.source_ref\n\)/);
-  assert.match(once, /ON CONFLICT \(source_type, source_ref\) WHERE source_type != 'evergreen' AND status != 'pulled' DO NOTHING;/);
+  assert.match(once, /\nON CONFLICT DO NOTHING;\n/);
+  assert.match(once, /UPDATE public\.social_posts p\n   SET scheduled_for = NULL/, 'a planned post must bump an unsent auto-post off its slot');
   assert.match(once, /'Ano''ng "set na ''yan" moment mo this week\? 👇'/);
   assert.match(once, /ARRAY\['https:\/\/media\.example\/library\/batch-1\/posts\/2026-12-01-plan-live-keep\/slides\/01\.jpg', '[^']+02\.jpg', '[^']+03\.jpg'\]::text\[\]/);
-  assert.match(once, /v\.media_urls::text\[\]/);
+  assert.match(once, /v\.media_urls::text\[\] AS media_urls/);
 });
 
 test('relative images without a base stop the import; a non-https base is refused', () => {

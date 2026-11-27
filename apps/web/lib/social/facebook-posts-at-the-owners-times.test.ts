@@ -6,13 +6,15 @@
  * whole daily cap, planned posts counted; a live update that finds its 14:00 taken queues for the next free 14:00.
  * Nothing posts outside a slot. Manila is UTC+08:00 with no DST, so day boundaries fall at 16:00 UTC.
  *
- * Sabotage (measured): SLOT_HOUR.afternoon 14 → 13 turns "auto-posts land at 14:00" red; dropping `allowHoliday` from
+ * Sabotage (measured): claimFreeSlot not adding a refused slot to `taken` turns the concurrency test red;
+ * SLOT_HOUR.afternoon 14 → 13 turns "auto-posts land at 14:00" red; dropping `allowHoliday` from
  * slotAt turns "noon is a slot only for a holiday row" red; `takenSet` ignoring a slot turns the cap tests red.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DAILY_SLOTS,
+  claimFreeSlot,
   SLOT_HOUR,
   nextAvailableSlot,
   nextFreeSlot,
@@ -134,4 +136,33 @@ test('a missed planned post moves to the next free slot of its OWN kind; auto-po
     plannedMornings.push(nextFreeSlot('morning', [], new Date(d.getTime() - 3600e3)));
   }
   assert.equal(phTime(nextFreeSlot('morning', plannedMornings, ph('2026-12-01T09:30:00'))), '2028-01-01 08:00');
+});
+
+test('two concurrent flushes claiming the same free slot: exactly one wins it, the other takes the next', async () => {
+  // The database's one-post-per-slot UNIQUE index, as a shared set: the second write to an instant is refused.
+  const held = new Set<number>();
+  const tryClaim = async (slot: Date) => {
+    await new Promise((r) => setTimeout(r, 1)); // let the two runners interleave
+    if (held.has(slot.getTime())) return 'taken' as const;
+    held.add(slot.getTime());
+    return 'ok' as const;
+  };
+  const floor = ph('2026-12-01T09:00:00');
+  // Each runner read the queue before the other wrote, so both start from the same (empty) view.
+  const [a, b] = await Promise.all([
+    claimFreeSlot('afternoon', [], floor, tryClaim),
+    claimFreeSlot('afternoon', [], floor, tryClaim),
+  ]);
+  assert.deepEqual([phTime(a!), phTime(b!)].sort(), ['2026-12-01 14:00', '2026-12-02 14:00']);
+  assert.equal(held.size, 2, 'one post per slot');
+});
+
+test('a claim that fails for another reason gives up instead of walking the calendar', async () => {
+  let calls = 0;
+  const got = await claimFreeSlot('afternoon', [], ph('2026-12-01T09:00:00'), async () => {
+    calls += 1;
+    return 'error';
+  });
+  assert.equal(got, null);
+  assert.equal(calls, 1);
 });

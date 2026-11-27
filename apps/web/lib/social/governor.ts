@@ -248,3 +248,30 @@ export function reslotKind(row: { source_type: string | null; slot: string | nul
   }
   return AUTO_POST_SLOT;
 }
+
+/** What one attempt to write a row onto a slot came back with. `taken` = the database's one-post-per-slot index refused it. */
+export type SlotClaimOutcome = 'ok' | 'taken' | 'error';
+
+/**
+ * Put a row on the earliest free slot of its kind, safely against a second flush doing the same at the same moment.
+ * The database holds the rule (migration 20271365405436: a partial UNIQUE index on `social_posts.scheduled_for` for
+ * slotted rows that are scheduled, publishing or published), so two runners that both pick the same free slot
+ * cannot both keep it: the loser's write is refused (`taken`), the slot joins `taken`, and it tries the next free
+ * one. Returns the slot it got, or null when the write failed for another reason or kept losing.
+ */
+export async function claimFreeSlot(
+  kind: Exclude<SocialSlot, 'holiday'>,
+  taken: Date[],
+  floor: Date,
+  tryClaim: (slot: Date) => Promise<SlotClaimOutcome>,
+  maxAttempts = 5,
+): Promise<Date | null> {
+  for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    const slot = nextFreeSlot(kind, taken, floor);
+    const outcome = await tryClaim(slot);
+    taken.push(slot); // won or lost, nobody else in this pass may have it
+    if (outcome === 'ok') return slot;
+    if (outcome === 'error') return null;
+  }
+  return null;
+}

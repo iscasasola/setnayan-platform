@@ -14,7 +14,7 @@ import {
   type ShareCreditMode,
 } from '@/lib/social-sharing';
 import {
-  nextFreeSlot,
+  claimFreeSlot,
   reslotKind,
   slotClashLosers,
   slotVerdict,
@@ -652,18 +652,20 @@ async function assignSchedules(admin: AdminClient, now: Date): Promise<void> {
         row.hold_until ? new Date(row.hold_until).getTime() : 0,
       ),
     );
-    const slot = nextFreeSlot(kind, takenSlots, floor);
-    const { error } = await admin
-      .from('social_posts')
-      .update({ scheduled_for: slot.toISOString(), slot: kind, updated_at: now.toISOString() })
-      .eq('post_id', row.post_id)
-      .eq('status', 'scheduled')
-      .is('scheduled_for', null);
-    if (error) {
+    // The one-post-per-slot UNIQUE index decides a race with a concurrent flush: a refused write (23505) means the
+    // slot is taken, so claimFreeSlot moves on to the next free one.
+    await claimFreeSlot(kind, takenSlots, floor, async (slot) => {
+      const { error } = await admin
+        .from('social_posts')
+        .update({ scheduled_for: slot.toISOString(), slot: kind, updated_at: now.toISOString() })
+        .eq('post_id', row.post_id)
+        .eq('status', 'scheduled')
+        .is('scheduled_for', null);
+      if (!error) return 'ok';
+      if (error.code === '23505') return 'taken';
       logQueryError('runSocialFlush (assign slot)', error, { post_id: row.post_id });
-      continue;
-    }
-    takenSlots.push(slot); // later rows in this pass must respect this slot
+      return 'error';
+    });
   }
 }
 

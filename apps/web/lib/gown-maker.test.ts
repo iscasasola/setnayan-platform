@@ -197,6 +197,14 @@ test('7b · v193: the cape is its own price item, in Cover-ups, unpriced until t
   for (const i of GOWN_PRICE_ITEMS) assert.equal(GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length, 1, `${i.key} sits in ${GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length} groups`);
 });
 
+test('7c · v195: flutter cape sleeves (per pair, Sleeves) and an overlay (per piece, Skirt), unpriced until priced', () => {
+  assert.deepEqual(GOWN_PRICE_ITEMS.find((i) => i.key === 'flutter'), { key: 'flutter', label: 'Flutter cape sleeves: cutting, sewing and finishing', unit: 'pair' });
+  assert.deepEqual(GOWN_PRICE_ITEMS.find((i) => i.key === 'overlay'), { key: 'overlay', label: 'Overlay: cutting, sewing and finishing', unit: 'pc' });
+  assert.equal(GOWN_PRICE_GROUPS.find(([, f]) => f('flutter'))?.[0], 'Sleeves');
+  assert.equal(GOWN_PRICE_GROUPS.find(([, f]) => f('overlay'))?.[0], 'Skirt');
+  assert.equal(gownShopTemplate().prices.flutter, undefined);
+});
+
 test('8 · custom gown makers only; no peso typed, no money formatted here', () => {
   assert.equal(isGownKind('bridal_gown_custom'), true);
   assert.equal(isGownKind('bridal_gown_rental'), false);

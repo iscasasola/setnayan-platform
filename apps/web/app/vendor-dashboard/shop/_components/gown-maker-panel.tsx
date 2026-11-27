@@ -53,7 +53,7 @@ const ADD_ON_OPTIONS = [
   { key: 'free', label: 'Included' },
   { key: 'request', label: 'On request' },
 ];
-const UNIT_WORD: Record<string, string> = { gown: 'per gown', m: 'per metre', pc: 'per piece', '100 pcs': 'per 100', hour: 'per hour' };
+const UNIT_WORD: Record<string, string> = { gown: 'per gown', m: 'per metre', pc: 'per piece', pair: 'per pair', '100 pcs': 'per 100', hour: 'per hour' };
 
 export function GownMakerPanel({ seed }: { seed?: { options: GownShopOptions; saved: boolean; locked: boolean } } = {}) {
   const [load, setLoad] = useState<Load>(seed ? { s: 'ok', ...seed } : { s: 'loading' });

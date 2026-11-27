@@ -48,7 +48,7 @@ const MAX_MARKUP_PCT = 500;
 // ─────────────────────────────────────────────────────────────────────────────
 
 type Item = { readonly key: string; readonly label: string; readonly unit: GownPriceUnit };
-export type GownPriceUnit = 'gown' | 'm' | 'pc' | '100 pcs' | 'hour';
+export type GownPriceUnit = 'gown' | 'm' | 'pc' | 'pair' | '100 pcs' | 'hour';
 
 const SIL_LABEL = Object.fromEntries(GOWN_SILHOUETTES.map((s) => [s.id, s.label])) as Record<GownSilhouette, string>;
 
@@ -75,6 +75,8 @@ export const GOWN_PRICE_ITEMS = [
   { key: 'bead_seed', label: 'Seed beads', unit: '100 pcs' },
   { key: 'bead_sequin', label: 'Sequins', unit: '100 pcs' },
   { key: 'cape', label: 'Cape: cutting, sewing and finishing', unit: 'pc' },
+  { key: 'flutter', label: 'Flutter cape sleeves: cutting, sewing and finishing', unit: 'pair' },
+  { key: 'overlay', label: 'Overlay: cutting, sewing and finishing', unit: 'pc' },
   { key: 'piping', label: 'Piping', unit: 'm' },
   { key: 'fringe', label: 'Fringe', unit: 'm' },
   { key: 'feather', label: 'Feather trim', unit: 'm' },
@@ -91,6 +93,9 @@ export const GOWN_PRICE_GROUPS: ReadonlyArray<readonly [string, (key: GownPriceK
   ['Closures', (k) => /^(zipper|button|eyelet|cord)$/.test(k)],
   ['Lace and beads', (k) => /^(lace_|bead_)/.test(k)],
   ['Trims', (k) => /^(piping|fringe|feather)$/.test(k)],
+  // v195: flutter cape sleeves and a skirt overlay, each its own labour line (their fabric is the fabric items).
+  ['Sleeves', (k) => k === 'flutter'],
+  ['Skirt', (k) => k === 'overlay'],
   // v193: the cape as part of the gown (the bride's detachable cape is the add-on `cape`; the designer may price either).
   ['Cover-ups', (k) => k === 'cape'],
   ['Labour', (k) => k === 'rate'],

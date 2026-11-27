@@ -21,7 +21,7 @@ Owner rule R3 (27 Nov): "a fixed app, not an app with guidelines on what should 
   - schedule → "No moments yet.";
   - lost dates and price position → short lines;
   - Maker background → "Needs a picture".
-- **TBA and hints.** An unnamed +1 reads "Mia Cruz's +1" (the stored "+1 · TBA" rows are unchanged). The host's schedule hides "Venue TBA". The Guests search box says only "Search guests", with no rotating "e.g." lines.
+- **TBA and hints.** The host's schedule hides "Venue TBA". ("Mia Cruz's +1 · TBA" is left to the NEW account: its wording lives in `lib/plus-one-of.ts`, which the Seats screen also reads.) The Guests search box says only "Search guests", with no rotating "e.g." lines.
 - **Grammar.** "1 photo left", "1 guest photo left" and "1 ticket" now read correctly.
 - **The "Someone" stand-in.** "Not Someone? Switch account" on an Event Hub now reads "Not you?".
 

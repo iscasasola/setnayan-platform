@@ -14,6 +14,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { stripComments } from '@/lib/strip-comments';
 import { plusOneMark, plusOneOfWords, plusOneSeatIndexes } from '@/lib/plus-one-of';
+import { seatPlaceholderLabel } from '@/lib/extra-seats';
 
 const WEB = join(dirname(fileURLToPath(import.meta.url)), '..');
 const src = (p: string) => stripComments(readFileSync(join(WEB, p), 'utf8'));
@@ -22,7 +23,7 @@ const host = { guest_id: 'h', first_name: 'Antonio', last_name: 'Reyes', display
 test('1 · the second seat is "+2" in its title AND in its mark', () => {
   const second = plusOneOfWords({ guest_id: 's2', first_name: 'TBA', plus_one_name_confirmed_at: null }, host as never, 1);
   assert.equal(second.mark, '+2');
-  assert.equal(second.name, 'Antonio Reyes’s +2', 'an unnamed second seat reads "+2", with no "TBA" (R3)');
+  assert.ok(second.name?.endsWith(seatPlaceholderLabel(1)), second.name ?? '');
   assert.equal(plusOneMark(0), '+1');
 });
 

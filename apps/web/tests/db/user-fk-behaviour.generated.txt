@@ -9,8 +9,8 @@
 #   issues no delete, so a SET NULL column still holds the subject uuid
 #   after an erasure request. "SET NULL" never means "erasure handled it".
 #
-# 306 single-column FKs onto auth.users / public.users
-# CASCADE=83  RESTRICT=1  SET NULL=222
+# 312 single-column FKs onto auth.users / public.users
+# CASCADE=83  RESTRICT=1  SET NULL=228
 #
 # FORMAT  <table>.<column>  <on delete>  <NOT NULL|nullable>  -> <parent>
 
@@ -154,6 +154,9 @@ founder_seats.user_id                                     CASCADE      NOT NULL 
 fraud_enforcement_audit.actor_user_id                     SET NULL     nullable  -> users
 fraud_signals.reviewed_by                                 SET NULL     nullable  -> users
 godparents.owner_user_id                                  CASCADE      NOT NULL  -> auth.users
+gown_designs.created_by                                   SET NULL     nullable  -> auth.users
+gown_fabric_types.updated_by                              SET NULL     nullable  -> auth.users
+gown_fittings.updated_by                                  SET NULL     nullable  -> auth.users
 guest_checkins.checked_in_by_user_id                      SET NULL     nullable  -> auth.users
 guest_claims.claimer_user_id                              CASCADE      NOT NULL  -> auth.users
 guest_claims.reviewed_by_user_id                          SET NULL     nullable  -> auth.users
@@ -282,6 +285,9 @@ vendor_disputes.opened_by_user_id                         SET NULL     nullable 
 vendor_event_access_grants.granted_by                     SET NULL     nullable  -> auth.users
 vendor_event_access_grants.grantee_user_id                CASCADE      NOT NULL  -> auth.users
 vendor_follows.follower_user_id                           CASCADE      NOT NULL  -> users
+vendor_gown_fabrics.updated_by                            SET NULL     nullable  -> auth.users
+vendor_gown_looks.updated_by                              SET NULL     nullable  -> auth.users
+vendor_gown_makers.updated_by                             SET NULL     nullable  -> auth.users
 vendor_guest_deliveries.delivered_by                      SET NULL     nullable  -> auth.users
 vendor_guest_reviews.hidden_by_user_id                    SET NULL     nullable  -> auth.users
 vendor_ig_oauth_state.initiated_by                        CASCADE      NOT NULL  -> auth.users

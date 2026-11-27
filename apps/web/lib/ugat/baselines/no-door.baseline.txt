@@ -50,6 +50,7 @@
 /dev/find-lock-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/for-suppliers-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/forms-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
+/dev/gown-maker-lab	# 2026-11-27 · internal (dev lab, 404 in production) · the gown maker stage, body and dress on fixtures (#8438, #8447); reached by typing its address
 /dev/group-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/guests-lab	# first run 2026-10-02 · internal (dev, prototypes) · a page nobody can reach without typing its address
 /dev/help-lab	# 2026-11-23 · internal (dev, prototypes) · a page nobody can reach without typing its address

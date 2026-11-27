@@ -135,7 +135,8 @@ test('3 · none of them is still on the page — the ⚙ alone holds them', () =
 
 test('4 · every old link still lands', () => {
   assert.match(src('subscription', 'page.tsx'), /<PlanScreen search=\{await searchParams\} \/>/, '/subscription no longer draws the Plan screen');
-  assert.match(src('team', 'page.tsx'), /<TeamScreen search=\{await searchParams\} \/>/, '/team no longer draws the Helpers screen');
+  // B13 · B14: the page reads its search once (it also opens Roles / Who gets new inquiries in place); Team is still its body.
+  assert.match(src('team', 'page.tsx'), /<TeamScreen search=\{search\} \/>/, '/team no longer draws the Helpers screen');
   assert.match(src('verify', 'page.tsx'), /redirect\(`\/vendor-dashboard\/profile\$\{query \? `\?\$\{query\}` : ''\}#docs`\)/, '/verify no longer lands on #docs');
   const door = src('shop', '_components', 'shop-settings.tsx');
   assert.match(door, /SHOP_GEAR_SECTIONS as readonly string\[\]\)\.includes\(at\)\) go\(true, at\)/, 'an old #docs link no longer opens the ⚙');

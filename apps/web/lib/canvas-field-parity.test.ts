@@ -204,6 +204,7 @@ const MAKER_ONLY_FIELDS = [
   'about_present', 'description', 'video_url', // 📝 About this card (HYBRID Q3) — commitVendorService → readCardAbout (lib/card-about.ts)
   'pay_plan_present', 'pay_plan_id', 'pay_plan_edited', 'pay_plan_scope', 'pay_plan_save_name', 'pay_plan_apply_to', // 💳 Payment Strategies — readPlanIntent → writeCardPayPlan
   'op', 'branch', 'price_php', 'Price there', // 🏢 Copy to another branch (owner 2026-11-14, item 10) — its OWN sheet form (copy-to-branch.tsx) → supplierPlanExtra, never the card form
+  'tile_id', 'proposed_label', 'proposed_note', 'from_locked_kind', // ‹ Tell us what you do, in place (final check B9) — its OWN form (name-fields.tsx, beside the maker, never inside the card form) → proposeCategory
 ] as const;
 
 test('the maker posts EVERY field the wizard posts — the server cannot tell a field went missing', () => {

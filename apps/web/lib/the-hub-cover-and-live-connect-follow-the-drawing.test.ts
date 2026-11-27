@@ -10,7 +10,7 @@
  *   "The entourage" sits flush under the block above on the host/stranger tree ....... A4-B05 (c)
  *   /live Connect gives no sign it heard the press, can be pressed twice, or spins .. A4-B04
  *   an empty press on /live is the browser's bubble, or spends a rate-limited try ..... A4-B04
- *   SubmitButton loses its spinner anywhere else ...................................... (the default holds)
+ *   SubmitButton draws a spinner, or a working one can be pressed again ............... (final check B19)
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -72,19 +72,20 @@ test('A4-B04 · /live Connect shows pressed at once, holds until the answer, nev
   const form = code('app/live/_components/connect-fields.tsx');
   assert.match(form, /setSent\(true\);/);
   assert.match(form, /const box = e\.currentTarget\.elements\.namedItem\('code'\);\s*if \(box instanceof HTMLInputElement\) \{\s*box\.readOnly = true;/, 'the code field does not lock');
-  assert.match(form, /<SubmitButton\s+pending=\{sent\}\s+overlay=\{false\}\s+spinner=\{false\}\s+pendingLabel="Connecting…"/);
+  assert.match(form, /<SubmitButton\s+pending=\{sent\}\s+overlay=\{false\}\s+pendingLabel="Connecting…"/);
   assert.match(code('app/live/page.tsx'), /data-\[pending=true\]:opacity-60/, 'the pressed button does not dim');
   assert.match(code('app/live/page.tsx'), /read-only:opacity-60/, 'the locked field does not dim');
   const page = code('app/live/page.tsx');
   assert.match(page, /<ConnectForm\s+key=\{renderKey\}\s+action=\{pairLiveScreen\}\s+prefill=\{prefill\}\s+message=\{message \?\? null\}\s+look=\{CONNECT_LOOK\}/, 'an answer does not unlock a fresh form');
   assert.match(page, /const renderKey = `\$\{error \?\? 'none'\}-\$\{Date\.now\(\)\}`;/);
 
-  // The shared button: the opt-out removes the spinner; every other form keeps it.
-  const quiet = draw({ pending: true, spinner: false, overlay: false, pendingLabel: 'Connecting…' }, 'Connect');
-  assert.ok(quiet.includes('Connecting…') && !quiet.includes('<svg'), 'spinner={false} still draws a spinner');
-  assert.match(quiet, /disabled=""/, 'a pressed Connect can be pressed again');
-  const usual = draw({ pending: true, overlay: false, pendingLabel: 'Saving…' }, 'Save');
-  assert.ok(usual.includes('<svg'), 'the default SubmitButton lost its spinner');
+  // The shared button (final check B19, area 5, approved 25 Nov): no spinner on any form — a working button stays
+  // pressed (`aria-busy`) and says its step. A second press is refused in its click (submit-button.tsx), not by
+  // `disabled`, which would grey it out.
+  const quiet = draw({ pending: true, overlay: false, pendingLabel: 'Connecting…' }, 'Connect');
+  assert.ok(quiet.includes('Connecting…') && !quiet.includes('<svg'), 'a working Connect draws a spinner');
+  assert.match(quiet, /aria-busy="true"/, 'a pressed Connect does not show pressed');
+  assert.match(code('app/_components/submit-button.tsx'), /if \(pending\) \{\s*e\.preventDefault\(\);\s*return;/, 'a pressed Connect can be pressed again');
 });
 
 test('A4-B04 · an empty press is the page’s own line, never the bubble, and spends no try', () => {

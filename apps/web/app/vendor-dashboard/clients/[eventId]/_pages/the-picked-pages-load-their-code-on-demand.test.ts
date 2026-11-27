@@ -65,6 +65,7 @@ const LIGHT = new Map<string, string>([
   ['app/dashboard/[eventId]/guests/_components/undo-toast.tsx', 'the Hub’s undo toast host, a few lines'],
   ['app/vendor-dashboard/_components/supplier-columns.tsx', 'the Hub screen’s column frame'],
   ['app/vendor-dashboard/_components/supplier-thumb-row.tsx', 'ships with Schedule (`supplier-schedule.tsx`) anyway'],
+  ['app/vendor-dashboard/_components/back-when-not-risen.tsx', 'the pinned row’s ‹ steps aside inside a rise (final check B15 · B16): two context reads — the supplier layout’s `@rise` slot ships the rise parts on every page anyway'],
 ]);
 
 const IMPORT = /(?:^|\n)\s*(?:import|export)\s+(?!type\b)(?:[^'"]*?from\s+)?['"]([^'"]+)['"]/g;

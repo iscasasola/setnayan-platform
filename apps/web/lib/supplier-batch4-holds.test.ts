@@ -51,8 +51,8 @@ test('a refused team read is "Couldn’t load your team", not a role lock or a b
   assert.match(team, /export async function readTeamManagerContext[\s\S]*?Promise<VendorTeamManagerContext \| null \| 'unread'>/);
   assert.match(team, /export async function fetchTeamManagerContext[\s\S]*?read === 'unread' \? null : read/, 'actions still fail closed');
   for (const f of [
-    'app/vendor-dashboard/team/roles/page.tsx',
-    'app/vendor-dashboard/team/roles/inquiries/page.tsx',
+    'app/vendor-dashboard/team/_components/roles-section.tsx',
+    'app/vendor-dashboard/team/_components/inquiries-section.tsx',
     'app/vendor-dashboard/team/_components/team-screen.tsx',
   ]) {
     const s = src(f);
@@ -74,7 +74,8 @@ test('refused Creators lists are said, never "No creators match yet" or an empty
 });
 
 test('Deep Search is named and says "don’t carry over" once (B5-12)', () => {
-  assert.match(src('app/vendor-dashboard/deep-search/page.tsx'), /<PageMasthead title="Deep Search" \/>/);
+  // Seen in the one pinned row since final check B18 (`app/vendor-dashboard/one-pinned-row.test.ts`).
+  assert.match(src('app/vendor-dashboard/deep-search/page.tsx'), /<ToolPin route="\/vendor-dashboard\/deep-search" title="Deep Search" \/>/);
   assert.doesNotMatch(src('app/vendor-dashboard/deep-search/_components/deep-search-runner.tsx'), /carry over/);
 });
 
@@ -83,7 +84,7 @@ test('counts and plan names come from their one source (A5-G5-10)', () => {
   assert.equal(rolesRowLine(['A', 'B']), 'A · B');
   assert.match(rolesRowLine([...VENDOR_DUTIES]), new RegExp(`and ${VENDOR_DUTIES.length - 3} more$`));
   assert.doesNotMatch(src('app/vendor-dashboard/team/_components/helpers-view.tsx'), /and 3 more/);
-  const roles = src('app/vendor-dashboard/team/roles/page.tsx');
+  const roles = src('app/vendor-dashboard/team/_components/roles-section.tsx');
   assert.doesNotMatch(roles, /'1 Helper free'/);
   assert.match(roles, /formatCount\(FREE_HELPER_SEATS\)/);
   assert.doesNotMatch(src('app/vendor-dashboard/website/_components/page-parts.tsx'), /<PlanAsk plan="(Pro|Plus)"/);

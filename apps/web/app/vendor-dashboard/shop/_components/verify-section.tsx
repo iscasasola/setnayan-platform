@@ -2,7 +2,7 @@
 
 import { VERIFY_DOCS_ANCHOR } from '../../_components/get-verified-line';
 import { useActionState, useEffect, useRef, useState } from 'react';
-import { BadgeCheck, Check, ChevronDown, Clock, Loader2 } from 'lucide-react';
+import { BadgeCheck, Check, ChevronDown, Clock } from 'lucide-react';
 
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -18,6 +18,7 @@ import { RenewalStateCard } from './renewal-state-card';
 import { renewalPageCard, type RenewalPageFacts } from '@/lib/papers-renewal';
 import { formatCount } from '@/lib/format-number';
 import { REQUIRED_DOC_COUNT, countCompleteRequiredSlots } from '@/lib/vendor-verification';
+import { Sk } from '@/components/skeletons';
 
 /**
  * "Get verified" — the always-visible verification stage (owner-approved
@@ -386,11 +387,11 @@ function DocsStep({
         </p>
       ) : (
         // No payload + no failure = still loading (or the open-triggered fetch is
-        // about to fire). Show the spinner, never the error.
-        <p className="inline-flex items-center gap-2 text-sm" style={{ color: 'var(--m-slate)' }}>
-          <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2} aria-hidden />
-          Loading your documents…
-        </p>
+        // about to fire). Show the grey shape of the list (final check B19), never the error.
+        <div role="status" aria-busy="true">
+          <span className="sr-only">Loading your documents…</span>
+          <Sk className="h-11 w-full rounded-xl" />
+        </div>
       )}
     </StepShell>
   );

@@ -86,6 +86,13 @@ type Common = {
    * button will wake by itself (nothing to restore yet); `disabled` keeps its own faded look.
    */
   waiting?: boolean;
+  /**
+   * WORKING (final check B19, drawing `final-check-area-5_2026-11-25.html` § B19, approved 25 Nov): the words of the
+   * step it is on ("Posting…", "Uploading photo…"). While set, the button STAYS PRESSED (`[aria-busy='true']` in
+   * globals.css — Tap to 0.97, Release back), keeps its icon, says the step in place of its word, and a press does
+   * nothing. No spinner. Absent → the button is exactly as it was.
+   */
+  busy?: string | null | false;
   className?: string;
   title?: string;
   'data-testid'?: string;
@@ -152,7 +159,12 @@ function renderIcon(icon: Common['icon']) {
 
 export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, ActionButtonProps>(
   function ActionButton(props, ref) {
-    const { tone, icon, label, name, main, quiet, iconOnly, filled, className, title, waiting, caret } = props;
+    const { tone, icon, name, main, quiet, iconOnly, filled, className, title, caret } = props;
+    const working = typeof props.busy === 'string' && props.busy.length > 0 ? props.busy : null;
+    const label = working ?? props.label;
+    const waiting = props.waiting;
+    /** Waiting or working: a press does nothing. Only WAITING looks grey; working looks held down. */
+    const stopped = Boolean(waiting || working);
     const cls = actionButtonClass(tone, { main, quiet, iconOnly, filled, extra: className });
     const inner = (
       <>
@@ -172,7 +184,7 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
           target={target}
           rel={target === '_blank' ? 'noopener noreferrer' : undefined}
           onClick={
-            disabled || waiting
+            disabled || stopped
               ? (e) => {
                   e.preventDefault();
                 }
@@ -180,6 +192,7 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
           }
           aria-disabled={disabled || waiting || undefined}
           data-waiting={waiting ? '' : undefined}
+          aria-busy={working ? true : undefined}
           aria-label={name ?? label}
           title={title ?? name ?? label}
           className={cls}
@@ -198,14 +211,15 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
         {...extraData(props)}
         ref={ref as RefObject<HTMLButtonElement>}
         /* Waiting: a press does nothing — not its handler, and not its form. */
-        type={waiting ? 'button' : (p.type ?? 'button')}
+        type={stopped ? 'button' : (p.type ?? 'button')}
         form={p.form}
         name={p.formName}
         value={p.value}
-        onClick={waiting ? undefined : p.onClick}
+        onClick={stopped ? undefined : p.onClick}
         disabled={p.disabled}
         aria-disabled={waiting || undefined}
         data-waiting={waiting ? '' : undefined}
+        aria-busy={working ? true : undefined}
         aria-pressed={p['aria-pressed']}
         aria-expanded={p['aria-expanded']}
         aria-haspopup={p['aria-haspopup']}

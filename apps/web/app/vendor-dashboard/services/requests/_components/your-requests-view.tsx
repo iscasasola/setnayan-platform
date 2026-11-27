@@ -1,7 +1,7 @@
 import { Plus } from 'lucide-react';
 
 import { ActionButton } from '@/components/action-button';
-import { PageMasthead } from '@/app/_components/page-masthead';
+import { ToolPin } from '../../../_components/tool-page';
 import { TemplateEmpty, TemplateFail, TemplateSection } from '@/app/_components/template-rows';
 import { SERVICE_REQUEST_NEW_HREF, splitWaitingDecided, unseenDecision } from '@/lib/service-requests';
 import type { Loaded, MyRequest, RequestTree } from '@/lib/service-requests.server';
@@ -22,8 +22,9 @@ export function YourRequestsView({
   const { waiting, decided } = mine.ok ? splitWaitingDecided(mine.value) : { waiting: [], decided: [] };
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-2 px-4 py-4 sm:px-6" data-your-requests="">
-      <PageMasthead title="Your requests" />
+    <div className="mx-auto w-full max-w-3xl space-y-2 px-4 pb-4 sm:px-6" data-your-requests="">
+      {/* ‹ + the title, the one pinned row (final check B18). */}
+      <ToolPin route="/vendor-dashboard/services/requests" title="Your requests" />
       {gone ? (
         <p role="alert" className="text-sm font-semibold" style={{ color: 'rgb(var(--color-danger))' }} data-request-gone="">
           That request is gone.

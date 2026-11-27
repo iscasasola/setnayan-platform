@@ -14,5 +14,6 @@ import { ListPageSkeleton } from '@/components/skeletons';
  * `vendor-dashboard/loading.tsx`, so the HTTP status was committed early either way.
  */
 export default function Loading() {
-  return <ListPageSkeleton rows={6} />;
+  // 👻 Ghost: the pinned row's title is known (`ToolPin title="Creators"`), so it shows at once.
+  return <ListPageSkeleton rows={6} title="Creators" />;
 }

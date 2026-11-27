@@ -1,7 +1,7 @@
 'use client';
 
 import { createContext, useState } from 'react';
-import { Loader2, Send } from 'lucide-react';
+import { Send } from 'lucide-react';
 import { PANEL_BTN, PANEL_MAIN, PANEL_ROW, PanelHead } from '@/app/_components/gallery/photo-viewer';
 import { guestToast } from '@/app/dashboard/[eventId]/guests/_components/undo-store';
 import { SHARE_WORDS, ShareTargetList, shareRefusal, sharedToast } from '../../services/_components/service-card-share-sheet';
@@ -125,8 +125,8 @@ export function SendPhotoToChat({ url, share, onDone }: { url: string; share: Ph
               Back
             </button>
             <button type="button" className={PANEL_MAIN} disabled={sending} aria-busy={sending || undefined} onClick={() => void send()} data-photo-chat-send="">
-              {sending ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} /> : <Send aria-hidden className="h-4 w-4" strokeWidth={2} />}
-              Send
+              <Send aria-hidden className="h-4 w-4" strokeWidth={2} />
+              {sending ? 'Sending…' : 'Send'}
             </button>
           </div>
         </div>

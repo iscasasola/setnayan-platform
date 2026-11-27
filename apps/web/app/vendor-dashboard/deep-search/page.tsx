@@ -1,7 +1,7 @@
 import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
 import { Search } from 'lucide-react';
-import { PageMasthead } from '@/app/_components/page-masthead';
+import { ToolChip, ToolPin } from '../_components/tool-page';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
@@ -144,21 +144,18 @@ export default async function VendorDeepSearchPage() {
       : null;
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-      {/* The page's name, as its metadata says it (final check B5-12); the masthead keeps it screen-reader only. */}
-      <PageMasthead title="Deep Search" />
+    <div className="mx-auto max-w-3xl px-4 pb-6 sm:px-6 sm:pb-10">
+      {/* The page's name, as its metadata says it (final check B5-12), seen in the one pinned row (B18). */}
+      <ToolPin route="/vendor-dashboard/deep-search" title="Deep Search" />
 
       <section className="sn-tile mt-6 p-6">
-        <div className="flex items-start gap-3">
-          <span
-            aria-hidden
-            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg"
-            style={{ background: 'var(--m-orange-4)', color: 'var(--m-orange-deep)' }}
-          >
-            <Search className="h-5 w-5" strokeWidth={1.75} />
-          </span>
-          <div className="min-w-0 flex-1">
-            <h2 className="text-base font-semibold text-ink">Run a Deep Search</h2>
+        {/* The icon sits beside the heading at the text's size — no icon tile (final check B5, Part I.2). */}
+        <div className="min-w-0">
+          <div className="min-w-0">
+            <h2 className="flex items-center gap-2 text-base font-semibold text-ink">
+              <Search aria-hidden className="h-4 w-4 shrink-0 text-[color:var(--m-slate-2)]" strokeWidth={1.75} />
+              Run a Deep Search
+            </h2>
             {allowanceLine ? (
               <p className="mt-1 max-w-prose text-sm text-ink/65">
                 {allowanceLine}
@@ -227,18 +224,10 @@ export default async function VendorDeepSearchPage() {
                       {/* An included run, or one bought before the per-search sale retired (2026-11-22). */}
                       {u.was_free ? 'Included' : 'Bought'}
                     </span>
-                    <span
-                      className={
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-medium ' +
-                        (status === 'complete'
-                          ? 'bg-success-100 text-success-800'
-                          : status === 'failed'
-                            ? 'bg-danger-100 text-danger-800'
-                            : 'bg-ink/5 text-ink/60')
-                      }
-                    >
+                    {/* The house chip — a dot and the word on its own tint, by token (final check B5). */}
+                    <ToolChip tone={status === 'complete' ? 'ok' : status === 'failed' ? 'no' : status === 'unread' ? 'wait' : 'quiet'} data="deep-search-status">
                       {status === 'complete' ? 'Done' : status === 'failed' ? 'Failed' : status === 'unread' ? 'Couldn\u2019t read' : 'Running'}
-                    </span>
+                    </ToolChip>
                   </span>
                 </li>
               );

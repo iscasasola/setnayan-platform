@@ -111,12 +111,15 @@ test('no policy is refused in the app', () => {
   }
 });
 
-test('supplier Settings, rendered, carries every policy and the Account row — for an owner and a team member, web and app', () => {
+test('supplier Settings, rendered, carries every policy and the Account row — for an owner and a team member, web and app', async () => {
+  // Settings' pinned ‹ returns in place (final check B18), which asks for the app router: a stub one is mounted.
+  const { AppRouterContext } = await import('next/dist/shared/lib/app-router-context.shared-runtime');
+  const ROUTER = { back() {}, forward() {}, refresh() {}, push() {}, replace() {}, prefetch() {} };
   const tools = settingsMoreTools({ hasMoodboardLibraryAccess: false, hasMusicRepertoireAccess: false, storeShell: false });
   for (const manager of [true, false]) {
     for (const storeShell of [false, true]) {
       const html = renderToStaticMarkup(
-        createElement(SettingsView, { unread: 0, manager, payout: 'unreadable', tools }),
+        createElement(AppRouterContext.Provider, { value: ROUTER as never }, createElement(SettingsView, { unread: 0, manager, payout: 'unreadable', tools })),
       );
       const who = `${manager ? 'owner' : 'team member'}${storeShell ? ' · app' : ' · web'}`;
       for (const h of REQUIRED_POLICY_HREFS) {

@@ -33,7 +33,7 @@
  */
 
 import { useCallback, useEffect, useId, useState, useTransition } from 'react';
-import { Check, Loader2, Megaphone, Send, X } from 'lucide-react';
+import { Check, Megaphone, Send, X } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 
 import { Explain } from '@/app/_components/explain';
@@ -240,8 +240,9 @@ export function VendorStatusUpdates({
             <ActionButton
               tone="brand"
               main
-              icon={pending ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.75} /> : Send}
+              icon={Send}
               label="Post"
+              busy={pending ? 'Posting…' : null}
               onClick={post}
               disabled={pending || (!picked && note.trim().length === 0)}
               data-post-an-update-post=""

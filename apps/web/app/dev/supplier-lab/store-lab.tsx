@@ -110,7 +110,8 @@ export function StoreLab({ state, fail, none, tiles, bar }: { state: StoreLabSta
     );
   return (
     <div className="min-h-screen bg-cream pb-40 text-ink" data-store-lab={state}>
-      <ToolPage name={state}>{body}</ToolPage>
+      {/* The front takes the body's width, as the page does (final check B12); the other screens keep the column. */}
+      {state === 'store' ? <div className="mx-auto w-full px-4 pb-16 sm:px-6" data-tool-page="store">{body}</div> : <ToolPage name={state}>{body}</ToolPage>}
       {bar}
     </div>
   );

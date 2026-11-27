@@ -1,6 +1,8 @@
 import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
-import { HideWhenRisen } from '@/app/_components/rise/rise-route';
+import { loadRequestTree } from '@/lib/service-requests.server';
+import { TellUsHost } from '../../requests/_components/tell-us-host';
+import { BackWhenNotRisen } from '../../../_components/back-when-not-risen';
 import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, Heart } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
@@ -141,13 +143,15 @@ export default async function NewServicePage({
   // The vendor's OTHER offered categories → the "comes with" link options.
   // ONE loader for every door into the maker (lib/service-card-maker.server.ts). The kind is fixed by the address,
   // so the kind list is not read.
-  const [ctx, library] = await Promise.all([
+  const [ctx, library, requestTree] = await Promise.all([
     loadMakerContext(supabase, profile.vendor_profile_id, {
       fixedCategory: category,
       withKindList: false,
     }),
     // 📚 Card Maker HYBRID part 2 — saved pay plans, the shop's other cards, Setnayan's starting lists for this service.
     loadCardMakerLibrary(supabase, profile.vendor_profile_id, canonicalServiceForVendorCategory(category)),
+    // ‹ "Tell us what you do" opens in place inside the maker (final check B9) — its categories, read with the rest.
+    loadRequestTree(),
   ]);
   const otherCategories = ctx.otherCategories;
   const coverageOptions = ctx.coverages;
@@ -176,7 +180,7 @@ export default async function NewServicePage({
     // title above it (makers prototype 7 Nov 2026 § 3). The retiring wizard keeps its shipped frame.
     <div className={canvas ? 'mx-auto w-full max-w-6xl px-4 pb-8 pt-4 sm:px-6' : 'mx-auto w-full max-w-2xl px-4 py-8 sm:px-6'}>
       {/* ‹ only on the whole page: risen over Shop, ✕ is the way out (final check B8). */}
-      <HideWhenRisen>
+      <BackWhenNotRisen>
       <Link
         href="/vendor-dashboard/services"
         className="mb-2 inline-flex min-h-11 items-center gap-1.5 text-[14px] font-medium text-[color:var(--m-slate-2)] hover:text-ink"
@@ -184,7 +188,7 @@ export default async function NewServicePage({
         <ArrowLeft aria-hidden className="h-4 w-4" strokeWidth={1.75} />
         Services
       </Link>
-      </HideWhenRisen>
+      </BackWhenNotRisen>
       {canvas ? null : (
         <>
           {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
@@ -219,6 +223,7 @@ export default async function NewServicePage({
           </p>
         </div>
       ) : null}
+      <TellUsHost groups={requestTree?.groups ?? null} retry={`/vendor-dashboard/services/new/${category}`}>
       {canvas ? (
         <CanvasMaker
           library={library}
@@ -275,6 +280,7 @@ export default async function NewServicePage({
           giftLimitPct={giftLimitPct}
         />
       )}
+      </TellUsHost>
     </div>
   );
 }

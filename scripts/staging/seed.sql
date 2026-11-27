@@ -61,6 +61,8 @@ DECLARE
   v_thread uuid;
   v_ev uuid;
   v_guest uuid;
+  v_bride_guest uuid;
+  v_owner_side text;
   v_table uuid;
   r record;
   firsts text[] := ARRAY['Jose','Gabriela','Emilio','Melchora','Apolinario','Gregoria','Marcelo','Teresa','Antonio','Josefa','Juan','Trinidad','Graciano','Marina','Lapu','Tandang','Diego','Leona','Andres','Corazon'];
@@ -243,7 +245,8 @@ BEGIN
     IF r.etype = 'wedding' THEN
       INSERT INTO public.guests (event_id, first_name, last_name, side, group_category, role, rsvp_status, photo_consent, custom_tags)
       VALUES (v_ev, split_part(r.bride, ' ', 1), coalesce(nullif(substr(r.bride, length(split_part(r.bride, ' ', 1)) + 2), ''), '—'),
-              'bride', 'other', 'bride', 'attending', true, '{}');
+              'bride', 'other', 'bride', 'attending', true, '{}')
+      RETURNING guest_id INTO v_bride_guest;
       INSERT INTO public.guests (event_id, first_name, last_name, side, group_category, role, rsvp_status, photo_consent, custom_tags)
       VALUES (v_ev, split_part(r.groom, ' ', 1), coalesce(nullif(substr(r.groom, length(split_part(r.groom, ' ', 1)) + 2), ''), '—'),
               'groom', 'other', 'groom', 'attending', true, '{}')
@@ -254,8 +257,17 @@ BEGIN
         FROM public.users u WHERE u.user_id = (v_uid->>r.owner)::uuid
       RETURNING guest_id INTO v_guest;
     END IF;
-    -- "The creator is their couple row" (20271264924551).
-    UPDATE public.event_members SET guest_id = v_guest, role = CASE WHEN r.etype = 'wedding' THEN 'groom' ELSE 'host' END
+    -- "The creator is their couple row" (20271264924551) — the row that carries THEIR OWN name (final check A2-P6: the
+    -- creator was always linked to the groom row, so Bea's account drew "Bea Villanueva" on Paolo's row too).
+    v_owner_side := 'host';
+    IF r.etype = 'wedding' THEN
+      SELECT CASE WHEN trim(coalesce(u.first_name, '') || ' ' || coalesce(u.last_name, '')) = r.bride THEN 'bride' ELSE 'groom' END
+        INTO v_owner_side
+        FROM public.users u WHERE u.user_id = (v_uid->>r.owner)::uuid;
+    END IF;
+    UPDATE public.event_members
+       SET guest_id = CASE WHEN v_owner_side = 'bride' THEN v_bride_guest ELSE v_guest END,
+           role = v_owner_side
      WHERE event_id = v_ev AND user_id = (v_uid->>r.owner)::uuid AND guest_id IS NULL;
   END LOOP;
 

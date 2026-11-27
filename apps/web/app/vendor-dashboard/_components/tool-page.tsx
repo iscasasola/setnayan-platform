@@ -19,6 +19,7 @@
  * Tokens only — every colour is a house token, so the supplier blue (light) and the dark set follow `supplier-look.css`
  * and the theme. A server-safe module: the ⓘ (`InfoTip`) is the only client piece, and it is already shared.
  */
+import { BackWhenNotRisen } from './back-when-not-risen';
 import type { ReactNode } from 'react';
 import { RotateCcw } from 'lucide-react';
 
@@ -43,31 +44,45 @@ export function ToolPin({
   title,
   right,
   sub,
+  params,
+  inPlace,
 }: {
   /** This page's route as on disk — the ‹ reads its home from `lib/page-home.ts`. */
   route: string;
+  /** Values for the home's `[params]`. */
+  params?: Readonly<Record<string, string>>;
+  /** ‹ returns in place (the browser's back when we came from a page of ours) — Your details · Settings · Team. */
+  inPlace?: boolean;
   title: string;
   /** The page's count or status — a `ToolChip`, a few words. */
   right?: ReactNode;
   /** One line under the row (the drawing's `.pinsub`). */
   sub?: ReactNode;
 }) {
-  return (
+  // ⤴ RISEN OVER SHOP (final check B15 · B16 — Theft Watch, Track record): the layer's head carries ✕ and the title, so
+  // the ‹ and the title step aside there (`BackWhenNotRisen`); a row with nothing else in it is not drawn at all.
+  const backAndTitle = (
+    <BackWhenNotRisen>
+      <BackButton route={route} params={params} variant="tool" inPlace={inPlace} />
+      <h1 className="min-w-0 flex-1 truncate text-[22px] font-bold leading-tight tracking-[-0.015em] text-ink tab:text-[26px]">
+        {title}
+      </h1>
+    </BackWhenNotRisen>
+  );
+  const pin = (
     <div
       className="sn-pin-hair sticky top-0 z-[5] -mx-4 mb-1 px-4 pb-2.5 pt-0.5 sm:-mx-6 sm:px-6"
       style={{ background: 'var(--sn-canvas)' }}
       data-tool-pin=""
     >
       <div className="flex min-h-12 items-center gap-2.5">
-        <BackButton route={route} variant="tool" />
-        <h1 className="min-w-0 flex-1 truncate text-[22px] font-bold leading-tight tracking-[-0.015em] text-ink tab:text-[26px]">
-          {title}
-        </h1>
-        {right ? <span className="inline-flex flex-none items-center gap-2 text-[13px] font-semibold text-[color:var(--m-slate-2)]">{right}</span> : null}
+        {backAndTitle}
+        {right ? <span className="ml-auto inline-flex flex-none items-center gap-2 text-[13px] font-semibold text-[color:var(--m-slate-2)]">{right}</span> : null}
       </div>
       {sub ? <div className="mt-0.5 flex items-center gap-1.5 text-[14px] text-[color:var(--m-slate-2)]">{sub}</div> : null}
     </div>
   );
+  return right || sub ? pin : <BackWhenNotRisen>{pin}</BackWhenNotRisen>;
 }
 
 export function ToolSection({

@@ -30,14 +30,13 @@ const CSS = stripComments(readFileSync(join(import.meta.dirname, 'supplier-frame
 const at = (s: string) => TSX.indexOf(s);
 const SIDE = TSX.slice(at('<aside data-today-side=""'), at('</aside>'));
 
-test('1 · the side pane: Next events → numbers → Shop (small cards after How is business) → Verified, after the work pane', () => {
+test('1 · the side pane: Next events → numbers → Shop (How is business) → Verified, after the work pane', () => {
   const order = [
     at('data-today-coming-up'),
     at('<aside data-today-side=""'),
     at('data-today-side-only=""'),
     at('data-today-shop'),
     at('label="How is business"'),
-    at('data-today-side-minis=""'),
     at('data-today-side-verified=""'),
     at('</aside>'),
   ];
@@ -59,7 +58,7 @@ test('3 · below 1280 the pane is contents and its own parts hidden; from 1280 i
     return (before.match(/\{/g) ?? []).length - (before.match(/\}/g) ?? []).length;
   };
   const contents = CSS.search(/\[data-today-top-only\],\s*\[data-today-side\]\s*\{\s*display:\s*contents;/);
-  const hidden = CSS.search(/\[data-today-side-only\],\s*\[data-today-side-minis\],\s*\[data-today-side-verified\]\s*\{\s*display:\s*none;/);
+  const hidden = CSS.search(/\[data-today-side-only\],\s*\[data-today-side-verified\]\s*\{\s*display:\s*none;/);
   assert.ok(contents > 0 && depth(contents) === 0, 'the pane must be `display: contents` outside any media query');
   assert.ok(hidden > 0 && depth(hidden) === 0, 'the pane’s computer-only parts must be hidden outside any media query');
   const wide = CSS.slice(CSS.indexOf('@media (min-width: 1280px)'));
@@ -80,10 +79,11 @@ test('4 · Verified only once checked, and it opens the one paper place', () => 
   assert.match(v, /href=\{RENEW_PAPERS_HREF\}/);
 });
 
-test('5 · the small cards are the stats already read, never a typed figure', () => {
-  assert.match(HOST, /minis=\{<TodayShopMinis stats=\{view\.stats\} \/>\}/, 'the host must hand the stats it already read');
-  const fn = STATS.slice(STATS.indexOf('export function TodayShopMinis'));
-  assert.match(fn, /todayStatsOf\(stats\)/);
-  assert.match(fn, /\{s\.figure \?\? '—'\}/, 'an unread figure shows a dash, never 0');
-  assert.doesNotMatch(fn, />\s*\d[\d,]*\s*</, 'no figure is typed into a small card');
+test('5 · the counts are shown once: no second Opened · Asked · Booked under How is business (final check B4)', () => {
+  assert.doesNotMatch(HOST, /TodayShopMinis|minis=/, 'the host still hands a second copy of the counts');
+  assert.doesNotMatch(TSX, /data-today-side-minis|\bminis\b/, 'the side pane still draws the small cards');
+  assert.doesNotMatch(STATS, /TodayShopMinis/);
+  assert.doesNotMatch(CSS, /data-today-side-minis/);
+  // How is business still opens the business view.
+  assert.match(TSX, /<TodayRow href="\/vendor-dashboard\/shop#analytics" label="How is business"/);
 });

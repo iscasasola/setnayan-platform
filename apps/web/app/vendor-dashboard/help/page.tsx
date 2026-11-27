@@ -1,30 +1,14 @@
-import { getCurrentUser } from '@/lib/auth';
 import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import { DatesRow } from '../customers/_components/dates-row';
-import { SUPPLIER_HELP_ROWS } from '../settings/settings-rows';
 
 export const metadata = { title: 'Help · Supplier' };
 
 /**
- * /vendor-dashboard/help — HELP for a supplier, five doors (simpler supplier dashboard step 6; prototype
- * SCREENS.help, reached from Settings › Help). Every row opens a page that already exists: the supplier-only fee
- * article (#6528), the help centre, Shop › How clients pay you, Disputes, the contact form. No reads beyond sign-in.
+ * /vendor-dashboard/help — FORWARDS to Settings with the Help sheet open (final check B6 · A5-G2-14, drawing
+ * `final-check-area-5_2026-11-25.html` § B6, approved 25 Nov). Help is no longer a page: Settings › Help opens the
+ * shared Sheet with the same five doors (`SUPPLIER_HELP_ROWS`, `settings/_components/help-sheet.tsx`). The avatar's
+ * Help tile and any bookmark keep this address and land on the sheet.
+ * 🔒 app/vendor-dashboard/settings/help-opens-as-a-sheet.test.ts
  */
-export default async function VendorHelpPage() {
-  const supabase = await createClient();
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-
-  return (
-    <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-4 sm:px-6" data-supplier-help="">
-      {/* Rule 1 — the pinned row names the page; the heading stays for a screen reader only. */}
-      <h1 className="sr-only">Help</h1>
-      <div className="mt-1">
-        {SUPPLIER_HELP_ROWS.map((r) => (
-          <DatesRow key={r.key} data={`help-${r.key}`} title={r.title} line={r.line} href={r.href} />
-        ))}
-      </div>
-    </div>
-  );
+export default function VendorHelpForward() {
+  redirect('/vendor-dashboard/settings?help=1');
 }

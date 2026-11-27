@@ -1,6 +1,4 @@
 import { getCurrentUser } from '@/lib/auth';
-import { BackButton } from '@/app/_components/back-button';
-import { BackWhenNotRisen } from '../_components/back-when-not-risen';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -40,7 +38,8 @@ export const metadata = { title: 'Settings · Supplier' };
  * scoped team member (agent / viewer) sees only the rows that are theirs: Account · Notifications · Help · Switch
  * shop.
  */
-export default async function VendorSettingsPage() {
+export default async function VendorSettingsPage({ searchParams }: { searchParams?: Promise<{ help?: string }> }) {
+  const helpOpen = (await searchParams)?.help === '1';
   const supabase = await createClient();
   const user = await getCurrentUser();
   if (!user) redirect('/login');
@@ -73,16 +72,12 @@ export default async function VendorSettingsPage() {
   });
 
   return (
-    <>
-    <BackWhenNotRisen>
-      <BackButton route="/vendor-dashboard/settings" inPlace className="mx-4 mt-3 mb-0" />
-    </BackWhenNotRisen>
     <SettingsView
       unread={unread}
       manager={manager}
       payout={payout}
       tools={tools}
+      helpOpen={helpOpen}
     />
-    </>
   );
 }

@@ -1,4 +1,3 @@
-import { ToolPage } from '@/app/vendor-dashboard/_components/tool-page';
 import { loadStore } from './_components/store-data';
 import { StoreFront } from './_components/store-screens';
 
@@ -14,8 +13,10 @@ export const dynamic = 'force-dynamic';
 export default async function ShopStorePage() {
   const d = await loadStore();
   return (
-    <ToolPage name="store">
+    // The Toolkit front takes the body's width (final check B12): its "Included" shelves sit side by side from the
+    // tablet line, so the reading column's cap would leave a wide empty gutter and cut the pinned title row short.
+    <div className="mx-auto w-full px-4 pb-16 sm:px-6" data-tool-page="store" data-store-front="">
       <StoreFront d={d} />
-    </ToolPage>
+    </div>
   );
 }

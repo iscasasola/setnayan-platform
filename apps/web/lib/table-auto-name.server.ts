@@ -76,12 +76,23 @@ export async function guestTablesWithShownNames<T extends NameTable>(
   tables: ReadonlyArray<T>,
 ): Promise<Array<Omit<T, 'label_is_auto'>>> {
   if (tables.length === 0) return [];
-  const [seatsRes, groups] = await Promise.all([
+  const [seatsRes, groups, linksRes] = await Promise.all([
     supabase.from('event_seat_assignments').select('guest_id,table_id').eq('event_id', eventId),
     readTableNameGroups(supabase, eventId),
+    // 🔗 Which tables are one linked run — read only to NAME them; the link fields never reach the guest's page.
+    supabase.from('event_tables').select('table_id,link_group_id,link_group_label').eq('event_id', eventId),
   ]);
   if (seatsRes.error) throw new Error(`guestTablesWithShownNames (seats) failed: ${seatsRes.error.message}`);
-  const names = shownNamesFrom(groups, tables, (seatsRes.data ?? []) as NameSeat[]);
+  if (linksRes.error) throw new Error(`guestTablesWithShownNames (links) failed: ${linksRes.error.message}`);
+  const linkOf = new Map(
+    ((linksRes.data ?? []) as Array<{ table_id: string; link_group_id: string | null; link_group_label: string | null }>).map((r) => [r.table_id, r]),
+  );
+  const forNaming = tables.map((t) => ({
+    ...t,
+    link_group_id: linkOf.get(t.table_id)?.link_group_id ?? null,
+    link_group_label: linkOf.get(t.table_id)?.link_group_label ?? null,
+  }));
+  const names = shownNamesFrom(groups, forNaming, (seatsRes.data ?? []) as NameSeat[]);
   return withDisplayNames(tables, names).map((t) => {
     const { label_is_auto: _made, ...rest } = t;
     void _made;
@@ -105,14 +116,22 @@ export async function shownLabelsForSlug(supabase: SupabaseClient, slug: string)
     .maybeSingle();
   if (evErr) throw new Error(`shownLabelsForSlug (event) failed: ${evErr.message}`);
   if (!ev) return new Map();
-  const eventId = (ev as { event_id: string }).event_id;
+  return shownLabelsByStored(supabase, (ev as { event_id: string }).event_id);
+}
+
+/**
+ * Stored label → the name that table SHOWS, for a reader that is handed a STORED label by a database function (the
+ * open name search, the coordinator's and crew's QR lookups). Only a label one table holds is mapped. Throws on a
+ * refused read.
+ */
+export async function shownLabelsByStored(supabase: SupabaseClient, eventId: string): Promise<Map<string, string>> {
   const [tablesRes, seatsRes, groups] = await Promise.all([
-    supabase.from('event_tables').select('table_id,table_label,label_is_auto,sort_order').eq('event_id', eventId),
+    supabase.from('event_tables').select('table_id,table_label,label_is_auto,sort_order,link_group_id,link_group_label').eq('event_id', eventId),
     supabase.from('event_seat_assignments').select('guest_id,table_id').eq('event_id', eventId),
     readTableNameGroups(supabase, eventId),
   ]);
-  if (tablesRes.error) throw new Error(`shownLabelsForSlug (tables) failed: ${tablesRes.error.message}`);
-  if (seatsRes.error) throw new Error(`shownLabelsForSlug (seats) failed: ${seatsRes.error.message}`);
+  if (tablesRes.error) throw new Error(`shownLabelsByStored (tables) failed: ${tablesRes.error.message}`);
+  if (seatsRes.error) throw new Error(`shownLabelsByStored (seats) failed: ${seatsRes.error.message}`);
   const tables = (tablesRes.data ?? []) as NameTable[];
   const names = shownNamesFrom(groups, tables, (seatsRes.data ?? []) as NameSeat[]);
   const holders = new Map<string, number>();
@@ -123,4 +142,52 @@ export async function shownLabelsForSlug(supabase: SupabaseClient, slug: string)
     if (holders.get(stored) === 1) out.set(stored, names.get(t.table_id) ?? stored);
   }
   return out;
+}
+
+/**
+ * 🪑 Every table's SHOWN name for an event, by `table_id` — for a surface that reads a label off its own seat or table
+ * row (a ticket, a reminder email, the door desk, the coordinator's lookup) and only needs the name. Reads the tables,
+ * the seats and the groups in one `Promise.all`. Throws on a refused read; a caller that degrades says so itself.
+ */
+export async function readShownTableNames(supabase: SupabaseClient, eventId: string): Promise<Map<string, string>> {
+  const [tablesRes, seatsRes, groups] = await Promise.all([
+    supabase.from('event_tables').select('table_id,table_label,label_is_auto,sort_order,link_group_id,link_group_label').eq('event_id', eventId),
+    supabase.from('event_seat_assignments').select('guest_id,table_id').eq('event_id', eventId),
+    readTableNameGroups(supabase, eventId),
+  ]);
+  if (tablesRes.error) throw new Error(`readShownTableNames (tables) failed: ${tablesRes.error.message}`);
+  if (seatsRes.error) throw new Error(`readShownTableNames (seats) failed: ${seatsRes.error.message}`);
+  return shownNamesFrom(groups, (tablesRes.data ?? []) as NameTable[], (seatsRes.data ?? []) as NameSeat[]);
+}
+
+export type ShownTableRow = { table_id: string; table_label: string; link_group_label: string | null };
+
+/**
+ * The same names in the shape a `from('event_tables').select('table_id, table_label, link_group_label')` answers —
+ * a drop-in for a surface that reads a table's label beside its other reads: `table_label` is the SHOWN name and a
+ * linked member's `link_group_label` is its unit's shown name (null when it is not linked). Never throws: a refused
+ * read comes back as `{ data: null, error }`, exactly as the query it replaces did, so each caller keeps its own
+ * honest answer to a failed read.
+ */
+export async function shownTableRows(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<{ data: ShownTableRow[] | null; error: { message: string } | null }> {
+  const [tablesRes, seatsRes, groups] = await Promise.all([
+    supabase.from('event_tables').select('table_id,table_label,label_is_auto,sort_order,link_group_id,link_group_label').eq('event_id', eventId),
+    supabase.from('event_seat_assignments').select('guest_id,table_id').eq('event_id', eventId),
+    readTableNameGroups(supabase, eventId).catch((e: unknown) => e as Error),
+  ]);
+  if (tablesRes.error) return { data: null, error: tablesRes.error };
+  if (seatsRes.error) return { data: null, error: seatsRes.error };
+  if (groups instanceof Error) return { data: null, error: { message: groups.message } };
+  const tables = (tablesRes.data ?? []) as Array<NameTable & { table_label: string }>;
+  const names = shownNamesFrom(groups, tables, (seatsRes.data ?? []) as NameSeat[]);
+  return {
+    data: tables.map((t) => {
+      const shown = names.get(t.table_id) ?? t.table_label;
+      return { table_id: t.table_id, table_label: shown, link_group_label: t.link_group_id ? shown : null };
+    }),
+    error: null,
+  };
 }

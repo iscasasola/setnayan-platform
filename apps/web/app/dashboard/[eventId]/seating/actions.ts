@@ -58,7 +58,7 @@ import {
 import { parseRestoreSeats, parseSeatScope, restorableSeats, seatsThatStay, seatsToClear, type RestoreSeat } from '@/lib/seat-plan-scope';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { checkAutoSeatPlan } from '@/lib/seat-plan-validator';
-import { autoDefaultLabel, hostNameClash, isDefaultTableLabel } from '@/lib/table-auto-name';
+import { autoDefaultLabel, hostNameClash, isDefaultTableLabel, renameWrites } from '@/lib/table-auto-name';
 import { readTableDisplayNames } from '@/lib/table-auto-name.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { placedByAuto, placedByCouple } from '@/lib/seat-why';
@@ -1655,6 +1655,10 @@ export async function updateTableLabel(formData: FormData) {
   // The plan as it stands, for the clash check and the auto name's default label. A refused read stops here.
   const [tables, seats] = await Promise.all([fetchTables(supabase, eventId), fetchAssignments(supabase, eventId)]);
   const names = await readTableDisplayNames(supabase, eventId, tables, seats);
+  // Unchanged is no rename (`renameWrites`): the stored label or the name the table already shows writes nothing,
+  // so an auto table never turns into a host-named one by a field that was only focused.
+  const own = tables.find((t) => t.table_id === tableId);
+  if (!own || renameWrites(own, typed, names.get(tableId)) === 'none') return;
   const clash = hostNameClash(tableId, typed, names);
   if (clash) throw new Error(clash);
   const label = typed.length > 0 ? typed : autoDefaultLabel(tableId, tables);
@@ -1677,7 +1681,8 @@ export async function updateTableLabel(formData: FormData) {
   if (row?.link_group_id) {
     const { error: syncErr } = await supabase
       .from('event_tables')
-      .update({ link_group_label: label, updated_at: new Date().toISOString() })
+      // 🪑 …and who named it: a linked run is one table with one name (lib/table-auto-name.ts reads its lead).
+      .update({ link_group_label: label, label_is_auto: typed.length === 0, updated_at: new Date().toISOString() })
       .eq('event_id', eventId)
       .eq('link_group_id', row.link_group_id);
     if (syncErr) throw new Error(syncErr.message);

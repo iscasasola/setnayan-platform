@@ -45,6 +45,7 @@ import {
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { everyCopyIsNowStale } from '@/lib/a-withdrawal-reaches-every-copy.server';
+import { shownTableRows } from '@/lib/table-auto-name.server';
 import {
   freshBeforeIsValid,
   freshGuestRestore,
@@ -188,6 +189,13 @@ export async function setGuestRsvp(
         locked: (seat.locked as boolean | null) ?? false,
         table_label: tableLabel,
       });
+    }
+    // 🪑 The Undo line names each table as it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts);
+    // a refused name read keeps the stored label the seat row carried.
+    if (freed.size > 0) {
+      const shown = await shownTableRows(supabase, eventId);
+      const byId = new Map((shown.data ?? []).map((r) => [r.table_id, r.table_label]));
+      for (const f of freed.values()) f.table_label = byId.get(f.table_id) ?? f.table_label;
     }
   }
 

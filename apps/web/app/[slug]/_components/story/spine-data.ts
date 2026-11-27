@@ -55,6 +55,7 @@ import {
   type TableHeat,
 } from '@/lib/story-room';
 import { formatCount } from '@/lib/format-number';
+import { shownTableRows } from '@/lib/table-auto-name.server';
 
 /** Local string coercion — mirrors `data.ts`'s `asString`, kept dependency-free. */
 function asString(v: unknown): string | null {
@@ -768,17 +769,24 @@ export async function loadLiveRoom(
   if (!room.seatingSurface || room.roaming) return room;
 
   try {
-    const { data, error } = await admin
-      .from('event_tables')
-      .select('public_id, table_label, table_type, x_pos, y_pos, created_at')
-      .eq('event_id', eventId)
-      .order('sort_order', { ascending: true });
+    const [{ data, error }, shown] = await Promise.all([
+      admin
+        .from('event_tables')
+        .select('table_id, public_id, table_label, table_type, x_pos, y_pos, created_at')
+        .eq('event_id', eventId)
+        .order('sort_order', { ascending: true }),
+      // 🪑 The name each table SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+      shownTableRows(admin, eventId),
+    ]);
     if (error) console.error('[supabase-error] app/[slug]/_components/story/spine-data.ts · from:event_tables.select', error);
-    if (error) return room;
+    if (shown.error) console.error('[supabase-error] app/[slug]/_components/story/spine-data.ts · shown table names', shown.error);
+    // A table whose name could not be read is not drawn under a guessed one: the plan is left out, as on a refusal.
+    if (error || shown.error) return room;
+    const shownById = new Map((shown.data ?? []).map((t) => [t.table_id, t.table_label]));
     let drawnAtMs: number | null = null;
     for (const r of (data ?? []) as Array<Record<string, unknown>>) {
       const id = asString(r.public_id);
-      const label = asString(r.table_label);
+      const label = asString(shownById.get(String(r.table_id)) ?? r.table_label);
       const x = Number(r.x_pos);
       const y = Number(r.y_pos);
       const born = msOf(r.created_at);

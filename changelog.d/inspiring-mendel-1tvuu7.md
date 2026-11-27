@@ -29,6 +29,20 @@ The owner's ruling R6 (27 Nov): "the majority of who is seated there if it has a
   - `createTable` and the auto arrange inserts write `label_is_auto` from the label.
   - The VIP switch writes `table_kind` beside `is_vip`.
   - `fetchTables` reads the VIP mark from `table_kind` (`isVipTable`).
+- **Review fixes (27 Nov, controller):**
+  - **A name field that was only tapped never renames.** `renameWrites` returns "none" when the text is the stored label or the shown name, in the editor and in `updateTableLabel`. Every name field is pre-filled with the shown name.
+  - **Every other surface now reads the shown name** through `readShownTableNames` / `shownTableRows`:
+    - the hub print's tickets and the guest pass;
+    - the reminder email's table line (same words, no new email);
+    - the door desk and the day-of head table card;
+    - the coordinator's and crew's QR lookup (a failed name read is a failed lookup);
+    - the guest's Event Hub line, the story's room and the 3D walk caption;
+    - the walkthrough manager and the Patiktok booth;
+    - the guest card, the decline Undo line, souvenirs and Guests › seats;
+    - the share and export files, the hub-print registry and change requests;
+    - every name in the editor (headings, notices, the phone dock, the list rows).
+  - **A guard fails any new `table_label` select** that bypasses the reader.
+  - **Linked tables are one unit:** one shared auto name read from all their seats, and a rename sets the flag on every member.
 - **Server actions:** no new export. No email.
 
 SPEC IMPACT: None. It builds the approved plan (DECISION_LOG 2026-11-27 "Seat plan: the table-first flow is approved…"). One deviation is in the PR body: the speakers columns are `speakers_x` / `speakers_y`, after the `entrance_x` pattern the plan names, not `*_pct`.

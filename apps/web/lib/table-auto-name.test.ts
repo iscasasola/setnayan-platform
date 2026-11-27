@@ -10,6 +10,7 @@ import {
   autoNameFor,
   hostNameClash,
   isDefaultTableLabel,
+  renameWrites,
   tableDisplayNames,
   tableNameInfos,
   tableNameWhyWords,
@@ -169,4 +170,43 @@ test('the plan\'s badges stay unique on the names the tables show', () => {
   );
   const badges = planTableBadges(shown);
   assert.equal(new Set(badges.values()).size, tables.length, `badges must be unique: ${[...badges.values()].join(' ')}`);
+});
+
+test('linked tables are one unit: one shared auto name, read from all their seats', () => {
+  // Each half alone has no majority (4 of 8 Reyes); together 8 of 12 → Reyes family on BOTH.
+  const reyesA = seat('la', 'ra', 4, 'g-reyes');
+  const otherA = seat('la', 'xa', 4, null);
+  const reyesB = seat('lb', 'rb', 4, 'g-reyes');
+  const { seated, groups } = plan([reyesA, otherA, reyesB]);
+  const tables: NameTable[] = [
+    { table_id: 'la', table_label: 'Table 1', label_is_auto: true, sort_order: 1, link_group_id: 'L', link_group_label: 'Table 1' },
+    { table_id: 'lb', table_label: 'Table 2', label_is_auto: true, sort_order: 2, link_group_id: 'L', link_group_label: 'Table 1' },
+    auto('t3', 3),
+  ];
+  const names = tableDisplayNames(tables, seated, groups);
+  assert.equal(names.get('la'), 'Reyes family');
+  assert.equal(names.get('lb'), 'Reyes family', 'the linked run wears one name, never "Reyes family 2"');
+  assert.equal(names.get('t3'), 'Table 3');
+  const shown = withDisplayNames(tables, names);
+  assert.equal(shown[1]!.link_group_label, 'Reyes family', 'the unit name the plan reads follows too');
+  // A host-named unit keeps its unit name on every member; its own name is no clash for a sibling.
+  const host = tables.map((t) => (t.link_group_id ? { ...t, label_is_auto: false, link_group_label: 'Long table' } : t));
+  const hostNames = tableDisplayNames(host, seated, groups);
+  assert.equal(hostNames.get('la'), 'Long table');
+  assert.equal(hostNames.get('lb'), 'Long table');
+  assert.equal(hostNameClash('lb', 'Long table', hostNames), null);
+  assert.equal(hostNameClash('t3', 'Long table', hostNames), 'Long table already has that name. Pick another.');
+});
+
+test('a name field tapped away from never renames: only a real change writes', () => {
+  const autoT = { table_label: 'Table 3', label_is_auto: true };
+  const hostT = { table_label: 'Barkada', label_is_auto: false };
+  // The field shows "Reyes family" (the auto name); focusing and leaving it writes nothing.
+  assert.equal(renameWrites(autoT, 'Reyes family', 'Reyes family'), 'none');
+  assert.equal(renameWrites(autoT, '  Table 3 ', 'Reyes family'), 'none', 'the stored default is no change either');
+  assert.equal(renameWrites(autoT, '', 'Reyes family'), 'none', 'empty on an auto table changes nothing');
+  assert.equal(renameWrites(autoT, 'Ninongs', 'Reyes family'), 'host');
+  assert.equal(renameWrites(hostT, 'Barkada', 'Barkada'), 'none');
+  assert.equal(renameWrites(hostT, '', 'Barkada'), 'auto', 'an empty Save returns a host name to auto');
+  assert.equal(renameWrites(hostT, 'College friends', 'Barkada'), 'host');
 });

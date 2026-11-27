@@ -34,7 +34,43 @@ const SURFACES = [
   'app/[slug]/find-seat/page.tsx',
   'app/[slug]/find-my-table/page.tsx',
   'app/api/seat-lookup/[slug]/route.ts',
+  // 27 Nov review: every other surface that names a table
+  'lib/print-set.server.ts', // the hub print's tickets
+  'lib/pass-card.server.ts', // the guest's pass
+  'lib/guest-reminder-emails.ts', // the reminder email's table line (its words unchanged)
+  'app/dashboard/[eventId]/guests/checkin/page.tsx', // the door desk
+  'app/dashboard/[eventId]/page.tsx', // the day-of head table card
+  'app/vendor-dashboard/on-the-day/live/[eventId]/_components/floor-command/actions.ts', // the coordinator's QR lookup
+  'app/[slug]/_lib/your-own-day.server.ts',
+  'app/[slug]/_lib/loaders.ts', // the guest's Event Hub table line
+  'app/[slug]/_components/story/spine-data.ts', // the story's room
+  'app/dashboard/[eventId]/seating/walkthrough/page.tsx',
+  'app/dashboard/[eventId]/studio/patiktok/booth/page.tsx',
+  'app/dashboard/[eventId]/guests/_components/guest-card-data.ts',
+  'app/dashboard/[eventId]/guests/inline-actions.ts',
+  'app/dashboard/[eventId]/guests/souvenirs/page.tsx',
+  'app/dashboard/[eventId]/guests/seat-view-actions.ts', // Guests › seats
+  'app/dashboard/[eventId]/guests/share/route.ts',
+  'app/dashboard/[eventId]/guests/export/route.ts',
+  'app/api/hub-print/[piece]/route.ts',
+  'lib/change-requests.server.ts',
 ];
+
+/**
+ * No surface reads a table's label straight off `event_tables` for a person to read: a select naming `table_label`
+ * belongs only to the readers themselves, the seat plan's own data layer, and the writers. A new one fails here —
+ * route it through lib/table-auto-name(.server).ts, or add it to ALLOWED with the reason.
+ */
+const ALLOWED_LABEL_SELECTS = new Set([
+  'lib/table-auto-name.server.ts', // the reader
+  'lib/seating.ts', // fetchTables / fetchPublicTables: the rows the readers name
+  'app/[slug]/seat/page.tsx', // the table QR's token lookup; the sign's name is swapped to the shown one below it
+  'app/dashboard/[eventId]/guests/_components/guest-card-data.ts', // the embed fallback beside the shown read
+  'app/dashboard/[eventId]/guests/inline-actions.ts', // the freed seat's row; its label is swapped to the shown name
+  'app/dashboard/[eventId]/seating/walkthrough/page.tsx', // swapped to the shown name beside it
+  'app/dashboard/[eventId]/studio/patiktok/booth/page.tsx', // swapped to the shown name beside it
+  'app/[slug]/_components/story/spine-data.ts', // swapped to the shown name beside it
+]);
 
 test('every table-name surface imports the one reader', () => {
   for (const rel of SURFACES) {
@@ -73,5 +109,25 @@ test('the rename writes who named the table, and refuses a name another table sh
   const actions = read('app/dashboard/[eventId]/seating/actions.ts');
   assert.match(actions, /label_is_auto: typed\.length === 0/);
   assert.match(actions, /hostNameClash\(tableId, typed, names\)/);
+  assert.match(actions, /renameWrites\(own, typed, names\.get\(tableId\)\) === 'none'\) return;/, 'an unchanged name writes nothing on the server');
   assert.match(actions, /label_is_auto: isDefaultTableLabel\(trimmed\)/, 'a new table typed by the host keeps its name');
+});
+
+test('the editor\'s name fields hold the SHOWN name, and an unchanged field writes nothing', () => {
+  const editor = read('app/dashboard/[eventId]/seating/_components/seating-editor.tsx');
+  assert.match(editor, /renameWrites\(table, trimmed, shownNames\.get\(tableId\)\) === 'none'\) return;/);
+  assert.match(editor, /defaultValue=\{nameOf\(st\)\}/, 'the inline field is pre-filled with the shown name');
+  assert.match(editor, /tableLabel=\{nameOf\(st\)\}/, 'the phone dock gets the shown name');
+  assert.match(editor, /value=\{nameOf\(st\)\}/);
+  assert.match(editor, /value=\{nameOf\(u\.lead\)\}/);
+  assert.doesNotMatch(editor, /(defaultValue|value)=\{(st|u\.lead)\.table_label\}/);
+});
+
+test('no new surface reads a table label straight off event_tables', () => {
+  const { execSync } = require('node:child_process') as typeof import('node:child_process');
+  const out = execSync(`grep -rlE "select\\([^)]*table_label" app lib components --include=*.ts --include=*.tsx`, { cwd: WEB, encoding: 'utf8' });
+  const files = out.split('\n').filter(Boolean).filter((f) => !/\.test\.|\/dev\/|\.lab\./.test(f));
+  assert.ok(files.length >= 3, `the sweep found ${files.length} files — it must see the known readers`);
+  const strays = files.filter((f) => !ALLOWED_LABEL_SELECTS.has(f));
+  assert.deepEqual(strays, [], 'a surface reads table_label without the one reader');
 });

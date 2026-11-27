@@ -51,8 +51,13 @@ test('a joined set answers to its group name; a blank name is no name', () => {
 });
 
 test("the join reads only the guest's own table, by its public id", async () => {
-  const { admin, asked } = fakeAdmin({ data: { table_label: 'Family', link_group_label: null }, error: null });
-  const out = await withYourTableName<WithYou>(admin, { you: { table: 'S89TBL-LAB0000006' } });
+  // 🪑 27 Nov: the name is the one the table SHOWS (lib/table-auto-name.ts) — read server-side for this event; only the
+  // guest's own table's name comes back.
+  const { admin, asked } = fakeAdmin({ data: { table_id: 't6', event_id: 'ev' }, error: null });
+  const out = await withYourTableName<WithYou>(admin, { you: { table: 'S89TBL-LAB0000006' } }, async (_a, eventId) => {
+    assert.equal(eventId, 'ev');
+    return new Map([['t6', 'Family'], ['t7', 'Barkada']]);
+  });
   assert.equal(asked.table, 'event_tables');
   assert.deepEqual(asked.eq, ['public_id', 'S89TBL-LAB0000006']);
   assert.equal(out.you?.tableName, 'Family');

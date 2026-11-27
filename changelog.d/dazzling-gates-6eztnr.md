@@ -10,6 +10,6 @@ Speed audit 2026-11-27 (`docs/audits/2026-11-27/speed.md`), items E1 and I1. Not
 - **I1 · heavy libraries load on demand.**
   - `app/_components/marketing/_premium.tsx`: GSAP + SplitText are fetched once, on the first mount of any motion hook, instead of riding in every marketing page's first JavaScript. Each hook runs the same body in the same `gsap.context`, reverted on unmount.
   - `app/v/[slug]/booth`: `three` was already split behind `dynamic()`; its waiting screen is now the shared `Ghost` skeleton instead of a hand-styled "Loading the booth…" box with a raw hex.
-- **Not done here:** `/tour`'s phone-only extra JavaScript comes from the shared root chrome, not from `app/tour/**`; and the grown service card stays a full-screen rise (see the PR).
+- **Not done here:** `/tour` (its pages load no heavy library of their own; the phone-only extra was not traced) and the grown service card's move to `Sheet` (it is an approved full-screen rise). See the PR.
 
 SPEC IMPACT: None

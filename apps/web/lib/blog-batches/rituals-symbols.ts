@@ -71,7 +71,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Want the full cast — sponsors, bearers, ninong, and ninang — and what each one does? Read the entourage guide.',
-        href: '/features',
+        href: '/articles/filipino-wedding-entourage-guide-ninong-ninang-sponsors',
         label: 'Start planning free',
       },
     ],
@@ -122,7 +122,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
           'The host or emcee announces the money dance and invites guests to line up, usually after dinner when the room is relaxed.',
           'Helpers — often close friends or members of the entourage — stand by with pins, tape, or ribbon to attach the bills neatly.',
           'Guests dance briefly with the bride or groom, pin their gift, and step aside so the next person can take a turn.',
-          'A trusted person quietly collects and safekeeps the cash as the dance winds down, so nothing goes astray in the celebration.',
+          'A trusted person quietly collects and safekeeps the cash as the dance winds down, so nothing goes astray in the festivities.',
         ],
       },
       {
@@ -139,7 +139,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Plan your reception program, guest list, and budget in one free workspace — no commission on your suppliers, ever.',
+        text: 'Plan your reception program, guest list, and budget in one free workspace. Hosts pay 0% commission.',
         href: '/signup',
         label: 'Start planning free',
       },
@@ -180,7 +180,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'The release usually lands at a natural high point in the day: just after the couple emerges from the ceremony into the sunlight, or as a flourish during the reception program. Customs vary by family and region, and timing is often chosen for the best light and the biggest audience. Some couples choose butterflies instead of doves — a softer, equally lovely alternative that carries the same spirit of harmony and new beginnings, and that suits gardens and daytime celebrations beautifully. Either way, the meaning is the same: a fragile, living thing set free as a symbol of a fresh start.',
+        text: 'The release usually lands at a natural high point in the day: just after the couple emerges from the ceremony into the sunlight, or as a flourish during the reception program. Customs vary by family and region, and timing is often chosen for the best light and the biggest audience. Some couples choose butterflies instead of doves — a softer, equally lovely alternative that carries the same spirit of harmony and new beginnings, and that suits gardens and daytime weddings beautifully. Either way, the meaning is the same: a fragile, living thing set free as a symbol of a fresh start.',
       },
       {
         type: 'h2',
@@ -209,7 +209,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Browse trusted Filipino suppliers — handlers, stylists, and the teams who make these moments — by city and category.',
+        text: 'Browse verified Filipino suppliers — handlers, stylists, and the teams who make these moments — by city and category.',
         href: '/?browse=1',
         label: 'Browse the supplier marketplace',
       },
@@ -278,8 +278,8 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Whatever your ceremony — Catholic, civil, Christian, or mixed — see how a Filipino wedding flows, beat by beat.',
-        href: '/features',
+        text: 'Whatever your ceremony — Catholic, civil, Christian, or mixed — read our overview of Filipino wedding traditions.',
+        href: '/articles/filipino-wedding-traditions-explained',
         label: 'Start planning free',
       },
     ],
@@ -318,7 +318,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Customs vary by family and region, but the shape is familiar across the country. The groom\'s family visits the bride\'s home, often bringing food, dessert, or a thoughtful gift as a sign of respect — arriving empty-handed is a misstep to avoid. There is conversation, a shared meal, and at some gracious point the blessing is asked and given, sometimes formally and sometimes simply in the warmth of the evening. From there the talk can drift, naturally and without pressure, toward the practical: a rough date, who would like to host what, and how the two families might share the celebration.',
+        text: 'Customs vary by family and region, but the shape is familiar across the country. The groom\'s family visits the bride\'s home, often bringing food, dessert, or a thoughtful gift as a sign of respect — arriving empty-handed is a misstep to avoid. There is conversation, a shared meal, and at some gracious point the blessing is asked and given, sometimes formally and sometimes simply in the warmth of the evening. From there the talk can drift, naturally and without pressure, toward the practical: a rough date, who would like to host what, and how the two families might share the wedding.',
       },
       {
         type: 'ul',
@@ -371,7 +371,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'It is easy to mistake despedida de soltera for a bachelorette party, but the feel is genuinely different. Where a bachelorette is often a friends-led night out built around fun, the despedida is typically a family-centred dinner — warmer, more sentimental, and usually organised by the bride\'s parents or relatives rather than her barkada. The focus is gratitude and blessing: a chance to honour the bride, gather the family she grew up in, and mark the transition with grace rather than wild celebration. Some brides have both, on different nights, and there is nothing contradictory in that — one for the heart, one for the laughs.',
+        text: 'It is easy to mistake despedida de soltera for a bachelorette party, but the feel is genuinely different. Where a bachelorette is often a friends-led night out built around fun, the despedida is typically a family-centred dinner — warmer, more sentimental, and usually organised by the bride\'s parents or relatives rather than her barkada. The focus is gratitude and blessing: a chance to honour the bride, gather the family she grew up in, and mark the transition with grace rather than a wild party. Some brides have both, on different nights, and there is nothing contradictory in that — one for the heart, one for the laughs.',
       },
       {
         type: 'quote',
@@ -484,7 +484,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Curious about the rites and reception customs too? Read our overview of Filipino wedding traditions.',
-        href: '/features',
+        href: '/articles/filipino-wedding-traditions-explained',
         label: 'Start planning free',
       },
     ],
@@ -511,7 +511,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A Filipino wedding is also the start of a household, and many couples are genuinely helped by money toward the honeymoon, the first home, or even the wedding\'s own remaining costs. Cash lets the couple direct the help exactly where they need it most, with no risk of a duplicate appliance or a vase that never gets used. It is given discreetly — usually in an envelope, often handed to a designated family member or dropped into a gift box near the entrance — and it is no less heartfelt than a wrapped present chosen with care. The money dance, where guests pin bills to the dancing couple, is simply this same generous instinct turned into a celebration.',
+        text: 'A Filipino wedding is also the start of a household, and many couples are genuinely helped by money toward the honeymoon, the first home, or even the wedding\'s own remaining costs. Cash lets the couple direct the help exactly where they need it most, with no risk of a duplicate appliance or a vase that never gets used. It is given discreetly — usually in an envelope, often handed to a designated family member or dropped into a gift box near the entrance — and it is no less heartfelt than a wrapped present chosen with care. The money dance, where guests pin bills to the dancing couple, is simply this same generous instinct turned into a joyful ritual.',
       },
       {
         type: 'quote',
@@ -580,11 +580,11 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'The bridal car is really a small stage on wheels. It carries the bride to the ceremony and the newlyweds away from it, and in between it becomes the backdrop for some of the day\'s loveliest photographs — the quiet ride to the church when the nerves are real, the just-married drive afterward with the window rolled down, the confetti catching the light. In many Filipino weddings a motorcade then forms behind it: a convoy of family and guests, sometimes with ribboned cars and a friendly chorus of horns, escorting the couple between venues in a moving, public celebration that lets the whole neighbourhood in on the news. The meaning is simple, generous joy, spilled out onto the road for everyone to share — a wedding refusing to stay politely indoors.',
+        text: 'The bridal car is really a small stage on wheels. It carries the bride to the ceremony and the newlyweds away from it, and in between it becomes the backdrop for some of the day\'s loveliest photographs — the quiet ride to the church when the nerves are real, the just-married drive afterward with the window rolled down, the confetti catching the light. In many Filipino weddings a motorcade then forms behind it: a convoy of family and guests, sometimes with ribboned cars and a friendly chorus of horns, escorting the couple between venues in a moving, public parade that lets the whole neighbourhood in on the news. The meaning is simple, generous joy, spilled out onto the road for everyone to share — a wedding refusing to stay politely indoors.',
       },
       {
         type: 'quote',
-        text: 'A motorcade turns the drive between venues into part of the celebration — joy, ribboned and rolling, for the whole street to see.',
+        text: 'A motorcade turns the drive between venues into part of the wedding — joy, ribboned and rolling, for the whole street to see.',
       },
       {
         type: 'h2',
@@ -621,7 +621,7 @@ export const ARTICLES_RITUALS: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Find trusted Filipino suppliers — bridal cars, stylists, coordinators — by city and category.',
+        text: 'Find verified Filipino suppliers — bridal cars, stylists, coordinators — by city and category.',
         href: '/?browse=1',
         label: 'Browse the supplier marketplace',
       },

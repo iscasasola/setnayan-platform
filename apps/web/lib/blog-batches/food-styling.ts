@@ -66,7 +66,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Compare caterers side by side, by city and budget, with zero commission on anything you book.',
+        text: 'Compare caterers side by side, by city and budget.',
         href: '/?browse=1',
         label: 'Browse the supplier marketplace',
       },
@@ -93,7 +93,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'The buffet is the most common reception format in the Philippines, and it earns its place. It usually offers the widest variety of dishes per peso, lets guests choose what and how much they eat, and tends to be the most budget-friendly of the three. It also suits the warmth of a Filipino celebration — people get up, move around, and bump into family between trips to the line. The trade-offs are real, though. Buffets need space for the stations and enough staff to keep them stocked, or the line crawls. With a large guest list and a single station, you can end up with a long queue and a cold first table; the fix is usually more stations or a second serving line, so ask your caterer how they handle a crowd your size.',
+        text: 'The buffet is the most common reception format in the Philippines, and it earns its place. It usually offers the widest variety of dishes per peso, lets guests choose what and how much they eat, and tends to be the most budget-friendly of the three. It also suits the warmth of a Filipino reception — people get up, move around, and bump into family between trips to the line. The trade-offs are real, though. Buffets need space for the stations and enough staff to keep them stocked, or the line crawls. With a large guest list and a single station, you can end up with a long queue and a cold first table; the fix is usually more stations or a second serving line, so ask your caterer how they handle a crowd your size.',
       },
       {
         type: 'h2',
@@ -290,7 +290,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Find and compare mobile bar suppliers near your venue, with no booking commission.',
+        text: 'Find and compare mobile bar suppliers near your venue.',
         href: '/?browse=1',
         label: 'Browse the supplier marketplace',
       },
@@ -318,7 +318,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A reception has a natural lull after the main meal. A food cart fills it with energy and a reason to get up. It also signals abundance and care — the sense that the celebration is not over yet. Practically, carts are interactive: guests choose, watch, and chat while their order is made, which keeps the floor lively when the formal program ends.',
+        text: 'A reception has a natural lull after the main meal. A food cart fills it with energy and a reason to get up. It also signals abundance and care — the sense that the party is not over yet. Practically, carts are interactive: guests choose, watch, and chat while their order is made, which keeps the floor lively when the formal program ends.',
       },
       {
         type: 'p',
@@ -335,7 +335,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
           'Cotton candy, popcorn, or churros — playful, photogenic, and a hit with younger guests and the entourage kids.',
           'Lechon, isaw, or grilled-skewer stations — hearty late-night savoury bites for a hungrier, livelier crowd.',
           'Coffee, milk tea, or fresh-buko carts — perfect for an afternoon wedding or a long evening that needs a second wind.',
-          'Taho, fishball, or kwek-kwek — street-food carts that lean into a fun, unpretentious celebration.',
+          'Taho, fishball, or kwek-kwek — street-food carts that lean into a fun, unpretentious reception.',
         ],
       },
       {
@@ -365,7 +365,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Browse food-cart and snack suppliers, compare packages, and book with zero commission.',
+        text: 'Browse food-cart and snack suppliers, and compare packages side by side.',
         href: '/?browse=1',
         label: 'Browse the supplier marketplace',
       },
@@ -439,7 +439,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Find cake designers near your venue and compare styles and packages, commission-free.',
+        text: 'Find cake designers near your venue and compare styles and packages.',
         href: '/?browse=1',
         label: 'Browse the supplier marketplace',
       },
@@ -509,7 +509,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'As a rough 2026 market guide, wedding florals and styling in the Philippines span a wide range — modest packages for an intimate celebration through to substantial figures for full ballroom transformations. The number that matters is not the total but the fit: a supplier who understands your mood board, respects your budget, and tells you honestly what is achievable on your date.',
+        text: 'Wedding florals and styling in the Philippines span a wide range — modest packages for an intimate wedding through to substantial figures for full ballroom transformations. The number that matters is not the total but the fit: a supplier who understands your mood board, respects your budget, and tells you honestly what is achievable on your date.',
       },
       {
         type: 'cta',
@@ -547,7 +547,7 @@ export const ARTICLES_STYLING: BlogArticle[] = [
         type: 'ul',
         items: [
           'Sound: speakers sized to your room and crowd, microphones for the officiant, host, and speeches, and a mixing board with a live operator.',
-          'Lighting: ambient and mood lighting, uplights to wash the walls in your palette, spotlights for the entrance and first dance, and sometimes a monogram or gobo projection.',
+          'Lighting: ambient and mood lighting, uplights to wash the walls in your palette, spotlights for the entrance and first dance, and sometimes your initials or a gobo projection.',
           'AV and screens: an LED wall or projector for your photo or video montage, a slideshow, or a live feed of the program.',
           'The operator: a technician on site for the whole event, not just a drop-off of equipment.',
         ],
@@ -584,11 +584,11 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Coordinate the lights and sounds team with your host and music early, ideally at the same planning meeting, so the entrance music, the dimming for the first dance, and the spotlight cues all land together rather than fighting each other on the night. As a rough 2026 market guide, lights-and-sounds packages in the Philippines range widely with room size, gear quality, the length of the event, and whether LED screens are included. The order of spending matters more than the total: put your money first into clear, reliable sound and a live operator who stays for the whole program. The lighting flourishes — the uplights, the monogram, the warm wash on the walls — are genuinely worth it, but only once the room can hear you say "I do."',
+        text: 'Coordinate the lights and sounds team with your host and music early, ideally at the same planning meeting, so the entrance music, the dimming for the first dance, and the spotlight cues all land together rather than fighting each other on the night. Lights-and-sounds packages in the Philippines range widely with room size, gear quality, the length of the event, and whether LED screens are included. The order of spending matters more than the total: put your money first into clear, reliable sound and a live operator who stays for the whole program. The lighting flourishes — the uplights, your initials in light, the warm wash on the walls — are genuinely worth it, but only once the room can hear you say "I do."',
       },
       {
         type: 'cta',
-        text: 'Find lights-and-sounds and AV suppliers who know your venue, and compare them commission-free.',
+        text: 'Find lights-and-sounds and AV suppliers who know your venue, and compare them side by side.',
         href: '/?browse=1',
         label: 'Browse the supplier marketplace',
       },
@@ -658,11 +658,11 @@ export const ARTICLES_STYLING: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'As a rough 2026 market guide, on-the-day coordination in the Philippines typically costs a good deal less than full planning, which scales with the size and complexity of the wedding. If the budget is tight, on-the-day coordination is often the single highest-value supplier you can add — it protects every other peso you have already spent. With a free planning workspace doing the organising, many couples comfortably handle the rest themselves.',
+        text: 'On-the-day coordination in the Philippines typically costs a good deal less than full planning, which scales with the size and complexity of the wedding. If the budget is tight, on-the-day coordination is often the single highest-value supplier you can add — it protects every other peso you have already spent. With a free planning workspace doing the organising, many couples comfortably handle the rest themselves.',
       },
       {
         type: 'cta',
-        text: 'Plan it yourself with a free workspace, then add a coordinator for the day — start in minutes.',
+        text: 'Plan it yourself with a free workspace, then add a coordinator for the day.',
         href: '/signup',
         label: 'Start planning free',
       },
@@ -749,7 +749,7 @@ export const HOOKS_STYLING: Record<string, string> = {
   'how-to-choose-a-wedding-caterer-philippines':
     "Two caterers can quote the exact same price per head — and serve two completely different weddings. The trick is knowing which questions reveal the gap before you sign. 🍽️",
   'buffet-vs-plated-vs-family-style-wedding':
-    "Buffet, plated, or family-style isn't just about cost — it quietly changes the pace, the look, and how your guests actually feel all night. Here's how to pick the one that fits your celebration.",
+    "Buffet, plated, or family-style isn't just about cost — it quietly changes the pace, the look, and how your guests actually feel all night. Here's how to pick the one that fits your wedding.",
   'wedding-food-tasting-what-to-ask':
     "Most couples treat the food tasting as a free lunch. It's really an audition — and the right questions at that table can save your wedding day from a few very avoidable surprises.",
   'mobile-bar-wedding-philippines':

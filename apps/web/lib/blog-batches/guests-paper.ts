@@ -127,7 +127,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Some shortcuts cause more hurt than they save. Do not invite someone to the church but pointedly leave them off the reception, unless your families clearly understand these as two separate gatherings — otherwise it reads as a deliberate slight. Do not announce on social media that the wedding is "intimate" and then be seen inviting half the office. And above all, never promise an invitation you are not certain you can keep. An un-invite stings far more than a never-invite ever could. Trimming is uncomfortable, but a wedding you can genuinely afford and enjoy is worth a few awkward conversations. The people who love you will understand a smaller celebration; the ones who would hold it against you were almost certainly tier three to begin with.',
+        text: 'Some shortcuts cause more hurt than they save. Do not invite someone to the church but pointedly leave them off the reception, unless your families clearly understand these as two separate gatherings — otherwise it reads as a deliberate slight. Do not announce on social media that the wedding is "intimate" and then be seen inviting half the office. And above all, never promise an invitation you are not certain you can keep. An un-invite stings far more than a never-invite ever could. Trimming is uncomfortable, but a wedding you can genuinely afford and enjoy is worth a few awkward conversations. The people who love you will understand a smaller wedding; the ones who would hold it against you were almost certainly tier three to begin with.',
       },
       {
         type: 'cta',
@@ -262,7 +262,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A few topics call for a gentle touch, and these are the ones that quietly cause the most hurt when handled carelessly. If your reception is adults-only, the cleanest way to convey it is on your Event Hub or a small separate insert, and by addressing the envelope only to the invited adults — pointedly naming whose children are excluded on the card itself reads as cold and is remembered. If you would rather receive cash than gifts, never state it directly on the formal invitation; a softly worded note on your Event Hub, or quiet word of mouth through the family, is the Filipino way to make wishes known without ever appearing grabbing. And always address envelopes by name, never with a vague "and family", so each guest knows exactly who, and how many, are actually invited — that single courtesy heads off most of the day-of confusion at the door. Finally, let the tone of the whole thing match the tone of the wedding: a grand church celebration can carry formal, traditional language, while an intimate garden wedding can be warmer and more conversational. The wording should read like a true preview of the day, not a template borrowed from someone else\'s. Read it aloud before you print — if it sounds like the two of you, it is ready.',
+        text: 'A few topics call for a gentle touch, and these are the ones that quietly cause the most hurt when handled carelessly. If your reception is adults-only, the cleanest way to convey it is on your Event Hub or a small separate insert, and by addressing the envelope only to the invited adults — pointedly naming whose children are excluded on the card itself reads as cold and is remembered. If you would rather receive cash than gifts, never state it directly on the formal invitation; a softly worded note on your Event Hub, or quiet word of mouth through the family, is the Filipino way to make wishes known without ever appearing grabbing. And always address envelopes by name, never with a vague "and family", so each guest knows exactly who, and how many, are actually invited — that single courtesy heads off most of the day-of confusion at the door. Finally, let the tone of the whole thing match the tone of the wedding: a grand church wedding can carry formal, traditional language, while an intimate garden wedding can be warmer and more conversational. The wording should read like a true preview of the day, not a template borrowed from someone else\'s. Read it aloud before you print — if it sounds like the two of you, it is ready.',
       },
       {
         type: 'cta',
@@ -294,7 +294,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'The appeal goes well beyond saved postage. A digital invitation reaches every guest the instant you send it, updates itself when a detail changes, and — most valuable of all — gathers every reply into one tidy, living list instead of scattering them across a dozen chat threads. The guest taps "yes" or "no", and your headcount updates on its own, no manual tallying required.',
+        text: 'The appeal goes well beyond saved postage. A digital invitation reaches every guest at one link, updates itself when a detail changes, and — most valuable of all — gathers every reply into one tidy, living list instead of scattering them across a dozen chat threads. The guest taps "yes" or "no", and your headcount updates on its own, no manual tallying required.',
       },
       {
         type: 'ul',
@@ -445,11 +445,11 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'The instinct is to seat everyone strictly by family line, but the better question is always who will actually enjoy sitting together. Cluster guests who already know one another or share something in common — college friends at one table, workmates at another, the titos who follow the same teleserye together. A guest surrounded by familiar faces relaxes and stays late; one stranded among strangers watches the clock. Handle the known tensions quietly too: keep estranged relatives at a comfortable distance, with no drama and no announcement. And do not finalise anything until your RSVPs are in and your headcount is firm — late confirmations and surprise plus-ones will rearrange your careful work, so build the plan somewhere you can reshuffle in seconds rather than redraw by hand. Once it is set, place cards or a clear seating display at the entrance let guests find their tables without a bottleneck at the door.',
+        text: 'The instinct is to seat everyone strictly by family line, but the better question is always who will actually enjoy sitting together. Cluster guests who already know one another or share something in common — college friends at one table, workmates at another, the titos who follow the same teleserye together. A guest surrounded by familiar faces relaxes and stays late; one stranded among strangers watches the clock. Handle the known tensions quietly too: keep estranged relatives at a comfortable distance, with no drama and no announcement. And do not finalise anything until your RSVPs are in and your headcount is firm — late confirmations and surprise plus-ones will rearrange your careful work, so build the plan somewhere you can reshuffle easily rather than redraw by hand. Once it is set, place cards or a clear seating display at the entrance let guests find their tables without a bottleneck at the door.',
       },
       {
         type: 'cta',
-        text: 'Arrange your tables visually and reshuffle in seconds as RSVPs change — the seating planner is free with every Setnayan account.',
+        text: 'Arrange your tables visually and reshuffle as RSVPs change — the seating planner is free with every Setnayan account.',
         href: '/signup',
         label: 'Start planning free',
       },
@@ -510,7 +510,7 @@ export const ARTICLES_GUESTS: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Curious what each sponsor and bearer actually does on the day? Our full entourage guide breaks it all down.',
-        href: '/features',
+        href: '/articles/filipino-wedding-entourage-guide-ninong-ninang-sponsors',
         label: 'Read the entourage guide',
       },
     ],

@@ -25,7 +25,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import { ALL_BLOG_ARTICLES } from '@/lib/blog';
-import { JOURNAL_EDITS_AFTER_IMPORT } from '@/lib/journal-edits-after-import';
+import { JOURNAL_EDITS_AFTER_IMPORT, type JournalEditAfterImport } from '@/lib/journal-edits-after-import';
+import { journalRowText, type JournalRowText } from '@/lib/journal-import-sql';
 import {
   ARTICLE_TAGS_MAX,
   JOURNAL_SLUGS,
@@ -112,34 +113,45 @@ test('6 · the committed import migration is exactly what the corrected source g
   );
   assert.equal(
     fs.readFileSync(file, 'utf8'),
-    journalImportSql(ALL_BLOG_ARTICLES.map(asImported)),
+    journalImportSql(ALL_BLOG_ARTICLES, asImported),
     'a post changed and the import did not. Before it reaches production: (cd apps/web && npx tsx ' +
       'scripts/gen-journal-import.ts --write). AFTER it has been applied in production, write a NEW migration ' +
-      '(an UPDATE) instead — an applied migration is never edited.',
+      '(an UPDATE) instead — an applied migration is never edited — and list the edit in JOURNAL_EDITS_AFTER_IMPORT.',
   );
 });
 
 const D = '$';
-/** The source as the import saw it: every edit made after the import (`JOURNAL_EDITS_AFTER_IMPORT`) undone. */
-function asImported<T extends { slug: string }>(article: T): T {
-  const esc = (t: string) => JSON.stringify(t).slice(1, -1);
-  let json = JSON.stringify(article);
-  for (const e of JOURNAL_EDITS_AFTER_IMPORT) {
-    if (e.slug === article.slug) json = json.split(esc(e.to)).join(esc(e.from));
+const fieldOf = (e: JournalEditAfterImport) => e.field ?? 'body';
+/** A post's rendered title and body as the import wrote them: every later edit undone, newest first. */
+function asImported(article: (typeof ALL_BLOG_ARTICLES)[number]): JournalRowText {
+  const text = journalRowText(article);
+  for (const e of [...JOURNAL_EDITS_AFTER_IMPORT].reverse()) {
+    if (e.slug !== article.slug) continue;
+    const f = fieldOf(e);
+    assert.equal(text[f].split(e.to).length - 1, 1, `${e.slug} ${f}: the edit's new text must appear exactly once`);
+    text[f] = text[f].split(e.to).join(e.from);
   }
-  return JSON.parse(json) as T;
+  return text;
 }
 
-test('6b · every edit made after the import is in the source, and its NEW migration makes the same edit in production', async () => {
+test('6b · the edits after the import replay forward onto the import, end at the source, and each NEW migration makes the same edit in production', async () => {
   const fs = await import('node:fs');
   const path = await import('node:path');
   assert.ok(JOURNAL_EDITS_AFTER_IMPORT.length > 0);
+  const slugs = new Set(JOURNAL_EDITS_AFTER_IMPORT.map((e) => e.slug));
+  for (const slug of slugs) {
+    const article = ALL_BLOG_ARTICLES.find((a) => a.slug === slug);
+    assert.ok(article, `${slug}: no such post in the source`);
+    // Forward, in order, from what the import wrote: each old text is there exactly once when its turn comes.
+    const text = asImported(article);
+    for (const e of JOURNAL_EDITS_AFTER_IMPORT.filter((x) => x.slug === slug)) {
+      const f = fieldOf(e);
+      assert.equal(text[f].split(e.from).length - 1, 1, `${slug} ${f}: the old text is not there exactly once`);
+      text[f] = text[f].split(e.from).join(e.to);
+    }
+    assert.deepEqual(text, journalRowText(article), `${slug}: the edits do not end at the source`);
+  }
   for (const e of JOURNAL_EDITS_AFTER_IMPORT) {
-    const article = ALL_BLOG_ARTICLES.find((a) => a.slug === e.slug);
-    assert.ok(article, `${e.slug}: no such post in the source`);
-    const text = JSON.stringify(article);
-    assert.ok(text.includes(JSON.stringify(e.to).slice(1, -1)), `${e.slug}: the source does not carry the edit`);
-    assert.ok(!text.includes(JSON.stringify(e.from).slice(1, -1)), `${e.slug}: the source still carries the old text`);
     const sql = fs.readFileSync(path.resolve(__dirname, '../../../supabase/migrations', e.migration), 'utf8');
     assert.ok(sql.includes(`${D}old${D}${e.from}${D}old${D}`), `${e.migration}: does not replace exactly the old text`);
     assert.ok(sql.includes(`${D}new${D}${e.to}${D}new${D}`), `${e.migration}: does not write exactly the new text`);

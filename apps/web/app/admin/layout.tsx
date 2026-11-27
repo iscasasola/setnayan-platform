@@ -157,8 +157,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   ]);
 
   // Shared admin gate (lib/admin/require-admin.ts · council fix #1): login
-  // redirect when signed out, 404 (never a redirect — the /admin route doesn't
-  // leak its own existence) when signed in but not admin. The same cache()'d
+  // redirect when signed out, Home when signed in but not admin (Batch 0 · L1,
+  // A8 + D6: a 404 stranded the person and filled Problems with not_found). The same cache()'d
   // gate is called by admin PAGES directly, because a layout alone is not a
   // safe auth boundary in front of the service-role client.
   await requireAdmin();

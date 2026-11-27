@@ -13,6 +13,8 @@ import {
   GOWN_COLOURS,
   GOWN_HEMS,
   GOWN_NECKLINES,
+  GOWN_OVERLAYS,
+  GOWN_OVERLAY_FABRICS,
   GOWN_SILHOUETTES,
   GOWN_STEP_LABELS,
   GOWN_STOCK_FABRICS,
@@ -126,7 +128,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   }
 
   // Every pick goes through the pairing rules, so the lab shows what the maker will (one line, then Undo in the maker).
-  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle', v: string) => {
+  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'overlay' | 'ovFab', v: string) => {
     const out = gownChoose(design, { key: k, value: v } as GownChoice);
     setDesign(out.config);
     setNote(out.notes.join(' '));
@@ -174,6 +176,8 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 ['closure', 'Closure', GOWN_CLOSURES],
                 ['veil', 'Veil', GOWN_VEILS],
                 ['veilStyle', 'Veil style', GOWN_VEIL_STYLES],
+                ['overlay', 'Overlay', GOWN_OVERLAYS],
+                ['ovFab', 'Overlay made of', GOWN_OVERLAY_FABRICS],
               ] as const
             ).map(([k, label, list]) => (
               <div key={k} className="grid gap-1">

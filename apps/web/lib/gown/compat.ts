@@ -121,6 +121,11 @@ export const GOWN_RULES: readonly GownRule[] = [
     note: (g) => `Sleeves are now none: the ${g.cape === 'side' ? 'side cape' : 'capelet'} would lie over the flutter sleeves.`, tell: true,
   },
   { id: 'butterfly-no-cape', on: ['sleeve', 'sil'], when: (g) => g.sleeve === 'butterfly' && caped(g), apply: (g) => { g.cape = 'none'; }, note: 'The cape is off: butterfly sleeves stand where it would lie.' },
+  // v195: over a ball gown an overlay sits as soft tiers.
+  {
+    id: 'ball-overlay-tiered', on: ['sil'], when: (g) => g.sil === 'ball' && (g.overlay === 'asym' || g.overlay === 'cascade'),
+    apply: (g) => { g.overlay = 'tiered'; }, note: 'The overlay is now tiered: over a ball gown an overlay sits as soft tiers.', tell: true,
+  },
   // v192: the layers under the skirt and the petticoat always agree.
   {
     id: 'layers-follow-petticoat', on: ['petti', 'skirtLayers', 'sil'], when: () => true,
@@ -156,8 +161,9 @@ export function gownChoose(config: GownConfig, choice: GownChoice): GownChosen {
 }
 
 /** The choices a design rules out, shown hidden in the lists themselves (v193 `capeRules`, `waistOpts`, slit chips). */
-export function gownHiddenChoices(g: GownConfig): { sleeve: string[]; veil: string[]; waist: string[]; slits: boolean } {
+export function gownHiddenChoices(g: GownConfig): { sleeve: string[]; veil: string[]; waist: string[]; slits: boolean; overlay: string[] } {
   return {
+    overlay: g.sil === 'ball' ? ['asym', 'cascade'] : [],
     sleeve: caped(g) ? ['butterfly'] : [],
     veil: g.cape === 'back' ? ['chapel', 'cathedral'] : [],
     waist: (['natural', 'empire', 'dropped', 'basque', 'basqueU'] as const).filter((w) => !GOWN_WAIST_FOR[g.pieces].includes(w)),

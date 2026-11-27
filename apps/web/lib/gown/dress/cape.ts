@@ -135,7 +135,7 @@ export function capeArms(B: GownRig, sides: readonly ('L' | 'R')[], sleeves: Par
  */
 export function buildCape(
   B: GownRig, T: GownEnvelope, D: GownDress, C: GownCloth, cape: GownCapeMesh, design: GownCapeDesign,
-  opt: { floorY: number; pose: string; pleatAmp?: number; dressShown?: boolean; sleeves?: Partial<Record<'L' | 'R', ArrayLike<number>>> },
+  opt: { floorY: number; pose: string; pleatAmp?: number; dressShown?: boolean; sleeves?: Partial<Record<'L' | 'R', ArrayLike<number>>>; overlayOut?: number },
 ): boolean {
   const kind = design.cape;
   cape.kind = kind;
@@ -179,7 +179,7 @@ export function buildCape(
     // Above the gown's top edge the cloth fades into the body: no ledge.
     return Math.max(bodyR, cl - 0.3 * Math.max(0, y - y2));
   };
-  const pl = opt.pleatAmp ?? 0;
+  const pl = opt.pleatAmp ?? 0, ovOut = opt.overlayOut ?? 0; // v195: over an overlay, below the waist
   for (let j = 0; j < NJ; j++) {
     const y = ys[j]!, tS = clamp((T.yS - y) / Math.max(0.05, T.yS - T.yHem), 0, 1), gS = smoothstep(tS, 0.35, 1), sk = y < T.yS ? 1 + D.fold * tS : 1, plY = pl && y < T.yS ? pl : 0;
     for (let c = 0; c < CNA; c++) {
@@ -223,7 +223,7 @@ export function buildCape(
         for (let j = lo; j < NJ && ys[j]! >= yB; j++) {
           if (ys[j]! > yA) continue;
           const y = ys[j]!, u = y1 === y2 ? 0 : (y - y1) / (y2 - y1), cz = czAt(y), x = DP[p1]! + (DP[p2]! - DP[p1]!) * u, z = DP[p1 + 2]! + (DP[p2 + 2]! - DP[p1 + 2]!) * u - cz;
-          const rr = Math.hypot(x, z) + off + 0.002 + 0.003 * clamp((T.yS - y) / 0.3, 0, 1);
+          const rr = Math.hypot(x, z) + off + 0.002 + 0.003 * clamp((T.yS - y) / 0.3, 0, 1) + (y < T.yS ? ovOut : 0);
           let ac = Math.atan2(x, z);
           if (ring) { while (ac < a0) ac += TAU; while (ac > a1) ac -= TAU; } else if (ac < 0) ac += TAU;
           for (const sh of ring ? [0, TAU, -TAU] : [0]) {

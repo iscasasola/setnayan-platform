@@ -51,6 +51,8 @@ const SHIPPED: Record<string, string[]> = {
   GOWN_VEILS: ['none', 'fingertip', 'chapel', 'cathedral'],
   GOWN_VEIL_STYLES: ['classic', 'mantilla', 'drop', 'juliet', 'birdcage'],
   GOWN_CAPES: ['none', 'side', 'back', 'capelet'],
+  GOWN_OVERLAYS: ['none', 'asym', 'tiered', 'cascade'],
+  GOWN_OVERLAY_FABRICS: ['chiffon', 'georgette', 'tulle', 'organza', 'gown'],
   GOWN_HEMS: ['knee', 'midi', 'floor'],
   GOWN_STOCK_FABRICS: ['satin', 'mikado', 'crepe', 'chiffon', 'georgette', 'tulle', 'organza', 'lace', 'sequin', 'pina', 'jusi', 'wool_suiting', 'linen', 'velvet', 'stretch_crepe_jersey'],
   GOWN_COLOURS: ['white', 'ivory', 'champagne', 'blush', 'navy', 'custom'],

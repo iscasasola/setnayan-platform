@@ -49,6 +49,7 @@ export function emptyVeil(): { geo: THREE.BufferGeometry; edge: THREE.BufferGeom
  */
 export function buildGownVeil(
   B: GownRig, T: GownEnvelope, D: GownDress, cape: GownCapeMesh | null, d: GownVeilDesign, out: { geo: THREE.BufferGeometry; edge: THREE.BufferGeometry }, floorY: number,
+  overlayOut = 0,
 ): { veil: boolean; edge: boolean } {
   if (d.veil === 'none') return { veil: false, edge: false };
   const V = B.V, P = B.P, hv = B.headV;
@@ -87,7 +88,7 @@ export function buildGownVeil(
           const phV = ang > Math.PI ? TAU - ang : ang, tS = clamp((T.yS - y) / Math.max(0.05, T.yS - T.yHem), 0, 1), gS = smoothstep(tS, 0.35, 1);
           const runOn = D.Lt && T.on ? D.Lt * trainShare(phV) * 0.14 * gS * gS * 1.1 : 0;
           for (let it = 0; it < 8 && y < tableTop; it++) {
-            const px = cx + r * sx, pz = cz + r * sz, e = reach(T, px, y, pz), ce = capeAt(cape, px, y, pz), need = e.env + runOn + off, dc = ce ? ce.env + off - ce.r : 0;
+            const px = cx + r * sx, pz = cz + r * sz, e = reach(T, px, y, pz), ce = capeAt(cape, px, y, pz), need = e.env + runOn + off + (y < T.yS ? overlayOut : 0), dc = ce ? ce.env + off - ce.r : 0;
             if (e.r >= need && dc <= 0) break;
             r += Math.min(0.06, Math.max(need - e.r, dc) + 0.001);
           }

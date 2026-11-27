@@ -60,15 +60,20 @@ export function DemoJoinFlow({
   sessionId,
   role,
   token,
+  shotCap,
 }: {
   sessionId: string;
   role: DemoRole;
   token: string;
+  /** The server cap (`DEMO_SHOT_CAP`), handed down by the page — never a second copy here (🔌 A4-58). */
+  shotCap: number;
 }) {
   const [step, setStep] = useState<Step>('consent');
   const [registered, setRegistered] = useState(false);
   const [photos, setPhotos] = useState<DemoPhoto[]>([]);
-  const [remaining, setRemaining] = useState(3);
+  const [remaining, setRemaining] = useState(shotCap);
+  // 🔌 A4-57: a shot the server refused (the demo ended) or that failed says so — never a press that does nothing.
+  const [shotNote, setShotNote] = useState<string | null>(null);
   const [style, setStyle] = useState<string>(DEFAULT_PAPIC_STYLE);
   const [shooting, setShooting] = useState(false);
   // A save that did not simply work, per photo: 'expired' keeps the made file for one more tap; 'failed' says so.
@@ -202,11 +207,13 @@ export function DemoJoinFlow({
     const video = videoRef.current;
     if (!video || video.videoWidth === 0 || shooting || remaining <= 0) return;
     setShooting(true);
+    setShotNote(null);
     try {
       // Server-enforced cap FIRST — the frame only exists if the shot counts.
       const gate = await recordDemoShot(token);
       if (!gate.ok) {
         if (gate.reason === 'cap') setRemaining(0);
+        else setShotNote('This demo has ended. Open a new one from the Papic page.');
         return;
       }
       const scale = Math.min(1, SHOT_MAX_EDGE / Math.max(video.videoWidth, video.videoHeight));
@@ -259,6 +266,8 @@ export function DemoJoinFlow({
       setPhotos((prev) => [...prev, photo]);
       setRemaining(gate.remaining);
       send({ type: 'photo', ...photo, shotNumber: gate.shotNumber, remaining: gate.remaining });
+    } catch {
+      setShotNote('That shot didn’t save. Try again.');
     } finally {
       setShooting(false);
     }
@@ -380,11 +389,16 @@ export function DemoJoinFlow({
           ) : (
             <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
           )}
-          {capped ? 'That’s the 3 demo credits' : shooting ? 'Saving the moment…' : 'Take the shot'}
+          {capped ? `That’s the ${formatCount(shotCap)} demo credits` : shooting ? 'Saving the moment…' : 'Take the shot'}
         </button>
+        {shotNote && (
+          <p role="status" className="mt-2 text-xs text-[var(--m-slate-2)]">
+            {shotNote}
+          </p>
+        )}
         {capped && (
           <p className="mt-2 text-xs text-[var(--m-grey,#8c8884)]">
-            The real Papic is unlimited — every guest, all day, all in your Memories.
+            A real event puts no limit on how many phones shoot — every photo lands in one album.
           </p>
         )}
         {photos.length > 0 && (

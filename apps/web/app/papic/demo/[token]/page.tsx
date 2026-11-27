@@ -1,7 +1,7 @@
 import { after } from 'next/server';
 import { CircleAlert } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
-import { markDemoSessionJoined, purgeExpiredDemoSessions, resolveDemoToken } from '@/lib/demo-sessions';
+import { DEMO_SHOT_CAP, markDemoSessionJoined, purgeExpiredDemoSessions, resolveDemoToken } from '@/lib/demo-sessions';
 import { DemoJoinFlow } from './_components/demo-join-flow';
 
 // Papic homepage DEMO join — `/papic/demo/[token]`. NOT the real Papic product
@@ -66,7 +66,7 @@ export default async function PapicDemoJoinPage({ params }: Props) {
 
   return (
     <Shell>
-      <DemoJoinFlow sessionId={resolved.sessionId} role={resolved.role} token={cleanToken} />
+      <DemoJoinFlow sessionId={resolved.sessionId} role={resolved.role} token={cleanToken} shotCap={DEMO_SHOT_CAP} />
     </Shell>
   );
 }

@@ -229,6 +229,12 @@ export type GuestQuota = {
    * the same function — `papic_guest_ceiling_spend`.
    */
   used: number;
+  /**
+   * 🔌 A4-66 (final check, 25 Nov): BOTH reads of what this guest has spent failed, so `used` is an unknown wearing
+   * a 0 and `remaining` is not a fact. The counter says "couldn't read" instead of the full allowance; the record RPC
+   * still enforces the real cap. Optional so older callers keep compiling.
+   */
+  countUnread?: boolean;
   /** total − used, floored at 0. When `unlimited`, a large sentinel so the
    *  remaining-based gate (route pre-check + client `exhausted`) never trips. */
   remaining: number;
@@ -471,6 +477,7 @@ export async function fetchGuestQuota(
   // next indirection reflex on a genuinely-missing column gets caught too.
   let used = 0;
   let usedCredits = 0;
+  let countUnread = false;
   {
     const { data: rows, error: rowsError } = await supabase
       .from('papic_guest_captures')
@@ -511,6 +518,7 @@ export async function fetchGuestQuota(
       } else {
         // Both reads failed — the last-resort fallback itself broke. Always
         // log this one: there is no more-expected explanation to filter out.
+        countUnread = true;
         logQueryError(
           'fetchGuestQuota.count',
           countError,
@@ -541,6 +549,7 @@ export async function fetchGuestQuota(
     total,
     used: guestCeiling !== null ? meteredCredits : used,
     remaining,
+    countUnread,
     unlimited,
     capApplies,
     poolLow,

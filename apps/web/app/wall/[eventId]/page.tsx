@@ -26,6 +26,9 @@ import { WallProjection } from './_components/wall-projection';
 // event simply shows the waiting state.
 
 export const dynamic = 'force-dynamic';
+/* 🏷 A4-B06 (final check): the venue screen's tab carries its own title (never the generic site title), and, like
+   `/live`, a screen address is never indexed. */
+export const metadata = { title: 'Live photo wall', robots: { index: false, follow: false } };
 
 type Props = { params: Promise<{ eventId: string }> };
 

@@ -1,6 +1,7 @@
 'use server';
 
 import { headers } from 'next/headers';
+import { seatClaimability } from '@/lib/papic-seat-claimability';
 import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
@@ -75,37 +76,9 @@ type SeatClaimStatus =
   | 'unauthenticated'
   | string;
 
-/**
- * Resolve whether a claim token points at a CLAIMABLE seat — without an account.
- * Runs on the admin client because an unauthenticated visitor can't read
- * paparazzi_seats under RLS. Returns only a verdict (never seat data), and is
- * used solely to decide whether to mint a login-free anonymous session, so an
- * invalid/taken/reissued (or bot-prefetched) link never leaks an orphan anon
- * identity. A REFUSED read is 'unreadable' — never 'invalid', which tells a
- * crew member holding a perfectly good link that it "isn't active" (S41b).
- */
-async function seatClaimability(
-  token: string,
-): Promise<'claimable' | 'taken' | 'invalid' | 'unreadable'> {
-  try {
-    const admin = createAdminClient();
-    const { data: seat, error } = await admin
-      .from('paparazzi_seats')
-      .select('claimer_user_id, revoked_at')
-      .eq('claim_qr_token', token)
-      .maybeSingle();
-    if (error) {
-      console.error('[supabase-error] app/papic/actions.ts · from:paparazzi_seats.select', error);
-      return 'unreadable';
-    }
-    if (!seat) return 'invalid';
-    if (seat.revoked_at) return 'invalid';
-    if (seat.claimer_user_id) return 'taken';
-    return 'claimable';
-  } catch {
-    return 'unreadable';
-  }
-}
+// `seatClaimability` lives in lib/papic-seat-claimability.ts (final check A4-B03: the claim PAGE asks it on arrival).
+// A REFUSED read is 'unreadable' — never 'invalid', which tells a crew member holding a perfectly good link that it
+// "isn't active" (S41b).
 
 /**
  * Claim the seat a token points at and route to the capture surface. When the

@@ -11,12 +11,12 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { stripComments } from '../strip-comments';
 import { SLOT_HOUR } from './governor';
 
 const repo = join(__dirname, '..', '..', '..', '..');
 const workflow = readFileSync(join(repo, '.github', 'workflows', 'social-slots.yml'), 'utf8');
 const route = readFileSync(join(repo, 'apps', 'web', 'app', 'api', 'cron', 'social-flush', 'route.ts'), 'utf8');
-const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 test('the schedule fires inside every slot hour, Manila → UTC, twice', () => {
   const crons = [...workflow.matchAll(/^\s*-\s*cron:\s*'([^']+)'/gm)].map((m) => m[1]);
@@ -37,7 +37,7 @@ test('the workflow calls the canonical host with the secret header, and never si
 });
 
 test('the route refuses without CRON_SECRET and runs the scheduled flush', () => {
-  const code = strip(route);
+  const code = stripComments(route);
   assert.match(code, /webhookSecretAuthorized\(req\.headers\.get\('x-cron-secret'\), secret\)/);
   assert.match(code, /if \(!ok\) return NextResponse\.json\(\{ error: 'forbidden' \}, \{ status: 403 \}\)/);
   assert.match(code, /runSocialFlush\(\{ scheduled: true \}\)/);

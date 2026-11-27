@@ -92,8 +92,8 @@ export async function guestTablesWithShownNames<T extends NameTable>(
 /**
  * The open name search (`/api/seat-lookup/[slug]`): its RPC answers with a table's STORED label, so this maps each
  * stored label to the name the table shows. Only a label one table holds is mapped (two tables stored under one label
- * cannot be told apart from the label alone — they keep it). The event is found as the RPC finds it: the wedding at
- * that slug. Throws on a refused read.
+ * cannot be told apart from the label alone — they keep it). The event is found by its slug, as the RPC finds it
+ * (a slug names one event; the RPC's own gate decides whether it answers at all). Throws on a refused read.
  */
 export async function shownLabelsForSlug(supabase: SupabaseClient, slug: string): Promise<Map<string, string>> {
   const pattern = slug.replace(/[\\%_]/g, (c) => `\\${c}`);
@@ -101,7 +101,6 @@ export async function shownLabelsForSlug(supabase: SupabaseClient, slug: string)
     .from('events')
     .select('event_id')
     .ilike('slug', pattern)
-    .eq('event_type', 'wedding')
     .limit(1)
     .maybeSingle();
   if (evErr) throw new Error(`shownLabelsForSlug (event) failed: ${evErr.message}`);

@@ -18,6 +18,7 @@
  */
 
 import { nextTableName } from '@/lib/seating';
+import { formatCount } from '@/lib/format-number';
 
 export type NameTable = {
   table_id: string;
@@ -185,7 +186,7 @@ export function hostNameClash(
 /** The Name row's line under the box (§ 4.3). */
 export function tableNameWhyWords(why: TableNameWhy): string {
   if (why.kind === 'host') return 'Named by you · moving guests never changes it';
-  if (why.kind === 'group') return `Auto · ${why.groupSeats} of ${why.seated} seated here are ${why.groupLabel}`;
+  if (why.kind === 'group') return `Auto · ${formatCount(why.groupSeats)} of ${formatCount(why.seated)} seated here are ${why.groupLabel}`;
   return 'Auto · no group has more than half the seats yet';
 }
 

@@ -269,10 +269,11 @@ test('a failed read never renders as "the floor plan is on its way"', () => {
   // That sentence is a claim about the COUPLE'S progress. Produced by our own
   // outage it is simply untrue, and the guest cannot act on it.
   // (A4-34, 25 Nov: both pages read through the guest-safe seat-plan reader, `fetchPublicTables`, which throws on a refused read;
-  // each page catches it into its own honest answer.)
+  // each page catches it into its own honest answer. 27 Nov: the read also names each table — `guestTablesWithShownNames`,
+  // lib/table-auto-name.server.ts — and that read throws on a refusal too.)
   assert.match(
     SEAT,
-    /try \{\s*return \{ rows: await fetchPublicTables\(admin, eventId\), failed: false \};\s*\} catch \{\s*return \{ rows: \[\], failed: true \};/,
+    /try \{\s*return \{ rows: await guestTablesWithShownNames\(admin, eventId, await fetchPublicTables\(admin, eventId\)\), failed: false \};\s*\} catch \{\s*return \{ rows: \[\], failed: true \};/,
     'seat: the tables read discards its error',
   );
   assert.match(FIND_TABLE, /\} catch \(e\) \{\s*tablesErr = e;/, 'find-my-table: the tables read discards its error');

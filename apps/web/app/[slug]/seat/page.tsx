@@ -360,8 +360,9 @@ async function readTables(
   // 🔌 A4-34 (final check, 25 Nov): the guest-safe seat-plan reader (`lib/seating.ts` `fetchPublicTables` — fetchTables' order, its
   // capacity and coordinate clean-up). This page had its own copy that SHADOWED the shared name. A refused read is
   // still told apart from "no tables yet" — the shared reader throws, and this page answers with SeatCouldNotLoad.
+  // 🪑 …each under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts); a refused read of the
+  // names is a refused read too.
   try {
-    // 🪑 …each under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
     return { rows: await guestTablesWithShownNames(admin, eventId, await fetchPublicTables(admin, eventId)), failed: false };
   } catch {
     return { rows: [], failed: true };

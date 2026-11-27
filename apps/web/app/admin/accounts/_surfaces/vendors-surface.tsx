@@ -2,6 +2,7 @@ import { RenewalsList } from './renewals-list';
 import Link from 'next/link';
 import { displayAccountEmail } from '@/lib/erasure/display-email';
 import { VendorCardTitle } from './vendor-card-title';
+import { CopyButton } from '@/app/_components/copy-button';
 import Image from 'next/image';
 import { Pencil, Trash2, BadgeCheck, Users, LayoutGrid } from 'lucide-react';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -625,7 +626,12 @@ export async function VendorsSurface({
               ) : null}
 
               <div className="space-y-0.5 text-xs text-ink/65">
-                {v.contact_email ? <p>📧 Shop contact · {v.contact_email}</p> : null}
+                {v.contact_email ? (
+                  <p className="flex flex-wrap items-center gap-2">
+                    📧 Shop contact · {v.contact_email}
+                    <CopyButton value={v.contact_email} label="Copy" />
+                  </p>
+                ) : null}
                 {v.user_id ? (
                   <p>
                     👤 Owner account ·{' '}

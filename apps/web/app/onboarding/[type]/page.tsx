@@ -56,7 +56,7 @@ export const dynamic = 'force-dynamic';
 export const metadata: Metadata = {
   title: 'Plan your event',
   description:
-    "A few quick questions and we'll shape a plan made for your event. Free to start, always.",
+    "A few quick questions and we'll shape a plan made for your event.",
   robots: { index: false, follow: false },
 };
 

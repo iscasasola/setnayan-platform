@@ -113,7 +113,6 @@ import { quickAddTips } from '@/lib/quick-add-tips';
 import { tableWords } from '@/lib/table-words';
 import { readInviteTagsByGuest } from '@/lib/guest-chapter-invites';
 import { AddGuestSheet, OpenAddGuestTextButton } from './_components/add-guest-sheet';
-import { GuestsExample } from './_components/guests-example';
 
 /** The guest list's event columns: its own, and every one of the ONE clock's (`EVENT_CLOCK_COLUMNS`, lib/event-clock.ts)
  *  for "has this happened". Typed out so the held-row guard can read it; `lib/the-event-has-one-clock.test.ts` holds
@@ -1811,9 +1810,6 @@ function EmptyState({
       <div className="mt-4 flex justify-center">
         <OpenAddGuestTextButton label={finished ? 'Add someone who came' : 'Add a guest'} />
       </div>
-      {/* 👻 THE EMPTY LOOK (Build 5 Lane H): the roster on sample rows, greyed under "Example" — only here, after the read
-          was MEASURED and came back with nobody; not for a day that is over (nobody plans a list for it any more). */}
-      {finished ? null : <GuestsExample />}
     </div>
   );
 }

@@ -30,6 +30,7 @@ export function EventSettingsEditor({
   governed,
   pax,
   kind = null,
+  autoSave = false,
 }: {
   eventId: string;
   form: {
@@ -65,6 +66,9 @@ export function EventSettingsEditor({
   pax: { deadline: string | null; mode: 'realtime' | 'final_only' };
   /** 🏷 Kind of event — one line, only on a generic event or after an ask was added (owner 2026-10-28). */
   kind?: EventKindLineInput | null;
+  /** 💾 The ⚙ Event settings sheet: every field here saves on its own, so the sheet's ONE button is the Hub's Apply ✓
+   *  (owner 27 Nov 2026, MASTER-PLAN L3 "the 3 saves in event settings become 1"). Event Details keeps its buttons. */
+  autoSave?: boolean;
 }) {
   return (
     <div className="flex flex-col gap-6" data-details-settings="">
@@ -105,8 +109,9 @@ export function EventSettingsEditor({
         showCelebrantShape={form.showCelebrantShape}
         initialCelebrantShape={form.celebrantShape}
         celebrantTypeDefaultLabel={form.celebrantTypeDefaultLabel}
+        autoSave={autoSave}
       />
-      <PaxSettingsCard eventId={eventId} deadline={pax.deadline} mode={pax.mode} />
+      <PaxSettingsCard eventId={eventId} deadline={pax.deadline} mode={pax.mode} autoSave={autoSave} />
     </div>
   );
 }

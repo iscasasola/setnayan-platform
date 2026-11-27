@@ -3,9 +3,7 @@
 import { createContext, useContext, useId, useRef, useState, type ComponentType, type ReactNode, type SVGProps } from 'react';
 import Link from 'next/link';
 import { ChevronDown, ChevronRight, Info, Plus } from 'lucide-react';
-import { ExamplePreview } from '@/app/_components/states/empty-state';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
-import { SAMPLE_PORTFOLIO } from '@/lib/empty-look-samples';
 import type { PortfolioUploadFacts } from '@/lib/portfolio-upload-facts';
 import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { PortfolioUploadDoor } from '../../_components/portfolio-upload';
@@ -22,11 +20,10 @@ import { DatesRow } from '../../customers/_components/dates-row';
  *            the shut body `inert`, nothing moving under reduced motion — so it reads exactly like `Fold` does.
  *   RAIL     a sideways carousel of large rounded tiles with the name on the photo. Its first and last tiles sit on the
  *            page's 16-px gutter (the trailing spacer makes the right one equal to the left at every phone width).
- *   EMPTY    owner 11 Nov "c. yes": a section is NEVER hidden for being empty — its rail shows the greyed Example tile
- *            (the shared `ExamplePreview`, sample from `lib/empty-look-samples.ts`) and beside it ONE placeholder tile
- *            with the honest line and the section's one door. Where the door is Upload it is the device's picker IN
+ *   EMPTY    owner 11 Nov "c. yes": a section is NEVER hidden for being empty — its rail shows ONE tile with the honest
+ *            line and the section's one door (no sample tile: owner R3, 27 Nov 2026). Where the door is Upload it is the device's picker IN
  *            PLACE (`PortfolioUploadDoor`, "UPLOAD OPENS THE DEVICE PICKER IN PLACE") — never a page.
- *   UNREAD   a refused read says so on the placeholder tile, and never wears an Example (reads-are-honest).
+ *   UNREAD   a refused read says so on the tile (reads-are-honest).
  *   RISE     the titled head RISES ITS GROUP FULL SCREEN from where it sits (owner 10 Nov, DECISION_LOG "FULLY ANIMATED
  *            MOSTLY MEANS RISE FULL SCREEN" — every tappable block rises from itself, and closing falls back into it):
  *            the ONE `RiseScreen` (`lib/rise-motion.ts` · `lib/rise-screen.ts`), headed by the group's name and count,
@@ -302,8 +299,8 @@ export function Tile({
 }
 
 /**
- * 👻 AN EMPTY SECTION'S RAIL: the greyed Example tile (only on an ANSWERED, empty read) and the placeholder tile with the
- * honest line and the one door. `unread` → the placeholder says it could not load, and no Example is drawn.
+ * AN EMPTY SECTION'S RAIL: one tile with the honest line and the one door (owner R3, 27 Nov 2026: no sample shown as
+ * if real). `unread` → the tile says it could not load.
  */
 export function EmptyRail({
   id,
@@ -312,25 +309,17 @@ export function EmptyRail({
   icon,
   unread = false,
 }: {
-  /** The section key — also the sample's key in `SAMPLE_PORTFOLIO`. */
+  /** The section key. */
   id: string;
   line: string;
   door: Door | null;
   icon: ReactNode;
   unread?: boolean;
 }) {
-  const sample = SAMPLE_PORTFOLIO[id];
   return (
     <Rail data={id}>
-      {!unread && sample ? (
-        <ExamplePreview className="w-[150px] flex-none snap-start">
-          <span className={TILE}>
-            <TileFace name={sample.name} sub={sample.sub} photo={sample.photo} />
-          </span>
-        </ExamplePreview>
-      ) : null}
       <div
-        className={`${unread ? '' : 'mt-[14px]'} flex h-[150px] w-[220px] flex-none snap-start flex-col justify-between rounded-card bg-ink/[0.04] p-3`}
+        className={`flex h-[150px] w-[220px] flex-none snap-start flex-col justify-between rounded-card bg-ink/[0.04] p-3`}
         role={unread ? 'status' : undefined}
         data-portfolio-empty={id}
         data-portfolio-unread={unread ? id : undefined}

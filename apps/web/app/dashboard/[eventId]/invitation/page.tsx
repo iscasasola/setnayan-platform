@@ -3,7 +3,9 @@ import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-re
 import Link from 'next/link';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { redirect } from 'next/navigation';
-import { ExternalLink } from 'lucide-react';
+import { ExternalLink, UserPlus } from 'lucide-react';
+import { actionButtonClass } from '@/components/action-button-class';
+import { routes } from '@/lib/routes';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCurrentUser } from '@/lib/auth';
@@ -299,7 +301,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
             <p className="sn-eye">
               Branding
             </p>
-            <h2 className="mt-1 text-xl font-semibold tracking-tight">Your monogram</h2>
+            <h2 className="mt-1 text-xl font-semibold tracking-tight">Your logo</h2>
             <p className="mt-1 text-sm text-ink/60">
               Appears in the center of every guest&rsquo;s QR + on the hero of their personal
               invitation page.
@@ -307,7 +309,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           </div>
           {previewQrSvg ? (
             <div
-              aria-label="QR preview with monogram"
+              aria-label="QR preview with your logo"
               className="qr-slot h-32 w-32 shrink-0 overflow-hidden rounded-lg border border-ink/10 bg-white p-2 [&_svg]:h-full [&_svg]:w-full"
               dangerouslySetInnerHTML={{ __html: previewQrSvg }}
             />
@@ -318,7 +320,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           <input type="hidden" name="event_id" value={eventId} />
           <div className="space-y-1.5">
             <label htmlFor="monogram_text" className="block text-sm font-medium text-ink">
-              Monogram text
+              Logo text
             </label>
             <input
               id="monogram_text"
@@ -347,7 +349,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
           </div>
           <div className="flex items-end">
             <SubmitButton className="button-primary w-full sm:w-auto" pendingLabel="Saving…">
-              Save monogram
+              Save logo
             </SubmitButton>
           </div>
         </StayForm>
@@ -359,7 +361,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
         ) : null}
         {monoSaved ? (
           <p role="status" className="mt-3 text-xs text-success-700">
-            Monogram saved. Every guest&rsquo;s QR + invitation page now uses your new branding.
+            Logo saved. Every guest&rsquo;s QR and invitation page now use it.
           </p>
         ) : null}
       </section>
@@ -369,7 +371,7 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0 space-y-2">
             <p className="sn-eye">
-              Your invitation site
+              Your Event Hub
             </p>
             {publicLandingUrl ? (
               <p className="break-all font-mono text-sm text-ink/75">{publicLandingUrl}</p>
@@ -436,14 +438,18 @@ export default async function InvitationAdminPage({ params, searchParams }: Prop
         later change cannot keep one number and quietly drop the other.
       */}
       {guests.length > 0 && unreachableLine ? (
-        <p className="mb-2 text-xs text-ink/60">{unreachableLine}</p>
+        <div className="mb-2 flex flex-wrap items-center gap-3" data-invite-unreachable="">
+          <p className="text-xs text-ink/60">{unreachableLine}</p>
+          <Link href={routes.dashboard.guests.index(eventId)} className={actionButtonClass('neutral')}>
+            <UserPlus aria-hidden strokeWidth={1.75} />
+            <span className="lbl">Add emails</span>
+          </Link>
+        </div>
       ) : null}
-      {guests.length > 0 ? (
+      {/* R3 (owner 27 Nov): nothing is said at 0 marked — no line that explains how to use the page. */}
+      {guests.length > 0 && invitationsMarked === 0 ? null : guests.length > 0 ? (
         <p className="mb-2 text-xs text-ink/60">
-          {invitationsMarked === 0 ? (
-            <>None marked as handed out yet — open <span className="font-medium">Send</span> on a
-            row to copy that guest&rsquo;s own message.</>
-          ) : invitationsMarked === guests.length ? (
+          {invitationsMarked === guests.length ? (
             <>All {formatCount(guests.length)} marked as handed out.</>
           ) : (
             <>

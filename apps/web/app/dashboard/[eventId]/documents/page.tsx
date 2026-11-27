@@ -421,8 +421,8 @@ function ContractsSection({
       />
       {rows.length === 0 ? (
         <SectionEmpty
-          message="No contracts yet. Suppliers will upload PDFs here once you agree on terms in chat."
-          ctaLabel="See chat threads"
+          message="No contracts yet."
+          ctaLabel="Open chats"
           href={`/dashboard/${eventId}/messages`}
         />
       ) : (

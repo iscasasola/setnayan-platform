@@ -22,10 +22,14 @@ export function PaxSettingsCard({
   eventId,
   deadline,
   mode,
+  autoSave = false,
 }: {
   eventId: string;
   deadline: string | null;
   mode: 'realtime' | 'final_only';
+  /** 💾 In the ⚙ Event settings sheet (owner 27 Nov 2026, MASTER-PLAN L3: one save, not three): a pick saves itself
+   *  — no Save button, no full-screen loader. Event Details keeps its button (false). */
+  autoSave?: boolean;
 }) {
   const [pending, start] = useTransition();
   const [saved, setSaved] = useState(false);
@@ -41,14 +45,17 @@ export function PaxSettingsCard({
         setSaved(false);
         setErr(null);
         start(async () => {
-          const res = await save.run(() => updatePaxSettings(fd), {
-            steps: ['Saving your settings'],
-            hint: 'Saving',
-          });
+          const res = autoSave
+            ? await updatePaxSettings(fd)
+            : await save.run(() => updatePaxSettings(fd), {
+                steps: ['Saving your settings'],
+                hint: 'Saving',
+              });
           if (res.ok) setSaved(true);
           else setErr(res.message);
         });
       }}
+      onChange={autoSave ? (e) => e.currentTarget.requestSubmit() : undefined}
       className="space-y-4 bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-4"
     >
       <div className="flex items-center gap-2">
@@ -92,10 +99,14 @@ export function PaxSettingsCard({
         ))}
       </fieldset>
 
-      <div className="flex items-center gap-3">
-        <button type="submit" className="ab ab-brand ab-main" disabled={pending}>
-          {pending ? 'Saving…' : 'Save'}
-        </button>
+      <div className="flex items-center gap-3" aria-live="polite">
+        {autoSave ? (
+          pending ? <span className="text-sm text-ink/70">Saving…</span> : null
+        ) : (
+          <button type="submit" className="ab ab-brand ab-main" disabled={pending}>
+            {pending ? 'Saving…' : 'Save'}
+          </button>
+        )}
         {saved ? <span className="text-sm text-success-700">Saved.</span> : null}
         {err ? <span className="text-sm text-danger-700">{err}</span> : null}
       </div>

@@ -25,6 +25,7 @@ import { findFairHits } from '@/lib/fair-presentation';
 import type { ClaimWord } from '@/lib/service-card-checks';
 import { FairNote } from '@/app/_components/fair-note';
 import { IN_BUSINESS_SINCE_HELP, IN_BUSINESS_SINCE_LABEL, inBusinessSinceLine } from '@/lib/in-business-since';
+import { mapControlsLeaveTabOrder } from '@/lib/map-controls-leave-tab-order';
 
 type LeafletModule = typeof import('leaflet');
 
@@ -1080,6 +1081,8 @@ function HqAddressControl({ data, onDirty }: { data: ProfileFieldData; onDirty: 
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors',
       }).addTo(map);
+      // ⌨ One Tab stop: the map (arrows pan, + / − zoom); its corner links leave the Tab order (MASTER-PLAN A2).
+      mapControlsLeaveTabOrder(map.getContainer());
       mapRef.current = map;
       if (initialPin.current) placeMarker(start.lat, start.lng, false);
       map.on('click', (e: LeafletMouseEvent) => placeMarker(e.latlng.lat, e.latlng.lng, true));

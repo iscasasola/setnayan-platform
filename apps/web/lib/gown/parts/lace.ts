@@ -7,6 +7,7 @@
  *
  * Beaded lace and motifs placed by hand come with the beads (A7). The drawing takes any 2D context.
  */
+import { formatCount } from '../../format-number';
 import type { GownConfig, GownLace, GownLaceColour } from '../../gown-config';
 import { RING_N, TAU } from '../body/constants';
 import { clamp, smoothstep, type GownRig } from '../body/rig';
@@ -171,7 +172,7 @@ export function buildGownLace(
 }
 
 /** The line under the lace step (v195), for the designer's count. */
-export const gownLaceCountLine = (name: string, plan: GownLacePlan, cm: number) => `About ${plan.countN} ${name} motifs, ${cm} cm wide, mirrored left and right. This count goes to the designer.`;
+export const gownLaceCountLine = (name: string, plan: GownLacePlan, cm: number) => `About ${formatCount(plan.countN)} ${name} motifs, ${cm} cm wide, mirrored left and right. This count goes to the designer.`;
 
 /** The sheer lace tile's size (px). */
 export const GOWN_LACE_TILE_PX = 256;

@@ -7,7 +7,8 @@
     shadow maps.
   - Measuring-tape guides show at bust, underbust, waist and hips.
   - Colours pass through true up to 90 % brightness (`lib/gown/tone.ts`).
-  - A device with no 3D gets an honest line, and her numbers are kept.
+  - A device with no 3D gets the house error report (what broke, what survived, what to do), and her numbers are
+    kept.
 - Phones stay cool (owner rule): one loop asks the frame governor (`lib/gown/frame-governor.ts`). It draws at
   30 fps, and at 4 fps after 15 s without a touch. Measured on an emulated iPhone: 29.5, then 4, then 29 after a tap.
 - `/dev/gown-maker-lab` (dev only): move any number and watch her change. Also the faceless check (front and side),

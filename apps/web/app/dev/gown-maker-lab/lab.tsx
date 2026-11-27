@@ -72,7 +72,9 @@ export default function GownMakerLab({ view, scene: sceneIn, guides }: { view: s
         <p className="text-sn-12" data-lab-tape>
           {solved
             ? `The tape reads: bust ${solved.got.bust.toFixed(1)} · underbust ${solved.got.underbust.toFixed(1)} · waist ${solved.got.waist.toFixed(1)} · hips ${solved.got.hips.toFixed(1)} cm · ${solved.kg} kg`
-            : 'Building the mannequin…'}
+            : view === 'fallback'
+              ? 'No 3D here: the tape is read on the mannequin, so it reads nothing.'
+              : 'Building the mannequin…'}
         </p>
       </section>
     </main>

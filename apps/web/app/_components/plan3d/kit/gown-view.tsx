@@ -4,13 +4,13 @@
  * 👗 The gown maker's stage (copies `cake-view.tsx`): the live 3D mannequin is the main view; three.js and the body are
  * fetched lazily (`next/dynamic`, ssr off), so no page that does not open the gown maker carries them.
  *
- * A phone that cannot run WebGL (or loses it) gets an honest line and keeps every number she typed; the design's
+ * A phone that cannot run WebGL (or loses it) gets the house error report (what broke, what survived, what to do) and
+ * keeps every number she typed; the design's
  * 2D picture arrives with the design card (`GownStill`, step A10).
  */
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
-import { Shirt } from 'lucide-react';
-import { EmptyState } from '@/app/_components/states/empty-state';
+import { ErrorState } from '@/app/_components/states/error-state';
 import { GOWN_SCENES, type GownSceneId } from '@/lib/gown/scenes';
 import type { GownFigureProps } from './gown-figure-3d';
 import css from './gown-view.module.css';
@@ -52,7 +52,12 @@ export function GownView({ fill = false, force2d = false, ...figure }: GownViewP
         {mode === '3d' ? (
           <GownFigure3D {...figure} onShow2d={() => setMode('2d')} />
         ) : mode === '2d' ? (
-          <EmptyState Icon={Shirt} title="3D isn't available on this device" blurb="Your measurements are kept. The designer still gets every number you set." />
+          <ErrorState
+            title="3D can't open on this device"
+            broke="This browser can't draw the 3D mannequin."
+            survived="Every number you set is kept, and goes to the designer with your design."
+            todo="Carry on with your measurements and choices; the designer sees them all."
+          />
         ) : (
           <div className={`skeleton ${css.ghost}`} aria-busy="true" />
         )}

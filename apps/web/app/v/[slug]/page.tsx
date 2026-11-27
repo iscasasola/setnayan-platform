@@ -1030,6 +1030,9 @@ export async function renderVendorBySlug({
     detailsEnabled && typeof search.service === 'string' && search.service.trim()
       ? search.service.trim()
       : null;
+  // ⚡ E1 (speed audit 2026-11-27): the two gate reads need nothing from the shop row — asked beside it, not after it.
+  // Both are cheap (a remembered setting; a cookie that is absent for nearly everyone).
+  const gateReadsP = startRead(Promise.all([isAdminInDemoMode(), areBookingsOpen()]));
   const { vendor, failed: vendorReadFailed } = await fetchVendorRead(slug);
   if (vendorReadFailed) {
     // The copy kept for strangers must never store this: throwing keeps its last good version (A1-128).
@@ -1082,7 +1085,7 @@ export async function renderVendorBySlug({
   const isDemoVendor = vendor.is_demo === true;
   // 🏪 While bookings are closed a shop that chose Show my page opens before it is verified (`selfPublishedLive`).
   // ⚡ The two gate reads need nothing from each other: asked together (speed pass 2026-11-18).
-  const [inDemoMode, gateBookingsOpen] = await Promise.all([isAdminInDemoMode(), areBookingsOpen()]);
+  const [inDemoMode, gateBookingsOpen] = await gateReadsP;
   const publicGate = shopPageGate(vendor, { isTeam: false, adminDemoMode: inDemoMode, bookingsOpen: gateBookingsOpen });
   const gate =
     publicGate.open === 'public'
@@ -1141,10 +1144,16 @@ export async function renderVendorBySlug({
   // 🔒 FREE FILES STAY PRIVATE (owner-locked 22 Nov, spec § ★ J): how THIS shop's own files are served on this render —
   // a verified shop's exactly as before; a not-yet-verified shop's only to a signed-in viewer, as 15-minute links, and
   // never on the cached stranger copy (lib/free-shop-files.ts). The viewer is read only when it decides something.
-  const ownShop = ownShopServe(vendor.vendor_profile_id, vendor.verification_state, {
-    signedIn: shopIsVerified(vendor.verification_state) ? false : await viewerIsSignedIn(),
-  });
-  const logoDisplayRead = startAhead(resolveDisplayUrl(vendor.logo_url, ownShop));
+  // ⚡ E1: started, not awaited — the reads below that sign the shop's own files wait for it, nothing else does.
+  const ownShopP = startRead(
+    (async () => {
+      const ownShop = ownShopServe(vendor.vendor_profile_id, vendor.verification_state, {
+        signedIn: shopIsVerified(vendor.verification_state) ? false : await viewerIsSignedIn(),
+      });
+      return ownShop;
+    })(),
+  );
+  const logoDisplayRead = startAhead(ownShopP.then((ownShop) => resolveDisplayUrl(vendor.logo_url, ownShop)));
 
   const pageRaw = Number(search.reviewsPage ?? '1');
   const reviewsPage = Number.isFinite(pageRaw) && pageRaw > 0 ? Math.floor(pageRaw) : 1;
@@ -1165,9 +1174,13 @@ export async function renderVendorBySlug({
   // 💸 UNLISTED AND UNCOUNTED (owner 2026-11-12): events whose booking-fee top-up is past its event day and unsettled.
   // Their review, the photos put on this page from them and their featured story are left out until it is settled
   // (the stars are uncounted in SQL). Empty with the fee lock off, and on a refused read.
-  const unlistedEvents = await readOverdueTopUpEventIds(vendor.vendor_profile_id, manilaToday());
-  const unlistedPageRefs = await readPageRefsFromEvents(vendor.vendor_profile_id, unlistedEvents);
-  const logoDisplayUrl = await logoDisplayRead;
+  // ⚡ E1: one started chain (the page refs need the event ids); only the reviews list and the photos wait for it.
+  const unlistedP = startRead(
+    (async () => {
+      const unlistedEvents = await readOverdueTopUpEventIds(vendor.vendor_profile_id, manilaToday());
+      return { events: unlistedEvents, pageRefs: await readPageRefsFromEvents(vendor.vendor_profile_id, unlistedEvents) };
+    })(),
+  );
   // 🔒 ONE FAILED SECTION READ NEVER TAKES THE PAGE DOWN (final check A1-125, 25 Nov 2026). These three readers
   // throw on a refused read and this `Promise.all` had no catch, so a stranger got the root error screen instead of
   // the shop. Each now settles to `null`; its own section says it couldn't load and the rest of the page still draws.
@@ -1176,7 +1189,14 @@ export async function renderVendorBySlug({
       console.error(`[shop page] ${what} read failed`, e instanceof Error ? e.message : e);
       return null;
     });
-  const [reviewStatsRead, trustedRead, reviewsRead, allServicesRead, vendorPackages, recommendingCouples, finalizedBookingRead, completedEvents, hidePricesPublicly] = await Promise.all([
+  // ⚡ E1: the four reads other reads hang on are started on their own, so those can start as each lands.
+  const allServicesP = sectionRead(fetchVendorServices(admin, vendor.vendor_profile_id), 'services');
+  const vendorPackagesP = startRead(fetchVendorPackagesWithItems(admin, vendor.vendor_profile_id));
+  const completedEventsP = startRead(fetchVendorCompletedEvents(admin, vendor.vendor_profile_id, { limit: 60 }));
+  // Public "hide my prices" preference (Option A · council #6). Gates every
+  // peso figure on this page when the vendor opted in; default false = show.
+  const hidePricesP = startRead(fetchVendorHidesPricesPublicly(admin, vendor.vendor_profile_id));
+  const sectionBatchP = startRead(Promise.all([
     sectionRead(fetchReviewStats(admin, vendor.vendor_profile_id), 'review stats'),
     // ANTI-FRAUD (2026-07-05, Phase 1 follow-up): the PUBLIC headline average
     // + review count read the TRUSTED (receipt-backed, arm's-length) stat, so
@@ -1186,14 +1206,19 @@ export async function renderVendorBySlug({
     fetchTrustedReviewStatsRead(admin, vendor.vendor_profile_id),
     // 🛡 Fake proof fixes (owner 2026-11-23, b89e2420 C + D): the PUBLIC read — a held review never lists, and each row
     // says whether it counts (a booked review that does not wears the supplier's-own-client pill, `reviewIsOwnClient`).
-    sectionRead(fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0, excludeEventIds: [...unlistedEvents], publicOnly: true }), 'reviews'),
-    sectionRead(fetchVendorServices(admin, vendor.vendor_profile_id), 'services'),
+    sectionRead(
+      unlistedP.then(({ events: unlistedEvents }) =>
+        fetchReviewsForVendorWithCouple(admin, vendor.vendor_profile_id, { limit, offset: 0, excludeEventIds: [...unlistedEvents], publicOnly: true }),
+      ),
+      'reviews',
+    ),
+    allServicesP,
     // Vendor packages (owner directive 2026-05-22) — bundled multi-category
     // wedding offerings. Public-read via RLS when is_active=TRUE. The fetch
     // is best-effort: if the table doesn't exist yet in a deploy environment
     // (migration unapplied), the catch returns [] and the page renders
     // without the Packages section.
-    fetchVendorPackagesWithItems(admin, vendor.vendor_profile_id),
+    vendorPackagesP,
     // "Recommended by N couples" trust signal (Event Lifecycle Menu §6.3).
     // Distinct events with a completion-gated recommendation; 0 → not rendered.
     countVendorRecommendingCouples(admin, vendor.vendor_profile_id),
@@ -1231,18 +1256,9 @@ export async function renderVendorBySlug({
     // complete LINKED booking, with the same owner/team/internal/self-comp
     // exclusions as the public completed-events count. Best-effort: a missing
     // view (stale deploy) returns [] and the Track Record section is omitted.
-    fetchVendorCompletedEvents(admin, vendor.vendor_profile_id, { limit: 60 }),
-    // Public "hide my prices" preference (Option A · council #6). Gates every
-    // peso figure on this page when the vendor opted in; default false = show.
-    fetchVendorHidesPricesPublicly(admin, vendor.vendor_profile_id),
-  ]);
-  // A refused rating read is said, never drawn as "none yet" (A1-129); the zero row only keeps the badges hidden.
-  const trustedReadFailed = trustedRead === null;
-  const trustedReviewStats: TrustedReviewStatsRow = trustedRead ?? {
-    vendor_profile_id: vendor.vendor_profile_id,
-    trusted_avg_rating: 0,
-    trusted_review_count: 0,
-  };
+    completedEventsP,
+    hidePricesP,
+  ]));
 
   // "Trusted by" — vendors who endorsed this one via the vendor↔vendor
   // mutual-accept handshake (accepted + active vendor_partnerships pointing at
@@ -1261,9 +1277,9 @@ export async function renderVendorBySlug({
      above — they START together here and are still awaited where they were (speed pass 2026-11-14: they ran one after
      another before this page's first byte). Same reads, same fail-softs, same "couldn't check" markers. */
   const verifiedMedianP = startRead(
-    verifiedMedianEnabled() && !hidePricesPublicly
-      ? fetchVendorVerifiedMedian(vendor.vendor_profile_id)
-      : Promise.resolve(null),
+    hidePricesP.then((hidePricesPublicly) =>
+      verifiedMedianEnabled() && !hidePricesPublicly ? fetchVendorVerifiedMedian(vendor.vendor_profile_id) : null,
+    ),
   );
   // 🗂 v16 S4: this month's Not-bookable days for the desktop side card — Check a date's own reads over one month
   // (`readThisMonthNotBookable`). Verified and date-checkable only, as the door; a failure is `unreadable`, never green.
@@ -1321,7 +1337,300 @@ export async function renderVendorBySlug({
     }
     return !error && typeof data === 'number' ? data : 0;
   })());
-  const trustedByRead = await fetchTrustedByVendors(admin, vendor.vendor_profile_id);
+  const trustedByP = startRead(fetchTrustedByVendors(admin, vendor.vendor_profile_id));
+
+  /* Platform tenure. Deliberately NOT inside the `vendorExperienceEnabled()`
+     probe below: that is flag-gated, and a line hidden behind a switch whose
+     production value nobody can read is how a feature ships dark. `created_at`
+     arrives with the page's own select, so this costs no extra query. */
+  /* 🗓 "On Setnayan since Oct 2026" (owner 2026-10-29 "Since is two lines"; supplier website by plan 2026-10-30) —
+     the one phrasing `lib/in-business-since.ts` owns, the same words Your details shows the shop. It replaces the
+     older "On the marketplace since …" sentence on this page and keeps that line's two rules: ungated, and an
+     unreadable stamp says nothing rather than a date. */
+  const onSetnayanSince = onSetnayanSinceLine((vendor as { created_at?: string | null }).created_at ?? null);
+
+  /* ⚡ E1 (speed audit 2026-11-27): EVERY OTHER READ THAT NEEDS ONLY THE SHOP ROW (or the viewer) STARTS HERE, before
+     the first section await, and each is still awaited where the page draws it. A read that hangs on another one
+     (the cards on the live services, the photos on the unlisted events) is chained to just that one. Same reads, same
+     conditions, same fail-softs: nothing is read that was not read before. The page used to wait ~37 times in a row. */
+  // ── Tier-gated website features · downgrade REVERTS (owner 2026-07-03) ──────
+  // Every premium customization is gated on the vendor's CURRENT tier, mirroring
+  // the caps the My-Shop editor uses. On a downgrade OR a lapsed subscription the
+  // stored data is KEPT (never deleted) but stops rendering — so the page cleanly
+  // drops to the tier's baseline look, and a re-upgrade restores everything
+  // instantly (no redo). Solo+ (`canPersonalizePage`) unlocks About · accent ·
+  // featured-service order · section toggles; Pro+ (`premiumLayout`) unlocks the
+  // hero photo · pinned review · editorials · the 2-column layout. The custom URL
+  // is deliberately NOT reverted (it's a shared permalink — dropping it would 404
+  // links already handed out); routing keeps resolving it.
+  const viewerTierCaps = tierCaps(effectiveTierState);
+  // Pro page parts read `premiumPage` (Pro+). Until 2026-11-04 they rode `customWebsiteName`, which then moved down to
+  // Solo (owner, "website applies to solo as well") — the address moved, the Pro page did not.
+  const premiumLayout = viewerTierCaps.premiumPage;
+  // 💳 The CONTENT a supplier picks in the My Shop editor renders when the
+  // editor let them save it — the one flag-aware question
+  // (lib/vendor-feature-gate.ts). While VENDOR_TIER_FEATURE_GATE is off every
+  // shop may save About · accent · sections · featured services · hero photo ·
+  // pinned review, so every shop's picks render; a save the page then ignored
+  // would be a success that changed nothing. On: exactly the tier rule, so a
+  // downgrade still reverts. The 2-column LAYOUT (`premiumLayout`) and the
+  // Enterprise cinematic hero are plan looks, not picks — untouched.
+  const canPersonalizePage = !vendorPaywallApplies(
+    micrositeCan(effectiveTierState).canPersonalize,
+  );
+  const proPicksRender = !vendorPaywallApplies(premiumLayout);
+
+  // 🌐 Whether this page shows a verified shop's content — the full rule and its rulings are written further down.
+  const isVerifiedShop = (vendor.verification_state === 'verified' && !renewing) || isDemoVendor || teamPreview !== null;
+  // The live cards, for the reads that hang on them — the same filter the page applies below (`activeServices`).
+  const activeServicesP = allServicesP.then((rows) => (rows ?? []).filter((s) => s.is_active));
+  // Per-category attribute details + portfolio gallery (iteration 0044) — ⚡ E1: each started here, awaited together below.
+  const attributeDetailsP = startRead(fetchVendorAttributeDetails(admin, vendor.vendor_profile_id));
+  const portfolioPhotosP = startRead(
+    Promise.all([unlistedP, ownShopP]).then(([{ pageRefs: unlistedPageRefs }, ownShop]) =>
+      resolvePortfolioPhotos(shopPortfolioKeys(vendor.portfolio_r2_keys, unlistedPageRefs), ownShop),
+    ),
+  );
+  // Microsite curation (My Shop → Website editor). Defensive read — an
+  // un-curated vendor / not-yet-applied migration degrades to the
+  // auto-composed baseline.
+  const micrositeP = startRead(fetchVendorMicrosite(admin, vendor.vendor_profile_id));
+  // Synced Instagram posts the vendor chose to show. Best-effort: degrades to
+  // [] on any error (pre-migration DB / no connection), so the portfolio never
+  // breaks. Feature is inert until Meta is configured — until then this is [].
+  const igMediaP = startRead(fetchVendorIgMediaForPublic(vendor.vendor_profile_id));
+  /*
+      What this band can play, and a link to them playing it. Owner 2026-08-18:
+      *"bands/musicians can pick the song they can do. and they can link videos
+      of them performing that song via youtube link."*
+
+      🔑 NOTHING PUBLIC READ THE REPERTOIRE BEFORE THIS. It existed only to match
+      requests on the day. So a band's set list — the single most useful thing a
+      couple comparing bands can look at — was invisible to them, and storing a
+      video with no viewer would have been a gate with no handle.
+    */
+  const repertoireP = startRead(fetchVendorSongs(admin, vendor.vendor_profile_id));
+  // 🔒 Song bank is a paid widget (owner via the controller, 23 Nov): the set list shows only while it is open —
+  // bought once in the Toolkit, or in the plan. The Cake Maker's gate. Kept, never deleted, while shut.
+  // Asked only for a music shop — every other page skips the three reads.
+  const songBankOpenP = startRead(
+    isMusicToolCategory(vendor.services)
+      ? readShopSpecialToolOpen(admin, vendor.vendor_profile_id, 'song_bank')
+      : Promise.resolve({ status: 'none' } as const),
+  );
+  const ownAddressP: Promise<string | null> = viewerTierCaps.customWebsiteName
+    ? startRead(
+        (async () => {
+          const { data: domainRow, error: domainError } = await admin
+            .from('custom_domains')
+            .select('domain, verified_at')
+            .eq('owner_type', 'vendor')
+            .eq('owner_id', vendor.vendor_profile_id)
+            .not('verified_at', 'is', null)
+            .order('verified_at', { ascending: true })
+            .limit(1)
+            .maybeSingle();
+          if (domainError) logQueryError('PublicVendorPage.customDomain', domainError, { slug }, 'graceful_degrade');
+          const d = domainRow as { domain?: string | null; verified_at?: string | null } | null;
+          return ownWebAddress({ planAllows: true, domain: d?.domain, verifiedAt: d?.verified_at });
+        })(),
+      )
+    : Promise.resolve(null);
+  // 🔗🖼 ONE batched, paged read of the shop's approved inspiration — started here so it runs beside the card batch
+  // below. `null` = it could not be read to the end: no Inspiration section and no looks strip (never a partial one).
+  const shopInspirationRead: Promise<ShopInspirationLook[] | null> = getInspirationParts()
+    // 🏷 A Files photo tagged to an inspiration shows only while that photo shows on the shop (DECISION_LOG 2026-11-14).
+    .then((parts) => fetchShopInspirationLooks(admin as unknown as ShopInspirationClient, vendor.vendor_profile_id, parts, listedFilesGate(admin)))
+    .catch(() => null);
+  // ⚡ E1: the service cards' batch starts the moment the live cards (and how this shop's files are served) land.
+  const cardBatchP = startRead(
+    Promise.all([activeServicesP, ownShopP]).then(([activeServices, ownShop]) => {
+      const activeServiceIds = activeServices.map((s) => s.vendor_service_id);
+      // Coverage ids behind the active cards — drive the "Serves" line (event
+      // types + faiths). Legacy services (coverage_id null) simply show no line.
+      const coverageIds = Array.from(
+        new Set(
+          activeServices
+            .map((s) => s.coverage_id)
+            .filter((id): id is number => id !== null),
+        ),
+      );
+      return Promise.all([
+        fetchInclusionsByService(admin, activeServiceIds),
+        // 🏷 the cards' own rows + the shop's running offers (Build 6 Lane D) — couples see the single best of both.
+        fetchDiscountsWithOffers(admin, activeServiceIds),
+        fetchCoveragesByIdPublic(admin, coverageIds),
+        // Fail-soft by contract (falls back to the hardcoded roster on error).
+        getEventTypeVocab(),
+        resolveServiceShowcaseMedia(activeServices, ownShop),
+        resolveServiceCoverUrls(activeServices, ownShop),
+        resolveTileByCardKind(activeServices),
+        // 📸 Couples' own photos the shop APPROVED, per card — the one public door (approved only), in the same batch.
+        fetchServiceCardCouplePhotos(admin, activeServiceIds),
+        // 🃏 What the shop hid on each card (hide per card never deletes) — only read where the grown card is drawn.
+        detailsEnabled ? readCardHides(admin, activeServiceIds) : Promise.resolve<CardHidesRead>({ status: 'ok', byCard: new Map() }),
+      ]);
+    }),
+  );
+  const coarseSourceP = startRead(getTaxonomy());
+  const shopWorkP = cardRecordEnabled()
+    ? startRead(
+        Promise.all([activeServicesP, ownShopP]).then(([live, ownShop]) =>
+          readShopWork(admin, { vendorProfileId: vendor.vendor_profile_id, serviceIds: live.map((s) => s.vendor_service_id), own: ownShop }),
+        ).catch(() => null),
+      )
+    : undefined;
+  const cardRecordByServiceP = cardRecordEnabled()
+    ? startRead(activeServicesP.then((live) => fetchServiceCardRecords(admin, live.map((s) => s.vendor_service_id))))
+    : Promise.resolve(new Map<string, CompiledCardRecord>());
+  // 🔗🖼 A look shows when it has no card (the shop's own) or its card is LIVE here — ONE rule, used by the tag read and the page.
+  const shownLooksOf = (looks: ShopInspirationLook[] | null, live: ReadonlyMap<string, unknown>): ShopInspirationLook[] =>
+    (looks ?? []).filter((l) => !l.vendorServiceId || live.has(l.vendorServiceId));
+  const tagLinesP = startRead(
+    Promise.all([shopInspirationRead, activeServicesP]).then(([looks, live]) =>
+      readTagEventLines(
+        admin,
+        shownLooksOf(looks, new Map(live.map((s) => [s.vendor_service_id, s]))).filter((l) => l.fromEvent).map((l) => l.id),
+      ),
+    ),
+  );
+  // 🗂 The saved section toggles count only on a plan that may personalise (`canPersonalizePage`) — ONE rule, used by the
+  // started reads below and the page.
+  const pageSectionsOf = (m: Awaited<ReturnType<typeof fetchVendorMicrosite>>) => (canPersonalizePage ? m.sections : {});
+  // "Featured in these stories" — its two reads start as soon as the section toggles are known (⚡ E1), and only when
+  // the section shows, exactly as before.
+  const featuredStoriesP = startRead(
+    Promise.all([micrositeP, unlistedP]).then(async ([m, { events: unlistedEvents }]) => {
+      if (!isSectionVisible(pageSectionsOf(m), 'editorials')) return null;
+      // ⛔ THE PUBLIC SHOP PAGE MUST NEVER USE fetchVendorRoomEvents. This is read by
+      // strangers. The room read admits an AGREED-but-unpaid booking, and publishing
+      // those here would tell the world about weddings the couple has not paid a
+      // downpayment on. A public claim needs the pool row, not the handshake.
+      const bookings = await fetchVendorPoolBookings(admin, vendor.vendor_profile_id);
+      return loadVendorFeaturedStories(
+        bookings.map((b) => b.eventId).filter((id) => !unlistedEvents.has(id)),
+      );
+    }),
+  );
+  const featuredChaptersP = startRead(
+    micrositeP.then((m) =>
+      isSectionVisible(pageSectionsOf(m), 'editorials')
+        ? loadFeaturedChaptersCreditingVendor({
+            businessSlug: vendor.business_slug,
+            publicId: vendor.public_id,
+          })
+        : [],
+    ),
+  );
+  // The shop's OTHER locations (paid, live branches only) — read beside the rest; see where it is awaited.
+  const publicBranchesP = startRead(
+    fetchPublicVendorBranches(
+      admin,
+      vendor.vendor_profile_id,
+    ).catch((err: unknown) => {
+      console.error('[supabase-error] v/[slug] · public branches read failed — no branch line shown', err);
+      return [];
+    }),
+  );
+  // 👤 The viewer — read once (getCurrentUser is per-request cached); the viewer's own reads chain off it.
+  const supabaseP = startRead(createClient());
+  const userP = startRead(getCurrentUser());
+  const viewerSignedInOf = (u: Awaited<typeof userP>) => u !== null && !(u.is_anonymous ?? false);
+  const viewerRunsShopP = startRead(
+    userP.then(async (u) => detailsEnabled && !cachedCopy && u !== null && !isDemoVendor && (await viewerRunsShop(vendor.vendor_profile_id))),
+  );
+  const coupleEventsP = startRead(
+    Promise.all([supabaseP, userP]).then(([sb, u]) => (u ? fetchUserEvents(sb, u.id, 'couple') : null)),
+  );
+  const bookedChatHrefP = startRead(
+    Promise.all([supabaseP, userP]).then(([sb, u]) =>
+      canMessage && viewerSignedInOf(u) && !(typeof vendor.user_id === 'string' && vendor.user_id === u?.id)
+        ? viewerBookedChatHref(sb, vendor.vendor_profile_id)
+        : null,
+    ),
+  );
+  const inquireEventStateP = startRead(
+    userP.then((u) => (canMessage && viewerSignedInOf(u) ? resolveAddShopToEvent(slug) : null)),
+  );
+  const inquireKindLabelP = startRead(
+    canMessage && (vendor.services ?? []).length > 0 ? cardKindLabeller() : Promise.resolve(null),
+  );
+  // 🧺 The unverified shop's "N more" count — asked only where it is drawn (`!isVerifiedShop`), beside the rest.
+  const heldServicesReadP: PromiseLike<{ count: number | null; error: { message?: string; code?: string } | null }> = !isVerifiedShop
+    ? startRead(
+        admin
+          .from('vendor_services')
+          .select('vendor_service_id', { count: 'exact', head: true })
+          .eq('vendor_profile_id', vendor.vendor_profile_id)
+          .eq('plan_hold', 'held'),
+      )
+    : Promise.resolve({ count: null, error: null });
+  type DeclaredExp = {
+    years: number | null;
+    sinceYear: number | null;
+    weddings: number | null;
+    verified: boolean;
+  };
+  // ⚡ E1: started with the other shop reads; awaited where it was.
+  const declaredExpP: Promise<DeclaredExp | null> = startRead(
+    vendorExperienceEnabled()
+      ? (async (): Promise<DeclaredExp | null> => {
+          // ⚠ THIS SWALLOW IS DELIBERATE AND STAYS — the `.then` soft-probe exists so a
+          // pre-migration database answering 42703 (undefined column) degrades instead of
+          // breaking a PUBLIC shop page. That is the right trade and it is not changed.
+          // 🔑 BUT A DELIBERATE SWALLOW STILL HAS TO BE VISIBLE. Every refusal — not only
+          // a missing column — erased the shop's TRACK RECORD silently: years in business
+          // and weddings done both fell to null, so a verified supplier read as having
+          // none, on the page whose whole job is to establish that it has some. The error
+          // is captured INSIDE the probe, so the fallback behaves exactly as before and
+          // the reason reaches the logs.
+          let expProbeError: { message?: string; code?: string } | null = null;
+          const { data: exp } = await admin
+            .from('vendor_profiles')
+            .select('in_business_since_year, weddings_done_approx, experience_verified_at')
+            .eq('vendor_profile_id', vendor.vendor_profile_id)
+            .maybeSingle()
+            .then((r) => {
+              if (r.error) {
+                expProbeError = r.error;
+                return { data: null };
+              }
+              return r;
+            });
+          if (expProbeError) {
+            logQueryError('PublicVendorPage.experienceProbe', expProbeError, { slug }, 'graceful_degrade');
+          }
+          const e = exp as
+            | { in_business_since_year?: number | null; weddings_done_approx?: number | null; experience_verified_at?: string | null }
+            | null;
+          const nowYear = new Date().getFullYear();
+          const years = yearsInBusiness(e?.in_business_since_year ?? null, nowYear);
+          const rawSince = e?.in_business_since_year ?? null;
+          // The year itself for "In business since 2019" — never a future or pre-1900 year (the yearsInBusiness bounds);
+          // a first-year shop keeps its year ("since 2026") even though it has no "N yrs" to show.
+          const sinceYear = rawSince != null && rawSince >= 1900 && rawSince <= nowYear ? rawSince : null;
+          const weddings = e?.weddings_done_approx ?? null;
+          if (years != null || sinceYear != null || weddings != null) {
+            return { years, sinceYear, weddings, verified: !!e?.experience_verified_at };
+          }
+          return null;
+        })()
+      : Promise.resolve(null),
+  );
+
+  // ⏳ The first waits: the section batch, then what it hangs on.
+  const [reviewStatsRead, trustedRead, reviewsRead, allServicesRead, vendorPackages, recommendingCouples, finalizedBookingRead, completedEvents, hidePricesPublicly] = await sectionBatchP;
+  const { events: unlistedEvents, pageRefs: unlistedPageRefs } = await unlistedP;
+  const ownShop = await ownShopP;
+  const logoDisplayUrl = await logoDisplayRead;
+  // A refused rating read is said, never drawn as "none yet" (A1-129); the zero row only keeps the badges hidden.
+  const trustedReadFailed = trustedRead === null;
+  const trustedReviewStats: TrustedReviewStatsRow = trustedRead ?? {
+    vendor_profile_id: vendor.vendor_profile_id,
+    trusted_avg_rating: 0,
+    trusted_review_count: 0,
+  };
+  const trustedByRead = await trustedByP;
   const trustedByUnreadable = trustedByRead === TRUSTED_BY_UNREADABLE;
   const trustedBy = trustedByUnreadable ? [] : trustedByRead;
 
@@ -1400,62 +1709,8 @@ export async function renderVendorBySlug({
   // Declared + DTI-verified experience (flag + schema gated; soft-probe degrades
   // on 42703 so a pre-migration DB never breaks the profile). Sits alongside the
   // Setnayan-native tier so the card reads credible at launch.
-  /* Platform tenure. Deliberately NOT inside the `vendorExperienceEnabled()`
-     probe below: that is flag-gated, and a line hidden behind a switch whose
-     production value nobody can read is how a feature ships dark. `created_at`
-     arrives with the page's own select, so this costs no extra query. */
-  /* 🗓 "On Setnayan since Oct 2026" (owner 2026-10-29 "Since is two lines"; supplier website by plan 2026-10-30) —
-     the one phrasing `lib/in-business-since.ts` owns, the same words Your details shows the shop. It replaces the
-     older "On the marketplace since …" sentence on this page and keeps that line's two rules: ungated, and an
-     unreadable stamp says nothing rather than a date. */
-  const onSetnayanSince = onSetnayanSinceLine((vendor as { created_at?: string | null }).created_at ?? null);
 
-  let declaredExp: {
-    years: number | null;
-    sinceYear: number | null;
-    weddings: number | null;
-    verified: boolean;
-  } | null = null;
-  if (vendorExperienceEnabled()) {
-    // ⚠ THIS SWALLOW IS DELIBERATE AND STAYS — the `.then` soft-probe exists so a
-    // pre-migration database answering 42703 (undefined column) degrades instead of
-    // breaking a PUBLIC shop page. That is the right trade and it is not changed.
-    // 🔑 BUT A DELIBERATE SWALLOW STILL HAS TO BE VISIBLE. Every refusal — not only
-    // a missing column — erased the shop's TRACK RECORD silently: years in business
-    // and weddings done both fell to null, so a verified supplier read as having
-    // none, on the page whose whole job is to establish that it has some. The error
-    // is captured INSIDE the probe, so the fallback behaves exactly as before and
-    // the reason reaches the logs.
-    let expProbeError: { message?: string; code?: string } | null = null;
-    const { data: exp } = await admin
-      .from('vendor_profiles')
-      .select('in_business_since_year, weddings_done_approx, experience_verified_at')
-      .eq('vendor_profile_id', vendor.vendor_profile_id)
-      .maybeSingle()
-      .then((r) => {
-        if (r.error) {
-          expProbeError = r.error;
-          return { data: null };
-        }
-        return r;
-      });
-    if (expProbeError) {
-      logQueryError('PublicVendorPage.experienceProbe', expProbeError, { slug }, 'graceful_degrade');
-    }
-    const e = exp as
-      | { in_business_since_year?: number | null; weddings_done_approx?: number | null; experience_verified_at?: string | null }
-      | null;
-    const nowYear = new Date().getFullYear();
-    const years = yearsInBusiness(e?.in_business_since_year ?? null, nowYear);
-    const rawSince = e?.in_business_since_year ?? null;
-    // The year itself for "In business since 2019" — never a future or pre-1900 year (the yearsInBusiness bounds);
-    // a first-year shop keeps its year ("since 2026") even though it has no "N yrs" to show.
-    const sinceYear = rawSince != null && rawSince >= 1900 && rawSince <= nowYear ? rawSince : null;
-    const weddings = e?.weddings_done_approx ?? null;
-    if (years != null || sinceYear != null || weddings != null) {
-      declaredExp = { years, sinceYear, weddings, verified: !!e?.experience_verified_at };
-    }
-  }
+  const declaredExp = await declaredExpP;
 
   const reviewsReadFailed = reviewStatsRead === null || reviewsRead === null;
   const servicesReadFailed = allServicesRead === null;
@@ -1484,21 +1739,6 @@ export async function renderVendorBySlug({
   // vendor is already resolved as published + these ids are all active, so the
   // read is correctly scoped even under the server-role admin client.
   const activeServiceIds = activeServices.map((s) => s.vendor_service_id);
-  // 🔗🖼 ONE batched, paged read of the shop's approved inspiration — started here so it runs beside the card batch
-  // below. `null` = it could not be read to the end: no Inspiration section and no looks strip (never a partial one).
-  const shopInspirationRead: Promise<ShopInspirationLook[] | null> = getInspirationParts()
-    // 🏷 A Files photo tagged to an inspiration shows only while that photo shows on the shop (DECISION_LOG 2026-11-14).
-    .then((parts) => fetchShopInspirationLooks(admin as unknown as ShopInspirationClient, vendor.vendor_profile_id, parts, listedFilesGate(admin)))
-    .catch(() => null);
-  // Coverage ids behind the active cards — drive the "Serves" line (event
-  // types + faiths). Legacy services (coverage_id null) simply show no line.
-  const coverageIds = Array.from(
-    new Set(
-      activeServices
-        .map((s) => s.coverage_id)
-        .filter((id): id is number => id !== null),
-    ),
-  );
   const [
     inclusionsByService,
     discountsByService,
@@ -1509,24 +1749,10 @@ export async function renderVendorBySlug({
     tileByCardKind,
     couplePhotosByService,
     cardHidesByService,
-  ] = await Promise.all([
-    fetchInclusionsByService(admin, activeServiceIds),
-    // 🏷 the cards' own rows + the shop's running offers (Build 6 Lane D) — couples see the single best of both.
-    fetchDiscountsWithOffers(admin, activeServiceIds),
-    fetchCoveragesByIdPublic(admin, coverageIds),
-    // Fail-soft by contract (falls back to the hardcoded roster on error).
-    getEventTypeVocab(),
-    resolveServiceShowcaseMedia(activeServices, ownShop),
-    resolveServiceCoverUrls(activeServices, ownShop),
-    resolveTileByCardKind(activeServices),
-    // 📸 Couples' own photos the shop APPROVED, per card — the one public door (approved only), in the same batch.
-    fetchServiceCardCouplePhotos(admin, activeServiceIds),
-    // 🃏 What the shop hid on each card (hide per card never deletes) — only read where the grown card is drawn.
-    detailsEnabled ? readCardHides(admin, activeServiceIds) : Promise.resolve<CardHidesRead>({ status: 'ok', byCard: new Map() }),
-  ]);
+  ] = await cardBatchP;
   // ③0-c — the coarse category each category files its cards under is the LIVE column
   // (`service_categories.coarse_category`); same cached snapshot the tile lookup above read.
-  const coarseSource = await getTaxonomy();
+  const coarseSource = await coarseSourceP;
 
   // CARD RECORD (owner-locked 2026-07-28) — each card's compiled history:
   // booked count, event-type mix, anonymized ledger, milestone medals. ONE RPC
@@ -1543,15 +1769,9 @@ export async function renderVendorBySlug({
   //
   // Flag-gated so OFF costs not one extra query — the map stays empty, every
   // card's `record` is null, and the gallery renders byte-identically to today.
-  // ⚡ The shop's work and the card records need only the live services — asked together (speed pass 2026-11-14).
-  const shopWorkP = cardRecordEnabled()
-    ? startRead(
-        readShopWork(admin, { vendorProfileId: vendor.vendor_profile_id, serviceIds: activeServiceIds, own: ownShop }).catch(() => null),
-      )
-    : undefined;
-  const cardRecordByService = cardRecordEnabled()
-    ? await fetchServiceCardRecords(admin, activeServiceIds)
-    : new Map<string, CompiledCardRecord>();
+  // ⚡ The shop's work and the card records need only the live services — asked together (speed pass 2026-11-14),
+  // and since E1 (2026-11-27) started with the shop's other reads.
+  const cardRecordByService = await cardRecordByServiceP;
   // 🃏📸 ONE ALBUM, TWO PLACES (DECISION_LOG 2026-10-08, frame 77) — each live card's albums from the events it was
   // booked on, read ONCE for the shop (the same albums the supplier's Their work holds). Rides the same flag: OFF → not
   // read, no card carries `albums`, the grown card is as before. A refused read → every card says "Couldn't load".
@@ -1597,10 +1817,10 @@ export async function renderVendorBySlug({
   // as drawn). Each live card carries its looks; the section's tiles link to the card's anchor.
   const shopInspiration = await shopInspirationRead;
   const liveCardById = new Map(activeServices.map((s) => [s.vendor_service_id, s]));
-  const shownLooks = (shopInspiration ?? []).filter((l) => !l.vendorServiceId || liveCardById.has(l.vendorServiceId));
+  const shownLooks = shownLooksOf(shopInspiration, liveCardById);
   const inspirationByService = shopInspiration === null ? null : looksByCard(shownLooks);
   // 🏷 Ruling (4): a tagged Files photo names its event as type · venue · month — never a name, never an id.
-  const tagLines = await readTagEventLines(admin, shownLooks.filter((l) => l.fromEvent).map((l) => l.id));
+  const tagLines = await tagLinesP;
   const inspirationTiles: InspirationTile[] = shownLooks.map((l) => {
     const s = l.vendorServiceId ? liveCardById.get(l.vendorServiceId) : undefined;
     return {
@@ -1616,63 +1836,16 @@ export async function renderVendorBySlug({
 
   // Per-category attribute details + portfolio gallery (iteration 0044).
   const [attributeDetails, portfolioPhotos, microsite, igMedia, repertoire, songBankOpen] = await Promise.all([
-    fetchVendorAttributeDetails(admin, vendor.vendor_profile_id),
-    resolvePortfolioPhotos(shopPortfolioKeys(vendor.portfolio_r2_keys, unlistedPageRefs), ownShop),
-    // Microsite curation (My Shop → Website editor). Defensive read — an
-    // un-curated vendor / not-yet-applied migration degrades to the
-    // auto-composed baseline.
-    fetchVendorMicrosite(admin, vendor.vendor_profile_id),
-    // Synced Instagram posts the vendor chose to show. Best-effort: degrades to
-    // [] on any error (pre-migration DB / no connection), so the portfolio never
-    // breaks. Feature is inert until Meta is configured — until then this is [].
-    fetchVendorIgMediaForPublic(vendor.vendor_profile_id),
-    /*
-      What this band can play, and a link to them playing it. Owner 2026-08-18:
-      *"bands/musicians can pick the song they can do. and they can link videos
-      of them performing that song via youtube link."*
-
-      🔑 NOTHING PUBLIC READ THE REPERTOIRE BEFORE THIS. It existed only to match
-      requests on the day. So a band's set list — the single most useful thing a
-      couple comparing bands can look at — was invisible to them, and storing a
-      video with no viewer would have been a gate with no handle.
-    */
-    fetchVendorSongs(admin, vendor.vendor_profile_id),
-    // 🔒 Song bank is a paid widget (owner via the controller, 23 Nov): the set list shows only while it is open —
-    // bought once in the Toolkit, or in the plan. The Cake Maker's gate. Kept, never deleted, while shut.
-    // Asked only for a music shop — every other page skips the three reads.
-    isMusicToolCategory(vendor.services)
-      ? readShopSpecialToolOpen(admin, vendor.vendor_profile_id, 'song_bank')
-      : Promise.resolve({ status: 'none' } as const),
+    attributeDetailsP,
+    portfolioPhotosP,
+    micrositeP,
+    igMediaP,
+    repertoireP,
+    songBankOpenP,
   ]);
-  // ── Tier-gated website features · downgrade REVERTS (owner 2026-07-03) ──────
-  // Every premium customization is gated on the vendor's CURRENT tier, mirroring
-  // the caps the My-Shop editor uses. On a downgrade OR a lapsed subscription the
-  // stored data is KEPT (never deleted) but stops rendering — so the page cleanly
-  // drops to the tier's baseline look, and a re-upgrade restores everything
-  // instantly (no redo). Solo+ (`canPersonalizePage`) unlocks About · accent ·
-  // featured-service order · section toggles; Pro+ (`premiumLayout`) unlocks the
-  // hero photo · pinned review · editorials · the 2-column layout. The custom URL
-  // is deliberately NOT reverted (it's a shared permalink — dropping it would 404
-  // links already handed out); routing keeps resolving it.
-  const viewerTierCaps = tierCaps(effectiveTierState);
-  // Pro page parts read `premiumPage` (Pro+). Until 2026-11-04 they rode `customWebsiteName`, which then moved down to
-  // Solo (owner, "website applies to solo as well") — the address moved, the Pro page did not.
-  const premiumLayout = viewerTierCaps.premiumPage;
-  // 💳 The CONTENT a supplier picks in the My Shop editor renders when the
-  // editor let them save it — the one flag-aware question
-  // (lib/vendor-feature-gate.ts). While VENDOR_TIER_FEATURE_GATE is off every
-  // shop may save About · accent · sections · featured services · hero photo ·
-  // pinned review, so every shop's picks render; a save the page then ignored
-  // would be a success that changed nothing. On: exactly the tier rule, so a
-  // downgrade still reverts. The 2-column LAYOUT (`premiumLayout`) and the
-  // Enterprise cinematic hero are plan looks, not picks — untouched.
-  const canPersonalizePage = !vendorPaywallApplies(
-    micrositeCan(effectiveTierState).canPersonalize,
-  );
-  const proPicksRender = !vendorPaywallApplies(premiumLayout);
   // Section toggles are a Solo control → below Solo, ignore the saved hide/show
   // set and fall back to defaults (all baseline sections visible).
-  const pageSections = canPersonalizePage ? microsite.sections : {};
+  const pageSections = pageSectionsOf(microsite);
 
   const portfolioUrls = portfolioPhotos.map((p) => p.url);
   const showPortfolio = isSectionVisible(pageSections, 'portfolio');
@@ -1762,21 +1935,7 @@ export async function renderVendorBySlug({
   });
   // Solo+ — their own web address pointing at this page (approved Q4 = A; Solo since owner 2026-11-04). Read only when
   // the plan shows it (`customWebsiteName`); a refused read shows the Setnayan address alone, which is still true.
-  let ownAddress: string | null = null;
-  if (viewerTierCaps.customWebsiteName) {
-    const { data: domainRow, error: domainError } = await admin
-      .from('custom_domains')
-      .select('domain, verified_at')
-      .eq('owner_type', 'vendor')
-      .eq('owner_id', vendor.vendor_profile_id)
-      .not('verified_at', 'is', null)
-      .order('verified_at', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-    if (domainError) logQueryError('PublicVendorPage.customDomain', domainError, { slug }, 'graceful_degrade');
-    const d = domainRow as { domain?: string | null; verified_at?: string | null } | null;
-    ownAddress = ownWebAddress({ planAllows: true, domain: d?.domain, verifiedAt: d?.verified_at });
-  }
+  const ownAddress = await ownAddressP;
   const setnayanAddress = `${(process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com')
     .replace(/^https?:\/\/(www\.)?/, '')
     .replace(/\/$/, '')}/${vendor.business_slug ?? slug}`;
@@ -1804,14 +1963,8 @@ export async function renderVendorBySlug({
   let featuredEditorials: VendorFeaturedStory[] = [];
   if (showEditorials) {
     try {
-      // ⛔ THE PUBLIC SHOP PAGE MUST NEVER USE fetchVendorRoomEvents. This is read by
-      // strangers. The room read admits an AGREED-but-unpaid booking, and publishing
-      // those here would tell the world about weddings the couple has not paid a
-      // downpayment on. A public claim needs the pool row, not the handshake.
-      const bookings = await fetchVendorPoolBookings(admin, vendor.vendor_profile_id);
-      const stories = await loadVendorFeaturedStories(
-        bookings.map((b) => b.eventId).filter((id) => !unlistedEvents.has(id)),
-      );
+      // ⛔ The stories are read through the shop's paid pool rows only — see `featuredStoriesP` above.
+      const stories = (await featuredStoriesP) ?? [];
       const byId = new Map(stories.map((s) => [s.eventId, s]));
       featuredEditorials = orderFeaturedFirst(
         stories.map((s) => s.eventId),
@@ -1824,13 +1977,7 @@ export async function renderVendorBySlug({
       featuredEditorials = [];
     }
   }
-  let featuredChapterCredits: StorytellerTileItem[] = [];
-  if (showEditorials) {
-    featuredChapterCredits = await loadFeaturedChaptersCreditingVendor({
-      businessSlug: vendor.business_slug,
-      publicId: vendor.public_id,
-    });
-  }
+  const featuredChapterCredits: StorytellerTileItem[] = showEditorials ? await featuredChaptersP : [];
 
   /* V2.1 brief amendment #2 (2026-05-30) · hybrid-anonymity. Resolves
      once at the page level so the hero, "Inquire" copy,
@@ -1866,7 +2013,7 @@ export async function renderVendorBySlug({
   // verified" MARKING below (hero stamp, Awards slot, footer tag, card + photo stamps, the notes, "What Verified adds",
   // the side card + quote list) is gated on `!isVerifiedShop && !renewing`. The CONTENT gates stay on `isVerifiedShop`.
   // (`renewing` is read above, before the first badge read.)
-  const isVerifiedShop = (vendor.verification_state === 'verified' && !renewing) || isDemoVendor || teamPreview !== null;
+  // (`isVerifiedShop` itself is decided above, beside the reads it gates — speed E1.)
   // The photo: the shop's chosen hero (Pro picks), else its first portfolio photo, else the shared placeholder.
   const heroImage = heroPhotoUrl ?? (cover.portfolioLeads ? (portfolioUrls[0] ?? null) : null);
   // 🖼 v16 S2 — the hero's photos: the shop's portfolio (when the shop shows it), its chosen hero photo FIRST. Two or more
@@ -1961,19 +2108,12 @@ export async function renderVendorBySlug({
   // and whose 28-day window is live.
   // A read that fails shows NO branch line and no "Also here" list — never a guessed city — and says so in the logs
   // (owner 2026-11-13, "Show the branches as needed": the line exists only when the shop really has branches).
-  const publicBranches = await fetchPublicVendorBranches(
-    admin,
-    vendor.vendor_profile_id,
-  ).catch((err: unknown) => {
-    console.error('[supabase-error] v/[slug] · public branches read failed — no branch line shown', err);
-    return [];
-  });
+  const publicBranches = await publicBranchesP;
 
   // Resolve viewer state for the FollowGate (iteration 0019 § Gate). Public
   // page so the supabase client may have no user; that's fine — the gate
   // renders a "Sign in to follow" CTA in that case.
-  const supabase = await createClient();
-  const user = await getCurrentUser();
+  const [supabase, user] = await Promise.all([supabaseP, userP]);
   /** The shop's own account is looking at its own page. Fails CLOSED: the
    *  fallback select carries no `user_id`, so a degraded read is a stranger. */
   const viewerOwnsShop =
@@ -1981,7 +2121,7 @@ export async function renderVendorBySlug({
   /** 🃏 The viewer runs this shop (owner or owner/admin team — who RLS lets hide): only THEY are sent the items hidden
    *  on a card, to curate. Everyone else's cards are stripped on the server (`cardWithoutHidden`). Fails closed. */
   const viewerCuratesCards =
-    detailsEnabled && !cachedCopy && user !== null && !isDemoVendor && (await viewerRunsShop(vendor.vendor_profile_id));
+    detailsEnabled && !cachedCopy && user !== null && !isDemoVendor && (await viewerRunsShopP);
   let coupleEventId: string | null = null;
   /** `?event=` once CHECKED against the viewer's own events — the event this visit came for (lib/shop-back.ts).
    *  Never the `events[0]` fallback: only an event the link named can be "where you came from". */
@@ -1994,7 +2134,7 @@ export async function renderVendorBySlug({
    *  to the InquiryComposer so it can surface "View thread" instead of opening
    *  a new modal on re-visit. */
   if (user) {
-    const events = await fetchUserEvents(supabase, user.id, 'couple');
+    const events = (await coupleEventsP) ?? [];
     /*
       ── D1 · THE CELEBRATION THE COUPLE CHOSE, NOT THE ONE A RULE PICKED ──
       This was `events[0]`, and the couple was never asked.
@@ -2076,8 +2216,7 @@ export async function renderVendorBySlug({
   const shopTop = shopTopBack(shopArrival, viewerSignedIn);
   // 💬 CHAT-08: a couple already BOOKED with this shop has nothing to inquire about — their button opens the chat they
   // already have (the door their Messages list opens). Null for everyone else, and the shipped Inquire stays.
-  const bookedChatHref = canMessage && viewerSignedIn && !viewerOwnsShop ? await viewerBookedChatHref(supabase, vendor.vendor_profile_id) : null;
-  const inquireEventState = canMessage && viewerSignedIn ? await resolveAddShopToEvent(slug) : null;
+  const [bookedChatHref, inquireEventState] = await Promise.all([bookedChatHrefP, inquireEventStateP]);
   const inquireEvents: InquireEvent[] =
     inquireEventState?.signedIn === true
       ? inquireEventState.options.map((o) => ({
@@ -2092,7 +2231,7 @@ export async function renderVendorBySlug({
   // (`cardKindLabeller`, Admin › Categories), "Price on request". Inquire is never a dead end for a shop with no card.
   // Read only when the pop-up is mounted and the shop lists services — a shop with none never asks for a name.
   const inquireProvidedKeys = canMessage ? (vendor.services ?? []) : [];
-  const inquireKindLabel = inquireProvidedKeys.length > 0 ? await cardKindLabeller() : (key: string) => key;
+  const inquireKindLabel = (await inquireKindLabelP) ?? ((key: string) => key);
   const inquireServices: InquireService[] = inquireServiceList(
     activeServices.map((s) => ({
       serviceId: s.vendor_service_id,
@@ -2161,7 +2300,8 @@ export async function renderVendorBySlug({
   // kind.
   // 🚪 BOOKINGS CLOSED (owner 2026-11-02, `lib/bookings-open.ts`): every package still shows its price and
   // inclusions; only the Book button gives way to a quiet "Bookings open soon". Inquiries stay open.
-  const bookingsOpen = vendorPackages.length > 0 ? await areBookingsOpen() : true;
+  // ⚡ The same remembered setting the gate read above (`gateBookingsOpen`) — not asked twice.
+  const bookingsOpen = vendorPackages.length > 0 ? gateBookingsOpen : true;
   const packageAskTargets = new Map<string, PackageAskTarget>();
   if (detailsEnabled && bookable && coupleEventId) {
     for (const pkg of vendorPackages) {
@@ -2533,11 +2673,7 @@ export async function renderVendorBySlug({
   // is `null` and the line is not drawn (never "0 more" from a failure). Unverified only.
   let heldServiceCount: number | null = null;
   if (!isVerifiedShop) {
-    const { count, error: heldError } = await admin
-      .from('vendor_services')
-      .select('vendor_service_id', { count: 'exact', head: true })
-      .eq('vendor_profile_id', vendor.vendor_profile_id)
-      .eq('plan_hold', 'held');
+    const { count, error: heldError } = await heldServicesReadP;
     if (heldError) {
       logQueryError('PublicVendorPage.heldServices', heldError, { slug }, 'graceful_degrade');
     } else {

@@ -23,14 +23,48 @@
  * homepage. GSAP still does all the motion.
  */
 
-import { useRef } from 'react';
-import gsap from 'gsap';
-import { useGSAP } from '@gsap/react';
-import { SplitText } from 'gsap/SplitText';
+import { useEffect, useRef, type RefObject } from 'react';
+import type { gsap as GsapCore } from 'gsap';
+import type { SplitText } from 'gsap/SplitText';
 import { strokeLengthOrZero } from '@/lib/svg-stroke-length';
 
-if (typeof window !== 'undefined') {
-  gsap.registerPlugin(SplitText);
+/* ⚡ GSAP LOADS ON DEMAND (speed audit 2026-11-27, I1). It used to be imported up front, so every marketing page that
+   uses one of these hooks shipped GSAP + SplitText in its first JavaScript. Now the engine is fetched once, in the
+   background, the first time a hook mounts, and shared by every hook on the page. Each hook runs the SAME body inside
+   the SAME `gsap.context` on its scope (what `useGSAP` did), reverted on unmount; the server and reduced-motion paths
+   are unchanged. A failed fetch leaves everything in its resting, fully-visible state. */
+type GsapLib = { gsap: typeof GsapCore; SplitText: typeof SplitText };
+let gsapLoad: Promise<GsapLib> | null = null;
+function loadGsap(): Promise<GsapLib> {
+  gsapLoad ??= Promise.all([import('gsap'), import('gsap/SplitText')]).then(([core, split]) => {
+    core.gsap.registerPlugin(split.SplitText);
+    return { gsap: core.gsap, SplitText: split.SplitText };
+  });
+  return gsapLoad;
+}
+
+/** `useGSAP(setup, { scope })` with the engine fetched on demand: mount-once, scoped context, reverted on unmount. */
+function useLazyGSAP(setup: (lib: GsapLib) => void | (() => void), { scope }: { scope: RefObject<Element | null> }) {
+  const setupRef = useRef(setup);
+  setupRef.current = setup;
+  useEffect(() => {
+    let live = true;
+    let ctx: gsap.Context | null = null;
+    loadGsap()
+      .then((lib) => {
+        if (!live) return;
+        ctx = lib.gsap.context(() => setupRef.current(lib), scope.current ?? undefined);
+      })
+      .catch(() => {
+        // The engine could not be fetched: nothing was hidden yet, so the content simply rests where it is.
+      });
+    return () => {
+      live = false;
+      ctx?.revert();
+    };
+    // Mount-once, as `useGSAP` with no dependencies.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 }
 
 /**
@@ -41,8 +75,8 @@ if (typeof window !== 'undefined') {
 export function usePanelIntro() {
   const scope = useRef<HTMLDivElement>(null);
 
-  useGSAP(
-    () => {
+  useLazyGSAP(
+    ({ gsap, SplitText }) => {
       const root = scope.current;
       if (!root) return;
 
@@ -200,8 +234,8 @@ export function useReveal(
   const { stagger = 0.06, y = 16, threshold = 0.15, duration = 0.7 } = opts;
   const scope = useRef<HTMLElement>(null);
 
-  useGSAP(
-    () => {
+  useLazyGSAP(
+    ({ gsap }) => {
       const root = scope.current;
       if (!root) return;
 
@@ -280,8 +314,8 @@ export function useLineReveal(
   const { trigger = 'view', threshold = 0.18, stagger = 0.12, duration = 0.9 } = opts;
   const scope = useRef<HTMLElement>(null);
 
-  useGSAP(
-    () => {
+  useLazyGSAP(
+    ({ gsap, SplitText }) => {
       const el = scope.current;
       if (!el) return;
 
@@ -364,8 +398,8 @@ export function useSettle(
   const { duration = 1, ease = 'power3.out', threshold = 0.3, stagger = 0.05 } = opts;
   const scope = useRef<HTMLElement>(null);
 
-  useGSAP(
-    () => {
+  useLazyGSAP(
+    ({ gsap }) => {
       const root = scope.current;
       if (!root) return;
 
@@ -434,8 +468,8 @@ export function useProvision(
   const { stagger = 0.08, y = 14, threshold = 0.3, duration = 0.6 } = opts;
   const scope = useRef<HTMLElement>(null);
 
-  useGSAP(
-    () => {
+  useLazyGSAP(
+    ({ gsap }) => {
       const root = scope.current;
       if (!root) return;
 
@@ -501,8 +535,8 @@ export function useMagnetic(opts: { strength?: number } = {}) {
   const { strength = 0.25 } = opts;
   const ref = useRef<HTMLElement>(null);
 
-  useGSAP(
-    () => {
+  useLazyGSAP(
+    ({ gsap }) => {
       const el = ref.current;
       if (!el) return;
       if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;

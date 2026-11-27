@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Sheet } from '@/app/_components/sheet';
 import { REPLY_PANEL_MEDIA, opensInReplyPanel, repliedHref, replyPanelStep } from '@/lib/guest-reply-panel';
 import { EDITOR_CANVAS_HIDES_APP_CHROME } from '../_lib/editor-canvas';
-import { REPLY_SHEET_HEADING } from './rsvp-sheet-state';
+import { LANDING_WORDS } from '@/lib/guest-landing';
 
 /**
  * 🖥 THE GUEST'S REPLY, IN THE SIDE PANEL — on a desktop, behind the desk gate (DECISION_LOG 2026-10-19 "FIVE
@@ -160,7 +160,7 @@ export function ReplyPanel({
 
   return (
     /* The panel's title is the press that opened it: "Your reply" is the reply page's own line, right under it (B8). */
-    <Sheet open={src !== null} onClose={() => close()} labelledById={headingId} title={REPLY_SHEET_HEADING} rise backCloses={false}>
+    <Sheet open={src !== null} onClose={() => close()} labelledById={headingId} title={LANDING_WORDS.reply} rise backCloses={false}>
       {src ? (
         <iframe
           ref={frame}

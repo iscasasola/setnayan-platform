@@ -1,3 +1,4 @@
+import { LANDING_WORDS } from '@/lib/guest-landing';
 /**
  * apps/web/app/[slug]/_components/rsvp-sheet-state.ts
  *
@@ -144,7 +145,7 @@ export type RsvpSheetTriggerInput = {
  * two answers inside the sheet.
  */
 /** The press that opens an unanswered reply, and the heading of what it opens — one set of words. */
-export const REPLY_SHEET_HEADING = 'Reply to the invitation';
+export const REPLY_SHEET_HEADING = LANDING_WORDS.reply;
 
 export function rsvpSheetTrigger(input: RsvpSheetTriggerInput): { label: string } {
   // The answer is frozen but the meal, the allergy note and the phone number

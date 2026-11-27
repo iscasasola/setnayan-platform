@@ -160,3 +160,10 @@ export function gownKeyholeBack(d: NeckDesign, topBack: number, L: GownNeckLandm
   for (let i = 0; i <= n; i++) { const ph = Math.PI - 1.34 + (2.68 * i) / n, p2 = ph > Math.PI ? TAU - ph : ph, y = side + (yB - side) * backD(d.back, p2); lo.push([ph, Math.min(y, yBand)]); }
   return { yBand, yB, poly: [...lo, [Math.PI + 1.34, yBand], [Math.PI - 1.34, yBand]] };
 }
+
+/** The deepest a strapless back may be cut on her, on the back's own bar (v197 `backCapT`; 1 when it is not strapless). */
+export function gownBackCapT(d: Pick<NeckDesign, 'neck'>, L: GownNeckLandmarks | null): number {
+  if (!L || !GOWN_STRAPLESS.includes(d.neck)) return 1;
+  const y = gownBackLimitY(d, L);
+  return Math.min(1, Math.max(0, (L.bTop - y) / Math.max(1e-4, L.bTop - L.bLow)));
+}

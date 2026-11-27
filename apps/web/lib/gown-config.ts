@@ -138,13 +138,16 @@ export type GownTrain = (typeof GOWN_TRAINS)[number]['id'];
 /** Veil lengths (v197): elbow, fingertip and floor end where their names say; chapel and cathedral are measured from the crown. */
 export const GOWN_VEILS = [
   { id: 'none', label: 'None' },
-  { id: 'elbow', label: 'Elbow', why: 'To her elbows: a short, light veil.' },
   { id: 'fingertip', label: 'Fingertip', why: 'To her fingertips, about 1 m from the crown.' },
-  { id: 'floor', label: 'Floor', why: 'Just touches the floor behind her.' },
   { id: 'chapel', label: 'Chapel' },
   { id: 'cathedral', label: 'Cathedral' },
+  // v197 (appended: the catalog keeps its order; `GOWN_VEIL_ORDER` is the order she reads them in).
+  { id: 'elbow', label: 'Elbow', why: 'To her elbows: a short, light veil.' },
+  { id: 'floor', label: 'Floor', why: 'Just touches the floor behind her.' },
 ] as const;
 export type GownVeil = (typeof GOWN_VEILS)[number]['id'];
+/** Shortest to longest, as the prototype lists them (v197). */
+export const GOWN_VEIL_ORDER: readonly GownVeil[] = ['none', 'elbow', 'fingertip', 'floor', 'chapel', 'cathedral'];
 /** A classic veil's front layer (v197): worn back over the head, or over her face. */
 export const GOWN_BLUSHERS = [
   { id: 'back', label: 'Worn back', why: 'The front layer is worn back over the head: her face is open.' },
@@ -715,13 +718,14 @@ export function startingGownConfig(): GownConfig {
     layerTypes: Array<GownLayerType>(GOWN_MAX_LAYERS).fill('soft'),
     layerCols: Array<GownLayerColour>(GOWN_MAX_LAYERS).fill('match'),
     shape: 'none',
-    boning: 'soft',
+    // v197: a fresh gown is boned, with a waist stay (its sweetheart bodice holds itself up).
+    boning: 'complement',
     lining: 'satin',
     liningCol: 'match',
     cape: 'none',
     overlay: 'none',
     ovFab: 'chiffon',
-    waistStay: false,
+    waistStay: true,
     horsehair: false,
     modesty: false,
     slits: [],
@@ -1211,11 +1215,19 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
   const inside = { layerTypes: r.layerTypes != null ? layerTypes : gownSyncLayers(p.petti, worn, layerTypes), layerCols };
   // Pairings that cannot be made (v193 `setGown`): the server refuses what the maker would have changed.
   if (p.cape !== 'none' && p.sleeve === 'butterfly') return no('not_a_design');
-  if (p.cape === 'back' && (p.veil === 'chapel' || p.veil === 'cathedral')) return no('not_a_design');
+  if (p.cape === 'back' && (p.veil === 'floor' || p.veil === 'chapel' || p.veil === 'cathedral')) return no('not_a_design');
   // v195: flutter sleeves hang from the shoulder line (never a sweetheart), and a side cape or capelet would lie over them.
   if (p.sleeve === 'flutter' && (p.neck === 'sweetheart' || p.cape === 'side' || p.cape === 'capelet')) return no('not_a_design');
   // v195: over a ball gown an overlay sits as soft tiers only.
   if (p.sil === 'ball' && (p.overlay === 'asym' || p.overlay === 'cascade')) return no('not_a_design');
+  // Accuracy review (v197): a strapless bodice has no shoulder for a cap sleeve or a cowl; a sheath or mermaid takes no
+  // full petticoat or hoop; a sheath takes no pleats. Not refused here: a longer train on a sheath or mermaid (the
+  // maker turns it to a sweep, but v197's own "Lace mermaid" look carries a chapel train), and a strapless back below
+  // the bra line (that limit depends on her body, so the maker holds it).
+  const strapless = GOWN_STRAPLESS.includes(p.neck), close = p.sil === 'sheath' || p.sil === 'mermaid';
+  if (strapless && ((p.neck !== 'off' && p.sleeve === 'cap') || p.drape === 'cowl')) return no('not_a_design');
+  if (close && (p.petti === 'full' || p.petti === 'hoop')) return no('not_a_design');
+  if (p.sil === 'sheath' && p.pleat !== 'none') return no('not_a_design');
 
   const bools = { waistStay: r.waistStay ?? false, horsehair: r.horsehair ?? false, modesty: r.modesty ?? false };
   for (const v of Object.values(bools)) if (typeof v !== 'boolean') return no('not_a_design');

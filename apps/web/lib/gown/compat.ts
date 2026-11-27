@@ -1,5 +1,5 @@
 /**
- * 👗 gown/compat — the pairings that follow the way a gown is really made (prototype v193 `setGown`, `capeRules`,
+ * 👗 gown/compat — the pairings that follow the way a gown is really made (prototype v197 `setGown`, `capeRules`,
  * `waistOpts`, `NO_SLIT`, `layerSync`), as data. One choice may change another; each such change carries one plain
  * line, which the maker shows with Undo right there. The server refuses what these rules would have changed
  * (`sanitizeGownConfig`), so a design that reaches it is always one that can be sewn.
@@ -7,6 +7,7 @@
  * Women only: the men's collar and trouser rules are not ported. Plain data and pure functions: no DOM.
  */
 import {
+  GOWN_SILHOUETTES,
   GOWN_STRAPLESS,
   gownLayerCount,
   gownPettiOf,
@@ -30,17 +31,34 @@ export type GownChoice = { [K in keyof GownConfig]: { key: K; value: GownConfig[
 export type GownRule = {
   id: string;
   on: readonly (keyof GownConfig)[];
-  when: (g: GownConfig, key: keyof GownConfig, was: unknown) => boolean;
-  apply?: (g: GownConfig) => void;
-  note?: string | ((g: GownConfig) => string);
+  when: (g: GownConfig, key: keyof GownConfig, was: unknown, ctx: GownChooseContext) => boolean;
+  apply?: (g: GownConfig, was: unknown, ctx: GownChooseContext) => void;
+  note?: string | ((g: GownConfig, was: unknown) => string);
   tell?: boolean;
   /** Say nothing when an earlier rule already put its line in the Undo line (v195: one line, not two). */
   quietAfterTell?: boolean;
+  /** This line replaces the lines before it (the prototype sets the note rather than adding to it). */
+  replaces?: boolean;
+  /** Only when no earlier rule has said anything. */
+  alone?: boolean;
 };
+/**
+ * What the rules need from her body, worked out by the stage on her landmarks: `backCapT`, the deepest a strapless back
+ * may be cut on her (v197 `backCapT`; 1 when it is not strapless). Without it, the back's limit is left to the stage.
+ */
+export type GownChooseContext = { backCapT?: number };
 
 const strapless = (g: GownConfig) => GOWN_STRAPLESS.includes(g.neck);
+/** Strapless with nothing at the shoulder for a sleeve to join (off-shoulder keeps its band). */
+const bareTop = (g: GownConfig) => strapless(g) && g.neck !== 'off';
 const caped = (g: GownConfig) => g.cape !== 'none';
-const longVeil = (g: GownConfig) => g.veil === 'chapel' || g.veil === 'cathedral';
+/** A veil to the floor or beyond (v197 `VEIL_FLOOR`). */
+const longVeil = (g: GownConfig) => g.veil === 'floor' || g.veil === 'chapel' || g.veil === 'cathedral';
+/** A sheath or mermaid: too narrow at the hem for a long train, too close for a full petticoat (v197 `closeSil`). */
+const closeSil = (g: GownConfig) => g.sil === 'sheath' || g.sil === 'mermaid';
+const silName = (s: GownSilhouette) => GOWN_SILHOUETTES.find((x) => x.id === s)!.label.toLowerCase();
+/** v197 `BACK_CAP_MSG`. */
+export const GOWN_BACK_CAP_NOTE = 'The back stops at the bra line: a strapless bodice is held up all the way round there.';
 const accented = (g: GownConfig) => !!(g.accentFabric || g.accentHex);
 
 /** Silhouettes made without a slit, and why (v193 `NO_SLIT`). */
@@ -66,11 +84,41 @@ export const GOWN_RULES: readonly GownRule[] = [
     id: 'strapless-boned', on: ['neck'], when: (g) => strapless(g) && g.boning === 'soft',
     apply: (g) => { g.boning = 'complement'; g.waistStay = true; }, note: 'A strapless bodice is boned and has a waist stay so it stays up.',
   },
+  // Accuracy review (v197): a strapless bodice is held up all the way round at the bra line, so its back stops there; it
+  // has nothing at the shoulder for a cap sleeve or a cowl; its long sleeves are detachable.
+  {
+    id: 'strapless-back-cap', on: ['neck'], when: (g, _k, _w, ctx) => strapless(g) && g.back !== 'closed' && ctx.backCapT !== undefined && g.backT > ctx.backCapT + 1e-3,
+    apply: (g, _w, ctx) => { g.backT = ctx.backCapT!; }, note: GOWN_BACK_CAP_NOTE, tell: true, replaces: true,
+  },
+  { id: 'strapless-no-cap', on: ['neck'], when: (g) => bareTop(g) && g.sleeve === 'cap', apply: (g) => { g.sleeve = 'none'; }, note: 'Cap sleeves need a shoulder to sit on, so sleeves are now none.', tell: true },
+  { id: 'strapless-detachable', on: ['neck'], when: (g) => bareTop(g) && g.sleeve === 'long', note: 'On a strapless bodice the long sleeves are detachable: each one on its own band round the upper arm.', alone: true },
+  { id: 'cap-needs-shoulder', on: ['sleeve'], when: (g) => g.sleeve === 'cap' && bareTop(g), apply: (g, was) => { g.sleeve = was as GownConfig['sleeve']; }, note: 'Cap sleeves need a shoulder to sit on: pick a neckline with shoulders first.', replaces: true },
+  { id: 'detachable-sleeves', on: ['sleeve'], when: (g) => g.sleeve === 'long' && bareTop(g), note: 'Detachable sleeves: each one on its own band round the upper arm, separate from the strapless bodice.', replaces: true },
+  { id: 'strapless-no-cowl', on: ['neck'], when: (g) => strapless(g) && g.drape === 'cowl', apply: (g) => { g.drape = 'none'; }, note: 'The cowl drape is off: a cowl hangs from the shoulders.', tell: true },
   {
     id: 'ball-petticoat', on: ['sil'], when: (g) => g.sil === 'ball' && (g.petti === 'none' || g.petti === 'soft'),
     apply: (g) => { g.petti = 'full'; }, note: 'A ball gown gets a full tulle petticoat to hold its shape.',
   },
-  { id: 'ball-needs-petticoat', on: ['petti'], when: (g) => g.sil === 'ball' && (g.petti === 'none' || g.petti === 'soft'), note: 'Warning: a ball gown needs a full petticoat or a hoop to hold its shape.' },
+  { id: 'ball-needs-petticoat', on: ['petti'], when: (g) => g.sil === 'ball' && (g.petti === 'none' || g.petti === 'soft'), note: 'Warning: a ball gown needs a full petticoat or a hoop to hold its shape.', replaces: true },
+  // Accuracy review (v197): no leftover petticoat or hoop under a slimmer skirt; a sheath or mermaid carries a sweep
+  // train at most, no full petticoat or hoop; a sheath falls too close for pleats.
+  {
+    id: 'leave-ball-soft', on: ['sil'], when: (g, _k, was) => was === 'ball' && g.sil !== 'ball' && (g.petti === 'full' || g.petti === 'hoop' || g.skirtLayers > 2),
+    apply: (g) => { g.petti = 'soft'; g.skirtLayers = Math.min(2, g.skirtLayers || 2); g.layerTypes = g.layerTypes.map((x) => (x === 'full' || x === 'hoop' ? 'soft' : x)); },
+    note: (g) => `The petticoat is back to soft tulle: a${g.sil === 'aline' ? 'n' : ''} ${silName(g.sil)} doesn't need the ball gown's full layers.`, tell: true,
+  },
+  {
+    id: 'close-sweep-train', on: ['sil', 'train'], when: (g, k) => (k === 'train' || g.sil === 'sheath' || g.sil === 'mermaid') && closeSil(g) && (g.train === 'chapel' || g.train === 'cathedral'),
+    apply: (g) => { g.train = 'sweep'; }, note: (g) => `The train is now a sweep: a ${silName(g.sil)} is too narrow at the hem to carry a longer train.`, tell: true,
+  },
+  {
+    id: 'sheath-no-pleats', on: ['sil', 'pleat'], when: (g) => g.sil === 'sheath' && g.pleat !== 'none',
+    apply: (g) => { g.pleat = 'none'; }, note: 'Pleats are off: a sheath falls too close to the body for pleats to open.', tell: true,
+  },
+  {
+    id: 'close-soft-petticoat', on: ['petti'], when: (g) => closeSil(g) && (g.petti === 'full' || g.petti === 'hoop'),
+    apply: (g) => { g.petti = 'soft'; }, note: (g) => `A ${silName(g.sil)} is too close-fitting for a ${g.petti === 'hoop' ? 'hoop' : 'full petticoat'}: soft tulle at most.`, tell: true, replaces: true,
+  },
   { id: 'ruche-diagonal', on: ['tex'], when: (g) => g.tex === 'ruche' && g.texDir === 'v', apply: (g) => { g.texDir = 'd'; } },
   {
     id: 'texture-spacing', on: ['tex'], when: (g) => g.tex !== 'none',
@@ -150,30 +198,44 @@ export type GownChosen = {
 };
 
 /** Make one choice and apply every pairing rule it triggers. The design passed in is not changed. */
-export function gownChoose(config: GownConfig, choice: GownChoice): GownChosen {
+export function gownChoose(config: GownConfig, choice: GownChoice, ctx: GownChooseContext = {}): GownChosen {
   const g = structuredClone(config) as GownConfig, was = config[choice.key];
   (g as Record<keyof GownConfig, unknown>)[choice.key] = choice.value;
   const notes: string[] = [];
   let tell = false;
   for (const r of GOWN_RULES) {
-    if (!r.on.includes(choice.key) || !r.when(g, choice.key, was)) continue;
-    r.apply?.(g);
-    const n = typeof r.note === 'function' ? r.note(g) : r.note;
-    if (n && !(r.quietAfterTell && tell)) notes.push(n);
+    if (!r.on.includes(choice.key) || !r.when(g, choice.key, was, ctx)) continue;
+    if (r.alone && notes.length) continue;
+    // A rule's line reads the design before the rule changes it (it names what she had, or asked for).
+    const n = typeof r.note === 'function' ? r.note(g, was) : r.note;
+    r.apply?.(g, was, ctx);
+    if (n && !(r.quietAfterTell && tell)) { if (r.replaces) notes.length = 0; notes.push(n); }
     if (r.tell) tell = true;
   }
   const changed = (Object.keys(g) as (keyof GownConfig)[]).filter((k) => k !== choice.key && JSON.stringify(g[k]) !== JSON.stringify(config[k]));
   return { config: g, notes, tell, changed };
 }
 
-/** The choices a design rules out, shown hidden in the lists themselves (v193 `capeRules`, `waistOpts`, slit chips). */
-export function gownHiddenChoices(g: GownConfig): { sleeve: string[]; veil: string[]; waist: string[]; slits: boolean; overlay: string[] } {
+/**
+ * The choices a design rules out, shown hidden in the lists themselves (v197 `capeRules`, `waistOpts`, slit chips), and
+ * how a list names a choice: on a strapless bodice the long sleeves read "Detachable". `blusher` says whether the
+ * blusher row shows (a classic veil only).
+ */
+export function gownHiddenChoices(g: GownConfig): {
+  sleeve: string[]; veil: string[]; waist: string[]; slits: boolean; overlay: string[]; petti: string[]; train: string[]; pleat: boolean; drape: string[]; blusher: boolean; longSleeveLabel: string;
+} {
   return {
     overlay: g.sil === 'ball' ? ['asym', 'cascade'] : [],
-    sleeve: caped(g) ? ['butterfly'] : [],
-    veil: g.cape === 'back' ? ['chapel', 'cathedral'] : [],
+    sleeve: [...(caped(g) ? ['butterfly'] : []), ...(bareTop(g) ? ['cap'] : [])],
+    veil: g.cape === 'back' ? ['floor', 'chapel', 'cathedral'] : [],
     waist: (['natural', 'empire', 'dropped', 'basque', 'basqueU'] as const).filter((w) => !GOWN_WAIST_FOR[g.pieces].includes(w)),
     slits: !!GOWN_NO_SLIT[g.sil],
+    petti: closeSil(g) ? ['full', 'hoop'] : [],
+    train: closeSil(g) ? ['chapel', 'cathedral'] : [],
+    pleat: g.sil === 'sheath',
+    drape: strapless(g) ? ['cowl'] : [],
+    blusher: g.veil !== 'none' && g.veilStyle === 'classic',
+    longSleeveLabel: bareTop(g) ? 'Detachable' : 'Long',
   };
 }
 

@@ -42,13 +42,15 @@ const SHIPPED: Record<string, string[]> = {
   GOWN_SILHOUETTES: ['aline', 'ball', 'mermaid', 'sheath', 'terno', 'fitflare'],
   GOWN_PIECES: ['one', 'two', 'crop'],
   GOWN_WAISTLINES: ['natural', 'empire', 'dropped', 'basque', 'basqueU'],
-  GOWN_NECKLINES: ['sweetheart', 'v', 'off', 'high', 'bateau'],
+  GOWN_NECKLINES: ['sweetheart', 'v', 'off', 'high', 'bateau', 'straight'],
   GOWN_SLEEVES: ['none', 'cap', 'long', 'butterfly', 'flutter'],
   GOWN_SLEEVE_FABRICS: ['fabric', 'lace', 'chiffon'],
   GOWN_BACKS: ['scoop', 'closed', 'v'],
   GOWN_CLOSURES: ['zipper', 'lace', 'buttons'],
   GOWN_TRAINS: ['none', 'sweep', 'chapel', 'cathedral'],
-  GOWN_VEILS: ['none', 'fingertip', 'chapel', 'cathedral'],
+  GOWN_VEILS: ['none', 'fingertip', 'chapel', 'cathedral', 'elbow', 'floor'],
+  GOWN_BLUSHERS: ['back', 'over'],
+  GOWN_BOWS: ['none', 'back', 'shoulder'],
   GOWN_VEIL_STYLES: ['classic', 'mantilla', 'drop', 'juliet', 'birdcage'],
   GOWN_CAPES: ['none', 'side', 'back', 'capelet'],
   GOWN_OVERLAYS: ['none', 'asym', 'tiered', 'cascade'],
@@ -234,7 +236,8 @@ test('what this design needs: v186 GMEAS conditions', () => {
   // Sweetheart is strapless → the bust points are needed; a floor hem → the floor lengths, not waist to hem.
   assert.ok(base.includes('apexApex') && base.includes('shoulderApex') && base.includes('waistFloor') && !base.includes('waistHem'));
   assert.ok(!base.includes('knee') && !base.includes('elbow'));
-  const mermaid = gownMeasuresNeeded({ ...s, sil: 'mermaid', sleeve: 'long', neck: 'bateau', hem: 'knee' });
+  // v197 starts boned; an unboned bateau mermaid needs no bust points.
+  const mermaid = gownMeasuresNeeded({ ...s, sil: 'mermaid', sleeve: 'long', neck: 'bateau', hem: 'knee', boning: 'soft' });
   assert.ok(mermaid.includes('knee') && mermaid.includes('thigh') && mermaid.includes('elbow') && mermaid.includes('wrist') && mermaid.includes('waistHem'));
   assert.ok(!mermaid.includes('apexApex') && !mermaid.includes('waistFloor'));
   // The list order is the catalog's.
@@ -296,7 +299,9 @@ const V186_ORDER: GownPrototypeOrder = {
 test('a v186 order round-trips: the look keys, her numbers and her choices come back exactly', () => {
   const got = gownFromPrototypeOrder(V186_ORDER, offer());
   assert.ok(got.ok, got.ok ? '' : got.reason);
-  assert.deepEqual(gownLookOf(got.config), V186_ORDER.design3d.gown, 'the look the designer opens on the mannequin');
+  // A v186 look has no bow, blusher or overlay (v197 adds them to the look): they come back as the starting values.
+  const s0 = startingGownConfig();
+  assert.deepEqual(gownLookOf(got.config), { bow: s0.bow, blusher: s0.blusher, overlay: s0.overlay, ovFab: s0.ovFab, ...V186_ORDER.design3d.gown }, 'the look the designer opens on the mannequin');
   assert.deepEqual(Object.keys(gownLookOf(got.config)), [...GOWN_LOOK_KEYS]);
   assert.equal(got.config.hem, 'floor');
   assert.equal(got.config.heel, 7);

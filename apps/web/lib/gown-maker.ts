@@ -641,3 +641,101 @@ export function sanitizeGownShopLookShell(
   if (photoKey === false) return no('That photo could not be used. Upload it again.');
   return { ok: true, look: { id, name, photoKey, active: r.active !== false }, config: r.config };
 }
+
+// ── B5b · THE FABRIC-TYPE REGISTRY (Setnayan admin only, owner Q4) ─────────────────────────────────────────────────
+// The bounds are the table's own CHECKs (migration 20271365509280), so a refusal here is said in words before the
+// database would refuse it. Hide (active = false), never delete: a shop's fabric may point at the type.
+
+export const GOWN_FABRIC_FAMILIES = [
+  { id: 'satins', label: 'Satins' },
+  { id: 'structured', label: 'Structured' },
+  { id: 'crepes', label: 'Crepes' },
+  { id: 'sheers', label: 'Sheers' },
+  { id: 'laces', label: 'Laces' },
+  { id: 'knits', label: 'Knits' },
+  { id: 'suitings', label: 'Suitings' },
+  { id: 'handwoven', label: 'Handwoven' },
+  { id: 'linings', label: 'Linings' },
+] as const;
+export const GOWN_FABRIC_STRETCH = [
+  { id: 'none', label: 'No stretch' },
+  { id: '2way', label: 'Two-way stretch' },
+  { id: '4way', label: 'Four-way stretch' },
+] as const;
+export const GOWN_FABRIC_USES = [
+  { id: 'gown_body', label: 'Gown body' },
+  { id: 'skirt', label: 'Skirt' },
+  { id: 'sleeves_accents', label: 'Sleeves and accents' },
+  { id: 'lining', label: 'Lining' },
+  { id: 'mens_suit', label: 'Men’s suit' },
+  { id: 'barong', label: 'Barong' },
+  { id: 'entourage', label: 'Entourage' },
+] as const;
+
+export type GownFabricTypeRow = {
+  id: string;
+  name: string;
+  aliases: string[];
+  family: (typeof GOWN_FABRIC_FAMILIES)[number]['id'];
+  gsm: number;
+  stiff: number;
+  sheen: number;
+  sheer: number;
+  stretch: (typeof GOWN_FABRIC_STRETCH)[number]['id'];
+  usedFor: (typeof GOWN_FABRIC_USES)[number]['id'][];
+  renderAs: string | null;
+  active: boolean;
+  sort: number;
+  verified: boolean;
+};
+
+const TYPE_ID_RE = /^[a-z][a-z0-9_]{1,39}$/;
+const unit = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;
+
+/** One registry row from the admin's device, checked against the table's own rules. `known` = the ids that exist. */
+export function sanitizeGownFabricType(
+  input: unknown,
+  known: ReadonlySet<string>,
+): { ok: true; type: GownFabricTypeRow } | { ok: false; problem: string } {
+  const no = (problem: string) => ({ ok: false as const, problem });
+  if (!input || typeof input !== 'object') return no('That fabric type could not be read.');
+  const r = input as Record<string, unknown>;
+  if (typeof r.id !== 'string' || !TYPE_ID_RE.test(r.id)) return no('The id is 2 to 40 small letters, digits or _, starting with a letter.');
+  const name = text(r.name, 60);
+  if (!name) return no('Give it a name (up to 60 letters).');
+  if (!Array.isArray(r.aliases) || r.aliases.length > 12) return no('Up to 12 other names.');
+  const aliases: string[] = [];
+  for (const a of r.aliases) {
+    const t = text(a, 40);
+    if (!t) return no('Another name could not be read.');
+    if (!aliases.includes(t)) aliases.push(t);
+  }
+  if (!GOWN_FABRIC_FAMILIES.some((f) => f.id === r.family)) return no('Choose a family.');
+  if (typeof r.gsm !== 'number' || !Number.isInteger(r.gsm) || r.gsm < 5 || r.gsm > 600) return no('Weight is 5 to 600 g/m².');
+  if (!unit(r.stiff) || !unit(r.sheen) || !unit(r.sheer)) return no('Stiffness, shine and see-through are each 0 to 1.');
+  if (!GOWN_FABRIC_STRETCH.some((s) => s.id === r.stretch)) return no('Choose the stretch.');
+  if (!Array.isArray(r.usedFor) || r.usedFor.length < 1 || !r.usedFor.every((u) => GOWN_FABRIC_USES.some((x) => x.id === u))) return no('Choose at least one use.');
+  const renderAs = r.renderAs == null || r.renderAs === '' ? null : typeof r.renderAs === 'string' && known.has(r.renderAs) && r.renderAs !== r.id ? r.renderAs : undefined;
+  if (renderAs === undefined) return no('“Looks like” must be another type in the list.');
+  if (typeof r.sort !== 'number' || !Number.isInteger(r.sort) || Math.abs(r.sort) > 10_000) return no('The order could not be read.');
+  const two = (v: number) => Math.round(v * 100) / 100;
+  return {
+    ok: true,
+    type: {
+      id: r.id,
+      name,
+      aliases,
+      family: r.family as GownFabricTypeRow['family'],
+      gsm: r.gsm,
+      stiff: two(r.stiff as number),
+      sheen: two(r.sheen as number),
+      sheer: two(r.sheer as number),
+      stretch: r.stretch as GownFabricTypeRow['stretch'],
+      usedFor: [...new Set(r.usedFor as GownFabricTypeRow['usedFor'])],
+      renderAs,
+      active: r.active !== false,
+      sort: r.sort,
+      verified: r.verified === true,
+    },
+  };
+}

@@ -110,3 +110,43 @@ test('6 · the screens: every control reaches the action; photos go to the shop�
   const panel = read('app/vendor-dashboard/shop/_components/gown-maker-panel.tsx');
   assert.match(panel, /import\('\.\/gown-stock-panel'\)/, 'the stock screens are in the panel’s first load');
 });
+
+// ── B5b · the fabric-type registry ───────────────────────────────────────────────────────────────────────────────
+import { sanitizeGownFabricType } from './gown-maker';
+
+const TYPE = { id: 'duchess', name: 'Duchess satin', aliases: ['duchesse'], family: 'satins', gsm: 200, stiff: 0.5, sheen: 0.8, sheer: 0, stretch: 'none', usedFor: ['gown_body'], renderAs: 'satin', active: true, sort: 3, verified: false };
+
+test('7 · a fabric type is checked against the table’s own rules', () => {
+  const known = new Set(['satin', 'duchess']);
+  const ok = sanitizeGownFabricType(TYPE, known);
+  assert.ok(ok.ok && ok.type.renderAs === 'satin' && ok.type.verified === false);
+  for (const [patch, why] of [
+    [{ id: 'Duchess' }, 'a capital in the id'],
+    [{ id: 'd' }, 'a one-letter id'],
+    [{ gsm: 4 }, 'a weight under 5'],
+    [{ gsm: 601 }, 'a weight over 600'],
+    [{ stiff: 1.1 }, 'stiffness over 1'],
+    [{ family: 'plastics' }, 'an unknown family'],
+    [{ stretch: '3way' }, 'an unknown stretch'],
+    [{ usedFor: [] }, 'no use'],
+    [{ usedFor: ['curtains'] }, 'an unknown use'],
+    [{ renderAs: 'kevlar' }, 'a look-alike that is not in the list'],
+    [{ renderAs: 'duchess' }, 'a type that looks like itself'],
+    [{ aliases: Array.from({ length: 13 }, (_, i) => `n${i}`) }, '13 other names'],
+  ] as const) {
+    assert.equal(sanitizeGownFabricType({ ...TYPE, ...patch }, known).ok, false, `accepted ${why}`);
+  }
+});
+
+test('8 · the registry is Setnayan admin only, and is never a shop’s or a bride’s', () => {
+  const src = readFileSync(join(__dirname, '..', 'app/_components/gown-maker/gown-actions.ts'), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  const branch = src.slice(src.indexOf("if (op === 'types' || op === 'type_save')"), src.indexOf("op === 'options' || op === 'save'"));
+  assert.ok(branch.length > 0 && branch.indexOf('requireAdminAction()') > -1, 'the registry ops do not prove the admin');
+  assert.ok(branch.indexOf('requireAdminAction()') < branch.indexOf('createAdminClient()'), 'the service role opens before the admin is proved');
+  assert.match(branch, /sanitizeGownFabricType\(/);
+  const surface = readFileSync(join(__dirname, '..', 'app/admin/studio/_surfaces/gown-fabric-types-surface.tsx'), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  assert.match(surface, /gownAction\(\{ op: 'types' \}\)/);
+  assert.match(surface, /op: 'type_save'/);
+  assert.doesNotMatch(surface, /delete/i, 'a fabric type can be deleted — hide it instead');
+  assert.match(readFileSync(join(__dirname, '..', 'app/admin/studio/page.tsx'), 'utf8'), /tab === 'fabric-types' \? \(\s*<GownFabricTypesSurface \/>/);
+});

@@ -1,4 +1,4 @@
-## 2026-11-27 · feat(gown-maker): the shop's fabrics, lace and looks (port step B5)
+## 2026-11-27 · feat(gown-maker): the shop's fabrics, lace and looks, and the admin's fabric types (port steps B5 + B5b)
 
 Gown maker port, step B5 (corpus `WHATS_NEXT_Gown_Maker_Port_2026-11-27.md` § 5). The approved drawing is `prototypes/gown_maker_2026-11-27/gown_maker_v196.html`, pages "Fabrics and lace" and "Inspirations", with its v187 rule (small swatches) and v188 rule (four sliders).
 
@@ -13,8 +13,12 @@ Gown maker port, step B5 (corpus `WHATS_NEXT_Gown_Maker_Port_2026-11-27.md` § 5
   - They are for the Shop Manager only. A locked shop still reads its stock, but saves nothing.
   - Every photo must sit in the shop's own `vendors/<shop>/gown/` folder of the public media bucket.
   - The stock read (prices, hidden rows) is never part of a bride's read.
-- **This clears two no-writer tables** (`vendor_gown_fabrics`, `vendor_gown_looks`) and the two `active` switches. The registry's own `active` and `verified` switches come with the admin type editor (B5b).
-- **Lab:** `/dev/gown-shop-lab?view=fabrics · looks · stock-empty` (sample data).
-- **Guards:** `lib/gown-maker-stock.test.ts` (6). Photos outside the shop's own folder are refused (sabotage-checked). An empty price stays unpriced. The sliders stay within ±1. The ops belong to the Shop Manager. The stock read stays out of the bride's read. The screens reach the ops with no dead button.
+- **B5b, the fabric-type registry (owner Q4: Setnayan admin only):** a **Fabric types** tab inside Admin › Studio (no new page or route).
+  - It lists every type with its family, weight, "Values to check" until verified, and "Hidden".
+  - One sheet holds every column the table holds, bounded by the table's own CHECKs: id (new only), name, other names, family, weight, stiffness, shine, see-through, stretch, uses, "Looks like", order, "Values checked against a source", and "Shops can pick it".
+  - Hide, never delete. Ops `types` and `type_save` prove the admin (`requireAdminAction`) before the service role opens.
+- **This clears every staged row from B1:** both no-writer tables (`vendor_gown_fabrics`, `vendor_gown_looks`) and all four switches (`vendor_gown_fabrics.active`, `vendor_gown_looks.active`, `gown_fabric_types.active`, `gown_fabric_types.verified`).
+- **Lab:** `/dev/gown-shop-lab?view=fabrics · looks · stock-empty · types` (sample data).
+- **Guards:** `lib/gown-maker-stock.test.ts` (8). Every rule of a fabric type is checked as the table would. The registry ops prove the admin first (sabotage-checked). Nothing can delete a type. Photos outside the shop's own folder are refused (sabotage-checked). An empty price stays unpriced. The sliders stay within ±1. The ops belong to the Shop Manager. The stock read stays out of the bride's read. The screens reach the ops with no dead button.
 
-SPEC IMPACT: None. This builds step B5 as planned.
+SPEC IMPACT: None. This builds steps B5 and B5b as planned (Q4 answered: admin only).

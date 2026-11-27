@@ -15,6 +15,8 @@ import 'server-only';
  *   · `design`  — one design message, read for its card: the bride gets her design and the one estimate; the shop also
  *                 gets the cost lines, computed now from its own list — never stored where she can read them.
  *   · `fit`     — the designer saves the tape at the fitting (`gown_fittings`, the shop only).
+ *   · `types` / `type_save` — Admin › Studio › Fabric types (step B5b): the fabric-type registry, Setnayan admin only
+ *                 (owner Q4). Hide, never delete.
  *   · `stock` / `fabric_save` / `look_save` — Shop › Attire Maker › Fabrics and lace, Inspirations (step B5): the shop's
  *                 own stock, hidden rows and prices included (Shop Manager only; bought AND on a plan to save). A fabric's
  *                 photos must sit in the shop's own gown folder; a look's design gets the same check a bride's does.
@@ -25,6 +27,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { canManageVendor, resolveVendorRoleForProfile } from '@/lib/vendor-role';
+import { requireAdminAction } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sendChatMessageCore } from '@/lib/chat-send';
 import { plusGateRefusal } from '@/lib/shop-plus-gate';
@@ -38,8 +41,10 @@ import {
   gownDesignOf,
   gownDesignRefOf,
   gownShopTemplate,
+  sanitizeGownFabricType,
   sanitizeGownShopFabric,
   sanitizeGownShopLookShell,
+  type GownFabricTypeRow,
   sanitizeGownShopOptions,
   type GownDesignForBride,
   type GownDesignForShop,
@@ -51,6 +56,7 @@ import {
   dropGownDesign,
   gownOfferOf,
   readGownFabricTypeIds,
+  readGownFabricTypeRows,
   readGownFabricTypes,
   readGownFitting,
   readGownMakerOn,
@@ -62,6 +68,7 @@ import {
   readStoredGownDesign,
   sanitizeGownTape,
   saveGownFitting,
+  saveGownFabricType,
   saveShopGownFabric,
   saveShopGownLook,
   saveShopGownMaker,
@@ -111,7 +118,9 @@ export type GownActionInput =
   | { op: 'save'; options: unknown }
   | { op: 'stock' }
   | { op: 'fabric_save'; fabric: unknown }
-  | { op: 'look_save'; look: unknown };
+  | { op: 'look_save'; look: unknown }
+  | { op: 'types' }
+  | { op: 'type_save'; type: unknown };
 
 export type GownActionResult =
   | GownDesignRead
@@ -121,6 +130,8 @@ export type GownActionResult =
   | { ok: true; op: 'options'; options: GownShopOptions; saved: boolean; locked: boolean }
   | { ok: true; op: 'stock'; shop: string; fabrics: ShopGownStockFabric[]; looks: ShopGownStockLook[]; types: GownFabricTypeOption[]; locked: boolean }
   | { ok: true; op: 'fabric_save' | 'look_save'; id: string }
+  | { ok: true; op: 'types'; types: GownFabricTypeRow[] }
+  | { ok: true; op: 'type_save' }
   | { ok: false; message: string };
 
 const READ_FAILED = 'Couldn’t load this. Try again.';
@@ -134,6 +145,22 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
   } = await supabase.auth.getUser();
   if (!user) return fail('Sign in again to use the Attire Maker.');
   const op = input?.op;
+
+  // ── The fabric-type registry: Setnayan admin only (owner Q4), never a shop ──────────────
+  if (op === 'types' || op === 'type_save') {
+    try {
+      await requireAdminAction();
+    } catch {
+      return fail('Only a Setnayan admin can change the fabric types.');
+    }
+    const admin = createAdminClient();
+    const rows = await readGownFabricTypeRows(admin);
+    if (rows.status !== 'ok') return fail('Couldn’t load the fabric types. Try again.');
+    if (op === 'types') return { ok: true, op, types: rows.data };
+    const checked = sanitizeGownFabricType((input as { type: unknown }).type, new Set(rows.data.map((t) => t.id)));
+    if (!checked.ok) return fail(checked.problem);
+    return (await saveGownFabricType(admin, { type: checked.type, userId: user.id })) ? { ok: true, op } : fail('That fabric type didn’t save. Try again.');
+  }
 
   // ── The shop's own tool page, and the shop's invite ──────────────────────
   if (op === 'options' || op === 'save' || op === 'invite' || op === 'stock' || op === 'fabric_save' || op === 'look_save') {

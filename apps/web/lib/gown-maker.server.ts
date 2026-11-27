@@ -42,6 +42,7 @@ import {
   type GownShopFabricInput,
   type GownShopLookInput,
   type GownFabricTypeOption,
+  type GownFabricTypeRow,
   type ShopGownStockFabric,
   type ShopGownStockLook,
   type GownAddOnKey,
@@ -443,4 +444,66 @@ export async function saveShopGownLook(admin: SupabaseClient, args: { vendorProf
     return null;
   }
   return (data as { look_id: string }).look_id;
+}
+
+// ── B5b · the registry, for the admin's editor (every row, hidden ones too) ──────────────────────────────────────
+
+export async function readGownFabricTypeRows(admin: SupabaseClient): Promise<Read<GownFabricTypeRow[]>> {
+  const { data, error } = await admin
+    .from('gown_fabric_types')
+    .select('type_id, name, aliases, family, gsm, stiff, sheen, sheer, stretch, used_for, render_as, active, sort, verified')
+    .order('sort')
+    .order('type_id');
+  if (error) {
+    logQueryError('readGownFabricTypeRows', error, {}, 'graceful_degrade');
+    return { status: 'unread' };
+  }
+  type Row = { type_id: string; name: string; aliases: string[] | null; family: GownFabricTypeRow['family']; gsm: number; stiff: number | string; sheen: number | string; sheer: number | string; stretch: GownFabricTypeRow['stretch']; used_for: GownFabricTypeRow['usedFor'] | null; render_as: string | null; active: boolean; sort: number; verified: boolean };
+  return {
+    status: 'ok',
+    data: ((data ?? []) as Row[]).map((r) => ({
+      id: r.type_id,
+      name: r.name,
+      aliases: r.aliases ?? [],
+      family: r.family,
+      gsm: r.gsm,
+      stiff: Number(r.stiff),
+      sheen: Number(r.sheen),
+      sheer: Number(r.sheer),
+      stretch: r.stretch,
+      usedFor: r.used_for ?? [],
+      renderAs: r.render_as,
+      active: r.active,
+      sort: r.sort,
+      verified: r.verified,
+    })),
+  };
+}
+
+/** Adds or changes one registry row (service role; the caller has proved the admin). */
+export async function saveGownFabricType(admin: SupabaseClient, args: { type: GownFabricTypeRow; userId: string }): Promise<boolean> {
+  const t = args.type;
+  const { error } = await admin.from('gown_fabric_types').upsert(
+    {
+      type_id: t.id,
+      name: t.name,
+      aliases: t.aliases,
+      family: t.family,
+      gsm: t.gsm,
+      stiff: t.stiff,
+      sheen: t.sheen,
+      sheer: t.sheer,
+      stretch: t.stretch,
+      used_for: t.usedFor,
+      render_as: t.renderAs,
+      active: t.active,
+      sort: t.sort,
+      verified: t.verified,
+      updated_by: args.userId,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'type_id' },
+  );
+  if (error) logQueryError('saveGownFabricType', error, { type_id: t.id }, 'graceful_degrade');
+  return !error;
 }

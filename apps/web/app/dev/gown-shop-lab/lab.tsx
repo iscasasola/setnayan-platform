@@ -3,6 +3,7 @@
 /** The Attire Maker shop lab's body (see page.lab.tsx). Fixture data only — every amount is a SAMPLE, never a price. */
 import { gownShopTemplate, type GownShopOptions } from '@/lib/gown-maker';
 import { GownMakerPanel } from '@/app/vendor-dashboard/shop/_components/gown-maker-panel';
+import { GownFabricTypesSurface } from '@/app/admin/studio/_surfaces/gown-fabric-types-surface';
 
 const P = 100; // ₱1 in centavos — SAMPLE amounts only
 
@@ -37,7 +38,20 @@ const STOCK = {
   looks: [{ id: 'bbbbbbbb-0000-4000-8000-000000000001', name: 'Garden A-line', photoKey: null, photoUrl: null, config: { sil: 'aline', neck: 'v' }, active: true }],
 };
 
+const REGISTRY = [
+  { id: 'satin', name: 'Satin', aliases: [], family: 'satins' as const, gsm: 100, stiff: 0.35, sheen: 0.8, sheer: 0, stretch: 'none' as const, usedFor: ['gown_body' as const], renderAs: null, active: true, sort: 1, verified: false },
+  { id: 'tulle', name: 'Tulle', aliases: ['net'], family: 'sheers' as const, gsm: 18, stiff: 0.3, sheen: 0.1, sheer: 0.85, stretch: 'none' as const, usedFor: ['skirt' as const, 'sleeves_accents' as const], renderAs: null, active: true, sort: 6, verified: true },
+  { id: 'jusi', name: 'Jusi', aliases: [], family: 'handwoven' as const, gsm: 30, stiff: 0.4, sheen: 0.3, sheer: 0.6, stretch: 'none' as const, usedFor: ['barong' as const], renderAs: 'tulle', active: false, sort: 11, verified: false },
+];
+
 export default function Lab({ view }: { view: string }) {
+  if (view === 'types') {
+    return (
+      <main className="mx-auto max-w-xl p-4" data-gown-shop-lab={view}>
+        <GownFabricTypesSurface seed={REGISTRY} />
+      </main>
+    );
+  }
   if (view === 'fabrics' || view === 'looks' || view === 'stock-empty') {
     const stockSeed = view === 'stock-empty' ? { ...STOCK, fabrics: [], looks: [] } : STOCK;
     return (

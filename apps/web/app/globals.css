@@ -720,24 +720,9 @@
   }
 
   /*
-   * Press feedback (owner directive 2026-05-31 — "buttons don't feel like
-   * buttons; no animation when pressed"; made universal 2026-06-13). We kill
-   * the default mobile tap-highlight above, so every button-like control needs
-   * its own press response or taps feel dead. Give a quick scale-down + slight
-   * darken on :active and pointer cursor. Excludes :disabled / [aria-disabled].
-   *
-   * Uses the standalone `scale` PROPERTY, NOT `transform: scale()`. This is the
-   * key to it being truly universal: `scale` is its own property, so it
-   * COMPOSES with whatever `transform` an element already carries (a seat-plan
-   * table is `translate(-50%,-50%) scale(N)`, nav pills/cards may be
-   * translated, etc.). The old `transform: scale(0.96)` silently CLOBBERED
-   * those transforms on press — the element jumped instead of pressing. With
-   * the `scale` property the press composes everywhere. (Modern browsers only;
-   * very old engines just skip the press scale — graceful, no breakage.)
-   *
-   * `.m-btn` (template utility) carries its own more-specific hover/active —
-   * left intact. prefers-reduced-motion (block below) snaps it instantly,
-   * which is still felt as feedback.
+   * Press feedback (owner 2026-05-31; universal 2026-06-13): a quick scale-down + slight darken on :active.
+   * Uses the standalone `scale` PROPERTY, not `transform: scale()`, so it COMPOSES with any transform an
+   * element already carries (a seat-plan table, a translated pill). `.m-btn` keeps its own :active.
    */
   /* `.sn-press` — same press feedback as an OPT-IN for <Link>-based cards
    * (home-launcher pixel pass 2026-07-15: event cards, ghost card, space rows,

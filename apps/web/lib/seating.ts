@@ -1047,6 +1047,16 @@ export function computeAutoSeat(
       return [home.table_id];
     }
     if (!spill) return [];
+    /* 🔒 A PARTY NEVER SPLITS (seat plan § 5 hard rules, owner R3 "a +1 moves with their main invitee"): a guest with
+       their +1s and kids takes the nearest table that has room for ALL of them; when no table does, none of them is
+       seated and the host is shown who did not fit. Only a guest on their own takes whatever chair is left. */
+    if (chunk.length > 1) {
+      const whole = cluster[0] ? around(cluster[0], true).find((x) => free(x) >= chunk.length) : undefined;
+      if (!whole) return [];
+      const wholeRun = runAt(whole, chunk.length);
+      chunk.forEach((g, k) => seatAt(g, whole, wholeRun ? wholeRun[k] : undefined));
+      return [whole.table_id];
+    }
     const used = new Set<string>();
     for (const g of chunk) {
       const t = cluster.find((x) => free(x) > 0) ?? (cluster[0] ? around(cluster[0], true).find((x) => free(x) > 0) : undefined);

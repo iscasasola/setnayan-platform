@@ -26,4 +26,12 @@ Plan: specs `SEAT-PLAN-COMPLETE-2026-11-27.md` § 5 hard rules ("locked seats an
   - On a break, nothing is written. The seats "Seat everyone again" took off go back, the tables the run added come off, and the host reads "Couldn't make a plan. Nothing changed."
   - Test: `lib/an-arranged-plan-is-checked-before-it-is-written.test.ts`, including 25 seeded rooms run through the shipped seater. One sabotage was seen red: the capacity rule loosened.
 
+- **Slice 3: a party never splits, held on 300 random events.**
+  - `lib/auto-seat-holds-its-rules-on-random-events.test.ts` uses a seeded generator with no new dependency. It covers locked, Spare, VIP and Sweetheart tables, removed chairs, groups, +1s, pending and declined guests, and guests already seated. It holds:
+    - the same input always gives the same plan;
+    - every plan passes the independent check;
+    - a +1 sits at their bringer's table.
+  - It found a real split. When a full room left a guest and their +1 without one table that fit both, the seater put them on two tables, and only reported it as "split".
+  - Now `seatChunk` gives a party of two or more the nearest table with room for all of them. When no table has room, none of them is seated and they are shown as "didn't fit" (§ 5: units stay whole). A guest on their own still takes any chair left.
+
 SPEC IMPACT: None (builds § 5 as planned).

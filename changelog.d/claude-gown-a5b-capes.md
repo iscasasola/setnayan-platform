@@ -5,4 +5,6 @@
 - The pairings a gown is really made by (a cape takes off butterfly sleeves, a back cape keeps the veil fingertip, a ball gown gets a full petticoat, and the rest of v193) are one rule list; the server refuses what they would have changed.
 - Dev lab only (`/dev/gown-maker-lab?view=capes`); nothing a person sees yet.
 
-SPEC IMPACT: None (ports prototype v192/v193 as written; the per-layer metres for organza and chiffon are an open question to the owner, asked through the coordinator).
+- Organza and chiffon layer metres are derived like the skirt: hem × gathering factor (organza 1.5, chiffon 2.0, starting estimates a designer can adjust), cut in 150 cm widths, +15 %. Tulle stays as v193 has it. A6 feeds them the inside layer's real hem and length.
+
+SPEC IMPACT: None (ports prototype v192/v193 as written; the gathering factors are the coordinator's starting estimates, 27 Nov).

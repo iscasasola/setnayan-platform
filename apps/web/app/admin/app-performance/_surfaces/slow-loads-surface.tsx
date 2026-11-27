@@ -31,7 +31,7 @@ import { ConsoleTable } from '@/app/admin/_components/console-table';
 import { requireAdmin } from '@/lib/admin/require-admin';
 import { MIN_N } from '@/lib/admin/app-performance-stats';
 import { formatCount } from '@/lib/format-number';
-import { fetchLoadTimeStats } from '@/lib/telemetry/load-timing.server';
+import { fetchLoadTimeStats, LOAD_TIMES_UNREAD } from '@/lib/telemetry/load-timing.server';
 import {
   ALWAYS_SEND_MS,
   DEFAULT_TARGET_MS,
@@ -327,7 +327,8 @@ export async function SlowLoadsSurface({ targetNotice }: { targetNotice?: string
         their route, never an address; nothing personal is kept.
       </Note>
       <p className="mt-1 text-[12px] text-ink/55">
-        Last {RETENTION_DAYS} days · {formatCount(data.overall.n)} measured
+        Last {RETENTION_DAYS} days ·{' '}
+        {data.errors.includes(LOAD_TIMES_UNREAD) ? 'couldn’t read how many were measured' : `${formatCount(data.overall.n)} measured`}
         {data.capped ? ' · the read hit its cap, so these are the newest loads only' : ''}.
       </p>
     </div>

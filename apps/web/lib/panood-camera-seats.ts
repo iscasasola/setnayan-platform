@@ -177,17 +177,32 @@ export async function provisionPanoodCamerasAdmin(
  * bought, bounced from the OBS pop-out, and refused on every control action.
  *
  * Degrades to 'free' rather than throwing: a failed entitlement lookup must land the couple on
- * the overlaid free tier, never a dead end.
+ * the overlaid free tier, never a dead end. A page that SHOWS the tier reads `readPanoodTier` instead.
  */
 export async function resolvePanoodTier(
   supabase: SupabaseClient,
   eventId: string,
 ): Promise<PanoodTier> {
-  const [current, legacy] = await Promise.all([
-    eventSkuActive(supabase, eventId, 'PANOOD_SYSTEM').catch(() => false),
-    eventSkuActive(supabase, eventId, 'PANOOD_SYSTEM_MOBILE').catch(() => false),
+  return (await readPanoodTier(supabase, eventId)) ?? 'free';
+}
+
+/**
+ * The same answer as `resolvePanoodTier`, but a read that failed is `null` ("we couldn't check the plan"), never
+ * 'free'. Owner ruling (final check Add 45, L-08): a page never draws a camera cap, a free limit or an upsell from
+ * a failed plan read, so the pages a couple reads (cameras, the control room) ask through this one. Either SKU read
+ * answering yes is still 'paid' even when the other failed — a yes is a yes.
+ */
+export async function readPanoodTier(
+  supabase: SupabaseClient,
+  eventId: string,
+): Promise<PanoodTier | null> {
+  const reads = await Promise.allSettled([
+    eventSkuActive(supabase, eventId, 'PANOOD_SYSTEM'),
+    eventSkuActive(supabase, eventId, 'PANOOD_SYSTEM_MOBILE'),
   ]);
-  return current || legacy ? 'paid' : 'free';
+  if (reads.some((r) => r.status === 'fulfilled' && r.value)) return 'paid';
+  if (reads.some((r) => r.status === 'rejected')) return null;
+  return 'free';
 }
 
 /**

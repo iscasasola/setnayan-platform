@@ -117,9 +117,12 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
   // un-bootstrapped database yields an empty map and the honest "nothing to print
   // yet" note below, rather than a crash.
   const admin = createAdminClient();
-  const cameras = await fetchChannelCameras(admin, eventId, zones, appUrl).catch(
-    () => new Map<number, ChannelCameraView>(),
-  );
+  // L-08 (final check): a refused seat read is said, never drawn as every channel "waiting" with no card.
+  let camerasReadFailed = false;
+  const cameras = await fetchChannelCameras(admin, eventId, zones, appUrl).catch(() => {
+    camerasReadFailed = true;
+    return new Map<number, ChannelCameraView>();
+  });
 
   // ONE function decides what is printable and what is merely waiting — the same
   // one the controller calls to size its "Print" doorway, so the door can never
@@ -165,7 +168,7 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
         </Link>
       </div>
 
-      {waiting.length > 0 ? (
+      {waiting.length > 0 && !camerasReadFailed ? (
         <div className="print-note screen-only">
           <p className="text-sm font-semibold text-ink/80">
             {waiting.length === 1 ? 'One channel has' : `${waiting.length} channels have`} no card
@@ -181,7 +184,7 @@ export default async function PanoodCamerasPrintPage({ params }: Props) {
         </div>
       ) : null}
 
-      {zoneRowsError ? (
+      {zoneRowsError || camerasReadFailed ? (
         <div className="screen-only" style={{ padding: 24 }}>
           {/* L-08 (final check): a refused read is not "no join cards". */}
           <ReadRefusedNotice what="your join cards" />

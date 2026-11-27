@@ -39,7 +39,7 @@ import { HealthNow } from '@/app/admin/app-performance/_components/health-now';
 import { ActionCenterZone } from '@/app/admin/app-performance/_components/action-center';
 import { ExpensesZone } from '@/app/admin/app-performance/_components/expenses';
 import { formatCount } from '@/lib/format-number';
-import { fetchLoadTimeStats } from '@/lib/telemetry/load-timing.server';
+import { fetchLoadTimeStats, LOAD_TIMES_UNREAD } from '@/lib/telemetry/load-timing.server';
 import { formatMs } from '@/lib/telemetry/load-timing';
 
 /**
@@ -119,6 +119,12 @@ export async function CockpitSurface({ searchParams }: Props) {
   ]);
   const rangeLabel =
     GROWTH_RANGE_OPTIONS.find((o) => o.value === range)?.label ?? 'window';
+  // A8·H-16: the comparison names its window ("vs the 90 days before").
+  const rangeDays = GROWTH_RANGE_OPTIONS.find((o) => o.value === range)?.days ?? null;
+  const against = rangeDays ? `vs the ${rangeDays} days before` : 'vs the same stretch before';
+
+  // A8·H-1: a refused sales read is said — no ₱0, no flat bars, no "Live" pill, no revenue mover.
+  const salesUnread = perf.errors.some((e) => e.startsWith('monetization:'));
 
   const byKey = Object.fromEntries(growth.series.map((s) => [s.key, s])) as Record<
     string,
@@ -143,9 +149,6 @@ export async function CockpitSurface({ searchParams }: Props) {
       return { label: s.label, color: INDEX_COLORS[i] ?? 'var(--sn-ink-700)', index: idx };
     })
     .filter((s): s is NonNullable<typeof s> => s !== null);
-  // A8·H-1: a refused sales read is not ₱0. Its card says "Couldn't read", it leaves the leaderboard, and it draws
-  // no revenue line.
-  const salesUnread = perf.errors.some((e) => e.startsWith('monetization:'));
   if (!salesUnread && perf.monetization.prevTotalPhp >= 500) {
     let running = perf.monetization.prevTotalPhp;
     const revIdx = [100];
@@ -172,10 +175,14 @@ export async function CockpitSurface({ searchParams }: Props) {
     ...entityCards.map((c) => ({
       label: c.label,
       current: c.series?.newInRange ?? 0,
-      previous: null as number | null, // entities: prev-window new not head-counted in PR 1
+      previous: null as number | null,
       pct: null as number | null,
-      note: 'net-new',
+      // A8·H-8: the earlier window's new count is not read for these rows, so
+      // they say "not computed" — never "not enough data" whatever the volume.
+      note: '',
+      notComputed: true,
     })),
+    // A8·H-1: a refused sales read leaves the leaderboard.
     ...(salesUnread
       ? []
       : [
@@ -218,6 +225,15 @@ export async function CockpitSurface({ searchParams }: Props) {
     perf.reports.sampled;
 
   const errors = [...growth.errors, ...perf.errors, ...loads.errors];
+  // A8·H-7: each card answers for its OWN read — a failed read prints "—" or
+  // "Couldn't read" there, never 0 or "nothing yet" under a banner far above.
+  const popUnread = growth.errors.includes('population totals');
+  const breakdownsUnread = growth.errors.includes('events by type and region');
+  const perfUnread = (part: string) => perf.errors.some((e) => e.startsWith(`${part}:`));
+  const editorialsUnread = perfUnread('editorials');
+  const reportsUnread = perfUnread('reports');
+  const loadsUnread = loads.errors.includes(LOAD_TIMES_UNREAD);
+  const count = (unread: boolean, n: number) => (unread ? '—' : nf.format(n));
   // The busiest pages that clear the honest-empty floor — the card's list.
   const loadPages = loads.pages
     .filter((p) => p.p50 !== null)
@@ -300,22 +316,22 @@ export async function CockpitSurface({ searchParams }: Props) {
              Services · Events · Editorials · Uptime · Error rate) ─────── */}
       <section className="mb-10" aria-label="Standing totals">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 xl:grid-cols-7">
-          <ContextTile label="Users" value={nf.format(growth.population.accountHolders)} />
+          <ContextTile label="Users" value={count(popUnread, growth.population.accountHolders)} sub={popUnread ? 'couldn’t read' : undefined} />
           <ContextTile
             label="Suppliers"
-            value={nf.format(growth.population.vendors)}
-            sub={`${nf.format(growth.population.vendorsPublished)} published`}
+            value={count(popUnread, growth.population.vendors)}
+            sub={popUnread ? 'couldn’t read' : `${nf.format(growth.population.vendorsPublished)} published`}
           />
           <ContextTile
             label="Services"
-            value={nf.format(growth.population.services)}
-            sub={`${nf.format(growth.population.servicesActive)} active`}
+            value={count(popUnread, growth.population.services)}
+            sub={popUnread ? 'couldn’t read' : `${nf.format(growth.population.servicesActive)} active`}
           />
-          <ContextTile label="Total events" value={nf.format(growth.population.events)} />
+          <ContextTile label="Total events" value={count(popUnread, growth.population.events)} sub={popUnread ? 'couldn’t read' : undefined} />
           <ContextTile
             label="Total editorials"
-            value={nf.format(perf.editorials.total)}
-            sub={`${nf.format(perf.editorials.published)} published`}
+            value={count(editorialsUnread, perf.editorials.total)}
+            sub={editorialsUnread ? 'couldn’t read' : `${nf.format(perf.editorials.published)} published`}
           />
           <ContextTile label="Uptime" value="—" sub="not measured yet" muted />
           <ContextTile label="Error rate" value="—" sub="not measured yet" muted />
@@ -384,53 +400,54 @@ export async function CockpitSurface({ searchParams }: Props) {
           {/* G4 — sales split three ways (pesos) */}
           <ChartCard
             title="Sales — split three ways"
-            pill="live"
+            pill={salesUnread ? null : 'live'}
             source="paid orders + supplier plans · pesos"
           >
             {salesUnread ? (
               <ReadFailed what="the sales figures" />
             ) : (
-            <>
-            <div className="mb-2 flex flex-wrap items-baseline gap-2">
-              <p
-                className="text-2xl font-semibold tabular-nums"
-                data-countup=""
-                style={{ color: 'var(--sn-ink-900)' }}
-              >
-                {php.format(perf.monetization.totalPhp)}
-              </p>
-              <DeltaPct
-                current={perf.monetization.totalPhp}
-                previous={perf.monetization.prevTotalPhp}
-              />
-            </div>
-            <StackedBars
-              series={perf.monetization.streams.map((s) => ({
-                label: s.label,
-                color: STREAM_COLORS[s.key] ?? 'var(--sn-ink-400)',
-                values: s.php,
-              }))}
-              ariaLabel={`Realized revenue per bucket by stream. Totals — ${perf.monetization.streams
-                .map((s) => `${s.label}: ${php.format(s.totalPhp)}`)
-                .join('; ')}.`}
-              formatTitle={(label, v) => `${label}: ${php.format(v)}`}
-            />
-            <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
-              {perf.monetization.streams.map((s) => (
-                <li key={s.key} className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--sn-ink-700)' }}>
-                  <span
-                    aria-hidden
-                    className="inline-block h-2 w-2 rounded-full"
-                    style={{ background: STREAM_COLORS[s.key] ?? 'var(--sn-ink-400)' }}
+              <>
+                <div className="mb-2 flex flex-wrap items-baseline gap-2">
+                  <p
+                    className="text-2xl font-semibold tabular-nums"
+                    data-countup=""
+                    style={{ color: 'var(--sn-ink-900)' }}
+                  >
+                    {php.format(perf.monetization.totalPhp)}
+                  </p>
+                  <DeltaPct
+                    against={against}
+                    current={perf.monetization.totalPhp}
+                    previous={perf.monetization.prevTotalPhp}
                   />
-                  {s.label}
-                  <span className="tabular-nums" style={{ color: 'var(--sn-ink-900)' }}>
-                    {php.format(s.totalPhp)}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            </>
+                </div>
+                <StackedBars
+                  series={perf.monetization.streams.map((s) => ({
+                    label: s.label,
+                    color: STREAM_COLORS[s.key] ?? 'var(--sn-ink-400)',
+                    values: s.php,
+                  }))}
+                  ariaLabel={`Realized revenue per bucket by stream. Totals — ${perf.monetization.streams
+                    .map((s) => `${s.label}: ${php.format(s.totalPhp)}`)
+                    .join('; ')}.`}
+                  formatTitle={(label, v) => `${label}: ${php.format(v)}`}
+                />
+                <ul className="mt-3 flex flex-wrap gap-x-4 gap-y-1">
+                  {perf.monetization.streams.map((s) => (
+                    <li key={s.key} className="flex items-center gap-1.5 text-xs" style={{ color: 'var(--sn-ink-700)' }}>
+                      <span
+                        aria-hidden
+                        className="inline-block h-2 w-2 rounded-full"
+                        style={{ background: STREAM_COLORS[s.key] ?? 'var(--sn-ink-400)' }}
+                      />
+                      {s.label}
+                      <span className="tabular-nums" style={{ color: 'var(--sn-ink-900)' }}>
+                        {php.format(s.totalPhp)}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </>
             )}
           </ChartCard>
 
@@ -449,6 +466,7 @@ export async function CockpitSurface({ searchParams }: Props) {
                 {nf.format(perf.completedServices.total)}
               </p>
               <DeltaPct
+                against={against}
                 current={perf.completedServices.total}
                 previous={perf.completedServices.prevTotal}
               />
@@ -512,7 +530,7 @@ export async function CockpitSurface({ searchParams }: Props) {
               >
                 {nf.format(perf.reviews.total)}
               </p>
-              <DeltaPct current={perf.reviews.total} previous={perf.reviews.prevTotal} />
+              <DeltaPct current={perf.reviews.total} previous={perf.reviews.prevTotal} against={against} />
             </div>
             <BucketBars
               values={perf.reviews.count}
@@ -532,7 +550,11 @@ export async function CockpitSurface({ searchParams }: Props) {
             pill="live"
             source="every event by its type · today"
           >
-            {growth.breakdowns.eventsByType.length === 0 ? (
+            {breakdownsUnread ? (
+              <p className="text-sm" style={{ color: 'var(--sn-ink-500)' }}>
+                Couldn&rsquo;t read the events by type.
+              </p>
+            ) : growth.breakdowns.eventsByType.length === 0 ? (
               <p className="text-sm" style={{ color: 'var(--sn-ink-500)' }}>
                 No events yet.
               </p>
@@ -619,13 +641,14 @@ export async function CockpitSurface({ searchParams }: Props) {
                     note={l.note || undefined}
                     inverseGood={'inverseGood' in l ? Boolean(l.inverseGood) : false}
                     insufficient={insufficient}
+                    notComputed={'notComputed' in l ? Boolean(l.notComputed) : false}
                   />
                 );
               })}
             </ul>
             <p className="mt-2 text-[11px]" style={{ color: 'var(--sn-ink-400)' }}>
-              Entity rows show net-new counts; their prior-window % lands with the
-              Action Center PR. Rates beat raw counts on small bases.
+              New users, suppliers, services and events are not compared yet: their
+              earlier window is not counted. Rates beat raw counts on small bases.
             </p>
           </ChartCard>
         </div>
@@ -661,12 +684,13 @@ export async function CockpitSurface({ searchParams }: Props) {
                     perf.reports.openNow > 0 ? 'var(--sn-danger)' : 'var(--sn-ink-900)',
                 }}
               >
-                {nf.format(perf.reports.openNow)}
+                {count(reportsUnread, perf.reports.openNow)}
               </p>
               <span className="text-xs" style={{ color: 'var(--sn-ink-700)' }}>
-                open right now
+                {reportsUnread ? 'couldn’t read the reports' : 'open right now'}
               </span>
               <DeltaPct
+                against={against}
                 current={perf.reports.total}
                 previous={perf.reports.prevTotal}
                 inverseGood
@@ -698,7 +722,9 @@ export async function CockpitSurface({ searchParams }: Props) {
               source="real browsers · tap → content painted · last 30 days"
               className="h-full"
             >
-              {loads.overall.p50 === null ? (
+              {loadsUnread ? (
+                <WiringNote text="Couldn’t read the load times. Refresh to try again." />
+              ) : loads.overall.p50 === null ? (
                 <WiringNote
                   text={`Not enough loads measured yet (${nf.format(loads.overall.n)} of ${nf.format(MIN_N)} needed). The numbers appear once real people have loaded pages — never from a tiny base.`}
                 />

@@ -35,12 +35,19 @@
  * of waiting for the 1hr revalidate cycle.
  */
 
+
 export const revalidate = 3600;
 
 export async function GET(): Promise<Response> {
   const baseUrl =
     process.env.NEXT_PUBLIC_APP_URL ?? 'https://www.setnayan.com';
   const now = new Date().toISOString();
+  // Imported here, not at the top: the reader is server-only, and robots and its tests load this route as a module.
+  // A failed read (or a reader that cannot load) lists nothing extra — the index never fails because of it.
+  const hasRealStories = await import('@/lib/showcase-db')
+    .then((m) => m.loadPublishedShowcases())
+    .then((rows) => rows.some((r) => !r.isSample))
+    .catch(() => false);
 
   // Order matches the SEO Playbook §4.2 recommendation: static first
   // (highest authority pages), then vendors (transactional crawl target),
@@ -56,7 +63,9 @@ export async function GET(): Promise<Response> {
     // The supplier landing pages (event × category × city) — only the ones
     // that pass the gate in lib/supplier-landing.ts. Added 2026-09-27.
     { slug: 'sitemap-suppliers.xml', lastmod: now },
-    { slug: 'sitemap-weddings.xml', lastmod: now },
+    // The stories sitemap is listed only while it holds a page (final check A1-162): an empty child sitemap in the
+    // index is a dead entry to a search engine. The same reader the child uses decides (`loadPublishedShowcases`).
+    ...(hasRealStories ? [{ slug: 'sitemap-weddings.xml', lastmod: now }] : []),
     // Discover's articles — every public post from the moment it posts (owner 17 Nov, Build 3). lib/articles-index.ts.
     { slug: 'sitemap-articles.xml', lastmod: now },
   ];

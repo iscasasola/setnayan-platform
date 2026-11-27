@@ -100,7 +100,15 @@ export function HowSearchResults({
   title?: string;
 }) {
   if (title) {
-    if (hits.length === 0) return null;
+    // A failed stories read is said, even with no feature hits — it used to return nothing, so a broken read looked the
+    // same as no matches (final check A1-084).
+    if (hits.length === 0) {
+      return storiesFailed ? (
+        <p className="text-sm text-ink/65" role="status" data-how-stories-unread="">
+          Stories didn&rsquo;t load just now, so they weren&rsquo;t searched.
+        </p>
+      ) : null;
+    }
     return (
       <section aria-label={title} data-how-results="" data-search-results="">
         <p className="font-mono text-[10px] uppercase tracking-[0.2em] text-ink/55">{title}</p>

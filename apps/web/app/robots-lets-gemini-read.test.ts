@@ -18,7 +18,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -107,6 +107,14 @@ test('robots.txt points at a sitemap index that exists, and every child it lists
 
   // And the reverse: every sitemap-*.xml route in app/ is in the index (one left out is never crawled).
   const folders = readdirSync(APP).filter((n) => /^sitemap-.+\.xml$/.test(n) && existsSync(join(APP, n, 'route.ts')));
-  const unlisted = folders.filter((f) => !children.includes(f));
+  // The stories sitemap is listed only while it holds a page (final check A1-162: an empty child sitemap is a dead entry
+  // to a crawler). It is exempt here ONLY while the index keeps that exact condition.
+  const CONDITIONAL = new Set(['sitemap-weddings.xml']);
+  assert.match(
+    readFileSync(join(APP, 'sitemap.xml/route.ts'), 'utf8'),
+    /hasRealStories \? \[\{ slug: 'sitemap-weddings\.xml'/,
+    'the stories sitemap is no longer listed conditionally — drop it from CONDITIONAL',
+  );
+  const unlisted = folders.filter((f) => !children.includes(f) && !CONDITIONAL.has(f));
   assert.deepEqual(unlisted, [], 'these sitemap routes exist but the index does not list them:\n  ' + unlisted.join('\n  '));
 });

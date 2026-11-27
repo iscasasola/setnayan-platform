@@ -1,5 +1,6 @@
 import { InfoTip } from '@/app/_components/info-tip';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { ReadFailed } from '@/app/admin/_components/read-failed';
 import { fetchBackgroundVideosForAdmin } from '@/lib/background-videos';
 import { BackgroundVideosManager, type SlotState } from './background-videos-manager';
 
@@ -17,7 +18,7 @@ export default async function AdminBackgroundVideosPage() {
   // so it gates itself (a layout is not a safe auth boundary).
   await requireAdmin();
   const rows = await fetchBackgroundVideosForAdmin();
-  const slots: SlotState[] = rows.map((r) => ({
+  const slots: SlotState[] | null = rows === null ? null : rows.map((r) => ({
     slot: r.slot,
     pillarKey: r.pillarKey,
     label: r.label,
@@ -47,7 +48,8 @@ export default async function AdminBackgroundVideosPage() {
         </div>
       </div>
 
-      <BackgroundVideosManager slots={slots} />
+      {/* A8·G-12: a failed read is said, never drawn as an empty editor. */}
+      {slots === null ? <ReadFailed what="the background videos" /> : <BackgroundVideosManager slots={slots} />}
     </div>
   );
 }

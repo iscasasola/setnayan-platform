@@ -196,6 +196,7 @@ export default async function LiveWallConsolePage({
   // derivative (P2). Surface coverage so "why is the wall thin?" is
   // answerable at a glance.
   let bakedCount = 0;
+  let bakedUnread = false;
   if ((faceblockGuests ?? 0) > 0 && (feed?.length ?? 0) > 0) {
     const photoIds = (feed ?? [])
       .filter((r) => r.source_table === 'papic_photos')
@@ -225,6 +226,7 @@ export default async function LiveWallConsolePage({
     if (bakedCapsError) {
       logQueryError('EventLivePage.bakedCaps', bakedCapsError, { event_id: eventId }, 'graceful_degrade');
     }
+    bakedUnread = Boolean(bakedPhotosError || bakedCapsError);
     bakedCount = (bakedPhotos ?? 0) + (bakedCaps ?? 0);
   }
 
@@ -263,7 +265,8 @@ export default async function LiveWallConsolePage({
     {
       icon: <Tv aria-hidden className="h-4 w-4" strokeWidth={2} />,
       label: claimedScreens === 1 ? 'screen connected' : 'screens connected',
-      value: String(claimedScreens),
+      // L-08: a refused screens read is "—", not "0 screens connected".
+      value: sessionsError ? '—' : String(claimedScreens),
     },
   ];
 
@@ -314,9 +317,23 @@ export default async function LiveWallConsolePage({
               </span>{' '}
               Every photo is projected with faces blurred; photos still waiting for
               their blurred copy stay off Memory lane automatically.{' '}
-              {formatCount(bakedCount)}/{formatCount(feed?.length ?? 0)} recent tiles are blur-ready.
+              {bakedUnread
+                ? 'Couldn’t read how many recent tiles are blur-ready.'
+                : `${formatCount(bakedCount)}/${formatCount(feed?.length ?? 0)} recent tiles are blur-ready.`}
             </span>
           </p>
+        ) : faceblockGuestsError ? (
+          // L-08: a refused FaceBlock count is said — never read as "nobody asked for FaceBlock".
+          <ReadRefusedNotice what="which guests asked for FaceBlock" className="mt-4" />
+        ) : null}
+
+        {/* L-08: a refused screens or photos read is said above the controls, not drawn as none. */}
+        {sessionsError || feedError ? (
+          <ReadRefusedNotice
+            what={sessionsError && feedError ? 'your screens and recent photos' : sessionsError ? 'your screens' : 'your recent photos'}
+            partial
+            className="mt-4"
+          />
         ) : null}
 
         <LiveWallControls

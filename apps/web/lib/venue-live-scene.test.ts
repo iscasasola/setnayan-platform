@@ -39,10 +39,21 @@ test('"taken down" is the RPC\'s published:false — a failed call is not', () =
   assert.equal(sceneWasTakenDown(undefined), false);
 });
 
-test('the hook asks the SAME RPC with the page\'s slug + token, keeps the last scene on error, swaps only on a new signature', () => {
+test('the hook asks the page-equal route with the page\'s slug + token, keeps the last scene on error, swaps only on a new signature', () => {
+  // A7-01 (final check 25 Nov): the raw RPC lacked the page's joins (table name, colours, photos, booth logos and shop
+  // facts), so the first poll always "differed" and swapped in a poorer room. The route makes the same joins.
   const src = read('app/[slug]/venue/_components/use-live-scene.ts');
-  assert.match(src, /supabase\.rpc\('public_venue_scene', \{ p_slug: slug, p_token: token \}\)/);
-  assert.match(src, /if \(cancelled \|\| error \|\| !data\) return;/, 'a failed call keeps the last scene');
+  assert.match(src, /`\/api\/venue-scene\/\$\{encodeURIComponent\(slug\)\}\$\{token \? `\?t=\$\{encodeURIComponent\(token\)\}` : ''\}`/);
+  assert.doesNotMatch(src, /supabase\.rpc\('public_venue_scene'/, 'the raw RPC has none of the page\'s joins');
+  assert.match(src, /if \(res\.ok\) data = await res\.json\(\);/, 'a non-2xx answer is a failed call');
+  assert.match(src, /if \(cancelled \|\| !data\) return;/, 'a failed call keeps the last scene');
+  const route = read('app/api/venue-scene/[slug]/route.ts');
+  assert.match(route, /withYourTableName\(admin,/, 'the route names your table, as the page does');
+  assert.match(route, /withBoothShopFacts\(/, 'the route makes the page\'s booth join');
+  assert.match(route, /rolePalette: sanitizeRolePalette\(/, 'the route carries the couple\'s colours');
+  assert.match(route, /status: 503/, 'a failed read is not "taken down"');
+  const page = read('app/[slug]/venue/page.tsx');
+  assert.match(page, /scene = await withBoothShopFacts\(admin, scene, eventId\);/, 'the page and the route share ONE booth join');
   assert.match(src, /if \(sig !== sigRef\.current\) \{/, 'no re-mount on an identical answer');
   assert.match(src, /shouldPollScene\(document\.visibilityState\)/, 'hidden tabs are not polled');
   assert.match(src, /setInterval\(ask, LIVE_SCENE_POLL_MS\)/);

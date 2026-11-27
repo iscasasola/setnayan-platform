@@ -159,8 +159,19 @@ export type PanoodBroadcast = {
 export async function getActivePanoodBroadcast(
   eventId: string,
 ): Promise<PanoodBroadcast | null> {
+  return (await readActivePanoodBroadcast(eventId)).broadcast;
+}
+
+/**
+ * The same read, with "we couldn't check" kept apart from "nothing is live" (final check L-08): a refused read
+ * is `readFailed`, so the setup page never offers Go live to a couple who may be live right now. A missing table
+ * (a database before the migration) is still "nothing is live".
+ */
+export async function readActivePanoodBroadcast(
+  eventId: string,
+): Promise<{ broadcast: PanoodBroadcast | null; readFailed: boolean }> {
   const admin = createAdminClient();
-  const { data } = await admin
+  const { data, error } = await admin
     .from('panood_broadcasts')
     .select(
       'id, broadcast_id, stream_id, ingestion_url, rtmps_ingestion_url, rtmps_backup_ingestion_url, status, scheduled_start_at, went_live_at, ended_at',
@@ -170,7 +181,11 @@ export async function getActivePanoodBroadcast(
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle();
-  return (data as PanoodBroadcast | null) ?? null;
+  if (error && error.code !== UNDEFINED_TABLE) {
+    console.error('[supabase-error] lib/panood-broadcast.ts · from:panood_broadcasts.select', error);
+    return { broadcast: null, readFailed: true };
+  }
+  return { broadcast: (data as PanoodBroadcast | null) ?? null, readFailed: false };
 }
 
 /**

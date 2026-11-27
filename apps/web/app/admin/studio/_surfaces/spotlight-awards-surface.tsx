@@ -35,11 +35,12 @@ import { ActionButton } from '@/components/action-button';
 import { BarChart3, Info, Plus, Star, TrendingUp, Trophy } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import {
-  fetchSpotlightAwards,
+  readSpotlightAwards,
   currentPeriodMonth,
   AWARD_LABELS,
   type SpotlightAwardType,
 } from '@/lib/spotlight-awards';
+import { ReadFailed } from '@/app/admin/_components/read-failed';
 import {
   SpotlightRecomputeButton,
   SpotlightAwardRowActions,
@@ -88,7 +89,10 @@ export async function SpotlightAwardsSurface({
 }) {
   const supabase = await createClient();
   const period = currentPeriodMonth();
-  const rows = await fetchSpotlightAwards(supabase, { periodMonth: period });
+  // A8·G-9: `null` = the read failed. The counts say "—" and the list says "Couldn't read", never "no awards".
+  const read = await readSpotlightAwards(supabase, { periodMonth: period });
+  const readFailed = read === null;
+  const rows = read ?? [];
 
   // Resolved ONCE for the whole render, in a single batch — each call is its own
   // R2 signing round trip, and the row markup below is a plain (non-async) map
@@ -131,15 +135,17 @@ export async function SpotlightAwardsSurface({
       {/* Recompute + stat row */}
       <section className="mb-6 flex flex-col gap-4 py-5 sm:flex-row sm:items-center sm:justify-between border-t border-ink/10">
         <div className="grid grid-cols-3 gap-4">
-          <Stat label="Total awards" value={rows.length} />
-          <Stat label="Auto-picked" value={autoCount} />
-          <Stat label="Featured" value={featuredCount} />
+          <Stat label="Total awards" value={readFailed ? '—' : rows.length} />
+          <Stat label="Auto-picked" value={readFailed ? '—' : autoCount} />
+          <Stat label="Featured" value={readFailed ? '—' : featuredCount} />
         </div>
         <SpotlightRecomputeButton />
       </section>
 
       {/* Awards table */}
-      {rows.length === 0 ? (
+      {readFailed ? (
+        <ReadFailed what="this month's awards" />
+      ) : rows.length === 0 ? (
         <div className="border-dashed py-12 text-center border-t border-ink/10">
           <Star className="mx-auto mb-3 h-6 w-6 text-ink/30" strokeWidth={1.5} aria-hidden />
           <p className="text-sm font-medium text-ink">No awards for this month yet.</p>
@@ -213,7 +219,7 @@ export async function SpotlightAwardsSurface({
   );
 }
 
-function Stat({ label, value }: { label: string; value: number }) {
+function Stat({ label, value }: { label: string; value: number | string }) {
   return (
     <div>
       <p className="text-2xl font-semibold tabular-nums text-ink">{value}</p>

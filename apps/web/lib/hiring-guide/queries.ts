@@ -38,6 +38,15 @@ import { MILESTONE_TARGETS } from './types';
  * should render an empty state and trigger a manual refresh.
  */
 export async function getBottleneckSignals(): Promise<BottleneckSignalsRow | null> {
+  const read = await readBottleneckSignals();
+  return read === 'unread' ? null : read;
+}
+
+/**
+ * The page's read (A8·H-9): `'unread'` when the read was refused — said as
+ * "couldn't read", never "these signals haven't been calculated yet".
+ */
+export async function readBottleneckSignals(): Promise<BottleneckSignalsRow | null | 'unread'> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('bottleneck_signals_current')
@@ -48,7 +57,7 @@ export async function getBottleneckSignals(): Promise<BottleneckSignalsRow | nul
 
   if (error) {
     console.error('[hiring-guide] getBottleneckSignals failed', error);
-    return null;
+    return 'unread';
   }
   return data as BottleneckSignalsRow | null;
 }
@@ -241,7 +250,8 @@ export async function getMilestoneForecasts(
 /**
  * Fetch recent unacknowledged alerts to surface in the dashboard banner.
  */
-export async function getRecentAlerts(limit = 20): Promise<OwnerAlert[]> {
+/** null = the read was refused (A8·H-9): the page says so rather than hiding the alerts section. */
+export async function getRecentAlerts(limit = 20): Promise<OwnerAlert[] | null> {
   const supabase = createAdminClient();
   const { data, error } = await supabase
     .from('owner_alerts')
@@ -252,7 +262,7 @@ export async function getRecentAlerts(limit = 20): Promise<OwnerAlert[]> {
 
   if (error) {
     console.error('[hiring-guide] getRecentAlerts failed', error);
-    return [];
+    return null;
   }
   return (data ?? []) as OwnerAlert[];
 }

@@ -262,7 +262,11 @@ export function PasswordField({
         disabled={input.disabled}
         data-password-eye=""
         // A press never steals focus from the box — the keyboard stays up on a
-        // phone and the caret stays put. Keyboard users still Tab to it.
+        // phone and the caret stays put.
+        // ⌨ Not a Tab stop (27 Nov 2026, MASTER-PLAN A1 — the eye sat between Password and the next field): Tab
+        // runs box → box → Continue. Its name, `aria-pressed` and `aria-controls` stay, so a screen reader still
+        // finds and works it; a pointer presses it as before.
+        tabIndex={-1}
         onMouseDown={(e) => e.preventDefault()}
         onClick={toggle}
         className="absolute right-0 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-md text-[color:var(--pw-eye-ink,currentColor)] opacity-60 transition-opacity hover:opacity-100 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-terracotta disabled:pointer-events-none disabled:opacity-30"

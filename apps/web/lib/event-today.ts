@@ -115,8 +115,6 @@ export type EventToday = {
   nowUrgency: TodayUrgency | null;
   /** The payments Today holds as RED rows or in the strip — the Budget card leaves these out. */
   paysHeld: string[];
-  /** 👻 The plan was READ and holds nothing at all — the list may show its Example (never on a refused read). */
-  planEmpty: boolean;
 };
 
 const n = (v: number) => formatCount(v);
@@ -363,7 +361,6 @@ export function buildEventToday(i: {
     unread,
     nowUrgency,
     paysHeld: paysHeldByToday(pays, today.holds?.pay),
-    planEmpty: checklist !== null && checklist.total === 0 && checklist.next.length === 0,
   };
 }
 

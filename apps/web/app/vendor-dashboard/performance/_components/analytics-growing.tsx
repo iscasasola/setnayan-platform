@@ -385,8 +385,8 @@ export function graphSpecsFor({ view, graphs, win }: { view: GrowthView; graphs:
     tag: 'new',
     state: st(l === null, lEmpty),
     pic: <LostPic l={lEmpty ? S.lost : l!} />,
-    line: lEmpty ? 'Shows once a couple asks for a date you can’t take.' : lostLine(l),
-    problem: lEmpty ? 'Shows once a couple asks for a date you can’t take.' : lostLine(l),
+    line: lEmpty ? 'No lost dates.' : lostLine(l),
+    problem: lEmpty ? 'No lost dates.' : lostLine(l),
     rec: recOf('lost'),
     door: { label: 'Open your calendar', href: '/vendor-dashboard/customers?tab=calendar#calendar' },
   };
@@ -506,8 +506,8 @@ export function graphSpecsFor({ view, graphs, win }: { view: GrowthView; graphs:
   // 🪪 Only a shop with no starting price is asked for one; "not enough prices around you" is said as itself (B5-20).
   const priceEmptyLine =
     view.price.emptyWhy === 'no_data'
-      ? 'Not enough published prices in your region yet to place yours.'
-      : 'Add a starting price to see where you sit.';
+      ? 'Not enough prices near you yet.'
+      : 'No starting price yet.';
   // Words only on the rail — no amount on a tile (the risen details carry your own starting price).
   const priceRail = view.price.show ? <PriceRail positioned={{ low: '', med: '', high: '', at: priceEmpty ? S.price.at : view.price.positioned!.at }} unread={view.price.unread} /> : null;
   const price: GraphSpec | null = priceRail

@@ -111,7 +111,7 @@ export function originalsReminderTitle(due: DueOriginalsReminder): string {
 
 /** Body — the owner's two choices, then what stays. */
 export function originalsReminderBody(eventName: string): string {
-  return `${eventName}: Copy to Google Drive (free) or Download all. After that, the 720p copies stay in Memories, free, for life.`;
+  return `${eventName}: Copy to Google Drive (free) or Download all. After that, the 720p copies are kept in Memories for life.`;
 }
 
 /**

@@ -103,9 +103,10 @@ test('4 · one recommendation, from buildGrowthRecs only, only on a real tile', 
   for (const k of named) assert.ok(real.has(k), `GRAPH_REC names "${k}", which buildGrowthRecs never returns`);
 });
 
-test('5 · empty = the Example picture, faded; refused = "Couldn’t load." — never the Example, never a zero', () => {
+test('5 · empty = no picture and one honest line (R3, 27 Nov); refused = "Couldn’t load." — never a zero', () => {
   const tile = read(TILE);
-  assert.match(tile, /g\.state === 'empty' \? <span className="ag-exc">Example<\/span> : null/);
+  assert.match(tile, /g\.state === 'empty' \? null : g\.pic/, 'an empty graph paints its sample picture again');
+  assert.doesNotMatch(tile, /ag-exc|>Example</, 'an empty graph wears an "Example" chip again');
   assert.match(tile, /g\.state === 'unread' \? \(\s*<span className="ag-ln" role="status">\s*Couldn’t load\./, 'a refused tile says so and draws no picture');
   const tree = read(TREE);
   // The five new graphs are refused exactly when their read is null — and the sample only feeds an EMPTY picture.

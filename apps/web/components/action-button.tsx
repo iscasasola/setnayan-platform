@@ -129,6 +129,9 @@ type AsButton = Common & {
   'aria-pressed'?: boolean;
   'aria-expanded'?: boolean;
   'aria-haspopup'?: 'dialog' | 'menu' | 'listbox' | true;
+  /** ⌨ `-1` only: a button whose job the keyboard already has another way to do (a map's Zoom +/− — the map itself
+   *  takes + / −) leaves the Tab order; a pointer still presses it (27 Nov 2026, MASTER-PLAN A2). */
+  tabIndex?: -1;
 };
 
 type AsLink = Common & {
@@ -223,6 +226,7 @@ export const ActionButton = forwardRef<HTMLButtonElement | HTMLAnchorElement, Ac
         aria-pressed={p['aria-pressed']}
         aria-expanded={p['aria-expanded']}
         aria-haspopup={p['aria-haspopup']}
+        tabIndex={p.tabIndex}
         aria-label={name ?? label}
         title={title ?? name ?? label}
         className={cls}

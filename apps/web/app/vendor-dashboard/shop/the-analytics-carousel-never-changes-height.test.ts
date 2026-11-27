@@ -48,7 +48,8 @@ test('1 · GraphCard draws its picture straight away, inside .ag-gp', () => {
   assert.ok(card.length > 0, 'GraphCard not found in graph-tile.tsx');
   assert.match(
     card,
-    /className="ag-gp"[^>]*>\s*\{g\.pic\}\s*<\/span>/,
+    // R3 (27 Nov): an EMPTY graph paints no sample picture — the box stays (same height), only `g.pic` is withheld.
+    /className="ag-gp"[^>]*>\s*\{(?:g\.state === 'empty' \? null : )?g\.pic\}\s*<\/span>/,
     'the picture must sit directly in .ag-gp — wrapping it in a "when seen" gate is what made the carousel grow on swipe',
   );
   assert.doesNotMatch(TILE, /\buseReanimate\s*\(|\busePlayed\s*\(/, 'the card shape must not depend on whether it has been seen');

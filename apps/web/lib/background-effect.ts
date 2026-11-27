@@ -102,9 +102,9 @@ export const PICTURE_BLUR_LABEL: Readonly<Record<PictureBlur, string>> = { none:
 /** The approved prototype's words under each row — what it does, or why it is off. */
 export const PICTURE_LINE = {
   parallax: 'Moves a little slower than the page as guests scroll',
-  parallaxOff: 'Needs a picture — a plain colour has nothing to move',
+  parallaxOff: 'Needs a picture',
   blur: 'Softens the picture under the words',
-  blurOff: 'Needs a picture — a plain colour has nothing to blur',
+  blurOff: 'Needs a picture',
 } as const;
 
 /** Does this background have a picture to move and blur (a photo, a scene, a clip, a video of ours, the cover)? */

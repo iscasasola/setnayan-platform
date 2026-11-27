@@ -1496,10 +1496,16 @@ export function FileUpload({
     isImage(first.contentType) &&
     !!first.displayUrl;
 
+  /* ⌨ ONE TAB STOP PER UPLOAD (27 Nov 2026, MASTER-PLAN A2 — "hidden file inputs are Tab stops"): where a visible
+     button opens the picker (`thumb`'s pill, `pills`' Replace), the hidden input beside it leaves the Tab order — the
+     keyboard reaches the button. Where a <label> is the only way in (the drop box, the row, the add tile), the input
+     IS the keyboard's way in and stays. */
+  const inputBesideButton = thumbMode || (pillMode && items.length > 0);
   const fileInput = (
     <input
       ref={fileInputRef}
       id={inputId}
+      tabIndex={inputBesideButton ? -1 : undefined}
       type="file"
       accept={acceptAttr}
       multiple={multiple && !pickOneAtATime}

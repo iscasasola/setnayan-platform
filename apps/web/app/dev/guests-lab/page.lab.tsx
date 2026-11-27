@@ -108,7 +108,6 @@ import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/
 import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
-import { GuestsExample } from '@/app/dashboard/[eventId]/guests/_components/guests-example';
 import { parseGuestsFilter } from '@/lib/guests-filter';
 import { GUESTS_VIEWS, parseGuestsView, parseSeatView } from '@/lib/guests-views';
 import { LabMarch, LabSeats } from './lab-seats-march';
@@ -1108,8 +1107,6 @@ export default async function GuestsLabPage({
                       empty || fail ? (
                         <div className="p-8 text-center" data-guests-empty="">
                           <p className="text-base text-ink/70">{fail ? 'We couldn’t load your guest list.' : 'No guests yet.'}</p>
-                          {/* 👻 Lane H — the page's empty branch draws the roster's Example; a refused read never does. */}
-                          {fail || sp.example === '0' ? null : <GuestsExample />}
                         </div>
                       ) : null
                     }

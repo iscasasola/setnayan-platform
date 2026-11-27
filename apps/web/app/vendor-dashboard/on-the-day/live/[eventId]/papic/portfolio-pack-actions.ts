@@ -12,7 +12,7 @@ import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { resolveVendorRoleForProfile, canManageVendor } from '@/lib/vendor-role';
 import { fetchShopPapicPacks } from '@/lib/vendor-papic-grants';
 import { shopPapicPackServiceKey } from '@/lib/vendor-papic-credits';
-import { formatCount } from '@/lib/format-number';
+import { countNoun, formatCount } from '@/lib/format-number';
 import { isVendorPapicCaptureEnabled } from '@/lib/vendor-dayof-flags';
 import {
   isShopGiftBundleCode,
@@ -324,7 +324,7 @@ async function mintShopGiftCart(
         {
           service_key: shopGiftServiceKey(SHOP_GIFT_CART_CODE),
           // The /pay page's title (lib/payable-by-reference.ts reads orders.description).
-          description: `Gifts for your couples — ${formatCount(summary.tickets)} tickets (${what})`.slice(0, 480),
+          description: `Gifts for your couples — ${countNoun(summary.tickets, 'ticket', 'tickets')} (${what})`.slice(0, 480),
           requested_total_php: totalPhp,
           status: 'submitted',
           reference_code: referenceCode,

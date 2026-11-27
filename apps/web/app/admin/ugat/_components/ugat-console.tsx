@@ -52,6 +52,7 @@ import {
 import './ugat-console.css';
 import type { JointVerdict } from '@/lib/interconnect/verdicts';
 import { formatCount } from '@/lib/format-number';
+import { onPressKeys } from '@/lib/press-keys';
 
 /* ── inline icon helper (SVG innerHTML, no network — same set as the map) ── */
 function Ico({ name, cls }: { name: string; cls?: string }) {
@@ -712,10 +713,14 @@ function MapCanvas({
                   <path
                     className={`ug-edge ug-clickable${edgeState ? ' ug-h-' + edgeState : ''}`}
                     d={d}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`The link from ${e.from} to ${e.to}`}
                     onClick={(ev) => {
                       ev.stopPropagation();
                       onEdgeClick(e.from, e.to);
                     }}
+                    onKeyDown={onPressKeys(() => onEdgeClick(e.from, e.to))}
                   />
                   {/* joint chip at midpoint when at joints/fields resolution */}
                   {showJoints && primary && short && (
@@ -728,10 +733,14 @@ function MapCanvas({
                             : ''
                       }`}
                       transform={`translate(${cx - chW / 2},${cy - 9})`}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`The joint ${jointName} (${e.from} to ${e.to})`}
                       onClick={(ev) => {
                         ev.stopPropagation();
                         onEdgeClick(e.from, e.to);
                       }}
+                      onKeyDown={onPressKeys(() => onEdgeClick(e.from, e.to))}
                     >
                       <rect x={0} y={0} width={chW} height={18} rx={6} />
                       <svg
@@ -759,10 +768,14 @@ function MapCanvas({
                     <g
                       className={`ug-hmark ${finding.sev}`}
                       transform={`translate(${cx},${cy})`}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${finding.sev === 'red' ? 'Red' : 'Amber'} finding on the link from ${e.from} to ${e.to}`}
                       onClick={(ev) => {
                         ev.stopPropagation();
                         onFindingClick(finding.id);
                       }}
+                      onKeyDown={onPressKeys(() => onFindingClick(finding.id))}
                     >
                       <circle r={8} />
                       <text>{finding.sev === 'red' ? '!' : '~'}</text>
@@ -795,10 +808,14 @@ function MapCanvas({
                     worst ? ' ug-h-' + worst : ''
                   }`}
                   transform={`translate(${n.x - w / 2},${n.y - h / 2})`}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${n.name}, ${n.countLabel}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     onNodeClick(n.id);
                   }}
+                  onKeyDown={onPressKeys(() => onNodeClick(n.id))}
                 >
                   <rect
                     className="ug-chip-bg"
@@ -838,11 +855,18 @@ function MapCanvas({
                     <g
                       className={`ug-hmark ${worst}`}
                       transform={`translate(${w - 6},6)`}
+                      role="button"
+                      tabIndex={0}
+                      aria-label={`${worst === 'red' ? 'Red' : 'Amber'} finding on ${n.name}`}
                       onClick={(e) => {
                         e.stopPropagation();
                         const f0 = nodeFindings[0];
                         if (f0) onFindingClick(f0.id);
                       }}
+                      onKeyDown={onPressKeys(() => {
+                        const f0 = nodeFindings[0];
+                        if (f0) onFindingClick(f0.id);
+                      })}
                     >
                       <circle r={8} />
                       <text>{worst === 'red' ? '!' : '~'}</text>
@@ -1672,7 +1696,10 @@ function TablesView({
                       */
                       <tr
                         key={r.id}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => (r.href ? router.push(r.href) : onRowOpen(TYPE_NODE[r.type]))}
+                        onKeyDown={onPressKeys(() => (r.href ? router.push(r.href) : onRowOpen(TYPE_NODE[r.type])))}
                       >
                         {r.cells.map((cell, ci) => (
                           <td key={ci}>

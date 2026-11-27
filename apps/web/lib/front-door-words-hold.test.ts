@@ -6,7 +6,7 @@
  * A1-027 / A1-108 / A1-152 / SW-WORDS: Logo Maker, never "Monogram maker"; E-Gifts, never "Pabuya".
  *
  * Known, owner to rule (NOT held here): /for-suppliers' approved drawing says "Free to start. Free to stay." and
- * "Free stays free."; /features' FaceBlock row says "Always free." (the corpus brief says it too); Home's
+ * "Free stays free."; Home's
  * "Suppliers you can trust." is named by HOUSE_DESIGN_STANDARD H4 (and pinned by the-front-door-tells-the-truth).
  */
 import { test } from 'node:test';

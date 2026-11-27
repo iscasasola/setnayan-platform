@@ -3,17 +3,16 @@
  *
  * Build 3 Lane E item 1 (owner 9 Nov: *"Portfolio does not look good empty"*), redrawn by the approved Portfolio
  * (owner 9 Nov, DECISION_LOG "PORTFOLIO PROTOTYPE APPROVED FOR BUILD 5") and owner 11 Nov "SUPPLIER ASKS b–e
- * ANSWERED" (c) *"yes"*: EVERY collection is kept; an empty one shows a greyed Example tile and ONE door, and On my
+ * ANSWERED" (c) *"yes"*: EVERY collection is kept; an empty one shows ONE honest tile and ONE door (no sample tile —
+ * owner R3, 27 Nov 2026: "a fixed app, not an app with guidelines"), and On my
  * page's door is Upload — the device's picker IN PLACE ("UPLOAD OPENS THE DEVICE PICKER IN PLACE"), never a page.
  *
- *   1 · An answered-empty shop draws every section, each with the Example (the shared `ExamplePreview`) and at most
- *       one door.
+ *   1 · An answered-empty shop draws every section, each with its honest tile, NO sample, and at most one door.
  *   2 · On my page's Upload is a label around `<input type="file" accept="image/*">` — no link anywhere.
  *   3 · A REFUSED read says "Couldn't load" and never wears an Example (reads-are-honest).
  *   4 · A filled shop wears no Example at all, and its tiles carry the names on the photos.
  *   5 · Moodboard library and Song bank are drawn for their own shops only (the page asks the shared rules).
- * 🛡 SABOTAGE (seen RED, then restored — 2026-11-10): `unread ? '' : 'mt-[14px]'` kept, but `{!unread && sample ?` →
- *   `{sample ?` (red: 3); the page door `{ kind: 'upload', … }` → `{ kind: 'link', … href: '/vendor-dashboard/shop' }`
+ * 🛡 SABOTAGE (seen RED, then restored — 2026-11-10): the page door `{ kind: 'upload', … }` → `{ kind: 'link', … href: '/vendor-dashboard/shop' }`
  *   (red: 2); `{!unread && door ?` drawing the door twice (red: 1).
  */
 import test from 'node:test';
@@ -27,7 +26,7 @@ import type { CollectionsInput } from '@/lib/supplier-collections';
 import type { PortfolioGroups } from '@/lib/portfolio-groups';
 
 /* The list sits beside server actions (the Video links editor saves through one) — stub `server-only`, as
-   `every-empty-part-shows-an-example.test.ts` does, so the REAL component renders here. */
+   the Home guards do, so the REAL component renders here. */
 (globalThis as unknown as { React: unknown }).React = React;
 {
   type ModT = { _load: (request: string, ...rest: unknown[]) => unknown };
@@ -86,13 +85,13 @@ function sections(html: string): Map<string, string> {
 // 'video' left this list on purpose: Video links is the shipped editor itself now (its own "No links yet"), not a section.
 const EMPTY_SECTIONS = ['page', 'cards', 'albums', 'own', 'delivered', 'instagram', 'moodboard', 'songs', 'stories'];
 
-test('1 · an empty shop keeps EVERY section — each with its greyed Example and at most one door', async () => {
+test('1 · an empty shop keeps EVERY section — each with its honest tile, no sample, and at most one door', async () => {
   const s = sections(await draw({}));
   for (const k of EMPTY_SECTIONS) assert.ok(s.has(k), `the ${k} section is hidden for being empty`);
   for (const k of EMPTY_SECTIONS) {
     const sec = s.get(k)!;
     assert.match(sec, new RegExp(`data-portfolio-empty="${k}"`), `${k}: no placeholder tile with its honest line`);
-    assert.match(sec, /data-example=""[\s\S]*>Example<[\s\S]*class="sn-example"/, `${k}: no greyed Example tile (the shared ExamplePreview)`);
+    assert.doesNotMatch(sec, /data-example=|>Example</, `${k}: a sample tile is shown as if it were the shop's own (R3)`);
     const doors = (sec.match(/data-portfolio-door=|data-portfolio-upload-/g) ?? []).length;
     assert.ok(doors <= 1, `${k}: an empty section draws ${doors} doors — one at most`);
   }

@@ -343,7 +343,7 @@ export function PageParts({
             {d.reviews === null ? (
               <p role="alert" className="text-sm text-[rgb(var(--color-warn))]">Your reviews could not be read just now — not the same as none.</p>
             ) : d.reviews.length === 0 ? (
-              <p className="text-sm text-[color:var(--m-slate-2)]">No reviews yet — once a couple reviews you, pin one here.</p>
+              <p className="text-sm text-[color:var(--m-slate-2)]">No reviews yet.</p>
             ) : (
               <PickMenu
                 label="Pinned review"

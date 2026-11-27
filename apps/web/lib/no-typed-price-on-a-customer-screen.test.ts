@@ -72,15 +72,6 @@ const EXEMPT: ReadonlyArray<{ file: string; figure: string; reason: string }> = 
       'prototype) — an illustrative balance on a picture, not what any plan includes or costs',
   },
   {
-    file: 'lib/empty-look-samples.ts',
-    figure: '₱312,000',
-    reason: 'the greyed sample Home a brand-new couple sees (“this is how it will look”): a made-up budget, not a price',
-  },
-  { file: 'lib/empty-look-samples.ts', figure: '₱288,000', reason: 'same sample budget (paid so far)' },
-  { file: 'lib/empty-look-samples.ts', figure: '₱600,000', reason: 'same sample budget (the total)' },
-  { file: 'lib/empty-look-samples.ts', figure: '₱180,000', reason: 'sample venue booking on the same greyed sample' },
-  { file: 'lib/empty-look-samples.ts', figure: '₱85,000', reason: 'sample photo booking on the same greyed sample' },
-  {
     file: 'lib/hiring-guide/alert-engine.ts',
     figure: '₱50,000',
     reason: 'a market salary range for a role a supplier is hiring — somebody else’s pay, not a Setnayan price',

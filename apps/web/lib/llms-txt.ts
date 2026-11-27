@@ -799,7 +799,7 @@ ${pillarPages('For suppliers')}
 ### Privacy and trust
 
 - A new event is **private** until the host opens it: Private (only the hosts and guests), Unlisted (anyone with the link) or Public.
-- **FaceBlock:** a guest who opts out is blurred in every photo, wall and reel. Always free, never sold.
+- **FaceBlock:** a guest who opts out is blurred in every photo, wall and reel. Never sold.
 - Face tagging is free on every event.
 - Built under the Philippine Data Privacy Act (RA 10173); hosts own their event content.
 

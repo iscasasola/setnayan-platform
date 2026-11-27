@@ -224,7 +224,7 @@ export function SupplierFrontPage({
             </p>
           ))}
         </div>
-        <p className={s.fine}>Earned from real bookings. Never bought. Sample cards.</p>
+        <p className={s.fine}>Earned from real bookings. Never bought.</p>
       </Part>
 
       {/* #shop */}

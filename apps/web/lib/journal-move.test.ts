@@ -26,7 +26,7 @@ import assert from 'node:assert/strict';
 
 import { ALL_BLOG_ARTICLES } from '@/lib/blog';
 import { JOURNAL_EDITS_AFTER_IMPORT, type JournalEditAfterImport } from '@/lib/journal-edits-after-import';
-import { journalRowText, type JournalRowText } from '@/lib/journal-import-sql';
+import { journalRowText, type JournalRowText, type JournalSource } from '@/lib/journal-import-sql';
 import {
   ARTICLE_TAGS_MAX,
   JOURNAL_SLUGS,
@@ -123,7 +123,7 @@ test('6 · the committed import migration is exactly what the corrected source g
 const D = '$';
 const fieldOf = (e: JournalEditAfterImport) => e.field ?? 'body';
 /** A post's rendered title and body as the import wrote them: every later edit undone, newest first. */
-function asImported(article: (typeof ALL_BLOG_ARTICLES)[number]): JournalRowText {
+function asImported(article: JournalSource): JournalRowText {
   const text = journalRowText(article);
   for (const e of [...JOURNAL_EDITS_AFTER_IMPORT].reverse()) {
     if (e.slug !== article.slug) continue;

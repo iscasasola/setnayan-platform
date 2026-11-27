@@ -379,7 +379,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Free is only sustainable if it is honest, so here is the plain version. Planning on Setnayan is free: the checklist, guest list, budget and seating. It costs us very little to run for each couple, and we would rather earn your trust early than charge you for the basics. Paid plans (Event Plus, Event Pro and Event Ultra) add optional extras for the day — the kind of premium touches that go beyond plain planning. There is no trial timer counting down and no card you must enter just to begin. See what each plan adds at setnayan.com/pricing.',
+        text: 'Free is only sustainable if it is honest, so here is the plain version. Planning on Setnayan is free: the checklist, guest list, budget and seating. It costs us very little to run for each couple, and we would rather earn your trust early than charge you for the basics. Paid plans (Event Plus, Event Pro and Event Ultra) add optional extras for the day — the kind of premium touches that go beyond plain planning. There is no trial timer counting down and no card you must enter just to begin.',
       },
       {
         type: 'p',
@@ -436,7 +436,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Planning on Setnayan is free: the checklist, guest list, budget and seating, plus a free Event Hub with online RSVP. Paid plans (Event Plus, Event Pro and Event Ultra) add optional extras for the day. Each one is priced at setnayan.com/pricing, so you can see what it adds before you choose.',
+        text: 'Planning on Setnayan is free: the checklist, guest list, budget and seating, plus a free Event Hub with online RSVP. Paid plans (Event Plus, Event Pro and Event Ultra) add optional extras for the day. You choose one only if you want what it adds.',
       },
       {
         type: 'h2',

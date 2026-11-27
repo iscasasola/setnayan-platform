@@ -2,10 +2,10 @@
 
 import { useEffect, useId, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Check } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { Sheet } from '@/app/_components/sheet';
 import { DatesRow } from './dates-row';
+import { TOPIC_ICON } from '@/lib/topic-icons';
 
 /**
  * LOG A PAYMENT — Money's thumb row (S-PR4; frame 05: "thumb row = Log a payment"; plan § 10 "Money › row › Log a
@@ -15,6 +15,9 @@ import { DatesRow } from './dates-row';
  * the customer card's own "Log payment" opens `/vendor-dashboard/messages/<thread>#pending-payments`, where the
  * shipped confirm / not-received answers live (`confirmVendorPayment`). This sheet asks only WHOSE payment, then
  * opens that same place. A booking with no conversation opens its card, whose Payments section holds the rest.
+ *
+ * 💳 Its face is the payment topic's ONE icon (`TOPIC_ICON.payment`), never a ✓: a ✓ on the main reads as "done"
+ * (walkthrough 27 Nov, W2-15).
  *
  * The ONE main on the Money screen (owner 2026-10-12/13: one terracotta main per screen). Portalled: the thumb row
  * is `position: fixed` with its own layer, and a dialog drawn inside it would sit under the bars.
@@ -63,7 +66,7 @@ export function MoneyLog({
       <ActionButton
         tone="brand"
         main
-        icon={Check}
+        icon={TOPIC_ICON.payment}
         label="Log a payment"
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}

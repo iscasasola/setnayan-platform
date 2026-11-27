@@ -76,7 +76,7 @@ test('1 · Money is one segment: the old surfaces are gone, Shop draws no copy, 
 // SABOTAGE: give the compact fee row's Pay `main` (or tone="brand") → RED. SABOTAGE: add an ActionButton to the view → RED.
 test('2 · ONE main on Money: Log a payment; the fee row’s Pay is not one, and the view holds no button', () => {
   assert.equal(count(LOG, /<ActionButton\b/), 1);
-  assert.match(LOG, /<ActionButton\s+tone="brand"\s+main\s+icon=\{Check\}\s+label="Log a payment"/, 'Log a payment is not the screen’s main');
+  assert.match(LOG, /<ActionButton\s+tone="brand"\s+main\s+icon=\{TOPIC_ICON\.payment\}\s+label="Log a payment"/, 'Log a payment is not the screen’s main');
   for (const src of [VIEW, FIGURES]) {
     assert.doesNotMatch(src, /<ActionButton\b|<button\b|<SupplierSubmit\b/, 'a read-only Money row became a button');
   }

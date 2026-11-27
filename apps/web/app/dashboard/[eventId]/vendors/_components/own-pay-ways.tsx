@@ -11,8 +11,9 @@
  */
 
 import { useId, useState } from 'react';
-import { Check, Copy, X } from 'lucide-react';
-import { ActionButton } from '@/components/action-button';
+import { Check, Copy, Share, X } from 'lucide-react';
+import { ActionButton, actionButtonClass } from '@/components/action-button';
+import { SaveFileLink } from '@/app/_components/save-file-link';
 import { GuestPopup } from '../../guests/_components/guest-popup';
 import { payWayLabel, type PayWayView } from '@/lib/self-added-pay-ways';
 
@@ -94,6 +95,15 @@ export function OwnPayWays({ vendorName, ways }: { vendorName: string; ways: Pay
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element -- a presigned private picture */}
           <img src={big.qrUrl} alt={`${payWayLabel(big.method)} QR`} className="max-h-[70dvh] w-full rounded-xl bg-white object-contain" />
+          {/* 💾 Long-press save is gone (owner 27 Nov 2026, R1): the QR is saved with a button. */}
+          <SaveFileLink href={big.qrUrl} filename={`${payWayLabel(big.method)} QR.png`} className={actionButtonClass('neutral')} data-pay-way-save="">
+            {(state) => (
+              <>
+                <Share aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+                {state === 'saving' ? 'Saving…' : 'Save QR'}
+              </>
+            )}
+          </SaveFileLink>
         </GuestPopup>
       ) : null}
     </section>

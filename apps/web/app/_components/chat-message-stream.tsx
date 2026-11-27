@@ -2678,7 +2678,7 @@ export function ChatMessageStream({
                       ) : null}
                     </>
                   ) : (
-                    <p className="mt-1 whitespace-pre-wrap break-words text-sm text-ink">
+                    <p data-selectable="" className="mt-1 whitespace-pre-wrap break-words text-sm text-ink">
                       {m.body}
                     </p>
                   )}
@@ -2710,7 +2710,7 @@ export function ChatMessageStream({
                   />
                 ) : (
                   <div className="w-full max-w-[92%] rounded-xl border border-terracotta/40 bg-terracotta/[0.06] p-3">
-                    <p className="whitespace-pre-wrap break-words text-sm text-ink">{m.body}</p>
+                    <p data-selectable="" className="whitespace-pre-wrap break-words text-sm text-ink">{m.body}</p>
                   </div>
                 )}
               </li>
@@ -2737,7 +2737,7 @@ export function ChatMessageStream({
                   />
                 ) : (
                   <div className="w-full max-w-[92%] rounded-xl border border-mulberry/30 bg-mulberry/[0.06] p-3">
-                    <p className="whitespace-pre-wrap break-words text-sm text-ink">{m.body}</p>
+                    <p data-selectable="" className="whitespace-pre-wrap break-words text-sm text-ink">{m.body}</p>
                   </div>
                 )}
               </li>
@@ -3044,7 +3044,7 @@ export function ChatMessageStream({
               >
                 <PrivateMark privateWith={privateWith} whisper={whisper} label={whisperSide ? whisperStrip(whisperSide, counterpartyLabel) : undefined} />
                 {m.body ? (
-                  <p className="whitespace-pre-wrap break-words">
+                  <p data-selectable="" className="whitespace-pre-wrap break-words">
                     {cakeAt > 0 ? m.body.slice(0, cakeAt).trimEnd() : m.body}
                     {m.edited_at ? (
                       <span className={`ml-1.5 whitespace-nowrap text-[12px] ${mine || privateWith !== null ? 'opacity-80' : 'text-[color:var(--m-slate-2)]'}`} data-chat-edited="">
@@ -3336,7 +3336,7 @@ export function ChatMessageStream({
         <li key={p.tempId} className="sn-m-chat-send flex flex-col items-end" data-chat-pending={p.state}>
           <div className={`max-w-[75%] rounded-2xl px-3 py-2 text-[15px] leading-snug ${p.whisper ? 'overflow-hidden ' : ''}${p.privateTo || p.whisper ? PRIVATE_BUBBLE_FILL : 'bg-sn-accent text-white'} ${p.state === 'failed' ? 'opacity-50' : 'opacity-60'}`}>
             <PrivateMark privateWith={p.privateTo ?? null} whisper={p.whisper === true} label={whisperStrip(viewerRole === 'vendor' ? 'team' : 'hosts', counterpartyLabel)} />
-            {p.body ? <p className="whitespace-pre-wrap break-words">{p.body}</p> : null}
+            {p.body ? <p data-selectable="" className="whitespace-pre-wrap break-words">{p.body}</p> : null}
             {p.fileName ? <p className="truncate text-[13px] text-white/85">📎 {p.fileName}</p> : null}
           </div>
         </li>

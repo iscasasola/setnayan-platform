@@ -603,6 +603,31 @@
     color: rgb(var(--color-ink));
   }
 
+  /* ✋ No text selection app-wide (R1/R5) — lib/no-text-selection-app-wide.test.ts */
+  body {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+  }
+  input,
+  textarea,
+  select,
+  [contenteditable]:not([contenteditable='false']),
+  [data-selectable] {
+    -webkit-user-select: text;
+    user-select: text;
+    -webkit-touch-callout: default;
+  }
+  input[type='checkbox'],
+  input[type='radio'],
+  input[type='range'],
+  input[type='button'],
+  input[type='submit'],
+  input[type='reset'] {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
   /* Touch targets ≥ 44pt per kickoff multi-platform rules. */
   button,
   [role='button'],
@@ -719,9 +744,11 @@
    * moment rows, the Play pill), which the button-shaped selectors below can't
    * match. Base-layer on purpose so Tailwind transition utilities on the same
    * element keep winning exactly as they do for buttons. */
+  /* 🔗 a[href] presses too (MASTER-PLAN A9) — press-feel.tsx */
   button,
   [role='button'],
   a.button,
+  a[href],
   .sn-press,
   input[type='submit'],
   input[type='button'],
@@ -740,6 +767,7 @@
   button:not(:disabled):active,
   [role='button']:not([aria-disabled='true']):active,
   a.button:active,
+  a[href]:not(.sn-editorial *):active,
   input[type='submit']:not(:disabled):active,
   input[type='button']:not(:disabled):active,
   summary:active {
@@ -767,6 +795,7 @@
   button:not(:disabled):active:not(.sn-editorial *),
   [role='button']:not([aria-disabled='true']):active:not(.sn-editorial *),
   a.button:active:not(.sn-editorial *),
+  a[href]:active:not(.sn-editorial *),
   .sn-press:active:not(.sn-editorial *),
   input[type='submit']:not(:disabled):active:not(.sn-editorial *),
   input[type='button']:not(:disabled):active:not(.sn-editorial *),

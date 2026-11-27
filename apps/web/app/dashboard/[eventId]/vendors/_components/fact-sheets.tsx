@@ -28,6 +28,7 @@
  *
  * Lab: `FactSheetStandInCtx` answers the read and the writes from fixtures (`/dev/suppliers-lab?sheet=…`).
  */
+import { CopyButton } from '@/app/_components/copy-button';
 import { eventDateMinFor } from '@/lib/event-date-floor';
 import { createPortal } from 'react-dom';
 import { createContext, useCallback, useContext, useEffect, useId, useMemo, useRef, useState, useTransition } from 'react';
@@ -1032,7 +1033,13 @@ function VenueSlotBody({
       {!own && slot.booked ? (
         <div className="flex flex-col" data-venue-booked="">
           <p className="text-[15px] font-medium text-ink">{slot.booked.name}</p>
-          {slot.booked.address ? <p className="text-[13px] text-ink/65">{slot.booked.address}</p> : null}
+          {slot.booked.address ? (
+            <p className="flex flex-wrap items-center gap-2 text-[13px] text-ink/65">
+              {slot.booked.address}
+              {/* 📋 Text is not selectable (owner 27 Nov 2026, R1): the address is copied with a button. */}
+              <CopyButton value={slot.booked.address} label="Copy address" />
+            </p>
+          ) : null}
           <p className="text-xs text-ink/70">Booked · follows the booking{slot.booked.pinned && door !== 'shop' ? ' · pinned on the map' : ''}</p>
           {door === 'shop' ? <ShopPinNote shop={slot.booked.name} pinned={slot.booked.pinned} /> : null}
           {door === 'manual' && slot.booked.vendorId ? (

@@ -42,13 +42,15 @@
 
 import { InfoTip } from '@/app/_components/info-tip';
 import { redirect } from 'next/navigation';
-import { RefreshCcw } from 'lucide-react';
+import { RefreshCcw, Share } from 'lucide-react';
 import QRCode from 'qrcode';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { requireHostMembership } from '@/lib/host-gate';
 import { regenerateEventMasterQR } from './actions';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { SaveFileLink } from '@/app/_components/save-file-link';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata = { title: 'Event QR' };
 
@@ -108,10 +110,23 @@ export default async function EventQrPage({ params, searchParams }: Props) {
           the page; the how-to is a plain section, not a second card. */}
       <div className="rounded-card bg-[var(--m-paper-2)] p-4 sm:p-6">
         <div className="flex flex-col items-center gap-6 sm:flex-row sm:items-start sm:gap-10">
-          <div
-            className="rounded-xl bg-[var(--m-paper)] p-3 shadow-inner"
-            dangerouslySetInnerHTML={{ __html: qrSvg }}
-          />
+          <div className="flex flex-col items-center gap-2">
+            <div
+              className="rounded-xl bg-[var(--m-paper)] p-3 shadow-inner"
+              dangerouslySetInnerHTML={{ __html: qrSvg }}
+            />
+            {/* 💾 Long-press save is gone (owner 27 Nov 2026, R1): the crew QR is saved with a button — the same SVG,
+                as a file. Not the link strip: this QR is a pairing code, not a link (`every-qr-carries-the-strip`). */}
+            <SaveFileLink
+              href={`data:image/svg+xml;charset=utf-8,${encodeURIComponent(qrSvg)}`}
+              filename="setnayan-crew-qr.svg"
+              className={actionButtonClass('neutral')}
+              data-event-qr-save=""
+            >
+              <Share aria-hidden className="h-4 w-4" strokeWidth={1.9} />
+              Save QR
+            </SaveFileLink>
+          </div>
           <div className="flex-1 space-y-4">
             <div className="space-y-1">
               <InfoTip label="Token prefix" labelAs="span" labelClassName="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70" align="start">

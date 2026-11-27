@@ -178,7 +178,8 @@ test('the drawn row names its guest and wears their side', async () => {
   assert.deepEqual(rows.map((r) => r.id), ['juanita', 'juanita-tba', 'juanita-pedro'], 'Juanita, then her two +1s, in seat order');
   const tba = rows[1]!;
   assert.equal(tba.of, 'juanita');
-  assert.match(tba.body, /Juanita Sacdalan’s \+1 · TBA/);
+  assert.match(tba.body, /Juanita Sacdalan’s \+1(?! · TBA)/);
+  assert.doesNotMatch(tba.body, /TBA/, 'R3 (27 Nov): an unnamed +1 never reads "TBA"');
   assert.doesNotMatch(tba.body, />\+1 · TBA</, 'the bare seat label is gone');
   assert.match(tba.body, /sideGroom/, 'the +1 shows the side of the guest who brings them');
   // 👥 Juanita holds a role, so (Role view, 2026-11-01) her +1s are the first of "Guests of VIP · Immediate Family", right
@@ -191,7 +192,7 @@ test('the drawn row names its guest and wears their side', async () => {
   assert.ok(seatRow, 'Ana Zamora’s +1 is not drawn');
   assert.match(seatRow![1]!, /\bjoined\b/, 'drawn as part of the guest above');
   assert.match(seatRow![1]!, /\bplus\b/, 'indented under the guest who brings them');
-  assert.match(seatRow![2]!, /Ana Zamora’s \+1 · TBA/);
+  assert.match(seatRow![2]!, /Ana Zamora’s \+1(?! · TBA)/);
 });
 
 test('searching a guest’s name brings their +1s; a reply word does not', () => {

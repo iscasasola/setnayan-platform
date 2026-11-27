@@ -695,7 +695,7 @@ export const GOWN_BODY_RANGE: Record<GownBodyKey, readonly [number, number, numb
   waist: [50, 150, 68],
   hips: [70, 170, 90],
   underbust: [37, 156, 72],
-  shoulders: [29, 63, 35.5],
+  shoulders: [29, 63, 38], // v189 (owner-approved design review): 24.5 % of 155 cm
   arm: [0.28 / 0.3, 0.37 / 0.3, 1],
   leg: [0.45 / 0.525, 0.6 / 0.525, 0.915],
 };

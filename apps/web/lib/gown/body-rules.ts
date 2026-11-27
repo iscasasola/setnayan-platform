@@ -93,10 +93,13 @@ export function gownFatPercent(vals: Pick<GownBodyVals, 'height' | 'waist'>, ath
   return clamp(76 - (20 * vals.height) / Math.max(40, vals.waist) - (athletic ? 10 : 0), athletic ? 10 : 8, 65);
 }
 
-/** v167: until she gives them, shoulders follow her height (≈ 23 %) and her ribcage, inside 21–28 % of her height. */
+/** Shoulders as a share of her height until she gives them: v167 23 %, v189 24.5 % (owner-approved design review). */
+export const GOWN_SHOULDER_SHARE = 0.245;
+
+/** v167: until she gives them, shoulders follow her height and her ribcage, inside 21–28 % of her height. */
 export function gownEstimateShoulders(vals: GownBodyVals, athletic: boolean): number {
   const [a, b] = gownLimit(vals, 'shoulders');
-  return clamp(halfCm(0.23 * vals.height + 0.2 * ((vals.underbust || 72) - 72) + (athletic ? 1.5 : 0)), a, b);
+  return clamp(halfCm(GOWN_SHOULDER_SHARE * vals.height + 0.2 * ((vals.underbust || 72) - 72) + (athletic ? 1.5 : 0)), a, b);
 }
 
 export type GownBraSize = { eu: string; us: string; uk: string; small: boolean; big: boolean };

@@ -8,7 +8,7 @@
  */
 import * as THREE from 'three';
 import type { GownBodyKey, GownBodyVals } from '../../gown-config';
-import { GOWN_ATHLETIC_KG, GOWN_LEG_SHARE, gownEstimateKg, gownFatPercent, gownLimit, gownShapedVals, halfCm } from '../body-rules';
+import { GOWN_ATHLETIC_KG, GOWN_LEG_SHARE, gownEstimateKg, gownEstimateShoulders, gownFatPercent, gownLimit, gownShapedVals } from '../body-rules';
 import { computeBones, jointP, jointY } from './bones';
 import { BODY_K, BODY_KG_CALIBRATION, BUILD_MAX, BUILD_MIN, BUST_POS, CUP_MAX_STEP, CUP_MIN, HEAD_SHARE, RIB_REST } from './constants';
 import { bodyNormals, morph } from './shape';
@@ -47,11 +47,8 @@ export function solveBody(B: GownRig): GownRig['got'] {
     const t = clamp(B.fine.bustT || 0, -1, 1), e = t < 0 ? BUST_POS.high : BUST_POS.low, u = Math.abs(t);
     P.bY = e[0] * u; P.bA = e[1] * u;
   }
-  if (!given(B, 'shoulders')) {
-    // v167: until she gives them, shoulders follow her height (≈ 23 %) and her ribcage.
-    const [a, b] = gownLimit(B.vals, 'shoulders');
-    B.vals.shoulders = clamp(halfCm(0.23 * B.vals.height + 0.2 * ((B.vals.underbust || 72) - 72) + (B.fine.athletic ? 1.5 : 0)), a, b);
-  }
+  // v167/v189: until she gives them, shoulders follow her height and her ribcage (the one estimate, in body-rules).
+  if (!given(B, 'shoulders')) B.vals.shoulders = gownEstimateShoulders(B.vals, B.fine.athletic);
   // v169: her build comes from the weight fit; the first guess from her measurements.
   P.f = B.fFix ? B.fFix : clamp(Math.sqrt(gownEstimateKg(B.vals) / (H * H) / k.bmiRef), BUILD_MIN, BUILD_MAX);
   for (let it = 0; it < 8; it++) {

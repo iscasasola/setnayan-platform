@@ -110,7 +110,8 @@
   .screen:not([data-guests-full]) .stick.pinned[data-pinned]::after {
     content: '';
     position: absolute;
-    bottom: 100%;
+    /* Stops at the coordinator's line while it shows (`--gs-under`, 0 for everyone else), so the band never paints it out. */
+    bottom: calc(100% + var(--gs-under, 0px));
     left: calc(-1 * var(--gs-pin-l, 0px));
     width: 100vw;
     height: 100vh;

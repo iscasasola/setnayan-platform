@@ -28,26 +28,73 @@ export function shellBarShows(bar: HTMLElement | null): bar is HTMLElement {
   return window.matchMedia('(min-width: 701px)').matches && !!bar.closest("[data-boundary='tab']");
 }
 
-export function useShellBarOffset(root: RefObject<HTMLElement | null>, name = '--gs-top') {
+/**
+ * 🗂 HOW MUCH OF A LINE ABOVE THE PAGE STILL SHOWS UNDER THE BAR (bug, 27 Nov 2026, Apple build 10: the coordinator's
+ * Guests wore dark side bars and a blank gap). The coordinator's slim dark line (`coordinating-line.tsx`) sits in the
+ * flow under the bar; a row FIXED at the bar's bottom covered it, its dark edges peeked out either side of the row, and
+ * the row's holder left an empty band under the line. The row now sits under whatever part of the line still shows,
+ * and rises with it as it scrolls away: 0 once the line is under the bar, the line's height at rest.
+ */
+export function lineShowingPx(line: { top: number; bottom: number }, barBottom: number): number {
+  return Math.round(Math.max(0, Math.min(line.bottom - line.top, line.bottom - barBottom)));
+}
+
+/**
+ * `under` (Guests only): a line drawn between the bar and the page (the coordinator's line). When it is on the page its
+ * showing part is added to `name`, and written alone as `--gs-under`, so the paper band above the row stops at the line.
+ * No line → no scroll listener and the same one write as before.
+ */
+export function useShellBarOffset(root: RefObject<HTMLElement | null>, name = '--gs-top', opts: { under?: string } = {}) {
+  const under = opts.under ?? null;
   useEffect(() => {
     const el = root.current;
     const bar = document.querySelector<HTMLElement>('.shell-topbar');
     if (!el) return;
+    const line = under ? document.querySelector<HTMLElement>(under) : null;
+    if (!line) {
+      const sync = () => {
+        /* Bar gone → the head pins at the top of the SAFE AREA, never at 0: on an iPhone 0 is under the clock and the
+           Dynamic Island (owner 2026-10-30, a screenshot of Home's pinned cover line "intersecting with the floating
+           island of iphone"). env() is 0 on every screen without an inset, so desktop and Android are unchanged. */
+        el.style.setProperty(name, shellBarShows(bar) ? `${bar.getBoundingClientRect().height}px` : 'env(safe-area-inset-top, 0px)');
+      };
+      sync();
+      if (!bar) return;
+      const mo = new MutationObserver(sync);
+      mo.observe(bar, { attributes: true, attributeFilter: ['data-hidden', 'style', 'class'] });
+      window.addEventListener('resize', sync);
+      return () => {
+        mo.disconnect();
+        window.removeEventListener('resize', sync);
+      };
+    }
+    let last = '';
+    let raf = 0;
     const sync = () => {
-      /* Bar gone → the head pins at the top of the SAFE AREA, never at 0: on an iPhone 0 is under the clock and the
-         Dynamic Island (owner 2026-10-30, a screenshot of Home's pinned cover line "intersecting with the floating
-         island of iphone"). env() is 0 on every screen without an inset, so desktop and Android are unchanged. */
-      el.style.setProperty(name, shellBarShows(bar) ? `${bar.getBoundingClientRect().height}px` : 'env(safe-area-inset-top, 0px)');
+      raf = 0;
+      // Every reading first, then the writes (one layout per call).
+      const shows = shellBarShows(bar);
+      const barH = shows ? bar.getBoundingClientRect().height : 0;
+      const extra = lineShowingPx(line.getBoundingClientRect(), shows ? bar.getBoundingClientRect().bottom : 0);
+      const top = shows ? `${barH + extra}px` : `calc(env(safe-area-inset-top, 0px) + ${extra}px)`;
+      if (top === last) return;
+      last = top;
+      el.style.setProperty(name, top);
+      el.style.setProperty('--gs-under', `${extra}px`);
+    };
+    const soon = () => {
+      if (!raf) raf = requestAnimationFrame(sync);
     };
     sync();
-    if (!bar) return;
-    const mo = new MutationObserver(sync);
-    mo.observe(bar, { attributes: true, attributeFilter: ['data-hidden', 'style', 'class'] });
-    window.addEventListener('resize', sync);
+    const mo = bar ? new MutationObserver(soon) : null;
+    mo?.observe(bar!, { attributes: true, attributeFilter: ['data-hidden', 'style', 'class'] });
+    window.addEventListener('resize', soon);
+    window.addEventListener('scroll', soon, { passive: true });
     return () => {
-      mo.disconnect();
-      window.removeEventListener('resize', sync);
+      if (raf) cancelAnimationFrame(raf);
+      mo?.disconnect();
+      window.removeEventListener('resize', soon);
+      window.removeEventListener('scroll', soon);
     };
-  }, [root, name]);
+  }, [root, name, under]);
 }
-

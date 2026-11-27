@@ -555,7 +555,7 @@ export async function SocialQueueSurface({
       <QueueSection
         id="scheduled"
         title="Scheduled"
-        hint="Composed by the sweep + slotted by the cadence governor (≤3/day · ≥3h apart · PH prime windows). Pull stops a post; Post now skips the hold but never the content gate."
+        hint="Composed by the sweep + slotted by the cadence governor (Facebook ≤2/day · ≥3h apart · 12–1 PM & 7–9 PM, weekends also 10 AM–12 NN). Pull stops a post; Post now skips the hold but never the content gate."
         count={scheduledPosts.length}
         loadFailed={Boolean(scheduledErr)}
         empty="Nothing queued — the sweep composes posts from new consents, supplier verifications, milestones, and the evergreen floor."

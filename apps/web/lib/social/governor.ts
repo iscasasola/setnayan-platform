@@ -6,10 +6,14 @@
  * substantial"). Pure functions, no I/O, no env — unit-testable in isolation.
  *
  * The doctrine: the page should feel hand-run, not bot-run. Three rules:
- *   1. Per-platform daily caps (FB ≤3 · IG ≤2 · TT ≤1) per PH calendar day.
+ *   1. Per-platform daily caps (FB ≤2 · IG ≤2 · TT ≤1) per PH calendar day.
  *   2. ≥3 hours between any two posts on the same platform.
- *   3. Posts land only inside PH prime windows — 11:00–13:00 (lunch scroll)
- *      and 18:00–21:00 (evening scroll), Asia/Manila.
+ *   3. Posts land only inside PH prime windows — 12:00–13:00 (lunch scroll)
+ *      and 19:00–21:00 (evening peak) every day, plus 10:00–12:00 on Saturday
+ *      and Sunday (weekend planning time), Asia/Manila.
+ *
+ * Owner, 27 Nov 2026: "give me the correct timing for posts" → two a day for a
+ * new Page (lunch + the evening peak), weekend mornings added.
  *
  * TIMEZONE NOTE: the Philippines has never observed DST and PHT is pinned at
  * UTC+08:00 (PSA/PAGASA standard time), so a fixed +08:00 offset is correct
@@ -21,7 +25,7 @@ export type SocialPlatform = 'facebook' | 'instagram' | 'tiktok';
 
 /** Max posts per platform per PH calendar day (§ 8.3b). */
 export const PLATFORM_DAILY_CAPS: Record<SocialPlatform, number> = {
-  facebook: 3,
+  facebook: 2,
   instagram: 2,
   tiktok: 1,
 };
@@ -29,11 +33,21 @@ export const PLATFORM_DAILY_CAPS: Record<SocialPlatform, number> = {
 /** Minimum spacing between two posts on the same platform — 3 hours. */
 export const MIN_SPACING_MS = 3 * 60 * 60 * 1000;
 
-/** PH prime windows in PHT wall-clock hours: [start, end) — 11–13 & 18–21. */
-export const PH_PRIME_WINDOWS: ReadonlyArray<{ startHour: number; endHour: number }> = [
-  { startHour: 11, endHour: 13 },
-  { startHour: 18, endHour: 21 },
+/**
+ * PH prime windows in PHT wall-clock hours: [start, end) — 12–13 & 19–21 daily,
+ * and 10–12 on Saturday/Sunday only (`weekendOnly`). Listed in time order.
+ */
+export const PH_PRIME_WINDOWS: ReadonlyArray<{ startHour: number; endHour: number; weekendOnly?: boolean }> = [
+  { startHour: 10, endHour: 12, weekendOnly: true },
+  { startHour: 12, endHour: 13 },
+  { startHour: 19, endHour: 21 },
 ];
+
+/** Saturday or Sunday, for a PH calendar day key (YYYY-MM-DD). */
+export function isPhWeekend(dayKey: string): boolean {
+  const dow = new Date(`${dayKey}T00:00:00Z`).getUTCDay();
+  return dow === 0 || dow === 6;
+}
 
 /** Fixed PHT offset — see the timezone note above (PH has no DST). */
 const PH_UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
@@ -47,7 +61,8 @@ export function phDayKey(instant: Date): string {
 
 /** Prime-window instants (UTC Dates) for a given PH calendar day. */
 function windowsForPhDay(dayKey: string): Array<{ start: Date; end: Date }> {
-  return PH_PRIME_WINDOWS.map((w) => ({
+  const weekend = isPhWeekend(dayKey);
+  return PH_PRIME_WINDOWS.filter((w) => !w.weekendOnly || weekend).map((w) => ({
     start: new Date(`${dayKey}T${String(w.startHour).padStart(2, '0')}:00:00+08:00`),
     end: new Date(`${dayKey}T${String(w.endHour).padStart(2, '0')}:00:00+08:00`),
   }));

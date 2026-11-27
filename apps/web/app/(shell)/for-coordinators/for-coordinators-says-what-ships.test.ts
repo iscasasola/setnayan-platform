@@ -259,7 +259,7 @@ test('a switched item shows only when its switch is on; an unswitched one always
 // ── THE DAY-OF TOOLS ARE "FREE" ONLY WHILE THE GATE SAYS SO ───────────────────────────────────────────
 
 test('the hero and the day’s ⓘ say the day-of tools are free only while they are', () => {
-  assert.match(PAGE, /\{on\.dayOfFree \? 'Coordinator tools are free on every plan\. No end date\.' : 'Free to start\. No card needed\.'\}/);
+  assert.match(PAGE, /\{on\.dayOfFree \? 'Coordinator tools are free on every plan\. No end date\.' : 'No card needed\.'\}/);
   assert.match(PAGE, /\{on\.dayOfFree \? 'The day-of tools are free on every plan, with no end date\. ' : null\}/);
   assert.equal((PAGE.match(/free on every plan/g) ?? []).length, 2, 'a "free on every plan" line is not behind the gate');
 });

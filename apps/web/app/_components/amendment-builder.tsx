@@ -83,7 +83,7 @@ export function AmendmentBuilder({
               value={r.label}
               onChange={(e) => update(i, { label: e.target.value })}
               maxLength={200}
-              placeholder={r.kind === 'request' ? 'e.g. Upload raw photos' : 'Describe it'}
+              placeholder={r.kind === 'request' ? undefined : 'Describe it'}
               className="input-field h-9 min-w-[120px] flex-1 text-sm"
             />
             {isMoneyKind(r.kind) ? (

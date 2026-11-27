@@ -306,7 +306,6 @@ function LeafBlock({
               <input
                 name="description_en"
                 defaultValue={leaf.description}
-                placeholder="e.g. The centerpiece sweet of your reception."
                 className={INPUT_IN_PLACE}
               />
             </label>
@@ -620,7 +619,6 @@ function AddOptionForm({ tile, leaf }: { tile: CategoryRef; leaf: RefinementCard
           name="label_en"
           required
           aria-label="New option label"
-          placeholder="e.g. Glazed"
           className={`${INPUT_IN_PLACE} flex-1`}
         />
       </div>

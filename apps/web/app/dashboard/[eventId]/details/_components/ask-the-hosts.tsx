@@ -136,7 +136,6 @@ export function AskTheHosts({
                       value={note}
                       maxLength={140}
                       onChange={(e) => setNote(e.target.value)}
-                      placeholder="e.g. I’m doing the seat plan with them"
                       enterKeyHint="send"
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {

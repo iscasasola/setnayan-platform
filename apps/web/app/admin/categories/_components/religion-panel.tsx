@@ -308,7 +308,7 @@ function ItemForm({ ceremonyType, item, state }: { ceremonyType: string; item: T
         {item ? <input type="hidden" name="item_id" value={item.item_id} /> : null}
         <input type="hidden" name="ceremony_type" value={ceremonyType} />
         <FieldPick label="Dimension" name="dimension" defaultValue={item?.dimension ?? 'officiant'} choices={DIMENSIONS} />
-        <input name="label" required maxLength={120} defaultValue={item?.label ?? ''} placeholder="e.g. Catholic priest" aria-label="Label" className={`${INPUT} w-40`} />
+        <input name="label" required maxLength={120} defaultValue={item?.label ?? ''} aria-label="Label" className={`${INPUT} w-40`} />
         <input name="note" maxLength={400} defaultValue={item?.note ?? ''} placeholder="One line" aria-label="Note" className={`${INPUT} flex-1`} />
         <input type="number" name="sort_order" defaultValue={item?.sort_order ?? 999} aria-label="Order" className={`${INPUT} w-16`} />
         <label className="flex items-center gap-1 text-xs text-ink">

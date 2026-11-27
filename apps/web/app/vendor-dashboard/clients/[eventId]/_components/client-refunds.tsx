@@ -219,7 +219,6 @@ export function ClientRefunds({
                 required
                 maxLength={240}
                 empty="Say why"
-                placeholder="e.g. Drone coverage dropped from the package"
                 fieldName="reason"
                 data="client-refund-reason"
                 note={`${clientName} sees this.`}

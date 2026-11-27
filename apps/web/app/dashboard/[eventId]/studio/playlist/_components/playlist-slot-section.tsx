@@ -174,11 +174,6 @@ export function PlaylistSlotSection({
                 required
                 maxLength={200}
                 autoFocus
-                placeholder={
-                  isBannedSlot
-                    ? 'e.g. Macarena'
-                    : 'e.g. At Last'
-                }
                 className="mt-1 w-full rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm placeholder-ink/35 focus:border-terracotta focus:outline-none focus:ring-2 focus:ring-terracotta/30"
               />
             </div>

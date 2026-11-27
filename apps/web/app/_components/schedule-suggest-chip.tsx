@@ -84,7 +84,7 @@ export function ScheduleSuggestChip({
         type="text"
         name="title"
         maxLength={120}
-        placeholder="Title (e.g. Ocular, Pre-shoot call)"
+        placeholder="Title"
         className="input-field h-9 text-sm"
       />
 

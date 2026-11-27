@@ -116,7 +116,6 @@ export function HostServiceDetails({
           setText(e.target.value);
           setSaved(false);
         }}
-        placeholder={'e.g.\nFull-day coverage\n2 photographers\nSame-day edit'}
         className="mt-1.5 w-full rounded-lg border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
         disabled={pending}
       />

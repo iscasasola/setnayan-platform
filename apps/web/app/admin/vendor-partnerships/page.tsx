@@ -395,7 +395,6 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
               type="number"
               name="additional_fee_centavos"
               min={0}
-              placeholder="e.g. 100000 = ₱1,000 · leave blank = unknown"
               className="input-field text-sm"
             />
           </label>
@@ -408,7 +407,6 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
               name="discount_pct"
               min={0}
               max={100}
-              placeholder="e.g. 10"
               className="input-field text-sm"
             />
           </label>

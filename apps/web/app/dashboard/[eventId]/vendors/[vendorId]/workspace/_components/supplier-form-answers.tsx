@@ -122,7 +122,7 @@ function FormAnswerField({ row }: { row: FormAnswerRow }) {
         boxed={long}
         required={row.required}
         inputMode={row.type === 'number' || row.type === 'measurement' ? 'numeric' : undefined}
-        placeholder={row.type === 'date' ? 'e.g. 14 Feb 2027' : row.type === 'measurement' ? 'e.g. 34 inches' : undefined}
+
         maxLength={long ? ANSWER_MAX : 240}
         fieldName={`answer:${row.questionId}`}
         onKeep={(t) => setValue(t)}

@@ -98,7 +98,6 @@ export function AskForEventType() {
                   // A refusal answers the last press, not what is typed now.
                   setOutcome(null);
                 }}
-                placeholder="e.g. Alumni homecoming"
                 type="text"
                 value={label}
               />

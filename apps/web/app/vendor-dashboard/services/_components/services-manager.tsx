@@ -1252,7 +1252,6 @@ function AddServiceForm({
           type="number"
           min={0}
           step={1}
-          placeholder="e.g. 4"
           className="input-field"
         />
       </Field>
@@ -1268,7 +1267,6 @@ function AddServiceForm({
           type="number"
           min={1}
           step={1}
-          placeholder="e.g. 2"
           className="input-field"
         />
       </Field>
@@ -1347,7 +1345,6 @@ function LastMinuteFields({
           type="number"
           min={0}
           step="0.5"
-          placeholder="e.g. 3"
           defaultValue={leadDefault ?? ''}
           className="input-field"
         />
@@ -1364,7 +1361,6 @@ function LastMinuteFields({
             type="number"
             min={0}
             step={1}
-            placeholder="e.g. 1"
             defaultValue={endDefault ?? ''}
             className="input-field"
           />
@@ -1377,7 +1373,6 @@ function LastMinuteFields({
             min={0}
             max={100}
             step={1}
-            placeholder="e.g. 15"
             defaultValue={surchargeDefault ?? ''}
             className="input-field"
           />

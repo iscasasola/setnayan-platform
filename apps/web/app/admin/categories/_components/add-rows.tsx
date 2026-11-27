@@ -75,7 +75,6 @@ export function AddEventType({
             minLength={2}
             maxLength={80}
             autoFocus
-            placeholder="e.g. House blessing"
             className={`mt-1 ${FIELD}`}
           />
         </label>
@@ -130,7 +129,6 @@ export function AddReligion({
           minLength={2}
           maxLength={80}
           autoFocus
-          placeholder="e.g. Methodist"
           className={`mt-1 ${FIELD}`}
         />
       </label>

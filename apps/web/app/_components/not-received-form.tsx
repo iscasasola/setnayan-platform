@@ -40,7 +40,6 @@ export function NotReceivedForm({
           name="reason"
           rows={2}
           maxLength={NOT_RECEIVED_REASON_MAX}
-          placeholder="e.g. Nothing from them in our GCash as of today."
           className={fieldClassName}
         />
       </label>

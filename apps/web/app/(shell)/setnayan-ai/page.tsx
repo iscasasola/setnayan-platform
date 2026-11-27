@@ -260,7 +260,7 @@ export default function SetnayanAiLandingPage() {
       faq={FAQ}
       closing={{
         heading: 'Let it watch your back',
-        body: 'Planning on Setnayan is free to start — guest list, RSVP, seating, budget, and your Event Hub. Setnayan AI is the paid brain that watches your suppliers so you don’t have to — a job you’d otherwise need a small team for. Add it when you want it; 0% supplier commission, so it recommends what fits you, never what pays us.',
+        body: 'Planning on Setnayan is free — guest list, RSVP, seating, budget, and your Event Hub. Setnayan AI is the paid brain that watches your suppliers so you don’t have to — a job you’d otherwise need a small team for. Add it when you want it; 0% supplier commission, so it recommends what fits you, never what pays us.',
         href: routes.start(),
         label: 'Start planning · free',
       }}

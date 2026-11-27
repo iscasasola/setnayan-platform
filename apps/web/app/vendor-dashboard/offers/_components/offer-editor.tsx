@@ -783,7 +783,7 @@ function GiftBlock({ offer, cards, others, today, ctx, onChange }: { offer: Offe
                           // field-ok: a typed gift's words inside its gift row (prototype `.lineitem.grow input.gl`)
                           value={g.label}
                           onChange={(e) => setList(card?.id ?? null, list.map((x, j) => (j === i ? { ...(x as typeof g), label: e.target.value } : x)))}
-                          placeholder="Type the gift, e.g. Free tasting for two"
+                          placeholder="Type the gift"
                           aria-label="Gift"
                           maxLength={80}
                           className="h-11 min-w-0 flex-1 bg-transparent text-sm font-semibold text-ink outline-none"

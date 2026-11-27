@@ -99,5 +99,6 @@ test('the shared fields use it: the thumb row’s field and the Guests add box',
   // R3 (owner 27 Nov 2026): the Guests search box says only its name, "Search guests" — no rotating "e.g. …" lines.
   assert.doesNotMatch(screen, /hints:/, 'the Guests search box cycles "e.g." examples again (R3: no guideline copy)');
   assert.match(screen, /placeholder: 'Search guests'/, 'the Guests search box lost its name');
-  assert.match(src('app/dashboard/[eventId]/guests/_components/add-guest-sheet.tsx'), /hints=\{tips\?\.examples/, 'the add sheet’s box is not given its examples');
+  // R3 (owner 27 Nov 2026): the add sheet's box shows no rotating "e.g." examples.
+  assert.doesNotMatch(src('app/dashboard/[eventId]/guests/_components/add-guest-sheet.tsx'), /hints=\{tips\?\.examples/, 'the add sheet’s box cycles "e.g." examples again');
 });

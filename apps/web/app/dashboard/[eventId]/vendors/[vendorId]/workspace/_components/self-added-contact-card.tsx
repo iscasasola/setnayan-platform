@@ -166,7 +166,6 @@ export function SelfAddedContactCard({
             maxLength={128}
             disabled={pending}
             value={person}
-            placeholder="e.g. Maria Santos"
             onChange={(e) => touched(setPerson)(e.target.value)}
             className={FIELD}
           />
@@ -258,7 +257,6 @@ export function SelfAddedContactCard({
             maxLength={NOTE_MAX}
             disabled={pending}
             value={methodNote}
-            placeholder={'e.g. GCash 0917 555 1234 (Maria Santos)\nor BPI 1234-5678-90'}
             onChange={(e) => touched(setMethodNote)(e.target.value)}
             className={`${FIELD} resize-y`}
           />

@@ -232,7 +232,6 @@ export default async function NewGuestPage({ params, searchParams }: Props) {
           <Field
             id="relation"
             label="Relationship"
-            placeholder="e.g. Grandparents · Eldest Uncle"
           />
           {showTeaCeremony ? (
             <Field

@@ -344,7 +344,6 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
             required
             minLength={10}
             maxLength={240}
-            placeholder="e.g. Launch promo — Papic free for December weddings"
             className="input-field w-full"
           />
         </label>
@@ -452,7 +451,6 @@ export async function FreeWindowsSurface({ searchParams }: Props) {
               required
               minLength={10}
               maxLength={240}
-              placeholder="e.g. Launch month — every verified supplier tries Pro"
               className="input-field w-full"
             />
           </label>

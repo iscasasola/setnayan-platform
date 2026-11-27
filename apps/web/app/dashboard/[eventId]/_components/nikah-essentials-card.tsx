@@ -206,7 +206,6 @@ export function NikahEssentialsCard({
               rows={2}
               maxLength={600}
               defaultValue={mahrDescription ?? ''}
-              placeholder="e.g. 5g gold, or a meaningful symbolic gift"
               className="w-full resize-y rounded-lg border border-ink/15 bg-cream px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus:border-emerald-400 dark:focus:border-[rgb(var(--color-ok)/0.4)] focus:outline-none focus:ring-2 focus:ring-emerald-200 dark:focus:ring-[rgb(var(--color-ok)/0.4)]"
             />
             <p className="text-[11px] leading-relaxed text-ink/55">

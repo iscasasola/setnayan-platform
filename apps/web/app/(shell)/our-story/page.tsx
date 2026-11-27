@@ -172,7 +172,7 @@ export default async function OurStoryPage() {
               </li>
             </ul>
             <p className="mt-8 text-base text-[var(--m-slate)]">
-              Setnayan is free to start. Read how we handle your data — including
+              Planning on Setnayan is free. Read how we handle your data — including
               the Google Drive and YouTube connections above — in our{' '}
               <Link
                 href="/privacy"

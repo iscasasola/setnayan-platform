@@ -51,9 +51,9 @@ export function AddRuleSheet({ eventId }: { eventId: string }) {
             <input type="hidden" name="applies_to_block" value={block} />
             <input type="hidden" name="headcount_basis" value={basis} />
             <FormRows width="short" className="mt-2">
-              <TypedRow name="Item" value={label} empty="Item, e.g. Rice" required maxLength={120} fieldName="label" onKeep={setLabel} data="rule-label" />
+              <TypedRow name="Item" value={label} empty="Item" required maxLength={120} fieldName="label" onKeep={setLabel} data="rule-label" />
               <TypedRow name="Per guest" value={qty} empty="Qty per guest" required maxLength={12} inputMode="numeric" fieldName="qty_per_guest" onKeep={setQty} data="rule-qty" />
-              <TypedRow name="Unit" value={unit} empty="Unit, e.g. kg" required maxLength={30} fieldName="unit" onKeep={setUnit} data="rule-unit" />
+              <TypedRow name="Unit" value={unit} empty="Unit" required maxLength={30} fieldName="unit" onKeep={setUnit} data="rule-unit" />
             </FormRows>
             <p className="mt-3 text-[13px] font-semibold text-ink">
               Only these meals: <span className="font-normal text-[color:var(--m-slate-2)]">(none checked = all guests)</span>

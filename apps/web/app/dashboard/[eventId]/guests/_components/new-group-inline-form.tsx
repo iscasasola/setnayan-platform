@@ -44,7 +44,6 @@ export function NewGroupInlineForm({
           name="label"
           maxLength={64}
           required
-          placeholder="e.g. College Friends"
           className="mt-1 h-9 w-full rounded-md border border-ink/20 bg-cream px-2 text-sm text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
           autoFocus
         />

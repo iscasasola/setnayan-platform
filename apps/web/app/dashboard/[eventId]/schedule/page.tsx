@@ -1580,9 +1580,6 @@ function AddBlockForm({
             name="label"
             required
             maxLength={120}
-            placeholder={
-              isTravel ? 'e.g. Island-hopping tour, El Nido' : 'e.g. Ceremony at San Agustin'
-            }
             className="input-field"
           />
         </label>
@@ -1623,7 +1620,6 @@ function AddBlockForm({
           <input
             name="location"
             maxLength={200}
-            placeholder="e.g. San Agustin Church, Intramuros"
             className="input-field"
           />
         </label>

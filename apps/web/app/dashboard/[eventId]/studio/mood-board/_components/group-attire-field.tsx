@@ -108,7 +108,7 @@ export function GroupAttireField({
               name="group_note"
               maxLength={120}
               defaultValue={current?.note ?? ''}
-              placeholder="Optional — e.g. ivory, not white"
+              placeholder="Optional"
               className="min-h-[44px] w-full rounded-lg border border-ink/15 bg-raised px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
             />
 

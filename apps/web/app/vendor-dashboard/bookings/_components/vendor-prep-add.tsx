@@ -242,13 +242,6 @@ export function VendorPrepForBooking({
               name="label"
               required
               maxLength={200}
-              placeholder={
-                kind === 'meeting'
-                  ? 'e.g. Pre-event consultation'
-                  : kind === 'payment'
-                    ? 'e.g. Package balance'
-                    : 'e.g. Send final shot list'
-              }
               disabled={isPending}
             />
           </SheetField>
@@ -261,7 +254,6 @@ export function VendorPrepForBooking({
                 min="0"
                 step="0.01"
                 required
-                placeholder="e.g. 15000"
                 disabled={isPending}
               />
             </SheetField>

@@ -111,7 +111,6 @@ export function TitlePicker({
           id={id}
           aria-label="Type the title"
           maxLength={TITLE_MAX}
-          placeholder="e.g. Regional Prosecutor"
           autoCapitalize="words"
           data-title-typed=""
           className={`input-field w-full ${className}`}

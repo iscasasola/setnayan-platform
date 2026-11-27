@@ -23,7 +23,7 @@ import { StartTypeGrid } from './_components/start-type-grid';
 
 export const metadata: Metadata = {
   title: 'Start your event',
-  description: 'Pick the kind of event you are planning — free to start.',
+  description: 'Pick the kind of event you are planning.',
   alternates: { canonical: '/start' },
 };
 

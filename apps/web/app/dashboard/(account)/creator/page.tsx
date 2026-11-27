@@ -670,7 +670,6 @@ function ChapterFields({
           required
           maxLength={160}
           defaultValue={chapter?.title ?? ''}
-          placeholder="e.g. Ana &amp; Marco — Batanes elopement"
           className="input-field"
         />
       </label>

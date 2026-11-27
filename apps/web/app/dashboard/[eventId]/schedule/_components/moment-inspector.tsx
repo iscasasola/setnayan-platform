@@ -490,7 +490,6 @@ export function MomentInspector({
             value={party}
             readOnly={readOnly}
             maxLength={120}
-            placeholder={readOnly ? '' : 'e.g. Ninong Roberto · HMUA team'}
             onChange={(e) => setParty(e.target.value)}
             onBlur={() => {
               if (party.trim() !== (m.responsible_party ?? '').trim()) {
@@ -610,7 +609,7 @@ export function MomentInspector({
                 value={partLabel}
                 maxLength={120}
                 onChange={(e) => setPartLabel(e.target.value)}
-                placeholder="＋ Add a part, e.g. Vows & rings"
+                placeholder="＋ Add a part"
                 aria-label="New part"
                 className="min-w-0 flex-1 border-0 border-b border-ink/15 bg-transparent px-0 py-1.5 text-[13.5px] text-ink outline-none focus:border-ink"
               />
@@ -643,7 +642,6 @@ export function MomentInspector({
           defaultValue={m.location ?? ''}
           readOnly={readOnly}
           maxLength={200}
-          placeholder={readOnly ? '' : 'e.g. San Agustin Church, Intramuros'}
           onChange={live ? (e) => liveField('location', e.target.value) : undefined}
           onBlur={(e) => saveField('location', e.target.value)}
           className="w-full border-0 border-b border-ink/15 bg-transparent px-0 py-1.5 text-[15px] text-ink outline-none focus:border-ink read-only:border-transparent"
@@ -657,7 +655,7 @@ export function MomentInspector({
           ref={notesBox}
           defaultValue={m.notes ?? ''}
           readOnly={readOnly}
-          placeholder={readOnly ? '' : 'What only the team needs to know'}
+          placeholder={readOnly ? undefined : 'What only the team needs to know'}
           onChange={live ? (e) => liveField('notes', e.target.value) : undefined}
           onBlur={(e) => saveField('notes', e.target.value)}
           className="w-full resize-none border-0 border-b border-ink/15 bg-transparent px-0 py-1.5 text-[13.5px] leading-normal text-ink outline-none focus:border-ink read-only:border-transparent"

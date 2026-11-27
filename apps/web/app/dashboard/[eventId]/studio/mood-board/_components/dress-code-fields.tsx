@@ -101,7 +101,6 @@ export function DressCodeFields({
           name="title"
           defaultValue={config.title}
           maxLength={80}
-          placeholder="e.g. Look magical · Dress in Filipiniana · Garden formal"
           className={input}
         />
         <p className={hint}>One short headline. Up to 80 characters.</p>

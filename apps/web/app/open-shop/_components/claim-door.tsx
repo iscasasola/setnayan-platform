@@ -436,7 +436,6 @@ export function ClaimDoor({
     <Box
       value={d.role}
       maxLength={64}
-      placeholder="e.g. Owner"
       autoComplete="organization-title"
       onChange={(e) => set({ role: e.target.value, roleFromClaim: false })}
     />,
@@ -740,7 +739,7 @@ export function ClaimDoor({
           <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
             What’s included
           </span>
-          {linesEditor(d.inclusions, (v) => set({ inclusions: v }), 'e.g. Two photographers', 'Inclusion')}
+          {linesEditor(d.inclusions, (v) => set({ inclusions: v }), 'Inclusion', 'Inclusion')}
           {fromHint()}
         </div>
       );
@@ -869,7 +868,7 @@ export function ClaimDoor({
           <span className="text-sm" style={{ color: 'var(--m-slate)' }}>
             ₱
           </span>
-          <Box value={c.price ? formatCount(Number(digits(c.price))) : ''} inputMode="numeric" placeholder="e.g. 45,000" onChange={(e) => setCard({ price: digits(e.target.value) })} />
+          <Box value={c.price ? formatCount(Number(digits(c.price))) : ''} inputMode="numeric" onChange={(e) => setCard({ price: digits(e.target.value) })} />
         </span>,
         undefined,
         drafted ? undefined : 'shown as “from”',
@@ -988,7 +987,7 @@ export function ClaimDoor({
               <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
                 What’s included
               </span>
-              {linesEditor(c.inclusions, (v) => setCard({ inclusions: v }), 'e.g. Same-day highlight reel', 'Inclusion')}
+              {linesEditor(c.inclusions, (v) => setCard({ inclusions: v }), 'Inclusion', 'Inclusion')}
             </div>
           </>
         )}
@@ -1085,10 +1084,10 @@ export function ClaimDoor({
                       dataAttr="data-claim-door-pay-provider"
                     />
                   </div>
-                  {field('Account name', <Box value={w.accountName} maxLength={96} placeholder="e.g. Rosa Dizon" onChange={(e) => setWay(j, { accountName: e.target.value })} />)}
+                  {field('Account name', <Box value={w.accountName} maxLength={96} onChange={(e) => setWay(j, { accountName: e.target.value })} />)}
                   {field(
                     'Account number / mobile',
-                    <Box value={w.accountNumber} maxLength={64} inputMode="numeric" placeholder="e.g. 0917 000 0000" onChange={(e) => setWay(j, { accountNumber: e.target.value })} />,
+                    <Box value={w.accountNumber} maxLength={64} inputMode="numeric" onChange={(e) => setWay(j, { accountNumber: e.target.value })} />,
                   )}
                   {rec.details && !rec.accountNumber ? (
                     <p className="text-xs" style={{ color: 'var(--m-slate-3)' }}>
@@ -1158,7 +1157,7 @@ export function ClaimDoor({
           <span className="text-sm font-medium" style={{ color: 'var(--m-ink)' }}>
             Also included for {record.inviterName}
           </span>
-          {linesEditor(d.extras, (v) => set({ extras: v }), 'e.g. Waiters and buffet set-up', 'Extra', 'Add an extra')}
+          {linesEditor(d.extras, (v) => set({ extras: v }), 'Extra', 'Extra', 'Add an extra')}
         </div>
       </div>
     );
@@ -1630,14 +1629,14 @@ function CardPricing({
           {pfield(
             'From, per guest (PHP)',
             `Your per-head rate. Pre-filled with ${inviter}’s total ÷ the guests they agreed; change it if it’s wrong.`,
-            amountBox(c.perPax, (v) => onChange({ perPax: v, rounds: false }), 'e.g. 650', 'From, per guest (PHP)'),
+            amountBox(c.perPax, (v) => onChange({ perPax: v, rounds: false }), '', 'From, per guest (PHP)'),
             c.rounds && total && agreedCount ? `Rounded to whole pesos from ${peso(total)} ÷ ${formatCount(agreedCount)}` : undefined,
             'per_pax',
           )}
           {pfield(
             'Minimum guests',
             `The floor — your card shows rate × minimum. Pre-filled with the guests ${inviter} agreed.`,
-            <Box value={num(c.minPax)} inputMode="numeric" placeholder="e.g. 50" aria-label="Minimum guests" onChange={(e) => onChange({ minPax: digits(e.target.value) })} />,
+            <Box value={num(c.minPax)} inputMode="numeric" aria-label="Minimum guests" onChange={(e) => onChange({ minPax: digits(e.target.value) })} />,
             undefined,
             'min_pax',
           )}
@@ -1650,7 +1649,6 @@ function CardPricing({
             <Box
               value={c.minHours ?? ''}
               inputMode="decimal"
-              placeholder="e.g. 5"
               aria-label="Minimum hours"
               onChange={(e) => onChange({ minHours: e.target.value.replace(/[^\d.]/g, '') })}
             />,
@@ -1660,14 +1658,14 @@ function CardPricing({
           {pfield(
             'From (PHP)',
             `Covers your minimum hours. Pre-filled with ${inviter}’s total.`,
-            amountBox(c.hourBase, (v) => onChange({ hourBase: v }), 'e.g. 8,000', 'From (PHP)'),
+            amountBox(c.hourBase, (v) => onChange({ hourBase: v }), '', 'From (PHP)'),
             undefined,
             'hour_base',
           )}
           {pfield(
             'Each extra hour (PHP)',
             `Charged for each hour beyond the minimum. ${inviter} did not agree this — it is yours to set.`,
-            amountBox(c.extraHour, (v) => onChange({ extraHour: v }), 'e.g. 1,500', 'Each extra hour (PHP)', !!error),
+            amountBox(c.extraHour, (v) => onChange({ extraHour: v }), '', 'Each extra hour (PHP)', !!error),
             error ? (
               <span role="alert" style={{ color: 'var(--m-mulberry-deep)' }} data-claim-door-price-error="">
                 {error}
@@ -1683,7 +1681,7 @@ function CardPricing({
           {pfield(
             'From (PHP)',
             `Whole pesos — couples see it as “from”. Pre-filled with the one price ${inviter} recorded.`,
-            amountBox(c.price, (v) => onChange({ price: v }), 'e.g. 25,000', 'From (PHP)'),
+            amountBox(c.price, (v) => onChange({ price: v }), '', 'From (PHP)'),
             undefined,
             'from',
           )}
@@ -1697,7 +1695,6 @@ function CardPricing({
                 <Box
                   value={x.name}
                   maxLength={80}
-                  placeholder="e.g. Extra hour of coverage"
                   aria-label={`Extra ${j + 1}`}
                   onChange={(e) => onChange({ extras: extras.map((y, k) => (k === j ? { ...y, name: e.target.value } : y)) })}
                 />

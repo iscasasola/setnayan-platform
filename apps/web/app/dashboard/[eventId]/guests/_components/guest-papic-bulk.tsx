@@ -152,7 +152,6 @@ export function GuestPapicBulkSheet({
                 autoComplete="off"
                 maxLength={6}
                 value={credits}
-                placeholder="e.g. 50"
                 onChange={(e) => setCredits(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') void apply();

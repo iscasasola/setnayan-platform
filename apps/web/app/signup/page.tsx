@@ -75,7 +75,7 @@ import { InfoTip } from '@/app/_components/info-tip';
 export const metadata: Metadata = {
   title: 'Create account',
   description:
-    'Create a Setnayan account. Free to start for anyone planning an event. Free baseline listing for Filipino suppliers.',
+    'Create a Setnayan account. Planning an event is free. Free baseline listing for Filipino suppliers.',
   alternates: { canonical: '/signup' },
   // A sign-in page is a door, not a page to find in search (final check A1-160, Add 9 SEO).
   robots: { index: false, follow: true },

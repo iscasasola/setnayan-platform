@@ -247,7 +247,6 @@ export function InclusionsEditor({
                   name="inclusion_label"
                   defaultValue={r.label}
                   maxLength={80}
-                  placeholder="e.g. Same-day highlight reel"
                   className="input-field flex-[2]"
                 />
                 <RowRemove onClick={() => remove(r.key)} label="Remove inclusion" />
@@ -418,7 +417,6 @@ export function DiscountsEditor({ initial }: { initial: DiscountDraft[] }) {
                       type="number"
                       min={1}
                       step={1}
-                      placeholder="e.g. 12"
                       className="input-field w-24"
                       aria-label="Months ahead the couple must book for this tier"
                     />
@@ -435,7 +433,6 @@ export function DiscountsEditor({ initial }: { initial: DiscountDraft[] }) {
                     type="number"
                     min={0.01}
                     step="any"
-                    placeholder={r.unit === 'pct' ? 'e.g. 10' : 'e.g. 5000'}
                     className="input-field flex-1"
                     aria-label="Discount amount"
                   />
@@ -474,7 +471,6 @@ export function DiscountsEditor({ initial }: { initial: DiscountDraft[] }) {
                       name="discount_conditions_md"
                       defaultValue={r.conditions_md}
                       maxLength={1000}
-                      placeholder="e.g. Book ≥ 6 months ahead"
                       className="input-field"
                     />
                   </label>

@@ -263,7 +263,7 @@ export function ThemeCard({
       <input
         value={name}
         onChange={(e) => onNameChange(e.target.value)}
-        placeholder="Name your theme — e.g. “Blush &amp; Gold Garden Reception”"
+        placeholder="Name your theme"
         maxLength={80}
         className="w-full border-0 bg-transparent p-0 text-2xl font-semibold text-ink placeholder:text-ink/30 focus:outline-none sm:text-3xl"
       />
@@ -274,7 +274,7 @@ export function ThemeCard({
       <textarea
         value={description}
         onChange={(e) => onDescriptionChange(e.target.value)}
-        placeholder="Say the feeling in your own words — e.g. “christmas vibe with a hint of classy elegance”. Tap Read my description and we’ll pull out the mood, colours and details we recognise."
+        placeholder="Say the feeling in your own words"
         maxLength={280}
         rows={3}
         className="w-full resize-none border-0 bg-transparent p-0 text-sm text-ink/70 placeholder:text-ink/30 focus:outline-none"

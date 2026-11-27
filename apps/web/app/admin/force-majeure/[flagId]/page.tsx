@@ -509,7 +509,7 @@ export default async function AdminForceMajeureDetailPage({ params }: Props) {
                         }
                         placeholder={
                           act === 'refund_issued'
-                            ? 'e.g. refund sent via GCash — add the date and the reference number'
+                            ? undefined
                             : 'Short note for the couple and the audit trail.'
                         }
                         className="input-field min-h-[72px] py-2 text-sm"

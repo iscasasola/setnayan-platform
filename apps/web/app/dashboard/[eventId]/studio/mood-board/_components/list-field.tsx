@@ -20,12 +20,12 @@ const TONE_STYLES: Record<Tone, { accent: string; ring: string; placeholder: str
   do: {
     accent: 'text-success-700',
     ring: 'focus-visible:outline-success-500',
-    placeholder: 'e.g. Lean into the palette · Long gowns + ternos · A little sparkle',
+    placeholder: '',
   },
   dont: {
     accent: 'text-danger-700',
     ring: 'focus-visible:outline-danger-500',
-    placeholder: 'e.g. No white or ivory (reserved for the bride) · Skip jeans',
+    placeholder: '',
   },
 };
 

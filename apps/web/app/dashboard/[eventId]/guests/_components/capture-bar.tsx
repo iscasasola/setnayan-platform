@@ -43,7 +43,7 @@ export function CaptureBar({
   eventId,
   defaultSide,
   withDoors = true,
-  placeholder = 'Type a name…  e.g. “Ana Cruz +1 groom vip #Barkada”  → Enter',
+  placeholder = 'Type a name…',
   initialValue = '',
   hints,
   offeredRoles,

@@ -117,7 +117,7 @@ export const PLAN_B_FEATURES: readonly FeaturePageEntry[] = [
     faq: {
       en: [
         { q: 'How do I find verified suppliers in the Philippines?', a: 'Search the Setnayan Marketplace or browse a category and city. Only suppliers whose business papers a Setnayan admin has checked appear.' },
-        { q: 'Is the Marketplace free?', a: 'Browsing is free and open to anyone. Saving and comparing are tied to your event, which is free to start.' },
+        { q: 'Is the Marketplace free?', a: 'Browsing is free and open to anyone. Saving and comparing are tied to your event, and planning is free.' },
         { q: 'What does the % match mean?', a: 'How well a supplier fits your event: your budget, the distance to your venue, their reviews, your date and faith fit. It ranks; it never hides anyone.' },
         { q: 'Does Setnayan take my payment to the supplier?', a: 'No. You pay the supplier directly; Setnayan never touches that money.' },
       ],

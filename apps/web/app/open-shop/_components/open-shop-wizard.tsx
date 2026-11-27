@@ -1143,7 +1143,6 @@ export function OpenShopWizard({
         name="contact_position"
         defaultValue={defaults.contactPosition}
         maxLength={64}
-        placeholder="e.g. Owner"
         autoComplete="organization-title"
         className="input-field"
       />
@@ -1314,7 +1313,6 @@ export function OpenShopWizard({
                   value={shopName}
                   onChange={(e) => setShopName(e.target.value)}
                   maxLength={SHOP_NAME_MAX}
-                  placeholder="e.g. Banawe Florals"
                   className="input-field"
                   autoComplete="organization"
                   enterKeyHint="next"
@@ -1948,7 +1946,6 @@ export function OpenShopWizard({
                     setCardErr(null);
                   }}
                   inputMode="numeric"
-                  placeholder="e.g. 8,500"
                   className="input-field"
                   aria-describedby={cardErr ? 'open-shop-err-card' : undefined}
                 />

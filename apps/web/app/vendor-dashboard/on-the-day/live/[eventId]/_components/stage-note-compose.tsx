@@ -53,7 +53,6 @@ export async function StageNoteCompose({ eventId }: { eventId: string }) {
             name="body"
             rows={2}
             maxLength={STAGE_NOTE_MAX}
-            placeholder={`e.g. Hold the toast — the father is still parking.`}
             className="w-full rounded-lg border border-[color:var(--m-line)] bg-[color:var(--m-paper)] px-3 py-2 text-sm text-ink"
           />
           <div className="flex items-center justify-between gap-3">

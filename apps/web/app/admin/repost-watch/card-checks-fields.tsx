@@ -21,7 +21,7 @@ export function PostedText({
   name: string;
   fieldName: string;
   maxLength: number;
-  placeholder: string;
+  placeholder?: string;
   required?: boolean;
   data: string;
 }) {

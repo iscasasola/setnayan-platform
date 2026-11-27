@@ -554,7 +554,6 @@ export function CocktailEditor({ eventId, data }: { eventId: string; data: Cockt
                   maxLength={280}
                   rows={3}
                   autoFocus
-                  placeholder="e.g. Espresso martinis & mocktails"
                   className="mt-3 w-full resize-none rounded-[var(--m-r-lg)] bg-[color:var(--m-paper-2)] px-[14px] py-[10px] text-[15px] text-ink focus:outline-none focus:ring-2 focus:ring-sn-accent"
                 />
                 <div className="mt-1 flex items-center justify-between text-[13px] text-[color:var(--m-slate-2)]">

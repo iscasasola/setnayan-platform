@@ -458,7 +458,7 @@ function ItemEditor({ row, shopId, onChange }: { row: FormItemDraft; shopId: str
     return (
       <div className="space-y-1 border-t border-ink/10 px-3 pb-3 pt-2" data-fm-editor="question">
         <TypedRow name="Question" value={row.prompt} empty="Write the question" placeholder="What do you want to ask?" maxLength={200} onKeep={(t) => onChange({ prompt: t })} />
-        <TypedRow name="Hint" value={row.hint ?? ''} empty="Optional" placeholder="e.g. Names and how they are related" maxLength={200} onKeep={(t) => onChange({ hint: t })} />
+        <TypedRow name="Hint" value={row.hint ?? ''} empty="Optional" maxLength={200} onKeep={(t) => onChange({ hint: t })} />
         <div className="flex min-h-12 items-center justify-between gap-3">
           <span className="text-[15px] text-ink">Type</span>
           <PickMenu
@@ -501,7 +501,7 @@ function ItemEditor({ row, shopId, onChange }: { row: FormItemDraft; shopId: str
   if (row.kind === 'video_link') {
     return (
       <div className="space-y-1 border-t border-ink/10 px-3 pb-3 pt-2" data-fm-editor="video_link">
-        <TypedRow name="What it shows" value={row.caption} empty="Add" placeholder="e.g. How we shoot the entrance" maxLength={200} onKeep={(t) => onChange({ caption: t })} />
+        <TypedRow name="What it shows" value={row.caption} empty="Add" maxLength={200} onKeep={(t) => onChange({ caption: t })} />
         <TypedRow
           name="Link"
           about={{ words: 'YouTube and Vimeo play inside the form; Facebook opens outside.' }}
@@ -518,7 +518,7 @@ function ItemEditor({ row, shopId, onChange }: { row: FormItemDraft; shopId: str
   }
   return (
     <div className="space-y-1 border-t border-ink/10 px-3 pb-3 pt-2" data-fm-editor="media">
-      <TypedRow name="What they are" value={row.caption} empty="Add" placeholder="e.g. Our sample albums" maxLength={200} onKeep={(t) => onChange({ caption: t })} />
+      <TypedRow name="What they are" value={row.caption} empty="Add" maxLength={200} onKeep={(t) => onChange({ caption: t })} />
       {/* The shipped uploader (compress-first, size limits) into the shop's own folder. Kept while the form exists
           (THE ONE BUILD §4) — not the chat's 90-day expiry, because a library form is sent to many couples. */}
       <FileUpload

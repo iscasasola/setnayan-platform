@@ -77,7 +77,7 @@ export const MANUAL_VENUE_ADDRESS_HINT =
   'Street, barangay, city — this is where your guests and suppliers are sent.';
 
 export const MANUAL_VENUE_ADDRESS_PLACEHOLDER =
-  'e.g. 1 Vertis North Dr, Bagong Pag-asa, Quezon City';
+  'Street, barangay, city';
 
 export const MANUAL_VENUE_ADDRESS_MISSING =
   'Add the exact address — a venue you add yourself has no listing for us to read it from.';

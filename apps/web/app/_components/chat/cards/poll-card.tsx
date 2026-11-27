@@ -68,7 +68,7 @@ export function PollStepCard({ threadId, onClose, onSent }: { threadId: string; 
       // As drawn (approved page, 11 Nov): the helper line, then ONE full-width box with its n/120 count.
       sub: 'One question both sides answer in the chat.',
       body: (
-        <TypedRow name="Question" boxed counts value={question} empty="Ask it" placeholder="e.g. Ceremony spot?" maxLength={POLL_QUESTION_MAX} openAsk={1} onType={setQuestion} onKeep={setQuestion} />
+        <TypedRow name="Question" boxed counts value={question} empty="Ask it" maxLength={POLL_QUESTION_MAX} openAsk={1} onType={setQuestion} onKeep={setQuestion} />
       ),
       ok: question.trim().length > 0,
     },

@@ -267,7 +267,6 @@ export default async function AdminAccountDeletionsPage({ searchParams }: Props)
                       <textarea
                         name="admin_note"
                         rows={2}
-                        placeholder="e.g. 'Active booking — asked the couple to settle the balance before we delete.'"
                         className="input-field text-sm"
                       />
                     </label>

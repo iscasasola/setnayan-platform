@@ -751,7 +751,6 @@ export function GuestCardBody({
                   id="display_name"
                   label="Shown as (optional)"
                   defaultValue={typedName.display_name}
-                  placeholder="e.g. Tito Boy & Tita Cora"
                 />
               </>
             )}
@@ -1156,7 +1155,6 @@ export function GuestCardBody({
               maxLength={HOST_NOTE_MAX}
               label="Note for them · they see it"
               defaultValue={guest.host_note_for_guest ?? ''}
-              placeholder="e.g. We saved you a seat beside Lola — she can’t wait to see you."
               about={`${callName} sees this on their invitation, under their role. No other guest does.`}
             />
             <K.Field
@@ -1164,7 +1162,6 @@ export function GuestCardBody({
               long
               label="Private note · only you"
               defaultValue={guest.notes ?? ''}
-              placeholder="e.g. Tito’s driver drops him at the side gate"
               about={`Only you and your co-hosts see this. ${callName} never sees it.`}
             />
             {/* Said out loud (behind the row's ⓘ), because until 2026-08-06 it was the opposite of true. */}

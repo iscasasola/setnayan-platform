@@ -218,7 +218,6 @@ export function VenueCheckReady({
           about={{ words: 'Optional. Saved with the result, so your coordinator knows which spot was checked.' }}
           value={place}
           empty="Add"
-          placeholder="e.g. Main hall, by the stage"
           maxLength={PLACE_NAME_MAX}
           onType={onPlace}
           onKeep={(t) => {

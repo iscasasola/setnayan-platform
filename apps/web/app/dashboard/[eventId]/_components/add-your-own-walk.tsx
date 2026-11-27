@@ -416,7 +416,6 @@ export function AddYourOwnWalk({
                 name="Name"
                 value={nameKept}
                 empty="Their name"
-                placeholder="e.g. Tita Baby's Catering"
                 required
                 maxLength={128}
                 autoCapitalize="words"
@@ -525,7 +524,6 @@ export function AddYourOwnWalk({
                 name="Who you talk to"
                 value={whoKept}
                 empty="Add"
-                placeholder="e.g. Maria Santos"
                 maxLength={128}
                 autoCapitalize="words"
                 openAsk={openAsk}

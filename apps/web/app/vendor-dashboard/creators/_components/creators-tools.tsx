@@ -68,7 +68,7 @@ export function CreatorsReach({ minReach }: { minReach: number }) {
           </h2>
           <label className="flex min-h-12 items-center justify-between gap-3">
             <span className="text-[15px] text-ink">Minimum followers</span>
-            <input type="number" name="minReach" min={0} defaultValue={minReach || ''} placeholder="e.g. 500" className={`${FIELD} max-w-[10rem]`} />
+            <input type="number" name="minReach" min={0} defaultValue={minReach || ''} className={`${FIELD} max-w-[10rem]`} />
           </label>
           <SubmitButton className="button-primary inline-flex w-full items-center justify-center gap-2" pendingLabel="Filtering…">
             <Users aria-hidden className="h-4 w-4" strokeWidth={1.75} />
@@ -109,7 +109,6 @@ export function SendOfferButton({
           <TypedRow
             name="Creator rate (their own booking)"
             value={rate}
-            empty="e.g. 20% off any package for you"
             boxed
             required
             maxLength={280}
@@ -127,7 +126,6 @@ export function SendOfferButton({
               words: 'Optional. Viewer promo — shown at the Book CTA on chapters that credit you; anyone booking through the chapter sees these terms.',
             }}
             value={audience}
-            empty="e.g. 10% off for anyone booking through your chapter"
             boxed
             maxLength={280}
             fieldName="audience_rate_terms"

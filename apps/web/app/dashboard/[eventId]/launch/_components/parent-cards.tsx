@@ -115,7 +115,6 @@ export function ParentCards({
             maxLength={120}
             autoFocus
             aria-label="Parent’s name"
-            placeholder="e.g. Atty. Rosa M. Santos"
             className="rounded-md border border-ink/15 bg-raised px-3 py-2 text-[16px] text-ink"
           />
           <div className="flex flex-wrap items-center gap-2">

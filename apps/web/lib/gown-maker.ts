@@ -24,6 +24,7 @@ import {
   type GownQuantities,
   type GownSilhouette,
 } from './gown-config';
+import { GOWN_ADD_ONS, type GownAddOnKey } from './gown-add-ons';
 
 /** The suppliers the Attire Maker is suggested for (owner Q3, 2026-11-27: custom gown makers only for now). */
 export const GOWN_KINDS: ReadonlySet<string> = new Set(['bridal_gown_custom']);
@@ -132,25 +133,7 @@ export const GOWN_HOUR_LABELS: Record<GownHourKey, string> = {
 // Add-ons (DESIGN-REVIEW-v187 § D, owner 2026-11-27). Append-only: a stored list must never dangle.
 // ─────────────────────────────────────────────────────────────────────────────
 
-export const GOWN_ADD_ONS = [
-  { id: 'veil', label: 'Veil' },
-  { id: 'cape', label: 'Cape or side cape' },
-  { id: 'bolero', label: 'Bolero or shawl' },
-  { id: 'detach_sleeves', label: 'Detachable sleeves' },
-  { id: 'detach_overskirt', label: 'Detachable overskirt or train' },
-  { id: 'gloves', label: 'Gloves' },
-  { id: 'petticoat', label: 'Petticoat' },
-  { id: 'bustle', label: 'Bustle' },
-  { id: 'headpiece', label: 'Headpiece or tiara' },
-  { id: 'garter', label: 'Garter' },
-  { id: 'bag', label: 'Bag, clutch or money-dance pouch' },
-  { id: 'garment_bag', label: 'Garment bag and hanger' },
-  { id: 'hanky', label: 'Hanky' },
-  { id: 'robe', label: 'Robe' },
-  { id: 'shoes', label: 'Shoes' },
-  { id: 'fittings', label: 'Fittings and alterations' },
-] as const;
-export type GownAddOnKey = (typeof GOWN_ADD_ONS)[number]['id'];
+export { GOWN_ADD_ONS, type GownAddOnKey } from './gown-add-ons';
 const ADD_ON_KEYS: ReadonlySet<string> = new Set(GOWN_ADD_ONS.map((a) => a.id));
 
 /** Priced (her amount; null = not priced yet) · Included free · On request · Not offered (hidden from the bride). */

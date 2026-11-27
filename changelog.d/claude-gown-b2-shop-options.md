@@ -5,7 +5,7 @@ Gown maker port, step B2 (corpus `WHATS_NEXT_Gown_Maker_Port_2026-11-27.md` § 5
 - `lib/gown-maker.ts`:
   - `GownShopOptions`: the designer's own price list (centavos; empty = unpriced), how she prices ("covers the design until it costs more" or "base plus every extra"), what a starting price includes, her workshop time standards, her markup, and the add-ons.
   - `sanitizeGownShopOptions` refuses with a plain reason and never repairs.
-- **Add-ons** (owner 27 Nov), 16 of them, from veil and cape to fittings and alterations. Each is Priced (her amount) · Included free · On request (no amount shown) · Not offered (hidden). All start Not offered: which ones are free is each designer's choice. A petticoat add-on covers the petticoat's tulle and hoop, so a design is never charged twice. No bows.
+- **Add-ons** (owner 27 Nov), 16 of them in their own leaf module `lib/gown-add-ons.ts` (no imports, so the bride's design file can read the same list; Builder A imports it), from veil and cape to fittings and alterations. Each is Priced (her amount) · Included free · On request (no amount shown) · Not offered (hidden). All start Not offered: which ones are free is each designer's choice. A petticoat add-on covers the petticoat's tulle and hoop, so a design is never charged twice. No bows.
 - `gownDesignOf` prices a design's quantities with the shop's own list and returns two halves:
   - for the shop: every line grouped Attire Setup (by stage) → Labour → Add-ons, with totals and a count of unpriced lines;
   - for the bride: the estimate (or none: "Ask for a quote"), whether it is within the starting price, and her add-ons' words. No line, cost, markup or hour.

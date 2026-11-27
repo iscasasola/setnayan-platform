@@ -53,6 +53,10 @@ export const LANDING_WORDS = {
   /** Frame 1b — the thin bar of ours inside Messenger / Instagram / Facebook. */
   inAppSafari: 'Open in Safari to save your ticket',
   inAppChrome: 'Open in Chrome to save your ticket',
+  /** 🧭 When the hop to Safari did not leave the page (owner walk 2026-11-27, MASTER-PLAN L3: "Open in Safari to …"
+   *  fired 35 times and did nothing — Messenger and Facebook ignore the `x-safari-` hop on some versions). */
+  safariStuck: 'Safari didn’t open from here.',
+  safariStuckHow: 'Tap ··· at the top, then Open in browser — or copy your link and paste it in Safari.',
   /** Under the faint ticket before a reply (owner 2026-10-11) — why it is faint. */
   ticketWaiting: 'Your ticket — ready once you reply.',
   /** 🪑 After a Yes when the couple wrote no heading of their own (owner 2026-10-25, RSVP seats-first decision 5:
@@ -374,4 +378,24 @@ export const LANDING_OPEN_PARAM = 'from' as const;
 export const LANDING_OPEN_VALUE = 'landing' as const;
 export function openBeforeReplyHref(slug: string): string {
   return `/${slug}?${LANDING_OPEN_PARAM}=${LANDING_OPEN_VALUE}`;
+}
+
+/* ── 🧭 THE SAFARI HOP THAT DID NOT HOP (owner walk 2026-11-27, MASTER-PLAN L3) ──────────────────────────────────────
+   Inside Messenger / Facebook / Instagram on an iPhone, "Open in Safari" is an `x-safari-https://…` link. Some versions
+   of those apps ignore it: the tap fired, nothing opened, and the guest pressed again (35 times, in the walk). The link
+   stays (where it works it is one tap), and the page now WATCHES: if the page is still on screen after
+   `SAFARI_HOP_WAIT_MS`, the hop did not happen, and the page says so with the way that always works — the app's own
+   "Open in browser", or the guest's own link to copy (`SafariHop`, app/[slug]/_components/safari-hop.tsx). */
+
+/** How long a hop has to leave the page before the page says it did not. */
+export const SAFARI_HOP_WAIT_MS = 1600;
+
+/** `x-safari-https://…` → `https://…` — the guest's own link the hop carried, to copy by hand. Anything else: itself. */
+export function safariHopLink(href: string): string {
+  return href.replace(/^x-safari-/i, '');
+}
+
+/** Did the hop fail? Only when the page never left the screen while it waited. */
+export function safariHopStuck(input: { left: boolean; visible: boolean }): boolean {
+  return !input.left && input.visible;
 }

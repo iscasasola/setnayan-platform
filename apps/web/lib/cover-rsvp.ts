@@ -30,6 +30,17 @@ export type CoverRsvp =
   | { kind: 'ask' | 'going' | 'declined'; href: string; /** ✉️ 'going' only, > 0: the answers still owed. */ more?: number }
   | { kind: 'closed' | 'not_yet'; line: string };
 
+/**
+ * 🙅 THE HOST IS ASKED ONLY AS A GUEST (owner walk 2026-11-27, MASTER-PLAN L3). A host's own Event Hub draws the reply
+ * (the cover's button, the Reply card under it) only when the host has a live guest row of their own here — a co-host
+ * who is also a sponsor, a parent on the list. The couple and every other host with no row are never offered
+ * "Confirm attendance": the reply page could only tell them they are not on the list. `hostOwnRsvp` is the page's own
+ * read of that row (`hostOwnRsvpFor`, app/[slug]/page.tsx); null or absent = no row.
+ */
+export function hostHasOwnReply(hostOwnRsvp: string | null | undefined): boolean {
+  return typeof hostOwnRsvp === 'string' && hostOwnRsvp.length > 0;
+}
+
 /** The words of the two answered states (the prototype's), and of a shut window. */
 export const COVER_RSVP_GOING = 'You’re coming';
 export const COVER_RSVP_DECLINED = 'You can’t make it';

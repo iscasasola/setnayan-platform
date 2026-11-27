@@ -12,7 +12,9 @@
  * The rule now (owner 2026-10-17, and the one-button rule of 2026-09-26/27): every cover has its foot. A stranger's
  * door stands IN the foot, where a guest's RSVP button stands — in its place, never beside it — reading "Confirm your
  * Booking" (owner: *"Change the button to 'Confirm your Booking'"*), with the hint under it; it is not drawn again below.
- * A viewer of that tree who meets no door (the host) gets the RSVP button to the shipped reply door instead.
+ * A viewer of that tree who meets no door (the host) gets the RSVP button to the shipped reply door instead — when the
+ * host is a guest here (a row of their own). A host with no row is never asked to confirm (owner walk 2026-11-27,
+ * `hostHasOwnReply`): their foot is the "Swipe up" hint alone.
  *
  * A PROPERTY, rendered on the REAL page (`SiteBody`, the fixture invitation) for every viewer the stranger's tree and
  * the guest's tree draw — not a phrasing of the source.
@@ -27,6 +29,8 @@ import { STRANGER_DOOR_WORDS } from './get-inside';
 const FULL = fixtureWidgets({ hero: { ground: { kind: 'color', color: '#3a4a5a', shape: 'full' } } });
 const PHOTO = { heroPhotoUrl: 'https://cdn.test/fixture-hero.jpg' } as const;
 const HOST = { capability: 'owner', ownerUserId: 'lab-host', ownerEventId: siteBodyFixtureProps().event.event_id, maySiteEdit: true } as const;
+/** The host's OWN guest row (a host who is also on the list). */
+const HOST_ROW = { hostOwnGuestId: '00000000-0000-4000-8000-00000000a002', hostOwnRsvp: 'pending' } as const;
 
 /** Each viewer, and what its foot must hold: the stranger's ONE door, or the RSVP button. */
 const VIEWERS = [
@@ -36,8 +40,10 @@ const VIEWERS = [
   ['a stranger · the photo cover, no ground', { identity: fixtureStranger(), ...PHOTO }, 'door'],
   ['a stranger holding a replaced key', { identity: { ...fixtureStranger(), reason: 'invalid_invite' as const }, widgets: FULL }, 'door'],
   ['a signed-in stranger not on the list', { identity: { ...fixtureStranger(), signedInNotListed: true }, widgets: FULL }, 'door'],
-  ['the host on their own page', { identity: fixtureStranger(), widgets: FULL, ownerCapability: HOST }, 'rsvp'],
-  ['the host · the photo cover', { identity: fixtureStranger(), ...PHOTO, ownerCapability: HOST }, 'rsvp'],
+  ['the host on their own page, on the list', { identity: fixtureStranger(), widgets: FULL, ownerCapability: HOST, ...HOST_ROW }, 'rsvp'],
+  ['the host on the list · the photo cover', { identity: fixtureStranger(), ...PHOTO, ownerCapability: HOST, ...HOST_ROW }, 'rsvp'],
+  ['the host with no row of their own', { identity: fixtureStranger(), widgets: FULL, ownerCapability: HOST }, 'hint'],
+  ['the host with no row · the photo cover', { identity: fixtureStranger(), ...PHOTO, ownerCapability: HOST }, 'hint'],
   ['a guest with a key', { widgets: FULL }, 'rsvp'],
 ] as const;
 
@@ -51,7 +57,7 @@ function covers(html: string): string[] {
 }
 
 for (const [who, props, way] of VIEWERS) {
-  test(`${who}: the first screen ends in its foot — ${way === 'door' ? 'the ONE door' : 'the RSVP button'} and the hint`, async () => {
+  test(`${who}: the first screen ends in its foot — ${way === 'door' ? 'the ONE door and ' : way === 'rsvp' ? 'the RSVP button and ' : ''}the hint`, async () => {
     const page = await renderSiteBodyFixtureFull(props as never);
     assert.deepEqual(page.complaints, [], 'React or the page complained while rendering');
     const heads = covers(page.html);
@@ -64,9 +70,9 @@ for (const [who, props, way] of VIEWERS) {
       assert.match(footHtml, /data-cover-hint=""[^>]*>[\s\S]*Swipe up for the event/, 'the foot has no "Swipe up" hint');
       const doorHere = footHtml.includes('data-get-inside=');
       const rsvpHere = /data-cover-rsvp="/.test(footHtml);
-      assert.ok(doorHere || rsvpHere, 'the foot holds neither a door nor the RSVP button — no way on');
       assert.ok(!(doorHere && rsvpHere), 'the foot holds the door AND the RSVP button — two ways in (owner 2026-09-26/27, one button)');
-      assert.equal(doorHere ? 'door' : 'rsvp', way, `the foot holds the ${doorHere ? 'door' : 'RSVP button'}, not the ${way}`);
+      const held = doorHere ? 'door' : rsvpHere ? 'rsvp' : 'hint';
+      assert.equal(held, way, `the foot holds the ${held}, not the ${way}`);
       if (doorHere) {
         // Behind a closed veil the door waits for the unveil, like the button it stands in for: it is a cover line.
         assert.match(footHtml, new RegExp(`<div ${COVER_LINE_ATTR}="\\w*" data-cover-door=""`), 'the door in the foot is no cover line — it would show behind the veil');

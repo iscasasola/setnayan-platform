@@ -8,7 +8,7 @@ import gs from '@/app/dashboard/[eventId]/guests/_components/guests-screen.modul
 import { useRowState } from '@/app/dashboard/[eventId]/guests/_components/use-row-state';
 import { dragBandOf, dragEdgeStep, dragScrollBy, dragScrollerOf } from '@/lib/drag-edge-scroll';
 import { TAP_SLOP_MOUSE, TAP_SLOP_TOUCH } from '@/lib/march-drag';
-import { SEAT_HOLD_MS, readSeatDrop, seatDropAttrs, seatTallyWords, type SeatDropTarget } from '@/lib/seat-list-drop';
+import { SEAT_HOLD_MS, cardUnits, readSeatDrop, seatDropAttrs, seatTallyWords, type SeatCardLook, type SeatDropTarget } from '@/lib/seat-list-drop';
 import { formatCount } from '@/lib/format-number';
 import { VipMark } from './vip-mark';
 import { RiseScreen, WithRiseClose } from '@/app/_components/rise/rise-screen';
@@ -42,7 +42,12 @@ export type SeatListGuest = {
   side: 'bride' | 'groom' | 'both';
   /** Who placed the seat, spoken with it ("placed by you", lib/seat-why.ts); absent = not recorded. */
   placed?: string | null;
+  /** Who brings this guest (`guests.plus_one_of_guest_id`) — on a card they draw joined to them as ONE unit. */
+  plusOneOf?: string | null;
+  /** Their seat is locked (#17) — a hand move answers "Locked · Unlock to move". */
+  locked?: boolean;
 };
+
 export type SeatListSeat = { tableId: string; seat: number; guest: SeatListGuest | null };
 export type SeatListUnit = { key: string; label: string; seated: number; capacity: number; seats: SeatListSeat[]; vip?: boolean };
 
@@ -75,6 +80,7 @@ export function SeatList({
   tableTools,
   onDrop,
   dim = () => false,
+  cardLook = 'faces',
 }: {
   units: SeatListUnit[];
   /** The coming guests with no seat. */
@@ -106,6 +112,8 @@ export function SeatList({
   onDrop: (guestId: string, target: SeatDropTarget) => void;
   /** ⇅ A guest the shared Show or the search leaves out — drawn faint, their seat still taken. */
   dim?: (guestId: string) => boolean;
+  /** ⇅ On the cards: Faces or Names. */
+  cardLook?: SeatCardLook;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   /* ⇔ ONE state for every row's buttons (Swap · Remove), the Guests list's own fit (BUTTON_RULE 3a). */
@@ -307,7 +315,7 @@ export function SeatList({
             <span aria-hidden className={`${gs.dot} ${sideClass(g.side)}`} />
             <span className={gs.nmt}>{g.name}</span>
           </div>
-          <div className={gs.meta}>{picked ? 'Moving — tap a seat' : meta}</div>
+          <div className={gs.meta}>{picked ? 'Moving — tap a seat' : g.locked ? `${meta} · Locked` : meta}</div>
         </button>
         {canEdit ? (
           <span className={gs.acts} data-fit-row="" data-row-acts="">
@@ -423,6 +431,36 @@ export function SeatList({
       )}
     </span>
   );
+  /** 🧑‍🤝‍🧑 A unit on a card — ONE joined face pair (Faces) or ONE name chip "Ana + Ben" (Names). */
+  const unitChip = (unit: SeatListGuest[]) => {
+    const lead = unit[0]!;
+    const key = `u:${lead.id}`;
+    const faint = unit.every((g) => dim(g.id));
+    if (cardLook === 'names') {
+      return (
+        <span
+          key={key}
+          className="inline-flex min-h-[26px] max-w-full items-center rounded-full bg-ink/[0.06] px-2.5 text-sn-12 font-medium text-ink/80"
+          data-seat-card-name=""
+          data-seat-unit={unit.length > 1 ? unit.map((g) => g.id).join(' ') : undefined}
+          data-seat-dim={faint ? '' : undefined}
+          style={faint ? { opacity: 0.3 } : undefined}
+        >
+          <span className="truncate">{unit.map((g) => g.name).join(' + ')}</span>
+        </span>
+      );
+    }
+    if (unit.length === 1) return chip(lead, key);
+    return (
+      <span key={key} className="inline-flex shrink-0 items-center rounded-full bg-ink/[0.04] pr-0.5" data-seat-pair="" data-seat-unit={unit.map((g) => g.id).join(' ')}>
+        {unit.map((g, i) => (
+          <span key={g.id} className={i > 0 ? '-ml-2 rounded-full ring-2 ring-cream' : 'rounded-full'}>
+            {chip(g, g.id)}
+          </span>
+        ))}
+      </span>
+    );
+  };
   const dotted = (key: string) => (
     <span key={key} aria-hidden className="inline-block h-[26px] w-[26px] shrink-0 rounded-full border-[1.5px] border-dashed border-ink/20" data-seat-card-empty="" />
   );
@@ -436,6 +474,7 @@ export function SeatList({
       onClick={tap(onPress)}
       aria-label={label}
       data-seat-card={key}
+      data-seat-card-look={cardLook}
       {...drop}
     >
       <span className="flex w-full min-w-0 items-baseline gap-2">
@@ -470,8 +509,12 @@ export function SeatList({
         {full ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.4} /> : null}
         {formatCount(u.seated)} of {formatCount(u.capacity)}
       </span>,
-      [...shownPeople.map((x) => chip(x.guest!, `${x.tableId}:${x.seat}`)), ...Array.from({ length: emptyShown }, (_, i) => dotted(`e${i}`))],
-      moreEmpty > 0 ? <span className="text-[12.5px] text-ink/60">+{formatCount(moreEmpty)} empty</span> : null,
+      [...cardUnits(shownPeople.map((x) => x.guest!)).map(unitChip), ...(cardLook === 'faces' ? Array.from({ length: emptyShown }, (_, i) => dotted(`e${i}`)) : [])],
+      cardLook === 'names' ? (
+        u.capacity - u.seated > 0 ? <span className="text-sn-12 text-ink/60">{formatCount(u.capacity - u.seated)} empty</span> : null
+      ) : moreEmpty > 0 ? (
+        <span className="text-[12.5px] text-ink/60">+{formatCount(moreEmpty)} empty</span>
+      ) : null,
       // While someone is picked ("Move"), the card is where they go: the table's next free seat.
       pickedId ? (free ? `Move here — ${u.label}, seat ${free.seat + 1}` : `${u.label} is full`) : `${u.label}, ${seatTallyWords(u.seated, u.capacity, formatCount)} — open`,
       () => {
@@ -630,7 +673,7 @@ export function SeatList({
               UNSEATED,
               'To seat',
               formatCount(unseated.length),
-              unseated.slice(0, CARD_CHAIRS).map((g) => chip(g, g.id)),
+              cardUnits(unseated.slice(0, CARD_CHAIRS)).map(unitChip),
               unseated.length > CARD_CHAIRS ? <span className="text-[12.5px] text-ink/60">+{formatCount(unseated.length - CARD_CHAIRS)} more</span> : null,
               `To seat, ${formatCount(unseated.length)} — open`,
               () => {

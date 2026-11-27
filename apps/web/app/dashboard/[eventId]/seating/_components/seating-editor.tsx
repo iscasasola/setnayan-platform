@@ -242,7 +242,16 @@ import { Sheet } from '@/app/_components/sheet';
 import { SEAT_LIST_UNSEATED, SeatList, type SeatListGuest, type SeatListUnit } from './seat-list';
 import { VipMark } from './vip-mark';
 import type { RestoreSeat, SeatScope } from '@/lib/seat-plan-scope';
-import { planSeatDrop, type SeatDropTarget } from '@/lib/seat-list-drop';
+import {
+  SEAT_CARD_LOOKS,
+  SEAT_LOCKED_WORDS,
+  parseSeatCardLook,
+  planSeatDrop,
+  seatDropRefusalWords,
+  seatDropUnit,
+  type SeatCardLook,
+  type SeatDropTarget,
+} from '@/lib/seat-list-drop';
 import { GuestCardSheet, SHIPPED_GUEST_CARD } from '../../guests/_components/guest-card-sheet';
 import { PickMenu as SeatPickMenu } from '../../website/editor/_components/pick-menu';
 import { PinCountDoor } from '../../guests/_components/view-summary-cards';
@@ -280,6 +289,9 @@ function isSeatingLockLost(err: unknown): boolean {
 
 /** 📵 What the plan's notice strip says when a press's request never answered or was refused. */
 const SEAT_PLAN_NOT_SAVED = 'Couldn’t save that — please try again.';
+/** 🪪 Show ⇅ › On the cards — the keys its two choices wear in the menu, and where this device remembers the pick. */
+const CARD_LOOK_KEY = 'card-look:';
+const CARD_LOOK_STORE = 'seating:card-look';
 
 // The phone's Type ▾ groups the catalog by kind, in plain words.
 const TABLE_KIND_WORD: Record<TableShapeHint, string> = {
@@ -1411,8 +1423,16 @@ export function SeatingEditor({
    * people trade chairs through the SHIPPED atomic swap (`swapSeats` → `swap_seat_assignments`, the 3D room's own); with
    * one of them unseated, the seated one's chair changes hands through the shipped unseat + seat. Each drawn at once.
    */
+  /* 🔒 SEAT LOCK (#17): a locked seat is never moved by a hand — a swap, a seat-here or a drop says the ONE line and
+     moves nobody (lock-and-fill and Clear keep their own rules on the server). 🔒 lib/a-seat-unit-moves-as-one.test.ts */
+  const refuseLocked = (...ids: ReadonlyArray<string | null | undefined>): boolean => {
+    if (!ids.some((id) => (id ? guestsById.get(id)?.seat_locked === true : false))) return false;
+    setNotice(SEAT_LOCKED_WORDS);
+    return true;
+  };
   const tradeSeats = (aId: string, bId: string) => {
     if (!canEdit || aId === bId) return;
+    if (refuseLocked(aId, bId)) return;
     const a = guests.find((g) => g.guest_id === aId);
     const b = guests.find((g) => g.guest_id === bId);
     if (!a || !b) return;
@@ -1451,6 +1471,7 @@ export function SeatingEditor({
   const place = (tableId: string, seatNumber: number | null) => {
     if (!canEdit) return;
     if (!pickedId) return;
+    if (refuseLocked(pickedId)) return;
     const guestId = pickedId;
     const fd = new FormData();
     fd.set('event_id', eventId);
@@ -2251,6 +2272,7 @@ export function SeatingEditor({
   // `seat` (Details' "tap an empty seat"): that chair, when it is still free.
   const seatGuestHere = (t: EventTableRow, guestId: string, seat?: number) => {
     if (!canEdit) return;
+    if (refuseLocked(guestId)) return;
     const occ = occupantsFor(t);
     const removed = removedSeatSet(t.removed_seats, t.capacity);
     let free: number | null = null;
@@ -4430,6 +4452,32 @@ export function SeatingEditor({
      A booth a booked supplier runs opens the supplier card (the 3D walk's `BoothVendorCard`).
      🔒 lib/seats-2d-is-the-room.test.ts */
   const roomOnly = inGuests && !in3d && view === 'plan';
+  /* 🪪 SEATS › LIST · ON THE CARDS (seat plan § 4.1): the table cards draw Faces (the default) or Names — picked in Show ⇅
+     under "On the cards", remembered on this device only (a per-viewer convenience, never a saved setting). */
+  const onSeatList = inGuests && !in3d && view === 'list';
+  const [cardLook, setCardLook] = useState<SeatCardLook>('faces');
+  useEffect(() => {
+    try {
+      setCardLook(parseSeatCardLook(localStorage.getItem(CARD_LOOK_STORE)));
+    } catch {
+      /* localStorage unavailable (private mode) — Faces */
+    }
+  }, []);
+  const pickCardLook = (next: SeatCardLook) => {
+    setCardLook(next);
+    try {
+      localStorage.setItem(CARD_LOOK_STORE, next);
+    } catch {
+      /* not remembered — still shown */
+    }
+  };
+  const cardLookOptions: PickOption[] = SEAT_CARD_LOOKS.map((o) => ({
+    key: `${CARD_LOOK_KEY}${o.key}`,
+    label: o.label,
+    group: 'On the cards',
+    trail: cardLook === o.key ? { text: '✓', tone: 'ok' as const, label: 'shown now' } : undefined,
+  }));
+  const listLooks = onSeatList ? cardLookOptions : [];
   const [boothCardId, setBoothCardId] = useState<string | null>(null);
   /** The slim bar's ⋯ › Name… — the bar shows the table's name row until it is kept. */
   const [renamingTable, setRenamingTable] = useState<string | null>(null);
@@ -7300,6 +7348,8 @@ export function SeatingEditor({
     });
   };
   const askBefore = (moverId: string, tableId: string, seat: number | null, otherId: string | null): boolean => {
+    // 🔒 #17: a locked guest (the mover, or the one in the seat) is refused before anything is asked.
+    if (refuseLocked(moverId, otherId)) return true;
     const a = assessFor(moverId, tableId, seat, otherId);
     if (!a || a.quiet) return false;
     setAskMove({ moverId, otherId, tableId, seat, a, on: Object.fromEntries(a.sideEffects.map((x) => [x.key, x.on])) });
@@ -7325,7 +7375,16 @@ export function SeatingEditor({
     setBlankAt({ tableId, seat });
   };
   const comingUnseated = guests.filter((g) => !g.seated_table_id && g.rsvp_status !== 'declined').sort((a, b) => a.name.localeCompare(b.name));
-  const faceOf = (g: SeatingGuest): SeatListGuest => ({ id: g.guest_id, name: g.name, initials: g.initials, photo: g.photo_url, side: g.side, placed: seatPlacedShort(g.seat_placed_by) });
+  const faceOf = (g: SeatingGuest): SeatListGuest => ({
+    id: g.guest_id,
+    name: g.name,
+    initials: g.initials,
+    photo: g.photo_url,
+    side: g.side,
+    placed: seatPlacedShort(g.seat_placed_by),
+    plusOneOf: g.plus_one_of ?? null,
+    locked: g.seat_locked === true,
+  });
   /* 🪑 S1c · Seats › List = the Guests list grouped by table: one row per seat that exists (a removed chair is no row),
      in seat order, "8 of 10 seats" counted from those rows — never typed. */
   const faceUnits: SeatListUnit[] = inGuests
@@ -7339,33 +7398,73 @@ export function SeatingEditor({
     : [];
   /* ✋ A guest let go on a seat row, or "To seat" (`planSeatDrop`, the ONE answer the drag and "tap · move" share): the
      plan's own moves, with "before a seat changes hands" asked first where it asks. */
-  const dropSeat = (guestId: string, target: SeatDropTarget) => {
+  /* 🧑‍🤝‍🧑 R3 · A UNIT MOVES AS ONE (`seatDropUnit`): the guest and the +1s they bring; a +1 dragged moves their bringer's
+     unit; a principal sponsor under "+1s of VIP guests: nearest" moves alone (their +1 sits at the nearest table). */
+  const isNearestSponsor = (id: string): boolean => {
+    const g = guestsById.get(id);
+    if (!g || g.role === 'guest' || !g.seated_table_id) return false;
+    return tables.some((t) => t.table_id === g.seated_table_id && t.is_vip === true);
+  };
+  const unitOf = (guestId: string) =>
+    seatDropUnit(
+      guestId,
+      guests.map((x) => ({ guest_id: x.guest_id, plus_one_of: x.plus_one_of ?? null, seated_table_id: x.seated_table_id, declined: x.rsvp_status === 'declined' })),
+      { isSponsor: isNearestSponsor, vipPlusOnes },
+    );
+  /** A table's free chairs, in order (a removed chair is none). */
+  const freeChairsAt = (t: EventTableRow): number[] => {
+    const removed = removedSeatSet(t.removed_seats, t.capacity);
+    return occupantsFor(t).flatMap((x, i) => (x === null && !removed.has(i) ? [i] : []));
+  };
+  const dropSeat = (draggedId: string, target: SeatDropTarget) => {
     if (!canEdit) return;
+    if (!guestsById.get(draggedId)) return;
+    // The unit's lead moves (a +1 dragged moves their bringer); `party` comes along.
+    const unit = unitOf(draggedId);
+    const guestId = unit.leadId;
     const g = guestsById.get(guestId);
     if (!g) return;
-    const plan = planSeatDrop({ id: guestId, seated: g.seated_table_id !== null }, target);
-    if (plan.kind === 'unseat') return unseat(guestId);
+    const t = target.kind === 'seat' ? tables.find((x) => x.table_id === target.tableId) : undefined;
+    const plan = planSeatDrop(
+      { id: guestId, seated: g.seated_table_id !== null, party: unit.party, locked: [guestId, ...unit.party].some((id) => guestsById.get(id)?.seat_locked === true) },
+      target,
+      target.kind === 'seat' && t
+        ? { freeSeats: freeChairsAt(t), occupantLocked: target.occupantId ? guestsById.get(target.occupantId)?.seat_locked === true : false }
+        : {},
+    );
+    if (plan.kind === 'refused') {
+      setNotice(seatDropRefusalWords(plan.reason, firstNameOf(g.name), unit.party.length + 1));
+      return;
+    }
+    if (plan.kind === 'unseat') {
+      for (const id of plan.along ?? []) unseat(id, true);
+      return unseat(guestId);
+    }
     if (plan.kind === 'trade') {
       if (askBefore(guestId, plan.tableId, plan.seat, plan.otherId)) return;
       tradeSeats(guestId, plan.otherId);
       return noteDrop(g, guestsById.get(plan.otherId) ?? null, plan.tableId, plan.seat);
     }
     if (plan.kind === 'place') {
-      const t = tables.find((x) => x.table_id === plan.tableId);
-      if (!t || askBefore(guestId, plan.tableId, plan.seat, null)) return;
+      if (!t) return;
+      const along = plan.along ?? [];
+      // A unit's move was judged here (a chair each, together) — the sheet's own "+1 comes along" would ask it again.
+      if (!along.length && askBefore(guestId, plan.tableId, plan.seat, null)) return;
       setPickedId(null);
       seatGuestHere(t, guestId, plan.seat);
-      noteDrop(g, null, plan.tableId, plan.seat);
+      for (const x of along) seatGuestHere(t, x.guestId, x.seat);
+      noteDrop(g, null, plan.tableId, plan.seat, along.map((x) => x.guestId));
     }
   };
   /* ↩ The drop that asked nothing still says what it did, with its Undo — the asked one's own line (`seatMoveDoneWords`). */
-  const noteDrop = (mover: SeatingGuest, other: SeatingGuest | null, tableId: string, seat: number) => {
+  const noteDrop = (mover: SeatingGuest, other: SeatingGuest | null, tableId: string, seat: number, alongIds: readonly string[] = []) => {
     const a = assessFor(mover.guest_id, tableId, seat, other?.guest_id ?? null);
     const t = tables.find((x) => x.table_id === tableId);
     if (!a || !t) return;
-    const before = [{ id: mover.guest_id, tableId: mover.seated_table_id, seat: mover.seat_number }];
+    const along = alongIds.map((id) => guestsById.get(id)).filter((x): x is SeatingGuest => Boolean(x));
+    const before = [mover, ...along].map((x) => ({ id: x.guest_id, tableId: x.seated_table_id, seat: x.seat_number }));
     setMoveNote({
-      text: seatMoveDoneWords(a, moveGuestOf(mover), other ? moveGuestOf(other) : null, t.link_group_label?.trim() || t.table_label, seat, []),
+      text: seatMoveDoneWords(a, moveGuestOf(mover), other ? moveGuestOf(other) : null, t.link_group_label?.trim() || t.table_label, seat, along.map((x) => x.name)),
       undo: () => undoMove(mover.guest_id, other?.guest_id ?? null, before),
     });
   };
@@ -8070,11 +8169,13 @@ export function SeatingEditor({
                   onFilter: lens.setFilter,
                   hasSides: lens.hasSides,
                   label: 'Show, or open the people',
+                  /* 🪪 "On the cards" (Faces · Names) is its own section, only on Seats › List — before Open. */
                   extras: peopleInSheet && !roomOnly
-                    ? [{ key: 'people', label: unseatedComing > 0 ? `People · ${formatCount(unseatedComing)} to seat` : 'People', group: 'Open' }]
-                    : [],
+                    ? [...listLooks, { key: 'people', label: unseatedComing > 0 ? `People · ${formatCount(unseatedComing)} to seat` : 'People', group: 'Open' }]
+                    : listLooks,
                   onExtra: (k) => {
                     if (k === 'people') setPeopleOpen(true);
+                    else if (k.startsWith(CARD_LOOK_KEY)) pickCardLook(parseSeatCardLook(k.slice(CARD_LOOK_KEY.length)));
                   },
                 }),
               ]}
@@ -9903,6 +10004,7 @@ export function SeatingEditor({
             tableTools={seatListTools}
             onDrop={dropSeat}
             dim={seatDim}
+            cardLook={cardLook}
           />
         ) : (
           <div className="absolute inset-0 space-y-2 overflow-y-auto p-3">

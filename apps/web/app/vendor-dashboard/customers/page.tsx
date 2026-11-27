@@ -244,7 +244,7 @@ type SP = Record<string, string | string[] | undefined>;
 
 /** An outside client's Add / Remove, said once by the toast and kept as the status line. */
 const EVENTS_NOTICES: Record<string, { tone: SupplierOutcomeTone; text: string; retry?: boolean }> = {
-  client_imported: { tone: 'ok', text: 'Booking from outside added — free. It holds that date on your schedule now.' },
+  client_imported: { tone: 'ok', text: 'Booking from outside added. It holds that date on your schedule now.' },
   block_removed: { tone: 'ok', text: 'Booking from outside removed. The date is open again.' },
   bad_dates: { tone: 'bad', text: 'Those dates don’t work. Check the first and last day.', retry: true },
   bad_name: { tone: 'bad', text: 'The client needs a name. Nothing was added.', retry: true },

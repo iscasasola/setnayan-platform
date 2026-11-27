@@ -2659,7 +2659,10 @@ export async function SiteBody({
                 list" — it should not "see other [list]", it should extend as
                 needed). Everyone shows inline; `/[slug]/everyone` keeps
                 working for old links, it just isn't linked from here. */}
-            {group(at('f:entourage', scenesTab), <>{entourageShownOn(pageStage) ? blockMark('entourage') : null}{entourageShownOn(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={viewerIsHost && !isEditorCanvas && sampleViewer === null ? hostOwnGuestId : null} /> : null}</>)}
+            {/* 📏 A4-B05 (c), approved drawing § 01: 24 px between the block above (the venue) and "The entourage" eyebrow —
+                it sat flush. On the section itself (`gapAbove`; `group()` drops its own wrapper when the tabs are off), so
+                nothing is drawn when the entourage is empty; the guest tree's own wrapper already pads it, so this tree only. */}
+            {group(at('f:entourage', scenesTab), <>{entourageShownOn(pageStage) ? blockMark('entourage') : null}{entourageShownOn(pageStage) ? <EntourageSection groups={entourage} id="site-entourage" sceneStyle={entourageStyle} myGuestId={viewerIsHost && !isEditorCanvas && sampleViewer === null ? hostOwnGuestId : null} gapAbove /> : null}</>)}
             {stagesPages ? scenesByPage(stagesAround.after, 'mt-8') : detailsAround.after.length > 0 ? group(scenesTab, <div className="sn-hub-cards mt-8 space-y-4">{sceneNodes(detailsAround.after)}</div>) : null}
 
             {makerDayStandIns('last')}
@@ -3736,6 +3739,7 @@ export async function SiteBody({
                   eventId={event.event_id}
                   uploadOwner={papicGuest.uploadOwner}
                   initialRemaining={papicGuest.initialRemaining}
+                  remainingUnread={papicGuest.remainingUnread === true}
                   total={papicGuest.total}
                   termsAccepted={papicGuest.termsAccepted}
                   needsFaceEnroll={needsFaceEnroll}

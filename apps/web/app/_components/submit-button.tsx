@@ -56,6 +56,11 @@ type Props = Omit<
   done?: boolean;
   /** The words beside the ✓ (default "Saved"). */
   doneLabel?: string;
+  /**
+   * 🚫 NO SPINNER (final check A4-B04, approved drawing § 04, 25 Nov 2026): a venue TV's Connect shows pressed with its
+   * words alone ("Connecting…"). Default true — every other form keeps the spinner exactly as before.
+   */
+  spinner?: boolean;
 };
 
 /** How long "✓ Saved" stays on the button before its own words return. */
@@ -92,6 +97,7 @@ export function SubmitButton({
   pending: ownedPending,
   done = false,
   doneLabel = 'Saved',
+  spinner = true,
   onClick,
   style,
   ...rest
@@ -164,11 +170,13 @@ export function SubmitButton({
     >
       {pending ? (
         <span className="sn-m-busy inline-flex items-center gap-2" data-busy="">
-          <Loader2
-            aria-hidden
-            className="h-4 w-4 animate-spin"
-            strokeWidth={2.25}
-          />
+          {spinner ? (
+            <Loader2
+              aria-hidden
+              className="h-4 w-4 animate-spin"
+              strokeWidth={2.25}
+            />
+          ) : null}
           {pendingLabel || <span className="sr-only">Working…</span>}
         </span>
       ) : settled ? (

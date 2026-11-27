@@ -271,32 +271,22 @@ export default async function AdminIntegrityWatchPage({
     );
   }
 
-  // Open counts per tab (for the tab badges).
-  const { count: openReviews } = await admin
-    .from('integrity_flags')
-    .select('id', { count: 'exact', head: true })
-    .eq('kind', 'review_fraud')
-    .eq('status', 'open');
-  const { count: openListings } = await admin
-    .from('integrity_flags')
-    .select('id', { count: 'exact', head: true })
-    .eq('kind', 'ghost_listing')
-    .eq('status', 'open');
-  const { count: openInquiries } = await admin
-    .from('integrity_flags')
-    .select('id', { count: 'exact', head: true })
-    .eq('kind', 'inquiry_concentration')
-    .eq('status', 'open');
-  // Only counted when the scanner is enabled (dark otherwise).
-  const openPrices = pricesEnabled
-    ? (
-        await admin
-          .from('integrity_flags')
-          .select('id', { count: 'exact', head: true })
-          .eq('kind', 'price_underdeclaration')
-          .eq('status', 'open')
-      ).count
-    : 0;
+  // Open counts per tab (for the tab badges). One batched read. A8·F-24: a refused count is `null` and the badge
+  // says "—", which is not the same as no badge (= none open).
+  const openCount = (kind: string) =>
+    admin.from('integrity_flags').select('id', { count: 'exact', head: true }).eq('kind', kind).eq('status', 'open');
+  const [revRes, lisRes, inqRes, priRes] = await Promise.all([
+    openCount('review_fraud'),
+    openCount('ghost_listing'),
+    openCount('inquiry_concentration'),
+    // Only counted when the scanner is enabled (dark otherwise).
+    pricesEnabled ? openCount('price_underdeclaration') : Promise.resolve({ count: 0, error: null }),
+  ]);
+  const countOrNull = (r: { count: number | null; error: unknown }) => (r.error ? null : r.count);
+  const openReviews = countOrNull(revRes);
+  const openListings = countOrNull(lisRes);
+  const openInquiries = countOrNull(inqRes);
+  const openPrices = countOrNull(priRes);
 
   // Inquiries have no rescan — they're raised by the cron-free fraud-cluster
   // sweep, not an on-demand backfill.
@@ -367,20 +357,20 @@ export default async function AdminIntegrityWatchPage({
       <PillTrack className="mb-4" data-integrity-tabs="">
         <PillLink on={tab === 'reviews'} href="/admin/integrity-watch?tab=reviews" aria-current={tab === 'reviews' ? 'page' : undefined} className="gap-1.5 px-3">
           <Star aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Reviews
-          {openReviews ? ` · ${openReviews}` : ''}
+          {openReviews === null ? ' · —' : openReviews ? ` · ${openReviews}` : ''}
         </PillLink>
         <PillLink on={tab === 'listings'} href="/admin/integrity-watch?tab=listings" aria-current={tab === 'listings' ? 'page' : undefined} className="gap-1.5 px-3">
           <Store aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Listings
-          {openListings ? ` · ${openListings}` : ''}
+          {openListings === null ? ' · —' : openListings ? ` · ${openListings}` : ''}
         </PillLink>
         <PillLink on={tab === 'inquiries'} href="/admin/integrity-watch?tab=inquiries" aria-current={tab === 'inquiries' ? 'page' : undefined} className="gap-1.5 px-3">
           <Users aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Inquiries
-          {openInquiries ? ` · ${openInquiries}` : ''}
+          {openInquiries === null ? ' · —' : openInquiries ? ` · ${openInquiries}` : ''}
         </PillLink>
         {pricesEnabled && (
           <PillLink on={tab === 'prices'} href="/admin/integrity-watch?tab=prices" aria-current={tab === 'prices' ? 'page' : undefined} className="gap-1.5 px-3">
             <Coins aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Prices
-            {openPrices ? ` · ${openPrices}` : ''}
+            {openPrices === null ? ' · —' : openPrices ? ` · ${openPrices}` : ''}
           </PillLink>
         )}
       </PillTrack>

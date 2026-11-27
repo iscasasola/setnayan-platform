@@ -117,7 +117,7 @@ import {
   type AppointmentTypePreset,
   type AppointmentView,
 } from '@/lib/appointments';
-import { updateVendorCosts } from '../../actions';
+import { CostsForm, CostsSubmit } from './_components/costs-form';
 import { manualVendorNeedsAddress } from '@/lib/manual-venue-address';
 import { HostServiceDetails } from './_components/host-service-details';
 import { SelfAddedContactCard } from './_components/self-added-contact-card';
@@ -257,6 +257,7 @@ import { StayForm } from '@/app/_components/stay-form';
 import { readOneBookingMoney } from '@/lib/event-vendor-money';
 // ⚡ The event date, three times a view, answered from the layout's ONE read of the row (speed pass 2026-11-14).
 import { eventRowOnce } from '@/lib/event-row-once';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 
 export const metadata = { title: 'Service workspace' };
 
@@ -1201,6 +1202,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   const colourLane: ColourDomain[] = laneForVendorCategory(ev.category);
   let colourAccessOn = false;
   let colourChanges: ColourChangeRow[] = [];
+  /** A7-23: a refused grants or changes read — the card is replaced by the refused-read notice, never "Off" / "No changes yet". */
+  let colourReadRefused = false;
   if (colourLane.length > 0) {
     const [{ data: grantRows, error: grantErr }, { data: changeRows, error: changeErr }] =
       await Promise.all([
@@ -1230,6 +1233,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     if (changeErr) {
       logQueryError('VendorWorkspace.colourChanges', changeErr, { eventId }, 'graceful_degrade');
     }
+    colourReadRefused = Boolean(grantErr || changeErr);
     colourAccessOn = ((grantRows ?? []) as { is_active: boolean }[]).some((r) => r.is_active);
     colourChanges = (changeRows ?? []) as ColourChangeRow[];
   }
@@ -1469,6 +1473,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   // meeting-type catalog + this (event, vendor) row set, both under couple RLS.
   let appointmentPresets: AppointmentTypePreset[] = [];
   let appointmentViews: AppointmentView[] = [];
+  /** A7-23: a refused appointments read is not "No appointments yet" (that invites a duplicate booking). */
+  let appointmentsReadRefused = false;
   if (ev.marketplace_vendor_id) {
     const apptCats = appointmentCategoriesFor([ev.category]);
     const [{ data: catalogRows, error: catalogRowsError }, { data: apptRows, error: apptRowsError }] = await Promise.all([
@@ -1491,6 +1497,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
     }
     if (apptRowsError) {
       logQueryError('VendorWorkspacePage.apptRows', apptRowsError, { event_id: eventId }, 'graceful_degrade');
+      appointmentsReadRefused = true;
     }
     const catalog = (catalogRows ?? []) as Array<{
       category: string;
@@ -1770,7 +1777,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
      plus the address, which is REQUIRED for the two categories that are a
      place. Sits beside the inclusions editor on Details: both are "what only
      the couple can tell us about this supplier". */
-  const selfAddedContactSection = selfAdded ? (
+  const selfAddedContactSection = selfAdded && manualContactRes?.error ? (
+    // A7-22: a refused contact read draws no form — a blank card's Save would write the empty address over the stored one.
+    <ReadRefusedNotice what="their contact details" />
+  ) : selfAdded ? (
     <SelfAddedContactCard
       eventId={eventId}
       vendorId={ev.vendor_id}
@@ -2189,6 +2199,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
         token: search.token,
       }}
     />
+  ) : colourReadRefused ? (
+    <ReadRefusedNotice what="what this supplier may change in your colours" />
   ) : (
     <ColourAccessCard
       vendorId={ev.vendor_id}
@@ -2385,7 +2397,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
   );
 
   const appointmentsSection =
-      ev.marketplace_vendor_id ? (
+      ev.marketplace_vendor_id && appointmentsReadRefused ? (
+        <ReadRefusedNotice what="your appointments with this supplier" />
+      ) : ev.marketplace_vendor_id ? (
         <AppointmentsSection
           role="couple"
           eventId={eventId}
@@ -2464,6 +2478,9 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
 
   // The crew this supplier brings — logistics, not price, so it stays editable
   // whichever way the price is settled.
+  // One read of the trade per row (lib/no-taxonomy-literals: the compare count may only shrink).
+  const isCaterer = ev.category === 'catering';
+  const isCrewMealProvider = ev.category === 'crew_meals';
   const crewFields = (
         <>
           {/* Crew-meal coverage (2026-07-09). On the crew-meal PROVIDER: the
@@ -2471,7 +2488,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               to have the provider feed this crew (supersedes its food allowance,
               so the cost is counted once — in the provider's package). */}
           {/* The caterer's own row says how many crews it feeds (the crew-meal provider's row below already does). */}
-          {ev.category === 'catering' ? (
+          {/* A7-23: a refused crew read is not "Feeding 0 crew meals" — the count the caterer plates from. */}
+          {(isCaterer || isCrewMealProvider) && eventVendorCrewRowsError ? (
+            <ReadRefusedNotice what="the crew meal count" />
+          ) : isCaterer ? (
             <p className="rounded-md bg-cream/60 px-3 py-2 text-xs text-ink/70" data-crew-meals-covering="">
               Feeding{' '}
               <span className="font-medium text-ink">
@@ -2480,7 +2500,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               across the suppliers you&rsquo;ve marked as fed — they see this count on their production sheet.
             </p>
           ) : null}
-          {ev.category === 'crew_meals' ? (
+          {isCrewMealProvider ? (
+            eventVendorCrewRowsError ? null : (
             <p className="rounded-md bg-cream/60 px-3 py-2 text-xs text-ink/70">
               Covering{' '}
               <span className="font-medium text-ink">
@@ -2489,6 +2510,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               across the suppliers you&rsquo;ve marked as crew-meal covered. Set the Service
               price above to your per-meal rate × this count.
             </p>
+            )
           ) : (
             <>
               <label className="flex items-center justify-between gap-3 text-sm">
@@ -2557,15 +2579,15 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
             ) : null}
             . To change it, ask {displayName} to send an updated quote.
           </p>
-          <form action={updateVendorCosts} className="space-y-3">
+          <CostsForm className="space-y-3">
             <input type="hidden" name="event_id" value={eventId} />
             <input type="hidden" name="vendor_id" value={ev.vendor_id} />
             {crewFields}
             {paidSoFarRow}
-            {ev.category === 'crew_meals' ? null : (
-              <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save crew</SubmitButton>
+            {isCrewMealProvider ? null : (
+              <CostsSubmit className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save crew</CostsSubmit>
             )}
-          </form>
+          </CostsForm>
         </section>
       ) : null;
 
@@ -2600,7 +2622,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           />
         </div>
 
-        <form action={updateVendorCosts} className="space-y-3">
+        <CostsForm className="space-y-3">
           <input type="hidden" name="event_id" value={eventId} />
           <input type="hidden" name="vendor_id" value={ev.vendor_id} />
 
@@ -2655,8 +2677,8 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               one source: the same `paidSoFarFormatted` the header shows. */}
           {paidSoFarRow}
 
-          <SubmitButton pendingLabel="Saving…" className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</SubmitButton>
-        </form>
+          <CostsSubmit className="mt-1 inline-flex min-h-[44px] items-center gap-1.5 rounded-full bg-mulberry px-4 py-2 text-sm font-medium text-cream dark:text-cream transition-colors hover:bg-mulberry-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta">Save costs</CostsSubmit>
+        </CostsForm>
         </section>
       );
 
@@ -3115,6 +3137,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           It lives in FILES (walk 13 Nov 2026, F-W1-71: the album was delivered and the couple looked for it in Files,
           where it was not — it sat under Payment). The supplier's "delivered your handover" notice opens this page.
         */}
+        {handoverRowsError ? (
+          // A7-23: a refused read is not "nothing delivered" — the album and "Confirm receipt" would just vanish.
+          <ReadRefusedNotice what="what this supplier delivered" />
+        ) : (
         <HandoverInbox
           eventId={eventId}
           vendorId={ev.vendor_id}
@@ -3122,6 +3148,7 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
           handovers={handovers}
           canAdvanceToDelivered={canAdvanceToDelivered}
         />
+        )}
         {documentsSection}
       </div>
     ),

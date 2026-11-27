@@ -45,8 +45,8 @@ export default function WaitlistPage() {
             Your planning workspace is ready today — guest list, seating, budget,
             mood board, and schedule. Browse a marketplace of real
             photographers, caterers, florists, coordinators and venues, each
-            with portfolios and contracts you can sign in-app. No waitlist, no
-            commission on bookings.
+            with portfolios and contracts you can sign in-app. No waitlist.
+            Hosts pay 0% commission.
           </p>
 
           <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -84,11 +84,11 @@ export default function WaitlistPage() {
                 live for couples"), so the zero stands alone here — a couple
                 pays no commission, unqualified. Suppliers read the fee on
                 /for-suppliers, which the link below goes to. */}
-            <li>· Zero commission on supplier bookings — couples pay suppliers directly.</li>
+            <li>· Hosts pay 0% commission. You pay suppliers directly.</li>
             <li>· A receipt on every software purchase, archived in your dashboard</li>
           </ul>
           <p className="mt-6 text-xs text-ink/55">
-            Supplier? <Link href="/for-suppliers" className="font-semibold text-terracotta underline-offset-4 hover:underline">Pre-register your business today</Link>.
+            Supplier? <Link href="/for-suppliers" className="font-semibold text-terracotta underline-offset-4 hover:underline">Open your shop today</Link>.
           </p>
         </div>
       </section>

@@ -100,6 +100,8 @@ export type StoryMediaItem = {
 };
 
 export type GuestStoryPlan = {
+  /** 🔌 A4-75: the guest could not be read — the maker says "Couldn't load your photos", never "none tagged yet". */
+  readFailed?: boolean;
   /** How many clean tagged photos the guest has in total. */
   taggedPhotoCount: number;
   /** Whether the guest clears STORY_MIN_PHOTOS. */

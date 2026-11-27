@@ -12,6 +12,13 @@
  */
 
 /** Where each partnership came from (`vendor_partnerships.origin`). */
+/**
+ * 🤝 THE ONE RULE ABOUT WHEN AN INVITED PARTNER SHOWS (final check A1-069). Joining through an invite link IS the accept:
+ * one accepted `vendor_partnerships` row, origin `invited`, trusted before any event served together. The invite card
+ * and the /i page both say this sentence, so they can never contradict each other again.
+ */
+export const INVITE_PARTNERS_AT_ONCE = 'Joining makes you partners at once';
+
 export const PARTNERSHIP_ORIGINS = ['worked_together', 'added', 'invited'] as const;
 export type PartnershipOrigin = (typeof PARTNERSHIP_ORIGINS)[number];
 

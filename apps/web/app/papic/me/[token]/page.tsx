@@ -94,7 +94,17 @@ async function GuestGallery({
   chapters: ChapterContext;
 }) {
   const gallery = await getGuestLiveGallery(eventId, guestId);
-  if (!gallery || gallery.photos.length === 0) return null;
+  // 🔌 A4-74: null is a FAILED read (an empty gallery is `{ photos: [] }`) — it says so, distinct from having none.
+  if (!gallery) {
+    return (
+      <section aria-label="Memories of you" className="mt-6" data-tour="me-photos">
+        <p role="status" className="text-sm text-ink/70">
+          Couldn’t read your photos just now. Reload the page in a moment to see them.
+        </p>
+      </section>
+    );
+  }
+  if (gallery.photos.length === 0) return null;
   const groups = groupIntoChapters(gallery.photos, (p) => p.capturedAt ?? '', chapters);
   return (
     <section aria-label="Memories of you" className="mt-6" data-tour="me-photos">

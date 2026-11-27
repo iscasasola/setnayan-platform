@@ -1,58 +1,7 @@
-import { Screen, Sk } from '@/components/skeletons';
-import { ADMIN_FRAME } from '@/app/admin/_components/admin-frame';
-
 /**
- * Skeleton for /admin — mirrors the 3-section admin overview layout:
- * header → action-queues panel (terracotta card + 4 tiles) →
- * 8 stats (2×4 grid) → 6 nav tiles (2/3-col grid).
+ * Skeleton for /admin — A8·L-5: /admin is Focus (a date line, "N things need you", one list) or, in Full, the Work
+ * list. Both are one list of rows, so this is the house list ghost. The old ghost drew the retired overview (a
+ * terracotta action-queue card, 8 stat tiles, 6 nav tiles) — parts no admin page draws — and it was also the
+ * fallback for every admin page without its own `loading.tsx`. The nine pages that leaned on it now have their own.
  */
-export default function AdminLoading() {
-  return (
-    <div className="mx-auto w-full max-w-6xl xl:max-w-7xl 2xl:max-w-screen-2xl px-4 py-10 sm:px-6 lg:px-8">
-      <Screen label="Loading Setnayan HQ">
-        {/* NO HEADER STRIP. The overview's masthead draws an sr-only heading and
-            nothing else — no eyebrow, no title, no subtitle — so a shimmer for
-            those three is ~70px of chrome that never arrives and the whole page
-            jumps up the moment it does. 46 of the 47 admin pages this boundary
-            covers are the same. */}
-
-        {/* Action queues panel — terracotta-tinted card + 4 queue tiles */}
-        <div className="rounded-2xl border border-terracotta/20 bg-terracotta/[0.03] p-5 sm:p-6">
-          <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
-            <Sk className="h-3 w-28 rounded" />
-            <Sk className="h-3 w-20 rounded" />
-          </div>
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {Array.from({ length: 4 }).map((_, i) => (
-              <div key={i} className={`${ADMIN_FRAME} p-3`}>
-                <Sk className="h-7 w-10 rounded-md" />
-                <Sk className="mt-2 h-3 w-20 rounded" />
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Stats — 8 tiles in a 2×4 grid */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className={`${ADMIN_FRAME} p-3`}>
-              <Sk className="h-6 w-12 rounded-md" />
-              <Sk className="mt-2 h-3 w-16 rounded" />
-            </div>
-          ))}
-        </div>
-
-        {/* Nav tiles — 6 tiles in 2/3-col grid */}
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className={`${ADMIN_FRAME} p-5`}>
-              <Sk className="h-3 w-20 rounded" />
-              <Sk className="mt-2 h-5 w-32 rounded-md" />
-              <Sk className="mt-2 h-3 w-full rounded" />
-            </div>
-          ))}
-        </div>
-      </Screen>
-    </div>
-  );
-}
+export { ListPageSkeleton as default } from '@/components/skeletons';

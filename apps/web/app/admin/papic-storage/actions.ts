@@ -6,6 +6,7 @@ import { requireAdmin } from '@/lib/admin/require-admin';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateTileDerivative } from '@/lib/papic-derivatives';
 import { isClipRow, type PapicDisplayRow } from '@/lib/papic-display-ref';
+import { TILES_PER_PRESS } from '@/lib/papic-tile-backfill';
 
 /**
  * Fill `tile_r2_key` (long-edge 640 AVIF — the copy a grid WALL renders) on
@@ -32,8 +33,8 @@ import { isClipRow, type PapicDisplayRow } from '@/lib/papic-display-ref';
  * same object while the WHERE clause has already excluded what succeeded.
  */
 
-/** Rows per press. Image encoding in a serverless invocation — keep it modest. */
-const MAX_BATCH = 40;
+/** Rows per press: the one number in `lib/papic-tile-backfill.ts`, which the button's confirm also says. */
+const MAX_BATCH = TILES_PER_PRESS;
 
 export type BackfillResult =
   | { ok: true; filled: number; skipped: number; remaining: number | null }

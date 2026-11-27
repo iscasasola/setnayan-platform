@@ -42,6 +42,7 @@ test('no Find surface explains, promises or repeats itself', () => {
 test('the open category: its list says the line, with no heading over nothing; nothing liked draws nothing', () => {
   assert.match(BENCH, /moreToCompareEmpty\(label, moreQ, hasOwn\)/);
   assert.match(BENCH, /\{noneListed \? null : \(\s*<div className="morehead">/);
+  assert.match(BENCH, /t\.vendors\.length > 0 \? \(\s*<p className="planh" data-find-planning="">/);
   assert.match(LIKED, /if \(liked\.length === 0\) return null;/);
   assert.doesNotMatch(LIKED, /data-find-liked-empty/);
   // Find's ONE add stays the thumb row's ＋ — the empty category grows no button of its own.

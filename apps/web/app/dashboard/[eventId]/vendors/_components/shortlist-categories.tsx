@@ -4889,10 +4889,13 @@ export function ShortlistCategories({
                         <div className="cat-body">
                           {/* 💡 B · the category's Inspiration strip, first — above its suppliers (the pre-replan bench). On the
                               one-screen page it is the category's "Ideas", after "Suggested for you" (owner 2026-11-12). */}
+                          {/* 🧹 R3 (27 Nov): no heading over nothing — with none of the couple's own here it is not drawn. */}
                           {replan ? (
-                            <p className="planh" data-find-planning="">
-                              What you&rsquo;re planning
-                            </p>
+                            t.vendors.length > 0 ? (
+                              <p className="planh" data-find-planning="">
+                                What you&rsquo;re planning
+                              </p>
+                            ) : null
                           ) : (
                             <FindInspirationStrip board={inspiration} tile={t.tile} href={findBoardHref(eventId)} />
                           )}

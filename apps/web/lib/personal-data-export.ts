@@ -322,6 +322,7 @@ export async function buildPersonalDataExport(
     ownFeeDisputesRes,
     ownPollVotesRes,
     ownCakeDesignsRes,
+    ownGownDesignsRes,
     ownFocusPutOffsRes,
     ownEventPutOffsRes,
   ] = await Promise.all([
@@ -891,6 +892,14 @@ export async function buildPersonalDataExport(
       .select('design_id, thread_id, vendor_service_id, config, design, estimate_centavos, created_at')
       .eq('created_by', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-11-27) — THE GOWN DESIGNS THIS SUBJECT SENT from the chat's Attire Maker (gown maker port B1).
+    // AUTHOR-scoped on created_by: her own design, the body numbers she typed, the quantities and the one estimate.
+    // No cost line is ever stored on this row, so none can reach the file.
+    supabase
+      .from('gown_designs')
+      .select('design_id, thread_id, vendor_service_id, config, body, measures, quantities, estimate_centavos, share_as, created_at')
+      .eq('created_by', user.id)
+      .order('created_at', { ascending: true }),
     // RA 10173 (2026-11-19) — an admin's OWN "Do it tomorrow" on Focus (Today v3 part 4, migration 20271355036188).
     // Owner-scoped on user_id: which Focus item, until which day. Nobody else's record is in it.
     supabase
@@ -1237,6 +1246,7 @@ export async function buildPersonalDataExport(
   const ownFeeDisputes = listOutcome('booking_fee_disputes_raised', ownFeeDisputesRes);
   const ownPollVotes = listOutcome('chat_poll_votes', ownPollVotesRes);
   const ownCakeDesigns = listOutcome('cake_designs_sent', ownCakeDesignsRes);
+  const ownGownDesigns = listOutcome('gown_designs_sent', ownGownDesignsRes);
   const ownFocusPutOffs = listOutcome('admin_focus_put_offs', ownFocusPutOffsRes);
   const ownEventPutOffs = listOutcome('event_today_put_offs', ownEventPutOffsRes);
   const workingNotes = listOutcome(
@@ -1397,6 +1407,7 @@ export async function buildPersonalDataExport(
     ownFeeDisputes,
     ownPollVotes,
     ownCakeDesigns,
+    ownGownDesigns,
     ownFocusPutOffs,
     ownEventPutOffs,
     // ⚠ These ten were read and shipped but missing from this list until
@@ -1577,6 +1588,8 @@ export async function buildPersonalDataExport(
     chat_poll_votes: ownPollVotes.rows,
     // 🎂 The cake designs the subject sent from the chat's Cake Maker (their picks and the estimate). Author-scoped.
     cake_designs_sent: ownCakeDesigns.rows,
+    // 👗 The gown designs the subject sent from the chat's Attire Maker (her design, her numbers, the estimate). Author-scoped.
+    gown_designs_sent: ownGownDesigns.rows,
     // ⏭ An admin's own Focus items put off with "Do it tomorrow". Owner-scoped.
     admin_focus_put_offs: ownFocusPutOffs.rows,
     // ⏭ The subject's own event Today rows put off with "Do it tomorrow". Owner-scoped.

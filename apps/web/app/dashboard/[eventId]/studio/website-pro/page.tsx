@@ -55,7 +55,7 @@ export default async function EventServicesPage({ params, searchParams }: Props)
   // 'coordinator'), so the same membership read decides whether the photo buy is offered at all.
   const [read, coupleHere] = await Promise.all([readEventServices(eventId), gate.storeShell ? isCoupleOf(eventId, user.id) : Promise.resolve<boolean | null>(true)]);
   const appleProducts = gate.storeShell ? appleProductsFor(coupleHere === true) : null;
-  const photosRefusal = coupleHere === true ? null : coupleHere === false ? startRefusalLine('couple_only') : PHOTOS_UNREAD;
+  const papicRefusal = coupleHere === true ? null : coupleHere === false ? startRefusalLine('couple_only') : PHOTOS_UNREAD;
   const facts = appleProducts ? withoutWebFigures(read) : read;
   /* 💎 From the Maker's Apply sheet (`?from=maker`, owner 2026-09-28): the way back is the Maker, where the draft waits
      untouched; "Unlock … and Apply" (`then=apply`) comes back with `?apply=1`, which applies the draft once its parts
@@ -95,7 +95,7 @@ export default async function EventServicesPage({ params, searchParams }: Props)
         initialOpen={add !== null}
         back={back}
         appleProducts={appleProducts}
-        photosRefusal={photosRefusal}
+        papicRefusal={papicRefusal}
       />
     </>
   );
@@ -126,7 +126,10 @@ async function isCoupleOf(eventId: string, userId: string): Promise<boolean | nu
     .eq('event_id', eventId)
     .eq('user_id', userId)
     .maybeSingle();
-  if (error) return null;
+  if (error) {
+    console.error('[event-services] could not read the member role (the photo row says it could not be read):', error.message);
+    return null;
+  }
   return (data as { member_type?: string } | null)?.member_type === 'couple';
 }
 

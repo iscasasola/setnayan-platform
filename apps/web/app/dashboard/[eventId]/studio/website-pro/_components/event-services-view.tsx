@@ -70,7 +70,7 @@ export type EventServicesBodyProps = {
    * 📸 Set when this person may not buy guest photos here (the iPhone app sells Papic to the couple only —
    * `startAppStorePurchase` refuses anyone else): the photo row shows this line instead of its sizes. Null = the buy.
    */
-  photosRefusal?: string | null;
+  papicRefusal?: string | null;
 };
 
 /** The ONE order's post — `submitOrderAction` with the Event services intent (handed in by the page's body). */
@@ -186,7 +186,7 @@ export function EventServicesView({
   lab = false,
   initialInfo = null,
   back = null,
-  photosRefusal = null,
+  papicRefusal = null,
   Dock = PlainDock,
   submit,
   apple = null,
@@ -456,13 +456,13 @@ export function EventServicesView({
                     <b className="es-name">More guest photos</b>
                     <span className="es-line">Papic · every guest’s phone is a camera.</span>
                   </span>
-                  {photosRefusal ? null : (
+                  {papicRefusal ? null : (
                     <span className="es-end">{photoSize ? <Price php={photoSize.php} code={photoSize.code} /> : <small className="es-small">pick a size</small>}</span>
                   )}
                 </div>
-                {photosRefusal ? (
+                {papicRefusal ? (
                   <p className="es-fine es-indent" data-event-services-photos-refused="">
-                    {photosRefusal}
+                    {papicRefusal}
                   </p>
                 ) : facts.photos === null ? (
                   <p className="es-fine es-indent">The photo sizes couldn’t be read. Try again in a moment.</p>

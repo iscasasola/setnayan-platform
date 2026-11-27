@@ -32,7 +32,7 @@ const facts: EventServicesFacts = {
   photos: [{ code: 'PAPIC_GUEST_1K', points: 1000, php: 444 }],
 } as unknown as EventServicesFacts;
 
-const draw = (photosRefusal: string | null) =>
+const draw = (papicRefusal: string | null) =>
   renderToStaticMarkup(
     React.createElement(EventServicesView, {
       eventId: 'EVENT',
@@ -40,7 +40,7 @@ const draw = (photosRefusal: string | null) =>
       ordersHref: '/dashboard/EVENT/orders',
       initialOpen: true,
       lab: true,
-      photosRefusal,
+      papicRefusal,
     }),
   );
 
@@ -68,7 +68,7 @@ test('the page refuses a non-couple in the app with the server’s own words, an
   assert.match(src, /startRefusalLine\('couple_only'\)/);
   assert.match(src, /appleProductsFor\(coupleHere === true\)/);
   assert.match(src, /if \(withPapic\) for \(const p of IAP_PAPIC_PRODUCTS\)/);
-  assert.match(src, /photosRefusal=\{photosRefusal\}/);
+  assert.match(src, /papicRefusal=\{papicRefusal\}/);
   // The server rule this mirrors is unchanged.
   const actions = stripComments(readFileSync(join(HERE, '..', '..', '..', '..', '..', 'lib', 'iap', 'iap-actions.ts'), 'utf8'));
   assert.match(actions, /product\.kind === 'papic-credits' && \(membership as \{ member_type\?: string \}\)\.member_type !== 'couple'/);

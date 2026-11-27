@@ -106,14 +106,15 @@ export function placeGownTrims(pieces: readonly GownTrimPiece[], B: GownRig, D: 
       pt.geo.attributes.position!.needsUpdate = true; pt.geo.computeVertexNormals(); pt.geo.computeBoundingSphere();
       continue;
     }
+    const edge: GownTrimEdge = 'edge' in pt ? pt.edge : 'hem';
     for (let q = 0; q <= N; q++) {
-      const qq = q % N, i = edgeRow(D, pt.edge, qq), { p, out } = frame(i);
+      const qq = q % N, i = edgeRow(D, edge, qq), { p, out } = frame(i);
       if (pt.kind === 'pipe') {
-        const nxt = frame(edgeRow(D, pt.edge, (qq + 1) % N)).p, prv = frame(edgeRow(D, pt.edge, (qq + N - 1) % N)).p, tg = nxt.sub(prv).normalize(), n2 = new THREE.Vector3().crossVectors(tg, out).normalize();
+        const nxt = frame(edgeRow(D, edge, (qq + 1) % N)).p, prv = frame(edgeRow(D, edge, (qq + N - 1) % N)).p, tg = nxt.sub(prv).normalize(), n2 = new THREE.Vector3().crossVectors(tg, out).normalize();
         for (let k = 0; k < 6; k++) { const a = (k / 6) * TAU, v = p.clone().addScaledVector(out, pt.rad * (1 + Math.cos(a))).addScaledVector(n2, pt.rad * Math.sin(a)), oo = (q * 6 + k) * 3; pa[oo] = v.x; pa[oo + 1] = v.y; pa[oo + 2] = v.z; }
       } else if (pt.kind === 'fringe' && q < N) {
         for (let k = 0; k < pt.per; k++) {
-          const f = k / pt.per, nq = edgeRow(D, pt.edge, (qq + 1) % N), b = new THREE.Vector3(P[nq * 3]!, P[nq * 3 + 1]!, P[nq * 3 + 2]!), a = p.clone().lerp(b, f);
+          const f = k / pt.per, nq = edgeRow(D, edge, (qq + 1) % N), b = new THREE.Vector3(P[nq * 3]!, P[nq * 3 + 1]!, P[nq * 3 + 2]!), a = p.clone().lerp(b, f);
           const sway = a.y <= fl + 0.01 / (B.P.S * 100) ? 0 : 0.15 * Math.sin(t * 2 + qq * 0.7 + k), len = pt.len * (pt.feather ? 0.6 + 0.4 * Math.abs(Math.sin(qq * 3.7 + k * 1.3)) : 1);
           const e = a.clone().addScaledVector(out, len * (pt.feather ? 0.5 : 0.12) + len * sway * 0.2);
           lay(e, out);

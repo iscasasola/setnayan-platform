@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import type { ShareArtifactType, ShareCreditMode } from '@/lib/social-sharing';
+import { isShareArtifactType, type ShareCreditMode } from '@/lib/social-sharing';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
@@ -21,13 +21,6 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
  * Profile → Privacy & data revoke list; callers pass a `revalidate_path`
  * hidden field so the card they submitted from refreshes in place.
  */
-
-const VALID_ARTIFACT_TYPES: ReadonlyArray<ShareArtifactType> = [
-  'monogram',
-  'save_the_date',
-  'website',
-  'reel',
-];
 
 const VALID_CREDIT_MODES: ReadonlyArray<ShareCreditMode> = [
   'first_names',
@@ -54,10 +47,10 @@ export async function grantShareConsent(formData: FormData) {
   const revalidatePathRaw = readString(formData, 'revalidate_path');
 
   if (!eventId) throw new Error('Missing event');
-  if (!VALID_ARTIFACT_TYPES.includes(artifactTypeRaw as ShareArtifactType)) {
+  if (!isShareArtifactType(artifactTypeRaw)) {
     throw new Error('Invalid artifact type');
   }
-  const artifact_type = artifactTypeRaw as ShareArtifactType;
+  const artifact_type = artifactTypeRaw;
   const credit_mode: ShareCreditMode = VALID_CREDIT_MODES.includes(
     creditModeRaw as ShareCreditMode,
   )

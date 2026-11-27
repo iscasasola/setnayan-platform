@@ -135,13 +135,29 @@ export const GOWN_TRAINS = [
 ] as const;
 export type GownTrain = (typeof GOWN_TRAINS)[number]['id'];
 
+/** Veil lengths (v197): elbow, fingertip and floor end where their names say; chapel and cathedral are measured from the crown. */
 export const GOWN_VEILS = [
   { id: 'none', label: 'None' },
-  { id: 'fingertip', label: 'Fingertip' },
+  { id: 'elbow', label: 'Elbow', why: 'To her elbows: a short, light veil.' },
+  { id: 'fingertip', label: 'Fingertip', why: 'To her fingertips, about 1 m from the crown.' },
+  { id: 'floor', label: 'Floor', why: 'Just touches the floor behind her.' },
   { id: 'chapel', label: 'Chapel' },
   { id: 'cathedral', label: 'Cathedral' },
 ] as const;
 export type GownVeil = (typeof GOWN_VEILS)[number]['id'];
+/** A classic veil's front layer (v197): worn back over the head, or over her face. */
+export const GOWN_BLUSHERS = [
+  { id: 'back', label: 'Worn back', why: 'The front layer is worn back over the head: her face is open.' },
+  { id: 'over', label: 'Over the face', why: 'A short front layer of tulle falls over her face, lifted back at the ceremony.' },
+] as const;
+export type GownBlusher = (typeof GOWN_BLUSHERS)[number]['id'];
+/** A small bow in the gown fabric (v197). */
+export const GOWN_BOWS = [
+  { id: 'none', label: 'None' },
+  { id: 'back', label: 'Back waist', why: 'A small bow, about 8 cm wide, at the back of the waist, in the gown fabric.' },
+  { id: 'shoulder', label: 'Shoulder', why: 'A small bow, about 7 cm wide, on her left shoulder or sleeve band, in the gown fabric.' },
+] as const;
+export type GownBow = (typeof GOWN_BOWS)[number]['id'];
 
 export const GOWN_VEIL_STYLES = [
   { id: 'classic', label: 'Classic' },
@@ -543,6 +559,10 @@ export type GownConfig = {
   train: GownTrain;
   veil: GownVeil;
   veilStyle: GownVeilStyle;
+  /** A classic veil's front layer (v197). */
+  blusher: GownBlusher;
+  /** A small bow in the gown fabric (v197). */
+  bow: GownBow;
   hem: GownHem;
   /**
    * The length slider's own value (v189 `#g-hem`): 0 = the picked length (`hem`); below 0, the hem sits that many cm
@@ -625,10 +645,10 @@ export type GownOffer = {
   lookRefs: string[];
 };
 
-/** The v186 look keys (`LOOK_BASE`): a look, and the design the supplier opens on the mannequin, carry exactly these. */
+/** The look keys (v197 `LOOK_BASE`): a look, and the design the supplier opens on the mannequin, carry exactly these. */
 export const GOWN_LOOK_KEYS = [
-  'veilStyle', 'waist', 'pieces', 'sil', 'neck', 'sleeve', 'sleeveFab', 'back', 'closure', 'fabric', 'lace', 'laceAt', 'laceBeads', 'laceCol',
-  'bead', 'beadAt', 'beadDen', 'beadCol', 'train', 'veil', 'pleat', 'tex', 'darts', 'drape', 'bustle', 'petti', 'shape', 'boning',
+  'bow', 'blusher', 'veilStyle', 'waist', 'pieces', 'sil', 'neck', 'sleeve', 'sleeveFab', 'back', 'closure', 'fabric', 'lace', 'laceAt', 'laceBeads', 'laceCol',
+  'bead', 'beadAt', 'beadDen', 'beadCol', 'train', 'veil', 'pleat', 'tex', 'darts', 'drape', 'bustle', 'petti', 'shape', 'boning', 'overlay', 'ovFab',
 ] as const satisfies readonly (keyof GownConfig)[];
 export type GownLookKey = (typeof GOWN_LOOK_KEYS)[number];
 export type GownLook = Pick<GownConfig, GownLookKey>;
@@ -653,6 +673,8 @@ export function startingGownConfig(): GownConfig {
     train: 'none',
     veil: 'none',
     veilStyle: 'classic',
+    blusher: 'back',
+    bow: 'none',
     hem: 'floor',
     hemCm: r('hemCm'),
     heel: r('heelCm'),
@@ -1123,6 +1145,8 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
     train: pick('train', ids(GOWN_TRAINS)),
     veil: pick('veil', ids(GOWN_VEILS)),
     veilStyle: pick('veilStyle', ids(GOWN_VEIL_STYLES)),
+    blusher: pick('blusher', ids(GOWN_BLUSHERS)),
+    bow: pick('bow', ids(GOWN_BOWS)),
     hem: pick('hem', ids(GOWN_HEMS)),
     colour: pick('colour', ids(GOWN_COLOURS)),
     lace: pick('lace', ids(GOWN_LACES)),
@@ -1279,6 +1303,8 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
       train: p.train,
       veil: p.veil,
       veilStyle: p.veilStyle,
+      blusher: p.blusher,
+      bow: p.bow,
       hem: p.hem,
       hemCm: n.hemCm,
       heel: n.heel,

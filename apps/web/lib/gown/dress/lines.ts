@@ -32,8 +32,14 @@ export const GOWN_BALL_HEM_CM: Record<GownPetticoat, number> = { none: 0, soft: 
 /** A train's usual length past the hem, on the floor (cm). */
 export const GOWN_TRAIN_CM: Record<GownTrain, number> = { none: 0, sweep: 30, chapel: 120, cathedral: 210 };
 
-/** A veil's usual run on the floor past her heel (cm): fingertip ends at the fingertips. */
-export const GOWN_VEIL_CM: Record<Exclude<GownVeil, 'none'>, number> = { fingertip: 0, chapel: 140, cathedral: 240 };
+/**
+ * A long veil's length from the crown, as shops sell it (cm) (v197 `VEIL_CM`; chapel about 230, cathedral 275–305).
+ * Elbow, fingertip and floor end where their names say.
+ */
+export const GOWN_VEIL_CM: Record<'chapel' | 'cathedral', number> = { chapel: 230, cathedral: 290 };
+/** Chapel and cathedral run on along the floor (v197 `VEIL_LONG`); a floor veil touches it (`VEIL_FLOOR`). */
+export const gownVeilLong = (v: GownVeil): v is 'chapel' | 'cathedral' => v === 'chapel' || v === 'cathedral';
+export const gownVeilFloor = (v: GownVeil) => v === 'floor' || gownVeilLong(v);
 
 /** The cloth's ease over the skin at the bodice (mm). */
 export const GOWN_EASE_MM = 7;

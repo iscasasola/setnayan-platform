@@ -139,6 +139,15 @@ test('2. every onClick on a non-native element in these files has a keyboard way
   assert.deepEqual(bad, []);
 });
 
+/** Words a person reads inside a JSX child: text, an expression (it may print words), or either one nested deeper.
+ *  A JSX comment is an empty expression, so it is not words. */
+function wordsIn(c: ts.JsxChild): boolean {
+  if (ts.isJsxText(c)) return c.text.trim() !== '';
+  if (ts.isJsxExpression(c)) return !!c.expression;
+  if (ts.isJsxElement(c) || ts.isJsxFragment(c)) return c.children.some(wordsIn);
+  return false;
+}
+
 test('3. a picture- or icon-only <button> in these files has an accessible name', () => {
   const bad: string[] = [];
   for (const rel of FILES) {
@@ -147,11 +156,8 @@ test('3. a picture- or icon-only <button> in these files has an accessible name'
       if (ts.isJsxElement(n) && n.openingElement.tagName.getText() === 'button') {
         const a = attrs(n.openingElement);
         const named = a.has('aria-label') || a.has('aria-labelledby') || a.has('title');
-        const hasWords = n.children.some(
-          (c) => (ts.isJsxText(c) && c.text.trim() !== '') || (ts.isJsxExpression(c) && c.expression && !ts.isJsxElement(c.expression)),
-        );
-        const nestedWords = n.children.some((c) => ts.isJsxElement(c) && c.getText().replace(/<[^>]*>/g, '').replace(/\{\/\*[\s\S]*?\*\/\}/g, '').trim() !== '');
-        if (!named && !hasWords && !nestedWords) bad.push(`${where(sf, n)} <button> with only a picture or icon has no aria-label`);
+        const hasWords = n.children.some(wordsIn);
+        if (!named && !hasWords) bad.push(`${where(sf, n)} <button> with only a picture or icon has no aria-label`);
       }
       ts.forEachChild(n, walk);
     };

@@ -14,7 +14,19 @@
  * 🔒 lib/gown-config.test.ts
  */
 
-export const GOWN_CONFIG_VERSION = 1;
+/**
+ * v2 (accuracy review, owner 27 Nov; prototype v197): the A-line now leaves the body at the waist, and the old hip-hugging
+ * shape is a new silhouette, Fit and flare. A design saved at v1 with `sil: 'aline'` opens as Fit and flare, so it looks
+ * as it did when it was saved (v197 `lookGown`, `LOOK_V`). Bodies and quantities did not change: v1 is read as is.
+ */
+export const GOWN_CONFIG_VERSION = 2;
+/** Versions the checks still read (and migrate). */
+export const GOWN_CONFIG_VERSIONS_READ: readonly number[] = [1, 2];
+const versionOk = (v: unknown) => v == null || (typeof v === 'number' && GOWN_CONFIG_VERSIONS_READ.includes(v));
+/** A design saved before v2 with the old A-line opens as Fit and flare (v197). Anything else is unchanged. */
+export function gownMigrateSilhouette(sil: unknown, savedVersion: unknown): unknown {
+  return sil === 'aline' && typeof savedVersion === 'number' && savedVersion < 2 ? 'fitflare' : sil;
+}
 /** A design, a body and its measurements are small: refuse anything bigger before reading it further. */
 export const GOWN_CONFIG_MAX_BYTES = 8192;
 export const GOWN_BODY_MAX_BYTES = 2048;
@@ -50,6 +62,8 @@ export const GOWN_SILHOUETTES = [
   { id: 'mermaid', label: 'Mermaid' },
   { id: 'sheath', label: 'Sheath' },
   { id: 'terno', label: 'Filipiniana' },
+  // v197: close over the hips, then opens out below them (the A-line's old shape).
+  { id: 'fitflare', label: 'Fit and flare' },
 ] as const;
 export type GownSilhouette = (typeof GOWN_SILHOUETTES)[number]['id'];
 
@@ -75,22 +89,27 @@ export const GOWN_NECKLINES = [
   { id: 'off', label: 'Off-shoulder' },
   { id: 'high', label: 'High neck' },
   { id: 'bateau', label: 'Bateau' },
+  { id: 'straight', label: 'Straight across' },
 ] as const;
 export type GownNeckline = (typeof GOWN_NECKLINES)[number]['id'];
-/** Necklines with nothing over the shoulders (v186 `STRAPLESS`). */
-export const GOWN_STRAPLESS: readonly GownNeckline[] = ['sweetheart', 'off'];
+/** Necklines with nothing over the shoulders (v197 `STRAPLESS`). */
+export const GOWN_STRAPLESS: readonly GownNeckline[] = ['sweetheart', 'off', 'straight'];
 
 export const GOWN_SLEEVES = [
   { id: 'none', label: 'None' },
   { id: 'cap', label: 'Cap' },
   { id: 'long', label: 'Long' },
   { id: 'butterfly', label: 'Butterfly' },
+  // v195: soft fabric from the shoulder over the upper arm to about the elbow, open underneath, a fluted hem.
+  { id: 'flutter', label: 'Flutter' },
 ] as const;
 export type GownSleeve = (typeof GOWN_SLEEVES)[number]['id'];
 
 export const GOWN_SLEEVE_FABRICS = [
   { id: 'fabric', label: 'The gown fabric' },
   { id: 'lace', label: 'Sheer lace' },
+  // v195: soft see-through chiffon for the sleeves, in the gown colour (or the accent colour).
+  { id: 'chiffon', label: 'Sheer chiffon' },
 ] as const;
 export type GownSleeveFabric = (typeof GOWN_SLEEVE_FABRICS)[number]['id'];
 
@@ -116,13 +135,32 @@ export const GOWN_TRAINS = [
 ] as const;
 export type GownTrain = (typeof GOWN_TRAINS)[number]['id'];
 
+/** Veil lengths (v197): elbow, fingertip and floor end where their names say; chapel and cathedral are measured from the crown. */
 export const GOWN_VEILS = [
   { id: 'none', label: 'None' },
-  { id: 'fingertip', label: 'Fingertip' },
+  { id: 'fingertip', label: 'Fingertip', why: 'To her fingertips, about 1 m from the crown.' },
   { id: 'chapel', label: 'Chapel' },
   { id: 'cathedral', label: 'Cathedral' },
+  // v197 (appended: the catalog keeps its order; `GOWN_VEIL_ORDER` is the order she reads them in).
+  { id: 'elbow', label: 'Elbow', why: 'To her elbows: a short, light veil.' },
+  { id: 'floor', label: 'Floor', why: 'Just touches the floor behind her.' },
 ] as const;
 export type GownVeil = (typeof GOWN_VEILS)[number]['id'];
+/** Shortest to longest, as the prototype lists them (v197). */
+export const GOWN_VEIL_ORDER: readonly GownVeil[] = ['none', 'elbow', 'fingertip', 'floor', 'chapel', 'cathedral'];
+/** A classic veil's front layer (v197): worn back over the head, or over her face. */
+export const GOWN_BLUSHERS = [
+  { id: 'back', label: 'Worn back', why: 'The front layer is worn back over the head: her face is open.' },
+  { id: 'over', label: 'Over the face', why: 'A short front layer of tulle falls over her face, lifted back at the ceremony.' },
+] as const;
+export type GownBlusher = (typeof GOWN_BLUSHERS)[number]['id'];
+/** A small bow in the gown fabric (v197). */
+export const GOWN_BOWS = [
+  { id: 'none', label: 'None' },
+  { id: 'back', label: 'Back waist', why: 'A small bow, about 8 cm wide, at the back of the waist, in the gown fabric.' },
+  { id: 'shoulder', label: 'Shoulder', why: 'A small bow, about 7 cm wide, on her left shoulder or sleeve band, in the gown fabric.' },
+] as const;
+export type GownBow = (typeof GOWN_BOWS)[number]['id'];
 
 export const GOWN_VEIL_STYLES = [
   { id: 'classic', label: 'Classic' },
@@ -132,6 +170,103 @@ export const GOWN_VEIL_STYLES = [
   { id: 'birdcage', label: 'Birdcage' },
 ] as const;
 export type GownVeilStyle = (typeof GOWN_VEIL_STYLES)[number]['id'];
+
+/** The cape catalogue (v196, as v197 has it). `why` is the line under the choice. Appended only: the ids keep their place. */
+export const GOWN_CAPES = [
+  { id: 'none', label: 'None', why: 'No cape.' },
+  { id: 'side', label: 'Side cape', why: 'One panel from a strap on her left shoulder, round the front of the arm and down her side and back to the floor, with an appliqué edge.' },
+  { id: 'back', label: 'Back cape', why: 'Hangs down her back only, from the neck or from the shoulders, and runs on over any train. The veil stays fingertip or shorter.' },
+  { id: 'capelet', label: 'Capelet', why: 'A short cape round both shoulders, open at the front with a small clasp at the neck. Covers the shoulders, for example in church.' },
+  { id: 'neck', label: 'Neck cape', why: 'Fastened at a thin band round her neck, it falls over both shoulders and arms, open at the front below the band, to the floor with its own short train. Sheer tulle unless you pick another.' },
+  { id: 'pair', label: 'Pair of shoulder capes', why: 'One panel from each shoulder, over the arm and down to the floor; her back stays bare between them. Each is fastened on the shoulder.' },
+  { id: 'drape', label: 'One-shoulder drape', why: 'One soft strip of chiffon from her right shoulder, beside the arm, falling to the floor.' },
+] as const;
+export type GownCape = (typeof GOWN_CAPES)[number]['id'];
+/** What a cape is made of (v196 `CAPE_FABS`). */
+export const GOWN_CAPE_FABRICS = [
+  { id: 'gown', label: 'The gown fabric' },
+  { id: 'tulle', label: 'Tulle' },
+  { id: 'chiffon', label: 'Chiffon' },
+  { id: 'organza', label: 'Organza' },
+  { id: 'lace', label: 'Lace' },
+] as const;
+export type GownCapeFabric = (typeof GOWN_CAPE_FABRICS)[number]['id'];
+/** How long a cape is (v196 `CAPE_LENS`). */
+export const GOWN_CAPE_LENGTHS = [
+  { id: 'shoulder', label: 'Shoulder' },
+  { id: 'elbow', label: 'Elbow' },
+  { id: 'fingertip', label: 'Fingertip' },
+  { id: 'floor', label: 'Floor' },
+  { id: 'train', label: 'With a train' },
+] as const;
+export type GownCapeLength = (typeof GOWN_CAPE_LENGTHS)[number]['id'];
+/** A cape's free edge (v196 `CAPE_EDGES`). */
+export const GOWN_CAPE_EDGES = [
+  { id: 'plain', label: 'Plain' },
+  { id: 'lace', label: 'Lace border' },
+  { id: 'beaded', label: 'Beaded' },
+  { id: 'applique', label: 'Appliqué' },
+] as const;
+export type GownCapeEdge = (typeof GOWN_CAPE_EDGES)[number]['id'];
+/** Where a back cape is fastened (v196). */
+export const GOWN_CAPE_FASTENINGS = [
+  { id: 'neck', label: 'At the neck, small clasp' },
+  { id: 'shoulders', label: 'At the shoulders' },
+] as const;
+export type GownCapeFastening = (typeof GOWN_CAPE_FASTENINGS)[number]['id'];
+/** A cape in the gown fabric is in the gown colour or the accent colour (v196). */
+export const GOWN_CAPE_COLOURS = [
+  { id: 'match', label: 'The gown colour' },
+  { id: 'accent', label: 'The accent colour' },
+] as const;
+export type GownCapeColour = (typeof GOWN_CAPE_COLOURS)[number]['id'];
+/** Each cape comes with its own material, length and edge, and the lengths it can be (v196 `CAPE_DEF`). */
+export const GOWN_CAPE_DEF: Record<Exclude<GownCape, 'none'>, { fab: GownCapeFabric; len: GownCapeLength; edge: GownCapeEdge; lens: readonly GownCapeLength[] }> = {
+  neck: { fab: 'tulle', len: 'train', edge: 'plain', lens: ['elbow', 'fingertip', 'floor', 'train'] },
+  back: { fab: 'gown', len: 'floor', edge: 'plain', lens: ['shoulder', 'elbow', 'fingertip', 'floor', 'train'] },
+  pair: { fab: 'tulle', len: 'train', edge: 'plain', lens: ['elbow', 'fingertip', 'floor', 'train'] },
+  side: { fab: 'tulle', len: 'train', edge: 'applique', lens: ['elbow', 'fingertip', 'floor', 'train'] },
+  capelet: { fab: 'gown', len: 'shoulder', edge: 'plain', lens: ['shoulder', 'elbow'] },
+  drape: { fab: 'chiffon', len: 'floor', edge: 'plain', lens: ['fingertip', 'floor', 'train'] },
+};
+/** A cape cut from the gown's own fabric in the gown colour: counted with the outer fabric (v196 `capeInGownFab`). */
+export const gownCapeInGownFabric = (d: Pick<GownConfig, 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'accentHex'>) =>
+  d.cape !== 'none' && gownCapeNow(d).fab === 'gown' && !(d.capeCol === 'accent' && !!d.accentHex);
+/** Capes that lie over the arms (not with flutter or butterfly sleeves) (v196 `CAPE_ARMS`). */
+export const GOWN_CAPE_ARMS: readonly GownCape[] = ['neck', 'pair', 'side', 'capelet', 'drape'];
+/** Capes hung from one shoulder: a strapless neckline gets a narrow strap there (v196 `CAPE_STRAP`). */
+export const GOWN_CAPE_STRAP: Partial<Record<GownCape, 'L' | 'R'>> = { side: 'L', drape: 'R' };
+/** What the cape really is: its own choices, or the type's defaults until she picks (v196 `capeFabNow` and the rest). */
+export function gownCapeNow(d: Pick<GownConfig, 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten'>) {
+  const def = d.cape === 'none' ? null : GOWN_CAPE_DEF[d.cape];
+  const len: GownCapeLength = !def ? 'floor' : d.capeLen && def.lens.includes(d.capeLen) ? d.capeLen : def.len;
+  return {
+    fab: (def ? d.capeFab ?? def.fab : 'gown') as GownCapeFabric,
+    len,
+    edge: (def ? d.capeEdge ?? def.edge : 'plain') as GownCapeEdge,
+    fasten: (d.capeFasten === 'shoulders' ? 'shoulders' : 'neck') as GownCapeFastening,
+    /** Fingertip or longer (v196 `capeLong`). */
+    long: !!def && (len === 'fingertip' || len === 'floor' || len === 'train'),
+  };
+}
+
+/** An overlay over the skirt (v195), sewn at the waist, stopping above the floor. `why` is the line under the choice. */
+export const GOWN_OVERLAYS = [
+  { id: 'none', label: 'None', why: 'No overlay.' },
+  { id: 'asym', label: 'Asymmetric', why: 'One panel of soft fabric over the skirt: high at her right hip, falling on a diagonal to near the floor on her left, with a soft cascade at the low point.' },
+  { id: 'tiered', label: 'Tiered', why: 'Three soft layers over the skirt, each shorter than the one under it.' },
+  { id: 'cascade', label: 'Cascade', why: 'Handkerchief hem: the overlay falls in six soft points round the skirt.' },
+] as const;
+export type GownOverlay = (typeof GOWN_OVERLAYS)[number]['id'];
+/** What the overlay is made of (v195): a sheer, or the gown's own fabric. */
+export const GOWN_OVERLAY_FABRICS = [
+  { id: 'chiffon', label: 'Chiffon' },
+  { id: 'georgette', label: 'Georgette' },
+  { id: 'tulle', label: 'Tulle' },
+  { id: 'organza', label: 'Organza' },
+  { id: 'gown', label: 'The gown fabric' },
+] as const;
+export type GownOverlayFabric = (typeof GOWN_OVERLAY_FABRICS)[number]['id'];
 
 /** The length (v186 `#hems`): "Tea" is the midi. */
 export const GOWN_HEMS = [
@@ -358,6 +493,32 @@ export const GOWN_LININGS = [
 ] as const;
 export type GownLining = (typeof GOWN_LININGS)[number]['id'];
 
+/**
+ * Each layer under the skirt (v192/v193 `LTYPES`), counted out from her: layer 1 is next to her. A hoop can only be
+ * layer 1. `fill` is how much the material holds the skirt out (v193 `LFULL`: smaller is fuller).
+ */
+export const GOWN_LAYER_TYPES = [
+  { id: 'soft', label: 'Soft tulle', why: 'Light and airy: a gentle lift.', fill: 0.11 },
+  { id: 'full', label: 'Full tulle', why: 'Stiffer net: more volume.', fill: 0.06 },
+  { id: 'organza', label: 'Organza', why: 'Crisp and sheer: a soft glow and light body.', fill: 0.09 },
+  { id: 'chiffon', label: 'Chiffon', why: 'Soft and flowing: almost no volume.', fill: 0.14 },
+  { id: 'hoop', label: 'Hoop (crinoline)', why: 'Rings next to her body: the widest skirt.', fill: 0.06 },
+] as const;
+export type GownLayerType = (typeof GOWN_LAYER_TYPES)[number]['id'];
+/** The most layers under a skirt (the skirtLayers slider's top). */
+export const GOWN_MAX_LAYERS = 6;
+
+/** The colour of an inside layer or the lining (v193 `LCOLS`): the gown's own, or a stock shade. */
+export const GOWN_LAYER_COLOURS = [
+  { id: 'match', label: 'Match the gown', hex: null },
+  { id: 'ivory', label: 'Ivory', hex: '#f3ecdf' },
+  { id: 'white', label: 'White', hex: '#fbfbf8' },
+  { id: 'blush', label: 'Blush', hex: '#f1d3cf' },
+  { id: 'champagne', label: 'Champagne', hex: '#e9d6b5' },
+  { id: 'nude', label: 'Nude', hex: '#e3c3a8' },
+] as const;
+export type GownLayerColour = (typeof GOWN_LAYER_COLOURS)[number]['id'];
+
 export const GOWN_SLITS = [
   { id: 'left', label: 'Left front' },
   { id: 'right', label: 'Right front' },
@@ -425,6 +586,8 @@ export const GOWN_RANGES = {
   backT: [0, 1, 0.002, 0.3],
   slitCm: [10, 80, 1, 45],
   cutScale: [60, 160, 5, 100],
+  /** A cape's own train on the floor, when it has one (cm) (v196 `#g-capeCm`). */
+  capeCm: [20, 200, 5, 60],
   pleatN: [12, 32, 2, 24],
   pleatCm: [1, 8, 0.5, 3],
   texSp: [0.3, 6, 0.1, 1],
@@ -471,8 +634,15 @@ export type GownConfig = {
   train: GownTrain;
   veil: GownVeil;
   veilStyle: GownVeilStyle;
+  /** A classic veil's front layer (v197). */
+  blusher: GownBlusher;
+  /** A small bow in the gown fabric (v197). */
+  bow: GownBow;
   hem: GownHem;
-  /** Shortens the hem from the picked length, in cm (≤ 0). */
+  /**
+   * The length slider's own value (v189 `#g-hem`): 0 = the picked length (`hem`); below 0, the hem sits that many cm
+   * above the floor (a length between the presets; the slider snaps back to Knee, Tea or Floor within 2 cm).
+   */
   hemCm: number;
   /** Her wedding shoes, cm (Elevation). */
   heel: number;
@@ -514,11 +684,27 @@ export type GownConfig = {
   darts: GownDarts;
   drape: GownDrape;
   bustle: GownBustle;
+  /** Derived from the layers (`gownPettiOf`): kept for the looks and the quantities. */
   petti: GownPetticoat;
   skirtLayers: number;
+  /** Each layer's material and colour, layer 1 next to her (always GOWN_MAX_LAYERS long; the first `skirtLayers` are worn). */
+  layerTypes: GownLayerType[];
+  layerCols: GownLayerColour[];
   shape: GownShapewear;
   boning: GownBoning;
   lining: GownLining;
+  liningCol: GownLayerColour;
+  cape: GownCape;
+  /** The cape's details (v196): null takes the cape's own (`GOWN_CAPE_DEF`, read through `gownCapeNow`). */
+  capeFab: GownCapeFabric | null;
+  capeLen: GownCapeLength | null;
+  capeEdge: GownCapeEdge | null;
+  capeFasten: GownCapeFastening | null;
+  capeCol: GownCapeColour;
+  /** The cape's own train on the floor (cm), for a cape "with a train". */
+  capeCm: number;
+  overlay: GownOverlay;
+  ovFab: GownOverlayFabric;
   waistStay: boolean;
   horsehair: boolean;
   modesty: boolean;
@@ -542,10 +728,10 @@ export type GownOffer = {
   lookRefs: string[];
 };
 
-/** The v186 look keys (`LOOK_BASE`): a look, and the design the supplier opens on the mannequin, carry exactly these. */
+/** The look keys (v197 `LOOK_BASE`): a look, and the design the supplier opens on the mannequin, carry exactly these. */
 export const GOWN_LOOK_KEYS = [
-  'veilStyle', 'waist', 'pieces', 'sil', 'neck', 'sleeve', 'sleeveFab', 'back', 'closure', 'fabric', 'lace', 'laceAt', 'laceBeads', 'laceCol',
-  'bead', 'beadAt', 'beadDen', 'beadCol', 'train', 'veil', 'pleat', 'tex', 'darts', 'drape', 'bustle', 'petti', 'shape', 'boning',
+  'bow', 'blusher', 'veilStyle', 'waist', 'pieces', 'sil', 'neck', 'sleeve', 'sleeveFab', 'back', 'closure', 'fabric', 'lace', 'laceAt', 'laceBeads', 'laceCol',
+  'bead', 'beadAt', 'beadDen', 'beadCol', 'train', 'veil', 'pleat', 'tex', 'darts', 'drape', 'bustle', 'petti', 'shape', 'boning', 'overlay', 'ovFab',
 ] as const satisfies readonly (keyof GownConfig)[];
 export type GownLookKey = (typeof GOWN_LOOK_KEYS)[number];
 export type GownLook = Pick<GownConfig, GownLookKey>;
@@ -570,6 +756,8 @@ export function startingGownConfig(): GownConfig {
     train: 'none',
     veil: 'none',
     veilStyle: 'classic',
+    blusher: 'back',
+    bow: 'none',
     hem: 'floor',
     hemCm: r('hemCm'),
     heel: r('heelCm'),
@@ -607,10 +795,23 @@ export function startingGownConfig(): GownConfig {
     bustle: 'none',
     petti: 'soft',
     skirtLayers: r('skirtLayers'),
+    layerTypes: Array<GownLayerType>(GOWN_MAX_LAYERS).fill('soft'),
+    layerCols: Array<GownLayerColour>(GOWN_MAX_LAYERS).fill('match'),
     shape: 'none',
-    boning: 'soft',
+    // v197: a fresh gown is boned, with a waist stay (its sweetheart bodice holds itself up).
+    boning: 'complement',
     lining: 'satin',
-    waistStay: false,
+    liningCol: 'match',
+    cape: 'none',
+    capeFab: null,
+    capeLen: null,
+    capeEdge: null,
+    capeFasten: null,
+    capeCol: 'match',
+    capeCm: r('capeCm'),
+    overlay: 'none',
+    ovFab: 'chiffon',
+    waistStay: true,
     horsehair: false,
     modesty: false,
     slits: [],
@@ -624,6 +825,30 @@ export function startingGownConfig(): GownConfig {
     trimHex: null,
     notes: '',
   };
+}
+
+/** How many layers she wears under the skirt (v193 `layerN`): none without a petticoat, else at least one. */
+export const gownLayerCount = (c: Pick<GownConfig, 'petti' | 'skirtLayers'>) => (c.petti === 'none' ? 0 : Math.max(1, Math.round(c.skirtLayers || 1)));
+
+/** The petticoat the worn layers make (v193 `layerPetti`): a hoop as layer 1, any full tulle, else soft. */
+export function gownPettiOf(n: number, types: readonly GownLayerType[]): GownPetticoat {
+  if (n === 0) return 'none';
+  if (types[0] === 'hoop') return 'hoop';
+  return types.slice(0, n).some((x) => x === 'full') ? 'full' : 'soft';
+}
+
+/**
+ * Keep the layers and the petticoat choice in agreement (v193 `layerSync`): a hoop petticoat puts the hoop at layer 1,
+ * a full one needs a full tulle layer, a soft one has neither. A hoop is never above layer 1. Returns a new list.
+ */
+export function gownSyncLayers(petti: GownPetticoat, n: number, types: readonly GownLayerType[]): GownLayerType[] {
+  const t = Array.from({ length: GOWN_MAX_LAYERS }, (_, i) => types[i] ?? 'soft');
+  if (petti === 'hoop' && t[0] !== 'hoop') t[0] = 'hoop';
+  if (petti !== 'hoop') for (let i = 0; i < t.length; i++) if (t[i] === 'hoop') t[i] = 'full';
+  if (petti === 'full' && !t.slice(0, n).some((x) => x === 'full')) t[0] = 'full';
+  if (petti === 'soft') for (let i = 0; i < t.length; i++) if (t[i] === 'full' || t[i] === 'hoop') t[i] = 'soft';
+  for (let i = 1; i < t.length; i++) if (t[i] === 'hoop') t[i] = 'full';
+  return t;
 }
 
 /** The look keys of a design (what the supplier's "Open on the mannequin" and a saved look carry). */
@@ -695,7 +920,7 @@ export const GOWN_BODY_RANGE: Record<GownBodyKey, readonly [number, number, numb
   waist: [50, 150, 68],
   hips: [70, 170, 90],
   underbust: [37, 156, 72],
-  shoulders: [29, 63, 35.5],
+  shoulders: [29, 63, 38], // v189 (owner-approved design review): 24.5 % of 155 cm
   arm: [0.28 / 0.3, 0.37 / 0.3, 1],
   leg: [0.45 / 0.525, 0.6 / 0.525, 0.915],
 };
@@ -803,8 +1028,21 @@ export type GownQuantities = {
     /** The accent fabric for the sleeves, when it is not the outer. */
     accentM: number;
     liningM: number;
-    /** Petticoat and veil tulle. */
+    /** Tulle for the layers under the skirt (soft and full tulle, and the net over a hoop). */
     netM: number;
+    /** Organza and chiffon layers under the skirt (v192: each layer its own material). */
+    organzaM: number;
+    chiffonM: number;
+    /** Chiffon for flutter sleeves made in sheer chiffon (v195). Flutter sleeves in the gown fabric are in `outerM`; in the accent, `accentM`. */
+    sleeveChiffonM: number;
+    /** The overlay's own fabric (`ovFab`), when it is not the gown's (v195). An overlay in the gown fabric is in `outerM`. */
+    overlayM: number;
+    /** The cape's own fabric (v196: in the design's `capeFab`, or the accent fabric for a gown-fabric cape in the accent colour). A cape cut from the gown fabric in the gown colour is in `outerM`. */
+    capeM: number;
+    /** A narrow strap holding a cape on a strapless neckline (v196). */
+    ribbonM: number;
+    /** The veil's own tulle, apart from the petticoat's, so a priced veil add-on is never counted twice. */
+    veilM: number;
     illusionM: number;
     boningM: number;
     /** Lace by the yard (tiled lace and sheer lace sleeves). */
@@ -839,11 +1077,17 @@ export type GownQuantities = {
     veil: GownVeil;
     trimM: number;
     twoPiece: boolean;
+    /** The cape to cut, sew and finish (its fabric is in `outerM` or `capeM`; a lace or appliqué border in `laceYardM` or `laceMotifs`, a beaded one in `beads`). */
+    cape: GownCape;
+    /** Flutter sleeves to cut, sew and finish, in pairs (v195). */
+    flutter: number;
+    /** The overlay to cut, sew and finish, in pieces (v195). */
+    overlay: number;
   };
 };
 
 export const GOWN_MATERIAL_KEYS = [
-  'outerM', 'accentM', 'liningM', 'netM', 'illusionM', 'boningM', 'laceYardM', 'laceMotifs', 'horsehairM', 'cordM', 'pipingM', 'fringeM',
+  'outerM', 'accentM', 'liningM', 'netM', 'organzaM', 'chiffonM', 'sleeveChiffonM', 'overlayM', 'capeM', 'ribbonM', 'veilM', 'illusionM', 'boningM', 'laceYardM', 'laceMotifs', 'horsehairM', 'cordM', 'pipingM', 'fringeM',
   'featherM', 'ruffleM', 'zippers', 'buttons', 'eyelets', 'waistStays', 'hoops',
 ] as const satisfies readonly Exclude<keyof GownQuantities['materials'], 'beads'>[];
 type GownMaterialKey = (typeof GOWN_MATERIAL_KEYS)[number];
@@ -857,7 +1101,7 @@ export function emptyGownQuantities(): GownQuantities {
   return {
     v: GOWN_CONFIG_VERSION,
     materials: { ...materials, beads },
-    labour: { sleeve: 'none', beads: 0, laceMotifs: 0, laceYardM: 0, pleats: 0, tex: 'none', darts: false, cutouts: 0, slits: 0, train: 'none', veil: 'none', trimM: 0, twoPiece: false },
+    labour: { sleeve: 'none', beads: 0, laceMotifs: 0, laceYardM: 0, pleats: 0, tex: 'none', darts: false, cutouts: 0, slits: 0, train: 'none', veil: 'none', trimM: 0, twoPiece: false, cape: 'none', flutter: 0, overlay: 0 },
   };
 }
 
@@ -976,7 +1220,7 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
   if (size !== 'ok') return no(size);
   if (!isRecord(input)) return no('not_a_design');
   const r = input;
-  if (r.v != null && r.v !== GOWN_CONFIG_VERSION) return no('not_a_design');
+  if (!versionOk(r.v)) return no('not_a_design');
   const s = startingGownConfig();
 
   const pick = <T extends string>(k: keyof GownConfig, all: readonly T[]): T | null => {
@@ -984,7 +1228,7 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
     return isOneOf(x, all) ? x : null;
   };
   const picks = {
-    sil: pick('sil', ids(GOWN_SILHOUETTES)),
+    sil: isOneOf(gownMigrateSilhouette(r.sil ?? s.sil, r.v), ids(GOWN_SILHOUETTES)) ? (gownMigrateSilhouette(r.sil ?? s.sil, r.v) as GownSilhouette) : null,
     pieces: pick('pieces', ids(GOWN_PIECES)),
     waist: pick('waist', ids(GOWN_WAISTLINES)),
     neck: pick('neck', ids(GOWN_NECKLINES)),
@@ -995,6 +1239,8 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
     train: pick('train', ids(GOWN_TRAINS)),
     veil: pick('veil', ids(GOWN_VEILS)),
     veilStyle: pick('veilStyle', ids(GOWN_VEIL_STYLES)),
+    blusher: pick('blusher', ids(GOWN_BLUSHERS)),
+    bow: pick('bow', ids(GOWN_BOWS)),
     hem: pick('hem', ids(GOWN_HEMS)),
     colour: pick('colour', ids(GOWN_COLOURS)),
     lace: pick('lace', ids(GOWN_LACES)),
@@ -1012,12 +1258,28 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
     shape: pick('shape', ids(GOWN_SHAPEWEAR)),
     boning: pick('boning', ids(GOWN_BONING)),
     lining: pick('lining', ids(GOWN_LININGS)),
+    liningCol: pick('liningCol', ids(GOWN_LAYER_COLOURS)),
+    cape: pick('cape', ids(GOWN_CAPES)),
+    capeCol: pick('capeCol', ids(GOWN_CAPE_COLOURS)),
+    overlay: pick('overlay', ids(GOWN_OVERLAYS)),
+    ovFab: pick('ovFab', ids(GOWN_OVERLAY_FABRICS)),
     cutEdge: pick('cutEdge', ids(GOWN_CUT_EDGES)),
     cutFill: pick('cutFill', ids(GOWN_CUT_FILLS)),
     trimCol: pick('trimCol', ids(GOWN_TRIM_COLOURS)),
   };
   for (const v of Object.values(picks)) if (v === null) return no('not_a_design');
   const p = picks as { [K in keyof typeof picks]: NonNullable<(typeof picks)[K]> };
+  // A design saved before version 2 opens as v197 opens an order (through its pairing rules): a sheath or mermaid's long
+  // train becomes a sweep and its full petticoat or hoop soft tulle, a sheath loses its pleats, a strapless bodice its
+  // cap sleeves and cowl. What is stored is then a version 2 design, which the refusals below hold.
+  if (typeof r.v === 'number' && r.v < 2) {
+    const bare = GOWN_STRAPLESS.includes(p.neck), close = p.sil === 'sheath' || p.sil === 'mermaid';
+    if (close && (p.train === 'chapel' || p.train === 'cathedral')) p.train = 'sweep';
+    if (close && (p.petti === 'full' || p.petti === 'hoop')) p.petti = 'soft';
+    if (p.sil === 'sheath') p.pleat = 'none';
+    if (bare && p.neck !== 'off' && p.sleeve === 'cap') p.sleeve = 'none';
+    if (bare && p.drape === 'cowl') p.drape = 'none';
+  }
 
   // Sliders: on their own range and steps. neckT may be null (the neckline's own depth).
   const num = (k: keyof GownConfig, range: GownRangeKey): number | null => {
@@ -1035,11 +1297,49 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
     skirtLayers: num('skirtLayers', 'skirtLayers'),
     slitCm: num('slitCm', 'slitCm'),
     cutScale: num('cutScale', 'cutScale'),
+    capeCm: num('capeCm', 'capeCm'),
   };
   for (const v of Object.values(nums)) if (v === null) return no('out_of_range');
   const n = nums as { [K in keyof typeof nums]: number };
   const neckT = r.neckT ?? null;
   if (neckT !== null && !onRange(neckT, 'neckT')) return no('out_of_range');
+  // The cape's details: null (the cape's own) or one of the list; a length the cape cannot be is refused.
+  const orNull = <T extends string>(k: keyof GownConfig, all: readonly T[]): T | null | undefined => {
+    const x = r[k] ?? null;
+    return x === null ? null : isOneOf(x, all) ? x : undefined;
+  };
+  const capeD = { capeFab: orNull('capeFab', ids(GOWN_CAPE_FABRICS)), capeLen: orNull('capeLen', ids(GOWN_CAPE_LENGTHS)), capeEdge: orNull('capeEdge', ids(GOWN_CAPE_EDGES)), capeFasten: orNull('capeFasten', ids(GOWN_CAPE_FASTENINGS)) };
+  if (Object.values(capeD).some((v) => v === undefined)) return no('not_a_design');
+  if (p.cape !== 'none' && capeD.capeLen && !GOWN_CAPE_DEF[p.cape].lens.includes(capeD.capeLen)) return no('not_a_design');
+
+  // Inside: each layer's material and colour. Given layers must make the petticoat the design names; a design without
+  // them (older, or a look) takes the layers its petticoat implies.
+  const layerList = <T extends string>(k: 'layerTypes' | 'layerCols', all: readonly T[], fill: T): T[] | null => {
+    const x = r[k];
+    if (x == null) return Array<T>(GOWN_MAX_LAYERS).fill(fill);
+    return Array.isArray(x) && x.length === GOWN_MAX_LAYERS && x.every((v) => isOneOf(v, all)) ? (x as T[]) : null;
+  };
+  const layerTypes = layerList('layerTypes', ids(GOWN_LAYER_TYPES), 'soft'), layerCols = layerList('layerCols', ids(GOWN_LAYER_COLOURS), 'match');
+  if (!layerTypes || !layerCols || layerTypes.slice(1).includes('hoop')) return no('not_a_design');
+  const worn = gownLayerCount({ petti: p.petti, skirtLayers: n.skirtLayers });
+  if (r.layerTypes != null && gownPettiOf(worn, layerTypes) !== p.petti) return no('not_a_design');
+  const inside = { layerTypes: r.layerTypes != null ? layerTypes : gownSyncLayers(p.petti, worn, layerTypes), layerCols };
+  // Pairings that cannot be made (v193 `setGown`): the server refuses what the maker would have changed.
+  if (p.cape !== 'none' && p.sleeve === 'butterfly') return no('not_a_design');
+  // v196: a cape down her back (a back cape, or a long neck cape) and a veil to the floor would cover each other.
+  const capeLong = p.cape !== 'none' && gownCapeNow({ cape: p.cape, capeFab: null, capeLen: capeD.capeLen ?? null, capeEdge: null, capeFasten: null }).long;
+  if ((p.cape === 'back' || (p.cape === 'neck' && capeLong)) && (p.veil === 'floor' || p.veil === 'chapel' || p.veil === 'cathedral')) return no('not_a_design');
+  // v195: flutter sleeves hang from the shoulder line (never a sweetheart), and a cape over the arms would lie over them (v196).
+  if (p.sleeve === 'flutter' && (p.neck === 'sweetheart' || GOWN_CAPE_ARMS.includes(p.cape))) return no('not_a_design');
+  // v195: over a ball gown an overlay sits as soft tiers only.
+  if (p.sil === 'ball' && (p.overlay === 'asym' || p.overlay === 'cascade')) return no('not_a_design');
+  // Accuracy review (v197): a strapless bodice has no shoulder for a cap sleeve or a cowl; a sheath or mermaid carries a
+  // sweep train at most and no full petticoat or hoop; a sheath takes no pleats. (A strapless back's bra-line limit
+  // depends on her body, so the maker holds it.)
+  const strapless = GOWN_STRAPLESS.includes(p.neck), close = p.sil === 'sheath' || p.sil === 'mermaid';
+  if (strapless && ((p.neck !== 'off' && p.sleeve === 'cap') || p.drape === 'cowl')) return no('not_a_design');
+  if (close && (p.train === 'chapel' || p.train === 'cathedral' || p.petti === 'full' || p.petti === 'hoop')) return no('not_a_design');
+  if (p.sil === 'sheath' && p.pleat !== 'none') return no('not_a_design');
 
   const bools = { waistStay: r.waistStay ?? false, horsehair: r.horsehair ?? false, modesty: r.modesty ?? false };
   for (const v of Object.values(bools)) if (typeof v !== 'boolean') return no('not_a_design');
@@ -1127,6 +1427,8 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
       train: p.train,
       veil: p.veil,
       veilStyle: p.veilStyle,
+      blusher: p.blusher,
+      bow: p.bow,
       hem: p.hem,
       hemCm: n.hemCm,
       heel: n.heel,
@@ -1164,9 +1466,21 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
       bustle: p.bustle,
       petti: p.petti,
       skirtLayers: n.skirtLayers,
+      layerTypes: inside.layerTypes,
+      layerCols: inside.layerCols,
       shape: p.shape,
       boning: p.boning,
       lining: p.lining,
+      liningCol: p.liningCol,
+      cape: p.cape,
+      capeFab: capeD.capeFab ?? null,
+      capeLen: capeD.capeLen ?? null,
+      capeEdge: capeD.capeEdge ?? null,
+      capeFasten: capeD.capeFasten ?? null,
+      capeCol: p.capeCol,
+      capeCm: n.capeCm,
+      overlay: p.overlay,
+      ovFab: p.ovFab,
       waistStay: b.waistStay,
       horsehair: b.horsehair,
       modesty: b.modesty,
@@ -1196,7 +1510,7 @@ export function sanitizeGownBody(input: unknown): { ok: true; body: GownBody } |
   if (!isRecord(input) || !isRecord(input.vals)) return no('not_a_design');
   const r = input;
   const rv = input.vals;
-  if (r.v != null && r.v !== GOWN_CONFIG_VERSION) return no('not_a_design');
+  if (!versionOk(r.v)) return no('not_a_design');
   const vals = {} as GownBodyVals;
   for (const k of GOWN_BODY_KEYS) {
     const x = rv[k];
@@ -1255,7 +1569,7 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
   const size = sizeOk(input, GOWN_QUANTITIES_MAX_BYTES);
   if (size !== 'ok') return no(size);
   if (!isRecord(input) || !isRecord(input.materials) || !isRecord(input.labour)) return no('quantities');
-  if (input.v != null && input.v !== GOWN_CONFIG_VERSION) return no('quantities');
+  if (!versionOk(input.v)) return no('quantities');
   const known = (o: Record<string, unknown>, keys: readonly string[]) => Object.keys(o).every((k) => keys.includes(k));
   if (!known(input, ['v', 'materials', 'labour'])) return no('quantities');
   const qty = (v: unknown, count: boolean, max: number): number | null =>
@@ -1283,6 +1597,11 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
   const tex = L.tex ?? 'none';
   const train = L.train ?? 'none';
   const veil = L.veil ?? 'none';
+  const cape = L.cape ?? 'none';
+  if (!isOneOf(cape, ids(GOWN_CAPES))) return no('quantities');
+  const flutter = qty(L.flutter ?? 0, true, 1);
+  const overlay = qty(L.overlay ?? 0, true, 1);
+  if (flutter === null || overlay === null) return no('quantities');
   if (!isOneOf(sleeve, ids(GOWN_SLEEVES)) || !isOneOf(tex, ids(GOWN_TEXTURES)) || !isOneOf(train, ids(GOWN_TRAINS)) || !isOneOf(veil, ids(GOWN_VEILS))) {
     return no('quantities');
   }
@@ -1299,7 +1618,7 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
   if (beads === null || laceMotifs === null || laceYardM === null || pleats === null || cutouts === null || slits === null || trimM === null) {
     return no('quantities');
   }
-  q.labour = { sleeve, beads, laceMotifs, laceYardM, pleats, tex, darts, cutouts, slits, train, veil, trimM, twoPiece };
+  q.labour = { sleeve, beads, laceMotifs, laceYardM, pleats, tex, darts, cutouts, slits, train, veil, trimM, twoPiece, cape, flutter, overlay };
   return { ok: true, quantities: q };
 }
 
@@ -1311,7 +1630,7 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
 export type GownPrototypeOrder = {
   notes?: string;
   look?: string;
-  design3d: { gown: Partial<Record<GownLookKey, string>>; col?: string | null; colHex?: string | null; hem?: string; heel?: number };
+  design3d: { v?: number; gown: Partial<Record<GownLookKey, string>>; col?: string | null; colHex?: string | null; hem?: string; heel?: number };
   vals: Partial<Record<GownBodyKey, number>>;
   fine: { bustT?: number; bustPos?: string; athletic?: boolean; given?: string[] };
   matters?: string[];
@@ -1333,6 +1652,8 @@ export function gownFromPrototypeOrder(
   const config = sanitizeGownConfig(
     {
       ...d.gown,
+      // A prototype order from before v197 (no design version) made its A-line the old way: it opens as Fit and flare.
+      v: d.v ?? 1,
       lookName: order.look ?? '',
       hem: d.hem,
       heel: d.heel,

@@ -127,11 +127,12 @@ test('v171 snaps: heels to Flat, 4, 7, 10, 12 within 0.75 cm; the bust position 
   assert.equal(gownInches(0.5), '¼');
 });
 
-test('v167 shoulders follow height and ribcage; v173 fat share; v186 shapewear takes its share', () => {
+test('v189 shoulders follow height (24.5 %) and ribcage; v173 fat share; v186 shapewear takes its share', () => {
   const v = base();
-  assert.equal(gownEstimateShoulders(v, false), 35.5, '23 % of 155 cm');
-  assert.equal(gownEstimateShoulders({ ...v, bust: 120, underbust: 96 }, false), 40.5, 'v167: 120/96 → 40.5 cm');
-  assert.equal(gownEstimateShoulders({ ...v, bust: 140, underbust: 112 }, false), 43.5, 'v167: 140/112 → 43.5 cm (the 28 % cap)');
+  assert.equal(gownEstimateShoulders(v, false), 38, 'v189: 24.5 % of 155 cm');
+  assert.equal(gownEstimateShoulders({ ...v, bust: 120, underbust: 96 }, false), 43, 'v189: 120/96 → 43 cm (+0.2 per cm of underbust over 72)');
+  assert.equal(gownEstimateShoulders({ ...v, bust: 140, underbust: 112 }, false), 43.5, '140/112 → the 28 % cap, 43.5 cm');
+  assert.equal(gownEstimateShoulders(v, true), 39.5, 'athletic: 1.5 cm broader');
   near(gownFatPercent(v, false), 76 - (20 * 155) / 68, 1e-9, 'Relative Fat Mass');
   near(gownFatPercent(v, true), 76 - (20 * 155) / 68 - 10, 1e-9, 'athletic: 10 points less');
   assert.equal(gownShapedVals(v, 'none'), v);
@@ -160,7 +161,7 @@ test('v186 ease rows: woven unboned, boned strapless, stretch and corset', () =>
     { part: 'Under bust', body: 72, ease: 0.5, gown: 72.5 },
   ]);
   assert.equal(gownEaseWhy(s), 'Boned or strapless: close to the body so it stays up.');
-  const woven = { ...s, neck: 'bateau' as const, sil: 'sheath' as const, sleeve: 'long' as const };
+  const woven = { ...s, neck: 'bateau' as const, sil: 'sheath' as const, sleeve: 'long' as const, boning: 'soft' as const };
   assert.deepEqual(
     gownEaseRows(v, woven, { upperArm: 27, wrist: 15 }).map((r) => [r.part, r.ease, r.gown]),
     [['Bust', 2.5, 86.5], ['Waist', 1.5, 69.5], ['Hips', 3, 93], ['Upper arm', 4, 31], ['Wrist', 3, 18]],

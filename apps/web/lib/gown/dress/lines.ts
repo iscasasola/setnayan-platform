@@ -145,7 +145,7 @@ export function waistY(B: GownRig, waist: GownWaistline, q: number): number {
 }
 
 /** The design keys the dress build reads. */
-export type GownDressDesign = Pick<GownConfig, 'neck' | 'neckT' | 'back' | 'backT' | 'sil' | 'waist' | 'petti' | 'train' | 'slits' | 'slitCm' | 'boning' | 'hem' | 'hemCm' | 'pleat' | 'pleatN' | 'pleatCm' | 'skirtLayers' | 'fabric' | 'bustle'>;
+export type GownDressDesign = Pick<GownConfig, 'neck' | 'neckT' | 'back' | 'backT' | 'sil' | 'waist' | 'petti' | 'train' | 'slits' | 'slitCm' | 'boning' | 'hem' | 'hemCm' | 'pleat' | 'pleatN' | 'pleatCm' | 'skirtLayers' | 'fabric' | 'bustle' | 'shape'>;
 
 /**
  * A high neck with an open back stays closed at the nape: a band with one covered button, and the chosen scoop or V

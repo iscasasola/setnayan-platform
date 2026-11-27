@@ -1,5 +1,5 @@
 /**
- * 👗 gown/dress — the gown built on her body, held to prototype v189's own numbers (`v189-dress.fixture.json`: five
+ * 👗 gown/dress — the gown built on her body, held to prototype v189's own numbers (`v197-dress.fixture.json`: five
  * gowns on the default body, captured from the prototype itself), and to the owner rule "clothes follow the body".
  */
 import { test } from 'node:test';
@@ -17,8 +17,8 @@ import { restingCloth, writeDress } from './cloth';
 import { fabricMetres } from './flat';
 import { buildEnvelope, emptyEnvelope, reach, type GownEnvelope } from './table';
 
-type Row = { name: string; look: Partial<GownConfig>; hem: GownConfig['hem']; rows: number; ns: number; hemR: number; yHem: number; fold: number; metres: number; sample: [number, number, number, number][] };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v189-dress.fixture.json'), 'utf8')) as { rows: Row[] };
+type Row = { name: string; look: Partial<GownConfig>; hem: GownConfig['hem']; state: Pick<GownConfig, 'boning' | 'backT' | 'neckT'>; rows: number; ns: number; hemR: number; yHem: number; fold: number; metres: number; sample: [number, number, number, number][] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v197-dress.fixture.json'), 'utf8')) as { rows: Row[] };
 const GLB = join(__dirname, '../../../public/gown/female.glb');
 let rig: Promise<GownRig> | null = null;
 const body = () => {
@@ -26,20 +26,23 @@ const body = () => {
   return rig;
 };
 
-function dressOn(B: GownRig, over: Partial<GownConfig>): { T: GownEnvelope; D: GownDress; g: GownConfig } {
+function dressOn(B: GownRig, over: Partial<GownConfig>, view: { bustled?: boolean } = {}): { T: GownEnvelope; D: GownDress; g: GownConfig } {
   const g = { ...startingGownConfig(), ...over };
   const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
   D.hold = feel.hold; D.foldK = feel.foldK;
   buildEnvelope(B, T);
-  buildDress(B, T, D, g, floorOf(B));
+  buildDress(B, T, D, g, floorOf(B), floorOf(B), view);
   writeDress(D, T, restingCloth(), { pleat: g.pleat, n: g.pleatN, amp: g.pleatCm / 100 / B.P.S });
   return { T, D, g };
 }
 
-test('five v189 gowns are built the same: rows, hem, folds, fabric metres and the cloth itself', async () => {
+test('fourteen v197 gowns are built the same (fit and flare, straight across, the sweetheart bar, a strapless back at the bra line, a high-neck keyhole back, a bateau, American and French bustles, a train run straight back): rows, hem, folds, fabric metres and the cloth itself', async () => {
   const B = await body();
   for (const r of REF.rows) {
-    const { T, D } = dressOn(B, { ...r.look, hem: r.hem, hemCm: 0 });
+    // `state`: what the look leaves as it was (boning from the strapless rule, the back and neck depths).
+    // v197 shows a bustled train when she asks (the look's `bustled`; a view, not part of the design).
+    const { bustled, ...look } = r.look as Partial<GownConfig> & { bustled?: boolean };
+    const { T, D } = dressOn(B, { ...look, ...r.state, hem: r.hem, hemCm: 0 }, { bustled });
     assert.equal(D.rows, r.rows, `${r.name}: rows`);
     assert.equal(D.ns, r.ns, `${r.name}: skirt rows`);
     assert.ok(Math.abs(D.hemR - r.hemR) < 1e-3, `${r.name}: hem radius ${D.hemR} vs ${r.hemR}`);
@@ -49,16 +52,16 @@ test('five v189 gowns are built the same: rows, hem, folds, fabric metres and th
     const rest = D.geo!.attributes.rest!.array as Float32Array;
     let worst = 0;
     for (const [i, x, y, z] of r.sample) worst = Math.max(worst, Math.hypot(rest[i * 3]! - x, rest[i * 3 + 1]! - y, rest[i * 3 + 2]! - z));
-    assert.ok(worst * B.P.S * 100 < 0.1, `${r.name}: the cloth is within 1 mm of v189's (worst ${(worst * B.P.S * 100).toFixed(2)} cm)`);
+    assert.ok(worst * B.P.S * 100 < 0.1, `${r.name}: the cloth is within 1 mm of v197's (worst ${(worst * B.P.S * 100).toFixed(2)} cm)`);
   }
 });
 
-test('fabric metres goldens: an A-line, a ball gown with a cathedral train, a mermaid (v189)', async () => {
+test('fabric metres goldens: an A-line, a ball gown with a cathedral train, a mermaid (v197)', async () => {
   const B = await body();
   const m = (look: Partial<GownConfig>) => fabricMetres(B, dressOn(B, { ...look, hem: 'floor', hemCm: 0 }).D);
   assert.equal(m({}), 3);
-  assert.equal(m({ sil: 'ball', train: 'cathedral', petti: 'full' }), 11.7);
-  assert.equal(m({ sil: 'mermaid', neck: 'v', back: 'v' }), 3.5);
+  assert.equal(m({ sil: 'ball', train: 'cathedral', petti: 'full' }), 11.4);
+  assert.equal(m({ sil: 'mermaid', neck: 'v', back: 'v', boning: 'soft' }), 3.5);
 });
 
 const BODIES: [number, number, number, number, number][] = [

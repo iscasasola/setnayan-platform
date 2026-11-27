@@ -1,5 +1,5 @@
 /**
- * 👗 gown/parts/technique — fabric techniques as real folds, held to v195 (`v195-technique.fixture.json`): ruching,
+ * 👗 gown/parts/technique — fabric techniques as real folds, held to v195 (`v197-technique.fixture.json`): ruching,
  * pintucks on the back panel, smocking on the skirt, the three drapes, darts and seams; and the designer's line.
  */
 import { test } from 'node:test';
@@ -7,7 +7,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as THREE from 'three';
-import { startingGownConfig, type GownConfig } from '../../gown-config';
+import { gownApplyLook } from '../compat';
+import { startingGownConfig, type GownConfig, type GownLook } from '../../gown-config';
 import { TAU } from '../body/constants';
 import { parseGownBody } from '../body/load';
 import type { GownRig } from '../body/rig';
@@ -18,8 +19,8 @@ import { buildEnvelope, emptyEnvelope } from '../dress/table';
 import { buildGownTechShell, gownTechniqueLine } from './technique';
 
 type Pt = [number, number, number, number];
-type Row = { name: string; hem: GownConfig['hem']; gown: Partial<GownConfig>; n: number; idx: number; list: number; rest: Pt[]; pos: Pt[]; note: string };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v195-technique.fixture.json'), 'utf8')) as { rows: Row[] };
+type Row = { name: string; look: Partial<GownLook>; hem: GownConfig['hem']; gown: Partial<GownConfig>; n: number; idx: number; list: number; rest: Pt[]; pos: Pt[]; note: string };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v197-technique.fixture.json'), 'utf8')) as { rows: Row[] };
 let rig: Promise<GownRig> | null = null;
 const body = () => {
   if (!rig) { const b = readFileSync(join(__dirname, '../../../public/gown/female.glb')); rig = parseGownBody(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer); }
@@ -27,10 +28,10 @@ const body = () => {
 };
 const worst = (B: GownRig, P: ArrayLike<number>, s: Pt[]) => { let w = 0; for (const [i, x, y, z] of s) w = Math.max(w, Math.hypot(P[i * 3]! - x, P[i * 3 + 1]! - y, P[i * 3 + 2]! - z)); return w * B.P.S * 100; };
 
-test('every technique folds the cloth as v195 does, and the designer reads the same line', async () => {
+test('every technique folds the cloth as v197 does, and the designer reads the same line', async () => {
   const B = await body();
   for (const r of REF.rows) {
-    const g = { ...startingGownConfig(), ...r.gown, hem: r.hem, hemCm: 0 } as GownConfig;
+    const g = { ...gownApplyLook(startingGownConfig(), r.look ?? {}), ...r.gown, hem: r.hem, hemCm: 0 } as GownConfig;
     const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
     D.hold = feel.hold; D.foldK = feel.foldK;
     buildEnvelope(B, T);

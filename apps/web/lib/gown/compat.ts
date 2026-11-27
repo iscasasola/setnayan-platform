@@ -11,8 +11,11 @@ import {
   GOWN_STRAPLESS,
   gownLayerCount,
   gownPettiOf,
+  gownLookOf,
   gownSyncLayers,
+  startingGownConfig,
   type GownConfig,
+  type GownLook,
   type GownPieces,
   type GownSilhouette,
   type GownWaistline,
@@ -251,4 +254,25 @@ export function gownChooseLayers(config: GownConfig, n: number, types: readonly 
   if (petti === g.petti) return { config: g, notes: [], tell: false, changed: [] };
   const out = gownChoose(g, { key: 'petti', value: petti });
   return { ...out, changed: out.changed.filter((k) => k !== 'layerTypes' && k !== 'skirtLayers').concat('petti') };
+}
+
+/** v197 `LOOK_BASE`: a look is laid over these (a fresh design's look keys, but unboned). */
+export function gownLookBase(): GownLook {
+  return { ...gownLookOf(startingGownConfig()), boning: 'soft' };
+}
+
+/**
+ * Apply a look (v197 `applyLook`): the look base and the look, choice by choice through the pairing rules; then the
+ * look's own choices again, so its pairings win over automatic ones; a strapless look starts boned, like a strapless
+ * neckline picked by hand. The design passed in is not changed.
+ */
+export function gownApplyLook(config: GownConfig, look: Partial<GownLook>, ctx: GownChooseContext = {}): GownConfig {
+  let g = structuredClone(config) as GownConfig;
+  const set = (k: keyof GownLook, v: unknown, always: boolean) => {
+    if (always || JSON.stringify(g[k]) !== JSON.stringify(v)) g = gownChoose(g, { key: k, value: v } as GownChoice, ctx).config;
+  };
+  for (const [k, v] of Object.entries({ ...gownLookBase(), ...look }) as [keyof GownLook, unknown][]) set(k, v, k === 'sil' || k === 'neck');
+  for (const [k, v] of Object.entries(look) as [keyof GownLook, unknown][]) set(k, v, false);
+  if (strapless(g) && g.boning === 'soft' && look.boning === undefined) { g.boning = 'complement'; g.waistStay = true; }
+  return g;
 }

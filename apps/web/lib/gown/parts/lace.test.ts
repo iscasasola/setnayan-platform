@@ -1,12 +1,12 @@
 /**
- * 👗 gown/parts/lace — lace placed as v195 places it (`v195-lace.fixture.json`): every motif's spot on the flat map and
+ * 👗 gown/parts/lace — lace placed as v195 places it (`v197-lace.fixture.json`): every motif's spot on the flat map and
  * the count that goes to the designer, for cascade, bodice, neckline edge, hem border (over a train), all over, scattered.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { GOWN_LACES, startingGownConfig, type GownConfig } from '../../gown-config';
+import { GOWN_LACES, startingGownConfig, type GownConfig, type GownLook } from '../../gown-config';
 import { parseGownBody } from '../body/load';
 import type { GownRig } from '../body/rig';
 import { gownClothFeel, gownFabricType } from '../fabric/types';
@@ -14,10 +14,10 @@ import { buildDress, emptyDress, floorOf } from '../dress/build';
 import { restingCloth, writeDress } from '../dress/cloth';
 import { buildEnvelope, emptyEnvelope } from '../dress/table';
 import { buildGownLace, drawGownMotif, type GownLaceCanvas } from './lace';
-import { gownChoose } from '../compat';
+import { gownChoose, gownApplyLook } from '../compat';
 
-type Row = { name: string; hem: GownConfig['hem']; gown: Partial<GownConfig>; countN: number; y0: number; y1: number; spots: [number, number, number][] };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v195-lace.fixture.json'), 'utf8')) as { rows: Row[] };
+type Row = { name: string; look: Partial<GownLook>; hem: GownConfig['hem']; gown: Partial<GownConfig>; countN: number; y0: number; y1: number; spots: [number, number, number][] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v197-lace.fixture.json'), 'utf8')) as { rows: Row[] };
 let rig: Promise<GownRig> | null = null;
 const body = () => {
   if (!rig) { const b = readFileSync(join(__dirname, '../../../public/gown/female.glb')); rig = parseGownBody(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer); }
@@ -30,10 +30,10 @@ const recorder = () => {
   return { g, calls };
 };
 
-test('lace lands where v195 puts it: every motif within 1 mm, the designer\'s count exact', async () => {
+test('lace lands where v197 puts it: every motif within 1 mm, the designer\'s count exact', async () => {
   const B = await body();
   for (const r of REF.rows) {
-    const g = { ...startingGownConfig(), ...r.gown, hem: r.hem, hemCm: 0 } as GownConfig;
+    const g = { ...gownApplyLook(startingGownConfig(), r.look ?? {}), ...r.gown, hem: r.hem, hemCm: 0 } as GownConfig;
     const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
     D.hold = feel.hold; D.foldK = feel.foldK;
     buildEnvelope(B, T);

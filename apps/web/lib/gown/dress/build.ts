@@ -140,7 +140,7 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
   let gFl = 0;
   for (let q = 0; q < N; q++) { A[q] = RB[q]!; FP[q] = F[jS * N + q]!; }
   // The hem's size is asked in cm round (the cloth's folds add about half the fold depth).
-  const cm1 = 0.01 / B.P.S, foldM = 1 + 0.5 * sil.fold * (D.foldK || 1), hipsCm = gownShapedVals(B.vals, B.shape).hips || B.vals.hips || 90;
+  const cm1 = 0.01 / B.P.S, foldM = 1 + 0.5 * sil.fold * (D.foldK || 1), hipsCm = gownShapedVals(B.vals, g.shape).hips || B.vals.hips || 90;
   const aWS = !!sil.ease, TH = new Float32Array(N);
   let uH = 0, gA = 0, gBall = 0;
   if (aWS) {
@@ -285,7 +285,8 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
   D.fold = sil.fold * (D.foldK || 1);
   // Mesh grid: one inner lip (a clean neckline edge), bodice rows from each column's own top, skirt rows to the hem.
   const nb = D.nb, ns = Math.max(4, Math.ceil((yS - yHem) / 0.02));
-  const Lt = g.train !== 'none' ? GOWN_TRAIN_CM[g.train] / 100 / P.S : 0, nTr = Lt ? 16 : 0, rows = 1 + nb + 1 + ns + nTr;
+  // Bustled, the train is up off the floor: no train rows (v197).
+  const Lt = g.train !== 'none' && !view.bustled ? GOWN_TRAIN_CM[g.train] / 100 / P.S : 0, nTr = Lt ? 16 : 0, rows = 1 + nb + 1 + ns + nTr;
   if (rows !== D.rows || !D.geo) {
     const geo = new THREE.BufferGeometry(), ix: number[] = [];
     geo.setAttribute('position', new THREE.BufferAttribute(new Float32Array(rows * N * 3), 3));

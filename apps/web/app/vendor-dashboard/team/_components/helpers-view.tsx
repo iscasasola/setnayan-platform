@@ -1,4 +1,5 @@
 import { Check, Gavel, LogOut, Trash2, UserPlus, X } from 'lucide-react';
+import { TEAM_ROLES_HREF } from '@/lib/team-sections';
 import { Badge } from '@/app/_components/badge';
 import { Fold } from '@/app/_components/fold';
 import { formatPhp } from '@/lib/php';
@@ -268,7 +269,7 @@ export function HelpersView({
           data="helpers-roles"
           title="Roles"
           line={rolesRowLine(VENDOR_DUTIES.map((d) => roleNameOf(roleNames, d)))}
-          href="/vendor-dashboard/team/roles"
+          href={TEAM_ROLES_HREF}
         />
         <DatesRow
           data="helpers-plan"

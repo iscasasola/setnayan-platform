@@ -73,7 +73,7 @@ test('albums, partnerships, inquiries: no empty claim or raw id on a failed read
   const p = src('app/vendor-dashboard/partnerships/page.tsx');
   assert.doesNotMatch(p, /nameMap\.get\(id\) \?\? id;/);
   assert.match(p, /Incoming requests\{partnershipsMeasured \?/);
-  assert.match(src('app/vendor-dashboard/team/roles/inquiries/page.tsx'), /sections\.length === 0 && !readFailed \?/);
+  assert.match(src('app/vendor-dashboard/team/_components/inquiries-section.tsx'), /sections\.length === 0 && !readFailed \?/);
 });
 
 test('repertoire and recommendations say "couldn\'t load" (A5-G6-11, A5-G6-10)', () => {

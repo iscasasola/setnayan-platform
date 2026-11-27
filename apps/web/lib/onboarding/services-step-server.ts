@@ -12,7 +12,7 @@
  *   • Pool rung points   → papic_pass_tiers          (lib/papic-pass-tiers.ts)
  *   • One rung points    → papic_one_tiers           (lib/papic-one.ts)
  *   • Every rung price   → platform_retail_catalog_v2 (active rows only)
- *   • Free pool points   → papic_event_pool_config.free_grant_points
+ *   • Free pool points   → none (the free first-event grant is retired, owner 16 Nov 2026)
  *   • Free One points    → papic_event_pool_config.free_one_camera_points
  *   • Photo / clip weight→ lib/papic-cameras.ts constants, via papic-tier-copy
  *   • Setnayan AI price  → the type's tier SKU, via resolveSetnayanAiTypePricePhp
@@ -41,10 +41,8 @@ import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
 import {
   readPapicOneTiers,
   readPapicPassTiers,
-  readPapicFreeGrantRead,
   readPapicFreeOneCameraPoints,
 } from '@/lib/papic-tier-config-read';
-import { papicFreeCreditPoints } from '@/lib/papic-free-credit-promise';
 import { resolveSetnayanAiDisplayPricePhp } from '@/lib/setnayan-ai-server';
 import { setnayanAiTierSkuForEventType } from '@/lib/setnayan-ai-type-pricing';
 import { resolveProfile, surfaceEnabled } from '@/lib/event-type-profile';
@@ -76,7 +74,6 @@ export async function readServicesStepView(
     customerSkus,
     poolTiers,
     oneTiers,
-    freePoolRead,
     freeOnePoints,
     aiPricePhp,
     aiListPricePhp,
@@ -86,10 +83,6 @@ export async function readServicesStepView(
       fetchV2CustomerCatalog(),
       readPapicPassTiers(),
       readPapicOneTiers(),
-      // 💰 The PROMISE reader, not the mint reader (2026-11-13): `readPapicFreeGrantPoints` folds an admin "0 —
-      // switched off" and a failed read onto the seed 50, so this card advertised 50 free credits SQL would not
-      // grant. `papicFreeCreditPoints` answers null for both — and the card says nothing (0 below).
-      readPapicFreeGrantRead(),
       readPapicFreeOneCameraPoints(),
       aiOffered
         ? // 🔴 THROUGH THE SHARED RESOLVER, IN ONBOARDING CONTEXT. This used to
@@ -221,7 +214,6 @@ export async function readServicesStepView(
     oneTiers,
     pricePhpByCode,
     listPricePhpByCode,
-    freePoolPoints: papicFreeCreditPoints(freePoolRead) ?? 0,
     freeOnePoints,
     aiPricePhp: aiOffered ? (setupApplies ? aiPricePhp : aiListPricePhp) : null,
     aiListPricePhp: aiOffered ? aiListPricePhp : null,

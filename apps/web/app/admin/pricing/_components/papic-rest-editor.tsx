@@ -18,7 +18,11 @@ export type PapicProductRow = {
 const peso = (n: number) => `₱${n.toLocaleString('en-PH')}`;
 
 /**
- * WHAT EVERY CELEBRATION IS GIVEN, AND THE THANK YOU VIDEO.
+ * THE THANK YOU VIDEO — Papic's one product that is not a ladder rung.
+ *
+ * 🎁 The "Free credits on a first event" block that sat above it is gone (owner
+ * 16 Nov 2026, DECISION_LOG "Free 50 Papic credits REMOVED"): every booking
+ * carries a Setnayan gift instead.
  *
  * ⚖ Owner 2026-08-29: *"free credits should be here. with the rest of papic
  * services and the thank you video."* Then, narrowing it: *"papic is only the
@@ -28,59 +32,23 @@ const peso = (n: number) => `₱${n.toLocaleString('en-PH')}`;
  * switched-off price lives.
  */
 export function PapicRestEditor({
-  freeCreditsPerEvent,
   products,
   savePriceAction,
 }: {
-  /** `papic_event_pool_config.free_grant_points`; null when it could not be read. */
-  freeCreditsPerEvent: number | null;
+  /**
+   * 🎁 RETIRED and ignored (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic credits REMOVED"): the
+   * "Free credits on a first event" block is gone. Optional only so `catalog-editor.tsx` (in flight
+   * in another PR) still compiles; drop it there, then here.
+   */
+  freeCreditsPerEvent?: number | null;
   products: PapicProductRow[];
   savePriceAction: (prev: RowActionState, fd: FormData) => Promise<RowActionState>;
 }) {
   return (
     <TemplateSection
-      label="Free credits, and the Thank You video"
-      tip={
-        <>
-          What every event starts with, and Papic&apos;s one product that is not a rung of
-          the ladder above.
-        </>
-      }
+      label="The Thank You video"
+      tip={<>Papic&apos;s one product that is not a rung of the ladder above.</>}
     >
-
-      {/*
-        ⚠ THE FREE ALLOWANCE IS SHOWN, NOT EDITABLE — and the difference is
-        stated rather than left for somebody to discover by clicking.
-        `papic_event_pool_config.free_grant_points` had NO reader under `app/`
-        at all until this; giving it a save is its own change, with its own
-        audit row and its own guard.
-      */}
-      <div className={`${ADMIN_FRAME} mb-4 p-4`}>
-        <div className="flex flex-wrap items-baseline justify-between gap-3">
-          <div className="min-w-0">
-            <p className="text-[15px] font-semibold">Free credits on a first event</p>
-            <p className={`mt-0.5 max-w-prose ${TEMPLATE_SUBLINE}`}>
-              Given to every event before anybody buys anything. The ladder above tops
-              this up; it never replaces it.
-            </p>
-          </div>
-          <div className="text-right">
-            <p
-              className={`text-xl font-bold tabular-nums ${
-                freeCreditsPerEvent == null ? 'text-ink/45' : 'text-success-800'
-              }`}
-            >
-              {freeCreditsPerEvent == null ? '—' : freeCreditsPerEvent.toLocaleString('en-PH')}
-            </p>
-            <p className="text-[11px] text-ink/55">
-              {freeCreditsPerEvent == null ? "couldn't be read" : 'credits per event'}
-            </p>
-          </div>
-        </div>
-        <p className={`mt-2 ${TEMPLATE_SUBLINE}`}>
-          Not editable here yet — changing it still needs a migration
-        </p>
-      </div>
 
       <div className={`${ADMIN_FRAME} overflow-hidden`}>
         {products.map((p) => (

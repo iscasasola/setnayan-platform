@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PAPIC_FREE_CREDIT_CONDITION } from './papic-free-credit-promise';
+import { PAPIC_BOOKING_GIFT_LINE } from './setnayan-gift';
 import { stripComments } from './strip-comments';
 import { publicHelpSourceText } from '@/lib/help-sources.test-helper';
 
@@ -70,8 +70,8 @@ test('no live copy says the free credit POOL comes with every event', () => {
   assert.deepEqual(
     offenders,
     [],
-    `The free pool is claimed ONCE PER ACCOUNT. A repeat celebration gets 1 ` +
-      `credit. Say "${PAPIC_FREE_CREDIT_CONDITION}":\n  ` + offenders.join('\n  '),
+    `There is no free credit pool on any event (owner 16 Nov 2026). Where a line is needed, say ` +
+      `"${PAPIC_BOOKING_GIFT_LINE}":\n  ` + offenders.join('\n  '),
   );
 });
 
@@ -117,24 +117,13 @@ test('the guard actually fires on each of the four strings it was written for', 
   }
 });
 
-test('the honest condition is the one the corrected copy uses', () => {
-  assert.equal(PAPIC_FREE_CREDIT_CONDITION, 'on your first event');
-  // help split 2026-11-14: the prose lives in lib/help/*.ts — read every file, never lib/help.ts alone.
-  const read: Record<string, () => string> = {
-    'lib/help.ts + lib/help/*.ts': publicHelpSourceText,
-    'lib/llms-txt.ts': () => readFileSync(join(WEB, 'lib/llms-txt.ts'), 'utf8'),
-  };
-  for (const [rel, load] of Object.entries(read)) {
-    const src = load();
-    // Either the wording itself, or — better — the constant interpolated, so
-    // the file follows the moment the condition is reworded (2026-10-19).
-    assert.match(
-      src,
-      /first event|\$\{PAPIC_FREE_CREDIT_CONDITION\}/,
-      `${rel} no longer names the condition at all — silence is not honesty here, ` +
-        `the reader still has to know the pool comes once`,
-    );
-  }
+// 🎁 UPDATED 27 Nov 2026: this test used to require help to NAME the first-event condition. The free first-event
+// grant is retired (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic credits REMOVED"), so help must now name no free
+// credits at all and say the gift line instead. (`lib/llms-txt.ts` is PR #8423's and is held there.)
+test('help names no free first-event credits, and says the booking gift instead', () => {
+  const src = stripComments(publicHelpSourceText());
+  assert.doesNotMatch(src, /free credits|credits come free|PAPIC_FREE_CREDIT_CONDITION/i, 'help promises free credits again');
+  assert.match(src, /PAPIC_BOOKING_GIFT_LINE/, 'help no longer says the booking gift line');
 });
 
 test('the Home "Papic is ready" band promises no free camera and no free pool (owner 25 Oct)', () => {

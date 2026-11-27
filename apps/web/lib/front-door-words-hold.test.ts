@@ -5,9 +5,8 @@
  * A1-048 / A1-103 / SW-PROMISE: no price promises ("forever", "for good", "habambuhay", "always" free).
  * A1-027 / A1-108 / A1-152 / SW-WORDS: Logo Maker, never "Monogram maker"; E-Gifts, never "Pabuya".
  *
- * Known, owner to rule (NOT held here): /for-suppliers' approved drawing says "Free to start. Free to stay." and
- * "Free stays free."; Home's
- * "Suppliers you can trust." became "Suppliers, checked and reviewed." (L9 P13, 27 Nov) and is held below.
+ * L9 section P (27 Nov): /for-suppliers' "Free to stay" and "Free stays free" and Home's "Suppliers you can trust." were
+ * ruled out by the owner and are held below.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -72,11 +71,12 @@ test('the couple-facing commission promise opens with the ruled sentence (suppli
   assert.match(COUPLE_COMMISSION_PROMISE, /^Hosts pay 0% commission\./);
 });
 
-/**
- * L9 section P (27 Nov 2026), held where it was fixed. Not every FILES entry is here: /for-suppliers and /features
- * (`supplier-front-page.tsx`, `lib/features-page.ts`) were in another open PR (#8423) when this was written.
- */
+/** L9 section P (27 Nov 2026), held where it was fixed. */
 const L9_FIXED = [
+  'app/for-suppliers/_components/supplier-front-page.tsx',
+  'app/(shell)/for-suppliers/page.tsx',
+  'lib/features-page.ts',
+  'lib/llms-txt.ts',
   'app/_components/frontdoor/front-door-landing.tsx',
   'app/(shell)/pricing/page.tsx',
   'app/(shell)/for-coordinators/page.tsx',
@@ -99,11 +99,9 @@ test('🔒 L9 P13 · P14 · P19: no "trusted" promise and no rank claim on the f
   }
 });
 
-test('🔒 L9 P2: Setnayan AI is never sold on its own — /pricing has no AI row and the help says Event Pro and Event Ultra', () => {
-  assert.doesNotMatch(src('app/(shell)/pricing/page.tsx'), /name="Setnayan AI"/);
-  const help = src('lib/help/topics-existing.ts');
-  assert.doesNotMatch(help, /Setnayan AI[^.—;]{0,120}\bor on its own\b|Setnayan AI[^.—;]{0,120}\bsold on its own\b/, 'the help sells Setnayan AI on its own');
-  assert.match(help, /Setnayan AI comes with Event Pro and Event Ultra/);
+test('🔒 L9 P1: Event Plus is never said to carry Setnayan AI on the home page (it comes with Event Pro and Event Ultra)', () => {
+  assert.doesNotMatch(src('app/_components/frontdoor/front-door-landing.tsx'), /one="Setnayan AI and Papic credits/);
+  assert.match(src('app/_components/frontdoor/front-door-landing.tsx'), /one="The whole Event Hub and Papic credits for your event\."/);
 });
 
 test('🔒 L9 P9 · P24 · P25: /terms says who pays what; /about names no "cut"; the Free supplier plan is not "No fee"', () => {

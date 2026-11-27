@@ -15,17 +15,19 @@ import { formatPhp } from '@/lib/php';
 import { OLD_WAY, oldWayMoney, type OldWayMoney } from '@/lib/old-way-costs';
 import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 import type { AiBand, TwoPrices } from '../_pricing-reads';
+import { GIFT_PHOTOS_LINE } from '@/lib/setnayan-gift-words';
 
 export type PlanPrices = {
   pro: TwoPrices | null;
   partsFrom: number | null;
   papicFrom: number | null;
   liveWatch: number | null;
+  ai: Partial<Record<AiBand, TwoPrices>>;
   /** Event Plus — EVENT_PLUS. (Carried Setnayan AI 4 → 18 Nov 2026; since the 18 Nov re-cut the AI is Event Pro's.) */
   plus?: number | null;
 };
 
-/** Event types, in the prototype's words. (Setnayan AI is not sold on its own since owner 2026-11-04, so no band prices it here.) */
+/** Event types, in the prototype's words — each prices Setnayan AI by its band (`AI_TIER_SKU`). */
 export const EVENT_TYPES: ReadonlyArray<{ band: AiBand; label: string; words: string }> = [
   { band: 'A', label: 'A wedding', words: 'a wedding' },
   { band: 'B', label: 'A debut, corporate or gala', words: 'a debut, corporate or gala' },
@@ -44,6 +46,7 @@ export type QuestionKey =
   | 'livewatch'
   | 'plus'
   | 'pro'
+  | 'ai'
   | 'together';
 
 export type PlanState = {
@@ -73,6 +76,8 @@ export type Question = {
 export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => string): Question[] {
   const peso = (n: number) => formatPhp(n);
   const at = (two: TwoPrices) => (s.setup && two.signup != null ? two.signup : two.regular);
+  const ai = p.ai[s.type] ?? null;
+  const type = EVENT_TYPES.find((t) => t.band === s.type) ?? EVENT_TYPES[0]!;
   const qs: Array<Question | null> = [
     {
       k: 'guests',
@@ -119,7 +124,7 @@ export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => st
       q: 'Do you want an easier way to collect everyone’s photos?',
       line: 'Every guest’s phone becomes a camera.',
       item: 'Papic',
-      tip: `Guests shoot from their own phones, no app to install; every photo lands in one place. Your first event’s credits are included${p.papicFrom != null ? `; top-ups from ${peso(p.papicFrom)}` : ''}.`,
+      tip: `Guests shoot from their own phones, no app to install; every photo lands in one place. ${GIFT_PHOTOS_LINE}${p.papicFrom != null ? ` Credits from ${peso(p.papicFrom)}.` : ''}`,
       tool: true,
     },
     {
@@ -175,6 +180,23 @@ export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => st
           php: at(p.pro),
         }
       : null,
+    ai
+      ? {
+          k: 'ai',
+          q: 'Do you want help choosing suppliers?',
+          line: 'A team suggested by fit, and your plan watched.',
+          item: 'Setnayan AI',
+          tip:
+            `Suggests verified suppliers by how well they fit your event, then tracks deadlines, payments, budget and dates. For ${type.words}: ${peso(ai.regular)}` +
+            (ai.signup != null ? `, or ${peso(ai.signup)} while you set up your event` : '') +
+            '. One-time, until the event day.',
+          tool: true,
+          php: at(ai),
+        }
+      : // 🎟 18 Nov re-cut: with Setnayan AI off sale on its own, it comes with Event Pro (and Ultra) — no longer Event Plus —
+        // so the Pro question above already carries it (its tip says so). A separate "help choosing suppliers?" step
+        // priced at Event Pro would bill Pro twice when both are picked.
+        null,
     {
       k: 'together',
       q: 'Will you plan this with other people?',
@@ -214,6 +236,7 @@ export function resultFor(s: PlanState, qs: readonly Question[], p: PlanPrices):
   const yes = proPicked ? said.filter((q) => q.k !== 'plus') : said;
   const paid = yes.filter((q) => q.php != null);
   const total = paid.reduce((sum, q) => sum + (q.php ?? 0), 0);
+  const ai = p.ai[s.type] ?? null;
   return {
     yes,
     paid,
@@ -227,7 +250,8 @@ export function resultFor(s: PlanState, qs: readonly Question[], p: PlanPrices):
       wantsPrintables: Boolean(s.answers.prints),
     }),
     hoursBack: s.answers.guests ? OLD_WAY.guestListHours.value : null,
-    showSetupSwitch: Boolean(s.answers.pro) && p.pro?.signup != null,
+    showSetupSwitch:
+      (Boolean(s.answers.pro) && p.pro?.signup != null) || (Boolean(s.answers.ai) && ai?.signup != null),
   };
 }
 

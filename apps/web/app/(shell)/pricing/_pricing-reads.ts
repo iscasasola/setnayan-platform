@@ -3,7 +3,7 @@
  * page and the questionnaire into the app"; prototype `pricing_ours_only_2026-10-25`, index.html revision 5 + quiz.html).
  *
  * 🔑 EVERY PESO COMES FROM `platform_retail_catalog_v2`: the customer catalogue (`fetchV2CustomerCatalog`) plus the rows
- * it leaves out on purpose (`readPricingExtras`: the eleven Event Pro parts). Nothing
+ * it leaves out on purpose (`readPricingExtras`: the eleven Event Pro parts and Setnayan AI's band rows). Nothing
  * here types a price. A row that is missing, inactive or unreadable comes back `null` / absent — and the pages draw NO
  * figure for it (a missing price is recoverable; a confidently wrong one is not).
  *
@@ -14,12 +14,13 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchV2CustomerCatalogRead, type V2CustomerSku } from '@/lib/v2-catalog';
 import { resolveAiPrices } from '@/app/_components/home/pricing-data';
 import { HUB_PARTS, HUB_PART_SKUS } from '@/lib/hub-parts';
+import { AI_TIER_SKU } from '@/lib/setnayan-ai-type-pricing';
 import { isRetiredProductCode } from '@/lib/retired-products';
 
 /**
  * The rows /pricing reads that `fetchV2CustomerCatalog` leaves out ON PURPOSE: the eleven Event Pro parts (listed
- * inside Event Pro's "Just the parts you need"). Setnayan AI is not read here: it is not sold on its own (owner
- * 2026-11-04) and comes with Event Pro and Event Ultra. Read-only; an unreadable read returns no rows, and a
+ * inside Event Pro's "Just the parts you need") and Setnayan AI's price-source rows B · C · D (is_active=false —
+ * they price an event type, they are not sold on their own). Read-only; an unreadable read returns no rows, and a
  * missing row draws no figure.
  */
 type PricingExtraRow = {
@@ -35,12 +36,13 @@ export async function readPricingExtras(): Promise<PricingExtraRow[]> {
   } catch {
     return [];
   }
+  const aiCodes = Object.values(AI_TIER_SKU).filter((c): c is string => c !== null);
   const { data, error } = await admin
     .from('platform_retail_catalog_v2')
     .select('service_code, retail_price_php, onboarding_price_php, is_active')
-    .in('service_code', [...HUB_PART_SKUS]);
+    .in('service_code', [...HUB_PART_SKUS, ...aiCodes]);
   if (error || !data) {
-    if (error) console.error('[supabase-error] app/(shell)/pricing/_pricing-reads.ts · from:platform_retail_catalog_v2 (parts)', error);
+    if (error) console.error('[supabase-error] app/(shell)/pricing/_pricing-reads.ts · from:platform_retail_catalog_v2 (parts + AI tiers)', error);
     return [];
   }
   return (data as PricingExtraRow[]).map((r) => ({
@@ -77,6 +79,14 @@ export type OurPrices = {
   thankYou: number | null;
   /** Music Maker — PAKANTA. */
   musicMaker: number | null;
+  /**
+   * Setnayan AI by event-type band (AI_TIER_SKU) — ONLY while `SETNAYAN_AI` itself is on sale.
+   * ⚖ Owner 2026-11-04 (final price sheet): Setnayan AI is no longer sold on its own; it comes inside Event Plus
+   * and Event Pro. The B · C · D rows are inactive BY DESIGN (price sources), so their `is_active` cannot say
+   * whether the product is sold — the A row (`SETNAYAN_AI`, the sellable one) is the switch for the whole ladder.
+   * With that row off sale this is `{}` and no page draws an AI figure.
+   */
+  ai: Partial<Record<AiBand, TwoPrices>>;
 };
 
 const usable = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n > 0;
@@ -124,6 +134,16 @@ export function ourPricesFrom(customerSkus: readonly V2CustomerSku[], extras: re
     .filter((r) => usable(r.php))
     .sort((a, b) => a.php - b.php);
 
+  // (Patiktok left these reads 2026-11-27, L9 P27: retired 2026-11-20, lib/retired-products.ts.)
+  const ai: Partial<Record<AiBand, TwoPrices>> = {};
+  const aiOnSale = row('SETNAYAN_AI') != null; // the customer catalogue carries ACTIVE rows only
+  for (const band of aiOnSale ? (['A', 'B', 'C', 'D'] as const) : []) {
+    const code = AI_TIER_SKU[band];
+    const r = code === 'SETNAYAN_AI' ? row('SETNAYAN_AI') : code ? extraByCode.get(code) : undefined;
+    const prices = twoPrices(r ?? null);
+    if (prices) ai[band] = prices;
+  }
+
   return {
     pro: twoPrices(row('COUPLE_WEBSITE_PRO') ?? null),
     plus: php('EVENT_PLUS'),
@@ -134,6 +154,7 @@ export function ourPricesFrom(customerSkus: readonly V2CustomerSku[], extras: re
     liveWatch: php('LIVE_STUDIO'),
     thankYou: php('PAPIC_ADDON_THANK_YOU'),
     musicMaker: php('PAKANTA'),
+    ai,
   };
 }
 

@@ -117,23 +117,19 @@ test('the guard actually fires on each of the four strings it was written for', 
   }
 });
 
-test('the honest condition is the one the corrected copy uses', () => {
+test('the public copy promises no free first-event pool — owner 16 Nov, L9 P23', () => {
+  // ⚖ DECISION_LOG 16 Nov "Free 50 Papic credits REMOVED": couples get free Papic photos through the Setnayan gift on
+  // bookings. The help and llms.txt used to name the first-event condition ("silence is not honesty"); the honest line
+  // now is the gift (`GIFT_PHOTOS_LINE`). `PAPIC_FREE_CREDIT_CONDITION` itself is left for the build that removes it.
   assert.equal(PAPIC_FREE_CREDIT_CONDITION, 'on your first event');
-  // help split 2026-11-14: the prose lives in lib/help/*.ts — read every file, never lib/help.ts alone.
   const read: Record<string, () => string> = {
     'lib/help.ts + lib/help/*.ts': publicHelpSourceText,
     'lib/llms-txt.ts': () => readFileSync(join(WEB, 'lib/llms-txt.ts'), 'utf8'),
   };
   for (const [rel, load] of Object.entries(read)) {
     const src = load();
-    // Either the wording itself, or — better — the constant interpolated, so
-    // the file follows the moment the condition is reworded (2026-10-19).
-    assert.match(
-      src,
-      /first event|\$\{PAPIC_FREE_CREDIT_CONDITION\}/,
-      `${rel} no longer names the condition at all — silence is not honesty here, ` +
-        `the reader still has to know the pool comes once`,
-    );
+    assert.doesNotMatch(src, /\$\{PAPIC_FREE_CREDIT_CONDITION\}|credits free on your first event/i, `${rel} promises free first-event credits again`);
+    assert.match(src, /\$\{GIFT_PHOTOS_LINE\}/, `${rel} no longer says how free Papic photos come (the Setnayan gift)`);
   }
 });
 

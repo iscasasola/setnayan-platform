@@ -10,7 +10,7 @@
  *   1 · every row's status is PINNED below. Adding, removing or flipping a row fails until the pin is edited in the
  *       same commit — say there what shipped (a flip to live) or why it left (a removal).
  *   2 · every planned row names its lane or ruling; every row with no register id names the ruling it came from.
- *   3 · every row is on the page, and the register coverage stays whole: A 69 · B 16 · C 41 · D 6, with each row
+ *   3 · every row is on the page, and the register coverage stays whole: A 69 · B 16 · C 41 · D 5 (D06 left 27 Nov, L9 P16), with each row
  *       left off named in EXCLUDED (or shown inside another row, A40 in the Event Hub row).
  *   4 · the PAINTED page agrees: a coming row draws the "Coming" chip and a live row never does.
  *   5 · the house words: no "vendor", "website", "site", "celebration", no typed peso; plan prices only by code.
@@ -75,12 +75,12 @@ const STATUS_PIN: Readonly<Record<string, RowStatus>> = {
   c26: 'live', c34: 'live', c42: 'live', c07: 'live', c08: 'live', c09: 'live', c27: 'live', c28: 'live', c29: 'live',
   c30: 'live', social: 'coming',
   // D · coordinators
-  d01: 'live', d02: 'live', d03: 'live', d04: 'live', d05: 'live', d06: 'live',
+  d01: 'live', d02: 'live', d03: 'live', d04: 'live', d05: 'live',
 };
 
 /** The register's row count per role and how many the page must show (v3 completeness table). */
 // A 71 → 70 on 2026-11-24: A46 Real Stories left the page (retired 16 Nov) and is named in EXCLUDED.
-const REGISTER = { A: { total: 77, shown: 69 }, B: { total: 16, shown: 16 }, C: { total: 43, shown: 41 }, D: { total: 6, shown: 6 } } as const;
+const REGISTER = { A: { total: 77, shown: 69 }, B: { total: 16, shown: 16 }, C: { total: 43, shown: 41 }, D: { total: 6, shown: 5 } } as const;
 /** Register rows shown INSIDE another row (one product to a visitor). */
 const MERGED: Readonly<Record<string, RowId>> = { A40: 'a39' };
 
@@ -89,7 +89,8 @@ test('1 · every row keeps the status it was pinned with — none added, removed
   // 140 → 138 on 2026-11-20: a62 (Music Maker) and a63 (Patiktok) left with the products (owner: "Retire Patiktok
   // and Music Maker"); A62/A63 are named in EXCLUDED. 138 → 136 on 2026-11-27: a75 and c39 ("Honest empty states", the
   // greyed examples) left with the look (owner R3: no sample shown as if real); A75/C39 are named in EXCLUDED.
-  assert.ok(Object.keys(actual).length >= 136, `only ${Object.keys(actual).length} rows — the module is not the page`);
+  // 135, not 136, since 2026-11-27: the d06 editor’s-note row left the page (L9 P16; D06 is in EXCLUDED with its reason).
+  assert.ok(Object.keys(actual).length >= 135, `only ${Object.keys(actual).length} rows — the module is not the page`);
   assert.deepEqual(
     actual,
     STATUS_PIN,
@@ -112,7 +113,7 @@ test('2 · a planned row names its lane or ruling; a row with no register id nam
   assert.deepEqual(bad, [], `\n  ${bad.join('\n  ')}`);
 });
 
-test('3 · every row is on the page, and the register coverage stays whole (A 69 · B 16 · C 41 · D 6)', () => {
+test('3 · every row is on the page, and the register coverage stays whole (A 69 · B 16 · C 41 · D 5)', () => {
   const onPage = new Set<string>(PERSONAS.flatMap((p) => rowsOf(p)));
   const orphans = Object.keys(ROWS).filter((id) => !onPage.has(id));
   assert.deepEqual(orphans, [], `rows in the module that no chapter shows: ${orphans.join(', ')}`);
@@ -134,7 +135,7 @@ test('3 · every row is on the page, and the register coverage stays whole (A 69
   }
 });
 
-test('4 · the painted page agrees: "Coming" on every planned row, never on a live one — and its ⓘ names the plan', async () => {
+test('4 · the painted page agrees: "Coming" on every planned row, never on a live one — and its ⓘ names no lane or ruling', async () => {
   const { renderToStaticMarkup } = await import('react-dom/server');
   const { FeaturesStory } = await import('../app/features/_sections/_Story');
   const { RowSheet } = await import('../app/features/_row-sheet');
@@ -151,13 +152,16 @@ test('4 · the painted page agrees: "Coming" on every planned row, never on a li
     if (status === 'live' && chips !== 0) bad.push(`${id}: live, but wears "Coming"`);
     if (!inner!.includes(`aria-label="About ${row.name.replace(/&/g, '&amp;').replace(/"/g, '&quot;')}"`)) bad.push(`${id}: the row has no ⓘ`);
   }
-  // The ⓘ's body (the house <Explain> draws it on a press): Coming + the plan for a planned row; never for a live one.
+  // The ⓘ's body (the house <Explain> draws it on a press): "Coming" for a planned row, never for a live one. ⚖ L9 P16
+  // (27 Nov): the row's `plan` (a build lane or ruling) is for the team and is never drawn.
   for (const p of PERSONAS) {
     for (const id of rowsOf(p)) {
       const sheet = renderToStaticMarkup(React.createElement(RowSheet, { id, persona: p.key }));
       const row = ROWS[id];
       const said = sheet.includes('>Coming<');
-      if (row.status === 'coming' && (!said || !sheet.includes(`Planned · ${row.plan}`))) bad.push(`${id}: its ⓘ does not say Coming · ${row.plan}`);
+      if (row.status === 'coming' && !said) bad.push(`${id}: its ⓘ does not say Coming`);
+      if (row.plan && sheet.includes(row.plan.replace(/&/g, '&amp;'))) bad.push(`${id}: its ⓘ shows the internal plan "${row.plan}"`);
+      if (/Build \d|Lane [A-Z]|ruling \d/.test(sheet)) bad.push(`${id}: its ⓘ names a build lane or ruling`);
       if (row.status === 'live' && (said || sheet.includes('Planned'))) bad.push(`${id}: live, but its ⓘ says Coming`);
       if (!sheet.includes(row.problem.replace(/&/g, '&amp;').replace(/"/g, '&quot;'))) bad.push(`${id}: its ⓘ lost the Problem`);
     }

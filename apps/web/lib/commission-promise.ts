@@ -77,7 +77,7 @@ export const COUPLE_COMMISSION_PROMISE =
  */
 export function supplierCommissionPromise(schedule: BookingFeeSchedule | null): string {
   const base =
-    'No commission on your bookings — couples pay you directly and we never sit between you at checkout.';
+    'Couples pay you directly, and we never sit between you at checkout.';
   if (!isBookingFeeEnabled()) {
     // The fee is switched off: there is no bill to disclose, and inventing one
     // would be its own kind of untrue. Said plainly rather than left silent.
@@ -97,10 +97,11 @@ export function supplierCommissionPromise(schedule: BookingFeeSchedule | null): 
  * fit. Still both halves — shorter, not partial.
  */
 export function supplierCommissionShort(schedule: BookingFeeSchedule | null): string {
-  if (!isBookingFeeEnabled()) return '0% commission — no booking fee while it is switched off';
+  // ⚖ L9 P12 (27 Nov): no "0%" or "No commission" wording to a supplier — the only 0% line is the hosts' sentence.
+  if (!isBookingFeeEnabled()) return 'Couples pay you directly — no booking fee while it is switched off';
   return schedule
-    ? `0% commission · booking fee ${bookingFeeScheduleSummary(schedule)}, ${FEE_SCOPE}`
-    : `0% commission · a booking fee, ${FEE_SCOPE}`;
+    ? `Couples pay you directly · booking fee ${bookingFeeScheduleSummary(schedule)}, ${FEE_SCOPE}`
+    : `Couples pay you directly · a booking fee, ${FEE_SCOPE}`;
 }
 
 /**

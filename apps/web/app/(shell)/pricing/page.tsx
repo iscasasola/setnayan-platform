@@ -5,7 +5,7 @@ import { TIER_LABEL } from '@/lib/vendor-tier-caps';
 import type { ReactNode } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { GuestSpotlight } from '@/app/_components/guest-spotlight';
-import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
+import { GIFT_PHOTOS_LINE } from '@/lib/setnayan-gift-words';
 import { fetchV2VendorCatalog, type BuildStatus } from '@/lib/v2-catalog';
 import { formatPhp } from '@/lib/php';
 import { SPECIALIZED_TOOLS_PLAN_LINE } from '@/lib/specialized-tools-access';
@@ -183,6 +183,10 @@ export default async function PricingPage() {
   ];
   const papicFrom = prices.papicRungs[0] ?? null;
   const papicCheaperAtSetup = prices.papicRungs.some((r) => r.signup != null);
+  const aiBands = Object.values(prices.ai);
+  const aiFrom = aiBands.length ? Math.min(...aiBands.map((b) => b.regular)) : null;
+  const aiWedding = prices.ai.A ?? null;
+  const aiDate = prices.ai.D ?? null;
   const partsFrom = prices.hubParts.length ? Math.min(...prices.hubParts.map((p) => p.php)) : null;
   // Counts said as words, as the prototype says them — derived, never typed (`lib/free-themes-are-free.test.ts`).
   const word = (n: number) => ['no', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'][n] ?? String(n);
@@ -236,11 +240,6 @@ export default async function PricingPage() {
       what: 'One camera, live to everyone who can’t be there.',
     },
     { name: 'Memories', tip: 'Every photo from the event in one place, for you and your guests.', what: 'Every photo, in one place.' },
-    {
-      name: 'Papic credits, first event',
-      tip: 'Your first event comes with credits for every guest’s camera; top-ups are below.',
-      what: `Credits for every guest’s camera, ${PAPIC_FREE_CREDIT_CONDITION}.`,
-    },
   ];
 
   const onTheDay = Boolean(papicFrom || prices.liveWatch);
@@ -364,7 +363,7 @@ export default async function PricingPage() {
               shot={<WhyShot src="/feature-shots/papic-0.jpg" y="11%" zoom={1.15} />}
               title="Every guest’s phone, a camera"
               line="Papic: point at a code and shoot — nothing to install."
-              tip={`Every shot lands in your Memories as it is taken. Your first event’s credits are included${papicFrom ? `; top-ups from ${peso(papicFrom.php)}` : ''}.`}
+              tip={`Every shot lands in your Memories as it is taken. ${GIFT_PHOTOS_LINE}${papicFrom ? ` Credits from ${peso(papicFrom.php)}.` : ''}`}
             />
             <WhyPoint
               shot={<LockTile />}
@@ -561,9 +560,11 @@ export default async function PricingPage() {
               </>
             ) : null}
 
-            {/* ⚖ Owner 2026-11-04 (final price sheet): Setnayan AI is not sold on its own, so it has no row here. 🎟 18 Nov
-                re-cut: it comes with Event Pro and Event Ultra, no longer Event Plus (Plus works for events with no
-                suppliers). Event Plus, read from its own row, is the smaller paid plan. */}
+            {/* ⚖ Owner 2026-11-04 (final price sheet): Setnayan AI is no longer sold on its own. 🎟 18 Nov re-cut: it
+                comes inside Event Pro and Event Ultra, no longer Event Plus (Plus works for events with no suppliers).
+                `prices.ai` is empty once SETNAYAN_AI is off sale (`_pricing-reads.ts`), so the AI row below stops
+                drawing; Event Plus, read from its own row, is the smaller paid plan. (Owner 23 Nov put SETNAYAN_AI back
+                on sale as a single — that page is another build; this row is left as it was.) */}
             {prices.plus != null ? (
               <>
                 <Moment>A nicer, bigger event</Moment>
@@ -574,6 +575,24 @@ export default async function PricingPage() {
                     what="Papic credits and the whole Event Hub, for this event."
                     figure={<Figure php={prices.plus} />}
                     action={<PlanBuyCta plan="plus" />}
+                  />
+                </ul>
+              </>
+            ) : null}
+
+            {aiFrom != null ? (
+              <>
+                <Moment>Help planning</Moment>
+                <ul className="m-0 list-none p-0">
+                  <PriceRowShell
+                    name="Setnayan AI"
+                    tip={`Suggests verified suppliers by fit, then watches your deadlines, budget and dates. Priced by event type${
+                      aiWedding
+                        ? ` — a wedding ${peso(aiWedding.regular)}${aiWedding.signup != null ? `, or ${peso(aiWedding.signup)} while you set up` : ''}`
+                        : ''
+                    }${aiDate ? `; a date or hangout ${peso(aiDate.regular)}` : ''}.`}
+                    what="Suggests your suppliers, then watches your plan."
+                    figure={<Figure php={aiFrom} from />}
                   />
                 </ul>
               </>

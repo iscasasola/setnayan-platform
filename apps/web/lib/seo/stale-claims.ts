@@ -29,6 +29,13 @@ export const STALE_CLAIMS: readonly StaleClaim[] = [
   { pattern: /\bread API\b|\bpublic API\b/i, why: 'there is no public API in V1 (a settled decision in CLAUDE.md)' },
   // Setnayan AI is not sold on its own since 2026-11-04 — it comes inside Event Pro and Event Ultra (AI_INCLUDED_PLAN_SKUS).
   { pattern: /Setnayan AI (?:costs|is sold|for ₱)|buy Setnayan AI\b/i, why: 'Setnayan AI is not sold on its own (owner 2026-11-04)' },
+  // L9 P4 · P5 · P15 (brand.md claim 3): a price promise in other words.
+  {
+    pattern: /free for life|always free|stays free|free to stay|no end date|nothing expires/i,
+    why: 'a price promise (brand.md claim 3) — say what is free today, never that it stays free',
+  },
+  // L9 P8 (brand.md claims 8 · 9): no iPhone app and no Apple renewal line until Apple approves the app.
+  { pattern: /\biPhone app\b|Settings › Apple ID/, why: 'the iPhone app is not approved yet (brand.md claim 8)' },
   // 🎟 …and since the 18 Nov 2026 re-cut, Event Plus no longer carries it for new buyers (Plus works with no suppliers).
   {
     pattern: /Setnayan AI (?:comes|is included) (?:with|inside|in) Event Plus\b|Event Plus (?:adds|includes|carries) Setnayan AI/i,

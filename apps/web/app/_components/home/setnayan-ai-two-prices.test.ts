@@ -128,12 +128,12 @@ test('/pricing renders BOTH figures, and gets them from the shared resolver', ()
     /signup: p\.hasSignupPrice \? p\.introPhp : null/,
     'the sign-up figure no longer reaches the Setnayan AI row',
   );
-  // ⚖ L9 P2 (owner ruling of 4 Nov, held 27 Nov): Setnayan AI is not sold on its own, so /pricing draws no Setnayan AI
-  // row and no AI figure at all — it says the AI comes with Event Pro and Event Ultra. The resolver above still prices
-  // Event Pro's two figures.
   const src = read('app/(shell)/pricing/page.tsx');
-  assert.doesNotMatch(src, /name="Setnayan AI"/, '/pricing sells Setnayan AI on its own again');
-  assert.doesNotMatch(src, /prices\.ai\b|aiWedding|aiFrom/, '/pricing reads an AI price again');
+  assert.match(
+    src,
+    /a wedding \$\{peso\(aiWedding\.regular\)\}\$\{aiWedding\.signup != null \? `, or \$\{peso\(aiWedding\.signup\)\} while you set up` : ''\}/,
+    'the regular price is no longer shown beside the sign-up one — a visitor would discover it only after paying',
+  );
 });
 
 test('the nav overlay and /pricing tell the same story about the two prices', () => {

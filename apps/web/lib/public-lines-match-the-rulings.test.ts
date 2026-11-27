@@ -125,11 +125,12 @@ test('e · "Nothing renews by itself" comes from ONE source and follows the Appl
   const screen = code('app/vendor-dashboard/subscription/_components/plan-screen.tsx');
   assert.match(screen, /const iapGate = await getIapGate\(\);/);
   assert.match(screen, /appleSells=\{appleSells\}[\s\S]*appleSells=\{appleSells\}/, 'the plan sheet or the plan rows do not get the Apple gate');
-  // /llms.txt: the web line as before; the Apple sentence only while the switch is on.
+  // /llms.txt: the web line as before. ⚖ L9 P8 (27 Nov): no Apple sentence and no "iPhone app" until Apple approves the
+  // app (brand.md claims 8 · 9) — the route no longer reads the Apple switch.
   assert.match(renderLlmsTxt(INPUT_FOR_GUARDS), /Nothing renews by itself: a reminder comes by email/);
-  assert.doesNotMatch(renderLlmsTxt(INPUT_FOR_GUARDS), /Apple subscription/);
-  assert.ok(renderLlmsTxt({ ...INPUT_FOR_GUARDS, appleIapOn: true }).includes(APPLE_PLANS_RENEW_SENTENCE));
-  assert.match(code('app/llms.txt/route.ts'), /appleIapOn: isAppleIapEnabled\(\)/);
+  assert.doesNotMatch(renderLlmsTxt(INPUT_FOR_GUARDS), /Apple subscription|iPhone app/);
+  assert.ok(!renderLlmsTxt(INPUT_FOR_GUARDS).includes(APPLE_PLANS_RENEW_SENTENCE));
+  assert.doesNotMatch(code('app/llms.txt/route.ts'), /appleIapOn|isAppleIapEnabled/);
 });
 
 test('f · readers never see "Setnayan Journal" — the Journal moved into Articles', () => {

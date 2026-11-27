@@ -183,6 +183,8 @@ const DEVICE_NAME_REGEX =
 /** Files allowed to spell one — each with its reason. */
 const ALLOWED: Record<string, string> = {
   'lib/apple-device.ts': 'THE helper.',
+  'lib/seo/stale-claims.ts':
+    'Not a device read: the copy check that /llms.txt never says "iPhone app" before Apple approves it (brand.md claim 8, L9 P8). No user-agent is read.',
   'app/download/_download-motion.tsx':
     'The Mac-only Apple-silicon nudge on /download (owned by sweep batch B4). An iPad that reaches it reports the WebGL renderer "Apple GPU", which reads as Apple silicon — no nudge, nothing offered.',
 };

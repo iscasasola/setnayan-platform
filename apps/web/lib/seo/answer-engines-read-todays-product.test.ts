@@ -74,6 +74,8 @@ test('the stale-claims list is live — every entry still catches the words it w
     'read our Real Stories',
     'light it up with Pailaw',
     'the Supplier Solo plan',
+    'the planning workspace stays free',
+    'A plan bought in the iPhone app renews',
   ];
   for (const c of STALE_CLAIMS) {
     assert.ok(samples.some((t) => c.pattern.test(t)), `no sample trips ${c.pattern} — a pattern that catches nothing is decoration`);

@@ -7,15 +7,15 @@ import { ComingChip } from './_coming-chip';
 
 /**
  * What a /features row's ⓘ says (v3): the price words, Problem → Solution → Why it matters (DRAFT copy, from
- * `lib/features-page.ts`), the plan line — "Planned · <lane or ruling>" for a coming row — and one way in for a live
- * row. It is the body of the house `<Explain>` (`_sections/_Story.tsx`), which titles it with the row's name.
+ * `lib/features-page.ts`), the status line — only "Coming" or "Live" (L9 P16, 27 Nov: build lanes and rulings stay
+ * internal; the `plan` field is for the team, never drawn) — and one way in for a live row. It is the body of the house `<Explain>` (`_sections/_Story.tsx`), which titles it with the row's name.
  * A coming row offers no button: nothing to open yet is not a door.
  */
 export function RowSheet({ id, persona }: { id: RowId; persona: PersonaKey }) {
   const f: FeatureRow = FEATURE_ROWS[id];
   const coming = isComing(f);
   const page = f.page ? featurePage(f.page) : undefined;
-  const planLine = coming ? `Planned · ${f.plan ?? 'next'}` : f.plan ? `Live · still to come: ${f.plan}` : 'Live';
+  const planLine = coming ? 'Coming' : 'Live';
   const start =
     persona === 'suppliers'
       ? { href: '/for-suppliers', label: 'Open a shop · free' }

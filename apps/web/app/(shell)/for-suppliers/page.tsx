@@ -83,7 +83,7 @@ export async function generateMetadata() {
   const perBlock = tierPriceCopy(p, all, PLAN_PERIOD.slash);
   return {
     title,
-    description: `Your clients, quotes and dates. One free place. Free to start, free to stay. ${supplierCommissionShort(fee)} — your booking is free when you bring the event first.${perBlock ? ` ${perBlock}.` : ''}`,
+    description: `Your clients, quotes and dates. One free place. Free to start. ${supplierCommissionShort(fee)} — your booking is free when you bring the event first.${perBlock ? ` ${perBlock}.` : ''}`,
     alternates: { canonical: '/for-suppliers' },
     openGraph: {
       images: BRAND_OG_IMAGES,

@@ -233,8 +233,8 @@ export default async function AboutPage() {
               verified Filipino wedding suppliers you message directly, and
               in-app services — single-camera livestreaming to YouTube, included
               (every camera at once is Live Watch), candid photo capture (Papic), and Logo Maker. Papic has no limit on
-              cameras: every photo uses credits, and your first event starts
-              with free credits; the rest is priced on the Pricing page. Couples and suppliers
+              cameras: every photo uses credits. Many bookings come with free Papic
+              photos as a Setnayan gift; credits are priced on the Pricing page. Couples and suppliers
               agree on bookings between themselves; Setnayan never holds the
               money.
             </p>

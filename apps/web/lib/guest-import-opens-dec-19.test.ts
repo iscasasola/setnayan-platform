@@ -77,5 +77,6 @@ test('the import action asks first, on both steps; the door shows the message in
   assert.match(fn, /if \(notYet\) return \{ stage: 'error', message: notYet \};/, 'a refusal is not returned as the import’s answer');
   const page = stripComments(readFileSync(path.join(web, 'app/dashboard/[eventId]/guests/import/page.tsx'), 'utf8'));
   assert.match(page, /const notYet = await guestImportGate\(eventId\);/);
-  assert.match(page, /\{notYet \? \([\s\S]*?\{notYet\}[\s\S]*?\) : \(\s*<GuestImportForm action=\{action\} \/>/, 'the door draws the upload before the day');
+  // Closed, the notice is drawn ALONE; the file steps and the upload live only in the open branch (final check A2-P5).
+  assert.match(page, /\{notYet \? \(\s*<GuestImportWaits message=\{notYet\} \/>\s*\) : \(\s*<>[\s\S]*?<GuestImportForm action=\{action\} \/>\s*<\/>\s*\)\}/, 'the door draws the upload before the day');
 });

@@ -29,6 +29,7 @@ import { AddAlagaButton } from './add-alaga-button';
 import { DependentsSection } from './dependents-section';
 import { GroupsFoldSection, SamahanPeopleSection } from './samahan-people-section';
 import { PeopleGroupsView } from './people-groups-view';
+import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import type { PeopleSettings } from './people-pinned-row';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -315,6 +316,12 @@ export async function PeopleSegment({
       {/* GROUPS (owner 2026-10-28, "People and Groups approved"): the pinned row — Groups ▾ · counts · ＋ New · ⚙ — then
           the chat rows, then the second degree as shipped. ＋ New in the row is the view's ONE way to make a group (the
           "New group" button that headed this view would be the second). Samahan is live product, never flag-gated. */}
+      {/* A2-P4: the Groups door never lands on nothing — no rows read is said, not drawn as a blank page. */}
+      {view === 'samahan' && !groupRows ? (
+        <div className="mx-auto w-full max-w-3xl pb-24">
+          <ReadRefusedNotice what="your groups" />
+        </div>
+      ) : null}
       {view === 'samahan' && groupRows ? (
         <div className="mx-auto w-full max-w-3xl pb-24">
           <PeopleGroupsView

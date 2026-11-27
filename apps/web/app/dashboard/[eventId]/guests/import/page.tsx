@@ -33,11 +33,18 @@ export default async function ImportGuestsPage({ params }: Props) {
           ‹ Back to guest list
         </Link>
         <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">Import guests from a file</h1>
-        <p className="text-sm text-ink/60">
-          Get the guest list file, fill it in, and upload it. You&rsquo;ll see everyone before anything is added.
-        </p>
+        {notYet ? null : (
+          <p className="text-sm text-ink/60">
+            Get the guest list file, fill it in, and upload it. You&rsquo;ll see everyone before anything is added.
+          </p>
+        )}
       </header>
 
+      {/* A2-P5: import either works (the steps) or is closed (the notice alone) — never steps that lead nowhere. */}
+      {notYet ? (
+        <GuestImportWaits message={notYet} />
+      ) : (
+        <>
       <section className="bg-[rgb(var(--sn-frame-bg))] rounded-[var(--sn-frame-radius)] shadow-sn-frame p-4">
         <h2 className="text-base font-semibold text-ink">1 · Get the guest list file</h2>
         <p className="mt-1 text-sm text-ink/70">
@@ -67,10 +74,8 @@ export default async function ImportGuestsPage({ params }: Props) {
         </div>
       </section>
 
-      {notYet ? (
-        <GuestImportWaits message={notYet} />
-      ) : (
         <GuestImportForm action={action} />
+        </>
       )}
     </div>
   );

@@ -65,6 +65,7 @@ import {
   PICK_ASKED_NOTE,
   buildBarOf,
   compareCap,
+  buildLineKey,
   compareRowIndexes,
   compareShownAtFirst,
   lowestTotalIds,
@@ -356,7 +357,8 @@ export function BuildBody({
   const emptyLines = view.lines.filter(isNobody);
   const lineRow = (line: BuildLine) => (
     <BuildLineRow
-      key={line.tile}
+      key={buildLineKey(line, view.lines.indexOf(line), view.lines)}
+      lineKey={buildLineKey(line, view.lines.indexOf(line), view.lines)}
       line={line}
       busy={pending}
       onPick={(key) => pick(line, key)}
@@ -726,8 +728,11 @@ function BuildLineRow({
   onFind,
   priceHref,
   eventId,
+  lineKey,
 }: {
   line: BuildLine;
+  /** `buildLineKey`: the category, or category + supplier on a further booked line there (L5 · C1). */
+  lineKey: string;
   busy: boolean;
   onPick: (key: string) => void;
   onFind: () => void;
@@ -749,7 +754,7 @@ function BuildLineRow({
   ];
   const canChoose = line.candidates.length > 0 || line.pick != null;
   return (
-    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3" data-build-line={line.tile} data-booked={line.booked ? '' : undefined}>
+    <li className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-1 py-3" data-build-line={lineKey} data-booked={line.booked ? '' : undefined}>
       <div className="min-w-0">
         <p className="text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
           {line.label}
@@ -791,7 +796,7 @@ function BuildLineRow({
           ) : null
         ) : who.includedWith ? null : who.pricePhp != null ? (
           <span className="whitespace-nowrap text-[15px] font-semibold tabular-nums text-ink">
-            <Count value={who.pricePhp} format="peso" id={`sup-build-line-${line.tile}`} />
+            <Count value={who.pricePhp} format="peso" id={`sup-build-line-${lineKey}`} />
           </span>
         ) : (
           <ActionButton tone="brand" main icon={Pencil} label="Set price" name={`Set price — ${who.name}`} href={priceHref(who.vendorId)} prefetch={false} />

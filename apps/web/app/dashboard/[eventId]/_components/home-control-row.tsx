@@ -18,6 +18,7 @@ import {
   dueWords,
   homeControlTiles,
   homeWidgetFramed,
+  hubReachOf,
   nextHubStage,
   paymentsToSettle,
   paysHeldByToday,
@@ -336,7 +337,8 @@ function DetailCard({
           <Dot mood={h.stage && h.publicUrl ? 'ok' : 'plain'} marker="stage">
             {h.stage ? (
               <>
-                <b className="font-medium">{PUBLIC_STAGE_LABELS[h.stage]} is live</b> · {h.publicUrl ? 'guests see it now' : 'not shared yet'}
+                {/* L5 · C6: "is live" only for a Public Hub — an Unlisted or Private one says so (`hubReachOf`). */}
+                <b className="font-medium">{PUBLIC_STAGE_LABELS[h.stage]} is {hubReachOf(h).unit}</b> · {hubReachOf(h).detail}
               </>
             ) : (
               'No page is live yet · pick your date to place it'

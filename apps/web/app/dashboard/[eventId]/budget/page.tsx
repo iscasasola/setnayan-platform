@@ -27,6 +27,8 @@ import { COUPLE_ORDERS_HIDE_VENDOR_FILTER } from '@/lib/orders';
 import { ShareBudgetBandToggle } from './_components/share-budget-band-toggle';
 import { BudgetScreen, type SupplierExtras } from './_components/budget-screen';
 import { buildBudgetList, payTargetVendor, pickNextPayment, type NextPayment } from '@/lib/budget-page-view';
+import { isPastDue } from '@/lib/chat-plan-fold';
+import { manilaTodayISO } from '@/lib/event-board';
 import { bookedBudgetBlock } from '@/lib/booked-budget';
 import { costCategoryOptions } from '@/lib/event-costs';
 import { depositStepHref } from '@/lib/deposit-pay-step';
@@ -345,6 +347,8 @@ export default async function BudgetPage({ params, searchParams }: Props) {
             dueDate: legacyNext.dueDate,
             vendorId: legacyNext.vendorId,
             costId: null,
+            // L5 · C9: the one past-due rule (`isPastDue`), on Manila's today.
+            overdue: isPastDue(legacyNext.dueDate, manilaTodayISO()),
           }
         : null;
 

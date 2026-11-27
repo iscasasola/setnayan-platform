@@ -167,7 +167,7 @@ test('their link: the prototype’s words, Download and Copy link — and no NFC
 
 test('the couple’s row says the record is theirs and where the link stands', () => {
   const bench = code(BENCH);
-  assert.ok(bench.includes("ownRecordLine(v.status === 'locked')"));
+  assert.ok(bench.includes('ownRecordLine(isBookedView(v))'));
   assert.match(bench, /inviteStatuses === null \? \(\s*<span className="sc-link" data-invite-status="unread">/);
   assert.ok(bench.includes('{INVITE_STATUS_UNREAD_LINE}'), 'a failed link read must be said, not drawn as no link');
   const page = code('app/dashboard/[eventId]/vendors/page.tsx');

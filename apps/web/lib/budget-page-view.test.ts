@@ -64,6 +64,7 @@ test('Next is the earliest dated payment that still has money owed', () => {
     name: 'Seda Vertis North',
     dueDate: '2026-10-05',
     vendorId: 'sv',
+    overdue: false,
     costId: null,
   });
 });
@@ -111,6 +112,7 @@ test('a dated cost with no supplier is named by its own label', () => {
     dueDate: '2026-10-20',
     vendorId: null,
     costId: 'c',
+    overdue: false,
   });
 });
 

@@ -125,3 +125,13 @@ export function reach(T: GownEnvelope, x: number, y: number, z: number): { r: nu
   if (T.on && j >= T.jHem && j < T.jTop) cloth = (rd(T.F, j) * (1 - u) + rd(T.F, j + 1) * u) * (y < T.yF ? 1.07 : 1);
   return { r: Math.hypot(x, z - cz), env: Math.max(body, cloth) };
 }
+
+/** v191 `bodyReach`: like `reach`, but only her body (inner layers must sit outside her, never inside her legs). */
+export function bodyReach(T: GownEnvelope, x: number, y: number, z: number): { r: number; env: number; cz: number } {
+  const f = Math.min(T.n - 1.001, Math.max(0, (y - T.y0) / DY)), j = f | 0, u = f - j, cz = T.cz[j]! + (T.cz[j + 1]! - T.cz[j]!) * u;
+  let a = Math.atan2(x, z - cz) / DTH;
+  if (a < 0) a += N;
+  const k0 = (a | 0) % N, k1 = (k0 + 1) % N, w = a - (a | 0);
+  const rd = (A: Float32Array, jj: number) => A[jj * N + k0]! * (1 - w) + A[jj * N + k1]! * w;
+  return { r: Math.hypot(x, z - cz), env: rd(T.H, j) * (1 - u) + rd(T.H, j + 1) * u, cz };
+}

@@ -66,7 +66,7 @@ function HostReplies({ reviews, vendorName, capped }: { reviews: ReviewWithCoupl
   }
   if (reviews.length === 0) {
     return (
-      <TemplateEmpty data="review-replies-none">No reviews yet. They show here the moment a couple posts one, ready for your reply.</TemplateEmpty>
+      <TemplateEmpty data="review-replies-none">No reviews yet.</TemplateEmpty>
     );
   }
   const waiting = reviews.filter((r) => !r.vendor_reply);

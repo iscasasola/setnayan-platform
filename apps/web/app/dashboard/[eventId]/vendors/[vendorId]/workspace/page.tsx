@@ -34,6 +34,7 @@
 // Vendors-tab cards): #conversation · #documents · #payments.
 // ============================================================================
 
+import { CopyButton } from '@/app/_components/copy-button';
 import { bookedCounterpartyPhone, shopIsBookedOnEvent } from '@/lib/shop-booking.server';
 import { bookedTelHref, bookedViberHref } from '@/lib/booked-handoff';
 import { readMyMute } from '@/lib/chat-mutes';
@@ -1640,8 +1641,10 @@ export default async function VendorWorkspacePage({ params, searchParams }: Prop
               <dt className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/55">
                 Contact
               </dt>
-              <dd className="mt-1 truncate text-sm text-ink/80">
-                {ev.contact_phone ?? ev.contact_email}
+              <dd className="mt-1 flex min-w-0 items-center gap-2 text-sm text-ink/80">
+                <span className="truncate">{ev.contact_phone ?? ev.contact_email}</span>
+                {/* 📋 Text is not selectable (owner 27 Nov 2026, R1): the contact is copied with a button. */}
+                <CopyButton value={(ev.contact_phone ?? ev.contact_email) as string} label="Copy" />
               </dd>
             </div>
           ) : null}

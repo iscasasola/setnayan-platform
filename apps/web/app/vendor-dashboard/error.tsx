@@ -5,6 +5,7 @@ import { AlertTriangle, ArrowLeftRight, RotateCcw } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { recoverStaleTab } from '@/lib/stale-bundle';
+import { CopyButton } from '@/app/_components/copy-button';
 
 /**
  * /vendor-dashboard route-segment error boundary.
@@ -118,9 +119,13 @@ export default function VendorDashboardError({ error, reset }: Props) {
           <ActionButton tone="neutral" href="/dashboard" icon={ArrowLeftRight} label="Switch to customer view" />
         </div>
         {error?.digest && (
-          <p className="text-xs text-[color:var(--m-slate-2)] mt-10">
-            Reference: {error.digest}
-          </p>
+          <div className="mt-10 flex flex-col items-center gap-2">
+            <p className="text-xs text-[color:var(--m-slate-2)]">
+              Reference: {error.digest}
+            </p>
+            {/* 📋 Text is not selectable (owner 27 Nov 2026, R1): the reference is copied with a button. */}
+            <CopyButton value={error.digest} label="Copy reference" />
+          </div>
         )}
       </div>
     </div>

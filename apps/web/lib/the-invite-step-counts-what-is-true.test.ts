@@ -128,7 +128,8 @@ test('the count says MARKED, never "sent" — Setnayan delivers none of these', 
      none marked, all marked, some marked — and an earlier version of this test
      matched a single phrase, so rewording two branches out of three left it
      GREEN. Face every branch at once. */
-  const start = page.indexOf('{invitationsMarked === 0 ?');
+  // R3 (owner 27 Nov): the none-marked branch says nothing now (no how-to line), so the block starts at all / some.
+  const start = page.indexOf('{invitationsMarked === guests.length ?');
   assert.ok(start > 0, 'the summary block is gone — the count no longer renders');
   const end = page.indexOf('</p>', start);
   assert.ok(end > start, 'the summary block has no end tag; the slice would run to the file end');

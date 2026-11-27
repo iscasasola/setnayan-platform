@@ -1,4 +1,5 @@
 import { supplierChatHref, customerCardHref, supplierThreadNoticeSearch } from '@/lib/upcoming-schedule-door';
+import { CopyButton } from '@/app/_components/copy-button';
 import { MONEY_NOT_OWED, ReadFailedBody, ReadFailedNote } from '../../_components/set-two/read-failed';
 import { PartPage } from '../../_components/set-two/parts';
 import Link from 'next/link';
@@ -3508,7 +3509,11 @@ function OverviewTab(props: {
                 {brief.event.venue_address ? (
                   <div className="flex items-start justify-between gap-3">
                     <dt className="text-ink/55">Address</dt>
-                    <dd className="text-right font-medium">{brief.event.venue_address}</dd>
+                    <dd className="flex flex-col items-end gap-1 text-right font-medium">
+                      {brief.event.venue_address}
+                      {/* 📋 Text is not selectable (owner 27 Nov 2026, R1): the address is copied with a button. */}
+                      <CopyButton value={brief.event.venue_address} label="Copy address" />
+                    </dd>
                   </div>
                 ) : null}
               </>

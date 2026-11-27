@@ -19,6 +19,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { ImagePlus, X } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
+import { LightboxSaveButton } from '@/app/_components/gallery/lightbox-save-button';
 import { usePapicUploads } from '@/app/papic/_components/upload-chip';
 import { formatCount } from '@/lib/format-number';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -239,7 +240,9 @@ export function MyShotsSheet({
 
         {viewing ? (
           <div className="absolute inset-0 z-10 flex flex-col rounded-t-2xl bg-[#1f1d1a]">
-            <div className="flex justify-end p-2">
+            <div className="flex items-center justify-between gap-2 p-2">
+              {/* 💾 Long-press save is gone (owner 27 Nov 2026, R1): the guest's own shot is saved with a button. */}
+              <LightboxSaveButton url={viewing.url} filename={viewing.media === 'clip' ? 'My Papic clip.mp4' : 'My Papic shot.jpg'} />
               <button
                 type="button"
                 onClick={() => setViewing(null)}

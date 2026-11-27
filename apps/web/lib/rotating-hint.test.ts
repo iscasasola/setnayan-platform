@@ -96,7 +96,8 @@ test('the shared fields use it: the thumb row’s field and the Guests add box',
   assert.match(src('components/thumb-row.tsx'), /useRotatingHint\(ownInput,[^;]*field\.hints/, 'the thumb row field does not cycle its hints');
   assert.match(src('app/dashboard/[eventId]/guests/_components/capture-bar.tsx'), /useRotatingHint\(inputRef, placeholder, hints\)/, 'the add box does not cycle its hints');
   const screen = src('app/dashboard/[eventId]/guests/_components/guests-screen.tsx');
-  assert.match(screen, /hints: writesOff \? undefined : hintLines/, 'the Guests search box is not given its examples');
-  assert.match(screen, /quickAddTips\(\{[^}]*groupNames: groups\.map/, 'the Guests examples do not come from this event’s groups');
+  // R3 (owner 27 Nov 2026): the Guests search box says only its name, "Search guests" — no rotating "e.g. …" lines.
+  assert.doesNotMatch(screen, /hints:/, 'the Guests search box cycles "e.g." examples again (R3: no guideline copy)');
+  assert.match(screen, /placeholder: 'Search guests'/, 'the Guests search box lost its name');
   assert.match(src('app/dashboard/[eventId]/guests/_components/add-guest-sheet.tsx'), /hints=\{tips\?\.examples/, 'the add sheet’s box is not given its examples');
 });

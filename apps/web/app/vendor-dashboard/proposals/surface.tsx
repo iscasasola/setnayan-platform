@@ -166,12 +166,6 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
           <FileText aria-hidden className="h-5 w-5" strokeWidth={1.75} />
         </span>
         <h1 className="text-3xl font-semibold tracking-tight">Quotes</h1>
-        <p className="max-w-prose text-sm text-ink/65">
-          Save your standard packages as templates once — the system fills in the
-          couple&rsquo;s name, date, venue, and live guest counts for any booked client, ready
-          to print. Numbers freeze when you send, so a quote never shifts under the
-          couple.
-        </p>
       </header>
 
       {notice ? (
@@ -196,12 +190,11 @@ export default async function VendorProposalsPage({ searchParams }: Props) {
         </h2>
         {bookedEvents.length === 0 ? (
           <p className="mt-2 text-sm text-ink/55">
-            No booked clients yet — quotes fill from a booked event&rsquo;s live details.
-            Once a couple books you, they&rsquo;ll appear here.
+            No booked clients yet.
           </p>
         ) : templates.length === 0 ? (
           <p className="mt-2 text-sm text-ink/55">
-            Save your first template below, then generate a quote from it.
+            No templates yet.
           </p>
         ) : (
           <form action={createProposal} className="mt-3 grid gap-2">

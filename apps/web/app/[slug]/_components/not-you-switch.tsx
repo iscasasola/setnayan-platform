@@ -1,6 +1,7 @@
 import { SIGN_OUT_ERASES_SELFIE } from '@/lib/face-selfie-lifetime';
 import { DoorChoices } from './door-choices';
 import { doorSignInHref } from './door-choice-words';
+import { realNameOrNull } from '@/lib/no-name';
 
 /** The listed, signed-in guest's line (owner 2026-11-03): "Not Maria? Switch account". */
 export const SWITCH_ACCOUNT_WORDS = 'Switch account';
@@ -44,7 +45,8 @@ export function NotYouSwitch({
     return (
       <details data-not-you-switch="account" className={`group mx-auto w-full max-w-md text-sm text-ink/70 ${className}`}>
         <summary className="mx-auto flex min-h-[44px] w-fit cursor-pointer list-none items-center justify-center gap-1 [&::-webkit-details-marker]:hidden">
-          Not {account.firstName || 'you'}?{' '}
+          {/* A stand-in ("Someone", "Someone —") is no name: it reads "Not you?" (RW-64 · walk 27 Nov W1-12b). */}
+          Not {realNameOrNull(account.firstName) ?? 'you'}?{' '}
           <span className="font-medium text-ink underline underline-offset-4">{SWITCH_ACCOUNT_WORDS}</span>
         </summary>
         <div className="mt-3">

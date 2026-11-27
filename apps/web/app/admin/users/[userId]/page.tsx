@@ -2,6 +2,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { ERASURE_WORDS } from '@/lib/erasure/erasure-words';
 import Link from 'next/link';
 import { displayAccountEmail } from '@/lib/erasure/display-email';
+import { CopyButton } from '@/app/_components/copy-button';
 import { readEventTypeNames, type EventTypeName } from '@/lib/admin/event-type-names.server';
 import { notFound } from 'next/navigation';
 import { after } from 'next/server';
@@ -453,6 +454,8 @@ export default async function AdminAccountCardPage({ params, searchParams }: Pro
         line={`${email ?? '—'} · Joined ${fmtDate(user.created_at as string)}`}
         badges={
           <>
+            {/* 📋 Text is not selectable, /admin included (owner 27 Nov 2026, R1 + R5): the email is copied with a button. */}
+            {email ? <CopyButton value={email} label="Copy email" /> : null}
             {roleByEvent.size > 0 && [...new Set([...roleByEvent.values()])].includes('couple') ? (
               <Badge tone="ok">Host</Badge>
             ) : null}

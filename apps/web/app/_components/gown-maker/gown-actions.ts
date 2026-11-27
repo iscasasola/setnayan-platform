@@ -15,6 +15,11 @@ import 'server-only';
  *   · `design`  — one design message, read for its card: the bride gets her design and the one estimate; the shop also
  *                 gets the cost lines, computed now from its own list — never stored where she can read them.
  *   · `fit`     — the designer saves the tape at the fitting (`gown_fittings`, the shop only).
+ *   · `types` / `type_save` — Admin › Studio › Fabric types (step B5b): the fabric-type registry, Setnayan admin only
+ *                 (owner Q4). Hide, never delete.
+ *   · `stock` / `fabric_save` / `look_save` — Shop › Attire Maker › Fabrics and lace, Inspirations (step B5): the shop's
+ *                 own stock, hidden rows and prices included (Shop Manager only; bought AND on a plan to save). A fabric's
+ *                 photos must sit in the shop's own gown folder; a look's design gets the same check a bride's does.
  *
  * Every refused read is `{ ok: false }` with the words to show — never an empty gown maker.
  */
@@ -22,11 +27,12 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { canManageVendor, resolveVendorRoleForProfile } from '@/lib/vendor-role';
+import { requireAdminAction } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sendChatMessageCore } from '@/lib/chat-send';
 import { plusGateRefusal } from '@/lib/shop-plus-gate';
 import { shopPlusGate } from '@/lib/shop-plus-gate.server';
-import { GOWN_MEASURES, GOWN_REFUSAL_WORDS, type GownBody, type GownMeasures } from '@/lib/gown-config';
+import { GOWN_MEASURES, GOWN_REFUSAL_WORDS, gownLookOf, sanitizeGownConfig, startingGownConfig, type GownBody, type GownMeasures } from '@/lib/gown-config';
 import {
   GOWN_DESIGN_NOT_SENT,
   GOWN_DESIGN_UNREADABLE,
@@ -35,6 +41,10 @@ import {
   gownDesignOf,
   gownDesignRefOf,
   gownShopTemplate,
+  sanitizeGownFabricType,
+  sanitizeGownShopFabric,
+  sanitizeGownShopLookShell,
+  type GownFabricTypeRow,
   sanitizeGownShopOptions,
   type GownDesignForBride,
   type GownDesignForShop,
@@ -46,19 +56,28 @@ import {
   dropGownDesign,
   gownOfferOf,
   readGownFabricTypeIds,
+  readGownFabricTypeRows,
+  readGownFabricTypes,
   readGownFitting,
   readGownMakerOn,
   readShopGownFabrics,
   readShopGownLooks,
   readShopGownMaker,
+  readShopGownStock,
   readShopGownToolOpen,
   readStoredGownDesign,
   sanitizeGownTape,
   saveGownFitting,
+  saveGownFabricType,
+  saveShopGownFabric,
+  saveShopGownLook,
   saveShopGownMaker,
   storeGownDesign,
   type BrideGownFabric,
+  type GownFabricTypeOption,
   type GownTape,
+  type ShopGownStockFabric,
+  type ShopGownStockLook,
 } from '@/lib/gown-maker.server';
 import type { GownOffer } from '@/lib/gown-config';
 
@@ -96,7 +115,12 @@ export type GownActionInput =
   | { op: 'status'; threadId: string }
   | { op: 'fit'; threadId: string; designId: string; tape: unknown }
   | { op: 'options' }
-  | { op: 'save'; options: unknown };
+  | { op: 'save'; options: unknown }
+  | { op: 'stock' }
+  | { op: 'fabric_save'; fabric: unknown }
+  | { op: 'look_save'; look: unknown }
+  | { op: 'types' }
+  | { op: 'type_save'; type: unknown };
 
 export type GownActionResult =
   | GownDesignRead
@@ -104,6 +128,10 @@ export type GownActionResult =
   | { ok: true; op: 'send' | 'invite' | 'save' | 'fit' }
   | { ok: true; op: 'status'; on: boolean; side: 'couple' | 'vendor' }
   | { ok: true; op: 'options'; options: GownShopOptions; saved: boolean; locked: boolean }
+  | { ok: true; op: 'stock'; shop: string; fabrics: ShopGownStockFabric[]; looks: ShopGownStockLook[]; types: GownFabricTypeOption[]; locked: boolean }
+  | { ok: true; op: 'fabric_save' | 'look_save'; id: string }
+  | { ok: true; op: 'types'; types: GownFabricTypeRow[] }
+  | { ok: true; op: 'type_save' }
   | { ok: false; message: string };
 
 const READ_FAILED = 'Couldn’t load this. Try again.';
@@ -118,13 +146,29 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
   if (!user) return fail('Sign in again to use the Attire Maker.');
   const op = input?.op;
 
+  // ── The fabric-type registry: Setnayan admin only (owner Q4), never a shop ──────────────
+  if (op === 'types' || op === 'type_save') {
+    try {
+      await requireAdminAction();
+    } catch {
+      return fail('Only a Setnayan admin can change the fabric types.');
+    }
+    const admin = createAdminClient();
+    const rows = await readGownFabricTypeRows(admin);
+    if (rows.status !== 'ok') return fail('Couldn’t load the fabric types. Try again.');
+    if (op === 'types') return { ok: true, op, types: rows.data };
+    const checked = sanitizeGownFabricType((input as { type: unknown }).type, new Set(rows.data.map((t) => t.id)));
+    if (!checked.ok) return fail(checked.problem);
+    return (await saveGownFabricType(admin, { type: checked.type, userId: user.id })) ? { ok: true, op } : fail('That fabric type didn’t save. Try again.');
+  }
+
   // ── The shop's own tool page, and the shop's invite ──────────────────────
-  if (op === 'options' || op === 'save' || op === 'invite') {
+  if (op === 'options' || op === 'save' || op === 'invite' || op === 'stock' || op === 'fabric_save' || op === 'look_save') {
     const profile = await fetchOwnVendorProfile(supabase, user.id);
     if (!profile) return fail('Only a shop can do this.');
     const shop = profile.vendor_profile_id;
     // 🔒 The price list is the Shop Manager's (owner · admin), like every shop write. A refused role read denies.
-    if ((op === 'options' || op === 'save') && !canManageVendor(await resolveVendorRoleForProfile(supabase, user.id, shop))) {
+    if (op !== 'invite' && !canManageVendor(await resolveVendorRoleForProfile(supabase, user.id, shop))) {
       return fail('Only the shop owner or an admin can change the Attire Maker.');
     }
     const admin = createAdminClient();
@@ -135,7 +179,34 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
       if (read.status === 'unread') return fail('Couldn’t load your Attire Maker. Try again.');
       return { ok: true, op, options: read.status === 'ok' ? read.data : gownShopTemplate(), saved: read.status === 'ok', locked: !allowed.data };
     }
+    if (op === 'stock') {
+      // The shop's own stock list, hidden rows and prices included (the shop's panel only — never a bride's read).
+      const [stock, types] = await Promise.all([readShopGownStock(admin, shop), readGownFabricTypes(supabase)]);
+      if (stock.status !== 'ok' || types.status !== 'ok') return fail('Couldn’t load your fabrics and looks. Try again.');
+      return { ok: true, op, shop, fabrics: stock.data.fabrics, looks: stock.data.looks, types: types.data, locked: !allowed.data };
+    }
     if (!allowed.data) return fail('The Attire Maker isn’t on for your shop yet. Open it in the Toolkit; your saved price list is kept.');
+    if (op === 'fabric_save') {
+      const types = await readGownFabricTypeIds(supabase);
+      if (types.status !== 'ok') return fail();
+      const checked = sanitizeGownShopFabric((input as { fabric: unknown }).fabric, { vendorProfileId: shop, typeIds: new Set<string>(types.data) });
+      if (!checked.ok) return fail(checked.problem);
+      const id = await saveShopGownFabric(admin, { vendorProfileId: shop, fabric: checked.fabric, userId: user.id });
+      return id ? { ok: true, op, id } : fail('That fabric didn’t save. Try again.');
+    }
+    if (op === 'look_save') {
+      const shell = sanitizeGownShopLookShell((input as { look: unknown }).look, shop);
+      if (!shell.ok) return fail(shell.problem);
+      // The look's design is checked against this shop's own offer, the same check a bride's design gets.
+      const [types, fabrics, looks] = await Promise.all([readGownFabricTypeIds(supabase), readShopGownFabrics(admin, shop), readShopGownLooks(admin, shop)]);
+      if (types.status !== 'ok' || fabrics.status !== 'ok' || looks.status !== 'ok') return fail();
+      const raw = shell.config && typeof shell.config === 'object' ? (shell.config as Record<string, unknown>) : null;
+      if (!raw) return fail('Open a design on the mannequin, then save it as a look.');
+      const config = sanitizeGownConfig({ ...startingGownConfig(), ...raw }, gownOfferOf(types.data, fabrics.data, looks.data));
+      if (!config.ok) return fail(GOWN_REFUSAL_WORDS[config.reason]);
+      const id = await saveShopGownLook(admin, { vendorProfileId: shop, look: { ...shell.look, config: gownLookOf(config.config) }, userId: user.id });
+      return id ? { ok: true, op, id } : fail('That look didn’t save. Try again.');
+    }
     if (op === 'save') {
       const checked = sanitizeGownShopOptions((input as { options: unknown }).options);
       if (!checked.ok) return fail(checked.problem);

@@ -16,10 +16,14 @@
  * Lazy-loaded from the tile (shop-makers.tsx), so none of it is in the Shop's first load.
  */
 import { useCallback, useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
+import type { ComponentProps } from 'react';
+import type { GownStockPanel as GownStockPanelType } from './gown-stock-panel';
 import Link from 'next/link';
 import { Lock, RotateCw, Save } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
+import { PillSelector } from '@/app/_components/pill-selector';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { formatAmountInput, parseAmountInput } from '@/lib/service-customization-draft';
 import { SPECIAL_TOOLS_LOCKED_WORDS } from '@/lib/special-tools';
@@ -36,6 +40,17 @@ import {
   type GownShopOptions,
 } from '@/lib/gown-maker';
 import { gownAction } from '@/app/_components/gown-maker/gown-call';
+
+/** Fabrics and looks load only when their view is opened (step B5). */
+const GownStockPanel = dynamic(() => import('./gown-stock-panel').then((m) => m.GownStockPanel), {
+  loading: () => <div className="sn-frame skeleton h-48" aria-busy="true" />,
+});
+const VIEWS = [
+  { key: 'prices', label: 'Price list' },
+  { key: 'fabrics', label: 'Fabrics' },
+  { key: 'looks', label: 'Looks' },
+] as const;
+type View = (typeof VIEWS)[number]['key'];
 
 type Load = { s: 'loading' } | { s: 'failed'; message: string } | { s: 'ok'; options: GownShopOptions; saved: boolean; locked: boolean };
 
@@ -55,7 +70,12 @@ const ADD_ON_OPTIONS = [
 ];
 const UNIT_WORD: Record<string, string> = { gown: 'per gown', m: 'per metre', pc: 'per piece', pair: 'per pair', '100 pcs': 'per 100', hour: 'per hour' };
 
-export function GownMakerPanel({ seed }: { seed?: { options: GownShopOptions; saved: boolean; locked: boolean } } = {}) {
+export function GownMakerPanel({
+  seed,
+  startView = 'prices',
+  stockSeed,
+}: { seed?: { options: GownShopOptions; saved: boolean; locked: boolean }; startView?: View; stockSeed?: ComponentProps<typeof GownStockPanelType>['seed'] } = {}) {
+  const [view, setView] = useState<View>(startView);
   const [load, setLoad] = useState<Load>(seed ? { s: 'ok', ...seed } : { s: 'loading' });
   const read = useCallback(() => {
     setLoad({ s: 'loading' });
@@ -86,6 +106,15 @@ export function GownMakerPanel({ seed }: { seed?: { options: GownShopOptions; sa
       </div>
     );
   }
+  const picker = <PillSelector label="Attire Maker" value={view} options={VIEWS} onPick={(k) => setView(k)} data="gown-view" />;
+  if (view !== 'prices') {
+    return (
+      <div className="space-y-4">
+        {picker}
+        <GownStockPanel view={view} seed={stockSeed} />
+      </div>
+    );
+  }
   if (load.locked) {
     return (
       <div className="sn-frame flex items-start gap-3 p-4" data-gown-maker="locked">
@@ -102,7 +131,12 @@ export function GownMakerPanel({ seed }: { seed?: { options: GownShopOptions; sa
       </div>
     );
   }
-  return <GownMakerEditor start={load.options} />;
+  return (
+    <div className="space-y-4">
+      {picker}
+      <GownMakerEditor start={load.options} />
+    </div>
+  );
 }
 
 function GownMakerEditor({ start }: { start: GownShopOptions }) {

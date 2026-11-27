@@ -38,7 +38,7 @@ test('trims as v195 builds them: every piece within 1 mm, and the metres the des
     buildDress(B, T, D, g, floorY);
     writeDress(D, T, restingCloth(), { pleat: g.pleat, n: g.pleatN, amp: g.pleatCm / 100 / B.P.S });
     const pieces = buildGownTrims(B, T, g);
-    placeGownTrims(pieces, B, D, floorY);
+    placeGownTrims(pieces, B, T, D, floorY);
     assert.equal(pieces.length, r.meshes.length, `${r.name}: pieces`);
     for (const [k, ref] of r.meshes.entries()) {
       const P = (pieces[k]!.geo.attributes.position as THREE.BufferAttribute).array as Float32Array;

@@ -104,7 +104,7 @@ test('the veil never sinks into the gown below the head', async () => {
 test('the back closure as v193 builds it: zipper, covered buttons, lace-up with its eyelets', async () => {
   const B = await body();
   for (const r of REF.rows.filter((x) => x.closure)) {
-    const { g, T } = dressed(B, r), c = buildGownClosure(B, T, g.closure)!, ref = r.closure!;
+    const { g, T, D } = dressed(B, r), c = buildGownClosure(B, T, D.L, g)!, ref = r.closure!;
     const ours = [c.eyelets, c.cloth].filter((x): x is THREE.BufferGeometry => !!x);
     assert.equal(ours.length, ref.length, `${r.name}: pieces`);
     // v193 adds the eyelets first, then the cloth.
@@ -117,15 +117,16 @@ test('the back closure as v193 builds it: zipper, covered buttons, lace-up with 
   }
 });
 
-test('a lace-up needs 3 cm of back above the waist to lace across; the deepest back on this body still leaves 4.2 cm', async () => {
+test('a lace-up needs about 15 cm of back above the waist (v197): the deepest back is too low, a modest one laces', async () => {
   const B = await body();
   const deepest = dressed(B, { name: 'deepest', hem: 'floor', gown: { back: 'v', backT: 1, closure: 'lace' } });
-  assert.equal(gownLaceUpFits(deepest.T), true);
-  // A back cut 3 cm below the waist (a fuller body or a lower cut moves it there) leaves under 3 cm to lace across.
+  assert.equal(gownLaceUpFits(B, deepest.T, deepest.D.L, deepest.g), false);
+  const modest = dressed(B, { name: 'modest', hem: 'floor', gown: { back: 'scoop', backT: 0.2, closure: 'lace' } });
+  assert.equal(gownLaceUpFits(B, modest.T, modest.D.L, modest.g), true);
+  // A back cut 3 cm below the waist leaves nothing to close at all.
   const T = { ...deepest.T, top: Float32Array.from(deepest.T.top) };
   T.top[T.top.length / 2] = BODY_K.yWaist - 0.03;
-  assert.equal(gownLaceUpFits(T), false);
-  assert.equal(buildGownClosure(B, T, 'lace'), null, 'and the lace-up is not built');
+  assert.equal(buildGownClosure(B, T, deepest.D.L, deepest.g), null, 'and the lace-up is not built');
 });
 
 test('her shoes as v193 fits them: under her own foot at 8 cm, the stiletto straight to the floor', async () => {

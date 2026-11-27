@@ -67,7 +67,7 @@ export type GownNeckLandmarks = {
   cm: number;
 };
 
-type NeckDesign = { neck: GownNeckline; neckT: number | null; back: GownBack; backT: number };
+export type NeckDesign = { neck: GownNeckline; neckT: number | null; back: GownBack; backT: number };
 
 /** The neckline in front, for each direction ph (0 = centre front, π = centre back). */
 export function neckFront(d: NeckDesign, ph: number, L: GownNeckLandmarks): number {
@@ -146,3 +146,17 @@ export function waistY(B: GownRig, waist: GownWaistline, q: number): number {
 
 /** The design keys the dress build reads. */
 export type GownDressDesign = Pick<GownConfig, 'neck' | 'neckT' | 'back' | 'backT' | 'sil' | 'waist' | 'petti' | 'train' | 'slits' | 'slitCm' | 'boning' | 'hem' | 'hemCm' | 'pleat' | 'pleatN' | 'pleatCm' | 'skirtLayers' | 'fabric' | 'bustle'>;
+
+/**
+ * A high neck with an open back stays closed at the nape: a band with one covered button, and the chosen scoop or V
+ * opens below it as a keyhole (v197 `keyholeBack`). Null otherwise, or when the opening would not clear the band.
+ * `top` is the bodice's top edge at the centre back; `poly` the hole's outline (direction, height) for the cut map.
+ */
+export function gownKeyholeBack(d: NeckDesign, topBack: number, L: GownNeckLandmarks): { yBand: number; yB: number; poly: [number, number][] } | null {
+  if (d.neck !== 'high' || d.back === 'closed') return null;
+  const side = neckFront(d, 1.6, L), yB = Math.min(side, L.bTop + (L.bLow - L.bTop) * d.backT), yBand = topBack - 3.5 * L.cm;
+  if (yB > yBand - 2 * L.cm) return null;
+  const lo: [number, number][] = [], n = 40;
+  for (let i = 0; i <= n; i++) { const ph = Math.PI - 1.34 + (2.68 * i) / n, p2 = ph > Math.PI ? TAU - ph : ph, y = side + (yB - side) * backD(d.back, p2); lo.push([ph, Math.min(y, yBand)]); }
+  return { yBand, yB, poly: [...lo, [Math.PI + 1.34, yBand], [Math.PI - 1.34, yBand]] };
+}

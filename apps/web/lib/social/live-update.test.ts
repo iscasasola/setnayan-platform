@@ -81,3 +81,25 @@ test('Sunday leads with round weekly totals and leaves out small or unread ones'
 test('one live update per Manila day', () => {
   assert.equal(liveUpdateSourceRef('2026-12-01'), 'live:2026-12-01');
 });
+
+test('the live update follows the caption word rules (docs/brand.md; the same list #8437 holds)', () => {
+  const BANNED = /\bvendors?\b|vetted|trusting|trusted|every single one|monogram|\breel\b|marketplace,|\bfirst\b|#1|guaranteed|scam-free/i;
+  const posts = [
+    composeLiveUpdate(
+      { shopsVerified: [{ named: true, businessName: 'Hiraya', category: 'Photography', region: 'Cebu' }, { named: false, businessName: '', category: 'Catering', region: 'Davao' }], eventsHeld: null, totals: null },
+      '2026-12-01',
+      false,
+    ),
+    composeLiveUpdate({ shopsVerified: [], eventsHeld: 120, totals: null }, '2026-12-01', false),
+    composeLiveUpdate(
+      { shopsVerified: [], eventsHeld: 60, totals: { events_created: 300, vendors_verified: 40, guests_invited: 5000, users_joined: 900 } },
+      '2026-12-06',
+      true,
+    ),
+  ];
+  assert.equal(posts.filter(Boolean).length, 3);
+  for (const post of posts) {
+    assert.doesNotMatch(`${post!.title}\n${post!.body}`, BANNED, post!.kind);
+    assert.match(post!.body, /#Setnayan #SetNaYan$/, `${post!.kind} ends with the house tags`);
+  }
+});

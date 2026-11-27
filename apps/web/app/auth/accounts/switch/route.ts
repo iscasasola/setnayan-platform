@@ -13,6 +13,7 @@ import {
 import { performSwitch } from '@/lib/account-switch';
 import { applyPending, expireSessionCookies, readCurrent, refreshParked, requestClient } from '@/lib/account-routes.server';
 import { ACTIVE_SHOP_COOKIE } from '@/lib/active-shop';
+import { isSafeNext } from '@/lib/safe-next';
 
 /**
  * 🔁 SWITCH TO ANOTHER ACCOUNT ON THIS PHONE — instant, no password (owner 2026-10-22, option B). The sheet's
@@ -26,8 +27,14 @@ export async function POST(request: NextRequest) {
   const secure = process.env.NODE_ENV === 'production';
   const home = new URL('/dashboard?hub=1', request.url);
   let target = '';
+  // 🔁 Where a switch lands (Batch 0 · L5): a row on `/login` carries that page's `next`, so a parked account picked
+  // there opens where the person was going. The sheet sends none, and Home stays its landing. Only a same-site path.
+  let landing = home;
   try {
-    target = String((await request.formData()).get('uid') ?? '').trim().toLowerCase();
+    const form = await request.formData();
+    target = String(form.get('uid') ?? '').trim().toLowerCase();
+    const next = form.get('next');
+    if (isSafeNext(next) && next !== '/') landing = new URL(next, request.url);
   } catch {
     return NextResponse.redirect(home, { status: 303 });
   }
@@ -53,7 +60,7 @@ export async function POST(request: NextRequest) {
     { target, jar, list },
   );
 
-  const response = NextResponse.redirect(home, { status: 303 });
+  const response = NextResponse.redirect(result.ok ? landing : home, { status: 303 });
   // The target's jar is spent either way: a live one became the active session; a dead one is dropped.
   response.cookies.set(jarCookieName(target), '', { ...jarCookieOptions(secure), maxAge: 0 });
   response.cookies.set(ACCOUNTS_LIST_COOKIE, encodeParkedList(result.list), listCookieOptions(secure));

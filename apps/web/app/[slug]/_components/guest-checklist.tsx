@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { checklistProgress, type ChecklistItem, type ChecklistKey } from '@/lib/guest-checklist';
+import { checklistProgress, savingTicks, type ChecklistItem, type ChecklistKey } from '@/lib/guest-checklist';
 import { formatCount } from '@/lib/format-number';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 
@@ -40,8 +40,9 @@ export function GuestChecklist({
   const [, startTransition] = useTransition();
   const { ready, total, allSet } = checklistProgress(items, ticks);
 
-  function toggle(key: ChecklistKey) {
-    const done = !ticks.includes(key);
+  function toggle(key: ChecklistKey, to?: boolean) {
+    const done = to ?? !ticks.includes(key);
+    if (done === ticks.includes(key)) return;
     const before = ticks;
     setTicks(done ? [...ticks, key] : ticks.filter((k) => k !== key));
     setFailed(false);
@@ -125,6 +126,8 @@ export function GuestChecklist({
                         href={item.link.href}
                         filename="setnayan-guest-pass.png"
                         className="font-medium text-ink underline underline-offset-4"
+                        /* ☑ The save that landed ticks its row (B9): one state, said once — by the tick. */
+                        onSaved={savingTicks(item) ? () => toggle(item.key, true) : undefined}
                       >
                         {item.link.label}
                       </SaveFileLink>

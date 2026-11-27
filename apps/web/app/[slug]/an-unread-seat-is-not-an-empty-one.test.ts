@@ -67,10 +67,18 @@ test('1 · the loader’s seat reads bind their error, and every failure raises 
   assert.ok(seatBlock.length > 0, 'precondition: the seat block (`let guestSeatUnreadable = false;` … `const guestHubData`) moved');
 
   // Every read in the block binds `error` — read from each destructure, so a new read cannot slip in bare.
-  const reads = [...seatBlock.matchAll(/const \{([^}]*)\} = await admin\s*\.from\('(\w+)'\)/g)];
+  // 🪑 27 Nov: the table is read through the ONE name reader, `shownTableRows(admin, …)` (lib/table-auto-name.server.ts),
+  // which answers `{ data, error }` exactly like the `admin.from('event_tables')` it replaced — counted as that read.
+  const reads = [...seatBlock.matchAll(/const \{([^}]*)\} = await (?:admin\s*\.from\('(\w+)'\)|(shownTableRows)\(admin,)/g)].map(
+    (m) => [m[0], m[1], m[2] ?? 'event_tables'] as const,
+  );
   const tables = reads.map((m) => m[2]).sort();
   assert.deepEqual(tables, ['event_seat_assignments', 'event_tables'], `anti-vacuity: the seat block reads ${tables.join(', ') || 'nothing'}`);
-  assert.equal((seatBlock.match(/\.from\('/g) ?? []).length, reads.length, 'a read in the seat block is not a `const { … } = await admin.from(…)` the walker can see');
+  assert.equal(
+    (seatBlock.match(/\.from\('|shownTableRows\(/g) ?? []).length,
+    reads.length,
+    'a read in the seat block is not a `const { … } = await admin.from(…)` the walker can see',
+  );
   for (const [, pattern, table] of reads) {
     const bound = /\berror:\s*(\w+)/.exec(pattern ?? '')?.[1];
     assert.ok(bound, `the \`${table}\` seat read throws its error away — a refused read would draw as "not seated yet"`);

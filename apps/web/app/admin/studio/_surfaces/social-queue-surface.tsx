@@ -138,7 +138,7 @@ type SocialPostRow = {
   publish_after: string | null;
   hold_until: string | null;
   scheduled_for: string | null;
-  status: 'scheduled' | 'publishing' | 'published' | 'pulled' | 'failed';
+  status: 'scheduled' | 'scheduled_on_fb' | 'publishing' | 'published' | 'pulled' | 'failed';
   platform_results: unknown;
   created_at: string;
   updated_at: string;
@@ -273,7 +273,7 @@ export async function SocialQueueSurface({
     .select(
       'post_id,source_type,source_ref,title,body,media_url,link_url,publish_after,hold_until,scheduled_for,status,platform_results,created_at,updated_at',
     )
-    .in('status', ['scheduled', 'publishing'])
+    .in('status', ['scheduled', 'scheduled_on_fb', 'publishing'])
     .order('scheduled_for', { ascending: true, nullsFirst: false })
     .limit(30);
   if (scheduledErr) {

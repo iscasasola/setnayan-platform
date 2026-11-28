@@ -30,6 +30,7 @@ import { MomentVoicesFields, addedByShows } from './moment-voices-fields';
 import { Sheet } from '@/app/_components/sheet';
 import { PickMenu } from '../../editor/_components/pick-menu';
 import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
+import { actionButtonClass } from '@/components/action-button-class';
 
 /**
  * 🧭 STUDIO › LOVE STORY'S ADD / EDIT SHEET (owner 2026-10-08, studio round 3) — the shipped
@@ -586,7 +587,7 @@ export function MomentSheetStudio({
                 >
                   Not now
                 </button>
-                <SubmitButton pendingLabel="Keeping…" className="button-primary">
+                <SubmitButton pendingLabel="Keeping…" className={actionButtonClass('brand', { main: true })}>
                   Keep this moment
                 </SubmitButton>
               </div>

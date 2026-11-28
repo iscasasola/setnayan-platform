@@ -25,7 +25,7 @@
 // endpoint derives it from the setnayan_guest_session cookie server-side.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Check, Loader2, Trophy } from 'lucide-react';
+import { Check, Trophy } from 'lucide-react';
 import { PickMenu, type PickOption } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { papicGamesEnabled } from '@/lib/papic-games-flag';
 import {
@@ -329,12 +329,12 @@ export function ChallengeFollowUp({ c, storyHref }: { c: GuestChallenges; storyH
                 type="button"
                 onClick={() => void c.setShare(attached.mission_id, true)}
                 disabled={busy}
+                aria-busy={(busy && !attached.consent_shared) || undefined}
                 aria-pressed={attached.consent_shared}
                 className={`relative inline-flex min-h-0 items-center gap-1 rounded-full px-3 py-1 font-medium transition after:absolute after:inset-x-0 after:-inset-y-2.5 after:content-[''] disabled:opacity-40 ${
                   attached.consent_shared ? 'bg-mulberry text-cream' : 'bg-cream/10 text-cream/70'
                 }`}
               >
-                {busy && !attached.consent_shared ? <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} /> : null}
                 {attached.consent_shared ? <Check aria-hidden className="h-3 w-3" strokeWidth={2.5} /> : null}
                 Share
               </button>

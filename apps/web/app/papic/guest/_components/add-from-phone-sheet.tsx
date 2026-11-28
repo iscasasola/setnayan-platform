@@ -19,7 +19,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Check, ImagePlus, Loader2, Scissors, X } from 'lucide-react';
+import { Check, ImagePlus, Scissors, X } from 'lucide-react';
 import { Sheet } from '@/app/_components/sheet';
 import { ActionButton } from '@/components/action-button';
 import { InfoTip } from '@/app/_components/info-tip';
@@ -258,7 +258,7 @@ export function AddFromPhoneSheet({
   if (phase === 'loading') {
     body = (
       <p className="flex items-center gap-2 py-6 text-[14px] text-ink/60" role="status">
-        <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Checking…
+        Checking…
       </p>
     );
   } else if (phase === 'unread') {
@@ -292,9 +292,9 @@ export function AddFromPhoneSheet({
         <ActionButton
           tone="brand"
           main
-          icon={phase === 'checking' ? <Loader2 aria-hidden className="animate-spin" strokeWidth={1.9} /> : ImagePlus}
-          label={phase === 'checking' ? 'Reading when each was taken…' : 'Choose photos'}
-          waiting={phase === 'checking'}
+          icon={ImagePlus}
+          label="Choose photos"
+          busy={phase === 'checking' ? 'Reading when each was taken…' : null}
           onClick={() => inputRef.current?.click()}
         />
         {phase === 'checking' ? <p className="text-[13px] text-ink/60">Nothing is sent yet.</p> : null}
@@ -380,7 +380,7 @@ export function AddFromPhoneSheet({
   } else if (phase === 'sending') {
     body = (
       <p className="flex items-center gap-2 py-6 text-[15px] text-ink" role="status">
-        <Loader2 aria-hidden className="h-4 w-4 animate-spin" /> Adding… {formatCount(Math.min(sent.done + 1, sent.of))} of {formatCount(sent.of)}
+        Adding… {formatCount(Math.min(sent.done + 1, sent.of))} of {formatCount(sent.of)}
       </p>
     );
   } else if (phase === 'done') {

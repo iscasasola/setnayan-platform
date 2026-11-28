@@ -294,7 +294,7 @@ export function previewSummaryWords(p: Pick<ArrangePreview, 'seated' | 'coming' 
 /** A repair in plain words. `nameOf` gives a guest's name, `tableName` a table's SHOWN name. */
 export function repairWords(r: SeatRepair, nameOf: (guestId: string) => string, tableName: (tableId: string) => string): string {
   if (r.kind === 'add_tables') {
-    return `Not enough seats: ${formatCount(r.coming)} coming, ${formatCount(r.chairs)} chairs. Add ${formatCount(r.tables)} ${r.tables === 1 ? 'table' : 'tables'}`;
+    return `Not enough seats: ${formatCount(r.coming)} coming, ${formatCount(r.chairs)} ${r.chairs === 1 ? 'chair' : 'chairs'}. Add ${formatCount(r.tables)} ${r.tables === 1 ? 'table' : 'tables'}`;
   }
   const who = nameOf(r.guestIds[0] ?? '') || 'A guest';
   return `${who}’s party needs ${formatCount(r.need)} seats together; the biggest gap is ${formatCount(r.gap)}. Add ${formatCount(r.seats)} ${r.seats === 1 ? 'seat' : 'seats'} to ${tableName(r.tableId)}`;

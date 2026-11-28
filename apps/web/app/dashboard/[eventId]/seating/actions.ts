@@ -43,6 +43,7 @@ import {
   type BoothType,
   type PriorityOrder,
   type TableKind,
+  guestsStillToSeat,
 } from '@/lib/seating';
 // 🪑⚙ Tables, chairs, the room box and the wall rule come from the ONE seat-plan engine the supplier's Spaces uses too
 // (DECISION_LOG 2026-11-20, "ONE SEAT-PLAN ENGINE FOR THE COUPLE AND THE SUPPLIER").
@@ -61,6 +62,9 @@ import { parseRestoreSeats, parseSeatScope, restorableSeats, seatsThatStay, seat
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { checkAutoSeatPlan } from '@/lib/seat-plan-validator';
 import { buildArrangePreview, parseArrangePlan, type ArrangePreview } from '@/lib/seat-plan-preview';
+import { seatPlanDryRun } from '@/lib/seat-plan-dry-run';
+import { guestDisplayName } from '@/lib/guests';
+import { arrangeView, decodePlanId, dryRunView, stillUnseated, type ArrangeView, type DryRunView } from '@/lib/seat-plan-api';
 import { autoDefaultLabel, hostNameClash, isDefaultTableLabel, renameWrites } from '@/lib/table-auto-name';
 import { readTableDisplayNames } from '@/lib/table-auto-name.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -2429,6 +2433,10 @@ export type AutoArrangeResult = {
   restoreSeats?: RestoreSeat[];
   /** 🪑 intent=preview (seat plan § 4.6): the plan, NOTHING written; `{ ok: false }` = no plan passed the check. */
   preview?: ArrangePreview | { ok: false };
+  /** 🪑 intent=preview, in the screens' shape (`lib/seat-plan-api.ts` › `arrangeView`). */
+  arrange?: ArrangeView;
+  /** ✦ intent=dry-run (seat plan § 4.4): card suggestions + the Seat check, NOTHING written (`dryRunView`). */
+  dryRun?: DryRunView;
 };
 
 /**
@@ -2527,6 +2535,10 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
   }
   if (typeof eventId === 'string' && eventId.length > 0 && formData.get('intent') === 'accept') {
     return acceptAutoArrange(eventId, formData);
+  }
+  // ✦ The smart layer's dry run (seat plan § 4.4): suggestions + Seat check, nothing written.
+  if (typeof eventId === 'string' && eventId.length > 0 && formData.get('intent') === 'dry-run') {
+    return dryRunSeatPlan(eventId);
   }
   // 🪑 "Only the unseated" (default) or "Seat everyone again" (owner 2026-11-02) — see lib/seat-plan-scope.ts.
   const scope = parseSeatScope(formData.get('scope'));
@@ -2863,7 +2875,81 @@ async function previewAutoArrange(eventId: string, formData: FormData): Promise<
     roleSet,
     groupAdjacency,
   });
-  return { ...NOTHING_SEATED, preview };
+  if (!preview.ok) throw new Error("Couldn't make a plan. Nothing changed.");
+  const shown = await readTableDisplayNames(supabase, eventId, tables, assignments);
+  const nameOf = nameReader(guests);
+  return { ...NOTHING_SEATED, preview, arrange: arrangeView(preview, { nameOf, tableName: (id) => shown.get(id) ?? '' }) };
+}
+
+/** A guest's name for the seat words (the compact name a chip shows). */
+function nameReader(guests: ReadonlyArray<Parameters<typeof guestDisplayName>[0] & { guest_id: string }>): (id: string) => string {
+  const byId = new Map(guests.map((g) => [g.guest_id, g] as const));
+  return (id) => {
+    const g = byId.get(id);
+    return g ? guestDisplayName(g) : '';
+  };
+}
+
+/**
+ * ✦ THE SMART LAYER'S DRY RUN (seat plan § 4.4). An intent of `autoArrange`, not a new action. Reads what auto arrange
+ * reads and runs `seatPlanDryRun` — the same seater, fill-only, WRITING NOTHING — then shapes it for the screens
+ * (`dryRunView`): every suggestion, fix and Fix all carries a planId that Accept writes in one transaction. A refused
+ * read stops it, and a failed run comes back `{ ok: false }` ("Couldn't check seats · Try again"), never "All good".
+ */
+async function dryRunSeatPlan(eventId: string): Promise<AutoArrangeResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  try {
+    const [tables, assignments, guests, floorPlan, memberships, roleSet, groupsRes, groupAdjacency] = await Promise.all([
+      fetchTables(supabase, eventId),
+      fetchAssignments(supabase, eventId),
+      guestsOrStop(supabase, eventId),
+      floorPlanOrStop(supabase, eventId),
+      membershipsOrStop(supabase, eventId),
+      resolveRoleSetForEvent(eventId),
+      supabase.from('guest_groups').select('group_id,label').eq('event_id', eventId),
+      fetchGroupAdjacency(supabase, eventId),
+    ]);
+    if (groupsRes.error) throw new Error(groupsRes.error.message);
+    const run = seatPlanDryRun({
+      tables,
+      guests: guests.map((g) => ({
+        guest_id: g.guest_id,
+        role: g.role,
+        group_category: g.group_category,
+        rsvp_status: g.rsvp_status,
+        plus_one_of_guest_id: g.plus_one_of_guest_id,
+        last_name: g.last_name,
+        first_name: g.first_name,
+        group_id: memberships.get(g.guest_id)?.[0] ?? null,
+        seating_priority: g.seating_priority ?? null,
+        side: g.side ?? null,
+      })),
+      assignments,
+      groupLabels: new Map(((groupsRes.data ?? []) as Array<{ group_id: string; label: string }>).map((g) => [g.group_id, g.label])),
+      floor: floorPlan,
+      roleSet,
+      groupAdjacency,
+    });
+    const shown = await readTableDisplayNames(supabase, eventId, tables, assignments);
+    const seatable = guestsStillToSeat(guests, new Set(), roleSet);
+    return {
+      ...NOTHING_SEATED,
+      dryRun: dryRunView(run, {
+        tables,
+        assignments,
+        unseatedNow: stillUnseated(seatable.length, assignments, new Set(seatable.map((g) => g.guest_id))),
+        nameOf: nameReader(guests),
+        tableName: (id) => shown.get(id) ?? '',
+      }),
+    };
+  } catch (err) {
+    logQueryError('dryRunSeatPlan', { message: err instanceof Error ? err.message : String(err) }, { event_id: eventId }, 'graceful_degrade');
+    return { ...NOTHING_SEATED, dryRun: { ok: false, line: 'Couldn’t check seats · Try again' } };
+  }
 }
 
 /**
@@ -2873,10 +2959,12 @@ async function previewAutoArrange(eventId: string, formData: FormData): Promise<
  * `unseated` is the preview's own count (`coming − seated`), which the stale check guarantees is still true.
  */
 async function acceptAutoArrange(eventId: string, formData: FormData): Promise<AutoArrangeResult> {
-  const plan = parseArrangePlan(formData.get('plan'));
-  // The preview's own "still without a chair" count travels with it; without it the toast could not say it honestly.
+  // A planId (the screens' shape, `lib/seat-plan-api.ts`) carries the plan AND its own "still without a chair" count;
+  // the older form sends them as `plan` + `unseated`. Without that count the toast could not say it honestly.
+  const fromId = formData.has('plan_id') ? decodePlanId(formData.get('plan_id')) : null;
+  const plan = fromId ?? parseArrangePlan(formData.get('plan'));
   const unseatedRaw = formData.get('unseated');
-  const unseated = typeof unseatedRaw === 'string' && /^\d+$/.test(unseatedRaw) ? Number(unseatedRaw) : NaN;
+  const unseated = fromId ? fromId.unseated : typeof unseatedRaw === 'string' && /^\d+$/.test(unseatedRaw) ? Number(unseatedRaw) : NaN;
   if (!plan || !Number.isInteger(unseated)) throw new Error('Invalid input');
   const supabase = await createClient();
   const {

@@ -54,15 +54,18 @@ export type GownDesignerProps = {
   onDone?: () => void;
   /** A10: send to the designer from the chat she was invited in. Given, the last design step leads to Review and send. */
   send?: { threadId: string; shopName: string; hand?: GownHand; onSent: () => void };
+  /** Where she lands (a design she saved opens on the design; the lab opens any part). Measurements first by default. */
+  start?: Tab;
 };
 
-type Tab = 'meas' | 'design' | 'send';
+export type GownDesignerTab = 'meas' | 'design' | 'send';
+type Tab = GownDesignerTab;
 const GIRTHS = ['bust', 'waist', 'hips', 'underbust', 'shoulders'] as const;
 
-export function GownDesigner({ seed, fabrics, onChange, onDone, send }: GownDesignerProps) {
+export function GownDesigner({ seed, fabrics, onChange, onDone, send, start = 'meas' }: GownDesignerProps) {
   const [config, setConfig] = useState(seed.config);
   const [body, setBody] = useState(seed.body);
-  const [tab, setTab] = useState<Tab>('meas');
+  const [tab, setTab] = useState<Tab>(start);
   const [fineOn, setFineOn] = useState(false);
   const [mi, setMi] = useState(0);
   const [di, setDi] = useState(0);
@@ -223,7 +226,7 @@ export function GownDesigner({ seed, fabrics, onChange, onDone, send }: GownDesi
   return (
     <div className={css.maker} data-gown-designer>
       <div className={css.stage}>
-        <GownView fill vals={body.vals} fine={{ athletic: body.athletic, bustT: body.bustT, given: body.given }} design={tab === 'design' ? config : null} shape={tab === 'design' ? config.shape : undefined}
+        <GownView fill vals={body.vals} fine={{ athletic: body.athletic, bustT: body.bustT, given: body.given }} design={tab !== 'meas' ? config : null} shape={tab !== 'meas' ? config.shape : undefined}
           onSolved={setSolved} onQuantities={send ? (quantities, estimates) => setMeasured({ quantities, estimates }) : undefined} pose={pose} motion={motion} twirl={twirl} autoTurn={autoTurn} focus={focus} />
         {check && check !== shut ? (
           <div className={`sn-frame ${css.check}`} role="status" data-gown-check>

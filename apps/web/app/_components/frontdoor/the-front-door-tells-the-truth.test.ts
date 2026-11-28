@@ -89,8 +89,8 @@ test('1 · the headline is the approved one', async () => {
   assert.match(page, /Every guest’s phone is a camera\. Every photo they take lands in one album\./, 'Papic lost the one-album line (v6)');
   assert.match(
     page,
-    /Plan it · Suppliers Suppliers you can trust\. No fake reviews\. No paid stars\. Ever\./,
-    'the v6 "Suppliers you can trust" part is gone or reworded',
+    /Plan it · Suppliers Suppliers, checked and reviewed\. No fake reviews\. No paid stars\. Ever\./,
+    'the v6 suppliers part is gone or reworded (L9 P13: "trusted" is a banned promise, brand.md claim 10)',
   );
   // 🎁 The gift row, exactly (owner, #7823 off hold — DECISION_LOG a0b95202): every booking carries at least one
   // gift, enforced server-side by #7823 (Agree refuses zero gifts, imported and free-fee bookings included).

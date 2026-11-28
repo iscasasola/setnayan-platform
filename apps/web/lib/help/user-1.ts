@@ -30,7 +30,7 @@ import type { HelpTopic } from '@/lib/help';
  *   NFC tag check-in (NEXT_PUBLIC_NFC_WRITE_ENABLED), and every paid row (◆ Pro, Your services, Release) — those are
  *     other slots' plans-and-payments answers and are hidden in the iPhone app.
  * Existing answers found stale (left untouched — topics-existing.ts is shared): import-csv ("tap ＋" → Add guests ›
- * Import a file), start-thread-with-vendor ("Tap Message" → Ask for a quote / Chat), budget-line-items ("your
+ * Import a file), start-thread-with-supplier ("Tap Message" → Ask for a quote / Chat), budget-line-items ("your
  * Setnayan services" → Bought on Setnayan). See the PR body.
  */
 export const USER_1_TOPICS: HelpTopic[] = [

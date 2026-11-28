@@ -769,7 +769,6 @@
         "/help/[seg]",
         "/login",
         "/login?next=[seg]",
-        "/monogram",
         "/onboarding/wedding",
         "/open-shop",
         "/our-story",
@@ -2489,39 +2488,6 @@
         "SpotlightSection"
       ]
     },
-    "/(shell)/monogram": {
-      "files": [
-        "(shell)/monogram/loading.tsx",
-        "(shell)/monogram/page.tsx",
-        "monogram/_monogram-motion.tsx",
-        "monogram/public-monogram-studio.tsx"
-      ],
-      "destinations": [
-        "/login?next=/monogram",
-        "/onboarding/wedding?from=monogram",
-        "/signup?next=/monogram"
-      ],
-      "actions": [
-        "routes.start"
-      ],
-      "blocks": [
-        "Blob",
-        "ClosingCta",
-        "HTMLDivElement",
-        "HTMLElement",
-        "HTMLHeadingElement",
-        "HTMLOListElement",
-        "Link",
-        "MonogramHeadline",
-        "PanelThread",
-        "PublicMonogramStudio",
-        "StepsReveal",
-        "StudioAnim",
-        "StudioAnimKind",
-        "StudioApi",
-        "StudioRevealPlayer"
-      ]
-    },
     "/(shell)/mood-board": {
       "files": [
         "(shell)/mood-board/loading.tsx",
@@ -2612,9 +2578,7 @@
         "(shell)/palogo/loading.tsx",
         "(shell)/palogo/page.tsx"
       ],
-      "destinations": [
-        "/monogram"
-      ],
+      "destinations": [],
       "actions": [
         "routes.start"
       ],

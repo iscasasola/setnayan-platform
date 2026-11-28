@@ -79,7 +79,6 @@
  * these props to local state to "turn it on everywhere".
  */
 
-import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
 import { SERVICE_NAMES, serviceNameLine } from '@/lib/service-names';
 import { setnayanAiOffered } from '@/lib/setnayan-ai';
 import { useMemo, useState, type ReactNode } from 'react';
@@ -399,11 +398,8 @@ function PackPoolPicker({
         <ActionButton tone="neutral" quiet icon={X} label="Not now" onClick={() => onChange({ ...selection, poolRungKey: null })} />
       </div>
       <p className="mt-2 text-center text-xs text-ink/50">
-        Nothing is charged until you pay.
-        {/* 💰 The count is the live allowance or nothing (2026-11-13) — and it is once per account, never "every event". */}
-        {type.freePoints > 0
-          ? ` ${type.freePoints.toLocaleString('en-PH')} credits come free ${PAPIC_FREE_CREDIT_CONDITION}; top up later at the regular price.`
-          : ' Top up later at the regular price.'}
+        {/* 🎁 No free first-event credits are named (owner 16 Nov 2026, "Free 50 Papic credits REMOVED"). */}
+        Nothing is charged until you pay. Top up later at the regular price.
       </p>
     </div>
   );

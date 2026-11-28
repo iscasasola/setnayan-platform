@@ -29,7 +29,6 @@ test('A1-031 · A1-112 · no public page links wedding onboarding or sign-up as 
   const WEDDING_WORDED = new Set([
     'app/_components/marketing/reskin-footer.tsx', // "Plan your wedding"
     'app/_components/marketing/OurStory.tsx', // "Start your wedding"
-    'app/monogram/public-monogram-studio.tsx', // stashes the Logo Maker design for wedding onboarding
   ]);
   const offenders: string[] = [];
   for (const root of ['app/(shell)', 'app/features', 'app/tour', 'app/sample', 'app/_components']) {

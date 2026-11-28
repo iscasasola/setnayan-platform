@@ -91,7 +91,7 @@ export type SupplierFrontGifts = {
 const SITE = siteOrigin();
 const OPEN_SHOP = onSiteHref(doorOpenShopHref('supplier'), SITE);
 const CTA = 'Open your shop';
-const FREE_LINE = 'Free to start. Free to stay. No card needed.';
+const FREE_LINE = 'Free to start. No card needed.'; // L9 P4 (brand.md claim 3): no "free to stay" promise
 const HERO_CTA_ID = 'sf-hero-cta';
 const CLOSE_CTA_ID = 'sf-close-cta';
 /** The plan the cards open on (as drawn). */
@@ -186,7 +186,7 @@ export function SupplierFrontPage({
         </p>
         <p className={`${s.fine} ${s.c}`}>{FREE_LINE}</p>
         <p className={`${s.fine} ${s.c} ${s.tight}`}>
-          {BROUGHT_CLIENT_SHARE} fee on clients you bring. Every booking includes a Setnayan gift for your couple{giftFrom ? `, from ${giftFrom}` : ''}.
+          No fee on clients you bring. Every booking includes a Setnayan gift for your couple{giftFrom ? `, from ${giftFrom}` : ''}.
         </p>
       </section>
 
@@ -298,7 +298,7 @@ export function SupplierFrontPage({
           </li>
         </ul>
         <div className={s.risk} data-rv="">
-          <h3 className={s.h3}>Try it. No risk.</h3>
+          <h3 className={s.h3}>Try it. Leave anytime.</h3>
           <div className={s.r3}>
             <p>
               <i>
@@ -310,7 +310,7 @@ export function SupplierFrontPage({
             <p>
               <i className={s.num}>{formatPhpRounded(0)}</i>
               <b>Free</b>
-              <b>stays free</b>
+              <b>a month</b>
             </p>
             <p>
               <i>
@@ -367,7 +367,7 @@ export function SupplierFrontPage({
       </Part>
 
       {/* #plans */}
-      <Part id="plans" title="When you outgrow free." lede="No hurry. Free stays free.">
+      <Part id="plans" title="When you outgrow free." lede="No hurry.">
         <PlanPicker plans={plans} start={START_PLAN} />
         <p className={s.fine} data-clients-footnote="">{CLIENTS_FOOTNOTE}</p>
         <p className={s.fine}>No plan limits your inquiries.</p>

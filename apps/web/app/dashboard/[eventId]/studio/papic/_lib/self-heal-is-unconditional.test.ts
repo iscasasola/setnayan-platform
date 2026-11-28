@@ -1,5 +1,5 @@
 /**
- * GUARD — the four render-time self-heals run on EVERY render, always.
+ * GUARD — the three render-time self-heals run on EVERY render, always.
  *
  * 🚨 THE TRAP THIS EXISTS TO KILL, and it is the tidy move, not a careless one.
  *
@@ -9,10 +9,9 @@
  *   provisionFreeCamerasAdmin     — materializes the three free seats and their
  *                                   claim QR tokens. It has ONE production call
  *                                   site: this page.
- *   ensureFreePapicPoolGrantAdmin — arms the free 50-point pool. Without a grant
- *                                   `papic_reserve_event_points()` takes its
- *                                   "fence absent → allow" branch and capture
- *                                   runs UNMETERED.
+ *   (ensureFreePapicPoolGrantAdmin — the free first-event pool — is GONE, owner
+ *    16 Nov 2026, DECISION_LOG "Free 50 Papic credits REMOVED": every booking
+ *    carries a Setnayan gift instead. The last test below holds that it stays gone.)
  *   (ensureFreePapicOneCameraAdmin — the free dedicated camera — was the sixth
  *    and is GONE, owner 2026-10-13: its points are 0 since 20271130515135, so it
  *    armed nothing and cost a request on every view.)
@@ -58,10 +57,9 @@ const MEMORIES = readFileSync(resolve(HERE, '..', '..', '..', 'memories', 'page.
 /** Comments stripped — a guard must never pass on the prose explaining it. */
 const CODE = PAGE.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 
-/** The four writes, by the call this page makes. */
+/** The three writes, by the call this page makes. */
 const SELF_HEALS = [
   'provisionFreeCamerasAdmin',
-  'ensureFreePapicPoolGrantAdmin',
   'reconcileLimitedSnapshot',
   'syncGuestCameras',
 ] as const;
@@ -79,7 +77,7 @@ function prologue(): string {
   return out;
 }
 
-test('the four self-heals are still called by this page at all', () => {
+test('the three self-heals are still called by this page at all', () => {
   // If one disappears entirely, that is a bigger change than this guard covers —
   // but it must not pass silently on its way out.
   const missing = SELF_HEALS.filter((fn) => !new RegExp(`\\b${fn}\\s*\\(`).test(CODE));
@@ -103,7 +101,7 @@ test('🚨 every self-heal runs BEFORE the page renders anything', () => {
 test('🚨 no self-heal is gated on anything that came from the URL', () => {
   // ⚠ THE SUBTLER SHAPE THIS EXISTS FOR: called before the JSX, but inside a
   // branch derived from the request — which is exactly what "only in the
-  // Cameras room" was. Two of these four DO sit inside conditions, on purpose:
+  // Cameras room" was. Two of these three DO sit inside conditions, on purpose:
   // `reconcileLimitedSnapshot` runs only when a snapshot exists, and
   // `syncGuestCameras` only when the camera count actually disagrees with the
   // guest list (an unread count is not a count of zero, and a write triggered
@@ -159,13 +157,17 @@ test('🚨 Memories draws the self-heal on every couple render — never behind 
   assert.match(cardSrc, /<div className="pt-4">\{settings\}<\/div>/, 'the settings are mounted only when open — the heal would stop running');
 });
 
-test('the three self-heals run together (the speed-up the removed page’s own guard held)', () => {
+test('the camera self-heals run together (the speed-up the removed page’s own guard held)', () => {
   // `the-papic-page-opens-fast.test.ts` went with the page; its part (3) — the heals in ONE trip, after the host check —
   // is the self-heal's shape now.
   const all = /await Promise\.all\(\[([\s\S]*?)\]\);/.exec(CODE)?.[1] ?? '';
-  for (const fn of ['provisionFreeCamerasAdmin', 'ensureFreePapicPoolGrantAdmin', 'provisionUploadsCameraAdmin']) {
+  for (const fn of ['provisionFreeCamerasAdmin', 'provisionUploadsCameraAdmin']) {
     assert.match(all, new RegExp(`\\b${fn}\\(`), `${fn} left the one Promise.all`);
   }
   assert.ok(CODE.indexOf('await eventEntitlementClient(eventId)') < CODE.indexOf('await Promise.all(['), 'a heal runs before the host check');
 });
 
+
+test('🎁 the self-heal grants no free Papic credits (owner 16 Nov 2026, "Free 50 Papic credits REMOVED")', () => {
+  assert.doesNotMatch(CODE, /ensureFreePapicPoolGrantAdmin|papic_claim_free_pool/, 'the free first-event grant is back in the self-heal');
+});

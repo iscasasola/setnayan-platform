@@ -161,6 +161,8 @@ export const KNOWN_PUBLIC_ROUTES: ReadonlySet<string> = new Set([
   '/schedule',
   // Added 2026-09-27 — the supplier landing pages' index (SEO Playbook §5.1).
   '/suppliers',
+  // '/monogram' redirects to /palogo since 2026-11-27 (L9 P29) and left the sitemap. It stays a KNOWN route (a link to it
+  // still lands) until /llms.txt points at /palogo — that file is in PR #8423; drop this line with that row.
   '/monogram',
   '/alaala',
   // '/weddings', '/realstories', '/blog' left 2026-11-16 — retired, they forward (a 308 is not a healthy page).

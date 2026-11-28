@@ -166,7 +166,6 @@ export default async function OnboardingLabPage({
               poolTiers: [],
               oneTiers: [],
               pricePhpByCode: new Map(),
-              freePoolPoints: 50,
               freeOnePoints: 0,
               // Lab placeholder only (never a price): the card needs a figure to draw at all.
               aiPricePhp: profile.marketplaceEnabled ? 999 : null,

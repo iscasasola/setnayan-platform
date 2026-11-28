@@ -36,9 +36,6 @@ import { getCreatableEventTypes, getEventTypeVocab, type EventTypeRow } from '@/
 import { FrontDoorLanding, frontPageTiles, planCreditsFrom, planPricesFrom, type PlanPrices } from './front-door-landing';
 import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import type { PlanFacts } from './front-door-landing-data';
-import { papicFreeCreditPromise } from '@/lib/papic-free-credit-promise';
-import { readPapicFreeGrantRead } from '@/lib/papic-tier-config-read';
-import type { PapicFreeGrantRead } from '@/lib/papic-tier-copy';
 import { fetchV2CustomerCatalogRead } from '@/lib/v2-catalog';
 import { opensSupplierView } from '@/lib/discover-suppliers';
 import { marketplaceFaithOptions } from '@/lib/marketplace-faith-options';
@@ -117,7 +114,6 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
         ? Promise.all([
             getCreatableEventTypes(),
             fetchV2CustomerCatalogRead().catch(() => ({ rows: [], ok: false })),
-            readPapicFreeGrantRead().catch((): PapicFreeGrantRead => ({ kind: 'unknown' })),
           ])
         : null,
     ),
@@ -206,7 +202,7 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
   // ONE catalogue read feeds both the plan prices and (Lane J) the credits each plan grants — never typed.
   // Started the moment the account was known (`landingRead`, above) — only for this same signed-out landing.
   const landingReads = landing ? await landingRead : null;
-  const [eventTypes, catalogRead, freeGrant] = landingReads ?? [[], { rows: [], ok: true }, null];
+  const [eventTypes, catalogRead] = landingReads ?? [[], { rows: [], ok: true }];
   const catalog = catalogRead.rows;
   /*
     🛒 THE SHOPS SHELF'S TWO DOORS INTO THE SUPPLIER VIEW (2026-11-12 · the drawing's "All categories ▾" and
@@ -254,11 +250,11 @@ export async function FrontDoor({ q, params = {} }: { q?: string; params?: Marke
     </div>
   ) : null;
   const planPrices: PlanPrices = planPricesFrom(catalog);
-  // 🧾 Lane J: the credits each plan grants (`included_papic_credits`) and the live free-credit sentence
-  // (`papicFreeCreditPromise`, null when the free grant is switched off).
+  // 🧾 Lane J: the credits each plan grants (`included_papic_credits`). 🎁 No free first-event Papic line
+  // (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic credits REMOVED").
   const planFacts: PlanFacts = {
     ...planCreditsFrom(catalog),
-    freePapic: freeGrant ? (papicFreeCreditPromise(freeGrant)?.sentence ?? null) : null,
+    freePapic: null,
   };
 
   /*

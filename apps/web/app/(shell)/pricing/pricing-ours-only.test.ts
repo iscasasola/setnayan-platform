@@ -63,12 +63,16 @@ test('2 · no giveaway pitch — no visible "free", no "₱0"; included things s
     // Identifiers like PAPIC_FREE_CREDIT_CONDITION have no word boundary before FREE, so they never match.
     // ⚖ ONE named exception, not a loosening: the supplier plans block (owner-approved drawing 2026-11-14, DECISION_LOG
     // "SIMPLER SUPPLIER PLANS" item 7) names the supplier plan whose NAME is Free — read from `TIER_LABEL.free`, exactly
-    // that token and nothing else. Its price still reads "No fee", never ₱0, and no other "free" may appear.
+    // that token and nothing else. No other "free" may appear, and no typed ₱0 anywhere. ⚖ Owner 27 Nov (L9 P25): the
+    // Free supplier plan's price is its zero formatted by `peso()` ("₱0 / month"), never "No fee" — a Free shop still
+    // pays the booking fee on clients Setnayan brings, so "No fee" misled (checked below).
     const withoutPlanName = f === 'page.tsx' ? src.replace(/\bTIER_LABEL\.free\b/g, '') : src;
     assert.doesNotMatch(withoutPlanName, /\bfree\b/i, `${f} says "free" — the owner's rule is "Included"`);
     assert.doesNotMatch(src, /₱0\b|₱\{?\s*0\s*\}?(?![\d,])|peso\(0\)/, `${f} shows ₱0`);
   }
   assert.equal((SRC['page.tsx']!.match(/\bTIER_LABEL\.free\b/g) ?? []).length <= 1, true, 'the supplier plan name is the only "free" allowed, once');
+  assert.doesNotMatch(SRC['page.tsx']!, /'No fee'/, 'the Free supplier plan says "No fee" again (L9 P25)');
+  assert.match(SRC['page.tsx']!, /key: 'entry', name: TIER_LABEL\.free, php: 0,/, 'the Free supplier plan no longer reads its zero (L9 P25)');
   assert.match(SRC['_pricing-pickers.tsx'], /figure="Included"/, 'the included rows no longer say "Included"');
   assert.match(SRC['plan/_plan-quiz.tsx'], /q\.php != null \? peso\(q\.php\) : 'Included'/, 'an included answer no longer says "Included"');
   assert.match(SRC['plan/_plan-quiz.tsx'], /r\.total > 0 \? peso\(r\.total\) : 'Included'/, 'a nothing-paid total would read ₱0');
@@ -84,14 +88,14 @@ test('3 · every peso is read from the catalogue — none is typed', () => {
   assert.match(reads, /fetchV2CustomerCatalog(?:Read)?\(\)/, 'the customer catalogue is no longer read');
   assert.match(reads, /\.from\('platform_retail_catalog_v2'\)/, 'the parts + AI bands read is gone');
   assert.match(reads, /\.in\('service_code', \[\.\.\.HUB_PART_SKUS, \.\.\.aiCodes\]\)/);
-  for (const code of ['COUPLE_WEBSITE_PRO', 'LIVE_STUDIO', 'PATIKTOK_COMPILER', 'PAPIC_ADDON_THANK_YOU', 'PAKANTA']) {
+  for (const code of ['COUPLE_WEBSITE_PRO', 'LIVE_STUDIO', 'PAPIC_ADDON_THANK_YOU', 'PAKANTA']) {
     assert.ok(reads.includes(`'${code}'`), `${code} is no longer read from its row`);
   }
   // The pages take their prices from that one read — never a second, hand-made source.
   assert.match(page, /readOurPrices\(\)/);
   assert.match(SRC['plan/page.tsx'], /readOurPrices\(\)/);
   // A missing row draws no figure: each paid row is behind its price.
-  for (const guard of ['prices.pro ?', 'prices.liveWatch ?', 'prices.patiktok ?', 'prices.thankYou ?', 'prices.musicMaker ?', 'aiFrom != null ?', 'papicFrom ?']) {
+  for (const guard of ['prices.pro ?', 'prices.liveWatch ?', 'prices.thankYou ?', 'prices.musicMaker ?', 'aiFrom != null ?', 'papicFrom ?']) {
     assert.ok(page.includes(`{${guard}`), `a paid row is drawn without its price (${guard})`);
   }
 });
@@ -99,7 +103,9 @@ test('3 · every peso is read from the catalogue — none is typed', () => {
 test('4 · the five parts, in order, and nothing else', () => {
   const ids = [...page.matchAll(/<section\s+(?:id="([a-z]+)"|className=[^>]*data-pricing-hero)/g)].map((m) => m[1] ?? 'hero');
   assert.deepEqual(ids, ['hero', 'why', 'together', 'prices', 'close']);
-  assert.match(page, /The best place to build your event\./);
+  // L9 P14 (brand.md claim 11, no rank claim): the hero is "Build your whole event in one place."
+  assert.match(page, /Build your whole event in one place\./);
+  assert.doesNotMatch(page, /best place/i, 'a rank claim is back on /pricing');
   assert.match(page, /Crafted for every event\./);
   assert.match(page, /Where your people come together\./);
   assert.match(page, /Make it even more yours\./);
@@ -116,7 +122,8 @@ test('4 · the five parts, in order, and nothing else', () => {
 
 test('5 · the included group is there, and Event Pro keeps the included design', async () => {
   const names = [...page.matchAll(/name: '([^']+)',/g)].map((m) => m[1]);
-  assert.deepEqual(names.slice(0, 11), [
+  // L9 P23 (owner 16 Nov, DECISION_LOG "Free 50 Papic credits REMOVED"): no "Papic credits, first event" row — ten.
+  assert.deepEqual(names.slice(0, 10), [
     'The Event Hub',
     'Guest list & RSVPs',
     'Seat plan with 3D',
@@ -127,7 +134,6 @@ test('5 · the included group is there, and Event Pro keeps the included design'
     'Printables',
     'Livestream, one camera',
     'Memories',
-    'Papic credits, first event',
   ]);
   assert.match(page, /<IncludedGroup rows=\{included\} \/>/);
   assert.match(page, /the included design stays yours either way/);
@@ -157,7 +163,6 @@ const PRICES: PlanPrices = {
   partsFrom: 1,
   papicFrom: 7,
   liveWatch: 25,
-  patiktok: { php: 15, perDay: true },
   ai: { A: { regular: 24, signup: 14 }, D: { regular: 2, signup: null } },
 };
 const fmt = (n: number) => n.toLocaleString('en-PH');
@@ -165,7 +170,7 @@ const state = (answers: PlanState['answers'], over: Partial<PlanState> = {}): Pl
 
 test('6 · the questionnaire asks only what it can price, and claims only what is sourced', () => {
   // Every paid price unread → no paid question is asked.
-  const none: PlanPrices = { pro: null, partsFrom: null, papicFrom: null, liveWatch: null, patiktok: null, ai: {} };
+  const none: PlanPrices = { pro: null, partsFrom: null, papicFrom: null, liveWatch: null, ai: {} };
   const asked = questionsFor(state({ live: true }), none, fmt).map((q) => q.k);
   assert.deepEqual(asked, ['guests', 'seating', 'hub', 'checkin', 'prints', 'papic', 'live', 'together']);
   // Live Watch is a follow-up: asked only after a yes to "watch from home".

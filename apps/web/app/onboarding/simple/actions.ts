@@ -6,8 +6,6 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
-import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
-import { setupArmsPapic } from '@/lib/event-answers';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
 import {
   PAPIC_FIELD_POOL_RUNG,
@@ -199,16 +197,8 @@ export async function commitSimpleEvent(formData: FormData) {
     return redirect('/onboarding/simple?error=create_failed');
   }
 
-  // Arm the free Papic pool (owner-locked 2026-07-27 · 50 pts). A Simple Event is
-  // vendor-free and the in-app services ARE the point of the type, so Papic must
-  // be metered here as much as anywhere. Idempotent + non-fatal.
-  // 🗂 Not when the answer was "No" (`papic_on = false`, lib/event-answers.ts).
-  if (setupArmsPapic(setupAnswers)) {
-    await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id, user.id);
-    // 🔌 No free "One" camera call (owner 2026-10-13, "drop the retired free-camera call"):
-    // `free_one_camera_points` is 0 by migration 20271130515135 (owner 2026-08-11), so
-    // `papic_ensure_free_one_camera` armed nothing and cost a request per new event.
-  }
+  // 🎁 No free first-event Papic grant (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic credits REMOVED"):
+  // every booking carries a Setnayan gift instead, so nothing is armed here. Credits already granted stay.
 
   const { error: memberError } = await admin.from('event_members').insert({
     event_id: insertedEvent.event_id,

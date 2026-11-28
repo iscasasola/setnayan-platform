@@ -326,8 +326,8 @@ export async function fetchPapicFreeOneCameraPoints(
  * Arm the ONE free Papic One camera for an event: a dedicated seat plus its
  * 5-point dedicated grant.
  *
- * Idempotent, best-effort, non-fatal — the same contract as
- * ensureFreePapicPoolGrantAdmin, and for the same reason: this runs from every
+ * Idempotent, best-effort, non-fatal — the same contract the retired free-pool
+ * grant had, and for the same reason: this runs from every
  * event-commit path AND lazily from the Papic studio, so it WILL run more than
  * once per event, and a hiccup must never cost a couple their event. The
  * idempotency lives in SQL (the (event_id, seat_index) UNIQUE plus the partial

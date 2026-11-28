@@ -157,7 +157,8 @@ test('/pricing prices no retired product, even before the catalogue row is retir
     (service_code) => ({ service_code, retail_price_php: 2490, billing_period: 'per_day' }) as unknown as Parameters<typeof ourPricesFrom>[0][number],
   );
   const prices = ourPricesFrom(rows, []);
-  assert.equal(prices.patiktok, null);
+  // L9 P27 (27 Nov): Patiktok left /pricing's reads entirely — there is no field to price it.
+  assert.ok(!('patiktok' in prices), '/pricing reads Patiktok again');
   assert.equal(prices.musicMaker, null);
 });
 

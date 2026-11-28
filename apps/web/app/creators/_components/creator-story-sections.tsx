@@ -230,7 +230,7 @@ export function CreatorStoryChapter() {
             <ul style={{ listStyle: 'none', padding: 0, margin: '24px 0 0', display: 'flex', flexDirection: 'column', gap: 14 }}>
               {[
                 { n: '1', t: 'The embed', p: 'Your YouTube / TikTok / Instagram edit, playing inside the Chapter. Views and monetization stay on your channel — we just give it a home that converts.' },
-                { n: '2', t: 'Shop this event', p: 'The suppliers who made the day — venue, photo, florals, catering — credited as cards a viewer can open and inquire with. Hosts pay 0% commission.' },
+                { n: '2', t: 'Shop this event', p: 'The suppliers who made the day — venue, photo, florals, catering — credited as cards a viewer can open and inquire with.' },
                 { n: '3', t: 'Your audience layer', p: 'Followers and view counts on your page, plus the Storyteller badge once you’ve published. Standout Chapters can be featured on Discover.' },
               ].map((s) => (
                 <li

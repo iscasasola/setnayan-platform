@@ -360,7 +360,7 @@ const vidaloka = localFont({
 // lib/public-copy-is-not-wedding-only.test.ts.
 const SITE_TITLE = 'Setnayan · The home of every Filipino celebration';
 const SITE_DESCRIPTION =
-  "Plan any event free. Every guest gets a QR pass, guests' phones capture the day, and every photo is kept for life. Hosts pay 0% commission.";
+  "Plan any event free. Every guest gets a QR pass, guests' phones capture the day, and every photo is kept for life.";
 
 // Static metadata baseline. `icons` is intentionally NOT here — it's resolved
 // per-request in generateMetadata() below so the admin-controlled brand icon
@@ -530,7 +530,7 @@ const organizationJsonLd = {
   // and says "celebration" (owner 20 Nov, "Yes, brand lines") — allowed by NAME
   // (`organizationJsonLd.description`) in lib/the-app-says-event-in-plain-words.test.ts.
   description:
-    "Setnayan (SET-na-yan, from Tagalog \"I-set na 'yan\": \"let's get that set\") is the home of every Filipino celebration: where you plan it, where your guests live it, and where you keep it for life. Plan it: a host plans any event free, with no guest limit: guest list, replies, seat plan in 2D and 3D, budget in pesos, schedule, mood board, and verified Filipino suppliers booked in writing. Hosts pay 0% commission. Live it: every guest opens their own page from a link or QR, with no app and no account; on the day their phones become the camera crew (Papic), the door scans their pass, and relatives abroad watch on the same page (Live Watch). Keep it: every photo lands in one album that finds the people in it, the page becomes the story of the day, and each family's events stay together on one Memories page, year after year. For weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more, across the Philippines.",
+    "Setnayan (SET-na-yan, from Tagalog \"I-set na 'yan\": \"let's get that set\") is the home of every Filipino celebration: where you plan it, where your guests live it, and where you keep it for life. Plan it: a host plans any event free, with no guest limit: guest list, replies, seat plan in 2D and 3D, budget in pesos, schedule, mood board, and verified Filipino suppliers booked in writing. Live it: every guest opens their own page from a link or QR, with no app and no account; on the day their phones become the camera crew (Papic), the door scans their pass, and relatives abroad watch on the same page (Live Watch). Keep it: every photo lands in one album that finds the people in it, the page becomes the story of the day, and each family's events stay together on one Memories page, year after year. For weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes and more, across the Philippines.",
   foundingDate: '2026',
   knowsLanguage: ['en', 'tl', 'ceb'],
   areaServed: {

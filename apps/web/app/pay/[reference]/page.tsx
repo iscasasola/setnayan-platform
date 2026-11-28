@@ -545,7 +545,7 @@ export default async function PayPage({ params, searchParams }: Props) {
             'Your event is set up and live. We just need to confirm this payment.'
           ) : (
             <>
-              Your event is already set up and its free credits are live.{' '}
+              Your event is already set up and live.{' '}
               <InfoTip label="" ariaLabel="What settling switches on" align="end">
                 Settle this and the extras you picked switch on too.
               </InfoTip>
@@ -633,7 +633,7 @@ export default async function PayPage({ params, searchParams }: Props) {
             I don&rsquo;t want these after all — remove them
           </button>
           <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-ink/70">
-            Your event and its free credits stay live.{' '}
+            Your event stays live.{' '}
             <InfoTip label="" ariaLabel="Adding them later" align="center">
               You can add these any time from your studio — at the normal price, without the set-up discount.
             </InfoTip>

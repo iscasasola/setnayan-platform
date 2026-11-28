@@ -769,14 +769,11 @@ const BASE_ADD_ONS: ReadonlyArray<AddOnEntry> = [
     // not people — and "on the list" was the roster framing the pool doesn't use
     // (any phone that scans the event QR shoots from it). No number here: the
     // rungs and the free allowance are derived on the surface this card opens.
-    blurb: 'One shared pool of credits for the whole event — start free, add more any time.',
+    blurb: 'One shared pool of credits for the whole event — add more any time.',
     cta: 'Open the pool',
     studioGroup: 'capture',
-    // Every event is auto-armed with a free shared pool (`ensureFreePapicPoolGrantAdmin`),
-    // so the honest pill is the free-entry chip, not the ₱1,000 cheapest top-up —
-    // which as a headline would misprice a product whose entry cost is zero. The
-    // real ladder is one tap away, fully derived, on the Papic surface.
-    freeTrial: 'Free to start',
+    // 🎁 No "Free to start" chip: the free first-event pool it advertised is retired (owner 16 Nov 2026,
+    // DECISION_LOG "Free 50 Papic credits REMOVED"). The card shows its real price; the ladder is on the Papic surface.
     serviceKey: 'PAPIC_GUEST',
     poster: {
       motion: 'pulse',

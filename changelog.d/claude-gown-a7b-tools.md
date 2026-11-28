@@ -7,7 +7,7 @@
   - The eraser takes away what was placed by hand under it and wipes the ready-made beads and lace there.
   - Mirror draws and rubs out both sides. Undo steps back. Clear asks first, and Undo brings it back.
   - One finger draws and two fingers still turn her (right-drag on a computer).
-- **Her hand work travels beside the design, never inside it** (the `GownHand` contract): beads, lace, cuts and the eraser's wipes, each capped, and each tool stops at its cap with one line. The design keeps its 8 KB. Until the stored design has a place for hand work (Builder B's follow-up), it stays on her device.
+- **Her hand work travels beside the design, never inside it** (the `GownHand` contract): beads, lace, cuts and the eraser's wipes, each capped, and each tool stops at its cap with one line. The design keeps its 8 KB. The stored design gets a place for it in Builder B's follow-up; until then the send step (A10) leaves it out and says so.
 - **Beads sewn on the lace** ("Beads on the lace": a few or rich) land only where the motif is drawn, at most 4 mm, mirrored.
 - **The lace designer:** the lace designs as pictures, then where they go, their colour, their width, the beads on them and a raised finish.
 - **Lazy loading:** the hand tools and the lace designer load on their own, and a guard keeps them out of the maker's first load.

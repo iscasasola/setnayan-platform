@@ -104,8 +104,50 @@ export const GOWN_SLEEVES = [
   { id: 'butterfly', label: 'Butterfly' },
   // v195: soft fabric from the shoulder over the upper arm to about the elbow, open underneath, a fluted hem.
   { id: 'flutter', label: 'Flutter' },
+  // v203: puff, bishop and Juliet sleeves, the off-shoulder ruffle band, and cape sleeves (women only).
+  { id: 'puff', label: 'Puff' },
+  { id: 'bishop', label: 'Bishop' },
+  { id: 'juliet', label: 'Juliet' },
+  { id: 'ruffle', label: 'Ruffle band' },
+  { id: 'capesl', label: 'Cape sleeves' },
 ] as const;
 export type GownSleeve = (typeof GOWN_SLEEVES)[number]['id'];
+/** v203 `SLX`: the new sleeves, as the quote and the summary name them. */
+export const GOWN_SLEEVE_EXTRA = { puff: 'puff', bishop: 'bishop', juliet: 'Juliet', ruffle: 'ruffle band', capesl: 'cape sleeves' } as const satisfies Partial<Record<GownSleeve, string>>;
+export type GownSleeveExtra = keyof typeof GOWN_SLEEVE_EXTRA;
+export const gownSleeveIsExtra = (s: GownSleeve): s is GownSleeveExtra => s in GOWN_SLEEVE_EXTRA;
+/** v203 `SLX_WHY`: the line under each new sleeve. */
+export const GOWN_SLEEVE_WHY: Record<GownSleeveExtra, string> = {
+  puff: 'Short and full: gathered at the shoulder and into a band above the elbow.',
+  bishop: 'Long and full, gathered into a fitted cuff at the wrist.',
+  juliet: 'Puffed at the top, then fitted along the forearm to the wrist.',
+  ruffle: 'A gathered ruffle band round each upper arm, joined across the back.',
+  capesl: 'A sheer panel from the upper arm that falls freely behind the arm: to the elbow, the fingertips, the floor or a train. Material, length, edge and flowers under Cape details.',
+};
+/** v203 `SLX_TWO`: sleeves that need both shoulders (not with a halter or one-shoulder strap). */
+export const GOWN_SLEEVE_TWO: readonly GownSleeve[] = ['puff', 'bishop', 'juliet', 'ruffle', 'capesl'];
+/** v203 `SLX_DET`: sleeves that can be worn detachable on a strapless bodice. */
+export const GOWN_SLEEVE_DETACHABLE: readonly GownSleeve[] = ['long', 'puff', 'bishop', 'juliet', 'ruffle', 'capesl'];
+/** v203 `RUF_NECK`: the ruffle band sits on an off-shoulder or sweetheart neckline. */
+export const GOWN_RUFFLE_NECKS: readonly GownNeckline[] = ['off', 'sweetheart'];
+/** v203: on an off-shoulder neckline she chooses how the sleeves are worn. */
+export const GOWN_SLEEVE_WORN = [
+  { id: 'sewn', label: 'Sewn to the bodice' },
+  { id: 'detach', label: 'Detachable', why: 'Each sleeve on its own band round the upper arm: take them off after the ceremony.' },
+] as const;
+export type GownSleeveWorn = (typeof GOWN_SLEEVE_WORN)[number]['id'];
+/** v203: the over-robe's own sleeves. */
+export const GOWN_ROBE_SLEEVES = [
+  { id: 'long', label: 'Long' },
+  { id: 'puff', label: 'Puff, gathered at the elbow' },
+] as const;
+export type GownRobeSleeve = (typeof GOWN_ROBE_SLEEVES)[number]['id'];
+/**
+ * Is this sleeve worn detachable (v203 `slxDetach`)? A strapless bodice has nothing to sew a sleeve to, so the long and
+ * the new sleeves go on their own band round the upper arm; on an off-shoulder neckline it is her choice (`sleeveDet`).
+ */
+export const gownSleeveDetach = (d: Pick<GownConfig, 'neck' | 'sleeveDet'>, k: GownSleeve | 'band' | null): boolean =>
+  !!k && GOWN_STRAPLESS.includes(d.neck) && (GOWN_SLEEVE_DETACHABLE as readonly string[]).includes(k) && (d.neck !== 'off' || d.sleeveDet === 'detach');
 
 export const GOWN_SLEEVE_FABRICS = [
   { id: 'fabric', label: 'The gown fabric' },
@@ -182,8 +224,14 @@ export const GOWN_CAPES = [
   { id: 'neck', label: 'Neck cape', why: 'Fastened at a thin band round her neck, it falls over both shoulders and arms, open at the front below the band, to the floor with its own short train. Sheer tulle unless you pick another.' },
   { id: 'pair', label: 'Pair of shoulder capes', why: 'One panel from each shoulder, over the arm and down to the floor; her back stays bare between them. Each is fastened on the shoulder.' },
   { id: 'drape', label: 'One-shoulder drape', why: 'One soft strip of chiffon from her right shoulder, beside the arm, falling to the floor.' },
+  // v203: an open-front robe worn over the gown like a coat, with its own sleeves.
+  { id: 'robe', label: 'Over-robe', why: 'A full-length open robe worn over the gown like a coat: sheer or lace, open at the front, with long sleeves and an optional train.' },
 ] as const;
 export type GownCape = (typeof GOWN_CAPES)[number]['id'];
+/** v203: what is hung as a cape: the cape, or cape sleeves (a cape of their own) (v203 `capeKind`). */
+export type GownCapeKind = GownCape | 'capesl';
+export const gownCapeKind = (d: Pick<GownConfig, 'cape'> & Partial<Pick<GownConfig, 'sleeve'>>): GownCapeKind =>
+  d.cape !== 'none' ? d.cape : d.sleeve === 'capesl' ? 'capesl' : 'none';
 /** What a cape is made of (v196 `CAPE_FABS`). */
 export const GOWN_CAPE_FABRICS = [
   { id: 'gown', label: 'The gown fabric' },
@@ -225,24 +273,27 @@ export const GOWN_CAPE_COLOURS = [
 ] as const;
 export type GownCapeColour = (typeof GOWN_CAPE_COLOURS)[number]['id'];
 /** Each cape comes with its own material, length and edge, and the lengths it can be (v196 `CAPE_DEF`). */
-export const GOWN_CAPE_DEF: Record<Exclude<GownCape, 'none'>, { fab: GownCapeFabric; len: GownCapeLength; edge: GownCapeEdge; lens: readonly GownCapeLength[] }> = {
+export const GOWN_CAPE_DEF: Record<Exclude<GownCapeKind, 'none'>, { fab: GownCapeFabric; len: GownCapeLength; edge: GownCapeEdge; lens: readonly GownCapeLength[] }> = {
   neck: { fab: 'tulle', len: 'train', edge: 'plain', lens: ['elbow', 'fingertip', 'floor', 'train'] },
   back: { fab: 'gown', len: 'floor', edge: 'plain', lens: ['shoulder', 'elbow', 'fingertip', 'floor', 'train'] },
   pair: { fab: 'tulle', len: 'train', edge: 'plain', lens: ['elbow', 'fingertip', 'floor', 'train'] },
   side: { fab: 'tulle', len: 'train', edge: 'applique', lens: ['elbow', 'fingertip', 'floor', 'train'] },
   capelet: { fab: 'gown', len: 'shoulder', edge: 'plain', lens: ['shoulder', 'elbow'] },
   drape: { fab: 'chiffon', len: 'floor', edge: 'plain', lens: ['fingertip', 'floor', 'train'] },
+  // v203
+  robe: { fab: 'organza', len: 'train', edge: 'plain', lens: ['floor', 'train'] },
+  capesl: { fab: 'tulle', len: 'train', edge: 'plain', lens: ['elbow', 'fingertip', 'floor', 'train'] },
 };
 /** A cape cut from the gown's own fabric in the gown colour: counted with the outer fabric (v196 `capeInGownFab`). */
 export const gownCapeInGownFabric = (d: Pick<GownConfig, 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'accentHex'>) =>
   d.cape !== 'none' && gownCapeNow(d).fab === 'gown' && !(d.capeCol === 'accent' && !!d.accentHex);
 /** Capes that lie over the arms (not with flutter or butterfly sleeves) (v196 `CAPE_ARMS`). */
-export const GOWN_CAPE_ARMS: readonly GownCape[] = ['neck', 'pair', 'side', 'capelet', 'drape'];
+export const GOWN_CAPE_ARMS: readonly GownCape[] = ['neck', 'pair', 'side', 'capelet', 'drape', 'robe'];
 /** Capes hung from one shoulder: a strapless neckline gets a narrow strap there (v196 `CAPE_STRAP`). */
 export const GOWN_CAPE_STRAP: Partial<Record<GownCape, 'L' | 'R'>> = { side: 'L', drape: 'R' };
 /** What the cape really is: its own choices, or the type's defaults until she picks (v196 `capeFabNow` and the rest). */
-export function gownCapeNow(d: Pick<GownConfig, 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten'>) {
-  const def = d.cape === 'none' ? null : GOWN_CAPE_DEF[d.cape];
+export function gownCapeNow(d: Pick<GownConfig, 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten'> & Partial<Pick<GownConfig, 'sleeve'>>) {
+  const k = gownCapeKind(d), def = k === 'none' ? null : GOWN_CAPE_DEF[k];
   const len: GownCapeLength = !def ? 'floor' : d.capeLen && def.lens.includes(d.capeLen) ? d.capeLen : def.len;
   return {
     fab: (def ? d.capeFab ?? def.fab : 'gown') as GownCapeFabric,
@@ -843,6 +894,9 @@ export type GownConfig = {
   backT: number;
   sleeve: GownSleeve;
   sleeveFab: GownSleeveFabric;
+  /** v203: on an off-shoulder neckline, sewn sleeves or detachable ones (other strapless necklines are always detachable); the over-robe's sleeves. */
+  sleeveDet: GownSleeveWorn;
+  robeSl: GownRobeSleeve;
   closure: GownClosure;
   train: GownTrain;
   veil: GownVeil;
@@ -970,6 +1024,7 @@ export const GOWN_LOOK_KEYS = [
   'bead', 'beadAt', 'beadDen', 'beadCol', 'train', 'veil', 'pleat', 'tex', 'darts', 'drape', 'bustle', 'petti', 'shape', 'boning', 'overlay', 'ovFab', 'illu', 'illuBase', 'illuCol', 'illuBack', 'boneShow',
   'straps', 'strapCol', 'strapEdge', 'topEdge', 'plungeFill',
   'flowers', 'flowerFrom', 'flowerType', 'flowerSize', 'flowerDen', 'flowerCol', 'capeFlowers', 'laceFinish', 'veilFab', 'pearls',
+  'sleeveDet', 'robeSl',
 ] as const satisfies readonly (keyof GownConfig)[];
 export type GownLookKey = (typeof GOWN_LOOK_KEYS)[number];
 export type GownLook = Pick<GownConfig, GownLookKey>;
@@ -990,6 +1045,8 @@ export function startingGownConfig(): GownConfig {
     backT: r('backT'),
     sleeve: 'none',
     sleeveFab: 'fabric',
+    sleeveDet: 'sewn',
+    robeSl: 'long',
     closure: 'zipper',
     train: 'none',
     veil: 'none',
@@ -1353,6 +1410,9 @@ export type GownQuantities = {
     /** v200: 3D flowers to make and attach (every flower, not only those drawn); raised lace to shape and finish. */
     flowers: number;
     laceRaised: boolean;
+    /** v203: detachable sleeve bands to make (a pair); the over-robe to cut, sew and finish. Their fabric is in the metres keys. */
+    sleeveDetach: boolean;
+    overrobe: boolean;
   };
 };
 
@@ -1371,7 +1431,7 @@ export function emptyGownQuantities(): GownQuantities {
   return {
     v: GOWN_CONFIG_VERSION,
     materials: { ...materials, beads },
-    labour: { sleeve: 'none', beads: 0, laceMotifs: 0, laceYardM: 0, pleats: 0, tex: 'none', darts: false, cutouts: 0, slits: 0, train: 'none', veil: 'none', trimM: 0, twoPiece: false, cape: 'none', flutter: 0, overlay: 0, illuBodice: 'none', illuBack: false, boneShow: 0, straps: 'none', scallop: false, flowers: 0, laceRaised: false },
+    labour: { sleeve: 'none', beads: 0, laceMotifs: 0, laceYardM: 0, pleats: 0, tex: 'none', darts: false, cutouts: 0, slits: 0, train: 'none', veil: 'none', trimM: 0, twoPiece: false, cape: 'none', flutter: 0, overlay: 0, illuBodice: 'none', illuBack: false, boneShow: 0, straps: 'none', scallop: false, flowers: 0, laceRaised: false, sleeveDetach: false, overrobe: false },
   };
 }
 
@@ -1552,6 +1612,8 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
     back: pick('back', ids(GOWN_BACKS)),
     sleeve: pick('sleeve', ids(GOWN_SLEEVES)),
     sleeveFab: pick('sleeveFab', ids(GOWN_SLEEVE_FABRICS)),
+    sleeveDet: pick('sleeveDet', ids(GOWN_SLEEVE_WORN)),
+    robeSl: pick('robeSl', ids(GOWN_ROBE_SLEEVES)),
     closure: pick('closure', ids(GOWN_CLOSURES)),
     train: pick('train', ids(GOWN_TRAINS)),
     veil: pick('veil', ids(GOWN_VEILS)),
@@ -1663,6 +1725,14 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
   const inside = { layerTypes: r.layerTypes != null ? layerTypes : gownSyncLayers(p.petti, worn, layerTypes), layerCols };
   // Pairings that cannot be made (v193 `setGown`): the server refuses what the maker would have changed.
   if (p.cape !== 'none' && p.sleeve === 'butterfly') return no('not_a_design');
+  // v203: cape sleeves are a cape of their own; the over-robe has its own sleeves (no flutter, butterfly or cape
+  // sleeves under it); the new sleeves need both shoulders; the ruffle band sits on an off-shoulder or sweetheart
+  // neckline; "Detachable" on a neckline other than off-shoulder is not a choice (they already are).
+  if (p.sleeve === 'capesl' && p.cape !== 'none') return no('not_a_design');
+  if (p.cape === 'robe' && (p.sleeve === 'flutter' || p.sleeve === 'butterfly')) return no('not_a_design');
+  if ((p.straps === 'halter' || p.straps === 'one') && GOWN_SLEEVE_TWO.includes(p.sleeve)) return no('not_a_design');
+  if (p.sleeve === 'ruffle' && !GOWN_RUFFLE_NECKS.includes(p.neck)) return no('not_a_design');
+  if (p.sleeveDet === 'detach' && p.neck !== 'off') return no('not_a_design');
   // v196: a cape down her back (a back cape, or a long neck cape) and a veil to the floor would cover each other.
   const capeLong = p.cape !== 'none' && gownCapeNow({ cape: p.cape, capeFab: null, capeLen: capeD.capeLen ?? null, capeEdge: null, capeFasten: null }).long;
   if ((p.cape === 'back' || (p.cape === 'neck' && capeLong)) && (p.veil === 'floor' || p.veil === 'chapel' || p.veil === 'cathedral')) return no('not_a_design');
@@ -1780,6 +1850,8 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
       backT: n.backT,
       sleeve: p.sleeve,
       sleeveFab: p.sleeveFab,
+      sleeveDet: p.sleeveDet,
+      robeSl: p.robeSl,
       closure: p.closure,
       train: p.train,
       veil: p.veil,
@@ -1985,6 +2057,8 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
   if (!isOneOf(straps, ids(GOWN_STRAPS)) || typeof scallop !== 'boolean') return no('quantities');
   const flowers = qty(L.flowers ?? 0, true, GOWN_QUANTITY_MAX.pieces), laceRaised = L.laceRaised ?? false;
   if (flowers === null || typeof laceRaised !== 'boolean') return no('quantities');
+  const sleeveDetach = L.sleeveDetach ?? false, overrobe = L.overrobe ?? false;
+  if (typeof sleeveDetach !== 'boolean' || typeof overrobe !== 'boolean') return no('quantities');
   if (!isOneOf(sleeve, ids(GOWN_SLEEVES)) || !isOneOf(tex, ids(GOWN_TEXTURES)) || !isOneOf(train, ids(GOWN_TRAINS)) || !isOneOf(veil, ids(GOWN_VEILS))) {
     return no('quantities');
   }
@@ -2001,7 +2075,7 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
   if (beads === null || laceMotifs === null || laceYardM === null || pleats === null || cutouts === null || slits === null || trimM === null) {
     return no('quantities');
   }
-  q.labour = { sleeve, beads, laceMotifs, laceYardM, pleats, tex, darts, cutouts, slits, train, veil, trimM, twoPiece, cape, flutter, overlay, illuBodice, illuBack, boneShow, straps, scallop, flowers, laceRaised };
+  q.labour = { sleeve, beads, laceMotifs, laceYardM, pleats, tex, darts, cutouts, slits, train, veil, trimM, twoPiece, cape, flutter, overlay, illuBodice, illuBack, boneShow, straps, scallop, flowers, laceRaised, sleeveDetach, overrobe };
   return { ok: true, quantities: q };
 }
 

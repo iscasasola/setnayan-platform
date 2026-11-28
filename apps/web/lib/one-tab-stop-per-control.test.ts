@@ -60,3 +60,21 @@ test('(5) the ✕ that appears in every type box while typing is not a Tab stop 
   assert.match(read('components/clear-field.tsx'), /tabIndex=\{tabIndex\}/);
   assert.match(read('app/_components/global-clear-field.tsx'), /<ClearButton\s+label="Clear"\s+tabIndex=\{-1\}/, 'the app-wide ✕ sits between Email and Password in the Tab order');
 });
+
+test('(6) G13: the Google door comes AFTER the email box and the password field in the DOM, on /login and /signup', () => {
+  const order = (rel: string, email: RegExp) => {
+    const src = read(rel);
+    const at = (re: RegExp, what: string) => {
+      const i = src.search(re);
+      assert.ok(i >= 0, `${rel}: ${what} not found`);
+      return i;
+    };
+    const e = at(email, 'the email box');
+    const p = at(/<PasswordField\b/, 'the PasswordField');
+    const d = at(/<GoogleAddressDoor\b/, 'the GoogleAddressDoor');
+    assert.ok(e < p, `${rel}: the email box must come before the password`);
+    assert.ok(d > e && d > p, `${rel}: the Google door sits between email and password, so Tab goes email, Google, password (G13)`);
+  };
+  order('app/login/_components/sign-in-card.tsx', /id="hr-si-email"/);
+  order('app/signup/page.tsx', /id="hr-su-email"/);
+});

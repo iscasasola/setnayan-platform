@@ -3,6 +3,7 @@
  * no sign-in, no database. DEV-ONLY: production builds never compile it (`the-lab-never-ships.test.ts`).
  *
  *   ?view=body                the mannequin and her numbers: change any number and watch her change (default)
+ *   ?view=designer            the bride's flow (A9): measurements, fine-tune with Skip, the design steps, undo, units
  *   ?view=faceless            front and side together: the faceless check
  *   ?view=scenes              the six lighting scenes side by side
  *   ?view=fallback            a phone that cannot draw 3D

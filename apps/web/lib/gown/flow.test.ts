@@ -76,3 +76,14 @@ test('the design steps: real keys and lists, a close-up each, and the lists hide
   assert.equal(ruffle({ ...s0, neck: 'v' }), false, 'the ruffle band only on an off-shoulder or sweetheart neckline');
   assert.equal(ruffle({ ...s0, neck: 'sweetheart' }), true);
 });
+
+test('a body type at the same weight (v210 est-go): a pear at 155 cm and 52 kg', async () => {
+  const { gownShapeAtWeight } = await import('./body-rules');
+  const v = startingGownBody().vals;
+  // Worked by hand from the prototype's formula: an average figure of her height and weight, the pear's offsets, the
+  // underbust 12 cm under the bust, then scaled so the weight stays 52 kg (here the scale comes out at 1).
+  assert.deepEqual(gownShapeAtWeight(v, 'pear', 52), { bust: 82, waist: 67, hips: 104, underbust: 70 });
+  const hg = gownShapeAtWeight(v, 'hourglass', 52);
+  assert.equal(hg.bust - hg.underbust, 14, 'an hourglass keeps two more cm between bust and underbust');
+  assert.ok(gownShapeAtWeight(v, 'apple', 52).waist > hg.waist, 'an apple carries it at the waist');
+});

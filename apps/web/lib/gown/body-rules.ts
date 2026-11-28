@@ -277,3 +277,32 @@ export function gownDoubleCheck(
   }
   return out.length ? `Double-check: ${out.join(' ')} Measure again if you can; the designer confirms at the fitting.` : '';
 }
+
+/** v210 `BTYPE`: cm from an average shape at the same weight (bust, waist, hips). */
+export const GOWN_BODY_SHAPE_CM = { hourglass: [3, -7, 3], pear: [-5, -2, 9], apple: [3, 11, -2], rectangle: [-1, 6, -4], inverted: [8, 2, -6] } as const;
+/** v210 `estKg`: the weight her girths suggest at her height (the inverse of `gownShapeAtWeight`'s first guess). */
+const estKgOf = (v: Pick<GownBodyVals, 'height' | 'bust' | 'waist' | 'hips'>) => { const h = (v.height || 160) / 100, f = (v.bust / 88 + v.waist / 70 + v.hips / 96) / 3; return Math.round(f * f * 22 * h * h); };
+/**
+ * v210 `est-go` (tap a body type): she takes that shape at the same weight. Bust, waist and hips from an average figure
+ * of her height and weight plus the shape's own offsets, the underbust 12 cm under the bust (14 for an hourglass), then
+ * all four scaled together so the weight stays hers. A starting point; the designer measures her at the first fitting.
+ */
+export function gownShapeAtWeight(vals: GownBodyVals, shape: keyof typeof GOWN_BODY_SHAPE_CM, kg: number): Pick<GownBodyVals, 'bust' | 'waist' | 'hips' | 'underbust'> {
+  const R = GOWN_BODY_RANGE, c = (k: 'bust' | 'waist' | 'hips' | 'underbust', x: number) => clamp(Math.round(x), R[k][0], R[k][1]);
+  const h = vals.height || 160, f = Math.sqrt(kg / (22 * (h / 100) ** 2)), d = GOWN_BODY_SHAPE_CM[shape];
+  const o = { bust: c('bust', 88 * f + d[0]), waist: c('waist', 70 * f + d[1]), hips: c('hips', 96 * f + d[2]), underbust: vals.underbust };
+  if (vals.underbust) o.underbust = c('underbust', o.bust - 12 - (shape === 'hourglass' ? 2 : 0));
+  const r = Math.sqrt(kg / estKgOf({ ...vals, ...o }));
+  return { bust: c('bust', o.bust * r), waist: c('waist', o.waist * r), hips: c('hips', o.hips * r), underbust: vals.underbust ? c('underbust', o.underbust * r) : vals.underbust };
+}
+/**
+ * v210 weight typed (`est-kg`): with her girths not given, the same shape scaled to the new weight. When she gave her
+ * bust, waist or hips, those stay hers and only the weight moves (her build carries it).
+ */
+export function gownScaleToWeight(vals: GownBodyVals, given: readonly GownBodyKey[], kg: number): GownBodyVals {
+  const R = GOWN_BODY_RANGE, v = { ...vals, weight: Math.round(kg) };
+  if ((['bust', 'waist', 'hips'] as const).some((k) => given.includes(k))) return v;
+  const r = Math.sqrt(kg / estKgOf(vals));
+  for (const k of ['bust', 'waist', 'hips', 'underbust'] as const) if (vals[k]) v[k] = clamp(Math.round(vals[k] * r), R[k][0], R[k][1]);
+  return v;
+}

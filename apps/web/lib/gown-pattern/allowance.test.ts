@@ -22,6 +22,10 @@ const G = golden as unknown as {
   saDefault: GownSeamAllow;
   saOdd: GownSeamAllow;
   geom: { skirts: { usual: Geo; odd: Geo; net: Geo }[][]; bodices: { usual: Geo; odd: Geo; net: Geo }[][] };
+  saMost: GownSeamAllow;
+  geomMost: Geo[][];
+  gore: GownBlockPiece;
+  goreGeom: Geo;
 };
 
 /** The golden input as the port's draft order (estimates only, as the prototype ran them). */
@@ -75,6 +79,22 @@ test('2 · 7 bodices (necklines, armholes, the zip, the fold, the bust dart’s 
     assert.ok(d.ok, `bodice ${i} did not draft`);
     if (d.ok) sameGeom(d.pieces, G.geom.bodices[i]!, `bodice ${i}`);
   });
+});
+
+test('2b · stress: the largest allowances on every bodice (loops cut off) and a needle-sharp gore (squared off) equal the prototype’s', () => {
+  G.bodices.forEach((b, i) => {
+    const d = draftBodice(orderOf(b.input), {});
+    assert.ok(d.ok);
+    if (!d.ok) return;
+    d.pieces.forEach((p, k) => {
+      const g = gownPieceGeom(p, G.saMost, false), w = G.geomMost[i]![k]!;
+      near(g.C, w.C, `bodice ${i}.${p.name}.most.C`);
+      near(g.N, w.N, `bodice ${i}.${p.name}.most.N`);
+    });
+  });
+  const g = gownPieceGeom(G.gore, G.saMost, false);
+  near(g.C, G.goreGeom.C, 'gore.C');
+  near(g.N, G.goreGeom.N, 'gore.N');
 });
 
 /** How far out from a point, straight along a direction, the cut line is (the nearest crossing). */

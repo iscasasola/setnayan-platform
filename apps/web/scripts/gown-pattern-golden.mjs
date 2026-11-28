@@ -83,5 +83,13 @@ if (X.patGeom) {
   out.saDefault = X.SA_DEF;
   out.saOdd = odd;
   out.geom = { skirts: out.skirts.map((s) => geoms(s.result)), bodices: out.bodices.map((b) => geoms(b.result)) };
+  // Stress: the largest allowances on every bodice (tight armholes and necklines make the moved edges loop), and a
+  // narrow gore whose point is needle-sharp (it must be squared off, not thrown out).
+  const most = { seam: 3, hem: 8, zip: 4, neck: 2 };
+  out.saMost = most;
+  out.geomMost = out.bodices.map((b) => (b.result.pieces || []).map((p) => q((({ C, N, D }) => ({ C, N, D }))(X.patGeom(p, most, false)))));
+  out.gore = { name: 'Gore', cut: 'Cut 2', outline: [[0, 0], [60, 0], [32, 900], [28, 900]], edges: ['seam', 'seam', 'hem', 'seam'], darts: [], marks: [], points: [], grain: [[30, 50], [30, 800]] };
+  out.goreGeom = q((({ C, N, D }) => ({ C, N, D }))(X.patGeom(out.gore, most, false)));
+}
 }
 process.stdout.write(JSON.stringify(out));

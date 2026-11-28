@@ -20,6 +20,13 @@
  *   scheduled_for Date + Time in Manila (+08:00, no DST), stored as UTC
  *   status        'scheduled'
  *
+ * Not every library row is a post to queue (library v2, 28 Nov): a row whose "Schedule now?" says No (a weekly
+ * series filled that week, a draft waiting on the owner, a hold) is skipped, and so is a "Tagalog twin" that shares
+ * its English post's slot — one post per slot instant is a database rule, so the twin has no slot of its own. Each
+ * skip is listed in `skipped` with its line, never dropped silently.
+ *
+ * A row whose caption, first comment or Door carries a typed price (`TYPED_PRICE`) stops the run with its line.
+ *
  * Idempotent: the INSERT skips any row whose ('library', source_ref) already exists in ANY status (a pulled planned
  * post stays pulled), and the partial-unique index (source_type, source_ref) is the backstop. Running the same
  * migration twice inserts nothing the second time.
@@ -27,6 +34,12 @@
 import { createHash } from 'node:crypto';
 
 import { slotInstant, type SocialSlot } from './governor';
+
+/**
+ * A typed price: ₱ or PHP followed by a digit (owner 28 Nov 2026, verbatim: "Remove the prices"). A price lives in the
+ * catalogs and changes there; a planned post typed months ahead would go stale, so the import refuses it.
+ */
+export const TYPED_PRICE = /(?:₱|\bPHP)\s?\d/i;
 
 /** The site every Door hangs off. */
 export const LIBRARY_DOOR_ORIGIN = 'https://setnayan.com';
@@ -48,9 +61,23 @@ export type LibraryRow = {
 export type LibraryImportOptions = {
   /** Public https base the relative image paths live under (e.g. the public media bucket's library folder). */
   imagesBase?: string | null;
+  /**
+   * Images are not hosted yet: relative image paths are left off (media_url / media_urls stay NULL, so the flush
+   * posts the branded card) and counted in one warning, instead of stopping the run.
+   */
+  imagesLater?: boolean;
 };
 
-export type LibraryParse = { rows: LibraryRow[]; errors: string[]; warnings: string[] };
+/** Options for the generated SQL. */
+export type LibrarySqlOptions = {
+  /**
+   * Leave out every planned post whose slot instant has already passed when the migration RUNS (now()). A passed
+   * planned post would otherwise be re-slotted to the next free slot of its kind — past the end of the plan.
+   */
+  skipPastSlots?: boolean;
+};
+
+export type LibraryParse = { rows: LibraryRow[]; errors: string[]; warnings: string[]; skipped: string[] };
 
 /** RFC 4180 CSV: quoted fields, doubled quotes, newlines inside quotes, CRLF, a leading BOM. */
 export function parseCsv(text: string): string[][] {
@@ -161,15 +188,18 @@ export function libraryRowsFromCsv(text: string, opts: LibraryImportOptions = {}
     door: columnIndex(header, 'Door'),
     images: columnIndex(header, 'Images'),
     folder: columnIndex(header, 'Folder'),
+    ready: columnIndex(header, 'Schedule now?'),
   };
+  const skipped: string[] = [];
+  let imagesLeftOff = 0;
   const base = opts.imagesBase?.trim().replace(/\/+$/, '') || null;
   if (base && !/^https:\/\//i.test(base)) {
-    return { rows: [], errors: [`The images base "${base}" is not an https URL.`], warnings };
+    return { rows: [], errors: [`The images base "${base}" is not an https URL.`], warnings, skipped };
   }
   for (const required of ['date', 'time', 'caption'] as const) {
     if (col[required] < 0) errors.push(`The CSV has no "${required}" column.`);
   }
-  if (errors.length > 0) return { rows: [], errors, warnings };
+  if (errors.length > 0) return { rows: [], errors, warnings, skipped };
 
   const cell = (r: string[], i: number) => (i >= 0 ? (r[i] ?? '').trim() : '');
   const seen = new Map<string, number>();
@@ -177,6 +207,15 @@ export function libraryRowsFromCsv(text: string, opts: LibraryImportOptions = {}
 
   table.slice(1).forEach((r, idx) => {
     const line = idx + 2;
+    const ready = cell(r, col.ready);
+    if (/^no\b/i.test(ready)) {
+      skipped.push(`Line ${line}: not ready to schedule (${ready}).`);
+      return;
+    }
+    if (/\btwin\b/i.test(cell(r, col.slot))) {
+      skipped.push(`Line ${line}: "${cell(r, col.slot)}" shares its main post's slot; one post per slot, so it is not queued.`);
+      return;
+    }
     const date = cell(r, col.date);
     if (!isRealCalendarDate(date)) {
       errors.push(`Line ${line}: date "${date}" is not a real YYYY-MM-DD date.`);
@@ -198,6 +237,17 @@ export function libraryRowsFromCsv(text: string, opts: LibraryImportOptions = {}
       errors.push(`Line ${line}: the caption is empty.`);
       return;
     }
+    const priced = (
+      [
+        ['caption', body],
+        ['first comment', cell(r, col.comment)],
+        ['Door', cell(r, col.door)],
+      ] as const
+    ).find(([, text]) => TYPED_PRICE.test(text));
+    if (priced) {
+      errors.push(`Line ${line}: the ${priced[0]} has a typed price ("${priced[1].match(/(?:₱|\bPHP)\s?[\d,.]*\d/i)?.[0]}"); a post names no price.`);
+      return;
+    }
     const key = `${date}|${slot}`;
     if (seen.has(key)) {
       errors.push(`Line ${line}: ${date} ${time} is already planned on line ${seen.get(key)}. One post per slot.`);
@@ -213,12 +263,16 @@ export function libraryRowsFromCsv(text: string, opts: LibraryImportOptions = {}
       .map((x) => x.trim())
       .filter(Boolean);
     const relative = images.filter((x) => !/^https?:\/\//i.test(x));
-    if (relative.length > 0 && !base) {
+    if (relative.length > 0 && !base && opts.imagesLater) {
+      imagesLeftOff += 1;
+    } else if (relative.length > 0 && !base) {
       errors.push(`Line ${line}: image "${relative[0]}" is a relative path; pass --images-base <https url>.`);
       return;
     }
     const folder = cell(r, col.folder).replace(/^\/+|\/+$/g, '');
-    const imageUrls = images.map((x) =>
+    // Without a base only absolute URLs are usable (relative ones either stopped the run above or wait for hosting).
+    const usable = base ? images : images.filter((x) => /^https?:\/\//i.test(x));
+    const imageUrls = usable.map((x) =>
       /^https?:\/\//i.test(x) ? x : [base, folder, x.replace(/^\/+/, '')].filter(Boolean).join('/'),
     );
     const pillar = cell(r, col.pillar);
@@ -239,7 +293,10 @@ export function libraryRowsFromCsv(text: string, opts: LibraryImportOptions = {}
     });
   });
 
-  return { rows, errors, warnings };
+  if (imagesLeftOff > 0) {
+    warnings.push(`${imagesLeftOff} post(s) have images that are not hosted yet; they post with the branded card until a later migration sets media_urls.`);
+  }
+  return { rows, errors, warnings, skipped };
 }
 
 /** A SQL string literal (standard_conforming_strings: only the quote is doubled). */
@@ -253,13 +310,14 @@ export function sqlTextArray(values: readonly string[] | null): string {
 }
 
 /** The migration body that inserts every row once. Same rows in → same bytes out. */
-export function libraryMigrationSql(rows: readonly LibraryRow[], sourceLabel: string): string {
+export function libraryMigrationSql(rows: readonly LibraryRow[], sourceLabel: string, opts: LibrarySqlOptions = {}): string {
   const header = [
     '-- ============================================================================',
     `-- Planned Facebook library → social_posts (source_type 'library').`,
     `-- Generated by apps/web/scripts/social/import-library.ts from ${sourceLabel.replace(/\n/g, ' ')}.`,
     `-- ${rows.length} planned post(s). Idempotent: a row whose ('library', source_ref) already exists in any`,
     '-- status is skipped, so re-running inserts nothing. Do not edit by hand; re-generate.',
+    ...(opts.skipPastSlots ? ['-- A planned post whose slot instant has passed when this runs is left out (never queued late).'] : []),
     '-- ============================================================================',
     '',
   ];
@@ -282,7 +340,8 @@ export function libraryMigrationSql(rows: readonly LibraryRow[], sourceLabel: st
     '       v.scheduled_for, v.slot, v.first_comment',
     'FROM (VALUES',
     values,
-    ') AS v(source_ref, title, body, media_url, media_urls, link_url, scheduled_for, slot, first_comment);',
+    ') AS v(source_ref, title, body, media_url, media_urls, link_url, scheduled_for, slot, first_comment)' +
+      (opts.skipPastSlots ? '\nWHERE v.scheduled_for > now();' : ';'),
     '',
     '-- 2 · a planned post wins its slot: a site auto-post not yet sent that sits on a planned instant loses its',
     '--     time, and the flush hands it the next free 2 PM (one post per slot is a UNIQUE index).',

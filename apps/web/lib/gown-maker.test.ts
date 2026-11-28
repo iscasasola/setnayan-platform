@@ -584,3 +584,13 @@ test('7q · v210 pzSummary: one sentence per changed piece on the gown, in the p
   assert.deepEqual(gownPartsSummary(base), [], 'a design with no pieces said something');
   assert.equal(gownPartsSummary({ ...base, parts: [{ ...parts[0]!, fade: { colour: 'main', dir: 'up', from: 0, to: 0.5 } }] })[0]!.includes('towards the top (dip-dye, from 0 % to 50 %'), true);
 });
+
+test('7r · v210: a cape in its own piece is cut from that piece’s fabric line, not the cape-cloth line too', () => {
+  const q0 = emptyGownQuantities();
+  const design = { ...startingGownConfig(), cape: 'side' as const, capeFab: null, parts: [{ part: 'cape' as const, fabric: 'chiffon', colour: null, fade: null, border: null, pattern: null }] };
+  const q = { ...q0, materials: { ...q0.materials, capeM: 3.2 }, labour: { ...q0.labour, cape: 'side' as const }, pieces: [{ part: 'cape' as const, fabric: 'chiffon', fabricRef: null, patternKey: null, m: 3.4, eqM: 0 }] };
+  const lines = gownDesignOf(shop(), design, q, []).forShop.lines;
+  assert.equal(lines.filter((l) => l.label.includes('(the cape)')).length, 0, 'the cape was counted as its cloth and as a piece');
+  assert.ok(lines.some((l) => l.key === 'fab_chiffon' && l.qty === 3.4 && l.label.startsWith('Chiffon (the cape, ')));
+  assert.ok(lines.some((l) => l.key === 'cape_side'), 'the cape’s making line went missing');
+});

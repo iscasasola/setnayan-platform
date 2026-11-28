@@ -91,5 +91,4 @@ if (X.patGeom) {
   out.gore = { name: 'Gore', cut: 'Cut 2', outline: [[0, 0], [60, 0], [32, 900], [28, 900]], edges: ['seam', 'seam', 'hem', 'seam'], darts: [], marks: [], points: [], grain: [[30, 50], [30, 800]] };
   out.goreGeom = q((({ C, N, D }) => ({ C, N, D }))(X.patGeom(out.gore, most, false)));
 }
-}
 process.stdout.write(JSON.stringify(out));

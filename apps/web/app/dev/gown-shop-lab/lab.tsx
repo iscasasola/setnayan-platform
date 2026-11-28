@@ -78,6 +78,7 @@ function cardSeed(viewer: 'vendor' | 'couple', opts: { ask?: boolean; replaced?:
     pattern: null,
     rows,
     quote: viewer === 'vendor' ? gownQuotePrefill(priced.forBride.estimateCentavos, priced.forShop, rows) : null,
+    shopPlan: viewer === 'vendor' ? ({ s: 'trial', endsAt: '2026-12-20T00:00:00.000Z', daysLeft: 22 } as const) : null,
     replaced: !!opts.replaced,
     sentAt: '2026-11-28T10:00:00Z',
   };
@@ -166,6 +167,7 @@ export default function Lab({ view }: { view: string }) {
             },
             rows: gownDesignRows(config, [], null),
             quote: null,
+            shopPlan: { s: 'trial', endsAt: '2026-12-20T00:00:00.000Z', daysLeft: 22 },
             replaced: false,
             sentAt: '2026-11-26T10:00:00Z',
           }}

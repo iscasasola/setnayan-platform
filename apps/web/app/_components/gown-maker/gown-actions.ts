@@ -30,10 +30,11 @@ import { canManageVendor, resolveVendorRoleForProfile } from '@/lib/vendor-role'
 import { requireAdminAction } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sendChatMessageCore } from '@/lib/chat-send';
-import { plusGateRefusal } from '@/lib/shop-plus-gate';
-import { shopPlusGate } from '@/lib/shop-plus-gate.server';
+import { gownPlanAllows, gownPlanRefusal, type GownPlanState, type GownPlanUse } from '@/lib/gown-plan';
+import { stampGownTrial } from '@/lib/gown-plan.server';
 import { GOWN_MEASURES, GOWN_REFUSAL_WORDS, gownLookOf, sanitizeGownConfig, startingGownConfig, type GownBody, type GownConfig, type GownMeasures } from '@/lib/gown-config';
 import {
+  GOWN_ADD_ON_ASK,
   GOWN_DESIGN_NOT_SENT,
   GOWN_DESIGN_UNREADABLE,
   GOWN_INVITE_BODY,
@@ -76,7 +77,7 @@ import {
   readShopGownLooks,
   readShopGownMaker,
   readShopGownStock,
-  readShopGownToolOpen,
+  readShopGownPlan,
   readStoredGownDesign,
   sanitizeGownTape,
   saveGownFitting,
@@ -139,8 +140,11 @@ export type GownDesignRead = {
   pattern: GownDesignPattern | null;
   /** B8: the card's rows (words only; both sides read the same). */
   rows: GownCardRow[];
-  /** B8, the shop only: what Make a quote opens with (the estimate she saw and her priced add-ons). Null for her. */
+  /** B8, the shop only: what Make a quote opens with (the estimate she saw and her priced add-ons). Null for her, and
+   *  null on a plan without quotation (owner 2026-11-28: Full only). */
   quote: GownQuotePrefill | null;
+  /** The shop only: its Attire Maker plan (the screens draw the 🔒 cards from it). Null for her. */
+  shopPlan: GownPlanState | null;
   replaced: boolean;
   sentAt: string;
 };
@@ -165,7 +169,7 @@ export type GownActionResult =
   | GownOpenRead
   | { ok: true; op: 'send' | 'invite' | 'save' | 'fit' }
   | { ok: true; op: 'status'; on: boolean; side: 'couple' | 'vendor' }
-  | { ok: true; op: 'options'; options: GownShopOptions; saved: boolean; locked: boolean }
+  | { ok: true; op: 'options'; options: GownShopOptions; saved: boolean; locked: boolean; plan: GownPlanState }
   | { ok: true; op: 'stock'; shop: string; fabrics: ShopGownStockFabric[]; looks: ShopGownStockLook[]; types: GownFabricTypeOption[]; locked: boolean }
   | { ok: true; op: 'fabric_save' | 'look_save'; id: string }
   | { ok: true; op: 'types'; types: GownFabricTypeRow[] }
@@ -210,20 +214,29 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
       return fail('Only the shop owner or an admin can change the Attire Maker.');
     }
     const admin = createAdminClient();
-    const allowed = await readShopGownToolOpen(admin, shop);
-    if (allowed.status !== 'ok') return fail();
+    let planRead = await readShopGownPlan(admin, shop);
+    if (planRead.status !== 'ok') return fail(gownPlanRefusal({ s: 'unread' }, 'read'));
+    // The shop's first open starts its one 30-day trial (owner 2026-11-28, Q2). Only the Shop Manager's open counts.
+    if (op === 'options' && planRead.data.s === 'fresh') {
+      await stampGownTrial(admin, shop, new Date().toISOString());
+      planRead = await readShopGownPlan(admin, shop);
+      if (planRead.status !== 'ok') return fail(gownPlanRefusal({ s: 'unread' }, 'read'));
+    }
+    const plan = planRead.data;
+    if (plan.s === 'not_eligible') return fail(gownPlanRefusal(plan, 'read'));
+    const canMake = plan.s !== 'fresh' && gownPlanAllows(plan, 'make');
     if (op === 'options') {
       const read = await readShopGownMaker(supabase, shop);
       if (read.status === 'unread') return fail('Couldn’t load your Attire Maker. Try again.');
-      return { ok: true, op, options: read.status === 'ok' ? read.data : gownShopTemplate(), saved: read.status === 'ok', locked: !allowed.data };
+      return { ok: true, op, options: read.status === 'ok' ? read.data : gownShopTemplate(), saved: read.status === 'ok', locked: !canMake, plan };
     }
     if (op === 'stock') {
       // The shop's own stock list, hidden rows and prices included (the shop's panel only — never a bride's read).
       const [stock, types] = await Promise.all([readShopGownStock(admin, shop), readGownFabricTypes(supabase)]);
       if (stock.status !== 'ok' || types.status !== 'ok') return fail('Couldn’t load your fabrics and looks. Try again.');
-      return { ok: true, op, shop, fabrics: stock.data.fabrics, looks: stock.data.looks, types: types.data, locked: !allowed.data };
+      return { ok: true, op, shop, fabrics: stock.data.fabrics, looks: stock.data.looks, types: types.data, locked: !canMake };
     }
-    if (!allowed.data) return fail('The Attire Maker isn’t on for your shop yet. Open it in the Toolkit; your saved price list is kept.');
+    if (!canMake) return fail(gownPlanRefusal(plan, 'make'));
     if (op === 'fabric_save') {
       const types = await readGownFabricTypeIds(supabase);
       if (types.status !== 'ok') return fail();
@@ -259,8 +272,6 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
     if (thread.error || options.status === 'unread') return fail();
     if (!thread.data) return fail('This chat is not your shop’s.');
     if (options.status !== 'ok') return fail('Set up your Attire Maker first: Shop › Your widgets › Attire Maker.');
-    const plusRefusal = plusGateRefusal(await shopPlusGate(admin, shop));
-    if (plusRefusal) return fail(plusRefusal);
     const sent = await sendChatMessageCore(supabase, { threadId, body: GOWN_INVITE_BODY, asSide: 'vendor' });
     return sent.ok ? { ok: true, op } : fail('The invite didn’t send. Try again.');
   }
@@ -313,20 +324,25 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
     let forShop: GownDesignForShop | null = null;
     let tape: GownDesignRead['tape'] = null;
     let pattern: GownDesignRead['pattern'] = null;
+    let shopPlan: GownPlanState | null = null;
     if (isShop) {
       // 🔒 The cost lines exist only here, for the shop, priced now from its own list. Never stored on the design row.
       const admin = createAdminClient();
-      const [options, fabrics, fit, types] = await Promise.all([readShopGownMaker(admin, shop), readShopGownFabrics(admin, shop), readGownFitting(supabase, ref), readGownFabricTypes(supabase)]);
+      const [options, fabrics, fit, types, planRead] = await Promise.all([readShopGownMaker(admin, shop), readShopGownFabrics(admin, shop), readGownFitting(supabase, ref), readGownFabricTypes(supabase), readShopGownPlan(admin, shop)]);
+      shopPlan = planRead.status === 'ok' ? planRead.data : { s: 'unread' };
+      // Owner 2026-11-28: the costing, the quote pre-fill and the pattern work are the Full plan's (and the trial's).
+      // Her numbers and the designer's tape stay readable on every plan, paused included.
+      const full = gownPlanAllows(shopPlan, 'full');
       const q = stored.data.quantities;
       const c = stored.data.config as Parameters<typeof gownDesignOf>[1] | null;
-      if (options.status === 'ok' && fabrics.status === 'ok' && q && c) {
+      if (full && options.status === 'ok' && fabrics.status === 'ok' && q && c) {
         const map = new Map(fabrics.data.map((f) => [f.id, { name: f.name, pricePerMetreCentavos: f.pricePerMetreCentavos }]));
         // A7b: her hand work joins the bead and lace lines; hand work that couldn't be read prices nothing extra.
         forShop = gownDesignOf(options.data, c, q, stored.data.addOns, map, stored.data.hand.s === 'sent' ? stored.data.hand.hand : null).forShop;
       }
       if (fit.status === 'ok') tape = { tape: fit.data.tape, fitAt: fit.data.fitAt };
       // The blocks' settings: a failed read of the shop's options or the tape row is "Couldn't read", never the defaults.
-      if ((options.status === 'ok' || options.status === 'none') && fit.status !== 'unread') {
+      if (full && (options.status === 'ok' || options.status === 'none') && fit.status !== 'unread') {
         const shopOptions = options.status === 'ok' ? options.data : gownShopTemplate();
         const outerName =
           (c?.fabricRef && fabrics.status === 'ok' ? fabrics.data.find((f) => f.id === c.fabricRef)?.name : null) ??
@@ -347,7 +363,8 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
       ok: true,
       op: 'design',
       rows,
-      quote: isShop ? gownQuotePrefill(stored.data.estimateCentavos, forShop, rows) : null,
+      quote: isShop && shopPlan && gownPlanAllows(shopPlan, 'full') ? gownQuotePrefill(stored.data.estimateCentavos, forShop, rows) : null,
+      shopPlan,
       viewer: isShop ? 'vendor' : 'couple',
       designId: ref,
       config: stored.data.config,
@@ -373,6 +390,11 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
     if (error) return fail();
     if (!row) return fail('This design is not your shop’s.');
     if (tape === undefined && pattern === undefined) return fail();
+    // Saving the tape is making (trial or a plan); saving the order's pattern settings is the Full plan's.
+    const planRead = await readShopGownPlan(createAdminClient(), profile.vendor_profile_id);
+    if (planRead.status !== 'ok') return fail(gownPlanRefusal({ s: 'unread' }, 'make'));
+    const need: GownPlanUse = pattern !== undefined ? 'full' : 'make';
+    if (planRead.data.s === 'fresh' || !gownPlanAllows(planRead.data, need)) return fail(gownPlanRefusal(planRead.data, need));
     const checked = tape === undefined ? null : sanitizeGownTape(tape, TAPE_KEYS);
     if (checked && !checked.ok) return fail('A measurement could not be read. Check it and save again.');
     const pat = pattern === undefined ? null : sanitizeGownOrderPattern(pattern);
@@ -416,19 +438,21 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
   }
 
   if (op !== 'open') return fail();
-  const [options, allowed, fabrics, looks, types, shopRes] = await Promise.all([
+  const [options, planRead, fabrics, looks, types, shopRes] = await Promise.all([
     readShopGownMaker(admin, t.vendor_profile_id),
-    readShopGownToolOpen(admin, t.vendor_profile_id, t.event_id),
+    readShopGownPlan(admin, t.vendor_profile_id),
     readShopGownFabrics(admin, t.vendor_profile_id),
     readShopGownLooks(admin, t.vendor_profile_id),
     readGownFabricTypes(supabase),
     admin.from('vendor_profiles').select('business_name').eq('vendor_profile_id', t.vendor_profile_id).maybeSingle(),
   ]);
-  if (options.status === 'unread' || allowed.status === 'unread' || fabrics.status !== 'ok' || looks.status !== 'ok' || types.status !== 'ok' || shopRes.error) {
+  if (options.status === 'unread' || planRead.status === 'unread' || fabrics.status !== 'ok' || looks.status !== 'ok' || types.status !== 'ok' || shopRes.error) {
     if (shopRes.error) logQueryError('gownAction.open', shopRes.error, { thread_id: threadId }, 'graceful_degrade');
     return fail('Couldn’t open the Attire Maker. Try again.');
   }
-  if (options.status !== 'ok' || allowed.status !== 'ok' || !allowed.data) return fail('This shop’s Attire Maker isn’t on.');
+  // The shop's trial or plan must be live; a paused shop takes no new design (its work stays its own).
+  if (options.status !== 'ok' || planRead.status !== 'ok' || planRead.data.s === 'fresh' || !gownPlanAllows(planRead.data, 'make')) return fail('This shop’s Attire Maker isn’t on.');
+  const fullPlan = gownPlanAllows(planRead.data, 'full');
   return {
     ok: true,
     op: 'open',
@@ -443,6 +467,7 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
     // 🔒 Never the per-metre price: the bride gets the public columns only.
     fabrics: fabrics.data.map(({ pricePerMetreCentavos: _price, ...publicCols }) => publicCols),
     looks: looks.data,
-    addOns: brideAddOnsOf(options.data),
+    // Owner 2026-11-28: the gown estimate is the Full plan's; on Use and save every price reads "Ask your designer".
+    addOns: brideAddOnsOf(options.data).map((a) => (fullPlan || a.centavos === null ? a : { ...a, centavos: null, words: GOWN_ADD_ON_ASK })),
   };
 }

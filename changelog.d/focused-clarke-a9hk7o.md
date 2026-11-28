@@ -7,7 +7,7 @@ The drafted Facebook captions in the admin Social queue now follow the word and 
 - **S3** Badge posts link the supplier search (`routes.suppliers()`, new builder), not `/vendors`, which redirects to the supplier sales page.
 - **S5** The named supplier welcome reads "Welcome to Setnayan, {name}! A newly verified {category} serving {region}. Set na 'yan."
 - **S6** The logo share is labelled "Logo" and its caption credits Logo Maker.
-- **S7** The retired reel is gone from the share flow: `ShareArtifactType`, its label, its caption, and the consent action's allow-list (`isShareArtifactType`). Prod had 0 reel consents.
+- **S7** The retired reel is gone from the share flow: `ShareArtifactType`, its label, its caption, and the consent action's allow-list (now read from `SHARE_ARTIFACT_TYPES`). Prod had 0 reel consents.
 - **S8** Anonymous credits say "one of our Setnayan hosts"; the recap title falls back to "A Setnayan event".
 - **S9** The Social-queue composer no longer suggests raw CHANGELOG headlines (`lib/social/changelog-suggestions.ts` removed; no server action added).
 

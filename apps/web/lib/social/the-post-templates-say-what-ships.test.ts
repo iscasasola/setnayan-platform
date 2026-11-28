@@ -14,7 +14,6 @@ import {
   SHARE_ARTIFACT_LABEL,
   SHARE_ARTIFACT_TYPES,
   coupleCreationCaption,
-  isShareArtifactType,
   vendorFeatureCaption,
 } from '@/lib/social-sharing';
 import { MILESTONE_CAPTIONS, MILESTONE_METRICS, badgePostCopy } from '@/lib/social/lane-s';
@@ -73,8 +72,7 @@ test('S6 · the logo is called a logo, made with Logo Maker', () => {
 
 test('S7 · the retired reel is not a share artifact any more', () => {
   assert.deepEqual([...SHARE_ARTIFACT_TYPES], ['monogram', 'save_the_date', 'website']);
-  assert.equal(isShareArtifactType('reel'), false);
-  assert.equal(isShareArtifactType('save_the_date'), true);
+  assert.equal((SHARE_ARTIFACT_TYPES as readonly string[]).includes('reel'), false);
   assert.equal('reel' in SHARE_ARTIFACT_LABEL, false);
 });
 

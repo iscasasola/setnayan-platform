@@ -32,11 +32,6 @@
 export const SHARE_ARTIFACT_TYPES = ['monogram', 'save_the_date', 'website'] as const;
 export type ShareArtifactType = (typeof SHARE_ARTIFACT_TYPES)[number];
 
-/** True only for an artifact type the share flow still features (a retired value in an old row is not one). */
-export function isShareArtifactType(value: unknown): value is ShareArtifactType {
-  return typeof value === 'string' && (SHARE_ARTIFACT_TYPES as readonly string[]).includes(value);
-}
-
 export type ShareCreditMode = 'first_names' | 'anonymous';
 
 /** Customer-facing labels for the consent artifact types. */

@@ -59,7 +59,7 @@ import { parseRestoreSeats, parseSeatScope, restorableSeats, seatsThatStay, seat
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { placedByAuto, placedByCouple } from '@/lib/seat-why';
-import { SEAT_LOCKED_REFUSAL, lockedSeatGuests, tablesHoldLockedSeats } from '@/lib/seat-lock.server';
+import { SEAT_LOCKED_REFUSAL, lockedSeatGuests, tablesHoldLockedSeats, tablesWithLockedSeats } from '@/lib/seat-lock.server';
 
 function clampPct(v: unknown): number | null {
   if (typeof v !== 'string' || v.length === 0) return null;
@@ -290,6 +290,12 @@ export async function deleteTable(formData: FormData) {
     .eq('event_id', eventId)
     .maybeSingle();
 
+  // 🔒 #17: deleting a table takes its seats with it (ON DELETE CASCADE) — a table holding a locked seat stays.
+  if (await tablesHoldLockedSeats(supabase, eventId, [tableId])) {
+    revalidatePath(`/dashboard/${eventId}/seating`);
+    return SEAT_LOCKED_REFUSAL;
+  }
+
   const { error } = await supabase
     .from('event_tables')
     .delete()
@@ -314,6 +320,7 @@ export async function deleteTable(formData: FormData) {
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
+  return undefined;
 }
 
 export async function assignGuest(formData: FormData) {
@@ -2362,16 +2369,21 @@ async function undoAutoArrange(eventId: string, formData: FormData): Promise<Aut
   const lockId = lockIdFrom(formData);
   await assertSeatingLockHeld(supabase, eventId, lockId);
 
-  if (seatedGuestIds.length > 0) {
+  // 🔒 #17: a seat locked since the run stays — the Undo neither takes it off nor deletes the table it sits at.
+  const pinnedGuests = new Set(await lockedSeatGuests(supabase, eventId, seatedGuestIds));
+  const pinnedTables = await tablesWithLockedSeats(supabase, eventId, addedTableIds);
+  const unseatIds = seatedGuestIds.filter((id) => !pinnedGuests.has(id));
+  const dropTableIds = addedTableIds.filter((id) => !pinnedTables.has(id));
+  if (unseatIds.length > 0) {
     const { error } = await supabase
       .from('event_seat_assignments')
       .delete()
       .eq('event_id', eventId)
-      .in('guest_id', seatedGuestIds);
+      .in('guest_id', unseatIds);
     if (error) throw new Error(error.message);
   }
-  if (addedTableIds.length > 0) {
-    const { error } = await supabase.from('event_tables').delete().eq('event_id', eventId).in('table_id', addedTableIds);
+  if (dropTableIds.length > 0) {
+    const { error } = await supabase.from('event_tables').delete().eq('event_id', eventId).in('table_id', dropTableIds);
     if (error) throw new Error(error.message);
   }
   // 🪑 The seats the run took off go back exactly — table, chair, lock, who placed it — except where a guest or a

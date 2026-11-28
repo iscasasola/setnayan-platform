@@ -475,7 +475,7 @@ export function SeatList({
       return (
         <span
           key={key}
-          className="inline-flex h-[26px] max-w-full items-center rounded-full bg-ink/[0.06] px-[9px] text-sn-13 text-ink"
+          className="inline-flex h-[26px] max-w-full items-center rounded-full bg-ink/[0.06] px-[9px] text-sn-md font-medium text-ink"
           data-seat-card-name=""
           data-seat-face={lead.id}
           data-seat-unit={unit.length > 1 ? unit.map((g) => g.id).join(' ') : undefined}
@@ -493,7 +493,7 @@ export function SeatList({
               ) : (
                 <span aria-hidden className="mx-1.5 my-0.5 h-3.5 w-px shrink-0 bg-ink/20" data-seat-hairline="" />
               )}
-              <span aria-hidden className="shrink-0 text-sn-11 font-semibold text-[color:var(--m-slate-2)]" data-seat-plus-tag="">
+              <span aria-hidden className="shrink-0 text-sn-xs font-semibold text-[color:var(--m-slate-2)]" data-seat-plus-tag="">
                 {words.plus}
               </span>
             </>
@@ -544,7 +544,7 @@ export function SeatList({
           ...chips,
           <span
             key="more"
-            className="inline-flex h-[26px] items-center rounded-full px-[9px] text-sn-13 font-semibold text-sn-accent ring-1 ring-inset ring-ink/15"
+            className="inline-flex h-[26px] items-center rounded-full px-[9px] text-sn-md font-semibold text-sn-accent ring-1 ring-inset ring-ink/15"
             data-seat-names-more=""
           >
             +{formatCount(morePeople)} more
@@ -552,21 +552,23 @@ export function SeatList({
         ]
       : chips;
   };
-  /** Names: up to 3 small dotted chairs, then "+N empty" (drawing). */
+  /** Names: up to 3 small (12 px) dotted chairs, then ALWAYS the full count — "••+2 empty", "•••+4 empty" (drawing). */
   const NAMES_DOTS = 3;
   const namesEmpty = (empty: number): ReactNode =>
     empty > 0 ? (
       <span className="flex min-w-0 items-center gap-1" data-seat-names-empty="">
         {Array.from({ length: Math.min(NAMES_DOTS, empty) }, (_, i) => (
-          <span key={i} aria-hidden className="inline-block h-3.5 w-3.5 shrink-0 rounded-full border border-dashed border-ink/25" data-seat-card-empty="" />
+          <span key={i} aria-hidden className="inline-block h-3 w-3 shrink-0 rounded-full border border-dashed border-ink/25" data-seat-card-empty="" />
         ))}
-        {empty > NAMES_DOTS ? <span className="ml-1 text-sn-12 text-ink/60">+{formatCount(empty - NAMES_DOTS)} empty</span> : null}
+        <span className="ml-1 text-sn-sm text-ink/60" data-seat-names-empty-count="">
+          +{formatCount(empty)} empty
+        </span>
       </span>
     ) : null;
   /** "Their +1s · nearest the Principal Sponsors" — on a card holding a principal sponsor's +1 under "nearest". */
   const nearestLine = (people: SeatListGuest[]): ReactNode =>
     people.some((g) => g.nearestPlusOne && !people.some((x) => x.id === g.plusOneOf)) ? (
-      <span className="text-sn-12 text-ink/70" data-seat-nearest-line="">
+      <span className="text-sn-sm text-ink/70" data-seat-nearest-line="">
         Their +1s · nearest the Principal Sponsors
       </span>
     ) : null;

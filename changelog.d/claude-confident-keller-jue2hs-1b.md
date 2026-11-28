@@ -20,4 +20,6 @@ Controller post-merge review of #8460:
   - a card without room for the lifted unit does not light.
 - **Faces:** a pair draws touching, never overlapping.
 
+- **Review 2:** the Names sizes are the real `text-sn-xs · sm · md` classes (the chip at 500); empty seats always say the full count after up to 3 dots of 12 px; a table holding a locked seat is not deleted (nor by Auto arrange's Undo) — the guard now covers the table-delete cascade.
+
 SPEC IMPACT: None — builds `SEAT-PLAN-COMPLETE-2026-11-27.md` § 4.1 and the approved Names drawing as written.

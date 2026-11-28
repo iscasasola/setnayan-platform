@@ -18,7 +18,8 @@
  *
  * SABOTAGE (each seen red, then restored): the `rest.length < party.length` refusal removed → 1 · `seatDropUnit`'s
  * bringer lead dropped → 2 · the `.eq('locked', true)` read removed from `swapSeats` → 3 · `seatGuestHere(t, guestId,
- * plan.seat, along)` split into one call per guest → 4 · `cardUnits(...)` replaced by a plain map → 5.
+ * plan.seat, along)` split into one call per guest → 4 · `cardUnits(...)` replaced by a plain map → 5 · the chip's
+ * `text-sn-md` written as the made-up `text-sn-13` → 5 and 6 (6 resolves the class to its pixels through the config).
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -189,14 +190,19 @@ test('5 · 🪪 Show ⇅ “On the cards”: Faces or Names, a pair drawn as ONE
   // sides; a 14 px hairline with 2 px / 6 px around it; the "+1" tag 11 px, 600, the quiet ink.
   const nameChip = list.slice(list.indexOf('data-seat-card-name=""') - 300, list.indexOf('data-seat-card-name=""') + 1200);
   assert.match(nameChip, /data-seat-face=\{lead\.id\}/, 'a Names chip is no seat face');
-  assert.match(nameChip, /h-\[26px\][^"]*px-\[9px\] text-sn-13 text-ink"/, 'a Names chip is not 26 px · 9 px sides · 13 px full ink');
+  assert.match(nameChip, /h-\[26px\][^"]*px-\[9px\] text-sn-md font-medium text-ink"/, 'a Names chip is not 26 px · 9 px sides · 13 px · 500 · full ink');
   assert.match(nameChip, /mx-1\.5 my-0\.5 h-3\.5 w-px[^"]*" data-seat-hairline=""/, 'the hairline is not 14 px with 2 px / 6 px around it');
   // The quiet ink is `--color-ink-3`, read through its global (`--m-slate-2`, light and dark) — no stylesheet of its own.
-  assert.match(nameChip, /text-sn-11 font-semibold text-\[color:var\(--m-slate-2\)\]/, 'the +1 tag is not 11 px · 600 · the quiet ink');
+  assert.match(nameChip, /text-sn-xs font-semibold text-\[color:var\(--m-slate-2\)\]/, 'the +1 tag is not 11 px · 600 · the quiet ink');
   // "+N more" is a chip with a hairline ring and the accent word; empty seats are up to 3 small dotted chairs.
   assert.match(list, /ring-1 ring-inset ring-ink\/15"\s*data-seat-names-more=""/, '"+N more" is not a ringed chip');
-  assert.match(list, /text-sn-13 font-semibold text-sn-accent/, '"+N more" is not the accent word at 600');
+  assert.match(list, /text-sn-md font-semibold text-sn-accent/, '"+N more" is not the accent word at 600');
   assert.match(list, /const NAMES_DOTS = 3;/);
+  // Empty seats: up to 3 dots of 12 px, then ALWAYS the full count ("••+2 empty", "•••+4 empty").
+  const empty = list.slice(list.indexOf('const namesEmpty = '), list.indexOf('const nearestLine = '));
+  assert.match(empty, /h-3 w-3 shrink-0 rounded-full border border-dashed/, 'the empty-seat dots are not 12 px');
+  assert.match(empty, /\+\{formatCount\(empty\)\} empty/, 'the empty label is not the full count');
+  assert.doesNotMatch(empty, /empty > NAMES_DOTS \?/, 'the empty label shows only past three dots again');
   assert.match(list, /data-seat-names-empty=""/);
   assert.match(list, /Their \+1s · nearest the Principal Sponsors/, 'the nearest line is gone');
   // A card without room for the lifted unit does not light.
@@ -239,4 +245,37 @@ test('5 · 🪪 Show ⇅ “On the cards”: Faces or Names, a pair drawn as ONE
   assert.equal(parseSeatCardLook('names'), 'names');
   assert.equal(parseSeatCardLook('anything'), 'faces');
   assert.equal(parseSeatCardLook(null), 'faces');
+});
+
+test('6 · every size on Seats › List is a REAL class, and renders the drawing’s pixels', async () => {
+  /* The `text-sn-*` sizes are named (`sn-xs` = 11 · `sn-sm` = 12 · `sn-md` = 13 …); a made-up `text-sn-13` is no class
+     at all, and the words fall back to whatever they inherit. Resolve each class through the real Tailwind config to
+     its CSS variable, and the variable to its pixels in globals.css — the size the browser draws. */
+  const config = (await import('../tailwind.config')).default as { theme?: { extend?: { fontSize?: Record<string, unknown>; colors?: Record<string, unknown> } } };
+  const sizes = config.theme?.extend?.fontSize ?? {};
+  const colours = config.theme?.extend?.colors ?? {};
+  const css = readFileSync(join(__dirname, '..', 'app', 'globals.css'), 'utf8');
+  const px = (cls: string): number | null => {
+    const v = sizes[cls];
+    const varName = (Array.isArray(v) ? v[0] : v) as string | undefined;
+    const m = varName?.match(/var\((--[\w-]+)\)/);
+    const decl = m ? css.match(new RegExp(`${m[1]}:\\s*(\\d+)px`)) : null;
+    return decl ? Number(decl[1]) : null;
+  };
+  const list = read('seat-list.tsx');
+  // No `text-sn-…` on the list that is neither a size nor a colour of the config.
+  const used = [...new Set([...list.matchAll(/\btext-(sn-[\w-]+)/g)].map((m) => m[1]!))];
+  // A size (`sn-md`) or a colour of the `sn` group (`sn-accent` → colors.sn.accent).
+  const snColours = ((colours as { sn?: Record<string, unknown> }).sn ?? {}) as Record<string, unknown>;
+  const unknown = used.filter((c) => !(c in sizes) && !(c.slice('sn-'.length) in snColours));
+  assert.deepEqual(unknown, [], 'a text-sn-… class on Seats › List is not in the Tailwind config — it draws nothing');
+  const chip = list.slice(list.indexOf('data-seat-card-name=""') - 300, list.indexOf('data-seat-card-name=""'));
+  const sizeOf = (slice: string) => px(slice.match(/\btext-(sn-(?:3xs|2xs|xs|sm|md|base|lg|xl|2xl|3xl))\b/)?.[1] ?? '');
+  assert.equal(sizeOf(chip), 13, 'the Names chip does not render at 13 px');
+  const tag = list.slice(list.indexOf('data-seat-plus-tag=""') - 200, list.indexOf('data-seat-plus-tag=""'));
+  assert.equal(sizeOf(tag), 11, 'the +1 tag does not render at 11 px');
+  const more = list.slice(list.indexOf('data-seat-names-more=""') - 250, list.indexOf('data-seat-names-more=""'));
+  assert.equal(sizeOf(more), 13, '"+N more" does not render at 13 px');
+  const emptyCount = list.slice(list.indexOf('data-seat-names-empty-count=""') - 120, list.indexOf('data-seat-names-empty-count=""'));
+  assert.equal(sizeOf(emptyCount), 12, 'the empty count does not render at 12 px');
 });

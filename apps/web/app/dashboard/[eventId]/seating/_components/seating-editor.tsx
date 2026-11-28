@@ -1571,6 +1571,8 @@ export function SeatingEditor({
   /** Delete these tables (one, or a joined unit's members) — at once on screen, written after the Undo window. */
   const removeTables = (tableIds: readonly string[], label: string) => {
     if (!canEdit || tableIds.length === 0) return;
+    // 🔒 #17: a table holding a locked seat is not deleted (its seats would go with it) — said before anything hides.
+    if (refuseLocked(...guests.filter((g) => g.seated_table_id !== null && tableIds.includes(g.seated_table_id)).map((g) => g.guest_id))) return;
     if (highlightId && tableIds.includes(highlightId)) setHighlightId(null);
     const hold = (on: boolean) =>
       setHeldTables((h) => {
@@ -1591,7 +1593,10 @@ export function SeatingEditor({
           fd.set('event_id', eventId);
           fd.set('lock_id', lock.lockId ?? '');
           fd.set('table_id', tableId);
-          if ((await runGated(() => deleteTable(fd))) === null) return { ok: false };
+          const res = await runGated(() => deleteTable(fd));
+          if (res === null) return { ok: false };
+          // The server refused (a seat locked from another tab): the table comes back and the line is said.
+          if (saidLocked(res)) return { ok: false };
         }
         return { ok: true };
       },

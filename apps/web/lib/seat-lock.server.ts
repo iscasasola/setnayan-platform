@@ -6,6 +6,9 @@
  * server action that moves or removes a seat by hand asks this BEFORE it writes, and answers `SEAT_LOCKED_REFUSAL`
  * (said in the editor as "Locked · Unlock to move") instead of a thrown error, which a production build would hide.
  *
+ * A table deleted takes its seats with it (ON DELETE CASCADE), so deleting a table is a seat write too: a table that
+ * holds a locked seat is not deleted by a hand (`deleteTable`) nor by Auto arrange's Undo.
+ *
  * The auto passes (Auto arrange, Fill around locked, the draft, the reconcile) keep their own `locked` rules.
  * 🔒 lib/every-seat-write-asks-the-lock.test.ts lists every action that writes a seat.
  */
@@ -42,4 +45,17 @@ export async function tablesHoldLockedSeats(supabase: Db, eventId: string, table
     .limit(1);
   if (error) throw new Error(error.message);
   return (data ?? []).length > 0;
+}
+
+/** The tables among `tableIds` that hold a locked seat (a delete would cascade it away). A failed read throws. */
+export async function tablesWithLockedSeats(supabase: Db, eventId: string, tableIds: readonly string[]): Promise<Set<string>> {
+  if (tableIds.length === 0) return new Set();
+  const { data, error } = await supabase
+    .from('event_seat_assignments')
+    .select('table_id')
+    .eq('event_id', eventId)
+    .eq('locked', true)
+    .in('table_id', [...tableIds]);
+  if (error) throw new Error(error.message);
+  return new Set((data ?? []).map((r) => (r as { table_id: string }).table_id));
 }

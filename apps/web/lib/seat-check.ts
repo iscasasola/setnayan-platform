@@ -12,6 +12,9 @@
  * 🔒 lib/the-seat-check-is-honest.test.ts
  */
 
+import type { DryRunView } from '@/lib/seat-plan-api';
+import type { SeatProblemKind as EngineProblemKind } from '@/lib/seat-plan-dry-run';
+
 export type SeatSuggestion = {
   tableId: string;
   /** The guests the solver would seat here — a guest with their +1s / household, as one unit. */
@@ -20,7 +23,8 @@ export type SeatSuggestion = {
   reason: string;
 };
 
-export type SeatProblemKind = 'household_split' | 'plus_one_apart' | 'elder_near_speaker' | 'table_over' | 'new_rsvp_alone';
+/** The engine's own five kinds (lib/seat-plan-dry-run.ts) — one name for each, on both sides. */
+export type SeatProblemKind = EngineProblemKind;
 
 /** A problem's one press: seat these guests at that table, or open the table to look. */
 export type SeatProblemFix = { kind: 'seat'; tableId: string; guestIds: readonly string[] } | { kind: 'review'; tableId: string };
@@ -39,6 +43,36 @@ export type DryRun = { suggestions: readonly SeatSuggestion[]; problems: readonl
 /** What the plan knows about its own check: not run yet, read, or failed (never a false "All good"). */
 export type SeatCheckState = { status: 'idle' } | { status: 'read'; run: DryRun } | { status: 'failed' };
 
+/**
+ * 🔌 THE ONE FEED (the editor's `dryRun` prop): the engine's dry run in its own shape (`DryRunView`, lib/seat-plan-api).
+ * `first` — what the page already computed from its one batched read (the first paint needs no call); `load` — how the
+ * editor asks again after every change. Omitted, `load` is the shipped `dryRun(eventId)` (seat-plan-calls.ts: an intent
+ * of the existing `autoArrange` action — no new server action). The lab passes its own `load` (plain client data).
+ */
+export type SeatDryRunFeed = { first?: DryRunView | null; load?: (() => Promise<DryRunView>) | null };
+
+/**
+ * The engine's view → what the plan knows. A `failed` view is FAILED (never read as "no problems"); a move fix seats
+ * its guests at its one table; a problem with no table says null.
+ */
+export function seatCheckFromView(view: DryRunView): SeatCheckState {
+  if (view.status !== 'ok') return { status: 'failed' };
+  return {
+    status: 'read',
+    run: {
+      suggestions: view.suggestions.map((s) => ({ tableId: s.tableId, guestIds: s.guestIds, reason: s.reason })),
+      problems: view.problems.map((p): SeatProblem => {
+        const tableId = p.tableId || null;
+        const fix: SeatProblemFix =
+          p.fix.kind === 'move' && p.fix.guestIds.length > 0
+            ? { kind: 'seat', tableId: p.fix.tableId, guestIds: p.fix.guestIds }
+            : { kind: 'review', tableId: p.tableId };
+        return { kind: p.kind, guestIds: p.guestIds, tableId, reason: p.reason, fix };
+      }),
+    },
+  };
+}
+
 /** The ONE line under the counts — null when there is nothing to say (no problems, or nothing read yet). */
 export function seatCheckLine(state: SeatCheckState): { words: string; failed: boolean } | null {
   if (state.status === 'failed') return { words: 'Couldn’t check seats · Try again', failed: true };
@@ -52,18 +86,18 @@ export function seatCheckLine(state: SeatCheckState): { words: string; failed: b
 export const SEAT_PROBLEM_TITLES: Readonly<Record<SeatProblemKind, string>> = {
   household_split: 'A household is split',
   plus_one_apart: 'A +1 sits apart',
-  elder_near_speaker: 'Elders near a speaker',
+  elders_near_speaker: 'Elders near a speaker',
   table_over: 'A table is over its seats',
-  new_rsvp_alone: 'A new RSVP sits alone',
+  rsvp_alone: 'A new RSVP sits alone',
 };
 
 /** Each check said the way it reads when it came back clean — the Sheet's "All good" list. */
 export const SEAT_CHECK_GOOD: Readonly<Record<SeatProblemKind, string>> = {
   household_split: 'Households sit together',
   plus_one_apart: 'Every +1 sits with their guest',
-  elder_near_speaker: 'Elders sit away from the speakers',
+  elders_near_speaker: 'Elders sit away from the speakers',
   table_over: 'No table is over its seats',
-  new_rsvp_alone: 'New RSVPs sit with someone they know',
+  rsvp_alone: 'New RSVPs sit with someone they know',
 };
 
 /** The checks that came back clean — the Sheet's "All good" list (only from a dry run that was READ). */

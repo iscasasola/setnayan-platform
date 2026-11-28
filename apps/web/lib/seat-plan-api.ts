@@ -90,7 +90,8 @@ export type DryRunView =
         guestIds: string[];
         tableId: string;
         reason: string;
-        fix: { kind: 'move'; planId: string } | { kind: 'review' };
+        /** A move names its one table and the guests it seats there (the editor's Fix seats them); else "review". */
+        fix: { kind: 'move'; planId: string; tableId: string; guestIds: string[] } | { kind: 'review' };
       }>;
       /** "⚠ N to look at" — null when there is nothing to look at. */
       line: string | null;
@@ -129,12 +130,18 @@ export function dryRunView(
   }));
   const problems = run.problems.map((p) => {
     const plan = p.fix.kind === 'move' ? planForMoves(p.fix.moves, ctx.tables, ctx.assignments, ctx.unseatedNow) : null;
+    // One Fix seats its guests at ONE table; moves that would spread over two tables are offered as "review".
+    const to = p.fix.kind === 'move' ? [...new Set(p.fix.moves.map((m) => m.table_id))] : [];
+    const fix =
+      plan && p.fix.kind === 'move' && to.length === 1
+        ? ({ kind: 'move', planId: encodePlanId(plan), tableId: to[0]!, guestIds: p.fix.moves.map((m) => m.guest_id) } as const)
+        : ({ kind: 'review' } as const);
     return {
       kind: p.kind,
       guestIds: p.guestIds,
       tableId: p.tableIds[0] ?? '',
       reason: seatProblemWords(p, ctx.nameOf, ctx.tableName),
-      fix: plan ? ({ kind: 'move', planId: encodePlanId(plan) } as const) : ({ kind: 'review' } as const),
+      fix,
     };
   });
   const all = fixAllMoves(run.problems, ctx.tables, ctx.assignments);

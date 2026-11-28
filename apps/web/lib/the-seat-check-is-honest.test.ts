@@ -59,7 +59,7 @@ test('1 · the line: "N to look at" only when N > 0; a failed run is said, never
 });
 
 test('2 · "All good" only from a READ run; "Fix all" only when something can be seated', () => {
-  assert.deepEqual(seatChecksAllGood(run), ['household_split', 'elder_near_speaker', 'new_rsvp_alone']);
+  assert.deepEqual(seatChecksAllGood(run), ['household_split', 'elders_near_speaker', 'rsvp_alone']);
   assert.equal(SEAT_CHECK_GOOD.table_over, 'No table is over its seats');
   assert.match(ED, /\{checkRunData \? \(\s*<SeatCheckSheet/, 'the Sheet opens without a read run');
   assert.match(UI, /\{fixable > 0 \? \(\s*<ActionButton tone="brand" main icon=\{Wand2\} label="Fix all"/, 'Fix all is drawn with nothing to fix');

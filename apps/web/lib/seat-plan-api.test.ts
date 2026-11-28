@@ -9,6 +9,7 @@ import { join } from 'node:path';
 import { DEFAULT_FLOOR_PLAN, type EventTableRow, type SeatAssignmentRow } from '@/lib/seating';
 import { arrangeView, decodePlanId, dryRunView, encodePlanId, planForMoves } from '@/lib/seat-plan-api';
 import { seatPlanDryRun, type DryRunGuest } from '@/lib/seat-plan-dry-run';
+import { seatCheckFromView, seatCheckLine } from '@/lib/seat-check';
 import { buildArrangePreview, seatPlanBase } from '@/lib/seat-plan-preview';
 
 const table = (id: string, n: number, over: Partial<EventTableRow> = {}): EventTableRow => ({
@@ -163,8 +164,47 @@ test('the seating page passes the dry run to the editor from its own reads: no n
   assert.match(block, /seatPlanDryRun\(\{\s*tables,/);
   assert.match(block, /return dryRunView\(run, \{/);
   assert.doesNotMatch(block, /await |supabase|\.from\(|fetch[A-Z]/, 'the dry run reads nothing of its own');
-  assert.match(page, /dryRun=\{dryRun\}/);
+  assert.match(page, /dryRun=\{\{ first: dryRun \}\}/, 'the page\'s own read no longer seeds the editor');
   assert.match(block, /try \{[\s\S]*return dryRunView\(run,[\s\S]*\} catch \(err\) \{[\s\S]*return \{ status: 'failed', line: 'Couldn’t check seats · Try again' \};/, 'a throw while naming or shaping crashes the seat page');
   const editor = readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'seating', '_components', 'seating-editor.tsx'), 'utf8');
-  assert.match(editor, /dryRun\?: DryRunView;/);
+  // ONE prop, ONE shape: the feed of the engine's own view — and the loader after every change is the shipped call.
+  assert.match(editor, /dryRun\?: SeatDryRunFeed \| null;/);
+  assert.equal(editor.match(/^  dryRun\?:/gm)?.length, 1, 'the editor has two dryRun props again');
+  assert.match(editor, /import \{ dryRun as askDryRun \} from '\.\.\/seat-plan-calls';/, 'the editor is not wired to the engine');
+  assert.match(editor, /const loadDryRun = useMemo\(\(\) => \(hasDryRun \? \(feedLoad \?\? \(\(\) => askDryRun\(eventId\)\)\) : null\), \[hasDryRun, feedLoad, eventId\]\);/, 'the loader is disconnected');
+  assert.match(editor, /loadDryRun\(\)\s*\.then\(\(view\) => \{\s*if \(n === checkRun\.current\) setSeatCheck\(seatCheckFromView\(view\)\);/, 'a reloaded view is not drawn');
+  assert.match(editor, /useState<SeatCheckState>\(\(\) => \(dryRun\?\.first \? seatCheckFromView\(dryRun\.first\) : \{ status: 'idle' \}\)\)/, 'the first paint ignores the page\'s read');
+});
+
+test('the engine\'s view drawn by the UI: a move fix seats its guests at its table; a failed view is FAILED', () => {
+  const tables = [table('t1', 1), table('t2', 2)];
+  const guests = [guest('ana'), guest('ana+1', { plus_one_of_guest_id: 'ana' }), guest('new')];
+  const assignments = [seat('ana', 't1', 0), seat('ana+1', 't2', 0)];
+  const view = dryRunView(seatPlanDryRun({ tables, guests, assignments, groupLabels: new Map(), floor: DEFAULT_FLOOR_PLAN }), {
+    tables,
+    assignments,
+    unseatedNow: 1,
+    ...words,
+  });
+  const state = seatCheckFromView(view);
+  assert.ok(state.status === 'read');
+  assert.deepEqual(state.run.suggestions.map((s) => [s.tableId, s.guestIds]), [[view.status === 'ok' ? view.suggestions[0]!.tableId : '', ['new']]]);
+  const p = state.run.problems.find((x) => x.kind === 'plus_one_apart');
+  assert.deepEqual(p?.fix, { kind: 'seat', tableId: 't1', guestIds: ['ana+1'] });
+  assert.equal(seatCheckLine(state)?.words, `${state.run.problems.length} to look at`);
+  // Failed, in either form, is never "All good".
+  const failed = seatCheckFromView({ status: 'failed', line: 'Couldn’t check seats · Try again' });
+  assert.deepEqual(failed, { status: 'failed' });
+  assert.equal(seatCheckLine(failed)?.failed, true);
+  // The switch off (`seat_suggestions: false`) → no card suggestions reach the UI.
+  const off = seatCheckFromView(
+    dryRunView(seatPlanDryRun({ tables, guests, assignments, groupLabels: new Map(), floor: { ...DEFAULT_FLOOR_PLAN, seat_suggestions: false } }), {
+      tables,
+      assignments,
+      unseatedNow: 1,
+      ...words,
+    }),
+  );
+  assert.ok(off.status === 'read');
+  assert.equal(off.run.suggestions.length, 0, 'the host\'s switch no longer hides the suggestions');
 });

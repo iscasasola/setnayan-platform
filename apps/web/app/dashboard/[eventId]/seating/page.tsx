@@ -400,7 +400,8 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       setSeatingAutoplace={setSeatingAutoplace}
       setSeatingGroupAdjacency={setSeatingGroupAdjacency}
       ghostBoothsEnabled={ghostBoothsEnabled}
-      dryRun={dryRun}
+      /* 🔌 The page's own read seeds the first paint; after a change the editor asks `dryRun(eventId)` again. */
+      dryRun={{ first: dryRun }}
       initialView={initialView}
       details={details}
       me={{

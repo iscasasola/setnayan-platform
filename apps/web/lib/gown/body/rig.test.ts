@@ -95,7 +95,11 @@ test('the bust grows without the ribs (v165/v184/v185): bust 129 on underbust 72
 });
 
 test('a solve takes under 100 ms (one pass of the girth fit, after the first build)', async () => {
+  // A wall clock on a shared CI runner is noisy: one descheduled sample used to fail the whole lane (seen on main 6fd0a0e and
+  // batch #8473, neither touching gown code). So: one warm-up solve, then the MEDIAN of the samples holds the 100 ms budget,
+  // and the slowest single sample only has to stay under a loose 400 ms ceiling, which still catches a real regression.
   const B = await body();
+  solveBody(B);
   const times: number[] = [];
   for (const r of REF.rows.filter((_, i) => i % 3 === 1)) {
     Object.assign(B.vals, { height: r.in.height, bust: r.in.bust, underbust: r.in.underbust, waist: r.in.waist, hips: r.in.hips });
@@ -103,8 +107,13 @@ test('a solve takes under 100 ms (one pass of the girth fit, after the first bui
     solveBody(B);
     times.push(performance.now() - t);
   }
-  const worst = Math.max(...times);
-  assert.ok(worst < 100, `slowest solve ${worst.toFixed(0)} ms (${times.map((x) => x.toFixed(0)).join(', ')})`);
+  const sorted = [...times].sort((a, b) => a - b);
+  assert.ok(sorted.length > 0, 'the sweep sampled at least one body');
+  const median = sorted[Math.floor(sorted.length / 2)] ?? Infinity;
+  const worst = sorted[sorted.length - 1] ?? Infinity;
+  const all = times.map((x) => x.toFixed(0)).join(', ');
+  assert.ok(median < 100, `median solve ${median.toFixed(0)} ms (${all})`);
+  assert.ok(worst < 400, `slowest solve ${worst.toFixed(0)} ms, past the 400 ms ceiling (${all})`);
 });
 
 test('the body engine is plain math: no DOM, no material, no shadows, no lights', () => {

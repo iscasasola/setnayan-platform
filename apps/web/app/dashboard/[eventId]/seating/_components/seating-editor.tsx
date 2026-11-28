@@ -7,7 +7,7 @@ import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { assessSeatMove, seatMoveDoneWords, seatMoveUndo, type MoveAssessment, type MoveGuest, type SeatBefore } from '@/lib/seat-move-assess';
 import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { floorPlanFieldsOf } from '@/lib/floor-plan-row';
-import { Fragment, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
 import { roomOverviewZoom } from '@/lib/seat-plan-overview';
 
 // useLayoutEffect on the server is a no-op + warns; fall back to useEffect there.
@@ -208,7 +208,9 @@ import { lockSaysViewOnly, useSeatingLock } from './use-seating-lock';
 import { useSeatingLiveRefresh } from './use-seating-live-refresh';
 import { SeatingLockError } from '../seating-lock-error';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
-import { EASE_SETTLE, MOVE_MS } from '@/lib/motion-table';
+import { suggestionFor, type DryRun, type SeatCheckState, type SeatProblem, type SeatSuggestion } from '@/lib/seat-check';
+import { SeatCheckSheet } from './seat-check';
+import { EASE_SETTLE, SHEEN_MS } from '@/lib/motion-table';
 import { formatCount } from '@/lib/format-number';
 import { planTableBadges } from '@/lib/plan-table-badges';
 import { hostNameClash, renameWrites, tableDisplayNames, withDisplayNames } from '@/lib/table-auto-name';
@@ -435,6 +437,12 @@ type Props = {
   details?: SeatingDetailsShell | null;
   /** 🏛 Whose plan this is: an event (the default) or a venue's own hall in Spaces (seat plan PR2, option B). */
   source?: SeatingSource | null;
+  /**
+   * ✦ Seat plan S — the engine's DRY RUN (`dryRun(eventId)`, the engine lane L11): suggestions for cards with empty seats
+   * and the seat check's problems. Absent (until the engine's read lands) → the smart layer draws NOTHING: no strip, no
+   * line, no switch — never a false "All good". A rejection is the honest "Couldn't check seats · Try again".
+   */
+  dryRun?: (() => Promise<DryRun>) | null;
 };
 
 export type SeatingDetailsShell = {
@@ -543,6 +551,7 @@ export function SeatingEditor({
   initialView = 'plan',
   details = null,
   source = null,
+  dryRun = null,
 }: Props) {
   // 🏛 A venue's own hall (Spaces): no guests, no lock, no live presence, no publish/print/3D — the same editor otherwise.
   const isVenue = source?.kind === 'venue';
@@ -4534,6 +4543,8 @@ export function SeatingEditor({
      guest the words find, and each Enter after it steps to the next ("1 of 4" in the field). On 2D the found guest's SEAT
      lights — two pulses, then it stays lit — under a pill "Name · Table · Seat N" that opens their table. */
   const [found, setFound] = useState<{ words: string; at: number; tick: number } | null>(null);
+  /** The last Find whose pulse played — a chair redrawn by a zoom lights again, but never pulses again. */
+  const pulsedTick = useRef(0);
   const foundList = useMemo(() => (seatFound ? guests.filter((g) => seatFound.has(g.guest_id)) : []), [guests, seatFound]);
   const foundAt = found && found.words === seatQ && foundList.length ? found.at % foundList.length : 0;
   const foundGuest = found && found.words === seatQ ? (foundList[foundAt] ?? null) : null;
@@ -7519,6 +7530,108 @@ export function SeatingEditor({
     setBlankAt({ tableId, seat });
   };
   const comingUnseated = guests.filter((g) => !g.seated_table_id && g.rsvp_status !== 'declined').sort((a, b) => a.name.localeCompare(b.name));
+  /* ✦ SEAT PLAN S · THE SMART LAYER (`lib/seat-check.ts`, `seat-check.tsx`): the engine's dry run, read when the plan
+     opens and again whenever who-sits-where changes; a failed read is said, never shown as "All good". */
+  const [seatCheck, setSeatCheck] = useState<SeatCheckState>({ status: 'idle' });
+  const [checkOpen, setCheckOpen] = useState(false);
+  /* ⋯ "Suggest seats on the cards" — on by default; remembered on this device (a per-viewer convenience). */
+  const [suggestOn, setSuggestOn] = useState(true);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('seating:suggest') === 'off') setSuggestOn(false);
+    } catch {
+      /* not remembered — on */
+    }
+  }, []);
+  const pickSuggestOn = (on: boolean) => {
+    setSuggestOn(on);
+    try {
+      localStorage.setItem('seating:suggest', on ? 'on' : 'off');
+    } catch {
+      /* not remembered — still applied */
+    }
+  };
+  const checkRun = useRef(0);
+  const runSeatCheck = useCallback(() => {
+    if (!dryRun) return;
+    const n = ++checkRun.current;
+    dryRun()
+      .then((run) => {
+        if (n === checkRun.current) setSeatCheck({ status: 'read', run });
+      })
+      .catch(() => {
+        if (n === checkRun.current) setSeatCheck({ status: 'failed' });
+      });
+  }, [dryRun]);
+  const seatingKey = guests.map((g) => `${g.guest_id}:${g.seated_table_id ?? ''}:${g.seat_number ?? ''}`).join('|');
+  useEffect(() => {
+    runSeatCheck();
+  }, [runSeatCheck, seatingKey]);
+  const checkRunData = seatCheck.status === 'read' ? seatCheck.run : null;
+  /** Seat these guests at that table's free chairs in ONE write (`along`), with ONE Undo that puts them all back. */
+  const seatTogether = (tableId: string, guestIds: readonly string[], words: string) => {
+    const t = tables.find((x) => x.table_id === tableId);
+    if (!t || !guestIds.length) return false;
+    const free = freeChairsAt(t);
+    if (free.length < guestIds.length) {
+      setNotice(`Needs ${formatCount(guestIds.length)} ${guestIds.length === 1 ? 'seat' : 'seats'}`);
+      return false;
+    }
+    const before = guestIds.map((id) => guestsById.get(id)).filter((g): g is SeatingGuest => Boolean(g)).map((g) => ({ id: g.guest_id, tableId: g.seated_table_id, seat: g.seat_number }));
+    const [first, ...rest] = guestIds;
+    seatGuestHere(t, first!, free[0], rest.map((id, i) => ({ guestId: id, seat: free[i + 1]! })));
+    setMoveNote({ text: `${words} → ${t.link_group_label?.trim() || t.table_label}`, undo: () => { setMoveNote(null); putBack(before); } });
+    return true;
+  };
+  const shortOf = (id: string) => {
+    const g = guestsById.get(id);
+    return g ? g.short_name || firstNameOf(g.name) : '';
+  };
+  /** ✦ One tap takes a card's suggestion (the guest and their +1s / household as one unit). */
+  /** Without Edit held the press says why — never a press that does nothing. */
+  const needsEdit = () => {
+    if (canEdit) return false;
+    setNotice('Tap Edit first — only one person arranges at a time');
+    return true;
+  };
+  const takeSuggestion = (sug: SeatSuggestion) => {
+    if (needsEdit()) return;
+    seatTogether(sug.tableId, sug.guestIds, sug.guestIds.map(shortOf).join(', '));
+  };
+  /** A seat check's Fix: seat them (one write, one Undo), or open the table to look. */
+  const fixProblem = (p: SeatProblem) => {
+    if (p.fix.kind === 'review') {
+      const unit = displayUnits.find((u) => u.members.some((m) => m.table_id === p.fix.tableId));
+      setCheckOpen(false);
+      if (unit) setFaceOpen(new Set([unit.key]));
+      return;
+    }
+    if (needsEdit()) return;
+    if (seatTogether(p.fix.tableId, p.fix.guestIds, p.fix.guestIds.map(shortOf).join(', '))) setCheckOpen(false);
+  };
+  /** "Fix all": every problem with a seat fix, then ONE Undo that puts everyone back. */
+  const fixAllProblems = () => {
+    if (!checkRunData || needsEdit()) return;
+    const seats = checkRunData.problems.flatMap((p) => (p.fix.kind === 'seat' ? [p.fix] : []));
+    const ids = seats.flatMap((f) => [...f.guestIds]);
+    const before = ids.map((id) => guestsById.get(id)).filter((g): g is SeatingGuest => Boolean(g)).map((g) => ({ id: g.guest_id, tableId: g.seated_table_id, seat: g.seat_number }));
+    let done = 0;
+    for (const f of seats) if (seatTogether(f.tableId, f.guestIds, '')) done += f.guestIds.length;
+    setCheckOpen(false);
+    if (done) setMoveNote({ text: `Fixed · ${formatCount(done)} ${done === 1 ? 'guest' : 'guests'} seated`, undo: () => { setMoveNote(null); putBack(before); } });
+  };
+  /** The strip a card draws: the dry run's suggestion that fits its free chairs, while "Suggest seats on the cards" is on. */
+  const cardSuggestion = (unitKey: string) => {
+    if (!suggestOn || !checkRunData) return null;
+    const unit = displayUnits.find((u) => u.key === unitKey);
+    if (!unit) return null;
+    for (const m of unit.members) {
+      const free = freeChairsAt(m);
+      const sug = suggestionFor(checkRunData, m.table_id, free.length);
+      if (sug) return { suggestion: sug, names: sug.guestIds.map(shortOf), seats: free.slice(0, sug.guestIds.length) };
+    }
+    return null;
+  };
   const faceOf = (g: SeatingGuest): SeatListGuest => ({
     id: g.guest_id,
     name: g.name,
@@ -7992,6 +8105,17 @@ export function SeatingEditor({
             }}
             disabled={!canEdit || seatedNow === 0 || isPending}
           />
+          {/* ✦ Seat plan S — ON by default; drawn only once the engine's dry run is read (`dryRun`). */}
+          {dryRun ? (
+            <MenuRow
+              icon={Sparkles}
+              label="Suggest seats on the cards"
+              hint="A table with empty seats shows who could sit there"
+              badge={suggestOn ? 'On' : 'Off'}
+              keepOpen
+              onClick={() => pickSuggestOn(!suggestOn)}
+            />
+          ) : null}
           <MenuDivider />
         </>
       ) : null}
@@ -8167,6 +8291,10 @@ export function SeatingEditor({
       const key = unit ? unit.key : 'unseated';
       setFaceOpen((c) => (c.has(key) ? c : new Set([...c, key])));
       requestAnimationFrame(() => document.querySelector(`[data-seat-guest="${CSS.escape(g.guest_id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    } else if (!g.seated_table_id) {
+      // 2D: a match with no seat — the last table found lets go, and the line says so (never a stale lit table).
+      setHighlightId(null);
+      setNotice(`${g.name} · Not seated yet`);
     } else if (g.seated_table_id) {
       // 2D: the table is picked, brought close enough to draw its chairs, AND the guest's own seat lights
       // (`foundSeatId`, the chair's `FoundSeatRing`).
@@ -8178,8 +8306,15 @@ export function SeatingEditor({
   };
   /** The seat lit on 2D — the found guest's, while their words are still the search. */
   const foundSeatId = roomOnly && foundGuest?.seated_table_id ? foundGuest.guest_id : null;
+  /** The chair the plan DRAWS them on (`occupantsFor`) — the pill's "Seat N" and the lit chair are the same one; a
+   *  guest the table cannot draw (over its chairs) gets no seat number and lights nothing. */
+  const foundChair = (() => {
+    const t = foundGuest?.seated_table_id ? tables.find((x) => x.table_id === foundGuest.seated_table_id) : null;
+    if (!t || !foundGuest) return -1;
+    return occupantsFor(t).findIndex((x) => x?.guest_id === foundGuest.guest_id);
+  })();
   /** "1 of 4" in the search field — where Enter stands among the guests the words find. */
-  const findCount = lens && seatQ ? (foundList.length ? `${formatCount(foundAt + 1)} of ${formatCount(foundList.length)}` : 'No match') : null;
+  const findCount = lens && seatQ && !in3d ? (foundList.length ? `${formatCount(foundAt + 1)} of ${formatCount(foundList.length)}` : 'No match') : null;
   /** The pill's tap: their table, risen in Seats › List (the card's own full-screen table). */
   const openFoundTable = () => {
     const g = foundGuest;
@@ -8196,7 +8331,7 @@ export function SeatingEditor({
         <ActionButton
           tone="neutral"
           icon={Armchair}
-          label={`${foundGuest.name} · ${tableLabelById.get(foundGuest.seated_table_id) ?? 'Their table'}${foundGuest.seat_number !== null ? ` · Seat ${formatCount(foundGuest.seat_number + 1)}` : ''}`}
+          label={`${foundGuest.name} · ${tableLabelById.get(foundGuest.seated_table_id) ?? 'Their table'}${foundChair >= 0 ? ` · Seat ${formatCount(foundChair + 1)}` : ''}`}
           name={`Open ${foundGuest.name}’s table`}
           onClick={openFoundTable}
         />
@@ -8497,6 +8632,17 @@ export function SeatingEditor({
     <>
       {faceCardSheet}
       {askMoveSheet}
+      {/* ✦ Seat plan S — the seat check's Sheet (each problem, one Fix or Review; All good; one Fix all). */}
+      {checkRunData ? (
+        <SeatCheckSheet
+          run={checkRunData}
+          open={checkOpen}
+          onClose={() => setCheckOpen(false)}
+          tableLabel={(id) => (id ? (tableLabelById.get(id) ?? 'Their table') : '')}
+          onFix={fixProblem}
+          onFixAll={fixAllProblems}
+        />
+      ) : null}
       {askArrange ? (
         <Sheet open onClose={() => setAskArrange(false)} labelledById="seat-arrange-ask-title" rise>
           <div className="flex min-w-0 flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-arrange-ask="">
@@ -9846,7 +9992,7 @@ export function SeatingEditor({
                           {/* the guest sitting on it */}
                           <SeatBadge guest={occupant} color={colorFor(occupant)} />
                           {/* 🔎 Find lit this seat (seat plan C): two pulses, then it stays lit. */}
-                          {foundSeatId === occupant.guest_id ? <FoundSeatRing key={found?.tick} still={reducedMotion} /> : null}
+                          {foundSeatId === occupant.guest_id ? <FoundSeatRing still={reducedMotion || (found?.tick ?? 0) <= pulsedTick.current} onPulse={() => (pulsedTick.current = found?.tick ?? 0)} /> : null}
                         </button>
                       ) : (
                         <button
@@ -10224,6 +10370,9 @@ export function SeatingEditor({
             onDrop={dropSeat}
             dim={seatDim}
             cardLook={cardLook}
+            suggest={cardSuggestion}
+            onTakeSuggestion={takeSuggestion}
+            check={dryRun ? { state: seatCheck, onOpen: () => setCheckOpen(true), onRetry: runSeatCheck } : null}
           />
         ) : (
           <div className="absolute inset-0 space-y-2 overflow-y-auto p-3">
@@ -11474,22 +11623,26 @@ function dominantColor(occ: (SeatingGuest | null)[], colorFor: (g: SeatingGuest)
 
 /**
  * 🔎 THE SEAT FIND LIT (seat plan C, drawing `prototypes/seating_later_2026-11-27/`): a ring that stays lit around the
- * found guest's chair, and a second ring that pulses out TWICE (transform + opacity only, the Move speed on Settle —
- * `lib/motion-table.ts`), then is gone. Reduced motion: the lit ring only. Keyed by the Find's tick, so each Enter pulses.
+ * found guest's chair, and a second ring that pulses out TWICE across one Sheen (transform + opacity only, on Settle —
+ * `lib/motion-table.ts`), then is gone. Reduced motion: the lit ring only. Once per Find: a chair redrawn by a zoom
+ * lights again but does not pulse again (`pulsedTick`).
  */
-function FoundSeatRing({ still }: { still: boolean }) {
+function FoundSeatRing({ still, onPulse }: { still: boolean; onPulse: () => void }) {
   const pulse = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     const el = pulse.current;
     if (still || !el || typeof el.animate !== 'function') return;
+    onPulse();
     const run = el.animate(
       [
         { transform: 'scale(1)', opacity: 0.9 },
         { transform: 'scale(1.9)', opacity: 0 },
       ],
-      { duration: MOVE_MS, easing: EASE_SETTLE, iterations: 2, fill: 'forwards' },
+      // Two pulses across ONE Sheen (the motion standard's one loop length, `SHEEN_MS`), on Settle.
+      { duration: SHEEN_MS / 2, easing: EASE_SETTLE, iterations: 2, fill: 'forwards' },
     );
     return () => run.cancel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- plays once per mount; `onPulse` only records the Find
   }, [still]);
   return (
     <>

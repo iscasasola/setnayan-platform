@@ -22,6 +22,8 @@ import {
 } from '@/lib/seat-list-drop';
 import { formatCount } from '@/lib/format-number';
 import { VipMark } from './vip-mark';
+import { CardSuggestion, SeatCheckLine } from './seat-check';
+import type { SeatCheckState, SeatSuggestion } from '@/lib/seat-check';
 import { RiseScreen, WithRiseClose } from '@/app/_components/rise/rise-screen';
 import { dropGhost, ghostAt, liftGhost } from '@/lib/lift';
 
@@ -100,6 +102,9 @@ export function SeatList({
   onDrop,
   dim = () => false,
   cardLook = 'faces',
+  suggest = () => null,
+  onTakeSuggestion,
+  check = null,
 }: {
   units: SeatListUnit[];
   /** The coming guests with no seat. */
@@ -133,6 +138,11 @@ export function SeatList({
   dim?: (guestId: string) => boolean;
   /** ⇅ On the cards: Faces or Names. */
   cardLook?: SeatCardLook;
+  /** ✦ Seat plan S — the strip a table card draws under it (the dry run's suggestion), or null. */
+  suggest?: (unitKey: string) => { suggestion: SeatSuggestion; names: readonly string[]; seats: readonly number[] } | null;
+  onTakeSuggestion?: (s: SeatSuggestion) => void;
+  /** ✦ The seat check's ONE line under the counts — null while there is no engine to ask. */
+  check?: { state: SeatCheckState; onOpen: () => void; onRetry: () => void } | null;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   /* ⇔ ONE state for every row's buttons (Swap · Remove), the Guests list's own fit (BUTTON_RULE 3a). */
@@ -580,7 +590,7 @@ export function SeatList({
     const moreEmpty = Math.max(0, u.capacity - u.seated - emptyShown);
     const full = u.seated >= u.capacity && u.capacity > 0;
     const free = freeOf(u)[0];
-    return card(
+    const face = card(
       u.key,
       <>
         <span className="line-clamp-3 [overflow-wrap:anywhere]">{u.label}</span>
@@ -617,6 +627,16 @@ export function SeatList({
       },
       // The card says how many chairs it has free, so a unit it cannot hold never lights on it (`hit`).
       free ? { ...seatDropAttrs({ kind: 'seat', tableId: free.tableId, seat: free.seat, occupantId: null }), 'data-seat-drop-room': String(freeOf(u).length) } : {},
+    );
+    /* ✦ Seat plan S — the suggestion strip sits RIGHT UNDER its card: the card is one press (it opens the table), so the
+       strip's own press lives beside it, never inside it. */
+    const sug = free ? suggest(u.key) : null;
+    if (!sug) return face;
+    return (
+      <div key={u.key} className="flex min-w-0 flex-col gap-1" data-seat-card-with-suggestion={u.key}>
+        {face}
+        <CardSuggestion suggestion={sug.suggestion} names={sug.names} seats={sug.seats} onTake={() => onTakeSuggestion?.(sug.suggestion)} />
+      </div>
     );
   };
 
@@ -756,6 +776,8 @@ export function SeatList({
           <b className="font-semibold text-ink" data-seat-count-words="tables">{formatCount(units.length)}</b> {units.length === 1 ? 'table' : 'tables'} ·{' '}
           <b className="font-semibold text-ink" data-seat-count-words="empty">{formatCount(emptyAll)}</b> empty {emptyAll === 1 ? 'chair' : 'chairs'}
         </span>
+        {/* ✦ Seat plan S — ONE line under the counts: "⚠ N to look at ›", or "Couldn't check seats · Try again". */}
+        {check ? <SeatCheckLine state={check.state} onOpen={check.onOpen} onRetry={check.onRetry} /> : null}
       </div>
       <div className="flex min-w-0 flex-col gap-2.5" data-seat-cards="">
         {/* "To seat" is the first card while anyone coming has no seat (drawing: "a first card above the tables"). */}

@@ -5,7 +5,7 @@ import { TIER_LABEL } from '@/lib/vendor-tier-caps';
 import type { ReactNode } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { GuestSpotlight } from '@/app/_components/guest-spotlight';
-import { GIFT_PHOTOS_LINE } from '@/lib/setnayan-gift-words';
+import { PAPIC_BOOKING_GIFT_LINE } from '@/lib/setnayan-gift';
 import { fetchV2VendorCatalog, type BuildStatus } from '@/lib/v2-catalog';
 import { formatPhp } from '@/lib/php';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
@@ -361,7 +361,7 @@ export default async function PricingPage() {
               shot={<WhyShot src="/feature-shots/papic-0.jpg" y="11%" zoom={1.15} />}
               title="Every guest’s phone, a camera"
               line="Papic: point at a code and shoot — nothing to install."
-              tip={`Every shot lands in your Memories as it is taken. ${GIFT_PHOTOS_LINE}${papicFrom ? ` Credits from ${peso(papicFrom.php)}.` : ''}`}
+              tip={`Every shot lands in your Memories as it is taken. ${PAPIC_BOOKING_GIFT_LINE}${papicFrom ? ` Credits from ${peso(papicFrom.php)}.` : ''}`}
             />
             <WhyPoint
               shot={<LockTile />}

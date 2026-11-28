@@ -15,7 +15,7 @@ import { formatPhp } from '@/lib/php';
 import { OLD_WAY, oldWayMoney, type OldWayMoney } from '@/lib/old-way-costs';
 import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 import type { AiBand, TwoPrices } from '../_pricing-reads';
-import { GIFT_PHOTOS_LINE } from '@/lib/setnayan-gift-words';
+import { PAPIC_BOOKING_GIFT_LINE } from '@/lib/setnayan-gift';
 
 export type PlanPrices = {
   pro: TwoPrices | null;
@@ -124,7 +124,7 @@ export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => st
       q: 'Do you want an easier way to collect everyone’s photos?',
       line: 'Every guest’s phone becomes a camera.',
       item: 'Papic',
-      tip: `Guests shoot from their own phones, no app to install; every photo lands in one place. ${GIFT_PHOTOS_LINE}${p.papicFrom != null ? ` Credits from ${peso(p.papicFrom)}.` : ''}`,
+      tip: `Guests shoot from their own phones, no app to install; every photo lands in one place. ${PAPIC_BOOKING_GIFT_LINE}${p.papicFrom != null ? ` Credits from ${peso(p.papicFrom)}.` : ''}`,
       tool: true,
     },
     {

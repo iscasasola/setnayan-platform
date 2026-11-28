@@ -10,9 +10,9 @@
  * for one batch of reads, folded into the dashboard's existing `Promise.all`.
  *
  * ── WHY THE GAP EXISTED ──────────────────────────────────────────────────────
- * Every event is armed at creation with a free shared pool of credits AND one free
- * dedicated camera (`ensureFreePapicPoolGrantAdmin` + `ensureFreePapicOneCameraAdmin`
- * in create-event/actions.ts). The couple was never told so from home: Papic had
+ * Every event used to be armed at creation with a free shared pool of credits AND one
+ * free dedicated camera (both retired: the camera 2026-10-13, the free first-event pool
+ * owner 16 Nov 2026). The couple was never told so from home: Papic had
  * zero presence on `dashboard/[eventId]`, which is the only home surface that
  * exists — `today/page.tsx` (retired 2026-06-03) and `for-you/page.tsx` (retired
  * 2026-06-04) are redirect stubs, so the BUILD SPEC's "three surfaces" is one.

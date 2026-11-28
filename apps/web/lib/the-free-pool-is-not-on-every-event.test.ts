@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { PAPIC_FREE_CREDIT_CONDITION } from './papic-free-credit-promise';
+import { PAPIC_BOOKING_GIFT_LINE } from './setnayan-gift';
 import { stripComments } from './strip-comments';
 import { publicHelpSourceText } from '@/lib/help-sources.test-helper';
 
@@ -70,8 +70,8 @@ test('no live copy says the free credit POOL comes with every event', () => {
   assert.deepEqual(
     offenders,
     [],
-    `The free pool is claimed ONCE PER ACCOUNT. A repeat celebration gets 1 ` +
-      `credit. Say "${PAPIC_FREE_CREDIT_CONDITION}":\n  ` + offenders.join('\n  '),
+    `There is no free credit pool on any event (owner 16 Nov 2026). Where a line is needed, say ` +
+      `"${PAPIC_BOOKING_GIFT_LINE}":\n  ` + offenders.join('\n  '),
   );
 });
 
@@ -117,20 +117,19 @@ test('the guard actually fires on each of the four strings it was written for', 
   }
 });
 
-test('the public copy promises no free first-event pool — owner 16 Nov, L9 P23', () => {
-  // ⚖ DECISION_LOG 16 Nov "Free 50 Papic credits REMOVED": couples get free Papic photos through the Setnayan gift on
-  // bookings. The help and llms.txt used to name the first-event condition ("silence is not honesty"); the honest line
-  // now is the gift (`GIFT_PHOTOS_LINE`). `PAPIC_FREE_CREDIT_CONDITION` itself is left for the build that removes it.
-  assert.equal(PAPIC_FREE_CREDIT_CONDITION, 'on your first event');
-  const read: Record<string, () => string> = {
-    'lib/help.ts + lib/help/*.ts': publicHelpSourceText,
-    'lib/llms-txt.ts': () => readFileSync(join(WEB, 'lib/llms-txt.ts'), 'utf8'),
-  };
-  for (const [rel, load] of Object.entries(read)) {
-    const src = load();
-    assert.doesNotMatch(src, /\$\{PAPIC_FREE_CREDIT_CONDITION\}|credits free on your first event/i, `${rel} promises free first-event credits again`);
-    assert.match(src, /\$\{GIFT_PHOTOS_LINE\}/, `${rel} no longer says how free Papic photos come (the Setnayan gift)`);
-  }
+// 🎁 UPDATED 27 Nov 2026: this test used to require help to NAME the first-event condition. The free first-event
+// grant is retired (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic credits REMOVED"), so help must now name no free
+// credits at all and say the gift line instead. (`lib/llms-txt.ts` is PR #8423's and is held there.)
+test('help names no free first-event credits, and says the booking gift instead', () => {
+  const src = stripComments(publicHelpSourceText());
+  assert.doesNotMatch(src, /free credits|credits come free|PAPIC_FREE_CREDIT_CONDITION/i, 'help promises free credits again');
+  assert.match(src, /PAPIC_BOOKING_GIFT_LINE/, 'help no longer says the booking gift line');
+});
+
+test('llms.txt names no free first-event credits, and says the booking gift instead (one line, PAPIC_BOOKING_GIFT_LINE)', () => {
+  const src = stripComments(readFileSync(join(WEB, 'lib/llms-txt.ts'), 'utf8'));
+  assert.doesNotMatch(src, /credits free on your first event|free credits on your first event|PAPIC_FREE_CREDIT_CONDITION/i, 'llms.txt promises free first-event credits again');
+  assert.match(src, /\$\{PAPIC_BOOKING_GIFT_LINE\}/, 'llms.txt no longer says how free Papic photos come (the Setnayan gift)');
 });
 
 test('the Home "Papic is ready" band promises no free camera and no free pool (owner 25 Oct)', () => {

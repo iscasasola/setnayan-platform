@@ -243,7 +243,7 @@ export function PapicDemoOverlay({ current, onClose }: { current: OverlayId; onC
               <p style={{ marginTop: 8, fontSize: 11.5, color: '#8c8884', textAlign: 'center' }}>
                 {remaining > 0
                   ? `${remaining} demo shot${remaining === 1 ? '' : 's'} left. The style you pick here bakes into their saves.`
-                  : 'Demo roll finished. The real Papic puts no limit on how many phones shoot. Many bookings come with free Papic photos as a Setnayan gift.'}
+                  : 'Demo roll finished. The real Papic puts no limit on how many phones shoot.'}
               </p>
             </>
           )}

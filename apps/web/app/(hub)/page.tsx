@@ -235,8 +235,8 @@ const softwareAppJsonLd = {
     'Day-of schedule built block by block (free)',
     'Pakulay mood board (free)',
     'Event Hub — save-the-date, RSVP, the day’s details and your story laid out like a magazine feature (free, unlimited RSVP)',
-    // Build 6 Lane K: the free credits are on an account's FIRST event only (lib/papic-free-credit-promise.ts), and the
-    // "personal highlight reels" line left with it — reels are Patiktok, which is unlisted until it has run for real.
+    // Build 6 Lane K: the "personal highlight reels" line left with the free-credit wording (the free first-event grant is retired,
+    // owner 16 Nov 2026) — reels are Patiktok, which is unlisted until it has run for real.
     'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged Memories (credit packs; many bookings come with free Papic photos as a Setnayan gift)',
     'Memory lane — the guests’ photos live on a screen at the venue and on their own phones (free)',
     'Live Watch — day-of livestream to YouTube, embedded on the Event Hub (one camera included; multicam control room as an add-on)',

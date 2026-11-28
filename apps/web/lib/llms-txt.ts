@@ -47,7 +47,7 @@ import { aiAnswers } from './seo/ai-answers';
 // Event Plus / Event Pro say exactly what the front door's plan cards say (Lane J made those true to what an order
 // unlocks) — one sentence, two readers.
 import { EVERYTHING_PEEK, PLUS_MORE } from '@/app/_components/frontdoor/front-door-landing-data';
-import { GIFT_PHOTOS_LINE } from './setnayan-gift-words';
+import { PAPIC_BOOKING_GIFT_LINE } from './setnayan-gift';
 import { DAILY_CAPACITY_MAX, TIER_LABEL, type VendorTier } from './vendor-tier-caps';
 // Build 6 Lane K — the supplier plans are the SAME table /for-suppliers draws (Lane J's one pure module), so what an
 // assistant quotes and what a supplier reads cannot disagree. Pure: no I/O, no env.
@@ -884,7 +884,7 @@ Pricing in PHP. All sales final on digital deliverables.
 - **Editorial authoring** — free. Arrange your own story: the order of the day, the moments worth naming, the wishes worth showing.
 - **Stories** — free. 30-second story maker for guests, rendered in the browser and downloaded to their phone.
 - **Photo Notes** — free. Guest-contributed stories and messages.
-- **Papic** — one shared pot of credits every guest's phone can spend from. ${GIFT_PHOTOS_LINE} Credits come in three packs, ${papicLadderPhrase(R)}, added on top of each other and repeatable. Cameras are free and unlimited. The host can also cap how many credits any one guest may spend — naming the few who should have more, with the rest splitting what is left evenly; nothing is carved out of the pot, so whatever a guest does not use is still there for everyone else. A photo spends 1 credit; a video spends 2 to 8 depending on its length (1–2s = 2 · 3s = 3 · 4–6s = 5 · 7–10s = 8). 6-month access window.
+- **Papic** — one shared pot of credits every guest's phone can spend from. ${PAPIC_BOOKING_GIFT_LINE} Credits come in three packs, ${papicLadderPhrase(R)}, added on top of each other and repeatable. Cameras are free and unlimited. The host can also cap how many credits any one guest may spend — naming the few who should have more, with the rest splitting what is left evenly; nothing is carved out of the pot, so whatever a guest does not use is still there for everyone else. A photo spends 1 credit; a video spends 2 to 8 depending on its length (1–2s = 2 · 3s = 3 · 4–6s = 5 · 7–10s = 8). 6-month access window.
 - **Guest QR codes** — free. Every guest gets their own code (RSVP, seating, photo tagging) with the Setnayan mark in the centre; Event Pro puts the couple's own logo there and adds shape, pattern and colour choices.
 
 ## The mood board is free

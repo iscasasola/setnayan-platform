@@ -32,7 +32,6 @@ import {
   PAPIC_TIER_CONFIG_FALLBACK,
   papicCapPhrase,
   papicFreeCameraCount,
-  papicFreeGrantPoints,
   type PapicTierCode,
 } from './papic-tier-copy';
 import { PAPIC_FREE_CAMERA_COUNT, PAPIC_POINTS_PER_SNIPPET } from './papic-cameras';
@@ -61,9 +60,6 @@ const PAPIC_COPY_FILES = [
   // guard that reads only the page would miss a literal moved one file over.
   'app/(shell)/papic/page.tsx',
   'app/(shell)/papic/_papic-dial.tsx',
-  // The free-credit promise, extracted 2026-09-14 (MONEY-1) so the switched-off
-  // branch could be proven by RENDER rather than by grep.
-  'app/(shell)/papic/_papic-free-credits.tsx',
   // The market-cost comparison (2026-09-08). Its Papic-side numbers are
   // live catalog through the same `anchor.rungs` this page already resolves —
   // listed here so a future literal on this card is caught the same way.
@@ -179,13 +175,8 @@ test('free-camera count comes from config, not a literal', () => {
   assert.equal(papicFreeCameraCount(retuned), 7);
 });
 
-test('free-pool points come from config, not a literal', () => {
-  // Papic Free = the shared event pool capped at 50 pts (owner 2026-07-22). The
-  // literal lives in ONE place (the fallback const); config overrides it.
-  assert.equal(papicFreeGrantPoints(PAPIC_TIER_CONFIG_FALLBACK), 50);
-  const retuned = { ...PAPIC_TIER_CONFIG_FALLBACK, freeGrantPoints: 90 };
-  assert.equal(papicFreeGrantPoints(retuned as never), 90);
-});
+// 🎁 'free-pool points come from config, not a literal' WAS HERE. `papicFreeGrantPoints` is gone with the free
+// first-event grant (owner 16 Nov 2026); `the-free-first-event-papic-grant-is-gone.test.ts` holds that it stays gone.
 
 /**
  * THE HOMEPAGE PRICING PAYLOAD CARRIES NO PAPIC CLAIM AT ALL (2026-07-30).

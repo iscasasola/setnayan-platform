@@ -98,7 +98,9 @@ test('THE WHOLE MATRIX — arm × switch, one table, no exceptions', () => {
 const ROOT = join(__dirname, '..');
 const server = readFileSync(join(ROOT, 'lib/setnayan-gift.server.ts'), 'utf8');
 const maker = readFileSync(join(ROOT, 'app/_components/proposal-maker.tsx'), 'utf8');
-const page = readFileSync(join(ROOT, 'app/proposals/[publicId]/page.tsx'), 'utf8');
+// The quote row is read by the page's gate (awaited by its layout before streaming); read with the page.
+const page =
+  readFileSync(join(ROOT, 'app/proposals/[publicId]/gate.tsx'), 'utf8') + readFileSync(join(ROOT, 'app/proposals/[publicId]/page.tsx'), 'utf8');
 
 test('the COUPLE\'s side resolves through the shared pair, and reads the quote\'s own switch', () => {
   /*

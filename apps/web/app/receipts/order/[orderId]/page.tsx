@@ -1,13 +1,11 @@
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import { loginRedirectPath, getCurrentUser } from '@/lib/auth';
 import { getEffectiveVatRatePct } from '@/lib/platform-settings';
-import { ORDER_STATUS_LABEL, fetchOrderById, formatPhp, isVatInclusiveServiceKey } from '@/lib/orders';
-import { computeVatFromBase, computeVatFromGross, fetchReceiptByOrderId, formatPhpFromString } from '@/lib/receipts';
+import { ORDER_STATUS_LABEL, formatPhp, isVatInclusiveServiceKey } from '@/lib/orders';
+import { computeVatFromBase, computeVatFromGross, formatPhpFromString } from '@/lib/receipts';
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { RECEIPT_CTA, ReceiptPage, ReceiptSlip, slipDateTime, slipFigure, type SlipLine, type SlipRow } from '../../_components/receipt-slip';
 import { ShareReceiptButton } from '../../_components/receipt-actions';
+import { gateOrderSlip } from './gate';
 
 export const metadata = { title: 'Order' };
 
@@ -26,14 +24,8 @@ type Props = { params: Promise<{ orderId: string }> };
  */
 export default async function OrderSlipPage({ params }: Props) {
   const { orderId } = await params;
-  const supabase = await createClient();
-  const user = await getCurrentUser();
-  if (!user) redirect(loginRedirectPath(`/receipts/order/${orderId}`));
-
-  const order = await fetchOrderById(supabase, orderId);
-  if (!order || order.user_id !== user.id || order.status === 'draft') notFound();
-  const receipt = await fetchReceiptByOrderId(supabase, orderId);
-  if (receipt) redirect(`/receipts/${receipt.receipt_id}`);
+  // Sign-in, not found and "go to the receipt" were decided by ./layout.tsx before streaming; same request, same answer.
+  const { supabase, order } = await gateOrderSlip(orderId);
 
   const [vatRatePct, storeShell] = await Promise.all([
     getEffectiveVatRatePct(supabase),

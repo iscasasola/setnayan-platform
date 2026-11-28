@@ -1,10 +1,7 @@
-import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
 import { CopyButton } from '@/app/_components/copy-button';
 import { InfoTip } from '@/app/_components/info-tip';
 import { actionButtonClass } from '@/components/action-button-class';
-import { createClient } from '@/lib/supabase/server';
 import { fetchPayableByReference } from '@/lib/payable-by-reference';
 import { Celebrate } from '@/app/_components/celebrate';
 import { payPath } from '@/lib/pay-path';
@@ -24,8 +21,6 @@ import { payerAccountsFor } from '@/lib/payment-channels';
 import { pickPayerRail } from '@/lib/gcash-allowance';
 import { getGcashGate } from '@/lib/gcash-allowance.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { isStoreShellRequest } from '@/lib/request-platform';
-import { storeShellRefusesPayable, STORE_SHELL_WEB_ONLY_PATH } from '@/lib/store-shell';
 import { MayaPayStage } from './_components/maya-pay-stage';
 import { MayaChecking } from './_components/maya-checking';
 import { mayaReceiptFor, readOpenMayaCheckout } from '@/lib/maya-checkout.server';
@@ -39,6 +34,7 @@ import { mayaPayState } from './maya-return';
 import { cookies } from 'next/headers';
 import { MAYA_BUSY_COOKIE } from '@/lib/maya-checkout';
 import { payNextSteps } from '@/lib/pay-next-steps';
+import { gatePayPage } from './gate';
 
 /**
  * /pay/[reference] — THE payment page. One page for every purchase.
@@ -82,26 +78,11 @@ type Props = {
 export default async function PayPage({ params, searchParams }: Props) {
   const { reference } = await params;
   const search = await searchParams;
-  const supabase = await createClient();
-  const user = await getCurrentUser();
-  if (!user) redirect('/login?next=' + encodeURIComponent(`/pay/${reference}`));
-  // An anonymous draft session is not an account. Couple checkout already
-  // refuses one before it will mint an order (it sends them to sign up), and a
-  // payment page must not be the one door that takes money from a session the
-  // buyer can lose by closing the tab.
-  if (user.is_anonymous) {
-    redirect('/signup?next=' + encodeURIComponent(`/pay/${reference}`));
-  }
-
-  let payable = await fetchPayableByReference(
-    supabase,
-    decodeURIComponent(reference),
-    // Who is looking decides the way out — a shop paying its own booking fee
-    // must not be pointed at the couple's dashboard. See lib/pay-back-link.ts.
-    user.id,
-  );
-  // Not yours and not real are the same answer on purpose — see the resolver.
-  if (!payable) notFound();
+  // Sign-in, "not yours / not real" and the store shell's refusal were decided by ./layout.tsx before streaming (same
+  // request, same answer — see ./gate.ts).
+  const gate = await gatePayPage(reference);
+  const { supabase, user } = gate;
+  let payable = gate.payable;
 
   // 💳 MAYA, ONLY ONCE THE ORDER IS PROVEN THEIRS (ship review 21 Nov, item 3). Back from Maya — or any visit while
   // this order has a Maya payment still open, whatever the switch says now (item 1) — the payment is re-verified
@@ -118,14 +99,7 @@ export default async function PayPage({ params, searchParams }: Props) {
     payable = (await fetchPayableByReference(supabase, decodeURIComponent(reference), user.id)) ?? payable;
   }
 
-  // 🔒 THE STORE SHELL PAYS ONLY FOR REAL-WORLD SERVICES. This page takes money
-  // for every order — a supplier's booking fee AND every Setnayan digital SKU —
-  // so middleware cannot refuse it by path. Here, with the order in hand, the
-  // App Store / Play Store shell is sent to /web-only for anything that is not
-  // a booking fee (guideline 3.1.1; lib/store-shell.ts). Desktop is unaffected.
-  if (storeShellRefusesPayable(payable, await isStoreShellRequest())) {
-    redirect(STORE_SHELL_WEB_ONLY_PATH);
-  }
+  // 🔒 The store shell's refusal (digital SKUs → /web-only) was decided by ./gate.ts, before streaming.
 
   // 🔒 COULDN'T CHECK IS NOT "PAY" (plan-purchase audit, 2026-11-16): a plan order whose plan row could not be read
   // may already be confirmed, so it gets no QR — the honest sentence and a way to try again, on the closed tile. Returned BEFORE any code is minted.

@@ -11,9 +11,6 @@
  * → their events (`groupChatBack`, lib/chat-groups.ts — computed per visit, lib/page-home.ts).
  */
 import { formatCount } from '@/lib/format-number';
-import { notFound, redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import { getCurrentUser } from '@/lib/auth';
 import { fetchMessages } from '@/lib/chat';
 import { markThreadRead } from '@/lib/chat-actions';
 import { SubmitButton } from '@/app/_components/submit-button';
@@ -27,13 +24,13 @@ import {
   groupListLine,
   mayJoinGroup,
   readEventGroups,
-  readGroupHead,
   readGroupFormerMembers,
   readGroupMembers,
   readGroupPeople,
 } from '@/lib/chat-groups';
 import { GroupChatView } from './_components/group-chat-view';
 import { groupChat } from '../actions';
+import { gateGroupChat } from './gate';
 
 export const metadata = { title: 'Group chat', robots: { index: false, follow: false } };
 
@@ -46,13 +43,8 @@ export default async function GroupChatPage({
 }) {
   const { threadId } = await params;
   const rejoinFailed = (await searchParams).error === 'rejoin';
-  const user = await getCurrentUser();
-  if (!user) redirect(`/login?next=${encodeURIComponent(groupChatHref(threadId))}`);
-  const supabase = await createClient();
-
-  const head = await readGroupHead(supabase, threadId);
-  if (head === 'unread') throw new Error('The group could not be read just now.');
-  if (!head) notFound();
+  // Sign-in and "no such group" were decided by ./layout.tsx before streaming; same request, same answer.
+  const { user, supabase, head } = await gateGroupChat(threadId);
   const back = groupChatBack(head.my_kind, head.event_id);
 
   // 🚪 You left: the row stays, greyed; a tap asks "Join this chat again?" with your own note (9 Nov 🚪).

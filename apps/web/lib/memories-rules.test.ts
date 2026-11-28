@@ -182,5 +182,5 @@ test('3 · a guest sees everyone’s photos only while the switch is explicitly 
   const latest = defs[defs.length - 1]!;
   console.log(`# guest_pool_gallery latest: ${latest}`);
   assert.match(readFileSync(join(dir, latest), 'utf8'), /e\.pool_gallery_open/, `${latest} no longer asks the switch`);
-  assert.match(code('app/papic/pool/page.tsx'), /if \(!ev\?\.pool_gallery_open\) notFound\(\);/, 'the shared page is closed while Only tagged');
+  assert.match(code('app/papic/pool/gate.ts'), /if \(!ev\?\.pool_gallery_open\) notFound\(\);/, 'the shared page is closed while Only tagged');
 });

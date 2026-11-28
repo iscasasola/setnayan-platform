@@ -21,20 +21,12 @@
  *   5. No spinner and no `animate-pulse`: the Sheen is the one allowed loop.
  *
  * ── Who is NOT here, on purpose ─────────────────────────────────────────────
- * Ten more routes the audit named (pay, proposals, the Samahan chats, Panood,
- * the onboarding wizard, the fit check, two Papic pages) call `notFound()` on a
- * crawlable path. A boundary there streams HTTP 200 for a thing that does not
- * exist, the `/v/[slug]` soft-404, and `(shell)/the-press-commits-now.test.ts`
- * forbids it. Their wait needs a fix that keeps the 404 (a `<Suspense>` inside
- * the page after the existence check), not a `loading.tsx`.
- *
- * Seven more (both receipts, `claim/[token]`, `onboarding/simple`, `open-shop`
- * and its `invite` and `logo` steps) call `redirect()` while rendering: a
- * signed-out visitor, a supplier who already has a shop, a switched-off door.
- * Behind a boundary that redirect lands AFTER a 200 and a grey skeleton, as a
- * client hop instead of a 307, and a missing receipt answers 200, not 404. They
- * wait on a fix that decides before streaming (middleware, or a `<Suspense>`
- * after the checks), not on a `loading.tsx`.
+ * Seventeen more routes the audit named (pay, proposals, the Samahan chats, Panood, the onboarding wizards, the fit
+ * check, two Papic pages, both receipts, `claim/[token]`, `open-shop` and its `logo` and `invite` steps) answer with
+ * `notFound()` or `redirect()`. Behind a boundary that answer would land AFTER a 200 and a skeleton (the `/v/[slug]`
+ * soft-404, a client hop instead of a 307), so they could not simply gain a `loading.tsx`. They now decide BEFORE
+ * streaming — a `cache()`d gate awaited by the route's own `layout.tsx`, or a `<Suspense>` placed after the page's
+ * checks — and that is pinned, with each route's shape, by `a-route-decides-before-it-streams.test.ts`.
  *
  * ── Why a list here ─────────────────────────────────────────────────────────
  * These are the routes the audit found frozen. The list is the finding, so it

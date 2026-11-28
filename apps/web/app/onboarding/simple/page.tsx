@@ -1,11 +1,7 @@
-import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { EVENT_DATE_FLOOR_MESSAGE, eventDateMinFor } from '@/lib/event-date-floor';
 import { viewerIsInternal } from '@/lib/view-as-free.server';
 import { manilaToday } from '@/lib/std-views';
-import { redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { onboardingServicesStepEnabled } from '@/lib/onboarding/services-step-flag';
 import { readServicesStepView } from '@/lib/onboarding/services-step-server';
@@ -22,6 +18,7 @@ export const metadata = { title: 'Create a Get-together' };
 
 import { isStoreShellRequest } from '@/lib/request-platform';
 import { FirstRunBrand } from '@/app/_components/first-run-brand';
+import { gateSimpleOnboarding } from './gate';
 
 const ERROR_COPY: Record<string, string> = {
   missing_name: 'Please give your event a name.',
@@ -55,16 +52,8 @@ export default async function SimpleOnboardingPage({
 }: {
   searchParams: SearchParams;
 }) {
-  const supabase = await createClient();
-  const user = await getCurrentUser();
-  if (!user) redirect('/login?next=/onboarding/simple');
-
-  // If the type isn't live in the create-roster, send them back to the picker.
-  const creatable = await getCreatableEventTypes();
-  const typeRow = creatable.find((t) => t.key === 'simple_event');
-  if (!typeRow) {
-    redirect('/dashboard/create-event');
-  }
+  // Sign-in and "type not live" were decided by ./layout.tsx before streaming; same request, same answer.
+  const { supabase, typeRow } = await gateSimpleOnboarding();
 
   const params = await searchParams;
   // 💍 The date rule's message is said beside the date (below), never twice.

@@ -222,7 +222,9 @@ test('6 · the sheet: one outline per piece, in mm, one ink; no price in the pat
   assert.ok(d.ok);
   if (!d.ok) return;
   const svg = gownBlocksSvg(d.pieces, 'Skirt blocks');
-  assert.equal(svg.match(/<polygon /g)?.length, d.pieces.length);
+  assert.equal(svg.match(/stroke-dasharray="10\.00 6\.00"[^>]*\/>/g)?.length, d.pieces.length, 'one dashed cut line per piece');
+  assert.equal(gownBlocksSvg(d.pieces, 'Skirt blocks', undefined, true).match(/stroke-dasharray="10\.00 6\.00"/g), null, 'a net pattern has no cut line');
+  assert.ok((svg.match(/<path d="[^"]*Z"/g)?.length ?? 0) >= 2 * d.pieces.length, 'each piece has a stitching line and a cut line');
   assert.match(svg, /width="[\d.]+mm" height="[\d.]+mm"/);
   assert.doesNotMatch(svg, /#[0-9a-f]{3,6}\b/i, 'the sheet carries a typed colour');
   assert.match(svg, /Skirt front/);

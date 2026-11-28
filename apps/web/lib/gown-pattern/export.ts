@@ -290,26 +290,30 @@ export function gownPatternPages(list: readonly { p: GownBlockPiece }[], opts: {
 
 // ── Drawing the model ────────────────────────────────────────────────────────────────────────────────────────────
 
-const hexOf = (c: GownInk) => '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('');
+const hexOfInk = (c: GownInk) => '#' + c.map((v) => v.toString(16).padStart(2, '0')).join('');
 const escX = (s: string) => s.replace(/[&<>"']/g, (ch) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[ch]!);
 const f2 = (x: number) => x.toFixed(2);
 
 /** One page (or the plotter sheet) as an SVG at true size: width × height mm, 1 unit = 1 mm. */
-export function gownPageSvg(ops: readonly GownDraw[], w: number, h: number, label = 'Pattern page'): string {
+export function gownPageSvg(ops: readonly GownDraw[], w: number, h: number, label = 'Pattern page', opts: { oneInk?: boolean } = {}): string {
+  // On screen (oneInk) every line and word is currentColor, so the sheet follows the page's light or dark ink; the
+  // stitched area is a faint wash of it and there is no white paper. Printed pages keep the drawing's own inks.
+  const hexOf = opts.oneInk ? (c: GownInk) => (c === I.paper ? 'currentColor' : c === I.cutFill || c === I.white ? 'none' : 'currentColor') : hexOfInk;
+  const washOf = (c: GownInk | undefined, o: number | undefined) => (opts.oneInk && c === I.paper ? 0.06 : o);
   let s = '';
   for (const o of ops) {
     if (o.k === 'path') {
       const d = 'M' + o.pts.map(([x, y]) => `${f2(x)} ${f2(y)}`).join('L') + (o.closed ? 'Z' : '');
-      s += `<path d="${d}" fill="${o.fill ? hexOf(o.fill) : 'none'}"${o.fillOpacity != null ? ` fill-opacity="${o.fillOpacity}"` : ''} stroke="${o.stroke ? hexOf(o.stroke) : 'none'}" stroke-width="${f2(o.width)}"${o.dash ? ` stroke-dasharray="${f2(o.dash[0])} ${f2(o.dash[1])}"` : ''} stroke-linejoin="miter" stroke-miterlimit="12"/>`;
+      s += `<path d="${d}" fill="${o.fill ? hexOf(o.fill) : 'none'}"${washOf(o.fill, o.fillOpacity) != null ? ` fill-opacity="${washOf(o.fill, o.fillOpacity)}"` : ''} stroke="${o.stroke ? hexOf(o.stroke) : 'none'}" stroke-width="${f2(o.width)}"${o.dash ? ` stroke-dasharray="${f2(o.dash[0])} ${f2(o.dash[1])}"` : ''} stroke-linejoin="miter" stroke-miterlimit="12"/>`;
     } else if (o.k === 'rect') {
       s += `<rect${o.testSquare ? ' class="pp-test"' : ''} x="${f2(o.x)}" y="${f2(o.y)}" width="${f2(o.w)}" height="${f2(o.h)}" fill="${o.fill ? hexOf(o.fill) : 'none'}"${o.fillOpacity != null ? ` fill-opacity="${o.fillOpacity}"` : ''} stroke="${o.stroke ? hexOf(o.stroke) : 'none'}" stroke-width="${f2(o.width)}"${o.dash ? ` stroke-dasharray="${o.dash[0]} ${o.dash[1]}"` : ''}/>`;
     } else {
       const rot = o.rotate ? ` transform="rotate(${o.rotate} ${f2(o.x)} ${f2(o.y)})"` : '';
-      const halo = o.halo ? ` stroke="${hexOf(I.white)}" stroke-width="${f2(o.size * 0.25)}" paint-order="stroke"` : '';
+      const halo = o.halo && !opts.oneInk ? ` stroke="${hexOf(I.white)}" stroke-width="${f2(o.size * 0.25)}" paint-order="stroke"` : '';
       s += `<text x="${f2(o.x)}" y="${f2(o.y)}" font-size="${f2(o.size)}"${o.bold ? ' font-weight="700"' : ''}${o.anchor && o.anchor !== 'start' ? ` text-anchor="${o.anchor}"` : ''} fill="${hexOf(o.color)}"${halo}${rot} font-family="Helvetica, Arial, sans-serif">${escX(o.text)}</text>`;
     }
   }
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${f2(w)}mm" height="${f2(h)}mm" viewBox="0 0 ${f2(w)} ${f2(h)}" role="img" aria-label="${escX(label)}"><rect width="${f2(w)}" height="${f2(h)}" fill="${hexOf(I.white)}"/>${s}</svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${f2(w)}mm" height="${f2(h)}mm" viewBox="0 0 ${f2(w)} ${f2(h)}" role="img" aria-label="${escX(label)}">${opts.oneInk ? '' : `<rect width="${f2(w)}" height="${f2(h)}" fill="${hexOf(I.white)}"/>`}${s}</svg>`;
 }
 
 /** The pages as a PDF at true size on the chosen paper (`pdf-lib` is loaded here, on the designer's tap). */

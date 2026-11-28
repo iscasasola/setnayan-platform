@@ -102,6 +102,8 @@ const SHIPPED: Record<string, string[]> = {
   GOWN_LACE_FINISHES: ['flat', 'raised'],
   GOWN_VEIL_FABRICS: ['tulle', 'glitter'],
   GOWN_PEARLS: ['none', 'neck', 'veil', 'both'],
+  GOWN_SLEEVE_WORN: ['sewn', 'detach'],
+  GOWN_ROBE_SLEEVES: ['long', 'puff'],
   GOWN_LININGS: ['satin', 'cotton', 'silk', 'none'],
   GOWN_LAYER_TYPES: ['soft', 'full', 'organza', 'chiffon', 'hoop', 'glitter'],
   GOWN_LAYER_COLOURS: ['match', 'ivory', 'white', 'blush', 'champagne', 'nude'],
@@ -284,7 +286,7 @@ test('quantities carry no money: unknown keys (a price, a cost) are refused, cou
   refused(sanitizeGownQuantities({ ...q, materials: { ...q.materials, outerM: -1 } }), 'quantities', 'negative metres');
   refused(sanitizeGownQuantities({ ...q, materials: { ...q.materials, outerM: 201 } }), 'quantities', 'past the metres guard');
   refused(sanitizeGownQuantities({ ...q, labour: { ...q.labour, slits: 6 } }), 'quantities', 'more slits than places');
-  refused(sanitizeGownQuantities({ ...q, labour: { ...q.labour, sleeve: 'puff' } }), 'quantities', 'a sleeve not in the catalog');
+  refused(sanitizeGownQuantities({ ...q, labour: { ...q.labour, sleeve: 'tulip' } }), 'quantities', 'a sleeve not in the catalog');
   const ok = sanitizeGownQuantities({ ...q, materials: { ...q.materials, outerM: 7.4, buttons: 24, beads: { ...q.materials.beads, pearl: 600 } }, labour: { ...q.labour, beads: 600, train: 'chapel' } });
   assert.ok(ok.ok);
   assert.equal(ok.quantities.materials.beads.pearl, 600);
@@ -327,7 +329,7 @@ test('a v186 order round-trips: the look keys, her numbers and her choices come 
   // A v186 look has no bow, blusher, overlay, illusion, straps or flowers (v197 to v200 add them to the look): they come back as the starting values.
   // It opens as v197 opens an order: the mermaid's chapel train becomes a sweep (corpus a5ada15).
   const s0 = startingGownConfig();
-  assert.deepEqual(gownLookOf(got.config), { bow: s0.bow, blusher: s0.blusher, overlay: s0.overlay, ovFab: s0.ovFab, illu: s0.illu, illuBase: s0.illuBase, illuCol: s0.illuCol, illuBack: s0.illuBack, boneShow: s0.boneShow, straps: s0.straps, strapCol: s0.strapCol, strapEdge: s0.strapEdge, topEdge: s0.topEdge, plungeFill: s0.plungeFill, flowers: s0.flowers, flowerFrom: s0.flowerFrom, flowerType: s0.flowerType, flowerSize: s0.flowerSize, flowerDen: s0.flowerDen, flowerCol: s0.flowerCol, capeFlowers: s0.capeFlowers, laceFinish: s0.laceFinish, veilFab: s0.veilFab, pearls: s0.pearls, ...V186_ORDER.design3d.gown, train: 'sweep' }, 'the look the designer opens on the mannequin');
+  assert.deepEqual(gownLookOf(got.config), { bow: s0.bow, blusher: s0.blusher, overlay: s0.overlay, ovFab: s0.ovFab, illu: s0.illu, illuBase: s0.illuBase, illuCol: s0.illuCol, illuBack: s0.illuBack, boneShow: s0.boneShow, straps: s0.straps, strapCol: s0.strapCol, strapEdge: s0.strapEdge, topEdge: s0.topEdge, plungeFill: s0.plungeFill, flowers: s0.flowers, flowerFrom: s0.flowerFrom, flowerType: s0.flowerType, flowerSize: s0.flowerSize, flowerDen: s0.flowerDen, flowerCol: s0.flowerCol, capeFlowers: s0.capeFlowers, laceFinish: s0.laceFinish, veilFab: s0.veilFab, pearls: s0.pearls, sleeveDet: s0.sleeveDet, robeSl: s0.robeSl, ...V186_ORDER.design3d.gown, train: 'sweep' }, 'the look the designer opens on the mannequin');
   assert.deepEqual(Object.keys(gownLookOf(got.config)), [...GOWN_LOOK_KEYS]);
   assert.equal(got.config.hem, 'floor');
   assert.equal(got.config.heel, 7);
@@ -414,4 +416,20 @@ test('A7b hand work: its own object beside the design, each list capped and rang
     ['a cut shape of three points', { handCuts: [{ pts: [[0, 1], [0.1, 1], [0, 0.9]] }] }],
     ['a height that is not a number', { handCuts: [{ ...round, y: Number.NaN }] }],
   ] as const) refused(sanitizeGownHand(x), 'not_a_design', what);
+});
+
+test('v203: the server refuses the pairings the maker would have changed (cape sleeves and capes, the over-robe, both shoulders, the ruffle neckline, detachable)', () => {
+  const ok = (over: Record<string, unknown>, why: string) => assert.equal(sanitizeGownConfig(design(over), offer()).ok, true, why);
+  ok({ sleeve: 'puff', neck: 'v' }, 'puff sleeves on a V neckline');
+  ok({ sleeve: 'ruffle', neck: 'off', sleeveDet: 'detach' }, 'a detachable ruffle band, off the shoulder');
+  ok({ sleeve: 'capesl', neck: 'v', capeLen: 'elbow' }, 'cape sleeves to the elbow');
+  ok({ cape: 'robe', neck: 'v', robeSl: 'puff', sleeve: 'bishop' }, 'an over-robe with puff sleeves, over bishop sleeves');
+  refused(sanitizeGownConfig(design({ sleeve: 'capesl', cape: 'side', neck: 'v' }), offer()), 'not_a_design', 'cape sleeves are a cape of their own');
+  refused(sanitizeGownConfig(design({ cape: 'robe', sleeve: 'flutter', neck: 'v' }), offer()), 'not_a_design', 'the over-robe has its own sleeves');
+  refused(sanitizeGownConfig(design({ sleeve: 'bishop', straps: 'halter', neck: 'v' }), offer()), 'not_a_design', 'the new sleeves need both shoulders');
+  refused(sanitizeGownConfig(design({ sleeve: 'ruffle', neck: 'v' }), offer()), 'not_a_design', 'the ruffle band sits off the shoulder or on a sweetheart');
+  refused(sanitizeGownConfig(design({ sleeve: 'puff', neck: 'v', sleeveDet: 'detach' }), offer()), 'not_a_design', 'detachable is a choice only off the shoulder');
+  refused(sanitizeGownConfig(design({ sleeve: 'capesl', neck: 'v', capeLen: 'shoulder' }), offer()), 'not_a_design', 'cape sleeves have their own lengths');
+  refused(sanitizeGownConfig(design({ sleeveDet: 'loose' }), offer()), 'not_a_design', 'a way of wearing sleeves not in the catalog');
+  refused(sanitizeGownConfig(design({ robeSl: 'bell' }), offer()), 'not_a_design', 'an over-robe sleeve not in the catalog');
 });

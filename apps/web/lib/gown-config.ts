@@ -1709,7 +1709,8 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
   };
   const capeD = { capeFab: orNull('capeFab', ids(GOWN_CAPE_FABRICS)), capeLen: orNull('capeLen', ids(GOWN_CAPE_LENGTHS)), capeEdge: orNull('capeEdge', ids(GOWN_CAPE_EDGES)), capeFasten: orNull('capeFasten', ids(GOWN_CAPE_FASTENINGS)) };
   if (Object.values(capeD).some((v) => v === undefined)) return no('not_a_design');
-  if (p.cape !== 'none' && capeD.capeLen && !GOWN_CAPE_DEF[p.cape].lens.includes(capeD.capeLen)) return no('not_a_design');
+  // v203: cape sleeves are hung as a cape, with their own lengths.
+  { const ck = gownCapeKind(p); if (ck !== 'none' && capeD.capeLen && !GOWN_CAPE_DEF[ck].lens.includes(capeD.capeLen)) return no('not_a_design'); }
 
   // Inside: each layer's material and colour. Given layers must make the petticoat the design names; a design without
   // them (older, or a look) takes the layers its petticoat implies.

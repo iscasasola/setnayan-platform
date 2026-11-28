@@ -27,6 +27,7 @@ type Row = {
   name: string; look: Partial<GownLook>; st: Partial<GownConfig>; gown: Partial<GownConfig>; lite: boolean;
   sleeves: Record<Side, Pt[] | null>; robe: Record<Side, Pt[] | null>; back: Pt[] | null; metres: number; robeM: number;
   capeVisible: boolean; capeM: number; sample?: Pt[]; parts?: { NJ: number; vo: number; j0: number[]; tops: number[]; hems: number[] }[]; groups?: [number, number, number][]; nUsed?: number; edgeL?: number;
+  sums: Record<'L' | 'R' | 'back' | 'robeL' | 'robeR', [number, number, number] | null>;
   reachCm: number; robeReachCm: number; say: string; capeSay: string; clip: Record<string, { n: number; bad: number; worstMm: number }>;
 };
 type Rule = { name: string; look: Partial<GownLook>; k: keyof GownConfig; v: string; before: Partial<GownConfig>; after: Partial<GownConfig>; hint: string; buttons: string[]; robeBtn: string; detRow: boolean; robeRow: boolean; why: string; labels: (string | null)[] };
@@ -91,6 +92,17 @@ test('v203 sleeves lie on her as the prototype lays them: puff, bishop, Juliet, 
     }
     assert.equal(!!w.back, !!r.back, `${r.name}: the ruffle across the back`);
     if (r.back && w.back) assert.ok(worstCm(B, arr(w.back), r.back) < 0.1, `${r.name}: the back ruffle within 1 mm (worst ${worstCm(B, arr(w.back), r.back).toFixed(2)} cm)`);
+    // Every vertex, not only the sample: two sums over the whole mesh (a point pressed flat between her arm and body moves them).
+    for (const [nm, geo] of [['L', w.sl.L], ['R', w.sl.R], ['back', w.back], ['robeL', w.robe.L], ['robeR', w.robe.R]] as const) {
+      const ref = r.sums[nm];
+      assert.equal(!!geo, !!ref, `${r.name} ${nm}: drawn`);
+      if (!geo || !ref) continue;
+      const P = arr(geo);
+      let t = 0, u = 0;
+      for (let i = 0; i < P.length; i += 3) { t += P[i]! + 2 * P[i + 1]! + 3 * P[i + 2]!; u += Math.abs(P[i]! - P[i + 2]!); }
+      assert.equal(P.length / 3, ref[2], `${r.name} ${nm}: vertices`);
+      assert.ok(Math.abs(t - ref[0]) < 2e-3 && Math.abs(u - ref[1]) < 2e-3, `${r.name} ${nm}: every vertex as v203 (sums ${t.toFixed(5)} ${u.toFixed(5)} vs ${ref[0]} ${ref[1]})`);
+    }
     // The fabric for the pair, from the real panels.
     const m = gownSleeveIsExtra(g.sleeve) ? gownSleeveMetres(B, [piece(w.sl.L), piece(w.sl.R), g.sleeve === 'ruffle' ? piece(w.back) : null], GOWN_SLEEVE_GATHER[g.sleeve]) : 0;
     assert.equal(m, r.metres, `${r.name}: sleeve metres`);

@@ -68,7 +68,7 @@ export default function Lab({ view }: { view: string }) {
             designId: '00000000-0000-4000-8000-000000000003',
             config,
             body,
-            measures: { waistHip: { cm: 21, from: 'estimate' }, waistFloor: { cm: 98, from: 'typed' }, napeWaist: { cm: 40, from: 'estimate' }, armhole: { cm: 42, from: 'typed' }, upperArm: { cm: 29, from: 'typed' }, elbow: { cm: 25, from: 'estimate' }, wrist: { cm: 15.5, from: 'typed' }, armBent: { cm: 59, from: 'typed' } },
+            measures: { frontLen: { cm: 38.1, from: 'estimate' }, shoulderApex: { cm: 22.2, from: 'estimate' }, apexApex: { cm: 14, from: 'typed' }, acrossBack: { cm: 31.3, from: 'estimate' }, acrossChest: { cm: 29.2, from: 'estimate' }, shoulderLen: { cm: 11.5, from: 'typed' }, sideLen: { cm: 18.3, from: 'estimate' }, neck: { cm: 33.6, from: 'typed' }, waistHip: { cm: 21, from: 'estimate' }, waistFloor: { cm: 98, from: 'typed' }, napeWaist: { cm: 40, from: 'estimate' }, armhole: { cm: 42, from: 'typed' }, upperArm: { cm: 29, from: 'typed' }, elbow: { cm: 25, from: 'estimate' }, wrist: { cm: 15.5, from: 'typed' }, armBent: { cm: 59, from: 'typed' } },
             estimateCentavos: priced.forBride.estimateCentavos,
             forShop: priced.forShop,
             tape: { tape: { waistHip: 21.5 }, fitAt: '2026-11-27T10:00:00Z' },

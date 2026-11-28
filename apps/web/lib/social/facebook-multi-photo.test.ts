@@ -9,7 +9,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FACEBOOK_MAX_ATTACHED_PHOTOS, multiPhotoUrls, publishMultiPhoto, type GraphCall } from './facebook-multi-photo';
+import { FACEBOOK_MAX_ATTACHED_PHOTOS, attachedPhotoUrls, multiPhotoUrls, publishMultiPhoto, type GraphCall } from './facebook-multi-photo';
 
 type Seen = { method: string; path: string; params: Record<string, string> };
 
@@ -97,4 +97,62 @@ test('a clean-up delete that fails is returned with its photo id, so the flush c
   assert.deepEqual(!res.ok ? res.cleanupFailures : null, [{ photo_id: 'photo-b.jpg', error: 'Unsupported delete request' }]);
   // It still tried to delete every upload, not just up to the failure.
   assert.deepEqual(g.seen.filter((s) => s.method === 'DELETE').map((s) => s.path), ['/photo-a.jpg', '/photo-b.jpg', '/photo-c.jpg']);
+});
+
+test('a scheduled multi-photo post: temporary unpublished uploads, then ONE scheduled /feed post, in order', async () => {
+  const g = fakeGraph();
+  const at = new Date('2026-12-01T12:00:00Z');
+  const res = await publishMultiPhoto(g.call, 'PAGE', 'Hello', urls, { scheduleAt: at });
+  assert.equal(res.ok, true);
+  const uploads = g.seen.filter((s) => s.path === '/PAGE/photos');
+  assert.deepEqual(uploads.map((u) => u.params.url), urls);
+  assert.ok(uploads.every((u) => u.params.published === 'false' && u.params.temporary === 'true'));
+  const feed = g.seen.find((s) => s.path === '/PAGE/feed');
+  assert.equal(feed?.params.published, 'false');
+  assert.equal(feed?.params.scheduled_publish_time, String(at.getTime() / 1000));
+  assert.equal(feed?.params['attached_media[2]'], '{"media_fbid":"photo-c.jpg"}');
+  // Not scheduled: no temporary flag, no scheduled time.
+  const now = fakeGraph();
+  await publishMultiPhoto(now.call, 'PAGE', 'Hello', urls);
+  assert.equal(now.seen.find((s) => s.path === '/PAGE/photos')?.params.temporary, undefined);
+  assert.equal(now.seen.find((s) => s.path === '/PAGE/feed')?.params.scheduled_publish_time, undefined);
+});
+
+test('a scheduled multi-photo post keeps all or nothing', async () => {
+  const g = fakeGraph({ failUpload: 3 });
+  const res = await publishMultiPhoto(g.call, 'PAGE', 'Hello', urls, { scheduleAt: new Date('2026-12-01T12:00:00Z') });
+  assert.equal(res.ok, false);
+  assert.equal(g.seen.some((s) => s.path === '/PAGE/feed'), false);
+  assert.deepEqual(g.seen.filter((s) => s.method === 'DELETE').map((s) => s.path), ['/photo-a.jpg', '/photo-b.jpg']);
+});
+
+test('a scheduled ONE-photo post also goes as an unpublished upload + one scheduled /feed post (so /scheduled_posts lists it)', async () => {
+  const at = new Date('2026-12-01T12:00:00Z');
+  const one = 'https://cdn.example/a.jpg';
+  assert.deepEqual(attachedPhotoUrls({ mediaUrl: one, scheduleAt: at }), [one]);
+  assert.equal(attachedPhotoUrls({ mediaUrl: one, scheduleAt: null }), null, 'a post sent now keeps the plain /photos path');
+  assert.equal(attachedPhotoUrls({ mediaUrl: 'https://setnayan.com/a-page', scheduleAt: at }), null, 'not an image: a link post');
+  assert.deepEqual(attachedPhotoUrls({ mediaUrls: urls, mediaUrl: one, scheduleAt: at }), urls);
+
+  const g = fakeGraph();
+  const res = await publishMultiPhoto(g.call, 'page', 'Hi', [one], { scheduleAt: at });
+  assert.equal(res.ok, true);
+  assert.deepEqual(g.seen.map((s) => s.path), ['/page/photos', '/page/feed']);
+  const feed = g.seen[1]!.params;
+  assert.equal(feed.published, 'false');
+  assert.equal(feed.scheduled_publish_time, String(at.getTime() / 1000));
+  assert.ok(feed['attached_media[0]']);
+});
+
+test('the time budget: past the deadline no further Graph call starts, and the uploads are cleaned up', async () => {
+  const g = fakeGraph();
+  let t = 0;
+  const res = await publishMultiPhoto(g.call, 'page', 'Hi', urls, {
+    scheduleAt: new Date('2026-12-01T12:00:00Z'),
+    deadline: 2,
+    clock: () => (t += 1),
+  });
+  assert.equal(res.ok, false);
+  assert.equal(g.seen.filter((s) => s.path === '/page/feed').length, 0, 'the feed post never starts');
+  assert.equal(g.seen.filter((s) => s.method === 'DELETE').length, g.seen.filter((s) => s.path === '/page/photos').length);
 });

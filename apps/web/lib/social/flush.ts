@@ -21,12 +21,21 @@ import {
   type SocialSlot,
 } from '@/lib/social/governor';
 import { sweepLiveUpdate } from '@/lib/social/live-update.server';
+import {
+  handOffToFacebook,
+  settleFacebookPosts,
+  withdrawAllFromFacebook,
+  recoverStuckHandOffs,
+  retryTakedowns,
+  takeDownRevoked,
+  withdrawFromFacebook,
+} from '@/lib/social/fb-queue';
 import { isRecapSocialShareAllowed } from '@/lib/social/recap-post';
 import { isBadgeSocialShareAllowed } from '@/lib/social/badge-post';
 import { vendorIdFromBadgeRef } from '@/lib/social/lane-s';
 import { sweepMilestones } from '@/lib/social/milestones';
 import { sweepJournalArticles } from '@/lib/social/articles-sweep';
-import { commentOnFacebookPost, isFacebookConfigured, postToFacebookPage } from '@/lib/social/facebook';
+import { commentOnFacebookPost, facebookOps, isFacebookConfigured, postToFacebookPage } from '@/lib/social/facebook';
 import { isInstagramConfigured, postToInstagramFeed } from '@/lib/social/instagram';
 import { isTikTokConfigured, postPhotoToTikTok } from '@/lib/social/tiktok';
 import { siteUrl, socialCardUrl } from '@/lib/social/urls';
@@ -41,11 +50,11 @@ import { siteUrl, socialCardUrl } from '@/lib/social/urls';
  * layout · admin social queue · public /vendors marketplace), so dispatch
  * piggybacks on organic traffic. A 10-minute throttle + a single-row
  * conditional-UPDATE claim on social_publish_settings.last_flush_at keep
- * concurrent renders from double-flushing. The SLOT CLOCK (owner 2026-11-28) is
- * a GitHub Actions schedule, `.github/workflows/social-slots.yml`, calling
- * POST /api/cron/social-flush inside each slot (`runSocialFlush({ scheduled:
- * true })`, a 1-minute throttle) — not a Vercel cron or pg_cron, so the
- * cron-free lock holds and the slots still open with nobody on the site.
+ * concurrent renders from double-flushing. FACEBOOK HOLDS THE SCHEDULE (owner
+ * 2026-11-28: "schedule posts on Facebook itself and stay cron-free"): each
+ * visit's flush hands the next ~7 days of slot posts to Facebook as scheduled
+ * posts (lib/social/fb-queue.ts), so they go out at the slot with nobody on
+ * the site — no timer, no secret, no cron.
  *
  * Two phases per flush:
  *   1. SWEEP-COMPOSE — always runs, even with autopublish off, so the admin
@@ -76,13 +85,6 @@ import { siteUrl, socialCardUrl } from '@/lib/social/urls';
 
 /** Min gap between flushes — makes the after() hooks effectively free. */
 const FLUSH_THROTTLE_MS = 10 * 60 * 1000;
-
-/**
- * Min gap for a SCHEDULED flush (`/api/cron/social-flush`, fired by `.github/workflows/social-slots.yml` at each
- * slot). Short so a traffic flush at 07:58 cannot swallow the 08:02 slot run, long enough that the claim still keeps
- * two runners from flushing at once.
- */
-const SCHEDULED_FLUSH_THROTTLE_MS = 60 * 1000;
 
 /** Couple-creation pull window: 48h for the team/couple to pull the post. */
 const CREATION_HOLD_MS = SHARE_PULL_WINDOW_HOURS * 60 * 60 * 1000;
@@ -132,11 +134,9 @@ type PostRow = {
  * failure is logged and swallowed so a flush hiccup can't surface anywhere
  * near a user-facing render.
  *
- * `scheduled: true` is the slot runner (`/api/cron/social-flush`): the same flush with a 1-minute throttle, so each
- * slot opens on time whether or not anybody visits. Page traffic keeps its 10-minute throttle. Returns whether this
- * call won the claim and ran (false = throttled, or another runner holds it).
+ * Returns whether this call won the claim and ran (false = throttled, or another visit holds it).
  */
-export async function runSocialFlush(opts: { scheduled?: boolean } = {}): Promise<boolean> {
+export async function runSocialFlush(): Promise<boolean> {
   try {
     const admin = createAdminClient();
     const now = new Date();
@@ -145,8 +145,7 @@ export async function runSocialFlush(opts: { scheduled?: boolean } = {}): Promis
     // Single-row conditional UPDATE: only the caller that successfully moves
     // last_flush_at forward owns this flush. Concurrent after() invocations
     // (or a second Vercel region) lose the claim and bail.
-    const throttleMs = opts.scheduled ? SCHEDULED_FLUSH_THROTTLE_MS : FLUSH_THROTTLE_MS;
-    const cutoffIso = new Date(now.getTime() - throttleMs).toISOString();
+    const cutoffIso = new Date(now.getTime() - FLUSH_THROTTLE_MS).toISOString();
     const { data: claim, error: claimErr } = await admin
       .from('social_publish_settings')
       .update({ last_flush_at: now.toISOString(), updated_at: now.toISOString() })
@@ -165,6 +164,9 @@ export async function runSocialFlush(opts: { scheduled?: boolean } = {}): Promis
       tiktok_enabled: boolean;
     };
 
+    // ── First: a pulled post Facebook still holds is deleted there (it would publish unseen otherwise).
+    await retryTakedowns(admin, facebookOps);
+
     // ── Phase 1: sweep-compose (always — the queue UI shows upcoming posts
     // even while the master switch is off) ────────────────────────────────
     await sweepCoupleCreations(admin, now);
@@ -182,9 +184,46 @@ export async function runSocialFlush(opts: { scheduled?: boolean } = {}): Promis
     // until the owner completes OAuth + the Content Posting API audit, ttLive
     // is false and the TikTok leg is simply skipped — the assisted-manual panel
     // in /admin/social-queue is what works (Phase C).
-    const fbLive = settings.facebook_enabled && (await isFacebookConfigured());
+    const fbConfigured = await isFacebookConfigured();
+    const fbLive = settings.facebook_enabled && fbConfigured;
     const igLive = settings.instagram_enabled && (await isInstagramConfigured());
     const ttLive = settings.tiktok_enabled && (await isTikTokConfigured());
+
+    // ── Facebook holds the schedule (owner 2026-11-28: schedule posts on
+    // Facebook itself, stay cron-free) — lib/social/fb-queue.ts. ───────────
+    if (fbConfigured) {
+      // A hand-off cut off after its claim (id never saved, or a failed call never checked) is reconciled first.
+      await recoverStuckHandOffs(admin, now, facebookOps);
+      if (settings.autopublish_enabled && fbLive) {
+        // A recap or badge post already on Facebook whose gate has since closed is taken back and pulled.
+        await regateScheduledOnFacebook(admin, now);
+        // Top the Facebook queue up to the next ~7 days.
+        await handOffToFacebook(admin, now, facebookOps, (row) => shareGatePasses(admin, row as unknown as PostRow));
+      } else {
+        // The switch is off: nothing may go out on Facebook's clock either.
+        await withdrawAllFromFacebook(admin, now, facebookOps);
+      }
+      // The first visit after a slot: confirm it went out, add the first comment, run the other platforms.
+      const settled = await settleFacebookPosts(admin, now, facebookOps);
+      for (const row of settled) {
+        const post = row as unknown as PostRow;
+        const fbUrl = `https://www.facebook.com/${row.facebook_post_id}`;
+        if (settings.autopublish_enabled && (igLive || ttLive) && slotVerdict(row, now) === 'publish') {
+          const other = await otherPlatformLegs(post, { instagram: igLive, tiktok: ttLive }, post.media_url || socialCardUrl(post.post_id));
+          if (Object.keys(other.legs).length > 0) {
+            const { error: legsErr } = await admin
+              .from('social_posts')
+              .update({ platform_results: { ...(row.platform_results ?? {}), ...other.legs }, updated_at: new Date().toISOString() })
+              .eq('post_id', row.post_id);
+            if (legsErr) logQueryError('runSocialFlush (record other platforms)', legsErr, { post_id: row.post_id });
+          }
+        }
+        await stampSource(admin, post, fbUrl, new Date().toISOString());
+      }
+    }
+
+    // Publish-now dispatch: whatever is due inside an open slot and was not handed to Facebook (a post composed
+    // under 10 minutes before its slot, or Instagram/TikTok with Facebook off).
     if (settings.autopublish_enabled && (fbLive || igLive || ttLive)) {
       await dispatchDuePosts(admin, now, {
         facebook: fbLive,
@@ -384,7 +423,7 @@ async function sweepEvergreenFloor(admin: AdminClient, now: Date): Promise<void>
   const { count: recentCount, error: recentErr } = await admin
     .from('social_posts')
     .select('post_id', { count: 'exact', head: true })
-    .in('status', ['scheduled', 'publishing', 'published'])
+    .in('status', ['scheduled', 'scheduled_on_fb', 'publishing', 'published'])
     .or(`created_at.gte.${quietCutoff},scheduled_for.gte.${quietCutoff}`);
   if (recentErr) {
     logQueryError('runSocialFlush (evergreen quiet check)', recentErr);
@@ -448,15 +487,23 @@ async function sweepEvergreenFloor(admin: AdminClient, now: Date): Promise<void>
 async function sweepTakedowns(admin: AdminClient, now: Date): Promise<void> {
   const { data: pendingData, error: pendingErr } = await admin
     .from('social_posts')
-    .select('post_id, source_ref')
+    .select('post_id, source_ref, status, facebook_post_id, platform_results, scheduled_for, body')
     .eq('source_type', 'couple_creation')
-    .in('status', ['scheduled', 'publishing'])
+    .in('status', ['scheduled', 'scheduled_on_fb', 'publishing'])
     .limit(500);
   if (pendingErr) {
     logQueryError('runSocialFlush (takedown scan)', pendingErr);
     return;
   }
-  const pending = (pendingData ?? []) as Array<{ post_id: string; source_ref: string }>;
+  const pending = (pendingData ?? []) as Array<{
+    post_id: string;
+    source_ref: string;
+    status: string;
+    facebook_post_id: string | null;
+    platform_results: Record<string, unknown> | null;
+    scheduled_for: string | null;
+    body: string;
+  }>;
   if (pending.length === 0) return;
 
   const { data: revokedData, error: revokedErr } = await admin
@@ -471,17 +518,11 @@ async function sweepTakedowns(admin: AdminClient, now: Date): Promise<void> {
   const revoked = new Set(
     ((revokedData ?? []) as Array<{ consent_id: string }>).map((r) => r.consent_id),
   );
-  const toPull = pending.filter((p) => revoked.has(p.source_ref));
-  if (toPull.length === 0) return;
-
-  const { error: pullErr } = await admin
-    .from('social_posts')
-    .update({ status: 'pulled', updated_at: now.toISOString() })
-    .in('post_id', toPull.map((p) => p.post_id))
-    .in('status', ['scheduled', 'publishing']);
-  if (pullErr) {
-    logQueryError('runSocialFlush (takedown pull)', pullErr);
-  }
+  const revokedRows = pending.filter((p) => revoked.has(p.source_ref));
+  if (revokedRows.length === 0) return;
+  // Facebook first: a post on its schedule, or handed over with its id unknown, is deleted there before the row is
+  // pulled; a row whose Facebook side is not clear stays as it is (its slot held) and the next visit retries.
+  await takeDownRevoked(admin, revokedRows, facebookOps, now);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -503,7 +544,7 @@ async function reslotQueue(admin: AdminClient, now: Date): Promise<void> {
   const { data, error } = await admin
     .from('social_posts')
     .select('post_id, source_type, status, scheduled_for, slot, created_at, platform_results')
-    .in('status', ['scheduled', 'publishing', 'published'])
+    .in('status', ['scheduled', 'scheduled_on_fb', 'publishing', 'published'])
     .or(`status.eq.scheduled,scheduled_for.gte.${sinceIso}`)
     .lte('scheduled_for', untilIso)
     .order('scheduled_for', { ascending: true })
@@ -625,7 +666,7 @@ async function assignSchedules(admin: AdminClient, now: Date): Promise<void> {
     const { data: takenData, error: takenErr } = await admin
       .from('social_posts')
       .select('scheduled_for')
-      .in('status', ['scheduled', 'publishing', 'published'])
+      .in('status', ['scheduled', 'scheduled_on_fb', 'publishing', 'published'])
       .or(`slot.is.null,slot.eq.${kind}`)
       .gte('scheduled_for', takenCutoff)
       .order('scheduled_for', { ascending: true })
@@ -754,17 +795,13 @@ async function dispatchDuePosts(
       // Lane S (2026-11-10) — the badge post's gate, dispatch half: a shop that
       // was unlisted, turned demo, moved to an internal owner or opted out of
       // social features AFTER its badge post was composed is pulled, not posted.
-      if (
-        (post.source_type === 'event_recap' &&
-          !(await isRecapSocialShareAllowed(admin, post.source_ref))) ||
-        (post.source_type === 'supplier_badge' &&
-          !(await isBadgeSocialShareAllowed(admin, vendorIdFromBadgeRef(post.source_ref))))
-      ) {
-        await admin
+      if (!(await shareGatePasses(admin, post))) {
+        const { error: pullErr } = await admin
           .from('social_posts')
           .update({ status: 'pulled', updated_at: new Date().toISOString() })
           .eq('post_id', post.post_id)
           .eq('status', 'scheduled');
+        if (pullErr) logQueryError('runSocialFlush (pull on closed gate)', pullErr, { post_id: post.post_id });
         continue;
       }
 
@@ -830,65 +867,16 @@ async function dispatchDuePosts(
         }
       }
 
-      if (targets.instagram) {
-        const ig = await postToInstagramFeed({
-          imageUrl: effectiveMedia,
-          caption: post.body,
-        });
-        if (ig.ok) {
-          igUrl = ig.postUrl;
-          legs.instagram = {
-            status: 'published',
-            external_id: ig.externalId,
-            post_url: ig.postUrl,
-            posted_at: new Date().toISOString(),
-            error: null,
-          };
-        } else {
-          legs.instagram = {
-            status: 'failed',
-            external_id: null,
-            posted_at: null,
-            error: ig.error,
-          };
-        }
-      }
-
-      if (targets.tiktok) {
-        // TikTok Photo Mode posts the 9:16 STORY card. Same media-precedence
-        // rule (the post's own media WINS), but the fallback is the STORY card.
-        // Title is a short derive (post.title or the first body line); the
-        // caption is the full body. No synchronous permalink (async publish).
-        const tiktokMedia = post.media_url || socialCardUrl(post.post_id, 'story');
-        const tt = await postPhotoToTikTok({
-          imageUrl: tiktokMedia,
-          title: tiktokTitle(post),
-          caption: post.body,
-        });
-        if (tt.ok) {
-          legs.tiktok = {
-            status: 'published',
-            external_id: tt.externalId,
-            post_url: tt.postUrl,
-            posted_at: new Date().toISOString(),
-            error: null,
-          };
-        } else {
-          legs.tiktok = {
-            status: 'failed',
-            external_id: null,
-            posted_at: null,
-            error: tt.error,
-          };
-        }
-      }
+      const other = await otherPlatformLegs(post, targets, effectiveMedia);
+      Object.assign(legs, other.legs);
+      igUrl = other.igUrl;
 
       const stampedAt = new Date().toISOString();
       const anyOk = Object.values(legs).some((l) => l.status === 'published');
       // Prefer Facebook's permalink for the source stamps, else Instagram's.
       const primaryUrl = fbUrl ?? igUrl;
 
-      await admin
+      const { error: stampErr } = await admin
         .from('social_posts')
         .update({
           status: anyOk ? 'published' : 'failed',
@@ -896,29 +884,12 @@ async function dispatchDuePosts(
           updated_at: stampedAt,
         })
         .eq('post_id', post.post_id);
+      if (stampErr) logQueryError('runSocialFlush (record dispatch)', stampErr, { post_id: post.post_id });
 
       // Side-effects back onto the source substrate — same stamps the manual
       // Social Queue actions write, guarded (IS NULL) so a manual stamp wins.
       // Only on a successful publish, and only with a real permalink.
-      if (anyOk && primaryUrl) {
-        if (post.source_type === 'couple_creation') {
-          await admin
-            .from('marketing_share_consents')
-            .update({ posted_at: stampedAt, post_url: primaryUrl, updated_at: stampedAt })
-            .eq('consent_id', post.source_ref)
-            .is('posted_at', null);
-        } else if (post.source_type === 'vendor_feature') {
-          await admin
-            .from('vendor_profiles')
-            .update({
-              social_featured_at: stampedAt,
-              social_post_url: primaryUrl,
-              updated_at: stampedAt,
-            })
-            .eq('vendor_profile_id', post.source_ref)
-            .is('social_featured_at', null);
-        }
-      }
+      if (anyOk && primaryUrl) await stampSource(admin, post, primaryUrl, stampedAt);
     } catch (err) {
       // One bad row must never kill the flush — stamp it failed and move on.
       logQueryError('runSocialFlush (dispatch row)', err, { post_id: post.post_id });
@@ -967,4 +938,130 @@ async function withoutExistingPosts<T>(
     ((data ?? []) as Array<{ source_ref: string }>).map((r) => r.source_ref),
   );
   return candidates.filter((c) => !existing.has(refOf(c)));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shared by dispatch (publish now) and the Facebook settle (a post Facebook
+// published on its own clock): the share gate, the other platforms' legs and
+// the stamps back onto the source.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * The recap and badge gates, asked again at hand-off and dispatch: a recap whose couple opted out or whose event
+ * site is no longer public, or a badge whose shop was unlisted, turned demo, moved to an internal owner or opted out
+ * of social features, is pulled, not posted. Every other source has no later gate.
+ */
+async function shareGatePasses(admin: AdminClient, post: Pick<PostRow, 'source_type' | 'source_ref'>): Promise<boolean> {
+  if (post.source_type === 'event_recap') return isRecapSocialShareAllowed(admin, post.source_ref);
+  if (post.source_type === 'supplier_badge') return isBadgeSocialShareAllowed(admin, vendorIdFromBadgeRef(post.source_ref));
+  return true;
+}
+
+/** Instagram and TikTok legs for one post (Facebook is handled by its caller). Never throws on a platform failure. */
+async function otherPlatformLegs(
+  post: PostRow,
+  targets: { instagram: boolean; tiktok: boolean },
+  effectiveMedia: string,
+): Promise<{ legs: Record<string, PlatformLeg>; igUrl: string | null }> {
+  const legs: Record<string, PlatformLeg> = {};
+  let igUrl: string | null = null;
+  if (targets.instagram) {
+    const ig = await postToInstagramFeed({
+      imageUrl: effectiveMedia,
+      caption: post.body,
+    });
+    if (ig.ok) {
+      igUrl = ig.postUrl;
+      legs.instagram = {
+        status: 'published',
+        external_id: ig.externalId,
+        post_url: ig.postUrl,
+        posted_at: new Date().toISOString(),
+        error: null,
+      };
+    } else {
+      legs.instagram = {
+        status: 'failed',
+        external_id: null,
+        posted_at: null,
+        error: ig.error,
+      };
+    }
+  }
+
+  if (targets.tiktok) {
+    // TikTok Photo Mode posts the 9:16 STORY card. Same media-precedence
+    // rule (the post's own media WINS), but the fallback is the STORY card.
+    // Title is a short derive (post.title or the first body line); the
+    // caption is the full body. No synchronous permalink (async publish).
+    const tiktokMedia = post.media_url || socialCardUrl(post.post_id, 'story');
+    const tt = await postPhotoToTikTok({
+      imageUrl: tiktokMedia,
+      title: tiktokTitle(post),
+      caption: post.body,
+    });
+    if (tt.ok) {
+      legs.tiktok = {
+        status: 'published',
+        external_id: tt.externalId,
+        post_url: tt.postUrl,
+        posted_at: new Date().toISOString(),
+        error: null,
+      };
+    } else {
+      legs.tiktok = {
+        status: 'failed',
+        external_id: null,
+        posted_at: null,
+        error: tt.error,
+      };
+    }
+  }
+
+  return { legs, igUrl };
+}
+
+/** Stamp the source once a post is out — the same stamps the manual Social Queue actions write; a manual one wins. */
+async function stampSource(admin: AdminClient, post: Pick<PostRow, 'source_type' | 'source_ref'>, primaryUrl: string, stampedAt: string): Promise<void> {
+  if (post.source_type === 'couple_creation') {
+    const { error } = await admin
+      .from('marketing_share_consents')
+      .update({ posted_at: stampedAt, post_url: primaryUrl, updated_at: stampedAt })
+      .eq('consent_id', post.source_ref)
+      .is('posted_at', null);
+    if (error) logQueryError('runSocialFlush (stamp consent posted)', error, { consent_id: post.source_ref });
+  } else if (post.source_type === 'vendor_feature') {
+    const { error } = await admin
+      .from('vendor_profiles')
+      .update({ social_featured_at: stampedAt, social_post_url: primaryUrl, updated_at: stampedAt })
+      .eq('vendor_profile_id', post.source_ref)
+      .is('social_featured_at', null);
+    if (error) logQueryError('runSocialFlush (stamp vendor featured)', error, { vendor_profile_id: post.source_ref });
+  }
+}
+
+/** A recap or badge post already on Facebook's schedule whose share gate has since closed is taken back and pulled. */
+async function regateScheduledOnFacebook(admin: AdminClient, now: Date): Promise<void> {
+  const { data, error } = await admin
+    .from('social_posts')
+    .select('post_id, source_type, source_ref, facebook_post_id, platform_results')
+    .eq('status', 'scheduled_on_fb')
+    .in('source_type', ['event_recap', 'supplier_badge'])
+    .gte('scheduled_for', now.toISOString())
+    .limit(50);
+  if (error) {
+    logQueryError('runSocialFlush (re-gate scheduled on Facebook)', error);
+    return;
+  }
+  for (const row of (data ?? []) as Array<{
+    post_id: string;
+    source_type: PostRow['source_type'];
+    source_ref: string;
+    facebook_post_id: string | null;
+    platform_results: Record<string, unknown> | null;
+  }>) {
+    if (await shareGatePasses(admin, row)) continue;
+    const res = await withdrawFromFacebook(admin, row, facebookOps, 'pulled');
+    if (!res.ok) logQueryError('runSocialFlush (re-gate withdraw)', new Error(res.error), { post_id: row.post_id });
+  }
 }

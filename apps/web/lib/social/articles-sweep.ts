@@ -110,7 +110,7 @@ export async function sweepJournalArticles(
     return;
   }
   const existing = (existingData ?? []) as Array<{ source_ref: string; status: string }>;
-  if (existing.some((r) => r.status === 'scheduled' || r.status === 'publishing')) return; // one at a time
+  if (existing.some((r) => r.status === 'scheduled' || r.status === 'scheduled_on_fb' || r.status === 'publishing')) return; // one at a time
   const taken = new Set(existing.map((r) => r.source_ref));
 
   const { data: articleData, error: articleErr } = await onlyPublicArticles(

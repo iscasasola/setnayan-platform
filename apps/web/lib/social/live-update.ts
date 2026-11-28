@@ -11,6 +11,8 @@
  *   • No real update → no post. The slot stays empty and the caller logs it.
  */
 import { MILESTONE_LADDER, MILESTONE_METRICS, type MilestoneMetric } from '@/lib/social/lane-s';
+import { FB_SCHEDULE_MIN_LEAD_MS } from '@/lib/social/facebook-request';
+import { LIVE_COMPOSE_FROM_HOUR, phDayKey, slotInstant } from '@/lib/social/governor';
 
 /** One newly verified supplier, as the post may show it: named only for an active paid size (the hybrid rule). */
 export type LiveShop = { named: boolean; businessName: string; category: string; region: string };
@@ -130,4 +132,15 @@ export function composeLiveUpdate(facts: LiveFacts, dayKey: string, isSunday: bo
 /** One live update per PH day, held by the (source_type, source_ref) partial-unique index. */
 export function liveUpdateSourceRef(dayKey: string): string {
   return `live:${dayKey}`;
+}
+
+/**
+ * True while the 2 PM composer may compose today's post: from 10:00 Manila to 13:50, the last moment Facebook still
+ * takes it as a scheduled post for 14:00 (10 minutes ahead), so the visit that composes it also hands it over.
+ */
+export function inLiveComposeWindow(now: Date): boolean {
+  const day = phDayKey(now);
+  const opens = new Date(`${day}T${String(LIVE_COMPOSE_FROM_HOUR).padStart(2, '0')}:00:00+08:00`).getTime();
+  const closes = slotInstant(day, 'afternoon').getTime() - FB_SCHEDULE_MIN_LEAD_MS;
+  return now.getTime() >= opens && now.getTime() < closes;
 }

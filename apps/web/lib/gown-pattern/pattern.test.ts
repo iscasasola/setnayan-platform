@@ -2,7 +2,7 @@
  * 👗 THE CUTTING BLOCKS DRAW WHAT THE PROTOTYPE DREW — plan step B6 (corpus WHATS_NEXT_Gown_Maker_Port_2026-11-27.md § 5).
  *
  *   1 · Golden: the port's 28 skirt drafts (7 bodies × 4 silhouettes) and 7 bodice drafts equal the prototype's own
- *       outputs on the same inputs, to the micron (prototype-v189.golden.json, made by running gown_maker_v189.html's
+ *       outputs on the same inputs, to the micron (prototype-v197.golden.json, made by running gown_maker_v197.html's
  *       draftSkirt / draftBodice — scripts/gown-pattern-golden.mjs).
  *   2 · Every check of every draft is within 2.5 mm.
  *   3 · Impossible input says why ("Can't draft: check waist to hip."), never a half-drawn block.
@@ -17,7 +17,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import golden from './prototype-v189.golden.json';
+import golden from './prototype-v197.golden.json';
 import { draftSkirt, type GownBlockPiece } from './skirt';
 import { draftBodice } from './bodice';
 import { gownBlocksSvg } from './svg';
@@ -28,6 +28,7 @@ import type { GownMeasures } from '../gown-config';
 type GoldenInput = {
   vals: Record<string, number>;
   sil?: string;
+  designV?: number;
   hem?: string;
   estimate?: Record<string, number>;
   typed?: Record<string, number>;
@@ -42,6 +43,7 @@ function orderOf(g: GoldenInput): GownDraftOrder {
   return {
     vals: g.vals,
     sil: (g.sil ?? 'aline') as GownDraftOrder['sil'],
+    ...(g.designV !== undefined ? { designV: g.designV } : {}),
     hem: (g.hem ?? 'floor') as GownDraftOrder['hem'],
     measures,
     ease: g.ease.map((r) => ({ part: r.part, body: 1, ease: r.ease, gown: 0 })),
@@ -81,16 +83,17 @@ const G = golden as unknown as {
   errors: { case: string; input: GoldenInput; result: { error: string } }[];
   sources: { input: GoldenInput; result: Record<string, unknown> };
   knee: { input: GoldenInput; result: Record<string, unknown> };
+  oldAline: { input: GoldenInput; result: Record<string, unknown> };
   draft: string[][];
 };
 
-test('the golden file holds the prototype’s 28 skirts and 7 bodices', () => {
-  assert.equal(G.skirts.length, 28);
+test('the golden file holds the prototype’s 42 skirts and 7 bodices', () => {
+  assert.equal(G.skirts.length, 42);
   assert.equal(G.bodices.length, 7);
-  assert.equal(new Set(G.skirts.map((s) => s.input.sil)).size, 4);
+  assert.equal(new Set(G.skirts.map((s) => s.input.sil)).size, 6);
 });
 
-test('1 · 28 skirt drafts equal the prototype’s, to the micron', () => {
+test('1 · 42 skirt drafts equal the prototype’s, to the micron', () => {
   for (const [i, s] of G.skirts.entries()) {
     const d = draftSkirt(orderOf(s.input));
     assert.ok(d.ok, `skirt ${i}: refused ${!d.ok && d.error}`);
@@ -120,7 +123,7 @@ test('1 · 7 bodice drafts equal the prototype’s, to the micron', () => {
   }
 });
 
-test('2 · every check of the 28 skirts and 7 bodices is within 2.5 mm', () => {
+test('2 · every check of the 42 skirts and 7 bodices is within 2.5 mm', () => {
   const off: string[] = [];
   for (const s of G.skirts) {
     const d = draftSkirt(orderOf(s.input));
@@ -175,10 +178,33 @@ test('4 · tape beats typed beats estimate, and an estimate marks the draft', ()
 });
 
 test('4b · the Filipiniana saya drafts as the A-line', () => {
-  const a = draftSkirt(orderOf(G.skirts[8]!.input));
-  const t = draftSkirt({ ...orderOf(G.skirts[8]!.input), sil: 'terno' });
+  const a = draftSkirt(orderOf(G.skirts[6]!.input));
+  const t = draftSkirt({ ...orderOf(G.skirts[6]!.input), sil: 'terno' });
+  assert.equal(G.skirts[6]!.input.sil, 'aline');
   assert.ok(a.ok && t.ok);
   if (a.ok && t.ok) near(t.pieces.map((p) => p.outline), a.pieces.map((p) => p.outline), 'terno');
+});
+
+test('4c · v197: the A-line runs straight past the hip to a hem about 3 × hips; the old A-line is Fit and flare', () => {
+  for (const s of G.skirts.filter((x) => x.input.sil === 'aline' || x.input.sil === 'terno')) {
+    const d = draftSkirt(orderOf(s.input));
+    assert.ok(d.ok);
+    if (!d.ok) continue;
+    const hem = d.checks.find((c) => c[0].startsWith('Hem round'));
+    assert.ok(hem, 'an A-line has no hem-round check');
+    assert.ok(Math.abs(hem![2] - hem![1]) <= GOWN_DRAFT_TOLERANCE_CM, `hem round ${hem![2]} is not about 3 × hips ${hem![1]}`);
+    const hip = d.checks.find((c) => c[0].startsWith('Hip line'));
+    assert.equal(hip![1], (s.input.vals.hips ?? 0) + 10, 'the A-line hip ease is not 10 cm');
+  }
+  const f = draftSkirt(orderOf(G.skirts.find((x) => x.input.sil === 'fitflare')!.input));
+  assert.ok(f.ok && !f.checks.some((c) => c[0].startsWith('Hem round')) && /Fit and flare/.test(f.note));
+  // An A-line saved before v197 opens as Fit and flare, blocks included.
+  const old = draftSkirt(orderOf(G.oldAline.input));
+  assert.ok(old.ok && old.sil === 'fitflare', 'an old A-line did not open as Fit and flare');
+  if (old.ok) near(old.pieces.map((p) => p.outline), (G.oldAline.result as { pieces: { outline: unknown }[] }).pieces.map((p) => p.outline), 'oldAline');
+  // A design with no version (none is stored before this port) drafts as what it says.
+  const now = draftSkirt({ ...orderOf(G.oldAline.input), designV: undefined });
+  assert.ok(now.ok && now.sil === 'aline');
 });
 
 test('5 · the printed constants are the prototype’s DRAFT, and the code reads them', () => {

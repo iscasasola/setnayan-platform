@@ -56,6 +56,9 @@ const SIL_LABEL = Object.fromEntries(GOWN_SILHOUETTES.map((s) => [s.id, s.label]
 
 export const GOWN_PRICE_ITEMS = [
   ...GOWN_SILHOUETTES.map((s) => ({ key: `base_${s.id}`, label: s.label, unit: 'gown' as const })),
+  // v197: the old A-line block is now "Fit and flare", its own starting price (unpriced until the designer prices it).
+  // The design config gains the silhouette itself at Builder A's step A6e.
+  { key: 'base_fitflare', label: 'Fit and flare', unit: 'gown' },
   ...GOWN_STOCK_FABRICS.map((f) => ({ key: `fab_${f.id}`, label: f.label, unit: 'm' as const })),
   { key: 'lin_satin', label: 'Satin lining', unit: 'm' },
   { key: 'lin_cotton', label: 'Cotton lining', unit: 'm' },
@@ -83,6 +86,10 @@ export const GOWN_PRICE_ITEMS = [
   { key: 'cape_side', label: 'Cape (side cape): cutting, sewing and finishing', unit: 'pc' },
   { key: 'cape_capelet', label: 'Cape (capelet): cutting, sewing and finishing', unit: 'pc' },
   { key: 'cape_drape', label: 'Cape (one-shoulder drape): cutting, sewing and finishing', unit: 'pc' },
+  // v198: the bodice's own labour lines; the illusion tulle itself prices per metre on the tulle / mesh items.
+  { key: 'illu_bodice', label: 'Illusion bodice: sheer tulle panel and fitting', unit: 'pc' },
+  { key: 'illu_back', label: 'Illusion back: sheer tulle panel and fitting', unit: 'pc' },
+  { key: 'bone_show', label: 'Visible boning: channels and finishing', unit: 'pc' },
   { key: 'flutter', label: 'Flutter cape sleeves: cutting, sewing and finishing', unit: 'pair' },
   { key: 'overlay', label: 'Overlay: cutting, sewing and finishing', unit: 'pc' },
   { key: 'piping', label: 'Piping', unit: 'm' },
@@ -105,6 +112,7 @@ export const GOWN_PRICE_GROUPS: ReadonlyArray<readonly [string, (key: GownPriceK
   ['Closures', (k) => /^(zipper|button|eyelet|cord)$/.test(k)],
   ['Lace and beads', (k) => /^(lace_|bead_)/.test(k)],
   ['Trims', (k) => /^(piping|fringe|feather|ribbon|bow)$/.test(k)],
+  ['Bodice', (k) => /^(illu_bodice|illu_back|bone_show)$/.test(k)],
   // v195: flutter cape sleeves and a skirt overlay, each its own labour line (their fabric is the fabric items).
   ['Sleeves', (k) => k === 'flutter'],
   ['Skirt', (k) => k === 'overlay'],

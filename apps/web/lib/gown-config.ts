@@ -790,6 +790,32 @@ export type GownRangeKey = keyof typeof GOWN_RANGES;
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type GownBeadMix = { hex: string; pct: number };
+
+// ─── A7b · place by hand (v202 `brush`, `lace.manual`; v194's four tools) ───
+// Kept OUT of GownConfig (coordinator, 2026-11-28): a design is stored with a hard 8 KB cap, and a full hand of beads is
+// ~300 KB. The hand work travels beside the design as its own object, with its own cap. Looks never carry it.
+/** How many pieces each hand tool may carry (coordinator, 2026-11-28). The maker stops adding at the cap and says so. */
+export const GOWN_HAND_MAX = { beads: 4000, holes: 400, lace: 400, cuts: 60, cutPoints: 400 } as const;
+/** The hand work's own byte cap (a full 4,000 hand beads at four decimals is about 300 KB). */
+export const GOWN_HAND_MAX_BYTES = 393216;
+/**
+ * The bounds a hand-placed piece must sit in: `ph` is the direction round her (0 = centre front; a scissors line is
+ * unwrapped round the back, so it may pass ±π), `y` a model height, `r` a radius in cm, `u` 0 front … 1 back.
+ */
+export const GOWN_HAND_RANGE = { ph: 4 * Math.PI, y: [-1, 3], r: [0.5, 7.5], spin: 2 * Math.PI, rot: 2 * Math.PI } as const;
+/** A bead placed by hand (v202 `brush.beads`): where, what, its colour (named or `#rrggbb`), size and turn. */
+export type GownHandBead = { ph: number; y: number; kind: GownBeadKind; col: string; mm: number; spin: number };
+/** An area wiped with the eraser (v202 `brush.holes`): it also clears the ready-made placement there. */
+export type GownHandHole = { ph: number; y: number; r: number; what: 'all' | 'beads' | 'lace' | 'cuts' };
+/** A lace motif placed by hand (v202 `lace.manual`): u round the body, height, turn, which lace and its width (cm). */
+export type GownHandLace = { u: number; y: number; rot: number; id: Exclude<GownLace, 'none'>; cm: number };
+/** A scissors cut: a tap makes a round hole (`r` cm); a line drawn all the way round makes a shape (`pts`). */
+export type GownHandCut = { ph: number; y: number; r: number } | { pts: [number, number][] };
+/** Everything placed by hand, sent beside the design (never inside it). */
+export type GownHand = { handBeads: GownHandBead[]; handHoles: GownHandHole[]; handLace: GownHandLace[]; handCuts: GownHandCut[] };
+/** No hand work. */
+export const emptyGownHand = (): GownHand => ({ handBeads: [], handHoles: [], handLace: [], handCuts: [] });
+export const GOWN_HAND_KEYS: readonly (keyof GownHand)[] = ['handBeads', 'handHoles', 'handLace', 'handCuts'];
 export type GownBeadLayer = {
   bead: GownBead;
   beadAt: GownBeadPlace;
@@ -1432,6 +1458,53 @@ function sanitizeMix(v: unknown): GownBeadMix[] | null {
     out.push({ hex: m.hex.toUpperCase(), pct: m.pct });
   }
   return out;
+}
+
+const fin = (v: unknown, lo: number, hi: number): v is number => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+const HR = GOWN_HAND_RANGE;
+const handPh = (v: unknown) => fin(v, -HR.ph, HR.ph), handY = (v: unknown) => fin(v, HR.y[0], HR.y[1]), handR = (v: unknown) => fin(v, HR.r[0], HR.r[1]);
+/** A list from a hand tool: absent is empty; over its cap, or one bad piece, refuses the whole (never repaired). */
+function handList<T>(v: unknown, max: number, one: (x: Record<string, unknown>) => T | null): T[] | null {
+  if (v == null) return [];
+  if (!Array.isArray(v) || v.length > max) return null;
+  const out: T[] = [];
+  for (const x of v) { const got = isRecord(x) ? one(x) : null; if (!got) return null; out.push(got); }
+  return out;
+}
+
+/**
+ * The server's check of the hand work (A7b), the ONE sanitizer for it: Builder B's send path calls this, never a copy.
+ * Within its own byte cap; each list within its cap; every piece inside its range, a catalog bead kind, a named colour
+ * or a hex, a size on the bead range, a stock lace and a width on the lace range. Refuses, never repairs. Absent (null
+ * or undefined) is no hand work; a missing list is empty.
+ */
+export function sanitizeGownHand(input: unknown): { ok: true; hand: GownHand } | { ok: false; reason: GownRefusal } {
+  if (input == null) return { ok: true, hand: emptyGownHand() };
+  const size = sizeOk(input, GOWN_HAND_MAX_BYTES);
+  if (size !== 'ok') return no(size);
+  if (!isRecord(input) || !Object.keys(input).every((k) => GOWN_HAND_KEYS.includes(k as keyof GownHand))) return no('not_a_design');
+  const r = input;
+  const named = ids(GOWN_BEAD_COLOURS).filter((c) => c !== 'custom');
+  const handBeads = handList<GownHandBead>(r.handBeads, GOWN_HAND_MAX.beads, (x) =>
+    handPh(x.ph) && handY(x.y) && isOneOf(x.kind, GOWN_BEAD_KINDS) && typeof x.col === 'string' && (HEX.test(x.col) || isOneOf(x.col, named)) && onRange(x.mm, 'beadMm') && fin(x.spin, 0, HR.spin)
+      ? { ph: x.ph, y: x.y, kind: x.kind, col: x.col[0] === '#' ? x.col.toUpperCase() : x.col, mm: x.mm, spin: x.spin } : null);
+  const handHoles = handList<GownHandHole>(r.handHoles, GOWN_HAND_MAX.holes, (x) =>
+    handPh(x.ph) && handY(x.y) && handR(x.r) && isOneOf(x.what, ['all', 'beads', 'lace', 'cuts'] as const) ? { ph: x.ph, y: x.y, r: x.r, what: x.what } : null);
+  const laces = ids(GOWN_LACES).filter((l): l is Exclude<GownLace, 'none'> => l !== 'none');
+  const handLace = handList<GownHandLace>(r.handLace, GOWN_HAND_MAX.lace, (x) =>
+    fin(x.u, 0, 1) && handY(x.y) && fin(x.rot, -HR.rot, HR.rot) && isOneOf(x.id, laces) && onRange(x.cm, 'laceCm') ? { u: x.u, y: x.y, rot: x.rot, id: x.id, cm: x.cm } : null);
+  const handCuts = handList<GownHandCut>(r.handCuts, GOWN_HAND_MAX.cuts, (x) => {
+    if (x.pts != null) {
+      const P = x.pts;
+      if (!Array.isArray(P) || P.length < 4 || P.length > GOWN_HAND_MAX.cutPoints) return null;
+      const pts: [number, number][] = [];
+      for (const q of P) { if (!Array.isArray(q) || q.length !== 2 || !handPh(q[0]) || !handY(q[1])) return null; pts.push([q[0], q[1]]); }
+      return { pts };
+    }
+    return handPh(x.ph) && handY(x.y) && handR(x.r) ? { ph: x.ph, y: x.y, r: x.r } : null;
+  });
+  if (!handBeads || !handHoles || !handLace || !handCuts) return no('not_a_design');
+  return { ok: true, hand: { handBeads, handHoles, handLace, handCuts } };
 }
 
 function sanitizeBeadLayer(r: Record<string, unknown>, base: GownBeadLayer): Result<GownBeadLayer> {

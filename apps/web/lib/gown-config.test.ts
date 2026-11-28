@@ -379,3 +379,39 @@ test('v2 (accuracy review, v197): an A-line saved at v1 opens as Fit and flare; 
   const ball = sanitizeGownConfig({ ...startingGownConfig(), v: 1, sil: 'ball' }, o);
   assert.ok(ball.ok && ball.config.sil === 'ball', 'only the A-line moves');
 });
+
+test('A7b hand work: its own object beside the design, each list capped and range-checked, refused never repaired', () => {
+  const { sanitizeGownHand, emptyGownHand, GOWN_HAND_MAX, GOWN_HAND_MAX_BYTES } = G;
+  const bead = { ph: 0.4, y: 1.2, kind: 'crystal', col: 'gold', mm: 3, spin: 1 }, hole = { ph: -0.4, y: 1.2, r: 2, what: 'beads' };
+  const lace = { u: 0.3, y: 1.1, rot: 0.5, id: 'floral', cm: 8 }, round = { ph: 1, y: 1.0, r: 2 }, poly = { pts: [[0, 1], [0.2, 1], [0.2, 0.9], [0, 0.9]] };
+  const c = sanitizeGownHand({ handBeads: [{ ...bead, col: '#e6b8c2' }], handHoles: [hole], handLace: [lace], handCuts: [round, poly] });
+  assert.ok(c.ok);
+  if (c.ok) { assert.equal(c.hand.handBeads[0]!.col, '#E6B8C2'); assert.deepEqual(c.hand.handCuts, [round, poly]); }
+  // None at all, or a list missing, is empty.
+  assert.deepEqual(sanitizeGownHand(null), { ok: true, hand: emptyGownHand() });
+  assert.deepEqual(sanitizeGownHand(undefined), { ok: true, hand: emptyGownHand() });
+  assert.deepEqual(sanitizeGownHand({ handBeads: [bead] }), { ok: true, hand: { ...emptyGownHand(), handBeads: [bead] } });
+  // The design never carries it: a design with hand lists is a key the design does not know.
+  assert.ok(!('handBeads' in startingGownConfig()));
+  // A full hand of 4,000 beads at four decimals fits its own byte cap.
+  const r4 = (x: number) => Math.round(x * 1e4) / 1e4;
+  const beads = Array.from({ length: GOWN_HAND_MAX.beads }, (_, i) => ({ ph: r4(-Math.PI + (i / 4000) * 2 * Math.PI), y: r4(0.3 + (i % 97) / 60), kind: 'sequin', col: '#E6B8C2', mm: 3.5, spin: r4((i * 2.399) % 6.28) }));
+  assert.ok(sanitizeGownHand({ handBeads: beads }).ok);
+  assert.ok(JSON.stringify(beads).length < GOWN_HAND_MAX_BYTES);
+  refused(sanitizeGownHand({ handBeads: beads.map((b) => ({ ...b, pad: 'x'.repeat(100) })) }), 'too_big', 'past its byte cap');
+  for (const [what, x] of [
+    ['an unknown key', { handBeads: [], extra: [] }],
+    ['not an object', []],
+    ['too many beads', { handBeads: Array.from({ length: GOWN_HAND_MAX.beads + 1 }, () => bead) }],
+    ['too many cuts', { handCuts: Array.from({ length: GOWN_HAND_MAX.cuts + 1 }, () => round) }],
+    ['a bead size off its range', { handBeads: [{ ...bead, mm: 9 }] }],
+    ['a custom bead colour with no hex', { handBeads: [{ ...bead, col: 'custom' }] }],
+    ['a bead kind not in the catalog', { handBeads: [{ ...bead, kind: 'diamond' }] }],
+    ['an eraser wider than the brush', { handHoles: [{ ...hole, r: 30 }] }],
+    ['an eraser that removes something else', { handHoles: [{ ...hole, what: 'flowers' }] }],
+    ['a lace that is not one', { handLace: [{ ...lace, id: 'none' }] }],
+    ['lace off the body', { handLace: [{ ...lace, u: 1.5 }] }],
+    ['a cut shape of three points', { handCuts: [{ pts: [[0, 1], [0.1, 1], [0, 0.9]] }] }],
+    ['a height that is not a number', { handCuts: [{ ...round, y: Number.NaN }] }],
+  ] as const) refused(sanitizeGownHand(x), 'not_a_design', what);
+});

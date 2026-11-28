@@ -21,8 +21,15 @@
  * 🔒 lib/gown-maker.test.ts
  */
 import {
+  GOWN_BACKS,
   GOWN_CAPES,
+  GOWN_CLOSURES,
+  GOWN_COLOURS,
+  GOWN_NECKLINES,
   GOWN_SILHOUETTES,
+  GOWN_SLEEVES,
+  GOWN_TRAINS,
+  GOWN_VEILS,
   GOWN_STOCK_FABRICS,
   GOWN_BEAD_KINDS,
   GOWN_FLOWER_SIZES,
@@ -657,6 +664,95 @@ export function formatGownDesignBlock(design: Pick<GownConfig, 'sil' | 'fabric'>
     forBride.estimateCentavos != null ? `Estimate: ${formatCentavosPhp(forBride.estimateCentavos)}. The quote decides.` : 'Ask for a quote: the designer prices this design.',
     `${GOWN_DESIGN_REF}${designId}`,
   ].join('\n');
+}
+
+// ── B8 · the design card and the quote it pre-fills ────────────────────────────────────────────────────────────
+// The card's words are computed on the server from the stored design, so both sides read the same rows and the
+// bride's device never holds a cost. The quote pre-fill is the shop's only (it is built where the cost lines are).
+
+/** Her add-ons as stored: ids only, deduped, in the list's own order (the order the quote prices them in). */
+export function gownAddOnsInOrder(ids: readonly string[]): GownAddOnKey[] {
+  const picked = new Set(ids);
+  return GOWN_ADD_ONS.map((a) => a.id).filter((id) => picked.has(id));
+}
+
+/** The stored add-ons, or null when the value does not check out (the design then reads as "couldn't read"). */
+export function gownStoredAddOns(v: unknown): GownAddOnKey[] | null {
+  if (v == null) return [];
+  if (!Array.isArray(v) || !v.every((x) => typeof x === 'string' && ADD_ON_KEYS.has(x))) return null;
+  return gownAddOnsInOrder(v as string[]);
+}
+
+/** One row of the card: "Neckline · Sweetheart". Words only. */
+export type GownCardRow = { label: string; words: string };
+
+const labelIn = (list: readonly { id: string; label: string }[], id: unknown) => (typeof id === 'string' ? list.find((x) => x.id === id)?.label ?? null : null);
+
+/**
+ * The design as the card's rows: the shape, fabric, colour, neckline, sleeves, back, train, closure and veil she
+ * chose, then her add-ons and what she painted by hand. A choice the stored design does not name is left out (it is
+ * never guessed). Both sides read these; no row carries money.
+ */
+export function gownDesignRows(config: unknown, addOns: readonly GownAddOnKey[], hand: GownHand | null): GownCardRow[] {
+  const c = (typeof config === 'object' && config !== null ? config : {}) as Partial<Record<keyof GownConfig, unknown>>;
+  const rows: GownCardRow[] = [];
+  const row = (label: string, words: string | null) => {
+    if (words) rows.push({ label, words });
+  };
+  row('Shape', labelIn(GOWN_SILHOUETTES, c.sil));
+  row('Fabric', typeof c.fabric === 'string' ? fabricLabel(c.fabric) : null);
+  row('Colour', c.colour === 'custom' ? 'Her own colour' : labelIn(GOWN_COLOURS, c.colour));
+  row('Neckline', labelIn(GOWN_NECKLINES, c.neck));
+  row('Sleeves', labelIn(GOWN_SLEEVES, c.sleeve));
+  row('Back', labelIn(GOWN_BACKS, c.back));
+  if (c.train !== 'none') row('Train', labelIn(GOWN_TRAINS, c.train));
+  row('Closure', labelIn(GOWN_CLOSURES, c.closure));
+  if (c.veil !== 'none') row('Veil', labelIn(GOWN_VEILS, c.veil));
+  if (addOns.length) row('Add-ons', addOns.map((id) => GOWN_ADD_ONS.find((a) => a.id === id)!.label).join(', '));
+  row('By hand', gownHandLine(hand));
+  return rows;
+}
+
+/** The card's words (pinned: the card draws these, never its own). */
+export const GOWN_CARD_WORDS = {
+  shopTitle: 'Gown design',
+  brideTitle: 'Your gown design',
+  sent: 'Sent',
+  fresh: 'New',
+  replaced: 'Replaced',
+  brideReplaced: 'You sent a newer design below. This one is kept for the record.',
+  shopReplaced: 'They sent a newer design below. Quote from that one.',
+  estimate: 'Estimate',
+  ask: 'Ask for a quote',
+  brideEstimate: 'From the shop’s starting price and what you picked. Their quote decides.',
+  shopEstimate: 'From your price list and what she picked. Your quote decides.',
+  brideAsk: 'The shop prices this design in the chat.',
+  shopAsk: 'Your price list doesn’t price this design yet, so you quote it.',
+  unread: 'Couldn’t load this gown design',
+  unreadWhy: 'The design is saved; only this read failed. It is never shown as empty.',
+} as const;
+
+/** The quote the shop's Make a quote opens with: what she saw as the offer, and her priced add-ons as its lines. */
+export type GownQuotePrefill = { offerCentavos: number; note: string; lines: { label: string; centavos: number }[] };
+
+/**
+ * The pre-fill (plan B8: "quote pre-fill equals the estimate and its extras"). The offer is the estimate she was shown
+ * at Send (else the shop's own total now; else nothing, and the shop types it). The lines are her add-ons the shop
+ * prices, as she saw them: amounts a bride may hold. The design's cost lines are NEVER lines of a quote, which she
+ * reads. When the add-ons alone would come to more than the offer (the list changed since), they are left out, so
+ * the offer the card opens with can still be sent.
+ */
+export function gownQuotePrefill(estimateCentavos: number | null, forShop: GownDesignForShop | null, rows: readonly GownCardRow[]): GownQuotePrefill {
+  const offer = estimateCentavos ?? forShop?.totalCentavos ?? 0;
+  const lines = (forShop?.lines ?? [])
+    .filter((l) => l.group === 'Add-ons' && !l.included && l.amountCentavos !== null && l.amountCentavos > 0)
+    .map((l) => ({ label: l.label, centavos: l.amountCentavos as number }));
+  const extras = lines.reduce((a, l) => a + l.centavos, 0);
+  return {
+    offerCentavos: Math.max(0, offer),
+    note: rows.map((r) => `${r.label}: ${r.words}`).join('\n').slice(0, 500),
+    lines: extras <= offer ? lines : [],
+  };
 }
 
 /** The stored row a design message names, or null. */

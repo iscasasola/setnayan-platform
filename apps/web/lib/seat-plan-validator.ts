@@ -10,7 +10,10 @@
  *   3. a seat number is a real chair: inside the table's capacity, not a removed chair, not already taken;
  *   4. no table holds more people than it has chairs;
  *   5. never at the Sweetheart, a locked table or a Spare table;
- *   6. never a guest who declined (or one who is not on the list).
+ *   6. never a guest who declined (or one who is not on the list);
+ *   7. a party never splits: a newly seated +1 or kid sits at the table (or linked run) of the guest who brought them,
+ *      when that guest is seated — except, under the host's "nearest" pick, a non-role +1 of a guest at a VIP table
+ *      (owner R3: principal sponsors' +1s sit together nearest the sponsors).
  * Pure. It returns every broken rule, in words, so a refusal can say what it refused.
  */
 
@@ -21,11 +24,13 @@ export type CheckTable = {
   removed_seats?: number[] | null;
   locked?: boolean | null;
   table_kind?: string | null;
+  is_vip?: boolean | null;
+  link_group_id?: string | null;
 };
 export type CheckSeat = { guest_id: string; table_id: string; seat_number: number | null };
-export type CheckGuest = { guest_id: string; rsvp_status: string };
+export type CheckGuest = { guest_id: string; rsvp_status: string; plus_one_of_guest_id?: string | null; role?: string | null };
 
-export type PlanBreak = { rule: 'table' | 'twice' | 'chair' | 'capacity' | 'closed' | 'guest'; guestId: string; tableId: string };
+export type PlanBreak = { rule: 'table' | 'twice' | 'chair' | 'capacity' | 'closed' | 'guest' | 'party'; guestId: string; tableId: string };
 
 function chairsOf(t: CheckTable): { real: Set<number>; count: number } {
   const removed = new Set((t.removed_seats ?? []).filter((n) => Number.isInteger(n) && n >= 0 && n < t.capacity));
@@ -44,6 +49,8 @@ export function checkAutoSeatPlan(input: {
   guests: ReadonlyArray<CheckGuest>;
   existing: ReadonlyArray<CheckSeat>;
   added: ReadonlyArray<CheckSeat>;
+  /** The host's VIP +1 pick is "nearest" (their +1s sit together near the VIP tables, not beside them). */
+  nearestVipPlusOnes?: boolean;
 }): PlanBreak[] {
   const breaks: PlanBreak[] = [];
   const tableById = new Map(input.tables.map((t) => [t.table_id, t]));
@@ -80,6 +87,25 @@ export function checkAutoSeatPlan(input: {
     const n = (headcount.get(s.table_id) ?? 0) + 1;
     headcount.set(s.table_id, n);
     if (n > chairs.count) breaks.push({ rule: 'capacity', guestId: s.guest_id, tableId: s.table_id });
+  }
+  // 7 · A party never splits.
+  const tableOf = new Map<string, string>();
+  for (const x of input.existing) tableOf.set(x.guest_id, x.table_id);
+  for (const x of input.added) tableOf.set(x.guest_id, x.table_id);
+  const placeOf = (tableId: string) => {
+    const t = tableById.get(tableId);
+    return t?.link_group_id ? `link:${t.link_group_id}` : `table:${tableId}`;
+  };
+  for (const s of input.added) {
+    const by = guestById.get(s.guest_id)?.plus_one_of_guest_id;
+    if (!by) continue;
+    const at = tableOf.get(by);
+    if (!at || placeOf(at) === placeOf(s.table_id)) continue;
+    const headTable = tableById.get(at);
+    const vip = !!headTable && (headTable.table_kind === 'vip' || (headTable.table_kind == null && headTable.is_vip === true));
+    const role = guestById.get(s.guest_id)?.role ?? 'guest';
+    if (input.nearestVipPlusOnes && vip && role === 'guest') continue;
+    breaks.push({ rule: 'party', guestId: s.guest_id, tableId: s.table_id });
   }
   return breaks;
 }

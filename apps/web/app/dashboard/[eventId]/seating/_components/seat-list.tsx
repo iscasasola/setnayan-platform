@@ -8,7 +8,17 @@ import gs from '@/app/dashboard/[eventId]/guests/_components/guests-screen.modul
 import { useRowState } from '@/app/dashboard/[eventId]/guests/_components/use-row-state';
 import { dragBandOf, dragEdgeStep, dragScrollBy, dragScrollerOf } from '@/lib/drag-edge-scroll';
 import { TAP_SLOP_MOUSE, TAP_SLOP_TOUCH } from '@/lib/march-drag';
-import { SEAT_HOLD_MS, readSeatDrop, seatDropAttrs, seatTallyWords, type SeatDropTarget } from '@/lib/seat-list-drop';
+import {
+  NAMES_ON_A_CARD,
+  SEAT_HOLD_MS,
+  cardUnits,
+  nameChipWords,
+  readSeatDrop,
+  seatDropAttrs,
+  seatTallyWords,
+  type SeatCardLook,
+  type SeatDropTarget,
+} from '@/lib/seat-list-drop';
 import { formatCount } from '@/lib/format-number';
 import { VipMark } from './vip-mark';
 import { RiseScreen, WithRiseClose } from '@/app/_components/rise/rise-screen';
@@ -42,7 +52,14 @@ export type SeatListGuest = {
   side: 'bride' | 'groom' | 'both';
   /** Who placed the seat, spoken with it ("placed by you", lib/seat-why.ts); absent = not recorded. */
   placed?: string | null;
+  /** Who brings this guest (`guests.plus_one_of_guest_id`) — on a card they draw joined to them as ONE unit. */
+  plusOneOf?: string | null;
+  /** The full name of the guest who brings them — a +1 sitting away from them reads "Ramon's +1" on a Names chip. */
+  bringer?: string | null;
+  /** Their seat is locked (#17) — a hand move answers "Locked · Unlock to move". */
+  locked?: boolean;
 };
+
 export type SeatListSeat = { tableId: string; seat: number; guest: SeatListGuest | null };
 export type SeatListUnit = { key: string; label: string; seated: number; capacity: number; seats: SeatListSeat[]; vip?: boolean };
 
@@ -75,6 +92,7 @@ export function SeatList({
   tableTools,
   onDrop,
   dim = () => false,
+  cardLook = 'faces',
 }: {
   units: SeatListUnit[];
   /** The coming guests with no seat. */
@@ -106,6 +124,8 @@ export function SeatList({
   onDrop: (guestId: string, target: SeatDropTarget) => void;
   /** ⇅ A guest the shared Show or the search leaves out — drawn faint, their seat still taken. */
   dim?: (guestId: string) => boolean;
+  /** ⇅ On the cards: Faces or Names. */
+  cardLook?: SeatCardLook;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   /* ⇔ ONE state for every row's buttons (Swap · Remove), the Guests list's own fit (BUTTON_RULE 3a). */
@@ -307,7 +327,7 @@ export function SeatList({
             <span aria-hidden className={`${gs.dot} ${sideClass(g.side)}`} />
             <span className={gs.nmt}>{g.name}</span>
           </div>
-          <div className={gs.meta}>{picked ? 'Moving — tap a seat' : meta}</div>
+          <div className={gs.meta}>{picked ? 'Moving — tap a seat' : g.locked ? `${meta} · Locked` : meta}</div>
         </button>
         {canEdit ? (
           <span className={gs.acts} data-fit-row="" data-row-acts="">
@@ -423,6 +443,52 @@ export function SeatList({
       )}
     </span>
   );
+  /** 🧑‍🤝‍🧑 A unit on a card — ONE joined face pair (Faces) or ONE name chip (Names). */
+  const unitChip = (unit: SeatListGuest[]) => {
+    const lead = unit[0]!;
+    const key = `u:${lead.id}`;
+    const faint = unit.every((g) => dim(g.id));
+    if (cardLook === 'names') {
+      /* 🪪 Drawing `prototypes/seats_names_2026-11-27/`: 32 px tall, 14 px medium, the short name — then a hairline and
+         "+1" ("+2" for a bigger party); a +1 sitting away from the guest who brings them reads "Ramon's +1". A chip is
+         never a button (the card is), so the 44 px press is the card's. */
+      const words = nameChipWords(unit, lead.bringer);
+      return (
+        <span
+          key={key}
+          className="inline-flex h-8 max-w-full items-center rounded-full bg-ink/[0.06] px-3 text-sn-14 font-medium text-ink/85"
+          data-seat-card-name=""
+          data-seat-face={lead.id}
+          data-seat-unit={unit.length > 1 ? unit.map((g) => g.id).join(' ') : undefined}
+          data-seat-dim={faint ? '' : undefined}
+          style={faint ? { opacity: 0.3 } : undefined}
+          aria-label={unit.map((g) => g.name).join(' and ')}
+        >
+          <span className="truncate" aria-hidden>
+            {words.name}
+          </span>
+          {words.plus ? (
+            <>
+              <span aria-hidden className="mx-2 h-4 w-px shrink-0 bg-ink/20" data-seat-hairline="" />
+              <span aria-hidden className="shrink-0 text-ink/60">
+                {words.plus}
+              </span>
+            </>
+          ) : null}
+        </span>
+      );
+    }
+    if (unit.length === 1) return chip(lead, key);
+    return (
+      <span key={key} className="inline-flex shrink-0 items-center rounded-full bg-ink/[0.04] pr-0.5" data-seat-pair="" data-seat-unit={unit.map((g) => g.id).join(' ')}>
+        {unit.map((g, i) => (
+          <span key={g.id} className={i > 0 ? '-ml-2 rounded-full ring-2 ring-cream' : 'rounded-full'}>
+            {chip(g, g.id)}
+          </span>
+        ))}
+      </span>
+    );
+  };
   const dotted = (key: string) => (
     <span key={key} aria-hidden className="inline-block h-[26px] w-[26px] shrink-0 rounded-full border-[1.5px] border-dashed border-ink/20" data-seat-card-empty="" />
   );
@@ -436,6 +502,7 @@ export function SeatList({
       onClick={tap(onPress)}
       aria-label={label}
       data-seat-card={key}
+      data-seat-card-look={cardLook}
       {...drop}
     >
       <span className="flex w-full min-w-0 items-baseline gap-2">
@@ -448,6 +515,20 @@ export function SeatList({
       {foot}
     </button>
   );
+  /** Names: every unit at the table, the first 12 as chips, then "+N more" (the drawing's cap). */
+  const namesOf = (people: SeatListGuest[]): ReactNode[] => {
+    const units = cardUnits(people);
+    const shown = units.slice(0, NAMES_ON_A_CARD).map(unitChip);
+    const more = units.length - NAMES_ON_A_CARD;
+    return more > 0
+      ? [
+          ...shown,
+          <span key="more" className="inline-flex h-8 items-center px-1 text-sn-14 font-medium text-ink/60" data-seat-names-more="">
+            +{formatCount(more)} more
+          </span>,
+        ]
+      : shown;
+  };
   const tableCard = (u: SeatListUnit) => {
     const people = u.seats.filter((x) => x.guest);
     const chairs = Math.min(CARD_CHAIRS, u.capacity);
@@ -470,8 +551,14 @@ export function SeatList({
         {full ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.4} /> : null}
         {formatCount(u.seated)} of {formatCount(u.capacity)}
       </span>,
-      [...shownPeople.map((x) => chip(x.guest!, `${x.tableId}:${x.seat}`)), ...Array.from({ length: emptyShown }, (_, i) => dotted(`e${i}`))],
-      moreEmpty > 0 ? <span className="text-[12.5px] text-ink/60">+{formatCount(moreEmpty)} empty</span> : null,
+      cardLook === 'names'
+        ? namesOf(people.map((x) => x.guest!))
+        : [...cardUnits(shownPeople.map((x) => x.guest!)).map(unitChip), ...Array.from({ length: emptyShown }, (_, i) => dotted(`e${i}`))],
+      cardLook === 'names' ? (
+        u.capacity - u.seated > 0 ? <span className="text-sn-12 text-ink/60">{formatCount(u.capacity - u.seated)} empty</span> : null
+      ) : moreEmpty > 0 ? (
+        <span className="text-[12.5px] text-ink/60">+{formatCount(moreEmpty)} empty</span>
+      ) : null,
       // While someone is picked ("Move"), the card is where they go: the table's next free seat.
       pickedId ? (free ? `Move here — ${u.label}, seat ${free.seat + 1}` : `${u.label} is full`) : `${u.label}, ${seatTallyWords(u.seated, u.capacity, formatCount)} — open`,
       () => {
@@ -630,8 +717,8 @@ export function SeatList({
               UNSEATED,
               'To seat',
               formatCount(unseated.length),
-              unseated.slice(0, CARD_CHAIRS).map((g) => chip(g, g.id)),
-              unseated.length > CARD_CHAIRS ? <span className="text-[12.5px] text-ink/60">+{formatCount(unseated.length - CARD_CHAIRS)} more</span> : null,
+              cardLook === 'names' ? namesOf(unseated) : cardUnits(unseated.slice(0, CARD_CHAIRS)).map(unitChip),
+              cardLook === 'faces' && unseated.length > CARD_CHAIRS ? <span className="text-[12.5px] text-ink/60">+{formatCount(unseated.length - CARD_CHAIRS)} more</span> : null,
               `To seat, ${formatCount(unseated.length)} — open`,
               () => {
                 setAdding(false);

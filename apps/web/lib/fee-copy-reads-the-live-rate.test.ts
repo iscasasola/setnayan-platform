@@ -96,15 +96,17 @@ test('the pages that quote the rate read the live schedule', () => {
   }
 });
 
-test('/pricing share lines: hosts read only "Hosts pay 0% commission." — the fee lives on supplier pages and /terms', () => {
-  // ⚖ Owner 27 Nov 2026 (L9 P11): /pricing is the hosts' page. Its meta, OG and Twitter say only the ruled sentence; the
-  // booking fee is explained on /for-suppliers and in /terms. (Was: audit 2026-10-12 E4, every share line named the fee.)
-  // SABOTAGE: put "booking fee" or "keep 100%" back into the metadata → RED.
+test('/pricing share lines: hosts read no commission figure — the fee lives on supplier pages and /terms', () => {
+  // ⚖ Owner 28 Nov 2026 (superseding 27 Nov L9 P11): /pricing is the hosts' page and hosts own the event, so its meta,
+  // OG and Twitter say no commission at all, "0%" included; the booking fee is explained on /for-suppliers and in /terms.
+  // (Was: audit 2026-10-12 E4, every share line named the fee.)
+  // SABOTAGE: put "booking fee", "commission" or "keep 100%" back into the metadata → RED.
   const page = src('app/(shell)/pricing/page.tsx');
   const meta = page.slice(page.indexOf('export const metadata'), page.indexOf('};', page.indexOf('export const metadata')));
   assert.ok(meta.length > 200, `metadata slice floor: ${meta.length}`);
   assert.doesNotMatch(meta, /keep 100%/i, 'a supplier is told they keep 100%');
   assert.doesNotMatch(meta, /booking fee/i, 'the hosts\' pricing page names the supplier fee in its share lines');
-  assert.equal((meta.match(/\$\{HOSTS_PAY_ZERO\}/g) ?? []).length, 3, 'description, openGraph and twitter must each say the ruled sentence');
+  assert.doesNotMatch(meta, /commission/i, 'the hosts\' pricing page tells hosts about commission (owner 28 Nov)');
+  assert.equal((meta.match(/pay your suppliers directly/g) ?? []).length, 3, 'description, openGraph and twitter must each say hosts pay suppliers directly');
   assert.doesNotMatch(page, /supplierCommissionShort|booking fee/i, 'the hosts\' pricing page names the supplier fee');
 });

@@ -8,8 +8,6 @@ import { GuestSpotlight } from '@/app/_components/guest-spotlight';
 import { GIFT_PHOTOS_LINE } from '@/lib/setnayan-gift-words';
 import { fetchV2VendorCatalog, type BuildStatus } from '@/lib/v2-catalog';
 import { formatPhp } from '@/lib/php';
-import { SPECIALIZED_TOOLS_PLAN_LINE } from '@/lib/specialized-tools-access';
-import { HOSTS_PAY_ZERO } from '@/lib/commission-promise';
 import { BRAND_OG_IMAGES, BRAND_TWITTER_IMAGES } from '@/lib/brand-og';
 import { PASS_CARD_DESIGNS } from '@/lib/pass-card';
 import { PRO_THEMES } from '@/lib/invite-themes';
@@ -38,20 +36,20 @@ import { MAKER_PAGE_STAGES, makerStageLabel } from '@/app/dashboard/[eventId]/la
  *
  * ⚠ `dynamic` IS DECLARED ONCE, ON `app/(shell)/layout.tsx`, NOT HERE (a layout's `dynamic` covers its children).
  *
- * ⚖ THE AUDIENCE RULE (owner 2026-09-22, R7; audit 2026-10-12 E4). The share lines are read by couples AND suppliers:
- * "0% commission" is a couple's unqualified truth; a supplier also pays a booking fee on couples we introduce, so every
- * share line names it.
+ * ⚖ THE AUDIENCE RULE (owner 28 Nov 2026, superseding 27 Nov L9 P11). /pricing is the HOSTS' page: hosts own the event,
+ * so it says no commission figure at all — not "0% commission" either. The share lines say only that hosts pay their
+ * suppliers directly; the booking fee is explained on the supplier pages and in /terms.
  */
 export const metadata = {
   title: 'Pricing',
   description:
-    `Build your whole event in one place — beautifully made, for you and the people you know. Paid once, for the event and everyone on it, in Philippine peso. ${HOSTS_PAY_ZERO}`,
+    `Build your whole event in one place — beautifully made, for you and the people you know. Paid once, for the event and everyone on it, in Philippine peso. You pay your suppliers directly.`,
   alternates: { canonical: '/pricing' },
   openGraph: {
     images: BRAND_OG_IMAGES,
     title: 'Pricing · Setnayan',
     description:
-      `Crafted for every event — everything to plan is included, and what you add is paid once for the event. ${HOSTS_PAY_ZERO}`,
+      `Crafted for every event — everything to plan is included, and what you add is paid once for the event. You pay your suppliers directly.`,
     url: '/pricing',
     type: 'website',
     siteName: 'Setnayan',
@@ -60,7 +58,7 @@ export const metadata = {
     images: BRAND_TWITTER_IMAGES,
     card: 'summary_large_image',
     title: 'Pricing · Setnayan',
-    description: `Build your whole event in one place · paid once per event · ${HOSTS_PAY_ZERO}`,
+    description: `Build your whole event in one place · paid once per event · you pay your suppliers directly`,
   },
 };
 
@@ -172,14 +170,14 @@ export default async function PricingPage() {
   // 💳 The four supplier plans (2026-11-14, drawing § 4) — names from TIER_LABEL, prices from the supplier catalogue's
   // monthly rows, what each adds from the gates (specialized tools, the chatbot). Never a typed figure. ⚖ Owner 27 Nov
   // (L9 P25): the entry plan's price reads "₱0 a month" — formatted by `lib/php.ts`, never "No fee" (a Free shop still
-  // pays the booking fee on clients Setnayan brings, and that is explained on /for-suppliers). ⚖ Owner 27 Nov (L9 P3):
-  // specialized tools are said once, "Specialized tools come with Pro and Ultra.", on the plans that carry them.
+  // pays the booking fee on clients Setnayan brings, and that is explained on /for-suppliers). ⚖ Owner 28 Nov: the
+  // specialized tools are paid, each with a free 30-day trial, so no plan row here says it includes them.
   const vendorPrice = (sku: string): number | null => vendorSkus.find((r) => r.sku_code === sku)?.price_php ?? null;
   const supplierPlans: { key: string; name: string; php: number | null; what: string }[] = [
     { key: 'entry', name: TIER_LABEL.free, php: 0, what: 'Your page, portfolio and the starter tools; the AI chatbot once Verified' },
     { key: 'plus', name: TIER_LABEL.solo, php: vendorPrice('solo_vendor_monthly'), what: 'More live cards, more storage and team seats' },
-    { key: 'pro', name: TIER_LABEL.pro, php: vendorPrice('pro_vendor_monthly'), what: `${SPECIALIZED_TOOLS_PLAN_LINE} Adds the smarter AI chatbot.` },
-    { key: 'ultra', name: TIER_LABEL.enterprise, php: vendorPrice('enterprise_vendor_monthly'), what: `${SPECIALIZED_TOOLS_PLAN_LINE} The highest limits and the smarter AI chatbot.` },
+    { key: 'pro', name: TIER_LABEL.pro, php: vendorPrice('pro_vendor_monthly'), what: 'Adds the smarter AI chatbot.' },
+    { key: 'ultra', name: TIER_LABEL.enterprise, php: vendorPrice('enterprise_vendor_monthly'), what: 'The highest limits and the smarter AI chatbot.' },
   ];
   const papicFrom = prices.papicRungs[0] ?? null;
   const papicCheaperAtSetup = prices.papicRungs.some((r) => r.signup != null);
@@ -216,8 +214,8 @@ export default async function PricingPage() {
     },
     {
       name: 'Suppliers',
-      tip: `Find, compare and book verified suppliers; you pay them directly. ${HOSTS_PAY_ZERO}`,
-      what: `Find, compare, book. ${HOSTS_PAY_ZERO}`,
+      tip: 'Find, compare and book verified suppliers; you pay them directly.',
+      what: 'Find, compare, book.',
     },
     {
       name: 'Door check-in by QR',

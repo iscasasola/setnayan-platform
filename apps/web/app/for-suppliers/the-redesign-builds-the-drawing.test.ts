@@ -144,10 +144,11 @@ test('the Toolkit sheet names the one Toolkit list — the page’s one count is
   assert.doesNotMatch(PAGE + CLIENT, /\b33\b|\b11 tools\b|\b17 graphs\b/, 'a Toolkit number is typed');
 });
 
-test('🔒 owner 27 Nov (L9 P3): the plan cards say "Specialized tools come with Pro and Ultra." — no start date is read', () => {
-  // the plan cards tick exactly Pro and Ultra, read from the one public list
-  for (const t of STAIR_TIERS) assert.equal(stairHasTools(t), SPECIALIZED_TOOLS_PUBLIC_TIERS.includes(t), t);
-  assert.equal(PLAN_PAID_TOOLS_OK, 'Specialized tools come with Pro and Ultra.');
+test('🔒 owner 28 Nov: the plan cards say "Specialized tools are paid, each with a free 30-day trial." — no start date is read', () => {
+  // no plan card ticks them (they are paid on every plan), read from the one public list
+  assert.deepEqual(SPECIALIZED_TOOLS_PUBLIC_TIERS, [], 'a plan is said to include the specialized tools (owner 28 Nov)');
+  for (const t of STAIR_TIERS) assert.equal(stairHasTools(t), false, t);
+  assert.equal(PLAN_PAID_TOOLS_OK, 'Specialized tools are paid, each with a free 30-day trial.');
   assert.equal(PLAN_PAID_TOOLS_LOCKED, PLAN_PAID_TOOLS_OK, 'a locked card says a different sentence');
   assert.doesNotMatch(PLAN_PAID_TOOLS_OK + PLAN_PAID_TOOLS_LOCKED, /₱|one-time|all tools/i);
   // the old open-to-all start date opens nothing any more: the route no longer reads it and the page never decides on it

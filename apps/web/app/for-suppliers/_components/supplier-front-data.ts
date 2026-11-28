@@ -195,7 +195,9 @@ export function foldedLines(t: GrowTier): GrowLine[] {
   if (firstTools === t) out.push({ text: 'Every free widget, included', lead: true });
   // 🧰 Owner a02673ac (23 Nov): a paid widget is bought once in the Toolkit and works only on a paid plan — so the plan
   // says it lets them work, never that it includes them.
-  // ⚖ Owner 27 Nov (L9 P3): said once, on the first plan that carries them — "Specialized tools come with Pro and Ultra."
+  // ⚖ Owner 28 Nov (superseding 27 Nov L9 P3): the specialized tools are paid, each with a free 30-day trial — no plan
+  // carries them, so `SPECIALIZED_TOOLS_PUBLIC_TIERS` is empty and no grow line claims them; each card's locked tools
+  // row says the one sentence instead.
   if (t === SPECIALIZED_TOOLS_PUBLIC_TIERS[0]) out.push({ text: SPECIALIZED_TOOLS_PLAN_LINE, lead: true });
   if (firstBasic === t) out.push({ text: 'AI chatbot, included', tail: ': answers price, dates and what’s included', lead: true });
   if (firstAdvanced === t) {
@@ -397,7 +399,7 @@ export type PlanStair = {
   branches: StairFact;
   /** On Discover and Find — every verified shop, on every plan (`marketplaceSearchable`, gated on verification). */
   marketplace: boolean;
-  /** The card ticks specialized tools (`stairHasTools`, `SPECIALIZED_TOOLS_PUBLIC_TIERS` — owner 27 Nov, L9 P3). */
+  /** The card ticks specialized tools (`stairHasTools`, `SPECIALIZED_TOOLS_PUBLIC_TIERS` — owner 28 Nov: none does). */
   tools: boolean;
 };
 
@@ -410,9 +412,9 @@ function stairRole(t: VendorTier): string {
 }
 
 /**
- * Does the plan card tick specialized tools? ⚖ Owner 27 Nov (L9 P3): "specialized tools are on Pro and Ultra only" — read
- * from `SPECIALIZED_TOOLS_PUBLIC_TIERS`, never a list typed here. (The gate still opens them on Plus until its own
- * migration; see that constant.)
+ * Does the plan card tick specialized tools? ⚖ Owner 28 Nov (superseding 27 Nov L9 P3): they are paid, each with a free
+ * 30-day trial, so no plan ticks them — read from `SPECIALIZED_TOOLS_PUBLIC_TIERS`, never a list typed here. (The gate
+ * still opens them on the paid plans until its own migration; see that constant.)
  */
 export function stairHasTools(t: VendorTier): boolean {
   return SPECIALIZED_TOOLS_PUBLIC_TIERS.includes(t);
@@ -646,9 +648,9 @@ export function toolkitShelves(papicCapture: boolean): ToolkitShelf[] {
 /* ── #plans · the rail and the plan cards ────────────────────────────────────────────────────────────────────────── */
 
 /**
- * The words a plan card says about specialized tools. ⚖ Owner 27 Nov (L9 P3): one sentence, "Specialized tools come with
- * Pro and Ultra." (`SPECIALIZED_TOOLS_PLAN_LINE`), ticked on those plans (`stairHasTools`) and crossed below them — never
- * "Plus · all tools" and never a one-time price on Free and Verified.
+ * The words a plan card says about specialized tools. ⚖ Owner 28 Nov: one sentence, "Specialized tools are paid, each
+ * with a free 30-day trial." (`SPECIALIZED_TOOLS_PLAN_LINE`), beside a lock on every card (`stairHasTools`) — never
+ * "Plus · all tools", never a plan that includes them, and never a price.
  */
 export const PLAN_PAID_TOOLS_OK = SPECIALIZED_TOOLS_PLAN_LINE;
 export const PLAN_PAID_TOOLS_LOCKED = SPECIALIZED_TOOLS_PLAN_LINE;

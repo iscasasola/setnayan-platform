@@ -105,7 +105,7 @@ test('🔒 L9 P1: Event Plus is never said to carry Setnayan AI on the home page
 });
 
 test('🔒 L9 P9 · P24 · P25: /terms says who pays what; /about names no "cut"; the Free supplier plan is not "No fee"', () => {
-  assert.match(src('app/(shell)/terms/page.tsx'), /Setnayan does not hold those funds\. Hosts pay 0% commission\.\s+Suppliers pay Setnayan a booking fee under the supplier terms\./);
+  assert.match(src('app/(shell)/terms/page.tsx'), /Setnayan does not hold those funds\.\s+Suppliers pay Setnayan a booking fee under the supplier terms\./);
   for (const rel of ['app/(shell)/about/page.tsx', 'app/(shell)/tl/about/page.tsx']) {
     assert.doesNotMatch(src(rel), /take a cut|takes a cut|ng cut/i, `${rel}: the "keep 100%" half-truth`);
   }

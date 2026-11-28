@@ -62,3 +62,10 @@ SPEC IMPACT: Medium.
 - /privacy no longer describes TikTok data flows. No job in this repository erases stored `patiktok_oauth_grants` keys, so the page does not claim they were erased.
 - L9 P2 conflicts with DECISION_LOG 23 Nov: the L9 list should be corrected.
 - Corpus rows to record: DECISION_LOG (commission wording on host pages; specialized tools Pro/Ultra; /monogram redirect).
+
+### 28 Nov · owner rulings applied on this PR's lines
+
+- **No commission line for hosts.** Hosts own the event, so no host page says "0% commission" any more: /pricing (meta, OG, Twitter, the Suppliers row), /about, /tl/about, /our-story, /terms, the home JSON-LD, llms.txt and the AI answers. They say hosts pay suppliers directly. `HOSTS_PAY_ZERO` is gone. The booking fee stays on the supplier pages and in /terms.
+- **Specialized tools are paid, each with a free 30-day trial.** No plan is said to include them, and no price is named. The /for-suppliers cards show the line with a lock. The /pricing and /features Pro and Ultra rows and the plan summary words no longer claim them. The gate still opens them on paid plans, and no trial is wired yet.
+- **Setnayan AI is on Event Pro and Event Ultra.** The home JSON-LD no longer says it comes with Event Plus.
+- The /features ⓘ says "Coming" once (the chip), so the Root map no longer counts it twice.

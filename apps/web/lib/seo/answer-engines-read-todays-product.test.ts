@@ -96,10 +96,11 @@ test('llms.txt prints every saved question with our true answer, word for word',
 test('the commission answer says who pays what — the live rate when read, no rate (never the default) when not', () => {
   const live = { ...BOOKING_FEE, rate: 0.04 };
   const on = withFee('true', () => aiAnswers({ bookingFee: live }).find((a) => a.id === 'commission')!.answer);
-  assert.match(on, /^Hosts pay 0% commission\./, 'the host half is not the ruled sentence (brand.md claim 2)');
+  assert.match(on, /^Hosts pay suppliers directly,/, 'the host half does not say hosts pay suppliers directly');
+  assert.doesNotMatch(on, /0% commission/, 'hosts are told "0% commission" (owner 28 Nov: hosts own the event)');
   assert.match(on, /4% of the first/);
   const unread = withFee('true', () => aiAnswers({ bookingFee: null }).find((a) => a.id === 'commission')!.answer);
-  assert.ok(!/%/.test(unread.replace('Hosts pay 0% commission.', '')), 'an unread schedule printed a rate');
+  assert.ok(!/%/.test(unread), 'an unread schedule printed a rate');
   assert.match(unread, /For Suppliers page/);
   const off = withFee(undefined, () => aiAnswers({ bookingFee: live }).find((a) => a.id === 'commission')!.answer);
   assert.match(off, /no booking fee while it is switched off/);

@@ -127,11 +127,12 @@ test('the page says nothing the brief forbids', () => {
   }
 });
 
-test('owner 27 Nov (L9 P3): specialized tools are said once, on Pro, as "Specialized tools come with Pro and Ultra."; nothing calls the booth an add-on', async () => {
+test('owner 28 Nov: no plan claims the specialized tools (they are paid, each with a free 30-day trial); nothing calls the booth an add-on', async () => {
   const { growLines } = await import('./_components/supplier-front-data');
   const words = (t: 'solo' | 'pro' | 'enterprise') => growLines(t).map((l) => l.text + (l.tail ?? '')).join(' | ');
-  assert.match(words('pro'), /Specialized tools come with Pro and Ultra\./);
-  assert.doesNotMatch(words('solo'), /Specialized tools|Paid widgets work here/, 'Plus claims the specialized tools (L9 P3)');
+  for (const t of ['solo', 'pro'] as const) {
+    assert.doesNotMatch(words(t), /Specialized tools|Paid widgets work here/, `${t} claims the specialized tools (owner 28 Nov)`);
+  }
   for (const t of ['solo', 'pro', 'enterprise'] as const) {
     assert.doesNotMatch(words(t), /3D seat plan|Papic Challenges|All specialized tools/, `${t} says a paid widget comes with the plan`);
   }

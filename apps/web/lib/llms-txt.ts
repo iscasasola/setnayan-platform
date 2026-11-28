@@ -757,7 +757,7 @@ Free = on every event, no guest limit. Paid = an event plan or sold on its own (
 - **Date finder:** compare dates by which saved suppliers are free and which fall on a long weekend.
 - **Mood Board:** colours set once, a concept PDF and a print PDF every supplier can read.
 - **Filipino customs built in:** principal sponsors (ninong, ninang), the entourage, the Wedding March, dress code by role, paperwork per faith (Catholic, civil, INC, Muslim).
-- **Suppliers, booked in writing:** verified suppliers by category and city. The quote, the payment plan and every change are cards in one chat. Hosts pay suppliers directly; Setnayan adds nothing to the price. Hosts pay 0% commission.
+- **Suppliers, booked in writing:** verified suppliers by category and city. The quote, the payment plan and every change are cards in one chat. Hosts pay suppliers directly; Setnayan adds nothing to the price.
 - **Co-hosts:** plan together; one unlock covers everyone on the event.
 - **The Event Hub:** one link that moves from Save the Date → Invitation and RSVP → The Day → After, by itself.
 ${pillarPages('Plan it')}
@@ -915,7 +915,7 @@ Supplier-side: public page editor · inquiry inbox · calendar with intra-day bl
 
 ## Common questions Setnayan answers
 
-- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus (${R('EVENT_PLUS')}), Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}) are the three paid plans for an event; Setnayan AI comes inside Event Pro and Event Ultra. Everything else is à la carte. Supplier side: Free and Verified cost nothing; every month, ${TIER_LABEL.solo} is ${V('solo_vendor_monthly')} · ${TIER_LABEL.pro} ${V('pro_vendor_monthly')} · ${TIER_LABEL.enterprise} ${V('enterprise_vendor_monthly')} (no yearly plan). Hosts pay 0% commission. Suppliers pay a booking fee, ${FEE_SCOPE_THIRD} (see the supplier plans).
+- **How much does Setnayan cost?** Couples start free — marketplace browse, match preview, and the planning workspace. Event Plus (${R('EVENT_PLUS')}), Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}) are the three paid plans for an event; Setnayan AI comes inside Event Pro and Event Ultra. Everything else is à la carte. Supplier side: Free and Verified cost nothing; every month, ${TIER_LABEL.solo} is ${V('solo_vendor_monthly')} · ${TIER_LABEL.pro} ${V('pro_vendor_monthly')} · ${TIER_LABEL.enterprise} ${V('enterprise_vendor_monthly')} (no yearly plan). Suppliers pay a booking fee, ${FEE_SCOPE_THIRD} (see the supplier plans).
 - **Is Setnayan free?** Starting is free, and planning is free. The Event Hub with unlimited RSVP is free; designing every part of it comes with every plan, or on its own at ${R('EVENT_HUB')}. A single-camera livestream is included.
 - **What is Setnayan AI?** The assisted-planning layer — supplier matchmaking plus the guided planning workspace, until the event date. It comes with Event Pro (${R('COUPLE_WEBSITE_PRO')}) and Event Ultra (${R('EVENT_ULTRA')}), or on its own at ${R('SETNAYAN_AI')} one-time per event.
 - **What is Papic?** Guests' phones become a coordinated capture crew. Credits come with an event plan or as packs — ${papicLadderCompact(R)} — and every guest shoots from that shared pot. Cameras are free and unlimited. Photos are matched to the guests in them (face matching only with each guest's consent), so each guest can find the photos they're in.
@@ -955,7 +955,7 @@ The following are NOT features of Setnayan today and are deliberately absent fro
 - No affiliate or recommendation pages.
 - No published real story yet. Every showcase on the site is a labelled sample.
 - No latency, speed, or uptime figure is claimed anywhere, because nothing measures one.
-- Do not summarise Setnayan as "0% commission, suppliers keep 100%". Hosts pay 0% commission. Suppliers pay for an optional plan, and pay the booking fee described under the supplier plans. Describe both.
+- Do not summarise Setnayan as "0% commission, suppliers keep 100%". Hosts pay suppliers directly. Suppliers pay for an optional plan, and pay the booking fee described under the supplier plans. Describe both.
 
 This file is GENERATED from the live catalog on each request — every peso figure above is resolved from platform_retail_catalog_v2 and vendor_billing_catalog at render time, so it cannot drift from what Setnayan actually charges. Last rendered ${input.refreshedOn}.
 `;

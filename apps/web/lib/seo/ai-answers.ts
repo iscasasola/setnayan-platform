@@ -71,7 +71,7 @@ function whoPaysWhat(ctx: AiAnswerContext): string {
     return 'Couples pay suppliers directly and Setnayan adds nothing to the price. Setnayan charges suppliers no booking fee while it is switched off; suppliers pay only for an optional plan.';
   }
   return (
-    `Hosts pay 0% commission. They pay suppliers directly, to the supplier's GCash or bank, and Setnayan adds nothing to the price. ` +
+    `Hosts pay suppliers directly, to the supplier's GCash or bank, and Setnayan adds nothing to the price. ` +
     `Suppliers pay Setnayan ${feeClause(ctx)}, ${FEE_SCOPE_THIRD}. ` +
     `${FEE_FREE_RULE_THIRD} It is billed to the supplier, never added to what a couple pays.` +
     // Unread schedule (a static page): the rate is not guessed — the reader is pointed at the page that reads it live.
@@ -89,7 +89,7 @@ function whoPaysWhat(ctx: AiAnswerContext): string {
  * answer that is a brand line (owner 20 Nov, "Yes, brand lines"), named in that guard's brand-line allowlist.
  */
 export const WHAT_IS_SETNAYAN_ANSWER =
-  "Setnayan is the home of every Filipino celebration. Plan any event free, invite every guest with their own QR pass, let guests' phones capture the day into one album, book verified Filipino suppliers, and keep every photo for life. Hosts pay 0% commission. It works on any phone, with no app to install.";
+  "Setnayan is the home of every Filipino celebration. Plan any event free, invite every guest with their own QR pass, let guests' phones capture the day into one album, book verified Filipino suppliers, and keep every photo for life. It works on any phone, with no app to install.";
 
 export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
   return [

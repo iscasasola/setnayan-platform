@@ -35,7 +35,6 @@ import { FEE_SCOPE } from '@/lib/booking-fee-who-words';
 import { formatCount } from '@/lib/format-number';
 import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 import { TIER_CAPS, TIER_LABEL, type VendorTier } from '@/lib/vendor-tier-caps';
-import { SPECIALIZED_TOOLS_PLAN_LINE } from '@/lib/specialized-tools-access';
 
 export type RowStatus = 'live' | 'coming';
 export type RowPrice = 'free' | 'free-plus' | 'paid' | 'credits' | 'per-day' | 'in-plans';
@@ -403,8 +402,8 @@ export const SUPPLIER_PLANS: readonly PlanColumn[] = [
   { name: 'Free', tag: 'Open and sell.', price: { kind: 'free' }, lines: ['Shop page, cards, bundles', 'Chat, quotes, payment plans', ...capLines('free')] },
   { name: 'Verified', tag: 'Found in search.', price: { kind: 'free' }, lines: ['The badge on every card', ...capLines('verified'), 'AI chatbot included', 'Everything in Free'] },
   { name: 'Plus', tag: 'More room to sell.', price: { kind: 'paid', catalogue: 'supplier', codes: ['solo_vendor_monthly'] }, lines: ['Everything in Verified', ...capLines('solo')] },
-  { name: 'Pro', tag: 'Grow.', price: { kind: 'paid', catalogue: 'supplier', codes: ['pro_vendor_monthly'] }, lines: [...capLines('pro'), SPECIALIZED_TOOLS_PLAN_LINE, 'Performance insights', 'The smarter AI chatbot included'] },
-  { name: 'Ultra', tag: 'Scale.', price: { kind: 'paid', catalogue: 'supplier', codes: ['enterprise_vendor_monthly'] }, lines: ['Everything in Pro', ...capLines('enterprise'), SPECIALIZED_TOOLS_PLAN_LINE] },
+  { name: 'Pro', tag: 'Grow.', price: { kind: 'paid', catalogue: 'supplier', codes: ['pro_vendor_monthly'] }, lines: [...capLines('pro'), 'Performance insights', 'The smarter AI chatbot included'] },
+  { name: 'Ultra', tag: 'Scale.', price: { kind: 'paid', catalogue: 'supplier', codes: ['enterprise_vendor_monthly'] }, lines: ['Everything in Pro', ...capLines('enterprise')] },
 ];
 
 /** RW-12 · a plan's lines with its credits line naming the catalogue's count, when the row is read and active. */

@@ -44,12 +44,6 @@ import { FEE_FREE_RULE, FEE_SCOPE } from '@/lib/booking-fee-who-words';
 export const COMMISSION_PCT = 0;
 
 /**
- * 🔒 THE ONE COMMISSION LINE A HOST READS (brand.md claim 2; owner 27 Nov 2026): exactly "Hosts pay 0% commission.",
- * built from the rule's own number so a page quotes it by name, never as a copied figure.
- */
-export const HOSTS_PAY_ZERO = `Hosts pay ${COMMISSION_PCT}% commission.`;
-
-/**
  * The promise as a COUPLE reads it. True unqualified, and deliberately carries
  * no fee sentence: a couple is not billed and never will be, so adding one
  * would raise a question they do not have.

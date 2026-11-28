@@ -99,11 +99,11 @@ test('storageFits: up to the allowance fits, one byte past does not — on every
 test('the refusal names the plan, what is left, the way to make room and the next plan up — and touches nothing', () => {
   const m = storageFullMessage('solo', 49.9 * GB, 200_000_000);
   assert.match(m, /This file is 200 MB, and your Plus plan has 100 MB of its 50 GB left\./);
-  assert.match(m, /Remove files from an event to make room or move to Pro: every business tool and the specialized tools, no limit on services, people or branches, and 256 GB\./);
+  assert.match(m, /Remove files from an event to make room or move to Pro: every business tool, no limit on services, people or branches, and 256 GB\./);
   assert.match(m, /Nothing you stored was changed\./);
   const full = storageFullMessage('pro', 256 * GB, 1_000_000);
   assert.match(full, /Your Pro plan’s 256 GB of storage is full\./);
-  assert.match(full, /move to Ultra: every business tool and the specialized tools, no limit on services, people or branches, and 1 TB/);
+  assert.match(full, /move to Ultra: every business tool, no limit on services, people or branches, and 1 TB/);
   // Ultra has no plan above it, and there are no packs: no "move to", never an invented offer.
   const ultra = storageFullMessage('enterprise', 1000 * GB, 1_000_000);
   assert.match(ultra, /Your Ultra plan’s 1 TB of storage is full\. Remove files from an event to make room\./);
@@ -301,8 +301,8 @@ test('a plan reads its account features WITH its size — never the size alone',
   assert.equal(planSummaryWords('free'), 'run your own clients, 1 live service, just you, main shop only, and 50 MB');
   assert.equal(planSummaryWords('verified'), 'on the marketplace with the basics, 3 live services, just you, main shop only, and 1 GB');
   assert.equal(planSummaryWords('solo'), `every business tool, ${TIER_CAPS.solo.serviceCardsTotal} live services, you and ${TIER_CAPS.solo.agentAccounts} more, main shop only, and 50 GB`);
-  assert.equal(planSummaryWords('pro'), 'every business tool and the specialized tools, no limit on services, people or branches, and 256 GB');
-  assert.equal(planSummaryWords('enterprise'), 'every business tool and the specialized tools, no limit on services, people or branches, and 1 TB');
+  assert.equal(planSummaryWords('pro'), 'every business tool, no limit on services, people or branches, and 256 GB');
+  assert.equal(planSummaryWords('enterprise'), 'every business tool, no limit on services, people or branches, and 1 TB');
   for (const p of VENDOR_TIERS) assert.doesNotMatch(planSummaryWords(p), /Infinity|—|NaN/, p);
   assert.deepEqual(VENDOR_TIERS.map(planRole), ['Free', 'Verified', 'The starter business', 'The growing business', 'The big studio']);
   // Every surface that shows a paid plan reads the one line — none prints its size alone.

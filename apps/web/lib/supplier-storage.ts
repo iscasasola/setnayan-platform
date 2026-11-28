@@ -57,9 +57,10 @@ function words(bytes: number): string {
  *   Free      "run your own clients, 1 live service, just you, main shop only, and 256 MB"
  *   Verified  "on the marketplace with the basics, 3 live services, just you, main shop only, and 2 GB"
  *   Plus      "every business tool, 15 live services, you and 2 more, main shop only, and 128 GB"
- *   Pro/Ultra "every business tool and the specialized tools, no limit on services, people or branches, and 500 GB" / "… and 1 TB"
- * The /for-suppliers plan cards, the Plans page taglines and the storage-full way up all say it. ⚖ Owner 27 Nov (L9 P3):
- * specialized tools are said on Pro and Ultra only (`SPECIALIZED_TOOLS_PUBLIC_TIERS`), never "every tool" on Plus.
+ *   Pro/Ultra "every business tool, no limit on services, people or branches, and 500 GB" / "… and 1 TB"
+ * The /for-suppliers plan cards, the Plans page taglines and the storage-full way up all say it. ⚖ Owner 28 Nov
+ * (superseding 27 Nov L9 P3): the specialized tools are paid, each with a free 30-day trial, so no plan says it includes
+ * them (`SPECIALIZED_TOOLS_PUBLIC_TIERS` is empty), and never "every tool".
  */
 export function planSummaryWords(plan: string | null | undefined): string {
   const t = asVendorTier(plan);

@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 2024
+# ledger: 2027
 # tables: 553
-# columns: 6632
-# notnull: 3982
+# columns: 6644
+# notnull: 3990
 [ledger]
 20260512000000
 20260513000000
@@ -2033,7 +2033,10 @@
 20271363480132
 20271363906595
 20271364844438
+20271365089548
+20271365405436
 20271365509280
+20271365567400
 20271366154053
 20271366373891
 [columns]
@@ -3271,6 +3274,7 @@ event_floor_booths.updated_at
 event_floor_booths.x_pos
 event_floor_booths.y_pos
 event_floor_booths.zone
+event_floor_plan.auto_seat_rsvps
 event_floor_plan.cocktail_enabled
 event_floor_plan.cocktail_h
 event_floor_plan.cocktail_label
@@ -3299,9 +3303,13 @@ event_floor_plan.guest_seat_view
 event_floor_plan.priority_order
 event_floor_plan.published_at
 event_floor_plan.role_seating
+event_floor_plan.seat_suggestions
 event_floor_plan.service_entrance_enabled
 event_floor_plan.service_entrance_x
 event_floor_plan.service_entrance_y
+event_floor_plan.speakers_enabled
+event_floor_plan.speakers_x
+event_floor_plan.speakers_y
 event_floor_plan.stage_h
 event_floor_plan.stage_w
 event_floor_plan.stage_x
@@ -3751,8 +3759,10 @@ event_tables.capacity
 event_tables.created_at
 event_tables.event_id
 event_tables.is_vip
+event_tables.label_is_auto
 event_tables.link_group_id
 event_tables.link_group_label
+event_tables.locked
 event_tables.public_id
 event_tables.qr_published_at
 event_tables.qr_token
@@ -3760,6 +3770,7 @@ event_tables.removed_seats
 event_tables.rotation_deg
 event_tables.sort_order
 event_tables.table_id
+event_tables.table_kind
 event_tables.table_label
 event_tables.table_type
 event_tables.updated_at
@@ -6623,13 +6634,17 @@ social_milestones.threshold
 social_posts.body
 social_posts.created_at
 social_posts.created_by
+social_posts.facebook_post_id
+social_posts.first_comment
 social_posts.hold_until
 social_posts.link_url
 social_posts.media_url
+social_posts.media_urls
 social_posts.platform_results
 social_posts.post_id
 social_posts.publish_after
 social_posts.scheduled_for
+social_posts.slot
 social_posts.source_ref
 social_posts.source_type
 social_posts.status
@@ -9434,6 +9449,7 @@ event_floor_booths.updated_at
 event_floor_booths.x_pos
 event_floor_booths.y_pos
 event_floor_booths.zone
+event_floor_plan.auto_seat_rsvps
 event_floor_plan.cocktail_enabled
 event_floor_plan.cocktail_h
 event_floor_plan.cocktail_label
@@ -9456,9 +9472,13 @@ event_floor_plan.event_id
 event_floor_plan.ghost_booths_dismissed
 event_floor_plan.ghost_booths_enabled
 event_floor_plan.guest_seat_view
+event_floor_plan.seat_suggestions
 event_floor_plan.service_entrance_enabled
 event_floor_plan.service_entrance_x
 event_floor_plan.service_entrance_y
+event_floor_plan.speakers_enabled
+event_floor_plan.speakers_x
+event_floor_plan.speakers_y
 event_floor_plan.stage_h
 event_floor_plan.stage_w
 event_floor_plan.stage_x
@@ -9731,12 +9751,15 @@ event_tables.capacity
 event_tables.created_at
 event_tables.event_id
 event_tables.is_vip
+event_tables.label_is_auto
+event_tables.locked
 event_tables.public_id
 event_tables.qr_token
 event_tables.removed_seats
 event_tables.rotation_deg
 event_tables.sort_order
 event_tables.table_id
+event_tables.table_kind
 event_tables.table_label
 event_tables.table_type
 event_tables.updated_at

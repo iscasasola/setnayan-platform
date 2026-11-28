@@ -1,12 +1,5 @@
-import { getCurrentUser } from '@/lib/auth';
-import { notFound, redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import {
-  isLiveStudioSetupHost,
-  requirePanoodControlRoomMember,
-} from '@/lib/panood-control-room-access';
 import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import {
   canPublishMultiCam,
@@ -26,8 +19,8 @@ import {
 } from '@/lib/live-studio-overlays';
 import { deriveMonogram } from '@/lib/monogram';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
-import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { PanoodProgramSurface } from './program-surface';
+import { gateProgramOutput } from './gate';
 
 export const metadata = {
   title: 'Program output',
@@ -81,27 +74,8 @@ type Props = { params: Promise<{ eventId: string }> };
 
 export default async function PanoodProgramOutputPage({ params }: Props) {
   const { eventId } = await params;
-  const supabase = await createClient();
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-
-  const { data: event } = await supabase
-    .from('events')
-    .select(`event_id, slug, ${HERO_MONOGRAM_COLUMNS}, logo_wanted`)
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (!event) notFound();
-
-  // WAVE 5: the unified controller opens this window, and its own host gate accepts
-  // one membership shape more than the legacy control room's does — a legacy
-  // `event_members.member_type = 'coordinator'`, who can already read and write the
-  // channels under their own RLS. A pop-out stricter than the screen that opened it
-  // would bounce a coordinator off the surface their own controller just launched, so
-  // this accepts EITHER predicate, and the wider one only while the flag is on.
-  const isMember =
-    (await requirePanoodControlRoomMember(eventId, user.id)) ||
-    (liveStudioRoamEnabled() && (await isLiveStudioSetupHost(eventId, user.id)));
-  if (!isMember) redirect(`/dashboard/${eventId}`);
+  // Sign-in, "no such event" and membership were decided by ./layout.tsx before streaming; same request, same answer.
+  const { supabase, event } = await gateProgramOutput(eventId);
 
   // ── WAVE 2 · broadcast overlays (Live Studio · owner-locked 2026-07-25).
   //

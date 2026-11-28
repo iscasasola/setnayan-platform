@@ -1,12 +1,9 @@
-import { getCurrentUser } from '@/lib/auth';
-import { redirect } from 'next/navigation';
 
-import { createClient } from '@/lib/supabase/server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { readLogoFrame } from '@/lib/open-shop-logo';
-import { resolveOwnedActiveShop } from '@/lib/active-shop';
 import { AddYourLogo } from './_components/add-your-logo';
 import { planOfferPath } from '@/lib/supplier-plan-offer';
+import { gateOpenShopLogo } from './gate';
 
 /**
  * /open-shop/logo — "Add your logo", the screen RIGHT AFTER "Open my shop" (owner, the 2026-11-06 gate walk, A2).
@@ -27,31 +24,8 @@ export default async function OpenShopLogoPage({
 }) {
   // W1-B21: the plan a supplier picked on /for-suppliers rides through to its offer.
   const offer = planOfferPath((await searchParams).plan);
-  const supabase = await createClient();
-  const user = await getCurrentUser();
-  if (!user) redirect('/login?next=%2Fopen-shop%2Flogo&as=vendor');
-
-  // 🔀 THE SHOP THIS SCREEN SAVES TO is the one `updateVendorProfileField` writes: the ACTIVE shop, owner-only
-  // (`resolveOwnedActiveShop`, lib/active-shop.ts) — never a second "find my shop by user id" here.
-  const shop = await resolveOwnedActiveShop(supabase, user.id);
-  if (!shop.ok) redirect('/open-shop');
-  // The shop's own definer view (never the table — see app/open-shop/page.tsx). A refused read is not "no shop".
-  const { data, error } = await supabase
-    .from('vendor_profiles_self')
-    .select('vendor_profile_id, business_name, logo_url, logo_focal_x, logo_focal_y, logo_zoom')
-    .eq('vendor_profile_id', shop.vendorProfileId)
-    .maybeSingle();
-  if (error) throw new Error(`open-shop/logo: could not read your shop (${error.message})`);
-  const row = data as {
-    vendor_profile_id: string;
-    business_name: string | null;
-    logo_url: string | null;
-    logo_focal_x: number | null;
-    logo_focal_y: number | null;
-    logo_zoom: number | null;
-  } | null;
-  // No named shop yet → the wizard is the next step, not this one.
-  if (!row?.business_name?.trim()) redirect('/open-shop');
+  // Sign-in, "no shop" and "no name yet" were decided by ./layout.tsx before streaming; same request, same answer.
+  const { row } = await gateOpenShopLogo();
 
   // A presign hiccup is a missing thumbnail, never a 500 (the same rule as /open-shop's logo read).
   let displayUrl: string | null = null;

@@ -6,6 +6,7 @@ import { GownMakerPanel } from '@/app/vendor-dashboard/shop/_components/gown-mak
 import { GownFabricTypesSurface } from '@/app/admin/studio/_surfaces/gown-fabric-types-surface';
 import { GownOrderPanel } from '@/app/vendor-dashboard/clients/[eventId]/_components/gown-order-panel';
 import { gownDesignOf } from '@/lib/gown-maker';
+import { ScanLab } from './scan-lab';
 import { emptyGownQuantities, startingGownBody, startingGownConfig } from '@/lib/gown-config';
 
 const P = 100; // ₱1 in centavos — SAMPLE amounts only
@@ -73,6 +74,13 @@ export default function Lab({ view }: { view: string }) {
             sentAt: '2026-11-26T10:00:00Z',
           }}
         />
+      </main>
+    );
+  }
+  if (view === 'scan') {
+    return (
+      <main className="mx-auto max-w-xl p-4" data-gown-shop-lab={view}>
+        <ScanLab stock={STOCK} />
       </main>
     );
   }

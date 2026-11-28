@@ -18,7 +18,7 @@ export const GOWN_FOCUS = {
   gown: [0.48, 0.95, 0], m_full: [0.5, 1.05, 0], m_bust: [0.7, 0.42, 0], m_waist: [0.6, 0.42, 0], m_hips: [0.51, 0.48, 0], m_sh: [0.8, 0.45, 0],
   m_ub: [0.66, 0.4, 0], m_arm: [0.6, 0.5, -0.75], m_leg: [0.3, 0.66, 0], heels: [0.05, 0.36, 0.5],
   neck: [0.78, 0.44, 0], collar: [0.87, 0.34, 0], sleeve: [0.76, 0.5, 0], sleeveFab: [0.76, 0.5, 0], pieces: [0.58, 0.72, 0], back: [0.76, 0.5, Math.PI], closure: [0.7, 0.52, Math.PI],
-  blusher: [0.86, 0.45, 0.6], train: [0.3, 1.45, 2.6], veil: [0.32, 1.45, 2.6], hems: [0.2, 0.62, 0], shape: [0.62, 0.7, 0], boning: [0.72, 0.52, 0],
+  blusher: [0.86, 0.45, 0.6], bow: [0.66, 0.6, Math.PI], train: [0.3, 1.45, 2.6], veil: [0.32, 1.45, 2.6], hems: [0.2, 0.62, 0], shape: [0.62, 0.7, 0], boning: [0.72, 0.52, 0],
   fabric: [0.62, 0.66, 0], lace: [0.6, 0.66, 0], laceAt: [0.6, 0.66, 0], bead: [0.65, 0.75, 0], beadAt: [0.65, 0.75, 0], cut: [0.56, 0.62, 0], slit: [0.35, 0.7, 0],
   trim: [0.5, 1, 0], petti: [0.33, 0.9, 0], pleat: [0.4, 0.85, 0], tex: [0.62, 0.72, 0], darts: [0.66, 0.6, 0], drape: [0.65, 0.72, 0], bustle: [0.33, 0.9, Math.PI], skirtLayers: [0.33, 0.9, 0],
   cape: [0.55, 1, -2.4], capeFab: [0.55, 1, -0.8], capeLen: [0.5, 1, -2.4], capeEdge: [0.55, 1, -2.4], capeFasten: [0.7, 0.6, Math.PI], capeCol: [0.55, 1, -0.8],
@@ -28,7 +28,7 @@ export type GownFocusKey = keyof typeof GOWN_FOCUS;
 /** v204 `AIM_OF`: which part of her each key looks at. */
 export const GOWN_AIM_OF: Record<GownFocusKey, GownAimName> = {
   gown: 'outfit', m_full: 'whole', m_bust: 'bust', m_waist: 'waist', m_hips: 'hips', m_sh: 'sh', m_ub: 'ub', m_arm: 'arm', m_leg: 'leg', heels: 'feet',
-  neck: 'neck', collar: 'collar', sleeve: 'sleeve', sleeveFab: 'sleeve', pieces: 'waistline', back: 'back', closure: 'closure', blusher: 'blusher', train: 'low', veil: 'low', hems: 'hem',
+  bow: 'waistline', neck: 'neck', collar: 'collar', sleeve: 'sleeve', sleeveFab: 'sleeve', pieces: 'waistline', back: 'back', closure: 'closure', blusher: 'blusher', train: 'low', veil: 'low', hems: 'hem',
   shape: 'bodice', boning: 'bodice', cut: 'bodice', fabric: 'upper', lace: 'upper', laceAt: 'upper', bead: 'upper', beadAt: 'upper', tex: 'upper', darts: 'upper', drape: 'upper', slit: 'slit',
   trim: 'outfit', petti: 'skirt', pleat: 'skirt', skirtLayers: 'skirt', bustle: 'low',
   cape: 'cape', capeFab: 'cape', capeLen: 'cape', capeEdge: 'cape', capeCol: 'cape', capeFasten: 'nape',

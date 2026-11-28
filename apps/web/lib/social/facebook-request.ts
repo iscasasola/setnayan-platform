@@ -7,6 +7,7 @@
  * slot with nobody on our site. Facebook accepts a scheduled time from 10 minutes to about 30 days ahead; we hand
  * posts over at most 7 days ahead (`FB_HANDOFF_HORIZON_MS`) and never inside the last 10 minutes.
  */
+import type { FbScheduledPost } from '@/lib/social/fb-queue';
 
 /** Facebook refuses a scheduled time closer than 10 minutes. */
 export const FB_SCHEDULE_MIN_LEAD_MS = 10 * 60 * 1000;
@@ -55,4 +56,27 @@ export function buildSinglePostRequest(input: {
   const params: Record<string, string> = { message: input.message, ...schedule };
   if (input.linkUrl && /^https?:\/\//i.test(input.linkUrl)) params.link = input.linkUrl;
   return { path: graphPath(input.pageId, 'feed'), params };
+}
+
+/** Read a Graph `scheduled_publish_time` (Unix seconds, or an ISO date on some versions) as Unix seconds. */
+export function graphTimeToUnix(v: unknown): number | null {
+  if (typeof v === 'number' && Number.isFinite(v)) return Math.floor(v);
+  if (typeof v === 'string' && /^\d+$/.test(v)) return Number(v);
+  if (typeof v === 'string') {
+    const t = Date.parse(v);
+    return Number.isFinite(t) ? Math.floor(t / 1000) : null;
+  }
+  return null;
+}
+
+/** Map one page of GET /{page-id}/scheduled_posts to our shape (pure; exported for its test). */
+export function parseScheduledPosts(body: Record<string, unknown>): FbScheduledPost[] {
+  const data = Array.isArray(body.data) ? (body.data as Array<Record<string, unknown>>) : [];
+  return data
+    .filter((p) => typeof p.id === 'string')
+    .map((p) => ({
+      id: p.id as string,
+      message: typeof p.message === 'string' ? p.message : null,
+      scheduledAt: graphTimeToUnix(p.scheduled_publish_time),
+    }));
 }

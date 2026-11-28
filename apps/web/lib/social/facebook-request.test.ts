@@ -51,3 +51,18 @@ test('a photo post, a link post and a text post, each now or scheduled — never
   assert.deepEqual(text, { path: '/P/feed', params: { message: 'Hi', published: 'false', scheduled_publish_time: '1796104800' } });
   for (const r of [photo, link, text]) assert.equal('access_token' in r.params, false);
 });
+
+test('the Page\'s scheduled posts are read with their time in Unix seconds, whatever form Graph sends it in', async () => {
+  const { parseScheduledPosts, graphTimeToUnix } = await import('./facebook-request');
+  assert.equal(graphTimeToUnix(1764590400), 1764590400);
+  assert.equal(graphTimeToUnix('1764590400'), 1764590400);
+  assert.equal(graphTimeToUnix('2025-12-01T12:00:00+0000'), 1764590400);
+  assert.equal(graphTimeToUnix(undefined), null);
+  assert.deepEqual(
+    parseScheduledPosts({ data: [{ id: '1_2', message: 'Hi', scheduled_publish_time: 1764590400 }, { message: 'no id' }, { id: '1_3' }] }),
+    [
+      { id: '1_2', message: 'Hi', scheduledAt: 1764590400 },
+      { id: '1_3', message: null, scheduledAt: null },
+    ],
+  );
+});

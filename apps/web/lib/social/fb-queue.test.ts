@@ -19,9 +19,14 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fakeAdmin, type Answer, type Call } from './lane-s.fixture';
 import {
+  HANDOFF_STUCK_MS,
+  MAX_HANDOFFS_PER_FLUSH,
   MAX_SCHEDULE_ATTEMPTS,
   editPost,
   handOffToFacebook,
+  matchScheduledPost,
+  recoverStuckHandOffs,
+  takeDownRevoked,
   pickHandOffs,
   pullPost,
   settleFacebookPosts,
@@ -77,6 +82,10 @@ function fakeFb(over: Partial<Record<keyof FbOps, unknown>> = {}) {
     comment: async (id, m) => {
       log.push(`comment ${id} ${m}`);
       return (over.comment as Awaited<ReturnType<FbOps['comment']>>) ?? { ok: true, commentId: 'c1' };
+    },
+    listScheduled: async () => {
+      log.push('list');
+      return (over.listScheduled as Awaited<ReturnType<FbOps['listScheduled']>>) ?? { ok: true, posts: [] };
     },
   };
   return { ops, log };
@@ -264,4 +273,144 @@ test('settle: not yet published waits for the next visit; two hours late it fail
   await settleFacebookPosts(late.admin, ph('2026-12-01T10:30:00'), fb.ops);
   assert.equal(updates(late.calls)[0]?.status, 'failed');
   assert.match(JSON.stringify(updates(late.calls)[0]), /had not published/);
+});
+
+// ── Cut-off hand-offs, timeouts, take-downs and the time budget (controller review, 28 Nov) ─────────────────────
+
+const slotSec = Math.floor(ph('2026-12-01T20:00:00').getTime() / 1000);
+const onPage = (id: string, message = 'Hello', at = slotSec) => ({ id, message, scheduledAt: at });
+const handingOff = { facebook: { status: 'handing_off', handoff_started_at: ph('2026-12-01T08:30:00').toISOString() } };
+
+test('the marker: the slot second AND the post text find it; another time or text does not; two are never guessed', () => {
+  const r = row({ body: 'Hello   world' });
+  assert.deepEqual(matchScheduledPost(r, [onPage('a', 'Hello world'), onPage('b', 'Hello world', slotSec + 60)]), { kind: 'found', id: 'a' });
+  assert.deepEqual(matchScheduledPost(r, [onPage('c', 'Other text')]), { kind: 'none' });
+  assert.equal(matchScheduledPost(r, [onPage('a', 'Hello world'), onPage('d', 'Hello world')]).kind, 'ambiguous');
+});
+
+test('timeout: a schedule that timed out but WAS accepted is found on the Page and adopted — never scheduled again', async () => {
+  const { admin, calls } = queueDb([row()]);
+  const fb = fakeFb({
+    schedule: { ok: false, error: 'Graph API call timed out after 15s.' },
+    listScheduled: { ok: true, posts: [onPage('fb_late')] },
+  });
+  const res = await handOffToFacebook(admin, now, fb.ops);
+  assert.deepEqual(res.scheduled, ['p1']);
+  assert.deepEqual(fb.log.map((l) => l.split(' ')[0]), ['schedule', 'list']);
+  const saved = updates(calls).at(-1)!;
+  assert.equal(saved.status, 'scheduled_on_fb');
+  assert.equal(saved.facebook_post_id, 'fb_late');
+});
+
+test('timeout: when the Page cannot be read either, the row stays claimed for recovery — no retry, no requeue', async () => {
+  const { admin, calls } = queueDb([row()]);
+  const fb = fakeFb({ schedule: { ok: false, error: 'timed out' }, listScheduled: { ok: false, error: 'timed out' } });
+  await handOffToFacebook(admin, now, fb.ops);
+  const ups = updates(calls);
+  assert.equal(ups.length, 1, 'only the claim');
+  assert.equal(ups[0]?.status, 'publishing');
+  assert.equal(typeof (ups[0]?.platform_results as typeof handingOff).facebook.handoff_started_at, 'string');
+});
+
+test('retry: a post that failed before is looked for on the Page BEFORE it is scheduled again', async () => {
+  const { admin, calls } = queueDb([row({ platform_results: { facebook: { schedule_attempts: 1 } } })]);
+  const fb = fakeFb({ listScheduled: { ok: true, posts: [onPage('fb_first_try')] } });
+  await handOffToFacebook(admin, now, fb.ops);
+  assert.deepEqual(fb.log, ['list'], 'found on the Page, so never scheduled a second time');
+  assert.equal(updates(calls).at(-1)?.facebook_post_id, 'fb_first_try');
+
+  const unread = queueDb([row({ platform_results: { facebook: { schedule_attempts: 1 } } })]);
+  const fb2 = fakeFb({ listScheduled: { ok: false, error: 'down' } });
+  await handOffToFacebook(unread.admin, now, fb2.ops);
+  assert.deepEqual(fb2.log, ['list'], 'an unreadable Page means no retry this visit');
+  assert.equal(updates(unread.calls).at(-1)?.status, 'scheduled');
+});
+
+test('budget: at most 5 posts per flush, and none once the time budget is spent', async () => {
+  const many = Array.from({ length: 8 }, (_, i) =>
+    row({ post_id: `p${i}`, scheduled_for: ph(`2026-12-0${2 + Math.floor(i / 3)}T${['08', '14', '20'][i % 3]}:00:00`).toISOString(), slot: ['morning', 'afternoon', 'evening'][i % 3]! }),
+  );
+  const fb = fakeFb();
+  await handOffToFacebook(queueDb(many).admin, now, fb.ops);
+  assert.equal(fb.log.filter((l) => l.startsWith('schedule')).length, MAX_HANDOFFS_PER_FLUSH);
+
+  let t = 0;
+  const fb2 = fakeFb();
+  await handOffToFacebook(queueDb(many).admin, now, fb2.ops, async () => true, { clock: () => (t += 30_000) });
+  assert.ok(fb2.log.filter((l) => l.startsWith('schedule')).length < MAX_HANDOFFS_PER_FLUSH, 'the 60 s budget stops the loop');
+});
+
+function stuckDb(rows: QueueRow[]) {
+  return fakeAdmin((call): Answer | undefined => {
+    if (call.action === 'select') return { data: rows };
+    if (call.action === 'update') return { data: [{ post_id: 'p1' }] };
+    return undefined;
+  });
+}
+
+test('recovery: a hand-off whose id was never saved gets its id from the Page; one not there goes back to the queue', async () => {
+  const stuck = row({ status: 'publishing', platform_results: handingOff });
+  const found = stuckDb([stuck]);
+  const r1 = await recoverStuckHandOffs(found.admin, now, fakeFb({ listScheduled: { ok: true, posts: [onPage('fb_lost')] } }).ops);
+  assert.deepEqual(r1.adopted, ['p1']);
+  assert.equal(updates(found.calls)[0]?.status, 'scheduled_on_fb');
+  assert.equal(updates(found.calls)[0]?.facebook_post_id, 'fb_lost');
+  const scan = found.calls.find((c) => c.action === 'select')!;
+  assert.ok(has(scan, 'eq', 'status', 'publishing') && has(scan, 'is', 'facebook_post_id', null));
+  assert.ok(scan.filters.some(([o, k, v]) => o === 'lt' && k === 'updated_at' && v === new Date(now.getTime() - HANDOFF_STUCK_MS).toISOString()));
+
+  const missing = stuckDb([stuck]);
+  const r2 = await recoverStuckHandOffs(missing.admin, now, fakeFb().ops);
+  assert.deepEqual(r2.requeued, ['p1']);
+  assert.equal(updates(missing.calls)[0]?.status, 'scheduled');
+});
+
+test('recovery: not on the Page after its slot passed → failed with the reason, never re-posted; a direct send is ignored', async () => {
+  const past = row({ status: 'publishing', platform_results: handingOff, scheduled_for: ph('2026-12-01T08:00:00').toISOString(), slot: 'morning' });
+  const { admin, calls } = stuckDb([past, row({ post_id: 'direct', status: 'publishing', platform_results: {} })]);
+  const res = await recoverStuckHandOffs(admin, now, fakeFb().ops);
+  assert.deepEqual(res.failed, ['p1']);
+  assert.equal(updates(calls).length, 1, 'the direct send (no hand-off stamp) is left alone');
+  assert.match(JSON.stringify(updates(calls)[0]?.platform_results), /check the Page/);
+});
+
+test('pull: an unconfirmed hand-off is found on the Page and deleted there before it is pulled', async () => {
+  const { admin, calls } = oneRowDb({ status: 'publishing', facebook_post_id: null, platform_results: handingOff, scheduled_for: row().scheduled_for, body: 'Hello' });
+  const fb = fakeFb({ listScheduled: { ok: true, posts: [onPage('fb_lost')] } });
+  assert.deepEqual(await pullPost(admin, 'p1', fb.ops), { ok: true });
+  assert.deepEqual(fb.log, ['list', 'remove fb_lost']);
+  assert.equal(updates(calls)[0]?.status, 'pulled');
+
+  const unread = oneRowDb({ status: 'publishing', facebook_post_id: null, platform_results: handingOff, scheduled_for: row().scheduled_for, body: 'Hello' });
+  const res = await pullPost(unread.admin, 'p1', fakeFb({ listScheduled: { ok: false, error: 'down' } }).ops);
+  assert.equal(res.ok, false);
+  assert.equal(updates(unread.calls).length, 0, 'not pulled while Facebook may still hold it');
+});
+
+test('take-down: Facebook first for every row; a row whose Facebook side is unclear keeps its slot', async () => {
+  const { admin, calls } = stuckDb([]);
+  const fb = fakeFb({ listScheduled: { ok: true, posts: [onPage('fb_lost')] } });
+  const res = await takeDownRevoked(
+    admin,
+    [
+      row({ post_id: 'on-fb', status: 'scheduled_on_fb', facebook_post_id: 'fb_1' }),
+      row({ post_id: 'cut-off', status: 'publishing', platform_results: handingOff }),
+      row({ post_id: 'queued', status: 'scheduled' }),
+      row({ post_id: 'sending', status: 'publishing', platform_results: {} }),
+    ],
+    fb.ops,
+  );
+  assert.deepEqual(fb.log, ['remove fb_1', 'list', 'remove fb_lost']);
+  assert.deepEqual(res.left, ['sending']);
+  assert.equal(updates(calls).length, 3);
+  assert.ok(updates(calls).every((u) => u.status === 'pulled'));
+
+  const refused = stuckDb([]);
+  const r2 = await takeDownRevoked(
+    refused.admin,
+    [row({ post_id: 'cut-off', status: 'publishing', platform_results: handingOff })],
+    fakeFb({ listScheduled: { ok: true, posts: [onPage('fb_lost')] }, remove: { ok: false, error: 'nope' } }).ops,
+  );
+  assert.deepEqual(r2.left, ['cut-off']);
+  assert.equal(updates(refused.calls).length, 0, 'the slot is not freed while the post could still go out');
 });

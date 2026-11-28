@@ -1,8 +1,8 @@
 import 'server-only';
 import { resolveMetaConfig } from '@/lib/integration-config';
 import { multiPhotoUrls, publishMultiPhoto, type GraphCall } from '@/lib/social/facebook-multi-photo';
-import { buildSinglePostRequest } from '@/lib/social/facebook-request';
-import type { FbOps } from '@/lib/social/fb-queue';
+import { buildSinglePostRequest, parseScheduledPosts } from '@/lib/social/facebook-request';
+import type { FbOps, FbScheduledPost } from '@/lib/social/fb-queue';
 import { socialCardUrl } from '@/lib/social/urls';
 
 /**
@@ -198,6 +198,29 @@ export async function isFacebookPostPublished(
   return { ok: true, published: res.body.is_published === true };
 }
 
+/**
+ * The Page's posts still waiting on Facebook's clock — GET /{page-id}/scheduled_posts, up to 4 pages of 100.
+ * Used to find a post whose schedule call timed out or whose id was never saved, so it is never scheduled twice.
+ * Never throws.
+ */
+export async function listScheduledFacebookPosts(): Promise<{ ok: true; posts: FbScheduledPost[] } | { ok: false; error: string }> {
+  const page = await pageGraph();
+  if (!page.ok) return page;
+  const posts: FbScheduledPost[] = [];
+  let after: string | null = null;
+  for (let i = 0; i < 4; i += 1) {
+    const params: Record<string, string> = { fields: 'id,message,scheduled_publish_time', limit: '100' };
+    if (after) params.after = after;
+    const res = await page.call('GET', `/${encodeURIComponent(page.pageId)}/scheduled_posts`, params);
+    if (!res.ok) return { ok: false, error: res.error };
+    posts.push(...parseScheduledPosts(res.body));
+    const paging = res.body.paging as { cursors?: { after?: string }; next?: string } | undefined;
+    after = paging?.next && paging.cursors?.after ? paging.cursors.after : null;
+    if (!after) break;
+  }
+  return { ok: true, posts };
+}
+
 export type FacebookCommentResult = { ok: true; commentId: string } | { ok: false; error: string };
 
 /**
@@ -274,4 +297,5 @@ export const facebookOps: FbOps = {
   editMessage: updateFacebookPostMessage,
   isPublished: isFacebookPostPublished,
   comment: commentOnFacebookPost,
+  listScheduled: listScheduledFacebookPosts,
 };

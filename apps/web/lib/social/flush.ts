@@ -25,6 +25,8 @@ import {
   handOffToFacebook,
   settleFacebookPosts,
   withdrawAllFromFacebook,
+  recoverStuckHandOffs,
+  takeDownRevoked,
   withdrawFromFacebook,
 } from '@/lib/social/fb-queue';
 import { isRecapSocialShareAllowed } from '@/lib/social/recap-post';
@@ -186,6 +188,8 @@ export async function runSocialFlush(): Promise<boolean> {
     // ── Facebook holds the schedule (owner 2026-11-28: schedule posts on
     // Facebook itself, stay cron-free) — lib/social/fb-queue.ts. ───────────
     if (fbConfigured) {
+      // A hand-off cut off after its claim (id never saved, or a failed call never checked) is reconciled first.
+      await recoverStuckHandOffs(admin, now, facebookOps);
       if (settings.autopublish_enabled && fbLive) {
         // A recap or badge post already on Facebook whose gate has since closed is taken back and pulled.
         await regateScheduledOnFacebook(admin, now);
@@ -479,7 +483,7 @@ async function sweepEvergreenFloor(admin: AdminClient, now: Date): Promise<void>
 async function sweepTakedowns(admin: AdminClient, now: Date): Promise<void> {
   const { data: pendingData, error: pendingErr } = await admin
     .from('social_posts')
-    .select('post_id, source_ref, status, facebook_post_id, platform_results')
+    .select('post_id, source_ref, status, facebook_post_id, platform_results, scheduled_for, body')
     .eq('source_type', 'couple_creation')
     .in('status', ['scheduled', 'scheduled_on_fb', 'publishing'])
     .limit(500);
@@ -493,6 +497,8 @@ async function sweepTakedowns(admin: AdminClient, now: Date): Promise<void> {
     status: string;
     facebook_post_id: string | null;
     platform_results: Record<string, unknown> | null;
+    scheduled_for: string | null;
+    body: string;
   }>;
   if (pending.length === 0) return;
 
@@ -509,22 +515,10 @@ async function sweepTakedowns(admin: AdminClient, now: Date): Promise<void> {
     ((revokedData ?? []) as Array<{ consent_id: string }>).map((r) => r.consent_id),
   );
   const revokedRows = pending.filter((p) => revoked.has(p.source_ref));
-  // Already on Facebook's schedule: delete it there first (a failed delete leaves the row, and the next visit retries).
-  for (const row of revokedRows.filter((p) => p.status === 'scheduled_on_fb')) {
-    const res = await withdrawFromFacebook(admin, row, facebookOps, 'pulled');
-    if (!res.ok) logQueryError('runSocialFlush (takedown on Facebook)', new Error(res.error), { post_id: row.post_id });
-  }
-  const toPull = revokedRows.filter((p) => p.status !== 'scheduled_on_fb');
-  if (toPull.length === 0) return;
-
-  const { error: pullErr } = await admin
-    .from('social_posts')
-    .update({ status: 'pulled', updated_at: now.toISOString() })
-    .in('post_id', toPull.map((p) => p.post_id))
-    .in('status', ['scheduled', 'publishing']);
-  if (pullErr) {
-    logQueryError('runSocialFlush (takedown pull)', pullErr);
-  }
+  if (revokedRows.length === 0) return;
+  // Facebook first: a post on its schedule, or handed over with its id unknown, is deleted there before the row is
+  // pulled; a row whose Facebook side is not clear stays as it is (its slot held) and the next visit retries.
+  await takeDownRevoked(admin, revokedRows, facebookOps);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

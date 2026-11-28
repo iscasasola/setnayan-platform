@@ -72,6 +72,10 @@ const V2_PAST_FILTER = '\nWHERE v.scheduled_for > now();';
 
 test('0 · library v2 lands once: 399 mornings, 399 evenings, 31 holidays, 1 afternoon, each on its Manila hour', async () => {
   assert.ok(v2Sql.includes(V2_PAST_FILTER), 'the v2 import no longer leaves out passed slots');
+  // The replay also ran the 29 Nov catch-up (20271367965867), which re-inserts two 28 Nov rows and moves 29 Nov
+  // rows onto other hours (held by the-29-nov-catch-up-holds-six-posts.db.test.ts). Start from v2 alone.
+  await db.exec(`DELETE FROM public.social_posts WHERE source_type = 'library'`);
+  await db.exec(v2Sql);
   const bySlot = async () =>
     Object.fromEntries(
       (
@@ -80,7 +84,7 @@ test('0 · library v2 lands once: 399 mornings, 399 evenings, 31 holidays, 1 aft
         )
       ).rows.map((r) => [r.slot, r.n]),
     );
-  // What the replay's run kept: only slots still ahead of it, and no planned post already behind now().
+  // What a v2 run keeps: only slots still ahead of it, and no planned post already behind now().
   const late = await count(`source_type = 'library' AND scheduled_for <= now() - interval '1 hour'`);
   assert.equal(late, 0, 'the import queued a planned post whose slot had already passed');
   const futureAfterReplay = await count(`source_type = 'library' AND scheduled_for > now() + interval '1 hour'`);

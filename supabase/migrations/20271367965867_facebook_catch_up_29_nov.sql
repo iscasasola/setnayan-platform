@@ -12,6 +12,14 @@
 --   1. Pulls the two test-shop badge posts (Liwanag Lights & Sound · Testnayan
 --      W1 Lights: one test shop, source_ref '485d28a2-…:<badge>'). Pulled, never
 --      retried.
+--   1b. Inserts the two 28 Nov library posts #8528 never inserted (its import
+--      keeps only `WHERE v.scheduled_for > now()`, and both 28 Nov slots had
+--      passed when it reached prod): lib-3ef2ffc3a7977c677cad609d "Introduce
+--      Setnayan · Plan it, free" and lib-60ee51dd8318fa11af6a2e24 "Comment
+--      Bait". The copy is #8528's VALUES rows byte-for-byte, status 'scheduled',
+--      scheduled_for NULL (step 2 gives each its hour). Guarded by NOT EXISTS on
+--      ('library', source_ref): a re-run inserts nothing, and a row already
+--      there (pulled or published included) stays as it is.
 --   2. Places the day's six posts, in this order, each on its own whole hour:
 --        10:00  First public post                     (announcement)
 --        12:00  Introduce Setnayan · Plan it, free     (library, planned 28 Nov 08:00, missed)
@@ -26,9 +34,9 @@
 --      moves the row to the next free whole hour up to 22:00; the day never
 --      exceeds 6 posts. A row that finds no hour is left for the flush.
 --
--- No-op where the rows are missing: the library rows come from #8528
--- (20271366752632_social_library_v2.sql), matched here by their stable
--- source_ref; a missing row is skipped. Nothing after 29 Nov moves: the catch-up
+-- The other library rows come from #8528 (20271366752632_social_library_v2.sql),
+-- matched here by their stable source_ref; a missing row is skipped. This file
+-- must sort and run after #8528. Nothing after 29 Nov moves: the catch-up
 -- absorbs the missed 28 Nov posts, so every later day keeps exactly its own
 -- planned posts and no slot doubles up.
 --
@@ -67,6 +75,41 @@ BEGIN
    WHERE source_type = 'supplier_badge'
      AND source_ref LIKE '485d28a2-c614-434f-993a-e3ae89b41853:%'
      AND status IN ('scheduled', 'failed');
+
+  -- 1b · put back the two 28 Nov library posts #8528 left out (its import keeps only slots still ahead of
+  --      now(), and both 28 Nov slots had passed). The copy below is byte-for-byte #8528's VALUES rows for them
+  --      (20271366752632_social_library_v2.sql); scheduled_for stays NULL so step 2 gives each its hour (the
+  --      one-post-per-slot index never sees a 28 Nov instant). Inserted once: a row already there in any status
+  --      (a pulled or published one included) stays as it is.
+  INSERT INTO public.social_posts
+    (source_type, source_ref, title, body, media_url, media_urls, link_url, scheduled_for, slot, first_comment, status)
+  SELECT 'library', v.source_ref, v.title, v.body, v.media_url, v.media_urls::text[], v.link_url, NULL, v.slot, v.first_comment, 'scheduled'
+  FROM (VALUES
+  ('lib-3ef2ffc3a7977c677cad609d', 'Introduce Setnayan · Plan it, free', 'The list is in Excel. The quote is in Messenger. The budget is in your head. ⤵
+
+On Setnayan, planning lives in one place, and it''s free:
+• a guest list that counts every reply
+• each guest''s own link and QR, with no app and no account
+• a seat plan you can walk in 3D
+• a budget in pesos: planned, agreed and paid
+• verified suppliers whose cards show the price for your guest count
+• quotes as cards in one chat, with a valid-until date
+
+Plan it · Live it · Keep it. Tomorrow: Live it.
+
+What do you plan first: the date, the venue or the guest list?
+
+Try it: start your event at setnayan.com/start. No account until you save.', NULL, NULL, 'https://setnayan.com/start', '2026-11-28T00:00:00.000Z'::timestamptz, 'morning', 'Plan your event free: setnayan.com'),
+  ('lib-60ee51dd8318fa11af6a2e24', 'Comment Bait', 'What''s the most unusual request a client has ever made? 😄
+Keep names out, keep the story in.
+
+Try it: open your shop at setnayan.com/open-shop.', NULL, NULL, 'https://setnayan.com/open-shop', '2026-11-28T12:00:00.000Z'::timestamptz, 'evening', 'We read every one. If you''re a supplier, your shop on Setnayan is free to open: setnayan.com/open-shop')
+  ) AS v(source_ref, title, body, media_url, media_urls, link_url, planned_for, slot, first_comment)
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.social_posts p
+     WHERE p.source_type = 'library' AND p.source_ref = v.source_ref
+  )
+  ON CONFLICT DO NOTHING;
 
   -- 2 · place the day's posts, in timetable order.
   FOR r IN

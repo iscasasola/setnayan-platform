@@ -24,6 +24,7 @@
 import { ActionButton } from '@/components/action-button';
 import { Eye, Save } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { onPressKeys } from '@/lib/press-keys';
 import {
   buildMatchMask,
   palettePreviewToEdits,
@@ -188,12 +189,19 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
   }
 
   function handleCanvasClick(e: React.MouseEvent<HTMLDivElement>) {
-    if (!imgLoaded || showPreview) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
     const rect = canvas.getBoundingClientRect();
-    const x = Math.floor(((e.clientX - rect.left) / rect.width) * canvas.width);
-    const y = Math.floor(((e.clientY - rect.top) / rect.height) * canvas.height);
+    pickAt((e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height);
+  }
+
+  /** Sample the photo at a point given as fractions of its width and height (0–1). Enter/Space samples the center. */
+  function pickAt(fx: number, fy: number) {
+    if (!imgLoaded || showPreview) return;
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const x = Math.min(canvas.width - 1, Math.max(0, Math.floor(fx * canvas.width)));
+    const y = Math.min(canvas.height - 1, Math.max(0, Math.floor(fy * canvas.height)));
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     const px = ctx.getImageData(x, y, 1, 1).data;
@@ -255,7 +263,12 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
       {/* Canvas area */}
       <div
         className="relative inline-block max-w-full cursor-crosshair overflow-hidden bg-ink/5 border-t border-ink/10"
+        role="button"
+        data-press-none=""
+        tabIndex={0}
+        aria-label="Pick a color from the photo. Enter samples its center"
         onClick={handleCanvasClick}
+        onKeyDown={onPressKeys(() => pickAt(0.5, 0.5))}
         onMouseMove={handleCanvasMove}
         onMouseLeave={() => setHoverHex(null)}
       >

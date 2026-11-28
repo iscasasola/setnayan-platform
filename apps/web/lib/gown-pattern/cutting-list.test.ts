@@ -78,7 +78,7 @@ test('3 · a stored design gives the context: outer name, lining, layers (no hoo
   const q = emptyGownQuantities();
   q.materials.outerM = 7.5; q.materials.liningM = 6.4; q.materials.netM = 9;
   const ctx = gownCutContext(c, q, 'Mikado');
-  assert.deepEqual(ctx, { outerName: 'Mikado', lining: 'satin', layers: ['soft', 'full'], accent: null, lace: 'sleeves', incl: [], metres: { outer: 7.5, lining: 6.4, tulle: 9 }, train: true });
+  assert.deepEqual(ctx, { outerName: 'Mikado', lining: 'satin', layers: ['soft', 'full'], accent: null, lace: 'sleeves', incl: [], metres: { outer: 7.5, lining: 6.4, tulle: 9 }, train: true, outerType: 'satin' });
   assert.equal(gownCutContext(startingGownConfig(), null, null).metres, null, 'a design with no quantities has nothing to check against');
 });
 
@@ -101,4 +101,21 @@ test('6 · grain words: within 8° of straight is straight grain; within 8° of 
   assert.equal(at(40), 'Straight grain as marked: 45° to the straight edges');
   assert.equal(at(12), 'As marked');
   assert.equal(at(25), 'As marked');
+});
+
+test('7 · v207: bias satin is laid at 45°, so its outer metres take ×1.35 — the one multiplier, the outer cloth only', async () => {
+  const { GOWN_FABRIC_METRES_MULT, gownFabricMetresMult } = await import('../gown-maker');
+  assert.equal(gownFabricMetresMult('bias_satin'), 1.35);
+  assert.equal(gownFabricMetresMult('satin'), 1);
+  assert.equal(gownFabricMetresMult(null), 1);
+  assert.deepEqual(Object.keys(GOWN_FABRIC_METRES_MULT), ['bias_satin']);
+  const c = G.cutCases[0]!;
+  const list = gownGoldenList(c.order).map((p) => p);
+  const base = { outerName: null, lining: 'satin', layers: ['soft'], accent: null, lace: null, incl: [], metres: null, train: false };
+  const plain = gownCutList(list, { ...base, outerType: 'satin' }, GOWN_SEAM_ALLOW_DEFAULT, false);
+  const bias = gownCutList(list, { ...base, outerType: 'bias_satin' }, GOWN_SEAM_ALLOW_DEFAULT, false);
+  assert.ok(bias.tot.outer!.m > plain.tot.outer!.m * 1.3 && bias.tot.outer!.m <= plain.tot.outer!.m * 1.36 + 0.1, `outer ${plain.tot.outer!.m} → ${bias.tot.outer!.m}`);
+  assert.equal(bias.tot.lining!.m, plain.tot.lining!.m, 'the lining was multiplied');
+  assert.equal(bias.tot.tulle!.m, plain.tot.tulle!.m, 'the tulle was multiplied');
+  assert.equal(gownCutContext({ ...startingGownConfig(), fabric: 'bias_satin' }, null, null).outerType, 'bias_satin');
 });

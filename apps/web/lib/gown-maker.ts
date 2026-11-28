@@ -61,10 +61,35 @@ export type GownPriceUnit = 'gown' | 'm' | 'pc' | 'pair' | '100 pcs' | '10 flowe
 
 const SIL_LABEL = Object.fromEntries(GOWN_SILHOUETTES.map((s) => [s.id, s.label])) as Record<GownSilhouette, string>;
 
+/**
+ * v207 ("Fabric feel"): three new fabric types, each with its own unpriced per-metre line `fab_<id>` (coordinator,
+ * 28 Nov). They are rows in the admin Fabric-types registry (migration 20271366373891). Builder A's stock list
+ * (`GOWN_STOCK_FABRICS`) gains them with the 3D cards; until then they are listed here, and once it has them each
+ * appears once (the stock list wins).
+ */
+const GOWN_FABRICS_V207 = [
+  { id: 'duchess', label: 'Duchess satin' },
+  { id: 'bias_satin', label: 'Bias satin' },
+  { id: 'taffeta', label: 'Taffeta' },
+] as const;
+/** Every fabric with a per-metre price line: the stock list, then any v207 fabric it does not have yet. */
+const GOWN_PRICED_FABRICS: readonly { id: string; label: string }[] = [
+  ...GOWN_STOCK_FABRICS,
+  ...GOWN_FABRICS_V207.filter((f) => !GOWN_STOCK_FABRICS.some((x) => (x.id as string) === f.id)),
+];
+
+/**
+ * v207 FEEL `m`: a cloth that takes more fabric than its pieces' area — bias satin is laid at 45°, so ×1.35. The ONE
+ * home of this number: the cutting list reads it here, and the quote's metres (Builder A's `fabricMetres`) read it
+ * from here too. A fabric not listed takes ×1. Lengths, not money.
+ */
+export const GOWN_FABRIC_METRES_MULT: Readonly<Record<string, number>> = { bias_satin: 1.35 };
+export const gownFabricMetresMult = (typeId: string | null | undefined): number => (typeId && GOWN_FABRIC_METRES_MULT[typeId]) || 1;
+
 export const GOWN_PRICE_ITEMS = [
   // v197: "Fit and flare" (the old A-line block) comes in with Builder A's A6e silhouette list.
   ...GOWN_SILHOUETTES.map((s) => ({ key: `base_${s.id}`, label: s.label, unit: 'gown' as const })),
-  ...GOWN_STOCK_FABRICS.map((f) => ({ key: `fab_${f.id}`, label: f.label, unit: 'm' as const })),
+  ...GOWN_PRICED_FABRICS.map((f) => ({ key: `fab_${f.id}`, label: f.label, unit: 'm' as const })),
   { key: 'lin_satin', label: 'Satin lining', unit: 'm' },
   { key: 'lin_cotton', label: 'Cotton lining', unit: 'm' },
   { key: 'lin_silk', label: 'Silk lining', unit: 'm' },
@@ -385,7 +410,7 @@ type DesignPick = Pick<
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
 const BEAD_LABEL: Record<GownBeadKind, string> = { crystal: 'Crystals', pearl: 'Pearls', seed: 'Seed beads', sequin: 'Sequins' };
-const fabricLabel = (id: string) => GOWN_STOCK_FABRICS.find((f) => f.id === id)?.label ?? id;
+const fabricLabel = (id: string) => GOWN_PRICED_FABRICS.find((f) => f.id === id)?.label ?? id;
 
 /**
  * Price one design with the shop's own list (server only). `addOnsChosen` are the add-ons the bride picked; one the

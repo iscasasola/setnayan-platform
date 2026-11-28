@@ -13,6 +13,7 @@
 import { gownCapeInGownFabric, gownLayerCount, type GownConfig, type GownQuantities } from '../gown-config';
 import type { GownBlockPiece } from './skirt';
 import { gownPieceGeom, type GownSeamAllow } from './allowance';
+import { gownFabricMetresMult } from '../gown-maker';
 
 /** v205 `o.cut`: which fabrics the blocks are cut in, what has no block, and the quote's metres for each. */
 export type GownCutContext = {
@@ -25,6 +26,8 @@ export type GownCutContext = {
   metres: { outer: number | null; lining: number; tulle: number } | null;
   /** The design has a train (the quote's outer metres include it; there is no train block yet). */
   train: boolean;
+  /** v207: the outer cloth's type id, for its metres multiplier (bias satin takes ×1.35). Absent = ×1. */
+  outerType?: string | null;
 };
 export type GownCutPart = 'bodice' | 'skirt';
 export type GownCutFabricKey = 'outer' | 'lining' | 'tulle';
@@ -56,6 +59,7 @@ export function gownCutContext(config: GownConfig, quantities: GownQuantities | 
     ].filter(Boolean),
     metres: m ? { outer: m.outerM > 0 ? m.outerM : null, lining: m.liningM, tulle: m.netM } : null,
     train: config.train !== 'none',
+    outerType: config.fabric,
   };
 }
 
@@ -88,7 +92,7 @@ export function gownCutFabrics(c: GownCutContext): { F: { k: GownCutFabricKey; n
 }
 
 /** v205 `layMetres`: cm in, metres out (+15 % like the quote); shelves across 150 cm cloth folded in half. */
-export function gownLayMetres(items: readonly { w: number; h: number; qty: number; fold: boolean }[], width = 150): { m: number; pieced: boolean } {
+export function gownLayMetres(items: readonly { w: number; h: number; qty: number; fold: boolean }[], width = 150, mult = 1): { m: number; pieced: boolean } {
   const half = width / 2, slots: { w: number; h: number }[] = [];
   let open = 0, pieced = false;
   for (const it of items) {
@@ -102,7 +106,7 @@ export function gownLayMetres(items: readonly { w: number; h: number; qty: numbe
   const shelves: { w: number; h: number }[] = [];
   for (const s of slots) { const sh = shelves.find((x) => x.w + s.w <= half); if (sh) sh.w += s.w; else shelves.push({ w: s.w, h: s.h }); }
   const len = shelves.reduce((a, s) => a + s.h, 0) + open;
-  return { m: Math.ceil((len * 1.15) / 10) / 10, pieced };
+  return { m: Math.ceil((len * 1.15 * mult) / 10) / 10, pieced }; // mult: v207, a cloth laid at 45° (bias satin) takes more
 }
 
 /** v205 `patCutList`. */
@@ -117,7 +121,7 @@ export function gownCutList(list: readonly { p: GownBlockPiece; part: GownCutPar
       rows.push({ fabric: f.name, k: f.k, piece: p.name, qty: ci.qty, fold: ci.fold, grain: gownGrainSay(p), w: Math.round(w * 10) / 10, h: Math.round(h * 10) / 10, note: p.zipNote && !net ? p.zipNote : '' });
       items.push({ w, h, qty: ci.qty, fold: ci.fold });
     }
-    const L = gownLayMetres(items), t = (tot[f.k] ??= { m: 0, names: [], pieced: false });
+    const L = gownLayMetres(items, 150, f.k === 'outer' ? gownFabricMetresMult(ctx?.outerType) : 1), t = (tot[f.k] ??= { m: 0, names: [], pieced: false });
     t.m = Math.round((t.m + L.m) * 10) / 10;
     t.names.push(f.name);
     t.pieced = t.pieced || L.pieced;

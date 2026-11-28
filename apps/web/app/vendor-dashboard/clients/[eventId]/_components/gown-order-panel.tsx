@@ -37,6 +37,7 @@ import type { GownBlockPiece } from '@/lib/gown-pattern/skirt';
 import type { GownPaper } from '@/lib/gown-pattern/export';
 import { GOWN_EXPORT_HINT, GOWN_PAPER_OPTIONS, GOWN_PATTERN_UNREAD } from '@/lib/gown-pattern/words';
 import { GOWN_SEAM_ALLOW_DEFAULT } from '@/lib/gown-pattern/allowance';
+import { GOWN_LINES_UNREAD, gownLinesSummary } from '@/lib/gown-pattern/lines';
 import { GOWN_CUT_LIST_HINT, gownCutCheckSentence, type GownCutList, type GownCutPart } from '@/lib/gown-pattern/cutting-list';
 import { GownSeamAllowRows } from '@/app/vendor-dashboard/shop/_components/gown-seam-allow';
 import { GownPatternPages } from './gown-pattern-pages';
@@ -99,6 +100,9 @@ function Order({ d, config, body, threadId, who }: { d: GownDesignRead; config: 
   const braLine = `Bra size: ${body.bra ? `${body.bra.us} US · ${body.bra.eu} EU${body.bra.exact ? '' : ' (estimate)'}` : 'Couldn’t read it from her numbers'}`;
   // A7b: her hand work, said once — counted into the bead and lace lines, not sent, or couldn't be read.
   const handLine = d.hand.s === 'sent' ? gownHandLine(d.hand.hand) : d.hand.s === 'none' ? GOWN_HAND_NOT_SENT : GOWN_HAND_UNREAD;
+  // B9 (v209): her own lines, as a designer measures them; only what she changed from a named line is said.
+  const L = d.pattern?.lines;
+  const linesSaid = L?.s === 'sent' ? gownLinesSummary(L.edges, config.neck === 'high') : L?.s === 'unread' ? [GOWN_LINES_UNREAD] : [];
   const mattersLine = body.matters.length ? `What matters to her: ${body.matters.map((m) => GOWN_MATTERS.find((x) => x.id === m)?.label ?? m).join(', ')}` : null;
 
   const saveTape = async () => {
@@ -127,6 +131,11 @@ function Order({ d, config, body, threadId, who }: { d: GownDesignRead; config: 
             {handLine}
           </p>
         ) : null}
+        {linesSaid.map((line) => (
+          <p key={line} className="text-sn-base text-ink/70" data-gown-order-lines={L?.s}>
+            {line}
+          </p>
+        ))}
       </section>
 
       {d.forShop ? (
@@ -252,7 +261,7 @@ function Pattern({ d, config, body, measures, tape, threadId, who }: { d: GownDe
     let live = true;
     // The engine loads only when the designer opens the blocks.
     void Promise.all([import('@/lib/gown-pattern/order'), import('@/lib/gown-pattern/svg'), import('@/lib/gown-pattern/cutting-list')]).then(([{ gownOrderBlocks }, { gownBlocksSvg }, { gownCutList }]) => {
-      const b = gownOrderBlocks(config, body, measures, tape);
+      const b = gownOrderBlocks(config, body, measures, tape, P?.lines.s === 'sent' ? P.lines.edges : null);
       const part = (title: string, x: typeof b.skirt | typeof b.bodice | typeof b.sleeve): Part =>
         x.ok ? { title, svg: gownBlocksSvg(x.pieces, title, sa, net), error: null, checks: x.checks } : { title, svg: null, error: x.error, checks: [] };
       const sleeve = b.sleeve.ok && b.sleeve.pieces.length === 0 ? [] : [part('Sleeve block', b.sleeve)];

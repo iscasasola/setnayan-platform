@@ -265,3 +265,33 @@ test('8 · the Attire Maker SKU is priced as the Cake Maker is (no amount typed)
   assert.equal(attire!.offering_type, cake!.offering_type);
   assert.equal(attire!.is_active, true);
 });
+
+test('9 · B8: her add-ons are kept as ids (none = an empty list), read like the rest of her design, never by another shop', async () => {
+  const none = await one<string[]>(`SELECT add_ons AS v FROM public.gown_designs WHERE design_id = $1`, [designA]);
+  assert.deepEqual(none, [], 'a design sent without add-ons does not read as none');
+  await db.query(`UPDATE public.gown_designs SET add_ons = ARRAY['veil','fittings'] WHERE design_id = $1`, [designA]);
+  const mine = (await asUser(bride, `SELECT add_ons FROM public.gown_designs WHERE design_id = $1`, [designA]))[0];
+  assert.deepEqual(mine?.add_ons, ['veil', 'fittings'], 'the bride cannot read the add-ons she sent');
+  const shop = (await asUser(designerA, `SELECT add_ons FROM public.gown_designs WHERE design_id = $1`, [designA]))[0];
+  assert.deepEqual(shop?.add_ons, ['veil', 'fittings'], 'her designer cannot read her add-ons');
+  assert.equal((await asUser(designerB, `SELECT add_ons FROM public.gown_designs WHERE design_id = $1`, [designA])).length, 0, 'another shop reads her add-ons');
+  // Ids only: no amount, no free text, no list past the cap.
+  for (const bad of [['₱500'], ['Veil please'], ['veil', ''], Array.from({ length: 33 }, () => 'veil')]) {
+    await assert.rejects(db.query(`UPDATE public.gown_designs SET add_ons = $2 WHERE design_id = $1`, [designA, bad]), /gown_designs_add_ons_are_ids/, `add_ons took ${JSON.stringify(bad).slice(0, 40)}`);
+  }
+  // Nobody signed in writes them.
+  await assert.rejects(asUser(bride, `UPDATE public.gown_designs SET add_ons = ARRAY['veil'] WHERE design_id = $1`, [designA]), /permission denied/i, 'a bride rewrote her add-ons after Send');
+});
+
+test('10 · B9: her lines (edges_cm) are one small object, read like the rest of her design, written by nobody signed in', async () => {
+  assert.equal(await one<unknown>(`SELECT edges_cm AS v FROM public.gown_designs WHERE design_id = $1`, [designA]), null, 'a design sent without lines does not read as none');
+  const lines = { neck: { custom: true, from: 'sweetheart', centre: 17.5, cornerL: 7.25, cornerDepthL: 15, shoulderL: 9, shoulderDepthL: 4, curve: 0.8, cornerR: 7.25, cornerDepthR: 15, shoulderR: 9, shoulderDepthR: 4 } };
+  await db.query(`UPDATE public.gown_designs SET edges_cm = $2::jsonb WHERE design_id = $1`, [designA, JSON.stringify(lines)]);
+  assert.deepEqual((await asUser(bride, `SELECT edges_cm FROM public.gown_designs WHERE design_id = $1`, [designA]))[0]?.edges_cm, lines, 'the bride cannot read her lines');
+  assert.deepEqual((await asUser(designerA, `SELECT edges_cm FROM public.gown_designs WHERE design_id = $1`, [designA]))[0]?.edges_cm, lines, 'her designer cannot read her lines');
+  assert.equal((await asUser(designerB, `SELECT edges_cm FROM public.gown_designs WHERE design_id = $1`, [designA])).length, 0, 'another shop reads her lines');
+  for (const bad of ['[1,2]', JSON.stringify({ pad: 'x'.repeat(3000) })]) {
+    await assert.rejects(db.query(`UPDATE public.gown_designs SET edges_cm = $2::jsonb WHERE design_id = $1`, [designA, bad]), /gown_designs_edges_cm_is_a_bounded_object/, `lines took ${bad.slice(0, 30)}`);
+  }
+  await assert.rejects(asUser(bride, `UPDATE public.gown_designs SET edges_cm = NULL WHERE design_id = $1`, [designA]), /permission denied/i, 'a bride rewrote her lines after Send');
+});

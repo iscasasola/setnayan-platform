@@ -171,8 +171,8 @@ import { CHAT_READ_BROADCAST, countsAsUnreadFor, createReadDebouncer, latestRead
 import { markThreadRead } from '@/lib/chat-actions';
 import { isCoHostMessage, ownsBubble } from '@/lib/chat-bubble-owner';
 import { LIVE_LINE_REFRESH_MS, refreshesTheChat } from '@/lib/chat-live-refresh';
-import { answeredBookAsks, cakeDesignAt, formLineTitle, isCakeInvite, streamLineKind } from '@/lib/chat-card-lines';
-import { AskChangeDoor, CakeDesignCard, CakeInviteCard, DealSheet, DroppedOfferCard, FormAnswerCard, InquiryCard, StreamLineCard, ToolShareCard } from './chat/cards/lazy-cards';
+import { answeredBookAsks, cakeDesignAt, formLineTitle, isCakeInvite, isGownDesign, streamLineKind } from '@/lib/chat-card-lines';
+import { AskChangeDoor, CakeDesignCard, CakeInviteCard, DealSheet, GownDesignCard, DroppedOfferCard, FormAnswerCard, InquiryCard, StreamLineCard, ToolShareCard } from './chat/cards/lazy-cards';
 import { approvedToolShares, toolShareFromLine } from '@/lib/chat-tool-share';
 import { StayForm } from '@/app/_components/stay-form';
 
@@ -2340,10 +2340,13 @@ export function ChatMessageStream({
           // below. The shop's "Design your cake for us" invite is drawn as its card INSTEAD of a bubble.
           const cakeAt = m.sender_role === 'couple' ? cakeDesignAt(m.body) : -1;
           const cakeInvite = m.sender_role === 'vendor' && isCakeInvite(m.body);
+          // 👗 A bride's gown design (Attire Maker, plan B8): the whole message is the design, so it is drawn as its card
+          // INSTEAD of a bubble (the message's own words are the card's head, estimate and ref).
+          const gownDesign = m.sender_role === 'couple' && isGownDesign(m.body);
           // 🧰 A tool the shop shared ("Share from your widgets") is drawn as its card INSTEAD of a bubble.
           const sharedTool = m.sender_role === 'vendor' ? toolShareFromLine(m.body) : null;
           const node = (() => {
-          if (cakeInvite || sharedTool) return null;
+          if (cakeInvite || gownDesign || sharedTool) return null;
           // Proposal cards — a vendor-sent structured proposal lands in the
           // thread. Render the card (title · price · status + a Review/View
           // link to the existing /proposals page) instead of a plain bubble;
@@ -3288,6 +3291,16 @@ export function ChatMessageStream({
                       // one-render: keep (no-revalidate) — cakeAction's send revalidates nothing; the new design message must appear.
                       router.refresh();
                     }}
+                  />
+                </li>
+              ) : null}
+              {gownDesign ? (
+                <li data-gown-design-card="">
+                  <GownDesignCard
+                    threadId={threadId}
+                    messageId={m.message_id}
+                    eventDate={eventDate}
+                    stamp={`${viewerRole === 'vendor' ? 'Sent from the Attire Maker' : 'You · sent from the Attire Maker'} · ${formatChatTimestamp(m.created_at)}`}
                   />
                 </li>
               ) : null}

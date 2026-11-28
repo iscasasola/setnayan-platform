@@ -5,10 +5,14 @@ import { gownShopTemplate, type GownShopOptions } from '@/lib/gown-maker';
 import { GownMakerPanel } from '@/app/vendor-dashboard/shop/_components/gown-maker-panel';
 import { GownFabricTypesSurface } from '@/app/admin/studio/_surfaces/gown-fabric-types-surface';
 import { GownOrderPanel } from '@/app/vendor-dashboard/clients/[eventId]/_components/gown-order-panel';
-import { gownDesignOf } from '@/lib/gown-maker';
+import { gownDesignOf, gownDesignRows, gownQuotePrefill } from '@/lib/gown-maker';
+import { GownDesignCard } from '@/app/_components/chat/cards/gown-design-card';
+import { MakeQuoteCard } from '@/app/_components/chat/cards/make-quote-card';
 import { ScanLab } from './scan-lab';
 import { GOWN_LACES, emptyGownHand, emptyGownQuantities, startingGownBody, startingGownConfig, type GownLace } from '@/lib/gown-config';
 import { gownCutContext } from '@/lib/gown-pattern/cutting-list';
+import type { GownOrderLines } from '@/lib/gown-pattern/lines';
+import linesGolden from '@/lib/gown-pattern/prototype-v209-lines.golden.json';
 
 const P = 100; // ₱1 in centavos — SAMPLE amounts only
 
@@ -26,6 +30,7 @@ function sample(mode: GownShopOptions['mode']): GownShopOptions {
 }
 
 const SHOP = '11111111-2222-4333-8444-555555555555';
+const LINES_SAMPLE = linesGolden.cases[0]!.lines as GownOrderLines;
 const TYPES = [
   { id: 'satin', name: 'Satin', sheen: 0.8, sheer: 0, stiff: 0.45, verified: false, family: 'satins' as const, usedFor: ['gown_body' as const, 'skirt' as const] },
   { id: 'mikado', name: 'Mikado', sheen: 0.55, sheer: 0, stiff: 0.8, verified: false, family: 'structured' as const, usedFor: ['gown_body' as const, 'skirt' as const] },
@@ -49,8 +54,76 @@ const REGISTRY = [
   { id: 'jusi', name: 'Jusi', aliases: [], family: 'handwoven' as const, gsm: 30, stiff: 0.4, sheen: 0.3, sheer: 0.6, stretch: 'none' as const, usedFor: ['barong' as const], renderAs: 'tulle', active: false, sort: 11, verified: false },
 ];
 
+/** A sent design as the chat's card reads it (B8): rows on both sides; the quote pre-fill on the shop's side only. */
+function cardSeed(viewer: 'vendor' | 'couple', opts: { ask?: boolean; replaced?: boolean } = {}) {
+  const config = { ...startingGownConfig(), sil: 'ball' as const, neck: 'off' as const, train: 'chapel' as const, veil: 'cathedral' as const };
+  const o = sample('covers');
+  if (opts.ask) o.prices = {};
+  const q = { ...emptyGownQuantities(), outerM: 9 };
+  const addOns = ['veil', 'garter', 'fittings'] as const;
+  const priced = gownDesignOf(o, config, q, [...addOns], new Map());
+  const rows = gownDesignRows(config, [...addOns], null);
+  return {
+    ok: true as const,
+    op: 'design' as const,
+    viewer,
+    designId: '00000000-0000-4000-8000-000000000013',
+    config,
+    body: null,
+    measures: {},
+    estimateCentavos: priced.forBride.estimateCentavos,
+    forShop: viewer === 'vendor' ? priced.forShop : null,
+    hand: { s: 'none' as const },
+    tape: null,
+    pattern: null,
+    rows,
+    quote: viewer === 'vendor' ? gownQuotePrefill(priced.forBride.estimateCentavos, priced.forShop, rows) : null,
+    replaced: !!opts.replaced,
+    sentAt: '2026-11-28T10:00:00Z',
+  };
+}
+
 export default function Lab({ view }: { view: string }) {
-  if (view === 'order' || view === 'order-own' || view === 'order-net') {
+  if (view.startsWith('card')) {
+    const T = '00000000-0000-4000-8000-000000000011';
+    const M = '00000000-0000-4000-8000-000000000012';
+    const shopSeed = cardSeed('vendor');
+    const body =
+      view === 'card-quote' ? (
+        <MakeQuoteCard
+          threadId={T}
+          eventDate="2027-06-12"
+          onClose={() => undefined}
+          seed={{ cards: [{ id: 'cccccccc-0000-4000-8000-000000000001', name: 'Made-to-measure gown', fromCentavos: null }] }}
+          prefill={{ picked: [], offerCentavos: shopSeed.quote!.offerCentavos, note: shopSeed.quote!.note, lines: shopSeed.quote!.lines }}
+        />
+      ) : (
+        <GownDesignCard
+          threadId={T}
+          messageId={M}
+          stamp={view === 'card-bride' ? 'You · sent from the Attire Maker · 10:24' : 'Sent from the Attire Maker · 10:24'}
+          seed={
+            view === 'card-failed'
+              ? 'failed'
+              : view === 'card-bride'
+                ? cardSeed('couple')
+                : view === 'card-ask'
+                  ? cardSeed('vendor', { ask: true })
+                  : view === 'card-replaced'
+                    ? cardSeed('vendor', { replaced: true })
+                    : shopSeed
+          }
+        />
+      );
+    return (
+      <main className="mx-auto max-w-xl p-4" data-gown-shop-lab={view}>
+        <ul className="m-0 list-none p-0">
+          <li>{body}</li>
+        </ul>
+      </main>
+    );
+  }
+  if (view === 'order' || view === 'order-own' || view === 'order-net' || view === 'order-lines' || view === 'order-lines-unread') {
     const config = { ...startingGownConfig(), sleeve: 'long' as const };
     const body = { ...startingGownBody(), given: ['height', 'bust', 'waist', 'hips'] as ('height' | 'bust' | 'waist' | 'hips')[], matters: ['arms' as const] };
     const q = { ...emptyGownQuantities(), outerM: 6.5 };
@@ -88,7 +161,11 @@ export default function Lab({ view }: { view: string }) {
               paper: 'a4',
               order: view === 'order-own' ? { seamAllow: { seam: 1, hem: 4, zip: 2.5, neck: 0.8 }, netPattern: false } : { seamAllow: null, netPattern: view === 'order-net' },
               cut: gownCutContext(config, { ...q, materials: { ...q.materials, outerM: 6.5, liningM: 5.5, netM: 4 } }, 'Duchess satin'),
+              // B9: her lines (the v209 golden's first order: a custom neckline, a scoop back and a high-low hem).
+              lines: view === 'order-lines' ? { s: 'sent', edges: LINES_SAMPLE } : view === 'order-lines-unread' ? { s: 'unread' } : { s: 'none' },
             },
+            rows: gownDesignRows(config, [], null),
+            quote: null,
             replaced: false,
             sentAt: '2026-11-26T10:00:00Z',
           }}

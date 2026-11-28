@@ -10,8 +10,16 @@
  *   ?view=looks      Looks: one look; tap it, or Add a look
  *   ?view=stock-empty  no fabrics yet
  *   ?view=order      a supplier's client › Details: her gown design, her numbers, your tape, the cutting blocks (B7)
+ *   ?view=order-lines  the same, with her own neckline, back and hem (B9, v209): said under her design, drawn on the blocks
+ *   ?view=order-lines-unread  her lines didn’t read: said, and the blocks show the plain lines
  *   ?view=scan     Fabrics and lace › Scan a swatch book (step B13), opened on a sample page drawn in the browser
  *   ?view=types      Admin › Studio › Fabric types (step B5b): a checked, an unchecked and a hidden type
+ *   ?view=card       the chat's gown design card, the shop's face (B8): her choices, the estimate, Make a quote
+ *   ?view=card-bride   the bride's face ("Your gown design · Sent")
+ *   ?view=card-ask     nothing on the list prices it yet: "Ask for a quote"
+ *   ?view=card-replaced  a newer design was sent below it
+ *   ?view=card-failed  the read failed: said, with Try again
+ *   ?view=card-quote   Make a quote, opened from the card: the estimate as the offer, her priced add-ons as its lines
  *
  * Every amount here is a SAMPLE; prices come from each designer's own list, never from this lab.
  */

@@ -440,3 +440,68 @@ test('7l · v195–v203 lines: flutter, the new sleeves, detachable bands, the o
   // Every key these lines use is on the price list.
   for (const k of ['flutter', 'sl_bishop', 'sl_detach', 'overlay', 'flowers3d', 'lace_raised', 'overrobe', 'sl_capesl']) assert.ok(GOWN_PRICE_ITEMS.some((i) => i.key === k), `${k} is not on the price list`);
 });
+
+test('7m · B8: the design card rows, her stored add-ons and the quote Make a quote opens with', async () => {
+  const m = await import('./gown-maker');
+  const lines = await import('./chat-card-lines');
+  // The card's head words are the message's own (one sentence, two files).
+  assert.equal(m.GOWN_DESIGN_HEAD, lines.GOWN_DESIGN_HEAD_WORDS);
+  const sent = m.formatGownDesignBlock(design(), { estimateCentavos: null, withinBase: false, addOns: [] }, '00000000-0000-4000-8000-000000000003');
+  assert.ok(lines.isGownDesign(sent));
+  assert.ok(!lines.isGownDesign(`hi\n${sent}`), 'only a message that IS a design is drawn as the card');
+
+  // Her add-ons as stored: ids only, in the list's own order, deduped; anything else is "couldn't read", never thinned.
+  assert.deepEqual(m.gownStoredAddOns(null), []);
+  assert.deepEqual(m.gownStoredAddOns(['fittings', 'veil', 'veil']), ['veil', 'fittings']);
+  assert.equal(m.gownStoredAddOns(['veil', 'tiara_xl']), null);
+  assert.equal(m.gownStoredAddOns('veil'), null);
+  assert.deepEqual(m.gownAddOnsInOrder(['shoes', 'veil', 'nope']), ['veil', 'shoes']);
+
+  // The rows: words only, one per choice she made; a train or veil of "None" is left out; an unknown choice is never guessed.
+  const rows = m.gownDesignRows(design({ sil: 'ball', neck: 'v', train: 'none', veil: 'chapel' }), ['veil', 'garter'], null);
+  const by = Object.fromEntries(rows.map((r) => [r.label, r.words]));
+  assert.equal(by.Shape, 'Ball gown');
+  assert.equal(by.Neckline, 'V-neck');
+  assert.equal(by.Veil, 'Chapel');
+  assert.equal(by['Add-ons'], 'Veil, Garter');
+  assert.ok(!('Train' in by) && !('By hand' in by));
+  assert.ok(!m.gownDesignRows({ sil: 'nope' }, [], null).some((r) => r.label === 'Shape'));
+  for (const r of rows) assert.doesNotMatch(r.words, /₱|\d{3,}/, `a row carries money: ${r.words}`);
+
+  // The pre-fill: the estimate she saw is the offer; her PRICED add-ons are its lines (included, on-request and
+  // unpriced ones are not); the design's cost lines never are, because she reads the quote.
+  const o = shop({ prices: { ...prices }, mode: 'covers' });
+  o.addOns.veil = { state: 'priced', centavos: C(3500) };
+  o.addOns.garter = { state: 'free' };
+  o.addOns.shoes = { state: 'request' };
+  o.addOns.fittings = { state: 'priced', centavos: null };
+  const priced = gownDesignOf(o, gownA.d, gownA.q, ['veil', 'garter', 'shoes', 'fittings'], new Map());
+  const pre = m.gownQuotePrefill(priced.forBride.estimateCentavos, priced.forShop, rows);
+  // Anti-vacuity: the design has priced cost lines a careless pre-fill could leak.
+  assert.ok(priced.forShop.lines.some((l) => l.group !== 'Add-ons' && !l.included && (l.amountCentavos ?? 0) > 0), 'no priced cost line to guard');
+  assert.equal(pre.offerCentavos, priced.forBride.estimateCentavos);
+  assert.deepEqual(pre.lines, [{ label: 'Veil', centavos: C(3500) }]);
+  assert.ok(!pre.lines.some((l) => priced.forShop.lines.some((c) => c.group !== 'Add-ons' && c.label === l.label)), 'a cost line reached the quote');
+  assert.match(pre.note, /^Shape: Ball gown\nFabric: /);
+  // The extras never exceed the offer (the list changed since she sent it): then the quote opens with the offer alone.
+  assert.deepEqual(m.gownQuotePrefill(C(1000), priced.forShop, rows).lines, []);
+  // No estimate: the shop's own total now; nothing at all: an empty offer the shop types.
+  assert.equal(m.gownQuotePrefill(null, priced.forShop, rows).offerCentavos, priced.forShop.totalCentavos);
+  assert.equal(m.gownQuotePrefill(null, null, rows).offerCentavos, 0);
+});
+
+test('7n · v209: a scalloped or handkerchief hem is its own unpriced line, in a Hem group after Skirt; plain and curved add none', () => {
+  const groups = GOWN_PRICE_GROUPS.map(([g]) => g);
+  assert.equal(groups.indexOf('Hem'), groups.indexOf('Skirt') + 1, 'Hem is not right after Skirt');
+  const hemGroup = GOWN_PRICE_GROUPS.find(([g]) => g === 'Hem')![1];
+  assert.deepEqual(GOWN_PRICE_ITEMS.filter((i) => hemGroup(i.key)).map((i) => i.label), ['Scalloped hem: shaping and finishing', 'Handkerchief hem: shaping and finishing']);
+  const keysOf = (edge: string | undefined) =>
+    gownDesignOf(shop({ prices: { ...prices } }), { ...gownA.d, ...(edge ? { hemEdge: edge } : {}) } as typeof gownA.d, gownA.q, [], new Map()).forShop.lines.filter((l) => l.key.startsWith('hem_'));
+  for (const edge of [undefined, 'plain', 'curved']) assert.deepEqual(keysOf(edge), [], `a ${edge ?? 'pre-v209'} hem added a line`);
+  const sc = keysOf('scallop'), hk = keysOf('hanky');
+  assert.deepEqual(sc.map((l) => [l.key, l.group, l.qty, l.unit]), [['hem_scallop', 'Skirt', 1, 'pc']]);
+  assert.deepEqual(hk.map((l) => [l.key, l.group, l.qty, l.unit]), [['hem_hanky', 'Skirt', 1, 'pc']]);
+  assert.equal(sc[0]!.amountCentavos, null, 'an unpriced hem line was priced');
+  const priced = gownDesignOf(shop({ prices: { ...prices, hem_scallop: C(1) } }), { ...gownA.d, hemEdge: 'scallop' } as typeof gownA.d, gownA.q, [], new Map());
+  assert.equal(priced.forShop.lines.find((l) => l.key === 'hem_scallop')!.amountCentavos, C(1));
+});

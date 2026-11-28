@@ -64,13 +64,13 @@ export function GownStageButtons(p: GownStageButtonsProps) {
   return (
     <div className="flex flex-wrap gap-2" data-gown-stage-buttons>
       <HoldTap onTap={nextPose} onHold={() => setOpen('pose')}>
-        {(tap) => <ActionButton tone="neutral" icon={PersonStanding} label={moving ? 'Still' : 'Pose'} onClick={tap} caret aria-expanded={open === 'pose'} data-gown-pose={p.pose} />}
+        {(tap) => <ActionButton tone="neutral" icon={PersonStanding} label={moving ? 'Still' : 'Pose'} onClick={tap} caret aria-haspopup="dialog" aria-expanded={open === 'pose'} data-gown-pose={p.pose} />}
       </HoldTap>
       <HoldTap onTap={p.onTwirl} onHold={() => setOpen('twirl')}>
-        {(tap) => <ActionButton tone="neutral" icon={RotateCw} label="Twirl" onClick={tap} caret aria-expanded={open === 'twirl'} />}
+        {(tap) => <ActionButton tone="neutral" icon={RotateCw} label="Twirl" onClick={tap} caret aria-haspopup="dialog" aria-expanded={open === 'twirl'} />}
       </HoldTap>
       <HoldTap onTap={toggleTurn} onHold={() => setOpen('turn')}>
-        {(tap) => <ActionButton tone="neutral" icon={Rotate3d} label="Turn" onClick={tap} caret aria-pressed={p.autoTurn.speed > 0} aria-expanded={open === 'turn'} />}
+        {(tap) => <ActionButton tone="neutral" icon={Rotate3d} label="Turn" onClick={tap} caret aria-pressed={p.autoTurn.speed > 0} aria-haspopup="dialog" aria-expanded={open === 'turn'} />}
       </HoldTap>
       <Sheet open={open !== null} onClose={() => setOpen(null)} labelledById={titleId} rise>
         <div className="grid gap-3 p-4">

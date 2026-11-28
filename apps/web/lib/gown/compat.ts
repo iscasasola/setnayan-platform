@@ -17,7 +17,10 @@ import {
   GOWN_STRAPS,
   GOWN_STRAP_DEF,
   GOWN_STRAP_OK,
+  gownCapeFlowersOn,
   gownCapeNow,
+  gownFloorLength,
+  gownFlowersOn,
   gownStrapCovers,
   gownStrapKind,
   gownStrapOk,
@@ -287,6 +290,40 @@ export const GOWN_RULES: readonly GownRule[] = [
     id: 'scallop-plain-again', on: ALL_BUT('topEdge'), when: (g) => g.topEdge === 'scallop' && !scallopNeck(g), apply: (g) => { g.topEdge = 'plain'; },
     note: 'The top edge is plain again: a scalloped edge is for strapless necklines.', tell: true,
   },
+  // v200 `flowerSet`: 3D flowers and scattered pearls. Their lines go in the Undo line.
+  {
+    id: 'sheath-flowers-medium', on: ['sil', 'flowerSize', 'flowers', 'capeFlowers'], when: (g) => g.sil === 'sheath' && g.flowerSize === 'large' && (gownFlowersOn(g) || gownCapeFlowersOn(g)),
+    apply: (g) => { g.flowerSize = 'medium'; }, note: 'The flowers are now medium: on a sheath they stay small or medium, close to the body.', tell: true,
+  },
+  {
+    id: 'hem-flowers-need-floor', on: ['flowers'], when: (g) => g.flowers === 'hem' && !gownFloorLength(g), apply: (g, was) => { g.flowers = (was as GownConfig['flowers']) || 'none'; },
+    note: 'A hem border of flowers needs a floor-length hem: pick Floor under Length first.', tell: true,
+  },
+  {
+    id: 'cascade-strapless-bodice', on: ['flowers', 'flowerFrom'], when: (g, k) => (k === 'flowerFrom' || g.flowers === 'cascade') && strapless(g) && g.flowerFrom !== 'bodice',
+    apply: (g) => { g.flowerFrom = 'bodice'; }, note: 'On a strapless gown the cascade starts at the bodice edge.', tell: true,
+  },
+  {
+    id: 'strapless-cascade-bodice', on: ['neck'], when: (g, _k, was) => strapless(g) && !GOWN_STRAPLESS.includes(was as GownConfig['neck']) && g.flowers === 'cascade' && g.flowerFrom === 'shoulder',
+    apply: (g) => { g.flowerFrom = 'bodice'; }, note: 'The flower cascade now starts at the bodice edge: a strapless neckline has no shoulder.', tell: true,
+  },
+  {
+    id: 'veil-off-pearls', on: ['veil'], when: (g) => g.veil === 'none' && (g.pearls === 'veil' || g.pearls === 'both'), apply: (g) => { g.pearls = g.pearls === 'both' ? 'neck' : 'none'; },
+    note: 'The pearls on the veil edge are off with the veil.', tell: true,
+  },
+  {
+    id: 'pearls-need-veil', on: ['pearls'], when: (g) => (g.pearls === 'veil' || g.pearls === 'both') && g.veil === 'none', apply: (g, was) => { g.pearls = (was as GownConfig['pearls']) || 'none'; },
+    note: 'Pick a veil first: these pearls are scattered along its edge.', tell: true,
+  },
+  {
+    id: 'flowers-accent-first', on: ['flowerCol'], when: (g) => g.flowerCol === 'accent' && !accented(g), apply: (g, was) => { g.flowerCol = (was as GownConfig['flowerCol']) || 'gown'; },
+    note: 'Pick an accent colour first (under Sleeves); until then the flowers stay in the gown colour.', tell: true,
+  },
+  {
+    // v200 `flowerSync`: a shorter hem takes the hem border of flowers off.
+    id: 'short-hem-flowers-off', on: ['hem', 'hemCm'], when: (g) => g.flowers === 'hem' && !gownFloorLength(g), apply: (g) => { g.flowers = 'none'; },
+    note: 'The hem border of 3D flowers is off: it needs a floor-length hem.', tell: true,
+  },
   // v198: the illusion bodice, the illusion back and the boning you can see. Their lines go in the Undo line.
   {
     id: 'illusion-needs-neckline', on: ['illu'], when: (g) => g.illu === 'neck' && bareTop(g), apply: (g) => { g.neck = 'bateau'; g.neckT = null; },
@@ -354,6 +391,7 @@ export function gownHiddenChoices(g: GownConfig): {
   sleeve: string[]; veil: string[]; waist: string[]; slits: boolean; overlay: string[]; petti: string[]; train: string[]; pleat: boolean; drape: string[]; blusher: boolean; longSleeveLabel: string;
   capeLen: string[]; capeFasten: boolean; capeCol: boolean; capeCm: boolean; neck: string[]; illuDetails: boolean; illuBack: boolean;
   straps: string[]; strapRow: boolean; strapDetails: boolean; strapCol: boolean; topEdge: boolean; plungeFill: boolean;
+  flowers: string[]; flowerDetails: boolean; flowerFromRow: boolean; flowerFrom: string[]; flowerSize: string[]; flowerCol: string[]; pearls: string[]; veilFab: boolean;
 } {
   const k = gownStrapKind(g), two = k === 'halter' || k === 'one';
   return {
@@ -389,6 +427,17 @@ export function gownHiddenChoices(g: GownConfig): {
     strapCol: !accented(g),
     topEdge: !scallopNeck(g),
     plungeFill: g.neck !== 'plungewaist',
+    // v200 `flwChips`: a hem border only on a floor-length hem; the flowers' details while there are flowers (where a
+    // cascade starts only for a cascade, and never at her shoulder on a strapless gown); no large flowers on a sheath; the
+    // accent colour once there is an accent; pearls on the veil's edge and the veil's tulle only with a veil.
+    flowers: gownFloorLength(g) ? [] : ['hem'],
+    flowerDetails: !(gownFlowersOn(g) || gownCapeFlowersOn(g)),
+    flowerFromRow: g.flowers !== 'cascade',
+    flowerFrom: strapless(g) ? ['shoulder'] : [],
+    flowerSize: g.sil === 'sheath' ? ['large'] : [],
+    flowerCol: accented(g) ? [] : ['accent'],
+    pearls: g.veil === 'none' ? ['veil', 'both'] : [],
+    veilFab: g.veil === 'none',
   };
 }
 

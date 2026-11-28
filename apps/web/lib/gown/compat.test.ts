@@ -67,7 +67,8 @@ test('the layers and the petticoat always agree (v192): a hoop is layer 1 only; 
   assert.deepEqual(sanitizeGownConfig({ ...start(), layerTypes: ['soft', 'hoop', 'soft', 'soft', 'soft', 'soft'] }, OFFER), { ok: false, reason: 'not_a_design' });
   assert.deepEqual(sanitizeGownConfig({ ...start(), cape: 'side', sleeve: 'butterfly', neck: 'bateau' }, OFFER), { ok: false, reason: 'not_a_design' });
   assert.deepEqual(sanitizeGownConfig({ ...start(), cape: 'back', veil: 'chapel' }, OFFER), { ok: false, reason: 'not_a_design' });
-  assert.equal(GOWN_LAYER_TYPES.length, 5);
+  // v200 adds glitter tulle.
+  assert.equal(GOWN_LAYER_TYPES.length, 6);
 });
 
 test('every rule names real keys and has a reason to exist (a change or a line)', () => {

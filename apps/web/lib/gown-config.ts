@@ -191,6 +191,8 @@ export const GOWN_CAPE_FABRICS = [
   { id: 'chiffon', label: 'Chiffon' },
   { id: 'organza', label: 'Organza' },
   { id: 'lace', label: 'Lace' },
+  // v200: tulle with a fine sparkle.
+  { id: 'glitter', label: 'Glitter tulle' },
 ] as const;
 export type GownCapeFabric = (typeof GOWN_CAPE_FABRICS)[number]['id'];
 /** How long a cape is (v196 `CAPE_LENS`). */
@@ -267,6 +269,8 @@ export const GOWN_OVERLAY_FABRICS = [
   { id: 'tulle', label: 'Tulle' },
   { id: 'organza', label: 'Organza' },
   { id: 'gown', label: 'The gown fabric' },
+  // v200: tulle with a fine sparkle.
+  { id: 'glitter', label: 'Glitter tulle' },
 ] as const;
 export type GownOverlayFabric = (typeof GOWN_OVERLAY_FABRICS)[number]['id'];
 
@@ -588,6 +592,84 @@ export const gownPlungeMeshOn = (d: { neck: GownNeckline; plungeFill: GownPlunge
 /** A scalloped top edge, on a strapless sweetheart or straight-across neckline (v199 `scallopOn`). */
 export const gownScallopOn = (d: { neck: GownNeckline; topEdge: GownTopEdge }) => d.topEdge === 'scallop' && (d.neck === 'sweetheart' || d.neck === 'straight');
 
+/** v200 3D flowers: where they go (`FLW_AT`). */
+export const GOWN_FLOWERS = [
+  { id: 'none', label: 'None', why: 'No 3D flowers.' },
+  { id: 'scatter', label: 'Scattered blooms', why: 'Single flowers scattered over the bodice, skirt and any sleeves.' },
+  { id: 'cascade', label: 'Cascade', why: 'A cascade from her left shoulder across the bodice, over the waist and down the skirt to her right, fuller at the top.' },
+  { id: 'neck', label: 'Neckline', why: 'A row of flowers along the neckline.' },
+  { id: 'hem', label: 'Hem border', why: 'A border of flowers round the hem (floor-length gowns).' },
+  { id: 'waist', label: 'Waist cluster', why: 'A cluster at her right hip on the waistline, a few trailing below.' },
+] as const;
+export type GownFlowers = (typeof GOWN_FLOWERS)[number]['id'];
+export const GOWN_FLOWER_FROM = [
+  { id: 'shoulder', label: 'Her shoulder' },
+  { id: 'bodice', label: 'The bodice edge' },
+] as const;
+export type GownFlowerFrom = (typeof GOWN_FLOWER_FROM)[number]['id'];
+/** v200 `FLW_TYPES` (its `bloom` is `petal` here): `h` is how tall the flower stands, as a share of its width. */
+export const GOWN_FLOWER_TYPES = [
+  { id: 'rosette', label: 'Rosette', name: 'Rosettes', one: 'rosette', h: 0.4 },
+  { id: 'petal', label: 'Petal bloom', name: 'Petal blooms', one: 'petal bloom', h: 0.3 },
+  { id: 'blossom', label: 'Small blossom', name: 'Small blossoms', one: 'small blossom', h: 0.22 },
+] as const;
+export type GownFlowerType = (typeof GOWN_FLOWER_TYPES)[number]['id'];
+/** v200 `FLW_SIZE`: cm across (a small blossom is 0.8 of it). */
+export const GOWN_FLOWER_SIZES = [
+  { id: 'small', label: 'Small (2.5 cm)', cm: 2.5 },
+  { id: 'medium', label: 'Medium (4 cm)', cm: 4 },
+  { id: 'large', label: 'Large (6 cm)', cm: 6 },
+] as const;
+export type GownFlowerSize = (typeof GOWN_FLOWER_SIZES)[number]['id'];
+export const GOWN_FLOWER_DENSITIES = [
+  { id: 'light', label: 'Light' },
+  { id: 'medium', label: 'Medium' },
+  { id: 'full', label: 'Full' },
+] as const;
+export type GownFlowerDensity = (typeof GOWN_FLOWER_DENSITIES)[number]['id'];
+export const GOWN_FLOWER_COLOURS = [
+  { id: 'gown', label: 'The gown colour' },
+  { id: 'ivory', label: 'Ivory' },
+  { id: 'blush', label: 'Blush' },
+  { id: 'accent', label: 'The accent colour' },
+] as const;
+export type GownFlowerColour = (typeof GOWN_FLOWER_COLOURS)[number]['id'];
+/** v200 `FLW_CAPE`: 3D flowers on the cape. */
+export const GOWN_CAPE_FLOWERS = [
+  { id: 'none', label: 'None' },
+  { id: 'trail', label: 'Trailing down' },
+  { id: 'edge', label: 'Along the edge' },
+  { id: 'all', label: 'All over' },
+] as const;
+export type GownCapeFlowers = (typeof GOWN_CAPE_FLOWERS)[number]['id'];
+/** v200 `laceRaise`. */
+export const GOWN_LACE_FINISHES = [
+  { id: 'flat', label: 'Flat' },
+  { id: 'raised', label: 'Raised (3D)' },
+] as const;
+export type GownLaceFinish = (typeof GOWN_LACE_FINISHES)[number]['id'];
+/** v200 `veilFab` (its `glitter_tulle` is `glitter` here). */
+export const GOWN_VEIL_FABRICS = [
+  { id: 'tulle', label: 'Tulle' },
+  { id: 'glitter', label: 'Glitter tulle' },
+] as const;
+export type GownVeilFabric = (typeof GOWN_VEIL_FABRICS)[number]['id'];
+/** v200 `pearlAt`: pearls scattered along the neckline and the veil's edge. */
+export const GOWN_PEARLS = [
+  { id: 'none', label: 'None' },
+  { id: 'neck', label: 'Neckline' },
+  { id: 'veil', label: 'Veil edge' },
+  { id: 'both', label: 'Both' },
+] as const;
+export type GownPearls = (typeof GOWN_PEARLS)[number]['id'];
+/** Her hem reaches the floor at the front (v200 `flwFloorLen`, as the design states it: a preset, or a length under 6 cm). */
+export const gownFloorLength = (d: Pick<GownConfig, 'hem' | 'hemCm'>) => (d.hemCm < 0 ? -d.hemCm < 6 : d.hem === 'floor');
+/** v200 `flwOn` / `flwCapeOn`. */
+export const gownFlowersOn = (d: Pick<GownConfig, 'flowers'>) => d.flowers !== 'none';
+export const gownCapeFlowersOn = (d: Pick<GownConfig, 'cape' | 'capeFlowers'>) => d.cape !== 'none' && d.capeFlowers !== 'none';
+/** A flower's width (cm): a small blossom is 0.8 of its size (v200 `flwCm`). */
+export const gownFlowerCm = (d: Pick<GownConfig, 'flowerSize' | 'flowerType'>) => GOWN_FLOWER_SIZES.find((x) => x.id === d.flowerSize)!.cm * (d.flowerType === 'blossom' ? 0.8 : 1);
+
 export const GOWN_LININGS = [
   { id: 'satin', label: 'Satin' },
   { id: 'cotton', label: 'Cotton' },
@@ -606,6 +688,8 @@ export const GOWN_LAYER_TYPES = [
   { id: 'organza', label: 'Organza', why: 'Crisp and sheer: a soft glow and light body.', fill: 0.09 },
   { id: 'chiffon', label: 'Chiffon', why: 'Soft and flowing: almost no volume.', fill: 0.14 },
   { id: 'hoop', label: 'Hoop (crinoline)', why: 'Rings next to her body: the widest skirt.', fill: 0.06 },
+  // v200 `LTYPES.glitter`.
+  { id: 'glitter', label: 'Glitter tulle', why: 'Soft tulle with a fine sparkle: it glints through a sheer skirt.', fill: 0.11 },
 ] as const;
 export type GownLayerType = (typeof GOWN_LAYER_TYPES)[number]['id'];
 /** The most layers under a skirt (the skirtLayers slider's top). */
@@ -807,6 +891,17 @@ export type GownConfig = {
   strapEdge: GownStrapEdge;
   topEdge: GownTopEdge;
   plungeFill: GownPlungeFill;
+  /** v200: 3D flowers (where, from, type, size, density, colour); flowers on the cape; the lace's finish; the veil's tulle; scattered pearls. */
+  flowers: GownFlowers;
+  flowerFrom: GownFlowerFrom;
+  flowerType: GownFlowerType;
+  flowerSize: GownFlowerSize;
+  flowerDen: GownFlowerDensity;
+  flowerCol: GownFlowerColour;
+  capeFlowers: GownCapeFlowers;
+  laceFinish: GownLaceFinish;
+  veilFab: GownVeilFabric;
+  pearls: GownPearls;
   lining: GownLining;
   liningCol: GownLayerColour;
   cape: GownCape;
@@ -848,6 +943,7 @@ export const GOWN_LOOK_KEYS = [
   'bow', 'blusher', 'veilStyle', 'waist', 'pieces', 'sil', 'neck', 'sleeve', 'sleeveFab', 'back', 'closure', 'fabric', 'lace', 'laceAt', 'laceBeads', 'laceCol',
   'bead', 'beadAt', 'beadDen', 'beadCol', 'train', 'veil', 'pleat', 'tex', 'darts', 'drape', 'bustle', 'petti', 'shape', 'boning', 'overlay', 'ovFab', 'illu', 'illuBase', 'illuCol', 'illuBack', 'boneShow',
   'straps', 'strapCol', 'strapEdge', 'topEdge', 'plungeFill',
+  'flowers', 'flowerFrom', 'flowerType', 'flowerSize', 'flowerDen', 'flowerCol', 'capeFlowers', 'laceFinish', 'veilFab', 'pearls',
 ] as const satisfies readonly (keyof GownConfig)[];
 export type GownLookKey = (typeof GOWN_LOOK_KEYS)[number];
 export type GownLook = Pick<GownConfig, GownLookKey>;
@@ -926,6 +1022,16 @@ export function startingGownConfig(): GownConfig {
     strapEdge: 'plain',
     topEdge: 'plain',
     plungeFill: 'mesh',
+    flowers: 'none',
+    flowerFrom: 'shoulder',
+    flowerType: 'rosette',
+    flowerSize: 'medium',
+    flowerDen: 'medium',
+    flowerCol: 'gown',
+    capeFlowers: 'none',
+    laceFinish: 'flat',
+    veilFab: 'tulle',
+    pearls: 'none',
     lining: 'satin',
     liningCol: 'match',
     cape: 'none',
@@ -1170,6 +1276,8 @@ export type GownQuantities = {
     /** The veil's own tulle, apart from the petticoat's, so a priced veil add-on is never counted twice. */
     veilM: number;
     illusionM: number;
+    /** v200: glitter tulle (a veil, cape or overlay in it; layers under the skirt), out of the plain net. */
+    glitterM: number;
     boningM: number;
     /** Lace by the yard (tiled lace and sheer lace sleeves). */
     laceYardM: number;
@@ -1216,11 +1324,14 @@ export type GownQuantities = {
     /** v199: the straps to cut, sew and attach (a pair, or one strap); a scalloped top edge to shape and finish. Their fabric is in `outerM` or `accentM`, a rouleau in `ribbonM`, crystals in `beads`. */
     straps: GownStraps;
     scallop: boolean;
+    /** v200: 3D flowers to make and attach (every flower, not only those drawn); raised lace to shape and finish. */
+    flowers: number;
+    laceRaised: boolean;
   };
 };
 
 export const GOWN_MATERIAL_KEYS = [
-  'outerM', 'accentM', 'liningM', 'netM', 'organzaM', 'chiffonM', 'sleeveChiffonM', 'overlayM', 'capeM', 'ribbonM', 'veilM', 'illusionM', 'boningM', 'laceYardM', 'laceMotifs', 'horsehairM', 'cordM', 'pipingM', 'fringeM',
+  'outerM', 'accentM', 'liningM', 'netM', 'organzaM', 'chiffonM', 'sleeveChiffonM', 'overlayM', 'capeM', 'ribbonM', 'veilM', 'illusionM', 'glitterM', 'boningM', 'laceYardM', 'laceMotifs', 'horsehairM', 'cordM', 'pipingM', 'fringeM',
   'featherM', 'ruffleM', 'zippers', 'buttons', 'eyelets', 'waistStays', 'hoops',
 ] as const satisfies readonly Exclude<keyof GownQuantities['materials'], 'beads'>[];
 type GownMaterialKey = (typeof GOWN_MATERIAL_KEYS)[number];
@@ -1234,7 +1345,7 @@ export function emptyGownQuantities(): GownQuantities {
   return {
     v: GOWN_CONFIG_VERSION,
     materials: { ...materials, beads },
-    labour: { sleeve: 'none', beads: 0, laceMotifs: 0, laceYardM: 0, pleats: 0, tex: 'none', darts: false, cutouts: 0, slits: 0, train: 'none', veil: 'none', trimM: 0, twoPiece: false, cape: 'none', flutter: 0, overlay: 0, illuBodice: 'none', illuBack: false, boneShow: 0, straps: 'none', scallop: false },
+    labour: { sleeve: 'none', beads: 0, laceMotifs: 0, laceYardM: 0, pleats: 0, tex: 'none', darts: false, cutouts: 0, slits: 0, train: 'none', veil: 'none', trimM: 0, twoPiece: false, cape: 'none', flutter: 0, overlay: 0, illuBodice: 'none', illuBack: false, boneShow: 0, straps: 'none', scallop: false, flowers: 0, laceRaised: false },
   };
 }
 
@@ -1400,6 +1511,16 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
     strapEdge: pick('strapEdge', ids(GOWN_STRAP_EDGES)),
     topEdge: pick('topEdge', ids(GOWN_TOP_EDGES)),
     plungeFill: pick('plungeFill', ids(GOWN_PLUNGE_FILLS)),
+    flowers: pick('flowers', ids(GOWN_FLOWERS)),
+    flowerFrom: pick('flowerFrom', ids(GOWN_FLOWER_FROM)),
+    flowerType: pick('flowerType', ids(GOWN_FLOWER_TYPES)),
+    flowerSize: pick('flowerSize', ids(GOWN_FLOWER_SIZES)),
+    flowerDen: pick('flowerDen', ids(GOWN_FLOWER_DENSITIES)),
+    flowerCol: pick('flowerCol', ids(GOWN_FLOWER_COLOURS)),
+    capeFlowers: pick('capeFlowers', ids(GOWN_CAPE_FLOWERS)),
+    laceFinish: pick('laceFinish', ids(GOWN_LACE_FINISHES)),
+    veilFab: pick('veilFab', ids(GOWN_VEIL_FABRICS)),
+    pearls: pick('pearls', ids(GOWN_PEARLS)),
     lining: pick('lining', ids(GOWN_LININGS)),
     liningCol: pick('liningCol', ids(GOWN_LAYER_COLOURS)),
     cape: pick('cape', ids(GOWN_CAPES)),
@@ -1495,6 +1616,14 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
   if ((p.straps === 'halter' || p.straps === 'one') && (p.sleeve === 'cap' || p.sleeve === 'butterfly' || p.sleeve === 'flutter')) return no('not_a_design');
   if (p.neck === 'plungewaist' && p.illu === 'neck') return no('not_a_design');
   if (p.topEdge === 'scallop' && !gownScallopOn(p)) return no('not_a_design');
+  // v200: on a sheath the flowers stay small or medium; a hem border needs a floor-length hem; on a strapless gown a
+  // cascade starts at the bodice edge; pearls on the veil's edge need a veil. (An accent flower colour with no accent is
+  // drawn in the gown colour, as an accent cape is: not refused.)
+  const flowered = gownFlowersOn(p) || gownCapeFlowersOn(p);
+  if (p.sil === 'sheath' && p.flowerSize === 'large' && flowered) return no('not_a_design');
+  if (p.flowers === 'hem' && !gownFloorLength({ hem: p.hem, hemCm: n.hemCm })) return no('not_a_design');
+  if (p.flowers === 'cascade' && p.flowerFrom === 'shoulder' && GOWN_STRAPLESS.includes(p.neck)) return no('not_a_design');
+  if ((p.pearls === 'veil' || p.pearls === 'both') && p.veil === 'none') return no('not_a_design');
 
   const bools = { waistStay: r.waistStay ?? false, horsehair: r.horsehair ?? false, modesty: r.modesty ?? false };
   for (const v of Object.values(bools)) if (typeof v !== 'boolean') return no('not_a_design');
@@ -1635,6 +1764,16 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
       strapEdge: p.strapEdge,
       topEdge: p.topEdge,
       plungeFill: p.plungeFill,
+      flowers: p.flowers,
+      flowerFrom: p.flowerFrom,
+      flowerType: p.flowerType,
+      flowerSize: p.flowerSize,
+      flowerDen: p.flowerDen,
+      flowerCol: p.flowerCol,
+      capeFlowers: p.capeFlowers,
+      laceFinish: p.laceFinish,
+      veilFab: p.veilFab,
+      pearls: p.pearls,
       lining: p.lining,
       liningCol: p.liningCol,
       cape: p.cape,
@@ -1771,6 +1910,8 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
   if (!isOneOf(illuBodice, ids(GOWN_ILLUSIONS)) || typeof illuBack !== 'boolean' || boneShow === null) return no('quantities');
   const straps = L.straps ?? 'none', scallop = L.scallop ?? false;
   if (!isOneOf(straps, ids(GOWN_STRAPS)) || typeof scallop !== 'boolean') return no('quantities');
+  const flowers = qty(L.flowers ?? 0, true, GOWN_QUANTITY_MAX.pieces), laceRaised = L.laceRaised ?? false;
+  if (flowers === null || typeof laceRaised !== 'boolean') return no('quantities');
   if (!isOneOf(sleeve, ids(GOWN_SLEEVES)) || !isOneOf(tex, ids(GOWN_TEXTURES)) || !isOneOf(train, ids(GOWN_TRAINS)) || !isOneOf(veil, ids(GOWN_VEILS))) {
     return no('quantities');
   }
@@ -1787,7 +1928,7 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
   if (beads === null || laceMotifs === null || laceYardM === null || pleats === null || cutouts === null || slits === null || trimM === null) {
     return no('quantities');
   }
-  q.labour = { sleeve, beads, laceMotifs, laceYardM, pleats, tex, darts, cutouts, slits, train, veil, trimM, twoPiece, cape, flutter, overlay, illuBodice, illuBack, boneShow, straps, scallop };
+  q.labour = { sleeve, beads, laceMotifs, laceYardM, pleats, tex, darts, cutouts, slits, train, veil, trimM, twoPiece, cape, flutter, overlay, illuBodice, illuBack, boneShow, straps, scallop, flowers, laceRaised };
   return { ok: true, quantities: q };
 }
 

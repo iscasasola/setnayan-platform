@@ -53,13 +53,13 @@ const SHIPPED: Record<string, string[]> = {
   GOWN_BOWS: ['none', 'back', 'shoulder'],
   GOWN_VEIL_STYLES: ['classic', 'mantilla', 'drop', 'juliet', 'birdcage'],
   GOWN_CAPES: ['none', 'side', 'back', 'capelet', 'neck', 'pair', 'drape'],
-  GOWN_CAPE_FABRICS: ['gown', 'tulle', 'chiffon', 'organza', 'lace'],
+  GOWN_CAPE_FABRICS: ['gown', 'tulle', 'chiffon', 'organza', 'lace', 'glitter'],
   GOWN_CAPE_LENGTHS: ['shoulder', 'elbow', 'fingertip', 'floor', 'train'],
   GOWN_CAPE_EDGES: ['plain', 'lace', 'beaded', 'applique'],
   GOWN_CAPE_FASTENINGS: ['neck', 'shoulders'],
   GOWN_CAPE_COLOURS: ['match', 'accent'],
   GOWN_OVERLAYS: ['none', 'asym', 'tiered', 'cascade'],
-  GOWN_OVERLAY_FABRICS: ['chiffon', 'georgette', 'tulle', 'organza', 'gown'],
+  GOWN_OVERLAY_FABRICS: ['chiffon', 'georgette', 'tulle', 'organza', 'gown', 'glitter'],
   GOWN_HEMS: ['knee', 'midi', 'floor'],
   GOWN_STOCK_FABRICS: ['satin', 'mikado', 'crepe', 'chiffon', 'georgette', 'tulle', 'organza', 'lace', 'sequin', 'pina', 'jusi', 'wool_suiting', 'linen', 'velvet', 'stretch_crepe_jersey'],
   GOWN_COLOURS: ['white', 'ivory', 'champagne', 'blush', 'navy', 'custom'],
@@ -92,8 +92,18 @@ const SHIPPED: Record<string, string[]> = {
   GOWN_STRAP_EDGES: ['plain', 'beaded'],
   GOWN_TOP_EDGES: ['plain', 'scallop'],
   GOWN_PLUNGE_FILLS: ['mesh', 'open'],
+  GOWN_FLOWERS: ['none', 'scatter', 'cascade', 'neck', 'hem', 'waist'],
+  GOWN_FLOWER_FROM: ['shoulder', 'bodice'],
+  GOWN_FLOWER_TYPES: ['rosette', 'petal', 'blossom'],
+  GOWN_FLOWER_SIZES: ['small', 'medium', 'large'],
+  GOWN_FLOWER_DENSITIES: ['light', 'medium', 'full'],
+  GOWN_FLOWER_COLOURS: ['gown', 'ivory', 'blush', 'accent'],
+  GOWN_CAPE_FLOWERS: ['none', 'trail', 'edge', 'all'],
+  GOWN_LACE_FINISHES: ['flat', 'raised'],
+  GOWN_VEIL_FABRICS: ['tulle', 'glitter'],
+  GOWN_PEARLS: ['none', 'neck', 'veil', 'both'],
   GOWN_LININGS: ['satin', 'cotton', 'silk', 'none'],
-  GOWN_LAYER_TYPES: ['soft', 'full', 'organza', 'chiffon', 'hoop'],
+  GOWN_LAYER_TYPES: ['soft', 'full', 'organza', 'chiffon', 'hoop', 'glitter'],
   GOWN_LAYER_COLOURS: ['match', 'ivory', 'white', 'blush', 'champagne', 'nude'],
   GOWN_SLITS: ['left', 'right', 'lside', 'rside', 'back'],
   GOWN_CUTOUTS: ['waist', 'keyhole', 'under', 'diamond', 'window', 'hip', 'slash'],
@@ -314,10 +324,10 @@ const V186_ORDER: GownPrototypeOrder = {
 test('a v186 order round-trips: the look keys, her numbers and her choices come back exactly', () => {
   const got = gownFromPrototypeOrder(V186_ORDER, offer());
   assert.ok(got.ok, got.ok ? '' : got.reason);
-  // A v186 look has no bow, blusher, overlay, illusion or straps (v197, v198 and v199 add them to the look): they come back as the starting values.
+  // A v186 look has no bow, blusher, overlay, illusion, straps or flowers (v197 to v200 add them to the look): they come back as the starting values.
   // It opens as v197 opens an order: the mermaid's chapel train becomes a sweep (corpus a5ada15).
   const s0 = startingGownConfig();
-  assert.deepEqual(gownLookOf(got.config), { bow: s0.bow, blusher: s0.blusher, overlay: s0.overlay, ovFab: s0.ovFab, illu: s0.illu, illuBase: s0.illuBase, illuCol: s0.illuCol, illuBack: s0.illuBack, boneShow: s0.boneShow, straps: s0.straps, strapCol: s0.strapCol, strapEdge: s0.strapEdge, topEdge: s0.topEdge, plungeFill: s0.plungeFill, ...V186_ORDER.design3d.gown, train: 'sweep' }, 'the look the designer opens on the mannequin');
+  assert.deepEqual(gownLookOf(got.config), { bow: s0.bow, blusher: s0.blusher, overlay: s0.overlay, ovFab: s0.ovFab, illu: s0.illu, illuBase: s0.illuBase, illuCol: s0.illuCol, illuBack: s0.illuBack, boneShow: s0.boneShow, straps: s0.straps, strapCol: s0.strapCol, strapEdge: s0.strapEdge, topEdge: s0.topEdge, plungeFill: s0.plungeFill, flowers: s0.flowers, flowerFrom: s0.flowerFrom, flowerType: s0.flowerType, flowerSize: s0.flowerSize, flowerDen: s0.flowerDen, flowerCol: s0.flowerCol, capeFlowers: s0.capeFlowers, laceFinish: s0.laceFinish, veilFab: s0.veilFab, pearls: s0.pearls, ...V186_ORDER.design3d.gown, train: 'sweep' }, 'the look the designer opens on the mannequin');
   assert.deepEqual(Object.keys(gownLookOf(got.config)), [...GOWN_LOOK_KEYS]);
   assert.equal(got.config.hem, 'floor');
   assert.equal(got.config.heel, 7);

@@ -16,6 +16,16 @@ import {
   GOWN_ILLUSION_COLOURS,
   GOWN_ILLUSION_CUPS,
   GOWN_PLUNGE_FILLS,
+  GOWN_FLOWERS,
+  GOWN_FLOWER_FROM,
+  GOWN_FLOWER_TYPES,
+  GOWN_FLOWER_SIZES,
+  GOWN_FLOWER_DENSITIES,
+  GOWN_FLOWER_COLOURS,
+  GOWN_CAPE_FLOWERS,
+  GOWN_LACE_FINISHES,
+  GOWN_VEIL_FABRICS,
+  GOWN_PEARLS,
   GOWN_STRAPS,
   GOWN_STRAP_COLOURS,
   GOWN_STRAP_EDGES,
@@ -195,7 +205,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   const now = gownCapeNow(design), hidden = gownHiddenChoices(design);
   const capeNow = { capeFab: now.fab, capeLen: now.len, capeEdge: now.edge, capeFasten: now.fasten };
   // Every pick goes through the pairing rules, so the lab shows what the maker will (one line, then Undo in the maker).
-  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'illu' | 'illuBase' | 'illuCol' | 'illuBack' | 'boneShow' | 'straps' | 'strapCol' | 'strapEdge' | 'topEdge' | 'plungeFill' | 'boning' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
+  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'illu' | 'illuBase' | 'illuCol' | 'illuBack' | 'boneShow' | 'straps' | 'strapCol' | 'strapEdge' | 'topEdge' | 'plungeFill' | 'flowers' | 'flowerFrom' | 'flowerType' | 'flowerSize' | 'flowerDen' | 'flowerCol' | 'capeFlowers' | 'laceFinish' | 'veilFab' | 'pearls' | 'boning' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
     const out = gownChoose(design, { key: k, value: v } as GownChoice);
     setDesign(out.config);
     setNote(out.notes.join(' '));
@@ -250,6 +260,8 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                   ['capeEdge', 'Cape edge', GOWN_CAPE_EDGES],
                   ...(hidden.capeFasten ? [] : [['capeFasten', 'Back cape fastened', GOWN_CAPE_FASTENINGS] as const]),
                   ...(hidden.capeCol ? [] : [['capeCol', 'Cape colour', GOWN_CAPE_COLOURS] as const]),
+                  // v200: 3D flowers on the cape (their type, size and colour as set under 3D flowers).
+                  ['capeFlowers', '3D flowers on the cape', GOWN_CAPE_FLOWERS],
                 ] as const)),
                 ['sleeve', 'Sleeves', GOWN_SLEEVES],
                 ['back', 'Back', GOWN_BACKS],
@@ -262,6 +274,8 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 ['closure', 'Closure', GOWN_CLOSURES],
                 ['veil', 'Veil', GOWN_VEIL_ORDER.map((id) => GOWN_VEILS.find((o) => o.id === id)!)],
                 ['veilStyle', 'Veil style', GOWN_VEIL_STYLES],
+                // v200: the veil in plain or glitter tulle.
+                ...(hidden.veilFab ? [] : [['veilFab', 'Veil made of', GOWN_VEIL_FABRICS] as const]),
                 ['blusher', 'Blusher', GOWN_BLUSHERS],
                 ['bow', 'Bow', GOWN_BOWS],
                 ['overlay', 'Overlay', GOWN_OVERLAYS],
@@ -269,6 +283,17 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 ['lace', 'Lace', GOWN_LACES],
                 ['laceAt', 'Lace placed', GOWN_LACE_PLACES],
                 ['laceCol', 'Lace colour', GOWN_LACE_COLOURS],
+                // v200: raised (3D) lace; 3D flowers and their details; scattered pearls.
+                ['laceFinish', 'Lace finish', GOWN_LACE_FINISHES],
+                ['flowers', '3D flowers', GOWN_FLOWERS.filter((x) => !hidden.flowers.includes(x.id))],
+                ...(hidden.flowerDetails ? [] : ([
+                  ...(hidden.flowerFromRow ? [] : [['flowerFrom', 'Cascade starts at', GOWN_FLOWER_FROM.filter((x) => !hidden.flowerFrom.includes(x.id))] as const]),
+                  ['flowerType', 'Flower type', GOWN_FLOWER_TYPES],
+                  ['flowerSize', 'Flower size', GOWN_FLOWER_SIZES.filter((x) => !hidden.flowerSize.includes(x.id))],
+                  ['flowerDen', 'How many flowers', GOWN_FLOWER_DENSITIES],
+                  ['flowerCol', 'Flower colour', GOWN_FLOWER_COLOURS.filter((x) => !hidden.flowerCol.includes(x.id))],
+                ] as const)),
+                ['pearls', 'Scattered pearls', GOWN_PEARLS.filter((x) => !hidden.pearls.includes(x.id))],
                 ['cutEdge', 'Cut-out edge', GOWN_CUT_EDGES],
                 ['cutFill', 'Cut-out fill', GOWN_CUT_FILLS],
                 ['pieces', 'Made as', GOWN_PIECES],

@@ -83,6 +83,8 @@ export function gownSurfaceUniforms() {
     fabMap: { value: tex1([255, 255, 255, 255]) as THREE.Texture }, fabScale: { value: new THREE.Vector2(1, 1) }, fabOn: num(),
     weaveMap: { value: tex1([255, 255, 255, 255]) as THREE.Texture }, weaveScale: { value: new THREE.Vector2(1, 1) }, weaveOn: num(), weaveAmt: num(0.5), weaveGain: num(1),
     laceMap: { value: tex1([0, 0, 0, 0]) as THREE.Texture }, laceOn: num(), laceCol: { value: new THREE.Color(0xf3ecdc) },
+    // v200 raised lace: on/off and how far a motif stands off the cloth (in the normal).
+    laceRaise: num(), laceBump: num(0.0014),
     cutMap: { value: tex1([0, 0, 0, 0]) as THREE.Texture }, cutOn: num(), cutY: { value: new THREE.Vector2(0, 1) }, cutBand: { value: new THREE.Vector2(0.002, 0.002) }, cutEdge: num(), cutFill: num(), cutSkin: { value: new THREE.Color(GOWN_MANNEQUIN.color) },
     techOn: num(), tKind: num(), tDir: num(), tSp: num(), tWhere: num(), dKind: num(), dSp: num(), dWhere: num(), dart: num(), tCmU: num(), tYS: num(), tYW: num(), tYA: num(), tApex: num(), tCowl: num(),
   };
@@ -101,5 +103,29 @@ export function gownSurfaceShader(u: GownSurfaceUniforms) {
     Object.assign(sh.uniforms, u);
     sh.vertexShader = VERTEX_HEAD + sh.vertexShader.replace('#include <begin_vertex>', VERTEX_BEGIN);
     sh.fragmentShader = FRAGMENT_HEAD + TECH_FNS + sh.fragmentShader.replace('#include <map_fragment>', SURFACE);
+  };
+}
+
+/** The flat lace line the raised lace replaces (v200 `raisedLaceShader`'s `flat`): the surface patch writes it verbatim. */
+const LACE_FLAT = 'if (laceOn > 0.5 && vG.y >= 0.0 && vG.y <= 1.0) { vec4 l = texture2D(laceMap, vG); diffuseColor.rgb = mix(diffuseColor.rgb, laceCol * l.rgb, l.a); }';
+const LACE_RAISED = `if (laceOn > 0.5 && vG.y >= 0.0 && vG.y <= 1.0) { vec4 l = texture2D(laceMap, vG);
+    if (laceRaise > 0.5) { vec2 tx = vec2(1.0 / 1024.0, 1.0 / 2048.0) * 1.8; float hL = texture2D(laceMap, vG - vec2(tx.x, 0.0)).a, hR = texture2D(laceMap, vG + vec2(tx.x, 0.0)).a, hD = texture2D(laceMap, vG - vec2(0.0, tx.y)).a, hU = texture2D(laceMap, vG + vec2(0.0, tx.y)).a;
+      float lit = clamp((hU - hD) * 0.32 - abs(hR - hL) * 0.06, -0.16, 0.18), sh2 = texture2D(laceMap, vG + vec2(0.0, tx.y * 2.4)).a;   // lit along its upper edges; its own shadow falls just below it on the cloth
+      diffuseColor.rgb *= 1.0 - 0.2 * max(0.0, sh2 - l.a); diffuseColor.rgb = mix(diffuseColor.rgb, laceCol * l.rgb * (1.0 + lit), l.a); }
+    else diffuseColor.rgb = mix(diffuseColor.rgb, laceCol * l.rgb, l.a); }`;
+const LACE_BUMP = `#include <normal_fragment_maps>
+  if (laceOn > 0.5 && laceRaise > 0.5 && vG.y >= 0.0 && vG.y <= 1.0) { vec2 dSTdx = dFdx(vG), dSTdy = dFdy(vG); float Hll = texture2D(laceMap, vG).a; vec2 dHdxy = laceBump * vec2(texture2D(laceMap, vG + dSTdx).a - Hll, texture2D(laceMap, vG + dSTdy).a - Hll);
+    vec3 vSx = dFdx(-vViewPosition), vSy = dFdy(-vViewPosition), R1 = cross(vSy, normal), R2 = cross(normal, vSx); float fDet = dot(vSx, R1) * faceDirection; vec3 vGrad = sign(fDet) * (dHdxy.x * R1 + dHdxy.y * R2); normal = normalize(abs(fDet) * normal - vGrad); }`;
+/**
+ * Raised (3D) lace (v200 `raisedLaceShader`): the lace map read as a height map, a bump on the normal lit from above and
+ * a soft shadow cast by each motif onto the cloth; no geometry. Chain it after the surface patch (it rewrites its lace
+ * line); `laceRaise` turns it on.
+ */
+export function gownRaisedLaceShader(u: Pick<GownSurfaceUniforms, 'laceRaise' | 'laceBump'>) {
+  return (sh: { uniforms: Record<string, unknown>; vertexShader: string; fragmentShader: string }) => {
+    sh.uniforms.laceRaise = u.laceRaise;
+    sh.uniforms.laceBump = u.laceBump;
+    if (!sh.fragmentShader.includes(LACE_FLAT)) return;
+    sh.fragmentShader = 'uniform float laceRaise, laceBump;\n' + sh.fragmentShader.replace(LACE_FLAT, LACE_RAISED).replace('#include <normal_fragment_maps>', LACE_BUMP);
   };
 }

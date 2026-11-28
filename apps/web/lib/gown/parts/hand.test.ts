@@ -144,6 +144,9 @@ test('the tools: Mirror places twins, the eraser rubs out both sides, each tool 
   assert.match(back.note, /^Not cut here: /);
   assert.equal(gownHandCutShape(base, [[0.5, 0.7], [0.7, 0.7], [0.7, 0.6]], { mirror: true, forbidden }).config.handCuts.length, 0, 'three points do not close a shape');
   assert.equal(gownHandCutShape(base, [[0.5, 0.7], [0.7, 0.7], [0.7, 0.6], [0.5, 0.6]], { mirror: true, forbidden }).config.handCuts.length, 2);
+  // One set a kind, colour AND size: two sizes of the same gold pearl are two sets.
+  const twoSizes = { ...base, handBeads: [{ ph: 0.3, y: 1.0, kind: 'pearl' as const, col: 'gold', mm: 3, spin: 0 }, { ph: 0.35, y: 1.0, kind: 'pearl' as const, col: 'gold', mm: 5, spin: 0 }] };
+  assert.deepEqual(buildGownHandBeads(B, D, twoSizes, [], { phone: false }).sets.map((s) => Math.round(s.size * cmU * 10)), [3, 5]);
   const cleared = gownHandClear({ ...er.config, handCuts: tap.config.handCuts });
   assert.deepEqual([cleared.handBeads, cleared.handHoles, cleared.handLace, cleared.handCuts], [[], [], [], []]);
 });

@@ -28,7 +28,7 @@ import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { formatCentavosPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
-import { GOWN_HAND_NOT_SENT, GOWN_HAND_UNREAD, GOWN_ORDER_PATTERN_DEFAULT, gownDesignWords, gownHandLine, gownPatternState, type GownOrderPattern } from '@/lib/gown-maker';
+import { GOWN_HAND_NOT_SENT, GOWN_HAND_UNREAD, GOWN_ORDER_PATTERN_DEFAULT, gownDesignWords, gownHandLine, gownPartsSummary, gownPatternState, type GownOrderPattern } from '@/lib/gown-maker';
 import { GOWN_BODY_KEYS, GOWN_MATTERS, GOWN_MEASURES, GOWN_STEP_LABELS, gownMeasuresNeeded, type GownBody, type GownConfig, type GownMeasureKey, type GownMeasures } from '@/lib/gown-config';
 import { GOWN_DRAFT_ESTIMATE, GOWN_DRAFT_FROM_MEMORY, GOWN_DRAFT_TOLERANCE_CM } from '@/lib/gown-pattern/draft-constants';
 import type { GownDesignRead } from '@/app/_components/gown-maker/gown-actions';
@@ -103,6 +103,8 @@ function Order({ d, config, body, threadId, who }: { d: GownDesignRead; config: 
   // B9 (v209): her own lines, as a designer measures them; only what she changed from a named line is said.
   const L = d.pattern?.lines;
   const linesSaid = L?.s === 'sent' ? gownLinesSummary(L.edges, config.neck === 'high') : L?.s === 'unread' ? [GOWN_LINES_UNREAD] : [];
+  // v210: the pieces she put in their own fabric, colour, pattern, dip-dye or border band, one sentence each.
+  const partsSaid = useMemo(() => gownPartsSummary(config), [config]);
   const mattersLine = body.matters.length ? `What matters to her: ${body.matters.map((m) => GOWN_MATTERS.find((x) => x.id === m)?.label ?? m).join(', ')}` : null;
 
   const saveTape = async () => {
@@ -131,6 +133,11 @@ function Order({ d, config, body, threadId, who }: { d: GownDesignRead; config: 
             {handLine}
           </p>
         ) : null}
+        {partsSaid.map((line) => (
+          <p key={line} className="text-sn-base text-ink/70" data-gown-order-parts="">
+            {line}
+          </p>
+        ))}
         {linesSaid.map((line) => (
           <p key={line} className="text-sn-base text-ink/70" data-gown-order-lines={L?.s}>
             {line}

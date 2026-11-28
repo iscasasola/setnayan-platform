@@ -466,6 +466,54 @@ export function gownPartColourWord(c: GownPartColour | null, design: DesignPick)
 const patternWord = (kind: string, fabrics: ReadonlyMap<string, GownShopFabric>) =>
   kind.startsWith('lib:') ? (fabrics.get(kind.slice(4))?.name ?? 'printed') : (GOWN_PATTERNS.find((p) => p.id === kind)?.label.toLowerCase() ?? kind);
 
+/** v210 `pzHas`: is this piece on the gown now? (A piece she changed and then took off the gown is kept, not said.) */
+export function gownPartOnGown(c: GownConfig, part: GownPartId): boolean {
+  switch (part) {
+    case 'bodice':
+    case 'skirt':
+      return true;
+    case 'sleeves':
+      return c.sleeve !== 'none';
+    case 'overlay':
+      return c.overlay !== 'none';
+    case 'cape':
+      return gownCapeKind(c) !== 'none';
+    case 'sash':
+      return c.bow !== 'none' || c.pieces !== 'one';
+    case 'trims':
+      return c.trims.length > 0;
+    case 'lining':
+      return c.lining !== 'none';
+    case 'lace':
+      return c.lace !== 'none' || c.sleeveFab === 'lace';
+  }
+}
+
+const pct = (x: number) => `${Math.round(x * 100)} %`;
+/**
+ * v210 `pzSummary`: the pieces that differ from the gown, in words, for the order view. One sentence per piece on the
+ * gown: its own fabric, colour or pattern; a dip-dye and where it fades to; a border band and what it is cut from.
+ */
+export function gownPartsSummary(c: GownConfig, fabrics: ReadonlyMap<string, GownShopFabric> = new Map()): string[] {
+  const out: string[] = [];
+  for (const e of c.parts ?? []) {
+    if (!gownPartOnGown(c, e.part)) continue;
+    const bits: string[] = [];
+    const fab = e.fabric ?? c.fabric;
+    if (e.fabric || e.colour || e.pattern) {
+      const pat = e.pattern ? `${patternWord(e.pattern.kind, fabrics)} ` : '';
+      bits.push(`in ${gownPartColourWord(e.colour, c)} ${pat}${fabricLabel(fab).toLowerCase()}`);
+    }
+    if (e.fade && GOWN_PART_FADE.includes(e.part)) {
+      const toward = e.fade.dir === 'up' ? 'the top' : e.part === 'skirt' || e.part === 'overlay' ? 'the hem' : e.part === 'sleeves' ? 'the sleeve ends' : 'the bottom';
+      bits.push(`fading to ${gownPartColourWord(e.fade.colour, c)} towards ${toward} (dip-dye, from ${pct(e.fade.from)} to ${pct(e.fade.to)} of its length)`);
+    }
+    if (e.border) bits.push(`with a border band ${formatCount(e.border.cm, 1)} cm wide on the ${GOWN_EDGE_SAY[e.border.edge]} in ${gownPartColourWord(e.border.colour, c)} ${fabricLabel(e.border.fabric ?? fab).toLowerCase()}`);
+    if (bits.length) out.push(`${GOWN_PARTS.find((p) => p.id === e.part)!.label} ${bits.join(', ')}`);
+  }
+  return out;
+}
+
 const round2 = (x: number) => Math.round(x * 100) / 100;
 const BEAD_LABEL: Record<GownBeadKind, string> = { crystal: 'Crystals', pearl: 'Pearls', seed: 'Seed beads', sequin: 'Sequins' };
 const fabricLabel = (id: string) => GOWN_PRICED_FABRICS.find((f) => f.id === id)?.label ?? id;

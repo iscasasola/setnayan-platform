@@ -42,6 +42,8 @@ import {
   gownSeamAllowIsUsual,
   type GownShopOptions,
   type GownPriceKey,
+  gownPartsSummary,
+  gownPartOnGown,
 } from './gown-maker';
 import { emptyGownHand, emptyGownQuantities, startingGownConfig, GOWN_PIECE_QUOTE_KEYS, type GownPart, type GownQuantities } from './gown-config';
 
@@ -565,4 +567,20 @@ test('7p · v210 (A’s #8525): a piece in its own fabric, its pattern, a dip-dy
   const old = gownDesignOf(shop({ prices: { ...prices } }), gownB.d, gownB.q, [], new Map()).forShop.lines;
   assert.equal(old.filter((l) => /^(dye_fade|border|pat_)/.test(l.key)).length, 0);
   assert.equal(old.filter((l) => l.label.includes('accents: sleeves')).length, 1);
+});
+
+test('7q · v210 pzSummary: one sentence per changed piece on the gown, in the prototype’s words; a piece off the gown is not said', () => {
+  const base = { ...startingGownConfig(), fabric: 'satin', sleeve: 'none' as const, accentHex: '#C9A46A' };
+  const parts: GownPart[] = [
+    { part: 'skirt', fabric: null, colour: '#B3141C', pattern: { kind: 'brocade', colour: 'main' }, fade: { colour: 'accent', dir: 'down', from: 0.2, to: 1 }, border: { edge: 'hem', cm: 8, fabric: 'crepe', colour: 'main' } },
+    { part: 'bodice', fabric: 'crepe', colour: null, fade: null, border: null, pattern: null },
+    { part: 'sleeves', fabric: null, colour: '#111111', fade: null, border: null, pattern: null },
+  ];
+  assert.equal(gownPartOnGown(base, 'sleeves'), false);
+  const said = gownPartsSummary({ ...base, parts });
+  assert.equal(said.length, 2, 'the sleeves are off the gown and were still said');
+  assert.match(said[0]!, /^Skirt in [a-z ]+ brocade satin, fading to [a-z ]+ towards the hem \(dip-dye, from 20 % to 100 % of its length\), with a border band 8 cm wide on the hem in [a-z ]+ crepe$/);
+  assert.match(said[1]!, /^Bodice in [a-z ]+ crepe$/);
+  assert.deepEqual(gownPartsSummary(base), [], 'a design with no pieces said something');
+  assert.equal(gownPartsSummary({ ...base, parts: [{ ...parts[0]!, fade: { colour: 'main', dir: 'up', from: 0, to: 0.5 } }] })[0]!.includes('towards the top (dip-dye, from 0 % to 50 %'), true);
 });

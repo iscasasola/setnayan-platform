@@ -89,9 +89,10 @@ test('only a disabled DraftButton grows an InfoTip, and it carries the reason', 
   assert.match(disabled, /No changes to apply/, 'the actual reason must be in the popover, not just referenced');
 });
 
-test('Apply (primary) reads through the shared button-primary class, like every other Maker CTA', async () => {
+test('Apply (primary) reads through the shared button’s main look (`actionButtonClass`), like every other Maker CTA', async () => {
   const html = await paintButton({ disabled: false, primary: true });
-  assert.match(html, /class="[^"]*\bbutton-primary\b/);
+  assert.match(html, /class="[^"]*\bab ab-brand ab-main\b/);
+  assert.doesNotMatch(html, /\bbutton-primary\b/, 'the legacy .button-primary is back');
 });
 
 /* ═══════════════════════════════ 2 · HubDraftToolbar, proved by its source ═══ */

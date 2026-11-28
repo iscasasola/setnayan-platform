@@ -100,7 +100,10 @@ test('5 · in Guests the editor asks first, applies the ticks, and says it done 
   const tap = ed.slice(ed.indexOf('const tapFace = (guestId: string) => {'), ed.indexOf('const tapBlank = '));
   assert.match(tap, /if \(g\.seated_table_id && askBefore\(pickedId, g\.seated_table_id, g\.seat_number, guestId\)\) return;\s*tradeSeats\(pickedId, guestId\);/, 'a swap no longer asks');
   const blank = ed.slice(ed.indexOf('const tapBlank = '), ed.indexOf('const tapBlank = ') + 300);
-  assert.match(blank, /if \(askBefore\(pickedId, tableId, seat, null\)\) return;\s*place\(tableId, seat\);/);
+  /* 27 Nov 2026 (seat plan L10, R3): "tap · move" onto an empty chair is the drag's own answer — `dropSeat` moves the
+     picked guest's whole unit and asks "before a seat changes hands" itself (seats-list-is-the-guests-list.test.ts 4). */
+  assert.match(blank, /dropSeat\(pickedId, \{ kind: 'seat', tableId, seat, occupantId: null \}\);/);
+  assert.match(ed.slice(ed.indexOf('const dropSeat = '), ed.indexOf('const noteDrop = ')), /if \(askBefore\(guestId, plan\.tableId, plan\.seat, null\)\) return;/, 'the drop no longer asks first');
   const go = ed.slice(ed.indexOf('const doAskedMove = () => {'), ed.indexOf('const askBefore = '));
   assert.match(go, /const along = ask\.a\.sideEffects\.filter\(\(x\) => ask\.on\[x\.key\]\);/);
   assert.match(go, /for \(const x of along\) seatGuestHere\(target, x\.guestId, x\.seat\);/);

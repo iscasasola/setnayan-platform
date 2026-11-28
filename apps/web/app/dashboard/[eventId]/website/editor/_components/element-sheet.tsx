@@ -521,7 +521,7 @@ export function ElementSheet({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink/70 transition-colors duration-300 ease-in-out hover:bg-ink/10 hover:text-ink lg:h-10 lg:w-10"
+          className="sn-press inline-flex h-11 w-11 items-center justify-center rounded-full bg-ink/5 text-ink/70 transition-colors duration-sn-elem ease-sn hover:bg-ink/10 hover:text-ink lg:h-10 lg:w-10"
         >
           <X aria-hidden className="h-4 w-4" strokeWidth={2} />
         </button>

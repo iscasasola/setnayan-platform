@@ -81,6 +81,7 @@ import { readShopTrackerFacts } from '@/lib/shop-badges.server';
 import { milestoneLadder, stepName, type TrackerFacts } from '@/lib/shop-badges';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { ratingLine, unmeasuredStats, type MeasuredStatsRow } from '@/lib/business-doing';
+import { shopRatingOf } from '@/lib/shop-rating';
 import { buildGrowthView, type PricePositionUnreadable } from './growth-view';
 import { canUse, papersProgress } from '@/lib/locks';
 import { badgeGate, graphUnlocks, type UnlockFacts } from '@/lib/graph-unlocks';
@@ -539,6 +540,10 @@ const readOneAnalytics = cache(async (supabase: SupabaseClient, userId: string, 
     // and inquiries series above carry theirs. `event_vendors` on `bookingsAdmin` (no vendor SELECT policy, see above).
     safeRead(fetchBookedSeries(bookingsAdmin as unknown as SeriesClient, profile.vendor_profile_id, nowMs), null, 'booked_series'),
   ]);
+  // ⭐ THE SHOP'S ONE RATING (L6 · S2, `lib/shop-rating.ts`): the trusted aggregate couples are shown — never the
+  // Bayesian ranking average this card printed as "4.2 ★" beside Your page's 4.7. It rides the badge facts' own read of
+  // `vendor_trusted_review_stats` (`readShopTrackerFacts`), so no second read; a refusal is `null` → "Couldn’t load".
+  const shopRating = shopRatingOf(badgeFacts?.trusted ?? null);
   // 📈 The five new graphs' cards — the same list Batch A read (`servicesRead`, already settled).
   const graphCards = await graphCardsRead;
   // Started before Batch A (beside the badges), so this wait costs no extra round trip.
@@ -679,9 +684,9 @@ const readOneAnalytics = cache(async (supabase: SupabaseClient, userId: string, 
     upcoming: upcomingBooked,
     radar: demandRadarUnreadable ? null : demandRadar,
     showMarket: canMarket,
-    rating: ratingLine(statsRead),
-    ratingAvg: statsRow?.review_avg_bayesian ?? null,
-    ratingCount: Number(statsRow?.review_count ?? 0),
+    rating: ratingLine(shopRating),
+    ratingAvg: shopRating.state === 'rated' ? shopRating.average : null,
+    ratingCount: shopRating.state === 'rated' ? shopRating.count : 0,
     reputation: reputationAnalytics,
     badges: badgeFacts
       ? {

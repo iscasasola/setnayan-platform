@@ -358,7 +358,10 @@ export function ThumbRow({
         <>
           {left.slice(0, 2).map((r, i) => ('node' in r ? <NodeRound key={`n${i}`} node={r.node} /> : <Round key={r.label} r={r} />))}
           {field && 'node' in field ? (
+            /* A pointer convenience: a press on the seat's padding focuses the control inside it. The keyboard reaches
+               that control directly, so the seat itself is presentation, not a second tab stop. */
             <span
+              role="presentation"
               data-glass-row="thumb-row-field-node"
               className={`sn-glass-row ${styles.field} ${styles.fieldNode}`}
               data-thumb-seat="field"

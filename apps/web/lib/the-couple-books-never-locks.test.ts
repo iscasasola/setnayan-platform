@@ -65,6 +65,7 @@ const ALLOW: readonly WordAllow[] = [
   // ── 2 · not a supplier booking ──────────────────────────────────────────────
   { prefix: 'app/dashboard/[eventId]/seating/', why: 'a SEAT lock ("Lock this seat", "Fill around locked seats")' },
   { prefix: 'app/dashboard/[eventId]/guests/', why: 'a guest’s seat lock, or the finalized guest count' },
+  { prefix: 'lib/seat-list-drop.ts', text: /Locked · Unlock to move/, why: 'a SEAT lock (#17) — a locked guest\'s seat refuses a hand move; the seat plan\'s own drop answer, not a booking' },
   { prefix: 'lib/extra-seats-sync.ts', why: 'the finalized guest count' },
   { prefix: 'app/dashboard/[eventId]/website/privacy/', why: 'the private-event "locked screen" a guest sees' },
   { prefix: 'lib/event-hub-control.ts', why: 'the private-event lock screen' },

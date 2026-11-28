@@ -76,7 +76,8 @@ test('2 · a failed widget is ONE face that never rotates; an unresolved ledger 
 
 test('3 · each reader answers "unread" on a refusal, and the page hands it on — never an empty count', () => {
   const reads = read('lib/home-control.server.ts');
-  assert.match(reads, /if \(vendorsRes\.error \|\| threadsRes\.error\) \{[\s\S]{0,200}?return 'unread';/, 'Suppliers: a refused read is not "unread"');
+  // L5 · C7: the excluded-categories read (Find's own) joined the suppliers reads — a refusal of it is "unread" too.
+  assert.match(reads, /if \(vendorsRes\.error \|\| threadsRes\.error \|\| excludedRes\.error\) \{[\s\S]{0,220}?return 'unread';/, 'Suppliers: a refused read is not "unread"');
   assert.match(reads, /if \(!standings\) return 'unread';/, 'Suppliers: a refused standing read is not "unread"');
   // To do (owner 2026-11-01): the one list's reader reports a refused task read in `unread` — Home says so.
   assert.match(reads, /if \(agenda === null \|\| agenda\.unread\.length > 0\) return 'unread';/, 'To do: a refused read is not "unread"');

@@ -8,14 +8,15 @@
  * `D.geo` through `writeDress` (cloth.ts). Plain three.js maths: no DOM, no material.
  */
 import * as THREE from 'three';
-import { jointY } from '../body/bones';
+import { jointP, jointY } from '../body/bones';
 import { BODY_K, RING_N, SLICE_DY, TAU } from '../body/constants';
 import { clamp, smoothstep, type GownRig } from '../body/rig';
 import { apexOf } from '../body/tape';
 import { GOWN_PETTI_HOLD } from '../fabric/types';
 import { gownShapedVals } from '../body-rules';
+import { GOWN_STRAPLESS } from '../../gown-config';
 import { GOWN_BALL_HEM_CM, GOWN_EASE_MM, GOWN_SIL, GOWN_TRAIN_CM, gownFromWaist, hemPreset, gownIlluOuterTop, trainShare, waistY, type GownDressDesign, type GownNeckLandmarks } from './lines';
-import { RING_COS, RING_SIN, lerpRow, type GownEnvelope } from './table';
+import { RING_COS, RING_SIN, envTabR, lerpRow, type GownEnvelope } from './table';
 
 const N = RING_N, DY = SLICE_DY, DTH = TAU / N;
 
@@ -86,6 +87,14 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
     // The back goes down at most to her waist (and never below where the skirt starts).
     bLow: Math.max(k.yWaist, (gownFromWaist(g.sil) ? k.yWaist : T.yF) + 0.03),
   };
+  // v199 `strapX` / `strapFrontAngle`: where a strap over the shoulder crosses it (the cape's strap line), and the direction
+  // of its front end on the bodice at the top of the cups.
+  {
+    const xNk = envTabR(T, Math.PI / 2, yN), xUA = Math.abs(jointP(B, 'upperarm01.L', new THREE.Vector3()).x), xs = xNk + 0.45 * Math.max(0.02 / P.S, xUA - xNk), y = yA + 0.07 * L.cup;
+    let a = 0.5;
+    for (let it = 0; it < 3; it++) a = Math.asin(clamp(xs / Math.max(1e-4, envTabR(T, a, y)), 0.1, 0.99));
+    L.strapA = clamp(a, 0.3, 1.0);
+  }
   D.L = L;
   let topMax = 0;
   for (let q = 0; q < N; q++) {
@@ -95,6 +104,7 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
     T.top[q] = Math.min(gownIlluOuterTop(g, ph, L), T.y0 + (n - 3) * DY);
     if (T.top[q]! > topMax) topMax = T.top[q]!;
   }
+  topTidy(T);
   const fl = floorY;
   const yHem0 = g.hemCm < 0 ? Math.max(fl + 0.012, fl + -g.hemCm / 100 / P.S) : hemPreset(B, fl, g.hem);
   // A train on a shorter skirt: high-low, the back falls to the floor.
@@ -338,7 +348,8 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
     for (let q = 0; q < N; q++) {
       const o = i * N + q;
       let y: number, t = 0, r: number;
-      if (i === 0) { y = T.top[q]! - 0.004; r = lerpRow(T, F, y, q) - 0.0045 / P.S; }
+      // v199: the inner lip stays under its neighbours' edge (no saw-tooth on a steep edge).
+      if (i === 0) { y = Math.min(T.top[q]!, T.top[(q + 1) % N]!, T.top[(q + N - 1) % N]!) - 0.004; r = lerpRow(T, F, y, q) - 0.0045 / P.S; }
       else if (i <= nb + 1) { y = T.top[q]! + (yS - T.top[q]!) * ((i - 1) / nb); r = lerpRow(T, F, y, q); }
       else if (i > nb + 1 + ns) {
         // Train: the hem carried on along the floor, longest at centre back; eases onto the floor, a soft rise mid-train.
@@ -379,6 +390,7 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
       if (r > hemR) hemR = r;
     }
   }
+  topRimTidy(B, T, D, g, nb, off);
   D.hemR = hemR;
   {
     // Slit: the seam between two columns opens from the slit top down to the hem; the cloth either side parts, wider
@@ -416,4 +428,52 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
   D.gmapY1 = topMax + 0.03;
   D.restDirty = true;
   return D;
+}
+
+/**
+ * Round the shoulders the top edge is eased column to column, so a V, high or bateau bodice has no pointed "ears" where
+ * the armhole meets the shoulder (v199 `topTidy`). The V point, the sweetheart dip and a strap's peak (all nearer the
+ * front) are left as cut.
+ */
+function topTidy(T: GownEnvelope): void {
+  const w = new Float32Array(N), t = new Float32Array(N);
+  for (let q = 0; q < N; q++) { let ph = q * DTH; if (ph > Math.PI) ph = TAU - ph; w[q] = smoothstep(ph, 0.85, 1.15) * (1 - smoothstep(ph, 2.25, 2.55)); }
+  for (let pass = 0; pass < 4; pass++) {
+    for (let q = 0; q < N; q++) t[q] = T.top[q]!;
+    for (let q = 0; q < N; q++) { if (!w[q]) continue; const a = t[(q + N - 1) % N]!, c = t[(q + 1) % N]!; T.top[q] = t[q]! + w[q]! * ((a + 2 * t[q]! + c) / 4 - t[q]!); }
+  }
+}
+/**
+ * The top rows' radius eased round the shoulders (the armhole pass pushes single columns out), never closer to her than
+ * the cloth's ease; a strapless cup is structured, so above the bust point its top edge stands up rather than falling
+ * back onto the chest (no notch beside the cup on a full bust) (v199 `topRimTidy`).
+ */
+function topRimTidy(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDressDesign, nb: number, off: number): void {
+  const L = D.L;
+  if (!L) return;
+  const R = D.r, Y = D.y, yLo = L.ySh - 0.1 / B.P.S, rows = Math.min(nb + 1, 8), t = new Float32Array(N), w = new Float32Array(N);
+  for (let q = 0; q < N; q++) { let ph = q * DTH; if (ph > Math.PI) ph = TAU - ph; w[q] = smoothstep(ph, 0.7, 1.0) * (1 - smoothstep(ph, 2.3, 2.6)); }
+  for (let i = 0; i < rows; i++) for (let pass = 0; pass < 3; pass++) {
+    const o0 = i * N;
+    for (let q = 0; q < N; q++) t[q] = R[o0 + q]!;
+    for (let q = 0; q < N; q++) {
+      const o = o0 + q;
+      if (!w[q] || Y[o]! < yLo) continue;
+      const m = (t[(q + N - 1) % N]! + 2 * t[q]! + t[(q + 1) % N]!) / 4, floor = lerpRow(T, T.H, Y[o]!, q) + (i ? off * 0.7 : 0.0015 / B.P.S);
+      R[o] = Math.max(floor, t[q]! + w[q]! * (m - t[q]!));
+    }
+  }
+  if (GOWN_STRAPLESS.includes(g.neck) && g.neck !== 'off') {
+    const yA = L.yA, lean = 0.3;
+    for (let q = 0; q < N; q++) {
+      let ph = q * DTH;
+      if (ph > Math.PI) ph = TAU - ph;
+      const wf = 1 - smoothstep(ph, 1.0, 1.4);
+      if (!wf) continue;
+      let rA = 0, yR = yA;
+      for (let i = 1; i <= nb + 1; i++) { const o = i * N + q; if (Y[o]! <= yA + 0.005 && Y[o]! >= yA - 0.04 && R[o]! > rA) { rA = R[o]!; yR = Y[o]!; } }
+      if (!rA) continue;
+      for (let i = 0; i <= nb + 1; i++) { const o = i * N + q; if (Y[o]! <= yR) continue; const want = rA - lean * (Y[o]! - yR) - (i ? 0 : 0.0045 / B.P.S); if (R[o]! < want) R[o] = R[o]! + (want - R[o]!) * wf; }
+    }
+  }
 }

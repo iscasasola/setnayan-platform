@@ -1,6 +1,6 @@
 /**
  * 👗 gown/parts/illusion — the sheer illusion bodice, the illusion back and the boning you can see, held to prototype
- * v198's own numbers (`v198-illusion.fixture.json`), and its rules said word for word.
+ * v198's own numbers (`v199-illusion.fixture.json`), and its rules said word for word.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -25,7 +25,7 @@ type Row = {
   name: string; look: Partial<GownLook> & { backT?: number }; hem: GownConfig['hem']; gown: Partial<GownConfig>; zoneOn: boolean; y: [number, number] | null; lines: Lines | null;
   bones: { n: number; angs: number[]; kind: string }; boneOn: number; boneN: number; boneW: number; boneLo: number[]; boneHi: number[]; top: number[]; metres: number; summary: string[];
 };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v198-illusion.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v199-illusion.fixture.json'), 'utf8')) as { rows: Row[] };
 const OFFER: GownOffer = { fabricTypes: ['satin', 'crepe', 'chiffon'], fabricRefs: [], laceRefs: [], lookRefs: [] };
 let rig: Promise<GownRig> | null = null;
 const body = () => {
@@ -107,7 +107,7 @@ test('the v198 rules, word for word, and the server refuses what they rule out',
   const a = gownChoose(start({ neck: 'sweetheart' }), { key: 'illu', value: 'neck' });
   assert.equal(a.config.neck, 'bateau');
   assert.deepEqual(a.notes, ['An illusion neckline needs a neckline above the cups, so the neckline is now bateau: sheer tulle from the cups up to it.']);
-  assert.deepEqual(gownHiddenChoices(a.config).neck, ['sweetheart', 'straight']);
+  assert.deepEqual(gownHiddenChoices(a.config).neck, ['sweetheart', 'straight', 'plungewaist']); // v199: nor a plunge to the waist
   const b = gownChoose(start({ neck: 'bateau', illu: 'neck' }), { key: 'neck', value: 'straight' });
   assert.equal(b.config.illu, 'none');
   assert.match(b.notes.join(' '), /A strapless neckline is the top of the cups/);

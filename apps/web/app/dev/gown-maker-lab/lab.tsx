@@ -15,6 +15,11 @@ import {
   GOWN_ILLUSION_BACKS,
   GOWN_ILLUSION_COLOURS,
   GOWN_ILLUSION_CUPS,
+  GOWN_PLUNGE_FILLS,
+  GOWN_STRAPS,
+  GOWN_STRAP_COLOURS,
+  GOWN_STRAP_EDGES,
+  GOWN_TOP_EDGES,
   GOWN_CAPE_COLOURS,
   GOWN_CAPE_EDGES,
   GOWN_CAPE_FABRICS,
@@ -190,7 +195,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   const now = gownCapeNow(design), hidden = gownHiddenChoices(design);
   const capeNow = { capeFab: now.fab, capeLen: now.len, capeEdge: now.edge, capeFasten: now.fasten };
   // Every pick goes through the pairing rules, so the lab shows what the maker will (one line, then Undo in the maker).
-  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'illu' | 'illuBase' | 'illuCol' | 'illuBack' | 'boneShow' | 'boning' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
+  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'illu' | 'illuBase' | 'illuCol' | 'illuBack' | 'boneShow' | 'straps' | 'strapCol' | 'strapEdge' | 'topEdge' | 'plungeFill' | 'boning' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
     const out = gownChoose(design, { key: k, value: v } as GownChoice);
     setDesign(out.config);
     setNote(out.notes.join(' '));
@@ -228,6 +233,11 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
               [
                 ['sil', 'Silhouette', GOWN_SILHOUETTES],
                 ['neck', 'Neckline', GOWN_NECKLINES.filter((n) => !hidden.neck.includes(n.id))],
+                // v199: what fills a plunge to the waist; the straps this neckline takes and their details; the top edge.
+                ...(hidden.plungeFill ? [] : [['plungeFill', 'Plunge filled with', GOWN_PLUNGE_FILLS] as const]),
+                ...(hidden.strapRow ? [] : [['straps', 'Straps', GOWN_STRAPS.filter((x) => !hidden.straps.includes(x.id))] as const]),
+                ...(hidden.strapDetails ? [] : [...(hidden.strapCol ? [] : [['strapCol', 'Strap colour', GOWN_STRAP_COLOURS] as const]), ['strapEdge', 'Strap edge', GOWN_STRAP_EDGES] as const]),
+                ...(hidden.topEdge ? [] : [['topEdge', 'Top edge', GOWN_TOP_EDGES] as const]),
                 ['fabric', 'Fabric', GOWN_STOCK_FABRICS],
                 ['colour', 'Colour', GOWN_COLOURS.filter((c) => c.id !== 'custom')],
                 ['hem', 'Length', GOWN_HEMS],

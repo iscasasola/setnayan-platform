@@ -1,4 +1,4 @@
-/** 👗 gown/parts/cuts — cut-outs as v195 lays them out (`v197-cuts.fixture.json`), and the rule for hand-cut holes. */
+/** 👗 gown/parts/cuts — cut-outs as v195 lays them out (`v199-cuts.fixture.json`), and the rule for hand-cut holes. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -14,7 +14,7 @@ import { buildEnvelope, emptyEnvelope } from '../dress/table';
 import { buildGownCuts, gownCutForbidden } from './cuts';
 
 type Row = { name: string; gown: Partial<GownConfig>; cutY: [number, number]; cutBand: [number, number]; cutEdge: number; cutFill: number; red: number; yellow: number; note?: string };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v197-cuts.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v199-cuts.fixture.json'), 'utf8')) as { rows: Row[] };
 let rig: Promise<GownRig> | null = null;
 const body = () => {
   if (!rig) { const b = readFileSync(join(__dirname, '../../../public/gown/female.glb')); rig = parseGownBody(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer); }

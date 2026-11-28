@@ -87,7 +87,7 @@ test('a strapless bodice: its back stops at the bra line, no cap sleeve or cowl,
   assert.equal(a.config.drape, 'none');
   assert.equal(a.tell, true);
   assert.deepEqual(a.notes, [
-    'The back stops at the bra line: a strapless bodice is held up all the way round there. Add an illusion back (under Back) to go lower.',
+    'The back stops at the bra line: a strapless bodice is held up all the way round there. Add straps (under Neckline) or an illusion back (under Back) to go lower.',
     'Cap sleeves need a shoulder to sit on, so sleeves are now none.',
     'The cowl drape is off: a cowl hangs from the shoulders.',
   ]);

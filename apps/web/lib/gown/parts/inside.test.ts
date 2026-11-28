@@ -1,5 +1,5 @@
 /**
- * 👗 gown/parts/inside — what is inside the gown, held to prototype v195's Inside view (`v198-inside.fixture.json`):
+ * 👗 gown/parts/inside — what is inside the gown, held to prototype v195's Inside view (`v199-inside.fixture.json`):
  * the layers (each its own fullness and colour), the lining, body shaping, the hoop, the boning and waist stay; the
  * names and dots "See inside" lists; the stage-by-stage reveal (v192); and the organza and chiffon metres.
  */
@@ -22,7 +22,7 @@ import { buildGownInside, gownInsideLayerMetres, gownInsideOrder, gownInsideShow
 
 type Pt = [number, number, number, number];
 type Row = { name: string; look: Partial<GownLook>; gown: Partial<GownConfig>; keys: string[]; names: string[]; cols: string[]; pieces: { L: number; n: number; extra?: boolean; s: Pt[] }[] };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v198-inside.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v199-inside.fixture.json'), 'utf8')) as { rows: Row[] };
 let rig: Promise<GownRig> | null = null;
 const body = () => {
   if (!rig) { const b = readFileSync(join(__dirname, '../../../public/gown/female.glb')); rig = parseGownBody(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer); }

@@ -1,5 +1,5 @@
 /**
- * 👗 gown/parts/lace — lace placed as v195 places it (`v197-lace.fixture.json`): every motif's spot on the flat map and
+ * 👗 gown/parts/lace — lace placed as v195 places it (`v199-lace.fixture.json`): every motif's spot on the flat map and
  * the count that goes to the designer, for cascade, bodice, neckline edge, hem border (over a train), all over, scattered.
  */
 import { test } from 'node:test';
@@ -17,7 +17,7 @@ import { buildGownLace, drawGownMotif, type GownLaceCanvas } from './lace';
 import { gownChoose, gownApplyLook } from '../compat';
 
 type Row = { name: string; look: Partial<GownLook>; hem: GownConfig['hem']; gown: Partial<GownConfig>; countN: number; y0: number; y1: number; spots: [number, number, number][] };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v197-lace.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v199-lace.fixture.json'), 'utf8')) as { rows: Row[] };
 let rig: Promise<GownRig> | null = null;
 const body = () => {
   if (!rig) { const b = readFileSync(join(__dirname, '../../../public/gown/female.glb')); rig = parseGownBody(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer); }

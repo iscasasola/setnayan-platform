@@ -849,3 +849,40 @@ export function gownFabricGroups(
     return [{ family, label: GOWN_FABRIC_FAMILIES.find((f) => f.id === family)!.label, choices }];
   });
 }
+
+// ── B11 · one order's own pattern settings (drawing v205: `o.seamAllow` · `o.netPattern`) ─────────────────────────────
+
+/** One order's pattern: its own allowances (null = the shop's) and whether it prints as a net pattern. Lengths only. */
+export type GownOrderPattern = { seamAllow: GownSeamAllow | null; netPattern: boolean };
+export const GOWN_ORDER_PATTERN_DEFAULT: GownOrderPattern = { seamAllow: null, netPattern: false };
+/** The reserved key the order's pattern rides under inside the designer's tape (`gown_fittings.fit`, the shop only). */
+export const GOWN_FIT_PATTERN_KEY = '_pattern';
+
+/** v205 `patState`: the status line beside "Seam allowance". */
+export const gownPatternState = (o: GownOrderPattern): string =>
+  o.netPattern ? 'Off: net pattern' : o.seamAllow ? 'On · set for this order' : "On · your shop's allowances";
+
+/** Checks an order's pattern settings: allowances held to their ranges (or null), the switch a boolean. Refuses junk. */
+export function sanitizeGownOrderPattern(input: unknown): GownOrderPattern | null {
+  if (!isObject(input) || typeof input.netPattern !== 'boolean') return null;
+  if (input.seamAllow !== null && !isObject(input.seamAllow)) return null;
+  return { seamAllow: input.seamAllow === null ? null : gownSeamAllowClean(input.seamAllow), netPattern: input.netPattern };
+}
+
+/** `gown_fittings.fit` → the tape (every number key) and the order's pattern (the reserved key). */
+export function gownFitSplit(fit: unknown): { tape: Record<string, number>; pattern: GownOrderPattern } {
+  const tape: Record<string, number> = {};
+  let pattern: GownOrderPattern = { ...GOWN_ORDER_PATTERN_DEFAULT };
+  if (isObject(fit))
+    for (const [k, v] of Object.entries(fit)) {
+      if (k === GOWN_FIT_PATTERN_KEY) pattern = sanitizeGownOrderPattern(v) ?? pattern;
+      else if (typeof v === 'number') tape[k] = v;
+    }
+  return { tape, pattern };
+}
+
+/** The tape and the pattern back into one `fit` object (the pattern only when it differs from the shop's plain one). */
+export function gownFitJoin(tape: Record<string, number>, pattern: GownOrderPattern): Record<string, unknown> {
+  const plain = pattern.seamAllow === null && !pattern.netPattern;
+  return plain ? { ...tape } : { ...tape, [GOWN_FIT_PATTERN_KEY]: pattern };
+}

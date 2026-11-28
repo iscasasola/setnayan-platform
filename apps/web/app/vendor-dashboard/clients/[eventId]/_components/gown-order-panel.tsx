@@ -3,7 +3,8 @@
 /**
  * 👗 THE GOWN ON THE ORDER — the designer's view of a bride's sent design (gown maker port step B7; corpus
  * WHATS_NEXT_Gown_Maker_Port_2026-11-27.md § 5; the approved drawing is `prototypes/gown_maker_2026-11-27/
- * gown_maker_v197.html` "Quotations and orders" and its pattern panel).
+ * gown_maker_v197.html` "Quotations and orders" and its pattern panel; the blocks, allowances, cutting list and export are
+ * v205's — steps B11/B12, owner D28–D30).
  *
  *   · Their design in words, and the estimate she saw (or "Ask for a quote"); the cost lines, priced now from the
  *     shop's own list (the shop only — computed on the server, never stored where she can read them).
@@ -12,20 +13,32 @@
  *     (`gown_fittings`, the shop only).
  *   · **Cutting blocks**: starting blocks from her numbers, the tape over both. "ESTIMATE: measure before cutting"
  *     whenever a number on a block is an estimate. Designer only; no price on any sheet.
+ *   · **Seam allowance** (on by default, from the shop's own; this order may set its own, or go back to the shop's)
+ *     and **Net pattern**: the cut line dashed and mitred round the stitching line, notches, PLACE ON FOLD. Saved by
+ *     themselves into the shop-only fitting row (`fit` with `pattern`).
+ *   · **Cutting list**: every piece in every fabric, the metres checked against her quote (a gap over 10 % says why).
+ *   · **Export 1:1**: the pattern pages (gown-pattern-pages.tsx) on A4 or US Letter, starting from the shop's paper.
  *
  * "Open on the mannequin" comes with Builder A's step A8 (never a dead control before then).
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
-import { RotateCw, Ruler, Save } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Printer, RotateCcw, RotateCw, Ruler, Save } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
-import { FormRows, TypedRow } from '@/app/_components/form-row';
+import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { formatCentavosPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
-import { gownDesignWords } from '@/lib/gown-maker';
+import { GOWN_ORDER_PATTERN_DEFAULT, gownDesignWords, gownPatternState, type GownOrderPattern } from '@/lib/gown-maker';
 import { GOWN_BODY_KEYS, GOWN_MATTERS, GOWN_MEASURES, GOWN_STEP_LABELS, gownMeasuresNeeded, type GownBody, type GownConfig, type GownMeasureKey, type GownMeasures } from '@/lib/gown-config';
 import { GOWN_DRAFT_ESTIMATE, GOWN_DRAFT_FROM_MEMORY, GOWN_DRAFT_TOLERANCE_CM } from '@/lib/gown-pattern/draft-constants';
 import type { GownDesignRead } from '@/app/_components/gown-maker/gown-actions';
+import type { GownTape } from '@/lib/gown-pattern/inputs';
+import type { GownBlockPiece } from '@/lib/gown-pattern/skirt';
+import type { GownPaper } from '@/lib/gown-pattern/export';
+import { GOWN_SEAM_ALLOW_DEFAULT } from '@/lib/gown-pattern/allowance';
+import { GOWN_CUT_LIST_HINT, gownCutCheckSentence, type GownCutList, type GownCutPart } from '@/lib/gown-pattern/cutting-list';
+import { GownSeamAllowRows } from '@/app/vendor-dashboard/shop/_components/gown-seam-allow';
+import { GownPatternPages } from './gown-pattern-pages';
 import { gownAction } from '@/app/_components/gown-maker/gown-call';
 
 /**
@@ -41,7 +54,7 @@ function bodyNumber(k: (typeof GOWN_BODY_KEYS)[number], vals: GownBody['vals']):
 
 type Load = { s: 'loading' } | { s: 'failed'; message: string } | { s: 'ok'; d: GownDesignRead };
 
-export function GownOrderPanel({ threadId, messageId, seed }: { threadId: string; messageId: string; seed?: GownDesignRead }) {
+export function GownOrderPanel({ threadId, messageId, seed, who = 'Client' }: { threadId: string; messageId: string; seed?: GownDesignRead; who?: string }) {
   const [load, setLoad] = useState<Load>(seed ? { s: 'ok', d: seed } : { s: 'loading' });
   const read = useCallback(() => {
     setLoad({ s: 'loading' });
@@ -71,10 +84,10 @@ export function GownOrderPanel({ threadId, messageId, seed }: { threadId: string
       </p>
     );
   }
-  return <Order d={d} config={d.config as GownConfig} body={d.body} threadId={threadId} />;
+  return <Order d={d} config={d.config as GownConfig} body={d.body} threadId={threadId} who={who} />;
 }
 
-function Order({ d, config, body, threadId }: { d: GownDesignRead; config: GownConfig; body: GownBody; threadId: string }) {
+function Order({ d, config, body, threadId, who }: { d: GownDesignRead; config: GownConfig; body: GownBody; threadId: string; who: string }) {
   const toast = useToast();
   const [tape, setTape] = useState<Partial<Record<GownMeasureKey, number>>>({ ...(d.tape?.tape ?? {}) });
   const [saving, setSaving] = useState(false);
@@ -187,57 +200,231 @@ function Order({ d, config, body, threadId }: { d: GownDesignRead; config: GownC
 
       <section className="space-y-2" data-gown-order-blocks="">
         <ActionButton tone="neutral" icon={Ruler} label={blocksOpen ? 'Hide the cutting blocks' : 'Cutting blocks'} onClick={() => setBlocksOpen((o) => !o)} className="w-full" />
-        {blocksOpen ? <Blocks config={config} body={body} measures={measures} tape={tape} /> : null}
+        {blocksOpen ? <Pattern d={d} config={config} body={body} measures={measures} tape={tape} threadId={threadId} who={who} /> : null}
       </section>
     </div>
   );
 }
 
-function Blocks({ config, body, measures, tape }: { config: GownConfig; body: GownBody; measures: GownMeasures; tape: Partial<Record<GownMeasureKey, number>> }) {
-  const [svgs, setSvgs] = useState<{ est: boolean; parts: { title: string; svg: string | null; error: string | null; checks: readonly (readonly [string, number, number])[] }[] } | null>(null);
+type Part = { title: string; svg: string | null; error: string | null; checks: readonly (readonly [string, number, number])[] };
+type Drawn = { est: boolean; parts: Part[]; cut: { p: GownBlockPiece; part: GownCutPart }[]; cutList: GownCutList | null };
+
+/**
+ * The cutting blocks, their seam allowances and the 1:1 export (B11/B12, drawing v205 `blocksHTML`). The allowances
+ * start from the shop's own; a change here is this order's own and saves itself (`fit` with `pattern`, the shop only).
+ */
+function Pattern({ d, config, body, measures, tape, threadId, who }: { d: GownDesignRead; config: GownConfig; body: GownBody; measures: GownMeasures; tape: GownTape; threadId: string; who: string }) {
+  const toast = useToast();
+  const P = d.pattern;
+  const [order, setOrder] = useState<GownOrderPattern>(P?.order ?? { ...GOWN_ORDER_PATTERN_DEFAULT });
+  const [paper, setPaper] = useState<GownPaper>(P?.paper ?? 'a4');
+  const [pages, setPages] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const wait = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => void (wait.current && clearTimeout(wait.current)), []);
+  // Without the shop's settings the cut line cannot be drawn honestly: the stitching line only, and it says why.
+  const net = P ? order.netPattern : true;
+  const sa = useMemo(() => (P ? (order.seamAllow ?? P.shop) : GOWN_SEAM_ALLOW_DEFAULT), [P, order.seamAllow]);
+
+  const change = (next: GownOrderPattern) => {
+    setOrder(next);
+    setProblem(null);
+    if (wait.current) clearTimeout(wait.current);
+    wait.current = setTimeout(async () => {
+      const r = await gownAction({ op: 'fit', threadId, designId: d.designId, pattern: next }).catch(() => null);
+      if (r?.ok) return;
+      const why = r && !r.ok ? r.message : 'The seam allowances didn’t save. Try again.';
+      setProblem(why);
+      toast.error(why);
+    }, 600);
+  };
+
+  const [drawn, setDrawn] = useState<Drawn | null>(null);
   useEffect(() => {
     let live = true;
     // The engine loads only when the designer opens the blocks.
-    void Promise.all([import('@/lib/gown-pattern/order'), import('@/lib/gown-pattern/svg')]).then(([{ gownOrderBlocks }, { gownBlocksSvg }]) => {
+    void Promise.all([import('@/lib/gown-pattern/order'), import('@/lib/gown-pattern/svg'), import('@/lib/gown-pattern/cutting-list')]).then(([{ gownOrderBlocks }, { gownBlocksSvg }, { gownCutList }]) => {
       const b = gownOrderBlocks(config, body, measures, tape);
-      const part = (title: string, d: typeof b.skirt | typeof b.bodice | typeof b.sleeve) =>
-        d.ok ? { title, svg: gownBlocksSvg(d.pieces, title), error: null, checks: d.checks } : { title, svg: null, error: d.error, checks: [] };
+      const part = (title: string, x: typeof b.skirt | typeof b.bodice | typeof b.sleeve): Part =>
+        x.ok ? { title, svg: gownBlocksSvg(x.pieces, title, sa, net), error: null, checks: x.checks } : { title, svg: null, error: x.error, checks: [] };
       const sleeve = b.sleeve.ok && b.sleeve.pieces.length === 0 ? [] : [part('Sleeve block', b.sleeve)];
-      if (live) setSvgs({ est: b.est, parts: [part('Bodice blocks', b.bodice), ...sleeve, part('Skirt blocks', b.skirt)] });
+      // The cutting list and the pages hold the bodice and the skirt, as the drawing does.
+      const cut = [...(b.bodice.ok ? b.bodice.pieces.map((p) => ({ p, part: 'bodice' as const })) : []), ...(b.skirt.ok ? b.skirt.pieces.map((p) => ({ p, part: 'skirt' as const })) : [])];
+      const cutList = P && cut.length ? gownCutList(cut, P.cut, sa, net) : null;
+      if (live) setDrawn({ est: b.est, parts: [part('Bodice blocks', b.bodice), ...sleeve, part('Skirt blocks', b.skirt)], cut, cutList });
     });
     return () => {
       live = false;
     };
-  }, [config, body, measures, tape]);
-  if (!svgs) return <div className="sn-frame skeleton h-48" aria-busy="true" />;
+  }, [config, body, measures, tape, sa, net, P]);
+
   return (
-    <div className="space-y-3" data-gown-blocks="">
-      {svgs.est ? (
-        <p role="note" className="text-sn-base font-semibold text-danger-700" data-gown-blocks-estimate="">
-          {GOWN_DRAFT_ESTIMATE}
-        </p>
-      ) : null}
-      <p className="text-sn-base text-ink/70">{GOWN_DRAFT_FROM_MEMORY}</p>
-      {svgs.parts.map((p) => (
-        <div key={p.title} className="sn-frame space-y-2 p-3">
-          <p className="text-sn-md font-semibold text-ink">{p.title}</p>
-          {p.svg ? (
-            // Our own drawing of the blocks (numbers only, one ink: currentColor), made by lib/gown-pattern/svg.ts.
-            <div className="overflow-x-auto text-ink [&_svg]:h-auto [&_svg]:max-w-full" dangerouslySetInnerHTML={{ __html: p.svg }} />
-          ) : (
-            <p className="text-sn-base text-ink/70">{p.error}</p>
-          )}
-          {p.checks.length ? (
-            <ul className="text-sn-sm text-ink/70">
-              {p.checks.map(([what, asked, drawn]) => (
-                <li key={what}>
-                  {Math.abs(drawn - asked) <= GOWN_DRAFT_TOLERANCE_CM ? '✓' : '⚠'} {what}: {formatCount(asked, 1)} / {formatCount(drawn, 1)} cm
-                </li>
-              ))}
-            </ul>
+    <div className="space-y-4" data-gown-pattern="">
+      {P ? (
+        <div className="space-y-2" data-gown-pattern-controls="">
+          <div className="flex items-baseline justify-between gap-3">
+            <h3 className="text-sn-sm font-semibold uppercase tracking-wide text-ink/70">Seam allowance</h3>
+            <span className="text-sn-sm text-ink/70" data-gown-pattern-state="">
+              {gownPatternState(order)}
+            </span>
+          </div>
+          <GownSeamAllowRows value={sa} onChange={(next) => change({ ...order, seamAllow: next })} disabled={order.netPattern} data="order" />
+          {order.seamAllow && !order.netPattern ? (
+            <ActionButton tone="neutral" icon={RotateCcw} label="Use my shop’s allowances" onClick={() => change({ ...order, seamAllow: null })} data-gown-pattern-reset="" />
+          ) : null}
+          <FormRows>
+            <SwitchRow name="Net pattern" line="Shows the stitching line only, no cut line." on={order.netPattern} onChange={(on) => change({ ...order, netPattern: on })} data="gown-net-pattern" />
+          </FormRows>
+          {problem ? (
+            <p role="alert" className="text-sn-base font-semibold text-danger-700">
+              {problem}
+            </p>
           ) : null}
         </div>
-      ))}
+      ) : (
+        <p role="alert" className="text-sn-base text-ink/70" data-gown-pattern-controls="unread">
+          Couldn’t read your seam allowances just now, so the blocks show the stitching line only. Close and open the blocks to try again.
+        </p>
+      )}
+
+      {!drawn ? (
+        <div className="sn-frame skeleton h-48" aria-busy="true" />
+      ) : (
+        <div className="space-y-3" data-gown-blocks="">
+          <p role="note" className="sn-frame p-3 text-sn-base font-semibold text-danger-700">
+            {GOWN_DRAFT_FROM_MEMORY}
+          </p>
+          {drawn.est ? (
+            <p role="note" className="sn-frame p-3 text-sn-base font-semibold text-danger-700" data-gown-blocks-estimate="">
+              {GOWN_DRAFT_ESTIMATE}
+            </p>
+          ) : null}
+          <p className="flex flex-wrap gap-x-4 gap-y-1 text-sn-sm text-ink/70" data-gown-pattern-key="">
+            {net ? (
+              <span>— Stitching line (net: add your own allowance)</span>
+            ) : (
+              <>
+                <span>— Stitching line</span>
+                <span>- - - Cut line</span>
+                <span>| Notch</span>
+              </>
+            )}
+          </p>
+          {drawn.parts.map((p) => (
+            <div key={p.title} className="sn-frame space-y-2 p-3">
+              <p className="text-sn-md font-semibold text-ink">{p.title}</p>
+              {p.svg ? (
+                // Our own drawing of the blocks (numbers only, one ink: currentColor), made by lib/gown-pattern/svg.ts.
+                <div className="overflow-x-auto text-ink [&_svg]:h-auto [&_svg]:max-w-full" dangerouslySetInnerHTML={{ __html: p.svg }} />
+              ) : (
+                <p className="text-sn-base text-ink/70">{p.error}</p>
+              )}
+              {p.checks.length ? (
+                <ul className="text-sn-sm text-ink/70">
+                  {p.checks.map(([what, asked, made]) => (
+                    <li key={what}>
+                      {Math.abs(made - asked) <= GOWN_DRAFT_TOLERANCE_CM ? '✓' : '⚠'} {what}: {formatCount(asked, 1)} / {formatCount(made, 1)} cm
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+            </div>
+          ))}
+          {drawn.cutList ? <CutList c={drawn.cutList} /> : null}
+          {P && drawn.cut.length ? (
+            <div className="space-y-2" data-gown-export="">
+              <h3 className="text-sn-sm font-semibold uppercase tracking-wide text-ink/70">Print at full size</h3>
+              <FormRows>
+                <ChosenRow name="Paper" value={paper} options={PAPER_OPTIONS} onPick={(k) => setPaper(k === 'letter' ? 'letter' : 'a4')} data="gown-export-paper" />
+              </FormRows>
+              <ActionButton tone="brand" icon={Printer} label="Export 1:1" onClick={() => setPages(true)} className="w-full" data-gown-export-open="" />
+              <p className="text-sn-base text-ink/70">Pages to tape together at true size, a page map, a 5 cm test square on every page, and one large sheet for a plotter. No prices on any sheet.</p>
+            </div>
+          ) : null}
+        </div>
+      )}
+      {pages && drawn ? <GownPatternPages pieces={drawn.cut.map((x) => x.p)} sa={sa} net={net} paper={paper} who={who} onClose={() => setPages(false)} /> : null}
+    </div>
+  );
+}
+
+const PAPER_OPTIONS = [
+  { key: 'a4', label: 'A4' },
+  { key: 'letter', label: 'US Letter' },
+];
+const cm1 = (x: number) => x.toFixed(1);
+
+/** v205 `patCutListHTML`: grouped by fabric; a table on a wide screen, stacked rows on a phone; the metres checked. */
+function CutList({ c }: { c: GownCutList }) {
+  const groups = [...new Set(c.rows.map((r) => r.fabric))];
+  return (
+    <div className="space-y-2" data-gown-cut-list="">
+      <h3 className="text-sn-sm font-semibold uppercase tracking-wide text-ink/70">Cutting list</h3>
+      <div className="sn-frame p-3">
+        <table className="w-full text-left text-sn-sm">
+          <thead className="hidden md:table-header-group">
+            <tr className="text-ink/70">
+              <th className="py-1 pr-2 font-semibold">Piece</th>
+              <th className="py-1 pr-2 font-semibold">Cut</th>
+              <th className="py-1 pr-2 font-semibold">Fold</th>
+              <th className="py-1 pr-2 font-semibold">Grain</th>
+              <th className="py-1 pr-2 font-semibold">Fabric</th>
+              <th className="py-1 font-semibold">Size{c.net ? ' (net)' : ' with allowance'}</th>
+            </tr>
+          </thead>
+          {groups.map((g) => (
+            <tbody key={g} data-gown-cut-fabric={g}>
+              <tr>
+                <th colSpan={6} className="border-b border-ink pb-1 pt-3 text-sn-base font-semibold text-ink">
+                  {g}
+                </th>
+              </tr>
+              {c.rows
+                .filter((r) => r.fabric === g)
+                .map((r) => (
+                  <tr key={`${g}-${r.piece}`} className="flex flex-wrap gap-x-3 border-b border-line py-2 text-ink md:table-row" data-gown-cut-row={r.k}>
+                    <td className="basis-full font-semibold md:py-2 md:pr-2">
+                      {r.piece}
+                      {r.note ? <small className="block font-normal text-ink/70">{r.note}</small> : null}
+                    </td>
+                    <td className="md:py-2 md:pr-2">
+                      <span className="text-ink/70 md:hidden">Cut: </span>
+                      {r.qty}
+                    </td>
+                    <td className="md:py-2 md:pr-2">
+                      <span className="text-ink/70 md:hidden">Fold: </span>
+                      {r.fold ? 'On the fold' : 'No'}
+                    </td>
+                    <td className="basis-full md:py-2 md:pr-2">
+                      <span className="text-ink/70 md:hidden">Grain: </span>
+                      {r.grain}
+                    </td>
+                    <td className="hidden md:table-cell md:py-2 md:pr-2">{r.fabric}</td>
+                    <td className="basis-full md:py-2">
+                      <span className="text-ink/70 md:hidden">Size: </span>
+                      {cm1(r.w)} × {cm1(r.h)} cm
+                      {r.fold ? <small className="block text-ink/70">opens to {cm1(2 * r.w)} cm across</small> : null}
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          ))}
+        </table>
+      </div>
+      <div className="space-y-1" data-gown-cut-checks="">
+        {c.checks.map((k) => {
+          const w = gownCutCheckSentence(k);
+          return (
+            <p key={k.k} className={k.ok === false ? 'sn-frame p-2 text-sn-base text-ink' : 'text-sn-base text-ink'} data-gown-cut-check={k.k} data-ok={String(k.ok)}>
+              {w.lead} {w.why ? <span className="text-ink/70">{w.why}</span> : null}
+            </p>
+          );
+        })}
+        <p className="text-sn-base text-ink/70">
+          {GOWN_CUT_LIST_HINT}
+          {c.unblocked.length ? ` Not in this list yet (no block): ${c.unblocked.join(', ')}.` : ''}
+        </p>
+      </div>
     </div>
   );
 }

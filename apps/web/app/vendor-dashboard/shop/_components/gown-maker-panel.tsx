@@ -20,7 +20,10 @@ import dynamic from 'next/dynamic';
 import type { ComponentProps } from 'react';
 import type { GownStockPanel as GownStockPanelType } from './gown-stock-panel';
 import Link from 'next/link';
-import { Lock, RotateCw, Save } from 'lucide-react';
+import { Lock, RotateCcw, RotateCw, Save } from 'lucide-react';
+import { GownSeamAllowRows } from './gown-seam-allow';
+import { GOWN_SEAM_ALLOW_DEFAULT, GOWN_SEAM_KINDS } from '@/lib/gown-pattern/allowance';
+import { GOWN_PAPERS } from '@/lib/gown-pattern/export';
 import { ActionButton } from '@/components/action-button';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { PillSelector } from '@/app/_components/pill-selector';
@@ -38,6 +41,9 @@ import {
   type GownHourKey,
   type GownPriceKey,
   type GownShopOptions,
+  gownSeamAllowIsUsual,
+  gownShopPaper,
+  gownShopSeamAllow,
 } from '@/lib/gown-maker';
 import { gownAction } from '@/app/_components/gown-maker/gown-call';
 
@@ -62,6 +68,9 @@ const MODE_LINE = {
   covers: 'Enter what each item costs you. The bride sees your starting price until the design costs more, then the higher price.',
   extras: 'Each starting price is locked. Mark what it already includes; every other choice adds the price you enter.',
 } as const;
+/** v205: "Back to the usual (1.5 · 2.5 · 2.0 · 1.0 cm)", read from the one list of kinds. */
+const USUAL_WORDS = GOWN_SEAM_KINDS.map((k) => k[2].toFixed(1)).join(' · ');
+const PAPER_OPTIONS = (Object.keys(GOWN_PAPERS) as (keyof typeof GOWN_PAPERS)[]).map((k) => ({ key: k, label: GOWN_PAPERS[k].name }));
 const ADD_ON_OPTIONS = [
   { key: 'none', label: 'Not offered' },
   { key: 'priced', label: 'Priced' },
@@ -145,6 +154,7 @@ function GownMakerEditor({ start }: { start: GownShopOptions }) {
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const extras = o.mode === 'extras';
+  const seamAllow = gownShopSeamAllow(o);
 
   const setPrice = (k: GownPriceKey, raw: string) => {
     const c = parseAmountInput(raw);
@@ -276,6 +286,29 @@ function GownMakerEditor({ start }: { start: GownShopOptions }) {
               </div>
             );
           })}
+        </FormRows>
+      </section>
+
+      <section className="space-y-2" data-gown-group="pattern">
+        <h3 className="text-sn-sm font-semibold uppercase tracking-wide text-ink/70">Patterns and printing</h3>
+        <p className="text-sn-base text-ink/70">Used by the cutting blocks on every order. Only you see this.</p>
+        <p className="text-sn-md font-semibold text-ink">Seam allowances</p>
+        <p className="text-sn-base text-ink/70">
+          Where the cut line sits outside the stitching line, in centimetres. Every order’s cutting blocks start from these; you can change them for one order there.
+        </p>
+        <GownSeamAllowRows value={seamAllow} onChange={(next) => setO((p) => ({ ...p, seamAllow: next }))} data="shop" />
+        {gownSeamAllowIsUsual(seamAllow) ? null : (
+          <ActionButton tone="neutral" icon={RotateCcw} label={`Back to the usual (${USUAL_WORDS} cm)`} onClick={() => setO((p) => ({ ...p, seamAllow: { ...GOWN_SEAM_ALLOW_DEFAULT } }))} data-gown-seam-usual="" />
+        )}
+        <FormRows>
+          <ChosenRow
+            name="Paper for printing patterns"
+            value={gownShopPaper(o)}
+            options={PAPER_OPTIONS}
+            onPick={(k) => setO((p) => ({ ...p, patPaper: k === 'letter' ? 'letter' : 'a4' }))}
+            note="Patterns print at true size, tiled across pages, with a 5 cm test square on every page."
+            data="gown-paper"
+          />
         </FormRows>
       </section>
 

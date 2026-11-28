@@ -8,6 +8,7 @@ import { GownOrderPanel } from '@/app/vendor-dashboard/clients/[eventId]/_compon
 import { gownDesignOf } from '@/lib/gown-maker';
 import { ScanLab } from './scan-lab';
 import { emptyGownQuantities, startingGownBody, startingGownConfig } from '@/lib/gown-config';
+import { gownCutContext } from '@/lib/gown-pattern/cutting-list';
 
 const P = 100; // ₱1 in centavos — SAMPLE amounts only
 
@@ -49,7 +50,7 @@ const REGISTRY = [
 ];
 
 export default function Lab({ view }: { view: string }) {
-  if (view === 'order') {
+  if (view === 'order' || view === 'order-own' || view === 'order-net') {
     const config = { ...startingGownConfig(), sleeve: 'long' as const };
     const body = { ...startingGownBody(), given: ['height', 'bust', 'waist', 'hips'] as ('height' | 'bust' | 'waist' | 'hips')[], matters: ['arms' as const] };
     const q = { ...emptyGownQuantities(), outerM: 6.5 };
@@ -59,6 +60,7 @@ export default function Lab({ view }: { view: string }) {
         <GownOrderPanel
           threadId="00000000-0000-4000-8000-000000000001"
           messageId="00000000-0000-4000-8000-000000000002"
+          who="Ana Reyes"
           seed={{
             ok: true,
             op: 'design',
@@ -70,6 +72,12 @@ export default function Lab({ view }: { view: string }) {
             estimateCentavos: priced.forBride.estimateCentavos,
             forShop: priced.forShop,
             tape: { tape: { waistHip: 21.5 }, fitAt: '2026-11-27T10:00:00Z' },
+            pattern: {
+              shop: { seam: 1.5, hem: 2.5, zip: 2, neck: 1 },
+              paper: 'a4',
+              order: view === 'order-own' ? { seamAllow: { seam: 1, hem: 4, zip: 2.5, neck: 0.8 }, netPattern: false } : { seamAllow: null, netPattern: view === 'order-net' },
+              cut: gownCutContext(config, { ...q, materials: { ...q.materials, outerM: 6.5, liningM: 5.5, netM: 4 } }, 'Duchess satin'),
+            },
             replaced: false,
             sentAt: '2026-11-26T10:00:00Z',
           }}

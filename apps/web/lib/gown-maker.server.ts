@@ -49,6 +49,9 @@ import {
   type GownDesignForBride,
   type GownShopFabric,
   type GownShopOptions,
+  gownFitJoin,
+  gownFitSplit,
+  type GownOrderPattern,
 } from '@/lib/gown-maker';
 
 export type Read<T> = { status: 'ok'; data: T } | { status: 'unread' } | { status: 'none' };
@@ -319,11 +322,22 @@ export function sanitizeGownTape(input: unknown, keys: readonly string[]): { ok:
   return { ok: true, tape: out as GownTape };
 }
 
-/** Saves the designer's tape for one design (service role, after the caller proved it is that shop's). */
-export async function saveGownFitting(admin: SupabaseClient, args: { designId: string; tape: GownTape; userId: string }): Promise<boolean> {
-  const { error } = await admin
-    .from('gown_fittings')
-    .upsert({ design_id: args.designId, fit: args.tape, fit_at: new Date().toISOString(), updated_by: args.userId }, { onConflict: 'design_id' });
+/**
+ * Saves the designer's tape and/or this order's pattern settings for one design (service role, after the caller proved
+ * it is that shop's). What was not sent is kept: Save tape leaves the allowances alone, and an allowance change leaves
+ * the tape alone. The pattern rides under a reserved key in the same shop-only row (`gownFitJoin`).
+ */
+export async function saveGownFitting(admin: SupabaseClient, args: { designId: string; tape?: GownTape; pattern?: GownOrderPattern; userId: string }): Promise<boolean> {
+  const { data: had, error: readErr } = await admin.from('gown_fittings').select('fit').eq('design_id', args.designId).maybeSingle();
+  if (readErr) {
+    logQueryError('saveGownFitting.read', readErr, { design_id: args.designId }, 'graceful_degrade');
+    return false;
+  }
+  const was = gownFitSplit((had as { fit: unknown } | null)?.fit ?? null);
+  const fit = gownFitJoin(args.tape ? { ...args.tape } : was.tape, args.pattern ?? was.pattern);
+  const row: Record<string, unknown> = { design_id: args.designId, fit, updated_by: args.userId };
+  if (args.tape || !had) row.fit_at = new Date().toISOString(); // fit_at is when the TAPE was taken
+  const { error } = await admin.from('gown_fittings').upsert(row, { onConflict: 'design_id' });
   if (error) {
     logQueryError('saveGownFitting', error, { design_id: args.designId }, 'graceful_degrade');
     return false;
@@ -331,16 +345,17 @@ export async function saveGownFitting(admin: SupabaseClient, args: { designId: s
   return true;
 }
 
-/** The designer's tape for one design, on the shop's own session (RLS: the shop only). */
-export async function readGownFitting(supabase: SupabaseClient, designId: string): Promise<Read<{ tape: GownTape; fitAt: string }>> {
+/** The designer's tape and this order's pattern settings for one design, on the shop's own session (RLS: the shop only). */
+export async function readGownFitting(supabase: SupabaseClient, designId: string): Promise<Read<{ tape: GownTape; fitAt: string; pattern: GownOrderPattern }>> {
   const { data, error } = await supabase.from('gown_fittings').select('fit, fit_at').eq('design_id', designId).maybeSingle();
   if (error) {
     logQueryError('readGownFitting', error, { design_id: designId }, 'graceful_degrade');
     return { status: 'unread' };
   }
   if (!data) return { status: 'none' };
-  const r = data as { fit: Record<string, number>; fit_at: string };
-  return { status: 'ok', data: { tape: r.fit as GownTape, fitAt: r.fit_at } };
+  const r = data as { fit: unknown; fit_at: string };
+  const { tape, pattern } = gownFitSplit(r.fit);
+  return { status: 'ok', data: { tape: tape as GownTape, fitAt: r.fit_at, pattern } };
 }
 
 // ── B5 · the shop's own stock: every fabric, lace and look, hidden ones too, with prices (the shop only) ─────────────

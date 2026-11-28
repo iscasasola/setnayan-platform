@@ -245,6 +245,7 @@ import type { RestoreSeat, SeatScope } from '@/lib/seat-plan-scope';
 import {
   SEAT_CARD_LOOKS,
   SEAT_LOCKED_WORDS,
+  isSeatLockedRefusal,
   parseSeatCardLook,
   planSeatDrop,
   seatDropRefusalWords,
@@ -310,6 +311,8 @@ export type SeatingGuest = {
   name: string;
   /** The guest who brought this one (`guests.plus_one_of_guest_id`) — a +1 moves with them. */
   plus_one_of?: string | null;
+  /** The short name a Seats › List Names chip wears ("Maria C.", "Tita Odette" — `seatShortName`). */
+  short_name?: string | null;
   initials: string;
   photo_url: string | null;
   side: 'bride' | 'groom' | 'both';
@@ -1432,7 +1435,7 @@ export function SeatingEditor({
   };
   /** The server refused too (a lock this tab had not seen yet): the same line, and the plan reads what is saved. */
   const saidLocked = (res: unknown): boolean => {
-    if (!res || typeof res !== 'object' || !('refused' in res)) return false;
+    if (!isSeatLockedRefusal(res)) return false;
     setMoveNote(null);
     setNotice(SEAT_LOCKED_WORDS);
     return true;
@@ -1472,7 +1475,11 @@ export function SeatingEditor({
         fd.set('guest_a_id', aId);
         fd.set('guest_b_id', bId);
         if (rest.length) fd.set('pairs', rest.map((r) => `${r.x}:${r.y}`).join(','));
-        saidLocked(await runGated(() => swapSeats(fd)));
+        const res = await runGated(() => swapSeats(fd));
+        // A failed swap is rolled back on the server; re-read so the screen shows what is saved (never a half trade).
+        // one-render: keep (after-failure) — the failed swap revalidated nothing; re-read what the plan really holds.
+        if (res === null) router.refresh();
+        else saidLocked(res);
       } else if (tb) {
         const off = form(bId);
         if (rest.length) off.set('also', rest.map((r) => r.y).join(','));
@@ -1564,6 +1571,8 @@ export function SeatingEditor({
   /** Delete these tables (one, or a joined unit's members) — at once on screen, written after the Undo window. */
   const removeTables = (tableIds: readonly string[], label: string) => {
     if (!canEdit || tableIds.length === 0) return;
+    // 🔒 #17: a table holding a locked seat is not deleted (its seats would go with it) — said before anything hides.
+    if (refuseLocked(...guests.filter((g) => g.seated_table_id !== null && tableIds.includes(g.seated_table_id)).map((g) => g.guest_id))) return;
     if (highlightId && tableIds.includes(highlightId)) setHighlightId(null);
     const hold = (on: boolean) =>
       setHeldTables((h) => {
@@ -1584,7 +1593,10 @@ export function SeatingEditor({
           fd.set('event_id', eventId);
           fd.set('lock_id', lock.lockId ?? '');
           fd.set('table_id', tableId);
-          if ((await runGated(() => deleteTable(fd))) === null) return { ok: false };
+          const res = await runGated(() => deleteTable(fd));
+          if (res === null) return { ok: false };
+          // The server refused (a seat locked from another tab): the table comes back and the line is said.
+          if (saidLocked(res)) return { ok: false };
         }
         return { ok: true };
       },
@@ -2292,6 +2304,11 @@ export function SeatingEditor({
     startTransition(async () => {
       applyGuestOpt({ type: 'seatGroup', ids: memberIds, tableId });
       const res = await runGated(() => assignGroup(fd));
+      // 🔒 #17: members whose seat is locked stayed where they are — said; `assignGroup` revalidated, so the plan re-reads.
+      if (res?.locked) {
+        setNotice(`${groupLabel}: ${formatCount(res.locked)} locked ${res.locked === 1 ? 'seat stays' : 'seats stay'} · Unlock to move`);
+        return;
+      }
       if (res && res.overflow > 0) {
         const label = tableLabelById.get(tableId) ?? 'that table';
         setNotice(
@@ -2378,7 +2395,7 @@ export function SeatingEditor({
     fd.set('table_id_b', b);
     startTransition(async () => {
       try {
-        await swapTableOccupants(fd);
+        if (saidLocked(await swapTableOccupants(fd))) return;
         setNotice('Swapped — each table now seats the other’s guests, in the same chairs.');
       } catch (err) {
         if (!handleLockLost(err)) setNotice('Couldn’t swap those tables — please try again.');
@@ -2733,6 +2750,7 @@ export function SeatingEditor({
     startTransition(async () => {
       const res = await runGated(() => updateTableType(fd));
       if (!res) return; // lock lost — runGated already dropped us to view-only.
+      if (saidLocked(res)) return; // 🔒 #17: the new shape would take a locked guest's chair — the table keeps its shape.
       setNotice(
         res.unseated > 0
           ? `“${t.table_label}” is now a ${newLabel.toLowerCase()} — ${formatCount(res.unseated)} guest${res.unseated === 1 ? '' : 's'} in seats the new shape doesn’t have ${res.unseated === 1 ? 'was' : 'were'} returned to the unseated list.`
@@ -7001,6 +7019,8 @@ export function SeatingEditor({
     if (!moveGuest || !moveTo || !canEdit) return;
     const party = moveParty;
     setMoveGuestId(null);
+    // 🔒 #17: the phone's "Move to…" never moves a locked guest (nor their +1 away from them).
+    if (refuseLocked(...party.map((g) => g.guest_id))) return;
     if (moveTo === NEW_TABLE_KEY) {
       const fd = new FormData();
       fd.set('event_id', eventId);
@@ -7019,24 +7039,34 @@ export function SeatingEditor({
         // A table that landed is redrawn by `createTable`'s own answer (it revalidates); only a refused one re-reads.
         // one-render: keep (after-failure) — the refused create revalidated nothing; re-read what the plan really holds.
         if (made === null) router.refresh();
+        else saidLocked(made);
       });
       return;
     }
     const unit = displayUnits.find((u) => u.key === moveTo);
     if (!unit || unit.members.some((m) => m.table_id === moveGuest.seated_table_id)) return;
     const chairs = freeChairsOf(unit);
+    // ONE write per table the party lands at (`along`), so a refusal or a failure never moves the +1 without them.
+    const legs = new Map<string, Array<{ guestId: string; seat: number }>>();
+    party.slice(0, chairs.length).forEach((g, i) => {
+      const c = chairs[i]!;
+      legs.set(c.tableId, [...(legs.get(c.tableId) ?? []), { guestId: g.guest_id, seat: c.seat }]);
+    });
     startTransition(async () => {
-      for (let i = 0; i < party.length && i < chairs.length; i++) {
-        const g = party[i]!;
-        const c = chairs[i]!;
+      for (const [tableId, seats] of legs) {
+        const [first, ...rest] = seats;
         const fd = new FormData();
         fd.set('event_id', eventId);
         fd.set('lock_id', lock.lockId ?? '');
-        fd.set('table_id', c.tableId);
-        fd.set('guest_id', g.guest_id);
-        fd.set('seat_number', String(c.seat));
-        applyGuestOpt({ type: 'seat', guestId: g.guest_id, tableId: c.tableId, seat: c.seat });
-        if ((await runGated(() => assignGuest(fd))) === null) return;
+        fd.set('table_id', tableId);
+        fd.set('guest_id', first!.guestId);
+        fd.set('seat_number', String(first!.seat));
+        if (rest.length) fd.set('along', JSON.stringify(rest.map((x) => ({ guest_id: x.guestId, seat_number: x.seat }))));
+        for (const x of seats) applyGuestOpt({ type: 'seat', guestId: x.guestId, tableId, seat: x.seat });
+        const res = await runGated(() => assignGuest(fd));
+        // one-render: keep (after-failure) — re-read what is saved, so the screen never shows a half move.
+        if (res === null) return router.refresh();
+        if (saidLocked(res)) return;
       }
     });
   };
@@ -7438,8 +7468,13 @@ export function SeatingEditor({
     photo: g.photo_url,
     side: g.side,
     placed: seatPlacedShort(g.seat_placed_by),
+    short: g.short_name ?? null,
     plusOneOf: g.plus_one_of ?? null,
-    bringer: g.plus_one_of ? (guestsById.get(g.plus_one_of)?.name ?? null) : null,
+    bringer: g.plus_one_of ? (guestsById.get(g.plus_one_of)?.short_name ?? guestsById.get(g.plus_one_of)?.name ?? null) : null,
+    // 🧑‍🤝‍🧑 Under "+1s of VIP guests: nearest" a principal sponsor and their +1 move (and are drawn) apart.
+    movesAlone: vipPlusOnes === 'nearest' && g.role.startsWith('principal_sponsor'),
+    nearestPlusOne:
+      vipPlusOnes === 'nearest' && Boolean(g.plus_one_of) && (guestsById.get(g.plus_one_of ?? '')?.role.startsWith('principal_sponsor') ?? false),
     locked: g.seat_locked === true,
   });
   /* 🪑 S1c · Seats › List = the Guests list grouped by table: one row per seat that exists (a removed chair is no row),

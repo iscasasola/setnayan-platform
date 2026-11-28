@@ -30,6 +30,7 @@ import {
   fetchSignsMeasured,
   fetchTables,
   countStillToSeat,
+  guestsStillToSeat,
   groupColorFor,
 } from '@/lib/seating';
 import { fetchBookedVendorsForBooths } from '@/lib/vendors';
@@ -39,6 +40,9 @@ import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER, MAKER_INNER_TOURS_AFTER } from '@/lib/host-page-tours';
 import { guestsViewHref, parseSeatView } from '@/lib/guests-views';
 import { seatShortName } from '@/lib/seat-list-drop';
+import { seatPlanDryRun } from '@/lib/seat-plan-dry-run';
+import { dryRunView, stillUnseated, type DryRunView } from '@/lib/seat-plan-api';
+import { tableDisplayNames } from '@/lib/table-auto-name';
 import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE, SIDE_ORDER, computeGuestStats, countsTowardEvent, headcountForBasis } from '@/lib/guests';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { peopleLabels } from '@/lib/details-your-event';
@@ -301,6 +305,56 @@ export default async function SeatingPage({ params, searchParams }: Props) {
   );
   const seatShortfall = Math.max(0, nonDeclinedCount - totalSeats);
 
+  // ✦ THE SMART LAYER'S DRY RUN (seat plan § 4.4): the same seater auto arrange runs, fill-only, on the rows this page
+  // already read — NO new read, NO new client fetch, nothing written. Suggestions honour the host's switch
+  // (`seat_suggestions`); a run that throws is `status: 'failed'` and the screen says so.
+  const dryRun = ((): DryRunView => {
+    // The naming and the shaping can throw too: the whole of it fails to "Couldn't check seats", never the page.
+    try {
+    const groupLabels = new Map(groupsRaw.map((g) => [g.group_id, g.label] as const));
+    const run = seatPlanDryRun({
+      tables,
+      guests: guests.map((g) => ({
+        guest_id: g.guest_id,
+        role: g.role,
+        group_category: g.group_category,
+        rsvp_status: g.rsvp_status,
+        plus_one_of_guest_id: g.plus_one_of_guest_id,
+        last_name: g.last_name,
+        first_name: g.first_name,
+        group_id: memberships.get(g.guest_id)?.[0] ?? null,
+        seating_priority: g.seating_priority ?? null,
+        side: g.side,
+      })),
+      assignments,
+      groupLabels,
+      floor: floorPlan,
+      roleSet,
+      groupAdjacency: adjacencyEnabled,
+    });
+    const shown = tableDisplayNames(tables, assignments, {
+      labels: groupsRaw.map((g) => ({ group_id: g.group_id, label: g.label })),
+      members: [...memberships].flatMap(([guest_id, ids]) => ids.map((group_id) => ({ guest_id, group_id }))),
+      broughtBy: guests.map((g) => ({ guest_id: g.guest_id, plus_one_of_guest_id: g.plus_one_of_guest_id ?? null })),
+    });
+    const byId = new Map(guests.map((g) => [g.guest_id, g] as const));
+    const seatable = guestsStillToSeat(guests, new Set(), roleSet);
+    return dryRunView(run, {
+      tables,
+      assignments,
+      unseatedNow: stillUnseated(seatable.length, assignments, new Set(seatable.map((g) => g.guest_id))),
+      nameOf: (id) => {
+        const g = byId.get(id);
+        return g ? guestDisplayName(g) : '';
+      },
+      tableName: (id) => shown.get(id) ?? '',
+    });
+    } catch (err) {
+      logQueryError('SeatingPage.dryRun', { message: err instanceof Error ? err.message : String(err) }, { event_id: eventId }, 'graceful_degrade');
+      return { status: 'failed', line: 'Couldn’t check seats · Try again' };
+    }
+  })();
+
   // ONE editor element — the props are never listed twice.
   const editorFor = (initialView: 'plan' | 'list', details: SeatingDetailsShell) => (
     <SeatingEditor
@@ -346,6 +400,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       setSeatingAutoplace={setSeatingAutoplace}
       setSeatingGroupAdjacency={setSeatingGroupAdjacency}
       ghostBoothsEnabled={ghostBoothsEnabled}
+      dryRun={dryRun}
       initialView={initialView}
       details={details}
       me={{

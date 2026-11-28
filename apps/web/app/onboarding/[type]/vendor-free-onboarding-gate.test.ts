@@ -32,10 +32,17 @@ import { stripComments } from '@/lib/strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const PAGE = join(HERE, 'page.tsx');
+const GATE = join(HERE, 'gate.ts');
 const src = () => stripComments(readFileSync(PAGE, 'utf8'));
+// The vendor-free decision and its redirect live in ./gate.ts (decided before the route streams, #8511).
+const gate = () => stripComments(readFileSync(GATE, 'utf8'));
+
+test('the page takes vendorFree from the gate it awaits', () => {
+  assert.match(src(), /const \{[^}]*\bvendorFree\b[^}]*\} = await gateGenericOnboarding\(type\)/);
+});
 
 test('the gate reads profile.marketplaceEnabled, never the type string', () => {
-  const s = src();
+  const s = gate();
   assert.match(
     s,
     /const vendorFree = profile\.marketplaceEnabled !== true/,
@@ -50,7 +57,7 @@ test('the gate reads profile.marketplaceEnabled, never the type string', () => {
 });
 
 test('a vendor-free type with its own onboarding page is redirected there', () => {
-  const s = src();
+  const s = gate();
   assert.match(
     s,
     /if \(vendorFree && row\.onboardingHref[\s\S]{0,80}\)\s*\{\s*redirect\(row\.onboardingHref\)/,

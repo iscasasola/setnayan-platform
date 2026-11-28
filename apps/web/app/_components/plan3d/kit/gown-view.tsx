@@ -75,6 +75,8 @@ export function GownView({ fill = false, force2d = false, ...figure }: GownViewP
 export function GownStill({ design, alt, ...figure }: Omit<GownViewProps, 'design' | 'fill' | 'force2d'> & { design: GownConfig; alt: string }) {
   const box = useRef<HTMLDivElement>(null);
   const [three, setThree] = useState(false);
+  // The 3D canvas is see-through, so the drawing steps aside once the frame has her in it (and comes back if 3D gives up).
+  const [drawn, setDrawn] = useState(false);
   useEffect(() => {
     const el = box.current;
     if (!el || !canWebgl() || typeof IntersectionObserver === 'undefined') return;
@@ -84,15 +86,16 @@ export function GownStill({ design, alt, ...figure }: Omit<GownViewProps, 'desig
   }, []);
   const colour = gownStillColour(design);
   return (
-    <div ref={box} className={css.still} data-gown-still={three ? '3d' : '2d'} role="img" aria-label={alt}>
-      <svg viewBox="0 0 40 56" className={css.stillSvg} aria-hidden="true">
+    <div ref={box} className={css.still} data-gown-still={three && drawn ? '3d' : '2d'} role="img" aria-label={alt}>
+      <svg viewBox="0 0 40 56" className={css.stillSvg} aria-hidden="true" hidden={three && drawn}>
         {gownStillLayers(design).map((l, i) => (
           <path key={i} d={l.d} fill={colour} fillOpacity={l.sheer ? 0.45 : 1} stroke="currentColor" strokeOpacity={0.35} strokeWidth={0.6} />
         ))}
       </svg>
       {three ? (
         <div className={css.stillStage}>
-          <GownFigure3D {...figure} design={design} still onShow2d={() => setThree(false)} />
+          <GownFigure3D {...figure} design={design} still onShow2d={() => { setThree(false); setDrawn(false); }}
+            onSolved={(sv) => { setDrawn(true); figure.onSolved?.(sv); }} />
         </div>
       ) : null}
     </div>

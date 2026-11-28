@@ -201,6 +201,7 @@ import { VENDOR_CATEGORY_LABEL, type BoothVendorOption } from '@/lib/vendors';
 import { BOOTH_FOOTPRINT_M, boothFacingDeg2D } from '@/lib/seating-3d';
 import { useSeatingStore, type SeatingSource } from './seating-store';
 import { useSeatingWrites } from './seating-writes';
+import { dryRun as askDryRun } from '../seat-plan-calls';
 import { SEAT_PLAN_SHOW_VIEW_EVENT } from '@/lib/seat-plan-views';
 import { PLAN3D_BOOTH_ADS_ENABLED } from '@/lib/ghost-booths';
 import { useSeatingPresence } from './use-seating-presence';
@@ -208,7 +209,7 @@ import { lockSaysViewOnly, useSeatingLock } from './use-seating-lock';
 import { useSeatingLiveRefresh } from './use-seating-live-refresh';
 import { SeatingLockError } from '../seating-lock-error';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
-import { SEAT_WRITE_MAX, fixAllWords, packSeatWrites, settleSeatWrites, suggestionFor, type DryRun, type SeatCheckState, type SeatProblem, type SeatSuggestion } from '@/lib/seat-check';
+import { SEAT_WRITE_MAX, fixAllWords, packSeatWrites, settleSeatWrites, suggestionFor, seatCheckFromView, type SeatCheckState, type SeatDryRunFeed, type SeatProblem, type SeatSuggestion } from '@/lib/seat-check';
 import { SeatCheckSheet } from './seat-check';
 import { EASE_SETTLE, SHEEN_MS } from '@/lib/motion-table';
 import { formatCount } from '@/lib/format-number';
@@ -438,11 +439,13 @@ type Props = {
   /** 🏛 Whose plan this is: an event (the default) or a venue's own hall in Spaces (seat plan PR2, option B). */
   source?: SeatingSource | null;
   /**
-   * ✦ Seat plan S — the engine's DRY RUN (`dryRun(eventId)`, the engine lane L11): suggestions for cards with empty seats
-   * and the seat check's problems. Absent (until the engine's read lands) → the smart layer draws NOTHING: no strip, no
-   * line, no switch — never a false "All good". A rejection is the honest "Couldn't check seats · Try again".
+   * ✦ Seat plan S — the engine's DRY RUN (L11, `DryRunView`): suggestions for cards with empty seats and the seat check's
+   * problems. `first` = the page's own read (the first paint asks nothing); after every change the editor asks again
+   * through `load` (default: `dryRun(eventId)` in seat-plan-calls.ts, an intent of `autoArrange`). Absent → the smart
+   * layer draws NOTHING: no strip, no line, no switch — never a false "All good". A failed view or a rejection is the
+   * honest "Couldn't check seats · Try again".
    */
-  dryRun?: (() => Promise<DryRun>) | null;
+  dryRun?: SeatDryRunFeed | null;
 };
 
 export type SeatingDetailsShell = {
@@ -7542,7 +7545,7 @@ export function SeatingEditor({
   const comingUnseated = guests.filter((g) => !g.seated_table_id && g.rsvp_status !== 'declined').sort((a, b) => a.name.localeCompare(b.name));
   /* ✦ SEAT PLAN S · THE SMART LAYER (`lib/seat-check.ts`, `seat-check.tsx`): the engine's dry run, read when the plan
      opens and again whenever who-sits-where changes; a failed read is said, never shown as "All good". */
-  const [seatCheck, setSeatCheck] = useState<SeatCheckState>({ status: 'idle' });
+  const [seatCheck, setSeatCheck] = useState<SeatCheckState>(() => (dryRun?.first ? seatCheckFromView(dryRun.first) : { status: 'idle' }));
   const [checkOpen, setCheckOpen] = useState(false);
   /* ⋯ "Suggest seats on the cards" — on by default; remembered on this device (a per-viewer convenience). */
   const [suggestOn, setSuggestOn] = useState(true);
@@ -7562,22 +7565,31 @@ export function SeatingEditor({
     }
   };
   const checkRun = useRef(0);
+  // 🔌 The loader: the feed's own `load` (the lab), else the shipped `dryRun(eventId)` — the engine (L11) through the
+  // existing `autoArrange` action's dry-run intent. No feed → no loader → nothing drawn.
+  const hasDryRun = dryRun != null;
+  const feedLoad = dryRun?.load ?? null;
+  const loadDryRun = useMemo(() => (hasDryRun ? (feedLoad ?? (() => askDryRun(eventId))) : null), [hasDryRun, feedLoad, eventId]);
   const runSeatCheck = useCallback(() => {
-    if (!dryRun) return;
+    if (!loadDryRun) return;
     const n = ++checkRun.current;
-    dryRun()
-      .then((run) => {
-        if (n === checkRun.current) setSeatCheck({ status: 'read', run });
+    loadDryRun()
+      .then((view) => {
+        if (n === checkRun.current) setSeatCheck(seatCheckFromView(view));
       })
       .catch(() => {
         if (n === checkRun.current) setSeatCheck({ status: 'failed' });
       });
-  }, [dryRun]);
+  }, [loadDryRun]);
   const seatingKey = guests.map((g) => `${g.guest_id}:${g.seated_table_id ?? ''}:${g.seat_number ?? ''}`).join('|');
+  /** The plan the shown check answers: the page's own read answered the first one, so the first paint asks nothing. */
+  const checkedKey = useRef<string | null>(dryRun?.first ? seatingKey : null);
   // Debounced: a run of drops asks the engine once, after the plan settles (and a fresh read clears `justTaken`).
   useEffect(() => {
+    if (checkedKey.current === seatingKey) return;
     const t = setTimeout(() => {
       runSeatCheck();
+      checkedKey.current = seatingKey;
       setJustTaken((c) => (c.size ? new Set() : c));
     }, SEARCH_WAIT_MS);
     return () => clearTimeout(t);

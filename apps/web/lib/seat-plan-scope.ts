@@ -48,14 +48,26 @@ const asRestore = (a: SeatRowLike): RestoreSeat => ({
   placed_at: a.placed_at ?? null,
 });
 
-/** The seats that come off: every unlocked seat, and the locked ones too only when `keepLocked` is false. */
-export function seatsToClear(assignments: readonly SeatRowLike[], keepLocked = true): RestoreSeat[] {
-  return assignments.filter((a) => !(keepLocked && a.locked === true)).map(asRestore);
+/**
+ * The seats that come off: every unlocked seat, and the locked ones too only when `keepLocked` is false.
+ * 🔒 A seat at a LOCKED TABLE (`event_tables.locked`, seat plan § 5 hard rules) counts as locked: the table is kept
+ * exactly as it is. `lockedTables` holds those tables' ids.
+ */
+export function seatsToClear(
+  assignments: readonly SeatRowLike[],
+  keepLocked = true,
+  lockedTables: ReadonlySet<string> = new Set(),
+): RestoreSeat[] {
+  return assignments.filter((a) => !(keepLocked && (a.locked === true || lockedTables.has(a.table_id)))).map(asRestore);
 }
 
-/** The seats that STAY (what the seater fills around). */
-export function seatsThatStay<T extends SeatRowLike>(assignments: readonly T[], keepLocked = true): T[] {
-  return keepLocked ? assignments.filter((a) => a.locked === true) : [];
+/** The seats that STAY (what the seater fills around): locked seats, and every seat at a locked table. */
+export function seatsThatStay<T extends SeatRowLike>(
+  assignments: readonly T[],
+  keepLocked = true,
+  lockedTables: ReadonlySet<string> = new Set(),
+): T[] {
+  return keepLocked ? assignments.filter((a) => a.locked === true || lockedTables.has(a.table_id)) : [];
 }
 
 /** A `restore` list from the client: kept only when every field is well-formed (a junk row is dropped, never repaired). */

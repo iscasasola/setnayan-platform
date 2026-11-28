@@ -36,7 +36,7 @@ import { GOWN_INSIDE_LOOK, buildGownInside, gownInsideShown, type GownInsideStag
 import { GOWN_OVERLAY_DRAW, buildGownOverlay, gownOverlayOut, type GownOverlayMesh } from '@/lib/gown/parts/overlay';
 import { buildGownSleeve, emptySleeve } from '@/lib/gown/parts/sleeves';
 import { buildGownStraps, emptyStraps } from '@/lib/gown/parts/straps';
-import { GOWN_BEAD_CAP, GOWN_BEAD_LOOK, gownBeadGeo, gownPearlHex, placeGownBeadSet } from '@/lib/gown/parts/beads';
+import { GOWN_BEAD_CAP, GOWN_BEAD_LOOK, buildGownBeads, gownBeadGeo, gownBeadHex, gownPearlHex, placeGownBeadSet, type GownBeadSet } from '@/lib/gown/parts/beads';
 import { GOWN_FLOWER_CAP, GOWN_FLOWER_COLOURS, GOWN_FLOWER_LOOK, buildGownFlowers, buildGownPearls, emptyGownFlowers, emptyGownPearls, gownFlowerGeo, placeGownVeilPearls } from '@/lib/gown/parts/flowers';
 import { VEIL_COLS } from '@/lib/gown/parts/veil-grid';
 import { gownGlitterScale, gownGlitterShader, gownGlitterUniform } from '@/lib/gown/fabric/glitter';
@@ -224,6 +224,15 @@ function clearInner(inner: THREE.Group, shared: Record<string, THREE.Material>) 
 
 const TAPE_ORDER: GownTapeKey[] = ['bust', 'underbust', 'waist', 'hips'];
 
+/** A bead set's material, from its kind's look and its colour (v202 `beadMat`): no lights of its own, the scene's room reflects in it. */
+function beadMaterial(set: GownBeadSet, phone: boolean): THREE.Material {
+  const L = GOWN_BEAD_LOOK, c = set.kind === 'pearl' && set.col === 'clear' ? L.pearl.clear : gownBeadHex(set.col ?? 'clear');
+  if (set.kind === 'crystal' && phone) return new THREE.MeshStandardMaterial({ color: c, ...L.crystalPhone, flatShading: true });
+  if (set.kind === 'crystal') return new THREE.MeshPhysicalMaterial({ color: c, ...L.crystal, flatShading: true });
+  if (set.kind === 'pearl') return new THREE.MeshPhysicalMaterial({ color: c, roughness: L.pearl.roughness, envMapIntensity: L.pearl.envMapIntensity, sheen: L.pearl.sheen, sheenColor: L.pearl.sheenColour, iridescence: L.pearl.iridescence, iridescenceIOR: L.pearl.iridescenceIOR });
+  return new THREE.MeshStandardMaterial({ color: c, ...L[set.kind] });
+}
+
 function Body({ rig, phone = false, vals, fine, shape = 'none', guides = false, turn = 0, design = null, inside = null, scene = 'studio', onSolved }: { rig: GownRig; phone?: boolean } & GownFigureProps) {
   const pivot = useRef<THREE.Group>(null);
   const mat = useMemo(() => new THREE.MeshStandardMaterial({ color: GOWN_MANNEQUIN.color, roughness: GOWN_MANNEQUIN.roughness, metalness: 0 }), []);
@@ -280,6 +289,9 @@ function Body({ rig, phone = false, vals, fine, shape = 'none', guides = false, 
     const pearls = { neck: new THREE.InstancedMesh(gownBeadGeo('pearl'), pearlMat, GOWN_BEAD_CAP), veil: new THREE.InstancedMesh(gownBeadGeo('pearl'), pearlMat, 2 * VEIL_COLS) };
     pearls.neck.frustumCulled = false;
     pearls.veil.frustumCulled = false;
+    // A7 (v202): the bead layers, one instanced mesh a colour; the four shapes are made once.
+    const beadGeos = { crystal: gownBeadGeo('crystal'), sequin: gownBeadGeo('sequin'), pearl: gownBeadGeo('pearl'), seed: gownBeadGeo('seed') };
+    const beadGroup = new THREE.Group();
     // Sleeves (and the off-shoulder band) in the gown's fabric; the accent and sheer lace come with A6b.
     const sleeves = { L: new THREE.Mesh(emptySleeve(), m), R: new THREE.Mesh(emptySleeve(), m) };
     // The veil always lies over what is under it.
@@ -327,7 +339,7 @@ function Body({ rig, phone = false, vals, fine, shape = 'none', guides = false, 
     const tm = { trim: new THREE.MeshPhysicalMaterial({ roughness: 0.45, sheen: 1, sheenRoughness: 0.3, side: THREE.DoubleSide }), ruffle: new THREE.MeshStandardMaterial({ roughness: 0.55, side: THREE.DoubleSide }), fringe: new THREE.LineBasicMaterial({ transparent: true, opacity: 0.9 }), band: new THREE.MeshStandardMaterial({ roughness: 0.7, side: THREE.DoubleSide }), seam: new THREE.MeshStandardMaterial({ roughness: 0.7, side: THREE.DoubleSide }) };
     // The surface's canvases: made once, in the browser, when first needed.
     const maps = { weave: null as HTMLCanvasElement | null, lace: null as HTMLCanvasElement | null, cut: null as HTMLCanvasElement | null, tex: { weave: null as THREE.CanvasTexture | null, lace: null as THREE.CanvasTexture | null, cut: null as THREE.CanvasTexture | null } };
-    return { su, maps, mesh, m, sheerBack, ilU, ilMat, ilMesh, ilMap, T: emptyEnvelope(), D: emptyDress(), K, cape, capeSheer, capeBand, capeJewel, capeEdge, SP, straps, strapMat, glit, F, PR, flwMat, flower, pearlMat, pearls, sleeves, V, veil, vm, laceTile, lm, veilEdge, veilCap, bm, veilBand, closure, em, mdm, cdm, sm, om, overlay, ov: null as GownOverlayMesh | null, im, inner, extras, tm };
+    return { su, maps, mesh, m, sheerBack, ilU, ilMat, ilMesh, ilMap, T: emptyEnvelope(), D: emptyDress(), K, cape, capeSheer, capeBand, capeJewel, capeEdge, SP, straps, strapMat, glit, F, PR, flwMat, flower, pearlMat, pearls, beadGeos, beadGroup, sleeves, V, veil, vm, laceTile, lm, veilEdge, veilCap, bm, veilBand, closure, em, mdm, cdm, sm, om, overlay, ov: null as GownOverlayMesh | null, im, inner, extras, tm };
   }, []);
   const [frame, setFrame] = useState({ S: 1, floor: 0, top: 1.7, ver: 0, width: 0.6 });
   const [loops, setLoops] = useState<Record<GownTapeKey, number[]> | null>(null);
@@ -475,6 +487,16 @@ function Body({ rig, phone = false, vals, fine, shape = 'none', guides = false, 
         pn.instanceMatrix.needsUpdate = true;
         if (pn.parent !== root) root.add(pn);
         pn.visible = pn.count > 0 && !inside;
+        // A7 (v202): every bead layer, laid again on each build (a fixed seed, so nothing reshuffles).
+        for (const o of [...cloth.beadGroup.children] as THREE.InstancedMesh[]) { o.removeFromParent(); (o.material as THREE.Material).dispose(); o.dispose(); }
+        for (const set of buildGownBeads(rig, cloth.D, cloth.T, design, { phone }).sets) {
+          const im = new THREE.InstancedMesh(cloth.beadGeos[set.kind], beadMaterial(set, phone), set.n);
+          im.frustumCulled = false;
+          if (placeGownBeadSet(set, cloth.D, im.instanceMatrix.array as Float32Array)) cloth.beadGroup.add(im);
+          else { (im.material as THREE.Material).dispose(); im.dispose(); }
+        }
+        if (cloth.beadGroup.parent !== root) root.add(cloth.beadGroup);
+        cloth.beadGroup.visible = !inside;
       }
       const v = buildGownVeil(rig, cloth.T, cloth.D, hung ? cloth.K : null, design, cloth.V, floor, ovOut, { overlay: cloth.overlay.visible ? cloth.ov : null, flowers: cloth.F });
       cloth.glit.veil.value = design.veilFab === 'glitter' && v.veil ? gownGlitterScale(rig.P.S) : 0;
@@ -588,7 +610,7 @@ function Body({ rig, phone = false, vals, fine, shape = 'none', guides = false, 
         }
         if (cloth.inner.parent !== root) root.add(cloth.inner);
       }
-    } else for (const o of [cloth.overlay, cloth.mesh, cloth.cape, cloth.straps, cloth.flower.mesh, cloth.pearls.neck, cloth.pearls.veil, cloth.sleeves.L, cloth.sleeves.R, cloth.veil, cloth.closure.cloth, cloth.closure.eyelets, cloth.ilMesh]) o.visible = false;
+    } else for (const o of [cloth.overlay, cloth.mesh, cloth.cape, cloth.straps, cloth.flower.mesh, cloth.beadGroup, cloth.pearls.neck, cloth.pearls.veil, cloth.sleeves.L, cloth.sleeves.R, cloth.veil, cloth.closure.cloth, cloth.closure.eyelets, cloth.ilMesh]) o.visible = false;
     setFrame({ S: rig.P.S, floor, top: rig.top, ver: rig.ver, width: width * rig.P.S });
     setLoops(guides ? tapeLoops(rig) : null);
     onSolved?.({ got: { bust: rig.got.bust, underbust: rig.got.underbust, waist: rig.got.waist, hips: rig.got.hips }, kg: rig.kg, vals: { ...rig.vals } });
@@ -597,7 +619,9 @@ function Body({ rig, phone = false, vals, fine, shape = 'none', guides = false, 
   useEffect(() => () => mat.dispose(), [mat]);
   useEffect(
     () => () => {
-      for (const o of [cloth.overlay, cloth.mesh, cloth.cape, cloth.straps, cloth.flower.mesh, cloth.pearls.neck, cloth.pearls.veil, cloth.sleeves.L, cloth.sleeves.R, cloth.veil, cloth.veilEdge, cloth.veilCap, cloth.veilBand, cloth.closure.cloth, cloth.closure.eyelets, cloth.closure.modesty, cloth.closure.cord]) o.removeFromParent();
+      for (const o of [...cloth.beadGroup.children] as THREE.InstancedMesh[]) { (o.material as THREE.Material).dispose(); o.dispose(); }
+      for (const g of Object.values(cloth.beadGeos)) g.dispose();
+      for (const o of [cloth.overlay, cloth.mesh, cloth.cape, cloth.straps, cloth.flower.mesh, cloth.beadGroup, cloth.pearls.neck, cloth.pearls.veil, cloth.sleeves.L, cloth.sleeves.R, cloth.veil, cloth.veilEdge, cloth.veilCap, cloth.veilBand, cloth.closure.cloth, cloth.closure.eyelets, cloth.closure.modesty, cloth.closure.cord]) o.removeFromParent();
       for (const g of [cloth.sleeves.L.geometry, cloth.sleeves.R.geometry, cloth.V.geo, cloth.V.edge, cloth.V.cap, cloth.veilBand.geometry, cloth.closure.cloth.geometry, cloth.closure.eyelets.geometry, cloth.closure.modesty.geometry, cloth.closure.cord.geometry]) g.dispose();
       cloth.m.dispose();
       cloth.vm.dispose();

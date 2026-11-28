@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { MAKER_BAR_APPLY, MAKER_BAR_ICON } from '@/lib/maker-phone-room';
+import { actionButtonClass } from '@/components/action-button-class';
 
 /**
  * `DraftButton` — ONE of the toolbar's always-visible Restore / Undo / Apply
@@ -77,7 +78,7 @@ export function DraftButton({
             ? `${bar === 'apply' ? MAKER_BAR_APPLY : MAKER_BAR_ICON} ${phone ? phone.width : ''}${working ? ' animate-pulse' : ''}`
             : `${
                 primary
-                  ? 'button-primary sn-press inline-flex h-10 min-h-10 items-center gap-1.5 rounded-full px-3.5 text-[13px]'
+                  ? actionButtonClass('brand', { main: true })
                   : 'sn-press inline-flex h-10 min-h-10 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold text-ink/70 transition-colors duration-sn-control ease-sn hover:bg-ink/5 hover:text-ink disabled:cursor-not-allowed disabled:text-ink/35 disabled:hover:bg-transparent'
               } ${phone ? `${phone.width} max-md:justify-center ${phone.word ? 'max-md:px-3' : 'max-md:px-0'}` : ''}`
         }

@@ -489,7 +489,7 @@ export function LoopPicture({
           }}
           onPause={() => setMoving(false)}
           onError={() => setFailed(true)}
-          className={`pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity duration-200 ${moving ? 'opacity-100' : 'opacity-0'}`}
+          className={`pointer-events-none absolute inset-0 h-full w-full object-cover transition-opacity duration-sn-control ease-sn ${moving ? 'opacity-100' : 'opacity-0'}`}
           {...(position && position !== 'center' ? { style: { objectPosition: position } } : {})}
         />
       ) : null}

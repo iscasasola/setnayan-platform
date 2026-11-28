@@ -198,3 +198,47 @@ test('4 · the read answers only for this shop’s events, and a refused hosts r
   const refused = await readSupplierEventLines(fakeAdmin({ ...base, event_members: 'refused' }), input);
   assert.equal(refused.get('mine')!.hosts, null, 'a refused hosts read reads as "nobody hosts this"');
 });
+
+test('5 · "Hosted by" leaves out the owner and ACTIVE team only — a former (deactivated) employee who is a client stays', async () => {
+  const { shopPeopleIdsOf } = await import('@/lib/supplier-event-lines');
+  const ids = shopPeopleIdsOf({
+    ownerUserId: 'owner',
+    team: [
+      { user_id: 'staff', deactivated_at: null },
+      { user_id: 'former', deactivated_at: '2026-10-01T00:00:00Z' },
+      { user_id: null, deactivated_at: null },
+    ],
+  });
+  assert.deepEqual([...ids].sort(), ['owner', 'staff'], 'a deactivated seat still counts as the shop’s person');
+
+  const { readSupplierEventLines } = await import('@/lib/supplier-event-lines.server');
+  const tablesRead: string[] = [];
+  const base: Record<string, unknown[]> = {
+    chat_threads: [{ thread_id: 't1', event_id: 'mine', created_by_user_id: 'owner', pax_at_inquiry: null, pax_current: null, is_returning: false, updated_at: '2026-10-29' }],
+    events: [{ event_id: 'mine', display_name: 'Lia', event_type: 'debut', venue_name: null, event_date: null, event_date_precision: null, estimated_pax: null }],
+    event_members: [{ event_id: 'mine', user_id: 'owner' }, { event_id: 'mine', user_id: 'staff' }, { event_id: 'mine', user_id: 'former' }],
+    event_vendors: [],
+    vendor_services: [],
+    users: [
+      { user_id: 'owner', display_name: 'Shop Owner', first_name: 'Shop' },
+      { user_id: 'staff', display_name: 'Shop Staff', first_name: 'Staff' },
+      { user_id: 'former', display_name: 'Ana Former', first_name: 'Ana' },
+    ],
+  };
+  const admin = fakeAdmin(base) as unknown as { from: (t: string) => unknown };
+  const watched = { from: (t: string) => (tablesRead.push(t), admin.from(t)) } as never;
+  const got = await readSupplierEventLines(watched, {
+    vendorProfileId: 'shop',
+    shopServices: [],
+    events: [{ eventId: 'mine', stage: 'asking' }],
+    shopPeople: {
+      ownerUserId: 'owner',
+      team: [
+        { user_id: 'staff', deactivated_at: null },
+        { user_id: 'former', deactivated_at: '2026-10-01T00:00:00Z' },
+      ],
+    },
+  });
+  assert.deepEqual(got.get('mine')!.hosts?.map((h) => h.name), ['Ana Former'], 'the shop’s people are hosts, or the former employee vanished');
+  assert.ok(!tablesRead.includes('vendor_team_members') && !tablesRead.includes('vendor_profiles'), 'the team the caller handed in was read again');
+});

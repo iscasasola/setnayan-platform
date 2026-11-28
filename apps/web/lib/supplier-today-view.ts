@@ -98,7 +98,7 @@ export type SupplierTodayInput = {
     /** 🎁 The gift's own line (`giftShopLine`) — it IS the Shop line while a plan Setnayan gave runs (frame B6). */
     giftLine?: string | null;
   };
-  /** Page views in the last 28 days (`readTodayViews`), and new inquiries in the same window. */
+  /** Page views in the shop's one window (`readTodayViews`, `lib/shop-count-window.ts`), and new inquiries in the same window. */
   views: number | null;
   inquiries28: number | null;
   /** Schedules already holding a booking on each asked day (`fetchVendorOverviewData().askDayHolds`). */

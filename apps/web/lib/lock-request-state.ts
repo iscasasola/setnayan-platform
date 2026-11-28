@@ -21,8 +21,7 @@
  * fails this file the moment it does.
  */
 
-/** The statuses that mean "this is a real booking". Mirrors lib/events.ts. */
-const CONFIRMED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
+import { isBookedStatus } from '@/lib/booked-status';
 
 export type LockRequestState =
   /** No request, and not booked. */
@@ -49,7 +48,7 @@ export type LockRequestRow = {
  *   `locked` for a confirmed status, `none` for anything else.
  */
 export function lockRequestStateOf(row: LockRequestRow, enabled: boolean): LockRequestState {
-  const confirmed = !!row.status && CONFIRMED.has(row.status);
+  const confirmed = isBookedStatus(row.status); // the one booked reader (L5 · C2)
 
   // FLAG OFF — byte-identical to "is it in CONFIRMED_VENDOR_STATUSES?".
   if (!enabled) return confirmed ? 'locked' : 'none';

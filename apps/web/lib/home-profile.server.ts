@@ -19,6 +19,7 @@ import {
   boardFinished,
   manilaTodayISO,
   mergeBoardMemberships,
+  planningCountOf,
   splitEventBoard,
   splitPlanningShelves,
 } from '@/lib/event-board';
@@ -37,7 +38,7 @@ export async function readHomeEventCounts(userId: string): Promise<HomeEventCoun
     const today = manilaTodayISO();
     const { comingUp, finished } = splitEventBoard(mergeBoardMemberships(organiser!, invited!, helping!), today);
     const { happeningNow, planning } = splitPlanningShelves(comingUp, finished, today);
-    return { planning: happeningNow.length + planning.length, celebrated: boardFinished(finished).length };
+    return { planning: planningCountOf([...happeningNow, ...planning]), celebrated: boardFinished(finished).length };
   } catch {
     return null;
   }

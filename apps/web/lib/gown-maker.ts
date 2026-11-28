@@ -21,8 +21,10 @@
  * 🔒 lib/gown-maker.test.ts
  */
 import {
+  GOWN_CAPES,
   GOWN_SILHOUETTES,
   GOWN_STOCK_FABRICS,
+  gownCapeNow,
   type GownBeadKind,
   type GownConfig,
   type GownQuantities,
@@ -55,10 +57,8 @@ export type GownPriceUnit = 'gown' | 'm' | 'pc' | 'pair' | '100 pcs' | 'hour';
 const SIL_LABEL = Object.fromEntries(GOWN_SILHOUETTES.map((s) => [s.id, s.label])) as Record<GownSilhouette, string>;
 
 export const GOWN_PRICE_ITEMS = [
+  // v197: "Fit and flare" (the old A-line block) comes in with Builder A's A6e silhouette list.
   ...GOWN_SILHOUETTES.map((s) => ({ key: `base_${s.id}`, label: s.label, unit: 'gown' as const })),
-  // v197: the old A-line block is now "Fit and flare", its own starting price (unpriced until the designer prices it).
-  // The design config gains the silhouette itself at Builder A's step A6e.
-  { key: 'base_fitflare', label: 'Fit and flare', unit: 'gown' },
   ...GOWN_STOCK_FABRICS.map((f) => ({ key: `fab_${f.id}`, label: f.label, unit: 'm' as const })),
   { key: 'lin_satin', label: 'Satin lining', unit: 'm' },
   { key: 'lin_cotton', label: 'Cotton lining', unit: 'm' },
@@ -97,6 +97,9 @@ export const GOWN_PRICE_ITEMS = [
   { key: 'feather', label: 'Feather trim', unit: 'm' },
   // v196: ribbon by the metre — the sash and bow, and the narrow strap a cape needs on a strapless neckline.
   { key: 'ribbon', label: 'Ribbon (sash)', unit: 'm' },
+  // v199: straps and a scalloped edge, each its own labour line (narrow straps price on ribbon, wide ones on the fabric).
+  { key: 'strap', label: 'Straps: cutting, sewing and attaching', unit: 'pair' },
+  { key: 'scallop', label: 'Scalloped edge: shaping and finishing', unit: 'pc' },
   // Owner 2026-11-27: small bows come back as a labour line, per piece, unpriced until the designer prices it.
   { key: 'bow', label: 'Bow (small): making and attaching', unit: 'pc' },
   { key: 'rate', label: 'Labour rate', unit: 'hour' },
@@ -113,6 +116,7 @@ export const GOWN_PRICE_GROUPS: ReadonlyArray<readonly [string, (key: GownPriceK
   ['Lace and beads', (k) => /^(lace_|bead_)/.test(k)],
   ['Trims', (k) => /^(piping|fringe|feather|ribbon|bow)$/.test(k)],
   ['Bodice', (k) => /^(illu_bodice|illu_back|bone_show)$/.test(k)],
+  ['Straps and edges', (k) => k === 'strap' || k === 'scallop'],
   // v195: flutter cape sleeves and a skirt overlay, each its own labour line (their fabric is the fabric items).
   ['Sleeves', (k) => k === 'flutter'],
   ['Skirt', (k) => k === 'overlay'],
@@ -338,7 +342,8 @@ export type GownDesignPriced = { forShop: GownDesignForShop; forBride: GownDesig
 
 type DesignPick = Pick<
   GownConfig,
-  'sil' | 'fabric' | 'fabricRef' | 'accentFabric' | 'accentFabricRef' | 'lining' | 'closure' | 'sleeve' | 'tex' | 'train' | 'darts'
+  | 'sil' | 'fabric' | 'fabricRef' | 'accentFabric' | 'accentFabricRef' | 'lining' | 'closure' | 'sleeve' | 'tex' | 'train' | 'darts'
+  | 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten'
 >;
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
@@ -397,6 +402,18 @@ export function gownDesignOf(
   supply('Details', 'fringe', 'Fringe', m.fringeM, 'm');
   supply('Details', 'feather', 'Feather trim', m.featherM, 'm');
   supply('Details', 'illusion', 'Illusion mesh', m.illusionM, 'm');
+  // The cape (v196; Builder A's A6f quantities): its own labour line by type, its cloth, and a narrow strap when it hangs
+  // from one shoulder of a strapless neckline. A lace, appliqué or beaded edge is already in the lace and bead lines.
+  if (L.cape !== 'none') {
+    const capeName = GOWN_CAPES.find((c) => c.id === L.cape)?.label ?? 'Cape';
+    supply('Details', `cape_${L.cape}`, `Cape (${capeName.toLowerCase()}): cutting, sewing and finishing`, 1, 'pc');
+    const fab = gownCapeNow(design).fab;
+    if (fab === 'gown') {
+      const ak = design.accentFabric ?? design.fabric;
+      supply('Details', `fab_${ak}`, `${fabricLabel(ak)} (the cape, accent colour)`, m.capeM, 'm');
+    } else supply('Details', `fab_${fab}`, `${fabricLabel(fab)} (the cape)`, m.capeM, 'm');
+    supply('Details', 'ribbon', 'Narrow strap for the cape', m.ribbonM, 'm');
+  }
   // Skirt.
   supply('Skirt', 'horsehair', 'Horsehair braid', m.horsehairM, 'm');
   // Inside.

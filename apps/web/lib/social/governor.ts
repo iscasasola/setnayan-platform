@@ -61,6 +61,53 @@ const SCAN_DAYS = 800;
 const PH_UTC_OFFSET_MS = 8 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * A dated, one-day catch-up (owner, 29 Nov 2026: "move all schedules. we want the posts that were supposed to be
+ * today" · "we can have 6 posts today. so everything goes in sync"). On a catch-up day ONLY:
+ *   • the Facebook cap is `cap` posts instead of one per daily slot;
+ *   • every whole Manila hour from `firstHour` to `lastHour` is a post instant, so two posts are always ≥ 1 h apart
+ *     (`MIN_GAP_MS`) — the one-post-per-instant UNIQUE index keeps them on distinct hours;
+ *   • only a row that already carries a slot kind may sit on an extra hour; the catch-up migration
+ *     (supabase/migrations/…_facebook_catch_up_29_nov.sql) is what puts rows there.
+ * Every other day keeps the three daily slots exactly. The exception expires by its date: it never matches again.
+ */
+export type CatchUpDay = { readonly cap: number; readonly firstHour: number; readonly lastHour: number };
+export const CATCH_UP_DAYS: Readonly<Record<string, CatchUpDay>> = {
+  '2026-11-29': { cap: 6, firstHour: 8, lastHour: 22 },
+};
+/** The minimum gap between two posts on a catch-up day (the whole-hour grid holds it). */
+export const CATCH_UP_MIN_GAP_MS = 60 * 60 * 1000;
+
+/** The catch-up rule for a PH day key, or null on every ordinary day. */
+export function catchUpDay(dayKey: string): CatchUpDay | null {
+  return CATCH_UP_DAYS[dayKey] ?? null;
+}
+
+/** How many Facebook posts a PH day may carry: the catch-up cap, else one per daily slot. */
+export function dailyCap(dayKey: string): number {
+  return catchUpDay(dayKey)?.cap ?? DAILY_SLOTS.length;
+}
+
+/** True when `instant` is a whole hour inside a catch-up day's posting hours. */
+export function isCatchUpInstant(instant: Date): boolean {
+  const ms = instant.getTime();
+  if (Number.isNaN(ms)) return false;
+  const rule = catchUpDay(phDayKey(instant));
+  if (!rule) return false;
+  if (ms % (60 * 60 * 1000) !== 0) return false; // PHT is a whole-hour offset, so a whole UTC hour is a whole PH hour
+  const hour = new Date(ms + PH_UTC_OFFSET_MS).getUTCHours();
+  return hour >= rule.firstHour && hour <= rule.lastHour;
+}
+
+/** True when a catch-up day already holds its cap of posts in `taken` (always false on an ordinary day). */
+function catchUpDayIsFull(dayKey: string, held: Set<number>): boolean {
+  const rule = catchUpDay(dayKey);
+  if (!rule) return false;
+  let count = 0;
+  for (const ms of held) if (phDayKey(new Date(ms)) === dayKey) count += 1;
+  return count >= rule.cap;
+}
+
 export function isSocialSlot(value: unknown): value is SocialSlot {
   return value === 'morning' || value === 'afternoon' || value === 'evening' || value === 'holiday';
 }
@@ -132,8 +179,10 @@ export function nextFreeSlot(
   // An 800-day scan guard: the planned library holds a morning and an evening every day through 2027, so a missed
   // planned morning may have to walk past the whole plan before it finds a free morning.
   for (let offset = 0; offset < SCAN_DAYS; offset += 1) {
-    const candidate = slotInstant(addPhDays(firstDay, offset), slot);
+    const day = addPhDays(firstDay, offset);
+    const candidate = slotInstant(day, slot);
     if (candidate.getTime() + SLOT_OPEN_MS <= from.getTime()) continue; // this slot has closed
+    if (catchUpDayIsFull(day, held)) continue; // a catch-up day at its cap takes nothing more
     if (!held.has(candidate.getTime())) return candidate;
   }
   return slotInstant(addPhDays(firstDay, SCAN_DAYS), slot);
@@ -174,7 +223,9 @@ export function slotVerdict(
   if (!row.scheduled_for) return 'wait';
   const at = new Date(row.scheduled_for);
   const isHoliday = row.slot === 'holiday';
-  const slot = slotAt(at, isHoliday);
+  // On a catch-up day a slotted row may also sit on any posting hour (CATCH_UP_DAYS); a holiday row never moves.
+  const onCatchUpHour = !isHoliday && isSocialSlot(row.slot) && isCatchUpInstant(at);
+  const slot = slotAt(at, isHoliday) ?? (onCatchUpHour ? row.slot : null);
   if (!slot) return 'reslot';
   if (isSlotOpen(at, now)) return 'publish';
   if (at.getTime() > now.getTime()) return 'wait';
@@ -237,6 +288,7 @@ export function postNowSlot(taken: ReadonlyArray<Date | string | null | undefine
   const held = takenSet(taken);
   const day = phDayKey(now);
   for (const slot of DAILY_SLOTS) {
+    if (catchUpDayIsFull(day, held)) break;
     const at = slotInstant(day, slot);
     if (isSlotOpen(at, now) && !held.has(at.getTime())) return { at, slot };
   }

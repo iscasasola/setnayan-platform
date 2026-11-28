@@ -13,7 +13,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  CATCH_UP_MIN_GAP_MS,
   DAILY_SLOTS,
+  catchUpDay,
+  dailyCap,
+  isCatchUpInstant,
   claimFreeSlot,
   SLOT_HOUR,
   nextAvailableSlot,
@@ -165,4 +169,57 @@ test('a claim that fails for another reason gives up instead of walking the cale
   });
   assert.equal(got, null);
   assert.equal(calls, 1);
+});
+
+// ── The 29 Nov 2026 catch-up (owner: "we can have 6 posts today. so everything goes in sync") ──────────────────────
+// Sabotage (measured): deleting the '2026-11-29' row of CATCH_UP_DAYS turns "a catch-up hour publishes" red; dropping
+// the `catchUpDayIsFull` check in nextFreeSlot turns "a full catch-up day takes nothing more" red.
+
+test('the catch-up is one dated day: 6 posts on 29 Nov, the three slots on 28 and 30 Nov', () => {
+  assert.equal(dailyCap('2026-11-29'), 6);
+  assert.equal(dailyCap('2026-11-28'), 3);
+  assert.equal(dailyCap('2026-11-30'), 3);
+  assert.equal(dailyCap('2027-11-29'), 3, 'the exception never matches again');
+  assert.equal(CATCH_UP_MIN_GAP_MS, 3600e3);
+  assert.equal(catchUpDay('2026-11-30'), null);
+});
+
+test('a catch-up hour is a whole Manila hour on 29 Nov only, and the day boundary falls at midnight Manila', () => {
+  assert.equal(isCatchUpInstant(ph('2026-11-29T10:00:00')), true);
+  assert.equal(isCatchUpInstant(ph('2026-11-29T08:00:00')), true);
+  assert.equal(isCatchUpInstant(ph('2026-11-29T22:00:00')), true);
+  assert.equal(isCatchUpInstant(ph('2026-11-29T23:00:00')), false, 'after the last posting hour');
+  assert.equal(isCatchUpInstant(ph('2026-11-29T07:00:00')), false, 'before the first posting hour');
+  assert.equal(isCatchUpInstant(ph('2026-11-29T10:30:00')), false, 'not a whole hour');
+  assert.equal(isCatchUpInstant(ph('2026-11-28T23:00:00')), false, 'the day before');
+  assert.equal(isCatchUpInstant(ph('2026-11-30T10:00:00')), false, 'the day after');
+  assert.equal(phDayKey(ph('2026-11-29T00:00:00')), '2026-11-29');
+  assert.equal(phDayKey(ph('2026-11-28T23:59:59')), '2026-11-28');
+});
+
+test('a slotted row on a catch-up hour publishes in that hour; the same hour a day either side is re-slotted', () => {
+  const lib = { slot: 'morning', source_type: 'library' };
+  const at29 = { ...lib, scheduled_for: ph('2026-11-29T12:00:00').toISOString() };
+  assert.equal(slotVerdict(at29, ph('2026-11-29T11:00:00')), 'wait');
+  assert.equal(slotVerdict(at29, ph('2026-11-29T12:10:00')), 'publish');
+  assert.equal(slotVerdict(at29, ph('2026-11-29T13:00:00')), 'reslot');
+  const at28 = { ...lib, scheduled_for: ph('2026-11-28T12:00:00').toISOString() };
+  assert.equal(slotVerdict(at28, ph('2026-11-28T12:10:00')), 'reslot');
+  const at30 = { ...lib, scheduled_for: ph('2026-11-30T12:00:00').toISOString() };
+  assert.equal(slotVerdict(at30, ph('2026-11-30T12:10:00')), 'reslot');
+  // An unslotted row and a holiday row get no catch-up hour.
+  assert.equal(slotVerdict({ slot: null, scheduled_for: at29.scheduled_for }, ph('2026-11-29T12:10:00')), 'reslot');
+  assert.equal(slotVerdict({ slot: 'holiday', scheduled_for: ph('2026-11-29T10:00:00').toISOString() }, ph('2026-11-29T10:10:00')), 'reslot');
+  // The ordinary slots still work on the catch-up day.
+  assert.equal(slotVerdict({ slot: 'afternoon', scheduled_for: ph('2026-11-29T14:00:00').toISOString() }, ph('2026-11-29T14:05:00')), 'publish');
+});
+
+test('a full catch-up day takes nothing more; an ordinary day is unchanged', () => {
+  const six = ['08', '10', '12', '14', '16', '20'].map((h) => ph(`2026-11-29T${h}:00:00`));
+  assert.equal(phTime(nextFreeSlot('evening', six.slice(0, 5), ph('2026-11-29T09:00:00'))), '2026-11-29 20:00');
+  assert.equal(phTime(nextFreeSlot('evening', six.slice(0, 5).concat(ph('2026-11-29T21:00:00')), ph('2026-11-29T09:00:00'))), '2026-11-30 20:00');
+  assert.equal(phTime(nextFreeSlot('afternoon', six, ph('2026-11-29T09:00:00'))), '2026-11-30 14:00');
+  assert.equal(phTime(postNowSlot(six.filter((d) => d.getUTCHours() !== 0), ph('2026-11-29T08:20:00')).at), '2026-11-29 08:00');
+  // On 30 Nov a 7-post day is impossible anyway: the three slots, one post each, as before.
+  assert.equal(phTime(nextFreeSlot('afternoon', [ph('2026-11-30T08:00:00')], ph('2026-11-30T07:00:00'))), '2026-11-30 14:00');
 });

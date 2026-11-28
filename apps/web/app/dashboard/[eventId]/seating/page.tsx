@@ -41,7 +41,7 @@ import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER, MAKER_INNER_TOURS_AFTER } from 
 import { guestsViewHref, parseSeatView } from '@/lib/guests-views';
 import { seatShortName } from '@/lib/seat-list-drop';
 import { seatPlanDryRun } from '@/lib/seat-plan-dry-run';
-import { dryRunView, stillUnseated } from '@/lib/seat-plan-api';
+import { dryRunView, stillUnseated, type DryRunView } from '@/lib/seat-plan-api';
 import { tableDisplayNames } from '@/lib/table-auto-name';
 import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE, SIDE_ORDER, computeGuestStats, countsTowardEvent, headcountForBasis } from '@/lib/guests';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -308,7 +308,9 @@ export default async function SeatingPage({ params, searchParams }: Props) {
   // ✦ THE SMART LAYER'S DRY RUN (seat plan § 4.4): the same seater auto arrange runs, fill-only, on the rows this page
   // already read — NO new read, NO new client fetch, nothing written. Suggestions honour the host's switch
   // (`seat_suggestions`); a run that throws is `status: 'failed'` and the screen says so.
-  const dryRun = (() => {
+  const dryRun = ((): DryRunView => {
+    // The naming and the shaping can throw too: the whole of it fails to "Couldn't check seats", never the page.
+    try {
     const groupLabels = new Map(groupsRaw.map((g) => [g.group_id, g.label] as const));
     const run = seatPlanDryRun({
       tables,
@@ -347,6 +349,10 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       },
       tableName: (id) => shown.get(id) ?? '',
     });
+    } catch (err) {
+      logQueryError('SeatingPage.dryRun', { message: err instanceof Error ? err.message : String(err) }, { event_id: eventId }, 'graceful_degrade');
+      return { status: 'failed', line: 'Couldn’t check seats · Try again' };
+    }
   })();
 
   // ONE editor element — the props are never listed twice.

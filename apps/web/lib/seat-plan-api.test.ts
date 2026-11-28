@@ -159,11 +159,12 @@ test('the three calls ride the one autoArrange action: dry-run, preview, accept 
 
 test('the seating page passes the dry run to the editor from its own reads: no new read, nothing written', () => {
   const page = readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'seating', 'page.tsx'), 'utf8');
-  const block = page.slice(page.indexOf('const dryRun = (() => {'), page.indexOf('// ONE editor element'));
+  const block = page.slice(page.indexOf('const dryRun = ((): DryRunView => {'), page.indexOf('// ONE editor element'));
   assert.match(block, /seatPlanDryRun\(\{\s*tables,/);
   assert.match(block, /return dryRunView\(run, \{/);
   assert.doesNotMatch(block, /await |supabase|\.from\(|fetch[A-Z]/, 'the dry run reads nothing of its own');
   assert.match(page, /dryRun=\{dryRun\}/);
+  assert.match(block, /try \{[\s\S]*return dryRunView\(run,[\s\S]*\} catch \(err\) \{[\s\S]*return \{ status: 'failed', line: 'Couldn’t check seats · Try again' \};/, 'a throw while naming or shaping crashes the seat page');
   const editor = readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'seating', '_components', 'seating-editor.tsx'), 'utf8');
   assert.match(editor, /dryRun\?: DryRunView;/);
 });

@@ -15,7 +15,8 @@
  * State is passed in: the posed body, its envelope, the dress as built and the cloth's swing. Plain three.js maths.
  */
 import * as THREE from 'three';
-import { GOWN_CAPE_STRAP, GOWN_STRAPLESS, gownCapeNow, gownStrapCovers, type GownCape, type GownCapeLength, type GownConfig } from '../../gown-config';
+import { GOWN_CAPE_STRAP, GOWN_STRAPLESS, gownCapeKind, gownCapeNow, gownStrapCovers, type GownCapeKind, type GownCapeLength, type GownConfig } from '../../gown-config';
+import { gownSleeveBandTop } from '../parts/sleeves-extra';
 import { jointP, jointY } from '../body/bones';
 import { RING_N, SLICE_DY, TAU } from '../body/constants';
 import { clamp, smoothstep, type GownRig } from '../body/rig';
@@ -69,7 +70,7 @@ export type GownCapeMesh = {
   parts: GownCapePart[];
   /** The first panel, or null when no cape is hung. */
   info: GownCapePart | null;
-  kind: GownCape;
+  kind: GownCapeKind;
   /** The swing it was last written for. */
   th: number | null;
   /** Vertices in use (the panels and the trim). */
@@ -98,11 +99,11 @@ export function emptyCape(): GownCapeMesh {
 }
 
 /** Whether the cape hangs in this pose: a cape to the fingertips or longer hides while she kneels or sits. */
-export const gownCapeShown = (d: Pick<GownConfig, 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten'>, pose: string) =>
-  d.cape !== 'none' && !(gownCapeNow(d).long && GOWN_CAPE_HIDE_POSES.includes(pose));
+export const gownCapeShown = (d: Pick<GownConfig, 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten'> & Partial<Pick<GownConfig, 'sleeve'>>, pose: string) =>
+  gownCapeKind(d) !== 'none' && !(gownCapeNow(d).long && GOWN_CAPE_HIDE_POSES.includes(pose));
 /** A cape hung from one shoulder on a neckline with no strap gets a narrow strap there (v196 `capeStrapNeeded`). */
 export const gownCapeStrapNeeded = (d: Pick<GownConfig, 'cape' | 'neck'> & Partial<Pick<GownConfig, 'straps' | 'illu' | 'sleeve'>>) =>
-  !!GOWN_CAPE_STRAP[d.cape] && GOWN_STRAPLESS.includes(d.neck) && !gownStrapCovers(strapsOf(d), GOWN_CAPE_STRAP[d.cape]!); // v199: a strap already on that shoulder carries it
+  !!GOWN_CAPE_STRAP[gownCapeKind(d)] && GOWN_STRAPLESS.includes(d.neck) && !gownStrapCovers(strapsOf(d), GOWN_CAPE_STRAP[gownCapeKind(d)]!); // v199: a strap already on that shoulder carries it
 /** The design's straps as the strap rules read them (absent: none). */
 const strapsOf = (d: Pick<GownConfig, 'neck'> & Partial<Pick<GownConfig, 'straps' | 'illu' | 'sleeve'>>) => ({ neck: d.neck, straps: d.straps ?? 'none', illu: d.illu ?? 'none', sleeve: d.sleeve ?? 'none' });
 
@@ -112,7 +113,7 @@ const armEdges = new WeakMap<GownRig, Partial<Record<'L' | 'R', Uint32Array>>>()
  * The arms (and any sleeves) as small balls, each touching the skin at one vertex from inside: the cape lies on the real
  * arm. `sleeves` are the sleeve meshes' posed positions, when she wears sleeves.
  */
-export function capeArms(B: GownRig, sides: readonly ('L' | 'R')[], sleeves: Partial<Record<'L' | 'R', ArrayLike<number>>> = {}): number[] {
+export function capeArms(B: GownRig, sides: readonly ('L' | 'R')[], sleeves: Partial<Record<'L' | 'R', ArrayLike<number>>> = {}, robe: Partial<Record<'L' | 'R', ArrayLike<number>>> = {}): number[] {
   const out: number[] = [], V = B.V, vox = new Set<number>(), seen = new Uint8Array(B.n);
   let rho = 0.025;
   const NM = B.geo.attributes.normal ? (B.geo.attributes.normal.array as Float32Array) : null;
@@ -158,6 +159,9 @@ export function capeArms(B: GownRig, sides: readonly ('L' | 'R')[], sleeves: Par
     nx = null;
     const sl = sleeves[sd];
     if (sl) for (let i = 0; i < sl.length; i += 3) addP(sl[i]!, sl[i + 1]!, sl[i + 2]!);
+    // v203: the over-robe lies on its own sleeves.
+    const rs = robe[sd];
+    if (rs) for (let i = 0; i < rs.length; i += 3) addP(rs[i]!, rs[i + 1]!, rs[i + 2]!);
   }
   return out;
 }
@@ -225,9 +229,19 @@ function capeLens(B: GownRig, G: CapeG, len: GownCapeLength): number {
 }
 
 /** The panels of a cape: directions, where each column starts and ends, which arms it lies on (v196 `capeSpecs`). */
-function capeSpecs(B: GownRig, kind: Exclude<GownCape, 'none'>, G: CapeG, now: ReturnType<typeof gownCapeNow>): CapeSpec[] {
+function capeSpecs(B: GownRig, kind: Exclude<GownCapeKind, 'none'>, G: CapeG, now: ReturnType<typeof gownCapeNow>, sleeves: Partial<Record<Side, ArrayLike<number>>> = {}): CapeSpec[] {
   const len = now.len, yL = capeLens(B, G, len), back = (a: number) => (1 - Math.cos(a)) / 2, mir = (a: number) => (a > Math.PI ? TAU - a : a), M = G.M, floorish = len === 'floor' || len === 'train';
   const S = (o: Partial<CapeSpec> & Pick<CapeSpec, 'a0' | 'a1' | 'hem' | 'floorW'>): CapeSpec => ({ ring: false, arms: ['L', 'R'], top: null, foldK: 0.06, foldF: 14, pw: 1.7, ...o });
+  if (kind === 'robe') {
+    // v203: worn as a coat: open at the front from the shoulders, over the arms and its own sleeves.
+    const a0 = 1.0;
+    return [S({ a0, a1: TAU - a0, foldK: 0.05, foldF: 12, pw: 1.55, hem: () => yL, floorW: (a) => (floorish ? smoothstep(back(a), 0.45, 0.95) : 0) })];
+  }
+  if (kind === 'capesl') return (['L', 'R'] as const).map((sd) => {
+    // v203: from the band round each upper arm: round the outside of the arm and behind it, falling free.
+    const A0 = 1.3, A1 = 2.6, yT = gownSleeveBandTop(B, sd, sleeves[sd] ?? null);
+    return S({ a0: sd === 'L' ? A0 : TAU - A1, a1: sd === 'L' ? A1 : TAU - A0, arms: [sd], foldK: 0.07, foldF: 16, pw: 1.6, top: () => yT, hem: () => yL, floorW: (a) => (floorish ? smoothstep(mir(a), 1.6, 2.5) : 0) });
+  });
   if (kind === 'neck') {
     // Fastened at a band round her neck: over both shoulders and arms; open at the front below the band.
     const yB = G.yBand, yF = G.ySh - 0.1 * M;
@@ -262,7 +276,7 @@ function capeSpecs(B: GownRig, kind: Exclude<GownCape, 'none'>, G: CapeG, now: R
   return [S({ a0: TAU - 1.9, a1: TAU - 1.2, arms: ['R'], foldK: 0.11, foldF: 46, top: (a) => st.yAt(a), hem: () => yL, floorW: (a) => (floorish ? 0.35 + 0.65 * smoothstep(mir(a), 1.4, 1.9) : 0) })];
 }
 
-type HangOpt = { pleatAmp?: number; dressShown?: boolean; sleeves?: Partial<Record<Side, ArrayLike<number>>>; overlayOut?: number };
+type HangOpt = { pleatAmp?: number; dressShown?: boolean; sleeves?: Partial<Record<Side, ArrayLike<number>>>; robeSleeves?: Partial<Record<Side, ArrayLike<number>>>; overlayOut?: number };
 /** One panel: the v193 lattice and fall, into its own block of the mesh (v196 `hangPart`). */
 function hangPart(B: GownRig, T: GownEnvelope, D: GownDress, design: GownCapeDesign, sp: CapeSpec, G: CapeG, pi: number, base: Float32Array, uvs: Float32Array, opt: HangOpt): GownCapePart {
   const { a0, a1, ring } = sp, cm = G.cm, yN = G.yN, ySh = G.ySh, yFl = G.yFl, FL = G.FL;
@@ -278,7 +292,7 @@ function hangPart(B: GownRig, T: GownEnvelope, D: GownDress, design: GownCapeDes
   // Fine over the shoulders, finer where a full skirt springs out from the waist.
   for (let y = yHi; y > yLo - 1e-6;) { ys.push(y); y -= y > yHi - 0.13 ? 0.0025 : y > ySh - 0.25 || (design.sil === 'ball' && y > T.yS - 0.25) ? 0.005 : 0.01; }
   const NJ = ys.length, need = new Float32Array(NJ * CNA), Rm = new Float32Array(NJ * CNA), j0 = new Int32Array(CNA);
-  const arms = capeArms(B, sp.arms, opt.sleeves), off = 0.45 * cm, offA = 0.4 * cm, tableTop = T.y0 + (T.n - 2) * DY;
+  const arms = capeArms(B, sp.arms, opt.sleeves, opt.robeSleeves), off = 0.45 * cm, offA = 0.4 * cm, tableTop = T.y0 + (T.n - 2) * DY;
   const czAt = czOf(T);
   const SN = Array.from(ang, Math.sin), CS = Array.from(ang, Math.cos);
   const CK0 = new Int32Array(CNA), CKW = new Float32Array(CNA);
@@ -523,7 +537,7 @@ function capeEdgeLine(I: GownCapePart, P: Float32Array) {
 }
 
 /** Border strip, beads, neck band, strap, clasps: extra vertices after the panels, in the same mesh (v196 `capeTrimBuild`). */
-function capeTrimBuild(B: GownRig, T: GownEnvelope, cape: GownCapeMesh, uvs: Float32Array, G: CapeG, kind: Exclude<GownCape, 'none'>, now: ReturnType<typeof gownCapeNow>, strapAt: (sd: Side) => boolean) {
+function capeTrimBuild(B: GownRig, T: GownEnvelope, cape: GownCapeMesh, uvs: Float32Array, G: CapeG, kind: Exclude<GownCapeKind, 'none'>, now: ReturnType<typeof gownCapeNow>, strapAt: (sd: Side) => boolean) {
   const M = G.M, P = cape.base, U = uvs, t0 = 2 * CNV, edge = now.edge, czAt = czOf(T), grp = { edge: [] as number[], hw: [] as number[], jw: [] as number[] };
   let nv = t0;
   const room = (n: number) => nv + n <= t0 + CTRIM;
@@ -661,9 +675,9 @@ function capeTrimBuild(B: GownRig, T: GownEnvelope, cape: GownCapeMesh, uvs: Flo
  */
 export function buildCape(
   B: GownRig, T: GownEnvelope, D: GownDress, C: GownCloth, cape: GownCapeMesh, design: GownCapeDesign,
-  opt: { floorY: number; pose: string; pleatAmp?: number; dressShown?: boolean; sleeves?: Partial<Record<Side, ArrayLike<number>>>; overlayOut?: number },
+  opt: { floorY: number; pose: string; pleatAmp?: number; dressShown?: boolean; sleeves?: Partial<Record<Side, ArrayLike<number>>>; robeSleeves?: Partial<Record<Side, ArrayLike<number>>>; overlayOut?: number },
 ): boolean {
-  const kind = design.cape;
+  const kind = gownCapeKind(design);
   cape.kind = kind;
   if (kind === 'none' || !T.on || !gownCapeShown(design, opt.pose)) { cape.info = null; cape.parts = []; cape.nUsed = 0; return false; }
   const now = gownCapeNow(design), P = B.P, M = 1 / P.S, yN = jointY(B, 'neck01'), ySh = jointY(B, 'upperarm01.L'), Ltr = GOWN_TRAIN_CM[design.train];
@@ -673,7 +687,7 @@ export function buildCape(
   if (kind === 'side' || kind === 'pair' || kind === 'drape') for (const sd of kind === 'pair' ? (['L', 'R'] as const) : [GOWN_CAPE_STRAP[kind]!]) G.strap[sd] = capeStrap(B, T, sd);
   G.yTopMax = kind === 'neck' ? G.yBand + 0.002 : yN + 0.005;
   const uvs = (cape.geo.attributes.uv as THREE.BufferAttribute).array as Float32Array;
-  cape.parts = capeSpecs(B, kind, G, now).map((sp, i) => hangPart(B, T, D, design, sp, G, i, cape.base, uvs, opt));
+  cape.parts = capeSpecs(B, kind, G, now, opt.sleeves).map((sp, i) => hangPart(B, T, D, design, sp, G, i, cape.base, uvs, opt));
   cape.info = cape.parts[0] ?? null;
   if (cape.parts.length < 2) cape.base.fill(0, CNV * 3, 2 * CNV * 3);
   // A narrow strap (and its brooch) where a strapless neckline has none; v199: not where a strap already is.

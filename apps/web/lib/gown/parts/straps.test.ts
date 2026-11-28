@@ -159,7 +159,7 @@ test('the v202 rules, word for word, and the server refuses what they rule out',
   assert.equal(at({ neck: 'v' }).topEdge, true);
   assert.equal(at({ neck: 'straight' }).topEdge, false);
   const halter = gownHiddenChoices(designOf({ neck: 'v' }, { straps: 'halter' }));
-  assert.deepEqual([...halter.sleeve].sort(), ['butterfly', 'cap', 'flutter']);
+  assert.deepEqual([...halter.sleeve].sort(), ['butterfly', 'cap', 'flutter', 'ruffle'], 'v203: the ruffle band sits off the shoulder or on a sweetheart');
   assert.equal(halter.strapDetails, false);
   assert.equal(at({ neck: 'v' }).strapDetails, true);
   assert.equal(at({ neck: 'v' }).strapCol, true);

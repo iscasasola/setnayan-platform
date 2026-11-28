@@ -1,11 +1,14 @@
 'use client';
 
 /** The Gown Maker lab's body (see page.lab.tsx). Fixture numbers only: a SAMPLE body, never a person's. */
-import { useState } from 'react';
+import dynamic from 'next/dynamic';
+import { useRef, useState } from 'react';
 import {
   GOWN_BACKS,
   GOWN_BODY_RANGE,
   GOWN_CAPES,
+  GOWN_ROBE_SLEEVES,
+  GOWN_SLEEVE_WORN,
   GOWN_CLOSURES,
   GOWN_SLEEVES,
   GOWN_VEILS,
@@ -39,6 +42,7 @@ import {
   GOWN_CAPE_FABRICS,
   GOWN_CAPE_FASTENINGS,
   GOWN_CAPE_LENGTHS,
+  gownCapeKind,
   gownCapeNow,
   GOWN_VEIL_ORDER,
   GOWN_BLUSHERS,
@@ -69,17 +73,23 @@ import {
   GOWN_STOCK_FABRICS,
   GOWN_TRAINS,
   startingGownBody,
+  emptyGownHand,
   startingGownConfig,
   type GownBodyKey,
   type GownBodyVals,
   type GownConfig,
+  type GownHand,
 } from '@/lib/gown-config';
 import { gownChoose, gownHiddenChoices, type GownChoice } from '@/lib/gown/compat';
 import { gownBraNote, gownLimit, gownSetNumber, gownSnapBustT } from '@/lib/gown/body-rules';
 import { GOWN_SCENES, GOWN_SCENE_IDS, type GownSceneId } from '@/lib/gown/scenes';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { GownView } from '@/app/_components/plan3d/kit/gown-view';
-import type { GownSolved } from '@/app/_components/plan3d/kit/gown-figure-3d';
+import type { GownHandInput, GownSolved } from '@/app/_components/plan3d/kit/gown-figure-3d';
+
+// A7b: the hand tools and the lace designer are their own chunks, loaded when shown.
+const GownHandTools = dynamic(() => import('@/app/_components/gown-maker/hand-tools').then((m) => m.GownHandTools), { ssr: false });
+const GownLaceDesigner = dynamic(() => import('@/app/_components/gown-maker/lace-designer').then((m) => m.GownLaceDesigner), { ssr: false });
 
 const isScene = (s: string): s is GownSceneId => (GOWN_SCENE_IDS as readonly string[]).includes(s);
 const SLIDERS: GownBodyKey[] = ['height', 'weight', 'bust', 'waist', 'hips', 'underbust'];
@@ -122,6 +132,11 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   const [solved, setSolved] = useState<GownSolved | null>(null);
   const [design, setDesign] = useState<GownConfig>(() => startingGownConfig());
   const [note, setNote] = useState('');
+  const [hipWant, setHipWant] = useState<number | null>(null);
+  const waistTold = useRef(0);
+  const [hand, setHand] = useState<GownHandInput | null>(null);
+  // A7b: her hand work, kept beside the design.
+  const [handWork, setHandWork] = useState<GownHand>(() => emptyGownHand());
   const fine = { athletic: false, bustT, given };
 
   if (view === 'silhouettes') {
@@ -209,19 +224,22 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   const now = gownCapeNow(design), hidden = gownHiddenChoices(design);
   const capeNow = { capeFab: now.fab, capeLen: now.len, capeEdge: now.edge, capeFasten: now.fasten };
   // Every pick goes through the pairing rules, so the lab shows what the maker will (one line, then Undo in the maker).
-  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'illu' | 'illuBase' | 'illuCol' | 'illuBack' | 'boneShow' | 'straps' | 'strapCol' | 'strapEdge' | 'topEdge' | 'plungeFill' | 'flowers' | 'flowerFrom' | 'flowerType' | 'flowerSize' | 'flowerDen' | 'flowerCol' | 'capeFlowers' | 'laceFinish' | 'veilFab' | 'pearls' | 'bead' | 'beadAt' | 'beadDen' | 'beadCol' | 'boning' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
+  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'sleeveDet' | 'robeSl' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'illu' | 'illuBase' | 'illuCol' | 'illuBack' | 'boneShow' | 'straps' | 'strapCol' | 'strapEdge' | 'topEdge' | 'plungeFill' | 'flowers' | 'flowerFrom' | 'flowerType' | 'flowerSize' | 'flowerDen' | 'flowerCol' | 'capeFlowers' | 'laceFinish' | 'veilFab' | 'pearls' | 'bead' | 'beadAt' | 'beadDen' | 'beadCol' | 'boning' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'laceBeads' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
     const out = gownChoose(design, { key: k, value: v } as GownChoice);
     setDesign(out.config);
     setNote(out.notes.join(' '));
   };
   const set = (k: GownBodyKey, v: number) => {
-    const next = gownSetNumber(vals, given, k, v);
+    const next = gownSetNumber(vals, given, k, v, hipWant);
     setVals(next.vals);
     setGiven(next.given);
+    setHipWant(next.hipWant);
+    // v206: the waist's stop line, at most once every 4 s.
+    if (next.note && Date.now() - waistTold.current > 4000) { waistTold.current = Date.now(); setNote(next.note); }
   };
   return (
     <main className="mx-auto grid max-w-3xl gap-4 p-4 md:grid-cols-2" data-lab-view={view}>
-      <GownView vals={vals} fine={fine} scene={scene} guides={guides} force2d={view === 'fallback'} design={view === 'dress' ? design : null} onSolved={setSolved} />
+      <GownView vals={vals} fine={fine} scene={scene} guides={guides} force2d={view === 'fallback'} design={view === 'dress' ? design : null} onSolved={setSolved} hand={view === 'dress' ? hand : null} handWork={view === 'dress' ? handWork : null} />
       <section className="sn-frame grid gap-3 p-4" aria-label="Her numbers">
         {SLIDERS.map((k) => {
           const [lo, hi] = k === 'height' ? GOWN_BODY_RANGE.height : gownLimit(vals, k);
@@ -256,18 +274,23 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 ['colour', 'Colour', GOWN_COLOURS.filter((c) => c.id !== 'custom')],
                 ['hem', 'Length', GOWN_HEMS],
                 ['train', 'Train', GOWN_TRAINS],
-                ['cape', 'Cape', GOWN_CAPES],
+                ['cape', 'Cape', GOWN_CAPES.filter((c) => !hidden.cape.includes(c.id))],
+                // v203: the over-robe's own sleeves.
+                ...(hidden.robeSl ? [] : [['robeSl', 'Over-robe sleeves', GOWN_ROBE_SLEEVES] as const]),
                 // v196 Cape details: what the cape really is (its own defaults until she picks), only the lengths it can be.
-                ...(design.cape === 'none' ? [] : ([
-                  ['capeFab', 'Cape made of', GOWN_CAPE_FABRICS],
-                  ['capeLen', 'Cape length', GOWN_CAPE_LENGTHS.filter((l) => !hidden.capeLen.includes(l.id))],
-                  ['capeEdge', 'Cape edge', GOWN_CAPE_EDGES],
+                // v203: cape sleeves and the over-robe are hung as a cape, under their own names.
+                ...(gownCapeKind(design) === 'none' ? [] : ([
+                  ['capeFab', `${hidden.capeLabel} made of`, GOWN_CAPE_FABRICS],
+                  ['capeLen', `${hidden.capeLabel} length`, GOWN_CAPE_LENGTHS.filter((l) => !hidden.capeLen.includes(l.id))],
+                  ['capeEdge', `${hidden.capeLabel} edge`, GOWN_CAPE_EDGES],
                   ...(hidden.capeFasten ? [] : [['capeFasten', 'Back cape fastened', GOWN_CAPE_FASTENINGS] as const]),
-                  ...(hidden.capeCol ? [] : [['capeCol', 'Cape colour', GOWN_CAPE_COLOURS] as const]),
+                  ...(hidden.capeCol ? [] : [['capeCol', `${hidden.capeLabel} colour`, GOWN_CAPE_COLOURS] as const]),
                   // v200: 3D flowers on the cape (their type, size and colour as set under 3D flowers).
-                  ['capeFlowers', '3D flowers on the cape', GOWN_CAPE_FLOWERS],
+                  ['capeFlowers', `3D flowers on the ${hidden.capeLabel === 'Cape' ? 'cape' : hidden.capeLabel.toLowerCase()}`, GOWN_CAPE_FLOWERS],
                 ] as const)),
-                ['sleeve', 'Sleeves', GOWN_SLEEVES],
+                ['sleeve', 'Sleeves', GOWN_SLEEVES.filter((x) => !hidden.sleeve.includes(x.id)).map((x) => (x.id === 'long' ? { ...x, label: hidden.longSleeveLabel } : x))],
+                // v203: on an off-shoulder neckline, sewn sleeves or detachable ones.
+                ...(hidden.sleeveDet ? [] : [['sleeveDet', 'Sleeves worn', GOWN_SLEEVE_WORN] as const]),
                 ['back', 'Back', GOWN_BACKS],
                 // v198: the bodice in sheer tulle, an illusion back, boning you can see.
                 ['illu', 'Bodice made of', GOWN_ILLUSIONS],
@@ -284,11 +307,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 ['bow', 'Bow', GOWN_BOWS],
                 ['overlay', 'Overlay', GOWN_OVERLAYS],
                 ['ovFab', 'Overlay made of', GOWN_OVERLAY_FABRICS],
-                ['lace', 'Lace', GOWN_LACES],
-                ['laceAt', 'Lace placed', GOWN_LACE_PLACES],
-                ['laceCol', 'Lace colour', GOWN_LACE_COLOURS],
-                // v200: raised (3D) lace; 3D flowers and their details; scattered pearls.
-                ['laceFinish', 'Lace finish', GOWN_LACE_FINISHES],
+                // v200: 3D flowers and their details; scattered pearls. (Lace is in the lace designer below.)
                 ['flowers', '3D flowers', GOWN_FLOWERS.filter((x) => !hidden.flowers.includes(x.id))],
                 ...(hidden.flowerDetails ? [] : ([
                   ...(hidden.flowerFromRow ? [] : [['flowerFrom', 'Cascade starts at', GOWN_FLOWER_FROM.filter((x) => !hidden.flowerFrom.includes(x.id))] as const]),
@@ -372,9 +391,20 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 className="w-full !min-h-11"
               />
             </div>
+            <div className="col-span-2">
+              <GownLaceDesigner design={design} onChoose={(k, v) => choose(k, v)} onWidth={(cm) => setDesign({ ...design, laceCm: cm })} />
+            </div>
+            <div className="col-span-2">
+              <GownHandTools design={design} hand={handWork} onHand={setHandWork} onInput={setHand} />
+            </div>
             <p className="col-span-2 text-sn-12" data-lab-note aria-live="polite">
               {note}
             </p>
+            {hidden.sleeveWhy ? (
+              <p className="col-span-2 text-sn-12" data-lab-sleeve-why aria-live="polite">
+                {hidden.sleeveWhy}
+              </p>
+            ) : null}
           </div>
         ) : null}
         <p className="text-sn-12" data-lab-bra>{gownBraNote(vals, given)}</p>

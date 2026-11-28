@@ -1693,8 +1693,11 @@ export function reconcileProvisionalSeats(input: ReconcileInput): ReconcileResul
     assignments.filter((a) => a.locked).map((a) => a.guest_id),
   );
   // Seats we may vacate: unlocked seats of guests flagged for re-placement.
+  // 🔒 …and never a seat at a table the seater may not use (the Sweetheart, a locked table, a Spare one —
+  // `autoSeatTakesTable`): a locked table is kept exactly as it is, and a seat taken off one could never go back.
+  const closed = new Set(tables.filter((t) => !autoSeatTakesTable(t)).map((t) => t.table_id));
   const vacate = assignments.filter(
-    (a) => !a.locked && reseat.has(a.guest_id) && !lockedGuestIds.has(a.guest_id),
+    (a) => !a.locked && reseat.has(a.guest_id) && !lockedGuestIds.has(a.guest_id) && !closed.has(a.table_id),
   );
   const vacateIds = new Set(vacate.map((a) => a.guest_id));
   // Fixed occupancy = everything except the vacated seats. Newly-added guests

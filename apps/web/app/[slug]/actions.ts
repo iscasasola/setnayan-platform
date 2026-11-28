@@ -714,7 +714,8 @@ export async function submitRsvp(
   // edit for a finalized event. Harmless but pointless work; the answer, and
   // therefore the seating question, cannot have changed.
   if (!replyLocked && status !== 'declined') {
-    await applyReconcileForEvent(admin, eventId);
+    // ✦ A guest's own yes (seat plan § 4.4 "Seat new RSVPs for me"): gated by the host's ⋯ switch, fails closed.
+    await applyReconcileForEvent(admin, eventId, { trigger: 'rsvp' });
   }
 
   // 📵 THE REPLY TAKES NO FACE — ANY REPLY (owner 2026-09-30, DECISION_LOG

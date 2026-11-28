@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { gateVerdict, shapeProblems, parseJobs, summariseTap, parseReportedChecks, reportConclusions, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE, DRAFT_PR_PROBLEM, LIVE_DRAFT_JOB, LIVE_DRAFT_CLAUSE, deferrable, supersedingRun, deferredCheckBody, pendingDeferredChecks, completionConclusion, NEVER_SKIPPED_JOB, neverSkippedProblems } from './lib/ci-shape.mjs';
+import { gateVerdict, shapeProblems, parseJobs, summariseTap, parseReportedChecks, reportConclusions, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE, DRAFT_PR_PROBLEM, LIVE_DRAFT_JOB, LIVE_DRAFT_CLAUSE, deferrable, supersedingRun, deferredCheckBody, pendingDeferredChecks, completionConclusion, draftHoldCheckBody, NEVER_SKIPPED_JOB, neverSkippedProblems } from './lib/ci-shape.mjs';
 import http from 'node:http';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -470,14 +470,54 @@ test('🚨 end to end: the gate stays RED when there is no successor, the lookup
   assert.equal(f.posts.length, 0, 'and posts no pending check');
 });
 
-test('a draft run replaced on the same commit defers PENDING too; a lone draft is red and completes nothing', async () => {
+test('a draft run replaced on the same commit defers PENDING too; a lone draft HOLDS pending and completes nothing', async () => {
   const draftRun = JSON.stringify({ 'pr-state': { result: 'success' }, guards: { result: 'success' }, typecheck: { result: 'skipped' } });
   const d = await gateAgainst({ NEEDS: draftRun, PR_DRAFT: 'true' }, { runs: [run()] });
   assert.equal(d.status, 0);
   assert.equal(d.posts[0].body.status, 'in_progress');
   const lone = await gateAgainst({ NEEDS: draftRun, PR_DRAFT: 'true' }, { runs: [], checks: [DEFERRED] });
-  assert.equal(lone.status, 1, 'with nobody replacing it a draft is red, as always');
-  assert.equal(lone.patches.length, 0, 'a draft vouches for nothing: the pending deferred check stays pending');
+  assert.equal(lone.posts.length, 1, 'with nobody replacing it a draft posts ONE pending hold');
+  assert.equal(lone.posts[0].body.status, 'in_progress');
+  assert.equal('conclusion' in lone.posts[0].body, false, 'the hold never carries a conclusion, so a draft can never read green');
+  assert.match(lone.posts[0].body.external_id, /^deferred-gate:100$/, 'the ready run’s honest gate finds it by the deferral prefix');
+  assert.equal(lone.status, 0, 'and ends 0 only because GitHub accepted the hold');
+  assert.match(lone.stdout, /Draft PR: checks not run\.[\s\S]*PENDING/);
+  assert.equal(lone.patches.length, 0, 'a draft vouches for nothing: no pending check is completed');
+});
+
+/* ── a lone draft holds PENDING, never red (#8524: a red draft gate stayed counted after the ready run went green) ─*/
+
+test('🚨 a lone draft whose hold is refused, echoed completed, or that really FAILED stays red', async () => {
+  const draftRun = JSON.stringify({ 'pr-state': { result: 'success' }, guards: { result: 'success' }, typecheck: { result: 'skipped' } });
+  const refused = await gateAgainst({ NEEDS: draftRun, PR_DRAFT: 'true' }, { runs: [], post: 403 });
+  assert.equal(refused.status, 1, 'GitHub refused the hold → red, as before');
+  assert.match(refused.stdout, /draft hold was not accepted by GitHub[\s\S]*stays red/);
+  const echoed = await gateAgainst({ NEEDS: draftRun, PR_DRAFT: 'true' }, { runs: [], post: { id: 900, status: 'completed', conclusion: 'success' } });
+  assert.equal(echoed.status, 1, 'a hold that came back completed holds nothing → red');
+  const failed = await gateAgainst({ NEEDS: JSON.stringify({ 'pr-state': { result: 'success' }, guards: { result: 'failure' }, typecheck: { result: 'skipped' } }), PR_DRAFT: 'true' }, { runs: [] });
+  assert.equal(failed.status, 1, 'a draft whose guards FAILED keeps the failure');
+  assert.equal(failed.posts.length, 0, 'and posts no hold');
+  const noToken = await gateAgainst({ NEEDS: draftRun, PR_DRAFT: 'true', GITHUB_TOKEN: '' }, { runs: [] });
+  assert.equal(noToken.status, 1, 'no token → red');
+  const push = await gateAgainst({ NEEDS: draftRun, PR_DRAFT: 'true', EVENT_NAME: 'push' }, { runs: [] });
+  assert.equal(push.status, 1, 'not a pull request → red');
+  for (const res of [refused, echoed, failed, noToken, push]) for (const p of res.posts) assert.equal('conclusion' in p.body, false);
+});
+
+test('🔒 the draft hold is PENDING by construction and is completed by the ready run’s honest gate', async () => {
+  const b = draftHoldCheckBody({ runId: '100', headSha: 'abc123' });
+  assert.equal(b.name, GATE_NAME);
+  assert.equal(b.status, 'in_progress');
+  assert.equal('conclusion' in b, false);
+  assert.equal('completed_at' in b, false);
+  assert.equal(b.head_sha, 'abc123');
+  const hold = { id: 950, ...b, conclusion: null };
+  assert.deepEqual(pendingDeferredChecks([hold]).map((c) => c.id), [950], 'an honest gate lists the hold as pending');
+  const green = await gateAgainst({ NEEDS: ALL_GREEN }, { checks: [hold] });
+  assert.equal(green.status, 0);
+  assert.deepEqual(green.patches.map((p) => [p.url, p.body.conclusion]), [['/repos/o/r/check-runs/950', 'success']], 'the ready run completes the hold green');
+  const red = await gateAgainst({ NEEDS: JSON.stringify({ guards: { result: 'failure' } }) }, { checks: [hold] });
+  assert.deepEqual(red.patches.map((p) => p.body.conclusion), ['failure'], 'and red when the ready run found a failure');
 });
 
 test('🔒 an HONEST gate completes every pending deferred check with its own verdict — and only those', async () => {

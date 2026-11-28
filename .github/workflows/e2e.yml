@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
-    # Draft PRs: the heavy jobs skip (their `if:`) and the gate is RED; marking the PR ready runs everything.
+    # Draft PRs: the heavy jobs skip (their `if:`), ci.yml's gate holds "typecheck + lint" PENDING, and the
+    # `suite-is-never-skipped` job keeps this suite from ending "skipped"; marking the PR ready runs everything.
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 

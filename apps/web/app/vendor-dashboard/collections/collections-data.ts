@@ -41,6 +41,7 @@ import {
 } from '@/lib/portfolio-groups';
 import { readTagEventLinesOrUnread } from '@/lib/inspiration-tags.server';
 import type { AlbumStats } from '@/lib/portfolio-albums';
+import { portfolioPhotoKeys } from '@/lib/portfolio-count-label';
 
 /**
  * YOUR COLLECTIONS — one count per store, read where each already lives (simpler supplier dashboard step 5;
@@ -117,7 +118,8 @@ export async function loadCollectionsData(
   userId: string,
 ): Promise<CollectionsData> {
   const vendorId = profile.vendor_profile_id;
-  const portfolioRefs = (profile.portfolio_r2_keys ?? []) as string[];
+  // 🔢 The page gallery by the one portfolio rule (`portfolioPhotoKeys`) — the count Today shows is this list's length.
+  const portfolioRefs = portfolioPhotoKeys(profile.portfolio_r2_keys as string[] | null);
   const galleryVideoLinks = (profile.gallery_video_links ?? []) as string[];
 
   const ownRead = (async () => {

@@ -133,7 +133,7 @@ test('ONLY THE UNTICKED ITEMS are listed — a ticked one never comes back', () 
 test('an unticked line carries the fact', () => {
   assert.equal(pendingLine(ITEMS[0]!), 'What to wear — Filipiniana formal');
   assert.equal(pendingLine(ITEMS[1]!), 'Arrive by 2:30 PM — San Agustin Church');
-  assert.equal(pendingLine(ITEMS[3]!), 'Your QR pass saved');
+  assert.equal(pendingLine(ITEMS[3]!), 'Save your QR pass');
 });
 
 test('"Reply by" goes to an UNREPLIED guest while the date is still ahead — and to nobody else', () => {

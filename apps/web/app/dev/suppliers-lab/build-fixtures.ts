@@ -38,6 +38,14 @@ export const LAB_BUILD_TILES: ReadonlyArray<{ tile: string; label: string; vendo
   { tile: 'bridal_car', label: 'Bridal Car', vendors: [] },
 ];
 
+/** `&build=two` — photo and video booked separately: TWO suppliers in ONE category (L5 · C1, event 947e7bab). Both
+ *  are lines; the header and the rows add up to the same sum. */
+export const LAB_PHOTO_VIDEO_TILE: { tile: string; label: string; vendors: BuildLineInputVendor[] } = {
+  tile: 'photo_video',
+  label: 'Photo & Video',
+  vendors: [v('v-habi', 'Habi Photo Co.', 'photo_video', 'locked'), v('v-alon', 'Alon Films', 'photo_video', 'locked')],
+};
+
 /** `&covers=1` — Seda's "Also covers" Cake and Catering: the venue shown again,
  *  booked, on those two lines — the copy `buildShortlistFolders` makes. */
 export const LAB_COVERED_TILES: ReadonlySet<string> = new Set(['cake', 'catering']);
@@ -48,6 +56,8 @@ export const LAB_SEDA_COVERED: BuildLineInputVendor = {
 
 export const LAB_BUILD_PRICES: Readonly<Record<string, number>> = {
   'v-seda': 1_056_000,
+  'v-habi': 120_000,
+  'v-alon': 95_000,
   'v-bituin': 171_000,
   'v-hiraya': 216_000,
   'v-lola': 198_000,

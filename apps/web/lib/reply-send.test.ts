@@ -250,7 +250,7 @@ test('7 · ReplyForm is the same form with the press caught — and its line is 
   const form = read('app/[slug]/_components/reply-form.tsx');
   assert.match(raw('app/[slug]/_components/reply-form.tsx'), /^'use client';/, 'ReplyForm is not a client component — onSubmit would never run');
   // The server action stays ON the element: the plain post with script off.
-  assert.match(form, /<form action=\{action\} onSubmit=\{onSubmit\} \{\.\.\.rest\}>/, 'the form lost its own action (no-script post) or its caught press');
+  assert.match(form, /<form ref=\{formEl\} action=\{action\} onSubmit=\{onSubmit\} onChange=\{readAnswer\} \{\.\.\.rest\}>/, 'the form lost its own action (no-script post) or its caught press');
   // React's own run of the action is prevented, before anything else.
   const submit = form.slice(form.indexOf('function onSubmit('), form.indexOf('return (', form.indexOf('function onSubmit(')));
   assert.match(submit, /^function onSubmit\([^)]*\) \{\s*e\.preventDefault\(\);/, 'the press is not caught: React runs the action and a failure reaches the error boundary');
@@ -268,12 +268,12 @@ test('7 · ReplyForm is the same form with the press caught — and its line is 
   assert.match(form, /typeof digest === 'string' && digest\.startsWith\('NEXT_REDIRECT'\)/);
   // The button is handed the form's state…
   assert.match(form, /<ReplySending\.Provider value=\{sending\}>/);
-  assert.match(form, /const sending = useContext\(ReplySending\);\s*return <SubmitButton \{\.\.\.props\} pending=\{sending \?\? undefined\} \/>;/, 'the card\'s button no longer follows the form\'s sending state');
+  assert.match(form, /const sending = useContext\(ReplySending\);[\s\S]*?<SubmitButton\s+\{\.\.\.props\}[^>]*pending=\{sending \?\? undefined\}\s*\/>/, 'the card\'s button no longer follows the form\'s sending state');
   // …and the app's button obeys it (and reads React's form status only when not handed one).
   const button = read('app/_components/submit-button.tsx');
   assert.match(button, /const \{ pending: formPending \} = useFormStatus\(\);\s*const pending = ownedPending \?\? formPending;/, 'SubmitButton ignores a pending state handed to it');
   // Everything typed stays: the children are drawn whatever the outcome.
-  const jsx = form.slice(form.indexOf('<form action={action}'));
+  const jsx = form.slice(form.indexOf('<form ref={formEl} action={action}'));
   assert.match(jsx, /^<form[^>]*>\s*\{children\}/, 'the form does not always draw its children — a failed send would drop what was typed');
   assert.match(jsx, /\{notSent \? \(\s*<p [^>]*role="alert"[^>]*>\s*\{REPLY_NOT_SENT\}\s*<\/p>\s*\) : null\}/, 'a failed send is not said');
   // One sentence for one fact: the words the page already uses for ?rsvp=error.

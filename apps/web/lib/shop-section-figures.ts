@@ -16,6 +16,7 @@
  */
 import { formatCount } from '@/lib/format-number';
 import type { PinFigure } from '@/lib/pin-figure';
+import { SHOP_OPENED_WORD } from '@/lib/shop-count-window';
 
 const n = (v: number) => formatCount(v);
 const plural = (v: number | null, one: string, many: string) => (v === 1 ? one : many);
@@ -41,7 +42,7 @@ export function detailsFigures(f: { verified: boolean; docsIn: number; docsTotal
 export function pageFigures(f: { views30: number | null; reviewCount: number | null; rating: number | null }): PinFigure[] {
   const rated = f.reviewCount !== null && f.reviewCount > 0 && f.rating !== null;
   return [
-    { key: 'opened', value: f.views30 === null ? null : n(f.views30), word: 'opened · 30 d', short: 'opened', href: '/vendor-dashboard/shop#analytics' },
+    { key: 'opened', value: f.views30 === null ? null : n(f.views30), word: SHOP_OPENED_WORD, short: 'opened', href: '/vendor-dashboard/shop#analytics' },
     { key: 'reviews', value: f.reviewCount === null ? null : n(f.reviewCount), word: plural(f.reviewCount, 'review', 'reviews'), href: '/vendor-dashboard/website#reviews' },
     // A shop with no reviews has no rating — said as "new", never a 0 ★ that reads like a bad score.
     { key: 'rating', value: f.reviewCount === null ? null : rated ? (f.rating as number).toFixed(1) : 'New', word: '★ rating', short: '★', href: '/vendor-dashboard/website#reviews' },

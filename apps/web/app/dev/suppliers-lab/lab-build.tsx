@@ -17,6 +17,7 @@
  *                         …with &build=answers: how Bituin's ask stands — the
  *                         line the supplier's card says in the same words
  *                         (`/dev/booking-ask-lab`)
+ *   &build=two            …Photo & Video holds TWO bookings (Habi + Alon Films): both are lines (L5 · C1)
  *   &covers=1             …Seda's "Also covers" Cake and Catering: the venue is
  *                         booked on those lines too, "· with Reception"
  */
@@ -37,6 +38,7 @@ import {
   LAB_BUILD_INCLUSIONS,
   LAB_BUILD_PRICES,
   LAB_BUILD_TILES,
+  LAB_PHOTO_VIDEO_TILE,
   LAB_COVERED_TILES,
   LAB_SAVED_BUILDS,
   LAB_SEDA_COVERED,
@@ -68,7 +70,7 @@ export function LabSuppliersShell({
   const [asked, setAsked] = useState<ReadonlySet<string>>(new Set());
   const tiles = useMemo(
     () =>
-      LAB_BUILD_TILES.map((t) => ({
+      [...LAB_BUILD_TILES, ...(start === 'two' ? [LAB_PHOTO_VIDEO_TILE] : [])].map((t) => ({
         ...t,
         vendors:
           start === 'none'

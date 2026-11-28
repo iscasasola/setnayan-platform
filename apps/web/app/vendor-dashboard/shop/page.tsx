@@ -2,6 +2,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { readStoreLayout, readStoreToolFacts } from '@/lib/supplier-store.server';
 import { followedBadges, noCardWords, storageMeter, yourTools, type StorageMeter, type StoreLayout } from '@/lib/supplier-store';
 import { readStoredBytesWithoutMeasuring } from '@/lib/supplier-storage.server';
+import { shopRatingCountWords, shopRatingFigure, shopRatingOf } from '@/lib/shop-rating';
 import { nextStoragePlan } from '@/lib/supplier-storage';
 import { readPayPlanTemplates } from '@/lib/pay-plan-templates.server';
 import { routes } from '@/lib/routes';
@@ -457,9 +458,9 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
   // S-3: a REFUSED application read and "no application" both arrive as null — only the log tells them apart.
   const verifyUnread = soft.broke('latestApplication');
   const verifyUploads = (verifyApp?.doc_uploads ?? {}) as DocUploadMap;
-  const trusted = facts?.trusted ?? null;
-  const avg = trusted?.trusted_avg_rating ?? null;
-  const count = trusted?.trusted_review_count ?? null;
+  // ⭐ THE SHOP'S ONE RATING (L6 · S2, `lib/shop-rating.ts`) — the trusted aggregate, said by the one rule Analytics and
+  // Your page use too.
+  const shopRating = shopRatingOf(facts?.trusted ?? null);
 
   // 🏅 The approved shelf (lib/shop-badge-shelf.ts): Verified + the five v84 badges, from the reward engine's own counts.
   // Nothing read at all = the row says "Couldn't load your badges", never a shelf of unread tiles.
@@ -494,8 +495,8 @@ async function loadShopData(): Promise<ShopData | 'no-vendor'> {
     scanSettings,
     badges,
     // Honest zero: no trusted review → no rating word; unread → "—" (null).
-    rating: trusted === null ? null : avg && count ? avg.toFixed(1) : null,
-    reviews: trusted === null || !avg || !count ? null : `${formatCount(count)} ${count === 1 ? 'review' : 'reviews'}`,
+    rating: shopRatingFigure(shopRating),
+    reviews: shopRatingCountWords(shopRating),
     // RW-311: this counts events FINISHED on Setnayan (the Events badge's own number) — said so, so "0 events done"
     // next to the shop's open bookings never reads as a contradiction (a booked event is not done until its day).
     events: facts?.completedEvents == null ? null : `${formatCount(facts.completedEvents)} ${facts.completedEvents === 1 ? 'event' : 'events'} done`,

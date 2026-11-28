@@ -16,7 +16,8 @@ const E = '00000000-0000-4000-8000-000000000000';
 /** The prototype was drawn in early October 2026; the clock is pinned so due states do not drift. */
 export const LAB_NOW = new Date('2026-10-01T04:00:00Z');
 
-export function labMoney(reads?: MoneyReadStatus): EventMoney {
+/** `now` — the lab's clock; `?late=1` moves it to 17 Dec, 73 days past the Oct 5 payment (L5 · C9). */
+export function labMoney(reads?: MoneyReadStatus, now: Date = LAB_NOW): EventMoney {
   const ordersFailed = reads?.orders === 'failed';
   return computeEventMoney({
     targetCentavos: 225_000_000,
@@ -49,7 +50,7 @@ export function labMoney(reads?: MoneyReadStatus): EventMoney {
     packageLockedCentavos: new Map(),
     benchmarks: [],
     reads,
-    now: LAB_NOW,
+    now,
   });
 }
 

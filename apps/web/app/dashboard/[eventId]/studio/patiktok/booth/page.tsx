@@ -35,6 +35,7 @@ import { formatCount } from '@/lib/format-number';
 import { StayForm } from '@/app/_components/stay-form';
 
 import { InfoTip } from '@/app/_components/info-tip';
+import { shownTableRows } from '@/lib/table-auto-name.server';
 // Iteration 0017 Phase 4 — Patiktok Operator Dashboard.
 //
 // The booth-side surface a coordinator / operator uses at the venue. Spec
@@ -138,11 +139,17 @@ export default async function PatiktokBoothDashboard({
     qrToken: g.qr_token,
     photoUrl: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
   }));
-  const { data: tableRows, error: tableRowsError } = await supabase
-    .from('event_tables')
-    .select('table_id, public_id, table_label, qr_token')
-    .eq('event_id', eventId)
-    .order('sort_order', { ascending: true });
+  const [{ data: tableRows, error: tableRowsError }, shownNames] = await Promise.all([
+    supabase
+      .from('event_tables')
+      .select('table_id, public_id, table_label, qr_token')
+      .eq('event_id', eventId)
+      .order('sort_order', { ascending: true }),
+    // 🪑 The name each table SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+    shownTableRows(supabase, eventId),
+  ]);
+  if (shownNames.error) logQueryError('PatiktokBoothPage.shownNames', shownNames.error, { event_id: eventId }, 'graceful_degrade');
+  const shownById = new Map((shownNames.data ?? []).map((r) => [r.table_id, r.table_label]));
   if (tableRowsError) {
     logQueryError(
       'PatiktokBoothPage.tables',
@@ -153,7 +160,7 @@ export default async function PatiktokBoothDashboard({
   }
   const tables: BoothTable[] = (tableRows ?? []).map((t) => ({
     tableId: t.table_id as string,
-    label: t.table_label as string,
+    label: shownById.get(t.table_id as string) ?? (t.table_label as string),
     publicId: t.public_id as string,
     qrToken: t.qr_token as string,
   }));

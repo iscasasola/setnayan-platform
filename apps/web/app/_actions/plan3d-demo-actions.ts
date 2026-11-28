@@ -54,6 +54,7 @@ import { sanitizeRolePalette, type RolePalette } from '@/lib/mood-board';
 import { sanitizeReceptionDesign, type ReceptionDesign } from '@/lib/reception-scene';
 import { createDemoSession, purgeExpiredDemoSessions, resolveDemoToken } from '@/lib/demo-sessions';
 import { renderUrlQrSvg } from '@/lib/qr';
+import { readShownTableNames } from '@/lib/table-auto-name.server';
 
 /** Display-safe seated-guest slice for the 3D demo — name + seat + side only
  *  (never contact info / qr_token / meal), same PII discipline as `/tour/seating`. */
@@ -241,6 +242,8 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
       .eq('event_id', eventId)
       .is('deleted_at', null),
   ]);
+  // 🪑 The name each table SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts); unread → the stored label (a view, no write).
+  const shownNames = await readShownTableNames(admin, eventId).catch(() => null);
 
   // Mirrors the couple-facing 3D lab's un-positioned-table fallback (page.tsx
   // in dashboard/[eventId]/seating/lab) so the demo room matches whatever the
@@ -253,7 +256,7 @@ export async function loadPlan3DDemoScene(): Promise<Plan3DScene> {
       : defaultTablePosition(i, tablesRaw.length, spread);
     return {
       id: t.table_id,
-      label: t.link_group_label ?? t.table_label,
+      label: shownNames?.get(t.table_id) ?? t.link_group_label ?? t.table_label,
       type: t.table_type,
       shape: shapeHintFor(t.table_type),
       capacity: t.capacity,

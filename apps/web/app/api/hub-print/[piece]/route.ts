@@ -57,6 +57,8 @@ import { PAPER_HOW, previewPage, printPaperHeader, type PrintPaperFacts } from '
 import { printsPageHref } from '@/lib/prints-page-href';
 import { DAY_POSTER_KEY } from '@/lib/day-poster';
 import { dayPosterGet, dayPosterPost } from '@/lib/day-poster-route.server';
+import { withDisplayNames } from '@/lib/table-auto-name';
+import { readTableNameGroups, shownNamesFrom } from '@/lib/table-auto-name.server';
 
 /**
  * /api/hub-print/[piece] — PRINTS & TICKETS (Event Hub Maker Phase 9, the
@@ -236,13 +238,16 @@ async function freeSheet(
     // THE GUEST LIST REGISTRY — the reception-desk list (lib/print-guest-registry.ts).
     // The measured read: a refused guest list is "we could not read it", never
     // a registry that says the wedding has no guests.
-    const [guests, tables, seats] = await Promise.all([
+    const [guests, tablesRead, seats, nameGroups] = await Promise.all([
       // 🕯 The desk LISTS a guest who passed away ("In loving memory") and
       // counts them nowhere — `registryRows` / `listedNotCounted`.
       fetchGuestsByEventMeasured(admin, eventId, { includePassedAway: true }),
       fetchTables(admin, eventId),
       fetchAssignments(admin, eventId),
+      readTableNameGroups(admin, eventId),
     ]);
+    // 🪑 Each table under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+    const tables = withDisplayNames(tablesRead, shownNamesFrom(nameGroups, tablesRead, seats));
     if (!guests.measured) return { ok: false, res: new NextResponse('We could not read your guest list just now. Please try again.', { status: 503 }) };
     const label = new Map(tables.map((t) => {
       const l = t.link_group_label ?? t.table_label;

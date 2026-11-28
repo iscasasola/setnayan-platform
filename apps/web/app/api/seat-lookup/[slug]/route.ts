@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { shownLabelsForSlug } from '@/lib/table-auto-name.server';
 import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { enforceRateLimit, rateLimited429 } from '@/lib/with-rate-limit';
 import { clientIp } from '@/lib/client-ip';
@@ -88,7 +89,20 @@ export async function GET(
     return NextResponse.json({ error: 'lookup_failed' }, { status: 503 });
   }
 
-  const rows = ((data ?? []) as SeatLookupRow[]).slice(0, SEAT_LOOKUP_MAX_MATCHES);
+  const found = ((data ?? []) as SeatLookupRow[]).slice(0, SEAT_LOOKUP_MAX_MATCHES);
+  // 🪑 The table under the name it SHOWS — the name on its sign (the ONE reader, `tableDisplayNames`,
+  // lib/table-auto-name.ts). The RPC answers with the stored label; it is swapped here. A refused read is a failed
+  // lookup, never a guessed name.
+  let rows = found;
+  if (found.length > 0) {
+    try {
+      const shown = await shownLabelsForSlug(admin, slug);
+      rows = found.map((r) => ({ ...r, table_label: shown.get((r.table_label ?? '').trim()) ?? r.table_label }));
+    } catch (e) {
+      console.error('[supabase-error] app/api/seat-lookup/[slug]/route.ts · shown table names', e);
+      return NextResponse.json({ error: 'lookup_failed' }, { status: 503 });
+    }
+  }
 
   // Presign each distinct zone-clip ref once (a zone is shared across its
   // tables). displayUrlForStoredAsset is local crypto, but a misconfigured /

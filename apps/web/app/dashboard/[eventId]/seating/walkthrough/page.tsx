@@ -9,6 +9,7 @@ import { displayUrlForStoredAsset } from '@/lib/uploads';
 import { canManageWalkthrough } from './actions';
 import { WalkthroughManager, type ZoneVM, type TableVM } from './_components/walkthrough-manager';
 import { PageMasthead } from '@/app/_components/page-masthead';
+import { shownTableRows } from '@/lib/table-auto-name.server';
 
 export const metadata = { title: 'Walkthrough videos · Seating' };
 
@@ -43,7 +44,7 @@ export default async function WalkthroughPage({ params }: Props) {
   if (!(await canManageWalkthrough(eventId))) redirect(`/dashboard/${eventId}/seating`);
 
   const supabase = await createClient();
-  const [{ data: zonesRaw, error: zonesRawError }, { data: tablesRaw, error: tablesRawError }] = await Promise.all([
+  const [{ data: zonesRaw, error: zonesRawError }, { data: tablesRaw, error: tablesRawError }, shownNames] = await Promise.all([
     supabase
       .from('event_walkthrough_zones')
       .select('zone_id, label, sort_order, video_r2_key, video_mime_type, published_at')
@@ -55,6 +56,8 @@ export default async function WalkthroughPage({ params }: Props) {
       .eq('event_id', eventId)
       .order('sort_order', { ascending: true })
       .order('created_at', { ascending: true }),
+    // 🪑 The name each table SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+    shownTableRows(supabase, eventId),
   ]);
   if (zonesRawError) {
     logQueryError('SeatingWalkthroughPage.zonesRaw', zonesRawError, { event_id: eventId }, 'graceful_degrade');
@@ -63,12 +66,16 @@ export default async function WalkthroughPage({ params }: Props) {
     logQueryError('SeatingWalkthroughPage.tablesRaw', tablesRawError, { event_id: eventId }, 'graceful_degrade');
   }
 
-  const walkthroughPartlyRefused = Boolean(zonesRawError) || Boolean(tablesRawError);
+  if (shownNames.error) {
+    logQueryError('SeatingWalkthroughPage.shownNames', shownNames.error, { event_id: eventId }, 'graceful_degrade');
+  }
+  const walkthroughPartlyRefused = Boolean(zonesRawError) || Boolean(tablesRawError) || Boolean(shownNames.error);
+  const shownById = new Map((shownNames.data ?? []).map((r) => [r.table_id, r.table_label]));
 
   const tableRows = (tablesRaw ?? []) as TableRow[];
   const tables: TableVM[] = tableRows.map((t) => ({
     tableId: t.table_id,
-    label: (t.link_group_label?.trim() || t.table_label || 'Table').trim(),
+    label: (shownById.get(t.table_id) || t.link_group_label?.trim() || t.table_label || 'Table').trim(),
   }));
 
   const zoneRows = (zonesRaw ?? []) as ZoneRow[];

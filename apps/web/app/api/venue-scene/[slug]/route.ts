@@ -5,6 +5,7 @@ import { resolveBoothStudioContent } from '@/lib/booth-studio';
 import { withYourTableName } from '@/lib/venue-your-table';
 import { sanitizeRolePalette } from '@/lib/mood-board';
 import { withBoothShopFacts } from '@/app/[slug]/venue/_lib/venue-scene-joins.server';
+import { readShownTableNames } from '@/lib/table-auto-name.server';
 
 // Guest photos in the payload (present only for a token holder + a host setting
 // that returns them) arrive as RAW stored refs (r2:// or bare URL). A client
@@ -134,7 +135,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
 
   // The guest's own table by its NAME (the RPC sends only the public id): the same join the page makes,
   // so a live refresh never puts the code back in the caption.
-  const named = await withYourTableName(admin, data as { you?: { table: string } | null });
+  const named = await withYourTableName(admin, data as { you?: { table: string } | null }, readShownTableNames);
   const row = eventRow.data as { event_id?: string | null; role_palette?: unknown } | null;
   const resolved = (await resolveBoothLogos(await resolveScenePhotos(named))) as Record<string, unknown>;
   if (resolved.published === false) return NextResponse.json(resolved);

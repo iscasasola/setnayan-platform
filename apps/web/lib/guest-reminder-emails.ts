@@ -1,4 +1,5 @@
 import 'server-only';
+import { shownTableRows } from '@/lib/table-auto-name.server';
 import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import { wearTheirStandInRoles } from '@/lib/pass-card.server';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -260,10 +261,8 @@ async function remindOneEvent(
   const tableLabelById = new Map<string, string>();
   const tableIds = [...new Set(tableIdByGuest.values())];
   if (tableIds.length > 0) {
-    const { data: tables, error: tablesErr } = await admin
-      .from('event_tables')
-      .select('table_id, table_label, link_group_label')
-      .in('table_id', tableIds);
+    // 🪑 The name each table SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts); the email's words are unchanged.
+    const { data: tables, error: tablesErr } = await shownTableRows(admin, ev.event_id);
     if (tablesErr) logQueryError('guest-reminder-emails: event_tables.select', tablesErr, { event_id: ev.event_id });
     for (const t of (tables ?? []) as { table_id: string; table_label: string; link_group_label: string | null }[]) {
       // The linked group ("VIP Section") over the single table, as the hub card does.

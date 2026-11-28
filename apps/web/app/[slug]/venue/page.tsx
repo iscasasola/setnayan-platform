@@ -14,6 +14,7 @@ import { resolveBoothStudioContent } from '@/lib/booth-studio';
 import type { VenueScene } from './_components/guest-venue-3d';
 import { withDayNote } from '../_lib/day-words';
 import { withYourTableName } from '@/lib/venue-your-table';
+import { readShownTableNames } from '@/lib/table-auto-name.server';
 
 // Guest-facing 3D venue explorer (owner 2026-06-26, Sims-style). Public, no
 // session: a guest opens this from their invite (the `?t=` personal token
@@ -153,7 +154,7 @@ export default async function VenuePage({
       guestToken: token,
       pabuyaViewerAllowed: true,
     }),
-    scene ? withYourTableName(admin, scene) : Promise.resolve(scene),
+    scene ? withYourTableName(admin, scene, readShownTableNames) : Promise.resolve(scene),
   ]);
   scene = named;
 

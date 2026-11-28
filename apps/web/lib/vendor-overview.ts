@@ -2,6 +2,7 @@ import 'server-only';
 
 import { isNewInquiry } from '@/lib/new-inquiry';
 import { bookedThisMonthCount } from '@/lib/booked-this-month';
+import { shopCountSinceMs } from '@/lib/shop-count-window';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { depositProofDisplayUrl } from '@/lib/deposit-proof.server';
@@ -367,7 +368,7 @@ export type VendorOverviewData = {
    */
   bookingsComplete?: boolean;
   /**
-   * New inquiries in the last 28 days — counted off the threads this read already holds (no query of its own):
+   * New inquiries in the shop's one window (`lib/shop-count-window.ts`; the field keeps its old name) — counted off the threads this read already holds (no query of its own):
    * Today's "How is business" line ("312 looked · 14 asked").
    */
   inquiries28?: number;
@@ -1035,7 +1036,8 @@ export async function fetchVendorOverviewData(
   const monthPrefix = manilaTodayIso().slice(0, 7);
   const bookedThisMonth = bookedThisMonthCount(roomRead, monthPrefix);
 
-  const since28 = Date.now() - 28 * 86_400_000;
+  // 🪟 The shop's one counting window (`lib/shop-count-window.ts`) — the days Today's Views count too.
+  const since28 = shopCountSinceMs(Date.now());
   // T-2: a refused or short threads read counts FEWER inquiries than arrived — no number then ("couldn't load").
   const inquiries28 = threadsRead.complete
     ? threads.filter((t) => {

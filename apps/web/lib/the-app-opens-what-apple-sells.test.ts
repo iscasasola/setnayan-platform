@@ -382,12 +382,17 @@ test('3 · GATE ON — Buy more on the Papic page is Apple\'s sheet; GATE OFF �
 
 test('4 · in the app the controller opens only for an owned Live Watch, reads no web price, and exits Home', () => {
   const src = code(CONTROLLER);
-  assert.match(src, /const appleIap = \(await getIapGate\(\)\)\.iap;/);
+  // The turn-away is decided by the controller's gate — awaited by its layout BEFORE streaming, and by the page before
+  // anything is drawn — so a not-owned event never reaches the unlock surfaces in the app.
+  const gate = code(CONTROLLER.replace(/page\.tsx$/, 'gate.tsx'));
+  assert.match(gate, /const appleIap = \(await getIapGate\(\)\)\.iap;/);
+  const window = gate.indexOf('const broadcastWindow = appleIap ? await resolveBroadcastWindow(');
+  const turnAway = gate.indexOf('if (appleIap && !broadcastWindow?.multiCam) redirect(`/dashboard/${eventId}`);');
+  assert.ok(window > 0 && turnAway > window, 'the app does not turn a not-owned event away before it is drawn');
+  const asked = src.indexOf('await gateControlRoom(eventId)');
+  assert.ok(asked > 0 && asked < src.indexOf('const lock = liveStudioControlLock('), 'the page draws before asking its gate');
+  assert.match(src, /const \{ supabase, user, event, appleIap \} = gate;/);
   assert.match(src, /const sku = appleIap \? null : await formatV2Sku\(LIVE_STUDIO_SKU\)/, 'the app reads the web price');
-  const owned = src.indexOf('const owned = broadcastWindow.multiCam;');
-  const turnAway = src.indexOf('if (appleIap && !owned) redirect(`/dashboard/${eventId}`);');
-  const lock = src.indexOf('const lock = liveStudioControlLock(');
-  assert.ok(owned > 0 && turnAway > owned && lock > turnAway, 'a not-owned event reaches the unlock surfaces in the app');
   assert.match(src, /const exitHref = appleIap \? `\/dashboard\/\$\{eventId\}` : detailHref;/);
   assert.match(src, /href=\{exitHref\}/, 'Exit still goes to the web buy page');
   assert.match(src, /poolOnlyConnectNotice\(ownsHostedChannel, appleIap\)/);

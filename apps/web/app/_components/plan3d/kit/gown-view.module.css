@@ -1,0 +1,45 @@
+/* 👗 The gown maker's stage. The backdrop is the lighting scene's own (scene data, lib/gown/scenes.ts); the frame is tokens. */
+.view {
+  position: relative;
+}
+.stage {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  border-radius: var(--m-r-md);
+  background: var(--gown-scene-bg, var(--color-paper));
+  overflow: hidden;
+  transition: background-color var(--sn-dur-enter) var(--sn-ease);
+}
+.view:has(> .fill) {
+  height: 100%;
+}
+.fill {
+  aspect-ratio: auto;
+  height: 100%;
+}
+.stage > * {
+  width: 100%;
+  height: 100%;
+}
+.ghost {
+  width: 100%;
+  height: 100%;
+  border-radius: var(--m-r-md);
+}
+
+/* A10: the design's picture: the 2D drawing first, one still 3D frame over it once on screen. */
+.still {
+  position: relative;
+  aspect-ratio: 40 / 56;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--m-r-md);
+  color: rgb(var(--color-ink));
+}
+.stillSvg,
+.stillStage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}

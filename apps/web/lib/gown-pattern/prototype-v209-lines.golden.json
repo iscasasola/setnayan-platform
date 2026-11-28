@@ -1,0 +1,2168 @@
+{
+ "input": {
+  "vals": {
+   "height": 160,
+   "bust": 88,
+   "underbust": 74,
+   "waist": 70,
+   "hips": 96
+  },
+  "skirtEstimate": {
+   "waistHip": 23.2,
+   "waistFloor": 97.6,
+   "knee": 36.480000000000004
+  },
+  "bodiceEstimate": {
+   "napeWaist": 41,
+   "frontLen": 43.2,
+   "shoulderApex": 25.6,
+   "apexApex": 18,
+   "acrossBack": 34.4,
+   "acrossChest": 32.4,
+   "shoulderLen": 12.3,
+   "sideLen": 19.5,
+   "neck": 36
+  },
+  "ease": [
+   {
+    "part": "Bust",
+    "ease": 2.5
+   },
+   {
+    "part": "Waist",
+    "ease": 1.5
+   },
+   {
+    "part": "Hips",
+    "ease": 6
+   }
+  ]
+ },
+ "cases": [
+  {
+   "name": "custom neckline, scoop back, high-low hem",
+   "sil": "aline",
+   "lines": {
+    "neck": {
+     "custom": true,
+     "from": "sweetheart",
+     "centre": 17.5,
+     "cornerL": 7.25,
+     "cornerDepthL": 15,
+     "shoulderL": 9,
+     "shoulderDepthL": 4,
+     "curve": 0.8,
+     "cornerR": 7.25,
+     "cornerDepthR": 15,
+     "shoulderR": 9,
+     "shoulderDepthR": 4
+    },
+    "back": {
+     "custom": true,
+     "from": "scoop",
+     "depth": 30,
+     "halfL": 12,
+     "halfR": 12,
+     "curve": 0.866,
+     "sideDepth": 12
+    },
+    "hem": {
+     "custom": true,
+     "front": 8,
+     "left": 4,
+     "back": 0,
+     "right": 4,
+     "curve": 0.5,
+     "edge": "plain"
+    }
+   },
+   "highNeck": false,
+   "bodice": [
+    {
+     "name": "Bodice back",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         300
+        ],
+        [
+         7.5,
+         299.64809350505226
+        ],
+        [
+         15,
+         298.5882134968599
+        ],
+        [
+         22.5,
+         296.8076285118942
+        ],
+        [
+         30,
+         294.28425057933373
+        ],
+        [
+         37.5,
+         290.98519672767
+        ],
+        [
+         45,
+         286.8644659596524
+        ],
+        [
+         52.5,
+         281.8593139118043
+        ],
+        [
+         60,
+         275.88457268119896
+        ],
+        [
+         67.5,
+         268.8235112473832
+        ],
+        [
+         75,
+         260.51245496396393
+        ],
+        [
+         82.5,
+         250.71318793450033
+        ],
+        [
+         90,
+         239.05880899790657
+        ],
+        [
+         97.5,
+         224.93301434724918
+        ],
+        [
+         105,
+         207.14212528966686
+        ],
+        [
+         112.5,
+         182.63734908183773
+        ],
+        [
+         120,
+         120
+        ]
+       ],
+       "label": "design back (custom)"
+      }
+     ]
+    },
+    {
+     "name": "Bodice front",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         266.38656169873354
+        ],
+        [
+         4.53125,
+         256.14656169873354
+        ],
+        [
+         9.0625,
+         253.58656169873356
+        ],
+        [
+         13.59375,
+         251.80182163900247
+        ],
+        [
+         18.125,
+         250.38656169873357
+        ],
+        [
+         22.65625,
+         249.19489279179385
+        ],
+        [
+         27.1875,
+         248.1556366240697
+        ],
+        [
+         31.71875,
+         247.22809454900198
+        ],
+        [
+         36.25,
+         246.38656169873357
+        ],
+        [
+         40.78125,
+         245.61364738135808
+        ],
+        [
+         45.3125,
+         244.89697556505894
+        ],
+        [
+         49.84375,
+         244.2273901427439
+        ],
+        [
+         54.375,
+         243.59790535540373
+        ],
+        [
+         58.90625,
+         243.00305621991316
+        ],
+        [
+         63.4375,
+         242.43847776156906
+        ],
+        [
+         67.96875,
+         241.9006220306987
+        ],
+        [
+         72.5,
+         241.38656169873357
+        ],
+        [
+         90,
+         131.38656169873357
+        ],
+        [
+         170.1043940038456,
+         131.38656169873357
+        ]
+       ],
+       "label": "design neckline (custom)"
+      }
+     ]
+    }
+   ],
+   "skirt": [
+    {
+     "name": "Skirt front",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         896
+        ],
+        [
+         58.08333333333333,
+         896.6814834742187
+        ],
+        [
+         116.16666666666666,
+         898.6794919243113
+        ],
+        [
+         174.25,
+         901.857864376269
+        ],
+        [
+         232.33333333333331,
+         906
+        ],
+        [
+         290.4166666666667,
+         910.8236190979496
+        ],
+        [
+         348.5,
+         916
+        ],
+        [
+         406.58333333333337,
+         921.1763809020504
+        ],
+        [
+         464.66666666666663,
+         926
+        ],
+        [
+         522.75,
+         930.142135623731
+        ],
+        [
+         580.8333333333334,
+         933.3205080756887
+        ],
+        [
+         638.9166666666666,
+         935.3185165257813
+        ],
+        [
+         697,
+         936
+        ]
+       ],
+       "label": "design hem"
+      }
+     ]
+    },
+    {
+     "name": "Skirt back",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         976
+        ],
+        [
+         58.08333333333333,
+         975.3185165257813
+        ],
+        [
+         116.16666666666666,
+         973.3205080756887
+        ],
+        [
+         174.25,
+         970.142135623731
+        ],
+        [
+         232.33333333333331,
+         966
+        ],
+        [
+         290.4166666666667,
+         961.1763809020504
+        ],
+        [
+         348.5,
+         956
+        ],
+        [
+         406.58333333333337,
+         950.8236190979496
+        ],
+        [
+         464.66666666666663,
+         946
+        ],
+        [
+         522.75,
+         941.857864376269
+        ],
+        [
+         580.8333333333334,
+         938.6794919243113
+        ],
+        [
+         638.9166666666666,
+         936.6814834742187
+        ],
+        [
+         697,
+         936
+        ]
+       ],
+       "label": "design hem"
+      }
+     ]
+    }
+   ],
+   "summary": [
+    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 14.5 cm wide at the bust line (15 cm below the collarbone), meeting the shoulder 9 cm from the centre line each side, 4 cm below the collarbone; a dipped, sweetheart-like curve",
+    "Back (custom, from Scoop): 30 cm below the nape at centre, 24 cm wide at the top, scooped",
+    "Hem (custom): front 8 cm above the floor, sides 4 cm above the floor, back on the floor"
+   ]
+  },
+  {
+   "name": "uneven neckline, low shoulder point, V back",
+   "sil": "sheath",
+   "lines": {
+    "neck": {
+     "custom": true,
+     "from": "sweetheart",
+     "centre": 17.5,
+     "cornerL": 7.25,
+     "cornerDepthL": 15,
+     "shoulderL": 14,
+     "shoulderDepthL": 12,
+     "curve": 0.2,
+     "cornerR": 9,
+     "cornerDepthR": 18,
+     "shoulderR": 9,
+     "shoulderDepthR": 4
+    },
+    "back": {
+     "custom": true,
+     "from": "v",
+     "depth": 40,
+     "halfL": 10,
+     "halfR": 14,
+     "curve": 0.5,
+     "sideDepth": 12
+    },
+    "hem": {
+     "custom": true,
+     "front": 8,
+     "left": 4,
+     "back": 0,
+     "right": 4,
+     "curve": 0.5,
+     "edge": "scallop"
+    }
+   },
+   "highNeck": false,
+   "bodice": [
+    {
+     "name": "Bodice back",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         400
+        ],
+        [
+         6.25,
+         382.5
+        ],
+        [
+         12.5,
+         365
+        ],
+        [
+         18.75,
+         347.5
+        ],
+        [
+         25,
+         330
+        ],
+        [
+         31.25,
+         312.5
+        ],
+        [
+         37.5,
+         295
+        ],
+        [
+         43.75,
+         277.5
+        ],
+        [
+         50,
+         260
+        ],
+        [
+         56.25,
+         242.5
+        ],
+        [
+         62.5,
+         225
+        ],
+        [
+         68.75,
+         207.5
+        ],
+        [
+         75,
+         190
+        ],
+        [
+         81.25,
+         172.5
+        ],
+        [
+         87.5,
+         155
+        ],
+        [
+         93.75,
+         137.5
+        ],
+        [
+         100,
+         120
+        ]
+       ],
+       "label": "design back (custom)"
+      }
+     ]
+    },
+    {
+     "name": "Bodice front",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         266.38656169873354
+        ],
+        [
+         4.53125,
+         266.3465616987335
+        ],
+        [
+         9.0625,
+         266.18656169873356
+        ],
+        [
+         13.59375,
+         265.8738169310086
+        ],
+        [
+         18.125,
+         265.38656169873354
+        ],
+        [
+         22.65625,
+         264.70768778204024
+        ],
+        [
+         27.1875,
+         263.82283786010896
+        ],
+        [
+         31.71875,
+         262.7195113458552
+        ],
+        [
+         36.25,
+         261.38656169873354
+        ],
+        [
+         40.78125,
+         259.8138817780015
+        ],
+        [
+         45.3125,
+         257.9921921152669
+        ],
+        [
+         49.84375,
+         255.9128907679728
+        ],
+        [
+         54.375,
+         253.56794250561052
+        ],
+        [
+         58.90625,
+         250.94979440998102
+        ],
+        [
+         63.4375,
+         248.051309934342
+        ],
+        [
+         67.96875,
+         244.8657162873748
+        ],
+        [
+         72.5,
+         241.38656169873357
+        ],
+        [
+         140,
+         211.38656169873357
+        ],
+        [
+         211.55500663386155,
+         211.38656169873357
+        ]
+       ],
+       "label": "design neckline (custom)"
+      }
+     ]
+    }
+   ],
+   "skirt": [
+    {
+     "name": "Skirt front",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         896
+        ],
+        [
+         21.25,
+         896.6814834742187
+        ],
+        [
+         42.5,
+         898.6794919243113
+        ],
+        [
+         63.75,
+         901.857864376269
+        ],
+        [
+         85,
+         906
+        ],
+        [
+         106.25,
+         910.8236190979496
+        ],
+        [
+         127.5,
+         916
+        ],
+        [
+         148.75,
+         921.1763809020504
+        ],
+        [
+         170,
+         926
+        ],
+        [
+         191.25,
+         930.142135623731
+        ],
+        [
+         212.5,
+         933.3205080756887
+        ],
+        [
+         233.75,
+         935.3185165257813
+        ],
+        [
+         255,
+         936
+        ]
+       ],
+       "label": "design hem (scalloped)"
+      }
+     ]
+    },
+    {
+     "name": "Skirt back",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         976
+        ],
+        [
+         21.25,
+         975.3185165257813
+        ],
+        [
+         42.5,
+         973.3205080756887
+        ],
+        [
+         63.75,
+         970.142135623731
+        ],
+        [
+         85,
+         966
+        ],
+        [
+         106.25,
+         961.1763809020504
+        ],
+        [
+         127.5,
+         956
+        ],
+        [
+         148.75,
+         950.8236190979496
+        ],
+        [
+         170,
+         946
+        ],
+        [
+         191.25,
+         941.857864376269
+        ],
+        [
+         212.5,
+         938.6794919243113
+        ],
+        [
+         233.75,
+         936.6814834742187
+        ],
+        [
+         255,
+         936
+        ]
+       ],
+       "label": "design hem (scalloped)"
+      }
+     ]
+    }
+   ],
+   "summary": [
+    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 16.5 cm wide at the bust line (15 cm below the collarbone on her left, 18 cm below it on her right), meeting the shoulder 14 cm from the centre line on her left and 9 cm on her right, 12 cm below the collarbone; a rounded curve",
+    "Back (custom, from V back): 40 cm below the nape at centre, 24 cm wide at the top (10 cm to her left, 14 cm to her right), V-shaped",
+    "Hem (custom): front 8 cm above the floor, sides 4 cm above the floor, back on the floor; scalloped edge"
+   ]
+  },
+  {
+   "name": "named lines only (blocks draw them; the sheet says nothing)",
+   "sil": "fitflare",
+   "lines": {
+    "neck": {
+     "custom": false,
+     "from": "sweetheart",
+     "centre": 17.5,
+     "cornerL": 7.25,
+     "cornerDepthL": 15,
+     "shoulderL": 9,
+     "shoulderDepthL": 4,
+     "curve": 0.8,
+     "cornerR": 7.25,
+     "cornerDepthR": 15,
+     "shoulderR": 9,
+     "shoulderDepthR": 4
+    },
+    "back": {
+     "custom": false,
+     "from": "scoop",
+     "depth": 30,
+     "halfL": 12,
+     "halfR": 12,
+     "curve": 0.99,
+     "sideDepth": 12
+    },
+    "hem": {
+     "custom": false,
+     "front": 2,
+     "left": 4,
+     "back": 2,
+     "right": 4,
+     "curve": 0.5,
+     "edge": "hanky"
+    }
+   },
+   "highNeck": false,
+   "bodice": [
+    {
+     "name": "Bodice back",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         300
+        ],
+        [
+         7.5,
+         299.9999999999994
+        ],
+        [
+         15,
+         299.99999999738066
+        ],
+        [
+         22.5,
+         299.9999996601496
+        ],
+        [
+         30,
+         299.99998927116394
+        ],
+        [
+         37.5,
+         299.9998438748872
+        ],
+        [
+         45,
+         299.99860797281144
+        ],
+        [
+         52.5,
+         299.9911486565332
+        ],
+        [
+         60,
+         299.9560546875
+        ],
+        [
+         67.5,
+         299.8193895700404
+        ],
+        [
+         75,
+         299.3605115378159
+        ],
+        [
+         82.5,
+         297.9930112636958
+        ],
+        [
+         90,
+         294.2982566356659
+        ],
+        [
+         97.5,
+         285.1011433731906
+        ],
+        [
+         105,
+         263.7448971599224
+        ],
+        [
+         112.5,
+         217.02871390830688
+        ],
+        [
+         120,
+         120
+        ]
+       ],
+       "label": "design back"
+      }
+     ]
+    },
+    {
+     "name": "Bodice front",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         266.38656169873354
+        ],
+        [
+         4.53125,
+         256.14656169873354
+        ],
+        [
+         9.0625,
+         253.58656169873356
+        ],
+        [
+         13.59375,
+         251.80182163900247
+        ],
+        [
+         18.125,
+         250.38656169873357
+        ],
+        [
+         22.65625,
+         249.19489279179385
+        ],
+        [
+         27.1875,
+         248.1556366240697
+        ],
+        [
+         31.71875,
+         247.22809454900198
+        ],
+        [
+         36.25,
+         246.38656169873357
+        ],
+        [
+         40.78125,
+         245.61364738135808
+        ],
+        [
+         45.3125,
+         244.89697556505894
+        ],
+        [
+         49.84375,
+         244.2273901427439
+        ],
+        [
+         54.375,
+         243.59790535540373
+        ],
+        [
+         58.90625,
+         243.00305621991316
+        ],
+        [
+         63.4375,
+         242.43847776156906
+        ],
+        [
+         67.96875,
+         241.9006220306987
+        ],
+        [
+         72.5,
+         241.38656169873357
+        ],
+        [
+         90,
+         131.38656169873357
+        ],
+        [
+         170.1043940038456,
+         131.38656169873357
+        ]
+       ],
+       "label": "design neckline"
+      }
+     ]
+    }
+   ],
+   "skirt": [
+    {
+     "name": "Skirt front",
+     "style": []
+    },
+    {
+     "name": "Skirt back",
+     "style": []
+    }
+   ],
+   "summary": [
+    "Hem: front on the floor, sides 4 cm above the floor, back on the floor; handkerchief-point edge"
+   ]
+  },
+  {
+   "name": "ball gown: no hem line on the circle skirt",
+   "sil": "ball",
+   "lines": {
+    "neck": {
+     "custom": true,
+     "from": "sweetheart",
+     "centre": 17.5,
+     "cornerL": 7.25,
+     "cornerDepthL": 15,
+     "shoulderL": 5,
+     "shoulderDepthL": -8,
+     "curve": 0.03,
+     "cornerR": 7.25,
+     "cornerDepthR": 15,
+     "shoulderR": 9,
+     "shoulderDepthR": 4
+    },
+    "hem": {
+     "custom": true,
+     "front": 8,
+     "left": 4,
+     "back": 0,
+     "right": 4,
+     "curve": 0.5,
+     "edge": "plain"
+    }
+   },
+   "highNeck": false,
+   "bodice": [
+    {
+     "name": "Bodice back",
+     "style": []
+    },
+    {
+     "name": "Bodice front",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         266.38656169873354
+        ],
+        [
+         4.53125,
+         266.38654144873357
+        ],
+        [
+         9.0625,
+         266.38588669873354
+        ],
+        [
+         13.59375,
+         266.3813120441101
+        ],
+        [
+         18.125,
+         266.36406169873356
+        ],
+        [
+         22.65625,
+         266.3169888203703
+        ],
+        [
+         27.1875,
+         266.21157321128516
+        ],
+        [
+         31.71875,
+         266.004893329917
+        ],
+        [
+         36.25,
+         265.63656169873354
+        ],
+        [
+         40.78125,
+         265.02562966586834
+        ],
+        [
+         45.3125,
+         264.0674657532922
+        ],
+        [
+         49.84375,
+         262.63061076374225
+        ],
+        [
+         54.375,
+         260.5536121171213
+        ],
+        [
+         58.90625,
+         257.6418393977294
+        ],
+        [
+         63.4375,
+         253.66428273818207
+        ],
+        [
+         67.96875,
+         248.35033539915918
+        ],
+        [
+         72.5,
+         241.38656169873357
+        ],
+        [
+         68.23076923076923,
+         14.579642822225146
+        ]
+       ],
+       "label": "design neckline (custom)"
+      }
+     ]
+    }
+   ],
+   "skirt": [
+    {
+     "name": "Skirt, quarter circle",
+     "style": []
+    }
+   ],
+   "summary": [
+    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 14.5 cm wide at the bust line (15 cm below the collarbone on her left, 15 cm below it on her right), meeting the shoulder 5 cm from the centre line on her left and 9 cm on her right, 8 cm above the collarbone; square corners",
+    "Hem (custom): front 8 cm above the floor, sides 4 cm above the floor, back on the floor"
+   ]
+  },
+  {
+   "name": "mermaid, square back, armholes cut in",
+   "sil": "mermaid",
+   "lines": {
+    "back": {
+     "custom": true,
+     "from": "scoop",
+     "depth": 30,
+     "halfL": 12,
+     "halfR": 12,
+     "curve": 0.95,
+     "sideDepth": 40
+    },
+    "hem": {
+     "custom": true,
+     "front": 3,
+     "left": 4,
+     "back": 3,
+     "right": 4,
+     "curve": 0.5,
+     "edge": "curved"
+    },
+    "armhole": 3.5
+   },
+   "highNeck": true,
+   "bodice": [
+    {
+     "name": "Bodice back",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         300
+        ],
+        [
+         7.5,
+         300
+        ],
+        [
+         15,
+         300
+        ],
+        [
+         22.5,
+         300
+        ],
+        [
+         30,
+         300
+        ],
+        [
+         37.5,
+         300
+        ],
+        [
+         45,
+         300
+        ],
+        [
+         52.5,
+         300
+        ],
+        [
+         60,
+         300
+        ],
+        [
+         67.5,
+         300
+        ],
+        [
+         75,
+         300
+        ],
+        [
+         82.5,
+         300
+        ],
+        [
+         90,
+         300
+        ],
+        [
+         97.5,
+         300
+        ],
+        [
+         105,
+         300
+        ],
+        [
+         112.5,
+         300
+        ],
+        [
+         120,
+         300
+        ]
+       ],
+       "label": "design back (custom)"
+      }
+     ]
+    },
+    {
+     "name": "Bodice front",
+     "style": []
+    }
+   ],
+   "skirt": [
+    {
+     "name": "Skirt front",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         946
+        ],
+        [
+         30.25,
+         945.8296291314454
+        ],
+        [
+         60.5,
+         945.3301270189222
+        ],
+        [
+         90.75,
+         944.5355339059328
+        ],
+        [
+         121,
+         943.5
+        ],
+        [
+         151.25,
+         942.2940952255126
+        ],
+        [
+         181.5,
+         941
+        ],
+        [
+         211.75,
+         939.7059047744874
+        ],
+        [
+         242,
+         938.5
+        ],
+        [
+         272.25,
+         937.4644660940672
+        ],
+        [
+         302.5,
+         936.6698729810778
+        ],
+        [
+         332.75,
+         936.1703708685546
+        ],
+        [
+         363,
+         936
+        ]
+       ],
+       "label": "design hem (curved)"
+      }
+     ]
+    },
+    {
+     "name": "Skirt back",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         946
+        ],
+        [
+         30.25,
+         945.8296291314454
+        ],
+        [
+         60.5,
+         945.3301270189222
+        ],
+        [
+         90.75,
+         944.5355339059328
+        ],
+        [
+         121,
+         943.5
+        ],
+        [
+         151.25,
+         942.2940952255126
+        ],
+        [
+         181.5,
+         941
+        ],
+        [
+         211.75,
+         939.7059047744874
+        ],
+        [
+         242,
+         938.5
+        ],
+        [
+         272.25,
+         937.4644660940672
+        ],
+        [
+         302.5,
+         936.6698729810778
+        ],
+        [
+         332.75,
+         936.1703708685546
+        ],
+        [
+         363,
+         936
+        ]
+       ],
+       "label": "design hem (curved)"
+      }
+     ]
+    }
+   ],
+   "summary": [
+    "Armholes cut in 3.5 cm towards the neck, to a halter line under the collar band",
+    "Back (custom, from Scoop): 30 cm below the nape at centre, 24 cm wide at the top, square",
+    "Hem (custom): front 3 cm above the floor, sides 4 cm above the floor, back 3 cm above the floor; curved (petal) edge"
+   ]
+  },
+  {
+   "name": "slightly uneven neckline, uneven hem",
+   "sil": "aline",
+   "lines": {
+    "neck": {
+     "custom": true,
+     "from": "sweetheart",
+     "centre": 17.5,
+     "cornerL": 7.25,
+     "cornerDepthL": 15,
+     "shoulderL": 9,
+     "shoulderDepthL": 4,
+     "curve": 0.8,
+     "cornerR": 8,
+     "cornerDepthR": 15,
+     "shoulderR": 9,
+     "shoulderDepthR": 4
+    },
+    "hem": {
+     "custom": true,
+     "front": 8,
+     "left": 9,
+     "back": 0,
+     "right": 2,
+     "curve": 0.5,
+     "edge": "plain"
+    }
+   },
+   "highNeck": false,
+   "bodice": [
+    {
+     "name": "Bodice back",
+     "style": []
+    },
+    {
+     "name": "Bodice front",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         266.38656169873354
+        ],
+        [
+         4.53125,
+         256.14656169873354
+        ],
+        [
+         9.0625,
+         253.58656169873356
+        ],
+        [
+         13.59375,
+         251.80182163900247
+        ],
+        [
+         18.125,
+         250.38656169873357
+        ],
+        [
+         22.65625,
+         249.19489279179385
+        ],
+        [
+         27.1875,
+         248.1556366240697
+        ],
+        [
+         31.71875,
+         247.22809454900198
+        ],
+        [
+         36.25,
+         246.38656169873357
+        ],
+        [
+         40.78125,
+         245.61364738135808
+        ],
+        [
+         45.3125,
+         244.89697556505894
+        ],
+        [
+         49.84375,
+         244.2273901427439
+        ],
+        [
+         54.375,
+         243.59790535540373
+        ],
+        [
+         58.90625,
+         243.00305621991316
+        ],
+        [
+         63.4375,
+         242.43847776156906
+        ],
+        [
+         67.96875,
+         241.9006220306987
+        ],
+        [
+         72.5,
+         241.38656169873357
+        ],
+        [
+         90,
+         131.38656169873357
+        ],
+        [
+         170.1043940038456,
+         131.38656169873357
+        ]
+       ],
+       "label": "design neckline (custom)"
+      }
+     ]
+    }
+   ],
+   "skirt": [
+    {
+     "name": "Skirt front",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         896
+        ],
+        [
+         58.08333333333333,
+         895.8296291314454
+        ],
+        [
+         116.16666666666666,
+         895.3301270189222
+        ],
+        [
+         174.25,
+         894.5355339059328
+        ],
+        [
+         232.33333333333331,
+         893.5
+        ],
+        [
+         290.4166666666667,
+         892.2940952255126
+        ],
+        [
+         348.5,
+         891
+        ],
+        [
+         406.58333333333337,
+         889.7059047744874
+        ],
+        [
+         464.66666666666663,
+         888.5
+        ],
+        [
+         522.75,
+         887.4644660940672
+        ],
+        [
+         580.8333333333334,
+         886.6698729810778
+        ],
+        [
+         638.9166666666666,
+         886.1703708685546
+        ],
+        [
+         697,
+         886
+        ]
+       ],
+       "label": "design hem"
+      }
+     ]
+    },
+    {
+     "name": "Skirt back",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         976
+        ],
+        [
+         58.08333333333333,
+         974.4666621830081
+        ],
+        [
+         116.16666666666666,
+         969.9711431702998
+        ],
+        [
+         174.25,
+         962.8198051533947
+        ],
+        [
+         232.33333333333331,
+         953.5
+        ],
+        [
+         290.4166666666667,
+         942.6468570296134
+        ],
+        [
+         348.5,
+         931
+        ],
+        [
+         406.58333333333337,
+         919.3531429703866
+        ],
+        [
+         464.66666666666663,
+         908.5
+        ],
+        [
+         522.75,
+         899.1801948466053
+        ],
+        [
+         580.8333333333334,
+         892.0288568297003
+        ],
+        [
+         638.9166666666666,
+         887.5333378169919
+        ],
+        [
+         697,
+         886
+        ]
+       ],
+       "label": "design hem"
+      }
+     ]
+    }
+   ],
+   "summary": [
+    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 15.5 cm wide at the bust line (15 cm below the collarbone on her left, 15 cm below it on her right), meeting the shoulder 9 cm from the centre line on her left and 9 cm on her right, 4 cm below the collarbone; a dipped, sweetheart-like curve",
+    "Hem (custom): front 8 cm above the floor, her left side 9 cm above the floor, her right side on the floor, back on the floor"
+   ]
+  },
+  {
+   "name": "shoulder point at -6.5 cm from the collarbone",
+   "sil": "aline",
+   "lines": {
+    "neck": {
+     "custom": true,
+     "from": "sweetheart",
+     "centre": 17.5,
+     "cornerL": 7.25,
+     "cornerDepthL": 15,
+     "shoulderL": 7,
+     "shoulderDepthL": -6.5,
+     "curve": 0.8,
+     "cornerR": 7.25,
+     "cornerDepthR": 15,
+     "shoulderR": 9,
+     "shoulderDepthR": 4
+    }
+   },
+   "highNeck": false,
+   "bodice": [
+    {
+     "name": "Bodice back",
+     "style": []
+    },
+    {
+     "name": "Bodice front",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         266.38656169873354
+        ],
+        [
+         4.53125,
+         256.14656169873354
+        ],
+        [
+         9.0625,
+         253.58656169873356
+        ],
+        [
+         13.59375,
+         251.80182163900247
+        ],
+        [
+         18.125,
+         250.38656169873357
+        ],
+        [
+         22.65625,
+         249.19489279179385
+        ],
+        [
+         27.1875,
+         248.1556366240697
+        ],
+        [
+         31.71875,
+         247.22809454900198
+        ],
+        [
+         36.25,
+         246.38656169873357
+        ],
+        [
+         40.78125,
+         245.61364738135808
+        ],
+        [
+         45.3125,
+         244.89697556505894
+        ],
+        [
+         49.84375,
+         244.2273901427439
+        ],
+        [
+         54.375,
+         243.59790535540373
+        ],
+        [
+         58.90625,
+         243.00305621991316
+        ],
+        [
+         63.4375,
+         242.43847776156906
+        ],
+        [
+         67.96875,
+         241.9006220306987
+        ],
+        [
+         72.5,
+         241.38656169873357
+        ],
+        [
+         70,
+         15.329531910532742
+        ]
+       ],
+       "label": "design neckline (custom)"
+      }
+     ]
+    }
+   ],
+   "skirt": [
+    {
+     "name": "Skirt front",
+     "style": []
+    },
+    {
+     "name": "Skirt back",
+     "style": []
+    }
+   ],
+   "summary": [
+    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 14.5 cm wide at the bust line (15 cm below the collarbone on her left, 15 cm below it on her right), meeting the shoulder 7 cm from the centre line on her left and 9 cm on her right, 6.5 cm above the collarbone; a dipped, sweetheart-like curve"
+   ]
+  },
+  {
+   "name": "shoulder point at -6 cm from the collarbone",
+   "sil": "aline",
+   "lines": {
+    "neck": {
+     "custom": true,
+     "from": "sweetheart",
+     "centre": 17.5,
+     "cornerL": 7.25,
+     "cornerDepthL": 15,
+     "shoulderL": 7,
+     "shoulderDepthL": -6,
+     "curve": 0.8,
+     "cornerR": 7.25,
+     "cornerDepthR": 15,
+     "shoulderR": 9,
+     "shoulderDepthR": 4
+    }
+   },
+   "highNeck": false,
+   "bodice": [
+    {
+     "name": "Bodice back",
+     "style": []
+    },
+    {
+     "name": "Bodice front",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         266.38656169873354
+        ],
+        [
+         4.53125,
+         256.14656169873354
+        ],
+        [
+         9.0625,
+         253.58656169873356
+        ],
+        [
+         13.59375,
+         251.80182163900247
+        ],
+        [
+         18.125,
+         250.38656169873357
+        ],
+        [
+         22.65625,
+         249.19489279179385
+        ],
+        [
+         27.1875,
+         248.1556366240697
+        ],
+        [
+         31.71875,
+         247.22809454900198
+        ],
+        [
+         36.25,
+         246.38656169873357
+        ],
+        [
+         40.78125,
+         245.61364738135808
+        ],
+        [
+         45.3125,
+         244.89697556505894
+        ],
+        [
+         49.84375,
+         244.2273901427439
+        ],
+        [
+         54.375,
+         243.59790535540373
+        ],
+        [
+         58.90625,
+         243.00305621991316
+        ],
+        [
+         63.4375,
+         242.43847776156906
+        ],
+        [
+         67.96875,
+         241.9006220306987
+        ],
+        [
+         72.5,
+         241.38656169873357
+        ],
+        [
+         70,
+         31.386561698733573
+        ]
+       ],
+       "label": "design neckline (custom)"
+      }
+     ]
+    }
+   ],
+   "skirt": [
+    {
+     "name": "Skirt front",
+     "style": []
+    },
+    {
+     "name": "Skirt back",
+     "style": []
+    }
+   ],
+   "summary": [
+    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 14.5 cm wide at the bust line (15 cm below the collarbone on her left, 15 cm below it on her right), meeting the shoulder 7 cm from the centre line on her left and 9 cm on her right, 6 cm above the collarbone; a dipped, sweetheart-like curve"
+   ]
+  },
+  {
+   "name": "shoulder point at -5.5 cm from the collarbone",
+   "sil": "aline",
+   "lines": {
+    "neck": {
+     "custom": true,
+     "from": "sweetheart",
+     "centre": 17.5,
+     "cornerL": 7.25,
+     "cornerDepthL": 15,
+     "shoulderL": 7,
+     "shoulderDepthL": -5.5,
+     "curve": 0.8,
+     "cornerR": 7.25,
+     "cornerDepthR": 15,
+     "shoulderR": 9,
+     "shoulderDepthR": 4
+    }
+   },
+   "highNeck": false,
+   "bodice": [
+    {
+     "name": "Bodice back",
+     "style": []
+    },
+    {
+     "name": "Bodice front",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         266.38656169873354
+        ],
+        [
+         4.53125,
+         256.14656169873354
+        ],
+        [
+         9.0625,
+         253.58656169873356
+        ],
+        [
+         13.59375,
+         251.80182163900247
+        ],
+        [
+         18.125,
+         250.38656169873357
+        ],
+        [
+         22.65625,
+         249.19489279179385
+        ],
+        [
+         27.1875,
+         248.1556366240697
+        ],
+        [
+         31.71875,
+         247.22809454900198
+        ],
+        [
+         36.25,
+         246.38656169873357
+        ],
+        [
+         40.78125,
+         245.61364738135808
+        ],
+        [
+         45.3125,
+         244.89697556505894
+        ],
+        [
+         49.84375,
+         244.2273901427439
+        ],
+        [
+         54.375,
+         243.59790535540373
+        ],
+        [
+         58.90625,
+         243.00305621991316
+        ],
+        [
+         63.4375,
+         242.43847776156906
+        ],
+        [
+         67.96875,
+         241.9006220306987
+        ],
+        [
+         72.5,
+         241.38656169873357
+        ],
+        [
+         70,
+         36.38656169873357
+        ]
+       ],
+       "label": "design neckline (custom)"
+      }
+     ]
+    }
+   ],
+   "skirt": [
+    {
+     "name": "Skirt front",
+     "style": []
+    },
+    {
+     "name": "Skirt back",
+     "style": []
+    }
+   ],
+   "summary": [
+    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 14.5 cm wide at the bust line (15 cm below the collarbone on her left, 15 cm below it on her right), meeting the shoulder 7 cm from the centre line on her left and 9 cm on her right, 5.5 cm above the collarbone; a dipped, sweetheart-like curve"
+   ]
+  },
+  {
+   "name": "shoulder point at -3 cm from the collarbone",
+   "sil": "aline",
+   "lines": {
+    "neck": {
+     "custom": true,
+     "from": "sweetheart",
+     "centre": 17.5,
+     "cornerL": 7.25,
+     "cornerDepthL": 15,
+     "shoulderL": 7,
+     "shoulderDepthL": -3,
+     "curve": 0.8,
+     "cornerR": 7.25,
+     "cornerDepthR": 15,
+     "shoulderR": 9,
+     "shoulderDepthR": 4
+    }
+   },
+   "highNeck": false,
+   "bodice": [
+    {
+     "name": "Bodice back",
+     "style": []
+    },
+    {
+     "name": "Bodice front",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         266.38656169873354
+        ],
+        [
+         4.53125,
+         256.14656169873354
+        ],
+        [
+         9.0625,
+         253.58656169873356
+        ],
+        [
+         13.59375,
+         251.80182163900247
+        ],
+        [
+         18.125,
+         250.38656169873357
+        ],
+        [
+         22.65625,
+         249.19489279179385
+        ],
+        [
+         27.1875,
+         248.1556366240697
+        ],
+        [
+         31.71875,
+         247.22809454900198
+        ],
+        [
+         36.25,
+         246.38656169873357
+        ],
+        [
+         40.78125,
+         245.61364738135808
+        ],
+        [
+         45.3125,
+         244.89697556505894
+        ],
+        [
+         49.84375,
+         244.2273901427439
+        ],
+        [
+         54.375,
+         243.59790535540373
+        ],
+        [
+         58.90625,
+         243.00305621991316
+        ],
+        [
+         63.4375,
+         242.43847776156906
+        ],
+        [
+         67.96875,
+         241.9006220306987
+        ],
+        [
+         72.5,
+         241.38656169873357
+        ],
+        [
+         70,
+         61.38656169873357
+        ]
+       ],
+       "label": "design neckline (custom)"
+      }
+     ]
+    }
+   ],
+   "skirt": [
+    {
+     "name": "Skirt front",
+     "style": []
+    },
+    {
+     "name": "Skirt back",
+     "style": []
+    }
+   ],
+   "summary": [
+    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 14.5 cm wide at the bust line (15 cm below the collarbone on her left, 15 cm below it on her right), meeting the shoulder 7 cm from the centre line on her left and 9 cm on her right, 3 cm above the collarbone; a dipped, sweetheart-like curve"
+   ]
+  },
+  {
+   "name": "shoulder point at -2.5 cm from the collarbone",
+   "sil": "aline",
+   "lines": {
+    "neck": {
+     "custom": true,
+     "from": "sweetheart",
+     "centre": 17.5,
+     "cornerL": 7.25,
+     "cornerDepthL": 15,
+     "shoulderL": 7,
+     "shoulderDepthL": -2.5,
+     "curve": 0.8,
+     "cornerR": 7.25,
+     "cornerDepthR": 15,
+     "shoulderR": 9,
+     "shoulderDepthR": 4
+    }
+   },
+   "highNeck": false,
+   "bodice": [
+    {
+     "name": "Bodice back",
+     "style": []
+    },
+    {
+     "name": "Bodice front",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         266.38656169873354
+        ],
+        [
+         4.53125,
+         256.14656169873354
+        ],
+        [
+         9.0625,
+         253.58656169873356
+        ],
+        [
+         13.59375,
+         251.80182163900247
+        ],
+        [
+         18.125,
+         250.38656169873357
+        ],
+        [
+         22.65625,
+         249.19489279179385
+        ],
+        [
+         27.1875,
+         248.1556366240697
+        ],
+        [
+         31.71875,
+         247.22809454900198
+        ],
+        [
+         36.25,
+         246.38656169873357
+        ],
+        [
+         40.78125,
+         245.61364738135808
+        ],
+        [
+         45.3125,
+         244.89697556505894
+        ],
+        [
+         49.84375,
+         244.2273901427439
+        ],
+        [
+         54.375,
+         243.59790535540373
+        ],
+        [
+         58.90625,
+         243.00305621991316
+        ],
+        [
+         63.4375,
+         242.43847776156906
+        ],
+        [
+         67.96875,
+         241.9006220306987
+        ],
+        [
+         72.5,
+         241.38656169873357
+        ],
+        [
+         70,
+         66.38656169873357
+        ],
+        [
+         179.81522161243274,
+         66.38656169873357
+        ]
+       ],
+       "label": "design neckline (custom)"
+      }
+     ]
+    }
+   ],
+   "skirt": [
+    {
+     "name": "Skirt front",
+     "style": []
+    },
+    {
+     "name": "Skirt back",
+     "style": []
+    }
+   ],
+   "summary": [
+    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 14.5 cm wide at the bust line (15 cm below the collarbone on her left, 15 cm below it on her right), meeting the shoulder 7 cm from the centre line on her left and 9 cm on her right, 2.5 cm above the collarbone; a dipped, sweetheart-like curve"
+   ]
+  }
+ ]
+}

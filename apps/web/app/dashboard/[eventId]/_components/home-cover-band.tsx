@@ -117,9 +117,9 @@ export function HomeCoverBand({
            the content area, square-edged, with its words on the page's gutter. The cards
            below keep their column (`data-home-column`). */
         /* 🖥 FROM 1280 IT IS THE FIRST COLUMN'S CARD (owner-approved 16 Nov 2026, event dashboard drawing v13 — the
-           three-column board): no bleed, all four corners round, and it scrolls with its column (`xl:static`) —
+           three-column board): no bleed, all four corners round, and it scrolls with its column (`xl:relative`, not sticky; never static, or the photo ground escapes to the viewport) —
            a third-width card pinned over two other columns would cover them. */
-        className={`group/cover sticky top-[calc(var(--home-bar)-var(--home-band-h)+52px)] z-[15] -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 [transition:top_var(--sn-tuck-dur)_var(--sn-tuck-ease)] sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:px-8 xl:static xl:mx-0 xl:mt-0 xl:rounded-3xl xl:px-6 ${card ? 'rounded-b-3xl pb-4 pt-[18px]' : 'pb-[18px] pt-[22px]'} ${ground ? '' : 'hc-ecard-plain'}`}
+        className={`group/cover sticky top-[calc(var(--home-bar)-var(--home-band-h)+52px)] z-[15] -mx-4 -mt-3 flex items-end justify-between gap-3 overflow-hidden px-4 [transition:top_var(--sn-tuck-dur)_var(--sn-tuck-ease)] sm:-mx-6 sm:-mt-6 sm:px-6 lg:-mx-8 lg:px-8 xl:relative xl:mx-0 xl:mt-0 xl:rounded-3xl xl:px-6 ${card ? 'rounded-b-3xl pb-4 pt-[18px]' : 'pb-[18px] pt-[22px]'} ${ground ? '' : 'hc-ecard-plain'}`}
         style={ground ? { background: ground.kind === 'paper' ? ground.background : undefined, color: ground.ink } : undefined}
       >
         {ground?.kind === 'image' ? (

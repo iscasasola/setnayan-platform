@@ -26,7 +26,7 @@
  * is to be found. Do not "tidy" them away.
  *
  * ── NO PRICE IS TYPED ─────────────────────────────────────────────────────
- * `resolvePapicAnchor()` reads the rung tables, the free grant and the ACTIVE
+ * `resolvePapicAnchor()` reads the rung tables and the ACTIVE
  * catalog, so an admin reprice moves this page with no edit. A rung we cannot
  * price is DROPPED rather than rendered at ₱0, which on a price list reads as
  * "free". If every read degrades, the cost section is omitted entirely and the
@@ -46,15 +46,8 @@ import { studioDescription } from '@/lib/studio-apps';
 import { Reveal } from '@/app/_components/marketing/_motion';
 import { fetchV2CustomerCatalogRead } from '@/lib/v2-catalog';
 import { actionButtonClass } from '@/components/action-button-class';
-import {
-  readPapicPassTiers,
-  readPapicFreeGrantRead,
-} from '@/lib/papic-tier-config-read';
-import type { PapicFreeGrantRead } from '@/lib/papic-tier-copy';
-import {
-  papicFreeCreditPoints,
-  papicFreeCreditPromise,
-} from '@/lib/papic-free-credit-promise';
+import { readPapicPassTiers } from '@/lib/papic-tier-config-read';
+import { PAPIC_BOOKING_GIFT_LINE } from '@/lib/setnayan-gift';
 import { PAPIC_POINTS_PER_PHOTO, PAPIC_POINTS_PER_SNIPPET } from '@/lib/papic-cameras-pure';
 import { setupPricePhp, hasSetupSaving, readOnboardingDiscountPct } from '@/lib/onboarding-discount';
 import { createAdminClient } from '@/lib/supabase/admin';
@@ -62,12 +55,6 @@ import { PapicScan } from './_papic-scan';
 import { PapicFilm } from './_papic-film';
 import { PapicDial, type PapicRung } from './_papic-dial';
 import { PapicFeatures, PapicHub } from './_papic-sections';
-import {
-  Fact,
-  PapicFreeCreditBadge,
-  PapicFreeCreditClosing,
-  PapicFreeCreditFact,
-} from './_papic-free-credits';
 import { formatCount } from '@/lib/format-number';
 
 /*
@@ -138,45 +125,36 @@ export const metadata = {
 };
 
 /**
- * ⚠ A FUNCTION, NOT A CONSTANT, AND THE FREE-CREDIT LINE IS WHY. Structured
- * data is a public claim like any other — it is what a search engine quotes —
- * and this list used to open with a hand-typed "Free credits on every
- * celebration". That sentence is materially false (an account claims the pool
- * once; see `lib/papic-free-credit-promise.ts`), and a module-scope constant
- * cannot read the admin column, so it could never have been anything else.
- * When the allowance is switched off the entry is DROPPED rather than reworded
- * — the same rule the visible page follows.
+ * Structured data is a public claim like any other — it is what a search engine
+ * quotes. 🎁 It names no free first-event credits: that grant is retired (owner
+ * 16 Nov 2026, DECISION_LOG "Free 50 Papic credits REMOVED").
  */
-function buildAppLd(read: PapicFreeGrantRead) {
-  const promise = papicFreeCreditPromise(read);
-  return {
-    '@context': 'https://schema.org',
-    '@type': 'SoftwareApplication',
-    name: 'Papic — Guest Photo Memories',
-    url: `${SITE_URL}/papic`,
-    applicationCategory: 'MultimediaApplication',
-    operatingSystem: 'Any (web browser)',
-    description: PAGE_DESCRIPTION,
-    featureList: [
-      ...(promise ? [`${promise.sentence} — no card, no trial clock`] : []),
-      'Cameras are free and unlimited',
-      'Guests become the photo crew — everyone contributes',
-      'A QR scan tags who is in a photo — no typing',
-      'Each guest gets their own Memories',
-      'Face tagging a guest opts into, and can delete',
-      'Anyone can ask not to be shown — the photo itself is blurred',
-      'Every photo is screened before it can appear',
-      'Photo challenges and video greetings',
-      'Snippets — ten-second candid videos, not just photographs',
-      'A recap page, a keepsake magazine and a souvenir video',
-      'Memory lane, included — open it on any venue screen from a browser',
-      'Lives on the couple’s own Event Hub',
-      'The couple receives every photo, tagged or not',
-    ],
-    areaServed: 'Philippines',
-    publisher: { '@id': `${SITE_URL}/#organization` },
-  };
-}
+const APP_LD = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'Papic — Guest Photo Memories',
+  url: `${SITE_URL}/papic`,
+  applicationCategory: 'MultimediaApplication',
+  operatingSystem: 'Any (web browser)',
+  description: PAGE_DESCRIPTION,
+  featureList: [
+    'Cameras are free and unlimited',
+    'Guests become the photo crew — everyone contributes',
+    'A QR scan tags who is in a photo — no typing',
+    'Each guest gets their own Memories',
+    'Face tagging a guest opts into, and can delete',
+    'Anyone can ask not to be shown — the photo itself is blurred',
+    'Every photo is screened before it can appear',
+    'Photo challenges and video greetings',
+    'Snippets — ten-second candid videos, not just photographs',
+    'A recap page, a keepsake magazine and a souvenir video',
+    'Memory lane, included — open it on any venue screen from a browser',
+    'Lives on the couple’s own Event Hub',
+    'The couple receives every photo, tagged or not',
+  ],
+  areaServed: 'Philippines',
+  publisher: { '@id': `${SITE_URL}/#organization` },
+};
 
 /**
  * The questions people actually stall on. The live page's old set answered
@@ -295,8 +273,6 @@ const VS: readonly (readonly [string, string])[] = [
 
 type PapicAnchor = {
   rungs: PapicRung[];
-  /** What the pool actually opens with, or 0 when the allowance is switched off. */
-  freeCredits: number;
 };
 
 /**
@@ -330,18 +306,11 @@ async function readSetupDiscountPct(): Promise<number> {
  * section is omitted and the page renders without it.
  */
 async function resolvePapicAnchor(): Promise<PapicAnchor | 'unread' | null> {
-  const [catalogRead, poolTiers, freeGrant, setupPct] = await Promise.all([
+  const [catalogRead, poolTiers, setupPct] = await Promise.all([
     fetchV2CustomerCatalogRead(),
     readPapicPassTiers(),
-    readPapicFreeGrantRead(),
     readSetupDiscountPct(),
   ]);
-  // 🔑 NOT `readPapicFreeGrantPoints()`. That reader folds a deliberate
-  // `free_grant_points = 0` onto the seed fallback of 50, so this page used to
-  // advertise 50 free credits at the exact moment SQL had stopped granting any.
-  // `papicFreeCreditPoints` returns null for "switched off" and the copy falls
-  // silent — see lib/papic-free-credit-promise.ts.
-  const freeCredits = papicFreeCreditPoints(freeGrant) ?? 0;
   /*
     💸 A REFUSED PRICE READ IS NOT "NOTHING TO BUY" (final check A1-023). With the catalogue (or the rung table) unread,
     every rung dropped and the dial showed only the free rung: "You pay nothing", + disabled, as if Papic had no price.
@@ -383,22 +352,14 @@ async function resolvePapicAnchor(): Promise<PapicAnchor | 'unread' | null> {
     .filter((r): r is PapicRung => r !== null && r.bought > 0)
     .sort((a, b) => a.peso - b.peso);
 
-  if (priced.length === 0 && freeCredits <= 0) return null;
-  // Rung zero is "buy nothing" — the free grant on its own. The dial opens here.
-  return { rungs: [{ peso: 0, bought: 0, setupPeso: null }, ...priced], freeCredits };
+  if (priced.length === 0) return null;
+  // 🎁 No "buy nothing" rung zero any more: it was the free first-event grant on its own, and that grant is retired
+  // (owner 16 Nov 2026). A rung of 0 credits at ₱0 would be exactly the 0-credit grant no screen may show.
+  return { rungs: priced };
 }
 
 export default async function PapicLandingPage() {
   const anchor = await resolvePapicAnchor();
-  /**
-   * 🔑 READ DIRECTLY, NOT OFF THE ANCHOR. `resolvePapicAnchor()` returns NULL
-   * when no rung can be priced AND the allowance is off — precisely the case
-   * where the page must stay silent — so taking the read off the anchor would
-   * degrade the one state that matters most into "unknown", i.e. back to the
-   * seed 50. `readPapicFreeGrantRead` is `cache()`d, so this is the same
-   * request-scoped answer the anchor already used, not a second query.
-   */
-  const freeGrant: PapicFreeGrantRead = await readPapicFreeGrantRead();
   /*
     ⛔ NO COMPARISON AGAINST A PHOTOGRAPHER'S PRICE (owner 2026-09-15: "remove it").
 
@@ -425,7 +386,7 @@ export default async function PapicLandingPage() {
     <main className="px-5 pb-24 pt-10 sm:pt-14">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(buildAppLd(freeGrant)) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(APP_LD) }}
       />
       <script
         type="application/ld+json"
@@ -449,14 +410,13 @@ export default async function PapicLandingPage() {
             sizes="(min-width:768px) 672px, 100vw"
             className="object-cover"
           />
-          <PapicFreeCreditBadge read={freeGrant} />
         </div>
       </section>
 
       {/* ── THE THREE FACTS ─────────────────────────────────────────────── */}
       <section className="mx-auto mt-8 max-w-2xl" aria-label="What Papic gives you">
         <ul className="space-y-2 text-[0.95rem]">
-          <PapicFreeCreditFact read={freeGrant} />
+          <Fact>{PAPIC_BOOKING_GIFT_LINE}</Fact>
           <Fact>No app. No account.</Fact>
           <Fact>Yours for life.</Fact>
         </ul>
@@ -658,7 +618,7 @@ export default async function PapicLandingPage() {
               What it costs
             </h2>
             <p className="mt-2 text-sm text-[var(--m-slate-2)]">
-              Start free. Move the dial only if you run out.
+              Move the dial to see what each amount gives.
             </p>
 
             {/* WHAT A CREDIT IS — owner, 2026-08-29: "Explain credits." It used to
@@ -699,7 +659,6 @@ export default async function PapicLandingPage() {
             <div className="mt-4">
               <PapicDial
                 rungs={anchor.rungs}
-                freeCredits={anchor.freeCredits}
                 clipCost={PAPIC_POINTS_PER_SNIPPET}
               />
             </div>
@@ -756,8 +715,7 @@ export default async function PapicLandingPage() {
       {/* ── CLOSING — no buttons. The page ends on the fact; the codes above
              are the way in. ───────────────────────────────────────────────── */}
       <section className="mx-auto mt-16 max-w-2xl" aria-label="Papic, in one line">
-        <PapicFreeCreditClosing read={freeGrant} />
-        <p className="mt-3 text-sm text-[var(--m-slate-2)]">
+        <p className="text-sm text-[var(--m-slate-2)]">
           Papic lives on the Event Hub you already have, beside the guest list, the RSVP and
           the seating, and every photo it takes is kept for life.
         </p>
@@ -786,5 +744,17 @@ function Cost({ n }: { n: number }) {
       </span>
       <span className="mr-1.5">credit{n === 1 ? '' : 's'} ·</span>
     </>
+  );
+}
+
+/** The page's tick bullet (moved here from the retired `_papic-free-credits.tsx`). */
+function Fact({ children }: { children: React.ReactNode }) {
+  return (
+    <li className="flex items-baseline gap-2.5">
+      <span aria-hidden className="translate-y-px text-[var(--m-orange-2)]">
+        ✓
+      </span>
+      <span className="text-[var(--m-slate-2)]">{children}</span>
+    </li>
   );
 }

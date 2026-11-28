@@ -21,6 +21,7 @@
  */
 
 import {
+  autoSeatTakesTable,
   effectiveCapacity,
   guestTier,
   rankTablesByStage,
@@ -65,7 +66,9 @@ export function suggestTableFor(
   // would do even when the couple has moved the stage.
   const pool = rankTablesByStage(tables, stage)
     .map((r) => r.table)
-    .filter((t) => t.table_type !== 'sweetheart_2');
+    // 🔒 The seater's own pool rule (`autoSeatTakesTable`): never the Sweetheart, a locked table or a Spare one —
+    // a hint must not point a guest at a table auto arrange would never seat them at (seat plan § 4.7).
+    .filter((t) => autoSeatTakesTable(t));
   if (pool.length === 0) return null;
 
   // Live free-seat count per table so a suggestion prefers a table with room.

@@ -510,6 +510,8 @@ export const routes = {
   },
   resetPassword: () => `/reset-password`,
   signup: () => `/signup`,
+  /** The public supplier search (hosts browse suppliers here). `/vendors` redirects to the supplier SALES page, never this. */
+  suppliers: () => `/suppliers`,
   siteEditor: {
     // Unified Website Editor (2026-07-25) — the legacy /site-editor is retired to
     // a redirect; point callers straight at the one editor.

@@ -26,6 +26,7 @@ import { readFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { dirname } from 'node:path';
+import { stripComments } from './strip-comments';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const WEB = resolve(HERE, '..');
@@ -80,11 +81,25 @@ test('WAVE 8 — it follows the /panood/program precedent, not a second mechanis
 test('WAVE 8 — no route group or layout was added under /panood that could re-introduce chrome', () => {
   // A layout.tsx anywhere on the way down would wrap the controller again. The
   // root layout is the only ancestor it may have.
-  for (const rel of ['app/panood', 'app/panood/control', 'app/panood/control/[eventId]']) {
+  for (const rel of ['app/panood', 'app/panood/control']) {
     assert.ok(
       !existsSync(resolve(WEB, rel, 'layout.tsx')),
       `${rel}/layout.tsx exists — the controller is no longer chrome-less`,
     );
+  }
+  // The controller's OWN segment has one layout, and it draws nothing: it only decides the 404 / redirects before
+  // `loading.tsx` streams (app/_components/a-route-decides-before-it-streams.test.ts), then hands back `children` — or
+  // the page's own "couldn't open the control room" screen, never a frame around it.
+  const own = resolve(WEB, 'app/panood/control/[eventId]/layout.tsx');
+  if (existsSync(own)) {
+    const src = stripComments(readFileSync(own, 'utf8'));
+    const tags = [...src.matchAll(/<([A-Za-z][\w.]*)/g)].map((m) => m[1]);
+    assert.deepEqual(
+      tags.filter((t) => t !== 'ControlRoomUnreadable'),
+      [],
+      'app/panood/control/[eventId]/layout.tsx draws markup — the controller is no longer chrome-less',
+    );
+    assert.match(src, /return children;/, 'the controller layout must hand back its children unwrapped');
   }
 });
 
@@ -322,7 +337,9 @@ test('WAVE 8 — reduced motion is respected by the one scroll animation added',
    ══════════════════════════════════════════════════════════════════════════════ */
 
 test('WAVE 8 — both the controller and its redirect stub 404 while the flag is off', () => {
-  for (const rel of [CONTROLLER, LEGACY_STUB]) {
+  // The controller decides its 404 in its gate (awaited by its layout before streaming, asked again by the page).
+  assert.match(read(CONTROLLER), /await gateControlRoom\(eventId\)/, `${CONTROLLER} no longer asks its gate`);
+  for (const rel of [CONTROLLER.replace(/page\.tsx$/, 'gate.tsx'), LEGACY_STUB]) {
     assert.match(
       read(rel),
       /if \(!liveStudioRoamEnabled\(\)\) notFound\(\)/,

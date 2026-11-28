@@ -110,7 +110,8 @@ test('A4-78 · /papic/order holds the log form while its payment list is unread'
 });
 
 test('A4-79 / A4-80 · /papic/pool: a failed read is not a closed gallery, and "load more" never vanishes silently', () => {
-  const page = code('app/papic/pool/page.tsx');
+  // The pool's reads and 404s are decided by its gate (awaited by its layout before streaming); read with the page.
+  const page = code('app/papic/pool/gate.ts') + code('app/papic/pool/page.tsx');
   assert.match(page, /if \(evErr\) throw/);
   assert.ok(page.indexOf('if (evErr) throw') < page.indexOf('if (!ev?.pool_gallery_open) notFound();'));
   const grid = code('app/papic/pool/_components/pool-grid.tsx');

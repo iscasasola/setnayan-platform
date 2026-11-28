@@ -6,7 +6,6 @@ import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { generateUniqueSlug } from '@/lib/slugs';
-import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { ALLOWED_CEREMONY_VALUES } from '@/lib/faith-registry';
 import { getCreatableEventTypes } from '@/lib/event-types-db';
 import { resolveProfile } from '@/lib/event-type-profile';
@@ -487,14 +486,8 @@ export async function createWeddingEvent(formData: FormData) {
     return redirect('/dashboard/create-event?error=create_failed');
   }
 
-  // Arm the free Papic pool (owner-locked 2026-07-27 · 50 pts). Papic is switched
-  // ON free for every new event, so the metering fence must exist from the moment
-  // the event does — an event with no grant takes papic_event_pool_status()'s
-  // applies=FALSE branch and captures UNMETERED. Idempotent + non-fatal.
-  await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id, user.id);
-  // 🔌 No free "One" camera call (owner 2026-10-13, "drop the retired free-camera call"):
-  // `free_one_camera_points` is 0 by migration 20271130515135 (owner 2026-08-11), so
-  // `papic_ensure_free_one_camera` armed nothing and cost a request per new event.
+  // 🎁 No free first-event Papic grant (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic credits REMOVED"):
+  // every booking carries a Setnayan gift instead, so nothing is armed here. Credits already granted stay.
 
   // Add the creating user as a couple member.
   const { error: memberError } = await admin.from('event_members').insert({
@@ -675,14 +668,8 @@ export async function planNextYearEvent(formData: FormData) {
     return redirect(`/dashboard/${sourceId}?error=plan_next_year_failed`);
   }
 
-  // Arm the free Papic pool for the CLONE (owner-locked 2026-07-27 · 50 pts). A
-  // next-year clone is a brand-new event row with its own pool — grants are never
-  // copied by buildNextYearClonePayload, so without this the clone would be the
-  // one unmetered event in the account. Idempotent + non-fatal.
-  await ensureFreePapicPoolGrantAdmin(admin, inserted.event_id, user.id);
-  // 🔌 No free "One" camera call (owner 2026-10-13, "drop the retired free-camera call"):
-  // `free_one_camera_points` is 0 by migration 20271130515135 (owner 2026-08-11), so
-  // `papic_ensure_free_one_camera` armed nothing and cost a request per new event.
+  // 🎁 No free first-event Papic grant (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic credits REMOVED"):
+  // every booking carries a Setnayan gift instead, so nothing is armed here. Credits already granted stay.
 
   const { error: memberError } = await admin.from('event_members').insert({
     event_id: inserted.event_id,

@@ -650,6 +650,8 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { key: 'pk', name: 'table_id', note: 'one table in the room' },
       { key: '', name: 'link_group_id', note: 'FK-SHAPED BUT NOT AN FK (verified, any schema) — groups tables into one serpentine run' },
       { key: 'fk', name: 'walkthrough_zone_id', note: 'nullable, SET NULL — the one non-destructive outbound link' },
+      { key: '', name: 'label_is_auto', note: 'TRUE = the shown name is READ (tableDisplayNames, lib/table-auto-name.ts: majority group, else "Table N"); FALSE = host-typed, never changed by a move (seat plan § 4.3)' },
+      { key: '', name: 'table_kind', note: "regular · vip · elders · spare — the VIP read (isVipTable); is_vip is written in step until a cleanup drops it" },
     ],
     edges: [
       { verb: 'seats', to: 'TYPE-GUESTS' },
@@ -4469,6 +4471,78 @@ export const UGAT_JOINTS: UgatJoint[] = [
       'tests/db/the-meter-counts-every-shop-table.db.test.ts (every shop table counted or left out with a reason · a new table counted by default · booking rows through event_vendors · a new shop reads a few KB · every file in its kind · media twin · service role only) · lib/supplier-storage.test.ts (the gate: only photos and video past the plan wait; documents and evidence never refused) · lib/the-meter-counts-every-upload-root.test.ts (every upload root is a counted shop root or a named non-shop root)',
     traps:
       'Never ledger a supplier-files/ upload: its size is on supplier_media and it would count twice. Records are MEASURED, not live — a page view never rescans (owner: "never a scan per page view"); the nightly job refreshes. A signed upload that never completed still counts until its object is deleted (the presign is the only moment the size is known). Only photos and video are refused: a document, a chat file or evidence past the plan still goes in (owner 23 Nov, the room dropped) — the database backstop skips them too.',
+  },
+  {
+    /**
+     * 👗 A GOWN DESIGN LIVES IN THE CHAT (gown maker port step B1, migration 20271365509280; DECISION_LOG 2026-11-27
+     * "Gown maker port: the build plan" + "owner answers"). Built as the cake maker is: a bride designs from her chat
+     * with a gown shop and Sends; the design is a row keyed to that thread, the designer's tape a row beside it. The
+     * QR share (#8387, folded in) is the second way in: a shop-made design with a share code and no thread yet.
+     */
+    id: 'J74',
+    claims: [
+      { kind: 'table', table: 'gown_designs' },
+      { kind: 'fk', table: 'gown_designs', column: 'thread_id', references: 'chat_threads' },
+      { kind: 'fk', table: 'gown_designs', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'gown_designs', column: 'locked_token', references: 'vendor_locked_qr_tokens' },
+      { kind: 'column', table: 'gown_designs', column: 'body' },
+      { kind: 'column', table: 'gown_designs', column: 'quantities' },
+      { kind: 'column', table: 'gown_designs', column: 'estimate_centavos' },
+      // The owner rule this joint exists to hold: no cost line is ever stored on the row a bride can read.
+      { kind: 'no_column', table: 'gown_designs', column: 'cost_lines' },
+      { kind: 'check', table: 'gown_designs', name: 'gown_designs_in_a_chat_or_shared' },
+      { kind: 'table', table: 'gown_fittings' },
+      { kind: 'fk', table: 'gown_fittings', column: 'design_id', references: 'gown_designs' },
+    ],
+    chain: 4,
+    pair: ['TYPE-THREADS', 'TYPE-VENDORS'],
+    title: 'Chat → the gown design a bride sent (and the designer’s tape)',
+    joint: 'gown_designs',
+    cardinality:
+      'A thread has 0..n designs (one per Send); a design has 0..1 fittings row (the designer’s tape). A QR-shared design has a share code and no thread until a scan posts it into a chat',
+    implementedBy:
+      'gown_designs (config · body · measures · quantities · the one estimate; share_code / share_as / locked_token for the QR share) · gown_fittings (the tape, PK design_id) · trigger gown_designs_shop_is_the_threads (a design’s shop is its chat’s shop, which the shop arm of the read policy rests on)',
+    writtenBy:
+      'The server only, in the gown_tool op of supplierScan (step B3: send, fit); the QR share’s writer is the step after B8 (ported from #8387). No signed-in session holds a write grant',
+    guardedBy:
+      'tests/db/gown-maker-keeps-her-numbers-private.db.test.ts (a bride reads her own design and no other · a guest of the same event, another couple and another shop read nothing · the tape is the shop’s only · no money column beyond the one estimate · no client writes · caps · shop = chat’s shop)',
+    traps:
+      'Her body numbers are personal data: stored only on Send, read by the event’s hosts and that shop. NEVER store a cost line on gown_designs — the bride can read the row; the server prices quantities for the shop at read time. A guest of the event is kept out twice (the policy asks current_couple_event_ids, and chat_threads’ own RLS) — narrowing one does not open the other, widening both does.',
+  },
+  {
+    /**
+     * 👗 A SHOP SETS UP ITS ATTIRE MAKER ONCE (gown maker port step B1, migration 20271365509280). The Toolkit's paid
+     * "Attire Maker" (SKU vendor_tool_attire_tool, priced as the Cake Maker: DECISION_LOG 2026-11-23 "Top-band tools",
+     * owner 2026-11-27 "paid"). Options are one jsonb row per shop, as the Cake Maker's; fabrics, laces and looks are
+     * rows because they carry photos; every fabric points at the admin-edited type registry.
+     */
+    id: 'J75',
+    claims: [
+      { kind: 'table', table: 'vendor_gown_makers' },
+      { kind: 'fk', table: 'vendor_gown_makers', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'table', table: 'vendor_gown_fabrics' },
+      { kind: 'fk', table: 'vendor_gown_fabrics', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'fk', table: 'vendor_gown_fabrics', column: 'type_id', references: 'gown_fabric_types' },
+      { kind: 'column', table: 'vendor_gown_fabrics', column: 'price_per_metre_centavos' },
+      { kind: 'table', table: 'vendor_gown_looks' },
+      { kind: 'fk', table: 'vendor_gown_looks', column: 'vendor_profile_id', references: 'vendor_profiles' },
+      { kind: 'table', table: 'gown_fabric_types' },
+      { kind: 'column', table: 'gown_fabric_types', column: 'render_as' },
+    ],
+    chain: 7,
+    pair: ['TYPE-VENDORS', 'TYPE-BILLING'],
+    title: 'Shop → its Attire Maker setup (price list · fabrics and lace · looks)',
+    joint: 'vendor_gown_makers',
+    cardinality:
+      'A shop has 0..1 options row and 0..n fabrics, laces and looks; every fabric points at 0..1 registry type (NULL = not said; renders as crepe)',
+    implementedBy:
+      'vendor_gown_makers (options jsonb: price list in centavos, pricing mode, labour hours, seam allowances) · vendor_gown_fabrics (per-metre price NULL = unpriced) · vendor_gown_looks (a saved GownConfig + photo) · gown_fabric_types (the registry, seeded with the prototype’s 15, verified = FALSE)',
+    writtenBy:
+      'The server only, in the gown_tool op of supplierScan (steps B3–B5: save, fabric_save, look_save); gown_fabric_types by Setnayan admin only (owner Q4) through the admin console (step B5b)',
+    guardedBy:
+      'tests/db/gown-maker-keeps-her-numbers-private.db.test.ts (the shop’s rows are the shop’s; a bride in its chat and another shop read none of them directly · no client writes · the registry is read by anyone signed in · a type a fabric uses cannot be deleted · the SKU is priced as the Cake Maker)',
+    traps:
+      'A bride sees a shop’s fabrics and looks only through the server’s open read, which drops the per-metre price — never widen these policies to the chat’s members. The SKU row copies the Cake Maker’s price at migration time; a later price change is an admin edit of BOTH rows, never a typed amount.',
   },
 ];
 

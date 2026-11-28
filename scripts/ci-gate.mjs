@@ -19,7 +19,7 @@
  */
 
 import fs from 'node:fs';
-import { gateVerdict, deferrable, supersedingRun, deferredCheckBody, pendingDeferredChecks, completionConclusion, GATE_NAME } from './lib/ci-shape.mjs';
+import { gateVerdict, deferrable, supersedingRun, deferredCheckBody, draftHoldCheckBody, pendingDeferredChecks, completionConclusion, GATE_NAME } from './lib/ci-shape.mjs';
 
 const { ok, rows, problems } = gateVerdict(process.env.NEEDS, process.env.PR_DRAFT);
 const { GITHUB_TOKEN, GITHUB_REPOSITORY, RUN_ID, HEAD_SHA, HEAD_BRANCH, PR_NUMBER, EVENT_NAME } = process.env;
@@ -67,6 +67,25 @@ if (!ok && onPr && deferrable(process.env.NEEDS)) {
     }
     console.log('(the PENDING deferral check was not accepted by GitHub, so nothing holds the context: the gate stays red)');
   }
+}
+
+/*
+ * A LONE DRAFT HOLDS THE CONTEXT PENDING, NEVER RED (#8524 — see draftHoldCheckBody). A red draft gate that finished
+ * before "Ready for review" stayed counted on the commit after the ready run went green, so the PR sat BLOCKED. The
+ * hold is completed by the ready run's honest gate below. Only a draft, only on a pull_request, only when nothing
+ * really FAILED (a draft whose guards failed stays red), and only once GitHub accepted the pending check.
+ */
+if (!ok && onPr && process.env.PR_DRAFT === 'true' && deferrable(process.env.NEEDS) && GITHUB_TOKEN && GITHUB_REPOSITORY && RUN_ID && HEAD_SHA) {
+  const posted = await gh('POST', `/repos/${GITHUB_REPOSITORY}/check-runs`, draftHoldCheckBody({ runId: RUN_ID, headSha: HEAD_SHA }));
+  if (posted?.id && posted.status !== 'completed' && posted.conclusion == null) {
+    const msg = `Draft PR: checks not run. "${GATE_NAME}" now reads PENDING (check run ${posted.id}), so this draft cannot merge. Marking the PR ready starts a full run whose own gate completes it with the real result — no re-run and no extra commit needed.`;
+    console.log(`::notice title=Draft PR, pending::${msg}`);
+    for (const r of rows) console.log(`  ${r.result === 'success' ? 'PASS' : '----'}  ${r.job} (${r.result})`);
+    const summary = process.env.GITHUB_STEP_SUMMARY;
+    if (summary) fs.appendFileSync(summary, ['### typecheck + lint: draft (pending)', '', msg, ''].join('\n'));
+    process.exit(0);
+  }
+  console.log('(the PENDING draft hold was not accepted by GitHub, so nothing holds the context: the gate stays red)');
 }
 
 async function findSuccessor() {

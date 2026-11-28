@@ -30,15 +30,11 @@ test('Patiktok has no /features entry — retired, so it is neither free nor pai
   assert.equal(DAY_MEMORIES_FEATURES.find((f) => (f.slug as string) === 'patiktok'), undefined, 'the retired Patiktok feature entry is back');
 });
 
-test('Patiktok on /pricing reads its per-day price from the row', () => {
-  // 2026-10-25 (prototype `pricing_ours_only` revision 5): the row is read in `_pricing-reads.ts`; "a day" is decided by
-  // the ROW's billing period, and the page draws it from there.
+test('Patiktok is not on /pricing at all — its row and its read were deleted (L9 P27, 27 Nov)', () => {
   const reads = code('app/(shell)/pricing/_pricing-reads.ts');
-  assert.match(reads, /php\(\s*'PATIKTOK_COMPILER'\s*\)/, '/pricing no longer reads the Patiktok row');
-  assert.match(reads, /perDay: patiktokRow\?\.billing_period === 'per_day'/, 'the per-day words no longer come from the row');
+  assert.doesNotMatch(reads, /PATIKTOK_COMPILER|patiktok/i, '/pricing reads the retired Patiktok row again');
   const src = code('app/(shell)/pricing/page.tsx');
-  assert.match(src, /suffix=\{prices\.patiktok\.perDay \? 'a day' : undefined\}/, 'the Patiktok row no longer says how it is billed');
-  assert.doesNotMatch(src, /free to make/i, '/pricing sells Patiktok as free to make');
+  assert.doesNotMatch(src, /Patiktok|prices\.patiktok/, '/pricing draws a Patiktok row again');
 });
 
 test('supplier verification is free for good — never "during launch"', () => {

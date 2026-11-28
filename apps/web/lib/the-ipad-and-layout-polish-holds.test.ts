@@ -55,12 +55,12 @@ test('3 · the public address and its "· off" are one unit that never breaks mi
 
 // SABOTAGE: put the circled "@" back in the other-accounts row → RED.
 test('4 · the switcher rows draw no "@" mark and no second email', () => {
-  const src = read('app/_components/account-switcher/account-switcher.tsx');
-  const from = src.indexOf('(data.otherAccounts ?? []).map(');
-  const rows = src.slice(from, src.indexOf('data-sheet-place="add-account"', from));
-  assert.ok(from >= 0 && rows.length > 0, 'anti-vacuity: the other-accounts rows were not found');
-  assert.doesNotMatch(rows, />@</, 'the "@" mark is back');
-  assert.match(rows, /\{realNameOrNull\(acct\.name\) \? \(\s*<span className=\{SUB\}>/, 'the email shows twice for an unnamed account');
+  // Main moved the other-accounts row into the shared `OtherAccountRow` (the sheet and /login draw it); the rule moved with it.
+  const sheet = read('app/_components/account-switcher/account-switcher.tsx');
+  assert.match(sheet, /<OtherAccountRow key=\{acct\.uid\} acct=\{acct\}/, 'anti-vacuity: the sheet no longer draws the shared row');
+  const rows = read('app/_components/account-switcher/other-account-row.tsx');
+  assert.doesNotMatch(rows, />\s*@\s*</, 'the "@" mark is back');
+  assert.match(rows, /\{realNameOrNull\(acct\.name\) \? \(\s*<span className="mt-0\.5/, 'the email shows twice for an unnamed account');
 });
 
 // SABOTAGE: remove the BackButton from the contracts page → RED.

@@ -131,12 +131,47 @@ export type EventTableRow = {
   // auto arrange seats role holders here first, role first then group. Optional so render-only literals need not set
   // it; fetchTables always returns a boolean.
   is_vip?: boolean;
+  /** 🪑 FALSE = the host typed `table_label` (kept as typed); TRUE = the shown name is read by `tableDisplayNames`
+   *  (lib/table-auto-name.ts). Optional so render-only literals need not set it; fetchTables always returns it. */
+  label_is_auto?: boolean;
+  /** 🪑 regular · vip · elders · spare (seat plan § 4.7). The VIP read is `table_kind === 'vip'` (`isVipTable`). */
+  table_kind?: TableKind;
+  /** 🔒 The table lock: auto arrange keeps this table as it is. */
+  locked?: boolean;
   // 🏛 A VENUE'S OWN HALL only (Spaces, the one editor in venue mode): the shape the supplier drew — round · long ·
   // half-moon — and, for a long table, one chair at each end (counted in `capacity`). Set by the Spaces mapper, never
   // read from or written to `event_tables`; a couple's row leaves both unset and draws from `table_type` as always.
   plan_shape?: PlanTableShape | null;
   chairs_at_ends?: boolean;
 };
+
+export type TableKind = 'regular' | 'vip' | 'elders' | 'spare';
+const TABLE_KINDS: ReadonlySet<string> = new Set(['regular', 'vip', 'elders', 'spare']);
+export function parseTableKind(raw: unknown, isVip?: boolean | null): TableKind {
+  if (typeof raw === 'string' && TABLE_KINDS.has(raw)) return raw as TableKind;
+  return isVip === true ? 'vip' : 'regular';
+}
+/** 🪑 THE VIP read (seat plan § 6): the table's kind, with the old `is_vip` mark as the fallback for a row read without it. */
+export function isVipTable(t: { table_kind?: string | null; is_vip?: boolean | null }): boolean {
+  return parseTableKind(t.table_kind, t.is_vip) === 'vip';
+}
+
+/**
+ * 🔒 MAY AUTO ARRANGE SEAT PEOPLE AT THIS TABLE? (seat plan § 5, hard rules) — the ONE answer, read by the seater's pool
+ * (`computeAutoSeat`), its room count (`autoSeatRoom`) and the keep-apart repair (`solveSeatPlan`):
+ *   · never the Sweetheart (the couple's);
+ *   · never a LOCKED table (`locked`): it is kept exactly as it is — nobody added, nobody moved;
+ *   · never a SPARE table (`table_kind = 'spare'`): it is kept empty for walk-ins.
+ * A person can still seat someone there by hand; this rule binds the automatic seater only.
+ */
+export function autoSeatTakesTable(t: {
+  table_type: TableType | string;
+  locked?: boolean | null;
+  table_kind?: string | null;
+  is_vip?: boolean | null;
+}): boolean {
+  return t.table_type !== 'sweetheart_2' && t.locked !== true && parseTableKind(t.table_kind, t.is_vip) !== 'spare';
+}
 
 export type SeatAssignmentRow = {
   assignment_id: string;
@@ -182,7 +217,7 @@ export async function fetchTables(
   const { data, error } = await supabase
     .from('event_tables')
     .select(
-      'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos,rotation_deg,removed_seats,qr_token,qr_published_at,link_group_id,link_group_label,is_vip',
+      'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos,rotation_deg,removed_seats,qr_token,qr_published_at,link_group_id,link_group_label,is_vip,label_is_auto,table_kind,locked',
     )
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
@@ -206,7 +241,10 @@ export async function fetchTables(
       qr_published_at: r.qr_published_at ?? null,
       link_group_id: r.link_group_id ?? null,
       link_group_label: r.link_group_label ?? null,
-      is_vip: r.is_vip === true,
+      is_vip: isVipTable(r),
+      label_is_auto: r.label_is_auto === true,
+      table_kind: parseTableKind(r.table_kind, r.is_vip),
+      locked: r.locked === true,
     };
   }));
 }
@@ -225,7 +263,7 @@ export async function fetchPublicTables(
 ): Promise<EventTableRow[]> {
   const { data, error: publicTablesErr } = await supabase
     .from('event_tables')
-    .select('table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos')
+    .select('table_id,public_id,event_id,table_label,label_is_auto,table_type,capacity,sort_order,x_pos,y_pos')
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
@@ -237,6 +275,8 @@ export async function fetchPublicTables(
       public_id: r.public_id,
       event_id: r.event_id,
       table_label: r.table_label,
+      // 🪑 Only so the page can show the table's read name (lib/table-auto-name.ts); never handed on raw.
+      label_is_auto: r.label_is_auto === true,
       table_type: r.table_type,
       sort_order: r.sort_order,
       capacity: sanitizeCapacity(r.capacity),
@@ -380,6 +420,14 @@ export type FloorPlanRow = {
   venue_photo_visibility: 'table' | 'all' | 'none';
   /** 🪑 How a guest sees their seat — 2D map · 3D walk · Both (owner 2026-11-01, lib/guest-seat-view.ts). */
   guest_seat_view: GuestSeatView;
+  // 🔊 The Speakers element (seat plan § 4.7 / § 6, the entrance_* pattern): the solver keeps Elders tables away
+  // from it and the seat check names an elder seated near it.
+  speakers_enabled: boolean;
+  speakers_x: number;
+  speakers_y: number;
+  // The two ⋯ switches (seat plan § 4.4), on by default: seat a new "yes" by the rules · suggest seats on the cards.
+  auto_seat_rsvps: boolean;
+  seat_suggestions: boolean;
 };
 
 export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
@@ -419,6 +467,11 @@ export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
   vip_plus_ones: 'beside',
   venue_photo_visibility: 'table',
   guest_seat_view: 'both',
+  speakers_enabled: false,
+  speakers_x: 10,
+  speakers_y: 10,
+  auto_seat_rsvps: true,
+  seat_suggestions: true,
 };
 
 export async function fetchFloorPlan(
@@ -441,7 +494,7 @@ export async function fetchFloorPlanMeasured(
   const { data, error } = await supabase
     .from('event_floor_plan')
     .select(
-      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,entrance_kind,entrance_depth_m,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at,priority_order,role_seating,vip_plus_ones,venue_photo_visibility,guest_seat_view',
+      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,entrance_kind,entrance_depth_m,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at,priority_order,role_seating,vip_plus_ones,venue_photo_visibility,guest_seat_view,speakers_enabled,speakers_x,speakers_y,auto_seat_rsvps,seat_suggestions',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -505,6 +558,12 @@ export async function fetchFloorPlanMeasured(
       return v === 'all' || v === 'none' || v === 'table' ? v : D.venue_photo_visibility;
     })(),
     guest_seat_view: parseGuestSeatView((data as { guest_seat_view?: unknown }).guest_seat_view),
+    speakers_enabled: Boolean((data as { speakers_enabled?: unknown }).speakers_enabled),
+    speakers_x: num((data as { speakers_x?: unknown }).speakers_x, D.speakers_x),
+    speakers_y: num((data as { speakers_y?: unknown }).speakers_y, D.speakers_y),
+    // Only an explicit FALSE turns a switch off (both are on by default).
+    auto_seat_rsvps: (data as { auto_seat_rsvps?: unknown }).auto_seat_rsvps !== false,
+    seat_suggestions: (data as { seat_suggestions?: unknown }).seat_suggestions !== false,
   };
   return { plan, measured: true };
 }
@@ -800,11 +859,60 @@ export type AutoSeatCannotFit = { kind: 'no_room' | 'split' | 'vip_full'; guestI
 export type AutoSeatOptions = {
   /** Where the +1s of VIP guests sit. Omitted = 'beside'. */
   vipPlusOnes?: VipPlusOneSeating;
+  /** 🧓 The room's ways out and its speakers (`seatRoomPoints`) — orders the Elders tables. Omitted = stage order. */
+  room?: SeatRoomPoints;
   /** Filled with every rule auto arrange could not keep (the caller shows it). */
   cannotFit?: AutoSeatCannotFit[];
 };
 
 /** One line for the host naming what did not fit — '' when everything did. `nameOf` resolves a guest's name. */
+/** 🧓 Where the doors and the speakers are on the plan (percent of the canvas), for the Elders rule (seat plan § 4.7). */
+export type SeatRoomPoints = { exits: ReadonlyArray<{ x: number; y: number }>; speakers: { x: number; y: number } | null };
+
+export function seatRoomPoints(
+  fp: Pick<
+    FloorPlanRow,
+    'entrance_enabled' | 'entrance_x' | 'entrance_y' | 'service_entrance_enabled' | 'service_entrance_x' | 'service_entrance_y' | 'speakers_enabled' | 'speakers_x' | 'speakers_y'
+  >,
+): SeatRoomPoints {
+  const exits: Array<{ x: number; y: number }> = [];
+  if (fp.entrance_enabled) exits.push({ x: fp.entrance_x, y: fp.entrance_y });
+  if (fp.service_entrance_enabled) exits.push({ x: fp.service_entrance_x, y: fp.service_entrance_y });
+  return { exits, speakers: fp.speakers_enabled ? { x: fp.speakers_x, y: fp.speakers_y } : null };
+}
+
+/**
+ * 🔊 How close to the speakers is "near" (percent of the plan's canvas): about a fifth of the room. The seater keeps an
+ * Elders table outside it when one is, and the seat check names an elder seated inside it.
+ */
+export const SPEAKERS_NEAR_PCT = 20;
+
+/** 🧓 An elder role (the grandparents of either side): seated at an Elders table first when the host made one. */
+export function isElderRole(role: string | null | undefined): boolean {
+  return typeof role === 'string' && /grandparent/.test(role);
+}
+
+const pctDist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+
+/**
+ * 🧓 THE ELDERS TABLES, IN THE ORDER THE SEATER FILLS THEM (seat plan § 4.7: "near an exit or entrance, away from
+ * speakers"): tables outside the speakers' reach first, then nearest a way out, then the plan's own order. `points`
+ * gives each table's position (the seater's own `tablePoint`).
+ */
+export function elderTableOrder<T extends { table_id: string; table_kind?: string | null; is_vip?: boolean | null }>(
+  tables: ReadonlyArray<T>,
+  room: SeatRoomPoints,
+  pointOf: (t: T) => { x: number; y: number },
+): T[] {
+  const elders = tables.filter((t) => parseTableKind(t.table_kind, t.is_vip) === 'elders');
+  const nearSpeakers = (t: T) => (room.speakers && pctDist(pointOf(t), room.speakers) < SPEAKERS_NEAR_PCT ? 1 : 0);
+  const toExit = (t: T) => (room.exits.length === 0 ? 0 : Math.min(...room.exits.map((e) => pctDist(pointOf(t), e))));
+  return elders
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => nearSpeakers(a.t) - nearSpeakers(b.t) || toExit(a.t) - toExit(b.t) || a.i - b.i)
+    .map((x) => x.t);
+}
+
 export function cannotFitWords(list: readonly AutoSeatCannotFit[], nameOf: (guestId: string) => string): string {
   const who = (ids: string[]) => {
     const first = nameOf(ids[0] ?? '') || 'A guest';
@@ -864,8 +972,9 @@ export function computeAutoSeat(
 
   // Table pool: everything except sweetheart (reserved for the couple),
   // sorted highest priority score first (= nearest to the stage).
+  // 🔒 Never a locked table or a Spare one (`autoSeatTakesTable`, seat plan § 5 hard rules).
   const pool = rankTablesByStage(tables, stage)
-    .filter((r) => r.table.table_type !== 'sweetheart_2')
+    .filter((r) => autoSeatTakesTable(r.table))
     .map((r) => r.table);
 
   // Eligible: everyone NOT declined (so pending/maybe get a HELD seat too — the
@@ -1006,6 +1115,16 @@ export function computeAutoSeat(
       return [home.table_id];
     }
     if (!spill) return [];
+    /* 🔒 A PARTY NEVER SPLITS (seat plan § 5 hard rules, owner R3 "a +1 moves with their main invitee"): a guest with
+       their +1s and kids takes the nearest table that has room for ALL of them; when no table does, none of them is
+       seated and the host is shown who did not fit. Only a guest on their own takes whatever chair is left. */
+    if (chunk.length > 1) {
+      const whole = cluster[0] ? around(cluster[0], true).find((x) => free(x) >= chunk.length) : undefined;
+      if (!whole) return [];
+      const wholeRun = runAt(whole, chunk.length);
+      chunk.forEach((g, k) => seatAt(g, whole, wholeRun ? wholeRun[k] : undefined));
+      return [whole.table_id];
+    }
     const used = new Set<string>();
     for (const g of chunk) {
       const t = cluster.find((x) => free(x) > 0) ?? (cluster[0] ? around(cluster[0], true).find((x) => free(x) > 0) : undefined);
@@ -1017,11 +1136,27 @@ export function computeAutoSeat(
   };
   const isSeated = (g: AutoSeatGuest) => seatedIds.has(g.guest_id);
 
+  // ── 🧓 ELDERS TABLES FIRST (seat plan § 4.7, table kinds E): when the host made an Elders table, the elders (the
+  // grandparents of either side) sit there before anyone else is placed, with their +1s beside them — at the Elders
+  // tables outside the speakers' reach and nearest a way out first (`elderTableOrder`). One the Elders tables have no
+  // room for goes on through the rules below like everyone else. Nobody else is kept off an Elders table.
+  const elderDone = new Set<string>();
+  const elderTables = elderTableOrder(pool, opts.room ?? { exits: [], speakers: null }, (t) => pointById.get(t.table_id)!);
+  if (elderTables.length > 0) {
+    const elders = primaries
+      .filter((g) => isElderRole(g.role) && !keyOf.get(g.guest_id)?.startsWith('beside:'))
+      .sort(byRoleThenName);
+    for (const g of elders) {
+      const chunk = [g, ...(plusOnesBy.get(g.guest_id) ?? [])];
+      if (seatChunk(chunk, elderTables, false).length > 0) chunk.forEach((x) => elderDone.add(x.guest_id));
+    }
+  }
+
   // ── 🪑 VIP TABLES FIRST: ROLE FIRST, THEN GROUP (owner 2026-11-02, "VIP should always be role first then group").
   // Who: every eligible role holder, except a role set the couple switched to "Sit with their group". Order: the
   // Guests list's role order, then group, then name — so each role sits together. A role holder's +1s follow the
   // host's pick: beside them here ('beside'), or ALL together at the table(s) nearest the VIP tables ('nearest').
-  const vipTables = pool.filter((t) => t.is_vip === true);
+  const vipTables = pool.filter((t) => isVipTable(t));
   const vipDone = new Set<string>(); // seated at a VIP table, or a VIP +1 placed below — out of the unit flow
   const vipOverflow = new Set<string>(); // role holders the VIP tables had no room for → their group
   const awayChunks: AutoSeatGuest[][] = []; // 'nearest': every VIP guest's +1s, seated together below
@@ -1032,7 +1167,7 @@ export function computeAutoSeat(
       return !set || roleSeatingChoice(roleSeating, set) === 'together';
     };
     const vipGuests = primaries
-      .filter(isVipGuest)
+      .filter((g) => !elderDone.has(g.guest_id) && isVipGuest(g))
       .sort(
         (a, b) =>
           roleOrder(a) - roleOrder(b) ||
@@ -1072,7 +1207,7 @@ export function computeAutoSeat(
   if (awayChunks.length > 0) {
     const vipPts = vipTables.map((t) => pointById.get(t.table_id)!);
     const toVip = (t: EventTableRow) => Math.min(...vipPts.map((p) => dist2(pointById.get(t.table_id)!, p)));
-    const near = pool.filter((t) => t.is_vip !== true).sort((a, b) => toVip(a) - toVip(b) || compareTables(a, b));
+    const near = pool.filter((t) => !isVipTable(t)).sort((a, b) => toVip(a) - toVip(b) || compareTables(a, b));
     const size = awayChunks.reduce((n, c) => n + c.length, 0);
     const cluster = cover(near, size);
     const used = new Set<string>();
@@ -1089,7 +1224,7 @@ export function computeAutoSeat(
   type Unit = { key: string; chunks: AutoSeatGuest[][]; size: number; rank: number; setOrder: number; name: string };
   const unitMembers = new Map<string, AutoSeatGuest[]>();
   for (const g of primaries) {
-    if (vipDone.has(g.guest_id)) continue;
+    if (vipDone.has(g.guest_id) || elderDone.has(g.guest_id)) continue;
     const k = unitKeyOf(g);
     const arr = unitMembers.get(k) ?? [];
     arr.push(g);
@@ -1156,6 +1291,12 @@ export function computeAutoSeat(
   // adjacency opt-out, a GROUP spills in plain stage order instead; a role set
   // always stays in one neighbourhood (the owner's "never scattered").
   const tablesFor = (unit: Unit): EventTableRow[] => {
+    // 🔒 A +1 whose guest is already seated sits at THAT table or not at all (a party never splits, seat plan § 5);
+    // when the guest's table is full or closed to the seater, the +1 is shown as not fitting.
+    if (unit.key.startsWith('beside:')) {
+      const anchor = anchorFor(unit.key);
+      return anchor ? [anchor] : [];
+    }
     const byDistance = unit.key.startsWith('role:') || unit.key.startsWith('beside:') || groupAdjacency;
     const anchor = anchorFor(unit.key);
     if (anchor) return cover(around(anchor, byDistance), unit.size);
@@ -1183,8 +1324,9 @@ export function computeAutoSeat(
       continue;
     }
     const used = new Set<string>();
+    const spill = !unit.key.startsWith('beside:');
     for (const chunk of unit.chunks) {
-      const at = seatChunk(chunk, cluster, true);
+      const at = seatChunk(chunk, cluster, spill);
       at.forEach((id) => used.add(id));
       // A guest and their +1s on two tables is a split — shown.
       if (at.length > 1) report?.push({ kind: 'split', guestIds: chunk.map((g) => g.guest_id), tableIds: at });
@@ -1278,9 +1420,13 @@ export function solveSeatPlan(input: SolveInput): SolveResult {
   for (const u of units) for (const m of u.members) unitKeyOfTable.set(m.table_id, u.key);
   const seen = new Set<string>();
   const unitOrder: string[] = [];
+  // 🔒 A unit holding a locked or Spare table is never a place to move someone to (`autoSeatTakesTable`).
+  const closedUnits = new Set(
+    tables.filter((t) => !autoSeatTakesTable(t)).map((t) => unitKeyOfTable.get(t.table_id)).filter((k): k is string => Boolean(k)),
+  );
   for (const r of rankTablesByStage(tables, stage)) {
     const uk = unitKeyOfTable.get(r.table.table_id);
-    if (uk && !seen.has(uk)) {
+    if (uk && !seen.has(uk) && !closedUnits.has(uk)) {
       seen.add(uk);
       unitOrder.push(uk);
     }
@@ -1347,14 +1493,29 @@ export function solveSeatPlan(input: SolveInput): SolveResult {
     }
     return false;
   };
-  const freeSeatInUnit = (uKey: string): { table_id: string; seat: number } | null => {
+  // `n` free chairs in a unit, reserved in order (null when it has fewer).
+  const freeSeatsInUnit = (uKey: string, n: number): Array<{ table_id: string; seat: number }> | null => {
     const u = unitByKey.get(uKey);
     if (!u) return null;
+    const out: Array<{ table_id: string; seat: number }> = [];
     for (const m of u.members) {
       const occ = occupied.get(m.table_id)!;
-      for (let s = 0; s < m.capacity; s++) if (!occ.has(s)) return { table_id: m.table_id, seat: s };
+      for (let s = 0; s < m.capacity && out.length < n; s++) if (!occ.has(s)) out.push({ table_id: m.table_id, seat: s });
     }
-    return null;
+    return out.length === n ? out : null;
+  };
+  // A guest's party in one unit: the guest who brought them (or themselves) + everyone they brought, seated in `uKey`.
+  // Null when a member there is fixed (seated before this run), because a fixed seat never moves.
+  const broughtBy = new Map<string, string[]>();
+  for (const g of guests) {
+    if (!g.plus_one_of_guest_id) continue;
+    broughtBy.set(g.plus_one_of_guest_id, [...(broughtBy.get(g.plus_one_of_guest_id) ?? []), g.guest_id]);
+  }
+  const partyIn = (gid: string, uKey: string | undefined): string[] | null => {
+    const head = guestById.get(gid)?.plus_one_of_guest_id ?? gid;
+    const all = [head, ...(broughtBy.get(head) ?? [])].filter((m) => unitOfGuest(m) === uKey);
+    if (!all.includes(gid)) all.push(gid);
+    return all.every((m) => movable.has(m)) ? all : null;
   };
   // Lower-priority guests move first (preserve VIP stage placement): higher tier
   // RANK number = lower priority = cheaper to move. Tie-break by guest_id.
@@ -1396,16 +1557,22 @@ export function solveSeatPlan(input: SolveInput): SolveResult {
       let did = false;
       for (const mover of movers) {
         const from = unitOfGuest(mover);
+        // 🔒 A PARTY MOVES AS ONE (seat plan § 5, "units stay whole"): the guest who brought them and everyone they
+        // brought, wherever they sit in this unit, go together — or nobody moves. A party with a fixed member stays.
+        const party = partyIn(mover, from);
+        if (!party) continue;
         for (const uKey of unitOrder) {
           if (uKey === from) continue;
-          if ((unitGuests.get(uKey)?.size ?? 0) >= (unitCap.get(uKey) ?? 0)) continue;
-          if (conflictAt(mover, uKey)) continue;
-          const slot = freeSeatInUnit(uKey);
-          if (!slot) continue;
-          const old = seatOf.get(mover)!;
-          occupied.get(old.table_id)!.delete(old.seat_number);
-          if (from) unitGuests.get(from)?.delete(mover);
-          seatGuest(mover, slot.table_id, slot.seat, true);
+          if ((unitGuests.get(uKey)?.size ?? 0) + party.length > (unitCap.get(uKey) ?? 0)) continue;
+          if (party.some((m) => conflictAt(m, uKey))) continue;
+          const slots = freeSeatsInUnit(uKey, party.length);
+          if (!slots) continue;
+          party.forEach((m, k) => {
+            const old = seatOf.get(m)!;
+            occupied.get(old.table_id)!.delete(old.seat_number);
+            if (from) unitGuests.get(from)?.delete(m);
+            seatGuest(m, slots[k]!.table_id, slots[k]!.seat, true);
+          });
           did = true;
           moved = true;
           break;
@@ -1525,6 +1692,8 @@ export type ReconcileInput = {
   roleSeating?: RoleSeating | null;
   /** Owner 2026-11-02: where the +1s of VIP guests sit. Omitted = 'beside'. */
   vipPlusOnes?: VipPlusOneSeating;
+  /** 🧓 The room's ways out and speakers, for the Elders tables (`seatRoomPoints`). */
+  room?: SeatRoomPoints;
 };
 
 export type ReconcileResult = {
@@ -1552,8 +1721,11 @@ export function reconcileProvisionalSeats(input: ReconcileInput): ReconcileResul
     assignments.filter((a) => a.locked).map((a) => a.guest_id),
   );
   // Seats we may vacate: unlocked seats of guests flagged for re-placement.
+  // 🔒 …and never a seat at a table the seater may not use (the Sweetheart, a locked table, a Spare one —
+  // `autoSeatTakesTable`): a locked table is kept exactly as it is, and a seat taken off one could never go back.
+  const closed = new Set(tables.filter((t) => !autoSeatTakesTable(t)).map((t) => t.table_id));
   const vacate = assignments.filter(
-    (a) => !a.locked && reseat.has(a.guest_id) && !lockedGuestIds.has(a.guest_id),
+    (a) => !a.locked && reseat.has(a.guest_id) && !lockedGuestIds.has(a.guest_id) && !closed.has(a.table_id),
   );
   const vacateIds = new Set(vacate.map((a) => a.guest_id));
   // Fixed occupancy = everything except the vacated seats. Newly-added guests
@@ -1573,9 +1745,9 @@ export function reconcileProvisionalSeats(input: ReconcileInput): ReconcileResul
           roleSet,
           groupAdjacency,
           roleSeating,
-          autoSeat: { vipPlusOnes: input.vipPlusOnes },
+          autoSeat: { vipPlusOnes: input.vipPlusOnes, room: input.room },
         }).assignments
-      : computeAutoSeat(tables, guests, kept, stage, priorityOrder, roleSet, groupAdjacency, roleSeating, { vipPlusOnes: input.vipPlusOnes });
+      : computeAutoSeat(tables, guests, kept, stage, priorityOrder, roleSet, groupAdjacency, roleSeating, { vipPlusOnes: input.vipPlusOnes, room: input.room });
 
   const placedIds = new Set(placed.map((r) => r.guest_id));
   const takenSeat = new Set(placed.map((r) => `${r.table_id}#${r.seat_number}`));
@@ -1749,7 +1921,7 @@ export function guestsStillToSeat<G extends { guest_id: string; role: string | n
 // Mirrors computeAutoSeat's own bookkeeping exactly (its `eligible` filter and
 // its per-table `freeCount`), so "room" here is the room the seater will see.
 export function autoSeatRoom(
-  tables: ReadonlyArray<Pick<EventTableRow, 'table_id' | 'table_type' | 'capacity' | 'removed_seats'>>,
+  tables: ReadonlyArray<Pick<EventTableRow, 'table_id' | 'table_type' | 'capacity' | 'removed_seats' | 'locked' | 'table_kind' | 'is_vip'>>,
   guests: ReadonlyArray<Pick<AutoSeatGuest, 'guest_id' | 'role' | 'rsvp_status'>>,
   assignments: ReadonlyArray<Pick<SeatAssignmentRow, 'guest_id' | 'table_id'>>,
   roleSet: RoleSet = WEDDING_ROLE_SET,
@@ -1760,7 +1932,8 @@ export function autoSeatRoom(
   for (const a of assignments) taken.set(a.table_id, (taken.get(a.table_id) ?? 0) + 1);
   let freeSeats = 0;
   for (const t of tables) {
-    if (t.table_type === 'sweetheart_2') continue;
+    // 🔒 A locked or Spare table's empty chairs are not room the seater may use (`autoSeatTakesTable`).
+    if (!autoSeatTakesTable(t)) continue;
     freeSeats += Math.max(0, effectiveCapacity(t.capacity, t.removed_seats) - (taken.get(t.table_id) ?? 0));
   }
   return { toSeat, freeSeats, shortfall: Math.max(0, toSeat - freeSeats) };

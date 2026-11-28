@@ -255,7 +255,7 @@ export default async function ForCoordinatorsPage() {
             Start as a coordinator free →
           </Link>
           <p className="fc-fine fc-c">
-            {on.dayOfFree ? 'Coordinator tools are free on every plan. No end date.' : 'No card needed.'}
+            {on.dayOfFree ? 'Coordinator tools are included on every plan.' : 'No card needed.'}
           </p>
           <nav className="fd-chips fc-chips" aria-label="On this page">
             <a className="fd-chip" href="#screen">
@@ -357,7 +357,7 @@ export default async function ForCoordinatorsPage() {
               <>
                 <p>Every guest’s screen follows as you move the show. The hosts can move it too.</p>
                 <p>
-                  {on.dayOfFree ? 'The day-of tools are free on every plan, with no end date. ' : null}Every plan comes
+                  {on.dayOfFree ? 'The day-of tools come with every plan. ' : null}Every plan comes
                   with {helpers} for the event day. Saved for when there is no signal.
                 </p>
               </>

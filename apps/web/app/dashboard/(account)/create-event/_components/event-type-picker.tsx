@@ -18,6 +18,7 @@ import { createWeddingEvent } from '../actions';
 import { onboardingRouteFor, type EventTypeKey, type EventTypeRow } from './event-types';
 import { EventTypePhotoPicker } from './event-type-photo-picker';
 import { CreateDatePicker } from './create-date-picker';
+import { inPlanningWeddingNames } from '../wedding-guard';
 import { CreateLocationPicker } from './create-location-picker';
 import { type BudgetBand } from '@/lib/budget-bands-shared';
 import { ANCHOR_ORIGINS, ANCHOR_ORIGIN_LABELS, canToggleRecur } from '@/lib/event-anchor';
@@ -105,7 +106,7 @@ export function EventTypePicker({
    *  shows the guided router (edit same-marriage / vow renewal / new marriage)
    *  instead of the form. A settled wedding (archived/completed) is null → no
    *  block, so remarriage works. */
-  inPlanningWedding?: { eventId: string; displayName: string; eventDate: string | null } | null;
+  inPlanningWedding?: { eventId: string; displayName: string; eventDate: string | null; allNames: string[] } | null;
   /** Samahan context (plan §7 · PR-3): set = the event is being planned FOR a
    *  community (the page already verified the viewer is an organizer and
    *  filtered `types` to community_eligible). The pick always lands on the
@@ -404,7 +405,7 @@ export function EventTypePicker({
           types={gridTypes}
           onSelect={handleSelect}
           unavailableReasons={
-            inPlanningWedding ? { wedding: `Already planning ${inPlanningWedding.displayName}` } : undefined
+            inPlanningWedding ? { wedding: `Already planning ${inPlanningWeddingNames(inPlanningWedding)}` } : undefined
           }
         />
         {hiddenCount > 0 && !showAllTypes && mayShowAll ? (

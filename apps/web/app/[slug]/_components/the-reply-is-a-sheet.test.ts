@@ -186,11 +186,12 @@ test('a guest who has not answered is asked', () => {
   );
 });
 
-test('the sheet is headed "Your reply" — the form asks the question once, and a wake is never asked to "be with us"', () => {
+test('the sheet is headed by its press — the form asks the question once, says "Your reply" once, and a wake is never asked to "be with us"', () => {
   // Audit 2026-09-30: the sheet's heading asked "Will you be with us?" directly
   // above the form's own "Will you be there?" — one question, asked twice.
-  assert.equal(rsvpSheetHeading({ status: 'pending', guestListClosed: false, solemn: false }), 'Your reply');
-  assert.equal(rsvpSheetHeading({ status: 'pending', guestListClosed: false, solemn: true }), 'Your reply');
+  // Owner walk 2026-11-27 (B8): "Your reply" is the form's own eyebrow — the sheet said it a second time above it.
+  assert.equal(rsvpSheetHeading({ status: 'pending', guestListClosed: false, solemn: false }), 'Reply to the invitation');
+  assert.equal(rsvpSheetHeading({ status: 'pending', guestListClosed: false, solemn: true }), 'Reply to the invitation');
   // And an answered guest is never asked the question again, in either register.
   for (const solemn of [true, false]) {
     assert.equal(rsvpSheetHeading({ status: 'attending', guestListClosed: false, solemn }), 'Change your reply');

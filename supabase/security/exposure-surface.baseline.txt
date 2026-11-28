@@ -9,15 +9,15 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8361
+# facts: 8454
 #   schema    4
 #   rls       0
 #   rlsforce  0
-#   tpriv     670
-#   col       6031
-#   policy    1215
+#   tpriv     676
+#   col       6110
+#   policy    1221
 #   view      10
-#   func      431
+#   func      433
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -256,6 +256,9 @@ tpriv	public.gift_moment_claims|authenticated	S
 tpriv	public.godchild_reminder_log|authenticated	SIUD
 tpriv	public.godparents|anon	SIUD
 tpriv	public.godparents|authenticated	SIUD
+tpriv	public.gown_designs|authenticated	S
+tpriv	public.gown_fabric_types|authenticated	S
+tpriv	public.gown_fittings|authenticated	S
 tpriv	public.guest_chapter_not_invited|authenticated	SID
 tpriv	public.guest_chapter_replies|authenticated	S
 tpriv	public.guest_checkins|anon	SIUD
@@ -563,6 +566,9 @@ tpriv	public.vendor_follows|anon	SIUD
 tpriv	public.vendor_follows|authenticated	SIUD
 tpriv	public.vendor_form_service_links|authenticated	SID
 tpriv	public.vendor_forms|authenticated	SIU
+tpriv	public.vendor_gown_fabrics|authenticated	S
+tpriv	public.vendor_gown_looks|authenticated	S
+tpriv	public.vendor_gown_makers|authenticated	S
 tpriv	public.vendor_graph_unlocks_kept|authenticated	S
 tpriv	public.vendor_guest_deliveries|authenticated	SIUD
 tpriv	public.vendor_guest_reviews|authenticated	S
@@ -1802,6 +1808,7 @@ col	public.event_floor_booths.updated_at	anon=SIU authenticated=SIU
 col	public.event_floor_booths.x_pos	anon=SIU authenticated=SIU
 col	public.event_floor_booths.y_pos	anon=SIU authenticated=SIU
 col	public.event_floor_booths.zone	anon=SIU authenticated=SIU
+col	public.event_floor_plan.auto_seat_rsvps	anon=- authenticated=SIU
 col	public.event_floor_plan.cocktail_enabled	anon=- authenticated=SIU
 col	public.event_floor_plan.cocktail_h	anon=- authenticated=SIU
 col	public.event_floor_plan.cocktail_label	anon=- authenticated=SIU
@@ -1830,9 +1837,13 @@ col	public.event_floor_plan.guest_seat_view	anon=- authenticated=SIU
 col	public.event_floor_plan.priority_order	anon=- authenticated=SIU
 col	public.event_floor_plan.published_at	anon=- authenticated=SIU
 col	public.event_floor_plan.role_seating	anon=- authenticated=SIU
+col	public.event_floor_plan.seat_suggestions	anon=- authenticated=SIU
 col	public.event_floor_plan.service_entrance_enabled	anon=- authenticated=SIU
 col	public.event_floor_plan.service_entrance_x	anon=- authenticated=SIU
 col	public.event_floor_plan.service_entrance_y	anon=- authenticated=SIU
+col	public.event_floor_plan.speakers_enabled	anon=- authenticated=SIU
+col	public.event_floor_plan.speakers_x	anon=- authenticated=SIU
+col	public.event_floor_plan.speakers_y	anon=- authenticated=SIU
 col	public.event_floor_plan.stage_h	anon=- authenticated=SIU
 col	public.event_floor_plan.stage_w	anon=- authenticated=SIU
 col	public.event_floor_plan.stage_x	anon=- authenticated=SIU
@@ -2261,8 +2272,10 @@ col	public.event_tables.capacity	anon=SIU authenticated=SIU
 col	public.event_tables.created_at	anon=SIU authenticated=SIU
 col	public.event_tables.event_id	anon=SIU authenticated=SIU
 col	public.event_tables.is_vip	anon=SIU authenticated=SIU
+col	public.event_tables.label_is_auto	anon=SIU authenticated=SIU
 col	public.event_tables.link_group_id	anon=SIU authenticated=SIU
 col	public.event_tables.link_group_label	anon=SIU authenticated=SIU
+col	public.event_tables.locked	anon=SIU authenticated=SIU
 col	public.event_tables.public_id	anon=SIU authenticated=SIU
 col	public.event_tables.qr_published_at	anon=SIU authenticated=SIU
 col	public.event_tables.qr_token	anon=SIU authenticated=SIU
@@ -2270,6 +2283,7 @@ col	public.event_tables.removed_seats	anon=SIU authenticated=SIU
 col	public.event_tables.rotation_deg	anon=SIU authenticated=SIU
 col	public.event_tables.sort_order	anon=SIU authenticated=SIU
 col	public.event_tables.table_id	anon=SIU authenticated=SIU
+col	public.event_tables.table_kind	anon=SIU authenticated=SIU
 col	public.event_tables.table_label	anon=SIU authenticated=SIU
 col	public.event_tables.table_type	anon=SIU authenticated=SIU
 col	public.event_tables.updated_at	anon=SIU authenticated=SIU
@@ -2885,6 +2899,43 @@ col	public.godparents.public_id	anon=SIU authenticated=SIU
 col	public.godparents.reminders_enabled	anon=SIU authenticated=SIU
 col	public.godparents.role	anon=SIU authenticated=SIU
 col	public.godparents.updated_at	anon=SIU authenticated=SIU
+col	public.gown_designs.add_ons	anon=- authenticated=S
+col	public.gown_designs.body	anon=- authenticated=S
+col	public.gown_designs.config	anon=- authenticated=S
+col	public.gown_designs.created_at	anon=- authenticated=S
+col	public.gown_designs.created_by	anon=- authenticated=S
+col	public.gown_designs.design_id	anon=- authenticated=S
+col	public.gown_designs.edges_cm	anon=- authenticated=S
+col	public.gown_designs.estimate_centavos	anon=- authenticated=S
+col	public.gown_designs.hand	anon=- authenticated=S
+col	public.gown_designs.locked_token	anon=- authenticated=S
+col	public.gown_designs.measures	anon=- authenticated=S
+col	public.gown_designs.quantities	anon=- authenticated=S
+col	public.gown_designs.share_as	anon=- authenticated=S
+col	public.gown_designs.share_code	anon=- authenticated=S
+col	public.gown_designs.thread_id	anon=- authenticated=S
+col	public.gown_designs.vendor_profile_id	anon=- authenticated=S
+col	public.gown_designs.vendor_service_id	anon=- authenticated=S
+col	public.gown_fabric_types.active	anon=- authenticated=S
+col	public.gown_fabric_types.aliases	anon=- authenticated=S
+col	public.gown_fabric_types.family	anon=- authenticated=S
+col	public.gown_fabric_types.gsm	anon=- authenticated=S
+col	public.gown_fabric_types.name	anon=- authenticated=S
+col	public.gown_fabric_types.render_as	anon=- authenticated=S
+col	public.gown_fabric_types.sheen	anon=- authenticated=S
+col	public.gown_fabric_types.sheer	anon=- authenticated=S
+col	public.gown_fabric_types.sort	anon=- authenticated=S
+col	public.gown_fabric_types.stiff	anon=- authenticated=S
+col	public.gown_fabric_types.stretch	anon=- authenticated=S
+col	public.gown_fabric_types.type_id	anon=- authenticated=S
+col	public.gown_fabric_types.updated_at	anon=- authenticated=S
+col	public.gown_fabric_types.updated_by	anon=- authenticated=S
+col	public.gown_fabric_types.used_for	anon=- authenticated=S
+col	public.gown_fabric_types.verified	anon=- authenticated=S
+col	public.gown_fittings.design_id	anon=- authenticated=S
+col	public.gown_fittings.fit	anon=- authenticated=S
+col	public.gown_fittings.fit_at	anon=- authenticated=S
+col	public.gown_fittings.updated_by	anon=- authenticated=S
 col	public.guest_chapter_not_invited.block_id	anon=- authenticated=SI
 col	public.guest_chapter_not_invited.created_at	anon=- authenticated=SI
 col	public.guest_chapter_not_invited.event_id	anon=- authenticated=SI
@@ -4781,13 +4832,17 @@ col	public.social_milestones.threshold	anon=- authenticated=SIU
 col	public.social_posts.body	anon=- authenticated=SIU
 col	public.social_posts.created_at	anon=- authenticated=SIU
 col	public.social_posts.created_by	anon=- authenticated=SIU
+col	public.social_posts.facebook_post_id	anon=- authenticated=SIU
+col	public.social_posts.first_comment	anon=- authenticated=SIU
 col	public.social_posts.hold_until	anon=- authenticated=SIU
 col	public.social_posts.link_url	anon=- authenticated=SIU
 col	public.social_posts.media_url	anon=- authenticated=SIU
+col	public.social_posts.media_urls	anon=- authenticated=SIU
 col	public.social_posts.platform_results	anon=- authenticated=SIU
 col	public.social_posts.post_id	anon=- authenticated=SIU
 col	public.social_posts.publish_after	anon=- authenticated=SIU
 col	public.social_posts.scheduled_for	anon=- authenticated=SIU
+col	public.social_posts.slot	anon=- authenticated=SIU
 col	public.social_posts.source_ref	anon=- authenticated=SIU
 col	public.social_posts.source_type	anon=- authenticated=SIU
 col	public.social_posts.status	anon=- authenticated=SIU
@@ -5517,6 +5572,36 @@ col	public.vendor_forms.retired_at	anon=- authenticated=SIU
 col	public.vendor_forms.title	anon=- authenticated=SIU
 col	public.vendor_forms.updated_at	anon=- authenticated=SIU
 col	public.vendor_forms.vendor_profile_id	anon=- authenticated=SIU
+col	public.vendor_gown_fabrics.active	anon=- authenticated=S
+col	public.vendor_gown_fabrics.code	anon=- authenticated=S
+col	public.vendor_gown_fabrics.colours	anon=- authenticated=S
+col	public.vendor_gown_fabrics.created_at	anon=- authenticated=S
+col	public.vendor_gown_fabrics.fabric_id	anon=- authenticated=S
+col	public.vendor_gown_fabrics.kind	anon=- authenticated=S
+col	public.vendor_gown_fabrics.name	anon=- authenticated=S
+col	public.vendor_gown_fabrics.price_per_metre_centavos	anon=- authenticated=S
+col	public.vendor_gown_fabrics.sort	anon=- authenticated=S
+col	public.vendor_gown_fabrics.thumb_key	anon=- authenticated=S
+col	public.vendor_gown_fabrics.tile_key	anon=- authenticated=S
+col	public.vendor_gown_fabrics.tune	anon=- authenticated=S
+col	public.vendor_gown_fabrics.type_id	anon=- authenticated=S
+col	public.vendor_gown_fabrics.updated_at	anon=- authenticated=S
+col	public.vendor_gown_fabrics.updated_by	anon=- authenticated=S
+col	public.vendor_gown_fabrics.vendor_profile_id	anon=- authenticated=S
+col	public.vendor_gown_looks.active	anon=- authenticated=S
+col	public.vendor_gown_looks.config	anon=- authenticated=S
+col	public.vendor_gown_looks.created_at	anon=- authenticated=S
+col	public.vendor_gown_looks.look_id	anon=- authenticated=S
+col	public.vendor_gown_looks.name	anon=- authenticated=S
+col	public.vendor_gown_looks.photo_key	anon=- authenticated=S
+col	public.vendor_gown_looks.sort	anon=- authenticated=S
+col	public.vendor_gown_looks.updated_at	anon=- authenticated=S
+col	public.vendor_gown_looks.updated_by	anon=- authenticated=S
+col	public.vendor_gown_looks.vendor_profile_id	anon=- authenticated=S
+col	public.vendor_gown_makers.options	anon=- authenticated=S
+col	public.vendor_gown_makers.updated_at	anon=- authenticated=S
+col	public.vendor_gown_makers.updated_by	anon=- authenticated=S
+col	public.vendor_gown_makers.vendor_profile_id	anon=- authenticated=S
 col	public.vendor_graph_unlocks_kept.kept_at	anon=- authenticated=S
 col	public.vendor_graph_unlocks_kept.vendor_profile_id	anon=- authenticated=S
 col	public.vendor_guest_deliveries.created_at	anon=- authenticated=SIU
@@ -7204,6 +7289,9 @@ policy	public.gift_moment_claims|gift_moment_claims_read	mode=PERMISSIVE cmd=SEL
 policy	public.godchild_reminder_log|godchild_reminder_log_admin_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=( SELECT is_admin() AS is_admin) check=( SELECT is_admin() AS is_admin)
 policy	public.godparents|godparents_owner_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((owner_user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin)) check=((owner_user_id = ( SELECT auth.uid() AS uid)) OR ( SELECT is_admin() AS is_admin))
 policy	public.godparents|godparents_subject_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(EXISTS ( SELECT 1 FROM dependents d WHERE ((d.dependent_id = godparents.dependent_id) AND (d.claimed_user_id = ( SELECT auth.uid() AS uid))))) check=NULL
+policy	public.gown_designs|gown_designs_member_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR (thread_id IN ( SELECT t.thread_id FROM chat_threads t WHERE ((t.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR (t.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) OR ((t.vendor_profile_id IN ( SELECT current_vendor_ids('viewer'::text) AS current_vendor_ids)) AND (t.event_id IN ( SELECT agent_customer_event_ids() AS agent_customer_event_ids))))))) check=NULL
+policy	public.gown_fabric_types|gown_fabric_types_signed_in_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=true check=NULL
+policy	public.gown_fittings|gown_fittings_shop_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(design_id IN ( SELECT d.design_id FROM gown_designs d WHERE (d.vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))) check=NULL
 policy	public.guest_chapter_not_invited|guest_chapter_not_invited_host_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('guest_list'::text) l(event_id, level) WHERE (l.level = 'edit'::text)))) check=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin) OR (event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('guest_list'::text) l(event_id, level) WHERE (l.level = 'edit'::text))))
 policy	public.guest_chapter_not_invited|guest_chapter_not_invited_moderator_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT l.event_id FROM current_moderator_area_levels('guest_list'::text) l(event_id, level) WHERE (l.level IS NOT NULL))) check=NULL
 policy	public.guest_chapter_replies|guest_chapter_replies_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) check=NULL
@@ -7711,6 +7799,9 @@ policy	public.vendor_follows|vendor_follows_vendor_select	mode=PERMISSIVE cmd=SE
 policy	public.vendor_form_service_links|vendor_form_service_links_owner_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((form_id IN ( SELECT f.form_id FROM vendor_forms f WHERE (f.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)))) OR ( SELECT is_admin() AS is_admin)) check=((form_id IN ( SELECT f.form_id FROM vendor_forms f WHERE (f.vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)))) OR ( SELECT is_admin() AS is_admin))
 policy	public.vendor_forms|vendor_forms_owner_all	mode=PERMISSIVE cmd=ALL roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin)) check=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin))
 policy	public.vendor_forms|vendor_forms_sent_couple_select	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(form_id IN ( SELECT s.form_id FROM event_form_sends s WHERE (s.event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)))) check=NULL
+policy	public.vendor_gown_fabrics|vendor_gown_fabrics_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
+policy	public.vendor_gown_looks|vendor_gown_looks_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
+policy	public.vendor_gown_makers|vendor_gown_makers_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=(vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)) check=NULL
 policy	public.vendor_graph_unlocks_kept|vendor_graph_unlocks_kept_own_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((vendor_profile_id IN ( SELECT current_vendor_ids() AS current_vendor_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_guest_deliveries|vendor_guest_deliveries_couple_read	mode=PERMISSIVE cmd=SELECT roles=authenticated using=((event_id IN ( SELECT current_couple_event_ids() AS current_couple_event_ids)) OR ( SELECT is_admin() AS is_admin)) check=NULL
 policy	public.vendor_guest_deliveries|vendor_guest_deliveries_vendor_insert	mode=PERMISSIVE cmd=INSERT roles=authenticated using=NULL check=((event_id IN ( SELECT current_vendor_booked_event_ids() AS current_vendor_booked_event_ids)) AND (vendor_profile_id IN ( SELECT current_vendor_profile_ids() AS current_vendor_profile_ids)))
@@ -7974,6 +8065,7 @@ func	public.answer_event_change_request(p_change_id uuid, p_accept boolean, p_no
 func	public.answer_event_date_change(p_event_vendor_id uuid, p_answer text)	secdef=yes exec=authenticated search_path=public
 func	public.answer_incoming_request(p_guest_id uuid, p_yes boolean)	secdef=yes exec=authenticated search_path=public
 func	public.apply_colour_change(p_event_id uuid, p_domain text, p_target_kind text, p_target_key text, p_target_index smallint, p_new_value text)	secdef=yes exec=authenticated search_path=public
+func	public.apply_seat_plan(p_event_id uuid, p_base text, p_clear uuid[], p_new_tables jsonb, p_positions jsonb, p_rows jsonb)	secdef=no exec=authenticated search_path=public
 func	public.apply_supplier_where(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.apply_vendor_pay_plan(p_vendor_profile_id uuid, p_pay_plan_id uuid, p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.apply_venue_hours(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
@@ -8297,6 +8389,7 @@ func	public.supplier_scan_shop_for(p_event_id uuid, p_coverage_id bigint)	secdef
 func	public.supplier_scan_tally(p_event_id uuid, p_coverage_id bigint)	secdef=yes exec=authenticated search_path=public
 func	public.swap_entourage_places(p_event_id uuid, p_a uuid, p_b uuid)	secdef=no exec=authenticated search_path=public, pg_temp
 func	public.swap_seat_assignments(p_event_id uuid, p_guest_a uuid, p_guest_b uuid)	secdef=no exec=anon,authenticated search_path=public
+func	public.swap_seat_unit_assignments(p_event_id uuid, p_guests_a uuid[], p_guests_b uuid[])	secdef=no exec=authenticated search_path=public
 func	public.swap_table_assignments(p_event_id uuid, p_table_a uuid, p_table_b uuid)	secdef=no exec=anon,authenticated search_path=public
 func	public.sweep_vendor_tier_expiry(p_vendor_id uuid)	secdef=yes exec=anon,authenticated search_path=UNPINNED
 func	public.touch_part_editor_lock(p_lock_id uuid)	secdef=yes exec=authenticated search_path=public

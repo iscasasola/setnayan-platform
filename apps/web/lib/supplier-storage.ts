@@ -22,6 +22,7 @@ import { storageWords } from './downgrade-limits';
 import { TIER_CAPS, VENDOR_TIERS, asVendorTier, isPaidSize, tierCaps, tierRank, type VendorTier } from './vendor-tier-caps';
 import { formatCount } from './format-number';
 import { planWord } from './vendor-plan-change-words';
+import { SPECIALIZED_TOOLS_PUBLIC_TIERS } from './specialized-tools-access';
 
 /** The machine-readable half of a refusal (the sentence is `storageFullMessage`). */
 export const STORAGE_FULL_CODE = 'supplier_storage_full';
@@ -55,14 +56,22 @@ function words(bytes: number): string {
  * Read from `TIER_CAPS`, so a cap change moves every surface that says it:
  *   Free      "run your own clients, 1 live service, just you, main shop only, and 256 MB"
  *   Verified  "on the marketplace with the basics, 3 live services, just you, main shop only, and 2 GB"
- *   Plus      "every tool, 15 live services, you and 2 more, main shop only, and 128 GB"
- *   Pro/Ultra "every tool, no limit on services, people or branches, and 500 GB" / "… and 1 TB"
- * The /for-suppliers plan cards, the Plans page taglines and the storage-full way up all say it.
+ *   Plus      "every business tool, 15 live services, you and 2 more, main shop only, and 128 GB"
+ *   Pro/Ultra "every business tool, no limit on services, people or branches, and 500 GB" / "… and 1 TB"
+ * The /for-suppliers plan cards, the Plans page taglines and the storage-full way up all say it. ⚖ Owner 28 Nov
+ * (superseding 27 Nov L9 P3): the specialized tools are paid, each with a free 30-day trial, so no plan says it includes
+ * them (`SPECIALIZED_TOOLS_PUBLIC_TIERS` is empty), and never "every tool".
  */
 export function planSummaryWords(plan: string | null | undefined): string {
   const t = asVendorTier(plan);
   const c = TIER_CAPS[t];
-  const tools = isPaidSize(t) ? 'every tool' : t === 'verified' ? 'on the marketplace with the basics' : 'run your own clients';
+  const tools = isPaidSize(t)
+    ? SPECIALIZED_TOOLS_PUBLIC_TIERS.includes(t)
+      ? 'every business tool and the specialized tools'
+      : 'every business tool'
+    : t === 'verified'
+      ? 'on the marketplace with the basics'
+      : 'run your own clients';
   const open = [c.serviceCardsTotal, c.agentAccounts, c.branchesIncluded].every((v) => !Number.isFinite(v));
   const parts = [tools];
   if (open) parts.push('no limit on services, people or branches');

@@ -488,8 +488,8 @@ export const INVITE_FEATURES: readonly FeaturePageEntry[] = [
       ],
     },
     keywords: {
-      en: ['wedding monogram maker', 'animated wedding logo', 'wedding logo Philippines'],
-      tl: ['monogram ng kasal', 'animated na logo ng kasal'],
+      en: ['wedding logo maker', 'animated wedding logo', 'wedding logo Philippines'],
+      tl: ['logo ng kasal', 'animated na logo ng kasal'],
     },
     shots: [
       {

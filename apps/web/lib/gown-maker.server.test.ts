@@ -1,0 +1,181 @@
+/**
+ * 👗 THE ATTIRE MAKER'S SERVER SIDE KEEPS COSTS ON THE SERVER — plan steps B3/B4 (corpus
+ * WHATS_NEXT_Gown_Maker_Port_2026-11-27.md § 5). Source pins in the shape of lib/cake-maker.test.ts, plus the pure halves.
+ *
+ *   1 · One server action carries the whole Attire Maker: `runGownAction` rides the existing `supplierScan` dispatcher
+ *       (op `gown_tool`); no new exported action anywhere.
+ *   2 · The send re-checks and prices on the server, stores the design BEFORE naming it in the chat, and drops the row
+ *       when the message did not post.
+ *   3 · `open` never hands a bride a price: no price list, no per-metre price, no cost line.
+ *   4 · The stored row carries no cost line: only quantities and the one estimate.
+ *   5 · The shop's price list is the Shop Manager's; the invite asks the verified-shop gate at the server; the gate is
+ *       the one answer for `attire_tool`.
+ *   6 · The design message names its stored row last; the add-ons a bride sees are words or her amount, never a cost.
+ *   7 · The tile is registered and opens the panel (never a dead button); the panel saves through the action.
+ *
+ * Run: cd apps/web && npx tsx --test lib/gown-maker.server.test.ts
+ */
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { GOWN_DESIGN_HEAD, GOWN_DESIGN_REF, formatGownDesignBlock, gownDesignRefOf, gownShopTemplate } from './gown-maker';
+import { startingGownConfig } from './gown-config';
+
+const WEB = join(__dirname, '..');
+const read = (p: string) => readFileSync(join(WEB, p), 'utf8');
+const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+
+test('1 · one server action carries the whole Attire Maker, through supplierScan', () => {
+  const src = strip(read('app/_components/gown-maker/gown-actions.ts'));
+  assert.match(read('app/_components/gown-maker/gown-actions.ts'), /^import 'server-only';/);
+  assert.doesNotMatch(src, /^['"]use server['"]/m, 'gown-actions.ts became a server-action file');
+  assert.equal((src.match(/^export async function /gm) ?? []).length, 1);
+  const scan = read('app/_actions/supplier-scan-actions.ts');
+  assert.match(scan, /case 'gown_tool':\s*return \{ op: 'gown_tool', result: await runGownAction\(req\.input\) \};/);
+  assert.match(read('app/_components/gown-maker/gown-call.ts'), /supplierScan\(\{ op: 'gown_tool', input \}\)/);
+});
+
+test('2 · the send re-checks, stores before naming, and drops a design whose message did not post', () => {
+  const src = strip(read('app/_components/gown-maker/gown-actions.ts'));
+  const send = src.slice(src.indexOf("if (op === 'send')"), src.indexOf("if (op !== 'open')"));
+  assert.match(send, /buildGownDesign\(/);
+  assert.ok(send.indexOf('storeGownDesign(') > -1 && send.indexOf('storeGownDesign(') < send.indexOf('sendChatMessageCore('), 'the message must name a stored design');
+  assert.match(send, /dropGownDesign\(/, 'a refused message leaves a stored design behind');
+});
+
+test('3 · open never hands a bride a price', () => {
+  const src = strip(read('app/_components/gown-maker/gown-actions.ts'));
+  const open = src.slice(src.indexOf("if (op !== 'open')"));
+  const ret = open.slice(open.lastIndexOf('return {'));
+  assert.doesNotMatch(ret, /options[:,]|options\.data[^)]|prices|forShop/, 'open returns the shop’s price list');
+  assert.match(ret, /pricePerMetreCentavos: _price, \.\.\.publicCols/, 'open hands the fabric rows with their price');
+  assert.match(ret, /brideAddOnsOf\(options\.data\)/);
+  const t = read('app/_components/gown-maker/gown-actions.ts');
+  const openType = t.slice(t.indexOf('export type GownOpenRead'), t.indexOf('export type GownDesignRead'));
+  assert.doesNotMatch(openType, /GownShopOptions|price|cost/i);
+});
+
+test('4 · the stored row carries no cost line', () => {
+  const server = strip(read('lib/gown-maker.server.ts'));
+  const store = server.slice(server.indexOf('export async function storeGownDesign'), server.indexOf('export async function dropGownDesign'));
+  assert.match(store, /estimate_centavos: args\.built\.forBride\.estimateCentavos/);
+  assert.doesNotMatch(store, /forShop|lines|cost|markup|hours/, 'a cost reached the row the bride can read');
+  // The design read computes the cost lines for the shop only.
+  const actions = strip(read('app/_components/gown-maker/gown-actions.ts'));
+  const design = actions.slice(actions.indexOf("if (op === 'design')"), actions.indexOf("if (op === 'fit')"));
+  assert.ok(design.indexOf('if (isShop)') > -1 && design.indexOf('if (isShop)') < design.indexOf('gownDesignOf('), 'cost lines are computed outside the shop branch');
+});
+
+test('5 · the price list is the Shop Manager’s; the invite asks the verified gate; one gate for attire_tool', () => {
+  const src = strip(read('app/_components/gown-maker/gown-actions.ts'));
+  assert.match(src, /canManageVendor\(await resolveVendorRoleForProfile\(/);
+  const invite = src.slice(src.indexOf('// invite') > -1 ? src.indexOf('plusGateRefusal') - 400 : 0, src.indexOf("op === 'status'"));
+  assert.match(invite, /plusGateRefusal\(await shopPlusGate\(admin, shop\)\)/);
+  assert.match(read('lib/gown-maker.server.ts'), /readShopSpecialToolOpen\(admin, vendorProfileId, 'attire_tool', eventId\)/);
+});
+
+test('6 · the design message names its stored row last; the bride’s text is the estimate or "Ask for a quote"', () => {
+  const id = '3f2b8c1e-9a4d-4e6b-8c2a-1d2e3f4a5b6c';
+  const c = startingGownConfig();
+  const ask = formatGownDesignBlock(c, { estimateCentavos: null, withinBase: false, addOns: [] }, id);
+  assert.ok(ask.startsWith(GOWN_DESIGN_HEAD));
+  assert.match(ask, /Ask for a quote/);
+  assert.equal(gownDesignRefOf(ask), id);
+  assert.equal(gownDesignRefOf(`${ask}\nthanks`), null, 'the ref is the LAST line');
+  assert.equal(gownDesignRefOf(`${GOWN_DESIGN_REF}${id}`), null, 'only a gown design message names a gown design');
+  const priced = formatGownDesignBlock(c, { estimateCentavos: 12345600, withinBase: true, addOns: [] }, id);
+  assert.match(priced, /^Estimate: /m);
+  assert.doesNotMatch(priced, /cost|markup|labour|supplies/i);
+});
+
+test('7 · the tile is registered, suggested to custom gown makers, and opens the panel that saves through the action', () => {
+  const tools = read('lib/specialized-tools.ts');
+  assert.match(tools, /key: 'attire_tool', title: 'Attire Maker'/);
+  assert.match(tools, /if \(tool\.key === 'attire_tool'\) return services\.some\(isGownKind\);/);
+  assert.match(read('lib/supplier-store.ts'), /PAID_STORE_TOOLS = \['cake_tool', 'attire_tool',/);
+  const makers = read('app/vendor-dashboard/shop/_components/shop-makers.tsx');
+  assert.match(makers, /tool\.door\.kind === 'attire_tool'[\s\S]{0,400}<GownMakerPanel \/>/, 'the tile opens nothing');
+  const panel = strip(read('app/vendor-dashboard/shop/_components/gown-maker-panel.tsx'));
+  assert.match(panel, /gownAction\(\{ op: 'options' \}\)/);
+  assert.match(panel, /gownAction\(\{ op: 'save', options: o \}\)/);
+  assert.doesNotMatch(panel, /onClick=\{\(\) => \{\}\}|href="#"/);
+  assert.ok(gownShopTemplate().addOns.veil.state === 'none', 'an add-on starts offered');
+});
+
+test('8 · B11 (v205): one order’s pattern is saved beside the tape, the shop only; what was not sent is kept; a failed read is never the defaults', () => {
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  const server = strip(read('lib/gown-maker.server.ts'));
+  const save = server.slice(server.indexOf('export async function saveGownFitting('), server.indexOf('export async function readGownFitting('));
+  assert.match(save, /gownFitJoin\(args\.tape \? \{ \.\.\.args\.tape \} : was\.tape, args\.pattern \?\? was\.pattern\)/, 'a tape save drops the allowances, or an allowance save drops the tape');
+  assert.match(save, /if \(readErr\)[\s\S]*?return false;/, 'a failed read of the old row is written over');
+  assert.match(save, /if \(args\.tape \|\| !had\) row\.fit_at/, 'an allowance change moves the date the tape was taken');
+  const actions = strip(read('app/_components/gown-maker/gown-actions.ts'));
+  assert.match(actions, /sanitizeGownOrderPattern\(pattern\)/, 'the order pattern is saved unchecked');
+  assert.match(actions, /if \(\(options\.status === 'ok' \|\| options\.status === 'none'\) && fit\.status !== 'unread'\)/, 'a failed read hands the blocks guessed allowances');
+  // Only the shop's branch builds the pattern; the bride's read carries none.
+  const design = actions.slice(actions.indexOf("if (op === 'design')"), actions.indexOf("if (op === 'fit')"));
+  assert.match(design, /if \(isShop\) \{[\s\S]*pattern = \{/);
+  assert.match(design, /let pattern: GownDesignRead\['pattern'\] = null;/);
+});
+
+test('9 · A7b: her hand work is checked before it is priced or stored, stored as sent, and read back honestly', () => {
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  const server = strip(read('lib/gown-maker.server.ts'));
+  const build = server.slice(server.indexOf('export async function buildGownDesign('), server.indexOf('export async function storeGownDesign('));
+  assert.match(build, /const hand = args\.hand === undefined \? null : sanitizeGownHand\(args\.hand\);\s*if \(hand && !hand\.ok\) return hand;/, 'hand work is not checked, or a bad one is repaired');
+  assert.ok(build.indexOf('sanitizeGownHand') < build.indexOf('gownDesignOf('), 'priced before it is checked');
+  assert.match(build, /gownDesignOf\([^)]*shopFabrics, handWork\)/, 'her estimate leaves out her hand work');
+  assert.match(server, /hand: args\.built\.hand,/, 'the hand work is not stored');
+  assert.match(server, /\.select\('design_id, vendor_profile_id, config, body, measures, quantities, hand, /, 'the hand work is not read');
+  const handOf = server.slice(server.indexOf('function handOf('), server.indexOf('export async function readStoredGownDesign('));
+  assert.match(handOf, /if \(v == null\) return \{ s: 'none' \};/);
+  assert.match(handOf, /return \{ s: 'unread' \};/, 'hand work that no longer checks out reads as none');
+  const actions = strip(read('app/_components/gown-maker/gown-actions.ts'));
+  assert.match(actions, /hand: i\.hand,/, 'send drops her hand work');
+  assert.match(actions, /stored\.data\.hand\.s === 'sent' \? stored\.data\.hand\.hand : null/, 'the shop’s cost lines leave out her hand work');
+  assert.match(actions, /hand: stored\.data\.hand,/);
+  const panel = strip(read('app/vendor-dashboard/clients/[eventId]/_components/gown-order-panel.tsx'));
+  assert.match(panel, /d\.hand\.s === 'sent' \? gownHandLine\(d\.hand\.hand\) : d\.hand\.s === 'none' \? GOWN_HAND_NOT_SENT : GOWN_HAND_UNREAD/, 'the order view does not say all three');
+});
+
+test('10 · B8: her add-ons are stored as sent and read back honestly; the quote pre-fill is the shop’s alone; the card holds no cost', () => {
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  const server = strip(read('lib/gown-maker.server.ts'));
+  const build = server.slice(server.indexOf('export async function buildGownDesign('), server.indexOf('export async function storeGownDesign('));
+  assert.ok(build.indexOf('offered.has(a)') > -1 && build.indexOf('offered.has(a)') < build.indexOf('addOns: gownAddOnsInOrder('), 'add-ons are stored before they are checked');
+  assert.match(server, /add_ons: args\.built\.addOns,/, 'her add-ons are not stored');
+  assert.match(server, /\.select\('design_id, vendor_profile_id, config, body, measures, quantities, hand, add_ons, /, 'her add-ons are not read');
+  assert.match(server, /const addOns = gownStoredAddOns\(r\.add_ons\);[\s\S]{0,200}\|\| !addOns\) \{/, 'stored add-ons that no longer check out are thinned, not "couldn’t read"');
+  const actions = strip(read('app/_components/gown-maker/gown-actions.ts'));
+  const design = actions.slice(actions.indexOf("if (op === 'design')"), actions.indexOf("if (op === 'fit')"));
+  assert.match(design, /gownDesignOf\(options\.data, c, q, stored\.data\.addOns, /, 'the shop’s price leaves out her add-ons');
+  assert.match(design, /quote: isShop \? gownQuotePrefill\(/, 'the quote pre-fill reaches the bride');
+  const card = strip(read('app/_components/chat/cards/gown-design-card.tsx'));
+  assert.doesNotMatch(card, /forShop|Centavos\b(?<!estimateCentavos|offerCentavos)|cost|markup|labour|supplies/i, 'the card reads a cost');
+  assert.match(card, /quoting && !bride && quote/, 'Make a quote opens for the bride');
+  assert.match(card, /formatCentavosPhp\(estimateCentavos\)/);
+  // The stream draws a bride's design as the card, and only hers.
+  const stream = strip(read('app/_components/chat-message-stream.tsx'));
+  assert.match(stream, /const gownDesign = m\.sender_role === 'couple' && isGownDesign\(m\.body\);/);
+  assert.match(stream, /<GownDesignCard\s+threadId=\{threadId\}\s+messageId=\{m\.message_id\}/);
+});
+
+test('11 · B9 (v209): her lines are checked before they are stored, read back honestly, and drawn on the shop’s blocks only', () => {
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  const server = strip(read('lib/gown-maker.server.ts'));
+  const build = server.slice(server.indexOf('export async function buildGownDesign('), server.indexOf('export async function storeGownDesign('));
+  assert.match(build, /const lines = args\.lines === undefined \|\| args\.lines === null \? null : sanitizeGownOrderLines\(args\.lines\);\s*if \(args\.lines != null && !lines\) return \{ ok: false, reason: 'out_of_range' \};/, 'her lines are not checked, or bad ones are repaired');
+  assert.match(server, /edges_cm: args\.built\.edges,/, 'her lines are not stored');
+  assert.match(server, /hand, add_ons, edges_cm, estimate_centavos/, 'her lines are not read');
+  const edgesOf = server.slice(server.indexOf('function edgesOf('), server.indexOf('export async function readStoredGownDesign('));
+  assert.match(edgesOf, /if \(v == null\) return \{ s: 'none' \};/);
+  assert.match(edgesOf, /return \{ s: 'unread' \};/, 'lines that no longer check out read as none');
+  const actions = strip(read('app/_components/gown-maker/gown-actions.ts'));
+  assert.match(actions, /lines: i\.lines,/, 'send drops her lines');
+  const design = actions.slice(actions.indexOf("if (op === 'design')"), actions.indexOf("if (op === 'fit')"));
+  assert.ok(design.indexOf('if (isShop)') < design.indexOf('lines: stored.data.edges'), 'her lines reach the pattern outside the shop branch');
+  const panel = strip(read('app/vendor-dashboard/clients/[eventId]/_components/gown-order-panel.tsx'));
+  assert.match(panel, /gownOrderBlocks\(config, body, measures, tape, P\?\.lines\.s === 'sent' \? P\.lines\.edges : null\)/, 'the blocks are drawn without her lines');
+  assert.match(panel, /L\?\.s === 'sent' \? gownLinesSummary\(L\.edges, config\.neck === 'high'\) : L\?\.s === 'unread' \? \[GOWN_LINES_UNREAD\] : \[\]/, 'the order does not say her lines, or hides an unread');
+});

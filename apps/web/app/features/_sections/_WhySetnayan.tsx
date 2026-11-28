@@ -58,7 +58,7 @@ export const WHY_FAQ: Record<MarketingLocale, { q: string; a: string }[]> = {
     },
     {
       q: 'Does it work for Filipino events specifically?',
-      a: 'Setnayan is built for Filipino events — it understands Filipino customs, ceremony types, and local suppliers, and prices are in pesos. Hosts pay 0% commission.',
+      a: 'Setnayan is built for Filipino events — it understands Filipino customs, ceremony types, and local suppliers, and prices are in pesos.',
     },
     {
       q: 'What do my guests get?',
@@ -80,7 +80,7 @@ export const WHY_FAQ: Record<MarketingLocale, { q: string; a: string }[]> = {
     },
     {
       q: 'Gumagana ba ito para sa mga Filipino event?',
-      a: 'Ginawa ang Setnayan para sa mga Pilipinong event — naiintindihan nito ang kaugaliang Pilipino, ang mga uri ng seremonya, at ang mga lokal na supplier, at nasa piso ang presyo. Hosts pay 0% commission.',
+      a: 'Ginawa ang Setnayan para sa mga Pilipinong event — naiintindihan nito ang kaugaliang Pilipino, ang mga uri ng seremonya, at ang mga lokal na supplier, at nasa piso ang presyo.',
     },
     {
       q: 'Ano ang makukuha ng mga guest ko?',
@@ -147,7 +147,7 @@ const COPY: Record<
       },
       {
         title: 'Built for Filipino events',
-        body: 'Filipino customs and ceremonies; you pay suppliers directly. Hosts pay 0% commission.',
+        body: 'Filipino customs and ceremonies; you pay suppliers directly.',
       },
     ],
     faqHeading: 'Questions people ask first',
@@ -188,7 +188,7 @@ const COPY: Record<
       },
       {
         title: 'Para sa mga Pilipinong event',
-        body: 'Kaugalian at seremonyang Pilipino; direkta mong babayaran ang suppliers. Hosts pay 0% commission.',
+        body: 'Kaugalian at seremonyang Pilipino; direkta mong babayaran ang suppliers.',
       },
     ],
     faqHeading: 'Mga unang itinatanong',

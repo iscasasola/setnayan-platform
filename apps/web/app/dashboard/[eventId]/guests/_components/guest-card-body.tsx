@@ -196,6 +196,8 @@ export const GUEST_CARD_ERROR_COPY: Record<string, string> = {
   unlink_failed: 'The account could not be unlinked just now — nothing was changed. Please try again.',
   // The card's Table dropdown (updateGuest › syncCardTable).
   seat_failed: 'The table could not be changed just now — the rest was saved. Please try again.',
+  // 🔒 #17: the seat is locked in the seat plan (the words are `SEAT_LOCKED_WORDS`, lib/seat-list-drop.ts).
+  seat_locked: 'Locked · Unlock to move',
   // ⋯ › New QR (releaseGuestClaim › newGuestQr).
   new_qr_failed: 'A new QR could not be made just now — the old one still works. Please try again.',
   new_qr_rate_limited: 'This QR was already replaced 3 times in the last 24 hours — try again later.',

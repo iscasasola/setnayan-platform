@@ -30,6 +30,7 @@ import { PickMenu } from './pick-menu';
 import { DraftsAsYouGo } from './drafts-as-you-go';
 import { useMaker } from '../../../launch/_components/maker-context';
 import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
+import { actionButtonClass } from '@/components/action-button-class';
 
 /**
  * Website Pro panels for the unified editor (PR-4).
@@ -73,8 +74,8 @@ export function ProLockPanel({
   priceLabel: string | null;
 }) {
   return (
-    <div className="border-t border-dashed border-amber-300/60 dark:border-[rgb(var(--color-warn)/0.4)] bg-amber-50/60 dark:bg-[rgb(var(--color-warn)/0.14)] p-3">
-      <p className="flex items-center gap-1.5 text-[12px] font-semibold text-amber-900 dark:text-[rgb(var(--color-warn))]">
+    <div className="border-t border-dashed border-warn-300/60 bg-warn-50 p-3">
+      <p className="flex items-center gap-1.5 text-sn-sm font-semibold text-warn-900">
         {/* ◆ never a padlock (owner 2026-09-28: "remove padlock … the diamond icon"). */}
         <PaidMark state="try" bare word="PLUS" label={paidMarkLabel('try', 'Event Plus')} size="xs" tone="current" />
         {featureName} is part of Event Pro
@@ -85,7 +86,7 @@ export function ProLockPanel({
       </p>
       <Link
         href={unlockHref}
-        className="mt-2 inline-flex items-center rounded-full bg-amber-400 dark:bg-[rgb(var(--color-warn))] px-4 py-1.5 text-xs font-semibold text-ink transition-colors hover:bg-amber-300 dark:hover:bg-[rgb(var(--color-warn))]"
+        className={actionButtonClass('warn', { filled: true, extra: 'mt-2' })}
       >
         {unlockLabel(priceLabel)}
       </Link>
@@ -415,11 +416,11 @@ function BackgroundField({
                 if (!hex && e !== 'plain') setHex(resolved);
                 setEffect(e);
               }}
-              className="group text-left transition-transform duration-300 ease-in-out active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
+              className="group text-left transition-transform duration-sn-elem ease-sn active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-40"
             >
               <span
                 aria-hidden
-                className={`block h-11 rounded-md border-2 transition-colors duration-300 ${
+                className={`block h-11 rounded-md border-2 transition-colors duration-sn-elem ease-sn ${
                   on ? 'border-ink' : 'border-ink/10 group-hover:border-ink/30'
                 }`}
                 style={

@@ -4,17 +4,25 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import { eventHubOwnership } from '@/lib/couple-website-pro';
-import { eventOwnsSku, eventSkuActive } from '@/lib/entitlements';
+import {
+  SKU_OWNERSHIP_ALIASES,
+  bundlesGrantingSku,
+  eventHasCompGrant,
+  eventHostHoldsFounderSeat,
+  eventHostIsInternal,
+  eventOwnsSku,
+  eventSkuActive,
+  fetchBundleComponents,
+} from '@/lib/entitlements';
+import { eventBasketOrdersGranting } from '@/lib/onboarding-order-items';
 import { holdsProPlan } from '@/lib/hub-parts';
 import { fetchV2CustomerCatalog } from '@/lib/v2-catalog';
-import { PLAN_PRICE_CODES } from '@/lib/event-plans';
+import { PLAN_PRICE_CODES, type PlanCoverage } from '@/lib/event-plans';
 import { PLAN_NAME } from '@/lib/plan-buy-doors';
 import { resolveOrderChargeCentavos } from '@/lib/order-charge-authority';
 import { loadPoolRungs } from '@/lib/papic-pool-rungs';
 import { readEventPoolStatus } from '@/lib/papic-event-pool';
 import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/vendor-funnel';
-import { readPapicFreeGrantRead } from '@/lib/papic-tier-config-read';
-import { papicFreeCreditPromise } from '@/lib/papic-free-credit-promise';
 import { PRO_PEEK, ULTRA_PEEK, plusPeek, proMore, ultraMore } from '@/app/_components/frontdoor/front-door-landing-data';
 import {
   PACK_KEYS,
@@ -109,7 +117,6 @@ export async function readEventServices(eventId: string): Promise<EventServicesF
     pool,
     booked,
     eyebrow,
-    freeGrant,
     ...quotes
   ] = await Promise.all([
     eventHubOwnership(ent, eventId, 'active').catch(() => null),
@@ -127,7 +134,6 @@ export async function readEventServices(eventId: string): Promise<EventServicesF
     readEventPoolStatus(admin, eventId),
     bookedCount(ent, eventId).catch(() => null),
     eventLine(ent, eventId).catch(() => null),
-    readPapicFreeGrantRead(),
     ...PACK_KEYS.map((k) => quote(PLAN_PRICE_CODES[k], eventId)),
     ...SINGLE_KEYS.map((k) => quote(SINGLE_CODES[k], eventId)),
   ]);
@@ -150,7 +156,8 @@ export async function readEventServices(eventId: string): Promise<EventServicesF
     plusCredits: creditsOf('plus'),
     proCredits: creditsOf('pro'),
     ultraCredits: creditsOf('ultra'),
-    freePapic: papicFreeCreditPromise(freeGrant)?.sentence ?? null,
+    // 🎁 No free first-event Papic line (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic credits REMOVED").
+    freePapic: null,
   };
   const info: Record<PackKey, readonly string[]> = {
     plus: plusPeek(planFacts),
@@ -238,6 +245,39 @@ export async function readEventPlanHeld(eventId: string): Promise<{ key: HeldPla
     ]);
     const key: HeldPlan = ultra ? 'ultra' : holdsProPlan(hub) ? 'pro' : plus ? 'plus' : 'free';
     return { key, name: key === 'free' ? 'Free' : PLAN_NAME[key] };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 🧾 WHAT COVERS THE PLAN, for "Orders and receipts" (L5 · C10) — `readEventPlanHeld`, then, for a paid plan, the same
+ * chain `eventSkuActive` walks: the order keys that confer it (its code, its aliases, the packs that include it), the
+ * one-bill orders whose lines include it, and whether a real grant holds it (comp · internal host · founder seat).
+ * `planHeldWithoutOrder` decides the row. Free stops after the first step. Null = the read failed (no row is guessed).
+ */
+export async function readEventPlanCoverage(eventId: string): Promise<PlanCoverage<HeldPlan> | null> {
+  const held = await readEventPlanHeld(eventId);
+  if (!held) return null;
+  if (held.key === 'free') return { held, coveringKeys: [], basketOrderIds: [], granted: false };
+  try {
+    const ent = await eventEntitlementClient(eventId);
+    const code = PLAN_PRICE_CODES[held.key];
+    const ownKeys = [code, ...(SKU_OWNERSHIP_ALIASES[code] ?? [])];
+    const [composition, baskets, comp, internal, founder] = await Promise.all([
+      fetchBundleComponents(ent),
+      Promise.all(ownKeys.map((k) => eventBasketOrdersGranting(ent, eventId, k))),
+      eventHasCompGrant(ent, eventId, code),
+      eventHostIsInternal(ent, eventId),
+      eventHostHoldsFounderSeat(ent, eventId),
+    ]);
+    const packs = ownKeys.flatMap((k) => bundlesGrantingSku(composition, k));
+    return {
+      held,
+      coveringKeys: [...new Set([...ownKeys, ...packs])],
+      basketOrderIds: baskets.flat().map((b) => b.orderId),
+      granted: comp || internal || founder,
+    };
   } catch {
     return null;
   }

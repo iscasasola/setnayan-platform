@@ -23,7 +23,6 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { renderLlmsTxt, type RetailRow, type VendorRow } from '@/lib/llms-txt';
 import { readTaxonomyFrom } from '@/lib/taxonomy-read';
 import { liveSubCategoryCount } from '@/lib/category-count';
-import { isAppleIapEnabled } from '@/lib/apple-iap-flag';
 import { fetchDeepSearchRunsPerMonth } from '@/lib/vendor-deep-search-addon';
 import { getBookingFeeSchedule } from '@/lib/booking-fee-settings.server';
 import { isVendorFeatureGateEnabled } from '@/lib/vendor-feature-gate';
@@ -102,8 +101,6 @@ export async function GET(): Promise<Response> {
       vendorPaywallOn: isVendorFeatureGateEnabled(),
       launchOfferCap,
       subCategoryCount: liveSubCategoryCount(taxonomy),
-      // 🔁 The owner's Apple switch: when on, the plan line adds that app plans renew through Apple.
-      appleIapOn: isAppleIapEnabled(),
       deepSearchRunsPerMonth: deepSearchRuns.read ? deepSearchRuns.perMonth : undefined,
       refreshedOn: new Date().toISOString().slice(0, 10),
       articles: articles.items,

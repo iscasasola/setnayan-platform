@@ -2,6 +2,8 @@ import { sortTables, spreadForDisplay } from '@/lib/table-order';
 import { DEFAULT_FLOOR_PLAN, computeAutoSeat, groupColorFor, type AutoSeatGuest, type EventTableRow, type FloorBoothRow, type VipPlusOneSeating } from '@/lib/seating';
 import type { SeatingGuest } from '@/app/dashboard/[eventId]/seating/_components/seating-editor';
 import { SeatingEditor } from '@/app/dashboard/[eventId]/seating/_components/seating-lazy';
+import { LabSeatingWithDryRun } from './lab-dry-run';
+import type { DryRunView } from '@/lib/seat-plan-api';
 import { SeatPlanInGuests } from '@/app/dashboard/[eventId]/seating/_components/seat-plan-in-guests';
 import { MarchMaker } from '@/app/dashboard/[eventId]/launch/_components/details-lazy';
 import { labMarchSections } from '@/app/dev/details-lab/march-fixture';
@@ -140,7 +142,7 @@ function vipLabRoom(mode: VipLab) {
   return { tables, guests, groups };
 }
 
-export function LabSeats({ guests, seat, big = false, cale = null, vip = null, floor = null }: { floor?: 'empty' | null; guests: readonly { guest_id: string; first_name: string | null; last_name: string | null; role: string; side: string; rsvp_status: string | null }[]; seat: string | undefined; /** `&big=1` — the 3D room on the 25-table / 230-guest synthetic plan. */ big?: boolean; cale?: 'before' | 'after' | null; vip?: VipLab | null }) {
+export function LabSeats({ guests, seat, big = false, cale = null, vip = null, floor = null, check = null }: { /** ✦ `&check=1` — a sample dry run (seat plan S); `&check=fail` — a dry run that fails. */ check?: 'ok' | 'fail' | null; floor?: 'empty' | null; guests: readonly { guest_id: string; first_name: string | null; last_name: string | null; role: string; side: string; rsvp_status: string | null }[]; seat: string | undefined; /** `&big=1` — the 3D room on the 25-table / 230-guest synthetic plan. */ big?: boolean; cale?: 'before' | 'after' | null; vip?: VipLab | null }) {
   const vipRoom = vip ? vipLabRoom(vip) : null;
   /* 🧪 `&floor=empty` — no tables, eight people coming with no seat, an unsized (20 × 30 m) room: the owner's test event
      of 20 Nov, on which the floor's first steps are walked with the lab's stand-in writes (`lab-seat-floor.tsx`). */
@@ -196,6 +198,26 @@ export function LabSeats({ guests, seat, big = false, cale = null, vip = null, f
   const nonDeclined = seatingGuests.filter((g) => g.rsvp_status !== 'declined').length;
   const reserved = seatingGuests.filter((g) => g.rsvp_status === 'attending');
   const view = parseSeatView(seat);
+  /* ✦ Seat plan S on synthetic data: the engine's dry run (L11) stood in for — a suggestion for the first table with room,
+     from the people still to seat, and two problems (one Fix, one Review). Plain data; the client wrapper asks it. */
+  const labRun: DryRunView = (() => {
+    const unseated = seatingGuests.filter((g) => !g.seated_table_id && g.rsvp_status !== 'declined');
+    const roomy = LAB_TABLES.find((t) => seatingGuests.filter((g) => g.seated_table_id === t.table_id).length + 2 <= t.capacity) ?? LAB_TABLES[0];
+    if (!roomy) return { status: 'ok', suggestions: [], problems: [], line: null, fixAllPlanId: null };
+    const pair = unseated.slice(0, 2).map((g) => g.guest_id);
+    const other = LAB_TABLES.find((t) => t.table_id !== roomy.table_id) ?? roomy;
+    const problems: Extract<DryRunView, { status: 'ok' }>['problems'] = [
+      ...(unseated[2] ? [{ kind: 'rsvp_alone' as const, guestIds: [unseated[2].guest_id], tableId: '', reason: `${unseated[2].name} said yes and has no seat yet`, fix: { kind: 'move' as const, planId: 'lab', tableId: roomy.table_id, guestIds: [unseated[2].guest_id] } }] : []),
+      { kind: 'table_over' as const, guestIds: [], tableId: other.table_id, reason: `${other.table_label} has more guests than chairs`, fix: { kind: 'review' as const } },
+    ];
+    return {
+      status: 'ok',
+      suggestions: pair.length ? [{ tableId: roomy.table_id, guestIds: pair, units: [pair], reason: 'Barkada · bride’s side', planId: 'lab' }] : [],
+      problems,
+      line: `${problems.length} to look at`,
+      fixAllPlanId: null,
+    };
+  })();
   const editorProps: ComponentProps<typeof SeatingEditor> = {
     eventId: "S89E-LABGUESTS1",
     roleSetKey: "wedding",
@@ -237,7 +259,7 @@ export function LabSeats({ guests, seat, big = false, cale = null, vip = null, f
   };
   return (
     <SeatPlanInGuests seat={view}>
-      {floor === 'empty' ? <LabSeatFloor editorProps={editorProps} /> : <SeatingEditor {...editorProps} />}
+      {floor === 'empty' ? <LabSeatFloor editorProps={editorProps} /> : check ? <LabSeatingWithDryRun editorProps={editorProps} check={check} run={labRun} /> : <SeatingEditor {...editorProps} />}
     </SeatPlanInGuests>
   );
 }

@@ -167,7 +167,8 @@ test('the measurement reaches the RENDER — the refused state comes before the 
 });
 
 test('the order slip is the payer’s alone, forwards to its receipt, and never shows a Pay door in the store shell', () => {
-  const slip = read('app/receipts/order/[orderId]/page.tsx');
+  // The slip's checks are decided by its gate (awaited by its layout before streaming); read with the page.
+  const slip = read('app/receipts/order/[orderId]/gate.ts') + read('app/receipts/order/[orderId]/page.tsx');
   assert.match(slip, /order\.user_id !== user\.id/, 'an admin or co-host can READ others’ orders — this page is for the payer');
   assert.match(slip, /if \(receipt\) redirect\(`\/receipts\/\$\{receipt\.receipt_id\}`\)/, 'once paid, the receipt replaces the slip');
   assert.match(slip, /!supplierBill && !storeShell/, 'no Pay door for a supplier’s own bill or in the App Store shell');

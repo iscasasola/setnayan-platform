@@ -15,13 +15,13 @@ import { formatPhp } from '@/lib/php';
 import { OLD_WAY, oldWayMoney, type OldWayMoney } from '@/lib/old-way-costs';
 import { coupleMediaCapBytes, formatMakerMediaMB } from '@/lib/maker-media-limits';
 import type { AiBand, TwoPrices } from '../_pricing-reads';
+import { PAPIC_BOOKING_GIFT_LINE } from '@/lib/setnayan-gift';
 
 export type PlanPrices = {
   pro: TwoPrices | null;
   partsFrom: number | null;
   papicFrom: number | null;
   liveWatch: number | null;
-  patiktok: { php: number; perDay: boolean } | null;
   ai: Partial<Record<AiBand, TwoPrices>>;
   /** Event Plus — EVENT_PLUS. (Carried Setnayan AI 4 → 18 Nov 2026; since the 18 Nov re-cut the AI is Event Pro's.) */
   plus?: number | null;
@@ -47,7 +47,6 @@ export type QuestionKey =
   | 'plus'
   | 'pro'
   | 'ai'
-  | 'patiktok'
   | 'together';
 
 export type PlanState = {
@@ -125,7 +124,7 @@ export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => st
       q: 'Do you want an easier way to collect everyone’s photos?',
       line: 'Every guest’s phone becomes a camera.',
       item: 'Papic',
-      tip: `Guests shoot from their own phones, no app to install; every photo lands in one place. Your first event’s credits are included${p.papicFrom != null ? `; top-ups from ${peso(p.papicFrom)}` : ''}.`,
+      tip: `Guests shoot from their own phones, no app to install; every photo lands in one place. ${PAPIC_BOOKING_GIFT_LINE}${p.papicFrom != null ? ` Credits from ${peso(p.papicFrom)}.` : ''}`,
       tool: true,
     },
     {
@@ -198,17 +197,6 @@ export function questionsFor(s: PlanState, p: PlanPrices, fmt: (n: number) => st
         // so the Pro question above already carries it (its tip says so). A separate "help choosing suppliers?" step
         // priced at Event Pro would bill Pro twice when both are picked.
         null,
-    p.patiktok
-      ? {
-          k: 'patiktok',
-          q: 'Do you want short videos of the day to share?',
-          line: 'Your guests’ moments, cut into reels.',
-          item: 'Patiktok',
-          tip: `Pick the moments, the length and a song; the reel renders in your browser. ${peso(p.patiktok.php)}${p.patiktok.perDay ? ' per day of your event' : ' for your event'}.`,
-          tool: true,
-          php: p.patiktok.php,
-        }
-      : null,
     {
       k: 'together',
       q: 'Will you plan this with other people?',

@@ -71,6 +71,7 @@ import type { BookedSupplier } from '@/lib/moodboard-finalization';
 import { CONFIRMED_VENDOR_STATUSES } from '@/lib/events';
 import { SeatingLabLoader } from './seating-lab-loader';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
+import { readShownTableNames } from '@/lib/table-auto-name.server';
 
 
 type Props = {
@@ -97,6 +98,7 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
   if (!user) redirect('/login');
   const supabase = await createClient();
 
+  const shownNamesRead = readShownTableNames(supabase, eventId).catch(() => null);
   const [tablesRaw, assignments, guestsRead, floorPlan, constraints, sceneObjectsRaw, boothsRaw, signsRaw, groupsRaw, memberships, eventRow, roleSet, finalizationRes, vendorNameRes, bookedSupplierRes] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
@@ -152,6 +154,8 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
       .eq('event_id', eventId)
       .in('status', CONFIRMED_VENDOR_STATUSES as unknown as string[]),
   ]);
+  // 🪑 The name each table SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts); unread → the stored label (a view, no write).
+  const shownNames = await shownNamesRead;
 
   // 🔌 A REFUSED GUEST READ IS NOT AN EMPTY ROOM (reads-are-honest, 2026-11-05):
   // the 3D plan would draw every table empty and count nobody unseated. The 2D
@@ -178,7 +182,7 @@ export default async function SeatingLabPage({ params, searchParams }: Props) {
       : defaultTablePosition(i, tablesRaw.length, spread);
     return {
       id: t.table_id,
-      label: t.link_group_label ?? t.table_label,
+      label: shownNames?.get(t.table_id) ?? t.link_group_label ?? t.table_label,
       type: t.table_type,
       shape: shapeHintFor(t.table_type),
       capacity: t.capacity,

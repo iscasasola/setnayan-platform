@@ -28,8 +28,6 @@ import { resolveProfile } from '@/lib/event-type-profile';
 import { sanitizeSetupAnswers } from '@/lib/onboarding/setup-answers';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 import { setupColumns } from '@/lib/onboarding/event-insert';
-import { setupArmsPapic } from '@/lib/event-answers';
-import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { mintOnboardingServiceOrders } from '@/lib/onboarding-services-orders';
 import { unlockCategoryWithInquiry } from '@/app/dashboard/[eventId]/vendors/_actions/unlock-category';
 import { fetchWizardVendorRecommendations, type WizardVendorRec } from '@/lib/wizard-recommendations';
@@ -693,22 +691,8 @@ export async function commitOnboardingWedding(
     };
   }
 
-  // Arm the free Papic pool (owner-locked 2026-07-27 · 50 pts). Papic is switched
-  // ON free for every new event, so the metering fence must exist from the moment
-  // the event does — an event with no grant takes papic_event_pool_status()'s
-  // applies=FALSE branch and captures UNMETERED. Idempotent + non-fatal by design:
-  // a miss here is self-healed on the first Papic-studio render.
-  //
-  // 🗂 …UNLESS THE COUPLE SAID NO (owner 2026-10-02, "EVERY ANSWER … LIVES IN
-  // EVENT DETAILS"): "Photos from your guests? — No" is `papic_on = false`, so
-  // nothing is armed and no capture is taken there (`eventAcceptsNewCaptures`).
-  // Turning it on later in Your info arms both at Apply.
-  if (setupArmsPapic(setupAnswers)) {
-    await ensureFreePapicPoolGrantAdmin(admin, insertedEvent.event_id, user.id);
-    // 🔌 No free "One" camera call (owner 2026-10-13, "drop the retired free-camera call"):
-    // `free_one_camera_points` is 0 by migration 20271130515135 (owner 2026-08-11), so
-    // `papic_ensure_free_one_camera` armed nothing and cost a request per new event.
-  }
+  // 🎁 No free first-event Papic grant (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic credits REMOVED"):
+  // every booking carries a Setnayan gift instead, so nothing is armed here. Credits already granted stay.
 
   const { error: memberError } = await admin.from('event_members').insert({
     event_id: insertedEvent.event_id,

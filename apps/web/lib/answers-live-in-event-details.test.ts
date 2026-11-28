@@ -44,7 +44,6 @@ import {
   logoStepAnswered,
   papicChoices,
   papicIsOn,
-  setupArmsPapic,
   type EventAnswerColumn,
 } from './event-answers';
 import { rowAcceptsNewCaptures } from './event-accepts-captures-rule';
@@ -138,19 +137,10 @@ test('never asked is not "No": Papic and gifts stay on; the logo and the photo s
 
 /* ══ PAPIC ══ */
 
-test('Papic No: no free pool is armed at the commit — in every onboarding path', () => {
-  assert.equal(setupArmsPapic(onboard({ papic: 'yes' })), true);
-  assert.equal(setupArmsPapic(onboard({ papic: 'no' })), false);
-  assert.equal(setupArmsPapic(null), true, 'a commit with no answers arms, as before');
+test('no onboarding path arms a free Papic pool any more (owner 16 Nov 2026, "Free 50 Papic credits REMOVED")', () => {
   for (const rel of ['app/onboarding/_shared/commit-event.ts', 'app/onboarding/wedding/actions.ts', 'app/onboarding/simple/actions.ts']) {
     const src = read(rel);
-    const gate = src.search(/if \(setupArmsPapic\(/);
-    assert.ok(gate > 0, `${rel} arms Papic without asking the answer`);
-    const pool = src.indexOf('ensureFreePapicPoolGrantAdmin(admin', gate);
-    const close = src.indexOf('\n  }\n', gate);
-    // 🔌 The free "One" camera call is gone (owner 2026-10-13): its points are 0
-    // since 20271130515135, so the pool grant is the one grant left to gate.
-    assert.ok(pool > gate && pool < close, `${rel}: the free pool grant must sit inside the answer's gate`);
+    assert.ok(!src.includes('ensureFreePapicPoolGrantAdmin('), `${rel}: the free first-event grant is being armed again`);
     assert.ok(!src.includes('ensureFreePapicOneCameraAdmin('), `${rel}: the retired free camera is being asked for again`);
   }
 });
@@ -163,16 +153,15 @@ test('Papic No takes no shot (the capture gate) — Yes and never-asked do', () 
   assert.match(read('lib/event-accepts-captures.ts'), /\.select\('archived, papic_on'\)/, 'the gate no longer reads the answer');
 });
 
-test('Papic No closes the guest camera door for every caller; Yes turns it back on and arms the grants at Apply', () => {
+test('Papic No closes the guest camera door for every caller; Yes turns it back on and grants nothing', () => {
   const guest = read('lib/papic-guest.ts');
   const access = guest.slice(guest.indexOf('export async function eventPapicGuestAccess'));
   assert.match(access, /select\('papic_on'\)/);
   const off = access.search(/!papicIsOn\(/);
   assert.ok(off > 0 && off < access.indexOf('owned.some(Boolean)'), 'a purchase must not reopen a camera the host said No to');
   const apply = read('app/dashboard/[eventId]/website/hub-draft-actions.ts');
-  assert.match(apply, /if \(eventsPatch\.papic_on === true\) \{[\s\S]{0,120}ensureFreePapicPoolGrantAdmin\(admin, eventId\);/);
-  // The Papic card's self-heal (moved from the removed Papic page, 2026-10-26) leaves an answered-No event unarmed.
-  assert.match(read('app/dashboard/[eventId]/studio/papic/_components/papic-self-heal.tsx'), /answeredNo \? Promise\.resolve\(\) : ensureFreePapicPoolGrantAdmin\(admin, eventId\)/);
+  assert.ok(!apply.includes('ensureFreePapicPoolGrantAdmin('), 'turning Papic back on arms the free grant again');
+  assert.ok(!read('app/dashboard/[eventId]/studio/papic/_components/papic-self-heal.tsx').includes('ensureFreePapicPoolGrantAdmin('), 'the self-heal arms the free grant again');
 });
 
 /* ══ GIFTS ══ */

@@ -14,6 +14,7 @@ import { readGuestSessionForEvent } from '@/lib/guest-one-path.server';
 import { canViewSlugEvent } from '@/lib/slug-access';
 import { fetchEntrance } from '@/lib/indoor-blueprint';
 import { fetchPublicTables, type EventTableRow } from '@/lib/seating';
+import { guestTablesWithShownNames } from '@/lib/table-auto-name.server';
 import { WayfindingMap } from '@/app/_components/wayfinding-map';
 import { PulsedLiveRefresher } from '@/app/_components/pulsed-live-refresher';
 import { theDayFor } from '@/lib/event-clock.server';
@@ -140,7 +141,8 @@ export default async function FindMyTablePage({ params }: Props) {
   let tables: EventTableRow[] = [];
   let tablesErr: unknown = null;
   try {
-    tables = await fetchPublicTables(admin, event.event_id);
+    // 🪑 …each under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+    tables = await guestTablesWithShownNames(admin, event.event_id, await fetchPublicTables(admin, event.event_id));
   } catch (e) {
     tablesErr = e;
     console.error('[supabase-error] app/[slug]/find-my-table/page.tsx · fetchPublicTables', e);

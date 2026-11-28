@@ -171,10 +171,12 @@ test('a screen quotes each fixed rule by its name, not by a copy of the number',
     // The commission figure was quoted by name in vendor-grow-sections.tsx, deleted 2026-11-06 with the old
     // /for-suppliers page; /pricing is the screen that still draws it. The approved /for-suppliers page draws no
     // commission figure in its body (its metadata reads `supplierCommissionShort`), and is held below to type none.
-    ['app/(shell)/pricing/page.tsx', /\$\{COMMISSION_PCT\}% commission/],
+    // 28 Nov (owner, superseding 27 Nov L9 P11): /pricing, the hosts' page, says no commission figure at all, so it
+    // left this list — it is held below to type none.
   ];
   for (const [file, re] of quotes) assert.match(code(file), re, `${file} no longer quotes its rule by name`);
   for (const file of [
+    'app/(shell)/pricing/page.tsx',
     'app/(shell)/for-suppliers/page.tsx',
     'app/for-suppliers/_components/supplier-front-page.tsx',
     'app/for-suppliers/_components/supplier-front-client.tsx',

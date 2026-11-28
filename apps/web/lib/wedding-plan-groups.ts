@@ -45,6 +45,7 @@ import {
   type WeddingTile,
 } from '@/lib/taxonomy';
 import { FAITH_LABELS } from '@/lib/faith-registry';
+import { isBookedStatus } from '@/lib/booked-status';
 import { canInviteSupplier } from '@/lib/supplier-invite-eligibility';
 
 export type PlanGroupId =
@@ -724,15 +725,9 @@ const UNBUCKETED_FALLBACK_GROUP: PlanGroupId = 'logistics';
 /** Status the badge surfaces for a vendor row. */
 export type VendorPickStatus = 'picked' | 'locked';
 
-const LOCKED_STATUSES = new Set([
-  'contracted',
-  'deposit_paid',
-  'delivered',
-  'complete',
-]);
-
+/** Booked = the one booked set (`isBookedStatus`, L5 · C2) — never a copy of its own. */
 export function statusOfVendor(rawStatus: string | null | undefined): VendorPickStatus {
-  return rawStatus && LOCKED_STATUSES.has(rawStatus) ? 'locked' : 'picked';
+  return isBookedStatus(rawStatus) ? 'locked' : 'picked';
 }
 
 /*

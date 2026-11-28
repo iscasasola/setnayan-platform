@@ -28,16 +28,17 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowLeft,
   Check,
   Share,
   Film,
-  Loader2,
   ListChecks,
   Music,
   RotateCcw,
   Sparkles,
 } from 'lucide-react';
 import { renderReel, type RenderClip, type RenderTemplate } from '@/lib/reel-render';
+import { ActionButton } from '@/components/action-button';
 import { shareBlobToDevice } from '@/lib/save-to-device';
 import { prepareGuestStory } from '../actions';
 import type { GuestStoryPlan, StoryMediaItem, StoryMusic } from '@/lib/guest-stories';
@@ -302,22 +303,8 @@ export function GuestStoryMaker({ token }: { token: string }) {
             right here on your phone, free. Share it the moment it&rsquo;s done.
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={run}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
-            >
-              <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Make my Story
-            </button>
-            <button
-              type="button"
-              onClick={openPicker}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-mulberry/40 hover:text-mulberry"
-            >
-              <ListChecks aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Choose photos &amp; music
-            </button>
+            <ActionButton tone="brand" main icon={Sparkles} label="Make my Story" onClick={run} />
+            <ActionButton tone="neutral" icon={ListChecks} label="Choose photos & music" onClick={openPicker} />
           </div>
         </>
       ) : null}
@@ -325,7 +312,7 @@ export function GuestStoryMaker({ token }: { token: string }) {
       {busy ? (
         <div className="mt-3 space-y-2">
           <div className="flex items-center gap-2 text-sm text-ink/70">
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
+            {/* No spinner: the step in words, and the bar below fills (house pending rule). */}
             {phase === 'preparing'
               ? 'Gathering your photos…'
               : `Making your Story… ${pct}%`}
@@ -488,22 +475,15 @@ export function GuestStoryMaker({ token }: { token: string }) {
           </div>
 
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => void runPicked()}
+            <ActionButton
+              tone="brand"
+              main
+              icon={Sparkles}
+              label="Make my Story"
               disabled={!selState.canRender || (musicChoice.type === 'byo' && !byoFile)}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600 disabled:opacity-40"
-            >
-              <Sparkles aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Make my Story
-            </button>
-            <button
-              type="button"
-              onClick={() => setPhase('idle')}
-              className="inline-flex items-center justify-center rounded-md border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-mulberry/40 hover:text-mulberry"
-            >
-              Back
-            </button>
+              onClick={() => void runPicked()}
+            />
+            <ActionButton tone="neutral" icon={ArrowLeft} label="Back" onClick={() => setPhase('idle')} />
           </div>
         </div>
       ) : null}
@@ -519,14 +499,7 @@ export function GuestStoryMaker({ token }: { token: string }) {
                 ? `You have ${formatCount(pickableCount)} tagged ${pickableCount === 1 ? 'moment' : 'moments'} so far — you'll need at least ${formatCount(STORY_MIN_PHOTOS)} to make a Story. Check back as more roll in.`
                 : `No tagged photos of you just yet. Once you're tagged in a few, come back and make your Story — you'll need at least ${STORY_MIN_PHOTOS}.`}
           </p>
-          <button
-            type="button"
-            onClick={run}
-            className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-mulberry/40 hover:text-mulberry"
-          >
-            <RotateCcw aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Check again
-          </button>
+          <ActionButton tone="neutral" icon={RotateCcw} label="Check again" onClick={run} />
         </div>
       ) : null}
 
@@ -545,38 +518,10 @@ export function GuestStoryMaker({ token }: { token: string }) {
             />
           </div>
           <div className="flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={onShare}
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
-            >
-              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Share my Story
-            </button>
-            <button
-              type="button"
-              onClick={onShare}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-mulberry/40 hover:text-mulberry"
-            >
-              <Share aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Save
-            </button>
-            <button
-              type="button"
-              onClick={run}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-mulberry/40 hover:text-mulberry"
-            >
-              <RotateCcw aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Make again
-            </button>
-            <button
-              type="button"
-              onClick={openPicker}
-              className="inline-flex items-center justify-center gap-2 rounded-md border border-ink/15 bg-cream px-4 py-2.5 text-sm font-medium text-ink/70 hover:border-mulberry/40 hover:text-mulberry"
-            >
-              <ListChecks aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-              Choose again
-            </button>
+            <ActionButton tone="brand" main icon={Share} label="Share my Story" onClick={onShare} />
+            <ActionButton tone="neutral" icon={Share} label="Save" onClick={onShare} />
+            <ActionButton tone="neutral" icon={RotateCcw} label="Make again" onClick={run} />
+            <ActionButton tone="neutral" icon={ListChecks} label="Choose again" onClick={openPicker} />
           </div>
         </div>
       ) : null}
@@ -590,14 +535,7 @@ export function GuestStoryMaker({ token }: { token: string }) {
             <AlertTriangle aria-hidden className="mt-0.5 h-4 w-4 shrink-0" strokeWidth={1.75} />
             {errorMsg}
           </p>
-          <button
-            type="button"
-            onClick={run}
-            className="inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream transition-colors hover:bg-mulberry-600"
-          >
-            <RotateCcw aria-hidden className="h-4 w-4" strokeWidth={1.75} />
-            Try again
-          </button>
+          <ActionButton tone="brand" main icon={RotateCcw} label="Try again" onClick={run} />
         </div>
       ) : null}
     </section>

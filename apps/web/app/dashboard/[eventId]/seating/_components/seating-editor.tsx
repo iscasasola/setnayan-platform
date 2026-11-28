@@ -7,7 +7,7 @@ import { BoothVendorCard } from '@/app/_components/plan3d/booth-vendor-card';
 import { assessSeatMove, seatMoveDoneWords, seatMoveUndo, type MoveAssessment, type MoveGuest, type SeatBefore } from '@/lib/seat-move-assess';
 import { MERGE_BASE_FIELD } from '@/lib/merge-base-field';
 import { floorPlanFieldsOf } from '@/lib/floor-plan-row';
-import { Fragment, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useOptimistic, useRef, useState, useTransition } from 'react';
 import { roomOverviewZoom } from '@/lib/seat-plan-overview';
 
 // useLayoutEffect on the server is a no-op + warns; fall back to useEffect there.
@@ -201,6 +201,7 @@ import { VENDOR_CATEGORY_LABEL, type BoothVendorOption } from '@/lib/vendors';
 import { BOOTH_FOOTPRINT_M, boothFacingDeg2D } from '@/lib/seating-3d';
 import { useSeatingStore, type SeatingSource } from './seating-store';
 import { useSeatingWrites } from './seating-writes';
+import { dryRun as askDryRun } from '../seat-plan-calls';
 import { SEAT_PLAN_SHOW_VIEW_EVENT } from '@/lib/seat-plan-views';
 import { PLAN3D_BOOTH_ADS_ENABLED } from '@/lib/ghost-booths';
 import { useSeatingPresence } from './use-seating-presence';
@@ -208,8 +209,13 @@ import { lockSaysViewOnly, useSeatingLock } from './use-seating-lock';
 import { useSeatingLiveRefresh } from './use-seating-live-refresh';
 import { SeatingLockError } from '../seating-lock-error';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
+import { SEAT_WRITE_MAX, fixAllWords, packSeatWrites, settleSeatWrites, suggestionFor, seatCheckFromView, type SeatCheckState, type SeatDryRunFeed, type SeatProblem, type SeatSuggestion } from '@/lib/seat-check';
+import { SeatCheckSheet } from './seat-check';
+import { EASE_SETTLE, SHEEN_MS } from '@/lib/motion-table';
 import { formatCount } from '@/lib/format-number';
 import { planTableBadges } from '@/lib/plan-table-badges';
+import { hostNameClash, renameWrites, tableDisplayNames, withDisplayNames } from '@/lib/table-auto-name';
+import { TableNameSheet } from './table-name-row';
 import { guestsViewHref } from '@/lib/guests-views';
 import {
   moveTargets,
@@ -242,7 +248,17 @@ import { Sheet } from '@/app/_components/sheet';
 import { SEAT_LIST_UNSEATED, SeatList, type SeatListGuest, type SeatListUnit } from './seat-list';
 import { VipMark } from './vip-mark';
 import type { RestoreSeat, SeatScope } from '@/lib/seat-plan-scope';
-import { planSeatDrop, type SeatDropTarget } from '@/lib/seat-list-drop';
+import {
+  SEAT_CARD_LOOKS,
+  SEAT_LOCKED_WORDS,
+  isSeatLockedRefusal,
+  parseSeatCardLook,
+  planSeatDrop,
+  seatDropRefusalWords,
+  seatDropUnit,
+  type SeatCardLook,
+  type SeatDropTarget,
+} from '@/lib/seat-list-drop';
 import { GuestCardSheet, SHIPPED_GUEST_CARD } from '../../guests/_components/guest-card-sheet';
 import { PickMenu as SeatPickMenu } from '../../website/editor/_components/pick-menu';
 import { PinCountDoor } from '../../guests/_components/view-summary-cards';
@@ -280,6 +296,9 @@ function isSeatingLockLost(err: unknown): boolean {
 
 /** 📵 What the plan's notice strip says when a press's request never answered or was refused. */
 const SEAT_PLAN_NOT_SAVED = 'Couldn’t save that — please try again.';
+/** 🪪 Show ⇅ › On the cards — the keys its two choices wear in the menu, and where this device remembers the pick. */
+const CARD_LOOK_KEY = 'card-look:';
+const CARD_LOOK_STORE = 'seating:card-look';
 
 // The phone's Type ▾ groups the catalog by kind, in plain words.
 const TABLE_KIND_WORD: Record<TableShapeHint, string> = {
@@ -298,10 +317,14 @@ export type SeatingGuest = {
   name: string;
   /** The guest who brought this one (`guests.plus_one_of_guest_id`) — a +1 moves with them. */
   plus_one_of?: string | null;
+  /** The short name a Seats › List Names chip wears ("Maria C.", "Tita Odette" — `seatShortName`). */
+  short_name?: string | null;
   initials: string;
   photo_url: string | null;
   side: 'bride' | 'groom' | 'both';
   group_id: string | null;
+  /** 🪑 Every group the guest is in (`guest_group_memberships`) — what a table's auto name counts (lib/table-auto-name.ts). */
+  group_ids?: string[];
   rsvp_status: string;
   seated_table_id: string | null;
   seat_number: number | null;
@@ -415,6 +438,14 @@ type Props = {
   details?: SeatingDetailsShell | null;
   /** 🏛 Whose plan this is: an event (the default) or a venue's own hall in Spaces (seat plan PR2, option B). */
   source?: SeatingSource | null;
+  /**
+   * ✦ Seat plan S — the engine's DRY RUN (L11, `DryRunView`): suggestions for cards with empty seats and the seat check's
+   * problems. `first` = the page's own read (the first paint asks nothing); after every change the editor asks again
+   * through `load` (default: `dryRun(eventId)` in seat-plan-calls.ts, an intent of `autoArrange`). Absent → the smart
+   * layer draws NOTHING: no strip, no line, no switch — never a false "All good". A failed view or a rejection is the
+   * honest "Couldn't check seats · Try again".
+   */
+  dryRun?: SeatDryRunFeed | null;
 };
 
 export type SeatingDetailsShell = {
@@ -523,6 +554,7 @@ export function SeatingEditor({
   initialView = 'plan',
   details = null,
   source = null,
+  dryRun = null,
 }: Props) {
   // 🏛 A venue's own hall (Spaces): no guests, no lock, no live presence, no publish/print/3D — the same editor otherwise.
   const isVenue = source?.kind === 'venue';
@@ -634,8 +666,26 @@ export function SeatingEditor({
             return { ...t, removed_seats: [...next].sort((a, b) => a - b) };
           }),
   );
-  // 🪑 Each table's short name on the plan, unique across the room: its number, else its initials (lib/plan-table-badges).
-  const planBadges = useMemo(() => planTableBadges(tables), [tables]);
+  /* 🪑 THE NAME EACH TABLE SHOWS (owner R6, seat plan § 4.3) — read live from who sits there through the ONE reader,
+     `tableDisplayNames` (lib/table-auto-name.ts), so it follows every seat, unseat, move and auto arrange at once. */
+  const nameInputs = useMemo(
+    () => ({
+      seated: guests.flatMap((g) => (g.seated_table_id ? [{ guest_id: g.guest_id, table_id: g.seated_table_id }] : [])),
+      groups: {
+        labels: groups.map((g) => ({ group_id: g.group_id, label: g.label })),
+        members: guests.flatMap((g) => (g.group_ids ?? (g.group_id ? [g.group_id] : [])).map((group_id) => ({ guest_id: g.guest_id, group_id }))),
+        broughtBy: guests.map((g) => ({ guest_id: g.guest_id, plus_one_of_guest_id: g.plus_one_of ?? null })),
+      },
+    }),
+    [guests, groups],
+  );
+  const shownNames = useMemo(() => tableDisplayNames(tables, nameInputs.seated, nameInputs.groups), [tables, nameInputs]);
+  /** The name a table SHOWS (its auto name, or the host's) — every word on this screen that names a table reads this. */
+  const nameOf = (t: { table_id: string; table_label: string }): string => shownNames.get(t.table_id) ?? t.table_label;
+  const [nameSheetFor, setNameSheetFor] = useState<string | null>(null);
+  // 🪑 Each table's short name on the plan, unique across the room: its number, else its initials (lib/plan-table-badges) —
+  // taken from the name the table SHOWS, so the badges stay unique on the auto names too.
+  const planBadges = useMemo(() => planTableBadges(withDisplayNames(tables, shownNames)), [tables, shownNames]);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
@@ -1411,8 +1461,24 @@ export function SeatingEditor({
    * people trade chairs through the SHIPPED atomic swap (`swapSeats` → `swap_seat_assignments`, the 3D room's own); with
    * one of them unseated, the seated one's chair changes hands through the shipped unseat + seat. Each drawn at once.
    */
-  const tradeSeats = (aId: string, bId: string) => {
+  /* 🔒 SEAT LOCK (#17): a locked seat is never moved by a hand — a swap, a seat-here or a drop says the ONE line and
+     moves nobody (lock-and-fill and Clear keep their own rules on the server). 🔒 lib/a-seat-unit-moves-as-one.test.ts */
+  const refuseLocked = (...ids: ReadonlyArray<string | null | undefined>): boolean => {
+    if (!ids.some((id) => (id ? guestsById.get(id)?.seat_locked === true : false))) return false;
+    setNotice(SEAT_LOCKED_WORDS);
+    return true;
+  };
+  /** The server refused too (a lock this tab had not seen yet): the same line, and the plan reads what is saved. */
+  const saidLocked = (res: unknown): boolean => {
+    if (!isSeatLockedRefusal(res)) return false;
+    setMoveNote(null);
+    setNotice(SEAT_LOCKED_WORDS);
+    return true;
+  };
+  /** `pairs`: two same-size units trade — their +1s swap one for one after the leads (seat plan § 4.1), in ONE write. */
+  const tradeSeats = (aId: string, bId: string, pairs: ReadonlyArray<readonly [string, string]> = []) => {
     if (!canEdit || aId === bId) return;
+    if (refuseLocked(aId, bId, ...pairs.flat())) return;
     const a = guests.find((g) => g.guest_id === aId);
     const b = guests.find((g) => g.guest_id === bId);
     if (!a || !b) return;
@@ -1426,24 +1492,43 @@ export function SeatingEditor({
       return fd;
     };
     const [ta, sa, tb, sb] = [a.seated_table_id, a.seat_number, b.seated_table_id, b.seat_number];
+    // Every +1 pair: where each sits now (they take each other's chairs, as the leads do).
+    const rest = pairs.flatMap(([x, y]) => {
+      const gx = guestsById.get(x);
+      const gy = guestsById.get(y);
+      return gx && gy ? [{ x, y, tx: gx.seated_table_id, sx: gx.seat_number, ty: gy.seated_table_id, sy: gy.seat_number }] : [];
+    });
     setPickedId(null);
     startTransition(async () => {
-      if (tb) applyGuestOpt({ type: 'seat', guestId: aId, tableId: tb, seat: sb });
-      else applyGuestOpt({ type: 'unseat', guestId: aId });
-      if (ta) applyGuestOpt({ type: 'seat', guestId: bId, tableId: ta, seat: sa });
-      else applyGuestOpt({ type: 'unseat', guestId: bId });
+      for (const [id, t, seat] of [[aId, tb, sb], [bId, ta, sa], ...rest.flatMap((r) => [[r.x, r.ty, r.sy], [r.y, r.tx, r.sx]] as const)] as const) {
+        if (t) applyGuestOpt({ type: 'seat', guestId: id, tableId: t, seat });
+        else applyGuestOpt({ type: 'unseat', guestId: id });
+      }
       if (ta && tb) {
         const fd = form(aId);
         fd.delete('guest_id');
         fd.set('guest_a_id', aId);
         fd.set('guest_b_id', bId);
-        await runGated(() => swapSeats(fd));
+        if (rest.length) fd.set('pairs', rest.map((r) => `${r.x}:${r.y}`).join(','));
+        const res = await runGated(() => swapSeats(fd));
+        // A failed swap is rolled back on the server; re-read so the screen shows what is saved (never a half trade).
+        // one-render: keep (after-failure) — the failed swap revalidated nothing; re-read what the plan really holds.
+        if (res === null) router.refresh();
+        else saidLocked(res);
       } else if (tb) {
-        await runGated(() => unassignGuest(form(bId)));
-        await runGated(() => assignGuest(form(aId, tb, sb)));
+        const off = form(bId);
+        if (rest.length) off.set('also', rest.map((r) => r.y).join(','));
+        if (saidLocked(await runGated(() => unassignGuest(off)))) return;
+        const on = form(aId, tb, sb);
+        if (rest.length) on.set('along', JSON.stringify(rest.map((r) => ({ guest_id: r.x, seat_number: r.sy }))));
+        saidLocked(await runGated(() => assignGuest(on)));
       } else if (ta) {
-        await runGated(() => unassignGuest(form(aId)));
-        await runGated(() => assignGuest(form(bId, ta, sa)));
+        const off = form(aId);
+        if (rest.length) off.set('also', rest.map((r) => r.x).join(','));
+        if (saidLocked(await runGated(() => unassignGuest(off)))) return;
+        const on = form(bId, ta, sa);
+        if (rest.length) on.set('along', JSON.stringify(rest.map((r) => ({ guest_id: r.y, seat_number: r.sx }))));
+        saidLocked(await runGated(() => assignGuest(on)));
       }
     });
   };
@@ -1451,6 +1536,14 @@ export function SeatingEditor({
   const place = (tableId: string, seatNumber: number | null) => {
     if (!canEdit) return;
     if (!pickedId) return;
+    if (refuseLocked(pickedId)) return;
+    // 🧑‍🤝‍🧑 "tap · move" onto a chair is the SAME answer as a drag (`dropSeat` → `seatDropUnit`): a picked +1 moves
+    // their bringer's unit, a pair needs a chair each.
+    if (seatNumber !== null) {
+      const occupant = guests.find((g) => g.seated_table_id === tableId && g.seat_number === seatNumber);
+      dropSeat(pickedId, { kind: 'seat', tableId, seat: seatNumber, occupantId: occupant?.guest_id ?? null });
+      return;
+    }
     const guestId = pickedId;
     const fd = new FormData();
     fd.set('event_id', eventId);
@@ -1461,28 +1554,37 @@ export function SeatingEditor({
     setPickedId(null);
     startTransition(async () => {
       applyGuestOpt({ type: 'seat', guestId, tableId, seat: seatNumber });
-      await runGated(() => assignGuest(fd));
+      saidLocked(await runGated(() => assignGuest(fd)));
     });
   };
 
   /** `quiet`: an Undo putting someone back off a seat says nothing more (its own line already spoke). */
-  const unseat = (guestId: string, quiet = false) => {
+  /** `also`: the +1s who leave the seat with this guest — ONE write, ONE Undo that puts the whole unit back (R3). */
+  const unseat = (guestId: string, quiet = false, also: readonly string[] = []) => {
     if (!canEdit) return;
+    // 🔒 #17: Remove (and its swipe) never takes a locked guest off their seat.
+    if (refuseLocked(guestId, ...also)) return;
     const was = guests.find((g) => g.guest_id === guestId);
+    const wereAlso = also.map((id) => guests.find((g) => g.guest_id === id)).filter((g): g is SeatingGuest => Boolean(g));
     const fd = new FormData();
     fd.set('event_id', eventId);
     fd.set('lock_id', lock.lockId ?? '');
     fd.set('guest_id', guestId);
+    if (also.length) fd.set('also', also.join(','));
     if (pickedId === guestId) setPickedId(null);
     startTransition(async () => {
       applyGuestOpt({ type: 'unseat', guestId });
-      if ((await runGated(() => unassignGuest(fd))) === null || !was?.seated_table_id || quiet) return;
+      for (const id of also) applyGuestOpt({ type: 'unseat', guestId: id });
+      const res = await runGated(() => unassignGuest(fd));
+      if (res === null || saidLocked(res) || !was?.seated_table_id || quiet) return;
       /* ↩ Undo (owner 2026-11-03, "SWIPE LEFT TO DELETE ON EVERY LIST ROW"): back on the SAME chair, through the
-         shipped seat write (`assignGuest`) — the place it was taken from. */
+         shipped seat write (`assignGuest`) — the place it was taken from; the +1s who left with them go back in the
+         same write. */
       const tableId = was.seated_table_id;
       const seat = was.seat_number;
+      const backAlong = wereAlso.filter((g) => g.seated_table_id === tableId && g.seat_number !== null);
       pushUndo({
-        label: `${was.name} is off the seat`,
+        label: backAlong.length ? `${was.name} and ${formatCount(backAlong.length)} more are off their seats` : `${was.name} is off the seat`,
         undo: async () => {
           const back = new FormData();
           back.set('event_id', eventId);
@@ -1490,9 +1592,11 @@ export function SeatingEditor({
           back.set('table_id', tableId);
           back.set('guest_id', guestId);
           if (seat !== null) back.set('seat_number', String(seat));
+          if (backAlong.length) back.set('along', JSON.stringify(backAlong.map((g) => ({ guest_id: g.guest_id, seat_number: g.seat_number }))));
           startTransition(async () => {
             applyGuestOpt({ type: 'seat', guestId, tableId, seat });
-            await runGated(() => assignGuest(back));
+            for (const g of backAlong) applyGuestOpt({ type: 'seat', guestId: g.guest_id, tableId, seat: g.seat_number });
+            saidLocked(await runGated(() => assignGuest(back)));
           });
         },
       });
@@ -1502,6 +1606,8 @@ export function SeatingEditor({
   /** Delete these tables (one, or a joined unit's members) — at once on screen, written after the Undo window. */
   const removeTables = (tableIds: readonly string[], label: string) => {
     if (!canEdit || tableIds.length === 0) return;
+    // 🔒 #17: a table holding a locked seat is not deleted (its seats would go with it) — said before anything hides.
+    if (refuseLocked(...guests.filter((g) => g.seated_table_id !== null && tableIds.includes(g.seated_table_id)).map((g) => g.guest_id))) return;
     if (highlightId && tableIds.includes(highlightId)) setHighlightId(null);
     const hold = (on: boolean) =>
       setHeldTables((h) => {
@@ -1522,7 +1628,10 @@ export function SeatingEditor({
           fd.set('event_id', eventId);
           fd.set('lock_id', lock.lockId ?? '');
           fd.set('table_id', tableId);
-          if ((await runGated(() => deleteTable(fd))) === null) return { ok: false };
+          const res = await runGated(() => deleteTable(fd));
+          if (res === null) return { ok: false };
+          // The server refused (a seat locked from another tab): the table comes back and the line is said.
+          if (saidLocked(res)) return { ok: false };
         }
         return { ok: true };
       },
@@ -1530,7 +1639,7 @@ export function SeatingEditor({
     });
   };
   const removeTable = (tableId: string) =>
-    removeTables([tableId], tables.find((t) => t.table_id === tableId)?.table_label ?? 'The table');
+    removeTables([tableId], shownNames.get(tableId) ?? 'The table');
 
   // Deleting a table cascades its seat assignments (DB ON DELETE CASCADE),
   // silently returning everyone at it to the unseated pool — so a table with
@@ -1538,7 +1647,7 @@ export function SeatingEditor({
   const seatedAt = (tableId: string) => guests.filter((g) => g.seated_table_id === tableId).length;
   const requestRemoveTable = (t: EventTableRow) => {
     if (seatedAt(t.table_id) === 0) removeTable(t.table_id);
-    else setConfirmDelete({ label: t.link_group_label ?? t.table_label, members: [t] });
+    else setConfirmDelete({ label: nameOf(t), members: [t] });
   };
   // List rows act on the whole display unit: an unlinked table is one member; a
   // joined unit removes every member (each cascades its own seat assignments).
@@ -2169,8 +2278,16 @@ export function SeatingEditor({
   const renameTable = (tableId: string, label: string) => {
     if (!canEdit) return;
     const trimmed = label.trim();
-    const current = tables.find((t) => t.table_id === tableId)?.table_label ?? '';
-    if (!trimmed || trimmed === current) return;
+    const table = tables.find((t) => t.table_id === tableId);
+    // 🪑 Unchanged is no rename (`renameWrites`, lib/table-auto-name.ts): a field is pre-filled with the name the table
+    // SHOWS, so focusing it and tapping away never turns an auto name into the host's. Empty returns it to auto.
+    if (!table || renameWrites(table, trimmed, shownNames.get(tableId)) === 'none') return;
+    // A name another table already shows is refused (updateTableLabel refuses it too).
+    const clash = hostNameClash(tableId, trimmed, shownNames);
+    if (clash) {
+      setNotice(clash);
+      return;
+    }
     // Advisory only (never blocks): a Chinese-wedding couple renaming a table to a
     // ones-digit-4 number gets a gentle heads-up; the rename proceeds regardless.
     if (chineseTradition && tableNumberEndsInFour(trimmed)) setNotice(TABLE_FOUR_ADVISORY);
@@ -2203,7 +2320,7 @@ export function SeatingEditor({
   ] as const;
   const vipPick = (t: EventTableRow, dataAttr: string) => (
     <PickMenu
-      label={`${t.table_label}: VIP table`}
+      label={`${nameOf(t)}: VIP table`}
       value={t.is_vip === true ? 'vip' : 'no'}
       options={VIP_TABLE_OPTIONS.map((o) => ({ ...o, disabledNote: canEdit ? undefined : 'Tap Edit first' }))}
       onPick={(k) => setTableVip(t, k === 'vip')}
@@ -2230,6 +2347,11 @@ export function SeatingEditor({
     startTransition(async () => {
       applyGuestOpt({ type: 'seatGroup', ids: memberIds, tableId });
       const res = await runGated(() => assignGroup(fd));
+      // 🔒 #17: members whose seat is locked stayed where they are — said; `assignGroup` revalidated, so the plan re-reads.
+      if (res?.locked) {
+        setNotice(`${groupLabel}: ${formatCount(res.locked)} locked ${res.locked === 1 ? 'seat stays' : 'seats stay'} · Unlock to move`);
+        return;
+      }
       if (res && res.overflow > 0) {
         const label = tableLabelById.get(tableId) ?? 'that table';
         setNotice(
@@ -2249,8 +2371,11 @@ export function SeatingEditor({
   // Seat one guest at a table's next free chair (the picker's Guest tab —
   // also moves an already-seated guest, since assignGuest upserts per guest).
   // `seat` (Details' "tap an empty seat"): that chair, when it is still free.
-  const seatGuestHere = (t: EventTableRow, guestId: string, seat?: number) => {
-    if (!canEdit) return;
+  /** `onDone(landed)`: told once, whatever happens — true only when the write landed (an Undo line is said after the
+   *  save, never before), false when it was refused, failed or never sent. */
+  const seatGuestHere = (t: EventTableRow, guestId: string, seat?: number, along: ReadonlyArray<{ guestId: string; seat: number }> = [], onDone?: (landed: boolean) => void) => {
+    if (!canEdit) return onDone?.(false);
+    if (refuseLocked(guestId, ...along.map((x) => x.guestId))) return onDone?.(false);
     const occ = occupantsFor(t);
     const removed = removedSeatSet(t.removed_seats, t.capacity);
     let free: number | null = null;
@@ -2267,9 +2392,13 @@ export function SeatingEditor({
     fd.set('table_id', t.table_id);
     fd.set('guest_id', guestId);
     if (free !== null) fd.set('seat_number', String(free));
+    // 🧑‍🤝‍🧑 The unit's +1s, each to their own chair — in the SAME write, so a failure never splits the pair.
+    if (along.length) fd.set('along', JSON.stringify(along.map((x) => ({ guest_id: x.guestId, seat_number: x.seat }))));
     startTransition(async () => {
       applyGuestOpt({ type: 'seat', guestId, tableId: t.table_id, seat: free });
-      await runGated(() => assignGuest(fd));
+      for (const x of along) applyGuestOpt({ type: 'seat', guestId: x.guestId, tableId: t.table_id, seat: x.seat });
+      const res = await runGated(() => assignGuest(fd));
+      onDone?.(res !== null && !saidLocked(res));
     });
   };
 
@@ -2287,7 +2416,7 @@ export function SeatingEditor({
       const res = await runGated(() => seatRoleAtTable(fd));
       if (res && res.overflow > 0) {
         setNotice(
-          `${roleSet.tierLabels[tier]}: seated ${formatCount(res.seated)} of ${formatCount(res.requested)} at ${t.table_label} — ${res.overflow} didn't fit. Pick another table for the rest.`,
+          `${roleSet.tierLabels[tier]}: seated ${formatCount(res.seated)} of ${formatCount(res.requested)} at ${nameOf(t)} — ${res.overflow} didn't fit. Pick another table for the rest.`,
         );
       }
     });
@@ -2300,7 +2429,7 @@ export function SeatingEditor({
   const armSwap = (t: EventTableRow) => {
     setLinkFrom(null);
     setSwapFrom((cur) => (cur === t.table_id ? null : t.table_id));
-    if (swapFrom !== t.table_id) setNotice(`Now tap the table to swap guests with “${t.table_label}”.`);
+    if (swapFrom !== t.table_id) setNotice(`Now tap the table to swap guests with “${nameOf(t)}”.`);
   };
   const doSwapTables = (a: string, b: string) => {
     setConfirmSwap(null);
@@ -2312,7 +2441,7 @@ export function SeatingEditor({
     fd.set('table_id_b', b);
     startTransition(async () => {
       try {
-        await swapTableOccupants(fd);
+        if (saidLocked(await swapTableOccupants(fd))) return;
         setNotice('Swapped — each table now seats the other’s guests, in the same chairs.');
       } catch (err) {
         if (!handleLockLost(err)) setNotice('Couldn’t swap those tables — please try again.');
@@ -2354,7 +2483,7 @@ export function SeatingEditor({
     const shapeA = shapeHintFor(a.table_type);
     const shapeB = shapeHintFor(b.table_type);
     if (!chainableShapes(shapeA, shapeB)) {
-      setNotice(`“${a.table_label}” and “${b.table_label}” don’t join end to end — link two long tables, two serpentines, or a long table and a serpentine.`);
+      setNotice(`“${nameOf(a)}” and “${nameOf(b)}” don’t join end to end — link two long tables, two serpentines, or a long table and a serpentine.`);
       return;
     }
     const wh = { width: rect.width, height: rect.height };
@@ -2371,14 +2500,14 @@ export function SeatingEditor({
       Math.max(wh.width, wh.height),
     );
     if (!cand) {
-      setNotice(`No open end on “${a.table_label}” for “${b.table_label}” — try the other table first.`);
+      setNotice(`No open end on “${nameOf(a)}” for “${nameOf(b)}” — try the other table first.`);
       return;
     }
     const ghost: WorldPose = { ...poseAt(b, (cand.x / wh.width) * 100, (cand.y / wh.height) * 100, wh), rot: cand.rot };
     const posFor = (o: EventTableRow, i: number) => positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
     const third = othersFor(b, wh, posFor).filter((o) => o.tableId !== a.table_id);
     if (!checkPlacement(ghost, { others: third, zones: zonesFor(wh) }, { gapPx: gapPxNow() }).valid) {
-      setNotice(`No room at that end — “${b.table_label}” would overlap something. Move a table first, then Link….`);
+      setNotice(`No room at that end — “${nameOf(b)}” would overlap something. Move a table first, then Link….`);
       return;
     }
     const nx = (cand.x / wh.width) * 100;
@@ -2406,7 +2535,7 @@ export function SeatingEditor({
       try {
         await commitWeld(fw);
         await linkTables(fl);
-        setNotice(`Linked — “${a.table_label}” and “${b.table_label}” are one table now: one name, one count, one sign.`);
+        setNotice(`Linked — “${nameOf(a)}” and “${nameOf(b)}” are one table now: one name, one count, one sign.`);
       } catch (err) {
         if (!handleLockLost(err)) setNotice('Couldn’t link those tables — please try again.');
         // Re-read the saved plan so the screen shows what was really kept.
@@ -2667,10 +2796,11 @@ export function SeatingEditor({
     startTransition(async () => {
       const res = await runGated(() => updateTableType(fd));
       if (!res) return; // lock lost — runGated already dropped us to view-only.
+      if (saidLocked(res)) return; // 🔒 #17: the new shape would take a locked guest's chair — the table keeps its shape.
       setNotice(
         res.unseated > 0
-          ? `“${t.table_label}” is now a ${newLabel.toLowerCase()} — ${formatCount(res.unseated)} guest${res.unseated === 1 ? '' : 's'} in seats the new shape doesn’t have ${res.unseated === 1 ? 'was' : 'were'} returned to the unseated list.`
-          : `“${t.table_label}” is now a ${newLabel.toLowerCase()}.`,
+          ? `“${nameOf(t)}” is now a ${newLabel.toLowerCase()} — ${formatCount(res.unseated)} guest${res.unseated === 1 ? '' : 's'} in seats the new shape doesn’t have ${res.unseated === 1 ? 'was' : 'were'} returned to the unseated list.`
+          : `“${nameOf(t)}” is now a ${newLabel.toLowerCase()}.`,
       );
     });
   };
@@ -3010,7 +3140,7 @@ export function SeatingEditor({
     if (chineseTradition && tableNumberEndsInFour(d.label)) setNotice(TABLE_FOUR_ADVISORY);
     const moved = slot?.moved ?? [];
     const before = moved.flatMap((m) => (positions[m.id] ? [{ id: m.id, ...positions[m.id]! }] : []));
-    const beside = slot?.beside ? tables.find((t) => t.table_id === slot.beside)?.table_label ?? null : null;
+    const beside = slot?.beside ? shownNames.get(slot.beside) ?? null : null;
     startTransition(async () => {
       const made = await runGated(() => (floorWrites?.createTable ?? createTable)(fd));
       if (!made) return; // not saved: the box stays open with what was typed, and the notice says so
@@ -3796,7 +3926,7 @@ export function SeatingEditor({
   const showRejectDrop = (hit: DropHit) => {
     pendingDropRef.current = null;
     const name = hit.otherId
-      ? tables.find((t) => t.table_id === hit.otherId)?.table_label ?? 'another table'
+      ? shownNames.get(hit.otherId) ?? 'another table'
       : hit.zoneId
         ? zoneDisplayName(hit.zoneId)
         : 'another element';
@@ -4415,6 +4545,15 @@ export function SeatingEditor({
     if (seatQTimer.current) clearTimeout(seatQTimer.current);
   }, []);
   const seatFound = useMemo(() => (lens && seatQ ? lens.find(seatQ) : null), [lens, seatQ]);
+  /* 🔎 SEAT PLAN C · FIND SHOWS THE SEAT (drawing `prototypes/seating_later_2026-11-27/` C): Enter goes to the first
+     guest the words find, and each Enter after it steps to the next ("1 of 4" in the field). On 2D the found guest's SEAT
+     lights — two pulses, then it stays lit — under a pill "Name · Table · Seat N" that opens their table. */
+  const [found, setFound] = useState<{ words: string; at: number; tick: number } | null>(null);
+  /** The last Find whose pulse played — a chair redrawn by a zoom lights again, but never pulses again. */
+  const pulsedTick = useRef(0);
+  const foundList = useMemo(() => (seatFound ? guests.filter((g) => seatFound.has(g.guest_id)) : []), [guests, seatFound]);
+  const foundAt = found && found.words === seatQ && foundList.length ? found.at % foundList.length : 0;
+  const foundGuest = found && found.words === seatQ ? (foundList[foundAt] ?? null) : null;
   /** A face the shared Show or the typed words leave out — drawn faint, never hidden (its seat is still taken). */
   const seatDim = (guestId: string): boolean => Boolean(lens) && (!lens!.shows(guestId) || (seatFound !== null && !seatFound.has(guestId)));
   /* 🗂 R4: is the 3D room the view? In Guests it is a client switch over the room streamed with the page; in the Maker
@@ -4430,6 +4569,32 @@ export function SeatingEditor({
      A booth a booked supplier runs opens the supplier card (the 3D walk's `BoothVendorCard`).
      🔒 lib/seats-2d-is-the-room.test.ts */
   const roomOnly = inGuests && !in3d && view === 'plan';
+  /* 🪪 SEATS › LIST · ON THE CARDS (seat plan § 4.1): the table cards draw Faces (the default) or Names — picked in Show ⇅
+     under "On the cards", remembered on this device only (a per-viewer convenience, never a saved setting). */
+  const onSeatList = inGuests && !in3d && view === 'list';
+  const [cardLook, setCardLook] = useState<SeatCardLook>('faces');
+  useEffect(() => {
+    try {
+      setCardLook(parseSeatCardLook(localStorage.getItem(CARD_LOOK_STORE)));
+    } catch {
+      /* localStorage unavailable (private mode) — Faces */
+    }
+  }, []);
+  const pickCardLook = (next: SeatCardLook) => {
+    setCardLook(next);
+    try {
+      localStorage.setItem(CARD_LOOK_STORE, next);
+    } catch {
+      /* not remembered — still shown */
+    }
+  };
+  const cardLookOptions: PickOption[] = SEAT_CARD_LOOKS.map((o) => ({
+    key: `${CARD_LOOK_KEY}${o.key}`,
+    label: o.label,
+    group: 'On the cards',
+    trail: cardLook === o.key ? { text: '✓', tone: 'ok' as const, label: 'shown now' } : undefined,
+  }));
+  const listLooks = onSeatList ? cardLookOptions : [];
   const [boothCardId, setBoothCardId] = useState<string | null>(null);
   /** The slim bar's ⋯ › Name… — the bar shows the table's name row until it is kept. */
   const [renamingTable, setRenamingTable] = useState<string | null>(null);
@@ -4632,6 +4797,21 @@ export function SeatingEditor({
       maxZoom: Math.min(PLAN_ZOOM_MAX_FLOOR, zoomMaxRef.current),
     });
     applyView(v.zoom, { x: v.x, y: v.y });
+    bumpOverlay((n) => n + 1);
+  };
+
+  /* 🔎 Find (seat plan C): bring ONE table to the middle of the floor, close enough that its chairs are drawn
+     (`DETAIL_AT`) — so the found guest's seat can light. Never zooms OUT a floor already closer than that. */
+  const zoomToTable = (tableId: string) => {
+    const canvasEl = canvasRef.current;
+    const rect = canvasEl ? layoutRectOf(canvasEl) : null;
+    const i = tables.findIndex((t) => t.table_id === tableId);
+    if (!canvasEl || !rect || rect.width === 0 || i < 0) return;
+    const pos = positions[tableId] ?? defaultGrid(i, tables.length, !venueScaled);
+    const cx = (pos.x / 100) * rect.width;
+    const cy = (pos.y / 100) * rect.height;
+    const z1 = clampZoom(Math.max(zoomRef.current, DETAIL_AT * 1.15));
+    applyView(z1, { x: rect.width / 2 - z1 * cx, y: rect.height / 2 - z1 * cy });
     bumpOverlay((n) => n + 1);
   };
 
@@ -5044,7 +5224,7 @@ export function SeatingEditor({
 
   const individuals = guests.filter((g) => !g.group_id && memberVisible(g));
   const tableLabelById = useMemo(
-    () => new Map(tables.map((t) => [t.table_id, t.table_label])),
+    () => new Map(tables.map((t) => [t.table_id, nameOf(t)])),
     [tables],
   );
 
@@ -5570,7 +5750,7 @@ export function SeatingEditor({
       doors: door ? [{ id: 'main', kind: 'main', wall: door.wall, at: door.at }] : [],
       tables: tables.map((t) => ({
         id: t.table_id,
-        label: t.table_label,
+        label: nameOf(t),
         kind: t.plan_shape ?? t.table_type,
         chairs: t.capacity,
         chairsAtEnds: t.chairs_at_ends === true,
@@ -5993,6 +6173,11 @@ export function SeatingEditor({
               Edit chairs…
             </button>
             )}
+            {isVenue ? null : (
+            <button type="button" role="menuitem" data-table-name-open="" onClick={() => { setDockOverflow(false); setNameSheetFor(t.table_id); }} className="flex min-h-11 w-full items-center rounded-full px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
+              Name…
+            </button>
+            )}
             <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); rotateTable(t, 180); }} className="flex min-h-11 w-full items-center rounded-full px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
               Rotate 180°
             </button>
@@ -6024,7 +6209,7 @@ export function SeatingEditor({
   const sheetVariant: 'sheet' | 'inline' = details ? 'inline' : 'sheet';
   /* 🪪 What the picked piece is called — one answer for the read-only dock and for the Guests sheet's heading. */
   const pieceName = (): string => {
-    if (selTable) return selTable.table_label;
+    if (selTable) return nameOf(selTable);
     if (!selM) return '';
     if (selM.kind === 'booth') return booths.find((x) => x.booth_id === selM.id)?.label ?? 'Booth';
     if (selM.kind === 'sign') return signs.find((x) => x.sign_id === selM.id)?.label ?? 'Sign';
@@ -6142,12 +6327,12 @@ export function SeatingEditor({
       const nameField = (big: boolean) => (
         <input
           key={st.table_id}
-          defaultValue={st.table_label}
+          defaultValue={nameOf(st)}
           aria-label="Table name"
           maxLength={64}
           onKeyDown={(e) => {
             if (e.key === 'Enter') e.currentTarget.blur();
-            if (e.key === 'Escape') { e.currentTarget.value = st.table_label; e.currentTarget.blur(); }
+            if (e.key === 'Escape') { e.currentTarget.value = nameOf(st); e.currentTarget.blur(); }
           }}
           onBlur={(e) => renameTable(st.table_id, e.currentTarget.value)}
           className={
@@ -6195,7 +6380,7 @@ export function SeatingEditor({
           </>
         );
         return (
-          <ContextDock variant={variant} edge={variant === 'dock' ? edge : 'bottom'} tone="edit-chairs" glyph={<ShapeGlyph shape={shapeHintFor(st.table_type)} className="h-3.5 w-3.5" />} name={variant !== 'dock' ? st.table_label : undefined} boundsRef={regionRef}>
+          <ContextDock variant={variant} edge={variant === 'dock' ? edge : 'bottom'} tone="edit-chairs" glyph={<ShapeGlyph shape={shapeHintFor(st.table_type)} className="h-3.5 w-3.5" />} name={variant !== 'dock' ? nameOf(st) : undefined} boundsRef={regionRef}>
             {banner}
           </ContextDock>
         );
@@ -6220,7 +6405,7 @@ export function SeatingEditor({
         // Its guests and empty seats follow under it (Details' guests part).
         <PhoneTableDock
           tableId={st.table_id}
-          tableLabel={st.table_label}
+          tableLabel={nameOf(st)}
           typeValue={st.table_type}
           typeOptions={TABLE_TYPE_CATALOG.map((c) => ({ key: c.type, label: c.label, group: TABLE_KIND_WORD[c.shapeHint] }))}
           typeWord={TABLE_KIND_WORD[shapeHintFor(st.table_type)]}
@@ -6237,7 +6422,7 @@ export function SeatingEditor({
           linkPressed={linkFrom === st.table_id}
           onLink={() => {
             setLinkFrom((cur) => (cur === st.table_id ? null : st.table_id));
-            if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${st.table_label}”.`);
+            if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${nameOf(st)}”.`);
           }}
           swapPressed={swapFrom === st.table_id}
           onSwap={() => armSwap(st)}
@@ -6731,7 +6916,7 @@ export function SeatingEditor({
     ? seatPlanPlaceRows({
         tables: tables.map((t) => ({
           id: t.table_id,
-          label: t.table_label,
+          label: nameOf(t),
           shape: TABLE_TYPE_LABEL[t.table_type],
           seated: seatedAt(t.table_id),
           seats: effectiveCapacity(t.capacity, t.removed_seats),
@@ -6814,7 +6999,7 @@ export function SeatingEditor({
     return occupantsFor(t).filter((g, i) => g === null && !removed.has(i)).length;
   };
   const seatAtOptions = details
-    ? seatAtChoices(tables.map((t) => ({ id: t.table_id, label: t.table_label, free: freeSeatsAt(t) }))).map((o) => ({
+    ? seatAtChoices(tables.map((t) => ({ id: t.table_id, label: nameOf(t), free: freeSeatsAt(t) }))).map((o) => ({
         key: o.id,
         label: o.label,
       }))
@@ -6909,6 +7094,8 @@ export function SeatingEditor({
     if (!moveGuest || !moveTo || !canEdit) return;
     const party = moveParty;
     setMoveGuestId(null);
+    // 🔒 #17: the phone's "Move to…" never moves a locked guest (nor their +1 away from them).
+    if (refuseLocked(...party.map((g) => g.guest_id))) return;
     if (moveTo === NEW_TABLE_KEY) {
       const fd = new FormData();
       fd.set('event_id', eventId);
@@ -6927,24 +7114,34 @@ export function SeatingEditor({
         // A table that landed is redrawn by `createTable`'s own answer (it revalidates); only a refused one re-reads.
         // one-render: keep (after-failure) — the refused create revalidated nothing; re-read what the plan really holds.
         if (made === null) router.refresh();
+        else saidLocked(made);
       });
       return;
     }
     const unit = displayUnits.find((u) => u.key === moveTo);
     if (!unit || unit.members.some((m) => m.table_id === moveGuest.seated_table_id)) return;
     const chairs = freeChairsOf(unit);
+    // ONE write per table the party lands at (`along`), so a refusal or a failure never moves the +1 without them.
+    const legs = new Map<string, Array<{ guestId: string; seat: number }>>();
+    party.slice(0, chairs.length).forEach((g, i) => {
+      const c = chairs[i]!;
+      legs.set(c.tableId, [...(legs.get(c.tableId) ?? []), { guestId: g.guest_id, seat: c.seat }]);
+    });
     startTransition(async () => {
-      for (let i = 0; i < party.length && i < chairs.length; i++) {
-        const g = party[i]!;
-        const c = chairs[i]!;
+      for (const [tableId, seats] of legs) {
+        const [first, ...rest] = seats;
         const fd = new FormData();
         fd.set('event_id', eventId);
         fd.set('lock_id', lock.lockId ?? '');
-        fd.set('table_id', c.tableId);
-        fd.set('guest_id', g.guest_id);
-        fd.set('seat_number', String(c.seat));
-        applyGuestOpt({ type: 'seat', guestId: g.guest_id, tableId: c.tableId, seat: c.seat });
-        if ((await runGated(() => assignGuest(fd))) === null) return;
+        fd.set('table_id', tableId);
+        fd.set('guest_id', first!.guestId);
+        fd.set('seat_number', String(first!.seat));
+        if (rest.length) fd.set('along', JSON.stringify(rest.map((x) => ({ guest_id: x.guestId, seat_number: x.seat }))));
+        for (const x of seats) applyGuestOpt({ type: 'seat', guestId: x.guestId, tableId, seat: x.seat });
+        const res = await runGated(() => assignGuest(fd));
+        // one-render: keep (after-failure) — re-read what is saved, so the screen never shows a half move.
+        if (res === null) return router.refresh();
+        if (saidLocked(res)) return;
       }
     });
   };
@@ -6981,7 +7178,7 @@ export function SeatingEditor({
     return (
       <section data-seat-plan-table={t.table_id} className="flex flex-col gap-1.5">
         <p className="flex items-baseline justify-between gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
-          <span className="min-w-0 truncate">{t.table_label}</span>
+          <span className="min-w-0 truncate">{nameOf(t)}</span>
           <span className="shrink-0 tabular-nums">
             {formatCount(seatedHere)}/{formatCount(cap)}
           </span>
@@ -7227,12 +7424,29 @@ export function SeatingEditor({
      there swapped nobody, and a put-back found its own chair still taken. */
   const seatOps = useRef({ tradeSeats, seatGuestHere, unseat, tables });
   seatOps.current = { tradeSeats, seatGuestHere, unseat, tables };
+  /* ↩ One write per table: a unit goes back to its chairs together (`along`), so an Undo never splits a pair either. */
   const putBack = (before: readonly SeatBefore[]) => {
     const o = seatOps.current;
+    const byTable = new Map<string, SeatBefore[]>();
+    const off: string[] = [];
     for (const b of before) {
-      const t = b.tableId ? o.tables.find((x) => x.table_id === b.tableId) : null;
-      if (t) o.seatGuestHere(t, b.id, b.seat ?? undefined);
-      else o.unseat(b.id, true);
+      if (b.tableId && o.tables.some((x) => x.table_id === b.tableId)) byTable.set(b.tableId, [...(byTable.get(b.tableId) ?? []), b]);
+      else off.push(b.id);
+    }
+    // A write carries at most SEAT_WRITE_MAX guests (the server refuses more), so a big Undo goes back in pieces.
+    for (const [tableId, all] of byTable) {
+      const t = o.tables.find((x) => x.table_id === tableId)!;
+      for (let i = 0; i < all.length; i += SEAT_WRITE_MAX) {
+        const [first, ...rest] = all.slice(i, i + SEAT_WRITE_MAX);
+        const chaired = rest.filter((b): b is SeatBefore & { seat: number } => b.seat !== null);
+        o.seatGuestHere(t, first!.id, first!.seat ?? undefined, chaired.map((b) => ({ guestId: b.id, seat: b.seat })));
+        for (const b of rest) if (b.seat === null) o.seatGuestHere(t, b.id);
+      }
+    }
+    // The guests who had no seat leave in writes of at most SEAT_WRITE_MAX too (the server refuses more).
+    for (let i = 0; i < off.length; i += SEAT_WRITE_MAX) {
+      const [head, ...tail] = off.slice(i, i + SEAT_WRITE_MAX);
+      o.unseat(head!, true, tail);
     }
   };
   /* ↩ An Undo restores EVERYONE the move moved (`seatMoveUndo`): a swap is swapped back AND the +1 who came along goes
@@ -7261,7 +7475,7 @@ export function SeatingEditor({
       tables.map((t) => {
         const removed = removedSeatSet(t.removed_seats, t.capacity);
         const free = occupantsFor(t).flatMap((g, i) => (g === null && !removed.has(i) ? [i] : []));
-        return [t.table_id, { label: t.link_group_label?.trim() || t.table_label, freeSeats: free }] as const;
+        return [t.table_id, { label: nameOf(t), freeSeats: free }] as const;
       }),
     );
     return assessSeatMove({
@@ -7295,11 +7509,13 @@ export function SeatingEditor({
     for (const x of along) seatGuestHere(target, x.guestId, x.seat);
     const undo = () => undoMove(mover.guest_id, other?.guest_id ?? null, before);
     setMoveNote({
-      text: seatMoveDoneWords(ask.a, moveGuestOf(mover), other ? moveGuestOf(other) : null, target.link_group_label?.trim() || target.table_label, ask.seat, along.map((x) => guestsById.get(x.guestId)?.name ?? '')),
+      text: seatMoveDoneWords(ask.a, moveGuestOf(mover), other ? moveGuestOf(other) : null, nameOf(target), ask.seat, along.map((x) => guestsById.get(x.guestId)?.name ?? '')),
       undo,
     });
   };
   const askBefore = (moverId: string, tableId: string, seat: number | null, otherId: string | null): boolean => {
+    // 🔒 #17: a locked guest (the mover, or the one in the seat) is refused before anything is asked.
+    if (refuseLocked(moverId, otherId)) return true;
     const a = assessFor(moverId, tableId, seat, otherId);
     if (!a || a.quiet) return false;
     setAskMove({ moverId, otherId, tableId, seat, a, on: Object.fromEntries(a.sideEffects.map((x) => [x.key, x.on])) });
@@ -7309,6 +7525,8 @@ export function SeatingEditor({
     const g = guests.find((x) => x.guest_id === guestId);
     if (!g) return;
     if (pickedId && pickedId !== guestId) {
+      // 🧑‍🤝‍🧑 "tap · move" onto someone's chair is the drag's own answer (units of the same size trade, R3).
+      if (g.seated_table_id && g.seat_number !== null) return dropSeat(pickedId, { kind: 'seat', tableId: g.seated_table_id, seat: g.seat_number, occupantId: guestId });
       if (g.seated_table_id && askBefore(pickedId, g.seated_table_id, g.seat_number, guestId)) return;
       tradeSeats(pickedId, guestId);
       return;
@@ -7318,14 +7536,201 @@ export function SeatingEditor({
   };
   const tapBlank = (tableId: string, seat: number) => {
     if (pickedId) {
-      if (askBefore(pickedId, tableId, seat, null)) return;
-      place(tableId, seat);
+      // 🧑‍🤝‍🧑 The drag's own answer (`dropSeat` → `seatDropUnit`): a picked +1 moves their bringer's unit.
+      dropSeat(pickedId, { kind: 'seat', tableId, seat, occupantId: null });
       return;
     }
     setBlankAt({ tableId, seat });
   };
   const comingUnseated = guests.filter((g) => !g.seated_table_id && g.rsvp_status !== 'declined').sort((a, b) => a.name.localeCompare(b.name));
-  const faceOf = (g: SeatingGuest): SeatListGuest => ({ id: g.guest_id, name: g.name, initials: g.initials, photo: g.photo_url, side: g.side, placed: seatPlacedShort(g.seat_placed_by) });
+  /* ✦ SEAT PLAN S · THE SMART LAYER (`lib/seat-check.ts`, `seat-check.tsx`): the engine's dry run, read when the plan
+     opens and again whenever who-sits-where changes; a failed read is said, never shown as "All good". */
+  const [seatCheck, setSeatCheck] = useState<SeatCheckState>(() => (dryRun?.first ? seatCheckFromView(dryRun.first) : { status: 'idle' }));
+  const [checkOpen, setCheckOpen] = useState(false);
+  /* ⋯ "Suggest seats on the cards" — on by default; remembered on this device (a per-viewer convenience). */
+  const [suggestOn, setSuggestOn] = useState(true);
+  useEffect(() => {
+    try {
+      if (localStorage.getItem('seating:suggest') === 'off') setSuggestOn(false);
+    } catch {
+      /* not remembered — on */
+    }
+  }, []);
+  const pickSuggestOn = (on: boolean) => {
+    setSuggestOn(on);
+    try {
+      localStorage.setItem('seating:suggest', on ? 'on' : 'off');
+    } catch {
+      /* not remembered — still applied */
+    }
+  };
+  const checkRun = useRef(0);
+  // 🔌 The loader: the feed's own `load` (the lab), else the shipped `dryRun(eventId)` — the engine (L11) through the
+  // existing `autoArrange` action's dry-run intent. No feed → no loader → nothing drawn.
+  const hasDryRun = dryRun != null;
+  const feedLoad = dryRun?.load ?? null;
+  const loadDryRun = useMemo(() => (hasDryRun ? (feedLoad ?? (() => askDryRun(eventId))) : null), [hasDryRun, feedLoad, eventId]);
+  const runSeatCheck = useCallback(() => {
+    if (!loadDryRun) return;
+    const n = ++checkRun.current;
+    loadDryRun()
+      .then((view) => {
+        if (n === checkRun.current) setSeatCheck(seatCheckFromView(view));
+      })
+      .catch(() => {
+        if (n === checkRun.current) setSeatCheck({ status: 'failed' });
+      });
+  }, [loadDryRun]);
+  const seatingKey = guests.map((g) => `${g.guest_id}:${g.seated_table_id ?? ''}:${g.seat_number ?? ''}`).join('|');
+  /** The plan the shown check answers: the page's own read answered the first one, so the first paint asks nothing. */
+  const checkedKey = useRef<string | null>(dryRun?.first ? seatingKey : null);
+  // Debounced: a run of drops asks the engine once, after the plan settles (and a fresh read clears `justTaken`).
+  useEffect(() => {
+    if (checkedKey.current === seatingKey) return;
+    const t = setTimeout(() => {
+      runSeatCheck();
+      checkedKey.current = seatingKey;
+      setJustTaken((c) => (c.size ? new Set() : c));
+    }, SEARCH_WAIT_MS);
+    return () => clearTimeout(t);
+  }, [runSeatCheck, seatingKey]);
+  const checkRunData = seatCheck.status === 'read' ? seatCheck.run : null;
+  /** Guests a press has just seated — gone from every strip at once, before the plan re-reads. */
+  const [justTaken, setJustTaken] = useState<ReadonlySet<string>>(() => new Set());
+  /** Each guest with the +1s who move with them (`unitOf`, the drag's own rule), once each. */
+  const withUnits = (ids: readonly string[]) => [...new Set(ids.flatMap((id) => { const u = unitOf(id); return [u.leadId, ...u.party]; }))];
+  /** Where every group goes: each table's free chairs handed out ONCE across all of them — never two guests on one chair. */
+  const placeAll = (groups: ReadonlyArray<{ tableId: string; guestIds: readonly string[] }>) => {
+    const pool = new Map<string, number[]>();
+    const byTable = new Map<string, Array<Array<{ guestId: string; seat: number }>>>();
+    for (const g of groups) {
+      const t = tables.find((x) => x.table_id === g.tableId);
+      if (!t) return null;
+      const free = pool.get(t.table_id) ?? freeChairsAt(t);
+      if (free.length < g.guestIds.length) return { short: g.guestIds.length };
+      const seats = g.guestIds.map((guestId, i) => ({ guestId, seat: free[i]! }));
+      pool.set(t.table_id, free.slice(g.guestIds.length));
+      byTable.set(t.table_id, [...(byTable.get(t.table_id) ?? []), seats]);
+    }
+    return { byTable };
+  };
+  /** Seat the groups — ONE write per table (`along`, packed to `SEAT_WRITE_MAX` a write) — and say ONE line with ONE
+      Undo once every write has answered, built ONLY from what landed (`settleSeatWrites`): never a planned count. */
+  const seatGroups = (
+    groups: ReadonlyArray<{ tableId: string; guestIds: readonly string[] }>,
+    words: (tableLabel: string, landedIds: readonly string[]) => string,
+  ) => {
+    const plan = placeAll(groups);
+    if (!plan) return false;
+    if ('short' in plan) {
+      setNotice(`Needs ${formatCount(plan.short!)} ${plan.short === 1 ? 'seat' : 'seats'}`);
+      return false;
+    }
+    const ids = groups.flatMap((g) => [...g.guestIds]);
+    // 🔒 Every group's locks are checked BEFORE anything is written — a lock refuses the whole press, nothing half-done.
+    if (refuseLocked(...ids)) return false;
+    const beforeOf = (gid: string) => {
+      const g = guestsById.get(gid);
+      return g ? [{ id: g.guest_id, tableId: g.seated_table_id, seat: g.seat_number }] : [];
+    };
+    const before = new Map(ids.map((id) => [id, beforeOf(id)] as const));
+    setJustTaken((c) => new Set([...c, ...ids]));
+    const writes = packSeatWrites(plan.byTable);
+    let waiting = writes.length;
+    const answers: boolean[] = [];
+    writes.forEach((w, i) => {
+      const t = tables.find((x) => x.table_id === w.tableId)!;
+      const [first, ...rest] = w.seats;
+      seatGuestHere(t, first!.guestId, first!.seat, rest, (ok) => {
+        answers[i] = ok;
+        waiting -= 1;
+        if (waiting > 0) return;
+        const { landed, missed, firstTableId } = settleSeatWrites(writes, answers);
+        // A write that did not land gives its guests back to the strips at once.
+        if (missed.length) setJustTaken((c) => new Set([...c].filter((id) => !missed.includes(id))));
+        // ONE Undo for exactly what landed — never for a write that was refused or failed.
+        if (landed.length) {
+          const back = landed.flatMap((id) => before.get(id) ?? []);
+          const lt = tables.find((x) => x.table_id === firstTableId);
+          setMoveNote({ text: words(lt?.link_group_label?.trim() || lt?.table_label || '', landed), undo: () => { setMoveNote(null); putBack(back); } });
+        }
+      });
+    });
+    return true;
+  };
+  const shortOf = (id: string) => {
+    const g = guestsById.get(id);
+    return g ? g.short_name || firstNameOf(g.name) : '';
+  };
+  /** ✦ One tap takes a card's suggestion (the guest and their +1s / household as one unit). */
+  /** Without Edit held the press says why — never a press that does nothing. */
+  const needsEdit = () => {
+    if (canEdit) return false;
+    setNotice('Tap Edit first — only one person arranges at a time');
+    return true;
+  };
+  const takeSuggestion = (sug: SeatSuggestion) => {
+    if (needsEdit()) return;
+    const ids = withUnits(sug.guestIds);
+    seatGroups([{ tableId: sug.tableId, guestIds: ids }], (label, got) => `${got.map(shortOf).join(', ')} → ${label}`);
+  };
+  /** A seat check's Fix: seat them (one write, one Undo), or open the table to look. */
+  const fixProblem = (p: SeatProblem) => {
+    if (p.fix.kind === 'review') {
+      const unit = displayUnits.find((u) => u.members.some((m) => m.table_id === p.fix.tableId));
+      setCheckOpen(false);
+      if (unit) setFaceOpen(new Set([unit.key]));
+      return;
+    }
+    if (needsEdit()) return;
+    const ids = withUnits(p.fix.guestIds);
+    if (seatGroups([{ tableId: p.fix.tableId, guestIds: ids }], (label, got) => `${got.map(shortOf).join(', ')} → ${label}`)) setCheckOpen(false);
+  };
+  /** "Fix all": every problem with a seat fix, then ONE Undo that puts everyone back. */
+  const fixAllProblems = () => {
+    if (!checkRunData || needsEdit()) return;
+    // Every fix's guests (with their units), each once, placed against ONE pool of free chairs — then written once.
+    const seen = new Set<string>();
+    const groups = checkRunData.problems.flatMap((p) => {
+      if (p.fix.kind !== 'seat') return [];
+      const ids = withUnits(p.fix.guestIds).filter((id) => !seen.has(id));
+      ids.forEach((id) => seen.add(id));
+      return ids.length ? [{ tableId: p.fix.tableId, guestIds: ids }] : [];
+    });
+    // The count is what LANDED (a failed table's guests are not "seated"), never every planned guest.
+    if (seatGroups(groups, (_label, got) => fixAllWords(got.length, formatCount))) setCheckOpen(false);
+  };
+  /** The strip a card draws: the dry run's suggestion that fits its free chairs, while "Suggest seats on the cards" is on. */
+  const cardSuggestion = (unitKey: string) => {
+    if (!suggestOn || !checkRunData) return null;
+    // A guest just seated (by this press, or already seated now) leaves every strip at once.
+    const open = (sug: SeatSuggestion) => sug.guestIds.every((id) => !justTaken.has(id) && !guestsById.get(id)?.seated_table_id);
+    const fresh = { ...checkRunData, suggestions: checkRunData.suggestions.filter(open) };
+    const unit = displayUnits.find((u) => u.key === unitKey);
+    if (!unit) return null;
+    for (const m of unit.members) {
+      const free = freeChairsAt(m);
+      const sug = suggestionFor(fresh, m.table_id, free.length);
+      if (sug) return { suggestion: sug, names: sug.guestIds.map(shortOf), seats: free.slice(0, sug.guestIds.length) };
+    }
+    return null;
+  };
+  const faceOf = (g: SeatingGuest): SeatListGuest => ({
+    id: g.guest_id,
+    name: g.name,
+    initials: g.initials,
+    photo: g.photo_url,
+    side: g.side,
+    placed: seatPlacedShort(g.seat_placed_by),
+    short: g.short_name ?? null,
+    plusOneOf: g.plus_one_of ?? null,
+    bringer: g.plus_one_of ? (guestsById.get(g.plus_one_of)?.short_name ?? guestsById.get(g.plus_one_of)?.name ?? null) : null,
+    // 🧑‍🤝‍🧑 Under "+1s of VIP guests: nearest" a principal sponsor and their +1 move (and are drawn) apart.
+    movesAlone: vipPlusOnes === 'nearest' && g.role.startsWith('principal_sponsor'),
+    nearestPlusOne:
+      vipPlusOnes === 'nearest' && Boolean(g.plus_one_of) && (guestsById.get(g.plus_one_of ?? '')?.role.startsWith('principal_sponsor') ?? false),
+    locked: g.seat_locked === true,
+  });
   /* 🪑 S1c · Seats › List = the Guests list grouped by table: one row per seat that exists (a removed chair is no row),
      in seat order, "8 of 10 seats" counted from those rows — never typed. */
   const faceUnits: SeatListUnit[] = inGuests
@@ -7339,33 +7744,102 @@ export function SeatingEditor({
     : [];
   /* ✋ A guest let go on a seat row, or "To seat" (`planSeatDrop`, the ONE answer the drag and "tap · move" share): the
      plan's own moves, with "before a seat changes hands" asked first where it asks. */
-  const dropSeat = (guestId: string, target: SeatDropTarget) => {
+  /* 🧑‍🤝‍🧑 R3 · A UNIT MOVES AS ONE (`seatDropUnit`): the guest and the +1s they bring; a +1 dragged moves their bringer's
+     unit; a principal sponsor under "+1s of VIP guests: nearest" moves alone (their +1 sits at the nearest table). */
+  // Only a PRINCIPAL sponsor (Ninong · Ninang; the plain legacy role too) — never anyone else with a role.
+  const isNearestSponsor = (id: string): boolean => guestsById.get(id)?.role.startsWith('principal_sponsor') === true;
+  const unitOf = (guestId: string) =>
+    seatDropUnit(
+      guestId,
+      guests.map((x) => ({ guest_id: x.guest_id, plus_one_of: x.plus_one_of ?? null, seated_table_id: x.seated_table_id, declined: x.rsvp_status === 'declined' })),
+      { isSponsor: isNearestSponsor, vipPlusOnes },
+    );
+  /** A table's free chairs, in order (a removed chair is none). */
+  const freeChairsAt = (t: EventTableRow): number[] => {
+    const removed = removedSeatSet(t.removed_seats, t.capacity);
+    return occupantsFor(t).flatMap((x, i) => (x === null && !removed.has(i) ? [i] : []));
+  };
+  const dropSeat = (draggedId: string, target: SeatDropTarget) => {
     if (!canEdit) return;
+    if (!guestsById.get(draggedId)) return;
+    // The unit's lead moves (a +1 dragged moves their bringer); `party` comes along.
+    const unit = unitOf(draggedId);
+    const guestId = unit.leadId;
     const g = guestsById.get(guestId);
     if (!g) return;
-    const plan = planSeatDrop({ id: guestId, seated: g.seated_table_id !== null }, target);
-    if (plan.kind === 'unseat') return unseat(guestId);
+    const t = target.kind === 'seat' ? tables.find((x) => x.table_id === target.tableId) : undefined;
+    const lockedAny = (ids: readonly string[]) => ids.some((id) => guestsById.get(id)?.seat_locked === true);
+    // The unit in the target seat: a trade swaps two units of the SAME size only (§ 4.1).
+    const occupantUnit = target.kind === 'seat' && target.occupantId ? unitOf(target.occupantId) : null;
+    const plan = planSeatDrop(
+      { id: guestId, seated: g.seated_table_id !== null, party: unit.party, locked: lockedAny([guestId, ...unit.party]) },
+      target,
+      target.kind === 'seat' && t
+        ? {
+            freeSeats: freeChairsAt(t),
+            occupantLocked: occupantUnit ? lockedAny([occupantUnit.leadId, ...occupantUnit.party]) : false,
+            ...(occupantUnit ? { occupantUnit } : {}),
+          }
+        : {},
+    );
+    if (plan.kind === 'refused') {
+      setNotice(seatDropRefusalWords(plan.reason, Math.max(unit.party.length, occupantUnit?.party.length ?? 0) + 1));
+      return;
+    }
+    if (plan.kind === 'unseat') {
+      // The whole unit leaves in ONE write, with ONE Undo that puts them all back.
+      if (plan.along?.length) return unseat(guestId, false, plan.along);
+      return unseat(guestId);
+    }
     if (plan.kind === 'trade') {
+      const pairs = plan.pairs ?? [];
+      if (pairs.length) {
+        // Two units of the same size trade (judged here — the sheet's own "+1 comes along" would ask it again), in ONE
+        // write; the Undo is the same trade again.
+        tradeSeats(guestId, plan.otherId, pairs);
+        return noteDrop(g, guestsById.get(plan.otherId) ?? null, plan.tableId, plan.seat, [], () => seatOps.current.tradeSeats(guestId, plan.otherId, pairs));
+      }
       if (askBefore(guestId, plan.tableId, plan.seat, plan.otherId)) return;
       tradeSeats(guestId, plan.otherId);
       return noteDrop(g, guestsById.get(plan.otherId) ?? null, plan.tableId, plan.seat);
     }
     if (plan.kind === 'place') {
-      const t = tables.find((x) => x.table_id === plan.tableId);
-      if (!t || askBefore(guestId, plan.tableId, plan.seat, null)) return;
+      if (!t) return;
+      const along = plan.along ?? [];
+      if (along.length) {
+        // A unit's move was judged here (a chair each, together) — the sheet's own "+1 comes along" would ask it again.
+        // ONE write for the whole unit (`along`), so a failure never leaves the pair split.
+        setPickedId(null);
+        seatGuestHere(t, guestId, plan.seat, along);
+        return noteDrop(g, null, plan.tableId, plan.seat, along.map((x) => x.guestId));
+      }
+      if (askBefore(guestId, plan.tableId, plan.seat, null)) return;
       setPickedId(null);
       seatGuestHere(t, guestId, plan.seat);
       noteDrop(g, null, plan.tableId, plan.seat);
     }
   };
   /* ↩ The drop that asked nothing still says what it did, with its Undo — the asked one's own line (`seatMoveDoneWords`). */
-  const noteDrop = (mover: SeatingGuest, other: SeatingGuest | null, tableId: string, seat: number) => {
+  const noteDrop = (mover: SeatingGuest, other: SeatingGuest | null, tableId: string, seat: number, alongIds: readonly string[] = [], swapBack?: () => void) => {
     const a = assessFor(mover.guest_id, tableId, seat, other?.guest_id ?? null);
     const t = tables.find((x) => x.table_id === tableId);
     if (!a || !t) return;
-    const before = [{ id: mover.guest_id, tableId: mover.seated_table_id, seat: mover.seat_number }];
+    const along = alongIds.map((id) => guestsById.get(id)).filter((x): x is SeatingGuest => Boolean(x));
+    const before = [mover, ...along].map((x) => ({ id: x.guest_id, tableId: x.seated_table_id, seat: x.seat_number }));
+    const text = seatMoveDoneWords(a, moveGuestOf(mover), other ? moveGuestOf(other) : null, nameOf(t), seat, along.map((x) => x.name));
+    // Two units traded: the Undo is the same trade again (one write), never a pair put back one by one.
+    if (swapBack) {
+      setMoveNote({
+        text,
+        undo: () => {
+          setMoveNote(null);
+          swapBack();
+        },
+      });
+      return;
+    }
     setMoveNote({
-      text: seatMoveDoneWords(a, moveGuestOf(mover), other ? moveGuestOf(other) : null, t.link_group_label?.trim() || t.table_label, seat, []),
+      text,
       undo: () => undoMove(mover.guest_id, other?.guest_id ?? null, before),
     });
   };
@@ -7376,7 +7850,7 @@ export function SeatingEditor({
     if (!canEdit) return;
     const t = tables.find((x) => x.table_id === at.tableId);
     if (!t) return;
-    const label = t.link_group_label?.trim() || t.table_label;
+    const label = nameOf(t);
     if (item.kind === 'group') {
       const before = guests.filter((g) => g.group_id === item.id).map((g) => ({ id: g.guest_id, tableId: g.seated_table_id, seat: g.seat_number }));
       seatGroupMembers(item.id, t.table_id);
@@ -7506,7 +7980,7 @@ export function SeatingEditor({
     if (!t) return null;
     return (
       <SeatPickMenu
-        label={`Add a guest to ${t.table_label}, seat ${seat + 1}`}
+        label={`Add a guest to ${nameOf(t)}, seat ${seat + 1}`}
         value={null}
         buttonText="Add"
         options={
@@ -7558,7 +8032,7 @@ export function SeatingEditor({
             data="seat-list-table-name"
             attrs={{ 'data-seat-list-table-name': '' }}
             name="Table name"
-            value={u.lead.table_label}
+            value={nameOf(u.lead)}
             maxLength={64}
             required
             onKeep={(label) => {
@@ -7577,7 +8051,7 @@ export function SeatingEditor({
     if (!u) return null;
     return u.members.map((m) => (
       <span key={m.table_id} className="flex min-w-0 flex-wrap items-center gap-1.5" data-seat-list-table={m.table_id}>
-        {u.members.length > 1 ? <span className="text-[12.5px] text-ink/70">{m.table_label}</span> : null}
+        {u.members.length > 1 ? <span className="text-[12.5px] text-ink/70">{nameOf(m)}</span> : null}
         <PickMenu
           label="Table type"
           value={m.table_type}
@@ -7609,7 +8083,7 @@ export function SeatingEditor({
         ) : blankAt && blankTable ? (
           <>
             <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink">
-              {blankTable.table_label} · seat {blankAt.seat + 1}
+              {nameOf(blankTable)} · seat {blankAt.seat + 1}
             </span>
             <SeatPickMenu
               label="Pick a guest"
@@ -7714,6 +8188,17 @@ export function SeatingEditor({
             }}
             disabled={!canEdit || seatedNow === 0 || isPending}
           />
+          {/* ✦ Seat plan S — ON by default; drawn only once the engine's dry run is read (`dryRun`). */}
+          {dryRun ? (
+            <MenuRow
+              icon={Sparkles}
+              label="Suggest seats on the cards"
+              hint="A table with empty seats shows who could sit there"
+              badge={suggestOn ? 'On' : 'Off'}
+              keepOpen
+              onClick={() => pickSuggestOn(!suggestOn)}
+            />
+          ) : null}
           <MenuDivider />
         </>
       ) : null}
@@ -7878,18 +8363,63 @@ export function SeatingEditor({
       if (seated) setRoomGuide((c) => ({ guestId: seated.guest_id, at: (c?.at ?? 0) + 1 }));
       return;
     }
-    const g = guests.find((x) => hits.has(x.guest_id));
-    if (!g) return;
+    const list = guests.filter((x) => hits.has(x.guest_id));
+    if (!list.length) return;
+    // The same words again → the next one found ("1 of N" → "2 of N"); new words start at the first.
+    const at = found && found.words === words ? (found.at + 1) % list.length : 0;
+    setFound((c) => ({ words, at, tick: (c?.tick ?? 0) + 1 }));
+    const g = list[at]!;
     if (view === 'list') {
       const unit = g.seated_table_id ? displayUnits.find((u) => u.members.some((m) => m.table_id === g.seated_table_id)) : null;
       const key = unit ? unit.key : 'unseated';
       setFaceOpen((c) => (c.has(key) ? c : new Set([...c, key])));
       requestAnimationFrame(() => document.querySelector(`[data-seat-guest="${CSS.escape(g.guest_id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
+    } else if (!g.seated_table_id) {
+      // 2D: a match with no seat — the last table found lets go, and the line says so (never a stale lit table).
+      setHighlightId(null);
+      setNotice(`${g.name} · Not seated yet`);
     } else if (g.seated_table_id) {
+      // 2D: the table is picked, brought close enough to draw its chairs, AND the guest's own seat lights
+      // (`foundSeatId`, the chair's `FoundSeatRing`).
       setSelMarker(null);
       setHighlightId(g.seated_table_id);
+      const tid = g.seated_table_id;
+      requestAnimationFrame(() => zoomToTable(tid));
     }
   };
+  /** The seat lit on 2D — the found guest's, while their words are still the search. */
+  const foundSeatId = roomOnly && foundGuest?.seated_table_id ? foundGuest.guest_id : null;
+  /** The chair the plan DRAWS them on (`occupantsFor`) — the pill's "Seat N" and the lit chair are the same one; a
+   *  guest the table cannot draw (over its chairs) gets no seat number and lights nothing. */
+  const foundChair = (() => {
+    const t = foundGuest?.seated_table_id ? tables.find((x) => x.table_id === foundGuest.seated_table_id) : null;
+    if (!t || !foundGuest) return -1;
+    return occupantsFor(t).findIndex((x) => x?.guest_id === foundGuest.guest_id);
+  })();
+  /** "1 of 4" in the search field — where Enter stands among the guests the words find. */
+  const findCount = lens && seatQ && !in3d ? (foundList.length ? `${formatCount(foundAt + 1)} of ${formatCount(foundList.length)}` : 'No match') : null;
+  /** The pill's tap: their table, risen in Seats › List (the card's own full-screen table). */
+  const openFoundTable = () => {
+    const g = foundGuest;
+    if (!g?.seated_table_id) return;
+    const unit = displayUnits.find((u) => u.members.some((m) => m.table_id === g.seated_table_id));
+    if (!unit) return;
+    onSelectView('list');
+    // The list is drawn on the next frame; ONE key added to `faceOpen` then raises that table (`SeatList`'s doorbell).
+    requestAnimationFrame(() => requestAnimationFrame(() => setFaceOpen(new Set([unit.key]))));
+  };
+  const foundPill =
+    foundSeatId && foundGuest?.seated_table_id ? (
+      <div className="pointer-events-auto flex justify-center" data-seat-found-pill={foundGuest.guest_id}>
+        <ActionButton
+          tone="neutral"
+          icon={Armchair}
+          label={`${foundGuest.name} · ${tableLabelById.get(foundGuest.seated_table_id) ?? 'Their table'}${foundChair >= 0 ? ` · Seat ${formatCount(foundChair + 1)}` : ''}`}
+          name={`Open ${foundGuest.name}’s table`}
+          onClick={openFoundTable}
+        />
+      </div>
+    ) : null;
   /* 🔔 ONE toast line at a time, in the thumb row's own toast — never a strip across the floor's foot, where it covered
      the zoom (owner 2026-11-20, live: the draft's three-line notice sat on Zoom in / Zoom out). In Guests the plan's
      plain notices ride it too (`notice`), so the foot of the floor carries no strip at all. */
@@ -7928,7 +8458,7 @@ export function SeatingEditor({
           else if (k === 'link') {
             setSwapFrom(null);
             setLinkFrom((cur) => (cur === st.table_id ? null : st.table_id));
-            if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${st.table_label}”.`);
+            if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${nameOf(st)}”.`);
           } else if (k === 'delete') requestRemoveTable(st);
         };
         return (
@@ -7943,7 +8473,7 @@ export function SeatingEditor({
                   data="seat-table-name"
                   attrs={{ 'data-seat-table-name': '' }}
                   name="Table name"
-                  value={st.table_label}
+                  value={nameOf(st)}
                   maxLength={64}
                   required
                   onKeep={(label) => {
@@ -8008,6 +8538,8 @@ export function SeatingEditor({
   const seatLegend =
     roomOnly && tables.length > 0 && !addingTable ? (
       <OverThumbRow mark="legend">
+        {/* 🔎 Find's pill ("Name · Table · Seat N", seat plan C) rides with the legend, above what is over the thumb row. */}
+        {foundPill}
         <p data-seat-legend="" className="pointer-events-none flex flex-wrap items-center gap-x-3 gap-y-0.5 px-1 text-[11px] leading-tight text-ink/70">
           <span>
             <b className="font-semibold text-ink">{formatCount(seatedNow)}</b> seated · <b className="font-semibold text-ink">{formatCount(comingUnseated.length)}</b> to seat
@@ -8036,10 +8568,12 @@ export function SeatingEditor({
                  headers left to expand or fold, so the ⇕ left the row. */
               field={{
                 placeholder: 'Search guests',
+                count: findCount,
                 input: {
                   defaultValue: seatQ,
                   enterKeyHint: 'search',
                   'data-seats-search': '',
+                  'data-seats-search-count': findCount ?? undefined,
                   onInput: (e) => {
                     const v = e.currentTarget.value.trim();
                     if (seatQTimer.current) clearTimeout(seatQTimer.current);
@@ -8070,11 +8604,13 @@ export function SeatingEditor({
                   onFilter: lens.setFilter,
                   hasSides: lens.hasSides,
                   label: 'Show, or open the people',
+                  /* 🪪 "On the cards" (Faces · Names) is its own section, only on Seats › List — before Open. */
                   extras: peopleInSheet && !roomOnly
-                    ? [{ key: 'people', label: unseatedComing > 0 ? `People · ${formatCount(unseatedComing)} to seat` : 'People', group: 'Open' }]
-                    : [],
+                    ? [...listLooks, { key: 'people', label: unseatedComing > 0 ? `People · ${formatCount(unseatedComing)} to seat` : 'People', group: 'Open' }]
+                    : listLooks,
                   onExtra: (k) => {
                     if (k === 'people') setPeopleOpen(true);
+                    else if (k.startsWith(CARD_LOOK_KEY)) pickCardLook(parseSeatCardLook(k.slice(CARD_LOOK_KEY.length)));
                   },
                 }),
               ]}
@@ -8179,6 +8715,17 @@ export function SeatingEditor({
     <>
       {faceCardSheet}
       {askMoveSheet}
+      {/* ✦ Seat plan S — the seat check's Sheet (each problem, one Fix or Review; All good; one Fix all). */}
+      {checkRunData ? (
+        <SeatCheckSheet
+          run={checkRunData}
+          open={checkOpen}
+          onClose={() => setCheckOpen(false)}
+          tableLabel={(id) => (id ? (tableLabelById.get(id) ?? 'Their table') : '')}
+          onFix={fixProblem}
+          onFixAll={fixAllProblems}
+        />
+      ) : null}
       {askArrange ? (
         <Sheet open onClose={() => setAskArrange(false)} labelledById="seat-arrange-ask-title" rise>
           <div className="flex min-w-0 flex-col gap-3 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-4" data-seat-arrange-ask="">
@@ -8812,7 +9359,7 @@ export function SeatingEditor({
               className="pointer-events-none absolute z-[31] -translate-x-1/2 whitespace-nowrap rounded-full bg-ink px-2 py-0.5 text-[9px] font-semibold text-cream"
               style={{ left: `${positions[dragId]!.x}%`, top: `calc(${positions[dragId]!.y}% + 6%)` }}
             >
-              Lined up with {tables.find((t) => t.table_id === linedWithRef.current)!.table_label}
+              Lined up with {shownNames.get(linedWithRef.current!) ?? ''}
             </span>
           ) : null}
 
@@ -9527,6 +10074,8 @@ export function SeatingEditor({
                           />
                           {/* the guest sitting on it */}
                           <SeatBadge guest={occupant} color={colorFor(occupant)} />
+                          {/* 🔎 Find lit this seat (seat plan C): two pulses, then it stays lit. */}
+                          {foundSeatId === occupant.guest_id ? <FoundSeatRing still={reducedMotion || (found?.tick ?? 0) <= pulsedTick.current} onPulse={() => (pulsedTick.current = found?.tick ?? 0)} /> : null}
                         </button>
                       ) : (
                         <button
@@ -9602,7 +10151,7 @@ export function SeatingEditor({
                   <button
                     type="button"
                     onPointerDown={tablePress(t) === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
-                    aria-label={`${t.table_label} — drag to move`}
+                    aria-label={`${nameOf(t)} — drag to move`}
                     // Blueprint: hairline footprint (directive) — border-2 → border.
                     className={`absolute left-1/2 top-1/2 flex select-none flex-col items-center justify-center border bg-cream text-center shadow-sm transition ${
                       rot ? '' : '-translate-x-1/2 -translate-y-1/2'
@@ -9754,13 +10303,13 @@ export function SeatingEditor({
                   if (unit) setFaceOpen((c) => (c.has(unit.key) ? c : new Set([...c, unit.key])));
                   onSelectView('list');
                 }}
-                aria-label={`${st.link_group_label ?? st.table_label}, ${formatCount(who.length)} of ${formatCount(cap)} seated — open this table`}
+                aria-label={`${nameOf(st)}, ${formatCount(who.length)} of ${formatCount(cap)} seated — open this table`}
                 className="sn-press absolute z-[32] flex min-h-11 max-w-[min(260px,70vw)] -translate-x-1/2 -translate-y-full items-center gap-2 rounded-xl bg-ink px-3 py-1.5 text-left text-cream shadow-lg"
                 style={{ left: cx, top: cy - half - 6 }}
               >
                 <span className="min-w-0 flex-1">
                   <b className="block text-[13px] font-semibold leading-tight">
-                    {st.link_group_label ?? st.table_label} · {formatCount(who.length)} of {formatCount(cap)}
+                    {nameOf(st)} · {formatCount(who.length)} of {formatCount(cap)}
                   </b>
                   <span className="block text-[12px] leading-snug text-cream/80 [overflow-wrap:anywhere]">{who.length ? who.join(', ') : 'No one seated yet'}</span>
                 </span>
@@ -9903,6 +10452,10 @@ export function SeatingEditor({
             tableTools={seatListTools}
             onDrop={dropSeat}
             dim={seatDim}
+            cardLook={cardLook}
+            suggest={cardSuggestion}
+            onTakeSuggestion={takeSuggestion}
+            check={dryRun ? { state: seatCheck, onOpen: () => setCheckOpen(true), onRetry: runSeatCheck } : null}
           />
         ) : (
           <div className="absolute inset-0 space-y-2 overflow-y-auto p-3">
@@ -10224,11 +10777,11 @@ export function SeatingEditor({
             return (
               <div className="space-y-3" data-seat-plan-swap-confirm="">
                 <h3 id="seat-swap-confirm-title" className="text-[17px] font-semibold text-ink">
-                  Swap {ta?.table_label ?? 'this table'} and {tb?.table_label ?? 'that table'}?
+                  Swap {(ta ? nameOf(ta) : undefined) ?? 'this table'} and {(tb ? nameOf(tb) : undefined) ?? 'that table'}?
                 </h3>
                 <p className="text-sm leading-relaxed text-ink/70">
-                  The <span className="font-semibold">{formatCount(seatedAt(confirmSwap.a))}</span> at {ta?.table_label} move to {tb?.table_label}, and the{' '}
-                  <span className="font-semibold">{formatCount(seatedAt(confirmSwap.b))}</span> at {tb?.table_label} move to {ta?.table_label} — each keeps their chair number.
+                  The <span className="font-semibold">{formatCount(seatedAt(confirmSwap.a))}</span> at {(ta ? nameOf(ta) : undefined)} move to {(tb ? nameOf(tb) : undefined)}, and the{' '}
+                  <span className="font-semibold">{formatCount(seatedAt(confirmSwap.b))}</span> at {(tb ? nameOf(tb) : undefined)} move to {(ta ? nameOf(ta) : undefined)} — each keeps their chair number.
                 </p>
                 <GuestConfirmActions
                   keep={<ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setConfirmSwap(null)} />}
@@ -10241,6 +10794,19 @@ export function SeatingEditor({
       ) : null}
       {/* ↩ The Undo a swiped-away table, rule or seat leaves (owner 2026-11-03) — one toast, however many hosts. */}
       <UndoToastHost />
+      {/* 🪑 The Name row (seat plan § 4.3) — opened from the table's ⋯ › Name…; L10's table screen T mounts the same piece. */}
+      {nameSheetFor ? (
+        <TableNameSheet
+          open
+          onClose={() => setNameSheetFor(null)}
+          tableId={nameSheetFor}
+          tables={tables}
+          seated={nameInputs.seated}
+          groups={nameInputs.groups}
+          canEdit={canEdit}
+          onSave={(label) => renameTable(nameSheetFor, label)}
+        />
+      ) : null}
       {confirmDelete ? (
         <GuestPopup kind="confirm" onClose={() => setConfirmDelete(null)} labelledById="seat-delete-confirm-title">
           {(() => {
@@ -11136,4 +11702,38 @@ function dominantColor(occ: (SeatingGuest | null)[], colorFor: (g: SeatingGuest)
     }
   }
   return best;
+}
+
+/**
+ * 🔎 THE SEAT FIND LIT (seat plan C, drawing `prototypes/seating_later_2026-11-27/`): a ring that stays lit around the
+ * found guest's chair, and a second ring that pulses out TWICE across one Sheen (transform + opacity only, on Settle —
+ * `lib/motion-table.ts`), then is gone. Reduced motion: the lit ring only. Once per Find: a chair redrawn by a zoom
+ * lights again but does not pulse again (`pulsedTick`).
+ */
+function FoundSeatRing({ still, onPulse }: { still: boolean; onPulse: () => void }) {
+  const pulse = useRef<HTMLSpanElement>(null);
+  // Read once, at mount: the Find marks its pulse as played (`onPulse`), and a re-render that then says `still` must not
+  // cut the pulse short — only unmounting the chair ends it.
+  const stillAtMount = useRef(still);
+  useEffect(() => {
+    const el = pulse.current;
+    if (stillAtMount.current || !el || typeof el.animate !== 'function') return;
+    onPulse();
+    const run = el.animate(
+      [
+        { transform: 'scale(1)', opacity: 0.9 },
+        { transform: 'scale(1.9)', opacity: 0 },
+      ],
+      // Two pulses across ONE Sheen (the motion standard's one loop length, `SHEEN_MS`), on Settle.
+      { duration: SHEEN_MS / 2, easing: EASE_SETTLE, iterations: 2, fill: 'forwards' },
+    );
+    return () => run.cancel();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- plays once per mount; `onPulse` only records the Find
+  }, []);
+  return (
+    <>
+      <span aria-hidden data-seat-found="" className="pointer-events-none absolute -inset-1 rounded-full ring-2 ring-terracotta" />
+      {stillAtMount.current ? null : <span ref={pulse} aria-hidden data-seat-found-pulse="" className="pointer-events-none absolute -inset-1 rounded-full ring-2 ring-terracotta opacity-0" />}
+    </>
+  );
 }

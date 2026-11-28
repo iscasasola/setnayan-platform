@@ -62,7 +62,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
         type: 'cta',
         text: 'A free checklist keeps your December timeline honest from day one.',
         href: '/features',
-        label: 'Start planning free',
+        label: 'See what Setnayan does',
       },
     ],
   },
@@ -81,7 +81,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
     blocks: [
       {
         type: 'p',
-        text: 'If you are marrying in December, you do not have to fight the season — you can let it carry your whole celebration. A Christmas wedding in the Philippines has a head start most couples would pay for: the lights are already up, the mood is already warm, and everyone already feels a little more sentimental than usual. By December the country has been in the Christmas spirit for weeks, the cool amihan breeze has finally arrived, and your guests turn up already glowing with the holidays. The trick is to borrow the season gently, so your wedding feels festive and personal rather than like a department-store display. Choose a few touches you genuinely love and do them well; the season fills in the rest. Here are ideas that lean into the holidays the Filipino way.',
+        text: 'If you are marrying in December, you do not have to fight the season — you can let it carry your whole wedding. A Christmas wedding in the Philippines has a head start most couples would pay for: the lights are already up, the mood is already warm, and everyone already feels a little more sentimental than usual. By December the country has been in the Christmas spirit for weeks, the cool amihan breeze has finally arrived, and your guests turn up already glowing with the holidays. The trick is to borrow the season gently, so your wedding feels festive and personal rather than like a department-store display. Choose a few touches you genuinely love and do them well; the season fills in the rest. Here are ideas that lean into the holidays the Filipino way.',
       },
       {
         type: 'h2',
@@ -212,7 +212,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
     blocks: [
       {
         type: 'p',
-        text: "Imagine your first kiss as a married couple landing exactly as the fireworks go up and the whole country counts down to midnight. A New Year's Eve wedding is the most dramatic date on the calendar — a celebration that flows straight from your vows into the biggest party of the year, with everyone already in the mood to toast, dance, and stay late. It is unforgettable by design. It is also one of the trickier dates to pull off well, because you are competing with every other New Year plan your guests and suppliers already have. Here is how to make the countdown wedding work.",
+        text: "Imagine your first kiss as a married couple landing exactly as the fireworks go up and the whole country counts down to midnight. A New Year's Eve wedding is the most dramatic date on the calendar — a wedding that flows straight from your vows into the biggest party of the year, with everyone already in the mood to toast, dance, and stay late. It is unforgettable by design. It is also one of the trickier dates to pull off well, because you are competing with every other New Year plan your guests and suppliers already have. Here is how to make the countdown wedding work.",
       },
       {
         type: 'h2',
@@ -253,7 +253,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Marrying on the last night of the year is bold, glamorous, and deeply romantic — a single celebration that closes one chapter and opens two at once. Plan the midnight moment first, give your guests early and honest notice, sort out the logistics that get sparse on the 31st, and let the countdown do what it was made to do.',
+        text: 'Marrying on the last night of the year is bold, glamorous, and deeply romantic — a single night that closes one chapter and opens two at once. Plan the midnight moment first, give your guests early and honest notice, sort out the logistics that get sparse on the 31st, and let the countdown do what it was made to do.',
       },
       {
         type: 'cta',
@@ -322,8 +322,8 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'See what your parish will need before you set the date.',
-        href: '/features',
+        text: 'Keep your parish dates and documents in one free checklist before you set the date.',
+        href: '/signup',
         label: 'Start planning free',
       },
     ],
@@ -350,11 +350,11 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'There is a clear line between the wedding itself and the act of organising it. Your venue, your caterer, your photographer — those have real costs, because real people and resources go into them. But a checklist that reminds you what to do twelve months out, a guest list that tracks RSVPs, a budget that tells you how much is left, a seating chart that sorts your tables — these are organising tools. They do not add to the celebration; they keep it from falling apart. They are the wedding-planning equivalent of pen and paper, and no one should have to rent the pen. Charging a couple for the ability to stay on top of their own plans turns a basic need into a paywall, and that never sat right with us. The couples most likely to need a clear budget and a tidy guest list are often the ones watching every peso most closely — exactly the people who should not be charged for staying organised.',
+        text: 'There is a clear line between the wedding itself and the act of organising it. Your venue, your caterer, your photographer — those have real costs, because real people and resources go into them. But a checklist that reminds you what to do twelve months out, a guest list that tracks RSVPs, a budget that tells you how much is left, a seating chart that sorts your tables — these are organising tools. They do not add to the wedding; they keep it from falling apart. They are the wedding-planning equivalent of pen and paper, and no one should have to rent the pen. Charging a couple for the ability to stay on top of their own plans turns a basic need into a paywall, and that never sat right with us. The couples most likely to need a clear budget and a tidy guest list are often the ones watching every peso most closely — exactly the people who should not be charged for staying organised.',
       },
       {
         type: 'quote',
-        text: 'You should never have to pay for the privilege of keeping your own wedding organised.',
+        text: 'Paying for a venue makes sense. Paying just to stay organised does not.',
       },
       {
         type: 'h2',
@@ -362,7 +362,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'When we say the planning workspace is free, we mean the everyday tools every couple needs, with nothing held back behind a trial or a subscription. You can run your whole plan through them from the day you get engaged to the day you say your vows, without a card on file.',
+        text: 'When we say planning on Setnayan is free, we mean the everyday tools every couple needs. You can run your whole plan through them from the day you get engaged to the day you say your vows, without a card on file.',
       },
       {
         type: 'ul',
@@ -379,11 +379,11 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Free is only sustainable if it is honest, so here is the plain version. The planning workspace stays free because it costs us very little to run for each couple, and because we would rather earn your trust early than charge you for the basics. There are optional extras a couple can choose to add — the kind of premium touches that go beyond plain planning — but you are never required to buy anything to organise your wedding from start to finish. The default is free, and it is a real default, not a teaser. There is no trial timer counting down and no card you must enter just to begin. The planning tools are free; Event Pro is there if you want the extras, and it is optional. You can plan your entire wedding without ever buying it, because the everyday tools are not the part we charge for.',
+        text: 'Free is only sustainable if it is honest, so here is the plain version. Planning on Setnayan is free: the checklist, guest list, budget and seating. It costs us very little to run for each couple, and we would rather earn your trust early than charge you for the basics. Paid plans (Event Plus, Event Pro and Event Ultra) add optional extras for the day — the kind of premium touches that go beyond plain planning. There is no trial timer counting down and no card you must enter just to begin.',
       },
       {
         type: 'p',
-        text: 'Your wedding will ask enough of your savings without the planning tools adding to the bill. Keep your money for the celebration and the people in it; let the organising part be free, because it should be.',
+        text: 'Your wedding will ask enough of your savings without the planning tools adding to the bill. Keep your money for the wedding and the people in it; let the organising part be free, because it should be.',
       },
       {
         type: 'cta',
@@ -398,9 +398,9 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
     cover: '/blog/news.webp',
     coverAlt:
       'A couple planning their wedding together over a laptop and a checklist',
-    title: 'What 0% commission means for couples and suppliers',
+    title: 'How Setnayan pricing works for hosts',
     excerpt:
-      'Many platforms quietly take a cut of every booking. Here is what 0% commission really changes for both sides.',
+      'Hosts pay 0% commission. Here is what that means for the price you agree with a supplier.',
     category: 'news',
     author: 'Setnayan Editorial',
     publishedAt: '2026-10-28',
@@ -408,36 +408,35 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
     blocks: [
       {
         type: 'p',
-        text: 'When you book a wedding supplier through a platform, it is fair to assume the platform makes its money somewhere. Often, that somewhere is a commission — a percentage taken from every booking. It is easy to miss because you rarely see it on the invoice, but it shapes prices all the same. We do something different: no commission on your bookings. To understand why that matters, it helps to see exactly how a commission works, and who quietly ends up paying for it.',
+        text: 'When you book a wedding supplier through a platform, it is fair to wonder how the platform makes its money, and whether some of it is hidden inside the price you pay. On Setnayan the answer for hosts is short. Hosts pay 0% commission. Here is what that means for you, from the first quote to the last payment.',
       },
       {
         type: 'h2',
-        text: 'How a commission quietly raises prices',
+        text: 'What you pay a supplier',
       },
       {
         type: 'p',
-        text: 'Imagine a platform takes a cut of every booking it helps arrange. A supplier knows that a slice of whatever they charge will go to the platform, not to them. So to take home the fee they actually need, they nudge their price up to cover the cut. The couple sees that higher price and assumes it is simply the market rate. The commission never appears as a line item, but it is baked into the number all the same — a hidden markup that the couple pays and the supplier never keeps. Multiply that across every booking and it adds up to real money quietly moved off the table. The cruel part is that no one in the transaction feels good about it: the couple pays more than they should, the supplier earns less than their price suggests, and the only winner is the layer in the middle that did none of the work on the actual wedding.',
+        text: 'The price you discuss with a supplier is the price between the two of you. Ask each supplier for an itemised quote, so you can compare what is included line by line, and agree the payment schedule in writing before you pay a reservation fee.',
       },
       {
         type: 'quote',
-        text: 'A commission is a cost nobody sees on the invoice and everybody pays in the price.',
-      },
-      {
-        type: 'h2',
-        text: 'What zero commission changes',
-      },
-      {
-        type: 'p',
-        text: 'With 0% commission, that whole layer simply disappears. We do not take a percentage of what you book, which means nothing is skimmed off the price you agree and the supplier has no reason to inflate it to cover a cut. The number you discuss with a supplier is the number between the two of you. Both sides come out ahead in a way that is easy to state plainly.',
+        text: 'The price you agree with a supplier is the price you pay them.',
       },
       {
         type: 'ul',
         items: [
           'Your payments to suppliers go straight to them, to their GCash or bank — that money never passes through Setnayan.',
-          'Couples pay no hidden platform markup folded into the supplier’s price.',
           'The quoted price is the real price, set by the supplier and agreed with you.',
-          'Suppliers can price competitively without padding for a commission they would otherwise lose.',
+          'Every payment you record lands in your budget, so you always know what is paid and what is still owed.',
         ],
+      },
+      {
+        type: 'h2',
+        text: 'What you pay Setnayan',
+      },
+      {
+        type: 'p',
+        text: 'Planning on Setnayan is free: the checklist, guest list, budget and seating, plus a free Event Hub with online RSVP. Paid plans (Event Plus, Event Pro and Event Ultra) add optional extras for the day. You choose one only if you want what it adds.',
       },
       {
         type: 'h2',
@@ -445,23 +444,11 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A wedding economy works best when the couple and the supplier deal directly and fairly, with no invisible hand taking a slice in the middle. Suppliers — many of them small, family-run teams — keep what they earn, which lets them invest in their craft instead of in covering a fee. Couples get honest pricing they can actually compare, instead of numbers quietly inflated by a markup they cannot see. We earn our keep in other, transparent ways, so the booking itself can stay clean. It is a simpler arrangement, and a fairer one. It also keeps the relationship where it belongs — between you and the people actually doing the work. When no one is taking a cut of the deal, there is no pressure to route your payment a certain way or to nudge you toward whoever pays the platform the most. You choose the supplier you trust, and you settle on a price that is honest on both ends.',
-      },
-      {
-        type: 'h2',
-        text: 'What suppliers do pay',
-      },
-      {
-        type: 'p',
-        text: 'No commission does not mean suppliers pay nothing, and we would rather say so plainly. Setnayan bills a supplier a booking fee on a booking, unless the supplier is the first to bring the event: a supplier who is the first to bring an event onto Setnayan — through their own invite, their own booking QR code or their own link — books it free, and a couple new to Setnayan through a supplier books them free. Every other booking carries the fee. The fee is charged to the supplier and is never added to what a couple pays. Suppliers can also choose an optional plan for a bigger shop; how far a supplier is found comes from getting Verified, not from the plan. The current rate is on the For Suppliers page.',
-      },
-      {
-        type: 'p',
-        text: 'Zero commission is not a discount or a promo — it is a structural choice. By refusing to take a cut of your bookings, we keep the hidden markup out of your price. What you negotiate is what you pay.',
+        text: 'A wedding works best when the couple and the supplier deal directly and fairly. It keeps the relationship where it belongs — between you and the people actually doing the work. You choose the supplier you want, and you settle on a price that is clear on both ends.',
       },
       {
         type: 'cta',
-        text: 'Browse suppliers and talk price directly, with no platform cut in the middle.',
+        text: 'Browse suppliers and talk price directly.',
         href: '/?browse=1',
         label: 'Browse the supplier marketplace',
       },
@@ -508,7 +495,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
         items: [
           'Guests RSVP online, and your headcount updates automatically.',
           'All your wedding details live at one link you can share anywhere.',
-          'Update something once and every guest sees the change instantly.',
+          'Update something once and every guest sees the change.',
           'A reliable final count means cleaner numbers for catering and seating.',
         ],
       },
@@ -518,7 +505,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A good Event Hub meets your guests where they are. The tech-comfortable cousin RSVPs in seconds on their phone; the relative who is less online still gets a simple page they can read without an account or an app. Because the Event Hub and its RSVP are free and built in, there is no reason to skip it. You get a real, working Event Hub and a real RSVP system as the default; Event Pro adds optional extras on top, and you never need it to collect RSVPs. And because it lives next to the rest of your planning, the headcount it gathers is the same number your guest list, your budget, and your seating chart all draw from — no copying figures between apps, no version that is quietly out of date.',
+        text: 'A good Event Hub meets your guests where they are. The tech-comfortable cousin RSVPs on their phone; the relative who is less online still gets a simple page they can read without an account or an app. Because the Event Hub and its RSVP are free and built in, there is no reason to skip it. You get a real, working Event Hub and a real RSVP system as the default. Paid plans add optional extras on top; RSVPs are free. And because it lives next to the rest of your planning, the headcount it gathers is the same number your guest list, your budget, and your seating chart all draw from — no copying figures between apps, no version that is quietly out of date.',
       },
       {
         type: 'p',
@@ -526,7 +513,7 @@ export const ARTICLES_DECNEWS: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Create your free Event Hub and turn on RSVPs in minutes.',
+        text: 'Create your free Event Hub and turn on RSVPs.',
         href: '/signup',
         label: 'Start planning free',
       },
@@ -540,15 +527,15 @@ export const HOOKS_DECNEWS: Record<string, string> = {
   'christmas-themed-wedding-ideas-philippines':
     'The lights are already up, the mood is already warm — a December wedding has a head start most couples would pay for. The secret is borrowing the season gently, the Filipino way. Here is how.',
   'holiday-season-supplier-booking-crunch':
-    'Every year the same heartbreak: couples fall for a supplier whose December dates are long gone. The fix is not luck — it is order and timing. Here is who to lock first so you are not the one left scrambling.',
+    'Lock your December suppliers in the right order. The fix is not luck — it is order and timing. Here is who goes first.',
   'new-years-eve-wedding-philippines':
     'Picture your first kiss as a married couple landing exactly as the fireworks go up and the whole country counts down. A New Year’s Eve wedding ends the year and begins your marriage in one breath. Here is how to plan it. ✨',
   'simbang-gabi-and-december-weddings':
     'The nine dawn masses fill every parish at the most prayerful, hopeful time of the Filipino year. Marrying in that same week is possible — and quietly beautiful. Here is what couples should know before they set the date.',
   'why-wedding-planning-should-be-free':
-    'Your venue costs money. Your caterer costs money. But the checklist, the guest list, the budget that simply keeps it all from falling apart? That part should cost nothing — and here is exactly why we built it that way.',
+    'Your venue costs money. Your caterer costs money. But the checklist, the guest list, the budget that simply keeps it all from falling apart? Planning on Setnayan is free. Here is why we built it that way.',
   'what-zero-commission-means-for-couples':
-    'When a platform takes a cut of every booking, somebody quietly pays for it — usually you, hidden inside the price. Here is what changes when that cut is zero, and why both sides come out ahead.',
+    'Pay your suppliers directly. Hosts pay 0% commission. Here is how Setnayan pricing works for hosts.',
   'free-event-hub-how-it-helps':
     'It sounds like a nice-to-have — a pretty page with your date. In practice it answers the hundred questions you would otherwise answer one guest at a time, and counts your RSVPs for you. Here is the real work it does.',
 };

@@ -32,6 +32,7 @@ import {
 } from './gown-config';
 import { GOWN_ADD_ONS, type GownAddOnKey } from './gown-add-ons';
 import { formatCentavosPhp } from './php';
+import { GOWN_SEAM_ALLOWANCE_DEFAULT, GOWN_SEAM_ALLOWANCE_MAX_CM, sanitizeGownSeamAllowance, type GownSeamAllowance } from './gown-pattern/allowance';
 import { parseClientRef } from './r2-client-ref';
 
 /** The suppliers the Attire Maker is suggested for (owner Q3, 2026-11-27: custom gown makers only for now). */
@@ -226,7 +227,12 @@ export type GownShopOptions = {
   /** Covers mode: added on the designer's costs, percent. */
   markupPct: number;
   addOns: Record<GownAddOnKey, GownAddOnState>;
+  /** B11: her default seam allowances, cm (owner D29: on by default, editable). Absent = the defaults. Lengths, not money. */
+  seams?: GownSeamAllowance;
 };
+
+/** The shop's allowances, or the defaults when she has not set her own. */
+export const gownShopSeams = (o: Pick<GownShopOptions, 'seams'>): GownSeamAllowance => o.seams ?? { ...GOWN_SEAM_ALLOWANCE_DEFAULT };
 
 export function gownShopTemplate(): GownShopOptions {
   return {
@@ -296,7 +302,13 @@ export function sanitizeGownShopOptions(input: unknown): { ok: true; options: Go
       addOns[id] = { state: a.state };
     } else return no(`${label}: choose Priced, Included, On request or Not offered.`);
   }
-  return { ok: true, options: { v: GOWN_OPTIONS_VERSION, mode: input.mode, prices, inBase, hours, markupPct: input.markupPct, addOns } };
+  let seams: GownSeamAllowance | undefined;
+  if (input.seams !== undefined) {
+    const s = sanitizeGownSeamAllowance(input.seams);
+    if (!s) return no(`Seam allowances must be between 0 and ${GOWN_SEAM_ALLOWANCE_MAX_CM} cm.`);
+    seams = s;
+  }
+  return { ok: true, options: { v: GOWN_OPTIONS_VERSION, mode: input.mode, prices, inBase, hours, markupPct: input.markupPct, addOns, ...(seams ? { seams } : {}) } };
 }
 
 /** The add-ons a bride is offered, in list order. Not offered ones are hidden from her. */

@@ -29,6 +29,7 @@ import {
   gownShopTemplate,
   isGownKind,
   sanitizeGownShopOptions,
+  gownShopSeams,
   type GownShopOptions,
 } from './gown-maker';
 import { emptyGownQuantities, startingGownConfig, type GownQuantities } from './gown-config';
@@ -315,4 +316,18 @@ test('7g · v200/v203: 3D flowers, raised lace, glitter tulle, five sleeve style
   if (ok.ok) for (const k of fresh) assert.equal(ok.options.prices[k], 100);
   for (const i of GOWN_PRICE_ITEMS) assert.equal(GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length, 1, `${i.key} is in more or fewer than one group`);
   assert.equal(new Set(GOWN_PRICE_ITEMS.map((i) => i.key)).size, GOWN_PRICE_ITEMS.length, 'a price key appears twice');
+});
+
+test('7h · B11: her default seam allowances ride on the options: absent means on at the defaults; a bad one is refused in words', () => {
+  const t = gownShopTemplate();
+  assert.equal(t.seams, undefined);
+  assert.deepEqual(gownShopSeams(t), { on: true, seamCm: 1.5, hemCm: 4, zipCm: 2 });
+  const mine = { ...t, seams: { on: true, seamCm: 1, hemCm: 5, zipCm: 2.5 } };
+  const ok = sanitizeGownShopOptions(mine);
+  assert.ok(ok.ok);
+  if (ok.ok) assert.deepEqual(gownShopSeams(ok.options), { on: true, seamCm: 1, hemCm: 5, zipCm: 2.5 });
+  const plain = sanitizeGownShopOptions(t);
+  assert.ok(plain.ok && !('seams' in plain.options), 'an options row without allowances gains one on save');
+  const bad = sanitizeGownShopOptions({ ...t, seams: { on: true, seamCm: 12, hemCm: 5, zipCm: 2 } });
+  assert.deepEqual(bad, { ok: false, problem: 'Seam allowances must be between 0 and 10 cm.' });
 });

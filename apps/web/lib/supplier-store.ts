@@ -428,6 +428,14 @@ export function toolStatus(key: SpecializedToolKey, f: ToolFacts): ToolStatus {
     if (f.freeOpen === false) return { kind: 'verify' };
     return { kind: 'free', added: addedFreeTools(f).includes(key) };
   }
+  // 👗 The Attire Maker is a monthly plan, not a one-time buy (owner 2026-11-28; lib/gown-plan.ts): a shop with a custom
+  // gown design card has it in Your widgets (the card gate hides it from every other shop). Opening it starts the 30-day
+  // trial, and its panel shows the plan and sells it. It never asks for Plus, Pro or Ultra, and never sells the
+  // retired one-time row.
+  if (key === 'attire_tool') {
+    if (!Array.isArray(f.cards)) return { kind: 'unread' };
+    return f.cards.some((c) => isGownKind(kindOf(c))) ? { kind: 'owned' } : { kind: 'no_price' };
+  }
   if (f.owned === null || f.subscribed === null) return { kind: 'unread' };
   if (f.owned.has(key)) return f.subscribed ? { kind: 'owned' } : { kind: 'resubscribe' };
   if (f.pending === null || f.prices === null) return { kind: 'unread' };

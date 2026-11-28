@@ -13,6 +13,8 @@
  *   ?view=order-lines  the same, with her own neckline, back and hem (B9, v209): said under her design, drawn on the blocks
  *   ?view=order-lines-unread  her lines didn’t read: said, and the blocks show the plain lines
  *   ?view=scan     Fabrics and lace › Scan a swatch book (step B13), opened on a sample page drawn in the browser
+ *   ?view=plan-fresh|plan-use|plan-full|plan-paused|plan-unread  the plan strip on top of the panel (owner 2026-11-28); every
+ *                    other panel view shows the trial. SAMPLE prices only.
  *   ?view=types      Admin › Studio › Fabric types (step B5b): a checked, an unchecked and a hidden type
  *   ?view=card       the chat's gown design card, the shop's face (B8): her choices, the estimate, Make a quote
  *   ?view=card-bride   the bride's face ("Your gown design · Sent")

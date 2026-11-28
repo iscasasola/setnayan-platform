@@ -133,3 +133,9 @@ export function gownPlanAfterRefund(current: GownPlanFacts['plan'], nowMs: numbe
   if (!Number.isFinite(cur)) return current;
   return { tier: current.tier, until: new Date(Math.min(Math.max(cur - GOWN_PLAN_DAYS * DAY, nowMs), cur)).toISOString() };
 }
+
+/** The two plans as the panel names them (owner 2026-11-28). Prices are the catalog's, worded by lib/php.ts. */
+export const GOWN_PLAN_WORDS: Record<GownPlanTier, { name: string; line: string }> = {
+  use: { name: 'Use and save', line: 'Your clients, their measurements and designs, all kept.' },
+  full: { name: 'Full', line: 'Plus pattern templates, full-size printing and the gown quotation.' },
+};

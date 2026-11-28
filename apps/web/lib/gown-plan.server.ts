@@ -9,7 +9,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { isGownKind } from '@/lib/gown-maker';
 import { kindOf } from '@/lib/supplier-store';
-import type { GownPlanFacts, GownPlanTier } from '@/lib/gown-plan';
+import { GOWN_PLAN_SKUS, type GownPlanFacts, type GownPlanTier } from '@/lib/gown-plan';
 
 /** The shop's facts for `gownPlanState`. A failed read is `eligible: null` (the gate then refuses, said plainly). */
 export async function readGownPlanFacts(admin: SupabaseClient, vendorProfileId: string): Promise<GownPlanFacts> {
@@ -53,4 +53,20 @@ export async function writeGownPlan(admin: SupabaseClient, vendorProfileId: stri
     .from('vendor_gown_plans')
     .upsert({ vendor_profile_id: vendorProfileId, plan_tier: plan?.tier ?? null, plan_until: plan?.until ?? null, updated_at: new Date().toISOString() }, { onConflict: 'vendor_profile_id' });
   if (error) throw new Error(`vendor_gown_plans write failed: ${error.message}`);
+}
+
+/** The two plans' monthly prices, read from their catalog rows (pesos). A row that is missing, off sale or unpriced is
+ *  null ("Price not set yet"), never zero; a failed read is null for both and says so. */
+export async function readGownPlanPrices(admin: SupabaseClient): Promise<{ read: boolean; use: number | null; full: number | null }> {
+  const { data, error } = await admin.from('vendor_billing_catalog').select('sku_code, price_php, is_active').in('sku_code', [GOWN_PLAN_SKUS.use, GOWN_PLAN_SKUS.full]);
+  if (error) {
+    logQueryError('readGownPlanPrices', error, {}, 'graceful_degrade');
+    return { read: false, use: null, full: null };
+  }
+  const price = (sku: string) => {
+    const r = ((data ?? []) as { sku_code: string; price_php: number | string | null; is_active: boolean | null }[]).find((x) => x.sku_code === sku);
+    const n = r && r.is_active === true ? Number(r.price_php) : Number.NaN;
+    return Number.isFinite(n) && n > 0 ? n : null;
+  };
+  return { read: true, use: price(GOWN_PLAN_SKUS.use), full: price(GOWN_PLAN_SKUS.full) };
 }

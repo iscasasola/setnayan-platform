@@ -31,7 +31,7 @@ import { requireAdminAction } from '@/lib/admin/require-admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sendChatMessageCore } from '@/lib/chat-send';
 import { gownPlanAllows, gownPlanRefusal, type GownPlanState, type GownPlanUse } from '@/lib/gown-plan';
-import { stampGownTrial } from '@/lib/gown-plan.server';
+import { readGownPlanPrices, stampGownTrial } from '@/lib/gown-plan.server';
 import { GOWN_MEASURES, GOWN_REFUSAL_WORDS, gownLookOf, sanitizeGownConfig, startingGownConfig, type GownBody, type GownConfig, type GownMeasures } from '@/lib/gown-config';
 import {
   GOWN_ADD_ON_ASK,
@@ -169,7 +169,7 @@ export type GownActionResult =
   | GownOpenRead
   | { ok: true; op: 'send' | 'invite' | 'save' | 'fit' }
   | { ok: true; op: 'status'; on: boolean; side: 'couple' | 'vendor' }
-  | { ok: true; op: 'options'; options: GownShopOptions; saved: boolean; locked: boolean; plan: GownPlanState }
+  | { ok: true; op: 'options'; options: GownShopOptions; saved: boolean; locked: boolean; plan: GownPlanState; planPrices: { read: boolean; use: number | null; full: number | null } }
   | { ok: true; op: 'stock'; shop: string; fabrics: ShopGownStockFabric[]; looks: ShopGownStockLook[]; types: GownFabricTypeOption[]; locked: boolean }
   | { ok: true; op: 'fabric_save' | 'look_save'; id: string }
   | { ok: true; op: 'types'; types: GownFabricTypeRow[] }
@@ -226,9 +226,9 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
     if (plan.s === 'not_eligible') return fail(gownPlanRefusal(plan, 'read'));
     const canMake = plan.s !== 'fresh' && gownPlanAllows(plan, 'make');
     if (op === 'options') {
-      const read = await readShopGownMaker(supabase, shop);
+      const [read, planPrices] = await Promise.all([readShopGownMaker(supabase, shop), readGownPlanPrices(admin)]);
       if (read.status === 'unread') return fail('Couldn’t load your Attire Maker. Try again.');
-      return { ok: true, op, options: read.status === 'ok' ? read.data : gownShopTemplate(), saved: read.status === 'ok', locked: !canMake, plan };
+      return { ok: true, op, options: read.status === 'ok' ? read.data : gownShopTemplate(), saved: read.status === 'ok', locked: !canMake, plan, planPrices };
     }
     if (op === 'stock') {
       // The shop's own stock list, hidden rows and prices included (the shop's panel only — never a bride's read).

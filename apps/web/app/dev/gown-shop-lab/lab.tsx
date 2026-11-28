@@ -84,6 +84,23 @@ function cardSeed(viewer: 'vendor' | 'couple', opts: { ask?: boolean; replaced?:
   };
 }
 
+/** B: the Attire Maker plan states (owner 2026-11-28). SAMPLE prices only — the real ones are the catalog's. */
+const PLAN_PRICES = { read: true, use: 10 * P, full: 20 * P } as const;
+function planSeed(view: string) {
+  const at = (d: number) => new Date(Date.parse('2026-12-01T00:00:00Z') + d * 86_400_000).toISOString();
+  const plan =
+    view === 'plan-fresh'
+      ? ({ s: 'fresh' } as const)
+      : view === 'plan-use'
+        ? ({ s: 'paid', tier: 'use', until: at(12), daysLeft: 12 } as const)
+        : view === 'plan-full'
+          ? ({ s: 'paid', tier: 'full', until: at(2), daysLeft: 2 } as const)
+          : view === 'plan-paused'
+            ? ({ s: 'paused', was: 'trial' } as const)
+            : ({ s: 'trial', endsAt: at(22), daysLeft: 22 } as const);
+  return { plan, planPrices: view === 'plan-unread' ? { read: false, use: null, full: null } : PLAN_PRICES };
+}
+
 export default function Lab({ view }: { view: string }) {
   if (view.startsWith('card')) {
     const T = '00000000-0000-4000-8000-000000000011';
@@ -193,7 +210,7 @@ export default function Lab({ view }: { view: string }) {
     const stockSeed = view === 'stock-empty' ? { ...STOCK, fabrics: [], looks: [] } : STOCK;
     return (
       <main className="mx-auto max-w-xl p-4" data-gown-shop-lab={view}>
-        <GownMakerPanel key={view} seed={{ options: sample('covers'), saved: true, locked: false }} startView={view === 'looks' ? 'looks' : 'fabrics'} stockSeed={stockSeed} />
+        <GownMakerPanel key={view} seed={{ options: sample('covers'), saved: true, locked: false, ...planSeed(view) }} startView={view === 'looks' ? 'looks' : 'fabrics'} stockSeed={stockSeed} />
       </main>
     );
   }
@@ -205,7 +222,7 @@ export default function Lab({ view }: { view: string }) {
         : { options: sample(view === 'extras' ? 'extras' : 'covers'), saved: true, locked: false };
   return (
     <main className="mx-auto max-w-xl p-4" data-gown-shop-lab={view}>
-      <GownMakerPanel key={view} seed={seed} />
+      <GownMakerPanel key={view} seed={{ ...seed, ...planSeed(view), ...(view === 'plan-paused' ? { locked: true } : {}) }} />
     </main>
   );
 }

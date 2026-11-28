@@ -258,3 +258,26 @@ test('7e · v197/v198: Fit and flare has its own starting price; the Bodice grou
   for (const i of GOWN_PRICE_ITEMS) assert.equal(GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length, 1, `${i.key} is in more or fewer than one group`);
   assert.equal(new Set(GOWN_PRICE_ITEMS.map((i) => i.key)).size, GOWN_PRICE_ITEMS.length, 'a price key appears twice');
 });
+
+test('7f · v199 Straps and edges group; v196 cape lines from A6f quantities, unpriced until priced', () => {
+  assert.deepEqual(GOWN_PRICE_ITEMS.find((i) => i.key === 'strap'), { key: 'strap', label: 'Straps: cutting, sewing and attaching', unit: 'pair' });
+  assert.deepEqual(GOWN_PRICE_ITEMS.find((i) => i.key === 'scallop'), { key: 'scallop', label: 'Scalloped edge: shaping and finishing', unit: 'pc' });
+  for (const k of ['strap', 'scallop'] as const) {
+    assert.equal(GOWN_PRICE_GROUPS.find(([, f]) => f(k))?.[0], 'Straps and edges');
+    assert.equal(gownShopTemplate().prices[k], undefined);
+  }
+  const q0 = emptyGownQuantities();
+  const q = { ...q0, materials: { ...q0.materials, capeM: 3.2, ribbonM: 0.45 }, labour: { ...q0.labour, cape: 'side' as const } };
+  const design = { ...startingGownConfig(), cape: 'side' as const, capeFab: null };
+  const unpriced = gownDesignOf(shop(), design, q, []).forShop.lines;
+  const capeLine = unpriced.find((l) => l.key === 'cape_side')!;
+  assert.equal(capeLine.label, 'Cape (side cape): cutting, sewing and finishing');
+  assert.equal(capeLine.amountCentavos, null, 'an unpriced cape was priced');
+  assert.ok(unpriced.some((l) => l.key === 'fab_tulle' && l.label === 'Tulle (the cape)' && l.qty === 3.2), 'the side cape’s default tulle is not counted');
+  assert.ok(unpriced.some((l) => l.key === 'ribbon' && l.qty === 0.45));
+  const priced = gownDesignOf(shop({ prices: { ...shop().prices, cape_side: C(10), fab_tulle: C(2), ribbon: C(1) } }), design, q, []).forShop.lines;
+  assert.equal(priced.find((l) => l.key === 'cape_side')!.amountCentavos, C(10));
+  assert.equal(priced.find((l) => l.key === 'fab_tulle' && l.label === 'Tulle (the cape)')!.amountCentavos, Math.round(3.2 * C(2)));
+  // No cape: no cape line.
+  assert.ok(!gownDesignOf(shop(), startingGownConfig(), q0, []).forShop.lines.some((l) => l.key.startsWith('cape_')));
+});

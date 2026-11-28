@@ -25,6 +25,11 @@ import {
   GOWN_SILHOUETTES,
   GOWN_STOCK_FABRICS,
   GOWN_BEAD_KINDS,
+  GOWN_FLOWER_SIZES,
+  GOWN_FLOWER_TYPES,
+  GOWN_OVERLAYS,
+  GOWN_SLEEVE_EXTRA,
+  gownCapeKind,
   gownCapeNow,
   type GownBeadKind,
   type GownConfig,
@@ -407,6 +412,7 @@ type DesignPick = Pick<
   GownConfig,
   | 'sil' | 'fabric' | 'fabricRef' | 'accentFabric' | 'accentFabricRef' | 'lining' | 'closure' | 'sleeve' | 'tex' | 'train' | 'darts'
   | 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten'
+  | 'accentHex' | 'overlay' | 'flowerType' | 'flowerSize' | 'flowerCol'
 >;
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
@@ -492,16 +498,44 @@ export function gownDesignOf(
   supply('Details', 'illusion', 'Illusion mesh', m.illusionM, 'm');
   // The cape (v196; Builder A's A6f quantities): its own labour line by type, its cloth, and a narrow strap when it hangs
   // from one shoulder of a strapless neckline. A lace, appliqué or beaded edge is already in the lace and bead lines.
-  if (L.cape !== 'none') {
-    const capeName = GOWN_CAPES.find((c) => c.id === L.cape)?.label ?? 'Cape';
-    supply('Details', `cape_${L.cape}`, `Cape (${capeName.toLowerCase()}): cutting, sewing and finishing`, 1, 'pc');
+  // v203 (`capeKind`): cape sleeves hang as a cape of their own, priced on their sleeve line (below), and an over-robe
+  // is priced on its own line — so neither is a "Cape (…)" line, and their cloth and strap say what they are for.
+  const ck = gownCapeKind(design);
+  if (ck !== 'none') {
+    const nm = ck === 'capesl' ? 'the cape sleeves' : ck === 'robe' ? 'the over-robe' : 'the cape';
+    if (ck === 'robe' || L.overrobe) supply('Details', 'overrobe', 'Over-robe: cutting, sewing and finishing', 1, 'pc');
+    else if (ck !== 'capesl') {
+      const capeName = GOWN_CAPES.find((c) => c.id === ck)?.label ?? 'Cape';
+      supply('Details', `cape_${ck}`, `Cape (${capeName.toLowerCase()}): cutting, sewing and finishing`, 1, 'pc');
+    }
     const fab = gownCapeNow(design).fab;
     if (fab === 'gown') {
       const ak = design.accentFabric ?? design.fabric;
-      supply('Details', `fab_${ak}`, `${fabricLabel(ak)} (the cape, accent colour)`, m.capeM, 'm');
-    } else supply('Details', `fab_${fab}`, `${fabricLabel(fab)} (the cape)`, m.capeM, 'm');
-    supply('Details', 'ribbon', 'Narrow strap for the cape', m.ribbonM, 'm');
+      supply('Details', `fab_${ak}`, `${fabricLabel(ak)} (${nm}, accent colour)`, m.capeM, 'm');
+    } else supply('Details', `fab_${fab}`, `${fabricLabel(fab)} (${nm})`, m.capeM, 'm');
+    supply('Details', 'ribbon', `Narrow strap for ${nm}`, m.ribbonM, 'm');
   }
+  // v195/v203: the sleeves and the overlay cut, sewn and finished — each its own line from the designer's own list
+  // (their cloth is in the fabric lines). v200: 3D flowers by the ten, and raised lace shaped and finished.
+  supply('Bodice', 'flutter', 'Flutter cape sleeves: cutting, sewing and finishing', L.flutter, 'pair');
+  if (L.sleeve in GOWN_SLEEVE_EXTRA) {
+    const k = L.sleeve as keyof typeof GOWN_SLEEVE_EXTRA;
+    supply('Bodice', `sl_${k}`, `Sleeves (${GOWN_SLEEVE_EXTRA[k]}): cutting, sewing and finishing`, 1, 'pair');
+  }
+  if (L.sleeveDetach) supply('Bodice', 'sl_detach', 'Detachable sleeve bands', 1, 'pair');
+  if (L.overlay > 0) {
+    const ov = GOWN_OVERLAYS.find((o) => o.id === design.overlay && o.id !== 'none');
+    supply('Skirt', 'overlay', `${ov ? `${ov.label} overlay` : 'Overlay'}: cutting, sewing and finishing`, L.overlay, 'pc');
+  }
+  if (L.flowers > 0) {
+    // v200: "(N rosettes, 4 cm, gown colour)" — a small blossom is 0.8 of the size.
+    const ft = GOWN_FLOWER_TYPES.find((t) => t.id === design.flowerType);
+    const cm = (GOWN_FLOWER_SIZES.find((z) => z.id === design.flowerSize)?.cm ?? 4) * (design.flowerType === 'blossom' ? 0.8 : 1);
+    const accentOn = !!(design.accentFabric || design.accentHex);
+    const col = design.flowerCol === 'accent' && accentOn ? 'accent colour' : design.flowerCol === 'gown' ? 'gown colour' : design.flowerCol;
+    supply('Details', 'flowers3d', `3D flowers: making and attaching (${formatCount(L.flowers)} ${ft ? ft.one : 'flower'}${L.flowers === 1 ? '' : 's'}, ${formatCount(cm, 1)} cm, ${col})`, Math.ceil(L.flowers / 10), '10 flowers');
+  }
+  if (L.laceRaised) supply('Details', 'lace_raised', 'Raised lace: shaping and finishing', 1, 'pc');
   // Skirt.
   supply('Skirt', 'horsehair', 'Horsehair braid', m.horsehairM, 'm');
   // Inside.

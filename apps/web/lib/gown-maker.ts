@@ -161,6 +161,17 @@ export const GOWN_PRICE_ITEMS = [
   { key: 'scallop', label: 'Scalloped edge: shaping and finishing', unit: 'pc' },
   // Owner 2026-11-27: small bows come back as a labour line, per piece, unpriced until the designer prices it.
   { key: 'bow', label: 'Bow (small): making and attaching', unit: 'pc' },
+  // v210 colour and fabric per piece: a dip-dyed (faded) piece and a border band, each once per piece; a patterned
+  // fabric by the metre, per kind (prototype PZ_PATS), and one from the designer's own library.
+  { key: 'dye_fade', label: 'Dip-dye / colour fade: dyeing (per piece)', unit: 'pc' },
+  { key: 'border', label: 'Border band: cutting and applying (per piece)', unit: 'pc' },
+  { key: 'pat_brocade', label: 'Patterned fabric: brocade', unit: 'm' },
+  { key: 'pat_jacquard', label: 'Patterned fabric: jacquard', unit: 'm' },
+  { key: 'pat_floral', label: 'Patterned fabric: floral print', unit: 'm' },
+  { key: 'pat_dots', label: 'Patterned fabric: dots', unit: 'm' },
+  { key: 'pat_stripes', label: 'Patterned fabric: stripes', unit: 'm' },
+  { key: 'pat_plaid', label: 'Patterned fabric: plaid', unit: 'm' },
+  { key: 'pat_lib', label: 'Patterned fabric from your library', unit: 'm' },
   { key: 'rate', label: 'Labour rate', unit: 'hour' },
 ] as const satisfies readonly Item[];
 export type GownPriceKey = (typeof GOWN_PRICE_ITEMS)[number]['key'];
@@ -170,6 +181,8 @@ const PRICE_KEYS: ReadonlySet<string> = new Set(GOWN_PRICE_ITEMS.map((i) => i.ke
 export const GOWN_PRICE_GROUPS: ReadonlyArray<readonly [string, (key: GownPriceKey) => boolean]> = [
   ['Starting prices', (k) => k.startsWith('base_')],
   ['Fabrics', (k) => k.startsWith('fab_')],
+  // v210: a piece in its own colour, fade, border or pattern (prototype PRICE_GROUPS splice after Fabrics).
+  ['Colour per piece', (k) => /^(dye_fade|border|pat_)/.test(k)],
   ['Lining and inside', (k) => /^(lin_|net$|hoop$|illusion$|boning$|waiststay$|horsehair$)/.test(k)],
   ['Closures', (k) => /^(zipper|button|eyelet|cord)$/.test(k)],
   ['Lace and beads', (k) => /^(lace_|bead_)/.test(k)],

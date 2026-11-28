@@ -505,3 +505,16 @@ test('7n · v209: a scalloped or handkerchief hem is its own unpriced line, in a
   const priced = gownDesignOf(shop({ prices: { ...prices, hem_scallop: C(1) } }), { ...gownA.d, hemEdge: 'scallop' } as typeof gownA.d, gownA.q, [], new Map());
   assert.equal(priced.forShop.lines.find((l) => l.key === 'hem_scallop')!.amountCentavos, C(1));
 });
+
+test('7o · v210: dip-dye, border band and patterned fabrics are listed in a Colour per piece group after Fabrics, unpriced', () => {
+  const groups = GOWN_PRICE_GROUPS.map(([g]) => g);
+  assert.equal(groups.indexOf('Colour per piece'), groups.indexOf('Fabrics') + 1, 'Colour per piece is not right after Fabrics');
+  const inGroup = GOWN_PRICE_GROUPS.find(([g]) => g === 'Colour per piece')![1];
+  assert.deepEqual(
+    GOWN_PRICE_ITEMS.filter((i) => inGroup(i.key)).map((i) => [i.key, i.unit]),
+    [['dye_fade', 'pc'], ['border', 'pc'], ['pat_brocade', 'm'], ['pat_jacquard', 'm'], ['pat_floral', 'm'], ['pat_dots', 'm'], ['pat_stripes', 'm'], ['pat_plaid', 'm'], ['pat_lib', 'm']],
+  );
+  // Each item sits in exactly one group (a key matched twice would print twice on the price list).
+  for (const i of GOWN_PRICE_ITEMS) assert.equal(GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length, 1, `${i.key} is in ${GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length} groups`);
+  assert.deepEqual(gownShopTemplate().prices, {}, 'the template priced a new item');
+});

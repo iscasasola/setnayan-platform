@@ -322,6 +322,8 @@ export async function buildPersonalDataExport(
     ownFeeDisputesRes,
     ownPollVotesRes,
     ownCakeDesignsRes,
+    ownGownDesignsRes,
+    ownGownFittingsRes,
     ownFocusPutOffsRes,
     ownEventPutOffsRes,
   ] = await Promise.all([
@@ -891,6 +893,24 @@ export async function buildPersonalDataExport(
       .select('design_id, thread_id, vendor_service_id, config, design, estimate_centavos, created_at')
       .eq('created_by', user.id)
       .order('created_at', { ascending: true }),
+    // RA 10173 (2026-11-27) — THE GOWN DESIGNS THIS SUBJECT SENT from the chat's Attire Maker (gown maker port B1).
+    // AUTHOR-scoped on created_by: her own design, the body numbers she typed, the quantities and the one estimate.
+    // No cost line is ever stored on this row, so none can reach the file.
+    supabase
+      .from('gown_designs')
+      .select('design_id, thread_id, vendor_service_id, config, body, measures, quantities, estimate_centavos, share_as, created_at')
+      .eq('created_by', user.id)
+      .order('created_at', { ascending: true }),
+    // RA 10173 (2026-11-27, coordinator ruling) — THE DESIGNER'S TAPE ON HER GOWN DESIGNS. Her body, measured by the
+    // shop: personal data about her, so it is in her file. Read-only here; in the app it stays shop-only (its RLS admits
+    // the shop alone), so it is read on the SERVICE-ROLE client, scoped by an inner join to the designs SHE sent.
+    admin
+      ? admin
+          .from('gown_fittings')
+          .select('design_id, fit, fit_at, gown_designs!inner(created_by)')
+          .eq('gown_designs.created_by', user.id)
+          .order('fit_at', { ascending: true })
+      : Promise.resolve(null),
     // RA 10173 (2026-11-19) — an admin's OWN "Do it tomorrow" on Focus (Today v3 part 4, migration 20271355036188).
     // Owner-scoped on user_id: which Focus item, until which day. Nobody else's record is in it.
     supabase
@@ -1237,6 +1257,8 @@ export async function buildPersonalDataExport(
   const ownFeeDisputes = listOutcome('booking_fee_disputes_raised', ownFeeDisputesRes);
   const ownPollVotes = listOutcome('chat_poll_votes', ownPollVotesRes);
   const ownCakeDesigns = listOutcome('cake_designs_sent', ownCakeDesignsRes);
+  const ownGownDesigns = listOutcome('gown_designs_sent', ownGownDesignsRes);
+  const ownGownFittings = listOutcome('gown_fittings_of_her_designs', ownGownFittingsRes, adminUnavailable);
   const ownFocusPutOffs = listOutcome('admin_focus_put_offs', ownFocusPutOffsRes);
   const ownEventPutOffs = listOutcome('event_today_put_offs', ownEventPutOffsRes);
   const workingNotes = listOutcome(
@@ -1397,6 +1419,8 @@ export async function buildPersonalDataExport(
     ownFeeDisputes,
     ownPollVotes,
     ownCakeDesigns,
+    ownGownDesigns,
+    ownGownFittings,
     ownFocusPutOffs,
     ownEventPutOffs,
     // ⚠ These ten were read and shipped but missing from this list until
@@ -1577,6 +1601,14 @@ export async function buildPersonalDataExport(
     chat_poll_votes: ownPollVotes.rows,
     // 🎂 The cake designs the subject sent from the chat's Cake Maker (their picks and the estimate). Author-scoped.
     cake_designs_sent: ownCakeDesigns.rows,
+    // 👗 The gown designs the subject sent from the chat's Attire Maker (her design, her numbers, the estimate). Author-scoped.
+    gown_designs_sent: ownGownDesigns.rows,
+    // 📏 The designer's tape on the gown designs she sent (her body, measured by the shop). Read-only; the shop's
+    // own staff id is not in the projection.
+    gown_fittings_of_her_designs: ownGownFittings.rows.map((r) => {
+      const { gown_designs: _join, ...row } = r as Record<string, unknown>;
+      return row;
+    }),
     // ⏭ An admin's own Focus items put off with "Do it tomorrow". Owner-scoped.
     admin_focus_put_offs: ownFocusPutOffs.rows,
     // ⏭ The subject's own event Today rows put off with "Do it tomorrow". Owner-scoped.

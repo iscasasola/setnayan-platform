@@ -215,6 +215,12 @@ test('2c · scheduled_on_fb is a status, it holds its slot, and Facebook\'s id i
   );
   const r = await db.query<{ facebook_post_id: string }>(`SELECT facebook_post_id FROM public.social_posts WHERE source_ref = 'fb-held'`);
   assert.equal(r.rows[0]?.facebook_post_id, '123_456');
+  // A pulled post Facebook still holds has its own status, and it frees the slot like a pull.
+  await db.query(`UPDATE public.social_posts SET status = 'takedown_needed' WHERE source_ref = 'fb-held'`);
+  await db.query(
+    `INSERT INTO public.social_posts (source_type, source_ref, slot, scheduled_for, status) VALUES ('vendor_feature', 'fb-next', 'morning', $1, 'scheduled')`,
+    [at],
+  );
   await assert.rejects(
     db.query(`UPDATE public.social_posts SET status = 'queued_on_fb' WHERE source_ref = 'fb-held'`),
     /social_posts_status_check/,

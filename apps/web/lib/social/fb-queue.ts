@@ -138,7 +138,8 @@ function facebookLeg(row: Pick<QueueRow, 'platform_results'>): Record<string, un
 /**
  * Store Facebook's id on a claimed row: it is now waiting on Facebook's clock. When the save matches NO row (the row
  * left `publishing` meanwhile — pulled, or taken down), the post must not go out: it is deleted on Facebook at once,
- * and if that fails the row is marked for the manual take-down lane. A save that ERRORS keeps the post (recovery
+ * and if that fails the row becomes `takedown_needed` (shown first on the queue page, retried by every flush —
+ * `retryTakedowns`). A save that ERRORS keeps the post (recovery
  * finds its id later).
  */
 async function saveScheduled(db: Db, row: QueueRow, externalId: string, stamp: string, how: string, ops: FbOps): Promise<boolean> {
@@ -165,25 +166,30 @@ async function saveScheduled(db: Db, row: QueueRow, externalId: string, stamp: s
   // Already holding this very id (another path saved it first)? Then nothing is wrong.
   const { data: now, error: readErr } = await db
     .from('social_posts')
-    .select('status, facebook_post_id')
+    .select('status, facebook_post_id, platform_results')
     .eq('post_id', row.post_id)
     .maybeSingle();
   if (readErr) logQueryError('fb-queue (re-read after empty save)', readErr, { post_id: row.post_id });
-  const held = now as { status?: string; facebook_post_id?: string | null } | null;
+  const held = now as { status?: string; facebook_post_id?: string | null; platform_results?: Record<string, unknown> | null } | null;
   if (held && held.facebook_post_id === externalId) return false;
   const removed = await ops.remove(externalId);
   if (!removed.ok) {
     console.error(`[social] post ${row.post_id} was pulled while Facebook took it (${externalId}) and the delete failed: ${removed.error}`);
+    // A real status, so the queue page shows it and every flush retries the delete. The pull's own recorded result
+    // (the row as it is NOW, not our stale copy) is kept; the take-down goes beside it.
     const { error: markErr } = await db
       .from('social_posts')
       .update({
+        status: 'takedown_needed',
+        facebook_post_id: externalId,
         platform_results: {
-          ...(row.platform_results ?? {}),
-          facebook: { status: 'takedown_needed', external_id: externalId, error: `Delete on Facebook failed: ${removed.error}`, at: stamp },
+          ...(held?.platform_results ?? {}),
+          takedown: { external_id: externalId, error: `Delete on Facebook failed: ${removed.error}`, since: stamp, attempts: 1 },
         },
         updated_at: stamp,
       })
-      .eq('post_id', row.post_id);
+      .eq('post_id', row.post_id)
+      .neq('status', 'published');
     if (markErr) logQueryError('fb-queue (mark for manual take-down)', markErr, { post_id: row.post_id, facebook_post_id: externalId });
   }
   return false;
@@ -535,6 +541,7 @@ export async function pullPost(db: Db, postId: string, ops: FbOps, now: Date = n
   if (error) return { ok: false, error: error.message ?? 'read failed' };
   const row = data as Pick<QueueRow, 'post_id' | 'status' | 'facebook_post_id' | 'platform_results' | 'scheduled_for' | 'body'> | null;
   if (!row) return { ok: false, error: 'Post not found.' };
+  if (row.status === 'takedown_needed') return removeStillScheduled(db, row, ops);
   if (isUnconfirmedHandOff(row)) {
     // Handed over but its Facebook id never saved: find it on the Page and delete it there first.
     const res = await takeBackUnconfirmedHandOff(db, row, ops, 'pulled', now);
@@ -701,6 +708,71 @@ export async function takeDownRevoked(
     else {
       out.left.push(row.post_id);
       console.warn(`[social] take-down of post ${row.post_id} waits: ${res.error}`);
+    }
+  }
+  return out;
+}
+
+/**
+ * A pulled post Facebook still holds (`takedown_needed`): delete it there, then the row is `pulled`. The admin's
+ * Remove (the pull action) and every flush (`retryTakedowns`) both come here. A refused delete leaves the row as it is,
+ * with the attempt recorded beside the pull's result.
+ */
+export async function removeStillScheduled(
+  db: Db,
+  row: Pick<QueueRow, 'post_id' | 'facebook_post_id' | 'platform_results'>,
+  ops: FbOps,
+): Promise<OpResult> {
+  const prior = row.platform_results?.takedown;
+  const takedown = prior && typeof prior === 'object' ? (prior as Record<string, unknown>) : {};
+  const stamp = new Date().toISOString();
+  const removed = row.facebook_post_id ? await ops.remove(row.facebook_post_id) : ({ ok: true } as const);
+  if (!removed.ok) {
+    const attempts = (typeof takedown.attempts === 'number' ? takedown.attempts : 0) + 1;
+    const { error } = await db
+      .from('social_posts')
+      .update({
+        platform_results: { ...(row.platform_results ?? {}), takedown: { ...takedown, error: `Delete on Facebook failed: ${removed.error}`, attempts, last_try: stamp } },
+        updated_at: stamp,
+      })
+      .eq('post_id', row.post_id)
+      .eq('status', 'takedown_needed');
+    if (error) logQueryError('fb-queue (record take-down retry)', error, { post_id: row.post_id });
+    return { ok: false, error: `Facebook did not delete it (${removed.error}); it is still scheduled there.` };
+  }
+  const { data, error } = await db
+    .from('social_posts')
+    .update({
+      status: 'pulled',
+      facebook_post_id: null,
+      platform_results: { ...(row.platform_results ?? {}), takedown: { ...takedown, error: null, removed_at: stamp } },
+      updated_at: stamp,
+    })
+    .eq('post_id', row.post_id)
+    .eq('status', 'takedown_needed')
+    .select('post_id');
+  if (error) return { ok: false, error: error.message ?? 'update failed' };
+  return data && data.length > 0 ? { ok: true } : { ok: false, error: 'The post changed meanwhile; reload the queue.' };
+}
+
+/** Every flush, before anything else: retry the Facebook delete of each pulled post Facebook still holds. */
+export async function retryTakedowns(db: Db, ops: FbOps): Promise<{ removed: string[]; still: string[] }> {
+  const out = { removed: [] as string[], still: [] as string[] };
+  const { data, error } = await db
+    .from('social_posts')
+    .select('post_id, facebook_post_id, platform_results')
+    .eq('status', 'takedown_needed')
+    .limit(20);
+  if (error) {
+    logQueryError('fb-queue (take-down scan)', error);
+    return out;
+  }
+  for (const row of (data ?? []) as Array<Pick<QueueRow, 'post_id' | 'facebook_post_id' | 'platform_results'>>) {
+    const res = await removeStillScheduled(db, row, ops);
+    if (res.ok) out.removed.push(row.post_id);
+    else {
+      out.still.push(row.post_id);
+      console.error(`[social] post ${row.post_id} is pulled but still scheduled on Facebook: ${res.error}`);
     }
   }
   return out;

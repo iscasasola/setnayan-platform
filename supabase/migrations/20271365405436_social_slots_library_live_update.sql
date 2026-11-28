@@ -98,13 +98,17 @@ CREATE UNIQUE INDEX IF NOT EXISTS social_posts_one_post_per_slot
 -- facebook_post_id = Facebook's id for it: pulling the row deletes it there,
 -- editing the body updates it there, and the first visit after the slot adds
 -- the first comment and marks the row published.
+-- 'takedown_needed' = pulled, but Facebook took the post anyway and the delete
+-- failed: the admin queue shows it first ("Still scheduled on Facebook") and
+-- every flush retries the delete, then the row becomes 'pulled'. It does not
+-- hold a slot (the pull freed it).
 ALTER TABLE public.social_posts
   DROP CONSTRAINT IF EXISTS social_posts_status_check;
 
 ALTER TABLE public.social_posts
   ADD CONSTRAINT social_posts_status_check
   CHECK (status IN
-    ('scheduled', 'scheduled_on_fb', 'publishing', 'published', 'pulled', 'failed'));
+    ('scheduled', 'scheduled_on_fb', 'publishing', 'published', 'pulled', 'failed', 'takedown_needed'));
 
 ALTER TABLE public.social_posts
   ADD COLUMN IF NOT EXISTS facebook_post_id TEXT;

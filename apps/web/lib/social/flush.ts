@@ -26,6 +26,7 @@ import {
   settleFacebookPosts,
   withdrawAllFromFacebook,
   recoverStuckHandOffs,
+  retryTakedowns,
   takeDownRevoked,
   withdrawFromFacebook,
 } from '@/lib/social/fb-queue';
@@ -162,6 +163,9 @@ export async function runSocialFlush(): Promise<boolean> {
       instagram_enabled: boolean;
       tiktok_enabled: boolean;
     };
+
+    // ── First: a pulled post Facebook still holds is deleted there (it would publish unseen otherwise).
+    await retryTakedowns(admin, facebookOps);
 
     // ── Phase 1: sweep-compose (always — the queue UI shows upcoming posts
     // even while the master switch is off) ────────────────────────────────

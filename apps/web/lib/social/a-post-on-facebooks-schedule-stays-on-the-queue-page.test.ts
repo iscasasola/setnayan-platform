@@ -27,11 +27,23 @@ function queueStatuses(src: string): string[] {
 
 test('the queue page loads posts waiting on Facebook, next to the ones still with us', () => {
   const statuses = queueStatuses(SURFACE);
-  for (const s of ['scheduled', 'scheduled_on_fb', 'publishing']) {
+  for (const s of ['takedown_needed', 'scheduled', 'scheduled_on_fb', 'publishing']) {
     assert.ok(statuses.includes(s), `the queue page no longer loads '${s}' posts (has: ${statuses.join(', ')})`);
   }
 });
 
 test('the row type on the queue page knows the scheduled_on_fb status', () => {
   assert.match(SURFACE, /status:\s*[^;]*'scheduled_on_fb'/);
+});
+
+test('a pulled post Facebook still holds leads the queue page with its Remove, and every flush retries it first', () => {
+  assert.match(SURFACE, /Still scheduled on Facebook — remove it/);
+  assert.match(SURFACE, /status === 'takedown_needed'[\s\S]*?action=\{pullSocialPost\}/);
+  const FLUSH = stripComments(readFileSync(join(HERE, 'flush.ts'), 'utf8'));
+  const body = FLUSH.slice(FLUSH.indexOf('export async function runSocialFlush'));
+  const retry = body.indexOf('await retryTakedowns(');
+  assert.ok(retry > 0, 'runSocialFlush retries the Facebook take-downs');
+  for (const later of ['await sweepCoupleCreations(', 'await handOffToFacebook(', 'await dispatchDuePosts(']) {
+    assert.ok(body.indexOf(later) > retry, `${later} runs after the take-down retry`);
+  }
 });

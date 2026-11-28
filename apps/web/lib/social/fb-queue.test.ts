@@ -20,6 +20,8 @@ import assert from 'node:assert/strict';
 import { fakeAdmin, type Answer, type Call } from './lane-s.fixture';
 import {
   HANDING_OVER_MESSAGE,
+  removeStillScheduled,
+  retryTakedowns,
   HANDOFF_STUCK_MS,
   MAX_HANDOFFS_PER_FLUSH,
   MAX_SCHEDULE_ATTEMPTS,
@@ -429,7 +431,7 @@ test('pull: a hand-off claimed moments ago is NOT taken back — its schedule ca
   assert.equal(updates(calls).length, 0);
 });
 
-function raceDb(heldAfter: { status: string; facebook_post_id: string | null }) {
+function raceDb(heldAfter: { status: string; facebook_post_id: string | null; platform_results?: unknown }) {
   return fakeAdmin((call): Answer | undefined => {
     if (call.table !== 'social_posts') return undefined;
     if (call.action === 'select' && (call.columns ?? '').startsWith('status')) return { data: heldAfter };
@@ -450,11 +452,16 @@ test('race: Facebook takes a post the row no longer holds → it is deleted on F
 });
 
 test('race: when that delete fails, the row is marked for the manual take-down lane', async () => {
-  const { admin, calls } = raceDb({ status: 'pulled', facebook_post_id: null });
+  const { admin, calls } = raceDb({ status: 'pulled', facebook_post_id: null, platform_results: { facebook: { status: 'withdrawn' } } });
   await handOffToFacebook(admin, now, fakeFb({ remove: { ok: false, error: 'nope' } }).ops);
   const mark = updates(calls).at(-1)!;
-  assert.equal((mark.platform_results as { facebook: { status: string; external_id: string } }).facebook.status, 'takedown_needed');
-  assert.equal((mark.platform_results as { facebook: { external_id: string } }).facebook.external_id, 'fb_p1');
+  assert.equal(mark.status, 'takedown_needed', 'a real status: the queue page shows it and the flush retries it');
+  assert.equal(mark.facebook_post_id, 'fb_p1');
+  const pr = mark.platform_results as { facebook?: { status: string }; takedown: { external_id: string } };
+  assert.equal(pr.takedown.external_id, 'fb_p1');
+  assert.equal(pr.facebook?.status, 'withdrawn', "the pull's own recorded result is kept, read fresh from the row");
+  const mc = calls.filter((c) => c.action === 'update').at(-1)!;
+  assert.ok(has(mc, 'neq', 'status', 'published'));
 });
 
 test('race: a row that already holds this very id is left alone (no delete)', async () => {
@@ -506,4 +513,37 @@ test('budget, per row: past it no further Graph call starts — before the sched
   assert.equal(deadlineSeen, 50, 'the schedule call is handed the deadline');
   assert.deepEqual(fbB.log.map((l) => l.split(' ')[0]), ['schedule']);
   assert.equal(updates(b.calls).length, 1, 'only the claim: left for recovery');
+});
+
+// ── takedown_needed (controller re-review): shown, removable, and retried by every flush ──────────────────────────
+
+const stillOnFb = { post_id: 'p1', status: 'takedown_needed', facebook_post_id: 'fb_9', platform_results: { facebook: { status: 'withdrawn' }, takedown: { attempts: 1 } } };
+
+test('takedown_needed: every flush retries the delete; on success the row is pulled and the pull result is kept', async () => {
+  const { admin, calls } = stuckDb([stillOnFb as unknown as QueueRow]);
+  const fb = fakeFb();
+  assert.deepEqual(await retryTakedowns(admin, fb.ops), { removed: ['p1'], still: [] });
+  assert.deepEqual(fb.log, ['remove fb_9']);
+  const up = updates(calls)[0]!;
+  assert.equal(up.status, 'pulled');
+  assert.equal(up.facebook_post_id, null);
+  assert.equal((up.platform_results as { facebook: { status: string } }).facebook.status, 'withdrawn');
+  assert.ok(has(calls.find((c) => c.action === 'select')!, 'eq', 'status', 'takedown_needed'));
+});
+
+test('takedown_needed: a refused delete keeps the status and counts the attempt', async () => {
+  const { admin, calls } = stuckDb([]);
+  const res = await removeStillScheduled(admin, stillOnFb as unknown as QueueRow, fakeFb({ remove: { ok: false, error: 'nope' } }).ops);
+  assert.equal(res.ok, false);
+  const up = updates(calls)[0]!;
+  assert.equal(up.status, undefined, 'the status stays takedown_needed');
+  assert.equal((up.platform_results as { takedown: { attempts: number } }).takedown.attempts, 2);
+});
+
+test("takedown_needed: the admin's Remove is the pull action — it deletes on Facebook, then pulls", async () => {
+  const { admin, calls } = oneRowDb(stillOnFb as unknown as Partial<QueueRow>);
+  const fb = fakeFb();
+  assert.deepEqual(await pullPost(admin, 'p1', fb.ops, now), { ok: true });
+  assert.deepEqual(fb.log, ['remove fb_9']);
+  assert.equal(updates(calls)[0]?.status, 'pulled');
 });

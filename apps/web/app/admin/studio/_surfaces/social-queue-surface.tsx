@@ -139,7 +139,7 @@ type SocialPostRow = {
   publish_after: string | null;
   hold_until: string | null;
   scheduled_for: string | null;
-  status: 'scheduled' | 'scheduled_on_fb' | 'publishing' | 'published' | 'pulled' | 'failed';
+  status: 'scheduled' | 'scheduled_on_fb' | 'publishing' | 'published' | 'pulled' | 'failed' | 'takedown_needed';
   facebook_post_id?: string | null;
   platform_results: unknown;
   created_at: string;
@@ -275,13 +275,16 @@ export async function SocialQueueSurface({
     .select(
       'post_id,source_type,source_ref,title,body,media_url,link_url,publish_after,hold_until,scheduled_for,status,facebook_post_id,platform_results,created_at,updated_at',
     )
-    .in('status', ['scheduled', 'scheduled_on_fb', 'publishing'])
+    .in('status', ['takedown_needed', 'scheduled', 'scheduled_on_fb', 'publishing'])
     .order('scheduled_for', { ascending: true, nullsFirst: false })
     .limit(30);
   if (scheduledErr) {
     logQueryError('AdminSocialQueuePage (social_posts scheduled)', scheduledErr);
   }
-  const scheduledPosts = (scheduledData ?? []) as SocialPostRow[];
+  // A pulled post Facebook still holds (its delete failed) leads the list: it would publish unseen otherwise.
+  const scheduledPosts = ((scheduledData ?? []) as SocialPostRow[]).sort(
+    (a, b) => Number(b.status === 'takedown_needed') - Number(a.status === 'takedown_needed'),
+  );
 
   // ── Auto-publish queue: failed ──────────────────────────────────────────
   const { data: failedData, error: failedErr } = await admin
@@ -1391,6 +1394,37 @@ function ScheduledPostCard({
     isUnconfirmedHandOff({ status: post.status, facebook_post_id: post.facebook_post_id ?? null, platform_results: post.platform_results as Record<string, unknown> | null }) &&
     now - new Date(post.updated_at).getTime() > HANDOFF_STUCK_MS;
   const publishing = post.status === 'publishing' && !cutOffHandOff;
+
+  if (post.status === 'takedown_needed') {
+    return (
+      <article className="space-y-3 py-4 border-t border-ink/10">
+        <header className="flex items-start gap-3">
+          <CardPreview postId={post.post_id} />
+          <p className="min-w-0 flex-1 truncate text-sm font-semibold text-ink">
+            {post.title || firstLine(post.body) || 'Untitled post'}
+          </p>
+          <SourceChip sourceType={post.source_type} />
+        </header>
+        <p className="text-sm font-semibold text-terracotta-700">Still scheduled on Facebook — remove it</p>
+        <div className="flex flex-wrap items-center gap-2 border-t border-ink/10 pt-3">
+          <ConfirmForm
+            action={pullSocialPost}
+            title="Remove this post from Facebook?"
+            confirmLabel="Remove"
+            message="This post was pulled, but Facebook still has it scheduled. Remove deletes it on Facebook."
+          >
+            <input type="hidden" name="post_id" value={post.post_id} />
+            <SubmitButton
+              pendingLabel="Removing…"
+              className="inline-flex h-9 items-center rounded-md border border-terracotta/30 bg-terracotta/5 px-3 text-xs text-terracotta-700 hover:bg-terracotta/15"
+            >
+              Remove
+            </SubmitButton>
+          </ConfirmForm>
+        </div>
+      </article>
+    );
+  }
   const gateAt = post.publish_after ? new Date(post.publish_after).getTime() : null;
   const gateFuture = gateAt !== null && gateAt > now;
   const holdAt = post.hold_until ? new Date(post.hold_until).getTime() : null;

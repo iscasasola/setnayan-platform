@@ -20,7 +20,9 @@ Owner, 28 Nov (specs DECISION_LOG "FACEBOOK POSTING IS AUTOMATIC, IN THREE DAILY
   - Pull works on such a post: it is found on the Page and deleted there first. The queue page keeps its Pull reachable.
   - A couple's take-down deletes on Facebook before it pulls, for a post on Facebook's schedule or a cut-off hand-off (`takeDownRevoked`). A row whose Facebook side is unclear keeps its slot until it is clear. A post being sent right now is left to the manual take-down lane.
   - At most 5 posts are handed over per flush, inside 60 seconds.
-  - A Pull or take-down never meets a hand-off in flight: one claimed under 10 minutes ago is refused with "Being handed to Facebook — try again in a few minutes". If Facebook still takes a post the row no longer holds, the post is deleted on Facebook at once. If that delete fails, the row is marked `takedown_needed` for the manual take-down lane.
+  - A Pull or take-down never meets a hand-off in flight: one claimed under 10 minutes ago is refused with "Being handed to Facebook — try again in a few minutes". If Facebook still takes a post the row no longer holds, the post is deleted on Facebook at once. If that delete fails, the row gets the status `takedown_needed` (added to the CHECK; it holds no slot).
+  - A `takedown_needed` row leads the admin queue with "Still scheduled on Facebook — remove it" and a Remove button, which is the existing pull action.
+  - Every flush first retries the Facebook delete for these rows. On success the row becomes `pulled`. The pull's own recorded result is kept, read fresh from the row, and the take-down is recorded beside it.
   - Every scheduled photo post, one photo too, goes as unpublished `/photos` uploads plus one scheduled `/feed` post, so `/scheduled_posts` lists it with its text.
   - A Page read that left posts unread is not proof of absence: such a row goes to "check the Page" and is never requeued.
   - The 60-second budget also bounds one post: past it, no further Graph call starts for that post. If no call was made yet, it goes back to the queue; otherwise it waits for recovery.

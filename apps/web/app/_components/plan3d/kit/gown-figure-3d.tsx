@@ -14,7 +14,7 @@ import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import type { GownBodyKey, GownBodyVals, GownConfig, GownShapewear } from '@/lib/gown-config';
+import { GOWN_STRAPLESS, type GownBodyKey, type GownBodyVals, type GownConfig, type GownShapewear, type GownStockFabric } from '@/lib/gown-config';
 import { createGownFrameGovernor, type GownFrameGovernor } from '@/lib/gown/frame-governor';
 import { GOWN_MANNEQUIN, GOWN_SCENES, gownSkyTexture, type GownSceneId } from '@/lib/gown/scenes';
 import { installGownToneMapping } from '@/lib/gown/tone';
@@ -22,15 +22,19 @@ import { GOWN_BODY_URL, parseGownBody } from '@/lib/gown/body/load';
 import type { GownRig } from '@/lib/gown/body/rig';
 import { solveGownBody } from '@/lib/gown/body/solve';
 import { tapeLoops, type GownTapeKey } from '@/lib/gown/body/tape';
-import { buildDress, emptyDress, floorOf } from '@/lib/gown/dress/build';
+import { buildDress, emptyDress, floorOf, type GownDress } from '@/lib/gown/dress/build';
 import { buildCape, emptyCape } from '@/lib/gown/dress/cape';
 import { GOWN_EYELET, buildGownClosure } from '@/lib/gown/parts/closure';
+import { GOWN_CUT_MAP, buildGownCuts } from '@/lib/gown/parts/cuts';
+import { GOWN_LACE_COLOUR, GOWN_LACE_MAP, buildGownLace } from '@/lib/gown/parts/lace';
+import { gownSurfaceShader, gownSurfaceUniforms, type GownSurfaceUniforms } from '@/lib/gown/fabric/surface';
+import { GOWN_WEAVE_PX, drawGownWeave, gownWeaveAmount, gownWeaveGain, gownWeaveScale } from '@/lib/gown/fabric/weave';
 import { GOWN_INSIDE_LOOK, buildGownInside, gownInsideShown, type GownInsideStage } from '@/lib/gown/parts/inside';
 import { GOWN_OVERLAY_DRAW, buildGownOverlay, gownOverlayOut, type GownOverlayMesh } from '@/lib/gown/parts/overlay';
 import { buildGownSleeve, emptySleeve } from '@/lib/gown/parts/sleeves';
 import { GOWN_VEIL_DRAW, buildGownVeil, emptyVeil } from '@/lib/gown/parts/veil';
 import { restingCloth, writeDress } from '@/lib/gown/dress/cloth';
-import { buildEnvelope, emptyEnvelope } from '@/lib/gown/dress/table';
+import { buildEnvelope, emptyEnvelope, type GownEnvelope } from '@/lib/gown/dress/table';
 import { applyGownSheer, applyGownShine, gownClothColour, gownClothShader, gownSheerOpacity, tintGownSheen } from '@/lib/gown/fabric/shine';
 import { GOWN_FABRIC_PROPS, gownClothFeel, gownFabricType } from '@/lib/gown/fabric/types';
 import { canvasDpr } from '@/lib/phone-gpu-budget';
@@ -154,6 +158,50 @@ function SceneLights({ scene }: { scene: GownSceneId }) {
   );
 }
 
+type SurfaceHost = { su: GownSurfaceUniforms; maps: { weave: HTMLCanvasElement | null; lace: HTMLCanvasElement | null; cut: HTMLCanvasElement | null; tex: { weave: THREE.CanvasTexture | null; lace: THREE.CanvasTexture | null; cut: THREE.CanvasTexture | null } }; T: GownEnvelope; D: GownDress };
+const canvasOf = (w: number, h: number) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
+/** The cloth's surface for this design: the fabric's weave, the lace and the cut-outs, painted into their maps (v195). */
+function paintSurface(cloth: SurfaceHost, rig: GownRig, design: GownConfig, kind: GownStockFabric) {
+  const { su, maps } = cloth;
+  // The weave, at thread scale; it only shades.
+  maps.weave ??= canvasOf(GOWN_WEAVE_PX, GOWN_WEAVE_PX);
+  const wg = maps.weave.getContext('2d');
+  if (wg) {
+    drawGownWeave(wg, kind);
+    maps.tex.weave ??= Object.assign(new THREE.CanvasTexture(maps.weave), { wrapS: THREE.RepeatWrapping, wrapT: THREE.RepeatWrapping });
+    maps.tex.weave.needsUpdate = true;
+    su.weaveMap.value = maps.tex.weave;
+    const k = gownWeaveScale(kind, rig.P.S);
+    su.weaveScale.value.set(k, k);
+    su.weaveAmt.value = gownWeaveAmount(kind);
+    su.weaveGain.value = gownWeaveGain(wg.getImageData(0, 0, GOWN_WEAVE_PX, GOWN_WEAVE_PX).data);
+    su.weaveOn.value = 1;
+  } else su.weaveOn.value = 0;
+  // Lace on the gown's flat map.
+  maps.lace ??= canvasOf(GOWN_LACE_MAP.w, GOWN_LACE_MAP.h);
+  const lg = maps.lace.getContext('2d'), lace = lg ? buildGownLace(rig, cloth.T, cloth.D, design, lg) : null;
+  if (lace) {
+    maps.tex.lace ??= Object.assign(new THREE.CanvasTexture(maps.lace), { colorSpace: THREE.SRGBColorSpace });
+    maps.tex.lace.needsUpdate = true;
+    su.laceMap.value = maps.tex.lace;
+    su.laceCol.value.setHex(GOWN_LACE_COLOUR[design.laceCol]);
+  }
+  su.laceOn.value = lace ? 1 : 0;
+  // Cut-outs on the cut map round the body.
+  maps.cut ??= canvasOf(GOWN_CUT_MAP, GOWN_CUT_MAP);
+  const cg = maps.cut.getContext('2d'), cuts = cg ? buildGownCuts(rig, cloth.T, cloth.D, design, GOWN_STRAPLESS.includes(design.neck), cg) : null;
+  if (cuts) {
+    maps.tex.cut ??= Object.assign(new THREE.CanvasTexture(maps.cut), { wrapS: THREE.RepeatWrapping, generateMipmaps: false, minFilter: THREE.LinearFilter, magFilter: THREE.LinearFilter });
+    maps.tex.cut.needsUpdate = true;
+    su.cutMap.value = maps.tex.cut;
+    su.cutY.value.set(cuts.y0, cuts.y1);
+    su.cutBand.value.set(cuts.band[0], cuts.band[1]);
+    su.cutEdge.value = cuts.edge;
+    su.cutFill.value = cuts.fill;
+  }
+  su.cutOn.value = cuts ? 1 : 0;
+}
+
 /** Empty the Inside group: its geometries, and the per-piece materials (the shared ones stay). */
 function clearInner(inner: THREE.Group, shared: Record<string, THREE.Material>) {
   const keep = new Set(Object.values(shared));
@@ -175,7 +223,9 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
   const cloth = useMemo(() => {
     const sheerBack = { value: 0 };
     const m = new THREE.MeshPhysicalMaterial({ color: GOWN_MANNEQUIN.color, sheen: 1, side: THREE.DoubleSide });
-    m.onBeforeCompile = gownClothShader(sheerBack) as unknown as THREE.Material['onBeforeCompile'];
+    // The cloth's surface first (weave, lace, cut-outs), then the sheen patch, as v195 chains them.
+    const su = gownSurfaceUniforms(), surface = gownSurfaceShader(su), sheen = gownClothShader(sheerBack);
+    m.onBeforeCompile = ((sh: Parameters<typeof surface>[0]) => { surface(sh); sheen(sh); }) as unknown as THREE.Material['onBeforeCompile'];
     const mesh = new THREE.Mesh(new THREE.BufferGeometry(), m);
     mesh.frustumCulled = false;
     // The cape is cut from the gown's own fabric: the same material.
@@ -210,7 +260,9 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       hoop: new THREE.MeshStandardMaterial({ color: L.hoop.colour, roughness: L.hoop.roughness, metalness: L.hoop.metalness }),
     };
     const inner = new THREE.Group();
-    return { mesh, m, sheerBack, T: emptyEnvelope(), D: emptyDress(), K, cape, sleeves, V, veil, vm, closure, em, sm, om, overlay, ov: null as GownOverlayMesh | null, im, inner };
+    // The surface's canvases: made once, in the browser, when first needed.
+    const maps = { weave: null as HTMLCanvasElement | null, lace: null as HTMLCanvasElement | null, cut: null as HTMLCanvasElement | null, tex: { weave: null as THREE.CanvasTexture | null, lace: null as THREE.CanvasTexture | null, cut: null as THREE.CanvasTexture | null } };
+    return { su, maps, mesh, m, sheerBack, T: emptyEnvelope(), D: emptyDress(), K, cape, sleeves, V, veil, vm, closure, em, sm, om, overlay, ov: null as GownOverlayMesh | null, im, inner };
   }, []);
   const [frame, setFrame] = useState({ S: 1, floor: 0, top: 1.7, ver: 0, width: 0.6 });
   const [loops, setLoops] = useState<Record<GownTapeKey, number[]> | null>(null);
@@ -288,6 +340,7 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       if (cloth.D.geo && cloth.mesh.geometry !== cloth.D.geo) cloth.mesh.geometry = cloth.D.geo;
       cloth.m.color.setHex(gownClothColour(design.colour, design.colourHex));
       applyGownShine(cloth.m, ft.drawAs, GOWN_SCENES[scene].env);
+      paintSurface(cloth, rig, design, ft.drawAs);
       tintGownSheen(cloth.m);
       applyGownSheer(cloth.m, ft.props, design.lining !== 'none');
       cloth.sheerBack.value = ft.props.sheer > 0.3 ? ft.props.sheer * GOWN_SCENES[scene].back : 0;
@@ -327,6 +380,7 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       cloth.vm.dispose();
       cloth.sm.dispose();
       cloth.om.dispose();
+      for (const t of Object.values(cloth.maps.tex)) t?.dispose();
       clearInner(cloth.inner, cloth.im);
       cloth.inner.removeFromParent();
       for (const mm of Object.values(cloth.im)) mm.dispose();

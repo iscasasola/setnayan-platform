@@ -12,6 +12,13 @@ import {
   GOWN_VEIL_STYLES,
   GOWN_COLOURS,
   GOWN_HEMS,
+  GOWN_CUTOUTS,
+  GOWN_CUT_EDGES,
+  GOWN_CUT_FILLS,
+  GOWN_CUT_FORBIDDEN,
+  GOWN_LACES,
+  GOWN_LACE_COLOURS,
+  GOWN_LACE_PLACES,
   GOWN_NECKLINES,
   GOWN_OVERLAYS,
   GOWN_OVERLAY_FABRICS,
@@ -157,7 +164,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   }
 
   // Every pick goes through the pairing rules, so the lab shows what the maker will (one line, then Undo in the maker).
-  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'overlay' | 'ovFab', v: string) => {
+  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill', v: string) => {
     const out = gownChoose(design, { key: k, value: v } as GownChoice);
     setDesign(out.config);
     setNote(out.notes.join(' '));
@@ -207,6 +214,11 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 ['veilStyle', 'Veil style', GOWN_VEIL_STYLES],
                 ['overlay', 'Overlay', GOWN_OVERLAYS],
                 ['ovFab', 'Overlay made of', GOWN_OVERLAY_FABRICS],
+                ['lace', 'Lace', GOWN_LACES],
+                ['laceAt', 'Lace placed', GOWN_LACE_PLACES],
+                ['laceCol', 'Lace colour', GOWN_LACE_COLOURS],
+                ['cutEdge', 'Cut-out edge', GOWN_CUT_EDGES],
+                ['cutFill', 'Cut-out fill', GOWN_CUT_FILLS],
               ] as const
             ).map(([k, label, list]) => (
               <div key={k} className="grid gap-1">
@@ -221,6 +233,17 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 />
               </div>
             ))}
+            <div className="grid gap-1">
+              <span>Cut-out</span>
+              <PickMenu
+                label="Cut-out"
+                value={design.cuts[0] ?? 'none'}
+                options={[{ key: 'none', label: 'None' }, ...GOWN_CUTOUTS.map((c) => ({ key: c.id, label: c.label, disabledNote: GOWN_CUT_FORBIDDEN[c.id] }))]}
+                onPick={(v) => setDesign({ ...design, cuts: v === 'none' ? [] : [v as (typeof GOWN_CUTOUTS)[number]['id']] })}
+                dataAttr="data-lab-pick-cuts"
+                className="w-full !min-h-11"
+              />
+            </div>
             <p className="col-span-2 text-sn-12" data-lab-note aria-live="polite">
               {note}
             </p>

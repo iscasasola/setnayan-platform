@@ -17,6 +17,7 @@ import {
   type GownWaistline,
 } from '../gown-config';
 import { gownFabricType } from './fabric/types';
+import { GOWN_BORDER_LACES } from './parts/lace';
 
 /** A choice she can make: one key of the design and its new value. */
 export type GownChoice = { [K in keyof GownConfig]: { key: K; value: GownConfig[K] } }[keyof GownConfig];
@@ -125,6 +126,11 @@ export const GOWN_RULES: readonly GownRule[] = [
   {
     id: 'ball-overlay-tiered', on: ['sil'], when: (g) => g.sil === 'ball' && (g.overlay === 'asym' || g.overlay === 'cascade'),
     apply: (g) => { g.overlay = 'tiered'; }, note: 'The overlay is now tiered: over a ball gown an overlay sits as soft tiers.', tell: true,
+  },
+  // v195: a border lace runs along an edge.
+  {
+    id: 'border-lace-on-hem', on: ['lace'], when: (g) => GOWN_BORDER_LACES.includes(g.lace) && g.laceAt !== 'neck' && g.laceAt !== 'hem',
+    apply: (g) => { g.laceAt = 'hem'; }, note: 'This is border lace, so it is placed along the hem. Neckline edge works too.',
   },
   // v192: the layers under the skirt and the petticoat always agree.
   {

@@ -470,13 +470,15 @@ test('7m · B8: the design card rows, her stored add-ons and the quote Make a qu
 
   // The pre-fill: the estimate she saw is the offer; her PRICED add-ons are its lines (included, on-request and
   // unpriced ones are not); the design's cost lines never are, because she reads the quote.
-  const o = shop({ prices: { ...prices }, mode: 'extras' });
+  const o = shop({ prices: { ...prices }, mode: 'covers' });
   o.addOns.veil = { state: 'priced', centavos: C(3500) };
   o.addOns.garter = { state: 'free' };
   o.addOns.shoes = { state: 'request' };
   o.addOns.fittings = { state: 'priced', centavos: null };
   const priced = gownDesignOf(o, gownA.d, gownA.q, ['veil', 'garter', 'shoes', 'fittings'], new Map());
   const pre = m.gownQuotePrefill(priced.forBride.estimateCentavos, priced.forShop, rows);
+  // Anti-vacuity: the design has priced cost lines a careless pre-fill could leak.
+  assert.ok(priced.forShop.lines.some((l) => l.group !== 'Add-ons' && !l.included && (l.amountCentavos ?? 0) > 0), 'no priced cost line to guard');
   assert.equal(pre.offerCentavos, priced.forBride.estimateCentavos);
   assert.deepEqual(pre.lines, [{ label: 'Veil', centavos: C(3500) }]);
   assert.ok(!pre.lines.some((l) => priced.forShop.lines.some((c) => c.group !== 'Add-ons' && c.label === l.label)), 'a cost line reached the quote');

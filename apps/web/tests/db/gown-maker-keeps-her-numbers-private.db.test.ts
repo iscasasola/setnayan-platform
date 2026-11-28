@@ -265,3 +265,20 @@ test('8 · the Attire Maker SKU is priced as the Cake Maker is (no amount typed)
   assert.equal(attire!.offering_type, cake!.offering_type);
   assert.equal(attire!.is_active, true);
 });
+
+test('9 · B8: her add-ons are kept as ids (none = an empty list), read like the rest of her design, never by another shop', async () => {
+  const none = await one<string[]>(`SELECT add_ons AS v FROM public.gown_designs WHERE design_id = $1`, [designA]);
+  assert.deepEqual(none, [], 'a design sent without add-ons does not read as none');
+  await db.query(`UPDATE public.gown_designs SET add_ons = ARRAY['veil','fittings'] WHERE design_id = $1`, [designA]);
+  const mine = (await asUser(bride, `SELECT add_ons FROM public.gown_designs WHERE design_id = $1`, [designA]))[0];
+  assert.deepEqual(mine?.add_ons, ['veil', 'fittings'], 'the bride cannot read the add-ons she sent');
+  const shop = (await asUser(designerA, `SELECT add_ons FROM public.gown_designs WHERE design_id = $1`, [designA]))[0];
+  assert.deepEqual(shop?.add_ons, ['veil', 'fittings'], 'her designer cannot read her add-ons');
+  assert.equal((await asUser(designerB, `SELECT add_ons FROM public.gown_designs WHERE design_id = $1`, [designA])).length, 0, 'another shop reads her add-ons');
+  // Ids only: no amount, no free text, no list past the cap.
+  for (const bad of [['₱500'], ['Veil please'], ['veil', ''], Array.from({ length: 33 }, () => 'veil')]) {
+    await assert.rejects(db.query(`UPDATE public.gown_designs SET add_ons = $2 WHERE design_id = $1`, [designA, bad]), /gown_designs_add_ons_are_ids/, `add_ons took ${JSON.stringify(bad).slice(0, 40)}`);
+  }
+  // Nobody signed in writes them.
+  await assert.rejects(asUser(bride, `UPDATE public.gown_designs SET add_ons = ARRAY['veil'] WHERE design_id = $1`, [designA]), /permission denied/i, 'a bride rewrote her add-ons after Send');
+});

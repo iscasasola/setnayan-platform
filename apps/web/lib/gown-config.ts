@@ -285,12 +285,12 @@ export const GOWN_CAPE_DEF: Record<Exclude<GownCapeKind, 'none'>, { fab: GownCap
   capesl: { fab: 'tulle', len: 'train', edge: 'plain', lens: ['elbow', 'fingertip', 'floor', 'train'] },
 };
 /** A cape cut from the gown's own fabric in the gown colour: counted with the outer fabric (v196 `capeInGownFab`). */
-export const gownCapeInGownFabric = (d: Pick<GownConfig, 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'accentHex'>) =>
-  d.cape !== 'none' && gownCapeNow(d).fab === 'gown' && !(d.capeCol === 'accent' && !!d.accentHex);
+export const gownCapeInGownFabric = (d: Pick<GownConfig, 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'accentHex'> & Partial<Pick<GownConfig, 'sleeve'>>) =>
+  gownCapeKind(d) !== 'none' && gownCapeNow(d).fab === 'gown' && !(d.capeCol === 'accent' && !!d.accentHex);
 /** Capes that lie over the arms (not with flutter or butterfly sleeves) (v196 `CAPE_ARMS`). */
 export const GOWN_CAPE_ARMS: readonly GownCape[] = ['neck', 'pair', 'side', 'capelet', 'drape', 'robe'];
 /** Capes hung from one shoulder: a strapless neckline gets a narrow strap there (v196 `CAPE_STRAP`). */
-export const GOWN_CAPE_STRAP: Partial<Record<GownCape, 'L' | 'R'>> = { side: 'L', drape: 'R' };
+export const GOWN_CAPE_STRAP: Partial<Record<GownCapeKind, 'L' | 'R'>> = { side: 'L', drape: 'R' };
 /** What the cape really is: its own choices, or the type's defaults until she picks (v196 `capeFabNow` and the rest). */
 export function gownCapeNow(d: Pick<GownConfig, 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten'> & Partial<Pick<GownConfig, 'sleeve'>>) {
   const k = gownCapeKind(d), def = k === 'none' ? null : GOWN_CAPE_DEF[k];
@@ -717,7 +717,7 @@ export type GownPearls = (typeof GOWN_PEARLS)[number]['id'];
 export const gownFloorLength = (d: Pick<GownConfig, 'hem' | 'hemCm'>) => (d.hemCm < 0 ? -d.hemCm < 6 : d.hem === 'floor');
 /** v200 `flwOn` / `flwCapeOn`. */
 export const gownFlowersOn = (d: Pick<GownConfig, 'flowers'>) => d.flowers !== 'none';
-export const gownCapeFlowersOn = (d: Pick<GownConfig, 'cape' | 'capeFlowers'>) => d.cape !== 'none' && d.capeFlowers !== 'none';
+export const gownCapeFlowersOn = (d: Pick<GownConfig, 'cape' | 'capeFlowers'> & Partial<Pick<GownConfig, 'sleeve'>>) => gownCapeKind(d) !== 'none' && d.capeFlowers !== 'none';
 /** A flower's width (cm): a small blossom is 0.8 of its size (v200 `flwCm`). */
 export const gownFlowerCm = (d: Pick<GownConfig, 'flowerSize' | 'flowerType'>) => GOWN_FLOWER_SIZES.find((x) => x.id === d.flowerSize)!.cm * (d.flowerType === 'blossom' ? 0.8 : 1);
 

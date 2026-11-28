@@ -52,13 +52,17 @@ type OpResult = { ok: true } | { ok: false; error: string };
 
 /** The Facebook calls this module needs. The real ones live in `lib/social/facebook.ts`. */
 export type FbOps = {
-  schedule(row: QueueRow, at: Date): Promise<{ ok: true; externalId: string } | { ok: false; error: string }>;
+  /** `deadline` (epoch ms): start no further Graph call for this post past it. */
+  schedule(row: QueueRow, at: Date, opts?: { deadline?: number }): Promise<{ ok: true; externalId: string } | { ok: false; error: string }>;
   remove(fbPostId: string): Promise<OpResult>;
   editMessage(fbPostId: string, message: string): Promise<OpResult>;
   isPublished(fbPostId: string): Promise<{ ok: true; published: boolean } | { ok: false; error: string }>;
   comment(fbPostId: string, message: string): Promise<{ ok: true; commentId: string } | { ok: false; error: string }>;
-  /** The Page's posts still waiting on Facebook's clock (GET /{page-id}/scheduled_posts). */
-  listScheduled(): Promise<{ ok: true; posts: FbScheduledPost[] } | { ok: false; error: string }>;
+  /**
+   * The Page's posts still waiting on Facebook's clock (GET /{page-id}/scheduled_posts). `complete` is false when
+   * more pages were left unread: a no-match is then not proof the post is absent.
+   */
+  listScheduled(): Promise<{ ok: true; posts: FbScheduledPost[]; complete: boolean } | { ok: false; error: string }>;
 };
 
 /** One post waiting on Facebook's clock: its id, text and time (Unix seconds). */
@@ -131,8 +135,13 @@ function facebookLeg(row: Pick<QueueRow, 'platform_results'>): Record<string, un
   return fb && typeof fb === 'object' ? (fb as Record<string, unknown>) : {};
 }
 
-/** Store Facebook's id on a claimed row: it is now waiting on Facebook's clock. */
-async function saveScheduled(db: Db, row: QueueRow, externalId: string, stamp: string, how: string): Promise<boolean> {
+/**
+ * Store Facebook's id on a claimed row: it is now waiting on Facebook's clock. When the save matches NO row (the row
+ * left `publishing` meanwhile — pulled, or taken down), the post must not go out: it is deleted on Facebook at once,
+ * and if that fails the row is marked for the manual take-down lane. A save that ERRORS keeps the post (recovery
+ * finds its id later).
+ */
+async function saveScheduled(db: Db, row: QueueRow, externalId: string, stamp: string, how: string, ops: FbOps): Promise<boolean> {
   const { data, error } = await db
     .from('social_posts')
     .update({
@@ -148,8 +157,36 @@ async function saveScheduled(db: Db, row: QueueRow, externalId: string, stamp: s
     .eq('status', 'publishing')
     .select('post_id');
   // Facebook has it scheduled; a failed save is logged loudly and the stuck-hand-off recovery finds its id later.
-  if (error) logQueryError('fb-queue (save Facebook id)', error, { post_id: row.post_id, facebook_post_id: externalId });
-  return !error && Array.isArray(data) && data.length > 0;
+  if (error) {
+    logQueryError('fb-queue (save Facebook id)', error, { post_id: row.post_id, facebook_post_id: externalId });
+    return false;
+  }
+  if (Array.isArray(data) && data.length > 0) return true;
+  // Already holding this very id (another path saved it first)? Then nothing is wrong.
+  const { data: now, error: readErr } = await db
+    .from('social_posts')
+    .select('status, facebook_post_id')
+    .eq('post_id', row.post_id)
+    .maybeSingle();
+  if (readErr) logQueryError('fb-queue (re-read after empty save)', readErr, { post_id: row.post_id });
+  const held = now as { status?: string; facebook_post_id?: string | null } | null;
+  if (held && held.facebook_post_id === externalId) return false;
+  const removed = await ops.remove(externalId);
+  if (!removed.ok) {
+    console.error(`[social] post ${row.post_id} was pulled while Facebook took it (${externalId}) and the delete failed: ${removed.error}`);
+    const { error: markErr } = await db
+      .from('social_posts')
+      .update({
+        platform_results: {
+          ...(row.platform_results ?? {}),
+          facebook: { status: 'takedown_needed', external_id: externalId, error: `Delete on Facebook failed: ${removed.error}`, at: stamp },
+        },
+        updated_at: stamp,
+      })
+      .eq('post_id', row.post_id);
+    if (markErr) logQueryError('fb-queue (mark for manual take-down)', markErr, { post_id: row.post_id, facebook_post_id: externalId });
+  }
+  return false;
 }
 
 /** Fail a claimed row with a reason, without retrying (retrying could post it twice). */
@@ -170,6 +207,9 @@ async function failHandOff(db: Db, row: QueueRow, reason: string, extra: Record<
 }
 
 const AMBIGUOUS = 'Facebook holds more than one scheduled post at this time with this text; check the Page before retrying.';
+const UNSURE = 'The Page has more scheduled posts than one read covers, so this hand-off could not be confirmed; check the Page before retrying.';
+/** Shown when a Pull or take-down meets a hand-off that may still be in flight. */
+export const HANDING_OVER_MESSAGE = 'Being handed to Facebook — try again in a few minutes.';
 
 /**
  * Hand the next ~7 days of slot posts to Facebook. Each row is CLAIMED first (scheduled → publishing, conditional,
@@ -208,8 +248,9 @@ export async function handOffToFacebook(
   }
 
   let tried = 0;
+  const overBudget = () => clock() - started >= budgetMs;
   for (const picked of pickHandOffs((data ?? []) as QueueRow[], now)) {
-    if (tried >= maxRows || clock() - started >= budgetMs) break; // the rest go on the next visit
+    if (tried >= maxRows || overBudget()) break; // the rest go on the next visit
     tried += 1;
     const stamp = new Date().toISOString();
     if (!(await allowed(picked))) {
@@ -257,26 +298,41 @@ export async function handOffToFacebook(
       }
       const found = matchScheduledPost(row, listed.posts);
       if (found.kind === 'found') {
-        await saveScheduled(db, row, found.id, stamp, 'found on the Page before a retry');
+        await saveScheduled(db, row, found.id, stamp, 'found on the Page before a retry', ops);
         out.scheduled.push(row.post_id);
         continue;
       }
-      if (found.kind === 'ambiguous') {
-        await failHandOff(db, row, AMBIGUOUS, { candidates: found.ids });
+      if (found.kind === 'ambiguous' || !listed.complete) {
+        await failHandOff(db, row, found.kind === 'ambiguous' ? AMBIGUOUS : UNSURE, found.kind === 'ambiguous' ? { candidates: found.ids } : {});
         out.failed.push(row.post_id);
         continue;
       }
     }
 
+    if (overBudget()) {
+      // No Graph call has been made for this row in this visit: give it back to the queue for the next one.
+      const { error: relErr } = await db
+        .from('social_posts')
+        .update({ status: 'scheduled', platform_results: picked.platform_results, updated_at: stamp })
+        .eq('post_id', row.post_id)
+        .eq('status', 'publishing');
+      if (relErr) logQueryError('fb-queue (release over budget)', relErr, { post_id: row.post_id });
+      break;
+    }
     const at = new Date(row.scheduled_for as string);
-    const res = await ops.schedule(row, at);
+    const res = await ops.schedule(row, at, { deadline: started + budgetMs });
     if (res.ok) {
-      await saveScheduled(db, row, res.externalId, stamp, 'schedule call');
+      await saveScheduled(db, row, res.externalId, stamp, 'schedule call', ops);
       out.scheduled.push(row.post_id);
       continue;
     }
 
-    // Refused or timed out: Facebook may still have taken it. Never retry before looking.
+    // Refused or timed out: Facebook may still have taken it. Never retry before looking — and past the budget, not
+    // even look: the row stays claimed and `recoverStuckHandOffs` settles it on a later visit.
+    if (overBudget()) {
+      out.failed.push(row.post_id);
+      break;
+    }
     const listed = await ops.listScheduled();
     if (!listed.ok) {
       // We cannot tell; the row stays claimed and `recoverStuckHandOffs` settles it on a later visit.
@@ -286,12 +342,12 @@ export async function handOffToFacebook(
     }
     const found = matchScheduledPost(row, listed.posts);
     if (found.kind === 'found') {
-      await saveScheduled(db, row, found.id, stamp, 'found on the Page after a failed call');
+      await saveScheduled(db, row, found.id, stamp, 'found on the Page after a failed call', ops);
       out.scheduled.push(row.post_id);
       continue;
     }
-    if (found.kind === 'ambiguous') {
-      await failHandOff(db, row, AMBIGUOUS, { candidates: found.ids });
+    if (found.kind === 'ambiguous' || !listed.complete) {
+      await failHandOff(db, row, found.kind === 'ambiguous' ? AMBIGUOUS : UNSURE, found.kind === 'ambiguous' ? { candidates: found.ids } : {});
       out.failed.push(row.post_id);
       continue;
     }
@@ -347,10 +403,10 @@ export async function recoverStuckHandOffs(db: Db, now: Date, ops: FbOps): Promi
     const stamp = new Date().toISOString();
     const found = matchScheduledPost(row, listed.posts);
     if (found.kind === 'found') {
-      if (await saveScheduled(db, row, found.id, stamp, 'recovered from the Page')) out.adopted.push(row.post_id);
+      if (await saveScheduled(db, row, found.id, stamp, 'recovered from the Page', ops)) out.adopted.push(row.post_id);
       continue;
     }
-    if (found.kind === 'none' && ms(row.scheduled_for) > now.getTime()) {
+    if (found.kind === 'none' && listed.complete && ms(row.scheduled_for) > now.getTime()) {
       const { error: backErr } = await db
         .from('social_posts')
         .update({
@@ -369,7 +425,9 @@ export async function recoverStuckHandOffs(db: Db, now: Date, ops: FbOps): Promi
       row,
       found.kind === 'ambiguous'
         ? AMBIGUOUS
-        : 'The hand-off to Facebook was never confirmed and the slot has passed; check the Page before posting it again.',
+        : !listed.complete
+          ? UNSURE
+          : 'The hand-off to Facebook was never confirmed and the slot has passed; check the Page before posting it again.',
       found.kind === 'ambiguous' ? { candidates: found.ids } : {},
     );
     out.failed.push(row.post_id);
@@ -387,11 +445,17 @@ export async function takeBackUnconfirmedHandOff(
   row: Pick<QueueRow, 'post_id' | 'status' | 'facebook_post_id' | 'platform_results' | 'scheduled_for' | 'body'>,
   ops: FbOps,
   toStatus: 'pulled',
+  now: Date = new Date(),
 ): Promise<OpResult> {
+  // A hand-off claimed moments ago may have its schedule call in flight: freeing the row now would let the post go
+  // out after being pulled. Only a hand-off older than HANDOFF_STUCK_MS is taken back.
+  const startedAt = ms((facebookLeg(row).handoff_started_at as string | undefined) ?? null);
+  if (!Number.isFinite(startedAt) || now.getTime() - startedAt < HANDOFF_STUCK_MS) return { ok: false, error: HANDING_OVER_MESSAGE };
   const listed = await ops.listScheduled();
   if (!listed.ok) return { ok: false, error: `could not read the Page's scheduled posts (${listed.error})` };
   const found = matchScheduledPost(row, listed.posts);
   if (found.kind === 'ambiguous') return { ok: false, error: AMBIGUOUS };
+  if (found.kind === 'none' && !listed.complete) return { ok: false, error: UNSURE };
   if (found.kind === 'found') {
     const removed = await ops.remove(found.id);
     if (!removed.ok) return removed;
@@ -462,7 +526,7 @@ export async function withdrawAllFromFacebook(db: Db, now: Date, ops: FbOps): Pr
 }
 
 /** The admin's Pull: delete it on Facebook first when it is already there, then pull the row. */
-export async function pullPost(db: Db, postId: string, ops: FbOps): Promise<OpResult> {
+export async function pullPost(db: Db, postId: string, ops: FbOps, now: Date = new Date()): Promise<OpResult> {
   const { data, error } = await db
     .from('social_posts')
     .select('post_id, status, facebook_post_id, platform_results, scheduled_for, body')
@@ -473,8 +537,9 @@ export async function pullPost(db: Db, postId: string, ops: FbOps): Promise<OpRe
   if (!row) return { ok: false, error: 'Post not found.' };
   if (isUnconfirmedHandOff(row)) {
     // Handed over but its Facebook id never saved: find it on the Page and delete it there first.
-    const res = await takeBackUnconfirmedHandOff(db, row, ops, 'pulled');
-    return res.ok ? res : { ok: false, error: `Facebook may still hold this post (${res.error}); it was not pulled.` };
+    const res = await takeBackUnconfirmedHandOff(db, row, ops, 'pulled', now);
+    if (res.ok || res.error === HANDING_OVER_MESSAGE) return res;
+    return { ok: false, error: `Facebook may still hold this post (${res.error}); it was not pulled.` };
   }
   if (row.status === 'scheduled_on_fb') {
     const res = await withdrawFromFacebook(db, row, ops, 'pulled');
@@ -612,6 +677,7 @@ export async function takeDownRevoked(
   db: Db,
   rows: ReadonlyArray<Pick<QueueRow, 'post_id' | 'status' | 'facebook_post_id' | 'platform_results' | 'scheduled_for' | 'body'>>,
   ops: FbOps,
+  now: Date = new Date(),
 ): Promise<{ pulled: string[]; left: string[] }> {
   const out = { pulled: [] as string[], left: [] as string[] };
   for (const row of rows) {
@@ -619,7 +685,7 @@ export async function takeDownRevoked(
     if (row.status === 'scheduled_on_fb') {
       res = await withdrawFromFacebook(db, row, ops, 'pulled');
     } else if (isUnconfirmedHandOff(row)) {
-      res = await takeBackUnconfirmedHandOff(db, row, ops, 'pulled');
+      res = await takeBackUnconfirmedHandOff(db, row, ops, 'pulled', now);
     } else if (row.status === 'scheduled') {
       const { data, error } = await db
         .from('social_posts')

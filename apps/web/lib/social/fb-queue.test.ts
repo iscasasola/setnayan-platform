@@ -19,6 +19,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { fakeAdmin, type Answer, type Call } from './lane-s.fixture';
 import {
+  HANDING_OVER_MESSAGE,
   HANDOFF_STUCK_MS,
   MAX_HANDOFFS_PER_FLUSH,
   MAX_SCHEDULE_ATTEMPTS,
@@ -85,7 +86,7 @@ function fakeFb(over: Partial<Record<keyof FbOps, unknown>> = {}) {
     },
     listScheduled: async () => {
       log.push('list');
-      return (over.listScheduled as Awaited<ReturnType<FbOps['listScheduled']>>) ?? { ok: true, posts: [] };
+      return (over.listScheduled as Awaited<ReturnType<FbOps['listScheduled']>>) ?? { ok: true, posts: [], complete: true };
     },
   };
   return { ops, log };
@@ -183,7 +184,7 @@ function oneRowDb(r: Partial<QueueRow>) {
 test('pull: a post on Facebook\'s schedule is deleted there FIRST, then pulled', async () => {
   const { admin, calls } = oneRowDb({ status: 'scheduled_on_fb', facebook_post_id: 'fb_1' });
   const fb = fakeFb();
-  assert.deepEqual(await pullPost(admin, 'p1', fb.ops), { ok: true });
+  assert.deepEqual(await pullPost(admin, 'p1', fb.ops, now), { ok: true });
   assert.deepEqual(fb.log, ['remove fb_1']);
   const up = updates(calls)[0]!;
   assert.equal(up.status, 'pulled');
@@ -201,7 +202,7 @@ test('pull: if Facebook refuses the delete, nothing changes and the reason is sh
 test('pull: a post not yet on Facebook is pulled without calling Facebook', async () => {
   const { admin, calls } = oneRowDb({ status: 'scheduled', facebook_post_id: null });
   const fb = fakeFb();
-  assert.deepEqual(await pullPost(admin, 'p1', fb.ops), { ok: true });
+  assert.deepEqual(await pullPost(admin, 'p1', fb.ops, now), { ok: true });
   assert.deepEqual(fb.log, []);
   assert.equal(updates(calls)[0]?.status, 'pulled');
 });
@@ -292,7 +293,7 @@ test('timeout: a schedule that timed out but WAS accepted is found on the Page a
   const { admin, calls } = queueDb([row()]);
   const fb = fakeFb({
     schedule: { ok: false, error: 'Graph API call timed out after 15s.' },
-    listScheduled: { ok: true, posts: [onPage('fb_late')] },
+    listScheduled: { ok: true, posts: [onPage('fb_late')], complete: true },
   });
   const res = await handOffToFacebook(admin, now, fb.ops);
   assert.deepEqual(res.scheduled, ['p1']);
@@ -314,7 +315,7 @@ test('timeout: when the Page cannot be read either, the row stays claimed for re
 
 test('retry: a post that failed before is looked for on the Page BEFORE it is scheduled again', async () => {
   const { admin, calls } = queueDb([row({ platform_results: { facebook: { schedule_attempts: 1 } } })]);
-  const fb = fakeFb({ listScheduled: { ok: true, posts: [onPage('fb_first_try')] } });
+  const fb = fakeFb({ listScheduled: { ok: true, posts: [onPage('fb_first_try')], complete: true } });
   await handOffToFacebook(admin, now, fb.ops);
   assert.deepEqual(fb.log, ['list'], 'found on the Page, so never scheduled a second time');
   assert.equal(updates(calls).at(-1)?.facebook_post_id, 'fb_first_try');
@@ -351,7 +352,7 @@ function stuckDb(rows: QueueRow[]) {
 test('recovery: a hand-off whose id was never saved gets its id from the Page; one not there goes back to the queue', async () => {
   const stuck = row({ status: 'publishing', platform_results: handingOff });
   const found = stuckDb([stuck]);
-  const r1 = await recoverStuckHandOffs(found.admin, now, fakeFb({ listScheduled: { ok: true, posts: [onPage('fb_lost')] } }).ops);
+  const r1 = await recoverStuckHandOffs(found.admin, now, fakeFb({ listScheduled: { ok: true, posts: [onPage('fb_lost')], complete: true } }).ops);
   assert.deepEqual(r1.adopted, ['p1']);
   assert.equal(updates(found.calls)[0]?.status, 'scheduled_on_fb');
   assert.equal(updates(found.calls)[0]?.facebook_post_id, 'fb_lost');
@@ -376,20 +377,20 @@ test('recovery: not on the Page after its slot passed → failed with the reason
 
 test('pull: an unconfirmed hand-off is found on the Page and deleted there before it is pulled', async () => {
   const { admin, calls } = oneRowDb({ status: 'publishing', facebook_post_id: null, platform_results: handingOff, scheduled_for: row().scheduled_for, body: 'Hello' });
-  const fb = fakeFb({ listScheduled: { ok: true, posts: [onPage('fb_lost')] } });
-  assert.deepEqual(await pullPost(admin, 'p1', fb.ops), { ok: true });
+  const fb = fakeFb({ listScheduled: { ok: true, posts: [onPage('fb_lost')], complete: true } });
+  assert.deepEqual(await pullPost(admin, 'p1', fb.ops, now), { ok: true });
   assert.deepEqual(fb.log, ['list', 'remove fb_lost']);
   assert.equal(updates(calls)[0]?.status, 'pulled');
 
   const unread = oneRowDb({ status: 'publishing', facebook_post_id: null, platform_results: handingOff, scheduled_for: row().scheduled_for, body: 'Hello' });
-  const res = await pullPost(unread.admin, 'p1', fakeFb({ listScheduled: { ok: false, error: 'down' } }).ops);
+  const res = await pullPost(unread.admin, 'p1', fakeFb({ listScheduled: { ok: false, error: 'down' } }).ops, now);
   assert.equal(res.ok, false);
   assert.equal(updates(unread.calls).length, 0, 'not pulled while Facebook may still hold it');
 });
 
 test('take-down: Facebook first for every row; a row whose Facebook side is unclear keeps its slot', async () => {
   const { admin, calls } = stuckDb([]);
-  const fb = fakeFb({ listScheduled: { ok: true, posts: [onPage('fb_lost')] } });
+  const fb = fakeFb({ listScheduled: { ok: true, posts: [onPage('fb_lost')], complete: true } });
   const res = await takeDownRevoked(
     admin,
     [
@@ -399,6 +400,7 @@ test('take-down: Facebook first for every row; a row whose Facebook side is uncl
       row({ post_id: 'sending', status: 'publishing', platform_results: {} }),
     ],
     fb.ops,
+    now,
   );
   assert.deepEqual(fb.log, ['remove fb_1', 'list', 'remove fb_lost']);
   assert.deepEqual(res.left, ['sending']);
@@ -409,8 +411,99 @@ test('take-down: Facebook first for every row; a row whose Facebook side is uncl
   const r2 = await takeDownRevoked(
     refused.admin,
     [row({ post_id: 'cut-off', status: 'publishing', platform_results: handingOff })],
-    fakeFb({ listScheduled: { ok: true, posts: [onPage('fb_lost')] }, remove: { ok: false, error: 'nope' } }).ops,
+    fakeFb({ listScheduled: { ok: true, posts: [onPage('fb_lost')], complete: true }, remove: { ok: false, error: 'nope' } }).ops,
+    now,
   );
   assert.deepEqual(r2.left, ['cut-off']);
   assert.equal(updates(refused.calls).length, 0, 'the slot is not freed while the post could still go out');
+});
+
+// ── Re-review (controller, 28 Nov): a pull racing a hand-off, an incomplete Page read, the per-row budget ──────
+
+test('pull: a hand-off claimed moments ago is NOT taken back — its schedule call may be in flight', async () => {
+  const fresh = { facebook: { status: 'handing_off', handoff_started_at: new Date(now.getTime() - 60_000).toISOString() } };
+  const { admin, calls } = oneRowDb({ status: 'publishing', facebook_post_id: null, platform_results: fresh, scheduled_for: row().scheduled_for, body: 'Hello' });
+  const fb = fakeFb({ listScheduled: { ok: true, posts: [], complete: true } });
+  assert.deepEqual(await pullPost(admin, 'p1', fb.ops, now), { ok: false, error: HANDING_OVER_MESSAGE });
+  assert.deepEqual(fb.log, []);
+  assert.equal(updates(calls).length, 0);
+});
+
+function raceDb(heldAfter: { status: string; facebook_post_id: string | null }) {
+  return fakeAdmin((call): Answer | undefined => {
+    if (call.table !== 'social_posts') return undefined;
+    if (call.action === 'select' && (call.columns ?? '').startsWith('status')) return { data: heldAfter };
+    if (call.action === 'select') return { data: [row()] };
+    const payload = call.payload as { status?: string };
+    if (call.action === 'update' && payload.status === 'publishing') return { data: [{ post_id: 'p1' }] };
+    if (call.action === 'update' && payload.status === 'scheduled_on_fb') return { data: [] }; // pulled meanwhile
+    if (call.action === 'update') return { data: [{ post_id: 'p1' }] };
+    return undefined;
+  });
+}
+
+test('race: Facebook takes a post the row no longer holds → it is deleted on Facebook at once', async () => {
+  const { admin } = raceDb({ status: 'pulled', facebook_post_id: null });
+  const fb = fakeFb();
+  await handOffToFacebook(admin, now, fb.ops);
+  assert.deepEqual(fb.log.map((l) => l.split(' ').slice(0, 2).join(' ')), ['schedule p1', 'remove fb_p1']);
+});
+
+test('race: when that delete fails, the row is marked for the manual take-down lane', async () => {
+  const { admin, calls } = raceDb({ status: 'pulled', facebook_post_id: null });
+  await handOffToFacebook(admin, now, fakeFb({ remove: { ok: false, error: 'nope' } }).ops);
+  const mark = updates(calls).at(-1)!;
+  assert.equal((mark.platform_results as { facebook: { status: string; external_id: string } }).facebook.status, 'takedown_needed');
+  assert.equal((mark.platform_results as { facebook: { external_id: string } }).facebook.external_id, 'fb_p1');
+});
+
+test('race: a row that already holds this very id is left alone (no delete)', async () => {
+  const { admin } = raceDb({ status: 'scheduled_on_fb', facebook_post_id: 'fb_p1' });
+  const fb = fakeFb();
+  await handOffToFacebook(admin, now, fb.ops);
+  assert.deepEqual(fb.log.map((l) => l.split(' ')[0]), ['schedule']);
+});
+
+test('incomplete Page read: a no-match is not proof — recovery and a failed hand-off say "check the Page", never requeue', async () => {
+  const stuck = row({ status: 'publishing', platform_results: handingOff });
+  const r = stuckDb([stuck]);
+  const res = await recoverStuckHandOffs(r.admin, now, fakeFb({ listScheduled: { ok: true, posts: [], complete: false } }).ops);
+  assert.deepEqual(res, { adopted: [], requeued: [], failed: ['p1'] });
+  assert.equal(updates(r.calls)[0]?.status, 'failed');
+  assert.match(JSON.stringify(updates(r.calls)[0]?.platform_results), /check the Page/);
+
+  const h = queueDb([row()]);
+  await handOffToFacebook(h.admin, now, fakeFb({ schedule: { ok: false, error: 'timed out' }, listScheduled: { ok: true, posts: [], complete: false } }).ops);
+  assert.equal(updates(h.calls).at(-1)?.status, 'failed', 'not put back for a retry');
+
+  const pull = oneRowDb({ status: 'publishing', facebook_post_id: null, platform_results: handingOff, scheduled_for: row().scheduled_for, body: 'Hello' });
+  const pr = await pullPost(pull.admin, 'p1', fakeFb({ listScheduled: { ok: true, posts: [], complete: false } }).ops, now);
+  assert.equal(pr.ok, false);
+  assert.equal(updates(pull.calls).length, 0);
+});
+
+test('budget, per row: past it no further Graph call starts — before the schedule the row goes back; after a failure it waits for recovery', async () => {
+  // Spent between the claim and the schedule call: no call, the row is given back.
+  let t = 0;
+  const a = queueDb([row()]);
+  const fa = fakeFb();
+  await handOffToFacebook(a.admin, now, fa.ops, async () => true, { budgetMs: 10, clock: () => (t += 6) });
+  assert.deepEqual(fa.log, []);
+  assert.equal(updates(a.calls).at(-1)?.status, 'scheduled');
+
+  // Spent during a failed schedule call: no Page read, the row stays claimed for recovery.
+  let u = 0;
+  const b = queueDb([row()]);
+  const fbB = fakeFb({ schedule: { ok: false, error: 'timed out' } });
+  const origSchedule = fbB.ops.schedule;
+  let deadlineSeen: number | undefined;
+  fbB.ops.schedule = async (r, at, opts) => {
+    deadlineSeen = opts?.deadline;
+    u += 100;
+    return origSchedule(r, at, opts);
+  };
+  await handOffToFacebook(b.admin, now, fbB.ops, async () => true, { budgetMs: 50, clock: () => u });
+  assert.equal(deadlineSeen, 50, 'the schedule call is handed the deadline');
+  assert.deepEqual(fbB.log.map((l) => l.split(' ')[0]), ['schedule']);
+  assert.equal(updates(b.calls).length, 1, 'only the claim: left for recovery');
 });

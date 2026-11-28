@@ -1,6 +1,6 @@
 import 'server-only';
 import { resolveMetaConfig } from '@/lib/integration-config';
-import { multiPhotoUrls, publishMultiPhoto, type GraphCall } from '@/lib/social/facebook-multi-photo';
+import { attachedPhotoUrls, publishMultiPhoto, type GraphCall } from '@/lib/social/facebook-multi-photo';
 import { buildSinglePostRequest, parseScheduledPosts } from '@/lib/social/facebook-request';
 import type { FbOps, FbScheduledPost } from '@/lib/social/fb-queue';
 import { socialCardUrl } from '@/lib/social/urls';
@@ -137,6 +137,7 @@ export async function postToFacebookPage({
   mediaUrl,
   mediaUrls,
   scheduleAt,
+  deadline,
 }: {
   message: string;
   linkUrl?: string | null;
@@ -145,13 +146,17 @@ export async function postToFacebookPage({
   mediaUrls?: readonly string[] | null;
   /** Hand it to Facebook as a scheduled post for this time instead of publishing now. */
   scheduleAt?: Date | null;
+  /** Epoch ms: start no further Graph call past it (the flush's time budget). */
+  deadline?: number;
 }): Promise<FacebookPostResult> {
   const page = await pageGraph();
   if (!page.ok) return { ok: false, error: page.error };
 
-  const photos = multiPhotoUrls(mediaUrls);
+  // A SCHEDULED photo post always goes as unpublished /photos + one scheduled /feed post — one photo too — so every
+  // post we schedule is a /feed post that GET /{page-id}/scheduled_posts lists with its text (the recovery's marker).
+  const photos = attachedPhotoUrls({ mediaUrls, mediaUrl, scheduleAt });
   if (photos) {
-    const multi = await publishMultiPhoto(page.call, page.pageId, message, photos, { scheduleAt });
+    const multi = await publishMultiPhoto(page.call, page.pageId, message, photos, { scheduleAt, deadline });
     return multi.ok
       ? { ok: true, externalId: multi.externalId, postUrl: `https://www.facebook.com/${multi.externalId}` }
       : { ok: false, error: multi.error, cleanupFailures: multi.cleanupFailures };
@@ -203,7 +208,7 @@ export async function isFacebookPostPublished(
  * Used to find a post whose schedule call timed out or whose id was never saved, so it is never scheduled twice.
  * Never throws.
  */
-export async function listScheduledFacebookPosts(): Promise<{ ok: true; posts: FbScheduledPost[] } | { ok: false; error: string }> {
+export async function listScheduledFacebookPosts(): Promise<{ ok: true; posts: FbScheduledPost[]; complete: boolean } | { ok: false; error: string }> {
   const page = await pageGraph();
   if (!page.ok) return page;
   const posts: FbScheduledPost[] = [];
@@ -216,9 +221,10 @@ export async function listScheduledFacebookPosts(): Promise<{ ok: true; posts: F
     posts.push(...parseScheduledPosts(res.body));
     const paging = res.body.paging as { cursors?: { after?: string }; next?: string } | undefined;
     after = paging?.next && paging.cursors?.after ? paging.cursors.after : null;
-    if (!after) break;
+    if (!after) return { ok: true, posts, complete: true };
   }
-  return { ok: true, posts };
+  // Four full pages and more left: a no-match in what was read proves nothing.
+  return { ok: true, posts, complete: false };
 }
 
 export type FacebookCommentResult = { ok: true; commentId: string } | { ok: false; error: string };
@@ -285,8 +291,9 @@ function graphCaller(token: string): GraphCall {
  * now: the row's own image wins, else the branded card; two or more photos make one multi-photo post.
  */
 export const facebookOps: FbOps = {
-  schedule: (row, at) =>
+  schedule: (row, at, opts) =>
     postToFacebookPage({
+      deadline: opts?.deadline,
       message: row.body,
       linkUrl: row.link_url,
       mediaUrl: row.media_url || socialCardUrl(row.post_id),

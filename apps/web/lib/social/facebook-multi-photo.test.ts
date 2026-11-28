@@ -9,7 +9,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { FACEBOOK_MAX_ATTACHED_PHOTOS, multiPhotoUrls, publishMultiPhoto, type GraphCall } from './facebook-multi-photo';
+import { FACEBOOK_MAX_ATTACHED_PHOTOS, attachedPhotoUrls, multiPhotoUrls, publishMultiPhoto, type GraphCall } from './facebook-multi-photo';
 
 type Seen = { method: string; path: string; params: Record<string, string> };
 
@@ -124,4 +124,35 @@ test('a scheduled multi-photo post keeps all or nothing', async () => {
   assert.equal(res.ok, false);
   assert.equal(g.seen.some((s) => s.path === '/PAGE/feed'), false);
   assert.deepEqual(g.seen.filter((s) => s.method === 'DELETE').map((s) => s.path), ['/photo-a.jpg', '/photo-b.jpg']);
+});
+
+test('a scheduled ONE-photo post also goes as an unpublished upload + one scheduled /feed post (so /scheduled_posts lists it)', async () => {
+  const at = new Date('2026-12-01T12:00:00Z');
+  const one = 'https://cdn.example/a.jpg';
+  assert.deepEqual(attachedPhotoUrls({ mediaUrl: one, scheduleAt: at }), [one]);
+  assert.equal(attachedPhotoUrls({ mediaUrl: one, scheduleAt: null }), null, 'a post sent now keeps the plain /photos path');
+  assert.equal(attachedPhotoUrls({ mediaUrl: 'https://setnayan.com/a-page', scheduleAt: at }), null, 'not an image: a link post');
+  assert.deepEqual(attachedPhotoUrls({ mediaUrls: urls, mediaUrl: one, scheduleAt: at }), urls);
+
+  const g = fakeGraph();
+  const res = await publishMultiPhoto(g.call, 'page', 'Hi', [one], { scheduleAt: at });
+  assert.equal(res.ok, true);
+  assert.deepEqual(g.seen.map((s) => s.path), ['/page/photos', '/page/feed']);
+  const feed = g.seen[1]!.params;
+  assert.equal(feed.published, 'false');
+  assert.equal(feed.scheduled_publish_time, String(at.getTime() / 1000));
+  assert.ok(feed['attached_media[0]']);
+});
+
+test('the time budget: past the deadline no further Graph call starts, and the uploads are cleaned up', async () => {
+  const g = fakeGraph();
+  let t = 0;
+  const res = await publishMultiPhoto(g.call, 'page', 'Hi', urls, {
+    scheduleAt: new Date('2026-12-01T12:00:00Z'),
+    deadline: 2,
+    clock: () => (t += 1),
+  });
+  assert.equal(res.ok, false);
+  assert.equal(g.seen.filter((s) => s.path === '/page/feed').length, 0, 'the feed post never starts');
+  assert.equal(g.seen.filter((s) => s.method === 'DELETE').length, g.seen.filter((s) => s.path === '/page/photos').length);
 });

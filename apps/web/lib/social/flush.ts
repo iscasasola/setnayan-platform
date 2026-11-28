@@ -518,7 +518,7 @@ async function sweepTakedowns(admin: AdminClient, now: Date): Promise<void> {
   if (revokedRows.length === 0) return;
   // Facebook first: a post on its schedule, or handed over with its id unknown, is deleted there before the row is
   // pulled; a row whose Facebook side is not clear stays as it is (its slot held) and the next visit retries.
-  await takeDownRevoked(admin, revokedRows, facebookOps);
+  await takeDownRevoked(admin, revokedRows, facebookOps, now);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

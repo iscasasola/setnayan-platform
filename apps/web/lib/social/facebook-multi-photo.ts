@@ -13,7 +13,7 @@
  * Facebook SCHEDULED post (owner 2026-11-28: Facebook holds the schedule).
  */
 import { formatCount } from '@/lib/format-number';
-import { scheduledPostFields } from '@/lib/social/facebook-request';
+import { isPostableImageUrl, scheduledPostFields } from '@/lib/social/facebook-request';
 
 export type GraphResult = { ok: true; body: Record<string, unknown> } | { ok: false; error: string };
 
@@ -40,14 +40,31 @@ export function multiPhotoUrls(mediaUrls: readonly string[] | null | undefined):
   return urls.length >= 2 ? urls.map((u) => u.trim()) : null;
 }
 
+/**
+ * Which photos go as unpublished uploads attached to ONE /feed post: two or more `mediaUrls` always; and for a
+ * SCHEDULED post, a single postable image too, so every scheduled post is a /feed post that
+ * GET /{page-id}/scheduled_posts lists with its text. `null` = not a photo-attachment post.
+ */
+export function attachedPhotoUrls(input: {
+  mediaUrls?: readonly string[] | null;
+  mediaUrl?: string | null;
+  scheduleAt?: Date | null;
+}): string[] | null {
+  const many = multiPhotoUrls(input.mediaUrls);
+  if (many) return many;
+  return input.scheduleAt && isPostableImageUrl(input.mediaUrl) ? [input.mediaUrl] : null;
+}
+
 export async function publishMultiPhoto(
   call: GraphCall,
   pageId: string,
   message: string,
   urls: readonly string[],
-  opts: { scheduleAt?: Date | null } = {},
+  opts: { scheduleAt?: Date | null; deadline?: number; clock?: () => number } = {},
 ): Promise<MultiPhotoResult> {
-  if (urls.length < 2) {
+  // A scheduled post takes one photo too (it must be a /feed post, which /scheduled_posts lists); a post sent now
+  // with one photo uses /photos directly.
+  if (urls.length < (opts.scheduleAt ? 1 : 2)) {
     return { ok: false, error: 'A multi-photo post needs at least two photos.', uploaded: 0, cleanupFailures: [] };
   }
   if (urls.length > FACEBOOK_MAX_ATTACHED_PHOTOS) {
@@ -70,8 +87,18 @@ export async function publishMultiPhoto(
     return failures;
   };
 
+  const clock = opts.clock ?? Date.now;
+  const pastDeadline = () => opts.deadline !== undefined && clock() >= opts.deadline;
+  const outOfTime = async (): Promise<MultiPhotoResult> => ({
+    ok: false,
+    error: 'The flush ran out of time before this post was handed over; nothing was posted, and the next visit tries again.',
+    uploaded: mediaIds.length,
+    cleanupFailures: await cleanUp(),
+  });
+
   // Sequential on purpose: the media_fbid order IS the photo order on the post.
   for (const [i, url] of urls.entries()) {
+    if (i > 0 && pastDeadline()) return outOfTime();
     // Unpublished, so no photo shows on the Page on its own. For a scheduled post Facebook also wants the uploads
     // marked temporary — they live only as the post's attachments.
     const res = await call('POST', `/${pageId}/photos`, {
@@ -98,6 +125,7 @@ export async function publishMultiPhoto(
   mediaIds.forEach((id, i) => {
     params[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id });
   });
+  if (pastDeadline()) return outOfTime();
   const feed = await call('POST', `/${pageId}/feed`, params);
   const postId = feed.ok && typeof feed.body.id === 'string' ? feed.body.id : null;
   if (!postId) {

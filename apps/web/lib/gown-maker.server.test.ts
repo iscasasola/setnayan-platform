@@ -160,3 +160,22 @@ test('10 · B8: her add-ons are stored as sent and read back honestly; the quote
   assert.match(stream, /const gownDesign = m\.sender_role === 'couple' && isGownDesign\(m\.body\);/);
   assert.match(stream, /<GownDesignCard\s+threadId=\{threadId\}\s+messageId=\{m\.message_id\}/);
 });
+
+test('11 · B9 (v209): her lines are checked before they are stored, read back honestly, and drawn on the shop’s blocks only', () => {
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  const server = strip(read('lib/gown-maker.server.ts'));
+  const build = server.slice(server.indexOf('export async function buildGownDesign('), server.indexOf('export async function storeGownDesign('));
+  assert.match(build, /const lines = args\.lines === undefined \|\| args\.lines === null \? null : sanitizeGownOrderLines\(args\.lines\);\s*if \(args\.lines != null && !lines\) return \{ ok: false, reason: 'out_of_range' \};/, 'her lines are not checked, or bad ones are repaired');
+  assert.match(server, /edges_cm: args\.built\.edges,/, 'her lines are not stored');
+  assert.match(server, /hand, add_ons, edges_cm, estimate_centavos/, 'her lines are not read');
+  const edgesOf = server.slice(server.indexOf('function edgesOf('), server.indexOf('export async function readStoredGownDesign('));
+  assert.match(edgesOf, /if \(v == null\) return \{ s: 'none' \};/);
+  assert.match(edgesOf, /return \{ s: 'unread' \};/, 'lines that no longer check out read as none');
+  const actions = strip(read('app/_components/gown-maker/gown-actions.ts'));
+  assert.match(actions, /lines: i\.lines,/, 'send drops her lines');
+  const design = actions.slice(actions.indexOf("if (op === 'design')"), actions.indexOf("if (op === 'fit')"));
+  assert.ok(design.indexOf('if (isShop)') < design.indexOf('lines: stored.data.edges'), 'her lines reach the pattern outside the shop branch');
+  const panel = strip(read('app/vendor-dashboard/clients/[eventId]/_components/gown-order-panel.tsx'));
+  assert.match(panel, /gownOrderBlocks\(config, body, measures, tape, P\?\.lines\.s === 'sent' \? P\.lines\.edges : null\)/, 'the blocks are drawn without her lines');
+  assert.match(panel, /L\?\.s === 'sent' \? gownLinesSummary\(L\.edges, config\.neck === 'high'\) : L\?\.s === 'unread' \? \[GOWN_LINES_UNREAD\] : \[\]/, 'the order does not say her lines, or hides an unread');
+});

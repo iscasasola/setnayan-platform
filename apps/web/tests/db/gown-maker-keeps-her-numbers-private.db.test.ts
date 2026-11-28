@@ -282,3 +282,16 @@ test('9 · B8: her add-ons are kept as ids (none = an empty list), read like the
   // Nobody signed in writes them.
   await assert.rejects(asUser(bride, `UPDATE public.gown_designs SET add_ons = ARRAY['veil'] WHERE design_id = $1`, [designA]), /permission denied/i, 'a bride rewrote her add-ons after Send');
 });
+
+test('10 · B9: her lines (edges_cm) are one small object, read like the rest of her design, written by nobody signed in', async () => {
+  assert.equal(await one<unknown>(`SELECT edges_cm AS v FROM public.gown_designs WHERE design_id = $1`, [designA]), null, 'a design sent without lines does not read as none');
+  const lines = { neck: { custom: true, from: 'sweetheart', centre: 17.5, cornerL: 7.25, cornerDepthL: 15, shoulderL: 9, shoulderDepthL: 4, curve: 0.8, cornerR: 7.25, cornerDepthR: 15, shoulderR: 9, shoulderDepthR: 4 } };
+  await db.query(`UPDATE public.gown_designs SET edges_cm = $2::jsonb WHERE design_id = $1`, [designA, JSON.stringify(lines)]);
+  assert.deepEqual((await asUser(bride, `SELECT edges_cm FROM public.gown_designs WHERE design_id = $1`, [designA]))[0]?.edges_cm, lines, 'the bride cannot read her lines');
+  assert.deepEqual((await asUser(designerA, `SELECT edges_cm FROM public.gown_designs WHERE design_id = $1`, [designA]))[0]?.edges_cm, lines, 'her designer cannot read her lines');
+  assert.equal((await asUser(designerB, `SELECT edges_cm FROM public.gown_designs WHERE design_id = $1`, [designA])).length, 0, 'another shop reads her lines');
+  for (const bad of ['[1,2]', JSON.stringify({ pad: 'x'.repeat(3000) })]) {
+    await assert.rejects(db.query(`UPDATE public.gown_designs SET edges_cm = $2::jsonb WHERE design_id = $1`, [designA, bad]), /gown_designs_edges_cm_is_a_bounded_object/, `lines took ${bad.slice(0, 30)}`);
+  }
+  await assert.rejects(asUser(bride, `UPDATE public.gown_designs SET edges_cm = NULL WHERE design_id = $1`, [designA]), /permission denied/i, 'a bride rewrote her lines after Send');
+});

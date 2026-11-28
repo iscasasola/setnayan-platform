@@ -489,3 +489,19 @@ test('7m · B8: the design card rows, her stored add-ons and the quote Make a qu
   assert.equal(m.gownQuotePrefill(null, priced.forShop, rows).offerCentavos, priced.forShop.totalCentavos);
   assert.equal(m.gownQuotePrefill(null, null, rows).offerCentavos, 0);
 });
+
+test('7n · v209: a scalloped or handkerchief hem is its own unpriced line, in a Hem group after Skirt; plain and curved add none', () => {
+  const groups = GOWN_PRICE_GROUPS.map(([g]) => g);
+  assert.equal(groups.indexOf('Hem'), groups.indexOf('Skirt') + 1, 'Hem is not right after Skirt');
+  const hemGroup = GOWN_PRICE_GROUPS.find(([g]) => g === 'Hem')![1];
+  assert.deepEqual(GOWN_PRICE_ITEMS.filter((i) => hemGroup(i.key)).map((i) => i.label), ['Scalloped hem: shaping and finishing', 'Handkerchief hem: shaping and finishing']);
+  const keysOf = (edge: string | undefined) =>
+    gownDesignOf(shop({ prices: { ...prices } }), { ...gownA.d, ...(edge ? { hemEdge: edge } : {}) } as typeof gownA.d, gownA.q, [], new Map()).forShop.lines.filter((l) => l.key.startsWith('hem_'));
+  for (const edge of [undefined, 'plain', 'curved']) assert.deepEqual(keysOf(edge), [], `a ${edge ?? 'pre-v209'} hem added a line`);
+  const sc = keysOf('scallop'), hk = keysOf('hanky');
+  assert.deepEqual(sc.map((l) => [l.key, l.group, l.qty, l.unit]), [['hem_scallop', 'Skirt', 1, 'pc']]);
+  assert.deepEqual(hk.map((l) => [l.key, l.group, l.qty, l.unit]), [['hem_hanky', 'Skirt', 1, 'pc']]);
+  assert.equal(sc[0]!.amountCentavos, null, 'an unpriced hem line was priced');
+  const priced = gownDesignOf(shop({ prices: { ...prices, hem_scallop: C(1) } }), { ...gownA.d, hemEdge: 'scallop' } as typeof gownA.d, gownA.q, [], new Map());
+  assert.equal(priced.forShop.lines.find((l) => l.key === 'hem_scallop')!.amountCentavos, C(1));
+});

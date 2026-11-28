@@ -45,7 +45,7 @@ export const GOWN_PAT_INK = {
 
 /** One thing to draw, mm, y down from the top-left of the printable area. */
 export type GownDraw =
-  | { k: 'path'; pts: GownPoint[]; closed: boolean; stroke: GownInk | null; width: number; dash?: readonly [number, number]; fill?: GownInk; fillOpacity?: number }
+  | { k: 'path'; pts: GownPoint[]; closed: boolean; stroke: GownInk | null; width: number; dash?: readonly number[]; fill?: GownInk; fillOpacity?: number }
   | { k: 'text'; x: number; y: number; size: number; text: string; color: GownInk; bold?: boolean; anchor?: 'start' | 'middle' | 'end'; rotate?: number; halo?: boolean }
   | { k: 'rect'; x: number; y: number; w: number; h: number; stroke: GownInk | null; width: number; dash?: readonly [number, number]; fill?: GownInk; fillOpacity?: number; testSquare?: boolean };
 export type GownPatternPage = { kind: 'map' | 'tile' | 'diagram'; label: string; head: string; ops: GownDraw[]; piece?: string; r?: number; c?: number; square: readonly [number, number] };
@@ -93,6 +93,14 @@ export function gownPieceDraw(p: GownBlockPiece, G: GownPieceGeom, ox: number, o
   for (const [mx, my, t] of p.marks) {
     out.push({ k: 'path', pts: [at([0, my]), at([mx, my])], closed: false, stroke: I.rust, width: 1.5 * f, dash: [12, 8] });
     out.push({ k: 'text', x: ox + 10, y: oy + my - 8, size: 26 * f, color: I.rust, text: `${t} line` });
+  }
+  // v209: the design's own lines, dash-dot in rust, labelled at their middle point.
+  for (const sl of p.style ?? []) {
+    const Q = sl.pts;
+    if (Q.length < 2) continue;
+    out.push({ k: 'path', pts: Q.map(at), closed: false, stroke: I.rust, width: 2.6 * f, dash: [14 * f, 5 * f, 3 * f, 5 * f] });
+    const mid = Q[Q.length >> 1]!;
+    out.push({ k: 'text', x: ox + mid[0] + 8, y: oy + mid[1] - 10, size: 22 * f, color: I.rust, text: sl.label });
   }
   if (p.vent) out.push({ k: 'path', pts: [at([2, maxY - p.vent]), at([2, maxY])], closed: false, stroke: I.rust, width: 5 * f });
   // the grain: a line with an arrow head at each end (the SVG marker: 5 × the line's width long)
@@ -158,7 +166,7 @@ function testSquare(x: number, y: number): GownDraw[] {
 /** Move (and scale) ops: a page shows the sheet shifted so the tile's corner is its origin. */
 function shift(ops: readonly GownDraw[], dx: number, dy: number, s = 1): GownDraw[] {
   return ops.map((o): GownDraw => {
-    if (o.k === 'path') return { ...o, pts: o.pts.map(([x, y]) => [dx + x * s, dy + y * s] as GownPoint), width: o.width * s, ...(o.dash ? { dash: [o.dash[0] * s, o.dash[1] * s] as const } : {}) };
+    if (o.k === 'path') return { ...o, pts: o.pts.map(([x, y]) => [dx + x * s, dy + y * s] as GownPoint), width: o.width * s, ...(o.dash ? { dash: o.dash.map((d) => d * s) } : {}) };
     if (o.k === 'text') return { ...o, x: dx + o.x * s, y: dy + o.y * s, size: o.size * s };
     return { ...o, x: dx + o.x * s, y: dy + o.y * s, w: o.w * s, h: o.h * s, width: o.width * s };
   });
@@ -302,7 +310,7 @@ export function gownPageSvg(ops: readonly GownDraw[], w: number, h: number, labe
   for (const o of ops) {
     if (o.k === 'path') {
       const d = 'M' + o.pts.map(([x, y]) => `${f2(x)} ${f2(y)}`).join('L') + (o.closed ? 'Z' : '');
-      s += `<path d="${d}" fill="${o.fill ? hexOf(o.fill) : 'none'}"${washOf(o.fill, o.fillOpacity) != null ? ` fill-opacity="${washOf(o.fill, o.fillOpacity)}"` : ''} stroke="${o.stroke ? hexOf(o.stroke) : 'none'}" stroke-width="${f2(o.width)}"${o.dash ? ` stroke-dasharray="${f2(o.dash[0])} ${f2(o.dash[1])}"` : ''} stroke-linejoin="miter" stroke-miterlimit="12"/>`;
+      s += `<path d="${d}" fill="${o.fill ? hexOf(o.fill) : 'none'}"${washOf(o.fill, o.fillOpacity) != null ? ` fill-opacity="${washOf(o.fill, o.fillOpacity)}"` : ''} stroke="${o.stroke ? hexOf(o.stroke) : 'none'}" stroke-width="${f2(o.width)}"${o.dash ? ` stroke-dasharray="${o.dash.map(f2).join(' ')}"` : ''} stroke-linejoin="miter" stroke-miterlimit="12"/>`;
     } else if (o.k === 'rect') {
       s += `<rect${o.testSquare ? ' class="pp-test"' : ''} x="${f2(o.x)}" y="${f2(o.y)}" width="${f2(o.w)}" height="${f2(o.h)}" fill="${o.fill ? hexOf(o.fill) : 'none'}"${o.fillOpacity != null ? ` fill-opacity="${o.fillOpacity}"` : ''} stroke="${o.stroke ? hexOf(o.stroke) : 'none'}" stroke-width="${f2(o.width)}"${o.dash ? ` stroke-dasharray="${o.dash[0]} ${o.dash[1]}"` : ''}/>`;
     } else {
@@ -337,7 +345,7 @@ export async function gownPatternPdf(book: GownPatternBook, title: string): Prom
           y: H - m,
           ...(o.fill ? { color: col(o.fill), opacity: o.fillOpacity ?? 1 } : {}),
           ...(o.stroke ? { borderColor: col(o.stroke), borderWidth: o.width * P } : { borderWidth: 0 }),
-          ...(o.dash ? { borderDashArray: [o.dash[0] * P, o.dash[1] * P] } : {}),
+          ...(o.dash ? { borderDashArray: o.dash.map((d) => d * P) } : {}),
         });
       } else if (o.k === 'rect') {
         page.drawRectangle({

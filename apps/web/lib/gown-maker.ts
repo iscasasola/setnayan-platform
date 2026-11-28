@@ -14,7 +14,8 @@
  *   · Two ways to price (prototype "How you price"): `covers` — the starting price covers the design until its cost
  *     (supplies + labour, with markup) is higher; `extras` — the starting price is locked, what it includes is marked
  *     "In base", every other choice adds its own price.
- *   · v193: the cape's labour is its own price item ("Cover-ups"); inside layers price by material per metre (tulle on
+ *   · v196: each cape type's labour is its own price item ("Cover-ups"; its fabric, edge and strap price on the
+ *     fabric, lace, bead and ribbon items); inside layers price by material per metre (tulle on
  *     `net`, organza and chiffon on their fabric items, the hoop per piece). The design's cape choice and per-layer
  *     metres arrive in the contract (lib/gown-config.ts, Builder A); `gownDesignOf` prices them once they do.
  * 🔒 lib/gown-maker.test.ts
@@ -28,6 +29,8 @@ import {
   type GownSilhouette,
 } from './gown-config';
 import { GOWN_ADD_ONS, type GownAddOnKey } from './gown-add-ons';
+import { formatCentavosPhp } from './php';
+import { parseClientRef } from './r2-client-ref';
 
 /** The suppliers the Attire Maker is suggested for (owner Q3, 2026-11-27: custom gown makers only for now). */
 export const GOWN_KINDS: ReadonlySet<string> = new Set(['bridal_gown_custom']);
@@ -47,7 +50,7 @@ const MAX_MARKUP_PCT = 500;
 // ─────────────────────────────────────────────────────────────────────────────
 
 type Item = { readonly key: string; readonly label: string; readonly unit: GownPriceUnit };
-export type GownPriceUnit = 'gown' | 'm' | 'pc' | '100 pcs' | 'hour';
+export type GownPriceUnit = 'gown' | 'm' | 'pc' | 'pair' | '100 pcs' | 'hour';
 
 const SIL_LABEL = Object.fromEntries(GOWN_SILHOUETTES.map((s) => [s.id, s.label])) as Record<GownSilhouette, string>;
 
@@ -73,25 +76,41 @@ export const GOWN_PRICE_ITEMS = [
   { key: 'bead_pearl', label: 'Pearls', unit: '100 pcs' },
   { key: 'bead_seed', label: 'Seed beads', unit: '100 pcs' },
   { key: 'bead_sequin', label: 'Sequins', unit: '100 pcs' },
-  { key: 'cape', label: 'Cape: cutting, sewing and finishing', unit: 'pc' },
+  // v196: one labour line per cape TYPE (its fabric, edge and strap price on the fabric, lace, bead and ribbon items).
+  { key: 'cape_neck', label: 'Cape (neck cape): cutting, sewing and finishing', unit: 'pc' },
+  { key: 'cape_back', label: 'Cape (back cape): cutting, sewing and finishing', unit: 'pc' },
+  { key: 'cape_pair', label: 'Cape (pair of shoulder capes): cutting, sewing and finishing', unit: 'pc' },
+  { key: 'cape_side', label: 'Cape (side cape): cutting, sewing and finishing', unit: 'pc' },
+  { key: 'cape_capelet', label: 'Cape (capelet): cutting, sewing and finishing', unit: 'pc' },
+  { key: 'cape_drape', label: 'Cape (one-shoulder drape): cutting, sewing and finishing', unit: 'pc' },
+  { key: 'flutter', label: 'Flutter cape sleeves: cutting, sewing and finishing', unit: 'pair' },
+  { key: 'overlay', label: 'Overlay: cutting, sewing and finishing', unit: 'pc' },
   { key: 'piping', label: 'Piping', unit: 'm' },
   { key: 'fringe', label: 'Fringe', unit: 'm' },
   { key: 'feather', label: 'Feather trim', unit: 'm' },
+  // v196: ribbon by the metre — the sash and bow, and the narrow strap a cape needs on a strapless neckline.
+  { key: 'ribbon', label: 'Ribbon (sash)', unit: 'm' },
+  // Owner 2026-11-27: small bows come back as a labour line, per piece, unpriced until the designer prices it.
+  { key: 'bow', label: 'Bow (small): making and attaching', unit: 'pc' },
   { key: 'rate', label: 'Labour rate', unit: 'hour' },
 ] as const satisfies readonly Item[];
 export type GownPriceKey = (typeof GOWN_PRICE_ITEMS)[number]['key'];
 const PRICE_KEYS: ReadonlySet<string> = new Set(GOWN_PRICE_ITEMS.map((i) => i.key));
 
-/** The price list's groups, in the order the designer reads them (prototype `PRICE_GROUPS`, men's and bows removed). */
+/** The price list's groups, in the order the designer reads them (prototype `PRICE_GROUPS`, men's removed; small bows returned as one Trims line, owner 2026-11-27). */
 export const GOWN_PRICE_GROUPS: ReadonlyArray<readonly [string, (key: GownPriceKey) => boolean]> = [
   ['Starting prices', (k) => k.startsWith('base_')],
   ['Fabrics', (k) => k.startsWith('fab_')],
   ['Lining and inside', (k) => /^(lin_|net$|hoop$|illusion$|boning$|waiststay$|horsehair$)/.test(k)],
   ['Closures', (k) => /^(zipper|button|eyelet|cord)$/.test(k)],
   ['Lace and beads', (k) => /^(lace_|bead_)/.test(k)],
-  ['Trims', (k) => /^(piping|fringe|feather)$/.test(k)],
-  // v193: the cape as part of the gown (the bride's detachable cape is the add-on `cape`; the designer may price either).
-  ['Cover-ups', (k) => k === 'cape'],
+  ['Trims', (k) => /^(piping|fringe|feather|ribbon|bow)$/.test(k)],
+  // v195: flutter cape sleeves and a skirt overlay, each its own labour line (their fabric is the fabric items).
+  ['Sleeves', (k) => k === 'flutter'],
+  ['Skirt', (k) => k === 'overlay'],
+  // v196: each cape type as part of the gown (the bride's detachable cape is the add-on `cape`; the designer may price
+  // either).
+  ['Cover-ups', (k) => k.startsWith('cape_')],
   ['Labour', (k) => k === 'rate'],
 ];
 
@@ -468,3 +487,255 @@ export function gownDesignOf(
 
 /** The silhouette's starting-price label ("Starting price: A-line"). */
 export const gownBaseLabel = (sil: GownSilhouette) => `Starting price: ${SIL_LABEL[sil]}`;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The chat's words (the design card and the invite card read these; step B8 draws them)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export const GOWN_DESIGN_HEAD = '👗 Gown design · ';
+export const GOWN_INVITE_BODY = '👗 Design your gown with us. Your measurements first, then the shape, fabric and details in 3D. We’ll quote from your design.';
+export const GOWN_DESIGN_REF = 'Design ref: ';
+export const GOWN_DESIGN_UNREADABLE = "We couldn't check your design against the shop's Attire Maker, so nothing was sent. Try again.";
+export const GOWN_DESIGN_NOT_SENT = 'Your design didn’t go into the chat. It is kept here, so send it again.';
+
+/** The design in a few words for the message ("A-line in satin"); the card draws the rest from the stored row. */
+export function gownDesignWords(design: Pick<GownConfig, 'sil' | 'fabric'>): string {
+  return `${SIL_LABEL[design.sil] ?? 'Gown'} in ${fabricLabel(design.fabric).toLowerCase()}`;
+}
+
+/** The one message a sent design posts. Only the estimate (or "Ask for a quote") — never a cost. */
+export function formatGownDesignBlock(design: Pick<GownConfig, 'sil' | 'fabric'>, forBride: GownDesignForBride, designId: string): string {
+  return [
+    `${GOWN_DESIGN_HEAD}${gownDesignWords(design)}`,
+    forBride.estimateCentavos != null ? `Estimate: ${formatCentavosPhp(forBride.estimateCentavos)}. The quote decides.` : 'Ask for a quote: the designer prices this design.',
+    `${GOWN_DESIGN_REF}${designId}`,
+  ].join('\n');
+}
+
+/** The stored row a design message names, or null. */
+export function gownDesignRefOf(body: string | null | undefined): string | null {
+  const text = body ?? '';
+  if (!text.startsWith(GOWN_DESIGN_HEAD)) return null;
+  const at = text.lastIndexOf(GOWN_DESIGN_REF);
+  if (at < 0) return null;
+  const m = /^([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\s*$/i.exec(text.slice(at + GOWN_DESIGN_REF.length));
+  return m ? m[1]!.toLowerCase() : null;
+}
+
+// ── B5 · THE SHOP'S FABRICS, LACE AND LOOKS ─────────────────────────────────────────────────────────────────────────
+// One fabric or lace row and one look, as the designer saves them (plan step B5; drawing v196 "Fabrics and lace",
+// "Inspirations"; the four sliders are prototype v188 `tune:{shine,sheer,body,tex}`).
+
+/** The four sliders, each saved as an OFFSET from the fabric type's own value, so a later type edit still carries. */
+export const GOWN_FABRIC_TUNE = [
+  { key: 'shine', label: 'Shine' },
+  { key: 'sheer', label: 'See-through' },
+  { key: 'body', label: 'Body' },
+  { key: 'tex', label: 'Texture' },
+] as const;
+export type GownFabricTuneKey = (typeof GOWN_FABRIC_TUNE)[number]['key'];
+export type GownFabricTune = Partial<Record<GownFabricTuneKey, number>>;
+
+/** A colour a fabric comes in. The hex is the cloth's own colour (product data), not a page colour. */
+export type GownFabricColour = { name: string | null; hex: string };
+
+export type GownShopFabricInput = {
+  id: string | null;
+  kind: 'fabric' | 'lace';
+  name: string;
+  code: string | null;
+  typeId: string;
+  colours: GownFabricColour[];
+  /** Null = unpriced: a quote line for it stays unpriced. */
+  pricePerMetreCentavos: number | null;
+  tune: GownFabricTune;
+  thumbKey: string | null;
+  /** Patterned cloth only. A plain fabric has none, so picking it makes no tile request. */
+  tileKey: string | null;
+  active: boolean;
+};
+
+export type GownShopLookInput = { id: string | null; name: string; photoKey: string | null; config: unknown; active: boolean };
+/** A row of the shop's stock list (server → the shop's own panel only; never in a bride's read). */
+export type ShopGownStockFabric = GownShopFabricInput & { id: string; thumbUrl: string | null; tileUrl: string | null };
+export type ShopGownStockLook = Omit<GownShopLookInput, 'id'> & { id: string; photoUrl: string | null };
+/** A fabric type the designer can pick, with its own values (the sliders start there). */
+export type GownFabricTypeOption = { id: string; name: string; sheen: number; sheer: number; stiff: number; verified: boolean };
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const HEX_RE = /^#[0-9a-f]{6}$/i;
+const MAX_COLOURS = 24;
+
+/** A photo the shop uploaded must sit in its OWN gown folder of the public media bucket. */
+export function gownShopMediaPrefix(vendorProfileId: string): string {
+  return `vendors/${vendorProfileId}/gown/`;
+}
+function shopRef(v: unknown, vendorProfileId: string): string | null | false {
+  if (v == null || v === '') return null;
+  return parseClientRef(v, { prefixes: [gownShopMediaPrefix(vendorProfileId)] }) ? String(v).trim() : false;
+}
+const text = (v: unknown, max: number): string | null => {
+  if (typeof v !== 'string') return null;
+  const t = v.replace(/\s+/g, ' ').trim();
+  return t && t.length <= max ? t : null;
+};
+
+/** One fabric or lace row from the designer's device, checked. Refused (never thinned) when anything is off. */
+export function sanitizeGownShopFabric(
+  input: unknown,
+  ctx: { vendorProfileId: string; typeIds: ReadonlySet<string> },
+): { ok: true; fabric: GownShopFabricInput } | { ok: false; problem: string } {
+  const no = (problem: string) => ({ ok: false as const, problem });
+  if (!input || typeof input !== 'object') return no('That fabric could not be read.');
+  const r = input as Record<string, unknown>;
+  const id = r.id == null || r.id === '' ? null : typeof r.id === 'string' && UUID_RE.test(r.id) ? r.id.toLowerCase() : undefined;
+  if (id === undefined) return no('That fabric could not be read.');
+  if (r.kind !== 'fabric' && r.kind !== 'lace') return no('Choose fabric or lace.');
+  const name = text(r.name, 40);
+  if (!name) return no('Give it a name (up to 40 letters).');
+  const code = r.code == null || r.code === '' ? null : text(r.code, 40);
+  if (r.code != null && r.code !== '' && !code) return no('The code is up to 40 letters.');
+  if (typeof r.typeId !== 'string' || !ctx.typeIds.has(r.typeId)) return no('Choose what kind of cloth it is.');
+  if (!Array.isArray(r.colours) || r.colours.length > MAX_COLOURS) return no(`Up to ${MAX_COLOURS} colours.`);
+  const colours: GownFabricColour[] = [];
+  for (const c of r.colours) {
+    const o = (c ?? {}) as Record<string, unknown>;
+    if (typeof o.hex !== 'string' || !HEX_RE.test(o.hex)) return no('A colour could not be read.');
+    colours.push({ name: o.name == null || o.name === '' ? null : text(o.name, 30), hex: o.hex.toLowerCase() });
+  }
+  const price = r.pricePerMetreCentavos;
+  if (price != null && !isCentavos(price)) return no('The price per metre must be more than zero, or left empty.');
+  const tune: GownFabricTune = {};
+  const rawTune = (r.tune ?? {}) as Record<string, unknown>;
+  if (typeof rawTune !== 'object' || Array.isArray(rawTune)) return no('The sliders could not be read.');
+  for (const k of Object.keys(rawTune)) if (!GOWN_FABRIC_TUNE.some((t) => t.key === k)) return no('The sliders could not be read.');
+  for (const { key } of GOWN_FABRIC_TUNE) {
+    const v = rawTune[key];
+    if (v == null) continue;
+    if (typeof v !== 'number' || !Number.isFinite(v) || v < -1 || v > 1) return no('The sliders could not be read.');
+    const rounded = Math.round(v * 100) / 100;
+    if (rounded !== 0) tune[key] = rounded;
+  }
+  const thumbKey = shopRef(r.thumbKey, ctx.vendorProfileId);
+  const tileKey = shopRef(r.tileKey, ctx.vendorProfileId);
+  if (thumbKey === false || tileKey === false) return no('That photo could not be used. Upload it again.');
+  return {
+    ok: true,
+    fabric: { id, kind: r.kind, name, code, typeId: r.typeId, colours, pricePerMetreCentavos: (price as number | null) ?? null, tune, thumbKey, tileKey, active: r.active !== false },
+  };
+}
+
+/** One look from the designer's device: its name and photo checked here; the design itself by `sanitizeGownConfig`. */
+export function sanitizeGownShopLookShell(
+  input: unknown,
+  vendorProfileId: string,
+): { ok: true; look: Omit<GownShopLookInput, 'config'>; config: unknown } | { ok: false; problem: string } {
+  const no = (problem: string) => ({ ok: false as const, problem });
+  if (!input || typeof input !== 'object') return no('That look could not be read.');
+  const r = input as Record<string, unknown>;
+  const id = r.id == null || r.id === '' ? null : typeof r.id === 'string' && UUID_RE.test(r.id) ? r.id.toLowerCase() : undefined;
+  if (id === undefined) return no('That look could not be read.');
+  const name = text(r.name, 60);
+  if (!name) return no('Give the look a name (up to 60 letters).');
+  const photoKey = shopRef(r.photoKey, vendorProfileId);
+  if (photoKey === false) return no('That photo could not be used. Upload it again.');
+  return { ok: true, look: { id, name, photoKey, active: r.active !== false }, config: r.config };
+}
+
+// ── B5b · THE FABRIC-TYPE REGISTRY (Setnayan admin only, owner Q4) ─────────────────────────────────────────────────
+// The bounds are the table's own CHECKs (migration 20271365509280), so a refusal here is said in words before the
+// database would refuse it. Hide (active = false), never delete: a shop's fabric may point at the type.
+
+export const GOWN_FABRIC_FAMILIES = [
+  { id: 'satins', label: 'Satins' },
+  { id: 'structured', label: 'Structured' },
+  { id: 'crepes', label: 'Crepes' },
+  { id: 'sheers', label: 'Sheers' },
+  { id: 'laces', label: 'Laces' },
+  { id: 'knits', label: 'Knits' },
+  { id: 'suitings', label: 'Suitings' },
+  { id: 'handwoven', label: 'Handwoven' },
+  { id: 'linings', label: 'Linings' },
+] as const;
+export const GOWN_FABRIC_STRETCH = [
+  { id: 'none', label: 'No stretch' },
+  { id: '2way', label: 'Two-way stretch' },
+  { id: '4way', label: 'Four-way stretch' },
+] as const;
+export const GOWN_FABRIC_USES = [
+  { id: 'gown_body', label: 'Gown body' },
+  { id: 'skirt', label: 'Skirt' },
+  { id: 'sleeves_accents', label: 'Sleeves and accents' },
+  { id: 'lining', label: 'Lining' },
+  { id: 'mens_suit', label: 'Men’s suit' },
+  { id: 'barong', label: 'Barong' },
+  { id: 'entourage', label: 'Entourage' },
+] as const;
+
+export type GownFabricTypeRow = {
+  id: string;
+  name: string;
+  aliases: string[];
+  family: (typeof GOWN_FABRIC_FAMILIES)[number]['id'];
+  gsm: number;
+  stiff: number;
+  sheen: number;
+  sheer: number;
+  stretch: (typeof GOWN_FABRIC_STRETCH)[number]['id'];
+  usedFor: (typeof GOWN_FABRIC_USES)[number]['id'][];
+  renderAs: string | null;
+  active: boolean;
+  sort: number;
+  verified: boolean;
+};
+
+const TYPE_ID_RE = /^[a-z][a-z0-9_]{1,39}$/;
+const unit = (v: unknown) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;
+
+/** One registry row from the admin's device, checked against the table's own rules. `known` = the ids that exist. */
+export function sanitizeGownFabricType(
+  input: unknown,
+  known: ReadonlySet<string>,
+): { ok: true; type: GownFabricTypeRow } | { ok: false; problem: string } {
+  const no = (problem: string) => ({ ok: false as const, problem });
+  if (!input || typeof input !== 'object') return no('That fabric type could not be read.');
+  const r = input as Record<string, unknown>;
+  if (typeof r.id !== 'string' || !TYPE_ID_RE.test(r.id)) return no('The id is 2 to 40 small letters, digits or _, starting with a letter.');
+  const name = text(r.name, 60);
+  if (!name) return no('Give it a name (up to 60 letters).');
+  if (!Array.isArray(r.aliases) || r.aliases.length > 12) return no('Up to 12 other names.');
+  const aliases: string[] = [];
+  for (const a of r.aliases) {
+    const t = text(a, 40);
+    if (!t) return no('Another name could not be read.');
+    if (!aliases.includes(t)) aliases.push(t);
+  }
+  if (!GOWN_FABRIC_FAMILIES.some((f) => f.id === r.family)) return no('Choose a family.');
+  if (typeof r.gsm !== 'number' || !Number.isInteger(r.gsm) || r.gsm < 5 || r.gsm > 600) return no('Weight is 5 to 600 g/m².');
+  if (!unit(r.stiff) || !unit(r.sheen) || !unit(r.sheer)) return no('Stiffness, shine and see-through are each 0 to 1.');
+  if (!GOWN_FABRIC_STRETCH.some((s) => s.id === r.stretch)) return no('Choose the stretch.');
+  if (!Array.isArray(r.usedFor) || r.usedFor.length < 1 || !r.usedFor.every((u) => GOWN_FABRIC_USES.some((x) => x.id === u))) return no('Choose at least one use.');
+  const renderAs = r.renderAs == null || r.renderAs === '' ? null : typeof r.renderAs === 'string' && known.has(r.renderAs) && r.renderAs !== r.id ? r.renderAs : undefined;
+  if (renderAs === undefined) return no('“Looks like” must be another type in the list.');
+  if (typeof r.sort !== 'number' || !Number.isInteger(r.sort) || Math.abs(r.sort) > 10_000) return no('The order could not be read.');
+  const two = (v: number) => Math.round(v * 100) / 100;
+  return {
+    ok: true,
+    type: {
+      id: r.id,
+      name,
+      aliases,
+      family: r.family as GownFabricTypeRow['family'],
+      gsm: r.gsm,
+      stiff: two(r.stiff as number),
+      sheen: two(r.sheen as number),
+      sheer: two(r.sheer as number),
+      stretch: r.stretch as GownFabricTypeRow['stretch'],
+      usedFor: [...new Set(r.usedFor as GownFabricTypeRow['usedFor'])],
+      renderAs,
+      active: r.active !== false,
+      sort: r.sort,
+      verified: r.verified === true,
+    },
+  };
+}

@@ -38,6 +38,7 @@ import { isChineseWedding } from '@/lib/chinese-wedding';
 import { Spotlight } from '@/app/_components/spotlight';
 import { HOST_PAGE_TOURS, HOST_PAGE_TOURS_AFTER, MAKER_INNER_TOURS_AFTER } from '@/lib/host-page-tours';
 import { guestsViewHref, parseSeatView } from '@/lib/guests-views';
+import { seatShortName } from '@/lib/seat-list-drop';
 import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE, SIDE_ORDER, computeGuestStats, countsTowardEvent, headcountForBasis } from '@/lib/guests';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { peopleLabels } from '@/lib/details-your-event';
@@ -240,6 +241,8 @@ export default async function SeatingPage({ params, searchParams }: Props) {
     return {
       guest_id: g.guest_id,
       name: guestDisplayName(g),
+      // 🪪 The Names chip's short name (Seats › List · On the cards › Names).
+      short_name: seatShortName(g),
       plus_one_of: g.plus_one_of_guest_id,
       initials: guestInitials(g),
       photo_url: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,

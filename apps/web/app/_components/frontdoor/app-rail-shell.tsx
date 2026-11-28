@@ -57,6 +57,9 @@ import { requestDoor } from '@/lib/door-request';
 import { doorSignInHref } from '@/lib/doors';
 import { siteOrigin } from '@/lib/site-origin';
 import { SignedInCluster } from './signed-in-cluster';
+import { getCurrentUser } from '@/lib/auth';
+import { getDashboardShell } from '@/lib/dashboard-shell';
+import { getSwitcherData } from '@/app/_components/account-switcher/get-switcher-data';
 import type { ShellBoundary } from '@/app/_components/shell-boundary';
 
 export async function AppRailShell({
@@ -139,6 +142,24 @@ export async function AppRailShell({
   /** 📌 From 701 the bar is the page's pinned row (page menu ▾ left) — pure pass-through, see `front-door-shell.tsx`. */
   pinnedBar?: { lead: React.ReactNode };
 }) {
+  /*
+    ⚡ THE CLUSTER'S READS START IN THIS BATCH (speed audit A2, 27 Nov 2026; the started-not-awaited pattern in
+    `app/dashboard/[eventId]/layout.tsx`). `<SignedInCluster />` is drawn below, so it only begins once this
+    `Promise.all` has come back: the bell and the switcher were a second wait in a row on every signed-in public page.
+    Started here, they run beside the rail's own reads, keyed on the ONE verified user of the request (`getCurrentUser`,
+    cache()d — the same promise `resolveRailAccount` awaits). The cluster awaits the same per-request `cache()` promises
+    and finds them in hand. Only when this shell will draw the cluster (no `topBarSlot` handed in); nothing is read for a
+    signed-out visitor. Not awaited here: the `.catch` only stops a refused prefetch from being an unhandled rejection,
+    and the cluster's own await meets the failure and falls back exactly as before.
+  */
+  const clusterReads =
+    topBarSlot === undefined
+      ? getCurrentUser().then((user) => {
+          if (!user) return;
+          void getDashboardShell(user.id).catch(() => undefined);
+          void getSwitcherData(user.id).catch(() => undefined);
+        })
+      : Promise.resolve();
   const [account, navLabels, discoverOpen, door] = await Promise.all([
     resolveRailAccount(),
     /*
@@ -168,6 +189,9 @@ export async function AppRailShell({
     discoverOpensHere(),
     // 🚪 THE ONE DOOR FLAG (lib/doors.ts): a business door host, or an app shell that asks for a door.
     requestDoor(),
+    // ⚡ Started above; joined here only so a refused user read is never an unhandled rejection. It resolves as soon
+    // as the user is known (one trip, shared with the rail's account), never waiting on the cluster's own reads.
+    clusterReads.catch(() => undefined),
   ]);
 
   return (

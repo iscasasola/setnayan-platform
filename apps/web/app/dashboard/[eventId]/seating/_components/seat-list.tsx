@@ -8,7 +8,18 @@ import gs from '@/app/dashboard/[eventId]/guests/_components/guests-screen.modul
 import { useRowState } from '@/app/dashboard/[eventId]/guests/_components/use-row-state';
 import { dragBandOf, dragEdgeStep, dragScrollBy, dragScrollerOf } from '@/lib/drag-edge-scroll';
 import { TAP_SLOP_MOUSE, TAP_SLOP_TOUCH } from '@/lib/march-drag';
-import { SEAT_HOLD_MS, readSeatDrop, seatDropAttrs, seatTallyWords, type SeatDropTarget } from '@/lib/seat-list-drop';
+import {
+  NAMES_ON_A_CARD,
+  SEAT_HOLD_MS,
+  cardUnits,
+  nameChipWords,
+  namesWithinCap,
+  readSeatDrop,
+  seatDropAttrs,
+  seatTallyWords,
+  type SeatCardLook,
+  type SeatDropTarget,
+} from '@/lib/seat-list-drop';
 import { formatCount } from '@/lib/format-number';
 import { VipMark } from './vip-mark';
 import { RiseScreen, WithRiseClose } from '@/app/_components/rise/rise-screen';
@@ -42,7 +53,20 @@ export type SeatListGuest = {
   side: 'bride' | 'groom' | 'both';
   /** Who placed the seat, spoken with it ("placed by you", lib/seat-why.ts); absent = not recorded. */
   placed?: string | null;
+  /** Who brings this guest (`guests.plus_one_of_guest_id`) — on a card they draw joined to them as ONE unit. */
+  plusOneOf?: string | null;
+  /** The short name a Names chip wears ("Maria C.", "Tita Odette" — `seatShortName`). */
+  short?: string | null;
+  /** The short name of the guest who brings them — a +1 sitting apart from them reads "Ramon's +1" on a Names chip. */
+  bringer?: string | null;
+  /** A principal sponsor under "+1s · nearest": moves (and is drawn) apart from their +1. */
+  movesAlone?: boolean;
+  /** A principal sponsor's +1 under "+1s · nearest" — their card says "Their +1s · nearest the Principal Sponsors". */
+  nearestPlusOne?: boolean;
+  /** Their seat is locked (#17) — a hand move answers "Locked · Unlock to move". */
+  locked?: boolean;
 };
+
 export type SeatListSeat = { tableId: string; seat: number; guest: SeatListGuest | null };
 export type SeatListUnit = { key: string; label: string; seated: number; capacity: number; seats: SeatListSeat[]; vip?: boolean };
 
@@ -75,6 +99,7 @@ export function SeatList({
   tableTools,
   onDrop,
   dim = () => false,
+  cardLook = 'faces',
 }: {
   units: SeatListUnit[];
   /** The coming guests with no seat. */
@@ -106,6 +131,8 @@ export function SeatList({
   onDrop: (guestId: string, target: SeatDropTarget) => void;
   /** ⇅ A guest the shared Show or the search leaves out — drawn faint, their seat still taken. */
   dim?: (guestId: string) => boolean;
+  /** ⇅ On the cards: Faces or Names. */
+  cardLook?: SeatCardLook;
 }) {
   const listRef = useRef<HTMLDivElement>(null);
   /* ⇔ ONE state for every row's buttons (Swap · Remove), the Guests list's own fit (BUTTON_RULE 3a). */
@@ -120,6 +147,15 @@ export function SeatList({
   const [lifted, setLifted] = useState<string | null>(null);
   const onDropRef = useRef(onDrop);
   onDropRef.current = onDrop;
+  /** How many people move when this guest is lifted — their unit as the cards draw it (`cardUnits`). */
+  const unitSizeRef = useRef<(id: string) => number>(() => 1);
+  unitSizeRef.current = (id: string) => {
+    for (const people of [...units.map((u) => u.seats.flatMap((x) => (x.guest ? [x.guest] : []))), unseated]) {
+      const unit = cardUnits(people).find((un) => un.some((g) => g.id === id));
+      if (unit) return unit.length;
+    }
+    return 1;
+  };
 
   const mark = (el: HTMLElement | null) => {
     if (over.current === el) return;
@@ -130,7 +166,10 @@ export function SeatList({
   const hit = (d: Drag) => {
     const el = document.elementFromPoint(d.x, d.y) as HTMLElement | null;
     const zone = el?.closest<HTMLElement>('[data-seat-drop]') ?? null;
-    mark(zone && listRef.current?.contains(zone) ? zone : null);
+    // 🧑‍🤝‍🧑 A card without a chair for each of the lifted unit never lights (nor takes the drop).
+    const room = zone?.dataset.seatDropRoom;
+    const fits = room === undefined || Number(room) >= unitSizeRef.current(d.id);
+    mark(zone && fits && listRef.current?.contains(zone) ? zone : null);
   };
   const loop = () => {
     const d = drag.current;
@@ -307,7 +346,7 @@ export function SeatList({
             <span aria-hidden className={`${gs.dot} ${sideClass(g.side)}`} />
             <span className={gs.nmt}>{g.name}</span>
           </div>
-          <div className={gs.meta}>{picked ? 'Moving — tap a seat' : meta}</div>
+          <div className={gs.meta}>{picked ? 'Moving — tap a seat' : g.locked ? `${meta} · Locked` : meta}</div>
         </button>
         {canEdit ? (
           <span className={gs.acts} data-fit-row="" data-row-acts="">
@@ -423,6 +462,53 @@ export function SeatList({
       )}
     </span>
   );
+  /** 🧑‍🤝‍🧑 A unit on a card — ONE joined face pair (Faces) or ONE name chip (Names). */
+  const unitChip = (unit: SeatListGuest[]) => {
+    const lead = unit[0]!;
+    const key = `u:${lead.id}`;
+    const faint = unit.every((g) => dim(g.id));
+    if (cardLook === 'names') {
+      /* 🪪 Drawing `prototypes/seats_names_2026-11-27/`: 26 px tall, 13 px at full ink, 9 px at the sides; the short name
+         ("Maria C."), then a 14 px hairline (2 px / 6 px around it) and the small "+1" tag (11 px, 600, the quiet ink);
+         a +1 apart from their sponsor reads "Ramon's" then the tag. Never a button — the card is the press. */
+      const words = nameChipWords(unit, lead.bringer);
+      return (
+        <span
+          key={key}
+          className="inline-flex h-[26px] max-w-full items-center rounded-full bg-ink/[0.06] px-[9px] text-sn-md font-medium text-ink"
+          data-seat-card-name=""
+          data-seat-face={lead.id}
+          data-seat-unit={unit.length > 1 ? unit.map((g) => g.id).join(' ') : undefined}
+          data-seat-dim={faint ? '' : undefined}
+          style={faint ? { opacity: 0.3 } : undefined}
+          aria-label={unit.map((g) => g.name).join(' and ')}
+        >
+          <span className="truncate" aria-hidden>
+            {words.name}
+          </span>
+          {words.plus ? (
+            <>
+              {words.apart ? (
+                <span aria-hidden className="w-1 shrink-0" />
+              ) : (
+                <span aria-hidden className="mx-1.5 my-0.5 h-3.5 w-px shrink-0 bg-ink/20" data-seat-hairline="" />
+              )}
+              <span aria-hidden className="shrink-0 text-sn-xs font-semibold text-[color:var(--m-slate-2)]" data-seat-plus-tag="">
+                {words.plus}
+              </span>
+            </>
+          ) : null}
+        </span>
+      );
+    }
+    if (unit.length === 1) return chip(lead, key);
+    // A guest and their +1 as ONE touching pair — side by side, never overlapping (controller, post-merge review).
+    return (
+      <span key={key} className="inline-flex shrink-0 items-center gap-px rounded-full bg-ink/[0.04]" data-seat-pair="" data-seat-unit={unit.map((g) => g.id).join(' ')}>
+        {unit.map((g) => chip(g, g.id))}
+      </span>
+    );
+  };
   const dotted = (key: string) => (
     <span key={key} aria-hidden className="inline-block h-[26px] w-[26px] shrink-0 rounded-full border-[1.5px] border-dashed border-ink/20" data-seat-card-empty="" />
   );
@@ -436,6 +522,7 @@ export function SeatList({
       onClick={tap(onPress)}
       aria-label={label}
       data-seat-card={key}
+      data-seat-card-look={cardLook}
       {...drop}
     >
       <span className="flex w-full min-w-0 items-baseline gap-2">
@@ -448,6 +535,43 @@ export function SeatList({
       {foot}
     </button>
   );
+  /** Names: the units at the table up to 12 PEOPLE (a pair counts 2), then a "+N more" chip counting people (drawing). */
+  const namesOf = (people: SeatListGuest[]): ReactNode[] => {
+    const { shown, morePeople } = namesWithinCap(cardUnits(people), NAMES_ON_A_CARD);
+    const chips = shown.map(unitChip);
+    return morePeople > 0
+      ? [
+          ...chips,
+          <span
+            key="more"
+            className="inline-flex h-[26px] items-center rounded-full px-[9px] text-sn-md font-semibold text-sn-accent ring-1 ring-inset ring-ink/15"
+            data-seat-names-more=""
+          >
+            +{formatCount(morePeople)} more
+          </span>,
+        ]
+      : chips;
+  };
+  /** Names: up to 3 small (12 px) dotted chairs, then ALWAYS the full count — "••+2 empty", "•••+4 empty" (drawing). */
+  const NAMES_DOTS = 3;
+  const namesEmpty = (empty: number): ReactNode =>
+    empty > 0 ? (
+      <span className="flex min-w-0 items-center gap-1" data-seat-names-empty="">
+        {Array.from({ length: Math.min(NAMES_DOTS, empty) }, (_, i) => (
+          <span key={i} aria-hidden className="inline-block h-3 w-3 shrink-0 rounded-full border border-dashed border-ink/25" data-seat-card-empty="" />
+        ))}
+        <span className="ml-1 text-sn-sm text-ink/60" data-seat-names-empty-count="">
+          +{formatCount(empty)} empty
+        </span>
+      </span>
+    ) : null;
+  /** "Their +1s · nearest the Principal Sponsors" — on a card holding a principal sponsor's +1 under "nearest". */
+  const nearestLine = (people: SeatListGuest[]): ReactNode =>
+    people.some((g) => g.nearestPlusOne && !people.some((x) => x.id === g.plusOneOf)) ? (
+      <span className="text-sn-sm text-ink/70" data-seat-nearest-line="">
+        Their +1s · nearest the Principal Sponsors
+      </span>
+    ) : null;
   const tableCard = (u: SeatListUnit) => {
     const people = u.seats.filter((x) => x.guest);
     const chairs = Math.min(CARD_CHAIRS, u.capacity);
@@ -470,8 +594,17 @@ export function SeatList({
         {full ? <Check aria-hidden className="h-3.5 w-3.5" strokeWidth={2.4} /> : null}
         {formatCount(u.seated)} of {formatCount(u.capacity)}
       </span>,
-      [...shownPeople.map((x) => chip(x.guest!, `${x.tableId}:${x.seat}`)), ...Array.from({ length: emptyShown }, (_, i) => dotted(`e${i}`))],
-      moreEmpty > 0 ? <span className="text-[12.5px] text-ink/60">+{formatCount(moreEmpty)} empty</span> : null,
+      cardLook === 'names'
+        ? namesOf(people.map((x) => x.guest!))
+        : [...cardUnits(shownPeople.map((x) => x.guest!)).map(unitChip), ...Array.from({ length: emptyShown }, (_, i) => dotted(`e${i}`))],
+      <>
+        {nearestLine(people.map((x) => x.guest!))}
+        {cardLook === 'names' ? (
+          namesEmpty(Math.max(0, u.capacity - u.seated))
+        ) : moreEmpty > 0 ? (
+          <span className="text-[12.5px] text-ink/60">+{formatCount(moreEmpty)} empty</span>
+        ) : null}
+      </>,
       // While someone is picked ("Move"), the card is where they go: the table's next free seat.
       pickedId ? (free ? `Move here — ${u.label}, seat ${free.seat + 1}` : `${u.label} is full`) : `${u.label}, ${seatTallyWords(u.seated, u.capacity, formatCount)} — open`,
       () => {
@@ -482,7 +615,8 @@ export function SeatList({
         setAdding(false);
         setSheet(u.key);
       },
-      free ? seatDropAttrs({ kind: 'seat', tableId: free.tableId, seat: free.seat, occupantId: null }) : {},
+      // The card says how many chairs it has free, so a unit it cannot hold never lights on it (`hit`).
+      free ? { ...seatDropAttrs({ kind: 'seat', tableId: free.tableId, seat: free.seat, occupantId: null }), 'data-seat-drop-room': String(freeOf(u).length) } : {},
     );
   };
 
@@ -630,8 +764,8 @@ export function SeatList({
               UNSEATED,
               'To seat',
               formatCount(unseated.length),
-              unseated.slice(0, CARD_CHAIRS).map((g) => chip(g, g.id)),
-              unseated.length > CARD_CHAIRS ? <span className="text-[12.5px] text-ink/60">+{formatCount(unseated.length - CARD_CHAIRS)} more</span> : null,
+              cardLook === 'names' ? namesOf(unseated) : cardUnits(unseated.slice(0, CARD_CHAIRS)).map(unitChip),
+              cardLook === 'faces' && unseated.length > CARD_CHAIRS ? <span className="text-[12.5px] text-ink/60">+{formatCount(unseated.length - CARD_CHAIRS)} more</span> : null,
               `To seat, ${formatCount(unseated.length)} — open`,
               () => {
                 setAdding(false);

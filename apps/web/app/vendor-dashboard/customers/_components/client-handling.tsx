@@ -35,6 +35,13 @@ export function ClientHandling({ view, action, returnTo }: { view: ClientHandlin
       <input type="hidden" name="return_to" value={returnTo} />
     </>
   );
+  // The person the picker names: the current handler among the people it may move the client to, else the name read
+  // for the row. Nobody → no row (never a bare "Handled by").
+  const movingName =
+    (view.moveTo?.currentId ? view.moveTo.options.find((o) => o.key === view.moveTo?.currentId)?.label?.trim() : null) ||
+    view.handledByName?.trim() ||
+    null;
+  if (!view.handOver && !movingName) return null;
   return (
     <div className="grid gap-2 border-t border-ink/10 py-3" data-client-handling={view.threadId}>
       {view.handOver ? (
@@ -59,7 +66,12 @@ export function ClientHandling({ view, action, returnTo }: { view: ClientHandlin
           ) : null}
         </div>
       ) : null}
-      {view.moveTo && view.moveTo.options.length > 0 ? (
+      {/*
+        👤 "HANDLED BY" ONCE, AND ONLY WITH A NAME (L6 · A4, walk 27 Nov 2026): with nobody on the client the picker's
+        button fell back to its own label, so the row read "Handled by  Handled by ▾" and named nobody. Now the words
+        are said once — the row's label — and the row is drawn only when it has a person to name.
+      */}
+      {view.moveTo && view.moveTo.options.length > 0 && movingName ? (
         <StayForm ref={form} door="supTeam.setVendorRoleNames" action={action} className="flex flex-wrap items-center justify-between gap-2" data-client-handled-by="">
           {hidden}
           <input type="hidden" name="op" value="move" />
@@ -67,6 +79,7 @@ export function ClientHandling({ view, action, returnTo }: { view: ClientHandlin
           <span className="text-[13.5px] text-ink/70">Handled by</span>
           <PickMenu
             label="Handled by"
+            buttonText={movingName}
             value={view.moveTo.currentId ?? ''}
             options={view.moveTo.options}
             onPick={(k) => {
@@ -79,7 +92,7 @@ export function ClientHandling({ view, action, returnTo }: { view: ClientHandlin
             className="!min-h-11"
           />
         </StayForm>
-      ) : view.handledByName ? (
+      ) : view.handledByName?.trim() ? (
         <p className="text-[13.5px] text-ink/70" data-client-handled-by-name="">
           Handled by {view.handledByName}
         </p>

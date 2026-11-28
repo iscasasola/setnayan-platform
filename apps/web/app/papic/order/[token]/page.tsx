@@ -1,6 +1,8 @@
 import { notFound } from 'next/navigation';
 import { openAccounts, receivingAccounts } from '@/lib/payment-channels';
+import { Receipt } from 'lucide-react';
 import { CopyButton } from '@/app/_components/copy-button';
+import { ActionButton } from '@/components/action-button';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchPlatformSettings } from '@/lib/platform-settings';
 import { mintedQrImage } from '@/lib/qr-image.server';
@@ -350,12 +352,7 @@ export default async function PapicGuestOrderPage({
                 className="input-field"
               />
             </label>
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center rounded-xl bg-terracotta-700 px-4 py-2 text-sm font-medium text-cream hover:bg-terracotta-800"
-            >
-              Log my payment
-            </button>
+            <ActionButton type="submit" tone="ok" main icon={<Receipt aria-hidden strokeWidth={1.9} />} label="Log my payment" />
           </form>
         </section>
       ) : null}

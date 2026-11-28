@@ -26,6 +26,7 @@ import { useMaker } from '../../../launch/_components/maker-context';
 import { InMakerReturnTo } from './in-maker-return-to';
 import { MomentVoicesFields, addedByShows } from './moment-voices-fields';
 import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
+import { actionButtonClass } from '@/components/action-button-class';
 
 /**
  * A moment the Maker's instant scrapbook could not keep (`love-story-live.tsx`
@@ -467,7 +468,7 @@ export function MomentSheet({
                 >
                   Not now
                 </button>
-                <SubmitButton pendingLabel="Keeping…" className="button-primary">
+                <SubmitButton pendingLabel="Keeping…" className={actionButtonClass('brand', { main: true })}>
                   Keep this moment
                 </SubmitButton>
               </div>

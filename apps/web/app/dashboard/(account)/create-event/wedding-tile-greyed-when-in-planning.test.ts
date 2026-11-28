@@ -112,8 +112,8 @@ test('picker: the Wedding tile is told it is unavailable, by name, when a weddin
   );
   assert.match(
     src,
-    /inPlanningWedding \? \{ wedding: `Already planning \$\{inPlanningWedding\.displayName\}` \} : undefined/,
-    'the reason must name the existing wedding by its display name, not just say "unavailable"',
+    /inPlanningWedding \? \{ wedding: `Already planning \$\{inPlanningWeddingNames\(inPlanningWedding\)\}` \} : undefined/,
+    'the reason must name EVERY in-planning wedding by its display name (L5 · C8), not just say "unavailable"',
   );
 });
 

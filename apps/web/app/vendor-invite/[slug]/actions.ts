@@ -20,6 +20,8 @@ import { isShopLive } from '@/lib/vendor-visibility';
 import { CLIENT_INVITE_PARAM, clientInviteTokenOf, importIsOwnClient, shopIsVerified } from '@/lib/own-clients';
 import { fetchClientInvite, giveOwnClientGift, markOwnClientRow } from '@/lib/own-clients.server';
 import { isShopPaused } from '@/lib/shop-status';
+import { OFFLINE_QR_PARAM, parseOfflineQrToken } from '@/lib/supplier-offline/qr';
+import { claimOfflineQr } from '@/lib/supplier-offline/claim.server';
 
 function backToInvite(slug: string, status: string, scope = ''): never {
   const sep = scope ? `&${scope}` : '';
@@ -31,7 +33,10 @@ export async function claimVendorInviteToEvent(formData: FormData): Promise<void
   const eventId = String(formData.get('event_id') ?? '').trim();
   const cat = String(formData.get('cat') ?? '').trim();
   const et = String(formData.get('et') ?? '').trim();
-  const ci = clientInviteTokenOf(String(formData.get(CLIENT_INVITE_PARAM) ?? '').trim());
+  let ci = clientInviteTokenOf(String(formData.get(CLIENT_INVITE_PARAM) ?? '').trim());
+  // 🔳 An offline client QR (owner 2026-11-24, `lib/supplier-offline/qr.ts`) — shape-checked here, verified below.
+  const rawOq = String(formData.get(OFFLINE_QR_PARAM) ?? '').trim();
+  const oq = parseOfflineQrToken(rawOq) ? rawOq : null;
   if (!slug) redirect('/');
 
   // Preserve the QR's event/service scope across any bounce-back redirect.
@@ -39,6 +44,9 @@ export async function claimVendorInviteToEvent(formData: FormData): Promise<void
   if (et) scopeParams.set('et', et);
   if (cat) scopeParams.set('cat', cat);
   if (ci) scopeParams.set(CLIENT_INVITE_PARAM, ci);
+  // A refused offline date goes back WITHOUT the QR, so the next press adds the supplier and does not ask again.
+  const scopeWithoutQr = scopeParams.toString();
+  if (oq) scopeParams.set(OFFLINE_QR_PARAM, oq);
   const scope = scopeParams.toString();
 
   if (!eventId) backToInvite(slug, 'pick_event', scope);
@@ -74,6 +82,23 @@ export async function claimVendorInviteToEvent(formData: FormData): Promise<void
   const hostEvents = await listHostEvents(admin, user!.id);
   if (!hostEvents.some((e) => e.event_id === eventId)) {
     backToInvite(slug, 'not_your_event', scope);
+  }
+
+  // 🔳 THE CLIENT'S PHONE DOES THE SYNC (owner 2026-11-24): an offline QR's date goes onto the supplier's schedule now,
+  // under the same clash rules as the supplier's own phone (`claimOfflineQr` → `supplier_offline_code_use`, one code,
+  // one entry). A refused date is said on the invite page ("Couldn't save your date: …"); the supplier can still be
+  // added. When the supplier's phone already synced its Add-a-client invite for this code, the claim goes on as THAT
+  // invite — the shipped own-client gift below.
+  if (oq) {
+    const picked = hostEvents.find((e) => e.event_id === eventId);
+    const claim = await claimOfflineQr(admin, {
+      token: oq,
+      vendorProfileId: vendor!.vendor_profile_id,
+      eventId,
+      eventName: picked?.display_name ?? null,
+    });
+    if (claim.status !== 'applied') backToInvite(slug, `oc_${claim.status}`, scopeWithoutQr);
+    else if (!ci && claim.inviteToken) ci = clientInviteTokenOf(claim.inviteToken);
   }
 
   // 🎁 OWN CLIENTS v4 (owner 2026-11-16): an Add-a-client invite makes the couple the shop's OWN client — no booking

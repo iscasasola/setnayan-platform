@@ -917,6 +917,56 @@ async function forgetOfflineCopies() {
   }
 }
 
+// 📶 SIGN-OUT ERASES THE SUPPLIER'S OFFLINE WORK ON THIS PHONE (owner 2026-11-24, "signing out wipes the phone's offline
+// copy and unused codes"): the queued supplier actions and the phone's QR signing keys, in the daemon's own database
+// (`lib/offline/db.ts` · `supplier_queue` + `supplier_keys`). Opened with no version, so it never upgrades or creates
+// anything — a phone that never kept supplier work has nothing to erase.
+function forgetSupplierOffline() {
+  return new Promise((resolve) => {
+    if (!('indexedDB' in self)) return resolve(false);
+    let req;
+    try {
+      req = indexedDB.open('setnayan_offline');
+    } catch {
+      return resolve(false);
+    }
+    let created = false;
+    // No database yet: opening it would CREATE one (version 1, empty). Abort that — there is nothing to erase.
+    req.onupgradeneeded = () => {
+      created = true;
+      try {
+        req.transaction && req.transaction.abort();
+      } catch {
+        /* ignore */
+      }
+    };
+    req.onerror = () => resolve(created);
+    req.onsuccess = () => {
+      const db = req.result;
+      const names = ['supplier_queue', 'supplier_keys', 'supplier_outcomes'].filter((n) => db.objectStoreNames.contains(n));
+      if (names.length === 0) {
+        db.close();
+        return resolve(true);
+      }
+      try {
+        const tx = db.transaction(names, 'readwrite');
+        for (const n of names) tx.objectStore(n).clear();
+        tx.oncomplete = () => {
+          db.close();
+          resolve(true);
+        };
+        tx.onerror = tx.onabort = () => {
+          db.close();
+          resolve(false);
+        };
+      } catch {
+        db.close();
+        resolve(false);
+      }
+    };
+  });
+}
+
 // One event's copies only — a guest's "Remove it from this browser" (the POST to `/<slug>/sign-out`): that event's
 // entry goes, with each page no other event of this viewer still keeps.
 async function forgetOfflineEvent(eventKey) {
@@ -1339,6 +1389,8 @@ self.addEventListener('message', (event) => {
         : data.type === 'OFFLINE_FORGET'
           ? withOfflineLock(() =>
               // 🔒 F-W1-82: a signed-out page's wipe erases the day-of guest pages too, never only the saved copies.
+              // 📶 The supplier's queued work is NOT erased here: this wipe also runs when a session is merely lost (an
+              // expired token, a password reset). Only a deliberate sign-out (`/auth/sign-out`, below) erases it.
               Promise.all([forgetOfflineCopies(), forgetGuestPages(null).catch(() => undefined)]).then(() => ({ ok: true })),
             )
           : withOfflineLock(async () => {
@@ -1423,6 +1475,8 @@ self.addEventListener('fetch', (event) => {
       Promise.all([
         withOfflineLock(() => (forget === '*' ? forgetOfflineCopies() : forgetOfflineEvent(forget))).catch(() => undefined),
         forgetGuestPages(forget === '*' ? null : forget).catch(() => undefined),
+        // 📶 A DELIBERATE sign-out (`/auth/sign-out`) also erases the supplier's queued work, keys and answers.
+        forget === '*' ? forgetSupplierOffline() : Promise.resolve(false),
       ]),
     );
   }
@@ -1665,7 +1719,183 @@ self.addEventListener('sync', (event) => {
   if (event.tag === 'guestbook-sync') {
     event.waitUntil(flushGuestbookQueue());
   }
+  if (event.tag === OFFLINE_SYNC_TAG) {
+    event.waitUntil(offlineSyncPass());
+  }
 });
+
+// ---------------------------------------------------------------------------
+// 📶 THE SUPPLIER'S QUEUE IS SENT WITH THE APP CLOSED (controller review #2 item 5 · owner R16, DECISION_LOG 24 Nov "The
+// supplier dashboard works offline"). The browser fires `setnayan-offline-sync` when the signal returns — armed by
+// `lib/offline/sync-daemon.ts` `registerSyncDaemon`, which the supplier queue calls every time it keeps an action — and
+// this worker then sends the `supplier_queue` store ITSELF to the ONE stable route, with the person's own cookies: the
+// same POST `lib/offline/supplier-wire.ts` makes (held equal by `lib/offline/the-queue-is-sent-with-the-app-closed.test.ts`).
+// It replaces `sw-offline.js`, which only messaged open windows and, registered at this same scope, replaced this worker.
+// Open windows are still told (`TRIGGER_SYNC`), so a page that is open sends its other queues too.
+//   · ONE SENDER AT A TIME: the Web Lock `setnayan-offline-supplier`, the one a tab's send takes. Held = skip this pass.
+//   · THE SERVER DECIDES WHO MAY SEND: an item made by another account, in another shop, or with no session answers
+//     "retry" and stays — exactly what a tab is told (`lib/supplier-offline/engine.server.ts`).
+//   · NOTHING IS DROPPED HERE: a final answer moves the item to `supplier_outcomes` (the page shows it); "waiting" is not a
+//     try; an answer this worker does not recognise IS a try and the item stays. Only the page gives up on an item, and it
+//     says so (`noteGaveUp`).
+//   · NO SIGNAL AFTER ALL: the pass fails, so the browser tries the sync again later.
+//   · NOTHING IS CREATED: the database is opened with no version, and an open that would create it is aborted.
+// ---------------------------------------------------------------------------
+const OFFLINE_SYNC_TAG = 'setnayan-offline-sync';
+const SUPPLIER_OFFLINE_ROUTE = '/api/offline/supplier-sync';
+const SUPPLIER_OFFLINE_WIRE = 1;
+const SUPPLIER_OFFLINE_LOCK = 'setnayan-offline-supplier';
+// lib/offline/sync-daemon.ts OFFLINE_MAX_RETRY_COUNT — past it the page gives up, with a note; the worker leaves it alone.
+const SUPPLIER_OFFLINE_MAX_TRIES = 50;
+// Nothing was really sent (lib/offline/service-handlers/supplier-handler.ts WAITING): never a try.
+const SUPPLIER_OFFLINE_WAITING = new Set(['offline', 'signed_out', 'other_member', 'other_shop', 'update', 'busy', 'waiting_parent']);
+// The answers that end an item (lib/supplier-offline/kinds.ts SYNC_STATUSES without `retry`).
+const SUPPLIER_OFFLINE_FINAL = new Set(['applied', 'clash', 'needs_reconfirm', 'no_gifts_left', 'confirm_claim', 'refused']);
+
+async function offlineSyncPass() {
+  try {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    for (const w of wins) w.postMessage({ type: 'TRIGGER_SYNC' });
+  } catch {
+    /* no window to tell */
+  }
+  const locks = self.navigator && self.navigator.locks;
+  if (locks && typeof locks.request === 'function') {
+    // A held lock = a tab is sending right now: this pass is done.
+    return locks.request(SUPPLIER_OFFLINE_LOCK, { ifAvailable: true }, (lock) => (lock ? sendSupplierQueue() : undefined));
+  }
+  return sendSupplierQueue();
+}
+
+function openOfflineDbAsIs() {
+  return new Promise((resolve) => {
+    if (!('indexedDB' in self)) return resolve(null);
+    let req;
+    try {
+      req = indexedDB.open('setnayan_offline');
+    } catch {
+      return resolve(null);
+    }
+    req.onupgradeneeded = () => {
+      // The page owns the schema: a database this would CREATE is not made here.
+      try {
+        req.transaction && req.transaction.abort();
+      } catch {
+        /* ignore */
+      }
+    };
+    req.onerror = () => resolve(null);
+    req.onsuccess = () => {
+      const db = req.result;
+      db.onversionchange = () => db.close();
+      if (!db.objectStoreNames.contains('supplier_queue') || !db.objectStoreNames.contains('supplier_outcomes')) {
+        db.close();
+        return resolve(null);
+      }
+      resolve(db);
+    };
+  });
+}
+
+function offlineTx(db, stores, mode, work) {
+  return new Promise((resolve, reject) => {
+    let tx;
+    try {
+      tx = db.transaction(stores, mode);
+    } catch (err) {
+      return reject(err);
+    }
+    let out;
+    const req = work(tx);
+    if (req) req.onsuccess = () => (out = req.result);
+    tx.oncomplete = () => resolve(out);
+    tx.onerror = tx.onabort = () => reject(tx.error || new Error('offline store'));
+  });
+}
+
+/** One POST, as `supplier-wire.ts` makes it. null = no signal (the pass stops and the sync is tried again later). */
+async function postSupplierItem(payload) {
+  let res;
+  try {
+    res = await fetch(SUPPLIER_OFFLINE_ROUTE, {
+      method: 'POST',
+      credentials: 'same-origin',
+      cache: 'no-store',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ v: SUPPLIER_OFFLINE_WIRE, op: 'sync', fields: { item: JSON.stringify(payload) } }),
+    });
+  } catch {
+    return null;
+  }
+  if (res.status === 409) return { wait: 'update' };
+  if (res.status === 429) return { wait: 'busy' };
+  if (!res.ok) return null;
+  try {
+    const json = await res.json();
+    return json && json.v === SUPPLIER_OFFLINE_WIRE && json.reply ? { reply: json.reply } : { tried: true };
+  } catch {
+    return { tried: true };
+  }
+}
+
+/** What one answer does to the item: `done` (with the note to keep, if any), `wait`, or `tried`. */
+function supplierAnswer(payload, answer) {
+  if ('wait' in answer) return { wait: true };
+  if ('tried' in answer) return { tried: true };
+  const r = answer.reply;
+  if (!r || r.op !== 'sync') return { tried: true };
+  if (r.ok === false) {
+    if (r.retry) return SUPPLIER_OFFLINE_WAITING.has(r.why) ? { wait: true } : { tried: true };
+    return { done: { status: 'refused', why: String(r.why || ''), itemId: payload.itemId, kind: payload.kind } };
+  }
+  const reply = r.reply;
+  if (!reply || typeof reply !== 'object' || reply.itemId !== payload.itemId) return { tried: true };
+  if (reply.status === 'retry') return SUPPLIER_OFFLINE_WAITING.has(reply.why) ? { wait: true } : { tried: true };
+  if (!SUPPLIER_OFFLINE_FINAL.has(reply.status)) return { tried: true };
+  return { done: reply };
+}
+
+async function sendSupplierQueue() {
+  const db = await openOfflineDbAsIs();
+  if (!db) return;
+  let noSignal = false;
+  try {
+    const items = (await offlineTx(db, ['supplier_queue'], 'readonly', (tx) => tx.objectStore('supplier_queue').getAll())) || [];
+    items.sort((a, b) => (a.queued_at < b.queued_at ? -1 : a.queued_at > b.queued_at ? 1 : 0));
+    for (const item of items) {
+      const p = item && item.payload;
+      if (!p || p.v !== 1 || typeof p.itemId !== 'string' || typeof p.member !== 'string') continue;
+      if (item.retry_count >= SUPPLIER_OFFLINE_MAX_TRIES) continue;
+      // 📎 A message carrying a file the page has not uploaded yet: only the page can prepare (compress) and upload it
+      // (`supplier-handler.ts` `sendKeptFile`), so it waits for the page. The bytes never ride a sync.
+      if (p.file && !(p.fields && typeof p.fields.attachment_ref === 'string')) continue;
+      const { file: _bytes, ...sendable } = p;
+      const answer = await postSupplierItem(sendable);
+      if (answer === null) {
+        noSignal = true;
+        break;
+      }
+      const step = supplierAnswer(p, answer);
+      if (step.done) {
+        const note = step.done.status === 'applied'
+          ? null
+          : { id: p.itemId, member: p.member, shop: p.shop, item: sendable, reply: step.done, answeredAt: new Date().toISOString() };
+        await offlineTx(db, ['supplier_queue', 'supplier_outcomes'], 'readwrite', (tx) => {
+          if (note) tx.objectStore('supplier_outcomes').put(note);
+          tx.objectStore('supplier_queue').delete(item.item_id);
+        });
+      } else if (step.tried) {
+        await offlineTx(db, ['supplier_queue'], 'readwrite', (tx) => {
+          tx.objectStore('supplier_queue').put({ ...item, retry_count: (item.retry_count || 0) + 1, last_error: 'Setnayan couldn’t check it just now — it will try again.' });
+        });
+      }
+      // `wait`: nothing was really sent — the item stays exactly as it was.
+    }
+  } finally {
+    db.close();
+  }
+  if (noSignal) throw new Error('no signal — the browser tries this sync again later');
+}
 
 async function flushGuestbookQueue() {
   try {

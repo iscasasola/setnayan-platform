@@ -17,6 +17,18 @@ export const CLOSING_BLOCK_SOURCES: ReadonlySet<string> = new Set(['manual', 'sy
 export const CLOSED_DAY_COUPLE_MESSAGE =
   'The supplier has closed this date on their calendar — message them before booking this date.';
 
+/**
+ * 📶 EXPO MODE (owner 2026-11-24, team-clash rule 1 — "only the holder can book them"): the database refuses a booking
+ * on a day one of the supplier's team holds (`event_vendors_respect_offline_holds` raises `date_held`). The couple is
+ * never told who or why — to them the day is closed, in the closed-day sentence. Any other message passes through.
+ */
+export function couplesWordsForBookingRefusal(message: string | null | undefined): string {
+  return isDateHeldRefusal(message) ? CLOSED_DAY_COUPLE_MESSAGE : (message ?? '');
+}
+export function isDateHeldRefusal(message: string | null | undefined): boolean {
+  return /\bdate_held\b/.test(message ?? '');
+}
+
 export type ClosedDayFacts = Pick<CheckDateInput, 'pools' | 'bookings' | 'blocks' | 'dayStates' | 'services'>;
 
 /** A PH civil day `YYYY-MM-DD`, or null. */

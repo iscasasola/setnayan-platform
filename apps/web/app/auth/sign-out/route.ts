@@ -6,6 +6,7 @@ import { eraseFaceTaggingSelfie, eraseFaceTaggingSelfiesForUser } from '@/lib/fa
 import { RSVP_TERMS_COOKIE } from '@/lib/terms-agreement';
 import { HOST_PREVIEW_PASS_COOKIE_NAME } from '@/lib/pass-account-rule';
 import { ACTIVE_SHOP_COOKIE } from '@/lib/active-shop';
+import { OFFLINE_DEVICES_COOKIE, stopOfflineDevicesOnSignOut } from '@/lib/supplier-offline/sign-out.server';
 import { ACCOUNTS_LIST_COOKIE, accountCookiesOnSignOut } from '@/lib/account-jars';
 
 export async function POST(request: NextRequest) {
@@ -24,6 +25,10 @@ export async function POST(request: NextRequest) {
   const passes = await readEveryGuestPass().catch(() => []);
   const admin = createAdminClient();
   if (leaving) await eraseFaceTaggingSelfiesForUser(admin, leaving.id).catch(() => 0);
+  // 🔳 SIGNING OUT STOPS THIS PHONE'S OFFLINE QR KEYS (owner 2026-11-24, DECISION_LOG 7d618cb3): the phone deletes its
+  // keys (the worker, on its way here); the server stops their rows, so a code signed on this phone and never scanned
+  // is refused from now on. Only this account's rows, only the phones this browser names. Best-effort.
+  if (leaving) await stopOfflineDevicesOnSignOut(admin, leaving.id, request.cookies.get(OFFLINE_DEVICES_COOKIE)?.value).catch(() => 0);
   for (const pass of passes) {
     if (pass.event_id && pass.guest_id) {
       await eraseFaceTaggingSelfie(admin, pass.event_id, pass.guest_id).catch(() => null);
@@ -83,5 +88,7 @@ export async function POST(request: NextRequest) {
     response.cookies.set(c.name, c.value, c.options);
   }
 
+  // 🔳 The phone's offline QR key ids (`sn_offline_devices`) were only for stopping those keys above — they go too.
+  response.cookies.set(OFFLINE_DEVICES_COOKIE, '', { maxAge: 0, path: '/', sameSite: 'lax', secure: process.env.NODE_ENV === 'production' });
   return response;
 }

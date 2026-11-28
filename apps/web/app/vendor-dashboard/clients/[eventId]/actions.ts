@@ -1833,7 +1833,10 @@ export async function vendorAgreeToLock(formData: FormData) {
   const back = lockAnswerReturnTo(formData.get('return_to'));
   revalidatePath('/vendor-dashboard');
   if (back !== '/vendor-dashboard') revalidatePath(back);
-  const flag = error ? (/service_on_hold/.test(error.message ?? '') ? 'service_on_hold' : 'error') : (env.status ?? 'ok');
+  // 📶 A teammate holds this day for expo mode (`event_vendors_respect_offline_holds`): only they can take it.
+  const flag = error
+    ? /service_on_hold/.test(error.message ?? '') ? 'service_on_hold' : /date_held/.test(error.message ?? '') ? 'date_held' : 'error'
+    : (env.status ?? 'ok');
   // `competing` rides along because the refusal it belongs to — "answer the
   // other couples waiting on you for that date first" — is only actionable if
   // the supplier is told HOW MANY. The Overview reads both and says the

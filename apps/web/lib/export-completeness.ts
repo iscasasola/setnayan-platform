@@ -261,6 +261,31 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
       'reason — internal reconciliation keys, service-role only (migration 20271356998019).',
   },
   {
+    table: 'vendor_calendar_blocks',
+    decision: 'excluded',
+    why: "The shop's own calendar (its \"not available\" blocks and outside clients). created_by / updated_by (supplier offline engine, migration 20271363269436) are actor stamps: which team member made or last changed an item, so a clash can name them. The rows are the shop's records, not information about that person.",
+  },
+  {
+    table: 'vendor_offline_devices',
+    decision: 'excluded',
+    why: "A member phone's offline QR key — the PUBLIC half only — and when that phone was last seen online. A device record kept to check QR signatures, not information about the person; it goes with the account (lib/erasure/coverage.ts). Service-role only (migration 20271363269436).",
+  },
+  {
+    table: 'vendor_offline_code_uses',
+    decision: 'excluded',
+    why: "Which shop phone made an offline client QR that was used, and the schedule entry it made. The entry itself is the shop's calendar row; this is the one-use key behind it. Shop members read it (migration 20271363269436).",
+  },
+  {
+    table: 'vendor_offline_holds',
+    decision: 'excluded',
+    why: 'A member\'s expo-mode date claim for their shop ("I\'m handling 10–15 Dec"): the shop\'s own scheduling plumbing, ended when the phone syncs. Shop members read it (migration 20271363269436).',
+  },
+  {
+    table: 'vendor_offline_writes',
+    decision: 'excluded',
+    why: "The idempotency ledger of supplier changes made offline: each queued item's id and the answer a retry gets. The changes themselves are the shop's rows; this is internal plumbing. Shop members read it (migration 20271363269436).",
+  },
+  {
     table: 'vendor_app_store_plan_tokens',
     decision: 'excluded',
     why:

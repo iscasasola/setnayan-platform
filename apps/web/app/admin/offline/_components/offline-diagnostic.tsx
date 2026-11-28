@@ -74,10 +74,11 @@ export default function OfflineDiagnostic() {
       let swRegistered = false;
       if ('serviceWorker' in navigator) {
         try {
-          const registration = await navigator.serviceWorker.getRegistration(
-            '/sw-offline.js',
-          );
-          swRegistered = Boolean(registration);
+          // The ONE worker (`/sw.js`) carries the Background Sync listener;
+          // `sw-offline.js` is retired (controller review #2 item 5).
+          const registration = await navigator.serviceWorker.getRegistration('/');
+          const script = registration?.active?.scriptURL ?? '';
+          swRegistered = new URL(script || 'about:blank').pathname === '/sw.js';
         } catch {
           swRegistered = false;
         }

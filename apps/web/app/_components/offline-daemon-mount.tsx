@@ -6,8 +6,11 @@
 // scaffolds the IndexedDB + service-worker daemon that holds offline
 // captures for the 7 media services. This component:
 //
-//   1. Registers `/sw-offline.js` as a SECOND service worker (alongside
-//      the existing `/sw.js` asset-cache worker registered in layout.tsx).
+//   1. Waits for the ONE service worker, `/sw.js` (registered in layout.tsx).
+//      📶 `sw-offline.js` is RETIRED (controller review #2 item 5, 25 Nov
+//      2026): registered at the same scope `/`, it REPLACED `/sw.js`, and it
+//      only messaged open windows. `/sw.js` now owns the Background Sync
+//      listener and sends the supplier queue itself with the app closed.
 //   2. Calls `registerSyncDaemon()` to wire up Background Sync.
 //   3. Listens for `TRIGGER_SYNC` messages from the SW (fired when
 //      Background Sync wakes the worker) and runs `triggerSyncNow()`
@@ -34,18 +37,10 @@ export function OfflineDaemonMount() {
 
     let cancelled = false;
 
-    // Register the second SW + arm Background Sync. Both calls are
-    // best-effort — they no-op on browsers that don't support the
-    // Background Sync API (Safari, Firefox) without throwing.
+    // Arm Background Sync on the one worker (`registerSyncDaemon` waits for
+    // `navigator.serviceWorker.ready`). Best-effort — it no-ops on browsers
+    // that don't support the Background Sync API (Safari, Firefox).
     const setupPromise = (async () => {
-      try {
-        await navigator.serviceWorker.register('/sw-offline.js');
-      } catch {
-        // Service worker registration failed (HTTPS gating, quota,
-        // browser disabled). Silent — the daemon is a best-effort
-        // enhancement; the surfaces still work online.
-        return;
-      }
       if (cancelled) return;
       await registerSyncDaemon();
     })();

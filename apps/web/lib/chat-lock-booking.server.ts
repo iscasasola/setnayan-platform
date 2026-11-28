@@ -5,6 +5,7 @@ import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { planChatLockBooking } from '@/lib/chat-lock-booking';
 import { isLockHandshakeEnabled } from '@/lib/lock-handshake-flag';
 import { closedDayRefusal } from '@/lib/closed-day.server';
+import { isDateHeldRefusal } from '@/lib/closed-day';
 import { bookingWindowRefusal } from '@/lib/booking-window.server';
 
 /**
@@ -236,6 +237,8 @@ export async function bookVendorAtChatLock(
       if (error.code === '23505' && /hard_single/.test(`${error.message ?? ''} ${(error as { details?: string }).details ?? ''}`)) {
         return { status: 'hard_single_blocked' };
       }
+      // 📶 A day one of the supplier's team holds for expo mode: to the couple, a closed day (never who or why).
+      if (isDateHeldRefusal(error.message)) return { status: 'date_closed' };
       return { status: 'error', message: error.message };
     }
   }

@@ -238,7 +238,8 @@ export async function addManualBlock(formData: FormData): Promise<void> {
   }
 
   const { error } = await insertManualBlock(supabase, profile.vendor_profile_id, { poolId, startDate, endDate, label, repeat, dayPart });
-  if (error) fail('save_failed');
+  // 📅 A teammate's expo-mode hold (the `vendor_calendar_blocks_respect_holds` trigger) is said as itself, not "try again".
+  if (error) fail(/date_held/.test(error.message ?? '') ? 'date_held' : 'save_failed');
 
   revalidateShopPage(profile.vendor_profile_id);
   revalidateScheduleSurfaces();
@@ -324,8 +325,8 @@ export async function importExternalClient(formData: FormData): Promise<void> {
   });
   if (error) {
     // Import is free now — the RPC no longer burns tokens, so there's no
-    // insufficient-balance path left; any error is a genuine save failure.
-    backToCalendar(formData, 'save_failed');
+    // insufficient-balance path left; a teammate's expo hold is said as itself, any other error is a save failure.
+    backToCalendar(formData, /date_held/.test(error.message ?? '') ? 'date_held' : 'save_failed');
   }
   const status = (data as { status?: string; reason?: string } | null)?.status;
   if (status !== 'ok') {

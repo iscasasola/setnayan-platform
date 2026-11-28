@@ -808,6 +808,11 @@ const SHOWS_TOTAL_NOW: Record<string, { needles: Array<[RegExp, number]>; column
     ],
     column: 3,
   },
+  'lib/supplier-offline/engine.server.ts': {
+    what: 'the supplier offline engine — the live agreed total a booking action made offline is re-checked against (R6: a moved amount is never applied)',
+    needles: [[AGREED_NOW, 1], [PAGE_READ, 1], [/agreedTotalNow\(m\.total_cost_php, lines\.byVendor\.get\(vendorId\) \?\? \[\]\)/, 1]],
+    column: 1,
+  },
   'lib/checklist-budget.ts': {
     what: 'checklist budget — committed per plan group (folded in checklist-budget-attribution)',
     needles: [[EMBED, 1]],

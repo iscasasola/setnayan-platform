@@ -1034,6 +1034,26 @@ export const SUBJECT_ROW_DELETES: ReadonlyArray<{
   why: string;
 }> = [
   {
+    table: 'vendor_offline_devices',
+    column: 'member_user_id',
+    why: '🔳 NOT NULL, no FK — one member\u2019s phone key for offline client QR codes (the public half only) and when that phone was last seen (supplier offline engine, migration 20271363269436). It is about that person\u2019s phone; it goes with them (its code uses go with it, by CASCADE), and the shop\u2019s calendar entries stay.',
+  },
+  {
+    table: 'vendor_offline_code_uses',
+    column: 'member_user_id',
+    why: '🔳 NOT NULL, no FK — which member\u2019s phone made an offline client QR that was used (migration 20271363269436). The schedule entry it made stays on the shop\u2019s calendar; this record of whose phone it was goes with them.',
+  },
+  {
+    table: 'vendor_offline_holds',
+    column: 'member_user_id',
+    why: '📅 NOT NULL, no FK — one member\u2019s expo-mode date claim (migration 20271363269436). It only says that person is handling those dates; it goes with them and the dates open for the team.',
+  },
+  {
+    table: 'vendor_offline_writes',
+    column: 'member_user_id',
+    why: '📶 NOT NULL, no FK — one member\u2019s record of each change made offline and its answer (the idempotency ledger, migration 20271363269436). The changes themselves live on the shop\u2019s rows; this log of what that person\u2019s phone sent goes with them.',
+  },
+  {
     table: 'admin_focus_put_offs',
     column: 'user_id',
     why: '⏭ CASCADE + NOT NULL — one admin\u2019s own "Do it tomorrow" on their Focus list (Today v3 part 4, migration 20271355036188). It is about that admin\u2019s day and nobody else reads it; it goes with them, and the item stays in every other admin\u2019s Focus.',

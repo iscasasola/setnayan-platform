@@ -35,7 +35,8 @@
  * Cross-references:
  *   • Lib: apps/web/lib/offline/{types,db,sync-daemon}.ts +
  *     service-handlers/*.ts (7 stubs).
- *   • Service worker: apps/web/public/sw-offline.js
+ *   • Service worker: apps/web/public/sw.js (its Background Sync pass;
+ *     sw-offline.js is retired)
  *   • Mount: apps/web/app/_components/offline-daemon-mount.tsx
  *   • Env feature flag: NEXT_PUBLIC_OFFLINE_DAEMON_ENABLED (default OFF
  *     for pilot per CLAUDE.md 2026-05-28 third row).

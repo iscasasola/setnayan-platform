@@ -12,10 +12,9 @@
  * event"*; and the admin config gives a free camera no credits of its own
  * (`papic_event_pool_config.free_one_camera_points` / `camera_grant_points`, read
  * them — never quote them). So: cameras are unlimited, every photo spends the
- * event's credits, and the free credits are the ACCOUNT's, once
- * (`PAPIC_FREE_CREDIT_CONDITION`). This band does not know whether THIS event got
- * them, so it says nothing about free credits at all — never a promise it cannot
- * check.
+ * event's credits, and there are no free first-event credits any more (owner
+ * 16 Nov 2026, "Free 50 Papic credits REMOVED"). This band says nothing about
+ * free credits at all.
  *
  * The premise that survives is the one-time telling: Papic is switched on for this
  * event and nothing has been shot yet. It is deliberately a SIBLING of `SetDateNudge` — same

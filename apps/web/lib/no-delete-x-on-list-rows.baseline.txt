@@ -22,7 +22,6 @@ app/dashboard/[eventId]/vendors/_components/build-body.tsx 3
 app/dashboard/[eventId]/vendors/_components/build-compare.tsx 1
 app/dashboard/[eventId]/website/_components/apply-pro-sheet.tsx 2
 app/dashboard/[eventId]/website/editor/_components/background-colour-wells.tsx 1
-app/monogram/public-monogram-studio.tsx 1
 app/onboarding/wedding/_components/onboarding-shell.tsx 1
 app/papic/guest/_components/guest-camera-tools.tsx 1
 app/vendor-dashboard/on-the-day/live/[eventId]/_components/song-desk/sets-panel.tsx 1

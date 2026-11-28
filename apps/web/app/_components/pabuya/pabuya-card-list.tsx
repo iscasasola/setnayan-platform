@@ -225,7 +225,7 @@ export function PabuyaTrustNote({
               Guests send directly to your account — Setnayan never holds your
               money.
             </b>{' '}
-            We only display the handles and QR codes you add here. Hosts pay 0% commission.
+            We only display the handles and QR codes you add here.
           </>
         ) : (
           <>

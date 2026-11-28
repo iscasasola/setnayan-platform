@@ -50,7 +50,6 @@ function view(price: Map<string, number>, list?: Map<string, number>) {
     oneTiers: [],
     pricePhpByCode: price,
     listPricePhpByCode: list,
-    freePoolPoints: 50,
     freeOnePoints: 0,
     aiPricePhp: null,
   });

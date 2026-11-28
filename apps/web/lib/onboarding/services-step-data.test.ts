@@ -53,7 +53,6 @@ const build = (over: Partial<Parameters<typeof buildServicesStepView>[0]> = {}) 
     poolTiers: POOL_TIERS,
     oneTiers: ONE_TIERS,
     pricePhpByCode: PRICES,
-    freePoolPoints: 50,
     freeOnePoints: 5,
     aiPricePhp: 1499,
     ...over,
@@ -116,11 +115,11 @@ test('a rung the catalog cannot price DISAPPEARS — it is never shown at ₱0',
   );
 });
 
-test('a dead catalog leaves the free tier standing and sells nothing', () => {
+test('a dead catalog sells nothing — and there is no free tier to fall back on', () => {
   const v = build({ pricePhpByCode: new Map() });
   assert.deepEqual(typeOf(v, 'pool').rungs, []);
-  // The free half is armed by SQL, not the catalog, so it must survive.
-  assert.equal(typeOf(v, 'pool').freePoints, 50);
+  // 🎁 The free first-event pool is retired (owner 16 Nov 2026), so nothing free is drawn either.
+  assert.equal(typeOf(v, 'pool').freePoints, 0);
 });
 
 test('the product is camera-less — cameras are free and uncounted', () => {
@@ -134,13 +133,13 @@ test('the product is camera-less — cameras are free and uncounted', () => {
 test('a zeroed free allowance removes the free tier rather than promising it', () => {
   // papic_ensure_free_one_camera treats <= 0 as "arm nothing". Copy must follow,
   // or the card promises a camera the meter never mints.
-  const v = build({ freeOnePoints: 0, freePoolPoints: 0 });
+  const v = build({ freeOnePoints: 0 });
   assert.equal(typeOf(v, 'pool').freePoints, 0);
 });
 
-test('the free allowances track their admin columns, they are not literals', () => {
-  const v = build({ freePoolPoints: 90, freeOnePoints: 12 });
-  assert.equal(typeOf(v, 'pool').freePoints, 90);
+test('🎁 the pool promises no free first-event credits, whatever the admin column holds (owner 16 Nov 2026)', () => {
+  const v = build({ freeOnePoints: 12 });
+  assert.equal(typeOf(v, 'pool').freePoints, 0);
 });
 
 test('the point currency is derived from the capture-path constants', () => {

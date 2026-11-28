@@ -69,6 +69,13 @@ test('the stale-claims list is live — every entry still catches the words it w
     'buy Setnayan AI on its own',
     'Event Plus adds Setnayan AI',
     '**Does Setnayan take a commission?** No.',
+    'cut reels with Patiktok',
+    'write a song in Music Maker',
+    'read our Real Stories',
+    'light it up with Pailaw',
+    'the Supplier Solo plan',
+    'the planning workspace stays free',
+    'A plan bought in the iPhone app renews',
   ];
   for (const c of STALE_CLAIMS) {
     assert.ok(samples.some((t) => c.pattern.test(t)), `no sample trips ${c.pattern} — a pattern that catches nothing is decoration`);
@@ -89,7 +96,8 @@ test('llms.txt prints every saved question with our true answer, word for word',
 test('the commission answer says who pays what — the live rate when read, no rate (never the default) when not', () => {
   const live = { ...BOOKING_FEE, rate: 0.04 };
   const on = withFee('true', () => aiAnswers({ bookingFee: live }).find((a) => a.id === 'commission')!.answer);
-  assert.match(on, /Couples pay no commission/);
+  assert.match(on, /^Hosts pay suppliers directly,/, 'the host half does not say hosts pay suppliers directly');
+  assert.doesNotMatch(on, /0% commission/, 'hosts are told "0% commission" (owner 28 Nov: hosts own the event)');
   assert.match(on, /4% of the first/);
   const unread = withFee('true', () => aiAnswers({ bookingFee: null }).find((a) => a.id === 'commission')!.answer);
   assert.ok(!/%/.test(unread), 'an unread schedule printed a rate');
@@ -163,6 +171,9 @@ const NOT_IN_A_SITEMAP: Record<string, string> = {
   '/login': 'a sign-in page — noindex, nothing to find in search',
   '/signup': 'the account form — noindex, nothing to find in search',
   // '/weddings' left 2026-11-16 — it forwards to / and is no longer a known public route (PR #7847).
+  // L9 P29 (27 Nov): /monogram server-redirects to /palogo; a sitemap lists the page it lands on. Drop this row with
+  // the '/monogram' line in KNOWN_PUBLIC_ROUTES once /llms.txt links /palogo (PR #8423's file).
+  '/monogram': 'a 308 to /palogo — the sitemap lists /palogo',
 };
 
 // SABOTAGE: delete '/for-coordinators' from app/sitemap-static.xml/route.ts → RED.

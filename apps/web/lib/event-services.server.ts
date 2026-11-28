@@ -23,8 +23,6 @@ import { resolveOrderChargeCentavos } from '@/lib/order-charge-authority';
 import { loadPoolRungs } from '@/lib/papic-pool-rungs';
 import { readEventPoolStatus } from '@/lib/papic-event-pool';
 import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/vendor-funnel';
-import { readPapicFreeGrantRead } from '@/lib/papic-tier-config-read';
-import { papicFreeCreditPromise } from '@/lib/papic-free-credit-promise';
 import { PRO_PEEK, ULTRA_PEEK, plusPeek, proMore, ultraMore } from '@/app/_components/frontdoor/front-door-landing-data';
 import {
   PACK_KEYS,
@@ -119,7 +117,6 @@ export async function readEventServices(eventId: string): Promise<EventServicesF
     pool,
     booked,
     eyebrow,
-    freeGrant,
     ...quotes
   ] = await Promise.all([
     eventHubOwnership(ent, eventId, 'active').catch(() => null),
@@ -137,7 +134,6 @@ export async function readEventServices(eventId: string): Promise<EventServicesF
     readEventPoolStatus(admin, eventId),
     bookedCount(ent, eventId).catch(() => null),
     eventLine(ent, eventId).catch(() => null),
-    readPapicFreeGrantRead(),
     ...PACK_KEYS.map((k) => quote(PLAN_PRICE_CODES[k], eventId)),
     ...SINGLE_KEYS.map((k) => quote(SINGLE_CODES[k], eventId)),
   ]);
@@ -160,7 +156,8 @@ export async function readEventServices(eventId: string): Promise<EventServicesF
     plusCredits: creditsOf('plus'),
     proCredits: creditsOf('pro'),
     ultraCredits: creditsOf('ultra'),
-    freePapic: papicFreeCreditPromise(freeGrant)?.sentence ?? null,
+    // 🎁 No free first-event Papic line (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic credits REMOVED").
+    freePapic: null,
   };
   const info: Record<PackKey, readonly string[]> = {
     plus: plusPeek(planFacts),

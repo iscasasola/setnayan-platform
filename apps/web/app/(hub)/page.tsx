@@ -82,7 +82,7 @@ import { maybeRunOwnerApprovals } from '@/lib/admin/self-approval-runner';
 // query the brand ranks for — weddings remain the deepest surface.
 const HOME_TITLE = 'Setnayan · Plan any event free. Every photo in one album.';
 const HOME_DESCRIPTION =
-  'Plan any Filipino event free — wedding, debut, christening, birthday, graduation, anniversary, reunion, corporate and more — with every guest’s photo in one album. Verified supplier marketplace. Hosts pay 0% commission.';
+  'Plan any Filipino event free — wedding, debut, christening, birthday, graduation, anniversary, reunion, corporate and more — with every guest’s photo in one album. Verified supplier marketplace.';
 
 export const metadata = {
   // The title already opens with the brand, so the layout template must not add it again (final check A1-161).
@@ -216,7 +216,7 @@ const softwareAppJsonLd = {
   // asked "what is Setnayan". It said "wedding platform" while sixteen other
   // event types were live and enabled.
   description:
-    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then choose Event Plus or Event Pro for an event — the Setnayan AI planner comes inside both — or add single services priced in PHP: Papic candid photo-and-video capture from the guests' own phones with QR-tagged Memories (free credits on your first event), and Live Watch livestream on the event page. Every photo, video, and milestone gathers into one living memory (Memories) the host keeps, and an event becomes its own recurring anniversary. Hosts pay 0% commission.",
+    "The Philippines-first life-events platform — plan any Filipino event free, then keep it all in one place. Weddings are the deepest surface, and the same planning, capture, and memory rails run debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, and more. Hosts plan free, then choose Event Plus, Event Pro or Event Ultra for an event — the Setnayan AI planner comes inside Event Pro and Event Ultra — or add single services priced in PHP: Papic candid photo-and-video capture from the guests' own phones with QR-tagged Memories (many bookings come with free Papic photos as a Setnayan gift), and Live Watch livestream on the event page. Every photo, video, and milestone gathers into one living memory (Memories) the host keeps, and an event becomes its own recurring anniversary.",
   featureList: [
     // 🔑 REFRESHED 2026-09-26 (GEO audit) against shipped code, not docs.
     // "Free" appears only on tools the ₱0 tier includes — `FREE_FOR_ALL_SKUS`
@@ -235,9 +235,9 @@ const softwareAppJsonLd = {
     'Day-of schedule built block by block (free)',
     'Pakulay mood board (free)',
     'Event Hub — save-the-date, RSVP, the day’s details and your story laid out like a magazine feature (free, unlimited RSVP)',
-    // Build 6 Lane K: the free credits are on an account's FIRST event only (lib/papic-free-credit-promise.ts), and the
-    // "personal highlight reels" line left with it — reels are Patiktok, which is unlisted until it has run for real.
-    'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged Memories (free credits on your first event; credit packs for more)',
+    // Build 6 Lane K: the "personal highlight reels" line left with the free-credit wording (the free first-event grant is retired,
+    // owner 16 Nov 2026) — reels are Patiktok, which is unlisted until it has run for real.
+    'Papic — guests’ phones become a coordinated photo-and-video crew, with QR-tagged Memories (credit packs; many bookings come with free Papic photos as a Setnayan gift)',
     'Memory lane — the guests’ photos live on a screen at the venue and on their own phones (free)',
     'Live Watch — day-of livestream to YouTube, embedded on the Event Hub (one camera included; multicam control room as an add-on)',
     'Setnayan AI — assisted planner that drafts timelines and matches verified suppliers (comes with Event Pro and Event Ultra)',
@@ -252,7 +252,7 @@ const softwareAppJsonLd = {
     // stays true in both directions.
     'The same planning, capture, and memory tools run every event type Setnayan offers — weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes, and more — and your event becomes its own recurring anniversary with a yearly reminder',
     // Couple-facing: the zero is unqualified here (owner 2026-09-22).
-    'Verified Filipino event supplier marketplace — every supplier passes a business-legitimacy check and a video call with a Setnayan admin; hosts pay suppliers directly. Hosts pay 0% commission.',
+    'Verified Filipino event supplier marketplace — every supplier passes a business-legitimacy check and a video call with a Setnayan admin; hosts pay suppliers directly.',
   ],
   offers: {
     '@type': 'Offer',

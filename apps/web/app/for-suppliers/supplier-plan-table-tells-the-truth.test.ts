@@ -38,7 +38,7 @@ import {
 } from './_components/plan-table-data';
 import { freeSpec } from './_components/supplier-front-data';
 import { freeSpec as coordinatorFreeSpec } from '@/app/(shell)/for-coordinators/_facts';
-import { plusPeek, proMore, freeGroups, PLUS_MORE } from '@/app/_components/frontdoor/front-door-landing-data';
+import { plusPeek, proMore, PLUS_MORE } from '@/app/_components/frontdoor/front-door-landing-data';
 
 const WEB = join(__dirname, '..', '..');
 const code = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
@@ -230,8 +230,7 @@ test('the Event Plus card names what a paid Event Plus order unlocks — the who
   assert.match(proMore(facts).join(' '), /\b9 Papic credits\b/, 'the Pro card does not print the credits the catalogue read');
   assert.doesNotMatch(plusPeek({ plusCredits: null, proCredits: null, freePapic: null }).join(' '), /credits/, 'an unread credit count is still said');
   assert.doesNotMatch(proMore(facts).join(' '), /No Setnayan marks/, 'Pro promises no marks while the seat pages still print one');
-  const free = freeGroups({ plusCredits: null, proCredits: null, freePapic: null }).flatMap((g) => g.items).join(' · ');
-  assert.doesNotMatch(free, /\b50 free credits\b/, 'the Free card types the free-credit number');
+  // (`freeGroups`, the Free card's old groups, was deleted 27 Nov — L9 P28: no caller, and it still named Real Stories.)
 });
 
 test('/features: a light "no select" on the sections, and nothing more', () => {

@@ -23,7 +23,7 @@ const RUNS = Number(process.env.RUNS ?? 3);
 const DEFAULT_PATHS = [
   '/', '/about', '/acceptable-use', '/alaala', '/articles', '/budget', '/cookies', '/creators', '/download',
   '/explore/compare', '/features', '/for-coordinators', '/for-suppliers', '/forgot-password', '/guest-list', '/help',
-  '/help/topics', '/live', '/login', '/marketplace', '/monogram', '/mood-board', '/open-shop', '/our-story', '/pa3d',
+  '/help/topics', '/live', '/login', '/marketplace', '/mood-board', '/open-shop', '/our-story', '/pa3d',
   '/pa3d/try', '/pakanta', '/palogo', '/panood', '/papic', '/papic/try', '/patiktok', '/pawebsite', '/pricing',
   '/pricing/plan', '/privacy', '/refunds', '/samahan', '/sample', '/sample/hub', '/schedule', '/seat-plan',
   '/setnayan-ai', '/signup', '/start', '/suppliers', '/terms', '/tl/about', '/tl/features', '/tour', '/tour/budget',

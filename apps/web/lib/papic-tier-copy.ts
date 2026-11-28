@@ -223,100 +223,12 @@ export function papicFreeCameraCount(config: PapicTierConfig): number {
 }
 
 /**
- * Papic Free = the ONE shared event pool capped at this many points (owner
- * 2026-07-22 · "Free is Papic pool with just 50 points"). The live value is the
- * admin-editable `papic_event_pool_config.free_grant_points`; this helper reads
- * it off the config object when present and falls back to the seed literal in
- * ONE place, so no display surface ever hardcodes "50". Mirrors the
- * papicFreeCameraCount pattern.
+ * 🎁 THE FREE FIRST-EVENT POOL READERS WERE HERE (`papicFreeGrantPoints`,
+ * `fetchPapicFreeGrantPoints`, `fetchPapicFreeGrantRead`, `PapicFreeGrantRead`,
+ * `PAPIC_FREE_GRANT_POINTS_FALLBACK`). The grant is retired (owner 16 Nov 2026,
+ * DECISION_LOG "Free 50 Papic credits REMOVED"), nothing mints or quotes it, so
+ * nothing reads `papic_event_pool_config.free_grant_points` from the app any more.
  */
-export const PAPIC_FREE_GRANT_POINTS_FALLBACK = 50;
-export function papicFreeGrantPoints(config: PapicTierConfig): number {
-  const n = (config as unknown as { freeGrantPoints?: number }).freeGrantPoints;
-  return typeof n === 'number' && n > 0 ? n : PAPIC_FREE_GRANT_POINTS_FALLBACK;
-}
-
-/**
- * The LIVE free-pool allowance, straight from the admin-editable column.
- *
- * WHY THIS EXISTS (2026-07-28). The doc above always claimed the live value was
- * `papic_event_pool_config.free_grant_points` — but nothing ever read it.
- * `fetchPapicTierConfig` queries a DIFFERENT table (`papic_tier_config`) and
- * never sets `freeGrantPoints`, so `papicFreeGrantPoints()` could only ever
- * return the fallback literal. The admin column was decorative.
- *
- * That was harmless while the free pool was unarmed and nothing displayed it.
- * It stopped being harmless the moment the pool was armed (PR #3847/#3848): the
- * GRANT writes a number, copy renders a number, and if an admin edits the column
- * those two must not drift apart. An admin who sets the allowance to 90 and sees
- * "about 90 photos" on the card while the meter still hands out 50 has been lied
- * to by their own control.
- *
- * So this is the single live reader, and BOTH halves — the grant amount
- * (lib/papic-free-grant.ts) and the display phrase — resolve through it.
- * Falls back to PAPIC_FREE_GRANT_POINTS_FALLBACK in ONE place, as before.
- */
-export async function fetchPapicFreeGrantPoints(
-  supabase: SupabaseClient,
-): Promise<number> {
-  const read = await fetchPapicFreeGrantRead(supabase);
-  // A non-positive or unparseable value must never mint a 0-point (or
-  // negative) grant — papic_event_point_grants CHECKs points > 0, so a bad
-  // config row would turn every event-creation arm into a silent failure and
-  // put us straight back to the unmetered state this whole line of work fixed.
-  return read.kind === 'value' && read.points > 0
-    ? read.points
-    : PAPIC_FREE_GRANT_POINTS_FALLBACK;
-}
-
-/**
- * The SAME read, with the three outcomes kept apart.
- *
- * 🚨 WHY THIS IS SEPARATE FROM THE FUNCTION ABOVE, AND WHY IT IS NOT A SECOND
- * SOURCE OF TRUTH (2026-09-14, MONEY-1). One query, one decision table; the
- * older helper is now a thin wrapper over this one and its behaviour is
- * unchanged for every caller it already had.
- *
- * What the wrapper cannot express is the difference between **"the admin set
- * this to 0"** and **"I could not read it"** — it collapses both onto the seed
- * fallback of 50. That is right for a MINT (0 points is not a grant you can
- * write) and wrong for a PROMISE: an admin who sets `free_grant_points = 0`
- * switches the grant off in SQL — `papic_claim_free_pool` returns before the
- * claim — while the public /papic page went on advertising 50 free credits
- * nobody would receive. The display half needs the distinction; the mint half
- * does not.
- *
- * `kind: 'unknown'` deliberately still means "the seed value" downstream,
- * because `papic_claim_free_pool` itself does `COALESCE(v_pts, 50)` — a missing
- * config row really does mint 50.
- */
-export type PapicFreeGrantRead =
-  /** The column was read: `points` is exactly what it held, truncated. */
-  | { kind: 'value'; points: number }
-  /** The column was read and is 0 or below — the allowance is switched OFF. */
-  | { kind: 'off' }
-  /** No row, a refusal, or an unparseable value. Nothing is known. */
-  | { kind: 'unknown' };
-
-export async function fetchPapicFreeGrantRead(
-  supabase: SupabaseClient,
-): Promise<PapicFreeGrantRead> {
-  try {
-    const { data, error } = await supabase
-      .from('papic_event_pool_config')
-      .select('free_grant_points')
-      .eq('config_key', 'default')
-      .maybeSingle();
-    if (error) console.error('[supabase-error] lib/papic-tier-copy.ts · from:papic_event_pool_config.select', error);
-    if (error || !data) return { kind: 'unknown' };
-    const n = Number((data as { free_grant_points?: unknown }).free_grant_points);
-    if (!Number.isFinite(n)) return { kind: 'unknown' };
-    const points = Math.trunc(n);
-    return points > 0 ? { kind: 'value', points } : { kind: 'off' };
-  } catch {
-    return { kind: 'unknown' };
-  }
-}
 
 /** 💱 A4-64 (final check, SW-PHP): pesos only through the one formatter, `lib/php.ts` `formatPhp` (exact, centavos kept). */
 const peso = (n: number): string => formatPhp(n);

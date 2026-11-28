@@ -127,6 +127,21 @@ export const SPECIALIZED_TOOLS_MIN_TIER: VendorTier = 'verified';
 /** The plans that INCLUDE the unlock — no purchase (Pro/Ultra owner 2026-11-09; Plus owner 2026-11-14 "SIMPLER SUPPLIER PLANS"). */
 export const SPECIALIZED_TOOLS_INCLUDED_TIERS: readonly VendorTier[] = ['solo', 'pro', 'enterprise'];
 
+/**
+ * ⚖ THE PUBLIC WORDS (owner ruling 28 Nov 2026, superseding 27 Nov L9 row P3 "Pro and Ultra only"): the specialized
+ * tools are all paid, each with a free 30-day trial, and no page names their price. So no public plan page (/pricing,
+ * /features, /for-coordinators, the /for-suppliers plan table) says a plan INCLUDES them — this list is empty — and
+ * where a page speaks of them it says this one sentence.
+ *
+ * ⚠ OPEN: the GATE above (`SPECIALIZED_TOOLS_INCLUDED_TIERS`, its SQL twin `vendor_specialized_tools_unlocked`, and
+ * `TIER_CAPS.*.specialTools`) still opens the tools on the paid plans, and no 30-day trial is wired. Changing the gate
+ * takes access away from paying shops and needs its own migration PR and the owner's GO; until then the words promise
+ * less than the gate gives, never more.
+ */
+export const SPECIALIZED_TOOLS_PUBLIC_TIERS: readonly VendorTier[] = [];
+/** The one sentence a public page says about the specialized tools (owner 28 Nov 2026). Names no price. */
+export const SPECIALIZED_TOOLS_PLAN_LINE = 'Specialized tools are paid, each with a free 30-day trial.';
+
 /** The facts the decision reads — the same columns the SQL reads. */
 export type SpecializedToolsFacts = {
   tier_state: string | null;

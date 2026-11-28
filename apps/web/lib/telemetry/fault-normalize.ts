@@ -169,7 +169,7 @@ export const TOP_LEVEL_SEGMENTS: ReadonlySet<string> = new Set([
   'budget', 'claim', 'cookies', 'creators', 'dashboard', 'demo-capture', 'dev',
   'download', 'explore', 'favicon.ico', 'features', 'for-coordinators', 'for-suppliers',
   'forgot-password', 'guest-list', 'health', 'help', 'host', 'i', 'join', 'live',
-  'llms.txt', 'login', 'marketplace', 'monogram', 'mood-board', 'onboarding',
+  'llms.txt', 'login', 'marketplace', 'mood-board', 'onboarding',
   'open-shop', 'our-story', 'pa3d', 'pakanta', 'palogo', 'panood', 'papic',
   'patiktok', 'pawebsite', 'pay', 'pricing', 'privacy', 'proposals',
   'realstories', 'receipts', 'refunds', 'reset-password', 'samahan', 'sample', 'schedule',

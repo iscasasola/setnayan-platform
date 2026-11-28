@@ -55,7 +55,10 @@ const SUPPLIER_SURFACES = [
   // 'app/(shell)/waitlist/page.tsx' LEFT this list 2026-10-12 — owner #14: it is a
   // couples' page and couple-facing pages do not mention the supplier fee. It
   // is now held by the COUPLE-facing test below instead.
-  'app/(shell)/pricing/page.tsx',
+  // 'app/(shell)/pricing/page.tsx' LEFT this list 2026-11-27 for the same reason —
+  // owner ruling on commission (L9 P11): /pricing is the HOSTS' page; its meta, OG
+  // and copy say only "Hosts pay 0% commission.", and the booking fee is explained
+  // on the supplier pages and in /terms. It is held by the COUPLE-facing test below.
   ...PUBLIC_HELP_SOURCES, // help split 2026-11-14: lib/help.ts + every lib/help/*.ts
   // Added 2026-09-26 (GEO audit). Both told every answer engine "0% commission"
   // to SUPPLIERS with no fee — /vendors' metadata still said "while we launch"
@@ -135,6 +138,8 @@ test('a COUPLE-facing surface is left alone — the zero is unqualified for them
     'app/(shell)/explore/_lib/marketplace-view.tsx', // 2026-11-12: the marketplace pipeline moved from explore/page.tsx to _lib/marketplace-view.tsx (shared with Discover)
     // Owner 2026-10-12 #14 ("couple-facing pages do not mention the supplier fee").
     'app/(shell)/waitlist/page.tsx',
+    // Owner 2026-11-27 (L9 P11): the hosts' pricing page names no supplier fee.
+    'app/(shell)/pricing/page.tsx',
   ]) {
     const src = readCode(f);
     assert.equal(
@@ -182,7 +187,6 @@ test('the supplier list still covers what it claims to', () => {
     // (supplier-front-page.tsx left this named list 2026-11-23: the owner-APPROVED redesign, v4.3.1, no longer says
     // "Setnayan never takes a cut" — it STATES the fee instead, "Clients Setnayan brings · 5%, 3% above ₱100,000", read
     // by `feeRowWords(schedule)`. It stays in SUPPLIER_SURFACES, so the claim coming back still owes the fee sentence.)
-    'app/(shell)/pricing/page.tsx',
     'app/vendor/claim/[token]/_components/claim-parts.tsx',
     'lib/help/topics-existing.ts', // the help's claim moved here with the split (2026-11-14)
   ]) {
@@ -196,8 +200,10 @@ test('the supplier list still covers what it claims to', () => {
   // The named pages above are the stricter half of this check.
   // 8, not 9, since 2026-11-23: the /for-suppliers redesign (v4.3.1) states the fee instead of the zero (see above) —
   // no supplier lost the fee sentence; the page that said "never takes a cut" now says the rate.
+  // 7, not 8, since 2026-11-27: /pricing left the supplier list (owner, L9 P11 — it is the hosts' page and names no
+  // supplier fee); no supplier lost the fee sentence, /for-suppliers and /terms still say it.
   assert.ok(
-    saying >= 8,
+    saying >= 7,
     `only ${saying} of the listed surfaces still mention commission — if the claim moved, this list is pointed at the wrong files`,
   );
 });

@@ -69,7 +69,7 @@ const ROOTS = [
   'app/for-suppliers',
   'app/creators',
   // 'app/waitlist' left 2026-11-12: its only file, page.tsx, moved into app/(shell)/ (scanned above).
-  'app/monogram',
+  // 'app/monogram' left 2026-11-27 (L9 P29): /monogram redirects to /palogo and its studio files were deleted.
   'app/realstories',
   // 'app/blog' left 2026-11-16 — retired with the blog + Real Stories, PR #7847 (no file left in it).
   'app/our-story',
@@ -193,7 +193,6 @@ test('the scan reads the pages the sweep named — it cannot pass on an empty tr
     'app/(shell)/waitlist/page.tsx',
     'app/creators/_components/creator-story-sections.tsx',
     'app/(shell)/pricing/page.tsx',
-    'app/(shell)/monogram/page.tsx',
     // 'app/(shell)/realstories/page.tsx' left 2026-11-16 — retired with the blog + Real Stories, PR #7847.
     'lib/blog.ts',
     'app/(hub)/page.tsx',

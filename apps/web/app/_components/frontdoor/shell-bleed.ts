@@ -78,7 +78,6 @@ export const DOORWAY_BLEED_PATHS = [
   // full-width bands and caps its own content width.
   '/creators',
   '/our-story',
-  '/monogram',
   '/tl/about',
   '/waitlist',
 ] as const;

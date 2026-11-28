@@ -278,7 +278,7 @@ if (violations.length > 0) {
 // '/blog' and '/download' joined 2026-11-12 the same way (blog cards in
 // app/blog/_components/, the download motion in app/download/).
 const SHELL_ROUTES = ['/explore', '/help', '/alaala', '/features', '/for-suppliers', '/blog', '/download',
-  '/creators', '/our-story', '/monogram', '/tl/about', '/waitlist'];
+  '/creators', '/our-story', '/tl/about', '/waitlist'];
 /** Parked under the shared bar: reads the shell's token, directly or in calc(). */
 const PARKED = /top-\[(?:calc\()?var\(--fd-bar/;
 

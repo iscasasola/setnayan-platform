@@ -12,11 +12,11 @@ import { INVITE_PARTNERS_AT_ONCE } from './supplier-invite';
 const WEB = join(import.meta.dirname, '..');
 const src = (rel: string) => stripComments(readFileSync(join(WEB, rel), 'utf8'));
 
-/** Every "0% commission" in these files is the one ruled sentence (brand.md claim 2). */
-function onlyTheRuledCommissionLine(file: string): void {
+/** These files tell hosts no "0% commission" in any form (owner 28 Nov 2026: hosts own the event). */
+function noHostCommissionLine(file: string): void {
   const s = src(file);
-  for (const m of s.matchAll(/[^.'"`>(]*0% commission[^.'"`<]*/g)) {
-    assert.match(m[0].replace(/^[\s·]+/, "").trim(), /^Hosts pay 0% commission$/, `${file}: "${m[0].trim()}"`);
+  for (const m of s.matchAll(/[^.'"`>(]*Hosts pay 0% commission[^.'"`<]*/g)) {
+    assert.fail(`${file}: a host is told "0% commission": "${m[0].trim()}"`);
   }
 }
 
@@ -31,7 +31,7 @@ test('A1-093 · A1-092 · help answers make no banned promise and say the commis
     const s = src(f);
     assert.doesNotMatch(s, /for good|always free/i, `${f}: a forever promise`);
     assert.doesNotMatch(s, /\bcompliant\b/, `${f}: a compliance slogan`);
-    onlyTheRuledCommissionLine(f);
+    noHostCommissionLine(f);
   }
 });
 
@@ -42,7 +42,7 @@ test('A1-086 · A1-107 · house words in help, privacy and the Logo Maker page',
 });
 
 test('A1-066 · /waitlist says the ruled commission line and asks no supplier to pre-register', () => {
-  onlyTheRuledCommissionLine('app/(shell)/waitlist/page.tsx');
+  noHostCommissionLine('app/(shell)/waitlist/page.tsx');
   assert.doesNotMatch(src('app/(shell)/waitlist/page.tsx'), /Pre-register|Zero commission|no commission on bookings/);
 });
 

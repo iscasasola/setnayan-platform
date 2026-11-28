@@ -47,11 +47,8 @@ const REMOVE_NOW: readonly { what: string; pattern: RegExp; why: string; heldOn?
     what: '"50 credits free on your first event"',
     pattern: /50 (?:free )?credits(?: free)? on your first event|50 free on your first event/i,
     why: 'retired in the source §11; plans and packs carry the credits',
-    // ⚠ HELD on /llms.txt, not removed — an OWNER QUESTION on the PR. `lib/the-free-pool-is-not-on-every-event.test.ts`
-    // requires lib/llms-txt.ts to name the first-event condition ("silence is not honesty here"), and the grant is
-    // still live in SQL (`papic_claim_free_pool`, `papic_event_pool_config.free_grant_points`). That guard is not
-    // weakened to make room; the test below fails the day the hold is no longer needed, so it cannot rot.
-    heldOn: 'llms.txt',
+    // The hold on /llms.txt was released 27 Nov: the owner ruled (DECISION_LOG 16 Nov "Free 50 Papic credits REMOVED",
+    // L9 P23) — free Papic photos come as the Setnayan gift on bookings, so llms.txt says that instead.
   },
   {
     what: '"a supplier\'s first booking from Setnayan is on us"',

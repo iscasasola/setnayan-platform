@@ -132,7 +132,7 @@ test('seat check: a party of three split, but a full table or a pinned seat is "
     }),
   );
   assert.ok(full.ok);
-  const p = full.problems.find((x) => x.kind === 'party_split');
+  const p = full.problems.find((x) => x.kind === 'household_split');
   assert.ok(p);
   assert.deepEqual(p.fix, { kind: 'review' });
   const pinned = seatPlanDryRun(
@@ -143,7 +143,7 @@ test('seat check: a party of three split, but a full table or a pinned seat is "
     }),
   );
   assert.ok(pinned.ok);
-  assert.deepEqual(pinned.problems.find((x) => x.kind === 'party_split')?.fix, { kind: 'review' });
+  assert.deepEqual(pinned.problems.find((x) => x.kind === 'household_split')?.fix, { kind: 'review' });
 });
 
 test('a principal sponsor\'s +1 seated away under "nearest" is the host\'s rule, not a problem', () => {
@@ -169,7 +169,7 @@ test('seat check: an elder near the speakers, moved with their party to a quiet 
     }),
   );
   assert.ok(run.ok);
-  const p = run.problems.find((x) => x.kind === 'elder_near_speakers');
+  const p = run.problems.find((x) => x.kind === 'elders_near_speaker');
   assert.ok(p);
   assert.deepEqual(p.fix, { kind: 'move', moves: [{ guest_id: 'lola', table_id: 'quiet' }, { guest_id: 'lola+1', table_id: 'quiet' }] });
   // No speakers on the plan → never a speakers problem.
@@ -187,7 +187,7 @@ test('seat check: a table over its seats', () => {
     }),
   );
   assert.ok(run.ok);
-  const p = run.problems.find((x) => x.kind === 'over_capacity');
+  const p = run.problems.find((x) => x.kind === 'table_over');
   assert.ok(p);
   assert.equal(seatProblemWords(p, (id) => id, () => 'Table 1'), 'Table 1 has 3 people for 2 seats');
 });
@@ -204,7 +204,7 @@ test('seat check: a new yes seated among strangers, moved to where their group s
     }),
   );
   assert.ok(run.ok);
-  const p = run.problems.find((x) => x.kind === 'new_rsvp_alone');
+  const p = run.problems.find((x) => x.kind === 'rsvp_alone');
   assert.ok(p);
   assert.deepEqual(p.fix, { kind: 'move', moves: [{ guest_id: 'new', table_id: 't2' }] });
   // Placed by the host, or long ago: not "new", never named.
@@ -227,7 +227,7 @@ test('Fix all: every problem\'s moves, a party never half-moved, no table overfi
     [
       { kind: 'plus_one_apart', guestIds: ['a', 'x'], tableIds: ['t1', 't2'], fix: { kind: 'move', moves: [{ guest_id: 'x', table_id: 't1' }] } },
       { kind: 'plus_one_apart', guestIds: ['b', 'y'], tableIds: ['t1', 't3'], fix: { kind: 'move', moves: [{ guest_id: 'y', table_id: 't1' }] } },
-      { kind: 'over_capacity', guestIds: [], tableIds: ['t2'], fix: { kind: 'review' } },
+      { kind: 'table_over', guestIds: [], tableIds: ['t2'], fix: { kind: 'review' } },
     ],
     tables,
     assignments,

@@ -1,9 +1,10 @@
 /**
- * 👗 THE 1:1 EXPORT (plan step B12; owner D28: A4 and US Letter). The test square is 50.0 mm in the file; the tiles
- * cover the whole sheet with no gap and no overlap, so taped together they rebuild it within 0.5 mm; page 1 says to
- * measure the square, says the allowances (or "net pattern"), and carries "ESTIMATE: measure before cutting" exactly
- * when a number is an estimate; no money anywhere. The owner's print test (page 1, a ruler on the square) is the
- * acceptance check after it ships.
+ * 👗 THE 1:1 EXPORT (plan step B12; drawing v205; owner D28: A4 and US Letter). Held to the prototype's OWN `patBuild`
+ * on six whole orders, on both papers: the page count, which pages are tiles and which a measured diagram, each page's
+ * name, "Page n of N" on every page, and where the 5 cm test square sits on every page equal v205's
+ * (prototype-v205.golden.json). Then the file itself: one PDF page per page at the paper's size, the test square
+ * 50.0 mm in it, pdf-lib loaded only on export, and no money anywhere. The owner's print test (a ruler on the square)
+ * is the acceptance check after it ships.
  *
  * Run: cd apps/web && npx tsx --test lib/gown-pattern/export.test.ts
  */
@@ -11,87 +12,89 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { startingGownBody, startingGownConfig, type GownMeasures } from '../gown-config';
-import { gownOrderBlocks } from './order';
-import { GOWN_SEAM_ALLOWANCE_DEFAULT } from './allowance';
-import { GOWN_EXPORT_MARGIN_MM, GOWN_PAPERS, PT_PER_MM, clipSegment, gownExportPdf, gownExportPlan, type GownExportOp } from './export';
+import golden from './prototype-v205.golden.json';
+import { draftSkirt, type GownBlockPiece } from './skirt';
+import { draftBodice } from './bodice';
+import { GOWN_SEAM_ALLOW_DEFAULT, gownSeamAllowClean } from './allowance';
+import { GOWN_PAPERS, PT_PER_MM, gownPageSvg, gownPatternPages, gownPatternPdf, type GownPaper } from './export';
+import type { GownDraftOrder } from './inputs';
 
-const measures: GownMeasures = { waistHip: { cm: 22, from: 'typed' }, waistFloor: { cm: 100, from: 'typed' } };
-const pieces = (sil: 'sheath' | 'ball' = 'sheath') => {
-  const b = gownOrderBlocks({ ...startingGownConfig(), sil }, startingGownBody(), measures);
-  assert.ok(b.skirt.ok);
-  return b.skirt.ok ? b.skirt.pieces : [];
+type Pages = { total: number; tiles: number; diagrams: { piece: string; pages: number }[]; perPiece: unknown[]; kinds: string[]; labels: string[]; squares: number[][]; heads: string[] };
+const G = golden as unknown as {
+  cutCases: { name: string; order: { est: Record<string, number>; vals: Record<string, number>; sil: string; netPattern: boolean; seamAllow: Record<string, number> | null; client: string }; pages: Record<GownPaper, Pages> }[];
 };
-const texts = (ops: readonly GownExportOp[]) => ops.filter((o): o is Extract<GownExportOp, { k: 'text' }> => o.k === 'text').map((o) => o.text);
 
-test('1 · page 1: the 5 cm square is 141.73 pt (50.0 mm) in the file, and the page says to measure it', () => {
-  const plan = gownExportPlan(pieces(), { paper: 'a4', allowance: GOWN_SEAM_ALLOWANCE_DEFAULT, title: 'Ana: skirt', estimate: false });
-  const sq = plan.pages[0]!.ops.find((o) => o.k === 'rect');
-  assert.ok(sq && sq.k === 'rect');
-  assert.equal((sq.w / PT_PER_MM).toFixed(1), '50.0');
-  assert.equal((sq.h / PT_PER_MM).toFixed(1), '50.0');
-  assert.equal(sq.w.toFixed(2), '141.73');
-  const t = texts(plan.pages[0]!.ops).join(' | ');
-  assert.match(t, /Print at 100% \(actual size\) on A4\. Measure the square first: it must be 5 cm\./);
-  assert.match(t, /Seam allowances included: seams 1\.5 cm, hem 4 cm, zip 2 cm/);
-  assert.doesNotMatch(t, /ESTIMATE/);
-});
+function listOf(o: { est: Record<string, number>; vals: Record<string, number>; sil: string }): { p: GownBlockPiece }[] {
+  const order = {
+    vals: o.vals,
+    sil: o.sil,
+    hem: 'floor',
+    measures: Object.fromEntries(Object.entries(o.est).map(([k, cm]) => [k, { cm, from: 'estimate' }])),
+    ease: [{ part: 'Bust', ease: 2.5 }, { part: 'Waist', ease: 1.5 }, { part: 'Hips', ease: 6 }],
+  } as unknown as GownDraftOrder;
+  const bo = draftBodice(order, {}), dr = draftSkirt(order, {}), out: { p: GownBlockPiece }[] = [];
+  if (bo.ok) out.push(...bo.pieces.map((p) => ({ p })));
+  if (dr.ok) out.push(...dr.pieces.map((p) => ({ p })));
+  return out;
+}
+const bookOf = (c: (typeof G.cutCases)[number], paper: GownPaper) =>
+  gownPatternPages(listOf(c.order), { sa: c.order.seamAllow ? gownSeamAllowClean(c.order.seamAllow) : GOWN_SEAM_ALLOW_DEFAULT, net: c.order.netPattern, paper, who: c.order.client });
 
-test('2 · the tiles cover the sheet exactly: paper minus margins, no gap, no overlap, in both papers', () => {
-  for (const paper of ['a4', 'letter'] as const) {
-    const plan = gownExportPlan(pieces('ball'), { paper, allowance: GOWN_SEAM_ALLOWANCE_DEFAULT, title: 'x', estimate: false });
-    const P = GOWN_PAPERS[paper], tw = P.wMm - 2 * GOWN_EXPORT_MARGIN_MM, th = P.hMm - 2 * GOWN_EXPORT_MARGIN_MM;
-    assert.equal(plan.cols, Math.ceil(plan.sheetMm.w / tw));
-    assert.equal(plan.rows, Math.ceil(plan.sheetMm.h / th));
-    assert.equal(plan.pages.length + plan.blank.length, 1 + plan.rows * plan.cols, 'a tile is lost');
-    assert.ok(texts(plan.pages[0]!.ops).some((t) => t.startsWith(`${plan.pages.length - 1} pages to print`)), 'the map does not say how many pages print');
-    for (const pg of plan.pages) { assert.equal((pg.wPt / PT_PER_MM).toFixed(1), P.wMm.toFixed(1)); assert.equal((pg.hPt / PT_PER_MM).toFixed(1), P.hMm.toFixed(1)); }
-    // the same sheet point on two neighbouring tiles lands exactly one tile-width apart (taped edge to edge: 0 mm error)
-    const firstLine = (i: number) => plan.pages[i]!.ops.find((o) => o.k === 'line' && o.pts.length > 3) as Extract<GownExportOp, { k: 'line' }>;
-    if (plan.cols > 1) {
-      const a = firstLine(1).pts[0]!, b = firstLine(2).pts[0]!;
-      assert.ok(Math.abs((a[0] - b[0]) / PT_PER_MM - tw) < 0.5, 'neighbouring tiles do not butt together');
-      assert.ok(Math.abs(a[1] - b[1]) < 1e-6);
+test('1 · six orders × two papers: pages, tiles, diagrams, names, "Page n of N" and every test square equal the prototype’s', () => {
+  assert.equal(G.cutCases.length, 6);
+  for (const c of G.cutCases)
+    for (const paper of ['a4', 'letter'] as const) {
+      const B = bookOf(c, paper), want = c.pages[paper], at = `${c.name} (${paper})`;
+      assert.equal(B.total, want.total, `${at}: total`);
+      assert.equal(B.tiles, want.tiles, `${at}: tiles`);
+      assert.deepEqual(B.diagrams, want.diagrams, `${at}: diagrams`);
+      assert.deepEqual(B.perPiece, want.perPiece, `${at}: per piece`);
+      assert.deepEqual(B.pages.map((p) => p.kind), want.kinds, `${at}: kinds`);
+      assert.deepEqual(B.pages.map((p) => p.label), want.labels, `${at}: labels`);
+      assert.deepEqual(B.pages.map((p) => p.head), want.heads, `${at}: Page n of N`);
+      B.pages.forEach((p, i) => {
+        assert.ok(Math.abs(p.square[0] - want.squares[i]![0]!) < 0.01 && Math.abs(p.square[1] - want.squares[i]![1]!) < 0.01, `${at} page ${i + 1}: the square moved`);
+        const sq = p.ops.filter((o) => o.k === 'rect' && o.testSquare);
+        assert.equal(sq.length, 1, `${at} page ${i + 1}: one test square`);
+        assert.ok(sq[0]!.k === 'rect' && sq[0]!.w === 50 && sq[0]!.h === 50, `${at} page ${i + 1}: the square is not 5 cm`);
+      });
     }
-    assert.ok(plan.rows * plan.cols > 1, 'a circle skirt fits on one page?');
-    assert.equal(plan.pages[1]!.name, 'A1');
-  }
+  assert.ok(G.cutCases.some((c) => c.pages.a4.diagrams.length), 'no case exercised the measured diagram');
 });
 
-test('3 · the estimate line shows exactly when a number is an estimate; a net pattern says so', () => {
-  const est = gownExportPlan(pieces(), { paper: 'letter', allowance: GOWN_SEAM_ALLOWANCE_DEFAULT, title: 'x', estimate: true });
-  assert.ok(texts(est.pages[0]!.ops).includes('ESTIMATE: measure before cutting'));
-  const net = gownExportPlan(pieces(), { paper: 'letter', allowance: { ...GOWN_SEAM_ALLOWANCE_DEFAULT, on: false }, title: 'x', estimate: false });
-  assert.ok(texts(net.pages[0]!.ops).some((t) => t.startsWith('Net pattern: no seam allowances')));
-  assert.ok(!net.pages.slice(1).some((p) => p.ops.some((o) => o.k === 'line' && o.dash && o.pts.length > 3)), 'a net pattern draws no dashed sewing line');
+test('2 · the page map says how to print, the allowances (or net pattern), and marks blank pages —', () => {
+  const plain = bookOf(G.cutCases[0]!, 'a4'), map = plain.pages[0]!.ops.filter((o) => o.k === 'text').map((o) => (o.k === 'text' ? o.text : ''));
+  const said = map.join(' ').replace(/\s+/g, ' ');
+  assert.ok(said.includes('1. Print at 100 % (actual size). Turn off “fit to page”.'));
+  assert.ok(said.includes('Dashed line: cut (seams 1.5 cm, hem 2.5 cm, zip 2 cm, necklines and armholes 1 cm).'), said);
+  assert.ok(map.includes('—'), 'no blank page was marked on the map');
+  const net = bookOf(G.cutCases.find((c) => c.order.netPattern)!, 'a4').pages[0]!.ops.map((o) => (o.k === 'text' ? o.text : '')).join(' ').replace(/\s+/g, ' ');
+  assert.match(net, /This is a net pattern: add your own allowance as you cut\./);
+  const diag = bookOf(G.cutCases.find((c) => c.pages.a4.diagrams.length)!, 'a4').pages.find((p) => p.kind === 'diagram')!;
+  const facts = diag.ops.map((o) => (o.k === 'text' ? o.text : '')).join(' ').replace(/\s+/g, ' ');
+  assert.match(facts, /Too big to print at home: 46 pages on A4\./);
+  assert.match(facts, /Waist radius [\d.]+ cm \(stitching line\); hem radius [\d.]+ cm, both from the same corner point\./);
 });
 
-test('4 · the clip keeps only what is inside a tile', () => {
-  assert.deepEqual(clipSegment(0, 5, 20, 5, { x0: 10, y0: 0, x1: 30, y1: 10 }), [10, 5, 20, 5]);
-  assert.equal(clipSegment(0, 20, 5, 25, { x0: 10, y0: 0, x1: 30, y1: 10 }), null);
-  assert.equal(clipSegment(0, 5, 5, 5, { x0: 10, y0: 0, x1: 30, y1: 10 }), null, 'a line that stops short of the tile');
-});
-
-test('5 · the PDF: one page per plan page at the paper size; pdf-lib is loaded only by the export function', async () => {
-  const plan = gownExportPlan(pieces(), { paper: 'a4', allowance: GOWN_SEAM_ALLOWANCE_DEFAULT, title: 'Ana: skirt', estimate: true });
-  const bytes = await gownExportPdf(plan);
+test('3 · the PDF: one page per page at the paper’s size, the test square 50.0 mm, pdf-lib loaded only on export', async () => {
+  const B = bookOf(G.cutCases[2]!, 'letter');
+  const bytes = await gownPatternPdf(B, 'Ana Reyes · pattern');
   const { PDFDocument } = await import('pdf-lib');
   const doc = await PDFDocument.load(bytes);
-  assert.equal(doc.getPageCount(), plan.pages.length);
-  const { width, height } = doc.getPage(0).getSize();
-  assert.equal((width / PT_PER_MM).toFixed(1), '210.0');
-  assert.equal((height / PT_PER_MM).toFixed(1), '297.0');
+  assert.equal(doc.getPageCount(), B.total);
+  const { width, height } = doc.getPage(1).getSize();
+  assert.equal((width / PT_PER_MM).toFixed(1), GOWN_PAPERS.letter.w.toFixed(1));
+  assert.equal((height / PT_PER_MM).toFixed(1), GOWN_PAPERS.letter.h.toFixed(1));
+  assert.equal((50 * PT_PER_MM).toFixed(2), '141.73', 'the 5 cm square is 141.73 pt in the file');
   const src = readFileSync(join(__dirname, 'export.ts'), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
   assert.doesNotMatch(src, /^import[^;]*from 'pdf-lib'/m, 'pdf-lib is imported at the top, so it loads with the page');
   assert.match(src, /await import\('pdf-lib'\)/);
   assert.doesNotMatch(src, /₱|centavo|formatPhp|price/i, 'the export talks about money');
 });
 
-test('6 · a page with nothing on it is not printed, and the map marks it blank', () => {
-  const plan = gownExportPlan(pieces('sheath'), { paper: 'a4', allowance: GOWN_SEAM_ALLOWANCE_DEFAULT, title: 'x', estimate: false });
-  const wide = gownExportPlan([...pieces('sheath'), { ...pieces('sheath')[0]!, name: 'Far', outline: [[1200, 0], [1300, 0], [1300, 100], [1200, 100]], darts: [], marks: [], points: [], grain: [[1250, 10], [1250, 90]] }], { paper: 'a4', allowance: GOWN_SEAM_ALLOWANCE_DEFAULT, title: 'x', estimate: false });
-  assert.ok(wide.blank.length > 0, 'the gap between far pieces printed blank pages');
-  for (const b of wide.blank) assert.ok(!wide.pages.some((p) => p.name === b));
-  assert.ok(texts(wide.pages[0]!.ops).some((t) => t === `${wide.blank[0]} blank`));
-  assert.equal(plan.pages.length + plan.blank.length, 1 + plan.rows * plan.cols);
+test('4 · the on-screen page is the same page: an SVG at true size with the square at 50 × 50 mm', () => {
+  const B = bookOf(G.cutCases[0]!, 'a4'), svg = gownPageSvg(B.pages[1]!.ops, B.aw, B.ah);
+  assert.match(svg, /width="190\.00mm" height="277\.00mm"/);
+  assert.match(svg, /class="pp-test" x="[\d.]+" y="[\d.]+" width="50\.00" height="50\.00"/);
+  assert.doesNotMatch(svg, /<script/i);
 });

@@ -110,6 +110,7 @@ if (X.patCutList && X.patBuild) {
     { name: 'ball gown, satin lining, two tulle layers, a train, a cape in the gown fabric', o: orderOf('ball', { petti: 'soft', train: 'chapel', skirtLayers: 2 }, { outerName: 'Mikado', lining: 'satin', layers: ['soft', 'full'], accent: null, lace: null, incl: ['the cape'], metres: { outer: 14, lining: 11.9, tulle: 6 } }) },
     { name: 'sheath, accent sleeves and lace, sent before the quote saved metres', o: orderOf('sheath', { petti: 'none', train: 'none' }, { outerName: null, lining: 'silk', layers: [], accent: 'sleeves', lace: null, incl: [], metres: null }) },
     { name: 'mermaid, net pattern, odd allowances', o: orderOf('mermaid', { petti: 'none', train: 'none' }, { outerName: 'Crepe', lining: 'none', layers: [], accent: null, lace: 'sleeves', incl: ['the overlay'], metres: { outer: 3.1, lining: 0, tulle: 0 } }, { netPattern: true }) },
+    { name: 'a very long ball gown: the circle is too big to tape, so it comes as a measured diagram', o: { ...orderOf('ball', { petti: 'none', train: 'none' }, { outerName: 'Mikado', lining: 'none', layers: [], accent: null, lace: null, incl: [], metres: { outer: 16, lining: 0, tulle: 0 } }), gownMeasEst: { ...meas, waistFloor: 135 } } },
     { name: 'fit and flare, a set of its own', o: orderOf('fitflare', { petti: 'none', train: 'none' }, { outerName: 'Crepe', lining: 'cotton', layers: [], accent: null, lace: null, incl: [], metres: { outer: 3.6, lining: 3.06, tulle: 0 } }, { seamAllow: { seam: 1, hem: 5, zip: 2.5, neck: 0.6 } }) },
   ];
   out.cutCases = cases.map(({ name, o }) => {
@@ -119,7 +120,7 @@ if (X.patCutList && X.patBuild) {
       // the numbers drawn on every page that a ruler can check: the test square, and each page's own size
       squares: b.pages.map((p) => (p.svg.match(/class="pp-test" x="([\d.]+)" y="([\d.]+)" width="50" height="50"/) || []).slice(1).map(Number)),
       heads: b.pages.map((p) => ((p.svg.match(/class="pp-no">([^<]*)</) || [])[1] || '')) });
-    return { name, order: { sil: o.design3d.gown.sil, gown: o.design3d.gown, cut: o.cut, netPattern: !!o.netPattern, seamAllow: o.seamAllow || null, client: o.client }, cutList: C, pages: { a4: pages(B.a4), letter: pages(B.letter) } };
+    return { name, order: { est: o.gownMeasEst, vals: o.vals, sil: o.design3d.gown.sil, gown: o.design3d.gown, cut: o.cut, netPattern: !!o.netPattern, seamAllow: o.seamAllow || null, client: o.client }, cutList: C, pages: { a4: pages(B.a4), letter: pages(B.letter) } };
   });
 }
 process.stdout.write(JSON.stringify(out));

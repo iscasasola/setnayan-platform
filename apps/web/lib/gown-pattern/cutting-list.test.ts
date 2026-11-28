@@ -23,17 +23,16 @@ type GoldenInput = { vals: Record<string, number>; estimate: Record<string, numb
 const G = golden as unknown as {
   bodices: { input: GoldenInput }[];
   skirts: { input: GoldenInput & { sil: string } }[];
-  cutCases: { name: string; order: { sil: string; gown: Record<string, unknown>; cut: Omit<GownCutContext, 'train'>; netPattern: boolean; seamAllow: Record<string, number> | null }; cutList: unknown }[];
+  cutCases: { name: string; order: { est: Record<string, number>; vals: Record<string, number>; sil: string; gown: Record<string, unknown>; cut: Omit<GownCutContext, 'train'>; netPattern: boolean; seamAllow: Record<string, number> | null }; cutList: unknown }[];
 };
 
-/** The prototype's whole order (body 3, its skirt and bodice estimates) as the port's drafts. */
-function listOf(sil: string): { p: GownBlockPiece; part: GownCutPart }[] {
-  const b = G.bodices[2]!.input, s = G.skirts.find((x) => x.input.sil === sil && x.input.vals.height === b.vals.height && x.input.vals.bust === b.vals.bust)!.input;
+/** The prototype's whole order (its body and its own estimates) as the port's drafts. */
+function gownGoldenList(o: { est: Record<string, number>; vals: Record<string, number>; sil: string }): { p: GownBlockPiece; part: GownCutPart }[] {
   const order = {
-    vals: b.vals,
-    sil,
+    vals: o.vals,
+    sil: o.sil,
     hem: 'floor',
-    measures: Object.fromEntries(Object.entries({ ...s.estimate, ...b.estimate }).map(([k, cm]) => [k, { cm, from: 'estimate' }])),
+    measures: Object.fromEntries(Object.entries(o.est).map(([k, cm]) => [k, { cm, from: 'estimate' }])),
     ease: [{ part: 'Bust', ease: 2.5 }, { part: 'Waist', ease: 1.5 }, { part: 'Hips', ease: 6 }],
   } as unknown as GownDraftOrder;
   const bo = draftBodice(order, {}), dr = draftSkirt(order, {}), out: { p: GownBlockPiece; part: GownCutPart }[] = [];
@@ -56,12 +55,12 @@ function near(a: unknown, b: unknown, path: string) {
   assert.equal(a, b, path);
 }
 
-test('1 · five whole orders: rows, totals, checks and every "Why" equal the prototype’s', () => {
-  assert.equal(G.cutCases.length, 5);
+test('1 · six whole orders: rows, totals, checks and every "Why" equal the prototype’s', () => {
+  assert.equal(G.cutCases.length, 6);
   for (const c of G.cutCases) {
     const sa = c.order.seamAllow ? gownSeamAllowClean(c.order.seamAllow) : GOWN_SEAM_ALLOW_DEFAULT;
     const ctx: GownCutContext = { ...c.order.cut, train: !!c.order.gown.train && c.order.gown.train !== 'none' };
-    near(JSON.parse(JSON.stringify(gownCutList(listOf(c.order.sil), ctx, sa, c.order.netPattern))), c.cutList, c.name);
+    near(JSON.parse(JSON.stringify(gownCutList(gownGoldenList(c.order), ctx, sa, c.order.netPattern))), c.cutList, c.name);
   }
 });
 

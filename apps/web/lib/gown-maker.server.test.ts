@@ -118,3 +118,23 @@ test('8 · B11 (v205): one order’s pattern is saved beside the tape, the shop 
   assert.match(design, /if \(isShop\) \{[\s\S]*pattern = \{/);
   assert.match(design, /let pattern: GownDesignRead\['pattern'\] = null;/);
 });
+
+test('9 · A7b: her hand work is checked before it is priced or stored, stored as sent, and read back honestly', () => {
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  const server = strip(read('lib/gown-maker.server.ts'));
+  const build = server.slice(server.indexOf('export async function buildGownDesign('), server.indexOf('export async function storeGownDesign('));
+  assert.match(build, /const hand = args\.hand === undefined \? null : sanitizeGownHand\(args\.hand\);\s*if \(hand && !hand\.ok\) return hand;/, 'hand work is not checked, or a bad one is repaired');
+  assert.ok(build.indexOf('sanitizeGownHand') < build.indexOf('gownDesignOf('), 'priced before it is checked');
+  assert.match(build, /gownDesignOf\([^)]*shopFabrics, handWork\)/, 'her estimate leaves out her hand work');
+  assert.match(server, /hand: args\.built\.hand,/, 'the hand work is not stored');
+  assert.match(server, /\.select\('design_id, vendor_profile_id, config, body, measures, quantities, hand, /, 'the hand work is not read');
+  const handOf = server.slice(server.indexOf('function handOf('), server.indexOf('export async function readStoredGownDesign('));
+  assert.match(handOf, /if \(v == null\) return \{ s: 'none' \};/);
+  assert.match(handOf, /return \{ s: 'unread' \};/, 'hand work that no longer checks out reads as none');
+  const actions = strip(read('app/_components/gown-maker/gown-actions.ts'));
+  assert.match(actions, /hand: i\.hand,/, 'send drops her hand work');
+  assert.match(actions, /stored\.data\.hand\.s === 'sent' \? stored\.data\.hand\.hand : null/, 'the shop’s cost lines leave out her hand work');
+  assert.match(actions, /hand: stored\.data\.hand,/);
+  const panel = strip(read('app/vendor-dashboard/clients/[eventId]/_components/gown-order-panel.tsx'));
+  assert.match(panel, /d\.hand\.s === 'sent' \? gownHandLine\(d\.hand\.hand\) : d\.hand\.s === 'none' \? GOWN_HAND_NOT_SENT : GOWN_HAND_UNREAD/, 'the order view does not say all three');
+});

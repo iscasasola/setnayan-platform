@@ -18,7 +18,7 @@ export function ReceiptSlipSkeleton({ back, kind }: { back?: string | null; kind
           <Ghost
             known={kind}
             className="mx-auto mt-[7px] h-2.5 w-40 rounded"
-            textClassName="mt-[7px] text-center font-mono text-[9.5px] uppercase leading-none tracking-[0.22em] text-[#6E6A62]"
+            textClassName="mt-[7px] text-center font-mono text-[9.5px] uppercase leading-none tracking-[0.22em] text-ink/60"
           />
           <Sk className="mx-auto mt-5 h-9 w-40 rounded" />
           <Sk className="mx-auto mt-2 h-3 w-44 rounded" />

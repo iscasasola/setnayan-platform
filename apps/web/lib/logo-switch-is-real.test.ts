@@ -157,8 +157,8 @@ const READERS: Record<string, readonly [kind: 'carries' | 'via' | 'host' | 'edit
   'app/dashboard/[eventId]/studio/save-the-date/page.tsx': ['host', "the host's Save the Date studio"],
   'app/dashboard/[eventId]/studio/save-the-date/stamp/page.tsx': ['host', "the host's Save the Date stamp"],
   'app/live/_lib/load-screen.ts': ['carries', 'the live screen'],
-  'app/panood/control/[eventId]/page.tsx': ['carries', 'the Panood control (what goes on air)'],
-  'app/panood/program/[eventId]/page.tsx': ['carries', 'the Panood program output'],
+  'app/panood/control/[eventId]/page.tsx': ['via', 'the Panood control (what goes on air) — its event row is read by ./gate.tsx'],
+  'app/panood/program/[eventId]/page.tsx': ['via', 'the Panood program output — its event row is read by ./gate.ts'],
   'app/papic/guest/page.tsx': ['carries', "the guest camera's Pro dress (the logo on the shutter)"],
   'app/papic/seat/[token]/page.tsx': ['carries', "a seat on the one camera wears the same Pro dress (the logo on the shutter) — owner 2026-11-22, one camera"],
   'app/wall/[eventId]/page.tsx': ['carries', 'the Live Photo Wall masthead'],
@@ -179,6 +179,8 @@ const VIA_SOURCE: Record<string, string> = {
   'app/[slug]/page.tsx': 'app/[slug]/_lib/loaders.ts',
   'lib/discover-events.ts': 'lib/home-public-reads-core.ts',
   'lib/event-cover-given.ts': 'lib/home-public-reads-core.ts',
+  'app/panood/control/[eventId]/page.tsx': 'app/panood/control/[eventId]/gate.tsx',
+  'app/panood/program/[eventId]/page.tsx': 'app/panood/program/[eventId]/gate.ts',
 };
 
 test('🗂 every reader of the couple’s logo is listed, and every guest / public one carries the switch', () => {

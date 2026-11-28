@@ -277,14 +277,14 @@ export function PanoodCameraPublish({
         <span
           className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
             pill.live
-              ? 'bg-emerald-500/15 text-emerald-300'
+              ? 'bg-success-500/15 text-success-300'
               : 'bg-cream/10 text-cream/60'
           }`}
         >
           <span
             aria-hidden
             className={`h-1.5 w-1.5 rounded-full ${
-              pill.live ? 'animate-pulse bg-emerald-400' : 'bg-cream/40'
+              pill.live ? 'animate-pulse bg-success-400' : 'bg-cream/40'
             }`}
           />
           {pill.label}
@@ -303,7 +303,7 @@ export function PanoodCameraPublish({
 
         {state === 'starting' ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-6 text-center text-cream/70">
-            <Video aria-hidden className="h-8 w-8 animate-pulse" strokeWidth={1.5} />
+            <Video aria-hidden className="h-8 w-8" strokeWidth={1.5} />
             <p className="text-sm">Opening your camera…</p>
           </div>
         ) : null}

@@ -946,7 +946,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           href={exitHref}
           aria-label={appleIap ? 'Leave the controller — back to Today' : 'Leave the controller — back to Live Watch'}
           title={appleIap ? 'Leave the controller — back to Today' : 'Leave the controller — back to Live Watch'}
-          className="inline-flex h-9 shrink-0 items-center gap-1 rounded-md px-1.5 text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+          className="sn-hit inline-flex h-9 shrink-0 items-center gap-1 rounded-md px-1.5 text-ink/60 transition-colors hover:bg-ink/5 hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         >
           <ChevronLeft aria-hidden className="h-4 w-4" strokeWidth={2} />
           <span className="hidden text-[11px] font-medium sm:inline">Exit</span>
@@ -1437,7 +1437,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
             <a
               href="#setup"
               title="Cameras, overlays, encoder and watch link"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-ink/65 transition-colors hover:border-terracotta/45 hover:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
+              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-ink/15 bg-surface px-2.5 py-1.5 text-[11.5px] font-medium text-ink/65 transition-colors hover:border-terracotta/45 hover:text-terracotta focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
             >
               <SlidersHorizontal aria-hidden className="h-3.5 w-3.5" strokeWidth={1.9} />
               Setup
@@ -1887,7 +1887,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                         <SubmitButton
                           pendingLabel="…"
                           title="Make this the default channel"
-                          className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-white px-2 py-1 text-[11px] font-medium text-ink/60 transition-colors hover:border-terracotta/40 hover:text-terracotta"
+                          className="inline-flex items-center gap-1 rounded-md border border-ink/15 bg-surface px-2 py-1 text-[11px] font-medium text-ink/60 transition-colors hover:border-terracotta/40 hover:text-terracotta"
                         >
                           <Star aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                           <span className="sr-only">Make default</span>
@@ -1900,7 +1900,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                       <SubmitButton
                         pendingLabel="…"
                         title="Remove this channel"
-                        className="inline-flex items-center rounded-md border border-ink/15 bg-white px-2 py-1 text-ink/50 transition-colors hover:border-burgundy/40 hover:text-burgundy"
+                        className="inline-flex items-center rounded-md border border-ink/15 bg-surface px-2 py-1 text-ink/50 transition-colors hover:border-burgundy/40 hover:text-burgundy"
                       >
                         <Trash2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                         <span className="sr-only">Remove channel</span>
@@ -1948,7 +1948,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
         {printableCards > 0 ? (
           <Link
             href={`/dashboard/${eventId}/studio/panood/cameras/print`}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink/70 transition-colors hover:border-terracotta/50 hover:text-terracotta"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-surface px-3 py-1.5 text-[11.5px] font-semibold text-ink/70 transition-colors hover:border-terracotta/50 hover:text-terracotta"
           >
             <Printer aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             Print {printableCards === 1 ? 'the join card' : `${printableCards} join cards`}
@@ -1970,7 +1970,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 required
                 maxLength={60}
                 placeholder="Main Stage, Garden Aisle, Photo Booth…"
-                className="min-h-[44px] w-full rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
+                className="min-h-[44px] w-full rounded-lg border border-ink/15 bg-surface px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
               />
             </label>
             <label className="space-y-1">
@@ -1982,7 +1982,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                 name="venue_label"
                 maxLength={60}
                 placeholder="Church, Grand Ballroom…"
-                className="min-h-[44px] w-full rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
+                className="min-h-[44px] w-full rounded-lg border border-ink/15 bg-surface px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
               />
             </label>
             <label className="flex items-center gap-2 text-sm text-ink/75 sm:col-span-2">
@@ -2284,7 +2284,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               <input type="hidden" name="event_id" value={eventId} />
               <SubmitButton
                 pendingLabel="Removing…"
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-burgundy/40 hover:text-burgundy"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-surface px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-burgundy/40 hover:text-burgundy"
               >
                 <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                 Remove link
@@ -2299,7 +2299,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               name="watch_url"
               required
               placeholder="Paste your YouTube watch link — youtube.com/watch?v=…"
-              className="min-h-[44px] flex-1 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
+              className="min-h-[44px] flex-1 rounded-lg border border-ink/15 bg-surface px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
             />
             <SubmitButton
               pendingLabel="Saving…"
@@ -2342,7 +2342,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
           {films.length > 0 ? (
             <ul className="mt-3 space-y-2">
               {films.map((film) => (
-                <li key={film.id} className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-white/60 px-3 py-2">
+                <li key={film.id} className="flex items-center justify-between gap-3 rounded-lg border border-ink/10 bg-cream/60 px-3 py-2">
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-medium text-ink">
                       {film.label ?? (film.provider === 'youtube' ? 'YouTube video' : 'Vimeo video')}
@@ -2354,7 +2354,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
                     <input type="hidden" name="film_id" value={String(film.id)} />
                     <SubmitButton
                       pendingLabel="Removing…"
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-burgundy/40 hover:text-burgundy"
+                      className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-surface px-3 py-1.5 text-xs font-semibold text-ink/70 transition-colors hover:border-burgundy/40 hover:text-burgundy"
                     >
                       <Unlink2 aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
                       Remove
@@ -2371,14 +2371,14 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
               type="text"
               name="film_label"
               placeholder="What is it? e.g. Same-Day Edit"
-              className="min-h-[44px] rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none sm:w-56"
+              className="min-h-[44px] rounded-lg border border-ink/15 bg-surface px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none sm:w-56"
             />
             <input
               type="text"
               name="film_url"
               required
               placeholder="Paste a YouTube or Vimeo link"
-              className="min-h-[44px] flex-1 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
+              className="min-h-[44px] flex-1 rounded-lg border border-ink/15 bg-surface px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
             />
             <SubmitButton
               pendingLabel="Adding…"
@@ -2575,7 +2575,7 @@ function ChannelJoinRow({ eventId, zone }: { eventId: string; zone: ChannelRow }
         <SubmitButton
           pendingLabel="Making the QR…"
           overlay={false}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink/70 transition-colors hover:border-terracotta/50 hover:text-terracotta"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-surface px-3 py-1.5 text-[11.5px] font-semibold text-ink/70 transition-colors hover:border-terracotta/50 hover:text-terracotta"
         >
           <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Make the join QR
@@ -2597,7 +2597,7 @@ function ChannelJoinRow({ eventId, zone }: { eventId: string; zone: ChannelRow }
         <SubmitButton
           pendingLabel="Making the QR…"
           overlay={false}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink/70 transition-colors hover:border-terracotta/50 hover:text-terracotta"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-surface px-3 py-1.5 text-[11.5px] font-semibold text-ink/70 transition-colors hover:border-terracotta/50 hover:text-terracotta"
         >
           <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
           Make a new join QR
@@ -2636,7 +2636,7 @@ function ChannelJoinRow({ eventId, zone }: { eventId: string; zone: ChannelRow }
             pendingLabel="…"
             overlay={false}
             title={`Disconnect ${camera.holderName ?? 'the phone'} on CH ${channel} and make a new QR`}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-ink/60 transition-colors hover:border-burgundy/40 hover:text-burgundy"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-ink/15 bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-ink/60 transition-colors hover:border-burgundy/40 hover:text-burgundy"
           >
             <RefreshCw aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
             New QR
@@ -2650,7 +2650,7 @@ function ChannelJoinRow({ eventId, zone }: { eventId: string; zone: ChannelRow }
   // these and a wall of QR blocks would bury the channel list they belong to.
   return (
     <details className="group">
-      <summary className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-1.5 text-[11.5px] font-semibold text-ink/70 marker:content-[''] transition-colors hover:border-terracotta/50 hover:text-terracotta">
+      <summary className="inline-flex cursor-pointer items-center gap-1.5 rounded-lg border border-ink/15 bg-surface px-3 py-1.5 text-[11.5px] font-semibold text-ink/70 marker:content-[''] transition-colors hover:border-terracotta/50 hover:text-terracotta">
         <QrCode aria-hidden className="h-3.5 w-3.5" strokeWidth={1.75} />
         Join QR for CH {channel}
       </summary>
@@ -2850,7 +2850,7 @@ function ChannelTileCard({
             maxLength={60}
             defaultValue={tile.name}
             aria-label={`Name for CH ${tile.channel}`}
-            className="min-h-[36px] w-full rounded-md border border-ink/15 bg-white px-2 text-xs text-ink focus:border-terracotta focus:outline-none"
+            className="min-h-[36px] w-full rounded-md border border-ink/15 bg-surface px-2 text-xs text-ink focus:border-terracotta focus:outline-none"
           />
           <input
             type="text"
@@ -2859,7 +2859,7 @@ function ChannelTileCard({
             defaultValue={tile.venue ?? ''}
             placeholder="Venue (optional)"
             aria-label={`Venue for CH ${tile.channel}`}
-            className="min-h-[36px] w-full rounded-md border border-ink/15 bg-white px-2 text-xs text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
+            className="min-h-[36px] w-full rounded-md border border-ink/15 bg-surface px-2 text-xs text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
           />
           <SubmitButton
             pendingLabel="Saving…"

@@ -98,3 +98,30 @@ test('a clean-up delete that fails is returned with its photo id, so the flush c
   // It still tried to delete every upload, not just up to the failure.
   assert.deepEqual(g.seen.filter((s) => s.method === 'DELETE').map((s) => s.path), ['/photo-a.jpg', '/photo-b.jpg', '/photo-c.jpg']);
 });
+
+test('a scheduled multi-photo post: temporary unpublished uploads, then ONE scheduled /feed post, in order', async () => {
+  const g = fakeGraph();
+  const at = new Date('2026-12-01T12:00:00Z');
+  const res = await publishMultiPhoto(g.call, 'PAGE', 'Hello', urls, { scheduleAt: at });
+  assert.equal(res.ok, true);
+  const uploads = g.seen.filter((s) => s.path === '/PAGE/photos');
+  assert.deepEqual(uploads.map((u) => u.params.url), urls);
+  assert.ok(uploads.every((u) => u.params.published === 'false' && u.params.temporary === 'true'));
+  const feed = g.seen.find((s) => s.path === '/PAGE/feed');
+  assert.equal(feed?.params.published, 'false');
+  assert.equal(feed?.params.scheduled_publish_time, String(at.getTime() / 1000));
+  assert.equal(feed?.params['attached_media[2]'], '{"media_fbid":"photo-c.jpg"}');
+  // Not scheduled: no temporary flag, no scheduled time.
+  const now = fakeGraph();
+  await publishMultiPhoto(now.call, 'PAGE', 'Hello', urls);
+  assert.equal(now.seen.find((s) => s.path === '/PAGE/photos')?.params.temporary, undefined);
+  assert.equal(now.seen.find((s) => s.path === '/PAGE/feed')?.params.scheduled_publish_time, undefined);
+});
+
+test('a scheduled multi-photo post keeps all or nothing', async () => {
+  const g = fakeGraph({ failUpload: 3 });
+  const res = await publishMultiPhoto(g.call, 'PAGE', 'Hello', urls, { scheduleAt: new Date('2026-12-01T12:00:00Z') });
+  assert.equal(res.ok, false);
+  assert.equal(g.seen.some((s) => s.path === '/PAGE/feed'), false);
+  assert.deepEqual(g.seen.filter((s) => s.method === 'DELETE').map((s) => s.path), ['/photo-a.jpg', '/photo-b.jpg']);
+});

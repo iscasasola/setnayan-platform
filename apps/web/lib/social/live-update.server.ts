@@ -8,8 +8,6 @@ import { displayServiceLabel } from '@/lib/vendors';
 import { siteUrl } from '@/lib/social/urls';
 import { badgePostIsNamed, parseRealCounts } from '@/lib/social/lane-s';
 import {
-  LIVE_COMPOSE_FROM_HOUR,
-  SLOT_OPEN_MS,
   addPhDays,
   isPhSunday,
   phDayKey,
@@ -17,6 +15,7 @@ import {
 } from '@/lib/social/governor';
 import {
   composeLiveUpdate,
+  inLiveComposeWindow,
   liveUpdateSourceRef,
   type LiveFacts,
   type LiveShop,
@@ -27,8 +26,9 @@ import {
  * after the governor has handed every waiting auto-post its 14:00 slot. If TODAY's 14:00 is still empty, it reads
  * this week's real news and composes one post for that slot; with no real news it leaves the slot empty and logs it.
  *
- *   • Window: from 12:00 Manila until the 14:00 slot closes, so the news is the day's, and a post composed late
- *     still lands inside its slot. Outside the window it does nothing.
+ *   • Window: from 10:00 to 13:50 Manila (`inLiveComposeWindow`): the news is the day's, and 13:50 is the last moment
+ *     Facebook still accepts the post as a scheduled post for 14:00, so the same visit hands it over. Outside the
+ *     window it does nothing.
  *   • Reads: `social_live_week_facts()` (events held, suppliers verified, test and sample data left out) and, on
  *     Sunday, `social_milestone_real_counts()` — the milestone sweep's one reader of the all-time totals.
  *   • A read that fails is a null fact, never zero. Never throws.
@@ -88,13 +88,6 @@ export async function readLiveFacts(admin: Admin, now: Date): Promise<LiveFacts>
   return facts;
 }
 
-/** True when `now` is inside the 2 PM composer's window for its PH day. */
-export function inLiveComposeWindow(now: Date): boolean {
-  const day = phDayKey(now);
-  const opens = new Date(`${day}T${String(LIVE_COMPOSE_FROM_HOUR).padStart(2, '0')}:00:00+08:00`).getTime();
-  const closes = slotInstant(day, 'afternoon').getTime() + SLOT_OPEN_MS;
-  return now.getTime() >= opens && now.getTime() < closes;
-}
 
 export async function sweepLiveUpdate(admin: Admin, now: Date): Promise<void> {
   try {
@@ -107,7 +100,7 @@ export async function sweepLiveUpdate(admin: Admin, now: Date): Promise<void> {
       .from('social_posts')
       .select('post_id')
       .eq('scheduled_for', slotIso)
-      .in('status', ['scheduled', 'publishing', 'published'])
+      .in('status', ['scheduled', 'scheduled_on_fb', 'publishing', 'published'])
       .limit(1);
     if (heldErr) {
       logQueryError('runSocialFlush (live slot check)', heldErr);

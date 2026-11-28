@@ -8,7 +8,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { composeLiveUpdate, liveUpdateSourceRef, roundTotal, type LiveFacts } from './live-update';
+import { composeLiveUpdate, inLiveComposeWindow, liveUpdateSourceRef, roundTotal, type LiveFacts } from './live-update';
 
 const none: LiveFacts = { shopsVerified: [], eventsHeld: 0, totals: null };
 const unread: LiveFacts = { shopsVerified: null, eventsHeld: null, totals: null };
@@ -102,4 +102,13 @@ test('the live update follows the caption word rules (docs/brand.md; the same li
     assert.doesNotMatch(`${post!.title}\n${post!.body}`, BANNED, post!.kind);
     assert.match(post!.body, /#Setnayan #SetNaYan$/, `${post!.kind} ends with the house tags`);
   }
+});
+
+test('the 2 PM post is composed between 10:00 and 13:50, so the same visit can schedule it on Facebook', () => {
+  const ph = (t: string) => new Date(`2026-12-01T${t}+08:00`);
+  assert.equal(inLiveComposeWindow(ph('09:59:59')), false);
+  assert.equal(inLiveComposeWindow(ph('10:00:00')), true);
+  assert.equal(inLiveComposeWindow(ph('13:49:59')), true);
+  assert.equal(inLiveComposeWindow(ph('13:50:00')), false, 'Facebook needs 10 minutes of lead');
+  assert.equal(inLiveComposeWindow(ph('14:10:00')), false);
 });

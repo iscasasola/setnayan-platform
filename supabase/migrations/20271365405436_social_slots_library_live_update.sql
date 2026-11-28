@@ -19,9 +19,13 @@
 --   2b. social_posts_one_post_per_slot — a partial UNIQUE index: one live
 --      post per slot instant, so two overlapping flushes can never put two
 --      posts in one slot.
+--   2c. status 'scheduled_on_fb' + social_posts.facebook_post_id — the post
+--      is handed to Facebook as a scheduled post and Facebook publishes it at
+--      the slot (owner 2026-11-28: schedule on Facebook, stay cron-free).
 --   3. social_posts.first_comment — the text posted as the first comment
 --      right after the Facebook post goes out (the library's "Pinned first
---      comment"). The Graph API cannot pin a comment, so the flush records
+--      comment"). It cannot be scheduled, so the first visit after the slot
+--      adds it. The Graph API cannot pin a comment, so the flush records
 --      "pin by hand" in platform_results.facebook.first_comment.
 --   3b. social_posts.media_urls — the ordered photos of a multi-photo post
 --      (controller, 28 Nov). Facebook uploads each unpublished, in order, and
@@ -83,7 +87,30 @@ CREATE UNIQUE INDEX IF NOT EXISTS social_posts_one_post_per_slot
   ON public.social_posts (scheduled_for)
   WHERE slot IS NOT NULL
     AND scheduled_for IS NOT NULL
-    AND status IN ('scheduled', 'publishing', 'published');
+    AND status IN ('scheduled', 'scheduled_on_fb', 'publishing', 'published');
+
+-- ── 2c · Facebook holds the schedule (owner 2026-11-28: "schedule posts on
+--        Facebook itself and stay cron-free") ─────────────────────────────
+-- A slot post up to ~7 days ahead is handed to Facebook as a SCHEDULED post
+-- (published=false + scheduled_publish_time) by the ordinary after() flush on
+-- any site visit; Facebook then publishes it at the slot with nobody on the
+-- site. 'scheduled_on_fb' = handed over, waiting on Facebook's clock.
+-- facebook_post_id = Facebook's id for it: pulling the row deletes it there,
+-- editing the body updates it there, and the first visit after the slot adds
+-- the first comment and marks the row published.
+ALTER TABLE public.social_posts
+  DROP CONSTRAINT IF EXISTS social_posts_status_check;
+
+ALTER TABLE public.social_posts
+  ADD CONSTRAINT social_posts_status_check
+  CHECK (status IN
+    ('scheduled', 'scheduled_on_fb', 'publishing', 'published', 'pulled', 'failed'));
+
+ALTER TABLE public.social_posts
+  ADD COLUMN IF NOT EXISTS facebook_post_id TEXT;
+
+COMMENT ON COLUMN public.social_posts.facebook_post_id IS
+  'Owner 2026-11-28: Facebook''s id for the post this row became (a scheduled post while status = scheduled_on_fb, the live post after). Pull deletes it on Facebook; an edit updates it there (lib/social/fb-queue.ts).';
 
 -- ── 3 · the first comment ──────────────────────────────────────────────────
 ALTER TABLE public.social_posts

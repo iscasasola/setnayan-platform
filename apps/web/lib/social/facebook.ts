@@ -1,6 +1,9 @@
 import 'server-only';
 import { resolveMetaConfig } from '@/lib/integration-config';
 import { multiPhotoUrls, publishMultiPhoto, type GraphCall } from '@/lib/social/facebook-multi-photo';
+import { buildSinglePostRequest } from '@/lib/social/facebook-request';
+import type { FbOps } from '@/lib/social/fb-queue';
+import { socialCardUrl } from '@/lib/social/urls';
 
 /**
  * apps/web/lib/social/facebook.ts
@@ -109,105 +112,90 @@ export async function isFacebookConfigured(): Promise<boolean> {
   return Boolean(pageId && accessToken);
 }
 
+/** The Page id plus a Graph caller holding the Page token, or why Facebook cannot be reached. */
+async function pageGraph(): Promise<{ ok: true; pageId: string; call: GraphCall } | { ok: false; error: string }> {
+  const { pageId, accessToken } = await resolveMetaConfig();
+  if (!pageId || !accessToken) {
+    return { ok: false, error: 'Facebook is not configured (META_PAGE_ID / META_PAGE_ACCESS_TOKEN missing).' };
+  }
+  // Exchange a System User token for the Page token (no-op for a real Page token). On exchange failure, fall back to
+  // the configured token — the call will surface any genuine auth problem itself.
+  const resolved = await resolvePageAccessToken(pageId, accessToken);
+  return { ok: true, pageId, call: graphCaller(resolved.ok ? resolved.token : accessToken) };
+}
+
 /**
- * Publish one post to the Setnayan Facebook Page. When `mediaUrl` is a
- * public http(s) image, posts it as a photo with the message as caption
- * (photo posts get materially better reach); otherwise a plain feed post
- * with an optional link attachment.
+ * Publish one post to the Setnayan Facebook Page — or, with `scheduleAt`, hand it to Facebook as a SCHEDULED post
+ * that Facebook publishes at that time (owner 2026-11-28: Facebook holds the schedule; 10 min to ~30 days ahead).
+ * Two or more `mediaUrls` make ONE multi-photo post, all or nothing; else a photo post when `mediaUrl` is a public
+ * image (better reach), else a feed post with an optional link. `externalId` is the post's id on Facebook — keep it
+ * to delete or edit a scheduled post. Never throws.
  */
 export async function postToFacebookPage({
   message,
   linkUrl,
   mediaUrl,
   mediaUrls,
+  scheduleAt,
 }: {
   message: string;
   linkUrl?: string | null;
   mediaUrl?: string | null;
   /** Two or more public images, in order → ONE multi-photo post, or nothing. */
   mediaUrls?: readonly string[] | null;
+  /** Hand it to Facebook as a scheduled post for this time instead of publishing now. */
+  scheduleAt?: Date | null;
 }): Promise<FacebookPostResult> {
-  const { pageId, accessToken } = await resolveMetaConfig();
-  if (!pageId || !accessToken) {
-    return { ok: false, error: 'Facebook is not configured (META_PAGE_ID / META_PAGE_ACCESS_TOKEN missing).' };
-  }
-
-  // Exchange a System User token for the Page token (no-op for a real Page
-  // token). On exchange failure, fall back to the configured token — the post
-  // will surface any genuine auth problem itself.
-  const resolved = await resolvePageAccessToken(pageId, accessToken);
-  const postToken = resolved.ok ? resolved.token : accessToken;
+  const page = await pageGraph();
+  if (!page.ok) return { ok: false, error: page.error };
 
   const photos = multiPhotoUrls(mediaUrls);
   if (photos) {
-    const multi = await publishMultiPhoto(graphCaller(postToken), pageId, message, photos);
+    const multi = await publishMultiPhoto(page.call, page.pageId, message, photos, { scheduleAt });
     return multi.ok
       ? { ok: true, externalId: multi.externalId, postUrl: `https://www.facebook.com/${multi.externalId}` }
       : { ok: false, error: multi.error, cleanupFailures: multi.cleanupFailures };
   }
 
-  // Photo route only for fetchable http(s) images — Graph downloads the URL
-  // itself, so a data: URI or a non-image would just fail server-side there.
-  const asPhoto =
-    typeof mediaUrl === 'string' &&
-    /^https?:\/\//i.test(mediaUrl) &&
-    /\.(jpe?g|png|gif|webp)(\?|#|$)/i.test(mediaUrl);
+  const request = buildSinglePostRequest({ pageId: page.pageId, message, linkUrl, mediaUrl, scheduleAt });
+  const res = await page.call('POST', request.path, request.params);
+  if (!res.ok) return { ok: false, error: res.error.slice(0, 500) };
+  // /photos returns { id, post_id } — post_id is the feed-story id, the better permalink and delete/edit target;
+  // /feed returns { id } (already "{page}_{post}").
+  const postId = typeof res.body.post_id === 'string' ? res.body.post_id : null;
+  const id = typeof res.body.id === 'string' ? res.body.id : null;
+  const externalId = postId ?? id;
+  if (!externalId) return { ok: false, error: 'Graph API returned no post id.' };
+  return { ok: true, externalId, postUrl: `https://www.facebook.com/${externalId}` };
+}
 
-  const params = new URLSearchParams({ access_token: postToken });
-  let endpoint: string;
-  if (asPhoto && mediaUrl) {
-    endpoint = `${GRAPH_API_BASE}/${pageId}/photos`;
-    params.set('url', mediaUrl);
-    params.set('caption', message);
-  } else {
-    endpoint = `${GRAPH_API_BASE}/${pageId}/feed`;
-    params.set('message', message);
-    if (linkUrl && /^https?:\/\//i.test(linkUrl)) params.set('link', linkUrl);
-  }
+export type FacebookOpResult = { ok: true } | { ok: false; error: string };
 
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), GRAPH_TIMEOUT_MS);
-  try {
-    const res = await fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString(),
-      signal: controller.signal,
-    });
+/** Delete a post on the Page — a scheduled one before it goes out, or a live one. Never throws. */
+export async function deleteFacebookPost(postId: string): Promise<FacebookOpResult> {
+  const page = await pageGraph();
+  if (!page.ok) return page;
+  const res = await page.call('DELETE', `/${encodeURIComponent(postId)}`, {});
+  return res.ok ? { ok: true } : { ok: false, error: res.error };
+}
 
-    const payload = (await res.json().catch(() => null)) as
-      | { id?: string; post_id?: string; error?: { message?: string; code?: number } }
-      | null;
+/** Replace a post's text on the Page (a scheduled post keeps its time). Never throws. */
+export async function updateFacebookPostMessage(postId: string, message: string): Promise<FacebookOpResult> {
+  const page = await pageGraph();
+  if (!page.ok) return page;
+  const res = await page.call('POST', `/${encodeURIComponent(postId)}`, { message });
+  return res.ok ? { ok: true } : { ok: false, error: res.error };
+}
 
-    if (!res.ok || !payload || payload.error) {
-      const detail =
-        payload?.error?.message ??
-        `Graph API HTTP ${res.status}${payload ? '' : ' (non-JSON body)'}`;
-      return { ok: false, error: detail.slice(0, 500) };
-    }
-
-    // /photos returns { id, post_id } — post_id is the feed-story id, the
-    // better permalink target; /feed returns { id } (already "{page}_{post}").
-    const externalId = payload.post_id ?? payload.id;
-    if (!externalId) {
-      return { ok: false, error: 'Graph API returned no post id.' };
-    }
-    return {
-      ok: true,
-      externalId,
-      postUrl: `https://www.facebook.com/${externalId}`,
-    };
-  } catch (err) {
-    const message =
-      err instanceof Error && err.name === 'AbortError'
-        ? `Graph API call timed out after ${GRAPH_TIMEOUT_MS / 1000}s.`
-        : err instanceof Error
-          ? err.message
-          : 'Unknown Facebook publish error.';
-    return { ok: false, error: message.slice(0, 500) };
-  } finally {
-    clearTimeout(timeout);
-  }
+/** Has Facebook published this post yet? `null` = could not ask (the post may be gone). Never throws. */
+export async function isFacebookPostPublished(
+  postId: string,
+): Promise<{ ok: true; published: boolean } | { ok: false; error: string }> {
+  const page = await pageGraph();
+  if (!page.ok) return page;
+  const res = await page.call('GET', `/${encodeURIComponent(postId)}`, { fields: 'is_published' });
+  if (!res.ok) return { ok: false, error: res.error };
+  return { ok: true, published: res.body.is_published === true };
 }
 
 export type FacebookCommentResult = { ok: true; commentId: string } | { ok: false; error: string };
@@ -218,43 +206,17 @@ export type FacebookCommentResult = { ok: true; commentId: string } | { ok: fals
  * a Page post, so the caller records "pin by hand" — the owner pins it in Meta. Never throws.
  */
 export async function commentOnFacebookPost(postId: string, message: string): Promise<FacebookCommentResult> {
-  const { pageId, accessToken } = await resolveMetaConfig();
-  if (!pageId || !accessToken) {
-    return { ok: false, error: 'Facebook is not configured (META_PAGE_ID / META_PAGE_ACCESS_TOKEN missing).' };
-  }
-  const resolved = await resolvePageAccessToken(pageId, accessToken);
-  const token = resolved.ok ? resolved.token : accessToken;
-
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), GRAPH_TIMEOUT_MS);
-  try {
-    const res = await fetch(`${GRAPH_API_BASE}/${encodeURIComponent(postId)}/comments`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: new URLSearchParams({ access_token: token, message }).toString(),
-      signal: controller.signal,
-    });
-    const payload = (await res.json().catch(() => null)) as { id?: string; error?: { message?: string } } | null;
-    if (!res.ok || !payload?.id) {
-      return { ok: false, error: (payload?.error?.message ?? `Graph API HTTP ${res.status}`).slice(0, 500) };
-    }
-    return { ok: true, commentId: payload.id };
-  } catch (err) {
-    const message =
-      err instanceof Error && err.name === 'AbortError'
-        ? `Graph API call timed out after ${GRAPH_TIMEOUT_MS / 1000}s.`
-        : err instanceof Error
-          ? err.message
-          : 'Unknown Facebook comment error.';
-    return { ok: false, error: message.slice(0, 500) };
-  } finally {
-    clearTimeout(timeout);
-  }
+  const page = await pageGraph();
+  if (!page.ok) return page;
+  const res = await page.call('POST', `/${encodeURIComponent(postId)}/comments`, { message });
+  if (!res.ok) return { ok: false, error: res.error.slice(0, 500) };
+  return typeof res.body.id === 'string' ? { ok: true, commentId: res.body.id } : { ok: false, error: 'Graph API returned no comment id.' };
 }
 
 /**
- * One Graph request with the Page token and the same timeout as a post. Never throws. The token always travels in
- * the form BODY, for DELETE too, never in the query string — a URL ends up in proxy and server logs.
+ * One Graph request with the Page token and the same timeout as a post. Never throws. The token never travels in a
+ * URL (a URL ends up in proxy and server logs): it is in the form BODY for POST and DELETE, and in the
+ * Authorization header for GET.
  */
 function graphCaller(token: string): GraphCall {
   return async (method, path, params) => {
@@ -262,12 +224,18 @@ function graphCaller(token: string): GraphCall {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), GRAPH_TIMEOUT_MS);
     try {
-      const res = await fetch(`${GRAPH_API_BASE}${path}`, {
-        method,
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: body.toString(),
-        signal: controller.signal,
-      });
+      const res =
+        method === 'GET'
+          ? await fetch(`${GRAPH_API_BASE}${path}?${new URLSearchParams(params).toString()}`, {
+              headers: { Authorization: `Bearer ${token}` },
+              signal: controller.signal,
+            })
+          : await fetch(`${GRAPH_API_BASE}${path}`, {
+              method,
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: body.toString(),
+              signal: controller.signal,
+            });
       const payload = (await res.json().catch(() => null)) as (Record<string, unknown> & { error?: { message?: string } }) | null;
       if (!res.ok || !payload || payload.error) {
         return { ok: false, error: (payload?.error?.message ?? `Graph API HTTP ${res.status}`).slice(0, 300) };
@@ -288,3 +256,22 @@ function graphCaller(token: string): GraphCall {
     }
   };
 }
+
+/**
+ * The real Facebook calls for `lib/social/fb-queue.ts`. A scheduled post carries the same media rule as a post sent
+ * now: the row's own image wins, else the branded card; two or more photos make one multi-photo post.
+ */
+export const facebookOps: FbOps = {
+  schedule: (row, at) =>
+    postToFacebookPage({
+      message: row.body,
+      linkUrl: row.link_url,
+      mediaUrl: row.media_url || socialCardUrl(row.post_id),
+      mediaUrls: row.media_urls,
+      scheduleAt: at,
+    }),
+  remove: deleteFacebookPost,
+  editMessage: updateFacebookPostMessage,
+  isPublished: isFacebookPostPublished,
+  comment: commentOnFacebookPost,
+};

@@ -8,6 +8,7 @@
  *   2b · ONE POST PER SLOT is a database rule: a second live row on the same slot instant is refused (23505),
  *        a pulled row frees it, an unslotted legacy row is not held to it, and the library import moves an unsent
  *        auto-post off a planned slot (and skips a planned slot a sent post already holds) instead of aborting.
+ *   2c · `scheduled_on_fb` is a status, holds its slot under the same index, and `facebook_post_id` is stored.
  *   3 · `social_live_week_facts` counts real events in the window only (no sample event, no event outside it) and
  *       lists only live, non-demo, not-opted-out suppliers verified in the window; service_role only.
  *
@@ -195,4 +196,27 @@ test('2b · one post per slot is held by the database; the import gives a planne
   assert.equal(byRef['sent-1']?.at, '2027-01-06T06:00', 'a sent post lost its slot');
   const planned = rows.rows.filter((r) => r.source_type === 'library');
   assert.deepEqual(planned.map((r) => r.at), ['2027-01-05T06:00'], 'the planned post on the free slot landed; the one on a sent slot was skipped');
+});
+
+test('2c · scheduled_on_fb is a status, it holds its slot, and Facebook\'s id is stored', async () => {
+  const at = '2027-01-07T00:00:00Z'; // 08:00 Manila
+  await db.query(
+    `INSERT INTO public.social_posts (source_type, source_ref, slot, scheduled_for, status, facebook_post_id)
+     VALUES ('library', 'fb-held', 'morning', $1, 'scheduled_on_fb', '123_456')`,
+    [at],
+  );
+  // A post waiting on Facebook's schedule still holds its slot against every other row.
+  await assert.rejects(
+    db.query(
+      `INSERT INTO public.social_posts (source_type, source_ref, slot, scheduled_for, status) VALUES ('vendor_feature', 'fb-rival', 'morning', $1, 'scheduled')`,
+      [at],
+    ),
+    /social_posts_one_post_per_slot/,
+  );
+  const r = await db.query<{ facebook_post_id: string }>(`SELECT facebook_post_id FROM public.social_posts WHERE source_ref = 'fb-held'`);
+  assert.equal(r.rows[0]?.facebook_post_id, '123_456');
+  await assert.rejects(
+    db.query(`UPDATE public.social_posts SET status = 'queued_on_fb' WHERE source_ref = 'fb-held'`),
+    /social_posts_status_check/,
+  );
 });

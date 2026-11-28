@@ -9,14 +9,20 @@
  * If any upload fails, the feed post is never made (no half posts), the error is returned, and the unpublished
  * photos already uploaded are deleted. A delete that fails is logged and returned (`cleanupFailures`), so the flush
  * records it in platform_results — an unpublished photo is never shown on the Page, but it is not gone either.
- * At most 10 photos (owner); more is refused before anything uploads.
+ * At most 10 photos (owner); more is refused before anything uploads. With `scheduleAt` the feed post is a
+ * Facebook SCHEDULED post (owner 2026-11-28: Facebook holds the schedule).
  */
 import { formatCount } from '@/lib/format-number';
+import { scheduledPostFields } from '@/lib/social/facebook-request';
 
 export type GraphResult = { ok: true; body: Record<string, unknown> } | { ok: false; error: string };
 
-/** One Graph API request: `POST` (form params) or `DELETE`, against a path like `/{page-id}/photos`. */
-export type GraphCall = (method: 'POST' | 'DELETE', path: string, params: Record<string, string>) => Promise<GraphResult>;
+/** One Graph API request against a path like `/{page-id}/photos`: `GET` (query), `POST` (form body) or `DELETE`. */
+export type GraphCall = (
+  method: 'GET' | 'POST' | 'DELETE',
+  path: string,
+  params: Record<string, string>,
+) => Promise<GraphResult>;
 
 /** An unpublished photo the clean-up could not delete (it is never shown on the Page, but it is not gone). */
 export type CleanupFailure = { photo_id: string; error: string };
@@ -39,6 +45,7 @@ export async function publishMultiPhoto(
   pageId: string,
   message: string,
   urls: readonly string[],
+  opts: { scheduleAt?: Date | null } = {},
 ): Promise<MultiPhotoResult> {
   if (urls.length < 2) {
     return { ok: false, error: 'A multi-photo post needs at least two photos.', uploaded: 0, cleanupFailures: [] };
@@ -65,7 +72,13 @@ export async function publishMultiPhoto(
 
   // Sequential on purpose: the media_fbid order IS the photo order on the post.
   for (const [i, url] of urls.entries()) {
-    const res = await call('POST', `/${pageId}/photos`, { url, published: 'false' });
+    // Unpublished, so no photo shows on the Page on its own. For a scheduled post Facebook also wants the uploads
+    // marked temporary — they live only as the post's attachments.
+    const res = await call('POST', `/${pageId}/photos`, {
+      url,
+      published: 'false',
+      ...(opts.scheduleAt ? { temporary: 'true' } : {}),
+    });
     const id = res.ok && typeof res.body.id === 'string' ? res.body.id : null;
     if (!id) {
       const cleanupFailures = await cleanUp();
@@ -80,7 +93,8 @@ export async function publishMultiPhoto(
     mediaIds.push(id);
   }
 
-  const params: Record<string, string> = { message };
+  // A scheduled post (owner 2026-11-28): published=false + scheduled_publish_time on the feed post itself.
+  const params: Record<string, string> = { message, ...(opts.scheduleAt ? scheduledPostFields(opts.scheduleAt) : {}) };
   mediaIds.forEach((id, i) => {
     params[`attached_media[${i}]`] = JSON.stringify({ media_fbid: id });
   });

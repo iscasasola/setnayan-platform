@@ -16,9 +16,10 @@
  *
  * The daily cap is the slots themselves: ONE post per slot instant, planned or automatic. A post that finds its
  * slot taken queues for the next free slot of its kind. Nothing is ever posted outside a slot: a slot is open from
- * its instant for `SLOT_OPEN_MS`, and the first flush inside that hour publishes it. The flush is opened on time by
- * `.github/workflows/social-slots.yml` → `/api/cron/social-flush` (a run plus a retry inside every slot) and also
- * rides page traffic through `after()`. A slot that still closes unposted is re-slotted, never posted late
+ * its instant. Facebook holds the schedule (owner 2026-11-28, cron-free): any visit's flush hands the next ~7 days
+ * of slot posts to Facebook as scheduled posts (lib/social/fb-queue.ts), and Facebook publishes them AT the slot. A
+ * post that could not be handed over (composed under 10 minutes before its slot) goes out on the first visit inside
+ * its slot's open hour (`SLOT_OPEN_MS`). A slot that still closes unposted is re-slotted, never posted late
  * (`slotVerdict`).
  *
  * TIMEZONE NOTE: the Philippines has no DST and PHT is pinned at UTC+08:00, so a fixed +08:00 offset is correct
@@ -47,8 +48,11 @@ export const AUTO_POST_SLOT = 'afternoon' as const satisfies SocialSlot;
 /** How long a slot stays open for dispatch after its instant: the first flush inside this hour posts it. */
 export const SLOT_OPEN_MS = 60 * 60 * 1000;
 
-/** The 14:00 live composer looks for real news from 12:00 Manila until its slot closes. */
-export const LIVE_COMPOSE_FROM_HOUR = 12;
+/**
+ * The 14:00 live composer looks for real news from 10:00 Manila until 13:50 — the last moment Facebook still takes
+ * the post as a scheduled post (10 minutes ahead), so the same visit hands it over (owner 2026-11-28).
+ */
+export const LIVE_COMPOSE_FROM_HOUR = 10;
 
 /** How far ahead `nextFreeSlot` looks for a free slot. */
 const SCAN_DAYS = 800;
@@ -210,7 +214,8 @@ export function slotClashLosers(
   const losers: string[] = [];
   for (const list of bySlot.values()) {
     if (list.length < 2) continue;
-    const sent = list.some((r) => r.status === 'publishing' || r.status === 'published');
+    // Already handed to Facebook, going out, or out: it keeps its slot.
+    const sent = list.some((r) => r.status === 'scheduled_on_fb' || r.status === 'publishing' || r.status === 'published');
     const ranked = [...list].sort(
       (a, b) =>
         Number(b.status !== 'scheduled') - Number(a.status !== 'scheduled') ||

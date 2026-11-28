@@ -20,6 +20,11 @@ const PHISH = 'Your account is locked. Call 0917 000 0000 to restore it.';
 
 test('a lone "%" never throws', () => {
   assert.equal(decodeParamSafely('%'), '%');
+  // Batch 0 · L1: the malformed escape the walk used (a cut-off three-byte sequence) reads as the text it is.
+  assert.doesNotThrow(() => decodeParamSafely('%E0%A4%A'));
+  assert.equal(decodeParamSafely('%E0%A4%A'), '%E0%A4%A');
+  assert.doesNotThrow(() => ownMessageFromParam('%E0%A4%A', HELP_MESSAGE_ERRORS, HELP_MESSAGE_ERROR_FALLBACK));
+  assert.doesNotThrow(() => emailFromParam('%E0%A4%A'));
   assert.equal(decodeParamSafely('100%'), '100%');
   assert.equal(decodeParamSafely('a%20b'), 'a b');
   assert.equal(decodeParamSafely(undefined), null);
@@ -58,6 +63,11 @@ test('🔒 no page that shows a URL message decodes it by hand or prints it as g
     'app/i/[slug]/page.tsx',
     'app/login/_components/login-data.ts',
     'app/(shell)/help/page.tsx',
+    // Batch 0 · L1: every page on the four routes the walk crashed, not only the ones that print a message.
+    'app/login/page.tsx',
+    'app/(shell)/(help-list)/help/topics/page.tsx',
+    'app/(shell)/(help-pages)/help/topics/[key]/page.tsx',
+    'app/(shell)/(help-pages)/help/guides/[key]/page.tsx',
   ];
   for (const rel of pages) {
     const src = stripComments(readFileSync(join(process.cwd(), rel), 'utf8'));

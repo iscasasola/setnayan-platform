@@ -16,6 +16,7 @@ import {
   eventCelebrantWords,
   forYourServicePages,
   requestedServices,
+  shopPeopleIdsOf,
   type AskedInterest,
   eventDayWords,
   hostRoleWord,
@@ -23,6 +24,7 @@ import {
   type EventLineHost,
   type EventLines,
   type EventStage,
+  type ShopPeopleSource,
 } from '@/lib/supplier-event-lines';
 
 type Admin = ReturnType<typeof createAdminClient>;
@@ -52,6 +54,11 @@ export async function readSupplierEventLines(
      * reservation in the shop's own schedule — `fetchVendorPoolBookings`). Never a list from the address bar.
      */
     vouched?: ReadonlySet<string>;
+    /**
+     * The shop's owner and team as the caller ALREADY read them (Clients holds both — its profile and `teamRead`), so
+     * the shop's people cost no second request. Absent → read here, beside the first round.
+     */
+    shopPeople?: ShopPeopleSource;
   },
 ): Promise<Map<string, EventLines>> {
   const out = new Map<string, EventLines>();
@@ -59,7 +66,7 @@ export async function readSupplierEventLines(
   if (ids.length === 0) return out;
   const me = input.vendorProfileId;
 
-  const [threadsRead, eventsRead, membersRead, planRead, servicesRead, seatsRead, honoreesRead, perGuest] = await Promise.all([
+  const [threadsRead, eventsRead, membersRead, planRead, servicesRead, seatsRead, honoreesRead, perGuest, shopPeople] = await Promise.all([
     readInChunks<{
       thread_id: string;
       event_id: string;
@@ -150,6 +157,8 @@ export async function readSupplierEventLines(
     ),
     // 👥 RW-08: this shop's claimed per-guest bookings (null = refused → the shipped count).
     readShopPerGuest(admin, me, ids).catch(() => null),
+    // 🏪 THE SHOP'S OWN PEOPLE (L6 · S10): needs only the shop id, so it rides this first round (Today's depth holds).
+    input.shopPeople ? Promise.resolve(shopPeopleIdsOf(input.shopPeople)) : readShopPeopleIds(admin, me),
   ]);
   for (const [site, r] of [
     ['threads', threadsRead],
@@ -172,8 +181,16 @@ export async function readSupplierEventLines(
   const inScope = (id: string) =>
     threadOf.has(id) || (planOf.get(id) ?? []).some((r) => r.marketplace_vendor_id === me) || Boolean(input.vouched?.has(id));
 
+  /*
+    🏪 A SHOP NEVER HOSTS ITS OWN CLIENT'S EVENT (L6 · S10, walk 27 Nov 2026: Clients listed the shop's own owner under
+    "Hosted by" on a client's event — the owner had made the event for the client, and stayed on it). "Hosted by" names
+    the CUSTOMER's people; the shop's owner and its team are left out of it. A refused people read leaves the list as read.
+  */
+  const isShopPerson = (userId: string | null | undefined) => Boolean(userId && shopPeople?.has(userId));
   const memberIds = new Map<string, string[]>();
-  for (const m of membersRead.rows) if (m.user_id) memberIds.set(m.event_id, [...(memberIds.get(m.event_id) ?? []), m.user_id]);
+  for (const m of membersRead.rows) {
+    if (m.user_id && !isShopPerson(m.user_id)) memberIds.set(m.event_id, [...(memberIds.get(m.event_id) ?? []), m.user_id]);
+  }
 
   // Round two: the hosts' names, and a returning customer's first event with this shop — both need round one.
   const people = [
@@ -365,7 +382,7 @@ export async function readSupplierEventLines(
         : [
             ...hostsInOrder(
               memberIds.get(eventId) ?? [],
-              t?.created_by_user_id ?? null,
+              isShopPerson(t?.created_by_user_id) ? null : (t?.created_by_user_id ?? null),
               nameOf,
               rolesOf(eventId, ev ? sanitizeRoleNames(ev.role_names) : null),
             ),
@@ -393,4 +410,28 @@ export async function readSupplierEventLines(
     });
   }
   return out;
+}
+
+/**
+ * 🏪 Who works for this shop — its owner (`vendor_profiles.user_id`) and every ACTIVE team seat
+ * (`vendor_team_members.user_id`, `deactivated_at` null; the rule is `shopPeopleIdsOf`).
+ * Null when either read is refused (the caller then filters nothing — a person left in is said; a host left out is not).
+ */
+async function readShopPeopleIds(admin: Admin, vendorProfileId: string): Promise<Set<string> | null> {
+  try {
+    const [own, team] = await Promise.all([
+      admin.from('vendor_profiles').select('user_id').eq('vendor_profile_id', vendorProfileId).maybeSingle(),
+      admin.from('vendor_team_members').select('user_id, deactivated_at').eq('vendor_profile_id', vendorProfileId).is('deactivated_at', null),
+    ]);
+    if (own.error || team.error) {
+      logQueryError('readSupplierEventLines.shopPeople', (own.error ?? team.error)!, { vendorProfileId }, 'graceful_degrade');
+      return null;
+    }
+    return shopPeopleIdsOf({
+      ownerUserId: (own.data as { user_id?: string | null } | null)?.user_id,
+      team: (team.data ?? []) as ShopPeopleSource['team'],
+    });
+  } catch {
+    return null;
+  }
 }

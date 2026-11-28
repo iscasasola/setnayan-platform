@@ -9,7 +9,7 @@ import { isShopLive } from '@/lib/vendor-visibility';
 import { areBookingsOpen } from '@/lib/bookings-open.server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { selfPublishedLive, shopPageGate } from '@/lib/own-shop-preview';
-import { fetchReviewStats, fetchReviewsForVendorWithCouple, type ReviewWithCouple } from '@/lib/reviews';
+import { fetchReviewsForVendorWithCouple, type ReviewWithCouple } from '@/lib/reviews';
 import { readGuestReviewsForVendor, type GuestReviewsRead } from '@/lib/guest-reviews';
 import { fetchVendorPoolBookings } from '@/lib/vendor-schedule';
 import { loadVendorFeaturedStories } from '@/lib/realstories-vendor';
@@ -22,6 +22,9 @@ import { pageSavedFrom, type PageSaved } from '@/lib/supplier-page-draft';
 import type { DomainRow } from './actions';
 import { readShopBadgeFacts } from '@/lib/shop-badges.server';
 import { shopBadges, trackerSummary, type ShopBadge } from '@/lib/shop-badges';
+import { countPortfolioPhotos } from '@/lib/portfolio-count-label';
+import { shopCountSinceIso } from '@/lib/shop-count-window';
+import { shopRatingOf } from '@/lib/shop-rating';
 
 /**
  * YOUR PAGE — what the page editor needs, read once (simpler supplier dashboard step 5).
@@ -143,10 +146,6 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     return null;
   });
 
-  const statsRead = fetchReviewStats(supabase, vendorId).catch((err) => {
-    logQueryError('VendorPage.reviewStats', err, { vendorId });
-    return undefined;
-  });
   // 💬 ONE read for the pin picker (its first 20, as before) AND the reply-in-place list (owner 2026-11-06: Page ›
   // Reviews and stories = read + reply to reviews in place; the retired /reviews page read 200 the same way).
   const reviewsRead = (async () => {
@@ -244,7 +243,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
   // 📌 v13: "opened your page · 30 d" on the pinned row — one head count, the same store Analytics' funnel counts.
   const views30Read = (async (): Promise<number | null> => {
     // 👁 Distinct visitors, never rows (W1-B15) — the reader Analytics' funnel counts with.
-    const { count, error } = await readCouplesWhoOpened(supabase, vendorId, new Date(Date.now() - 30 * 86_400_000).toISOString());
+    const { count, error } = await readCouplesWhoOpened(supabase, vendorId, shopCountSinceIso(Date.now()));
     if (error) logQueryError('VendorPage.views30', error, { vendorId }, 'graceful_degrade');
     return error || count === null ? null : count;
   })().catch((err) => {
@@ -252,9 +251,8 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     return null;
   });
 
-  const [own, stats, reviews, stories, domains, vocab, portfolio, storeShell, badgeFacts, views30, guestReviews] = await Promise.all([
+  const [own, reviews, stories, domains, vocab, portfolio, storeShell, badgeFacts, views30, guestReviews] = await Promise.all([
     ownRead,
-    statsRead,
     reviewsRead,
     storiesRead,
     domainsRead,
@@ -266,6 +264,7 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     guestReviewsRead,
   ]);
 
+  const shopRating = shopRatingOf(badgeFacts.trusted);
   const microsite = micrositeFromRow(own);
   const tier = own?.tier_state ?? null;
   // 🧹 RW-167: one row per service — an older spelling of the same key is not a second service.
@@ -318,13 +317,16 @@ export async function loadPageData(supabase: SupabaseClient, profile: VendorProf
     yearsLabel: profile.in_business_since_year
       ? `${Math.max(0, new Date().getFullYear() - profile.in_business_since_year)} yrs in business`
       : null,
-    rating: stats === undefined ? null : Number(stats?.avg_rating_overall ?? 0) || 0,
-    reviewCount: stats === undefined ? null : Number(stats?.total_count ?? 0) || 0,
+    // ⭐ THE SHOP'S ONE RATING (L6 · S2, `lib/shop-rating.ts`): the trusted aggregate couples are shown, read with the
+    // badges (no read of its own) — never the raw `vendor_review_stats` average, which said 4.7 ★ beside Analytics' 4.2.
+    // Unread → null ("Could not be read just now"); no trusted review → 0 ("No reviews yet").
+    rating: shopRating.state === 'unread' ? null : shopRating.state === 'rated' ? shopRating.average : 0,
+    reviewCount: shopRating.state === 'unread' ? null : shopRating.state === 'rated' ? shopRating.count : 0,
     views30,
     saved,
     services,
     portfolio,
-    photoCount: portfolioKeys.length,
+    photoCount: countPortfolioPhotos(portfolioKeys),
     videoCount: ((profile.gallery_video_links ?? []) as string[]).length,
     reviews: reviews?.options ?? null,
     replyRows: reviews?.rows ?? null,

@@ -370,7 +370,8 @@ async function inviteReplyPage({ params, searchParams }: Props) {
   const closesLabel = replyBy ? formatEventDateWithPrecision(replyBy.date, 'day') || null : null;
 
   // 🪪 RW-64 (walk 13 Nov 2026): the guest's compact name (`guestDisplayName` — it drops a stored dash part), and never a
-  // stand-in ("Someone —") printed as a name: no real name reads "Your reply".
+  // stand-in ("Someone —") printed as a name. No real name → no name line at all: it used to read "Your reply", right
+  // above the form's own "Your reply" eyebrow — the same words twice (owner walk 2026-11-27, MASTER-PLAN B8).
   const guestName =
     realNameOrNull(
       guestDisplayName({
@@ -378,7 +379,7 @@ async function inviteReplyPage({ params, searchParams }: Props) {
         first_name: (guest.first_name as string | null) ?? '',
         last_name: (guest.last_name as string | null) ?? '',
       } as Parameters<typeof guestDisplayName>[0]),
-    ) ?? 'Your reply';
+    );
 
   /* 📐 ONE QUESTION PER SCREEN (owner 2026-09-29: "ask one question per screen
      is not neatly arranged. there are rules for like this, where the progress
@@ -407,7 +408,7 @@ async function inviteReplyPage({ params, searchParams }: Props) {
       <DoorShell
         brand="foot"
         eyebrow="You’re invited"
-        title={(event.display_name as string | null) || guestName}
+        title={(event.display_name as string | null) || guestName || 'Your invitation'}
         /* 🔤 The couple's names — they wear the Names font where one was chosen. (A guest's own name is not theirs.) */
         titleIsNames={Boolean(event.display_name)}
         meta={canvas ? canvasWhenWhere(event) : joinDoorMeta({
@@ -422,7 +423,7 @@ async function inviteReplyPage({ params, searchParams }: Props) {
         {canvas ? <RsvpCanvasBridge /> : null}
         {oneQuestionFrame ? (
           <p hidden data-rsvp-context-line="" className="truncate text-sm text-ink/70">
-            {[event.display_name as string | null, `for ${guestName}`].filter(Boolean).join(' · ')}
+            {[event.display_name as string | null, guestName ? `for ${guestName}` : null].filter(Boolean).join(' · ')}
           </p>
         ) : null}
         {/* 🧩 ON THE MAKER'S CANVAS EVERY PIECE IS A PART (owner 2026-10-07/08: "RSVP cannot select anything" · "it is
@@ -432,9 +433,13 @@ async function inviteReplyPage({ params, searchParams }: Props) {
         {/* Whose reply this is — and, on a phone a family shares, the way out. */}
         <FirstScreenOnly on={oneQuestionFrame}>
           <div className="flex flex-wrap items-baseline justify-between gap-x-3">
-            <p className="font-serif text-lg text-ink" data-reply-for="">
-              {guestName}
-            </p>
+            {guestName ? (
+              <p className="font-serif text-lg text-ink" data-reply-for="">
+                {guestName}
+              </p>
+            ) : (
+              <span />
+            )}
             {/* A host replying as their own row holds no pass to switch out of (`own_row`). */}
             {canvas || replyAs?.kind === 'own_row' ? null : <NotYouSwitch slug={home} erasesSelfie={guest.photo_source === 'selfie'} />}
           </div>

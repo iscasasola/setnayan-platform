@@ -336,21 +336,52 @@ export async function assignGuest(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
+  /* 🧑‍🤝‍🧑 A UNIT IN ONE WRITE (seat plan R3): `along` = the +1s who move with this guest, each to their own chair at the
+     same table — one upsert, so a failure never leaves the pair split. */
+  const along: Array<{ guest_id: string; seat_number: number }> = [];
+  try {
+    const raw = JSON.parse(String(formData.get('along') ?? '[]')) as unknown;
+    for (const x of Array.isArray(raw) ? raw.slice(0, 8) : []) {
+      const g = (x as { guest_id?: unknown }).guest_id;
+      const n = (x as { seat_number?: unknown }).seat_number;
+      if (typeof g === 'string' && UUID_RE.test(g) && g !== guestId && Number.isInteger(n) && (n as number) >= 0 && (n as number) < 64)
+        along.push({ guest_id: g, seat_number: n as number });
+    }
+  } catch {
+    throw new Error('Invalid input');
+  }
+  // 🔒 #17: a locked seat is never moved by a hand — a stale tab, the 3D room or a direct call alike.
+  const { data: pinned, error: pinErr } = await supabase
+    .from('event_seat_assignments')
+    .select('guest_id')
+    .eq('event_id', eventId)
+    .eq('locked', true)
+    .in('guest_id', [guestId, ...along.map((x) => x.guest_id)]);
+  if (pinErr) throw new Error(pinErr.message);
+  if (pinned && pinned.length > 0) {
+    revalidatePath(`/dashboard/${eventId}/seating`);
+    return { refused: 'locked' as const };
+  }
+
   const { error } = await supabase.from('event_seat_assignments').upsert(
-    {
-      event_id: eventId,
-      table_id: tableId,
-      guest_id: guestId,
-      seat_number: seatNumber,
-      // 🪑 Placed by hand (lib/seat-why.ts).
-      ...placedByCouple(),
-    },
+    [
+      {
+        event_id: eventId,
+        table_id: tableId,
+        guest_id: guestId,
+        seat_number: seatNumber,
+        // 🪑 Placed by hand (lib/seat-why.ts).
+        ...placedByCouple(),
+      },
+      ...along.map((x) => ({ event_id: eventId, table_id: tableId, guest_id: x.guest_id, seat_number: x.seat_number, ...placedByCouple() })),
+    ],
     { onConflict: 'event_id,guest_id' },
   );
   if (error) throw new Error(error.message);
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
+  return undefined;
 }
 
 // Atomically SWAP two seated guests (3D lab · tap guest A then guest B). Both
@@ -385,18 +416,45 @@ export async function swapSeats(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
-  const { error } = await supabase.rpc('swap_seat_assignments', {
-    p_event_id: eventId,
-    p_guest_a: guestA,
-    p_guest_b: guestB,
-  });
+  /* 🧑‍🤝‍🧑 Two units of the same size trade (seat plan § 4.1): `pairs` = their +1s, swapped one for one after the leads. */
+  const pairs: Array<[string, string]> = [];
+  for (const raw of String(formData.get('pairs') ?? '').split(',').filter(Boolean).slice(0, 8)) {
+    const [a, b] = raw.split(':');
+    if (!a || !b || !UUID_RE.test(a) || !UUID_RE.test(b) || a === b) throw new Error('Invalid input');
+    pairs.push([a, b]);
+  }
+  const everyone = [guestA, guestB, ...pairs.flat()];
+  // 🔒 #17: a locked seat is never moved by a hand.
+  const { data: pinned, error: pinErr } = await supabase
+    .from('event_seat_assignments')
+    .select('guest_id')
+    .eq('event_id', eventId)
+    .eq('locked', true)
+    .in('guest_id', everyone);
+  if (pinErr) throw new Error(pinErr.message);
+  if (pinned && pinned.length > 0) {
+    revalidatePath(`/dashboard/${eventId}/seating`);
+    return { refused: 'locked' as const };
+  }
+
+  // 🧑‍🤝‍🧑 ONE transaction for the whole trade (seat plan L11): a unit with +1s goes through `swap_seat_unit_assignments`
+  // (both sides as arrays, lead first, pair i with pair i — all or nothing); a plain one-to-one swap keeps its shipped RPC.
+  const { error } =
+    pairs.length > 0
+      ? await supabase.rpc('swap_seat_unit_assignments', {
+          p_event_id: eventId,
+          p_guests_a: [guestA, ...pairs.map(([a]) => a)],
+          p_guests_b: [guestB, ...pairs.map(([, b]) => b)],
+        })
+      : await supabase.rpc('swap_seat_assignments', { p_event_id: eventId, p_guest_a: guestA, p_guest_b: guestB });
   if (error) throw new Error(error.message);
   // 🪑 Both seats were just placed by hand. A failed stamp leaves the swap done and the seats saying nothing (not a
   // stale "Auto arrange") — so it is cleared rather than kept when the stamp itself cannot land.
-  await stampPlacedByCouple(supabase, eventId, { guestIds: [guestA, guestB] });
+  await stampPlacedByCouple(supabase, eventId, { guestIds: everyone });
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
+  return undefined;
 }
 
 // Atomically SWAP every occupant between two tables (3D lab · arm table A, tap
@@ -1233,15 +1291,33 @@ export async function unassignGuest(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
+  /* 🧑‍🤝‍🧑 `also` = the +1s who leave the seat with this guest (seat plan R3) — one delete, so the pair never splits. */
+  const also = String(formData.get('also') ?? '').split(',').filter(Boolean).slice(0, 8);
+  if (also.some((id) => !UUID_RE.test(id))) throw new Error('Invalid input');
+  const everyone = [guestId, ...also];
+  // 🔒 #17: a locked seat is never taken off by a hand (Clear all keeps its own `keep_locked` rule).
+  const { data: pinned, error: pinErr } = await supabase
+    .from('event_seat_assignments')
+    .select('guest_id')
+    .eq('event_id', eventId)
+    .eq('locked', true)
+    .in('guest_id', everyone);
+  if (pinErr) throw new Error(pinErr.message);
+  if (pinned && pinned.length > 0) {
+    revalidatePath(`/dashboard/${eventId}/seating`);
+    return { refused: 'locked' as const };
+  }
+
   const { error } = await supabase
     .from('event_seat_assignments')
     .delete()
     .eq('event_id', eventId)
-    .eq('guest_id', guestId);
+    .in('guest_id', everyone);
   if (error) throw new Error(error.message);
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
+  return undefined;
 }
 
 // Set a table's orientation (0–359°). Lets couples rotate a table so wedges /

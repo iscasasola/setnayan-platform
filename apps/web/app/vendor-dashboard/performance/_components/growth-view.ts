@@ -340,7 +340,13 @@ export function buildGrowthView(inp: GrowthInputs): GrowthView {
   const repRows: Row[] | null =
     cov && cov.totalReviews > 0
       ? [
-          { title: 'Overall rating', line: `Across ${formatCount(cov.totalReviews)} ${plural(cov.totalReviews, 'review', 'reviews')}`, strong: cov.avgRating === null ? '—' : `${cov.avgRating.toFixed(1)}★` },
+          // ⭐ The shop's one rating (`lib/shop-rating.ts`, L6 · S2): the trusted figure couples are shown, never this
+          // card's own average of every review (a second rating beside the card's own "4.7 ★").
+          {
+            title: 'Overall rating',
+            line: inp.rating === COULDNT_LOAD ? COULDNT_LOAD : inp.ratingAvg !== null && inp.ratingCount > 0 ? `Across ${formatCount(inp.ratingCount)} ${plural(inp.ratingCount, 'review', 'reviews')} booked through Setnayan` : 'No reviews booked through Setnayan yet',
+            strong: inp.ratingAvg !== null && inp.ratingCount > 0 ? `${inp.ratingAvg.toFixed(1)}★` : '—',
+          },
           { title: 'Reply to reviews', line: `${formatCount(cov.repliedCount)}/${formatCount(cov.totalReviews)} reviews answered`, strong: cov.coveragePct === null ? '—' : `${Math.round(cov.coveragePct)}%` },
           { title: 'Time to reply', line: 'From review posted to your reply', strong: cov.avgReplyHours === null ? '—' : `${(cov.avgReplyHours / 24).toFixed(1)}d` },
         ]

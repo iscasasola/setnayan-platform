@@ -194,7 +194,8 @@ test('3 · the invitation folds after the first screen, to one line — on the p
   assert.match(WALKER, /\[data-rsvp-past-first\] \[data-rsvp-context-line\]\{display:block!important\}/);
   assert.match(WALKER, /scopeRef\.current\?\.toggleAttribute\('data-rsvp-past-first', clamped > 0\)/);
   // The page: whose reply this is, and the reply-by / saved line, are first-screen only…
-  assert.match(REPLY, /<FirstScreenOnly on=\{oneQuestionFrame\}>\s*<div className="flex flex-wrap items-baseline justify-between gap-x-3">\s*<p className="font-serif text-lg text-ink" data-reply-for="">/);
+  // 2026-11-27 (B8): the name line is drawn only for a real name — no stand-in "Your reply" above the form's own.
+  assert.match(REPLY, /<FirstScreenOnly on=\{oneQuestionFrame\}>\s*<div className="flex flex-wrap items-baseline justify-between gap-x-3">\s*\{guestName \? \(\s*<p className="font-serif text-lg text-ink" data-reply-for="">/);
   assert.match(REPLY, /\{hasAnswered \? \(\s*<FirstScreenOnly on=\{oneQuestionFrame\}>\s*<DoorNotice>/);
   assert.match(REPLY, /<FirstScreenOnly on=\{oneQuestionFrame\}>\s*<p className="text-sm text-ink\/70"[^>]*>\s*Please reply by/);
   // …and the one line that replaces them is hidden until the walker says so (no script = no line).

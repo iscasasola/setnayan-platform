@@ -48,7 +48,7 @@ test('Find (bench rail) and the category search both use the one rule, fed by th
   assert.match(find, /savedFirst\(\s*sortWithReasons\(/, 'the Find rail no longer puts saved suppliers first');
   assert.match(
     find,
-    /\(\{ v \}\) => benchSavedGoesFirst\(v\),[\s\S]{0,120}\(\{ v \}\) => v\.status === 'locked',/,
+    /\(\{ v \}\) => benchSavedGoesFirst\(v\),[\s\S]{0,120}\(\{ v \}\) => isBookedView\(v\),/,
     'saved-first no longer keeps the ★ Chosen card ahead',
   );
   // No venue pin: "More to compare" must not print a distance measured from the region centroid.

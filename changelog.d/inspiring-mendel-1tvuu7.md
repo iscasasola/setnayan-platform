@@ -43,6 +43,10 @@ The owner's ruling R6 (27 Nov): "the majority of who is seated there if it has a
     - every name in the editor (headings, notices, the phone dock, the list rows).
   - **A guard fails any new `table_label` select** that bypasses the reader.
   - **Linked tables are one unit:** one shared auto name read from all their seats, and a rename sets the flag on every member.
+- **A unit trade is one transaction** (from L10's note on #8460). There is a new `swap_seat_unit_assignments(event, guests_a[], guests_b[])` in the same migration.
+  - Pair i of one unit takes pair i of the other's chairs, all in one transaction. A locked seat, a guest with no seat or uneven sides refuse the whole trade, and nothing moves.
+  - `swapSeats` calls it when a trade has +1s; a plain one-to-one swap keeps `swap_seat_assignments`.
+  - Test: `tests/db/a-unit-trade-is-one-transaction.db.test.ts`. One sabotage was seen red: the locked-seat refusal removed.
 - **Server actions:** no new export. No email.
 
 SPEC IMPACT: None. It builds the approved plan (DECISION_LOG 2026-11-27 "Seat plan: the table-first flow is approved…"). One deviation is in the PR body: the speakers columns are `speakers_x` / `speakers_y`, after the `entrance_x` pattern the plan names, not `*_pct`.

@@ -968,7 +968,10 @@ export function DetailsWorkspace({
                 type="button"
                 data-details-guide-progress=""
                 onClick={openGuide}
-                className="sn-press inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-terracotta-700/10 px-3 text-[12px] tracking-[0.04em] text-terracotta-800"
+                /* 🌙 READABLE IN BOTH (owner walk 2026-11-27, MASTER-PLAN B7: "the mustard pill is unreadable"): its words
+                   were `text-terracotta-800`, a fixed dark brown — on the dark page's mustard tint, dark on dark. The
+                   words are the page's own ink now (`text-ink`, paired light/dark); the tint stays the accent's. */
+                className="sn-press inline-flex min-h-11 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-terracotta-700/10 px-3 text-[12px] font-semibold tracking-[0.04em] text-ink"
               >
                 {whatsLeftLine}
               </button>

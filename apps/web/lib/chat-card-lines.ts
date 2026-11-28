@@ -257,6 +257,16 @@ export function isCakeInvite(body: string | null | undefined): boolean {
   return (body ?? '').startsWith(CAKE_INVITE_WORDS);
 }
 
+// ── 👗 The Attire Maker's design (plan step B8) ───────────────────────────────────────────────────────────────────
+
+/** The head line of a bride's "Gown design" message — the SAME words as `GOWN_DESIGN_HEAD` (lib/gown-maker.ts, pinned). */
+export const GOWN_DESIGN_HEAD_WORDS = '👗 Gown design · ';
+
+/** Is this message a design the bride sent from the Attire Maker? (Its card: "Your gown design" · the rows · the estimate.) */
+export function isGownDesign(body: string | null | undefined): boolean {
+  return (body ?? '').startsWith(GOWN_DESIGN_HEAD_WORDS);
+}
+
 /**
  * Where a message's cake design block starts (the index of its head line), or -1 when the message carries none. The
  * words before it are the couple's own lead-in, which stays a bubble; the block itself is drawn as the design card.

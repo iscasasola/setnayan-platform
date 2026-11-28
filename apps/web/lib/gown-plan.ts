@@ -139,3 +139,10 @@ export const GOWN_PLAN_WORDS: Record<GownPlanTier, { name: string; line: string 
   use: { name: 'Use and save', line: 'Your clients, their measurements and designs, all kept.' },
   full: { name: 'Full', line: 'Plus pattern templates, full-size printing and the gown quotation.' },
 };
+
+/** The order view's lock, where the shop's plan has no pattern work or quotation (Use and save, or paused). */
+export const GOWN_FULL_LOCK_WORDS = {
+  blocks: 'Cutting blocks, full-size pages and the plotter sheet are on the Full plan.',
+  costs: 'Your costing for this design is on the Full plan. You can still quote her by hand in the chat.',
+  door: 'See plans',
+} as const;

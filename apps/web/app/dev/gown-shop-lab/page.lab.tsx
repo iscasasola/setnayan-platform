@@ -15,6 +15,7 @@
  *   ?view=scan     Fabrics and lace › Scan a swatch book (step B13), opened on a sample page drawn in the browser
  *   ?view=plan-fresh|plan-use|plan-full|plan-paused|plan-unread  the plan strip on top of the panel (owner 2026-11-28); every
  *                    other panel view shows the trial. SAMPLE prices only.
+ *   ?view=order-plan-use  the order on Use and save: the blocks and the costing show the Full-plan lock
  *   ?view=types      Admin › Studio › Fabric types (step B5b): a checked, an unchecked and a hidden type
  *   ?view=card       the chat's gown design card, the shop's face (B8): her choices, the estimate, Make a quote
  *   ?view=card-bride   the bride's face ("Your gown design · Sent")

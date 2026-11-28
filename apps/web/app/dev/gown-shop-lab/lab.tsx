@@ -141,7 +141,7 @@ export default function Lab({ view }: { view: string }) {
       </main>
     );
   }
-  if (view === 'order' || view === 'order-own' || view === 'order-net' || view === 'order-lines' || view === 'order-lines-unread') {
+  if (view === 'order' || view === 'order-own' || view === 'order-net' || view === 'order-lines' || view === 'order-lines-unread' || view === 'order-plan-use') {
     const config = { ...startingGownConfig(), sleeve: 'long' as const };
     const body = { ...startingGownBody(), given: ['height', 'bust', 'waist', 'hips'] as ('height' | 'bust' | 'waist' | 'hips')[], matters: ['arms' as const] };
     const q = { ...emptyGownQuantities(), outerM: 6.5 };
@@ -184,7 +184,7 @@ export default function Lab({ view }: { view: string }) {
             },
             rows: gownDesignRows(config, [], null),
             quote: null,
-            shopPlan: { s: 'trial', endsAt: '2026-12-20T00:00:00.000Z', daysLeft: 22 },
+            shopPlan: view === 'order-plan-use' ? { s: 'paid', tier: 'use', until: '2026-12-13T00:00:00.000Z', daysLeft: 12 } : { s: 'trial', endsAt: '2026-12-20T00:00:00.000Z', daysLeft: 22 },
             replaced: false,
             sentAt: '2026-11-26T10:00:00Z',
           }}

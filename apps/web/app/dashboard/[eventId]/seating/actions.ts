@@ -59,6 +59,7 @@ import { parseRestoreSeats, parseSeatScope, restorableSeats, seatsThatStay, seat
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { placedByAuto, placedByCouple } from '@/lib/seat-why';
+import { SEAT_LOCKED_REFUSAL, lockedSeatGuests, tablesHoldLockedSeats } from '@/lib/seat-lock.server';
 
 function clampPct(v: unknown): number | null {
   if (typeof v !== 'string' || v.length === 0) return null;
@@ -191,6 +192,20 @@ export async function createTable(formData: FormData) {
   // 🪑 A new table takes the next sort_order (owner 2026-11-01, lib/table-order.ts): left to the column's default it
   // was 0 for every table made here, so Tables 1, 2 and 3 tied. Readers order by label first; this keeps the stored
   // order unique too. A refused read is not "no tables" — it stops here.
+  // 🔒 #17: "+ New table" moving a locked guest is refused BEFORE the table is made (no empty table left behind).
+  const seatAsked = (() => {
+    try {
+      const v = JSON.parse(String(formData.get('seat_guest_ids') ?? '[]')) as unknown;
+      return Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string') : [];
+    } catch {
+      return [];
+    }
+  })();
+  if ((await lockedSeatGuests(supabase, eventId, seatAsked)).length > 0) {
+    revalidatePath(`/dashboard/${eventId}/seating`);
+    return { tableId: null, ...SEAT_LOCKED_REFUSAL };
+  }
+
   const { data: last, error: lastErr } = await supabase
     .from('event_tables')
     .select('sort_order')
@@ -347,16 +362,9 @@ export async function assignGuest(formData: FormData) {
     throw new Error('Invalid input');
   }
   // 🔒 #17: a locked seat is never moved by a hand — a stale tab, the 3D room or a direct call alike.
-  const { data: pinned, error: pinErr } = await supabase
-    .from('event_seat_assignments')
-    .select('guest_id')
-    .eq('event_id', eventId)
-    .eq('locked', true)
-    .in('guest_id', [guestId, ...along.map((x) => x.guest_id)]);
-  if (pinErr) throw new Error(pinErr.message);
-  if (pinned && pinned.length > 0) {
+  if ((await lockedSeatGuests(supabase, eventId, [guestId, ...along.map((x) => x.guest_id)])).length > 0) {
     revalidatePath(`/dashboard/${eventId}/seating`);
-    return { refused: 'locked' as const };
+    return SEAT_LOCKED_REFUSAL;
   }
 
   const { error } = await supabase.from('event_seat_assignments').upsert(
@@ -421,27 +429,27 @@ export async function swapSeats(formData: FormData) {
   }
   const everyone = [guestA, guestB, ...pairs.flat()];
   // 🔒 #17: a locked seat is never moved by a hand.
-  const { data: pinned, error: pinErr } = await supabase
-    .from('event_seat_assignments')
-    .select('guest_id')
-    .eq('event_id', eventId)
-    .eq('locked', true)
-    .in('guest_id', everyone);
-  if (pinErr) throw new Error(pinErr.message);
-  if (pinned && pinned.length > 0) {
+  if ((await lockedSeatGuests(supabase, eventId, everyone)).length > 0) {
     revalidatePath(`/dashboard/${eventId}/seating`);
-    return { refused: 'locked' as const };
+    return SEAT_LOCKED_REFUSAL;
   }
 
-  // Each swap is the RPC's own transaction (lead with lead, then +1 with +1). A unit-wide one-transaction swap is the
-  // engine lane's RPC to give (noted for L11) — no migration here.
+  // Each swap is the RPC's own transaction (lead with lead, then +1 with +1). Until the engine lane's one-transaction
+  // unit swap lands (noted for L11 — no migration here), a swap that fails part-way UNDOES the ones already made, in
+  // reverse (a swap is its own undo), so two units never end half-traded.
+  const swap = (a: string, b: string) => supabase.rpc('swap_seat_assignments', { p_event_id: eventId, p_guest_a: a, p_guest_b: b });
+  const done: Array<[string, string]> = [];
   for (const [a, b] of [[guestA, guestB] as [string, string], ...pairs]) {
-    const { error } = await supabase.rpc('swap_seat_assignments', {
-      p_event_id: eventId,
-      p_guest_a: a,
-      p_guest_b: b,
-    });
-    if (error) throw new Error(error.message);
+    const { error } = await swap(a, b);
+    if (error) {
+      for (const [x, y] of done.reverse()) {
+        const { error: backErr } = await swap(x, y);
+        if (backErr) logQueryError('swapSeats: roll back a part-done unit trade', backErr);
+      }
+      revalidatePath(`/dashboard/${eventId}/seating`);
+      throw new Error(error.message);
+    }
+    done.push([a, b]);
   }
   // 🪑 Both seats were just placed by hand. A failed stamp leaves the swap done and the seats saying nothing (not a
   // stale "Auto arrange") — so it is cleared rather than kept when the stamp itself cannot land.
@@ -482,6 +490,12 @@ export async function swapTableOccupants(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
+  // 🔒 #17: two tables never trade while either holds a locked seat.
+  if (await tablesHoldLockedSeats(supabase, eventId, [tableA, tableB])) {
+    revalidatePath(`/dashboard/${eventId}/seating`);
+    return SEAT_LOCKED_REFUSAL;
+  }
+
   const { error } = await supabase.rpc('swap_table_assignments', {
     p_event_id: eventId,
     p_table_a: tableA,
@@ -493,6 +507,7 @@ export async function swapTableOccupants(formData: FormData) {
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
+  return undefined;
 }
 
 // Seat a whole custom group at one table in a single tap. Seats every member
@@ -503,7 +518,7 @@ export async function swapTableOccupants(formData: FormData) {
 // chair; members seated elsewhere are moved in (no other occupant is evicted).
 export async function assignGroup(
   formData: FormData,
-): Promise<{ seated: number; requested: number; overflow: number }> {
+): Promise<{ seated: number; requested: number; overflow: number; locked?: number }> {
   await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
@@ -549,9 +564,11 @@ export async function assignGroup(
     if (a.seat_number !== null && a.seat_number >= 0) occupiedSeats.add(a.seat_number);
   }
 
+  // 🔒 #17: a member whose seat is locked elsewhere stays where they are — counted, and said by the editor.
+  const pinned = new Set(await lockedSeatGuests(supabase, eventId, guestIds.filter((id) => !alreadyHere.has(id))));
   // Members still needing a chair here (already-seated members keep theirs).
   // Free seats = effective (occupiable) capacity minus who's already here.
-  const incoming = guestIds.filter((id) => !alreadyHere.has(id));
+  const incoming = guestIds.filter((id) => !alreadyHere.has(id) && !pinned.has(id));
   const free = Math.max(0, effectiveCapacity(table.capacity, table.removed_seats) - alreadyHere.size);
   const toSeat = incoming.slice(0, free);
 
@@ -569,12 +586,16 @@ export async function assignGroup(
     if (error) throw new Error(error.message);
     await refreshSeatingLock(supabase, lockIdFrom(formData));
     revalidatePath(`/dashboard/${eventId}/seating`);
+  } else if (pinned.size > 0) {
+    // The editor drew the locked members moved; the plan re-reads what is saved.
+    revalidatePath(`/dashboard/${eventId}/seating`);
   }
 
   return {
-    seated: rows.length + (guestIds.length - incoming.length),
+    seated: rows.length + guestIds.filter((id) => alreadyHere.has(id)).length,
     requested: guestIds.length,
     overflow: incoming.length - toSeat.length,
+    ...(pinned.size ? { locked: pinned.size } : {}),
   };
 }
 
@@ -1291,16 +1312,9 @@ export async function unassignGuest(formData: FormData) {
   if (also.some((id) => !UUID_RE.test(id))) throw new Error('Invalid input');
   const everyone = [guestId, ...also];
   // 🔒 #17: a locked seat is never taken off by a hand (Clear all keeps its own `keep_locked` rule).
-  const { data: pinned, error: pinErr } = await supabase
-    .from('event_seat_assignments')
-    .select('guest_id')
-    .eq('event_id', eventId)
-    .eq('locked', true)
-    .in('guest_id', everyone);
-  if (pinErr) throw new Error(pinErr.message);
-  if (pinned && pinned.length > 0) {
+  if ((await lockedSeatGuests(supabase, eventId, everyone)).length > 0) {
     revalidatePath(`/dashboard/${eventId}/seating`);
-    return { refused: 'locked' as const };
+    return SEAT_LOCKED_REFUSAL;
   }
 
   const { error } = await supabase
@@ -1449,6 +1463,11 @@ export async function updateTableType(
     .sort((a, b) => (b.seat_number ?? 0) - (a.seat_number ?? 0))
     .slice(0, Math.max(0, keep.length - newCapacity));
   const unseatIds = [...toUnseat, ...surplus].map((a) => a.guest_id);
+  // 🔒 #17: a shape that would take a locked guest's chair is refused — the table keeps its shape.
+  if ([...toUnseat, ...surplus].some((a) => a.locked)) {
+    revalidatePath(`/dashboard/${eventId}/seating`);
+    return { unseated: 0, ...SEAT_LOCKED_REFUSAL };
+  }
 
   if (unseatIds.length > 0) {
     const { error: delErr } = await supabase

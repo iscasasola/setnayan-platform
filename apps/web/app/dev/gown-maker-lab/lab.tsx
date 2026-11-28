@@ -13,6 +13,14 @@ import {
   GOWN_COLOURS,
   GOWN_HEMS,
   GOWN_CUTOUTS,
+  GOWN_DARTS,
+  GOWN_DRAPES,
+  GOWN_PIECES,
+  GOWN_TEXTURES,
+  GOWN_TEXTURE_DIRECTIONS,
+  GOWN_TEXTURE_PLACES,
+  GOWN_TRIMS,
+  GOWN_WAISTLINES,
   GOWN_CUT_EDGES,
   GOWN_CUT_FILLS,
   GOWN_CUT_FORBIDDEN,
@@ -164,7 +172,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   }
 
   // Every pick goes through the pairing rules, so the lab shows what the maker will (one line, then Undo in the maker).
-  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill', v: string) => {
+  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
     const out = gownChoose(design, { key: k, value: v } as GownChoice);
     setDesign(out.config);
     setNote(out.notes.join(' '));
@@ -219,6 +227,13 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 ['laceCol', 'Lace colour', GOWN_LACE_COLOURS],
                 ['cutEdge', 'Cut-out edge', GOWN_CUT_EDGES],
                 ['cutFill', 'Cut-out fill', GOWN_CUT_FILLS],
+                ['pieces', 'Made as', GOWN_PIECES],
+                ['waist', 'Waistline', GOWN_WAISTLINES],
+                ['tex', 'Texture', GOWN_TEXTURES],
+                ['texAt', 'Texture on', GOWN_TEXTURE_PLACES],
+                ['texDir', 'Texture runs', GOWN_TEXTURE_DIRECTIONS],
+                ['drape', 'Drape', GOWN_DRAPES],
+                ['darts', 'Darts and seams', GOWN_DARTS],
               ] as const
             ).map(([k, label, list]) => (
               <div key={k} className="grid gap-1">
@@ -241,6 +256,19 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 options={[{ key: 'none', label: 'None' }, ...GOWN_CUTOUTS.map((c) => ({ key: c.id, label: c.label, disabledNote: GOWN_CUT_FORBIDDEN[c.id] }))]}
                 onPick={(v) => setDesign({ ...design, cuts: v === 'none' ? [] : [v as (typeof GOWN_CUTOUTS)[number]['id']] })}
                 dataAttr="data-lab-pick-cuts"
+                className="w-full !min-h-11"
+              />
+            </div>
+            <div className="grid gap-1">
+              <span>Trims</span>
+              <PickMenu
+                label="Trims"
+                value={null}
+                buttonText={design.trims.length ? `${design.trims.length} picked` : 'None'}
+                picked={design.trims}
+                options={GOWN_TRIMS.map((t) => ({ key: t.id, label: t.label }))}
+                onPick={(v) => { const t = v as (typeof GOWN_TRIMS)[number]['id']; setDesign({ ...design, trims: design.trims.includes(t) ? design.trims.filter((x) => x !== t) : [...design.trims, t] }); }}
+                dataAttr="data-lab-pick-trims"
                 className="w-full !min-h-11"
               />
             </div>

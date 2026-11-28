@@ -26,6 +26,8 @@ import { buildDress, emptyDress, floorOf, type GownDress } from '@/lib/gown/dres
 import { buildCape, emptyCape } from '@/lib/gown/dress/cape';
 import { GOWN_EYELET, buildGownClosure } from '@/lib/gown/parts/closure';
 import { GOWN_CUT_MAP, buildGownCuts } from '@/lib/gown/parts/cuts';
+import { buildGownTechShell } from '@/lib/gown/parts/technique';
+import { GOWN_TRIM_SHADE, buildGownTrims, placeGownTrims } from '@/lib/gown/parts/trims';
 import { GOWN_LACE_COLOUR, GOWN_LACE_MAP, buildGownLace } from '@/lib/gown/parts/lace';
 import { gownSurfaceShader, gownSurfaceUniforms, type GownSurfaceUniforms } from '@/lib/gown/fabric/surface';
 import { GOWN_WEAVE_PX, drawGownWeave, gownWeaveAmount, gownWeaveGain, gownWeaveScale } from '@/lib/gown/fabric/weave';
@@ -260,9 +262,12 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       hoop: new THREE.MeshStandardMaterial({ color: L.hoop.colour, roughness: L.hoop.roughness, metalness: L.hoop.metalness }),
     };
     const inner = new THREE.Group();
+    // Trims and the technique layer: rebuilt with the gown, each in its own group.
+    const extras = new THREE.Group();
+    const tm = { trim: new THREE.MeshPhysicalMaterial({ roughness: 0.45, sheen: 1, sheenRoughness: 0.3, side: THREE.DoubleSide }), ruffle: new THREE.MeshStandardMaterial({ roughness: 0.55, side: THREE.DoubleSide }), fringe: new THREE.LineBasicMaterial({ transparent: true, opacity: 0.9 }), band: new THREE.MeshStandardMaterial({ roughness: 0.7, side: THREE.DoubleSide }), seam: new THREE.MeshStandardMaterial({ roughness: 0.7, side: THREE.DoubleSide }) };
     // The surface's canvases: made once, in the browser, when first needed.
     const maps = { weave: null as HTMLCanvasElement | null, lace: null as HTMLCanvasElement | null, cut: null as HTMLCanvasElement | null, tex: { weave: null as THREE.CanvasTexture | null, lace: null as THREE.CanvasTexture | null, cut: null as THREE.CanvasTexture | null } };
-    return { su, maps, mesh, m, sheerBack, T: emptyEnvelope(), D: emptyDress(), K, cape, sleeves, V, veil, vm, closure, em, sm, om, overlay, ov: null as GownOverlayMesh | null, im, inner };
+    return { su, maps, mesh, m, sheerBack, T: emptyEnvelope(), D: emptyDress(), K, cape, sleeves, V, veil, vm, closure, em, sm, om, overlay, ov: null as GownOverlayMesh | null, im, inner, extras, tm };
   }, []);
   const [frame, setFrame] = useState({ S: 1, floor: 0, top: 1.7, ver: 0, width: 0.6 });
   const [loops, setLoops] = useState<Record<GownTapeKey, number[]> | null>(null);
@@ -347,6 +352,22 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       if (cloth.mesh.parent !== root) root.add(cloth.mesh);
       cloth.mesh.visible = true;
       width = Math.max(0.6, 2 * cloth.D.hemR); // the hem's width (a train runs back, not sideways)
+      // Trims along the gown's own edges, a two-piece's band, a shaped waistline's seam, and the techniques as real folds.
+      for (const c of cloth.extras.children) { const o = c as THREE.Mesh; o.geometry.dispose(); }
+      cloth.extras.clear();
+      const colour = gownClothColour(design.colour, design.colourHex), trimCol = design.trimCol === 'custom' && design.trimHex ? parseInt(design.trimHex.slice(1), 16) : colour;
+      cloth.tm.trim.color.setHex(trimCol); cloth.tm.ruffle.color.setHex(trimCol); cloth.tm.fringe.color.setHex(trimCol);
+      cloth.tm.band.color.setHex(colour).multiplyScalar(GOWN_TRIM_SHADE.band); cloth.tm.seam.color.setHex(colour).multiplyScalar(GOWN_TRIM_SHADE.seam);
+      const trims = buildGownTrims(rig, cloth.T, design);
+      placeGownTrims(trims, rig, cloth.D, floor);
+      for (const t of trims) {
+        const o = t.kind === 'fringe' ? new THREE.LineSegments(t.geo, cloth.tm.fringe) : new THREE.Mesh(t.geo, t.kind === 'pipe' ? cloth.tm.trim : cloth.tm[t.kind]);
+        o.frustumCulled = false;
+        cloth.extras.add(o);
+      }
+      const tech = buildGownTechShell(rig, cloth.T, cloth.D, design);
+      if (tech) { const o = new THREE.Mesh(tech.geo, cloth.m); o.frustumCulled = false; cloth.extras.add(o); }
+      if (cloth.extras.parent !== root) root.add(cloth.extras);
       // Inside: the gown turns see-through and each piece inside shows by the step she is on.
       clearInner(cloth.inner, cloth.im);
       cloth.m.transparent = !!inside || cloth.m.transparent;
@@ -380,6 +401,9 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       cloth.vm.dispose();
       cloth.sm.dispose();
       cloth.om.dispose();
+      for (const c of cloth.extras.children) (c as THREE.Mesh).geometry.dispose();
+      cloth.extras.removeFromParent();
+      for (const mm of Object.values(cloth.tm)) mm.dispose();
       for (const t of Object.values(cloth.maps.tex)) t?.dispose();
       clearInner(cloth.inner, cloth.im);
       cloth.inner.removeFromParent();

@@ -59,6 +59,7 @@ import {
 import { parseRestoreSeats, parseSeatScope, restorableSeats, seatsThatStay, seatsToClear, type RestoreSeat } from '@/lib/seat-plan-scope';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { checkAutoSeatPlan } from '@/lib/seat-plan-validator';
+import { buildArrangePreview, parseArrangePlan, type ArrangePreview } from '@/lib/seat-plan-preview';
 import { autoDefaultLabel, hostNameClash, isDefaultTableLabel, renameWrites } from '@/lib/table-auto-name';
 import { readTableDisplayNames } from '@/lib/table-auto-name.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -2349,6 +2350,8 @@ export type AutoArrangeResult = {
   cannotFit?: AutoSeatCannotFit[];
   /** 🪑 The seats this run took OFF ("Seat everyone again" · "Clear all seats") — Undo puts exactly these back. */
   restoreSeats?: RestoreSeat[];
+  /** 🪑 intent=preview (seat plan § 4.6): the plan, NOTHING written; `{ ok: false }` = no plan passed the check. */
+  preview?: ArrangePreview | { ok: false };
 };
 
 /**
@@ -2435,6 +2438,13 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
   }
   if (typeof eventId === 'string' && eventId.length > 0 && formData.get('intent') === 'clear') {
     return clearAllSeats(eventId, formData);
+  }
+  // 🪑 The preview (seat plan § 4.6): both "who moves?" buttons open it; Accept writes it in one transaction.
+  if (typeof eventId === 'string' && eventId.length > 0 && formData.get('intent') === 'preview') {
+    return previewAutoArrange(eventId, formData);
+  }
+  if (typeof eventId === 'string' && eventId.length > 0 && formData.get('intent') === 'accept') {
+    return acceptAutoArrange(eventId, formData);
   }
   // 🪑 "Only the unseated" (default) or "Seat everyone again" (owner 2026-11-02) — see lib/seat-plan-scope.ts.
   const scope = parseSeatScope(formData.get('scope'));
@@ -2671,6 +2681,158 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
     seatedGuestIds: rows.map((r) => r.guest_id),
     changedTableIds: [...new Set([...rows.map((r) => r.table_id), ...addedTableIds, ...restoreSeats.map((r) => r.table_id)])],
     cannotFit,
+    restoreSeats,
+  };
+}
+
+const NOTHING_SEATED: Omit<AutoArrangeResult, 'preview'> = {
+  seated: 0,
+  tablesAdded: 0,
+  unseated: 0,
+  totalRules: 0,
+  satisfiedRules: 0,
+  unsatisfiedRules: 0,
+  addedTableIds: [],
+  seatedGuestIds: [],
+  changedTableIds: [],
+};
+
+/**
+ * 🪑 THE AUTO-ARRANGE PREVIEW (seat plan § 4.6, preview D). An intent of `autoArrange`, not a new action (the server
+ * action ceiling). Reads what auto arrange reads and builds the plan with `buildArrangePreview`, WRITING NOTHING: no
+ * table added, no table moved, no seat. `keep` = the tables the host 🔒 in the preview (kept exactly as they are; the
+ * preview re-runs). A refused read stops it (`lib/seating-inputs.ts`) — a preview built on a missing read would show
+ * a plan that is not the plan.
+ */
+async function previewAutoArrange(eventId: string, formData: FormData): Promise<AutoArrangeResult> {
+  const scope = parseSeatScope(formData.get('scope'));
+  let positions: Record<string, { x: number; y: number }> = {};
+  let keep: string[] = [];
+  try {
+    const p = JSON.parse(String(formData.get('positions') ?? '{}'));
+    if (p && typeof p === 'object') {
+      for (const [id, v] of Object.entries(p as Record<string, { x?: unknown; y?: unknown }>)) {
+        const x = Number(v?.x);
+        const y = Number(v?.y);
+        if (Number.isFinite(x) && Number.isFinite(y)) positions[id] = { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) };
+      }
+    }
+    const k = JSON.parse(String(formData.get('keep') ?? '[]'));
+    if (Array.isArray(k)) keep = k.filter((x): x is string => typeof x === 'string');
+  } catch {
+    throw new Error('Invalid input');
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+
+  const [tables, assignments, guests, floorPlan, memberships, constraints, roleSet, eventRow, groupsRes, groupAdjacency] = await Promise.all([
+    fetchTables(supabase, eventId),
+    fetchAssignments(supabase, eventId),
+    guestsOrStop(supabase, eventId),
+    floorPlanOrStop(supabase, eventId),
+    membershipsOrStop(supabase, eventId),
+    keepApartOrStop(supabase, eventId),
+    resolveRoleSetForEvent(eventId),
+    supabase.from('events').select('ceremony_type, secondary_ceremony_type').eq('event_id', eventId).maybeSingle(),
+    supabase.from('guest_groups').select('group_id,label').eq('event_id', eventId),
+    fetchGroupAdjacency(supabase, eventId),
+  ]);
+  if (groupsRes.error) {
+    logQueryError('previewAutoArrange.groups', groupsRes.error, { event_id: eventId }, 'will_throw');
+    throw new Error("Couldn't make a plan. Nothing changed.");
+  }
+  const keepSet = new Set(keep.filter((id) => tables.some((t) => t.table_id === id)));
+  const closed = new Set([...tables.filter((t) => t.locked === true).map((t) => t.table_id), ...keepSet]);
+  const stay = scope === 'all' ? seatsThatStay(assignments, true, closed) : assignments;
+  const toAdd = tablesToAddForAutoSeat(
+    autoSeatRoom(tables.map((t) => (keepSet.has(t.table_id) ? { ...t, locked: true } : t)), guests, stay, roleSet).shortfall,
+    tables.map((t) => t.table_label),
+    { skipFour: isChineseWedding(eventRow.data ?? null) },
+  );
+  const preview = buildArrangePreview({
+    tables,
+    newTables: toAdd.map((t) => {
+      const p = positions[autoArrangeNewTableKey(t.label)];
+      return p ? { ...t, x: p.x, y: p.y } : t;
+    }),
+    positions,
+    guests: guests.map((g) => ({
+      guest_id: g.guest_id,
+      role: g.role,
+      group_category: g.group_category,
+      rsvp_status: g.rsvp_status,
+      plus_one_of_guest_id: g.plus_one_of_guest_id,
+      last_name: g.last_name,
+      first_name: g.first_name,
+      group_id: memberships.get(g.guest_id)?.[0] ?? null,
+      seating_priority: g.seating_priority ?? null,
+      side: g.side ?? null,
+    })),
+    assignments,
+    scope,
+    keep: keepSet,
+    constraints,
+    memberships,
+    groupLabels: new Map(((groupsRes.data ?? []) as Array<{ group_id: string; label: string }>).map((g) => [g.group_id, g.label])),
+    floor: floorPlan,
+    roleSet,
+    groupAdjacency,
+  });
+  return { ...NOTHING_SEATED, preview };
+}
+
+/**
+ * 🪑 ACCEPT THE PREVIEW (seat plan § 4.6): the plan the preview handed the editor, written by `apply_seat_plan` in ONE
+ * transaction that refuses a stale preview and re-checks every hard rule. Returns exactly what the shipped Undo
+ * (`intent=undo`) needs — the guests it seated, the tables it added, the seats it took off — so there is one Undo.
+ * `unseated` is the preview's own count (`coming − seated`), which the stale check guarantees is still true.
+ */
+async function acceptAutoArrange(eventId: string, formData: FormData): Promise<AutoArrangeResult> {
+  const plan = parseArrangePlan(formData.get('plan'));
+  // The preview's own "still without a chair" count travels with it; without it the toast could not say it honestly.
+  const unseatedRaw = formData.get('unseated');
+  const unseated = typeof unseatedRaw === 'string' && /^\d+$/.test(unseatedRaw) ? Number(unseatedRaw) : NaN;
+  if (!plan || !Number.isInteger(unseated)) throw new Error('Invalid input');
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  const lockId = lockIdFrom(formData);
+  await assertSeatingLockHeld(supabase, eventId, lockId);
+
+  const { data, error } = await supabase.rpc('apply_seat_plan', {
+    p_event_id: eventId,
+    p_base: plan.base,
+    p_clear: plan.clear,
+    p_new_tables: plan.newTables,
+    p_positions: plan.positions,
+    p_rows: plan.rows,
+  });
+  if (error) {
+    logQueryError('acceptAutoArrange.apply_seat_plan', error, { event_id: eventId }, 'will_throw');
+    if (/stale_preview/.test(error.message)) throw new Error('The seat plan changed since this preview. Look again.');
+    throw new Error("Couldn't make a plan. Nothing changed.");
+  }
+  const out = (data ?? {}) as { added_table_ids?: unknown; new_table_ids?: unknown; cleared?: unknown };
+  const addedTableIds = Array.isArray(out.added_table_ids) ? out.added_table_ids.filter((x): x is string => typeof x === 'string') : [];
+  const newIds = (out.new_table_ids && typeof out.new_table_ids === 'object' ? out.new_table_ids : {}) as Record<string, unknown>;
+  const restoreSeats = parseRestoreSeats(out.cleared);
+  const tableOf = (ref: string) => (ref.startsWith('new:') ? String(newIds[ref.slice(4)] ?? '') : ref);
+
+  await refreshSeatingLock(supabase, lockId);
+  revalidatePath(`/dashboard/${eventId}/seating`);
+  return {
+    ...NOTHING_SEATED,
+    seated: plan.rows.length,
+    tablesAdded: addedTableIds.length,
+    unseated,
+    addedTableIds,
+    seatedGuestIds: plan.rows.map((r) => r.guest_id),
+    changedTableIds: [...new Set([...plan.rows.map((r) => tableOf(r.table)), ...addedTableIds, ...restoreSeats.map((r) => r.table_id)])].filter(Boolean),
     restoreSeats,
   };
 }

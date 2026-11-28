@@ -31,7 +31,10 @@ const NOW = new Date('2026-10-30T12:00:00Z');
 
 test('1 · one column pair, CHECKed, from one idempotent migration', () => {
   const dir = join(REPO, 'supabase', 'migrations');
-  const files = readdirSync(dir).filter((f) => /placed_by/.test(readFileSync(join(dir, f), 'utf8')) && /event_seat_assignments/.test(readFileSync(join(dir, f), 'utf8')));
+  // A second HOME is a migration that DEFINES the column or its rule (ADD COLUMN · the CHECK). A function that only
+  // WRITES 'auto' into it (apply_seat_plan, seat plan § 4.6 Accept) is a writer, not a home.
+  const defines = /ADD COLUMN[^;]*\bplaced_by\b|placed_by_check/;
+  const files = readdirSync(dir).filter((f) => defines.test(readFileSync(join(dir, f), 'utf8')) && /event_seat_assignments/.test(readFileSync(join(dir, f), 'utf8')));
   assert.deepEqual(files, ['20271297291493_seat_assignment_placed_by.sql'], 'who placed a seat has a second home');
   const sql = readFileSync(join(dir, files[0]!), 'utf8');
   assert.match(sql, /ADD COLUMN IF NOT EXISTS placed_by TEXT/);

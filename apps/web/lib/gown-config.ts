@@ -484,6 +484,39 @@ export const GOWN_BONING = [
   { id: 'corset', label: 'Corset' },
 ] as const;
 export type GownBoning = (typeof GOWN_BONING)[number]['id'];
+/** What the bodice is made of (v198): the gown fabric, an illusion neckline (lined cups, sheer above), or a sheer corset (only the cups lined). */
+export const GOWN_ILLUSIONS = [
+  { id: 'none', label: 'The gown fabric', why: 'The gown fabric all the way up to the neckline.' },
+  { id: 'neck', label: 'Illusion neckline', why: 'Lined cups in the gown fabric cover the bust; above them sheer tulle runs up to the neckline you picked, with straps or sleeves if you add them.' },
+  { id: 'corset', label: 'Sheer corset', why: 'Only the cups are lined; the rest of the bodice, down to the waistline, is sheer tulle, so the body and the boning show through.' },
+] as const;
+export type GownIllusion = (typeof GOWN_ILLUSIONS)[number]['id'];
+/** The lined cups' top edge (v198). */
+export const GOWN_ILLUSION_CUPS = [
+  { id: 'sweetheart', label: 'Sweetheart', why: 'Two curved cups meeting in a soft dip at the centre.' },
+  { id: 'straight', label: 'Straight across', why: 'A straight line across the bust.' },
+  { id: 'plunge', label: 'Plunge', why: 'Cups with a deep narrow V between them; the V is sheer tulle.' },
+] as const;
+export type GownIllusionCups = (typeof GOWN_ILLUSION_CUPS)[number]['id'];
+/** The illusion tulle's colour (v198). */
+export const GOWN_ILLUSION_COLOURS = [
+  { id: 'nude', label: 'Nude', why: 'Nude tulle that disappears against the skin.' },
+  { id: 'ivory', label: 'Ivory', why: 'Ivory tulle: softer and a little more visible.' },
+  { id: 'match', label: 'The gown colour', why: 'Tulle dyed to the gown colour.' },
+] as const;
+export type GownIllusionColour = (typeof GOWN_ILLUSION_COLOURS)[number]['id'];
+/** An illusion back: sheer tulle closes an open back up to the top edge (v198). */
+export const GOWN_ILLUSION_BACKS = [
+  { id: 'off', label: 'None', why: 'The back is open down to the depth you picked.' },
+  { id: 'on', label: 'Sheer tulle', why: 'Sheer tulle closes the open back up to the top edge; the back still looks open. A strapless bodice with a low back needs this (or straps) to stay up.' },
+] as const;
+export type GownIllusionBack = (typeof GOWN_ILLUSION_BACKS)[number]['id'];
+/** Boning you can see (v198). */
+export const GOWN_BONE_SHOWS = [
+  { id: 'off', label: 'Hidden', why: 'The bones stay hidden inside the bodice.' },
+  { id: 'on', label: 'Show through the bodice', why: 'Show boning through the bodice: thin channels from the waist up, clear through sheer tulle and faint on the gown fabric. Same bones as Inside, Boning.' },
+] as const;
+export type GownBoneShow = (typeof GOWN_BONE_SHOWS)[number]['id'];
 
 export const GOWN_LININGS = [
   { id: 'satin', label: 'Satin' },
@@ -692,6 +725,12 @@ export type GownConfig = {
   layerCols: GownLayerColour[];
   shape: GownShapewear;
   boning: GownBoning;
+  /** v198: the bodice in sheer illusion tulle, its lined cups and tulle colour; an illusion back; boning you can see. */
+  illu: GownIllusion;
+  illuBase: GownIllusionCups;
+  illuCol: GownIllusionColour;
+  illuBack: GownIllusionBack;
+  boneShow: GownBoneShow;
   lining: GownLining;
   liningCol: GownLayerColour;
   cape: GownCape;
@@ -731,7 +770,7 @@ export type GownOffer = {
 /** The look keys (v197 `LOOK_BASE`): a look, and the design the supplier opens on the mannequin, carry exactly these. */
 export const GOWN_LOOK_KEYS = [
   'bow', 'blusher', 'veilStyle', 'waist', 'pieces', 'sil', 'neck', 'sleeve', 'sleeveFab', 'back', 'closure', 'fabric', 'lace', 'laceAt', 'laceBeads', 'laceCol',
-  'bead', 'beadAt', 'beadDen', 'beadCol', 'train', 'veil', 'pleat', 'tex', 'darts', 'drape', 'bustle', 'petti', 'shape', 'boning', 'overlay', 'ovFab',
+  'bead', 'beadAt', 'beadDen', 'beadCol', 'train', 'veil', 'pleat', 'tex', 'darts', 'drape', 'bustle', 'petti', 'shape', 'boning', 'overlay', 'ovFab', 'illu', 'illuBase', 'illuCol', 'illuBack', 'boneShow',
 ] as const satisfies readonly (keyof GownConfig)[];
 export type GownLookKey = (typeof GOWN_LOOK_KEYS)[number];
 export type GownLook = Pick<GownConfig, GownLookKey>;
@@ -800,6 +839,11 @@ export function startingGownConfig(): GownConfig {
     shape: 'none',
     // v197: a fresh gown is boned, with a waist stay (its sweetheart bodice holds itself up).
     boning: 'complement',
+    illu: 'none',
+    illuBase: 'sweetheart',
+    illuCol: 'nude',
+    illuBack: 'off',
+    boneShow: 'off',
     lining: 'satin',
     liningCol: 'match',
     cape: 'none',
@@ -1083,6 +1127,10 @@ export type GownQuantities = {
     flutter: number;
     /** The overlay to cut, sew and finish, in pieces (v195). */
     overlay: number;
+    /** v198: the illusion bodice to cut, fit and finish (its tulle is in `illusionM`); an illusion back; the bones shown in channels (0 when hidden). */
+    illuBodice: GownIllusion;
+    illuBack: boolean;
+    boneShow: number;
   };
 };
 
@@ -1101,7 +1149,7 @@ export function emptyGownQuantities(): GownQuantities {
   return {
     v: GOWN_CONFIG_VERSION,
     materials: { ...materials, beads },
-    labour: { sleeve: 'none', beads: 0, laceMotifs: 0, laceYardM: 0, pleats: 0, tex: 'none', darts: false, cutouts: 0, slits: 0, train: 'none', veil: 'none', trimM: 0, twoPiece: false, cape: 'none', flutter: 0, overlay: 0 },
+    labour: { sleeve: 'none', beads: 0, laceMotifs: 0, laceYardM: 0, pleats: 0, tex: 'none', darts: false, cutouts: 0, slits: 0, train: 'none', veil: 'none', trimM: 0, twoPiece: false, cape: 'none', flutter: 0, overlay: 0, illuBodice: 'none', illuBack: false, boneShow: 0 },
   };
 }
 
@@ -1257,6 +1305,11 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
     petti: pick('petti', ids(GOWN_PETTICOATS)),
     shape: pick('shape', ids(GOWN_SHAPEWEAR)),
     boning: pick('boning', ids(GOWN_BONING)),
+    illu: pick('illu', ids(GOWN_ILLUSIONS)),
+    illuBase: pick('illuBase', ids(GOWN_ILLUSION_CUPS)),
+    illuCol: pick('illuCol', ids(GOWN_ILLUSION_COLOURS)),
+    illuBack: pick('illuBack', ids(GOWN_ILLUSION_BACKS)),
+    boneShow: pick('boneShow', ids(GOWN_BONE_SHOWS)),
     lining: pick('lining', ids(GOWN_LININGS)),
     liningCol: pick('liningCol', ids(GOWN_LAYER_COLOURS)),
     cape: pick('cape', ids(GOWN_CAPES)),
@@ -1340,6 +1393,11 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
   if (strapless && ((p.neck !== 'off' && p.sleeve === 'cap') || p.drape === 'cowl')) return no('not_a_design');
   if (close && (p.train === 'chapel' || p.train === 'cathedral' || p.petti === 'full' || p.petti === 'hoop')) return no('not_a_design');
   if (p.sil === 'sheath' && p.pleat !== 'none') return no('not_a_design');
+  // v198: an illusion neckline needs a neckline above the cups; a sheer corset and visible boning need bones; a closed
+  // back has nothing for an illusion back to fill.
+  if (p.illu === 'neck' && strapless && p.neck !== 'off') return no('not_a_design');
+  if ((p.illu === 'corset' || p.boneShow === 'on') && p.boning === 'soft') return no('not_a_design');
+  if (p.illuBack === 'on' && p.back === 'closed') return no('not_a_design');
 
   const bools = { waistStay: r.waistStay ?? false, horsehair: r.horsehair ?? false, modesty: r.modesty ?? false };
   for (const v of Object.values(bools)) if (typeof v !== 'boolean') return no('not_a_design');
@@ -1470,6 +1528,11 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
       layerCols: inside.layerCols,
       shape: p.shape,
       boning: p.boning,
+      illu: p.illu,
+      illuBase: p.illuBase,
+      illuCol: p.illuCol,
+      illuBack: p.illuBack,
+      boneShow: p.boneShow,
       lining: p.lining,
       liningCol: p.liningCol,
       cape: p.cape,
@@ -1602,6 +1665,8 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
   const flutter = qty(L.flutter ?? 0, true, 1);
   const overlay = qty(L.overlay ?? 0, true, 1);
   if (flutter === null || overlay === null) return no('quantities');
+  const illuBodice = L.illuBodice ?? 'none', illuBack = L.illuBack ?? false, boneShow = qty(L.boneShow ?? 0, true, 32);
+  if (!isOneOf(illuBodice, ids(GOWN_ILLUSIONS)) || typeof illuBack !== 'boolean' || boneShow === null) return no('quantities');
   if (!isOneOf(sleeve, ids(GOWN_SLEEVES)) || !isOneOf(tex, ids(GOWN_TEXTURES)) || !isOneOf(train, ids(GOWN_TRAINS)) || !isOneOf(veil, ids(GOWN_VEILS))) {
     return no('quantities');
   }
@@ -1618,7 +1683,7 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
   if (beads === null || laceMotifs === null || laceYardM === null || pleats === null || cutouts === null || slits === null || trimM === null) {
     return no('quantities');
   }
-  q.labour = { sleeve, beads, laceMotifs, laceYardM, pleats, tex, darts, cutouts, slits, train, veil, trimM, twoPiece, cape, flutter, overlay };
+  q.labour = { sleeve, beads, laceMotifs, laceYardM, pleats, tex, darts, cutouts, slits, train, veil, trimM, twoPiece, cape, flutter, overlay, illuBodice, illuBack, boneShow };
   return { ok: true, quantities: q };
 }
 

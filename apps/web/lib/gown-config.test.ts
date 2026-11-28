@@ -82,6 +82,11 @@ const SHIPPED: Record<string, string[]> = {
   GOWN_PETTICOATS: ['none', 'soft', 'full', 'hoop'],
   GOWN_SHAPEWEAR: ['none', 'light', 'firm', 'corset'],
   GOWN_BONING: ['soft', 'complement', 'corset'],
+  GOWN_ILLUSIONS: ['none', 'neck', 'corset'],
+  GOWN_ILLUSION_CUPS: ['sweetheart', 'straight', 'plunge'],
+  GOWN_ILLUSION_COLOURS: ['nude', 'ivory', 'match'],
+  GOWN_ILLUSION_BACKS: ['off', 'on'],
+  GOWN_BONE_SHOWS: ['off', 'on'],
   GOWN_LININGS: ['satin', 'cotton', 'silk', 'none'],
   GOWN_LAYER_TYPES: ['soft', 'full', 'organza', 'chiffon', 'hoop'],
   GOWN_LAYER_COLOURS: ['match', 'ivory', 'white', 'blush', 'champagne', 'nude'],
@@ -304,10 +309,10 @@ const V186_ORDER: GownPrototypeOrder = {
 test('a v186 order round-trips: the look keys, her numbers and her choices come back exactly', () => {
   const got = gownFromPrototypeOrder(V186_ORDER, offer());
   assert.ok(got.ok, got.ok ? '' : got.reason);
-  // A v186 look has no bow, blusher or overlay (v197 adds them to the look): they come back as the starting values.
+  // A v186 look has no bow, blusher, overlay or illusion (v197 and v198 add them to the look): they come back as the starting values.
   // It opens as v197 opens an order: the mermaid's chapel train becomes a sweep (corpus a5ada15).
   const s0 = startingGownConfig();
-  assert.deepEqual(gownLookOf(got.config), { bow: s0.bow, blusher: s0.blusher, overlay: s0.overlay, ovFab: s0.ovFab, ...V186_ORDER.design3d.gown, train: 'sweep' }, 'the look the designer opens on the mannequin');
+  assert.deepEqual(gownLookOf(got.config), { bow: s0.bow, blusher: s0.blusher, overlay: s0.overlay, ovFab: s0.ovFab, illu: s0.illu, illuBase: s0.illuBase, illuCol: s0.illuCol, illuBack: s0.illuBack, boneShow: s0.boneShow, ...V186_ORDER.design3d.gown, train: 'sweep' }, 'the look the designer opens on the mannequin');
   assert.deepEqual(Object.keys(gownLookOf(got.config)), [...GOWN_LOOK_KEYS]);
   assert.equal(got.config.hem, 'floor');
   assert.equal(got.config.heel, 7);

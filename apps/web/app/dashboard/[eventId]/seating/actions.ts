@@ -34,6 +34,7 @@ import {
   recommendTableSet,
   roleTier,
   solveSeatPlan,
+  seatRoomPoints,
   tablesToAddForAutoSeat,
   validateChainJointM,
   type AutoSeatCannotFit,
@@ -640,7 +641,7 @@ export async function autoSeatGuests(formData: FormData) {
     roleSet,
     groupAdjacency,
     floorPlan.role_seating,
-    { vipPlusOnes: floorPlan.vip_plus_ones },
+    { vipPlusOnes: floorPlan.vip_plus_ones, room: seatRoomPoints(floorPlan) },
   );
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
@@ -1206,7 +1207,7 @@ export async function lockAndFill(
     roleSet: await resolveRoleSetForEvent(eventId),
     groupAdjacency: await fetchGroupAdjacency(supabase, eventId),
     roleSeating: floorPlan.role_seating,
-    autoSeat: { vipPlusOnes: floorPlan.vip_plus_ones },
+    autoSeat: { vipPlusOnes: floorPlan.vip_plus_ones, room: seatRoomPoints(floorPlan) },
   });
   if (solved.assignments.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
@@ -2607,13 +2608,14 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
           roleSet,
           groupAdjacency,
           roleSeating: floorPlan.role_seating,
-          autoSeat: { vipPlusOnes: floorPlan.vip_plus_ones, cannotFit },
+          autoSeat: { vipPlusOnes: floorPlan.vip_plus_ones, room: seatRoomPoints(floorPlan), cannotFit },
         })
       : null;
   const rows =
     solved?.assignments ??
     computeAutoSeat(arrangedTables, autoSeatGuestList, assignments, stage, floorPlan.priority_order, roleSet, groupAdjacency, floorPlan.role_seating, {
       vipPlusOnes: floorPlan.vip_plus_ones,
+      room: seatRoomPoints(floorPlan),
       cannotFit,
     });
   // 🛡 The independent check (seat plan § 5 step 7, lib/seat-plan-validator.ts — it shares no code with the solver): a

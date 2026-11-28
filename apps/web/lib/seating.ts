@@ -420,6 +420,14 @@ export type FloorPlanRow = {
   venue_photo_visibility: 'table' | 'all' | 'none';
   /** 🪑 How a guest sees their seat — 2D map · 3D walk · Both (owner 2026-11-01, lib/guest-seat-view.ts). */
   guest_seat_view: GuestSeatView;
+  // 🔊 The Speakers element (seat plan § 4.7 / § 6, the entrance_* pattern): the solver keeps Elders tables away
+  // from it and the seat check names an elder seated near it.
+  speakers_enabled: boolean;
+  speakers_x: number;
+  speakers_y: number;
+  // The two ⋯ switches (seat plan § 4.4), on by default: seat a new "yes" by the rules · suggest seats on the cards.
+  auto_seat_rsvps: boolean;
+  seat_suggestions: boolean;
 };
 
 export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
@@ -459,6 +467,11 @@ export const DEFAULT_FLOOR_PLAN: FloorPlanRow = {
   vip_plus_ones: 'beside',
   venue_photo_visibility: 'table',
   guest_seat_view: 'both',
+  speakers_enabled: false,
+  speakers_x: 10,
+  speakers_y: 10,
+  auto_seat_rsvps: true,
+  seat_suggestions: true,
 };
 
 export async function fetchFloorPlan(
@@ -481,7 +494,7 @@ export async function fetchFloorPlanMeasured(
   const { data, error } = await supabase
     .from('event_floor_plan')
     .select(
-      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,entrance_kind,entrance_depth_m,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at,priority_order,role_seating,vip_plus_ones,venue_photo_visibility,guest_seat_view',
+      'stage_x,stage_y,stage_w,stage_h,entrance_enabled,entrance_x,entrance_y,entrance_kind,entrance_depth_m,dance_enabled,dance_x,dance_y,dance_w,dance_h,service_entrance_enabled,service_entrance_x,service_entrance_y,cocktail_enabled,cocktail_x,cocktail_y,cocktail_w,cocktail_h,cocktail_label,cocktail_width_m,cocktail_length_m,cocktail_schedule_block_id,cocktail_vendor_edit,cocktail_linked,venue_width_m,venue_length_m,published_at,priority_order,role_seating,vip_plus_ones,venue_photo_visibility,guest_seat_view,speakers_enabled,speakers_x,speakers_y,auto_seat_rsvps,seat_suggestions',
     )
     .eq('event_id', eventId)
     .maybeSingle();
@@ -545,6 +558,12 @@ export async function fetchFloorPlanMeasured(
       return v === 'all' || v === 'none' || v === 'table' ? v : D.venue_photo_visibility;
     })(),
     guest_seat_view: parseGuestSeatView((data as { guest_seat_view?: unknown }).guest_seat_view),
+    speakers_enabled: Boolean((data as { speakers_enabled?: unknown }).speakers_enabled),
+    speakers_x: num((data as { speakers_x?: unknown }).speakers_x, D.speakers_x),
+    speakers_y: num((data as { speakers_y?: unknown }).speakers_y, D.speakers_y),
+    // Only an explicit FALSE turns a switch off (both are on by default).
+    auto_seat_rsvps: (data as { auto_seat_rsvps?: unknown }).auto_seat_rsvps !== false,
+    seat_suggestions: (data as { seat_suggestions?: unknown }).seat_suggestions !== false,
   };
   return { plan, measured: true };
 }
@@ -840,11 +859,60 @@ export type AutoSeatCannotFit = { kind: 'no_room' | 'split' | 'vip_full'; guestI
 export type AutoSeatOptions = {
   /** Where the +1s of VIP guests sit. Omitted = 'beside'. */
   vipPlusOnes?: VipPlusOneSeating;
+  /** 🧓 The room's ways out and its speakers (`seatRoomPoints`) — orders the Elders tables. Omitted = stage order. */
+  room?: SeatRoomPoints;
   /** Filled with every rule auto arrange could not keep (the caller shows it). */
   cannotFit?: AutoSeatCannotFit[];
 };
 
 /** One line for the host naming what did not fit — '' when everything did. `nameOf` resolves a guest's name. */
+/** 🧓 Where the doors and the speakers are on the plan (percent of the canvas), for the Elders rule (seat plan § 4.7). */
+export type SeatRoomPoints = { exits: ReadonlyArray<{ x: number; y: number }>; speakers: { x: number; y: number } | null };
+
+export function seatRoomPoints(
+  fp: Pick<
+    FloorPlanRow,
+    'entrance_enabled' | 'entrance_x' | 'entrance_y' | 'service_entrance_enabled' | 'service_entrance_x' | 'service_entrance_y' | 'speakers_enabled' | 'speakers_x' | 'speakers_y'
+  >,
+): SeatRoomPoints {
+  const exits: Array<{ x: number; y: number }> = [];
+  if (fp.entrance_enabled) exits.push({ x: fp.entrance_x, y: fp.entrance_y });
+  if (fp.service_entrance_enabled) exits.push({ x: fp.service_entrance_x, y: fp.service_entrance_y });
+  return { exits, speakers: fp.speakers_enabled ? { x: fp.speakers_x, y: fp.speakers_y } : null };
+}
+
+/**
+ * 🔊 How close to the speakers is "near" (percent of the plan's canvas): about a fifth of the room. The seater keeps an
+ * Elders table outside it when one is, and the seat check names an elder seated inside it.
+ */
+export const SPEAKERS_NEAR_PCT = 20;
+
+/** 🧓 An elder role (the grandparents of either side): seated at an Elders table first when the host made one. */
+export function isElderRole(role: string | null | undefined): boolean {
+  return typeof role === 'string' && /grandparent/.test(role);
+}
+
+const pctDist = (a: { x: number; y: number }, b: { x: number; y: number }) => Math.hypot(a.x - b.x, a.y - b.y);
+
+/**
+ * 🧓 THE ELDERS TABLES, IN THE ORDER THE SEATER FILLS THEM (seat plan § 4.7: "near an exit or entrance, away from
+ * speakers"): tables outside the speakers' reach first, then nearest a way out, then the plan's own order. `points`
+ * gives each table's position (the seater's own `tablePoint`).
+ */
+export function elderTableOrder<T extends { table_id: string; table_kind?: string | null; is_vip?: boolean | null }>(
+  tables: ReadonlyArray<T>,
+  room: SeatRoomPoints,
+  pointOf: (t: T) => { x: number; y: number },
+): T[] {
+  const elders = tables.filter((t) => parseTableKind(t.table_kind, t.is_vip) === 'elders');
+  const nearSpeakers = (t: T) => (room.speakers && pctDist(pointOf(t), room.speakers) < SPEAKERS_NEAR_PCT ? 1 : 0);
+  const toExit = (t: T) => (room.exits.length === 0 ? 0 : Math.min(...room.exits.map((e) => pctDist(pointOf(t), e))));
+  return elders
+    .map((t, i) => ({ t, i }))
+    .sort((a, b) => nearSpeakers(a.t) - nearSpeakers(b.t) || toExit(a.t) - toExit(b.t) || a.i - b.i)
+    .map((x) => x.t);
+}
+
 export function cannotFitWords(list: readonly AutoSeatCannotFit[], nameOf: (guestId: string) => string): string {
   const who = (ids: string[]) => {
     const first = nameOf(ids[0] ?? '') || 'A guest';
@@ -1068,6 +1136,22 @@ export function computeAutoSeat(
   };
   const isSeated = (g: AutoSeatGuest) => seatedIds.has(g.guest_id);
 
+  // ── 🧓 ELDERS TABLES FIRST (seat plan § 4.7, table kinds E): when the host made an Elders table, the elders (the
+  // grandparents of either side) sit there before anyone else is placed, with their +1s beside them — at the Elders
+  // tables outside the speakers' reach and nearest a way out first (`elderTableOrder`). One the Elders tables have no
+  // room for goes on through the rules below like everyone else. Nobody else is kept off an Elders table.
+  const elderDone = new Set<string>();
+  const elderTables = elderTableOrder(pool, opts.room ?? { exits: [], speakers: null }, (t) => pointById.get(t.table_id)!);
+  if (elderTables.length > 0) {
+    const elders = primaries
+      .filter((g) => isElderRole(g.role) && !keyOf.get(g.guest_id)?.startsWith('beside:'))
+      .sort(byRoleThenName);
+    for (const g of elders) {
+      const chunk = [g, ...(plusOnesBy.get(g.guest_id) ?? [])];
+      if (seatChunk(chunk, elderTables, false).length > 0) chunk.forEach((x) => elderDone.add(x.guest_id));
+    }
+  }
+
   // ── 🪑 VIP TABLES FIRST: ROLE FIRST, THEN GROUP (owner 2026-11-02, "VIP should always be role first then group").
   // Who: every eligible role holder, except a role set the couple switched to "Sit with their group". Order: the
   // Guests list's role order, then group, then name — so each role sits together. A role holder's +1s follow the
@@ -1083,7 +1167,7 @@ export function computeAutoSeat(
       return !set || roleSeatingChoice(roleSeating, set) === 'together';
     };
     const vipGuests = primaries
-      .filter(isVipGuest)
+      .filter((g) => !elderDone.has(g.guest_id) && isVipGuest(g))
       .sort(
         (a, b) =>
           roleOrder(a) - roleOrder(b) ||
@@ -1140,7 +1224,7 @@ export function computeAutoSeat(
   type Unit = { key: string; chunks: AutoSeatGuest[][]; size: number; rank: number; setOrder: number; name: string };
   const unitMembers = new Map<string, AutoSeatGuest[]>();
   for (const g of primaries) {
-    if (vipDone.has(g.guest_id)) continue;
+    if (vipDone.has(g.guest_id) || elderDone.has(g.guest_id)) continue;
     const k = unitKeyOf(g);
     const arr = unitMembers.get(k) ?? [];
     arr.push(g);
@@ -1580,6 +1664,8 @@ export type ReconcileInput = {
   roleSeating?: RoleSeating | null;
   /** Owner 2026-11-02: where the +1s of VIP guests sit. Omitted = 'beside'. */
   vipPlusOnes?: VipPlusOneSeating;
+  /** 🧓 The room's ways out and speakers, for the Elders tables (`seatRoomPoints`). */
+  room?: SeatRoomPoints;
 };
 
 export type ReconcileResult = {
@@ -1628,9 +1714,9 @@ export function reconcileProvisionalSeats(input: ReconcileInput): ReconcileResul
           roleSet,
           groupAdjacency,
           roleSeating,
-          autoSeat: { vipPlusOnes: input.vipPlusOnes },
+          autoSeat: { vipPlusOnes: input.vipPlusOnes, room: input.room },
         }).assignments
-      : computeAutoSeat(tables, guests, kept, stage, priorityOrder, roleSet, groupAdjacency, roleSeating, { vipPlusOnes: input.vipPlusOnes });
+      : computeAutoSeat(tables, guests, kept, stage, priorityOrder, roleSet, groupAdjacency, roleSeating, { vipPlusOnes: input.vipPlusOnes, room: input.room });
 
   const placedIds = new Set(placed.map((r) => r.guest_id));
   const takenSeat = new Set(placed.map((r) => `${r.table_id}#${r.seat_number}`));

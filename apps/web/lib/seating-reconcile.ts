@@ -6,6 +6,7 @@ import {
   fetchTables,
   fetchAssignments,
   reconcileProvisionalSeats,
+  seatRoomPoints,
   type AutoSeatGuest,
 } from '@/lib/seating';
 
@@ -148,6 +149,7 @@ export async function reconcilePass(
     groupAdjacency,
     roleSeating: floorPlan.role_seating,
     vipPlusOnes: floorPlan.vip_plus_ones,
+    room: seatRoomPoints(floorPlan),
   });
 
   // Delete stale rows first (a displaced guest whose seat got reused), then

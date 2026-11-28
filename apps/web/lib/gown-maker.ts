@@ -1,0 +1,470 @@
+/**
+ * 👗 gown-maker — the shop side of the Attire Maker: a designer's own price list and how it prices a design (plan step
+ * B2; corpus WHATS_NEXT_Gown_Maker_Port_2026-11-27.md § 2.2; prototype v189 `PRICE_ITEMS`, `PRICE_GROUPS`, `HOURS`,
+ * `quoteLines`, `renderQuote`, `renderPriceList`; DESIGN-REVIEW-v187 § D add-ons, owner 2026-11-27 "yes to all").
+ *
+ * Owner rules held here:
+ *   · Prices come only from the designer's own list. No amount is typed in code; an unpriced line stays unpriced
+ *     (null), never zero. Money is centavos and is formatted only by lib/php.ts.
+ *   · Designers see costs; the bride sees the estimate or the quote. `gownDesignOf` returns both halves; the server
+ *     (step B3) sends a bride only `forBride` — never a line, a cost, a markup or an hour.
+ *   · Add-ons: each one is Priced (her amount) · Included free · On request (no amount) · Not offered (hidden). Which
+ *     are free is the designer's choice: every add-on starts Not offered.
+ *   · The quote groups its lines as Attire Setup (by stage) → Add-ons.
+ *   · Two ways to price (prototype "How you price"): `covers` — the starting price covers the design until its cost
+ *     (supplies + labour, with markup) is higher; `extras` — the starting price is locked, what it includes is marked
+ *     "In base", every other choice adds its own price.
+ *   · v193: the cape's labour is its own price item ("Cover-ups"); inside layers price by material per metre (tulle on
+ *     `net`, organza and chiffon on their fabric items, the hoop per piece). The design's cape choice and per-layer
+ *     metres arrive in the contract (lib/gown-config.ts, Builder A); `gownDesignOf` prices them once they do.
+ * 🔒 lib/gown-maker.test.ts
+ */
+import {
+  GOWN_SILHOUETTES,
+  GOWN_STOCK_FABRICS,
+  type GownBeadKind,
+  type GownConfig,
+  type GownQuantities,
+  type GownSilhouette,
+} from './gown-config';
+import { GOWN_ADD_ONS, type GownAddOnKey } from './gown-add-ons';
+
+/** The suppliers the Attire Maker is suggested for (owner Q3, 2026-11-27: custom gown makers only for now). */
+export const GOWN_KINDS: ReadonlySet<string> = new Set(['bridal_gown_custom']);
+export function isGownKind(kind: string | null | undefined): boolean {
+  return typeof kind === 'string' && GOWN_KINDS.has(kind);
+}
+
+export const GOWN_OPTIONS_VERSION = 1;
+/** The same cap as vendor_gown_makers.options (migration 20271365509280). */
+export const GOWN_OPTIONS_MAX_BYTES = 16_384;
+const MAX_CENTAVOS = 100_000_000_00;
+const MAX_HOURS = 200;
+const MAX_MARKUP_PCT = 500;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The price list: [key, label, unit]. The designer fills the amounts (centavos).
+// ─────────────────────────────────────────────────────────────────────────────
+
+type Item = { readonly key: string; readonly label: string; readonly unit: GownPriceUnit };
+export type GownPriceUnit = 'gown' | 'm' | 'pc' | '100 pcs' | 'hour';
+
+const SIL_LABEL = Object.fromEntries(GOWN_SILHOUETTES.map((s) => [s.id, s.label])) as Record<GownSilhouette, string>;
+
+export const GOWN_PRICE_ITEMS = [
+  ...GOWN_SILHOUETTES.map((s) => ({ key: `base_${s.id}`, label: s.label, unit: 'gown' as const })),
+  ...GOWN_STOCK_FABRICS.map((f) => ({ key: `fab_${f.id}`, label: f.label, unit: 'm' as const })),
+  { key: 'lin_satin', label: 'Satin lining', unit: 'm' },
+  { key: 'lin_cotton', label: 'Cotton lining', unit: 'm' },
+  { key: 'lin_silk', label: 'Silk lining', unit: 'm' },
+  { key: 'net', label: 'Petticoat / veil tulle', unit: 'm' },
+  { key: 'hoop', label: 'Hoop (crinoline)', unit: 'pc' },
+  { key: 'illusion', label: 'Illusion mesh', unit: 'm' },
+  { key: 'boning', label: 'Boning', unit: 'm' },
+  { key: 'waiststay', label: 'Waist stay', unit: 'pc' },
+  { key: 'horsehair', label: 'Horsehair braid', unit: 'm' },
+  { key: 'zipper', label: 'Invisible zipper', unit: 'pc' },
+  { key: 'button', label: 'Covered button', unit: 'pc' },
+  { key: 'eyelet', label: 'Eyelet', unit: 'pc' },
+  { key: 'cord', label: 'Lacing cord', unit: 'm' },
+  { key: 'lace_motif', label: 'Lace motif (appliqué)', unit: 'pc' },
+  { key: 'lace_yard', label: 'Lace by the yard', unit: 'm' },
+  { key: 'bead_crystal', label: 'Crystals', unit: '100 pcs' },
+  { key: 'bead_pearl', label: 'Pearls', unit: '100 pcs' },
+  { key: 'bead_seed', label: 'Seed beads', unit: '100 pcs' },
+  { key: 'bead_sequin', label: 'Sequins', unit: '100 pcs' },
+  { key: 'cape', label: 'Cape: cutting, sewing and finishing', unit: 'pc' },
+  { key: 'piping', label: 'Piping', unit: 'm' },
+  { key: 'fringe', label: 'Fringe', unit: 'm' },
+  { key: 'feather', label: 'Feather trim', unit: 'm' },
+  { key: 'rate', label: 'Labour rate', unit: 'hour' },
+] as const satisfies readonly Item[];
+export type GownPriceKey = (typeof GOWN_PRICE_ITEMS)[number]['key'];
+const PRICE_KEYS: ReadonlySet<string> = new Set(GOWN_PRICE_ITEMS.map((i) => i.key));
+
+/** The price list's groups, in the order the designer reads them (prototype `PRICE_GROUPS`, men's and bows removed). */
+export const GOWN_PRICE_GROUPS: ReadonlyArray<readonly [string, (key: GownPriceKey) => boolean]> = [
+  ['Starting prices', (k) => k.startsWith('base_')],
+  ['Fabrics', (k) => k.startsWith('fab_')],
+  ['Lining and inside', (k) => /^(lin_|net$|hoop$|illusion$|boning$|waiststay$|horsehair$)/.test(k)],
+  ['Closures', (k) => /^(zipper|button|eyelet|cord)$/.test(k)],
+  ['Lace and beads', (k) => /^(lace_|bead_)/.test(k)],
+  ['Trims', (k) => /^(piping|fringe|feather)$/.test(k)],
+  // v193: the cape as part of the gown (the bride's detachable cape is the add-on `cape`; the designer may price either).
+  ['Cover-ups', (k) => k === 'cape'],
+  ['Labour', (k) => k === 'rate'],
+];
+
+/** What a starting price includes until the designer says otherwise (prototype `INC_DEFAULT`; extras mode only). */
+export const GOWN_IN_BASE_DEFAULT: readonly GownPriceKey[] = ['fab_satin', 'lin_satin', 'zipper'];
+
+/** Workshop time standards, hours (prototype `HOURS`; the designer edits them). Time, not money. */
+export const GOWN_HOURS_DEFAULT = {
+  sleeve_cap: 2,
+  sleeve_long: 3,
+  sleeve_butterfly: 8,
+  beads100: 1.5,
+  motif: 0.4,
+  lace_yard: 1.5,
+  pleat: 0.15,
+  tex: 5,
+  darts: 1,
+  cutout: 1.5,
+  slit: 1,
+  train: 3,
+  trim_m: 0.3,
+  two_piece: 2.5,
+} as const;
+export type GownHourKey = keyof typeof GOWN_HOURS_DEFAULT;
+const HOUR_KEYS = Object.keys(GOWN_HOURS_DEFAULT) as GownHourKey[];
+
+export const GOWN_HOUR_LABELS: Record<GownHourKey, string> = {
+  sleeve_cap: 'Cap sleeves',
+  sleeve_long: 'Long sleeves',
+  sleeve_butterfly: 'Butterfly sleeves',
+  beads100: 'Beading, per 100 beads',
+  motif: 'Appliqué, per motif',
+  lace_yard: 'Lace yardage, per m',
+  pleat: 'Per pleat',
+  tex: 'Pintucks / ruching / smocking',
+  darts: 'Darts or seams',
+  cutout: 'Per cut-out',
+  slit: 'Per slit',
+  train: 'Train',
+  trim_m: 'Trim, per m',
+  two_piece: 'Two-piece: separate top, skirt waistband',
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Add-ons (DESIGN-REVIEW-v187 § D, owner 2026-11-27). Append-only: a stored list must never dangle.
+// ─────────────────────────────────────────────────────────────────────────────
+
+export { GOWN_ADD_ONS, type GownAddOnKey } from './gown-add-ons';
+const ADD_ON_KEYS: ReadonlySet<string> = new Set(GOWN_ADD_ONS.map((a) => a.id));
+
+/** Priced (her amount; null = not priced yet) · Included free · On request · Not offered (hidden from the bride). */
+export type GownAddOnState =
+  | { state: 'priced'; centavos: number | null }
+  | { state: 'free' }
+  | { state: 'request' }
+  | { state: 'none' };
+
+/**
+ * An add-on covers the design lines it stands for, so a design is never charged twice: a petticoat add-on is the
+ * petticoat's tulle and hoop. Applies whenever the add-on is offered (priced, free or on request).
+ */
+const ADD_ON_COVERS: Partial<Record<GownAddOnKey, readonly string[]>> = {
+  petticoat: ['net', 'hoop'],
+};
+
+/** What the bride reads for an offered add-on with no amount. */
+export const GOWN_ADD_ON_INCLUDED = 'Included';
+export const GOWN_ADD_ON_ASK = 'Ask your designer';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The shop's options (vendor_gown_makers.options)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type GownPricingMode = 'covers' | 'extras';
+
+export type GownShopOptions = {
+  v: typeof GOWN_OPTIONS_VERSION;
+  mode: GownPricingMode;
+  /** Centavos per unit. An absent key is unpriced. */
+  prices: Partial<Record<GownPriceKey, number>>;
+  /** Extras mode: what each starting price already includes. */
+  inBase: GownPriceKey[];
+  hours: Record<GownHourKey, number>;
+  /** Covers mode: added on the designer's costs, percent. */
+  markupPct: number;
+  addOns: Record<GownAddOnKey, GownAddOnState>;
+};
+
+export function gownShopTemplate(): GownShopOptions {
+  return {
+    v: GOWN_OPTIONS_VERSION,
+    mode: 'covers',
+    prices: {},
+    inBase: [...GOWN_IN_BASE_DEFAULT],
+    hours: { ...GOWN_HOURS_DEFAULT },
+    markupPct: 0,
+    addOns: Object.fromEntries(GOWN_ADD_ONS.map((a) => [a.id, { state: 'none' }])) as Record<GownAddOnKey, GownAddOnState>,
+  };
+}
+
+export type GownOptionsRefusal = { ok: false; problem: string };
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
+const isCentavos = (v: unknown): v is number => typeof v === 'number' && Number.isSafeInteger(v) && v > 0 && v <= MAX_CENTAVOS;
+const inRange = (v: unknown, lo: number, hi: number): v is number => typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+
+/** Check a shop's options before every write. Refuses with a plain reason; never repairs. */
+export function sanitizeGownShopOptions(input: unknown): { ok: true; options: GownShopOptions } | GownOptionsRefusal {
+  const no = (problem: string): GownOptionsRefusal => ({ ok: false, problem });
+  let size = 0;
+  try {
+    size = new TextEncoder().encode(JSON.stringify(input)).length;
+  } catch {
+    return no('These options could not be read.');
+  }
+  if (size > GOWN_OPTIONS_MAX_BYTES) return no('Your price list is too long to save.');
+  if (!isObject(input) || input.v !== GOWN_OPTIONS_VERSION) return no('These options are not a gown price list.');
+  if (input.mode !== 'covers' && input.mode !== 'extras') return no('Choose how you price.');
+
+  if (!isObject(input.prices)) return no('Your prices could not be read.');
+  const prices: Partial<Record<GownPriceKey, number>> = {};
+  for (const [k, v] of Object.entries(input.prices)) {
+    if (!PRICE_KEYS.has(k)) return no(`"${k}" is not on the price list.`);
+    if (v === null || v === undefined) continue;
+    if (!isCentavos(v)) return no(`The price for ${GOWN_PRICE_ITEMS.find((i) => i.key === k)!.label} must be more than zero, or left empty.`);
+    prices[k as GownPriceKey] = v;
+  }
+
+  if (!Array.isArray(input.inBase) || !input.inBase.every((k) => typeof k === 'string' && PRICE_KEYS.has(k) && !k.startsWith('base_') && k !== 'rate')) {
+    return no('"In base" can only mark supplies.');
+  }
+  const inBase = [...new Set(input.inBase as GownPriceKey[])];
+
+  if (!isObject(input.hours)) return no('Your time standards could not be read.');
+  const hours = {} as Record<GownHourKey, number>;
+  for (const k of HOUR_KEYS) {
+    const h = input.hours[k];
+    if (!inRange(h, 0, MAX_HOURS)) return no(`${GOWN_HOUR_LABELS[k]}: hours must be between 0 and ${MAX_HOURS}.`);
+    hours[k] = h;
+  }
+  if (Object.keys(input.hours).some((k) => !(HOUR_KEYS as string[]).includes(k))) return no('A time standard is not known.');
+
+  if (!inRange(input.markupPct, 0, MAX_MARKUP_PCT)) return no(`Markup must be between 0 and ${MAX_MARKUP_PCT}%.`);
+
+  if (!isObject(input.addOns)) return no('Your add-ons could not be read.');
+  if (Object.keys(input.addOns).some((k) => !ADD_ON_KEYS.has(k))) return no('An add-on is not known.');
+  const addOns = {} as Record<GownAddOnKey, GownAddOnState>;
+  for (const { id, label } of GOWN_ADD_ONS) {
+    const a = input.addOns[id];
+    if (!isObject(a)) return no(`${label}: choose Priced, Included, On request or Not offered.`);
+    if (a.state === 'priced') {
+      if (a.centavos !== null && !isCentavos(a.centavos)) return no(`${label}: the price must be more than zero, or left empty.`);
+      addOns[id] = { state: 'priced', centavos: a.centavos as number | null };
+    } else if (a.state === 'free' || a.state === 'request' || a.state === 'none') {
+      addOns[id] = { state: a.state };
+    } else return no(`${label}: choose Priced, Included, On request or Not offered.`);
+  }
+  return { ok: true, options: { v: GOWN_OPTIONS_VERSION, mode: input.mode, prices, inBase, hours, markupPct: input.markupPct, addOns } };
+}
+
+/** The add-ons a bride is offered, in list order. Not offered ones are hidden from her. */
+export function gownAddOnsOffered(o: GownShopOptions): GownAddOnKey[] {
+  return GOWN_ADD_ONS.map((a) => a.id).filter((id) => o.addOns[id].state !== 'none');
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pricing a design
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** A shop fabric row's name and per-metre price (vendor_gown_fabrics; null = unpriced). */
+export type GownShopFabric = { name: string; pricePerMetreCentavos: number | null };
+
+/** The Attire Setup stages (DESIGN-REVIEW-v187 § A) a line is grouped under, then the add-ons. */
+export const GOWN_QUOTE_GROUPS = ['Shape', 'Fabric', 'Bodice', 'Skirt', 'Details', 'Inside', 'Labour', 'Add-ons'] as const;
+export type GownQuoteGroup = (typeof GOWN_QUOTE_GROUPS)[number];
+
+export type GownQuoteLine = {
+  group: GownQuoteGroup;
+  key: string;
+  label: string;
+  qty: number;
+  unit: GownPriceUnit | 'h' | 'item';
+  /** Centavos per unit; null = not priced. */
+  unitCentavos: number | null;
+  /** Centavos; null = not priced. 0 only when the line is included. */
+  amountCentavos: number | null;
+  included: boolean;
+};
+
+export type GownDesignForShop = {
+  mode: GownPricingMode;
+  lines: GownQuoteLine[];
+  suppliesCentavos: number;
+  labourCentavos: number;
+  /** The starting price for the silhouette; null = not priced. */
+  baseCentavos: number | null;
+  /** Covers mode: this design's cost with markup. */
+  designCentavos: number;
+  addOnsCentavos: number;
+  /** What the bride sees; null = ask for a quote. */
+  totalCentavos: number | null;
+  /** Lines left out of the totals because they have no price. */
+  unpriced: number;
+};
+
+export type GownAddOnForBride = { id: GownAddOnKey; label: string; centavos: number | null; words: string | null };
+
+/** All a bride may hold: no line, no cost, no markup, no hour. */
+export type GownDesignForBride = {
+  /** Null = "Ask for a quote". */
+  estimateCentavos: number | null;
+  /** Covers mode: the design still sits within the starting price. */
+  withinBase: boolean;
+  addOns: GownAddOnForBride[];
+};
+
+export type GownDesignPriced = { forShop: GownDesignForShop; forBride: GownDesignForBride };
+
+type DesignPick = Pick<
+  GownConfig,
+  'sil' | 'fabric' | 'fabricRef' | 'accentFabric' | 'accentFabricRef' | 'lining' | 'closure' | 'sleeve' | 'tex' | 'train' | 'darts'
+>;
+
+const round2 = (x: number) => Math.round(x * 100) / 100;
+const BEAD_LABEL: Record<GownBeadKind, string> = { crystal: 'Crystals', pearl: 'Pearls', seed: 'Seed beads', sequin: 'Sequins' };
+const fabricLabel = (id: string) => GOWN_STOCK_FABRICS.find((f) => f.id === id)?.label ?? id;
+
+/**
+ * Price one design with the shop's own list (server only). `addOnsChosen` are the add-ons the bride picked; one the
+ * shop does not offer is left out (the server refuses it before this is called).
+ */
+export function gownDesignOf(
+  options: GownShopOptions,
+  design: DesignPick,
+  q: GownQuantities,
+  addOnsChosen: readonly GownAddOnKey[],
+  fabrics: ReadonlyMap<string, GownShopFabric> = new Map(),
+): GownDesignPriced {
+  const P = options.prices;
+  const extras = options.mode === 'extras';
+  const inBase = new Set<string>(extras ? options.inBase : []);
+  const chosen = GOWN_ADD_ONS.map((a) => a.id).filter((id) => addOnsChosen.includes(id) && options.addOns[id].state !== 'none');
+  const covered = new Set(chosen.flatMap((id) => ADD_ON_COVERS[id] ?? []));
+  const lines: GownQuoteLine[] = [];
+  const m = q.materials;
+  const L = q.labour;
+
+  const supply = (group: GownQuoteGroup, key: string, label: string, qty: number, unit: GownPriceUnit, unitOverride?: number | null) => {
+    if (!(qty > 0) || covered.has(key)) return;
+    const included = inBase.has(key);
+    const unitC = included ? 0 : unitOverride !== undefined ? unitOverride : (P[key as GownPriceKey] ?? null);
+    const qtyR = round2(qty);
+    lines.push({ group, key, label, qty: qtyR, unit, unitCentavos: unitC, amountCentavos: unitC === null ? null : Math.round(qtyR * unitC), included });
+  };
+
+  // Fabric: the outer (the shop's own fabric row, at its own price, when she picked one), then the accent.
+  const shopFab = design.fabricRef ? fabrics.get(design.fabricRef) : undefined;
+  if (shopFab) supply('Fabric', `shopfab:${design.fabricRef}`, `${shopFab.name} (outer)`, m.outerM, 'm', shopFab.pricePerMetreCentavos);
+  else supply('Fabric', `fab_${design.fabric}`, `${fabricLabel(design.fabric)} (outer)`, m.outerM, 'm');
+  const accentFab = design.accentFabricRef ? fabrics.get(design.accentFabricRef) : undefined;
+  if (accentFab) supply('Bodice', `shopfab:${design.accentFabricRef}`, `${accentFab.name} (accents: sleeves)`, m.accentM, 'm', accentFab.pricePerMetreCentavos);
+  else {
+    const ak = design.accentFabric ?? design.fabric;
+    supply('Bodice', `fab_${ak}`, `${fabricLabel(ak)} (accents: sleeves)`, m.accentM, 'm');
+  }
+  supply('Fabric', `fab_${design.fabric}`, `${fabricLabel(design.fabric)} for the ruffle`, m.ruffleM, 'm');
+  // Bodice: closures.
+  supply('Bodice', 'zipper', 'Invisible zipper', m.zippers, 'pc');
+  supply('Bodice', 'button', 'Covered buttons', m.buttons, 'pc');
+  supply('Bodice', 'eyelet', 'Eyelets', m.eyelets, 'pc');
+  supply('Bodice', 'cord', 'Lacing cord', m.cordM, 'm');
+  // Details: lace, beads, trims, illusion.
+  supply('Details', 'lace_yard', 'Lace by the yard', m.laceYardM, 'm');
+  supply('Details', 'lace_motif', 'Lace motifs', m.laceMotifs, 'pc');
+  for (const [kind, n] of Object.entries(m.beads) as [GownBeadKind, number][]) supply('Details', `bead_${kind}`, BEAD_LABEL[kind], n / 100, '100 pcs');
+  supply('Details', 'piping', 'Piping', m.pipingM, 'm');
+  supply('Details', 'fringe', 'Fringe', m.fringeM, 'm');
+  supply('Details', 'feather', 'Feather trim', m.featherM, 'm');
+  supply('Details', 'illusion', 'Illusion mesh', m.illusionM, 'm');
+  // Skirt.
+  supply('Skirt', 'horsehair', 'Horsehair braid', m.horsehairM, 'm');
+  // Inside.
+  if (design.lining !== 'none') supply('Inside', `lin_${design.lining}`, `${design.lining[0]!.toUpperCase()}${design.lining.slice(1)} lining`, m.liningM, 'm');
+  supply('Inside', 'net', 'Petticoat tulle', m.netM, 'm');
+  supply('Inside', 'hoop', 'Hoop (crinoline)', m.hoops, 'pc');
+  supply('Inside', 'boning', 'Boning', m.boningM, 'm');
+  supply('Inside', 'waiststay', 'Waist stay', m.waistStays, 'pc');
+
+  // Labour, at the shop's rate and its own time standards.
+  const h = options.hours;
+  const rate = P.rate ?? null;
+  const labour = (key: string, label: string, hours: number) => {
+    if (!(hours > 0)) return;
+    const hr = round2(hours);
+    lines.push({ group: 'Labour', key, label, qty: hr, unit: 'h', unitCentavos: rate, amountCentavos: rate === null ? null : Math.round(hr * rate), included: false });
+  };
+  if (L.sleeve === 'cap' || L.sleeve === 'long' || L.sleeve === 'butterfly') {
+    labour('h_sleeve', `${{ cap: 'Cap', long: 'Long', butterfly: 'Terno butterfly' }[L.sleeve]} sleeves`, h[`sleeve_${L.sleeve}`]);
+  }
+  labour('h_beads', 'Hand beading', (L.beads / 100) * h.beads100);
+  labour('h_lace', 'Lace appliqué', L.laceMotifs * h.motif + L.laceYardM * h.lace_yard);
+  labour('h_pleat', 'Pleating', L.pleats * h.pleat);
+  if (L.tex !== 'none') labour('h_tex', { pintuck: 'Pintucks', ruche: 'Ruching', smock: 'Smocking' }[L.tex as 'pintuck' | 'ruche' | 'smock'] ?? 'Fabric technique', h.tex);
+  if (L.twoPiece) labour('h_twop', 'Two-piece: separate top, skirt waistband', h.two_piece);
+  if (L.darts) labour('h_darts', 'Darts / seams', h.darts);
+  labour('h_cut', 'Cut-outs (finished edges)', L.cutouts * h.cutout);
+  labour('h_slit', 'Slits', L.slits * h.slit);
+  if (L.train !== 'none') labour('h_train', 'Train', h.train);
+  labour('h_trim', 'Trims', L.trimM * h.trim_m);
+
+  // Add-ons: her amount on top in both modes (no markup), "Included", or "Ask your designer".
+  const forBrideAddOns: GownAddOnForBride[] = [];
+  let addOnsC = 0;
+  for (const id of chosen) {
+    const a = options.addOns[id];
+    const label = GOWN_ADD_ONS.find((x) => x.id === id)!.label;
+    if (a.state === 'priced') {
+      lines.push({ group: 'Add-ons', key: `addon_${id}`, label, qty: 1, unit: 'item', unitCentavos: a.centavos, amountCentavos: a.centavos, included: false });
+      if (a.centavos !== null) addOnsC += a.centavos;
+      forBrideAddOns.push({ id, label, centavos: a.centavos, words: a.centavos === null ? GOWN_ADD_ON_ASK : null });
+    } else if (a.state === 'free') {
+      lines.push({ group: 'Add-ons', key: `addon_${id}`, label, qty: 1, unit: 'item', unitCentavos: 0, amountCentavos: 0, included: true });
+      forBrideAddOns.push({ id, label, centavos: null, words: GOWN_ADD_ON_INCLUDED });
+    } else if (a.state === 'request') {
+      lines.push({ group: 'Add-ons', key: `addon_${id}`, label, qty: 1, unit: 'item', unitCentavos: null, amountCentavos: null, included: false });
+      forBrideAddOns.push({ id, label, centavos: null, words: GOWN_ADD_ON_ASK });
+    }
+  }
+
+  // Totals leave unpriced lines out; the shop is told how many.
+  let supplies = 0;
+  let labourC = 0;
+  let unpriced = 0;
+  for (const l of lines) {
+    if (l.group === 'Add-ons') continue;
+    if (l.amountCentavos === null) unpriced++;
+    else if (l.group === 'Labour') labourC += l.amountCentavos;
+    else supplies += l.amountCentavos;
+  }
+  unpriced += lines.filter((l) => l.group === 'Add-ons' && l.amountCentavos === null && !l.included && options.addOns[l.key.slice(6) as GownAddOnKey].state === 'priced').length;
+
+  const base = P[`base_${design.sil}` as GownPriceKey] ?? null;
+  if (base === null) unpriced++;
+  const markup = options.markupPct > 0 ? options.markupPct : 0;
+  const designC = Math.round((supplies + labourC) * (1 + markup / 100));
+  let total: number | null;
+  let withinBase = false;
+  if (extras) {
+    // The base is locked; each extra adds its own price; no markup on top.
+    total = base === null ? null : base + supplies + labourC + addOnsC;
+  } else {
+    // The starting price covers the design until the design costs more. With no starting price and nothing priced,
+    // there is no price to show (prototype: "Price to follow").
+    if (base === null && designC === 0) total = null;
+    else {
+      total = Math.max(base ?? 0, designC) + addOnsC;
+      withinBase = base !== null && designC <= base;
+    }
+  }
+  return {
+    forShop: {
+      mode: options.mode,
+      lines,
+      suppliesCentavos: supplies,
+      labourCentavos: labourC,
+      baseCentavos: base,
+      designCentavos: designC,
+      addOnsCentavos: addOnsC,
+      totalCentavos: total,
+      unpriced,
+    },
+    forBride: { estimateCentavos: total, withinBase, addOns: forBrideAddOns },
+  };
+}
+
+/** The silhouette's starting-price label ("Starting price: A-line"). */
+export const gownBaseLabel = (sil: GownSilhouette) => `Starting price: ${SIL_LABEL[sil]}`;

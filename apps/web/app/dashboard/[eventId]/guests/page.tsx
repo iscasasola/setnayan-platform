@@ -113,6 +113,8 @@ import { quickAddTips } from '@/lib/quick-add-tips';
 import { tableWords } from '@/lib/table-words';
 import { readInviteTagsByGuest } from '@/lib/guest-chapter-invites';
 import { AddGuestSheet, OpenAddGuestTextButton } from './_components/add-guest-sheet';
+import { withDisplayNames } from '@/lib/table-auto-name';
+import { readShownTableNames } from '@/lib/table-auto-name.server';
 
 /** The guest list's event columns: its own, and every one of the ONE clock's (`EVENT_CLOCK_COLUMNS`, lib/event-clock.ts)
  *  for "has this happened". Typed out so the held-row guard can read it; `lib/the-event-has-one-clock.test.ts` holds
@@ -518,7 +520,9 @@ export default async function GuestsPage({ params, searchParams }: Props) {
       measuredOr(fetchAssignments(supabase, eventId), [] as Awaited<ReturnType<typeof fetchAssignments>>, (e) =>
         logQueryError('GuestsPage.assignments', e, { event_id: eventId }, 'graceful_degrade'),
       ),
-      measuredOr(fetchTables(supabase, eventId), [] as Awaited<ReturnType<typeof fetchTables>>, (e) =>
+      // 🪑 …each under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts): the seat column,
+      // the Seat sort, roster search and the table picker all say the name the table wears.
+      measuredOr(fetchTables(supabase, eventId).then(async (t) => withDisplayNames(t, await readShownTableNames(supabase, eventId))), [] as Awaited<ReturnType<typeof fetchTables>>, (e) =>
         logQueryError('GuestsPage.tables', e, { event_id: eventId }, 'graceful_degrade'),
       ),
       supabase

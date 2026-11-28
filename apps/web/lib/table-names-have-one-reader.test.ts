@@ -54,6 +54,12 @@ const SURFACES = [
   'app/dashboard/[eventId]/guests/export/route.ts',
   'app/api/hub-print/[piece]/route.ts',
   'lib/change-requests.server.ts',
+  // 28 Nov re-review
+  'app/dashboard/[eventId]/guests/page.tsx', // the Guests list's seat column, Seat sort, search words and table picker
+  'app/dashboard/[eventId]/seating/lab/_components/seating-room.tsx', // the 3D room's table labels
+  'app/_actions/plan3d-demo-actions.ts', // the 3D demo scene
+  'app/tour/seating/page.tsx', // the seating tour's seat chips
+  'app/papic/actions.ts', // the toast after a table is tagged
 ];
 
 /**
@@ -130,4 +136,28 @@ test('no new surface reads a table label straight off event_tables', () => {
   assert.ok(files.length >= 3, `the sweep found ${files.length} files — it must see the known readers`);
   const strays = files.filter((f) => !ALLOWED_LABEL_SELECTS.has(f));
   assert.deepEqual(strays, [], 'a surface reads table_label without the one reader');
+});
+
+/**
+ * The second way to bypass the reader: take the rows from `fetchTables` / `fetchPublicTables` and read `.table_label`
+ * off them (the Guests list did exactly this, 28 Nov re-review). Any file that calls either fetcher AND names
+ * `table_label` must import the reader — or be the seat plan's own data layer, its writers, or a lab.
+ */
+const FETCHER_LABEL_ALLOWED = new Set([
+  'lib/seating.ts', // the fetchers themselves
+  'lib/table-auto-name.server.ts', // the reader
+  'app/dashboard/[eventId]/seating/actions.ts', // writers (stored labels, nextTableName); it imports the reader for the clash check
+]);
+
+test('no surface reads table_label off fetchTables / fetchPublicTables rows without the one reader', () => {
+  const { execSync } = require('node:child_process') as typeof import('node:child_process');
+  const out = execSync(`grep -rlE "fetch(Public)?Tables\\(" app lib components --include=*.ts --include=*.tsx`, { cwd: WEB, encoding: 'utf8' });
+  const callers = out.split('\n').filter(Boolean).filter((f) => !/\.test\.|\/dev\/|\.lab\./.test(f));
+  assert.ok(callers.length >= 10, `the sweep found ${callers.length} fetchTables callers — it must see the known ones`);
+  const strays = callers.filter((f) => {
+    if (FETCHER_LABEL_ALLOWED.has(f)) return false;
+    const src = read(f);
+    return /\btable_label\b/.test(src) && !/from '@\/lib\/table-auto-name(\.server)?'/.test(src);
+  });
+  assert.deepEqual(strays, [], 'these read a table label off the fetchers without the one reader');
 });

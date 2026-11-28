@@ -165,7 +165,8 @@ test('4 · the page asks the measured form of all five, and says what they answe
     'fetchGuestGroupsByEventMeasured(supabase, eventId)',
     'fetchGroupMembershipsByEventMeasured(supabase, eventId)',
     'measuredOr(fetchAssignments(supabase, eventId),',
-    'measuredOr(fetchTables(supabase, eventId),',
+    // 🪑 28 Nov: the tables come back under the names they SHOW (lib/table-auto-name.ts) — still the measured read.
+    'measuredOr(fetchTables(supabase, eventId).then(async (t) => withDisplayNames(t, await readShownTableNames(supabase, eventId))),',
     'fetchFloorPlanMeasured(supabase, eventId)',
   ]) {
     assert.equal(count(fan, call), 1, `${call} is not in the page's read fan-out exactly once`);

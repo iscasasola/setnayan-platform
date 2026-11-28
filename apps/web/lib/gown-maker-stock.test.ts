@@ -88,7 +88,10 @@ test('5 · the ops ride the one dispatcher, are the Shop Manager’s, and the st
   const src = readFileSync(join(__dirname, '..', 'app/_components/gown-maker/gown-actions.ts'), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
   const shopBranch = src.slice(src.indexOf("op === 'stock' || op === 'fabric_save' || op === 'look_save'"), src.indexOf('// invite') > -1 ? src.indexOf('const threadId') : undefined);
   assert.match(shopBranch, /if \(op !== 'invite' && !canManageVendor\(/, 'the stock ops are not the Shop Manager’s');
-  assert.ok(shopBranch.indexOf("if (op === 'stock')") < shopBranch.indexOf('if (!allowed.data)'), 'a locked shop can no longer read its stock');
+  // The plan gate (lib/gown-plan.ts): a paused shop reads its stock; only making is refused, after the stock read.
+  const stockAt = shopBranch.indexOf("if (op === 'stock')"), makeGateAt = shopBranch.indexOf('if (!canMake) return fail(');
+  assert.ok(stockAt > -1 && makeGateAt > -1, 'the stock read or the make gate is gone from the shop branch');
+  assert.ok(stockAt < makeGateAt, 'a locked shop can no longer read its stock');
   assert.ok(shopBranch.indexOf('if (!allowed.data)') < shopBranch.indexOf("if (op === 'fabric_save')"), 'a locked shop can save');
   assert.match(shopBranch, /sanitizeGownShopFabric\(/);
   assert.match(shopBranch, /sanitizeGownConfig\(/);

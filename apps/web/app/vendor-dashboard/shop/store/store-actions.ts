@@ -29,6 +29,8 @@ import {
   type StoreLayout,
 } from '@/lib/supplier-store';
 import { readStoreLayout, readStoreToolFacts } from '@/lib/supplier-store.server';
+import { GOWN_PLAN_SKUS, gownPlanRefusal } from '@/lib/gown-plan';
+import { readGownPlanFacts } from '@/lib/gown-plan.server';
 import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from '@/lib/special-tools';
 import {
   avTemplateOf,
@@ -240,21 +242,37 @@ async function buyTool(formData: FormData, who: { userId: string; shopId: string
   const supabase = await createClient();
   const admin = createAdminClient();
 
-  // ── Never charge for what the shop already has (owned, or an order in review), and never sell a widget that would
-  //    not work: a bought widget works only on Plus, Pro or Ultra (owner a02673ac) — Free and Verified get the plans door.
-  const facts = await readStoreToolFacts(supabase, admin, who.shopId, who.services, null);
-  const state = toolStatus(tool, facts);
-  if (state.kind === 'owned') return ok('It is already yours. Open it from Your widgets.');
-  if (state.kind === 'resubscribe') return err(`It is already yours. ${PAID_WIDGET_RESUBSCRIBE_WORDS}.`);
-  if (state.kind === 'buy' && state.needsPlan) return err(`${PAID_WIDGET_NEEDS_PLAN_WORDS}. Choose a plan first — you have not been charged.`);
-  if (state.kind === 'pending') return err('Your payment for this widget is in review. It opens once our team confirms it.');
-  if (state.kind === 'unread') return err('Couldn’t check your widgets just now. You have not been charged — try again.');
-  // 🟢 Never sell a widget no online service card serves (DECISION_LOG 3a2419fd) — it would arrive greyed.
-  const gated = toolRowFor(tool, facts)?.status;
-  if (gated?.kind === 'no_card') return err(`${noCardWords(gated.category)} You have not been charged.`);
+  let sku: string;
+  if (tool === 'attire_tool') {
+    // 👗 The Attire Maker is a monthly plan (owner 2026-11-28; lib/gown-plan.ts): "Use and save" or "Full". Only a shop
+    //    with a custom gown design card; never while a month is already in review (no double charge). A paid month adds
+    //    30 days on approval (sku-activation activateGownPlanOrder), stacking on what is left.
+    const tier = String(formData.get('plan') ?? '');
+    if (tier !== 'use' && tier !== 'full') return err('Pick a plan. You have not been charged.');
+    const plan = await readGownPlanFacts(admin, who.shopId);
+    if (plan.eligible === null) return err('Couldn’t check your shop just now. You have not been charged — try again.');
+    if (!plan.eligible) return err(`${gownPlanRefusal({ s: 'not_eligible' }, 'read')} You have not been charged.`);
+    const { data: inReview, error: rErr } = await admin.from('orders').select('order_id').eq('vendor_profile_id', who.shopId).in('service_key', Object.values(GOWN_PLAN_SKUS)).eq('status', 'submitted').limit(1);
+    if (rErr) return err('Couldn’t check your orders just now. You have not been charged — try again.');
+    if ((inReview ?? []).length > 0) return err('Your payment for the Attire Maker is in review. Its month starts once our team confirms it.');
+    sku = GOWN_PLAN_SKUS[tier];
+  } else {
+    // ── Never charge for what the shop already has (owned, or an order in review), and never sell a widget that would
+    //    not work: a bought widget works only on Plus, Pro or Ultra (owner a02673ac) — Free and Verified get the plans door.
+    const facts = await readStoreToolFacts(supabase, admin, who.shopId, who.services, null);
+    const state = toolStatus(tool, facts);
+    if (state.kind === 'owned') return ok('It is already yours. Open it from Your widgets.');
+    if (state.kind === 'resubscribe') return err(`It is already yours. ${PAID_WIDGET_RESUBSCRIBE_WORDS}.`);
+    if (state.kind === 'buy' && state.needsPlan) return err(`${PAID_WIDGET_NEEDS_PLAN_WORDS}. Choose a plan first — you have not been charged.`);
+    if (state.kind === 'pending') return err('Your payment for this widget is in review. It opens once our team confirms it.');
+    if (state.kind === 'unread') return err('Couldn’t check your widgets just now. You have not been charged — try again.');
+    // 🟢 Never sell a widget no online service card serves (DECISION_LOG 3a2419fd) — it would arrive greyed.
+    const gated = toolRowFor(tool, facts)?.status;
+    if (gated?.kind === 'no_card') return err(`${noCardWords(gated.category)} You have not been charged.`);
+    sku = storeToolSku(tool);
+  }
 
   // ── The authoritative price + is_active, from the admin-managed row. No row, a retired row or no price refuses.
-  const sku = storeToolSku(tool);
   const { data: skuRow } = await admin.from('vendor_billing_catalog').select('price_php, is_active, title').eq('sku_code', sku).maybeSingle();
   const row = skuRow as { price_php?: number | string | null; is_active?: boolean | null; title?: string | null } | null;
   const pricePhp = row ? Number(row.price_php) : Number.NaN;

@@ -4511,9 +4511,9 @@ export const UGAT_JOINTS: UgatJoint[] = [
   },
   {
     /**
-     * 👗 A SHOP SETS UP ITS ATTIRE MAKER ONCE (gown maker port step B1, migration 20271365509280). The Toolkit's paid
-     * "Attire Maker" (SKU vendor_tool_attire_tool, priced as the Cake Maker: DECISION_LOG 2026-11-23 "Top-band tools",
-     * owner 2026-11-27 "paid"). Options are one jsonb row per shop, as the Cake Maker's; fabrics, laces and looks are
+     * 👗 A SHOP SETS UP ITS ATTIRE MAKER ONCE (gown maker port step B1, migration 20271365509280). Sold as a monthly plan
+     * (owner 2026-11-28: a custom gown design card, a 30-day trial from the first open, then "Use and save" or "Full";
+     * SKUs vendor_tool_attire_use / vendor_tool_attire_full; the one-time vendor_tool_attire_tool is retired). Options are one jsonb row per shop, as the Cake Maker's; fabrics, laces and looks are
      * rows because they carry photos; every fabric points at the admin-edited type registry.
      */
     id: 'J75',
@@ -4528,17 +4528,20 @@ export const UGAT_JOINTS: UgatJoint[] = [
       { kind: 'fk', table: 'vendor_gown_looks', column: 'vendor_profile_id', references: 'vendor_profiles' },
       { kind: 'table', table: 'gown_fabric_types' },
       { kind: 'column', table: 'gown_fabric_types', column: 'render_as' },
+      // Owner 2026-11-28: the Attire Maker is a monthly plan with a 30-day trial (lib/gown-plan.ts).
+      { kind: 'table', table: 'vendor_gown_plans' },
+      { kind: 'fk', table: 'vendor_gown_plans', column: 'vendor_profile_id', references: 'vendor_profiles' },
     ],
     chain: 7,
     pair: ['TYPE-VENDORS', 'TYPE-BILLING'],
-    title: 'Shop → its Attire Maker setup (price list · fabrics and lace · looks)',
+    title: 'Shop → its Attire Maker setup (price list · fabrics and lace · looks · its plan)',
     joint: 'vendor_gown_makers',
     cardinality:
       'A shop has 0..1 options row and 0..n fabrics, laces and looks; every fabric points at 0..1 registry type (NULL = not said; renders as crepe)',
     implementedBy:
       'vendor_gown_makers (options jsonb: price list in centavos, pricing mode, labour hours, seam allowances) · vendor_gown_fabrics (per-metre price NULL = unpriced) · vendor_gown_looks (a saved GownConfig + photo) · gown_fabric_types (the registry, seeded with the prototype’s 15, verified = FALSE)',
     writtenBy:
-      'The server only, in the gown_tool op of supplierScan (steps B3–B5: save, fabric_save, look_save); gown_fabric_types by Setnayan admin only (owner Q4) through the admin console (step B5b)',
+      'The server only, in the gown_tool op of supplierScan (steps B3–B5: save, fabric_save, look_save); gown_fabric_types by Setnayan admin only (owner Q4) through the admin console (step B5b); vendor_gown_plans by the server only — the trial stamp at the shop’s first open (gown_tool op options), the plan by the payment approval (sku-activation activateGownPlanOrder) and its reversal',
     guardedBy:
       'tests/db/gown-maker-keeps-her-numbers-private.db.test.ts (the shop’s rows are the shop’s; a bride in its chat and another shop read none of them directly · no client writes · the registry is read by anyone signed in · a type a fabric uses cannot be deleted · the SKU is priced as the Cake Maker)',
     traps:

@@ -326,7 +326,8 @@ export type ToolTag = { label: string; group: string | null };
 export const EVERY_SERVICE_TAG: ToolTag = { label: 'Every service', group: null };
 
 /** A seed category's service kind, the way the kind keys are spelt ("Live Band" → live_band). */
-const kindOf = (category: string) => nameKey(category).replace(/ /g, '_');
+/** A service card's category name as its taxonomy kind ("Bridal gown custom" → bridal_gown_custom). */
+export const kindOf = (category: string) => nameKey(category).replace(/ /g, '_');
 
 /** Which supplier types this tool is for, in the table's order. */
 export function toolTags(tool: SpecializedTool, overrides: HubOverrides = new Map()): ToolTag[] {
@@ -426,6 +427,14 @@ export function toolStatus(key: SpecializedToolKey, f: ToolFacts): ToolStatus {
     if (f.freeOpen === null) return { kind: 'unread' };
     if (f.freeOpen === false) return { kind: 'verify' };
     return { kind: 'free', added: addedFreeTools(f).includes(key) };
+  }
+  // 👗 The Attire Maker is a monthly plan, not a one-time buy (owner 2026-11-28; lib/gown-plan.ts): a shop with a custom
+  // gown design card has it in Your widgets (the card gate hides it from every other shop). Opening it starts the 30-day
+  // trial, and its panel shows the plan and sells it. It never asks for Plus, Pro or Ultra, and never sells the
+  // retired one-time row.
+  if (key === 'attire_tool') {
+    if (!Array.isArray(f.cards)) return { kind: 'unread' };
+    return f.cards.some((c) => isGownKind(kindOf(c))) ? { kind: 'owned' } : { kind: 'no_price' };
   }
   if (f.owned === null || f.subscribed === null) return { kind: 'unread' };
   if (f.owned.has(key)) return f.subscribed ? { kind: 'owned' } : { kind: 'resubscribe' };

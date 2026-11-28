@@ -19,7 +19,6 @@ import { useCallback, useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import type { ComponentProps } from 'react';
 import type { GownStockPanel as GownStockPanelType } from './gown-stock-panel';
-import Link from 'next/link';
 import { Lock, RotateCcw, RotateCw, Save } from 'lucide-react';
 import { GownSeamAllowRows } from './gown-seam-allow';
 import { GOWN_SEAM_ALLOW_DEFAULT, GOWN_SEAM_ALLOW_INTRO, GOWN_SEAM_KINDS } from '@/lib/gown-pattern/allowance';
@@ -29,8 +28,6 @@ import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form
 import { PillSelector } from '@/app/_components/pill-selector';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { formatAmountInput, parseAmountInput } from '@/lib/service-customization-draft';
-import { SPECIAL_TOOLS_LOCKED_WORDS } from '@/lib/special-tools';
-import { routes } from '@/lib/routes';
 import {
   GOWN_ADD_ONS,
   GOWN_HOUR_LABELS,
@@ -46,6 +43,8 @@ import {
   gownShopSeamAllow,
 } from '@/lib/gown-maker';
 import { gownAction } from '@/app/_components/gown-maker/gown-call';
+import type { GownPlanState } from '@/lib/gown-plan';
+import { GownPlanStrip } from './gown-plan-strip';
 
 /** Fabrics and looks load only when their view is opened (step B5). */
 const GownStockPanel = dynamic(() => import('./gown-stock-panel').then((m) => m.GownStockPanel), {
@@ -58,7 +57,8 @@ const VIEWS = [
 ] as const;
 type View = (typeof VIEWS)[number]['key'];
 
-type Load = { s: 'loading' } | { s: 'failed'; message: string } | { s: 'ok'; options: GownShopOptions; saved: boolean; locked: boolean };
+type PlanSeed = { plan: GownPlanState; planPrices: { read: boolean; use: number | null; full: number | null } };
+type Load = { s: 'loading' } | { s: 'failed'; message: string } | ({ s: 'ok'; options: GownShopOptions; saved: boolean; locked: boolean } & PlanSeed);
 
 const MODE_OPTIONS = [
   { key: 'covers', label: 'Covers the design until it costs more' },
@@ -82,14 +82,14 @@ export function GownMakerPanel({
   seed,
   startView = 'prices',
   stockSeed,
-}: { seed?: { options: GownShopOptions; saved: boolean; locked: boolean }; startView?: View; stockSeed?: ComponentProps<typeof GownStockPanelType>['seed'] } = {}) {
+}: { seed?: { options: GownShopOptions; saved: boolean; locked: boolean } & PlanSeed; startView?: View; stockSeed?: ComponentProps<typeof GownStockPanelType>['seed'] } = {}) {
   const [view, setView] = useState<View>(startView);
   const [load, setLoad] = useState<Load>(seed ? { s: 'ok', ...seed } : { s: 'loading' });
   const read = useCallback(() => {
     setLoad({ s: 'loading' });
     gownAction({ op: 'options' })
       .then((r) => {
-        if (r.ok && r.op === 'options') setLoad({ s: 'ok', options: r.options, saved: r.saved, locked: r.locked });
+        if (r.ok && r.op === 'options') setLoad({ s: 'ok', options: r.options, saved: r.saved, locked: r.locked, plan: r.plan, planPrices: r.planPrices });
         else setLoad({ s: 'failed', message: r.ok ? 'Couldn’t load your Attire Maker.' : r.message });
       })
       .catch(() => setLoad({ s: 'failed', message: 'Couldn’t load your Attire Maker.' }));
@@ -114,7 +114,14 @@ export function GownMakerPanel({
       </div>
     );
   }
-  const picker = <PillSelector label="Attire Maker" value={view} options={VIEWS} onPick={(k) => setView(k)} data="gown-view" />;
+  // Owner 2026-11-28: the plan sits on top in every state — the trial's days, the plan, or paused with the work kept.
+  const planStrip = <GownPlanStrip plan={load.plan} prices={load.planPrices} />;
+  const picker = (
+    <>
+      {planStrip}
+      <PillSelector label="Attire Maker" value={view} options={VIEWS} onPick={(k) => setView(k)} data="gown-view" />
+    </>
+  );
   if (view !== 'prices') {
     return (
       <div className="space-y-4">
@@ -124,18 +131,14 @@ export function GownMakerPanel({
     );
   }
   if (load.locked) {
+    // Paused (or not yet open): the plan strip is the way back; her price list, fabrics and looks are kept as they are.
     return (
-      <div className="sn-frame flex items-start gap-3 p-4" data-gown-maker="locked">
-        <Lock aria-hidden className="mt-0.5 h-4 w-4 flex-none" />
-        <span className="min-w-0 flex-1">
-          <b className="block text-sn-md text-ink">{SPECIAL_TOOLS_LOCKED_WORDS}</b>
-          <small className="block text-sn-base text-ink/70">
-            Brides design their gown in your chat, priced from your own list. {load.saved ? 'Your saved price list is kept as it is.' : ''}
-          </small>
-        </span>
-        <Link href={routes.vendorDashboard.shop.store.item('tools', 'attire_tool')} className="text-sn-base font-semibold text-link underline" data-web-only="">
-          See in the Toolkit
-        </Link>
+      <div className="space-y-3" data-gown-maker="locked">
+        {planStrip}
+        <p className="flex items-start gap-2 text-sn-base text-ink/70">
+          <Lock aria-hidden className="mt-0.5 h-4 w-4 flex-none" />
+          <span>{load.saved ? 'Your saved price list, fabrics and looks are kept as they are.' : 'Your clients’ designs stay readable on their orders.'}</span>
+        </p>
       </div>
     );
   }

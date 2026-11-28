@@ -13,7 +13,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { sanitizeGownOrderLines, type GownOrderLines } from '@/lib/gown-pattern/lines';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
-import { readShopSpecialToolOpen } from '@/lib/paid-widget-open.server';
+import { gownPlanAllows, gownPlanState, type GownPlanState } from '@/lib/gown-plan';
+import { readGownPlanFacts } from '@/lib/gown-plan.server';
 import {
   GOWN_STOCK_FABRICS,
   sanitizeGownBody,
@@ -38,6 +39,7 @@ import {
   gownDesignOf,
   GOWN_ADD_ONS,
   gownAddOnsInOrder,
+  gownForBrideWithoutPrices,
   gownStoredAddOns,
   GOWN_ADD_ON_ASK,
   GOWN_ADD_ON_INCLUDED,
@@ -77,9 +79,23 @@ export async function readShopGownMaker(client: SupabaseClient, vendorProfileId:
   return { status: 'ok', data: checked.options };
 }
 
-/** The Attire Maker's gate — the one answer (bought in the Toolkit AND on Plus, Pro or Ultra) for `attire_tool`. */
-export function readShopGownToolOpen(admin: SupabaseClient, vendorProfileId: string, eventId: string | null = null): Promise<Read<boolean>> {
-  return readShopSpecialToolOpen(admin, vendorProfileId, 'attire_tool', eventId);
+/**
+ * The shop's Attire Maker plan, as one state (owner 2026-11-28: a custom gown design card, then the 30-day trial or a
+ * monthly plan; lib/gown-plan.ts). A fact that could not be read is `unread`, never "open".
+ */
+export async function readShopGownPlan(admin: SupabaseClient, vendorProfileId: string): Promise<Read<GownPlanState>> {
+  const state = gownPlanState(await readGownPlanFacts(admin, vendorProfileId), Date.now());
+  return state.s === 'unread' ? { status: 'unread' } : { status: 'ok', data: state };
+}
+
+/**
+ * The Attire Maker's gate for making anything (a shop's save, a bride's open and send): its plan allows `make` — the
+ * trial or a paid plan, on a shop with a custom gown design card. A paused or ineligible shop is closed; its work stays.
+ * (Owner 2026-11-28, Q1: the gown plan alone opens it — no Plus, Pro or Ultra requirement, no one-time Toolkit buy.)
+ */
+export async function readShopGownToolOpen(admin: SupabaseClient, vendorProfileId: string, _eventId: string | null = null): Promise<Read<boolean>> {
+  const plan = await readShopGownPlan(admin, vendorProfileId);
+  return plan.status === 'ok' ? { status: 'ok', data: plan.data.s !== 'fresh' && gownPlanAllows(plan.data, 'make') } : plan;
 }
 
 /** Saves the shop's options (service role, after the caller checked the shop and the plan). False = not saved. */
@@ -214,15 +230,16 @@ export async function buildGownDesign(
   admin: SupabaseClient,
   args: { vendorProfileId: string; eventId: string; config: unknown; body: unknown; measures: unknown; quantities: unknown; addOns: unknown; hand?: unknown; lines?: unknown },
 ): Promise<{ ok: true; built: BuiltGownDesign } | { ok: false; reason: GownRefusal | 'unread' }> {
-  const [options, allowed, fabrics, looks, types] = await Promise.all([
+  const [options, plan, fabrics, looks, types] = await Promise.all([
     readShopGownMaker(admin, args.vendorProfileId),
-    readShopGownToolOpen(admin, args.vendorProfileId, args.eventId),
+    readShopGownPlan(admin, args.vendorProfileId),
     readShopGownFabrics(admin, args.vendorProfileId),
     readShopGownLooks(admin, args.vendorProfileId),
     readGownFabricTypeIds(supabase),
   ]);
-  if (options.status === 'unread' || allowed.status === 'unread' || fabrics.status !== 'ok' || looks.status !== 'ok' || types.status !== 'ok') return { ok: false, reason: 'unread' };
-  if (options.status !== 'ok' || allowed.status !== 'ok' || !allowed.data) return { ok: false, reason: 'not_offered' };
+  if (options.status === 'unread' || plan.status === 'unread' || fabrics.status !== 'ok' || looks.status !== 'ok' || types.status !== 'ok') return { ok: false, reason: 'unread' };
+  // The shop's plan must allow making (its trial or a paid plan); a paused shop takes no new design.
+  if (options.status !== 'ok' || plan.status !== 'ok' || plan.data.s === 'fresh' || !gownPlanAllows(plan.data, 'make')) return { ok: false, reason: 'not_offered' };
   const config = sanitizeGownConfig(args.config, gownOfferOf(types.data, fabrics.data, looks.data));
   if (!config.ok) return config;
   const body = sanitizeGownBody(args.body);
@@ -244,7 +261,7 @@ export async function buildGownDesign(
   const shopFabrics = new Map<string, GownShopFabric>(fabrics.data.map((f) => [f.id, { name: f.name, pricePerMetreCentavos: f.pricePerMetreCentavos }]));
   const handWork = hand && hand.ok ? hand.hand : null;
   const priced = gownDesignOf(options.data, config.config, quantities.quantities, picked as GownAddOnKey[], shopFabrics, handWork);
-  return { ok: true, built: { config: config.config, body: body.body, measures: measures.measures, quantities: quantities.quantities, hand: handWork, addOns: gownAddOnsInOrder(picked as string[]), edges: lines, forBride: priced.forBride } };
+  return { ok: true, built: { config: config.config, body: body.body, measures: measures.measures, quantities: quantities.quantities, hand: handWork, addOns: gownAddOnsInOrder(picked as string[]), edges: lines, forBride: gownPlanAllows(plan.data, 'full') ? priced.forBride : gownForBrideWithoutPrices(priced.forBride) } };
 }
 
 /** Stores a checked design once (service role). No cost line is stored: only quantities and the one estimate. */

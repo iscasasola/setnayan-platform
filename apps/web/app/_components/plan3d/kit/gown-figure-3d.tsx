@@ -51,6 +51,7 @@ import { buildEnvelope, czOf, emptyEnvelope, type GownEnvelope } from '@/lib/gow
 import { gownBodyMarks } from '@/lib/gown/stage/focus';
 import { gownMeasure, type GownBuilt } from '@/lib/gown/quote/measure';
 import { gownQuantitiesOf } from '@/lib/gown/quote/quantities';
+import { estimateGownMeasures, type GownBodyEstimates } from '@/lib/gown/body/estimate';
 import type { GownLacePlan } from '@/lib/gown/parts/lace';
 import { gownLetFocusGo, gownStartFocus, gownStepFocus, idleGownFocus, type GownFocusAsk, type GownFocusStage } from './gown-focus';
 import { applyGownSheer, applyGownShine, gownClothColour, gownClothShader, gownSheerOpacity, tintGownSheen } from '@/lib/gown/fabric/shine';
@@ -90,8 +91,11 @@ export type GownFigureProps = {
   autoTurn?: { speed: number; style: GownTurnStyle } | null;
   /** A9 (v204): a close-up of a part, measured on her live body; null = her whole figure. */
   focus?: GownFocusAsk | null;
-  /** A10: what this design needs (quantities only, never a price), measured after each full build of the gown. */
-  onQuantities?: (q: GownQuantities) => void;
+  /** A10 (`GownStill`): draw for a moment once the gown is built, then stop (one still frame; the card's picture). */
+  still?: boolean;
+  /** A10: what this design needs (quantities only, never a price) and the gown's own measurements as the mannequin
+   *  estimates them, measured after each full build of the gown. */
+  onQuantities?: (q: GownQuantities, estimates: GownBodyEstimates) => void;
 };
 /** Where a finger touches the gown, as the hand tools need it; `moved` = more than a tap's few pixels from where it went down. */
 export type GownHandInput = { tool: GownHandTool | null; onHit: (phase: 'down' | 'move' | 'up' | 'cancel', hit: GownHandHit | null, moved: boolean, ctx: GownHandCtx) => void };
@@ -149,7 +153,7 @@ export default function GownFigure3D(props: GownFigureProps) {
         }}
         gl={{ antialias: !phone, alpha: true, powerPreference: phone ? 'low-power' : 'default' }}
       >
-        <Governor gov={gov} />
+        <Governor gov={gov} stopAt={props.still && rig ? 1500 : null} />
         <SceneLights scene={props.scene ?? 'studio'} />
         {rig ? <Body rig={rig} phone={phone} onBusy={wake} {...props} /> : null}
       </Canvas>
@@ -158,17 +162,20 @@ export default function GownFigure3D(props: GownFigureProps) {
 }
 
 /** The one loop: each animation frame, the governor decides whether to draw (30 fps phone, 4 fps idle). */
-function Governor({ gov }: { gov: GownFrameGovernor }) {
+function Governor({ gov, stopAt = null }: { gov: GownFrameGovernor; stopAt?: number | null }) {
   const advance = useThree((s) => s.advance);
   useEffect(() => {
     let raf = 0;
+    // A still (A10): draw for `stopAt` ms after the body is ready, then stop for good.
+    const end = stopAt === null ? Infinity : performance.now() + stopAt;
     const tick = (now: number) => {
+      if (now > end) { advance(now); return; }
       if (gov.shouldDraw(now)) advance(now);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [gov, advance]);
+  }, [gov, advance, stopAt]);
   return null;
 }
 
@@ -709,7 +716,7 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
       if (!lite && onQuantities) {
         const m = gownMeasure(rig, cloth.T, cloth.D, design, qb);
         for (const b of handWork?.handBeads ?? []) m.beads[b.kind] = Math.max(0, m.beads[b.kind] - 1);
-        onQuantities(gownQuantitiesOf(design, m));
+        onQuantities(gownQuantitiesOf(design, m), estimateGownMeasures(rig, cloth.T));
       }
       width = Math.max(0.6, 2 * cloth.D.hemR); // the hem's width (a train runs back, not sideways)
       // Trims along the gown's own edges, a two-piece's band, a shaped waistline's seam, a small bow in the gown's cloth,

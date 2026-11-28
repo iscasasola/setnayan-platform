@@ -8,10 +8,12 @@
  * keeps every number she typed; the design's
  * 2D picture arrives with the design card (`GownStill`, step A10).
  */
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { ErrorState } from '@/app/_components/states/error-state';
 import { GOWN_SCENES, type GownSceneId } from '@/lib/gown/scenes';
+import { gownStillColour, gownStillLayers } from '@/lib/gown/still';
+import type { GownConfig } from '@/lib/gown-config';
 import type { GownFigureProps } from './gown-figure-3d';
 import css from './gown-view.module.css';
 
@@ -62,6 +64,37 @@ export function GownView({ fill = false, force2d = false, ...figure }: GownViewP
           <div className={`skeleton ${css.ghost}`} aria-busy="true" />
         )}
       </div>
+    </div>
+  );
+}
+
+/**
+ * A10: the design's picture (the design card, the send screen). The 2D drawing first, in the gown's own colour; once on
+ * screen, on a device that draws 3D, one still frame of the stage takes its place. `alt` names the design in words.
+ */
+export function GownStill({ design, alt, ...figure }: Omit<GownViewProps, 'design' | 'fill' | 'force2d'> & { design: GownConfig; alt: string }) {
+  const box = useRef<HTMLDivElement>(null);
+  const [three, setThree] = useState(false);
+  useEffect(() => {
+    const el = box.current;
+    if (!el || !canWebgl() || typeof IntersectionObserver === 'undefined') return;
+    const io = new IntersectionObserver((es) => { if (es.some((e) => e.isIntersecting)) { setThree(true); io.disconnect(); } }, { rootMargin: '120px' });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
+  const colour = gownStillColour(design);
+  return (
+    <div ref={box} className={css.still} data-gown-still={three ? '3d' : '2d'} role="img" aria-label={alt}>
+      <svg viewBox="0 0 40 56" className={css.stillSvg} aria-hidden="true">
+        {gownStillLayers(design).map((l, i) => (
+          <path key={i} d={l.d} fill={colour} fillOpacity={l.sheer ? 0.45 : 1} stroke="currentColor" strokeOpacity={0.35} strokeWidth={0.6} />
+        ))}
+      </svg>
+      {three ? (
+        <div className={css.stillStage}>
+          <GownFigure3D {...figure} design={design} still onShow2d={() => setThree(false)} />
+        </div>
+      ) : null}
     </div>
   );
 }

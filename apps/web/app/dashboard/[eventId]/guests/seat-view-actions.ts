@@ -11,6 +11,8 @@ import { fetchBooths, type EventTableRow } from '@/lib/seating';
 import { parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
 import type { Lab3DBooth } from '@/lib/seating-3d';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { withDisplayNames } from '@/lib/table-auto-name';
+import { shownTableRows } from '@/lib/table-auto-name.server';
 
 /**
  * 🪑 THE GUEST CARD'S SEAT, AS THE GUEST WILL SEE IT (owner 2026-11-01, DECISION_LOG "SEATS: WHAT EACH VIEW DOES" item 4):
@@ -38,15 +40,17 @@ const TABLES_SELECT = 'table_id,public_id,event_id,table_label,table_type,capaci
 async function readGuestSeatPreview(eventId: string, guestId: string): Promise<GuestSeatPreview> {
   if (!eventId || !guestId) return { ok: false };
   const supabase = await createClient();
-  const [view, tables, seat, entrance, booths] = await Promise.all([
+  const [view, tables, seat, entrance, booths, shown] = await Promise.all([
     supabase.from('event_floor_plan').select('guest_seat_view').eq('event_id', eventId).maybeSingle(),
     supabase.from('event_tables').select(TABLES_SELECT).eq('event_id', eventId).order('sort_order', { ascending: true }).order('created_at', { ascending: true }),
     supabase.from('event_seat_assignments').select('table_id, seat_number').eq('event_id', eventId).eq('guest_id', guestId).maybeSingle(),
     fetchEntrance(supabase, eventId),
     // The per-event branding read is service_role-only (`fetchBooths`' own rule for a session client).
     fetchBooths(supabase, eventId, { brandedReader: createAdminClient() }).catch(() => []),
+    // 🪑 The name each table SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+    shownTableRows(supabase, eventId),
   ]);
-  const failed = view.error ?? tables.error ?? seat.error;
+  const failed = view.error ?? tables.error ?? seat.error ?? shown.error;
   if (failed) {
     logQueryError('readGuestSeatPreview', failed, { eventId, guestId }, 'graceful_degrade');
     return { ok: false };
@@ -55,7 +59,7 @@ async function readGuestSeatPreview(eventId: string, guestId: string): Promise<G
   return {
     ok: true,
     view: parseGuestSeatView((view.data as { guest_seat_view?: unknown } | null)?.guest_seat_view),
-    tables: (tables.data ?? []) as EventTableRow[],
+    tables: withDisplayNames((tables.data ?? []) as EventTableRow[], new Map((shown.data ?? []).map((r) => [r.table_id, r.table_label]))),
     entrance,
     tableId: s?.table_id ?? null,
     seatNumber: typeof s?.seat_number === 'number' ? s.seat_number : null,

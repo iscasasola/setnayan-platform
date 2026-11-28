@@ -7,7 +7,7 @@
  * Plain three.js maths on the posed body; the stage owns the material (the gown's, the accent's or sheer lace, A6b).
  */
 import * as THREE from 'three';
-import { GOWN_STRAPLESS, type GownConfig } from '../../gown-config';
+import { GOWN_STRAPLESS, gownSleeveDetach, gownSleeveIsExtra, type GownConfig, type GownSleeve } from '../../gown-config';
 import { jointP } from '../body/bones';
 import { RING_N, TAU } from '../body/constants';
 import { clamp, smoothstep, type GownRig } from '../body/rig';
@@ -15,6 +15,7 @@ import { GOWN_EASE_MM } from '../dress/lines';
 import type { GownEnvelope } from '../dress/table';
 import { flutterSleeve } from './flutter';
 import { SLEEVE_COLS, SLEEVE_ROWS } from './sleeves-grid';
+import { gownSleeveTube } from './sleeves-extra';
 
 const N = RING_N;
 export { SLEEVE_COLS, SLEEVE_ROWS };
@@ -22,15 +23,15 @@ export { SLEEVE_COLS, SLEEVE_ROWS };
 const SNA = SLEEVE_COLS, SNR = SLEEVE_ROWS, SDS = 0.02, SBA = 16;
 
 export type GownSleeveSide = 'L' | 'R';
-export type GownSleeveDesign = Pick<GownConfig, 'sleeve' | 'neck' | 'laceCm'>;
+export type GownSleeveDesign = Pick<GownConfig, 'sleeve' | 'neck' | 'laceCm' | 'sleeveDet'>;
 /** What a sleeve is: a real sleeve, or the band an off-shoulder neckline lays over the upper arm. */
-export type GownSleeveKind = 'band' | 'cap' | 'long' | 'butterfly' | 'flutter';
+export type GownSleeveKind = 'band' | Exclude<GownSleeve, 'none'>;
 
 /** Whether she wears anything on the arm: a sleeve, or the off-shoulder band. */
 export const gownSleeveKind = (d: Pick<GownConfig, 'sleeve' | 'neck'>): GownSleeveKind | null =>
   d.sleeve !== 'none' ? d.sleeve : d.neck === 'off' ? 'band' : null;
-/** A long sleeve on a strapless bodice (not off-shoulder) is detachable (v197): its own band on the upper arm. */
-export const gownSleeveDetachable = (d: Pick<GownConfig, 'neck'>, kind: GownSleeveKind | null) => kind === 'long' && GOWN_STRAPLESS.includes(d.neck) && d.neck !== 'off';
+/** Worn detachable (v197 long sleeves; v203 the new sleeves too, and her choice on off-shoulder): its own band on the upper arm. */
+export const gownSleeveDetachable = (d: Pick<GownConfig, 'neck' | 'sleeveDet'>, kind: GownSleeveKind | null) => gownSleeveDetach(d, kind);
 
 /** One sleeve's geometry (v193 `sleeveMesh`): SLEEVE_ROWS rings of SLEEVE_COLS + 1 points (the seam is doubled for the lace uv). */
 export function emptySleeve(): THREE.BufferGeometry {
@@ -51,7 +52,7 @@ export function emptySleeve(): THREE.BufferGeometry {
  * Lay one sleeve on her posed arm (v193 `buildSleeves`, women). `T` is the envelope with the dress on it (the bodice's
  * top edge cuts a strapless sleeve level with it). Returns false when she wears nothing on the arm.
  */
-export function buildGownSleeve(B: GownRig, T: GownEnvelope, sd: GownSleeveSide, d: GownSleeveDesign, geo: THREE.BufferGeometry): boolean {
+export function buildGownSleeve(B: GownRig, T: GownEnvelope, sd: GownSleeveSide, d: GownSleeveDesign, geo: THREE.BufferGeometry, opt: { lite?: boolean } = {}): boolean {
   const kind = gownSleeveKind(d);
   if (!kind) return false;
   const P = B.P, V = B.V, sg = sd === 'L' ? 1 : -1;
@@ -114,11 +115,13 @@ export function buildGownSleeve(B: GownRig, T: GownEnvelope, sd: GownSleeveSide,
   };
   // Where the sleeve starts: on a strapless or off-shoulder top it is cut level with the bodice edge; otherwise at the shoulder point.
   const strapless = GOWN_STRAPLESS.includes(d.neck), yCut = T.top[N / 4]! - 0.004, off = (GOWN_EASE_MM + 1) / 1000 / P.S, cm = 0.01 / P.S;
-  const len = { band: 5.5 * cm, cap: 9 * cm, long: Lu + Lf - 0.012, butterfly: 0.5 * Lu, flutter: 0 }[kind];
   // v197: on a strapless bodice a long sleeve is detachable: it starts on the upper arm, a little past the bodice edge.
   const detach = gownSleeveDetachable(d, kind);
   const pos = (geo.attributes.position as THREE.BufferAttribute).array as Float32Array, uvA = (geo.attributes.uv as THREE.BufferAttribute).array as Float32Array, up = new THREE.Vector3();
-  if (kind === 'flutter') flutterSleeve({ B, T, S, E, u, f, Lu, Lf, frame, ctr, Rs, strapless, yCut, off, cm, pos, uvA, R, ns, s0, SDS, SBA, laceCm: d.laceCm });
+  const len = kind === 'band' || kind === 'cap' || kind === 'long' || kind === 'butterfly' ? { band: 5.5 * cm, cap: 9 * cm, long: Lu + Lf - 0.012, butterfly: 0.5 * Lu }[kind] : 0;
+  // v203: puff, bishop, Juliet, the ruffle band and cape sleeves' band are the sleeve's own tube, with fullness.
+  if (kind !== 'band' && gownSleeveIsExtra(kind)) gownSleeveTube(B, T, kind, { S, E, W, u, f, Lu, Lf, frame, ctr, Rs, s0 }, { strapless, yCut, off, cm, detach, laceCm: d.laceCm, lite: opt.lite }, pos, uvA);
+  else if (kind === 'flutter') flutterSleeve({ B, T, S, E, u, f, Lu, Lf, frame, ctr, Rs, strapless, yCut, off, cm, pos, uvA, R, ns, s0, SDS, SBA, laceCm: d.laceCm });
   else for (let a = 0; a <= SNA; a++) {
     const aa = a % SNA, ang = (aa / SNA) * TAU, c = Math.cos(ang), sn = Math.sin(ang);
     let sA = kind === 'butterfly' ? -0.06 : strapless ? s0 : -0.035;

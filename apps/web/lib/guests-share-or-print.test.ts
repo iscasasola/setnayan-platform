@@ -177,7 +177,11 @@ test('6 · the seat plan is its own area: no seat_plan → no Table list, and no
 
   // The route reads the tables ONLY through the door's answer, and hands it to both table-bearing files.
   const r = src('app/dashboard/[eventId]/guests/share/route.ts');
-  assert.ok(r.includes('door.tables ? fetchTables(supabase, eventId) : Promise.resolve([])'), 'the route reads the tables for a helper without the seat plan');
+  // 🪑 27 Nov: the tables come back under the names they SHOW (lib/table-auto-name.ts) — still behind the same door.
+  assert.ok(
+    r.includes('door.tables ? fetchTables(supabase, eventId).then(async (t) => withDisplayNames(t, await readShownTableNames(supabase, eventId))) : Promise.resolve([])'),
+    'the route reads the tables for a helper without the seat plan',
+  );
   assert.ok(r.includes('door.tables ? fetchAssignments(supabase, eventId) : Promise.resolve([])'), 'the route reads the seats for a helper without the seat plan');
   assert.equal((r.match(/fetchTables\(/g) ?? []).length, 1, 'a second, ungated tables read');
   assert.ok(r.includes('pending, door.tables))'), 'the check-in sheet ignores the door');

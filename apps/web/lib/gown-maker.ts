@@ -21,15 +21,27 @@
  * 🔒 lib/gown-maker.test.ts
  */
 import {
+  GOWN_CAPES,
   GOWN_SILHOUETTES,
   GOWN_STOCK_FABRICS,
+  GOWN_BEAD_KINDS,
+  GOWN_FLOWER_SIZES,
+  GOWN_FLOWER_TYPES,
+  GOWN_OVERLAYS,
+  GOWN_SLEEVE_EXTRA,
+  gownCapeKind,
+  gownCapeNow,
   type GownBeadKind,
   type GownConfig,
+  type GownHand,
   type GownQuantities,
   type GownSilhouette,
 } from './gown-config';
 import { GOWN_ADD_ONS, type GownAddOnKey } from './gown-add-ons';
 import { formatCentavosPhp } from './php';
+import { formatCount } from './format-number';
+import { GOWN_SEAM_ALLOW_DEFAULT, gownSeamAllowClean, type GownSeamAllow } from './gown-pattern/allowance';
+import type { GownPaper } from './gown-pattern/words';
 import { parseClientRef } from './r2-client-ref';
 
 /** The suppliers the Attire Maker is suggested for (owner Q3, 2026-11-27: custom gown makers only for now). */
@@ -50,15 +62,40 @@ const MAX_MARKUP_PCT = 500;
 // ─────────────────────────────────────────────────────────────────────────────
 
 type Item = { readonly key: string; readonly label: string; readonly unit: GownPriceUnit };
-export type GownPriceUnit = 'gown' | 'm' | 'pc' | 'pair' | '100 pcs' | 'hour';
+export type GownPriceUnit = 'gown' | 'm' | 'pc' | 'pair' | '100 pcs' | '10 flowers' | 'hour';
 
 const SIL_LABEL = Object.fromEntries(GOWN_SILHOUETTES.map((s) => [s.id, s.label])) as Record<GownSilhouette, string>;
+
+/**
+ * v207 ("Fabric feel"): three new fabric types, each with its own unpriced per-metre line `fab_<id>` (coordinator,
+ * 28 Nov). They are rows in the admin Fabric-types registry (migration 20271366373891). Builder A's stock list
+ * (`GOWN_STOCK_FABRICS`) gains them with the 3D cards; until then they are listed here, and once it has them each
+ * appears once (the stock list wins).
+ */
+const GOWN_FABRICS_V207 = [
+  { id: 'duchess', label: 'Duchess satin' },
+  { id: 'bias_satin', label: 'Bias satin' },
+  { id: 'taffeta', label: 'Taffeta' },
+] as const;
+/** Every fabric with a per-metre price line: the stock list, then any v207 fabric it does not have yet. */
+const GOWN_PRICED_FABRICS: readonly { id: string; label: string }[] = [
+  ...GOWN_STOCK_FABRICS,
+  ...GOWN_FABRICS_V207.filter((f) => !GOWN_STOCK_FABRICS.some((x) => (x.id as string) === f.id)),
+];
+
+/**
+ * v207 FEEL `m`: a cloth that takes more fabric than its pieces' area — bias satin is laid at 45°, so ×1.35. The ONE
+ * home of this number: the cutting list reads it here, and the quote's metres (Builder A's `fabricMetres`) read it
+ * from here too. A fabric not listed takes ×1. Lengths, not money.
+ */
+export const GOWN_FABRIC_METRES_MULT: Readonly<Record<string, number>> = { bias_satin: 1.35 };
+export const gownFabricMetresMult = (typeId: string | null | undefined): number => (typeId && GOWN_FABRIC_METRES_MULT[typeId]) || 1;
 
 export const GOWN_PRICE_ITEMS = [
   // v197: "Fit and flare" (the old A-line block) is a silhouette since Builder A's step A6e, so its starting price
   // (unpriced until the designer prices it) comes from this spread as `base_fitflare`, last among the starting prices.
   ...GOWN_SILHOUETTES.map((s) => ({ key: `base_${s.id}`, label: s.label, unit: 'gown' as const })),
-  ...GOWN_STOCK_FABRICS.map((f) => ({ key: `fab_${f.id}`, label: f.label, unit: 'm' as const })),
+  ...GOWN_PRICED_FABRICS.map((f) => ({ key: `fab_${f.id}`, label: f.label, unit: 'm' as const })),
   { key: 'lin_satin', label: 'Satin lining', unit: 'm' },
   { key: 'lin_cotton', label: 'Cotton lining', unit: 'm' },
   { key: 'lin_silk', label: 'Silk lining', unit: 'm' },
@@ -78,6 +115,12 @@ export const GOWN_PRICE_ITEMS = [
   { key: 'bead_pearl', label: 'Pearls', unit: '100 pcs' },
   { key: 'bead_seed', label: 'Seed beads', unit: '100 pcs' },
   { key: 'bead_sequin', label: 'Sequins', unit: '100 pcs' },
+  // v200: raised lace, shaped and finished per piece (its lace prices on the lace items); 3D flowers, made and attached
+  // per ten; glitter tulle by the metre (a veil, cape or overlay in it, and layers under the skirt). Scattered pearls
+  // price on Pearls.
+  { key: 'lace_raised', label: 'Raised lace: shaping and finishing', unit: 'pc' },
+  { key: 'flowers3d', label: '3D flowers: making and attaching', unit: '10 flowers' },
+  { key: 'fab_glitter_tulle', label: 'Glitter tulle fabric', unit: 'm' },
   // v196: one labour line per cape TYPE (its fabric, edge and strap price on the fabric, lace, bead and ribbon items).
   { key: 'cape_neck', label: 'Cape (neck cape): cutting, sewing and finishing', unit: 'pc' },
   { key: 'cape_back', label: 'Cape (back cape): cutting, sewing and finishing', unit: 'pc' },
@@ -90,12 +133,23 @@ export const GOWN_PRICE_ITEMS = [
   { key: 'illu_back', label: 'Illusion back: sheer tulle panel and fitting', unit: 'pc' },
   { key: 'bone_show', label: 'Visible boning: channels and finishing', unit: 'pc' },
   { key: 'flutter', label: 'Flutter cape sleeves: cutting, sewing and finishing', unit: 'pair' },
+  // v203: each sleeve style its own labour line (their fabric is the fabric items), detachable bands, and an over-robe.
+  { key: 'sl_puff', label: 'Sleeves (puff): cutting, sewing and finishing', unit: 'pair' },
+  { key: 'sl_bishop', label: 'Sleeves (bishop): cutting, sewing and finishing', unit: 'pair' },
+  { key: 'sl_juliet', label: 'Sleeves (Juliet): cutting, sewing and finishing', unit: 'pair' },
+  { key: 'sl_ruffle', label: 'Sleeves (ruffle band): cutting, sewing and finishing', unit: 'pair' },
+  { key: 'sl_capesl', label: 'Sleeves (cape sleeves): cutting, sewing and finishing', unit: 'pair' },
+  { key: 'sl_detach', label: 'Detachable sleeve bands', unit: 'pair' },
+  { key: 'overrobe', label: 'Over-robe: cutting, sewing and finishing', unit: 'pc' },
   { key: 'overlay', label: 'Overlay: cutting, sewing and finishing', unit: 'pc' },
   { key: 'piping', label: 'Piping', unit: 'm' },
   { key: 'fringe', label: 'Fringe', unit: 'm' },
   { key: 'feather', label: 'Feather trim', unit: 'm' },
   // v196: ribbon by the metre — the sash and bow, and the narrow strap a cape needs on a strapless neckline.
   { key: 'ribbon', label: 'Ribbon (sash)', unit: 'm' },
+  // v199: straps and a scalloped edge, each its own labour line (narrow straps price on ribbon, wide ones on the fabric).
+  { key: 'strap', label: 'Straps: cutting, sewing and attaching', unit: 'pair' },
+  { key: 'scallop', label: 'Scalloped edge: shaping and finishing', unit: 'pc' },
   // Owner 2026-11-27: small bows come back as a labour line, per piece, unpriced until the designer prices it.
   { key: 'bow', label: 'Bow (small): making and attaching', unit: 'pc' },
   { key: 'rate', label: 'Labour rate', unit: 'hour' },
@@ -110,14 +164,17 @@ export const GOWN_PRICE_GROUPS: ReadonlyArray<readonly [string, (key: GownPriceK
   ['Lining and inside', (k) => /^(lin_|net$|hoop$|illusion$|boning$|waiststay$|horsehair$)/.test(k)],
   ['Closures', (k) => /^(zipper|button|eyelet|cord)$/.test(k)],
   ['Lace and beads', (k) => /^(lace_|bead_)/.test(k)],
+  // v200: the 3D flowers' own group, after lace and beads (prototype order).
+  ['3D flowers', (k) => k === 'flowers3d'],
   ['Trims', (k) => /^(piping|fringe|feather|ribbon|bow)$/.test(k)],
   ['Bodice', (k) => /^(illu_bodice|illu_back|bone_show)$/.test(k)],
+  ['Straps and edges', (k) => k === 'strap' || k === 'scallop'],
   // v195: flutter cape sleeves and a skirt overlay, each its own labour line (their fabric is the fabric items).
-  ['Sleeves', (k) => k === 'flutter'],
+  ['Sleeves', (k) => k === 'flutter' || k.startsWith('sl_')],
   ['Skirt', (k) => k === 'overlay'],
   // v196: each cape type as part of the gown (the bride's detachable cape is the add-on `cape`; the designer may price
   // either).
-  ['Cover-ups', (k) => k.startsWith('cape_')],
+  ['Cover-ups', (k) => k.startsWith('cape_') || k === 'overrobe'],
   ['Labour', (k) => k === 'rate'],
 ];
 
@@ -204,7 +261,19 @@ export type GownShopOptions = {
   /** Covers mode: added on the designer's costs, percent. */
   markupPct: number;
   addOns: Record<GownAddOnKey, GownAddOnState>;
+  /** B11 (drawing v205 `seamAllow`): her default seam allowances, cm (owner D29: on by default, editable; D30: cm).
+   *  Absent = the usual ones. Lengths, not money. */
+  seamAllow?: GownSeamAllow;
+  /** B12 (v205 `patPaper`; owner D28): the paper her patterns print on. Absent = A4. */
+  patPaper?: GownPaper;
 };
+
+/** The shop's allowances, or the usual ones when she has not set her own. */
+export const gownShopSeamAllow = (o: Pick<GownShopOptions, 'seamAllow'>): GownSeamAllow => gownSeamAllowClean(o.seamAllow ?? null);
+/** The shop's paper for printing patterns (A4 unless she chose US Letter). */
+export const gownShopPaper = (o: Pick<GownShopOptions, 'patPaper'>): GownPaper => (o.patPaper === 'letter' ? 'letter' : 'a4');
+/** True when her allowances are the usual ones (v205 hides "Back to the usual" then). */
+export const gownSeamAllowIsUsual = (s: GownSeamAllow): boolean => (Object.keys(GOWN_SEAM_ALLOW_DEFAULT) as (keyof GownSeamAllow)[]).every((k) => s[k] === GOWN_SEAM_ALLOW_DEFAULT[k]);
 
 export function gownShopTemplate(): GownShopOptions {
   return {
@@ -274,7 +343,11 @@ export function sanitizeGownShopOptions(input: unknown): { ok: true; options: Go
       addOns[id] = { state: a.state };
     } else return no(`${label}: choose Priced, Included, On request or Not offered.`);
   }
-  return { ok: true, options: { v: GOWN_OPTIONS_VERSION, mode: input.mode, prices, inBase, hours, markupPct: input.markupPct, addOns } };
+  // v205 `saClean`: each allowance to one decimal and held to its kind's range (the − / + controls cannot leave it).
+  const seamAllow = input.seamAllow !== undefined && input.seamAllow !== null ? gownSeamAllowClean(input.seamAllow) : undefined;
+  if (input.patPaper !== undefined && input.patPaper !== 'a4' && input.patPaper !== 'letter') return no('Paper for printing patterns: choose A4 or US Letter.');
+  const patPaper = input.patPaper as GownPaper | undefined;
+  return { ok: true, options: { v: GOWN_OPTIONS_VERSION, mode: input.mode, prices, inBase, hours, markupPct: input.markupPct, addOns, ...(seamAllow ? { seamAllow } : {}), ...(patPaper ? { patPaper } : {}) } };
 }
 
 /** The add-ons a bride is offered, in list order. Not offered ones are hidden from her. */
@@ -337,23 +410,48 @@ export type GownDesignPriced = { forShop: GownDesignForShop; forBride: GownDesig
 
 type DesignPick = Pick<
   GownConfig,
-  'sil' | 'fabric' | 'fabricRef' | 'accentFabric' | 'accentFabricRef' | 'lining' | 'closure' | 'sleeve' | 'tex' | 'train' | 'darts'
+  | 'sil' | 'fabric' | 'fabricRef' | 'accentFabric' | 'accentFabricRef' | 'lining' | 'closure' | 'sleeve' | 'tex' | 'train' | 'darts'
+  | 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten'
+  | 'accentHex' | 'overlay' | 'flowerType' | 'flowerSize' | 'flowerCol'
 >;
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
 const BEAD_LABEL: Record<GownBeadKind, string> = { crystal: 'Crystals', pearl: 'Pearls', seed: 'Seed beads', sequin: 'Sequins' };
-const fabricLabel = (id: string) => GOWN_STOCK_FABRICS.find((f) => f.id === id)?.label ?? id;
+const fabricLabel = (id: string) => GOWN_PRICED_FABRICS.find((f) => f.id === id)?.label ?? id;
 
 /**
  * Price one design with the shop's own list (server only). `addOnsChosen` are the add-ons the bride picked; one the
  * shop does not offer is left out (the server refuses it before this is called).
  */
+// ── A7b · what the bride painted by hand (beads and lace motifs on the 3D gown; the contract is GownHand) ─────────────
+
+/** Her hand work counted: beads by kind, all beads, and lace motifs. Empty or not sent → zeros. */
+export function gownHandCounts(hand: GownHand | null): { beads: Record<GownBeadKind, number>; total: number; lace: number } {
+  const beads = Object.fromEntries(GOWN_BEAD_KINDS.map((k) => [k, 0])) as Record<GownBeadKind, number>;
+  for (const b of hand?.handBeads ?? []) beads[b.kind] += 1;
+  return { beads, total: hand?.handBeads.length ?? 0, lace: hand?.handLace.length ?? 0 };
+}
+const gownBeadsPlus = (a: Record<GownBeadKind, number>, b: Record<GownBeadKind, number>) =>
+  Object.fromEntries(GOWN_BEAD_KINDS.map((k) => [k, (a[k] ?? 0) + (b[k] ?? 0)])) as Record<GownBeadKind, number>;
+
+/** The order view's line about her hand work (coordinator wording, 28 Nov). Null when there was none. */
+export function gownHandLine(hand: GownHand | null): string | null {
+  const c = gownHandCounts(hand);
+  if (!c.total && !c.lace) return null;
+  return `Painted by hand: ${formatCount(c.total)} bead${c.total === 1 ? '' : 's'}, ${formatCount(c.lace)} lace motif${c.lace === 1 ? '' : 's'}. Added to the designer’s count.`;
+}
+/** When her design was sent without its hand work (an older maker, or a send before A7b). */
+export const GOWN_HAND_NOT_SENT = 'Hand work wasn’t sent with this design.';
+/** When the stored hand work no longer checks out: said, never shown as none. */
+export const GOWN_HAND_UNREAD = 'Couldn’t read her hand work on this design.';
+
 export function gownDesignOf(
   options: GownShopOptions,
   design: DesignPick,
   q: GownQuantities,
   addOnsChosen: readonly GownAddOnKey[],
   fabrics: ReadonlyMap<string, GownShopFabric> = new Map(),
+  hand: GownHand | null = null,
 ): GownDesignPriced {
   const P = options.prices;
   const extras = options.mode === 'extras';
@@ -361,8 +459,10 @@ export function gownDesignOf(
   const chosen = GOWN_ADD_ONS.map((a) => a.id).filter((id) => addOnsChosen.includes(id) && options.addOns[id].state !== 'none');
   const covered = new Set(chosen.flatMap((id) => ADD_ON_COVERS[id] ?? []));
   const lines: GownQuoteLine[] = [];
-  const m = q.materials;
-  const L = q.labour;
+  // A7b: what she painted by hand joins the bead and lace items she would otherwise have had counted for her.
+  const hc = gownHandCounts(hand);
+  const m = hc.total || hc.lace ? { ...q.materials, beads: gownBeadsPlus(q.materials.beads, hc.beads), laceMotifs: q.materials.laceMotifs + hc.lace } : q.materials;
+  const L = hc.total || hc.lace ? { ...q.labour, beads: q.labour.beads + hc.total, laceMotifs: q.labour.laceMotifs + hc.lace } : q.labour;
 
   const supply = (group: GownQuoteGroup, key: string, label: string, qty: number, unit: GownPriceUnit, unitOverride?: number | null) => {
     if (!(qty > 0) || covered.has(key)) return;
@@ -396,6 +496,46 @@ export function gownDesignOf(
   supply('Details', 'fringe', 'Fringe', m.fringeM, 'm');
   supply('Details', 'feather', 'Feather trim', m.featherM, 'm');
   supply('Details', 'illusion', 'Illusion mesh', m.illusionM, 'm');
+  // The cape (v196; Builder A's A6f quantities): its own labour line by type, its cloth, and a narrow strap when it hangs
+  // from one shoulder of a strapless neckline. A lace, appliqué or beaded edge is already in the lace and bead lines.
+  // v203 (`capeKind`): cape sleeves hang as a cape of their own, priced on their sleeve line (below), and an over-robe
+  // is priced on its own line — so neither is a "Cape (…)" line, and their cloth and strap say what they are for.
+  const ck = gownCapeKind(design);
+  if (ck !== 'none') {
+    const nm = ck === 'capesl' ? 'the cape sleeves' : ck === 'robe' ? 'the over-robe' : 'the cape';
+    if (ck === 'robe' || L.overrobe) supply('Details', 'overrobe', 'Over-robe: cutting, sewing and finishing', 1, 'pc');
+    else if (ck !== 'capesl') {
+      const capeName = GOWN_CAPES.find((c) => c.id === ck)?.label ?? 'Cape';
+      supply('Details', `cape_${ck}`, `Cape (${capeName.toLowerCase()}): cutting, sewing and finishing`, 1, 'pc');
+    }
+    const fab = gownCapeNow(design).fab;
+    if (fab === 'gown') {
+      const ak = design.accentFabric ?? design.fabric;
+      supply('Details', `fab_${ak}`, `${fabricLabel(ak)} (${nm}, accent colour)`, m.capeM, 'm');
+    } else supply('Details', `fab_${fab}`, `${fabricLabel(fab)} (${nm})`, m.capeM, 'm');
+    supply('Details', 'ribbon', `Narrow strap for ${nm}`, m.ribbonM, 'm');
+  }
+  // v195/v203: the sleeves and the overlay cut, sewn and finished — each its own line from the designer's own list
+  // (their cloth is in the fabric lines). v200: 3D flowers by the ten, and raised lace shaped and finished.
+  supply('Bodice', 'flutter', 'Flutter cape sleeves: cutting, sewing and finishing', L.flutter, 'pair');
+  if (L.sleeve in GOWN_SLEEVE_EXTRA) {
+    const k = L.sleeve as keyof typeof GOWN_SLEEVE_EXTRA;
+    supply('Bodice', `sl_${k}`, `Sleeves (${GOWN_SLEEVE_EXTRA[k]}): cutting, sewing and finishing`, 1, 'pair');
+  }
+  if (L.sleeveDetach) supply('Bodice', 'sl_detach', 'Detachable sleeve bands', 1, 'pair');
+  if (L.overlay > 0) {
+    const ov = GOWN_OVERLAYS.find((o) => o.id === design.overlay && o.id !== 'none');
+    supply('Skirt', 'overlay', `${ov ? `${ov.label} overlay` : 'Overlay'}: cutting, sewing and finishing`, L.overlay, 'pc');
+  }
+  if (L.flowers > 0) {
+    // v200: "(N rosettes, 4 cm, gown colour)" — a small blossom is 0.8 of the size.
+    const ft = GOWN_FLOWER_TYPES.find((t) => t.id === design.flowerType);
+    const cm = (GOWN_FLOWER_SIZES.find((z) => z.id === design.flowerSize)?.cm ?? 4) * (design.flowerType === 'blossom' ? 0.8 : 1);
+    const accentOn = !!(design.accentFabric || design.accentHex);
+    const col = design.flowerCol === 'accent' && accentOn ? 'accent colour' : design.flowerCol === 'gown' ? 'gown colour' : design.flowerCol;
+    supply('Details', 'flowers3d', `3D flowers: making and attaching (${formatCount(L.flowers)} ${ft ? ft.one : 'flower'}${L.flowers === 1 ? '' : 's'}, ${formatCount(cm, 1)} cm, ${col})`, Math.ceil(L.flowers / 10), '10 flowers');
+  }
+  if (L.laceRaised) supply('Details', 'lace_raised', 'Raised lace: shaping and finishing', 1, 'pc');
   // Skirt.
   supply('Skirt', 'horsehair', 'Horsehair braid', m.horsehairM, 'm');
   // Inside.
@@ -567,7 +707,17 @@ export type GownShopLookInput = { id: string | null; name: string; photoKey: str
 export type ShopGownStockFabric = GownShopFabricInput & { id: string; thumbUrl: string | null; tileUrl: string | null };
 export type ShopGownStockLook = Omit<GownShopLookInput, 'id'> & { id: string; photoUrl: string | null };
 /** A fabric type the designer can pick, with its own values (the sliders start there). */
-export type GownFabricTypeOption = { id: string; name: string; sheen: number; sheer: number; stiff: number; verified: boolean };
+export type GownFabricTypeOption = {
+  id: string;
+  name: string;
+  sheen: number;
+  sheer: number;
+  stiff: number;
+  verified: boolean;
+  /** B15: how the bride's Fabric step groups and filters it. */
+  family: (typeof GOWN_FABRIC_FAMILIES)[number]['id'];
+  usedFor: (typeof GOWN_FABRIC_USES)[number]['id'][];
+};
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const HEX_RE = /^#[0-9a-f]{6}$/i;
@@ -745,4 +895,82 @@ export function sanitizeGownFabricType(
       verified: r.verified === true,
     },
   };
+}
+
+// ── B15 · THE BRIDE'S FABRIC STEP: GROUPED BY TYPE, ONLY WHAT SUITS THE GARMENT (data side) ─────────────────────────
+// Prototype v186 "The Fabric step groups by type and offers only what suits the garment" (INTEGRATION-PLAN v186):
+// gown = `usedFor` has gown_body or skirt; accent = sleeves_accents; lining = lining. Headings by family. Men's-only and
+// lining-only types are hidden from the bride's gown and accent choices. The designer's own cloths keep their place
+// first, each under its type. Builder A wires the step from `fabricGroups` on the `open` read.
+
+export type GownFabricSlot = 'gown' | 'accent' | 'lining';
+export const GOWN_FABRIC_SLOT_USES: Record<GownFabricSlot, readonly GownFabricTypeOption['usedFor'][number][]> = {
+  gown: ['gown_body', 'skirt'],
+  accent: ['sleeves_accents'],
+  lining: ['lining'],
+};
+/** The family order on the bride's step (fabric-types-research.md "Families"). */
+export const GOWN_FABRIC_FAMILY_ORDER = GOWN_FABRIC_FAMILIES.map((f) => f.id);
+
+export type GownFabricChoice =
+  | { kind: 'designer'; id: string; name: string; typeId: string; lace: boolean }
+  | { kind: 'type'; id: string; name: string };
+export type GownFabricGroup = { family: GownFabricTypeOption['family']; label: string; choices: GownFabricChoice[] };
+
+export function gownFabricGroups(
+  slot: GownFabricSlot,
+  types: readonly Pick<GownFabricTypeOption, 'id' | 'name' | 'family' | 'usedFor'>[],
+  shopFabrics: readonly { id: string; name: string; typeId: string | null; kind: 'fabric' | 'lace' }[] = [],
+): GownFabricGroup[] {
+  const uses = GOWN_FABRIC_SLOT_USES[slot];
+  const offered = types.filter((t) => t.usedFor.some((u) => uses.includes(u)));
+  const byId = new Map(offered.map((t) => [t.id, t]));
+  return GOWN_FABRIC_FAMILY_ORDER.flatMap((family) => {
+    const inFamily = offered.filter((t) => t.family === family);
+    if (!inFamily.length) return [];
+    const choices: GownFabricChoice[] = [];
+    // ★ The designer's own cloths first, each under its type's family (in the type order).
+    for (const t of inFamily) {
+      for (const f of shopFabrics) if (f.typeId === t.id && byId.has(f.typeId)) choices.push({ kind: 'designer', id: f.id, name: f.name, typeId: t.id, lace: f.kind === 'lace' });
+    }
+    for (const t of inFamily) choices.push({ kind: 'type', id: t.id, name: t.name });
+    return [{ family, label: GOWN_FABRIC_FAMILIES.find((f) => f.id === family)!.label, choices }];
+  });
+}
+
+// ── B11 · one order's own pattern settings (drawing v205: `o.seamAllow` · `o.netPattern`) ─────────────────────────────
+
+/** One order's pattern: its own allowances (null = the shop's) and whether it prints as a net pattern. Lengths only. */
+export type GownOrderPattern = { seamAllow: GownSeamAllow | null; netPattern: boolean };
+export const GOWN_ORDER_PATTERN_DEFAULT: GownOrderPattern = { seamAllow: null, netPattern: false };
+/** The reserved key the order's pattern rides under inside the designer's tape (`gown_fittings.fit`, the shop only). */
+export const GOWN_FIT_PATTERN_KEY = '_pattern';
+
+/** v205 `patState`: the status line beside "Seam allowance". */
+export const gownPatternState = (o: GownOrderPattern): string =>
+  o.netPattern ? 'Off: net pattern' : o.seamAllow ? 'On · set for this order' : "On · your shop's allowances";
+
+/** Checks an order's pattern settings: allowances held to their ranges (or null), the switch a boolean. Refuses junk. */
+export function sanitizeGownOrderPattern(input: unknown): GownOrderPattern | null {
+  if (!isObject(input) || typeof input.netPattern !== 'boolean') return null;
+  if (input.seamAllow !== null && !isObject(input.seamAllow)) return null;
+  return { seamAllow: input.seamAllow === null ? null : gownSeamAllowClean(input.seamAllow), netPattern: input.netPattern };
+}
+
+/** `gown_fittings.fit` → the tape (every number key) and the order's pattern (the reserved key). */
+export function gownFitSplit(fit: unknown): { tape: Record<string, number>; pattern: GownOrderPattern } {
+  const tape: Record<string, number> = {};
+  let pattern: GownOrderPattern = { ...GOWN_ORDER_PATTERN_DEFAULT };
+  if (isObject(fit))
+    for (const [k, v] of Object.entries(fit)) {
+      if (k === GOWN_FIT_PATTERN_KEY) pattern = sanitizeGownOrderPattern(v) ?? pattern;
+      else if (typeof v === 'number') tape[k] = v;
+    }
+  return { tape, pattern };
+}
+
+/** The tape and the pattern back into one `fit` object (the pattern only when it differs from the shop's plain one). */
+export function gownFitJoin(tape: Record<string, number>, pattern: GownOrderPattern): Record<string, unknown> {
+  const plain = pattern.seamAllow === null && !pattern.netPattern;
+  return plain ? { ...tape } : { ...tape, [GOWN_FIT_PATTERN_KEY]: pattern };
 }

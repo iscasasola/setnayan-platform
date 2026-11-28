@@ -238,11 +238,17 @@ test('6 · the caps hold, the shop is the chat’s, a design is in a chat or sha
   assert.equal(await seen(designerB, 'gown_designs', 'design_id = $1', [shared]), 0, 'another shop reads a QR share');
 });
 
-test('7 · the fabric types: the prototype’s 15, read by anyone signed in, unverified, never deleted while used', async () => {
+test('7 · the fabric types: the prototype’s 15 plus v207’s 3, read by anyone signed in, unverified, never deleted while used', async () => {
   const n = Number(await one<string>(`SELECT count(*)::text AS v FROM public.gown_fabric_types`));
-  assert.equal(n, 15, `the registry holds ${n} types, not the prototype’s 15`);
+  assert.equal(n, 18, `the registry holds ${n} types, not the prototype’s 15 + v207’s 3`);
   assert.equal(Number(await one<string>(`SELECT count(*)::text AS v FROM public.gown_fabric_types WHERE verified`)), 0, 'a seeded type claims to be verified');
-  assert.equal(await seen(guest, 'gown_fabric_types'), 15, 'a signed-in person cannot read the registry');
+  assert.equal(await seen(guest, 'gown_fabric_types'), 18, 'a signed-in person cannot read the registry');
+  // v207: the FEEL card's numbers, in the existing columns (gloss → sheen, see → sheer); Duchess left satin's aliases.
+  const row = async (id: string) => one<string>(`SELECT concat_ws('|', name, family, gsm, stiff, sheen, sheer, stretch) AS v FROM public.gown_fabric_types WHERE type_id = '${id}'`);
+  assert.equal(await row('duchess'), 'Duchess satin|satins|240|0.65|0.62|0.00|none');
+  assert.equal(await row('bias_satin'), 'Bias satin|satins|110|0.12|0.85|0.00|none');
+  assert.equal(await row('taffeta'), 'Taffeta|structured|140|0.70|0.60|0.00|none');
+  assert.equal(await one<string>(`SELECT array_to_string(aliases, ',') AS v FROM public.gown_fabric_types WHERE type_id = 'satin'`), 'bridal satin', 'duchess is still an alias of plain satin');
   await assert.rejects(db.query(`DELETE FROM public.gown_fabric_types WHERE type_id = 'mikado'`), /foreign key/i, 'a type a fabric uses was deleted');
 });
 

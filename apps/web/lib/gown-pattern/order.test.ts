@@ -41,10 +41,28 @@ test('2 · the order screen reads, saves the tape, draws on demand, marks estima
   assert.match(panel, /gownAction\(\{ op: 'fit', threadId, designId: d\.designId, tape \}\)/);
   assert.match(panel, /import\('@\/lib\/gown-pattern\/order'\)/, 'the pattern engine is in the order page’s first load');
   assert.match(panel, /\{GOWN_DRAFT_ESTIMATE\}/);
-  assert.match(panel, /svgs\.est \?/, 'the estimate line is not tied to the blocks’ own estimate flag');
+  assert.match(panel, /drawn\.est \?/, 'the estimate line is not tied to the blocks’ own estimate flag');
   assert.doesNotMatch(panel, /gownDesignOf\(|pricePerMetre|\* l\.qty/, 'the screen prices the design itself');
   assert.doesNotMatch(panel, /mannequin'?\s*\/?>|Open on the mannequin/, 'a mannequin button ships before step A8');
   assert.doesNotMatch(panel, /onClick=\{\(\) => \{\}\}|href="#"/);
   const details = readFileSync(join(__dirname, '..', '..', 'app/vendor-dashboard/clients/[eventId]/_pages/details.tsx'), 'utf8');
   assert.match(details, /<GownDesignOnOrder ctx=\{ctx\} \/>/, 'the order page does not draw her design');
+});
+
+test('2b · v205 (B11/B12): the allowances start from the shop, save themselves for this order, reach the blocks, the list and the pages', () => {
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  const dir = join(__dirname, '..', '..', 'app/vendor-dashboard/clients/[eventId]/_components');
+  const panel = strip(readFileSync(join(dir, 'gown-order-panel.tsx'), 'utf8'));
+  const pages = strip(readFileSync(join(dir, 'gown-pattern-pages.tsx'), 'utf8'));
+  assert.match(panel, /order\.seamAllow \?\? P\.shop/, 'the order does not start from the shop’s allowances');
+  assert.match(panel, /gownAction\(\{ op: 'fit', threadId, designId: d\.designId, pattern: next \}\)/, 'an allowance change is not saved for the order');
+  assert.match(panel, /gownBlocksSvg\(x\.pieces, title, sa, net\)/, 'the blocks are not drawn at the order’s allowances');
+  assert.match(panel, /gownCutList\(cut, P\.cut, sa, net\)/, 'the cutting list is not at the order’s allowances');
+  assert.match(panel, /<GownPatternPages pieces=\{[^}]*\} sa=\{sa\} net=\{net\} paper=\{paper\}/, 'the pages are not at the order’s allowances and paper');
+  assert.match(panel, /useState<GownPaper>\(P\?\.paper \?\? 'a4'\)/, 'the export does not start from the shop’s paper');
+  assert.match(panel, /const net = P \? order\.netPattern : true/, 'an unread allowance draws a cut line from guessed numbers');
+  assert.match(pages, /import\('@\/lib\/gown-pattern\/export'\)/);
+  assert.doesNotMatch(pages + panel, /^import (?!type )[^;]*from '@\/lib\/gown-pattern\/export';/m, 'the page engine loads with the order page');
+  assert.doesNotMatch(pages + panel, /from 'pdf-lib'/);
+  assert.doesNotMatch(pages, /formatPhp|formatCentavosPhp|centavos|₱/, 'the pages screen talks about money');
 });

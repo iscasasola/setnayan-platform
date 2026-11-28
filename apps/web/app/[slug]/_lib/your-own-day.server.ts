@@ -1,4 +1,5 @@
 import 'server-only';
+import { readShownTableNames } from '@/lib/table-auto-name.server';
 
 /**
  * WERE YOU THERE? — one person's own day, and nobody else's.
@@ -245,16 +246,12 @@ async function loadTable(
       .eq('event_id', eventId)
       .eq('guest_id', guestId)
       .maybeSingle();
+    if (error) console.error('[supabase-error] app/[slug]/_lib/your-own-day.server.ts · from:event_seat_assignments.select', error);
     if (error || !data?.table_id) return null;
-    const { data: table, error: tableError } = await admin
-      .from('event_tables')
-      .select('table_label')
-      .eq('event_id', eventId)
-      .eq('table_id', data.table_id as string)
-      .maybeSingle();
-    if (tableError) console.error('[supabase-error] app/[slug]/_lib/your-own-day.server.ts · from:event_tables.select', tableError);
-    if (tableError || !table?.table_label) return null;
-    return String(table.table_label);
+    // 🪑 The name the table SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts). A refused read throws
+    // to the catch below: no table line, never a guessed name.
+    const name = (await readShownTableNames(admin, eventId)).get(data.table_id as string);
+    return name ? String(name) : null;
   } catch {
     return null;
   }

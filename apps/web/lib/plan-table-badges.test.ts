@@ -75,7 +75,8 @@ test('the seat plan draws the one function, never a digit grab or a "·"', () =>
   const src = stripComments(
     readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/seating/_components/seating-editor.tsx'), 'utf8'),
   );
-  assert.match(src, /const planBadges = useMemo\(\(\) => planTableBadges\(tables\), \[tables\]\);/);
+  // 🪑 Fed the names the tables SHOW (lib/table-auto-name.ts, seat plan § 4.3), so the badges stay unique on auto names.
+  assert.match(src, /const planBadges = useMemo\(\(\) => planTableBadges\(withDisplayNames\(tables, shownNames\)\), \[tables, shownNames\]\);/);
   assert.match(src, /const num = planBadges\.get\(t\.table_id\)/);
   assert.doesNotMatch(src, /(table_label|displayLabel)\.match\(\/\\d\+\/\)/, 'the plan grabs a label’s digits again');
 });

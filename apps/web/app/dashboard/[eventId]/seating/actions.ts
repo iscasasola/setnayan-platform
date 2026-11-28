@@ -57,8 +57,11 @@ import {
 } from '@/lib/seat-plan-engine';
 import { parseRestoreSeats, parseSeatScope, restorableSeats, seatsThatStay, seatsToClear, type RestoreSeat } from '@/lib/seat-plan-scope';
 import { refuseLimitedHelper } from '@/lib/host-gate';
+import { autoDefaultLabel, hostNameClash, isDefaultTableLabel, renameWrites } from '@/lib/table-auto-name';
+import { readTableDisplayNames } from '@/lib/table-auto-name.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { placedByAuto, placedByCouple } from '@/lib/seat-why';
+import { SEAT_WRITE_MAX } from '@/lib/seat-check';
 import { SEAT_LOCKED_REFUSAL, lockedSeatGuests, tablesHoldLockedSeats, tablesWithLockedSeats, type SeatLockedRefusal } from '@/lib/seat-lock.server';
 
 function clampPct(v: unknown): number | null {
@@ -221,6 +224,8 @@ export async function createTable(formData: FormData) {
     .insert({
       event_id: eventId,
       table_label: trimmed,
+      // 🪑 A name the host typed is kept as typed; the default "Table N" names itself (lib/table-auto-name.ts).
+      label_is_auto: isDefaultTableLabel(trimmed),
       table_type: type,
       capacity,
       sort_order: nextSort,
@@ -355,11 +360,13 @@ export async function assignGuest(formData: FormData) {
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
   /* 🧑‍🤝‍🧑 A UNIT IN ONE WRITE (seat plan R3): `along` = the +1s who move with this guest, each to their own chair at the
-     same table — one upsert, so a failure never leaves the pair split. */
+     same table — one upsert, so a failure never leaves the pair split. A list past the cap (`SEAT_WRITE_MAX`, one guest
+     + the rest along) is REFUSED, never truncated: a cut list would drop a guest the client counts as seated. */
   const along: Array<{ guest_id: string; seat_number: number }> = [];
   try {
     const raw = JSON.parse(String(formData.get('along') ?? '[]')) as unknown;
-    for (const x of Array.isArray(raw) ? raw.slice(0, 8) : []) {
+    if (Array.isArray(raw) && raw.length > SEAT_WRITE_MAX - 1) throw new Error('Too many guests in one write');
+    for (const x of Array.isArray(raw) ? raw : []) {
       const g = (x as { guest_id?: unknown }).guest_id;
       const n = (x as { seat_number?: unknown }).seat_number;
       if (typeof g === 'string' && UUID_RE.test(g) && g !== guestId && Number.isInteger(n) && (n as number) >= 0 && (n as number) < 64)
@@ -441,22 +448,20 @@ export async function swapSeats(formData: FormData) {
     return SEAT_LOCKED_REFUSAL;
   }
 
-  // Each swap is the RPC's own transaction (lead with lead, then +1 with +1). Until the engine lane's one-transaction
-  // unit swap lands (noted for L11 — no migration here), a swap that fails part-way UNDOES the ones already made, in
-  // reverse (a swap is its own undo), so two units never end half-traded.
-  const swap = (a: string, b: string) => supabase.rpc('swap_seat_assignments', { p_event_id: eventId, p_guest_a: a, p_guest_b: b });
-  const done: Array<[string, string]> = [];
-  for (const [a, b] of [[guestA, guestB] as [string, string], ...pairs]) {
-    const { error } = await swap(a, b);
-    if (error) {
-      for (const [x, y] of done.reverse()) {
-        const { error: backErr } = await swap(x, y);
-        if (backErr) logQueryError('swapSeats: roll back a part-done unit trade', backErr);
-      }
-      revalidatePath(`/dashboard/${eventId}/seating`);
-      throw new Error(error.message);
-    }
-    done.push([a, b]);
+  // 🧑‍🤝‍🧑 ONE transaction for the whole trade (seat plan L11): a unit with +1s goes through `swap_seat_unit_assignments`
+  // (both sides as arrays, lead first, pair i with pair i — all or nothing); a plain one-to-one swap keeps its shipped RPC.
+  const { error } =
+    pairs.length > 0
+      ? await supabase.rpc('swap_seat_unit_assignments', {
+          p_event_id: eventId,
+          p_guests_a: [guestA, ...pairs.map(([a]) => a)],
+          p_guests_b: [guestB, ...pairs.map(([, b]) => b)],
+        })
+      : await supabase.rpc('swap_seat_assignments', { p_event_id: eventId, p_guest_a: guestA, p_guest_b: guestB });
+  if (error) {
+    // Nothing moved: the RPC is one transaction (it also refuses a locked seat itself).
+    revalidatePath(`/dashboard/${eventId}/seating`);
+    throw new Error(error.message);
   }
   // 🪑 Both seats were just placed by hand. A failed stamp leaves the swap done and the seats saying nothing (not a
   // stale "Auto arrange") — so it is cleared rather than kept when the stamp itself cannot land.
@@ -1314,8 +1319,10 @@ export async function unassignGuest(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
-  /* 🧑‍🤝‍🧑 `also` = the +1s who leave the seat with this guest (seat plan R3) — one delete, so the pair never splits. */
-  const also = String(formData.get('also') ?? '').split(',').filter(Boolean).slice(0, 8);
+  /* 🧑‍🤝‍🧑 `also` = the +1s who leave the seat with this guest (seat plan R3) — one delete, so the pair never splits. A list
+     past the cap (`SEAT_WRITE_MAX`, one guest + the rest also) is REFUSED, never truncated. */
+  const also = String(formData.get('also') ?? '').split(',').filter(Boolean);
+  if (also.length > SEAT_WRITE_MAX - 1) throw new Error('Too many guests in one write');
   if (also.some((id) => !UUID_RE.test(id))) throw new Error('Invalid input');
   const everyone = [guestId, ...also];
   // 🔒 #17: a locked seat is never taken off by a hand (Clear all keeps its own `keep_locked` rule).
@@ -1693,9 +1700,22 @@ async function updateTableVip(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
+  // 🪑 The table's kind is the VIP read now (seat plan § 6); `is_vip` is written in step until a cleanup drops it.
+  // Turning VIP off returns only a VIP table to Regular — an Elders or Spare table keeps its kind.
+  const vip = vipRaw === 'true';
+  const { data: was, error: wasErr } = await supabase
+    .from('event_tables')
+    .select('table_kind')
+    .eq('table_id', tableId)
+    .eq('event_id', eventId)
+    .maybeSingle();
+  if (wasErr) throw new Error(wasErr.message);
+  if (!was) throw new Error('That table was not saved — it may have been removed.');
+  const wasKind = (was as { table_kind?: string | null }).table_kind ?? 'regular';
+  const kind = vip ? 'vip' : wasKind === 'vip' ? 'regular' : wasKind;
   const { data, error } = await supabase
     .from('event_tables')
-    .update({ is_vip: vipRaw === 'true', updated_at: new Date().toISOString() })
+    .update({ is_vip: vip, table_kind: kind, updated_at: new Date().toISOString() })
     .eq('table_id', tableId)
     .eq('event_id', eventId)
     .select('table_id');
@@ -1706,10 +1726,11 @@ async function updateTableVip(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
-// Rename a table (the per-table popup's inline rename). Mirrors
-// updateTableRotation: a single guarded UPDATE under the couple's RLS.
-// `table_label` already exists — no schema change. Trim + 1–64 chars, matching
-// createTable's validation.
+// Rename a table (the per-table popup's inline rename, the Name row). Mirrors
+// updateTableRotation: a single guarded UPDATE under the couple's RLS. Trim + up to 64 chars, matching createTable.
+// 🪑 Table names (seat plan § 4.3, owner R6): a typed name is the host's (`label_is_auto = false`) and never changes
+// when guests move; an EMPTY name returns the table to its auto name (`label_is_auto = true`, its default label back
+// to "Table N"); a name another table already shows is refused (`hostNameClash`, lib/table-auto-name.ts).
 export async function updateTableLabel(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   // 🪑 The table's other own setting — VIP or not — shares this route (see updateTableVip).
@@ -1723,8 +1744,8 @@ export async function updateTableLabel(formData: FormData) {
   // Strip control characters (NULL/newline/tab/…) — they'd survive into the
   // printed sign sheets and break the HTML layout. esc() covers entities only.
   // eslint-disable-next-line no-control-regex
-  const label = labelRaw.replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim();
-  if (label.length === 0 || label.length > 64) throw new Error('Label must be 1–64 chars');
+  const typed = labelRaw.replace(/[\u0000-\u001F\u007F]/g, ' ').replace(/\s+/g, ' ').trim();
+  if (typed.length > 64) throw new Error('Label must be 1–64 chars');
 
   const supabase = await createClient();
   const {
@@ -1734,9 +1755,20 @@ export async function updateTableLabel(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
+  // The plan as it stands, for the clash check and the auto name's default label. A refused read stops here.
+  const [tables, seats] = await Promise.all([fetchTables(supabase, eventId), fetchAssignments(supabase, eventId)]);
+  const names = await readTableDisplayNames(supabase, eventId, tables, seats);
+  // Unchanged is no rename (`renameWrites`): the stored label or the name the table already shows writes nothing,
+  // so an auto table never turns into a host-named one by a field that was only focused.
+  const own = tables.find((t) => t.table_id === tableId);
+  if (!own || renameWrites(own, typed, names.get(tableId)) === 'none') return;
+  const clash = hostNameClash(tableId, typed, names);
+  if (clash) throw new Error(clash);
+  const label = typed.length > 0 ? typed : autoDefaultLabel(tableId, tables);
+
   const { error } = await supabase
     .from('event_tables')
-    .update({ table_label: label, updated_at: new Date().toISOString() })
+    .update({ table_label: label, label_is_auto: typed.length === 0, updated_at: new Date().toISOString() })
     .eq('table_id', tableId)
     .eq('event_id', eventId);
   if (error) throw new Error(error.message);
@@ -1752,7 +1784,8 @@ export async function updateTableLabel(formData: FormData) {
   if (row?.link_group_id) {
     const { error: syncErr } = await supabase
       .from('event_tables')
-      .update({ link_group_label: label, updated_at: new Date().toISOString() })
+      // 🪑 …and who named it: a linked run is one table with one name (lib/table-auto-name.ts reads its lead).
+      .update({ link_group_label: label, label_is_auto: typed.length === 0, updated_at: new Date().toISOString() })
       .eq('event_id', eventId)
       .eq('link_group_id', row.link_group_id);
     if (syncErr) throw new Error(syncErr.message);
@@ -2523,6 +2556,7 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
         return {
           event_id: eventId,
           table_label: t.label,
+          label_is_auto: isDefaultTableLabel(t.label),
           table_type: t.type,
           capacity: t.capacity,
           sort_order: maxSort + 1 + i,
@@ -2795,6 +2829,7 @@ export async function buildSeatingDraft(
     recommended.map((t, i) => ({
       event_id: eventId,
       table_label: t.label,
+      label_is_auto: isDefaultTableLabel(t.label),
       table_type: t.type,
       capacity: t.capacity,
       sort_order: i,

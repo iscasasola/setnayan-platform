@@ -97,7 +97,8 @@ test('6 · a moved table lines up through the core — on both plans — and say
   const drag = ed.slice(ed.indexOf('const snap = snapToLines({'), ed.indexOf('linedWithRef.current = lined;'));
   assert.ok(drag.length > 0, 'the couple’s drag no longer snaps through the core');
   assert.match(drag, /stage: \{ x: stage\.x, y: stage\.y \},/, 'the stage line is not a line');
-  assert.match(ed, /Lined up with \{tables\.find\(\(t\) => t\.table_id === linedWithRef\.current\)!\.table_label\}/);
+  // 🪑 …naming the table as it SHOWS (lib/table-auto-name.ts, 27 Nov), not its stored label.
+  assert.match(ed, /Lined up with \{shownNames\.get\(linedWithRef\.current!\) \?\? ''\}/);
   // a shop's hall IS this editor in venue mode (PlanMaker retired): the one snap is not skipped for a venue
   const guard = ed.slice(ed.lastIndexOf('if (', ed.indexOf('const snap = snapToLines({')), ed.indexOf('const snap = snapToLines({'));
   assert.doesNotMatch(guard, /isVenue|venueMode|source\.kind/, 'a shop’s Spaces does not line up through the same rule');

@@ -131,12 +131,30 @@ export type EventTableRow = {
   // auto arrange seats role holders here first, role first then group. Optional so render-only literals need not set
   // it; fetchTables always returns a boolean.
   is_vip?: boolean;
+  /** 🪑 FALSE = the host typed `table_label` (kept as typed); TRUE = the shown name is read by `tableDisplayNames`
+   *  (lib/table-auto-name.ts). Optional so render-only literals need not set it; fetchTables always returns it. */
+  label_is_auto?: boolean;
+  /** 🪑 regular · vip · elders · spare (seat plan § 4.7). The VIP read is `table_kind === 'vip'` (`isVipTable`). */
+  table_kind?: TableKind;
+  /** 🔒 The table lock: auto arrange keeps this table as it is. */
+  locked?: boolean;
   // 🏛 A VENUE'S OWN HALL only (Spaces, the one editor in venue mode): the shape the supplier drew — round · long ·
   // half-moon — and, for a long table, one chair at each end (counted in `capacity`). Set by the Spaces mapper, never
   // read from or written to `event_tables`; a couple's row leaves both unset and draws from `table_type` as always.
   plan_shape?: PlanTableShape | null;
   chairs_at_ends?: boolean;
 };
+
+export type TableKind = 'regular' | 'vip' | 'elders' | 'spare';
+const TABLE_KINDS: ReadonlySet<string> = new Set(['regular', 'vip', 'elders', 'spare']);
+export function parseTableKind(raw: unknown, isVip?: boolean | null): TableKind {
+  if (typeof raw === 'string' && TABLE_KINDS.has(raw)) return raw as TableKind;
+  return isVip === true ? 'vip' : 'regular';
+}
+/** 🪑 THE VIP read (seat plan § 6): the table's kind, with the old `is_vip` mark as the fallback for a row read without it. */
+export function isVipTable(t: { table_kind?: string | null; is_vip?: boolean | null }): boolean {
+  return parseTableKind(t.table_kind, t.is_vip) === 'vip';
+}
 
 export type SeatAssignmentRow = {
   assignment_id: string;
@@ -182,7 +200,7 @@ export async function fetchTables(
   const { data, error } = await supabase
     .from('event_tables')
     .select(
-      'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos,rotation_deg,removed_seats,qr_token,qr_published_at,link_group_id,link_group_label,is_vip',
+      'table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos,rotation_deg,removed_seats,qr_token,qr_published_at,link_group_id,link_group_label,is_vip,label_is_auto,table_kind,locked',
     )
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
@@ -206,7 +224,10 @@ export async function fetchTables(
       qr_published_at: r.qr_published_at ?? null,
       link_group_id: r.link_group_id ?? null,
       link_group_label: r.link_group_label ?? null,
-      is_vip: r.is_vip === true,
+      is_vip: isVipTable(r),
+      label_is_auto: r.label_is_auto === true,
+      table_kind: parseTableKind(r.table_kind, r.is_vip),
+      locked: r.locked === true,
     };
   }));
 }
@@ -225,7 +246,7 @@ export async function fetchPublicTables(
 ): Promise<EventTableRow[]> {
   const { data, error: publicTablesErr } = await supabase
     .from('event_tables')
-    .select('table_id,public_id,event_id,table_label,table_type,capacity,sort_order,x_pos,y_pos')
+    .select('table_id,public_id,event_id,table_label,label_is_auto,table_type,capacity,sort_order,x_pos,y_pos')
     .eq('event_id', eventId)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
@@ -237,6 +258,8 @@ export async function fetchPublicTables(
       public_id: r.public_id,
       event_id: r.event_id,
       table_label: r.table_label,
+      // 🪑 Only so the page can show the table's read name (lib/table-auto-name.ts); never handed on raw.
+      label_is_auto: r.label_is_auto === true,
       table_type: r.table_type,
       sort_order: r.sort_order,
       capacity: sanitizeCapacity(r.capacity),
@@ -1021,7 +1044,7 @@ export function computeAutoSeat(
   // Who: every eligible role holder, except a role set the couple switched to "Sit with their group". Order: the
   // Guests list's role order, then group, then name — so each role sits together. A role holder's +1s follow the
   // host's pick: beside them here ('beside'), or ALL together at the table(s) nearest the VIP tables ('nearest').
-  const vipTables = pool.filter((t) => t.is_vip === true);
+  const vipTables = pool.filter((t) => isVipTable(t));
   const vipDone = new Set<string>(); // seated at a VIP table, or a VIP +1 placed below — out of the unit flow
   const vipOverflow = new Set<string>(); // role holders the VIP tables had no room for → their group
   const awayChunks: AutoSeatGuest[][] = []; // 'nearest': every VIP guest's +1s, seated together below
@@ -1072,7 +1095,7 @@ export function computeAutoSeat(
   if (awayChunks.length > 0) {
     const vipPts = vipTables.map((t) => pointById.get(t.table_id)!);
     const toVip = (t: EventTableRow) => Math.min(...vipPts.map((p) => dist2(pointById.get(t.table_id)!, p)));
-    const near = pool.filter((t) => t.is_vip !== true).sort((a, b) => toVip(a) - toVip(b) || compareTables(a, b));
+    const near = pool.filter((t) => !isVipTable(t)).sort((a, b) => toVip(a) - toVip(b) || compareTables(a, b));
     const size = awayChunks.reduce((n, c) => n + c.length, 0);
     const cluster = cover(near, size);
     const used = new Set<string>();

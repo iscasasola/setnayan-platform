@@ -7,6 +7,8 @@ import { fetchGuestsByEventMeasured } from '@/lib/guests';
 import { readNoSeatGuestIds } from '@/lib/guest-chapter-invites';
 import { ReadRefusedNotice } from '@/app/dashboard/[eventId]/_components/read-refused-notice';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
+import { withDisplayNames } from '@/lib/table-auto-name';
+import { readTableNameGroups, shownNamesFrom } from '@/lib/table-auto-name.server';
 import { fetchEventViewer, isDelegateWithoutArea } from '@/lib/event-viewer.server';
 import { resolveProfileByEvent, surfaceEnabled } from '@/lib/event-type-profile';
 import { printFileName } from '@/lib/print-pieces';
@@ -61,12 +63,15 @@ export default async function EntranceChartPage({ params }: Props) {
   if (isDelegateWithoutArea(viewer, 'guest_list')) return <NotSharedWithYou title="Entrance seating chart" thing="guest list" />;
   if (isDelegateWithoutArea(viewer, 'seat_plan')) return <NotSharedWithYou title="Entrance seating chart" thing="seat plan" />;
 
-  const [tables, assignments, guestsRead, noSeat] = await Promise.all([
+  const [tablesRead, assignments, nameGroups, guestsRead, noSeat] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
+    readTableNameGroups(supabase, eventId),
     fetchGuestsByEventMeasured(supabase, eventId),
     readNoSeatGuestIds(supabase, eventId),
   ]);
+  // 🪑 Each table under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+  const tables = withDisplayNames(tablesRead, shownNamesFrom(nameGroups, tablesRead, assignments));
   // 🔌 A REFUSED GUEST READ IS NOT AN EMPTY ROOM (reads-are-honest, 2026-11-05).
   // The array-only read turned it into `[]`, and this page then drew "0 seated",
   // a chart with nobody on it and a Save button that printed one — for the sheet

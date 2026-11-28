@@ -102,3 +102,39 @@ test('7 · the tile is registered, suggested to custom gown makers, and opens th
   assert.doesNotMatch(panel, /onClick=\{\(\) => \{\}\}|href="#"/);
   assert.ok(gownShopTemplate().addOns.veil.state === 'none', 'an add-on starts offered');
 });
+
+test('8 · B11 (v205): one order’s pattern is saved beside the tape, the shop only; what was not sent is kept; a failed read is never the defaults', () => {
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  const server = strip(read('lib/gown-maker.server.ts'));
+  const save = server.slice(server.indexOf('export async function saveGownFitting('), server.indexOf('export async function readGownFitting('));
+  assert.match(save, /gownFitJoin\(args\.tape \? \{ \.\.\.args\.tape \} : was\.tape, args\.pattern \?\? was\.pattern\)/, 'a tape save drops the allowances, or an allowance save drops the tape');
+  assert.match(save, /if \(readErr\)[\s\S]*?return false;/, 'a failed read of the old row is written over');
+  assert.match(save, /if \(args\.tape \|\| !had\) row\.fit_at/, 'an allowance change moves the date the tape was taken');
+  const actions = strip(read('app/_components/gown-maker/gown-actions.ts'));
+  assert.match(actions, /sanitizeGownOrderPattern\(pattern\)/, 'the order pattern is saved unchecked');
+  assert.match(actions, /if \(\(options\.status === 'ok' \|\| options\.status === 'none'\) && fit\.status !== 'unread'\)/, 'a failed read hands the blocks guessed allowances');
+  // Only the shop's branch builds the pattern; the bride's read carries none.
+  const design = actions.slice(actions.indexOf("if (op === 'design')"), actions.indexOf("if (op === 'fit')"));
+  assert.match(design, /if \(isShop\) \{[\s\S]*pattern = \{/);
+  assert.match(design, /let pattern: GownDesignRead\['pattern'\] = null;/);
+});
+
+test('9 · A7b: her hand work is checked before it is priced or stored, stored as sent, and read back honestly', () => {
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  const server = strip(read('lib/gown-maker.server.ts'));
+  const build = server.slice(server.indexOf('export async function buildGownDesign('), server.indexOf('export async function storeGownDesign('));
+  assert.match(build, /const hand = args\.hand === undefined \? null : sanitizeGownHand\(args\.hand\);\s*if \(hand && !hand\.ok\) return hand;/, 'hand work is not checked, or a bad one is repaired');
+  assert.ok(build.indexOf('sanitizeGownHand') < build.indexOf('gownDesignOf('), 'priced before it is checked');
+  assert.match(build, /gownDesignOf\([^)]*shopFabrics, handWork\)/, 'her estimate leaves out her hand work');
+  assert.match(server, /hand: args\.built\.hand,/, 'the hand work is not stored');
+  assert.match(server, /\.select\('design_id, vendor_profile_id, config, body, measures, quantities, hand, /, 'the hand work is not read');
+  const handOf = server.slice(server.indexOf('function handOf('), server.indexOf('export async function readStoredGownDesign('));
+  assert.match(handOf, /if \(v == null\) return \{ s: 'none' \};/);
+  assert.match(handOf, /return \{ s: 'unread' \};/, 'hand work that no longer checks out reads as none');
+  const actions = strip(read('app/_components/gown-maker/gown-actions.ts'));
+  assert.match(actions, /hand: i\.hand,/, 'send drops her hand work');
+  assert.match(actions, /stored\.data\.hand\.s === 'sent' \? stored\.data\.hand\.hand : null/, 'the shop’s cost lines leave out her hand work');
+  assert.match(actions, /hand: stored\.data\.hand,/);
+  const panel = strip(read('app/vendor-dashboard/clients/[eventId]/_components/gown-order-panel.tsx'));
+  assert.match(panel, /d\.hand\.s === 'sent' \? gownHandLine\(d\.hand\.hand\) : d\.hand\.s === 'none' \? GOWN_HAND_NOT_SENT : GOWN_HAND_UNREAD/, 'the order view does not say all three');
+});

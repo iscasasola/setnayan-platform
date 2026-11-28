@@ -15,6 +15,8 @@ import { revalidatePath, revalidateTag } from 'next/cache';
 
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { logQueryError } from '@/lib/supabase/error-detect';
+import { shownLabelsByStored } from '@/lib/table-auto-name.server';
 import { fetchOwnVendorProfile } from '@/lib/vendor-profile';
 import { fetchVendorRoomEvents } from '@/lib/vendor-room-access';
 import { advanceScheduleBlock } from '@/app/_actions/run-of-show';
@@ -211,7 +213,9 @@ export async function floorSeatByQr(
       return { ok: false, error: 'Could not look that up.' };
     }
     const row = (data ?? {}) as { found?: boolean; table_label?: string | null };
-    return { ok: true, found: row.found === true, tableLabel: row.table_label ?? null };
+    const shown = await shownLabelFor(eventId, row.table_label ?? null);
+    if (shown === undefined) return { ok: false, error: 'Could not look that up.' };
+    return { ok: true, found: row.found === true, tableLabel: shown };
   }
 
   const { data, error } = await supabase.rpc('coordinator_seat_by_guest_qr', {
@@ -235,5 +239,23 @@ export async function floorSeatByQr(
   }
 
   const row = (data ?? {}) as { found?: boolean; table_label?: string | null };
-  return { ok: true, found: row.found === true, tableLabel: row.table_label ?? null };
+  const shown = await shownLabelFor(eventId, row.table_label ?? null);
+  if (shown === undefined) return { ok: false, error: 'Could not look that up.' };
+  return { ok: true, found: row.found === true, tableLabel: shown };
+}
+
+/**
+ * 🪑 The RPC answers with the table's STORED label; the crew is told the name the table SHOWS, the one on its sign (the
+ * ONE reader, `tableDisplayNames` — lib/table-auto-name.ts). Read with the service role only AFTER the RPC has
+ * authorised this caller for this event, and only table names come back. `undefined` = the names could not be read:
+ * the lookup then fails, because a stored "Table 3" while the sign says "Reyes family" sends a guest the wrong way.
+ */
+async function shownLabelFor(eventId: string, stored: string | null): Promise<string | null | undefined> {
+  if (!stored) return stored;
+  try {
+    return (await shownLabelsByStored(createAdminClient(), eventId)).get(stored.trim()) ?? stored;
+  } catch (e) {
+    logQueryError('floor-command.shownLabelFor', e, { event_id: eventId }, 'graceful_degrade');
+    return undefined;
+  }
 }

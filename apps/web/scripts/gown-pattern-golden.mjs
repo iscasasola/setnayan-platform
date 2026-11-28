@@ -1,5 +1,5 @@
-// Regenerate: node apps/web/scripts/gown-pattern-golden.mjs <specs corpus>/prototypes/gown_maker_2026-11-27/gown_maker_v197.html > apps/web/lib/gown-pattern/prototype-v197.golden.json
-// Runs the prototype's OWN draftSkirt / draftBodice (gown_maker_v197.html) on fixed inputs and prints their outputs as
+// Regenerate: node apps/web/scripts/gown-pattern-golden.mjs <specs corpus>/prototypes/gown_maker_2026-11-27/gown_maker_v205.html > apps/web/lib/gown-pattern/prototype-v205.golden.json
+// Runs the prototype's OWN draftSkirt / draftBodice (gown_maker_v205.html) on fixed inputs and prints their outputs as
 // JSON, so the TypeScript port can be held to them. Input file is passed as argv[2]; nothing from it is imported.
 import { readFileSync } from 'node:fs';
 const html = readFileSync(process.argv[2], 'utf8');

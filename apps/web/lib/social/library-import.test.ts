@@ -132,3 +132,56 @@ test('impossible dates are refused, never rolled over to the next month', () => 
   assert.deepEqual(rows.map((r) => r.date), ['2026-03-02']);
   assert.match(errors[0] ?? '', /^Line 2: date "2026-02-30" is not a real YYYY-MM-DD date\./);
 });
+
+test('library v2: rows not ready to schedule and slot-sharing twins are skipped and listed, never queued', () => {
+  const header = 'Date,Time (Manila),Schedule now?,Slot,Caption (primary text)\n';
+  const { rows, errors, skipped } = libraryRowsFromCsv(
+    header +
+      '2026-12-01,08:00,Yes,8 AM,"English"\n' +
+      '2026-12-01,08:00,Yes,8 AM (Tagalog twin),"Tagalog"\n' +
+      '2026-12-01,14:00,No: filled in that week (see weekly-series/README.md),2 PM,"Weekly"\n' +
+      '2026-12-01,—,No: waiting on Ice. Holds no slot,Hold (no slot),"Held"\n' +
+      '2026-12-01,20:00,,8 PM,"No column value is ready"\n',
+  );
+  assert.deepEqual(errors, []);
+  assert.deepEqual(rows.map((r) => r.body), ['English', 'No column value is ready']);
+  assert.equal(skipped.length, 3);
+  assert.match(skipped[0] ?? '', /^Line 3: "8 AM \(Tagalog twin\)" shares its main post's slot/);
+  assert.match(skipped[1] ?? '', /^Line 4: not ready to schedule \(No: filled in that week/);
+  assert.match(skipped[2] ?? '', /^Line 5: not ready to schedule/);
+});
+
+test('images not hosted yet: --images-later leaves them off and says so, absolute URLs are kept', () => {
+  const { rows, errors, warnings } = libraryRowsFromCsv(fixture, { imagesLater: true });
+  assert.deepEqual(errors, []);
+  assert.deepEqual(rows.map((r) => [r.mediaUrl, r.mediaUrls]), [
+    [null, null],
+    [null, null],
+    ['https://example.org/pasko.jpg', null],
+    [null, null],
+  ]);
+  assert.match(warnings.join(' '), /2 post\(s\) have images that are not hosted yet/);
+});
+
+test('skipPastSlots: the migration leaves out slots that passed when it runs; off by default', () => {
+  const rows = parse(fixture).rows;
+  assert.doesNotMatch(libraryMigrationSql(rows, 'x.csv'), /now\(\)/);
+  const sql = libraryMigrationSql(rows, 'x.csv', { skipPastSlots: true });
+  assert.match(sql, /\) AS v\(source_ref, [^)]+\)\nWHERE v\.scheduled_for > now\(\);\n/);
+});
+
+test('a typed price in the caption, first comment or Door stops the import with its line (owner: "Remove the prices")', () => {
+  const header = 'Date,Time (Manila),Caption (primary text),Pinned first comment,Door\n';
+  const { rows, errors } = libraryRowsFromCsv(
+    header +
+      '2026-12-01,08:00,"Papic 150 is ₱99 and fits any booking.",,\n' +
+      '2026-12-01,20:00,"Clean caption.","Plans from PHP 1,990 a month",\n' +
+      '2026-12-02,08:00,"Clean caption two.",,setnayan.com/p?php1\n' +
+      '2026-12-02,20:00,"Plus, Pro and Ultra. Every peso in one budget.",,setnayan.com/plans\n',
+  );
+  assert.deepEqual(rows.map((r) => r.date + r.slot), ['2026-12-02evening']);
+  assert.equal(errors.length, 3);
+  assert.match(errors[0] ?? '', /^Line 2: the caption has a typed price \("₱99"\)/);
+  assert.match(errors[1] ?? '', /^Line 3: the first comment has a typed price \("PHP 1,990"\)/);
+  assert.match(errors[2] ?? '', /^Line 4: the Door has a typed price/);
+});

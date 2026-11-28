@@ -150,7 +150,7 @@ export function gownQuantitiesOf(g: GownConfig, m: GownMeasured): GownQuantities
   L.twoPiece = g.pieces !== 'one';
   if (L.twoPiece) M.zippers += 1;
   // Two decimals, as the quote reads them; counts stay whole.
-  for (const k of Object.keys(M) as (keyof typeof M)[]) if (typeof M[k] === 'number') (M as Record<string, number>)[k] = Math.round((M[k] as number) * 100) / 100;
+  for (const k of Object.keys(M) as (keyof typeof M)[]) if (typeof M[k] === 'number') (M as unknown as Record<string, number>)[k] = Math.round((M[k] as number) * 100) / 100;
   L.trimM = Math.round(L.trimM * 100) / 100;
   L.laceYardM = Math.round(L.laceYardM * 100) / 100;
   return q;

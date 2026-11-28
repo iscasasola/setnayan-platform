@@ -14,7 +14,7 @@ import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { GOWN_STRAPLESS, emptyGownHand, gownCapeKind, gownCapeNow, gownSleeveIsExtra, type GownBodyKey, type GownBodyVals, type GownConfig, type GownHand, type GownShapewear, type GownStockFabric } from '@/lib/gown-config';
+import { GOWN_STRAPLESS, emptyGownHand, gownCapeKind, gownCapeNow, gownSleeveIsExtra, type GownBodyKey, type GownBodyVals, type GownConfig, type GownHand, type GownQuantities, type GownShapewear, type GownStockFabric } from '@/lib/gown-config';
 import { createGownFrameGovernor, type GownFrameGovernor } from '@/lib/gown/frame-governor';
 import { GOWN_MANNEQUIN, GOWN_SCENES, gownSkyTexture, type GownSceneId } from '@/lib/gown/scenes';
 import { installGownToneMapping } from '@/lib/gown/tone';
@@ -49,6 +49,9 @@ import { gownStepMotion, stillGownMotion, type GownMotionKind } from '@/lib/gown
 import { gownClothDrive, gownStartTwirl, gownStepTurn, gownTurning, stillGownClothDrive, stillGownTurn, type GownTurnStyle, type GownTwirlStyle } from '@/lib/gown/motion/turn';
 import { buildEnvelope, czOf, emptyEnvelope, type GownEnvelope } from '@/lib/gown/dress/table';
 import { gownBodyMarks } from '@/lib/gown/stage/focus';
+import { gownMeasure, type GownBuilt } from '@/lib/gown/quote/measure';
+import { gownQuantitiesOf } from '@/lib/gown/quote/quantities';
+import type { GownLacePlan } from '@/lib/gown/parts/lace';
 import { gownLetFocusGo, gownStartFocus, gownStepFocus, idleGownFocus, type GownFocusAsk, type GownFocusStage } from './gown-focus';
 import { applyGownSheer, applyGownShine, gownClothColour, gownClothShader, gownSheerOpacity, tintGownSheen } from '@/lib/gown/fabric/shine';
 import { GOWN_FABRIC_PROPS, GOWN_GLITTER_TULLE, gownClothFeel, gownFabricType } from '@/lib/gown/fabric/types';
@@ -87,6 +90,8 @@ export type GownFigureProps = {
   autoTurn?: { speed: number; style: GownTurnStyle } | null;
   /** A9 (v204): a close-up of a part, measured on her live body; null = her whole figure. */
   focus?: GownFocusAsk | null;
+  /** A10: what this design needs (quantities only, never a price), measured after each full build of the gown. */
+  onQuantities?: (q: GownQuantities) => void;
 };
 /** Where a finger touches the gown, as the hand tools need it; `moved` = more than a tap's few pixels from where it went down. */
 export type GownHandInput = { tool: GownHandTool | null; onHit: (phase: 'down' | 'move' | 'up' | 'cancel', hit: GownHandHit | null, moved: boolean, ctx: GownHandCtx) => void };
@@ -197,7 +202,7 @@ type SurfaceHost = { su: GownSurfaceUniforms; maps: { weave: HTMLCanvasElement |
 const canvasOf = (w: number, h: number) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 /** The cloth's surface for this design: the fabric's weave, the lace and the cut-outs, painted into their maps (v195). */
 /** Returns the beads sewn on the lace (A7b), sampled from the lace as painted. */
-function paintSurface(cloth: SurfaceHost, rig: GownRig, design: GownConfig & Partial<GownHand>, kind: GownStockFabric): GownLaceBeadPt[] {
+function paintSurface(cloth: SurfaceHost, rig: GownRig, design: GownConfig & Partial<GownHand>, kind: GownStockFabric): { pts: GownLaceBeadPt[]; lace: GownLacePlan | null } {
   const { su, maps } = cloth;
   // The weave, at thread scale; it only shades.
   maps.weave ??= canvasOf(GOWN_WEAVE_PX, GOWN_WEAVE_PX);
@@ -240,7 +245,7 @@ function paintSurface(cloth: SurfaceHost, rig: GownRig, design: GownConfig & Par
     su.cutFill.value = cuts.fill;
   }
   su.cutOn.value = cuts ? 1 : 0;
-  return lace?.beadPts ?? [];
+  return { pts: lace?.beadPts ?? [], lace: lace ?? null };
 }
 
 /** Empty the Inside group: its geometries, and the per-piece materials (the shared ones stay). */
@@ -266,7 +271,7 @@ function beadMaterial(set: GownBeadSet, phone: boolean): THREE.Material {
   return new THREE.MeshStandardMaterial({ color: c, ...L[set.kind] });
 }
 
-function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides = false, turn = 0, design = null, inside = null, scene = 'studio', onSolved, hand = null, handWork = null, pose = 'a', motion = 'stop', twirl = null, autoTurn = null, focus = null }: { rig: GownRig; phone?: boolean; onBusy?: () => void } & GownFigureProps) {
+function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides = false, turn = 0, design = null, inside = null, scene = 'studio', onSolved, hand = null, handWork = null, pose = 'a', motion = 'stop', twirl = null, autoTurn = null, focus = null, onQuantities }: { rig: GownRig; phone?: boolean; onBusy?: () => void } & GownFigureProps) {
   const pivot = useRef<THREE.Group>(null);
   // A8: her pose, the walk's clock, her turn and the skirt's swing live across builds (the frame loop moves them).
   const S = useMemo(() => emptyGownPose(rig), [rig]);
@@ -425,6 +430,8 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
         writeDress(cloth.D, cloth.T, swing, { pleat: design.pleat, n: design.pleatN, amp: pleatAmp });
       };
       dress();
+      // A10: what was built, for the quote's measurements.
+      const qb: GownBuilt = { cape: null, overlay: null, flutter: [], sleeves: [], lace: null, beads: [], straps: null, flowers: null, illu: null };
       // Her arms ease out until hand and forearm clear the cloth; a moved arm shifts the underarm, so the bodice wraps again.
       if (gownClearArms(rig, S, cloth.T, heel)) dress();
       // The overlay rides the skirt as written; the cape and the veil keep outside it.
@@ -499,6 +506,14 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
       }
       // A floor-length cape hides while she kneels or sits.
       const hung = buildCape(rig, cloth.T, cloth.D, swing, cloth.K, design, { floorY: floor, pose: S.pose, pleatAmp: design.pleat !== 'none' ? pleatAmp : 0, sleeves: worn, robeSleeves: robeWorn, overlayOut: ovOut });
+      qb.cape = hung ? cloth.K : null;
+      qb.overlay = cloth.ov;
+      for (const sd of ['L', 'R'] as const) {
+        const geo = worn[sd] ? cloth.sleeves[sd].geometry : null;
+        (qb.flutter as (THREE.BufferGeometry | null)[]).push(geo);
+        (qb.sleeves as ({ pos: ArrayLike<number>; index: ArrayLike<number> } | null)[]).push(geo && geo.index ? { pos: (geo.attributes.position as THREE.BufferAttribute).array, index: geo.index.array } : null);
+      }
+      if (design.sleeve === 'ruffle' && cloth.ruffleBack.visible && cloth.ruffleBack.geometry.index) (qb.sleeves as ({ pos: ArrayLike<number>; index: ArrayLike<number> } | null)[]).push({ pos: (cloth.ruffleBack.geometry.attributes.position as THREE.BufferAttribute).array, index: cloth.ruffleBack.geometry.index.array });
       if (cloth.cape.parent !== root) root.add(cloth.cape);
       cloth.cape.visible = hung;
       if (!hung) for (const sd of ['L', 'R'] as const) cloth.robeSleeves[sd].visible = false;
@@ -549,6 +564,7 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
       }
       // v199: the straps, laid on her after the gown and any cape. Hidden while the Inside view draws the gown see-through.
       const strapsOn = buildGownStraps(rig, cloth.T, cloth.D, design, cloth.SP);
+      if (strapsOn) qb.straps = cloth.SP;
       if (cloth.straps.parent !== root) root.add(cloth.straps);
       cloth.straps.visible = strapsOn && !inside;
       if (strapsOn) {
@@ -572,6 +588,7 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
           if (px) cutAt = (ph, y) => { const X = Math.round((ph / (2 * Math.PI) + 0.5) * M), Y = Math.round((1 - (y - y0) / (y1 - y0)) * M); return X >= 0 && Y >= 0 && X <= M && Y <= M && px[(Y * GOWN_CUT_MAP + X) * 4]! > 100; };
         }
         const on = buildGownFlowers(rig, { T: cloth.T, D: cloth.D, cape: hung ? cloth.K : null, sleeves: sl }, design, cloth.F, cloth.flower.mesh.geometry, { phone, overlay: !!cloth.ov, cutAt });
+        if (on) qb.flowers = cloth.F;
         const fm = cloth.flower.mesh;
         (fm.instanceMatrix.array as Float32Array).set(cloth.F.mats.subarray(0, cloth.F.drawn * 16));
         fm.count = cloth.F.drawn;
@@ -641,7 +658,8 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
         // While she walks the painted surface rides the cloth; the beads follow it, laid where they were.
         for (const b of cloth.beadSets) placeGownBeadSet(b.set, cloth.D, b.im.instanceMatrix.array as Float32Array), (b.im.instanceMatrix.needsUpdate = true);
       } else {
-      const laceBeads = paintSurface(cloth, rig, work, ft.drawAs);
+      const painted = paintSurface(cloth, rig, work, ft.drawAs), laceBeads = painted.pts;
+      qb.lace = painted.lace;
       cloth.beadSets.length = 0;
       {
         // A7 (v202): every bead layer, laid again on each build (a fixed seed, so nothing reshuffles).
@@ -654,6 +672,7 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
           if (placeGownBeadSet(set, cloth.D, im.instanceMatrix.array as Float32Array)) { cloth.beadGroup.add(im); cloth.beadSets.push({ set, im }); }
           else { (im.material as THREE.Material).dispose(); im.dispose(); }
         }
+        qb.beads = sets;
         if (cloth.beadGroup.parent !== root) root.add(cloth.beadGroup);
         cloth.beadGroup.visible = !inside;
       }
@@ -671,6 +690,7 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
         cloth.ilU.ilMap.value = mp.tex;
         const ig = mp.canvas.getContext('2d'), il = buildGownIllu(rig, cloth.T, cloth.D, design, cloth.ilU, ig);
         if (il.zoneOn) mp.tex.needsUpdate = true;
+        qb.illu = il;
         const gownHex = gownClothColour(design.colour, design.colourHex), tulle = design.illuCol === 'match' ? gownHex : GOWN_ILLU_TULLE[design.illuCol];
         (cloth.ilU.ilBoneCol.value as unknown as THREE.Color).setHex(gownHex).lerp(new THREE.Color(1, 1, 1), GOWN_ILLU_DRAW.boneTint);
         (cloth.ilU.ilEdgeCol.value as unknown as THREE.Color).setHex(tulle);
@@ -683,6 +703,13 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
         if (cloth.ilMesh.parent !== root) root.add(cloth.ilMesh);
         // Shown only with the gown (not while the Inside view draws it see-through).
         cloth.ilMesh.visible = il.zoneOn && !inside;
+      }
+      // A10: what this design needs, measured on the gown just built (a full build only, never mid-move). Her hand-placed
+      // beads are left out here: they travel beside the design and the shop's quote adds them itself.
+      if (!lite && onQuantities) {
+        const m = gownMeasure(rig, cloth.T, cloth.D, design, qb);
+        for (const b of handWork?.handBeads ?? []) m.beads[b.kind] = Math.max(0, m.beads[b.kind] - 1);
+        onQuantities(gownQuantitiesOf(design, m));
       }
       width = Math.max(0.6, 2 * cloth.D.hemR); // the hem's width (a train runs back, not sideways)
       // Trims along the gown's own edges, a two-piece's band, a shaped waistline's seam, a small bow in the gown's cloth,

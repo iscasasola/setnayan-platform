@@ -20,7 +20,7 @@
  * until Save. Brides never see this screen.
  */
 import { useCallback, useId, useMemo, useRef, useState } from 'react';
-import { ImagePlus, Plus, RotateCw, Save, Scissors, ScanLine, Trash2, X } from 'lucide-react';
+import { Eye, EyeOff, ImagePlus, Plus, RotateCw, Save, Scissors, ScanLine, Trash2, X } from 'lucide-react';
 import { ActionButton, actionButtonClass } from '@/components/action-button';
 import { ChosenRow, FormRows, TypedRow } from '@/app/_components/form-row';
 import { Sheet } from '@/app/_components/sheet';
@@ -281,7 +281,7 @@ export function GownSwatchScan({
     >
       <div className="space-y-4 p-4" data-gown-scan="">
         <p className="text-sn-base text-ink/70">
-          Photograph each page flat, in daylight, the whole card in the frame. Every swatch is found on this phone; nothing is sent until you save.
+          Each page flat, in daylight, the whole card in frame. Nothing is sent until you save.
         </p>
         <FormRows>
           <TypedRow name="Book name" value={book} empty="Optional" maxLength={40} onKeep={(v) => setBook(v.trim().slice(0, 40))} data="gown-scan-book" />
@@ -313,44 +313,37 @@ export function GownSwatchScan({
         {anySwatch ? (
           <section className="space-y-3" data-gown-scan-review="">
             <h3 className="text-sn-sm font-semibold uppercase tracking-wide text-ink/70">Swatches</h3>
-            <datalist id={`${titleId}-styles`}>
-              {groups.map((g) => (
-                <option key={g.key} value={g.name} />
-              ))}
-            </datalist>
             <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {review.map((r) => {
                 const notes = gownScanNotes({ cut: r.lk.cut, lace: types.find((t) => t.id === (styles[r.style.toLowerCase()]?.typeId ?? types[0]?.id))?.family === 'laces', cm: r.cm, shade: r.lk.shade });
                 const saved = styles[r.style.toLowerCase()]?.saved === true;
                 return (
-                  <li key={r.b.uid} className={`sn-tile space-y-2 p-3 ${r.lb.skip ? 'opacity-50' : ''}`} data-gown-scan-swatch={r.b.uid}>
+                  <li key={r.b.uid} className={`sn-row space-y-2 p-3 ${r.lb.skip ? 'opacity-50' : ''}`} data-gown-scan-swatch={r.b.uid}>
                     <div className="flex items-center gap-3">
                       {/* eslint-disable-next-line @next/next/no-img-element -- a picture made in this browser, never uploaded until Save */}
-                      <img src={r.lk.thumb} alt={`Swatch ${r.n}, page ${pages.indexOf(r.p) + 1}`} width={56} height={56} className="h-14 w-14 flex-none rounded-sn-sm object-cover" />
+                      <img src={r.lk.thumb} alt={`Swatch ${formatCount(r.n)}, page ${formatCount(pages.indexOf(r.p) + 1)}`} width={56} height={56} className="h-14 w-14 flex-none rounded-sn-sm object-cover" />
                       <small className="text-sn-base text-ink/70">
-                        Page {pages.indexOf(r.p) + 1} · swatch {r.n} · {r.cm.toFixed(1)} cm{saved ? ' · Saved' : ''}
+                        Page {formatCount(pages.indexOf(r.p) + 1)} · swatch {formatCount(r.n)} · {r.cm.toFixed(1)} cm{saved ? ' · Saved' : ''}
                       </small>
                     </div>
-                    <input className="input-field" aria-label={`Colour name, swatch ${r.n}`} maxLength={30} value={r.colour} disabled={saved} onChange={(e) => setLabel(r.b.uid, { colName: e.target.value })} />
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        className="input-field"
-                        aria-label={`Style, swatch ${r.n}`}
-                        list={`${titleId}-styles`}
+                    <FormRows>
+                      <TypedRow name="Colour" value={r.colour} maxLength={30} readOnly={saved} onKeep={(v) => setLabel(r.b.uid, { colName: v.trim().slice(0, 30) || null })} data="gown-scan-colour" />
+                      <TypedRow
+                        name="Style"
+                        value={r.style}
                         maxLength={40}
-                        defaultValue={r.style}
-                        key={`${r.b.uid}-${r.style}`}
-                        disabled={r.lb.skip || saved}
-                        onBlur={(e) => { const v = e.target.value.replace(/\s+/g, ' ').trim().slice(0, 40); if (v && v !== r.style) setLabel(r.b.uid, { style: v, styleEdited: true }); }}
+                        readOnly={r.lb.skip || saved}
+                        onKeep={(v) => { const t = v.replace(/\s+/g, ' ').trim().slice(0, 40); if (t && t !== r.style) setLabel(r.b.uid, { style: t, styleEdited: true }); }}
+                        data="gown-scan-style"
                       />
-                      <input className="input-field" aria-label={`Code, swatch ${r.n}`} placeholder="Code" maxLength={24} value={r.lb.code} disabled={saved} onChange={(e) => setLabel(r.b.uid, { code: e.target.value })} />
-                    </div>
+                      <TypedRow name="Code" value={r.lb.code} empty="Optional" maxLength={24} readOnly={saved} onKeep={(v) => setLabel(r.b.uid, { code: v.trim().slice(0, 24) })} data="gown-scan-code" />
+                    </FormRows>
                     {notes.map((t) => (
                       <p key={t} className="text-sn-sm text-warn-700">
                         {t}
                       </p>
                     ))}
-                    <ActionButton tone="neutral" quiet icon={r.lb.skip ? Plus : X} label={r.lb.skip ? 'Put back' : 'Leave out'} name={`${r.lb.skip ? 'Put back' : 'Leave out'} swatch ${r.n}`} onClick={() => setLabel(r.b.uid, { skip: !r.lb.skip })} disabled={saved} />
+                    <ActionButton tone="neutral" quiet icon={r.lb.skip ? Eye : EyeOff} label={r.lb.skip ? 'Put back' : 'Leave out'} name={`${r.lb.skip ? 'Put back' : 'Leave out'} swatch ${formatCount(r.n)}`} onClick={() => setLabel(r.b.uid, { skip: !r.lb.skip })} disabled={saved} />
                   </li>
                 );
               })}
@@ -452,12 +445,12 @@ function ScanPage({ page, index, onChange }: { page: Page; index: number; onChan
 
   const n = boxes.length;
   return (
-    <section className="sn-frame space-y-2 p-3" data-gown-scan-page={index + 1}>
+    <section className="sn-frame space-y-2 p-3" data-gown-scan-page={index}>
       <div className="flex items-center justify-between gap-2">
         <span className="text-sn-base font-semibold text-ink">
-          Page {index + 1} · {n ? `${formatCount(n)} ${n === 1 ? 'swatch' : 'swatches'}` : 'no swatches found: add a box'}
+          Page {formatCount(index + 1)} · {n ? `${formatCount(n)} ${n === 1 ? 'swatch' : 'swatches'}` : 'no swatches found: add a box'}
         </span>
-        <ActionButton tone="danger" quiet iconOnly icon={Trash2} label="Remove page" name={`Remove page ${index + 1}`} onClick={remove} />
+        <ActionButton tone="danger" quiet iconOnly icon={Trash2} label="Remove page" name={`Remove page ${formatCount(index + 1)}`} onClick={remove} />
       </div>
       <div
         ref={ref}
@@ -468,7 +461,7 @@ function ScanPage({ page, index, onChange }: { page: Page; index: number; onChan
         onPointerUp={up}
         onPointerCancel={up}
         role="group"
-        aria-label={`Page ${index + 1} photo with a box on each swatch. Tap a box, then drag it or its corner.`}
+        aria-label={`Page ${formatCount(index + 1)} photo with a box on each swatch. Tap a box, then drag it or its corner.`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element -- the page photo as picked, held in this browser only */}
         <img src={page.url} alt="" draggable={false} className="pointer-events-none absolute inset-0 h-full w-full" />
@@ -481,14 +474,14 @@ function ScanPage({ page, index, onChange }: { page: Page; index: number; onChan
               className={`pointer-events-none absolute border-2 ${on ? 'border-mulberry-600' : 'border-ink'}`}
               style={{ left: `${(b.cx / W) * 100}%`, top: `${(b.cy / H) * 100}%`, width: `${(b.w / W) * 100}%`, height: `${(b.h / H) * 100}%`, transform: `translate(-50%, -50%) rotate(${pg.ang}rad)` }}
             >
-              <span className={`absolute left-1 top-1 grid h-5 min-w-5 place-items-center rounded-full px-1 text-sn-xs font-bold text-paper ${on ? 'bg-mulberry-600' : 'bg-ink'}`}>{i + 1}</span>
+              <span className={`absolute left-1 top-1 grid h-5 min-w-5 place-items-center rounded-full px-1 text-sn-xs font-bold text-paper ${on ? 'bg-mulberry-600' : 'bg-ink'}`}>{formatCount(i + 1)}</span>
               {on ? <span className="absolute -bottom-2 -right-2 h-4 w-4 rounded-full border-2 border-mulberry-600 bg-paper" /> : null}
             </div>
           );
         })}
       </div>
       <div className="flex flex-wrap gap-2">
-        <ActionButton tone="neutral" icon={Plus} label="Box" name={`Add a box on page ${index + 1}`} onClick={add} />
+        <ActionButton tone="neutral" icon={Plus} label="Box" name={`Add a box on page ${formatCount(index + 1)}`} onClick={add} />
         <ActionButton tone="neutral" icon={Scissors} label="Split in two" onClick={split} disabled={sel < 0} />
         <ActionButton tone="neutral" icon={X} label="Delete box" onClick={del} disabled={sel < 0} />
         <ActionButton tone="neutral" icon={RotateCw} label="Find again" onClick={again} />

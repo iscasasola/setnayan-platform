@@ -10,6 +10,7 @@ import {
   gownFindSwatches,
   gownGroupStyles,
   gownPatternCut,
+  gownReadingOrder,
   gownScanNotes,
   gownSwatchCm,
   gownSwatchTile,
@@ -20,7 +21,7 @@ type RGB = [number, number, number];
 type Sw = { cx: number; cy: number; w: number; h: number; rgb: RGB; weave?: number; stripe?: number };
 type PageSpec = {
   W: number; H: number; paper?: RGB; ang?: number; swatches: Sw[];
-  cast?: RGB; falloff?: number; shadow?: { x: number; k: number }; table?: { rgb: RGB; inset: number };
+  cast?: RGB; falloff?: number; shadow?: { x: number; k: number; slope?: number }; table?: { rgb: RGB; inset: number; leftOnly?: boolean };
 };
 
 function rng(seed: number) { let s = seed >>> 0; return () => ((s = (s * 1664525 + 1013904223) >>> 0) / 2 ** 32); }
@@ -32,7 +33,7 @@ function page(p: PageSpec, seed = 7): GownRgba {
     // page-local coordinates (the card is drawn straight, then the photo is tilted)
     const lx = (x - ccx) * cs + (y - ccy) * sn + ccx, ly = -(x - ccx) * sn + (y - ccy) * cs + ccy;
     let c: number[] = [...paper];
-    if (p.table && (lx < p.table.inset || ly < p.table.inset || lx > p.W - p.table.inset || ly > p.H - p.table.inset)) c = [...p.table.rgb];
+    if (p.table && (lx < p.table.inset || (!p.table.leftOnly && (ly < p.table.inset || lx > p.W - p.table.inset || ly > p.H - p.table.inset)))) c = [...p.table.rgb];
     else for (const s of p.swatches) {
       if (Math.abs(lx - s.cx) <= s.w / 2 && Math.abs(ly - s.cy) <= s.h / 2) {
         c = [...s.rgb];
@@ -43,7 +44,7 @@ function page(p: PageSpec, seed = 7): GownRgba {
     }
     let light = 1;
     if (p.falloff) light *= 1 - p.falloff * (((x - ccx) / p.W) ** 2 + ((y - ccy) / p.H) ** 2) * 2;
-    if (p.shadow && x > p.shadow.x) light *= p.shadow.k;
+    if (p.shadow && x > p.shadow.x + (p.shadow.slope ?? 0) * y) light *= p.shadow.k;
     const cast = p.cast ?? [1, 1, 1], i = (y * p.W + x) * 4;
     for (let j = 0; j < 3; j++) d[i + j] = c[j]! * light * cast[j]! + (r() - 0.5) * 3;
     d[i + 3] = 255;
@@ -85,9 +86,9 @@ test('a warm room and light falling off to the corners: the paper sets the white
   assert.equal(gownColourName(gownSwatchTile(img, pg, pg.boxes[1]!, 64).rgb), 'Blush');
 });
 
-test('a hard shadow across the page is followed, not taken for a swatch', () => {
-  const W = 420, H = 320, sw = grid([RED, NAVY, GOLD, EMERALD], 2, W, 90, 60, 50);
-  const pg = gownFindSwatches(page({ W, H, swatches: sw, shadow: { x: 210, k: 0.72 } }));
+test('a hard, slanted shadow across the page is followed: its edge is paper, not cloth', () => {
+  const W = 420, H = 320, sw = grid([RED, NAVY, GOLD, EMERALD], 2, W, 90, 90, 55);
+  const pg = gownFindSwatches(page({ W, H, swatches: sw, shadow: { x: 210, k: 0.6, slope: 0.15 } }));
   assert.equal(pg.boxes.length, 4);
 });
 
@@ -99,8 +100,8 @@ test('two swatches glued edge to edge are cut apart at the seam', () => {
   near(pg.boxes[0]!.cx, 160, 8, 'left swatch'); near(pg.boxes[1]!.cx, 260, 8, 'right swatch');
 });
 
-test('white cloth on white card is found by its weave', () => {
-  const W = 420, H = 300, sw: Sw[] = [{ cx: 140, cy: 150, w: 110, h: 110, rgb: [246, 245, 241], weave: 22 }, { cx: 290, cy: 150, w: 110, h: 110, rgb: RED }];
+test('white cloth on white card is found by its weave (a big photo, so the weave averages away in the small copy)', () => {
+  const W = 840, H = 600, sw: Sw[] = [{ cx: 280, cy: 300, w: 220, h: 220, rgb: [244, 243, 240], weave: 20 }, { cx: 580, cy: 300, w: 220, h: 220, rgb: RED }];
   const pg = gownFindSwatches(page({ W, H, swatches: sw }));
   assert.equal(pg.boxes.length, 2);
 });
@@ -111,6 +112,9 @@ test('a table around the card is not a swatch, and the card’s own width sets t
   const pg = gownFindSwatches(img);
   assert.equal(pg.boxes.length, 3);
   near(pg.cardW, W - 2 * inset, 20, 'card width in the photo');
+  // the table on one side only is a solid block the size of a swatch: still not one
+  const side = gownFindSwatches(page({ W, H, swatches: [{ cx: 220, cy: 170, w: 90, h: 90, rgb: RED }, { cx: 350, cy: 170, w: 90, h: 90, rgb: NAVY }], table: { rgb: [120, 82, 50], inset: 120, leftOnly: true } }));
+  assert.deepEqual(side.boxes.map((b) => Math.round(b.cx / 10)), [22, 35]);
   // a 21 cm card: a 90 px swatch's inner 84 % is about 90 × 0.84 × 21 / 380 cm
   const tile = gownSwatchTile(img, pg, pg.boxes[0]!, 32);
   near(gownSwatchCm(tile.side, pg.cardW, 21), (90 * 0.84 * 21) / (W - 2 * inset), 0.5, 'true size in cm');
@@ -150,4 +154,11 @@ test('notes: a cut pattern, small lace, and a shadowed swatch are pointed out', 
   assert.equal(gownScanNotes({ cut: false, lace: false, cm: 5, shade: 1 }).length, 0);
   assert.equal(gownScanNotes({ cut: false, lace: true, cm: 5, shade: 1 }).length, 1);
   assert.equal(gownScanNotes({ cut: true, lace: false, cm: 20, shade: 1.4 }).length, 2);
+});
+
+test('reading order: rows top to bottom, then left to right along the tilt, whatever order they were found in', () => {
+  const a = (3 * Math.PI) / 180, cs = Math.cos(a), sn = Math.sin(a);
+  const at = (u: number, v: number, id: number) => ({ cx: u * cs - v * sn, cy: u * sn + v * cs, w: 80, h: 80, id });
+  const boxes = [at(300, 220, 6), at(100, 100, 1), at(300, 100, 3), at(200, 220, 5), at(200, 100, 2), at(100, 220, 4)];
+  assert.deepEqual(gownReadingOrder(boxes, a).map((b) => (b as unknown as { id: number }).id), [1, 2, 3, 4, 5, 6]);
 });

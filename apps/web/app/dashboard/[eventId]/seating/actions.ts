@@ -1317,8 +1317,10 @@ export async function unassignGuest(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
-  /* 🧑‍🤝‍🧑 `also` = the +1s who leave the seat with this guest (seat plan R3) — one delete, so the pair never splits. */
-  const also = String(formData.get('also') ?? '').split(',').filter(Boolean).slice(0, 8);
+  /* 🧑‍🤝‍🧑 `also` = the +1s who leave the seat with this guest (seat plan R3) — one delete, so the pair never splits. A list
+     past the cap (`SEAT_WRITE_MAX`, one guest + the rest also) is REFUSED, never truncated. */
+  const also = String(formData.get('also') ?? '').split(',').filter(Boolean);
+  if (also.length > SEAT_WRITE_MAX - 1) throw new Error('Too many guests in one write');
   if (also.some((id) => !UUID_RE.test(id))) throw new Error('Invalid input');
   const everyone = [guestId, ...also];
   // 🔒 #17: a locked seat is never taken off by a hand (Clear all keeps its own `keep_locked` rule).

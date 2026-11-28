@@ -173,4 +173,11 @@ test('8 · no guest dropped past the cap: writes are packed to SEAT_WRITE_MAX an
   // The Undo goes back in writes of at most SEAT_WRITE_MAX too.
   const back = ED.slice(ED.indexOf('const putBack = '), ED.indexOf('const undoMove = '));
   assert.match(back, /for \(let i = 0; i < all\.length; i \+= SEAT_WRITE_MAX\) \{\s*const \[first, \.\.\.rest\] = all\.slice\(i, i \+ SEAT_WRITE_MAX\);/, 'an Undo writes past the cap');
+  // …and the guests who had no seat before (12 unseated → Fix all → Undo) leave in writes of at most SEAT_WRITE_MAX.
+  assert.match(back, /for \(let i = 0; i < off\.length; i \+= SEAT_WRITE_MAX\) \{\s*const \[head, \.\.\.tail\] = off\.slice\(i, i \+ SEAT_WRITE_MAX\);\s*o\.unseat\(head!, true, tail\);/, 'an Undo unseats past the cap in one write');
+  assert.doesNotMatch(back, /o\.unseat\(off\[0\]!, true, off\.slice\(1\)\)/, 'an Undo unseats past the cap in one write');
+  // unassignGuest refuses an `also` list past the cap, never cuts it.
+  const un = ACT.slice(ACT.indexOf('export async function unassignGuest'));
+  assert.doesNotMatch(un.slice(0, 2000), /\.filter\(Boolean\)\.slice\(0, \d+\)/, 'unassignGuest cuts the also list silently');
+  assert.match(un, /if \(also\.length > SEAT_WRITE_MAX - 1\) throw new Error\(/, 'unassignGuest takes a list past the cap');
 });

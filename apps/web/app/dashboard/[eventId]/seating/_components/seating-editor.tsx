@@ -7405,7 +7405,11 @@ export function SeatingEditor({
         for (const b of rest) if (b.seat === null) o.seatGuestHere(t, b.id);
       }
     }
-    if (off.length) o.unseat(off[0]!, true, off.slice(1));
+    // The guests who had no seat leave in writes of at most SEAT_WRITE_MAX too (the server refuses more).
+    for (let i = 0; i < off.length; i += SEAT_WRITE_MAX) {
+      const [head, ...tail] = off.slice(i, i + SEAT_WRITE_MAX);
+      o.unseat(head!, true, tail);
+    }
   };
   /* ↩ An Undo restores EVERYONE the move moved (`seatMoveUndo`): a swap is swapped back AND the +1 who came along goes
      back to their chair (#7906 follow-up, walk 18 Nov — the swap's Undo used to stop at the two). */

@@ -214,6 +214,17 @@ export function gownIlluMetres(B: GownRig, D: GownDress, I: GownIllu): number {
   return Math.max(0.3, Math.ceil((((A * S * S) / 1.4) * 1.3 + 0.15) * 10) / 10);
 }
 
+/**
+ * The illusion tulle's line in the quote, or null when no tulle is cut (v202 `quoteLines`). Only an illusion bodice, an
+ * illusion back or a plunge filled with mesh buys tulle: a scalloped top edge paints the same zone but is cut from the
+ * gown fabric, so on its own it adds no tulle line.
+ */
+export function gownIlluTulleLine(d: Pick<GownConfig, 'illu' | 'illuCol' | 'back' | 'illuBack' | 'neck' | 'plungeFill'>): string | null {
+  const parts = [d.illu !== 'none' ? 'bodice' : '', gownIlluBackOn(d) ? 'back' : '', gownPlungeMeshOn(d) ? 'plunge mesh' : ''].filter(Boolean);
+  if (!parts.length) return null;
+  return `Illusion tulle, ${{ nude: 'nude', ivory: 'ivory', match: 'gown colour' }[d.illuCol]} (${parts.join(' and ')})`;
+}
+
 /** The design in words, for the designer (v198 `illuSummary`). */
 export function gownIlluSummary(B: GownRig, L: GownNeckLandmarks | null, d: GownIlluDesignFull): string[] {
   const out: string[] = [], col = { nude: 'nude', ivory: 'ivory', match: 'gown-colour' }[d.illuCol], cups = { sweetheart: 'sweetheart', straight: 'straight-across', plunge: 'plunge' }[d.illuBase];

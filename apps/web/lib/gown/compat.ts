@@ -244,6 +244,15 @@ export const GOWN_RULES: readonly GownRule[] = [
     apply: (g) => { g.laceAt = 'hem'; }, note: 'This is border lace, so it is placed along the hem. Neckline edge works too.',
   },
   // v199 `strapSet`: straps, the scalloped edge and the plunge to the waist. Their lines go in the Undo line.
+  // v201: a plunge to the waist and butterfly sleeves both want the shoulder; the one chosen last wins.
+  {
+    id: 'plunge-drops-butterfly', on: ['neck'], when: (g) => g.neck === 'plungewaist' && g.sleeve === 'butterfly', apply: (g) => { g.sleeve = 'none'; },
+    note: 'Sleeves are now none: a plunge to the waist hangs from straps, and butterfly sleeves stand where they would go.', tell: true,
+  },
+  {
+    id: 'butterfly-ends-plunge', on: ['sleeve', 'sil'], when: (g, k) => ((k === 'sleeve' && g.sleeve === 'butterfly') || (k === 'sil' && g.sil === 'terno')) && g.neck === 'plungewaist',
+    apply: (g) => { g.neck = 'bateau'; g.neckT = null; g.straps = 'none'; }, note: 'Butterfly sleeves sit on the shoulder, so the plunge is now a bateau neckline.', tell: true,
+  },
   {
     id: 'plunge-needs-straps', on: ['neck'], when: (g) => g.neck === 'plungewaist',
     apply: (g) => { g.plungeFill = 'mesh'; if (g.illu === 'neck') g.illu = 'none'; if (!GOWN_STRAP_OK.plungewaist!.includes(g.straps)) g.straps = 'spaghetti'; },

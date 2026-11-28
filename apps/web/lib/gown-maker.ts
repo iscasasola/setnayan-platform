@@ -36,11 +36,18 @@ import {
   GOWN_FLOWER_TYPES,
   GOWN_OVERLAYS,
   GOWN_SLEEVE_EXTRA,
+  GOWN_PARTS,
+  GOWN_PART_FADE,
+  GOWN_PATTERNS,
   gownCapeKind,
   gownCapeNow,
   type GownBeadKind,
   type GownConfig,
   type GownHand,
+  type GownPart,
+  type GownPartColour,
+  type GownPartEdge,
+  type GownPartId,
   type GownQuantities,
   type GownSilhouette,
 } from './gown-config';
@@ -50,6 +57,7 @@ import { formatCount } from './format-number';
 import { GOWN_SEAM_ALLOW_DEFAULT, gownSeamAllowClean, type GownSeamAllow } from './gown-pattern/allowance';
 import type { GownPaper } from './gown-pattern/words';
 import { parseClientRef } from './r2-client-ref';
+import { gownColourName } from './gown-swatch/scan';
 
 /** The suppliers the Attire Maker is suggested for (owner Q3, 2026-11-27: custom gown makers only for now). */
 export const GOWN_KINDS: ReadonlySet<string> = new Set(['bridal_gown_custom']);
@@ -438,7 +446,25 @@ type DesignPick = Pick<
   | 'sil' | 'fabric' | 'fabricRef' | 'accentFabric' | 'accentFabricRef' | 'lining' | 'closure' | 'sleeve' | 'tex' | 'train' | 'darts'
   | 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten'
   | 'accentHex' | 'overlay' | 'flowerType' | 'flowerSize' | 'flowerCol'
->;
+> &
+  // v209/v210 (A's contract #8525): a design stored before them has neither, and adds nothing.
+  Partial<Pick<GownConfig, 'hemEdge' | 'parts' | 'colour' | 'colourHex'>>;
+
+// ── v210 · colour and fabric per piece: words (pzPieceSay, pzColName, PZ_EDGE_SAY) ─────────────────────────────────
+const PART_WORD = Object.fromEntries(GOWN_PARTS.map((p) => [p.id, p.label.toLowerCase()])) as Record<GownPartId, string>;
+/** v210 `PZ_EDGE_SAY`: the edge a border band is sewn to, as a sentence says it. */
+export const GOWN_EDGE_SAY: Record<GownPartEdge, string> = { neck: 'neckline', waist: 'waist', hem: 'hem', end: 'sleeve ends', edge: 'cape edge' };
+const rgbOf = (hex: string): [number, number, number] => [parseInt(hex.slice(1, 3), 16), parseInt(hex.slice(3, 5), 16), parseInt(hex.slice(5, 7), 16)];
+const HEX6 = /^#[0-9a-f]{6}$/i;
+/** A piece's colour in words: the gown's own colour, the accent, or the nearest bridal colour name (lower case). */
+export function gownPartColourWord(c: GownPartColour | null, design: DesignPick): string {
+  const main = () => (design.colourHex && HEX6.test(design.colourHex) ? gownColourName(rgbOf(design.colourHex)).toLowerCase() : (GOWN_COLOURS.find((x) => x.id === design.colour)?.label.toLowerCase() ?? 'the gown’s colour'));
+  if (c == null || c === 'main') return main();
+  if (c === 'accent') return design.accentHex && HEX6.test(design.accentHex) ? gownColourName(rgbOf(design.accentHex)).toLowerCase() : 'the accent colour';
+  return HEX6.test(c) ? gownColourName(rgbOf(c)).toLowerCase() : main();
+}
+const patternWord = (kind: string, fabrics: ReadonlyMap<string, GownShopFabric>) =>
+  kind.startsWith('lib:') ? (fabrics.get(kind.slice(4))?.name ?? 'printed') : (GOWN_PATTERNS.find((p) => p.id === kind)?.label.toLowerCase() ?? kind);
 
 const round2 = (x: number) => Math.round(x * 100) / 100;
 const BEAD_LABEL: Record<GownBeadKind, string> = { crystal: 'Crystals', pearl: 'Pearls', seed: 'Seed beads', sequin: 'Sequins' };
@@ -501,8 +527,28 @@ export function gownDesignOf(
   const shopFab = design.fabricRef ? fabrics.get(design.fabricRef) : undefined;
   if (shopFab) supply('Fabric', `shopfab:${design.fabricRef}`, `${shopFab.name} (outer)`, m.outerM, 'm', shopFab.pricePerMetreCentavos);
   else supply('Fabric', `fab_${design.fabric}`, `${fabricLabel(design.fabric)} (outer)`, m.outerM, 'm');
+  // v210 (pzOuter, pzFabLine): a piece cut from another bolt is its own fabric line; `outerM` is already the gown's
+  // remainder (A's contract takes each piece's `eqM` out of it), so nothing is counted twice. A patterned piece is
+  // priced on its pattern line, a shop's own fabric at its own price, else the stock fabric's line.
+  const pieces = q.pieces ?? [];
+  const pieceOf = (part: GownPartId) => pieces.find((x) => x.part === part);
+  const partOf = (part: GownPartId): GownPart | undefined => (design.parts ?? []).find((x) => x.part === part);
+  for (const pc of pieces) {
+    const e = partOf(pc.part);
+    const own = pc.fabricRef ? fabrics.get(pc.fabricRef) : undefined;
+    const fabName = own ? own.name : fabricLabel(pc.fabric);
+    const say = `the ${PART_WORD[pc.part]}, ${gownPartColourWord(e?.colour ?? null, design)}`;
+    if (pc.patternKey) {
+      const pat = e?.pattern ? `${patternWord(e.pattern.kind, fabrics)} ` : '';
+      const label = `${pat}${fabName.toLowerCase()} (${say})`;
+      supply('Fabric', pc.patternKey, label[0]!.toUpperCase() + label.slice(1), pc.m, 'm');
+    } else if (own) supply('Fabric', `shopfab:${pc.fabricRef}`, `${own.name} (${say})`, pc.m, 'm', own.pricePerMetreCentavos);
+    else supply('Fabric', `fab_${pc.fabric}`, `${fabName} (${say})`, pc.m, 'm');
+  }
   const accentFab = design.accentFabricRef ? fabrics.get(design.accentFabricRef) : undefined;
-  if (accentFab) supply('Bodice', `shopfab:${design.accentFabricRef}`, `${accentFab.name} (accents: sleeves)`, m.accentM, 'm', accentFab.pricePerMetreCentavos);
+  if (pieceOf('sleeves')) {
+    // v210: the sleeves are their own piece (above): no accent line for them.
+  } else if (accentFab) supply('Bodice', `shopfab:${design.accentFabricRef}`, `${accentFab.name} (accents: sleeves)`, m.accentM, 'm', accentFab.pricePerMetreCentavos);
   else {
     const ak = design.accentFabric ?? design.fabric;
     supply('Bodice', `fab_${ak}`, `${fabricLabel(ak)} (accents: sleeves)`, m.accentM, 'm');
@@ -534,7 +580,9 @@ export function gownDesignOf(
       supply('Details', `cape_${ck}`, `Cape (${capeName.toLowerCase()}): cutting, sewing and finishing`, 1, 'pc');
     }
     const fab = gownCapeNow(design).fab;
-    if (fab === 'gown') {
+    if (pieceOf('cape')) {
+      // v210: the cape is cut from its own piece's fabric (its fabric line is above).
+    } else if (fab === 'gown') {
       const ak = design.accentFabric ?? design.fabric;
       supply('Details', `fab_${ak}`, `${fabricLabel(ak)} (${nm}, accent colour)`, m.capeM, 'm');
     } else supply('Details', `fab_${fab}`, `${fabricLabel(fab)} (${nm})`, m.capeM, 'm');
@@ -565,9 +613,21 @@ export function gownDesignOf(
   supply('Skirt', 'horsehair', 'Horsehair braid', m.horsehairM, 'm');
   // v209 lnQuote: a scalloped or handkerchief hem is shaped by hand (her edge rides in the design as `hemEdge`, A's
   // contract; a design from before v209 has none and adds nothing).
-  const hemEdge = (design as { hemEdge?: unknown }).hemEdge;
+  const hemEdge = design.hemEdge;
   if (hemEdge === 'scallop') supply('Skirt', 'hem_scallop', 'Scalloped hem: shaping and finishing', 1, 'pc');
   if (hemEdge === 'hanky') supply('Skirt', 'hem_hanky', 'Handkerchief hem: shaping and finishing', 1, 'pc');
+  // v210 pzQuote: each dip-dyed piece is dyed (one line each); each border band is cut and applied, and its own
+  // fabric measured along the edge on her body. Unpriced until the designer prices them.
+  const fades = (design.parts ?? []).filter((e) => e.fade && GOWN_PART_FADE.includes(e.part));
+  if (L.dyeFade > 0 && fades.length === L.dyeFade) {
+    for (const e of fades) supply('Details', 'dye_fade', `Dip-dye / colour fade: dyeing (the ${PART_WORD[e.part]}, ${gownPartColourWord(e.colour, design)} to ${gownPartColourWord(e.fade!.colour, design)})`, 1, 'pc');
+  } else supply('Details', 'dye_fade', 'Dip-dye / colour fade: dyeing', L.dyeFade ?? 0, 'pc');
+  for (const b of q.borders ?? []) {
+    const e = partOf(b.part);
+    const edge = GOWN_EDGE_SAY[b.edge];
+    supply('Details', 'border', `Border band: cutting and applying (the ${PART_WORD[b.part]}, ${formatCount(b.cm, 1)} cm on the ${edge})`, 1, 'pc');
+    supply('Details', `fab_${b.fabric}`, `${fabricLabel(b.fabric)} (border band on the ${edge}, ${gownPartColourWord(e?.border?.colour ?? null, design)})`, b.m, 'm');
+  }
   // Inside.
   if (design.lining !== 'none') supply('Inside', `lin_${design.lining}`, `${design.lining[0]!.toUpperCase()}${design.lining.slice(1)} lining`, m.liningM, 'm');
   supply('Inside', 'net', 'Petticoat tulle', m.netM, 'm');

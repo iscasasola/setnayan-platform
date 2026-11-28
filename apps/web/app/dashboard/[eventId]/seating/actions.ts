@@ -59,6 +59,7 @@ import { parseRestoreSeats, parseSeatScope, restorableSeats, seatsThatStay, seat
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { placedByAuto, placedByCouple } from '@/lib/seat-why';
+import { SEAT_WRITE_MAX } from '@/lib/seat-check';
 import { SEAT_LOCKED_REFUSAL, lockedSeatGuests, tablesHoldLockedSeats, tablesWithLockedSeats, type SeatLockedRefusal } from '@/lib/seat-lock.server';
 
 function clampPct(v: unknown): number | null {
@@ -355,11 +356,13 @@ export async function assignGuest(formData: FormData) {
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
   /* 🧑‍🤝‍🧑 A UNIT IN ONE WRITE (seat plan R3): `along` = the +1s who move with this guest, each to their own chair at the
-     same table — one upsert, so a failure never leaves the pair split. */
+     same table — one upsert, so a failure never leaves the pair split. A list past the cap (`SEAT_WRITE_MAX`, one guest
+     + the rest along) is REFUSED, never truncated: a cut list would drop a guest the client counts as seated. */
   const along: Array<{ guest_id: string; seat_number: number }> = [];
   try {
     const raw = JSON.parse(String(formData.get('along') ?? '[]')) as unknown;
-    for (const x of Array.isArray(raw) ? raw.slice(0, 8) : []) {
+    if (Array.isArray(raw) && raw.length > SEAT_WRITE_MAX - 1) throw new Error('Too many guests in one write');
+    for (const x of Array.isArray(raw) ? raw : []) {
       const g = (x as { guest_id?: unknown }).guest_id;
       const n = (x as { seat_number?: unknown }).seat_number;
       if (typeof g === 'string' && UUID_RE.test(g) && g !== guestId && Number.isInteger(n) && (n as number) >= 0 && (n as number) < 64)

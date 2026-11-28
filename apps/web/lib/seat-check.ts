@@ -85,3 +85,63 @@ export function suggestionFor(run: DryRun | null, tableId: string, freeChairs: n
   if (!run) return null;
   return run.suggestions.find((s) => s.tableId === tableId && s.guestIds.length > 0 && s.guestIds.length <= freeChairs) ?? null;
 }
+
+/**
+ * 🪑 ONE WRITE CARRIES AT MOST `SEAT_WRITE_MAX` GUESTS: `assignGuest` takes one guest plus up to `SEAT_WRITE_MAX - 1`
+ * `along`, and REFUSES (throws) a longer list — it never truncates one silently. "Fix all" can send a whole table's
+ * groups at once, so a table's guests are packed into writes of at most this many, a group never split unless it is
+ * bigger than one write on its own. 🔒 lib/the-seat-check-is-honest.test.ts
+ */
+export const SEAT_WRITE_MAX = 9;
+
+export type SeatWrite<T> = { tableId: string; seats: T[] };
+
+export function packSeatWrites<T>(
+  byTable: ReadonlyMap<string, ReadonlyArray<ReadonlyArray<T>>>,
+  max: number = SEAT_WRITE_MAX,
+): SeatWrite<T>[] {
+  const writes: SeatWrite<T>[] = [];
+  for (const [tableId, groups] of byTable) {
+    let cur: T[] = [];
+    const flush = () => {
+      if (cur.length) writes.push({ tableId, seats: cur });
+      cur = [];
+    };
+    for (const g of groups) {
+      if (cur.length + g.length > max) flush();
+      for (let i = 0; i < g.length; i += max) {
+        const piece = g.slice(i, i + max);
+        if (cur.length + piece.length > max) flush();
+        cur.push(...piece);
+      }
+    }
+    flush();
+  }
+  return writes;
+}
+
+/**
+ * After every write has answered: exactly which guests LANDED (and at which table first) and which did not. The line,
+ * its Undo and its count are built from `landed` only — a failed write is never counted as seated.
+ */
+export function settleSeatWrites<T extends { guestId: string }>(
+  writes: ReadonlyArray<SeatWrite<T>>,
+  ok: ReadonlyArray<boolean | undefined>,
+): { landed: string[]; missed: string[]; firstTableId: string | null } {
+  const landed: string[] = [];
+  const missed: string[] = [];
+  let firstTableId: string | null = null;
+  writes.forEach((w, i) => {
+    const ids = w.seats.map((s) => s.guestId);
+    if (ok[i] === true) {
+      landed.push(...ids);
+      firstTableId ??= w.tableId;
+    } else missed.push(...ids);
+  });
+  return { landed, missed, firstTableId };
+}
+
+/** "Fix all"'s line — the count is what LANDED, never what was planned. */
+export function fixAllWords(landed: number, fmt: (n: number) => string = String): string {
+  return `Fixed · ${fmt(landed)} ${landed === 1 ? 'guest' : 'guests'} seated`;
+}

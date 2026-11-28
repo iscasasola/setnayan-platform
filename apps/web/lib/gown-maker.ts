@@ -24,14 +24,17 @@ import {
   GOWN_CAPES,
   GOWN_SILHOUETTES,
   GOWN_STOCK_FABRICS,
+  GOWN_BEAD_KINDS,
   gownCapeNow,
   type GownBeadKind,
   type GownConfig,
+  type GownHand,
   type GownQuantities,
   type GownSilhouette,
 } from './gown-config';
 import { GOWN_ADD_ONS, type GownAddOnKey } from './gown-add-ons';
 import { formatCentavosPhp } from './php';
+import { formatCount } from './format-number';
 import { GOWN_SEAM_ALLOW_DEFAULT, gownSeamAllowClean, type GownSeamAllow } from './gown-pattern/allowance';
 import type { GownPaper } from './gown-pattern/words';
 import { parseClientRef } from './r2-client-ref';
@@ -389,12 +392,35 @@ const fabricLabel = (id: string) => GOWN_STOCK_FABRICS.find((f) => f.id === id)?
  * Price one design with the shop's own list (server only). `addOnsChosen` are the add-ons the bride picked; one the
  * shop does not offer is left out (the server refuses it before this is called).
  */
+// ── A7b · what the bride painted by hand (beads and lace motifs on the 3D gown; the contract is GownHand) ─────────────
+
+/** Her hand work counted: beads by kind, all beads, and lace motifs. Empty or not sent → zeros. */
+export function gownHandCounts(hand: GownHand | null): { beads: Record<GownBeadKind, number>; total: number; lace: number } {
+  const beads = Object.fromEntries(GOWN_BEAD_KINDS.map((k) => [k, 0])) as Record<GownBeadKind, number>;
+  for (const b of hand?.handBeads ?? []) beads[b.kind] += 1;
+  return { beads, total: hand?.handBeads.length ?? 0, lace: hand?.handLace.length ?? 0 };
+}
+const gownBeadsPlus = (a: Record<GownBeadKind, number>, b: Record<GownBeadKind, number>) =>
+  Object.fromEntries(GOWN_BEAD_KINDS.map((k) => [k, (a[k] ?? 0) + (b[k] ?? 0)])) as Record<GownBeadKind, number>;
+
+/** The order view's line about her hand work (coordinator wording, 28 Nov). Null when there was none. */
+export function gownHandLine(hand: GownHand | null): string | null {
+  const c = gownHandCounts(hand);
+  if (!c.total && !c.lace) return null;
+  return `Painted by hand: ${formatCount(c.total)} bead${c.total === 1 ? '' : 's'}, ${formatCount(c.lace)} lace motif${c.lace === 1 ? '' : 's'}. Added to the designer’s count.`;
+}
+/** When her design was sent without its hand work (an older maker, or a send before A7b). */
+export const GOWN_HAND_NOT_SENT = 'Hand work wasn’t sent with this design.';
+/** When the stored hand work no longer checks out: said, never shown as none. */
+export const GOWN_HAND_UNREAD = 'Couldn’t read her hand work on this design.';
+
 export function gownDesignOf(
   options: GownShopOptions,
   design: DesignPick,
   q: GownQuantities,
   addOnsChosen: readonly GownAddOnKey[],
   fabrics: ReadonlyMap<string, GownShopFabric> = new Map(),
+  hand: GownHand | null = null,
 ): GownDesignPriced {
   const P = options.prices;
   const extras = options.mode === 'extras';
@@ -402,8 +428,10 @@ export function gownDesignOf(
   const chosen = GOWN_ADD_ONS.map((a) => a.id).filter((id) => addOnsChosen.includes(id) && options.addOns[id].state !== 'none');
   const covered = new Set(chosen.flatMap((id) => ADD_ON_COVERS[id] ?? []));
   const lines: GownQuoteLine[] = [];
-  const m = q.materials;
-  const L = q.labour;
+  // A7b: what she painted by hand joins the bead and lace items she would otherwise have had counted for her.
+  const hc = gownHandCounts(hand);
+  const m = hc.total || hc.lace ? { ...q.materials, beads: gownBeadsPlus(q.materials.beads, hc.beads), laceMotifs: q.materials.laceMotifs + hc.lace } : q.materials;
+  const L = hc.total || hc.lace ? { ...q.labour, beads: q.labour.beads + hc.total, laceMotifs: q.labour.laceMotifs + hc.lace } : q.labour;
 
   const supply = (group: GownQuoteGroup, key: string, label: string, qty: number, unit: GownPriceUnit, unitOverride?: number | null) => {
     if (!(qty > 0) || covered.has(key)) return;

@@ -30,6 +30,8 @@ import {
   isGownKind,
   sanitizeGownShopOptions,
   gownShopSeamAllow,
+  gownHandCounts,
+  gownHandLine,
   gownFitSplit,
   gownFitJoin,
   sanitizeGownOrderPattern,
@@ -40,7 +42,7 @@ import {
   gownSeamAllowIsUsual,
   type GownShopOptions,
 } from './gown-maker';
-import { emptyGownQuantities, startingGownConfig, type GownQuantities } from './gown-config';
+import { emptyGownHand, emptyGownQuantities, startingGownConfig, type GownQuantities } from './gown-config';
 
 // Amounts in tests are arbitrary round centavo figures chosen to make the arithmetic visible; they are not prices.
 const C = (n: number) => n * 100;
@@ -365,4 +367,33 @@ test('7i · B11 (v205): one order’s pattern rides in the designer’s own fitt
   assert.equal(gownPatternState({ seamAllow: null, netPattern: true }), 'Off: net pattern');
   assert.equal(gownPatternState({ seamAllow: { seam: 1, hem: 2, zip: 2, neck: 1 }, netPattern: false }), 'On · set for this order');
   assert.equal(gownPatternState(GOWN_ORDER_PATTERN_DEFAULT), "On · your shop's allowances");
+});
+
+test('7j · A7b: what she painted by hand joins the existing bead and lace items (and their hours), unpriced stays unpriced', () => {
+  const pearl = { ph: 1, y: 1, kind: 'pearl' as const, col: 'ivory', mm: 4, spin: 0 };
+  const crystal = { ...pearl, kind: 'crystal' as const };
+  const motif = { u: 0.2, y: 0.5, rot: 0, id: 'chantilly' as never, cm: 6 };
+  const hand = { ...emptyGownHand(), handBeads: [...Array(150).fill(pearl), ...Array(50).fill(crystal)], handLace: [motif, motif, motif] };
+  assert.deepEqual(gownHandCounts(hand), { beads: { ...gownHandCounts(null).beads, pearl: 150, crystal: 50 }, total: 200, lace: 3 });
+  const q = qty((x) => { x.materials.beads.pearl = 100; x.materials.laceMotifs = 2; x.labour.beads = 100; x.labour.laceMotifs = 2; });
+  const o = shop({ prices: { bead_pearl: C(10) } });
+  const plain = gownDesignOf(o, design(), q, []).forShop.lines;
+  const painted = gownDesignOf(o, design(), q, [], new Map(), hand).forShop.lines;
+  const line = (ls: typeof plain, k: string) => ls.find((l) => l.key === k);
+  assert.equal(line(plain, 'bead_pearl')!.qty, 1);
+  assert.equal(line(painted, 'bead_pearl')!.qty, 2.5, 'her 150 painted pearls did not join the pearl line');
+  assert.equal(line(painted, 'bead_pearl')!.amountCentavos, Math.round(2.5 * C(10)));
+  assert.equal(line(painted, 'bead_crystal')!.qty, 0.5, 'a painted crystal made no crystal line');
+  assert.equal(line(painted, 'bead_crystal')!.amountCentavos, null, 'an unpriced item was given an amount');
+  assert.equal(line(painted, 'lace_motif')!.qty, 5);
+  assert.ok(line(painted, 'h_beads')!.qty > line(plain, 'h_beads')!.qty, 'her hand beads added no beading hours');
+  assert.ok(line(painted, 'h_lace')!.qty > line(plain, 'h_lace')!.qty, 'her lace motifs added no appliqué hours');
+  // Nothing painted, or not sent: the quote is exactly what it was.
+  assert.deepEqual(gownDesignOf(o, design(), q, [], new Map(), emptyGownHand()).forShop.lines, plain);
+  assert.equal(q.materials.beads.pearl, 100, 'the stored quantities were changed in place');
+  // The order view's line (coordinator's wording).
+  assert.equal(gownHandLine(hand), 'Painted by hand: 200 beads, 3 lace motifs. Added to the designer’s count.');
+  assert.equal(gownHandLine({ ...emptyGownHand(), handBeads: [pearl] }), 'Painted by hand: 1 bead, 0 lace motifs. Added to the designer’s count.');
+  assert.equal(gownHandLine(emptyGownHand()), null);
+  assert.equal(gownHandLine(null), null);
 });

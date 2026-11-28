@@ -28,7 +28,7 @@ import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { formatCentavosPhp } from '@/lib/php';
 import { formatCount } from '@/lib/format-number';
-import { GOWN_ORDER_PATTERN_DEFAULT, gownDesignWords, gownPatternState, type GownOrderPattern } from '@/lib/gown-maker';
+import { GOWN_HAND_NOT_SENT, GOWN_HAND_UNREAD, GOWN_ORDER_PATTERN_DEFAULT, gownDesignWords, gownHandLine, gownPatternState, type GownOrderPattern } from '@/lib/gown-maker';
 import { GOWN_BODY_KEYS, GOWN_MATTERS, GOWN_MEASURES, GOWN_STEP_LABELS, gownMeasuresNeeded, type GownBody, type GownConfig, type GownMeasureKey, type GownMeasures } from '@/lib/gown-config';
 import { GOWN_DRAFT_ESTIMATE, GOWN_DRAFT_FROM_MEMORY, GOWN_DRAFT_TOLERANCE_CM } from '@/lib/gown-pattern/draft-constants';
 import type { GownDesignRead } from '@/app/_components/gown-maker/gown-actions';
@@ -97,6 +97,8 @@ function Order({ d, config, body, threadId, who }: { d: GownDesignRead; config: 
   const needed = useMemo(() => gownMeasuresNeeded(config), [config]);
   const measures: GownMeasures = d.measures ?? {};
   const braLine = `Bra size: ${body.bra ? `${body.bra.us} US · ${body.bra.eu} EU${body.bra.exact ? '' : ' (estimate)'}` : 'Couldn’t read it from her numbers'}`;
+  // A7b: her hand work, said once — counted into the bead and lace lines, not sent, or couldn't be read.
+  const handLine = d.hand.s === 'sent' ? gownHandLine(d.hand.hand) : d.hand.s === 'none' ? GOWN_HAND_NOT_SENT : GOWN_HAND_UNREAD;
   const mattersLine = body.matters.length ? `What matters to her: ${body.matters.map((m) => GOWN_MATTERS.find((x) => x.id === m)?.label ?? m).join(', ')}` : null;
 
   const saveTape = async () => {
@@ -120,6 +122,11 @@ function Order({ d, config, body, threadId, who }: { d: GownDesignRead; config: 
           {d.estimateCentavos != null ? `She saw an estimate of ${formatCentavosPhp(d.estimateCentavos)}.` : 'She asked for a quote.'}
           {d.replaced ? ' She sent a newer design after this one.' : ''}
         </p>
+        {handLine ? (
+          <p className="text-sn-base text-ink/70" data-gown-order-hand={d.hand.s}>
+            {handLine}
+          </p>
+        ) : null}
       </section>
 
       {d.forShop ? (

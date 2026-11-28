@@ -7,7 +7,7 @@ import { GownFabricTypesSurface } from '@/app/admin/studio/_surfaces/gown-fabric
 import { GownOrderPanel } from '@/app/vendor-dashboard/clients/[eventId]/_components/gown-order-panel';
 import { gownDesignOf } from '@/lib/gown-maker';
 import { ScanLab } from './scan-lab';
-import { emptyGownQuantities, startingGownBody, startingGownConfig } from '@/lib/gown-config';
+import { GOWN_LACES, emptyGownHand, emptyGownQuantities, startingGownBody, startingGownConfig, type GownLace } from '@/lib/gown-config';
 import { gownCutContext } from '@/lib/gown-pattern/cutting-list';
 
 const P = 100; // ₱1 in centavos — SAMPLE amounts only
@@ -71,6 +71,17 @@ export default function Lab({ view }: { view: string }) {
             measures: { frontLen: { cm: 38.1, from: 'estimate' }, shoulderApex: { cm: 22.2, from: 'estimate' }, apexApex: { cm: 14, from: 'typed' }, acrossBack: { cm: 31.3, from: 'estimate' }, acrossChest: { cm: 29.2, from: 'estimate' }, shoulderLen: { cm: 11.5, from: 'typed' }, sideLen: { cm: 18.3, from: 'estimate' }, neck: { cm: 33.6, from: 'typed' }, waistHip: { cm: 21, from: 'estimate' }, waistFloor: { cm: 98, from: 'typed' }, napeWaist: { cm: 40, from: 'estimate' }, armhole: { cm: 42, from: 'typed' }, upperArm: { cm: 29, from: 'typed' }, elbow: { cm: 25, from: 'estimate' }, wrist: { cm: 15.5, from: 'typed' }, armBent: { cm: 59, from: 'typed' } },
             estimateCentavos: priced.forBride.estimateCentavos,
             forShop: priced.forShop,
+            hand:
+              view === 'order-net'
+                ? { s: 'none' }
+                : {
+                    s: 'sent',
+                    hand: {
+                      ...emptyGownHand(),
+                      handBeads: Array.from({ length: 36 }, (_, i) => ({ ph: (i / 36) * 6, y: 1.2, kind: 'pearl' as const, col: 'ivory', mm: 4, spin: 0 })),
+                      handLace: Array.from({ length: 4 }, (_, i) => ({ u: i / 4, y: 0.8, rot: 0, id: GOWN_LACES.find((l) => l.id !== 'none')!.id as Exclude<GownLace, 'none'>, cm: 6 })),
+                    },
+                  },
             tape: { tape: { waistHip: 21.5 }, fitAt: '2026-11-27T10:00:00Z' },
             pattern: {
               shop: { seam: 1.5, hem: 2.5, zip: 2, neck: 1 },

@@ -87,3 +87,17 @@ test('a body type at the same weight (v210 est-go): a pear at 155 cm and 52 kg',
   assert.equal(hg.bust - hg.underbust, 14, 'an hourglass keeps two more cm between bust and underbust');
   assert.ok(gownShapeAtWeight(v, 'apple', 52).waist > hg.waist, 'an apple carries it at the waist');
 });
+
+test('the design steps on a fresh gown: only what this gown has (each "hidden" rule read the right way round)', () => {
+  const s0 = startingGownConfig(), ids = (g: GownConfig) => gownDesignSteps(g).map((s) => s.id);
+  assert.deepEqual(ids(s0), [
+    'palette', 'sil', 'fabric', 'colour', 'sleeve', 'cape', 'pieces', 'waist', 'neck', 'straps', 'topEdge', 'illu', 'boneShow', 'back', 'illuBack', 'closure', 'hem', 'train',
+    'veilStyle', 'veil', 'overlay', 'bow', 'lace', 'flowers', 'bead', 'pearls', 'shape', 'lining', 'boning',
+  ]);
+  const plunge = gownChoose(s0, { key: 'neck', value: 'plungewaist' }).config;
+  assert.ok(ids(plunge).includes('plungeFill'), 'a plunge to the waist asks what fills it');
+  const veiled = gownChoose(s0, { key: 'veil', value: 'chapel' }).config;
+  assert.ok(ids(veiled).includes('blusher') && ids(veiled).includes('veilFab'), 'a classic veil asks for its blusher and its tulle');
+  const off = gownChoose(gownChoose(s0, { key: 'neck', value: 'off' }).config, { key: 'sleeve', value: 'long' }).config;
+  assert.ok(ids(off).includes('sleeveDet'), 'off the shoulder: sewn or detachable sleeves');
+});

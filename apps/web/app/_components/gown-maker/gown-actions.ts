@@ -109,7 +109,14 @@ export type GownOpenRead = {
   fabricGroups: Record<GownFabricSlot, GownFabricGroup[]>;
 };
 
-export type GownDesignPattern = { shop: GownSeamAllow; paper: GownPaper; order: GownOrderPattern; cut: GownCutContext | null };
+export type GownDesignPattern = {
+  shop: GownSeamAllow;
+  paper: GownPaper;
+  order: GownOrderPattern;
+  cut: GownCutContext | null;
+  /** B9 (v209): her lines in cm, drawn on the blocks and printed on the sheet; `unread` is said, never drawn as none. */
+  lines: StoredGownDesign['edges'];
+};
 
 export type GownDesignRead = {
   ok: true;
@@ -141,7 +148,7 @@ export type GownDesignRead = {
 export type GownActionInput =
   | { op: 'design'; threadId: string; messageId: string }
   | { op: 'open'; threadId: string }
-  | { op: 'send'; threadId: string; config: unknown; body: unknown; measures: unknown; quantities: unknown; addOns: unknown; hand?: unknown }
+  | { op: 'send'; threadId: string; config: unknown; body: unknown; measures: unknown; quantities: unknown; addOns: unknown; hand?: unknown; lines?: unknown }
   | { op: 'invite'; threadId: string }
   | { op: 'status'; threadId: string }
   | { op: 'fit'; threadId: string; designId: string; tape?: unknown; pattern?: unknown }
@@ -330,6 +337,7 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
           paper: gownShopPaper(shopOptions),
           order: fit.status === 'ok' ? fit.data.pattern : { ...GOWN_ORDER_PATTERN_DEFAULT },
           cut: c ? gownCutContext(stored.data.config as GownConfig, q, outerName) : null,
+          lines: stored.data.edges,
         };
       }
     }
@@ -384,7 +392,7 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
   const admin = createAdminClient();
 
   if (op === 'send') {
-    const i = input as { config: unknown; body: unknown; measures: unknown; quantities: unknown; addOns: unknown; hand?: unknown };
+    const i = input as { config: unknown; body: unknown; measures: unknown; quantities: unknown; addOns: unknown; hand?: unknown; lines?: unknown };
     const built = await buildGownDesign(supabase, admin, {
       vendorProfileId: t.vendor_profile_id,
       eventId: t.event_id,
@@ -394,6 +402,7 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
       quantities: i.quantities,
       addOns: i.addOns,
       hand: i.hand,
+      lines: i.lines,
     });
     if (!built.ok) return fail(built.reason === 'unread' ? GOWN_DESIGN_UNREADABLE : GOWN_REFUSAL_WORDS[built.reason]);
     const id = await storeGownDesign(admin, { threadId, vendorProfileId: t.vendor_profile_id, built: built.built, userId: user.id });

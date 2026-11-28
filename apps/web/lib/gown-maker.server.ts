@@ -11,6 +11,7 @@ import 'server-only';
  */
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { sanitizeGownOrderLines, type GownOrderLines } from '@/lib/gown-pattern/lines';
 import { publicUrlForStoredAsset } from '@/lib/uploads';
 import { readShopSpecialToolOpen } from '@/lib/paid-widget-open.server';
 import {
@@ -199,6 +200,8 @@ export type BuiltGownDesign = {
   hand: GownHand | null;
   /** B8: the add-ons she picked, each one the shop offered at Send (ids only, no money). */
   addOns: GownAddOnKey[];
+  /** B9 (v209): her neckline, back, armholes and hem in cm (the maker's `lines`), measured at Send. Null when none were sent. */
+  edges: GownOrderLines | null;
   forBride: GownDesignForBride;
 };
 
@@ -209,7 +212,7 @@ export type BuiltGownDesign = {
 export async function buildGownDesign(
   supabase: SupabaseClient,
   admin: SupabaseClient,
-  args: { vendorProfileId: string; eventId: string; config: unknown; body: unknown; measures: unknown; quantities: unknown; addOns: unknown; hand?: unknown },
+  args: { vendorProfileId: string; eventId: string; config: unknown; body: unknown; measures: unknown; quantities: unknown; addOns: unknown; hand?: unknown; lines?: unknown },
 ): Promise<{ ok: true; built: BuiltGownDesign } | { ok: false; reason: GownRefusal | 'unread' }> {
   const [options, allowed, fabrics, looks, types] = await Promise.all([
     readShopGownMaker(admin, args.vendorProfileId),
@@ -231,6 +234,9 @@ export async function buildGownDesign(
   // Her hand work: refused (never repaired) when anything is off; absent stays absent, so the designer is told.
   const hand = args.hand === undefined ? null : sanitizeGownHand(args.hand);
   if (hand && !hand.ok) return hand;
+  // B9: her lines, refused (never repaired) when anything is off; absent stays absent, so the blocks draw without them.
+  const lines = args.lines === undefined || args.lines === null ? null : sanitizeGownOrderLines(args.lines);
+  if (args.lines != null && !lines) return { ok: false, reason: 'out_of_range' };
   // Her add-ons: ids only, each one the shop offers. Anything else refuses (never silently dropped).
   const picked = Array.isArray(args.addOns) ? args.addOns : [];
   const offered = new Set<string>(gownAddOnsOffered(options.data));
@@ -238,7 +244,7 @@ export async function buildGownDesign(
   const shopFabrics = new Map<string, GownShopFabric>(fabrics.data.map((f) => [f.id, { name: f.name, pricePerMetreCentavos: f.pricePerMetreCentavos }]));
   const handWork = hand && hand.ok ? hand.hand : null;
   const priced = gownDesignOf(options.data, config.config, quantities.quantities, picked as GownAddOnKey[], shopFabrics, handWork);
-  return { ok: true, built: { config: config.config, body: body.body, measures: measures.measures, quantities: quantities.quantities, hand: handWork, addOns: gownAddOnsInOrder(picked as string[]), forBride: priced.forBride } };
+  return { ok: true, built: { config: config.config, body: body.body, measures: measures.measures, quantities: quantities.quantities, hand: handWork, addOns: gownAddOnsInOrder(picked as string[]), edges: lines, forBride: priced.forBride } };
 }
 
 /** Stores a checked design once (service role). No cost line is stored: only quantities and the one estimate. */
@@ -257,6 +263,7 @@ export async function storeGownDesign(
       quantities: args.built.quantities,
       hand: args.built.hand,
       add_ons: args.built.addOns,
+      edges_cm: args.built.edges,
       estimate_centavos: args.built.forBride.estimateCentavos,
       created_by: args.userId,
     })
@@ -286,6 +293,8 @@ export type StoredGownDesign = {
   hand: { s: 'sent'; hand: GownHand } | { s: 'none' } | { s: 'unread' };
   /** B8: the add-ons she picked (ids). An id that is no longer on the list makes the design "couldn't read". */
   addOns: GownAddOnKey[];
+  /** B9: her edges in cm (`none` when none were sent; `unread` when the stored value no longer checks out). */
+  edges: { s: 'sent'; edges: GownOrderLines } | { s: 'none' } | { s: 'unread' };
   estimateCentavos: number | null;
   createdAt: string;
 };
@@ -299,11 +308,20 @@ function handOf(v: unknown, designId: string): StoredGownDesign['hand'] {
   return { s: 'unread' };
 }
 
+/** The stored lines: null is "not sent"; a value that no longer checks out is "couldn't read", never none. */
+function edgesOf(v: unknown, designId: string): StoredGownDesign['edges'] {
+  if (v == null) return { s: 'none' };
+  const l = sanitizeGownOrderLines(v);
+  if (l) return { s: 'sent', edges: l };
+  logQueryError('readStoredGownDesign.edges', { message: 'shape' }, { design_id: designId }, 'graceful_degrade');
+  return { s: 'unread' };
+}
+
 /** One stored design, on the reader's own session (RLS: the chat's hosts and that shop). */
 export async function readStoredGownDesign(supabase: SupabaseClient, args: { threadId: string; designId: string }): Promise<Read<StoredGownDesign>> {
   const { data, error } = await supabase
     .from('gown_designs')
-    .select('design_id, vendor_profile_id, config, body, measures, quantities, hand, add_ons, estimate_centavos, created_at')
+    .select('design_id, vendor_profile_id, config, body, measures, quantities, hand, add_ons, edges_cm, estimate_centavos, created_at')
     .eq('design_id', args.designId)
     .eq('thread_id', args.threadId)
     .maybeSingle();
@@ -312,7 +330,7 @@ export async function readStoredGownDesign(supabase: SupabaseClient, args: { thr
     return { status: 'unread' };
   }
   if (!data) return { status: 'none' };
-  type Row = { design_id: string; vendor_profile_id: string; config: unknown; body: unknown; measures: unknown; quantities: unknown; hand: unknown; add_ons: unknown; estimate_centavos: number | string | null; created_at: string };
+  type Row = { design_id: string; vendor_profile_id: string; config: unknown; body: unknown; measures: unknown; quantities: unknown; hand: unknown; add_ons: unknown; edges_cm: unknown; estimate_centavos: number | string | null; created_at: string };
   const r = data as Row;
   const body = r.body == null ? null : sanitizeGownBody(r.body);
   const measures = sanitizeGownMeasures(r.measures ?? {});
@@ -333,6 +351,7 @@ export async function readStoredGownDesign(supabase: SupabaseClient, args: { thr
       quantities: quantities && quantities.ok ? quantities.quantities : null,
       hand: handOf(r.hand, args.designId),
       addOns,
+      edges: edgesOf(r.edges_cm, args.designId),
       estimateCentavos: r.estimate_centavos == null ? null : Number(r.estimate_centavos),
       createdAt: r.created_at,
     },

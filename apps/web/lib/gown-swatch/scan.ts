@@ -340,7 +340,7 @@ export function gownFindSwatches(img: GownRgba): GownScanPage {
     const j = i * 4, gg = D[j + 1]! / P[1]!;
     return D[j + 1]! >= a * 0.92 && D[j + 1]! <= b * 1.04 && Math.abs(D[j]! / P[0]! / gg - 1) < 0.07 && Math.abs(D[j + 2]! / P[2]! / gg - 1) < 0.12;
   };
-  let m = new Uint8Array(n);
+  let m: Uint8Array = new Uint8Array(n);
   for (let i = 0; i < n; i++) m[i] = (de[i]! > T && !edgePaper(i)) || tex[i]! > Tt ? 1 : 0;
   const r1 = Math.max(1, Math.round(w * 0.005)), r2 = Math.max(2, Math.round(w * 0.012)), r0 = Math.max(1, Math.round(w * 0.008));
   const mo = morph(morph(m, w, h, r0, false), w, h, r0, true);
@@ -574,4 +574,33 @@ export function gownScanNotes(it: { cut: boolean; lace: boolean; cm: number; sha
   if (it.cut || (it.lace && it.cm < 8)) out.push(GOWN_SCAN_NOTE.cut);
   if (it.shade > 1.25) out.push(GOWN_SCAN_NOTE.shade);
   return out;
+}
+
+// ── Save (sbSave → the shop's own `fabric_save`) ─────────────────────────────────────────────────────────────────
+
+/** One scanned style → the fabric row `fabric_save` checks (`sanitizeGownShopFabric`), the same as Add fabric. */
+export function gownScanFabricRow(s: {
+  name: string;
+  typeId: string;
+  lace: boolean;
+  codes: string[];
+  colours: { name: string; hex: string }[];
+  priceCentavos: number | null;
+  thumbKey: string | null;
+  tileKey: string | null;
+}) {
+  const code = s.codes.map((c) => c.replace(/\s+/g, ' ').trim()).find(Boolean) ?? null;
+  return {
+    id: null,
+    kind: s.lace ? ('lace' as const) : ('fabric' as const),
+    name: s.name.replace(/\s+/g, ' ').trim().slice(0, 40),
+    code: code ? code.slice(0, 40) : null,
+    typeId: s.typeId,
+    colours: s.colours.map((c) => ({ name: c.name.replace(/\s+/g, ' ').trim().slice(0, 30) || null, hex: c.hex.toLowerCase() })),
+    pricePerMetreCentavos: s.priceCentavos,
+    tune: {},
+    thumbKey: s.thumbKey,
+    tileKey: s.tileKey,
+    active: true,
+  };
 }

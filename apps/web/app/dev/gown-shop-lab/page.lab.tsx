@@ -10,6 +10,7 @@
  *   ?view=looks      Looks: one look; tap it, or Add a look
  *   ?view=stock-empty  no fabrics yet
  *   ?view=order      a supplier's client › Details: her gown design, her numbers, your tape, the cutting blocks (B7)
+ *   ?view=scan     Fabrics and lace › Scan a swatch book (step B13), opened on a sample page drawn in the browser
  *   ?view=types      Admin › Studio › Fabric types (step B5b): a checked, an unchecked and a hidden type
  *
  * Every amount here is a SAMPLE; prices come from each designer's own list, never from this lab.

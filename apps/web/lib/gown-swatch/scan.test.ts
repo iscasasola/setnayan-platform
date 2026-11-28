@@ -5,12 +5,14 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { gownShopMediaPrefix, sanitizeGownShopFabric } from '../gown-maker';
 import {
   gownColourName,
   gownFindSwatches,
   gownGroupStyles,
   gownPatternCut,
   gownReadingOrder,
+  gownScanFabricRow,
   gownScanNotes,
   gownSwatchCm,
   gownSwatchTile,
@@ -161,4 +163,23 @@ test('reading order: rows top to bottom, then left to right along the tilt, what
   const at = (u: number, v: number, id: number) => ({ cx: u * cs - v * sn, cy: u * sn + v * cs, w: 80, h: 80, id });
   const boxes = [at(300, 220, 6), at(100, 100, 1), at(300, 100, 3), at(200, 220, 5), at(200, 100, 2), at(100, 220, 4)];
   assert.deepEqual(gownReadingOrder(boxes, a).map((b) => (b as unknown as { id: number }).id), [1, 2, 3, 4, 5, 6]);
+});
+
+test('save: each style is one fabric row the shop’s own check accepts — its swatches are its colours, no price unless she typed one', () => {
+  const shop = '11111111-2222-4333-8444-555555555555', ref = `r2://setnayan-media/${gownShopMediaPrefix(shop)}fabrics/swatch-1.webp`;
+  const row = gownScanFabricRow({
+    name: '  Mikado   spring ', typeId: 'mikado', lace: false, codes: ['', ' MK-02 '],
+    colours: [{ name: 'Ivory', hex: '#F0E8D6' }, { name: ' ', hex: '#6e1c2d' }], priceCentavos: null, thumbKey: ref, tileKey: null,
+  });
+  const ok = sanitizeGownShopFabric(row, { vendorProfileId: shop, typeIds: new Set(['mikado']) });
+  assert.ok(ok.ok, ok.ok ? '' : ok.problem);
+  if (!ok.ok) return;
+  assert.equal(ok.fabric.name, 'Mikado spring');
+  assert.equal(ok.fabric.code, 'MK-02');
+  assert.equal(ok.fabric.kind, 'fabric');
+  assert.equal(ok.fabric.pricePerMetreCentavos, null);
+  assert.deepEqual(ok.fabric.colours, [{ name: 'Ivory', hex: '#f0e8d6' }, { name: null, hex: '#6e1c2d' }]);
+  // another shop's photo is refused, never saved
+  const other = gownScanFabricRow({ name: 'X', typeId: 'mikado', lace: true, codes: [], colours: [], priceCentavos: null, thumbKey: 'r2://setnayan-media/vendors/someone-else/gown/fabrics/a.webp', tileKey: null });
+  assert.equal(sanitizeGownShopFabric(other, { vendorProfileId: shop, typeIds: new Set(['mikado']) }).ok, false);
 });

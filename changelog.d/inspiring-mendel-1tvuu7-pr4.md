@@ -34,4 +34,14 @@ Plan: specs `SEAT-PLAN-COMPLETE-2026-11-27.md` § 5 hard rules ("locked seats an
   - It found a real split. When a full room left a guest and their +1 without one table that fit both, the seater put them on two tables, and only reported it as "split".
   - Now `seatChunk` gives a party of two or more the nearest table with room for all of them. When no table has room, none of them is seated and they are shown as "didn't fit" (§ 5: units stay whole). A guest on their own still takes any chair left.
 
+- **Review fixes (the controller's review, 28 Nov): a locked table never changes, and a party never splits.**
+  - Lock and fill keeps every seat at a locked table (`seatsToClear` / `seatsThatStay`), not only the pinned ones, and it checks the plan before anything comes off.
+  - The live re-seat never takes a guest off a locked, Spare or Sweetheart table.
+  - The keep-apart repair in `solveSeatPlan` moves a whole party (the guest who brought them plus everyone they brought), or nobody.
+  - A +1 whose guest is already seated sits at that table, or is shown as not fitting; never somewhere else.
+  - The independent check gained rule 7: a newly seated +1 sits at their guest's table or linked run, except a non-role +1 of a guest at a VIP table under the host's "nearest" pick.
+  - "Seat them" now runs the check before writing.
+  - Auto arrange writes the layout (positions, unplaced, booths) only after the check passes, so "Nothing changed" is true.
+  - Test: `lib/a-locked-table-never-changes.test.ts` (5). Sabotages seen red: the party repair reduced to one guest; the +1 allowed to spill.
+
 SPEC IMPACT: None (builds § 5 as planned).

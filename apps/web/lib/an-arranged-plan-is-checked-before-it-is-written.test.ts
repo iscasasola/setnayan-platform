@@ -67,7 +67,7 @@ test('the shipped seater passes the checker on rooms with closed tables and remo
 
 test('auto arrange checks the plan before it writes, and a refusal changes nothing', () => {
   const src = stripComments(readFileSync(join(process.cwd(), 'app/dashboard/[eventId]/seating/actions.ts'), 'utf8'));
-  const check = src.indexOf('checkAutoSeatPlan({ tables: arrangedTables');
+  const check = src.indexOf('const planBreaks = checkAutoSeatPlan({');
   const write = src.indexOf("from('event_seat_assignments').insert(\n      rows.map(", check);
   assert.ok(check > 0 && write > check, 'the check runs before the auto-arrange write');
   const refusal = src.slice(check, write);

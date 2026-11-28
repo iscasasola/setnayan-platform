@@ -209,4 +209,7 @@ test('a name field tapped away from never renames: only a real change writes', (
   assert.equal(renameWrites(hostT, 'Barkada', 'Barkada'), 'none');
   assert.equal(renameWrites(hostT, '', 'Barkada'), 'auto', 'an empty Save returns a host name to auto');
   assert.equal(renameWrites(hostT, 'College friends', 'Barkada'), 'host');
+  // Exact, not case-folded: changing only the capitals is a rename the host meant.
+  assert.equal(renameWrites({ table_label: 'reyes family', label_is_auto: false }, 'Reyes Family', 'reyes family'), 'host');
+  assert.equal(renameWrites(autoT, 'reyes family', 'Reyes family'), 'host', 'an auto name re-typed in other capitals becomes the host\'s');
 });

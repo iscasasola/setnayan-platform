@@ -251,6 +251,7 @@ export function renameWrites(
 ): 'none' | 'auto' | 'host' {
   const t = typed.trim();
   if (!t) return table.label_is_auto === false ? 'auto' : 'none';
-  if (key(t) === key(table.table_label ?? '') || key(t) === key(shown ?? '')) return 'none';
+  // Exact (after trimming): "reyes family" → "Reyes Family" is a real rename the host meant.
+  if (t === (table.table_label ?? '').trim() || t === (shown ?? '').trim()) return 'none';
   return 'host';
 }

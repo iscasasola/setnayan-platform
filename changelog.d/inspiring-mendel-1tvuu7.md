@@ -47,6 +47,11 @@ The owner's ruling R6 (27 Nov): "the majority of who is seated there if it has a
   - Pair i of one unit takes pair i of the other's chairs, all in one transaction. A locked seat, a guest with no seat or uneven sides refuse the whole trade, and nothing moves.
   - `swapSeats` calls it when a trade has +1s; a plain one-to-one swap keeps `swap_seat_assignments`.
   - Test: `tests/db/a-unit-trade-is-one-transaction.db.test.ts`. One sabotage was seen red: the locked-seat refusal removed.
+- **Re-review (28 Nov) fixes:**
+  - The Guests list's seat column, Seat sort, roster search and table picker read the shown name.
+  - So do the 3D room labels, the 3D demo, the seating tour and Papic's tag toast.
+  - The guard now also fails a file that reads `table_label` off `fetchTables` / `fetchPublicTables` rows without the reader.
+  - `renameWrites` compares exactly, so changing only the capitals is a real rename.
 - **Server actions:** no new export. No email.
 
 SPEC IMPACT: None. It builds the approved plan (DECISION_LOG 2026-11-27 "Seat plan: the table-first flow is approved…"). One deviation is in the PR body: the speakers columns are `speakers_x` / `speakers_y`, after the `entrance_x` pattern the plan names, not `*_pct`.

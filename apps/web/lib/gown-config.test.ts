@@ -17,6 +17,8 @@ import {
   gownMeasuresNeeded,
   sanitizeGownBody,
   sanitizeGownConfig,
+  sanitizeGownOrderLines,
+  sanitizeGownParts,
   sanitizeGownMeasures,
   sanitizeGownQuantities,
   startingGownBody,
@@ -104,6 +106,9 @@ const SHIPPED: Record<string, string[]> = {
   GOWN_PEARLS: ['none', 'neck', 'veil', 'both'],
   GOWN_SLEEVE_WORN: ['sewn', 'detach'],
   GOWN_ROBE_SLEEVES: ['long', 'puff'],
+  GOWN_HEM_EDGES: ['plain', 'scallop', 'hanky', 'curved'],
+  GOWN_PARTS: ['bodice', 'skirt', 'sleeves', 'overlay', 'cape', 'sash', 'trims', 'lining', 'lace'],
+  GOWN_PATTERNS: ['brocade', 'jacquard', 'floral', 'dots', 'stripes', 'plaid'],
   GOWN_LININGS: ['satin', 'cotton', 'silk', 'none'],
   GOWN_LAYER_TYPES: ['soft', 'full', 'organza', 'chiffon', 'hoop', 'glitter'],
   GOWN_LAYER_COLOURS: ['match', 'ivory', 'white', 'blush', 'champagne', 'nude'],
@@ -139,8 +144,12 @@ test('every catalog is append-only: the shipped ids keep their place, and no cat
 
 test('women only, no sash: the men\'s catalogs and the removed sash are not part of the contract', () => {
   const src = readFileSync(join(__dirname, 'gown-config.ts'), 'utf8');
-  for (const word of ['barong', 'trouser', 'camisa', 'male.json', "'sash'"]) assert.ok(!src.toLowerCase().includes(word.toLowerCase()), `no ${word}`);
+  for (const word of ['barong', 'trouser', 'camisa', 'male.json']) assert.ok(!src.toLowerCase().includes(word.toLowerCase()), `no ${word}`);
   assert.ok(!G.GOWN_TRIMS.some((t) => (t.id as string) === 'sash'));
+  // v210 names the waistband-and-bow piece `sash` (the prototype's own key for it): that piece, and nowhere else.
+  const sashLines = src.split('\n').filter((l) => l.includes("'sash'"));
+  assert.equal(sashLines.length, 2, 'the removed sash trim stays removed');
+  assert.ok(sashLines[0]!.includes("{ id: 'sash', label: 'Waistband and bow' }") && sashLines[1]!.startsWith('export const GOWN_PART_FABRIC'), 'only the v210 waistband piece');
 });
 
 test('the measurement steps keep the owner\'s order exactly (27 Nov)', () => {
@@ -329,7 +338,7 @@ test('a v186 order round-trips: the look keys, her numbers and her choices come 
   // A v186 look has no bow, blusher, overlay, illusion, straps or flowers (v197 to v200 add them to the look): they come back as the starting values.
   // It opens as v197 opens an order: the mermaid's chapel train becomes a sweep (corpus a5ada15).
   const s0 = startingGownConfig();
-  assert.deepEqual(gownLookOf(got.config), { bow: s0.bow, blusher: s0.blusher, overlay: s0.overlay, ovFab: s0.ovFab, illu: s0.illu, illuBase: s0.illuBase, illuCol: s0.illuCol, illuBack: s0.illuBack, boneShow: s0.boneShow, straps: s0.straps, strapCol: s0.strapCol, strapEdge: s0.strapEdge, topEdge: s0.topEdge, plungeFill: s0.plungeFill, flowers: s0.flowers, flowerFrom: s0.flowerFrom, flowerType: s0.flowerType, flowerSize: s0.flowerSize, flowerDen: s0.flowerDen, flowerCol: s0.flowerCol, capeFlowers: s0.capeFlowers, laceFinish: s0.laceFinish, veilFab: s0.veilFab, pearls: s0.pearls, sleeveDet: s0.sleeveDet, robeSl: s0.robeSl, ...V186_ORDER.design3d.gown, train: 'sweep' }, 'the look the designer opens on the mannequin');
+  assert.deepEqual(gownLookOf(got.config), { bow: s0.bow, blusher: s0.blusher, overlay: s0.overlay, ovFab: s0.ovFab, illu: s0.illu, illuBase: s0.illuBase, illuCol: s0.illuCol, illuBack: s0.illuBack, boneShow: s0.boneShow, straps: s0.straps, strapCol: s0.strapCol, strapEdge: s0.strapEdge, topEdge: s0.topEdge, plungeFill: s0.plungeFill, flowers: s0.flowers, flowerFrom: s0.flowerFrom, flowerType: s0.flowerType, flowerSize: s0.flowerSize, flowerDen: s0.flowerDen, flowerCol: s0.flowerCol, capeFlowers: s0.capeFlowers, laceFinish: s0.laceFinish, veilFab: s0.veilFab, pearls: s0.pearls, sleeveDet: s0.sleeveDet, robeSl: s0.robeSl, neckLine: null, backLine: null, armhole: 0, hemLine: null, hemEdge: 'plain', ...V186_ORDER.design3d.gown, train: 'sweep' }, 'the look the designer opens on the mannequin');
   assert.deepEqual(Object.keys(gownLookOf(got.config)), [...GOWN_LOOK_KEYS]);
   assert.equal(got.config.hem, 'floor');
   assert.equal(got.config.heel, 7);
@@ -432,4 +441,74 @@ test('v203: the server refuses the pairings the maker would have changed (cape s
   refused(sanitizeGownConfig(design({ sleeve: 'capesl', neck: 'v', capeLen: 'shoulder' }), offer()), 'not_a_design', 'cape sleeves have their own lengths');
   refused(sanitizeGownConfig(design({ sleeveDet: 'loose' }), offer()), 'not_a_design', 'a way of wearing sleeves not in the catalog');
   refused(sanitizeGownConfig(design({ robeSl: 'bell' }), offer()), 'not_a_design', 'an over-robe sleeve not in the catalog');
+});
+
+test('v209: her own lines ride on the design and the look (null = the named line), checked by the prototype\'s clean rule', () => {
+  const s0 = startingGownConfig();
+  assert.deepEqual([s0.neckLine, s0.backLine, s0.armhole, s0.hemLine, s0.hemEdge], [null, null, 0, null, 'plain'], 'a fresh design (and one saved before v209) has the named lines');
+  const neckLine = [6, 9, 12, 11, 2, 0.13, 9, 12, 11, 2], backLine = [22, 15, 15, 0.5], hemLine = [8, 4, 0, 4, 0.6];
+  const got = sanitizeGownConfig(design({ neckLine, backLine, armhole: 4.5, hemLine, hemEdge: 'hanky' }), offer());
+  assert.ok(got.ok);
+  assert.deepEqual([got.config.neckLine, got.config.backLine, got.config.armhole, got.config.hemLine, got.config.hemEdge], [neckLine, backLine, 4.5, hemLine, 'hanky']);
+  assert.deepEqual(gownLookOf(got.config).neckLine, neckLine, 'a look carries her lines (v209 LOOK_BASE)');
+  for (const [what, over] of [
+    ['a neckline of nine numbers', { neckLine: neckLine.slice(1) }],
+    ['a back line with a word in it', { backLine: [22, 15, 'wide', 0.5] }],
+    ['a hem number past the clean limit', { hemLine: [400, 4, 0, 4, 0.6] }],
+    ['a hem number that is not finite', { hemLine: [Number.POSITIVE_INFINITY, 4, 0, 4, 0.6] }],
+    ['an armhole past 12 cm', { armhole: 12.5 }],
+    ['an armhole below none', { armhole: -1 }],
+  ] as const) refused(sanitizeGownConfig(design(over), offer()), 'out_of_range', what);
+  refused(sanitizeGownConfig(design({ hemEdge: 'zigzag' }), offer()), 'out_of_range', 'a hem edge not in the catalog');
+});
+
+test('v210: colour and fabric per piece (parts), checked against the shop and the piece; never part of a look', () => {
+  assert.deepEqual(startingGownConfig().parts, [], 'every piece follows the gown');
+  const parts = [
+    { part: 'skirt', fabric: 'tulle', colour: '#b3141c', fade: { colour: 'accent', dir: 'down', from: 0.3, to: 1 }, border: { edge: 'hem', cm: 12, fabric: null, colour: 'main' }, pattern: null },
+    { part: 'bodice', fabric: null, colour: 'accent', fade: null, border: null, pattern: { kind: 'brocade', colour: '#c9a46a' } },
+    { part: 'sash', fabric: null, colour: null, fade: null, border: null, pattern: null },
+  ];
+  const got = sanitizeGownConfig(design({ parts }), offer());
+  assert.ok(got.ok, got.ok ? '' : got.reason);
+  assert.deepEqual(got.config.parts, [
+    { ...parts[0], colour: '#B3141C' },
+    { ...parts[1], pattern: { kind: 'brocade', colour: '#C9A46A' } },
+  ], 'colours as stored hex; an entry that changes nothing is dropped');
+  assert.equal('parts' in gownLookOf(got.config), false, 'a look never carries the pieces (v210 keeps them out of LOOK_BASE)');
+  const shop = sanitizeGownParts([{ part: 'skirt', fabric: null, colour: null, fade: null, border: null, pattern: { kind: `lib:${SHOP_FABRIC}`, colour: 'accent' } }], offer());
+  assert.ok(shop.ok && shop.value[0]!.pattern!.kind === `lib:${SHOP_FABRIC}`, "the shop's own printed fabric");
+  const one = (over: Record<string, unknown>) => ({ part: 'skirt', fabric: null, colour: null, fade: null, border: null, pattern: null, ...over });
+  for (const [what, x] of [
+    ['a piece that is not one', [one({ part: 'collar', colour: 'main' })]],
+    ['the same piece twice', [one({ colour: 'main' }), one({ colour: 'accent' })]],
+    ['two patterned pieces', [one({ pattern: { kind: 'dots', colour: 'main' } }), one({ part: 'bodice', pattern: { kind: 'dots', colour: 'main' } })]],
+    ['a fabric on the lining', [one({ part: 'lining', fabric: 'satin' })]],
+    ['a dip-dye on the waistband', [one({ part: 'sash', fade: { colour: 'accent', dir: 'down', from: 0.3, to: 1 } })]],
+    ['a border on an edge the piece has not got', [one({ border: { edge: 'neck', cm: 5, fabric: null, colour: 'accent' } })]],
+    ['a pattern not in the catalog', [one({ pattern: { kind: 'paisley', colour: 'main' } })]],
+    ['not a list', { skirt: 'red' }],
+  ] as const) refused(sanitizeGownParts(x, offer()), 'not_a_design', what);
+  refused(sanitizeGownParts([one({ colour: 'red' })], offer()), 'colours', 'a colour that is not main, accent or a hex');
+  refused(sanitizeGownParts([one({ fabric: 'pinatex' })], offer({ fabricTypes: ['satin'] })), 'not_offered', 'a fabric the shop does not work in');
+  refused(sanitizeGownParts([one({ border: { edge: 'hem', cm: 5, fabric: 'pinatex', colour: 'accent' } })], offer({ fabricTypes: ['satin'] })), 'not_offered', "a border in a fabric the shop does not work in");
+  refused(sanitizeGownParts([one({ pattern: { kind: 'lib:44444444-5555-4666-8777-888888888888', colour: 'main' } })], offer()), 'not_offered', "another shop's printed fabric");
+  refused(sanitizeGownParts([one({ fade: { colour: 'accent', dir: 'down', from: 0.8, to: 0.5 } })], offer()), 'out_of_range', 'a fade that ends before it starts');
+  refused(sanitizeGownParts([one({ border: { edge: 'hem', cm: 80, fabric: null, colour: 'accent' } })], offer()), 'out_of_range', 'a border band past 60 cm');
+});
+
+test('v209: the order\'s lines (lnMeasured) are known parts of finite numbers', () => {
+  const lines = {
+    neck: { custom: true, from: 'scoop', centre: 6, cornerL: 9, cornerDepthL: 12, shoulderL: 11, shoulderDepthL: 2, curve: 0.13, cornerR: 9, cornerDepthR: 12, shoulderR: 11, shoulderDepthR: 2 },
+    back: { custom: false, from: 'v', depth: 22, halfL: 15, halfR: 15, curve: 0.5, sideDepth: 4.2 },
+    hem: { custom: true, front: 8, left: 4, back: 0, right: 4, curve: 0.6, edge: 'scallop' },
+    armhole: 3,
+  };
+  assert.deepEqual(sanitizeGownOrderLines(lines), { ok: true, value: lines });
+  assert.deepEqual(sanitizeGownOrderLines(undefined), { ok: true, value: {} }, 'a design with no lines drawn');
+  refused(sanitizeGownOrderLines({ ...lines, sleeve: {} }), 'measures', 'a part the maker never measures');
+  refused(sanitizeGownOrderLines({ ...lines, neck: { ...lines.neck, centre: Number.NaN } }), 'measures', 'a number that is not one');
+  refused(sanitizeGownOrderLines({ ...lines, hem: { ...lines.hem, edge: 'zigzag' } }), 'measures', 'a hem edge not in the catalog');
+  refused(sanitizeGownOrderLines({ ...lines, back: { ...lines.back, from: '<b>' } }), 'measures', 'a name that is not a design word');
+  refused(sanitizeGownOrderLines({ ...lines, armhole: 0 }), 'measures', 'an armhole is sent only when cut in');
 });

@@ -25,6 +25,7 @@ import {
 import type { ReleasedSeat } from '@/lib/guest-optimistic';
 import { refuseLimitedHelper, limitedHelperRefusal } from '@/lib/host-gate';
 import { placedByCouple } from '@/lib/seat-why';
+import { lockedSeatGuests } from '@/lib/seat-lock.server';
 
 // Side enum values — owner directive 2026-05-23 added bulk Side
 // assignment to the SelectionBar. Mirrors the existing per-guest side
@@ -124,8 +125,15 @@ async function setTableForGuests(
     .in('guest_id', ids)
     .is('deleted_at', null);
   if (readErr) return { ok: false, error: 'Couldn’t read those guests — nothing was moved.' };
+  // 🔒 #17: a guest whose seat is locked is left alone too (counted as skipped) — Set table ▾ never moves a locked seat.
+  let pinned: Set<string>;
+  try {
+    pinned = new Set(await lockedSeatGuests(supabase, eventId, ids));
+  } catch {
+    return { ok: false, error: 'Couldn’t read those guests — nothing was moved.' };
+  }
   const canSit = (rows ?? [])
-    .filter((r) => r.rsvp_status !== 'declined' && r.passed_away !== true && r.entry_source !== REQUEST_ENTRY_SOURCE)
+    .filter((r) => r.rsvp_status !== 'declined' && r.passed_away !== true && r.entry_source !== REQUEST_ENTRY_SOURCE && !pinned.has(r.guest_id as string))
     .map((r) => r.guest_id as string);
   const skipped = ids.length - canSit.length;
   if (canSit.length === 0) return { ok: true, moved: 0, skipped };

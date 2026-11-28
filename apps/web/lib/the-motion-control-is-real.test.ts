@@ -86,7 +86,7 @@ test('⭐ all four presets are offered, by name, on every section', async () => 
 test('⭐ the couple’s saved choice is the one shown as pressed', async () => {
   const html = await paint([row({ config_json: { canvas: { preset: 'cinematic' } } })]);
   // The pressed chip is the saved one, and only that one.
-  const pressed = [...html.matchAll(/aria-pressed="true"[\s\S]{0,260}?>([^<]+)</g)].map((m) =>
+  const pressed = [...html.matchAll(/aria-pressed="true"[^>]*>([^<]+)</g)].map((m) =>
     m[1]?.trim(),
   );
   assert.ok(pressed.includes('Cinematic'), `expected Cinematic pressed, saw ${JSON.stringify(pressed)}`);

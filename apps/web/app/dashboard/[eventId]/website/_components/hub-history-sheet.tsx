@@ -134,12 +134,12 @@ export default function HubHistorySheet({ rows, applyCount, pending, from, onTap
                   } ${row.where === 'ahead' ? 'opacity-[.42]' : ''} ${!live && row.where === 'behind' ? 'cursor-default' : ''}`}
                 >
                   <span className="min-w-0 flex-1">
-                    <b className={`block text-[13.5px] font-semibold leading-snug ${row.pub ? 'text-success-700' : ''}`}>
+                    <b className={`block text-sn-md font-semibold leading-snug ${row.pub ? 'text-success-700' : ''}`}>
                       {row.pub ? `Published ${historyTime(row.at)}` : row.what}
                     </b>
                     {note ? <span className="block text-xs leading-snug text-ink/75">{note}</span> : null}
                   </span>
-                  <time className="shrink-0 text-[12px] tabular-nums text-ink/75" dateTime={row.at ?? undefined}>
+                  <time className="shrink-0 text-sn-sm tabular-nums text-ink/75" dateTime={row.at ?? undefined}>
                     {row.pub ? '—' : historyTime(row.at)}
                   </time>
                 </button>
@@ -147,7 +147,7 @@ export default function HubHistorySheet({ rows, applyCount, pending, from, onTap
             );
           })}
         </ol>
-        <p className="mt-2 text-[13px] leading-snug text-ink/75" data-maker-history-note="">
+        <p className="mt-2 text-sn-md leading-snug text-ink/75" data-maker-history-note="">
           {ahead.length > 0
             ? `The ${ahead.length === 1 ? 'row' : `${formatCount(ahead.length)} rows`} above ${ahead.length === 1 ? 'is' : 'are'} greyed — ${ahead.length === 1 ? 'it drops' : 'they drop'} at your first new edit; until then ↻ redo is one tap.`
             : 'Tap a row and the page returns to that point.'}

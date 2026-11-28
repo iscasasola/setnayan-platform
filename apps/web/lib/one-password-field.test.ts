@@ -109,6 +109,8 @@ test('the component keeps its promises', () => {
   assert.match(code, /type="button"/, 'the eye must never submit the form');
   assert.match(code, /\bh-11\b[^"]*\bw-11\b|\bw-11\b[^"]*\bh-11\b/, '44 px tap target');
   assert.match(code, /onMouseDown=\{\(e\) => e\.preventDefault\(\)\}/, 'a press keeps focus in the box');
+  // ⌨ 27 Nov 2026 (MASTER-PLAN A1): the eye is not a Tab stop — Tab runs box → box → the submit, its labels stay.
+  assert.match(code, /data-password-eye=""[\s\S]{0,800}tabIndex=\{-1\}[\s\S]{0,200}onClick=\{toggle\}/, 'the eye is a Tab stop between Password and the next field');
   assert.match(code, /setSelectionRange\(/, 'the caret is put back');
   assert.match(code, /addEventListener\('submit', mask/, 'masks again on submit');
   assert.match(code, /'pageshow'/, 'masks again on a back/forward restore');

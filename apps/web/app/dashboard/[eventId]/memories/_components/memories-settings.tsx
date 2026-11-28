@@ -99,7 +99,7 @@ export async function MemoriesSettings({
         <section className="flex items-center justify-between gap-3 py-3" data-memories-setting="keep-full-res">
           <span className="min-w-0">
             <InfoTip label="Keep full resolution" labelAs="h3" labelClassName="text-[15px] font-semibold text-ink" align="start">
-              Your Memories stay free, for life. Originals are kept until 3 months after the event’s last day; then we
+              Your Memories are kept for life. Originals are kept until 3 months after the event’s last day; then we
               keep the 720p copy. Keep full resolution keeps every original too. A yearly service, priced from the
               catalogue.
             </InfoTip>

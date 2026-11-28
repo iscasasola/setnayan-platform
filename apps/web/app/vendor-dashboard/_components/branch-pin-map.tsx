@@ -267,15 +267,18 @@ export function BranchPinMap({ value, onChange, initialCenter }: Props) {
         <circle cx={(W || 2) / 2} cy={H / 2 - 9} r={2.5} style={{ fill: 'rgb(var(--sn-on-accent))' }} />
       </svg>
 
-      {/* Zoom controls */}
+      {/* Zoom controls. ⌨ Not Tab stops (27 Nov 2026, MASTER-PLAN A2 — "map Zoom +/−/© add 6 stops per venue"): the map
+          itself is the keyboard's one stop, and it already pans with the arrows and zooms with + / − (its label says
+          so). A pointer presses these as before. */}
       <div className="absolute right-2 top-2 flex flex-col gap-1">
-        <ActionButton tone="neutral" filled iconOnly icon={Plus} label="Zoom in" onClick={() => bumpZoom(1)} className="!h-11 !w-11" />
-        <ActionButton tone="neutral" filled iconOnly icon={Minus} label="Zoom out" onClick={() => bumpZoom(-1)} className="!h-11 !w-11" />
+        <ActionButton tone="neutral" filled iconOnly icon={Plus} label="Zoom in" onClick={() => bumpZoom(1)} className="!h-11 !w-11" tabIndex={-1} />
+        <ActionButton tone="neutral" filled iconOnly icon={Minus} label="Zoom out" onClick={() => bumpZoom(-1)} className="!h-11 !w-11" tabIndex={-1} />
       </div>
 
       <a
         href="https://www.openstreetmap.org/copyright"
         target="_blank"
+        tabIndex={-1}
         rel="noreferrer"
         className="absolute bottom-0 right-0 bg-raised/75 px-1 text-xs leading-tight text-ink-on-light hover:underline"
       >

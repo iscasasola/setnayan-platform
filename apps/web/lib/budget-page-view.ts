@@ -24,6 +24,11 @@ export type NextPayment = {
   vendorId: string | null;
   /** `event_costs.cost_id` when the payment is one of the couple's own expenses. */
   costId: string | null;
+  /**
+   * Past its due date (`MoneyLine.dueState === 'overdue'`, stamped once by the resolver's one clock). The summary then
+   * reads "Overdue · since <date>", never "Next" (L5 · C9: a payment 73 days late was labelled "Next").
+   */
+  overdue: boolean;
 };
 
 /**
@@ -59,6 +64,7 @@ export function pickNextPayment(lines: readonly MoneyLine[]): NextPayment | null
     dueDate: best.dueDate!,
     vendorId: best.vendorId,
     costId: best.source === 'event_cost' ? best.sourceRef : null,
+    overdue: best.dueState === 'overdue',
   };
 }
 
@@ -83,6 +89,7 @@ export function pickDuePayments(lines: readonly MoneyLine[]): Array<NextPayment 
       dueDate: l.dueDate!,
       vendorId: l.vendorId!,
       costId: null,
+      overdue: l.dueState === 'overdue',
     }));
 }
 

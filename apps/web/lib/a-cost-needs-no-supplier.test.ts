@@ -260,8 +260,9 @@ test('BA7 · the page no longer tells a couple to invent a supplier first', () =
   assert.match(screen, /label="Add expense"/, 'there is no way to add an expense');
   assert.match(
     screen,
-    /Nothing added yet\. Use ＋ Add expense for anything paid outside Setnayan\./,
-    'the empty expenses group must point at the door, not at a supplier',
+    // R3 (owner 27 Nov): one honest line — the Add expense door above is the action, so the line names no supplier.
+    /No expenses yet\./,
+    'the empty expenses group must say it plainly, never point at a supplier',
   );
 });
 

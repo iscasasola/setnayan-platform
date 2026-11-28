@@ -272,7 +272,8 @@ test('6 · storage: an unread store is unread, never 0 of the plan', () => {
   assert.deepEqual(storageMeter('pro', null), { kind: 'unread' });
   const m = storageMeter('pro', { status: 'ok', bytes: 0 });
   assert.ok(m.kind === 'meter' || m.kind === 'no_limit');
-  if (m.kind === 'meter') assert.equal(m.used, '0 MB');
+  // A read zero is the meter's own words (L6 · S3: the cover says what the Plans meter says — `meterWords`).
+  if (m.kind === 'meter') assert.equal(m.used, '0 KB');
 });
 
 test('7 · one layout: one column, one action op, every row add/remove/reorder through it', () => {

@@ -1,7 +1,5 @@
 import Link from 'next/link';
 import type { ReactNode } from 'react';
-import { ExamplePreview } from '@/app/_components/states/empty-state';
-import { SAMPLE_TODO } from '@/lib/empty-look-samples';
 import { ChevronRight, List } from 'lucide-react';
 import { EVENT_MENU_ICONS } from '@/lib/customer-menu';
 import { formatCount } from '@/lib/format-number';
@@ -94,23 +92,6 @@ export function HomeTodayList({
         ) : null}
         <EventTodayTomorrow rows={today.tomorrow} />
       </EventTodayGroup>
-      {/* 👻 THE EMPTY LOOK (Build 5 Lane H): an empty plan — the read answered, nothing in it — shows the list's own rows
-          on three sample tasks, greyed under "Example". Gone the moment the plan has one task. */}
-      {today.planEmpty ? (
-        <ExamplePreview>
-          <ul className="hc-todo">
-            {SAMPLE_TODO.map((t) => (
-              <li key={t.title} className="hc-todo-row">
-                <span className="hc-todo-dot" aria-hidden />
-                <span className="hc-todo-words">
-                  <span className="hc-todo-k">{t.title}</span>
-                  <span className="hc-todo-v">{t.when}</span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </ExamplePreview>
-      ) : null}
     </div>
   );
 }

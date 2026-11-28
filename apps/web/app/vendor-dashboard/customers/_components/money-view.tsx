@@ -122,7 +122,7 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
               </p>
             ) : (
               <p className="mt-2 text-[13px] text-[color:var(--m-slate-2)]" data-money-none="">
-                No payment plans yet — a couple&rsquo;s plan shows here once they book you.
+                No payment plans yet.
               </p>
             )}
           </>
@@ -246,7 +246,7 @@ export function MoneyView({ data }: { data: MoneyViewData }) {
                 </p>
               ) : year.months.length === 0 ? (
                 <p className="py-2 text-[13px] text-[color:var(--m-slate-2)]">
-                  Nothing confirmed yet this year. When a couple logs a payment to you on their booking and you confirm it, it rolls up here.
+                  Nothing confirmed this year.
                 </p>
               ) : (
                 year.months.map((m) => (

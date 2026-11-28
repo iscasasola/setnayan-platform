@@ -11,6 +11,7 @@ import {
   reloadForStaleBundle,
 } from '@/lib/stale-bundle';
 import Link from 'next/link';
+import { CopyButton } from '@/app/_components/copy-button';
 import { isSchemaBlip } from '@/lib/read-retry';
 import { Reconnecting } from '@/app/_components/reconnecting';
 
@@ -113,9 +114,13 @@ export default function RootError({ error, reset }: Props) {
           </Link>
         </div>
         {error?.digest && (
-          <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/30 mt-10">
-            Reference: {error.digest}
-          </p>
+          <div className="mt-10 flex flex-col items-center gap-2">
+            <p className="font-mono text-[10px] uppercase tracking-[0.15em] text-ink/30">
+              Reference: {error.digest}
+            </p>
+            {/* 📋 Text is not selectable (owner 27 Nov 2026, R1): the reference is copied with a button. */}
+            <CopyButton value={error.digest} label="Copy reference" />
+          </div>
         )}
       </div>
     </main>

@@ -286,7 +286,7 @@ export function FiledBody({ f, mine }: { f: FiledMessage; mine: boolean }) {
           <span className="min-w-0 flex-1 truncate">{link.replace(/^https?:\/\//i, '')}</span>
         </a>
       ) : words ? (
-        <p className={`whitespace-pre-wrap break-words ${bubble}`}>{words}</p>
+        <p data-selectable="" className={`whitespace-pre-wrap break-words ${bubble}`}>{words}</p>
       ) : null}
       {a?.href ? (
         <AttachmentBlock url={a.href} name={a.name} mime={a.mime} sizeBytes={a.sizeBytes} owns={false} hasBody={false} variant="filed" />

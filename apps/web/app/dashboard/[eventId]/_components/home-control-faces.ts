@@ -19,7 +19,6 @@
  *
  * Pure: no React, no I/O, no clock of its own (`now` is handed in).
  */
-import { SAMPLE_FACES } from '@/lib/empty-look-samples';
 import { formatCount } from '@/lib/format-number';
 import { formatPhpRounded } from '@/lib/php';
 import type { CountFormat } from '@/components/count';
@@ -34,6 +33,7 @@ import { budgetPageHref, schedulePageHref } from '@/lib/pillar-parts';
 import { releaseOpen, type HomeScheduleFacts } from '@/lib/home-schedule';
 import { guestsViewHref } from '@/lib/guests-views';
 import { findBoardHref } from '@/lib/find-inspiration';
+import { whoCanViewLabel, type EventVisibility } from '@/lib/event-visibility';
 
 /** The six upper widgets, in the owner's order (notes: "The order, top to bottom — and the one reason"). */
 export const HOME_CONTROL_KEYS = ['count', 'guests', 'hub', 'sup', 'budget', 'plan'] as const;
@@ -110,13 +110,6 @@ export type HomeFace = {
    */
   kicker?: string;
   rows?: Array<{ k: string; v: string }>;
-  /**
-   * 👻 THE EMPTY LOOK (owner 2026-11-09, DECISION_LOG 🧱👻 ×2; Build 5 Lane H): on a face that is honestly EMPTY — a
-   * read that answered, nothing in it — the tile's NEXT face on sample figures (`lib/empty-look-samples.ts`), drawn
-   * greyed under "Example" beneath this one (`HomeTile` → `ExamplePreview`). Never on a failed read (`failedTile` sets
-   * none), and gone the moment the part has real content (the face that carries it is the empty one).
-   */
-  example?: Pick<HomeFace, 'big' | 'unit' | 'sm' | 'meter' | 'kicker' | 'rows'>;
 };
 
 /** A door under the Schedule's faces (owner 1 Nov: *"Keep the doors"*) — a word and the page it opens. */
@@ -180,6 +173,9 @@ export type HomeHubFacts = {
   publicUrl: string | null;
   /** "setnayan.com/ana-and-miguel · Public" — the Maker's words. */
   where: string;
+  /** Who can open the Hub (`events.landing_page_visibility`, `normalizeVisibility`) — "live" is said only when it is
+   *  Public; an Unlisted or Private Hub says so (L5 · C6). Absent on older callers = read as the stored default. */
+  visibility?: EventVisibility;
   /** The event date in short words ("Dec 12") — The Day's opening. */
   dayShort: string | null;
   /** `readHomeGuide` — the guided flow: the whole setup's count and the stage still to fill, when the reader drew one. */
@@ -187,7 +183,7 @@ export type HomeHubFacts = {
 };
 
 export type HomeSuppliersFacts = {
-  /** The dashboard's own "N of M booked" (`countUnlockedCategories` over this type's plan groups). */
+  /** "N of M booked" at Find's grain (`bookedCategoryTally`, lib/booked-tally.ts): M = categories Find lists, N = booked ones. */
   booked: number;
   of: number;
   /** Quotes out with the answer the couple's to give — `SupplierStanding.needsYou` (`buildBenchStandings`). */
@@ -605,7 +601,6 @@ export function guestsTile(input: HomeControlInput, today: HomeToday): HomeTileM
       sm: 'Add your guests',
       href: `/dashboard/${e}/guests`,
       action: { icon: 'plus', label: 'Add guests', href: `/dashboard/${e}/guests`, main: isToday },
-      example: { ...SAMPLE_FACES.guests },
     });
   } else {
     faces.push({ id: 'guests-coming', big: n(g.coming), count: { value: g.coming, format: 'int' }, unit: 'coming', sm: `of ${n(g.total)} on the list`, href: `/dashboard/${e}/guests?q=coming` });
@@ -678,6 +673,19 @@ export function nextHubStage(stage: LifecyclePhase | null): LifecyclePhase | nul
 export const HUB_TILE_INFO =
   'Tap to open your Event Hub — the page your guests see.';
 
+/**
+ * 📌 THE HUB'S REACH, IN WORDS (L5 · C6). The tile said "Save the Date · live · guests see it" over an UNLISTED Hub —
+ * "live" read as out in the open. One answer for the tile face and the detail row: Public is "live"; Unlisted and
+ * Private name themselves with the Maker's own words (`WHO_CAN_VIEW`); no link yet is "not shared yet".
+ */
+export function hubReachOf(h: Pick<HomeHubFacts, 'visibility' | 'publicUrl'>): { unit: string; sm: string; detail: string; open: boolean } {
+  const v = h.visibility ?? 'public';
+  if (!h.publicUrl) return { unit: v === 'public' ? 'live' : whoCanViewLabel(v).toLowerCase(), sm: 'not shared yet', detail: 'not shared yet', open: false };
+  if (v === 'public') return { unit: 'live', sm: 'guests see it', detail: 'guests see it now', open: true };
+  if (v === 'unlisted') return { unit: 'unlisted', sm: 'only guests with the link', detail: 'only guests with the link see it', open: true };
+  return { unit: whoCanViewLabel(v).toLowerCase(), sm: 'only your hosts and guests', detail: 'only your hosts and guests see it', open: true };
+}
+
 export function hubTile(input: HomeControlInput, today: HomeToday): HomeTileModel | null {
   const e = input.eventId;
   const h = input.hub;
@@ -695,16 +703,17 @@ export function hubTile(input: HomeControlInput, today: HomeToday): HomeTileMode
   const external = Boolean(h.publicUrl);
   const faces: HomeFace[] = [];
   if (h.stage) {
+    const reach = hubReachOf(h);
     faces.push({
       id: 'hub-now',
       big: PUBLIC_STAGE_LABELS[h.stage],
-      unit: 'live',
-      sm: h.publicUrl ? 'guests see it' : 'not shared yet',
+      unit: reach.unit,
+      sm: reach.sm,
       href: door,
       external,
     });
   } else {
-    faces.push({ id: 'hub-now', big: 'Not set', unit: 'yet', sm: 'pick your date to place it', href: door, external, example: { ...SAMPLE_FACES.hub } });
+    faces.push({ id: 'hub-now', big: 'Not set', unit: 'yet', sm: 'pick your date to place it', href: door, external });
   }
   const after = nextHubStage(h.stage);
   if (after) {
@@ -749,8 +758,6 @@ export function suppliersTile(input: HomeControlInput, today: HomeToday): HomeTi
       unit: s.of > 0 ? `of ${n(s.of)} booked` : 'booked',
       sm: s.of > s.booked ? `${n(s.of - s.booked)} still to book` : s.of === 0 ? 'Find your suppliers' : 'all booked',
       href: `/dashboard/${e}/vendors`,
-      // 👻 Nobody booked, asked or replying yet — the honest zero, with the tile's next face greyed under it.
-      ...(s.booked === 0 && s.toDecide.length === 0 && s.replied === 0 ? { example: { ...SAMPLE_FACES.suppliers } } : {}),
     },
   ];
   const first = s.toDecide[0];
@@ -822,7 +829,7 @@ export function checklistTile(input: HomeControlInput, today: HomeToday): HomeTi
   // 👻 An empty plan (the read answered, nothing in it) keeps its tile — never hidden for being empty (owner
   // 2026-11-09) — with the plan's next face greyed under it (prototype "Event · Today", the To do tile).
   if (faces.length === 0 && c.total === 0) {
-    faces.push({ id: 'plan-none', big: 'Nothing', unit: 'yet', sm: 'the next step is yours', href: door, example: { ...SAMPLE_FACES.plan } });
+    faces.push({ id: 'plan-none', big: 'Nothing', unit: 'yet', sm: 'the next step is yours', href: door });
   }
   if (faces.length === 0) return null;
   return { key: 'plan', label: 'To do', door, failed: false, span: false, today: isToday, faces, info: TODO_TILE_INFO };
@@ -876,8 +883,6 @@ export function budgetTile(input: HomeControlInput, today: HomeToday): HomeTileM
           : 'nothing agreed yet',
     href: budgetPageHref(e),
     meter: pct,
-    // 👻 Nothing agreed and nothing paid (the money read answered) — the summary's filled face greyed under it.
-    ...(agreed === 0 && b.paidPhp === 0 && b.pays !== 'unread' ? { example: { ...SAMPLE_FACES.budget } } : {}),
   });
   return { key: 'budget', label: null, door: budgetPageHref(e), failed: false, span: true, today: isToday, faces };
 }
@@ -920,7 +925,6 @@ export function scheduleTile(input: HomeControlInput, today: HomeToday): HomeTil
             kicker: 'What’s next',
             rows: [{ k: 'No chapters yet', v: 'Add the first in your Schedule' }],
             href: door,
-            example: { big: SAMPLE_FACES.schedule[0].k, sm: SAMPLE_FACES.schedule[0].v, rows: SAMPLE_FACES.schedule.map((r) => ({ ...r })) },
           }
         : { id: 'sched-done', big: 'Every chapter has passed', sm: 'Open the schedule', kicker: 'What’s next', rows: [{ k: 'Every chapter has passed', v: 'Open the schedule' }], href: door },
     );

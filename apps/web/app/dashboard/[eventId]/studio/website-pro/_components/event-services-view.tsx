@@ -11,7 +11,7 @@ import { useRevealOnOpen } from '@/app/_components/reveal-on-open';
 import { formatPhp } from '@/lib/php';
 import { routes } from '@/lib/routes';
 import { IAP_COPY, pendingLine, type IapScreen } from '@/lib/iap/iap-outcome';
-import { formatCount } from '@/lib/format-number';
+import { countNoun, formatCount } from '@/lib/format-number';
 import {
   EMPTY_PICK,
   PACK_HOLDS,
@@ -351,7 +351,7 @@ export function EventServicesView({
           <span className="es-words">
             <b className="es-name">Your plan</b>
             <span className="es-line">
-              {facts.photosLeft === null ? 'Guest photos left: couldn’t read' : `${formatCount(facts.photosLeft)} guest photos left`}
+              {facts.photosLeft === null ? 'Guest photos left: couldn’t read' : `${countNoun(facts.photosLeft, 'guest photo', 'guest photos')} left`}
             </span>
           </span>
           {facts.planName === null ? <span className="es-unread">Couldn’t read</span> : <b className="es-price">{facts.planName}</b>}

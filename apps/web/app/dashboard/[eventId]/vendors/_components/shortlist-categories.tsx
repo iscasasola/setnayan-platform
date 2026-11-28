@@ -309,6 +309,7 @@ import {
 } from '../requirements-actions';
 import { countNoun, formatCount } from '@/lib/format-number';
 import { OverlayBackdrop } from '@/app/_components/overlay-backdrop';
+import { isBookedView } from '@/lib/booked-status';
 
 const SLCAT_CSS = `
 /* 📋 The opened category's parts (owner 2026-11-12, the organized-Find prototype). */
@@ -1576,7 +1577,7 @@ function VendorCard({
     if (!sheetDoor || !tile) return;
     if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
     e.preventDefault();
-    const booked = v.status === 'locked';
+    const booked = isBookedView(v);
     sheetDoor.open({
       vendorId: v.vendorId,
       vendorProfileId: v.marketplaceVendorId,
@@ -1622,12 +1623,12 @@ function VendorCard({
   // one, so the corner says what is true instead of borrowing the word
   // for a supplier who has not answered and may decline.
   const corner =
-    v.status === 'locked' ? (
+    isBookedView(v) ? (
       <span className="pcorner">★ Chosen</span>
     ) : v.lockRequestState === 'requested' ? (
       <span className="pcorner">Asked</span>
     ) : null;
-  const reasonPill = reason && v.status !== 'locked' ? <span className={`rpill ${reason.tone}`}>{reason.label}</span> : null;
+  const reasonPill = reason && !isBookedView(v) ? <span className={`rpill ${reason.tone}`}>{reason.label}</span> : null;
   const cityEl = v.city ? (
     <span className="sub">
       <MapPin size={11} strokeWidth={1.75} aria-hidden /> {v.city}
@@ -1709,7 +1710,7 @@ function VendorCard({
   const ownRecordEl =
     look.face && selfAdded ? (
       <span className="sc-rec" data-own-record="">
-        {ownRecordLine(v.status === 'locked')}
+        {ownRecordLine(isBookedView(v))}
       </span>
     ) : null;
   // …and once they have joined through it the card is no longer self-added, but it still says where this shop came from.
@@ -1927,7 +1928,7 @@ function VendorCard({
         verifiedState={v.verifiedState}
         papersRenewing={v.papersRenewing}
         lockRequestExpiresAt={v.lockRequestExpiresAt}
-        booked={v.status === 'locked'}
+        booked={isBookedView(v)}
         hasPrice={v.totalCostPhp != null}
         quoteIn={standing?.needsYou === true}
         payHref={payHrefs[v.vendorId] ?? null}
@@ -3347,7 +3348,7 @@ export function ShortlistCategories({
       stateLine: null,
       fits: [],
       threadId: there.threadId ?? null,
-      booked: there.status === 'locked',
+      booked: isBookedView(there),
       onPage: sheetDoor.onPage(there.marketplaceVendorId, tile),
     });
   };
@@ -3686,7 +3687,7 @@ export function ShortlistCategories({
             const there = t.vendors.find((x) => x.marketplaceVendorId === vendorProfileId);
             if (!there) continue;
             out[t.tile] = sheetStateLine({
-              booked: there.status === 'locked',
+              booked: isBookedView(there),
               asked: there.lockRequestState === 'requested',
               lockState: there.lockRequestState,
               quoteIn: standings[there.vendorId]?.needsYou === true,
@@ -3907,7 +3908,7 @@ export function ShortlistCategories({
           slug: f.slug,
           label: t.label,
           vendorCount: t.vendors.length,
-          lockedCount: t.vendors.filter((v) => v.status === 'locked').length,
+          lockedCount: t.vendors.filter((v) => isBookedView(v)).length,
           // PR-H · derived upstream by the one shared core and read here, never
           // re-worked out. Always 0 while the flag is off.
           askedCount: t.vendors.filter((v) => v.lockRequestState === 'requested').length,
@@ -3933,7 +3934,7 @@ export function ShortlistCategories({
         tile: t.tile,
         planned: t.planned,
         vendorCount: t.vendors.length,
-        lockedCount: t.vendors.filter((v) => v.status === 'locked').length,
+        lockedCount: t.vendors.filter((v) => isBookedView(v)).length,
       })),
     ),
     excludedTiles,
@@ -4613,7 +4614,7 @@ export function ShortlistCategories({
                       sortWithReasons(railVendors, effectiveSort, sortShapeFor<ShortlistVendor>((v) => v.ceremonyDistanceKm ?? null)),
                       ({ v }) => benchSavedGoesFirst(v),
                       // ★ Chosen stays first (6 Sep hoist ruling); saved go next.
-                      ({ v }) => v.status === 'locked',
+                      ({ v }) => isBookedView(v),
                     ),
                     tilePins,
                     (e) => e.v.vendorId,
@@ -4705,8 +4706,8 @@ export function ShortlistCategories({
                   );
                   // The category's ONE door to its full search — "Search all", "Find who does this", "Search again".
                   const searchHere = () => openSearch(t.tile, t.label);
-                  const bookedFits = replan ? rail.fits.filter(({ v }) => v.status === 'locked') : [];
-                  const askedFits = replan ? rail.fits.filter(({ v }) => v.status !== 'locked') : rail.fits;
+                  const bookedFits = replan ? rail.fits.filter(({ v }) => isBookedView(v)) : [];
+                  const askedFits = replan ? rail.fits.filter(({ v }) => !isBookedView(v)) : rail.fits;
                   const askedCount = askedFits.length + rail.clashes.length + availability.unavailable.length;
                   return (
                     <div

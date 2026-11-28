@@ -95,6 +95,8 @@ export type GownDesignRead = {
   ok: true;
   op: 'design';
   viewer: 'vendor' | 'couple';
+  /** The stored design this message names (the designer saves the tape against it). */
+  designId: string;
   config: unknown;
   body: GownBody | null;
   measures: GownMeasures;
@@ -290,6 +292,7 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
       ok: true,
       op: 'design',
       viewer: isShop ? 'vendor' : 'couple',
+      designId: ref,
       config: stored.data.config,
       body: stored.data.body,
       measures: stored.data.measures,

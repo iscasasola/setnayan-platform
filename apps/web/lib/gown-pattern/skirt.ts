@@ -4,13 +4,15 @@
  * Units: mm on the block, x across (centre to side), y down from the waist. Front ("cut 1 on the fold") and back
  * ("cut 2") quarter panels, or a full circle in four quarters for a ball gown. Net: no seam allowance (step B11).
  *   · Sheath: waist to hip shaped by the side seam (up to 2.5 cm a side) and darts, straight to the hem, back vent.
- *   · A-line and Filipiniana saya: the same top, flaring from the hip; the hem rises at the side so every seam is
- *     the same length.
+ *   · A-line and Filipiniana saya (v197, owner 27 Nov): off the body at the waist — one straight side seam from the
+ *     waist past the hip (about 10 cm hip ease) to a hem about 3 × hips round, checked as its own row.
+ *   · Fit and flare (v197: the old A-line block): fitted to the hip, flaring below it; the hem rises at the side so
+ *     every seam is the same length. An A-line saved before v197 opens as this.
  *   · Mermaid: hip → thigh (0.92 × hip quarter, 6 % of her height below the hip line) → knee (1.9 × knee + 4 cm
  *     round both knees) at a third of her height below the waist; the flare gets exactly the length left.
  *   · Ball gown: a full circle, waist radius = (waist + ease) ÷ 2π.
  * Each draft carries a check table (asked against drawn) and the source of every number. No prices on any block.
- * 🔒 lib/gown-pattern/pattern.test.ts (held to the prototype's own outputs, prototype-v189.golden.json)
+ * 🔒 lib/gown-pattern/pattern.test.ts (held to the prototype's own outputs, prototype-v197.golden.json)
  */
 import type { GownSilhouette } from '../gown-config';
 import { draftEase, draftMeasure, type GownDraftOrder, type GownDraftSource, type GownTape } from './inputs';
@@ -43,7 +45,7 @@ export type GownDraftCheck = readonly [string, number, number];
 
 export type GownSkirtDraft = {
   ok: true;
-  sil: GownSilhouette;
+  sil: GownSilhouette | 'fitflare';
   pieces: GownBlockPiece[];
   checks: GownDraftCheck[];
   src: Record<string, GownDraftSource>;
@@ -58,12 +60,15 @@ const mm = (cm: number) => cm * 10;
 
 export function draftSkirt(order: GownDraftOrder, tape: GownTape = {}): GownSkirtDraft | GownDraftRefusal {
   const v = order.vals;
-  const sil = order.sil;
+  // v197: an A-line saved before the A-line change opens as Fit and flare, cutting blocks included.
+  const sil = order.sil === 'aline' && order.designV !== undefined && order.designV < 2 ? 'fitflare' : order.sil;
+  // A-line and the saya leave the body at the waist and run straight past the hip with 10 cm ease (v197 `SIL.ease`).
+  const skim = sil === 'aline' || sil === 'terno';
   const H = (v.height ?? 0) > 0 ? (v.height as number) : 155;
   const W = v.waist ?? 0;
   const Hp = v.hips ?? 0;
   const eW = draftEase(order, 'Waist') ?? 1.5;
-  const eH = draftEase(order, 'Hips') ?? (sil === 'sheath' ? 3 : sil === 'mermaid' ? 2 : 6);
+  const eH = draftEase(order, 'Hips') ?? (sil === 'sheath' ? 3 : sil === 'mermaid' ? 2 : skim ? 10 : 6);
   const [wh, whS] = draftMeasure(order, tape, 'waistHip');
   const [Lf, LfS] = draftMeasure(order, tape, 'waistFloor');
   const [Lh, LhS] = draftMeasure(order, tape, 'waistHem');
@@ -134,11 +139,11 @@ export function draftSkirt(order: GownDraftOrder, tape: GownTape = {}): GownSkir
     for (let i = 0; i < n; i++) {
       darts.push({ x: Math.round((top * (i + 1)) / (n + 1)), w: mm(dt / n), len: Math.min(dlen, WH - 20) });
     }
-    // A soft hip curve, fullest at the hip line.
+    // A soft hip curve, fullest at the hip line (an A-line: one straight line from the waist, skimming the hip).
     const side: GownPoint[] = [[top, 0]];
     for (let i = 1; i <= 8; i++) {
       const t = i / 8;
-      side.push([Math.round(top + (hipX - top) * Math.sin((Math.PI / 2) * t)), Math.round(WH * t)]);
+      side.push([Math.round(top + (hipX - top) * (skim ? t : Math.sin((Math.PI / 2) * t))), Math.round(WH * t)]);
     }
     let hemPts: GownPoint[];
     if (sil === 'sheath') {
@@ -164,8 +169,35 @@ export function draftSkirt(order: GownDraftOrder, tape: GownTape = {}): GownSkir
         [Math.round(ex * 0.5), LL - Math.round((LL - endY) * 0.25)],
         [0, LL],
       ];
+    } else if (skim) {
+      // The side seam gets exactly the length left, so it equals the centre; the hem is about 3 × hips round.
+      let sofar = 0;
+      for (let i = 1; i < side.length; i++) sofar += Math.hypot(side[i]![0] - side[i - 1]![0], side[i]![1] - side[i - 1]![1]);
+      const rest = LL - sofar;
+      const at = (hq: number) => {
+        const sl = Math.hypot(hq - hipX, LL - WH);
+        const k2 = rest / sl;
+        const ex = hipX + (hq - hipX) * k2;
+        const endY = WH + (LL - WH) * k2;
+        const mid: GownPoint = [ex * 0.55, LL - (LL - endY) * 0.2];
+        return { ex, endY, mid, len: Math.hypot(ex - mid[0], endY - mid[1]) + Math.hypot(mid[0], LL - mid[1]) };
+      };
+      const want = (mm(3) * Hp) / 4;
+      let lo = hipX;
+      let hi = hipX + 4 * LL;
+      for (let it = 0; it < 50; it++) {
+        const m = (lo + hi) / 2;
+        if (at(m).len < want) lo = m;
+        else hi = m;
+      }
+      const r = at(lo);
+      side.push([Math.round(r.ex), Math.round(r.endY)]);
+      hemPts = [
+        [Math.round(r.mid[0]), Math.round(r.mid[1])],
+        [0, LL],
+      ];
     } else {
-      // A-line and the Filipiniana saya: the hem curves up at the side so every seam is the same length.
+      // Fit and flare: the hem curves up at the side so every seam is the same length.
       const hemQ = hipX + Math.round((LL - WH) * 0.35);
       const sl = Math.hypot(hemQ - hipX, LL - WH);
       const k2 = (LL - WH) / sl;
@@ -209,6 +241,16 @@ export function draftSkirt(order: GownDraftOrder, tape: GownTape = {}): GownSkir
     ['Side seam / centre length', L, sideLen(F)],
     ['Length (centre)', L, LL / 10],
   );
+  if (skim) {
+    const hemLen = (p: GownBlockPiece) => {
+      const q = p.outline;
+      const k = q.length;
+      let s2 = 0;
+      for (let i = k - 3; i < k - 1; i++) s2 += Math.hypot(q[i + 1]![0] - q[i]![0], q[i + 1]![1] - q[i]![1]);
+      return s2 / 10;
+    };
+    checks.push(['Hem round (front + back, × 2), about 3 × hips', 3 * Hp, 2 * (hemLen(F) + hemLen(Bk))]);
+  }
   return {
     ok: true,
     sil,
@@ -216,6 +258,15 @@ export function draftSkirt(order: GownDraftOrder, tape: GownTape = {}): GownSkir
     checks,
     src,
     est,
-    note: D < 0 ? 'Her waist is larger than her hips: no darts, the side seam runs in to the hip.' : '',
+    note:
+      (D < 0 ? 'Her waist is larger than her hips: no darts, the side seam runs in to the hip.' : '') +
+      (skim
+        ? (D < 0 ? ' ' : '') +
+          'A-line: the side seam runs straight from the waist past the hip (about ' +
+          eH +
+          ' cm ease) to a hem about 3 × hips round; on narrow fabric cut it as gores or add godets.'
+        : sil === 'fitflare'
+          ? (D < 0 ? ' ' : '') + 'Fit and flare: fitted to the hip, flaring below it.'
+          : ''),
   };
 }

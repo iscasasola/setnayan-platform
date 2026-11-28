@@ -240,3 +240,21 @@ test('7d · owner 2026-11-27: a small bow is a Trims line, per piece, unpriced u
   assert.equal(GOWN_PRICE_GROUPS.find(([, f]) => f('bow'))?.[0], 'Trims');
   assert.equal(gownShopTemplate().prices.bow, undefined);
 });
+
+test('7e · v197/v198: Fit and flare has its own starting price; the Bodice group has three labour lines; all unpriced', () => {
+  assert.deepEqual(GOWN_PRICE_ITEMS.find((i) => i.key === 'base_fitflare'), { key: 'base_fitflare', label: 'Fit and flare', unit: 'gown' });
+  assert.equal(GOWN_PRICE_GROUPS.find(([, f]) => f('base_fitflare'))?.[0], 'Starting prices');
+  const bodice = GOWN_PRICE_ITEMS.filter((i) => GOWN_PRICE_GROUPS.find(([g]) => g === 'Bodice')![1](i.key));
+  assert.deepEqual(
+    bodice.map((i) => [i.key, i.label, i.unit]),
+    [
+      ['illu_bodice', 'Illusion bodice: sheer tulle panel and fitting', 'pc'],
+      ['illu_back', 'Illusion back: sheer tulle panel and fitting', 'pc'],
+      ['bone_show', 'Visible boning: channels and finishing', 'pc'],
+    ],
+  );
+  const t = gownShopTemplate();
+  for (const k of ['base_fitflare', 'illu_bodice', 'illu_back', 'bone_show'] as const) assert.equal(t.prices[k], undefined, `${k} starts priced`);
+  for (const i of GOWN_PRICE_ITEMS) assert.equal(GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length, 1, `${i.key} is in more or fewer than one group`);
+  assert.equal(new Set(GOWN_PRICE_ITEMS.map((i) => i.key)).size, GOWN_PRICE_ITEMS.length, 'a price key appears twice');
+});

@@ -25,7 +25,13 @@ export type GownTape = Partial<Record<GownMeasureKey, number>>;
 /** What the blocks need from one sent design. Nothing here carries money. */
 export type GownDraftOrder = {
   vals: Partial<GownBodyVals>;
-  sil: GownSilhouette;
+  /** v197: `fitflare` is the old A-line block (fitted to the hip, flaring below it). */
+  sil: GownSilhouette | 'fitflare';
+  /**
+   * v197: the design's version. An A-line saved before the A-line change (an explicit version below 2) opens as Fit
+   * and flare, exactly as the prototype's `draftSkirt`. No design is stored before this port, so none is set today.
+   */
+  designV?: number;
   hem: GownHem;
   /** Heel height, cm (0 = flat). */
   heel?: number;

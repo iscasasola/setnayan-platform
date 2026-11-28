@@ -584,6 +584,8 @@ export const routes = {
     performance: () => `/vendor-dashboard/performance`,
     shop: {
       index: () => `/vendor-dashboard/shop`,
+      // A tool's own panel, opened on the Shop (`?tool=<key>`, shop-makers.tsx): e.g. the Attire Maker's plan and setup.
+      tool: (key: string) => `/vendor-dashboard/shop?tool=${encodeURIComponent(key)}`,
       // 🏅 Every badge, its seven steps and what is left (owner 23 Nov 2026).
       badges: () => `/vendor-dashboard/shop/badges`,
       // 🛍 The Store — Tools · Graphs · Badges (owner 23 Nov 2026). A shelf opens filtered; an item opens its detail.

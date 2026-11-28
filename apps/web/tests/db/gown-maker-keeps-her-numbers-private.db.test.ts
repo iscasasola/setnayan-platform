@@ -252,18 +252,23 @@ test('7 · the fabric types: the prototype’s 15 plus v207’s 3, read by anyon
   await assert.rejects(db.query(`DELETE FROM public.gown_fabric_types WHERE type_id = 'mikado'`), /foreign key/i, 'a type a fabric uses was deleted');
 });
 
-test('8 · the Attire Maker SKU is priced as the Cake Maker is (no amount typed)', async () => {
+test('8 · the Attire Maker is two monthly plans (owner 2026-11-28); the one-time row is retired, replaced by Use and save', async () => {
   const rows = (
-    await db.query<{ sku_code: string; price_php: string; offering_type: string; is_active: boolean }>(
-      `SELECT sku_code, price_php::text, offering_type, is_active FROM public.vendor_billing_catalog
-        WHERE sku_code IN ('vendor_tool_attire_tool', 'vendor_tool_cake_tool') ORDER BY sku_code`,
+    await db.query<{ sku_code: string; price_php: string; offering_type: string; is_active: boolean; replaced_by_sku_code: string | null }>(
+      `SELECT sku_code, price_php::text, offering_type, is_active, replaced_by_sku_code FROM public.vendor_billing_catalog
+        WHERE sku_code IN ('vendor_tool_attire_tool', 'vendor_tool_attire_use', 'vendor_tool_attire_full') ORDER BY sku_code`,
     )
   ).rows;
-  assert.equal(rows.length, 2, 'the Attire Maker or the Cake Maker row is missing');
-  const [attire, cake] = rows;
-  assert.equal(attire!.price_php, cake!.price_php, 'the Attire Maker is not priced as the Cake Maker');
-  assert.equal(attire!.offering_type, cake!.offering_type);
-  assert.equal(attire!.is_active, true);
+  const by = Object.fromEntries(rows.map((r) => [r.sku_code, r]));
+  assert.equal(rows.length, 3, 'a plan row or the retired row is missing');
+  assert.equal(by.vendor_tool_attire_tool!.is_active, false, 'the one-time Attire Maker is still on sale');
+  assert.equal(by.vendor_tool_attire_tool!.replaced_by_sku_code, 'vendor_tool_attire_use');
+  for (const k of ['vendor_tool_attire_use', 'vendor_tool_attire_full']) {
+    assert.equal(by[k]!.is_active, true, `${k} is not on sale`);
+    assert.equal(by[k]!.offering_type, 'vendor_addon_recurring', `${k} is not monthly`);
+    assert.ok(Number(by[k]!.price_php) > 0, `${k} has no price`);
+  }
+  assert.ok(Number(by.vendor_tool_attire_full!.price_php) > Number(by.vendor_tool_attire_use!.price_php), 'Full is not priced above Use and save');
 });
 
 test('9 · B8: her add-ons are kept as ids (none = an empty list), read like the rest of her design, never by another shop', async () => {
@@ -294,4 +299,16 @@ test('10 · B9: her lines (edges_cm) are one small object, read like the rest of
     await assert.rejects(db.query(`UPDATE public.gown_designs SET edges_cm = $2::jsonb WHERE design_id = $1`, [designA, bad]), /gown_designs_edges_cm_is_a_bounded_object/, `lines took ${bad.slice(0, 30)}`);
   }
   await assert.rejects(asUser(bride, `UPDATE public.gown_designs SET edges_cm = NULL WHERE design_id = $1`, [designA]), /permission denied/i, 'a bride rewrote her lines after Send');
+});
+
+test('11 · plans: a shop reads its own trial and plan; no other shop or bride does; nobody signed in writes it; a tier has an end', async () => {
+  await db.query(`INSERT INTO public.vendor_gown_plans (vendor_profile_id, trial_started_at, plan_tier, plan_until) VALUES ($1, NOW(), 'use', NOW() + INTERVAL '30 days')`, [shopA]);
+  assert.equal(await seen(designerA, 'vendor_gown_plans', 'vendor_profile_id = $1', [shopA]), 1, 'the shop cannot read its own plan');
+  assert.equal(await seen(designerB, 'vendor_gown_plans', 'vendor_profile_id = $1', [shopA]), 0, 'another shop reads this shop’s plan');
+  assert.equal(await seen(bride, 'vendor_gown_plans'), 0, 'a bride reads a shop’s plan');
+  await assert.rejects(asUser(designerA, `UPDATE public.vendor_gown_plans SET plan_tier = 'full', plan_until = NOW() + INTERVAL '10 years' WHERE vendor_profile_id = $1`, [shopA]), /permission denied/i, 'a shop gave itself a plan');
+  await assert.rejects(asUser(designerB, `INSERT INTO public.vendor_gown_plans (vendor_profile_id, trial_started_at) VALUES ($1, NOW())`, [shopB]), /permission denied/i, 'a shop started its own trial');
+  await assert.rejects(asUser(designerA, `DELETE FROM public.vendor_gown_plans WHERE vendor_profile_id = $1`, [shopA]), /permission denied/i, 'a shop deleted its trial to start another');
+  await assert.rejects(db.query(`UPDATE public.vendor_gown_plans SET plan_until = NULL WHERE vendor_profile_id = $1`, [shopA]), /vendor_gown_plans_tier_has_an_end/, 'a plan with no end was stored');
+  await assert.rejects(db.query(`UPDATE public.vendor_gown_plans SET plan_tier = 'max' WHERE vendor_profile_id = $1`, [shopA]), /check constraint/i, 'an unknown tier was stored');
 });

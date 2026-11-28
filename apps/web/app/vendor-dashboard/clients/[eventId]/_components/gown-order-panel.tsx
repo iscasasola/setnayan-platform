@@ -22,7 +22,7 @@
  * "Open on the mannequin" comes with Builder A's step A8 (never a dead control before then).
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Printer, RotateCcw, RotateCw, Ruler, Save } from 'lucide-react';
+import { Lock, Printer, RotateCcw, RotateCw, Ruler, Save, Sparkles } from 'lucide-react';
 import { ActionButton } from '@/components/action-button';
 import { ChosenRow, FormRows, SwitchRow, TypedRow } from '@/app/_components/form-row';
 import { useToast } from '@/app/_components/toast/toast-provider';
@@ -42,6 +42,8 @@ import { GOWN_CUT_LIST_HINT, gownCutCheckSentence, type GownCutList, type GownCu
 import { GownSeamAllowRows } from '@/app/vendor-dashboard/shop/_components/gown-seam-allow';
 import { GownPatternPages } from './gown-pattern-pages';
 import { gownAction } from '@/app/_components/gown-maker/gown-call';
+import { GOWN_FULL_LOCK_WORDS, gownPlanAllows } from '@/lib/gown-plan';
+import { routes } from '@/lib/routes';
 
 /**
  * Her number in the unit a designer measures in. Arm and leg are stored as PROPORTIONS of her height (v186: arm =
@@ -95,6 +97,8 @@ function Order({ d, config, body, threadId, who }: { d: GownDesignRead; config: 
   const [saving, setSaving] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const [blocksOpen, setBlocksOpen] = useState(false);
+  // Owner 2026-11-28: the pattern work and the costing are the Full plan's (and the trial's). An unread plan is not Full.
+  const full = !!d.shopPlan && gownPlanAllows(d.shopPlan, 'full');
   const needed = useMemo(() => gownMeasuresNeeded(config), [config]);
   const measures: GownMeasures = d.measures ?? {};
   const braLine = `Bra size: ${body.bra ? `${body.bra.us} US · ${body.bra.eu} EU${body.bra.exact ? '' : ' (estimate)'}` : 'Couldn’t read it from her numbers'}`;
@@ -138,7 +142,9 @@ function Order({ d, config, body, threadId, who }: { d: GownDesignRead; config: 
         ))}
       </section>
 
-      {d.forShop ? (
+      {!full ? (
+        <GownFullLock line={GOWN_FULL_LOCK_WORDS.costs} data="costs" />
+      ) : d.forShop ? (
         <section className="space-y-1" data-gown-order-costs="">
           <h3 className="text-sn-sm font-semibold uppercase tracking-wide text-ink/70">Your costs (only you see these)</h3>
           {d.forShop.lines.length ? null : <p className="text-sn-base text-ink/70">No cost lines for this design yet.</p>}
@@ -216,8 +222,14 @@ function Order({ d, config, body, threadId, who }: { d: GownDesignRead; config: 
       </section>
 
       <section className="space-y-2" data-gown-order-blocks="">
-        <ActionButton tone="neutral" icon={Ruler} label={blocksOpen ? 'Hide the cutting blocks' : 'Cutting blocks'} onClick={() => setBlocksOpen((o) => !o)} className="w-full" />
-        {blocksOpen ? <Pattern d={d} config={config} body={body} measures={measures} tape={tape} threadId={threadId} who={who} /> : null}
+        {full ? (
+          <>
+            <ActionButton tone="neutral" icon={Ruler} label={blocksOpen ? 'Hide the cutting blocks' : 'Cutting blocks'} onClick={() => setBlocksOpen((o) => !o)} className="w-full" />
+            {blocksOpen ? <Pattern d={d} config={config} body={body} measures={measures} tape={tape} threadId={threadId} who={who} /> : null}
+          </>
+        ) : (
+          <GownFullLock line={GOWN_FULL_LOCK_WORDS.blocks} data="blocks" />
+        )}
       </section>
     </div>
   );
@@ -438,6 +450,17 @@ function CutList({ c }: { c: GownCutList }) {
           {c.unblocked.length ? ` Not in this list yet (no block): ${c.unblocked.join(', ')}.` : ''}
         </p>
       </div>
+    </div>
+  );
+}
+
+/** 🔒 A Full-plan feature on the order: said plainly, with one real door to the plan (the Attire Maker's own panel). */
+function GownFullLock({ line, data }: { line: string; data: string }) {
+  return (
+    <div className="sn-frame flex flex-wrap items-center gap-3 p-4" data-gown-full-lock={data}>
+      <Lock aria-hidden className="h-4 w-4 flex-none text-ink/60" />
+      <p className="min-w-0 flex-1 text-sn-base text-ink/80">{line}</p>
+      <ActionButton tone="neutral" icon={Sparkles} label={GOWN_FULL_LOCK_WORDS.door} href={routes.vendorDashboard.shop.tool('attire_tool')} />
     </div>
   );
 }

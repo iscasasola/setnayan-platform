@@ -649,6 +649,15 @@ export function gownDesignOf(
   };
 }
 
+/**
+ * What a bride holds when the shop's plan has no quotation (Use and save, owner 2026-11-28: "quotation" is the Full
+ * plan's): no estimate and no add-on amount — every priced add-on reads "Ask your designer"; "Included" stays. The
+ * designer quotes by hand in the chat.
+ */
+export function gownForBrideWithoutPrices(b: GownDesignForBride): GownDesignForBride {
+  return { estimateCentavos: null, withinBase: false, addOns: b.addOns.map((a) => (a.centavos === null ? a : { ...a, centavos: null, words: GOWN_ADD_ON_ASK })) };
+}
+
 /** The silhouette's starting-price label ("Starting price: A-line"). */
 export const gownBaseLabel = (sil: GownSilhouette) => `Starting price: ${SIL_LABEL[sil]}`;
 

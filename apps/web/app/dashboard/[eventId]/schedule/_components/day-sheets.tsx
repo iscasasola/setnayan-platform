@@ -286,7 +286,6 @@ export function AddMomentSheet({
             value={where}
             onChange={(e) => setWhere(e.target.value)}
             maxLength={200}
-            placeholder="e.g. Church steps"
           />
         </SheetField>
 

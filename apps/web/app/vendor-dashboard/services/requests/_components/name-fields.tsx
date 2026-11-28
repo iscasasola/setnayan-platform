@@ -43,8 +43,6 @@ export function RequestNameForm({
         value={label}
         required
         boxed
-        empty="e.g. Kakanin bilao"
-        placeholder="e.g. Kakanin bilao"
         maxLength={80}
         check={(t) => serviceNameProblem(t)}
         fieldName="proposed_label"

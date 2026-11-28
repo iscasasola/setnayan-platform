@@ -611,13 +611,21 @@ export function moreToCompareHeading(hasOwn: boolean): string {
   return hasOwn ? 'More to compare' : 'To compare';
 }
 
+/** 🧹 THE ONE LINE for a category no supplier lists yet (owner R3, 27 Nov 2026: "a fixed app, not an app with
+ *  guidelines on what should be here"). Every Find surface says exactly this — the open category, the search sheet
+ *  and the category page — never "Check back soon", never "the moment they join". Its action is the screen's own
+ *  (Find's ONE add is the thumb row's ＋, owner 2026-10-13). */
+export function findNoneListedWords(label: string): string {
+  return `No ${label} supplier on Setnayan yet.`;
+}
+
 /** Nobody to show. A search that matched nobody and a category nobody has
- *  joined yet are different facts — and only the first has a next step here. */
-export function moreToCompareEmpty(label: string, query: string): string {
+ *  joined yet are different facts — and only the first has a next step here.
+ *  With none of their own here either, the category is simply empty: the one line. */
+export function moreToCompareEmpty(label: string, query: string, hasOwn = true): string {
   const q = query.trim();
-  return q
-    ? `Nobody called “${q}” in ${label} yet — add them as your own.`
-    : `Nobody else to compare in ${label} yet.`;
+  if (q) return `Nobody called “${q}” in ${label} yet — add them as your own.`;
+  return hasOwn ? `Nobody else to compare in ${label} yet.` : findNoneListedWords(label);
 }
 
 /** The quiet second verb on a card in the list: keep them, ask later. */

@@ -814,7 +814,7 @@ function LineItemSection({
               name="label"
               required
               maxLength={64}
-              placeholder="Label (e.g. First payment)"
+              placeholder="Label"
               className="input-field col-span-2 min-h-12 text-[15px]"
             />
             <input
@@ -858,7 +858,7 @@ function LineItemSection({
               name="label"
               required
               maxLength={64}
-              placeholder="Label (e.g. Tip)"
+              placeholder="Label"
               className="input-field col-span-2 min-h-12 text-[15px]"
             />
             <input

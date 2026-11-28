@@ -1714,7 +1714,7 @@ function KindlyReplyField({
         defaultValue={manual}
         maxLength={160}
         aria-label="Reply line, typed in"
-        placeholder="If you chose “Type it in”: e.g. Reply by Nov 18 · Claire, 0917 …"
+        placeholder="If you chose “Type it in”"
         className="rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm text-ink"
       />
     </>

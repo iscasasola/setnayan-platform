@@ -148,11 +148,6 @@ export async function WorkingFolderNotes({
           required
           rows={3}
           maxLength={WORKING_NOTE_BODY_MAX}
-          placeholder={
-            viewer.isCoordinator
-              ? 'e.g. Caterer can flex the ingress time — confirm final headcount first.'
-              : 'e.g. We prefer the garden setup if the weather holds.'
-          }
           className="w-full rounded-lg border border-ink/15 bg-cream/80 px-3 py-2 text-sm text-ink placeholder:text-ink/35 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-terracotta"
         />
 

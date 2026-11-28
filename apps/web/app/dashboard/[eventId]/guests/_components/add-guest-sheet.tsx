@@ -120,7 +120,7 @@ export function AddGuestSheet({
   /** A new guest's side (the shipped CaptureBar's `defaultSide`). */
   defaultSide: GuestSide;
   /** One example line + the Tips ▾ fold, and the name box's rotating examples (`lib/quick-add-tips.ts`). */
-  tips?: { example: string; examples?: readonly string[]; tips: string[] };
+  tips?: { examples?: readonly string[]; tips: string[] };
   /** The roles this event offers — the name box reads "+Groomsmen" as the role only when it is one. */
   offeredRoles?: readonly GuestRole[];
 }) {
@@ -166,19 +166,16 @@ export function AddGuestSheet({
             withDoors={false}
             placeholder="Type a name…"
             initialValue={name}
-            hints={tips?.examples?.map((l) => `e.g. ${l}`)}
             offeredRoles={offeredRoles}
           />
         </div>
         {/* ⚡ Every name typed here, drawn the moment Enter is pressed — "Adding…", then "Added", or why not with Retry
             (guest-add-queue.ts). The sheet covers the List, so the names are shown where the host is looking. */}
         <JustAdded eventId={eventId} variant="sheet" since={openedAt} />
-        {/* ⚖ What the name box understands (owner 2026-10-01): ONE example line
-            that fits this event, and one fold — never a wall of text. The words
-            come from `lib/quick-add-tips.ts`, each read by the shipped parser. */}
+        {/* ⚖ What the name box understands (owner 2026-10-01): one fold — never a wall of text. The words come from
+            `lib/quick-add-tips.ts`, each read by the shipped parser. R3 (owner 27 Nov 2026): no "e.g." example line. */}
         {tips ? (
           <div className="-mt-2 space-y-1.5" data-add-guest-tips="">
-            <p className="text-xs text-ink/55">{tips.example}</p>
             <details className="group text-xs text-ink/60">
               <summary className="inline-flex cursor-pointer list-none items-center gap-1 font-medium text-ink/70">
                 Tips

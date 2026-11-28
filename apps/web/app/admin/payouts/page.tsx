@@ -28,7 +28,8 @@ import { PAYOUT_FILTERS, parsePayoutFilter as parseFilter, payoutsHref as makeHr
 import { MarkPaidRows, ReasonRow } from './payout-form-rows';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
-export const metadata = { title: 'Supplier payouts · Admin' };
+import { PageMasthead } from '@/app/_components/page-masthead';
+export const metadata = { title: 'Payouts · Admin' };
 
 /*
   📐 ADMIN CLEAN PORT (owner 19 Nov 2026, "ok" on the drawing "Money screens: now and proposed",
@@ -184,6 +185,7 @@ export default async function AdminPayoutsPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-[760px] px-4 pb-8 pt-2 sm:px-6" data-payouts="">
+      <PageMasthead title="Payouts" />
       <FlashBanner flash={search.flash} error={search.error} />
 
       {opened ? (

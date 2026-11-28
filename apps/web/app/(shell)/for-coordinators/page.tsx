@@ -95,7 +95,7 @@ const START = onSiteHref(doorOpenShopHref('coordinator'), siteOrigin());
 
 const TITLE = 'For Coordinators — Your business’s new home';
 const DESCRIPTION =
-  'For coordinators and wedding planners: run every client’s event from one screen, run the day from your phone, and invite the suppliers you trust. Free to start.';
+  'For coordinators and wedding planners: run every client’s event from one screen, run the day from your phone, and invite the suppliers you trust.';
 
 export const metadata = {
   title: TITLE,
@@ -255,7 +255,7 @@ export default async function ForCoordinatorsPage() {
             Start as a coordinator free →
           </Link>
           <p className="fc-fine fc-c">
-            {on.dayOfFree ? 'Coordinator tools are included on every plan.' : 'Free to start. No card needed.'}
+            {on.dayOfFree ? 'Coordinator tools are included on every plan.' : 'No card needed.'}
           </p>
           <nav className="fd-chips fc-chips" aria-label="On this page">
             <a className="fd-chip" href="#screen">
@@ -569,7 +569,7 @@ export default async function ForCoordinatorsPage() {
           <Link className="fd-btn-terra fc-btn" href={START}>
             Start as a coordinator free →
           </Link>
-          <p className="fc-fine fc-c">Free to start. No card needed.</p>
+          <p className="fc-fine fc-c">No card needed.</p>
         </section>
       </main>
 

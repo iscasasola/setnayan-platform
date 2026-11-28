@@ -8,8 +8,9 @@ import { setHelpMessageStatus } from '@/app/admin/help/actions';
 import { AnswerRows, BestAnswer, NoAnswer, type AnswerCtx } from '@/app/_components/help-ask/help-ask-view';
 import { TopicTiles } from '@/app/_components/help-ask/topic-tiles';
 import { helpDoorFor, tilesFor } from '@/app/_components/help-ask/help-ask-places';
+import { PageMasthead } from '@/app/_components/page-masthead';
 
-export const metadata = { title: 'Help · Admin' };
+export const metadata = { title: 'Team help · Admin' };
 
 /**
  * ❓ THE TEAM'S HELP — the same ask-first page, inside Setnayan HQ only (owner 13 Nov 2026, "Three helps: user ·
@@ -72,6 +73,7 @@ export default async function AdminHelpGuidesPage({ searchParams }: Props) {
 
   return (
     <div className="mx-auto w-full max-w-xl px-4 pb-16 pt-6 sm:px-6" data-help-coverage="team">
+      <PageMasthead title="Team help" />
       <div>
         {/* The team's ask rides the admin Help's own action (`intent=ask`) — it writes the row; this render never does. */}
         <AskBox q={q} action="/admin/help/guides" clearHref="/admin/help/guides" ask={{ action: setHelpMessageStatus, coverage: 'team' }} />

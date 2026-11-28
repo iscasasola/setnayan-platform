@@ -557,10 +557,14 @@ export function Unihome(props: UnihomeViewProps) {
                   <>
                     @{handle.slug}
                     <span className={u.hdot}> · </span>
-                    <Link href={`/u/${handle.slug}`} data-home-public-page="">
-                      {host}/u/{handle.slug}
-                    </Link>
-                    {handle.publicOn === false ? ' · off' : null}
+                    {/* The address and its "off" stay one unit: the address never breaks mid-word (it ends in "…" when
+                        it can't fit) and "· off" never lands alone on the next line (walkthrough 27 Nov, testnayan4). */}
+                    <span className={u.addr}>
+                      <Link href={`/u/${handle.slug}`} className={u.addrLink} data-home-public-page="">
+                        {host}/u/{handle.slug}
+                      </Link>
+                      {handle.publicOn === false ? <span className={u.addrOff}>&nbsp;· off</span> : null}
+                    </span>
                   </>
                 ) : (
                   <Link href="/dashboard/profile#url-slug" data-home-public-page="">

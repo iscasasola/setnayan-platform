@@ -100,7 +100,7 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
   },
   {
     icon: Heart,
-    label: 'Free to start',
+    label: 'Planning is free',
     value:
       'Guest list, seating, budget, schedule, the mood board, your Event Hub, supplier browse, and in-app chat are free with every account. You only pay for premium tools you choose to add.',
   },

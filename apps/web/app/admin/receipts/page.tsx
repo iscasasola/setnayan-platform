@@ -97,7 +97,7 @@ export default async function AdminReceiptsPage({ searchParams }: Props) {
           Receipts, and somebody reconciling a month's takings has to know that
           before they file anything — so it sits behind the ⓘ on the section's
           own label (admin clean port 19 Nov 2026: words unchanged, moved). */}
-      <PageMasthead title="Transaction receipts" />
+      <PageMasthead title="Receipts" />
 
       <TemplateSection
         label="Transaction receipts"

@@ -584,8 +584,8 @@ export function EventTypePicker({
                 maxLength={80}
                 placeholder={
                   isGatedLifeType(selected.key)
-                    ? 'First name — e.g. Maria'
-                    : 'Business name — e.g. Aling Nena’s Store'
+                    ? 'First name'
+                    : 'Business name'
                 }
                 type="text"
               />
@@ -685,7 +685,6 @@ export function EventTypePicker({
                 min={1}
                 name="estimated_pax"
                 onChange={(e) => setPaxDraft(e.target.value)}
-                placeholder="e.g. 120"
                 type="number"
                 value={paxDraft}
               />

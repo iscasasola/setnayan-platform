@@ -31,15 +31,13 @@ export function OtherAccountRow({ acct, next, className }: { acct: OtherAccount;
         </span>
         <span className="min-w-0 flex-1">
           <span className="block [overflow-wrap:anywhere] text-base font-semibold leading-tight text-ink">{name}</span>
-          <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-sn-md text-[var(--m-slate-2)]">
-            <span
-              aria-hidden
-              className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full border border-[var(--m-line)] text-sn-3xs font-semibold text-ink"
-            >
-              @
+          {/* The email under a real name only — no "@" mark before it (it read "@ email", walkthrough 27 Nov), and
+              no second copy when the email is already the row's name. */}
+          {realNameOrNull(acct.name) ? (
+            <span className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-sn-md text-[var(--m-slate-2)]">
+              <span className="[overflow-wrap:anywhere]">{acct.email}</span>
             </span>
-            <span className="[overflow-wrap:anywhere]">{acct.email}</span>
-          </span>
+          ) : null}
         </span>
         <span className="shrink-0 rounded-full bg-[var(--m-ivory)] px-[9px] py-1 font-mono text-sn-2xs uppercase tracking-[0.14em] text-[var(--m-slate-2)]">
           Account

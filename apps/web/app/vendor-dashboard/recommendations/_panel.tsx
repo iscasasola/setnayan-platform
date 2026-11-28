@@ -394,7 +394,6 @@ function NotAFitControl({ rec }: { rec: RecCard }) {
             name="note"
             rows={2}
             maxLength={1000}
-            placeholder="e.g. I already include this · it competes with my package · not relevant to my couples"
             className="input-field resize-none text-sm"
           />
           <div className="flex items-center justify-end gap-3">

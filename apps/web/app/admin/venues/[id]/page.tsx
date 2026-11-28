@@ -57,7 +57,7 @@ export default async function EditVenuePage({ params }: Props) {
     return (
       <div className="mx-auto w-full max-w-[760px] px-4 py-6 sm:px-6">
         <RecordBack href="/admin/accounts?tab=venues" label="Venues" />
-        <PageMasthead title="Venue" />
+        <PageMasthead title="Edit venue" />
         <ReadFailed what="this venue" />
       </div>
     );

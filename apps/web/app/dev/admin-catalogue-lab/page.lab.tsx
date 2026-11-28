@@ -10,6 +10,7 @@
  *   ?at=/admin/catalogue                  Home (busy — 3 shops asking)
  *   ?at=/admin/catalogue&state=empty      Home, nothing waiting
  *   ?at=/admin/catalogue&state=fail       Home, a read refused — "—", never 0
+ *   ?at=/admin/catalogue&state=stale      Home beside an old Social queue item — Oldest stays the requests' (L7 · D4)
  *   ?at=/admin/categories&new=category    the one New category form, opened empty by the tab's ＋
  */
 import { notFound } from 'next/navigation';
@@ -47,13 +48,17 @@ const FACTS: Record<string, { catalogue: CatalogueHeadFacts; asking: number | nu
   busy: { catalogue: { categories: 58, services: 412 }, asking: 3 },
   empty: { catalogue: { categories: 58, services: 412 }, asking: 0 },
   fail: { catalogue: { categories: 58, services: null }, asking: null },
+  stale: { catalogue: { categories: 58, services: 412 }, asking: 3 },
 };
 
-function digestFor(asking: number | null): AdminQueueDigest {
+function digestFor(asking: number | null, staleSocial = false): AdminQueueDigest {
   // A refused queue read is `count: null` (→ "—"), the same as the real digest.
   return {
     'service-requests': { count: asking, oldestAt: asking ? new Date(Date.now() - 52 * 3_600_000).toISOString() : null },
-    'social-queue': { count: 0, oldestAt: null },
+    // `stale`: the 27 Nov walk's shape — a Social queue item 163 days old, which the head once called "Oldest".
+    'social-queue': staleSocial
+      ? { count: 8, oldestAt: new Date(Date.now() - 163 * 86_400_000).toISOString() }
+      : { count: 0, oldestAt: null },
   };
 }
 
@@ -91,7 +96,7 @@ export default async function AdminCatalogueLab({
     );
   else {
     const f = FACTS[sp.state ?? 'busy'] ?? FACTS.busy!;
-    body = <TabLanding tab="catalogue" catalogue={f.catalogue} digest={digestFor(f.asking)} />;
+    body = <TabLanding tab="catalogue" catalogue={f.catalogue} digest={digestFor(f.asking, sp.state === 'stale')} />;
   }
 
   return (

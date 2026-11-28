@@ -421,7 +421,6 @@ export function BuildCompare({
               onChange={(e) => setName(e.target.value)}
               // §7a: the placeholder IS the name a blank save will get, so the
               // auto-name is never a surprise. Optional field — never validated.
-              placeholder="e.g. Garden wedding"
               className="min-w-[8rem] flex-1 rounded-md border border-ink/15 bg-paper px-2 py-1 text-sm outline-none focus:border-terracotta/50"
               aria-label="Build name"
             />

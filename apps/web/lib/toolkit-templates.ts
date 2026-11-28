@@ -71,7 +71,7 @@ export const PAY_PLAN_TEMPLATES: readonly PayPlanTemplate[] = [
     name: 'Half now, half before',
     line: 'Half to book · half 7 days before',
     parts: [p('Reservation', 50, 'on_lock'), p('Final balance', 50, 'before_event', 7)],
-    forCategories: ['Stylist / Decorator', 'Lights & Sound', 'Chairs & tents'],
+    forCategories: ['Stylist / Decorator', 'Lights & Sounds', 'Chairs & tents'],
   },
   {
     key: 'p20_three',
@@ -186,7 +186,7 @@ export const AV_TEMPLATES: readonly AvTemplate[] = [
   { key: 'more_a_day', name: 'More than one event a day', style: 'day', leadDays: null, perDay: null, forCategories: ['Reception', 'Catering', 'Stylist / Decorator'] },
   { key: 'order_14', name: 'Made to order, two weeks ahead', style: 'order', leadDays: 14, perDay: null, forCategories: ['Cake', 'Dessert', 'Engraving / Embroidery'] },
   { key: 'order_30', name: 'Made to order, a month ahead', style: 'order', leadDays: 30, perDay: null, forCategories: ['Caricature / Calligraphy / Painting', 'Perfume Bar'] },
-  { key: 'by_piece', name: 'Rented by the piece', style: 'piece', leadDays: null, perDay: null, forCategories: ['Chairs & tents', 'Lights & Sound', 'Dance Floor'] },
+  { key: 'by_piece', name: 'Rented by the piece', style: 'piece', leadDays: null, perDay: null, forCategories: ['Chairs & tents', 'Lights & Sounds', 'Dance Floor'] },
   { key: 'always', name: 'Always available', style: 'none', leadDays: null, perDay: null, forCategories: ['Digital Services'] },
 ];
 

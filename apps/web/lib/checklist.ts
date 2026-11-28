@@ -249,7 +249,7 @@ export const CHECKLIST_TEMPLATE: ReadonlyArray<ChecklistTemplateItem> = [
   { key: 'order_cake', title: 'Order your wedding cake', category: 'vendors', dueOffsetDays: 250 },
   { key: 'book_photobooth', title: 'Book a photobooth', category: 'vendors', dueOffsetDays: 245 },
   { key: 'book_hmua', title: 'Book hair & makeup artist', category: 'vendors', dueOffsetDays: 240 },
-  { key: 'book_lights_sound', title: 'Book your lights & sound', category: 'vendors', dueOffsetDays: 235 },
+  { key: 'book_lights_sound', title: 'Book your lights & sounds', category: 'vendors', dueOffsetDays: 235 },
   { key: 'book_coordinator', title: 'Book your coordinator', category: 'vendors', dueOffsetDays: 230 },
   { key: 'book_bridal_car', title: 'Book your bridal car / transportation', category: 'logistics', dueOffsetDays: 225 },
   { key: 'book_groom_attire', title: 'Book groom & groomsmen attire (barong / suit)', category: 'attire', dueOffsetDays: 215 },

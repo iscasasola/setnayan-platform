@@ -155,7 +155,6 @@ export function AnnounceButton({
             maxLength={BROADCAST_MAX_LENGTH}
             rows={3}
             aria-label="Your announcement"
-            placeholder="e.g. Dinner is moving up 15 minutes — please find your seats."
             className="w-full resize-none border-0 border-b border-[color:var(--m-line)] bg-transparent px-0 py-1.5 text-base leading-normal text-ink outline-none focus:border-ink"
           />
           <div className="flex items-center justify-between gap-3">

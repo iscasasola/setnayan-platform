@@ -711,7 +711,6 @@ export async function SocialQueueSurface({
                 <input
                   name="title"
                   type="text"
-                  placeholder="e.g. Seat plan editor launch"
                   className="input-field h-9 w-full text-xs"
                 />
               </label>
@@ -794,7 +793,7 @@ export async function SocialQueueSurface({
               name="title"
               type="text"
               required
-              placeholder="Title (internal, e.g. Planning tip · guest list first)"
+              placeholder="Title (internal)"
               className="input-field h-9 w-full text-xs"
             />
             <textarea

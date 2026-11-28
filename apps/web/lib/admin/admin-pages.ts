@@ -332,7 +332,9 @@ export const ADMIN_MERGED_PAGES: readonly AdminMergedPage[] = [
       v('website-media', 'Website media', '/admin/studio?tab=website-media', { kindGroup: 'Templates & media', olds: ['/admin/website-media'] }),
       v('hub-music', 'Hub music', '/admin/studio?tab=hub-music', { kindGroup: 'Templates & media', olds: ['/admin/hub-music'] }),
       v('songs', 'Songs', '/admin/studio?tab=songs', { kindGroup: 'Templates & media', match: ['/admin/studio?tab=songs', '/admin/songs'] }),
-      v('real-stories', 'Real Stories (retired)', '/admin/studio?tab=real-stories', {
+      // L7 · D4: only the public /realstories hub retired (16 Nov, it forwards to Discover). Featuring here still feeds
+      // the front door (`lib/front-door-editorials.ts`), so the tool keeps its plain name (owner 27 Nov).
+      v('real-stories', 'Real Stories', '/admin/studio?tab=real-stories', {
         kindGroup: 'Stories & social',
         match: ['/admin/studio?tab=real-stories', '/admin/real-stories'],
       }),

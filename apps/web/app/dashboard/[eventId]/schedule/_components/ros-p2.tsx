@@ -350,7 +350,6 @@ export function ResponsiblePartyEditor({
             name="responsible_party"
             defaultValue={party ?? ''}
             maxLength={120}
-            placeholder="e.g. HMUA team · Ninong Roberto · Coordinator"
             className="input-field"
           />
         </label>

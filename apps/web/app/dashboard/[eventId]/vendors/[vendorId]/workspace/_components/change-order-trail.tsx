@@ -252,7 +252,6 @@ export function ChangeOrderTrail({
               type="text"
               maxLength={120}
               required
-              placeholder={kind === 'add-on' ? 'e.g. Extra hour of coverage' : 'e.g. Drop the photo booth'}
               className="min-h-12 w-full rounded-xl border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-[15px] text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta"
             />
           </div>
@@ -270,7 +269,6 @@ export function ChangeOrderTrail({
                 step="0.01"
                 required
                 inputMode="decimal"
-                placeholder="e.g. 5000"
                 className="min-h-12 w-full rounded-xl border border-ink/15 bg-white dark:bg-raised px-3 py-2 text-[15px] text-ink focus:border-terracotta focus:outline-none focus:ring-1 focus:ring-terracotta tabular-nums"
               />
             </div>

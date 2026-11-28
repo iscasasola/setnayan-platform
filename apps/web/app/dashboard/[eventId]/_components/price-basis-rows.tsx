@@ -107,7 +107,6 @@ export function PriceBasisRows({
           value={countKept}
           inputMode="numeric"
           required
-          placeholder={basis === 'per_pax' ? 'e.g. 120' : 'e.g. 5'}
           maxLength={basis === 'per_pax' ? 6 : 6}
           about={{
             words: (

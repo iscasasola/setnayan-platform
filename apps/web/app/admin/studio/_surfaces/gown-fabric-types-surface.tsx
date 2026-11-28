@@ -124,7 +124,7 @@ function TypeSheet({ start, isNew, others, onClose, onSaved }: { start: GownFabr
     <Sheet open onClose={onClose} labelledById={titleId} title={isNew ? 'Add a fabric type' : `Edit ${start.name}`}>
       <div className="space-y-4 p-4" data-gown-type-sheet="">
         <FormRows>
-          {isNew ? <TypedRow name="Id" value={d.id} empty="e.g. duchess_satin" onKeep={(v) => set({ id: v.trim().toLowerCase() })} note="Small letters, digits and _. It never changes." data="gown-type-id" /> : null}
+          {isNew ? <TypedRow name="Id" value={d.id} empty="Add an id" onKeep={(v) => set({ id: v.trim().toLowerCase() })} note="Small letters, digits and _. It never changes." data="gown-type-id" /> : null}
           <TypedRow name="Name" value={d.name} empty="Add a name" onType={(v) => set({ name: v })} onKeep={(v) => set({ name: v })} data="gown-type-name" />
           <TypedRow
             name="Other names"

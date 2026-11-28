@@ -1130,7 +1130,7 @@ export function PendingDecision({
             <input type="hidden" name="q" value={query} />
             <input
               name="admin_notes"
-              placeholder="Optional note (e.g. bank confirmed at 14:32)"
+              placeholder="Optional note"
               aria-label="Note (admin only)"
               className="sn-input min-h-11 w-full"
             />
@@ -1192,7 +1192,7 @@ export function PendingDecision({
           <input type="hidden" name="payment_id" value={p.payment_id} />
           <textarea
             name="admin_resubmit_notice"
-            placeholder="What does the couple need to fix? (e.g. screenshot is blurry, reference code missing from notes)"
+            placeholder="What does the couple need to fix?"
             aria-label="What does the couple need to fix?"
             required
             minLength={10}
@@ -1216,7 +1216,7 @@ export function PendingDecision({
           <input type="hidden" name="payment_id" value={p.payment_id} />
           <input
             name="admin_notes"
-            placeholder="Why is this rejected? (e.g. amount mismatch)"
+            placeholder="Why is this rejected?"
             aria-label="Why is this rejected?"
             className="sn-input min-h-11 w-full"
           />
@@ -1883,7 +1883,7 @@ export function RecordPaymentCard({ record, query }: { record: RecordTarget; que
         </label>
         <label className={`${field} sm:col-span-2`}>
           Note
-          <input name="admin_notes" maxLength={500} placeholder="e.g. seen in the BDO app at 14:32" className="sn-input min-h-11 w-full" />
+          <input name="admin_notes" maxLength={500} className="sn-input min-h-11 w-full" />
         </label>
         <div className="sm:col-span-2">
           <SubmitButton className="ab ab-ok ab-main w-full" pendingLabel="Recording…">

@@ -2566,7 +2566,6 @@ export function ProposalMaker({
                 setDiscountReason(e.target.value || null);
                 setReasonFromCard(false);
               }}
-              placeholder="e.g. Booked early · they see this"
               aria-label="Why you are giving a discount"
               data-quote-discount-why=""
               className={`${field} h-11 min-w-0 flex-1`}
@@ -2953,7 +2952,7 @@ export function ProposalMaker({
                 value={saveName}
                 onChange={(e) => setSaveName(e.target.value)}
                 aria-label="Name this saved quote"
-                placeholder="Name it · e.g. Garden wedding 150"
+                placeholder="Name it"
                 className={`${field} h-11 min-w-0 flex-1`}
               />
               <button

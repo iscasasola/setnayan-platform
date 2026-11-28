@@ -1092,7 +1092,7 @@ function CardFooter({
             <FieldLabel>
               Why retire it? <span className="font-normal text-ink/50">(optional)</span>
             </FieldLabel>
-            <input name="reason" placeholder="e.g. replaced by the new credit ladder" className="input-field h-9 w-full text-sm" />
+            <input name="reason" className="input-field h-9 w-full text-sm" />
           </div>
           {row.kind === 'retail' && (
             <div>

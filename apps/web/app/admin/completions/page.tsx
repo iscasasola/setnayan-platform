@@ -304,7 +304,7 @@ export default async function AdminCompletionsPage() {
                     <textarea
                       name="note"
                       rows={2}
-                      placeholder="Why (optional) — e.g. confirmed delivery off-platform"
+                      placeholder="Why (optional)"
                       className="input-field text-xs"
                       aria-label="Force-complete note"
                     />

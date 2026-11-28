@@ -700,7 +700,6 @@ export function NewManualVendorModal({
                     fieldName="business_name"
                     value={nameKept}
                     empty="Their name"
-                    placeholder="e.g. Tito Marcel"
                     required
                     maxLength={128}
                     autoCapitalize="words"
@@ -719,7 +718,6 @@ export function NewManualVendorModal({
                     name="Contact person"
                     fieldName="contact_person"
                     value=""
-                    placeholder="e.g. Marcel Santos"
                     // A record made by the four-step walk may hold only one of the
                     // two contacts; editing it must not demand the other.
                     required={!isEdit}
@@ -990,7 +988,6 @@ function InclusionLines({ disabled }: { disabled?: boolean }) {
                   value={l.text}
                   disabled={disabled}
                   maxLength={120}
-                  placeholder="e.g. Buffet dinner for 150 guests"
                   aria-label={`Inclusion ${i + 1}`}
                   data-inclusion-line={l.key}
                   onChange={(e) => {

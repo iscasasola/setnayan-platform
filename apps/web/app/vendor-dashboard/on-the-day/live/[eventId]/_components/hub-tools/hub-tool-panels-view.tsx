@@ -112,61 +112,61 @@ const MARK: Partial<Record<DayOfModuleId, Icon>> = {
 const ENTRY_WORDS: Record<string, { placeholder: string; empty: string; second?: string; first?: string }> = {
   pick_up_times_and_routes: {
     first: 'Pick-up',
-    placeholder: 'e.g. Bride · Hotel → Church',
+    placeholder: '',
     second: 'Route or note',
     empty: 'Add each pick-up with its time — who, and from where to where — then press Next as each one leaves.',
   },
   itinerary: {
     first: 'Stop',
-    placeholder: 'e.g. Flight PR 102 lands',
+    placeholder: '',
     second: 'Where or a note',
     empty: 'Add each stop with its time — a flight, a hotel, a meeting point — then press Next as the day goes.',
   },
   serving_times: {
     first: 'What goes out',
-    placeholder: 'e.g. Soup course',
+    placeholder: '',
     second: 'Station or note',
     empty: 'Add each course or serving with its time, then press Next as each one goes out.',
   },
   remembrance_schedule: {
     first: 'What happens',
-    placeholder: 'e.g. Viewing opens',
+    placeholder: '',
     second: 'Where or a note',
     empty: 'Add the viewing hours, the masses and the interment with their times, then press Next as each begins.',
   },
   march_cue_sheet: {
     first: 'Who walks',
-    placeholder: 'e.g. Principal sponsors',
+    placeholder: '',
     second: 'The song',
     empty: 'Add each march group in walking order with its time and song, then press Next as each group walks.',
   },
   rehearsal_and_cues: {
     first: 'Cue',
-    placeholder: 'e.g. Couple’s first dance',
+    placeholder: '',
     second: 'The cue song or step',
     empty: 'Add the rehearsal and each cue with its time, then press Next as the run goes.',
   },
   reveal_cue: {
     first: 'Moment',
-    placeholder: 'e.g. Countdown starts',
+    placeholder: '',
     second: 'Who triggers it',
     empty: 'Add the lead-up and the reveal with their times — and who triggers it — then press Next on the night.',
   },
   wellness_plan: {
     first: 'Activity',
-    placeholder: 'e.g. Pilates session',
+    placeholder: '',
     empty: 'Add each session in the weeks before with its date, and tick it when it’s done.',
   },
   ceremony_details: {
-    placeholder: 'e.g. Mass at 3:00 PM',
+    placeholder: '',
     empty: 'List what the ceremony needs settled — the time, sponsors, readings, banns — and tick each when it’s set.',
   },
   proofs_and_approval: {
-    placeholder: 'e.g. Invitation proof 2',
+    placeholder: '',
     empty: 'List each proof you send the couple, and tick it when they approve it.',
   },
   safety_permit_and_cue: {
-    placeholder: 'e.g. Fire permit in hand',
+    placeholder: '',
     empty: 'List the permit papers, the safe zone and the go cue, and tick each when it’s cleared.',
   },
   fittings_and_measurements: {
@@ -197,18 +197,18 @@ const ENTRY_WORDS: Record<string, { placeholder: string; empty: string; second?:
   },
   reservation_slots: {
     first: 'Slot',
-    placeholder: 'e.g. 2:00 PM · Santos',
+    placeholder: '',
     second: 'How many, or a note',
     empty: 'List each slot in order — the time and who — and move them as plans change.',
   },
   brackets_and_scoring: {
     first: 'Team or player',
-    placeholder: 'e.g. Team Reyes',
+    placeholder: '',
     second: 'Group or match',
     empty: 'Add each team or player in order, then count their score as the games go.',
   },
   tech_rider: {
-    placeholder: 'e.g. 2× wireless mic',
+    placeholder: '',
     empty: 'List what you need at the venue — mics, power, a sound check — and tick each as it’s ready.',
   },
   personalisation_list: {
@@ -217,23 +217,23 @@ const ENTRY_WORDS: Record<string, { placeholder: string; empty: string; second?:
     empty: 'Add each person and what goes on theirs — spelled the way they want it.',
   },
   quantity_vs_guests: {
-    placeholder: 'e.g. Giveaways',
+    placeholder: '',
     empty: 'Name what you’re counting — cups, giveaways, plates — and tap More as you make or hand them out.',
   },
   paperwork_checklist: {
-    placeholder: 'e.g. Signed forms',
+    placeholder: '',
     empty: 'List the papers for this event — IDs, signed forms, permits — and tick each when it’s in hand.',
   },
   load_in_and_venue_access: {
-    placeholder: 'e.g. Gate pass',
+    placeholder: '',
     empty: 'List how you get in and set up — gate pass, parking, power, load-in time — and tick each when it’s sorted.',
   },
   delivery_and_drop_off: {
-    placeholder: 'e.g. Drop-off spot agreed',
+    placeholder: '',
     empty: 'List what goes where and when — delivery time, drop-off spot, who receives it — and tick each when done.',
   },
   queue_counter: {
-    placeholder: 'e.g. Served',
+    placeholder: '',
     empty: 'Name what you’re counting at the booth — served, refills, prints — and tap More for each one.',
   },
 };

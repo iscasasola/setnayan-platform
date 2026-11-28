@@ -370,7 +370,6 @@ export function TagSheet({
                     applyManual();
                   }
                 }}
-                placeholder="e.g. Tita Baby’s barkada"
                 maxLength={80}
                 className="min-w-0 flex-1 rounded-md border border-ink/15 bg-raised px-3 py-2 text-sm outline-none focus:border-terracotta/50"
               />

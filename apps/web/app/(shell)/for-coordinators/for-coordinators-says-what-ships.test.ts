@@ -260,7 +260,8 @@ test('a switched item shows only when its switch is on; an unswitched one always
 
 test('the hero and the day’s ⓘ say the day-of tools are included only while they are — and promise no end date', () => {
   // L9 P5 (brand.md claim 3): "free on every plan, no end date" was a price promise; the line now says "included".
-  assert.match(PAGE, /\{on\.dayOfFree \? 'Coordinator tools are included on every plan\.' : 'Free to start\. No card needed\.'\}/);
+  // L4b (owner, 27 Nov): "Free to start" leaves every marketing line, so the gated-off hero says only "No card needed."
+  assert.match(PAGE, /\{on\.dayOfFree \? 'Coordinator tools are included on every plan\.' : 'No card needed\.'\}/);
   assert.match(PAGE, /\{on\.dayOfFree \? 'The day-of tools come with every plan\. ' : null\}/);
   assert.doesNotMatch(PAGE, /no end date|free on every plan/i, 'a price promise is back on /for-coordinators');
 });

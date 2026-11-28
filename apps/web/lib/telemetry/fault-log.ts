@@ -53,10 +53,9 @@ export interface InsertFaultInput {
   payload_snapshot?: Record<string, unknown>;
 }
 
-/** The live build, so an issue can close itself once a newer one ships. */
-export function currentBuildSha(): string | null {
-  return process.env.VERCEL_GIT_COMMIT_SHA || process.env.NEXT_PUBLIC_VERCEL_GIT_COMMIT_SHA || null;
-}
+/** The live build, so an issue can close itself once a newer one ships. One home: `build-sha.ts`. */
+import { currentBuildSha } from '@/lib/telemetry/build-sha';
+export { currentBuildSha };
 
 /** One failure, as every recorder hands it over. */
 export interface RecordFaultInput {

@@ -29,7 +29,7 @@ export function DecisionStepCard({ threadId, onClose, onSent }: { threadId: stri
       title: 'Name it, short',
       body: (
         <div className="grid gap-2">
-          <TypedRow name="Topic" value={topic} empty="Name it" placeholder="e.g. Drone shot at sunset" maxLength={120} openAsk={1} onType={setTopic} onKeep={(v) => setTopic(v)} />
+          <TypedRow name="Topic" value={topic} empty="Name it" maxLength={120} openAsk={1} onType={setTopic} onKeep={(v) => setTopic(v)} />
           <Problem text={problem} />
         </div>
       ),

@@ -1141,7 +1141,9 @@ async function paymentOptionCard(
   const facts = [{ label: 'Account name', value: row.account_name?.trim() || 'Not given' }];
   if (row.label?.trim()) facts.push({ label: 'They call it', value: row.label.trim() });
   return {
-    title: `${name} added a new ${kind} to be paid on`,
+    // L7 · D3 (walk 27 Nov 2026): "… added a new payment link to be paid on" read as a row that lost its date. The
+    // sentence ends where it should; the row's age is its sub line (`agoWords`).
+    title: `${name} added a ${kind}`,
     chip: 'Payment option',
     initials: initialsOf(name),
     at: row.created_at,

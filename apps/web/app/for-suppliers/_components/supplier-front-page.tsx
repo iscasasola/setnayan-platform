@@ -91,7 +91,7 @@ export type SupplierFrontGifts = {
 const SITE = siteOrigin();
 const OPEN_SHOP = onSiteHref(doorOpenShopHref('supplier'), SITE);
 const CTA = 'Open your shop';
-const FREE_LINE = 'Free to start. No card needed.'; // L9 P4 (brand.md claim 3): no "free to stay" promise
+const FREE_LINE = 'No card needed.'; // L9 P4 + L4b (brand.md claim 3): no "free to start" or "free to stay" promise
 const HERO_CTA_ID = 'sf-hero-cta';
 const CLOSE_CTA_ID = 'sf-close-cta';
 /** The plan the cards open on (as drawn). */

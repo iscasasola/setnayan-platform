@@ -33,8 +33,8 @@ import { INC_DRESS_CODE_STARTER_NOTE } from './inc-dress-code-starter';
 const ITEM_MAX = 80;
 const LIST_MAX = 8;
 const TONE = {
-  do: { head: 'Do', name: 'Do', empty: 'e.g. Lean into the palette' },
-  dont: { head: 'Don’t', name: 'Don’t', empty: 'e.g. Skip jeans' },
+  do: { head: 'Do', name: 'Do', empty: '' },
+  dont: { head: 'Don’t', name: 'Don’t', empty: '' },
 } as const;
 
 /** A row's identity for React — never rendered. Each row keeps its own id, so removing one above another never swaps their words. */

@@ -679,7 +679,6 @@ function WishFields({
           onChange={(e) => set({ name: e.target.value })}
           onBlur={onLeave}
           maxLength={WISH_NAME_MAX}
-          placeholder="e.g. Air fryer"
           className={FIELD}
         />
       </label>
@@ -734,7 +733,6 @@ function WishFields({
           onChange={(e) => set({ note: e.target.value })}
           onBlur={onLeave}
           maxLength={WISH_NOTE_MAX}
-          placeholder="e.g. the grey one"
           className={FIELD}
         />
       </label>

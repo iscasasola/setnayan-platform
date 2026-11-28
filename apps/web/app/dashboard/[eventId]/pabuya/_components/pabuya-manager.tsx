@@ -558,7 +558,6 @@ export function PabuyaManager({
                   onChange={(e) =>
                     setDraft((d) => ({ ...d, note: e.target.value }))
                   }
-                  placeholder="e.g. Please put your name in the reference"
                   className="input-field h-11"
                 />
               </Field>

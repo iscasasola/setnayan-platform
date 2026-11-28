@@ -2073,7 +2073,6 @@ function ActionRow({
               required
               minLength={5}
               rows={3}
-              placeholder="e.g. DTI certificate image is unreadable; please re-upload"
               className="block w-full rounded-md border border-ink/20 bg-cream px-2 py-1 text-xs text-ink"
             />
             <SubmitButton
@@ -2117,7 +2116,6 @@ function ActionRow({
               required
               minLength={5}
               rows={3}
-              placeholder="e.g. 3+ disputes in 30 days; revoking verified-tier perks"
               className="block w-full rounded-md border border-ink/20 bg-cream px-2 py-1 text-xs text-ink"
             />
             <SubmitButton

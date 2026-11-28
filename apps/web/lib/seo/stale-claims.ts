@@ -31,7 +31,7 @@ export const STALE_CLAIMS: readonly StaleClaim[] = [
   { pattern: /Setnayan AI (?:costs|is sold|for ₱)|buy Setnayan AI\b/i, why: 'Setnayan AI is not sold on its own (owner 2026-11-04)' },
   // L9 P4 · P5 · P15 (brand.md claim 3): a price promise in other words.
   {
-    pattern: /free for life|always free|stays free|free to stay|no end date|nothing expires/i,
+    pattern: /free for life|always free|stays free|free to\s+stay|no end date|nothing expires/i,
     why: 'a price promise (brand.md claim 3) — say what is free today, never that it stays free',
   },
   // L9 P8 (brand.md claims 8 · 9): no iPhone app and no Apple renewal line until Apple approves the app.

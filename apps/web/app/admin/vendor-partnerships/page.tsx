@@ -229,7 +229,7 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
       {/* 📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): template sections and hairline rows, one
           Reject per proposal, every explaining sentence behind its ⓘ. Same reads, same actions, same posted names. */}
       <PageMasthead
-        title="Supplier Partnerships"
+        title="Supplier partnerships"
       />
 
       {sp.error ? (
@@ -395,7 +395,6 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
               type="number"
               name="additional_fee_centavos"
               min={0}
-              placeholder="e.g. 100000 = ₱1,000 · leave blank = unknown"
               className="input-field text-sm"
             />
           </label>
@@ -408,7 +407,6 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
               name="discount_pct"
               min={0}
               max={100}
-              placeholder="e.g. 10"
               className="input-field text-sm"
             />
           </label>

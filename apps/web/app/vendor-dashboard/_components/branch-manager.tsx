@@ -288,7 +288,6 @@ function AddBranchForm({
           name="branch_label"
           required
           maxLength={BRANCH_LABEL_MAX}
-          placeholder="e.g. Cebu studio"
           className="input-field"
         />
       </label>

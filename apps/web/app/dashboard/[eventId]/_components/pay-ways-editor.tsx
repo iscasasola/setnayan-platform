@@ -122,7 +122,6 @@ export function PayWaysEditor({
                 name="Account name"
                 fieldName="pay_way_account_name"
                 value={w.accountName}
-                placeholder="e.g. Rosa Dizon"
                 maxLength={PAY_WAY_ACCOUNT_NAME_MAX}
                 autoCapitalize="words"
                 about={{ words: 'The name on the account, as they gave it to you.' }}
@@ -136,7 +135,6 @@ export function PayWaysEditor({
                 name="Account number"
                 fieldName="pay_way_account_number"
                 value={w.accountNumber}
-                placeholder="e.g. 0917 000 0000"
                 maxLength={PAY_WAY_ACCOUNT_NUMBER_MAX}
                 inputMode="tel"
                 about={{ words: 'Their account number or mobile. Double-check it — this is where you send the money.' }}

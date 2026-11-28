@@ -150,7 +150,7 @@ export function PricingBasisEditor({
       return (
         <>
           {custom ? (
-            <TypedRow key="unit_word" name="Charge per" about={{ title: 'Charge per', words: 'What you charge per — chair, table, set. Couples see “per chair”.' }} value={word} empty="e.g. table" maxLength={24} required check={wordCheck} fieldName="unit_word" onType={setWord} onKeep={(t) => { setWord(t.trim()); return undefined; }} data="price-unit-word" attrs={{ 'data-maker-price-field': 'unit_word' }} />
+            <TypedRow key="unit_word" name="Charge per" about={{ title: 'Charge per', words: 'What you charge per — chair, table, set. Couples see “per chair”.' }} value={word} maxLength={24} required check={wordCheck} fieldName="unit_word" onType={setWord} onKeep={(t) => { setWord(t.trim()); return undefined; }} data="price-unit-word" attrs={{ 'data-maker-price-field': 'unit_word' }} />
           ) : null}
           <TypedRow key="initial_units" name={custom ? 'Initial number' : 'Initial units'} about={{ title: custom ? 'Initial number' : 'Initial units', words: `How many ${w === 'unit' ? 'units' : w} the base price covers.` }} value={v(defaults.initial_units)} empty="Add" inputMode="numeric" required check={count} fieldName="initial_units" onType={setStart} onKeep={(t) => { setStart(t); return undefined; }} data="price-initial-units" attrs={{ 'data-maker-price-field': 'initial_units' }} />
           <TypedRow key="extra_unit_php" name={`Each extra ${w}`} about={{ title: `Each extra ${w}`, words: 'Fills in by itself (base price ÷ the initial number). You can change it.' }} value={v(defaults.extra_unit_php)} amount empty="Fills in by itself" fieldName="extra_unit_php" onKeep={() => undefined} data="price-extra-unit" attrs={{ 'data-maker-price-field': 'extra_unit_php' }} />
@@ -187,19 +187,19 @@ export function PricingBasisEditor({
         <input type="hidden" name="pricing_basis" value={basis} />
         {basis === 'fixed' ? (
           <PField label="From (PHP)" id={`${idPrefix}-price`} help="Whole pesos — couples see it as “from”.">
-            <input id={`${idPrefix}-price`} name="starting_price_php" type="number" min={0} step={1} defaultValue={defaults.starting_price_php ?? ''} placeholder="e.g. 25000" className="input-field" />
+            <input id={`${idPrefix}-price`} name="starting_price_php" type="number" min={0} step={1} defaultValue={defaults.starting_price_php ?? ''} className="input-field" />
           </PField>
         ) : basis === 'per_pax' ? (
           <PField label={`From, per ${perPaxUnit} (PHP)`} id={`${idPrefix}-perpax`} help={isCrewMeals ? 'Your per-meal rate.' : 'Your per-head rate.'}>
-            <input id={`${idPrefix}-perpax`} name="per_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.per_pax_price_php ?? ''} placeholder={isCrewMeals ? 'e.g. 150' : 'e.g. 650'} className="input-field" />
+            <input id={`${idPrefix}-perpax`} name="per_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.per_pax_price_php ?? ''} className="input-field" />
           </PField>
         ) : basis === 'per_unit' ? (
           <PField label="Base price (PHP)" id={`${idPrefix}-unitbase`} help="Covers the initial units. Couples see it as “from”.">
-            <input id={`${idPrefix}-unitbase`} name="unit_base_php" type="number" min={1} step={1} defaultValue={defaults.unit_base_php ?? ''} placeholder="e.g. 3500" className="input-field" />
+            <input id={`${idPrefix}-unitbase`} name="unit_base_php" type="number" min={1} step={1} defaultValue={defaults.unit_base_php ?? ''} className="input-field" />
           </PField>
         ) : (
           <PField label="From (PHP)" id={`${idPrefix}-hourbase`} help="Covers your minimum hours (set under More settings).">
-            <input id={`${idPrefix}-hourbase`} name="hour_base_php" type="number" min={0} step={1} defaultValue={defaults.hour_base_php ?? ''} placeholder="e.g. 8000" className="input-field" />
+            <input id={`${idPrefix}-hourbase`} name="hour_base_php" type="number" min={0} step={1} defaultValue={defaults.hour_base_php ?? ''} className="input-field" />
           </PField>
         )}
       </div>
@@ -212,27 +212,27 @@ export function PricingBasisEditor({
       <div className="space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
           <PField label="Price covers (guests)" id={`${idPrefix}-basepax`} help="Blank = one price, any guest count.">
-            <input id={`${idPrefix}-basepax`} name="base_pax" type="number" min={1} step={1} defaultValue={defaults.base_pax ?? ''} placeholder="e.g. 100" className="input-field" />
+            <input id={`${idPrefix}-basepax`} name="base_pax" type="number" min={1} step={1} defaultValue={defaults.base_pax ?? ''} className="input-field" />
           </PField>
           <PField label="Each extra guest (PHP)" id={`${idPrefix}-addpax`} help="Optional. Charged per guest above that.">
-            <input id={`${idPrefix}-addpax`} name="added_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.added_pax_price_php ?? ''} placeholder="e.g. 350" className="input-field" />
+            <input id={`${idPrefix}-addpax`} name="added_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.added_pax_price_php ?? ''} className="input-field" />
           </PField>
         </div>
         {fixedExtra}
       </div>
     ) : basis === 'per_pax' ? (
       <PField label={isCrewMeals ? 'Minimum meals' : 'Minimum guests'} id={`${idPrefix}-minpax`} help="The floor — the card shows rate × minimum.">
-        <input id={`${idPrefix}-minpax`} name="min_pax" type="number" min={1} step={1} defaultValue={defaults.min_pax ?? ''} placeholder={isCrewMeals ? 'e.g. 15' : 'e.g. 50'} className="input-field" />
+        <input id={`${idPrefix}-minpax`} name="min_pax" type="number" min={1} step={1} defaultValue={defaults.min_pax ?? ''} className="input-field" />
         {keptMax}
       </PField>
     ) : (
       <div className="grid gap-3 sm:grid-cols-2">
         {keptMax}
         <PField label="Minimum hours" id={`${idPrefix}-minhours`} help="Hours the “from” price covers.">
-          <input id={`${idPrefix}-minhours`} name="min_hours" type="number" min={0.5} step={0.5} defaultValue={defaults.min_hours ?? ''} placeholder="e.g. 5" className="input-field" />
+          <input id={`${idPrefix}-minhours`} name="min_hours" type="number" min={0.5} step={0.5} defaultValue={defaults.min_hours ?? ''} className="input-field" />
         </PField>
         <PField label="Each extra hour (PHP)" id={`${idPrefix}-extrahour`} help="Charged for each hour beyond the minimum.">
-          <input id={`${idPrefix}-extrahour`} name="extra_hour_php" type="number" min={0} step={1} defaultValue={defaults.extra_hour_php ?? ''} placeholder="e.g. 1500" className="input-field" />
+          <input id={`${idPrefix}-extrahour`} name="extra_hour_php" type="number" min={0} step={1} defaultValue={defaults.extra_hour_php ?? ''} className="input-field" />
         </PField>
       </div>
     );
@@ -280,7 +280,7 @@ export function PricingBasisEditor({
       {basis === 'per_unit' ? (
         <div className="space-y-3">
           <PField label="Base price (PHP)" id={`${idPrefix}-unitbase`} help="Covers the initial units.">
-            <input id={`${idPrefix}-unitbase`} name="unit_base_php" type="number" min={1} step={1} defaultValue={defaults.unit_base_php ?? ''} placeholder="e.g. 3500" className="input-field" />
+            <input id={`${idPrefix}-unitbase`} name="unit_base_php" type="number" min={1} step={1} defaultValue={defaults.unit_base_php ?? ''} className="input-field" />
           </PField>
           <PerUnitFields idPrefix={idPrefix} defaults={defaults} />
         </div>
@@ -291,14 +291,14 @@ export function PricingBasisEditor({
             id={`${idPrefix}-price`}
             help="Whole pesos. Leave blank for 'quote on request'."
           >
-            <input id={`${idPrefix}-price`} name="starting_price_php" type="number" min={0} step={1} defaultValue={defaults.starting_price_php ?? ''} placeholder="e.g. 25000" className="input-field" />
+            <input id={`${idPrefix}-price`} name="starting_price_php" type="number" min={0} step={1} defaultValue={defaults.starting_price_php ?? ''} className="input-field" />
           </PField>
           <div className="grid gap-3 sm:grid-cols-2">
             <PField label="Base covers (guests)" id={`${idPrefix}-basepax`} help="Guests the price covers. Blank = flat, no per-guest surcharge.">
-              <input id={`${idPrefix}-basepax`} name="base_pax" type="number" min={1} step={1} defaultValue={defaults.base_pax ?? ''} placeholder="e.g. 100" className="input-field" />
+              <input id={`${idPrefix}-basepax`} name="base_pax" type="number" min={1} step={1} defaultValue={defaults.base_pax ?? ''} className="input-field" />
             </PField>
             <PField label="Added cost / extra guest (PHP)" id={`${idPrefix}-addpax`} help="Optional. Charged per guest above the base.">
-              <input id={`${idPrefix}-addpax`} name="added_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.added_pax_price_php ?? ''} placeholder="e.g. 350" className="input-field" />
+              <input id={`${idPrefix}-addpax`} name="added_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.added_pax_price_php ?? ''} className="input-field" />
             </PField>
           </div>
           {fixedExtra}
@@ -306,24 +306,24 @@ export function PricingBasisEditor({
       ) : basis === 'per_pax' ? (
         <div className="grid gap-3 sm:grid-cols-2">
           <PField label={`Price per ${perPaxUnit} (PHP)`} id={`${idPrefix}-perpax`} help={isCrewMeals ? 'Your per-meal rate — well under a guest per-head.' : 'Your per-head rate.'}>
-            <input id={`${idPrefix}-perpax`} name="per_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.per_pax_price_php ?? ''} placeholder={isCrewMeals ? 'e.g. 150' : 'e.g. 650'} className="input-field" />
+            <input id={`${idPrefix}-perpax`} name="per_pax_price_php" type="number" min={0} step={1} defaultValue={defaults.per_pax_price_php ?? ''} className="input-field" />
           </PField>
           <PField label={isCrewMeals ? 'Minimum meals' : 'Minimum guests'} id={`${idPrefix}-minpax`} help="The floor. Anchor shown = rate × minimum.">
-            <input id={`${idPrefix}-minpax`} name="min_pax" type="number" min={1} step={1} defaultValue={defaults.min_pax ?? ''} placeholder={isCrewMeals ? 'e.g. 15' : 'e.g. 50'} className="input-field" />
+            <input id={`${idPrefix}-minpax`} name="min_pax" type="number" min={1} step={1} defaultValue={defaults.min_pax ?? ''} className="input-field" />
           </PField>
         </div>
       ) : (
         <div className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <PField label="Base price (PHP)" id={`${idPrefix}-hourbase`} help="Covers the minimum block below.">
-              <input id={`${idPrefix}-hourbase`} name="hour_base_php" type="number" min={0} step={1} defaultValue={defaults.hour_base_php ?? ''} placeholder="e.g. 8000" className="input-field" />
+              <input id={`${idPrefix}-hourbase`} name="hour_base_php" type="number" min={0} step={1} defaultValue={defaults.hour_base_php ?? ''} className="input-field" />
             </PField>
             <PField label="Minimum hours" id={`${idPrefix}-minhours`} help="Hours the base covers — e.g. 5.">
-              <input id={`${idPrefix}-minhours`} name="min_hours" type="number" min={0.5} step={0.5} defaultValue={defaults.min_hours ?? ''} placeholder="e.g. 5" className="input-field" />
+              <input id={`${idPrefix}-minhours`} name="min_hours" type="number" min={0.5} step={0.5} defaultValue={defaults.min_hours ?? ''} className="input-field" />
             </PField>
           </div>
           <PField label="Additional per hour (PHP)" id={`${idPrefix}-extrahour`} help="Charged for each hour beyond the minimum.">
-            <input id={`${idPrefix}-extrahour`} name="extra_hour_php" type="number" min={0} step={1} defaultValue={defaults.extra_hour_php ?? ''} placeholder="e.g. 1500" className="input-field" />
+            <input id={`${idPrefix}-extrahour`} name="extra_hour_php" type="number" min={0} step={1} defaultValue={defaults.extra_hour_php ?? ''} className="input-field" />
           </PField>
         </div>
       )}
@@ -404,7 +404,7 @@ export function IncludedFlags({
         />
         {transport === 'flat' ? (
           <FormRow name="Flat transport fee" data="transport-fee">
-            <input id={`${idPrefix}-transportfee`} name="transport_flat_fee_php" type="number" min={0} step={1} defaultValue={defaults.transport_flat_fee_php ?? ''} placeholder="₱ e.g. 2000" aria-label="Flat transport fee (PHP)" className="input-field !h-11 w-[150px] flex-none text-right tabular-nums" />
+            <input id={`${idPrefix}-transportfee`} name="transport_flat_fee_php" type="number" min={0} step={1} defaultValue={defaults.transport_flat_fee_php ?? ''} placeholder="₱" aria-label="Flat transport fee (PHP)" className="input-field !h-11 w-[150px] flex-none text-right tabular-nums" />
           </FormRow>
         ) : null}
       </>
@@ -444,7 +444,7 @@ export function IncludedFlags({
           id={`${idPrefix}-transportfee`}
           help="Leave blank to quote transport by distance."
         >
-          <input id={`${idPrefix}-transportfee`} name="transport_flat_fee_php" type="number" min={0} step={1} defaultValue={defaults.transport_flat_fee_php ?? ''} placeholder="e.g. 2000" className="input-field" />
+          <input id={`${idPrefix}-transportfee`} name="transport_flat_fee_php" type="number" min={0} step={1} defaultValue={defaults.transport_flat_fee_php ?? ''} className="input-field" />
         </PField>
       ) : null}
     </div>
@@ -467,10 +467,10 @@ function PerUnitFields({ idPrefix, defaults }: { idPrefix: string; defaults: Pri
     <div className="grid gap-3 sm:grid-cols-2">
       {defaults.unit_word ? <input type="hidden" name="unit_word" value={defaults.unit_word} /> : null}
       <PField label="Initial units" id={`${idPrefix}-initialunits`} help="How many the base price covers.">
-        <input id={`${idPrefix}-initialunits`} name="initial_units" type="number" min={1} step={1} defaultValue={defaults.initial_units ?? ''} placeholder="e.g. 10" className="input-field" />
+        <input id={`${idPrefix}-initialunits`} name="initial_units" type="number" min={1} step={1} defaultValue={defaults.initial_units ?? ''} className="input-field" />
       </PField>
       <PField label="Each extra (PHP)" id={`${idPrefix}-extraunit`} help="Blank fills in as base ÷ initial units.">
-        <input id={`${idPrefix}-extraunit`} name="extra_unit_php" type="number" min={0} step={1} defaultValue={defaults.extra_unit_php ?? ''} placeholder="e.g. 350" className="input-field" />
+        <input id={`${idPrefix}-extraunit`} name="extra_unit_php" type="number" min={0} step={1} defaultValue={defaults.extra_unit_php ?? ''} className="input-field" />
       </PField>
       <PField label="Max" id={`${idPrefix}-pricemax`} help="Empty = no limit. More than the initial units.">
         <input id={`${idPrefix}-pricemax`} name="price_max" type="number" min={1} step={1} defaultValue={defaults.price_max ?? ''} placeholder="No limit" className="input-field" />

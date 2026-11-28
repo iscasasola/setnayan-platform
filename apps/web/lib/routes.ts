@@ -408,6 +408,9 @@ export const routes = {
     sponsors: (eventId: string) => `/dashboard/${eventId}/sponsors`,
     vendors: {
       index: (eventId: string) => `/dashboard/${eventId}/vendors`,
+      /** Find with ONE category open — where its thumb-row ＋ adds a supplier of your own (owner 2026-10-13). */
+      findCategory: (eventId: string, tile: string) =>
+        `/dashboard/${eventId}/vendors?tab=shortlist&open=${encodeURIComponent(tile)}`,
       categories: (eventId: string) => `/dashboard/${eventId}/vendors/categories`,
       packages: {
         detail: (eventId: string, bookingId: string) => `/dashboard/${eventId}/vendors/packages/${bookingId}`,

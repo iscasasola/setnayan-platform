@@ -124,7 +124,7 @@ export default async function VerificationDocsPage({ searchParams }: Props) {
       {/* 📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): template sections and hairline rows. The
           lede moved VERBATIM behind the ⓘ of the one shelf that can delete — these are strangers&apos; government IDs
           and the only control is a permanent delete with no undo, so the sentence survives whole. */}
-      <PageMasthead title="Supplier verification documents" />
+      <PageMasthead title="Verification documents" />
 
       {deleted ? (
         <p role="status" className="mb-2 text-sm text-success-800">

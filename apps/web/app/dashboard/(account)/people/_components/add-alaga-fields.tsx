@@ -17,14 +17,6 @@ import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/p
 import { InfoTip } from '@/app/_components/info-tip';
 import { PostedPick } from '@/app/dashboard/[eventId]/_components/posted-pick';
 
-/** A name example that fits what is being named — "e.g. Bantay" on a business read wrong. */
-const NAME_PLACEHOLDERS: Record<DependentKind, string> = {
-  person: 'e.g. Amara',
-  pet: 'e.g. Bantay',
-  business: "e.g. Amara's Kitchen",
-  item: 'e.g. The red Vios',
-  other: 'e.g. The family farm',
-};
 
 /**
  * The add-form's fields, client-side so the kind choice can hide what it makes
@@ -71,7 +63,6 @@ export function AddAlagaFields() {
           id="dep_name"
           name="name"
           className="input-field"
-          placeholder={NAME_PLACEHOLDERS[kind]}
           required
         />
       </div>

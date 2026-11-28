@@ -211,7 +211,7 @@ export default async function AdminSecretsPage({
       {/* The page starts at its content. ⚖ The sentence survives inside the ⓘ: values here are WRITE-ONLY. Somebody
           hunting for a key they already hold needs to be told this screen can never show it to them, rather than
           concluding the page is broken. */}
-      <PageMasthead title="Secrets & Rotation" />
+      <PageMasthead title="Secrets & rotation" />
       <p className={`flex min-h-11 items-center ${TEMPLATE_SUBLINE}`}>
         <InfoTip label="Write-only" align="start" labelClassName="text-[14px] font-semibold text-ink">
           Every key Setnayan holds — where it lives, how old it is, and how to replace it. Values are write-only: you can

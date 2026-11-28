@@ -114,7 +114,6 @@ export function GuestPapicCamera({ eventId, guestId, ceiling }: { eventId: strin
           name="Credits"
           value={saved !== null && saved > 0 ? String(saved) : ''}
           empty={GUEST_CAMERA_NEEDS_NUMBER}
-          placeholder="e.g. 50"
           inputMode="numeric"
           maxLength={6}
           check={checkGuestCredits}

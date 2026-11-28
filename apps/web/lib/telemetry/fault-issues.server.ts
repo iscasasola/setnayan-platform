@@ -6,7 +6,7 @@ import { FLOWS, funnelOf, type FunnelStep } from '@/lib/telemetry/flows';
 import { problemLine } from '@/lib/telemetry/problem-line';
 import { formatCount } from '@/lib/format-number';
 import { resolveActionName } from '@/lib/telemetry/server-fault';
-import { mergeSameProblem } from '@/lib/telemetry/problem-merge';
+import { closeQuietProblems, mergeSameProblem } from '@/lib/telemetry/problem-merge';
 
 export { mergeSameProblem };
 
@@ -92,11 +92,8 @@ export async function readFaultIssues(opts: { limit?: number; flowDays?: number 
     return { ok: false };
   }
   const build = currentBuildSha();
-  let closedNow = 0;
-  if (build) {
-    const { data } = await admin.rpc('close_quiet_fault_issues', { p_current_sha: build });
-    closedNow = typeof data === 'number' ? data : 0;
-  }
+  // The same self-closing step the Work count runs first (`closeQuietProblems`), so the two never stand on different rows.
+  const closedNow = await closeQuietProblems(admin, build);
 
   const today = manilaToday();
   const since = manilaToday(new Date(Date.now() - flowDays * 86400_000));

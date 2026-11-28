@@ -35,7 +35,7 @@ export default async function AdminBackgroundVideosPage() {
           slot is published the homepage keeps what it has. Without that line
           an operator uploads a clip, sees no change on the live site, and
           reports a bug. */}
-      <PageMasthead title="Homepage background videos" />
+      <PageMasthead title="Background videos" />
       <div className="mb-6">
         <div className="mt-2 max-w-2xl">
           <InfoTip label="About these videos" align="start" labelClassName="text-[13px] font-semibold text-ink/70">

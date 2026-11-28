@@ -252,7 +252,6 @@ export function ServiceWizard({
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             maxLength={80}
-            placeholder={`e.g. "${categoryLabel} — Full Day"`}
             className="input-field"
           />
         </Field>

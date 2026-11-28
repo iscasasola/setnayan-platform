@@ -30,7 +30,6 @@ import {
   FIND_BOARD_PARAM,
   FIND_INSPIRATION_WORDS as W,
   inspirationRowLine,
-  likedEmptyLine,
   likedForTile,
   likedFromLine,
   likedSourceWord,
@@ -170,7 +169,6 @@ export function FindInspirationStrip({
 export function FindLikedIdeas({
   board,
   tile,
-  label,
   busyKey = null,
   onOpenCard,
   onAsk,
@@ -178,7 +176,6 @@ export function FindLikedIdeas({
 }: {
   board: FindInspiration | null;
   tile: string;
-  label: string;
   /** The photo whose Ask is waiting on its write. */
   busyKey?: string | null;
   onOpenCard: (p: FindLikedPhoto) => void;
@@ -187,73 +184,68 @@ export function FindLikedIdeas({
 }) {
   if (!board || board.read === 'unread') return null;
   const liked = likedForTile(board, tile);
+  // 🧹 R3 (27 Nov): nothing liked here → nothing drawn. An empty category says ONE line (its list), not three.
+  if (liked.length === 0) return null;
   const ask = cardVerbWords('ask');
   return (
     <div className="mb-3" data-find-liked={tile}>
       <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
-        {W.likedHead}
-        {liked.length > 0 ? ` · ${formatCount(liked.length)}` : ''}
+        {W.likedHead} · {formatCount(liked.length)}
       </p>
-      {liked.length === 0 ? (
-        <p className="text-[13px] text-ink/70" data-find-liked-empty="">
-          {likedEmptyLine(label)}
-        </p>
-      ) : (
-        <ul className="sn-glide-x -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1" role="list">
-          {liked.map((p) => {
-            const from = likedFromLine(p);
-            return (
-              <li key={p.key} className="w-[148px] shrink-0 snap-start p-1" data-find-liked-photo={p.serviceId ?? p.vendorProfileId ?? 'community'}>
-                <span className="block h-[112px] overflow-hidden rounded-lg bg-ink/[0.06]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={p.imageUrl} alt={p.part} loading="lazy" className="h-full w-full object-cover" />
-                </span>
-                <span className="mt-1 block truncate text-[12.5px] text-ink/70">{p.part}</span>
-                {from && p.onList ? (
+      <ul className="sn-glide-x -mx-1 flex snap-x gap-2 overflow-x-auto px-1 pb-1" role="list">
+        {liked.map((p) => {
+          const from = likedFromLine(p);
+          return (
+            <li key={p.key} className="w-[148px] shrink-0 snap-start p-1" data-find-liked-photo={p.serviceId ?? p.vendorProfileId ?? 'community'}>
+              <span className="block h-[112px] overflow-hidden rounded-lg bg-ink/[0.06]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.imageUrl} alt={p.part} loading="lazy" className="h-full w-full object-cover" />
+              </span>
+              <span className="mt-1 block truncate text-[12.5px] text-ink/70">{p.part}</span>
+              {from && p.onList ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenCard(p)}
+                  className="flex min-h-11 w-full items-center text-left text-[13px] font-medium leading-snug text-terracotta-700"
+                  data-find-liked-link=""
+                >
+                  <span className="line-clamp-2">{from} ›</span>
+                </button>
+              ) : from ? (
+                <>
+                  <span className="block text-[12.5px] leading-snug text-ink/70" data-find-liked-from="">
+                    {from}
+                  </span>
+                  <ActionButton
+                    tone="brand"
+                    main
+                    icon={MessageCircle}
+                    label={ask.label}
+                    name={`${ask.label} — ${p.shop}`}
+                    disabled={busyKey === p.key}
+                    onClick={() => onAsk(p)}
+                    className="mt-1 w-full"
+                  />
+                </>
+              ) : (
+                <>
+                  <span className="block text-[12.5px] text-ink/70" data-find-liked-source={p.vendorProfileId ? 'unread' : 'community'}>
+                    {likedSourceWord(p)}
+                  </span>
                   <button
                     type="button"
-                    onClick={() => onOpenCard(p)}
-                    className="flex min-h-11 w-full items-center text-left text-[13px] font-medium leading-snug text-terracotta-700"
-                    data-find-liked-link=""
+                    onClick={onFindWho}
+                    className="flex min-h-11 w-full items-center text-left text-[13px] font-medium text-terracotta-700"
+                    data-find-who=""
                   >
-                    <span className="line-clamp-2">{from} ›</span>
+                    {W.findWho} ›
                   </button>
-                ) : from ? (
-                  <>
-                    <span className="block text-[12.5px] leading-snug text-ink/70" data-find-liked-from="">
-                      {from}
-                    </span>
-                    <ActionButton
-                      tone="brand"
-                      main
-                      icon={MessageCircle}
-                      label={ask.label}
-                      name={`${ask.label} — ${p.shop}`}
-                      disabled={busyKey === p.key}
-                      onClick={() => onAsk(p)}
-                      className="mt-1 w-full"
-                    />
-                  </>
-                ) : (
-                  <>
-                    <span className="block text-[12.5px] text-ink/70" data-find-liked-source={p.vendorProfileId ? 'unread' : 'community'}>
-                      {likedSourceWord(p)}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={onFindWho}
-                      className="flex min-h-11 w-full items-center text-left text-[13px] font-medium text-terracotta-700"
-                      data-find-who=""
-                    >
-                      {W.findWho} ›
-                    </button>
-                  </>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                </>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }

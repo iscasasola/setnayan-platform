@@ -2706,7 +2706,7 @@ function SlotRows({ existing }: { existing: VendorServiceTimeSlot[] }) {
       ))}
       {adds.map((k) => (
         <div key={k} className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <input name="new_slot_label" maxLength={60} placeholder="e.g. Morning" aria-label="Slot name" className="input-field col-span-2 sm:col-span-1" />
+          <input name="new_slot_label" maxLength={60} aria-label="Slot name" className="input-field col-span-2 sm:col-span-1" />
           <input name="new_slot_start" type="time" step={1800} aria-label="Starts" className="input-field" />
           <input name="new_slot_end" type="time" step={1800} aria-label="Ends" className="input-field" />
           <input name="new_slot_capacity" type="number" min={1} step={1} placeholder="1" aria-label="How many at once" className="input-field" />

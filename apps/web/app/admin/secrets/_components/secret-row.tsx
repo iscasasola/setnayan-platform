@@ -194,7 +194,6 @@ export function SecretRow({
                 name="note"
                 autoComplete="off"
                 maxLength={500}
-                placeholder="e.g. rolled after the laptop was replaced"
                 className="sn-input mt-1 w-full"
               />
             </label>

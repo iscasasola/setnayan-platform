@@ -54,7 +54,7 @@ test('F-A-20 · admin tab titles read "X · Admin" (no "· Setnayan", no "Setnay
   const layout = code('app/admin/layout.tsx');
   assert.match(layout, /export const metadata = \{ title: \{ absolute: 'Admin', template: '%s' \} \};/);
   assert.doesNotMatch(layout, /title: 'Setnayan HQ'/);
-  assert.match(code('app/admin/booking-fees/page.tsx'), /title: 'Booking fees · Admin'/);
+  assert.match(code('app/admin/booking-fees/page.tsx'), /title: 'Fees owed · Admin'/);
   assert.match(code('app/admin/verification-docs/page.tsx'), /title: 'Verification documents · Admin'/);
   assert.match(code('app/admin/page.tsx'), /title: 'Work · Admin'/);
 });

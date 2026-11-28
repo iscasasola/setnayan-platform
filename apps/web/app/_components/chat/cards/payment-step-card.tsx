@@ -134,7 +134,7 @@ function PaymentSteps({
       sub: `${label} · ${formatCentavosPhp(Math.round(amountPhp * 100))}${by ? ` · by ${by}` : ''}`,
       body: (
         <div className="grid gap-2">
-          <TypedRow name="Note" long value={note} empty="Add" placeholder="e.g. covers the second shooter" maxLength={500} onType={setNote} onKeep={(v) => setNote(v)} />
+          <TypedRow name="Note" long value={note} empty="Add" maxLength={500} onType={setNote} onKeep={(v) => setNote(v)} />
           <Problem text={problem} />
         </div>
       ),

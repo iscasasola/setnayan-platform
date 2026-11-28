@@ -138,7 +138,6 @@ export function SwatchPopover({ paletteKey, index, hex, onChange, onRemove, remo
                     type="text"
                     value={query}
                     onChange={(e) => setQuery(e.target.value)}
-                    placeholder="e.g. moss green, burgundy…"
                     className="mt-1.5 block min-h-11 w-full rounded-full bg-ink/5 px-4 text-[14px] font-normal normal-case tracking-normal text-ink placeholder:text-ink/35"
                   />
                 </label>

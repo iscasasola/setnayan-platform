@@ -13,7 +13,7 @@ import { MOODBOARD_STYLE_FAMILIES, type MoodboardStyleFamily } from '@/lib/moodb
 import { PILOT_DECOR_ZONES, type DecorLayerCatalog } from '@/lib/reception-decor-layers';
 import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
 import { changedFields, mergeFromBase, MERGE_BASE_FIELD, TWO_SCREENS_NOTE } from '@/lib/merge-from-base';
-import { floorPlanRowFrom } from '@/lib/floor-plan-row';
+import { floorPlanRowFrom, seatPlanSettingsFrom } from '@/lib/floor-plan-row';
 import { floorItemsThisScreenChanged } from '@/lib/floor-items-merge';
 import { SeatingLockError } from './seating-lock-error';
 import { floorPlanOrStop, guestsOrStop, keepApartOrStop, membershipsOrStop } from '@/lib/seating-inputs';
@@ -42,6 +42,7 @@ import {
   type VipPlusOneSeating,
   type BoothType,
   type PriorityOrder,
+  type TableKind,
 } from '@/lib/seating';
 // 🪑⚙ Tables, chairs, the room box and the wall rule come from the ONE seat-plan engine the supplier's Spaces uses too
 // (DECISION_LOG 2026-11-20, "ONE SEAT-PLAN ENGINE FOR THE COUPLE AND THE SUPPLIER").
@@ -916,6 +917,17 @@ export async function saveFloorPlan(formData: FormData) {
     );
     if (error) throw new Error(error.message);
   }
+  // 🔊 The Speakers element and the two ⋯ switches (seat plan § 4.4 / § 4.7): only what this screen sent.
+  const settings = seatPlanSettingsFrom((k) => formData.get(k));
+  if (Object.keys(settings).length > 0) {
+    const { data, error } = await supabase
+      .from('event_floor_plan')
+      .update({ ...settings, updated_at: updatedAt })
+      .eq('event_id', eventId)
+      .select('event_id');
+    if (error) throw new Error(error.message);
+    if (!data || data.length === 0) throw new Error('The seat plan settings were not saved. Try again.');
+  }
 
   await refreshSeatingLock(supabase, lockIdFrom(formData));
   revalidatePath(`/dashboard/${eventId}/seating`);
@@ -1685,6 +1697,11 @@ export async function unpublishSeating(formData: FormData): Promise<{ wasPublish
 async function updateTableVip(formData: FormData) {
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
+  // 🪑 The table's other two settings share this route (seat plan § 4.7 / § 6): Kind ▾ (`table_kind`) and the table
+  // lock (`table_locked`, the preview's 🔒 and This table ▾).
+  if (typeof eventId === 'string' && typeof tableId === 'string' && (formData.has('table_kind') || formData.has('table_locked'))) {
+    return updateTableKindOrLock(formData, eventId, tableId);
+  }
   const vipRaw = formData.get('is_vip');
   if (typeof eventId !== 'string' || typeof tableId !== 'string' || (vipRaw !== 'true' && vipRaw !== 'false')) {
     throw new Error('Invalid input');
@@ -1724,6 +1741,41 @@ async function updateTableVip(formData: FormData) {
   revalidatePath(`/dashboard/${eventId}/seating`);
 }
 
+/**
+ * 🪑 Kind ▾ and the table lock (seat plan § 4.7 / § 6). One guarded UPDATE under the couple's RLS; a refused or
+ * zero-row write throws so the control goes back. `is_vip` is written in step with the kind until a cleanup drops it.
+ */
+async function updateTableKindOrLock(formData: FormData, eventId: string, tableId: string) {
+  const patch: { table_kind?: TableKind; is_vip?: boolean; locked?: boolean } = {};
+  if (formData.has('table_kind')) {
+    const raw = formData.get('table_kind');
+    if (raw !== 'regular' && raw !== 'vip' && raw !== 'elders' && raw !== 'spare') throw new Error('Invalid input');
+    patch.table_kind = raw;
+    patch.is_vip = raw === 'vip';
+  }
+  if (formData.has('table_locked')) {
+    const raw = formData.get('table_locked');
+    if (raw !== 'true' && raw !== 'false') throw new Error('Invalid input');
+    patch.locked = raw === 'true';
+  }
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) redirect('/login');
+  await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
+  const { data, error } = await supabase
+    .from('event_tables')
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('table_id', tableId)
+    .eq('event_id', eventId)
+    .select('table_id');
+  if (error) throw new Error(error.message);
+  if (!data || data.length === 0) throw new Error('That table was not saved — it may have been removed.');
+  await refreshSeatingLock(supabase, lockIdFrom(formData));
+  revalidatePath(`/dashboard/${eventId}/seating`);
+}
+
 // Rename a table (the per-table popup's inline rename, the Name row). Mirrors
 // updateTableRotation: a single guarded UPDATE under the couple's RLS. Trim + up to 64 chars, matching createTable.
 // 🪑 Table names (seat plan § 4.3, owner R6): a typed name is the host's (`label_is_auto = false`) and never changes
@@ -1732,7 +1784,9 @@ async function updateTableVip(formData: FormData) {
 export async function updateTableLabel(formData: FormData) {
   await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   // 🪑 The table's other own setting — VIP or not — shares this route (see updateTableVip).
-  if (formData.has('is_vip') && !formData.has('table_label')) return updateTableVip(formData);
+  if ((formData.has('is_vip') || formData.has('table_kind') || formData.has('table_locked')) && !formData.has('table_label')) {
+    return updateTableVip(formData);
+  }
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');
   const labelRaw = formData.get('table_label');

@@ -140,3 +140,36 @@ export function floorPlanFieldsOf(row: {
   }
   return out;
 }
+
+/**
+ * 🪑 THE SEAT PLAN'S OWN SETTINGS on the floor row (seat plan § 4.4 / § 4.7, migration 20271365089548): the Speakers
+ * element (the entrance_* pattern) and the two ⋯ switches, "Seat new RSVPs for me" and "Suggest seats on the cards".
+ * Written ONLY when the screen sends them — they are not in `floorPlanRowFrom`, so an editor that never draws them can
+ * never turn the speakers off or a switch back on by saving its stage. Pure.
+ */
+export function seatPlanSettingsFrom(get: Get): Partial<{
+  speakers_enabled: boolean;
+  speakers_x: number;
+  speakers_y: number;
+  auto_seat_rsvps: boolean;
+  seat_suggestions: boolean;
+}> {
+  const out: ReturnType<typeof seatPlanSettingsFrom> = {};
+  const flag = (k: string) => {
+    const v = get(k);
+    return v === 'true' ? true : v === 'false' ? false : undefined;
+  };
+  const sp = flag('speakers_enabled');
+  if (sp !== undefined) out.speakers_enabled = sp;
+  const sx = clampPct(get('speakers_x'));
+  const sy = clampPct(get('speakers_y'));
+  if (sx !== null && sy !== null) {
+    out.speakers_x = sx;
+    out.speakers_y = sy;
+  }
+  const rsvps = flag('auto_seat_rsvps');
+  if (rsvps !== undefined) out.auto_seat_rsvps = rsvps;
+  const sugg = flag('seat_suggestions');
+  if (sugg !== undefined) out.seat_suggestions = sugg;
+  return out;
+}

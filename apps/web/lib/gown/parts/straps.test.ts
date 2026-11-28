@@ -1,6 +1,6 @@
 /**
- * 👗 gown/parts/straps — shoulder straps, the scalloped top edge and the plunge to the waist, held to prototype v199's
- * own numbers (`v199-straps.fixture.json`), and its rules said word for word.
+ * 👗 gown/parts/straps — shoulder straps, the scalloped top edge and the plunge to the waist, held to prototype v202's
+ * own numbers (`v202-straps.fixture.json`), and its rules said word for word.
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -28,7 +28,7 @@ type Row = {
   y?: [number, number]; lo?: number[]; ltop?: number[]; blue?: [number, number, number, number][]; metres?: number;
 };
 type Scen = { name: string; look: Partial<GownConfig>; start: Partial<GownConfig>; raw: number; steps: { k: keyof GownConfig; v: unknown; note: string; gown: Partial<GownConfig> }[] };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v199-straps.fixture.json'), 'utf8')) as { rows: Row[]; scen: Scen[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v202-straps.fixture.json'), 'utf8')) as { rows: Row[]; scen: Scen[] };
 const OFFER: GownOffer = { fabricTypes: ['satin', 'crepe', 'chiffon'], fabricRefs: [], laceRefs: [], lookRefs: [] };
 let rig: Promise<GownRig> | null = null;
 const body = () => {
@@ -59,7 +59,7 @@ function blueOf(): { g: GownIlluCanvas; calls: number[][] } {
   return { g, calls };
 }
 
-test('the straps as v199 lays them: every kind over her shoulders, the necklines they make, within 1 mm', async () => {
+test('the straps as v202 lays them: every kind over her shoulders, the necklines they make, within 1 mm', async () => {
   const B = await body(), cmU = B.P.S * 100;
   for (const r of REF.rows) {
     const g = designOf(r.look, r.gown), { T, D } = dressed(B, g), L = D.L!, S = emptyStraps();
@@ -82,23 +82,10 @@ test('the straps as v199 lays them: every kind over her shoulders, the necklines
       assert.ok(Math.abs(S.len - r.len!) < 0.001, `${r.name}: length ${S.len} vs ${r.len}`);
       assert.equal(S.beads, r.beads, `${r.name}: beads`);
       assert.equal(S.nUsed, r.nv, `${r.name}: vertices`);
-      // v199 writes a beaded strap's beads between its rows; here they follow the strap (the same beads in the same places).
-      const ours = (S.geo.attributes.position!.array as Float32Array), beaded = g.strapEdge === 'beaded', ref = r.pos!, strap: number[] = [], jewel: number[] = [];
-      let v = 0;
-      for (const P of r.paths!) {
-        for (let k = 0; k < P.length; k++) { for (let j = 0; j < 4; j++) strap.push(v++); if (beaded && k % 2 === 1) for (let j = 0; j < 6; j++) jewel.push(v++); }
-      }
-      for (; v < r.nv!; v++) jewel.push(v);
-      // Ours: each strap's rows, then its beads.
-      const oursOrder: number[] = [], oursJ: number[] = [];
-      let o = 0;
-      for (const P of S.paths) { for (let k = 0; k < P.length * 4; k++) oursOrder.push(o++); const nb = beaded ? Math.floor(P.length / 2) : 0; for (let k = 0; k < nb * 6; k++) oursJ.push(o++); }
-      for (; o < S.nUsed; o++) oursJ.push(o);
-      assert.equal(oursOrder.length, strap.length, `${r.name}: strap vertices`);
-      const near = (a: number, b: number) => Math.hypot(ours[a * 3]! - ref[b * 3]!, ours[a * 3 + 1]! - ref[b * 3 + 1]!, ours[a * 3 + 2]! - ref[b * 3 + 2]!) * cmU;
-      oursOrder.forEach((a, i) => assert.ok(near(a, strap[i]!) < 0.1, `${r.name}: strap vertex ${i} (${near(a, strap[i]!).toFixed(3)} cm)`));
-      assert.equal(oursJ.length, jewel.length, `${r.name}: bead vertices`);
-      oursJ.forEach((a, i) => assert.ok(near(a, jewel[i]!) < 0.1, `${r.name}: bead vertex ${i}`));
+      // v202 writes each strap's rows, then its beads, the same order as here: compare vertex for vertex.
+      const ours = (S.geo.attributes.position!.array as Float32Array), ref = r.pos!;
+      const near = (i: number) => Math.hypot(ours[i * 3]! - ref[i * 3]!, ours[i * 3 + 1]! - ref[i * 3 + 1]!, ours[i * 3 + 2]! - ref[i * 3 + 2]!) * cmU;
+      for (let i = 0; i < S.nUsed; i++) assert.ok(near(i) < 0.1, `${r.name}: vertex ${i} (${near(i).toFixed(3)} cm)`);
       // The quote's numbers (the lines themselves are worded by the quote).
       const q = gownStrapQuantities(g, S), metresRow = r.quote.find((x) => x[3] === 'm'), crystals = r.quote.find((x) => x[0] === 'bead_crystal');
       assert.equal(q.metres, metresRow![2], `${r.name}: strap metres`);
@@ -143,7 +130,7 @@ test('the straps sit on her skin: nothing more than 2 mm inside, nothing floatin
   }
 });
 
-test('the v199 rules, word for word, and the server refuses what they rule out', () => {
+test('the v202 rules, word for word, and the server refuses what they rule out', () => {
   for (const s of REF.scen) {
     let g = designOf(s.look, s.start);
     for (const st of s.steps) {

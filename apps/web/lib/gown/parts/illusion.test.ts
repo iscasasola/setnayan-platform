@@ -17,7 +17,7 @@ import { buildDress, emptyDress, floorOf } from '../dress/build';
 import { restingCloth, writeDress } from '../dress/cloth';
 import { gownBackCapT } from '../dress/lines';
 import { buildEnvelope, emptyEnvelope } from '../dress/table';
-import { buildGownIllu, gownBoneSet, gownIlluDressShader, gownIlluMetres, gownIlluSummary, gownIlluTulleShader, gownIlluUniforms } from './illusion';
+import { buildGownIllu, gownBoneSet, gownIlluDressShader, gownIlluMetres, gownIlluSummary, gownIlluTulleLine, gownIlluTulleShader, gownIlluUniforms } from './illusion';
 import { buildGownInside } from './inside';
 
 type Lines = { lo: number[]; cupLo: number[]; cupHi: number[]; top: number[]; bind: number[] };
@@ -131,4 +131,14 @@ test('the v198 rules, word for word, and the server refuses what they rule out',
     assert.equal(sanitizeGownConfig(start(bad), OFFER).ok, false, JSON.stringify(bad));
   }
   assert.equal(sanitizeGownConfig(start({ illu: 'neck', neck: 'off' }), OFFER).ok, true, 'off-shoulder has its line above the cups');
+});
+
+test('the illusion tulle line, as v202 words it: only a bodice, a back or a plunge mesh buys tulle', () => {
+  const base = { illu: 'none', illuCol: 'nude', back: 'scoop', illuBack: 'off', neck: 'sweetheart', plungeFill: 'mesh' } as const;
+  assert.equal(gownIlluTulleLine(base), null);
+  assert.equal(gownIlluTulleLine({ ...base, illuBack: 'on', back: 'closed' }), null); // a closed back has nothing to fill
+  assert.equal(gownIlluTulleLine({ ...base, neck: 'plungewaist', plungeFill: 'open' }), null);
+  assert.equal(gownIlluTulleLine({ ...base, neck: 'plungewaist' }), 'Illusion tulle, nude (plunge mesh)');
+  assert.equal(gownIlluTulleLine({ ...base, illu: 'corset', illuCol: 'match', illuBack: 'on', back: 'v' }), 'Illusion tulle, gown colour (bodice and back)');
+  assert.equal(gownIlluTulleLine({ ...base, illu: 'neck', illuCol: 'ivory', illuBack: 'on', neck: 'plungewaist' }), 'Illusion tulle, ivory (bodice and back and plunge mesh)');
 });

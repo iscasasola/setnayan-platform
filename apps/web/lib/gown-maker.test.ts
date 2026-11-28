@@ -41,6 +41,7 @@ import {
   gownShopPaper,
   gownSeamAllowIsUsual,
   type GownShopOptions,
+  type GownPriceKey,
 } from './gown-maker';
 import { emptyGownHand, emptyGownQuantities, startingGownConfig, type GownQuantities } from './gown-config';
 
@@ -396,4 +397,19 @@ test('7j · A7b: what she painted by hand joins the existing bead and lace items
   assert.equal(gownHandLine({ ...emptyGownHand(), handBeads: [pearl] }), 'Painted by hand: 1 bead, 0 lace motifs. Added to the designer’s count.');
   assert.equal(gownHandLine(emptyGownHand()), null);
   assert.equal(gownHandLine(null), null);
+});
+
+test('7k · v207: Duchess satin, Bias satin and Taffeta each have one unpriced per-metre line, in Fabrics', () => {
+  for (const [id, label] of [['duchess', 'Duchess satin'], ['bias_satin', 'Bias satin'], ['taffeta', 'Taffeta']] as const) {
+    const items = GOWN_PRICE_ITEMS.filter((i) => i.key === `fab_${id}`);
+    assert.equal(items.length, 1, `fab_${id} is listed ${items.length} times`);
+    assert.deepEqual({ label: items[0]!.label, unit: items[0]!.unit }, { label, unit: 'm' });
+    assert.equal(GOWN_PRICE_GROUPS.find(([, f]) => f(`fab_${id}`))?.[0], 'Fabrics');
+    assert.equal(gownShopTemplate().prices[`fab_${id}` as GownPriceKey], undefined, `fab_${id} starts with a price`);
+  }
+  // On a quote: named in words, and unpriced until she prices it.
+  const q = qty((x) => { x.materials.outerM = 5; });
+  const line = gownDesignOf(shop(), design({ fabric: 'bias_satin' as never }), q, []).forShop.lines.find((l) => l.key === 'fab_bias_satin')!;
+  assert.equal(line.label, 'Bias satin (outer)');
+  assert.equal(line.amountCentavos, null);
 });

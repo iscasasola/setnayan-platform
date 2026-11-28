@@ -22,6 +22,7 @@ import {
   canScheduleOnFacebook,
 } from '@/lib/social/facebook-request';
 import { slotVerdict } from '@/lib/social/governor';
+import { logQueryError } from '@/lib/supabase/error-detect';
 
 /** The row fields this module reads. */
 export type QueueRow = {
@@ -43,7 +44,8 @@ export type QueueRow = {
   platform_results: Record<string, unknown> | null;
 };
 
-export const QUEUE_ROW_COLUMNS =
+/** The row fields this module reads, as one select. */
+const QUEUE_ROW_SELECT =
   'post_id, source_type, source_ref, title, body, media_url, media_urls, link_url, publish_after, hold_until, scheduled_for, slot, status, first_comment, facebook_post_id, platform_results';
 
 type OpResult = { ok: true } | { ok: false; error: string };
@@ -108,7 +110,7 @@ export async function handOffToFacebook(
   const out = { scheduled: [] as string[], failed: [] as string[] };
   const { data, error } = await db
     .from('social_posts')
-    .select(QUEUE_ROW_COLUMNS)
+    .select(QUEUE_ROW_SELECT)
     .eq('status', 'scheduled')
     .is('facebook_post_id', null)
     .gte('scheduled_for', new Date(now.getTime() + FB_SCHEDULE_MIN_LEAD_MS).toISOString())
@@ -116,14 +118,19 @@ export async function handOffToFacebook(
     .order('scheduled_for', { ascending: true })
     .limit(50);
   if (error) {
-    console.warn('[social] hand-off scan failed:', error.message ?? error);
+    logQueryError('fb-queue (hand-off scan)', error);
     return out;
   }
 
   for (const row of pickHandOffs((data ?? []) as QueueRow[], now)) {
     const stamp = new Date().toISOString();
     if (!(await allowed(row))) {
-      await db.from('social_posts').update({ status: 'pulled', updated_at: stamp }).eq('post_id', row.post_id).eq('status', 'scheduled');
+      const { error: pullErr } = await db
+        .from('social_posts')
+        .update({ status: 'pulled', updated_at: stamp })
+        .eq('post_id', row.post_id)
+        .eq('status', 'scheduled');
+      if (pullErr) logQueryError('fb-queue (pull on closed gate)', pullErr, { post_id: row.post_id });
       continue;
     }
     // Claim: only the visit that flips scheduled → publishing hands this row over.
@@ -133,30 +140,36 @@ export async function handOffToFacebook(
       .eq('post_id', row.post_id)
       .eq('status', 'scheduled')
       .select('post_id');
-    if (claimErr || !claimed || claimed.length === 0) continue;
+    if (claimErr) {
+      logQueryError('fb-queue (hand-off claim)', claimErr, { post_id: row.post_id });
+      continue;
+    }
+    if (!claimed || claimed.length === 0) continue; // another visit is handing it over
 
     const at = new Date(row.scheduled_for as string);
     const res = await ops.schedule(row, at);
     const prior = facebookLeg(row);
     if (res.ok) {
-      await db
+      const { error: savedErr } = await db
         .from('social_posts')
         .update({
           status: 'scheduled_on_fb',
           facebook_post_id: res.externalId,
           platform_results: {
             ...(row.platform_results ?? {}),
-            facebook: { status: 'scheduled_on_fb', external_id: res.externalId, scheduled_for: row.scheduled_for, handed_over_at: stamp, error: null },
+            facebook: { status: 'scheduled_on_fb', external_id: res.externalId, handed_over_at: stamp, error: null },
           },
           updated_at: stamp,
         })
         .eq('post_id', row.post_id)
         .eq('status', 'publishing');
+      // Facebook has it scheduled; a failed save here is logged loudly, because the row no longer knows its id.
+      if (savedErr) logQueryError('fb-queue (save Facebook id)', savedErr, { post_id: row.post_id, facebook_post_id: res.externalId });
       out.scheduled.push(row.post_id);
     } else {
       const attempts = (typeof prior.schedule_attempts === 'number' ? prior.schedule_attempts : 0) + 1;
       const giveUp = attempts >= MAX_SCHEDULE_ATTEMPTS;
-      await db
+      const { error: backErr } = await db
         .from('social_posts')
         .update({
           status: giveUp ? 'failed' : 'scheduled',
@@ -168,6 +181,7 @@ export async function handOffToFacebook(
         })
         .eq('post_id', row.post_id)
         .eq('status', 'publishing');
+      if (backErr) logQueryError('fb-queue (record schedule failure)', backErr, { post_id: row.post_id });
       out.failed.push(row.post_id);
     }
   }
@@ -211,7 +225,10 @@ export async function withdrawAllFromFacebook(db: Db, now: Date, ops: FbOps): Pr
     .eq('status', 'scheduled_on_fb')
     .gte('scheduled_for', now.toISOString())
     .limit(200);
-  if (error) return 0;
+  if (error) {
+    logQueryError('fb-queue (withdraw scan)', error);
+    return 0;
+  }
   let n = 0;
   for (const row of (data ?? []) as QueueRow[]) {
     const res = await withdrawFromFacebook(db, row, ops, 'scheduled');
@@ -284,12 +301,15 @@ export async function settleFacebookPosts(db: Db, now: Date, ops: FbOps): Promis
   const settled: QueueRow[] = [];
   const { data, error } = await db
     .from('social_posts')
-    .select(QUEUE_ROW_COLUMNS)
+    .select(QUEUE_ROW_SELECT)
     .eq('status', 'scheduled_on_fb')
     .lte('scheduled_for', now.toISOString())
     .order('scheduled_for', { ascending: true })
     .limit(20);
-  if (error) return settled;
+  if (error) {
+    logQueryError('fb-queue (settle scan)', error);
+    return settled;
+  }
 
   for (const row of (data ?? []) as QueueRow[]) {
     const fbId = row.facebook_post_id;
@@ -299,7 +319,7 @@ export async function settleFacebookPosts(db: Db, now: Date, ops: FbOps): Promis
 
     if (!check.ok || !check.published) {
       if (!overdue) continue; // Facebook can lag a few minutes; the next visit asks again.
-      await db
+      const { error: failErr } = await db
         .from('social_posts')
         .update({
           status: 'failed',
@@ -311,16 +331,18 @@ export async function settleFacebookPosts(db: Db, now: Date, ops: FbOps): Promis
         })
         .eq('post_id', row.post_id)
         .eq('status', 'scheduled_on_fb');
+      if (failErr) logQueryError('fb-queue (fail unpublished post)', failErr, { post_id: row.post_id });
       continue;
     }
 
     // Claim it (scheduled_on_fb → publishing) so two visits settling at once never add the first comment twice.
-    const { data: claimed } = await db
+    const { data: claimed, error: claimErr } = await db
       .from('social_posts')
       .update({ status: 'publishing', updated_at: stamp })
       .eq('post_id', row.post_id)
       .eq('status', 'scheduled_on_fb')
       .select('post_id');
+    if (claimErr) logQueryError('fb-queue (settle claim)', claimErr, { post_id: row.post_id });
     if (!claimed || claimed.length === 0) continue;
 
     const leg: Record<string, unknown> = {
@@ -337,12 +359,13 @@ export async function settleFacebookPosts(db: Db, now: Date, ops: FbOps): Promis
         ? { status: 'posted', comment_id: c.commentId, pin: 'pin by hand', error: null }
         : { status: 'failed', comment_id: null, pin: 'pin by hand', error: c.error };
     }
-    const { data: done } = await db
+    const { data: done, error: doneErr } = await db
       .from('social_posts')
       .update({ status: 'published', platform_results: { ...(row.platform_results ?? {}), facebook: leg }, updated_at: stamp })
       .eq('post_id', row.post_id)
       .eq('status', 'publishing')
       .select('post_id');
+    if (doneErr) logQueryError('fb-queue (mark published)', doneErr, { post_id: row.post_id });
     if (done && done.length > 0) settled.push({ ...row, status: 'published', platform_results: { ...(row.platform_results ?? {}), facebook: leg } });
   }
   return settled;

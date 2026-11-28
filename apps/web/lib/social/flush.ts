@@ -203,10 +203,11 @@ export async function runSocialFlush(): Promise<boolean> {
         if (settings.autopublish_enabled && (igLive || ttLive) && slotVerdict(row, now) === 'publish') {
           const other = await otherPlatformLegs(post, { instagram: igLive, tiktok: ttLive }, post.media_url || socialCardUrl(post.post_id));
           if (Object.keys(other.legs).length > 0) {
-            await admin
+            const { error: legsErr } = await admin
               .from('social_posts')
               .update({ platform_results: { ...(row.platform_results ?? {}), ...other.legs }, updated_at: new Date().toISOString() })
               .eq('post_id', row.post_id);
+            if (legsErr) logQueryError('runSocialFlush (record other platforms)', legsErr, { post_id: row.post_id });
           }
         }
         await stampSource(admin, post, fbUrl, new Date().toISOString());
@@ -797,11 +798,12 @@ async function dispatchDuePosts(
       // was unlisted, turned demo, moved to an internal owner or opted out of
       // social features AFTER its badge post was composed is pulled, not posted.
       if (!(await shareGatePasses(admin, post))) {
-        await admin
+        const { error: pullErr } = await admin
           .from('social_posts')
           .update({ status: 'pulled', updated_at: new Date().toISOString() })
           .eq('post_id', post.post_id)
           .eq('status', 'scheduled');
+        if (pullErr) logQueryError('runSocialFlush (pull on closed gate)', pullErr, { post_id: post.post_id });
         continue;
       }
 
@@ -876,7 +878,7 @@ async function dispatchDuePosts(
       // Prefer Facebook's permalink for the source stamps, else Instagram's.
       const primaryUrl = fbUrl ?? igUrl;
 
-      await admin
+      const { error: stampErr } = await admin
         .from('social_posts')
         .update({
           status: anyOk ? 'published' : 'failed',
@@ -884,6 +886,7 @@ async function dispatchDuePosts(
           updated_at: stampedAt,
         })
         .eq('post_id', post.post_id);
+      if (stampErr) logQueryError('runSocialFlush (record dispatch)', stampErr, { post_id: post.post_id });
 
       // Side-effects back onto the source substrate — same stamps the manual
       // Social Queue actions write, guarded (IS NULL) so a manual stamp wins.
@@ -1023,21 +1026,19 @@ async function otherPlatformLegs(
 /** Stamp the source once a post is out — the same stamps the manual Social Queue actions write; a manual one wins. */
 async function stampSource(admin: AdminClient, post: Pick<PostRow, 'source_type' | 'source_ref'>, primaryUrl: string, stampedAt: string): Promise<void> {
   if (post.source_type === 'couple_creation') {
-    await admin
+    const { error } = await admin
       .from('marketing_share_consents')
       .update({ posted_at: stampedAt, post_url: primaryUrl, updated_at: stampedAt })
       .eq('consent_id', post.source_ref)
       .is('posted_at', null);
+    if (error) logQueryError('runSocialFlush (stamp consent posted)', error, { consent_id: post.source_ref });
   } else if (post.source_type === 'vendor_feature') {
-    await admin
+    const { error } = await admin
       .from('vendor_profiles')
-      .update({
-        social_featured_at: stampedAt,
-        social_post_url: primaryUrl,
-        updated_at: stampedAt,
-      })
+      .update({ social_featured_at: stampedAt, social_post_url: primaryUrl, updated_at: stampedAt })
       .eq('vendor_profile_id', post.source_ref)
       .is('social_featured_at', null);
+    if (error) logQueryError('runSocialFlush (stamp vendor featured)', error, { vendor_profile_id: post.source_ref });
   }
 }
 

@@ -21,6 +21,11 @@ export function canScheduleOnFacebook(at: Date, now: Date): boolean {
   return lead >= FB_SCHEDULE_MIN_LEAD_MS && lead <= FB_SCHEDULE_MAX_LEAD_MS;
 }
 
+/** A Graph API path from its parts (`graphPath(pageId, 'feed')` → `/{pageId}/feed`). Facebook's, not one of our routes. */
+export function graphPath(...parts: string[]): string {
+  return ['', ...parts].join('/');
+}
+
 /** The two fields that turn a post into a scheduled post. */
 export function scheduledPostFields(at: Date): Record<string, string> {
   return { published: 'false', scheduled_publish_time: String(Math.floor(at.getTime() / 1000)) };
@@ -45,9 +50,9 @@ export function buildSinglePostRequest(input: {
 }): { path: string; params: Record<string, string> } {
   const schedule = input.scheduleAt ? scheduledPostFields(input.scheduleAt) : {};
   if (isPostableImageUrl(input.mediaUrl)) {
-    return { path: `/${input.pageId}/photos`, params: { url: input.mediaUrl, caption: input.message, ...schedule } };
+    return { path: graphPath(input.pageId, 'photos'), params: { url: input.mediaUrl, caption: input.message, ...schedule } };
   }
   const params: Record<string, string> = { message: input.message, ...schedule };
   if (input.linkUrl && /^https?:\/\//i.test(input.linkUrl)) params.link = input.linkUrl;
-  return { path: `/${input.pageId}/feed`, params };
+  return { path: graphPath(input.pageId, 'feed'), params };
 }

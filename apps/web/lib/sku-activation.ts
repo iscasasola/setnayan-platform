@@ -1341,15 +1341,19 @@ async function activatePhotoChallengeSponsorship(ctx: ActivationContext): Promis
 async function activateGownPlanOrder(ctx: ActivationContext): Promise<void> {
   const tier = gownPlanTierOfSku(ctx.serviceKey);
   if (!tier) return;
-  const { data: prior } = await ctx.admin.from('order_ledger').select('order_id').eq('order_id', ctx.orderId).eq('event_type', 'service_activated').limit(1).maybeSingle();
-  if (prior) return;
-  const { data: order } = await ctx.admin.from('orders').select('vendor_profile_id').eq('order_id', ctx.orderId).maybeSingle();
-  const vendorProfileId = (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+  // Every read here decides money: a failed read throws (the approval fails loudly), never a month started from today.
+  const prior = await ctx.admin.from('order_ledger').select('order_id').eq('order_id', ctx.orderId).eq('event_type', 'service_activated').limit(1).maybeSingle();
+  if (prior.error) throw new Error(`${ctx.serviceKey} activation ledger read failed: ${prior.error.message}`);
+  if (prior.data) return;
+  const vendorProfileId = await gownPlanOrderShop(ctx);
   if (!vendorProfileId) return;
   const facts = await readGownPlanFacts(ctx.admin, vendorProfileId);
+  // An unread plan (eligible null) would lose the days she has left: stop.
+  if (facts.eligible === null) throw new Error(`${ctx.serviceKey} activation: the shop's Attire Maker plan could not be read`);
   const next = gownPlanAfterPayment(facts.plan, tier, Date.now());
   await writeGownPlan(ctx.admin, vendorProfileId, next);
-  await ctx.admin.from('orders').update({ expires_at: next.until, updated_at: new Date().toISOString() }).eq('order_id', ctx.orderId);
+  const stamped = await ctx.admin.from('orders').update({ expires_at: next.until, updated_at: new Date().toISOString() }).eq('order_id', ctx.orderId);
+  if (stamped.error) throw new Error(`${ctx.serviceKey} activation order stamp failed: ${stamped.error.message}`);
   await appendLedger(ctx.admin, {
     order_id: ctx.orderId,
     event_type: 'service_activated',
@@ -1359,12 +1363,19 @@ async function activateGownPlanOrder(ctx: ActivationContext): Promise<void> {
   });
 }
 
+/** The shop that bought an Attire Maker plan order. A failed read throws; an order with no shop is nobody's plan. */
+async function gownPlanOrderShop(ctx: ActivationContext): Promise<string | null> {
+  const { data, error } = await ctx.admin.from('orders').select('vendor_profile_id').eq('order_id', ctx.orderId).maybeSingle();
+  if (error) throw new Error(`${ctx.serviceKey} order read failed: ${error.message}`);
+  return (data as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+}
+
 /** A refunded or rejected month winds the plan back 30 days (never below now, never later): gownPlanAfterRefund. */
 async function deactivateGownPlanOrder(ctx: ActivationContext): Promise<void> {
-  const { data: order } = await ctx.admin.from('orders').select('vendor_profile_id').eq('order_id', ctx.orderId).maybeSingle();
-  const vendorProfileId = (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+  const vendorProfileId = await gownPlanOrderShop(ctx);
   if (!vendorProfileId) return;
   const facts = await readGownPlanFacts(ctx.admin, vendorProfileId);
+  if (facts.eligible === null) throw new Error(`${ctx.serviceKey} reversal: the shop's Attire Maker plan could not be read`);
   if (!facts.plan) return;
   await writeGownPlan(ctx.admin, vendorProfileId, gownPlanAfterRefund(facts.plan, Date.now()));
 }

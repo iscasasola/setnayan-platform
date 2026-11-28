@@ -204,4 +204,7 @@ test('12 · plans (owner 2026-11-28): the first open starts the trial; making as
   assert.match(sku, /gownPlanTierOfSku\(ctx\.serviceKey\) !== null\) \{\s*try \{\s*await deactivateGownPlanOrder\(ctx\);/, 'a refund does not wind the plan back');
   const act = sku.slice(sku.indexOf('async function activateGownPlanOrder('), sku.indexOf('async function deactivateGownPlanOrder('));
   assert.ok(act.indexOf("eq('event_type', 'service_activated')") < act.indexOf('writeGownPlan('), 'a second approval adds a second month');
+  const unreadStop = act.indexOf('if (facts.eligible === null) throw');
+  assert.ok(unreadStop > -1 && unreadStop < act.indexOf('writeGownPlan('), 'an unread plan starts a paid month from today and loses the days she had left');
+  assert.match(act, /if \(stamped\.error\) throw/, 'the order’s renewal date can fail to save in silence');
 });

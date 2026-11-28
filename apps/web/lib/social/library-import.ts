@@ -25,6 +25,8 @@
  * its English post's slot — one post per slot instant is a database rule, so the twin has no slot of its own. Each
  * skip is listed in `skipped` with its line, never dropped silently.
  *
+ * A row whose caption, first comment or Door carries a typed price (`TYPED_PRICE`) stops the run with its line.
+ *
  * Idempotent: the INSERT skips any row whose ('library', source_ref) already exists in ANY status (a pulled planned
  * post stays pulled), and the partial-unique index (source_type, source_ref) is the backstop. Running the same
  * migration twice inserts nothing the second time.
@@ -32,6 +34,12 @@
 import { createHash } from 'node:crypto';
 
 import { slotInstant, type SocialSlot } from './governor';
+
+/**
+ * A typed price: ₱ or PHP followed by a digit (owner 28 Nov 2026, verbatim: "Remove the prices"). A price lives in the
+ * catalogs and changes there; a planned post typed months ahead would go stale, so the import refuses it.
+ */
+export const TYPED_PRICE = /(?:₱|\bPHP)\s?\d/i;
 
 /** The site every Door hangs off. */
 export const LIBRARY_DOOR_ORIGIN = 'https://setnayan.com';
@@ -227,6 +235,17 @@ export function libraryRowsFromCsv(text: string, opts: LibraryImportOptions = {}
     const body = cell(r, col.caption);
     if (!body) {
       errors.push(`Line ${line}: the caption is empty.`);
+      return;
+    }
+    const priced = (
+      [
+        ['caption', body],
+        ['first comment', cell(r, col.comment)],
+        ['Door', cell(r, col.door)],
+      ] as const
+    ).find(([, text]) => TYPED_PRICE.test(text));
+    if (priced) {
+      errors.push(`Line ${line}: the ${priced[0]} has a typed price ("${priced[1].match(/(?:₱|\bPHP)\s?[\d,.]*\d/i)?.[0]}"); a post names no price.`);
       return;
     }
     const key = `${date}|${slot}`;

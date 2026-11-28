@@ -117,7 +117,7 @@ Try it: drop the team list into setnayan.com/seat-plan and mix the tables your w
   ('lib-20949ab7b4e4c28ce49ae1ce', 'Cool Feature Spotlight · Your shop, free to open', 'Free to open. Free to get verified. ⤵
 And the clients you bring stay yours.
 
-Every booking carries a gift for your couple from your gift stock, from ₱99.
+Every booking carries a gift for your couple from your gift stock.
 
 What would you put on your shop page first?
 
@@ -150,9 +150,9 @@ Setnayan for suppliers:
 • quotes as cards in one chat, with a valid-until date
 • the app won''t let you say yes twice to one date
 • reviews only from completed bookings
-• bring your own clients with a Booked code; every booking carries a gift for your couple, from ₱99
+• bring your own clients with a Booked code; every booking carries a gift for your couple
 
-Plans when you grow: Plus ₱1,990 · Pro ₱4,990 · Ultra ₱8,990 a month.
+Plans when you grow: Plus, Pro and Ultra.
 
 What would you want couples to see first on your page?
 
@@ -418,7 +418,7 @@ In bed, nobody reads the fine print. They scroll five near-identical prices and 
 
 Most suppliers answer that by dropping the price. That works once, and teaches the couple your first price wasn''t real.
 
-On Setnayan, every booking carries a gift for the couple, given in your name, from gift stock you buy ahead. Papic 150 is ₱99 and fits any booking: 150 photos the couple''s guests take on their own phones, straight into the couple''s album. It shows on your quote, and it lands when their first payment clears. A small line that makes your quote the easy yes.
+On Setnayan, every booking carries a gift for the couple, given in your name, from gift stock you buy ahead. Papic 150 fits any booking: 150 photos the couple''s guests take on their own phones, straight into the couple''s album. It shows on your quote, and it lands when their first payment clears. A small line that makes your quote the easy yes.
 
 See quote cards in the chat: setnayan.com/features/supplier-chat.', NULL, NULL, 'https://setnayan.com/features/supplier-chat', '2026-12-21T00:00:00.000Z'::timestamptz, 'morning', 'Open your shop free: setnayan.com/open-shop'),
   ('lib-bd513e47a86e36e538b099fa', 'Timeless question · Who''s coming to Noche Buena?', 'Simbang Gabi week. The real question at the kitchen table: ⤵
@@ -433,7 +433,7 @@ One has an extra line: ''150 Papic photos for your guests, from us.''
 
 Couples don''t hunt for the cheapest. They hunt for a reason to say yes.
 
-On Setnayan, every booking carries a gift for the couple in your name, from gift stock you buy ahead. Papic 150 is ₱99 and fits any booking.
+On Setnayan, every booking carries a gift for the couple in your name, from gift stock you buy ahead. Papic 150 fits any booking.
 
 What do you add instead of dropping your price?
 
@@ -912,7 +912,7 @@ Because on Setnayan, the clients you bring stay yours. Get verified (it''s free)
 
 From that moment, their event opens to you: the guest list, seats, schedule and suppliers, as the hosts allow, and a seat in every supplier chat.
 
-One honest detail: send the code before your couple goes looking for you in search, because a couple who finds you through Setnayan''s search counts as one Setnayan brought. And every booking carries a gift for your couple from your own gift stock, from ₱99.
+One honest detail: send the code before your couple goes looking for you in search, because a couple who finds you through Setnayan''s search counts as one Setnayan brought. And every booking carries a gift for your couple from your own gift stock.
 
 Your clients, your record, your seat in their event, in one place.
 
@@ -932,7 +932,7 @@ Try it: find Verified suppliers with prices on every card at setnayan.com/suppli
   ('lib-341aa035b104ad1de0bee7dd', 'Cool Feature Spotlight · A gift on every booking', 'Every booking on Setnayan comes with a gift for your couple, given in your name. ⤵
 
 • It comes from your own gift stock, bought ahead, 11 at a time
-• Papic 150 (₱99) fits any booking: 150 photos from their guests'' phones
+• Papic 150 fits any booking: 150 photos from their guests'' phones
 • Event Plus or Event Pro gifts fit bigger bookings
 • It lands on the couple''s event when their first payment clears
 
@@ -1850,7 +1850,7 @@ Try it: find Verified suppliers with prices on every card at setnayan.com/suppli
   ('lib-ab79399f738616803beb2aa7', 'Problems of a Supplier · A gift that answers ''guest photos?''', '"Kayo na rin po ba sa guest photos?" You''re a caterer. ⤵
 The request isn''t really for a photographer. It''s for the guests'' photos to land somewhere.
 
-On Setnayan, every booking carries a gift for your client, given in your name, from your own gift stock. Papic 150 (₱99) turns every guest''s phone into a camera, with every photo in one album.
+On Setnayan, every booking carries a gift for your client, given in your name, from your own gift stock. Papic 150 turns every guest''s phone into a camera, with every photo in one album.
 
 What do you say when a client asks for something outside your craft?
 
@@ -2162,7 +2162,7 @@ A discount feels private. It isn''t. Clients compare notes, especially family an
 
 The quiet cost is bigger than the discount. It''s every future "pwede pa po bang bumaba?"
 
-On Setnayan, every booking carries a gift for your client, given in your name from your own gift stock. Papic 150 (₱99) turns every guest''s phone into a camera, with all the photos in one album; bigger bookings can carry an Event Plus or Event Pro. The client gets something real, something they''ll actually use on the day. Your price stays your price, and the next client hears about the gift, not the discount.
+On Setnayan, every booking carries a gift for your client, given in your name from your own gift stock. Papic 150 turns every guest''s phone into a camera, with all the photos in one album; bigger bookings can carry an Event Plus or Event Pro. The client gets something real, something they''ll actually use on the day. Your price stays your price, and the next client hears about the gift, not the discount.
 
 What''s the hardest discount request you''ve ever turned down?
 
@@ -2227,7 +2227,7 @@ Now they want to book you on Setnayan. Do you pay a fee on a client you found? �
 
 No. A fee is fair when someone brings you a client. When you brought them, nobody else earned it.
 
-Get verified (free), make a Booked code, and send it to your client. It creates their event with you already booked. Every booking still carries a gift for your couple from your own gift stock, from ₱99.
+Get verified (free), make a Booked code, and send it to your client. It creates their event with you already booked. Every booking still carries a gift for your couple from your own gift stock.
 
 Where did your last three clients come from?
 
@@ -2337,7 +2337,7 @@ What was it? Keep names out, keep the story in. 😄
 Try it: open your shop at setnayan.com/open-shop.', NULL, NULL, 'https://setnayan.com/open-shop', '2027-04-13T12:00:00.000Z'::timestamptz, 'evening', 'Try it: open your shop at setnayan.com/open-shop.'),
   ('lib-c6379bfb6d0fad32fe5d80c5', 'Cool Feature Spotlight · Find copies of your photos', 'Your best setup, posted by a page you''ve never heard of. ⤵
 
-On Setnayan, Theft Watch fingerprints the photos on your cards and portfolio and flags it when another shop on Setnayan uploads a copy. Our team reviews each match: under review, confirmed repost, or cleared. It comes with Plus (₱1,990 a month) and up.
+On Setnayan, Theft Watch fingerprints the photos on your cards and portfolio and flags it when another shop on Setnayan uploads a copy. Our team reviews each match: under review, confirmed repost, or cleared. It comes with Plus and up.
 
 Has someone ever posted your work as theirs?
 

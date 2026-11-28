@@ -13,9 +13,10 @@ The automatic Facebook engine (#8446) now has its planned posts. Migration `2027
 - **Images:** the library images are not hosted yet, so `media_url` and `media_urls` stay NULL and the flush posts the branded card. A later migration can set `media_urls` by `source_ref` once hosting exists. The 14 video posts also go out as the branded card.
 - **Idempotent:** a second run inserts nothing. A pulled planned post stays pulled. The one-post-per-slot index is respected.
 - **Importer additions** (`lib/social/library-import.ts`): it reads the "Schedule now?" column and skips the twin rows. Two new flags: `--images-later` and `--skip-past-slots`.
+- **No typed prices** (owner 28 Nov, verbatim: "Remove the prices"): the specs CSV dropped the price phrases from 10 captions (specs 7375e46). The importer now refuses a row whose caption, first comment or Door has ₱ or PHP followed by a digit (`TYPED_PRICE`), naming its line.
 - **Tests:**
   - `tests/db/the-planned-library-imports-once.db.test.ts` 0 and 0b: counts per slot, Manila hours, every day covered, a second run inserts nothing, passed slots are left out.
   - `lib/social/library-import.test.ts`: the skip, image and past-slot rules.
 - **No new server action, no new table, no email.**
 
-SPEC IMPACT: None. It carries out DECISION_LOG 2026-11-28 "Facebook posting is automatic, in three daily slots" and "What each Facebook slot carries". Questions for the owner (Tagalog twins, hard-typed prices in the library copy, images) are in the PR body.
+SPEC IMPACT: None. It carries out DECISION_LOG 2026-11-28 "Facebook posting is automatic, in three daily slots" and "What each Facebook slot carries". Questions for the owner (Tagalog twins, images) are in the PR body.

@@ -169,3 +169,19 @@ test('skipPastSlots: the migration leaves out slots that passed when it runs; of
   const sql = libraryMigrationSql(rows, 'x.csv', { skipPastSlots: true });
   assert.match(sql, /\) AS v\(source_ref, [^)]+\)\nWHERE v\.scheduled_for > now\(\);\n/);
 });
+
+test('a typed price in the caption, first comment or Door stops the import with its line (owner: "Remove the prices")', () => {
+  const header = 'Date,Time (Manila),Caption (primary text),Pinned first comment,Door\n';
+  const { rows, errors } = libraryRowsFromCsv(
+    header +
+      '2026-12-01,08:00,"Papic 150 is ₱99 and fits any booking.",,\n' +
+      '2026-12-01,20:00,"Clean caption.","Plans from PHP 1,990 a month",\n' +
+      '2026-12-02,08:00,"Clean caption two.",,setnayan.com/p?php1\n' +
+      '2026-12-02,20:00,"Plus, Pro and Ultra. Every peso in one budget.",,setnayan.com/plans\n',
+  );
+  assert.deepEqual(rows.map((r) => r.date + r.slot), ['2026-12-02evening']);
+  assert.equal(errors.length, 3);
+  assert.match(errors[0] ?? '', /^Line 2: the caption has a typed price \("₱99"\)/);
+  assert.match(errors[1] ?? '', /^Line 3: the first comment has a typed price \("PHP 1,990"\)/);
+  assert.match(errors[2] ?? '', /^Line 4: the Door has a typed price/);
+});

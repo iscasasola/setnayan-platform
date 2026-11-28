@@ -878,6 +878,87 @@ export type GownBeadLayer = {
   mix: GownBeadMix[];
 };
 
+// ─── v209 · her own lines (`neckLine`, `backLine`, `armhole`, `hemLine`, `hemEdge`) ───
+/** v209 hem edges: plain, scalloped, a handkerchief hem, a curved (high-low) hem. */
+export const GOWN_HEM_EDGES = [
+  { id: 'plain', label: 'Plain' },
+  { id: 'scallop', label: 'Scalloped' },
+  { id: 'hanky', label: 'Handkerchief' },
+  { id: 'curved', label: 'Curved' },
+] as const;
+export type GownHemEdge = (typeof GOWN_HEM_EDGES)[number]['id'];
+/**
+ * v209 neckline handles, 10 numbers: centre depth, her left corner (across, depth), her left shoulder (across, depth),
+ * the curve, her right corner (across, depth), her right shoulder (across, depth). Depths are cm below the hollow of her
+ * throat; across is cm from the centre front. Curve: 0.5 a straight V, 0.13 round, near 0 square, above 0.5 dipped.
+ */
+export type GownNeckLine = [number, number, number, number, number, number, number, number, number, number];
+/** v209 back handles, 4 numbers: depth below the nape (cm), her left and right half-widths (cm), the curve. */
+export type GownBackLine = [number, number, number, number];
+/** v209 hem handles, 5 numbers: cm above the floor at the front, her left, the back and her right, then the curve. */
+export type GownHemLine = [number, number, number, number, number];
+/** The v209 clean rule for a line: exactly this many finite numbers, each under 400 in size. */
+export const GOWN_LINE_LENGTHS = { neckLine: 10, backLine: 4, hemLine: 5 } as const;
+export const GOWN_LINE_MAX_ABS = 400;
+/** The armhole cut in, cm (0 = none). */
+export const GOWN_ARMHOLE_MAX_CM = 12;
+
+// ─── v210 · colour and fabric per piece (`parts`) ───
+/** v210 `PZ_PART`: the pieces she may change, in order. */
+export const GOWN_PARTS = [
+  { id: 'bodice', label: 'Bodice' },
+  { id: 'skirt', label: 'Skirt' },
+  { id: 'sleeves', label: 'Sleeves' },
+  { id: 'overlay', label: 'Overlay' },
+  { id: 'cape', label: 'Cape' },
+  { id: 'sash', label: 'Waistband and bow' },
+  { id: 'trims', label: 'Trims' },
+  { id: 'lining', label: 'Lining' },
+  { id: 'lace', label: 'Lace' },
+] as const;
+export type GownPartId = (typeof GOWN_PARTS)[number]['id'];
+/** v210 `PZ_EDGES`: the edges a border band may be sewn to, per piece. */
+export const GOWN_PART_EDGES = {
+  bodice: [{ id: 'neck', label: 'Neckline' }, { id: 'waist', label: 'Waist' }],
+  skirt: [{ id: 'hem', label: 'Hem' }, { id: 'waist', label: 'Waist' }],
+  sleeves: [{ id: 'end', label: 'Sleeve end' }],
+  cape: [{ id: 'edge', label: 'Cape edge' }],
+  overlay: [{ id: 'hem', label: 'Overlay hem' }],
+} as const satisfies Partial<Record<GownPartId, readonly { id: string; label: string }[]>>;
+export type GownPartEdge = 'neck' | 'waist' | 'hem' | 'end' | 'edge';
+/** v210 `PZ_FADE`: the pieces that can be dip-dyed. */
+export const GOWN_PART_FADE: readonly GownPartId[] = ['bodice', 'skirt', 'sleeves', 'cape', 'overlay'];
+/** v210 `PZ_FAB`: the pieces that can be cut from another fabric. */
+export const GOWN_PART_FABRIC: readonly GownPartId[] = ['bodice', 'skirt', 'sleeves', 'cape', 'overlay', 'sash'];
+/** v210 `PZ_PATS`: the stock patterns and their repeat (cm). A shop's own printed fabric is `lib:<its fabric row>`. */
+export const GOWN_PATTERNS = [
+  { id: 'brocade', label: 'Brocade', cm: 16 },
+  { id: 'jacquard', label: 'Jacquard', cm: 10 },
+  { id: 'floral', label: 'Floral print', cm: 12 },
+  { id: 'dots', label: 'Dots', cm: 4 },
+  { id: 'stripes', label: 'Stripes', cm: 7 },
+  { id: 'plaid', label: 'Plaid', cm: 12 },
+] as const;
+export type GownPatternId = (typeof GOWN_PATTERNS)[number]['id'];
+/** A piece's colour: the gown's own (`main`), the accent, or any colour. */
+export type GownPartColour = 'main' | 'accent' | string;
+/** v210 border band limits (cm). */
+export const GOWN_BORDER_CM = [0.5, 60] as const;
+/**
+ * One changed piece (v210 `gown.parts` entry). A piece with no entry follows the gown. fade `from`/`to` run 0–1 along
+ * the piece (down = top to bottom); a border's `fabric` null is the piece's own; at most one piece carries a pattern.
+ */
+export type GownPart = {
+  part: GownPartId;
+  fabric: string | null;
+  colour: GownPartColour | null;
+  fade: { colour: GownPartColour; dir: 'down' | 'up'; from: number; to: number } | null;
+  border: { edge: GownPartEdge; cm: number; fabric: string | null; colour: GownPartColour } | null;
+  pattern: { kind: GownPatternId | `lib:${string}`; colour: GownPartColour } | null;
+};
+/** No more pieces than there are parts. */
+export const GOWN_PARTS_MAX = GOWN_PARTS.length;
+
 export type GownConfig = {
   v: typeof GOWN_CONFIG_VERSION;
   /** The look she started from (a stock look's name or the shop's look), words only. */
@@ -1007,6 +1088,14 @@ export type GownConfig = {
   trims: GownTrim[];
   trimCol: GownTrimColour;
   trimHex: string | null;
+  /** v209 her own lines: null = the named neckline, back and hem; armhole 0 = none. */
+  neckLine: GownNeckLine | null;
+  backLine: GownBackLine | null;
+  armhole: number;
+  hemLine: GownHemLine | null;
+  hemEdge: GownHemEdge;
+  /** v210 colour and fabric per piece: an entry only for a piece she changed (never part of a look). */
+  parts: GownPart[];
   notes: string;
 };
 
@@ -1025,6 +1114,7 @@ export const GOWN_LOOK_KEYS = [
   'straps', 'strapCol', 'strapEdge', 'topEdge', 'plungeFill',
   'flowers', 'flowerFrom', 'flowerType', 'flowerSize', 'flowerDen', 'flowerCol', 'capeFlowers', 'laceFinish', 'veilFab', 'pearls',
   'sleeveDet', 'robeSl',
+  'neckLine', 'backLine', 'armhole', 'hemLine', 'hemEdge',
 ] as const satisfies readonly (keyof GownConfig)[];
 export type GownLookKey = (typeof GOWN_LOOK_KEYS)[number];
 export type GownLook = Pick<GownConfig, GownLookKey>;
@@ -1138,6 +1228,12 @@ export function startingGownConfig(): GownConfig {
     trims: [],
     trimCol: 'match',
     trimHex: null,
+    neckLine: null,
+    backLine: null,
+    armhole: 0,
+    hemLine: null,
+    hemEdge: 'plain',
+    parts: [],
     notes: '',
   };
 }
@@ -1413,8 +1509,26 @@ export type GownQuantities = {
     /** v203: detachable sleeve bands to make (a pair); the over-robe to cut, sew and finish. Their fabric is in the metres keys. */
     sleeveDetach: boolean;
     overrobe: boolean;
+    /** v210: pieces dip-dyed (one `dye_fade` each); border bands to cut and apply (one `border` each, matching `borders`). */
+    dyeFade: number;
+    borders: number;
   };
+  /**
+   * v210 (`pzOuter`, `pzFabLine`): the pieces cut from another bolt (their own fabric, colour or pattern). `m` is the
+   * piece's own metres (its fabric's own allowance); `eqM` is what it takes out of `materials.outerM`, so nothing is
+   * counted twice (`outerM` is already the gown's remainder). Priced as `patternKey` when patterned, else `fab_<fabric>`
+   * (a shop's own row at its own price when `fabricRef` is set).
+   */
+  pieces: GownQuantityPiece[];
+  /** v210 (`pzQuote`): each border band, measured along the edge on her body (`edgeM`) and the band's metres (`m`, priced `fab_<fabric>`). */
+  borders: GownQuantityBorder[];
 };
+export type GownQuantityPiece = { part: GownPartId; fabric: string; fabricRef: string | null; patternKey: GownPatternQuoteKey | null; m: number; eqM: number };
+export type GownQuantityBorder = { part: GownPartId; edge: GownPartEdge; cm: number; edgeM: number; m: number; fabric: string };
+/** v210 quote lines for colour per piece: dyeing (per piece), a border band (per piece), patterned fabric (per metre). The shop prices them. */
+export const GOWN_PATTERN_QUOTE_KEYS = ['pat_brocade', 'pat_jacquard', 'pat_floral', 'pat_dots', 'pat_stripes', 'pat_plaid', 'pat_lib'] as const;
+export type GownPatternQuoteKey = (typeof GOWN_PATTERN_QUOTE_KEYS)[number];
+export const GOWN_PIECE_QUOTE_KEYS = ['dye_fade', 'border', ...GOWN_PATTERN_QUOTE_KEYS] as const;
 
 export const GOWN_MATERIAL_KEYS = [
   'outerM', 'accentM', 'liningM', 'netM', 'organzaM', 'chiffonM', 'sleeveChiffonM', 'overlayM', 'capeM', 'ribbonM', 'veilM', 'illusionM', 'glitterM', 'boningM', 'laceYardM', 'laceMotifs', 'horsehairM', 'cordM', 'pipingM', 'fringeM',
@@ -1431,7 +1545,9 @@ export function emptyGownQuantities(): GownQuantities {
   return {
     v: GOWN_CONFIG_VERSION,
     materials: { ...materials, beads },
-    labour: { sleeve: 'none', beads: 0, laceMotifs: 0, laceYardM: 0, pleats: 0, tex: 'none', darts: false, cutouts: 0, slits: 0, train: 'none', veil: 'none', trimM: 0, twoPiece: false, cape: 'none', flutter: 0, overlay: 0, illuBodice: 'none', illuBack: false, boneShow: 0, straps: 'none', scallop: false, flowers: 0, laceRaised: false, sleeveDetach: false, overrobe: false },
+    labour: { sleeve: 'none', beads: 0, laceMotifs: 0, laceYardM: 0, pleats: 0, tex: 'none', darts: false, cutouts: 0, slits: 0, train: 'none', veil: 'none', trimM: 0, twoPiece: false, cape: 'none', flutter: 0, overlay: 0, illuBodice: 'none', illuBack: false, boneShow: 0, straps: 'none', scallop: false, flowers: 0, laceRaised: false, sleeveDetach: false, overrobe: false, dyeFade: 0, borders: 0 },
+    pieces: [],
+    borders: [],
   };
 }
 
@@ -1592,6 +1708,84 @@ function sanitizeBeadLayer(r: Record<string, unknown>, base: GownBeadLayer): Res
  * a fabric, lace or look the shop does not offer, a forbidden cut-out, a colour that is not a hex, or long notes.
  * A missing key takes the starting value (an older design stays readable as the catalog grows).
  */
+/** A v209 line: null, or exactly n finite numbers each under GOWN_LINE_MAX_ABS (undefined = refused). */
+function lineOf<T extends number[]>(v: unknown, n: number): T | null | undefined {
+  if (v == null) return null;
+  return Array.isArray(v) && v.length === n && v.every((x) => finite(x) && Math.abs(x) < GOWN_LINE_MAX_ABS) ? (v.slice() as T) : undefined;
+}
+/** v209: her lines from a design (absent = the named lines), or null when one is not a line. */
+function gownLinesOf(r: Record<string, unknown>): Pick<GownConfig, 'neckLine' | 'backLine' | 'armhole' | 'hemLine' | 'hemEdge'> | null {
+  const neckLine = lineOf<GownNeckLine>(r.neckLine, GOWN_LINE_LENGTHS.neckLine);
+  const backLine = lineOf<GownBackLine>(r.backLine, GOWN_LINE_LENGTHS.backLine);
+  const hemLine = lineOf<GownHemLine>(r.hemLine, GOWN_LINE_LENGTHS.hemLine);
+  const armhole = r.armhole ?? 0, hemEdge = r.hemEdge ?? 'plain';
+  if (neckLine === undefined || backLine === undefined || hemLine === undefined) return null;
+  if (!finite(armhole) || armhole < 0 || armhole > GOWN_ARMHOLE_MAX_CM || !isOneOf(hemEdge, ids(GOWN_HEM_EDGES))) return null;
+  return { neckLine, backLine, armhole, hemLine, hemEdge };
+}
+
+const isPartColour = (v: unknown): v is GownPartColour => v === 'main' || v === 'accent' || (typeof v === 'string' && HEX.test(v));
+const partColour = (v: GownPartColour): GownPartColour => (v === 'main' || v === 'accent' ? v : v.toUpperCase());
+
+/**
+ * v210 `gown.parts`, checked: one entry per piece, at most one patterned piece; fabrics the shop works in (a border's
+ * too), a shop's own printed fabric only from its rows; fade, border and fabric only on the pieces that take them. An
+ * entry that changes nothing is dropped. An entry for a piece the gown has no longer is kept, as the maker keeps it
+ * (it comes back with the piece); the quote counts only the pieces on the gown.
+ */
+export function sanitizeGownParts(v: unknown, offer: GownOffer): Result<GownPart[]> {
+  if (v == null) return { ok: true, value: [] };
+  if (!Array.isArray(v) || v.length > GOWN_PARTS_MAX) return no('not_a_design');
+  const out: GownPart[] = [];
+  const fabricOk = (k: unknown): Result<string | null> => {
+    if (k == null) return { ok: true, value: null };
+    if (typeof k !== 'string' || !GOWN_FABRIC_TYPE_ID.test(k)) return no('not_a_design');
+    return offer.fabricTypes.includes(k) ? { ok: true, value: k } : no('not_offered');
+  };
+  for (const e of v) {
+    if (!isRecord(e) || !isOneOf(e.part, ids(GOWN_PARTS)) || out.some((o) => o.part === e.part)) return no('not_a_design');
+    const part = e.part;
+    const fab = fabricOk(e.fabric);
+    if (!fab.ok) return fab;
+    if (fab.value && !GOWN_PART_FABRIC.includes(part)) return no('not_a_design');
+    if (e.colour != null && !isPartColour(e.colour)) return no('colours');
+    let fade: GownPart['fade'] = null;
+    if (e.fade != null) {
+      const f = e.fade;
+      if (!GOWN_PART_FADE.includes(part) || !isRecord(f) || !isPartColour(f.colour) || (f.dir !== 'down' && f.dir !== 'up')) return no('not_a_design');
+      const from = f.from ?? 0, to = f.to ?? 1;
+      if (!finite(from) || !finite(to) || from < 0 || from > 0.95 || to < 0.05 || to > 1 || from >= to) return no('out_of_range');
+      fade = { colour: partColour(f.colour), dir: f.dir, from, to };
+    }
+    let border: GownPart['border'] = null;
+    if (e.border != null) {
+      const b = e.border, edges = (GOWN_PART_EDGES as Partial<Record<GownPartId, readonly { id: string }[]>>)[part];
+      if (!edges || !isRecord(b) || !edges.some((x) => x.id === b.edge) || !isPartColour(b.colour)) return no('not_a_design');
+      if (!finite(b.cm) || b.cm < GOWN_BORDER_CM[0] || b.cm > GOWN_BORDER_CM[1]) return no('out_of_range');
+      const bf = fabricOk(b.fabric);
+      if (!bf.ok) return bf;
+      border = { edge: b.edge as GownPartEdge, cm: b.cm, fabric: bf.value, colour: partColour(b.colour) };
+    }
+    let pattern: GownPart['pattern'] = null;
+    if (e.pattern != null) {
+      const pt = e.pattern;
+      if (!isRecord(pt) || typeof pt.kind !== 'string' || !isPartColour(pt.colour)) return no('not_a_design');
+      if (out.some((o) => o.pattern)) return no('not_a_design');
+      if (pt.kind.startsWith('lib:')) {
+        const ref = pt.kind.slice(4).toLowerCase();
+        if (!UUID.test(ref)) return no('not_a_design');
+        if (!offer.fabricRefs.includes(ref)) return no('not_offered');
+        pattern = { kind: `lib:${ref}`, colour: partColour(pt.colour) };
+      } else if (isOneOf(pt.kind, ids(GOWN_PATTERNS))) pattern = { kind: pt.kind, colour: partColour(pt.colour) };
+      else return no('not_a_design');
+    }
+    const colour = e.colour == null ? null : partColour(e.colour as GownPartColour);
+    if (!fab.value && !colour && !fade && !border && !pattern) continue;
+    out.push({ part, fabric: fab.value, colour, fade, border, pattern });
+  }
+  return { ok: true, value: out };
+}
+
 export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true; config: GownConfig } | { ok: false; reason: GownRefusal } {
   const size = sizeOk(input, GOWN_CONFIG_MAX_BYTES);
   if (size !== 'ok') return no(size);
@@ -1835,6 +2029,13 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
   const lookName = text(r.lookName, GOWN_LOOK_NAME_MAX);
   if (notes === null || lookName === null) return no('text');
 
+  // v209 her own lines (the prototype's clean rule), v210 the pieces she changed.
+  const lines = gownLinesOf(r);
+  if (!lines) return no('out_of_range');
+  const partsGot = sanitizeGownParts(r.parts, offer);
+  if (!partsGot.ok) return partsGot;
+  const parts = partsGot.value;
+
   const l = first.value;
   return {
     ok: true,
@@ -1943,6 +2144,8 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
       trims,
       trimCol: p.trimCol,
       trimHex: p.trimCol === 'custom' ? trimHex : null,
+      ...lines,
+      parts,
       notes,
     },
   };
@@ -2021,7 +2224,7 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
   if (!isRecord(input) || !isRecord(input.materials) || !isRecord(input.labour)) return no('quantities');
   if (!versionOk(input.v)) return no('quantities');
   const known = (o: Record<string, unknown>, keys: readonly string[]) => Object.keys(o).every((k) => keys.includes(k));
-  if (!known(input, ['v', 'materials', 'labour'])) return no('quantities');
+  if (!known(input, ['v', 'materials', 'labour', 'pieces', 'borders'])) return no('quantities');
   const qty = (v: unknown, count: boolean, max: number): number | null =>
     finite(v) && v >= 0 && v <= max && (!count || Number.isInteger(v)) ? v : null;
 
@@ -2076,7 +2279,38 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
   if (beads === null || laceMotifs === null || laceYardM === null || pleats === null || cutouts === null || slits === null || trimM === null) {
     return no('quantities');
   }
-  q.labour = { sleeve, beads, laceMotifs, laceYardM, pleats, tex, darts, cutouts, slits, train, veil, trimM, twoPiece, cape, flutter, overlay, illuBodice, illuBack, boneShow, straps, scallop, flowers, laceRaised, sleeveDetach, overrobe };
+  // v210: colour per piece.
+  const dyeFade = qty(L.dyeFade ?? 0, true, GOWN_PART_FADE.length), borderN = qty(L.borders ?? 0, true, GOWN_PARTS_MAX);
+  if (dyeFade === null || borderN === null) return no('quantities');
+  const metres = (v: unknown) => qty(v, false, GOWN_QUANTITY_MAX.metres);
+  const pieces: GownQuantityPiece[] = [];
+  if (input.pieces != null) {
+    if (!Array.isArray(input.pieces) || input.pieces.length > GOWN_PART_FABRIC.length) return no('quantities');
+    for (const x of input.pieces) {
+      if (!isRecord(x) || !known(x, ['part', 'fabric', 'fabricRef', 'patternKey', 'm', 'eqM'])) return no('quantities');
+      const m = metres(x.m), eqM = metres(x.eqM ?? 0), ref = refOrNull(x.fabricRef), pk = x.patternKey ?? null;
+      if (!isOneOf(x.part, GOWN_PART_FABRIC) || pieces.some((o) => o.part === x.part) || typeof x.fabric !== 'string' || !GOWN_FABRIC_TYPE_ID.test(x.fabric)) return no('quantities');
+      if (m === null || eqM === null || ref === undefined || (pk !== null && !isOneOf(pk, GOWN_PATTERN_QUOTE_KEYS))) return no('quantities');
+      pieces.push({ part: x.part, fabric: x.fabric, fabricRef: ref, patternKey: pk, m, eqM });
+    }
+  }
+  const borders: GownQuantityBorder[] = [];
+  if (input.borders != null) {
+    if (!Array.isArray(input.borders) || input.borders.length > GOWN_PARTS_MAX) return no('quantities');
+    for (const x of input.borders) {
+      if (!isRecord(x) || !known(x, ['part', 'edge', 'cm', 'edgeM', 'm', 'fabric'])) return no('quantities');
+      const edges = (GOWN_PART_EDGES as Partial<Record<string, readonly { id: string }[]>>)[x.part as string];
+      const edgeM = metres(x.edgeM), m = metres(x.m);
+      if (!edges || !edges.some((e) => e.id === x.edge) || borders.some((o) => o.part === x.part) || typeof x.fabric !== 'string' || !GOWN_FABRIC_TYPE_ID.test(x.fabric)) return no('quantities');
+      if (!finite(x.cm) || x.cm < GOWN_BORDER_CM[0] || x.cm > GOWN_BORDER_CM[1] || edgeM === null || m === null) return no('quantities');
+      borders.push({ part: x.part as GownPartId, edge: x.edge as GownPartEdge, cm: x.cm, edgeM, m, fabric: x.fabric });
+    }
+  }
+  // One border line per band: the count and the bands agree.
+  if (borderN !== borders.length) return no('quantities');
+  q.labour = { sleeve, beads, laceMotifs, laceYardM, pleats, tex, darts, cutouts, slits, train, veil, trimM, twoPiece, cape, flutter, overlay, illuBodice, illuBack, boneShow, straps, scallop, flowers, laceRaised, sleeveDetach, overrobe, dyeFade, borders: borderN };
+  q.pieces = pieces;
+  q.borders = borders;
   return { ok: true, quantities: q };
 }
 

@@ -17,6 +17,14 @@ export const GOWN_WALKS = {
   runway: { hz: 1, hip: 26, k0: 10, k: 28, ft: 10, arm: 8, cross: 7, bob: 0.008, sway: 0.018 },
 } as const satisfies Record<string, GownWalk>;
 export type GownMotionKind = keyof typeof GOWN_WALKS | 'jump';
+/** v206 Movement: the walks and the jump, and Still. */
+export const GOWN_MOVES = [
+  { id: 'aisle', label: 'Aisle walk' },
+  { id: 'walk', label: 'Everyday walk' },
+  { id: 'runway', label: 'Runway walk' },
+  { id: 'jump', label: 'Jump' },
+  { id: 'stop', label: 'Still' },
+] as const satisfies readonly { id: GownMotionKind | 'stop'; label: string }[];
 /** How often the moving body and gown are rebuilt (a second); the frame loop draws in between. */
 export const GOWN_MOTION_HZ = 24;
 /** She eases into a walk over this long (s), instead of jumping into it. */

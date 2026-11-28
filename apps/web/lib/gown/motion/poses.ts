@@ -62,6 +62,18 @@ export type GownPoseName = keyof typeof GOWN_POSES;
 export const GOWN_POSE_TOUR: readonly GownPoseName[] = ['a', 'down', 'hip', 'step', 'pop', 'walk', 'kneel'];
 /** Poses she stands in: the skirt is cut for her standing, and a seated skirt keeps that length. */
 export const GOWN_STANDING_POSES: readonly GownPoseName[] = ['a', 'down', 'hip'];
+/** v206 Stance: the poses she can pick, as the preview names them (the seated poses wait for a proper lap drape). */
+export const GOWN_STANCES = [
+  { id: 'a', label: 'Standing' },
+  { id: 'down', label: 'Arms down' },
+  { id: 'hip', label: 'Hand on hip' },
+  { id: 'step', label: 'Step' },
+  { id: 'pop', label: 'Knee pop' },
+  { id: 'walk', label: 'Mid-stride' },
+  { id: 'kneel', label: 'Kneel' },
+] as const satisfies readonly { id: GownPoseName; label: string }[];
+/** v206: a press held this long (ms) opens a preview button's own list instead of its tap. */
+export const GOWN_HOLD_MS = 420;
 /** How long a change of pose blends (s). */
 export const GOWN_POSE_BLEND_S = 0.45;
 

@@ -392,6 +392,9 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
     }
   }
 
+  /* k · a pull_request workflow can never end ALL-SKIPPED (see neverSkippedProblems) */
+  for (const [file, text] of [['ci.yml', ci], ...Object.entries(others)]) problems.push(...neverSkippedProblems(file, text));
+
   /* f · shards: the whole list, never cancelled early, exit code kept */
   for (const j of jobs) {
     for (const step of j.steps) {
@@ -424,6 +427,28 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
   }
 
   return problems;
+}
+
+/* ── 2a. a workflow's check suite is never all-skipped ──────────────────────*/
+
+/**
+ * 🚨 #8098 (auto-merge.yml, opened with the hold label) and #8465 (lighthouse.yml, head pushed while a DRAFT).
+ * When every job of a workflow run skips, that run's check suite concludes "skipped". If it is the first
+ * github-actions suite on the head commit, GitHub files the required checks `scripts/ci-report-checks.mjs` posts
+ * by name into it — and branch protection does not count runs in a skipped suite. The PR then sits BLOCKED with
+ * every check green, and re-running replays the same event and skips again.
+ *
+ * So every workflow that runs on `pull_request` (or `pull_request_target`) must have at least one job with no
+ * job-level `if:` and no `needs:` — a job that runs on every event and cannot be skipped by a failed dependency.
+ * The convention is a do-nothing job named NEVER_SKIPPED_JOB; any unconditional job satisfies the rule.
+ */
+export const NEVER_SKIPPED_JOB = 'suite-is-never-skipped';
+export function neverSkippedProblems(file, text) {
+  const on = /^on:[^\n]*\n((?:(?: [^\n]*|#[^\n]*|)\n)*)/m.exec(text);
+  if (!on || !/^ {2}pull_request(?:_target)?:/m.test(on[1])) return [];
+  const jobs = parseJobs(text);
+  if (jobs.some((j) => !j.if && j.needs.length === 0)) return [];
+  return [`${file}: runs on pull_request but every job has an \`if:\` or a \`needs:\` (${jobs.map((j) => j.id).join(', ') || 'no jobs'}) — where they all skip (a draft, a hold label) the run's check suite concludes "skipped", required checks reported by name can be filed into it, and branch protection does not count them: the PR stays BLOCKED with everything green (#8098, #8465). Add a job \`${NEVER_SKIPPED_JOB}\` with no \`if:\` and no \`needs:\`.`];
 }
 
 /* ── 2b. required checks a job reports by name ──────────────────────────────*/

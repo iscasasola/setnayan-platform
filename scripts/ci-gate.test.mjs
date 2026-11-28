@@ -16,7 +16,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { gateVerdict, shapeProblems, parseJobs, summariseTap, parseReportedChecks, reportConclusions, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE, DRAFT_PR_PROBLEM, LIVE_DRAFT_JOB, LIVE_DRAFT_CLAUSE, deferrable, supersedingRun, deferredCheckBody, pendingDeferredChecks, completionConclusion } from './lib/ci-shape.mjs';
+import { gateVerdict, shapeProblems, parseJobs, summariseTap, parseReportedChecks, reportConclusions, REQUIRED_CONTEXTS, GATE_NAME, DRAFT_CLAUSE, DRAFT_PR_PROBLEM, LIVE_DRAFT_JOB, LIVE_DRAFT_CLAUSE, deferrable, supersedingRun, deferredCheckBody, pendingDeferredChecks, completionConclusion, NEVER_SKIPPED_JOB, neverSkippedProblems } from './lib/ci-shape.mjs';
 import http from 'node:http';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
@@ -299,6 +299,50 @@ test('🚨 skipping drafts without `ready_for_review` is caught — a PR marked 
     assert.ok(others[f].includes(DRAFT_CLAUSE) && others[f].includes(types), `${f} skips drafts and lists the four types`);
     mentions(problemsOf(CI, webPackage, { ...others, [f]: others[f].replace(types, '') }), new RegExp(`${f.replace('.', '\\.')}: its jobs skip draft PRs`));
   }
+});
+
+/* ── a pull_request workflow never ends ALL-SKIPPED (#8098 auto-merge.yml · #8465 lighthouse.yml) ───────────*/
+
+/** Cut the `suite-is-never-skipped` job out of a workflow — and refuse a cut that removed nothing. */
+function withoutNeverSkipped(text, file) {
+  const re = new RegExp(`^ {2}${NEVER_SKIPPED_JOB}:\\n(?: {4}[^\\n]*\\n| {6,}[^\\n]*\\n|\\s*\\n)*`, 'm');
+  const before = parseJobs(text).filter((j) => j.id === NEVER_SKIPPED_JOB).length;
+  const out = text.replace(re, '');
+  const after = parseJobs(out).filter((j) => j.id === NEVER_SKIPPED_JOB).length;
+  assert.equal(before, 1, `${file} has exactly one ${NEVER_SKIPPED_JOB} job before the cut`);
+  assert.equal(after, 0, `the cut removed ${NEVER_SKIPPED_JOB} from ${file} (${before} → ${after})`);
+  assert.ok(parseJobs(out).length >= 1, `${file} still has its real job(s) after the cut`);
+  return out;
+}
+
+test('🚨 every workflow that skips its jobs on a draft or a label also has one job that never skips', () => {
+  for (const f of ['auto-merge.yml', 'e2e.yml', 'lighthouse.yml']) {
+    const j = parseJobs(others[f]).find((x) => x.id === NEVER_SKIPPED_JOB);
+    assert.ok(j, `${f} has a ${NEVER_SKIPPED_JOB} job`);
+    assert.equal(j.if, null, `${f}: ${NEVER_SKIPPED_JOB} has no if:`);
+    assert.deepEqual(j.needs, [], `${f}: ${NEVER_SKIPPED_JOB} needs nothing`);
+    assert.ok(!REQUIRED_CONTEXTS.includes(j.name), `${f}: ${NEVER_SKIPPED_JOB} is not itself a required check`);
+    assert.deepEqual(neverSkippedProblems(f, others[f]), [], `${f} is sound as committed`);
+  }
+  assert.deepEqual(neverSkippedProblems('ci.yml', CI), [], 'ci.yml has unconditional jobs (guards, pr-state)');
+});
+
+test('🚨 a pull_request workflow whose every job can skip is caught — its suite would swallow reported checks', () => {
+  for (const f of ['auto-merge.yml', 'e2e.yml', 'lighthouse.yml']) {
+    const cut = withoutNeverSkipped(others[f], f);
+    assert.ok(parseJobs(cut).every((j) => j.if || j.needs.length), `${f}: every remaining job is conditional`);
+    mentions(problemsOf(CI, webPackage, { ...others, [f]: cut }), new RegExp(`${f.replace('.', '\\.')}: runs on pull_request but every job has an \`if:\``));
+  }
+});
+
+test('a workflow that never runs on pull_request needs no such job; pull_request_target does', () => {
+  const allSkip = 'jobs:\n  only:\n    if: ${{ false }}\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo\n';
+  assert.deepEqual(neverSkippedProblems('x.yml', `on:\n  workflow_dispatch:\n\n${allSkip}`), []);
+  assert.deepEqual(neverSkippedProblems('x.yml', `on:\n  push:\n    branches: [main]\n\n${allSkip}`), []);
+  assert.equal(neverSkippedProblems('x.yml', `on:\n  push:\n    branches: [main]\n  pull_request:\n    types: [opened]\n\n${allSkip}`).length, 1);
+  assert.equal(neverSkippedProblems('x.yml', `on:\n  # comment\n  pull_request_target:\n\n${allSkip}`).length, 1);
+  const needsOnly = 'jobs:\n  a:\n    if: ${{ false }}\n    runs-on: ubuntu-latest\n  b:\n    needs: a\n    runs-on: ubuntu-latest\n';
+  assert.equal(neverSkippedProblems('x.yml', `on:\n  pull_request:\n\n${needsOnly}`).length, 1, 'a job that only needs a skippable job is skipped with it');
 });
 
 /* ── a run cancelled for a newer run on the SAME commit (#8252, run 45266185097) ───────────────────────────────*/

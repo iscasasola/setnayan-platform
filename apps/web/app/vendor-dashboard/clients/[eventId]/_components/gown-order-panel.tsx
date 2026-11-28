@@ -200,9 +200,10 @@ function Blocks({ config, body, measures, tape }: { config: GownConfig; body: Go
     // The engine loads only when the designer opens the blocks.
     void Promise.all([import('@/lib/gown-pattern/order'), import('@/lib/gown-pattern/svg')]).then(([{ gownOrderBlocks }, { gownBlocksSvg }]) => {
       const b = gownOrderBlocks(config, body, measures, tape);
-      const part = (title: string, d: typeof b.skirt | typeof b.bodice) =>
+      const part = (title: string, d: typeof b.skirt | typeof b.bodice | typeof b.sleeve) =>
         d.ok ? { title, svg: gownBlocksSvg(d.pieces, title), error: null, checks: d.checks } : { title, svg: null, error: d.error, checks: [] };
-      if (live) setSvgs({ est: b.est, parts: [part('Bodice blocks', b.bodice), part('Skirt blocks', b.skirt)] });
+      const sleeve = b.sleeve.ok && b.sleeve.pieces.length === 0 ? [] : [part('Sleeve block', b.sleeve)];
+      if (live) setSvgs({ est: b.est, parts: [part('Bodice blocks', b.bodice), ...sleeve, part('Skirt blocks', b.skirt)] });
     });
     return () => {
       live = false;

@@ -11,11 +11,14 @@ import { gownEaseRows } from '../gown/ease';
 import { gownShapedVals } from '../gown/body-rules';
 import { draftSkirt, type GownDraftRefusal, type GownSkirtDraft } from './skirt';
 import { draftBodice, type GownBodiceDraft } from './bodice';
+import { draftSleeve, type GownSleeveDraft, type GownSleeveNone } from './sleeve';
 import type { GownDraftOrder, GownTape } from './inputs';
 
 export type GownOrderBlocks = {
   skirt: GownSkirtDraft | GownDraftRefusal;
   bodice: GownBodiceDraft | GownDraftRefusal;
+  /** Step B10: the set-in sleeve (no block for no sleeve or a butterfly sleeve). */
+  sleeve: GownSleeveDraft | GownSleeveNone | GownDraftRefusal;
   /** True when any number on either block is a 3D estimate: the sheet prints "ESTIMATE: measure before cutting". */
   est: boolean;
 };
@@ -31,5 +34,6 @@ export function gownOrderBlocks(config: GownConfig, body: GownBody, measures: Go
   const order = gownOrderOf(config, body, measures);
   const skirt = draftSkirt(order, tape);
   const bodice = draftBodice(order, tape);
-  return { skirt, bodice, est: (skirt.ok && skirt.est) || (bodice.ok && bodice.est) };
+  const sleeve = draftSleeve({ ...order, sleeve: config.sleeve }, tape);
+  return { skirt, bodice, sleeve, est: (skirt.ok && skirt.est) || (bodice.ok && bodice.est) || (sleeve.ok && sleeve.est) };
 }

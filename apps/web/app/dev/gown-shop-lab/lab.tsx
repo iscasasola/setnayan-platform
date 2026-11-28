@@ -49,7 +49,7 @@ const REGISTRY = [
 
 export default function Lab({ view }: { view: string }) {
   if (view === 'order') {
-    const config = startingGownConfig();
+    const config = { ...startingGownConfig(), sleeve: 'long' as const };
     const body = { ...startingGownBody(), given: ['height', 'bust', 'waist', 'hips'] as ('height' | 'bust' | 'waist' | 'hips')[], matters: ['arms' as const] };
     const q = { ...emptyGownQuantities(), outerM: 6.5 };
     const priced = gownDesignOf(sample('covers'), config, q, [], new Map());
@@ -65,7 +65,7 @@ export default function Lab({ view }: { view: string }) {
             designId: '00000000-0000-4000-8000-000000000003',
             config,
             body,
-            measures: { waistHip: { cm: 21, from: 'estimate' }, waistFloor: { cm: 98, from: 'typed' }, napeWaist: { cm: 40, from: 'estimate' } },
+            measures: { waistHip: { cm: 21, from: 'estimate' }, waistFloor: { cm: 98, from: 'typed' }, napeWaist: { cm: 40, from: 'estimate' }, armhole: { cm: 42, from: 'typed' }, upperArm: { cm: 29, from: 'typed' }, elbow: { cm: 25, from: 'estimate' }, wrist: { cm: 15.5, from: 'typed' }, armBent: { cm: 59, from: 'typed' } },
             estimateCentavos: priced.forBride.estimateCentavos,
             forShop: priced.forShop,
             tape: { tape: { waistHip: 21.5 }, fitAt: '2026-11-27T10:00:00Z' },

@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import { isShareArtifactType, type ShareCreditMode } from '@/lib/social-sharing';
+import { isShareArtifactType, type ShareArtifactType, type ShareCreditMode } from '@/lib/social-sharing';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
@@ -50,7 +50,7 @@ export async function grantShareConsent(formData: FormData) {
   if (!isShareArtifactType(artifactTypeRaw)) {
     throw new Error('Invalid artifact type');
   }
-  const artifact_type = artifactTypeRaw;
+  const artifact_type: ShareArtifactType = artifactTypeRaw;
   const credit_mode: ShareCreditMode = VALID_CREDIT_MODES.includes(
     creditModeRaw as ShareCreditMode,
   )

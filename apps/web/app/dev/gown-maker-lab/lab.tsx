@@ -129,6 +129,18 @@ const LAB_BODIES = {
   severe: { height: 155, bust: 140, underbust: 116, waist: 130, hips: 150 },
 } as const;
 
+/** v207 sample gowns for the fabric check (lab sample data). */
+const LAB_FABRIC_GOWNS: [string, Partial<GownConfig>][] = [
+  ['Satin A-line', {}],
+  ['Taffeta ball gown', { sil: 'ball', fabric: 'taffeta', petti: 'full' }],
+  ['Duchess, chapel train', { sil: 'ball', fabric: 'duchess', train: 'chapel' }],
+  ['Bias satin sheath', { sil: 'sheath', fabric: 'bias_satin' }],
+  ['Chiffon, unlined', { fabric: 'chiffon', lining: 'none' }],
+  ['Chiffon over a lining', { fabric: 'chiffon', colour: 'champagne' }],
+  ['Sequin mermaid', { sil: 'mermaid', fabric: 'sequin', colour: 'blush' }],
+  ['Black lace on ivory', { colour: 'ivory', lace: 'chantilly', laceAt: 'bodice', laceCol: 'black' }],
+];
+
 export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyIn }: { view: string; scene: string; guides: boolean; body: string }) {
   const scene: GownSceneId = isScene(sceneIn) ? sceneIn : 'studio';
   const [vals, setVals] = useState<GownBodyVals>(() => ({ ...startingGownBody().vals }));
@@ -177,6 +189,20 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
           <figure key={sil}>
             <GownView vals={v} fine={fine} scene={scene} design={{ ...startingGownConfig(), sil }} />
             <figcaption className="text-sn-12">{GOWN_SILHOUETTES.find((x) => x.id === sil)?.label}</figcaption>
+          </figure>
+        ))}
+      </main>
+    );
+  }
+  if (view === 'fabrics') {
+    // v207 check: the fabric feel on one body (lab sample designs; the same ones are rendered in v207 for comparison).
+    const v = { ...startingGownBody().vals };
+    return (
+      <main className="grid grid-cols-4 gap-2 p-2" data-lab-view="fabrics">
+        {LAB_FABRIC_GOWNS.map(([name, d]) => (
+          <figure key={name} data-lab-fabric={name}>
+            <GownView vals={v} fine={fine} scene={scene} design={{ ...startingGownConfig(), ...d }} />
+            <figcaption className="text-sn-12">{name}</figcaption>
           </figure>
         ))}
       </main>

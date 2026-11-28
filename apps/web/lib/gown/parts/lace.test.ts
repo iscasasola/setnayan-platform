@@ -34,7 +34,7 @@ test('lace lands where v197 puts it: every motif within 1 mm, the designer\'s co
   const B = await body();
   for (const r of REF.rows) {
     const g = { ...gownApplyLook(startingGownConfig(), r.look ?? {}), ...r.gown, hem: r.hem, hemCm: 0 } as GownConfig;
-    const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+    const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
     D.hold = feel.hold; D.foldK = feel.foldK;
     buildEnvelope(B, T);
     buildDress(B, T, D, g, floorOf(B));

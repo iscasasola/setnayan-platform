@@ -21,19 +21,20 @@ import { PillSelector } from '@/app/_components/pill-selector';
 import { Slider } from '@/app/_components/slider';
 import { SwitchRow } from '@/app/_components/form-row';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
+import { ColourWell } from '@/app/dashboard/[eventId]/website/editor/_components/colour-well';
 import { GownView } from '@/app/_components/plan3d/kit/gown-view';
 import type { GownSolved } from '@/app/_components/plan3d/kit/gown-figure-3d';
 import type { GownFocusAsk } from '@/app/_components/plan3d/kit/gown-focus';
 import { GownStageButtons } from './stage-buttons';
 import {
-  GOWN_BODY_RANGE, GOWN_BODY_SHAPES, GOWN_BUST_POSITIONS, GOWN_COLOUR_FAMILIES, GOWN_MATTERS, GOWN_PALETTE_MAX,
+  GOWN_BODY_RANGE, GOWN_BODY_SHAPES, GOWN_BUST_POSITIONS, GOWN_COLOURS, GOWN_COLOUR_FAMILIES, GOWN_MATTERS, GOWN_PALETTE_MAX,
   emptyGownHand, type GownBody, type GownBodyKey, type GownConfig, type GownColourFamily, type GownMatter, type GownHand, type GownQuantities,
 } from '@/lib/gown-config';
 import { GOWN_HEEL_STOPS, gownBustPosition, gownDoubleCheck, gownLimit, gownScaleToWeight, gownSetNumber, gownShapeAtWeight, gownSnapBustT, gownSnapHeel } from '@/lib/gown/body-rules';
 import { gownChoose, type GownChoice } from '@/lib/gown/compat';
 import {
-  gownDesignSteps, gownMeasSteps, gownPickOptions, gownRemember, gownSayHeight, gownSayLength, gownSayWeight, gownSkipStep, gownSnapStep,
-  type GownMoment, type GownStepSnap, type GownUnits,
+  GOWN_CUSTOM_HEX, gownDesignSteps, gownFabricLine, gownFabricOrder, gownHasCustomHex, gownMeasSteps, gownPickOptions, gownSeedCustomHex, gownRemember, gownSayHeight, gownSayLength, gownSayWeight, gownSkipStep, gownSnapStep,
+  type GownCustomColourKey, type GownMoment, type GownStepSnap, type GownUnits,
 } from '@/lib/gown/flow';
 import type { GownPoseName } from '@/lib/gown/motion/poses';
 import type { GownMotionKind } from '@/lib/gown/motion/walks';
@@ -147,7 +148,8 @@ export function GownDesigner({ seed, fabrics, onChange, onDone, send, start = 'm
   const choose = (c: GownChoice) => {
     remember();
     const r = gownChoose(config, c);
-    setConfig(r.config);
+    // A colour of her own starts from the colour she sees now, so the design never asks for a colour it lacks.
+    setConfig(gownHasCustomHex(String(c.key)) ? gownSeedCustomHex(r.config, c.key as GownCustomColourKey) : r.config);
     setNote(r.notes.join(' '));
   };
 
@@ -202,12 +204,27 @@ export function GownDesigner({ seed, fabrics, onChange, onDone, send, start = 'm
       );
     }
     if (ds.id === 'fabric') {
-      return <PickMenu label="Fabric" value={config.fabric} options={fabrics.map((f) => ({ key: f.id, label: f.label }))} onPick={(v) => choose({ key: 'fabric', value: v })} dataAttr="data-gown-pick-fabric" className="w-full !min-h-11" />;
+      return (
+        <>
+          <PickMenu label="Fabric" value={config.fabric} options={gownFabricOrder(fabrics).map((f) => ({ key: f.id, label: f.label }))} onPick={(v) => choose({ key: 'fabric', value: v })} dataAttr="data-gown-pick-fabric" className="w-full !min-h-11" />
+          <p className="text-sn-13 text-ink/75" data-gown-fabric-line>{gownFabricLine(config.fabric, config.lining !== 'none')}</p>
+        </>
+      );
     }
-    return ds.picks.filter((p) => !p.when || p.when(config)).map((p) => (
-      <PickMenu key={String(p.key)} label={p.label} value={String(config[p.key] ?? '')} options={gownPickOptions(p, config).map((o) => ({ key: o.id, label: o.label }))}
-        onPick={(v) => choose({ key: p.key, value: v } as GownChoice)} dataAttr={`data-gown-pick-${String(p.key).replace(/[A-Z]/g, (c) => '-' + c.toLowerCase())}`} className="w-full !min-h-11" />
-    ));
+    return ds.picks.filter((p) => !p.when || p.when(config)).map((p) => {
+      const k = String(p.key), own = gownHasCustomHex(k) && config[p.key] === 'custom' ? GOWN_CUSTOM_HEX[k as GownCustomColourKey] : null;
+      return (
+        <div key={k} className="grid gap-2">
+          <PickMenu label={p.label} value={String(config[p.key] ?? '')} options={gownPickOptions(p, config).map((o) => ({ key: o.id, label: o.label }))}
+            onPick={(v) => choose({ key: p.key, value: v } as GownChoice)} dataAttr={`data-gown-pick-${k.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase())}`} className="w-full !min-h-11" />
+          {own ? (
+            // Her own colour: the house colour well opens the one colour picker.
+            <ColourWell title={p.label} value={config[own] ?? null} shown={config[own] ?? GOWN_COLOURS[0].hex} what="" palette={[]} unsetLabel="Pick a colour"
+              onPick={(hex) => { remember(); setConfig({ ...config, [own]: hex.toUpperCase() }); }} data={`gown-${k}`} />
+          ) : null}
+        </div>
+      );
+    });
   };
 
   // ─── the bottom row ───

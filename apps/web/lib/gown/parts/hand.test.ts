@@ -1,5 +1,5 @@
 /**
- * 👗 gown/parts/hand — place by hand, held to prototype v202's own numbers (`v202-hand.fixture.json`): the beads she
+ * 👗 gown/parts/hand — place by hand, held to prototype v202's own numbers (`v207-hand.fixture.json`): the beads she
  * placed (every set, colour, count, where), the eraser wiping the ready-made beads and lace, motifs placed by hand, the
  * scissors' cuts, and the screen's lines word for word. Then the tools' edits: Mirror, the caps, the eraser, Clear.
  */
@@ -27,14 +27,14 @@ type Row = {
   layers: RefSet[]; manual: RefSet[]; laceCountN: number; laceSpots: number; laceBeadPts: number; laceBeadMm: number | null;
   laceLine: string; brLine: string; laceBLine: string; cutNote: string;
 };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v202-hand.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v207-hand.fixture.json'), 'utf8')) as { rows: Row[] };
 let rig: Promise<GownRig> | null = null;
 const body = () => {
   if (!rig) { const b = readFileSync(join(__dirname, '../../../public/gown/female.glb')); rig = parseGownBody(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer); }
   return rig;
 };
 function dressed(B: GownRig, g: GownConfig) {
-  const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+  const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
   D.hold = feel.hold; D.foldK = feel.foldK;
   buildEnvelope(B, T);
   buildDress(B, T, D, g, floorOf(B));

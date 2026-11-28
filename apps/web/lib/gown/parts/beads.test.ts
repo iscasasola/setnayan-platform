@@ -1,5 +1,5 @@
 /**
- * 👗 gown/parts/beads — bead layers sewn on the gown, held to prototype v202's own numbers (`v202-beads.fixture.json`):
+ * 👗 gown/parts/beads — bead layers sewn on the gown, held to prototype v202's own numbers (`v207-beads.fixture.json`):
  * every set a layer lays (kind, colour, how many, size, where each bead sits) and the designer's count line, word for word.
  */
 import { test } from 'node:test';
@@ -19,14 +19,14 @@ import { GOWN_BEAD_CAP, buildGownBeads, gownBeadCounts, gownBeadHex, gownBeadLay
 type Set = { kind: string; hex: number; n: number; count: number; size: number; rows: number; triSum: number; bcSum: number; tri: number[]; bc: number[]; spin: number[] };
 type ProtoLayer = Omit<GownBeadLayer, 'beadHex'> & { beadHex: string };
 type Row = { name: string; look: Partial<GownConfig>; layers: ProtoLayer[]; rows: number; nb: number; sets: Set[]; line: string };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v202-beads.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v207-beads.fixture.json'), 'utf8')) as { rows: Row[] };
 let rig: Promise<GownRig> | null = null;
 const body = () => {
   if (!rig) { const b = readFileSync(join(__dirname, '../../../public/gown/female.glb')); rig = parseGownBody(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer); }
   return rig;
 };
 function dressed(B: GownRig, g: GownConfig) {
-  const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+  const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
   D.hold = feel.hold; D.foldK = feel.foldK;
   buildEnvelope(B, T);
   buildDress(B, T, D, g, floorOf(B));

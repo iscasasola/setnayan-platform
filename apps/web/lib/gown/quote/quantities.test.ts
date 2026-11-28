@@ -1,5 +1,5 @@
 /**
- * 👗 gown/quote — what a design needs, held to prototype v206's own quote lines (`v206-quote.fixture.json`, captured from
+ * 👗 gown/quote — what a design needs, held to prototype v206's own quote lines (`v207-quote.fixture.json`, captured from
  * the prototype's `quoteLines` for five gowns). The gown is built here as the stage builds it, measured
  * (`gownMeasure`), and turned into the contract's quantities (`gownQuantitiesOf`); each line the prototype prints is
  * compared with the key the shop's quote reads. Quantities only: nothing here is a price.
@@ -29,7 +29,7 @@ import { gownQuantitiesOf } from './quantities';
 
 type Line = { key: string; label: string; qty: number; unit: string };
 type Row = { name: string; look: Partial<GownLook>; hem: string; heel: number; gown: Record<string, unknown>; M: Line[]; laceN: number; beadSets: [string, number][] };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v206-quote.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v207-quote.fixture.json'), 'utf8')) as { rows: Row[] };
 const GLB = join(__dirname, '../../../public/gown/female.glb');
 let rig: Promise<GownRig> | null = null;
 const body = () => {
@@ -49,7 +49,7 @@ const designOf = (r: Row): GownConfig => {
 
 /** The stage's order for what the quote measures: the gown, the sleeves, the overlay, the cape, the lace and the beads. */
 function quantitiesOf(B: GownRig, g: GownConfig): GownQuantities {
-  const T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), K = emptyCape(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+  const T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), K = emptyCape(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
   D.hold = feel.hold; D.foldK = feel.foldK;
   solveGownBody(B);
   // Posed as the stage poses her, in her shoes: the skirt is cut to the floor she stands on.

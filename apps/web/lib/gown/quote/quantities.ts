@@ -11,6 +11,8 @@ import {
   GOWN_BEAD_KINDS, emptyGownQuantities, gownCapeInGownFabric, gownCapeKind, gownCapeNow, gownSleeveDetach, gownSleeveIsExtra,
   type GownBeadKind, type GownConfig, type GownQuantities, type GownStraps, type GownTrim,
 } from '../../gown-config';
+import { gownFeelOf } from '../fabric/feel';
+import { gownFabricType } from '../fabric/types';
 
 /** What the stage measured on her and this gown (metres, or counts). Raw: before any allowance is added here. */
 export type GownMeasured = {
@@ -57,8 +59,10 @@ export const gownAccentOn = (g: Pick<GownConfig, 'accentFabric' | 'accentHex'>) 
 export function gownQuantitiesOf(g: GownConfig, m: GownMeasured): GownQuantities {
   const q = emptyGownQuantities(), M = q.materials, L = q.labour, accent = gownAccentOn(g), ck = gownCapeKind(g), capeIn = ck !== 'none' && gownCapeInGownFabric(g);
   const flutterFab = g.sleeve === 'flutter' && g.sleeveFab === 'fabric' && !accent;
-  // The outer: the panels, a cape or overlay in the gown fabric and flutter sleeves in it, plus 15 % for matching and waste.
-  const outer = ceil1((m.panelM + (capeIn ? m.capeM : 0) + (g.overlay !== 'none' && g.ovFab === 'gown' ? m.overlayM : 0) + (flutterFab ? m.flutterM : 0)) * 1.15);
+  // The outer: the panels, a cape or overlay in the gown fabric and flutter sleeves in it, plus 15 % for matching and waste,
+  // × the fabric's cut (v207 card `m`: bias-cut cloth is laid at 45°, so it takes more).
+  const cutM = gownFeelOf(gownFabricType(g.fabric).drawAs).m ?? 1;
+  const outer = ceil1((m.panelM + (capeIn ? m.capeM : 0) + (g.overlay !== 'none' && g.ovFab === 'gown' ? m.overlayM : 0) + (flutterFab ? m.flutterM : 0)) * 1.15 * cutM);
   M.outerM = outer;
   // The accent (sleeves): its own line, with its own yardage.
   const sm = g.sleeve === 'flutter' ? m.flutterM : (SLEEVE_M[g.sleeve] ?? 0);

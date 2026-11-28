@@ -1,5 +1,5 @@
 /**
- * 👗 gown/parts/overlay — the overlay (v195) held to the prototype's own numbers (`v199-overlay.fixture.json`):
+ * 👗 gown/parts/overlay — the overlay (v195) held to the prototype's own numbers (`v207-overlay.fixture.json`):
  * asymmetric, tiered on a ball gown, cascade in the gown fabric; a back cape and a veil over it; the outer metres.
  */
 import { test } from 'node:test';
@@ -22,7 +22,7 @@ import { buildGownVeil, emptyVeil } from './veil';
 
 type Pt = [number, number, number, number];
 type Row = { name: string; look: Partial<GownLook>; hem: GownConfig['hem']; gown: Partial<GownConfig>; overlay: Pt[] | null; ovM: number; metres: number; cape: Pt[] | null; veil: Pt[] | null };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v199-overlay.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v207-overlay.fixture.json'), 'utf8')) as { rows: Row[] };
 let rig: Promise<GownRig> | null = null;
 const body = () => {
   if (!rig) { const b = readFileSync(join(__dirname, '../../../public/gown/female.glb')); rig = parseGownBody(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer); }
@@ -35,7 +35,7 @@ test('the overlay rides the skirt as v197 lays it, and a back cape and a veil ke
   const B = await body();
   for (const r of REF.rows) {
     const g = { ...gownApplyLook(startingGownConfig(), r.look ?? {}), ...r.gown, hem: r.hem, hemCm: 0 } as GownConfig;
-    const T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), K = emptyCape(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+    const T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), K = emptyCape(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
     D.hold = feel.hold; D.foldK = feel.foldK;
     buildEnvelope(B, T);
     const floorY = floorOf(B), out = gownOverlayOut(B, g.overlay);

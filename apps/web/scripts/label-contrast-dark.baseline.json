@@ -1,6 +1,6 @@
 {
   "_about": "Text-on-fill pairs under 4.5:1 in DARK (lint-label-on-fill-contrast.mjs, \"THE SAME PAIRS IN DARK\"), counted per \"file · pair\". The area PRs' to-do list. May only go DOWN; --write-baseline refuses to raise a count. Never edit by hand.",
-  "total": 75,
+  "total": 67,
   "pairs": {
     "app/_components/app-store/studio-card-demo.tsx · cream on black": 1,
     "app/_components/appointments-section.tsx · white on success-600": 1,
@@ -64,8 +64,6 @@
     "app/onboarding/wedding/_styles/onboarding.css · .onbw .vbadge.gold": 1,
     "app/onboarding/wedding/_styles/onboarding.css · .onbw .whydate .wdemand.d4": 1,
     "app/onboarding/wedding/page.tsx · white on mulberry": 1,
-    "app/panood/control/[eventId]/_components/venue-screens-section.tsx · ink on white": 1,
-    "app/panood/control/[eventId]/page.tsx · ink on white": 7,
     "app/pay/[reference]/_components/pay-panel.tsx · white on ink": 1,
     "app/pay/[reference]/page.tsx · white on ink": 1,
     "app/proposals/[publicId]/page.tsx · white on success-700": 1

@@ -53,9 +53,16 @@ type Pressed = { closest(selector: string): unknown; matches(selector: string): 
  * dark fades — that is its whole answer. The one list of what a scrim is: `SCRIM_SELECTOR` (`lib/scrim.ts`).
  */
 
-/** May this control wear the press? Not in the guest's Event Hub, not a scrim, and not when it cannot be pressed. */
+/**
+ * ⌨️ A CONTROL THAT KEEPS ITS OWN LOOK (`data-press-none`): a surface that only gained `role="button"` so a keyboard can
+ * reach it (an SVG node, a canvas, a table row, a photo) keeps exactly the look it had: no dip, no dimming. The
+ * stylesheet honours the same attribute (globals.css, beside the press rules).
+ */
+export const PRESS_NONE = '[data-press-none]';
+
+/** May this control wear the press? Not in the guest's Event Hub, not a scrim, not opted out, and not when it cannot be pressed. */
 export function pressable(el: Pressed): boolean {
-  return !el.closest('.sn-editorial') && !el.matches(SCRIM_SELECTOR) && !el.matches(':disabled, [aria-disabled="true"]');
+  return !el.closest('.sn-editorial') && !el.matches(SCRIM_SELECTOR) && !el.matches(PRESS_NONE) && !el.matches(':disabled, [aria-disabled="true"]');
 }
 
 /** A duration read from a token (`280ms` → 280; `0.28s` → 280); `fallback` when the token is missing or nonsense. */

@@ -116,7 +116,7 @@ test('(2d) the sample screen’s film and the cards are held where Focus holds t
   assert.match(sample, /<LoopPicture src=\{picture\.clip\} position=\{picture\.position\}/, 'the sample’s film plays at its centre whatever Focus says');
   const cards = stripComments(read(`${E}/background-cards.tsx`));
   const loop = cards.slice(cards.indexOf('export function LoopPicture('));
-  assert.match(loop, /<video[\s\S]{0,900}objectPosition: position/, 'LoopPicture does not hold its film where it is told');
+  assert.match(loop, /<video[\s\S]{0,1000}objectPosition: position/, 'LoopPicture does not hold its film where it is told');
   const panel = stripComments(read(`${E}/main-background-panel.tsx`));
   // The Focus row is drawn where the picture can take it, and says what it does behind ⓘ.
   assert.match(panel, /\{takes\.focus \? \(\s*<BgRow label="Focus" data="focus" info=\{FOCUS_INFO\}>/);

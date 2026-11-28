@@ -6,6 +6,7 @@ import { HubDraftField } from '../../_components/hub-draft-field';
 import { InMakerReturnTo } from './in-maker-return-to';
 import { formatCount } from '@/lib/format-number';
 import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
+import { actionButtonClass } from '@/components/action-button-class';
 
 /**
  * PICK FROM OUR EVENTS — "From what Setnayan already holds" (prototype § pick).
@@ -129,7 +130,7 @@ export function PickFromOurEvents({
               ))}
             </select>
           </label>
-          <SubmitButton pendingLabel="Adding…" className="button-primary">
+          <SubmitButton pendingLabel="Adding…" className={actionButtonClass('brand', { main: true })}>
             Use these
           </SubmitButton>
         </SafeForm>

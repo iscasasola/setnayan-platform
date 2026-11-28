@@ -29,6 +29,7 @@ import { useIsStoreShell } from '@/lib/use-store-shell';
 import { MAX_EVENT_AREAS } from '@/lib/create-event-capture';
 import { rankAreas } from '@/lib/area-supplier-counts';
 import { formatCount } from '@/lib/format-number';
+import { onPressKeys } from '@/lib/press-keys';
 import { StepPick } from '@/app/onboarding/_shared/step-field';
 
 type Pos = { lat: number; lon: number };
@@ -318,10 +319,16 @@ export function LocationStep({
                   );
                 }
                 return (
+                  /* A row that holds block content, so a role + Enter/Space rather than a <button>. */
                   <div
                     key={c.k}
+                    role="button"
+                    data-press-none=""
+                    tabIndex={0}
+                    aria-pressed={on}
                     className={`opt rowimg locrow${on ? ' sel' : ''}`}
                     onClick={() => toggle(c.k)}
+                    onKeyDown={onPressKeys(() => toggle(c.k))}
                   >
                     <div className="otcol">
                       <div className="ot">

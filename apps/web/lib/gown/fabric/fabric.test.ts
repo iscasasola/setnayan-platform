@@ -5,6 +5,7 @@ import * as THREE from 'three';
 import { GOWN_STOCK_FABRICS } from '../../gown-config';
 import { GOWN_CLOTH_COLOURS, GOWN_SHINE, GOWN_SHINE_TYPE, applyGownSheer, applyGownShine, gownClothShader, gownSeeLayers, gownShaderReady } from './shine';
 import { GOWN_FEEL, gownFoldPattern } from './feel';
+import { gownFeelShader, gownFeelShaderReady, gownFeelSync, gownFeelUniforms } from './feel-shader';
 import { GOWN_FABRIC_PROPS, gownClothFeel, gownFabricNote, gownFabricType } from './types';
 
 test('every stock fabric has its behaviour and its shine', () => {
@@ -66,4 +67,26 @@ test('the cloth feel: soft chiffon swings wide and settles slowly; mikado holds 
   assert.ok(Math.abs(chiffon.foldK - 0.5076923076923076) < 1e-9, 'chiffon folds');
   assert.ok(Math.abs(gownClothFeel(gownFabricType('taffeta'), 2).foldK - 1.1146153846153846) < 1e-9, 'taffeta folds');
   assert.equal(gownFabricNote(GOWN_FABRIC_PROPS.tulle, false), 'Tulle: about 30 gsm, light: drapes softly and swings freely, two-way stretch. Sheer and unlined: shown see-through.');
+});
+
+test('the feel shader (v207) patches this three.js (0.184), and the card reaches its numbers', () => {
+  assert.ok(gownFeelShaderReady(THREE.ShaderLib.physical.fragmentShader, THREE.ShaderChunk as unknown as Record<string, string>), 'three moved a hook the feel patch needs');
+  const u = gownFeelUniforms(), sh = { uniforms: {} as Record<string, unknown>, fragmentShader: 'laceCol * l.rgb\n' + THREE.ShaderLib.physical.fragmentShader };
+  gownFeelShader(u)(sh);
+  for (const hook of ['flF(P0.x', 'specularColorBlended *= gk', 'flType > 6.5', 'flSee > 0.5', 'flLace(laceMatch > 0.5 ? diffuse : laceCol) * l.rgb']) assert.ok(sh.fragmentShader.includes(hook), hook);
+  assert.equal(sh.uniforms.flN, u.flN);
+  const b = { S: 1, yS: 1.0, yHem: 0.05, hemQ: null, floorY: 0, yWaist: 1.31, hemR: 0.4, y0: -0.5, y1: 1.6, opacity: 0.6, inside: false };
+  const g = { sil: 'aline', lining: 'satin', pleat: 'none', pleatN: 24, pleatCm: 3, laceCol: 'ivory' } as const;
+  gownFeelSync(u, GOWN_FEEL.taffeta, g, b);
+  assert.equal(u.flType.value, 3); assert.equal(u.flSharp.value, 0.9); assert.equal(u.flSee.value, 0);
+  assert.equal(u.flN.value, Math.round((2 * Math.PI * 0.4 * 100) / 17), 'one fold per foldCm round the hem');
+  assert.ok(Math.abs(u.flD.value - 0.015) < 1e-12, 'fold depth in metres');
+  const sheer = gownFeelSync(u, GOWN_FEEL.chiffon, { ...g, lining: 'none' }, b);
+  assert.deepEqual(sheer, { sheer: true, lined: false });
+  assert.ok(Math.abs(u.flEdge.value - 0.97 / 0.6) < 1e-12, 'a sheer is denser at its edges');
+  assert.deepEqual(gownFeelSync(u, GOWN_FEEL.chiffon, g, b), { sheer: true, lined: true });
+  assert.deepEqual(gownFeelSync(u, GOWN_FEEL.chiffon, g, { ...b, inside: true }), { sheer: false, lined: false }, 'the Inside view shows the layers instead');
+  gownFeelSync(u, GOWN_FEEL.satin, { ...g, sil: 'sheath', laceCol: 'match' }, b);
+  assert.ok(Math.abs(u.flD.value - 0.013 * 0.6) < 1e-12, 'a sheath folds less');
+  assert.equal(u.laceMatch.value, 1);
 });

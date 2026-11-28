@@ -12,6 +12,8 @@ import {
   GOWN_STRAP_COLOURS, GOWN_STRAP_EDGES, GOWN_TOP_EDGES, GOWN_TRAINS, GOWN_VEILS, GOWN_VEIL_FABRICS, GOWN_VEIL_STYLES, GOWN_WAISTLINES, gownCapeKind,
   type GownBody, type GownBodyKey, type GownMatter, type GownConfig, type GownMeasurementStep,
 } from '../gown-config';
+import { GOWN_FEEL, gownFeelOf } from './fabric/feel';
+import { gownFabricNote, gownFabricType } from './fabric/types';
 import { gownHiddenChoices } from './compat';
 import type { GownFocusKey } from './stage/focus';
 
@@ -174,3 +176,37 @@ export const gownPickOptions = (p: GownPick, g: GownConfig) => {
   return p.options.filter((o) => !hide.has(o.id));
 };
 export { GOWN_BODY_SHAPES };
+
+/**
+ * A pick that can take a colour of her own, and the field that holds it (`custom` on the gown, the lace (v207), the
+ * beads and the trims). The designer shows a colour well under the pick while it reads `custom`.
+ */
+export const GOWN_CUSTOM_HEX = { colour: 'colourHex', laceCol: 'laceHex', beadCol: 'beadHex', trimCol: 'trimHex' } as const satisfies Partial<Record<keyof GownConfig, keyof GownConfig>>;
+export type GownCustomColourKey = keyof typeof GOWN_CUSTOM_HEX;
+export const gownHasCustomHex = (k: string): k is GownCustomColourKey => Object.prototype.hasOwnProperty.call(GOWN_CUSTOM_HEX, k);
+
+/** v207 `lace-pick`'s starting colour: the colour well opens on it the first time she picks "Any colour…". */
+const LACE_PICK_START = '#1F3A6E';
+
+/**
+ * Picking "custom" with no colour of her own yet starts from the colour she sees now (the gown's own colour, or the
+ * v207 lace picker's start), so the design is never left asking for a colour it does not have (the send would refuse it).
+ */
+export function gownSeedCustomHex(g: GownConfig, key: GownCustomColourKey): GownConfig {
+  const field = GOWN_CUSTOM_HEX[key];
+  if (g[key] !== 'custom' || g[field]) return g;
+  const start = key === 'laceCol' ? LACE_PICK_START : GOWN_COLOURS.find((c) => c.id === g.colour)?.hex ?? GOWN_COLOURS[0]!.hex;
+  return { ...g, [field]: start.toUpperCase() };
+}
+
+/** The fabrics in the prototype's own order (v207 `FEEL`); a shop's own fabric types follow, as given. */
+export function gownFabricOrder<T extends { id: string }>(list: readonly T[]): T[] {
+  const order = Object.keys(GOWN_FEEL), at = (id: string) => { const i = order.indexOf(id); return i < 0 ? order.length : i; };
+  return [...list].map((f, i) => ({ f, i })).sort((a, b) => at(a.f.id) - at(b.f.id) || a.i - b.i).map((x) => x.f);
+}
+
+/** The line under the fabric step (v207 `fabric-note`): what it feels like, then its weight, drape and see-through. */
+export function gownFabricLine(fabric: string, lined: boolean): string {
+  const t = gownFabricType(fabric);
+  return gownFabricNote(t.props, lined, gownFeelOf(t.drawAs).why);
+}

@@ -10,7 +10,7 @@
  * Plain three.js maths on the posed body.
  */
 import * as THREE from 'three';
-import type { GownConfig, GownSleeveExtra } from '../../gown-config';
+import { GOWN_CAPES, gownCapeKind, gownSleeveDetach, gownSleeveIsExtra, type GownConfig, type GownSleeveExtra } from '../../gown-config';
 import { jointP } from '../body/bones';
 import { SLICE_DY, TAU } from '../body/constants';
 import { clamp, smoothstep, type GownRig } from '../body/rig';
@@ -399,4 +399,28 @@ export function gownSleeveBandTop(B: GownRig, sd: 'L' | 'R', sleeve: ArrayLike<n
   let y = -1e9;
   for (let a = 0; a < SNA; a++) y = Math.max(y, sleeve[a * 3 + 1]!);
   return y - 0.004 / B.P.S;
+}
+
+/**
+ * The new sleeves in words, the summary's first line (v203 `slxSay`). `fb` is what they are made of, as the summary
+ * names it ("chiffon", "sheer lace", or the fabric's own name in lower case).
+ */
+export function gownSleeveSay(d: Pick<GownConfig, 'sleeve' | 'neck' | 'sleeveDet'>, fb: string): string {
+  if (!gownSleeveIsExtra(d.sleeve)) return '';
+  const det = gownSleeveDetach(d, d.sleeve) ? ', detachable, each on its own band round the upper arm' : '';
+  return {
+    puff: `puff sleeves in ${fb}, gathered at the shoulder and into a band above the elbow${det}`,
+    bishop: `bishop sleeves in ${fb}, full and gathered into a cuff at the wrist${det}`,
+    juliet: `Juliet sleeves in ${fb}, puffed at the top and fitted along the forearm${det}`,
+    ruffle: `a gathered ruffle band in ${fb} round the upper arms, joined across the back${det}`,
+    capesl: `cape sleeves: a band in ${fb} round each upper arm with a panel falling freely behind the arm (see the cape sleeves below)${det}`,
+  }[d.sleeve];
+}
+
+/** The over-robe and cape sleeves in words (v203 `slxCapeSay`); other capes by their own name. */
+export function gownCapeSay(d: Pick<GownConfig, 'cape' | 'sleeve' | 'robeSl'>): string {
+  const k = gownCapeKind(d);
+  if (k === 'robe') return `Over-robe worn open at the front, from the shoulders, with ${d.robeSl === 'puff' ? 'puff sleeves gathered at the elbow' : 'long sleeves'}`;
+  if (k === 'capesl') return 'Cape sleeves: a panel from each upper arm, falling freely behind the arm';
+  return k === 'none' ? '' : GOWN_CAPES.find((c) => c.id === k)?.label ?? '';
 }

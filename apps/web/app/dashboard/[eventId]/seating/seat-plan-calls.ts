@@ -16,7 +16,7 @@ export async function dryRun(eventId: string): Promise<DryRunView> {
   fd.set('event_id', eventId);
   fd.set('intent', 'dry-run');
   const res = await autoArrange(fd);
-  return res.dryRun ?? { ok: false, line: 'Couldn’t check seats · Try again' };
+  return res.dryRun ?? { status: 'failed', line: 'Couldn’t check seats · Try again' };
 }
 
 export async function previewArrange(

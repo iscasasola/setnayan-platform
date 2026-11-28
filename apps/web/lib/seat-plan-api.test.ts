@@ -75,7 +75,7 @@ test('dryRun: suggestions with a planId, problems in words with a fix planId, an
     unseatedNow: 1,
     ...words,
   });
-  assert.ok(view.ok);
+  assert.ok(view.status === 'ok');
   assert.equal(view.suggestions.length, 1);
   assert.deepEqual(view.suggestions[0]!.guestIds, ['new']);
   const taken = decodePlanId(view.suggestions[0]!.planId);
@@ -93,9 +93,9 @@ test('dryRun: suggestions with a planId, problems in words with a fix planId, an
   assert.equal(view.line, '⚠ 1 to look at');
 });
 
-test('a failed dry run is { ok: false } with the honest line, never "All good"', () => {
+test('a failed dry run is { status: "failed" } with the honest line, never "All good"', () => {
   const view = dryRunView({ ok: false }, { tables: [], assignments: [], unseatedNow: 0, ...words });
-  assert.deepEqual(view, { ok: false, line: 'Couldn’t check seats · Try again' });
+  assert.deepEqual(view, { status: 'failed', line: 'Couldn’t check seats · Try again' });
 });
 
 test('previewArrange: the counts, Not met in words and the changes by SHOWN name — or cannotFit with its repair', () => {
@@ -153,6 +153,17 @@ test('the three calls ride the one autoArrange action: dry-run, preview, accept 
   assert.match(act, /formData\.get\('intent'\) === 'dry-run'\) \{\s*return dryRunSeatPlan\(eventId\);/);
   const dry = act.slice(act.indexOf('async function dryRunSeatPlan('), act.indexOf('async function acceptAutoArrange('));
   assert.doesNotMatch(dry, /\.insert\(|\.update\(|\.upsert\(|\.delete\(|\.rpc\(/, 'the dry run writes nothing');
-  assert.match(dry, /dryRun: \{ ok: false, line: 'Couldn’t check seats · Try again' \}/, 'a refused read is said');
+  assert.match(dry, /dryRun: \{ status: 'failed', line: 'Couldn’t check seats · Try again' \}/, 'a refused read is said');
   assert.match(act, /const fromId = formData\.has\('plan_id'\) \? decodePlanId\(formData\.get\('plan_id'\)\) : null;/);
+});
+
+test('the seating page passes the dry run to the editor from its own reads: no new read, nothing written', () => {
+  const page = readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'seating', 'page.tsx'), 'utf8');
+  const block = page.slice(page.indexOf('const dryRun = (() => {'), page.indexOf('// ONE editor element'));
+  assert.match(block, /seatPlanDryRun\(\{\s*tables,/);
+  assert.match(block, /return dryRunView\(run, \{/);
+  assert.doesNotMatch(block, /await |supabase|\.from\(|fetch[A-Z]/, 'the dry run reads nothing of its own');
+  assert.match(page, /dryRun=\{dryRun\}/);
+  const editor = readFileSync(join(__dirname, '..', 'app', 'dashboard', '[eventId]', 'seating', '_components', 'seating-editor.tsx'), 'utf8');
+  assert.match(editor, /dryRun\?: DryRunView;/);
 });

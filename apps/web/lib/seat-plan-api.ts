@@ -4,6 +4,7 @@
  *
  *   dryRun(eventId)          → { suggestions: [{ tableId, guestIds, reason, planId }],
  *                                problems:    [{ kind, guestIds, tableId, reason, fix }], line, fixAllPlanId }
+ *                              | { status: 'failed', line }   ← the screen says "Couldn't check seats · Try again"
  *   previewArrange(eventId…) → { planId, seated, total, rulesBroken, wishesNotMet, getSeat, notMet: [string],
  *                                changes: [{ tableId, add, guestIds, reason, removed }] } | { cannotFit: { rule, repair } }
  *   acceptArrange(eventId, planId) → one transaction (`apply_seat_plan`), one Undo.
@@ -82,7 +83,7 @@ export function planForMoves(
 
 export type DryRunView =
   | {
-      ok: true;
+      status: 'ok';
       suggestions: Array<{ tableId: string; guestIds: string[]; units: string[][]; reason: string; planId: string }>;
       problems: Array<{
         kind: SeatProblemKind;
@@ -96,7 +97,7 @@ export type DryRunView =
       /** Fix all, as ONE plan (null when no problem has a safe move). */
       fixAllPlanId: string | null;
     }
-  | { ok: false; line: string };
+  | { status: 'failed'; line: string };
 
 /** The dry run in the screens' shape: words, and a planId on everything a tap can take. */
 export function dryRunView(
@@ -110,7 +111,7 @@ export function dryRunView(
     tableName: (tableId: string) => string;
   },
 ): DryRunView {
-  if (!run.ok) return { ok: false, line: seatCheckLine(run)! };
+  if (!run.ok) return { status: 'failed', line: seatCheckLine(run)! };
   const base = seatPlanBase(ctx.assignments);
   const suggestions = run.suggestions.map((s) => ({
     tableId: s.tableId,
@@ -138,7 +139,7 @@ export function dryRunView(
   });
   const all = fixAllMoves(run.problems, ctx.tables, ctx.assignments);
   const allPlan = all.length > 0 ? planForMoves(all, ctx.tables, ctx.assignments, ctx.unseatedNow) : null;
-  return { ok: true, suggestions, problems, line: seatCheckLine(run), fixAllPlanId: allPlan ? encodePlanId(allPlan) : null };
+  return { status: 'ok', suggestions, problems, line: seatCheckLine(run), fixAllPlanId: allPlan ? encodePlanId(allPlan) : null };
 }
 
 /** One Not met line in plain words. */

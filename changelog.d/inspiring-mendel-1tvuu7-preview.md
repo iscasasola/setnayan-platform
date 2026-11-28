@@ -25,6 +25,7 @@ Plan: specs `SEAT-PLAN-COMPLETE-2026-11-27.md` § 4.6 (preview D) and § 6 (Acce
   - `previewArrange(eventId, { scope: 'unseated' | 'everyone', lockedTableIds })` → `{ planId, seated, total, rulesBroken, wishesNotMet, getSeat, notMet: [string], changes: [{ tableId, add, guestIds, reason }] }`, or `{ cannotFit: { rule, repair } }`. The changes use the shown table name.
   - `acceptArrange(eventId, planId)` → one transaction (`apply_seat_plan`), one Undo.
   - **A planId is the plan itself, encoded.** Taking a suggestion, a fix, Fix all or the whole preview all write through the same Accept. Because Accept re-checks every rule and refuses a stale plan, an old or edited planId can never write more than the host could by hand.
+- **The seating page passes the dry run to the editor** (`dryRun` prop) from its one batched read, with no new read, client fetch or server action. A failed run is `{ status: 'failed', line }`. The problem kinds use the screens' names: `household_split · plus_one_apart · elders_near_speaker · table_over · rsvp_alone`.
 - **Guard narrowed:** `a-seat-says-who-placed-it` now flags a second migration that *defines* `placed_by`. A function that only writes `'auto'` into it is a writer, not a second home.
 - **Tests:** `lib/seat-plan-api.test.ts` (6), `lib/seat-plan-preview.test.ts` (9) and `tests/db/an-accepted-preview-is-one-transaction.db.test.ts` (6).
 - **Not verified:** RLS on a real signed-in session, because the PGlite replay runs as superuser.

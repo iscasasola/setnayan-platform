@@ -1,5 +1,6 @@
 'use client';
 
+import type { DryRunView } from '@/lib/seat-plan-api';
 import { seatPlacedShort, type SeatPlacedBy } from '@/lib/seat-why';
 import { plusOneMark, plusOneSeatIndexes } from '@/lib/plus-one-of';
 import { boothCardFromRow, boothHasSupplier } from '@/lib/booth-card-from-row';
@@ -421,6 +422,12 @@ type Props = {
    * (undefined) = the flag is off or the page did not read it — no switch is drawn.
    */
   ghostBoothsEnabled?: boolean;
+  /**
+   * ✦ The smart layer's dry run (seat plan § 4.4, L11): card suggestions + the Seat check, computed by the page from its
+   * one batched read (nothing written). `status: 'failed'` = say "Couldn't check seats · Try again", never "All good".
+   * Each suggestion / fix carries a planId that `acceptArrange` (seat-plan-calls.ts) writes in one transaction.
+   */
+  dryRun?: DryRunView;
   /** Initial view — 'list' when the lab's mirrored segment links here (?view=list). */
   initialView?: 'plan' | 'list';
   /**

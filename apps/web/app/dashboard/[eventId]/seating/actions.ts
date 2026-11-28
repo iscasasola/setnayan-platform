@@ -2948,7 +2948,7 @@ async function dryRunSeatPlan(eventId: string): Promise<AutoArrangeResult> {
     };
   } catch (err) {
     logQueryError('dryRunSeatPlan', { message: err instanceof Error ? err.message : String(err) }, { event_id: eventId }, 'graceful_degrade');
-    return { ...NOTHING_SEATED, dryRun: { ok: false, line: 'Couldn’t check seats · Try again' } };
+    return { ...NOTHING_SEATED, dryRun: { status: 'failed', line: 'Couldn’t check seats · Try again' } };
   }
 }
 

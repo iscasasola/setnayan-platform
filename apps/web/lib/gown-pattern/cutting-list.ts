@@ -23,14 +23,21 @@ export type GownCutContext = {
   accent: string | null;
   lace: string | null;
   incl: string[];
-  metres: { outer: number | null; lining: number; tulle: number } | null;
+  /** v210: the bodice's own metres when it is cut in its own fabric (then `outer` is the gown's own plus the skirt's). */
+  metres: { outer: number | null; lining: number; tulle: number; bodice?: number } | null;
   /** The design has a train (the quote's outer metres include it; there is no train block yet). */
   train: boolean;
   /** v207: the outer cloth's type id, for its metres multiplier (bias satin takes ×1.35). Absent = ×1. */
   outerType?: string | null;
+  /**
+   * v210 (`patOrderCut().pz`): a bodice or skirt in its own fabric or colour, named as she chose it ("black lace"), and
+   * the other pieces in their own fabric ("blush chiffon for the sleeves", border bands), which have no block here.
+   * Absent or null = every piece is cut in the gown's own fabric, exactly as before.
+   */
+  pz?: { bodice?: string | null; skirt?: string | null; other?: string[] } | null;
 };
 export type GownCutPart = 'bodice' | 'skirt';
-export type GownCutFabricKey = 'outer' | 'lining' | 'tulle';
+export type GownCutFabricKey = 'outer' | 'bodice' | 'lining' | 'tulle';
 export type GownCutRow = { fabric: string; k: GownCutFabricKey; piece: string; qty: number; fold: boolean; grain: string; w: number; h: number; note: string };
 export type GownCutCheck = { k: GownCutFabricKey; m: number; q: number | null; ok: boolean | null; diff?: number; why: string };
 export type GownCutList = {
@@ -82,12 +89,27 @@ const TULLE_NAME: Record<string, string> = { soft: 'soft tulle', full: 'full tul
 
 /** v205 `patFabrics`: the fabrics this order's blocks are cut in, and what has no block yet. */
 export function gownCutFabrics(c: GownCutContext): { F: { k: GownCutFabricKey; name: string; parts: GownCutPart[] }[]; unblocked: string[] } {
-  const F: { k: GownCutFabricKey; name: string; parts: GownCutPart[] }[] = [{ k: 'outer', name: 'Outer' + (c.outerName ? ` (${c.outerName.toLowerCase()})` : ''), parts: ['bodice', 'skirt'] }];
+  const pz = c.pz ?? {}, oN = 'Outer' + (c.outerName ? ` (${c.outerName.toLowerCase()})` : '');
+  // v210: a bodice or skirt in its own fabric is cut from its own (its row named for it); otherwise one outer row.
+  const F: { k: GownCutFabricKey; name: string; parts: GownCutPart[] }[] =
+    pz.bodice || pz.skirt
+      ? [
+          { k: pz.bodice ? 'bodice' : 'outer', name: pz.bodice ? `Bodice (${pz.bodice})` : oN, parts: ['bodice'] },
+          { k: 'outer', name: pz.skirt ? `Skirt (${pz.skirt})` : oN, parts: ['skirt'] },
+        ]
+      : [{ k: 'outer', name: oN, parts: ['bodice', 'skirt'] }];
   if (c.lining && c.lining !== 'none') F.push({ k: 'lining', name: `Lining (${c.lining})`, parts: ['bodice', 'skirt'] });
+  const other = pz.other ?? [], sleevesOwn = other.some((x) => / for the sleeves$/.test(x));
   c.layers.forEach((t, i) => F.push({ k: 'tulle', name: `Tulle layer ${i + 1}${t && t !== 'tulle' ? ` (${TULLE_NAME[t] ?? t})` : ''}`, parts: ['skirt'] }));
   return {
     F,
-    unblocked: [c.accent ? `accent fabric for the ${c.accent}` : '', c.lace ? `lace for the ${c.lace}` : '', ...c.incl.map((x) => x + ' (in the outer fabric)')].filter(Boolean),
+    // v210: the pieces in their own fabric come first; the sleeves' accent or lace is said once, not twice.
+    unblocked: [
+      ...other,
+      c.accent && !sleevesOwn ? `accent fabric for the ${c.accent}` : '',
+      c.lace && !sleevesOwn ? `lace for the ${c.lace}` : '',
+      ...c.incl.map((x) => x + ' (in the outer fabric)'),
+    ].filter(Boolean),
   };
 }
 
@@ -135,7 +157,7 @@ export function gownCutList(list: readonly { p: GownBlockPiece; part: GownCutPar
     }
     const diff = (t.m - qm) / qm, ok = Math.abs(diff) <= 0.1, why: string[] = [];
     if (!ok) {
-      if (k === 'outer') {
+      if (k === 'outer' || k === 'bodice') {
         if (diff < 0) {
           if (ctx?.train) why.push('the quote includes the train, and there is no train block yet');
           for (const x of ctx?.incl ?? []) why.push(`the quote includes ${x}, which has no block here`);
@@ -152,7 +174,7 @@ export function gownCutList(list: readonly { p: GownBlockPiece; part: GownCutPar
 }
 
 /** The words a person reads for one check (v205 `patCutListHTML`'s `.cut-tot` line), without the markup. */
-export const GOWN_CUT_FABRIC_WORD: Record<GownCutFabricKey, string> = { outer: 'Outer', lining: 'Lining', tulle: 'Tulle layers' };
+export const GOWN_CUT_FABRIC_WORD: Record<GownCutFabricKey, string> = { outer: 'Outer', bodice: 'Bodice', lining: 'Lining', tulle: 'Tulle layers' };
 export function gownCutCheckSentence(c: GownCutCheck): { lead: string; why: string | null } {
   const lead = `${GOWN_CUT_FABRIC_WORD[c.k]}: about ${c.m} m of 150 cm fabric${c.q ? ` · the quote says ${c.q} m${c.ok ? ' ✓' : ` (${(c.diff ?? 0) > 0 ? '+' : ''}${Math.round((c.diff ?? 0) * 100)}%)`}` : ''}.`;
   return { lead, why: c.ok === false ? `Why: ${c.why}.` : c.ok === null ? c.why : null };

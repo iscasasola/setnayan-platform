@@ -12,7 +12,8 @@ import { jointP, jointY } from '../body/bones';
 import { BODY_K, RING_N, SLICE_DY, TAU } from '../body/constants';
 import { clamp, smoothstep, type GownRig } from '../body/rig';
 import { apexOf } from '../body/tape';
-import { GOWN_PETTI_HOLD } from '../fabric/types';
+import { gownEdgeLip, gownFeelOf, gownFoldPattern } from '../fabric/feel';
+import { GOWN_PETTI_HOLD, gownFabricType } from '../fabric/types';
 import { gownShapedVals } from '../body-rules';
 import { GOWN_STRAPLESS } from '../../gown-config';
 import { GOWN_BALL_HEM_CM, GOWN_EASE_MM, GOWN_SIL, GOWN_TRAIN_CM, gownFromWaist, hemPreset, gownIlluOuterTop, trainShare, waistY, type GownDressDesign, type GownNeckLandmarks } from './lines';
@@ -35,6 +36,10 @@ export type GownDress = {
   fold: number;
   /** From the fabric (gownClothFeel): soft cloth falls in more folds; stiff cloth holds the skirt out. */
   foldK: number;
+  /** The fabric's uneven folds round the skirt, 0 … 1 per column (v207 `foldPattern`; set by the build). */
+  fw: Float32Array | null;
+  /** Fabric metres × this for the cut (v207 card `m`: bias-cut cloth is laid at 45°, so it takes more). */
+  cutM: number;
   hold: number;
   hemR: number;
   /** The train's length (model units) and which columns a slit opens. */
@@ -49,7 +54,7 @@ export type GownDress = {
 
 export function emptyDress(): GownDress {
   const z = new Float32Array(0);
-  return { geo: null, rows: 0, nb: 48, ns: 0, r: z, y: z, t: z, cz: z, ang: z, lift: null, fold: 0.055, foldK: 1, hold: 1, hemR: 0, Lt: 0, slitQ: [], L: null, gmapY0: 0, gmapY1: 1, restDirty: true };
+  return { geo: null, rows: 0, nb: 48, ns: 0, r: z, y: z, t: z, cz: z, ang: z, lift: null, fold: 0.055, foldK: 1, fw: null, cutM: 1, hold: 1, hemR: 0, Lt: 0, slitQ: [], L: null, gmapY0: 0, gmapY1: 1, restDirty: true };
 }
 
 /** The lowest point of the posed body: the floor she stands on. */
@@ -68,6 +73,10 @@ const ringStand = new WeakMap<GownRig, Map<string, { r: Float32Array; hip: Float
 
 export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDressDesign, floorY: number, floorStand = floorY, view: { bustled?: boolean; standing?: boolean } = {}): GownDress {
   const P = B.P, V = B.V, k = BODY_K, off = GOWN_EASE_MM / 1000 / P.S, n = T.n, H = T.H, F = T.F, jF = Math.round((T.yF - T.y0) / DY);
+  // v207: the fabric's feel card: its uneven folds round the skirt, its edge, and how its folds run out along a train.
+  const drawAs = gownFabricType(g.fabric).drawAs, feel = gownFeelOf(drawAs);
+  D.fw = gownFoldPattern(drawAs, N);
+  D.cutM = feel.m ?? 1;
   // v166: the smoothed bust point.
   let yA = 0, zA = -1e9;
   {
@@ -357,7 +366,7 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
       const o = i * N + q;
       let y: number, t = 0, r: number;
       // v199: the inner lip stays under its neighbours' edge (no saw-tooth on a steep edge).
-      if (i === 0) { y = Math.min(T.top[q]!, T.top[(q + 1) % N]!, T.top[(q + N - 1) % N]!) - 0.004; r = lerpRow(T, F, y, q) - 0.0045 / P.S; }
+      if (i === 0) { y = Math.min(T.top[q]!, T.top[(q + 1) % N]!, T.top[(q + N - 1) % N]!) - 0.004; r = lerpRow(T, F, y, q) - gownEdgeLip(feel) / P.S; } // v207: the edge is as thick as the cloth
       else if (i <= nb + 1) { y = T.top[q]! + (yS - T.top[q]!) * ((i - 1) / nb); r = lerpRow(T, F, y, q); }
       else if (i > nb + 1 + ns) {
         // Train: the hem carried on along the floor, longest at centre back; eases onto the floor, a soft rise mid-train.
@@ -366,17 +375,22 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
         if (ph > Math.PI) ph = TAU - ph;
         const kf = onFloor(q), tw = trainShare(ph) * kf, ue = 1 - Math.pow(1 - u, 1.6), hy = hc(q) + (D.lift ? D.lift[q]! : 0);
         t = 1;
-        y = hy + (fl + 0.003 - hy) * smoothstep(u, 0, 0.3) * kf + 0.012 * tw * Math.sin(Math.PI * u) * (1 - u);
+        // v207: a rounded end, with no raised rim before the edge.
+        y = hy + (fl + 0.003 - hy) * smoothstep(u, 0, 0.3) * kf + 0.004 * tw * Math.sin(Math.PI * u) * (1 - u);
         // Accuracy review (v197): the train runs straight back from the back hem, widening by about half its length at the
         // most, then tapers to a rounded end (not a round pool spreading to the sides).
-        const r0 = lerpRow(T, F, hy, q) + Lt * tw * 0.14, sq = RING_SIN[q]!, cq = RING_COS[q]!, back = Lt * tw * 0.86 * ue, spread = 0.9 * back * Math.pow(Math.max(0, 1 - tw), 0.7) * Math.sign(sq);
+        // v207: the outline is rounded (the share eases in), and the skirt's own folds wave its far edge.
+        const fwq = D.fw[q]! - 0.5, te = Math.pow(tw, 0.35);
+        const r0 = lerpRow(T, F, hy, q) + Lt * tw * 0.14, sq = RING_SIN[q]!, cq = RING_COS[q]!, back = Lt * te * 0.86 * ue * (1 - 0.12 * (1 - te)) * (1 + 0.07 * fwq * ue), spread = 0.5 * back * Math.pow(Math.max(0, 1 - te), 0.7) * Math.sign(sq);
         const px = r0 * sq + spread, pz = r0 * cq - back;
         r = Math.hypot(px, pz);
         let ta = Math.atan2(px, pz) - q * DTH;
         if (ta > Math.PI) ta -= TAU;
         if (ta < -Math.PI) ta += TAU;
         TA[o] = ta;
-        y += (0.005 / P.S) * tw * Math.sin(Math.PI * u) * (0.5 + 0.5 * Math.cos(q * DTH * 11)); // a few soft folds along its length
+        // v207: the skirt's own folds run out along the train as soft ridges and die away; the edge thins onto the floor.
+        const rh = Math.min(3.2, 0.8 + 1.1 * feel.foldD) / 100 / P.S;
+        y += kf * (rh * Math.max(0.15, tw) * (0.5 + fwq) * smoothstep(u, 0.06, 0.32) * (1 - smoothstep(u, 0.62, 1)) + (0.0015 / P.S) * feel.edge * (1 - smoothstep(u, 0.85, 1)));
         D.r[o] = r; D.y[o] = y; D.t[o] = t; D.cz[o] = B.zcAt(T.yF);
         continue;
       } else {

@@ -119,3 +119,24 @@ test('7 · v207: bias satin is laid at 45°, so its outer metres take ×1.35 —
   assert.equal(bias.tot.tulle!.m, plain.tot.tulle!.m, 'the tulle was multiplied');
   assert.equal(gownCutContext({ ...startingGownConfig(), fabric: 'bias_satin' }, null, null).outerType, 'bias_satin');
 });
+
+test('7 · v210: a bodice or skirt in its own fabric is cut from its own; other pieces are named; equal to the prototype', async () => {
+  const P = (await import('./prototype-v210-pieces.golden.json')).default as unknown as {
+    input: { vals: Record<string, number>; estimate: Record<string, number> };
+    cases: { name: string; sil: string; cut: Omit<GownCutContext, 'train'>; cutList: unknown }[];
+  };
+  assert.equal(P.cases.length, 4);
+  for (const c of P.cases) {
+    const ctx: GownCutContext = { ...c.cut, train: false };
+    near(JSON.parse(JSON.stringify(gownCutList(gownGoldenList({ est: P.input.estimate, vals: P.input.vals, sil: c.sil }), ctx, GOWN_SEAM_ALLOW_DEFAULT, false))), c.cutList, c.name);
+  }
+  // Anti-vacuity: the cases between them split the bodice, split the skirt, check the bodice's own metres and name a
+  // piece with no block, and the case with no pieces is v205's single Outer row.
+  const lists = P.cases.map((c) => c.cutList as { rows: { fabric: string }[]; checks: { k: string }[]; unblocked: string[] });
+  assert.ok(lists.some((l) => l.rows.some((r) => r.fabric.startsWith('Bodice ('))));
+  assert.ok(lists.some((l) => l.rows.some((r) => r.fabric.startsWith('Skirt ('))));
+  assert.ok(lists.some((l) => l.checks.some((k) => k.k === 'bodice')));
+  assert.ok(lists.some((l) => l.unblocked.includes('blush chiffon for the sleeves') && !l.unblocked.some((x) => x.startsWith('accent fabric'))));
+  assert.deepEqual([...new Set(lists[0]!.rows.map((r) => r.fabric))], ['Outer (duchess satin)', 'Lining (satin)']);
+  assert.equal(gownCutCheckSentence({ k: 'bodice', m: 0.6, q: 0.9, ok: false, diff: -1 / 3, why: 'x' }).lead.startsWith('Bodice: about 0.6 m'), true);
+});

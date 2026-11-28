@@ -5,7 +5,7 @@
  */
 import { gownMeasuresNeeded, type GownBody, type GownConfig, type GownHand, type GownMeasures, type GownQuantities } from '../gown-config';
 import type { GownBodyEstimates } from './body/estimate';
-import { gownDesignSteps, gownPickOptions } from './flow';
+import { GOWN_CUSTOM_HEX, gownDesignSteps, gownHasCustomHex, gownPickOptions, type GownCustomColourKey } from './flow';
 
 /** The approved privacy line (plan Q6: "Your measurements go to [shop] only."). */
 export const gownSendPrivacy = (shop: string) => `Your measurements go to ${shop} only.`;
@@ -18,7 +18,9 @@ export function gownDesignSummary(g: GownConfig, fabrics: readonly { id: string;
     for (const p of st.picks) {
       if (p.when && !p.when(g)) continue;
       const o = gownPickOptions(p, g).find((x) => x.id === String(g[p.key]));
-      if (o) out.push(`${p.label}: ${o.label}`);
+      // Her own colour reads as the colour itself (v207: lace in any colour).
+      const own = gownHasCustomHex(String(p.key)) && g[p.key] === 'custom' ? g[GOWN_CUSTOM_HEX[p.key as GownCustomColourKey]] : null;
+      if (o) out.push(`${p.label}: ${own ? `her own colour ${own}` : o.label}`);
     }
   }
   return out;

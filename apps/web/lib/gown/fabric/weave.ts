@@ -11,10 +11,10 @@ import type { GownStockFabric } from '../../gown-config';
 export const GOWN_WEAVE_PX = 128;
 /** How much cloth one tile covers (cm). */
 export const GOWN_WEAVE_CM: Record<GownStockFabric, number> = {
-  satin: 1.5, mikado: 1.2, crepe: 2, georgette: 2, chiffon: 1, organza: 1, tulle: 2.5, lace: 6, sequin: 2.4, pina: 1.6, jusi: 1.6, linen: 1.8, wool_suiting: 1.2, velvet: 2, stretch_crepe_jersey: 1.2,
+  satin: 1.5, duchess: 1.5, bias_satin: 1.5, taffeta: 1, mikado: 1.2, crepe: 2, georgette: 2, chiffon: 1, organza: 1, tulle: 2.5, lace: 6, sequin: 2.4, pina: 1.6, jusi: 1.6, linen: 1.8, wool_suiting: 1.2, velvet: 2, stretch_crepe_jersey: 1.2,
 };
-/** How strongly the weave shades the cloth (v195; 0.55 when not listed). */
-export const GOWN_WEAVE_AMT: Partial<Record<GownStockFabric, number>> = { satin: 0.25, velvet: 0.35, crepe: 0.5, georgette: 0.5, lace: 0.45, sequin: 0.6 };
+/** How strongly the weave shades the cloth (v207; 0.55 when not listed). */
+export const GOWN_WEAVE_AMT: Partial<Record<GownStockFabric, number>> = { satin: 0.25, duchess: 0.25, bias_satin: 0.25, taffeta: 0.4, mikado: 0.7, velvet: 0.35, crepe: 0.5, georgette: 0.5, lace: 0.45, sequin: 0.6 };
 export const gownWeaveAmount = (k: GownStockFabric) => GOWN_WEAVE_AMT[k] ?? 0.55;
 
 /** The few 2D drawing calls the tile uses (a CanvasRenderingContext2D has them all). */
@@ -51,7 +51,8 @@ export function drawGownWeave(g: GownCanvas2D, k: GownStockFabric): void {
     }
   };
   switch (k) {
-    case 'satin': rows(4, 0.05, false); break; // long floats: barely there
+    case 'satin': case 'duchess': case 'bias_satin': rows(4, 0.05, false); break; // long floats: barely there
+    case 'taffeta': rows(3, 0.09, false); rows(6, 0.03, true); break; // a fine crosswise rib
     case 'mikado': twill(4, 0.12); rows(8, 0.04, true); break;
     case 'crepe': case 'georgette': dots(2600, 0.9, 0.12); break;
     case 'chiffon': case 'organza': rows(4, 0.1, false); rows(4, 0.1, true); break;

@@ -9,27 +9,28 @@
 import * as THREE from 'three';
 import type { GownStockFabric } from '../../gown-config';
 import type { GownFabricProps } from './types';
+import { GOWN_FEEL, gownSeeAlpha, type GownFeelCard, type GownShineType } from './feel';
 
 /** r roughness · sh sheen · sr sheen softness · cc clearcoat · sp specular · mt metal · ir iridescence · env room light. */
 export type GownShine = { r: number; sh: number; sr: number; cc?: number; sp: number; mt?: number; ir?: number; env: number; edge?: number };
 
-export const GOWN_SHINE: Record<GownStockFabric, GownShine> = {
-  satin: { r: 0.3, sh: 0.55, sr: 0.28, cc: 0.35, sp: 1, env: 1 },
-  mikado: { r: 0.48, sh: 0.5, sr: 0.42, cc: 0.15, sp: 0.8, env: 0.85 },
-  crepe: { r: 0.9, sh: 0.22, sr: 0.8, sp: 0.3, env: 0.75 },
-  chiffon: { r: 0.74, sh: 0.4, sr: 0.6, sp: 0.45, env: 0.8 },
-  georgette: { r: 0.88, sh: 0.25, sr: 0.8, sp: 0.3, env: 0.75 },
-  tulle: { r: 0.85, sh: 0.3, sr: 0.7, sp: 0.3, env: 0.75 },
-  organza: { r: 0.42, sh: 0.6, sr: 0.35, cc: 0.12, sp: 0.8, env: 0.9 },
-  lace: { r: 0.8, sh: 0.35, sr: 0.6, sp: 0.4, env: 0.75 },
-  sequin: { r: 0.28, sh: 0.3, sr: 0.3, sp: 1, mt: 0.35, ir: 0.4, env: 1.4 },
-  pina: { r: 0.58, sh: 0.55, sr: 0.4, sp: 0.6, env: 0.85 },
-  jusi: { r: 0.52, sh: 0.6, sr: 0.4, sp: 0.65, env: 0.85 },
-  wool_suiting: { r: 0.92, sh: 0.2, sr: 0.85, sp: 0.2, env: 0.7 },
-  linen: { r: 0.96, sh: 0.12, sr: 0.9, sp: 0.18, env: 0.7 },
-  velvet: { r: 0.95, sh: 1, sr: 0.9, sp: 0.08, env: 0.7, edge: 1 },
-  stretch_crepe_jersey: { r: 0.8, sh: 0.3, sr: 0.7, sp: 0.35, env: 0.75 },
+/**
+ * How each kind of cloth takes the light (v207 `SHINE_TYPE`); the card's gloss sets how strong. No clearcoat on cloth:
+ * it read as moulded plastic. Sequins glint in the shader instead of a metal finish.
+ */
+export const GOWN_SHINE_TYPE: Record<GownShineType, (g: number) => GownShine> = {
+  satin: (g) => ({ r: 0.5 - 0.2 * g, sh: 0.45, sr: 0.32, sp: 0.55 + 0.45 * g, env: 0.85 + 0.15 * g }),
+  mikado: (g) => ({ r: 0.56, sh: 0.4, sr: 0.5, sp: 0.55 + 0.3 * g, env: 0.85 }),
+  taffeta: (g) => ({ r: 0.46, sh: 0.6, sr: 0.36, sp: 0.5 + 0.35 * g, env: 0.85 }),
+  matte: (g) => ({ r: 0.9, sh: 0.3 + 0.6 * g, sr: 0.75, sp: 0.3, env: 0.75 }),
+  sheer: (g) => ({ r: 0.8, sh: 0.3 + 0.5 * g, sr: 0.65, sp: 0.35, env: 0.75 }),
+  crisp: (g) => ({ r: 0.46, sh: 0.5 + 0.2 * g, sr: 0.38, sp: 0.55 + 0.3 * g, env: 0.85 }),
+  sequin: () => ({ r: 0.55, sh: 0.25, sr: 0.4, sp: 0.5, env: 0.8 }),
+  velvet: () => ({ r: 0.95, sh: 1, sr: 0.9, sp: 0.08, env: 0.7, edge: 1 }),
 };
+
+/** Each stock fabric's light, from its feel card (v207 `SHINE`). */
+export const GOWN_SHINE = Object.fromEntries(Object.entries(GOWN_FEEL).map(([k, c]) => [k, GOWN_SHINE_TYPE[c.shine](c.gloss)])) as Record<GownStockFabric, GownShine>;
 
 /** Room-light strength, and how far the sheen colour moves from the cloth colour toward white. */
 export const GOWN_SHINE_ROOM = { envK: 0.12, sheenW: 0.25 } as const;
@@ -67,14 +68,20 @@ export function tintGownSheen(m: THREE.MeshPhysicalMaterial): void {
   m.sheenColor.copy(m.color).lerp(new THREE.Color(0xffffff), GOWN_SHINE_ROOM.sheenW);
 }
 
-/** A sheer fabric over a lining shows its own colour; unlined, she shows through (v189 `applyFabric`). */
-export function applyGownSheer(m: THREE.MeshPhysicalMaterial, f: GownFabricProps, lined: boolean): void {
-  const sheer = f.sheer > 0.3;
+/**
+ * A sheer fabric (v207 `seeAlpha`): clear enough face-on to see what is under it; a lining and more petticoat layers
+ * make it denser. Its edges and a pooled train read denser still in the shader (`gownFeelShader`).
+ */
+export function applyGownSheer(m: THREE.MeshPhysicalMaterial, c: Pick<GownFeelCard, 'see'>, lined: boolean, layers: number): void {
+  const sheer = c.see > 0.3;
   m.transparent = sheer;
-  m.opacity = sheer ? 1 - (lined ? 0.15 : 0.38) * f.sheer : 1;
+  m.opacity = sheer ? gownSeeAlpha(c, lined, layers) : 1;
   m.depthWrite = true;
   m.needsUpdate = true;
 }
+
+/** How many petticoat layers sit under the skirt, as the see-through counts them (v207 `seeAlpha` `nL`). */
+export const gownSeeLayers = (g: { petti: string; skirtLayers: number }) => (g.petti === 'none' ? 0 : Math.max(1, Math.round(g.skirtLayers || 1)));
 
 const SHEEN_ENERGY = /float sheenEnergyComp = [^;]*;/g;
 

@@ -12,7 +12,7 @@ import 'server-only';
  *       `subscription_credit_php` + `tier_expires_at` (the credit about to expire).
  *   +1  `readTodaySchedules` — the shop's schedules (their names: "Main team", "Hall A") with the bookings
  *       from OUTSIDE and the days marked not available still ahead, embedded — ONE request.
- *   +1  `readTodayViews` — how many looked at the shop in the last 28 days ("How is business"). Skipped for a
+ *   +1  `readTodayViews` — how many looked at the shop in the shop's one window (`lib/shop-count-window.ts`) ("How is business"). Skipped for a
  *       shop not yet approved: no couple can see it, so there is nothing to count.
  *   ±0  `readEventDayFacts` — only on an event day, and only in place of the money read the event-day card does
  *       not show (the page skips `fetchVendorEarningsSummary` then): the next moment and how many checked in.
@@ -195,7 +195,7 @@ export async function readTodaySchedules(
   }
 }
 
-/** Couples who opened the shop's page in the last 28 days. Null when the count did not come back. */
+/** Couples who opened the shop's page since `sinceIso` (the shop's one window, `lib/shop-count-window.ts`). Null when the count did not come back. */
 export async function readTodayViews(supabase: SupabaseClient, vendorProfileId: string, sinceIso: string): Promise<number | null> {
   try {
     // 👁 Distinct visitors, never rows (W1-B15 · `readCouplesWhoOpened`, the funnel's own reader).

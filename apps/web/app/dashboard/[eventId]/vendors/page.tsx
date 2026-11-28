@@ -141,9 +141,9 @@ import {
 import { InspectorLayout } from '@/app/_components/inspector/inspector-column';
 import { VendorQuickViewInspector } from './_components/vendor-quickview-inspector';
 import { WaitingForQuotes, type WaitingInquiry } from './_components/waiting-for-quotes';
+import { isBookedStatus, isBookedView } from '@/lib/booked-status';
 import {
   buildShortlistFolders,
-  LOCKED_VENDOR_STATUSES,
   COVER_TILE_PREFIX,
   planGroupForCover,
   type ShortlistVendor,
@@ -1815,14 +1815,13 @@ export default async function VendorsPage({ params, searchParams }: Props) {
         // a calendar — an off-platform vendor never constrains the window.
         // (Lock REQUESTS are not a state yet; when PR-H lands they join here.)
         const candidateVendorIds = new Set([...buildPicksByGroup.values()].flat());
-        const lockedStatuses = new Set(LOCKED_VENDOR_STATUSES);
         const profileByVendorId = new Map<string, string>();
         const teamVendors: { vendorId: string; profileId: string; name: string }[] = [];
         for (const v of vendors) {
           if (!v.marketplace_vendor_id) continue;
           profileByVendorId.set(v.vendor_id, v.marketplace_vendor_id);
           const onTeam =
-            (v.status != null && lockedStatuses.has(v.status)) ||
+            isBookedStatus(v.status) ||
             candidateVendorIds.has(v.vendor_id);
           if (onTeam) {
             teamVendors.push({
@@ -2501,7 +2500,6 @@ export default async function VendorsPage({ params, searchParams }: Props) {
 
     // Current plan snapshot (PR F) — the couple's live vendor picks per category.
     // Compare shows this as the "Current" column and saves it into a slot.
-    const PLAN_LOCKED = new Set(['contracted', 'deposit_paid', 'delivered', 'complete']);
     const planPicks = model.folders
       .flatMap((f) => f.children)
       .filter((c) => c.picks.length > 0 || c.coveredBy != null)
@@ -2522,7 +2520,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             inclusions: [`Included with their ${c.coveredBy.fromGroupLabel} package`],
           };
         }
-        const lockedPick = c.picks.find((p) => p.raw_status && PLAN_LOCKED.has(p.raw_status));
+        const lockedPick = c.picks.find((p) => isBookedStatus(p.raw_status));
         const pick = lockedPick ?? c.picks[0]!;
         return {
           groupId: c.groupId as string,
@@ -2558,7 +2556,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           tile: t.tile,
           planned: t.planned,
           vendorCount: t.vendors.length,
-          lockedCount: t.vendors.filter((v) => v.status === 'locked').length,
+          lockedCount: t.vendors.filter((v) => isBookedView(v)).length,
           buildCount: t.vendors.filter((v) => inBuild.has(v.vendorId)).length,
         })),
         excludedTiles,
@@ -2826,7 +2824,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
             ({ child, options }) =>
               options.length > 0 &&
               !child.picks.some(
-                (p) => p.raw_status && LOCKED_VENDOR_STATUSES.includes(p.raw_status),
+                (p) => isBookedStatus(p.raw_status),
               ) &&
               child.buildPickVendorIds.length === 0 &&
               !decidedGroupIds.has(child.groupId as string),
@@ -2930,7 +2928,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
           tile: t.tile,
           planned: t.planned,
           vendorCount: t.vendors.length,
-          lockedCount: t.vendors.filter((v) => v.status === 'locked').length,
+          lockedCount: t.vendors.filter((v) => isBookedView(v)).length,
           buildCount: t.vendors.filter((v) => inBuild.has(v.vendorId)).length,
         })),
       );
@@ -2944,7 +2942,7 @@ export default async function VendorsPage({ params, searchParams }: Props) {
       });
       liveTallyBase.ring = {
         tiles: shortlistFolders.flatMap((f) =>
-          f.tiles.map((t) => ({ tile: t.tile, lockedCount: t.vendors.filter((v) => v.status === 'locked').length, vendorIds: t.vendors.map((v) => v.vendorId) })),
+          f.tiles.map((t) => ({ tile: t.tile, lockedCount: t.vendors.filter((v) => isBookedView(v)).length, vendorIds: t.vendors.map((v) => v.vendorId) })),
         ),
         inPlan: [...ring.inPlan],
       };

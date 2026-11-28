@@ -110,6 +110,15 @@ export function eventStance(
 }
 
 /**
+ * 📌 "N planning" — THE ONE COUNT (L5 · C6). An event the account was only INVITED to is not one it is planning:
+ * Unihome said "3 planning" for an account that runs two and was asked to one. Both readers of that number
+ * (the Unihome Events tally and the Events-segment pinned row, `readHomeEventCounts`) call this.
+ */
+export function planningCountOf(events: ReadonlyArray<Pick<EventWithRole, 'member_type'>>): number {
+  return events.filter((e) => eventStance(e.member_type) !== 'invited').length;
+}
+
+/**
  * What the card SAYS. Present tense, second person, and it names the thing the
  * person did — not the row's member_type, which means nothing to them.
  */

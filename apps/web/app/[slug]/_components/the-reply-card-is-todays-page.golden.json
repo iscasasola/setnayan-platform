@@ -1,338 +1,338 @@
 {
- "_about": "RECORDED AGAIN 2026-10-25 (rd/plus-ones-are-rows: the owner’s “Each plus shouldn’t come from a drop down…”, “one at a time”, “Tick only shows when there is name written. and that is required. If you are not yet sure, delete name” and “Yes, build the +1 screens as shown.” — each +1 is its own screen (its own step, “+N · Not sure yet? Leave the name empty.”), the “Filling in for” picker gone; a named +1 gets the required “They’re coming” tick (the house tick, shared with the Terms line, whose box now fills with the page’s paper instead of white); meant for every guest). Before that RECORDED AGAIN 2026-10-25 (rd/rsvp-seats-first: the owner’s approved RSVP seats-first prototype, “all as recommended” — after “Joyfully accepts” the card says the seats first (“We reserved N seats for you”, tiles You · +1 · +2, one line + ⓘ), then the You step (the name read-only with “Wrong name? Tell the couple”, then “What should we call you?” and Mobile — the contact boxes moved up from the end), then the +1 names (its line now names the seats, the count line and the summary line gone), then the tagging question, then the rest; a No keeps its contact step after the note, posted as `declined_contact_*`; meant for every guest). Before that RECORDED AGAIN 2026-10-24 (rd/held-pass-reply-identity: the card’s default question reads “Will you join us?” — the Event Hub Reply card’s own words, “event” never “celebration” — in place of “Will you celebrate with us?”; a couple’s own question is unchanged; meant for every guest whose couple typed none). Before that RECORDED AGAIN 2026-10-21 (rd/every-hub-button-works: the guest-to-host line under the card is a 44 px press, `min-h-[40px]` → `min-h-[44px]` in guest-to-host-cta.tsx — the Hub button walk; only the three “a host pitch” cases move, same byte length; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 2 again, batch-4 walk: the terms line is a wrapping flex row whose links are 44px boxes of their own — no two press zones overlap when “Privacy Notice” wraps; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 2: the terms line’s two links are positioned above the sentence text and “Privacy Notice” does not break — meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 1: every later step’s question — tagging, plus-ones, meal, dietary, song, note, contact — wears step 1’s 32 px question line, one-at-a-time cards only; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (release batch 3 joining main: #6488 guest-leftovers-2 — the Terms line one shared piece and faint ink /45–/60 → /70, meant for every guest — together with main’s rd/reply-steps-one-look below; both sides had re-recorded, the join is recorded once). Before that 2026-10-13 (rd/reply-steps-one-look: the tagging question’s answers wear the card’s own answer — the style’s one class, the Look › Buttons hook and, on the reply card, the couple’s Yes / No look — meant for every guest asked it; only the three “the tagging question asked” cases move). Before that 2026-10-12 (rd/release-leftovers: the terms line’s two links pressable at 44px, its “Required” readable at 4.5:1 — meant for every guest). First recorded 2026-10-10 from RsvpWidget AS IT STOOD at origin/main 64746f064, BEFORE the reply card’s lines were drawn from a list (the RSVP stage’s ＋, drag and Group). Each case is the sha-256 and the byte length of the whole card’s HTML (react-dom/server renderToStaticMarkup); `inFull` keeps the reply’s own fieldset of two cases so a person can read it. `widgetSha256` is rsvp-widget.tsx at recording — compare with `git show 64746f064:\"apps/web/app/[slug]/_components/rsvp-widget.tsx\" | shasum -a 256`. Held by the-reply-card-is-todays-page.test.ts. Record again ONLY when the card is meant to change for every guest.",
- "widgetSha256": "ceb74ba02790e7e7e9d332484f68bd23ae94e208a5176efaaea40b92672ef3ae",
+ "_about": "RECORDED AGAIN 2026-11-27 (lane L2, MASTER-PLAN B8 — the owner’s “the terms links wrap with a gap”: the Terms line’s two links ride one unbreakable group, each a 44 px box handing its extra height back to a 20 px line, so a wrapped line no longer stands 44 px tall and “Privacy Notice” can never stack under “Terms”; meant for every guest). Before that RECORDED AGAIN 2026-10-25 (rd/plus-ones-are-rows: the owner’s “Each plus shouldn’t come from a drop down…”, “one at a time”, “Tick only shows when there is name written. and that is required. If you are not yet sure, delete name” and “Yes, build the +1 screens as shown.” — each +1 is its own screen (its own step, “+N · Not sure yet? Leave the name empty.”), the “Filling in for” picker gone; a named +1 gets the required “They’re coming” tick (the house tick, shared with the Terms line, whose box now fills with the page’s paper instead of white); meant for every guest). Before that RECORDED AGAIN 2026-10-25 (rd/rsvp-seats-first: the owner’s approved RSVP seats-first prototype, “all as recommended” — after “Joyfully accepts” the card says the seats first (“We reserved N seats for you”, tiles You · +1 · +2, one line + ⓘ), then the You step (the name read-only with “Wrong name? Tell the couple”, then “What should we call you?” and Mobile — the contact boxes moved up from the end), then the +1 names (its line now names the seats, the count line and the summary line gone), then the tagging question, then the rest; a No keeps its contact step after the note, posted as `declined_contact_*`; meant for every guest). Before that RECORDED AGAIN 2026-10-24 (rd/held-pass-reply-identity: the card’s default question reads “Will you join us?” — the Event Hub Reply card’s own words, “event” never “celebration” — in place of “Will you celebrate with us?”; a couple’s own question is unchanged; meant for every guest whose couple typed none). Before that RECORDED AGAIN 2026-10-21 (rd/every-hub-button-works: the guest-to-host line under the card is a 44 px press, `min-h-[40px]` → `min-h-[44px]` in guest-to-host-cta.tsx — the Hub button walk; only the three “a host pitch” cases move, same byte length; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 2 again, batch-4 walk: the terms line is a wrapping flex row whose links are 44px boxes of their own — no two press zones overlap when “Privacy Notice” wraps; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 2: the terms line’s two links are positioned above the sentence text and “Privacy Notice” does not break — meant for every guest). Before that RECORDED AGAIN 2026-10-13 (rd/hub-leftovers item 1: every later step’s question — tagging, plus-ones, meal, dietary, song, note, contact — wears step 1’s 32 px question line, one-at-a-time cards only; meant for every guest). Before that RECORDED AGAIN 2026-10-13 (release batch 3 joining main: #6488 guest-leftovers-2 — the Terms line one shared piece and faint ink /45–/60 → /70, meant for every guest — together with main’s rd/reply-steps-one-look below; both sides had re-recorded, the join is recorded once). Before that 2026-10-13 (rd/reply-steps-one-look: the tagging question’s answers wear the card’s own answer — the style’s one class, the Look › Buttons hook and, on the reply card, the couple’s Yes / No look — meant for every guest asked it; only the three “the tagging question asked” cases move). Before that 2026-10-12 (rd/release-leftovers: the terms line’s two links pressable at 44px, its “Required” readable at 4.5:1 — meant for every guest). First recorded 2026-10-10 from RsvpWidget AS IT STOOD at origin/main 64746f064, BEFORE the reply card’s lines were drawn from a list (the RSVP stage’s ＋, drag and Group). Each case is the sha-256 and the byte length of the whole card’s HTML (react-dom/server renderToStaticMarkup); `inFull` keeps the reply’s own fieldset of two cases so a person can read it. `widgetSha256` is rsvp-widget.tsx at recording — compare with `git show 64746f064:\"apps/web/app/[slug]/_components/rsvp-widget.tsx\" | shasum -a 256`. Held by the-reply-card-is-todays-page.test.ts. Record again ONLY when the card is meant to change for every guest.",
+ "widgetSha256": "78c6537cd302f158b4d0aadad69f9569f1681374458edf550a170bb030e5cf89",
  "cases": {
   "reply-card · celebratory · the Event Hub sheet · one page · a guest": {
-   "sha256": "98201e84e9cfc4a12acc5202bec23e1d5106210e252e6511077b575997777180",
-   "bytes": 17444
+   "sha256": "33c6010052e4cfe07e8915adca176f9bb60a97cbd151768c935607f395b4f98e",
+   "bytes": 17542
   },
   "reply-card · celebratory · the Event Hub sheet · one page · the Maker’s sample": {
-   "sha256": "9ddca873d0924992cb8b13b20231b64c53d47f5a53a8d7762fa3bef48a8d035b",
-   "bytes": 16445
+   "sha256": "b861c1fc1446f8b5899a1b1a69c8835aaec6ec02c132023afd8827e2699ad959",
+   "bytes": 16543
   },
   "reply-card · celebratory · the Event Hub sheet · one at a time · a guest": {
-   "sha256": "2d63808b8392c0087b96d202d6ae7656daf81f5630c5bca7ad3c880e88212672",
-   "bytes": 18778
+   "sha256": "0e8a7a4726d5a78b1a57c894124bff8b99e9b8f754268b9372613e2a4ffccb4e",
+   "bytes": 18876
   },
   "reply-card · celebratory · the Event Hub sheet · one at a time · the Maker’s sample": {
-   "sha256": "a0bba1fe3b8c8560133af1efce5fdfb40d45d804880cf19ccd3a41aecd2afcff",
-   "bytes": 17730
+   "sha256": "ab400dd6bfb5899d935a27548847f5cfe87168ed3102c064186e3df0d367b1ab",
+   "bytes": 17828
   },
   "reply-card · celebratory · the Reply door · one page · a guest": {
-   "sha256": "3af2ce9083c88d82eb2169203ffd79791aa0077a065492948e8dfa17a777512d",
-   "bytes": 16878
+   "sha256": "15d3ccdf914bd141ab2d128a0b42dfb0ba11473cab272a69b40f3899e26e5ab6",
+   "bytes": 16976
   },
   "reply-card · celebratory · the Reply door · one page · the Maker’s sample": {
-   "sha256": "6ab92688bd1cfc8aae0a781258a6401b24793d71fe6634d2943eab371470328d",
-   "bytes": 15879
+   "sha256": "1445b871993e5c4b31abd6487ab126ea74974d773456fa2a7c09aa7b4ab56535",
+   "bytes": 15977
   },
   "reply-card · celebratory · the Reply door · one at a time · a guest": {
-   "sha256": "d9fa520d0856bb356a12ed11f23dadf6e1a8da9a9fbef7c87a5d3745fc74bc04",
-   "bytes": 18191
+   "sha256": "c0691ad8f503a875053ba0daa58f72c291c1dd5aeb1e8fc7bacc3e4675866bf5",
+   "bytes": 18289
   },
   "reply-card · celebratory · the Reply door · one at a time · the Maker’s sample": {
-   "sha256": "b04ceec29af7a71dc6a5189dd5da463537dd7d5a0d5746766809ab6b4898f21b",
-   "bytes": 17143
+   "sha256": "a7078ad9ffa0174adb6d51f723faee7212b1672426876752abd845f3ec424869",
+   "bytes": 17241
   },
   "reply-card · solemn · the Event Hub sheet · one page · a guest": {
-   "sha256": "c59d4cc37863912fb98dab4556ffa393ea0b240a586abbd8cc00b36896a4f8d8",
-   "bytes": 17441
+   "sha256": "bf80d2016981f7c9a08611884b91683c3b8f9e51e84928818215c93df2e0aaf9",
+   "bytes": 17539
   },
   "reply-card · solemn · the Event Hub sheet · one page · the Maker’s sample": {
-   "sha256": "eda51e859d748989ac9554f094294489de25fc95e09e113db40f4d7dd0d0a088",
-   "bytes": 16442
+   "sha256": "489960c1462744d9abf5c51a64dba84eaedeb07f95e41d50b58bd879392b73bb",
+   "bytes": 16540
   },
   "reply-card · solemn · the Event Hub sheet · one at a time · a guest": {
-   "sha256": "351df1ea168250185ba5bdf8a77a6def2f09312ea256570777a47cc2afe0781c",
-   "bytes": 18775
+   "sha256": "6f16721e7bb76bbd3614405f0b589d40fbf627552b5baa670d19d1a05ca249ab",
+   "bytes": 18873
   },
   "reply-card · solemn · the Event Hub sheet · one at a time · the Maker’s sample": {
-   "sha256": "7811bb65e72579b53d03eb07f08d0e158ec9b4df36fe395dbab7c0a8bef8d876",
-   "bytes": 17727
+   "sha256": "aa98068651db707068b2763a298db9dbb386efa29ced5628a6ac7b48c62653cc",
+   "bytes": 17825
   },
   "reply-card · solemn · the Reply door · one page · a guest": {
-   "sha256": "19e8070e8db6cc5e289da4727b6329f4e3aa3eed0265b838e637fe719184a81d",
-   "bytes": 16875
+   "sha256": "bd8a34065e75745cb8fdcf5c48173ec539281508c2ff37b11bcae0abd30b5ca4",
+   "bytes": 16973
   },
   "reply-card · solemn · the Reply door · one page · the Maker’s sample": {
-   "sha256": "b8a75a28bd6b2bea2453a9c9ad7b8c438ad503f89b21d4e0cdaf43b84e6db73f",
-   "bytes": 15876
+   "sha256": "c55fcd8dc92b1ba4d19733de8a71869057143752d790532bb63ae1e610b3676e",
+   "bytes": 15974
   },
   "reply-card · solemn · the Reply door · one at a time · a guest": {
-   "sha256": "cc1a54bdcf6a754dbb88d76fa4a503a5fed327d4ad8bdeb51575b16690b2b038",
-   "bytes": 18188
+   "sha256": "02646b6f2e08e98e81bc615df268a3cde91a6da466c8be2ee7b65aeabb5f4523",
+   "bytes": 18286
   },
   "reply-card · solemn · the Reply door · one at a time · the Maker’s sample": {
-   "sha256": "0fb15c7540ee050bdc540565de0552a558aa43d2e592959a7fed8782f5af8f54",
-   "bytes": 17140
+   "sha256": "aebff43e9b14b04dd5bac8f5a24e337f79d7255c991d6a5f7074da8d0f4b0335",
+   "bytes": 17238
   },
   "question · celebratory · the Event Hub sheet · one page · a guest": {
-   "sha256": "ae90526dd3911bd5a940e01830d2efb747bd520184dae0e017be00ae54cb9c01",
-   "bytes": 16911
+   "sha256": "57707357bc1cd29c67a914017ba6dd42f02f9007de3cf4e77974ab8e3a60b99a",
+   "bytes": 17009
   },
   "question · celebratory · the Event Hub sheet · one page · the Maker’s sample": {
-   "sha256": "bff7086582fa317a830d0cb1292dfe88a02b3ba3ca5c11a5c1c2c6ed892bea89",
-   "bytes": 15912
+   "sha256": "da00ce65607b145eba0c65fe90f9bc8ae537e37115d3730617fa3af35148081c",
+   "bytes": 16010
   },
   "question · celebratory · the Event Hub sheet · one at a time · a guest": {
-   "sha256": "c9c7d3e9ad65d33f12442520a86e60704dd66f16b60fe492d240bda2d40dac94",
-   "bytes": 18224
+   "sha256": "43eb4ad11880efd426dc240a5fd7177f7c5598d10e1ce1c69176bac0659da6c2",
+   "bytes": 18322
   },
   "question · celebratory · the Event Hub sheet · one at a time · the Maker’s sample": {
-   "sha256": "4be91e0e47603ee7c11491adac8e1f496e26e45487763211493eb311f7073668",
-   "bytes": 17176
+   "sha256": "416ab6bbe602027fe79c5dab68164ac2805bb1a24276deccea8a7e537a7821ef",
+   "bytes": 17274
   },
   "question · celebratory · the Reply door · one page · a guest": {
-   "sha256": "9de8d25ca8a1490af4aab673e21aae759f17255638f675dfc4d2768810b24d97",
-   "bytes": 16427
+   "sha256": "67f995a116df2ed23b6c18b4c4b5447f6cd9667a51fa783475100632d64e8f2d",
+   "bytes": 16525
   },
   "question · celebratory · the Reply door · one page · the Maker’s sample": {
-   "sha256": "d59ae527dcab168bb906a8b1929c767a749fee592842d4f486a13dbdc39e7a96",
-   "bytes": 15428
+   "sha256": "ce4bedec1bff7b7a61f1fe200cc93b45cddd24c7b2965ad20afbc7f9e3d1b52c",
+   "bytes": 15526
   },
   "question · celebratory · the Reply door · one at a time · a guest": {
-   "sha256": "91b7ceff6f022e408d7efafbf381a608b9d8eedf2f3dd8faa701bbdba6d1a1da",
-   "bytes": 17740
+   "sha256": "7d81de46be2592f01e121c55dd4ce0d8479e2bacdefe8c2c2a88e5809248e0a6",
+   "bytes": 17838
   },
   "question · celebratory · the Reply door · one at a time · the Maker’s sample": {
-   "sha256": "9eac306e8fde2f2be6091b73dcd4f8495d462c2d6c212f72cdbb63bb3a5254d4",
-   "bytes": 16692
+   "sha256": "afc522319b8a2029a651b8767002378eefdd4bee58481e3ceca54e6a18e2a8ec",
+   "bytes": 16790
   },
   "question · solemn · the Event Hub sheet · one page · a guest": {
-   "sha256": "e72aa2c92994fba46cacb7d968adea9d49e7a3981493854c07cd1b14827113f8",
-   "bytes": 16906
+   "sha256": "532383722318aa7e5e2aa4e35c0b773dc09fcac199108cc677cf29095582dc40",
+   "bytes": 17004
   },
   "question · solemn · the Event Hub sheet · one page · the Maker’s sample": {
-   "sha256": "1877161767a3bc670bf283843a4e6e37117262ec86819de0e766cf8f640379ac",
-   "bytes": 15907
+   "sha256": "a400fca752954aae97807610d28a79ad612206481c472eaf914d1ad6774a5586",
+   "bytes": 16005
   },
   "question · solemn · the Event Hub sheet · one at a time · a guest": {
-   "sha256": "df36ed9564a5c1d54789e945cd58f678f7961e5e903185c3457e3605d73fad5e",
-   "bytes": 18219
+   "sha256": "9efd1609a3218792d9f956534d2ebc96bf6ee5bc4016f6fddc6da74df1e00b93",
+   "bytes": 18317
   },
   "question · solemn · the Event Hub sheet · one at a time · the Maker’s sample": {
-   "sha256": "5868b417e724c2c1463213efe8cb54c0fb6f935578d2d04831ad8491b08243d0",
-   "bytes": 17171
+   "sha256": "c9ea002b3a9db3af011f4d19e09d80f67c66109f458cb30cc5c70f237209ec67",
+   "bytes": 17269
   },
   "question · solemn · the Reply door · one page · a guest": {
-   "sha256": "c05e800fec4ab7b5b197f1f1b2d899f33ccee0e67c71a77f60d95036726b46ae",
-   "bytes": 16420
+   "sha256": "5dd5e308d3406f6cb4fbf3b8496d3ffacf709db15db7c0d976af7618e1582d48",
+   "bytes": 16518
   },
   "question · solemn · the Reply door · one page · the Maker’s sample": {
-   "sha256": "6ccfa4cc5002d08e4ed219e151115dee31b3e8004fa14711d2824e23c54ebd60",
-   "bytes": 15421
+   "sha256": "3ee36cdd4286ada9471565e26d463ea4f8e82eeba479fffe8e33aff9c7147e48",
+   "bytes": 15519
   },
   "question · solemn · the Reply door · one at a time · a guest": {
-   "sha256": "188224943748197acd22e6d7d901006a2b3de28838dd4b48aa68408fcf63fd71",
-   "bytes": 17733
+   "sha256": "0493fbc07e8595a920bce4a9c1417d419b265db7c6818baff1962e88d58161f1",
+   "bytes": 17831
   },
   "question · solemn · the Reply door · one at a time · the Maker’s sample": {
-   "sha256": "cc9facdcf9f7b82d737856e9a4194ba131a2e214f825eeb3f710692de9241f63",
-   "bytes": 16685
+   "sha256": "b4e81ebb586bf52f06ccdccae09e0c7a31cc0899e1ce196b310da01794249d30",
+   "bytes": 16783
   },
   "ticket · celebratory · the Event Hub sheet · one page · a guest": {
-   "sha256": "91fc2e6104492e4c0ca4db0bebc8620b83d1a40e6dadd095b0ac8825b448cb06",
-   "bytes": 17617
+   "sha256": "ed22491b80975e95d7bc52a6cd8b0092326a62591b8cde7068f7c3da9f2d79d7",
+   "bytes": 17715
   },
   "ticket · celebratory · the Event Hub sheet · one page · the Maker’s sample": {
-   "sha256": "359293aad23b29edc52e7780ff2e5399f19add68bfdca90fbe03f7dcb54c2772",
-   "bytes": 16618
+   "sha256": "365e5b1fd9525a5f9ac4248a3a4e11baca1c51ab35a300b386b5778a1a8fcc27",
+   "bytes": 16716
   },
   "ticket · celebratory · the Event Hub sheet · one at a time · a guest": {
-   "sha256": "8fdbcbb039a12739788b2d74e774b19d17cf2cae73359451ed52d872c51ff24d",
-   "bytes": 18930
+   "sha256": "d5dcc6efb4b41a4d7e32a36637a83996e2db73ad3f232b2d5907a3cda86c7af5",
+   "bytes": 19028
   },
   "ticket · celebratory · the Event Hub sheet · one at a time · the Maker’s sample": {
-   "sha256": "e5039fddc4ec6fe239ec486e8fbe5a032612d606e1571803bc98f9d26c91a0d5",
-   "bytes": 17882
+   "sha256": "e6a692161a004dadc6716702fe2bbb0171f9dd8dd66baa50a321bc9c17b9c2a7",
+   "bytes": 17980
   },
   "ticket · celebratory · the Reply door · one page · a guest": {
-   "sha256": "b10b4d092521e61580c7dd9ea3aad508f812b7e642f8068c044ea4bcdf2273fe",
-   "bytes": 16751
+   "sha256": "47f3b9c4c5ecef124f04fd9ba0e65865ee73775a133288ff25a5fb198e184f2c",
+   "bytes": 16849
   },
   "ticket · celebratory · the Reply door · one page · the Maker’s sample": {
-   "sha256": "eaa53f2834a65cc86acb5a3d1542877ff7f39a2cf623b6ed24e8e7a0be7f8ff6",
-   "bytes": 15752
+   "sha256": "7274caded749000b7740e1378304f07b66c32ca7ff2abfdb9f86e8142336cb64",
+   "bytes": 15850
   },
   "ticket · celebratory · the Reply door · one at a time · a guest": {
-   "sha256": "2fecafa57abebcc6143e5dec032d447a7480f039ba794f043c029b65e6df6d8d",
-   "bytes": 18064
+   "sha256": "17c9c29464c9b4aeb7a9fbd321c9e4f5196f059f912d963491884c8db4684d51",
+   "bytes": 18162
   },
   "ticket · celebratory · the Reply door · one at a time · the Maker’s sample": {
-   "sha256": "2cd08f5afd7f447443511dd73d09f7a34c7be3bee6a68b9569b4f3f73e947f72",
-   "bytes": 17016
+   "sha256": "f2169fd38888a04ae1b9a6ea54a6d999a2859512dd43bb26ea51ad75c8356d87",
+   "bytes": 17114
   },
   "ticket · solemn · the Event Hub sheet · one page · a guest": {
-   "sha256": "61e9702a8a242e20b3332afdde4b70ee554299bed69ec53b27ed02800665c1c8",
-   "bytes": 17608
+   "sha256": "678c4251358fda7ab9c6b3fc80ca950baffab773afaeb7f79f84222b6e69437e",
+   "bytes": 17706
   },
   "ticket · solemn · the Event Hub sheet · one page · the Maker’s sample": {
-   "sha256": "55653abc5ef38be58cf948bc8d4353b7d63a94ef9652adb530327b98d01db2b6",
-   "bytes": 16609
+   "sha256": "c244cda2e34560856cfde1138535cd4df3b2befc94f76b9881e3dbe404b8718b",
+   "bytes": 16707
   },
   "ticket · solemn · the Event Hub sheet · one at a time · a guest": {
-   "sha256": "16f88459cda35683a7476e80e31d0d1f8b720ac0e5becaf37ace17c121ebd46b",
-   "bytes": 18921
+   "sha256": "57dd80a55adf57f3744a9b5837058e806ff66005b304da76122f3cbf3142b334",
+   "bytes": 19019
   },
   "ticket · solemn · the Event Hub sheet · one at a time · the Maker’s sample": {
-   "sha256": "c3b116cd4dcee8083cad17333971a58166aeeaf58c483df1676e147098bf35cf",
-   "bytes": 17873
+   "sha256": "ab98e6e8cc277699f68be0b3e32fc4630ce3b721861a96a5cdb88258a22b3c58",
+   "bytes": 17971
   },
   "ticket · solemn · the Reply door · one page · a guest": {
-   "sha256": "efad4f1ff81c2fa878d91893db6035d4075a2b1020f7ab927c5ef15e417dba66",
-   "bytes": 16742
+   "sha256": "6093567376b94a17115de2778d3e2454b6cc369f5fcba3ebf5e2e72a7ed307a3",
+   "bytes": 16840
   },
   "ticket · solemn · the Reply door · one page · the Maker’s sample": {
-   "sha256": "c0c2525985efa1e85f197c6d3861010f807e13f7e2bc7c46b17185c2c1264eda",
-   "bytes": 15743
+   "sha256": "c56b318351406bb10e400e0e996f463be768892fc44d6b98dc5b296fd9ccfb3b",
+   "bytes": 15841
   },
   "ticket · solemn · the Reply door · one at a time · a guest": {
-   "sha256": "39c5526d884ab925586cab3d8403d0784efabc31079d067594de2c5bf25680af",
-   "bytes": 18055
+   "sha256": "8aa6757515a062aeb3f521519d5c0dfb6b154dfd1b3db5d5b6245a1194f5a6e2",
+   "bytes": 18153
   },
   "ticket · solemn · the Reply door · one at a time · the Maker’s sample": {
-   "sha256": "f725f8d2eae577e876bcb85d9052677ddb707441e74c135eafa56e3ddedaee1d",
-   "bytes": 17007
+   "sha256": "8815c7eb65385c05a1b5b928ae63793466645061f3eb96938fccfe633fd62033",
+   "bytes": 17105
   },
   "reply-card · already attending": {
-   "sha256": "efd1ae5a1e90cb91c3a0f07074253caf70fc3043a155b4da5e596ae73782d806",
-   "bytes": 17097
+   "sha256": "deb9588682ce181536a132aba6e481564448c1933e1dc90f23d39181c0d0335a",
+   "bytes": 17195
   },
   "reply-card · already declined": {
-   "sha256": "a95a7ef52837a53d23b7812f1ab9f72d392c82c1967781b6d1d94b36f71e1cd4",
-   "bytes": 16889
+   "sha256": "ab6065e3ca57ed8c35ceaf5ba8a134a05cb0084b754a55236898a9cb407bd40b",
+   "bytes": 16987
   },
   "reply-card · already maybe": {
-   "sha256": "3af2ce9083c88d82eb2169203ffd79791aa0077a065492948e8dfa17a777512d",
-   "bytes": 16878
+   "sha256": "15d3ccdf914bd141ab2d128a0b42dfb0ba11473cab272a69b40f3899e26e5ab6",
+   "bytes": 16976
   },
   "reply-card · the guest list is closed, attending": {
-   "sha256": "e8735ac6777b3489d0b4ed094dba50e95a7a9747b12da2360b79f549a173168e",
-   "bytes": 9198
+   "sha256": "906d8acca25e8c328603cc0360dd3f5272f8f7237a12725e6e74dd4575a46da3",
+   "bytes": 9296
   },
   "reply-card · the guest list is closed, declined": {
-   "sha256": "e3b6322b7e79ea6b533a260ca02f28cf0c28d7313f5f430fd4314cb304edb9ce",
-   "bytes": 4289
+   "sha256": "a477f60af5a2b9df1b939421fff834057514a14f63713def2884244dc8d0f01d",
+   "bytes": 4387
   },
   "reply-card · the couple’s own words": {
-   "sha256": "9671134d9f41d784d4e654a3542890f35cc88da79dd5b85576b9715204812a34",
-   "bytes": 16884
+   "sha256": "0e4b12973ad8ec74cf64398f3118db851ca9cfb006fa70163fe9839d8e177ded",
+   "bytes": 16982
   },
   "reply-card · the couple’s own words, one at a time": {
-   "sha256": "68475b17266772e9acb23c107236df36fb050374c660a684e52a36ace87bc05c",
-   "bytes": 18197
+   "sha256": "48b716eb23bd828e93baeb48972c1410a2361a324eb49f931293c773b3e2ca88",
+   "bytes": 18295
   },
   "reply-card · the couple’s own words, the Maker’s sample": {
-   "sha256": "3fb53b574212d1fecf73841a91f4d572a9992acf9b712d9850b18cb2b9ae83f0",
-   "bytes": 17149
+   "sha256": "2c81742cd94bfa31e16203f3880654b25acb4fe9460b065fd914147ac258544d",
+   "bytes": 17247
   },
   "reply-card · every question switched off": {
-   "sha256": "2c43c4b24b32589a8f0a7ee6b895d194e44932afc1f6f90cb6c76d76143921a0",
-   "bytes": 9904
+   "sha256": "58ffb24f34c3c8ad71bf3157060ac057f4fc85d4f28887403f65e9fb27176ff5",
+   "bytes": 10002
   },
   "reply-card · the tagging question asked": {
-   "sha256": "09b783cfc6d82cfe1bc461a0a3e744daf1178f4a1fbcc643c363c26dea512e40",
-   "bytes": 18029
+   "sha256": "2bf168fa0c21b6ea3ab7c01c9b5eadef56264ed85e69ab14c8e1ac7174aca8a3",
+   "bytes": 18127
   },
   "reply-card · a flash, a host pitch, no terms": {
    "sha256": "bdd9140236cd3fda782f871e8c9ff9f26e9ea84ffc2bfe799d23cf5cb2eba981",
    "bytes": 16417
   },
   "question · already attending": {
-   "sha256": "c9857b774abb2bceea828a436ed73fcb47f681714d63f6d57cd8ab1231d1d619",
-   "bytes": 16646
+   "sha256": "6a49344722f690464434061fa838b52c293665c943bc1564ee73f400a887dc76",
+   "bytes": 16744
   },
   "question · already declined": {
-   "sha256": "32a8d1db6b3958ac3e1133b2e04cee5bf1cf293738577f12388b7bfd8d511ffd",
-   "bytes": 16438
+   "sha256": "b09316d6ef48e07b5eb358ac17fa86932e74b6999f9adb00d7e7d5e7046da7d9",
+   "bytes": 16536
   },
   "question · already maybe": {
-   "sha256": "9de8d25ca8a1490af4aab673e21aae759f17255638f675dfc4d2768810b24d97",
-   "bytes": 16427
+   "sha256": "67f995a116df2ed23b6c18b4c4b5447f6cd9667a51fa783475100632d64e8f2d",
+   "bytes": 16525
   },
   "question · the guest list is closed, attending": {
-   "sha256": "e8735ac6777b3489d0b4ed094dba50e95a7a9747b12da2360b79f549a173168e",
-   "bytes": 9198
+   "sha256": "906d8acca25e8c328603cc0360dd3f5272f8f7237a12725e6e74dd4575a46da3",
+   "bytes": 9296
   },
   "question · the guest list is closed, declined": {
-   "sha256": "46c517d2cac627cf44d0370df5ce04c37307261aff06a4d28ea624c3f26ed52d",
-   "bytes": 4232
+   "sha256": "66c5772db511c7c050a604b031816bf5dec7cd237fc60488b070f17b362fbe49",
+   "bytes": 4330
   },
   "question · the couple’s own words": {
-   "sha256": "2b5a6b9d50a27bb5cdaf538bc9bfa5bdc96148c0c47079bb0ebcb80d9e46e7dc",
-   "bytes": 16418
+   "sha256": "c5afdaaf07d7c7d9292bd8713e378b7e2b1efcd2358c31751a854b9768dfe8ad",
+   "bytes": 16516
   },
   "question · the couple’s own words, one at a time": {
-   "sha256": "363dc458e50f33e57c9bce7c35b7cd4eaa6ae3dc29eceb47fc23593b610a5375",
-   "bytes": 17731
+   "sha256": "c882f01e11370e214361704e2d03cb6feb36f6b338de8ff41970f4210989b2d2",
+   "bytes": 17829
   },
   "question · the couple’s own words, the Maker’s sample": {
-   "sha256": "f8441d8e38b3ab6d302c648eb8ada6fa79338284048b7ac2de9a94737f1440aa",
-   "bytes": 16683
+   "sha256": "c7e179b176a2265ca0846d34f6bcce60e01f5fd7c22592223ae8d7b10b1ef2f2",
+   "bytes": 16781
   },
   "question · every question switched off": {
-   "sha256": "d36fca48ca727874f3169c247324a66e23b835eca0b55ab388ad5074acbdd1b0",
-   "bytes": 9453
+   "sha256": "1b9cf6e219137c055e6db9da106a35deecab8b8230e475b9c38ec35ec63eeef8",
+   "bytes": 9551
   },
   "question · the tagging question asked": {
-   "sha256": "21bf2d8260eb544015a29dbd739753726b76672d6971ac799e2f03ce7fca443c",
-   "bytes": 17515
+   "sha256": "8c6dd9dda60d6f277417e66c512668b9ce75772a92a2ae5e406d03bced336834",
+   "bytes": 17613
   },
   "question · a flash, a host pitch, no terms": {
    "sha256": "5afbd4f5e858e45a7c957b97d47bced936b89fa09e4194c08741ed13c55d3cd9",
    "bytes": 15884
   },
   "ticket · already attending": {
-   "sha256": "19f7f03c8922202b432aa94e7ab9008d2eb0063cfb47a7d8d0a1afcf994ed3d7",
-   "bytes": 16970
+   "sha256": "2d85477054325bd3cee175f448a2f748467a86f5807c976fac6701d67ab8f45c",
+   "bytes": 17068
   },
   "ticket · already declined": {
-   "sha256": "a3fe91aa78346b4c81541e4da972a11a76535d9f899bd1fd077de4f42d38998c",
-   "bytes": 16762
+   "sha256": "b1f9b66bc88246b128061aa80681c8486b5d4c6c7335a52ad8a807c638f43b8d",
+   "bytes": 16860
   },
   "ticket · already maybe": {
-   "sha256": "b10b4d092521e61580c7dd9ea3aad508f812b7e642f8068c044ea4bcdf2273fe",
-   "bytes": 16751
+   "sha256": "47f3b9c4c5ecef124f04fd9ba0e65865ee73775a133288ff25a5fb198e184f2c",
+   "bytes": 16849
   },
   "ticket · the guest list is closed, attending": {
-   "sha256": "e8735ac6777b3489d0b4ed094dba50e95a7a9747b12da2360b79f549a173168e",
-   "bytes": 9198
+   "sha256": "906d8acca25e8c328603cc0360dd3f5272f8f7237a12725e6e74dd4575a46da3",
+   "bytes": 9296
   },
   "ticket · the guest list is closed, declined": {
-   "sha256": "475bd703f5e3153b772980549887f367f2d2b506d286ef332719ebc45a0be9d5",
-   "bytes": 4589
+   "sha256": "58330fa4963ec9e3e9910c1605b7afd6f879efd5b9a38156eb609e97e0025281",
+   "bytes": 4687
   },
   "ticket · the couple’s own words": {
-   "sha256": "64d827a73546452bf53265cf577926445d5f6ab1aacfc1b22994cc389400417a",
-   "bytes": 16742
+   "sha256": "dcec0278eb610f0ab17927663882097365554890b9280fb509ab63c6f00eb38a",
+   "bytes": 16840
   },
   "ticket · the couple’s own words, one at a time": {
-   "sha256": "4f64b04964632b08e47fcc391d685b27b4de00b9158af2b8b7a148211a4fb713",
-   "bytes": 18055
+   "sha256": "b6c08218f1bdf049d49a460df80f2fdaa182e28632a21a61563610d577fe546c",
+   "bytes": 18153
   },
   "ticket · the couple’s own words, the Maker’s sample": {
-   "sha256": "a29fba4d7c67f04efead253a6ab88c30b7751969fd6a590cf3c09a1c15a41a58",
-   "bytes": 17007
+   "sha256": "2541b34e6b03b309c1803165bb615dbecf8fd42f1d45c30905b9669eed8bd242",
+   "bytes": 17105
   },
   "ticket · every question switched off": {
-   "sha256": "eeb4f096de9215936fb2f3c86f30d61481d8ad81facf783fe335b21b228dc4f5",
-   "bytes": 9777
+   "sha256": "04fabaeef0ad5f61027824c80f09e588a0fdd9b8f46c18507740f38f27726f69",
+   "bytes": 9875
   },
   "ticket · the tagging question asked": {
-   "sha256": "111fa251e376b245a434befe0a34c8662b9b4c17fbbf5edd1509ec187ecf6b02",
-   "bytes": 18136
+   "sha256": "1e6aded54dcdedafb9b2819636018a48853cc03d1440529de83bd0a02c5a1e5d",
+   "bytes": 18234
   },
   "ticket · a flash, a host pitch, no terms": {
    "sha256": "904b63e6994d52ca85cf48a3ab03b8ffaabe5a33929e70d25bd7390a13159298",
    "bytes": 16590
   },
   "the key gate · only the meal is missing": {
-   "sha256": "ce4a346382b48a6f27ec15bf930888491a79bfeb2555282c2add07d242b69edc",
-   "bytes": 4310
+   "sha256": "4f6910b6593c2536f5b44e997f41ad3f5b5c0aba45de2505c8e5749b17976a03",
+   "bytes": 4408
   },
   "the key gate · the answer is missing": {
-   "sha256": "3af2ce9083c88d82eb2169203ffd79791aa0077a065492948e8dfa17a777512d",
-   "bytes": 16878
+   "sha256": "15d3ccdf914bd141ab2d128a0b42dfb0ba11473cab272a69b40f3899e26e5ab6",
+   "bytes": 16976
   }
  },
  "inFull": {

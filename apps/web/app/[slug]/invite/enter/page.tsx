@@ -100,6 +100,7 @@ import { PlusOneSeatList } from '../../_components/plus-one-seat-list';
 import { TicketPicture } from '../../_components/ticket-picture';
 import { TicketPopup } from '../../_components/ticket-popup';
 import { InAppBar } from '../../_components/in-app-bar';
+import { SafariHop } from '../../_components/safari-hop';
 import { LandingPreReply, LandingSaveTheDate } from '../_components/landing-pre-reply';
 import { withGuestReadLimit, withGuestReadLimitQuiet } from '@/lib/read-limit';
 import { startAhead } from '@/lib/start-ahead';
@@ -928,9 +929,9 @@ async function inviteEnterPage({ params, searchParams }: Props) {
                 the section's rhythm where the button did, and HAS a box (the frame is drawn on it). */}
             <div data-rsvp-line="save">
             {safariSave ? (
-              <a href={safariSave} className="button-primary w-full" data-landing-save="safari">
+              <SafariHop href={safariSave} className="button-primary w-full" data-landing-save="safari">
                 {LANDING_WORDS.saveInSafari}
-              </a>
+              </SafariHop>
             ) : (
               <SavePassCardButton
                 hrefs={[PASS_CARD_ROUTE, ...plusOneCardHrefs]}

@@ -235,6 +235,15 @@ test('sign-in is untouched — no sign-in file knows the account switch exists',
       continue;
     }
     read += 1;
+    if (rel === 'app/login/page.tsx') {
+      // 🔁 Batch 0 · L1 (MASTER-PLAN L5, walk 27 Nov 12a): "Add another account" opens /login, and /login must offer a
+      // way back to the parked accounts. It reads the DISPLAY list only (uid · email · name, no credential by type),
+      // and hands it to the shared row, which posts to the switch route. It never touches a jar, a refresh token or the
+      // switch's own logic, so the line this guard draws (no credential travels into sign-in) still holds.
+      assert.match(src, /import \{ ACCOUNTS_LIST_COOKIE, decodeParkedList \} from '@\/lib\/account-jars';/);
+      assert.doesNotMatch(src, /decodeJar|encodeJar|jarCookie|JAR_PATH|JAR_PREFIX|sn_acct_|account-switch'|performSwitch|\/auth\/accounts/, `${rel} reaches past the display list into the account switch`);
+      continue;
+    }
     assert.doesNotMatch(src, /account-jars|account-switch|sn_acct|sn_accts|\/auth\/accounts/, `${rel} reaches into the account switch`);
   }
   assert.ok(read >= 8, `expected to read the sign-in files, read ${read} — a path moved`);

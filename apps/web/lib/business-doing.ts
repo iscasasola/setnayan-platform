@@ -8,6 +8,7 @@
  * Held by `lib/business-doing.test.ts`.
  */
 import { formatCount } from './format-number';
+import { shopRatingWords, type ShopRating } from './shop-rating';
 import { formatReplyMinutes, type ReplyTimeVerdict } from './vendor-reply-time';
 
 /** The one sentence on top. A shop nobody has found yet is told what to do, not shown three zeros. */
@@ -61,19 +62,11 @@ export function replyLine(v: ReplyTimeVerdict | null): { line: string; good: boo
 }
 
 /**
- * What couples say — the review average and count off `vendor_activity_stats`. REFUSED → "Couldn’t load"; NO ROW
- * (a new shop) → "No reviews yet"; a row → its figures.
+ * What couples say — THE SHOP'S ONE RATING (`lib/shop-rating.ts`: the trusted aggregate couples are shown, L6 · S2).
+ * REFUSED → "Couldn’t load"; no trusted review → "No reviews yet"; else "4.7 ★ · 12 reviews".
  */
-export function ratingLine(
-  read: MeasuredStatsRow<{ review_avg_bayesian?: number | null; review_count?: number | null }>,
-): string {
-  if (!read.measured) return 'Couldn’t load';
-  const stats = read.row;
-  if (!stats) return 'No reviews yet';
-  const count = Number(stats.review_count ?? 0);
-  const avg = Number(stats.review_avg_bayesian);
-  if (!(count > 0) || !Number.isFinite(avg)) return 'No reviews yet';
-  return `${avg.toFixed(1)} ★ · ${formatCount(count)} ${count === 1 ? 'review' : 'reviews'}`;
+export function ratingLine(rating: ShopRating): string {
+  return shopRatingWords(rating);
 }
 
 /** Where bookings come from — Setnayan vs your own, off the attribution window. */

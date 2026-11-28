@@ -1,4 +1,5 @@
 import { LANDING_WORDS, type InAppHandoff } from '@/lib/guest-landing';
+import { SafariHop } from './safari-hop';
 
 /**
  * INSIDE MESSENGER / FACEBOOK / INSTAGRAM (owner 2026-09-30, DECISION_LOG "THE
@@ -27,9 +28,10 @@ export function InAppBar({ handoff }: { handoff: InAppHandoff }) {
         </a>
       ) : (
         <>
-          <a href={handoff.safariHref} className={link}>
+          {/* 🧭 A hop the app ignores says so, under the bar, with the link to copy (`SafariHop`, 2026-11-27). */}
+          <SafariHop href={handoff.safariHref} className={link} under="bar">
             {LANDING_WORDS.inAppSafari}
-          </a>
+          </SafariHop>
           <span aria-hidden className="px-2 text-ink/70">
             ·
           </span>

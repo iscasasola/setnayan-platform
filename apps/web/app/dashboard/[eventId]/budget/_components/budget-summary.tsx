@@ -282,6 +282,8 @@ export function BudgetSummary({
               amountPhp: next.amountPhp,
               name: next.name,
               dueDate: next.dueDate,
+              // L5 · C9: past its date it reads "Overdue · since …", never "Next" (`BudgetFigures` already draws it).
+              overdue: next.overdue,
               action: onPay ? (
                 <button type="button" className={BUDGET_NEXT_GO_CLASS} onClick={() => onPay(next)}>
                   Pay ›

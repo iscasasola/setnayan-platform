@@ -40,6 +40,7 @@ import type { GownMotionKind } from '@/lib/gown/motion/walks';
 import type { GownTurnStyle, GownTwirlStyle } from '@/lib/gown/motion/turn';
 import type { GownBodyEstimates } from '@/lib/gown/body/estimate';
 import { GownSend } from './gown-send';
+import { formatCount } from '@/lib/format-number';
 import css from './gown-designer.module.css';
 
 export type GownDesignerState = { config: GownConfig; body: GownBody };
@@ -244,7 +245,7 @@ export function GownDesigner({ seed, fabrics, onChange, onDone, send, start = 'm
           <PillSelector label="Part of the maker" value={tab} options={[{ key: 'meas', label: 'Measurements' }, { key: 'design', label: 'Design' }]} onPick={(k: Tab) => setTab(k)} data="gown-tab" />
           <ActionButton tone="neutral" quiet icon={Undo2} label="Undo" onClick={doUndo} disabled={!undo.length} />
         </div>
-        {tab === 'send' ? null : <p className="text-sn-12 text-ink/70" data-gown-count>{`${tab === 'meas' ? 'Measurements' : 'Design'} · ${at + 1} of ${steps.length}`}</p>}
+        {tab === 'send' ? null : <p className="text-sn-12 text-ink/70" data-gown-count>{`${tab === 'meas' ? 'Measurements' : 'Design'} · ${formatCount(at + 1)} of ${formatCount(steps.length)}`}</p>}
         <h2 id="gown-step-name" className="text-sn-19">{tab === 'meas' ? ms.label : tab === 'send' ? 'Review and send' : ds.label}</h2>
         {tab === 'send' && send ? (
           <GownSend threadId={send.threadId} shopName={send.shopName} config={config} body={body} hand={send.hand ?? emptyGownHand()} fabrics={fabrics} units={units} measured={measured} onSent={send.onSent} />

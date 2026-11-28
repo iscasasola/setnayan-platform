@@ -10,7 +10,7 @@ import {
   GOWN_ILLUSION_CUPS, GOWN_LACES, GOWN_LACE_COLOURS, GOWN_LACE_PLACES, GOWN_LININGS, GOWN_NECKLINES, GOWN_OVERLAYS, GOWN_OVERLAY_FABRICS, GOWN_PEARLS, GOWN_PIECES,
   GOWN_PLUNGE_FILLS, GOWN_ROBE_SLEEVES, GOWN_SHAPEWEAR, GOWN_SILHOUETTES, GOWN_SLEEVES, GOWN_SLEEVE_FABRICS, GOWN_SLEEVE_WORN, GOWN_STEP_LABELS, GOWN_STRAPS,
   GOWN_STRAP_COLOURS, GOWN_STRAP_EDGES, GOWN_TOP_EDGES, GOWN_TRAINS, GOWN_VEILS, GOWN_VEIL_FABRICS, GOWN_VEIL_STYLES, GOWN_WAISTLINES, gownCapeKind,
-  type GownBody, type GownBodyKey, type GownConfig, type GownMeasurementStep,
+  type GownBody, type GownBodyKey, type GownMatter, type GownConfig, type GownMeasurementStep,
 } from '../gown-config';
 import { gownHiddenChoices } from './compat';
 import type { GownFocusKey } from './stage/focus';
@@ -40,7 +40,7 @@ export const GOWN_MEAS_FLOW: readonly GownMeasStep[] = [
 export const gownMeasSteps = (fineOn: boolean) => GOWN_MEAS_FLOW.filter((s) => fineOn || !s.fine);
 
 /** What a fine step can change, as it was when she arrived on it (v210 `msArr`). */
-export type GownStepSnap = { vals: GownBody['vals']; bustPos: GownBody['bustPos']; bustT: number; matters: GownBody['matters']; given: GownBodyKey[]; heel: number };
+export type GownStepSnap = { vals: GownBody['vals']; bustPos: GownBody['bustPos']; bustT: number; matters: GownMatter[]; given: GownBodyKey[]; heel: number };
 export const gownSnapStep = (body: GownBody, heel: number): GownStepSnap => ({ vals: { ...body.vals }, bustPos: body.bustPos, bustT: body.bustT, matters: [...body.matters], given: [...body.given], heel });
 
 /**

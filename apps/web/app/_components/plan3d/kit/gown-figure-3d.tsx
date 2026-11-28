@@ -14,7 +14,7 @@ import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { GOWN_STRAPLESS, type GownBodyKey, type GownBodyVals, type GownConfig, type GownShapewear, type GownStockFabric } from '@/lib/gown-config';
+import { GOWN_STRAPLESS, gownCapeNow, type GownBodyKey, type GownBodyVals, type GownConfig, type GownShapewear, type GownStockFabric } from '@/lib/gown-config';
 import { createGownFrameGovernor, type GownFrameGovernor } from '@/lib/gown/frame-governor';
 import { GOWN_MANNEQUIN, GOWN_SCENES, gownSkyTexture, type GownSceneId } from '@/lib/gown/scenes';
 import { installGownToneMapping } from '@/lib/gown/tone';
@@ -23,12 +23,12 @@ import type { GownRig } from '@/lib/gown/body/rig';
 import { solveGownBody } from '@/lib/gown/body/solve';
 import { tapeLoops, type GownTapeKey } from '@/lib/gown/body/tape';
 import { buildDress, emptyDress, floorOf, type GownDress } from '@/lib/gown/dress/build';
-import { buildCape, emptyCape } from '@/lib/gown/dress/cape';
+import { GOWN_CAPE_JEWEL, GOWN_CAPE_SHEER_OPACITY, buildCape, emptyCape } from '@/lib/gown/dress/cape';
 import { GOWN_EYELET, GOWN_LACE_UP_DRAW, buildGownClosure } from '@/lib/gown/parts/closure';
 import { GOWN_CUT_MAP, buildGownCuts } from '@/lib/gown/parts/cuts';
 import { buildGownTechShell } from '@/lib/gown/parts/technique';
 import { GOWN_TRIM_SHADE, buildGownTrims, placeGownTrims } from '@/lib/gown/parts/trims';
-import { GOWN_LACE_COLOUR, GOWN_LACE_MAP, GOWN_LACE_TILE_DRAW, GOWN_LACE_TILE_PX, buildGownLace, drawGownLaceTile } from '@/lib/gown/parts/lace';
+import { GOWN_CAPE_EDGE_PX, GOWN_LACE_COLOUR, GOWN_LACE_MAP, GOWN_LACE_TILE_DRAW, GOWN_LACE_TILE_PX, buildGownLace, drawGownCapeEdge, drawGownLaceTile } from '@/lib/gown/parts/lace';
 import { gownSurfaceShader, gownSurfaceUniforms, type GownSurfaceUniforms } from '@/lib/gown/fabric/surface';
 import { GOWN_WEAVE_PX, drawGownWeave, gownWeaveAmount, gownWeaveGain, gownWeaveScale } from '@/lib/gown/fabric/weave';
 import { GOWN_INSIDE_LOOK, buildGownInside, gownInsideShown, type GownInsideStage } from '@/lib/gown/parts/inside';
@@ -230,9 +230,15 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
     m.onBeforeCompile = ((sh: Parameters<typeof surface>[0]) => { surface(sh); sheen(sh); }) as unknown as THREE.Material['onBeforeCompile'];
     const mesh = new THREE.Mesh(new THREE.BufferGeometry(), m);
     mesh.frustumCulled = false;
-    // The cape is cut from the gown's own fabric: the same material.
-    const K = emptyCape(), cape = new THREE.Mesh(K.geo, m);
+    // v196 capes: one mesh, four groups: its cloth (the gown's own, or a sheer, or lace), its border, the bands and straps
+    // (in the gown or accent colour), the clasps and beads.
+    const K = emptyCape(), cape = new THREE.Mesh<THREE.BufferGeometry, THREE.Material[]>(K.geo, [m, m, m, m]);
     cape.frustumCulled = false;
+    const capeSheer = new THREE.MeshPhysicalMaterial({ side: THREE.DoubleSide, transparent: true, depthWrite: false });
+    capeSheer.onBeforeCompile = gownClothShader(sheerBack) as unknown as THREE.Material['onBeforeCompile'];
+    const capeBand = new THREE.MeshPhysicalMaterial({ sheen: 1, side: THREE.DoubleSide });
+    const capeJewel = new THREE.MeshStandardMaterial({ color: GOWN_CAPE_JEWEL.colour, metalness: GOWN_CAPE_JEWEL.metalness, roughness: GOWN_CAPE_JEWEL.roughness, envMapIntensity: GOWN_CAPE_JEWEL.envMapIntensity, flatShading: true, side: THREE.DoubleSide });
+    const capeEdge = { canvas: null as HTMLCanvasElement | null, tex: null as THREE.CanvasTexture | null, key: '', mat: new THREE.MeshStandardMaterial({ transparent: true, side: THREE.DoubleSide, roughness: 0.75, depthWrite: false, alphaTest: 0.02 }) };
     // Sleeves (and the off-shoulder band) in the gown's fabric; the accent and sheer lace come with A6b.
     const sleeves = { L: new THREE.Mesh(emptySleeve(), m), R: new THREE.Mesh(emptySleeve(), m) };
     // The veil always lies over what is under it.
@@ -279,7 +285,7 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
     const tm = { trim: new THREE.MeshPhysicalMaterial({ roughness: 0.45, sheen: 1, sheenRoughness: 0.3, side: THREE.DoubleSide }), ruffle: new THREE.MeshStandardMaterial({ roughness: 0.55, side: THREE.DoubleSide }), fringe: new THREE.LineBasicMaterial({ transparent: true, opacity: 0.9 }), band: new THREE.MeshStandardMaterial({ roughness: 0.7, side: THREE.DoubleSide }), seam: new THREE.MeshStandardMaterial({ roughness: 0.7, side: THREE.DoubleSide }) };
     // The surface's canvases: made once, in the browser, when first needed.
     const maps = { weave: null as HTMLCanvasElement | null, lace: null as HTMLCanvasElement | null, cut: null as HTMLCanvasElement | null, tex: { weave: null as THREE.CanvasTexture | null, lace: null as THREE.CanvasTexture | null, cut: null as THREE.CanvasTexture | null } };
-    return { su, maps, mesh, m, sheerBack, T: emptyEnvelope(), D: emptyDress(), K, cape, sleeves, V, veil, vm, laceTile, lm, veilEdge, veilCap, bm, veilBand, closure, em, mdm, cdm, sm, om, overlay, ov: null as GownOverlayMesh | null, im, inner, extras, tm };
+    return { su, maps, mesh, m, sheerBack, T: emptyEnvelope(), D: emptyDress(), K, cape, capeSheer, capeBand, capeJewel, capeEdge, sleeves, V, veil, vm, laceTile, lm, veilEdge, veilCap, bm, veilBand, closure, em, mdm, cdm, sm, om, overlay, ov: null as GownOverlayMesh | null, im, inner, extras, tm };
   }, []);
   const [frame, setFrame] = useState({ S: 1, floor: 0, top: 1.7, ver: 0, width: 0.6 });
   const [loops, setLoops] = useState<Record<GownTapeKey, number[]> | null>(null);
@@ -342,6 +348,47 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       const hung = buildCape(rig, cloth.T, cloth.D, swing, cloth.K, design, { floorY: floor, pose: 'a', pleatAmp: design.pleat !== 'none' ? pleatAmp : 0, sleeves: worn, overlayOut: ovOut });
       if (cloth.cape.parent !== root) root.add(cloth.cape);
       cloth.cape.visible = hung;
+      if (hung) {
+        // The cape's own cloth: the gown fabric (or its accent colour), or a sheer, or lace (v196 `capeMatNow`).
+        const now = gownCapeNow(design), gownHex = gownClothColour(design.colour, design.colourHex), accent = design.capeCol === 'accent' && !!design.accentHex;
+        const hex = accent ? parseInt(design.accentHex!.slice(1), 16) : gownHex, sheerGown = ft.props.sheer > 0.3;
+        let clothMat: THREE.Material = cloth.m;
+        if (now.fab === 'lace') clothMat = cloth.lm;
+        else if (now.fab !== 'gown' || sheerGown || accent) {
+          const cs = cloth.capeSheer;
+          cs.color.setHex(hex);
+          applyGownShine(cs, now.fab === 'gown' ? ft.drawAs : (now.fab as Exclude<typeof now.fab, 'gown' | 'lace'>), GOWN_SCENES[scene].env);
+          const opaque = now.fab === 'gown' && !sheerGown;
+          cs.transparent = !opaque;
+          cs.depthWrite = opaque;
+          cs.opacity = opaque ? 1 : GOWN_CAPE_SHEER_OPACITY[now.fab] ?? gownSheerOpacity(ft.props);
+          clothMat = cs;
+        }
+        // The border: lace or appliqué from the gown's lace (Chantilly or Floral when none), in the lace colour.
+        let edgeMat: THREE.Material = clothMat;
+        if (now.edge === 'lace' || now.edge === 'applique') {
+          const ce = cloth.capeEdge, key = `${now.edge}|${design.lace}|${design.laceCol}`;
+          if (ce.key !== key) {
+            const sz = GOWN_CAPE_EDGE_PX[now.edge];
+            ce.canvas ??= document.createElement('canvas');
+            ce.canvas.width = sz.w;
+            ce.canvas.height = sz.h;
+            const g = ce.canvas.getContext('2d');
+            if (g) drawGownCapeEdge(g, now.edge, design.lace);
+            ce.tex?.dispose();
+            ce.tex = Object.assign(new THREE.CanvasTexture(ce.canvas), { colorSpace: THREE.SRGBColorSpace, wrapS: THREE.RepeatWrapping, wrapT: THREE.ClampToEdgeWrapping });
+            ce.mat.map = ce.tex;
+            ce.mat.color.setHex(GOWN_LACE_COLOUR[design.laceCol]);
+            ce.mat.needsUpdate = true;
+            ce.key = key;
+          }
+          edgeMat = ce.mat;
+        }
+        cloth.capeBand.color.setHex(hex);
+        cloth.cape.material = [clothMat, edgeMat, cloth.capeBand, cloth.capeJewel];
+        // Sheer capes are drawn after the gown (and before the veil).
+        cloth.cape.renderOrder = (clothMat as THREE.Material).transparent ? 4 : 0;
+      }
       // The veil clears her head, the gown and the cape (v197: its length from the crown, the blusher, the lace edge, the cap).
       const v = buildGownVeil(rig, cloth.T, cloth.D, hung ? cloth.K : null, design, cloth.V, floor, ovOut);
       if (cloth.veil.parent !== root) root.add(cloth.veil);
@@ -435,6 +482,11 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       cloth.m.dispose();
       cloth.vm.dispose();
       cloth.lm.dispose();
+      cloth.capeSheer.dispose();
+      cloth.capeBand.dispose();
+      cloth.capeJewel.dispose();
+      cloth.capeEdge.mat.dispose();
+      cloth.capeEdge.tex?.dispose();
       cloth.mdm.dispose();
       cloth.cdm.dispose();
       cloth.bm.dispose();

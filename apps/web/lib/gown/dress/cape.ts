@@ -1,14 +1,21 @@
 /**
- * 👗 gown/dress/cape — a side cape (her left shoulder), a back cape or a capelet, in the gown's own fabric (prototype v193
- * `buildCape`, `capeArms`, `writeCape`, `capeMetres`). Hung from the base of her neck. Each column of the cape is a ray
- * out from her centre line at one direction round her: going down, it lies on whatever is widest so far (shoulder, arm,
- * sleeve, bodice, skirt) and never comes back in, so past the widest point it falls straight. Neighbouring columns are
- * eased into each other, so a fold over the arm tapers instead of standing up as a wall.
+ * 👗 gown/dress/cape — the cape catalogue (prototype v196, as v197 has it: `CAPE_DEF`, `capeSpecs`, `hangPart`,
+ * `capeStrap`, `capeTrimBuild`, `buildCape`, `writeCape`, `capeAt`, `capeMetres`): a neck cape, a back cape, a pair of
+ * shoulder capes, a side cape, a capelet and a one-shoulder drape.
+ *
+ * A cape is one or two panels. Each panel is hung the v193 way: each column is a ray out from her centre line at one
+ * direction round her; going down it lies on whatever is widest so far (shoulder, arm, sleeve, bodice, skirt) and never
+ * comes back in, so past the widest point it falls straight. What each cape changes is where its columns start (the base
+ * of the neck, a band round the neck, the line of a strap over the shoulder, the shoulders), where they end (its length;
+ * the neck cape's short front) and which directions round her it covers. Whatever the cape carries (a lace or appliqué
+ * border, beads, a neck band, a strap, a clasp) is built into the same mesh as extra groups, so every cape is one mesh to
+ * draw (groups: 0 its cloth, 1 its border, 2 bands and straps, 3 clasps and beads), and it rides the twirl with the cloth
+ * under it.
  *
  * State is passed in: the posed body, its envelope, the dress as built and the cloth's swing. Plain three.js maths.
  */
 import * as THREE from 'three';
-import type { GownCape, GownSilhouette, GownTrain } from '../../gown-config';
+import { GOWN_CAPE_STRAP, GOWN_STRAPLESS, gownCapeNow, type GownCape, type GownCapeLength, type GownConfig } from '../../gown-config';
 import { jointP, jointY } from '../body/bones';
 import { RING_N, SLICE_DY, TAU } from '../body/constants';
 import { clamp, smoothstep, type GownRig } from '../body/rig';
@@ -18,21 +25,25 @@ import { GOWN_TRAIN_CM, trainShare } from './lines';
 import type { GownEnvelope } from './table';
 
 const N = RING_N, DY = SLICE_DY, DTH = TAU / N;
-/** Columns round her, rows from the neck to the hem or the floor. */
+/** Columns round her, rows from the top to the hem or the floor; vertices per panel; room for the trim. */
 export const CAPE_COLS = 61;
 export const CAPE_ROWS = 72;
-const CNA = CAPE_COLS, CNR = CAPE_ROWS;
+const CNA = CAPE_COLS, CNR = CAPE_ROWS, CNV = CNA * CNR, CTRIM = 5600;
+export const CAPE_PANEL_VERTS = CNV;
+/** Two panels at most, then the trim. */
+export const CAPE_VERTS = 2 * CNV + CTRIM;
 
-/** Poses (by name: the motion step names them) where a floor-length cape can't hang clean (kneeling, seated): hidden there, still in the design. */
-export const GOWN_CAPE_HIDE: Record<Exclude<GownCape, 'none'>, readonly string[]> = {
-  side: ['kneel', 'sit', 'cross'],
-  back: ['kneel', 'sit', 'cross'],
-  capelet: [],
-};
-/** How far a cape runs on along the floor past her heel, before any train (cm). */
-export const GOWN_CAPE_FLOOR_CM = 15;
+/** Poses (by name: the motion step names them) where a long cape can't hang clean (kneeling, seated): hidden there, still in the design (v196 `CAPE_HIDE_POSES`). */
+export const GOWN_CAPE_HIDE_POSES: readonly string[] = ['kneel', 'sit', 'cross'];
+/** A cape's own train on the floor when she has not set one (cm), and how far other capes run on (v196). */
+export const GOWN_CAPE_FLOOR_CM = { train: 60, back: 15, other: 6 } as const;
+/** The clasps' and beads' look, for the stage's material (v196 `capeJewelMat`). */
+export const GOWN_CAPE_JEWEL = { colour: 0xf4f1ea, metalness: 0.35, roughness: 0.12, envMapIntensity: 1.8 } as const;
+/** How sheer each cape fabric is drawn (v196 `capeMatNow`). */
+export const GOWN_CAPE_SHEER_OPACITY: Partial<Record<string, number>> = { tulle: 0.26, chiffon: 0.44, organza: 0.36 };
 
-export type GownCapeShape = {
+/** One panel as hung: its lattice, top and hem per column, the directions it covers, and where it sits in the mesh. */
+export type GownCapePart = {
   ys: number[];
   Rm: Float32Array;
   j0: Int32Array;
@@ -42,35 +53,55 @@ export type GownCapeShape = {
   a1: number;
   ring: boolean;
   czAt: (y: number) => number;
+  lens: Float32Array;
+  Smax: number;
+  pw: number;
+  /** Its first vertex in the mesh. */
+  vo: number;
 };
+/** Kept for the cape's first panel (the tests read it). */
+export type GownCapeShape = GownCapePart;
 
 export type GownCapeMesh = {
   geo: THREE.BufferGeometry;
   /** The still shape, before the swing. */
   base: Float32Array;
-  info: GownCapeShape | null;
+  parts: GownCapePart[];
+  /** The first panel, or null when no cape is hung. */
+  info: GownCapePart | null;
   kind: GownCape;
   /** The swing it was last written for. */
   th: number | null;
+  /** Vertices in use (the panels and the trim). */
+  nUsed: number;
+  /** The free edge's length (metres) and the beads on it. */
+  edgeL: number;
+  beadN: number;
+  /** The index's shape, so it is only re-made when the cape changes. */
+  key: string;
+  /** The cape is drawn sheer (not the gown's own opaque cloth): the stage draws it after the gown. */
+  sheer: boolean;
 };
 
 /** The design keys the cape reads. */
-export type GownCapeDesign = { cape: GownCape; sil: GownSilhouette; train: GownTrain };
+export type GownCapeDesign = Pick<GownConfig, 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCm' | 'sil' | 'train' | 'neck'>;
 
 export function emptyCape(): GownCapeMesh {
-  const g = new THREE.BufferGeometry(), ix: number[] = [], n = CNR * CNA;
+  const g = new THREE.BufferGeometry(), n = CAPE_VERTS;
   g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
   g.setAttribute('rest', new THREE.BufferAttribute(new Float32Array(n * 3), 3));
+  g.setAttribute('uv', new THREE.BufferAttribute(new Float32Array(n * 2), 2));
   // No lace, cut-outs or techniques on the cape.
   g.setAttribute('gmap', new THREE.BufferAttribute(new Float32Array(n * 2).fill(-1), 2));
   g.setAttribute('gcz', new THREE.BufferAttribute(new Float32Array(n).fill(-100), 1));
-  for (let i = 0; i < CNR - 1; i++) for (let a = 0; a < CNA - 1; a++) { const p = i * CNA + a, q = p + CNA; ix.push(p, q, p + 1, p + 1, q, q + 1); }
-  g.setIndex(ix);
-  return { geo: g, base: new Float32Array(n * 3), info: null, kind: 'none', th: null };
+  return { geo: g, base: new Float32Array(n * 3), parts: [], info: null, kind: 'none', th: null, nUsed: 0, edgeL: 0, beadN: 0, key: '', sheer: false };
 }
 
-/** Whether the cape hangs in this pose (a floor-length cape hides while she kneels or sits). */
-export const gownCapeShown = (kind: GownCape, pose: string) => kind !== 'none' && !GOWN_CAPE_HIDE[kind].includes(pose);
+/** Whether the cape hangs in this pose: a cape to the fingertips or longer hides while she kneels or sits. */
+export const gownCapeShown = (d: Pick<GownConfig, 'cape' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten'>, pose: string) =>
+  d.cape !== 'none' && !(gownCapeNow(d).long && GOWN_CAPE_HIDE_POSES.includes(pose));
+/** A cape hung from one shoulder on a neckline with no strap gets a narrow strap there (v196 `capeStrapNeeded`). */
+export const gownCapeStrapNeeded = (d: Pick<GownConfig, 'cape' | 'neck'>) => !!GOWN_CAPE_STRAP[d.cape] && GOWN_STRAPLESS.includes(d.neck);
 
 const armEdges = new WeakMap<GownRig, Partial<Record<'L' | 'R', Uint32Array>>>();
 
@@ -128,42 +159,141 @@ export function capeArms(B: GownRig, sides: readonly ('L' | 'R')[], sleeves: Par
   return out;
 }
 
-/**
- * Hang the cape on her (v193 `buildCape`). `T` and `D` are the envelope and the dress of the same pose (the dress already
- * written by `writeDress`); `floorY` is where she stands. Returns false (nothing to draw) for no cape, or a pose that
- * hides it.
- */
-export function buildCape(
-  B: GownRig, T: GownEnvelope, D: GownDress, C: GownCloth, cape: GownCapeMesh, design: GownCapeDesign,
-  opt: { floorY: number; pose: string; pleatAmp?: number; dressShown?: boolean; sleeves?: Partial<Record<'L' | 'R', ArrayLike<number>>>; overlayOut?: number },
-): boolean {
-  const kind = design.cape;
-  cape.kind = kind;
-  if (kind === 'none' || !T.on || !gownCapeShown(kind, opt.pose)) { cape.info = null; return false; }
-  const P = B.P, cm = 0.01 / P.S, yN = jointY(B, 'neck01'), ySh = jointY(B, 'upperarm01.L'), Ltr = GOWN_TRAIN_CM[design.train];
-  const yFl = opt.floorY + (Ltr > 0 ? 0.03 : 0.012);
-  // The capelet's seam is at centre back.
-  const side = kind === 'side', ring = kind === 'capelet', a0 = side ? 1.15 : kind === 'back' ? 1.9 : Math.PI, a1 = side ? 2.75 : kind === 'back' ? TAU - 1.9 : Math.PI + TAU;
+type Side = 'L' | 'R';
+/** What every panel of this cape shares (v196 `G`). */
+type CapeG = { M: number; cm: number; yN: number; ySh: number; yFl: number; yBand: number; FL: number; yTopMax: number; strap: Partial<Record<Side, CapeStrapLine>> };
+type CapeStrapLine = { yAt: (a: number) => number; drawn: { x: number; y: number; z: number; ny: number; nz: number }[]; top: { x: number; y: number; z: number; ny: number; nz: number } };
+/** One panel to hang: the directions it covers, where its columns start and end, which arms it lies on, its folds. */
+type CapeSpec = {
+  a0: number; a1: number; ring: boolean; arms: Side[]; foldK: number; foldF: number; pw: number;
+  top: ((a: number, t: number) => number) | null; hem: (a: number) => number; floorW: (a: number) => number;
+};
+
+const czOf = (T: GownEnvelope) => (y: number) => { const f = clamp((y - T.y0) / DY, 0, T.n - 1.001), j = f | 0; return T.cz[j]! + (T.cz[j + 1]! - T.cz[j]!) * (f - j); };
+/** Her body's own reach at a direction and height (the body table, no gown) (v196 `capeTabR`). */
+function capeTabR(T: GownEnvelope, a: number, y: number): number {
+  const f = clamp((y - T.y0) / DY, 0, T.n - 1.001), j = f | 0, u = f - j;
+  let q = a / DTH;
+  q = ((q % N) + N) % N;
+  const k0 = (q | 0) % N, k1 = (k0 + 1) % N, w = q - (q | 0), rd = (jj: number) => T.H[jj * N + k0]! * (1 - w) + T.H[jj * N + k1]! * w;
+  return rd(j) * (1 - u) + rd(j + 1) * u;
+}
+/** The gown's top edge in one direction (v196 `capeTopAt`). */
+function capeTopAt(T: GownEnvelope, a: number): number {
+  let q = a / DTH;
+  q = ((q % N) + N) % N;
+  const k0 = (q | 0) % N, k1 = (k0 + 1) % N, w = q - (q | 0);
+  return T.top[k0]! * (1 - w) + T.top[k1]! * w;
+}
+
+/** The line a strap takes over one shoulder: up the front from the bodice, over the top, down the back (v196 `capeStrap`). */
+function capeStrap(B: GownRig, T: GownEnvelope, sd: Side): CapeStrapLine {
+  const czAt = czOf(T), M = 1 / B.P.S, V = B.V, sg = sd === 'L' ? 1 : -1, ySh = jointY(B, `upperarm01.${sd}`), xUA = Math.abs(jointP(B, `upperarm01.${sd}`, new THREE.Vector3()).x), yN = jointY(B, 'neck01');
+  const xNk = capeTabR(T, sg > 0 ? Math.PI / 2 : 1.5 * Math.PI, yN), xs = xNk + 0.45 * Math.max(0.02 * M, xUA - xNk), half = 0.0095 * M, yC = ySh - 0.13 * M, zC = czAt(ySh);
+  const NB = 64, th0 = -0.45, th1 = Math.PI + 0.45, D = new Float32Array(NB);
+  for (let i = 0; i < B.n; i++) {
+    const x = V[i * 3]! * sg;
+    if (Math.abs(x - xs) > half) continue;
+    const dy = V[i * 3 + 1]! - yC, dz = V[i * 3 + 2]! - zC;
+    if (dy < -0.12 * M) continue;
+    const th = Math.atan2(dy, dz);
+    if (th < th0 || th > th1) continue;
+    const b = Math.min(NB - 1, (((th - th0) / (th1 - th0)) * NB) | 0), d = Math.hypot(dy, dz);
+    if (d > D[b]! && d < 0.3 * M) D[b] = d;
+  }
+  for (let b = 0; b < NB; b++) if (!D[b]) {
+    let l = b - 1, r = b + 1;
+    while (l >= 0 && !D[l]) l--;
+    while (r < NB && !D[r]) r++;
+    D[b] = l >= 0 && r < NB ? (D[l]! + D[r]!) / 2 : l >= 0 ? D[l]! : r < NB ? D[r]! : 0.12 * M;
+  }
+  // A cord laid over the shoulder bridges small hollows.
+  const D1 = Float32Array.from(D, (v, b) => Math.max(v, D[Math.max(0, b - 1)]! * 0.985, D[Math.min(NB - 1, b + 1)]! * 0.985));
+  const Dm = Float32Array.from(D1, (v, b) => { let t = 0, w = 0; for (let d = -3; d <= 3; d++) { const k = 4 - Math.abs(d); t += D1[clamp(b + d, 0, NB - 1)]! * k; w += k; } return Math.max(v, t / w); });
+  const pts: { x: number; y: number; z: number; ny: number; nz: number; a: number }[] = [];
+  for (let b = 0; b < NB; b++) {
+    const th = th0 + ((b + 0.5) / NB) * (th1 - th0), d = Dm[b]!, y = yC + d * Math.sin(th), z = zC + d * Math.cos(th), x = sg * xs;
+    let a = Math.atan2(x, z - czAt(y));
+    if (a < 0) a += TAU;
+    pts.push({ x, y, z, ny: Math.sin(th), nz: Math.cos(th), a });
+  }
+  const yAt = (a: number) => {
+    const asc = pts[pts.length - 1]!.a > pts[0]!.a, A = (p: { a: number }) => (asc ? p.a : -p.a), t = asc ? a : -a;
+    if (t <= A(pts[0]!)) return pts[0]!.y;
+    for (let k = 1; k < pts.length; k++) if (t <= A(pts[k]!)) { const p = pts[k - 1]!, q = pts[k]!, u = (t - A(p)) / Math.max(1e-6, A(q) - A(p)); return p.y + (q.y - p.y) * u; }
+    return pts[pts.length - 1]!.y;
+  };
+  // The strap runs from where it is sewn under the bodice's top edge, front and back.
+  const tuck = 0.012 * M, on = (p: { y: number; a: number }) => p.y > capeTopAt(T, p.a) - tuck;
+  let f = 0, l = pts.length - 1;
+  while (f < l && !on(pts[f]!)) f++;
+  while (l > f && !on(pts[l]!)) l--;
+  return { yAt, drawn: pts.slice(Math.max(0, f - 1), Math.min(pts.length, l + 2)), top: pts[NB >> 1]! };
+}
+
+/** The hem height for a length (arm lengths are her own, whatever the pose) (v196 `capeLens`). */
+function capeLens(B: GownRig, G: CapeG, len: GownCapeLength): number {
+  const J = (s: string) => jointP(B, s, new THREE.Vector3()), up = J('upperarm01.L').distanceTo(J('lowerarm01.L')), fore = J('lowerarm01.L').distanceTo(J('wrist.L'));
+  const y = { shoulder: G.ySh - 0.08 * G.M, elbow: G.ySh - up * 0.95, fingertip: G.ySh - (up + fore + (B.handLen || 0.08)) * 0.97, floor: G.yFl, train: G.yFl }[len];
+  return Math.max(G.yFl, y);
+}
+
+/** The panels of a cape: directions, where each column starts and ends, which arms it lies on (v196 `capeSpecs`). */
+function capeSpecs(B: GownRig, kind: Exclude<GownCape, 'none'>, G: CapeG, now: ReturnType<typeof gownCapeNow>): CapeSpec[] {
+  const len = now.len, yL = capeLens(B, G, len), back = (a: number) => (1 - Math.cos(a)) / 2, mir = (a: number) => (a > Math.PI ? TAU - a : a), M = G.M, floorish = len === 'floor' || len === 'train';
+  const S = (o: Partial<CapeSpec> & Pick<CapeSpec, 'a0' | 'a1' | 'hem' | 'floorW'>): CapeSpec => ({ ring: false, arms: ['L', 'R'], top: null, foldK: 0.06, foldF: 14, pw: 1.7, ...o });
+  if (kind === 'neck') {
+    // Fastened at a band round her neck: over both shoulders and arms; open at the front below the band.
+    const yB = G.yBand, yF = G.ySh - 0.1 * M;
+    return [S({ a0: Math.PI, a1: Math.PI + TAU, ring: true, foldK: 0.045, foldF: 12, top: () => yB, hem: (a) => yL + (yF - yL) * smoothstep(Math.cos(a), Math.cos(1.3), Math.cos(0.42)), floorW: (a) => (floorish ? smoothstep(back(a), 0.35, 0.95) : 0) })];
+  }
+  if (kind === 'back') {
+    const sh = now.fasten === 'shoulders';
+    return [S({ a0: sh ? 2.0 : 1.9, a1: TAU - (sh ? 2.0 : 1.9), top: sh ? (_a, t) => Math.min(t, G.ySh + 0.025 * M) : null, hem: (a) => yL - (floorish ? 0 : 0.04 * M * smoothstep(back(a), 0.8, 1)), floorW: (a) => (floorish ? smoothstep(back(a), 0.6, 0.95) : 0) })];
+  }
+  if (kind === 'capelet') {
+    // Open at the front; a small clasp holds it at the neck.
+    return [S({
+      a0: 0.3, a1: TAU - 0.3, foldK: 0.035, pw: 1.15,
+      hem: (a) => (len === 'elbow' ? yL - 0.03 * M * back(a) - 0.02 * M * smoothstep(Math.cos(a), 0.7, 0.96) : G.ySh - 0.045 - 0.05 * smoothstep(back(a), 0.1, 0.6) - 0.015 * M * smoothstep(Math.cos(a), 0.7, 0.96)),
+      floorW: () => 0,
+    })];
+  }
+  if (kind === 'side') {
+    // From the strap on her left shoulder, round to the front-side, over the arm, down the side and back.
+    const st = G.strap.L!;
+    return [S({ a0: 0.85, a1: 2.7, arms: ['L'], top: (a) => st.yAt(a), hem: () => yL, floorW: (a) => (floorish ? smoothstep(a, 1.8, 2.6) : 0) })];
+  }
+  if (kind === 'pair') {
+    // One panel from each shoulder, her back bare between them.
+    return (['L', 'R'] as const).map((sd) => {
+      const st = G.strap[sd]!, A0 = 1.22, A1 = 2.42;
+      return S({ a0: sd === 'L' ? A0 : TAU - A1, a1: sd === 'L' ? A1 : TAU - A0, arms: [sd], top: (a) => st.yAt(a), hem: () => yL, floorW: (a) => (floorish ? smoothstep(mir(a), 1.75, 2.55) : 0) });
+    });
+  }
+  // The one-shoulder drape: one strip of chiffon from her right shoulder, beside the arm, to the floor.
+  const st = G.strap.R!;
+  return [S({ a0: TAU - 1.9, a1: TAU - 1.2, arms: ['R'], foldK: 0.11, foldF: 46, top: (a) => st.yAt(a), hem: () => yL, floorW: (a) => (floorish ? 0.35 + 0.65 * smoothstep(mir(a), 1.4, 1.9) : 0) })];
+}
+
+type HangOpt = { pleatAmp?: number; dressShown?: boolean; sleeves?: Partial<Record<Side, ArrayLike<number>>>; overlayOut?: number };
+/** One panel: the v193 lattice and fall, into its own block of the mesh (v196 `hangPart`). */
+function hangPart(B: GownRig, T: GownEnvelope, D: GownDress, design: GownCapeDesign, sp: CapeSpec, G: CapeG, pi: number, base: Float32Array, uvs: Float32Array, opt: HangOpt): GownCapePart {
+  const { a0, a1, ring } = sp, cm = G.cm, yN = G.yN, ySh = G.ySh, yFl = G.yFl, FL = G.FL;
   const ang = new Float32Array(CNA);
   for (let c = 0; c < CNA; c++) ang[c] = a0 + ((a1 - a0) * c) / (CNA - 1);
   const back = (a: number) => (1 - Math.cos(a)) / 2;
-  const hem = (a: number) =>
-    ring ? ySh - 0.045 - 0.05 * smoothstep(back(a), 0.1, 0.6)
-      : side ? (a < 1.95 ? ySh + 0.02 - 0.12 * smoothstep(a, 1.15, 1.6) : ySh - 0.1 + (yFl - (ySh - 0.1)) * smoothstep(a, 1.95, 2.45))
-        : yFl;
-  const floorW = (a: number) => (ring ? 0 : side ? smoothstep(a, 2.25, 2.75) : smoothstep(back(a), 0.6, 0.95));
-  const FL = (GOWN_CAPE_FLOOR_CM + Ltr * 0.9) / 100 / P.S;
 
   // The lattice: rows at fixed heights (fine over the shoulders), one column per direction.
   let yLo = 1e9;
-  const tops = new Float32Array(CNA), hems = new Float32Array(CNA), yHi = yN + 0.005;
-  for (let c = 0; c < CNA; c++) { hems[c] = Math.max(yFl, hem(ang[c]!)); yLo = Math.min(yLo, hems[c]!); }
+  const tops = new Float32Array(CNA), hems = new Float32Array(CNA), yHi = Math.max(yN + 0.005, G.yTopMax);
+  for (let c = 0; c < CNA; c++) { hems[c] = Math.max(yFl, sp.hem(ang[c]!)); yLo = Math.min(yLo, hems[c]!); }
   const ys: number[] = [];
   // Fine over the shoulders, finer where a full skirt springs out from the waist.
   for (let y = yHi; y > yLo - 1e-6;) { ys.push(y); y -= y > yHi - 0.13 ? 0.0025 : y > ySh - 0.25 || (design.sil === 'ball' && y > T.yS - 0.25) ? 0.005 : 0.01; }
   const NJ = ys.length, need = new Float32Array(NJ * CNA), Rm = new Float32Array(NJ * CNA), j0 = new Int32Array(CNA);
-  const arms = capeArms(B, side ? ['L'] : ['L', 'R'], opt.sleeves), off = 0.45 * cm, offA = 0.4 * cm, tableTop = T.y0 + (T.n - 2) * DY;
-  const czAt = (y: number) => { const f = clamp((y - T.y0) / DY, 0, T.n - 1.001), j = f | 0; return T.cz[j]! + (T.cz[j + 1]! - T.cz[j]!) * (f - j); };
+  const arms = capeArms(B, sp.arms, opt.sleeves), off = 0.45 * cm, offA = 0.4 * cm, tableTop = T.y0 + (T.n - 2) * DY;
+  const czAt = czOf(T);
   const SN = Array.from(ang, Math.sin), CS = Array.from(ang, Math.cos);
   const CK0 = new Int32Array(CNA), CKW = new Float32Array(CNA);
   for (let c = 0; c < CNA; c++) { let a = Math.atan2(SN[c]!, CS[c]!) / DTH; if (a < 0) a += N; CK0[c] = (a | 0) % N; CKW[c] = a - (a | 0); }
@@ -183,7 +313,6 @@ export function buildCape(
   for (let j = 0; j < NJ; j++) {
     const y = ys[j]!, tS = clamp((T.yS - y) / Math.max(0.05, T.yS - T.yHem), 0, 1), gS = smoothstep(tS, 0.35, 1), sk = y < T.yS ? 1 + D.fold * tS : 1, plY = pl && y < T.yS ? pl : 0;
     for (let c = 0; c < CNA; c++) {
-      if (j < j0[c]!) continue;
       const sx = SN[c]!, sz = CS[c]!;
       let r = 0;
       if (y < tableTop) {
@@ -199,16 +328,20 @@ export function buildCape(
     }
   }
   {
-    // The top edge: where her neck meets the shoulders (the body has widened 1.2 cm past the neck), smoothed round her.
+    // The top edge: where her neck meets the shoulders (the body has widened 1.2 cm past the neck), smoothed round her;
+    // or where this cape is fastened.
     const yt = new Float32Array(CNA);
     for (let c = 0; c < CNA; c++) { const n0 = need[c]!; let j = 0; while (j < NJ - 1 && need[j * CNA + c]! < n0 + 0.012 && ys[j]! > yN - 0.08) j++; yt[c] = ys[Math.max(0, j - 1)]!; }
     for (let c = 0; c < CNA; c++) {
       let s = 0, w = 0;
       for (let d = -3; d <= 3; d++) { let c2 = c + d; c2 = ring ? (((c2 % (CNA - 1)) + (CNA - 1)) % (CNA - 1)) : clamp(c2, 0, CNA - 1); const k = 4 - Math.abs(d); s += yt[c2]! * k; w += k; }
+      let t = s / w;
+      if (sp.top) t = sp.top(ang[c]!, t);
+      t = Math.max(t, hems[c]! + 0.01);
       let j = 0;
-      while (j < NJ - 1 && ys[j]! > s / w + 1e-6) j++;
+      while (j < NJ - 1 && ys[j]! > t + 1e-6) j++;
       j0[c] = j;
-      tops[c] = Math.max(ys[j]!, s / w);
+      tops[c] = Math.min(ys[0]!, Math.max(ys[j]!, t));
     }
   }
   if (D.geo && opt.dressShown !== false) {
@@ -343,18 +476,18 @@ export function buildCape(
       let y = ys[j]!, R = Rm[j * CNA + c]!;
       const cl = R - need[j * CNA + c]!;
       if (cl < 0.003) yC = y; // the last place the cloth touched her
-      if (y < h) { const yp = ys[j - 1]!, f = (yp - h) / Math.max(1e-6, yp - y), Rp = Rm[(j - 1) * CNA + c]!; R = Rp + (R - Rp) * f; y = h; }
+      if (y < h) { const yp = j > 0 ? ys[j - 1]! : y, f = (yp - h) / Math.max(1e-6, yp - y), Rp = j > 0 ? Rm[(j - 1) * CNA + c]! : R; R = Rp + (R - Rp) * f; y = h; }
       if (pr.length) { const q = pr[pr.length - 1]!; s += Math.hypot(R - q.R, y - q.y); }
       pr.push({ R, y, s, cl: Math.max(0, cl), fr: yC - y, fl: 0 });
       if (y <= h) break;
     }
-    const fw = floorW(ang[c]!);
+    const fw = sp.floorW(ang[c]!);
     if (h <= yFl + 1e-4 && fw > 0.01) { const q = pr[pr.length - 1]!; pr.push({ R: q.R, y: q.y, s: s + FL * fw, cl: q.cl, fr: q.fr, fl: FL * fw }); s += FL * fw; }
     prof.push(pr);
     lens[c] = s;
     Smax = Math.max(Smax, s);
   }
-  const pw = ring ? 1.15 : 1.7, pos = cape.base, foldK = ring ? 0.035 : 0.06;
+  const pw = sp.pw, pos = base, vo = pi * CNV, foldK = sp.foldK, tile = 0.12 * G.M;
   for (let c = 0; c < CNA; c++) {
     const pr = prof[c]!, sx = SN[c]!, sz = CS[c]!, bk = back(ang[c]!);
     let k = 0;
@@ -362,35 +495,236 @@ export function buildCape(
     for (let i = 0; i < CNR; i++) {
       const s = Math.min(lens[c]!, Smax * Math.pow(i / (CNR - 1), pw));
       while (k < pr.length - 2 && pr[k + 1]!.s < s) k++;
-      const A = pr[k]!, Bp = pr[Math.min(pr.length - 1, k + 1)]!, u = Bp.s > A.s ? clamp((s - A.s) / (Bp.s - A.s), 0, 1) : 0, o = (i * CNA + c) * 3;
+      const A = pr[k]!, Bp = pr[Math.min(pr.length - 1, k + 1)]!, u = Bp.s > A.s ? clamp((s - A.s) / (Bp.s - A.s), 0, 1) : 0, o = (vo + i * CNA + c) * 3;
       const onFloor = Bp.fl > 0 && u > 0, R0 = onFloor ? A.R : A.R + (Bp.R - A.R) * u, y = onFloor ? A.y : A.y + (Bp.y - A.y) * u;
       const cl = A.cl + (Bp.cl - A.cl) * (onFloor ? 0 : u), fr = A.fr + (Bp.fr - A.fr) * (onFloor ? 0 : u);
       // Soft folds, outward only, and only where the cloth hangs free.
-      const fold = Math.min(foldK * R0 * smoothstep(fr, 0.03, 0.45), 0.6 * cl) * (0.5 + 0.5 * Math.sin(14 * ang[c]! + 1.3)), R = R0 + fold, cz = czAt(y);
+      const fold = Math.min(foldK * R0 * smoothstep(fr, 0.03, 0.45), 0.6 * cl) * (0.5 + 0.5 * Math.sin(sp.foldF * ang[c]! + 1.3)), R = R0 + fold, cz = czAt(y);
       let x = R * sx, z = cz + R * sz;
       if (onFloor) { const d = Bp.fl * u; x += (fx / fn) * d; z += (fz / fn) * d; }
       pos[o] = x; pos[o + 1] = y; pos[o + 2] = z;
+      uvs[(vo + i * CNA + c) * 2] = ((ang[c]! - a0) * 0.3 * G.M) / tile;
+      uvs[(vo + i * CNA + c) * 2 + 1] = s / tile;
     }
   }
-  cape.info = { ys, Rm, j0, tops, hems, a0, a1, ring, czAt };
-  const rest = cape.geo.attributes.rest as THREE.BufferAttribute;
-  (rest.array as Float32Array).set(pos);
+  return { ys, Rm, j0, tops, hems, a0, a1, ring, czAt, lens, Smax, pw, vo };
+}
+
+/** A point on a panel by column (fractional) and length down it: four lattice vertices and their weights (v196 `capeGrid`). */
+export function capeGrid(I: GownCapePart, cf: number, s: number): number[] {
+  let c = cf;
+  if (I.ring) c = ((c % (CNA - 1)) + (CNA - 1)) % (CNA - 1);
+  c = clamp(c, 0, CNA - 1);
+  const c0 = Math.min(CNA - 2, c | 0), w = c - c0, out: number[] = [];
+  for (const [cc, wc] of [[c0, 1 - w], [c0 + 1, w]] as const) {
+    const L = I.lens[cc]!, fi = (CNR - 1) * Math.pow(clamp(Math.min(s, L) / Math.max(1e-6, I.Smax), 0, 1), 1 / I.pw), i0 = Math.min(CNR - 2, fi | 0), v = fi - i0;
+    out.push(I.vo + i0 * CNA + cc, wc * (1 - v), I.vo + (i0 + 1) * CNA + cc, wc * v);
+  }
+  return out;
+}
+type P3 = [number, number, number];
+/** A panel's free edge (not where it is fastened) as points on the lattice, in order (v196 `capeEdgeLine`). */
+function capeEdgeLine(I: GownCapePart, P: Float32Array) {
+  const raw: { cf: number; s: number; p: P3 }[] = [], st = (I.a1 - I.a0) / (CNA - 1);
+  const at = (cf: number, s: number): P3 => { const g = capeGrid(I, cf, s); let x = 0, y = 0, z = 0; for (let k = 0; k < g.length; k += 2) { const o = g[k]! * 3, wv = g[k + 1]!; x += P[o]! * wv; y += P[o + 1]! * wv; z += P[o + 2]! * wv; } return [x, y, z]; };
+  const push = (cf: number, s: number) => raw.push({ cf, s, p: at(cf, s) });
+  if (!I.ring) for (let k = 0; k <= 24; k++) push(0, ((I.lens[0]! * k) / 24) * 0.999);
+  for (let c = 0; c < CNA; c++) push(c, I.lens[c]!);
+  if (!I.ring) for (let k = 24; k >= 0; k--) push(CNA - 1, ((I.lens[CNA - 1]! * k) / 24) * 0.999);
+  const L = [0];
+  for (let k = 1; k < raw.length; k++) L.push(L[k - 1]! + Math.hypot(raw[k]!.p[0] - raw[k - 1]!.p[0], raw[k]!.p[1] - raw[k - 1]!.p[1], raw[k]!.p[2] - raw[k - 1]!.p[2]));
+  return { raw, L, tot: L[L.length - 1]!, st, at, R: (p: P3) => Math.hypot(p[0], p[2] - I.czAt(p[1])) };
+}
+
+/** Border strip, beads, neck band, strap, clasps: extra vertices after the panels, in the same mesh (v196 `capeTrimBuild`). */
+function capeTrimBuild(B: GownRig, T: GownEnvelope, cape: GownCapeMesh, uvs: Float32Array, G: CapeG, kind: Exclude<GownCape, 'none'>, now: ReturnType<typeof gownCapeNow>, strapless: boolean) {
+  const M = G.M, P = cape.base, U = uvs, t0 = 2 * CNV, edge = now.edge, czAt = czOf(T), grp = { edge: [] as number[], hw: [] as number[], jw: [] as number[] };
+  let nv = t0;
+  const room = (n: number) => nv + n <= t0 + CTRIM;
+  const vtx = (x: number, y: number, z: number, u = 0, v = 0) => { const o = nv * 3; P[o] = x; P[o + 1] = y; P[o + 2] = z; U[nv * 2] = u; U[nv * 2 + 1] = v; return nv++; };
+  // Outward from her. Where the cloth lies flat on the floor that test is a near-zero number and v196 lands either side at
+  // random: there the border lies on top of the cloth.
+  const outN = (p: P3, n: P3): P3 => {
+    if (Math.abs(n[1]) > 0.9) return n[1] < 0 ? [-n[0], -n[1], -n[2]] : n;
+    const r = p[0] * n[0] + (p[2] - czAt(p[1])) * n[2];
+    return r < 0 ? [-n[0], -n[1], -n[2]] : n;
+  };
+  // A narrow band along a path: width w across, thickness t outwards.
+  const box = (pts: P3[], nr: P3[], bn: P3[], w: number, t: number, list: number[]) => {
+    if (!room(pts.length * 4)) return;
+    const b0 = nv;
+    for (let k = 0; k < pts.length; k++) { const p = pts[k]!, n = nr[k]!, b = bn[k]!; for (const [sw, sn] of [[0.5, 1], [-0.5, 1], [-0.5, 0], [0.5, 0]] as const) vtx(p[0] + b[0] * w * sw + n[0] * t * sn, p[1] + b[1] * w * sw + n[1] * t * sn, p[2] + b[2] * w * sw + n[2] * t * sn, k / 8, sn); }
+    for (let k = 0; k < pts.length - 1; k++) for (let f = 0; f < 4; f++) { const a = b0 + k * 4 + f, b = b0 + k * 4 + ((f + 1) % 4), c = a + 4, d = b + 4; list.push(a, c, b, b, c, d); }
+  };
+  const jewel = (p: P3, s: number, list: number[]) => {
+    if (!room(6)) return;
+    const b0 = nv;
+    for (const d of [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]] as const) vtx(p[0] + d[0] * s, p[1] + d[1] * s * 1.25, p[2] + d[2] * s * 0.8);
+    for (const [a, b, c] of [[0, 2, 4], [4, 2, 1], [1, 2, 5], [5, 2, 0], [4, 3, 0], [1, 3, 4], [5, 3, 1], [0, 3, 5]] as const) list.push(b0 + a, b0 + b, b0 + c);
+  };
+  // The border: lace or appliqué laid on the free edge, a little proud of the cloth; beads along it.
+  let edgeL = 0, beadN = 0;
+  for (const I of cape.parts) {
+    const E = capeEdgeLine(I, P);
+    edgeL += E.tot;
+    if (edge === 'plain' || E.tot < 0.05 * M) continue;
+    const NS = 150, ER = 4, w = (edge === 'applique' ? 0.15 : edge === 'lace' ? 0.09 : 0.012) * M, tile = (edge === 'applique' ? 0.15 : 0.1) * M;
+    const samp: { cf: number; s: number; d: number }[] = [];
+    for (let k = 0, q = 0; k < NS; k++) {
+      const d = (E.tot * k) / (NS - 1);
+      while (q < E.raw.length - 2 && E.L[q + 1]! < d) q++;
+      const a = E.raw[q]!, b = E.raw[q + 1]!, u = clamp((d - E.L[q]!) / Math.max(1e-6, E.L[q + 1]! - E.L[q]!), 0, 1);
+      samp.push({ cf: a.cf + (b.cf - a.cf) * u, s: a.s + (b.s - a.s) * u, d });
+    }
+    // Across the edge, into the cloth, as (columns, length).
+    const into = (k: number): [number, number] => {
+      const a = samp[Math.max(0, k - 2)]!, b = samp[Math.min(NS - 1, k + 2)]!, p = E.at(samp[k]!.cf, samp[k]!.s), Rr = Math.max(0.02 * M, E.R(p)), du = (b.cf - a.cf) * Rr * E.st, dv = b.s - a.s, l = Math.hypot(du, dv) || 1;
+      return [dv / l / (Rr * E.st), -du / l];
+    };
+    const nrm = (cf: number, s: number): P3 => {
+      const p = E.at(cf, s), q = E.at(I.ring ? cf + 0.5 : Math.min(CNA - 1, cf + 0.5), s), q2 = E.at(I.ring ? cf - 0.5 : Math.max(0, cf - 0.5), s), r = E.at(cf, Math.max(0, s - 0.01 * M));
+      const t1 = [q[0] - q2[0], q[1] - q2[1], q[2] - q2[2]] as const, t2 = [p[0] - r[0], p[1] - r[1], p[2] - r[2]] as const;
+      const n: P3 = [t1[1] * t2[2] - t1[2] * t2[1], t1[2] * t2[0] - t1[0] * t2[2], t1[0] * t2[1] - t1[1] * t2[0]], l = Math.hypot(...n) || 1;
+      return outN(p, [n[0] / l, n[1] / l, n[2] / l]);
+    };
+    const clampS = (cf: number, s: number): [number, number] => {
+      const g = I.ring ? ((cf % (CNA - 1)) + (CNA - 1)) % (CNA - 1) : clamp(cf, 0, CNA - 1), c0 = Math.min(CNA - 2, g | 0), L2 = I.lens[c0]! + (I.lens[c0 + 1]! - I.lens[c0]!) * (g - c0);
+      return [g, clamp(s, 0, L2)];
+    };
+    if (edge === 'beaded') {
+      const NBd = 140;
+      for (let k = 0; k < NBd; k++) {
+        const q = Math.round((k / (NBd - 1)) * (NS - 1)), [dc, ds] = into(q), [cf, s] = clampS(samp[q]!.cf + dc * w, samp[q]!.s + ds * w), p = E.at(cf, s), n = nrm(cf, s);
+        jewel([p[0] + n[0] * 0.003 * M, p[1] + n[1] * 0.003 * M, p[2] + n[2] * 0.003 * M], 0.0028 * M, grp.jw);
+        beadN++;
+      }
+      continue;
+    }
+    if (!room(NS * ER)) continue;
+    const b0 = nv;
+    for (let k = 0; k < NS; k++) {
+      const [dc, ds] = into(k);
+      for (let r = 0; r < ER; r++) { const f = r / (ER - 1), [cf, s] = clampS(samp[k]!.cf + dc * w * f, samp[k]!.s + ds * w * f), p = E.at(cf, s), n = nrm(cf, s), lift = 0.0018 * M; vtx(p[0] + n[0] * lift, p[1] + n[1] * lift, p[2] + n[2] * lift, samp[k]!.d / tile, f); }
+    }
+    for (let k = 0; k < NS - 1; k++) for (let r = 0; r < ER - 1; r++) { const a = b0 + k * ER + r, b = a + ER; grp.edge.push(a, b, a + 1, a + 1, b, b + 1); }
+  }
+  // What fastens it. Every vertex of her at this height (arms and shoulders too, which the body table leaves out).
+  const slab = (y: number) => {
+    const NB = 120, R = new Float32Array(NB), V = B.V, cz = czAt(y), h = 0.012 * M;
+    for (let i = 0; i < B.n; i++) {
+      const dy = V[i * 3 + 1]! - y;
+      if (dy > h || dy < -h) continue;
+      const x = V[i * 3]!, z = V[i * 3 + 2]! - cz, r = Math.hypot(x, z);
+      if (r > 0.35 * M) continue;
+      let a = Math.atan2(x, z);
+      if (a < 0) a += TAU;
+      const b = Math.min(NB - 1, ((a / TAU) * NB) | 0);
+      if (r > R[b]!) R[b] = r;
+    }
+    return (a: number) => { const f = (((a % TAU) + TAU) % TAU / TAU) * NB, b = f | 0; let m = 0; for (let d = -1; d <= 1; d++) m = Math.max(m, R[(b + d + NB) % NB]!); return m; };
+  };
+  const ring = (y: number, aS: number, aE: number, n: number, w: number, t: number, list: number[]) => {
+    const pts: P3[] = [], nr: P3[] = [], bn: P3[] = [], sR = slab(y);
+    for (let k = 0; k <= n; k++) { const a = aS + ((aE - aS) * k) / n, r = Math.max(capeTabR(T, a, y), capeTabR(T, a, y - 0.008 * M), capeTabR(T, a, y + 0.008 * M), sR(a)) + 0.002 * M, cz = czAt(y); pts.push([r * Math.sin(a), y, cz + r * Math.cos(a)]); nr.push([Math.sin(a), 0, Math.cos(a)]); bn.push([0, 1, 0]); }
+    box(pts, nr, bn, w, t, list);
+  };
+  if (kind === 'neck') {
+    // A thin band round her neck, the clasp at the nape.
+    ring(G.yBand, 0, TAU, 48, 0.011 * M, 0.0025 * M, grp.hw);
+    const r = capeTabR(T, Math.PI, G.yBand) + 0.004 * M;
+    jewel([0, G.yBand, czAt(G.yBand) - r], 0.0045 * M, grp.jw);
+  }
+  if ((kind === 'back' && now.fasten === 'neck') || kind === 'capelet') {
+    // A cord across the front of her neck with a small clasp.
+    const I = cape.parts[0]!, yc = Math.min(I.tops[0]!, I.tops[CNA - 1]!) - 0.004 * M, half = I.a0;
+    ring(yc, -half, half, 20, 0.004 * M, 0.003 * M, grp.hw);
+    const r = capeTabR(T, 0, yc) + 0.005 * M;
+    jewel([0, yc, czAt(yc) + r], 0.006 * M, grp.jw);
+  }
+  if (kind === 'back' && now.fasten === 'shoulders') {
+    // A clasp on each shoulder.
+    const I = cape.parts[0]!;
+    for (const c of [0, CNA - 1]) {
+      const g = capeGrid(I, c, 0.004 * M);
+      let x = 0, y = 0, z = 0;
+      for (let k = 0; k < g.length; k += 2) { const o = g[k]! * 3, wv = g[k + 1]!; x += P[o]! * wv; y += P[o + 1]! * wv; z += P[o + 2]! * wv; }
+      const n = outN([x, y, z], [Math.sign(x) * 0.7, 0.7, 0]);
+      jewel([x + n[0] * 0.004 * M, y + 0.004 * M, z], 0.006 * M, grp.jw);
+    }
+  }
+  for (const sd of ['L', 'R'] as const) {
+    // A narrow strap: her neckline has none.
+    const want = (kind === 'pair' || GOWN_CAPE_STRAP[kind] === sd) && strapless;
+    if (!want) continue;
+    const st = G.strap[sd]!, pts: P3[] = [], nr: P3[] = [], bn: P3[] = [];
+    for (const p of st.drawn) { pts.push([p.x, p.y + p.ny * 0.0058 * M, p.z + p.nz * 0.0058 * M]); nr.push([0, p.ny, p.nz]); bn.push([1, 0, 0]); }
+    if (pts.length > 1) box(pts, nr, bn, 0.016 * M, 0.0025 * M, grp.hw);
+  }
+  if (kind === 'pair' || kind === 'side' || kind === 'drape') for (const sd of kind === 'pair' ? (['L', 'R'] as const) : [GOWN_CAPE_STRAP[kind]!]) {
+    // A small brooch where it is fastened on the shoulder.
+    const p = G.strap[sd]!.top;
+    jewel([p.x, p.y + p.ny * 0.007 * M, p.z + p.nz * 0.007 * M], 0.006 * M, grp.jw);
+  }
+  return { nv, grp, edgeL: edgeL / M, beadN };
+}
+
+/**
+ * Hang the cape on her (v196 `buildCape`). `T` and `D` are the envelope and the dress of the same pose (the dress already
+ * written by `writeDress`); `floorY` is where she stands. Returns false (nothing to draw) for no cape, or a long cape in a
+ * pose that hides it. `sheer` says whether the stage draws its cloth see-through (`GOWN_CAPE_SHEER_OPACITY`).
+ */
+export function buildCape(
+  B: GownRig, T: GownEnvelope, D: GownDress, C: GownCloth, cape: GownCapeMesh, design: GownCapeDesign,
+  opt: { floorY: number; pose: string; pleatAmp?: number; dressShown?: boolean; sleeves?: Partial<Record<Side, ArrayLike<number>>>; overlayOut?: number },
+): boolean {
+  const kind = design.cape;
+  cape.kind = kind;
+  if (kind === 'none' || !T.on || !gownCapeShown(design, opt.pose)) { cape.info = null; cape.parts = []; cape.nUsed = 0; return false; }
+  const now = gownCapeNow(design), P = B.P, M = 1 / P.S, yN = jointY(B, 'neck01'), ySh = jointY(B, 'upperarm01.L'), Ltr = GOWN_TRAIN_CM[design.train];
+  const yFl = opt.floorY + (Ltr > 0 ? 0.03 : 0.012);
+  const flCm = now.len === 'train' ? design.capeCm : kind === 'back' ? GOWN_CAPE_FLOOR_CM.back : GOWN_CAPE_FLOOR_CM.other;
+  const G: CapeG = { M, cm: 0.01 / P.S, yN, ySh, yFl, yBand: yN + 0.03 * M, strap: {}, FL: (flCm + Ltr * 0.9) / 100 / P.S, yTopMax: 0 };
+  if (kind === 'side' || kind === 'pair' || kind === 'drape') for (const sd of kind === 'pair' ? (['L', 'R'] as const) : [GOWN_CAPE_STRAP[kind]!]) G.strap[sd] = capeStrap(B, T, sd);
+  G.yTopMax = kind === 'neck' ? G.yBand + 0.002 : yN + 0.005;
+  const uvs = (cape.geo.attributes.uv as THREE.BufferAttribute).array as Float32Array;
+  cape.parts = capeSpecs(B, kind, G, now).map((sp, i) => hangPart(B, T, D, design, sp, G, i, cape.base, uvs, opt));
+  cape.info = cape.parts[0] ?? null;
+  if (cape.parts.length < 2) cape.base.fill(0, CNV * 3, 2 * CNV * 3);
+  const tr = capeTrimBuild(B, T, cape, uvs, G, kind, now, GOWN_STRAPLESS.includes(design.neck));
+  cape.nUsed = tr.nv;
+  cape.edgeL = tr.edgeL;
+  cape.beadN = tr.beadN;
+  const g = cape.geo, key = [kind, cape.parts.length, tr.nv, tr.grp.edge.length, tr.grp.hw.length, tr.grp.jw.length].join('|');
+  if (cape.key !== key) {
+    cape.key = key;
+    const all: number[] = [];
+    for (let p = 0; p < cape.parts.length; p++) { const v0 = p * CNV; for (let i = 0; i < CNR - 1; i++) for (let a = 0; a < CNA - 1; a++) { const q = v0 + i * CNA + a, r = q + CNA; all.push(q, r, q + 1, q + 1, r, r + 1); } }
+    g.clearGroups();
+    g.addGroup(0, all.length, 0);
+    let t = all.length;
+    for (const [arr, m] of [[tr.grp.edge, 1], [tr.grp.hw, 2], [tr.grp.jw, 3]] as const) { if (!arr.length) continue; g.addGroup(t, arr.length, m); for (const v of arr) all.push(v); t += arr.length; }
+    g.setIndex(all);
+  }
+  const rest = g.attributes.rest as THREE.BufferAttribute;
+  (rest.array as Float32Array).set(cape.base);
   rest.needsUpdate = true;
+  (g.attributes.uv as THREE.BufferAttribute).needsUpdate = true;
+  cape.sheer = now.fab !== 'gown';
   cape.th = null;
   writeCape(cape, T, C, true);
   return true;
 }
 
-/** Twirl and turn: below the waist the cape swings out and trails like the skirt it lies on (v193 `writeCape`). */
+/** Twirl and turn: below the waist the cape swings out and trails like the skirt it lies on (v196 `writeCape`). */
 export function writeCape(cape: GownCapeMesh, T: GownEnvelope, C: GownCloth, force = false): void {
   if (!cape.info) return;
   const K = CLOTH_BANDS - 1, sig = C.th[K]! * 7 + C.phi[K]! * 3 + C.th[3]! + C.phi[3]!;
   if (!force && cape.th === sig) return;
   cape.th = sig;
   const src = cape.base, posA = cape.geo.attributes.position as THREE.BufferAttribute, p = posA.array as Float32Array;
-  const len = Math.max(0.05, T.yS - T.yHem), czAt = cape.info.czAt, still = Math.abs(sig) < 1e-5;
-  if (still) p.set(src);
-  else for (let o = 0; o < src.length; o += 3) {
+  const len = Math.max(0.05, T.yS - T.yHem), czAt = cape.info.czAt, still = Math.abs(sig) < 1e-5, end = cape.nUsed * 3;
+  if (still) p.set(src.subarray(0, end));
+  else for (let o = 0; o < end; o += 3) {
     const y = src[o + 1]!;
     if (y >= T.yS) { p[o] = src[o]!; p[o + 1] = y; p[o + 2] = src[o + 2]!; continue; }
     const t = clamp((T.yS - y) / len, 0, 1), fk = t * K, k = Math.min(K - 1, fk | 0), w = fk - k, f = C.phi[k]! * (1 - w) + C.phi[k + 1]! * w;
@@ -400,10 +734,10 @@ export function writeCape(cape: GownCapeMesh, T: GownEnvelope, C: GownCloth, for
   }
   posA.needsUpdate = true;
   cape.geo.computeVertexNormals();
-  if (cape.info.ring) {
-    // No line where the capelet closes.
+  {
+    // No line where a ring closes.
     const nmA = cape.geo.attributes.normal as THREE.BufferAttribute, nm = nmA.array as Float32Array;
-    for (let i = 0; i < CNR; i++) { const a = i * CNA * 3, b = (i * CNA + CNA - 1) * 3; for (let k = 0; k < 3; k++) { const v = (nm[a + k]! + nm[b + k]!) / 2; nm[a + k] = nm[b + k] = v; } }
+    for (const I of cape.parts) if (I.ring) for (let i = 0; i < CNR; i++) { const a = (I.vo + i * CNA) * 3, b = (I.vo + i * CNA + CNA - 1) * 3; for (let k = 0; k < 3; k++) { const v = (nm[a + k]! + nm[b + k]!) / 2; nm[a + k] = nm[b + k] = v; } }
     nmA.needsUpdate = true;
   }
   cape.geo.computeBoundingSphere();
@@ -411,38 +745,44 @@ export function writeCape(cape: GownCapeMesh, T: GownEnvelope, C: GownCloth, for
 
 /**
  * The cape laid flat on 150 cm fabric (metres): at least its longest line, more when its area needs more than one width
- * (+30 % for the curves). Zero when there is no cape hung.
+ * (+30 % for the curves), over every panel (v196 `capeMetres`). Zero when there is no cape hung.
  */
 export function capeMetres(B: GownRig, cape: GownCapeMesh | null): number {
   if (!cape || !cape.info || cape.kind === 'none') return 0;
-  const P = (cape.geo.attributes.rest as THREE.BufferAttribute).array as Float32Array, ix = cape.geo.index!.array, S = B.P.S;
+  const P = (cape.geo.attributes.rest as THREE.BufferAttribute).array as Float32Array, S = B.P.S;
   let L = 0, A = 0;
-  for (let c = 0; c < CNA; c++) {
-    let l = 0;
-    for (let i = 1; i < CNR; i++) { const a = ((i - 1) * CNA + c) * 3, b = (i * CNA + c) * 3; l += Math.hypot(P[b]! - P[a]!, P[b + 1]! - P[a + 1]!, P[b + 2]! - P[a + 2]!); }
-    L = Math.max(L, l);
-  }
-  for (let t = 0; t < ix.length; t += 3) {
-    const a = ix[t]! * 3, b = ix[t + 1]! * 3, c = ix[t + 2]! * 3;
-    const ux = P[b]! - P[a]!, uy = P[b + 1]! - P[a + 1]!, uz = P[b + 2]! - P[a + 2]!, vx = P[c]! - P[a]!, vy = P[c + 1]! - P[a + 1]!, vz = P[c + 2]! - P[a + 2]!;
+  const tri = (ia: number, ib: number, ic: number) => {
+    const a = ia * 3, b = ib * 3, c = ic * 3, ux = P[b]! - P[a]!, uy = P[b + 1]! - P[a + 1]!, uz = P[b + 2]! - P[a + 2]!, vx = P[c]! - P[a]!, vy = P[c + 1]! - P[a + 1]!, vz = P[c + 2]! - P[a + 2]!;
     A += Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx) / 2;
+  };
+  for (const I of cape.parts) {
+    for (let c = 0; c < CNA; c++) {
+      let l = 0;
+      for (let i = 1; i < CNR; i++) { const a = (I.vo + (i - 1) * CNA + c) * 3, b = (I.vo + i * CNA + c) * 3; l += Math.hypot(P[b]! - P[a]!, P[b + 1]! - P[a + 1]!, P[b + 2]! - P[a + 2]!); }
+      L = Math.max(L, l);
+    }
+    for (let i = 0; i < CNR - 1; i++) for (let c = 0; c < CNA - 1; c++) { const q = I.vo + i * CNA + c; tri(q, q + CNA, q + 1); tri(q + 1, q + CNA, q + CNA + 1); }
   }
   return Math.max(L * S + 0.1, ((A * S * S) / 1.4) * 1.3 + 0.1);
 }
 
-/** The cape's own reach at a point's height and direction (v193 `capeAt`): the veil keeps outside it. Null off the cape. */
+/** The cape's own reach at a point's height and direction, over every panel (v196 `capeAt`): the veil keeps outside it. Null off the cape. */
 export function capeAt(cape: GownCapeMesh | null, x: number, y: number, z: number): { r: number; env: number; c: number } | null {
-  const I = cape?.info;
-  if (!I) return null;
-  const ys = I.ys;
-  if (y > ys[0]! || y < ys[ys.length - 1]!) return null;
-  const cz = I.czAt(y);
-  let a = Math.atan2(x, z - cz);
-  if (I.ring) { while (a < I.a0) a += TAU; while (a > I.a1) a -= TAU; }
-  else { if (a < 0) a += TAU; if (a < I.a0 - 0.08 || a > I.a1 + 0.08) return null; }
-  const c = clamp(Math.round(((a - I.a0) / (I.a1 - I.a0)) * (CNA - 1)), 0, CNA - 1);
-  if (y > I.tops[c]! || y < I.hems[c]!) return null;
-  let j = 0;
-  while (j < ys.length - 1 && ys[j + 1]! > y) j++;
-  return { r: Math.hypot(x, z - cz), env: I.Rm[j * CNA + c]! * 1.07, c };
+  if (!cape || !cape.info) return null;
+  let best: { r: number; env: number; c: number } | null = null;
+  for (const I of cape.parts) {
+    const ys = I.ys;
+    if (y > ys[0]! || y < ys[ys.length - 1]!) continue;
+    const cz = I.czAt(y);
+    let a = Math.atan2(x, z - cz);
+    if (I.ring) { while (a < I.a0) a += TAU; while (a > I.a1) a -= TAU; }
+    else { if (a < 0) a += TAU; if (a < I.a0 - 0.08 || a > I.a1 + 0.08) continue; }
+    const c = clamp(Math.round(((a - I.a0) / (I.a1 - I.a0)) * (CNA - 1)), 0, CNA - 1);
+    if (y > I.tops[c]! || y < I.hems[c]!) continue;
+    let j = 0;
+    while (j < ys.length - 1 && ys[j + 1]! > y) j++;
+    const r = { r: Math.hypot(x, z - cz), env: I.Rm[j * CNA + c]! * 1.07, c };
+    if (!best || r.env > best.env) best = r;
+  }
+  return best;
 }

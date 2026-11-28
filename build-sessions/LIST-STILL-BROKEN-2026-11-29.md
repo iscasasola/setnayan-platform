@@ -189,8 +189,9 @@
   - **S11:** ask Fable for an iPad drawing of Shop analytics (start-aligned at ≥768). Build only after the drawing.
   - **S9:** "Log a payment" gets its word: a worded action seat in `ThumbRow`, an approved exception to icon-only. **Now buildable** after #8456.
   - **D7d:** chat rule refusals (`contact_blocked`, `too_long`, …) are **not problems**. Keep the reason in the action result, but don't file them as `ACTION_RETURNED_ERROR`. **Now buildable.**
-- Still open: only **C4**, the exact wording on a paid order's receipt.
-- DECISION_LOG rows for these nine are still to be written in the specs corpus (controller).
+- **C4 (owner, "use yours for 5"):** a paid or fulfilled order's receipt says **"Paid. This is your receipt."** in place of "Becomes your transaction receipt once the payment is confirmed." **Now buildable.**
+- Nothing is still open: every ruling is answered.
+- DECISION_LOG rows for these ten are still to be written in the specs corpus (controller).
 
 ## 3 · Needs an owner ruling (do not guess). S1 does NOT: the badge threshold was ruled 5 on 15 Nov.
 1. **G8b:** is "kept for life, free" a banned price promise? #8449 kept it on 5 public pages.

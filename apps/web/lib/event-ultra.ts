@@ -9,7 +9,7 @@
  *   3. canvas prints (the Our Day poster on canvas) — `canvasPrintsUnlockedFrom` below;
  *   4. ~~Patiktok~~ — REMOVED 2026-11-20: Patiktok is retired (owner *"Retire Patiktok and Music Maker"*), and
  *      Ultra keeps its price without it (owner *"Keep ₱9,990"*). lib/retired-products.ts;
- *   5. Papic credits — the row's `included_papic_credits` (3,500), granted by `activateEventPlan`;
+ *   5. Papic credits — the row's `included_papic_credits` (the row is the only source of the count — never type it here), granted by `activateEventPlan`;
  *   6. the Thank You video ONLY if it renders with no staff step. It does (browser render, lib/thank-you-video.ts),
  *      but it is already FREE for every event (`FREE_FOR_ALL_SKUS`), so Ultra lists nothing for it — selling a free
  *      thing as an Ultra extra would be untrue.

@@ -63,7 +63,10 @@ export function floorOf(B: GownRig): number {
  * Build the dress on the posed body. `T` must hold the envelope of the same pose (buildEnvelope). `floorY` is where she
  * stands; `floorStand` is where she stood (the skirt is cut for her standing; seated, it keeps that length).
  */
-export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDressDesign, floorY: number, floorStand = floorY, view: { bustled?: boolean } = {}): GownDress {
+/** v206 `B.ringStand`: per body, the skirt's rings measured while she stood (by silhouette, start row and body version). */
+const ringStand = new WeakMap<GownRig, Map<string, { r: Float32Array; hip: Float32Array }>>();
+
+export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDressDesign, floorY: number, floorStand = floorY, view: { bustled?: boolean; standing?: boolean } = {}): GownDress {
   const P = B.P, V = B.V, k = BODY_K, off = GOWN_EASE_MM / 1000 / P.S, n = T.n, H = T.H, F = T.F, jF = Math.round((T.yF - T.y0) / DY);
   // v166: the smoothed bust point.
   let yA = 0, zA = -1e9;
@@ -140,7 +143,12 @@ export function buildDress(B: GownRig, T: GownEnvelope, D: GownDress, g: GownDre
   // the way down; where a knee or thigh reaches further, cloth rides over it and hangs.
   const sil = GOWN_SIL[g.sil] ?? GOWN_SIL.aline;
   const jS = gownFromWaist(g.sil) ? Math.max(jF + 1, Math.min(jW, jTop - 2)) : jF, yS = T.y0 + jS * DY, Lf = Math.max(0.2, yS - (floorStand + 0.018));
-  const RB = F.slice(jS * N, jS * N + N), RH = F.slice(jF * N, jF * N + N);
+  // A8 (v206 `ringStand`): the skirt is cut for her standing hips. Standing, the rings are kept; stepping, sitting or
+  // kneeling, the skirt keeps the standing ones (a thigh or knee then pushes the cloth out, it never re-cuts it).
+  const standing = view.standing ?? true, key = `${g.sil}:${jS}:${B.ver}`, kept = ringStand.get(B) ?? new Map<string, { r: Float32Array; hip: Float32Array }>();
+  ringStand.set(B, kept);
+  if (standing) kept.set(key, { r: F.slice(jS * N, jS * N + N), hip: F.slice(jF * N, jF * N + N) });
+  const RS = standing ? undefined : kept.get(key), RB = RS ? RS.r : F.slice(jS * N, jS * N + N), RH = RS ? RS.hip : F.slice(jF * N, jF * N + N);
   let hipR = 0, s0 = 0;
   for (let q = 0; q < N; q++) { hipR += RH[q]!; s0 += RB[q]!; }
   hipR /= N; s0 /= N;

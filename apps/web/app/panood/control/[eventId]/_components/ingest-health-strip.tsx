@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { AlertTriangle, Radio, RadioTower, Loader2, RefreshCw, WifiOff } from 'lucide-react';
+import { AlertTriangle, Hourglass, Radio, RadioTower, RefreshCw, WifiOff } from 'lucide-react';
 import {
   decideIngestHealth,
   POLL_INTERVAL_MS,
@@ -52,7 +52,7 @@ const STATE_SKIN: Record<IngestHealthState, string> = {
 };
 
 const STATE_ICON: Record<IngestHealthState, typeof Radio> = {
-  waiting_for_encoder: Loader2,
+  waiting_for_encoder: Hourglass,
   receiving: Radio,
   degraded: AlertTriangle,
   reconnecting: RefreshCw,
@@ -60,8 +60,9 @@ const STATE_ICON: Record<IngestHealthState, typeof Radio> = {
   no_data: RadioTower,
 };
 
-/** States whose icon should spin — "still in motion", not "stopped and bad". */
-const SPINNING_STATES: ReadonlySet<IngestHealthState> = new Set([
+
+/** States still "in motion", not "stopped and bad": the strip says it is busy (`aria-busy`) — no spinner (house rule). */
+const IN_MOTION_STATES: ReadonlySet<IngestHealthState> = new Set([
   'waiting_for_encoder',
   'reconnecting',
 ]);
@@ -185,11 +186,13 @@ export function IngestHealthStrip({
     <div
       role="status"
       aria-live="polite"
+      aria-busy={IN_MOTION_STATES.has(decision.state) || undefined}
       className={`flex shrink-0 items-start gap-2 rounded-xl border px-3 py-2 text-xs leading-snug ${STATE_SKIN[decision.state]}`}
     >
       <Icon
         aria-hidden
-        className={`mt-px h-4 w-4 shrink-0 ${SPINNING_STATES.has(decision.state) ? 'animate-spin' : ''}`}
+        /* No spinner (house rule): "still in motion" is said by the icon (⏳ / ↻) and the sentence. */
+        className="mt-px h-4 w-4 shrink-0"
         strokeWidth={1.75}
       />
       <span>

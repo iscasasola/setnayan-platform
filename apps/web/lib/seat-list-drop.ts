@@ -19,6 +19,7 @@
  * 🔒 lib/seats-list-is-the-guests-list.test.ts
  */
 import { HOLD_MS } from './motion-table';
+import { realNameParts } from './seat-placeholder-words';
 
 /** How long a finger holds a guest still before they lift — Seats › List's row (`seat-list.tsx` › `HOLD_MS`) and the
  *  tray under the floor (`seat-face-tray.tsx`) alike; 🔒 the-seat-plan-drags-on-a-phone.test.ts holds them equal. */
@@ -60,6 +61,11 @@ export type SeatDropRoom = {
 /** 🔒 #17 — the ONE line a locked guest's hand move answers with. 🔒 lib/a-seat-unit-moves-as-one.test.ts */
 export const SEAT_LOCKED_WORDS = 'Locked · Unlock to move';
 
+/** Did a seat write answer "locked" (`SEAT_LOCKED_REFUSAL`, lib/seat-lock.server.ts)? The editor's check of any result. */
+export function isSeatLockedRefusal(res: unknown): res is { refused: 'locked' } {
+  return Boolean(res && typeof res === 'object' && (res as { refused?: unknown }).refused === 'locked');
+}
+
 /**
  * The words each refusal says (drawing `prototypes/seats_names_2026-11-27/`): "Needs 2 seats" — the unit's own size, on
  * a table without room for it or a seat whose unit is another size.
@@ -92,9 +98,13 @@ export function seatDropUnit(
   const me = byId.get(guestId);
   if (!me) return { leadId: guestId, party: [] };
   const bringer = me.plus_one_of ? byId.get(me.plus_one_of) : undefined;
+  const nearest = opts.vipPlusOnes === 'nearest';
+  // Under "nearest" a principal sponsor and their +1 are NOT one unit: each moves alone — the +1 dragged (at the
+  // sponsor's table or in "To seat") moves only the +1, never the sponsor.
+  if (nearest && bringer && opts.isSponsor?.(bringer.guest_id)) return { leadId: me.guest_id, party: [] };
   // A +1 dragged on their own moves their bringer's unit — but only one that is together (same table, or both unseated).
   const lead = bringer && !bringer.declined && bringer.seated_table_id === me.seated_table_id ? bringer : me;
-  if (opts.vipPlusOnes === 'nearest' && opts.isSponsor?.(lead.guest_id)) return { leadId: lead.guest_id, party: [] };
+  if (nearest && opts.isSponsor?.(lead.guest_id)) return { leadId: lead.guest_id, party: [] };
   const party = guests
     .filter((g) => g.plus_one_of === lead.guest_id && !g.declined && (g.seated_table_id === null || g.seated_table_id === lead.seated_table_id))
     .map((g) => g.guest_id);
@@ -175,33 +185,66 @@ export function parseSeatCardLook(raw: unknown): SeatCardLook {
  * entry (the bringer first), so Faces and Names both draw the pair joined (controller default, open question 1). A +1
  * whose bringer sits elsewhere stands alone.
  */
-export function cardUnits<G extends { id: string; plusOneOf?: string | null }>(people: readonly G[]): G[][] {
-  const here = new Set(people.map((g) => g.id));
+export function cardUnits<G extends { id: string; plusOneOf?: string | null; movesAlone?: boolean }>(people: readonly G[]): G[][] {
+  // A guest who moves alone (a principal sponsor under "+1s · nearest") is never joined to their +1 — the card draws
+  // what a drag moves.
+  const joins = new Set(people.filter((g) => !g.movesAlone).map((g) => g.id));
   const out: G[][] = [];
   for (const g of people) {
-    if (g.plusOneOf && here.has(g.plusOneOf)) continue;
-    out.push([g, ...people.filter((x) => x.plusOneOf === g.id)]);
+    if (g.plusOneOf && joins.has(g.plusOneOf)) continue;
+    out.push([g, ...(joins.has(g.id) ? people.filter((x) => x.plusOneOf === g.id) : [])]);
   }
   return out;
 }
 
-/** "Ana" from "Ana Cruz" — the short name a Names chip wears (a courtesy title is skipped: "Dr. Jose Rizal" → "Jose"). */
+/** How many PEOPLE a card's units hold — the Names cap and its "+N more" count people, not units. */
+export function namesWithinCap<G>(units: readonly G[][], cap: number): { shown: G[][]; morePeople: number } {
+  const shown: G[][] = [];
+  let people = 0;
+  for (const u of units) {
+    if (people + u.length > cap) break;
+    shown.push(u);
+    people += u.length;
+  }
+  const total = units.reduce((n, u) => n + u.length, 0);
+  return { shown, morePeople: total - people };
+}
+
+/**
+ * 🪪 THE SHORT NAME A NAMES CHIP WEARS (drawing `prototypes/seats_names_2026-11-27/`): the person's usual short form
+ * when the couple gave one ("Shown as": "Tita Odette"), else the first name and the surname's initial ("Maria C.",
+ * "Mark Anthony C."). A stand-in part ("+1" / "TBA") is never an initial. Null when there is no name at all.
+ */
+export function seatShortName(g: { display_name?: string | null; first_name?: string | null; last_name?: string | null }): string | null {
+  const shown = g.display_name?.trim();
+  if (shown) return shown;
+  const { first, last } = realNameParts(g.first_name, g.last_name);
+  if (!first) return last || null;
+  return last ? `${first} ${last[0]!.toLocaleUpperCase()}.` : first;
+}
+
+/** A name with no short form given: its first word, a courtesy title skipped ("Dr. Jose Rizal" → "Jose"). */
 export function shortNameOf(name: string): string {
   const words = name.trim().replace(/^(Mr|Mrs|Ms|Miss|Dr|Atty|Engr|Hon)\.?\s+/i, '').split(/\s+/);
   return words[0] || name.trim();
 }
 
-/** How many Names chips a card draws before "+N more" (drawing `prototypes/seats_names_2026-11-27/`). */
+/** How many PEOPLE a card names before "+N more" (drawing `prototypes/seats_names_2026-11-27/`). */
 export const NAMES_ON_A_CARD = 12;
 
+type ChipPerson = { name: string; short?: string | null; plusOneOf?: string | null };
 /**
  * 🪪 A Names chip's words (drawing `prototypes/seats_names_2026-11-27/`):
- *   · a guest alone → "Ana";
- *   · a guest with their +1s → "Ana" then, after a hairline, "+1" (or "+2" for a bigger party);
- *   · a +1 sitting away from the guest who brings them (a sponsor's +1 under "nearest") → "Ramon's +1".
+ *   · a guest alone → "Maria C.";
+ *   · a guest with their +1s → "Maria C.", a hairline, then the small tag "+1" ("+2" for a bigger party);
+ *   · a +1 sitting apart from the guest who brings them (a principal sponsor under "nearest") → "Ramon's" then the
+ *     small "+1" tag, no hairline (`apart`).
  */
-export function nameChipWords(unit: ReadonlyArray<{ name: string; plusOneOf?: string | null }>, bringerName?: string | null): { name: string; plus: string | null } {
+export function nameChipWords(unit: readonly ChipPerson[], bringerShort?: string | null): { name: string; plus: string | null; apart: boolean } {
   const lead = unit[0]!;
-  if (unit.length === 1 && lead.plusOneOf && bringerName) return { name: `${shortNameOf(bringerName)}’s +1`, plus: null };
-  return { name: shortNameOf(lead.name), plus: unit.length > 1 ? `+${unit.length - 1}` : null };
+  if (unit.length === 1 && lead.plusOneOf && bringerShort) {
+    // "Ramon C." → "Ramon’s" (the initial is dropped before the possessive).
+    return { name: `${bringerShort.replace(/\s+\S\.$/, '')}’s`, plus: '+1', apart: true };
+  }
+  return { name: lead.short?.trim() || shortNameOf(lead.name), plus: unit.length > 1 ? `+${unit.length - 1}` : null, apart: false };
 }

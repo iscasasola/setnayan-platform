@@ -19,7 +19,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, ImagePlus, Loader2, RotateCw, Smile, Type, Undo2, X } from 'lucide-react';
+import { ArrowLeft, Check, ImagePlus, MessageSquareText, Plus, RectangleHorizontal, RotateCw, Smile, Type, Undo2, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { PAPIC_STYLES, cssPreviewFilter, type PapicStyle } from '@/lib/papic-photo-styles';
 import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
@@ -180,6 +181,32 @@ export function KwentoDecorator({
   const removeActive = () => {
     pushHistory();
     setOverlays((o) => o.filter((x) => x.id !== activeId));
+  };
+
+  /** ⌨ The corner knob's keyboard path (a pointer drags it): ↑/↓ grow and shrink, ←/→ turn, by one step a press. */
+  const onHandleKey = (e: React.KeyboardEvent, id: string) => {
+    const step: Record<string, { size?: number; rotation?: number }> = {
+      ArrowUp: { size: 1.1 },
+      ArrowDown: { size: 1 / 1.1 },
+      ArrowLeft: { rotation: -15 },
+      ArrowRight: { rotation: 15 },
+    };
+    const s = step[e.key];
+    if (!s) return;
+    e.preventDefault();
+    e.stopPropagation();
+    pushHistory();
+    setOverlays((o) =>
+      o.map((ov) =>
+        ov.id === id
+          ? {
+              ...ov,
+              size: s.size ? Math.min(MAX_SIZE, Math.max(MIN_SIZE, ov.size * s.size)) : ov.size,
+              rotation: ov.rotation + (s.rotation ?? 0),
+            }
+          : ov,
+      ),
+    );
   };
 
   // BODY drag → move (fraction-based). stopPropagation so tapping an overlay
@@ -475,26 +502,34 @@ export function KwentoDecorator({
                     </span>
                     {isActive ? (
                       <>
-                        <span
+                        {/* ⌨ Real buttons (buttons audit 27 Nov): a pointer drags the knob; a keyboard turns and
+                            sizes it with the arrows, and Enter or Space on ✕ deletes. Each presses at 46 (`sn-hit-2d`)
+                            without changing its drawing. */}
+                        <button
+                          type="button"
                           onPointerDown={(e) => onHandleDown(e, ov)}
-                          role="button"
+                          onKeyDown={(e) => onHandleKey(e, ov.id)}
                           aria-label="Resize and rotate"
-                          className="absolute -bottom-3 -right-3 flex h-6 w-6 cursor-nwse-resize items-center justify-center rounded-full bg-terracotta-700 text-cream shadow"
+                          title="Drag, or use the arrow keys, to resize and rotate"
+                          className="sn-hit-2d absolute -bottom-3 -right-3 flex h-6 min-h-0 w-6 cursor-nwse-resize items-center justify-center rounded-full bg-terracotta-700 p-0 text-cream shadow"
                         >
                           <RotateCw aria-hidden className="h-3.5 w-3.5" strokeWidth={2.25} />
-                        </span>
-                        <span
+                        </button>
+                        <button
+                          type="button"
                           onPointerDown={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
+                          }}
+                          onClick={(e) => {
+                            e.stopPropagation();
                             removeActive();
                           }}
-                          role="button"
                           aria-label="Delete"
-                          className="absolute -left-3 -top-3 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full bg-ink text-cream shadow"
+                          className="sn-hit-2d absolute -left-3 -top-3 flex h-5 min-h-0 w-5 cursor-pointer items-center justify-center rounded-full bg-ink p-0 text-cream shadow"
                         >
                           <X aria-hidden className="h-3 w-3" strokeWidth={2.5} />
-                        </span>
+                        </button>
                       </>
                     ) : null}
                   </div>
@@ -522,14 +557,7 @@ export function KwentoDecorator({
                 <p className="flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide text-ink/50">
                   <Smile aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Stickers
                 </p>
-                <button
-                  type="button"
-                  onClick={undo}
-                  disabled={history.length === 0}
-                  className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-ink/60 hover:bg-ink/5 disabled:opacity-40"
-                >
-                  <Undo2 aria-hidden className="h-3.5 w-3.5" strokeWidth={2} /> Undo
-                </button>
+                <ActionButton tone="neutral" quiet icon={Undo2} label="Undo" onClick={undo} disabled={history.length === 0} />
               </div>
               <div className="mt-1.5 flex flex-wrap gap-1">
                 {STICKERS.map((emoji) => (
@@ -559,13 +587,7 @@ export function KwentoDecorator({
                 placeholder="Add a caption…"
                 className="min-w-0 flex-1 rounded-md border border-ink/15 bg-surface px-2.5 py-1.5 text-sm"
               />
-              <button
-                type="button"
-                onClick={addText}
-                className="flex-none rounded-md bg-ink/10 px-2.5 py-1.5 text-sm font-medium text-ink/80 hover:bg-ink/15"
-              >
-                Add
-              </button>
+              <ActionButton tone="neutral" icon={Plus} label="Add" onClick={addText} className="flex-none" />
             </div>
             <div className="mt-2 flex items-center gap-2 pl-6">
               <span
@@ -585,17 +607,16 @@ export function KwentoDecorator({
                 onPick={(c) => setTextColor(c)}
                 className="border border-ink/15"
               />
-              <button
-                type="button"
+              <ActionButton
+                tone="neutral"
+                icon={RectangleHorizontal}
+                label="Pill"
                 onClick={() => setTextPill((v) => !v)}
                 aria-pressed={textPill}
+                filled={textPill}
                 title="Solid background behind the text"
-                className={`flex-none rounded-md px-2 py-1.5 text-xs font-medium ${
-                  textPill ? 'bg-ink text-cream' : 'bg-ink/10 text-ink/70 hover:bg-ink/15'
-                }`}
-              >
-                Pill
-              </button>
+                className="flex-none"
+              />
             </div>
 
             {/* Interaction hint — delete now lives on the overlay's × handle. */}
@@ -603,15 +624,17 @@ export function KwentoDecorator({
               Drag to move · corner knob to resize &amp; rotate · × to delete
             </p>
 
-            <button
-              type="button"
-              disabled={saving || done}
+            {/* No spinner: while it works the button says the step (`busy`, the house pending word). */}
+            <ActionButton
+              tone="brand"
+              main
+              icon={Check}
+              label={done ? 'Saved' : 'Save to Memories'}
+              busy={saving ? 'Saving…' : null}
+              disabled={done}
               onClick={save}
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-md bg-terracotta-700 px-4 py-2.5 text-sm font-semibold text-cream hover:bg-terracotta-800 disabled:opacity-60"
-            >
-              {saving ? <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} /> : null}
-              {done ? 'Saved' : 'Save to Memories'}
-            </button>
+              className="mt-5 w-full"
+            />
             {status ? (
               <p className={`mt-2 text-center text-sm ${done ? 'text-success-600' : 'text-ink/70'}`}>
                 {status}
@@ -651,17 +674,16 @@ export function KwentoDecorator({
                   />
                   <span>I&rsquo;m okay with the host sharing my caption with this photo.</span>
                 </label>
-                <button
-                  type="button"
-                  disabled={captionSaving || caption.trim().length < 1}
+                <ActionButton
+                  tone="brand"
+                  main
+                  icon={MessageSquareText}
+                  label="Add caption"
+                  busy={captionSaving ? 'Adding…' : null}
+                  disabled={caption.trim().length < 1}
                   onClick={saveCaption}
-                  className="mt-3 flex w-full items-center justify-center gap-2 rounded-md bg-ink px-4 py-2 text-sm font-semibold text-cream hover:bg-ink/90 disabled:opacity-60"
-                >
-                  {captionSaving ? (
-                    <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-                  ) : null}
-                  Add caption
-                </button>
+                  className="mt-3 w-full"
+                />
                 {captionStatus ? (
                   <p className="mt-2 text-center text-sm text-ink/70">{captionStatus}</p>
                 ) : null}

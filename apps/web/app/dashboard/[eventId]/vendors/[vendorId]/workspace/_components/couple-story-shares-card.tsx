@@ -57,6 +57,7 @@ export function CoupleStorySharesCard({ eventId, vendorProfileId, shopName, phot
                   key={p.fileId}
                   type="button"
                   aria-pressed={pick.includes(p.fileId)}
+                  aria-label="Hide this photo"
                   onClick={() => setPick((xs) => (xs.includes(p.fileId) ? xs.filter((x) => x !== p.fileId) : [...xs, p.fileId]))}
                   className="relative block aspect-square overflow-hidden rounded-lg"
                   style={{ outline: pick.includes(p.fileId) ? '2px solid rgb(var(--color-danger))' : undefined }}

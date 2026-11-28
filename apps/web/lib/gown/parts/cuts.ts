@@ -5,7 +5,7 @@
  * an open back opens its keyhole below the nape band. Hand-cut holes
  * (the scissors) come with A7 and use `gownCutForbidden`, the same rule as the ready-made ones.
  */
-import type { GownConfig, GownCutEdge, GownCutout } from '../../gown-config';
+import type { GownConfig, GownCutEdge, GownCutout, GownHand } from '../../gown-config';
 import { GOWN_CUT_FORBIDDEN } from '../../gown-config';
 import { BODY_K, RING_N, SLICE_DY, TAU } from '../body/constants';
 import { clamp, type GownRig } from '../body/rig';
@@ -74,7 +74,7 @@ export type GownCutPlan = {
  * given; the cut map wraps round the body, so a shape across the centre back is drawn three times.
  */
 export function buildGownCuts(
-  B: GownRig, T: GownEnvelope, D: GownDress, d: Pick<GownConfig, 'cuts' | 'cutScale' | 'cutEdge' | 'cutFill' | 'pieces' | 'neck' | 'neckT' | 'back' | 'backT'> & Partial<Pick<GownConfig, 'handCuts'>>, strapless: boolean, g: GownCutCanvas | null = null,
+  B: GownRig, T: GownEnvelope, D: GownDress, d: Pick<GownConfig, 'cuts' | 'cutScale' | 'cutEdge' | 'cutFill' | 'pieces' | 'neck' | 'neckT' | 'back' | 'backT'> & Partial<Pick<GownHand, 'handCuts'>>, strapless: boolean, g: GownCutCanvas | null = null,
 ): GownCutPlan | null {
   const L = D.L;
   const KH = T.on && L ? gownKeyholeBack(d, T.top[N / 2]!, L) : null;

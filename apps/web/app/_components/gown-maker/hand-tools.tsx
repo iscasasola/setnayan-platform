@@ -4,7 +4,8 @@
  * 👗 Place by hand (A7b; prototype v202, the owner's v194 four tools): Beads · Lace · Scissors · Eraser. Picking a tool
  * turns drawing on, tapping it again (or Done) turns it off; only the settings that tool uses are shown, with one plain
  * line. Mirror draws both sides and rubs out both sides. Undo steps back; Clear asks first, and Undo brings it back.
- * Everything placed rides the design (`handBeads`, `handLace`, `handCuts`, `handHoles`) and goes to the designer.
+ * Everything placed is her hand work (`GownHand`), kept BESIDE the design (a design is held to 8 KB), and goes to the
+ * designer with it.
  *
  * Loaded on its own (the maker imports it lazily), so the first load of the maker does not carry it.
  * The edits are the engine's (`lib/gown/parts/hand.ts`); the stage only reports where a finger touches the gown.
@@ -16,15 +17,15 @@ import { PillSelector } from '@/app/_components/pill-selector';
 import { Slider, SLIDER_VALUE } from '@/app/_components/slider';
 import { SWITCH_BUTTON, SwitchTrack } from '@/app/_components/switch-track';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
-import type { GownConfig } from '@/lib/gown-config';
+import type { GownConfig, GownHand } from '@/lib/gown-config';
 import {
   GOWN_HAND_BRUSH, gownHandClear, gownHandStrokeEnd, gownHandStrokeMove, gownHandStrokeStart,
   type GownHandBrush, type GownHandStroke, type GownHandTool,
 } from '@/lib/gown/parts/hand';
 import type { GownHandCtx, GownHandInput } from '@/app/_components/plan3d/kit/gown-figure-3d';
 
-type Hand = Pick<GownConfig, 'handBeads' | 'handHoles' | 'handLace' | 'handCuts'>;
-const handOf = (d: GownConfig): Hand => ({ handBeads: d.handBeads, handHoles: d.handHoles, handLace: d.handLace, handCuts: d.handCuts });
+type Hand = GownHand;
+const handOf = (d: GownHand): Hand => ({ handBeads: d.handBeads, handHoles: d.handHoles, handLace: d.handLace, handCuts: d.handCuts });
 
 /** The four tools, as v194 words them. */
 export const GOWN_HAND_TOOLS: readonly { id: GownHandTool; label: string; icon: typeof Gem }[] = [
@@ -51,9 +52,12 @@ const UNDO_MAX = 40;
 /** Phones (and the phone layout) say fingers (v202's own test). */
 const PHONE_QUERY = '(pointer: coarse), (max-width: 899px)';
 
-export function GownHandTools({ design, onDesign, onInput }: {
+export function GownHandTools({ design, hand, onHand, onInput }: {
+  /** The design: which bead and lace the tools place. Never changed here. */
   design: GownConfig;
-  onDesign: (next: GownConfig) => void;
+  /** Her hand work, and where an edit to it goes. */
+  hand: GownHand;
+  onHand: (next: GownHand) => void;
   /** What the stage needs while a tool is picked (null when drawing is off). */
   onInput: (input: GownHandInput | null) => void;
 }) {
@@ -69,8 +73,9 @@ export function GownHandTools({ design, onDesign, onInput }: {
   const [asking, setAsking] = useState(false);
   const [undo, setUndo] = useState<Hand[]>([]);
   // The stroke and the newest design live in refs: a stroke is many pointer moves between two renders.
-  const live = useRef({ design, stroke: null as GownHandStroke | null, before: null as Hand | null });
-  live.current.design = design;
+  const work = useMemo(() => ({ ...design, ...hand }), [design, hand]);
+  const live = useRef({ design: work, stroke: null as GownHandStroke | null, before: null as Hand | null });
+  live.current.design = work;
   const brushRef = useRef(brush);
   brushRef.current = brush;
   const remember = useCallback((h: Hand) => setUndo((u) => [...u.slice(-(UNDO_MAX - 1)), h]), []);
@@ -94,8 +99,8 @@ export function GownHandTools({ design, onDesign, onInput }: {
       if (before && JSON.stringify(before) !== JSON.stringify(handOf(next))) remember(before);
     }
     if (msg) setNote(msg);
-    if (next !== L.design) { L.design = next; onDesign(next); }
-  }, [onDesign, remember]);
+    if (next !== L.design) { L.design = next; onHand(handOf(next)); }
+  }, [onHand, remember]);
 
   const input = useMemo<GownHandInput | null>(() => (brush.tool ? { tool: brush.tool, onHit } : null), [brush.tool, onHit]);
   useEffect(() => { onInput(input); }, [input, onInput]);
@@ -104,7 +109,7 @@ export function GownHandTools({ design, onDesign, onInput }: {
   const t = brush.tool, drawsLine = (t === 'beads' || t === 'lace') && brush.stroke === 'line';
   const tip = t ? (typeof GOWN_HAND_TIP[t] === 'string' ? GOWN_HAND_TIP[t] : GOWN_HAND_TIP[t][brush.stroke]) : '';
   const set = (p: Partial<GownHandBrush>) => setBrush((b) => ({ ...b, ...p }));
-  const placed = design.handBeads.length + design.handLace.length + design.handCuts.length + design.handHoles.length;
+  const placed = hand.handBeads.length + hand.handLace.length + hand.handCuts.length + hand.handHoles.length;
 
   return (
     <section className="grid gap-3" aria-label="Place by hand" data-gown-hand>
@@ -154,14 +159,14 @@ export function GownHandTools({ design, onDesign, onInput }: {
           <span>Mirror both sides</span>
           <SwitchTrack on={brush.mirror} />
         </button>
-        <ActionButton tone="neutral" icon={Undo2} label="Undo" waiting={!undo.length} onClick={() => { const last = undo.at(-1); if (!last) return; setUndo((u) => u.slice(0, -1)); setNote(''); onDesign({ ...live.current.design, ...last }); }} data-gown-hand-undo="" />
+        <ActionButton tone="neutral" icon={Undo2} label="Undo" waiting={!undo.length} onClick={() => { const last = undo.at(-1); if (!last) return; setUndo((u) => u.slice(0, -1)); setNote(''); onHand(last); }} data-gown-hand-undo="" />
       </div>
       {placed ? (
         asking ? (
           <div className="grid gap-2" data-gown-hand-ask>
             <p className="text-sn-13">Remove every bead, lace piece and cut you placed by hand?</p>
             <div className="flex flex-wrap gap-2">
-              <ActionButton tone="danger" icon={Trash2} label="Yes, clear all" onClick={() => { remember(handOf(design)); onDesign(gownHandClear(design)); setAsking(false); setNote('Hand work cleared. Undo brings it back.'); }} data-gown-hand-clear-yes="" />
+              <ActionButton tone="danger" icon={Trash2} label="Yes, clear all" onClick={() => { remember(handOf(hand)); onHand(handOf(gownHandClear(work))); setAsking(false); setNote('Hand work cleared. Undo brings it back.'); }} data-gown-hand-clear-yes="" />
               <ActionButton tone="neutral" icon={Check} label="Keep it" onClick={() => setAsking(false)} data-gown-hand-clear-no="" />
             </div>
           </div>
@@ -171,8 +176,8 @@ export function GownHandTools({ design, onDesign, onInput }: {
       ) : null}
       <p className="text-sn-12" aria-live="polite" data-gown-hand-note>{note}</p>
       <p className="text-sn-12" data-gown-hand-count>
-        {design.handBeads.length || design.handLace.length || design.handCuts.length
-          ? `Placed by hand: ${design.handBeads.length} beads, ${design.handLace.length * 2} lace motifs, ${design.handCuts.length} cuts. Added to the designer's count.`
+        {hand.handBeads.length || hand.handLace.length || hand.handCuts.length
+          ? `Placed by hand: ${hand.handBeads.length} beads, ${hand.handLace.length * 2} lace motifs, ${hand.handCuts.length} cuts. Added to the designer's count.`
           : ''}
       </p>
     </section>

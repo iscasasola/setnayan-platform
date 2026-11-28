@@ -7,7 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { GOWN_HAND_MAX, GOWN_STRAPLESS, startingGownConfig, type GownConfig, type GownHandCut } from '../../gown-config';
+import { GOWN_HAND_MAX, GOWN_STRAPLESS, emptyGownHand, startingGownConfig, type GownConfig, type GownHand, type GownHandCut } from '../../gown-config';
 import { parseGownBody } from '../body/load';
 import type { GownRig } from '../body/rig';
 import { gownApplyLook } from '../compat';
@@ -23,7 +23,7 @@ import { buildGownLace, gownLaceCountLine } from './lace';
 type RefSet = { kind: string; hex: number; n: number; count: number; size: number; triSum: number; bcSum: number; tri: number[]; bc: number[]; spin: number[] };
 type Row = {
   name: string; look: Partial<GownConfig>; st: Record<string, unknown>;
-  hand: { beads?: GownConfig['handBeads']; holes?: GownConfig['handHoles']; cuts?: ({ ph: number; y: number; r: number } | { poly: [number, number][] })[]; manual?: GownConfig['handLace'] };
+  hand: { beads?: GownHand['handBeads']; holes?: GownHand['handHoles']; cuts?: ({ ph: number; y: number; r: number } | { poly: [number, number][] })[]; manual?: GownHand['handLace'] };
   layers: RefSet[]; manual: RefSet[]; laceCountN: number; laceSpots: number; laceBeadPts: number; laceBeadMm: number | null;
   laceLine: string; brLine: string; laceBLine: string; cutNote: string;
 };
@@ -41,11 +41,13 @@ function dressed(B: GownRig, g: GownConfig) {
   writeDress(D, T, restingCloth(), { pleat: g.pleat, n: g.pleatN, amp: g.pleatCm / 100 / B.P.S });
   return { T, D };
 }
-const designOf = (r: Row): GownConfig => {
+/** The design and her hand work side by side, as the stage feeds the builders. */
+type Work = GownConfig & GownHand;
+const designOf = (r: Row): Work => {
   const st = { ...r.st } as Record<string, unknown>;
   if (st.beadCol !== 'custom') st.beadHex = null;
   const cuts: GownHandCut[] = (r.hand.cuts ?? []).map((c) => ('poly' in c ? { pts: c.poly } : c));
-  return { ...gownApplyLook(startingGownConfig(), { veil: 'none', sleeve: 'none', cape: 'none', ...r.look }), hem: 'floor', hemCm: 0, ...st, handBeads: r.hand.beads ?? [], handHoles: r.hand.holes ?? [], handLace: r.hand.manual ?? [], handCuts: cuts } as GownConfig;
+  return { ...gownApplyLook(startingGownConfig(), { veil: 'none', sleeve: 'none', cape: 'none', ...r.look }), hem: 'floor', hemCm: 0, ...st, handBeads: r.hand.beads ?? [], handHoles: r.hand.holes ?? [], handLace: r.hand.manual ?? [], handCuts: cuts } as Work;
 };
 const row = (n: string) => REF.rows.find((r) => r.name === n)!;
 function sameSet(S: GownBeadSet, R: RefSet, what: string) {
@@ -116,7 +118,7 @@ test('the scissors: round holes and a drawn shape join the cut-outs, and the not
 });
 
 test('the tools: Mirror places twins, the eraser rubs out both sides, each tool stops at its cap with one line', async () => {
-  const B = await body(), cmU = B.P.S * 100, base = { ...startingGownConfig(), bead: 'pearl', beadCol: 'gold' } as GownConfig, h = { ph: 0.5, y: 1.0, r: 0.12 };
+  const B = await body(), cmU = B.P.S * 100, base = { ...startingGownConfig(), ...emptyGownHand(), bead: 'pearl', beadCol: 'gold' } as Work, h = { ph: 0.5, y: 1.0, r: 0.12 };
   const one = gownHandPlace(base, 'beads', h, { mirror: true, spin: 1, rot: 0 }).config;
   assert.deepEqual(one.handBeads.map((b) => [b.ph, b.kind, b.col]), [[0.5, 'pearl', 'gold'], [-0.5, 'pearl', 'gold']]);
   assert.equal(gownHandPlace(base, 'beads', h, { mirror: false, spin: 1, rot: 0 }).config.handBeads.length, 1);
@@ -152,7 +154,7 @@ test('the tools: Mirror places twins, the eraser rubs out both sides, each tool 
 });
 
 test('a stroke, as v202 draws it: a tap places one, Line spaces pieces by size plus gap, Scatter dabs, scissors close a shape', async () => {
-  const B = await body(), cmU = B.P.S * 100, base = { ...startingGownConfig(), bead: 'crystal', beadMm: 3 } as GownConfig, { T, D } = dressed(B, base);
+  const B = await body(), cmU = B.P.S * 100, base = { ...startingGownConfig(), ...emptyGownHand(), bead: 'crystal', beadMm: 3 } as Work, { T, D } = dressed(B, base);
   let seed = 1;
   const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
   const forbidden = (ph: number, y: number, rcm: number) => gownCutForbidden(B, T, D.L!, ph, y, rcm);

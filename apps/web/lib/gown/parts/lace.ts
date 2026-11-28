@@ -8,7 +8,7 @@
  * Beaded lace and motifs placed by hand come with the beads (A7). The drawing takes any 2D context.
  */
 import { formatCount } from '../../format-number';
-import type { GownConfig, GownLace, GownLaceColour } from '../../gown-config';
+import type { GownConfig, GownHand, GownLace, GownLaceColour } from '../../gown-config';
 import { gownInHole } from './beads';
 import { RING_N, TAU } from '../body/constants';
 import { clamp, smoothstep, type GownRig } from '../body/rig';
@@ -113,7 +113,7 @@ export type GownLacePlan = { spots: GownLaceSpot[]; count: number; countN: numbe
  * given, is painted as it goes (cleared first). `inHole` keeps motifs out of cut-outs (A6c) and the brush's holes (A7).
  */
 export function buildGownLace(
-  B: GownRig, T: GownEnvelope, D: GownDress, d: Pick<GownConfig, 'lace' | 'laceAt' | 'laceCm'> & Partial<Pick<GownConfig, 'laceBeads' | 'beadMm' | 'handLace' | 'handHoles'>>,
+  B: GownRig, T: GownEnvelope, D: GownDress, d: Pick<GownConfig, 'lace' | 'laceAt' | 'laceCm'> & Partial<Pick<GownConfig, 'laceBeads' | 'beadMm'>> & Partial<Pick<GownHand, 'handLace' | 'handHoles'>>,
   g: GownLaceCanvas | null = null, inHole: ((ph: number, y: number) => boolean) | null = null,
   /** The painted map's opacity at a pixel (0–255), for the beads sewn on the lace (v202 reads the canvas). */
   alphaAt: ((x: number, y: number) => number) | null = null,

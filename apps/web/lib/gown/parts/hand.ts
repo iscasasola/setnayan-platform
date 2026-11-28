@@ -1,12 +1,12 @@
 /**
  * 👗 gown/parts/hand — place by hand (prototype v202 `brush`, `placeAt`, `eraseAt`, `buildManual`; v194's four tools:
- * beads, lace, scissors, eraser). What she places lives on the design (`handBeads`, `handLace`, `handCuts`, `handHoles`)
- * so it reaches the designer; these are the pure edits the tools make, and the beads she placed as sets to draw.
+ * beads, lace, scissors, eraser). What she places is her hand work (`GownHand`: `handBeads`, `handLace`, `handCuts`,
+ * `handHoles`), kept beside the design (never inside it: a design is held to 8 KB) so it reaches the designer; these are the pure edits the tools make, and the beads she placed as sets to draw.
  *
  * Mirror draws both sides, and the eraser rubs out both sides. Each tool stops at its cap and says so in one line.
  * Coordinates are kept to four decimals, which is well under a millimetre on the gown.
  */
-import { GOWN_HAND_MAX, type GownBeadColour, type GownBeadKind, type GownConfig, type GownHandBead, type GownHandCut, type GownHandHole, type GownHandLace, type GownLace } from '../../gown-config';
+import { GOWN_HAND_MAX, type GownHand, type GownBeadColour, type GownBeadKind, type GownConfig, type GownHandBead, type GownHandCut, type GownHandHole, type GownHandLace, type GownLace } from '../../gown-config';
 import { RING_N, SLICE_DY, TAU } from '../body/constants';
 import { clamp, type GownRig } from '../body/rig';
 import type { GownDress } from '../dress/build';
@@ -17,7 +17,9 @@ import type { GownLaceBeadPt } from './lace';
 export type GownHandTool = 'beads' | 'lace' | 'cut' | 'eraser';
 /** A spot on the gown under her finger (v202 `hitAt`): direction round her, height, distance from her centre line. */
 export type GownHandHit = { ph: number; y: number; r: number };
-type HandDesign = Pick<GownConfig, 'handBeads' | 'handHoles' | 'handLace' | 'handCuts' | 'bead' | 'beadCol' | 'beadHex' | 'beadMm' | 'lace' | 'laceCm'>;
+/** What the tools read and write: the hand work (`GownHand`, beside the design) plus the design's picked bead and lace. */
+export type GownHandDesign = Pick<GownConfig, 'bead' | 'beadCol' | 'beadHex' | 'beadMm' | 'lace' | 'laceCm'> & GownHand;
+type HandDesign = GownHandDesign;
 
 const r4 = (x: number) => Math.round(x * 1e4) / 1e4;
 const wrap = (d: number) => { const a = Math.abs(d) % TAU; return a > Math.PI ? TAU - a : a; };

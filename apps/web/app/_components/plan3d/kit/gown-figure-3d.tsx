@@ -14,7 +14,7 @@ import * as THREE from 'three';
 import { Canvas, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { GOWN_STRAPLESS, gownCapeNow, type GownBodyKey, type GownBodyVals, type GownConfig, type GownShapewear, type GownStockFabric } from '@/lib/gown-config';
+import { GOWN_STRAPLESS, emptyGownHand, gownCapeNow, type GownBodyKey, type GownBodyVals, type GownConfig, type GownHand, type GownShapewear, type GownStockFabric } from '@/lib/gown-config';
 import { createGownFrameGovernor, type GownFrameGovernor } from '@/lib/gown/frame-governor';
 import { GOWN_MANNEQUIN, GOWN_SCENES, gownSkyTexture, type GownSceneId } from '@/lib/gown/scenes';
 import { installGownToneMapping } from '@/lib/gown/tone';
@@ -69,6 +69,8 @@ export type GownFigureProps = {
   onSolved?: (s: GownSolved) => void;
   /** A7b: a hand tool is drawing on the gown. While one is picked, a finger on the cloth draws instead of turning her. */
   hand?: GownHandInput | null;
+  /** A7b: her hand work, kept beside the design (never inside it). */
+  handWork?: GownHand | null;
 };
 /** Where a finger touches the gown, as the hand tools need it; `moved` = more than a tap's few pixels from where it went down. */
 export type GownHandInput = { tool: GownHandTool | null; onHit: (phase: 'down' | 'move' | 'up' | 'cancel', hit: GownHandHit | null, moved: boolean, ctx: GownHandCtx) => void };
@@ -76,6 +78,8 @@ export type GownHandInput = { tool: GownHandTool | null; onHit: (phase: 'down' |
 export type GownHandCtx = { cmU: number; forbidden: (ph: number, y: number, rcm: number) => string; close: (P: [number, number][]) => { pts: [number, number][] | null; note: string } };
 
 let bytes: Promise<ArrayBuffer> | null = null;
+/** A7b: each new hand-work object is a new edit (the stage's rebuild key). */
+let handEdits = 0;
 /**
  * The body file is fetched once per page; each stage parses its OWN body from it (a three.js object can sit in one
  * scene only, so two stages sharing one body would leave the first one empty).
@@ -177,7 +181,7 @@ type SurfaceHost = { su: GownSurfaceUniforms; maps: { weave: HTMLCanvasElement |
 const canvasOf = (w: number, h: number) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 /** The cloth's surface for this design: the fabric's weave, the lace and the cut-outs, painted into their maps (v195). */
 /** Returns the beads sewn on the lace (A7b), sampled from the lace as painted. */
-function paintSurface(cloth: SurfaceHost, rig: GownRig, design: GownConfig, kind: GownStockFabric): GownLaceBeadPt[] {
+function paintSurface(cloth: SurfaceHost, rig: GownRig, design: GownConfig & Partial<GownHand>, kind: GownStockFabric): GownLaceBeadPt[] {
   const { su, maps } = cloth;
   // The weave, at thread scale; it only shades.
   maps.weave ??= canvasOf(GOWN_WEAVE_PX, GOWN_WEAVE_PX);
@@ -246,7 +250,7 @@ function beadMaterial(set: GownBeadSet, phone: boolean): THREE.Material {
   return new THREE.MeshStandardMaterial({ color: c, ...L[set.kind] });
 }
 
-function Body({ rig, phone = false, vals, fine, shape = 'none', guides = false, turn = 0, design = null, inside = null, scene = 'studio', onSolved, hand = null }: { rig: GownRig; phone?: boolean } & GownFigureProps) {
+function Body({ rig, phone = false, vals, fine, shape = 'none', guides = false, turn = 0, design = null, inside = null, scene = 'studio', onSolved, hand = null, handWork = null }: { rig: GownRig; phone?: boolean } & GownFigureProps) {
   const pivot = useRef<THREE.Group>(null);
   const mat = useMemo(() => new THREE.MeshStandardMaterial({ color: GOWN_MANNEQUIN.color, roughness: GOWN_MANNEQUIN.roughness, metalness: 0 }), []);
   // The gown: one mesh, its cloth material and the light coming through a sheer from behind.
@@ -356,7 +360,9 @@ function Body({ rig, phone = false, vals, fine, shape = 'none', guides = false, 
   }, []);
   const [frame, setFrame] = useState({ S: 1, floor: 0, top: 1.7, ver: 0, width: 0.6 });
   const [loops, setLoops] = useState<Record<GownTapeKey, number[]> | null>(null);
-  const key = JSON.stringify([vals, fine, shape, design, inside]);
+  // Her hand work can hold thousands of pieces: it counts by edit, not by its contents.
+  const handEdit = useMemo(() => ++handEdits, [handWork]);
+  const key = JSON.stringify([vals, fine, shape, design, inside, handEdit]);
   useEffect(() => {
     Object.assign(rig.vals, vals);
     rig.fine = { athletic: fine.athletic, bustT: fine.bustT, given: [...fine.given] };
@@ -548,12 +554,14 @@ function Body({ rig, phone = false, vals, fine, shape = 'none', guides = false, 
       if (cloth.D.geo && cloth.mesh.geometry !== cloth.D.geo) cloth.mesh.geometry = cloth.D.geo;
       cloth.m.color.setHex(gownClothColour(design.colour, design.colourHex));
       applyGownShine(cloth.m, ft.drawAs, GOWN_SCENES[scene].env);
-      const laceBeads = paintSurface(cloth, rig, design, ft.drawAs);
+      // A7b: the design and her hand work, side by side, for the lace, the cut-outs and the beads.
+      const work = { ...design, ...(handWork ?? emptyGownHand()) };
+      const laceBeads = paintSurface(cloth, rig, work, ft.drawAs);
       {
         // A7 (v202): every bead layer, laid again on each build (a fixed seed, so nothing reshuffles).
         for (const o of [...cloth.beadGroup.children] as THREE.InstancedMesh[]) { o.removeFromParent(); (o.material as THREE.Material).dispose(); o.dispose(); }
         // A7b: the eraser's wipes thin the layers; beads placed by hand and those sewn on the lace join them.
-        const sets = [...buildGownBeads(rig, cloth.D, cloth.T, design, { phone, holes: design.handHoles }).sets, ...buildGownHandBeads(rig, cloth.D, design, laceBeads, { phone }).sets];
+        const sets = [...buildGownBeads(rig, cloth.D, cloth.T, design, { phone, holes: work.handHoles }).sets, ...buildGownHandBeads(rig, cloth.D, work, laceBeads, { phone }).sets];
         for (const set of sets) {
           const im = new THREE.InstancedMesh(cloth.beadGeos[set.kind], beadMaterial(set, phone), set.n);
           im.frustumCulled = false;

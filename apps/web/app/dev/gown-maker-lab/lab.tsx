@@ -70,10 +70,12 @@ import {
   GOWN_STOCK_FABRICS,
   GOWN_TRAINS,
   startingGownBody,
+  emptyGownHand,
   startingGownConfig,
   type GownBodyKey,
   type GownBodyVals,
   type GownConfig,
+  type GownHand,
 } from '@/lib/gown-config';
 import { gownChoose, gownHiddenChoices, type GownChoice } from '@/lib/gown/compat';
 import { gownBraNote, gownLimit, gownSetNumber, gownSnapBustT } from '@/lib/gown/body-rules';
@@ -130,6 +132,8 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   const [hipWant, setHipWant] = useState<number | null>(null);
   const waistTold = useRef(0);
   const [hand, setHand] = useState<GownHandInput | null>(null);
+  // A7b: her hand work, kept beside the design.
+  const [handWork, setHandWork] = useState<GownHand>(() => emptyGownHand());
   const fine = { athletic: false, bustT, given };
 
   if (view === 'silhouettes') {
@@ -232,7 +236,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   };
   return (
     <main className="mx-auto grid max-w-3xl gap-4 p-4 md:grid-cols-2" data-lab-view={view}>
-      <GownView vals={vals} fine={fine} scene={scene} guides={guides} force2d={view === 'fallback'} design={view === 'dress' ? design : null} onSolved={setSolved} hand={view === 'dress' ? hand : null} />
+      <GownView vals={vals} fine={fine} scene={scene} guides={guides} force2d={view === 'fallback'} design={view === 'dress' ? design : null} onSolved={setSolved} hand={view === 'dress' ? hand : null} handWork={view === 'dress' ? handWork : null} />
       <section className="sn-frame grid gap-3 p-4" aria-label="Her numbers">
         {SLIDERS.map((k) => {
           const [lo, hi] = k === 'height' ? GOWN_BODY_RANGE.height : gownLimit(vals, k);
@@ -383,7 +387,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
               <GownLaceDesigner design={design} onChoose={(k, v) => choose(k, v)} onWidth={(cm) => setDesign({ ...design, laceCm: cm })} />
             </div>
             <div className="col-span-2">
-              <GownHandTools design={design} onDesign={setDesign} onInput={setHand} />
+              <GownHandTools design={design} hand={handWork} onHand={setHandWork} onInput={setHand} />
             </div>
             <p className="col-span-2 text-sn-12" data-lab-note aria-live="polite">
               {note}

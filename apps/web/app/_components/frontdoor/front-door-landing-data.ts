@@ -313,7 +313,7 @@ export const SUPPLIER_TILES: readonly { photo: string; alt: string; label: strin
 ];
 
 export const SUPPLIER_STAGES: readonly { term: string; line: string }[] = [
-  { term: 'Just starting?', line: 'Open a shop in two steps — free.' },
+  { term: 'Just starting?', line: 'Open a shop with three answers — free.' },
   { term: 'New?', line: 'Be found by hosts already planning here.' },
   { term: 'Experienced?', line: 'Keep your clients. Add ours.' },
 ];

@@ -227,12 +227,12 @@ export function aiAnswers(ctx: AiAnswerContext): AiAnswer[] {
       id: 'supplier-join',
       question: 'How do suppliers join Setnayan?',
       answer:
-        "Open a shop free in two steps and get a page at setnayan.com/yourshop. Get Verified free with your business papers (DTI or SEC, BIR 2303, and a Mayor's or Business Permit) to be shown in search. " +
+        "Open a shop free with three answers and get a page at setnayan.com/yourshop. Get Verified free with your business papers (DTI or SEC, BIR 2303, and a Mayor's or Business Permit) to be shown in search. " +
         SUPPLIER_FREE_BOOKING_LINE,
       corrects: 'never mentioned',
       route: '/for-suppliers',
       evidence:
-        'app/open-shop · app/for-suppliers/_components/supplier-front-page.tsx ("Open a shop in two steps") · lib/paper-intake.ts (three papers) · lib/booking-fee-gate.ts (SUPPLIER_BROUGHT_SOURCES) · lib/own-clients.server.ts',
+        'app/open-shop · app/for-suppliers/_components/supplier-front-data.ts ("Open your shop: three answers") · lib/supplier-onboarding.ts (OPEN_YOUR_SHOP_HEAD) · lib/paper-intake.ts (three papers) · lib/booking-fee-gate.ts (SUPPLIER_BROUGHT_SOURCES) · lib/own-clients.server.ts',
     },
     {
       id: 'coordinators',

@@ -173,6 +173,7 @@ export async function reconcilePass(
     guests: autoSeatGuests,
     existing: assignments.filter((a) => !releasing.has(a.guest_id)),
     added: assign,
+    nearestVipPlusOnes: floorPlan.vip_plus_ones === 'nearest',
   });
   if (breaks.length > 0) {
     // Fails closed: nobody is seated and nothing is changed. Returned as a write fault, so a second refusal is

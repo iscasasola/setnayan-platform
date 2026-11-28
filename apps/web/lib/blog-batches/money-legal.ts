@@ -61,7 +61,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A budget is also a values exercise. Before you book anything, agree on the two or three things that matter most — perhaps the food, the photos, or a venue you have always dreamed of — and protect their share of the total. Everything else can flex. When something has to give, you trim from the areas you already agreed are less important, rather than arguing about it in a stressful week three months out. This single conversation prevents most of the money tension couples feel, because every later choice is measured against a decision you already made together, calmly, at the start. And when you book through a marketplace that takes zero commission on supplier bookings, the price you agree with a supplier is the price you pay — no hidden platform cut quietly eating into the total you worked so hard to set.',
+        text: 'A budget is also a values exercise. Before you book anything, agree on the two or three things that matter most — perhaps the food, the photos, or a venue you have always dreamed of — and protect their share of the total. Everything else can flex. When something has to give, you trim from the areas you already agreed are less important, rather than arguing about it in a stressful week three months out. This single conversation prevents most of the money tension couples feel, because every later choice is measured against a decision you already made together, calmly, at the start. Hosts pay 0% commission. The price you agree with a supplier is the price you pay.',
       },
       {
         type: 'cta',
@@ -85,7 +85,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
     blocks: [
       {
         type: 'p',
-        text: '"What is the average cost of a wedding in the Philippines?" is the question every newly engaged couple types into their phone at midnight. The honest answer is that there is no single average — a quiet civil wedding for thirty guests and a grand church celebration for three hundred are both Filipino weddings, and they sit worlds apart on cost. What is far more useful than an average is understanding what drives the number, so you can place your own wedding on the scale with eyes open.',
+        text: '"What is the average cost of a wedding in the Philippines?" is the question every newly engaged couple types into their phone at midnight. The honest answer is that there is no single average — a quiet civil wedding for thirty guests and a grand church wedding for three hundred are both Filipino weddings, and they sit worlds apart on cost. What is far more useful than an average is understanding what drives the number, so you can place your own wedding on the scale with eyes open.',
       },
       {
         type: 'h2',
@@ -93,7 +93,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'An average blends a backyard celebration and a five-star ballroom into one figure that describes neither. Your cost depends far more on the choices in front of you than on any national number. The same wedding can double in price by moving from a province to Metro Manila, from a weekday to a Saturday in December, or from eighty guests to two hundred.',
+        text: 'An average blends a backyard party and a five-star ballroom into one figure that describes neither. Your cost depends far more on the choices in front of you than on any national number. The same wedding can double in price by moving from a province to Metro Manila, from a weekday to a Saturday in December, or from eighty guests to two hundred.',
       },
       {
         type: 'ul',
@@ -131,7 +131,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       {
         type: 'cta',
         text: 'See the full percentage breakdown of where a Filipino wedding budget really goes.',
-        href: '/features',
+        href: '/articles/wedding-budget-breakdown-philippines',
         label: 'Read the budget breakdown',
       },
       {
@@ -147,9 +147,9 @@ export const ARTICLES_MONEY: BlogArticle[] = [
     cover: '/blog/budget.webp',
     coverAlt:
       'Gold wedding rings and an invitation suite arranged on a styled table',
-    title: '30 honest ways to save money on a Filipino wedding',
+    title: '23 honest ways to save money on a Filipino wedding',
     excerpt:
-      '30 real ways to cut wedding costs in the Philippines — without anyone at the celebration ever feeling the difference.',
+      '23 real ways to cut wedding costs in the Philippines — without a single guest ever feeling the difference.',
     category: 'planning',
     author: 'Setnayan Editorial',
     publishedAt: '2026-08-05',
@@ -157,7 +157,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
     blocks: [
       {
         type: 'p',
-        text: 'Saving money on a wedding sounds like a compromise, and the worry underneath it is real: "Will it look cheap? Will people notice?" The truth is that the smartest savings are invisible. Guests remember warmth, good food, and a day that flowed — not the line items you trimmed to get there. Here are thirty honest ways to spend less, grouped so you can pick the ones that fit your wedding.',
+        text: 'Saving money on a wedding sounds like a compromise, and the worry underneath it is real: "Will it look cheap? Will people notice?" The truth is that the smartest savings are invisible. Guests remember warmth, good food, and a day that flowed — not the line items you trimmed to get there. Here are twenty-three honest ways to spend less, grouped so you can pick the ones that fit your wedding.',
       },
       {
         type: 'h2',
@@ -213,17 +213,17 @@ export const ARTICLES_MONEY: BlogArticle[] = [
           'Borrow décor, signage, and props from recently married friends, and DIY the genuinely simple touches.',
           'Buy your own alcohol where the venue allows, and limit the bar to beer, wine, and one signature drink.',
           'Set your total first, track every deposit, and keep a 10–15% buffer so nothing forces a panic purchase.',
-          'Book through a marketplace that charges 0% commission, so the price you agree is the price you pay.',
+          'Hosts pay 0% commission. The price you agree is the price you pay.',
           'Negotiate gently and always in writing, avoid debt, and put any savings toward the honeymoon — not new add-ons.',
         ],
       },
       {
         type: 'p',
-        text: 'You will not use all thirty — no one does. Pick the handful that suit your wedding, and the savings stack up without a single guest ever feeling the difference. The most powerful ones are at the top of this list: the guest count and the date move more money than every small swap combined, so start there before you fuss over favours. And remember that the goal is never the cheapest wedding — it is the wedding that fits your life, paid for without stress. A saving you make on a detail no one will notice is a saving you can pour into the food everyone will remember, the photos you will keep forever, or simply the peace of starting married life with money still in the bank.',
+        text: 'You will not use all twenty-three — no one does. Pick the handful that suit your wedding, and the savings stack up without a single guest ever feeling the difference. The most powerful ones are at the top of this list: the guest count and the date move more money than every small swap combined, so start there before you fuss over favours. And remember that the goal is never the cheapest wedding — it is the wedding that fits your life, paid for without stress. A saving you make on a detail no one will notice is a saving you can pour into the food everyone will remember, the photos you will keep forever, or simply the peace of starting married life with money still in the bank.',
       },
       {
         type: 'cta',
-        text: 'Track every choice and every peso saved in one free budget — with 0% commission on every booking.',
+        text: 'Track every choice and every peso saved in one free budget. Hosts pay 0% commission.',
         href: '/signup',
         label: 'Start planning free',
       },
@@ -289,7 +289,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'When you have eight or ten suppliers, each with their own deposit and balance dates, the calendar is where money slips through the cracks — a balance due you forgot, a deposit you cannot remember sending. The fix is to record each payment the moment it goes out, tagged to the supplier and the milestone it covers, so a single glance tells you your true remaining balance across the whole wedding rather than a guess and a stack of receipts in your phone’s photos. This is also your early-warning system: if the payments due in a given month start to crowd together, you see it weeks ahead and can talk to a supplier about adjusting a date, instead of discovering the crunch the week it lands. Because Setnayan takes zero commission on supplier bookings, the only amounts on your schedule are the ones you agreed with your suppliers — never a surprise platform fee on top. Pay in stages, get it in writing, keep your records, and watch the calendar, and the scariest part of working with suppliers becomes routine: money out, value in, all the way to the day.',
+        text: 'When you have eight or ten suppliers, each with their own deposit and balance dates, the calendar is where money slips through the cracks — a balance due you forgot, a deposit you cannot remember sending. The fix is to record each payment the moment it goes out, tagged to the supplier and the milestone it covers, so a single glance tells you your true remaining balance across the whole wedding rather than a guess and a stack of receipts in your phone’s photos. This is also your early-warning system: if the payments due in a given month start to crowd together, you see it weeks ahead and can talk to a supplier about adjusting a date, instead of discovering the crunch the week it lands. Hosts pay 0% commission. The only amounts on your schedule are the ones you agreed with your suppliers. Pay in stages, get it in writing, keep your records, and watch the calendar, and the scariest part of working with suppliers becomes routine: money out, value in, all the way to the day.',
       },
       {
         type: 'cta',
@@ -562,7 +562,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'An intimate wedding does more than cut the bill. It lets you spend more per guest — a nicer venue, better food, a longer celebration — while spending less overall, and it buys you real time with everyone there instead of a blur of handshakes. A big wedding, on the other hand, honours the Filipino reality that family and community are wide and beloved, and leaving people out carries its own quiet cost in relationships. Neither is wrong; the right choice is the one you can fund comfortably and will be glad of for years.',
+        text: 'An intimate wedding does more than cut the bill. It lets you spend more per guest — a nicer venue, better food, a longer reception — while spending less overall, and it buys you real time with everyone there instead of a blur of handshakes. A big wedding, on the other hand, honours the Filipino reality that family and community are wide and beloved, and leaving people out carries its own quiet cost in relationships. Neither is wrong; the right choice is the one you can fund comfortably and will be glad of for years.',
       },
       {
         type: 'h2',
@@ -622,7 +622,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'The unexpected at a wedding is remarkably predictable in shape, even if you cannot name it in advance. The buffer is what absorbs all of it — overtime when the celebration runs long, a late surge of guests or sponsors who could not be turned away, a wet-weather backup or generator, a supplier issue that means rebooking at short notice, and the small fees like corkage and service charge that always appear — without forcing a stressful conversation or a credit-card swipe. And if a buffer feels like a luxury on a tight budget, flip the logic: it is precisely the tighter budgets that need it most, because a wedding with little slack is the one most easily derailed by a single unexpected fee.',
+        text: 'The unexpected at a wedding is remarkably predictable in shape, even if you cannot name it in advance. The buffer is what absorbs all of it — overtime when the reception runs long, a late surge of guests or sponsors who could not be turned away, a wet-weather backup or generator, a supplier issue that means rebooking at short notice, and the small fees like corkage and service charge that always appear — without forcing a stressful conversation or a credit-card swipe. And if a buffer feels like a luxury on a tight budget, flip the logic: it is precisely the tighter budgets that need it most, because a wedding with little slack is the one most easily derailed by a single unexpected fee.',
       },
       {
         type: 'h2',
@@ -662,7 +662,7 @@ export const ARTICLES_MONEY: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Older Filipino custom borrowed from Spanish-Catholic tradition, where the groom’s side carried much of the financial weight — a nod to the arrhae, the 13 coins the groom presents as a pledge to provide. The bride’s family often took on the attire and certain personal preparations, and principal sponsors, the ninong and ninang, were sometimes looked to for help with specific elements of the celebration. It was less a strict invoice and more a web of expectations passed down through generations — warm in spirit, but easy to misread today, when families are smaller, couples marry later, and almost no one assumes the old roles automatically anymore.',
+        text: 'Older Filipino custom borrowed from Spanish-Catholic tradition, where the groom’s side carried much of the financial weight — a nod to the arrhae, the 13 coins the groom presents as a pledge to provide. The bride’s family often took on the attire and certain personal preparations, and principal sponsors, the ninong and ninang, were sometimes looked to for help with specific elements of the wedding. It was less a strict invoice and more a web of expectations passed down through generations — warm in spirit, but easy to misread today, when families are smaller, couples marry later, and almost no one assumes the old roles automatically anymore.',
       },
       {
         type: 'quote',
@@ -719,7 +719,7 @@ export const HOOKS_MONEY: Record<string, string> = {
   'how-to-save-money-on-your-wedding-philippines':
     'Worried a smaller budget will look cheap? The smartest savings are the ones no guest ever notices. Here are the honest ones that actually add up — without touching the warmth of the day.',
   'wedding-payment-schedule-deposits-explained':
-    'Handing your first big deposit to a supplier you just met is nerve-wracking. Here is how Filipino wedding payments really flow — and the simple habits that keep your money safe.',
+    'Handing your first big deposit to a supplier you just met is nerve-wracking. Here is how Filipino wedding payments really flow — and the simple habits that protect your money.',
   'psa-marriage-certificate-how-to-get':
     'The wedding is done — but are you officially married on paper? One document proves it, and almost everything after the wedding eventually asks for it. Here is exactly when and how to get it.',
   'name-change-after-marriage-philippines':
@@ -729,7 +729,7 @@ export const HOOKS_MONEY: Record<string, string> = {
   'intimate-wedding-vs-big-wedding-cost':
     'Small wedding or grand one? Behind the question is real money. Some costs vanish when you trim the guest list — and some barely move at all. Here is which is which.',
   'wedding-contingency-fund-philippines':
-    'A supplier cancels, the rain comes, the headcount jumps — and there is no money left to fix it. One boring line in your budget turns that nightmare into a shrug. Here is the one to never skip.',
+    'One quiet line in your budget turns a rained-out, over-booked day into a shrug. Here is the one never to skip. 💛',
   'who-pays-for-what-filipino-wedding':
     'The most awkward wedding conversation no one wants to start: who is actually paying for what? Here is how to have it warmly, early, and without anyone feeling slighted. 💍',
 };

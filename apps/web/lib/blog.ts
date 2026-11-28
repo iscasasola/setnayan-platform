@@ -347,7 +347,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
     blocks: [
       {
         type: 'p',
-        text: 'There is no single answer to "how much does a wedding supplier cost" in the Philippines — rates swing widely by city, season, experience, and how much of the work is included. The ranges below are realistic 2026 starting points to help you build a first budget. Treat them as a compass, not a quote: always ask each supplier for an inclusions list in writing, because the same headline price can mean very different things.',
+        text: 'There is no single answer to "how much does a wedding supplier cost" in the Philippines — rates swing widely by city, season, experience, and how much of the work is included. Treat any quote as a compass, not a final price: always ask each supplier for an inclusions list in writing, because the same headline price can mean very different things.',
       },
       {
         type: 'h2',
@@ -364,7 +364,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
       {
         type: 'h2',
-        text: 'Typical starting ranges (2026)',
+        text: 'Price by category',
       },
       {
         type: 'p',
@@ -407,7 +407,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
       {
         type: 'p',
-        text: 'When you are ready to shortlist, browsing verified suppliers side by side — with the styles and cities they actually serve — makes the ranges above concrete for your specific date and place.',
+        text: 'When you are ready to shortlist, browsing verified suppliers side by side — with the styles and cities they actually serve — makes the prices concrete for your specific date and place.',
       },
       {
         type: 'cta',
@@ -430,7 +430,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
     blocks: [
       {
         type: 'p',
-        text: 'Every Filipino couple faces this early question: civil or church? Both result in a legally married couple — the difference is in the ceremony, the requirements, the timeline, and the feel of the day. Here is a clear comparison to help you decide, whether you want a quiet signing or a full liturgical celebration.',
+        text: 'Every Filipino couple faces this early question: civil or church? Both result in a legally married couple — the difference is in the ceremony, the requirements, the timeline, and the feel of the day. Here is a clear comparison to help you decide, whether you want a quiet signing or a full church ceremony.',
       },
       {
         type: 'h2',
@@ -561,7 +561,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
       {
         type: 'cta',
-        text: 'Setnayan\'s guest list includes more than 30 Filipino ceremony roles — sponsors, bearers, ninong, ninang, and more — so everyone is placed and counted.',
+        text: 'Setnayan\'s guest list knows the Filipino entourage — sponsors, bearers, ninong and ninang — so everyone is placed and counted.',
         href: '/signup',
         label: 'Build your guest list free',
       },
@@ -675,7 +675,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
       {
         type: 'cta',
-        text: 'Setnayan tracks the statutory deadlines for your date — licence window included — so nothing lapses.',
+        text: 'Setnayan\'s checklist dates every task from your wedding date, so each deadline shows up in time.',
         href: '/features',
         label: 'See how planning adapts',
       },
@@ -728,7 +728,7 @@ const CORE_BLOG_ARTICLES: ReadonlyArray<BlogArticle> = [
       },
       {
         type: 'cta',
-        text: 'Browse 100+ real Philippine wedding venues by city, with capacity and day-rate details.',
+        text: 'Browse Philippine wedding venues by city.',
         href: '/?browse=1',
         label: 'Explore venues',
       },

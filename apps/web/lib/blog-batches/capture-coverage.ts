@@ -69,7 +69,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Compare real portfolios, inclusions, and availability in one place, with no commission added to what you pay your supplier.',
+        text: 'Compare real portfolios, inclusions, and availability in one place.',
         href: '/?browse=1',
         label: 'Browse the supplier marketplace',
       },
@@ -113,7 +113,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Booking a combined photo-and-video team usually costs less than hiring two separate suppliers, and it removes the awkward dance of two rival crews fighting for the same angle and stepping into each other shots all day. Bundled packages range widely, from a smaller team to an established studio with multiple shooters, a dedicated cinematographer and a same-day edit, so ask 3 suppliers for a quote on the same coverage. The gap reflects real differences — hours of coverage, crew size, deliverables, and polish — so two quotes that look far apart can describe nearly the same wedding once you line up the inclusions. Always confirm what counts as photo and what counts as video inside a single bundled price, because sometimes the video is a lighter add-on rather than full, independent coverage.',
+        text: 'Booking a combined photo-and-video team usually costs less than hiring two separate suppliers, and it removes the awkward dance of two rival crews fighting for the same angle and stepping into each other\'s shots all day. Bundled packages range widely, from a smaller team to an established studio with multiple shooters, a dedicated cinematographer and a same-day edit, so ask 3 suppliers for a quote on the same coverage. The gap reflects real differences — hours of coverage, crew size, deliverables, and polish — so two quotes that look far apart can describe nearly the same wedding once you line up the inclusions. Always confirm what counts as photo and what counts as video inside a single bundled price, because sometimes the video is a lighter add-on rather than full, independent coverage.',
       },
       {
         type: 'quote',
@@ -137,9 +137,9 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'See how much photo and video teams actually charge across the Philippines before you decide.',
-        href: '/features',
-        label: 'Start planning free',
+        text: 'Compare photo and video teams side by side.',
+        href: '/?browse=1',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -276,7 +276,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'The most memorable prenups are not the most elaborate — they are the most personal. A shoot in the cafe where you first met, the basketball court where he proposed, or your grandparents home will always beat a generic field of flowers you have no connection to. Pick locations and props that mean something, and resist copying someone else photoset wholesale. Your story is the styling.',
+        text: 'The most memorable prenups are not the most elaborate — they are the most personal. A shoot in the cafe where you first met, the basketball court where he proposed, or your grandparents\' home will always beat a generic field of flowers you have no connection to. Pick locations and props that mean something, and resist copying someone else\'s photoset wholesale. Your story is the styling.',
       },
       {
         type: 'ul',
@@ -313,7 +313,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
     blocks: [
       {
         type: 'p',
-        text: 'You watch a few sample films, they all look stunning, and you book one — only to feel, months later, that the wedding video does not quite feel like your wedding. That mismatch is almost always a style problem, not a talent problem. Wedding videographers work in different traditions, and knowing the difference before you sign saves you from a beautiful film of someone else marriage.',
+        text: 'You watch a few sample films, they all look stunning, and you book one — only to feel, months later, that the wedding video does not quite feel like your wedding. That mismatch is almost always a style problem, not a talent problem. Wedding videographers work in different traditions, and knowing the difference before you sign saves you from a beautiful film of someone else\'s marriage.',
       },
       {
         type: 'h2',
@@ -412,7 +412,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'The magic of an SDE is timing, pure and simple. Your guests get to relive the morning they mostly did not witness — the bride in her robe, the groom steadying his nerves, the first look — while the emotion of the day is still fresh in the room. The reception gains a genuine showstopper that lifts the whole programme. And it hands you something to share the very night of the wedding, while everyone is still glowing and the comments are pouring in. For a celebration that is, at heart, a shared experience, that immediacy is very hard to match with a film you only receive months later.',
+        text: 'The magic of an SDE is timing, pure and simple. Your guests get to relive the morning they mostly did not witness — the bride in her robe, the groom steadying his nerves, the first look — while the emotion of the day is still fresh in the room. The reception gains a genuine showstopper that lifts the whole programme. And it hands you something to share the very night of the wedding, while everyone is still glowing and the comments are pouring in. For a wedding that is, at heart, a shared experience, that immediacy is very hard to match with a film you only receive months later.',
       },
       {
         type: 'quote',
@@ -432,7 +432,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
           'Worth it if a live reception highlight matters to you and the budget allows.',
           'Skippable if you would rather put that money toward fuller coverage or a longer final film.',
           'Confirm whether the SDE is in addition to, or instead of, your main highlight video.',
-          'Ask to see two or three of the studio actual same-day edits before you commit.',
+          'Ask to see two or three of the studio\'s actual same-day edits before you commit.',
         ],
       },
       {
@@ -515,8 +515,8 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Compare photographer packages by what they actually deliver, not just the headline price.',
-        href: '/features',
-        label: 'Start planning free',
+        href: '/?browse=1',
+        label: 'Browse the supplier marketplace',
       },
     ],
   },
@@ -615,7 +615,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'This is your announcement, dressed up. Often built from prenup footage or a short, fun shoot done just for the purpose, it is a brief and highly shareable clip — typically under a minute — that lands in your guests inboxes, group chats, and feeds carrying only the essentials: who is getting married, and when. Its whole job is to lock the date into people heads early and set the tone, so guests immediately sense whether to expect something formal and grand, relaxed and beachy, or light and playful. Because it travels online, it should look good on a phone screen and make sense even when watched on mute, which is how most people will first see it.',
+        text: 'This is your announcement, dressed up. Often built from prenup footage or a short, fun shoot done just for the purpose, it is a brief and highly shareable clip — typically under a minute — that lands in your guests\' inboxes, group chats, and feeds carrying only the essentials: who is getting married, and when. Its whole job is to lock the date into people\'s heads early and set the tone, so guests immediately sense whether to expect something formal and grand, relaxed and beachy, or light and playful. Because it travels online, it should look good on a phone screen and make sense even when watched on mute, which is how most people will first see it.',
       },
       {
         type: 'ul',
@@ -657,7 +657,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Plan both with intent. The save-the-date is marketing for your wedding; the AVP is storytelling at it. Give your supplier a clear brief for each, respect your guests attention with tight edits, and these two small films will do an outsized amount of work in setting the mood of your day.',
+        text: 'Plan both with intent. The save-the-date is marketing for your wedding; the AVP is storytelling at it. Give your supplier a clear brief for each, respect your guests\' attention with tight edits, and these two small films will do an outsized amount of work in setting the mood of your day.',
       },
       {
         type: 'cta',
@@ -696,7 +696,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
           'A specific delivery window for edited photos, and a separate one for the video.',
           'A turnaround date for the album, which is usually later than the digital files.',
           'What happens, and what you are owed, if those deadlines are missed.',
-          'Avoid vague phrasing like soon, in a few months, or when ready.',
+          'Avoid vague phrasing like "soon", "in a few months" or "when ready".',
         ],
       },
       {
@@ -705,7 +705,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Photographers get sick. Gear fails. A serious supplier has a plan for both, and that plan is written down. The contract should name what happens if your booked shooter cannot make it — a qualified replacement of similar standard — and should mention backup equipment. If a supplier brushes off the what if you cannot come question, you are carrying a risk they should be carrying.',
+        text: 'Photographers get sick. Gear fails. A serious supplier has a plan for both, and that plan is written down. The contract should name what happens if your booked shooter cannot make it — a qualified replacement of similar standard — and should mention backup equipment. If a supplier brushes off the "what if you cannot come?" question, you are carrying a risk they should be carrying.',
       },
       {
         type: 'quote',
@@ -734,7 +734,7 @@ export const ARTICLES_CAPTURE: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Book suppliers you can verify and message in one place, with 0% commission on what you pay them.',
+        text: 'Book suppliers you can verify and message in one place.',
         href: '/?browse=1',
         label: 'Browse the supplier marketplace',
       },
@@ -762,5 +762,5 @@ export const HOOKS_CAPTURE: Record<string, string> = {
   'avp-save-the-date-video-guide':
     'Save-the-date video and reception AVP sound like the same thing. They are not — and mixing them up is why some AVPs lose the room. The difference, explained.',
   'wedding-photo-video-contract-red-flags':
-    'Late files, no-show shooters, vanished deposits — almost every photo-and-video horror story was written into the contract first. The red flags to catch before you sign.',
+    'Read these lines before you sign a photo-and-video contract. The red flags to catch, and the clauses that keep your day on track.',
 };

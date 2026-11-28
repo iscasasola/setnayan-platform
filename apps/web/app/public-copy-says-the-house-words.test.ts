@@ -141,11 +141,6 @@ const ALLOWED: ReadonlyArray<{ file: string | RegExp; phrase: RegExp; why: strin
     why: 'The question a couple types into a search engine; it names the other products, and the answer is "the Event Hub".',
   },
   {
-    file: 'lib/blog.ts',
-    phrase: /full liturgical celebration/i,
-    why: "The Church's own word for the rite (a liturgical celebration is the Mass), in an article about a Catholic wedding — not our word for an event.",
-  },
-  {
     file: /^lib\/help(?:\.ts$|\/)/, // help split 2026-11-14
     phrase: /local government website/i,
     why: "A city hall's own website, where a supplier renews a business permit — not ours.",

@@ -55,7 +55,6 @@ const NOUN_ALLOWED_PATHS: Record<string, string> = {
   'lib/data-subject-register.ts': 'internal data-subject register — not customer-facing',
   'app/dev/': 'dev labs — never shipped to customers',
   'lib/blog-batches/': 'editorial articles — ordinary English prose',
-  'lib/blog.ts': 'editorial articles — ordinary English prose',
   'lib/auspicious-date.ts': 'cultural/astrological prose about dates',
   'lib/wedding-traditions.ts': 'cultural prose about wedding customs',
   'lib/real-weddings.ts': 'editorial case studies',

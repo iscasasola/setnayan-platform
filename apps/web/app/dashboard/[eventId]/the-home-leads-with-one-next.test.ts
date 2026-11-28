@@ -346,7 +346,10 @@ test('e · ONE copy of the widgets at every width — one column, no second sect
   assert.match(html, /data-home-cover="[^"]*"[^>]*class="[^"]*-mx-4[^"]*sm:-mx-6[^"]*lg:-mx-8/, 'the cover cancels the layout gutter at every width — a full-width band');
   // 🎴 The event card (Home redraw 2026-11-02): square at the top, its bottom corners rounded — nothing else. From 1280
   // it is the first column's card, round all round (owner-approved 16 Nov 2026, the three-column board) — that one only.
-  assert.match(html, /data-home-cover="[^"]*"[^>]*class="[^"]*\bxl:static xl:mx-0 xl:mt-0 xl:rounded-3xl\b/, 'from 1280 the cover is the first column\'s card');
+  assert.match(html, /data-home-cover="[^"]*"[^>]*class="[^"]*\bxl:relative xl:mx-0 xl:mt-0 xl:rounded-3xl\b/, 'from 1280 the cover is the first column\'s card');
+  // 🖼 It scrolls with its column but stays POSITIONED (owner 28 Nov, desktop Today): \`xl:static\` let the photo
+  // ground (\`absolute inset-0\`) escape to the whole viewport and cover every card under it.
+  assert.doesNotMatch(html.slice(html.indexOf('data-home-cover'), html.indexOf('data-home-column')), /\bxl:static\b/, 'a static cover lets its photo cover the whole page from 1280');
   assert.doesNotMatch(html.slice(html.indexOf('data-home-cover'), html.indexOf('data-home-column')).replace(/rounded-b-3xl/, '').replace(/xl:rounded-3xl/, ''), /rounded-(?!full)/, 'the cover band is rounded beyond its bottom corners');
   // 🌐 ONE copy at every width (owner 23 Nov 2026, v5 drawing — the phone's rotating tiles and the tablet's second copy
   // are retired): the board's two columns show at every width, stacked under the list below 1280. No toggle.

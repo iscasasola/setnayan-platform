@@ -118,6 +118,12 @@ export type ThumbField = {
    * whole the moment the words are gone (owner 2026-10-31).
    */
   onClear?: () => void;
+  /**
+   * 🔢 Where a search stands among what it found — "1 of 4" (Seats' Find, seat plan C, drawing
+   * `prototypes/seating_later_2026-11-27/`): drawn small at the field's right end, before its ✕, and read out politely.
+   * Absent / null → nothing is drawn.
+   */
+  count?: string | null;
   tour?: string;
   /**
    * 💡 Example lines the empty box cycles through after its name (owner 2026-11-01: every search and add box shows
@@ -358,7 +364,10 @@ export function ThumbRow({
         <>
           {left.slice(0, 2).map((r, i) => ('node' in r ? <NodeRound key={`n${i}`} node={r.node} /> : <Round key={r.label} r={r} />))}
           {field && 'node' in field ? (
+            /* A pointer convenience: a press on the seat's padding focuses the control inside it. The keyboard reaches
+               that control directly, so the seat itself is presentation, not a second tab stop. */
             <span
+              role="presentation"
               data-glass-row="thumb-row-field-node"
               className={`sn-glass-row ${styles.field} ${styles.fieldNode}`}
               data-thumb-seat="field"
@@ -371,7 +380,7 @@ export function ThumbRow({
               {field.node}
             </span>
           ) : field ? (
-            <label htmlFor={inputId} data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field}`} data-thumb-seat="field" data-search-mode={adds ? searchAdd.mode : undefined} data-drag-add={dragAdd ? '' : undefined} data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onClick={onFieldClick} onInput={onFieldInput} {...dragProps}>
+            <label htmlFor={inputId} data-glass-row="thumb-row-field" className={`sn-glass-row ${styles.field} ${field.count ? styles.counted : ''}`} data-thumb-seat="field" data-search-mode={adds ? searchAdd.mode : undefined} data-drag-add={dragAdd ? '' : undefined} data-tour={field.tour} data-rides={rides ? '' : undefined} onFocus={onFieldFocus} onBlur={onFieldBlur} onClick={onFieldClick} onInput={onFieldInput} {...dragProps}>
 
               {adds ? (
                 <SearchAddIcon mode={searchAdd.mode} onPress={() => searchAdd.press(ownInput.current)} place={field.placeholder.replace(/^Search\s+/i, '')} tour={field.addTour} />
@@ -400,6 +409,11 @@ export function ThumbRow({
               {dragAdd?.kind && searchAdd.mode === 'add' ? (
                 <span className={styles.kind} data-search-add-kind="" onPointerDown={(e) => e.stopPropagation()}>
                   {dragAdd.kind}
+                </span>
+              ) : null}
+              {field.count ? (
+                <span className={`${styles.count} shrink-0 whitespace-nowrap pr-1 text-sn-sm tabular-nums text-ink/70`} data-thumb-count="" aria-live="polite">
+                  {field.count}
                 </span>
               ) : null}
               {field.kind === 'date' ? null : (

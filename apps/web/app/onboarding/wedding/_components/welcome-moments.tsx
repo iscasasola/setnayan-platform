@@ -17,6 +17,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { FAITH_REGISTRY } from '@/lib/faith-registry';
+import { onPressKeys } from '@/lib/press-keys';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import type { OnboardingFaith, OnboardingKind, OnboardingRole } from '../types';
 
@@ -229,7 +230,12 @@ export function WelcomeMoments({ faithOptions, onPickRole, onPickKind, onPickFai
     <div
       id="momentHost"
       aria-live="polite"
+      /* A spoken line moves on by itself; a press (or Enter/Space) only hurries it. */
+      role={m.t === 'speak' ? 'button' : undefined}
+      data-press-none=""
+      tabIndex={m.t === 'speak' ? 0 : undefined}
       onClick={m.t === 'speak' ? advance : undefined}
+      onKeyDown={m.t === 'speak' ? onPressKeys(advance) : undefined}
       style={m.t === 'speak' ? { cursor: 'pointer' } : undefined}
     >
       {m.t === 'speak' ? (

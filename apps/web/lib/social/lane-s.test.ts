@@ -132,7 +132,7 @@ test('an unnamed post never carries the shop name — category and region only',
   assert.doesNotMatch(copy.body + copy.title + copy.linkUrl, /Liwanag|liwanag/);
   assert.match(copy.body, /a photographer in Cebu/);
   assert.match(copy.body, /25 reviews/);
-  assert.equal(copy.linkUrl, 'https://www.setnayan.com/vendors');
+  assert.equal(copy.linkUrl, 'https://www.setnayan.com/suppliers');
 });
 
 test('a monthly award is named by its award and month', () => {
@@ -146,7 +146,7 @@ test('a monthly award is named by its award and month', () => {
     origin: 'https://www.setnayan.com',
   });
   assert.match(copy.body, /Top Pick · Nov 2026/);
-  assert.equal(copy.linkUrl, 'https://www.setnayan.com/vendors', 'no slug → the marketplace, never a broken /v/ link');
+  assert.equal(copy.linkUrl, 'https://www.setnayan.com/suppliers', 'no slug → the supplier search, never a broken /v/ link or the /vendors redirect');
 });
 
 /* ── milestones ────────────────────────────────────────────────────────────── */

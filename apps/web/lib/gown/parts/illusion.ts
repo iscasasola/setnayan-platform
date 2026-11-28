@@ -4,19 +4,20 @@
  * `illuMetres`, `illuSummary`).
  *
  * The sheer zone is a map round the body (u = direction, v = height): red where the bodice is sheer, green on the bound
- * edge of a sheer neckline. The gown's own cloth is cut away there (its lace stays, on the tulle) with a neat bound line
+ * edge of a sheer neckline, blue where the gown's top is cut away (v199: a scalloped top edge). A plunge to the waist's
+ * modesty mesh is sheer too (v199). The gown's own cloth is cut away there (its lace stays, on the tulle) with a neat bound line
  * where the lined part ends; the tulle itself is a second mesh drawn on the gown's own geometry, shown only inside the
  * zone. The bones are one list (`gownBoneSet`) that feeds Inside, Boning, the quote's metres and the visible channels,
  * which are drawn in the shaders (no geometry): clear through tulle, faint on the gown fabric.
  *
- * The GLSL is v198's own, verbatim. The map is painted on any 2D context (the stage passes a canvas's).
+ * The GLSL is v199's own, verbatim. The map is painted on any 2D context (the stage passes a canvas's).
  */
-import type { GownConfig } from '../../gown-config';
+import { gownPlungeMeshOn, gownScallopOn, type GownConfig } from '../../gown-config';
 import { RING_N, TAU } from '../body/constants';
 import { clamp, type GownRig } from '../body/rig';
 import type { GownDress } from '../dress/build';
-import { gownIlluBackOn, gownIlluBaseY, gownIlluCupBot, neckTop, waistY, type GownNeckLandmarks } from '../dress/lines';
-import type { GownEnvelope } from '../dress/table';
+import { gownIlluBackOn, gownIlluBaseY, gownIlluCupBot, gownPlungeAV, neckTop, waistY, type GownNeckLandmarks } from '../dress/lines';
+import { lerpRow, type GownEnvelope } from '../dress/table';
 
 const N = RING_N, DTH = TAU / N;
 /** The zone map's size (px): round the body × height. */
@@ -26,7 +27,9 @@ export const GOWN_ILLU_TULLE = { nude: 0xd9b79e, ivory: 0xf3ecdf } as const;
 /** How the stage draws the tulle: its opacity (in the gown colour, or nude and ivory), its draw order, the bones' tint. */
 export const GOWN_ILLU_DRAW = { opacityMatch: 0.4, opacity: 0.32, renderOrder: 3, polygonOffsetFactor: 1, polygonOffsetUnits: 2, boneTint: 0.25 } as const;
 
-export type GownIlluDesignFull = Pick<GownConfig, 'illu' | 'illuBase' | 'illuCol' | 'illuBack' | 'boneShow' | 'boning' | 'back' | 'backT' | 'neck' | 'neckT' | 'waist'>;
+export type GownIlluDesignFull = Pick<GownConfig, 'illu' | 'illuBase' | 'illuCol' | 'illuBack' | 'boneShow' | 'boning' | 'back' | 'backT' | 'neck' | 'neckT' | 'waist' | 'straps' | 'sleeve' | 'plungeFill' | 'topEdge'>;
+/** v199: the plunge's modesty mesh or a scalloped top edge puts the zone map to work too (`strapZone`). */
+export const gownStrapZone = (d: Pick<GownConfig, 'neck' | 'plungeFill' | 'topEdge'>) => gownPlungeMeshOn(d) || gownScallopOn(d);
 
 /** The bones (v198 `boneSet`): centre front, princess lines, side seams, back princess lines; more for a fuller body or a corset. */
 export function gownBoneSet(B: GownRig, L: GownNeckLandmarks | null, boning: GownConfig['boning']): { n: number; angs: number[]; kind: GownConfig['boning'] } {
@@ -51,7 +54,7 @@ export type GownIlluUniforms = ReturnType<typeof gownIlluUniforms>;
 /** v198 `ILLU_GLSL`: the zone and the bone channels, read by both shaders. */
 export const GOWN_ILLU_GLSL = "uniform sampler2D ilMap; uniform vec2 ilY; uniform float ilOn, ilDv, ilCmU, ilBoneOn, ilBoneN, ilBoneW; uniform float ilBoneA[16]; uniform float ilBoneLo[16]; uniform float ilBoneHi[16]; uniform vec3 ilBoneCol, ilEdgeCol;\nvec4 ilZone(vec3 r, float cz) { vec2 d = vec2(r.x, r.z - cz); return texture2D(ilMap, vec2(atan(d.x, d.y) / 6.2831853 + 0.5, (r.y - ilY.x) / (ilY.y - ilY.x))); }   // r: sheer zone \u00b7 g: bound top edge\nvec2 ilBone(vec3 r, float cz) { vec2 d = vec2(r.x, r.z - cz); float ph = atan(d.x, d.y), rr = length(d), m = 0.0, c = 0.0;   // x: the channel (soft sides), y: the bone in it\n  for (int i = 0; i < 16; i++) { if (float(i) >= ilBoneN) break; float da = abs(ph - ilBoneA[i]); da = min(da, 6.2831853 - da); float w = da * rr * ilCmU;   // cm across the channel\n    float al = smoothstep(ilBoneLo[i], ilBoneLo[i] + 0.006, r.y) * (1.0 - smoothstep(ilBoneHi[i] - 0.006, ilBoneHi[i], r.y));\n    m = max(m, al * (1.0 - smoothstep(ilBoneW * 0.7, ilBoneW, w))); c = max(c, al * (1.0 - smoothstep(ilBoneW * 0.25, ilBoneW * 0.45, w))); }\n  return vec2(m, c); }\n";
 const DRESS_AT = 'if (cutOn > 0.5 && vCz > -50.0) {';
-const DRESS_PATCH = "if (ilOn > 0.5 && vCz > -50.0) { vec4 iz = ilZone(vRest, vCz);\n    if (iz.r > 0.5) { vec4 il = (laceOn > 0.5 && vG.y >= 0.0 && vG.y <= 1.0) ? texture2D(laceMap, vG) : vec4(0.0); if (il.a < 0.42) discard; diffuseColor.rgb = laceCol * il.rgb; }   // the lace sits on the tulle\n    else if (max(ilZone(vRest + vec3(0.0, ilDv, 0.0), vCz).r, ilZone(vRest - vec3(0.0, ilDv, 0.0), vCz).r) > 0.5) diffuseColor.rgb *= 0.88; }   // the lined part's edge: a neat bound line\n  if (ilBoneOn > 0.5 && vCz > -50.0) { vec2 bo = ilBone(vRest, vCz); diffuseColor.rgb *= 1.0 - 0.07 * bo.x + 0.04 * bo.y; }   // through the gown fabric the bones show only faintly\n  ";
+const DRESS_PATCH = "if (ilOn > 0.5 && vCz > -50.0) { vec4 iz = ilZone(vRest, vCz);\n    if (iz.b > 0.5) discard; if (iz.r > 0.5) { vec4 il = (laceOn > 0.5 && vG.y >= 0.0 && vG.y <= 1.0) ? texture2D(laceMap, vG) : vec4(0.0); if (il.a < 0.42) discard; diffuseColor.rgb = laceCol * il.rgb; }   // the lace sits on the tulle\n    else if (max(max(ilZone(vRest + vec3(0.0, ilDv, 0.0), vCz).r, ilZone(vRest - vec3(0.0, ilDv, 0.0), vCz).r), ilZone(vRest + vec3(0.0, ilDv, 0.0), vCz).b) > 0.5) diffuseColor.rgb *= 0.88; }   // the lined part's edge: a neat bound line\n  if (ilBoneOn > 0.5 && vCz > -50.0) { vec2 bo = ilBone(vRest, vCz); diffuseColor.rgb *= 1.0 - 0.07 * bo.x + 0.04 * bo.y; }   // through the gown fabric the bones show only faintly\n  ";
 const TULLE_PATCH = "#include <map_fragment>\n  { if (vIlCz < -50.0) discard; vec4 iz = ilZone(vIlR, vIlCz); if (iz.r < 0.5) discard;\n    diffuseColor.rgb = mix(diffuseColor.rgb, ilEdgeCol, iz.g * 0.7); diffuseColor.a = mix(diffuseColor.a, 0.82, iz.g);   // the sheer neckline's bound edge\n    if (ilBoneOn > 0.5) { vec2 bo = ilBone(vIlR, vIlCz); diffuseColor.rgb = mix(diffuseColor.rgb, mix(ilBoneCol, ilBoneCol * 0.82, bo.y), bo.x); diffuseColor.a = mix(diffuseColor.a, 0.7 + 0.22 * bo.y, bo.x); } }   // a bone in its channel, clear through the tulle";
 type Shader = { uniforms: Record<string, unknown>; vertexShader: string; fragmentShader: string };
 
@@ -84,6 +87,7 @@ export function gownIlluLines(B: GownRig, T: GownEnvelope, L: GownNeckLandmarks,
     let lo = 1e9;
     if (d.illu !== 'none') lo = gownIlluBaseY(d.illuBase, aph, L);
     if (gownIlluBackOn(d) && aph >= 1.6) lo = Math.min(lo, neckTop(d, aph, L)); // the open back line she picked
+    if (gownPlungeMeshOn(d) && aph < gownPlungeAV(L)) lo = Math.min(lo, neckTop(d, aph, L)); // v199: the plunge, filled with sheer mesh
     out.lo[x] = lo; out.top[x] = top; out.bind[x] = lo < top - 0.006 ? 1 : 0;
     if (d.illu === 'corset') {
       const q = ((Math.round(ph / DTH) % N) + N) % N, yw = waistY(B, d.waist, q) + 0.004, base = Math.min(gownIlluBaseY(d.illuBase, aph, L), top);
@@ -103,10 +107,10 @@ export function gownIlluTopAt(T: GownEnvelope, ph: number): number {
 /** The 2D calls the zone map uses. */
 export type GownIlluCanvas = Pick<CanvasRenderingContext2D, 'globalCompositeOperation' | 'globalAlpha' | 'fillStyle' | 'fillRect' | 'beginPath' | 'moveTo' | 'lineTo' | 'closePath' | 'fill'>;
 /**
- * The zone map (v198 `illuPaint`): red = sheer, green = the sheer neckline's bound edge (0.5 cm). Filled as shapes, so
- * steep edges (a plunge) stay smooth.
+ * The zone map (v198 `illuPaint`): red = sheer, green = the sheer neckline's bound edge (0.5 cm), blue = cut away (v199:
+ * the scallops, when `scallop` is given the envelope). Filled as shapes, so steep edges (a plunge) stay smooth.
  */
-export function paintGownIllu(g: GownIlluCanvas, B: GownRig, lines: GownIlluLines, y0: number, y1: number): void {
+export function paintGownIllu(g: GownIlluCanvas, B: GownRig, lines: GownIlluLines, y0: number, y1: number, scallop: GownEnvelope | null = null): void {
   const W = GOWN_ILLU_MAP.w, H = GOWN_ILLU_MAP.h, row = (y: number) => clamp((1 - (y - y0) / (y1 - y0)) * H, -2, H + 2), bindW = (0.5 * 0.01) / B.P.S;
   g.globalCompositeOperation = 'source-over'; g.globalAlpha = 1; g.fillStyle = '#000'; g.fillRect(0, 0, W, H); g.globalCompositeOperation = 'lighter';
   // One run of columns: a closed shape from its lower line to its upper line.
@@ -129,7 +133,31 @@ export function paintGownIllu(g: GownIlluCanvas, B: GownRig, lines: GownIlluLine
   band((x) => lines.lo[x]! < y1, (x) => lines.lo[x]!, top, '#f00');
   band((x) => lines.cupHi[x]! > lines.cupLo[x]!, (x) => lines.cupLo[x]!, (x) => lines.cupHi[x]!, '#f00');
   band((x) => !!lines.bind[x], (x) => lines.top[x]! - bindW, top, '#0f0');
+  if (scallop) paintGownScallops(g, B, scallop, lines, row);
   g.globalCompositeOperation = 'source-over';
+}
+/**
+ * The scalloped top edge, cut away from the gown's top in the zone map's blue (v199 `strapPaint`): semicircles 3.2 cm
+ * wide and 0.75 cm deep, measured along the edge out from the centre front, so both sides match. Not over sheer columns.
+ */
+function paintGownScallops(g: GownIlluCanvas, B: GownRig, T: GownEnvelope, lines: GownIlluLines, row: (y: number) => number): void {
+  const cm = 0.01 / B.P.S, W = GOWN_ILLU_MAP.w, per = 3.2 * cm, dep = 0.75 * cm, half = W >> 1, S = new Float32Array(W), dph = TAU / W;
+  const rAt = (x: number) => { const ph = ((x + 0.5) / W - 0.5) * TAU, q = ((Math.round(ph / DTH) % N) + N) % N; return T.F.length ? lerpRow(T, T.F, lines.top[x]!, q) : 0.13 / B.P.S; };
+  for (const dir of [1, -1]) {
+    let sAcc = 0;
+    for (let k = 0; k < half; k++) {
+      const x = dir > 0 ? half + k : half - 1 - k, xp = dir > 0 ? x - 1 : x + 1;
+      if (k) sAcc += Math.hypot(rAt(x) * dph, lines.top[x]! - lines.top[xp]!);
+      S[x] = sAcc;
+    }
+  }
+  g.fillStyle = '#00f';
+  for (let x = 0; x < W; x++) {
+    const top = lines.top[x]!;
+    if (lines.lo[x]! < top - 0.003) continue;
+    const u = (S[x]! / per + 0.5) % 1, yc = top - dep + dep * Math.sqrt(Math.max(0, 1 - (2 * u - 1) ** 2)), r0 = row(top + 2 * cm), r1 = row(yc);
+    if (r1 > r0) g.fillRect(x, r0, 1, r1 - r0);
+  }
 }
 
 /** The illusion as built for this design: is there a sheer zone, the map's lines and range, the bones shown. */
@@ -139,7 +167,7 @@ export type GownIllu = { zoneOn: boolean; lines: GownIlluLines | null; y0: numbe
  * (`u`), and paints the map when `g` is given. The stage sets `ilBoneCol` and `ilEdgeCol` (colours).
  */
 export function buildGownIllu(B: GownRig, T: GownEnvelope, D: GownDress, d: GownIlluDesignFull, u: GownIlluUniforms | null = null, g: GownIlluCanvas | null = null): GownIllu {
-  const L = D.L, on = !!D.geo && T.on && !!L, zone = on && (d.illu !== 'none' || gownIlluBackOn(d)), bs = on ? gownBoneSet(B, L, d.boning) : null, bones = !!bs && d.boneShow === 'on' && bs.n > 0, cm = 0.01 / B.P.S;
+  const L = D.L, on = !!D.geo && T.on && !!L, zone = on && (d.illu !== 'none' || gownIlluBackOn(d) || gownStrapZone(d)), bs = on ? gownBoneSet(B, L, d.boning) : null, bones = !!bs && d.boneShow === 'on' && bs.n > 0, cm = 0.01 / B.P.S;
   const out: GownIllu = { zoneOn: zone, lines: null, y0: 0, y1: 1, bones: bs, bonesShown: bones };
   if (u) { u.ilOn.value = zone ? 1 : 0; u.ilBoneOn.value = bones ? 1 : 0; u.ilCmU.value = B.P.S * 100; u.ilDv.value = 0.45 * cm; }
   if (bones && u && L) {
@@ -158,7 +186,7 @@ export function buildGownIllu(B: GownRig, T: GownEnvelope, D: GownDress, d: Gown
     y0 -= 3 * cm; y1 += 2 * cm;
     out.lines = gownIlluLines(B, T, L, d); out.y0 = y0; out.y1 = y1;
     if (u) u.ilY.value.set(y0, y1);
-    if (g) paintGownIllu(g, B, out.lines, y0, y1);
+    if (g) paintGownIllu(g, B, out.lines, y0, y1, gownScallopOn(d) ? T : null);
   }
   return out;
 }
@@ -189,7 +217,7 @@ export function gownIlluMetres(B: GownRig, D: GownDress, I: GownIllu): number {
 /** The design in words, for the designer (v198 `illuSummary`). */
 export function gownIlluSummary(B: GownRig, L: GownNeckLandmarks | null, d: GownIlluDesignFull): string[] {
   const out: string[] = [], col = { nude: 'nude', ivory: 'ivory', match: 'gown-colour' }[d.illuCol], cups = { sweetheart: 'sweetheart', straight: 'straight-across', plunge: 'plunge' }[d.illuBase];
-  const nk = ({ sweetheart: 'sweetheart', v: 'V', off: 'off-shoulder', high: 'high', bateau: 'bateau' } as Record<string, string>)[d.neck];
+  const nk = ({ sweetheart: 'sweetheart', v: 'V', off: 'off-shoulder', high: 'high', bateau: 'bateau', plungewaist: 'plunge' } as Record<string, string>)[d.neck];
   if (d.illu === 'neck') out.push(`Illusion neckline: lined ${cups} cups in the gown fabric, sheer ${col} tulle above them up to the ${nk} neckline`);
   if (d.illu === 'corset') out.push(`Sheer corset bodice: lined ${cups} cups, the rest of the bodice in sheer ${col} tulle down to the waistline`);
   if (gownIlluBackOn(d)) out.push(`Illusion back: sheer ${col} tulle from the open ${d.back === 'v' ? 'V' : 'scoop'} back up to the top edge`);

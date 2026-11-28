@@ -90,6 +90,8 @@ export const GOWN_NECKLINES = [
   { id: 'high', label: 'High neck' },
   { id: 'bateau', label: 'Bateau' },
   { id: 'straight', label: 'Straight across' },
+  // v199 `plunge`: a V almost to the waist, held by straps.
+  { id: 'plungewaist', label: 'Plunge to the waist' },
 ] as const;
 export type GownNeckline = (typeof GOWN_NECKLINES)[number]['id'];
 /** Necklines with nothing over the shoulders (v197 `STRAPLESS`). */
@@ -518,6 +520,74 @@ export const GOWN_BONE_SHOWS = [
 ] as const;
 export type GownBoneShow = (typeof GOWN_BONE_SHOWS)[number]['id'];
 
+/** Shoulder straps (v199 `STRAP_DEF`): width (cm), the shoulders they go on, the path they take, whether they hold the bodice up. */
+export const GOWN_STRAPS = [
+  { id: 'none', label: 'None', why: 'No straps.' },
+  { id: 'spaghetti', label: 'Spaghetti', why: 'Thin straps, about 5 mm wide, over each shoulder.' },
+  { id: 'wide', label: 'Wide', why: 'Straps about 2 cm wide over each shoulder.' },
+  { id: 'offsh', label: 'Off-shoulder straps', why: 'Straps that leave the shoulders bare and rest on the upper arms.' },
+  { id: 'one', label: 'One-shoulder', why: 'One wide strap on her left shoulder; the other side stays strapless.' },
+  { id: 'halter', label: 'Halter', why: 'Two straps from the top of the bodice that meet behind her neck, fastened with a covered button. The shoulders stay bare.' },
+  { id: 'cross', label: 'Cross-back', why: 'Straps over each shoulder that cross on her back and fasten at the opposite side.' },
+] as const;
+export type GownStraps = (typeof GOWN_STRAPS)[number]['id'];
+export type GownStrapDef = { name: string; w: number; sides: readonly ('L' | 'R')[]; path: 'over' | 'arm' | 'halter' | 'cross'; holds: boolean };
+export const GOWN_STRAP_DEF: Record<Exclude<GownStraps, 'none'>, GownStrapDef> = {
+  spaghetti: { name: 'Spaghetti straps', w: 0.5, sides: ['L', 'R'], path: 'over', holds: true },
+  wide: { name: 'Wide straps', w: 2, sides: ['L', 'R'], path: 'over', holds: true },
+  offsh: { name: 'Off-shoulder straps', w: 1.2, sides: ['L', 'R'], path: 'arm', holds: false },
+  one: { name: 'One-shoulder strap', w: 3, sides: ['L'], path: 'over', holds: false },
+  halter: { name: 'Halter straps', w: 1.4, sides: ['L', 'R'], path: 'halter', holds: true },
+  cross: { name: 'Cross-back straps', w: 1, sides: ['L', 'R'], path: 'cross', holds: true },
+};
+/** The straps each neckline takes (v199 `STRAP_OK`): a high neck and a bateau cover the shoulders; a plunge to the waist must have straps. */
+export const GOWN_STRAP_OK: Partial<Record<GownNeckline, readonly GownStraps[]>> = {
+  sweetheart: ['none', 'spaghetti', 'wide', 'offsh', 'one', 'halter', 'cross'],
+  straight: ['none', 'spaghetti', 'wide', 'one', 'halter', 'cross'],
+  off: ['none', 'offsh'],
+  v: ['none', 'spaghetti', 'wide', 'halter', 'cross'],
+  plungewaist: ['spaghetti', 'wide', 'halter', 'cross'],
+};
+export const GOWN_STRAP_COLOURS = [
+  { id: 'match', label: 'The gown colour' },
+  { id: 'accent', label: 'The accent colour' },
+] as const;
+export type GownStrapColour = (typeof GOWN_STRAP_COLOURS)[number]['id'];
+export const GOWN_STRAP_EDGES = [
+  { id: 'plain', label: 'Plain' },
+  { id: 'beaded', label: 'Beaded' },
+] as const;
+export type GownStrapEdge = (typeof GOWN_STRAP_EDGES)[number]['id'];
+/** The bodice's top edge (v199 `neckEdge`): scallops for a strapless sweetheart or straight-across neckline. */
+export const GOWN_TOP_EDGES = [
+  { id: 'plain', label: 'Plain' },
+  { id: 'scallop', label: 'Scalloped', why: 'Soft scallops about 3 cm wide cut along the top of the strapless bodice.' },
+] as const;
+export type GownTopEdge = (typeof GOWN_TOP_EDGES)[number]['id'];
+/** What fills a plunge to the waist between the cups (v199 `plungeMesh` on / off). */
+export const GOWN_PLUNGE_FILLS = [
+  { id: 'mesh', label: 'Sheer modesty mesh', why: 'Sheer modesty mesh between the cups, from the point of the plunge up to the cups.' },
+  { id: 'open', label: 'Open', why: 'Nothing between the cups: an open plunge, kept in place by the straps and fashion tape.' },
+] as const;
+export type GownPlungeFill = (typeof GOWN_PLUNGE_FILLS)[number]['id'];
+
+type StrapDesign = { neck: GownNeckline; straps: GownStraps; illu: GownIllusion; sleeve: GownSleeve };
+/** Can she wear these straps with this design (v199 `strapOk`)? The illusion neckline's tulle already runs over the shoulders; butterfly sleeves stand on them. */
+export const gownStrapOk = (d: Omit<StrapDesign, 'straps'>, v: GownStraps) =>
+  d.illu === 'neck' || d.sleeve === 'butterfly' ? v === 'none' : (GOWN_STRAP_OK[d.neck] ?? ['none']).includes(v);
+/** The straps as worn: none when the design rules them out (v199 `strapKind`). */
+export const gownStrapKind = (d: StrapDesign): GownStraps => (d.straps !== 'none' && gownStrapOk(d, d.straps) ? d.straps : 'none');
+/** Straps that hold the bodice up (spaghetti, wide, halter, cross-back) (v199 `strapsHold`). */
+export const gownStrapsHold = (d: StrapDesign) => { const k = gownStrapKind(d); return k !== 'none' && GOWN_STRAP_DEF[k].holds; };
+/** A strap over that shoulder, which a cape can hang from (v199 `strapCovers`). */
+export const gownStrapCovers = (d: StrapDesign, sd: 'L' | 'R') => { const k = gownStrapKind(d); return k === 'spaghetti' || k === 'wide' || k === 'cross' || (k === 'one' && sd === 'L'); };
+/** A V or a plunge held by straps: no shoulder pieces, a camisole line (v199 `strapCami`). */
+export const gownStrapCami = (d: StrapDesign) => d.neck === 'plungewaist' || (d.neck === 'v' && gownStrapKind(d) !== 'none');
+/** Sheer modesty mesh fills the plunge (v199 `plungeMeshOn`). */
+export const gownPlungeMeshOn = (d: { neck: GownNeckline; plungeFill: GownPlungeFill }) => d.neck === 'plungewaist' && d.plungeFill !== 'open';
+/** A scalloped top edge, on a strapless sweetheart or straight-across neckline (v199 `scallopOn`). */
+export const gownScallopOn = (d: { neck: GownNeckline; topEdge: GownTopEdge }) => d.topEdge === 'scallop' && (d.neck === 'sweetheart' || d.neck === 'straight');
+
 export const GOWN_LININGS = [
   { id: 'satin', label: 'Satin' },
   { id: 'cotton', label: 'Cotton' },
@@ -731,6 +801,12 @@ export type GownConfig = {
   illuCol: GownIllusionColour;
   illuBack: GownIllusionBack;
   boneShow: GownBoneShow;
+  /** v199: shoulder straps, their colour and edge; the top edge; what fills a plunge to the waist. */
+  straps: GownStraps;
+  strapCol: GownStrapColour;
+  strapEdge: GownStrapEdge;
+  topEdge: GownTopEdge;
+  plungeFill: GownPlungeFill;
   lining: GownLining;
   liningCol: GownLayerColour;
   cape: GownCape;
@@ -771,6 +847,7 @@ export type GownOffer = {
 export const GOWN_LOOK_KEYS = [
   'bow', 'blusher', 'veilStyle', 'waist', 'pieces', 'sil', 'neck', 'sleeve', 'sleeveFab', 'back', 'closure', 'fabric', 'lace', 'laceAt', 'laceBeads', 'laceCol',
   'bead', 'beadAt', 'beadDen', 'beadCol', 'train', 'veil', 'pleat', 'tex', 'darts', 'drape', 'bustle', 'petti', 'shape', 'boning', 'overlay', 'ovFab', 'illu', 'illuBase', 'illuCol', 'illuBack', 'boneShow',
+  'straps', 'strapCol', 'strapEdge', 'topEdge', 'plungeFill',
 ] as const satisfies readonly (keyof GownConfig)[];
 export type GownLookKey = (typeof GOWN_LOOK_KEYS)[number];
 export type GownLook = Pick<GownConfig, GownLookKey>;
@@ -844,6 +921,11 @@ export function startingGownConfig(): GownConfig {
     illuCol: 'nude',
     illuBack: 'off',
     boneShow: 'off',
+    straps: 'none',
+    strapCol: 'match',
+    strapEdge: 'plain',
+    topEdge: 'plain',
+    plungeFill: 'mesh',
     lining: 'satin',
     liningCol: 'match',
     cape: 'none',
@@ -1131,6 +1213,9 @@ export type GownQuantities = {
     illuBodice: GownIllusion;
     illuBack: boolean;
     boneShow: number;
+    /** v199: the straps to cut, sew and attach (a pair, or one strap); a scalloped top edge to shape and finish. Their fabric is in `outerM` or `accentM`, a rouleau in `ribbonM`, crystals in `beads`. */
+    straps: GownStraps;
+    scallop: boolean;
   };
 };
 
@@ -1149,7 +1234,7 @@ export function emptyGownQuantities(): GownQuantities {
   return {
     v: GOWN_CONFIG_VERSION,
     materials: { ...materials, beads },
-    labour: { sleeve: 'none', beads: 0, laceMotifs: 0, laceYardM: 0, pleats: 0, tex: 'none', darts: false, cutouts: 0, slits: 0, train: 'none', veil: 'none', trimM: 0, twoPiece: false, cape: 'none', flutter: 0, overlay: 0, illuBodice: 'none', illuBack: false, boneShow: 0 },
+    labour: { sleeve: 'none', beads: 0, laceMotifs: 0, laceYardM: 0, pleats: 0, tex: 'none', darts: false, cutouts: 0, slits: 0, train: 'none', veil: 'none', trimM: 0, twoPiece: false, cape: 'none', flutter: 0, overlay: 0, illuBodice: 'none', illuBack: false, boneShow: 0, straps: 'none', scallop: false },
   };
 }
 
@@ -1310,6 +1395,11 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
     illuCol: pick('illuCol', ids(GOWN_ILLUSION_COLOURS)),
     illuBack: pick('illuBack', ids(GOWN_ILLUSION_BACKS)),
     boneShow: pick('boneShow', ids(GOWN_BONE_SHOWS)),
+    straps: pick('straps', ids(GOWN_STRAPS)),
+    strapCol: pick('strapCol', ids(GOWN_STRAP_COLOURS)),
+    strapEdge: pick('strapEdge', ids(GOWN_STRAP_EDGES)),
+    topEdge: pick('topEdge', ids(GOWN_TOP_EDGES)),
+    plungeFill: pick('plungeFill', ids(GOWN_PLUNGE_FILLS)),
     lining: pick('lining', ids(GOWN_LININGS)),
     liningCol: pick('liningCol', ids(GOWN_LAYER_COLOURS)),
     cape: pick('cape', ids(GOWN_CAPES)),
@@ -1398,6 +1488,13 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
   if (p.illu === 'neck' && strapless && p.neck !== 'off') return no('not_a_design');
   if ((p.illu === 'corset' || p.boneShow === 'on') && p.boning === 'soft') return no('not_a_design');
   if (p.illuBack === 'on' && p.back === 'closed') return no('not_a_design');
+  // v199: straps the neckline, sleeves or illusion rule out (a plunge to the waist always has them); halter and
+  // one-shoulder straps leave no pair of shoulders for cap, butterfly or flutter sleeves; a plunge is not an illusion
+  // neckline; scallops only on a strapless sweetheart or straight-across neckline.
+  if (!gownStrapOk(p, p.straps)) return no('not_a_design');
+  if ((p.straps === 'halter' || p.straps === 'one') && (p.sleeve === 'cap' || p.sleeve === 'butterfly' || p.sleeve === 'flutter')) return no('not_a_design');
+  if (p.neck === 'plungewaist' && p.illu === 'neck') return no('not_a_design');
+  if (p.topEdge === 'scallop' && !gownScallopOn(p)) return no('not_a_design');
 
   const bools = { waistStay: r.waistStay ?? false, horsehair: r.horsehair ?? false, modesty: r.modesty ?? false };
   for (const v of Object.values(bools)) if (typeof v !== 'boolean') return no('not_a_design');
@@ -1533,6 +1630,11 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
       illuCol: p.illuCol,
       illuBack: p.illuBack,
       boneShow: p.boneShow,
+      straps: p.straps,
+      strapCol: p.strapCol,
+      strapEdge: p.strapEdge,
+      topEdge: p.topEdge,
+      plungeFill: p.plungeFill,
       lining: p.lining,
       liningCol: p.liningCol,
       cape: p.cape,
@@ -1667,6 +1769,8 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
   if (flutter === null || overlay === null) return no('quantities');
   const illuBodice = L.illuBodice ?? 'none', illuBack = L.illuBack ?? false, boneShow = qty(L.boneShow ?? 0, true, 32);
   if (!isOneOf(illuBodice, ids(GOWN_ILLUSIONS)) || typeof illuBack !== 'boolean' || boneShow === null) return no('quantities');
+  const straps = L.straps ?? 'none', scallop = L.scallop ?? false;
+  if (!isOneOf(straps, ids(GOWN_STRAPS)) || typeof scallop !== 'boolean') return no('quantities');
   if (!isOneOf(sleeve, ids(GOWN_SLEEVES)) || !isOneOf(tex, ids(GOWN_TEXTURES)) || !isOneOf(train, ids(GOWN_TRAINS)) || !isOneOf(veil, ids(GOWN_VEILS))) {
     return no('quantities');
   }
@@ -1683,7 +1787,7 @@ export function sanitizeGownQuantities(input: unknown): { ok: true; quantities: 
   if (beads === null || laceMotifs === null || laceYardM === null || pleats === null || cutouts === null || slits === null || trimM === null) {
     return no('quantities');
   }
-  q.labour = { sleeve, beads, laceMotifs, laceYardM, pleats, tex, darts, cutouts, slits, train, veil, trimM, twoPiece, cape, flutter, overlay, illuBodice, illuBack, boneShow };
+  q.labour = { sleeve, beads, laceMotifs, laceYardM, pleats, tex, darts, cutouts, slits, train, veil, trimM, twoPiece, cape, flutter, overlay, illuBodice, illuBack, boneShow, straps, scallop };
   return { ok: true, quantities: q };
 }
 

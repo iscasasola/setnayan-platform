@@ -1,5 +1,5 @@
 /**
- * 👗 gown/dress — the gown built on her body, held to prototype v189's own numbers (`v198-dress.fixture.json`: five
+ * 👗 gown/dress — the gown built on her body, held to prototype v189's own numbers (`v199-dress.fixture.json`: five
  * gowns on the default body, captured from the prototype itself), and to the owner rule "clothes follow the body".
  */
 import { test } from 'node:test';
@@ -18,7 +18,7 @@ import { fabricMetres } from './flat';
 import { buildEnvelope, emptyEnvelope, reach, type GownEnvelope } from './table';
 
 type Row = { name: string; look: Partial<GownConfig>; hem: GownConfig['hem']; state: Pick<GownConfig, 'boning' | 'backT' | 'neckT' | 'illuBack'>; rows: number; ns: number; hemR: number; yHem: number; fold: number; metres: number; sample: [number, number, number, number][] };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v198-dress.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v199-dress.fixture.json'), 'utf8')) as { rows: Row[] };
 const GLB = join(__dirname, '../../../public/gown/female.glb');
 let rig: Promise<GownRig> | null = null;
 const body = () => {

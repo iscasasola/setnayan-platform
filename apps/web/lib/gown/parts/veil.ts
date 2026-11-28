@@ -11,11 +11,12 @@
 import * as THREE from 'three';
 import type { GownConfig } from '../../gown-config';
 import { jointY } from '../body/bones';
-import { BODY_K, SLICE_DY, TAU } from '../body/constants';
+import { BODY_K, RING_N, SLICE_DY, TAU } from '../body/constants';
 import { clamp, smoothstep, type GownRig } from '../body/rig';
 import type { GownDress } from '../dress/build';
 import { capeAt, type GownCapeMesh } from '../dress/cape';
-import { GOWN_TRAIN_CM, GOWN_VEIL_CM, gownVeilLong, trainShare } from '../dress/lines';
+import { GOWN_TRAIN_CM, GOWN_VEIL_CM, gownVeilFloor, gownVeilLong, trainShare } from '../dress/lines';
+import type { GownOverlayMesh } from './overlay';
 import { reach, type GownEnvelope } from '../dress/table';
 
 /** All the way round (first and last column meet), crown to hem. */
@@ -64,7 +65,7 @@ export function emptyVeil(): GownVeilOut {
  */
 export function buildGownVeil(
   B: GownRig, T: GownEnvelope, D: GownDress, cape: GownCapeMesh | null, d: GownVeilDesign, out: GownVeilOut, floorY: number,
-  overlayOut = 0,
+  overlayOut = 0, over: { overlay?: GownOverlayMesh | null; lite?: boolean } = {},
 ): { veil: boolean; edge: boolean; cap: boolean } {
   if (d.veil === 'none') return { veil: false, edge: false, cap: false };
   const V = B.V, P = B.P, hv = B.headV;
@@ -88,6 +89,8 @@ export function buildGownVeil(
   // What is left of a long veil's length (from the crown) lies on the floor; it may lie over a longer train.
   const floorLen = gownVeilLong(d.veil) ? Math.max(0, GOWN_VEIL_CM[d.veil] / 100 / P.S - (top - yBack)) : 0;
   const pos = (out.geo.attributes.position as THREE.BufferAttribute).array as Float32Array, R = new Float32Array(VNR), tableTop = T.y0 + (T.n - 2) * SLICE_DY;
+  // v199: the veil keeps a few mm outside the gown as it is really drawn (skirt, overlay, train), all the way to the floor.
+  const keep = veilGown(B, T, D, floorY, gownVeilFloor(d.veil), over.overlay ?? null);
   for (let a = 0; a < VNA; a++) {
     const ang = (TAU * a) / (VNA - 1), sx = Math.sin(ang), sz = Math.cos(ang), back = (1 - sz) / 2;
     let yEnd = yFront + (yBack - yFront) * smoothstep(back, 0.12, 0.8), Lfl = floorLen * smoothstep(back, 0.45, 1);
@@ -120,6 +123,7 @@ export function buildGownVeil(
         R[i] = r;
         const rr = r * (1 + foldA * smoothstep(u, 0.05, 0.6) * Math.sin(14 * ang + 1.3)); // soft folds, more towards the hem
         pos[o] = cx + rr * sx; pos[o + 1] = y; pos[o + 2] = cz + rr * sz;
+        if (keep) keep(pos, o);
       } else {
         // On the floor it runs out behind.
         const q = o - VNA * 3;
@@ -128,11 +132,14 @@ export function buildGownVeil(
         pos[o] = pos[q]! + sx * dd * 0.15;
         pos[o + 1] = floorY + (trainCm > 0 ? 0.03 : 0.012);
         pos[o + 2] = pos[q + 2]! - dd * (0.55 + 0.45 * back);
+        if (keep) keep(pos, o);
         R[i] = R[i - 1]!;
       }
       if (i && sArc <= Dv) { const q = o - VNA * 3; hang += Math.hypot(pos[o]! - pos[q]!, pos[o + 1]! - pos[q + 1]!, pos[o + 2]! - pos[q + 2]!); }
     }
   }
+  // While she walks only the vertices are kept out; the finer pass waits until she stops.
+  if (keep && !over.lite) keep.cloth(pos);
   (out.geo.attributes.position as THREE.BufferAttribute).needsUpdate = true;
   out.geo.computeVertexNormals();
   out.geo.computeBoundingSphere();
@@ -176,4 +183,133 @@ export function buildGownVeil(
     out.cap.computeVertexNormals();
   }
   return { veil: true, edge, cap: capOn };
+}
+
+type VeilKeep = ((P: Float32Array, o: number) => void) & { cloth: (P: Float32Array) => void };
+/**
+ * The gown as it is really drawn (skirt, overlay, train on the floor), read once per build: the veil keeps 4 mm outside
+ * all of it, all the way to the floor (v199 `veilGown`). Null when there is no gown drawn. `low` says the veil reaches
+ * the floor (it then also keeps up off a train lying there).
+ */
+export function veilGown(B: GownRig, T: GownEnvelope, D: GownDress, fl: number, low: boolean, ovl: GownOverlayMesh | null): VeilKeep | null {
+  if (!(D.geo && T.on && D.rows > 2)) return null;
+  const N = RING_N, DTH = TAU / N, czAt = (y: number) => { const f = clamp((y - T.y0) / SLICE_DY, 0, T.n - 1.001), j = f | 0; return T.cz[j]! + (T.cz[j + 1]! - T.cz[j]!) * (f - j); };
+  const DP = (D.geo.attributes.position as THREE.BufferAttribute).array as Float32Array, rows = D.rows, r0 = Math.min(rows - 2, D.nb + 1), rS = Math.min(rows, 2 + D.nb + D.ns), WY = 0.01;
+  // An overskirt lies over it.
+  const OP = ovl ? ((ovl.geo.attributes.position as THREE.BufferAttribute).array as Float32Array) : null;
+  let yHi = fl;
+  for (let o = r0 * N * 3 + 1, e = rS * N * 3; o < e; o += 3) yHi = Math.max(yHi, DP[o]!);
+  if (OP) for (let o = 1; o < OP.length; o += 3) yHi = Math.max(yHi, OP[o]!);
+  const nY = Math.ceil((yHi - fl) / WY) + 2, W = new Float32Array(nY * N);
+  const put = (j: number, k0: number, k1: number, r: number) => { const o = j * N; if (r > W[o + k0]!) W[o + k0] = r; if (r > W[o + k1]!) W[o + k1] = r; };
+  // One strip of cloth between two rows: its reach at every height it spans, into both neighbouring heights and
+  // directions (a hem or a tier's edge is never missed between samples).
+  const seg = (P: Float32Array, p1: number, p2: number) => {
+    const x1 = P[p1]!, y1 = P[p1 + 1]!, x2 = P[p2]!, y2 = P[p2 + 1]!, c1 = czAt(y1), c2 = czAt(y2), z1 = P[p1 + 2]! - c1, z2 = P[p2 + 2]! - c2;
+    let a = Math.atan2(x1 + x2, z1 + z2) / DTH;
+    if (a < 0) a += N;
+    const k0 = (a | 0) % N, k1 = (k0 + 1) % N, f1 = clamp((y1 - fl) / WY, 0, nY - 1), f2 = clamp((y2 - fl) / WY, 0, nY - 1), jA = Math.floor(Math.min(f1, f2)), jB = Math.ceil(Math.max(f1, f2));
+    for (let j = jA; j <= jB; j++) { const u = f1 === f2 ? 0 : clamp((j - f1) / (f2 - f1), 0, 1), r = Math.hypot(x1 + (x2 - x1) * u, z1 + (z2 - z1) * u); put(j, k0, k1, r); }
+  };
+  // The skirt as drawn: folds, pleats, a petticoat's hold.
+  for (let r = r0; r < rS - 1; r++) for (let q = 0; q < N; q++) seg(DP, (r * N + q) * 3, ((r + 1) * N + q) * 3);
+  if (OP && ovl) { const NC = ovl.NC; for (let l = 0; l < ovl.nL; l++) for (let r = 0; r < ovl.NR - 1; r++) for (let c = 0; c < NC; c++) seg(OP, ((l * ovl.NR + r) * NC + c) * 3, ((l * ovl.NR + r + 1) * NC + c) * 3); }
+  // Below the hem it is still under the skirt: the hem's own reach down to the floor.
+  for (let q = 0; q < N; q++) { let j = 0; while (j < nY - 1 && !W[j * N + q]) j++; for (let k = 0; k < j; k++) W[k * N + q] = W[j * N + q]!; }
+  let top: ((x: number, z: number) => number) | null = null;
+  if (low && rows > rS) {
+    // The train lying on the floor: its height over each spot.
+    let x0 = 1e9, x1 = -1e9, z0 = 1e9, z1 = -1e9;
+    for (let o = (rS - 1) * N * 3, e = rows * N * 3; o < e; o += 3) { x0 = Math.min(x0, DP[o]!); x1 = Math.max(x1, DP[o]!); z0 = Math.min(z0, DP[o + 2]!); z1 = Math.max(z1, DP[o + 2]!); }
+    const TC = 0.04, nx = Math.ceil((x1 - x0) / TC) + 2, nz = Math.ceil((z1 - z0) / TC) + 2, Hh = new Float32Array(nx * nz).fill(-1e9);
+    const tri = (a: number, b: number, c: number) => {
+      const ax = DP[a]!, az = DP[a + 2]!, bx = DP[b]!, bz = DP[b + 2]!, cx = DP[c]!, cz = DP[c + 2]!, d = (bz - cz) * (ax - cx) + (cx - bx) * (az - cz);
+      const i0 = Math.max(0, Math.floor((Math.min(ax, bx, cx) - x0) / TC)), i1 = Math.min(nx - 1, Math.ceil((Math.max(ax, bx, cx) - x0) / TC)), k0 = Math.max(0, Math.floor((Math.min(az, bz, cz) - z0) / TC)), k1 = Math.min(nz - 1, Math.ceil((Math.max(az, bz, cz) - z0) / TC));
+      for (let i = i0; i <= i1; i++) for (let k = k0; k <= k1; k++) {
+        const px = x0 + i * TC, pz = z0 + k * TC;
+        let y: number;
+        if (Math.abs(d) > 1e-12) {
+          let l1 = ((bz - cz) * (px - cx) + (cx - bx) * (pz - cz)) / d, l2 = ((cz - az) * (px - cx) + (ax - cx) * (pz - cz)) / d, l3 = 1 - l1 - l2;
+          if (l1 < -0.25 || l2 < -0.25 || l3 < -0.25) continue; // a little past its edges too: no gap between cells
+          l1 = Math.max(0, l1); l2 = Math.max(0, l2); l3 = Math.max(0, l3);
+          y = (DP[a + 1]! * l1 + DP[b + 1]! * l2 + DP[c + 1]! * l3) / (l1 + l2 + l3);
+        } else y = Math.max(DP[a + 1]!, DP[b + 1]!, DP[c + 1]!);
+        const o = i * nz + k;
+        if (y > Hh[o]!) Hh[o] = y;
+      }
+    };
+    for (let r = rS - 1; r < rows - 1; r++) for (let q = 0; q < N; q++) { const a = (r * N + q) * 3, b = (r * N + ((q + 1) % N)) * 3, c = a + N * 3, d = b + N * 3; tri(a, c, b); tri(b, c, d); }
+    top = (x, z) => {
+      const fi = (x - x0) / TC, fk = (z - z0) / TC, i = Math.floor(fi), k = Math.floor(fk);
+      let h = -1e9;
+      for (let di = 0; di <= 1; di++) for (let dk = 0; dk <= 1; dk++) { const ii = i + di, kk = k + dk; if (ii >= 0 && ii < nx && kk >= 0 && kk < nz) h = Math.max(h, Hh[ii * nz + kk]!); }
+      return h;
+    };
+  }
+  const cl = 0.004 / B.P.S;
+  // Per veil column: once it has lain on the skirt it falls straight from there, never back in under an edge (a tier, a hem).
+  const carry = new Float32Array(VNA);
+  // The widest at each height: most of the veil is quickly seen to be clear.
+  const RM = new Float32Array(nY);
+  for (let j = 0; j < nY; j++) { let m = 0; for (let q = 0; q < N; q++) m = Math.max(m, W[j * N + q]!); RM[j] = m; }
+  // Vertices within a few cm of the skirt: only their triangles need a second look.
+  const near = new Uint8Array(VNR * VNA);
+  // Push one vertex out of the skirt (from her centre line), then up off the train.
+  const keep = ((P: Float32Array, o: number) => {
+    const y = P[o + 1]!, j = (y - fl) / WY;
+    if (j < nY - 1) {
+      const j0 = clamp(Math.floor(j), 0, nY - 1), j1 = Math.min(nY - 1, j0 + 1), cz = czAt(y), dx = P[o]!, dz = P[o + 2]! - cz, r = Math.hypot(dx, dz);
+      let a = Math.atan2(dx, dz) / DTH;
+      if (a < 0) a += N;
+      const k0 = (a | 0) % N, k1 = (k0 + 1) % N, w = a - (a | 0), rd = (jj: number) => W[jj * N + k0]! * (1 - w) + W[jj * N + k1]! * w, c = (o / 3) % VNA;
+      const need = Math.max(rd(j0), rd(j1), rd(Math.min(nY - 1, j1 + 1))) + cl;
+      let nd = Math.max(need, carry[c]!);
+      if (r < need + cl * 2.5) carry[c] = Math.max(carry[c]!, need); // lying on it (or within a centimetre of it): from here down it may not tuck back in
+      // And the cloth between this row and the one above clears the skirt too (a long drop over a full skirt's curve).
+      const q = o - VNA * 3, yP = q >= 0 ? P[q + 1]! : y;
+      if (yP > y + WY) {
+        const cP = czAt(yP), rP = Math.hypot(P[q]!, P[q + 2]! - cP);
+        for (let jj = Math.max(0, Math.ceil(j)), jE = Math.min(nY - 1, Math.floor((yP - fl) / WY)); jj <= jE; jj++) { const t = (yP - fl - jj * WY) / (yP - y); if (t > 0.05) nd = Math.max(nd, Math.min(rP + (rd(jj) + cl - rP) / t, need + 0.5)); }
+      }
+      if (r < nd + 0.03) near[o / 3] = 1;
+      if (r > 1e-6 && r < nd) { const k = nd / r; P[o] = dx * k; P[o + 2] = cz + dz * k; }
+    }
+    if (top) { const h = top(P[o]!, P[o + 2]!) + cl; if (P[o + 1]! < h) P[o + 1] = h; }
+  }) as VeilKeep;
+  const push = (P: Float32Array, v: number, d: number) => { const y = P[v + 1]!, cz = czAt(y), dx = P[v]!, dz = P[v + 2]! - cz, r = Math.hypot(dx, dz); if (r > 1e-6) { const k = (r + d) / r; P[v] = dx * k; P[v + 2] = cz + dz * k; } };
+  // Then the cloth between the vertices: where a fold or a long drop (the side of a long veil, over a full skirt) still
+  // cuts into it, ease that triangle out.
+  keep.cloth = (P) => {
+    const hc = cl * 0.6, Dm = new Float32Array(VNR * VNA), S4 = [0, 0, 0, 0];
+    // A point on the cloth (the mean of n vertices): how far inside the skirt.
+    const chk = (n: number) => {
+      let x = 0, y = 0, z = 0;
+      for (let t = 0; t < n; t++) { x += P[S4[t]!]!; y += P[S4[t]! + 1]!; z += P[S4[t]! + 2]!; }
+      x /= n; y /= n; z /= n;
+      const f = (y - fl) / WY;
+      if (f >= nY - 1 || f < 0) return 0;
+      const j0 = Math.floor(f), j1 = Math.min(nY - 1, j0 + 1), cz = czAt(y), dx = x, dz = z - cz, r = Math.hypot(dx, dz);
+      if (r >= Math.max(RM[j0]!, RM[j1]!) + hc) return 0;
+      let an = Math.atan2(dx, dz) / DTH;
+      if (an < 0) an += N;
+      const k0 = (an | 0) % N, k1 = (k0 + 1) % N, wt = an - (an | 0), d = Math.max(W[j0 * N + k0]!, W[j1 * N + k0]!) * (1 - wt) + Math.max(W[j0 * N + k1]!, W[j1 * N + k1]!) * wt + hc - r;
+      if (d > 1e-5) { for (let t = 0; t < n; t++) Dm[S4[t]! / 3] = Math.max(Dm[S4[t]! / 3]!, d); return 1; }
+      return 0;
+    };
+    for (let pass = 0; pass < 4; pass++) {
+      let moved = 0;
+      Dm.fill(0);
+      for (let i = 0; i < VNR - 1; i++) for (let a = 0; a < VNA - 1; a++) {
+        const p = (i * VNA + a) * 3, q = p + VNA * 3;
+        if (!(near[p / 3]! | near[p / 3 + 1]! | near[q / 3]! | near[q / 3 + 1]!)) continue;
+        // The middle of the cell, its diagonal and two of its sides (the other two are a neighbour's).
+        S4[0] = p; S4[1] = p + 3; S4[2] = q; S4[3] = q + 3; moved += chk(4);
+        S4[0] = p + 3; S4[1] = q; moved += chk(2); S4[1] = p; moved += chk(2); S4[0] = q; moved += chk(2);
+      }
+      if (!moved) break;
+      // Each vertex moves once a pass, by the most any of its triangles needs.
+      for (let v = 0; v < VNR * VNA; v++) if (Dm[v]) push(P, v * 3, Dm[v]!);
+    }
+  };
+  return keep;
 }

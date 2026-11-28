@@ -35,6 +35,7 @@ import { GOWN_WEAVE_PX, drawGownWeave, gownWeaveAmount, gownWeaveGain, gownWeave
 import { GOWN_INSIDE_LOOK, buildGownInside, gownInsideShown, type GownInsideStage } from '@/lib/gown/parts/inside';
 import { GOWN_OVERLAY_DRAW, buildGownOverlay, gownOverlayOut, type GownOverlayMesh } from '@/lib/gown/parts/overlay';
 import { buildGownSleeve, emptySleeve } from '@/lib/gown/parts/sleeves';
+import { buildGownStraps, emptyStraps } from '@/lib/gown/parts/straps';
 import { GOWN_JULIET_BAND, GOWN_VEIL_DRAW, buildGownVeil, emptyVeil } from '@/lib/gown/parts/veil';
 import { restingCloth, writeDress } from '@/lib/gown/dress/cloth';
 import { buildEnvelope, emptyEnvelope, type GownEnvelope } from '@/lib/gown/dress/table';
@@ -254,6 +255,10 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
     const capeBand = new THREE.MeshPhysicalMaterial({ sheen: 1, side: THREE.DoubleSide });
     const capeJewel = new THREE.MeshStandardMaterial({ color: GOWN_CAPE_JEWEL.colour, metalness: GOWN_CAPE_JEWEL.metalness, roughness: GOWN_CAPE_JEWEL.roughness, envMapIntensity: GOWN_CAPE_JEWEL.envMapIntensity, flatShading: true, side: THREE.DoubleSide });
     const capeEdge = { canvas: null as HTMLCanvasElement | null, tex: null as THREE.CanvasTexture | null, key: '', mat: new THREE.MeshStandardMaterial({ transparent: true, side: THREE.DoubleSide, roughness: 0.75, depthWrite: false, alphaTest: 0.02 }) };
+    // v199 straps: one mesh, two groups: the straps (the gown's own cloth, or the accent colour) and their crystals.
+    const SP = emptyStraps(), strapMat = new THREE.MeshPhysicalMaterial({ sheen: 1, side: THREE.DoubleSide });
+    const straps = new THREE.Mesh<THREE.BufferGeometry, THREE.Material[]>(SP.geo, [m, capeJewel]);
+    straps.frustumCulled = false;
     // Sleeves (and the off-shoulder band) in the gown's fabric; the accent and sheer lace come with A6b.
     const sleeves = { L: new THREE.Mesh(emptySleeve(), m), R: new THREE.Mesh(emptySleeve(), m) };
     // The veil always lies over what is under it.
@@ -300,7 +305,7 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
     const tm = { trim: new THREE.MeshPhysicalMaterial({ roughness: 0.45, sheen: 1, sheenRoughness: 0.3, side: THREE.DoubleSide }), ruffle: new THREE.MeshStandardMaterial({ roughness: 0.55, side: THREE.DoubleSide }), fringe: new THREE.LineBasicMaterial({ transparent: true, opacity: 0.9 }), band: new THREE.MeshStandardMaterial({ roughness: 0.7, side: THREE.DoubleSide }), seam: new THREE.MeshStandardMaterial({ roughness: 0.7, side: THREE.DoubleSide }) };
     // The surface's canvases: made once, in the browser, when first needed.
     const maps = { weave: null as HTMLCanvasElement | null, lace: null as HTMLCanvasElement | null, cut: null as HTMLCanvasElement | null, tex: { weave: null as THREE.CanvasTexture | null, lace: null as THREE.CanvasTexture | null, cut: null as THREE.CanvasTexture | null } };
-    return { su, maps, mesh, m, sheerBack, ilU, ilMat, ilMesh, ilMap, T: emptyEnvelope(), D: emptyDress(), K, cape, capeSheer, capeBand, capeJewel, capeEdge, sleeves, V, veil, vm, laceTile, lm, veilEdge, veilCap, bm, veilBand, closure, em, mdm, cdm, sm, om, overlay, ov: null as GownOverlayMesh | null, im, inner, extras, tm };
+    return { su, maps, mesh, m, sheerBack, ilU, ilMat, ilMesh, ilMap, T: emptyEnvelope(), D: emptyDress(), K, cape, capeSheer, capeBand, capeJewel, capeEdge, SP, straps, strapMat, sleeves, V, veil, vm, laceTile, lm, veilEdge, veilCap, bm, veilBand, closure, em, mdm, cdm, sm, om, overlay, ov: null as GownOverlayMesh | null, im, inner, extras, tm };
   }, []);
   const [frame, setFrame] = useState({ S: 1, floor: 0, top: 1.7, ver: 0, width: 0.6 });
   const [loops, setLoops] = useState<Record<GownTapeKey, number[]> | null>(null);
@@ -404,8 +409,20 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
         // Sheer capes are drawn after the gown (and before the veil).
         cloth.cape.renderOrder = (clothMat as THREE.Material).transparent ? 4 : 0;
       }
+      // v199: the straps, laid on her after the gown and any cape. Hidden while the Inside view draws the gown see-through.
+      const strapsOn = buildGownStraps(rig, cloth.T, cloth.D, design, cloth.SP);
+      if (cloth.straps.parent !== root) root.add(cloth.straps);
+      cloth.straps.visible = strapsOn && !inside;
+      if (strapsOn) {
+        const accent = design.strapCol === 'accent' && !!design.accentHex;
+        if (accent) {
+          cloth.strapMat.color.setHex(parseInt(design.accentHex!.slice(1), 16));
+          applyGownShine(cloth.strapMat, gownFabricType(design.accentFabric ?? design.fabric).drawAs, GOWN_SCENES[scene].env);
+        }
+        cloth.straps.material = [accent ? cloth.strapMat : cloth.m, cloth.capeJewel];
+      }
       // The veil clears her head, the gown and the cape (v197: its length from the crown, the blusher, the lace edge, the cap).
-      const v = buildGownVeil(rig, cloth.T, cloth.D, hung ? cloth.K : null, design, cloth.V, floor, ovOut);
+      const v = buildGownVeil(rig, cloth.T, cloth.D, hung ? cloth.K : null, design, cloth.V, floor, ovOut, { overlay: cloth.overlay.visible ? cloth.ov : null });
       if (cloth.veil.parent !== root) root.add(cloth.veil);
       cloth.veil.visible = v.veil;
       if (v.edge || v.cap) {
@@ -504,7 +521,7 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
         }
         if (cloth.inner.parent !== root) root.add(cloth.inner);
       }
-    } else for (const o of [cloth.overlay, cloth.mesh, cloth.cape, cloth.sleeves.L, cloth.sleeves.R, cloth.veil, cloth.closure.cloth, cloth.closure.eyelets, cloth.ilMesh]) o.visible = false;
+    } else for (const o of [cloth.overlay, cloth.mesh, cloth.cape, cloth.straps, cloth.sleeves.L, cloth.sleeves.R, cloth.veil, cloth.closure.cloth, cloth.closure.eyelets, cloth.ilMesh]) o.visible = false;
     setFrame({ S: rig.P.S, floor, top: rig.top, ver: rig.ver, width: width * rig.P.S });
     setLoops(guides ? tapeLoops(rig) : null);
     onSolved?.({ got: { bust: rig.got.bust, underbust: rig.got.underbust, waist: rig.got.waist, hips: rig.got.hips }, kg: rig.kg, vals: { ...rig.vals } });
@@ -513,7 +530,7 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
   useEffect(() => () => mat.dispose(), [mat]);
   useEffect(
     () => () => {
-      for (const o of [cloth.overlay, cloth.mesh, cloth.cape, cloth.sleeves.L, cloth.sleeves.R, cloth.veil, cloth.veilEdge, cloth.veilCap, cloth.veilBand, cloth.closure.cloth, cloth.closure.eyelets, cloth.closure.modesty, cloth.closure.cord]) o.removeFromParent();
+      for (const o of [cloth.overlay, cloth.mesh, cloth.cape, cloth.straps, cloth.sleeves.L, cloth.sleeves.R, cloth.veil, cloth.veilEdge, cloth.veilCap, cloth.veilBand, cloth.closure.cloth, cloth.closure.eyelets, cloth.closure.modesty, cloth.closure.cord]) o.removeFromParent();
       for (const g of [cloth.sleeves.L.geometry, cloth.sleeves.R.geometry, cloth.V.geo, cloth.V.edge, cloth.V.cap, cloth.veilBand.geometry, cloth.closure.cloth.geometry, cloth.closure.eyelets.geometry, cloth.closure.modesty.geometry, cloth.closure.cord.geometry]) g.dispose();
       cloth.m.dispose();
       cloth.vm.dispose();
@@ -524,6 +541,8 @@ function Body({ rig, vals, fine, shape = 'none', guides = false, turn = 0, desig
       cloth.capeSheer.dispose();
       cloth.capeBand.dispose();
       cloth.capeJewel.dispose();
+      cloth.SP.geo.dispose();
+      cloth.strapMat.dispose();
       cloth.capeEdge.mat.dispose();
       cloth.capeEdge.tex?.dispose();
       cloth.mdm.dispose();

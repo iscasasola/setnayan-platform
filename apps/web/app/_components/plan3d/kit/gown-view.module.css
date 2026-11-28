@@ -26,3 +26,20 @@
   height: 100%;
   border-radius: var(--m-r-md);
 }
+
+/* A10: the design's picture: the 2D drawing first, one still 3D frame over it once on screen. */
+.still {
+  position: relative;
+  aspect-ratio: 40 / 56;
+  width: 100%;
+  overflow: hidden;
+  border-radius: var(--m-r-md);
+  color: rgb(var(--color-ink));
+}
+.stillSvg,
+.stillStage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}

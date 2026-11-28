@@ -86,6 +86,7 @@ import { GOWN_SCENES, GOWN_SCENE_IDS, type GownSceneId } from '@/lib/gown/scenes
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { GownView } from '@/app/_components/plan3d/kit/gown-view';
 import { GownStageButtons } from '@/app/_components/gown-maker/stage-buttons';
+import { GownDesigner } from '@/app/_components/gown-maker/gown-designer';
 import type { GownPoseName } from '@/lib/gown/motion/poses';
 import type { GownMotionKind } from '@/lib/gown/motion/walks';
 import type { GownTurnStyle, GownTwirlStyle } from '@/lib/gown/motion/turn';
@@ -148,6 +149,24 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   const [autoTurn, setAutoTurn] = useState<{ speed: number; style: GownTurnStyle }>({ speed: 0, style: 'spin' });
   const fine = { athletic: false, bustT, given };
 
+  if (view === 'send') {
+    // A10: the send, on a SAMPLE seed and a sample shop. Pressing Send calls the real action; with no chat behind the lab
+    // it answers with its own plain refusal, shown as it would be.
+    return (
+      <main className="mx-auto max-w-[1200px] p-4" data-lab-view="send">
+        <GownDesigner seed={{ config: { ...startingGownConfig(), sil: 'ball', veil: 'chapel' }, body: startingGownBody() }} fabrics={GOWN_STOCK_FABRICS.map((f) => ({ id: f.id, label: f.label }))} start="send"
+          send={{ threadId: 'lab-sample-thread', shopName: 'Sample shop', onSent: () => setDesign(startingGownConfig()) }} />
+      </main>
+    );
+  }
+  if (view === 'designer') {
+    // A9: the bride's flow end to end, on a SAMPLE seed (no network): measurements, fine-tune, the design steps.
+    return (
+      <main className="mx-auto max-w-[1200px] p-4" data-lab-view="designer">
+        <GownDesigner seed={{ config: startingGownConfig(), body: startingGownBody() }} fabrics={GOWN_STOCK_FABRICS.map((f) => ({ id: f.id, label: f.label }))} />
+      </main>
+    );
+  }
   if (view === 'silhouettes') {
     // A5 check: the four silhouettes on one body (&body=thin · default · severe).
     const b = LAB_BODIES[bodyIn as keyof typeof LAB_BODIES] ?? LAB_BODIES.default;

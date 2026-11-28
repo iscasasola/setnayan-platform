@@ -14,7 +14,7 @@ import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls } from '@react-three/drei';
 import { RoomEnvironment } from 'three/examples/jsm/environments/RoomEnvironment.js';
-import { GOWN_STRAPLESS, emptyGownHand, gownCapeKind, gownCapeNow, gownSleeveIsExtra, type GownBodyKey, type GownBodyVals, type GownConfig, type GownHand, type GownShapewear, type GownStockFabric } from '@/lib/gown-config';
+import { GOWN_STRAPLESS, emptyGownHand, gownCapeKind, gownCapeNow, gownSleeveIsExtra, type GownBodyKey, type GownBodyVals, type GownConfig, type GownHand, type GownQuantities, type GownShapewear, type GownStockFabric } from '@/lib/gown-config';
 import { createGownFrameGovernor, type GownFrameGovernor } from '@/lib/gown/frame-governor';
 import { GOWN_MANNEQUIN, GOWN_SCENES, gownSkyTexture, type GownSceneId } from '@/lib/gown/scenes';
 import { installGownToneMapping } from '@/lib/gown/tone';
@@ -48,6 +48,12 @@ import { GOWN_POSE_BLEND_S, GOWN_STANDING_POSES, emptyGownPose, gownClearArms, g
 import { gownStepMotion, stillGownMotion, type GownMotionKind } from '@/lib/gown/motion/walks';
 import { gownClothDrive, gownStartTwirl, gownStepTurn, gownTurning, stillGownClothDrive, stillGownTurn, type GownTurnStyle, type GownTwirlStyle } from '@/lib/gown/motion/turn';
 import { buildEnvelope, czOf, emptyEnvelope, type GownEnvelope } from '@/lib/gown/dress/table';
+import { gownBodyMarks } from '@/lib/gown/stage/focus';
+import { gownMeasure, type GownBuilt } from '@/lib/gown/quote/measure';
+import { gownQuantitiesOf } from '@/lib/gown/quote/quantities';
+import { estimateGownMeasures, type GownBodyEstimates } from '@/lib/gown/body/estimate';
+import type { GownLacePlan } from '@/lib/gown/parts/lace';
+import { gownLetFocusGo, gownStartFocus, gownStepFocus, idleGownFocus, type GownFocusAsk, type GownFocusStage } from './gown-focus';
 import { applyGownSheer, applyGownShine, gownClothColour, gownClothShader, gownSheerOpacity, tintGownSheen } from '@/lib/gown/fabric/shine';
 import { GOWN_FABRIC_PROPS, GOWN_GLITTER_TULLE, gownClothFeel, gownFabricType } from '@/lib/gown/fabric/types';
 import { canvasDpr } from '@/lib/phone-gpu-budget';
@@ -83,6 +89,13 @@ export type GownFigureProps = {
   twirl?: { n: number; style: GownTwirlStyle } | null;
   /** A8: the auto-turn, degrees a second (0 = off), and its style. */
   autoTurn?: { speed: number; style: GownTurnStyle } | null;
+  /** A9 (v204): a close-up of a part, measured on her live body; null = her whole figure. */
+  focus?: GownFocusAsk | null;
+  /** A10 (`GownStill`): draw for a moment once the gown is built, then stop (one still frame; the card's picture). */
+  still?: boolean;
+  /** A10: what this design needs (quantities only, never a price) and the gown's own measurements as the mannequin
+   *  estimates them, measured after each full build of the gown. */
+  onQuantities?: (q: GownQuantities, estimates: GownBodyEstimates) => void;
 };
 /** Where a finger touches the gown, as the hand tools need it; `moved` = more than a tap's few pixels from where it went down. */
 export type GownHandInput = { tool: GownHandTool | null; onHit: (phase: 'down' | 'move' | 'up' | 'cancel', hit: GownHandHit | null, moved: boolean, ctx: GownHandCtx) => void };
@@ -140,7 +153,7 @@ export default function GownFigure3D(props: GownFigureProps) {
         }}
         gl={{ antialias: !phone, alpha: true, powerPreference: phone ? 'low-power' : 'default' }}
       >
-        <Governor gov={gov} />
+        <Governor gov={gov} stopAt={props.still && rig ? 1500 : null} />
         <SceneLights scene={props.scene ?? 'studio'} />
         {rig ? <Body rig={rig} phone={phone} onBusy={wake} {...props} /> : null}
       </Canvas>
@@ -149,17 +162,20 @@ export default function GownFigure3D(props: GownFigureProps) {
 }
 
 /** The one loop: each animation frame, the governor decides whether to draw (30 fps phone, 4 fps idle). */
-function Governor({ gov }: { gov: GownFrameGovernor }) {
+function Governor({ gov, stopAt = null }: { gov: GownFrameGovernor; stopAt?: number | null }) {
   const advance = useThree((s) => s.advance);
   useEffect(() => {
     let raf = 0;
+    // A still (A10): draw for `stopAt` ms after the body is ready, then stop for good.
+    const end = stopAt === null ? Infinity : performance.now() + stopAt;
     const tick = (now: number) => {
+      if (now > end) { advance(now); return; }
       if (gov.shouldDraw(now)) advance(now);
       raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, [gov, advance]);
+  }, [gov, advance, stopAt]);
   return null;
 }
 
@@ -193,7 +209,7 @@ type SurfaceHost = { su: GownSurfaceUniforms; maps: { weave: HTMLCanvasElement |
 const canvasOf = (w: number, h: number) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 /** The cloth's surface for this design: the fabric's weave, the lace and the cut-outs, painted into their maps (v195). */
 /** Returns the beads sewn on the lace (A7b), sampled from the lace as painted. */
-function paintSurface(cloth: SurfaceHost, rig: GownRig, design: GownConfig & Partial<GownHand>, kind: GownStockFabric): GownLaceBeadPt[] {
+function paintSurface(cloth: SurfaceHost, rig: GownRig, design: GownConfig & Partial<GownHand>, kind: GownStockFabric): { pts: GownLaceBeadPt[]; lace: GownLacePlan | null } {
   const { su, maps } = cloth;
   // The weave, at thread scale; it only shades.
   maps.weave ??= canvasOf(GOWN_WEAVE_PX, GOWN_WEAVE_PX);
@@ -236,7 +252,7 @@ function paintSurface(cloth: SurfaceHost, rig: GownRig, design: GownConfig & Par
     su.cutFill.value = cuts.fill;
   }
   su.cutOn.value = cuts ? 1 : 0;
-  return lace?.beadPts ?? [];
+  return { pts: lace?.beadPts ?? [], lace: lace ?? null };
 }
 
 /** Empty the Inside group: its geometries, and the per-piece materials (the shared ones stay). */
@@ -262,13 +278,16 @@ function beadMaterial(set: GownBeadSet, phone: boolean): THREE.Material {
   return new THREE.MeshStandardMaterial({ color: c, ...L[set.kind] });
 }
 
-function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides = false, turn = 0, design = null, inside = null, scene = 'studio', onSolved, hand = null, handWork = null, pose = 'a', motion = 'stop', twirl = null, autoTurn = null }: { rig: GownRig; phone?: boolean; onBusy?: () => void } & GownFigureProps) {
+function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides = false, turn = 0, design = null, inside = null, scene = 'studio', onSolved, hand = null, handWork = null, pose = 'a', motion = 'stop', twirl = null, autoTurn = null, focus = null, onQuantities }: { rig: GownRig; phone?: boolean; onBusy?: () => void } & GownFigureProps) {
   const pivot = useRef<THREE.Group>(null);
   // A8: her pose, the walk's clock, her turn and the skirt's swing live across builds (the frame loop moves them).
   const S = useMemo(() => emptyGownPose(rig), [rig]);
   const swing = useMemo(() => restingCloth(), [rig]);
   const mo = useRef(stillGownMotion()), tn = useRef(stillGownTurn()), drive = useRef(stillGownClothDrive()), spinRot = useRef(0), bob = useRef({ x: 0, y: 0 }), floorEase = useRef<number | null>(null);
   const reduce = useMemo(() => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches, []);
+  // A9 (v204): the close-up, the controls it moves, and whether her body changed since the part was measured.
+  const fz = useRef(idleGownFocus()), controls = useRef<{ target: THREE.Vector3; update: () => void } | null>(null), bodyMoved = useRef(false);
+  const three = useThree();
   // The governor's wake-up, read fresh (the parent hands a new function each render).
   const busyRef = useRef(onBusy);
   busyRef.current = onBusy;
@@ -418,6 +437,8 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
         writeDress(cloth.D, cloth.T, swing, { pleat: design.pleat, n: design.pleatN, amp: pleatAmp });
       };
       dress();
+      // A10: what was built, for the quote's measurements.
+      const qb: GownBuilt = { cape: null, overlay: null, flutter: [], sleeves: [], lace: null, beads: [], straps: null, flowers: null, illu: null };
       // Her arms ease out until hand and forearm clear the cloth; a moved arm shifts the underarm, so the bodice wraps again.
       if (gownClearArms(rig, S, cloth.T, heel)) dress();
       // The overlay rides the skirt as written; the cape and the veil keep outside it.
@@ -492,6 +513,14 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
       }
       // A floor-length cape hides while she kneels or sits.
       const hung = buildCape(rig, cloth.T, cloth.D, swing, cloth.K, design, { floorY: floor, pose: S.pose, pleatAmp: design.pleat !== 'none' ? pleatAmp : 0, sleeves: worn, robeSleeves: robeWorn, overlayOut: ovOut });
+      qb.cape = hung ? cloth.K : null;
+      qb.overlay = cloth.ov;
+      for (const sd of ['L', 'R'] as const) {
+        const geo = worn[sd] ? cloth.sleeves[sd].geometry : null;
+        (qb.flutter as (THREE.BufferGeometry | null)[]).push(geo);
+        (qb.sleeves as ({ pos: ArrayLike<number>; index: ArrayLike<number> } | null)[]).push(geo && geo.index ? { pos: (geo.attributes.position as THREE.BufferAttribute).array, index: geo.index.array } : null);
+      }
+      if (design.sleeve === 'ruffle' && cloth.ruffleBack.visible && cloth.ruffleBack.geometry.index) (qb.sleeves as ({ pos: ArrayLike<number>; index: ArrayLike<number> } | null)[]).push({ pos: (cloth.ruffleBack.geometry.attributes.position as THREE.BufferAttribute).array, index: cloth.ruffleBack.geometry.index.array });
       if (cloth.cape.parent !== root) root.add(cloth.cape);
       cloth.cape.visible = hung;
       if (!hung) for (const sd of ['L', 'R'] as const) cloth.robeSleeves[sd].visible = false;
@@ -542,6 +571,7 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
       }
       // v199: the straps, laid on her after the gown and any cape. Hidden while the Inside view draws the gown see-through.
       const strapsOn = buildGownStraps(rig, cloth.T, cloth.D, design, cloth.SP);
+      if (strapsOn) qb.straps = cloth.SP;
       if (cloth.straps.parent !== root) root.add(cloth.straps);
       cloth.straps.visible = strapsOn && !inside;
       if (strapsOn) {
@@ -565,6 +595,7 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
           if (px) cutAt = (ph, y) => { const X = Math.round((ph / (2 * Math.PI) + 0.5) * M), Y = Math.round((1 - (y - y0) / (y1 - y0)) * M); return X >= 0 && Y >= 0 && X <= M && Y <= M && px[(Y * GOWN_CUT_MAP + X) * 4]! > 100; };
         }
         const on = buildGownFlowers(rig, { T: cloth.T, D: cloth.D, cape: hung ? cloth.K : null, sleeves: sl }, design, cloth.F, cloth.flower.mesh.geometry, { phone, overlay: !!cloth.ov, cutAt });
+        if (on) qb.flowers = cloth.F;
         const fm = cloth.flower.mesh;
         (fm.instanceMatrix.array as Float32Array).set(cloth.F.mats.subarray(0, cloth.F.drawn * 16));
         fm.count = cloth.F.drawn;
@@ -634,7 +665,8 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
         // While she walks the painted surface rides the cloth; the beads follow it, laid where they were.
         for (const b of cloth.beadSets) placeGownBeadSet(b.set, cloth.D, b.im.instanceMatrix.array as Float32Array), (b.im.instanceMatrix.needsUpdate = true);
       } else {
-      const laceBeads = paintSurface(cloth, rig, work, ft.drawAs);
+      const painted = paintSurface(cloth, rig, work, ft.drawAs), laceBeads = painted.pts;
+      qb.lace = painted.lace;
       cloth.beadSets.length = 0;
       {
         // A7 (v202): every bead layer, laid again on each build (a fixed seed, so nothing reshuffles).
@@ -647,6 +679,7 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
           if (placeGownBeadSet(set, cloth.D, im.instanceMatrix.array as Float32Array)) { cloth.beadGroup.add(im); cloth.beadSets.push({ set, im }); }
           else { (im.material as THREE.Material).dispose(); im.dispose(); }
         }
+        qb.beads = sets;
         if (cloth.beadGroup.parent !== root) root.add(cloth.beadGroup);
         cloth.beadGroup.visible = !inside;
       }
@@ -664,6 +697,7 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
         cloth.ilU.ilMap.value = mp.tex;
         const ig = mp.canvas.getContext('2d'), il = buildGownIllu(rig, cloth.T, cloth.D, design, cloth.ilU, ig);
         if (il.zoneOn) mp.tex.needsUpdate = true;
+        qb.illu = il;
         const gownHex = gownClothColour(design.colour, design.colourHex), tulle = design.illuCol === 'match' ? gownHex : GOWN_ILLU_TULLE[design.illuCol];
         (cloth.ilU.ilBoneCol.value as unknown as THREE.Color).setHex(gownHex).lerp(new THREE.Color(1, 1, 1), GOWN_ILLU_DRAW.boneTint);
         (cloth.ilU.ilEdgeCol.value as unknown as THREE.Color).setHex(tulle);
@@ -676,6 +710,13 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
         if (cloth.ilMesh.parent !== root) root.add(cloth.ilMesh);
         // Shown only with the gown (not while the Inside view draws it see-through).
         cloth.ilMesh.visible = il.zoneOn && !inside;
+      }
+      // A10: what this design needs, measured on the gown just built (a full build only, never mid-move). Her hand-placed
+      // beads are left out here: they travel beside the design and the shop's quote adds them itself.
+      if (!lite && onQuantities) {
+        const m = gownMeasure(rig, cloth.T, cloth.D, design, qb);
+        for (const b of handWork?.handBeads ?? []) m.beads[b.kind] = Math.max(0, m.beads[b.kind] - 1);
+        onQuantities(gownQuantitiesOf(design, m), estimateGownMeasures(rig, cloth.T));
       }
       width = Math.max(0.6, 2 * cloth.D.hemR); // the hem's width (a train runs back, not sideways)
       // Trims along the gown's own edges, a two-piece's band, a shaped waistline's seam, a small bow in the gown's cloth,
@@ -725,6 +766,7 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
     const g = pivot.current;
     floorEase.current = lite && floorEase.current !== null ? floorEase.current + (floor - floorEase.current) * 0.25 : floor;
     if (g) g.position.set(bob.current.x, -floorEase.current * rig.P.S + bob.current.y, 0);
+    bodyMoved.current = true;
     if (lite || S.t < 1) return;
     setFrame({ S: rig.P.S, floor, top: rig.top, ver: rig.ver, width: width * rig.P.S });
     setLoops(guides ? tapeLoops(rig) : null);
@@ -760,6 +802,36 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
     busy();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `busy` reads a ref
   }, [autoSpeed, autoStyle]);
+  // A9: the stage's side of a close-up, read fresh each time.
+  const stageNow = (): GownFocusStage => {
+    const cam = three.camera as THREE.PerspectiveCamera, size = three.size, hh = (frame.top - frame.floor) * frame.S;
+    const vfov = THREE.MathUtils.degToRad(cam.fov), hfov = 2 * Math.atan(Math.tan(vfov / 2) * (size.width / Math.max(1, size.height)));
+    const dist = Math.max((hh * 1.12) / 2 / Math.tan(vfov / 2), (frame.width * 1.2) / 2 / Math.tan(hfov / 2));
+    const g = pivot.current, D = cloth.D;
+    return {
+      rot: turn + spinRot.current, pivotPos: g ? g.position.clone() : new THREE.Vector3(), scale: rig.P.S, camera: cam, target: controls.current?.target ?? new THREE.Vector3(0, hh * 0.5, 0),
+      fitDist: dist, fit: { p: new THREE.Vector3(0, hh * 0.52, dist), q: new THREE.Vector3(0, hh * 0.5, 0) }, min: 1.2, max: 9,
+      marks: () => {
+        const on = !!design && cloth.mesh.visible && !!D.geo;
+        let box: [THREE.Vector3, THREE.Vector3] | null = null;
+        if (on) {
+          const bx = new THREE.Box3();
+          for (const o of [cloth.mesh, cloth.veil, cloth.cape]) if (o.visible && o.geometry.attributes.position) { o.geometry.computeBoundingBox(); bx.union(o.geometry.boundingBox!); }
+          if (!bx.isEmpty()) box = [bx.min.clone(), bx.max.clone()];
+        }
+        const capeBox = on && cloth.cape.visible ? (cloth.cape.geometry.computeBoundingBox(), [cloth.cape.geometry.boundingBox!.min.clone(), cloth.cape.geometry.boundingBox!.max.clone()] as [THREE.Vector3, THREE.Vector3]) : null;
+        return gownBodyMarks(rig, S.floorY, on ? { hemR: D.hemR, box, capeBox, yHem: box ? box[0].y : undefined } : null);
+      },
+    };
+  };
+  const fKey = focus?.key ?? null, fN = focus?.n ?? 0, fStay = focus?.stay ?? false;
+  useEffect(() => {
+    if (!fKey) { gownLetFocusGo(fz.current); busy(); return; }
+    if (mo.current.kind !== 'stop' || gownTurning(tn.current)) return;
+    gownStartFocus(fz.current, { key: fKey, n: fN, stay: fStay }, stageNow());
+    busy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `busy` and `stageNow` read refs and the latest frame
+  }, [fKey, fN, fStay]);
   // A8: the frame loop. A blend rebuilds her once a frame; a walk about 24 times a second (lite); her turn drives the skirt.
   useFrame((state, dtRaw) => {
     const dt = Math.min(0.05, dtRaw), now = performance.now();
@@ -775,6 +847,17 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
       S.t = t * t * (3 - 2 * t);
       presentRef.current(false, false);
       S.t = t;
+    }
+    // A twirl, a turn or a walk lets a close-up go; otherwise the close-up turns her and moves the camera.
+    if (fz.current.on && (mo.current.kind !== 'stop' || gownTurning(tn.current))) fz.current.on = false;
+    const fr = gownStepFocus(fz.current, stageNow(), dt, bodyMoved.current);
+    bodyMoved.current = false;
+    if (fr) {
+      moving = true;
+      spinRot.current = fr.rot - turn;
+      state.camera.position.copy(fr.pos);
+      controls.current?.target.copy(fr.tgt);
+      controls.current?.update();
     }
     const rot = gownStepTurn(tn.current, spinRot.current, dt, now);
     spinRot.current = rot;
@@ -855,6 +938,9 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
       {hand?.tool ? <HandPointer mesh={cloth.mesh} T={cloth.T} hand={hand} ctx={{ cmU: rig.P.S * 100, forbidden: (ph, y, rcm) => (cloth.D.L ? gownCutForbidden(rig, cloth.T, cloth.D.L, ph, y, rcm) : ''), close: (P) => gownHandCutClose(rig, cloth.T, P, design?.cutFill ?? 'open') }} /> : null}
       {/* A hand tool picked: one finger (left button) draws; two fingers (right button) still turn her (v202). */}
       <OrbitControls
+        ref={controls as never}
+        // Her fingers always win (v204): a drag lets a close-up go.
+        onStart={() => { fz.current.on = false; }}
         {...(hand?.tool ? { mouseButtons: { LEFT: -1 as THREE.MOUSE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }, touches: { ONE: -1 as THREE.TOUCH, TWO: THREE.TOUCH.DOLLY_ROTATE } } : {})}
         enablePan={false}
         enableDamping minDistance={1.2} maxDistance={9} minPolarAngle={Math.PI * 0.3} maxPolarAngle={Math.PI * 0.55} target={[0, h * 0.5, 0]} />

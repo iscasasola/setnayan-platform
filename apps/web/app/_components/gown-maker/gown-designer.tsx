@@ -27,7 +27,7 @@ import type { GownFocusAsk } from '@/app/_components/plan3d/kit/gown-focus';
 import { GownStageButtons } from './stage-buttons';
 import {
   GOWN_BODY_RANGE, GOWN_BODY_SHAPES, GOWN_BUST_POSITIONS, GOWN_COLOUR_FAMILIES, GOWN_MATTERS, GOWN_PALETTE_MAX,
-  type GownBody, type GownBodyKey, type GownConfig, type GownColourFamily, type GownMatter,
+  emptyGownHand, type GownBody, type GownBodyKey, type GownConfig, type GownColourFamily, type GownMatter, type GownHand, type GownQuantities,
 } from '@/lib/gown-config';
 import { GOWN_HEEL_STOPS, gownBustPosition, gownDoubleCheck, gownLimit, gownScaleToWeight, gownSetNumber, gownShapeAtWeight, gownSnapBustT, gownSnapHeel } from '@/lib/gown/body-rules';
 import { gownChoose, type GownChoice } from '@/lib/gown/compat';
@@ -38,6 +38,8 @@ import {
 import type { GownPoseName } from '@/lib/gown/motion/poses';
 import type { GownMotionKind } from '@/lib/gown/motion/walks';
 import type { GownTurnStyle, GownTwirlStyle } from '@/lib/gown/motion/turn';
+import type { GownBodyEstimates } from '@/lib/gown/body/estimate';
+import { GownSend } from './gown-send';
 import { formatCount } from '@/lib/format-number';
 import css from './gown-designer.module.css';
 
@@ -49,17 +51,22 @@ export type GownDesignerProps = {
   fabrics: readonly { id: string; label: string }[];
   /** Every change, for the send (A10) to read. */
   onChange?: (s: GownDesignerState) => void;
-  /** The last design step's Next. Left out, the last step has no Next. */
+  /** The last design step's Next. Left out, the last step has no Next (unless `send` is given). */
   onDone?: () => void;
+  /** A10: send to the designer from the chat she was invited in. Given, the last design step leads to Review and send. */
+  send?: { threadId: string; shopName: string; hand?: GownHand; onSent: () => void };
+  /** Where she lands (a design she saved opens on the design; the lab opens any part). Measurements first by default. */
+  start?: Tab;
 };
 
-type Tab = 'meas' | 'design';
+export type GownDesignerTab = 'meas' | 'design' | 'send';
+type Tab = GownDesignerTab;
 const GIRTHS = ['bust', 'waist', 'hips', 'underbust', 'shoulders'] as const;
 
-export function GownDesigner({ seed, fabrics, onChange, onDone }: GownDesignerProps) {
+export function GownDesigner({ seed, fabrics, onChange, onDone, send, start = 'meas' }: GownDesignerProps) {
   const [config, setConfig] = useState(seed.config);
   const [body, setBody] = useState(seed.body);
-  const [tab, setTab] = useState<Tab>('meas');
+  const [tab, setTab] = useState<Tab>(start);
   const [fineOn, setFineOn] = useState(false);
   const [mi, setMi] = useState(0);
   const [di, setDi] = useState(0);
@@ -68,6 +75,7 @@ export function GownDesigner({ seed, fabrics, onChange, onDone }: GownDesignerPr
   const [hipWant, setHipWant] = useState<number | null>(null);
   const [note, setNote] = useState('');
   const [solved, setSolved] = useState<GownSolved | null>(null);
+  const [measured, setMeasured] = useState<{ quantities: GownQuantities; estimates: GownBodyEstimates } | null>(null);
   const [shut, setShut] = useState('');
   const [focus, setFocus] = useState<GownFocusAsk | null>(null);
   const [pose, setPose] = useState<GownPoseName>('a');
@@ -204,23 +212,23 @@ export function GownDesigner({ seed, fabrics, onChange, onDone }: GownDesignerPr
 
   // ─── the bottom row ───
   const last = at >= steps.length - 1;
-  const back = () => { if (at > 0) { if (tab === 'meas') setMi(at - 1); else setDi(at - 1); } else if (tab === 'design') { setTab('meas'); setMi(msSteps.length - 1); } };
+  const back = () => { if (tab === 'send') { setTab('design'); return; } if (at > 0) { if (tab === 'meas') setMi(at - 1); else setDi(at - 1); } else if (tab === 'design') { setTab('meas'); setMi(msSteps.length - 1); } };
   const next = () => {
     if (tab === 'meas') { if (ms.id === 'fineAsk' || last) { setTab('design'); setDi(0); } else setMi(at + 1); return; }
-    if (last) onDone?.(); else setDi(at + 1);
+    if (last) { if (send) setTab('send'); else onDone?.(); } else setDi(at + 1);
   };
   const skip = () => {
     if (snap.current) { const r = gownSkipStep(body, snap.current.s, ms.id); setBody(r.body); setConfig({ ...config, heel: r.heel }); }
     next();
   };
   const check = gownDoubleCheck(body.vals, body.given, solved ? { reached: solved.got, bodyKg: solved.kg } : {});
-  const nextWord = tab === 'meas' ? (last || ms.id === 'fineAsk' ? 'Design' : msSteps[at + 1]!.label) : last ? 'Done' : dsSteps[at + 1]!.label;
+  const nextWord = tab === 'meas' ? (last || ms.id === 'fineAsk' ? 'Design' : msSteps[at + 1]!.label) : last ? (send ? 'Review and send' : 'Done') : dsSteps[at + 1]!.label;
 
   return (
     <div className={css.maker} data-gown-designer>
       <div className={css.stage}>
-        <GownView fill vals={body.vals} fine={{ athletic: body.athletic, bustT: body.bustT, given: body.given }} design={tab === 'design' ? config : null} shape={tab === 'design' ? config.shape : undefined}
-          onSolved={setSolved} pose={pose} motion={motion} twirl={twirl} autoTurn={autoTurn} focus={focus} />
+        <GownView fill vals={body.vals} fine={{ athletic: body.athletic, bustT: body.bustT, given: body.given }} design={tab !== 'meas' ? config : null} shape={tab !== 'meas' ? config.shape : undefined}
+          onSolved={setSolved} onQuantities={send ? (quantities, estimates) => setMeasured({ quantities, estimates }) : undefined} pose={pose} motion={motion} twirl={twirl} autoTurn={autoTurn} focus={focus} />
         {check && check !== shut ? (
           <div className={`sn-frame ${css.check}`} role="status" data-gown-check>
             <p className="text-sn-13">{check}</p>
@@ -237,9 +245,13 @@ export function GownDesigner({ seed, fabrics, onChange, onDone }: GownDesignerPr
           <PillSelector label="Part of the maker" value={tab} options={[{ key: 'meas', label: 'Measurements' }, { key: 'design', label: 'Design' }]} onPick={(k: Tab) => setTab(k)} data="gown-tab" />
           <ActionButton tone="neutral" quiet icon={Undo2} label="Undo" onClick={doUndo} disabled={!undo.length} />
         </div>
-        <p className="text-sn-12 text-ink/70" data-gown-count>{`${tab === 'meas' ? 'Measurements' : 'Design'} · ${formatCount(at + 1)} of ${formatCount(steps.length)}`}</p>
-        <h2 id="gown-step-name" className="text-sn-19">{tab === 'meas' ? ms.label : ds.label}</h2>
-        <div className="grid gap-3" data-gown-step={tab === 'meas' ? ms.id : ds.id}>{tab === 'meas' ? measBody() : designBody()}</div>
+        {tab === 'send' ? null : <p className="text-sn-12 text-ink/70" data-gown-count>{`${tab === 'meas' ? 'Measurements' : 'Design'} · ${formatCount(at + 1)} of ${formatCount(steps.length)}`}</p>}
+        <h2 id="gown-step-name" className="text-sn-19">{tab === 'meas' ? ms.label : tab === 'send' ? 'Review and send' : ds.label}</h2>
+        {tab === 'send' && send ? (
+          <GownSend threadId={send.threadId} shopName={send.shopName} config={config} body={body} hand={send.hand ?? emptyGownHand()} fabrics={fabrics} units={units} measured={measured} onSent={send.onSent} />
+        ) : (
+          <div className="grid gap-3" data-gown-step={tab === 'meas' ? ms.id : ds.id}>{tab === 'meas' ? measBody() : designBody()}</div>
+        )}
         {note ? <p className="text-sn-13 text-ink/75" role="status">{note}</p> : null}
         {tab === 'meas' ? (
           <PillSelector label="Units" grow={false} value={units.len} options={[{ key: 'cm', label: 'cm · kg' }, { key: 'in', label: 'in · lb' }]} onPick={(k: 'cm' | 'in') => setUnits(k === 'cm' ? { len: 'cm', mass: 'kg' } : { len: 'in', mass: 'lb' })} data="gown-units" />
@@ -247,7 +259,7 @@ export function GownDesigner({ seed, fabrics, onChange, onDone }: GownDesignerPr
         <nav className={css.nav} aria-label="Steps">
           <ActionButton tone="neutral" iconOnly icon={ChevronLeft} label="Back" onClick={back} disabled={tab === 'meas' && at === 0} />
           {tab === 'meas' && ms.fine ? <ActionButton tone="neutral" quiet icon={SkipForward} label="Skip" onClick={skip} data-gown-skip="" /> : null}
-          {ms.id === 'fineAsk' && tab === 'meas' ? null : tab === 'design' && last && !onDone ? null : (
+          {tab === 'send' || (ms.id === 'fineAsk' && tab === 'meas') || (tab === 'design' && last && !onDone && !send) ? null : (
             <ActionButton tone="brand" main icon={ChevronRight} label={`Next: ${nextWord}`} onClick={next} data-gown-next="" />
           )}
         </nav>

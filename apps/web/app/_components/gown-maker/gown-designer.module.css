@@ -63,3 +63,9 @@
     overflow-y: auto;
   }
 }
+/* A10: the design's picture on the send screen. */
+.stillBox {
+  width: 160px;
+  max-width: 50%;
+  margin-inline: auto;
+}

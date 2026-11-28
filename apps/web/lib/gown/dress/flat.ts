@@ -37,6 +37,10 @@ export function flatGown(B: GownRig, D: GownDress): { X: Float32Array; Y: Float3
  * (v195: flutter sleeves in the gown fabric, an overlay in the gown fabric), already in metres.
  */
 export function fabricMetres(B: GownRig, D: GownDress, cape: GownCapeMesh | null = null, alsoM = 0): number {
+  return Math.ceil((gownPanelMetres(B, D) + capeMetres(B, cape) + alsoM) * 1.15 * 10) / 10;
+}
+/** The gown's own panels on folded 150 cm fabric (metres), before the cape, the extras and the 15 % (A10's quote adds those). */
+export function gownPanelMetres(B: GownRig, D: GownDress): number {
   const { X, Y, half, rows } = flatGown(B, D), side = half / 2, W = half + 1;
   let m = 0;
   for (const [q0, q1, back] of [[0, side, false], [side, half, true]] as const) {
@@ -48,7 +52,5 @@ export function fabricMetres(B: GownRig, D: GownDress, cape: GownCapeMesh | null
     }
     m += ((hi - lo + 10) * Math.min(2, Math.ceil((w + 3) / 75))) / 100;
   }
-  m += capeMetres(B, cape);
-  m += alsoM;
-  return Math.ceil(m * 1.15 * 10) / 10;
+  return m;
 }

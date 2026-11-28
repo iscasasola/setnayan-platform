@@ -19,6 +19,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { ReadFailed } from '../../../_components/read-failed';
 import { RECORD_SUBLINE, RecordBack } from '../../../_components/record-kit';
 import { actionButtonClass } from '@/components/action-button-class';
+import { PageMasthead } from '@/app/_components/page-masthead';
 export const metadata = { title: 'Demo inquiry · Admin' };
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
     logQueryError('DemoInquiryThreadPage (supplier)', vendorError);
     return (
       <section className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-4 pb-8 pt-2 sm:px-6">
+        <PageMasthead title="Demo inquiry" />
         <RecordBack href="/admin/demo-vendors/inquiries" label="Demo inquiries" />
         <ReadFailed what="this thread’s supplier" />
       </section>
@@ -79,6 +81,7 @@ export default async function DemoInquiryThreadPage({ params }: Props) {
 
   return (
     <section className="mx-auto flex w-full max-w-[760px] flex-col gap-4 px-4 pb-8 pt-2 sm:px-6">
+      <PageMasthead title="Demo inquiry" />
       <header className="space-y-1">
         <RecordBack href="/admin/demo-vendors/inquiries" label="Demo inquiries" />
         <p className="text-base font-semibold text-ink">{coupleLabel}</p>

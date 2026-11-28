@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { pageName } from '@/lib/telemetry/problem-line';
 import { logQueryError } from '@/lib/supabase/error-detect';
+import { currentBuildSha } from '@/lib/telemetry/build-sha';
 
 /**
  * Problems · how rows become the list a person reads, and how many there are. Pure of `server-only` on purpose: the
@@ -38,14 +39,41 @@ export function mergeSameProblem(rows: Record<string, unknown>[]): Record<string
 }
 
 /**
+ * 🧹 THE SELF-CLOSING RULE, run before ANY read of open problems (L7 · D1, walk 27 Nov 2026: Work said "Problems · 204
+ * waiting" while Problems listed 24). `close_quiet_fault_issues` closes an issue once a newer build is live and it has
+ * not recurred for 48 h. This repo has no scheduler, so the rule runs when the list is read — and only the Problems
+ * page ran it. Work counted every quiet issue until someone happened to open Problems. Both readers now call this one
+ * function first, so the count and the list stand on the same rows.
+ *
+ * Returns how many it closed. No known live build (`build` null, a local run) closes nothing — "a newer build is
+ * live" cannot be known. A refused close is logged and returns 0: the read that follows still says what is open.
+ */
+export async function closeQuietProblems(admin: SupabaseClient, build: string | null = currentBuildSha()): Promise<number> {
+  if (!build) return 0;
+  try {
+    const { data, error } = await admin.rpc('close_quiet_fault_issues', { p_current_sha: build });
+    if (error) {
+      logQueryError('closeQuietProblems: close_quiet_fault_issues', error, {}, 'graceful_degrade');
+      return 0;
+    }
+    return typeof data === 'number' ? data : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/**
  * 🔢 RW-285e (live walk, 14 Nov 2026): Work said "71 problems" while Problems listed 67. Work counted raw open rows;
- * the page shows them after `mergeSameProblem` folds rows a person cannot tell apart. ONE count now: this reads the
- * same open rows the page reads and merges them the same way, so the number on Work is the number of rows on Problems.
+ * the page shows them after `mergeSameProblem` folds rows a person cannot tell apart. ONE count now: this closes the
+ * quiet ones by the page's own rule (`closeQuietProblems`), then reads the same open rows the page reads and merges
+ * them the same way, so the number on Work is the number of rows on Problems.
  * A refused read is `null` — not measured, never zero.
  */
 export async function countOpenProblems(
   admin: SupabaseClient,
+  build: string | null = currentBuildSha(),
 ): Promise<{ count: number | null; oldestAt: string | null }> {
+  await closeQuietProblems(admin, build);
   const { data, error } = await admin
     .from('app_fault_issues')
     .select('kind,action,label,page,hit_count,day_count,reopened_count,first_seen,last_seen,id')

@@ -10,7 +10,8 @@
  * Every row is a real item of a real queue: a queue that peeks its rows (`peekQueue`) gives one row per item, titled
  * by the item's REQUEST CARD; tapping it opens that same card IN PLACE, where it sits (`?card=`; Today v3 part 4, owner
  * 19 Nov "Admin Focus opens in place too … No sheet over the list"). A queue that does not peek is one row with its
- * count; tapped, its card is the count and a sentence, and "Open in page ›" is its one action. Drag right = the item's
+ * count, and a tap goes straight to the list's own page (L7 · D2, walk 27 Nov: Problems took three hops — a card that
+ * said "Nothing to press here", then "Open in page ›", then Work's "Open Problems"). Drag right = the item's
  * page · drag left = "Do it tomorrow" for this admin only (`focus-row.tsx`). No bottom nav: the top bar's Full is the
  * way to every page. No explainer text (ruling (7)).
  *
@@ -64,8 +65,11 @@ type FocusRowData = {
   level: FocusLevel | null;
   /** v3 part 4: where a drag right goes — the item's own page (the queue page, never `?card=`). */
   pageHref: string;
-  /** v3 part 4: a list worked on its own page — its card is a count and a sentence, not buttons. */
-  queue?: { label: string; count: number; oldest: string | null };
+  /**
+   * L7 · D2 (walk 27 Nov 2026): a list worked on its own page has nothing to open in place — its card only said
+   * "Nothing to press here". So a tap goes straight to that page (`goes`), one tap instead of three.
+   */
+  goes?: boolean;
 };
 
 const KIND_MARK: Record<FocusKind, string> = { reply: '↩', fix: '!', refresh: '↻' };
@@ -113,13 +117,13 @@ export async function FocusHome({
   const peeked = await Promise.all(
     waiting.map(async (q) => {
       const settlesHere = EXPANDABLE_QUEUES.has(q.key) && !JUDGEMENT_QUEUES[q.key] && !SETTLED_ELSEWHERE[q.key];
-      return { q, peek: settlesHere ? await peekQueue(q.key, viewerUserId) : null };
+      return { q, settlesHere, peek: settlesHere ? await peekQueue(q.key, viewerUserId) : null };
     }),
   );
 
   const rows: FocusRowData[] = [];
   let opened: { item: PeekItem; late: boolean; queueLabel: string } | null = null;
-  for (const { q, peek } of peeked) {
+  for (const { q, settlesHere, peek } of peeked) {
     const late = q.dueState === 'overdue';
     const level = focusLevel(q.dueState);
     const kind = focusKindOf(q.key);
@@ -148,12 +152,13 @@ export async function FocusHome({
         kind,
         title: items.length > 0 ? `${formatCount(rest)} more in ${q.label}` : `${q.label} · ${formatCount(rest)} waiting`,
         sub: [items.length > 0 ? null : q.description, age ? `oldest ${age}` : null].filter(Boolean).join(' · '),
-        // v3 part 4: a tap opens the list's card in place too (a count and a sentence); its page is a drag right away.
-        href: `/admin?card=${encodeURIComponent(qKey)}`,
+        // L7 · D2: the list's own page, in ONE tap. A queue that settles in place unfolds its rest on Work; every other
+        // list (Problems, Email bounces, …) is its own page — never Work's drawer, whose "Open <list>" was a third hop.
+        href: items.length > 0 || settlesHere ? `/admin/work?open=${encodeURIComponent(q.key)}` : q.href,
         late,
         level,
-        pageHref: items.length > 0 || EXPANDABLE_QUEUES.has(q.key) ? `/admin/work?open=${encodeURIComponent(q.key)}` : q.href,
-        queue: { label: q.label, count: rest, oldest: age },
+        pageHref: items.length > 0 || settlesHere ? `/admin/work?open=${encodeURIComponent(q.key)}` : q.href,
+        goes: true,
       });
     }
   }
@@ -282,20 +287,13 @@ export async function FocusHome({
                 title={r.title}
                 sub={r.level ? `${r.level.word} · ${r.sub}` : r.sub}
                 level={r.level?.level ?? null}
-                open={r.key === cardKey}
+                open={!r.goes && r.key === cardKey}
+                goes={r.goes === true}
                 openHref={r.href}
                 pageHref={r.pageHref}
               >
                 {r.key === cardKey && opened && opened.item.card ? (
                   <RequestCardView card={opened.item.card} back="/admin" late={opened.late} nowMs={nowMs} />
-                ) : r.key === cardKey && r.queue ? (
-                  <div className="text-[14px] text-[color:var(--sn-ink-900)]" data-focus-queue-card="">
-                    <p className="font-semibold">
-                      {formatCount(r.queue.count)} waiting in {r.queue.label}
-                    </p>
-                    {r.queue.oldest ? <p className="text-[13px] text-[color:var(--sn-ink-500)]">Oldest {r.queue.oldest}</p> : null}
-                    <p className="mt-1 text-[13px] text-[color:var(--sn-ink-500)]">Nothing to press here — this list is worked on its own page.</p>
-                  </div>
                 ) : null}
               </FocusRow>
             ))}

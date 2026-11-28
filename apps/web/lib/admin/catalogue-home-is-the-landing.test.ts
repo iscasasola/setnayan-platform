@@ -5,7 +5,7 @@
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { ADMIN_BAR_TABS, ADMIN_TAB_LANDING, activeAdminBarKey, adminShellPlaceFor } from './admin-pages';
+import { ADMIN_BAR_TABS, ADMIN_MERGED_PAGES, ADMIN_TAB_LANDING, activeAdminBarKey, adminShellPlaceFor } from './admin-pages';
 
 test('the Catalogue tab lands on /admin/catalogue and the page lights the Catalogue tab', () => {
   assert.equal(ADMIN_TAB_LANDING.catalogue, '/admin/catalogue');
@@ -37,4 +37,21 @@ test('the Catalogue Home is the shared TabLanding, with honest taxonomy counts',
   assert.match(page, /services: cats\.failed\.includes\('services'\) \? null :/, 'a failed services read reaches the head as a number');
   const landing = readFileSync(join(web, 'app/admin/_components/tab-landing.tsx'), 'utf8');
   assert.match(landing, /label: 'Asking', value: show\(asking\)/, 'the Catalogue head no longer says how many shops are asking');
+});
+
+/**
+ * L7 · D4 (walk 27 Nov 2026): the Catalogue head read "OLDEST 163d · Social queue" — its Oldest scanned every view on
+ * the tab, Studio's Social queue included — and listed "Real Stories (retired)". Oldest is the service requests' own
+ * age (what catalogue/page.tsx promises). The Real Stories tool still feeds the front door, so it keeps its plain name;
+ * a menu name never says "(retired)" — a retired page is removed, not labelled.
+ */
+test('L7 · D4 · Catalogue’s Oldest is the requests’ own, and no view is labelled retired', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const web = process.cwd().endsWith('apps/web') ? process.cwd() : join(process.cwd(), 'apps', 'web');
+  const src = readFileSync(join(web, 'app/admin/_components/tab-landing.tsx'), 'utf8');
+  assert.match(src, /const o = oldest\(allViews\.filter\(\(vw\) => vw\.key === 'requests'\), digest, nowMs\);/);
+  for (const page of ADMIN_MERGED_PAGES) {
+    for (const vw of page.views) assert.doesNotMatch(vw.label, /retired/i, `${page.key} › ${vw.label}`);
+  }
 });

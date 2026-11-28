@@ -110,7 +110,7 @@ export default async function NewDiscountCodePage() {
           2026-08-21). The rule about effective-until is a rule you need in
           order to fill the form, so it stays, behind the (i). */}
       <PageMasthead
-        title="Create discount code"
+        title="New discount code"
       />
 
       <VoucherForm

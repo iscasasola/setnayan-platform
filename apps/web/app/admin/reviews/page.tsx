@@ -288,7 +288,7 @@ export default async function AdminReviewsPage({ searchParams }: Props) {
           which one you are looking at changes what a decision means — a vendor
           disputing a review, a blocked reviewer appealing, and the audit trail
           of overrides you yourself issued. */}
-      <PageMasthead title="Review moderation" />
+      <PageMasthead title="Reviews" />
       <div className="mb-2">
         <div>
           <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">

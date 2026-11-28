@@ -229,7 +229,7 @@ async function AdminVendorPartnershipsPage({ searchParams }: Props) {
       {/* 📐 ADMIN CLEAN PORT (owner "ok", 19 Nov 2026 — reposition only): template sections and hairline rows, one
           Reject per proposal, every explaining sentence behind its ⓘ. Same reads, same actions, same posted names. */}
       <PageMasthead
-        title="Supplier Partnerships"
+        title="Supplier partnerships"
       />
 
       {sp.error ? (

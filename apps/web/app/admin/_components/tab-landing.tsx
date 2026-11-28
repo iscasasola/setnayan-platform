@@ -193,7 +193,9 @@ export async function TabLanding({
         : []),
       { label: 'Asking', value: show(asking), sub: asking === null ? 'couldn’t read' : 'shops asking for a service' },
     ];
-    const o = oldest(allViews, digest, nowMs);
+    // L7 · D4 (walk 27 Nov 2026): the tile read "OLDEST 163d · Social queue" — `oldest` scanned every view on the tab,
+    // Studio's included. On Catalogue, Oldest is the service requests' own age (the docblock on catalogue/page.tsx).
+    const o = oldest(allViews.filter((vw) => vw.key === 'requests'), digest, nowMs);
     if (o) head.push(o);
     hello =
       typeof asking === 'number' && asking > 0

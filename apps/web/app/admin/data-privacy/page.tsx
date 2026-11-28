@@ -111,7 +111,7 @@ export default async function DataPrivacyPage({
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-6 sm:px-6">
       <PageMasthead
-        title="Data Privacy & NPC Filing"
+        title="Data privacy & NPC filing"
       />
 
       {/* The one selector (2026-10-30): which part of Privacy & NPC is showing — moves the same `?tab=` the old pill row

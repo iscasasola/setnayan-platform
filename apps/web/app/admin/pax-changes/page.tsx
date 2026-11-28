@@ -109,7 +109,7 @@ export default async function AdminPaxChangesPage() {
   return (
     <div className="mx-auto w-full max-w-[760px] space-y-4 px-4 pb-8 pt-2 sm:px-6">
       <PageMasthead
-        title="Pax-driven cost changes"
+        title="Pax changes"
       />
 
       {/* Fails toward the caveat: a row that cannot name its supplier must not

@@ -334,7 +334,7 @@ async function AdminPaymentsPage({ searchParams }: Props) {
       data-money-desk={openId ? 'payment' : filter}
     >
       <PageMasthead
-        title="Payments & reconciliation"
+        title="Payments"
       />
 
       {notice ? (

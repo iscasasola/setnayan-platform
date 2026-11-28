@@ -146,7 +146,7 @@ export default async function AdminBudgetPlannerPage({
           ⚖ The sentence survives for its last clause — leave a field BLANK to
           clear it. Nothing else on the screen says that, and it is the one
           gesture an operator would otherwise guess wrong. */}
-      <PageMasthead title="Budget Planner" />
+      <PageMasthead title="Budget planner" />
       {saveError ? <FormFlash tone="error">{saveError}</FormFlash> : null}
       <div className="mb-8">
         <InfoTip label="What this page does" align="start" labelClassName="text-[13px] font-semibold text-ink/70">

@@ -205,6 +205,19 @@ export function buildGownLace(
   return { spots, count, countN, hand: manual.length * 2, beadPts, y0, y1 };
 }
 
+/** A lace design's thumbnail (v202 `laceThumb`): the motif in white on the library's dark ground, at its own size. */
+export const GOWN_LACE_THUMB = { px: 112, motif: 96, ground: '#3a3640' } as const;
+export function drawGownLaceThumb(g: GownLaceCanvas, id: Exclude<GownLace, 'none'>): void {
+  const P = GOWN_LACE_THUMB.px;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = GOWN_LACE_THUMB.ground;
+  g.fillRect(0, 0, P, P);
+  g.translate(P / 2, P / 2);
+  g.scale(GOWN_LACE_THUMB.motif, GOWN_LACE_THUMB.motif);
+  drawGownMotif(g, id);
+  g.setTransform(1, 0, 0, 1, 0, 0);
+}
+
 /** The line under the lace step (v195), for the designer's count. */
 export const gownLaceCountLine = (name: string, plan: GownLacePlan, cm: number) => `About ${formatCount(plan.countN - plan.hand)} ${name} motifs, ${cm} cm wide, mirrored left and right. This count goes to the designer.`;
 

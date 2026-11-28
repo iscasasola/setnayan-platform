@@ -25,7 +25,7 @@ import { tapeLoops, type GownTapeKey } from '@/lib/gown/body/tape';
 import { buildDress, emptyDress, floorOf, type GownDress } from '@/lib/gown/dress/build';
 import { GOWN_CAPE_JEWEL, GOWN_CAPE_SHEER_OPACITY, buildCape, emptyCape } from '@/lib/gown/dress/cape';
 import { GOWN_EYELET, GOWN_LACE_UP_DRAW, buildGownClosure } from '@/lib/gown/parts/closure';
-import { GOWN_CUT_MAP, buildGownCuts } from '@/lib/gown/parts/cuts';
+import { GOWN_CUT_MAP, buildGownCuts, gownCutForbidden } from '@/lib/gown/parts/cuts';
 import { buildGownTechShell } from '@/lib/gown/parts/technique';
 import { GOWN_ILLU_DRAW, GOWN_ILLU_MAP, GOWN_ILLU_TULLE, buildGownIllu, gownIlluDressShader, gownIlluTulleShader, gownIlluUniforms } from '@/lib/gown/parts/illusion';
 import { GOWN_TRIM_SHADE, buildGownTrims, placeGownTrims } from '@/lib/gown/parts/trims';
@@ -37,13 +37,13 @@ import { GOWN_OVERLAY_DRAW, buildGownOverlay, gownOverlayOut, type GownOverlayMe
 import { buildGownSleeve, emptySleeve } from '@/lib/gown/parts/sleeves';
 import { buildGownStraps, emptyStraps } from '@/lib/gown/parts/straps';
 import { GOWN_BEAD_CAP, GOWN_BEAD_LOOK, buildGownBeads, gownBeadGeo, gownBeadHex, gownPearlHex, placeGownBeadSet, type GownBeadSet } from '@/lib/gown/parts/beads';
-import { buildGownHandBeads } from '@/lib/gown/parts/hand';
+import { buildGownHandBeads, gownHandCutClose, type GownHandHit, type GownHandTool } from '@/lib/gown/parts/hand';
 import { GOWN_FLOWER_CAP, GOWN_FLOWER_COLOURS, GOWN_FLOWER_LOOK, buildGownFlowers, buildGownPearls, emptyGownFlowers, emptyGownPearls, gownFlowerGeo, placeGownVeilPearls } from '@/lib/gown/parts/flowers';
 import { VEIL_COLS } from '@/lib/gown/parts/veil-grid';
 import { gownGlitterScale, gownGlitterShader, gownGlitterUniform } from '@/lib/gown/fabric/glitter';
 import { GOWN_JULIET_BAND, GOWN_VEIL_DRAW, buildGownVeil, emptyVeil } from '@/lib/gown/parts/veil';
 import { restingCloth, writeDress } from '@/lib/gown/dress/cloth';
-import { buildEnvelope, emptyEnvelope, type GownEnvelope } from '@/lib/gown/dress/table';
+import { buildEnvelope, czOf, emptyEnvelope, type GownEnvelope } from '@/lib/gown/dress/table';
 import { applyGownSheer, applyGownShine, gownClothColour, gownClothShader, gownSheerOpacity, tintGownSheen } from '@/lib/gown/fabric/shine';
 import { GOWN_FABRIC_PROPS, GOWN_GLITTER_TULLE, gownClothFeel, gownFabricType } from '@/lib/gown/fabric/types';
 import { canvasDpr } from '@/lib/phone-gpu-budget';
@@ -67,7 +67,13 @@ export type GownFigureProps = {
   inside?: { stage: GownInsideStage | null; off: readonly string[] } | null;
   onShow2d: () => void;
   onSolved?: (s: GownSolved) => void;
+  /** A7b: a hand tool is drawing on the gown. While one is picked, a finger on the cloth draws instead of turning her. */
+  hand?: GownHandInput | null;
 };
+/** Where a finger touches the gown, as the hand tools need it; `moved` = more than a tap's few pixels from where it went down. */
+export type GownHandInput = { tool: GownHandTool | null; onHit: (phase: 'down' | 'move' | 'up' | 'cancel', hit: GownHandHit | null, moved: boolean, ctx: GownHandCtx) => void };
+/** What the tools need from her body and this gown: cm per model unit, the no-cut rule, the scissors' closing check. */
+export type GownHandCtx = { cmU: number; forbidden: (ph: number, y: number, rcm: number) => string; close: (P: [number, number][]) => { pts: [number, number][] | null; note: string } };
 
 let bytes: Promise<ArrayBuffer> | null = null;
 /**
@@ -240,7 +246,7 @@ function beadMaterial(set: GownBeadSet, phone: boolean): THREE.Material {
   return new THREE.MeshStandardMaterial({ color: c, ...L[set.kind] });
 }
 
-function Body({ rig, phone = false, vals, fine, shape = 'none', guides = false, turn = 0, design = null, inside = null, scene = 'studio', onSolved }: { rig: GownRig; phone?: boolean } & GownFigureProps) {
+function Body({ rig, phone = false, vals, fine, shape = 'none', guides = false, turn = 0, design = null, inside = null, scene = 'studio', onSolved, hand = null }: { rig: GownRig; phone?: boolean } & GownFigureProps) {
   const pivot = useRef<THREE.Group>(null);
   const mat = useMemo(() => new THREE.MeshStandardMaterial({ color: GOWN_MANNEQUIN.color, roughness: GOWN_MANNEQUIN.roughness, metalness: 0 }), []);
   // The gown: one mesh, its cloth material and the light coming through a sheer from behind.
@@ -683,10 +689,76 @@ function Body({ rig, phone = false, vals, fine, shape = 'none', guides = false, 
         <primitive object={root} />
         {loops ? <TapeGuides loops={loops} /> : null}
       </group>
-      <OrbitControls enablePan={false} enableDamping minDistance={1.2} maxDistance={9} minPolarAngle={Math.PI * 0.3} maxPolarAngle={Math.PI * 0.55} target={[0, h * 0.5, 0]} />
+      {hand?.tool ? <HandPointer mesh={cloth.mesh} T={cloth.T} hand={hand} ctx={{ cmU: rig.P.S * 100, forbidden: (ph, y, rcm) => (cloth.D.L ? gownCutForbidden(rig, cloth.T, cloth.D.L, ph, y, rcm) : ''), close: (P) => gownHandCutClose(rig, cloth.T, P, design?.cutFill ?? 'open') }} /> : null}
+      {/* A hand tool picked: one finger (left button) draws; two fingers (right button) still turn her (v202). */}
+      <OrbitControls
+        {...(hand?.tool ? { mouseButtons: { LEFT: -1 as THREE.MOUSE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }, touches: { ONE: -1 as THREE.TOUCH, TWO: THREE.TOUCH.DOLLY_ROTATE } } : {})}
+        enablePan={false}
+        enableDamping minDistance={1.2} maxDistance={9} minPolarAngle={Math.PI * 0.3} maxPolarAngle={Math.PI * 0.55} target={[0, h * 0.5, 0]} />
       <FitCamera height={h} width={frame.width} />
     </>
   );
+}
+
+/**
+ * A7b (v202 `hitAt`): a finger on the gown reports the spot on the cloth (direction round her, height, distance from her
+ * centre line). One finger only; a second finger cancels the stroke. Nothing here edits the design.
+ */
+function HandPointer({ mesh, T, hand, ctx }: { mesh: THREE.Mesh; T: GownEnvelope; hand: GownHandInput; ctx: GownHandCtx }) {
+  const ctxRef = useRef(ctx);
+  ctxRef.current = ctx;
+  const { gl, camera } = useThree();
+  useEffect(() => {
+    const el = gl.domElement, ray = new THREE.Raycaster(), ndc = new THREE.Vector2(), cz = czOf(T), fingers = new Set<number>();
+    let down: { id: number; x: number; y: number } | null = null, moved = false;
+    const hitAt = (e: PointerEvent): GownHandHit | null => {
+      if (!mesh.visible || !mesh.geometry.attributes.position) return null;
+      const r = el.getBoundingClientRect();
+      ndc.set(((e.clientX - r.left) / r.width) * 2 - 1, -((e.clientY - r.top) / r.height) * 2 + 1);
+      mesh.geometry.computeBoundingSphere();
+      ray.setFromCamera(ndc, camera);
+      const h = ray.intersectObject(mesh, false)[0];
+      if (!h) return null;
+      const p = mesh.worldToLocal(h.point.clone()), c = cz(Math.max(p.y, T.yF));
+      return { ph: Math.atan2(p.x, p.z - c), y: p.y, r: Math.hypot(p.x, p.z - c) };
+    };
+    const onDown = (e: PointerEvent) => {
+      fingers.add(e.pointerId);
+      if (fingers.size > 1) { if (down) hand.onHit('cancel', null, moved, ctxRef.current); down = null; return; }
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      const h = hitAt(e);
+      if (!h) return;
+      down = { id: e.pointerId, x: e.clientX, y: e.clientY };
+      moved = false;
+      hand.onHit('down', h, false, ctxRef.current);
+    };
+    const onMove = (e: PointerEvent) => {
+      if (!down || down.id !== e.pointerId) return;
+      if (Math.hypot(e.clientX - down.x, e.clientY - down.y) > 6) moved = true;
+      const h = hitAt(e);
+      if (h) hand.onHit('move', h, moved, ctxRef.current);
+    };
+    const onUp = (e: PointerEvent) => {
+      fingers.delete(e.pointerId);
+      if (!down || down.id !== e.pointerId) return;
+      down = null;
+      hand.onHit(e.type === 'pointercancel' ? 'cancel' : 'up', hitAt(e), moved, ctxRef.current);
+    };
+    el.addEventListener('pointerdown', onDown);
+    el.addEventListener('pointermove', onMove);
+    el.addEventListener('pointerup', onUp);
+    el.addEventListener('pointercancel', onUp);
+    const touch = el.style.touchAction;
+    el.style.touchAction = 'none';
+    return () => {
+      el.removeEventListener('pointerdown', onDown);
+      el.removeEventListener('pointermove', onMove);
+      el.removeEventListener('pointerup', onUp);
+      el.removeEventListener('pointercancel', onUp);
+      el.style.touchAction = touch;
+    };
+  }, [gl, camera, mesh, T, hand]);
+  return null;
 }
 
 /** Fit her whole, head to toe, at any screen shape (v186 `frame`). */

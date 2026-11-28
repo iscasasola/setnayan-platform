@@ -714,6 +714,7 @@ function MapCanvas({
                     className={`ug-edge ug-clickable${edgeState ? ' ug-h-' + edgeState : ''}`}
                     d={d}
                     role="button"
+                    data-press-none=""
                     tabIndex={0}
                     aria-label={`The link from ${e.from} to ${e.to}`}
                     onClick={(ev) => {
@@ -734,6 +735,7 @@ function MapCanvas({
                       }`}
                       transform={`translate(${cx - chW / 2},${cy - 9})`}
                       role="button"
+                      data-press-none=""
                       tabIndex={0}
                       aria-label={`The joint ${jointName} (${e.from} to ${e.to})`}
                       onClick={(ev) => {
@@ -769,6 +771,7 @@ function MapCanvas({
                       className={`ug-hmark ${finding.sev}`}
                       transform={`translate(${cx},${cy})`}
                       role="button"
+                      data-press-none=""
                       tabIndex={0}
                       aria-label={`${finding.sev === 'red' ? 'Red' : 'Amber'} finding on the link from ${e.from} to ${e.to}`}
                       onClick={(ev) => {
@@ -802,12 +805,14 @@ function MapCanvas({
                   ? 'amber'
                   : null;
               return (
+                /* The node and its finding mark are SIBLINGS: two presses, never a button inside a button. */
+                <g key={n.id}>
                 <g
-                  key={n.id}
                   className={`ug-node${highlight === n.id ? ' sel' : ''}${
                     worst ? ' ug-h-' + worst : ''
                   }`}
                   transform={`translate(${n.x - w / 2},${n.y - h / 2})`}
+                  data-press-none=""
                   role="button"
                   tabIndex={0}
                   aria-label={`${n.name}, ${n.countLabel}`}
@@ -850,12 +855,14 @@ function MapCanvas({
                   <text className="ug-chip-ct" x={40} y={h / 2 + 9} dominantBaseline="middle">
                     {n.countLabel}
                   </text>
-                  {/* health badge */}
+                </g>
+                  {/* health badge: drawn over the node's top-right corner, beside it in the tree */}
                   {worst && (
                     <g
                       className={`ug-hmark ${worst}`}
-                      transform={`translate(${w - 6},6)`}
+                      transform={`translate(${n.x - w / 2 + w - 6},${n.y - h / 2 + 6})`}
                       role="button"
+                      data-press-none=""
                       tabIndex={0}
                       aria-label={`${worst === 'red' ? 'Red' : 'Amber'} finding on ${n.name}`}
                       onClick={(e) => {
@@ -1697,6 +1704,7 @@ function TablesView({
                       <tr
                         key={r.id}
                         role="button"
+                        data-press-none=""
                         tabIndex={0}
                         onClick={() => (r.href ? router.push(r.href) : onRowOpen(TYPE_NODE[r.type]))}
                         onKeyDown={onPressKeys(() => (r.href ? router.push(r.href) : onRowOpen(TYPE_NODE[r.type])))}

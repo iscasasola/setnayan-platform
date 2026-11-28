@@ -266,13 +266,15 @@ export function RecolorStudio({
       >
         <canvas
           ref={baseRef}
-          role="button"
-          tabIndex={eyedropping ? 0 : -1}
-          aria-disabled={!eyedropping}
-          aria-label="The photo. While eyedropping, press Enter to sample its center"
+          /* A control only while eyedropping (Enter or Space samples the center); otherwise just the photo. It keeps
+             the crosshair and its own look (the global button cursor and press would replace them). */
+          role={eyedropping ? 'button' : undefined}
+          tabIndex={eyedropping ? 0 : undefined}
+          aria-label={eyedropping ? 'The photo. Press Enter to sample its center' : undefined}
+          data-press-none=""
           onClick={handleCanvasClick}
-          onKeyDown={onPressKeys(eyedropCenter)}
-          className={`block h-auto w-full ${canvasAspect} object-contain`}
+          onKeyDown={eyedropping ? onPressKeys(eyedropCenter) : undefined}
+          className={`block h-auto w-full ${canvasAspect} object-contain${eyedropping ? ' cursor-crosshair' : ''}`}
         />
         <canvas
           ref={maskRef}

@@ -802,6 +802,13 @@
   summary:active:not(.sn-editorial *) {
     scale: none;
   }
+  /* ⌨️ A surface that only took role="button" for the keyboard (an SVG node, a canvas, a table row, a photo) keeps
+   * its own look: no dip, no dimming. `PRESS_NONE` in press-feel.tsx is the listener's half. */
+  [role='button'][data-press-none]:active,
+  button[data-press-none]:active {
+    scale: none;
+    filter: none;
+  }
   button:disabled,
   [aria-disabled='true'] {
     cursor: not-allowed;

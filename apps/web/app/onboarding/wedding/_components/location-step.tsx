@@ -323,6 +323,7 @@ export function LocationStep({
                   <div
                     key={c.k}
                     role="button"
+                    data-press-none=""
                     tabIndex={0}
                     aria-pressed={on}
                     className={`opt rowimg locrow${on ? ' sel' : ''}`}

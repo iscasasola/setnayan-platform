@@ -16,6 +16,9 @@
  *        · a backdrop: `aria-hidden`, in a file where Escape closes what it closes;
  *        · a listbox option: `role="option"` in a file whose `role="listbox"` has `onKeyDown` and
  *          `aria-activedescendant` (the keyboard rolls the list; the option press is the pointer's shortcut).
+ *   4. (parsed) In the same files, no button sits inside a button (pre-existing ones in `KNOWN_NESTED`, which may only
+ *      shrink), and every non-native `role="button"` carries `data-press-none`, so it keeps its own look: no global
+ *      press or dimming (`PRESS_NONE` in `app/_components/press-feel.tsx`).
  *   3. (parsed) In the same files, a `<button>` whose only content is a picture or an icon (no words, no expression)
  *      carries `aria-label`, `aria-labelledby` or `title`.
  *
@@ -164,4 +167,50 @@ test('3. a picture- or icon-only <button> in these files has an accessible name'
     walk(sf);
   }
   assert.deepEqual(bad, []);
+});
+
+/** Is this a button to assistive tech? A native `<button>`, or `role="button"` (a literal or a branch that yields it). */
+function buttonLike(el: Opening): boolean {
+  if (el.tagName.getText() === 'button') return true;
+  const role = attrs(el).get('role');
+  return !!role?.initializer && /['"]button['"]/.test(role.initializer.getText());
+}
+
+/**
+ * Nested buttons that were there BEFORE this guard, each with its reason. The list may only shrink.
+ * · The admin palette slot (`color-range-manipulator.tsx`): the slot card is a <button> holding its Load and Clear
+ *   buttons. Untangling it changes the card's layout, so it waits for its own fix.
+ */
+const KNOWN_NESTED: Record<string, number> = {
+  'app/admin/moodboard-library/_components/color-range-manipulator.tsx': 2,
+};
+
+test('4. no button inside a button, and a surface that took role="button" for the keyboard keeps its own look', () => {
+  const nested: string[] = [];
+  const looks: string[] = [];
+  for (const rel of FILES) {
+    const sf = parse(rel);
+    const walk = (n: ts.Node, inside: string | null) => {
+      let here = inside;
+      const open = ts.isJsxElement(n) ? n.openingElement : ts.isJsxSelfClosingElement(n) ? n : null;
+      if (open && buttonLike(open)) {
+        if (inside) nested.push(`${where(sf, open)} is a button inside the button at ${inside}`);
+        here = where(sf, open);
+        const tag = open.tagName.getText();
+        if (tag !== 'button' && /^[a-z]/.test(tag) && !attrs(open).has('data-press-none')) {
+          looks.push(`${where(sf, open)} <${tag} role="button"> has no data-press-none, so it takes the global press and dimming`);
+        }
+      }
+      ts.forEachChild(n, (c) => walk(c, here));
+    };
+    walk(sf, null);
+  }
+  const counts: Record<string, number> = {};
+  for (const line of nested) {
+    const file = line.slice(0, line.indexOf(':'));
+    counts[file] = (counts[file] ?? 0) + 1;
+  }
+  const grew = Object.entries(counts).filter(([file, n]) => n > (KNOWN_NESTED[file] ?? 0));
+  assert.deepEqual(grew.map(([file]) => nested.filter((l) => l.startsWith(file))).flat(), [], 'a new button inside a button');
+  assert.deepEqual(looks, [], 'a new look');
 });

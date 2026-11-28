@@ -264,6 +264,7 @@ export function ColorRangeManipulator({ imageSrc, initialMap = {}, onChange, pre
       <div
         className="relative inline-block max-w-full cursor-crosshair overflow-hidden bg-ink/5 border-t border-ink/10"
         role="button"
+        data-press-none=""
         tabIndex={0}
         aria-label="Pick a color from the photo. Enter samples its center"
         onClick={handleCanvasClick}

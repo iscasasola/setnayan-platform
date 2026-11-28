@@ -232,6 +232,7 @@ export function WelcomeMoments({ faithOptions, onPickRole, onPickKind, onPickFai
       aria-live="polite"
       /* A spoken line moves on by itself; a press (or Enter/Space) only hurries it. */
       role={m.t === 'speak' ? 'button' : undefined}
+      data-press-none=""
       tabIndex={m.t === 'speak' ? 0 : undefined}
       onClick={m.t === 'speak' ? advance : undefined}
       onKeyDown={m.t === 'speak' ? onPressKeys(advance) : undefined}

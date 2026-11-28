@@ -598,7 +598,7 @@ function ProofForm({
 
       {preview && (
         <div className="rounded-xl bg-white p-3 text-center">
-          <button type="button" onClick={() => setBig(true)} aria-label="Enlarge the payment screenshot you just picked" className="block w-full cursor-zoom-in">
+          <button type="button" data-press-none="" onClick={() => setBig(true)} aria-label="Enlarge the payment screenshot you just picked" className="block w-full cursor-zoom-in">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={preview}

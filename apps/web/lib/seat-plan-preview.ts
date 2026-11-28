@@ -42,7 +42,11 @@ import { formatCount } from '@/lib/format-number';
 export function seatPlanBase(seats: ReadonlyArray<Pick<SeatAssignmentRow, 'guest_id' | 'table_id' | 'seat_number'>>): string {
   const line = [...seats]
     .sort((a, b) => (a.guest_id < b.guest_id ? -1 : a.guest_id > b.guest_id ? 1 : 0))
-    .map((s) => `${s.guest_id}:${s.table_id}:${s.seat_number === null ? '-' : String(s.seat_number)}`)
+    // The STORED chair (from 0), never shown to anybody: it must match the SQL's `seat_number::text` exactly.
+    .map((s) => {
+      const stored = s.seat_number;
+      return `${s.guest_id}:${s.table_id}:${stored === null ? '-' : String(stored)}`;
+    })
     .join(',');
   return createHash('md5').update(line).digest('hex');
 }

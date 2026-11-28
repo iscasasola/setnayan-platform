@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { ExternalLink, MonitorPlay } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { useToast } from '@/app/_components/toast/toast-provider';
 import { installProgramBridge } from '@/lib/panood-program-bridge';
 import { programSourceAllowed, type ProgramAirDecision } from '@/lib/live-studio-publish-pure';
@@ -178,14 +179,13 @@ export function ProgramBridgeHost({
           </span>
         ) : null}
       </span>
-      <button
-        type="button"
+      <ActionButton
+        tone="neutral"
+        icon={ExternalLink}
+        label="Open program output"
         onClick={openProgramPopout}
-        className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-ink/15 bg-white px-3 py-2 text-[11.5px] font-semibold text-ink/75 transition-colors hover:border-terracotta/45 hover:text-terracotta"
-      >
-        <ExternalLink aria-hidden className="h-3.5 w-3.5" strokeWidth={2} />
-        Open program output
-      </button>
+        className="shrink-0"
+      />
     </div>
   );
 }

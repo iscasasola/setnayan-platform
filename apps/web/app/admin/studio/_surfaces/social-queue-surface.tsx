@@ -11,7 +11,6 @@ import { isFacebookConfigured } from '@/lib/social/facebook';
 import { isInstagramConfigured } from '@/lib/social/instagram';
 import { isTikTokConfigured } from '@/lib/social/tiktok';
 import { socialCardUrl } from '@/lib/social/urls';
-import { getChangelogSuggestions } from '@/lib/social/changelog-suggestions';
 import { displayServiceLabel } from '@/lib/vendors';
 import {
   SHARE_ARTIFACT_LABEL,
@@ -200,8 +199,8 @@ const SOURCE_CHIP: Record<SocialSourceType, string> = {
  *     inline copy editing, Pull, and Post-now (content gate not overridable).
  *   • Failed — dispatch errors with the Graph error text + Retry.
  *   • Published — compact audit trail with permalinks.
- *   • Announce composer — hand-written posts at the next governor slot,
- *     seeded by the 5 newest CHANGELOG headlines.
+ *   • Announce composer — hand-written posts at the next governor slot
+ *     (no engineering headlines offered as drafts: content finalization S9).
  *   • Evergreen library — the content floor the flush reposts when the page
  *     goes quiet (3-day quiet trigger · 60-day no-repeat).
  *   • Manual workflow & sources — the original copy-paste panels (ready to
@@ -321,9 +320,6 @@ export async function SocialQueueSurface({
     logQueryError('AdminSocialQueuePage (social_evergreen_items)', evergreenErr);
   }
   const evergreenItems = (evergreenData ?? []) as EvergreenItemRow[];
-
-  // Announcement-draft seeds — newest CHANGELOG headlines (best-effort: []).
-  const changelogSuggestions = getChangelogSuggestions();
 
   // ── Couple-creation consents (live, un-posted) ──────────────────────────
   const { data: pendingData, error: pendingErr } = await admin
@@ -703,26 +699,6 @@ export async function SocialQueueSurface({
           </p>
         </div>
         <article className="space-y-4 py-5 border-t border-ink/10">
-          {changelogSuggestions.length > 0 ? (
-            <div className="space-y-1.5">
-              <p className="text-xs font-medium text-ink/70">
-                Recent ships you could announce:
-              </p>
-              <ul className="flex flex-wrap gap-1.5">
-                {changelogSuggestions.map((s) => (
-                  <li
-                    key={`${s.date}-${s.title}`}
-                    className="rounded-full border border-ink/15 bg-ink/[0.03] px-2.5 py-1 text-xs text-ink/70"
-                  >
-                    <span className="text-[12px] font-semibold uppercase tracking-[0.06em] text-ink/70">
-                      {s.date}
-                    </span>{' '}
-                    {s.title}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ) : null}
           <form action={createAnnouncement} className="space-y-3">
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="block space-y-1 text-xs text-ink/65">

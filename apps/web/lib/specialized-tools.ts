@@ -23,10 +23,12 @@
 import { HUB_TOOLS_SEED, nameKey } from '@/lib/hub-tools';
 import { isMusicToolCategory } from '@/lib/songs';
 import { isCakeKind } from '@/lib/cake-maker';
+import { isGownKind } from '@/lib/gown-maker';
 
 export type SpecializedToolKey =
   | 'scanner'
   | 'cake_tool'
+  | 'attire_tool'
   | 'song_bank'
   | 'song_desk'
   | 'emcee_script'
@@ -66,12 +68,14 @@ export type SpecializedTool = {
    *   page      → one shipped page
    *   per_event → the event's on-the-day screen, one door per booked event
    *   cake_tool → the shop's Cake Maker options, edited in the panel (set once per shop)
+   *   attire_tool → the shop's Attire Maker price list, edited in the panel (set once per shop; the gown maker port)
    *   day_console → the On the day console (`/vendor-dashboard/on-the-day`), where each booking's day-of parts sit
    *   client_page → a page of one booked client (`/vendor-dashboard/clients/<event>/<page>`), one door per booked event
    */
   door:
     | { kind: 'scanner' }
     | { kind: 'cake_tool' }
+    | { kind: 'attire_tool' }
     | { kind: 'page'; href: string }
     | { kind: 'per_event' }
     | { kind: 'day_console' }
@@ -94,6 +98,9 @@ export const SPECIALIZED_TOOLS: readonly SpecializedTool[] = [
   { key: 'scanner', title: 'Scanner', line: 'One per service · how each scan counts', door: { kind: 'scanner' }, hubKeys: [], shelves: ['hub'] },
   // 🎂 DECISION_LOG 2026-11-21 "CAKE MAKER v6 = THE BUILD REFERENCE": options set ONCE per shop here; couples design in the chat.
   { key: 'cake_tool', title: 'Cake Maker', line: 'Couples design their cake in your chat', door: { kind: 'cake_tool' }, hubKeys: [], shelves: ['chat', 'present'] },
+  // 👗 DECISION_LOG 2026-11-23 "Top-band tools" + 2026-11-27 owner answers: the Toolkit's paid Attire Maker, the wedding
+  // gown first. The price list is set ONCE per shop here; brides design in the chat.
+  { key: 'attire_tool', title: 'Attire Maker', line: 'Brides design their gown in your chat', door: { kind: 'attire_tool' }, hubKeys: [], shelves: ['chat', 'present'] },
   { key: 'song_bank', title: 'Song bank', line: 'The songs you play; couples request and preview', door: { kind: 'page', href: '/vendor-dashboard/repertoire' }, hubKeys: [], shelves: ['chat', 'present', 'shop_page'] },
   { key: 'song_desk', title: 'Song Desk', line: 'Requests on the day', door: { kind: 'per_event' }, hubKeys: ['song_desk'], shelves: ['hub'] },
   { key: 'emcee_script', title: 'Emcee script', line: 'The host’s lines, live', door: { kind: 'per_event' }, hubKeys: ['emcee_script'], shelves: ['chat', 'hub'] },
@@ -139,6 +146,7 @@ export function suggestedFor(tool: SpecializedTool, categoryLabels: readonly str
   if (tool.key === 'scanner') return categoryLabels.length > 0;
   if (tool.key === 'song_bank') return isMusicToolCategory(services);
   if (tool.key === 'cake_tool') return services.some(isCakeKind);
+  if (tool.key === 'attire_tool') return services.some(isGownKind);
   const have = hubToolsOf(categoryLabels);
   return tool.hubKeys.some((k) => have.has(k));
 }

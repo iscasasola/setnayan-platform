@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
-import type { ShareArtifactType, ShareCreditMode } from '@/lib/social-sharing';
+import { SHARE_ARTIFACT_TYPES, type ShareArtifactType, type ShareCreditMode } from '@/lib/social-sharing';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 
 /**
@@ -22,12 +22,8 @@ import { refuseLimitedHelper } from '@/lib/host-gate';
  * hidden field so the card they submitted from refreshes in place.
  */
 
-const VALID_ARTIFACT_TYPES: ReadonlyArray<ShareArtifactType> = [
-  'monogram',
-  'save_the_date',
-  'website',
-  'reel',
-];
+/** The artifact types the share flow still features — read from the one list in lib/social-sharing.ts. */
+const VALID_ARTIFACT_TYPES: ReadonlyArray<ShareArtifactType> = SHARE_ARTIFACT_TYPES;
 
 const VALID_CREDIT_MODES: ReadonlyArray<ShareCreditMode> = [
   'first_names',

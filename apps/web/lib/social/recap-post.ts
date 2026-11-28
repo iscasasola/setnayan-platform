@@ -157,7 +157,7 @@ async function renderAndUploadRecapCard(eventId: string): Promise<string | null>
 
 /** Warm brand-voice caption for the recap share (≤2 hashtags, no spam). */
 function recapCaption(coupleNames: string, slug: string | null): string {
-  const who = coupleNames.trim() || 'one of our Setnayan couples';
+  const who = coupleNames.trim() || 'one of our Setnayan hosts';
   const link = slug
     ? `\n\nRelive the day → https://www.setnayan.com/${slug}/recap`
     : '';
@@ -220,7 +220,7 @@ export async function composeRecapSocialPost(eventId: string): Promise<void> {
     const { error } = await admin.from('social_posts').insert({
       source_type: 'event_recap',
       source_ref: eventId,
-      title: `Recap · ${coupleNames || 'A Setnayan couple'}`,
+      title: `Recap · ${coupleNames || 'A Setnayan event'}`,
       body: recapCaption(coupleNames, slug),
       media_url: mediaUrl,
       link_url: slug ? `https://www.setnayan.com/${slug}/recap` : 'https://www.setnayan.com',

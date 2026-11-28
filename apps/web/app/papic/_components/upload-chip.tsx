@@ -10,7 +10,7 @@
 // refused, say so — with a number.
 
 import { useEffect, useState } from 'react';
-import { Check, Circle, CircleAlert, Loader2, Send, WifiOff } from 'lucide-react';
+import { Check, Circle, CircleAlert, CloudUpload, Send, WifiOff } from 'lucide-react';
 import { InfoTip } from '@/app/_components/info-tip';
 import { EVENT_PUT_AWAY_CAPTURE_COPY } from '@/lib/event-accepts-captures-rule';
 import { chipLabel, type ChipState } from '@/lib/papic-upload/schedule';
@@ -119,7 +119,7 @@ export function PapicUploadChip({
   if (!label) return null;
   const kind = snap.chip.kind;
   const Icon =
-    kind === 'saved' ? Check : kind === 'sending' ? Loader2 : kind === 'offline' ? WifiOff : CircleAlert;
+    kind === 'saved' ? Check : kind === 'sending' ? CloudUpload : kind === 'offline' ? WifiOff : CircleAlert;
   // ⓘ for 'kept' explains the reason; a context wait has none (it is not a refusal).
   return (
     <span
@@ -130,7 +130,7 @@ export function PapicUploadChip({
       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium ${surface} [&_button]:border-cream/50 [&_button]:text-cream/80`}
     >
       {/* "All saved": the ✓ pops in Quick on Spring — the Upload motion's end (MOTION_STANDARD § 4 #25, `.sn-m-done`). */}
-      <Icon aria-hidden className={`h-3.5 w-3.5 shrink-0${kind === 'sending' ? ' animate-spin' : kind === 'saved' ? ' sn-m-done' : ''}`} strokeWidth={2} />
+      <Icon aria-hidden className={`h-3.5 w-3.5 shrink-0${kind === 'saved' ? ' sn-m-done' : ''}`} strokeWidth={2} />
       <InfoTip label={label} align="center">
         {detail(snap.chip)}
       </InfoTip>

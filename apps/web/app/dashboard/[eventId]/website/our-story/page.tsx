@@ -37,6 +37,7 @@ import { detailsIsTheDoor } from '@/lib/maker-details-door.server';
 import { detailsDoorHref } from '@/lib/maker-details-items';
 import { eventWordsForEvent } from '@/app/[slug]/_lib/event-words';
 import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
+import { actionButtonClass } from '@/components/action-button-class';
 
 export const metadata = { title: 'Our Love Story' };
 
@@ -341,7 +342,7 @@ export default async function OurStoryEditorPage({
             </div>
           ) : null}
           {search.error ? (
-            <div role="alert" className="rounded-md border border-red-300/60 dark:border-[rgb(var(--color-danger)/0.4)] bg-red-50 dark:bg-[rgb(var(--color-danger)/0.14)] px-3 py-2 text-sm text-red-800 dark:text-[rgb(var(--color-danger))]">
+            <div role="alert" className="rounded-md border border-danger-300/60 bg-danger-50 px-3 py-2 text-sm text-danger-800">
               {search.error}
             </div>
           ) : null}
@@ -382,7 +383,7 @@ export default async function OurStoryEditorPage({
           <SafeForm action={updateAction} className="mt-6 space-y-8">
             <HubDraftField />
             <StoryFields story={story} />
-            <SubmitButton pendingLabel="Saving…" className="button-primary">
+            <SubmitButton pendingLabel="Saving…" className={actionButtonClass('brand', { main: true })}>
               Save our story
             </SubmitButton>
           </SafeForm>

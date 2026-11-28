@@ -148,6 +148,9 @@ export const GOWN_PRICE_ITEMS = [
   { key: 'sl_detach', label: 'Detachable sleeve bands', unit: 'pair' },
   { key: 'overrobe', label: 'Over-robe: cutting, sewing and finishing', unit: 'pc' },
   { key: 'overlay', label: 'Overlay: cutting, sewing and finishing', unit: 'pc' },
+  // v209: a shaped hem edge is its own labour line (a curved hem needs none).
+  { key: 'hem_scallop', label: 'Scalloped hem: shaping and finishing', unit: 'pc' },
+  { key: 'hem_hanky', label: 'Handkerchief hem: shaping and finishing', unit: 'pc' },
   { key: 'piping', label: 'Piping', unit: 'm' },
   { key: 'fringe', label: 'Fringe', unit: 'm' },
   { key: 'feather', label: 'Feather trim', unit: 'm' },
@@ -178,6 +181,8 @@ export const GOWN_PRICE_GROUPS: ReadonlyArray<readonly [string, (key: GownPriceK
   // v195: flutter cape sleeves and a skirt overlay, each its own labour line (their fabric is the fabric items).
   ['Sleeves', (k) => k === 'flutter' || k.startsWith('sl_')],
   ['Skirt', (k) => k === 'overlay'],
+  // v209: the shaped hems, right after the skirt (prototype PRICE_GROUPS splice).
+  ['Hem', (k) => k.startsWith('hem_')],
   // v196: each cape type as part of the gown (the bride's detachable cape is the add-on `cape`; the designer may price
   // either).
   ['Cover-ups', (k) => k.startsWith('cape_') || k === 'overrobe'],
@@ -544,6 +549,11 @@ export function gownDesignOf(
   if (L.laceRaised) supply('Details', 'lace_raised', 'Raised lace: shaping and finishing', 1, 'pc');
   // Skirt.
   supply('Skirt', 'horsehair', 'Horsehair braid', m.horsehairM, 'm');
+  // v209 lnQuote: a scalloped or handkerchief hem is shaped by hand (her edge rides in the design as `hemEdge`, A's
+  // contract; a design from before v209 has none and adds nothing).
+  const hemEdge = (design as { hemEdge?: unknown }).hemEdge;
+  if (hemEdge === 'scallop') supply('Skirt', 'hem_scallop', 'Scalloped hem: shaping and finishing', 1, 'pc');
+  if (hemEdge === 'hanky') supply('Skirt', 'hem_hanky', 'Handkerchief hem: shaping and finishing', 1, 'pc');
   // Inside.
   if (design.lining !== 'none') supply('Inside', `lin_${design.lining}`, `${design.lining[0]!.toUpperCase()}${design.lining.slice(1)} lining`, m.liningM, 'm');
   supply('Inside', 'net', 'Petticoat tulle', m.netM, 'm');

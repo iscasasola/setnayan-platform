@@ -44,6 +44,8 @@ export type GownBlockPiece = {
   zipNote?: string;
   /** v205: a circle skirt's waist and hem radii, mm (the measured diagram names them). */
   radii?: readonly [number, number];
+  /** v209: the design's own lines (neckline, back, hem), drawn in rust and labelled (lines.ts gownLinesOnBlocks). */
+  style?: { pts: GownPoint[]; label: string }[];
 };
 /** v205 `edges`: seam · hem · zip · neck (necklines and armholes) · fold (no allowance). */
 export type GownEdgeRole = 'seam' | 'hem' | 'zip' | 'neck' | 'fold';

@@ -42,7 +42,7 @@ export function CardSuggestion({
   onTake: () => void;
 }) {
   return (
-    <div className="sn-tile flex min-w-0 items-center gap-3 px-3 py-2" data-seat-suggest={suggestion.tableId}>
+    <div className="flex min-w-0 items-center gap-3 border-b border-ink/10 px-1 pb-2" data-seat-suggest={suggestion.tableId}>
       <Sparkles aria-hidden className="h-4 w-4 shrink-0 text-sn-accent" strokeWidth={2} />
       <span className="min-w-0 flex-1">
         <span className="block truncate text-sn-md font-medium text-ink" data-seat-suggest-names="">

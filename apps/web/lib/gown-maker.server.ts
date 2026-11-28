@@ -17,10 +17,12 @@ import {
   GOWN_STOCK_FABRICS,
   sanitizeGownBody,
   sanitizeGownConfig,
+  sanitizeGownHand,
   sanitizeGownMeasures,
   sanitizeGownQuantities,
   type GownBody,
   type GownConfig,
+  type GownHand,
   type GownMeasures,
   type GownOffer,
   type GownQuantities,
@@ -49,6 +51,9 @@ import {
   type GownDesignForBride,
   type GownShopFabric,
   type GownShopOptions,
+  gownFitJoin,
+  gownFitSplit,
+  type GownOrderPattern,
 } from '@/lib/gown-maker';
 
 export type Read<T> = { status: 'ok'; data: T } | { status: 'unread' } | { status: 'none' };
@@ -188,6 +193,8 @@ export type BuiltGownDesign = {
   body: GownBody;
   measures: GownMeasures;
   quantities: GownQuantities;
+  /** A7b: what she painted by hand, checked (`sanitizeGownHand`). Null when her maker sent none (an older maker). */
+  hand: GownHand | null;
   forBride: GownDesignForBride;
 };
 
@@ -198,7 +205,7 @@ export type BuiltGownDesign = {
 export async function buildGownDesign(
   supabase: SupabaseClient,
   admin: SupabaseClient,
-  args: { vendorProfileId: string; eventId: string; config: unknown; body: unknown; measures: unknown; quantities: unknown; addOns: unknown },
+  args: { vendorProfileId: string; eventId: string; config: unknown; body: unknown; measures: unknown; quantities: unknown; addOns: unknown; hand?: unknown },
 ): Promise<{ ok: true; built: BuiltGownDesign } | { ok: false; reason: GownRefusal | 'unread' }> {
   const [options, allowed, fabrics, looks, types] = await Promise.all([
     readShopGownMaker(admin, args.vendorProfileId),
@@ -217,13 +224,17 @@ export async function buildGownDesign(
   if (!measures.ok) return measures;
   const quantities = sanitizeGownQuantities(args.quantities);
   if (!quantities.ok) return quantities;
+  // Her hand work: refused (never repaired) when anything is off; absent stays absent, so the designer is told.
+  const hand = args.hand === undefined ? null : sanitizeGownHand(args.hand);
+  if (hand && !hand.ok) return hand;
   // Her add-ons: ids only, each one the shop offers. Anything else refuses (never silently dropped).
   const picked = Array.isArray(args.addOns) ? args.addOns : [];
   const offered = new Set<string>(gownAddOnsOffered(options.data));
   if (!picked.every((a) => typeof a === 'string' && offered.has(a))) return { ok: false, reason: 'not_offered' };
   const shopFabrics = new Map<string, GownShopFabric>(fabrics.data.map((f) => [f.id, { name: f.name, pricePerMetreCentavos: f.pricePerMetreCentavos }]));
-  const priced = gownDesignOf(options.data, config.config, quantities.quantities, picked as GownAddOnKey[], shopFabrics);
-  return { ok: true, built: { config: config.config, body: body.body, measures: measures.measures, quantities: quantities.quantities, forBride: priced.forBride } };
+  const handWork = hand && hand.ok ? hand.hand : null;
+  const priced = gownDesignOf(options.data, config.config, quantities.quantities, picked as GownAddOnKey[], shopFabrics, handWork);
+  return { ok: true, built: { config: config.config, body: body.body, measures: measures.measures, quantities: quantities.quantities, hand: handWork, forBride: priced.forBride } };
 }
 
 /** Stores a checked design once (service role). No cost line is stored: only quantities and the one estimate. */
@@ -240,6 +251,7 @@ export async function storeGownDesign(
       body: args.built.body,
       measures: args.built.measures,
       quantities: args.built.quantities,
+      hand: args.built.hand,
       estimate_centavos: args.built.forBride.estimateCentavos,
       created_by: args.userId,
     })
@@ -265,15 +277,26 @@ export type StoredGownDesign = {
   body: GownBody | null;
   measures: GownMeasures;
   quantities: GownQuantities | null;
+  /** A7b: `sent` her hand work · `none` her maker sent none · `unread` the stored value did not check out. */
+  hand: { s: 'sent'; hand: GownHand } | { s: 'none' } | { s: 'unread' };
   estimateCentavos: number | null;
   createdAt: string;
 };
+
+/** The stored hand work: null is "not sent"; a value that no longer checks out is "couldn't read", never empty. */
+function handOf(v: unknown, designId: string): StoredGownDesign['hand'] {
+  if (v == null) return { s: 'none' };
+  const h = sanitizeGownHand(v);
+  if (h.ok) return { s: 'sent', hand: h.hand };
+  logQueryError('readStoredGownDesign.hand', { message: h.reason }, { design_id: designId }, 'graceful_degrade');
+  return { s: 'unread' };
+}
 
 /** One stored design, on the reader's own session (RLS: the chat's hosts and that shop). */
 export async function readStoredGownDesign(supabase: SupabaseClient, args: { threadId: string; designId: string }): Promise<Read<StoredGownDesign>> {
   const { data, error } = await supabase
     .from('gown_designs')
-    .select('design_id, vendor_profile_id, config, body, measures, quantities, estimate_centavos, created_at')
+    .select('design_id, vendor_profile_id, config, body, measures, quantities, hand, estimate_centavos, created_at')
     .eq('design_id', args.designId)
     .eq('thread_id', args.threadId)
     .maybeSingle();
@@ -282,7 +305,7 @@ export async function readStoredGownDesign(supabase: SupabaseClient, args: { thr
     return { status: 'unread' };
   }
   if (!data) return { status: 'none' };
-  type Row = { design_id: string; vendor_profile_id: string; config: unknown; body: unknown; measures: unknown; quantities: unknown; estimate_centavos: number | string | null; created_at: string };
+  type Row = { design_id: string; vendor_profile_id: string; config: unknown; body: unknown; measures: unknown; quantities: unknown; hand: unknown; estimate_centavos: number | string | null; created_at: string };
   const r = data as Row;
   const body = r.body == null ? null : sanitizeGownBody(r.body);
   const measures = sanitizeGownMeasures(r.measures ?? {});
@@ -300,6 +323,7 @@ export async function readStoredGownDesign(supabase: SupabaseClient, args: { thr
       body: body && body.ok ? body.body : null,
       measures: measures.measures,
       quantities: quantities && quantities.ok ? quantities.quantities : null,
+      hand: handOf(r.hand, args.designId),
       estimateCentavos: r.estimate_centavos == null ? null : Number(r.estimate_centavos),
       createdAt: r.created_at,
     },
@@ -319,11 +343,22 @@ export function sanitizeGownTape(input: unknown, keys: readonly string[]): { ok:
   return { ok: true, tape: out as GownTape };
 }
 
-/** Saves the designer's tape for one design (service role, after the caller proved it is that shop's). */
-export async function saveGownFitting(admin: SupabaseClient, args: { designId: string; tape: GownTape; userId: string }): Promise<boolean> {
-  const { error } = await admin
-    .from('gown_fittings')
-    .upsert({ design_id: args.designId, fit: args.tape, fit_at: new Date().toISOString(), updated_by: args.userId }, { onConflict: 'design_id' });
+/**
+ * Saves the designer's tape and/or this order's pattern settings for one design (service role, after the caller proved
+ * it is that shop's). What was not sent is kept: Save tape leaves the allowances alone, and an allowance change leaves
+ * the tape alone. The pattern rides under a reserved key in the same shop-only row (`gownFitJoin`).
+ */
+export async function saveGownFitting(admin: SupabaseClient, args: { designId: string; tape?: GownTape; pattern?: GownOrderPattern; userId: string }): Promise<boolean> {
+  const { data: had, error: readErr } = await admin.from('gown_fittings').select('fit').eq('design_id', args.designId).maybeSingle();
+  if (readErr) {
+    logQueryError('saveGownFitting.read', readErr, { design_id: args.designId }, 'graceful_degrade');
+    return false;
+  }
+  const was = gownFitSplit((had as { fit: unknown } | null)?.fit ?? null);
+  const fit = gownFitJoin(args.tape ? { ...args.tape } : was.tape, args.pattern ?? was.pattern);
+  const row: Record<string, unknown> = { design_id: args.designId, fit, updated_by: args.userId };
+  if (args.tape || !had) row.fit_at = new Date().toISOString(); // fit_at is when the TAPE was taken
+  const { error } = await admin.from('gown_fittings').upsert(row, { onConflict: 'design_id' });
   if (error) {
     logQueryError('saveGownFitting', error, { design_id: args.designId }, 'graceful_degrade');
     return false;
@@ -331,16 +366,17 @@ export async function saveGownFitting(admin: SupabaseClient, args: { designId: s
   return true;
 }
 
-/** The designer's tape for one design, on the shop's own session (RLS: the shop only). */
-export async function readGownFitting(supabase: SupabaseClient, designId: string): Promise<Read<{ tape: GownTape; fitAt: string }>> {
+/** The designer's tape and this order's pattern settings for one design, on the shop's own session (RLS: the shop only). */
+export async function readGownFitting(supabase: SupabaseClient, designId: string): Promise<Read<{ tape: GownTape; fitAt: string; pattern: GownOrderPattern }>> {
   const { data, error } = await supabase.from('gown_fittings').select('fit, fit_at').eq('design_id', designId).maybeSingle();
   if (error) {
     logQueryError('readGownFitting', error, { design_id: designId }, 'graceful_degrade');
     return { status: 'unread' };
   }
   if (!data) return { status: 'none' };
-  const r = data as { fit: Record<string, number>; fit_at: string };
-  return { status: 'ok', data: { tape: r.fit as GownTape, fitAt: r.fit_at } };
+  const r = data as { fit: unknown; fit_at: string };
+  const { tape, pattern } = gownFitSplit(r.fit);
+  return { status: 'ok', data: { tape: tape as GownTape, fitAt: r.fit_at, pattern } };
 }
 
 // ── B5 · the shop's own stock: every fabric, lace and look, hidden ones too, with prices (the shop only) ─────────────
@@ -353,13 +389,16 @@ function mediaUrlOf(ref: string | null): string | null {
 }
 
 export async function readGownFabricTypes(client: SupabaseClient): Promise<Read<GownFabricTypeOption[]>> {
-  const { data, error } = await client.from('gown_fabric_types').select('type_id, name, sheen, sheer, stiff, verified').eq('active', true).order('sort');
+  const { data, error } = await client.from('gown_fabric_types').select('type_id, name, sheen, sheer, stiff, verified, family, used_for').eq('active', true).order('sort');
   if (error) {
     logQueryError('readGownFabricTypes', error, {}, 'graceful_degrade');
     return { status: 'unread' };
   }
-  type Row = { type_id: string; name: string; sheen: number | string; sheer: number | string; stiff: number | string; verified: boolean };
-  return { status: 'ok', data: ((data ?? []) as Row[]).map((r) => ({ id: r.type_id, name: r.name, sheen: Number(r.sheen), sheer: Number(r.sheer), stiff: Number(r.stiff), verified: r.verified })) };
+  type Row = { type_id: string; name: string; sheen: number | string; sheer: number | string; stiff: number | string; verified: boolean; family: GownFabricTypeOption['family']; used_for: GownFabricTypeOption['usedFor'] | null };
+  return {
+    status: 'ok',
+    data: ((data ?? []) as Row[]).map((r) => ({ id: r.type_id, name: r.name, sheen: Number(r.sheen), sheer: Number(r.sheer), stiff: Number(r.stiff), verified: r.verified, family: r.family, usedFor: r.used_for ?? [] })),
+  };
 }
 
 export async function readShopGownStock(admin: SupabaseClient, vendorProfileId: string): Promise<Read<{ fabrics: ShopGownStockFabric[]; looks: ShopGownStockLook[] }>> {

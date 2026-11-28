@@ -29,9 +29,21 @@ import {
   gownShopTemplate,
   isGownKind,
   sanitizeGownShopOptions,
+  gownShopSeamAllow,
+  gownHandCounts,
+  gownHandLine,
+  gownFitSplit,
+  gownFitJoin,
+  sanitizeGownOrderPattern,
+  gownPatternState,
+  GOWN_ORDER_PATTERN_DEFAULT,
+  GOWN_FIT_PATTERN_KEY,
+  gownShopPaper,
+  gownSeamAllowIsUsual,
   type GownShopOptions,
+  type GownPriceKey,
 } from './gown-maker';
-import { emptyGownQuantities, startingGownConfig, type GownQuantities } from './gown-config';
+import { emptyGownHand, emptyGownQuantities, startingGownConfig, type GownQuantities } from './gown-config';
 
 // Amounts in tests are arbitrary round centavo figures chosen to make the arithmetic visible; they are not prices.
 const C = (n: number) => n * 100;
@@ -257,4 +269,147 @@ test('7e · v197/v198: Fit and flare has its own starting price; the Bodice grou
   for (const k of ['base_fitflare', 'illu_bodice', 'illu_back', 'bone_show'] as const) assert.equal(t.prices[k], undefined, `${k} starts priced`);
   for (const i of GOWN_PRICE_ITEMS) assert.equal(GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length, 1, `${i.key} is in more or fewer than one group`);
   assert.equal(new Set(GOWN_PRICE_ITEMS.map((i) => i.key)).size, GOWN_PRICE_ITEMS.length, 'a price key appears twice');
+});
+
+test('7f · v199 Straps and edges group; v196 cape lines from A6f quantities, unpriced until priced', () => {
+  assert.deepEqual(GOWN_PRICE_ITEMS.find((i) => i.key === 'strap'), { key: 'strap', label: 'Straps: cutting, sewing and attaching', unit: 'pair' });
+  assert.deepEqual(GOWN_PRICE_ITEMS.find((i) => i.key === 'scallop'), { key: 'scallop', label: 'Scalloped edge: shaping and finishing', unit: 'pc' });
+  for (const k of ['strap', 'scallop'] as const) {
+    assert.equal(GOWN_PRICE_GROUPS.find(([, f]) => f(k))?.[0], 'Straps and edges');
+    assert.equal(gownShopTemplate().prices[k], undefined);
+  }
+  const q0 = emptyGownQuantities();
+  const q = { ...q0, materials: { ...q0.materials, capeM: 3.2, ribbonM: 0.45 }, labour: { ...q0.labour, cape: 'side' as const } };
+  const design = { ...startingGownConfig(), cape: 'side' as const, capeFab: null };
+  const unpriced = gownDesignOf(shop(), design, q, []).forShop.lines;
+  const capeLine = unpriced.find((l) => l.key === 'cape_side')!;
+  assert.equal(capeLine.label, 'Cape (side cape): cutting, sewing and finishing');
+  assert.equal(capeLine.amountCentavos, null, 'an unpriced cape was priced');
+  assert.ok(unpriced.some((l) => l.key === 'fab_tulle' && l.label === 'Tulle (the cape)' && l.qty === 3.2), 'the side cape’s default tulle is not counted');
+  assert.ok(unpriced.some((l) => l.key === 'ribbon' && l.qty === 0.45));
+  const priced = gownDesignOf(shop({ prices: { ...shop().prices, cape_side: C(10), fab_tulle: C(2), ribbon: C(1) } }), design, q, []).forShop.lines;
+  assert.equal(priced.find((l) => l.key === 'cape_side')!.amountCentavos, C(10));
+  assert.equal(priced.find((l) => l.key === 'fab_tulle' && l.label === 'Tulle (the cape)')!.amountCentavos, Math.round(3.2 * C(2)));
+  // No cape: no cape line.
+  assert.ok(!gownDesignOf(shop(), startingGownConfig(), q0, []).forShop.lines.some((l) => l.key.startsWith('cape_')));
+});
+
+test('7g · v200/v203: 3D flowers, raised lace, glitter tulle, five sleeve styles, detachable bands and the over-robe are listed, grouped, and unpriced until priced', () => {
+  const where = (k: string) => GOWN_PRICE_GROUPS.find(([, f]) => f(k as never))?.[0];
+  const item = (k: string) => GOWN_PRICE_ITEMS.find((i) => i.key === k);
+  assert.deepEqual(item('flowers3d'), { key: 'flowers3d', label: '3D flowers: making and attaching', unit: '10 flowers' });
+  assert.equal(where('flowers3d'), '3D flowers');
+  assert.equal(GOWN_PRICE_GROUPS.findIndex(([g]) => g === '3D flowers'), GOWN_PRICE_GROUPS.findIndex(([g]) => g === 'Lace and beads') + 1, '3D flowers sits right after Lace and beads');
+  assert.deepEqual(item('lace_raised'), { key: 'lace_raised', label: 'Raised lace: shaping and finishing', unit: 'pc' });
+  assert.equal(where('lace_raised'), 'Lace and beads');
+  assert.deepEqual(item('fab_glitter_tulle'), { key: 'fab_glitter_tulle', label: 'Glitter tulle fabric', unit: 'm' });
+  assert.equal(where('fab_glitter_tulle'), 'Fabrics');
+  const sleeves = GOWN_PRICE_ITEMS.filter((i) => where(i.key) === 'Sleeves').map((i) => [i.key, i.label, i.unit]);
+  assert.deepEqual(sleeves, [
+    ['flutter', 'Flutter cape sleeves: cutting, sewing and finishing', 'pair'],
+    ['sl_puff', 'Sleeves (puff): cutting, sewing and finishing', 'pair'],
+    ['sl_bishop', 'Sleeves (bishop): cutting, sewing and finishing', 'pair'],
+    ['sl_juliet', 'Sleeves (Juliet): cutting, sewing and finishing', 'pair'],
+    ['sl_ruffle', 'Sleeves (ruffle band): cutting, sewing and finishing', 'pair'],
+    ['sl_capesl', 'Sleeves (cape sleeves): cutting, sewing and finishing', 'pair'],
+    ['sl_detach', 'Detachable sleeve bands', 'pair'],
+  ]);
+  assert.deepEqual(item('overrobe'), { key: 'overrobe', label: 'Over-robe: cutting, sewing and finishing', unit: 'pc' });
+  assert.equal(where('overrobe'), 'Cover-ups');
+  const fresh = ['flowers3d', 'lace_raised', 'fab_glitter_tulle', 'sl_puff', 'sl_bishop', 'sl_juliet', 'sl_ruffle', 'sl_capesl', 'sl_detach', 'overrobe'] as const;
+  const t = gownShopTemplate();
+  for (const k of fresh) assert.equal(t.prices[k], undefined, `${k} starts priced`);
+  // a designer CAN price each one (the shop's own list), and an unknown key is still refused
+  const priced = gownShopTemplate();
+  for (const k of fresh) priced.prices[k] = 100;
+  const ok = sanitizeGownShopOptions(priced);
+  assert.ok(ok.ok, 'the new keys are accepted with a price');
+  if (ok.ok) for (const k of fresh) assert.equal(ok.options.prices[k], 100);
+  for (const i of GOWN_PRICE_ITEMS) assert.equal(GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length, 1, `${i.key} is in more or fewer than one group`);
+  assert.equal(new Set(GOWN_PRICE_ITEMS.map((i) => i.key)).size, GOWN_PRICE_ITEMS.length, 'a price key appears twice');
+});
+
+test('7h · B11/B12 (v205): her allowances and paper ride on the options; absent means the usual ones on A4; out-of-range ones are held to the range', () => {
+  const t = gownShopTemplate();
+  assert.equal(t.seamAllow, undefined);
+  assert.deepEqual(gownShopSeamAllow(t), { seam: 1.5, hem: 2.5, zip: 2, neck: 1 });
+  assert.equal(gownShopPaper(t), 'a4');
+  assert.ok(gownSeamAllowIsUsual(gownShopSeamAllow(t)));
+  const ok = sanitizeGownShopOptions({ ...t, seamAllow: { seam: 1.04, hem: 20, zip: 2.5, neck: 0.1 }, patPaper: 'letter' });
+  assert.ok(ok.ok);
+  if (ok.ok) {
+    assert.deepEqual(gownShopSeamAllow(ok.options), { seam: 1, hem: 8, zip: 2.5, neck: 0.3 });
+    assert.equal(gownShopPaper(ok.options), 'letter');
+    assert.ok(!gownSeamAllowIsUsual(gownShopSeamAllow(ok.options)));
+  }
+  const plain = sanitizeGownShopOptions(t);
+  assert.ok(plain.ok && !('seamAllow' in plain.options) && !('patPaper' in plain.options), 'an options row without them gains them on save');
+  assert.deepEqual(sanitizeGownShopOptions({ ...t, patPaper: 'legal' }), { ok: false, problem: 'Paper for printing patterns: choose A4 or US Letter.' });
+});
+
+test('7i · B11 (v205): one order’s pattern rides in the designer’s own fitting row, beside the tape, and never breaks it', () => {
+  // The tape and the pattern come apart; junk under the reserved key reads as the shop's plain settings.
+  const fit = { bust: 88, waistHip: 21.5, _pattern: { seamAllow: { seam: 1, hem: 4, zip: 2.5, neck: 0.8 }, netPattern: false } };
+  assert.deepEqual(gownFitSplit(fit), { tape: { bust: 88, waistHip: 21.5 }, pattern: { seamAllow: { seam: 1, hem: 4, zip: 2.5, neck: 0.8 }, netPattern: false } });
+  assert.deepEqual(gownFitSplit({ bust: 88 }), { tape: { bust: 88 }, pattern: GOWN_ORDER_PATTERN_DEFAULT });
+  assert.deepEqual(gownFitSplit({ bust: 88, _pattern: 'x' }).pattern, GOWN_ORDER_PATTERN_DEFAULT);
+  assert.deepEqual(gownFitSplit(null), { tape: {}, pattern: GOWN_ORDER_PATTERN_DEFAULT });
+  // Back together: the shop's plain settings add nothing to the row; anything else rides under the reserved key.
+  assert.deepEqual(gownFitJoin({ bust: 88 }, GOWN_ORDER_PATTERN_DEFAULT), { bust: 88 });
+  assert.deepEqual(gownFitJoin({}, { seamAllow: null, netPattern: true }), { [GOWN_FIT_PATTERN_KEY]: { seamAllow: null, netPattern: true } });
+  const back = gownFitSplit(fit);
+  assert.deepEqual(gownFitSplit(gownFitJoin(back.tape, back.pattern)), back, 'a round trip changed the order');
+  // What the order view sends is checked: allowances held to their ranges; a missing switch or junk is refused.
+  assert.deepEqual(sanitizeGownOrderPattern({ seamAllow: { seam: 9, hem: 0.1, zip: 2, neck: 1 }, netPattern: false }), { seamAllow: { seam: 3, hem: 0.5, zip: 2, neck: 1 }, netPattern: false });
+  assert.deepEqual(sanitizeGownOrderPattern({ seamAllow: null, netPattern: true }), { seamAllow: null, netPattern: true });
+  assert.equal(sanitizeGownOrderPattern({ seamAllow: null }), null);
+  assert.equal(sanitizeGownOrderPattern({ seamAllow: 'wide', netPattern: false }), null);
+  // v205 patState, word for word.
+  assert.equal(gownPatternState({ seamAllow: null, netPattern: true }), 'Off: net pattern');
+  assert.equal(gownPatternState({ seamAllow: { seam: 1, hem: 2, zip: 2, neck: 1 }, netPattern: false }), 'On · set for this order');
+  assert.equal(gownPatternState(GOWN_ORDER_PATTERN_DEFAULT), "On · your shop's allowances");
+});
+
+test('7j · A7b: what she painted by hand joins the existing bead and lace items (and their hours), unpriced stays unpriced', () => {
+  const pearl = { ph: 1, y: 1, kind: 'pearl' as const, col: 'ivory', mm: 4, spin: 0 };
+  const crystal = { ...pearl, kind: 'crystal' as const };
+  const motif = { u: 0.2, y: 0.5, rot: 0, id: 'chantilly' as never, cm: 6 };
+  const hand = { ...emptyGownHand(), handBeads: [...Array(150).fill(pearl), ...Array(50).fill(crystal)], handLace: [motif, motif, motif] };
+  assert.deepEqual(gownHandCounts(hand), { beads: { ...gownHandCounts(null).beads, pearl: 150, crystal: 50 }, total: 200, lace: 3 });
+  const q = qty((x) => { x.materials.beads.pearl = 100; x.materials.laceMotifs = 2; x.labour.beads = 100; x.labour.laceMotifs = 2; });
+  const o = shop({ prices: { bead_pearl: C(10) } });
+  const plain = gownDesignOf(o, design(), q, []).forShop.lines;
+  const painted = gownDesignOf(o, design(), q, [], new Map(), hand).forShop.lines;
+  const line = (ls: typeof plain, k: string) => ls.find((l) => l.key === k);
+  assert.equal(line(plain, 'bead_pearl')!.qty, 1);
+  assert.equal(line(painted, 'bead_pearl')!.qty, 2.5, 'her 150 painted pearls did not join the pearl line');
+  assert.equal(line(painted, 'bead_pearl')!.amountCentavos, Math.round(2.5 * C(10)));
+  assert.equal(line(painted, 'bead_crystal')!.qty, 0.5, 'a painted crystal made no crystal line');
+  assert.equal(line(painted, 'bead_crystal')!.amountCentavos, null, 'an unpriced item was given an amount');
+  assert.equal(line(painted, 'lace_motif')!.qty, 5);
+  assert.ok(line(painted, 'h_beads')!.qty > line(plain, 'h_beads')!.qty, 'her hand beads added no beading hours');
+  assert.ok(line(painted, 'h_lace')!.qty > line(plain, 'h_lace')!.qty, 'her lace motifs added no appliqué hours');
+  // Nothing painted, or not sent: the quote is exactly what it was.
+  assert.deepEqual(gownDesignOf(o, design(), q, [], new Map(), emptyGownHand()).forShop.lines, plain);
+  assert.equal(q.materials.beads.pearl, 100, 'the stored quantities were changed in place');
+  // The order view's line (coordinator's wording).
+  assert.equal(gownHandLine(hand), 'Painted by hand: 200 beads, 3 lace motifs. Added to the designer’s count.');
+  assert.equal(gownHandLine({ ...emptyGownHand(), handBeads: [pearl] }), 'Painted by hand: 1 bead, 0 lace motifs. Added to the designer’s count.');
+  assert.equal(gownHandLine(emptyGownHand()), null);
+  assert.equal(gownHandLine(null), null);
+});
+
+test('7k · v207: Duchess satin, Bias satin and Taffeta each have one unpriced per-metre line, in Fabrics', () => {
+  for (const [id, label] of [['duchess', 'Duchess satin'], ['bias_satin', 'Bias satin'], ['taffeta', 'Taffeta']] as const) {
+    const items = GOWN_PRICE_ITEMS.filter((i) => i.key === `fab_${id}`);
+    assert.equal(items.length, 1, `fab_${id} is listed ${items.length} times`);
+    assert.deepEqual({ label: items[0]!.label, unit: items[0]!.unit }, { label, unit: 'm' });
+    assert.equal(GOWN_PRICE_GROUPS.find(([, f]) => f(`fab_${id}`))?.[0], 'Fabrics');
+    assert.equal(gownShopTemplate().prices[`fab_${id}` as GownPriceKey], undefined, `fab_${id} starts with a price`);
+  }
+  // On a quote: named in words, and unpriced until she prices it.
+  const q = qty((x) => { x.materials.outerM = 5; });
+  const line = gownDesignOf(shop(), design({ fabric: 'bias_satin' as never }), q, []).forShop.lines.find((l) => l.key === 'fab_bias_satin')!;
+  assert.equal(line.label, 'Bias satin (outer)');
+  assert.equal(line.amountCentavos, null);
 });

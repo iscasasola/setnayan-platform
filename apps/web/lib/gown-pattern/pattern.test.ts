@@ -2,7 +2,7 @@
  * 👗 THE CUTTING BLOCKS DRAW WHAT THE PROTOTYPE DREW — plan step B6 (corpus WHATS_NEXT_Gown_Maker_Port_2026-11-27.md § 5).
  *
  *   1 · Golden: the port's 28 skirt drafts (7 bodies × 4 silhouettes) and 7 bodice drafts equal the prototype's own
- *       outputs on the same inputs, to the micron (prototype-v197.golden.json, made by running gown_maker_v197.html's
+ *       outputs on the same inputs, to the micron (prototype-v205.golden.json, made by running gown_maker_v205.html's
  *       draftSkirt / draftBodice — scripts/gown-pattern-golden.mjs).
  *   2 · Every check of every draft is within 2.5 mm.
  *   3 · Impossible input says why ("Can't draft: check waist to hip."), never a half-drawn block.
@@ -17,7 +17,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import golden from './prototype-v197.golden.json';
+import golden from './prototype-v205.golden.json';
 import { draftSkirt, type GownBlockPiece } from './skirt';
 import { draftBodice } from './bodice';
 import { gownBlocksSvg } from './svg';
@@ -73,6 +73,10 @@ function samePiece(port: GownBlockPiece, proto: Record<string, unknown>, path: s
   near(port.marks, proto.marks, `${path}.marks`);
   near(port.points, proto.points ?? [], `${path}.points`);
   near(port.vent, proto.vent ?? 0, `${path}.vent`);
+  // v205: each edge's role (its seam allowance), the circle skirt's zip note and radii
+  assert.deepEqual(port.edges, proto.edges, `${path}.edges`);
+  assert.equal(port.zipNote, proto.zipNote, `${path}.zipNote`);
+  if (proto.radii) near(port.radii, proto.radii, `${path}.radii`);
   const darts = (proto.darts as Record<string, unknown>[]).map((d) => ('a' in d ? { a: d.a, apex: d.apex, b: d.b } : { x: d.x, w: d.w, len: d.len }));
   near(port.darts.map((d) => ('a' in d ? [d.a, d.apex, d.b] : [d.x, d.w, d.len])), darts.map((d) => ('a' in d ? [d.a, d.apex, d.b] : [d.x, d.w, d.len])), `${path}.darts`);
 }
@@ -218,12 +222,15 @@ test('6 · the sheet: one outline per piece, in mm, one ink; no price in the pat
   assert.ok(d.ok);
   if (!d.ok) return;
   const svg = gownBlocksSvg(d.pieces, 'Skirt blocks');
-  assert.equal(svg.match(/<polygon /g)?.length, d.pieces.length);
+  assert.equal(svg.match(/stroke-dasharray="10\.00 6\.00"[^>]*\/>/g)?.length, d.pieces.length, 'one dashed cut line per piece');
+  assert.equal(gownBlocksSvg(d.pieces, 'Skirt blocks', undefined, true).match(/stroke-dasharray="10\.00 6\.00"/g), null, 'a net pattern has no cut line');
+  assert.ok((svg.match(/<path d="[^"]*Z"/g)?.length ?? 0) >= 2 * d.pieces.length, 'each piece has a stitching line and a cut line');
   assert.match(svg, /width="[\d.]+mm" height="[\d.]+mm"/);
   assert.doesNotMatch(svg, /#[0-9a-f]{3,6}\b/i, 'the sheet carries a typed colour');
   assert.match(svg, /Skirt front/);
   for (const f of readdirSync(__dirname).filter((n) => n.endsWith('.ts') && !n.endsWith('.test.ts'))) {
-    const src = readFileSync(join(__dirname, f), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+    // v205's own promise, said on the export (words.ts), is the one place the word may appear: "No prices on any sheet."
+    const src = readFileSync(join(__dirname, f), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '').replace(/No prices on any sheet\./g, '');
     assert.doesNotMatch(src, /price|centavos|₱|php\.ts|formatPhp/i, `${f} mentions money; the blocks never carry a price`);
   }
 });

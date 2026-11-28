@@ -37,8 +37,11 @@ import {
   startingGownConfig,
 } from '@/lib/gown-config';
 import { gownAction } from '@/app/_components/gown-maker/gown-call';
+import { GownSwatchScan, GownSwatchScanDoor } from './gown-swatch-scan';
 
 type Stock = { shop: string; fabrics: ShopGownStockFabric[]; looks: ShopGownStockLook[]; types: GownFabricTypeOption[]; locked: boolean };
+/** The lab only: swatch-book pages already drawn, so the scan opens on them. */
+type ScanSeed = { url: string; img: { data: Uint8ClampedArray; width: number; height: number } }[];
 type Load = { s: 'loading' } | { s: 'failed'; message: string } | { s: 'ok'; stock: Stock };
 
 const UPLOAD_STALL_MS = 45_000;
@@ -55,7 +58,7 @@ async function uploadToShop(shop: string, folder: 'fabrics' | 'looks', blob: Blo
   return out.ok ? out.r2Ref : null;
 }
 
-export function GownStockPanel({ view, seed }: { view: 'fabrics' | 'looks'; seed?: Stock }) {
+export function GownStockPanel({ view, seed, scanSeed }: { view: 'fabrics' | 'looks'; seed?: Stock; scanSeed?: ScanSeed }) {
   const [load, setLoad] = useState<Load>(seed ? { s: 'ok', stock: seed } : { s: 'loading' });
   const read = useCallback(() => {
     setLoad({ s: 'loading' });
@@ -80,7 +83,7 @@ export function GownStockPanel({ view, seed }: { view: 'fabrics' | 'looks'; seed
       </div>
     );
   }
-  return view === 'fabrics' ? <FabricList stock={load.stock} reload={seed ? undefined : read} /> : <LookList stock={load.stock} reload={seed ? undefined : read} />;
+  return view === 'fabrics' ? <FabricList stock={load.stock} reload={seed ? undefined : read} scanSeed={scanSeed} /> : <LookList stock={load.stock} reload={seed ? undefined : read} />;
 }
 
 // ── Fabrics and lace ─────────────────────────────────────────────────────────────────────────────────────────────
@@ -103,8 +106,9 @@ const blankFabric = (types: GownFabricTypeOption[]): FabricDraft => ({
   active: true,
 });
 
-function FabricList({ stock, reload }: { stock: Stock; reload?: () => void }) {
+function FabricList({ stock, reload, scanSeed }: { stock: Stock; reload?: () => void; scanSeed?: ScanSeed }) {
   const [editing, setEditing] = useState<FabricDraft | null>(null);
+  const [scanning, setScanning] = useState(Boolean(scanSeed));
   const typeName = (id: string) => stock.types.find((t) => t.id === id)?.name ?? GOWN_STOCK_FABRICS.find((f) => f.id === id)?.label ?? id;
   return (
     <div className="space-y-3" data-gown-stock="fabrics">
@@ -139,6 +143,17 @@ function FabricList({ stock, reload }: { stock: Stock; reload?: () => void }) {
         </p>
       )}
       {stock.locked ? null : <ActionButton tone="brand" icon={Plus} label="Add fabric or lace" onClick={() => setEditing(blankFabric(stock.types))} className="w-full" />}
+      {stock.locked ? null : <GownSwatchScanDoor onOpen={() => setScanning(true)} />}
+      {scanning ? (
+        <GownSwatchScan
+          types={stock.types}
+          ownColours={stock.fabrics.flatMap((f) => f.colours)}
+          upload={(blob, name) => uploadToShop(stock.shop, 'fabrics', blob, name)}
+          onClose={() => setScanning(false)}
+          onSaved={() => reload?.()}
+          seedPages={scanSeed}
+        />
+      ) : null}
       {editing ? <FabricSheet stock={stock} start={editing} onClose={() => setEditing(null)} onSaved={() => { setEditing(null); reload?.(); }} /> : null}
     </div>
   );

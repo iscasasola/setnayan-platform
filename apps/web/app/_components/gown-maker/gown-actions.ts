@@ -32,7 +32,7 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { sendChatMessageCore } from '@/lib/chat-send';
 import { plusGateRefusal } from '@/lib/shop-plus-gate';
 import { shopPlusGate } from '@/lib/shop-plus-gate.server';
-import { GOWN_MEASURES, GOWN_REFUSAL_WORDS, gownLookOf, sanitizeGownConfig, startingGownConfig, type GownBody, type GownMeasures } from '@/lib/gown-config';
+import { GOWN_MEASURES, GOWN_REFUSAL_WORDS, gownLookOf, sanitizeGownConfig, startingGownConfig, type GownBody, type GownConfig, type GownMeasures } from '@/lib/gown-config';
 import {
   GOWN_DESIGN_NOT_SENT,
   GOWN_DESIGN_UNREADABLE,
@@ -41,7 +41,15 @@ import {
   gownDesignOf,
   gownDesignRefOf,
   gownShopTemplate,
+  gownShopPaper,
+  gownShopSeamAllow,
+  sanitizeGownOrderPattern,
+  GOWN_ORDER_PATTERN_DEFAULT,
+  type GownOrderPattern,
+  gownFabricGroups,
   sanitizeGownFabricType,
+  type GownFabricGroup,
+  type GownFabricSlot,
   sanitizeGownShopFabric,
   sanitizeGownShopLookShell,
   type GownFabricTypeRow,
@@ -76,10 +84,14 @@ import {
   type BrideGownFabric,
   type GownFabricTypeOption,
   type GownTape,
+  type StoredGownDesign,
   type ShopGownStockFabric,
   type ShopGownStockLook,
 } from '@/lib/gown-maker.server';
 import type { GownOffer } from '@/lib/gown-config';
+import { gownCutContext, type GownCutContext } from '@/lib/gown-pattern/cutting-list';
+import type { GownSeamAllow } from '@/lib/gown-pattern/allowance';
+import type { GownPaper } from '@/lib/gown-pattern/export';
 
 export type GownOpenRead = {
   ok: true;
@@ -89,7 +101,11 @@ export type GownOpenRead = {
   fabrics: BrideGownFabric[];
   looks: { id: string; name: string; photoKey: string | null; config: unknown }[];
   addOns: GownDesignForBride['addOns'];
+  /** B15: the Fabric step, grouped by family, each slot offering only the types that suit it. */
+  fabricGroups: Record<GownFabricSlot, GownFabricGroup[]>;
 };
+
+export type GownDesignPattern = { shop: GownSeamAllow; paper: GownPaper; order: GownOrderPattern; cut: GownCutContext | null };
 
 export type GownDesignRead = {
   ok: true;
@@ -103,8 +119,13 @@ export type GownDesignRead = {
   estimateCentavos: number | null;
   /** The shop only: the cost lines, priced now from its own list. Null for the bride, or when the list does not read. */
   forShop: GownDesignForShop | null;
+  /** A7b: what she painted by hand (her own design, so both sides read it): sent · none (not sent) · unread. */
+  hand: StoredGownDesign['hand'];
   /** The shop only: the designer's tape. */
   tape: { tape: GownTape; fitAt: string } | null;
+  /** The shop only (B11/B12, drawing v205): its allowances and paper, this order's own pattern settings, and which
+   *  fabrics the blocks are cut in with the quote's metres. Lengths only; no money. */
+  pattern: GownDesignPattern | null;
   replaced: boolean;
   sentAt: string;
 };
@@ -112,10 +133,10 @@ export type GownDesignRead = {
 export type GownActionInput =
   | { op: 'design'; threadId: string; messageId: string }
   | { op: 'open'; threadId: string }
-  | { op: 'send'; threadId: string; config: unknown; body: unknown; measures: unknown; quantities: unknown; addOns: unknown }
+  | { op: 'send'; threadId: string; config: unknown; body: unknown; measures: unknown; quantities: unknown; addOns: unknown; hand?: unknown }
   | { op: 'invite'; threadId: string }
   | { op: 'status'; threadId: string }
-  | { op: 'fit'; threadId: string; designId: string; tape: unknown }
+  | { op: 'fit'; threadId: string; designId: string; tape?: unknown; pattern?: unknown }
   | { op: 'options' }
   | { op: 'save'; options: unknown }
   | { op: 'stock' }
@@ -276,17 +297,33 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
     const isShop = !!profile && profile.vendor_profile_id === shop;
     let forShop: GownDesignForShop | null = null;
     let tape: GownDesignRead['tape'] = null;
+    let pattern: GownDesignRead['pattern'] = null;
     if (isShop) {
       // 🔒 The cost lines exist only here, for the shop, priced now from its own list. Never stored on the design row.
       const admin = createAdminClient();
-      const [options, fabrics, fit] = await Promise.all([readShopGownMaker(admin, shop), readShopGownFabrics(admin, shop), readGownFitting(supabase, ref)]);
+      const [options, fabrics, fit, types] = await Promise.all([readShopGownMaker(admin, shop), readShopGownFabrics(admin, shop), readGownFitting(supabase, ref), readGownFabricTypes(supabase)]);
       const q = stored.data.quantities;
       const c = stored.data.config as Parameters<typeof gownDesignOf>[1] | null;
       if (options.status === 'ok' && fabrics.status === 'ok' && q && c) {
         const map = new Map(fabrics.data.map((f) => [f.id, { name: f.name, pricePerMetreCentavos: f.pricePerMetreCentavos }]));
-        forShop = gownDesignOf(options.data, c, q, [], map).forShop;
+        // A7b: her hand work joins the bead and lace lines; hand work that couldn't be read prices nothing extra.
+        forShop = gownDesignOf(options.data, c, q, [], map, stored.data.hand.s === 'sent' ? stored.data.hand.hand : null).forShop;
       }
-      if (fit.status === 'ok') tape = fit.data;
+      if (fit.status === 'ok') tape = { tape: fit.data.tape, fitAt: fit.data.fitAt };
+      // The blocks' settings: a failed read of the shop's options or the tape row is "Couldn't read", never the defaults.
+      if ((options.status === 'ok' || options.status === 'none') && fit.status !== 'unread') {
+        const shopOptions = options.status === 'ok' ? options.data : gownShopTemplate();
+        const outerName =
+          (c?.fabricRef && fabrics.status === 'ok' ? fabrics.data.find((f) => f.id === c.fabricRef)?.name : null) ??
+          (c && types.status === 'ok' ? types.data.find((t) => t.id === c.fabric)?.name : null) ??
+          null;
+        pattern = {
+          shop: gownShopSeamAllow(shopOptions),
+          paper: gownShopPaper(shopOptions),
+          order: fit.status === 'ok' ? fit.data.pattern : { ...GOWN_ORDER_PATTERN_DEFAULT },
+          cut: c ? gownCutContext(stored.data.config as GownConfig, q, outerName) : null,
+        };
+      }
     }
     return {
       ok: true,
@@ -298,7 +335,9 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
       measures: stored.data.measures,
       estimateCentavos: stored.data.estimateCentavos,
       forShop,
+      hand: stored.data.hand,
       tape,
+      pattern,
       replaced: (newer.data ?? []).length > 0,
       sentAt: msg.created_at,
     };
@@ -306,16 +345,20 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
 
   // ── The designer's tape (the shop only) ──────────────────────────────────
   if (op === 'fit') {
-    const { designId, tape } = input as { designId: string; tape: unknown };
+    const { designId, tape, pattern } = input as { designId: string; tape?: unknown; pattern?: unknown };
     const profile = await fetchOwnVendorProfile(supabase, user.id);
     if (!profile) return fail('Only the shop can save the tape.');
     // The design must be this shop's, read on the shop's own session (RLS: the shop and the chat's hosts).
     const { data: row, error } = await supabase.from('gown_designs').select('design_id').eq('design_id', designId).eq('thread_id', threadId).eq('vendor_profile_id', profile.vendor_profile_id).maybeSingle();
     if (error) return fail();
     if (!row) return fail('This design is not your shop’s.');
-    const checked = sanitizeGownTape(tape, TAPE_KEYS);
-    if (!checked.ok) return fail('A measurement could not be read. Check it and save again.');
-    return (await saveGownFitting(createAdminClient(), { designId, tape: checked.tape, userId: user.id })) ? { ok: true, op: 'fit' } : fail('The tape didn’t save. Try again.');
+    if (tape === undefined && pattern === undefined) return fail();
+    const checked = tape === undefined ? null : sanitizeGownTape(tape, TAPE_KEYS);
+    if (checked && !checked.ok) return fail('A measurement could not be read. Check it and save again.');
+    const pat = pattern === undefined ? null : sanitizeGownOrderPattern(pattern);
+    if (pattern !== undefined && !pat) return fail('The seam allowances could not be read. Check them and try again.');
+    const saved = await saveGownFitting(createAdminClient(), { designId, ...(checked?.ok ? { tape: checked.tape } : {}), ...(pat ? { pattern: pat } : {}), userId: user.id });
+    return saved ? { ok: true, op: 'fit' } : fail(tape === undefined ? 'The seam allowances didn’t save. Try again.' : 'The tape didn’t save. Try again.');
   }
 
   // ── The bride's side: her own chat with a gown shop ──────────────────────
@@ -329,8 +372,17 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
   const admin = createAdminClient();
 
   if (op === 'send') {
-    const i = input as { config: unknown; body: unknown; measures: unknown; quantities: unknown; addOns: unknown };
-    const built = await buildGownDesign(supabase, admin, { vendorProfileId: t.vendor_profile_id, eventId: t.event_id, ...i });
+    const i = input as { config: unknown; body: unknown; measures: unknown; quantities: unknown; addOns: unknown; hand?: unknown };
+    const built = await buildGownDesign(supabase, admin, {
+      vendorProfileId: t.vendor_profile_id,
+      eventId: t.event_id,
+      config: i.config,
+      body: i.body,
+      measures: i.measures,
+      quantities: i.quantities,
+      addOns: i.addOns,
+      hand: i.hand,
+    });
     if (!built.ok) return fail(built.reason === 'unread' ? GOWN_DESIGN_UNREADABLE : GOWN_REFUSAL_WORDS[built.reason]);
     const id = await storeGownDesign(admin, { threadId, vendorProfileId: t.vendor_profile_id, built: built.built, userId: user.id });
     if (!id) return fail(GOWN_DESIGN_NOT_SENT);
@@ -348,7 +400,7 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
     readShopGownToolOpen(admin, t.vendor_profile_id, t.event_id),
     readShopGownFabrics(admin, t.vendor_profile_id),
     readShopGownLooks(admin, t.vendor_profile_id),
-    readGownFabricTypeIds(supabase),
+    readGownFabricTypes(supabase),
     admin.from('vendor_profiles').select('business_name').eq('vendor_profile_id', t.vendor_profile_id).maybeSingle(),
   ]);
   if (options.status === 'unread' || allowed.status === 'unread' || fabrics.status !== 'ok' || looks.status !== 'ok' || types.status !== 'ok' || shopRes.error) {
@@ -360,7 +412,13 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
     ok: true,
     op: 'open',
     shopName: ((shopRes.data as { business_name: string | null } | null)?.business_name ?? '').trim() || 'the shop',
-    offer: gownOfferOf(types.data, fabrics.data, looks.data),
+    offer: gownOfferOf(types.data.map((x) => x.id), fabrics.data, looks.data),
+    // B15: the Fabric step's choices, grouped by type and only what suits each garment part (A wires the step).
+    fabricGroups: {
+      gown: gownFabricGroups('gown', types.data, fabrics.data),
+      accent: gownFabricGroups('accent', types.data, fabrics.data),
+      lining: gownFabricGroups('lining', types.data, fabrics.data),
+    },
     // 🔒 Never the per-metre price: the bride gets the public columns only.
     fabrics: fabrics.data.map(({ pricePerMetreCentavos: _price, ...publicCols }) => publicCols),
     looks: looks.data,

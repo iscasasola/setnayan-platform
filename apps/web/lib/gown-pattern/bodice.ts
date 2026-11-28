@@ -9,12 +9,12 @@
  * sits at shoulder-to-bust-point and half the bust-point spacing; a side bust dart points at it; waist darts under the
  * back width and the bust point; side shaping up to the constant; a waist wider than the bust flares the side out.
  * Units: mm, x across from the centre line, y down from the nape (the back neck point sits above at −backRise).
- * 🔒 lib/gown-pattern/pattern.test.ts (held to the prototype's own outputs, prototype-v197.golden.json)
+ * 🔒 lib/gown-pattern/pattern.test.ts (held to the prototype's own outputs, prototype-v205.golden.json)
  */
 import type { GownMeasureKey } from '../gown-config';
 import { GOWN_DRAFT as K } from './draft-constants';
 import { draftEase, draftMeasure, measureLabel, type GownDraftOrder, type GownDraftSource, type GownTape } from './inputs';
-import type { GownBlockPiece, GownDraftCheck, GownDraftRefusal, GownPoint } from './skirt';
+import type { GownBlockPiece, GownDraftCheck, GownDraftRefusal, GownEdgeRole, GownPoint } from './skirt';
 
 export type GownBodiceDraft = {
   ok: true;
@@ -114,6 +114,8 @@ export function draftBodice(order: GownDraftOrder, tape: GownTape = {}): GownBod
     name: 'Bodice back',
     cut: 'Cut 2',
     outline: toMm(backO),
+    // v205: neck curve, shoulder seam, armhole, side seam, waist seam, centre back (the zip).
+    edges: [...Array<GownEdgeRole>(6).fill('neck'), 'seam', ...Array<GownEdgeRole>(11).fill('neck'), 'seam', 'seam', 'zip'],
     darts: [
       ...(dartB > 0 ? [{ a: [c(dcB - dartB / 2), c(NW)] as const, apex: [c(dcB), c(AD + 2)] as const, b: [c(dcB + dartB / 2), c(NW)] as const }] : []),
       {
@@ -157,7 +159,6 @@ export function draftBodice(order: GownDraftOrder, tape: GownTape = {}): GownBod
     ...curve(tipF, [cw[0], cw[1] * 0.85 + tipF[1] * 0.15], cw, 5),
     ...curve(cw, [cw[0] + 0.3, AD - 0.3], uf, 6),
     d1,
-    apexS,
     d2,
     wF,
     [0, yWf],
@@ -166,10 +167,16 @@ export function draftBodice(order: GownDraftOrder, tape: GownTape = {}): GownBod
     name: 'Bodice front',
     cut: 'Cut 1 on the fold',
     outline: toMm(frontO),
-    darts:
-      dartF > 0
+    // v205: neck curve, shoulder, armhole, the side seam in three parts (straight across the dart's mouth), the waist,
+    // and the centre front on the fold.
+    edges: [...Array<GownEdgeRole>(6).fill('neck'), 'seam', ...Array<GownEdgeRole>(11).fill('neck'), 'seam', 'seam', 'seam', 'seam', 'fold'],
+    // v205: the side bust dart is drawn as a dart (its mouth on the side seam, its point short of the bust point).
+    darts: [
+      { a: [c(d1[0]), c(d1[1])] as const, apex: [c(apexS[0]), c(apexS[1])] as const, b: [c(d2[0]), c(d2[1])] as const },
+      ...(dartF > 0
         ? [{ a: [c(BP[0] - dartF / 2), c(yWf)] as const, apex: [c(BP[0]), c(BP[1] + K.dartStop)] as const, b: [c(BP[0] + dartF / 2), c(yWf)] as const }]
-        : [],
+        : []),
+    ],
     marks: [[c(xf), c(AD), 'underarm']],
     points: [[c(BP[0]), c(BP[1]), 'bust point']],
     grain: [

@@ -6,7 +6,9 @@ import { GownMakerPanel } from '@/app/vendor-dashboard/shop/_components/gown-mak
 import { GownFabricTypesSurface } from '@/app/admin/studio/_surfaces/gown-fabric-types-surface';
 import { GownOrderPanel } from '@/app/vendor-dashboard/clients/[eventId]/_components/gown-order-panel';
 import { gownDesignOf } from '@/lib/gown-maker';
-import { emptyGownQuantities, startingGownBody, startingGownConfig } from '@/lib/gown-config';
+import { ScanLab } from './scan-lab';
+import { GOWN_LACES, emptyGownHand, emptyGownQuantities, startingGownBody, startingGownConfig, type GownLace } from '@/lib/gown-config';
+import { gownCutContext } from '@/lib/gown-pattern/cutting-list';
 
 const P = 100; // ₱1 in centavos — SAMPLE amounts only
 
@@ -25,9 +27,9 @@ function sample(mode: GownShopOptions['mode']): GownShopOptions {
 
 const SHOP = '11111111-2222-4333-8444-555555555555';
 const TYPES = [
-  { id: 'satin', name: 'Satin', sheen: 0.8, sheer: 0, stiff: 0.45, verified: false },
-  { id: 'mikado', name: 'Mikado', sheen: 0.55, sheer: 0, stiff: 0.8, verified: false },
-  { id: 'tulle', name: 'Tulle', sheen: 0.1, sheer: 0.85, stiff: 0.3, verified: false },
+  { id: 'satin', name: 'Satin', sheen: 0.8, sheer: 0, stiff: 0.45, verified: false, family: 'satins' as const, usedFor: ['gown_body' as const, 'skirt' as const] },
+  { id: 'mikado', name: 'Mikado', sheen: 0.55, sheer: 0, stiff: 0.8, verified: false, family: 'structured' as const, usedFor: ['gown_body' as const, 'skirt' as const] },
+  { id: 'tulle', name: 'Tulle', sheen: 0.1, sheer: 0.85, stiff: 0.3, verified: false, family: 'sheers' as const, usedFor: ['skirt' as const, 'sleeves_accents' as const] },
 ];
 const STOCK = {
   shop: SHOP,
@@ -48,7 +50,7 @@ const REGISTRY = [
 ];
 
 export default function Lab({ view }: { view: string }) {
-  if (view === 'order') {
+  if (view === 'order' || view === 'order-own' || view === 'order-net') {
     const config = { ...startingGownConfig(), sleeve: 'long' as const };
     const body = { ...startingGownBody(), given: ['height', 'bust', 'waist', 'hips'] as ('height' | 'bust' | 'waist' | 'hips')[], matters: ['arms' as const] };
     const q = { ...emptyGownQuantities(), outerM: 6.5 };
@@ -58,6 +60,7 @@ export default function Lab({ view }: { view: string }) {
         <GownOrderPanel
           threadId="00000000-0000-4000-8000-000000000001"
           messageId="00000000-0000-4000-8000-000000000002"
+          who="Ana Reyes"
           seed={{
             ok: true,
             op: 'design',
@@ -65,14 +68,38 @@ export default function Lab({ view }: { view: string }) {
             designId: '00000000-0000-4000-8000-000000000003',
             config,
             body,
-            measures: { waistHip: { cm: 21, from: 'estimate' }, waistFloor: { cm: 98, from: 'typed' }, napeWaist: { cm: 40, from: 'estimate' }, armhole: { cm: 42, from: 'typed' }, upperArm: { cm: 29, from: 'typed' }, elbow: { cm: 25, from: 'estimate' }, wrist: { cm: 15.5, from: 'typed' }, armBent: { cm: 59, from: 'typed' } },
+            measures: { frontLen: { cm: 38.1, from: 'estimate' }, shoulderApex: { cm: 22.2, from: 'estimate' }, apexApex: { cm: 14, from: 'typed' }, acrossBack: { cm: 31.3, from: 'estimate' }, acrossChest: { cm: 29.2, from: 'estimate' }, shoulderLen: { cm: 11.5, from: 'typed' }, sideLen: { cm: 18.3, from: 'estimate' }, neck: { cm: 33.6, from: 'typed' }, waistHip: { cm: 21, from: 'estimate' }, waistFloor: { cm: 98, from: 'typed' }, napeWaist: { cm: 40, from: 'estimate' }, armhole: { cm: 42, from: 'typed' }, upperArm: { cm: 29, from: 'typed' }, elbow: { cm: 25, from: 'estimate' }, wrist: { cm: 15.5, from: 'typed' }, armBent: { cm: 59, from: 'typed' } },
             estimateCentavos: priced.forBride.estimateCentavos,
             forShop: priced.forShop,
+            hand:
+              view === 'order-net'
+                ? { s: 'none' }
+                : {
+                    s: 'sent',
+                    hand: {
+                      ...emptyGownHand(),
+                      handBeads: Array.from({ length: 36 }, (_, i) => ({ ph: (i / 36) * 6, y: 1.2, kind: 'pearl' as const, col: 'ivory', mm: 4, spin: 0 })),
+                      handLace: Array.from({ length: 4 }, (_, i) => ({ u: i / 4, y: 0.8, rot: 0, id: GOWN_LACES.find((l) => l.id !== 'none')!.id as Exclude<GownLace, 'none'>, cm: 6 })),
+                    },
+                  },
             tape: { tape: { waistHip: 21.5 }, fitAt: '2026-11-27T10:00:00Z' },
+            pattern: {
+              shop: { seam: 1.5, hem: 2.5, zip: 2, neck: 1 },
+              paper: 'a4',
+              order: view === 'order-own' ? { seamAllow: { seam: 1, hem: 4, zip: 2.5, neck: 0.8 }, netPattern: false } : { seamAllow: null, netPattern: view === 'order-net' },
+              cut: gownCutContext(config, { ...q, materials: { ...q.materials, outerM: 6.5, liningM: 5.5, netM: 4 } }, 'Duchess satin'),
+            },
             replaced: false,
             sentAt: '2026-11-26T10:00:00Z',
           }}
         />
+      </main>
+    );
+  }
+  if (view === 'scan') {
+    return (
+      <main className="mx-auto max-w-xl p-4" data-gown-shop-lab={view}>
+        <ScanLab stock={STOCK} />
       </main>
     );
   }

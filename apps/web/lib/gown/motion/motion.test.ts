@@ -11,6 +11,8 @@ import { startingGownConfig, type GownConfig, type GownLook } from '../../gown-c
 import { parseGownBody } from '../body/load';
 import type { GownRig } from '../body/rig';
 import { solveGownBody } from '../body/solve';
+import { estimateGownMeasures } from '../body/estimate';
+import { gownRefitTo } from '../body/refit';
 import { gownApplyLook } from '../compat';
 import { gownClothFeel, gownFabricType } from '../fabric/types';
 import { buildDress, emptyDress } from '../dress/build';
@@ -109,4 +111,32 @@ test('while she moves, the body and gown are rebuilt about 24 times a second, ne
   const big = gownStepMotion(M, 0.5);
   assert.ok(big.rebuild, 'after a stall, one rebuild');
   assert.equal(M.acc, 0, 'and the missed ones are not replayed');
+});
+
+test('the designer\'s tape re-fits the mannequin (v175 example, as v206): waist to floor 108 re-fits her legs; nape to waist and shoulder to bust point are checked', async () => {
+  const B = await body(), ref = (REF as unknown as { refit: { before: { leg: number; est: Record<string, number> }; msg: string; leg: number; bustT: number; vals: Record<string, number>; est: Record<string, number> } }).refit;
+  // 158 cm, 92 / 76 / 72 / 98, a mermaid, 7 cm heels; those five numbers are hers.
+  Object.assign(B.vals, { height: 158, bust: 92, waist: 76, underbust: 72, hips: 98, leg: ref.before.leg });
+  B.fine = { athletic: false, bustT: 0, given: ['height', 'bust', 'waist', 'underbust', 'hips'] };
+  const g = { ...design(7), sil: 'mermaid' } as GownConfig;
+  const look = () => {
+    const S = emptyGownPose(B), T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+    D.hold = feel.hold; D.foldK = feel.foldK;
+    solveGownBody(B);
+    gownPoseBody(B, S, 7);
+    buildEnvelope(B, T);
+    buildDress(B, T, D, g, S.floorY, S.floorStand ?? S.floorY);
+    if (gownClearArms(B, S, T, 7)) { buildEnvelope(B, T); buildDress(B, T, D, g, S.floorY, S.floorStand ?? S.floorY); }
+    return estimateGownMeasures(B, T);
+  };
+  const e0 = look();
+  for (const k of ['waistFloor', 'napeWaist', 'shoulderApex'] as const) assert.equal(e0[k], ref.before.est[k], `before: ${k} on the mannequin`);
+  const r = gownRefitTo(B, { waistFloor: 108, napeWaist: 39, shoulderApex: 23 }, look);
+  assert.equal(r.lines.join(' '), ref.msg, 'the lines the designer reads');
+  assert.ok(Math.abs(r.leg! - ref.leg) < 1e-6 && Math.abs(B.vals.leg - ref.leg) < 1e-6, `legs ${B.vals.leg} vs ${ref.leg}`);
+  assert.equal(r.bustT, ref.bustT, 'the bust position goes as high as the mannequin allows');
+  const e1 = estimateGownMeasures(B, emptyEnvelope());
+  assert.equal(e1.waistFloor, ref.est.waistFloor, 'waist to floor now reads the tape');
+  assert.equal(B.vals.weight, ref.vals.weight, 'her weight follows (it was not hers)');
+  assert.deepEqual(gownRefitTo(B, { neck: 34 }, look).lines, ['Kept for the pattern (the mannequin\'s shape doesn\'t change for them): Neck.', 'Add waist to floor, nape to waist or shoulder to bust point to re-fit her proportions.']);
 });

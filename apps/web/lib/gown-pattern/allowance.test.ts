@@ -86,3 +86,11 @@ test('5 · the allowances she can set: cm from 0 to 10, a tenth of a cm, anythin
     assert.equal(sanitizeGownSeamAllowance(bad), null, JSON.stringify(bad));
   assert.equal(GOWN_SEAM_ALLOWANCE_DEFAULT.on, true, 'allowances are on by default (owner D29)');
 });
+
+test('6 · a very sharp point (a dart tip, a narrow gore) is squared off, never thrown far out', () => {
+  const gore: GownBlockPiece = { name: 'Gore', cut: 'Cut 2', outline: [[0, 0], [400, 10], [0, 20]], darts: [], marks: [], points: [], grain: [[0, 10], [300, 10]], vent: 0 };
+  const cut = gownCutLine(gore, GOWN_SEAM_ALLOWANCE_DEFAULT)!;
+  const far = Math.max(...cut.filter((q) => q[0] > 200).map((q) => Math.hypot(q[0] - 400, q[1] - 10)));
+  assert.ok(far <= 4 * 15 + 1, `the point reaches ${far.toFixed(1)} mm out`);
+  assert.ok(cut.length >= 4, 'the sharp point was not squared off');
+});

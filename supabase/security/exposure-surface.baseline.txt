@@ -9,7 +9,7 @@
 # See README.md next to this file before changing it. Adding lines is a
 # WIDENING and fails CI; removing lines is a NARROWING and does not.
 #
-# facts: 8451
+# facts: 8452
 #   schema    4
 #   rls       0
 #   rlsforce  0
@@ -17,7 +17,7 @@
 #   col       6108
 #   policy    1221
 #   view      10
-#   func      432
+#   func      433
 #
 schema	auth	usage=anon,authenticated
 schema	extensions	usage=anon,authenticated
@@ -8063,6 +8063,7 @@ func	public.answer_event_change_request(p_change_id uuid, p_accept boolean, p_no
 func	public.answer_event_date_change(p_event_vendor_id uuid, p_answer text)	secdef=yes exec=authenticated search_path=public
 func	public.answer_incoming_request(p_guest_id uuid, p_yes boolean)	secdef=yes exec=authenticated search_path=public
 func	public.apply_colour_change(p_event_id uuid, p_domain text, p_target_kind text, p_target_key text, p_target_index smallint, p_new_value text)	secdef=yes exec=authenticated search_path=public
+func	public.apply_seat_plan(p_event_id uuid, p_base text, p_clear uuid[], p_new_tables jsonb, p_positions jsonb, p_rows jsonb)	secdef=no exec=authenticated search_path=public
 func	public.apply_supplier_where(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp
 func	public.apply_vendor_pay_plan(p_vendor_profile_id uuid, p_pay_plan_id uuid, p_service_ids uuid[])	secdef=yes exec=authenticated search_path=public
 func	public.apply_venue_hours(p_suggestion_id uuid)	secdef=yes exec=authenticated search_path=public, pg_temp

@@ -113,8 +113,8 @@ test('3 · "Clear all seats" then Undo puts back exactly what was there', () => 
 test('4 · wired: the action honours the scope, Clear keeps locked seats, Undo restores; the editor asks first', () => {
   const act = read('app/dashboard/[eventId]/seating/actions.ts');
   assert.match(act, /const scope = parseSeatScope\(formData\.get\('scope'\)\)/);
-  assert.match(act, /const assignments = scope === 'all' \? seatsThatStay\(assignmentsRead, true\) : assignmentsRead;/, 'the seater ignores the host’s choice');
-  assert.match(act, /scope === 'all' \? seatsToClear\(assignmentsRead, true\)[\s\S]{0,400}?\.eq\('locked', false\)/, '"Seat everyone again" can delete a locked seat');
+  assert.match(act, /const assignments = scope === 'all' \? seatsThatStay\(assignmentsRead, true, lockedTables\) : assignmentsRead;/, 'the seater ignores the host’s choice');
+  assert.match(act, /scope === 'all' \? seatsToClear\(assignmentsRead, true, lockedTables\)[\s\S]{0,400}?\.eq\('locked', false\)/, '"Seat everyone again" can delete a locked seat');
   assert.match(act, /formData\.get\('intent'\) === 'clear'\)[\s\S]{0,80}?return clearAllSeats\(/);
   const clear = act.slice(act.indexOf('async function clearAllSeats('));
   assert.match(clear.slice(0, 1500), /const keepLocked = formData\.get\('keep_locked'\) !== 'false';[\s\S]*?if \(keepLocked\) del = del\.eq\('locked', false\);/, 'Clear does not keep locked seats by default');

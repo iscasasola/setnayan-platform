@@ -185,9 +185,18 @@ function seatProblems(input: DryRunInput): SeatProblem[] {
   // A move INTO a locked table, or of a pinned seat, is never offered: those are "review".
   const canTake = (tableId: string, n: number) => {
     const t = tableById.get(tableId);
-    return !!t && t.locked !== true && free(tableId) >= n;
+    // 🔒 Never onto a table the seater may not use (a locked, Spare or Sweetheart table — `autoSeatTakesTable`):
+    // `apply_seat_plan` would refuse it, and Fix all would fail as a whole.
+    return !!t && autoSeatTakesTable(t) && free(tableId) >= n;
   };
-  const movable = (ids: string[]) => ids.every((id) => seat.get(id)?.locked !== true);
+  // …and never OFF one: a pinned seat, or any seat at a table the seater may not use, stays where it is.
+  const movable = (ids: string[]) =>
+    ids.every((id) => {
+      const s = seat.get(id);
+      if (!s || s.locked === true) return false;
+      const from = tableById.get(s.table_id);
+      return !!from && autoSeatTakesTable(from);
+    });
 
   // 1 · Parties apart: a guest and the people they brought (+1s, kids) at more than one table.
   const parties = new Map<string, string[]>();
@@ -280,7 +289,7 @@ function seatProblems(input: DryRunInput): SeatProblem[] {
     const groupTable = g.group_id
       ? [...seat.values()].find((b) => b.table_id !== a.table_id && byId.get(b.guest_id)?.group_id === g.group_id)?.table_id
       : undefined;
-    const target = groupTable && autoSeatTakesTable(tableById.get(groupTable)!) && movable(moving) && canTake(groupTable, moving.length) ? groupTable : undefined;
+    const target = groupTable && movable(moving) && canTake(groupTable, moving.length) ? groupTable : undefined;
     problems.push({
       kind: 'rsvp_alone',
       guestIds: [g.guest_id],

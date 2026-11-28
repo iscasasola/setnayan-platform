@@ -276,3 +276,52 @@ test('a re-seat never takes a guest off a locked, Spare or Sweetheart table (the
     assert.deepEqual(r.release, []);
   }
 });
+
+test('a fix never moves anyone off or onto a locked, Spare or Sweetheart table — it says "review" (every kind)', () => {
+  const closedKinds: Array<Partial<EventTableRow>> = [{ locked: true }, { table_kind: 'spare' }, { table_type: 'sweetheart_2' }];
+  for (const closed of closedKinds) {
+    const what = JSON.stringify(closed);
+    // plus_one_apart / household_split: the guest sits at a closed table → nobody may be moved onto it.
+    const onto = seatPlanDryRun(
+      input({
+        tables: [table('closed', 1, closed), table('t2', 2)],
+        guests: [guest('h'), guest('k1', { plus_one_of_guest_id: 'h' }), guest('k2', { plus_one_of_guest_id: 'h' })],
+        assignments: [seat('h', 'closed'), seat('k1', 't2'), seat('k2', 't2')],
+      }),
+    );
+    assert.ok(onto.ok);
+    assert.deepEqual(onto.problems.find((p) => p.kind === 'household_split')?.fix, { kind: 'review' }, `${what}: onto`);
+    // …and a +1 sitting at a closed table is never moved off it.
+    const off = seatPlanDryRun(
+      input({
+        tables: [table('t1', 1), table('closed', 2, closed)],
+        guests: [guest('ana'), guest('ana+1', { plus_one_of_guest_id: 'ana' })],
+        assignments: [seat('ana', 't1'), seat('ana+1', 'closed')],
+      }),
+    );
+    assert.ok(off.ok);
+    assert.deepEqual(off.problems.find((p) => p.kind === 'plus_one_apart')?.fix, { kind: 'review' }, `${what}: off`);
+    // elders_near_speaker: an elder at a closed table by the speakers stays put.
+    const loud = seatPlanDryRun(
+      input({
+        tables: [table('closed', 1, { ...closed, x_pos: 10, y_pos: 10 }), table('quiet', 2, { table_kind: 'elders', x_pos: 80, y_pos: 90 })],
+        guests: [guest('lola', { role: 'bride_grandparents' })],
+        assignments: [seat('lola', 'closed')],
+        floor: { ...DEFAULT_FLOOR_PLAN, speakers_enabled: true, speakers_x: 8, speakers_y: 8 },
+      }),
+    );
+    assert.ok(loud.ok);
+    assert.deepEqual(loud.problems.find((p) => p.kind === 'elders_near_speaker')?.fix, { kind: 'review' }, `${what}: elder`);
+    // rsvp_alone: a new yes at a closed table stays put.
+    const alone = seatPlanDryRun(
+      input({
+        tables: [table('closed', 1, closed), table('t2', 2)],
+        guests: [guest('new', { group_id: 'g' }), guest('stranger'), guest('mate', { group_id: 'g' })],
+        assignments: [seat('new', 'closed', { placed_by: 'auto', placed_at: '2026-11-27T00:00:00Z' }), seat('stranger', 'closed'), seat('mate', 't2')],
+        now: new Date('2026-11-28T00:00:00Z'),
+      }),
+    );
+    assert.ok(alone.ok);
+    assert.deepEqual(alone.problems.find((p) => p.kind === 'rsvp_alone')?.fix, { kind: 'review' }, `${what}: rsvp`);
+  }
+});

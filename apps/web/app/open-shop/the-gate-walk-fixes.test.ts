@@ -26,7 +26,8 @@ const PICKER = read('app/_components/service-picker.tsx');
 const CITY_PIN = read('app/open-shop/_components/city-pin.tsx');
 const TAKEN = read('app/open-shop/_components/taken-sign-in.tsx');
 const LOGO_SCREEN = read('app/open-shop/logo/_components/add-your-logo.tsx');
-const LOGO_PAGE = read('app/open-shop/logo/page.tsx');
+// The logo screen's checks are decided by its gate (awaited by its layout before streaming), so the page is read with it.
+const LOGO_PAGE = read('app/open-shop/logo/gate.ts') + read('app/open-shop/logo/page.tsx');
 const FRAME = read('app/_components/picture-frame-control.tsx');
 
 /* ── A1 · email confirm on the shop door ─────────────────────────────────────────────────────────────────────── */

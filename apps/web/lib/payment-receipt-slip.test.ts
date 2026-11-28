@@ -65,7 +65,8 @@ test('2 · the slip: the row’s figures, “not an official receipt”, no S89R
 });
 
 test('3 · the page: hosts only, a refused read is not found, the slip has no number of its own', () => {
-  const page = src('app/receipts/payment/[paymentId]/page.tsx');
+  // The host check and every "not found" are decided by the slip's gate (awaited by its layout before streaming).
+  const page = src('app/receipts/payment/[paymentId]/gate.ts') + src('app/receipts/payment/[paymentId]/page.tsx');
   assert.match(page, /\.eq\('member_type', 'couple'\)\.maybeSingle\(\)/, 'the host check is gone — a coordinator or supplier could open the PDF');
   assert.match(page, /if \(!host\.data\) notFound\(\);/);
   assert.match(page, /if \(payments\.error \|\| quote\.error\) \{[\s\S]*?notFound\(\);/, 'a refused read drew a slip missing what is left');

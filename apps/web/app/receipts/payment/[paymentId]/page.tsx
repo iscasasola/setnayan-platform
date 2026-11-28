@@ -1,10 +1,7 @@
-import { notFound, redirect } from 'next/navigation';
-import { createClient } from '@/lib/supabase/server';
-import { loginRedirectPath, getCurrentUser } from '@/lib/auth';
-import { receiptOfPayment, type PaymentRow } from '@/lib/deal-end';
 import { paymentReceiptSlip, PAYMENT_RECEIPT_KIND } from '@/lib/payment-receipt-slip';
 import { ReceiptPage, ReceiptSlip, slipDate } from '../../_components/receipt-slip';
 import { SaveAsPdfButton, ShareReceiptButton } from '../../_components/receipt-actions';
+import { gatePaymentReceipt } from './gate';
 
 export const metadata = { title: PAYMENT_RECEIPT_KIND };
 
@@ -23,53 +20,8 @@ type Props = { params: Promise<{ paymentId: string }> };
  */
 export default async function PaymentReceiptPage({ params }: Props) {
   const { paymentId } = await params;
-  const supabase = await createClient();
-  const user = await getCurrentUser();
-  if (!user) redirect(loginRedirectPath(`/receipts/payment/${paymentId}`));
-
-  const { data: one, error: oneErr } = await supabase
-    .from('event_vendor_payments')
-    .select('event_id, vendor_id')
-    .eq('payment_id', paymentId)
-    .maybeSingle();
-  if (oneErr) console.error('[payment-receipt] payment read failed', oneErr.message);
-  const ids = one as { event_id: string; vendor_id: string } | null;
-  if (!ids) notFound();
-
-  const [host, booking, event] = await Promise.all([
-    supabase.from('event_members').select('user_id').eq('event_id', ids.event_id).eq('user_id', user.id).eq('member_type', 'couple').maybeSingle(),
-    supabase.from('event_vendors').select('marketplace_vendor_id, vendor_name').eq('vendor_id', ids.vendor_id).maybeSingle(),
-    supabase.from('events').select('display_name').eq('event_id', ids.event_id).maybeSingle(),
-  ]);
-  if (host.error) console.error('[payment-receipt] host read failed', host.error.message);
-  if (!host.data) notFound();
-  const b = booking.data as { marketplace_vendor_id: string | null; vendor_name: string | null } | null;
-  const shopId = b?.marketplace_vendor_id ?? null;
-  if (booking.error || !shopId) notFound();
-
-  const [payments, quote] = await Promise.all([
-    supabase
-      .from('event_vendor_payments')
-      .select('payment_id, amount_php, paid_at, method, reference, is_deposit_record, vendor_confirmed_at, payment_refused_at')
-      .eq('vendor_id', ids.vendor_id)
-      .not('vendor_confirmed_at', 'is', null),
-    supabase
-      .from('vendor_proposals')
-      .select('total_centavos')
-      .eq('event_id', ids.event_id)
-      .eq('vendor_profile_id', shopId)
-      .eq('status', 'accepted')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
-  if (payments.error || quote.error) {
-    console.error('[payment-receipt] rows read failed', (payments.error ?? quote.error)?.message);
-    notFound();
-  }
-  const agreed = quote.data ? Math.round(Number((quote.data as { total_centavos: number | string }).total_centavos) || 0) : null;
-  const receipt = receiptOfPayment({ payments: (payments.data ?? []) as PaymentRow[], paymentId, agreedCentavos: agreed });
-  if (!receipt) notFound();
+  // Sign-in and every "not found" were decided by ./layout.tsx before streaming; same request, same answer.
+  const { ids, b, event, receipt } = await gatePaymentReceipt(paymentId);
 
   const shopName = b?.vendor_name?.trim() || 'Your supplier';
   const eventName = (event.data as { display_name: string | null } | null)?.display_name?.trim() || null;

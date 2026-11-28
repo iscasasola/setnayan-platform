@@ -27,16 +27,14 @@
 import { startGuestsForSize } from '@/lib/event-size';
 import { viewerIsInternal } from '@/lib/view-as-free.server';
 import type { Metadata } from 'next';
-import { notFound, redirect } from 'next/navigation';
+import { gateGenericOnboarding } from './gate';
 import { getCurrentUser, safeNext } from '@/lib/auth';
 import { createClient } from '@/lib/supabase/server';
-import { getCreatableEventTypes } from '@/lib/event-types-db';
-import { profileSetup, resolveProfile } from '@/lib/event-type-profile';
+import { profileSetup } from '@/lib/event-type-profile';
 import { CREATION_ASKS, resolveOnboardingFlow, resolveSetupSteps } from '@/lib/onboarding/flow-config';
 import { setupViewForProfile } from '@/lib/onboarding/setup-view';
 import { getOnboardingSpec } from '@/lib/onboarding/onboarding-db';
 import { getOnboardingTiles } from '@/lib/onboarding-refinements';
-import { experienceQuizEnabled } from '@/lib/experience-quiz';
 import { manilaToday } from '@/lib/std-views';
 import { anonOnboardingEnabled } from '@/lib/anon-onboarding';
 import { onboardingV2BriefEnabled } from '@/lib/onboarding-v2-brief-flag';
@@ -77,17 +75,9 @@ export default async function GenericOnboardingPage({
   // safeNext() keeps it to internal paths only.
   const nextPath = safeNext(sp.next);
 
-  // Dark until the experience-quiz flag is flipped on (the go-live switch).
-  if (!experienceQuizEnabled()) notFound();
-
-  // Validate the type against the LIVE vocab: must be creatable (active AND
-  // enabled) and NOT 'wedding'. events.event_type is a FK to event_type_vocab,
-  // so this guards the commit's FK before we ever insert.
-  const creatable = await getCreatableEventTypes();
-  const row = creatable.find((t) => t.key === type);
-  if (!row || type === 'wedding') notFound();
-
-  const profile = await resolveProfile(type);
+  // The flag, the type's validity and the vendor-free hand-off were decided by ./layout.tsx before streaming (same
+  // request, same answer — see ./gate.ts).
+  const { row, profile, vendorFree } = await gateGenericOnboarding(type);
   const flow = resolveOnboardingFlow(profile);
   // 🎟 THE SETUP ENGINE (G1) — only for a type its seed has admitted
   // (`profile.onboardingEngine`, migration 20271258536791). Its cards are the
@@ -102,11 +92,7 @@ export default async function GenericOnboardingPage({
   // `/onboarding/simple`) is sent there instead of rendering the full wizard
   // under a second URL; a vendor-free type with no dedicated page (none
   // exist today, but a future admin-created one might) falls through with no
-  // tiles, so the wizard below drops every vendor-sizing screen on its own.
-  const vendorFree = profile.marketplaceEnabled !== true;
-  if (vendorFree && row.onboardingHref && row.onboardingHref !== `/onboarding/${type}`) {
-    redirect(row.onboardingHref);
-  }
+  // tiles, so the wizard below drops every vendor-sizing screen on its own. The hand-off itself is in ./gate.ts.
 
   const supabase = await createClient();
   // The type's applicable taxonomy categories (PR3) drive the experience-quiz's

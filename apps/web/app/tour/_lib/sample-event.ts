@@ -21,7 +21,9 @@ import { logQueryError } from '@/lib/supabase/error-detect';
  *      fetcher MUST re-pin `.eq('event_id', getSampleEventId())`.
  *
  * `cache()` so the resolve + the fail-safe `notFound()` happen once per request,
- * before streaming (mirrors the `[slug]` public page's `fetchEventBySlug`).
+ * before streaming (mirrors the `[slug]` public page's `fetchEventBySlug`): `tour/layout.tsx` awaits it above every
+ * stop's `loading.tsx`, so a missing sample is a real 404, never a 200 + skeleton
+ * (🔒 app/_components/a-route-decides-before-it-streams.test.ts).
  */
 const SAMPLE_SLUG = 'maria-and-jose';
 

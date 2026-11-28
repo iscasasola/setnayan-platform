@@ -1,8 +1,7 @@
-import { getCurrentUser } from '@/lib/auth';
+import { ControlRoomUnreadable, gateControlRoom } from './gate';
 import { eventEntitlementClient } from '@/lib/event-entitlement-client.server';
 import Link from 'next/link';
 import { headers } from 'next/headers';
-import { notFound, redirect } from 'next/navigation';
 import {
   Smartphone,
   RefreshCw,
@@ -32,13 +31,11 @@ import {
   Printer,
   SlidersHorizontal,
 } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchReadinessFacts } from '@/lib/live-studio-readiness-server';
 import { decideBroadcastReadiness, poolRouteToAir, type ReadinessDecision } from '@/lib/live-studio-readiness';
 import { BroadcastReadiness } from '@/app/_components/live-studio/broadcast-readiness';
 import { renderUrlQrSvg } from '@/lib/qr';
-import { isLiveStudioSetupHost } from '@/lib/panood-control-room-access';
 import {
   panoodStreamingEnabled,
   panoodCameraAnonEnabled,
@@ -52,7 +49,6 @@ import {
 import { printableCardCount } from '@/lib/live-studio-camera-cards';
 import { formatPhp } from '@/lib/orders';
 import { resolveBroadcastWindow } from '@/lib/live-studio-window-server';
-import { liveStudioRoamEnabled } from '@/lib/live-studio-roam';
 import { turnConfigured } from '@/lib/turn';
 import {
   liveStudioPoolOnly,
@@ -96,7 +92,6 @@ import {
 } from '@/lib/live-studio-overlays';
 import { deriveMonogram } from '@/lib/monogram';
 import { resolveEventMonogramSvg } from '@/lib/monogram-svg-safe';
-import { HERO_MONOGRAM_COLUMNS } from '@/lib/hero-monogram-data';
 import { getYoutubeOAuthConfig } from '@/lib/panood-youtube';
 import {
   getActivePanoodBroadcast,
@@ -104,7 +99,6 @@ import {
 } from '@/lib/panood-broadcast';
 import { resolveLiveAir, shouldOfferManualAir } from '@/lib/live-studio-manual-air';
 import { formatV2Sku } from '@/lib/v2/sku-catalog-v2';
-import { getIapGate } from '@/lib/request-platform';
 import { decideProgramAir, type ProgramChannel } from '@/lib/live-studio-publish';
 import { BroadcastWindowStrip } from './_components/broadcast-window-strip';
 import { ChannelFreshness } from './_components/channel-freshness';
@@ -339,10 +333,6 @@ type Props = {
 };
 
 export default async function LiveStudioControlPage({ params, searchParams }: Props) {
-  // Flag-dark: the whole surface is gated. notFound() (not redirect) so a direct hit
-  // while the flag is off behaves as if the route doesn't exist.
-  if (!liveStudioRoamEnabled()) notFound();
-
   const { eventId } = await params;
   const {
     zone_added,
@@ -374,51 +364,17 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
     write_error,
   } = await searchParams;
 
-  const supabase = await createClient();
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-
-  // RLS is the gate, so `{ data: null, error: null }` is the designed 404 —
-  // "not your event". A REJECTED query also lands on null, and answering that
-  // with the same 404 tells a host mid-event that their own control room does
-  // not exist. The two are distinguishable; they are now distinguished.
-  const { data: event, error: eventError } = await supabase
-    .from('events')
-    .select(`event_id, slug, event_date, ${HERO_MONOGRAM_COLUMNS}, logo_wanted`)
-    .eq('event_id', eventId)
-    .maybeSingle();
-  if (eventError) {
-    console.error('[panood/control] event read refused', eventError);
-    return (
-      <main className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold text-ink">We couldn&rsquo;t open the control room</h1>
-        <p className="mt-3 text-sm text-ink/70">
-          Something went wrong reading your event — this is <strong>not</strong> a sign it
-          was deleted or that you have lost access. If you are already on air, you are
-          still on air. Reload in a moment.
-        </p>
-      </main>
-    );
-  }
-  if (!event) notFound();
-
-  // ── WAVE 4 · HOST GATE, and it is now load-bearing.
-  //
-  // Until Wave 4 this page leaned entirely on RLS: it read only the host's own
-  // zones, so a non-host simply saw nothing. Wave 4 reads camera SEAT rows through
-  // the SERVICE-ROLE client — `panood_camera_operators` RLS is control-room-only
-  // and does not cover a moderator, who is a legitimate host here — and those rows
-  // carry `claim_qr_token`, a seat-hijack credential. So this check is the only
-  // thing standing in front of that read, and it is the SAME predicate the server
-  // actions use (isLiveStudioSetupHost) so the two cannot drift.
-  if (!(await isLiveStudioSetupHost(eventId, user.id))) redirect(`/dashboard/${eventId}`);
+  // The flag, sign-in, "not your event" and the host gate were decided by ./layout.tsx before streaming (same request,
+  // same answer). A REFUSED event read is not a 404 — it draws the "couldn't open" screen, here and in the layout.
+  const gate = await gateControlRoom(eventId);
+  if (gate.refused) return <ControlRoomUnreadable />;
+  const { supabase, user, event, appleIap } = gate;
 
   /* 🍎 THE iPHONE APP, WHERE APPLE SELLS (version 1.1 — `IAP_OPENED_ROUTE` in lib/store-shell.ts; middleware opens
      this controller there ONLY then). There it is the "Go live" door of a Live Watch the event owns — bought in the app
      or on the web (guideline 3.1.3(b)). It never reads the web price, its Exit goes Home, and an event that does not
      own Live Watch is sent Home, where Activate is Apple's sheet (below, after the entitlement is read). False
      everywhere else — and then nothing here changes. Held by `lib/the-app-opens-what-apple-sells.test.ts`. */
-  const appleIap = (await getIapGate()).iap;
 
   // ── Price + links. The ENTITLEMENT itself is resolved further down, once the
   // active broadcast is known — WAVE 7 makes it depend on whether a broadcast is on
@@ -740,7 +696,8 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // Membership was verified above by isLiveStudioSetupHost, which is the
   // authorization boundary; the same posture the Wave 5 program pop-out already
   // documents for the identical read.
-  const broadcastWindow = await resolveBroadcastWindow(ent, eventId);
+  // In the app the gate already resolved it (its redirect needs it); everywhere else it is read here, as before.
+  const broadcastWindow = gate.broadcastWindow ?? (await resolveBroadcastWindow(ent, eventId));
 
   // `owned`/`entitled` used to differ (a lapsed event-day was entitled but not
   // currently owned; LS6 retired that gap). They are the SAME boolean now — kept
@@ -750,9 +707,7 @@ export default async function LiveStudioControlPage({ params, searchParams }: Pr
   // the other's meaning.
   const owned = broadcastWindow.multiCam;
   const entitled = broadcastWindow.reason !== 'not-owned';
-  // 🍎 In the app the controller is the door of an OWNED Live Watch only — every unlock surface below links to the
-  // web's buy page with its price, and the app's one buy is Apple's sheet on Home (`IapLiveWatchSheet`).
-  if (appleIap && !owned) redirect(`/dashboard/${eventId}`);
+  // 🍎 In the app an event that does not own Live Watch was sent Home by ./gate.tsx, before streaming.
   const lock = liveStudioControlLock(entitled, priceLabel);
 
   const tiles = buildChannelTiles({ zones, multiCamUnlocked: lock.multiCamUnlocked, isLive });

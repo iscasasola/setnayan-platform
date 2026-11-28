@@ -237,7 +237,7 @@ test('picker tiles: the five gated life types are deliberately NOT greyed — on
   // has not even named yet.
   assert.match(
     pickerSrc,
-    /unavailableReasons=\{\s*inPlanningWedding \? \{ wedding: `Already planning \$\{inPlanningWedding\.displayName\}` \} : undefined\s*\}/,
+    /unavailableReasons=\{\s*inPlanningWedding \? \{ wedding: `Already planning \$\{inPlanningWeddingNames\(inPlanningWedding\)\}` \} : undefined\s*\}/,
     'unavailableReasons must still be keyed ONLY by wedding — a gated life type keyed in here ' +
       'would grey a tile using information the app does not have yet',
   );

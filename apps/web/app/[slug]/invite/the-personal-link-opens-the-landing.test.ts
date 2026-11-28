@@ -218,7 +218,8 @@ test('G · the in-app bar appears ONLY inside Messenger / Facebook / Instagram',
   // iPhone inside Messenger: Save reads "Open in Safari to save".
   assert.equal(LANDING_WORDS.saveInSafari, 'Open in Safari to save');
   assert.match(ENTER, /const safariSave = inApp\.kind === 'ios' \? inApp\.safariHref : null;/);
-  assert.match(ENTER, /\{safariSave \? \(\s*<a href=\{safariSave\}[^>]*>\s*\{LANDING_WORDS\.saveInSafari\}/);
+  // 🧭 …through `SafariHop`, which says so when the app ignores the hop (owner walk 2026-11-27).
+  assert.match(ENTER, /\{safariSave \? \(\s*<SafariHop href=\{safariSave\}[^>]*>\s*\{LANDING_WORDS\.saveInSafari\}/);
 });
 
 // ═══ H · the couple's message ═══════════════════════════════════════════════

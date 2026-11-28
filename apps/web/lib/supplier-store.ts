@@ -33,7 +33,7 @@ import { BADGE_GRAPHS, BADGE_NAME, type GraphUnlocks, type UnlockBadge } from '.
 import { SHOP_BADGE_KEYS, type ShopBadgeKey } from './badge-tiers';
 import type { ShelfTile } from './shop-badge-shelf';
 import { storageWords } from './downgrade-limits';
-import { storageAllowanceBytes } from './supplier-storage';
+import { meterWords, storageAllowanceBytes } from './supplier-storage';
 import { BADGE_WORDS } from '@/app/vendor-dashboard/shop/_components/badges/badge-page-model';
 import { PAID_WIDGET_NEEDS_PLAN_WORDS, PAID_WIDGET_RESUBSCRIBE_WORDS } from './special-tools';
 import { formatCount } from './format-number';
@@ -1043,7 +1043,10 @@ export type StorageMeter =
 
 export function storageMeter(plan: string | null | undefined, read: { status: 'ok'; bytes: number } | { status: 'unread' } | null): StorageMeter {
   if (!read || read.status !== 'ok') return { kind: 'unread' };
-  const used = read.bytes <= 0 ? '0 MB' : storageWords(read.bytes);
+  // 🔢 ONE SET OF WORDS FOR ONE TOTAL (L6 · S3): the Plans meter says what is stored with `meterWords` — a few KB say KB,
+  // never a rounded-up "1 MB" (owner 23 Nov, "No, real usage only"). The cover used `storageWords` and called a 62 KB
+  // shop "1 MB" beside the meter's "62 KB". The plan's size (`total`) keeps `storageWords`, as the meter's does.
+  const used = meterWords(read.bytes);
   const allowance = storageAllowanceBytes(plan);
   if (allowance === null || allowance <= 0) return { kind: 'no_limit', used };
   const pct = Math.min(100, Math.max(0, (read.bytes / allowance) * 100));

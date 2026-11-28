@@ -214,7 +214,7 @@ test('1 · WIRING: the pages mark exactly those sections, and every word sits in
   assert.match(inside, /<RsvpWidget\b/, 'the form is outside the RSVP part');
   assert.match(src('app/[slug]/_components/rsvp-widget.tsx'), /<ReplyForm[^>]*>[\s\S]*data-rsvp-word=\{rsvpWordBridgeKey\(option\.key\)\}/, 'the answers are drawn inside the form');
   /* The greeting is the guest's own name line. */
-  assert.match(REPLY, /data-maker-section="f:greeting" \/> : null\}\s*(?:\{\s*\}\s*)?<FirstScreenOnly on=\{oneQuestionFrame\}>\s*<div[^>]*>\s*<p[^>]*data-reply-for=""/);
+  assert.match(REPLY, /data-maker-section="f:greeting" \/> : null\}\s*(?:\{\s*\}\s*)?<FirstScreenOnly on=\{oneQuestionFrame\}>\s*<div[^>]*>\s*\{guestName \? \(\s*<p[^>]*data-reply-for=""/);
   /* The notes: every word of the after-screens sits in the block the note's marker stands before. */
   const noteAt = ENTER.indexOf("data-maker-section={reply === 'no' ? 'f:nonote' : 'f:yesnote'}");
   const block = ENTER.indexOf('<div data-landing="message"', noteAt);

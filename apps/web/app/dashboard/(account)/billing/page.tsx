@@ -38,14 +38,14 @@ export default async function BillingPage({
   const user = await getCurrentUser();
   if (!user) redirect(loginRedirectPath('/dashboard/billing'));
   const supabase = await createClient();
-  const [vatRatePct, storeShell, sp] = await Promise.all([getEffectiveVatRatePct(supabase), isStoreShellRequest(), searchParams]);
-  const [read, supplier] = await Promise.all([
-    fetchMyPurchasesMeasured(supabase, user.id, vatRatePct),
-    // A refused shop read (it throws) is a login we cannot place in a shop: the shipped page, never a wrong shop's lists.
-    resolveActiveShop(supabase, user.id)
-      .catch(() => null)
-      .then((shop) => (shop ? fetchSupplierBillingMeasured(supabase, shop.vendorProfileId) : null)),
-  ]);
+  // ⚡ ONE ROUND, NOT TWO (L6 · S4, walk 27 Nov 2026: a supplier's first load sat on "Loading…" for seconds). The shop's
+  // own lists need no VAT rate, so they start at once beside it — they used to wait for the VAT read to finish first.
+  // A refused shop read (it throws) is a login we cannot place in a shop: the shipped page, never a wrong shop's lists.
+  const supplierRead = resolveActiveShop(supabase, user.id)
+    .catch(() => null)
+    .then((shop) => (shop ? fetchSupplierBillingMeasured(supabase, shop.vendorProfileId) : null));
+  const purchasesRead = getEffectiveVatRatePct(supabase).then((vatRatePct) => fetchMyPurchasesMeasured(supabase, user.id, vatRatePct));
+  const [read, supplier, storeShell, sp] = await Promise.all([purchasesRead, supplierRead, isStoreShellRequest(), searchParams]);
 
   return (
     <div className="mx-auto w-full max-w-3xl px-4 py-10 sm:px-6 lg:px-8">

@@ -10,6 +10,7 @@ import type { MonogramMotionKey } from '@/lib/monogram-motion';
 import type { EventRow } from '../_lib/types';
 import { InvitationShell } from './invitation-shell';
 import { eventWordsFor } from '../_lib/event-words';
+import { privatePageLine } from '../_lib/private-page-line';
 
 /**
  * Locked screen for landing-page-visibility='private' (CLAUDE.md 2026-05-22).
@@ -94,9 +95,11 @@ export async function PrivateLanding({
             className="mx-auto h-7 w-7 text-terracotta"
             strokeWidth={1.5}
           />
-          <h2 className="font-serif text-2xl italic tracking-tight">
-            This {words.eventWord}&rsquo;s page is private
-          </h2>
+          {/* ✂ ONE TEXT NODE (owner walk 2026-11-27, MASTER-PLAN B9: "This event ’s page"). Written as
+              "This [word]’s …" it was three text nodes, and a browser's own translate (Chrome offers it on a
+              Filipino phone) or a chat app's reader spaces each node apart — a stray space before the apostrophe.
+              One string has no seam to space. 🛡 `app/[slug]/the-private-page-line-is-one-string.test.ts`. */}
+          <h2 className="font-serif text-2xl italic tracking-tight">{privatePageLine(words.eventWord)}</h2>
           <p className="text-sm text-ink/70">
             Only {words.theOrganizerPossessive} guests and moderators can view it. If you should
             have access, please ask your hosts to add you to the guest list.

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import { SafariHop } from './safari-hop';
 import { SavePassCardButton } from '@/app/_components/save-pass-card-button';
 import { LANDING_WORDS, ticketPopupDue, ticketSeenKey } from '@/lib/guest-landing';
 import { PASS_CARD_WORDS } from '@/lib/pass-card';
@@ -97,9 +98,9 @@ export function TicketPopup({
         />
         <div className="mt-4" onClickCapture={remember}>
           {safariHref ? (
-            <a href={safariHref} className="button-primary w-full">
+            <SafariHop href={safariHref} className="button-primary w-full">
               {LANDING_WORDS.saveInSafari}
-            </a>
+            </SafariHop>
           ) : (
             <>
               <SavePassCardButton hrefs={[src]} label={LANDING_WORDS.saveTicket} variant="primary" />

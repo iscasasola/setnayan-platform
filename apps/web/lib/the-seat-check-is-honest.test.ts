@@ -69,9 +69,16 @@ test('4 · no engine → nothing drawn; a take or a Fix is ONE write and ONE Und
   assert.match(ED, /\.catch\(\(\) => \{\s*if \(n === checkRun\.current\) setSeatCheck\(\{ status: 'failed' \}\);/, 'a failed dry run is not said');
   // ONE write per table (`along`), and the Undo line only once every write has LANDED (`onSaved`).
   const groups = ED.slice(ED.indexOf('const seatGroups = '), ED.indexOf('const shortOf = '));
-  assert.match(groups, /seatGuestHere\(t, first!\.guestId, first!\.seat, rest, \(\) => \{/, 'a unit is seated in more than one write');
-  assert.match(groups, /if \(waiting === 0\) setMoveNote\(\{ text: [\s\S]*?undo: \(\) => \{ setMoveNote\(null\); putBack\(before\); \} \}\)/, 'the Undo line is said before the save landed');
-  assert.match(ED, /if \(res !== null && !saidLocked\(res\)\) onSaved\?\.\(\);/, 'onSaved runs on a failed or refused write');
+  assert.match(groups, /seatGuestHere\(t, first!\.guestId, first!\.seat, rest, \(ok\) => \{/, 'a unit is seated in more than one write');
+  // Locks for EVERY group before anything is written; ONE Undo for exactly what landed; a refused table's guests come back.
+  assert.match(groups, /if \(refuseLocked\(\.\.\.ids\)\) return false;[\s\S]*seatGuestHere\(/, 'a lock is found only after other tables were written');
+  assert.match(groups, /if \(ok\) landed\.push\(\.\.\.tableBefore\);\s*else missed\.push/, 'the Undo covers writes that never landed');
+  assert.match(groups, /if \(waiting > 0\) return;/, 'the line waits for a write that will never answer');
+  assert.match(groups, /if \(missed\.length\) setJustTaken\(\(c\) => new Set\(\[\.\.\.c\]\.filter\(\(id\) => !missed\.includes\(id\)\)\)\);/, 'refused guests stay hidden');
+  assert.match(groups, /undo: \(\) => \{ setMoveNote\(null\); putBack\(back\); \}/, 'no Undo for what landed');
+  // Every way out of seatGuestHere answers onDone — a write refused before it is sent still counts down.
+  assert.match(ED, /if \(!canEdit\) return onDone\?\.\(false\);\s*if \(refuseLocked\(guestId, \.\.\.along\.map\(\(x\) => x\.guestId\)\)\) return onDone\?\.\(false\);/);
+  assert.match(ED, /onDone\?\.\(res !== null && !saidLocked\(res\)\);/, 'onDone says landed for a failed or refused write');
   // Fix all: every placement worked out against ONE pool of free chairs before anything is written (no double-booking).
   const place = ED.slice(ED.indexOf('const placeAll = '), ED.indexOf('const seatGroups = '));
   assert.match(place, /const free = pool\.get\(t\.table_id\) \?\? freeChairsAt\(t\);/, 'two fixes can take the same chair');

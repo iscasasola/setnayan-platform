@@ -2338,10 +2338,11 @@ export function SeatingEditor({
   // Seat one guest at a table's next free chair (the picker's Guest tab —
   // also moves an already-seated guest, since assignGuest upserts per guest).
   // `seat` (Details' "tap an empty seat"): that chair, when it is still free.
-  /** `onSaved`: runs only once the write landed (an Undo line is said after the save, never before). */
-  const seatGuestHere = (t: EventTableRow, guestId: string, seat?: number, along: ReadonlyArray<{ guestId: string; seat: number }> = [], onSaved?: () => void) => {
-    if (!canEdit) return;
-    if (refuseLocked(guestId, ...along.map((x) => x.guestId))) return;
+  /** `onDone(landed)`: told once, whatever happens — true only when the write landed (an Undo line is said after the
+   *  save, never before), false when it was refused, failed or never sent. */
+  const seatGuestHere = (t: EventTableRow, guestId: string, seat?: number, along: ReadonlyArray<{ guestId: string; seat: number }> = [], onDone?: (landed: boolean) => void) => {
+    if (!canEdit) return onDone?.(false);
+    if (refuseLocked(guestId, ...along.map((x) => x.guestId))) return onDone?.(false);
     const occ = occupantsFor(t);
     const removed = removedSeatSet(t.removed_seats, t.capacity);
     let free: number | null = null;
@@ -2364,7 +2365,7 @@ export function SeatingEditor({
       applyGuestOpt({ type: 'seat', guestId, tableId: t.table_id, seat: free });
       for (const x of along) applyGuestOpt({ type: 'seat', guestId: x.guestId, tableId: t.table_id, seat: x.seat });
       const res = await runGated(() => assignGuest(fd));
-      if (res !== null && !saidLocked(res)) onSaved?.();
+      onDone?.(res !== null && !saidLocked(res));
     });
   };
 
@@ -7568,16 +7569,33 @@ export function SeatingEditor({
       return false;
     }
     const ids = groups.flatMap((g) => [...g.guestIds]);
-    const before = ids.map((id) => guestsById.get(id)).filter((g): g is SeatingGuest => Boolean(g)).map((g) => ({ id: g.guest_id, tableId: g.seated_table_id, seat: g.seat_number }));
+    // 🔒 Every group's locks are checked BEFORE anything is written — a lock refuses the whole press, nothing half-done.
+    if (refuseLocked(...ids)) return false;
+    const beforeOf = (gid: string) => {
+      const g = guestsById.get(gid);
+      return g ? [{ id: g.guest_id, tableId: g.seated_table_id, seat: g.seat_number }] : [];
+    };
     setJustTaken((c) => new Set([...c, ...ids]));
     let waiting = plan.byTable.size;
+    const landed: SeatBefore[] = [];
+    const missed: string[] = [];
     const firstTable = tables.find((x) => x.table_id === groups[0]?.tableId);
     for (const [tableId, seats] of plan.byTable) {
       const t = tables.find((x) => x.table_id === tableId)!;
       const [first, ...rest] = seats;
-      seatGuestHere(t, first!.guestId, first!.seat, rest, () => {
+      const tableBefore = seats.flatMap((x) => beforeOf(x.guestId));
+      seatGuestHere(t, first!.guestId, first!.seat, rest, (ok) => {
+        if (ok) landed.push(...tableBefore);
+        else missed.push(...seats.map((x) => x.guestId));
         waiting -= 1;
-        if (waiting === 0) setMoveNote({ text: words(firstTable?.link_group_label?.trim() || firstTable?.table_label || ''), undo: () => { setMoveNote(null); putBack(before); } });
+        if (waiting > 0) return;
+        // A table that did not land gives its guests back to the strips at once.
+        if (missed.length) setJustTaken((c) => new Set([...c].filter((id) => !missed.includes(id))));
+        // ONE Undo for exactly what landed — never for a write that was refused or failed.
+        if (landed.length) {
+          const back = [...landed];
+          setMoveNote({ text: words(firstTable?.link_group_label?.trim() || firstTable?.table_label || ''), undo: () => { setMoveNote(null); putBack(back); } });
+        }
       });
     }
     return true;

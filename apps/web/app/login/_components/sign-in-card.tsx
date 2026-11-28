@@ -388,10 +388,6 @@ export function SignInCard({
               className="hr-si-input"
             />
           </div>
-          {/* A TYPED Google address takes the Google button's own door, address
-              pre-filled (owner 2026-10-18). Folds away every `data-password-only`
-              part below; where this shell hides the Google button it never shows. */}
-          <GoogleAddressDoor enabled={showOAuth} desktopOAuth={desktopOAuth} nativeOAuth={nativeOAuth} next={next} />
           <div className="hr-si-field" data-password-only="">
             <label htmlFor="hr-si-password" className="sr-only">
               Password
@@ -419,6 +415,10 @@ export function SignInCard({
           <SubmitButton className="hr-si-submit" pendingLabel="Signing in…" data-password-only="">
             Continue
           </SubmitButton>
+          {/* A TYPED Google address takes the Google button's own door, address
+              pre-filled (owner 2026-10-18). Folds away every `data-password-only`
+              part above (it sits LAST so Tab goes email → password, not email → Google, G13); where this shell hides the Google button it never shows. */}
+          <GoogleAddressDoor enabled={showOAuth} desktopOAuth={desktopOAuth} nativeOAuth={nativeOAuth} next={next} />
         </form>
       </UseEmailFold>
 

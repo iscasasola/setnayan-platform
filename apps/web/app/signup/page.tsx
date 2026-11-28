@@ -285,16 +285,6 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
                   className="hr-si-input"
                 />
               </div>
-              {/* A TYPED Google address takes the Google button's own door (owner
-                  2026-10-18) — same words, same account type as the row above. */}
-              <GoogleAddressDoor
-                enabled={showOAuth}
-                desktopOAuth={desktopOAuth}
-                nativeOAuth={nativeOAuth}
-                next={next}
-                accountType={accountType}
-                termsBoxId={TERMS_BOX_ID}
-              />
               <div className="hr-si-field" data-password-only="">
                 <label htmlFor="hr-su-password" className="sr-only">
                   Create a password
@@ -326,6 +316,16 @@ export default async function SignupPage({ searchParams }: { searchParams: Searc
               <SubmitButton className="hr-si-submit" pendingLabel="Creating account…" data-password-only="">
                 Create account
               </SubmitButton>
+              {/* A TYPED Google address takes the Google button's own door (owner
+                  2026-10-18) — same words, same account type as the row above. It sits LAST in the form so Tab goes email → password, not email → Google (G13). */}
+              <GoogleAddressDoor
+                enabled={showOAuth}
+                desktopOAuth={desktopOAuth}
+                nativeOAuth={nativeOAuth}
+                next={next}
+                accountType={accountType}
+                termsBoxId={TERMS_BOX_ID}
+              />
             </form>
           </UseEmailFold>
 

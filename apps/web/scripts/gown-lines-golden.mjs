@@ -51,9 +51,9 @@ const cases = [
   { name: 'named lines only (blocks draw them; the sheet says nothing)', sil: 'fitflare', lines: { neck: neck({ custom: false }), back: back({ custom: false, curve: 0.99 }), hem: hem({ custom: false, front: 2, back: 2, edge: 'hanky' }) } },
   { name: 'ball gown: no hem line on the circle skirt', sil: 'ball', lines: { neck: neck({ curve: 0.03, shoulderDepthL: -8, shoulderL: 5 }), hem: hem() } },
   { name: 'mermaid, square back, armholes cut in', sil: 'mermaid', lines: { back: back({ curve: 0.95, sideDepth: 40 }), hem: hem({ front: 3, back: 3, edge: 'curved', custom: true }), armhole: 3.5 } },  // Discriminating cases: a neckline only slightly uneven (under 1 cm), an uneven hem (left ≠ right), and shoulder
-  // points stepping down through the "on the shoulder seam" threshold half a centimetre at a time.
+  // points stepping across both thresholds: onto the shoulder seam (about -6 cm here) and past the armhole (about -2.7 cm).
   { name: 'slightly uneven neckline, uneven hem', sil: 'aline', lines: { neck: neck({ cornerR: 8 }), hem: hem({ left: 9, right: 2 }) } },
-  ...[-4, -3.5, -3, -2.5, -2, -1.5].map((d) => ({ name: `shoulder point at ${d} cm from the collarbone`, sil: 'aline', lines: { neck: neck({ shoulderDepthL: d, shoulderL: 7 }) } })),
+  ...[-6.5, -6, -5.5, -3, -2.5].map((d) => ({ name: `shoulder point at ${d} cm from the collarbone`, sil: 'aline', lines: { neck: neck({ shoulderDepthL: d, shoulderL: 7 }) } })),
 ];
 const style = (d) => (d.error ? d.error : d.pieces.map((p) => ({ name: p.name, style: p.style || [] })));
 const out = { input: { vals: v, skirtEstimate: skirtEst, bodiceEstimate: bodiceMeas, ease }, cases: [] };

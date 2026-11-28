@@ -1551,7 +1551,7 @@
    ]
   },
   {
-   "name": "shoulder point at -4 cm from the collarbone",
+   "name": "shoulder point at -6.5 cm from the collarbone",
    "sil": "aline",
    "lines": {
     "neck": {
@@ -1561,7 +1561,7 @@
      "cornerL": 7.25,
      "cornerDepthL": 15,
      "shoulderL": 7,
-     "shoulderDepthL": -4,
+     "shoulderDepthL": -6.5,
      "curve": 0.8,
      "cornerR": 7.25,
      "cornerDepthR": 15,
@@ -1650,7 +1650,7 @@
         ],
         [
          70,
-         51.38656169873357
+         15.329531910532742
         ]
        ],
        "label": "design neckline (custom)"
@@ -1669,11 +1669,11 @@
     }
    ],
    "summary": [
-    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 14.5 cm wide at the bust line (15 cm below the collarbone on her left, 15 cm below it on her right), meeting the shoulder 7 cm from the centre line on her left and 9 cm on her right, 4 cm above the collarbone; a dipped, sweetheart-like curve"
+    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 14.5 cm wide at the bust line (15 cm below the collarbone on her left, 15 cm below it on her right), meeting the shoulder 7 cm from the centre line on her left and 9 cm on her right, 6.5 cm above the collarbone; a dipped, sweetheart-like curve"
    ]
   },
   {
-   "name": "shoulder point at -3.5 cm from the collarbone",
+   "name": "shoulder point at -6 cm from the collarbone",
    "sil": "aline",
    "lines": {
     "neck": {
@@ -1683,7 +1683,7 @@
      "cornerL": 7.25,
      "cornerDepthL": 15,
      "shoulderL": 7,
-     "shoulderDepthL": -3.5,
+     "shoulderDepthL": -6,
      "curve": 0.8,
      "cornerR": 7.25,
      "cornerDepthR": 15,
@@ -1772,7 +1772,7 @@
         ],
         [
          70,
-         56.38656169873357
+         31.386561698733573
         ]
        ],
        "label": "design neckline (custom)"
@@ -1791,7 +1791,129 @@
     }
    ],
    "summary": [
-    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 14.5 cm wide at the bust line (15 cm below the collarbone on her left, 15 cm below it on her right), meeting the shoulder 7 cm from the centre line on her left and 9 cm on her right, 3.5 cm above the collarbone; a dipped, sweetheart-like curve"
+    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 14.5 cm wide at the bust line (15 cm below the collarbone on her left, 15 cm below it on her right), meeting the shoulder 7 cm from the centre line on her left and 9 cm on her right, 6 cm above the collarbone; a dipped, sweetheart-like curve"
+   ]
+  },
+  {
+   "name": "shoulder point at -5.5 cm from the collarbone",
+   "sil": "aline",
+   "lines": {
+    "neck": {
+     "custom": true,
+     "from": "sweetheart",
+     "centre": 17.5,
+     "cornerL": 7.25,
+     "cornerDepthL": 15,
+     "shoulderL": 7,
+     "shoulderDepthL": -5.5,
+     "curve": 0.8,
+     "cornerR": 7.25,
+     "cornerDepthR": 15,
+     "shoulderR": 9,
+     "shoulderDepthR": 4
+    }
+   },
+   "highNeck": false,
+   "bodice": [
+    {
+     "name": "Bodice back",
+     "style": []
+    },
+    {
+     "name": "Bodice front",
+     "style": [
+      {
+       "pts": [
+        [
+         0,
+         266.38656169873354
+        ],
+        [
+         4.53125,
+         256.14656169873354
+        ],
+        [
+         9.0625,
+         253.58656169873356
+        ],
+        [
+         13.59375,
+         251.80182163900247
+        ],
+        [
+         18.125,
+         250.38656169873357
+        ],
+        [
+         22.65625,
+         249.19489279179385
+        ],
+        [
+         27.1875,
+         248.1556366240697
+        ],
+        [
+         31.71875,
+         247.22809454900198
+        ],
+        [
+         36.25,
+         246.38656169873357
+        ],
+        [
+         40.78125,
+         245.61364738135808
+        ],
+        [
+         45.3125,
+         244.89697556505894
+        ],
+        [
+         49.84375,
+         244.2273901427439
+        ],
+        [
+         54.375,
+         243.59790535540373
+        ],
+        [
+         58.90625,
+         243.00305621991316
+        ],
+        [
+         63.4375,
+         242.43847776156906
+        ],
+        [
+         67.96875,
+         241.9006220306987
+        ],
+        [
+         72.5,
+         241.38656169873357
+        ],
+        [
+         70,
+         36.38656169873357
+        ]
+       ],
+       "label": "design neckline (custom)"
+      }
+     ]
+    }
+   ],
+   "skirt": [
+    {
+     "name": "Skirt front",
+     "style": []
+    },
+    {
+     "name": "Skirt back",
+     "style": []
+    }
+   ],
+   "summary": [
+    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 14.5 cm wide at the bust line (15 cm below the collarbone on her left, 15 cm below it on her right), meeting the shoulder 7 cm from the centre line on her left and 9 cm on her right, 5.5 cm above the collarbone; a dipped, sweetheart-like curve"
    ]
   },
   {
@@ -2040,258 +2162,6 @@
    ],
    "summary": [
     "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 14.5 cm wide at the bust line (15 cm below the collarbone on her left, 15 cm below it on her right), meeting the shoulder 7 cm from the centre line on her left and 9 cm on her right, 2.5 cm above the collarbone; a dipped, sweetheart-like curve"
-   ]
-  },
-  {
-   "name": "shoulder point at -2 cm from the collarbone",
-   "sil": "aline",
-   "lines": {
-    "neck": {
-     "custom": true,
-     "from": "sweetheart",
-     "centre": 17.5,
-     "cornerL": 7.25,
-     "cornerDepthL": 15,
-     "shoulderL": 7,
-     "shoulderDepthL": -2,
-     "curve": 0.8,
-     "cornerR": 7.25,
-     "cornerDepthR": 15,
-     "shoulderR": 9,
-     "shoulderDepthR": 4
-    }
-   },
-   "highNeck": false,
-   "bodice": [
-    {
-     "name": "Bodice back",
-     "style": []
-    },
-    {
-     "name": "Bodice front",
-     "style": [
-      {
-       "pts": [
-        [
-         0,
-         266.38656169873354
-        ],
-        [
-         4.53125,
-         256.14656169873354
-        ],
-        [
-         9.0625,
-         253.58656169873356
-        ],
-        [
-         13.59375,
-         251.80182163900247
-        ],
-        [
-         18.125,
-         250.38656169873357
-        ],
-        [
-         22.65625,
-         249.19489279179385
-        ],
-        [
-         27.1875,
-         248.1556366240697
-        ],
-        [
-         31.71875,
-         247.22809454900198
-        ],
-        [
-         36.25,
-         246.38656169873357
-        ],
-        [
-         40.78125,
-         245.61364738135808
-        ],
-        [
-         45.3125,
-         244.89697556505894
-        ],
-        [
-         49.84375,
-         244.2273901427439
-        ],
-        [
-         54.375,
-         243.59790535540373
-        ],
-        [
-         58.90625,
-         243.00305621991316
-        ],
-        [
-         63.4375,
-         242.43847776156906
-        ],
-        [
-         67.96875,
-         241.9006220306987
-        ],
-        [
-         72.5,
-         241.38656169873357
-        ],
-        [
-         70,
-         71.38656169873357
-        ],
-        [
-         179.0316003473263,
-         71.38656169873357
-        ]
-       ],
-       "label": "design neckline (custom)"
-      }
-     ]
-    }
-   ],
-   "skirt": [
-    {
-     "name": "Skirt front",
-     "style": []
-    },
-    {
-     "name": "Skirt back",
-     "style": []
-    }
-   ],
-   "summary": [
-    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 14.5 cm wide at the bust line (15 cm below the collarbone on her left, 15 cm below it on her right), meeting the shoulder 7 cm from the centre line on her left and 9 cm on her right, 2 cm above the collarbone; a dipped, sweetheart-like curve"
-   ]
-  },
-  {
-   "name": "shoulder point at -1.5 cm from the collarbone",
-   "sil": "aline",
-   "lines": {
-    "neck": {
-     "custom": true,
-     "from": "sweetheart",
-     "centre": 17.5,
-     "cornerL": 7.25,
-     "cornerDepthL": 15,
-     "shoulderL": 7,
-     "shoulderDepthL": -1.5,
-     "curve": 0.8,
-     "cornerR": 7.25,
-     "cornerDepthR": 15,
-     "shoulderR": 9,
-     "shoulderDepthR": 4
-    }
-   },
-   "highNeck": false,
-   "bodice": [
-    {
-     "name": "Bodice back",
-     "style": []
-    },
-    {
-     "name": "Bodice front",
-     "style": [
-      {
-       "pts": [
-        [
-         0,
-         266.38656169873354
-        ],
-        [
-         4.53125,
-         256.14656169873354
-        ],
-        [
-         9.0625,
-         253.58656169873356
-        ],
-        [
-         13.59375,
-         251.80182163900247
-        ],
-        [
-         18.125,
-         250.38656169873357
-        ],
-        [
-         22.65625,
-         249.19489279179385
-        ],
-        [
-         27.1875,
-         248.1556366240697
-        ],
-        [
-         31.71875,
-         247.22809454900198
-        ],
-        [
-         36.25,
-         246.38656169873357
-        ],
-        [
-         40.78125,
-         245.61364738135808
-        ],
-        [
-         45.3125,
-         244.89697556505894
-        ],
-        [
-         49.84375,
-         244.2273901427439
-        ],
-        [
-         54.375,
-         243.59790535540373
-        ],
-        [
-         58.90625,
-         243.00305621991316
-        ],
-        [
-         63.4375,
-         242.43847776156906
-        ],
-        [
-         67.96875,
-         241.9006220306987
-        ],
-        [
-         72.5,
-         241.38656169873357
-        ],
-        [
-         70,
-         76.38656169873357
-        ],
-        [
-         178.24797908221987,
-         76.38656169873357
-        ]
-       ],
-       "label": "design neckline (custom)"
-      }
-     ]
-    }
-   ],
-   "skirt": [
-    {
-     "name": "Skirt front",
-     "style": []
-    },
-    {
-     "name": "Skirt back",
-     "style": []
-    }
-   ],
-   "summary": [
-    "Neckline (custom, from Sweetheart): 17.5 cm below the collarbone at centre, 14.5 cm wide at the bust line (15 cm below the collarbone on her left, 15 cm below it on her right), meeting the shoulder 7 cm from the centre line on her left and 9 cm on her right, 1.5 cm above the collarbone; a dipped, sweetheart-like curve"
    ]
   }
  ]

@@ -1,7 +1,7 @@
 /**
  * 🔒 B9 · the design's own lines on the cutting blocks (prototype v209 `lnBlocks`, `lnSummary`).
  *
- *   1 · held to the prototype: on v209's own drafts of twelve fixed orders, every design line the port draws is the
+ *   1 · held to the prototype: on v209's own drafts of eleven fixed orders, every design line the port draws is the
  *       prototype's to 1e-9 mm, with its label, and every order-sheet sentence is the prototype's word for word
  *       (prototype-v209-lines.golden.json, made by running gown_maker_v209.html — scripts/gown-lines-golden.mjs).
  *   2 · what the maker sends is checked: numbers in cm and the named words, refused (never thinned) otherwise.
@@ -37,8 +37,8 @@ function drawn(sil: string, lines: GownOrderLines | null) {
   return { bodice, skirt };
 }
 
-test('1 · the golden file holds v209’s twelve orders, and every line the port draws is the prototype’s', () => {
-  assert.equal(G.cases.length, 12);
+test('1 · the golden file holds v209’s eleven orders, and every line the port draws is the prototype’s', () => {
+  assert.equal(G.cases.length, 11);
   let lines = 0;
   for (const c of G.cases) {
     const { bodice, skirt } = drawn(c.sil, c.lines);
@@ -63,8 +63,9 @@ test('1 · the golden file holds v209’s twelve orders, and every line the port
     assert.deepEqual(gownLinesSummary(c.lines, c.highNeck), c.summary, `${c.name}: the order sheet`);
   }
   // Anti-vacuity: the cases between them draw every kind of line, the circle skirt draws none, and both of the
-  // neckline's shoulder branches are taken (18 points: on the shoulder seam; 19: below it, across to the armhole).
-  assert.equal(lines, 23, `${lines} lines compared`);
+  // neckline's ends are taken (18 points: it stops at the shoulder; 19: it runs on across to the armhole). The
+  // shoulder-seam threshold itself is pinned by the golden's stepped shoulder points, compared point by point above.
+  assert.equal(lines, 22, `${lines} lines compared`);
   const labels = new Set(G.cases.flatMap((c) => [c.bodice, c.skirt].flatMap((x) => (typeof x === 'string' ? [] : x.flatMap((p) => p.style.map((s) => s.label))))));
   for (const l of ['design neckline', 'design neckline (custom)', 'design back', 'design back (custom)', 'design hem', 'design hem (scalloped)', 'design hem (curved)']) assert.ok(labels.has(l), `no case draws "${l}"`);
   const ball = G.cases.find((c) => c.sil === 'ball')!;

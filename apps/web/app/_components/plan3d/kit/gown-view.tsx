@@ -87,11 +87,13 @@ export function GownStill({ design, alt, ...figure }: Omit<GownViewProps, 'desig
   const colour = gownStillColour(design);
   return (
     <div ref={box} className={css.still} data-gown-still={three && drawn ? '3d' : '2d'} role="img" aria-label={alt}>
-      <svg viewBox="0 0 40 56" className={css.stillSvg} aria-hidden="true" hidden={three && drawn}>
-        {gownStillLayers(design).map((l, i) => (
-          <path key={i} d={l.d} fill={colour} fillOpacity={l.sheer ? 0.45 : 1} stroke="currentColor" strokeOpacity={0.35} strokeWidth={0.6} />
-        ))}
-      </svg>
+      {three && drawn ? null : (
+        <svg viewBox="0 0 40 56" className={css.stillSvg} aria-hidden="true">
+          {gownStillLayers(design).map((l, i) => (
+            <path key={i} d={l.d} fill={colour} fillOpacity={l.sheer ? 0.45 : 1} stroke="currentColor" strokeOpacity={0.35} strokeWidth={0.6} />
+          ))}
+        </svg>
+      )}
       {three ? (
         <div className={css.stillStage}>
           <GownFigure3D {...figure} design={design} still onShow2d={() => { setThree(false); setDrawn(false); }}

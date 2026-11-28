@@ -48,14 +48,22 @@ const ERASES = [
 ] as const;
 const UNDO_MAX = 40;
 
-export function GownHandTools({ design, onDesign, onInput, phone = false }: {
+/** Phones (and the phone layout) say fingers (v202's own test). */
+const PHONE_QUERY = '(pointer: coarse), (max-width: 899px)';
+
+export function GownHandTools({ design, onDesign, onInput }: {
   design: GownConfig;
   onDesign: (next: GownConfig) => void;
   /** What the stage needs while a tool is picked (null when drawing is off). */
   onInput: (input: GownHandInput | null) => void;
-  /** The phone layout says fingers; a computer says the mouse. */
-  phone?: boolean;
 }) {
+  const [phone, setPhone] = useState(false);
+  useEffect(() => {
+    const q = window.matchMedia(PHONE_QUERY), on = () => setPhone(q.matches);
+    on();
+    q.addEventListener('change', on);
+    return () => q.removeEventListener('change', on);
+  }, []);
   const [brush, setBrush] = useState<Omit<GownHandBrush, 'tool'> & { tool: GownHandTool | null }>({ ...GOWN_HAND_BRUSH, tool: null });
   const [note, setNote] = useState('');
   const [asking, setAsking] = useState(false);
@@ -146,7 +154,7 @@ export function GownHandTools({ design, onDesign, onInput, phone = false }: {
           <span>Mirror both sides</span>
           <SwitchTrack on={brush.mirror} />
         </button>
-        <ActionButton tone="neutral" icon={Undo2} label="Undo" waiting={!undo.length} onClick={() => { const last = undo.at(-1); if (!last) return; setUndo((u) => u.slice(0, -1)); onDesign({ ...live.current.design, ...last }); }} data-gown-hand-undo="" />
+        <ActionButton tone="neutral" icon={Undo2} label="Undo" waiting={!undo.length} onClick={() => { const last = undo.at(-1); if (!last) return; setUndo((u) => u.slice(0, -1)); setNote(''); onDesign({ ...live.current.design, ...last }); }} data-gown-hand-undo="" />
       </div>
       {placed ? (
         asking ? (

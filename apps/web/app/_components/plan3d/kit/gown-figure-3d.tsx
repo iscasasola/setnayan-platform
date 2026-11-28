@@ -428,7 +428,7 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
     const root = rig.mesh.parent ?? rig.mesh;
     if (design) {
       // Clothes follow the body: the gown is built on the body just posed.
-      const ft = gownFabricType(design.fabric), feel = gownClothFeel(ft.props, design.skirtLayers);
+      const ft = gownFabricType(design.fabric), feel = gownClothFeel(ft, design.skirtLayers);
       cloth.D.hold = feel.hold;
       cloth.D.foldK = feel.foldK;
       const pleatAmp = design.pleatCm / 100 / rig.P.S, dress = () => {

@@ -32,7 +32,7 @@ test('every technique folds the cloth as v197 does, and the designer reads the s
   const B = await body();
   for (const r of REF.rows) {
     const g = { ...gownApplyLook(startingGownConfig(), r.look ?? {}), ...r.gown, hem: r.hem, hemCm: 0 } as GownConfig;
-    const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+    const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
     D.hold = feel.hold; D.foldK = feel.foldK;
     buildEnvelope(B, T);
     buildDress(B, T, D, g, floorOf(B));

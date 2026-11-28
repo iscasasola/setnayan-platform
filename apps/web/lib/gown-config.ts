@@ -340,7 +340,10 @@ export type GownHem = (typeof GOWN_HEMS)[number]['id'];
  */
 export const GOWN_STOCK_FABRICS = [
   { id: 'satin', label: 'Satin' },
+  { id: 'duchess', label: 'Duchess satin' },
+  { id: 'bias_satin', label: 'Bias satin' },
   { id: 'mikado', label: 'Mikado' },
+  { id: 'taffeta', label: 'Taffeta' },
   { id: 'crepe', label: 'Crepe' },
   { id: 'chiffon', label: 'Chiffon' },
   { id: 'georgette', label: 'Georgette' },
@@ -414,11 +417,15 @@ export const GOWN_LACE_BEADS = [
 ] as const;
 export type GownLaceBeads = (typeof GOWN_LACE_BEADS)[number]['id'];
 
+/** Lace colours (v207 adds the gown's own colour, black and any colour she picks; `laceHex` carries the picked one). */
 export const GOWN_LACE_COLOURS = [
   { id: 'white', label: 'White' },
   { id: 'ivory', label: 'Ivory' },
   { id: 'champagne', label: 'Champagne' },
   { id: 'blush', label: 'Blush' },
+  { id: 'match', label: 'Gown colour' },
+  { id: 'black', label: 'Black' },
+  { id: 'custom', label: 'Any colour…' },
 ] as const;
 export type GownLaceColour = (typeof GOWN_LACE_COLOURS)[number]['id'];
 
@@ -931,6 +938,8 @@ export type GownConfig = {
   laceAt: GownLacePlace;
   laceBeads: GownLaceBeads;
   laceCol: GownLaceColour;
+  /** The lace colour she picked (`laceCol: 'custom'` only), `#RRGGBB`. */
+  laceHex: string | null;
   laceCm: number;
   /** The first bead layer, flat (the prototype's `gown.bead*`), then any extra layers. */
   bead: GownBead;
@@ -1069,6 +1078,7 @@ export function startingGownConfig(): GownConfig {
     laceAt: 'cascade',
     laceBeads: 'none',
     laceCol: 'ivory',
+    laceHex: null,
     laceCm: r('laceCm'),
     bead: 'none',
     beadAt: 'cascade',
@@ -1798,7 +1808,9 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
   const colourHex = hexOrNull(r.colourHex);
   const accentHex = hexOrNull(r.accentHex);
   const trimHex = hexOrNull(r.trimHex);
-  if (colourHex === undefined || accentHex === undefined || trimHex === undefined) return no('colours');
+  const laceHex = hexOrNull(r.laceHex);
+  if (colourHex === undefined || accentHex === undefined || trimHex === undefined || laceHex === undefined) return no('colours');
+  if (p.laceCol === 'custom' && !laceHex) return no('colours');
   if (p.colour === 'custom' && !colourHex) return no('colours');
   if (p.trimCol === 'custom' && !trimHex) return no('colours');
   const palette = idSet(r.palette, ids(GOWN_COLOUR_FAMILIES), GOWN_PALETTE_MAX);
@@ -1875,6 +1887,7 @@ export function sanitizeGownConfig(input: unknown, offer: GownOffer): { ok: true
       laceAt: p.laceAt,
       laceBeads: p.laceBeads,
       laceCol: p.laceCol,
+      laceHex: p.laceCol === 'custom' ? laceHex : null,
       laceCm: n.laceCm,
       bead: l.bead,
       beadAt: l.beadAt,

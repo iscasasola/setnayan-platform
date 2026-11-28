@@ -47,7 +47,7 @@ const designOf = (look: Partial<GownConfig>, st: Partial<GownConfig>) =>
   ({ ...gownApplyLook(startingGownConfig(), { veil: 'none', sleeve: 'none', cape: 'none', ...look }), ...st, hem: 'floor', hemCm: 0 }) as GownConfig;
 /** The gown, its sleeves, any cape and the flowers on her, as the prototype's present() lays them. */
 function dressed(B: GownRig, g: GownConfig) {
-  const T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), K = emptyCape(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers), floorY = floorOf(B);
+  const T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), K = emptyCape(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers), floorY = floorOf(B);
   D.hold = feel.hold; D.foldK = feel.foldK;
   buildEnvelope(B, T);
   buildDress(B, T, D, g, floorY);

@@ -32,7 +32,7 @@ test('trims as v197 builds them: every piece within 1 mm, and the metres the des
   const B = await body();
   for (const r of REF.rows) {
     const g = { ...gownApplyLook(startingGownConfig(), r.look ?? {}), ...r.gown, hem: r.hem, hemCm: 0 } as GownConfig;
-    const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+    const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
     D.hold = feel.hold; D.foldK = feel.foldK;
     buildEnvelope(B, T);
     const floorY = floorOf(B);

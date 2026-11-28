@@ -28,7 +28,7 @@ const body = () => {
 
 function dressOn(B: GownRig, over: Partial<GownConfig>, view: { bustled?: boolean } = {}): { T: GownEnvelope; D: GownDress; g: GownConfig } {
   const g = { ...startingGownConfig(), ...over };
-  const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+  const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
   D.hold = feel.hold; D.foldK = feel.foldK;
   buildEnvelope(B, T);
   buildDress(B, T, D, g, floorOf(B), floorOf(B), view);

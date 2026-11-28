@@ -36,7 +36,7 @@ const design = (heel: number): GownConfig => ({ ...gownApplyLook(startingGownCon
 
 /** The stage's order (v206 `present`): pose her, her envelope, the gown, clear her arms, and wrap the bodice again if an arm moved. */
 function present(B: GownRig, pose: GownPoseName, heel: number) {
-  const g = design(heel), S = emptyGownPose(B), T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+  const g = design(heel), S = emptyGownPose(B), T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
   D.hold = feel.hold; D.foldK = feel.foldK;
   solveGownBody(B);
   const dress = () => { buildEnvelope(B, T); buildDress(B, T, D, g, S.floorY, S.floorStand ?? S.floorY, { standing: GOWN_STANDING_POSES.includes(S.pose) }); writeDress(D, T, C, { pleat: g.pleat, n: g.pleatN, amp: g.pleatCm / 100 / B.P.S }); };
@@ -120,7 +120,7 @@ test('the designer\'s tape re-fits the mannequin (v175 example, as v206): waist 
   B.fine = { athletic: false, bustT: 0, given: ['height', 'bust', 'waist', 'underbust', 'hips'] };
   const g = { ...design(7), sil: 'mermaid' } as GownConfig;
   const look = () => {
-    const S = emptyGownPose(B), T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+    const S = emptyGownPose(B), T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
     D.hold = feel.hold; D.foldK = feel.foldK;
     solveGownBody(B);
     gownPoseBody(B, S, 7);

@@ -26,7 +26,7 @@ const body = () => {
   return rig;
 };
 function dressed(B: GownRig, g: GownConfig) {
-  const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+  const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
   D.hold = feel.hold; D.foldK = feel.foldK;
   buildEnvelope(B, T);
   buildDress(B, T, D, g, floorOf(B));

@@ -22,7 +22,7 @@ const body = () => {
 };
 async function dressed(over: Partial<GownConfig>) {
   const B = await body(), g = { ...gownApplyLook(startingGownConfig(), over as Partial<GownLook>), ...over } as GownConfig;
-  const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+  const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
   D.hold = feel.hold; D.foldK = feel.foldK;
   buildEnvelope(B, T);
   buildDress(B, T, D, g, floorOf(B));

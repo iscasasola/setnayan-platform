@@ -49,7 +49,7 @@ const designOf = (r: Row): GownConfig => {
 
 /** The stage's order for what the quote measures: the gown, the sleeves, the overlay, the cape, the lace and the beads. */
 function quantitiesOf(B: GownRig, g: GownConfig): GownQuantities {
-  const T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), K = emptyCape(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+  const T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), K = emptyCape(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
   D.hold = feel.hold; D.foldK = feel.foldK;
   solveGownBody(B);
   // Posed as the stage poses her, in her shoes: the skirt is cut to the floor she stands on.

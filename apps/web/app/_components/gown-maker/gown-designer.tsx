@@ -38,6 +38,7 @@ import {
 import type { GownPoseName } from '@/lib/gown/motion/poses';
 import type { GownMotionKind } from '@/lib/gown/motion/walks';
 import type { GownTurnStyle, GownTwirlStyle } from '@/lib/gown/motion/turn';
+import { formatCount } from '@/lib/format-number';
 import css from './gown-designer.module.css';
 
 export type GownDesignerState = { config: GownConfig; body: GownBody };
@@ -236,7 +237,7 @@ export function GownDesigner({ seed, fabrics, onChange, onDone }: GownDesignerPr
           <PillSelector label="Part of the maker" value={tab} options={[{ key: 'meas', label: 'Measurements' }, { key: 'design', label: 'Design' }]} onPick={(k: Tab) => setTab(k)} data="gown-tab" />
           <ActionButton tone="neutral" quiet icon={Undo2} label="Undo" onClick={doUndo} disabled={!undo.length} />
         </div>
-        <p className="text-sn-12 text-ink/70" data-gown-count>{`${tab === 'meas' ? 'Measurements' : 'Design'} · ${at + 1} of ${steps.length}`}</p>
+        <p className="text-sn-12 text-ink/70" data-gown-count>{`${tab === 'meas' ? 'Measurements' : 'Design'} · ${formatCount(at + 1)} of ${formatCount(steps.length)}`}</p>
         <h2 id="gown-step-name" className="text-sn-19">{tab === 'meas' ? ms.label : ds.label}</h2>
         <div className="grid gap-3" data-gown-step={tab === 'meas' ? ms.id : ds.id}>{tab === 'meas' ? measBody() : designBody()}</div>
         {note ? <p className="text-sn-13 text-ink/75" role="status">{note}</p> : null}

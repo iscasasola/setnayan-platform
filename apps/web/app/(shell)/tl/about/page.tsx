@@ -183,7 +183,7 @@ export default async function AboutPageTaglish() {
             Tagalog na <em>&ldquo;I-set na &rsquo;yan&rdquo;</em>) ang isang lugar para
             sa buong event: i-plan ito, mag-hire ng verified local suppliers, at
             i-capture ang araw para mahanap ng bawat guest ang mga litratong kasama
-            sila. Hosts pay 0% commission.
+            sila.
           </p>
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink/75">
             Gawa at pinapatakbo dito mismo sa Pilipinas, para sa paraan ng

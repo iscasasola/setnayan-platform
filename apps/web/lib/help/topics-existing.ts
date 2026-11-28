@@ -72,8 +72,8 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       {
         slug: 'how-much-does-setnayan-cost',
         title: 'How much does Setnayan cost?',
-        appBody: 'Planning in the Setnayan app is free: schedule, budget, guest list, seat plan, mood board, RSVP with a QR code for every guest, and marketplace browse with a match preview. Hosts pay 0% commission. They pay their suppliers directly and Setnayan never sits between them at checkout.',
-        body: 'Planning is free: schedule, budget, guest list, seat plan, mood board, and marketplace browse with a match preview. For an event there are three optional paid plans, Event Plus, Event Pro and Event Ultra — Setnayan AI comes inside Event Pro and Event Ultra — and each other service is priced on its own; current rates are on setnayan.com/pricing. Hosts pay 0% commission. They pay suppliers directly. Suppliers: Free, Plus, Pro and Ultra plans, and getting Verified is free; no plan limits how many bookings a supplier takes — see setnayan.com/for-suppliers.',
+        appBody: 'Planning in the Setnayan app is free: schedule, budget, guest list, seat plan, mood board, RSVP with a QR code for every guest, and marketplace browse with a match preview. Hosts pay their suppliers directly and Setnayan never sits between them at checkout.',
+        body: 'Planning is free: schedule, budget, guest list, seat plan, mood board, and marketplace browse with a match preview. For an event there are three optional paid plans, Event Plus, Event Pro and Event Ultra — Setnayan AI comes inside Event Pro and Event Ultra — and each other service is priced on its own; current rates are on setnayan.com/pricing. They pay suppliers directly. Suppliers: Free, Plus, Pro and Ultra plans, and getting Verified is free; no plan limits how many bookings a supplier takes — see setnayan.com/for-suppliers.',
       },
       {
         slug: 'is-setnayan-free-for-couples',
@@ -91,13 +91,13 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       },
       {
         slug: 'does-setnayan-take-commission',
-        title: 'Does Setnayan take commission on supplier bookings?',
-        appBody: 'No. Hosts pay 0% commission. They pay their suppliers directly, and Setnayan never touches that money.',
+        title: 'Who do I pay when I book a supplier?',
+        appBody: 'You pay your supplier directly, and Setnayan never touches that money.',
         // ⚖ OWNER 2026-10-12 (#14): couple-facing pages do NOT mention the
         // supplier's fee. This topic is shown to couples, so the fee sentence
         // moved to the supplier-only "Fees & plans" topic below — word for
         // word — rather than being deleted.
-        body: 'No. Hosts pay 0% commission. They pay their suppliers directly, and Setnayan never touches that money. Setnayan earns from the optional plans and services couples choose to buy (Event Plus, Event Pro, Event Ultra, Papic, Live Watch and more) and from its services to suppliers. Current rates are on setnayan.com/pricing.',
+        body: 'You pay your supplier directly, and Setnayan never touches that money. Setnayan earns from the optional plans and services couples choose to buy (Event Plus, Event Pro, Event Ultra, Papic, Live Watch and more) and from its services to suppliers. Current rates are on setnayan.com/pricing.',
       },
       {
         slug: 'what-is-todays-focus',
@@ -189,8 +189,8 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       {
         slug: 'best-free-filipino-wedding-planner-app',
         title: 'What wedding planning app is built for Filipino weddings?',
-        appBody: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers and pay them directly. Hosts pay 0% commission.',
-        body: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers and pay them directly. Hosts pay 0% commission. Optional paid plans — Event Plus, Event Pro and Event Ultra (Setnayan AI comes inside Event Pro and Event Ultra) — and services like the livestream are priced at setnayan.com/pricing.',
+        appBody: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers and pay them directly.',
+        body: 'Setnayan is a free, Philippines-first planner that keeps the whole wedding in one account: a guest list with no guest limit and more than 30 Filipino ceremony roles, RSVP with a QR code for every guest, a seat plan with a free 3D walkthrough of your reception, a budget in pesos, the day’s schedule, a mood board, and an Event Hub for your save-the-date and RSVP. No card and no trial clock. Couples book verified Filipino suppliers and pay them directly. Optional paid plans — Event Plus, Event Pro and Event Ultra (Setnayan AI comes inside Event Pro and Event Ultra) — and services like the livestream are priced at setnayan.com/pricing.',
       },
       {
         slug: 'guest-list-with-ninongs-and-ninangs',
@@ -205,7 +205,7 @@ export const TOPICS_EXISTING: HelpTopic[] = [
       {
         slug: 'verified-filipino-wedding-suppliers',
         title: 'Where can I find verified Filipino suppliers?',
-        body: 'Setnayan’s marketplace lists Filipino suppliers whose business papers were each checked by a Setnayan admin, and it shows their real business name. Browsing is free and open to anyone. Hosts pay 0% commission. You pay suppliers directly, and nothing you pay them comes back to Setnayan. Save two suppliers to compare them side by side — location, rating, services and distance from your venue — then message them from Setnayan, where a supplier sees your event’s name and date, never your email.',
+        body: 'Setnayan’s marketplace lists Filipino suppliers whose business papers were each checked by a Setnayan admin, and it shows their real business name. Browsing is free and open to anyone. You pay suppliers directly, and nothing you pay them comes back to Setnayan. Save two suppliers to compare them side by side — location, rating, services and distance from your venue — then message them from Setnayan, where a supplier sees your event’s name and date, never your email.',
       },
       {
         slug: 'share-wedding-photos-with-guests-automatically',

@@ -382,7 +382,7 @@ export function FrontDoorLanding({
             <b>Nothing is a screenshot.</b> Every quote and payment is a card in your chat.
           </li>
           <li>
-            <b>You pay them directly.</b> Hosts pay 0% commission.
+            <b>You pay them directly.</b>
           </li>
           <li>
             <b>An exclusive Setnayan gift with every booking.</b>

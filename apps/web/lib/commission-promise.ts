@@ -49,7 +49,7 @@ export const COMMISSION_PCT = 0;
  * would raise a question they do not have.
  */
 export const COUPLE_COMMISSION_PROMISE =
-  'Hosts pay 0% commission. You pay your suppliers directly, and Setnayan never sits between you at checkout.';
+  'You pay your suppliers directly, and Setnayan never sits between you at checkout.';
 
 /**
  * The promise as a SUPPLIER reads it: both sentences, always together.

@@ -82,7 +82,7 @@ import { maybeRunOwnerApprovals } from '@/lib/admin/self-approval-runner';
 // query the brand ranks for — weddings remain the deepest surface.
 const HOME_TITLE = 'Setnayan · Plan any event free. Every photo in one album.';
 const HOME_DESCRIPTION =
-  'Plan any Filipino event free — wedding, debut, christening, birthday, graduation, anniversary, reunion, corporate and more — with every guest’s photo in one album. Verified supplier marketplace. Hosts pay 0% commission.';
+  'Plan any Filipino event free — wedding, debut, christening, birthday, graduation, anniversary, reunion, corporate and more — with every guest’s photo in one album. Verified supplier marketplace.';
 
 export const metadata = {
   // The title already opens with the brand, so the layout template must not add it again (final check A1-161).
@@ -252,7 +252,7 @@ const softwareAppJsonLd = {
     // stays true in both directions.
     'The same planning, capture, and memory tools run every event type Setnayan offers — weddings, debuts, christenings, birthdays, graduations, anniversaries, reunions, corporate events, wakes, and more — and your event becomes its own recurring anniversary with a yearly reminder',
     // Couple-facing: the zero is unqualified here (owner 2026-09-22).
-    'Verified Filipino event supplier marketplace — every supplier passes a business-legitimacy check and a video call with a Setnayan admin; hosts pay suppliers directly. Hosts pay 0% commission.',
+    'Verified Filipino event supplier marketplace — every supplier passes a business-legitimacy check and a video call with a Setnayan admin; hosts pay suppliers directly.',
   ],
   offers: {
     '@type': 'Offer',

@@ -18,7 +18,7 @@ import { BRAND_OG_IMAGES } from '@/lib/brand-og';
 
 const TITLE = 'Filipino event suppliers by event, category and city';
 const DESCRIPTION =
-  'Verified Filipino suppliers for weddings, debuts, christenings, birthdays and every other event — grouped by event, category and city, with the prices they publish themselves. Hosts pay 0% commission.';
+  'Verified Filipino suppliers for weddings, debuts, christenings, birthdays and every other event — grouped by event, category and city, with the prices they publish themselves.';
 
 export async function generateMetadata(): Promise<Metadata> {
   const source = await loadLandingCards();

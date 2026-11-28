@@ -1,7 +1,8 @@
 /**
  * FINAL CHECK · the front door's words (25 Nov 2026), held where they were fixed.
  *
- * A1-047 / SW-COMM: the only commission line a person reads is "Hosts pay 0% commission." (brand.md claim 2).
+ * A1-047 / SW-COMM, owner 28 Nov 2026: hosts own the event, so no host page says "0% commission" in any form; the
+ * commission and booking fee are explained on supplier pages and in /terms only.
  * A1-048 / A1-103 / SW-PROMISE: no price promises ("forever", "for good", "habambuhay", "always" free).
  * A1-027 / A1-108 / A1-152 / SW-WORDS: Logo Maker, never "Monogram maker"; E-Gifts, never "Pabuya".
  *
@@ -45,12 +46,9 @@ const FILES = [
 
 const src = (rel: string) => stripComments(readFileSync(join(process.cwd(), rel), 'utf8'));
 
-test('🔒 every "0% commission" a person reads is the ruled sentence', () => {
+test('🔒 no fixed page tells hosts "0% commission" (owner 28 Nov)', () => {
   for (const rel of FILES) {
-    for (const m of src(rel).matchAll(/0% (?:supplier )?commission/g)) {
-      const before = src(rel).slice(Math.max(0, (m.index ?? 0) - 10), m.index);
-      assert.match(before, /Hosts pay $/, `${rel}: a bare "${m[0]}" (only "Hosts pay 0% commission.")`);
-    }
+    assert.doesNotMatch(src(rel), /0% (?:supplier |booking )?commission|zero commission/i, `${rel}: a host is told "0% commission"`);
     assert.doesNotMatch(src(rel), /No commission on your bookings/, `${rel}: commission variant`);
   }
 });
@@ -67,8 +65,9 @@ test('🔒 house words: Logo Maker and E-Gifts', () => {
   }
 });
 
-test('the couple-facing commission promise opens with the ruled sentence (supplier-facing fee lines are not this)', () => {
-  assert.match(COUPLE_COMMISSION_PROMISE, /^Hosts pay 0% commission\./);
+test('the couple-facing promise says who they pay, with no commission figure (owner 28 Nov)', () => {
+  assert.match(COUPLE_COMMISSION_PROMISE, /^You pay your suppliers directly/);
+  assert.doesNotMatch(COUPLE_COMMISSION_PROMISE, /commission/i);
 });
 
 /** L9 section P (27 Nov 2026), held where it was fixed. */

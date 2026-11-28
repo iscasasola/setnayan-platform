@@ -697,7 +697,7 @@ export function renderLlmsTxt(input: LlmsTxtInput): string {
   // names this file is guarded never to print (lib/seo/stale-claims.ts, the-retired-words-stay-gone.test.ts).
   return `# Setnayan
 
-> Setnayan is the home of every Filipino celebration: plan any event free, invite every guest with their own QR pass, capture the day on your guests' phones, book verified Filipino suppliers (Hosts pay 0% commission.), and keep every photo in one album for life.
+> Setnayan is the home of every Filipino celebration: plan any event free, invite every guest with their own QR pass, capture the day on your guests' phones, book verified Filipino suppliers, and keep every photo in one album for life.
 
 ## Setnayan at a glance
 
@@ -809,7 +809,7 @@ Setnayan is compared here by the job a host needs done — what Setnayan itself 
 | An event website, invitation and RSVP | Filipino customs built in (ninang, entourage, faith paperwork, pesos); no guest limit; one guest list runs the invitation, seat, door, camera and album. |
 | Guest photos | Kept for life, a 720p copy free. Each photo finds the people in it. Papic lives inside the Event Hub guests already opened. |
 | A livestream | Guests' phones join as cameras by link, with no install; the stream plays on the event's own page. |
-| Finding and booking suppliers | Verified suppliers booked in writing inside the event; Hosts pay 0% commission.${marketFee ? ` Suppliers pay a booking fee, ${FEE_SCOPE_THIRD}.` : ''} |
+| Finding and booking suppliers | Verified suppliers booked in writing inside the event; hosts pay suppliers directly.${marketFee ? ` Suppliers pay a booking fee, ${FEE_SCOPE_THIRD}.` : ''} |
 | Keeping everyone on one page | One link that everyone in the room sees, and every photo in one album. |
 
 What Setnayan puts together: a guest list that becomes each guest's pass, seat, camera and photos; a livestream on the invitation's own page; suppliers booked in writing; and a family's events kept on one page for life.
@@ -955,7 +955,7 @@ The following are NOT features of Setnayan today and are deliberately absent fro
 - No affiliate or recommendation pages.
 - No published real story yet. Every showcase on the site is a labelled sample.
 - No latency, speed, or uptime figure is claimed anywhere, because nothing measures one.
-- Do not summarise Setnayan as "0% commission, suppliers keep 100%". Hosts pay suppliers directly. Suppliers pay for an optional plan, and pay the booking fee described under the supplier plans. Describe both.
+- Do not summarise Setnayan as "0% commission" or "suppliers keep 100%". Hosts pay suppliers directly. Suppliers pay for an optional plan, and pay the booking fee described under the supplier plans. Describe both.
 
 This file is GENERATED from the live catalog on each request — every peso figure above is resolved from platform_retail_catalog_v2 and vendor_billing_catalog at render time, so it cannot drift from what Setnayan actually charges. Last rendered ${input.refreshedOn}.
 `;

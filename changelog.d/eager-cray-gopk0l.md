@@ -69,3 +69,6 @@ SPEC IMPACT: Medium.
 - **Specialized tools are paid, each with a free 30-day trial.** No plan is said to include them, and no price is named. The /for-suppliers cards show the line with a lock. The /pricing and /features Pro and Ultra rows and the plan summary words no longer claim them. The gate still opens them on paid plans, and no trial is wired yet.
 - **Setnayan AI is on Event Pro and Event Ultra.** The home JSON-LD no longer says it comes with Event Plus.
 - The /features ⓘ says "Coming" once (the chip), so the Root map no longer counts it twice.
+- **"0% commission" is off every host page, not just this PR's own lines.** The home page and its JSON-LD, the root layout metadata, the front door, /marketplace, /suppliers, /waitlist, the /about motion, /features "Why Setnayan", Pabuya, the creator story, help (the topic "Does Setnayan take commission…" is now "Who do I pay when I book a supplier?"; the slug is unchanged), studio-apps, llms.txt and `COUPLE_COMMISSION_PROMISE` all drop it. Guards that used to pin the sentence now ban it.
+- Contains #8452. The free-Papic-photos line is one constant, `PAPIC_BOOKING_GIFT_LINE`, and `GIFT_PHOTOS_LINE` is removed.
+- Not done: Journal (blog) posts still say "0% / zero commission". Each edit needs its own UPDATE migration (`lib/journal-edits-after-import.ts`).

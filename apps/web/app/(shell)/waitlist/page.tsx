@@ -17,7 +17,7 @@ import { actionButtonClass } from '@/components/action-button-class';
 export const metadata = {
   title: 'Plan your wedding free',
   description:
-    'Setnayan is live for couples. Start planning free today — guest list, seating, budget, mood board, and a verified supplier marketplace. Hosts pay 0% commission.',
+    'Setnayan is live for couples. Start planning free today — guest list, seating, budget, mood board, and a verified supplier marketplace.',
   alternates: { canonical: '/waitlist' },
   openGraph: {
     images: BRAND_OG_IMAGES,
@@ -46,7 +46,6 @@ export default function WaitlistPage() {
             mood board, and schedule. Browse a marketplace of real
             photographers, caterers, florists, coordinators and venues, each
             with portfolios and contracts you can sign in-app. No waitlist.
-            Hosts pay 0% commission.
           </p>
 
           <div className="mt-10 flex flex-col gap-3 sm:flex-row sm:items-center">
@@ -84,7 +83,7 @@ export default function WaitlistPage() {
                 live for couples"), so the zero stands alone here — a couple
                 pays no commission, unqualified. Suppliers read the fee on
                 /for-suppliers, which the link below goes to. */}
-            <li>· Hosts pay 0% commission. You pay suppliers directly.</li>
+            <li>· You pay suppliers directly.</li>
             <li>· A receipt on every software purchase, archived in your dashboard</li>
           </ul>
           <p className="mt-6 text-xs text-ink/55">

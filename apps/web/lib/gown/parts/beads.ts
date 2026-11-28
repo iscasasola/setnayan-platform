@@ -147,7 +147,7 @@ export function gownBeadZoneW(at: GownBeadLayer['beadAt'], t: number, top: numbe
 }
 
 /** A spot wiped with the eraser (A7b fills these; v202 `brush.holes`). `r` in cm. */
-export type GownBeadHole = { ph: number; y: number; r: number; what: 'all' | 'beads' | 'lace' };
+export type GownBeadHole = { ph: number; y: number; r: number; what: 'all' | 'beads' | 'lace' | 'cuts' };
 /** Is this spot inside a wiped area (v202 `inHole`)? `rad` is its distance from her centre line, model units. */
 export function gownInHole(holes: readonly GownBeadHole[], ph: number, y: number, cmU: number, rad: number, kind: 'beads' | 'lace'): boolean {
   for (const o of holes) {

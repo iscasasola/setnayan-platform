@@ -337,7 +337,16 @@ async function EventPlan({
           ))}
         </ul>
 
-        {view === 'ev-free' ? null : catalogRes?.error || !row ? (
+        {view === 'ev-free' ? (
+          // 🎁 The free plan carries no Papic credits (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic credits
+          // REMOVED"). Papic is bought by the rung, so the way on is the Papic price list.
+          <p className="text-sm text-ink">
+            No Papic credits come with this plan.{' '}
+            <Link href="/admin/pricing?tab=papic-shots" className="text-xs underline">
+              Papic shot prices
+            </Link>
+          </p>
+        ) : catalogRes?.error || !row ? (
           <ReadFailed what="this plan’s catalogue row — editing stays off until it reads" />
         ) : (
           <div className="space-y-3">

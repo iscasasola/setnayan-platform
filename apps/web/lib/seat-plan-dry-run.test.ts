@@ -264,7 +264,7 @@ test('the RSVP hook runs the same seater after a yes, behind the ⋯ switch, and
 
 test('a re-seat never takes a guest off a locked, Spare or Sweetheart table (the RSVP hook keeps them as they are)', async () => {
   const { reconcileProvisionalSeats } = await import('@/lib/seating');
-  for (const closed of [{ locked: true }, { table_kind: 'spare' }, { table_type: 'sweetheart_2' as const }]) {
+  for (const closed of [{ locked: true }, { table_kind: 'spare' as const }, { table_type: 'sweetheart_2' as const }]) {
     const tables = [table('closed', 1, closed), table('open', 2)];
     const r = reconcileProvisionalSeats({
       tables,

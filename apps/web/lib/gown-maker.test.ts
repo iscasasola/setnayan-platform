@@ -42,8 +42,10 @@ import {
   gownSeamAllowIsUsual,
   type GownShopOptions,
   type GownPriceKey,
+  gownPartsSummary,
+  gownPartOnGown,
 } from './gown-maker';
-import { emptyGownHand, emptyGownQuantities, startingGownConfig, type GownQuantities } from './gown-config';
+import { emptyGownHand, emptyGownQuantities, startingGownConfig, GOWN_PIECE_QUOTE_KEYS, type GownPart, type GownQuantities } from './gown-config';
 
 // Amounts in tests are arbitrary round centavo figures chosen to make the arithmetic visible; they are not prices.
 const C = (n: number) => n * 100;
@@ -504,4 +506,91 @@ test('7n · v209: a scalloped or handkerchief hem is its own unpriced line, in a
   assert.equal(sc[0]!.amountCentavos, null, 'an unpriced hem line was priced');
   const priced = gownDesignOf(shop({ prices: { ...prices, hem_scallop: C(1) } }), { ...gownA.d, hemEdge: 'scallop' } as typeof gownA.d, gownA.q, [], new Map());
   assert.equal(priced.forShop.lines.find((l) => l.key === 'hem_scallop')!.amountCentavos, C(1));
+});
+
+test('7o · v210: dip-dye, border band and patterned fabrics are listed in a Colour per piece group after Fabrics, unpriced', () => {
+  const groups = GOWN_PRICE_GROUPS.map(([g]) => g);
+  assert.equal(groups.indexOf('Colour per piece'), groups.indexOf('Fabrics') + 1, 'Colour per piece is not right after Fabrics');
+  const inGroup = GOWN_PRICE_GROUPS.find(([g]) => g === 'Colour per piece')![1];
+  assert.deepEqual(
+    GOWN_PRICE_ITEMS.filter((i) => inGroup(i.key)).map((i) => [i.key, i.unit]),
+    [['dye_fade', 'pc'], ['border', 'pc'], ['pat_brocade', 'm'], ['pat_jacquard', 'm'], ['pat_floral', 'm'], ['pat_dots', 'm'], ['pat_stripes', 'm'], ['pat_plaid', 'm'], ['pat_lib', 'm']],
+  );
+  // Each item sits in exactly one group (a key matched twice would print twice on the price list).
+  for (const i of GOWN_PRICE_ITEMS) assert.equal(GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length, 1, `${i.key} is in ${GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length} groups`);
+  assert.deepEqual(gownShopTemplate().prices, {}, 'the template priced a new item');
+});
+
+test('7p · v210 (A’s #8525): a piece in its own fabric, its pattern, a dip-dye and a border band are quote lines, never counted twice', () => {
+  // One source for the keys: every quote key in A's contract is an item the designer can price.
+  for (const k of GOWN_PIECE_QUOTE_KEYS) assert.ok(GOWN_PRICE_ITEMS.some((i) => i.key === k), `${k} is not on the price list`);
+  const part = (o: Partial<GownPart> & Pick<GownPart, 'part'>): GownPart => ({ fabric: null, colour: null, fade: null, border: null, pattern: null, ...o });
+  const parts: GownPart[] = [
+    part({ part: 'bodice', fabric: 'crepe', colour: 'accent' }),
+    part({ part: 'skirt', colour: '#B3141C', pattern: { kind: 'brocade', colour: 'main' }, fade: { colour: 'accent', dir: 'down', from: 0, to: 1 }, border: { edge: 'hem', cm: 8, fabric: 'satin', colour: 'main' } }),
+    part({ part: 'sleeves', colour: '#111111' }),
+  ];
+  const d = { ...gownB.d, accentHex: '#C9A46A', parts } as typeof gownB.d;
+  const q = qty((x) => {
+    Object.assign(x.materials, gownB.q.materials, { outerM: 2, accentM: 1 });
+    x.labour.dyeFade = 1;
+    x.labour.borders = 1;
+    x.pieces = [
+      { part: 'bodice', fabric: 'crepe', fabricRef: null, patternKey: null, m: 1.4, eqM: 1.2 },
+      { part: 'skirt', fabric: 'satin', fabricRef: null, patternKey: 'pat_brocade', m: 3.1, eqM: 3 },
+      { part: 'sleeves', fabric: 'satin', fabricRef: null, patternKey: null, m: 0.9, eqM: 0 },
+    ];
+    x.borders = [{ part: 'skirt', edge: 'hem', cm: 8, edgeM: 3.6, m: 0.4, fabric: 'satin' }];
+  });
+  const out = gownDesignOf(shop({ prices: { ...prices, pat_brocade: C(2), dye_fade: C(3) } }), d, q, [], new Map()).forShop.lines;
+  const row = (k: string) => out.filter((l) => l.key === k).map((l) => [l.label, l.qty, l.unit, l.amountCentavos]);
+  const bod = row('fab_crepe').find((r) => String(r[0]).includes('the bodice'))!;
+  assert.deepEqual(bod.slice(1), [1.4, 'm', Math.round(1.4 * prices.fab_crepe!)], 'the bodice in its own fabric is not its own line at the fabric’s price');
+  assert.match(String(bod[0]), /^Crepe \(the bodice, [a-z ]+\)$/, 'the bodice line does not name the piece and its colour');
+  assert.deepEqual(row('pat_brocade').map((r) => [r[1], r[3]]), [[3.1, Math.round(3.1 * C(2))]], 'the patterned skirt is not priced on its pattern line');
+  assert.match(String(row('pat_brocade')[0]![0]), /^Brocade .+ \(the skirt, /);
+  // The gown's own outer is only its remainder (A takes eqM out); the sleeves' own piece replaces the accent line.
+  assert.equal(out.find((l) => String(l.label).endsWith('(outer)'))!.qty, 2);
+  assert.equal(out.filter((l) => l.label.includes('accents: sleeves')).length, 0, 'the sleeves were counted as a piece and as accents');
+  assert.ok(out.some((l) => l.label.includes('(the sleeves, ')), 'the sleeves piece has no fabric line');
+  // Dye: one line per dip-dyed piece, priced from the designer's list.
+  assert.deepEqual(row('dye_fade').map((r) => [r[1], r[3]]), [[1, C(3)]]);
+  assert.match(String(row('dye_fade')[0]![0]), /^Dip-dye \/ colour fade: dyeing \(the skirt, .+ to .+\)$/);
+  // Border: the band (unpriced) and its own measured fabric.
+  assert.deepEqual(row('border'), [['Border band: cutting and applying (the skirt, 8 cm on the hem)', 1, 'pc', null]]);
+  assert.ok(out.some((l) => l.key === 'fab_satin' && l.label.startsWith('Satin (border band on the hem, ') && l.qty === 0.4));
+  // A count that does not match the named fades says one plain line, not names it cannot back.
+  const q2 = qty((x) => { Object.assign(x.materials, gownB.q.materials); x.labour.dyeFade = 2; });
+  const dye2 = gownDesignOf(shop({ prices: { ...prices } }), d, q2, [], new Map()).forShop.lines.filter((l) => l.key === 'dye_fade');
+  assert.deepEqual(dye2.map((l) => [l.label, l.qty]), [['Dip-dye / colour fade: dyeing', 2]]);
+  // Before v210: no pieces, no lines, and the accent sleeves line is back.
+  const old = gownDesignOf(shop({ prices: { ...prices } }), gownB.d, gownB.q, [], new Map()).forShop.lines;
+  assert.equal(old.filter((l) => /^(dye_fade|border|pat_)/.test(l.key)).length, 0);
+  assert.equal(old.filter((l) => l.label.includes('accents: sleeves')).length, 1);
+});
+
+test('7q · v210 pzSummary: one sentence per changed piece on the gown, in the prototype’s words; a piece off the gown is not said', () => {
+  const base = { ...startingGownConfig(), fabric: 'satin', sleeve: 'none' as const, accentHex: '#C9A46A' };
+  const parts: GownPart[] = [
+    { part: 'skirt', fabric: null, colour: '#B3141C', pattern: { kind: 'brocade', colour: 'main' }, fade: { colour: 'accent', dir: 'down', from: 0.2, to: 1 }, border: { edge: 'hem', cm: 8, fabric: 'crepe', colour: 'main' } },
+    { part: 'bodice', fabric: 'crepe', colour: null, fade: null, border: null, pattern: null },
+    { part: 'sleeves', fabric: null, colour: '#111111', fade: null, border: null, pattern: null },
+  ];
+  assert.equal(gownPartOnGown(base, 'sleeves'), false);
+  const said = gownPartsSummary({ ...base, parts });
+  assert.equal(said.length, 2, 'the sleeves are off the gown and were still said');
+  assert.match(said[0]!, /^Skirt in [a-z ]+ brocade satin, fading to [a-z ]+ towards the hem \(dip-dye, from 20 % to 100 % of its length\), with a border band 8 cm wide on the hem in [a-z ]+ crepe$/);
+  assert.match(said[1]!, /^Bodice in [a-z ]+ crepe$/);
+  assert.deepEqual(gownPartsSummary(base), [], 'a design with no pieces said something');
+  assert.equal(gownPartsSummary({ ...base, parts: [{ ...parts[0]!, fade: { colour: 'main', dir: 'up', from: 0, to: 0.5 } }] })[0]!.includes('towards the top (dip-dye, from 0 % to 50 %'), true);
+});
+
+test('7r · v210: a cape in its own piece is cut from that piece’s fabric line, not the cape-cloth line too', () => {
+  const q0 = emptyGownQuantities();
+  const design = { ...startingGownConfig(), cape: 'side' as const, capeFab: null, parts: [{ part: 'cape' as const, fabric: 'chiffon', colour: null, fade: null, border: null, pattern: null }] };
+  const q = { ...q0, materials: { ...q0.materials, capeM: 3.2 }, labour: { ...q0.labour, cape: 'side' as const }, pieces: [{ part: 'cape' as const, fabric: 'chiffon', fabricRef: null, patternKey: null, m: 3.4, eqM: 0 }] };
+  const lines = gownDesignOf(shop(), design, q, []).forShop.lines;
+  assert.equal(lines.filter((l) => l.label.includes('(the cape)')).length, 0, 'the cape was counted as its cloth and as a piece');
+  assert.ok(lines.some((l) => l.key === 'fab_chiffon' && l.qty === 3.4 && l.label.startsWith('Chiffon (the cape, ')));
+  assert.ok(lines.some((l) => l.key === 'cape_side'), 'the cape’s making line went missing');
 });

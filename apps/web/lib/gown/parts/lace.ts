@@ -8,7 +8,8 @@
  * Beaded lace and motifs placed by hand come with the beads (A7). The drawing takes any 2D context.
  */
 import { formatCount } from '../../format-number';
-import type { GownConfig, GownLace, GownLaceColour } from '../../gown-config';
+import type { GownConfig, GownHand, GownLace, GownLaceColour } from '../../gown-config';
+import { gownInHole } from './beads';
 import { RING_N, TAU } from '../body/constants';
 import { clamp, smoothstep, type GownRig } from '../body/rig';
 import type { GownDress } from '../dress/build';
@@ -99,18 +100,27 @@ export function drawGownMotif(g: GownLaceCanvas, id: Exclude<GownLace, 'none'>):
 
 /** One placed motif: where on the flat map (u 0 front … 1 back, y model height), its turn, scale and real width (cm). */
 export type GownLaceSpot = { u: number; y: number; rot: number; sc: number; id: Exclude<GownLace, 'none'>; cm: number };
-export type GownLacePlan = { spots: GownLaceSpot[]; count: number; countN: number; y0: number; y1: number };
+/** A bead sewn on the lace itself (v202 `lace.beadPts`): direction round her, height, size (mm). */
+export type GownLaceBeadPt = { ph: number; y: number; mm: number };
+/**
+ * `count` is the ready-made motifs drawn (one side); `countN` every motif to make, mirrored, plus those placed by hand
+ * (`hand`, each mirrored by the map); `beadPts` the beads sewn on the lace when beaded lace is picked (A7b).
+ */
+export type GownLacePlan = { spots: GownLaceSpot[]; count: number; countN: number; hand: number; beadPts: GownLaceBeadPt[]; y0: number; y1: number };
 
 /**
  * Place the lace (v195 `buildLace`, its placement half). `D` is the dress as built (the flat map's range); `g`, when
  * given, is painted as it goes (cleared first). `inHole` keeps motifs out of cut-outs (A6c) and the brush's holes (A7).
  */
 export function buildGownLace(
-  B: GownRig, T: GownEnvelope, D: GownDress, d: Pick<GownConfig, 'lace' | 'laceAt' | 'laceCm'>,
+  B: GownRig, T: GownEnvelope, D: GownDress, d: Pick<GownConfig, 'lace' | 'laceAt' | 'laceCm'> & Partial<Pick<GownConfig, 'laceBeads' | 'beadMm'>> & Partial<Pick<GownHand, 'handLace' | 'handHoles'>>,
   g: GownLaceCanvas | null = null, inHole: ((ph: number, y: number) => boolean) | null = null,
+  /** The painted map's opacity at a pixel (0–255), for the beads sewn on the lace (v202 reads the canvas). */
+  alphaAt: ((x: number, y: number) => number) | null = null,
 ): GownLacePlan | null {
-  if (d.lace === 'none' || !T.on) return null;
-  const id = d.lace, W = GOWN_LACE_MAP.w, H = GOWN_LACE_MAP.h, cmU = B.P.S * 100, size = d.laceCm, y0 = D.gmapY0, y1 = D.gmapY1, sy = H / ((y1 - y0) * cmU), yS = T.yS, yHem = T.yHem, Lt = D.Lt || 0;
+  const manual = d.handLace ?? [], holes = d.handHoles ?? [];
+  if ((d.lace === 'none' && !manual.length) || !T.on) return null;
+  const item = d.lace !== 'none', id = d.lace === 'none' ? 'floral' : d.lace, W = GOWN_LACE_MAP.w, H = GOWN_LACE_MAP.h, cmU = B.P.S * 100, size = d.laceCm, y0 = D.gmapY0, y1 = D.gmapY1, sy = H / ((y1 - y0) * cmU), yS = T.yS, yHem = T.yHem, Lt = D.Lt || 0;
   if (g) { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H); g.shadowColor = 'rgba(0,0,0,0.28)'; g.shadowBlur = 2; }
   const meanR = (y: number) => { const yy = clamp(y, yHem, T.y0 + (T.n - 2) * SLICE_DY); let r = 0; for (let q = 0; q < N; q += 4) r += lerpRow(T, T.F, yy, q); return r / (N / 4); };
   const half = (y: number) => Math.PI * meanR(y) * cmU; // half the girth at this height, cm
@@ -120,19 +130,21 @@ export function buildGownLace(
   const spots: GownLaceSpot[] = [];
   let count = 0;
   // Anisotropic map scale, so the motif is true-shape on the cloth.
-  const stamp = (u: number, y: number, rot: number, sc = 1) => {
-    spots.push({ u, y, rot, sc, id, cm: size });
-    if (inHole?.(u * Math.PI, y)) return;
+  // The eraser wipes ready-made motifs only; what she placed by hand stays (v202 `auto`).
+  let auto = true;
+  const stamp = (u: number, y: number, rot: number, sc = 1, mid: Exclude<GownLace, 'none'> = id, cm = size) => {
+    spots.push({ u, y, rot, sc, id: mid, cm });
+    if (auto && (inHole?.(u * Math.PI, y) || (holes.length && gownInHole(holes, u * Math.PI, y, cmU, meanR(y), 'lace')))) return;
     if (g) {
       const G = half(Math.max(y, yHem));
       g.setTransform(W / G, 0, 0, sy, u * W, (1 - (y - y0) / (y1 - y0)) * H);
       g.rotate(rot);
-      g.scale(size * sc, size * sc);
-      drawGownMotif(g, id);
+      g.scale(cm * sc, cm * sc);
+      drawGownMotif(g, mid);
     }
     count++;
   };
-  const at = d.laceAt;
+  const at = item ? d.laceAt : null;
   if (at === 'neck') {
     // Walk along the real edge (round the body and up and down), a motif every 0.72 widths.
     let acc = size * 0.35, pu = 0, py = topAt(0);
@@ -152,7 +164,7 @@ export function buildGownLace(
       const dy = Math.abs(hq(Math.min(1, u + 0.02) * Math.PI) - hq(ph)) * cmU;
       s += (size * 0.7) / Math.sqrt(1 + (dy / (0.02 * half(hq(ph)))) ** 2);
     }
-  } else {
+  } else if (at) {
     const step = size * 0.82;
     for (let y = topAt(0) - (size * 0.4) / cmU; y > yHem - Lt + (size * 0.3) / cmU; y -= (step * 0.9) / cmU) {
       const G = half(Math.max(y, yHem)), tSk = clamp((yS - y) / (yS - yHem), 0, 1);
@@ -165,14 +177,49 @@ export function buildGownLace(
       }
     }
   }
+  // Motifs placed with the brush.
+  auto = false;
+  const autoN = count;
+  for (const m of manual) stamp(m.u, m.y, m.rot, 1, m.id, m.cm);
   if (g) g.setTransform(1, 0, 0, 1, 0, 0);
+  count = autoN;
+  // Beaded lace: beads sewn onto the lace itself, only where the motif is drawn (v202).
+  const beadPts: GownLaceBeadPt[] = [], lb = d.laceBeads ?? 'none';
+  if (lb !== 'none' && alphaAt && spots.length) {
+    const tries = lb === 'rich' ? 90 : 40, keep = lb === 'rich' ? 16 : 6, mmB = Math.min(d.beadMm ?? 3, 4);
+    for (const sp of spots) {
+      const G = half(Math.max(sp.y, yHem)), cm = sp.cm * sp.sc, got: [number, number][] = [];
+      for (let t = 0; t < tries && got.length < keep; t++) {
+        const a = rnd() * TAU, r = Math.sqrt(rnd()) * cm * 0.48, uu = sp.u + (r * Math.cos(a)) / G, yy = sp.y + (r * Math.sin(a)) / cmU;
+        if (uu < 0 || uu > 1) continue;
+        const X = Math.round(uu * W), Y = Math.round((1 - (yy - y0) / (y1 - y0)) * H);
+        if (X < 0 || X >= W || Y < 0 || Y >= H || alphaAt(X, Y) < 170) continue;
+        if (got.some(([gu, gy]) => Math.hypot((gu - uu) * G, (gy - yy) * cmU) < (mmB / 10) * 2.2)) continue;
+        got.push([uu, yy]);
+      }
+      for (const [uu, yy] of got) for (const sg of [1, -1]) beadPts.push({ ph: sg * uu * Math.PI, y: yy, mm: mmB });
+    }
+  }
   // Mirrored left and right: every motif but the one on the centre line of an edge counts twice.
-  const countN = count * 2 - (at === 'neck' || at === 'hem' ? 1 : 0);
-  return { spots, count, countN, y0, y1 };
+  const countN = (item ? count * 2 - (at === 'neck' || at === 'hem' ? 1 : 0) : 0) + manual.length * 2;
+  return { spots, count, countN, hand: manual.length * 2, beadPts, y0, y1 };
+}
+
+/** A lace design's thumbnail (v202 `laceThumb`): the motif in white on the library's dark ground, at its own size. */
+export const GOWN_LACE_THUMB = { px: 112, motif: 96, ground: '#3a3640' } as const;
+export function drawGownLaceThumb(g: GownLaceCanvas, id: Exclude<GownLace, 'none'>): void {
+  const P = GOWN_LACE_THUMB.px;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = GOWN_LACE_THUMB.ground;
+  g.fillRect(0, 0, P, P);
+  g.translate(P / 2, P / 2);
+  g.scale(GOWN_LACE_THUMB.motif, GOWN_LACE_THUMB.motif);
+  drawGownMotif(g, id);
+  g.setTransform(1, 0, 0, 1, 0, 0);
 }
 
 /** The line under the lace step (v195), for the designer's count. */
-export const gownLaceCountLine = (name: string, plan: GownLacePlan, cm: number) => `About ${formatCount(plan.countN)} ${name} motifs, ${cm} cm wide, mirrored left and right. This count goes to the designer.`;
+export const gownLaceCountLine = (name: string, plan: GownLacePlan, cm: number) => `About ${formatCount(plan.countN - plan.hand)} ${name} motifs, ${cm} cm wide, mirrored left and right. This count goes to the designer.`;
 
 /** The sheer lace tile's size (px). */
 export const GOWN_LACE_TILE_PX = 256;

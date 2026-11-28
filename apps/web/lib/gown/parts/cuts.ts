@@ -5,7 +5,7 @@
  * an open back opens its keyhole below the nape band. Hand-cut holes
  * (the scissors) come with A7 and use `gownCutForbidden`, the same rule as the ready-made ones.
  */
-import type { GownConfig, GownCutEdge, GownCutout } from '../../gown-config';
+import type { GownConfig, GownCutEdge, GownCutout, GownHand } from '../../gown-config';
 import { GOWN_CUT_FORBIDDEN } from '../../gown-config';
 import { BODY_K, RING_N, SLICE_DY, TAU } from '../body/constants';
 import { clamp, type GownRig } from '../body/rig';
@@ -74,11 +74,12 @@ export type GownCutPlan = {
  * given; the cut map wraps round the body, so a shape across the centre back is drawn three times.
  */
 export function buildGownCuts(
-  B: GownRig, T: GownEnvelope, D: GownDress, d: Pick<GownConfig, 'cuts' | 'cutScale' | 'cutEdge' | 'cutFill' | 'pieces' | 'neck' | 'neckT' | 'back' | 'backT'>, strapless: boolean, g: GownCutCanvas | null = null,
+  B: GownRig, T: GownEnvelope, D: GownDress, d: Pick<GownConfig, 'cuts' | 'cutScale' | 'cutEdge' | 'cutFill' | 'pieces' | 'neck' | 'neckT' | 'back' | 'backT'> & Partial<Pick<GownHand, 'handCuts'>>, strapless: boolean, g: GownCutCanvas | null = null,
 ): GownCutPlan | null {
   const L = D.L;
   const KH = T.on && L ? gownKeyholeBack(d, T.top[N / 2]!, L) : null;
-  if (!T.on || !L || (!KH && !d.cuts.length && d.pieces !== 'crop')) return null;
+  const hand = d.handCuts ?? [];
+  if (!T.on || !L || (!KH && !d.cuts.length && !hand.length && d.pieces !== 'crop')) return null;
   const W = GOWN_CUT_MAP, H = GOWN_CUT_MAP, y0 = D.gmapY0, y1 = D.gmapY1, cmU = B.P.S * 100;
   if (g) { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H); }
   const rAt = (ph: number, y: number) => { let q = ph / DTH; q = ((q % N) + N) % N; const yy = clamp(y, T.yHem, T.y0 + (T.n - 2) * SLICE_DY); return lerpRow(T, T.F, yy, Math.round(q) % N); };
@@ -92,6 +93,27 @@ export function buildGownCuts(
       for (const dx of [-W, 0, W]) { g.setTransform(sx, 0, 0, sy, x + dx, yp); g.scale(c.w * k, c.h * k); drawGownCutShape(g, c.shape); }
     }
   }
+  // A7b: the scissors. A tap is a round hole; a line drawn all the way round takes the shape out (v202).
+  const polyFill = (P: readonly [number, number][]) => {
+    if (!g) return;
+    g.fillStyle = 'rgb(255,0,0)';
+    for (const dx of [-W, 0, W]) {
+      g.setTransform(1, 0, 0, 1, dx, 0);
+      g.beginPath();
+      P.forEach(([ph, y], i) => { const x = (ph / TAU + 0.5) * W, yp = (1 - (y - y0) / (y1 - y0)) * H; if (i) g.lineTo(x, yp); else g.moveTo(x, yp); });
+      g.closePath();
+      g.fill();
+    }
+    g.setTransform(1, 0, 0, 1, 0, 0);
+  };
+  for (const c of hand) {
+    if ('pts' in c) { polyFill(c.pts); continue; }
+    placed.push({ ph: c.ph, y: c.y, w: c.r * 2, h: c.r * 2, shape: 'oval' });
+    if (!g) continue;
+    const sx = W / (TAU * rAt(c.ph, c.y) * cmU), sy = H / ((y1 - y0) * cmU), x = (c.ph / TAU + 0.5) * W, yp = (1 - (c.y - y0) / (y1 - y0)) * H;
+    for (const dx of [-W, 0, W]) { g.setTransform(sx, 0, 0, sy, x + dx, yp); g.scale(c.r * 2, c.r * 2); drawGownCutShape(g, 'oval'); }
+  }
+  if (g) g.setTransform(1, 0, 0, 1, 0, 0);
   const notes: string[] = [];
   let keyhole: [number, number][] | null = null;
   if (KH) {
@@ -121,6 +143,7 @@ export function buildGownCuts(
   const names = d.cuts.map((id) => GOWN_CUT_NAMES[id]);
   if (KH) names.push('keyhole back');
   if (d.pieces === 'crop') names.push('cropped-top gap');
+  if (hand.length) names.push(`${hand.length} cut${hand.length > 1 ? 's' : ''} made with the scissors`);
   if (d.cuts.includes('keyhole') && strapless) notes.push('A keyhole on a strapless bodice needs boning on both sides.');
   return {
     placed, crop, keyhole, y0, y1,

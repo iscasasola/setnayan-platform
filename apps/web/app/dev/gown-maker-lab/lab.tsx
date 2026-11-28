@@ -1,6 +1,7 @@
 'use client';
 
 /** The Gown Maker lab's body (see page.lab.tsx). Fixture numbers only: a SAMPLE body, never a person's. */
+import dynamic from 'next/dynamic';
 import { useRef, useState } from 'react';
 import {
   GOWN_BACKS,
@@ -69,17 +70,23 @@ import {
   GOWN_STOCK_FABRICS,
   GOWN_TRAINS,
   startingGownBody,
+  emptyGownHand,
   startingGownConfig,
   type GownBodyKey,
   type GownBodyVals,
   type GownConfig,
+  type GownHand,
 } from '@/lib/gown-config';
 import { gownChoose, gownHiddenChoices, type GownChoice } from '@/lib/gown/compat';
 import { gownBraNote, gownLimit, gownSetNumber, gownSnapBustT } from '@/lib/gown/body-rules';
 import { GOWN_SCENES, GOWN_SCENE_IDS, type GownSceneId } from '@/lib/gown/scenes';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { GownView } from '@/app/_components/plan3d/kit/gown-view';
-import type { GownSolved } from '@/app/_components/plan3d/kit/gown-figure-3d';
+import type { GownHandInput, GownSolved } from '@/app/_components/plan3d/kit/gown-figure-3d';
+
+// A7b: the hand tools and the lace designer are their own chunks, loaded when shown.
+const GownHandTools = dynamic(() => import('@/app/_components/gown-maker/hand-tools').then((m) => m.GownHandTools), { ssr: false });
+const GownLaceDesigner = dynamic(() => import('@/app/_components/gown-maker/lace-designer').then((m) => m.GownLaceDesigner), { ssr: false });
 
 const isScene = (s: string): s is GownSceneId => (GOWN_SCENE_IDS as readonly string[]).includes(s);
 const SLIDERS: GownBodyKey[] = ['height', 'weight', 'bust', 'waist', 'hips', 'underbust'];
@@ -124,6 +131,9 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   const [note, setNote] = useState('');
   const [hipWant, setHipWant] = useState<number | null>(null);
   const waistTold = useRef(0);
+  const [hand, setHand] = useState<GownHandInput | null>(null);
+  // A7b: her hand work, kept beside the design.
+  const [handWork, setHandWork] = useState<GownHand>(() => emptyGownHand());
   const fine = { athletic: false, bustT, given };
 
   if (view === 'silhouettes') {
@@ -211,7 +221,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   const now = gownCapeNow(design), hidden = gownHiddenChoices(design);
   const capeNow = { capeFab: now.fab, capeLen: now.len, capeEdge: now.edge, capeFasten: now.fasten };
   // Every pick goes through the pairing rules, so the lab shows what the maker will (one line, then Undo in the maker).
-  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'illu' | 'illuBase' | 'illuCol' | 'illuBack' | 'boneShow' | 'straps' | 'strapCol' | 'strapEdge' | 'topEdge' | 'plungeFill' | 'flowers' | 'flowerFrom' | 'flowerType' | 'flowerSize' | 'flowerDen' | 'flowerCol' | 'capeFlowers' | 'laceFinish' | 'veilFab' | 'pearls' | 'bead' | 'beadAt' | 'beadDen' | 'beadCol' | 'boning' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
+  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'illu' | 'illuBase' | 'illuCol' | 'illuBack' | 'boneShow' | 'straps' | 'strapCol' | 'strapEdge' | 'topEdge' | 'plungeFill' | 'flowers' | 'flowerFrom' | 'flowerType' | 'flowerSize' | 'flowerDen' | 'flowerCol' | 'capeFlowers' | 'laceFinish' | 'veilFab' | 'pearls' | 'bead' | 'beadAt' | 'beadDen' | 'beadCol' | 'boning' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'laceBeads' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
     const out = gownChoose(design, { key: k, value: v } as GownChoice);
     setDesign(out.config);
     setNote(out.notes.join(' '));
@@ -226,7 +236,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   };
   return (
     <main className="mx-auto grid max-w-3xl gap-4 p-4 md:grid-cols-2" data-lab-view={view}>
-      <GownView vals={vals} fine={fine} scene={scene} guides={guides} force2d={view === 'fallback'} design={view === 'dress' ? design : null} onSolved={setSolved} />
+      <GownView vals={vals} fine={fine} scene={scene} guides={guides} force2d={view === 'fallback'} design={view === 'dress' ? design : null} onSolved={setSolved} hand={view === 'dress' ? hand : null} handWork={view === 'dress' ? handWork : null} />
       <section className="sn-frame grid gap-3 p-4" aria-label="Her numbers">
         {SLIDERS.map((k) => {
           const [lo, hi] = k === 'height' ? GOWN_BODY_RANGE.height : gownLimit(vals, k);
@@ -289,11 +299,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 ['bow', 'Bow', GOWN_BOWS],
                 ['overlay', 'Overlay', GOWN_OVERLAYS],
                 ['ovFab', 'Overlay made of', GOWN_OVERLAY_FABRICS],
-                ['lace', 'Lace', GOWN_LACES],
-                ['laceAt', 'Lace placed', GOWN_LACE_PLACES],
-                ['laceCol', 'Lace colour', GOWN_LACE_COLOURS],
-                // v200: raised (3D) lace; 3D flowers and their details; scattered pearls.
-                ['laceFinish', 'Lace finish', GOWN_LACE_FINISHES],
+                // v200: 3D flowers and their details; scattered pearls. (Lace is in the lace designer below.)
                 ['flowers', '3D flowers', GOWN_FLOWERS.filter((x) => !hidden.flowers.includes(x.id))],
                 ...(hidden.flowerDetails ? [] : ([
                   ...(hidden.flowerFromRow ? [] : [['flowerFrom', 'Cascade starts at', GOWN_FLOWER_FROM.filter((x) => !hidden.flowerFrom.includes(x.id))] as const]),
@@ -376,6 +382,12 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 dataAttr="data-lab-pick-trims"
                 className="w-full !min-h-11"
               />
+            </div>
+            <div className="col-span-2">
+              <GownLaceDesigner design={design} onChoose={(k, v) => choose(k, v)} onWidth={(cm) => setDesign({ ...design, laceCm: cm })} />
+            </div>
+            <div className="col-span-2">
+              <GownHandTools design={design} hand={handWork} onHand={setHandWork} onInput={setHand} />
             </div>
             <p className="col-span-2 text-sn-12" data-lab-note aria-live="polite">
               {note}

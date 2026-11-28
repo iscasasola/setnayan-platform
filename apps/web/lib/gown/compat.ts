@@ -12,12 +12,18 @@ import {
   GOWN_CAPE_DEF,
   GOWN_CAPE_LENGTHS,
   GOWN_CAPE_STRAP,
+  GOWN_RUFFLE_NECKS,
+  GOWN_SLEEVE_DETACHABLE,
+  GOWN_SLEEVE_EXTRA,
+  GOWN_SLEEVE_TWO,
+  GOWN_SLEEVE_WHY,
   GOWN_SILHOUETTES,
   GOWN_STRAPLESS,
   GOWN_STRAPS,
   GOWN_STRAP_DEF,
   GOWN_STRAP_OK,
   gownCapeFlowersOn,
+  gownCapeKind,
   gownCapeNow,
   gownFloorLength,
   gownFlowersOn,
@@ -28,6 +34,8 @@ import {
   gownLayerCount,
   gownPettiOf,
   gownLookOf,
+  gownSleeveDetach,
+  gownSleeveIsExtra,
   gownSyncLayers,
   startingGownConfig,
   type GownConfig,
@@ -102,6 +110,11 @@ const silName = (s: GownSilhouette) => GOWN_SILHOUETTES.find((x) => x.id === s)!
 /** v197 `BACK_CAP_MSG`. */
 export const GOWN_BACK_CAP_NOTE = 'The back stops at the bra line: a strapless bodice is held up all the way round there. Add straps (under Neckline) or an illusion back (under Back) to go lower.';
 const accented = (g: GownConfig) => !!(g.accentFabric || g.accentHex);
+/** v203 `SLX`: a new sleeve's name in a sentence ("puff", "ruffle band"); the others by their own id. */
+const slxName = (s: GownConfig['sleeve']) => (gownSleeveIsExtra(s) ? GOWN_SLEEVE_EXTRA[s] : s);
+/** v203: the ruffle band and cape sleeves are not called "… sleeves". */
+const slxSleeves = (s: GownConfig['sleeve']) => (s === 'capesl' || s === 'ruffle' ? '' : ' sleeves');
+const slxTwo = (s: GownConfig['sleeve']) => GOWN_SLEEVE_TWO.includes(s);
 
 /** Silhouettes made without a slit, and why (v193 `NO_SLIT`). */
 export const GOWN_NO_SLIT: Partial<Record<GownSilhouette, string>> = {
@@ -334,6 +347,47 @@ export const GOWN_RULES: readonly GownRule[] = [
     note: 'The hem border of 3D flowers is off: it needs a floor-length hem.', tell: true,
   },
   // v198: the illusion bodice, the illusion back and the boning you can see. Their lines go in the Undo line.
+  // v203 `slxSet`: puff, bishop, Juliet, the ruffle band, cape sleeves and the over-robe. Their lines go in the Undo line.
+  { id: 'capesl-own-details', on: ['sleeve'], when: (g, _k, was) => g.sleeve === 'capesl' && was !== 'capesl', apply: (g) => { g.capeFab = null; g.capeLen = null; g.capeEdge = null; g.capeFasten = null; } },
+  {
+    id: 'capesl-cape-off', on: ['sleeve'], when: (g, _k, was) => g.sleeve === 'capesl' && was !== 'capesl' && caped(g), apply: (g) => { g.cape = 'none'; },
+    note: (g) => `The ${capeName(g)} is off: cape sleeves are a cape of their own.`, tell: true,
+  },
+  {
+    id: 'cape-ends-capesl', on: ['cape'], when: (g) => caped(g) && g.sleeve === 'capesl', apply: (g) => { g.sleeve = 'none'; },
+    note: (g) => (g.cape === 'robe' ? 'Cape sleeves are off: the over-robe has its own sleeves.' : `Cape sleeves are off: the ${capeName(g)} takes their place.`), tell: true,
+  },
+  {
+    id: 'robe-off-for-flutter', on: ['sleeve'], when: (g) => (g.sleeve === 'flutter' || g.sleeve === 'butterfly') && g.cape === 'robe', apply: (g) => { g.cape = 'none'; },
+    note: (g) => `The over-robe is off: it has its own sleeves, so ${g.sleeve} sleeves go without it.`, tell: true,
+  },
+  {
+    id: 'one-shoulder-new-sleeves-off', on: ['straps'], when: (g) => (g.straps === 'halter' || g.straps === 'one') && slxTwo(g.sleeve), apply: (g) => { g.sleeve = 'none'; },
+    note: (g) => `Sleeves are now none: ${slxName(g.sleeve)} ${g.sleeve === 'capesl' ? '' : 'sleeves '}need both shoulders, and ${g.straps === 'halter' ? 'a halter leaves the shoulders bare' : 'a one-shoulder gown has only one'}.`.replace('  ', ' '), tell: true,
+  },
+  {
+    id: 'new-sleeves-straps-off', on: ['sleeve'], when: (g) => slxTwo(g.sleeve) && (g.straps === 'halter' || g.straps === 'one'), apply: (g) => { g.straps = 'none'; },
+    note: (g) => `The ${g.straps === 'one' ? 'one-shoulder strap is' : 'halter straps are'} off: ${slxName(g.sleeve)}${slxSleeves(g.sleeve)} need both shoulders.`, tell: true,
+  },
+  {
+    id: 'ruffle-off-shoulder', on: ['sleeve'], when: (g) => g.sleeve === 'ruffle' && !GOWN_RUFFLE_NECKS.includes(g.neck), apply: (g) => { g.neck = 'off'; g.neckT = null; },
+    note: 'The neckline is now off-shoulder: the ruffle band sits on an off-shoulder or sweetheart neckline.', tell: true,
+  },
+  { id: 'neck-ends-ruffle', on: ['neck'], when: (g) => g.sleeve === 'ruffle' && !GOWN_RUFFLE_NECKS.includes(g.neck), apply: (g) => { g.sleeve = 'none'; }, note: 'The ruffle band is off: it sits on an off-shoulder or sweetheart neckline.', tell: true },
+  {
+    id: 'new-sleeves-replace-butterfly', on: ['sleeve'], when: (g, _k, was) => gownSleeveIsExtra(g.sleeve) && was === 'butterfly' && g.sil === 'terno',
+    note: (g) => { const n = slxName(g.sleeve); return `${n[0]!.toUpperCase() + n.slice(1)}${slxSleeves(g.sleeve)} now, in place of the butterfly sleeves the Filipiniana comes with.`; }, tell: true,
+  },
+  {
+    id: 'det-already-detachable', on: ['sleeveDet'], when: (g) => g.sleeveDet === 'detach' && g.neck !== 'off', apply: (g, was) => { g.sleeveDet = (was as GownConfig['sleeveDet']) || 'sewn'; },
+    note: 'On this neckline the sleeves are already detachable.', tell: true,
+  },
+  {
+    // The detachable line is a hint (it says what she has, it changed nothing).
+    id: 'new-sleeves-detachable', on: ['sleeve', 'neck'],
+    when: (g, k, was) => ((k === 'sleeve' && gownSleeveIsExtra(g.sleeve)) || (k === 'neck' && gownSleeveIsExtra(g.sleeve) && strapless(g) && !GOWN_STRAPLESS.includes(was as GownConfig['neck']))) && gownSleeveDetach(g, g.sleeve),
+    note: (g) => `On a strapless bodice the ${slxName(g.sleeve)}${slxSleeves(g.sleeve)} are detachable: each on its own band round the upper arm.`,
+  },
   {
     id: 'illusion-needs-neckline', on: ['illu'], when: (g) => g.illu === 'neck' && bareTop(g), apply: (g) => { g.neck = 'bateau'; g.neckT = null; },
     note: 'An illusion neckline needs a neckline above the cups, so the neckline is now bateau: sheer tulle from the cups up to it.', tell: true,
@@ -397,7 +451,7 @@ export function gownChoose(config: GownConfig, choice: GownChoice, ctx: GownChoo
  * blusher row shows (a classic veil only).
  */
 export function gownHiddenChoices(g: GownConfig): {
-  sleeve: string[]; veil: string[]; waist: string[]; slits: boolean; overlay: string[]; petti: string[]; train: string[]; pleat: boolean; drape: string[]; blusher: boolean; longSleeveLabel: string;
+  sleeve: string[]; sleeveDim: string[]; cape: string[]; sleeveDet: boolean; robeSl: boolean; sleeveWhy: string; capeLabel: string; veil: string[]; waist: string[]; slits: boolean; overlay: string[]; petti: string[]; train: string[]; pleat: boolean; drape: string[]; blusher: boolean; longSleeveLabel: string;
   capeLen: string[]; capeFasten: boolean; capeCol: boolean; capeCm: boolean; neck: string[]; illuDetails: boolean; illuBack: boolean;
   straps: string[]; strapRow: boolean; strapDetails: boolean; strapCol: boolean; topEdge: boolean; plungeFill: boolean;
   flowers: string[]; flowerDetails: boolean; flowerFromRow: boolean; flowerFrom: string[]; flowerSize: string[]; flowerCol: string[]; pearls: string[]; veilFab: boolean;
@@ -406,7 +460,18 @@ export function gownHiddenChoices(g: GownConfig): {
   return {
     overlay: g.sil === 'ball' ? ['asym', 'cascade'] : [],
     // v199: halter and one-shoulder straps leave no pair of shoulders for cap, butterfly or flutter sleeves.
-    sleeve: [...new Set([...(caped(g) ? ['butterfly'] : []), ...(bareTop(g) ? ['cap'] : []), ...(two ? ['cap', 'butterfly', 'flutter'] : [])])],
+    // v203: the ruffle band only on an off-shoulder or sweetheart neckline; no cape sleeves under the over-robe, which
+    // has its own sleeves (nor flutter or butterfly sleeves).
+    sleeve: [...new Set([...(caped(g) ? ['butterfly'] : []), ...(bareTop(g) ? ['cap'] : []), ...(two ? ['cap', 'butterfly', 'flutter'] : []), ...(GOWN_RUFFLE_NECKS.includes(g.neck) ? [] : ['ruffle']), ...(g.cape === 'robe' ? ['capesl', 'flutter', 'butterfly'] : [])])],
+    // v203: with a halter or one-shoulder strap the new sleeves read as out of place (choosing one takes the strap off).
+    sleeveDim: two ? [...GOWN_SLEEVE_TWO] : [],
+    // v203: a Filipiniana keeps its butterfly sleeves (no over-robe).
+    cape: g.sleeve === 'butterfly' ? ['robe'] : [],
+    // v203: how the sleeves are worn, only on an off-shoulder neckline; the over-robe's sleeves with the over-robe.
+    sleeveDet: g.neck !== 'off' || !GOWN_SLEEVE_DETACHABLE.includes(g.sleeve),
+    robeSl: gownCapeKind(g) !== 'robe',
+    sleeveWhy: gownSleeveIsExtra(g.sleeve) ? GOWN_SLEEVE_WHY[g.sleeve] + (gownSleeveDetach(g, g.sleeve) ? ' Detachable: each on its own band round the upper arm, separate from the bodice.' : '') : '',
+    capeLabel: gownCapeKind(g) === 'capesl' ? 'Cape sleeves' : gownCapeKind(g) === 'robe' ? 'Over-robe' : 'Cape',
     veil: longBack(g) ? ['floor', 'chapel', 'cathedral'] : [],
     waist: (['natural', 'empire', 'dropped', 'basque', 'basqueU'] as const).filter((w) => !GOWN_WAIST_FOR[g.pieces].includes(w)),
     slits: !!GOWN_NO_SLIT[g.sil],
@@ -418,7 +483,7 @@ export function gownHiddenChoices(g: GownConfig): {
     longSleeveLabel: bareTop(g) ? 'Detachable' : 'Long',
     // v196 Cape details: the lengths this cape can be; where a back cape fastens; its colour once there is an accent;
     // its own train once it has one.
-    capeLen: g.cape === 'none' ? [] : GOWN_CAPE_LENGTHS.map((l) => l.id).filter((l) => !GOWN_CAPE_DEF[g.cape as Exclude<GownConfig['cape'], 'none'>].lens.includes(l)),
+    capeLen: ((k2) => (k2 === 'none' ? [] : GOWN_CAPE_LENGTHS.map((l) => l.id).filter((l) => !GOWN_CAPE_DEF[k2].lens.includes(l))))(gownCapeKind(g)),
     capeFasten: g.cape !== 'back',
     capeCol: !accented(g),
     capeCm: gownCapeNow(g).len !== 'train',

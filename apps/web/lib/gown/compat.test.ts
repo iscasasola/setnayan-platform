@@ -103,7 +103,7 @@ test('a strapless bodice: its back stops at the bra line, no cap sleeve or cowl,
   assert.deepEqual(c.notes, ['Cap sleeves need a shoulder to sit on: pick a neckline with shoulders first.']);
   assert.deepEqual(gownChoose(start({ neck: 'sweetheart' }), { key: 'sleeve', value: 'long' }).notes, ['Detachable sleeves: each one on its own band round the upper arm, separate from the strapless bodice.']);
   const h = gownHiddenChoices(start({ neck: 'straight' }));
-  assert.deepEqual([h.sleeve, h.drape, h.longSleeveLabel], [['cap'], ['cowl'], 'Detachable']);
+  assert.deepEqual([h.sleeve, h.drape, h.longSleeveLabel], [['cap', 'ruffle'], ['cowl'], 'Detachable'], 'v203: no ruffle band on a straight-across neckline');
 });
 
 test('leaving a ball gown: the petticoat goes back to soft tulle, at most 2 layers', () => {

@@ -667,6 +667,14 @@ export async function autoSeatGuests(formData: FormData) {
     floorPlan.role_seating,
     { vipPlusOnes: floorPlan.vip_plus_ones },
   );
+  // 🛡 The independent check before writing (lib/seat-plan-validator.ts).
+  if (
+    checkAutoSeatPlan({ tables, guests: autoSeatGuestList, existing: assignments, added: rows, nearestVipPlusOnes: floorPlan.vip_plus_ones === 'nearest' })
+      .length > 0
+  ) {
+    logQueryError('autoSeatGuests.validator', { message: 'plan refused' }, { event_id: eventId }, 'will_throw');
+    throw new Error("Couldn't make a plan. Nothing changed.");
+  }
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
       rows.map((r) => ({
@@ -1198,14 +1206,11 @@ export async function lockAndFill(
     keepApartOrStop(supabase, eventId),
   ]);
 
-  // Keep locked seats; clear everyone else so the solver re-seats around them.
-  const lockedAssignments = assignments.filter((a) => a.locked);
-  const { error: delErr } = await supabase
-    .from('event_seat_assignments')
-    .delete()
-    .eq('event_id', eventId)
-    .eq('locked', false);
-  if (delErr) throw new Error(delErr.message);
+  // Keep locked seats — and EVERY seat at a locked table (seat plan § 5: a locked table is kept exactly as it is);
+  // clear everyone else so the solver re-seats around them. The shared rule, `seatsToClear` / `seatsThatStay`.
+  const lockedTables = new Set(tables.filter((t) => t.locked === true).map((t) => t.table_id));
+  const cleared = seatsToClear(assignments, true, lockedTables);
+  const lockedAssignments = seatsThatStay(assignments, true, lockedTables);
 
   const autoSeatGuestList: AutoSeatGuest[] = guests.map((g) => ({
     guest_id: g.guest_id,
@@ -1233,6 +1238,28 @@ export async function lockAndFill(
     roleSeating: floorPlan.role_seating,
     autoSeat: { vipPlusOnes: floorPlan.vip_plus_ones },
   });
+  // 🛡 The independent check (lib/seat-plan-validator.ts) BEFORE anything is taken off: a refused plan changes nothing.
+  if (
+    checkAutoSeatPlan({
+      tables,
+      guests: autoSeatGuestList,
+      existing: lockedAssignments,
+      added: solved.assignments,
+      nearestVipPlusOnes: floorPlan.vip_plus_ones === 'nearest',
+    }).length > 0
+  ) {
+    logQueryError('lockAndFill.validator', { message: 'plan refused' }, { event_id: eventId }, 'will_throw');
+    throw new Error("Couldn't make a plan. Nothing changed.");
+  }
+  if (cleared.length > 0) {
+    const { error: delErr } = await supabase
+      .from('event_seat_assignments')
+      .delete()
+      .eq('event_id', eventId)
+      .eq('locked', false)
+      .in('guest_id', cleared.map((r) => r.guest_id));
+    if (delErr) throw new Error(delErr.message);
+  }
   if (solved.assignments.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
       solved.assignments.map((r) => ({
@@ -2578,26 +2605,8 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
     if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
     cleanPos[id] = { x: Math.max(0, Math.min(100, x)), y: Math.max(0, Math.min(100, y)) };
   }
-  for (const [id, p] of Object.entries(cleanPos)) {
-    const { error } = await supabase
-      .from('event_tables')
-      .update({ x_pos: p.x, y_pos: p.y })
-      .eq('table_id', id)
-      .eq('event_id', eventId);
-    if (error) throw new Error(error.message);
-  }
-  // Null the coordinates of tables the solver overflowed → the Unplaced tray.
-  const unplacedClean = unplacedIds.filter((id) => tableIds.has(id) && !cleanPos[id]);
-  if (unplacedClean.length > 0) {
-    const { error } = await supabase
-      .from('event_tables')
-      .update({ x_pos: null, y_pos: null })
-      .in('table_id', unplacedClean)
-      .eq('event_id', eventId);
-    if (error) throw new Error(error.message);
-  }
-
-  await persistBooths(supabase, eventId, booths);
+  // ⬇ The layout (positions, unplaced, booths) is written only AFTER the plan passes the independent check below,
+  // so a refused plan really changes nothing.
 
   // Auto-seat against the freshly arranged positions.
   const arrangedTables = tables.map((t) =>
@@ -2647,7 +2656,13 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
   // 🛡 The independent check (seat plan § 5 step 7, lib/seat-plan-validator.ts — it shares no code with the solver): a
   // plan that breaks a hard rule is never written. The seats "Seat everyone again" took off go back first, so a
   // refusal leaves the plan exactly as it was.
-  const planBreaks = checkAutoSeatPlan({ tables: arrangedTables, guests: autoSeatGuestList, existing: assignments, added: rows });
+  const planBreaks = checkAutoSeatPlan({
+    tables: arrangedTables,
+    guests: autoSeatGuestList,
+    existing: assignments,
+    added: rows,
+    nearestVipPlusOnes: floorPlan.vip_plus_ones === 'nearest',
+  });
   if (planBreaks.length > 0) {
     if (restoreSeats.length > 0) {
       const { error: backErr } = await supabase
@@ -2665,6 +2680,26 @@ export async function autoArrange(formData: FormData): Promise<AutoArrangeResult
     logQueryError('autoArrange.validator', { message: `plan refused: ${planBreaks.map((b) => b.rule).join(',')}` }, { event_id: eventId }, 'will_throw');
     throw new Error("Couldn't make a plan. Nothing changed.");
   }
+  for (const [id, p] of Object.entries(cleanPos)) {
+    const { error } = await supabase
+      .from('event_tables')
+      .update({ x_pos: p.x, y_pos: p.y })
+      .eq('table_id', id)
+      .eq('event_id', eventId);
+    if (error) throw new Error(error.message);
+  }
+  // Null the coordinates of tables the solver overflowed → the Unplaced tray.
+  const unplacedClean = unplacedIds.filter((id) => tableIds.has(id) && !cleanPos[id]);
+  if (unplacedClean.length > 0) {
+    const { error } = await supabase
+      .from('event_tables')
+      .update({ x_pos: null, y_pos: null })
+      .in('table_id', unplacedClean)
+      .eq('event_id', eventId);
+    if (error) throw new Error(error.message);
+  }
+
+  await persistBooths(supabase, eventId, booths);
   if (rows.length > 0) {
     const { error } = await supabase.from('event_seat_assignments').insert(
       rows.map((r) => ({

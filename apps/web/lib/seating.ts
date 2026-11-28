@@ -1207,6 +1207,12 @@ export function computeAutoSeat(
   // adjacency opt-out, a GROUP spills in plain stage order instead; a role set
   // always stays in one neighbourhood (the owner's "never scattered").
   const tablesFor = (unit: Unit): EventTableRow[] => {
+    // 🔒 A +1 whose guest is already seated sits at THAT table or not at all (a party never splits, seat plan § 5);
+    // when the guest's table is full or closed to the seater, the +1 is shown as not fitting.
+    if (unit.key.startsWith('beside:')) {
+      const anchor = anchorFor(unit.key);
+      return anchor ? [anchor] : [];
+    }
     const byDistance = unit.key.startsWith('role:') || unit.key.startsWith('beside:') || groupAdjacency;
     const anchor = anchorFor(unit.key);
     if (anchor) return cover(around(anchor, byDistance), unit.size);
@@ -1234,8 +1240,9 @@ export function computeAutoSeat(
       continue;
     }
     const used = new Set<string>();
+    const spill = !unit.key.startsWith('beside:');
     for (const chunk of unit.chunks) {
-      const at = seatChunk(chunk, cluster, true);
+      const at = seatChunk(chunk, cluster, spill);
       at.forEach((id) => used.add(id));
       // A guest and their +1s on two tables is a split — shown.
       if (at.length > 1) report?.push({ kind: 'split', guestIds: chunk.map((g) => g.guest_id), tableIds: at });
@@ -1402,14 +1409,29 @@ export function solveSeatPlan(input: SolveInput): SolveResult {
     }
     return false;
   };
-  const freeSeatInUnit = (uKey: string): { table_id: string; seat: number } | null => {
+  // `n` free chairs in a unit, reserved in order (null when it has fewer).
+  const freeSeatsInUnit = (uKey: string, n: number): Array<{ table_id: string; seat: number }> | null => {
     const u = unitByKey.get(uKey);
     if (!u) return null;
+    const out: Array<{ table_id: string; seat: number }> = [];
     for (const m of u.members) {
       const occ = occupied.get(m.table_id)!;
-      for (let s = 0; s < m.capacity; s++) if (!occ.has(s)) return { table_id: m.table_id, seat: s };
+      for (let s = 0; s < m.capacity && out.length < n; s++) if (!occ.has(s)) out.push({ table_id: m.table_id, seat: s });
     }
-    return null;
+    return out.length === n ? out : null;
+  };
+  // A guest's party in one unit: the guest who brought them (or themselves) + everyone they brought, seated in `uKey`.
+  // Null when a member there is fixed (seated before this run), because a fixed seat never moves.
+  const broughtBy = new Map<string, string[]>();
+  for (const g of guests) {
+    if (!g.plus_one_of_guest_id) continue;
+    broughtBy.set(g.plus_one_of_guest_id, [...(broughtBy.get(g.plus_one_of_guest_id) ?? []), g.guest_id]);
+  }
+  const partyIn = (gid: string, uKey: string | undefined): string[] | null => {
+    const head = guestById.get(gid)?.plus_one_of_guest_id ?? gid;
+    const all = [head, ...(broughtBy.get(head) ?? [])].filter((m) => unitOfGuest(m) === uKey);
+    if (!all.includes(gid)) all.push(gid);
+    return all.every((m) => movable.has(m)) ? all : null;
   };
   // Lower-priority guests move first (preserve VIP stage placement): higher tier
   // RANK number = lower priority = cheaper to move. Tie-break by guest_id.
@@ -1451,16 +1473,22 @@ export function solveSeatPlan(input: SolveInput): SolveResult {
       let did = false;
       for (const mover of movers) {
         const from = unitOfGuest(mover);
+        // 🔒 A PARTY MOVES AS ONE (seat plan § 5, "units stay whole"): the guest who brought them and everyone they
+        // brought, wherever they sit in this unit, go together — or nobody moves. A party with a fixed member stays.
+        const party = partyIn(mover, from);
+        if (!party) continue;
         for (const uKey of unitOrder) {
           if (uKey === from) continue;
-          if ((unitGuests.get(uKey)?.size ?? 0) >= (unitCap.get(uKey) ?? 0)) continue;
-          if (conflictAt(mover, uKey)) continue;
-          const slot = freeSeatInUnit(uKey);
-          if (!slot) continue;
-          const old = seatOf.get(mover)!;
-          occupied.get(old.table_id)!.delete(old.seat_number);
-          if (from) unitGuests.get(from)?.delete(mover);
-          seatGuest(mover, slot.table_id, slot.seat, true);
+          if ((unitGuests.get(uKey)?.size ?? 0) + party.length > (unitCap.get(uKey) ?? 0)) continue;
+          if (party.some((m) => conflictAt(m, uKey))) continue;
+          const slots = freeSeatsInUnit(uKey, party.length);
+          if (!slots) continue;
+          party.forEach((m, k) => {
+            const old = seatOf.get(m)!;
+            occupied.get(old.table_id)!.delete(old.seat_number);
+            if (from) unitGuests.get(from)?.delete(m);
+            seatGuest(m, slots[k]!.table_id, slots[k]!.seat, true);
+          });
           did = true;
           moved = true;
           break;
@@ -1607,8 +1635,11 @@ export function reconcileProvisionalSeats(input: ReconcileInput): ReconcileResul
     assignments.filter((a) => a.locked).map((a) => a.guest_id),
   );
   // Seats we may vacate: unlocked seats of guests flagged for re-placement.
+  // 🔒 …and never a seat at a table the seater may not use (the Sweetheart, a locked table, a Spare one —
+  // `autoSeatTakesTable`): a locked table is kept exactly as it is, and a seat taken off one could never go back.
+  const closed = new Set(tables.filter((t) => !autoSeatTakesTable(t)).map((t) => t.table_id));
   const vacate = assignments.filter(
-    (a) => !a.locked && reseat.has(a.guest_id) && !lockedGuestIds.has(a.guest_id),
+    (a) => !a.locked && reseat.has(a.guest_id) && !lockedGuestIds.has(a.guest_id) && !closed.has(a.table_id),
   );
   const vacateIds = new Set(vacate.map((a) => a.guest_id));
   // Fixed occupancy = everything except the vacated seats. Newly-added guests

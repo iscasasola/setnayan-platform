@@ -281,3 +281,38 @@ test('7f · v199 Straps and edges group; v196 cape lines from A6f quantities, un
   // No cape: no cape line.
   assert.ok(!gownDesignOf(shop(), startingGownConfig(), q0, []).forShop.lines.some((l) => l.key.startsWith('cape_')));
 });
+
+test('7g · v200/v203: 3D flowers, raised lace, glitter tulle, five sleeve styles, detachable bands and the over-robe are listed, grouped, and unpriced until priced', () => {
+  const where = (k: string) => GOWN_PRICE_GROUPS.find(([, f]) => f(k as never))?.[0];
+  const item = (k: string) => GOWN_PRICE_ITEMS.find((i) => i.key === k);
+  assert.deepEqual(item('flowers3d'), { key: 'flowers3d', label: '3D flowers: making and attaching', unit: '10 flowers' });
+  assert.equal(where('flowers3d'), '3D flowers');
+  assert.equal(GOWN_PRICE_GROUPS.findIndex(([g]) => g === '3D flowers'), GOWN_PRICE_GROUPS.findIndex(([g]) => g === 'Lace and beads') + 1, '3D flowers sits right after Lace and beads');
+  assert.deepEqual(item('lace_raised'), { key: 'lace_raised', label: 'Raised lace: shaping and finishing', unit: 'pc' });
+  assert.equal(where('lace_raised'), 'Lace and beads');
+  assert.deepEqual(item('fab_glitter_tulle'), { key: 'fab_glitter_tulle', label: 'Glitter tulle fabric', unit: 'm' });
+  assert.equal(where('fab_glitter_tulle'), 'Fabrics');
+  const sleeves = GOWN_PRICE_ITEMS.filter((i) => where(i.key) === 'Sleeves').map((i) => [i.key, i.label, i.unit]);
+  assert.deepEqual(sleeves, [
+    ['flutter', 'Flutter cape sleeves: cutting, sewing and finishing', 'pair'],
+    ['sl_puff', 'Sleeves (puff): cutting, sewing and finishing', 'pair'],
+    ['sl_bishop', 'Sleeves (bishop): cutting, sewing and finishing', 'pair'],
+    ['sl_juliet', 'Sleeves (Juliet): cutting, sewing and finishing', 'pair'],
+    ['sl_ruffle', 'Sleeves (ruffle band): cutting, sewing and finishing', 'pair'],
+    ['sl_capesl', 'Sleeves (cape sleeves): cutting, sewing and finishing', 'pair'],
+    ['sl_detach', 'Detachable sleeve bands', 'pair'],
+  ]);
+  assert.deepEqual(item('overrobe'), { key: 'overrobe', label: 'Over-robe: cutting, sewing and finishing', unit: 'pc' });
+  assert.equal(where('overrobe'), 'Cover-ups');
+  const fresh = ['flowers3d', 'lace_raised', 'fab_glitter_tulle', 'sl_puff', 'sl_bishop', 'sl_juliet', 'sl_ruffle', 'sl_capesl', 'sl_detach', 'overrobe'] as const;
+  const t = gownShopTemplate();
+  for (const k of fresh) assert.equal(t.prices[k], undefined, `${k} starts priced`);
+  // a designer CAN price each one (the shop's own list), and an unknown key is still refused
+  const priced = gownShopTemplate();
+  for (const k of fresh) priced.prices[k] = 100;
+  const ok = sanitizeGownShopOptions(priced);
+  assert.ok(ok.ok, 'the new keys are accepted with a price');
+  if (ok.ok) for (const k of fresh) assert.equal(ok.options.prices[k], 100);
+  for (const i of GOWN_PRICE_ITEMS) assert.equal(GOWN_PRICE_GROUPS.filter(([, f]) => f(i.key)).length, 1, `${i.key} is in more or fewer than one group`);
+  assert.equal(new Set(GOWN_PRICE_ITEMS.map((i) => i.key)).size, GOWN_PRICE_ITEMS.length, 'a price key appears twice');
+});

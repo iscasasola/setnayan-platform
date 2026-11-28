@@ -23,41 +23,73 @@
  * homepage. GSAP still does all the motion.
  */
 
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, type RefObject } from 'react';
 import type { gsap as GsapCore } from 'gsap';
 import type { SplitText } from 'gsap/SplitText';
 import { strokeLengthOrZero } from '@/lib/svg-stroke-length';
 
 /* ⚡ GSAP LOADS ON DEMAND (speed audit 2026-11-27, I1). It used to be imported up front, so every marketing page that
    uses one of these hooks shipped GSAP + SplitText in its first JavaScript. Now the engine is fetched once, in the
-   background, the first time a hook mounts, and shared by every hook on the page. Each hook runs the SAME body inside
-   the SAME `gsap.context` on its scope (what `useGSAP` did), reverted on unmount; the server and reduced-motion paths
-   are unchanged. A failed fetch leaves everything in its resting, fully-visible state. */
+   background, the first time a hook mounts, and shared by every hook on the page.
+
+   🚫 NOTHING FLASHES (controller review of #8454). `useGSAP` ran as a layout effect, before paint. So:
+     · engine already here (a later page, a later mount): the setup runs in the layout effect, before paint, exactly
+       as before;
+     · engine arrives late (the first page load): an ENTRANCE whose scope is already on screen is skipped — its content
+       rests where it is, fully shown, never hidden then played in. One below the fold sets up as before, while still
+       off screen, so it plays its entrance when scrolled to. Pointer effects (`useMagnetic`) always set up.
+   Each hook runs the SAME body inside the SAME `gsap.context` on its scope, reverted on unmount. A failed fetch leaves
+   everything in its resting, fully-visible state. */
 type GsapLib = { gsap: typeof GsapCore; SplitText: typeof SplitText };
+let gsapLib: GsapLib | null = null;
 let gsapLoad: Promise<GsapLib> | null = null;
 function loadGsap(): Promise<GsapLib> {
   gsapLoad ??= Promise.all([import('gsap'), import('gsap/SplitText')]).then(([core, split]) => {
     core.gsap.registerPlugin(split.SplitText);
-    return { gsap: core.gsap, SplitText: split.SplitText };
+    gsapLib = { gsap: core.gsap, SplitText: split.SplitText };
+    return gsapLib;
   });
   return gsapLoad;
 }
 
-/** `useGSAP(setup, { scope })` with the engine fetched on demand: mount-once, scoped context, reverted on unmount. */
-function useLazyGSAP(setup: (lib: GsapLib) => void | (() => void), { scope }: { scope: RefObject<Element | null> }) {
+/** Is any part of this element inside the viewport right now? */
+function onScreen(el: Element | null): boolean {
+  if (!el || typeof window === 'undefined') return false;
+  const r = el.getBoundingClientRect();
+  return r.bottom > 0 && r.top < window.innerHeight && r.right > 0 && r.left < window.innerWidth;
+}
+
+const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
+/**
+ * `useGSAP(setup, { scope })` with the engine fetched on demand: mount-once, scoped context, reverted on unmount.
+ * `entrance` (default true): the setup hides content until it plays in, so a late engine skips it while on screen.
+ */
+function useLazyGSAP(
+  setup: (lib: GsapLib) => void | (() => void),
+  { scope, entrance = true }: { scope: RefObject<Element | null>; entrance?: boolean },
+) {
   const setupRef = useRef(setup);
   setupRef.current = setup;
-  useEffect(() => {
+  useIsoLayoutEffect(() => {
     let live = true;
     let ctx: gsap.Context | null = null;
-    loadGsap()
-      .then((lib) => {
-        if (!live) return;
-        ctx = lib.gsap.context(() => setupRef.current(lib), scope.current ?? undefined);
-      })
-      .catch(() => {
-        // The engine could not be fetched: nothing was hidden yet, so the content simply rests where it is.
-      });
+    const run = (lib: GsapLib) => {
+      ctx = lib.gsap.context(() => setupRef.current(lib), scope.current ?? undefined);
+    };
+    if (gsapLib) {
+      run(gsapLib);
+    } else {
+      loadGsap()
+        .then((lib) => {
+          if (!live) return;
+          if (entrance && onScreen(scope.current)) return; // already seen: never hide it to play it in
+          run(lib);
+        })
+        .catch(() => {
+          // The engine could not be fetched: nothing was hidden, so the content simply rests where it is.
+        });
+    }
     return () => {
       live = false;
       ctx?.revert();
@@ -562,7 +594,7 @@ export function useMagnetic(opts: { strength?: number } = {}) {
         el.removeEventListener('pointerleave', onLeave);
       };
     },
-    { scope: ref },
+    { scope: ref, entrance: false },
   );
 
   return ref;

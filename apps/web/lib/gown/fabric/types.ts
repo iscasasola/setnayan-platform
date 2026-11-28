@@ -20,6 +20,12 @@ export type GownFabricProps = {
   stretch: GownStretch;
 };
 
+/**
+ * Glitter tulle (v200 `FABRICS.glitter_tulle`): tulle with a fine sparkle, for a veil, a cape, an overlay or a layer
+ * under the skirt. A lookup only, never one of the gown's own fabrics; it shines as tulle does (v200 `SHINE.glitter_tulle`).
+ */
+export const GOWN_GLITTER_TULLE: GownFabricProps = { name: 'Glitter tulle', gsm: 35, stiff: 0.45, sheen: 0.3, sheer: 0.66, stretch: '2way' };
+
 export const GOWN_FABRIC_PROPS: Record<GownStockFabric, GownFabricProps> = {
   satin: { name: 'Satin', gsm: 100, stiff: 0.35, sheen: 0.8, sheer: 0, stretch: 'none' },
   mikado: { name: 'Mikado', gsm: 260, stiff: 0.85, sheen: 0.55, sheer: 0, stretch: 'none' },

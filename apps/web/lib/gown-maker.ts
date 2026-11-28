@@ -55,10 +55,9 @@ export type GownPriceUnit = 'gown' | 'm' | 'pc' | 'pair' | '100 pcs' | 'hour';
 const SIL_LABEL = Object.fromEntries(GOWN_SILHOUETTES.map((s) => [s.id, s.label])) as Record<GownSilhouette, string>;
 
 export const GOWN_PRICE_ITEMS = [
+  // v197: "Fit and flare" (the old A-line block) is a silhouette since Builder A's step A6e, so its starting price
+  // (unpriced until the designer prices it) comes from this spread as `base_fitflare`, last among the starting prices.
   ...GOWN_SILHOUETTES.map((s) => ({ key: `base_${s.id}`, label: s.label, unit: 'gown' as const })),
-  // v197: the old A-line block is now "Fit and flare", its own starting price (unpriced until the designer prices it).
-  // The design config gains the silhouette itself at Builder A's step A6e.
-  { key: 'base_fitflare', label: 'Fit and flare', unit: 'gown' },
   ...GOWN_STOCK_FABRICS.map((f) => ({ key: `fab_${f.id}`, label: f.label, unit: 'm' as const })),
   { key: 'lin_satin', label: 'Satin lining', unit: 'm' },
   { key: 'lin_cotton', label: 'Cotton lining', unit: 'm' },

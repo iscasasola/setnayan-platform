@@ -110,3 +110,9 @@ export function gownClothColour(colour: string, colourHex: string | null): numbe
   const c = GOWN_CLOTH_COLOURS[colour as keyof typeof GOWN_CLOTH_COLOURS];
   return c ? c[0] : GOWN_CLOTH_COLOURS.white[0];
 }
+
+/**
+ * Sheer cloth with no lining and no print (v195 `sheerMat`: flutter sleeves in chiffon, an overlay): how much it hides
+ * her. An overlay reads a little denser: it hangs free, folded, over the skirt.
+ */
+export const gownSheerOpacity = (f: GownFabricProps, overlay = false) => Math.min(0.8, Math.max(0.35, 1 - 0.9 * Math.max(0.35, f.sheer) + (overlay ? 0.12 : 0)));

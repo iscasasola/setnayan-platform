@@ -6,7 +6,7 @@
 import { RING_N, SLICE_DY, TAU } from '../body/constants';
 import { jointY } from '../body/bones';
 import { BODY_K } from '../body/constants';
-import type { GownRig } from '../body/rig';
+import { clamp, type GownRig } from '../body/rig';
 
 const N = RING_N, DY = SLICE_DY, DTH = TAU / N;
 export const RING_SIN = Float32Array.from({ length: N }, (_, k) => Math.sin(k * DTH));
@@ -124,4 +124,32 @@ export function reach(T: GownEnvelope, x: number, y: number, z: number): { r: nu
   let cloth = 0;
   if (T.on && j >= T.jHem && j < T.jTop) cloth = (rd(T.F, j) * (1 - u) + rd(T.F, j + 1) * u) * (y < T.yF ? 1.07 : 1);
   return { r: Math.hypot(x, z - cz), env: Math.max(body, cloth) };
+}
+
+/** v191 `bodyReach`: like `reach`, but only her body (inner layers must sit outside her, never inside her legs). */
+export function bodyReach(T: GownEnvelope, x: number, y: number, z: number): { r: number; env: number; cz: number } {
+  const f = Math.min(T.n - 1.001, Math.max(0, (y - T.y0) / DY)), j = f | 0, u = f - j, cz = T.cz[j]! + (T.cz[j + 1]! - T.cz[j]!) * u;
+  let a = Math.atan2(x, z - cz) / DTH;
+  if (a < 0) a += N;
+  const k0 = (a | 0) % N, k1 = (k0 + 1) % N, w = a - (a | 0);
+  const rd = (A: Float32Array, jj: number) => A[jj * N + k0]! * (1 - w) + A[jj * N + k1]! * w;
+  return { r: Math.hypot(x, z - cz), env: rd(T.H, j) * (1 - u) + rd(T.H, j + 1) * u, cz };
+}
+
+/** Her centre line's depth at a height, from the envelope (v196 `capeCzAt`). */
+export const czOf = (T: GownEnvelope) => (y: number) => { const f = clamp((y - T.y0) / DY, 0, T.n - 1.001), j = f | 0; return T.cz[j]! + (T.cz[j + 1]! - T.cz[j]!) * (f - j); };
+/** Her body's own reach at a direction and height (the body table, no gown) (v196 `capeTabR`). */
+export function envTabR(T: GownEnvelope, a: number, y: number): number {
+  const f = clamp((y - T.y0) / DY, 0, T.n - 1.001), j = f | 0, u = f - j;
+  let q = a / DTH;
+  q = ((q % N) + N) % N;
+  const k0 = (q | 0) % N, k1 = (k0 + 1) % N, w = q - (q | 0), rd = (jj: number) => T.H[jj * N + k0]! * (1 - w) + T.H[jj * N + k1]! * w;
+  return rd(j) * (1 - u) + rd(j + 1) * u;
+}
+/** The gown's top edge in one direction (v196 `capeTopAt`). */
+export function envTopAt(T: GownEnvelope, a: number): number {
+  let q = a / DTH;
+  q = ((q % N) + N) % N;
+  const k0 = (q | 0) % N, k1 = (k0 + 1) % N, w = q - (q | 0);
+  return T.top[k0]! * (1 - w) + T.top[k1]! * w;
 }

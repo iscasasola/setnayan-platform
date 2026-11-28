@@ -11,6 +11,7 @@
  * session, so nothing can be saved from here.
  *
  *   ?state=summary   the whole screen (default)
+ *   ?late=1          the clock 73 days past the Oct 5 payment: it reads Overdue, never Next
  *   ?state=failed    "Bought on Setnayan" could not be read — unknown, never ₱0 or empty
  *   ?state=unread    nothing could be read at all (also what the kill-switch draws)
  *   ?state=view      a delegate who may read but not write: no Target field, no verbs
@@ -50,7 +51,7 @@ const E = '00000000-0000-4000-8000-000000000000';
 export default async function BudgetLabPage({
   searchParams,
 }: {
-  searchParams: Promise<{ state?: string; shell?: string; spot?: string }>;
+  searchParams: Promise<{ state?: string; shell?: string; spot?: string; late?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -74,7 +75,8 @@ export default async function BudgetLabPage({
           })
         : state === 'unread'
           ? unreadEventMoney()
-          : labMoney();
+          : // `?late=1`: the clock 73 days past the Oct 5 payment — the summary reads "Overdue · since", never "Next" (L5 · C9).
+            labMoney(undefined, q.late === '1' ? new Date('2026-12-17T04:00:00Z') : LAB_NOW);
   const known = knownMoneyTotals(money);
   const list = buildBudgetList(money);
   // `?state=over` lowers the target under what is agreed; nothing else changes.

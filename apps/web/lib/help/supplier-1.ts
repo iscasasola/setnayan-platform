@@ -83,7 +83,7 @@ export const SUPPLIER_1_TOPICS: HelpTopic[] = [
         // app/vendor-dashboard/_components/supplier-today-first-screen.tsx "Needs you today", "Nothing waiting on you", "Coming up", "How is business"; today-stats.tsx
         slug: 'supplier-what-today-shows',
         title: 'Suppliers: what is on Today?',
-        body: 'Today opens on your numbers — views and inquiries over the last 28 days, what is booked this month, your portfolio and the money still to come in. Below them, Needs you today holds the one thing waiting on you (or says Nothing waiting on you), then what else is on today, the events you run, your next bookings, your shop and How is business. A number Setnayan could not read says couldn’t load rather than showing a zero.',
+        body: 'Today opens on your numbers — views and inquiries over the last 30 days, what is booked this month, your portfolio and the money still to come in. Below them, Needs you today holds the one thing waiting on you (or says Nothing waiting on you), then what else is on today, the events you run, your next bookings, your shop and How is business. A number Setnayan could not read says couldn’t load rather than showing a zero.',
       },
       {
         // app/vendor-dashboard/_components/supplier-today-screen.tsx "Nothing is ANSWERED here any more"

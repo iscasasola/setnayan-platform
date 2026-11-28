@@ -232,7 +232,7 @@ test('(4) the names are marked on the three hero surfaces and nowhere else; ONE 
   assert.match(read(`${G}/private-landing.tsx`), /<h1 data-hub-names="" className="font-display[^"]*">\s*\{event\.display_name\}/);
   assert.match(read('app/_components/door/door-shell.tsx'), /<h1 \{\.\.\.\(titleIsNames \? \{ 'data-hub-names': '' \} : \{\}\)\}/);
   assert.match(read('app/_components/door/door-shell.tsx'), /titleIsNames = false,/, 'every door’s title is marked as names by default');
-  assert.match(read('app/[slug]/invite/reply/page.tsx'), /title=\{\(event\.display_name as string \| null\) \|\| guestName\}\s*titleIsNames=\{Boolean\(event\.display_name\)\}/, 'a GUEST’s own name would wear the couple’s Names font');
+  assert.match(read('app/[slug]/invite/reply/page.tsx'), /title=\{\(event\.display_name as string \| null\) \|\| guestName \|\| 'Your invitation'\}\s*titleIsNames=\{Boolean\(event\.display_name\)\}/, 'a GUEST’s own name would wear the couple’s Names font');
 
   /* THE STYLESHEET: exactly one rule names the mark's target, and it is gated by the scope's own mark. */
   const css = stripComments(raw('app/globals.css'));

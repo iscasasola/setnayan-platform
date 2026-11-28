@@ -16,7 +16,9 @@ const NOW = Date.parse('2026-10-28T04:00:00Z');
 test('the words: first name · kind · (Mon D), year only when not this year', () => {
   assert.equal(eventChatTitle({ name: 'Indalecio Casasola', kind: 'Wedding', date: '2026-12-18', nowMs: NOW }), "Indalecio's Wedding (Dec 18)");
   assert.equal(eventChatTitle({ name: 'Indalecio Casasola', kind: 'Wedding', date: '2027-12-18', nowMs: NOW }), "Indalecio's Wedding (Dec 18, 2027)");
-  assert.equal(eventChatTitle({ name: 'Ana & Miguel', kind: 'Wedding', date: '2026-12-18', nowMs: NOW }), "Ana's Wedding (Dec 18)");
+  // 👥 L6 · S5 (27 Nov 2026): two hosts keep both first names — the same people the Clients row names ("Ana & Miguel · Wedding").
+  assert.equal(eventChatTitle({ name: 'Ana & Miguel', kind: 'Wedding', date: '2026-12-18', nowMs: NOW }), "Ana & Miguel's Wedding (Dec 18)");
+  assert.equal(eventChatTitle({ name: 'Ana Marie Cruz and Ben Reyes', kind: 'Wedding', date: '2026-12-18', nowMs: NOW }), "Ana & Ben's Wedding (Dec 18)");
   assert.equal(eventChatTitle({ name: "Ana's Debut", kind: 'Debut', date: '2027-03-02', nowMs: NOW }), "Ana's Debut (Mar 2, 2027)");
   assert.equal(eventChatTitle({ name: null, kind: 'Wedding', date: '2026-12-18', nowMs: NOW }), 'Wedding (Dec 18)');
   assert.equal(eventChatTitle({ name: 'Indalecio', kind: null, date: null, nowMs: NOW }), "Indalecio's Event (date not set)");

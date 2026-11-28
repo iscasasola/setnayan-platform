@@ -84,7 +84,7 @@ import {
   type VendorPricingLookup,
   type VendorPriceSource,
 } from './budget';
-import { CONFIRMED_VENDOR_STATUSES } from './events';
+import { isBookedStatus } from './booked-status';
 import { resolveAgreedTotal, splitVendorLines } from './agreed-total-and-its-changes';
 // The one definition of "due soon" / "overdue". It lives with the guard that
 // ALERTS on it (`TRIGGER_THRESHOLDS` is that file's documented home for the
@@ -530,7 +530,6 @@ export type MoneyInputs = {
 
 // ── Small helpers ────────────────────────────────────────────────────────────
 
-const CONFIRMED = new Set<string>(CONFIRMED_VENDOR_STATUSES as readonly string[]);
 
 /** Setnayan order statuses that mean "the couple has agreed to this price". */
 const ORDER_COMMITTED_STATUSES = new Set(['paid', 'fulfilled', 'awaiting_payment']);
@@ -1013,7 +1012,7 @@ export function computeEventMoney(inputs: MoneyInputs): EventMoney {
     const pricing = inputs.pricing.get(v.vendor_id);
     const priceSource: VendorPriceSource = pricing?.priceSource ?? 'manual';
     const controlled: VendorControlledLineItem[] = pricing?.items ?? [];
-    const isCommitted = CONFIRMED.has(v.status as string);
+    const isCommitted = isBookedStatus(v.status as string); // the one booked reader (L5 · C2)
 
     // Money actually handed over. `event_vendor_payments` is the itemized log;
     // `event_vendors.deposit_paid_php` is the legacy single-number field.

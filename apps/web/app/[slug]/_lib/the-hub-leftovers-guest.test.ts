@@ -93,12 +93,19 @@ test('2 · NO TWO PRESS ZONES OVERLAP — a link is a flex item 44px tall by its
   // The first fix padded inline links (`py-3.5` on a 20px line = a 48px zone). When "Privacy Notice" wrapped under
   // "Terms" its zone covered Terms' lower left and a real tap on "Terms" opened /privacy (batch-4 walk, WebKit).
   const src = stripComments(readFileSync(join(__dirname, '..', '_components', 'terms-tick.tsx'), 'utf8'));
-  assert.match(src, /<span className="[^"]*\bflex\b[^"]*\bflex-wrap\b[^"]*">\s*<span>I agree to the<\/span>/, 'the sentence is no longer a wrapping flex row — links on different lines can overlap again');
+  assert.match(src, /<span className="[^"]*\bflex\b[^"]*\bflex-wrap\b[^"]*">\s*<span>I agree to the<\/span>/, 'the sentence is no longer a wrapping flex row');
+  // 2026-11-27 (B8, "the terms links wrap with a gap"): the two links ride ONE unbreakable group, so they can never
+  // stand on different lines — and only then may each 44px box hand its extra height back to a 20px line (`-my-3`).
+  const group = /<span data-terms-links="" className="([^"]*)">([\s\S]*?)<\/span>\s*\{children/.exec(src);
+  assert.ok(group, 'the two links are no longer one group — "Privacy Notice" can wrap under "Terms" again');
+  assert.ok(group![1]!.split(/\s+/).includes('whitespace-nowrap'), 'the links’ group can break — they can stack and overlap');
+  assert.ok(group![2]!.includes('>\n            Terms') && group![2]!.includes('Privacy Notice'), 'a link left the group');
   for (const words of ['Terms', 'Privacy Notice']) {
     const cls = termsLinkClasses(words);
     assert.ok(cls.includes('inline-flex') && cls.includes('min-h-[44px]'), `${words}: not a 44px box of its own (${cls.join(' ')})`);
-    const padded = cls.filter((c) => /^(?:-?m[tby]|-?p[tby]|py)-/.test(c));
+    const padded = cls.filter((c) => /^(?:-?p[tby]|py)-/.test(c) || (/^-?m[tby]-/.test(c) && c !== '-my-3'));
     assert.deepEqual(padded, [], `${words}: a vertical padding/margin reaches over the neighbouring line (${padded.join(' ')})`);
+    assert.ok(cls.includes('-my-3'), `${words}: its 44px box stands 44px tall in the line again — the wrapped sentence gapes`);
   }
 });
 

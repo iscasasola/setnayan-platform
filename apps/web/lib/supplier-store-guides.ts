@@ -52,6 +52,16 @@ export const WIDGET_GUIDES: Record<SpecializedToolKey, WidgetGuide> = {
       step('Let couples design in your chat', 'Couples find Design a cake under ＋ in your chat. You can also send Ask for a cake design from ＋ in the chat.'),
     ],
   },
+  // ToolBody attire_tool · gown-maker-panel.tsx
+  attire_tool: {
+    key: 'attire_tool',
+    title: 'Attire Maker',
+    steps: [
+      step('Set your price list', 'Tap Attire Maker in Your widgets. Choose how you price, then fill your own prices: starting prices, fabrics, lining, closures, lace and beads, trims, cover-ups and your labour rate. Leave a line empty and it stays unpriced.'),
+      step('Mark your add-ons', 'For each add-on, from veil to fittings, choose Priced, Included, On request or Not offered. Not offered ones are hidden from brides.'),
+      step('Save', 'Tap Save. Brides see your estimate, never your costs.'),
+    ],
+  },
   // repertoire-view.tsx · repertoire-tools.tsx · app/v/[slug] performance_url · isMusicVendor
   song_bank: {
     key: 'song_bank',

@@ -226,6 +226,12 @@ export const REQUIRED_DATA_SUBJECT_CATEGORIES: readonly DataSubjectCategoryKey[]
 export const NAME_COLUMNS_THAT_ARE_NOT_PEOPLE: Readonly<Record<string, string>> = {
   api_keys: 'The label an integration is given ("Zapier prod"), not a person.',
   communities: 'The name of a group, not of a person.',
+  gown_fabric_types:
+    'The name of a cloth ("Mikado", "Piña") in the gown maker\'s fabric-type registry — migration 20271365509280. Platform reference data edited by Setnayan admin; it names no person.',
+  vendor_gown_fabrics:
+    'The name a gown shop gives a fabric or lace it stocks ("Ivory mikado") — migration 20271365509280. Keyed to the shop; it names no person.',
+  vendor_gown_looks:
+    'The name of a look in a gown shop\'s collection — migration 20271365509280. Shop catalogue copy keyed to the shop, never to a client; a bride\'s own design and numbers live on gown_designs, which has no name column.',
   vendor_pay_plans:
     'The name a shop gives one of its saved pay plans ("My 3-step plan") — Payment Strategies, Card Maker part 2, migration 20271350884376. Keyed to the shop, never to a couple; it names no person.',
   service_included_templates:

@@ -413,3 +413,30 @@ test('7k · v207: Duchess satin, Bias satin and Taffeta each have one unpriced p
   assert.equal(line.label, 'Bias satin (outer)');
   assert.equal(line.amountCentavos, null);
 });
+
+test('7l · v195–v203 lines: flutter, the new sleeves, detachable bands, the overlay, 3D flowers, raised lace, the over-robe and cape sleeves', () => {
+  const keyed = (d: ReturnType<typeof design>, fn: (q: GownQuantities) => void) =>
+    Object.fromEntries(gownDesignOf(shop(), d, qty(fn), []).forShop.lines.map((l) => [l.key, l]));
+  // Flutter, the new sleeves and their bands: one pair each, unpriced until she prices them.
+  const sl = keyed(design({ sleeve: 'bishop' as never }), (q) => { q.labour.sleeve = 'bishop' as never; q.labour.sleeveDetach = true; q.labour.flutter = 1; });
+  assert.deepEqual([sl.sl_bishop?.label, sl.sl_bishop?.qty, sl.sl_bishop?.unit, sl.sl_bishop?.amountCentavos], ['Sleeves (bishop): cutting, sewing and finishing', 1, 'pair', null]);
+  assert.equal(sl.sl_detach?.label, 'Detachable sleeve bands');
+  assert.equal(sl.flutter?.label, 'Flutter cape sleeves: cutting, sewing and finishing');
+  // The overlay, by its own name; 3D flowers by the ten; raised lace once.
+  const ov = keyed(design({ overlay: 'tiered', flowerType: 'blossom', flowerSize: 'large', flowerCol: 'gown' } as never), (q) => { q.labour.overlay = 1; q.labour.flowers = 23; q.labour.laceRaised = true; });
+  assert.equal(ov.overlay?.label, 'Tiered overlay: cutting, sewing and finishing');
+  assert.deepEqual([ov.flowers3d?.label, ov.flowers3d?.qty], ['3D flowers: making and attaching (23 small blossoms, 4.8 cm, gown colour)', 3]);
+  assert.equal(ov.lace_raised?.qty, 1);
+  // An over-robe is its own line, never "Cape (over-robe)"; its cloth says so.
+  const robe = keyed(design({ cape: 'robe', capeFab: 'tulle' } as never), (q) => { q.labour.cape = 'robe'; q.labour.overrobe = true; q.materials.capeM = 4; });
+  assert.equal(robe.overrobe?.label, 'Over-robe: cutting, sewing and finishing');
+  assert.equal(robe.cape_robe, undefined, 'the over-robe was quoted as a cape');
+  assert.equal(robe.fab_tulle?.label, 'Tulle (the over-robe)');
+  // Cape sleeves: priced on their sleeve line, no cape line, and their cloth is quoted.
+  const csl = keyed(design({ sleeve: 'capesl', cape: 'none', capeFab: 'chiffon' } as never), (q) => { q.labour.sleeve = 'capesl' as never; q.materials.capeM = 3; });
+  assert.equal(csl.sl_capesl?.label, 'Sleeves (cape sleeves): cutting, sewing and finishing');
+  assert.ok(!Object.keys(csl).some((k) => k.startsWith('cape_')), 'cape sleeves were quoted as a cape');
+  assert.equal(csl.fab_chiffon?.label, 'Chiffon (the cape sleeves)');
+  // Every key these lines use is on the price list.
+  for (const k of ['flutter', 'sl_bishop', 'sl_detach', 'overlay', 'flowers3d', 'lace_raised', 'overrobe', 'sl_capesl']) assert.ok(GOWN_PRICE_ITEMS.some((i) => i.key === k), `${k} is not on the price list`);
+});

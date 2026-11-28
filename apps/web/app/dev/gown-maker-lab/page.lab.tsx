@@ -9,6 +9,7 @@
  *   ?view=scenes              the six lighting scenes side by side
  *   ?view=fallback            a phone that cannot draw 3D
  *   ?view=dress               the gown on her: silhouette, neckline, fabric, colour, length, train
+ *   ?view=fabrics             v207: the fabric feel, eight sample gowns side by side
  *   ?view=silhouettes         A-line, ball gown, mermaid and sheath side by side (&body=thin · default · severe)
  *   &scene=<id>               studio · morning · afternoon · sunset · evening · indoor
  *   &guides=1                 the measuring-tape guides (bust, underbust, waist, hips)

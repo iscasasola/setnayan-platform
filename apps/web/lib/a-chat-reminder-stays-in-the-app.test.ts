@@ -13,7 +13,7 @@
  *   • the signed-in shells stop calling it (a reminder nobody delivers looks exactly like one that was never set).
  *
  * SABOTAGE (each seen red, restored): add 'chat_reminder' to EMAIL_ENABLED_TYPES · weaken `if (!m || m.unsent_at)
- * continue` to skip only unsent · remove the call from lib/dashboard-shell.ts.
+ * return false` to skip only unsent · remove the call from lib/dashboard-shell.ts.
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
@@ -70,17 +70,25 @@ test('the delivery reads the message under the person’s own session BEFORE it 
   const between = DELIVER.slice(read, claim);
   assert.match(between, /if \(read\.error\) \{[\s\S]*?return 0;/, 'a refused message read no longer stops the delivery');
   // No readable message → nothing is said.
-  assert.match(DELIVER.slice(claim, emit), /if \(!m \|\| m\.unsent_at\) continue;/, 'a message the person cannot read is announced anyway');
+  // (`return false` since the notices go out together, speed audit L1 — the reminder is skipped either way.)
+  assert.match(DELIVER.slice(claim, emit), /if \(!m \|\| m\.unsent_at\) (continue|return false);/, 'a message the person cannot read is announced anyway');
   assert.match(DELIVER, /type: 'chat_reminder'/);
   assert.match(DELIVER, /userId,\s*\n\s*type: 'chat_reminder'/, 'the notice goes to someone other than the person who set it');
 });
 
 test('both signed-in shells deliver what is due, before they count the bell', () => {
+  // Either the old chain (deliver, THEN count) or the one-round helper (count beside the delivery, asked again after
+  // any notice) — both put today's due reminders in the bell. `lib/the-bell-counts-beside-the-reminders.test.ts` holds
+  // the helper's own order.
   for (const file of [
     ['lib', 'dashboard-shell.ts'],
     ['app', 'vendor-dashboard', 'layout.tsx'],
   ]) {
     const shell = src(...file);
-    assert.match(shell, /deliverDueChatReminders\(supabase, [a-zA-Z.]+\)\s*\.then\(\(\) => countUnread\(/, `${file.join('/')} no longer delivers due chat reminders before the bell count`);
+    assert.match(
+      shell,
+      /deliverDueChatReminders\(supabase, [a-zA-Z.]+\)\s*\.then\(\(\) => countUnread\(|unreadCountWithDueReminders\(supabase, [a-zA-Z.]+\)/,
+      `${file.join('/')} no longer delivers due chat reminders before the bell count`,
+    );
   }
 });

@@ -85,6 +85,10 @@ import { gownBraNote, gownLimit, gownSetNumber, gownSnapBustT } from '@/lib/gown
 import { GOWN_SCENES, GOWN_SCENE_IDS, type GownSceneId } from '@/lib/gown/scenes';
 import { PickMenu } from '@/app/dashboard/[eventId]/website/editor/_components/pick-menu';
 import { GownView } from '@/app/_components/plan3d/kit/gown-view';
+import { GownStageButtons } from '@/app/_components/gown-maker/stage-buttons';
+import type { GownPoseName } from '@/lib/gown/motion/poses';
+import type { GownMotionKind } from '@/lib/gown/motion/walks';
+import type { GownTurnStyle, GownTwirlStyle } from '@/lib/gown/motion/turn';
 import type { GownHandInput, GownSolved } from '@/app/_components/plan3d/kit/gown-figure-3d';
 
 // A7b: the hand tools and the lace designer are their own chunks, loaded when shown.
@@ -137,6 +141,11 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   const [hand, setHand] = useState<GownHandInput | null>(null);
   // A7b: her hand work, kept beside the design.
   const [handWork, setHandWork] = useState<GownHand>(() => emptyGownHand());
+  // A8: her pose, a walk, a twirl and the auto-turn, from the stage's own buttons.
+  const [pose, setPose] = useState<GownPoseName>('a');
+  const [motion, setMotion] = useState<GownMotionKind | 'stop'>('stop');
+  const [twirl, setTwirl] = useState<{ n: number; style: GownTwirlStyle }>({ n: 0, style: 'classic' });
+  const [autoTurn, setAutoTurn] = useState<{ speed: number; style: GownTurnStyle }>({ speed: 0, style: 'spin' });
   const fine = { athletic: false, bustT, given };
 
   if (view === 'silhouettes') {
@@ -239,7 +248,10 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   };
   return (
     <main className="mx-auto grid max-w-3xl gap-4 p-4 md:grid-cols-2" data-lab-view={view}>
-      <GownView vals={vals} fine={fine} scene={scene} guides={guides} force2d={view === 'fallback'} design={view === 'dress' ? design : null} onSolved={setSolved} hand={view === 'dress' ? hand : null} handWork={view === 'dress' ? handWork : null} />
+      <div className="grid gap-2">
+        <GownView vals={vals} fine={fine} scene={scene} guides={guides} force2d={view === 'fallback'} design={view === 'dress' ? design : null} onSolved={setSolved} hand={view === 'dress' ? hand : null} handWork={view === 'dress' ? handWork : null} pose={pose} motion={motion} twirl={twirl} autoTurn={autoTurn} />
+        <GownStageButtons pose={pose} motion={motion} onPose={setPose} onMotion={setMotion} twirlStyle={twirl.style} onTwirlStyle={(style) => setTwirl((t) => ({ ...t, style }))} onTwirl={() => setTwirl((t) => ({ ...t, n: t.n + 1 }))} autoTurn={autoTurn} onAutoTurn={setAutoTurn} />
+      </div>
       <section className="sn-frame grid gap-3 p-4" aria-label="Her numbers">
         {SLIDERS.map((k) => {
           const [lo, hi] = k === 'height' ? GOWN_BODY_RANGE.height : gownLimit(vals, k);

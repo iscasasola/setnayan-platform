@@ -1,5 +1,5 @@
 /**
- * 👗 gown/parts/technique — fabric techniques as real folds, held to v195 (`v199-technique.fixture.json`): ruching,
+ * 👗 gown/parts/technique — fabric techniques as real folds, held to v195 (`v207-technique.fixture.json`): ruching,
  * pintucks on the back panel, smocking on the skirt, the three drapes, darts and seams; and the designer's line.
  */
 import { test } from 'node:test';
@@ -20,7 +20,7 @@ import { buildGownTechShell, gownTechniqueLine } from './technique';
 
 type Pt = [number, number, number, number];
 type Row = { name: string; look: Partial<GownLook>; hem: GownConfig['hem']; gown: Partial<GownConfig>; n: number; idx: number; list: number; rest: Pt[]; pos: Pt[]; note: string };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v199-technique.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v207-technique.fixture.json'), 'utf8')) as { rows: Row[] };
 let rig: Promise<GownRig> | null = null;
 const body = () => {
   if (!rig) { const b = readFileSync(join(__dirname, '../../../public/gown/female.glb')); rig = parseGownBody(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer); }

@@ -1,5 +1,5 @@
 /**
- * 👗 gown/quote — what a design needs, held to prototype v206's own quote lines (`v206-quote.fixture.json`, captured from
+ * 👗 gown/quote — what a design needs, held to prototype v206's own quote lines (`v207-quote.fixture.json`, captured from
  * the prototype's `quoteLines` for five gowns). The gown is built here as the stage builds it, measured
  * (`gownMeasure`), and turned into the contract's quantities (`gownQuantitiesOf`); each line the prototype prints is
  * compared with the key the shop's quote reads. Quantities only: nothing here is a price.
@@ -29,7 +29,7 @@ import { gownQuantitiesOf } from './quantities';
 
 type Line = { key: string; label: string; qty: number; unit: string };
 type Row = { name: string; look: Partial<GownLook>; hem: string; heel: number; gown: Record<string, unknown>; M: Line[]; laceN: number; beadSets: [string, number][] };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v206-quote.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v207-quote.fixture.json'), 'utf8')) as { rows: Row[] };
 const GLB = join(__dirname, '../../../public/gown/female.glb');
 let rig: Promise<GownRig> | null = null;
 const body = () => {

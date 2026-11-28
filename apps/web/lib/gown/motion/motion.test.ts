@@ -1,5 +1,5 @@
 /**
- * 👗 gown/motion — her poses, the walks and the jump, held to prototype v206's own numbers (`v206-motion.fixture.json`,
+ * 👗 gown/motion — her poses, the walks and the jump, held to the prototype's own numbers (`v207-motion.fixture.json`: v206's moves, the skirt re-captured on v207,
  * captured from the prototype itself): every joint turn, the arm lifts that keep a hand out of the skirt, the hand-on-hip
  * reach, where she stands, her body and the skirt on it, a blend half way, and each walk at seven moments.
  */
@@ -25,7 +25,7 @@ type Pt = [number, number, number, number];
 type Q = [number, number, number, number] | null;
 type Row = { pose: string; heel?: number; poseQ: Q[]; target?: Q[]; extra?: { L: number; R: number }; ik?: number[] | null; heelT?: number; floorY?: number; floorStand?: number; body?: Pt[]; dress?: Pt[] | null };
 type Move = { t: number; p: Record<string, [number, number, number]>; y: number; x: number };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v206-motion.fixture.json'), 'utf8')) as { rows: Row[]; moves: Record<string, Move[]>; tour: string[]; walks: Record<string, unknown> };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v207-motion.fixture.json'), 'utf8')) as { rows: Row[]; moves: Record<string, Move[]>; tour: string[]; walks: Record<string, unknown> };
 const GLB = join(__dirname, '../../../public/gown/female.glb');
 let rig: Promise<GownRig> | null = null;
 const body = () => {

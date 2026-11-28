@@ -1,5 +1,5 @@
 /**
- * 👗 gown/dress/cape — the cape catalogue held to prototype v197's own numbers (`v199-cape.fixture.json`: every cape
+ * 👗 gown/dress/cape — the cape catalogue held to prototype v197's own numbers (`v207-cape.fixture.json`: every cape
  * type with its details, captured from the prototype itself), and to "clothes follow the body": the cape never sinks
  * into her.
  */
@@ -25,7 +25,7 @@ type Row = {
   metres: number; capeM: number; visible: boolean; nUsed: number; edgeL: number; beadN: number; sample: Pt[] | null;
   parts: { NJ: number; vo: number; j0: number[]; tops: number[]; hems: number[] }[] | null; groups: [number, number, number][] | null;
 };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v199-cape.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v207-cape.fixture.json'), 'utf8')) as { rows: Row[] };
 const GLB = join(__dirname, '../../../public/gown/female.glb');
 let rig: Promise<GownRig> | null = null;
 const body = () => {

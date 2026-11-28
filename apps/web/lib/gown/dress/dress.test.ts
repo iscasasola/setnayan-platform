@@ -1,5 +1,5 @@
 /**
- * 👗 gown/dress — the gown built on her body, held to prototype v189's own numbers (`v199-dress.fixture.json`: five
+ * 👗 gown/dress — the gown built on her body, held to prototype v189's own numbers (`v207-dress.fixture.json`: five
  * gowns on the default body, captured from the prototype itself), and to the owner rule "clothes follow the body".
  */
 import { test } from 'node:test';
@@ -18,7 +18,7 @@ import { fabricMetres } from './flat';
 import { buildEnvelope, emptyEnvelope, reach, type GownEnvelope } from './table';
 
 type Row = { name: string; look: Partial<GownConfig>; hem: GownConfig['hem']; state: Pick<GownConfig, 'boning' | 'backT' | 'neckT' | 'illuBack'>; rows: number; ns: number; hemR: number; yHem: number; fold: number; metres: number; sample: [number, number, number, number][] };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v199-dress.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v207-dress.fixture.json'), 'utf8')) as { rows: Row[] };
 const GLB = join(__dirname, '../../../public/gown/female.glb');
 let rig: Promise<GownRig> | null = null;
 const body = () => {
@@ -36,7 +36,7 @@ function dressOn(B: GownRig, over: Partial<GownConfig>, view: { bustled?: boolea
   return { T, D, g };
 }
 
-test('fourteen v197 gowns are built the same (fit and flare, straight across, the sweetheart bar, a strapless back at the bra line, a high-neck keyhole back, a bateau, American and French bustles, a train run straight back): rows, hem, folds, fabric metres and the cloth itself', async () => {
+test('nineteen v207 gowns are built the same (five in the v207 fabrics: taffeta, bias satin, chiffon, duchess satin, crepe; fit and flare, straight across, the sweetheart bar, a strapless back at the bra line, a high-neck keyhole back, a bateau, American and French bustles, a train run straight back): rows, hem, folds, fabric metres and the cloth itself', async () => {
   const B = await body();
   for (const r of REF.rows) {
     // `state`: what the look leaves as it was (boning from the strapless rule, the back and neck depths).
@@ -56,12 +56,14 @@ test('fourteen v197 gowns are built the same (fit and flare, straight across, th
   }
 });
 
-test('fabric metres goldens: an A-line, a ball gown with a cathedral train, a mermaid (v197)', async () => {
+test('fabric metres goldens: an A-line, a ball gown with a cathedral train, a mermaid; bias satin takes 1.35× (v207)', async () => {
   const B = await body();
   const m = (look: Partial<GownConfig>) => fabricMetres(B, dressOn(B, { ...look, hem: 'floor', hemCm: 0 }).D);
   assert.equal(m({}), 3);
-  assert.equal(m({ sil: 'ball', train: 'cathedral', petti: 'full' }), 11.4);
+  // v207's rounded train runs further back than v197's (11.4 m); the capture reads 13.
+  assert.equal(m({ sil: 'ball', train: 'cathedral', petti: 'full' }), 13);
   assert.equal(m({ sil: 'mermaid', neck: 'v', back: 'v', boning: 'soft' }), 3.5);
+  assert.equal(m({ sil: 'sheath', fabric: 'bias_satin' }), 4, 'the capture: a sheath in bias satin');
 });
 
 const BODIES: [number, number, number, number, number][] = [

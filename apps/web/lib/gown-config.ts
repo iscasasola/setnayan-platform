@@ -340,10 +340,7 @@ export type GownHem = (typeof GOWN_HEMS)[number]['id'];
  */
 export const GOWN_STOCK_FABRICS = [
   { id: 'satin', label: 'Satin' },
-  { id: 'duchess', label: 'Duchess satin' },
-  { id: 'bias_satin', label: 'Bias satin' },
   { id: 'mikado', label: 'Mikado' },
-  { id: 'taffeta', label: 'Taffeta' },
   { id: 'crepe', label: 'Crepe' },
   { id: 'chiffon', label: 'Chiffon' },
   { id: 'georgette', label: 'Georgette' },
@@ -357,6 +354,10 @@ export const GOWN_STOCK_FABRICS = [
   { id: 'linen', label: 'Linen' },
   { id: 'velvet', label: 'Velvet' },
   { id: 'stretch_crepe_jersey', label: 'Stretch crepe jersey' },
+  // v207: appended (a catalog keeps its shipped order); the pickers order them by the prototype's own list.
+  { id: 'duchess', label: 'Duchess satin' },
+  { id: 'bias_satin', label: 'Bias satin' },
+  { id: 'taffeta', label: 'Taffeta' },
 ] as const;
 export type GownStockFabric = (typeof GOWN_STOCK_FABRICS)[number]['id'];
 /** A fabric type id: a stock id or a registry slug. */

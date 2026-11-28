@@ -1,6 +1,6 @@
 /**
  * 👗 gown/parts/sleeves-extra — v203's puff, bishop and Juliet sleeves, the ruffle band (and its piece across the back),
- * cape sleeves and the over-robe (with its own sleeves), held to prototype v203's own numbers (`v203-sleeves.fixture.json`,
+ * cape sleeves and the over-robe (with its own sleeves), held to prototype v203's own numbers (`v207-sleeves.fixture.json`,
  * captured from the prototype itself): where every sleeve lies, the cape panels, the fabric, the words and the rules.
  * And "clothes follow the body": no sleeve sinks into her.
  */
@@ -31,7 +31,7 @@ type Row = {
   reachCm: number; robeReachCm: number; say: string; capeSay: string; clip: Record<string, { n: number; bad: number; worstMm: number }>;
 };
 type Rule = { name: string; look: Partial<GownLook>; k: keyof GownConfig; v: string; before: Partial<GownConfig>; after: Partial<GownConfig>; hint: string; buttons: string[]; robeBtn: string; detRow: boolean; robeRow: boolean; why: string; labels: (string | null)[] };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v203-sleeves.fixture.json'), 'utf8')) as { rows: Row[]; rules: Rule[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v207-sleeves.fixture.json'), 'utf8')) as { rows: Row[]; rules: Rule[] };
 const GLB = join(__dirname, '../../../public/gown/female.glb');
 let rig: Promise<GownRig> | null = null;
 const body = () => {

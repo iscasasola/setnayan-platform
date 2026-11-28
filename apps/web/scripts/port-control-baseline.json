@@ -12069,6 +12069,7 @@
         "dashboard/[eventId]/seating/error.tsx",
         "dashboard/[eventId]/seating/loading.tsx",
         "dashboard/[eventId]/seating/page.tsx",
+        "dashboard/[eventId]/seating/seat-plan-calls.ts",
         "dashboard/[eventId]/seating/seating-lock-error.ts"
       ],
       "destinations": [
@@ -12088,6 +12089,7 @@
         "ActionButton",
         "AddTableBar",
         "AddTablePanel",
+        "ArrangeView",
         "AutoArrange",
         "AutoArrangeResult",
         "Badge",
@@ -12112,7 +12114,7 @@
         "DrawerSnap",
         "DropConfirmBubble",
         "DropConfirmState",
-        "DryRun",
+        "DryRunView",
         "EqualRow",
         "FloorStartButtons",
         "FloorStartCard",

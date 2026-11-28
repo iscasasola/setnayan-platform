@@ -36,6 +36,8 @@ import {
   gownAddOnsOffered,
   gownDesignOf,
   GOWN_ADD_ONS,
+  gownAddOnsInOrder,
+  gownStoredAddOns,
   GOWN_ADD_ON_ASK,
   GOWN_ADD_ON_INCLUDED,
   sanitizeGownShopOptions,
@@ -195,6 +197,8 @@ export type BuiltGownDesign = {
   quantities: GownQuantities;
   /** A7b: what she painted by hand, checked (`sanitizeGownHand`). Null when her maker sent none (an older maker). */
   hand: GownHand | null;
+  /** B8: the add-ons she picked, each one the shop offered at Send (ids only, no money). */
+  addOns: GownAddOnKey[];
   forBride: GownDesignForBride;
 };
 
@@ -234,7 +238,7 @@ export async function buildGownDesign(
   const shopFabrics = new Map<string, GownShopFabric>(fabrics.data.map((f) => [f.id, { name: f.name, pricePerMetreCentavos: f.pricePerMetreCentavos }]));
   const handWork = hand && hand.ok ? hand.hand : null;
   const priced = gownDesignOf(options.data, config.config, quantities.quantities, picked as GownAddOnKey[], shopFabrics, handWork);
-  return { ok: true, built: { config: config.config, body: body.body, measures: measures.measures, quantities: quantities.quantities, hand: handWork, forBride: priced.forBride } };
+  return { ok: true, built: { config: config.config, body: body.body, measures: measures.measures, quantities: quantities.quantities, hand: handWork, addOns: gownAddOnsInOrder(picked as string[]), forBride: priced.forBride } };
 }
 
 /** Stores a checked design once (service role). No cost line is stored: only quantities and the one estimate. */
@@ -252,6 +256,7 @@ export async function storeGownDesign(
       measures: args.built.measures,
       quantities: args.built.quantities,
       hand: args.built.hand,
+      add_ons: args.built.addOns,
       estimate_centavos: args.built.forBride.estimateCentavos,
       created_by: args.userId,
     })
@@ -279,6 +284,8 @@ export type StoredGownDesign = {
   quantities: GownQuantities | null;
   /** A7b: `sent` her hand work · `none` her maker sent none · `unread` the stored value did not check out. */
   hand: { s: 'sent'; hand: GownHand } | { s: 'none' } | { s: 'unread' };
+  /** B8: the add-ons she picked (ids). An id that is no longer on the list makes the design "couldn't read". */
+  addOns: GownAddOnKey[];
   estimateCentavos: number | null;
   createdAt: string;
 };
@@ -296,7 +303,7 @@ function handOf(v: unknown, designId: string): StoredGownDesign['hand'] {
 export async function readStoredGownDesign(supabase: SupabaseClient, args: { threadId: string; designId: string }): Promise<Read<StoredGownDesign>> {
   const { data, error } = await supabase
     .from('gown_designs')
-    .select('design_id, vendor_profile_id, config, body, measures, quantities, hand, estimate_centavos, created_at')
+    .select('design_id, vendor_profile_id, config, body, measures, quantities, hand, add_ons, estimate_centavos, created_at')
     .eq('design_id', args.designId)
     .eq('thread_id', args.threadId)
     .maybeSingle();
@@ -305,12 +312,13 @@ export async function readStoredGownDesign(supabase: SupabaseClient, args: { thr
     return { status: 'unread' };
   }
   if (!data) return { status: 'none' };
-  type Row = { design_id: string; vendor_profile_id: string; config: unknown; body: unknown; measures: unknown; quantities: unknown; hand: unknown; estimate_centavos: number | string | null; created_at: string };
+  type Row = { design_id: string; vendor_profile_id: string; config: unknown; body: unknown; measures: unknown; quantities: unknown; hand: unknown; add_ons: unknown; estimate_centavos: number | string | null; created_at: string };
   const r = data as Row;
   const body = r.body == null ? null : sanitizeGownBody(r.body);
   const measures = sanitizeGownMeasures(r.measures ?? {});
   const quantities = r.quantities == null ? null : sanitizeGownQuantities(r.quantities);
-  if ((body && !body.ok) || !measures.ok || (quantities && !quantities.ok)) {
+  const addOns = gownStoredAddOns(r.add_ons);
+  if ((body && !body.ok) || !measures.ok || (quantities && !quantities.ok) || !addOns) {
     logQueryError('readStoredGownDesign.shape', { message: 'shape' }, { design_id: args.designId }, 'graceful_degrade');
     return { status: 'unread' };
   }
@@ -324,6 +332,7 @@ export async function readStoredGownDesign(supabase: SupabaseClient, args: { thr
       measures: measures.measures,
       quantities: quantities && quantities.ok ? quantities.quantities : null,
       hand: handOf(r.hand, args.designId),
+      addOns,
       estimateCentavos: r.estimate_centavos == null ? null : Number(r.estimate_centavos),
       createdAt: r.created_at,
     },

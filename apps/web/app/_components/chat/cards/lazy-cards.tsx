@@ -34,6 +34,7 @@ export const InquiryCard = dynamic(() => import(/* webpackChunkName: "thread-par
 export const DealSheet = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './deal-sheet').then((m) => m.DealSheet), { ssr: false, loading: wait });
 // 🎂 A couple's "Cake design" (Cake Maker, DECISION_LOG 2026-11-21) — in the chat where it lands, and on the order.
 export const CakeDesignCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './cake-design-card').then((m) => m.CakeDesignCard), { ssr: false, loading: wait });
+export const GownDesignCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './gown-design-card').then((m) => m.GownDesignCard), { ssr: false, loading: wait });
 // 🎂 The shop's "Design your cake for us" invite (Cake Maker v6) — Design your cake opens the designer.
 export const CakeInviteCard = dynamic(() => import(/* webpackChunkName: "thread-parts" */ './cake-invite-card').then((m) => m.CakeInviteCard), { ssr: false, loading: wait });
 // 🧰 A supplier's "Share from your widgets" (DECISION_LOG 2026-11-23 dee66686) — the five tool cards, Open · Approve.

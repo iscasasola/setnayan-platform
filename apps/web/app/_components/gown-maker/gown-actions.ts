@@ -40,6 +40,10 @@ import {
   formatGownDesignBlock,
   gownDesignOf,
   gownDesignRefOf,
+  gownDesignRows,
+  gownQuotePrefill,
+  type GownCardRow,
+  type GownQuotePrefill,
   gownShopTemplate,
   gownShopPaper,
   gownShopSeamAllow,
@@ -126,6 +130,10 @@ export type GownDesignRead = {
   /** The shop only (B11/B12, drawing v205): its allowances and paper, this order's own pattern settings, and which
    *  fabrics the blocks are cut in with the quote's metres. Lengths only; no money. */
   pattern: GownDesignPattern | null;
+  /** B8: the card's rows (words only; both sides read the same). */
+  rows: GownCardRow[];
+  /** B8, the shop only: what Make a quote opens with (the estimate she saw and her priced add-ons). Null for her. */
+  quote: GownQuotePrefill | null;
   replaced: boolean;
   sentAt: string;
 };
@@ -307,7 +315,7 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
       if (options.status === 'ok' && fabrics.status === 'ok' && q && c) {
         const map = new Map(fabrics.data.map((f) => [f.id, { name: f.name, pricePerMetreCentavos: f.pricePerMetreCentavos }]));
         // A7b: her hand work joins the bead and lace lines; hand work that couldn't be read prices nothing extra.
-        forShop = gownDesignOf(options.data, c, q, [], map, stored.data.hand.s === 'sent' ? stored.data.hand.hand : null).forShop;
+        forShop = gownDesignOf(options.data, c, q, stored.data.addOns, map, stored.data.hand.s === 'sent' ? stored.data.hand.hand : null).forShop;
       }
       if (fit.status === 'ok') tape = { tape: fit.data.tape, fitAt: fit.data.fitAt };
       // The blocks' settings: a failed read of the shop's options or the tape row is "Couldn't read", never the defaults.
@@ -325,9 +333,13 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
         };
       }
     }
+    // B8: the card's rows (words only, both sides) and, for the shop alone, the quote its Make a quote opens with.
+    const rows = gownDesignRows(stored.data.config, stored.data.addOns, stored.data.hand.s === 'sent' ? stored.data.hand.hand : null);
     return {
       ok: true,
       op: 'design',
+      rows,
+      quote: isShop ? gownQuotePrefill(stored.data.estimateCentavos, forShop, rows) : null,
       viewer: isShop ? 'vendor' : 'couple',
       designId: ref,
       config: stored.data.config,

@@ -138,3 +138,25 @@ test('9 · A7b: her hand work is checked before it is priced or stored, stored a
   const panel = strip(read('app/vendor-dashboard/clients/[eventId]/_components/gown-order-panel.tsx'));
   assert.match(panel, /d\.hand\.s === 'sent' \? gownHandLine\(d\.hand\.hand\) : d\.hand\.s === 'none' \? GOWN_HAND_NOT_SENT : GOWN_HAND_UNREAD/, 'the order view does not say all three');
 });
+
+test('10 · B8: her add-ons are stored as sent and read back honestly; the quote pre-fill is the shop’s alone; the card holds no cost', () => {
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  const server = strip(read('lib/gown-maker.server.ts'));
+  const build = server.slice(server.indexOf('export async function buildGownDesign('), server.indexOf('export async function storeGownDesign('));
+  assert.ok(build.indexOf('offered.has(a)') > -1 && build.indexOf('offered.has(a)') < build.indexOf('addOns: gownAddOnsInOrder('), 'add-ons are stored before they are checked');
+  assert.match(server, /add_ons: args\.built\.addOns,/, 'her add-ons are not stored');
+  assert.match(server, /\.select\('design_id, vendor_profile_id, config, body, measures, quantities, hand, add_ons, /, 'her add-ons are not read');
+  assert.match(server, /const addOns = gownStoredAddOns\(r\.add_ons\);[\s\S]{0,200}\|\| !addOns\) \{/, 'stored add-ons that no longer check out are thinned, not "couldn’t read"');
+  const actions = strip(read('app/_components/gown-maker/gown-actions.ts'));
+  const design = actions.slice(actions.indexOf("if (op === 'design')"), actions.indexOf("if (op === 'fit')"));
+  assert.match(design, /gownDesignOf\(options\.data, c, q, stored\.data\.addOns, /, 'the shop’s price leaves out her add-ons');
+  assert.match(design, /quote: isShop \? gownQuotePrefill\(/, 'the quote pre-fill reaches the bride');
+  const card = strip(read('app/_components/chat/cards/gown-design-card.tsx'));
+  assert.doesNotMatch(card, /forShop|Centavos\b(?<!estimateCentavos|offerCentavos)|cost|markup|labour|supplies/i, 'the card reads a cost');
+  assert.match(card, /quoting && !bride && quote/, 'Make a quote opens for the bride');
+  assert.match(card, /formatCentavosPhp\(estimateCentavos\)/);
+  // The stream draws a bride's design as the card, and only hers.
+  const stream = strip(read('app/_components/chat-message-stream.tsx'));
+  assert.match(stream, /const gownDesign = m\.sender_role === 'couple' && isGownDesign\(m\.body\);/);
+  assert.match(stream, /<GownDesignCard\s+threadId=\{threadId\}\s+messageId=\{m\.message_id\}/);
+});

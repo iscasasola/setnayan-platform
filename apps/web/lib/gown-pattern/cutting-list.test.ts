@@ -15,7 +15,7 @@ import { emptyGownQuantities, startingGownConfig } from '../gown-config';
 import { draftSkirt } from './skirt';
 import { draftBodice } from './bodice';
 import { GOWN_SEAM_ALLOW_DEFAULT, gownSeamAllowClean } from './allowance';
-import { gownCutCheckSentence, gownCutContext, gownCutList, gownLayMetres, type GownCutContext, type GownCutPart } from './cutting-list';
+import { gownCutCheckSentence, gownCutContext, gownCutList, gownGrainSay, gownLayMetres, type GownCutContext, type GownCutPart } from './cutting-list';
 import type { GownBlockPiece } from './skirt';
 import type { GownDraftOrder } from './inputs';
 
@@ -93,4 +93,13 @@ test('5 · no money anywhere in the allowance or cutting-list code', () => {
     const src = readFileSync(join(__dirname, f), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
     assert.doesNotMatch(src, /₱|centavo|formatPhp|price/i, `${f} talks about money`);
   }
+});
+
+test('6 · grain words: within 8° of straight is straight grain; within 8° of 45° is the bias; anything else "As marked"', () => {
+  const at = (deg: number, cut = 'Cut 2') => gownGrainSay({ cut, grain: [[0, 0], [Math.sin((deg * Math.PI) / 180) * 100, Math.cos((deg * Math.PI) / 180) * 100]] });
+  assert.equal(at(5), 'Straight grain, along the centre');
+  assert.equal(at(5, 'Cut 1 on the fold'), 'Straight grain, along the fold');
+  assert.equal(at(40), 'Straight grain as marked: 45° to the straight edges');
+  assert.equal(at(12), 'As marked');
+  assert.equal(at(25), 'As marked');
 });

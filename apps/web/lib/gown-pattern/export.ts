@@ -18,12 +18,10 @@
  */
 import type { GownBlockPiece, GownPoint } from './skirt';
 import { gownPieceGeom, type GownPieceGeom, type GownSeamAllow } from './allowance';
+import { formatCount } from '../format-number';
 
-export const GOWN_PAPERS = {
-  a4: { name: 'A4', w: 210, h: 297 },
-  letter: { name: 'US Letter', w: 215.9, h: 279.4 },
-} as const;
-export type GownPaper = keyof typeof GOWN_PAPERS;
+import { GOWN_PAPERS, type GownPaper } from './words';
+export { GOWN_PAPERS, type GownPaper };
 /** mm: paper margin, overlap between pages, room round each piece; the most pages one piece may take (v205 PAT_*). */
 export const GOWN_PAT_MARGIN = 10;
 export const GOWN_PAT_OVERLAP = 10;
@@ -172,7 +170,7 @@ export function gownPatternPages(list: readonly { p: GownBlockPiece }[], opts: {
   const pcs = list.map(({ p }, i) => { const G = gownPieceGeom(p, sa, net), T = gownPatTiles(G, paper); return { p, G, T, i, diagram: T.n > GOWN_PAT_MAX_PAGES }; });
   const head = (t: string, n: number, of: number): GownDraw[] => [
     { k: 'text', x: 2, y: 6, size: 4, bold: true, color: I.ink, halo: true, text: t },
-    { k: 'text', x: aw - 2, y: 6, size: 4, anchor: 'end', color: I.ink, halo: true, text: `Page ${n} of ${of}` },
+    { k: 'text', x: aw - 2, y: 6, size: 4, anchor: 'end', color: I.ink, halo: true, text: `Page ${formatCount(n)} of ${formatCount(of)}` },
   ];
   const tilePages = pcs.filter((x) => !x.diagram).flatMap((x) => x.T.tiles.filter((t) => t.used).map((t) => ({ x, t })));
   const diag = pcs.filter((x) => x.diagram), total = 1 + tilePages.length + diag.length, pages: GownPatternPage[] = [];
@@ -366,3 +364,4 @@ export async function gownPatternPdf(book: GownPatternBook, title: string): Prom
   doc.setTitle(safe(title));
   return doc.save();
 }
+

@@ -33,7 +33,7 @@ import {
 import { GOWN_ADD_ONS, type GownAddOnKey } from './gown-add-ons';
 import { formatCentavosPhp } from './php';
 import { GOWN_SEAM_ALLOW_DEFAULT, gownSeamAllowClean, type GownSeamAllow } from './gown-pattern/allowance';
-import type { GownPaper } from './gown-pattern/export';
+import type { GownPaper } from './gown-pattern/words';
 import { parseClientRef } from './r2-client-ref';
 
 /** The suppliers the Attire Maker is suggested for (owner Q3, 2026-11-27: custom gown makers only for now). */

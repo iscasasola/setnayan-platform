@@ -35,6 +35,7 @@ import type { GownDesignRead } from '@/app/_components/gown-maker/gown-actions';
 import type { GownTape } from '@/lib/gown-pattern/inputs';
 import type { GownBlockPiece } from '@/lib/gown-pattern/skirt';
 import type { GownPaper } from '@/lib/gown-pattern/export';
+import { GOWN_EXPORT_HINT, GOWN_PAPER_OPTIONS, GOWN_PATTERN_UNREAD } from '@/lib/gown-pattern/words';
 import { GOWN_SEAM_ALLOW_DEFAULT } from '@/lib/gown-pattern/allowance';
 import { GOWN_CUT_LIST_HINT, gownCutCheckSentence, type GownCutList, type GownCutPart } from '@/lib/gown-pattern/cutting-list';
 import { GownSeamAllowRows } from '@/app/vendor-dashboard/shop/_components/gown-seam-allow';
@@ -283,7 +284,7 @@ function Pattern({ d, config, body, measures, tape, threadId, who }: { d: GownDe
         </div>
       ) : (
         <p role="alert" className="text-sn-base text-ink/70" data-gown-pattern-controls="unread">
-          Couldn’t read your seam allowances just now, so the blocks show the stitching line only. Close and open the blocks to try again.
+          {GOWN_PATTERN_UNREAD}
         </p>
       )}
 
@@ -335,10 +336,10 @@ function Pattern({ d, config, body, measures, tape, threadId, who }: { d: GownDe
             <div className="space-y-2" data-gown-export="">
               <h3 className="text-sn-sm font-semibold uppercase tracking-wide text-ink/70">Print at full size</h3>
               <FormRows>
-                <ChosenRow name="Paper" value={paper} options={PAPER_OPTIONS} onPick={(k) => setPaper(k === 'letter' ? 'letter' : 'a4')} data="gown-export-paper" />
+                <ChosenRow name="Paper" value={paper} options={GOWN_PAPER_OPTIONS} onPick={(k) => setPaper(k === 'letter' ? 'letter' : 'a4')} data="gown-export-paper" />
               </FormRows>
               <ActionButton tone="brand" icon={Printer} label="Export 1:1" onClick={() => setPages(true)} className="w-full" data-gown-export-open="" />
-              <p className="text-sn-base text-ink/70">Pages to tape together at true size, a page map, a 5 cm test square on every page, and one large sheet for a plotter. No prices on any sheet.</p>
+              <p className="text-sn-base text-ink/70">{GOWN_EXPORT_HINT}</p>
             </div>
           ) : null}
         </div>
@@ -348,10 +349,6 @@ function Pattern({ d, config, body, measures, tape, threadId, who }: { d: GownDe
   );
 }
 
-const PAPER_OPTIONS = [
-  { key: 'a4', label: 'A4' },
-  { key: 'letter', label: 'US Letter' },
-];
 const cm1 = (x: number) => x.toFixed(1);
 
 /** v205 `patCutListHTML`: grouped by fabric; a table on a wide screen, stacked rows on a phone; the metres checked. */

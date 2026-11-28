@@ -229,7 +229,8 @@ test('6 · the sheet: one outline per piece, in mm, one ink; no price in the pat
   assert.doesNotMatch(svg, /#[0-9a-f]{3,6}\b/i, 'the sheet carries a typed colour');
   assert.match(svg, /Skirt front/);
   for (const f of readdirSync(__dirname).filter((n) => n.endsWith('.ts') && !n.endsWith('.test.ts'))) {
-    const src = readFileSync(join(__dirname, f), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+    // v205's own promise, said on the export (words.ts), is the one place the word may appear: "No prices on any sheet."
+    const src = readFileSync(join(__dirname, f), 'utf8').replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '').replace(/No prices on any sheet\./g, '');
     assert.doesNotMatch(src, /price|centavos|₱|php\.ts|formatPhp/i, `${f} mentions money; the blocks never carry a price`);
   }
 });

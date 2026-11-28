@@ -137,3 +137,6 @@ export function gownPieceGeom(p: GownBlockPiece, sa: GownSeamAllow, net: boolean
   const pts = C ?? p.outline, xs = pts.map((q) => q[0]), ys = pts.map((q) => q[1]);
   return { P: [...p.outline], roles, D, C, N, box: [Math.min(...xs), Math.min(...ys), Math.max(...xs), Math.max(...ys)] };
 }
+
+/** Shop › "Seam allowances" (drawing v205, word for word). */
+export const GOWN_SEAM_ALLOW_INTRO = 'Where the cut line sits outside the stitching line, in centimetres. Every order’s cutting blocks start from these; you can change them for one order there.';

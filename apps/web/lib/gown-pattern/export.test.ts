@@ -98,3 +98,16 @@ test('4 · the on-screen page is the same page: an SVG at true size with the squ
   assert.match(svg, /class="pp-test" x="[\d.]+" y="[\d.]+" width="50\.00" height="50\.00"/);
   assert.doesNotMatch(svg, /<script/i);
 });
+
+test('5 · the screens’ words are v205’s, and they live apart from the page engine', async () => {
+  const { gownPagesSummary, gownPagesDiagramWarning, GOWN_EXPORT_HINT } = await import('./words');
+  const s = gownPagesSummary({ total: 36, tiles: 35, diagrams: [] }, 'A4');
+  assert.equal(s.lead + s.rest, '36 pages on A4: the page map, 35 pages to tape together. Print at 100 %, then check the 5 cm square.');
+  const d = gownPagesSummary({ total: 9, tiles: 7, diagrams: [{ piece: 'Skirt', pages: 46 }] }, 'US Letter');
+  assert.equal(d.lead + d.rest, '9 pages on US Letter: the page map, 7 pages to tape together, and 1 measured diagram. Print at 100 %, then check the 5 cm square.');
+  assert.equal(gownPagesDiagramWarning([{ piece: 'Skirt', pages: 46 }]), 'Skirt would take 46 pages: too many to tape together, so it comes as a drawing with its measurements. The plotter sheet still has it at full size.');
+  assert.equal(gownPagesDiagramWarning([]), null);
+  assert.match(GOWN_EXPORT_HINT, /No prices on any sheet\.$/);
+  const words = readFileSync(join(__dirname, 'words.ts'), 'utf8');
+  assert.doesNotMatch(words, /^import (?!type )[^;]*from '\.\/export'/m, 'the words load the page engine');
+});

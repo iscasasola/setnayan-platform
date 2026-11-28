@@ -9,6 +9,31 @@ import {
   GOWN_CLOSURES,
   GOWN_SLEEVES,
   GOWN_VEILS,
+  GOWN_BONE_SHOWS,
+  GOWN_BONING,
+  GOWN_ILLUSIONS,
+  GOWN_ILLUSION_BACKS,
+  GOWN_ILLUSION_COLOURS,
+  GOWN_ILLUSION_CUPS,
+  GOWN_PLUNGE_FILLS,
+  GOWN_BEAD_COLOURS,
+  GOWN_BEAD_DENSITIES,
+  GOWN_BEAD_PLACES,
+  GOWN_BEADS,
+  GOWN_FLOWERS,
+  GOWN_FLOWER_FROM,
+  GOWN_FLOWER_TYPES,
+  GOWN_FLOWER_SIZES,
+  GOWN_FLOWER_DENSITIES,
+  GOWN_FLOWER_COLOURS,
+  GOWN_CAPE_FLOWERS,
+  GOWN_LACE_FINISHES,
+  GOWN_VEIL_FABRICS,
+  GOWN_PEARLS,
+  GOWN_STRAPS,
+  GOWN_STRAP_COLOURS,
+  GOWN_STRAP_EDGES,
+  GOWN_TOP_EDGES,
   GOWN_CAPE_COLOURS,
   GOWN_CAPE_EDGES,
   GOWN_CAPE_FABRICS,
@@ -184,7 +209,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   const now = gownCapeNow(design), hidden = gownHiddenChoices(design);
   const capeNow = { capeFab: now.fab, capeLen: now.len, capeEdge: now.edge, capeFasten: now.fasten };
   // Every pick goes through the pairing rules, so the lab shows what the maker will (one line, then Undo in the maker).
-  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
+  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'illu' | 'illuBase' | 'illuCol' | 'illuBack' | 'boneShow' | 'straps' | 'strapCol' | 'strapEdge' | 'topEdge' | 'plungeFill' | 'flowers' | 'flowerFrom' | 'flowerType' | 'flowerSize' | 'flowerDen' | 'flowerCol' | 'capeFlowers' | 'laceFinish' | 'veilFab' | 'pearls' | 'bead' | 'beadAt' | 'beadDen' | 'beadCol' | 'boning' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
     const out = gownChoose(design, { key: k, value: v } as GownChoice);
     setDesign(out.config);
     setNote(out.notes.join(' '));
@@ -221,7 +246,12 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
             {(
               [
                 ['sil', 'Silhouette', GOWN_SILHOUETTES],
-                ['neck', 'Neckline', GOWN_NECKLINES],
+                ['neck', 'Neckline', GOWN_NECKLINES.filter((n) => !hidden.neck.includes(n.id))],
+                // v199: what fills a plunge to the waist; the straps this neckline takes and their details; the top edge.
+                ...(hidden.plungeFill ? [] : [['plungeFill', 'Plunge filled with', GOWN_PLUNGE_FILLS] as const]),
+                ...(hidden.strapRow ? [] : [['straps', 'Straps', GOWN_STRAPS.filter((x) => !hidden.straps.includes(x.id))] as const]),
+                ...(hidden.strapDetails ? [] : [...(hidden.strapCol ? [] : [['strapCol', 'Strap colour', GOWN_STRAP_COLOURS] as const]), ['strapEdge', 'Strap edge', GOWN_STRAP_EDGES] as const]),
+                ...(hidden.topEdge ? [] : [['topEdge', 'Top edge', GOWN_TOP_EDGES] as const]),
                 ['fabric', 'Fabric', GOWN_STOCK_FABRICS],
                 ['colour', 'Colour', GOWN_COLOURS.filter((c) => c.id !== 'custom')],
                 ['hem', 'Length', GOWN_HEMS],
@@ -234,12 +264,22 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                   ['capeEdge', 'Cape edge', GOWN_CAPE_EDGES],
                   ...(hidden.capeFasten ? [] : [['capeFasten', 'Back cape fastened', GOWN_CAPE_FASTENINGS] as const]),
                   ...(hidden.capeCol ? [] : [['capeCol', 'Cape colour', GOWN_CAPE_COLOURS] as const]),
+                  // v200: 3D flowers on the cape (their type, size and colour as set under 3D flowers).
+                  ['capeFlowers', '3D flowers on the cape', GOWN_CAPE_FLOWERS],
                 ] as const)),
                 ['sleeve', 'Sleeves', GOWN_SLEEVES],
                 ['back', 'Back', GOWN_BACKS],
+                // v198: the bodice in sheer tulle, an illusion back, boning you can see.
+                ['illu', 'Bodice made of', GOWN_ILLUSIONS],
+                ...(hidden.illuDetails ? [] : ([['illuBase', 'Lined cups', GOWN_ILLUSION_CUPS], ['illuCol', 'Tulle colour', GOWN_ILLUSION_COLOURS]] as const)),
+                ...(hidden.illuBack ? [] : [['illuBack', 'Illusion back', GOWN_ILLUSION_BACKS] as const]),
+                ['boning', 'Boning', GOWN_BONING],
+                ['boneShow', 'Boning you can see', GOWN_BONE_SHOWS],
                 ['closure', 'Closure', GOWN_CLOSURES],
                 ['veil', 'Veil', GOWN_VEIL_ORDER.map((id) => GOWN_VEILS.find((o) => o.id === id)!)],
                 ['veilStyle', 'Veil style', GOWN_VEIL_STYLES],
+                // v200: the veil in plain or glitter tulle.
+                ...(hidden.veilFab ? [] : [['veilFab', 'Veil made of', GOWN_VEIL_FABRICS] as const]),
                 ['blusher', 'Blusher', GOWN_BLUSHERS],
                 ['bow', 'Bow', GOWN_BOWS],
                 ['overlay', 'Overlay', GOWN_OVERLAYS],
@@ -247,6 +287,22 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 ['lace', 'Lace', GOWN_LACES],
                 ['laceAt', 'Lace placed', GOWN_LACE_PLACES],
                 ['laceCol', 'Lace colour', GOWN_LACE_COLOURS],
+                // v200: raised (3D) lace; 3D flowers and their details; scattered pearls.
+                ['laceFinish', 'Lace finish', GOWN_LACE_FINISHES],
+                ['flowers', '3D flowers', GOWN_FLOWERS.filter((x) => !hidden.flowers.includes(x.id))],
+                ...(hidden.flowerDetails ? [] : ([
+                  ...(hidden.flowerFromRow ? [] : [['flowerFrom', 'Cascade starts at', GOWN_FLOWER_FROM.filter((x) => !hidden.flowerFrom.includes(x.id))] as const]),
+                  ['flowerType', 'Flower type', GOWN_FLOWER_TYPES],
+                  ['flowerSize', 'Flower size', GOWN_FLOWER_SIZES.filter((x) => !hidden.flowerSize.includes(x.id))],
+                  ['flowerDen', 'How many flowers', GOWN_FLOWER_DENSITIES],
+                  ['flowerCol', 'Flower colour', GOWN_FLOWER_COLOURS.filter((x) => !hidden.flowerCol.includes(x.id))],
+                ] as const)),
+                ['pearls', 'Scattered pearls', GOWN_PEARLS.filter((x) => !hidden.pearls.includes(x.id))],
+                // A7 (v202): the first bead layer (a custom colour needs the maker's colour picker, so not here).
+                ['bead', 'Beading', GOWN_BEADS],
+                ['beadAt', 'Beads placed', GOWN_BEAD_PLACES],
+                ['beadDen', 'How many beads', GOWN_BEAD_DENSITIES],
+                ['beadCol', 'Bead colour', GOWN_BEAD_COLOURS.filter((x) => x.id !== 'custom')],
                 ['cutEdge', 'Cut-out edge', GOWN_CUT_EDGES],
                 ['cutFill', 'Cut-out fill', GOWN_CUT_FILLS],
                 ['pieces', 'Made as', GOWN_PIECES],
@@ -270,6 +326,28 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 />
               </div>
             ))}
+            <div className="grid gap-1">
+              <span>Bead size</span>
+              <PickMenu
+                label="Bead size"
+                value={String(design.beadMm)}
+                options={[2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6].map((mm) => ({ key: String(mm), label: `${mm} mm` }))}
+                onPick={(v) => setDesign({ ...design, beadMm: Number(v) })}
+                dataAttr="data-lab-pick-beadmm"
+                className="w-full !min-h-11"
+              />
+            </div>
+            <div className="grid gap-1">
+              <span>Second bead layer</span>
+              <PickMenu
+                label="Second bead layer"
+                value={design.beadLayers[0]?.bead ?? 'none'}
+                options={GOWN_BEADS.map((o) => ({ key: o.id, label: o.label }))}
+                onPick={(v) => setDesign({ ...design, beadLayers: v === 'none' ? [] : [{ bead: v as (typeof GOWN_BEADS)[number]['id'], beadAt: 'hem', beadDen: 'medium', beadCol: 'ivory', beadMm: 4, beadHex: null, mix: [] }] })}
+                dataAttr="data-lab-pick-beadlayer2"
+                className="w-full !min-h-11"
+              />
+            </div>
             <div className="grid gap-1">
               <span>Cut-out</span>
               <PickMenu

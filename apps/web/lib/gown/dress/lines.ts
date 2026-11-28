@@ -6,7 +6,7 @@ import { BODY_K, RING_N, TAU } from '../body/constants';
 import type { GownRig } from '../body/rig';
 import { smoothstep } from '../body/rig';
 import type { GownBack, GownConfig, GownHem, GownNeckline, GownPetticoat, GownSilhouette, GownTrain, GownVeil, GownWaistline } from '../../gown-config';
-import { GOWN_STRAPLESS } from '../../gown-config';
+import { GOWN_STRAPLESS, gownPlungeMeshOn, gownStrapCami, gownStrapKind, gownStrapsHold, type GownIllusionBack, type GownIllusionCups, type GownIllusion, type GownPlungeFill, type GownSleeve, type GownStraps } from '../../gown-config';
 
 const N = RING_N, DTH = TAU / N;
 
@@ -65,12 +65,63 @@ export type GownNeckLandmarks = {
   fTop: number; fLow: number; bTop: number; bLow: number;
   /** One centimetre in model units (v197 `L.cm`). */
   cm: number;
+  /** v199: the direction of a strap's front end on the bodice, where it crosses over the shoulder (`strapFrontAngle`, measured on her body). */
+  strapA?: number;
 };
 
-export type NeckDesign = { neck: GownNeckline; neckT: number | null; back: GownBack; backT: number };
+export type NeckDesign = {
+  neck: GownNeckline; neckT: number | null; back: GownBack; backT: number; illuBack?: GownIllusionBack;
+  /** v199: the straps (and what rules them out), and what fills a plunge to the waist. */
+  straps?: GownStraps; illu?: GownIllusion; sleeve?: GownSleeve; plungeFill?: GownPlungeFill;
+};
+/** The design's straps as the strap rules read them (absent: none). */
+const strapD = (d: Partial<NeckDesign>) => ({ neck: d.neck ?? 'sweetheart', straps: d.straps ?? 'none', illu: d.illu ?? 'none', sleeve: d.sleeve ?? 'none' });
+/**
+ * An illusion back holds a strapless bodice up, so its back may go below the bra line (v198 `illuLiftsBackCap`); so do
+ * straps that hold the bodice (v199).
+ */
+export const gownIlluLiftsBackCap = (d: Partial<NeckDesign>) =>
+  ((d.illuBack === 'on' && d.back !== 'closed') || (!!d.neck && gownStrapsHold(strapD(d)))) && !!d.neck && GOWN_STRAPLESS.includes(d.neck);
+
+/** The direction of each strap's front end on the bodice (v199 `strapFrontAngle`): a halter's from the bust, the others where the strap crosses the shoulder. */
+export const gownStrapFrontAngle = (d: Partial<NeckDesign>, L: GownNeckLandmarks) =>
+  gownStrapKind(strapD(d)) === 'halter' ? Math.min(0.7, Math.max(0.3, L.front * 0.9)) : (L.strapA ?? 0.5);
+/** The plunge's point: from the underbust down to 2 cm above the waist, on the front-depth bar (v199 `plungeY`). */
+export function gownPlungeY(d: Pick<NeckDesign, 'neckT'>, L: GownNeckLandmarks): number {
+  const t = d.neckT == null ? 0.85 : d.neckT, yW = (L.yW || L.yUB - 0.1) + 2 * L.cm;
+  return L.fLow + (Math.min(L.fLow - L.cm, yW) - L.fLow) * t;
+}
+/** Where the plunge's V meets each cup (v199 `plungeAV`). */
+export const gownPlungeAV = (L: GownNeckLandmarks) => Math.min(0.6, Math.max(0.2, L.front * 0.75));
+/** The sweetheart cup line, as the sweetheart neckline (v199 `plungeCup`). */
+export const gownPlungeCup = (ph: number, L: GownNeckLandmarks) => { const dd = (ph - L.front) / 0.42; return L.yA + (0.034 + 0.03 * Math.exp(-dd * dd)) * L.cup - 0.03 * smoothstep(ph, 1.25, 2.3); };
+/** The modesty mesh's own top edge: a soft line between the cups, just under their tops (v199 `plungeMeshTop`). */
+export function gownPlungeMeshTop(ph: number, L: GownNeckLandmarks): number {
+  const aV = gownPlungeAV(L);
+  if (ph > aV) return -1e9;
+  const yT = gownPlungeCup(aV, L), yM = L.yA + 0.026 * L.cup;
+  return yM + (yT - yM) * Math.pow(ph / aV, 1.7);
+}
+/**
+ * A V or a plunge held by straps (v199 `strapNeckFront`): the V rises to each strap, then the side drops to the underarm;
+ * a plunge is sweetheart cups with a deep V between them. Null for any other neckline.
+ */
+export function gownStrapNeckFront(d: NeckDesign, ph: number, L: GownNeckLandmarks): number | null {
+  if (!gownStrapCami(strapD(d))) return null;
+  const { yA, cup } = L;
+  if (d.neck === 'plungewaist') {
+    const aV = gownPlungeAV(L), yP = gownPlungeY(d, L);
+    return ph >= aV ? gownPlungeCup(ph, L) : yP + (gownPlungeCup(aV, L) - yP) * Math.pow(ph / aV, 0.85);
+  }
+  const aS = gownStrapFrontAngle(d, L), yPk = yA + 0.072 * cup, ySd = yA + 0.03 * cup - 0.03 * smoothstep(ph, 1.25, 2.3);
+  const yP = Math.min(d.neckT == null ? yA + 0.02 : L.fTop + (L.fLow - L.fTop) * d.neckT, yPk - 0.012);
+  if (ph <= aS) return yP + ((yPk - yP) * ph) / aS;
+  return yPk + (ySd - yPk) * smoothstep(ph, aS, aS + 0.8);
+}
 
 /** The neckline in front, for each direction ph (0 = centre front, π = centre back). */
 export function neckFront(d: NeckDesign, ph: number, L: GownNeckLandmarks): number {
+  { const c = gownStrapNeckFront(d, ph, L); if (c !== null) return c; } // v199: a V or a plunge held by straps
   const { yA, yN, ySh, cup, front } = L;
   switch (d.neck) {
     case 'v': {
@@ -102,14 +153,15 @@ export function gownSweetDepth(d: NeckDesign, L: GownNeckLandmarks): { cH: numbe
   return { cH, tOwn: Math.min(0.9, Math.max(0.02, (cH - c0) / Math.max(1e-4, cH - L.fLow))) };
 }
 /** A strapless bodice grips round at the bra line: its back may not be cut lower (v197 `backLimitY`). */
-export const gownBackLimitY = (d: Pick<NeckDesign, 'neck'>, L: GownNeckLandmarks) => (GOWN_STRAPLESS.includes(d.neck) && L.yUB ? L.yUB + 1.5 * L.cm : -1e9);
+export const gownBackLimitY = (d: Pick<NeckDesign, 'neck'> & Partial<NeckDesign>, L: GownNeckLandmarks) =>
+  GOWN_STRAPLESS.includes(d.neck) && L.yUB && !gownIlluLiftsBackCap(d) ? L.yUB + 1.5 * L.cm : -1e9; // v198: an illusion back lifts it
 /** V: straight sides to a point; scoop: a rounded U (v197 `backD`). */
 const backD = (b: GownBack, ph: number) => { const sv = Math.min(1, Math.max(0, (Math.PI - ph) / (Math.PI - 1.8))); return b === 'v' ? 1 - sv : Math.sqrt(Math.max(0, 1 - sv * sv)); };
 
 /** The bodice's top edge: the neckline in front, the chosen back behind, blended across the side seam. */
 export function neckTop(d: NeckDesign, ph: number, L: GownNeckLandmarks): number {
   let f = neckFront(d, ph, L);
-  if (d.neckT !== null && ph < 1.6) {
+  if (d.neckT !== null && ph < 1.6 && !gownStrapCami(strapD(d))) {
     const c0 = neckFront(d, 0, L), V = d.neck === 'v';
     if (d.neck === 'sweetheart') {
       // Accuracy review (v197): the sweetheart's bar runs from straight across (no point rising to the throat) down to a plunge.
@@ -145,7 +197,7 @@ export function waistY(B: GownRig, waist: GownWaistline, q: number): number {
 }
 
 /** The design keys the dress build reads. */
-export type GownDressDesign = Pick<GownConfig, 'neck' | 'neckT' | 'back' | 'backT' | 'sil' | 'waist' | 'petti' | 'train' | 'slits' | 'slitCm' | 'boning' | 'hem' | 'hemCm' | 'pleat' | 'pleatN' | 'pleatCm' | 'skirtLayers' | 'fabric' | 'bustle' | 'shape'>;
+export type GownDressDesign = Pick<GownConfig, 'neck' | 'neckT' | 'back' | 'backT' | 'sil' | 'waist' | 'petti' | 'train' | 'slits' | 'slitCm' | 'boning' | 'hem' | 'hemCm' | 'pleat' | 'pleatN' | 'pleatCm' | 'skirtLayers' | 'fabric' | 'bustle' | 'shape' | 'illu' | 'illuBase' | 'illuBack' | 'straps' | 'sleeve' | 'plungeFill'>;
 
 /**
  * A high neck with an open back stays closed at the nape: a band with one covered button, and the chosen scoop or V
@@ -161,9 +213,46 @@ export function gownKeyholeBack(d: NeckDesign, topBack: number, L: GownNeckLandm
   return { yBand, yB, poly: [...lo, [Math.PI + 1.34, yBand], [Math.PI - 1.34, yBand]] };
 }
 
-/** The deepest a strapless back may be cut on her, on the back's own bar (v197 `backCapT`; 1 when it is not strapless). */
-export function gownBackCapT(d: Pick<NeckDesign, 'neck'>, L: GownNeckLandmarks | null): number {
-  if (!L || !GOWN_STRAPLESS.includes(d.neck)) return 1;
+/**
+ * The deepest a strapless back may be cut on her, on the back's own bar (v197 `backCapT`; 1 when it is not strapless,
+ * or (v198) an illusion back holds it up).
+ */
+export function gownBackCapT(d: Pick<NeckDesign, 'neck'> & Partial<NeckDesign>, L: GownNeckLandmarks | null): number {
+  if (!L || !GOWN_STRAPLESS.includes(d.neck) || gownIlluLiftsBackCap(d)) return 1;
   const y = gownBackLimitY(d, L);
   return Math.min(1, Math.max(0, (L.bTop - y) / Math.max(1e-4, L.bTop - L.bLow)));
 }
+
+/** The lined cups' top edge for each direction (ph 0 = centre front, π = centre back) (v198 `illuBaseY`). */
+export function gownIlluBaseY(base: GownIllusionCups, ph: number, L: GownNeckLandmarks): number {
+  const { yA, cup, front } = L, d = (ph - front) / 0.42, back = 0.03 * smoothstep(ph, 1.25, 2.3), sw = yA + (0.034 + 0.03 * Math.exp(-d * d)) * cup - back;
+  if (base === 'straight') return yA + cup * (0.034 + 0.016 * (1 - smoothstep(ph, 1.0, 1.6))) - back;
+  if (base === 'plunge') {
+    const yP = Math.min(sw - 0.02, Math.max(L.yW + 0.06, (L.yUB || L.yW + 0.08) - 0.05)), f = Math.pow(Math.min(1, Math.max(0, 1 - ph / (front * 0.9))), 0.9);
+    return sw - (sw - yP) * f;
+  }
+  return sw;
+}
+/** A sheer corset: where each lined cup ends below (the cups meet in a point at the centre; at the side the cup closes up to the top edge) (v198 `illuCupBot`). */
+export function gownIlluCupBot(base: GownIllusionCups, ph: number, L: GownNeckLandmarks, top: number): number {
+  const cb = (L.yUB || L.yA - 0.06) - 0.004, inner = smoothstep(ph, 0, L.front * (base === 'plunge' ? 0.3 : 0.8)), outer = Math.pow(smoothstep(ph, L.front + 0.1, L.front + 1.2), 0.8);
+  let y = top + (cb - top) * inner;
+  y += (top - y) * outer;
+  return Math.min(y, top);
+}
+/** v198's illusion choices the bodice's outline reads. */
+export type GownIlluDesign = { illu: GownIllusion; illuBase: GownIllusionCups; illuBack: GownIllusionBack };
+/**
+ * The gown's top edge as cut: the sheer reaches it (v198 `illuOuterTop`). A strapless sweetheart with straight-across
+ * cups runs straight; with an illusion back, the closed back line.
+ */
+export function gownIlluOuterTop(d: NeckDesign & GownIlluDesign, ph: number, L: GownNeckLandmarks): number {
+  const t = neckTop(d, ph, L);
+  // v199: the plunge's modesty mesh reaches up between the cups.
+  if (gownPlungeMeshOn({ neck: d.neck, plungeFill: d.plungeFill ?? 'mesh' }) && ph < 1.6) { const m = gownPlungeMeshTop(ph, L); if (m > t) return m; }
+  if (d.illu !== 'none' && d.neck === 'sweetheart' && d.illuBase === 'straight' && ph < 1.6) return gownIlluBaseY('straight', ph, L);
+  if (gownIlluBackOn(d) && ph >= 1.6) return Math.max(t, neckTop({ ...d, back: 'closed' }, ph, L));
+  return t;
+}
+/** An illusion back is worn when it is on and the back is open (v198 `illuBackOn`). */
+export const gownIlluBackOn = (d: Pick<NeckDesign, 'back'> & Pick<GownIlluDesign, 'illuBack'>) => d.illuBack === 'on' && d.back !== 'closed';

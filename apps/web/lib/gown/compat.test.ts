@@ -67,7 +67,8 @@ test('the layers and the petticoat always agree (v192): a hoop is layer 1 only; 
   assert.deepEqual(sanitizeGownConfig({ ...start(), layerTypes: ['soft', 'hoop', 'soft', 'soft', 'soft', 'soft'] }, OFFER), { ok: false, reason: 'not_a_design' });
   assert.deepEqual(sanitizeGownConfig({ ...start(), cape: 'side', sleeve: 'butterfly', neck: 'bateau' }, OFFER), { ok: false, reason: 'not_a_design' });
   assert.deepEqual(sanitizeGownConfig({ ...start(), cape: 'back', veil: 'chapel' }, OFFER), { ok: false, reason: 'not_a_design' });
-  assert.equal(GOWN_LAYER_TYPES.length, 5);
+  // v200 adds glitter tulle.
+  assert.equal(GOWN_LAYER_TYPES.length, 6);
 });
 
 test('every rule names real keys and has a reason to exist (a change or a line)', () => {
@@ -87,7 +88,7 @@ test('a strapless bodice: its back stops at the bra line, no cap sleeve or cowl,
   assert.equal(a.config.drape, 'none');
   assert.equal(a.tell, true);
   assert.deepEqual(a.notes, [
-    'The back stops at the bra line: a strapless bodice is held up all the way round there.',
+    'The back stops at the bra line: a strapless bodice is held up all the way round there. Add straps (under Neckline) or an illusion back (under Back) to go lower.',
     'Cap sleeves need a shoulder to sit on, so sleeves are now none.',
     'The cowl drape is off: a cowl hangs from the shoulders.',
   ]);

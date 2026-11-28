@@ -14,7 +14,17 @@ import {
   GOWN_CAPE_STRAP,
   GOWN_SILHOUETTES,
   GOWN_STRAPLESS,
+  GOWN_STRAPS,
+  GOWN_STRAP_DEF,
+  GOWN_STRAP_OK,
+  gownCapeFlowersOn,
   gownCapeNow,
+  gownFloorLength,
+  gownFlowersOn,
+  gownStrapCovers,
+  gownStrapKind,
+  gownStrapOk,
+  gownStrapsHold,
   gownLayerCount,
   gownPettiOf,
   gownLookOf,
@@ -24,6 +34,7 @@ import {
   type GownLook,
   type GownPieces,
   type GownSilhouette,
+  type GownStraps,
   type GownWaistline,
 } from '../gown-config';
 import { gownFabricType } from './fabric/types';
@@ -56,6 +67,23 @@ export type GownRule = {
  * may be cut on her (v197 `backCapT`; 1 when it is not strapless). Without it, the back's limit is left to the stage.
  */
 export type GownChooseContext = { backCapT?: number };
+/** The rules also read the value she just chose (a rule before may have put the old one back). */
+type RuleContext = GownChooseContext & { chosen?: unknown };
+/** v198: an illusion back holds a strapless bodice up, so the bra-line cap does not apply; v199: so do straps that hold it. */
+const capLifted = (g: GownConfig) => ((g.illuBack === 'on' && g.back !== 'closed') || gownStrapsHold(g)) && strapless(g);
+/** v199: a cape's narrow strap is added where a strapless neckline has no strap of its own on that shoulder (`capeStrapNeeded`). */
+const capeStrapNeeded = (g: GownConfig) => !!GOWN_CAPE_STRAP[g.cape] && strapless(g) && !gownStrapCovers(g, GOWN_CAPE_STRAP[g.cape]!);
+/** v198: a cape's narrow strap holds the bodice up too (`illuStrapsHeld`); v199: and straps that hold it. */
+const strapsHeld = (g: GownConfig) => capeStrapNeeded(g) || (g.cape === 'pair' && strapless(g)) || gownStrapsHold(g);
+/** v199 strap names in a sentence ("spaghetti straps", "one-shoulder strap"). */
+const strapName = (s: GownStraps) => (s === 'none' ? 'straps' : GOWN_STRAP_DEF[s].name.toLowerCase());
+const isAre = (s: GownStraps) => (s === 'one' ? 'is' : 'are');
+/** v199: sleeves that need both shoulders. */
+const shoulderSleeve = (s: GownConfig['sleeve']) => s === 'cap' || s === 'butterfly' || s === 'flutter';
+/** v199: a scalloped edge is for a strapless sweetheart or straight-across neckline. */
+const scallopNeck = (g: GownConfig) => g.neck === 'sweetheart' || g.neck === 'straight';
+/** v198 `illuBackLow`: a strapless back below the bra line, with no illusion back holding it. */
+const backTooLow = (g: GownConfig, ctx: GownChooseContext) => strapless(g) && g.back !== 'closed' && !capLifted(g) && ctx.backCapT !== undefined && g.backT > ctx.backCapT + 0.002;
 
 const strapless = (g: GownConfig) => GOWN_STRAPLESS.includes(g.neck);
 /** Strapless with nothing at the shoulder for a sleeve to join (off-shoulder keeps its band). */
@@ -72,7 +100,7 @@ const longVeil = (g: GownConfig) => g.veil === 'floor' || g.veil === 'chapel' ||
 const closeSil = (g: GownConfig) => g.sil === 'sheath' || g.sil === 'mermaid';
 const silName = (s: GownSilhouette) => GOWN_SILHOUETTES.find((x) => x.id === s)!.label.toLowerCase();
 /** v197 `BACK_CAP_MSG`. */
-export const GOWN_BACK_CAP_NOTE = 'The back stops at the bra line: a strapless bodice is held up all the way round there.';
+export const GOWN_BACK_CAP_NOTE = 'The back stops at the bra line: a strapless bodice is held up all the way round there. Add straps (under Neckline) or an illusion back (under Back) to go lower.';
 const accented = (g: GownConfig) => !!(g.accentFabric || g.accentHex);
 
 /** Silhouettes made without a slit, and why (v193 `NO_SLIT`). */
@@ -89,6 +117,9 @@ export const GOWN_WAIST_FOR: Record<GownPieces, readonly GownWaistline[]> = {
 /** A texture's usual spacing (cm), set when she picks it (v193 `setGown`). */
 export const GOWN_TEXTURE_SPACING = { pintuck: 0.8, ruche: 2.2, smock: 1.5 } as const;
 
+/** Every key of the design but one (a rule that follows whatever else she changes). */
+const ALL_BUT = (k: keyof GownConfig) => (Object.keys(startingGownConfig()) as (keyof GownConfig)[]).filter((x) => x !== k);
+
 /** In the order the prototype applies them. */
 export const GOWN_RULES: readonly GownRule[] = [
   // v196: each cape comes with its own material, length and edge (changed under Cape details).
@@ -103,7 +134,7 @@ export const GOWN_RULES: readonly GownRule[] = [
   // Accuracy review (v197): a strapless bodice is held up all the way round at the bra line, so its back stops there; it
   // has nothing at the shoulder for a cap sleeve or a cowl; its long sleeves are detachable.
   {
-    id: 'strapless-back-cap', on: ['neck'], when: (g, _k, _w, ctx) => strapless(g) && g.back !== 'closed' && ctx.backCapT !== undefined && g.backT > ctx.backCapT + 1e-3,
+    id: 'strapless-back-cap', on: ['neck'], when: (g, _k, _w, ctx) => strapless(g) && g.back !== 'closed' && !capLifted(g) && ctx.backCapT !== undefined && g.backT > ctx.backCapT + 1e-3,
     apply: (g, _w, ctx) => { g.backT = ctx.backCapT!; }, note: GOWN_BACK_CAP_NOTE, tell: true, replaces: true,
   },
   { id: 'strapless-no-cap', on: ['neck'], when: (g) => bareTop(g) && g.sleeve === 'cap', apply: (g) => { g.sleeve = 'none'; }, note: 'Cap sleeves need a shoulder to sit on, so sleeves are now none.', tell: true },
@@ -163,12 +194,12 @@ export const GOWN_RULES: readonly GownRule[] = [
   // v196: the neck cape has its own band; a cape from one shoulder (or the pair) gets a strap where the neckline has none.
   { id: 'neck-cape-band', on: ['cape'], when: (g) => g.cape === 'neck', note: 'The neck cape fastens at its own thin band round her neck (with a clasp at the back), so it works with any neckline.', tell: true },
   {
-    id: 'cape-strap', on: ['cape'], when: (g) => !!GOWN_CAPE_STRAP[g.cape] && strapless(g),
+    id: 'cape-strap', on: ['cape'], when: (g) => capeStrapNeeded(g),
     note: (g) => `This neckline has no strap, so a narrow strap is added on her ${GOWN_CAPE_STRAP[g.cape] === 'L' ? 'left' : 'right'} shoulder to hold the ${capeName(g)}.`, tell: true,
   },
-  { id: 'pair-straps', on: ['cape'], when: (g) => g.cape === 'pair' && strapless(g), note: 'Each cape is fastened on a narrow strap over the shoulder, with a small brooch.', tell: true },
+  { id: 'pair-straps', on: ['cape'], when: (g) => g.cape === 'pair' && strapless(g) && !(gownStrapCovers(g, 'L') && gownStrapCovers(g, 'R')), note: 'Each cape is fastened on a narrow strap over the shoulder, with a small brooch.', tell: true },
   {
-    id: 'strapless-cape-strap', on: ['neck'], when: (g, _k, was) => strapless(g) && !GOWN_STRAPLESS.includes(was as GownConfig['neck']) && (!!GOWN_CAPE_STRAP[g.cape] || g.cape === 'pair'),
+    id: 'strapless-cape-strap', on: ['neck'], when: (g, _k, was) => strapless(g) && !GOWN_STRAPLESS.includes(was as GownConfig['neck']) && (capeStrapNeeded(g) || g.cape === 'pair'),
     note: (g) => `A narrow strap is added to hold the ${capeName(g)}: this neckline has none.`, tell: true,
   },
   // A cape down her back and a long veil cover each other.
@@ -212,6 +243,118 @@ export const GOWN_RULES: readonly GownRule[] = [
     id: 'border-lace-on-hem', on: ['lace'], when: (g) => GOWN_BORDER_LACES.includes(g.lace) && g.laceAt !== 'neck' && g.laceAt !== 'hem',
     apply: (g) => { g.laceAt = 'hem'; }, note: 'This is border lace, so it is placed along the hem. Neckline edge works too.',
   },
+  // v199 `strapSet`: straps, the scalloped edge and the plunge to the waist. Their lines go in the Undo line.
+  // v201: a plunge to the waist and butterfly sleeves both want the shoulder; the one chosen last wins.
+  {
+    id: 'plunge-drops-butterfly', on: ['neck'], when: (g) => g.neck === 'plungewaist' && g.sleeve === 'butterfly', apply: (g) => { g.sleeve = 'none'; },
+    note: 'Sleeves are now none: a plunge to the waist hangs from straps, and butterfly sleeves stand where they would go.', tell: true,
+  },
+  {
+    id: 'butterfly-ends-plunge', on: ['sleeve', 'sil'], when: (g, k) => ((k === 'sleeve' && g.sleeve === 'butterfly') || (k === 'sil' && g.sil === 'terno')) && g.neck === 'plungewaist',
+    apply: (g) => { g.neck = 'bateau'; g.neckT = null; g.straps = 'none'; }, note: 'Butterfly sleeves sit on the shoulder, so the plunge is now a bateau neckline.', tell: true,
+  },
+  {
+    id: 'plunge-needs-straps', on: ['neck'], when: (g) => g.neck === 'plungewaist',
+    apply: (g) => { g.plungeFill = 'mesh'; if (g.illu === 'neck') g.illu = 'none'; if (!GOWN_STRAP_OK.plungewaist!.includes(g.straps)) g.straps = 'spaghetti'; },
+    note: (g) => (GOWN_STRAP_OK.plungewaist!.includes(g.straps)
+      ? 'Sheer modesty mesh fills the plunge between the cups, so the bodice stays in place.'
+      : 'A plunge to the waist needs straps to stay in place, so spaghetti straps are added, and sheer modesty mesh fills the plunge between the cups.'),
+    tell: true,
+  },
+  // A sheer corset on a plunge: the cups are cut as a plunge too.
+  { id: 'plunge-corset-cups', on: ['neck', 'illu'], when: (g) => g.neck === 'plungewaist' && g.illu === 'corset' && g.illuBase !== 'plunge', apply: (g) => { g.illuBase = 'plunge'; }, note: 'The lined cups follow the plunge.', tell: true },
+  {
+    id: 'illusion-neck-leaves-plunge', on: ['illu'], when: (g) => g.illu === 'neck' && g.neck === 'plungewaist', apply: (g) => { g.neck = 'v'; g.neckT = null; },
+    note: 'An illusion neckline runs up from lined cups, so the plunge is now a V-neck with sheer tulle above the cups.', tell: true,
+  },
+  {
+    id: 'one-shoulder-sleeves-off', on: ['straps'], when: (g) => (g.straps === 'halter' || g.straps === 'one') && shoulderSleeve(g.sleeve), apply: (g) => { g.sleeve = 'none'; },
+    note: (g) => `Sleeves are now none: ${g.sleeve} sleeves need both shoulders, and ${g.straps === 'halter' ? 'a halter leaves the shoulders bare' : 'a one-shoulder gown has only one'}.`, tell: true,
+  },
+  {
+    id: 'shoulder-sleeves-straps-off', on: ['sleeve'], when: (g, _k, _w, ctx) => shoulderSleeve(g.sleeve) && (g.straps === 'halter' || g.straps === 'one') && g.sleeve === (ctx as RuleContext).chosen,
+    apply: (g) => { g.straps = 'none'; }, note: (g) => `The ${strapName(g.straps)} ${isAre(g.straps)} off: ${g.sleeve} sleeves need both shoulders.`, tell: true,
+  },
+  {
+    // The back cap comes back with nothing holding the bodice.
+    id: 'straps-off-back-cap', on: ['straps'], when: (g, _k, _w, ctx) => (g.straps === 'none' || !GOWN_STRAP_DEF[g.straps].holds) && strapless(g) && g.back !== 'closed' && !capLifted(g) && !strapsHeld(g) && ctx.backCapT !== undefined && g.backT > ctx.backCapT + 1e-3,
+    apply: (g, _w, ctx) => { g.backT = ctx.backCapT!; },
+    note: (g) => `With ${g.straps === 'none' ? 'no straps' : `${strapName(g.straps)} (they don't hold the bodice)`}, the back is raised to the bra line: a strapless bodice is held up all the way round there. Add an illusion back (under Back) to go lower.`, tell: true,
+  },
+  {
+    id: 'strap-carries-cape', on: ['straps'], when: (g) => g.straps !== 'none' && !!GOWN_CAPE_STRAP[g.cape] && strapless(g) && gownStrapCovers(g, GOWN_CAPE_STRAP[g.cape]!),
+    note: (g) => `The ${capeName(g)} now hangs from this strap (no extra narrow strap).`, tell: true,
+  },
+  { id: 'scallop-strapless', on: ['topEdge'], when: (g) => g.topEdge === 'scallop' && !scallopNeck(g), apply: (g) => { g.topEdge = 'plain'; }, note: 'A scalloped edge is for a strapless sweetheart or straight-across neckline.', tell: true },
+  {
+    // The neckline (or the sleeves, or the illusion) moved under the straps: never leave a strap that can't be worn.
+    id: 'straps-follow-design', on: ALL_BUT('straps'), when: (g) => g.straps !== 'none' && !gownStrapOk(g, g.straps),
+    apply: (g) => { g.straps = g.neck === 'plungewaist' ? 'spaghetti' : 'none'; },
+    note: (g) => (g.neck === 'plungewaist'
+      ? `Spaghetti straps now: ${strapName(g.straps)} don't go with a plunge to the waist.`
+      : `The ${strapName(g.straps)} ${isAre(g.straps)} off: ${g.illu === 'neck' ? "the illusion neckline's sheer tulle already runs over the shoulders" : g.sleeve === 'butterfly' ? 'butterfly sleeves stand on the shoulders of the bodice' : g.neck === 'high' ? 'a high neck covers the shoulders' : g.neck === 'bateau' ? 'a bateau neckline covers the shoulders' : g.neck === 'off' ? 'an off-shoulder neckline takes off-shoulder straps only' : "they don't go with this neckline"}.`),
+    tell: true,
+  },
+  {
+    id: 'scallop-plain-again', on: ALL_BUT('topEdge'), when: (g) => g.topEdge === 'scallop' && !scallopNeck(g), apply: (g) => { g.topEdge = 'plain'; },
+    note: 'The top edge is plain again: a scalloped edge is for strapless necklines.', tell: true,
+  },
+  // v200 `flowerSet`: 3D flowers and scattered pearls. Their lines go in the Undo line.
+  {
+    id: 'sheath-flowers-medium', on: ['sil', 'flowerSize', 'flowers', 'capeFlowers'], when: (g) => g.sil === 'sheath' && g.flowerSize === 'large' && (gownFlowersOn(g) || gownCapeFlowersOn(g)),
+    apply: (g) => { g.flowerSize = 'medium'; }, note: 'The flowers are now medium: on a sheath they stay small or medium, close to the body.', tell: true,
+  },
+  {
+    id: 'hem-flowers-need-floor', on: ['flowers'], when: (g) => g.flowers === 'hem' && !gownFloorLength(g), apply: (g, was) => { g.flowers = (was as GownConfig['flowers']) || 'none'; },
+    note: 'A hem border of flowers needs a floor-length hem: pick Floor under Length first.', tell: true,
+  },
+  {
+    id: 'cascade-strapless-bodice', on: ['flowers', 'flowerFrom'], when: (g, k) => (k === 'flowerFrom' || g.flowers === 'cascade') && strapless(g) && g.flowerFrom !== 'bodice',
+    apply: (g) => { g.flowerFrom = 'bodice'; }, note: 'On a strapless gown the cascade starts at the bodice edge.', tell: true,
+  },
+  {
+    id: 'strapless-cascade-bodice', on: ['neck'], when: (g, _k, was) => strapless(g) && !GOWN_STRAPLESS.includes(was as GownConfig['neck']) && g.flowers === 'cascade' && g.flowerFrom === 'shoulder',
+    apply: (g) => { g.flowerFrom = 'bodice'; }, note: 'The flower cascade now starts at the bodice edge: a strapless neckline has no shoulder.', tell: true,
+  },
+  {
+    id: 'veil-off-pearls', on: ['veil'], when: (g) => g.veil === 'none' && (g.pearls === 'veil' || g.pearls === 'both'), apply: (g) => { g.pearls = g.pearls === 'both' ? 'neck' : 'none'; },
+    note: 'The pearls on the veil edge are off with the veil.', tell: true,
+  },
+  {
+    id: 'pearls-need-veil', on: ['pearls'], when: (g) => (g.pearls === 'veil' || g.pearls === 'both') && g.veil === 'none', apply: (g, was) => { g.pearls = (was as GownConfig['pearls']) || 'none'; },
+    note: 'Pick a veil first: these pearls are scattered along its edge.', tell: true,
+  },
+  {
+    id: 'flowers-accent-first', on: ['flowerCol'], when: (g) => g.flowerCol === 'accent' && !accented(g), apply: (g, was) => { g.flowerCol = (was as GownConfig['flowerCol']) || 'gown'; },
+    note: 'Pick an accent colour first (under Sleeves); until then the flowers stay in the gown colour.', tell: true,
+  },
+  {
+    // v200 `flowerSync`: a shorter hem takes the hem border of flowers off.
+    id: 'short-hem-flowers-off', on: ['hem', 'hemCm'], when: (g) => g.flowers === 'hem' && !gownFloorLength(g), apply: (g) => { g.flowers = 'none'; },
+    note: 'The hem border of 3D flowers is off: it needs a floor-length hem.', tell: true,
+  },
+  // v198: the illusion bodice, the illusion back and the boning you can see. Their lines go in the Undo line.
+  {
+    id: 'illusion-needs-neckline', on: ['illu'], when: (g) => g.illu === 'neck' && bareTop(g), apply: (g) => { g.neck = 'bateau'; g.neckT = null; },
+    note: 'An illusion neckline needs a neckline above the cups, so the neckline is now bateau: sheer tulle from the cups up to it.', tell: true,
+  },
+  {
+    id: 'strapless-no-illusion', on: ['neck'], when: (g) => bareTop(g) && g.illu === 'neck', apply: (g) => { g.illu = 'none'; },
+    note: 'A strapless neckline is the top of the cups, so there is no sheer part above it: the bodice is the gown fabric again ("Sheer corset" keeps tulle below the cups).', tell: true,
+  },
+  { id: 'sheer-corset-boned', on: ['illu'], when: (g) => g.illu === 'corset' && g.boning === 'soft', apply: (g) => { g.boning = 'complement'; }, note: 'A sheer corset is boned so it keeps its shape: boning is now Complement.', tell: true },
+  { id: 'show-bones-adds-bones', on: ['boneShow'], when: (g) => g.boneShow === 'on' && g.boning === 'soft', apply: (g) => { g.boning = 'complement'; }, note: 'Bones are added (Complement) so there is boning to show. Change them under Inside, Boning.', tell: true },
+  { id: 'soft-hides-bones', on: ['boning'], when: (g) => g.boning === 'soft' && g.boneShow === 'on', apply: (g) => { g.boneShow = 'off'; }, note: 'Visible boning is off: a soft bodice has no bones.', tell: true },
+  { id: 'closed-back-no-illusion', on: ['back'], when: (g) => g.back === 'closed' && g.illuBack === 'on', apply: (g) => { g.illuBack = 'off'; } },
+  {
+    // Owner: a strapless low back needs straps or an illusion back. Turning the illusion back off raises the back.
+    id: 'illusion-back-off-raises', on: ['illuBack'], when: (g, _k, _w, ctx) => g.illuBack === 'off' && backTooLow(g, ctx) && !strapsHeld(g),
+    apply: (g, _w, ctx) => { g.backT = Math.round(ctx.backCapT! * 500) / 500; }, note: 'The back is raised to the bra line: a strapless bodice with no straps needs its back (or an illusion back) to stay up.', tell: true,
+  },
+  {
+    id: 'low-back-adds-illusion', on: ['back', 'neck', 'cape', 'backT'], when: (g, _k, _w, ctx) => backTooLow(g, ctx) && !strapsHeld(g) && g.illuBack !== 'on',
+    apply: (g) => { g.illuBack = 'on'; }, note: "A strapless bodice can't stay up with a back this low, so an illusion back is added: sheer tulle closes it up to the top edge, and the back still looks open.", tell: true,
+  },
   // v192: the layers under the skirt and the petticoat always agree.
   {
     id: 'layers-follow-petticoat', on: ['petti', 'skirtLayers', 'sil'], when: () => true,
@@ -233,14 +376,14 @@ export type GownChosen = {
 export function gownChoose(config: GownConfig, choice: GownChoice, ctx: GownChooseContext = {}): GownChosen {
   const g = structuredClone(config) as GownConfig, was = config[choice.key];
   (g as Record<keyof GownConfig, unknown>)[choice.key] = choice.value;
-  const notes: string[] = [];
+  const notes: string[] = [], rc: RuleContext = { ...ctx, chosen: choice.value };
   let tell = false;
   for (const r of GOWN_RULES) {
-    if (!r.on.includes(choice.key) || !r.when(g, choice.key, was, ctx)) continue;
+    if (!r.on.includes(choice.key) || !r.when(g, choice.key, was, rc)) continue;
     if (r.alone && notes.length) continue;
     // A rule's line reads the design before the rule changes it (it names what she had, or asked for).
     const n = typeof r.note === 'function' ? r.note(g, was) : r.note;
-    r.apply?.(g, was, ctx);
+    r.apply?.(g, was, rc);
     if (n && !(r.quietAfterTell && tell)) { if (r.replaces) notes.length = 0; notes.push(n); }
     if (r.tell) tell = true;
   }
@@ -255,11 +398,15 @@ export function gownChoose(config: GownConfig, choice: GownChoice, ctx: GownChoo
  */
 export function gownHiddenChoices(g: GownConfig): {
   sleeve: string[]; veil: string[]; waist: string[]; slits: boolean; overlay: string[]; petti: string[]; train: string[]; pleat: boolean; drape: string[]; blusher: boolean; longSleeveLabel: string;
-  capeLen: string[]; capeFasten: boolean; capeCol: boolean; capeCm: boolean;
+  capeLen: string[]; capeFasten: boolean; capeCol: boolean; capeCm: boolean; neck: string[]; illuDetails: boolean; illuBack: boolean;
+  straps: string[]; strapRow: boolean; strapDetails: boolean; strapCol: boolean; topEdge: boolean; plungeFill: boolean;
+  flowers: string[]; flowerDetails: boolean; flowerFromRow: boolean; flowerFrom: string[]; flowerSize: string[]; flowerCol: string[]; pearls: string[]; veilFab: boolean;
 } {
+  const k = gownStrapKind(g), two = k === 'halter' || k === 'one';
   return {
     overlay: g.sil === 'ball' ? ['asym', 'cascade'] : [],
-    sleeve: [...(caped(g) ? ['butterfly'] : []), ...(bareTop(g) ? ['cap'] : [])],
+    // v199: halter and one-shoulder straps leave no pair of shoulders for cap, butterfly or flutter sleeves.
+    sleeve: [...new Set([...(caped(g) ? ['butterfly'] : []), ...(bareTop(g) ? ['cap'] : []), ...(two ? ['cap', 'butterfly', 'flutter'] : [])])],
     veil: longBack(g) ? ['floor', 'chapel', 'cathedral'] : [],
     waist: (['natural', 'empire', 'dropped', 'basque', 'basqueU'] as const).filter((w) => !GOWN_WAIST_FOR[g.pieces].includes(w)),
     slits: !!GOWN_NO_SLIT[g.sil],
@@ -275,6 +422,31 @@ export function gownHiddenChoices(g: GownConfig): {
     capeFasten: g.cape !== 'back',
     capeCol: !accented(g),
     capeCm: gownCapeNow(g).len !== 'train',
+    // v198: an illusion neckline needs a neckline above the cups; the illusion details while it is on; no illusion back on a closed back.
+    // v199: nor a plunge to the waist.
+    neck: g.illu === 'neck' ? [...GOWN_STRAPLESS.filter((n) => n !== 'off'), 'plungewaist'] : [],
+    illuDetails: g.illu === 'none',
+    illuBack: g.back === 'closed',
+    // v199: the straps this design can wear (none on a high neck, a bateau, an illusion neckline or butterfly sleeves);
+    // their details while there are straps (their colour once there is an accent); the top edge on a strapless
+    // sweetheart or straight-across neckline; what fills a plunge.
+    straps: GOWN_STRAPS.map((x) => x.id).filter((x) => !gownStrapOk(g, x)),
+    strapRow: g.neck === 'high' || g.neck === 'bateau' || g.illu === 'neck' || g.sleeve === 'butterfly',
+    strapDetails: k === 'none',
+    strapCol: !accented(g),
+    topEdge: !scallopNeck(g),
+    plungeFill: g.neck !== 'plungewaist',
+    // v200 `flwChips`: a hem border only on a floor-length hem; the flowers' details while there are flowers (where a
+    // cascade starts only for a cascade, and never at her shoulder on a strapless gown); no large flowers on a sheath; the
+    // accent colour once there is an accent; pearls on the veil's edge and the veil's tulle only with a veil.
+    flowers: gownFloorLength(g) ? [] : ['hem'],
+    flowerDetails: !(gownFlowersOn(g) || gownCapeFlowersOn(g)),
+    flowerFromRow: g.flowers !== 'cascade',
+    flowerFrom: strapless(g) ? ['shoulder'] : [],
+    flowerSize: g.sil === 'sheath' ? ['large'] : [],
+    flowerCol: accented(g) ? [] : ['accent'],
+    pearls: g.veil === 'none' ? ['veil', 'both'] : [],
+    veilFab: g.veil === 'none',
   };
 }
 

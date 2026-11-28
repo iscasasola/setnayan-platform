@@ -28,6 +28,7 @@ import {
   inlineMoreSaveFailed,
   INLINE_MORE_SIGNED_OUT,
   MORE_TO_COMPARE_SAVE,
+  findNoneListedWords,
   moreToCompareEmpty,
   moreToCompareHeading,
 } from '@/lib/explore-info-copy';
@@ -66,6 +67,9 @@ test('the heading says "More" only when the couple has someone to compare WITH',
 test('a search that matched nobody and an empty category are different sentences', () => {
   assert.equal(moreToCompareEmpty('Catering', ' lola '), 'Nobody called “lola” in Catering yet — add them as your own.');
   assert.equal(moreToCompareEmpty('Catering', ''), 'Nobody else to compare in Catering yet.');
+  // None of their own AND nobody on Setnayan: the one line every Find surface says (owner R3, 27 Nov).
+  assert.equal(moreToCompareEmpty('Catering', '', false), 'No Catering supplier on Setnayan yet.');
+  assert.equal(moreToCompareEmpty('Catering', '', false), findNoneListedWords('Catering'));
 });
 
 test('the list says supplier, never vendor', () => {
@@ -142,7 +146,7 @@ test('🔑 a list still loading, or one that failed, never reads as a count or a
   // Loading first; then an empty list says "Nobody" ONLY when nothing failed.
   assert.match(
     LIST,
-    /\{moreLoading && shown === 0 \? \([\s\S]*?INLINE_MORE_LOADING[\s\S]*?\) : shown === 0 \? \(\s*moreError \? null : \([\s\S]*?: moreToCompareEmpty\(label, moreQ\)/,
+    /\{moreLoading && shown === 0 \? \([\s\S]*?INLINE_MORE_LOADING[\s\S]*?\) : shown === 0 \? \(\s*moreError \? null : \([\s\S]*?: moreToCompareEmpty\(label, moreQ, hasOwn\)/,
   );
   assert.match(LIST, /\{moreError \? \(\s*<div className="mrerr" role="alert">/);
   // A failed read clears the cards to null — never to "these suppliers have none".

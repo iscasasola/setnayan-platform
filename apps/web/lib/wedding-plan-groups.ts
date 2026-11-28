@@ -455,7 +455,7 @@ export const PLAN_GROUPS: ReadonlyArray<PlanGroup> = [
   },
   {
     id: 'lights_sound',
-    label: 'Lights & Sound',
+    label: 'Lights & Sounds',
     hint: "The PA that carries every toast and the lights that turn a hall into a party. Confirm the venue's power supply.",
     tier: 'style_program',
     categories: ['lights_and_sound'],

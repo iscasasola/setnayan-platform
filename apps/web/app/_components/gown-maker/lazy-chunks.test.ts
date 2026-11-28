@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
+import { stripComments } from '@/lib/strip-comments';
 
 const WEB = join(__dirname, '../../..');
 const LAZY = ['gown-maker/hand-tools', 'gown-maker/lace-designer'];
@@ -20,13 +21,12 @@ function files(dir: string, out: string[] = []): string[] {
   }
   return out;
 }
-const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/.*$/gm, '$1');
 
 test('nothing imports the hand tools or the lace designer statically', () => {
   const offenders: string[] = [];
   let dynamicUses = 0;
   for (const f of [...files(join(WEB, 'app')), ...files(join(WEB, 'components')), ...files(join(WEB, 'lib'))]) {
-    const src = strip(readFileSync(f, 'utf8'));
+    const src = stripComments(readFileSync(f, 'utf8'));
     for (const m of LAZY) {
       const re = new RegExp(`(?:^|\\n)\\s*import\\s[^;]*?from\\s+['"][^'"]*${m}['"]`, 'g');
       if (re.test(src) && !/^\s*import\s+type\s/m.test(src.match(re)?.[0]?.trim() ?? '')) offenders.push(`${relative(WEB, f)} → ${m}`);

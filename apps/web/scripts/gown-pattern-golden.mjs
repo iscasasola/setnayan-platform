@@ -17,7 +17,7 @@ const src = [
   silLine,
   lines.slice(gStart, gEnd + 1).join('\n'),
   lines.slice(start, end).join('\n'),
-  'return { draftSkirt, draftBodice, DRAFT };',
+  'return { draftSkirt, draftBodice, DRAFT, patGeom: typeof patGeom === "function" ? patGeom : null, SA_DEF: typeof SA_DEF === "object" ? SA_DEF : null };',
 ].join('\n');
 const X = new Function(src)();
 
@@ -74,4 +74,14 @@ out.oldAline = {
   result: X.draftSkirt({ vals: v, design3d: { gown: { sil: 'aline' }, hem: 'floor' }, gownMeasEst: skirtEst(v), ease: [{ part: 'Waist', ease: 1.5 }, { part: 'Hips', ease: 6 }] }, {}),
 };
 out.draft = X.DRAFT;
+// v205: the cut line, the allowance per edge and the notches (`patGeom`) on every skirt and bodice above, at the usual
+// allowances and at an unusual set, and as a net pattern. Rounded to the micron.
+if (X.patGeom) {
+  const q = (a) => (Array.isArray(a) ? a.map(q) : typeof a === 'number' ? Math.round(a * 1000) / 1000 : a);
+  const odd = { seam: 1, hem: 5, zip: 2.5, neck: 0.6 };
+  const geoms = (res) => (res.pieces || []).map((p) => ({ usual: q((({ C, N, D }) => ({ C, N, D }))(X.patGeom(p, X.SA_DEF, false))), odd: q((({ C, N, D }) => ({ C, N, D }))(X.patGeom(p, odd, false))), net: q((({ C, N, D }) => ({ C, N, D }))(X.patGeom(p, X.SA_DEF, true))) }));
+  out.saDefault = X.SA_DEF;
+  out.saOdd = odd;
+  out.geom = { skirts: out.skirts.map((s) => geoms(s.result)), bodices: out.bodices.map((b) => geoms(b.result)) };
+}
 process.stdout.write(JSON.stringify(out));

@@ -43,7 +43,8 @@ test('2 · the tiles cover the sheet exactly: paper minus margins, no gap, no ov
     const P = GOWN_PAPERS[paper], tw = P.wMm - 2 * GOWN_EXPORT_MARGIN_MM, th = P.hMm - 2 * GOWN_EXPORT_MARGIN_MM;
     assert.equal(plan.cols, Math.ceil(plan.sheetMm.w / tw));
     assert.equal(plan.rows, Math.ceil(plan.sheetMm.h / th));
-    assert.equal(plan.pages.length, 1 + plan.rows * plan.cols);
+    assert.equal(plan.pages.length + plan.blank.length, 1 + plan.rows * plan.cols, 'a tile is lost');
+    assert.ok(texts(plan.pages[0]!.ops).some((t) => t.startsWith(`${plan.pages.length - 1} pages to print`)), 'the map does not say how many pages print');
     for (const pg of plan.pages) { assert.equal((pg.wPt / PT_PER_MM).toFixed(1), P.wMm.toFixed(1)); assert.equal((pg.hPt / PT_PER_MM).toFixed(1), P.hMm.toFixed(1)); }
     // the same sheet point on two neighbouring tiles lands exactly one tile-width apart (taped edge to edge: 0 mm error)
     const firstLine = (i: number) => plan.pages[i]!.ops.find((o) => o.k === 'line' && o.pts.length > 3) as Extract<GownExportOp, { k: 'line' }>;
@@ -53,7 +54,7 @@ test('2 · the tiles cover the sheet exactly: paper minus margins, no gap, no ov
       assert.ok(Math.abs(a[1] - b[1]) < 1e-6);
     }
     assert.ok(plan.rows * plan.cols > 1, 'a circle skirt fits on one page?');
-    assert.deepEqual(plan.pages.slice(1, 3).map((p) => p.name), ['A1', plan.cols > 1 ? 'A2' : 'B1']);
+    assert.equal(plan.pages[1]!.name, 'A1');
   }
 });
 
@@ -68,6 +69,7 @@ test('3 · the estimate line shows exactly when a number is an estimate; a net p
 test('4 · the clip keeps only what is inside a tile', () => {
   assert.deepEqual(clipSegment(0, 5, 20, 5, { x0: 10, y0: 0, x1: 30, y1: 10 }), [10, 5, 20, 5]);
   assert.equal(clipSegment(0, 20, 5, 25, { x0: 10, y0: 0, x1: 30, y1: 10 }), null);
+  assert.equal(clipSegment(0, 5, 5, 5, { x0: 10, y0: 0, x1: 30, y1: 10 }), null, 'a line that stops short of the tile');
 });
 
 test('5 · the PDF: one page per plan page at the paper size; pdf-lib is loaded only by the export function', async () => {
@@ -83,4 +85,13 @@ test('5 · the PDF: one page per plan page at the paper size; pdf-lib is loaded 
   assert.doesNotMatch(src, /^import[^;]*from 'pdf-lib'/m, 'pdf-lib is imported at the top, so it loads with the page');
   assert.match(src, /await import\('pdf-lib'\)/);
   assert.doesNotMatch(src, /₱|centavo|formatPhp|price/i, 'the export talks about money');
+});
+
+test('6 · a page with nothing on it is not printed, and the map marks it blank', () => {
+  const plan = gownExportPlan(pieces('sheath'), { paper: 'a4', allowance: GOWN_SEAM_ALLOWANCE_DEFAULT, title: 'x', estimate: false });
+  const wide = gownExportPlan([...pieces('sheath'), { ...pieces('sheath')[0]!, name: 'Far', outline: [[1200, 0], [1300, 0], [1300, 100], [1200, 100]], darts: [], marks: [], points: [], grain: [[1250, 10], [1250, 90]] }], { paper: 'a4', allowance: GOWN_SEAM_ALLOWANCE_DEFAULT, title: 'x', estimate: false });
+  assert.ok(wide.blank.length > 0, 'the gap between far pieces printed blank pages');
+  for (const b of wide.blank) assert.ok(!wide.pages.some((p) => p.name === b));
+  assert.ok(texts(wide.pages[0]!.ops).some((t) => t === `${wide.blank[0]} blank`));
+  assert.equal(plan.pages.length + plan.blank.length, 1 + plan.rows * plan.cols);
 });

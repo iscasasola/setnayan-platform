@@ -7,7 +7,7 @@
  * pages of the chosen paper, with 10 mm margins. Page 1 is the map: a 5 cm test square to measure before anything is
  * cut, the grid of pages, and the notes (allowances, "ESTIMATE: measure before cutting" when any number is an
  * estimate). Every other page is one tile, named by row letter and column number, with corner marks to tape to its
- * neighbours. Everything is in PDF points (1 mm = 72 / 25.4 pt), so 50 mm is 141.73 pt in the file, exactly.
+ * neighbours; a page with nothing of the pattern on it is not printed. Everything is in PDF points (1 mm = 72 / 25.4 pt), so 50 mm is 141.73 pt in the file, exactly.
  *
  * `gownExportPdf` draws that plan with `pdf-lib`, imported only when the designer taps Export. Designer only: no
  * price, no amount, nothing about money, on any page.
@@ -31,7 +31,7 @@ export type GownExportOp =
   | { k: 'text'; x: number; y: number; size: number; bold?: boolean; text: string }
   | { k: 'rect'; x: number; y: number; w: number; h: number; width: number };
 export type GownExportPage = { wPt: number; hPt: number; name: string; ops: GownExportOp[] };
-export type GownExportPlan = { paper: GownPaper; rows: number; cols: number; sheetMm: { w: number; h: number }; pages: GownExportPage[] };
+export type GownExportPlan = { paper: GownPaper; rows: number; cols: number; sheetMm: { w: number; h: number }; pages: GownExportPage[]; blank: string[] };
 
 type SheetOp = { k: 'line'; pts: GownPoint[]; closed: boolean; width: number; dash?: [number, number] } | { k: 'text'; x: number; y: number; size: number; bold?: boolean; text: string };
 
@@ -95,7 +95,7 @@ export function gownExportPlan(
     { k: 'text', x: m * P, y: (m + 6) * P, size: 14, bold: true, text: opts.title },
     { k: 'text', x: m * P, y: (m + 14) * P, size: 9, text: `Print at 100% (actual size) on ${paper.label}. Measure the square first: it must be 5 cm.` },
     { k: 'text', x: m * P, y: (m + 20) * P, size: 9, text: note },
-    { k: 'text', x: m * P, y: (m + 26) * P, size: 9, text: `${rows * cols} pages: ${rows} ${rows === 1 ? 'row' : 'rows'} of ${cols}. Tape them edge to edge by their names.` },
+    { k: 'text', x: m * P, y: (m + 26) * P, size: 9, text: 'Tape them edge to edge by their names.' },
     { k: 'rect', x: m * P, y: (m + 32) * P, w: GOWN_TEST_SQUARE_MM * P, h: GOWN_TEST_SQUARE_MM * P, width: 0.75 },
     { k: 'text', x: (m + GOWN_TEST_SQUARE_MM / 2 - 5) * P, y: (m + 32 + GOWN_TEST_SQUARE_MM / 2 + 1.5) * P, size: 10, bold: true, text: '5 cm' },
   ];
@@ -108,15 +108,19 @@ export function gownExportPlan(
     map.push({ k: 'text', x: (gx + c * tw * s + 1.5) * P, y: (gy + r * th * s + 4.5) * P, size: 7, text: `${rowName(r)}${c + 1}` });
   }
   for (const op of sheet.ops) if (op.k === 'line') map.push({ ...op, pts: op.pts.map(([x, y]) => [(gx + x * s) * P, (gy + y * s) * P] as GownPoint), width: 0.25, dash: undefined });
-  const pages = [page('Map', map)];
+  const pages = [page('Map', map)], blank = new Set<string>();
   // the tiles
   for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
     const ox = c * tw, oy = r * th, ops: GownExportOp[] = [];
     const to = ([x, y]: GownPoint): GownPoint => [(m + x - ox) * P, (m + y - oy) * P];
     for (const op of sheet.ops) {
       if (op.k === 'line') ops.push({ ...op, pts: op.pts.map(to) });
-      else if (op.x >= ox - 40 && op.x <= ox + tw && op.y >= oy && op.y <= oy + th + 5) { const [x, y] = to([op.x, op.y]); ops.push({ ...op, x, y }); }
+      else if (op.x >= ox - 40 && op.x <= ox + tw && op.y >= oy && op.y <= oy + th + 5) { const [x, y] = to([op.x, op.y]); ops.push({ ...op, x, y, size: op.size * P }); }
     }
+    // a page with nothing of the pattern on it is not printed (the map marks it blank)
+    const inside = { x0: m * P, y0: m * P, x1: (m + tw) * P, y1: (m + th) * P };
+    const drawn = ops.some((o) => o.k === 'line' && o.pts.some((a, j) => { const b = o.pts[(j + 1) % o.pts.length]!; return (j < o.pts.length - 1 || o.closed) && clipSegment(a[0], a[1], b[0], b[1], inside) !== null; }));
+    if (!drawn) { blank.add(`${rowName(r)}${c + 1}`); continue; }
     // corner marks and the tile's name (outside the drawing area, in the margin)
     for (const [cx, cy] of [[m, m], [m + tw, m], [m, m + th], [m + tw, m + th]] as const) {
       ops.push({ k: 'line', pts: [[(cx - 4) * P, cy * P], [(cx + 4) * P, cy * P]], closed: false, width: 0.3 });
@@ -125,7 +129,12 @@ export function gownExportPlan(
     ops.push({ k: 'text', x: m * P, y: (m - 3) * P, size: 8, bold: true, text: `${rowName(r)}${c + 1}  (row ${rowName(r)} of ${rows}, column ${c + 1} of ${cols})` });
     pages.push(page(`${rowName(r)}${c + 1}`, ops));
   }
-  return { paper: opts.paper, rows, cols, sheetMm: { w: sheet.w, h: sheet.h }, pages };
+  // the map names the pages that are printed, and marks the blank ones
+  const printed = pages.length - 1;
+  const count = map.findIndex((o) => o.k === 'text' && o.text.includes('Tape them edge to edge'));
+  if (count >= 0) map[count] = { ...(map[count] as Extract<GownExportOp, { k: 'text' }>), text: `${printed} ${printed === 1 ? 'page' : 'pages'} to print (a ${rows} by ${cols} grid; ${blank.size ? `${blank.size} blank, not printed` : 'none blank'}). Tape them edge to edge by their names.` };
+  for (const o of map) if (o.k === 'text' && blank.has(o.text)) o.text = `${o.text} blank`;
+  return { paper: opts.paper, rows, cols, sheetMm: { w: sheet.w, h: sheet.h }, pages, blank: [...blank] };
 }
 
 /** The plan as a PDF file. `pdf-lib` is loaded here, on the designer's tap, never with the page. */

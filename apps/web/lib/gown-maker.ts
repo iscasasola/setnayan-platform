@@ -52,7 +52,7 @@ const MAX_MARKUP_PCT = 500;
 // ─────────────────────────────────────────────────────────────────────────────
 
 type Item = { readonly key: string; readonly label: string; readonly unit: GownPriceUnit };
-export type GownPriceUnit = 'gown' | 'm' | 'pc' | 'pair' | '100 pcs' | 'hour';
+export type GownPriceUnit = 'gown' | 'm' | 'pc' | 'pair' | '100 pcs' | '10 flowers' | 'hour';
 
 const SIL_LABEL = Object.fromEntries(GOWN_SILHOUETTES.map((s) => [s.id, s.label])) as Record<GownSilhouette, string>;
 
@@ -79,6 +79,12 @@ export const GOWN_PRICE_ITEMS = [
   { key: 'bead_pearl', label: 'Pearls', unit: '100 pcs' },
   { key: 'bead_seed', label: 'Seed beads', unit: '100 pcs' },
   { key: 'bead_sequin', label: 'Sequins', unit: '100 pcs' },
+  // v200: raised lace, shaped and finished per piece (its lace prices on the lace items); 3D flowers, made and attached
+  // per ten; glitter tulle by the metre (a veil, cape or overlay in it, and layers under the skirt). Scattered pearls
+  // price on Pearls.
+  { key: 'lace_raised', label: 'Raised lace: shaping and finishing', unit: 'pc' },
+  { key: 'flowers3d', label: '3D flowers: making and attaching', unit: '10 flowers' },
+  { key: 'fab_glitter_tulle', label: 'Glitter tulle fabric', unit: 'm' },
   // v196: one labour line per cape TYPE (its fabric, edge and strap price on the fabric, lace, bead and ribbon items).
   { key: 'cape_neck', label: 'Cape (neck cape): cutting, sewing and finishing', unit: 'pc' },
   { key: 'cape_back', label: 'Cape (back cape): cutting, sewing and finishing', unit: 'pc' },
@@ -91,6 +97,14 @@ export const GOWN_PRICE_ITEMS = [
   { key: 'illu_back', label: 'Illusion back: sheer tulle panel and fitting', unit: 'pc' },
   { key: 'bone_show', label: 'Visible boning: channels and finishing', unit: 'pc' },
   { key: 'flutter', label: 'Flutter cape sleeves: cutting, sewing and finishing', unit: 'pair' },
+  // v203: each sleeve style its own labour line (their fabric is the fabric items), detachable bands, and an over-robe.
+  { key: 'sl_puff', label: 'Sleeves (puff): cutting, sewing and finishing', unit: 'pair' },
+  { key: 'sl_bishop', label: 'Sleeves (bishop): cutting, sewing and finishing', unit: 'pair' },
+  { key: 'sl_juliet', label: 'Sleeves (Juliet): cutting, sewing and finishing', unit: 'pair' },
+  { key: 'sl_ruffle', label: 'Sleeves (ruffle band): cutting, sewing and finishing', unit: 'pair' },
+  { key: 'sl_capesl', label: 'Sleeves (cape sleeves): cutting, sewing and finishing', unit: 'pair' },
+  { key: 'sl_detach', label: 'Detachable sleeve bands', unit: 'pair' },
+  { key: 'overrobe', label: 'Over-robe: cutting, sewing and finishing', unit: 'pc' },
   { key: 'overlay', label: 'Overlay: cutting, sewing and finishing', unit: 'pc' },
   { key: 'piping', label: 'Piping', unit: 'm' },
   { key: 'fringe', label: 'Fringe', unit: 'm' },
@@ -114,15 +128,17 @@ export const GOWN_PRICE_GROUPS: ReadonlyArray<readonly [string, (key: GownPriceK
   ['Lining and inside', (k) => /^(lin_|net$|hoop$|illusion$|boning$|waiststay$|horsehair$)/.test(k)],
   ['Closures', (k) => /^(zipper|button|eyelet|cord)$/.test(k)],
   ['Lace and beads', (k) => /^(lace_|bead_)/.test(k)],
+  // v200: the 3D flowers' own group, after lace and beads (prototype order).
+  ['3D flowers', (k) => k === 'flowers3d'],
   ['Trims', (k) => /^(piping|fringe|feather|ribbon|bow)$/.test(k)],
   ['Bodice', (k) => /^(illu_bodice|illu_back|bone_show)$/.test(k)],
   ['Straps and edges', (k) => k === 'strap' || k === 'scallop'],
   // v195: flutter cape sleeves and a skirt overlay, each its own labour line (their fabric is the fabric items).
-  ['Sleeves', (k) => k === 'flutter'],
+  ['Sleeves', (k) => k === 'flutter' || k.startsWith('sl_')],
   ['Skirt', (k) => k === 'overlay'],
   // v196: each cape type as part of the gown (the bride's detachable cape is the add-on `cape`; the designer may price
   // either).
-  ['Cover-ups', (k) => k.startsWith('cape_')],
+  ['Cover-ups', (k) => k.startsWith('cape_') || k === 'overrobe'],
   ['Labour', (k) => k === 'rate'],
 ];
 

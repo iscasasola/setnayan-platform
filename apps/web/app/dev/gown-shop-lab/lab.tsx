@@ -9,7 +9,7 @@ import { gownDesignOf, gownDesignRows, gownQuotePrefill } from '@/lib/gown-maker
 import { GownDesignCard } from '@/app/_components/chat/cards/gown-design-card';
 import { MakeQuoteCard } from '@/app/_components/chat/cards/make-quote-card';
 import { ScanLab } from './scan-lab';
-import { GOWN_LACES, emptyGownHand, emptyGownQuantities, startingGownBody, startingGownConfig, type GownLace } from '@/lib/gown-config';
+import { GOWN_COLOURS, GOWN_LACES, emptyGownHand, emptyGownQuantities, startingGownBody, startingGownConfig, type GownLace, type GownPart } from '@/lib/gown-config';
 import { gownCutContext } from '@/lib/gown-pattern/cutting-list';
 import type { GownOrderLines } from '@/lib/gown-pattern/lines';
 import linesGolden from '@/lib/gown-pattern/prototype-v209-lines.golden.json';
@@ -123,11 +123,34 @@ export default function Lab({ view }: { view: string }) {
       </main>
     );
   }
-  if (view === 'order' || view === 'order-own' || view === 'order-net' || view === 'order-lines' || view === 'order-lines-unread') {
-    const config = { ...startingGownConfig(), sleeve: 'long' as const };
+  // v210: the pieces' colours come from the stock colour list (never a typed hex).
+  const LAB_HEX = Object.fromEntries(GOWN_COLOURS.filter((c) => c.hex).map((c) => [c.id, c.hex as string])) as Record<'blush' | 'navy' | 'champagne', string>;
+  if (view === 'order' || view === 'order-own' || view === 'order-net' || view === 'order-lines' || view === 'order-lines-unread' || view === 'order-parts') {
+    // v210 (order-parts): a crepe bodice, a red brocade skirt dip-dyed to gold with a hem band, and long sleeves in black.
+    const parts: GownPart[] = view === 'order-parts'
+      ? [
+          { part: 'bodice', fabric: 'crepe', colour: null, fade: null, border: null, pattern: null },
+          { part: 'skirt', fabric: null, colour: LAB_HEX.blush, pattern: { kind: 'brocade', colour: 'main' }, fade: { colour: 'accent', dir: 'down', from: 0.2, to: 1 }, border: { edge: 'hem', cm: 8, fabric: 'crepe', colour: 'main' } },
+          { part: 'sleeves', fabric: null, colour: LAB_HEX.navy, fade: null, border: null, pattern: null },
+        ]
+      : [];
+    const config = { ...startingGownConfig(), sleeve: 'long' as const, accentHex: view === 'order-parts' ? LAB_HEX.champagne : null, parts };
+    const q0 = emptyGownQuantities();
+    const q = view === 'order-parts'
+      ? {
+          ...q0,
+          materials: { ...q0.materials, outerM: 0.6, liningM: 5.5, zippers: 1 },
+          labour: { ...q0.labour, sleeve: 'long' as const, dyeFade: 1, borders: 1 },
+          pieces: [
+            { part: 'bodice' as const, fabric: 'crepe', fabricRef: null, patternKey: null, m: 1.4, eqM: 1.2 },
+            { part: 'skirt' as const, fabric: 'satin', fabricRef: null, patternKey: 'pat_brocade' as const, m: 4.9, eqM: 4.7 },
+            { part: 'sleeves' as const, fabric: 'satin', fabricRef: null, patternKey: null, m: 1, eqM: 0 },
+          ],
+          borders: [{ part: 'skirt' as const, edge: 'hem' as const, cm: 8, edgeM: 3.6, m: 0.4, fabric: 'crepe' }],
+        }
+      : { ...q0, outerM: 6.5 };
     const body = { ...startingGownBody(), given: ['height', 'bust', 'waist', 'hips'] as ('height' | 'bust' | 'waist' | 'hips')[], matters: ['arms' as const] };
-    const q = { ...emptyGownQuantities(), outerM: 6.5 };
-    const priced = gownDesignOf(sample('covers'), config, q, [], new Map());
+        const priced = gownDesignOf(sample('covers'), config, q, [], new Map());
     return (
       <main className="mx-auto max-w-xl p-4" data-gown-shop-lab={view}>
         <GownOrderPanel

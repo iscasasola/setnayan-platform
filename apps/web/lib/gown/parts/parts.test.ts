@@ -1,6 +1,6 @@
 /**
  * 👗 gown/parts — sleeves, the off-shoulder band, the veil (every style, over a train and over a back cape), the back
- * closure and the shoes, held to prototype v193's own numbers (`v199-parts.fixture.json`, captured from the prototype).
+ * closure and the shoes, held to prototype v193's own numbers (`v207-parts.fixture.json`, captured from the prototype).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -34,7 +34,7 @@ type Row = {
   sleeves?: { L: Pt[] | null; R: Pt[] | null }; veil?: Pt[]; edge?: Pt[]; cap?: Pt[] | null; closure?: { count: number; min: number[]; max: number[] }[];
   shoes?: Pt[][]; heelT?: number; poseQ?: ([number, number, number, number] | null)[]; floorY?: number;
 };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v199-parts.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v207-parts.fixture.json'), 'utf8')) as { rows: Row[] };
 const PUB = join(__dirname, '../../../public/gown');
 let rig: Promise<GownRig> | null = null;
 const body = () => {
@@ -44,7 +44,7 @@ const body = () => {
 
 function dressed(B: GownRig, r: Row) {
   const g = { ...gownApplyLook(startingGownConfig(), r.look ?? {}), ...r.gown, hem: r.hem, hemCm: 0 } as GownConfig;
-  const T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), K = emptyCape(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+  const T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), K = emptyCape(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
   D.hold = feel.hold; D.foldK = feel.foldK;
   buildEnvelope(B, T);
   const floorY = floorOf(B);

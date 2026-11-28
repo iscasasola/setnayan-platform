@@ -20,6 +20,8 @@ test('the design in words: one line per choice she can see', () => {
   assert.ok(lines.includes('Fabric: Satin'));
   assert.ok(lines.some((l) => l.startsWith('Veil: ')) && lines.some((l) => l.startsWith('Blusher: ')), 'a chosen veil brings its blusher');
   assert.ok(!gownDesignSummary(startingGownConfig(), fabrics).some((l) => l.startsWith('Blusher')), 'no veil, no blusher line');
+  const own = { ...startingGownConfig(), lace: 'chantilly' as const, laceCol: 'custom' as const, laceHex: '#1F3A6E' };
+  assert.ok(gownDesignSummary(own, fabrics).includes('Colour: her own colour #1F3A6E'), 'her own lace colour, said as itself (v207)');
 });
 
 test('the measurements sent are the ones this design needs, as the mannequin estimates them', () => {

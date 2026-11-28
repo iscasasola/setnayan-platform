@@ -19,8 +19,18 @@ import { SLICE_DY } from '../body/constants';
 
 const N = RING_N, DTH = TAU / N;
 
-/** The lace colours (v195 `LACE_COL`): product data, like the swatches. */
-export const GOWN_LACE_COLOUR: Record<GownLaceColour, number> = { white: 0xffffff, ivory: 0xf6efe2, champagne: 0xe6d3ae, blush: 0xf0d3cd };
+/** The stock lace colours (v207 `LACE_COL`, black added): product data, like the swatches. */
+export const GOWN_LACE_COLOUR: Record<Exclude<GownLaceColour, 'match' | 'custom'>, number> = { white: 0xffffff, ivory: 0xf6efe2, champagne: 0xe6d3ae, blush: 0xf0d3cd, black: 0x161616 };
+
+/**
+ * The lace's colour now (v207 `laceHexNow`): the gown's own colour, black, one she picked, or a stock swatch. An unknown
+ * pick reads as ivory, as the prototype's does.
+ */
+export function gownLaceHex(d: { laceCol: GownLaceColour; laceHex?: string | null }, clothHex: number): number {
+  if (d.laceCol === 'match') return clothHex;
+  if (d.laceCol === 'custom') return d.laceHex ? parseInt(d.laceHex.slice(1), 16) : GOWN_LACE_COLOUR.ivory;
+  return GOWN_LACE_COLOUR[d.laceCol] ?? GOWN_LACE_COLOUR.ivory;
+}
 /** Stock laces that run as a border (placed on the hem when picked elsewhere). */
 export const GOWN_BORDER_LACES: readonly GownLace[] = ['scallop'];
 /** The lace map's size (px): round the body × height. */

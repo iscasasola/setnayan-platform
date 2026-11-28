@@ -1,5 +1,5 @@
 /**
- * 👗 gown/motion — her poses, the walks and the jump, held to prototype v206's own numbers (`v206-motion.fixture.json`,
+ * 👗 gown/motion — her poses, the walks and the jump, held to the prototype's own numbers (`v207-motion.fixture.json`: v206's moves, the skirt re-captured on v207,
  * captured from the prototype itself): every joint turn, the arm lifts that keep a hand out of the skirt, the hand-on-hip
  * reach, where she stands, her body and the skirt on it, a blend half way, and each walk at seven moments.
  */
@@ -25,7 +25,7 @@ type Pt = [number, number, number, number];
 type Q = [number, number, number, number] | null;
 type Row = { pose: string; heel?: number; poseQ: Q[]; target?: Q[]; extra?: { L: number; R: number }; ik?: number[] | null; heelT?: number; floorY?: number; floorStand?: number; body?: Pt[]; dress?: Pt[] | null };
 type Move = { t: number; p: Record<string, [number, number, number]>; y: number; x: number };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v206-motion.fixture.json'), 'utf8')) as { rows: Row[]; moves: Record<string, Move[]>; tour: string[]; walks: Record<string, unknown> };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v207-motion.fixture.json'), 'utf8')) as { rows: Row[]; moves: Record<string, Move[]>; tour: string[]; walks: Record<string, unknown> };
 const GLB = join(__dirname, '../../../public/gown/female.glb');
 let rig: Promise<GownRig> | null = null;
 const body = () => {
@@ -36,7 +36,7 @@ const design = (heel: number): GownConfig => ({ ...gownApplyLook(startingGownCon
 
 /** The stage's order (v206 `present`): pose her, her envelope, the gown, clear her arms, and wrap the bodice again if an arm moved. */
 function present(B: GownRig, pose: GownPoseName, heel: number) {
-  const g = design(heel), S = emptyGownPose(B), T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+  const g = design(heel), S = emptyGownPose(B), T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
   D.hold = feel.hold; D.foldK = feel.foldK;
   solveGownBody(B);
   const dress = () => { buildEnvelope(B, T); buildDress(B, T, D, g, S.floorY, S.floorStand ?? S.floorY, { standing: GOWN_STANDING_POSES.includes(S.pose) }); writeDress(D, T, C, { pleat: g.pleat, n: g.pleatN, amp: g.pleatCm / 100 / B.P.S }); };
@@ -120,7 +120,7 @@ test('the designer\'s tape re-fits the mannequin (v175 example, as v206): waist 
   B.fine = { athletic: false, bustT: 0, given: ['height', 'bust', 'waist', 'underbust', 'hips'] };
   const g = { ...design(7), sil: 'mermaid' } as GownConfig;
   const look = () => {
-    const S = emptyGownPose(B), T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+    const S = emptyGownPose(B), T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
     D.hold = feel.hold; D.foldK = feel.foldK;
     solveGownBody(B);
     gownPoseBody(B, S, 7);

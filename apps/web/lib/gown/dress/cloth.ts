@@ -56,19 +56,23 @@ export function pleatWave(pleat: GownPleat, pleatN: number, q: number): number {
 /** Pleats as the dress build needs them: on or off, and their depth in model units. */
 export type GownPleats = { pleat: GownPleat; n: number; amp: number };
 
+/** v197's even ribs, kept only for a dress laid before its build has set the fabric's folds. */
+const EVEN_FOLDS = Float32Array.from({ length: N }, (_, q) => 0.5 + 0.5 * Math.cos(9 * q * DTH + 0.6));
+
 /** Lay the dress grid into its mesh: rest shape (for the fabric print), then the swung, flared, folded cloth. */
 export function writeDress(D: GownDress, T: GownEnvelope, C: GownCloth, pleats: GownPleats): void {
   const geo = D.geo;
   if (!geo) return;
   const p = geo.attributes.position!.array as Float32Array, K = CLOTH_BANDS - 1, on = pleats.pleat !== 'none';
   const rest = geo.attributes.rest!.array as Float32Array, gm = geo.attributes.gmap!.array as Float32Array, gcz = geo.attributes.gcz!.array as Float32Array;
+  const fw = D.fw ?? EVEN_FOLDS; // v207: the fabric's own uneven folds (the build sets them; even ribs only before a build)
   for (let o = 0, e = D.rows * N; o < e; o++) {
     const q = o % N, t = D.t[o]!, ao = D.ang[o]!, an = q * DTH + ao;
     let r = D.r[o]!;
     const y = D.y[o]!;
     let s = ao ? Math.sin(an) : RING_SIN[q]!, c = ao ? Math.cos(an) : RING_COS[q]!;
     if (D.restDirty) {
-      const rr = D.r[o]! * (t > 0 && !on ? 1 + D.fold * t * (0.5 + 0.5 * Math.cos(9 * q * DTH + 0.6)) : 1) + (on && t > 0 ? pleats.amp * pleatWave(pleats.pleat, pleats.n, q) * smoothstep(t, 0, 0.12) : 0);
+      const rr = D.r[o]! * (t > 0 && !on ? 1 + D.fold * t * fw[q]! : 1) + (on && t > 0 ? pleats.amp * pleatWave(pleats.pleat, pleats.n, q) * smoothstep(t, 0, 0.12) : 0);
       rest[o * 3] = rr * s; rest[o * 3 + 1] = y; rest[o * 3 + 2] = D.cz[o]! + rr * c;
       // On the train, length along the floor.
       const row = (o / N) | 0, o0 = (D.nb + 1 + D.ns) * N + q, yv = row > D.nb + 1 + D.ns ? T.yHem - (D.r[o]! - D.r[o0]!) : y;
@@ -80,7 +84,7 @@ export function writeDress(D: GownDress, T: GownEnvelope, C: GownCloth, pleats: 
       // This height's own band.
       const fk = t * K, k = Math.min(K - 1, fk | 0), w = fk - k, f = C.phi[k]! * (1 - w) + C.phi[k + 1]! * w, lag = C.th[k]! * (1 - w) + C.th[k + 1]! * w;
       const fold = on ? 0 : D.fold * (1 - 0.6 * clamp(f, 0, 1));
-      r *= (1 + fold * t * (0.5 + 0.5 * Math.cos(9 * q * DTH + 0.6))) * (1 + 0.24 * f);
+      r *= (1 + fold * t * fw[q]!) * (1 + 0.24 * f);
       if (on) r += pleats.amp * pleatWave(pleats.pleat, pleats.n, q) * smoothstep(t, 0, 0.12) * (1 + 0.9 * Math.max(0, f)); // pleats open as the skirt swings out
       if (Math.abs(lag) > 0.0005) { const a = an - lag; s = Math.sin(a); c = Math.cos(a); } // each band trails the turn by its own angle
     }

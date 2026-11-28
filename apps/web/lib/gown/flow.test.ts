@@ -1,12 +1,13 @@
 /** 👗 gown/flow — the owner's step order exactly (v210 `MS`), Skip restores what she arrived with, undo, units, design steps. */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { startingGownBody, startingGownConfig, type GownConfig } from '../gown-config';
+import { GOWN_COLOURS, GOWN_STOCK_FABRICS, sanitizeGownConfig, startingGownBody, startingGownConfig, stockGownOffer, type GownConfig } from '../gown-config';
+import { gownLaceHex } from './parts/lace';
 import { gownSetNumber } from './body-rules';
 import { gownChoose } from './compat';
 import { GOWN_FOCUS } from './stage/focus';
 import {
-  GOWN_DESIGN_STEPS, GOWN_UNDO_MAX, gownDesignSteps, gownMeasSteps, gownPickOptions, gownRemember, gownSayHeight, gownSayLength, gownSayWeight, gownSkipStep, gownSnapStep,
+  GOWN_DESIGN_STEPS, GOWN_UNDO_MAX, gownDesignSteps, gownFabricLine, gownFabricOrder, gownHasCustomHex, gownMeasSteps, gownSeedCustomHex, gownPickOptions, gownRemember, gownSayHeight, gownSayLength, gownSayWeight, gownSkipStep, gownSnapStep,
 } from './flow';
 
 test('the measurement steps keep the owner\'s order exactly (v210 MS), the fine-tune steps only after Yes', () => {
@@ -100,4 +101,30 @@ test('the design steps on a fresh gown: only what this gown has (each "hidden" r
   assert.ok(ids(veiled).includes('blusher') && ids(veiled).includes('veilFab'), 'a classic veil asks for its blusher and its tulle');
   const off = gownChoose(gownChoose(s0, { key: 'neck', value: 'off' }).config, { key: 'sleeve', value: 'long' }).config;
   assert.ok(ids(off).includes('sleeveDet'), 'off the shoulder: sewn or detachable sleeves');
+});
+
+test('v207: a colour of her own starts from what she sees, the fabrics keep the prototype order, and the fabric step says how it feels', () => {
+  const g = startingGownConfig();
+  const lace = gownSeedCustomHex({ ...g, lace: 'chantilly', laceCol: 'custom' }, 'laceCol');
+  assert.equal(lace.laceHex, '#1F3A6E', 'v207 lace-pick start');
+  assert.ok(sanitizeGownConfig(lace, stockGownOffer()).ok, 'a picked lace colour passes the shop check');
+  assert.equal(sanitizeGownConfig({ ...lace, laceHex: null }, stockGownOffer()).ok, false, 'custom with no colour is refused');
+  const own = gownSeedCustomHex({ ...g, colour: 'custom' }, 'colour');
+  assert.equal(own.colourHex, GOWN_COLOURS.find((c) => c.id === g.colour)!.hex!.toUpperCase(), 'the gown colour she was looking at');
+  assert.equal(gownSeedCustomHex({ ...g, colour: 'custom', colourHex: '#7A2E3A' }, 'colour').colourHex, '#7A2E3A', 'a colour she already has stays');
+  assert.equal(gownSeedCustomHex(g, 'colour'), g, 'not custom: nothing changes');
+  const order = gownFabricOrder(GOWN_STOCK_FABRICS).map((f) => f.id);
+  assert.deepEqual(order.slice(0, 5), ['satin', 'duchess', 'bias_satin', 'mikado', 'taffeta']);
+  assert.deepEqual(gownFabricOrder([{ id: 'house_silk' }, { id: 'crepe' }]).map((f) => f.id), ['crepe', 'house_silk'], "a shop's own type follows");
+  assert.equal(gownFabricLine('taffeta', false), 'Crisp and rustling: sharp, broken folds that catch a shimmer of light. Taffeta: about 140 gsm, medium: drapes with some body.');
+  assert.match(gownFabricLine('chiffon', false), /Sheer and unlined: shown see-through\.$/);
+  // Every custom-colour pick in the design steps has its own field.
+  for (const st of gownDesignSteps(g)) for (const p of st.picks) if (p.options.some((o) => o.id === 'custom') && ['colour', 'laceCol', 'beadCol', 'trimCol'].includes(String(p.key))) assert.ok(gownHasCustomHex(String(p.key)));
+});
+
+test('v207: lace in the gown colour, black, or her own colour', () => {
+  assert.equal(gownLaceHex({ laceCol: 'match' }, 0x123456), 0x123456);
+  assert.equal(gownLaceHex({ laceCol: 'black' }, 0), 0x161616);
+  assert.equal(gownLaceHex({ laceCol: 'custom', laceHex: '#1F3A6E' }, 0), 0x1f3a6e);
+  assert.equal(gownLaceHex({ laceCol: 'ivory' }, 0), 0xf6efe2);
 });

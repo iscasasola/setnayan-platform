@@ -11,6 +11,7 @@
  */
 import type { GownBlockPiece, GownPoint, GownSkirtDraft, GownDraftRefusal } from './skirt';
 import type { GownBodiceDraft } from './bodice';
+import { GOWN_HEM_EDGES, type GownHemEdge } from '../gown-config';
 
 const clamp = (x: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, x));
 
@@ -31,8 +32,9 @@ export type GownLineNeck = {
 };
 /** v209 `lnMeasured().back`. */
 export type GownLineBack = { custom: boolean; from: string; depth: number; halfL: number; halfR: number; curve: number; sideDepth: number };
-export const GOWN_HEM_EDGES = ['plain', 'scallop', 'hanky', 'curved'] as const;
-export type GownHemEdge = (typeof GOWN_HEM_EDGES)[number];
+export type { GownHemEdge };
+// The hem edges are A's contract (lib/gown-config.ts `GOWN_HEM_EDGES`): one list, read here.
+const HEM_EDGE_IDS: readonly string[] = GOWN_HEM_EDGES.map((e) => e.id);
 /** v209 `lnMeasured().hem`: cm above the floor. */
 export type GownLineHem = { custom: boolean; front: number; left: number; back: number; right: number; curve: number; edge: GownHemEdge };
 /** v209 `orderData().lines`: what the order carries. Any part may be absent (closed back, a man's design …). */
@@ -74,7 +76,7 @@ export function sanitizeGownOrderLines(v: unknown): GownOrderLines | null {
     out.back = { custom: (o.back as { custom: boolean }).custom, from: String((o.back as { from: string }).from), ...pick(b, BACK_KEYS) };
   }
   if (o.hem !== undefined) {
-    const h = part(o.hem, HEM_KEYS, (x) => (GOWN_HEM_EDGES as readonly unknown[]).includes(x.edge));
+    const h = part(o.hem, HEM_KEYS, (x) => typeof x.edge === 'string' && HEM_EDGE_IDS.includes(x.edge));
     if (!h) return null;
     out.hem = { custom: (o.hem as { custom: boolean }).custom, edge: (o.hem as { edge: GownHemEdge }).edge, ...pick(h, HEM_KEYS) };
   }

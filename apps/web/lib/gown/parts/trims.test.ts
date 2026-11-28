@@ -1,5 +1,5 @@
 /**
- * 👗 gown/parts/trims — trims as v195 builds them (`v199-trims.fixture.json`): piping and ruffles on the neckline or the
+ * 👗 gown/parts/trims — trims as v195 builds them (`v207-trims.fixture.json`): piping and ruffles on the neckline or the
  * hem (over a train), a two-piece's waistband and the top's hem over it, a cropped top's band, the waistline seam, the
  * fringe; and each trim's metres from the real edge, as the designer reads them.
  */
@@ -20,7 +20,7 @@ import { buildGownTrims, gownTrimMetres, placeGownTrims } from './trims';
 
 type Pt = [number, number, number, number];
 type Row = { name: string; look: Partial<GownLook>; hem: GownConfig['hem']; gown: Partial<GownConfig>; lengths: string[]; meshes: { type: string; n: number; s: Pt[] | null }[] };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v199-trims.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v207-trims.fixture.json'), 'utf8')) as { rows: Row[] };
 let rig: Promise<GownRig> | null = null;
 const body = () => {
   if (!rig) { const b = readFileSync(join(__dirname, '../../../public/gown/female.glb')); rig = parseGownBody(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer); }
@@ -32,7 +32,7 @@ test('trims as v197 builds them: every piece within 1 mm, and the metres the des
   const B = await body();
   for (const r of REF.rows) {
     const g = { ...gownApplyLook(startingGownConfig(), r.look ?? {}), ...r.gown, hem: r.hem, hemCm: 0 } as GownConfig;
-    const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
+    const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric), g.skirtLayers);
     D.hold = feel.hold; D.foldK = feel.foldK;
     buildEnvelope(B, T);
     const floorY = floorOf(B);

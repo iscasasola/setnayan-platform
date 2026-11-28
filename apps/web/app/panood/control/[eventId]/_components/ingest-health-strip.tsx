@@ -61,6 +61,12 @@ const STATE_ICON: Record<IngestHealthState, typeof Radio> = {
 };
 
 
+/** States still "in motion", not "stopped and bad": the strip says it is busy (`aria-busy`) — no spinner (house rule). */
+const IN_MOTION_STATES: ReadonlySet<IngestHealthState> = new Set([
+  'waiting_for_encoder',
+  'reconnecting',
+]);
+
 export function IngestHealthStrip({
   eventId,
   mode = 'broadcast',
@@ -180,6 +186,7 @@ export function IngestHealthStrip({
     <div
       role="status"
       aria-live="polite"
+      aria-busy={IN_MOTION_STATES.has(decision.state) || undefined}
       className={`flex shrink-0 items-start gap-2 rounded-xl border px-3 py-2 text-xs leading-snug ${STATE_SKIN[decision.state]}`}
     >
       <Icon

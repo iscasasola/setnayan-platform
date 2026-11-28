@@ -1,7 +1,7 @@
 'use client';
 
 /** The Gown Maker lab's body (see page.lab.tsx). Fixture numbers only: a SAMPLE body, never a person's. */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import {
   GOWN_BACKS,
   GOWN_BODY_RANGE,
@@ -122,6 +122,8 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   const [solved, setSolved] = useState<GownSolved | null>(null);
   const [design, setDesign] = useState<GownConfig>(() => startingGownConfig());
   const [note, setNote] = useState('');
+  const [hipWant, setHipWant] = useState<number | null>(null);
+  const waistTold = useRef(0);
   const fine = { athletic: false, bustT, given };
 
   if (view === 'silhouettes') {
@@ -215,9 +217,12 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
     setNote(out.notes.join(' '));
   };
   const set = (k: GownBodyKey, v: number) => {
-    const next = gownSetNumber(vals, given, k, v);
+    const next = gownSetNumber(vals, given, k, v, hipWant);
     setVals(next.vals);
     setGiven(next.given);
+    setHipWant(next.hipWant);
+    // v206: the waist's stop line, at most once every 4 s.
+    if (next.note && Date.now() - waistTold.current > 4000) { waistTold.current = Date.now(); setNote(next.note); }
   };
   return (
     <main className="mx-auto grid max-w-3xl gap-4 p-4 md:grid-cols-2" data-lab-view={view}>

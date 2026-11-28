@@ -16,7 +16,7 @@ import { gownClothFeel, gownFabricType } from '../fabric/types';
 import { buildDress, emptyDress } from '../dress/build';
 import { restingCloth, writeDress } from '../dress/cloth';
 import { buildEnvelope, emptyEnvelope } from '../dress/table';
-import { GOWN_POSES, GOWN_POSE_TOUR, emptyGownPose, gownBlendPose, gownClearArms, gownPoseBody, gownTargetPose, type GownPoseName } from './poses';
+import { GOWN_POSES, GOWN_POSE_TOUR, GOWN_STANDING_POSES, emptyGownPose, gownBlendPose, gownClearArms, gownPoseBody, gownTargetPose, type GownPoseName } from './poses';
 import { GOWN_MOTION_HZ, GOWN_WALKS, gownMotionPose, gownStepMotion, stillGownMotion, type GownMotionKind } from './walks';
 
 type Pt = [number, number, number, number];
@@ -37,7 +37,7 @@ function present(B: GownRig, pose: GownPoseName, heel: number) {
   const g = design(heel), S = emptyGownPose(B), T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
   D.hold = feel.hold; D.foldK = feel.foldK;
   solveGownBody(B);
-  const dress = () => { buildEnvelope(B, T); buildDress(B, T, D, g, S.floorY, S.floorStand ?? S.floorY); writeDress(D, T, C, { pleat: g.pleat, n: g.pleatN, amp: g.pleatCm / 100 / B.P.S }); };
+  const dress = () => { buildEnvelope(B, T); buildDress(B, T, D, g, S.floorY, S.floorStand ?? S.floorY, { standing: GOWN_STANDING_POSES.includes(S.pose) }); writeDress(D, T, C, { pleat: g.pleat, n: g.pleatN, amp: g.pleatCm / 100 / B.P.S }); };
   // As captured: standing first (where she stood), then the pose.
   for (const p of ['a', pose] as const) {
     S.pose = p; S.t = 1; S.lastQ = new Array(B.nb).fill(null);

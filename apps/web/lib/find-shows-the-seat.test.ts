@@ -32,7 +32,10 @@ test('1 · on 2D, Find lights the SEAT, not only the table — two pulses, then 
   assert.match(ring, /transform: 'scale\(1\.9\)', opacity: 0/);
   assert.doesNotMatch(ring, /\b(width|height|top|left|box-shadow)\s*:/, 'the pulse animates more than transform and opacity');
   assert.match(ring, /data-seat-found="" className="pointer-events-none absolute -inset-1 rounded-full ring-2 ring-terracotta"/, 'the seat does not stay lit');
-  assert.match(ring, /\{still \? null : <span ref=\{pulse\}/, 'reduced motion still pulses');
+  assert.match(ring, /\{stillAtMount\.current \? null : <span ref=\{pulse\}/, 'reduced motion still pulses');
+  // Read once at mount: a re-render that then says `still` (the Find marked as played) never cuts the pulse short.
+  assert.match(ring, /const stillAtMount = useRef\(still\);/);
+  assert.match(ring, /\/\/ eslint-disable-next-line react-hooks\/exhaustive-deps[^\n]*\n\s*\}, \[\]\);/, 'the pulse is cancelled by a re-render');
 });
 
 test('2 · a pill "Name · Table · Seat N" — its tap opens their table', () => {

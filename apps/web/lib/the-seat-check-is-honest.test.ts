@@ -67,12 +67,31 @@ test('4 · no engine → nothing drawn; a take or a Fix is ONE write and ONE Und
   assert.match(ED, /if \(!suggestOn \|\| !checkRunData\) return null;/, 'a strip is drawn with no read run');
   assert.match(ED, /\{dryRun \? \(\s*<MenuRow\s+icon=\{Sparkles\}\s+label="Suggest seats on the cards"/, 'the switch is drawn with no engine');
   assert.match(ED, /\.catch\(\(\) => \{\s*if \(n === checkRun\.current\) setSeatCheck\(\{ status: 'failed' \}\);/, 'a failed dry run is not said');
-  const together = ED.slice(ED.indexOf('const seatTogether = '), ED.indexOf('const shortOf = '));
-  assert.match(together, /seatGuestHere\(t, first!, free\[0\], rest\.map/, 'a unit is seated in more than one write');
-  assert.match(together, /setMoveNote\(\{ text: [\s\S]*?, undo: \(\) => \{ setMoveNote\(null\); putBack\(before\); \} \}\)/, 'a take has no Undo');
+  // ONE write per table (`along`), and the Undo line only once every write has LANDED (`onSaved`).
+  const groups = ED.slice(ED.indexOf('const seatGroups = '), ED.indexOf('const shortOf = '));
+  assert.match(groups, /seatGuestHere\(t, first!\.guestId, first!\.seat, rest, \(ok\) => \{/, 'a unit is seated in more than one write');
+  // Locks for EVERY group before anything is written; ONE Undo for exactly what landed; a refused table's guests come back.
+  assert.match(groups, /if \(refuseLocked\(\.\.\.ids\)\) return false;[\s\S]*seatGuestHere\(/, 'a lock is found only after other tables were written');
+  assert.match(groups, /if \(ok\) landed\.push\(\.\.\.tableBefore\);\s*else missed\.push/, 'the Undo covers writes that never landed');
+  assert.match(groups, /if \(waiting > 0\) return;/, 'the line waits for a write that will never answer');
+  assert.match(groups, /if \(missed\.length\) setJustTaken\(\(c\) => new Set\(\[\.\.\.c\]\.filter\(\(id\) => !missed\.includes\(id\)\)\)\);/, 'refused guests stay hidden');
+  assert.match(groups, /undo: \(\) => \{ setMoveNote\(null\); putBack\(back\); \}/, 'no Undo for what landed');
+  // Every way out of seatGuestHere answers onDone — a write refused before it is sent still counts down.
+  assert.match(ED, /if \(!canEdit\) return onDone\?\.\(false\);\s*if \(refuseLocked\(guestId, \.\.\.along\.map\(\(x\) => x\.guestId\)\)\) return onDone\?\.\(false\);/);
+  assert.match(ED, /onDone\?\.\(res !== null && !saidLocked\(res\)\);/, 'onDone says landed for a failed or refused write');
+  // Fix all: every placement worked out against ONE pool of free chairs before anything is written (no double-booking).
+  const place = ED.slice(ED.indexOf('const placeAll = '), ED.indexOf('const seatGroups = '));
+  assert.match(place, /const free = pool\.get\(t\.table_id\) \?\? freeChairsAt\(t\);/, 'two fixes can take the same chair');
+  assert.match(place, /pool\.set\(t\.table_id, free\.slice\(g\.guestIds\.length\)\);/);
   const all = ED.slice(ED.indexOf('const fixAllProblems = '), ED.indexOf('const cardSuggestion = '));
-  assert.match(all, /putBack\(before\)/, 'Fix all has no Undo');
-  assert.equal((all.match(/setMoveNote\(\{/g) ?? []).length, 1, 'Fix all says more than one Undo line');
+  assert.match(all, /seatGroups\(groups,/, 'Fix all writes fix by fix again');
+  assert.doesNotMatch(all, /for \(const f of seats\) if \(seatTogether/, 'Fix all writes fix by fix again');
+  // A take (and a Fix) moves each guest's whole unit — the drag's own rule.
+  assert.match(ED, /const withUnits = \(ids: readonly string\[\]\) => \[\.\.\.new Set\(ids\.flatMap\(\(id\) => \{ const u = unitOf\(id\); return \[u\.leadId, \.\.\.u\.party\]; \}\)\)\];/);
+  assert.match(ED.slice(ED.indexOf('const takeSuggestion = ')), /const ids = withUnits\(sug\.guestIds\);/, 'a take leaves the +1 behind');
+  // Just taken → gone from every strip at once; the dry run is asked once the plan settles.
+  assert.match(ED, /sug\.guestIds\.every\(\(id\) => !justTaken\.has\(id\) && !guestsById\.get\(id\)\?\.seated_table_id\)/, 'a just-taken suggestion stays on the card');
+  assert.match(ED, /const t = setTimeout\(\(\) => \{\s*runSeatCheck\(\);[\s\S]{0,120}\}, SEARCH_WAIT_MS\);/, 'the dry run is asked on every change, not once things settle');
   // The strip sits under its card (the card is one press; the strip's press is its own) — never inside the card button.
   assert.match(LIST, /\{face\}\s*<CardSuggestion /);
   assert.match(ED, /setNotice\('Tap Edit first — only one person arranges at a time'\)/, 'a press without Edit does nothing and says nothing');
@@ -81,4 +100,10 @@ test('4 · no engine → nothing drawn; a take or a Fix is ONE write and ONE Und
 
 test('5 · no guest name goes to an outside AI — the smart layer makes no network call of its own', () => {
   for (const src of [UI, read('lib/seat-check.ts')]) assert.doesNotMatch(src, /\bfetch\(|anthropic|openai|XMLHttpRequest/i);
+});
+
+test('6 · the lab’s dry run is built on the client — no server action spent on it', () => {
+  const lab = read('app/dev/guests-lab/lab-seats-march.tsx');
+  assert.doesNotMatch(lab, /dryRun: check\s*\?\s*async/, 'the lab hands the editor a server function again');
+  assert.match(read('app/dev/guests-lab/lab-dry-run.tsx'), /^'use client';/);
 });

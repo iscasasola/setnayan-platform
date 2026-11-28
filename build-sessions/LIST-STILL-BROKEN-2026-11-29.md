@@ -178,14 +178,19 @@
 | §2 "Free to start" | FIXED on Unihome; marketing in #8436; **Papic add-on STILL BROKEN** | see C18m |
 | §2 test names on live accounts | RUNTIME (data) | R6: the owner said "not yet" |
 
-## 3a · Owner rulings given 28 Nov (in this session, verbatim "1 yes, 2 yes, 3 credits, 4 yes, 10 keep button")
+## 3a · Owner rulings given 28 Nov (in this session; first set verbatim "1 yes, 2 yes, 3 credits, 4 yes, 10 keep button")
 - **G8b:** "kept for life, free" IS a banned price promise. Drop "free" on all 5 pages and say "kept for life". **Now buildable.**
 - **G6b:** re-mint the live "@someone" handle, and block the stand-in word in `mint_user_username` (new migration). **Now buildable** (migration, `do-not-auto-merge`).
 - **C3:** the Papic unit word is **credits** everywhere, Event services included (the 22 Sep ruling wins over the 23 Nov drawing). **Now buildable.**
 - **C2:** keep both counts and name the unit ("N of M categories booked", "N suppliers without a time"). **Now buildable** with the C2 wave-2 work.
 - **C16b:** Unihome keeps the "Create an event" button and drops the "New event" tile. **Now buildable** (a Unihome v5 delta; tell Fable to update the drawing).
-- Still open: C4 receipt wording, S7 "All dates" month/week, S11 iPad analytics drawing, S9 worded "Log a payment", D7d (are chat refusals problems?).
-- DECISION_LOG rows for these five are still to be written in the specs corpus (controller).
+- **Second set, same day (verbatim "6 whole month, 7 yes, 8 yes, 9 not problems"):**
+  - **S7:** "All dates" opens the Clients calendar on the **whole month**. The week strip stays at rest everywhere else. **Now buildable.**
+  - **S11:** ask Fable for an iPad drawing of Shop analytics (start-aligned at ≥768). Build only after the drawing.
+  - **S9:** "Log a payment" gets its word: a worded action seat in `ThumbRow`, an approved exception to icon-only. **Now buildable** after #8456.
+  - **D7d:** chat rule refusals (`contact_blocked`, `too_long`, …) are **not problems**. Keep the reason in the action result, but don't file them as `ACTION_RETURNED_ERROR`. **Now buildable.**
+- Still open: only **C4**, the exact wording on a paid order's receipt.
+- DECISION_LOG rows for these nine are still to be written in the specs corpus (controller).
 
 ## 3 · Needs an owner ruling (do not guess). S1 does NOT: the badge threshold was ruled 5 on 15 Nov.
 1. **G8b:** is "kept for life, free" a banned price promise? #8449 kept it on 5 public pages.

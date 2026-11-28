@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Setnayan</string>
+	<string>$(SETNAYAN_DISPLAY_NAME)</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -15,7 +15,7 @@
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
-	<string>Setnayan</string>
+	<string>$(SETNAYAN_DISPLAY_NAME)</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -24,10 +24,10 @@
 	<array>
 		<dict>
 			<key>CFBundleURLName</key>
-			<string>com.setnayan.app</string>
+			<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
-				<string>setnayan</string>
+				<string>$(SETNAYAN_URL_SCHEME)</string>
 			</array>
 		</dict>
 	</array>
@@ -47,6 +47,8 @@
 	<string>Setnayan saves the photos, clips, and reels you create to your photo library so you can keep and share them.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Setnayan needs access to your photos so you can pick images to include in your personal reels and memories.</string>
+	<key>SetnayanShell</key>
+	<string>$(SETNAYAN_SHELL)</string>
 	<key>SKIncludeConsumableInAppPurchaseHistory</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

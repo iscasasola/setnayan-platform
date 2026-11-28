@@ -1,0 +1,3 @@
+// Supnayan's Debug build: Capacitor's debug flag (debug.xcconfig) plus Supnayan's identity (supnayan.xcconfig).
+#include "debug.xcconfig"
+#include "supnayan.xcconfig"

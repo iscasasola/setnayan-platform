@@ -92,6 +92,26 @@ const config: CapacitorConfig = {
       // inputs aren't hidden behind it — the default reads as broken on first use.
       resize: 'native',
     },
+    // 🏪 THE SECOND iPHONE APP: Supnayan (owner, DECISION_LOG 24 Nov 2026 "Three iOS apps: Setnayan · Supnayan ·
+    // Chatnayan"). The same Xcode target builds it from the "Debug Supnayan" / "Release Supnayan" configurations
+    // (scheme Supnayan), and its name, bundle id, icon, entitlements and build number live in ios/supnayan.xcconfig.
+    // That build names itself in Info.plist `SetnayanShell`, and `SetnayanShell.swift` puts THIS block onto Capacitor's
+    // own descriptor before the web view exists. Everything above stays the Setnayan app's, untouched.
+    //   · url: supplier.setnayan.com, the supplier door (#8263). Coordinators use the same app.
+    //   · appendUserAgent: `SetnayanApp` keeps it the store shell (Apple's in-app-purchase rules, lib/store-shell.ts);
+    //     `SetnayanSignIn/1` is the same native sign-in plugin; `SetnayanBusiness` turns on the ONE door flag on every
+    //     page (lib/doors.ts `DOOR_APP_UA`), so the signed-in dashboard has no way out to the host side or Discover.
+    //     Deliberately NOT announced yet: `SetnayanIAP/*` (no In-App Purchase products exist under this app's record)
+    //     and `SetnayanPush/1` (lib/apns.ts sends to one topic, com.setnayan.app). Each comes with its own build.
+    //   · allowNavigation: the hosts the app opens in place. A door hands sign-in and every other page to the site
+    //     (one auth origin), so without the site's hosts here Capacitor would throw those pages out to Safari.
+    SetnayanShell: {
+      supnayan: {
+        url: process.env.CAP_SUPNAYAN_URL ?? 'https://supplier.setnayan.com',
+        appendUserAgent: 'SetnayanApp SetnayanSignIn/1 SetnayanBusiness',
+        allowNavigation: ['www.setnayan.com', 'setnayan.com', 'supplier.setnayan.com', 'coordinator.setnayan.com', 'business.setnayan.com'],
+      },
+    },
   },
 };
 

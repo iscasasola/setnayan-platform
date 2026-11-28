@@ -1,0 +1,13 @@
+## 2026-11-24 · feat(mobile): Supnayan, the suppliers' and coordinators' iPhone app, as a second build of the one shell
+
+Owner, 24 Nov (DECISION_LOG "Three iOS apps: Setnayan · Supnayan · Chatnayan"): Supnayan (`com.setnayan.supnayan`) opens the supplier door, supplier.setnayan.com, for suppliers and coordinators, with no way out to the host side or Discover. It is one codebase, one sign-in and one set of data, with no second copy of any page.
+
+- **One Xcode target, two builds.** `apps/mobile/ios/App` keeps its one target. The new `Debug Supnayan` / `Release Supnayan` configurations (shared scheme `Supnayan`) take Supnayan's whole identity from `ios/supnayan.xcconfig`: bundle id, name, its own `supnayan://` scheme, icon, entitlements (Sign in with Apple + NFC; no Universal Links, no push yet), build 1, iPhone only. A shared `App` scheme keeps Setnayan's Debug/Release exactly as before.
+- **The switch.** Info.plist names build settings (`SETNAYAN_SHELL`, `SETNAYAN_DISPLAY_NAME`, `SETNAYAN_URL_SCHEME`). The Setnayan configurations set them to setnayan / Setnayan / setnayan, so the Setnayan build is byte-for-byte the same app. `SetnayanShell.swift` reads `capacitor.config.ts › plugins.SetnayanShell.supnayan` and writes its start address, user-agent and allowed hosts onto Capacitor's descriptor (`instanceDescriptor()`), before the web view exists.
+- **What Supnayan announces:** `SetnayanApp` (the store shell: Apple's purchase rules, unchanged), `SetnayanSignIn/1` (the same native sign-in) and `SetnayanBusiness` (the web's one door flag from #8263). It does not announce `SetnayanIAP` (no In-App Purchase products under its record) or `SetnayanPush/1` (lib/apns.ts sends to the one Setnayan topic).
+- **Offline Retry** reopens the app's own start address (`?retry=`, setnayan.com only), so Supnayan never retries onto the host side.
+- ⚠ The icon is a marked PLACEHOLDER (`SupnayanIcon.appiconset`) until the Fable drawing is approved. Never submit with it.
+- Proof: both builds compile for the iOS Simulator. The built Setnayan app still reads com.setnayan.app · Setnayan · setnayan:// · build 9 · AppIcon. Supnayan reads com.setnayan.supnayan · Supnayan · supnayan:// · build 1 · SupnayanIcon, and its console logs "Loading app at https://supplier.setnayan.com". Both install side by side.
+- Guard: `apps/web/lib/supnayan-is-the-same-app.test.ts`. `native-sign-in.test.ts` and `the-app-save-signs-in-natively.test.ts` now read the name and scheme through the build settings.
+
+SPEC IMPACT: None. This builds the 24 Nov "Three iOS apps" ruling as written. The owner steps (App Store Connect record, listing, Supabase Apple client id) are in the PR.

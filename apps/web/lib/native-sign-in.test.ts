@@ -193,8 +193,12 @@ test('6 · the plugin the web calls is registered on iOS and Android, on the sch
   assert.match(pbx, /SetnayanAuthPlugin\.swift in Sources/, 'the Swift file is not compiled into the app');
   const ent = read(join(MOBILE, 'ios/App/App/App.entitlements'));
   assert.match(ent, /com\.apple\.developer\.applesignin/, 'no Sign in with Apple entitlement');
+  // The scheme is a build setting since Supnayan (24 Nov 2026): the Setnayan configurations own `setnayan`, and
+  // ios/supnayan.xcconfig gives the second app its own, so a setnayan:// link never opens the wrong app.
   const plist = read(join(MOBILE, 'ios/App/App/Info.plist'));
-  assert.match(plist, new RegExp(`<string>${NATIVE_CALLBACK_SCHEME}</string>`), 'iOS does not own the return scheme');
+  assert.match(plist, /<key>CFBundleURLSchemes<\/key>\s*<array>\s*<string>\$\(SETNAYAN_URL_SCHEME\)<\/string>/, 'iOS does not own the return scheme');
+  const schemes = [...pbx.matchAll(/SETNAYAN_URL_SCHEME = ([^;]+);/g)].map((m) => m[1]);
+  assert.ok(schemes.length >= 2 && schemes.every((s) => s === NATIVE_CALLBACK_SCHEME), `the Setnayan build owns ${NATIVE_CALLBACK_SCHEME}:// (got ${schemes.join(', ')})`);
 
   const java = read(join(MOBILE, 'android/app/src/main/java/com/setnayan/app/SetnayanAuthPlugin.java'));
   assert.match(java, /@CapacitorPlugin\(name = "SetnayanAuth"\)/);

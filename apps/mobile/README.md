@@ -45,6 +45,31 @@ npm run add:ios               # cap add ios  (requires CocoaPods + Xcode.app)
 npm run open:ios              # Xcode → simulator → Run
 ```
 
+## Two iPhone apps from one target: Setnayan and Supnayan
+
+Owner, 24 Nov 2026 (DECISION_LOG "Three iOS apps: Setnayan · Supnayan · Chatnayan"). The Xcode project has ONE
+target (`App`) and builds two App Store apps from it. Same Swift, same web app, same sign-in, same data.
+
+| App | Bundle id | Scheme | Configurations | Opens |
+|---|---|---|---|---|
+| Setnayan | `com.setnayan.app` | `App` | Debug · Release | www.setnayan.com (everything, role jumps) |
+| Supnayan | `com.setnayan.supnayan` | `Supnayan` | Debug Supnayan · Release Supnayan | supplier.setnayan.com (suppliers + coordinators) |
+
+- **Supnayan's identity is one file:** `ios/supnayan.xcconfig` (bundle id, name, `supnayan://` scheme, icon, entitlements,
+  version and build number, iPhone only). The Setnayan defaults sit on the project's Debug / Release configurations.
+  Never write any of those keys inline on a Supnayan configuration: target settings beat the xcconfig.
+- **What it opens and how it announces itself:** `capacitor.config.ts › plugins.SetnayanShell.supnayan`, applied by
+  `ios/App/App/SetnayanShell.swift` from `SetnayanBridgeViewController.instanceDescriptor()`. Its `SetnayanBusiness`
+  user-agent token turns on the web's ONE door flag (`apps/web/lib/doors.ts`), which hides every way out to the host
+  side and Discover. There is no second copy of any page.
+- **Run it:** `npx cap sync ios`, then in Xcode pick the **Supnayan** scheme (Archive uses Release Supnayan), or
+  `npm run dev:supnayan` against a local `apps/web` (the door answers on `supplier.localhost`).
+- ⚠ **The icon is a marked placeholder** (`Assets.xcassets/SupnayanIcon.appiconset`) until the Fable drawing is approved.
+  Never submit with it.
+- Not yet: In-App Purchase (needs Supnayan's own products) and push (`lib/apns.ts` sends to the one Setnayan topic).
+  Each comes with its own build and its own user-agent token.
+- Guard: `apps/web/lib/supnayan-is-the-same-app.test.ts`.
+
 ## Installed Capacitor plugins
 
 `@capacitor/core` · `app` (back button + deep links + lifecycle) · `camera`

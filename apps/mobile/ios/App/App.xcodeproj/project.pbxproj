@@ -17,6 +17,7 @@
 		9F1C4A012ABCDEF012345601 /* SetnayanBridgeViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F1C4A012ABCDEF012345602 /* SetnayanBridgeViewController.swift */; };
 		9F1C4A012ABCDEF0123456A1 /* SetnayanAuthPlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F1C4A012ABCDEF0123456A2 /* SetnayanAuthPlugin.swift */; };
 		9F1C4A012ABCDEF0123456B1 /* SetnayanStorePlugin.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9F1C4A012ABCDEF0123456B2 /* SetnayanStorePlugin.swift */; };
+		5C9A0E1D2B4C6A8000000011 /* SetnayanShell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C9A0E1D2B4C6A8000000012 /* SetnayanShell.swift */; };
 		504EC30D1FED79650016851F /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30B1FED79650016851F /* Main.storyboard */; };
 		504EC30F1FED79650016851F /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 504EC30E1FED79650016851F /* Assets.xcassets */; };
 		504EC3121FED79650016851F /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 504EC3101FED79650016851F /* LaunchScreen.storyboard */; };
@@ -34,6 +35,10 @@
 		9F1C4A012ABCDEF012345602 /* SetnayanBridgeViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetnayanBridgeViewController.swift; sourceTree = "<group>"; };
 		9F1C4A012ABCDEF0123456A2 /* SetnayanAuthPlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetnayanAuthPlugin.swift; sourceTree = "<group>"; };
 		9F1C4A012ABCDEF0123456B2 /* SetnayanStorePlugin.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetnayanStorePlugin.swift; sourceTree = "<group>"; };
+		5C9A0E1D2B4C6A8000000012 /* SetnayanShell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SetnayanShell.swift; sourceTree = "<group>"; };
+		5C9A0E1D2B4C6A8000000013 /* Supnayan.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Supnayan.entitlements; sourceTree = "<group>"; };
+		5C9A0E1D2B4C6A8000000014 /* supnayan.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = supnayan.xcconfig; path = ../supnayan.xcconfig; sourceTree = SOURCE_ROOT; };
+		5C9A0E1D2B4C6A8000000015 /* supnayan-debug.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = "supnayan-debug.xcconfig"; path = "../supnayan-debug.xcconfig"; sourceTree = SOURCE_ROOT; };
 		504EC30C1FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		504EC30E1FED79650016851F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		504EC3111FED79650016851F /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
@@ -59,6 +64,8 @@
 			isa = PBXGroup;
 			children = (
 				958DCC722DB07C7200EA8C5F /* debug.xcconfig */,
+				5C9A0E1D2B4C6A8000000014 /* supnayan.xcconfig */,
+				5C9A0E1D2B4C6A8000000015 /* supnayan-debug.xcconfig */,
 				504EC3061FED79650016851F /* App */,
 				504EC3051FED79650016851F /* Products */,
 			);
@@ -82,6 +89,7 @@
 				9F1C4A012ABCDEF012345602 /* SetnayanBridgeViewController.swift */,
 				9F1C4A012ABCDEF0123456A2 /* SetnayanAuthPlugin.swift */,
 				9F1C4A012ABCDEF0123456B2 /* SetnayanStorePlugin.swift */,
+				5C9A0E1D2B4C6A8000000012 /* SetnayanShell.swift */,
 				504EC30B1FED79650016851F /* Main.storyboard */,
 				504EC30E1FED79650016851F /* Assets.xcassets */,
 				504EC3101FED79650016851F /* LaunchScreen.storyboard */,
@@ -90,6 +98,7 @@
 				50B271D01FEDC1A000F3C39B /* public */,
 				EF85C677337921EAB06BA233 /* PrivacyInfo.xcprivacy */,
 				182DB44DF43AC280CE9D82EF /* App.entitlements */,
+				5C9A0E1D2B4C6A8000000013 /* Supnayan.entitlements */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -182,6 +191,7 @@
 				9F1C4A012ABCDEF012345601 /* SetnayanBridgeViewController.swift in Sources */,
 				9F1C4A012ABCDEF0123456A1 /* SetnayanAuthPlugin.swift in Sources */,
 				9F1C4A012ABCDEF0123456B1 /* SetnayanStorePlugin.swift in Sources */,
+				5C9A0E1D2B4C6A8000000011 /* SetnayanShell.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -259,6 +269,9 @@
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
+				SETNAYAN_DISPLAY_NAME = Setnayan;
+				SETNAYAN_SHELL = setnayan;
+				SETNAYAN_URL_SCHEME = setnayan;
 				SDKROOT = iphoneos;
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -309,6 +322,9 @@
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
+				SETNAYAN_DISPLAY_NAME = Setnayan;
+				SETNAYAN_SHELL = setnayan;
+				SETNAYAN_URL_SCHEME = setnayan;
 				SDKROOT = iphoneos;
 				SWIFT_COMPILATION_MODE = wholemodule;
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
@@ -364,6 +380,158 @@
 			};
 			name = Release;
 		};
+		5C9A0E1D2B4C6A8000000001 /* Debug Supnayan */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 958DCC722DB07C7200EA8C5F /* debug.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SETNAYAN_DISPLAY_NAME = Setnayan;
+				SETNAYAN_SHELL = setnayan;
+				SETNAYAN_URL_SCHEME = setnayan;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = "Debug Supnayan";
+		};
+		5C9A0E1D2B4C6A8000000002 /* Release Supnayan */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SETNAYAN_DISPLAY_NAME = Setnayan;
+				SETNAYAN_SHELL = setnayan;
+				SETNAYAN_URL_SCHEME = setnayan;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = "Release Supnayan";
+		};
+		5C9A0E1D2B4C6A8000000003 /* Debug Supnayan */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5C9A0E1D2B4C6A8000000015 /* supnayan-debug.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = P95JPDWWB3;
+				INFOPLIST_FILE = App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				OTHER_SWIFT_FLAGS = "$(inherited) \"-D\" \"COCOAPODS\" \"-DDEBUG\"";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+			};
+			name = "Debug Supnayan";
+		};
+		5C9A0E1D2B4C6A8000000004 /* Release Supnayan */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 5C9A0E1D2B4C6A8000000014 /* supnayan.xcconfig */;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = P95JPDWWB3;
+				INFOPLIST_FILE = App/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "";
+				SWIFT_VERSION = 5.0;
+			};
+			name = "Release Supnayan";
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -372,6 +540,8 @@
 			buildConfigurations = (
 				504EC3141FED79650016851F /* Debug */,
 				504EC3151FED79650016851F /* Release */,
+				5C9A0E1D2B4C6A8000000001 /* Debug Supnayan */,
+				5C9A0E1D2B4C6A8000000002 /* Release Supnayan */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -381,6 +551,8 @@
 			buildConfigurations = (
 				504EC3171FED79650016851F /* Debug */,
 				504EC3181FED79650016851F /* Release */,
+				5C9A0E1D2B4C6A8000000003 /* Debug Supnayan */,
+				5C9A0E1D2B4C6A8000000004 /* Release Supnayan */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

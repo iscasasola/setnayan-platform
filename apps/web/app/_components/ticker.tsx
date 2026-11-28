@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useLayoutEffect, useRef, useState, type KeyboardEvent as KE, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useId, useLayoutEffect, useRef, useState, type KeyboardEvent as KE, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useOneOpen } from '@/lib/one-open';
 import { useModalA11y } from '@/lib/use-modal-a11y';
@@ -82,6 +82,9 @@ function TickerColumn<V extends string | number | boolean>({
   const el = useRef<HTMLDivElement>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const index = Math.max(0, choices.findIndex((c) => c.v === value));
+  /* The keyboard rolls the column from the listbox (arrows · Home · End); the active option is named to a screen
+     reader through aria-activedescendant, so a press on an option is the pointer's shortcut, not its only way in. */
+  const optId = useId();
   /* The newest props, for the handler a scroll fires later. */
   const now = useRef({ choices, value, onSettle });
   now.current = { choices, value, onSettle };
@@ -135,6 +138,7 @@ function TickerColumn<V extends string | number | boolean>({
       role="listbox"
       tabIndex={0}
       aria-label={label}
+      aria-activedescendant={choices[index] ? `${optId}-${index}` : undefined}
       data-ticker-column={label}
       onKeyDown={onKeys}
       onScroll={() => {
@@ -146,6 +150,7 @@ function TickerColumn<V extends string | number | boolean>({
       {choices.map((c, i) => (
         <div
           key={String(c.v)}
+          id={`${optId}-${i}`}
           role="option"
           aria-selected={i === index}
           data-ticker-choice={String(c.v)}

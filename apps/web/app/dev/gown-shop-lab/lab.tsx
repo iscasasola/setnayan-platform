@@ -25,9 +25,9 @@ function sample(mode: GownShopOptions['mode']): GownShopOptions {
 
 const SHOP = '11111111-2222-4333-8444-555555555555';
 const TYPES = [
-  { id: 'satin', name: 'Satin', sheen: 0.8, sheer: 0, stiff: 0.45, verified: false },
-  { id: 'mikado', name: 'Mikado', sheen: 0.55, sheer: 0, stiff: 0.8, verified: false },
-  { id: 'tulle', name: 'Tulle', sheen: 0.1, sheer: 0.85, stiff: 0.3, verified: false },
+  { id: 'satin', name: 'Satin', sheen: 0.8, sheer: 0, stiff: 0.45, verified: false, family: 'satins' as const, usedFor: ['gown_body' as const, 'skirt' as const] },
+  { id: 'mikado', name: 'Mikado', sheen: 0.55, sheer: 0, stiff: 0.8, verified: false, family: 'structured' as const, usedFor: ['gown_body' as const, 'skirt' as const] },
+  { id: 'tulle', name: 'Tulle', sheen: 0.1, sheer: 0.85, stiff: 0.3, verified: false, family: 'sheers' as const, usedFor: ['skirt' as const, 'sleeves_accents' as const] },
 ];
 const STOCK = {
   shop: SHOP,

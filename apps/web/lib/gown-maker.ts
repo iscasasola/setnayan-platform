@@ -585,7 +585,17 @@ export type GownShopLookInput = { id: string | null; name: string; photoKey: str
 export type ShopGownStockFabric = GownShopFabricInput & { id: string; thumbUrl: string | null; tileUrl: string | null };
 export type ShopGownStockLook = Omit<GownShopLookInput, 'id'> & { id: string; photoUrl: string | null };
 /** A fabric type the designer can pick, with its own values (the sliders start there). */
-export type GownFabricTypeOption = { id: string; name: string; sheen: number; sheer: number; stiff: number; verified: boolean };
+export type GownFabricTypeOption = {
+  id: string;
+  name: string;
+  sheen: number;
+  sheer: number;
+  stiff: number;
+  verified: boolean;
+  /** B15: how the bride's Fabric step groups and filters it. */
+  family: (typeof GOWN_FABRIC_FAMILIES)[number]['id'];
+  usedFor: (typeof GOWN_FABRIC_USES)[number]['id'][];
+};
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const HEX_RE = /^#[0-9a-f]{6}$/i;
@@ -763,4 +773,45 @@ export function sanitizeGownFabricType(
       verified: r.verified === true,
     },
   };
+}
+
+// ── B15 · THE BRIDE'S FABRIC STEP: GROUPED BY TYPE, ONLY WHAT SUITS THE GARMENT (data side) ─────────────────────────
+// Prototype v186 "The Fabric step groups by type and offers only what suits the garment" (INTEGRATION-PLAN v186):
+// gown = `usedFor` has gown_body or skirt; accent = sleeves_accents; lining = lining. Headings by family. Men's-only and
+// lining-only types are hidden from the bride's gown and accent choices. The designer's own cloths keep their place
+// first, each under its type. Builder A wires the step from `fabricGroups` on the `open` read.
+
+export type GownFabricSlot = 'gown' | 'accent' | 'lining';
+export const GOWN_FABRIC_SLOT_USES: Record<GownFabricSlot, readonly GownFabricTypeOption['usedFor'][number][]> = {
+  gown: ['gown_body', 'skirt'],
+  accent: ['sleeves_accents'],
+  lining: ['lining'],
+};
+/** The family order on the bride's step (fabric-types-research.md "Families"). */
+export const GOWN_FABRIC_FAMILY_ORDER = GOWN_FABRIC_FAMILIES.map((f) => f.id);
+
+export type GownFabricChoice =
+  | { kind: 'designer'; id: string; name: string; typeId: string; lace: boolean }
+  | { kind: 'type'; id: string; name: string };
+export type GownFabricGroup = { family: GownFabricTypeOption['family']; label: string; choices: GownFabricChoice[] };
+
+export function gownFabricGroups(
+  slot: GownFabricSlot,
+  types: readonly Pick<GownFabricTypeOption, 'id' | 'name' | 'family' | 'usedFor'>[],
+  shopFabrics: readonly { id: string; name: string; typeId: string | null; kind: 'fabric' | 'lace' }[] = [],
+): GownFabricGroup[] {
+  const uses = GOWN_FABRIC_SLOT_USES[slot];
+  const offered = types.filter((t) => t.usedFor.some((u) => uses.includes(u)));
+  const byId = new Map(offered.map((t) => [t.id, t]));
+  return GOWN_FABRIC_FAMILY_ORDER.flatMap((family) => {
+    const inFamily = offered.filter((t) => t.family === family);
+    if (!inFamily.length) return [];
+    const choices: GownFabricChoice[] = [];
+    // ★ The designer's own cloths first, each under its type's family (in the type order).
+    for (const t of inFamily) {
+      for (const f of shopFabrics) if (f.typeId === t.id && byId.has(f.typeId)) choices.push({ kind: 'designer', id: f.id, name: f.name, typeId: t.id, lace: f.kind === 'lace' });
+    }
+    for (const t of inFamily) choices.push({ kind: 'type', id: t.id, name: t.name });
+    return [{ family, label: GOWN_FABRIC_FAMILIES.find((f) => f.id === family)!.label, choices }];
+  });
 }

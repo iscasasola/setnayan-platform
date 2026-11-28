@@ -41,7 +41,10 @@ import {
   gownDesignOf,
   gownDesignRefOf,
   gownShopTemplate,
+  gownFabricGroups,
   sanitizeGownFabricType,
+  type GownFabricGroup,
+  type GownFabricSlot,
   sanitizeGownShopFabric,
   sanitizeGownShopLookShell,
   type GownFabricTypeRow,
@@ -89,6 +92,8 @@ export type GownOpenRead = {
   fabrics: BrideGownFabric[];
   looks: { id: string; name: string; photoKey: string | null; config: unknown }[];
   addOns: GownDesignForBride['addOns'];
+  /** B15: the Fabric step, grouped by family, each slot offering only the types that suit it. */
+  fabricGroups: Record<GownFabricSlot, GownFabricGroup[]>;
 };
 
 export type GownDesignRead = {
@@ -348,7 +353,7 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
     readShopGownToolOpen(admin, t.vendor_profile_id, t.event_id),
     readShopGownFabrics(admin, t.vendor_profile_id),
     readShopGownLooks(admin, t.vendor_profile_id),
-    readGownFabricTypeIds(supabase),
+    readGownFabricTypes(supabase),
     admin.from('vendor_profiles').select('business_name').eq('vendor_profile_id', t.vendor_profile_id).maybeSingle(),
   ]);
   if (options.status === 'unread' || allowed.status === 'unread' || fabrics.status !== 'ok' || looks.status !== 'ok' || types.status !== 'ok' || shopRes.error) {
@@ -360,7 +365,13 @@ export async function runGownAction(input: GownActionInput): Promise<GownActionR
     ok: true,
     op: 'open',
     shopName: ((shopRes.data as { business_name: string | null } | null)?.business_name ?? '').trim() || 'the shop',
-    offer: gownOfferOf(types.data, fabrics.data, looks.data),
+    offer: gownOfferOf(types.data.map((x) => x.id), fabrics.data, looks.data),
+    // B15: the Fabric step's choices, grouped by type and only what suits each garment part (A wires the step).
+    fabricGroups: {
+      gown: gownFabricGroups('gown', types.data, fabrics.data),
+      accent: gownFabricGroups('accent', types.data, fabrics.data),
+      lining: gownFabricGroups('lining', types.data, fabrics.data),
+    },
     // 🔒 Never the per-metre price: the bride gets the public columns only.
     fabrics: fabrics.data.map(({ pricePerMetreCentavos: _price, ...publicCols }) => publicCols),
     looks: looks.data,

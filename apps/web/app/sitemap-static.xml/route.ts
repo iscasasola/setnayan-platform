@@ -116,10 +116,7 @@ const STATIC_ROUTES: ReadonlyArray<{
   // AboutPage JSON-LD, but was in NO sitemap before (added 2026-06-20).
   { path: '/our-story', lastmod: '2026-06-18', changefreq: 'monthly', priority: '0.7' },
 
-  // /monogram — FREE no-signup monogram maker (top-of-funnel lead-gen tool,
-  // WebApplication JSON-LD). High-intent organic target; was in NO sitemap
-  // before (added 2026-06-20).
-  { path: '/monogram', lastmod: '2026-06-19', changefreq: 'monthly', priority: '0.7' },
+  // /monogram left 2026-11-27 (L9 P29): it server-redirects to /palogo (next.config.ts), the Logo Maker page.
 
   // /papic — guest photo-gallery differentiator landing page (SoftwareApplication
   // + FAQPage JSON-LD). New 2026-06-20 "lead with the media layer" pass; the

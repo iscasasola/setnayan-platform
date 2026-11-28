@@ -28,7 +28,8 @@ const APP = join(HERE, '..');
 const read = (p: string) => readFileSync(p, 'utf8');
 // /blog left this list on 2026-11-16 — the blog is retired and its addresses forward (DECISION_LOG "THE BLOG AND REAL
 // STORIES ARE RETIRED"); the first test now holds that nothing serves it.
-const ROUTES = ['download', 'creators', 'our-story', 'monogram', 'tl/about', 'waitlist'] as const;
+// /monogram left on 2026-11-27 (L9 P29) — it server-redirects to /palogo (next.config.ts); held below to serve nothing.
+const ROUTES = ['download', 'creators', 'our-story', 'tl/about', 'waitlist'] as const;
 
 test('every page lives in app/(shell)/ and nothing serves them from outside it', () => {
   for (const r of ROUTES) {
@@ -43,6 +44,7 @@ test('every page lives in app/(shell)/ and nothing serves them from outside it',
   }
   // The retired blog serves nothing, in or out of the shell — its addresses only forward.
   for (const p of [join(APP, 'blog'), join(HERE, 'blog')]) assert.ok(!existsSync(p), `${p} exists — the retired blog is served again`);
+  for (const p of [join(APP, 'monogram'), join(HERE, 'monogram')]) assert.ok(!existsSync(p), `${p} exists — /monogram redirects to /palogo`);
 });
 
 test('none is a NAV_ROUTE, so the glass nav never stacks on the shell', () => {

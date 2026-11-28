@@ -1,12 +1,9 @@
-import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
 import { CopyButton } from '@/app/_components/copy-button';
 import { SaveFileLink } from '@/app/_components/save-file-link';
 import { actionButtonClass } from '@/components/action-button-class';
 import { after } from 'next/server';
-import { notFound, redirect } from 'next/navigation';
 import { ArrowLeft, ArrowRight, CheckCircle2, Send, Share, Trash2, XCircle } from 'lucide-react';
-import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { fetchQuoteShopGifts } from '@/lib/shop-gifts.server';
 import { QuoteShopGiftNote } from '@/app/_components/quote-shop-gift-note';
@@ -52,6 +49,7 @@ import { readQuoteWhere } from '@/lib/booked-call-times.server';
 import { BookedWhere, QuoteWhereFact } from '@/app/dashboard/[eventId]/vendors/_components/booked-where';
 import { StayForm } from '@/app/_components/stay-form';
 import { formatRecordedAt } from '@/lib/recorded-at';
+import { ProposalUnreadable, gateProposal } from './gate';
 
 export const metadata = { title: 'Quote' };
 
@@ -134,40 +132,11 @@ type Props = {
 export default async function ProposalDetailPage({ params, searchParams }: Props) {
   const { publicId } = await params;
   const search = await searchParams;
-  const supabase = await createClient();
-  const user = await getCurrentUser();
-  if (!user) redirect('/login');
-
-  // RLS is the gate: vendor org OR couple/delegate (non-draft) — anyone else
-  // sees nothing and gets a 404.
-  // 🔑 AN RLS DENIAL AND A REFUSED READ ARE DISTINGUISHABLE HERE, and the
-  // difference is the whole point. `maybeSingle()` returns `{ data: null,
-  // error: null }` when RLS filtered the row away — that is the designed 404,
-  // "not yours". A REJECTED query sets `error`, and answering that with the
-  // same 404 tells the recipient of a quote somebody sent them that it does not
-  // exist. It does exist; we could not read it.
-  const { data, error: proposalError } = await supabase
-    .from('vendor_proposals')
-    .select(
-      'proposal_id, public_id, vendor_profile_id, event_id, title, merge_snapshot, rendered_body, rendered_terms, line_items, total_centavos, payment_schedule, payment_method_ids, status, valid_until, sent_at, resolved_at, created_at, includes_setnayan_gift',
-    )
-    .eq('public_id', publicId)
-    .maybeSingle();
-  if (proposalError) {
-    console.error('[proposals] proposal read refused', proposalError);
-    return (
-      <main className="mx-auto max-w-2xl px-4 py-16 text-center">
-        <h1 className="text-xl font-semibold text-ink">We couldn&rsquo;t open this quote</h1>
-        <p className="mt-3 text-sm text-ink/70">
-          Something went wrong reading it — this is <strong>not</strong> a sign the quote
-          was withdrawn or that the link is wrong. Please reload in a moment; if it keeps
-          happening, ask whoever sent it to re-send.
-        </p>
-      </main>
-    );
-  }
-  if (!data) notFound();
-  const proposal = data as ProposalRow;
+  // Sign-in and "not yours" were decided by ./layout.tsx before streaming (same request, same answer — ./gate.tsx).
+  const gate = await gateProposal(publicId);
+  if (gate.refused) return <ProposalUnreadable />;
+  const { supabase, user } = gate;
+  const proposal = gate.data as ProposalRow;
 
   // Which side is looking? Org membership decides.
   const ownProfile = await fetchOwnVendorProfile(supabase, user.id);

@@ -13,7 +13,7 @@
  * (`details-answers.tsx`, drafted like every Maker edit, live at Apply), and
  * OBEYED:
  *
- *   papic_on            → Papic: no free pool armed at the commit, the guest
+ *   papic_on            → Papic: the guest
  *                         camera door closed (`eventPapicGuestAccess`), no
  *                         capture taken (`eventAcceptsNewCaptures`), Home's
  *                         "Your free camera is ready" not offered.
@@ -68,16 +68,6 @@ export function papicIsOn(v: unknown): boolean {
 /** Are gifts on? Same rule: only an explicit "No" hides them. */
 export function giftsAreOn(v: unknown): boolean {
   return v !== false;
-}
-
-/**
- * Does the commit arm the free Papic grants? Not when the couple said "No" —
- * an event whose camera is off has nothing to meter (and `eventAcceptsNewCaptures`
- * takes no capture there, so no shot can run unmetered). A caller with no
- * answers (a type the engine has not admitted) arms them, as before.
- */
-export function setupArmsPapic(a: Pick<SetupAnswerKeys, 'papic'> | null | undefined): boolean {
-  return a?.papic !== 'no';
 }
 
 /** Is the Logo step answered? A logo exists, or they chose their names instead. */

@@ -1425,83 +1425,15 @@ export default function PrivacyPage() {
           </ul>
         </Section>
 
-        <Section title="TikTok integration (Patiktok)">
+        <Section title="TikTok (Patiktok, retired)">
+          {/* L9 P7 (27 Nov 2026): Patiktok was retired (lib/retired-products.ts). Said in the past tense, with no date
+              this repository cannot prove. ⚠ "their keys were erased" is NOT said: no job in this repository erases
+              the stored grants (lib/legal-retention-promises-have-a-mechanism.test.ts), so it waits for that step. */}
           <p>
-            {/* 2026-06-13 reprice scrub: per-day tier prices removed — the
-                figures predated the locked catalog (Patiktok is a flat-price
-                SKU; current price on /pricing). Privacy copy describes data
-                flows, not prices. */}
-            Couples who use Patiktok can connect their own
-            TikTok account to Setnayan so Patiktok booth compilations can
-            auto-post to the couple&rsquo;s handle. Setnayan uses TikTok&rsquo;s
-            Login Kit and Content Posting API. Without a couple-side
-            TikTok connection, compilations post to <strong>@SetnayanWeddings</strong>, our
-            company-owned handle, using credentials Setnayan manages directly.
+            Patiktok has been retired. Setnayan no longer offers TikTok connections or posts to TikTok. A video already posted to your TikTok account is yours: delete
+            it from TikTok like any other video. You can also remove Setnayan in TikTok under{' '}
+            <em>Settings → Privacy → Manage apps and websites</em>.
           </p>
-          <ul className="ml-5 list-disc space-y-1 pt-2">
-            <li>
-              <strong>Scopes requested.</strong> Only <code className="font-mono text-[12px]">user.info.basic</code>,{' '}
-              <code className="font-mono text-[12px]">video.upload</code>, and{' '}
-              <code className="font-mono text-[12px]">video.publish</code>. We
-              do not request access to your TikTok followers, drafts, messages,
-              or analytics.
-            </li>
-            <li>
-              <strong>What we receive from TikTok.</strong> Your TikTok open ID
-              (a stable per-app identifier), your union ID (if available),
-              your display name / handle, an access token (typically valid 24
-              hours), and a refresh token. We do not receive your TikTok
-              password.
-            </li>
-            <li>
-              <strong>How we use it.</strong> The access token is read only by
-              our render worker, only to post one rendered compilation MP4 per
-              booth-day on your behalf, with a caption you can configure. We
-              do not browse, download, or modify any other content on your
-              TikTok account.
-            </li>
-            <li>
-              <strong>Storage + scope.</strong> Tokens and the open ID are
-              stored in <code className="font-mono text-[12px]">patiktok_oauth_grants</code> in our
-              Supabase database (Singapore region · encrypted at rest), scoped
-              to one specific Setnayan event. These credentials are never
-              shared with suppliers, other couples, or third parties. (That
-              statement is about your TikTok credentials specifically — it is
-              not a blanket claim that nothing you do on Setnayan is ever
-              visible to another couple. For the one place where your planning
-              activity feeds an anonymous count that other couples can see, see{' '}
-              <em>Supplier interest counts</em> above.)
-            </li>
-            <li>
-              <strong>Retention.</strong> Grants are kept until you revoke them
-              — from your Setnayan profile or from TikTok&rsquo;s own app
-              settings — or until you delete your Setnayan account. The moment
-              you disconnect, we erase the stored keys rather than merely
-              marking the connection ended. We do <strong>not</strong> delete
-              connections on a timer: if you want one gone, disconnect it.
-            </li>
-            <li>
-              <strong>Revoking access.</strong> Two paths, either works
-              immediately:
-              <ul className="ml-5 mt-1 list-disc space-y-1">
-                <li>
-                  In Setnayan, open the Patiktok page and click{' '}
-                  <em>Disconnect TikTok</em>. We soft-revoke the grant locally.
-                </li>
-                <li>
-                  In TikTok, go to <em>Settings → Privacy → Manage apps and
-                  websites</em> and remove Setnayan. We honor the revocation on
-                  the next render attempt.
-                </li>
-              </ul>
-            </li>
-            <li>
-              <strong>Posts on your TikTok account.</strong> Once a compilation
-              is posted to your account, the video is owned by you. Delete it
-              from TikTok like any other video — Setnayan cannot delete posts
-              on your behalf after they go live.
-            </li>
-          </ul>
         </Section>
 
         {/* ── Google / YouTube data (Live Watch) ───────────────────────────
@@ -1995,10 +1927,6 @@ export default function PrivacyPage() {
               public STUN server — contacted briefly by your device when starting
               a live call or camera connection, to discover its own network
               address)
-            </li>
-            <li>
-              TikTok (Patiktok only · for couples who explicitly
-              connect their TikTok account via OAuth)
             </li>
             <li>
               Apple (signing in with Apple, for people who choose it; and purchases

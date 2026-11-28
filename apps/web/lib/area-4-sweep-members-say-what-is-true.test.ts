@@ -52,11 +52,11 @@ test('A4-42 / A4-43 · the E-Gifts page says E-Gifts, and promises nothing "safe
   assert.doesNotMatch(code('app/_components/pabuya/pabuya-card-list.tsx'), /\bsafe\b|Pabuya\b(?![A-Z(])/);
 });
 
-test('A4-B12 · the only 0% line is "Hosts pay 0% commission."', () => {
+test('A4-B12 · no 0% line at all — hosts are never told "0% commission" (owner 28 Nov)', () => {
   const src = code('app/_components/pabuya/pabuya-card-list.tsx');
   assert.doesNotMatch(src, /no middleman|no commission|no fees/i);
   const zero = [...src.matchAll(/[^.>]*0%[^.<]*\.?/g)].map((m) => m[0].trim());
-  assert.deepEqual(zero, ['Hosts pay 0% commission.']);
+  assert.deepEqual(zero, []);
 });
 
 test('A4-72 · the Papic join banner claims no app before a store link exists', () => {

@@ -224,7 +224,6 @@ export const ROUTE_RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'live',
   'login',
   'marketplace',
-  'monogram',
   'mood-board',
   'onboarding',
   'open-shop',

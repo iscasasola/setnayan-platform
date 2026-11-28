@@ -9,7 +9,7 @@ import type { BlogArticle } from '@/lib/blog';
 // No invented doctrine, liturgy or fees. Benefits-only Setnayan facts, sparingly.
 
 const REGIONAL_ALT =
-  'A Filipino wedding celebration with traditional touches — family, flowers and warm light';
+  'A Filipino wedding with traditional touches — family, flowers and warm light';
 const CEREMONY_ALT = 'A couple at the altar in a sunlit church';
 
 export const ARTICLES_REGIONAL: BlogArticle[] = [
@@ -27,7 +27,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
     blocks: [
       {
         type: 'p',
-        text: 'A wedding in the Visayas carries a particular warmth. From Cebu to Bohol, Iloilo to Bacolod, the day is built on family, food and a generosity of spirit that fills every room. If you grew up in the region — or you are marrying into it — you will recognise the rhythm: the families meet first, the church or the beach hosts the vows, and then the celebration spills well into the night. Here are the traditions Visayan and Cebuano couples most often choose to honour, described in general terms. The exact form always varies by family, town and province, so treat your elders as the final word on what your own celebration should hold.',
+        text: 'A wedding in the Visayas carries a particular warmth. From Cebu to Bohol, Iloilo to Bacolod, the day is built on family, food and a generosity of spirit that fills every room. If you grew up in the region — or you are marrying into it — you will recognise the rhythm: the families meet first, the church or the beach hosts the vows, and then the reception spills well into the night. Here are the traditions Visayan and Cebuano couples most often choose to honour, described in general terms. The exact form always varies by family, town and province, so treat your elders as the final word on what your own wedding should hold.',
       },
       {
         type: 'h2',
@@ -68,7 +68,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'No Visayan celebration is complete without a generous table, and the lechon — Cebu’s is famous nationwide — is often the centrepiece. Expect roast pig, native delicacies, and a spread that no one is meant to finish. Hospitality here is measured in abundance: a host would rather over-cater than risk a guest leaving hungry. Budget accordingly, and lean on a caterer who knows regional favourites and can balance the showpiece lechon with the lighter dishes guests reach for once the feasting slows. A few customs you may still see at the reception: the money dance, where guests pin bills to the couple to help them start their life together; long, heartfelt toasts from family and ninong; and dancing that keeps going long after the formal programme ends. None of it is obligatory — the joy of a regional wedding is choosing the pieces that mean something to you and your families, and letting the rest go.',
+        text: 'No Visayan wedding is complete without a generous table, and the lechon — Cebu’s is famous nationwide — is often the centrepiece. Expect roast pig, native delicacies, and a spread that no one is meant to finish. Hospitality here is measured in abundance: a host would rather over-cater than risk a guest leaving hungry. Budget accordingly, and lean on a caterer who knows regional favourites and can balance the showpiece lechon with the lighter dishes guests reach for once the feasting slows. A few customs you may still see at the reception: the money dance, where guests pin bills to the couple to help them start their life together; long, heartfelt toasts from family and ninong; and dancing that keeps going long after the formal programme ends. None of it is obligatory — the joy of a regional wedding is choosing the pieces that mean something to you and your families, and letting the rest go.',
       },
       {
         type: 'p',
@@ -76,7 +76,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Ready to map out your own Visayan celebration, from the family meeting to the feast?',
+        text: 'Ready to map out your own Visayan wedding, from the family meeting to the feast?',
         href: '/signup',
         label: 'Start planning free',
       },
@@ -96,7 +96,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
     blocks: [
       {
         type: 'p',
-        text: 'Ilocano weddings carry the temperament of the North: practical, deeply rooted in family, and quietly generous. The region is known for valuing thrift and hard work, and you can feel it in how a wedding is planned — every peso considered, every relative involved, nothing wasted. But do not mistake thrift for restraint. An Ilocano celebration is full of heart, and the customs around it have endured for generations. Here is a respectful overview; as always, the exact practices vary by family and town, so let your elders guide the details that matter most to you.',
+        text: 'Ilocano weddings carry the temperament of the North: practical, deeply rooted in family, and quietly generous. The region is known for valuing thrift and hard work, and you can feel it in how a wedding is planned — every peso considered, every relative involved, nothing wasted. But do not mistake thrift for restraint. An Ilocano wedding is full of heart, and the customs around it have endured for generations. Here is a respectful overview; as always, the exact practices vary by family and town, so let your elders guide the details that matter most to you.',
       },
       {
         type: 'h2',
@@ -104,7 +104,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'As across much of the Philippines, the two families meet formally before the wedding to ask for the bride’s hand and agree on the plans. In Ilocano households this gathering is taken seriously: it is where responsibilities are divided, the date is set, and the sponsors are named. Respect for elders runs through everything, and their counsel often shapes the biggest decisions — from the choice of date to the size of the celebration. A couple who brings the elders along early tends to have a much smoother road to the altar. There is a quiet practicality at work too: by settling money and roles around a table, with food shared and elders present, an Ilocano family avoids the awkward late conversations that strain so many weddings. What looks like ceremony is also good planning — the kind that keeps a celebration affordable and a family at peace.',
+        text: 'As across much of the Philippines, the two families meet formally before the wedding to ask for the bride’s hand and agree on the plans. In Ilocano households this gathering is taken seriously: it is where responsibilities are divided, the date is set, and the sponsors are named. Respect for elders runs through everything, and their counsel often shapes the biggest decisions — from the choice of date to the size of the wedding. A couple who brings the elders along early tends to have a much smoother road to the altar. There is a quiet practicality at work too: by settling money and roles around a table, with food shared and elders present, an Ilocano family avoids the awkward late conversations that strain so many weddings. What looks like ceremony is also good planning — the kind that keeps a wedding affordable and a family at peace.',
       },
       {
         type: 'h2',
@@ -112,7 +112,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Perhaps the most well-known Ilocano wedding custom is the bitor: a gift-giving or money-pinning tradition where guests, family and friends contribute to help the newlyweds begin married life. In some celebrations it takes the form of the familiar money dance, with bills pinned to the couple as they dance; in others it is a more formal offering received and recorded by a relative. Whatever the form, the spirit is the same — the community pools its resources so the couple does not start out alone, and the gesture is remembered for years.',
+        text: 'Perhaps the most well-known Ilocano wedding custom is the bitor: a gift-giving or money-pinning tradition where guests, family and friends contribute to help the newlyweds begin married life. At some weddings it takes the form of the familiar money dance, with bills pinned to the couple as they dance; in others it is a more formal offering received and recorded by a relative. Whatever the form, the spirit is the same — the community pools its resources so the couple does not start out alone, and the gesture is remembered for years.',
       },
       {
         type: 'ul',
@@ -137,7 +137,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'The thrift the region is known for is a planning asset, not a limit. Careful budgeting and a clear timeline let an Ilocano couple host a celebration that feels abundant without overspending — choosing where to be generous (the food, the people) and where to keep things simple (the extras that few guests will remember). Many of the tools that help you plan this way are free, which keeps the spirit of the bitor alive in the planning itself.',
+        text: 'The thrift the region is known for is a planning asset, not a limit. Careful budgeting and a clear timeline let an Ilocano couple host a wedding that feels abundant without overspending — choosing where to be generous (the food, the people) and where to keep things simple (the extras that few guests will remember). Many of the tools that help you plan this way are free, which keeps the spirit of the bitor alive in the planning itself.',
       },
       {
         type: 'p',
@@ -145,8 +145,8 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Plan your Northern celebration with a free, deadline-aware checklist.',
-        href: '/features',
+        text: 'Plan your Northern wedding with a free, deadline-aware checklist.',
+        href: '/signup',
         label: 'Start planning free',
       },
     ],
@@ -165,7 +165,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
     blocks: [
       {
         type: 'p',
-        text: 'A Muslim Filipino wedding is, at its heart, a solemn covenant and a joyful coming-together of two families. Among the Moro peoples of Mindanao — the Maranao, Maguindanao, Tausug and others — the celebration can be richly cultural, layered with music, attire and feasting that vary beautifully from community to community. This overview is written respectfully by an informed outsider; it describes the marriage in general, well-established terms only. For the specifics that matter to your union, the right guides are your imam and your families, and the governing law is the Code of Muslim Personal Laws of the Philippines.',
+        text: 'A Muslim Filipino wedding is, at its heart, a solemn covenant and a joyful coming-together of two families. Among the Moro peoples of Mindanao — the Maranao, Maguindanao, Tausug and others — the wedding can be richly cultural, layered with music, attire and feasting that vary beautifully from community to community. This overview is written respectfully by an informed outsider; it describes the marriage in general, well-established terms only. For the specifics that matter to your union, the right guides are your imam and your families, and the governing law is the Code of Muslim Personal Laws of the Philippines.',
       },
       {
         type: 'h2',
@@ -181,7 +181,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A defining feature of the Islamic marriage is the mahr — a gift or dowry given by the groom to the bride as her own. It is a mark of honour and commitment, and the details are agreed between the families. Among Moro communities the family plays a central, respected role throughout: in the courtship, in the negotiations, and in the celebration that follows. The wali (guardian) of the bride is part of this process. None of these elements is decorative; each carries meaning, and each is best understood through your own family and officiant rather than a general guide.',
+        text: 'A defining feature of the Islamic marriage is the mahr — a gift or dowry given by the groom to the bride as her own. It is a mark of honour and commitment, and the details are agreed between the families. Among Moro communities the family plays a central, respected role throughout: in the courtship, in the negotiations, and in the feast that follows. The wali (guardian) of the bride is part of this process. None of these elements is decorative; each carries meaning, and each is best understood through your own family and officiant rather than a general guide.',
       },
       {
         type: 'ul',
@@ -198,11 +198,11 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'h2',
-        text: 'The celebration',
+        text: 'The feast and the festivities',
       },
       {
         type: 'p',
-        text: 'Beyond the contract, the festivities can be magnificent. The kanduli — the communal feast — gathers the wider family and community. Traditional dress, the okir art motifs of Maranao culture, kulintang gong-and-drum ensembles, and dances passed down through generations can all feature, depending on the family and locality. Halal catering is essential, and many couples plan the day around prayer times and the comfort of elders. The richness of the celebration is a point of pride, and it differs from one community to the next — there is no single template for a Moro wedding.',
+        text: 'Beyond the contract, the festivities can be magnificent. The kanduli — the communal feast — gathers the wider family and community. Traditional dress, the okir art motifs of Maranao culture, kulintang gong-and-drum ensembles, and dances passed down through generations can all feature, depending on the family and locality. Halal catering is essential, and many couples plan the day around prayer times and the comfort of elders. The richness of the feast is a point of pride, and it differs from one community to the next — there is no single template for a Moro wedding.',
       },
       {
         type: 'h2',
@@ -311,7 +311,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Unlike a venue you book on the open market, the ceremony takes place in the Iglesia ni Cristo chapel and is led by a minister of the church. The form, the words and the conduct of the wedding follow the church’s established practice. Couples who are members are guided through the process directly by their local congregation, and that guidance — not any outside source, and certainly not a wedding blog — is the authority on what is required and how the day unfolds. The respectful thing to do is to let the church lead and to plan everything else around it.',
+        text: 'Unlike a venue you book on the open market, the ceremony takes place in the Iglesia ni Cristo chapel and is led by a minister of the church. The form, the words and the conduct of the wedding follow the church’s established practice. Couples who are members are guided through the process directly by their local congregation, and that guidance — not any outside source, and certainly not an article online — is the authority on what is required and how the day unfolds. The respectful thing to do is to let the church lead and to plan everything else around it.',
       },
       {
         type: 'p',
@@ -323,13 +323,13 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Because the ceremony itself is arranged within the church, a couple’s outside planning energy goes mostly into the reception and the surrounding logistics, plus the civil legal requirements that apply to every Philippine marriage. The reception — the venue, the caterer, the photographer, the guest list — is yours to plan in the usual way, and it is where most of your supplier decisions will be made. Treat it as you would any celebration: set a budget, build a guest list, and choose suppliers you trust.',
+        text: 'Because the ceremony itself is arranged within the church, a couple’s outside planning energy goes mostly into the reception and the surrounding logistics, plus the civil legal requirements that apply to every Philippine marriage. The reception — the venue, the caterer, the photographer, the guest list — is yours to plan in the usual way, and it is where most of your supplier decisions will be made. Treat it as you would any event: set a budget, build a guest list, and choose suppliers you trust.',
       },
       {
         type: 'ul',
         items: [
           'The ceremony and its requirements are set by your congregation — speak with your minister early.',
-          'Plan the reception, suppliers and guest list as you would for any celebration.',
+          'Plan the reception, suppliers and guest list as you would for any event.',
           'The civil legal requirements (the marriage licence) still apply — see our guide to those.',
           'Confirm anything you are unsure of directly with the church, not from outside sources.',
         ],
@@ -353,7 +353,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Handle the civil paperwork on time — here is exactly what a marriage licence requires.',
-        href: '/features',
+        href: '/articles/marriage-license-requirements-philippines',
         label: 'Start planning free',
       },
     ],
@@ -413,7 +413,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Outside the ceremony, planning looks much like any Filipino wedding: a venue, a caterer, photo and video, and a guest list. And as with every marriage in the country, the civil requirement — the marriage licence — still applies, so handle it early. If you are weighing a church ceremony against a purely civil one, our civil-versus-church explainer lays out the differences plainly, which can be a helpful conversation to have with your partner before you commit. Many born-again couples also build a simple programme that includes worship, so guests of every background can follow along and feel part of the celebration.',
+        text: 'Outside the ceremony, planning looks much like any Filipino wedding: a venue, a caterer, photo and video, and a guest list. And as with every marriage in the country, the civil requirement — the marriage licence — still applies, so handle it early. If you are weighing a church ceremony against a purely civil one, our civil-versus-church explainer lays out the differences plainly, which can be a helpful conversation to have with your partner before you commit. Many born-again couples also build a simple programme that includes worship, so guests of every background can follow along and feel part of the day.',
       },
       {
         type: 'p',
@@ -422,7 +422,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Weighing church versus civil? Here is a clear, side-by-side comparison.',
-        href: '/features',
+        href: '/articles/civil-vs-church-wedding-philippines',
         label: 'Start planning free',
       },
     ],
@@ -449,7 +449,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Because the Iglesia Filipina Independiente shares much of its liturgical heritage with the Catholic and Anglican traditions, an Aglipayan wedding will be recognisable to most Filipino guests. It is a solemn church ceremony, officiated by a priest, with the rhythm and dignity of a liturgical celebration. Couples often see the same beloved Filipino sacramental symbols woven in, which means guests of many backgrounds tend to feel immediately at home in the pews.',
+        text: 'Because the Iglesia Filipina Independiente shares much of its liturgical heritage with the Catholic and Anglican traditions, an Aglipayan wedding will be recognisable to most Filipino guests. It is a solemn church ceremony, officiated by a priest, with the rhythm and dignity of a liturgical rite. Couples often see the same beloved Filipino sacramental symbols woven in, which means guests of many backgrounds tend to feel immediately at home in the pews.',
       },
       {
         type: 'p',
@@ -491,7 +491,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Curious about the veil, cord and coins? Here is what each one means.',
-        href: '/features',
+        href: '/articles/cord-veil-coins-wedding-meaning',
         label: 'Start planning free',
       },
     ],
@@ -578,7 +578,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
     blocks: [
       {
         type: 'p',
-        text: 'With more than seven thousand islands, the Philippines is one of the world’s great destination-wedding settings. A vow exchanged with Boracay’s white sand underfoot, Palawan’s lagoons behind you, Tagaytay’s ridge in the cool air, or a heritage church in Bohol — the country offers a backdrop for every kind of couple. A destination wedding takes more coordination than a hometown one, but with the right approach the logistics never overshadow the celebration. Here is how to plan one with a clear head and a generous heart.',
+        text: 'With more than seven thousand islands, the Philippines is one of the world’s great destination-wedding settings. A vow exchanged with Boracay’s white sand underfoot, Palawan’s lagoons behind you, Tagaytay’s ridge in the cool air, or a heritage church in Bohol — the country offers a backdrop for every kind of couple. A destination wedding takes more coordination than a hometown one, but with the right approach the logistics never overshadow the wedding. Here is how to plan one with a clear head and a generous heart.',
       },
       {
         type: 'h2',
@@ -611,7 +611,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'quote',
-        text: 'A destination wedding is really two events to plan — the celebration itself, and the journey that gets everyone there. Respect both.',
+        text: 'A destination wedding is really two events to plan — the wedding itself, and the journey that gets everyone there. Respect both.',
       },
       {
         type: 'h2',
@@ -628,7 +628,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       {
         type: 'cta',
         text: 'Get a feel for supplier costs before you commit to an island.',
-        href: '/features',
+        href: '/articles/how-much-do-wedding-suppliers-cost-philippines',
         label: 'Start planning free',
       },
     ],
@@ -662,7 +662,7 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A hotel or events-place ballroom is the most controlled, predictable choice. The air-conditioning is reliable, the rain is irrelevant, and the in-house team often handles catering, tables and coordination as a package, which takes a real load off the couple. It suits larger guest counts and formal celebrations. The trade-off is that you are working within a fixed space and house rules, sometimes with a required in-house caterer, and a fully styled ballroom can carry a higher all-in cost than its sticker price suggests.',
+        text: 'A hotel or events-place ballroom is the most controlled, predictable choice. The air-conditioning is reliable, the rain is irrelevant, and the in-house team often handles catering, tables and coordination as a package, which takes a real load off the couple. It suits larger guest counts and formal weddings. The trade-off is that you are working within a fixed space and house rules, sometimes with a required in-house caterer, and a fully styled ballroom can carry a higher all-in cost than its sticker price suggests.',
       },
       {
         type: 'ul',
@@ -689,11 +689,11 @@ export const ARTICLES_REGIONAL: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Weigh four things together: your guest count, your season and weather risk, your budget, and the feeling you want. A large formal wedding in the rainy months leans ballroom; an intimate, natural celebration in fair weather suits a garden; a couple chasing a sunset-and-sand dream — and willing to manage the logistics — heads to the beach. Once you have settled the type, choosing the actual venue gets far easier, because you are comparing like with like. Our venue-selection guide walks through the exact questions to ask each one before you sign. And whatever type you land on, a free planning workspace helps you compare venues and suppliers side by side at 0% commission — you deal with suppliers directly — so you can see the real trade-offs before you commit. Visit a shortlist in person if you can, at the time of day your wedding will happen, and you will know very quickly which kind of venue feels like yours.',
+        text: 'Weigh four things together: your guest count, your season and weather risk, your budget, and the feeling you want. A large formal wedding in the rainy months leans ballroom; an intimate, natural wedding in fair weather suits a garden; a couple chasing a sunset-and-sand dream — and willing to manage the logistics — heads to the beach. Once you have settled the type, choosing the actual venue gets far easier, because you are comparing like with like. Our venue-selection guide walks through the exact questions to ask each one before you sign. And whatever type you land on, a free planning workspace helps you compare venues and suppliers side by side. Hosts pay 0% commission. You deal with suppliers directly, so you can see the real trade-offs before you commit. Visit a shortlist in person if you can, at the time of day your wedding will happen, and you will know very quickly which kind of venue feels like yours.',
       },
       {
         type: 'cta',
-        text: 'Compare real venues and suppliers side by side, commission-free.',
+        text: 'Compare real venues and suppliers side by side.',
         href: '/?browse=1',
         label: 'Browse the supplier marketplace',
       },
@@ -719,7 +719,7 @@ export const HOOKS_REGIONAL: Record<string, string> = {
   'mixed-faith-wedding-philippines':
     'Marrying across two faiths or two provinces? The secret isn’t the venue — it’s the conversations that happen months ahead. Here’s how Filipino couples honour both families with grace.',
   'destination-wedding-philippines-guide':
-    'A destination wedding is really two events — the celebration, and the journey that gets everyone there. Here’s how to plan one across our islands without the logistics overwhelming the love. 🏝️',
+    'A destination wedding is really two events — the wedding, and the journey that gets everyone there. Here’s how to plan one across our islands without the logistics overwhelming the love. 🏝️',
   'garden-vs-ballroom-vs-beach-wedding':
     'The prettiest view isn’t always the right one. Garden, ballroom or beach — here’s the honest trade-off behind each, so your venue fits your guests, your season and your budget.',
 };

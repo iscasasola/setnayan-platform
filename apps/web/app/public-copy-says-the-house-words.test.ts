@@ -69,7 +69,7 @@ const ROOTS = [
   'app/for-suppliers',
   'app/creators',
   // 'app/waitlist' left 2026-11-12: its only file, page.tsx, moved into app/(shell)/ (scanned above).
-  'app/monogram',
+  // 'app/monogram' left 2026-11-27 (L9 P29): /monogram redirects to /palogo and its studio files were deleted.
   'app/realstories',
   // 'app/blog' left 2026-11-16 — retired with the blog + Real Stories, PR #7847 (no file left in it).
   'app/our-story',
@@ -141,11 +141,6 @@ const ALLOWED: ReadonlyArray<{ file: string | RegExp; phrase: RegExp; why: strin
     why: 'The question a couple types into a search engine; it names the other products, and the answer is "the Event Hub".',
   },
   {
-    file: 'lib/blog.ts',
-    phrase: /full liturgical celebration/i,
-    why: "The Church's own word for the rite (a liturgical celebration is the Mass), in an article about a Catholic wedding — not our word for an event.",
-  },
-  {
     file: /^lib\/help(?:\.ts$|\/)/, // help split 2026-11-14
     phrase: /local government website/i,
     why: "A city hall's own website, where a supplier renews a business permit — not ours.",
@@ -198,7 +193,6 @@ test('the scan reads the pages the sweep named — it cannot pass on an empty tr
     'app/(shell)/waitlist/page.tsx',
     'app/creators/_components/creator-story-sections.tsx',
     'app/(shell)/pricing/page.tsx',
-    'app/(shell)/monogram/page.tsx',
     // 'app/(shell)/realstories/page.tsx' left 2026-11-16 — retired with the blog + Real Stories, PR #7847.
     'lib/blog.ts',
     'app/(hub)/page.tsx',

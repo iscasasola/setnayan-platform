@@ -20,10 +20,8 @@ test('A1-159 · A1-105 · /about and /features make no rank claim and no compari
     const s = src(f);
     assert.doesNotMatch(s, /Philippines-first|the first built here|ang una ditong gawa|foreign directory/i, `${f}: a rank claim`);
     assert.doesNotMatch(s, /other wedding apps|ibang wedding apps|elsewhere|wala sa iba|what the others|otherwise juggle|rarely 0%|bihirang 0%/i, `${f}: a comparison`);
-    // The commission is said one way only (brand.md): never a bare "0% commission" in other words.
-    for (const m of s.matchAll(/[^.'"`>]*0% commission[^.'"`<]*/g)) {
-      assert.match(m[0].trim(), /^Hosts pay 0% commission(?:$| —)/, `${f}: "${m[0].trim()}"`);
-    }
+    // Owner 28 Nov 2026: hosts own the event, so these host pages say no "0% commission" at all.
+    assert.doesNotMatch(s, /0% commission|zero commission/i, `${f}: a host is told "0% commission"`);
   }
 });
 

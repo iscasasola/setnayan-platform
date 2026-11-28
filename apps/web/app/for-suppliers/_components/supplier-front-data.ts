@@ -33,7 +33,7 @@ import { clientsKeptWords, planStorageLine } from '@/lib/supplier-client-room';
 /** A plan's size in words. `null` is only the type's "unreadable row" — every plan has a size — so it never invents one. */
 const sizeWords = (bytes: number | null): string => (bytes == null ? 'Your storage' : storageWords(bytes));
 import { FREE_HELPER_SEATS } from '@/lib/vendor-free-helper';
-import { PRO_TOOLS_MIN_TIER, SPECIALIZED_TOOLS_INCLUDED_TIERS } from '@/lib/specialized-tools-access';
+import { SPECIALIZED_TOOLS_INCLUDED_TIERS, SPECIALIZED_TOOLS_PLAN_LINE, SPECIALIZED_TOOLS_PUBLIC_TIERS } from '@/lib/specialized-tools-access';
 import { SPECIALIZED_TOOLS, type SpecializedToolKey } from '@/lib/specialized-tools';
 import { SHELF_TITLE, STORE_GRAPHS, isBuiltInWidget, isPaidStoreTool, isShopBadgeKey, qrWords, toolkitItems } from '@/lib/supplier-store';
 import { avTemplateOf, payTemplateOf } from '@/lib/toolkit-templates';
@@ -45,7 +45,6 @@ import {
   TIER_LABEL,
   firstPlanWith,
   isPaidSize,
-  isTierAtLeast,
   type TierCaps,
   type VendorTier,
 } from '@/lib/vendor-tier-caps';
@@ -196,7 +195,10 @@ export function foldedLines(t: GrowTier): GrowLine[] {
   if (firstTools === t) out.push({ text: 'Every free widget, included', lead: true });
   // 🧰 Owner a02673ac (23 Nov): a paid widget is bought once in the Toolkit and works only on a paid plan — so the plan
   // says it lets them work, never that it includes them.
-  if (t === PRO_TOOLS_MIN_TIER) out.push({ text: 'Paid widgets work here', tail: ': buy each once in the Toolkit', lead: true });
+  // ⚖ Owner 28 Nov (superseding 27 Nov L9 P3): the specialized tools are paid, each with a free 30-day trial — no plan
+  // carries them, so `SPECIALIZED_TOOLS_PUBLIC_TIERS` is empty and no grow line claims them; each card's locked tools
+  // row says the one sentence instead.
+  if (t === SPECIALIZED_TOOLS_PUBLIC_TIERS[0]) out.push({ text: SPECIALIZED_TOOLS_PLAN_LINE, lead: true });
   if (firstBasic === t) out.push({ text: 'AI chatbot, included', tail: ': answers price, dates and what’s included', lead: true });
   if (firstAdvanced === t) {
     out.push({ text: 'The smarter AI chatbot', tail: ': writes in your voice, replies in the couple’s language', lead: true });
@@ -397,7 +399,7 @@ export type PlanStair = {
   branches: StairFact;
   /** On Discover and Find — every verified shop, on every plan (`marketplaceSearchable`, gated on verification). */
   marketplace: boolean;
-  /** A bought paid widget works on this plan (`specialTools`, `PRO_TOOLS_MIN_TIER` — owner a02673ac). */
+  /** The card ticks specialized tools (`stairHasTools`, `SPECIALIZED_TOOLS_PUBLIC_TIERS` — owner 28 Nov: none does). */
   tools: boolean;
 };
 
@@ -409,9 +411,13 @@ function stairRole(t: VendorTier): string {
   return t === 'verified' ? 'Get found' : 'Run your own clients';
 }
 
-/** Does a bought paid widget work on this plan? The gates, read — never a list typed here (owner a02673ac). */
+/**
+ * Does the plan card tick specialized tools? ⚖ Owner 28 Nov (superseding 27 Nov L9 P3): they are paid, each with a free
+ * 30-day trial, so no plan ticks them — read from `SPECIALIZED_TOOLS_PUBLIC_TIERS`, never a list typed here. (The gate
+ * still opens them on the paid plans until its own migration; see that constant.)
+ */
 export function stairHasTools(t: VendorTier): boolean {
-  return TIER_CAPS[t].specialTools && isTierAtLeast(t, PRO_TOOLS_MIN_TIER);
+  return SPECIALIZED_TOOLS_PUBLIC_TIERS.includes(t);
 }
 
 export function planStair(t: VendorTier): PlanStair {
@@ -642,12 +648,12 @@ export function toolkitShelves(papicCapture: boolean): ToolkitShelf[] {
 /* ── #plans · the rail and the plan cards ────────────────────────────────────────────────────────────────────────── */
 
 /**
- * The words a plan card says about the paid tools (owner a02673ac, 23 Nov: bought AND subscribed): from
- * `PRO_TOOLS_MIN_TIER` up a bought paid widget works (`stairHasTools`) — the drawing's "Paid tools: buy each once. They
- * work while you’re subscribed." A plan never says it includes a paid widget. Below it they are locked.
+ * The words a plan card says about specialized tools. ⚖ Owner 28 Nov: one sentence, "Specialized tools are paid, each
+ * with a free 30-day trial." (`SPECIALIZED_TOOLS_PLAN_LINE`), beside a lock on every card (`stairHasTools`) — never
+ * "Plus · all tools", never a plan that includes them, and never a price.
  */
-export const PLAN_PAID_TOOLS_OK = 'Paid tools: buy each once. They work while you’re subscribed.';
-export const PLAN_PAID_TOOLS_LOCKED = `Paid tools need ${planName(PRO_TOOLS_MIN_TIER)} or higher`;
+export const PLAN_PAID_TOOLS_OK = SPECIALIZED_TOOLS_PLAN_LINE;
+export const PLAN_PAID_TOOLS_LOCKED = SPECIALIZED_TOOLS_PLAN_LINE;
 
 /* ── #gift · what a supplier can hand a couple ───────────────────────────────────────────────────────────────────── */
 

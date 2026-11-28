@@ -4,7 +4,9 @@ import { revalidatePath } from 'next/cache';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { nextAvailableSlot } from '@/lib/social/governor';
+import { AUTO_POST_SLOT, nextAvailableSlot, postNowSlot } from '@/lib/social/governor';
+import { editPost, pullPost } from '@/lib/social/fb-queue';
+import { facebookOps } from '@/lib/social/facebook';
 import { runSocialFlush } from '@/lib/social/flush';
 import { revalidateShopPage } from '@/lib/shop-page-cache';
 
@@ -187,42 +189,39 @@ export async function updatePublishSettings(formData: FormData) {
       instagram_enabled: formData.get('instagram_enabled') === 'on',
       tiktok_enabled: formData.get('tiktok_enabled') === 'on',
       updated_at: new Date().toISOString(),
+      // Flush right away (owner 2026-11-28): turning autopublish or Facebook OFF must take back the posts already
+      // waiting on Facebook's schedule now, not after the 10-minute throttle; turning it ON hands the week over.
+      last_flush_at: null,
     })
     .eq('id', true);
   if (error) failRedirect(error.message);
+  await runSocialFlush();
   okRedirect('settings_saved');
 }
 
 /**
- * Pull a post from the queue — only scheduled/failed rows can be pulled
- * (published posts go through the manual take-down lane instead; pulled is
- * terminal and the sweep won't recompose it).
+ * Pull a post from the queue — scheduled, failed, or already on Facebook's schedule, where it is deleted on Facebook
+ * FIRST (owner 2026-11-28); if Facebook refuses, nothing changes and the reason is shown. Published posts go through
+ * the manual take-down lane instead; pulled is terminal and the sweep won't recompose it.
  */
 export async function pullSocialPost(formData: FormData) {
   await requireAdmin();
   const postId = readFormString(formData, 'post_id');
   if (!postId) failRedirect('Missing post');
 
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from('social_posts')
-    .update({ status: 'pulled', updated_at: new Date().toISOString() })
-    .eq('post_id', postId)
-    .in('status', ['scheduled', 'failed'])
-    .select('post_id');
-  if (error) failRedirect(error.message);
-  if (!data || data.length === 0) {
-    failRedirect('Post is no longer pullable (already publishing or published).');
-  }
+  const res = await pullPost(createAdminClient(), postId, facebookOps);
+  if (!res.ok) failRedirect(res.error);
   okRedirect('pulled');
 }
 
 /**
- * Post now — clears the 48h pull window and the governor slot, then runs a
- * flush so the dispatch happens in THIS request. The publish_after content
- * gate (event_date + 7d) deliberately stays: even "post now" never jumps a
- * couple's event. The flush throttle is reset first so the immediate flush
- * isn't a no-op.
+ * Post now — clears the 48h pull window and puts the post on the slot open
+ * right now (08:00 · 14:00 · 20:00 Manila, for its hour) if no post holds it,
+ * else the next free 14:00: nothing posts outside a slot (owner 2026-11-28,
+ * lib/social/governor.ts). Then runs a flush so an open slot dispatches in
+ * THIS request. The publish_after content gate (event_date + 7d) deliberately
+ * stays: even "post now" never jumps a couple's event. The flush throttle is
+ * reset first so the immediate flush isn't a no-op.
  */
 export async function postSocialPostNow(formData: FormData) {
   await requireAdmin();
@@ -230,12 +229,25 @@ export async function postSocialPostNow(formData: FormData) {
   if (!postId) failRedirect('Missing post');
 
   const admin = createAdminClient();
+  const now = new Date();
+  const { data: takenData, error: takenErr } = await admin
+    .from('social_posts')
+    .select('scheduled_for')
+    .in('status', ['scheduled', 'scheduled_on_fb', 'publishing', 'published'])
+    .neq('post_id', postId)
+    .gte('scheduled_for', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString());
+  if (takenErr) failRedirect(takenErr.message);
+  const target = postNowSlot(
+    ((takenData ?? []) as Array<{ scheduled_for: string | null }>).map((r) => r.scheduled_for),
+    now,
+  );
   const { data, error } = await admin
     .from('social_posts')
     .update({
       hold_until: null,
-      scheduled_for: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      scheduled_for: target.at.toISOString(),
+      slot: target.slot,
+      updated_at: now.toISOString(),
     })
     .eq('post_id', postId)
     .eq('status', 'scheduled')
@@ -252,7 +264,7 @@ export async function postSocialPostNow(formData: FormData) {
   okRedirect('posted_now');
 }
 
-/** Failed → scheduled, due immediately (the next flush re-dispatches it). */
+/** Failed → scheduled with no slot: the next flush hands it the next free 14:00 (owner 2026-11-28). */
 export async function retrySocialPost(formData: FormData) {
   await requireAdmin();
   const postId = readFormString(formData, 'post_id');
@@ -263,7 +275,7 @@ export async function retrySocialPost(formData: FormData) {
     .from('social_posts')
     .update({
       status: 'scheduled',
-      scheduled_for: new Date().toISOString(),
+      scheduled_for: null,
       updated_at: new Date().toISOString(),
     })
     .eq('post_id', postId)
@@ -274,7 +286,10 @@ export async function retrySocialPost(formData: FormData) {
   okRedirect('retried');
 }
 
-/** Edit title/body while the post is still scheduled (pre-dispatch only). */
+/**
+ * Edit title/body before the post goes out. A post already on Facebook's schedule is edited on Facebook FIRST
+ * (owner 2026-11-28); if Facebook refuses, nothing changes and the reason is shown.
+ */
 export async function updateSocialPostBody(formData: FormData) {
   await requireAdmin();
   const postId = readFormString(formData, 'post_id');
@@ -282,21 +297,8 @@ export async function updateSocialPostBody(formData: FormData) {
   if (!postId) failRedirect('Missing post');
   if (!body) failRedirect('The post body cannot be empty.');
 
-  const admin = createAdminClient();
-  const { data, error } = await admin
-    .from('social_posts')
-    .update({
-      title: readFormString(formData, 'title'),
-      body,
-      updated_at: new Date().toISOString(),
-    })
-    .eq('post_id', postId)
-    .eq('status', 'scheduled')
-    .select('post_id');
-  if (error) failRedirect(error.message);
-  if (!data || data.length === 0) {
-    failRedirect('Post is no longer editable (already publishing or published).');
-  }
+  const res = await editPost(createAdminClient(), postId, { title: readFormString(formData, 'title'), body }, facebookOps);
+  if (!res.ok) failRedirect(res.error);
   okRedirect('body_saved');
 }
 
@@ -320,7 +322,7 @@ export async function createAnnouncement(formData: FormData) {
   const { data: takenData, error: takenErr } = await admin
     .from('social_posts')
     .select('scheduled_for')
-    .in('status', ['scheduled', 'publishing', 'published'])
+    .in('status', ['scheduled', 'scheduled_on_fb', 'publishing', 'published'])
     .gte('scheduled_for', takenCutoff);
   if (takenErr) failRedirect(takenErr.message);
   const takenSlots = ((takenData ?? []) as Array<{ scheduled_for: string | null }>)
@@ -335,6 +337,7 @@ export async function createAnnouncement(formData: FormData) {
     media_url: readHttpUrl(formData, 'media_url'),
     link_url: readHttpUrl(formData, 'link_url'),
     scheduled_for: nextAvailableSlot('facebook', takenSlots, now).toISOString(),
+    slot: AUTO_POST_SLOT,
     created_by: user_id,
   });
   if (error) failRedirect(error.message);

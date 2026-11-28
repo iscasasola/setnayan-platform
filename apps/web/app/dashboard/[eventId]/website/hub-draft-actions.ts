@@ -68,7 +68,6 @@ import { deleteOwnScene } from '@/lib/own-scene-delete';
 import { revalidatePath } from 'next/cache';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { ensureFreePapicPoolGrantAdmin } from '@/lib/papic-free-grant';
 import { parsePrintDetails } from '@/lib/print-pieces';
 import { updatePrintDetails } from '@/lib/print-details-write';
 import { updateJsonColumn, type JsonColumnClient } from '@/lib/update-json-column';
@@ -730,18 +729,7 @@ export async function hubDraftAction(
       if (evErr || !Array.isArray(evRows) || evRows.length === 0) {
         return { ok: false, intent, error: 'Could not apply your changes. Nothing was changed.' };
       }
-      /* 🗂 Papic turned back ON in Your info (owner 2026-10-02): arm what the
-         commit did not when the answer was No — the free pool and the one free
-         camera, the same two idempotent writes every creation path makes, so
-         the camera that opens is metered from its first shot. Best-effort: the
-         Papic studio's self-heal is the backstop. */
-      if (eventsPatch.papic_on === true) {
-        const admin = createAdminClient();
-        await ensureFreePapicPoolGrantAdmin(admin, eventId);
-        // 🔌 No free "One" camera call (owner 2026-10-13, "drop the retired free-camera call"):
-        // `free_one_camera_points` is 0 by migration 20271130515135 (owner 2026-08-11), so
-        // `papic_ensure_free_one_camera` armed nothing and cost a request per new event.
-      }
+      // 🎁 Turning Papic back on arms no free pool any more (owner 16 Nov 2026, "Free 50 Papic credits REMOVED").
     }
     if (qrWrite !== undefined) {
       /* 👥 Laid onto style_preferences AS IT IS when the write lands (`updateJsonColumn`, round 2) — a key another

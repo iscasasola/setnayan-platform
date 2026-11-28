@@ -1,4 +1,6 @@
+import { Suspense } from 'react';
 import { getCurrentUser } from '@/lib/auth';
+import { FormPageSkeleton } from '@/components/skeletons';
 import { readSentTo } from '@/lib/open-shop-sent-to';
 import { parseSupplierPlan, planOfferPath } from '@/lib/supplier-plan-offer';
 import { redirect } from 'next/navigation';
@@ -68,9 +70,6 @@ export default async function OpenShopPage({
   // needs an account is guarded on `user`; the vocab reads are anon-readable, and
   // the tree falls back to the flat select if a read is refused.
   const guest = !user;
-  // OAuth visibility by shell — the same gate /login applies (see login-data.ts):
-  // web + desktop show the buttons; the phone app only its native variant.
-  const gate = await getOAuthGate(OAUTH_FLAGS);
   // 🍎 THE APP'S DOOR (controller 22 Nov, drawing `app_supplier_door_2026-11-22`): asked for by the App Store / Play
   // Store shell, the setup sells no plan and shows no price — `?plan=` is dropped (no plan offer, no hidden field), the
   // plan ladder is not read, and the wizard holds the picks to Free. Held by `the-app-supplier-door-names-no-price.test.ts`.
@@ -96,7 +95,31 @@ export default async function OpenShopPage({
   if (ownedError) {
     throw new Error(`open-shop: could not read your shop (${ownedError.message})`);
   }
-  const row = owned as {
+  const row = owned as OpenShopRow | null;
+  // 🔗 THE CLAIM DOOR (`?claim=<token>`, controller A6 7 Nov): a couple-made claim link opens the door pre-filled.
+  // The token is checked by the shipped read (`readClaimDoor` → `fetchClaimLandingByToken`); a link that is not a
+  // pending couple-made invite goes back to `/vendor/claim/<token>`, whose dead ends already say why. A supplier who
+  // ALREADY has a shop connects through the shipped finalize — no door to walk, no second shop.
+  const claimDoor = claimToken ? await readClaimDoor(claimToken) : null;
+  if (claimToken && !claimDoor?.open) redirect(`/vendor/claim/${encodeURIComponent(claimToken)}`);
+  if (claimToken && row?.business_name?.trim()) redirect(`/vendor/claim/${encodeURIComponent(claimToken)}/finalize`);
+  // W1-B21: a supplier who already has a shop and came for a plan is offered it straight away.
+  if (row?.business_name?.trim()) redirect(planOfferPath(plan) ?? landing);
+
+  // 🔑 EVERY ANSWER THAT IS NOT THE WIZARD IS DECIDED ABOVE THIS LINE: sign-in state, the shop row and the claim
+  // door are all a redirect needs. The reads that only DRAW (vocab, tree, specialties, fee schedule, inviter…) run in
+  // `OpenShopStreamed` behind the boundary below, so the screen paints as soon as the decision is made — and a redirect
+  // above still leaves as a 307, never a 200 + skeleton + client hop. 🔒 app/_components/a-route-decides-before-it-streams.test.ts
+  return (
+    <Suspense fallback={<FormPageSkeleton title fields={4} />}>
+      <OpenShopStreamed
+        ctx={{ supabase, user, guest, storeShell, plan, row, claimToken, claimDoor, landing, error, step, taken, checkInbox, after, arrivedAs, way }}
+      />
+    </Suspense>
+  );
+}
+
+type OpenShopRow = {
     vendor_profile_id?: string | null;
     business_name?: string | null;
     business_slug?: string | null;
@@ -110,16 +133,38 @@ export default async function OpenShopPage({
     in_business_since_year?: number | null;
     contact_phone?: string | null;
     contact_email?: string | null;
-  } | null;
-  // 🔗 THE CLAIM DOOR (`?claim=<token>`, controller A6 7 Nov): a couple-made claim link opens the door pre-filled.
-  // The token is checked by the shipped read (`readClaimDoor` → `fetchClaimLandingByToken`); a link that is not a
-  // pending couple-made invite goes back to `/vendor/claim/<token>`, whose dead ends already say why. A supplier who
-  // ALREADY has a shop connects through the shipped finalize — no door to walk, no second shop.
-  const claimDoor = claimToken ? await readClaimDoor(claimToken) : null;
-  if (claimToken && !claimDoor?.open) redirect(`/vendor/claim/${encodeURIComponent(claimToken)}`);
-  if (claimToken && row?.business_name?.trim()) redirect(`/vendor/claim/${encodeURIComponent(claimToken)}/finalize`);
-  // W1-B21: a supplier who already has a shop and came for a plan is offered it straight away.
-  if (row?.business_name?.trim()) redirect(planOfferPath(plan) ?? landing);
+  };
+
+/**
+ * The wizard (or the claim door), drawn after every redirect is decided. Streams inside the page's `<Suspense>`, so
+ * it never answers with a redirect or a 404 — those stay above, in `OpenShopPage`.
+ */
+async function OpenShopStreamed({
+  ctx,
+}: {
+  ctx: {
+    supabase: Awaited<ReturnType<typeof createClient>>;
+    user: Awaited<ReturnType<typeof getCurrentUser>>;
+    guest: boolean;
+    storeShell: boolean;
+    plan: string | undefined;
+    row: OpenShopRow | null;
+    claimToken: string | null;
+    claimDoor: Awaited<ReturnType<typeof readClaimDoor>> | null;
+    landing: string;
+    error: string | undefined;
+    step: string | undefined;
+    taken: string | undefined;
+    checkInbox: string | undefined;
+    after: string | undefined;
+    arrivedAs: string | undefined;
+    way: string | undefined;
+  };
+}) {
+  const { supabase, user, guest, storeShell, plan, row, claimToken, claimDoor, landing, error, step, taken, checkInbox, after, arrivedAs, way } = ctx;
+  // OAuth visibility by shell — the same gate /login applies (see login-data.ts):
+  // web + desktop show the buttons; the phone app only its native variant.
+  const gate = await getOAuthGate(OAUTH_FLAGS);
 
   // Taxonomy-driven labels for the primary-service picker (degrades to the
   // in-code names on a hiccup).

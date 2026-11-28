@@ -62,6 +62,7 @@
         "_components/account-switcher/account-switcher.tsx",
         "_components/account-switcher/appearance-choice.tsx",
         "_components/account-switcher/get-switcher-data.ts",
+        "_components/account-switcher/other-account-row.tsx",
         "_components/alaala/lens-body.tsx",
         "_components/amendment-builder.tsx",
         "_components/amendment-suggest-chip.tsx",
@@ -349,6 +350,11 @@
         "_components/global-haptics.tsx",
         "_components/global-slider-hint.tsx",
         "_components/gold-monogram-reveal.tsx",
+        "_components/gown-maker/gown-actions.ts",
+        "_components/gown-maker/gown-call.ts",
+        "_components/gown-maker/hand-tools.tsx",
+        "_components/gown-maker/lace-designer.tsx",
+        "_components/gown-maker/stage-buttons.tsx",
         "_components/guest-guided-tour.tsx",
         "_components/guest-nick.tsx",
         "_components/guest-seat-map.tsx",
@@ -555,6 +561,8 @@
         "_components/plan3d/kit/emotes.tsx",
         "_components/plan3d/kit/entrance-tunnel.tsx",
         "_components/plan3d/kit/figure.tsx",
+        "_components/plan3d/kit/gown-figure-3d.tsx",
+        "_components/plan3d/kit/gown-view.tsx",
         "_components/plan3d/kit/hair-cap.ts",
         "_components/plan3d/kit/index.ts",
         "_components/plan3d/kit/instanced-chibi-crowd.tsx",
@@ -668,6 +676,7 @@
         "_components/store-shell-link-guard-run.ts",
         "_components/store-shell-link-guard.tsx",
         "_components/storyteller-tile.tsx",
+        "_components/streams-before-deciding.known.ts",
         "_components/studio-reveal-player.tsx",
         "_components/submit-button.tsx",
         "_components/swipe-to-delete.tsx",
@@ -769,10 +778,10 @@
         "/help/[seg]",
         "/login",
         "/login?next=[seg]",
-        "/monogram",
         "/onboarding/wedding",
         "/open-shop",
         "/our-story",
+        "/palogo",
         "/papic",
         "/pricing",
         "/privacy",
@@ -879,6 +888,7 @@
         "AppointmentCard",
         "AppointmentInitiator",
         "AppointmentJoin",
+        "ArrayBuffer",
         "ArticlesShelf",
         "AskBody",
         "AskBox",
@@ -907,6 +917,7 @@
         "Billboard",
         "Blob",
         "BlossomInstances",
+        "Body",
         "BookRequestCard",
         "Booking",
         "BookingFeeBillRow",
@@ -1131,6 +1142,7 @@
         "EntranceMark",
         "Environment",
         "EqualRow",
+        "ErrorState",
         "EventCard",
         "EventFilesState",
         "EventGrid",
@@ -1165,6 +1177,7 @@
         "FilesStepCard",
         "FilingDone",
         "FilterDrawerForm",
+        "FitCamera",
         "FitFoot",
         "FlameInstances",
         "Float32Array",
@@ -1224,6 +1237,14 @@
         "Got",
         "GotHandover",
         "GotReview",
+        "Governor",
+        "GownActionResult",
+        "GownFigure3D",
+        "GownHand",
+        "GownHandBrush",
+        "GownHandInput",
+        "GownRig",
+        "GsapLib",
         "GuestAtEventPill",
         "GuestPhotoAvatar",
         "GuestPopup",
@@ -1254,6 +1275,7 @@
         "HTMLTextAreaElement",
         "HTMLUListElement",
         "HTMLVideoElement",
+        "HandPointer",
         "HandoverCard",
         "HandoverRead",
         "HangingFlorals",
@@ -1266,6 +1288,7 @@
         "HelpTopic",
         "HeritageShell",
         "HidePanel",
+        "HoldTap",
         "HomeGear",
         "HomeOverlays",
         "HomeTodayItem",
@@ -1452,11 +1475,13 @@
         "OfflineDaemonMount",
         "OnBody",
         "OneOpenScope",
+        "Open",
         "OpenFileLink",
         "OpenSignInOptions",
         "OpenWalletButton",
         "OpenedIcon",
         "OrbitControls",
+        "OtherAccountRow",
         "OurStoryPivotLine",
         "Over",
         "OverlayBackdrop",
@@ -1522,6 +1547,7 @@
         "PictureFrameControl",
         "PillBtn",
         "PillChoiceEl",
+        "PillSelector",
         "PillThumb",
         "PillWords",
         "Pills",
@@ -1668,6 +1694,7 @@
         "ScanAnswer",
         "ScannerSaveResult",
         "SceneLighting",
+        "SceneLights",
         "SceneObjectMesh",
         "ScheduleChangeCard",
         "ScheduleDayDoor",
@@ -1743,6 +1770,7 @@
         "SiteFooterChrome",
         "SlashList",
         "Slide",
+        "Slider",
         "SlotBadge",
         "SlotFacts",
         "SmallStars",
@@ -1812,6 +1840,7 @@
         "TableShapeSvg",
         "Tag",
         "TagPanel",
+        "TapeGuides",
         "Target",
         "TermsAgreementResult",
         "ThemeContext.Provider",
@@ -2489,39 +2518,6 @@
         "SpotlightSection"
       ]
     },
-    "/(shell)/monogram": {
-      "files": [
-        "(shell)/monogram/loading.tsx",
-        "(shell)/monogram/page.tsx",
-        "monogram/_monogram-motion.tsx",
-        "monogram/public-monogram-studio.tsx"
-      ],
-      "destinations": [
-        "/login?next=/monogram",
-        "/onboarding/wedding?from=monogram",
-        "/signup?next=/monogram"
-      ],
-      "actions": [
-        "routes.start"
-      ],
-      "blocks": [
-        "Blob",
-        "ClosingCta",
-        "HTMLDivElement",
-        "HTMLElement",
-        "HTMLHeadingElement",
-        "HTMLOListElement",
-        "Link",
-        "MonogramHeadline",
-        "PanelThread",
-        "PublicMonogramStudio",
-        "StepsReveal",
-        "StudioAnim",
-        "StudioAnimKind",
-        "StudioApi",
-        "StudioRevealPlayer"
-      ]
-    },
     "/(shell)/mood-board": {
       "files": [
         "(shell)/mood-board/loading.tsx",
@@ -2612,10 +2608,9 @@
         "(shell)/palogo/loading.tsx",
         "(shell)/palogo/page.tsx"
       ],
-      "destinations": [
-        "/monogram"
-      ],
+      "destinations": [],
       "actions": [
+        "routes.signup",
         "routes.start"
       ],
       "blocks": [
@@ -2649,7 +2644,6 @@
       "files": [
         "(shell)/papic/_papic-dial.tsx",
         "(shell)/papic/_papic-film.tsx",
-        "(shell)/papic/_papic-free-credits.tsx",
         "(shell)/papic/_papic-scan.tsx",
         "(shell)/papic/_papic-sections.tsx",
         "(shell)/papic/loading.tsx",
@@ -2672,6 +2666,7 @@
         "startPapicGuestPurchase"
       ],
       "blocks": [
+        "ActionButton",
         "Code",
         "Cost",
         "DemoFilm",
@@ -2692,9 +2687,6 @@
         "PapicDial",
         "PapicFeatures",
         "PapicFilm",
-        "PapicFreeCreditBadge",
-        "PapicFreeCreditClosing",
-        "PapicFreeCreditFact",
         "PapicHub",
         "PapicScan",
         "PersistSeatClipWebCopyResult",
@@ -3259,6 +3251,7 @@
         "[slug]/_components/rsvp-sheet.tsx",
         "[slug]/_components/rsvp-styles.tsx",
         "[slug]/_components/rsvp-widget.tsx",
+        "[slug]/_components/safari-hop.tsx",
         "[slug]/_components/sample-viewer-inert.tsx",
         "[slug]/_components/save-the-date-film.tsx",
         "[slug]/_components/save-the-date.tsx",
@@ -3382,6 +3375,7 @@
         "[slug]/_lib/plus-one-seats.server.ts",
         "[slug]/_lib/preview-person.server.ts",
         "[slug]/_lib/previous-edition.server.ts",
+        "[slug]/_lib/private-page-line.ts",
         "[slug]/_lib/pro-site-vars.ts",
         "[slug]/_lib/reveal-props.ts",
         "[slug]/_lib/room-links.server.ts",
@@ -3669,6 +3663,7 @@
         "LightboxSaveButton",
         "Line",
         "Link",
+        "LinkToCopyByHand",
         "List",
         "LiveHubArrangement",
         "LiveLayerData",
@@ -3792,6 +3787,7 @@
         "Remaining",
         "RemoveResult",
         "ReplayNode",
+        "ReplyAnswerMissing.Provider",
         "ReplyCardRow",
         "ReplyForm",
         "ReplyPanel",
@@ -3841,6 +3837,7 @@
         "S",
         "SVGLineElement",
         "SVGSVGElement",
+        "SafariHop",
         "Said",
         "SampleViewerInert",
         "SaveAllOwnPhotos",
@@ -4204,6 +4201,7 @@
         "RsvpCanvasBridge",
         "RsvpLookStyle",
         "RsvpNoteLines",
+        "SafariHop",
         "SavePassCardButton",
         "SaveToAccount",
         "ShortcutLine",
@@ -7308,6 +7306,7 @@
     "/admin/studio": {
       "files": [
         "admin/studio/_surfaces/discount-codes-surface.tsx",
+        "admin/studio/_surfaces/gown-fabric-types-surface.tsx",
         "admin/studio/_surfaces/journal-spotlights-surface.tsx",
         "admin/studio/_surfaces/moodboard-library-surface.tsx",
         "admin/studio/_surfaces/patiktok-surface.tsx",
@@ -7370,6 +7369,7 @@
         "AutopilotStrip",
         "Banner",
         "CardPreview",
+        "ChosenRow",
         "ConfirmForm",
         "ConsoleTable",
         "DeleteSongButton",
@@ -7382,6 +7382,9 @@
         "FilterChip",
         "FlashBanner",
         "FormFlash",
+        "FormRows",
+        "GownFabricTypeRow",
+        "GownFabricTypesSurface",
         "HTMLInputElement",
         "Icon",
         "InfluencerAnalyticsPanel",
@@ -7391,6 +7394,7 @@
         "KpiStatCard",
         "LibraryEditor",
         "Link",
+        "Load",
         "ManualAddForm",
         "MergeSongsFields",
         "Mono",
@@ -7408,6 +7412,7 @@
         "RevealStudioSurface",
         "ScheduledPostCard",
         "SearchParamsRecord",
+        "Sheet",
         "ShowcaseAdminRow",
         "SiteWidgetPage",
         "SocialQueueSurface",
@@ -7423,8 +7428,11 @@
         "StorytellerAdminRow",
         "StorytellersSurface",
         "SubmitButton",
+        "SwitchRow",
         "TikTokManualPanel",
         "TopCreatorInfluence",
+        "TypeSheet",
+        "TypedRow",
         "WebsiteSurface",
         "WidgetList"
       ]
@@ -8102,6 +8110,9 @@
     "/claim/[token]": {
       "files": [
         "claim/[token]/actions.ts",
+        "claim/[token]/gate.ts",
+        "claim/[token]/layout.tsx",
+        "claim/[token]/loading.tsx",
         "claim/[token]/page.tsx"
       ],
       "destinations": [
@@ -8115,6 +8126,7 @@
       "blocks": [
         "DoorActions",
         "DoorShell",
+        "FormPageSkeleton",
         "Link",
         "SubmitButton"
       ]
@@ -8134,6 +8146,7 @@
         "dashboard/(account)/billing/_components/billing-filter.tsx",
         "dashboard/(account)/billing/_components/billing-list.tsx",
         "dashboard/(account)/billing/_components/supplier-billing-sections.tsx",
+        "dashboard/(account)/billing/loading.tsx",
         "dashboard/(account)/billing/page.tsx"
       ],
       "destinations": [],
@@ -8147,6 +8160,7 @@
         "Heading",
         "InfoTip",
         "Link",
+        "ListPageSkeleton",
         "PageMasthead",
         "PickMenu",
         "Row",
@@ -12026,6 +12040,7 @@
         "dashboard/[eventId]/seating/_components/close-outside.ts",
         "dashboard/[eventId]/seating/_components/day-of-editing-banner.tsx",
         "dashboard/[eventId]/seating/_components/drop-confirm-bubble.tsx",
+        "dashboard/[eventId]/seating/_components/seat-check.tsx",
         "dashboard/[eventId]/seating/_components/seat-face-tray.tsx",
         "dashboard/[eventId]/seating/_components/seat-floor-add.tsx",
         "dashboard/[eventId]/seating/_components/seat-floor-spots.tsx",
@@ -12045,6 +12060,7 @@
         "dashboard/[eventId]/seating/_components/seating-presence-peers.ts",
         "dashboard/[eventId]/seating/_components/seating-store.ts",
         "dashboard/[eventId]/seating/_components/seating-writes.ts",
+        "dashboard/[eventId]/seating/_components/table-name-row.tsx",
         "dashboard/[eventId]/seating/_components/use-seating-live-refresh.ts",
         "dashboard/[eventId]/seating/_components/use-seating-lock.ts",
         "dashboard/[eventId]/seating/_components/use-seating-presence.ts",
@@ -12083,6 +12099,7 @@
         "BoothPickerPanel",
         "BoothType",
         "BoothVendorCard",
+        "CardSuggestion",
         "ChairAvatar",
         "ChosenRow",
         "CommandBar",
@@ -12095,12 +12112,14 @@
         "DrawerSnap",
         "DropConfirmBubble",
         "DropConfirmState",
+        "DryRun",
         "EqualRow",
         "FloorStartButtons",
         "FloorStartCard",
         "FloorStartTitle",
         "FormRow",
         "FormRows",
+        "FoundSeatRing",
         "Fragment",
         "FrameBody",
         "GuestCardSheet",
@@ -12110,6 +12129,7 @@
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
+        "HTMLSpanElement",
         "HoldButton",
         "Icon",
         "InfoTip",
@@ -12121,6 +12141,8 @@
         "MenuRow",
         "MetreSizeField",
         "MoveGuestSheet",
+        "NameSeat",
+        "NameTable",
         "NotSharedWithYou",
         "Notice",
         "OneOpenScope",
@@ -12143,9 +12165,14 @@
         "RoleSeating",
         "SaveStatusChip",
         "SeatBadge",
+        "SeatCardLook",
+        "SeatCheckLine",
+        "SeatCheckSheet",
+        "SeatCheckState",
         "SeatFaceTray",
         "SeatFloorWrites",
         "SeatList",
+        "SeatLockedRefusal",
         "SeatPeoplePanel",
         "SeatPickMenu",
         "SeatPlanFacts",
@@ -12178,6 +12205,7 @@
         "SwitchRow",
         "T",
         "TableFillRing",
+        "TableNameSheet",
         "TableType",
         "TrayItem",
         "TypedRow",
@@ -14886,6 +14914,7 @@
         "join/crew/[token]/_components/crew-name-form.tsx",
         "join/crew/[token]/_components/crew-screens.tsx",
         "join/crew/[token]/_components/crew-waiting-refresh.tsx",
+        "join/crew/[token]/loading.tsx",
         "join/crew/[token]/page.tsx"
       ],
       "destinations": [
@@ -14905,9 +14934,13 @@
         "CrewStatus",
         "CrewTryAgain",
         "CrewWaitingRefresh",
+        "Ghost",
         "HubRunOfShow",
         "InfoTip",
-        "SeatScanner"
+        "Screen",
+        "SeatScanner",
+        "Sk",
+        "SkLine"
       ]
     },
     "/live": {
@@ -14978,6 +15011,7 @@
         "LoginView",
         "NativeOAuthButtons",
         "OAuthButtonRow",
+        "OtherAccountRow",
         "PasswordField",
         "SignInCard",
         "SignInCardModal",
@@ -14991,6 +15025,9 @@
       "files": [
         "onboarding/[type]/_components/generic-onboarding.tsx",
         "onboarding/[type]/_components/specialty-fields.tsx",
+        "onboarding/[type]/gate.ts",
+        "onboarding/[type]/layout.tsx",
+        "onboarding/[type]/loading.tsx",
         "onboarding/[type]/page.tsx"
       ],
       "destinations": [
@@ -15034,6 +15071,9 @@
         "onboarding/simple/_components/simple-setup-field.ts",
         "onboarding/simple/_components/simple-setup-flow.tsx",
         "onboarding/simple/actions.ts",
+        "onboarding/simple/gate.ts",
+        "onboarding/simple/layout.tsx",
+        "onboarding/simple/loading.tsx",
         "onboarding/simple/page.tsx"
       ],
       "destinations": [
@@ -15048,6 +15088,7 @@
         "CarriedHonoreeFields",
         "EventNeeds",
         "FirstRunBrand",
+        "FormPageSkeleton",
         "HTMLDivElement",
         "HonoreeCarry",
         "Link",
@@ -15220,6 +15261,7 @@
         "FirstCardMade",
         "FirstRunBrand",
         "Fold",
+        "FormPageSkeleton",
         "HTMLDivElement",
         "HTMLElement",
         "HTMLFormElement",
@@ -15238,6 +15280,7 @@
         "OAuthButtonRow",
         "OpenShopHead",
         "OpenShopLayer",
+        "OpenShopStreamed",
         "OpenShopWizard",
         "OverlayBackdrop",
         "PasswordField",
@@ -15261,6 +15304,7 @@
         "SpecialtyPicks",
         "Step",
         "SubmitButton",
+        "Suspense",
         "SwipeToDelete",
         "T",
         "TakenSignIn",
@@ -15284,6 +15328,9 @@
     "/open-shop/logo": {
       "files": [
         "open-shop/logo/_components/add-your-logo.tsx",
+        "open-shop/logo/gate.ts",
+        "open-shop/logo/layout.tsx",
+        "open-shop/logo/loading.tsx",
         "open-shop/logo/page.tsx"
       ],
       "destinations": [],
@@ -15294,8 +15341,12 @@
         "FieldSaveResult",
         "FileUpload",
         "FirstRunBrand",
+        "Ghost",
         "LogoFrame",
-        "PictureFrameControl"
+        "PictureFrameControl",
+        "Screen",
+        "Sk",
+        "SkCircle"
       ]
     },
     "/panood/cam/[token]": {
@@ -15336,6 +15387,9 @@
         "panood/control/[eventId]/_components/venue-screens-section.tsx",
         "panood/control/[eventId]/_components/viewport-lock.tsx",
         "panood/control/[eventId]/actions.ts",
+        "panood/control/[eventId]/gate.tsx",
+        "panood/control/[eventId]/layout.tsx",
+        "panood/control/[eventId]/loading.tsx",
         "panood/control/[eventId]/page.tsx",
         "panood/control/[eventId]/screens-actions.ts",
         "panood/control/[eventId]/transport-row.tsx"
@@ -15374,7 +15428,9 @@
         "setMonogramOverlay"
       ],
       "blocks": [
+        "ActionButton",
         "Banner",
+        "BoardPageSkeleton",
         "BroadcastReadiness",
         "BroadcastWindowStrip",
         "CachedRead",
@@ -15384,6 +15440,7 @@
         "ChannelJoinRow",
         "ChannelTileCard",
         "ChannelVideo",
+        "ControlRoomUnreadable",
         "CopyButton",
         "Date",
         "DesktopEncoderHost",
@@ -15432,6 +15489,7 @@
         "routes.liveWatch"
       ],
       "blocks": [
+        "ActionButton",
         "CamJoinFlow",
         "CamSlot",
         "CameraPublisher",
@@ -15447,6 +15505,9 @@
     },
     "/panood/program/[eventId]": {
       "files": [
+        "panood/program/[eventId]/gate.ts",
+        "panood/program/[eventId]/layout.tsx",
+        "panood/program/[eventId]/loading.tsx",
         "panood/program/[eventId]/page.tsx",
         "panood/program/[eventId]/program-surface.tsx"
       ],
@@ -15519,6 +15580,7 @@
     "/papic/decorate": {
       "files": [
         "papic/decorate/_components/kwento-decorator.tsx",
+        "papic/decorate/loading.tsx",
         "papic/decorate/page.tsx"
       ],
       "destinations": [
@@ -15526,15 +15588,19 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "DoorShell",
         "Drag",
+        "Ghost",
         "HTMLDivElement",
         "HTMLImageElement",
         "HTMLInputElement",
         "KwentoDecorator",
         "Link",
         "PapicStyle",
-        "PickMenu"
+        "PickMenu",
+        "Screen",
+        "Sk"
       ]
     },
     "/papic/demo/[token]": {
@@ -15545,6 +15611,7 @@
       "destinations": [],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "DemoJoinFlow",
         "DoorShell",
         "HTMLVideoElement",
@@ -15589,6 +15656,7 @@
         "DoorShell",
         "EventMonogram",
         "FocusCorners",
+        "Ghost",
         "GridPageSkeleton",
         "GuestCameraTools",
         "GuestColumnCard",
@@ -15659,6 +15727,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "Blob",
         "DoorShell",
         "File",
@@ -15678,6 +15747,9 @@
     },
     "/papic/order/[token]": {
       "files": [
+        "papic/order/[token]/gate.tsx",
+        "papic/order/[token]/layout.tsx",
+        "papic/order/[token]/loading.tsx",
         "papic/order/[token]/page.tsx"
       ],
       "destinations": [],
@@ -15685,13 +15757,19 @@
         "submitPapicGuestPayment"
       ],
       "blocks": [
+        "ActionButton",
         "CopyButton",
+        "FormPageSkeleton",
+        "PapicOrderUnreadable",
         "PayRailsBlock"
       ]
     },
     "/papic/pool": {
       "files": [
         "papic/pool/_components/pool-grid.tsx",
+        "papic/pool/gate.ts",
+        "papic/pool/layout.tsx",
+        "papic/pool/loading.tsx",
         "papic/pool/page.tsx"
       ],
       "destinations": [
@@ -15699,9 +15777,13 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "DoorShell",
+        "Ghost",
         "Link",
-        "PoolGrid"
+        "PoolGrid",
+        "Screen",
+        "Sk"
       ]
     },
     "/papic/seat/[token]": {
@@ -15715,6 +15797,7 @@
       ],
       "actions": [],
       "blocks": [
+        "ActionButton",
         "CameraBridgePanel",
         "DoorShell",
         "DslrPairingController",
@@ -15738,6 +15821,9 @@
         "pay/[reference]/_components/pay-panel.tsx",
         "pay/[reference]/_components/sent-screen.tsx",
         "pay/[reference]/actions.ts",
+        "pay/[reference]/gate.ts",
+        "pay/[reference]/layout.tsx",
+        "pay/[reference]/loading.tsx",
         "pay/[reference]/maya-return.ts",
         "pay/[reference]/maya-start.ts",
         "pay/[reference]/page.tsx",
@@ -15758,6 +15844,7 @@
         "CopyButton",
         "File",
         "FileUpload",
+        "FormPageSkeleton",
         "HTMLDivElement",
         "InfoTip",
         "Link",
@@ -15784,6 +15871,9 @@
     },
     "/proposals/[publicId]": {
       "files": [
+        "proposals/[publicId]/gate.tsx",
+        "proposals/[publicId]/layout.tsx",
+        "proposals/[publicId]/loading.tsx",
         "proposals/[publicId]/page.tsx"
       ],
       "destinations": [],
@@ -15796,8 +15886,10 @@
         "AccordionLockButton",
         "BookedWhere",
         "CopyButton",
+        "DetailPageSkeleton",
         "Link",
         "PrintButton",
+        "ProposalUnreadable",
         "QuoteShopGiftNote",
         "QuoteWhereFact",
         "SaveFileLink",
@@ -15821,6 +15913,9 @@
     },
     "/receipts/order/[orderId]": {
       "files": [
+        "receipts/order/[orderId]/gate.ts",
+        "receipts/order/[orderId]/layout.tsx",
+        "receipts/order/[orderId]/loading.tsx",
         "receipts/order/[orderId]/page.tsx"
       ],
       "destinations": [],
@@ -15829,11 +15924,15 @@
         "Link",
         "ReceiptPage",
         "ReceiptSlip",
+        "ReceiptSlipSkeleton",
         "ShareReceiptButton"
       ]
     },
     "/receipts/payment/[paymentId]": {
       "files": [
+        "receipts/payment/[paymentId]/gate.ts",
+        "receipts/payment/[paymentId]/layout.tsx",
+        "receipts/payment/[paymentId]/loading.tsx",
         "receipts/payment/[paymentId]/page.tsx"
       ],
       "destinations": [
@@ -15843,6 +15942,7 @@
       "blocks": [
         "ReceiptPage",
         "ReceiptSlip",
+        "ReceiptSlipSkeleton",
         "SaveAsPdfButton",
         "ShareReceiptButton"
       ]
@@ -15873,6 +15973,9 @@
         "samahan/chat/[threadId]/_components/group-chat-view.tsx",
         "samahan/chat/[threadId]/_components/group-plus-sheet.tsx",
         "samahan/chat/[threadId]/_components/group-switcher.tsx",
+        "samahan/chat/[threadId]/gate.ts",
+        "samahan/chat/[threadId]/layout.tsx",
+        "samahan/chat/[threadId]/loading.tsx",
         "samahan/chat/[threadId]/page.tsx"
       ],
       "destinations": [],
@@ -15905,8 +16008,14 @@
         "BackButton",
         "ErrorState",
         "FormRows",
+        "Ghost",
         "GroupNameRow",
+        "NewGroupStreamed",
+        "NewGroupWaiting",
+        "Screen",
+        "Sk",
         "SubmitButton",
+        "Suspense",
         "TypedRow"
       ]
     },
@@ -16095,6 +16204,7 @@
       "files": [
         "tour/budget/_components/tour-budget-planner.tsx",
         "tour/budget/_components/tour-vendor-itemization.tsx",
+        "tour/budget/loading.tsx",
         "tour/budget/page.tsx"
       ],
       "destinations": [
@@ -16107,6 +16217,7 @@
       "blocks": [
         "AllocationConfig",
         "ConfidenceChip",
+        "Ghost",
         "HTMLButtonElement",
         "HTMLDivElement",
         "LeafRow",
@@ -16118,6 +16229,8 @@
         "PaymentSection",
         "PickMenu",
         "PriceSourceChip",
+        "Screen",
+        "Sk",
         "SummaryStat",
         "TiltEditor",
         "TourBudgetPlanner",
@@ -16128,6 +16241,7 @@
       "files": [
         "tour/gallery/_components/tour-live-wall.tsx",
         "tour/gallery/_components/tour-palette-preview.tsx",
+        "tour/gallery/loading.tsx",
         "tour/gallery/page.tsx"
       ],
       "destinations": [
@@ -16138,8 +16252,11 @@
         "routes.start"
       ],
       "blocks": [
+        "Ghost",
         "Link",
         "PaletteKey",
+        "Screen",
+        "Sk",
         "TourLiveWall",
         "TourPalettePreview"
       ]
@@ -16166,6 +16283,7 @@
     "/tour/vendors": {
       "files": [
         "tour/vendors/_components/tour-shortlist.tsx",
+        "tour/vendors/loading.tsx",
         "tour/vendors/page.tsx"
       ],
       "destinations": [
@@ -16176,7 +16294,10 @@
         "routes.start"
       ],
       "blocks": [
+        "Ghost",
         "Link",
+        "Screen",
+        "Sk",
         "SwitchTrack",
         "TourChatThread",
         "TourShortlist",
@@ -16317,6 +16438,7 @@
         "CheckADateUnreadableView",
         "ChosenRow",
         "ComingSoonBanner",
+        "DeclaredExp",
         "DemoOnlyMarker",
         "DemoVendorBanner",
         "DirectionsMenu",
@@ -16857,6 +16979,8 @@
         "Show",
         "SidePanel",
         "Sk",
+        "SkCircle",
+        "SkSection",
         "SnapCarousel",
         "SortFace",
         "Spotlight",
@@ -17316,6 +17440,9 @@
         "vendor-dashboard/clients/[eventId]/_components/details-numbers.ts",
         "vendor-dashboard/clients/[eventId]/_components/event-files-board.tsx",
         "vendor-dashboard/clients/[eventId]/_components/gift-needed-row.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/gown-design-on-order.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/gown-order-panel.tsx",
+        "vendor-dashboard/clients/[eventId]/_components/gown-pattern-pages.tsx",
         "vendor-dashboard/clients/[eventId]/_components/hosts-list.tsx",
         "vendor-dashboard/clients/[eventId]/_components/hosts-rows.ts",
         "vendor-dashboard/clients/[eventId]/_components/lock-switch.tsx",
@@ -17448,6 +17575,7 @@
         "BudgetFigures",
         "BudgetLegendRight",
         "BudgetNextLink",
+        "Built",
         "CakeDesignCard",
         "CakeDesignOnOrder",
         "Card",
@@ -17476,6 +17604,7 @@
         "CoupleAnswers",
         "CoupleLogo",
         "CustomerMoneyFold",
+        "CutList",
         "DateRow",
         "DatesRow",
         "DayCheckLine",
@@ -17485,6 +17614,7 @@
         "DetailsNumbersRow",
         "DetailsPage",
         "Door",
+        "Drawn",
         "EventFile",
         "EventFilesBoard",
         "EventFilesSection",
@@ -17505,6 +17635,12 @@
         "FormsPage",
         "FormsPageBody",
         "GiftNeededRow",
+        "GownDesignOnOrder",
+        "GownOrderPanel",
+        "GownOrderPattern",
+        "GownPaper",
+        "GownPatternPages",
+        "GownSeamAllowRows",
         "Grid",
         "GuestsPart",
         "HTMLDivElement",
@@ -17521,6 +17657,7 @@
         "Lazy",
         "LedgerUnreadableNote",
         "Link",
+        "Load",
         "LockAnswerLine",
         "LockRequestAnswer",
         "LockedFeature",
@@ -17533,11 +17670,13 @@
         "NamedColourDot",
         "NumbersPart",
         "OpenTheirEvent",
+        "Order",
         "OverviewTab",
         "OwnTimesForm",
         "P",
         "Part",
         "PartPage",
+        "Pattern",
         "PaymentAskOutcome",
         "PaymentAsksPanel",
         "PaymentHistoryList",
@@ -17610,6 +17749,7 @@
         "Suspense",
         "SwipeToDelete",
         "Switch",
+        "SwitchRow",
         "SwitchTrack",
         "TagPicker",
         "TemplateSection",
@@ -18539,6 +18679,9 @@
         "InfoTip",
         "LiveInboxRefresh",
         "PageMasthead",
+        "Screen",
+        "Sk",
+        "SkCircle",
         "SupplierChats",
         "SupplierChatsRead",
         "ThreadArchiveToggle",
@@ -19962,6 +20105,10 @@
         "vendor-dashboard/shop/_components/fair-sweep-list.tsx",
         "vendor-dashboard/shop/_components/fair-sweep-notice.tsx",
         "vendor-dashboard/shop/_components/gallery-media.tsx",
+        "vendor-dashboard/shop/_components/gown-maker-panel.tsx",
+        "vendor-dashboard/shop/_components/gown-seam-allow.tsx",
+        "vendor-dashboard/shop/_components/gown-stock-panel.tsx",
+        "vendor-dashboard/shop/_components/gown-swatch-scan.tsx",
         "vendor-dashboard/shop/_components/held-name-claim.tsx",
         "vendor-dashboard/shop/_components/paper-upload-place.tsx",
         "vendor-dashboard/shop/_components/photo-menus.tsx",
@@ -20057,7 +20204,9 @@
         "BadgeRewardSweep",
         "BadgeRing",
         "BadgeSheet",
+        "Blob",
         "BodyPanel",
+        "Box",
         "BranchManager",
         "BundlePreviewSample",
         "CakeArrangement",
@@ -20077,6 +20226,7 @@
         "CommitResult",
         "CopyButton",
         "CouldNotLoad",
+        "Counter",
         "CouplePhotoShareReply",
         "CouplePhotosList",
         "CouplePhotosToAnswer",
@@ -20091,6 +20241,9 @@
         "EditableRow",
         "EqualRow",
         "Explain",
+        "FabricDraft",
+        "FabricList",
+        "FabricSheet",
         "FairNote",
         "FairSweepList",
         "FairSweepNotice",
@@ -20102,8 +20255,16 @@
         "FlavourList",
         "Fold",
         "FollowLines",
+        "FormRows",
         "GalleryForm",
         "GetVerifiedLine",
+        "GownMakerEditor",
+        "GownMakerPanel",
+        "GownSeamAllowRows",
+        "GownShopOptions",
+        "GownStockPanel",
+        "GownSwatchScan",
+        "GownSwatchScanDoor",
         "HTMLButtonElement",
         "HTMLDivElement",
         "HTMLElement",
@@ -20124,6 +20285,7 @@
         "InstagramConnectCard",
         "K",
         "KmStepper",
+        "Label",
         "Ladder",
         "LeafletMap",
         "LeafletMarker",
@@ -20138,6 +20300,9 @@
         "LogoFrame",
         "LogoPhotoMenu",
         "LogoRowControl",
+        "LookDraft",
+        "LookList",
+        "LookSheet",
         "MakerKey",
         "MapCredit",
         "MenuSettingsButton",
@@ -20185,6 +20350,7 @@
         "RowPreview",
         "RowWord",
         "SaveFileLink",
+        "ScanPage",
         "ScannerChoice",
         "SeeRow",
         "ServesInput",
@@ -20232,6 +20398,7 @@
         "StorageBar",
         "StorageBody",
         "StorageRow",
+        "StyleMeta",
         "SubmitBlock",
         "SubmitButton",
         "SubmitResult",
@@ -20241,9 +20408,11 @@
         "SupplierSubmit",
         "SupplierThumbRow",
         "Suspense",
+        "Swatch",
         "SweepItem",
         "SwipeToDelete",
         "Switch",
+        "SwitchRow",
         "SwitchTrack",
         "T",
         "TeamScreen",
@@ -20258,6 +20427,7 @@
         "ToolFail",
         "TrackerFacts",
         "TrackerRewardInput",
+        "TuneSlider",
         "TypedForm",
         "TypedRow",
         "UndoToastHost",
@@ -20270,6 +20440,7 @@
         "VerifiedFullscreen",
         "VerifySection",
         "VideoLinksEditor",
+        "View",
         "ViewShopScreen",
         "VisibilitySaveResult",
         "VoiceGate",
@@ -20994,6 +21165,9 @@
     "/vendor/fit/[ref]": {
       "files": [
         "vendor/fit/[ref]/actions.ts",
+        "vendor/fit/[ref]/gate.ts",
+        "vendor/fit/[ref]/layout.tsx",
+        "vendor/fit/[ref]/loading.tsx",
         "vendor/fit/[ref]/page.tsx"
       ],
       "destinations": [
@@ -21007,6 +21181,7 @@
       "blocks": [
         "ActionButton",
         "Badge",
+        "DetailPageSkeleton",
         "Icon",
         "Image",
         "Link",
@@ -21049,6 +21224,7 @@
       "files": [
         "wall/[eventId]/_components/wall-claim.tsx",
         "wall/[eventId]/_components/wall-projection.tsx",
+        "wall/[eventId]/loading.tsx",
         "wall/[eventId]/page.tsx"
       ],
       "destinations": [],
@@ -21056,7 +21232,10 @@
       "blocks": [
         "Conn",
         "ConnDot",
+        "Ghost",
         "HeroMonogram",
+        "Screen",
+        "Sk",
         "TileGrid",
         "WallClaim",
         "WallProjection"

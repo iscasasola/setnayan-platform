@@ -78,6 +78,11 @@ const toPosix = (p: string) => p.split('\\').join('/');
  */
 const ALLOWED_FILTERS: ReadonlyMap<string, string> = new Map([
   [
+    'lib/social/facebook.ts',
+    'Not a shop: Facebook Graph API\'s own `is_published` field on a Page post (GET /{post-id}?fields=is_published), ' +
+      'asked when a post Facebook scheduled for a slot should have gone out (lib/social/fb-queue.ts). No vendor column is read.',
+  ],
+  [
     'lib/background-videos.ts',
     'Different table (background_videos). Its is_published is real, written by ' +
       'app/admin/background-videos/actions.ts, and read here. Not the vendor column.',

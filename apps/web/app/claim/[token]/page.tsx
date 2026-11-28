@@ -15,10 +15,9 @@
  */
 import { getCurrentUser } from '@/lib/auth';
 import Link from 'next/link';
-import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { dependentPeopleEnabled } from '@/lib/dependent-people-flag';
+import { gateClaimDoor } from './gate';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { DoorShell, DoorActions } from '@/app/_components/door/door-shell';
 import { claimAlaga } from './actions';
@@ -32,7 +31,7 @@ type Props = {
 };
 
 export default async function ClaimAlagaPage({ params, searchParams }: Props) {
-  if (!dependentPeopleEnabled()) redirect('/');
+  gateClaimDoor(); // decided first by ./layout.tsx, before streaming
   const { token } = await params;
   const search = await searchParams;
 

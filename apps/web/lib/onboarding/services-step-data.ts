@@ -192,7 +192,6 @@ export function buildServicesStepView(input: {
    * price, which is the truth for that rung.
    */
   listPricePhpByCode?: ReadonlyMap<string, number>;
-  freePoolPoints: number;
   freeOnePoints: number;
   /** null ⇒ the gate closed. Never 0-as-a-signal — 0 is a price, not an absence. */
   aiPricePhp: number | null;
@@ -218,7 +217,6 @@ export function buildServicesStepView(input: {
     oneTiers,
     pricePhpByCode,
     listPricePhpByCode,
-    freePoolPoints,
     freeOnePoints,
     aiPricePhp,
     aiListPricePhp,
@@ -229,7 +227,9 @@ export function buildServicesStepView(input: {
     {
       id: 'pool',
       inappKey: PAPIC_POOL_INAPP_KEY,
-      freePoints: Math.max(0, freePoolPoints),
+      // 🎁 No free first-event pool (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic credits REMOVED"):
+      // the free rung is never drawn here, and nothing promises credits the couple would not get.
+      freePoints: 0,
       // The Pool is deliberately camera-less: any guest phone that scans the
       // event QR shoots from it, so there is no seat to count and no seat to
       // sell. Rendering a number here would re-import the per-seat model the

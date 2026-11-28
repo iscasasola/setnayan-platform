@@ -79,7 +79,7 @@ export function AboutHero() {
         Tagalog <em>&ldquo;I-set na &rsquo;yan&rdquo;</em> — &ldquo;let&rsquo;s
         get that set&rdquo;) is one place for the whole event: plan it, hire
         verified local suppliers, and capture the day so every guest can find
-        the photos they&rsquo;re in. Hosts pay 0% commission.
+        the photos they&rsquo;re in.
       </p>
       <p
         data-reveal-item

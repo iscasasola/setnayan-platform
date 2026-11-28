@@ -1757,7 +1757,7 @@ export const TOURS: Record<TourKey, TourDefinition> = {
       ],
       finale: {
         title: 'You’re set 🎉',
-        body: 'Your first event’s free credits are already on. When they run out, Buy more is the one button.',
+        body: 'Your camera is ready. When you need credits, Buy more is the one button.',
         button: 'Done',
       },
     },

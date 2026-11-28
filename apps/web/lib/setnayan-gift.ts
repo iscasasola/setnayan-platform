@@ -60,6 +60,13 @@ export const GIFT_LIMIT_PCT_DEFAULT = 40;
 export const SETNAYAN_PHOTO_GIFT_RETIRED = true;
 
 /**
+ * 🎁 The one sentence a screen says about free Papic photos, now that the free
+ * first-event grant is retired (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic
+ * credits REMOVED"). No number, no condition, no promise for every booking.
+ */
+export const PAPIC_BOOKING_GIFT_LINE = 'Many bookings come with free Papic photos as a Setnayan gift.' as const;
+
+/**
  * A gift-limit percent as the sizing uses it: a whole number 0–100. Anything else (absent, NaN, out of range)
  * falls back to the ruled default — never to 0 (no gift) and never above 100.
  */

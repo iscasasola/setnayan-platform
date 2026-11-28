@@ -302,7 +302,6 @@ const RESERVED = new Set([
   'llms.txt',
   'login',
   'marketplace',
-  'monogram',
   'mood-board',
   'onboarding',
   'open-shop',

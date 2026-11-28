@@ -106,9 +106,9 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
   },
   {
     icon: ShieldCheck,
-    label: 'Hosts pay 0% commission.',
+    label: 'You pay suppliers directly',
     value:
-      'Setnayan never takes a cut of what couples pay suppliers. Couples and suppliers transact directly; revenue comes from software services and supplier subscriptions.',
+      'Setnayan never holds the money between you and a supplier. It earns from the plans and services people choose.',
   },
   {
     icon: Languages,
@@ -226,15 +226,15 @@ export default async function AboutPage() {
               Software, not an agency
             </h2>
             <p className="text-base leading-relaxed text-ink/75">
-              Setnayan isn&rsquo;t a wedding coordinator and doesn&rsquo;t take a
-              cut of your supplier bills. It&rsquo;s the toolkit: a guest list,
+              Setnayan isn&rsquo;t a wedding coordinator.
+              It&rsquo;s the toolkit: a guest list,
               seating, budget, and schedule workspace, a free mood board, a
               marketplace of
               verified Filipino wedding suppliers you message directly, and
               in-app services — single-camera livestreaming to YouTube, included
               (every camera at once is Live Watch), candid photo capture (Papic), and Logo Maker. Papic has no limit on
-              cameras: every photo uses credits, and your first event starts
-              with free credits; the rest is priced on the Pricing page. Couples and suppliers
+              cameras: every photo uses credits, priced on the Pricing page, and
+              many bookings come with free Papic photos as a Setnayan gift. Couples and suppliers
               agree on bookings between themselves; Setnayan never holds the
               money.
             </p>
@@ -324,7 +324,7 @@ export default async function AboutPage() {
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/70">
               Build your guest list, sketch your seating and budget, and browse
-              verified Filipino wedding suppliers with 0% booking commission. No
+              verified Filipino wedding suppliers. No
               card required to begin.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">

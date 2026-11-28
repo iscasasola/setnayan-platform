@@ -326,7 +326,6 @@
 1 apps/web/app/dev/me-lab/save-offer-lab.tsx
 4 apps/web/app/download/_download-motion.tsx
 2 apps/web/app/features/_sections/_HowItWorks.tsx
-1 apps/web/app/monogram/_monogram-motion.tsx
 2 apps/web/app/monogram/public-monogram-studio.tsx
 3 apps/web/app/onboarding/_shared/services-step.tsx
 2 apps/web/app/onboarding/wedding/page.tsx

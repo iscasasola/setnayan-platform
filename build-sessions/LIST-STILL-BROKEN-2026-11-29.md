@@ -25,7 +25,7 @@
 
 **The biggest lever is to unblock #8456, or ship #8418 on its own, which is clean.** About 12 rows below wait only on it.
 
-**Tally (about 75 findings).** About 45 are FIXED. About 12 are IN FLIGHT, all waiting on #8418 or #8456/#8421. **19 are STILL BROKEN** (the §1 tables). About 10 are RUNTIME or data only. 4 are OWNED ELSEWHERE (B2, the seat plan's grey block, "+1 · TBA", and test data under R6).
+**Tally (about 75 findings).** About 45 are FIXED. About 12 are IN FLIGHT, all waiting on #8418 or #8456/#8421. **21 are STILL BROKEN**: G8b, G6b · C2, C3, C4, C11b, C12a, C17c, C18e, C18m · S1, S4b, C5, S7, S10, S11 · D7c, D7d, D7e · G13, G16b. The §1 tables hold 26 rows. Five of them are not code faults: D7a, D7b, D7f/g and S3d are RUNTIME (live only), and S9 is IN FLIGHT plus an owner word. About 10 are RUNTIME or data only. 4 are OWNED ELSEWHERE (B2, the seat plan's grey block, "+1 · TBA", and test data under R6).
 **Real-user faults to send first:** D7e (the check-in team read fails with permission denied), C18m (a false "Free to start" on Papic), C4 (a paid receipt says unconfirmed), S1 (the badge ring says 10, but the ruling is 5), C5 (expired vs Talking), G13 (sign-in Tab order).
 
 ## 1 · STILL BROKEN, grouped by area (one builder per area, no shared files)

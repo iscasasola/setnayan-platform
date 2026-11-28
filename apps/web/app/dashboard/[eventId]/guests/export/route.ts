@@ -14,6 +14,8 @@ import { tableWords } from '@/lib/table-words';
 import { isUuid } from '@/lib/is-uuid';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { guestListCsv, guestListFileName } from '@/lib/guest-export-file';
+import { withDisplayNames } from '@/lib/table-auto-name';
+import { readShownTableNames } from '@/lib/table-auto-name.server';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,7 +56,8 @@ export async function GET(_req: Request, ctx: { params: Promise<{ eventId: strin
     measuredOr(fetchAssignments(supabase, eventId), [] as Awaited<ReturnType<typeof fetchAssignments>>, (e) =>
       logQueryError('GuestsExport.assignments', e, { event_id: eventId }, 'graceful_degrade'),
     ),
-    measuredOr(fetchTables(supabase, eventId), [] as Awaited<ReturnType<typeof fetchTables>>, (e) =>
+    // 🪑 Each table under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+    measuredOr(fetchTables(supabase, eventId).then(async (t) => withDisplayNames(t, await readShownTableNames(supabase, eventId))), [] as Awaited<ReturnType<typeof fetchTables>>, (e) =>
       logQueryError('GuestsExport.tables', e, { event_id: eventId }, 'graceful_degrade'),
     ),
   ]);

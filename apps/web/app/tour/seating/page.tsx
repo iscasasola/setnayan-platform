@@ -8,6 +8,7 @@ import { DEFAULT_ENTRANCE } from '@/lib/indoor-blueprint';
 import { FindYourSeat, type TourSeat } from './_components/find-your-seat';
 import { formatCount } from '@/lib/format-number';
 import { coupleNamesLine } from '@/lib/typed-names';
+import { readShownTableNames } from '@/lib/table-auto-name.server';
 
 /**
  * /tour/seating — Stop 3 of the public Maria & Jose tour: "Every guest finds their table."
@@ -91,7 +92,9 @@ export default async function TourSeatingPage() {
   // table_id -> label, for the seat chips. (WayfindingMap reads table_label
   // itself; this is just for the search-result line.)
   const labelByTableId = new Map<string, string>();
-  for (const t of tables) labelByTableId.set(t.table_id, t.table_label);
+  // 🪑 The name each table SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts); unread → the stored label (a view, no write).
+  const shownNames = await readShownTableNames(admin, eventId).catch(() => null);
+  for (const t of tables) labelByTableId.set(t.table_id, shownNames?.get(t.table_id) ?? t.table_label);
 
   // Build the client-safe seat list: one entry per assigned guest, carrying
   // ONLY a name + which table it maps to. The internal guest_id is dropped here

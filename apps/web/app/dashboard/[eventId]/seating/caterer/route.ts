@@ -4,6 +4,8 @@ import { createClient } from '@/lib/supabase/server';
 import { guestListUnreadResponse } from '@/lib/guest-list-unread-response';
 import { fetchGuestsByEventMeasured, guestDisplayName, MEAL_LABELS, type MealPreference } from '@/lib/guests';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
+import { withDisplayNames } from '@/lib/table-auto-name';
+import { readTableNameGroups, shownNamesFrom } from '@/lib/table-auto-name.server';
 import { layoutReport, printFileName } from '@/lib/print-report';
 import { renderPrintPdf } from '@/lib/print-render-pdf';
 import { renderPrintSvg } from '@/lib/print-render-svg';
@@ -57,11 +59,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
     .maybeSingle();
   if (!event) return new NextResponse('Event not found', { status: 404 });
 
-  const [tables, assignments, guestsRead] = await Promise.all([
+  const [tablesRead, assignments, guestsRead, nameGroups] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEventMeasured(supabase, eventId),
+    readTableNameGroups(supabase, eventId),
   ]);
+  // 🪑 Each table under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+  const tables = withDisplayNames(tablesRead, shownNamesFrom(nameGroups, tablesRead, assignments));
   // 🔌 A refused guest read is never a caterer's sheet of 0 guests (audit #14).
   if (!guestsRead.measured) return guestListUnreadResponse();
   const guests = guestsRead.rows;

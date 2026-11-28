@@ -24,17 +24,32 @@ export function yourTableName(row: TableNameRow | null): string | null {
   return name || null;
 }
 
-export async function withYourTableName<T extends WithYou>(admin: SupabaseClient, scene: T): Promise<T> {
+/**
+ * The event's shown table names — the server callers pass `readShownTableNames` (lib/table-auto-name.server.ts). It is
+ * handed in, never imported here: the client caption imports `youAreAtWords` from this file, so a server-only import
+ * (even a dynamic one) would pull the database reader into the browser bundle.
+ */
+export type NamesOf = (admin: SupabaseClient, eventId: string) => Promise<Map<string, string>>;
+
+export async function withYourTableName<T extends WithYou>(admin: SupabaseClient, scene: T, namesOf: NamesOf): Promise<T> {
   const you = scene.you;
   if (!you?.table) return scene;
   const { data, error } = await admin
     .from('event_tables')
-    .select('table_label, link_group_label')
+    .select('table_id, event_id')
     .eq('public_id', you.table)
     .maybeSingle();
   // A failed read is logged, and the caption says "your table" (never the code).
   if (error) console.error('[supabase-error] lib/venue-your-table.ts · from:event_tables.select', error);
-  const tableName = error ? null : yourTableName(data as TableNameRow | null);
+  const row = error ? null : (data as { table_id: string; event_id: string } | null);
+  if (!row) return { ...scene, you: { ...you, tableName: null } };
+  // 🪑 The name the table SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts); unread → "your table".
+  let tableName: string | null = null;
+  try {
+    tableName = (await namesOf(admin, row.event_id)).get(row.table_id) ?? null;
+  } catch (e) {
+    console.error('[supabase-error] lib/venue-your-table.ts · shown table name', e);
+  }
   return { ...scene, you: { ...you, tableName } };
 }
 

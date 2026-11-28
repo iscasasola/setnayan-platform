@@ -1,4 +1,5 @@
 import 'server-only';
+import { shownTableRows } from '@/lib/table-auto-name.server';
 
 import { eventSetnayanMark } from '@/lib/setnayan-mark-by-plan.server';
 import { effectiveRoleOf } from '@/lib/guest-proxy';
@@ -260,7 +261,8 @@ export async function readTicketSeats(admin: SupabaseClient, eventId: string): P
   if (!(await guestsMaySeeSeatsFor(admin, eventId, { ticket: true }))) return out;
   const [{ data: seats, error }, { data: tables, error: tErr }] = await Promise.all([
     admin.from('event_seat_assignments').select('guest_id, table_id, seat_number').eq('event_id', eventId),
-    admin.from('event_tables').select('table_id, table_label').eq('event_id', eventId),
+    // 🪑 The name each table SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+    shownTableRows(admin, eventId),
   ]);
   if (error || tErr) {
     logQueryError('pass-card.seats', error ?? tErr, { event_id: eventId }, 'graceful_degrade');

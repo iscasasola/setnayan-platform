@@ -40,6 +40,7 @@ import { plusOneSeatLines, plusOneSeatPeople } from '@/lib/extra-seats';
 import type { RsvpStatus } from '@/lib/guests';
 import { guestDisplayName, guestRoleLabel } from '@/lib/guests';
 import { guestArriveBy } from '@/lib/role-group-dress-code';
+import { shownTableRows } from '@/lib/table-auto-name.server';
 import {
   cameAfterAll,
   effectiveRoleOf,
@@ -327,7 +328,8 @@ export async function loadGuestCard(
       .select('group_id, guest_groups(label, team_side)')
       .eq('guest_id', guestId),
     // The Table and Groups dropdowns' choices — this event's tables and groups.
-    supabase.from('event_tables').select('table_id, table_label').eq('event_id', eventId),
+    // 🪑 …each under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+    shownTableRows(supabase, eventId),
     supabase.from('guest_groups').select('group_id, label, team_side').eq('event_id', eventId),
     // The couple's words for roles — its own read, graceful (usual words on a refusal).
     loadRoleNames(supabase, eventId, 'loadGuestCard.roleNames'),
@@ -396,14 +398,18 @@ export async function loadGuestCard(
   if (seatRowError) {
     logQueryError('loadGuestCard.seatRow', seatRowError, { eventId, guestId }, 'graceful_degrade');
   }
+  // 🪑 The seat's table under the name it SHOWS (the same read as the Table dropdown); the embed is the fallback.
+  const shownSeatName = seatRow?.table_id
+    ? ((tableRows ?? []) as { table_id: string; table_label: string | null }[]).find((t) => t.table_id === seatRow.table_id)?.table_label ?? null
+    : null;
   const seatedAt =
-    seatRow && seatRow.event_tables
+    shownSeatName ?? (seatRow && seatRow.event_tables
       ? // event_tables embed may come back as object OR array depending
         // on PostgREST's FK resolution; handle both shapes defensively.
         Array.isArray(seatRow.event_tables)
         ? ((seatRow.event_tables[0] as { table_label?: string } | undefined)?.table_label ?? null)
         : ((seatRow.event_tables as { table_label?: string }).table_label ?? null)
-      : null;
+      : null);
 
   // ⚠ the guest's group memberships. Refused, they read as belonging to no group,
   // ⚠ which is how a couple loses track of who is with whom.

@@ -17,6 +17,7 @@ import { PASSED_AWAY, REPRESENTED_BY, REQUEST_ENTRY_SOURCE } from '@/lib/guests'
 import { companionNames } from '@/lib/extra-seats';
 import { readCoupleScanClaims } from '@/lib/supplier-scan.server';
 import { SupplierScanList } from './_components/supplier-scan-list';
+import { shownTableRows } from '@/lib/table-auto-name.server';
 
 export const metadata = { title: 'Souvenir table' };
 
@@ -90,10 +91,8 @@ export default async function SouvenirTablePage({ params }: Props) {
       .from('event_seat_assignments')
       .select('guest_id, table_id')
       .eq('event_id', eventId),
-    supabase
-      .from('event_tables')
-      .select('table_id, table_label, link_group_label')
-      .eq('event_id', eventId),
+    // 🪑 Each table under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+    shownTableRows(supabase, eventId),
     supabase
       .from('guest_souvenir_claims')
       .select('guest_id, claimed_at')

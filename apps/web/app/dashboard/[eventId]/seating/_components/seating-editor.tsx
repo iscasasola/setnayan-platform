@@ -213,6 +213,8 @@ import { SeatCheckSheet } from './seat-check';
 import { EASE_SETTLE, SHEEN_MS } from '@/lib/motion-table';
 import { formatCount } from '@/lib/format-number';
 import { planTableBadges } from '@/lib/plan-table-badges';
+import { hostNameClash, renameWrites, tableDisplayNames, withDisplayNames } from '@/lib/table-auto-name';
+import { TableNameSheet } from './table-name-row';
 import { guestsViewHref } from '@/lib/guests-views';
 import {
   moveTargets,
@@ -320,6 +322,8 @@ export type SeatingGuest = {
   photo_url: string | null;
   side: 'bride' | 'groom' | 'both';
   group_id: string | null;
+  /** 🪑 Every group the guest is in (`guest_group_memberships`) — what a table's auto name counts (lib/table-auto-name.ts). */
+  group_ids?: string[];
   rsvp_status: string;
   seated_table_id: string | null;
   seat_number: number | null;
@@ -659,8 +663,26 @@ export function SeatingEditor({
             return { ...t, removed_seats: [...next].sort((a, b) => a - b) };
           }),
   );
-  // 🪑 Each table's short name on the plan, unique across the room: its number, else its initials (lib/plan-table-badges).
-  const planBadges = useMemo(() => planTableBadges(tables), [tables]);
+  /* 🪑 THE NAME EACH TABLE SHOWS (owner R6, seat plan § 4.3) — read live from who sits there through the ONE reader,
+     `tableDisplayNames` (lib/table-auto-name.ts), so it follows every seat, unseat, move and auto arrange at once. */
+  const nameInputs = useMemo(
+    () => ({
+      seated: guests.flatMap((g) => (g.seated_table_id ? [{ guest_id: g.guest_id, table_id: g.seated_table_id }] : [])),
+      groups: {
+        labels: groups.map((g) => ({ group_id: g.group_id, label: g.label })),
+        members: guests.flatMap((g) => (g.group_ids ?? (g.group_id ? [g.group_id] : [])).map((group_id) => ({ guest_id: g.guest_id, group_id }))),
+        broughtBy: guests.map((g) => ({ guest_id: g.guest_id, plus_one_of_guest_id: g.plus_one_of ?? null })),
+      },
+    }),
+    [guests, groups],
+  );
+  const shownNames = useMemo(() => tableDisplayNames(tables, nameInputs.seated, nameInputs.groups), [tables, nameInputs]);
+  /** The name a table SHOWS (its auto name, or the host's) — every word on this screen that names a table reads this. */
+  const nameOf = (t: { table_id: string; table_label: string }): string => shownNames.get(t.table_id) ?? t.table_label;
+  const [nameSheetFor, setNameSheetFor] = useState<string | null>(null);
+  // 🪑 Each table's short name on the plan, unique across the room: its number, else its initials (lib/plan-table-badges) —
+  // taken from the name the table SHOWS, so the badges stay unique on the auto names too.
+  const planBadges = useMemo(() => planTableBadges(withDisplayNames(tables, shownNames)), [tables, shownNames]);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{
@@ -1614,7 +1636,7 @@ export function SeatingEditor({
     });
   };
   const removeTable = (tableId: string) =>
-    removeTables([tableId], tables.find((t) => t.table_id === tableId)?.table_label ?? 'The table');
+    removeTables([tableId], shownNames.get(tableId) ?? 'The table');
 
   // Deleting a table cascades its seat assignments (DB ON DELETE CASCADE),
   // silently returning everyone at it to the unseated pool — so a table with
@@ -1622,7 +1644,7 @@ export function SeatingEditor({
   const seatedAt = (tableId: string) => guests.filter((g) => g.seated_table_id === tableId).length;
   const requestRemoveTable = (t: EventTableRow) => {
     if (seatedAt(t.table_id) === 0) removeTable(t.table_id);
-    else setConfirmDelete({ label: t.link_group_label ?? t.table_label, members: [t] });
+    else setConfirmDelete({ label: nameOf(t), members: [t] });
   };
   // List rows act on the whole display unit: an unlinked table is one member; a
   // joined unit removes every member (each cascades its own seat assignments).
@@ -2253,8 +2275,16 @@ export function SeatingEditor({
   const renameTable = (tableId: string, label: string) => {
     if (!canEdit) return;
     const trimmed = label.trim();
-    const current = tables.find((t) => t.table_id === tableId)?.table_label ?? '';
-    if (!trimmed || trimmed === current) return;
+    const table = tables.find((t) => t.table_id === tableId);
+    // 🪑 Unchanged is no rename (`renameWrites`, lib/table-auto-name.ts): a field is pre-filled with the name the table
+    // SHOWS, so focusing it and tapping away never turns an auto name into the host's. Empty returns it to auto.
+    if (!table || renameWrites(table, trimmed, shownNames.get(tableId)) === 'none') return;
+    // A name another table already shows is refused (updateTableLabel refuses it too).
+    const clash = hostNameClash(tableId, trimmed, shownNames);
+    if (clash) {
+      setNotice(clash);
+      return;
+    }
     // Advisory only (never blocks): a Chinese-wedding couple renaming a table to a
     // ones-digit-4 number gets a gentle heads-up; the rename proceeds regardless.
     if (chineseTradition && tableNumberEndsInFour(trimmed)) setNotice(TABLE_FOUR_ADVISORY);
@@ -2287,7 +2317,7 @@ export function SeatingEditor({
   ] as const;
   const vipPick = (t: EventTableRow, dataAttr: string) => (
     <PickMenu
-      label={`${t.table_label}: VIP table`}
+      label={`${nameOf(t)}: VIP table`}
       value={t.is_vip === true ? 'vip' : 'no'}
       options={VIP_TABLE_OPTIONS.map((o) => ({ ...o, disabledNote: canEdit ? undefined : 'Tap Edit first' }))}
       onPick={(k) => setTableVip(t, k === 'vip')}
@@ -2383,7 +2413,7 @@ export function SeatingEditor({
       const res = await runGated(() => seatRoleAtTable(fd));
       if (res && res.overflow > 0) {
         setNotice(
-          `${roleSet.tierLabels[tier]}: seated ${formatCount(res.seated)} of ${formatCount(res.requested)} at ${t.table_label} — ${res.overflow} didn't fit. Pick another table for the rest.`,
+          `${roleSet.tierLabels[tier]}: seated ${formatCount(res.seated)} of ${formatCount(res.requested)} at ${nameOf(t)} — ${res.overflow} didn't fit. Pick another table for the rest.`,
         );
       }
     });
@@ -2396,7 +2426,7 @@ export function SeatingEditor({
   const armSwap = (t: EventTableRow) => {
     setLinkFrom(null);
     setSwapFrom((cur) => (cur === t.table_id ? null : t.table_id));
-    if (swapFrom !== t.table_id) setNotice(`Now tap the table to swap guests with “${t.table_label}”.`);
+    if (swapFrom !== t.table_id) setNotice(`Now tap the table to swap guests with “${nameOf(t)}”.`);
   };
   const doSwapTables = (a: string, b: string) => {
     setConfirmSwap(null);
@@ -2450,7 +2480,7 @@ export function SeatingEditor({
     const shapeA = shapeHintFor(a.table_type);
     const shapeB = shapeHintFor(b.table_type);
     if (!chainableShapes(shapeA, shapeB)) {
-      setNotice(`“${a.table_label}” and “${b.table_label}” don’t join end to end — link two long tables, two serpentines, or a long table and a serpentine.`);
+      setNotice(`“${nameOf(a)}” and “${nameOf(b)}” don’t join end to end — link two long tables, two serpentines, or a long table and a serpentine.`);
       return;
     }
     const wh = { width: rect.width, height: rect.height };
@@ -2467,14 +2497,14 @@ export function SeatingEditor({
       Math.max(wh.width, wh.height),
     );
     if (!cand) {
-      setNotice(`No open end on “${a.table_label}” for “${b.table_label}” — try the other table first.`);
+      setNotice(`No open end on “${nameOf(a)}” for “${nameOf(b)}” — try the other table first.`);
       return;
     }
     const ghost: WorldPose = { ...poseAt(b, (cand.x / wh.width) * 100, (cand.y / wh.height) * 100, wh), rot: cand.rot };
     const posFor = (o: EventTableRow, i: number) => positions[o.table_id] ?? defaultGrid(i, tables.length, !venueScaled);
     const third = othersFor(b, wh, posFor).filter((o) => o.tableId !== a.table_id);
     if (!checkPlacement(ghost, { others: third, zones: zonesFor(wh) }, { gapPx: gapPxNow() }).valid) {
-      setNotice(`No room at that end — “${b.table_label}” would overlap something. Move a table first, then Link….`);
+      setNotice(`No room at that end — “${nameOf(b)}” would overlap something. Move a table first, then Link….`);
       return;
     }
     const nx = (cand.x / wh.width) * 100;
@@ -2502,7 +2532,7 @@ export function SeatingEditor({
       try {
         await commitWeld(fw);
         await linkTables(fl);
-        setNotice(`Linked — “${a.table_label}” and “${b.table_label}” are one table now: one name, one count, one sign.`);
+        setNotice(`Linked — “${nameOf(a)}” and “${nameOf(b)}” are one table now: one name, one count, one sign.`);
       } catch (err) {
         if (!handleLockLost(err)) setNotice('Couldn’t link those tables — please try again.');
         // Re-read the saved plan so the screen shows what was really kept.
@@ -2766,8 +2796,8 @@ export function SeatingEditor({
       if (saidLocked(res)) return; // 🔒 #17: the new shape would take a locked guest's chair — the table keeps its shape.
       setNotice(
         res.unseated > 0
-          ? `“${t.table_label}” is now a ${newLabel.toLowerCase()} — ${formatCount(res.unseated)} guest${res.unseated === 1 ? '' : 's'} in seats the new shape doesn’t have ${res.unseated === 1 ? 'was' : 'were'} returned to the unseated list.`
-          : `“${t.table_label}” is now a ${newLabel.toLowerCase()}.`,
+          ? `“${nameOf(t)}” is now a ${newLabel.toLowerCase()} — ${formatCount(res.unseated)} guest${res.unseated === 1 ? '' : 's'} in seats the new shape doesn’t have ${res.unseated === 1 ? 'was' : 'were'} returned to the unseated list.`
+          : `“${nameOf(t)}” is now a ${newLabel.toLowerCase()}.`,
       );
     });
   };
@@ -3107,7 +3137,7 @@ export function SeatingEditor({
     if (chineseTradition && tableNumberEndsInFour(d.label)) setNotice(TABLE_FOUR_ADVISORY);
     const moved = slot?.moved ?? [];
     const before = moved.flatMap((m) => (positions[m.id] ? [{ id: m.id, ...positions[m.id]! }] : []));
-    const beside = slot?.beside ? tables.find((t) => t.table_id === slot.beside)?.table_label ?? null : null;
+    const beside = slot?.beside ? shownNames.get(slot.beside) ?? null : null;
     startTransition(async () => {
       const made = await runGated(() => (floorWrites?.createTable ?? createTable)(fd));
       if (!made) return; // not saved: the box stays open with what was typed, and the notice says so
@@ -3893,7 +3923,7 @@ export function SeatingEditor({
   const showRejectDrop = (hit: DropHit) => {
     pendingDropRef.current = null;
     const name = hit.otherId
-      ? tables.find((t) => t.table_id === hit.otherId)?.table_label ?? 'another table'
+      ? shownNames.get(hit.otherId) ?? 'another table'
       : hit.zoneId
         ? zoneDisplayName(hit.zoneId)
         : 'another element';
@@ -5191,7 +5221,7 @@ export function SeatingEditor({
 
   const individuals = guests.filter((g) => !g.group_id && memberVisible(g));
   const tableLabelById = useMemo(
-    () => new Map(tables.map((t) => [t.table_id, t.table_label])),
+    () => new Map(tables.map((t) => [t.table_id, nameOf(t)])),
     [tables],
   );
 
@@ -5717,7 +5747,7 @@ export function SeatingEditor({
       doors: door ? [{ id: 'main', kind: 'main', wall: door.wall, at: door.at }] : [],
       tables: tables.map((t) => ({
         id: t.table_id,
-        label: t.table_label,
+        label: nameOf(t),
         kind: t.plan_shape ?? t.table_type,
         chairs: t.capacity,
         chairsAtEnds: t.chairs_at_ends === true,
@@ -6140,6 +6170,11 @@ export function SeatingEditor({
               Edit chairs…
             </button>
             )}
+            {isVenue ? null : (
+            <button type="button" role="menuitem" data-table-name-open="" onClick={() => { setDockOverflow(false); setNameSheetFor(t.table_id); }} className="flex min-h-11 w-full items-center rounded-full px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
+              Name…
+            </button>
+            )}
             <button type="button" role="menuitem" onClick={() => { setDockOverflow(false); rotateTable(t, 180); }} className="flex min-h-11 w-full items-center rounded-full px-3 py-2 text-left text-sm text-ink hover:bg-ink/[0.04]">
               Rotate 180°
             </button>
@@ -6171,7 +6206,7 @@ export function SeatingEditor({
   const sheetVariant: 'sheet' | 'inline' = details ? 'inline' : 'sheet';
   /* 🪪 What the picked piece is called — one answer for the read-only dock and for the Guests sheet's heading. */
   const pieceName = (): string => {
-    if (selTable) return selTable.table_label;
+    if (selTable) return nameOf(selTable);
     if (!selM) return '';
     if (selM.kind === 'booth') return booths.find((x) => x.booth_id === selM.id)?.label ?? 'Booth';
     if (selM.kind === 'sign') return signs.find((x) => x.sign_id === selM.id)?.label ?? 'Sign';
@@ -6289,12 +6324,12 @@ export function SeatingEditor({
       const nameField = (big: boolean) => (
         <input
           key={st.table_id}
-          defaultValue={st.table_label}
+          defaultValue={nameOf(st)}
           aria-label="Table name"
           maxLength={64}
           onKeyDown={(e) => {
             if (e.key === 'Enter') e.currentTarget.blur();
-            if (e.key === 'Escape') { e.currentTarget.value = st.table_label; e.currentTarget.blur(); }
+            if (e.key === 'Escape') { e.currentTarget.value = nameOf(st); e.currentTarget.blur(); }
           }}
           onBlur={(e) => renameTable(st.table_id, e.currentTarget.value)}
           className={
@@ -6342,7 +6377,7 @@ export function SeatingEditor({
           </>
         );
         return (
-          <ContextDock variant={variant} edge={variant === 'dock' ? edge : 'bottom'} tone="edit-chairs" glyph={<ShapeGlyph shape={shapeHintFor(st.table_type)} className="h-3.5 w-3.5" />} name={variant !== 'dock' ? st.table_label : undefined} boundsRef={regionRef}>
+          <ContextDock variant={variant} edge={variant === 'dock' ? edge : 'bottom'} tone="edit-chairs" glyph={<ShapeGlyph shape={shapeHintFor(st.table_type)} className="h-3.5 w-3.5" />} name={variant !== 'dock' ? nameOf(st) : undefined} boundsRef={regionRef}>
             {banner}
           </ContextDock>
         );
@@ -6367,7 +6402,7 @@ export function SeatingEditor({
         // Its guests and empty seats follow under it (Details' guests part).
         <PhoneTableDock
           tableId={st.table_id}
-          tableLabel={st.table_label}
+          tableLabel={nameOf(st)}
           typeValue={st.table_type}
           typeOptions={TABLE_TYPE_CATALOG.map((c) => ({ key: c.type, label: c.label, group: TABLE_KIND_WORD[c.shapeHint] }))}
           typeWord={TABLE_KIND_WORD[shapeHintFor(st.table_type)]}
@@ -6384,7 +6419,7 @@ export function SeatingEditor({
           linkPressed={linkFrom === st.table_id}
           onLink={() => {
             setLinkFrom((cur) => (cur === st.table_id ? null : st.table_id));
-            if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${st.table_label}”.`);
+            if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${nameOf(st)}”.`);
           }}
           swapPressed={swapFrom === st.table_id}
           onSwap={() => armSwap(st)}
@@ -6878,7 +6913,7 @@ export function SeatingEditor({
     ? seatPlanPlaceRows({
         tables: tables.map((t) => ({
           id: t.table_id,
-          label: t.table_label,
+          label: nameOf(t),
           shape: TABLE_TYPE_LABEL[t.table_type],
           seated: seatedAt(t.table_id),
           seats: effectiveCapacity(t.capacity, t.removed_seats),
@@ -6961,7 +6996,7 @@ export function SeatingEditor({
     return occupantsFor(t).filter((g, i) => g === null && !removed.has(i)).length;
   };
   const seatAtOptions = details
-    ? seatAtChoices(tables.map((t) => ({ id: t.table_id, label: t.table_label, free: freeSeatsAt(t) }))).map((o) => ({
+    ? seatAtChoices(tables.map((t) => ({ id: t.table_id, label: nameOf(t), free: freeSeatsAt(t) }))).map((o) => ({
         key: o.id,
         label: o.label,
       }))
@@ -7140,7 +7175,7 @@ export function SeatingEditor({
     return (
       <section data-seat-plan-table={t.table_id} className="flex flex-col gap-1.5">
         <p className="flex items-baseline justify-between gap-2 text-xs font-semibold uppercase tracking-[0.06em] text-ink/70">
-          <span className="min-w-0 truncate">{t.table_label}</span>
+          <span className="min-w-0 truncate">{nameOf(t)}</span>
           <span className="shrink-0 tabular-nums">
             {formatCount(seatedHere)}/{formatCount(cap)}
           </span>
@@ -7430,7 +7465,7 @@ export function SeatingEditor({
       tables.map((t) => {
         const removed = removedSeatSet(t.removed_seats, t.capacity);
         const free = occupantsFor(t).flatMap((g, i) => (g === null && !removed.has(i) ? [i] : []));
-        return [t.table_id, { label: t.link_group_label?.trim() || t.table_label, freeSeats: free }] as const;
+        return [t.table_id, { label: nameOf(t), freeSeats: free }] as const;
       }),
     );
     return assessSeatMove({
@@ -7464,7 +7499,7 @@ export function SeatingEditor({
     for (const x of along) seatGuestHere(target, x.guestId, x.seat);
     const undo = () => undoMove(mover.guest_id, other?.guest_id ?? null, before);
     setMoveNote({
-      text: seatMoveDoneWords(ask.a, moveGuestOf(mover), other ? moveGuestOf(other) : null, target.link_group_label?.trim() || target.table_label, ask.seat, along.map((x) => guestsById.get(x.guestId)?.name ?? '')),
+      text: seatMoveDoneWords(ask.a, moveGuestOf(mover), other ? moveGuestOf(other) : null, nameOf(target), ask.seat, along.map((x) => guestsById.get(x.guestId)?.name ?? '')),
       undo,
     });
   };
@@ -7768,7 +7803,7 @@ export function SeatingEditor({
     if (!a || !t) return;
     const along = alongIds.map((id) => guestsById.get(id)).filter((x): x is SeatingGuest => Boolean(x));
     const before = [mover, ...along].map((x) => ({ id: x.guest_id, tableId: x.seated_table_id, seat: x.seat_number }));
-    const text = seatMoveDoneWords(a, moveGuestOf(mover), other ? moveGuestOf(other) : null, t.link_group_label?.trim() || t.table_label, seat, along.map((x) => x.name));
+    const text = seatMoveDoneWords(a, moveGuestOf(mover), other ? moveGuestOf(other) : null, nameOf(t), seat, along.map((x) => x.name));
     // Two units traded: the Undo is the same trade again (one write), never a pair put back one by one.
     if (swapBack) {
       setMoveNote({
@@ -7792,7 +7827,7 @@ export function SeatingEditor({
     if (!canEdit) return;
     const t = tables.find((x) => x.table_id === at.tableId);
     if (!t) return;
-    const label = t.link_group_label?.trim() || t.table_label;
+    const label = nameOf(t);
     if (item.kind === 'group') {
       const before = guests.filter((g) => g.group_id === item.id).map((g) => ({ id: g.guest_id, tableId: g.seated_table_id, seat: g.seat_number }));
       seatGroupMembers(item.id, t.table_id);
@@ -7922,7 +7957,7 @@ export function SeatingEditor({
     if (!t) return null;
     return (
       <SeatPickMenu
-        label={`Add a guest to ${t.table_label}, seat ${seat + 1}`}
+        label={`Add a guest to ${nameOf(t)}, seat ${seat + 1}`}
         value={null}
         buttonText="Add"
         options={
@@ -7974,7 +8009,7 @@ export function SeatingEditor({
             data="seat-list-table-name"
             attrs={{ 'data-seat-list-table-name': '' }}
             name="Table name"
-            value={u.lead.table_label}
+            value={nameOf(u.lead)}
             maxLength={64}
             required
             onKeep={(label) => {
@@ -7993,7 +8028,7 @@ export function SeatingEditor({
     if (!u) return null;
     return u.members.map((m) => (
       <span key={m.table_id} className="flex min-w-0 flex-wrap items-center gap-1.5" data-seat-list-table={m.table_id}>
-        {u.members.length > 1 ? <span className="text-[12.5px] text-ink/70">{m.table_label}</span> : null}
+        {u.members.length > 1 ? <span className="text-[12.5px] text-ink/70">{nameOf(m)}</span> : null}
         <PickMenu
           label="Table type"
           value={m.table_type}
@@ -8025,7 +8060,7 @@ export function SeatingEditor({
         ) : blankAt && blankTable ? (
           <>
             <span className="min-w-0 flex-1 truncate text-[13.5px] text-ink">
-              {blankTable.table_label} · seat {blankAt.seat + 1}
+              {nameOf(blankTable)} · seat {blankAt.seat + 1}
             </span>
             <SeatPickMenu
               label="Pick a guest"
@@ -8400,7 +8435,7 @@ export function SeatingEditor({
           else if (k === 'link') {
             setSwapFrom(null);
             setLinkFrom((cur) => (cur === st.table_id ? null : st.table_id));
-            if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${st.table_label}”.`);
+            if (linkFrom !== st.table_id) setNotice(`Now tap the table to join to “${nameOf(st)}”.`);
           } else if (k === 'delete') requestRemoveTable(st);
         };
         return (
@@ -8415,7 +8450,7 @@ export function SeatingEditor({
                   data="seat-table-name"
                   attrs={{ 'data-seat-table-name': '' }}
                   name="Table name"
-                  value={st.table_label}
+                  value={nameOf(st)}
                   maxLength={64}
                   required
                   onKeep={(label) => {
@@ -9301,7 +9336,7 @@ export function SeatingEditor({
               className="pointer-events-none absolute z-[31] -translate-x-1/2 whitespace-nowrap rounded-full bg-ink px-2 py-0.5 text-[9px] font-semibold text-cream"
               style={{ left: `${positions[dragId]!.x}%`, top: `calc(${positions[dragId]!.y}% + 6%)` }}
             >
-              Lined up with {tables.find((t) => t.table_id === linedWithRef.current)!.table_label}
+              Lined up with {shownNames.get(linedWithRef.current!) ?? ''}
             </span>
           ) : null}
 
@@ -10093,7 +10128,7 @@ export function SeatingEditor({
                   <button
                     type="button"
                     onPointerDown={tablePress(t) === 'drag' ? onHubPointerDown(t) : onTapDown('table', t.table_id)}
-                    aria-label={`${t.table_label} — drag to move`}
+                    aria-label={`${nameOf(t)} — drag to move`}
                     // Blueprint: hairline footprint (directive) — border-2 → border.
                     className={`absolute left-1/2 top-1/2 flex select-none flex-col items-center justify-center border bg-cream text-center shadow-sm transition ${
                       rot ? '' : '-translate-x-1/2 -translate-y-1/2'
@@ -10245,13 +10280,13 @@ export function SeatingEditor({
                   if (unit) setFaceOpen((c) => (c.has(unit.key) ? c : new Set([...c, unit.key])));
                   onSelectView('list');
                 }}
-                aria-label={`${st.link_group_label ?? st.table_label}, ${formatCount(who.length)} of ${formatCount(cap)} seated — open this table`}
+                aria-label={`${nameOf(st)}, ${formatCount(who.length)} of ${formatCount(cap)} seated — open this table`}
                 className="sn-press absolute z-[32] flex min-h-11 max-w-[min(260px,70vw)] -translate-x-1/2 -translate-y-full items-center gap-2 rounded-xl bg-ink px-3 py-1.5 text-left text-cream shadow-lg"
                 style={{ left: cx, top: cy - half - 6 }}
               >
                 <span className="min-w-0 flex-1">
                   <b className="block text-[13px] font-semibold leading-tight">
-                    {st.link_group_label ?? st.table_label} · {formatCount(who.length)} of {formatCount(cap)}
+                    {nameOf(st)} · {formatCount(who.length)} of {formatCount(cap)}
                   </b>
                   <span className="block text-[12px] leading-snug text-cream/80 [overflow-wrap:anywhere]">{who.length ? who.join(', ') : 'No one seated yet'}</span>
                 </span>
@@ -10719,11 +10754,11 @@ export function SeatingEditor({
             return (
               <div className="space-y-3" data-seat-plan-swap-confirm="">
                 <h3 id="seat-swap-confirm-title" className="text-[17px] font-semibold text-ink">
-                  Swap {ta?.table_label ?? 'this table'} and {tb?.table_label ?? 'that table'}?
+                  Swap {(ta ? nameOf(ta) : undefined) ?? 'this table'} and {(tb ? nameOf(tb) : undefined) ?? 'that table'}?
                 </h3>
                 <p className="text-sm leading-relaxed text-ink/70">
-                  The <span className="font-semibold">{formatCount(seatedAt(confirmSwap.a))}</span> at {ta?.table_label} move to {tb?.table_label}, and the{' '}
-                  <span className="font-semibold">{formatCount(seatedAt(confirmSwap.b))}</span> at {tb?.table_label} move to {ta?.table_label} — each keeps their chair number.
+                  The <span className="font-semibold">{formatCount(seatedAt(confirmSwap.a))}</span> at {(ta ? nameOf(ta) : undefined)} move to {(tb ? nameOf(tb) : undefined)}, and the{' '}
+                  <span className="font-semibold">{formatCount(seatedAt(confirmSwap.b))}</span> at {(tb ? nameOf(tb) : undefined)} move to {(ta ? nameOf(ta) : undefined)} — each keeps their chair number.
                 </p>
                 <GuestConfirmActions
                   keep={<ActionButton tone="neutral" icon={X} label="Cancel" onClick={() => setConfirmSwap(null)} />}
@@ -10736,6 +10771,19 @@ export function SeatingEditor({
       ) : null}
       {/* ↩ The Undo a swiped-away table, rule or seat leaves (owner 2026-11-03) — one toast, however many hosts. */}
       <UndoToastHost />
+      {/* 🪑 The Name row (seat plan § 4.3) — opened from the table's ⋯ › Name…; L10's table screen T mounts the same piece. */}
+      {nameSheetFor ? (
+        <TableNameSheet
+          open
+          onClose={() => setNameSheetFor(null)}
+          tableId={nameSheetFor}
+          tables={tables}
+          seated={nameInputs.seated}
+          groups={nameInputs.groups}
+          canEdit={canEdit}
+          onSave={(label) => renameTable(nameSheetFor, label)}
+        />
+      ) : null}
       {confirmDelete ? (
         <GuestPopup kind="confirm" onClose={() => setConfirmDelete(null)} labelledById="seat-delete-confirm-title">
           {(() => {

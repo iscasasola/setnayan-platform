@@ -59,7 +59,7 @@ import { parseRestoreSeats, parseSeatScope, restorableSeats, seatsThatStay, seat
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { placedByAuto, placedByCouple } from '@/lib/seat-why';
-import { SEAT_LOCKED_REFUSAL, lockedSeatGuests, tablesHoldLockedSeats, tablesWithLockedSeats } from '@/lib/seat-lock.server';
+import { SEAT_LOCKED_REFUSAL, lockedSeatGuests, tablesHoldLockedSeats, tablesWithLockedSeats, type SeatLockedRefusal } from '@/lib/seat-lock.server';
 
 function clampPct(v: unknown): number | null {
   if (typeof v !== 'string' || v.length === 0) return null;
@@ -262,7 +262,7 @@ export async function createTable(formData: FormData) {
   return { tableId: (created?.table_id as string | undefined) ?? null };
 }
 
-export async function deleteTable(formData: FormData) {
+export async function deleteTable(formData: FormData): Promise<SeatLockedRefusal | void> {
   await refuseLimitedHelper(formData.get('event_id'), 'seat_plan');
   const eventId = formData.get('event_id');
   const tableId = formData.get('table_id');

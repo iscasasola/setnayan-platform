@@ -13,6 +13,9 @@ Plan: specs `SEAT-PLAN-COMPLETE-2026-11-27.md` § 4.7 (table kinds E) and § 5. 
   - `fetchFloorPlan` now reads the Speakers element (`speakers_enabled/x/y`) and the two ⋯ switches (`auto_seat_rsvps`, `seat_suggestions`). These come from the PR 3 migration; only an explicit false turns a switch off.
   - Every auto-seat run gets the room: auto arrange, lock-and-fill, the Guests list's "seat them", and the live re-seat.
 - **Also:** PR 4's scope guard now expects the locked-table argument that auto arrange passes.
-- **Tests:** `lib/elders-tables-sit-by-the-door.test.ts` (9). No migration and no new server action.
+- **Every new column has a writer** (the controller's ask, 28 Nov). Both ride routes that already exist:
+  - **Kind ▾ and the table lock** ride `updateTableLabel`'s table route: a form with `table_kind` (regular · vip · elders · spare, with `is_vip` in step) or `table_locked`, and no label.
+  - **The Speakers element and the two ⋯ switches** ride `saveFloorPlan` (`seatPlanSettingsFrom`). They are written only when the screen sends them, so a stage save never turns the speakers off or a switch back on.
+- **Tests:** `lib/elders-tables-sit-by-the-door.test.ts` (9) and `lib/seat-plan-settings-are-written.test.ts` (2). No migration and no new server action.
 
 SPEC IMPACT: None (builds § 4.7 as planned).

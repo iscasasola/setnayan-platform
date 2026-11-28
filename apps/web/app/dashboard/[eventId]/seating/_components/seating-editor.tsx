@@ -208,7 +208,7 @@ import { lockSaysViewOnly, useSeatingLock } from './use-seating-lock';
 import { useSeatingLiveRefresh } from './use-seating-live-refresh';
 import { SeatingLockError } from '../seating-lock-error';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
-import { suggestionFor, type DryRun, type SeatCheckState, type SeatProblem, type SeatSuggestion } from '@/lib/seat-check';
+import { SEAT_WRITE_MAX, fixAllWords, packSeatWrites, settleSeatWrites, suggestionFor, type DryRun, type SeatCheckState, type SeatProblem, type SeatSuggestion } from '@/lib/seat-check';
 import { SeatCheckSheet } from './seat-check';
 import { EASE_SETTLE, SHEEN_MS } from '@/lib/motion-table';
 import { formatCount } from '@/lib/format-number';
@@ -7430,14 +7430,21 @@ export function SeatingEditor({
       if (b.tableId && o.tables.some((x) => x.table_id === b.tableId)) byTable.set(b.tableId, [...(byTable.get(b.tableId) ?? []), b]);
       else off.push(b.id);
     }
-    for (const [tableId, rows] of byTable) {
+    // A write carries at most SEAT_WRITE_MAX guests (the server refuses more), so a big Undo goes back in pieces.
+    for (const [tableId, all] of byTable) {
       const t = o.tables.find((x) => x.table_id === tableId)!;
-      const [first, ...rest] = rows;
-      const chaired = rest.filter((b): b is SeatBefore & { seat: number } => b.seat !== null);
-      o.seatGuestHere(t, first!.id, first!.seat ?? undefined, chaired.map((b) => ({ guestId: b.id, seat: b.seat })));
-      for (const b of rest) if (b.seat === null) o.seatGuestHere(t, b.id);
+      for (let i = 0; i < all.length; i += SEAT_WRITE_MAX) {
+        const [first, ...rest] = all.slice(i, i + SEAT_WRITE_MAX);
+        const chaired = rest.filter((b): b is SeatBefore & { seat: number } => b.seat !== null);
+        o.seatGuestHere(t, first!.id, first!.seat ?? undefined, chaired.map((b) => ({ guestId: b.id, seat: b.seat })));
+        for (const b of rest) if (b.seat === null) o.seatGuestHere(t, b.id);
+      }
     }
-    if (off.length) o.unseat(off[0]!, true, off.slice(1));
+    // The guests who had no seat leave in writes of at most SEAT_WRITE_MAX too (the server refuses more).
+    for (let i = 0; i < off.length; i += SEAT_WRITE_MAX) {
+      const [head, ...tail] = off.slice(i, i + SEAT_WRITE_MAX);
+      o.unseat(head!, true, tail);
+    }
   };
   /* ↩ An Undo restores EVERYONE the move moved (`seatMoveUndo`): a swap is swapped back AND the +1 who came along goes
      back to their chair (#7906 follow-up, walk 18 Nov — the swap's Undo used to stop at the two). */
@@ -7583,7 +7590,7 @@ export function SeatingEditor({
   /** Where every group goes: each table's free chairs handed out ONCE across all of them — never two guests on one chair. */
   const placeAll = (groups: ReadonlyArray<{ tableId: string; guestIds: readonly string[] }>) => {
     const pool = new Map<string, number[]>();
-    const byTable = new Map<string, Array<{ guestId: string; seat: number }>>();
+    const byTable = new Map<string, Array<Array<{ guestId: string; seat: number }>>>();
     for (const g of groups) {
       const t = tables.find((x) => x.table_id === g.tableId);
       if (!t) return null;
@@ -7591,12 +7598,16 @@ export function SeatingEditor({
       if (free.length < g.guestIds.length) return { short: g.guestIds.length };
       const seats = g.guestIds.map((guestId, i) => ({ guestId, seat: free[i]! }));
       pool.set(t.table_id, free.slice(g.guestIds.length));
-      byTable.set(t.table_id, [...(byTable.get(t.table_id) ?? []), ...seats]);
+      byTable.set(t.table_id, [...(byTable.get(t.table_id) ?? []), seats]);
     }
     return { byTable };
   };
-  /** Seat the groups — ONE write per table (`along`) — and say ONE line with ONE Undo once every write has landed. */
-  const seatGroups = (groups: ReadonlyArray<{ tableId: string; guestIds: readonly string[] }>, words: (tableLabel: string) => string) => {
+  /** Seat the groups — ONE write per table (`along`, packed to `SEAT_WRITE_MAX` a write) — and say ONE line with ONE
+      Undo once every write has answered, built ONLY from what landed (`settleSeatWrites`): never a planned count. */
+  const seatGroups = (
+    groups: ReadonlyArray<{ tableId: string; guestIds: readonly string[] }>,
+    words: (tableLabel: string, landedIds: readonly string[]) => string,
+  ) => {
     const plan = placeAll(groups);
     if (!plan) return false;
     if ('short' in plan) {
@@ -7610,29 +7621,29 @@ export function SeatingEditor({
       const g = guestsById.get(gid);
       return g ? [{ id: g.guest_id, tableId: g.seated_table_id, seat: g.seat_number }] : [];
     };
+    const before = new Map(ids.map((id) => [id, beforeOf(id)] as const));
     setJustTaken((c) => new Set([...c, ...ids]));
-    let waiting = plan.byTable.size;
-    const landed: SeatBefore[] = [];
-    const missed: string[] = [];
-    const firstTable = tables.find((x) => x.table_id === groups[0]?.tableId);
-    for (const [tableId, seats] of plan.byTable) {
-      const t = tables.find((x) => x.table_id === tableId)!;
-      const [first, ...rest] = seats;
-      const tableBefore = seats.flatMap((x) => beforeOf(x.guestId));
+    const writes = packSeatWrites(plan.byTable);
+    let waiting = writes.length;
+    const answers: boolean[] = [];
+    writes.forEach((w, i) => {
+      const t = tables.find((x) => x.table_id === w.tableId)!;
+      const [first, ...rest] = w.seats;
       seatGuestHere(t, first!.guestId, first!.seat, rest, (ok) => {
-        if (ok) landed.push(...tableBefore);
-        else missed.push(...seats.map((x) => x.guestId));
+        answers[i] = ok;
         waiting -= 1;
         if (waiting > 0) return;
-        // A table that did not land gives its guests back to the strips at once.
+        const { landed, missed, firstTableId } = settleSeatWrites(writes, answers);
+        // A write that did not land gives its guests back to the strips at once.
         if (missed.length) setJustTaken((c) => new Set([...c].filter((id) => !missed.includes(id))));
         // ONE Undo for exactly what landed — never for a write that was refused or failed.
         if (landed.length) {
-          const back = [...landed];
-          setMoveNote({ text: words(firstTable?.link_group_label?.trim() || firstTable?.table_label || ''), undo: () => { setMoveNote(null); putBack(back); } });
+          const back = landed.flatMap((id) => before.get(id) ?? []);
+          const lt = tables.find((x) => x.table_id === firstTableId);
+          setMoveNote({ text: words(lt?.link_group_label?.trim() || lt?.table_label || '', landed), undo: () => { setMoveNote(null); putBack(back); } });
         }
       });
-    }
+    });
     return true;
   };
   const shortOf = (id: string) => {
@@ -7649,7 +7660,7 @@ export function SeatingEditor({
   const takeSuggestion = (sug: SeatSuggestion) => {
     if (needsEdit()) return;
     const ids = withUnits(sug.guestIds);
-    seatGroups([{ tableId: sug.tableId, guestIds: ids }], (label) => `${ids.map(shortOf).join(', ')} → ${label}`);
+    seatGroups([{ tableId: sug.tableId, guestIds: ids }], (label, got) => `${got.map(shortOf).join(', ')} → ${label}`);
   };
   /** A seat check's Fix: seat them (one write, one Undo), or open the table to look. */
   const fixProblem = (p: SeatProblem) => {
@@ -7661,7 +7672,7 @@ export function SeatingEditor({
     }
     if (needsEdit()) return;
     const ids = withUnits(p.fix.guestIds);
-    if (seatGroups([{ tableId: p.fix.tableId, guestIds: ids }], (label) => `${ids.map(shortOf).join(', ')} → ${label}`)) setCheckOpen(false);
+    if (seatGroups([{ tableId: p.fix.tableId, guestIds: ids }], (label, got) => `${got.map(shortOf).join(', ')} → ${label}`)) setCheckOpen(false);
   };
   /** "Fix all": every problem with a seat fix, then ONE Undo that puts everyone back. */
   const fixAllProblems = () => {
@@ -7674,8 +7685,8 @@ export function SeatingEditor({
       ids.forEach((id) => seen.add(id));
       return ids.length ? [{ tableId: p.fix.tableId, guestIds: ids }] : [];
     });
-    const n = groups.reduce((k, g) => k + g.guestIds.length, 0);
-    if (seatGroups(groups, () => `Fixed · ${formatCount(n)} ${n === 1 ? 'guest' : 'guests'} seated`)) setCheckOpen(false);
+    // The count is what LANDED (a failed table's guests are not "seated"), never every planned guest.
+    if (seatGroups(groups, (_label, got) => fixAllWords(got.length, formatCount))) setCheckOpen(false);
   };
   /** The strip a card draws: the dry run's suggestion that fits its free chairs, while "Suggest seats on the cards" is on. */
   const cardSuggestion = (unitKey: string) => {

@@ -61,6 +61,7 @@ import { autoDefaultLabel, hostNameClash, isDefaultTableLabel, renameWrites } fr
 import { readTableDisplayNames } from '@/lib/table-auto-name.server';
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { placedByAuto, placedByCouple } from '@/lib/seat-why';
+import { SEAT_WRITE_MAX } from '@/lib/seat-check';
 import { SEAT_LOCKED_REFUSAL, lockedSeatGuests, tablesHoldLockedSeats, tablesWithLockedSeats, type SeatLockedRefusal } from '@/lib/seat-lock.server';
 
 function clampPct(v: unknown): number | null {
@@ -359,11 +360,13 @@ export async function assignGuest(formData: FormData) {
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
   /* 🧑‍🤝‍🧑 A UNIT IN ONE WRITE (seat plan R3): `along` = the +1s who move with this guest, each to their own chair at the
-     same table — one upsert, so a failure never leaves the pair split. */
+     same table — one upsert, so a failure never leaves the pair split. A list past the cap (`SEAT_WRITE_MAX`, one guest
+     + the rest along) is REFUSED, never truncated: a cut list would drop a guest the client counts as seated. */
   const along: Array<{ guest_id: string; seat_number: number }> = [];
   try {
     const raw = JSON.parse(String(formData.get('along') ?? '[]')) as unknown;
-    for (const x of Array.isArray(raw) ? raw.slice(0, 8) : []) {
+    if (Array.isArray(raw) && raw.length > SEAT_WRITE_MAX - 1) throw new Error('Too many guests in one write');
+    for (const x of Array.isArray(raw) ? raw : []) {
       const g = (x as { guest_id?: unknown }).guest_id;
       const n = (x as { seat_number?: unknown }).seat_number;
       if (typeof g === 'string' && UUID_RE.test(g) && g !== guestId && Number.isInteger(n) && (n as number) >= 0 && (n as number) < 64)
@@ -1316,8 +1319,10 @@ export async function unassignGuest(formData: FormData) {
 
   await assertSeatingLockHeld(supabase, eventId, lockIdFrom(formData));
 
-  /* 🧑‍🤝‍🧑 `also` = the +1s who leave the seat with this guest (seat plan R3) — one delete, so the pair never splits. */
-  const also = String(formData.get('also') ?? '').split(',').filter(Boolean).slice(0, 8);
+  /* 🧑‍🤝‍🧑 `also` = the +1s who leave the seat with this guest (seat plan R3) — one delete, so the pair never splits. A list
+     past the cap (`SEAT_WRITE_MAX`, one guest + the rest also) is REFUSED, never truncated. */
+  const also = String(formData.get('also') ?? '').split(',').filter(Boolean);
+  if (also.length > SEAT_WRITE_MAX - 1) throw new Error('Too many guests in one write');
   if (also.some((id) => !UUID_RE.test(id))) throw new Error('Invalid input');
   const everyone = [guestId, ...also];
   // 🔒 #17: a locked seat is never taken off by a hand (Clear all keeps its own `keep_locked` rule).

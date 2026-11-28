@@ -353,13 +353,16 @@ function mediaUrlOf(ref: string | null): string | null {
 }
 
 export async function readGownFabricTypes(client: SupabaseClient): Promise<Read<GownFabricTypeOption[]>> {
-  const { data, error } = await client.from('gown_fabric_types').select('type_id, name, sheen, sheer, stiff, verified').eq('active', true).order('sort');
+  const { data, error } = await client.from('gown_fabric_types').select('type_id, name, sheen, sheer, stiff, verified, family, used_for').eq('active', true).order('sort');
   if (error) {
     logQueryError('readGownFabricTypes', error, {}, 'graceful_degrade');
     return { status: 'unread' };
   }
-  type Row = { type_id: string; name: string; sheen: number | string; sheer: number | string; stiff: number | string; verified: boolean };
-  return { status: 'ok', data: ((data ?? []) as Row[]).map((r) => ({ id: r.type_id, name: r.name, sheen: Number(r.sheen), sheer: Number(r.sheer), stiff: Number(r.stiff), verified: r.verified })) };
+  type Row = { type_id: string; name: string; sheen: number | string; sheer: number | string; stiff: number | string; verified: boolean; family: GownFabricTypeOption['family']; used_for: GownFabricTypeOption['usedFor'] | null };
+  return {
+    status: 'ok',
+    data: ((data ?? []) as Row[]).map((r) => ({ id: r.type_id, name: r.name, sheen: Number(r.sheen), sheer: Number(r.sheer), stiff: Number(r.stiff), verified: r.verified, family: r.family, usedFor: r.used_for ?? [] })),
+  };
 }
 
 export async function readShopGownStock(admin: SupabaseClient, vendorProfileId: string): Promise<Read<{ fabrics: ShopGownStockFabric[]; looks: ShopGownStockLook[] }>> {

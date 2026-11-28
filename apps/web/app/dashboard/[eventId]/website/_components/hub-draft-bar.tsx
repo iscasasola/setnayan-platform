@@ -13,6 +13,7 @@ import type { RiseRect } from '@/lib/rise-motion';
 import { hubDraftAction } from '../hub-draft-actions';
 import { MAKER_OPEN_PART_EVENT, useMaker } from '../../launch/_components/maker-context';
 import { DraftButton } from './hub-draft-button';
+import { actionButtonClass } from '@/components/action-button-class';
 import { ApplyProSheet } from './apply-pro-sheet';
 import { MakerGoLive } from './maker-go-live';
 import { UNLOCK_AND_APPLY_PARAM, unlockAndApplyOnReturn, type HubProEffectView } from '@/lib/hub-pro-effect-view';
@@ -807,7 +808,7 @@ export function HubDraftToolbar({
               <div className="flex flex-wrap gap-1">
                 <button
                   type="button"
-                  className="button-primary inline-flex"
+                  className={actionButtonClass('brand', { main: true })}
                   disabled={pending}
                   onClick={() => act({ intent: 'reset', stage })}
                 >

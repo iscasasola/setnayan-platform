@@ -83,6 +83,7 @@
  */
 
 import { lockRequestStateOf, type LockRequestRow } from '@/lib/lock-request-state';
+import { askEndedOf, askLine, type AskEnded } from '@/lib/booking-ask-words';
 
 /** The lanes the roster opens on, in the order they are shown. */
 export type CustomerLane = 'waiting' | 'holding' | 'talking' | 'booked' | 'finished';
@@ -249,6 +250,14 @@ export type PipelineCustomer = {
   place: string | null;
   threadId: string | null;
   eventVendorId: string | null;
+  /**
+   * 📌 HOW THE COUPLE'S LAST BOOKING ASK ENDED, when it ended without a booking (L5 · C4). The couple's chat said
+   * "Booking ask expired" while this row said "Holding · Talking": an ended ask fell through to the enquiry branch
+   * and was never named. Same state (`lockRequestStateOf` → `askEndedOf`), same words as the supplier's customer
+   * card (`askLine(ended, 'supplier')`, `supplierAskOutcomeOf`). Null while an ask is open, after a booking, or
+   * when no ask was ever made. Optional so older fixtures still type.
+   */
+  askEnded?: { state: AskEnded; line: string } | null;
 };
 
 /**
@@ -387,6 +396,10 @@ export function customerLaneOf(
     place: input.place,
     threadId: thread?.threadId ?? null,
     eventVendorId: booking?.eventVendorId ?? null,
+    askEnded: (() => {
+      const ended = askEndedOf(lockState);
+      return ended ? { state: ended, line: askLine(ended, 'supplier') } : null;
+    })(),
   };
 }
 

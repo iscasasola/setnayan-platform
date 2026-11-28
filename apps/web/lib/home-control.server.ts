@@ -8,9 +8,11 @@ import 'server-only';
  *   ③ Event Hub — which page guests see now (`resolveHubStage`, the Event Hub control's own answer), the public link
  *                 (`publicEventPath`, the owner's segment from `resolveEventOwnerSlug`) and who can view it
  *                 (`whoCanViewLabel`, the Maker's words).
- *   ④ Suppliers — the dashboard's own "N of M booked" (`countUnlockedCategories` over THIS type's plan groups,
- *                 `planGroupsForEventType`), the quotes waiting on the couple (`SupplierStanding.needsYou`) and who
- *                 replied (`standingRollUp`) — both from `buildBenchStandings`, the Suppliers bench's own derivation.
+ *   ④ Suppliers — "N of M booked" at Find's own grain (`bookedCategoryTally`, the one booked reader: M = the
+ *                 categories Find lists, N = those holding a booked supplier — it used to count the event type's whole
+ *                 plan ladder, so Home said "0 of 25" beside Find's "1 category", L5 · C7), the quotes waiting on the
+ *                 couple (`SupplierStanding.needsYou`) and who replied (`standingRollUp`) — both from
+ *                 `buildBenchStandings`, the Suppliers bench's own derivation.
  *   ⑥ To do     — Planning Stage's To do filter, read through THE ONE LIST (`fetchPreparationAgenda`, `only: 'todo'`)
  *                 and counted by its one rule (`planningProgress`) — so the tile and the list cannot disagree (owner
  *                 2026-11-01, "Checklist merges into Planning Stage"; `lib/the-plan-is-one-list.test.ts`).
@@ -29,11 +31,9 @@ import { logQueryError } from '@/lib/supabase/error-detect';
 import { resolveHubStage } from '@/lib/event-hub-control';
 import { manualLaunchPhase } from '@/lib/invitation-widgets';
 import { publicEventPath, resolveEventOwnerSlug } from '@/lib/public-event-url';
-import { whoCanViewLabel } from '@/lib/event-visibility';
+import { normalizeVisibility, openToStrangers, whoCanViewLabel } from '@/lib/event-visibility';
 import { siteUrl } from '@/lib/social/urls';
-import { fetchPlanGroupScope, planGroupsForEventType } from '@/lib/plan-groups-by-event-type';
-import { countUnlockedCategories } from '@/lib/todays-one-thing';
-import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
+import { bookedCategoryTally } from '@/lib/booked-tally';
 import { BOOKED_BY_PAYMENT_EMBED, withEmbeddedPayments } from '@/lib/booked-by-payment';
 import { buildBenchStandings } from '@/lib/conversation-list';
 import { standingRollUp } from '@/lib/supplier-standing';
@@ -86,9 +86,11 @@ export async function readHomeHub(
   });
   const origin = siteUrl().replace(/\/$/, '');
   const path = ev.slug ? publicEventPath(ev.slug, ownerSlug) : null;
-  const open = ev.landing_page_visibility === 'public' || ev.landing_page_visibility === 'unlisted';
+  const visibility = normalizeVisibility(ev.landing_page_visibility);
+  const open = openToStrangers(visibility);
   return {
     stage,
+    visibility,
     publicUrl: path && open ? `${origin}${path}` : null,
     where: opts.app
       ? whoCanViewLabel(ev.landing_page_visibility)
@@ -105,18 +107,19 @@ export async function readHomeSuppliers(
   opts: { show: boolean; eventType: string | null },
 ): Promise<HomeSuppliersFacts | 'unread' | null> {
   if (!opts.show) return null;
-  const [vendorsRes, threadsRes, scope] = await Promise.all([
+  const [vendorsRes, threadsRes, excludedRes] = await Promise.all([
     supabase
       .from('event_vendors')
-      .select(`vendor_id, vendor_name, category, status, lock_request_state, marketplace_vendor_id, manual_vendor_id, ${BOOKED_BY_PAYMENT_EMBED}`)
+      .select(`vendor_id, vendor_name, category, category_key, status, lock_request_state, marketplace_vendor_id, manual_vendor_id, ${BOOKED_BY_PAYMENT_EMBED}`)
       .eq('event_id', eventId)
       .is('archived_at', null)
       .order('created_at', { ascending: true }),
     supabase.from('chat_threads').select('thread_id, vendor_profile_id, inquiry_status').eq('event_id', eventId),
-    fetchPlanGroupScope(supabase),
+    // The categories the couple removed — Find's own read (`readExcludedTiles` on the vendors page).
+    supabase.from('event_category_decisions').select('tile').eq('event_id', eventId).eq('decision', 'excluded').not('tile', 'is', null),
   ]);
-  if (vendorsRes.error || threadsRes.error) {
-    logQueryError('HomeControl.suppliers', (vendorsRes.error ?? threadsRes.error)!, { event_id: eventId }, 'graceful_degrade');
+  if (vendorsRes.error || threadsRes.error || excludedRes.error) {
+    logQueryError('HomeControl.suppliers', (vendorsRes.error ?? threadsRes.error ?? excludedRes.error)!, { event_id: eventId }, 'graceful_degrade');
     return 'unread';
   }
   const vendors = withEmbeddedPayments(
@@ -124,6 +127,7 @@ export async function readHomeSuppliers(
       vendor_id: string;
       vendor_name: string;
       category: VendorCategory;
+      category_key: string | null;
       status: string | null;
       lock_request_state: string | null;
       marketplace_vendor_id: string | null;
@@ -131,9 +135,13 @@ export async function readHomeSuppliers(
       vendor_payments?: Array<{ payment_refused_at: string | null }> | null;
     }>,
   );
-  const groups = planGroupsForEventType(opts.eventType, scope);
-  const of = groups.filter((g) => g.countsTowardLockable !== false).length;
-  const booked = Math.max(0, of - countUnlockedCategories(vendors as ReadonlyArray<EventVendorRowInput>, groups));
+  // 📌 The one booked reader, at Find's grain — the same categories Find lists and Build counts (L5 · C2/C7).
+  const tally = bookedCategoryTally(
+    vendors,
+    ((excludedRes.data ?? []) as Array<{ tile: string | null }>).flatMap((d) => (d.tile ? [d.tile] : [])),
+  );
+  const of = tally.listed;
+  const booked = tally.booked;
 
   // Where each supplier stands — the bench's own derivation, for the suppliers the couple has written to.
   const threadByProfile = new Map<string, { thread_id: string; inquiry_status: string | null }>();

@@ -120,6 +120,7 @@ import { floatOpenTips } from '@/lib/float-open-tips';
 import type { InviteThemeId } from '@/lib/invite-themes';
 import { ART_KIT_IS_PRO } from '@/lib/art-kit-pro';
 import { isAccentScene, type SceneAccents } from '@/lib/art-kit-accents';
+import { actionButtonClass } from '@/components/action-button-class';
 
 /**
  * THE MAKER'S WORK AREA — navigator · canvas · inspector (Event Hub Maker,
@@ -3176,7 +3177,7 @@ export function MakerWork({
                   onLoad={(e) => setTicketLoaded(e.currentTarget.getAttribute('src'))}
                   onError={() => setTicketFailed(ticketDesign)}
                   data-maker-ticket-img={ticketLoaded === makerTicketSrc(eventId, ticketDesign) ? 'loaded' : 'loading'}
-                  className={`absolute inset-0 h-full w-full rounded-md bg-white object-contain shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] transition-opacity duration-300 motion-reduce:transition-none lg:static lg:h-auto lg:max-h-[calc(100%-2rem)] lg:w-auto lg:max-w-full lg:opacity-100 ${
+                  className={`absolute inset-0 h-full w-full rounded-md bg-white object-contain shadow-[0_1px_2px_rgba(40,34,24,.06),0_28px_54px_-30px_rgba(30,26,18,.5)] transition-opacity duration-sn-elem ease-sn motion-reduce:transition-none lg:static lg:h-auto lg:max-h-[calc(100%-2rem)] lg:w-auto lg:max-w-full lg:opacity-100 ${
                     ticketLoaded === makerTicketSrc(eventId, ticketDesign) ? 'opacity-100' : 'opacity-0'
                   }`}
                 />
@@ -3830,7 +3831,7 @@ function MoreExtras({
           </p>
           <Link
             href={proUnlockHref}
-            className="sn-press mt-2.5 inline-flex min-h-10 items-center rounded-full bg-amber-400 dark:bg-[rgb(var(--color-warn))] px-4 text-[13px] font-semibold text-ink hover:bg-amber-300 dark:hover:bg-[rgb(var(--color-warn))]"
+            className={actionButtonClass('warn', { filled: true, extra: 'mt-2.5' })}
           >
             {unlockLabel(proPriceLabel)}
           </Link>

@@ -1,4 +1,5 @@
 import 'server-only';
+import { shownTableRows } from '@/lib/table-auto-name.server';
 
 import { eventSetnayanMark } from '@/lib/setnayan-mark-by-plan.server';
 import { printBrandForMark } from '@/lib/setnayan-mark-by-plan';
@@ -1185,7 +1186,8 @@ export async function loadGuestPasses(
   if (await guestsMaySeeSeatsFor(admin, eventId, { ticket: true })) {
     const [{ data: seats }, { data: tables }] = await Promise.all([
       admin.from('event_seat_assignments').select('guest_id, table_id, seat_number').eq('event_id', eventId),
-      admin.from('event_tables').select('table_id, table_label').eq('event_id', eventId),
+      // 🪑 The name each table SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+      shownTableRows(admin, eventId),
     ]);
     const label = new Map(((tables ?? []) as Array<{ table_id: string; table_label: string | null }>).map((t) => [t.table_id, t.table_label]));
     for (const s of (seats ?? []) as Array<{ guest_id: string; table_id: string; seat_number: number | null }>) {

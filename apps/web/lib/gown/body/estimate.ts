@@ -2,8 +2,8 @@
  * 👗 gown/body/estimate — starting numbers for the gown's own measurements, measured on the solved mannequin (cm,
  * to the half). Her tape replaces them; each stays tagged "estimate" until it does (prototype v186 `estMeas`).
  *
- * This step ports the estimates that read the body alone. The ones that run a tape down the dress's body table
- * (nape to waist, front length, hollow to hem, waist to hem) need the dress layer and land with it in step A5.
+ * This step ports the estimates that read the body alone. Given her envelope (A8), nape to waist and front length run a
+ * tape down the body surface as v186 does. Hollow to hem and waist to hem read the gown's hem and land with the quote.
  *
  * Waist to hip: the prototype's hip-line version sits inside a code comment, so it always uses its fall-back (natural
  * waist to the hip joint + 3 cm), and so does this port. KNOWN OPEN ITEM (coordinator, 27 Nov): the estimate runs long,
@@ -15,18 +15,37 @@ import type { GownMeasureKey } from '../../gown-config';
 import { jointP, jointY } from './bones';
 import { BODY_K } from './constants';
 import type { GownRig } from './rig';
+import { RING_N, TAU } from './constants';
+import { clamp } from './rig';
+import { lerpRow, type GownEnvelope } from '../dress/table';
 import { apexOf, hullLen, ringPoints } from './tape';
 
 export type GownBodyEstimates = Partial<Record<GownMeasureKey, number>>;
 
 const half = (x: number) => Math.round(x * 2) / 2;
 
-export function estimateGownMeasures(B: GownRig): GownBodyEstimates {
+export function estimateGownMeasures(B: GownRig, T?: GownEnvelope): GownBodyEstimates {
   const o: GownBodyEstimates = {};
   const S = B.P.S * 100, k = BODY_K, v = B.vals, yN = jointY(B, 'neck01'), yW = k.yWaist;
   const J = (s: string) => jointP(B, s, new THREE.Vector3());
   let floor = 1e9;
   for (let i = 1; i < B.n * 3; i += 3) if (B.V[i]! < floor) floor = B.V[i]!;
+  if (T && T.n) {
+    // A tape laid down the body surface, in one column of her envelope (v186 `surf`).
+    const DY = 0.01, surf = (q: number, y0: number, y1: number) => {
+      let L = 0, prev: THREE.Vector3 | null = null;
+      for (let i = 0; i <= 24; i++) {
+        const y = y0 + ((y1 - y0) * i) / 24, yy = clamp(y, T.y0, T.y0 + (T.n - 2) * DY), r = lerpRow(T, T.H, yy, q), ph = (q * TAU) / RING_N, zc = B.zcAt(Math.max(y, T.yF));
+        const p = new THREE.Vector3(r * Math.sin(ph), y, zc + r * Math.cos(ph));
+        if (prev) L += p.distanceTo(prev);
+        prev = p;
+      }
+      return L * S;
+    };
+    // The nape bone and the shoulder-neck point sit about 3.5 cm above the neck joint.
+    o.napeWaist = surf(RING_N / 2, yN + 0.035, yW);
+    o.frontLen = surf(Math.round(RING_N * 0.06), yN + 0.035, yW) * 1.04;
+  }
   const a = apexOf(B, 1), b = apexOf(B, -1);
   if (a && b) {
     o.apexApex = a.distanceTo(b) * S;

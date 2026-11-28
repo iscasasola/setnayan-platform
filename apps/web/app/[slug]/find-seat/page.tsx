@@ -16,6 +16,7 @@ import { readGuestBooths } from '@/lib/booth-card-from-row';
 import { parseGuestSeatView, type GuestSeatView } from '@/lib/guest-seat-view';
 import type { Lab3DBooth } from '@/lib/seating-3d';
 import { fetchPublicTables, type EventTableRow } from '@/lib/seating';
+import { guestTablesWithShownNames } from '@/lib/table-auto-name.server';
 import { renderInvitationQrSvg } from '@/lib/qr';
 import { resolveMonogram } from '@/lib/monogram';
 import { formatEventDate } from '@/lib/events';
@@ -140,7 +141,8 @@ export default async function FindSeatPage({ params, searchParams }: Props) {
   if (published) {
     // 🔌 A4-34: the guest-safe seat-plan reader (`lib/seating.ts` `fetchPublicTables`, no QR tokens). A failed read is not an empty room — it
     // throws to the error boundary, as before.
-    tables = await fetchPublicTables(admin, event.event_id);
+    // 🪑 …under the name each table SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts), the name on its sign.
+    tables = await guestTablesWithShownNames(admin, event.event_id, await fetchPublicTables(admin, event.event_id));
   }
   /* 🪑 How the couple chose guests see their seat (owner 2026-11-01) and 🏪 the booked suppliers' booths — both read only
      once the seat gate opened the room, like the tables. An unread choice is today's (Both); an unread booth list draws

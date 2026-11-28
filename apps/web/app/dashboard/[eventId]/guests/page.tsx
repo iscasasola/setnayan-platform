@@ -113,6 +113,7 @@ import { quickAddTips } from '@/lib/quick-add-tips';
 import { tableWords } from '@/lib/table-words';
 import { readInviteTagsByGuest } from '@/lib/guest-chapter-invites';
 import { AddGuestSheet, OpenAddGuestTextButton } from './_components/add-guest-sheet';
+import { tableDisplayNames, withDisplayNames } from '@/lib/table-auto-name';
 
 /** The guest list's event columns: its own, and every one of the ONE clock's (`EVENT_CLOCK_COLUMNS`, lib/event-clock.ts)
  *  for "has this happened". Typed out so the held-row guard can read it; `lib/the-event-has-one-clock.test.ts` holds
@@ -629,7 +630,17 @@ export default async function GuestsPage({ params, searchParams }: Props) {
   const groups = groupsRead.groups;
   const membershipsMap = membershipsRead.memberships;
   const assignments = assignmentsRead.value;
-  const tables = tablesRead.value;
+  // 🪑 Each table under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts), worked out from
+  // what this page already read — its groups, memberships, seats and guests — so nothing is asked twice: the seat
+  // column, the Seat sort, roster search and the table picker all say the name the table wears.
+  const tables = withDisplayNames(
+    tablesRead.value,
+    tableDisplayNames(tablesRead.value, assignmentsRead.value, {
+      labels: groupsRead.groups.map((g) => ({ group_id: g.group_id, label: g.label })),
+      members: [...membershipsRead.memberships].flatMap(([guest_id, ids]) => ids.map((group_id) => ({ guest_id, group_id }))),
+      broughtBy: guestsRead.rows.map((g) => ({ guest_id: g.guest_id, plus_one_of_guest_id: g.plus_one_of_guest_id ?? null })),
+    }),
+  );
   const floorPlan = floorPlanRead.measured ? floorPlanRead.plan : null;
   const sideReads = {
     groups: groupsRead.measured && membershipsRead.measured,

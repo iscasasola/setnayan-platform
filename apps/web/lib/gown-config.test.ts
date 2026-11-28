@@ -39,17 +39,27 @@ const refused = (got: { ok: boolean; reason?: GownRefusal }, reason: GownRefusal
  * Adding an id at the END of a list is allowed (and this pin grows with it); anything else turns this red.
  */
 const SHIPPED: Record<string, string[]> = {
-  GOWN_SILHOUETTES: ['aline', 'ball', 'mermaid', 'sheath', 'terno'],
+  GOWN_SILHOUETTES: ['aline', 'ball', 'mermaid', 'sheath', 'terno', 'fitflare'],
   GOWN_PIECES: ['one', 'two', 'crop'],
   GOWN_WAISTLINES: ['natural', 'empire', 'dropped', 'basque', 'basqueU'],
-  GOWN_NECKLINES: ['sweetheart', 'v', 'off', 'high', 'bateau'],
-  GOWN_SLEEVES: ['none', 'cap', 'long', 'butterfly'],
-  GOWN_SLEEVE_FABRICS: ['fabric', 'lace'],
+  GOWN_NECKLINES: ['sweetheart', 'v', 'off', 'high', 'bateau', 'straight'],
+  GOWN_SLEEVES: ['none', 'cap', 'long', 'butterfly', 'flutter'],
+  GOWN_SLEEVE_FABRICS: ['fabric', 'lace', 'chiffon'],
   GOWN_BACKS: ['scoop', 'closed', 'v'],
   GOWN_CLOSURES: ['zipper', 'lace', 'buttons'],
   GOWN_TRAINS: ['none', 'sweep', 'chapel', 'cathedral'],
-  GOWN_VEILS: ['none', 'fingertip', 'chapel', 'cathedral'],
+  GOWN_VEILS: ['none', 'fingertip', 'chapel', 'cathedral', 'elbow', 'floor'],
+  GOWN_BLUSHERS: ['back', 'over'],
+  GOWN_BOWS: ['none', 'back', 'shoulder'],
   GOWN_VEIL_STYLES: ['classic', 'mantilla', 'drop', 'juliet', 'birdcage'],
+  GOWN_CAPES: ['none', 'side', 'back', 'capelet', 'neck', 'pair', 'drape'],
+  GOWN_CAPE_FABRICS: ['gown', 'tulle', 'chiffon', 'organza', 'lace', 'glitter'],
+  GOWN_CAPE_LENGTHS: ['shoulder', 'elbow', 'fingertip', 'floor', 'train'],
+  GOWN_CAPE_EDGES: ['plain', 'lace', 'beaded', 'applique'],
+  GOWN_CAPE_FASTENINGS: ['neck', 'shoulders'],
+  GOWN_CAPE_COLOURS: ['match', 'accent'],
+  GOWN_OVERLAYS: ['none', 'asym', 'tiered', 'cascade'],
+  GOWN_OVERLAY_FABRICS: ['chiffon', 'georgette', 'tulle', 'organza', 'gown', 'glitter'],
   GOWN_HEMS: ['knee', 'midi', 'floor'],
   GOWN_STOCK_FABRICS: ['satin', 'mikado', 'crepe', 'chiffon', 'georgette', 'tulle', 'organza', 'lace', 'sequin', 'pina', 'jusi', 'wool_suiting', 'linen', 'velvet', 'stretch_crepe_jersey'],
   GOWN_COLOURS: ['white', 'ivory', 'champagne', 'blush', 'navy', 'custom'],
@@ -72,7 +82,31 @@ const SHIPPED: Record<string, string[]> = {
   GOWN_PETTICOATS: ['none', 'soft', 'full', 'hoop'],
   GOWN_SHAPEWEAR: ['none', 'light', 'firm', 'corset'],
   GOWN_BONING: ['soft', 'complement', 'corset'],
+  GOWN_ILLUSIONS: ['none', 'neck', 'corset'],
+  GOWN_ILLUSION_CUPS: ['sweetheart', 'straight', 'plunge'],
+  GOWN_ILLUSION_COLOURS: ['nude', 'ivory', 'match'],
+  GOWN_ILLUSION_BACKS: ['off', 'on'],
+  GOWN_BONE_SHOWS: ['off', 'on'],
+  GOWN_STRAPS: ['none', 'spaghetti', 'wide', 'offsh', 'one', 'halter', 'cross'],
+  GOWN_STRAP_COLOURS: ['match', 'accent'],
+  GOWN_STRAP_EDGES: ['plain', 'beaded'],
+  GOWN_TOP_EDGES: ['plain', 'scallop'],
+  GOWN_PLUNGE_FILLS: ['mesh', 'open'],
+  GOWN_FLOWERS: ['none', 'scatter', 'cascade', 'neck', 'hem', 'waist'],
+  GOWN_FLOWER_FROM: ['shoulder', 'bodice'],
+  GOWN_FLOWER_TYPES: ['rosette', 'petal', 'blossom'],
+  GOWN_FLOWER_SIZES: ['small', 'medium', 'large'],
+  GOWN_FLOWER_DENSITIES: ['light', 'medium', 'full'],
+  GOWN_FLOWER_COLOURS: ['gown', 'ivory', 'blush', 'accent'],
+  GOWN_CAPE_FLOWERS: ['none', 'trail', 'edge', 'all'],
+  GOWN_LACE_FINISHES: ['flat', 'raised'],
+  GOWN_VEIL_FABRICS: ['tulle', 'glitter'],
+  GOWN_PEARLS: ['none', 'neck', 'veil', 'both'],
+  GOWN_SLEEVE_WORN: ['sewn', 'detach'],
+  GOWN_ROBE_SLEEVES: ['long', 'puff'],
   GOWN_LININGS: ['satin', 'cotton', 'silk', 'none'],
+  GOWN_LAYER_TYPES: ['soft', 'full', 'organza', 'chiffon', 'hoop', 'glitter'],
+  GOWN_LAYER_COLOURS: ['match', 'ivory', 'white', 'blush', 'champagne', 'nude'],
   GOWN_SLITS: ['left', 'right', 'lside', 'rside', 'back'],
   GOWN_CUTOUTS: ['waist', 'keyhole', 'under', 'diamond', 'window', 'hip', 'slash'],
   GOWN_CUT_EDGES: ['clean', 'bound', 'frayed', 'scalloped', 'beaded'],
@@ -138,7 +172,7 @@ test('the design check refuses, never repairs: each reason has its own words and
   for (const [k, w] of Object.entries(GOWN_REFUSAL_WORDS)) assert.ok(w.length > 0 && !/vendor/i.test(w), `${k} words`);
   refused(sanitizeGownConfig({ ...design(), notes: 'x'.repeat(9000) }, offer()), 'too_big', 'an oversized design');
   refused(sanitizeGownConfig([], offer()), 'not_a_design', 'not an object');
-  refused(sanitizeGownConfig(design({ v: 2 }), offer()), 'not_a_design', 'a version this code does not know');
+  refused(sanitizeGownConfig(design({ v: 99 }), offer()), 'not_a_design', 'a version this code does not know');
   refused(sanitizeGownConfig(design({ sil: 'trumpet' }), offer()), 'not_a_design', 'a silhouette not in the catalog');
   refused(sanitizeGownConfig(design({ fabric: 'Satin!' }), offer()), 'not_a_design', 'a fabric id that is not a slug');
   refused(sanitizeGownConfig(design({ fabric: 'velvet' }), offer({ fabricTypes: ['satin'] })), 'not_offered', 'a fabric type the shop does not work in');
@@ -229,7 +263,8 @@ test('what this design needs: v186 GMEAS conditions', () => {
   // Sweetheart is strapless → the bust points are needed; a floor hem → the floor lengths, not waist to hem.
   assert.ok(base.includes('apexApex') && base.includes('shoulderApex') && base.includes('waistFloor') && !base.includes('waistHem'));
   assert.ok(!base.includes('knee') && !base.includes('elbow'));
-  const mermaid = gownMeasuresNeeded({ ...s, sil: 'mermaid', sleeve: 'long', neck: 'bateau', hem: 'knee' });
+  // v197 starts boned; an unboned bateau mermaid needs no bust points.
+  const mermaid = gownMeasuresNeeded({ ...s, sil: 'mermaid', sleeve: 'long', neck: 'bateau', hem: 'knee', boning: 'soft' });
   assert.ok(mermaid.includes('knee') && mermaid.includes('thigh') && mermaid.includes('elbow') && mermaid.includes('wrist') && mermaid.includes('waistHem'));
   assert.ok(!mermaid.includes('apexApex') && !mermaid.includes('waistFloor'));
   // The list order is the catalog's.
@@ -251,7 +286,7 @@ test('quantities carry no money: unknown keys (a price, a cost) are refused, cou
   refused(sanitizeGownQuantities({ ...q, materials: { ...q.materials, outerM: -1 } }), 'quantities', 'negative metres');
   refused(sanitizeGownQuantities({ ...q, materials: { ...q.materials, outerM: 201 } }), 'quantities', 'past the metres guard');
   refused(sanitizeGownQuantities({ ...q, labour: { ...q.labour, slits: 6 } }), 'quantities', 'more slits than places');
-  refused(sanitizeGownQuantities({ ...q, labour: { ...q.labour, sleeve: 'puff' } }), 'quantities', 'a sleeve not in the catalog');
+  refused(sanitizeGownQuantities({ ...q, labour: { ...q.labour, sleeve: 'tulip' } }), 'quantities', 'a sleeve not in the catalog');
   const ok = sanitizeGownQuantities({ ...q, materials: { ...q.materials, outerM: 7.4, buttons: 24, beads: { ...q.materials.beads, pearl: 600 } }, labour: { ...q.labour, beads: 600, train: 'chapel' } });
   assert.ok(ok.ok);
   assert.equal(ok.quantities.materials.beads.pearl, 600);
@@ -291,7 +326,10 @@ const V186_ORDER: GownPrototypeOrder = {
 test('a v186 order round-trips: the look keys, her numbers and her choices come back exactly', () => {
   const got = gownFromPrototypeOrder(V186_ORDER, offer());
   assert.ok(got.ok, got.ok ? '' : got.reason);
-  assert.deepEqual(gownLookOf(got.config), V186_ORDER.design3d.gown, 'the look the designer opens on the mannequin');
+  // A v186 look has no bow, blusher, overlay, illusion, straps or flowers (v197 to v200 add them to the look): they come back as the starting values.
+  // It opens as v197 opens an order: the mermaid's chapel train becomes a sweep (corpus a5ada15).
+  const s0 = startingGownConfig();
+  assert.deepEqual(gownLookOf(got.config), { bow: s0.bow, blusher: s0.blusher, overlay: s0.overlay, ovFab: s0.ovFab, illu: s0.illu, illuBase: s0.illuBase, illuCol: s0.illuCol, illuBack: s0.illuBack, boneShow: s0.boneShow, straps: s0.straps, strapCol: s0.strapCol, strapEdge: s0.strapEdge, topEdge: s0.topEdge, plungeFill: s0.plungeFill, flowers: s0.flowers, flowerFrom: s0.flowerFrom, flowerType: s0.flowerType, flowerSize: s0.flowerSize, flowerDen: s0.flowerDen, flowerCol: s0.flowerCol, capeFlowers: s0.capeFlowers, laceFinish: s0.laceFinish, veilFab: s0.veilFab, pearls: s0.pearls, sleeveDet: s0.sleeveDet, robeSl: s0.robeSl, ...V186_ORDER.design3d.gown, train: 'sweep' }, 'the look the designer opens on the mannequin');
   assert.deepEqual(Object.keys(gownLookOf(got.config)), [...GOWN_LOOK_KEYS]);
   assert.equal(got.config.hem, 'floor');
   assert.equal(got.config.heel, 7);
@@ -318,7 +356,8 @@ test('a v186 order round-trips: the look keys, her numbers and her choices come 
 test('every v186 stock look reads as a valid design (the prototype\'s LOOKS)', () => {
   const LOOKS: [string, Record<string, string>, string][] = [
     ['Classic ball gown', { sil: 'ball', fabric: 'mikado', lace: 'alencon', laceAt: 'cascade', laceBeads: 'light', train: 'cathedral', veil: 'cathedral', closure: 'buttons' }, 'floor'],
-    ['Lace mermaid', { sil: 'mermaid', neck: 'v', back: 'v', sleeve: 'long', sleeveFab: 'lace', fabric: 'crepe', lace: 'chantilly', laceAt: 'all', train: 'chapel', veil: 'chapel' }, 'floor'],
+    // Corpus a5ada15 (v198): the Lace mermaid carries a sweep train (a mermaid is too narrow at the hem for longer).
+    ['Lace mermaid', { sil: 'mermaid', neck: 'v', back: 'v', sleeve: 'long', sleeveFab: 'lace', fabric: 'crepe', lace: 'chantilly', laceAt: 'all', train: 'sweep', veil: 'chapel' }, 'floor'],
     ['Modern minimal', { sil: 'sheath', neck: 'bateau', back: 'v', fabric: 'crepe', train: 'sweep' }, 'floor'],
     ['Filipiniana terno', { sil: 'terno', neck: 'bateau', sleeve: 'butterfly', fabric: 'pina', bead: 'pearl', beadAt: 'neck', beadCol: 'ivory' }, 'floor'],
     ['Boho garden', { neck: 'v', sleeve: 'cap', fabric: 'chiffon', lace: 'leaf', laceAt: 'scatter', train: 'sweep', veil: 'fingertip' }, 'floor'],
@@ -331,4 +370,66 @@ test('every v186 stock look reads as a valid design (the prototype\'s LOOKS)', (
     assert.ok(got.ok, `${name}: ${got.ok ? '' : got.reason}`);
     for (const [k, v] of Object.entries(look)) assert.equal(got.config[k as keyof G.GownConfig], v, `${name}.${k}`);
   }
+});
+
+test('v2 (accuracy review, v197): an A-line saved at v1 opens as Fit and flare; a v2 A-line stays an A-line', () => {
+  const o = stockGownOffer();
+  const old = sanitizeGownConfig({ ...startingGownConfig(), v: 1, sil: 'aline' }, o);
+  assert.ok(old.ok && old.config.sil === 'fitflare' && old.config.v === 2, 'v1 A-line → Fit and flare, stored as v2');
+  const now = sanitizeGownConfig({ ...startingGownConfig(), sil: 'aline' }, o);
+  assert.ok(now.ok && now.config.sil === 'aline');
+  const ball = sanitizeGownConfig({ ...startingGownConfig(), v: 1, sil: 'ball' }, o);
+  assert.ok(ball.ok && ball.config.sil === 'ball', 'only the A-line moves');
+});
+
+test('A7b hand work: its own object beside the design, each list capped and range-checked, refused never repaired', () => {
+  const { sanitizeGownHand, emptyGownHand, GOWN_HAND_MAX, GOWN_HAND_MAX_BYTES } = G;
+  const bead = { ph: 0.4, y: 1.2, kind: 'crystal', col: 'gold', mm: 3, spin: 1 }, hole = { ph: -0.4, y: 1.2, r: 2, what: 'beads' };
+  const lace = { u: 0.3, y: 1.1, rot: 0.5, id: 'floral', cm: 8 }, round = { ph: 1, y: 1.0, r: 2 }, poly = { pts: [[0, 1], [0.2, 1], [0.2, 0.9], [0, 0.9]] };
+  const c = sanitizeGownHand({ handBeads: [{ ...bead, col: '#e6b8c2' }], handHoles: [hole], handLace: [lace], handCuts: [round, poly] });
+  assert.ok(c.ok);
+  if (c.ok) { assert.equal(c.hand.handBeads[0]!.col, '#E6B8C2'); assert.deepEqual(c.hand.handCuts, [round, poly]); }
+  // None at all, or a list missing, is empty.
+  assert.deepEqual(sanitizeGownHand(null), { ok: true, hand: emptyGownHand() });
+  assert.deepEqual(sanitizeGownHand(undefined), { ok: true, hand: emptyGownHand() });
+  assert.deepEqual(sanitizeGownHand({ handBeads: [bead] }), { ok: true, hand: { ...emptyGownHand(), handBeads: [bead] } });
+  // The design never carries it: a design with hand lists is a key the design does not know.
+  assert.ok(!('handBeads' in startingGownConfig()));
+  // A full hand of 4,000 beads at four decimals fits its own byte cap.
+  const r4 = (x: number) => Math.round(x * 1e4) / 1e4;
+  const beads = Array.from({ length: GOWN_HAND_MAX.beads }, (_, i) => ({ ph: r4(-Math.PI + (i / 4000) * 2 * Math.PI), y: r4(0.3 + (i % 97) / 60), kind: 'sequin', col: '#E6B8C2', mm: 3.5, spin: r4((i * 2.399) % 6.28) }));
+  assert.ok(sanitizeGownHand({ handBeads: beads }).ok);
+  assert.ok(JSON.stringify(beads).length < GOWN_HAND_MAX_BYTES);
+  refused(sanitizeGownHand({ handBeads: beads.map((b) => ({ ...b, pad: 'x'.repeat(100) })) }), 'too_big', 'past its byte cap');
+  for (const [what, x] of [
+    ['an unknown key', { handBeads: [], extra: [] }],
+    ['not an object', []],
+    ['too many beads', { handBeads: Array.from({ length: GOWN_HAND_MAX.beads + 1 }, () => bead) }],
+    ['too many cuts', { handCuts: Array.from({ length: GOWN_HAND_MAX.cuts + 1 }, () => round) }],
+    ['a bead size off its range', { handBeads: [{ ...bead, mm: 9 }] }],
+    ['a custom bead colour with no hex', { handBeads: [{ ...bead, col: 'custom' }] }],
+    ['a bead kind not in the catalog', { handBeads: [{ ...bead, kind: 'diamond' }] }],
+    ['an eraser wider than the brush', { handHoles: [{ ...hole, r: 30 }] }],
+    ['an eraser that removes something else', { handHoles: [{ ...hole, what: 'flowers' }] }],
+    ['a lace that is not one', { handLace: [{ ...lace, id: 'none' }] }],
+    ['lace off the body', { handLace: [{ ...lace, u: 1.5 }] }],
+    ['a cut shape of three points', { handCuts: [{ pts: [[0, 1], [0.1, 1], [0, 0.9]] }] }],
+    ['a height that is not a number', { handCuts: [{ ...round, y: Number.NaN }] }],
+  ] as const) refused(sanitizeGownHand(x), 'not_a_design', what);
+});
+
+test('v203: the server refuses the pairings the maker would have changed (cape sleeves and capes, the over-robe, both shoulders, the ruffle neckline, detachable)', () => {
+  const ok = (over: Record<string, unknown>, why: string) => assert.equal(sanitizeGownConfig(design(over), offer()).ok, true, why);
+  ok({ sleeve: 'puff', neck: 'v' }, 'puff sleeves on a V neckline');
+  ok({ sleeve: 'ruffle', neck: 'off', sleeveDet: 'detach' }, 'a detachable ruffle band, off the shoulder');
+  ok({ sleeve: 'capesl', neck: 'v', capeLen: 'elbow' }, 'cape sleeves to the elbow');
+  ok({ cape: 'robe', neck: 'v', robeSl: 'puff', sleeve: 'bishop' }, 'an over-robe with puff sleeves, over bishop sleeves');
+  refused(sanitizeGownConfig(design({ sleeve: 'capesl', cape: 'side', neck: 'v' }), offer()), 'not_a_design', 'cape sleeves are a cape of their own');
+  refused(sanitizeGownConfig(design({ cape: 'robe', sleeve: 'flutter', neck: 'v' }), offer()), 'not_a_design', 'the over-robe has its own sleeves');
+  refused(sanitizeGownConfig(design({ sleeve: 'bishop', straps: 'halter', neck: 'v' }), offer()), 'not_a_design', 'the new sleeves need both shoulders');
+  refused(sanitizeGownConfig(design({ sleeve: 'ruffle', neck: 'v' }), offer()), 'not_a_design', 'the ruffle band sits off the shoulder or on a sweetheart');
+  refused(sanitizeGownConfig(design({ sleeve: 'puff', neck: 'v', sleeveDet: 'detach' }), offer()), 'not_a_design', 'detachable is a choice only off the shoulder');
+  refused(sanitizeGownConfig(design({ sleeve: 'capesl', neck: 'v', capeLen: 'shoulder' }), offer()), 'not_a_design', 'cape sleeves have their own lengths');
+  refused(sanitizeGownConfig(design({ sleeveDet: 'loose' }), offer()), 'not_a_design', 'a way of wearing sleeves not in the catalog');
+  refused(sanitizeGownConfig(design({ robeSl: 'bell' }), offer()), 'not_a_design', 'an over-robe sleeve not in the catalog');
 });

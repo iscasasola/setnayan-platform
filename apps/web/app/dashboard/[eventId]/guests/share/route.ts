@@ -20,6 +20,8 @@ import { ROSTER_VIEWS, isToInvite, replyFilterMatches, rosterSections } from '@/
 import { readShownMarch } from '@/lib/guests-march-read';
 import { printedDate, printFileName } from '@/lib/print-pieces';
 import { sharePdf, sharePdfPaper } from '@/lib/share-pdf';
+import { withDisplayNames } from '@/lib/table-auto-name';
+import { readShownTableNames } from '@/lib/table-auto-name.server';
 import {
   checkInPdf,
   guestListPdf,
@@ -111,7 +113,8 @@ export async function GET(req: Request, { params }: Params) {
       const [read, tables, assignments] = await Promise.all([
         fetchGuestsByEventMeasured(supabase, eventId),
         // Without the seat plan, no table is read — nothing to leak, nothing to hide.
-        door.tables ? fetchTables(supabase, eventId) : Promise.resolve([]),
+        // 🪑 …each under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+        door.tables ? fetchTables(supabase, eventId).then(async (t) => withDisplayNames(t, await readShownTableNames(supabase, eventId))) : Promise.resolve([]),
         door.tables ? fetchAssignments(supabase, eventId) : Promise.resolve([]),
       ]);
       if (!read.measured) return say(503, UNREAD);

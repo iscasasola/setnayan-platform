@@ -61,7 +61,7 @@ const ALLOW: Record<string, string> = {
   ['lib/seating-reconcile.ts › reconcilePass']: 'the live auto-seat (the engine lane) — locked rows are its fixed context, not a hand move',
 };
 
-const WRITE = /from\('event_seat_assignments'\)\.(upsert|insert|delete|update)\(|rpc\('swap_(seat|table)_assignments'|from\('event_tables'\)\.delete\(/;
+const WRITE = /from\('event_seat_assignments'\)\.(upsert|insert|delete|update)\(|rpc\('swap_(seat|seat_unit|table)_assignments'|from\('event_tables'\)\.delete\(/;
 const squash = (s: string) => s.replace(/\s+/g, ' ').replace(/\( /g, '(').replace(/ \)/g, ')').replace(/\) \./g, ').');
 
 /** Every top-level function in app/ and lib/ that writes a seat row: "file › name" → its body. */
@@ -116,11 +116,13 @@ test('2 · the editor refuses before it writes, and says the server’s refusal'
   assert.match(remove, /if \(saidLocked\(res\)\) return \{ ok: false \};/, 'the server’s refusal of a delete is not said');
 });
 
-test('3 · a unit trade that fails part-way is rolled back, and the plan re-reads', () => {
+test('3 · a unit trade is ONE transaction (nothing half-traded), and the plan re-reads', () => {
   const s = readFileSync(join(WEB, SEATING), 'utf8');
   const swap = s.slice(s.indexOf('export async function swapSeats('), s.indexOf('export async function swapTableOccupants('));
-  assert.match(swap, /for \(const \[x, y\] of done\.reverse\(\)\)/, 'a failed second swap leaves the leads swapped and the +1s not');
-  assert.match(swap, /done\.push\(\[a, b\]\);/);
+  // Seat plan L11: the whole trade (leads + every +1 pair) goes through swap_seat_unit_assignments, all or nothing
+  // (held behaviourally by tests/db/a-unit-trade-is-one-transaction.db.test.ts) — no per-pair loop to roll back.
+  assert.match(swap, /rpc\('swap_seat_unit_assignments', \{/, 'a trade with +1s is not one transaction');
+  assert.doesNotMatch(swap, /for \(const \[a, b\] of \[\[guestA, guestB\]/, 'a per-pair swap loop can leave the leads swapped and the +1s not');
   const ed = readFileSync(join(WEB, 'app/dashboard/[eventId]/seating/_components/seating-editor.tsx'), 'utf8');
   const trade = ed.slice(ed.indexOf('const tradeSeats = '), ed.indexOf('const place = '));
   assert.match(trade, /if \(res === null\) router\.refresh\(\);/, 'a failed swap leaves the screen showing the move');

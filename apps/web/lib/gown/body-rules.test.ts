@@ -161,7 +161,7 @@ test('v186 ease rows: woven unboned, boned strapless, stretch and corset', () =>
     { part: 'Under bust', body: 72, ease: 0.5, gown: 72.5 },
   ]);
   assert.equal(gownEaseWhy(s), 'Boned or strapless: close to the body so it stays up.');
-  const woven = { ...s, neck: 'bateau' as const, sil: 'sheath' as const, sleeve: 'long' as const };
+  const woven = { ...s, neck: 'bateau' as const, sil: 'sheath' as const, sleeve: 'long' as const, boning: 'soft' as const };
   assert.deepEqual(
     gownEaseRows(v, woven, { upperArm: 27, wrist: 15 }).map((r) => [r.part, r.ease, r.gown]),
     [['Bust', 2.5, 86.5], ['Waist', 1.5, 69.5], ['Hips', 3, 93], ['Upper arm', 4, 31], ['Wrist', 3, 18]],

@@ -184,6 +184,11 @@ export function gownShapedVals(vals: GownBodyVals, shape: GownShapewear): GownBo
 
 /** "A big tummy always carries some hip with it" (v186: 8 cm for women). */
 const WAIST_OVER_HIPS = 8;
+/** v206: the waist may be as small as 6/10 of the hips (a true hourglass), and no smaller: past that the mannequin cannot shape it. */
+export const GOWN_WHR_MIN = 0.6;
+/** v206's line when the waist stops at her given hips (the screen shows it at most once every 4 s). */
+export const gownWaistStopNote = (lo: number, hips: number) =>
+  `The waist stops at ${lo} cm: her hips are ${hips} cm, and a waist under 6/10 of the hips is outside what the mannequin can shape. Change her hips first to go lower.`;
 
 /**
  * One number moves (v186 the measurement input handler, women). Returns her new numbers and the numbers she has given.
@@ -191,7 +196,11 @@ const WAIST_OVER_HIPS = 8;
  *   · height first: every girth she has not given goes to the ideal for the new height (v182), and shoulders she has not
  *     given stay the same share of her height (v166);
  *   · an underbust change moves shoulders she has not given by 0.2 cm per cm;
- *   · waist and hips keep each other believable; bust and underbust keep 4 cm apart;
+ *   · waist and hips keep each other believable (v206, owner 28 Nov: *"why is it when the waist goes down, the hips goes
+ *     down as well?"*): hips she gave are never moved by the waist, which stops at 6/10 of them with a line saying so;
+ *     hips she has not given are pulled in only as far as the waist needs, and come back to what they were (`hipWant`)
+ *     as the waist rises; a hip change forgets that and holds the waist within 6/10 of the hips … hips + 8;
+ *   · bust and underbust keep 4 cm apart;
  *   · then bust, underbust, waist, hips, shoulders (and weight, once she gave it) are held inside her limits.
  * The weight balance on the pause (v185 `balanceKg`) needs the body's volume and lands in A3.
  */
@@ -200,8 +209,12 @@ export function gownSetNumber(
   given: readonly GownBodyKey[],
   key: GownBodyKey,
   value: number,
-): { vals: GownBodyVals; given: GownBodyKey[] } {
+  /** The hips she had before a small waist pulled them in (v206 `current.hipWant`); carried from the last move. */
+  hipWant: number | null = null,
+): { vals: GownBodyVals; given: GownBodyKey[]; hipWant: number | null; note: string } {
   const v = { ...vals };
+  const hipsGiven = given.includes('hips');
+  let want = hipWant, note = '';
   const R = GOWN_BODY_RANGE;
   const g = given.includes(key) ? [...given] : [...given, key];
   const has = (k: GownBodyKey) => g.includes(k);
@@ -213,9 +226,17 @@ export function gownSetNumber(
     for (const k of ['bust', 'underbust', 'waist', 'hips'] as const) if (!has(k)) v[k] = id[k];
     if (old > 0 && !has('shoulders')) v.shoulders = halfCm((v.shoulders * v.height) / old);
   }
-  if (key === 'waist') v.hips = clamp(Math.max(v.hips, v.waist - WAIST_OVER_HIPS), R.hips[0], R.hips[1]);
-  if (key === 'hips') v.waist = clamp(v.waist, Math.ceil(v.hips * 0.66), v.hips + WAIST_OVER_HIPS);
-  if (key === 'waist') v.hips = Math.min(v.hips, Math.floor(v.waist / 0.66));
+  if (key === 'waist') {
+    v.hips = clamp(Math.max(v.hips, v.waist - WAIST_OVER_HIPS), R.hips[0], R.hips[1]);
+    if (hipsGiven) {
+      const lo = Math.ceil(v.hips * GOWN_WHR_MIN);
+      if (v.waist < lo) { v.waist = lo; note = gownWaistStopNote(lo, v.hips); }
+    } else {
+      const w = want ?? v.hips, cap = Math.floor(v.waist / GOWN_WHR_MIN);
+      if (w > cap) { want = w; v.hips = Math.max(R.hips[0], cap); } else { v.hips = Math.max(v.hips, w); want = null; }
+    }
+  }
+  if (key === 'hips') { want = null; v.waist = clamp(v.waist, Math.ceil(v.hips * GOWN_WHR_MIN), v.hips + WAIST_OVER_HIPS); }
   if (key === 'bust') v.underbust = Math.min(v.underbust, v.bust - 4);
   if (key === 'underbust') v.bust = clamp(Math.max(v.bust, v.underbust + 4), R.bust[0], R.bust[1]);
   const order: GownBodyKey[] = [...(key === 'underbust' ? (['underbust', 'bust'] as const) : (['bust', 'underbust'] as const)), 'waist', 'hips', 'shoulders'];
@@ -224,7 +245,7 @@ export function gownSetNumber(
     const [a, b] = gownLimit(v, k);
     v[k] = clamp(v[k], a, b);
   }
-  return { vals: v, given: g };
+  return { vals: v, given: g, hipWant: want, note };
 }
 
 /**

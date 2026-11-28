@@ -248,6 +248,7 @@ export default async function SeatingPage({ params, searchParams }: Props) {
       photo_url: g.photo_url ? photoDisplayUrls[g.photo_url] ?? null : null,
       side: g.side,
       group_id: groupIds[0] ?? null,
+      group_ids: groupIds,
       rsvp_status: g.rsvp_status,
       seated_table_id: seat?.table_id ?? null,
       seat_number: seat?.seat_number ?? null,

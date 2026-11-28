@@ -12,7 +12,7 @@
  *     round both knees) at a third of her height below the waist; the flare gets exactly the length left.
  *   · Ball gown: a full circle, waist radius = (waist + ease) ÷ 2π.
  * Each draft carries a check table (asked against drawn) and the source of every number. No prices on any block.
- * 🔒 lib/gown-pattern/pattern.test.ts (held to the prototype's own outputs, prototype-v197.golden.json)
+ * 🔒 lib/gown-pattern/pattern.test.ts (held to the prototype's own outputs, prototype-v205.golden.json)
  */
 import type { GownSilhouette } from '../gown-config';
 import { draftEase, draftMeasure, type GownDraftOrder, type GownDraftSource, type GownTape } from './inputs';
@@ -38,7 +38,15 @@ export type GownBlockPiece = {
   side?: GownPoint[];
   /** Where the label sits, mm from the top (set by the sheet). */
   labelY?: number;
+  /** v205: each edge's role, edge i running from outline[i] to outline[i + 1] (wrapping). Sets its seam allowance. */
+  edges?: GownEdgeRole[];
+  /** v205: a word for the cutting list about where the zip allowance goes (a circle skirt's quarters). */
+  zipNote?: string;
+  /** v205: a circle skirt's waist and hem radii, mm (the measured diagram names them). */
+  radii?: readonly [number, number];
 };
+/** v205 `edges`: seam · hem · zip · neck (necklines and armholes) · fold (no allowance). */
+export type GownEdgeRole = 'seam' | 'hem' | 'zip' | 'neck' | 'fold';
 
 /** One check: [what, asked cm, drawn cm]. Drawn more than 2.5 mm off the asked is a fault. */
 export type GownDraftCheck = readonly [string, number, number];
@@ -101,6 +109,10 @@ export function draftSkirt(order: GownDraftOrder, tape: GownTape = {}): GownSkir
       name: 'Skirt, quarter circle',
       cut: 'Cut 4 (or 2 half circles on the fold)',
       outline: [...arc(r), ...arc(R).reverse()],
+      // v205: the waist arc and the first straight edge are seams, the big arc the hem, the other straight edge the zip.
+      edges: [...Array<GownEdgeRole>(24).fill('seam'), 'seam', ...Array<GownEdgeRole>(24).fill('hem'), 'zip'],
+      zipNote: 'The zip allowance is on one straight edge: use it on the two back quarters only; the front quarters take the seam allowance.',
+      radii: [r, R],
       darts: [],
       marks: [],
       points: [],
@@ -214,6 +226,8 @@ export function draftSkirt(order: GownDraftOrder, tape: GownTape = {}): GownSkir
       name: front ? 'Skirt front' : 'Skirt back',
       cut: front ? 'Cut 1 on the fold' : 'Cut 2',
       outline: [[0, 0], ...side, ...hemPts],
+      // v205: waist and side are seams, the hem its own, the centre front a fold, the centre back the zip.
+      edges: ['seam' as const, ...side.slice(1).map(() => 'seam' as const), ...hemPts.map(() => 'hem' as const), front ? ('fold' as const) : ('zip' as const)],
       darts,
       marks: [[hipX, WH, 'hip']],
       points: [],

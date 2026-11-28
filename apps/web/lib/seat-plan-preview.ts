@@ -158,7 +158,7 @@ export function buildArrangePreview(input: ArrangePreviewInput): ArrangePreview 
     solved?.assignments ??
     computeAutoSeat(tables, guests, stay, stage, input.floor.priority_order, roleSet, input.groupAdjacency ?? true, input.floor.role_seating, auto);
 
-  if (checkAutoSeatPlan({ tables, guests, existing: stay, added: rows }).length > 0) return { ok: false };
+  if (checkAutoSeatPlan({ tables, guests, existing: stay, added: rows, nearestVipPlusOnes: input.floor.vip_plus_ones === 'nearest' }).length > 0) return { ok: false };
 
   // Counts.
   const seatable = guestsStillToSeat(input.guests, new Set(), roleSet);

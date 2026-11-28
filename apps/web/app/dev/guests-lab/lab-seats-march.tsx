@@ -140,7 +140,7 @@ function vipLabRoom(mode: VipLab) {
   return { tables, guests, groups };
 }
 
-export function LabSeats({ guests, seat, big = false, cale = null, vip = null, floor = null }: { floor?: 'empty' | null; guests: readonly { guest_id: string; first_name: string | null; last_name: string | null; role: string; side: string; rsvp_status: string | null }[]; seat: string | undefined; /** `&big=1` — the 3D room on the 25-table / 230-guest synthetic plan. */ big?: boolean; cale?: 'before' | 'after' | null; vip?: VipLab | null }) {
+export function LabSeats({ guests, seat, big = false, cale = null, vip = null, floor = null, check = null }: { /** ✦ `&check=1` — a sample dry run (seat plan S); `&check=fail` — a dry run that fails. */ check?: 'ok' | 'fail' | null; floor?: 'empty' | null; guests: readonly { guest_id: string; first_name: string | null; last_name: string | null; role: string; side: string; rsvp_status: string | null }[]; seat: string | undefined; /** `&big=1` — the 3D room on the 25-table / 230-guest synthetic plan. */ big?: boolean; cale?: 'before' | 'after' | null; vip?: VipLab | null }) {
   const vipRoom = vip ? vipLabRoom(vip) : null;
   /* 🧪 `&floor=empty` — no tables, eight people coming with no seat, an unsized (20 × 30 m) room: the owner's test event
      of 20 Nov, on which the floor's first steps are walked with the lab's stand-in writes (`lab-seat-floor.tsx`). */
@@ -234,6 +234,26 @@ export function LabSeats({ guests, seat, big = false, cale = null, vip = null, f
           host: 'guests',
         },
     me: { id: 'lab-user', name: 'Maria' },
+    /* ✦ Seat plan S on synthetic data: the engine's dry run (L11) stood in for — a suggestion for the first table with room,
+       from the people still to seat, and two problems (one Fix, one Review). Never reaches a server. */
+    dryRun: check
+      ? async () => {
+          'use server';
+          if (process.env.NODE_ENV === 'production') throw new Error('lab only');
+          if (check === 'fail') throw new Error('lab: the dry run failed');
+          const unseated = seatingGuests.filter((g) => !g.seated_table_id && g.rsvp_status !== 'declined');
+          const roomy = LAB_TABLES.find((t) => seatingGuests.filter((g) => g.seated_table_id === t.table_id).length + 2 <= t.capacity) ?? LAB_TABLES[0]!;
+          const pair = unseated.slice(0, 2).map((g) => g.guest_id);
+          const other = LAB_TABLES.find((t) => t.table_id !== roomy.table_id) ?? roomy;
+          return {
+            suggestions: pair.length ? [{ tableId: roomy.table_id, guestIds: pair, reason: 'Barkada · bride’s side' }] : [],
+            problems: [
+              ...(unseated[2] ? [{ kind: 'new_rsvp_alone' as const, guestIds: [unseated[2].guest_id], tableId: null, reason: `${unseated[2].name} said yes and has no seat yet`, fix: { kind: 'seat' as const, tableId: roomy.table_id, guestIds: [unseated[2].guest_id] } }] : []),
+              { kind: 'table_over' as const, guestIds: [], tableId: other.table_id, reason: `${other.table_label} has more guests than chairs`, fix: { kind: 'review' as const, tableId: other.table_id } },
+            ],
+          };
+        }
+      : null,
   };
   return (
     <SeatPlanInGuests seat={view}>

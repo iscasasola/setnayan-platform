@@ -203,7 +203,8 @@ test('§7 · the flag: OFF reads nothing new and draws nothing new', () => {
   assert.match(read('app/vendor-dashboard/services/their-work/page.tsx'), /if \(!cardRecordEnabled\(\)\) notFound\(\);/);
   const shop = read('app/v/[slug]/page.tsx');
   // ⚡ Started early since 2026-11-14 (speed pass) — still only behind the flag, still awaited before use.
-  assert.match(shop, /const shopWorkP = cardRecordEnabled\(\)\s*\?\s*startRead\(\s*readShopWork\(/);
+  // ⚡ …and since 2026-11-27 (E1) chained to the live cards beside the shop's other reads.
+  assert.match(shop, /const shopWorkP = cardRecordEnabled\(\)\s*\?\s*startRead\(\s*Promise\.all\(\[activeServicesP, ownShopP\]\)\.then\(\(\[live, ownShop\]\) =>\s*readShopWork\(/);
   assert.match(shop, /albumsByService: Map<string, AlbumView\[\] \| null> \| null =\s*shopWork === undefined\s*\? null/);
   assert.match(shop, /albumsByService \? \{ \.\.\.card, eventWork:/, 'flag off → no card carries eventWork');
   const maker = read('app/vendor-dashboard/services/_components/canvas-maker.tsx');

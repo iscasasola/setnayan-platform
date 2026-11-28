@@ -23,6 +23,7 @@ import { InMakerReturnTo } from './in-maker-return-to';
 import { formatCount } from '@/lib/format-number';
 import { MomentOrderCards } from './moment-order-cards-lazy';
 import { SafeForm } from '@/app/dashboard/[eventId]/_components/safe-form';
+import { actionButtonClass } from '@/components/action-button-class';
 
 /**
  * OUR LOVE STORY — THE SCRAPBOOK (Event Hub Maker Phase 7).
@@ -126,7 +127,7 @@ export function LoveStoryBook(p: LoveStoryBookProps) {
     <MomentSheet
       {...sheetProps}
       trigger={<AddMomentLabel />}
-      triggerClassName="button-primary inline-flex items-center gap-1.5"
+      triggerClassName={actionButtonClass('brand', { main: true })}
       opensFor={opensFor}
     />
   ) : (

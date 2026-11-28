@@ -45,6 +45,7 @@ import { syncCardNotCounted } from '@/lib/guest-not-counted.server';
 import { HOST_NOTE_MAX } from '@/lib/guest-host-note';
 import { refuseLimitedHelper } from '@/lib/host-gate';
 import { placedByCouple } from '@/lib/seat-why';
+import { lockedSeatGuests } from '@/lib/seat-lock.server';
 
 // Iteration 0053 P2: the valid role set is per event type (resolveRoleSetForEvent).
 // SIDE_VALUES retired here — the shared resolver (lib/guest-side-question.ts)
@@ -287,6 +288,12 @@ async function syncCardTable(
   if (readErr) return { ok: false, error: 'seat_failed' };
   const now = (current?.table_id as string | null | undefined) ?? '';
   if (now === tableId) return { ok: true };
+  // 🔒 #17: the card's Table pick never moves (or frees) a locked seat.
+  try {
+    if ((await lockedSeatGuests(supabase, eventId, [guestId])).length > 0) return { ok: false, error: 'seat_locked' };
+  } catch {
+    return { ok: false, error: 'seat_failed' };
+  }
   if (!tableId) {
     const { error } = await supabase
       .from('event_seat_assignments')

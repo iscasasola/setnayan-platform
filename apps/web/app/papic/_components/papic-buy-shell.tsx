@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useFormStatus } from 'react-dom';
-import { Camera, Loader2, X, Zap } from 'lucide-react';
+import { Camera, Gift, X, Zap } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { useModalA11y } from '@/lib/use-modal-a11y';
 import { startPapicGuestPurchase, releaseGuestDedicatedShots } from '../buy/actions';
 import type { DedicatedShotsStanding, PapicGuestOffer } from '@/lib/papic-guest-buy';
@@ -286,10 +287,7 @@ function OfferSubmit({ phrase }: { phrase: string }) {
     >
       <span>{phrase}</span>
       {pending ? (
-        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-ink/60">
-          <Loader2 aria-hidden className="h-3.5 w-3.5 animate-spin" strokeWidth={2.25} />
-          Opening payment…
-        </span>
+        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs text-ink/60">Opening payment…</span>
       ) : (
         <span aria-hidden className="text-ink/40">
           &rsaquo;
@@ -351,20 +349,9 @@ function ReleaseSection({
             <form action={releaseGuestDedicatedShots}>
               <input type="hidden" name="return_to" value={returnTo} />
               {seatToken ? <input type="hidden" name="seat_token" value={seatToken} /> : null}
-              <button
-                type="submit"
-                className="rounded-lg bg-mulberry px-3 py-2 text-xs font-medium text-cream transition-colors hover:bg-mulberry-600"
-              >
-                Give {n(standing.releasable)} to the event
-              </button>
+              <ActionButton type="submit" tone="brand" main icon={Gift} label={`Give ${n(standing.releasable)} to the event`} />
             </form>
-            <button
-              type="button"
-              onClick={() => setConfirming(false)}
-              className="rounded-lg border border-ink/15 px-3 py-2 text-xs text-ink/70 hover:bg-ink/5"
-            >
-              Never mind
-            </button>
+            <ActionButton tone="neutral" icon={X} label="Never mind" onClick={() => setConfirming(false)} />
           </div>
         </div>
       ) : (

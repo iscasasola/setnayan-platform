@@ -14,6 +14,7 @@ import type { PaidStoreTool } from './supplier-store';
 /** The `setnayan-media` object key of each paid widget's clip; null until it is recorded. */
 export const TOOL_VIDEO_KEYS: Readonly<Record<PaidStoreTool, string | null>> = {
   cake_tool: null,
+  attire_tool: null,
   song_bank: null,
   papic_challenge: null,
   plan_3d: null,

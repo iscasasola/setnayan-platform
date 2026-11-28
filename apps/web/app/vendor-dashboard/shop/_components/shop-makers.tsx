@@ -22,6 +22,7 @@ import { NewThingTile } from '@/app/_components/collection-card';
 // 📦 The Offer Maker is its own chunk, fetched on the first open — never in the Shop tab's first load.
 // 🎂 The Cake Maker's options editor — only fetched when its tile opens (none of it is in the Shop's first load).
 const CakeMakerPanel = lazy(() => import('./cake-maker-panel').then((m) => ({ default: m.CakeMakerPanel })));
+const GownMakerPanel = lazy(() => import('./gown-maker-panel').then((m) => ({ default: m.GownMakerPanel })));
 const OfferMaker = lazy(() => import('../../offers/_components/offer-maker').then((m) => ({ default: m.OfferMaker })));
 
 /**
@@ -368,7 +369,7 @@ export function ShopMakers({
           origin={toolTiles.current[picked.key] ?? null}
           frame={frame.current}
           title={picked.title}
-          sub={picked.door.kind === 'cake_tool' ? 'Set once for your shop' : picked.line}
+          sub={picked.door.kind === 'cake_tool' || picked.door.kind === 'attire_tool' ? 'Set once for your shop' : picked.line}
           lead={
             <span aria-hidden className="grid h-10 w-10 place-items-center rounded-xl bg-[color-mix(in_srgb,rgb(var(--sn-accent))_12%,transparent)] text-ink/75">
               <PickedIcon className="h-5 w-5" strokeWidth={1.75} />
@@ -462,6 +463,19 @@ function ToolBody({ tool, scanners, booked }: { tool: SpecializedTool; scanners:
         }
       >
         <CakeMakerPanel />
+      </Suspense>
+    );
+  }
+  if (tool.door.kind === 'attire_tool') {
+    return (
+      <Suspense
+        fallback={
+          <p role="status" className="py-4 text-sn-base text-ink/70" data-gown-maker-loading="">
+            Opening your Attire Maker…
+          </p>
+        }
+      >
+        <GownMakerPanel />
       </Suspense>
     );
   }

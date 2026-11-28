@@ -1,5 +1,5 @@
 /**
- * 👗 gown/parts/inside — what is inside the gown, held to prototype v195's Inside view (`v195-inside.fixture.json`):
+ * 👗 gown/parts/inside — what is inside the gown, held to prototype v195's Inside view (`v197-inside.fixture.json`):
  * the layers (each its own fullness and colour), the lining, body shaping, the hoop, the boning and waist stay; the
  * names and dots "See inside" lists; the stage-by-stage reveal (v192); and the organza and chiffon metres.
  */
@@ -8,7 +8,8 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as THREE from 'three';
-import { startingGownConfig, type GownConfig } from '../../gown-config';
+import { gownApplyLook } from '../compat';
+import { startingGownConfig, type GownConfig, type GownLook } from '../../gown-config';
 import { parseGownBody } from '../body/load';
 import type { GownRig } from '../body/rig';
 import { GOWN_FABRIC_PROPS, gownClothFeel, gownFabricType } from '../fabric/types';
@@ -20,8 +21,8 @@ import { buildEnvelope, emptyEnvelope } from '../dress/table';
 import { buildGownInside, gownInsideLayerMetres, gownInsideOrder, gownInsideShown } from './inside';
 
 type Pt = [number, number, number, number];
-type Row = { name: string; gown: Partial<GownConfig>; keys: string[]; names: string[]; cols: string[]; pieces: { L: number; n: number; extra?: boolean; s: Pt[] }[] };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v195-inside.fixture.json'), 'utf8')) as { rows: Row[] };
+type Row = { name: string; look: Partial<GownLook>; gown: Partial<GownConfig>; keys: string[]; names: string[]; cols: string[]; pieces: { L: number; n: number; extra?: boolean; s: Pt[] }[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v197-inside.fixture.json'), 'utf8')) as { rows: Row[] };
 let rig: Promise<GownRig> | null = null;
 const body = () => {
   if (!rig) { const b = readFileSync(join(__dirname, '../../../public/gown/female.glb')); rig = parseGownBody(b.buffer.slice(b.byteOffset, b.byteOffset + b.byteLength) as ArrayBuffer); }
@@ -31,7 +32,7 @@ const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
 
 async function inside(r: Row) {
   const B = await body();
-  const g = { ...startingGownConfig(), ...r.gown, hem: 'floor', hemCm: 0 } as GownConfig;
+  const g = { ...gownApplyLook(startingGownConfig(), r.look ?? {}), ...r.gown, hem: 'floor', hemCm: 0 } as GownConfig;
   const T = emptyEnvelope(), D = emptyDress(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
   D.hold = feel.hold; D.foldK = feel.foldK;
   buildEnvelope(B, T);
@@ -40,7 +41,7 @@ async function inside(r: Row) {
   return { B, g, pieces: buildGownInside(B, T, D, g, gownClothColour(g.colour, g.colourHex), GOWN_FABRIC_PROPS.satin.name) };
 }
 
-test('what is inside, as v195 shows it: the pieces, their names and dots, and every layer, lining, shaping, hoop and bone', async () => {
+test('what is inside, as v197 shows it: the pieces, their names and dots, and every layer, lining, shaping, hoop and bone', async () => {
   for (const r of REF.rows) {
     const { B, pieces } = await inside(r);
     assert.deepEqual(pieces.map((p) => p.key), r.keys, `${r.name}: pieces`);

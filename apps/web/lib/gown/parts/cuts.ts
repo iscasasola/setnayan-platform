@@ -1,7 +1,8 @@
 /**
- * 👗 gown/parts/cuts — cut-outs (prototype v195 `CUTS`, `cutShape`, `buildCuts`, `cutForbidden`): ready-made shapes
+ * 👗 gown/parts/cuts — cut-outs (prototype v197 `CUTS`, `cutShape`, `buildCuts`, `cutForbidden`): ready-made shapes
  * placed from her own landmarks, at real size on a cut map round the body (u = direction, v = height), which the cloth
- * shader opens (or fills with illusion mesh) with the chosen edge. A cropped top leaves a band of skin. Hand-cut holes
+ * shader opens (or fills with illusion mesh) with the chosen edge. A cropped top leaves a band of skin; a high neck with
+ * an open back opens its keyhole below the nape band. Hand-cut holes
  * (the scissors) come with A7 and use `gownCutForbidden`, the same rule as the ready-made ones.
  */
 import type { GownConfig, GownCutEdge, GownCutout } from '../../gown-config';
@@ -9,7 +10,7 @@ import { GOWN_CUT_FORBIDDEN } from '../../gown-config';
 import { BODY_K, RING_N, SLICE_DY, TAU } from '../body/constants';
 import { clamp, type GownRig } from '../body/rig';
 import type { GownDress } from '../dress/build';
-import type { GownNeckLandmarks } from '../dress/lines';
+import { gownKeyholeBack, type GownNeckLandmarks } from '../dress/lines';
 import { lerpRow, type GownEnvelope } from '../dress/table';
 
 const N = RING_N, DTH = TAU / N;
@@ -60,19 +61,24 @@ export type GownCutPlan = {
   placed: GownCutPlaced[];
   /** The cropped top's band of skin (model heights), when two-piece cropped. */
   crop: [number, number] | null;
+  /** The keyhole under a high neck's nape band: its outline (direction, height). */
+  keyhole: [number, number][] | null;
   /** The shader's uniforms: the map's height range, the edge band (map units), the edge style and fill. */
   y0: number; y1: number; band: [number, number]; edge: number; fill: number;
-  /** One line for the designer, and the one structural warning v195 gives. */
+  /** One line for the designer, then the keyhole back's line and the structural warning (v197). */
   note: string;
 };
 
 /**
- * Lay out and paint the cut-outs (v195 `buildCuts`). Null when there are none. `g` (2048 px square) is painted when
+ * Lay out and paint the cut-outs (v197 `buildCuts`). Null when there are none. `g` (2048 px square) is painted when
  * given; the cut map wraps round the body, so a shape across the centre back is drawn three times.
  */
-export function buildGownCuts(B: GownRig, T: GownEnvelope, D: GownDress, d: Pick<GownConfig, 'cuts' | 'cutScale' | 'cutEdge' | 'cutFill' | 'pieces' | 'neck'>, strapless: boolean, g: GownCutCanvas | null = null): GownCutPlan | null {
+export function buildGownCuts(
+  B: GownRig, T: GownEnvelope, D: GownDress, d: Pick<GownConfig, 'cuts' | 'cutScale' | 'cutEdge' | 'cutFill' | 'pieces' | 'neck' | 'neckT' | 'back' | 'backT'>, strapless: boolean, g: GownCutCanvas | null = null,
+): GownCutPlan | null {
   const L = D.L;
-  if (!T.on || !L || (!d.cuts.length && d.pieces !== 'crop')) return null;
+  const KH = T.on && L ? gownKeyholeBack(d, T.top[N / 2]!, L) : null;
+  if (!T.on || !L || (!KH && !d.cuts.length && d.pieces !== 'crop')) return null;
   const W = GOWN_CUT_MAP, H = GOWN_CUT_MAP, y0 = D.gmapY0, y1 = D.gmapY1, cmU = B.P.S * 100;
   if (g) { g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, W, H); }
   const rAt = (ph: number, y: number) => { let q = ph / DTH; q = ((q % N) + N) % N; const yy = clamp(y, T.yHem, T.y0 + (T.n - 2) * SLICE_DY); return lerpRow(T, T.F, yy, Math.round(q) % N); };
@@ -86,6 +92,23 @@ export function buildGownCuts(B: GownRig, T: GownEnvelope, D: GownDress, d: Pick
       for (const dx of [-W, 0, W]) { g.setTransform(sx, 0, 0, sy, x + dx, yp); g.scale(c.w * k, c.h * k); drawGownCutShape(g, c.shape); }
     }
   }
+  const notes: string[] = [];
+  let keyhole: [number, number][] | null = null;
+  if (KH) {
+    keyhole = KH.poly;
+    if (g) {
+      g.fillStyle = 'rgb(255,0,0)';
+      for (const dx of [-W, 0, W]) {
+        g.setTransform(1, 0, 0, 1, dx, 0);
+        g.beginPath();
+        KH.poly.forEach(([ph, y], i) => { const x = (ph / TAU + 0.5) * W, yp = (1 - (y - y0) / (y1 - y0)) * H; if (i) g.lineTo(x, yp); else g.moveTo(x, yp); });
+        g.closePath();
+        g.fill();
+      }
+      g.setTransform(1, 0, 0, 1, 0, 0);
+    }
+    notes.push(`High neck with an open ${d.back === 'v' ? 'V' : 'scoop'} back: closed at the nape with a band and a button.`);
+  }
   let crop: [number, number] | null = null;
   if (d.pieces === 'crop') {
     // Cropped top: a band of skin between top and skirt.
@@ -96,13 +119,14 @@ export function buildGownCuts(B: GownRig, T: GownEnvelope, D: GownDress, d: Pick
   if (g) g.setTransform(1, 0, 0, 1, 0, 0);
   const bandCm = d.cutEdge === 'clean' ? 0.25 : 0.7, rW = rAt(0, L.yW);
   const names = d.cuts.map((id) => GOWN_CUT_NAMES[id]);
+  if (KH) names.push('keyhole back');
   if (d.pieces === 'crop') names.push('cropped-top gap');
-  const warn = d.cuts.includes('keyhole') && strapless ? ' A keyhole on a strapless bodice needs boning on both sides.' : '';
+  if (d.cuts.includes('keyhole') && strapless) notes.push('A keyhole on a strapless bodice needs boning on both sides.');
   return {
-    placed, crop, y0, y1,
+    placed, crop, keyhole, y0, y1,
     band: [bandCm / (TAU * rW * cmU), bandCm / ((y1 - y0) * cmU)],
     edge: GOWN_CUT_EDGE_CODE[d.cutEdge], fill: d.cutFill === 'illusion' ? 1 : 0,
-    note: `Cut-outs: ${names.join(', ')}; ${d.cutScale}% size; edge ${d.cutEdge}; ${d.cutFill === 'illusion' ? 'filled with illusion mesh' : 'open'}.${warn}`,
+    note: [`Cut-outs: ${names.join(', ')}; ${d.cutScale}% size; edge ${d.cutEdge}; ${d.cutFill === 'illusion' ? 'filled with illusion mesh' : 'open'}.`, ...notes].join(' '),
   };
 }
 const GOWN_CUT_NAMES: Record<GownCutout, string> = { waist: 'side waist', keyhole: 'keyhole', under: 'under-bust', diamond: 'back diamond', window: 'back window', hip: 'hip', slash: 'distressed slashes' };

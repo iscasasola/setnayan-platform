@@ -29,6 +29,8 @@ export type GownSleeveKind = 'band' | 'cap' | 'long' | 'butterfly' | 'flutter';
 /** Whether she wears anything on the arm: a sleeve, or the off-shoulder band. */
 export const gownSleeveKind = (d: Pick<GownConfig, 'sleeve' | 'neck'>): GownSleeveKind | null =>
   d.sleeve !== 'none' ? d.sleeve : d.neck === 'off' ? 'band' : null;
+/** A long sleeve on a strapless bodice (not off-shoulder) is detachable (v197): its own band on the upper arm. */
+export const gownSleeveDetachable = (d: Pick<GownConfig, 'neck'>, kind: GownSleeveKind | null) => kind === 'long' && GOWN_STRAPLESS.includes(d.neck) && d.neck !== 'off';
 
 /** One sleeve's geometry (v193 `sleeveMesh`): SLEEVE_ROWS rings of SLEEVE_COLS + 1 points (the seam is doubled for the lace uv). */
 export function emptySleeve(): THREE.BufferGeometry {
@@ -113,22 +115,26 @@ export function buildGownSleeve(B: GownRig, T: GownEnvelope, sd: GownSleeveSide,
   // Where the sleeve starts: on a strapless or off-shoulder top it is cut level with the bodice edge; otherwise at the shoulder point.
   const strapless = GOWN_STRAPLESS.includes(d.neck), yCut = T.top[N / 4]! - 0.004, off = (GOWN_EASE_MM + 1) / 1000 / P.S, cm = 0.01 / P.S;
   const len = { band: 5.5 * cm, cap: 9 * cm, long: Lu + Lf - 0.012, butterfly: 0.5 * Lu, flutter: 0 }[kind];
+  // v197: on a strapless bodice a long sleeve is detachable: it starts on the upper arm, a little past the bodice edge.
+  const detach = gownSleeveDetachable(d, kind);
   const pos = (geo.attributes.position as THREE.BufferAttribute).array as Float32Array, uvA = (geo.attributes.uv as THREE.BufferAttribute).array as Float32Array, up = new THREE.Vector3();
   if (kind === 'flutter') flutterSleeve({ B, T, S, E, u, f, Lu, Lf, frame, ctr, Rs, strapless, yCut, off, cm, pos, uvA, R, ns, s0, SDS, SBA, laceCm: d.laceCm });
   else for (let a = 0; a <= SNA; a++) {
     const aa = a % SNA, ang = (aa / SNA) * TAU, c = Math.cos(ang), sn = Math.sin(ang);
     let sA = kind === 'butterfly' ? -0.06 : strapless ? s0 : -0.035;
-    if (strapless) for (let it = 0; it < 60; it++) {
+    if (strapless) for (let it = 0; it < 90; it++) {
       const fr = frame(sA), q = ctr(sA).addScaledVector(fr.r, Rs(sA, aa) * c).addScaledVector(fr.v, Rs(sA, aa) * sn);
       if (q.y <= yCut) break;
       sA += 0.004;
     }
+    if (detach) sA += 3 * cm;
     const sB = (strapless ? Math.max(sA, 0) : 0) + len;
     for (let i = 0; i < SNR; i++) {
       const w = i / (SNR - 1), s = sA + (sB - sA) * w, fr = frame(s);
       let r = Rs(s, aa) + off;
       if (kind === 'cap') r += 1.2 * cm * w; // a cap stands a little off the arm at its edge
-      if (kind === 'long') r += 0.4 * cm * smoothstep(w, 0.8, 1);
+      // A detachable sleeve's gathered band at the top (3 cm).
+      if (kind === 'long') r += 0.4 * cm * smoothstep(w, 0.8, 1) + (detach ? 0.5 * cm * (1 - smoothstep((w * (len + 0.04)) / (3 * cm), 0.8, 1.1)) : 0);
       let lift = 0;
       if (kind === 'butterfly') {
         // Terno: a stiff pleated wing standing up over the shoulder, flat front to back.

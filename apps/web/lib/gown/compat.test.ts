@@ -28,7 +28,7 @@ test('a back cape keeps the veil fingertip or shorter, both ways round', () => {
   assert.equal(a.tell, true);
   const b = gownChoose(start({ cape: 'back' }), { key: 'veil', value: 'chapel' });
   assert.equal(b.config.veil, 'fingertip');
-  assert.deepEqual(gownHiddenChoices(b.config).veil, ['chapel', 'cathedral']);
+  assert.deepEqual(gownHiddenChoices(b.config).veil, ['floor', 'chapel', 'cathedral']);
   const c = gownChoose(start({ veil: 'cathedral' }), { key: 'cape', value: 'side' });
   assert.equal(c.config.veil, 'cathedral', 'a side cape leaves the veil alone');
 });
@@ -77,4 +77,67 @@ test('every rule names real keys and has a reason to exist (a change or a line)'
     assert.ok(r.apply || r.note, r.id);
   }
   assert.equal(new Set(GOWN_RULES.map((r) => r.id)).size, GOWN_RULES.length, 'rule ids are unique');
+});
+
+// v197 accuracy review: the lines are the prototype's own (`setGown`).
+test('a strapless bodice: its back stops at the bra line, no cap sleeve or cowl, long sleeves are detachable', () => {
+  const a = gownChoose(start({ neck: 'bateau', back: 'v', backT: 0.9, sleeve: 'cap', drape: 'cowl' }), { key: 'neck', value: 'straight' }, { backCapT: 0.4 });
+  assert.equal(a.config.backT, 0.4);
+  assert.equal(a.config.sleeve, 'none');
+  assert.equal(a.config.drape, 'none');
+  assert.equal(a.tell, true);
+  assert.deepEqual(a.notes, [
+    'The back stops at the bra line: a strapless bodice is held up all the way round there.',
+    'Cap sleeves need a shoulder to sit on, so sleeves are now none.',
+    'The cowl drape is off: a cowl hangs from the shoulders.',
+  ]);
+  // Without her landmarks the back is left to the stage.
+  assert.equal(gownChoose(start({ neck: 'bateau', back: 'v', backT: 0.9 }), { key: 'neck', value: 'sweetheart' }).config.backT, 0.9);
+  // Off-shoulder keeps its band, so a cap sleeve stays.
+  assert.equal(gownChoose(start({ neck: 'bateau', sleeve: 'cap' }), { key: 'neck', value: 'off' }).config.sleeve, 'cap');
+  const b = gownChoose(start({ neck: 'bateau', sleeve: 'long', boning: 'complement' }), { key: 'neck', value: 'sweetheart' });
+  assert.deepEqual(b.notes, ['On a strapless bodice the long sleeves are detachable: each one on its own band round the upper arm.']);
+  const c = gownChoose(start({ neck: 'sweetheart', sleeve: 'none' }), { key: 'sleeve', value: 'cap' });
+  assert.equal(c.config.sleeve, 'none', 'the cap sleeve is refused');
+  assert.deepEqual(c.notes, ['Cap sleeves need a shoulder to sit on: pick a neckline with shoulders first.']);
+  assert.deepEqual(gownChoose(start({ neck: 'sweetheart' }), { key: 'sleeve', value: 'long' }).notes, ['Detachable sleeves: each one on its own band round the upper arm, separate from the strapless bodice.']);
+  const h = gownHiddenChoices(start({ neck: 'straight' }));
+  assert.deepEqual([h.sleeve, h.drape, h.longSleeveLabel], [['cap'], ['cowl'], 'Detachable']);
+});
+
+test('leaving a ball gown: the petticoat goes back to soft tulle, at most 2 layers', () => {
+  const ball = gownChoose(start(), { key: 'sil', value: 'ball' }).config;
+  const a = gownChoose({ ...ball, skirtLayers: 4 }, { key: 'sil', value: 'aline' });
+  assert.equal(a.config.petti, 'soft');
+  assert.equal(a.config.skirtLayers, 2);
+  assert.ok(!a.config.layerTypes.includes('full') && !a.config.layerTypes.includes('hoop'));
+  assert.deepEqual(a.notes, ["The petticoat is back to soft tulle: an a-line doesn't need the ball gown's full layers."]);
+  assert.equal(gownChoose(ball, { key: 'sil', value: 'fitflare' }).notes[0], "The petticoat is back to soft tulle: a fit and flare doesn't need the ball gown's full layers.");
+});
+
+test('a sheath or mermaid: a sweep train at most, soft tulle at most; a sheath takes no pleats', () => {
+  const a = gownChoose(start({ train: 'cathedral', pleat: 'box' }), { key: 'sil', value: 'sheath' });
+  assert.equal(a.config.train, 'sweep');
+  assert.equal(a.config.pleat, 'none');
+  assert.deepEqual(a.notes, ['The train is now a sweep: a sheath is too narrow at the hem to carry a longer train.', 'Pleats are off: a sheath falls too close to the body for pleats to open.']);
+  assert.equal(gownChoose(start({ sil: 'mermaid' }), { key: 'train', value: 'chapel' }).config.train, 'sweep');
+  const p = gownChoose(start({ sil: 'mermaid' }), { key: 'petti', value: 'hoop' });
+  assert.equal(p.config.petti, 'soft');
+  assert.deepEqual(p.notes, ['A mermaid is too close-fitting for a hoop: soft tulle at most.']);
+  const h = gownHiddenChoices(start({ sil: 'sheath' }));
+  assert.deepEqual([h.petti, h.train, h.pleat], [['full', 'hoop'], ['chapel', 'cathedral'], true]);
+});
+
+test('the server refuses the v197 pairings the maker would have changed', () => {
+  for (const bad of [{ neck: 'sweetheart', sleeve: 'cap' }, { neck: 'straight', drape: 'cowl' }, { sil: 'mermaid', train: 'chapel' }, { sil: 'sheath', train: 'cathedral' }, { sil: 'mermaid', petti: 'hoop' }, { sil: 'sheath', pleat: 'box' }, { cape: 'back', veil: 'floor' }] as Partial<GownConfig>[]) {
+    assert.equal(sanitizeGownConfig(start(bad), OFFER).ok, false, JSON.stringify(bad));
+  }
+  assert.equal(sanitizeGownConfig(start({ neck: 'off', sleeve: 'cap' }), OFFER).ok, true, 'off-shoulder keeps its band');
+  // A design saved before version 2 opens as v197 opens an order, through these rules, and is stored as version 2.
+  const old = sanitizeGownConfig({ ...start({ sil: 'sheath', train: 'cathedral', pleat: 'box', neck: 'sweetheart', sleeve: 'cap' }), v: 1 }, OFFER);
+  assert.ok(old.ok);
+  if (old.ok) {
+    assert.deepEqual([old.config.train, old.config.pleat, old.config.sleeve, old.config.v], ['sweep', 'none', 'none', 2]);
+    assert.equal(sanitizeGownConfig(old.config, OFFER).ok, true, 'and reads again unchanged');
+  }
 });

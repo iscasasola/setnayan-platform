@@ -9,6 +9,9 @@ import {
   GOWN_CLOSURES,
   GOWN_SLEEVES,
   GOWN_VEILS,
+  GOWN_VEIL_ORDER,
+  GOWN_BLUSHERS,
+  GOWN_BOWS,
   GOWN_VEIL_STYLES,
   GOWN_COLOURS,
   GOWN_HEMS,
@@ -172,7 +175,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   }
 
   // Every pick goes through the pairing rules, so the lab shows what the maker will (one line, then Undo in the maker).
-  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
+  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
     const out = gownChoose(design, { key: k, value: v } as GownChoice);
     setDesign(out.config);
     setNote(out.notes.join(' '));
@@ -218,8 +221,10 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 ['sleeve', 'Sleeves', GOWN_SLEEVES],
                 ['back', 'Back', GOWN_BACKS],
                 ['closure', 'Closure', GOWN_CLOSURES],
-                ['veil', 'Veil', GOWN_VEILS],
+                ['veil', 'Veil', GOWN_VEIL_ORDER.map((id) => GOWN_VEILS.find((o) => o.id === id)!)],
                 ['veilStyle', 'Veil style', GOWN_VEIL_STYLES],
+                ['blusher', 'Blusher', GOWN_BLUSHERS],
+                ['bow', 'Bow', GOWN_BOWS],
                 ['overlay', 'Overlay', GOWN_OVERLAYS],
                 ['ovFab', 'Overlay made of', GOWN_OVERLAY_FABRICS],
                 ['lace', 'Lace', GOWN_LACES],

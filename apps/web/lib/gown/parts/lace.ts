@@ -173,3 +173,21 @@ export function buildGownLace(
 
 /** The line under the lace step (v195), for the designer's count. */
 export const gownLaceCountLine = (name: string, plan: GownLacePlan, cm: number) => `About ${formatCount(plan.countN)} ${name} motifs, ${cm} cm wide, mirrored left and right. This count goes to the designer.`;
+
+/** The sheer lace tile's size (px). */
+export const GOWN_LACE_TILE_PX = 256;
+/**
+ * Sheer lace on fine tulle, one seamless tile (v197 `laceSleeveMat`): the gown's lace, or Chantilly when it has none.
+ * The mantilla's edge and the Juliet cap wear it; the stage tints it with the lace colour.
+ */
+export function drawGownLaceTile(g: GownLaceCanvas, lace: GownLace): void {
+  const W = GOWN_LACE_TILE_PX, id = lace === 'none' ? 'chantilly' : lace;
+  g.setTransform(1, 0, 0, 1, 0, 0);
+  g.clearRect(0, 0, W, W);
+  g.fillStyle = 'rgba(255,255,255,0.07)'; // the tulle
+  g.fillRect(0, 0, W, W);
+  for (const [x, y] of [[0.5, 0.5], [0, 0], [1, 0], [0, 1], [1, 1]] as const) { g.setTransform(240, 0, 0, 240, x * W, y * W); drawGownMotif(g, id); }
+  g.setTransform(1, 0, 0, 1, 0, 0);
+}
+/** How the stage draws sheer lace (v197). */
+export const GOWN_LACE_TILE_DRAW = { roughness: 0.75 } as const;

@@ -1,13 +1,13 @@
 /**
  * 👗 gown/parts — sleeves, the off-shoulder band, the veil (every style, over a train and over a back cape), the back
- * closure and the shoes, held to prototype v193's own numbers (`v193-parts.fixture.json`, captured from the prototype).
+ * closure and the shoes, held to prototype v193's own numbers (`v197-parts.fixture.json`, captured from the prototype).
  */
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import * as THREE from 'three';
-import { startingGownConfig, type GownConfig } from '../../gown-config';
+import { startingGownConfig, type GownConfig, type GownLook } from '../../gown-config';
 import { computeBones } from '../body/bones';
 import { BODY_K } from '../body/constants';
 import { parseGownBody } from '../body/load';
@@ -24,16 +24,17 @@ import { buildGownSleeve, emptySleeve, gownSleeveKind } from './sleeves';
 import { flutterMetres } from './flutter';
 import { fabricMetres } from '../dress/flat';
 import { solveGownBody } from '../body/solve';
-import { gownChoose } from '../compat';
+import { gownChoose, gownApplyLook } from '../compat';
 import { buildGownVeil, emptyVeil } from './veil';
 
 type Pt = [number, number, number, number];
 type Row = {
+  look?: Partial<GownLook>;
   name: string; hem: GownConfig['hem']; gown: Partial<GownConfig>;
-  sleeves?: { L: Pt[] | null; R: Pt[] | null }; veil?: Pt[]; edge?: Pt[]; closure?: { count: number; min: number[]; max: number[] }[];
+  sleeves?: { L: Pt[] | null; R: Pt[] | null }; veil?: Pt[]; edge?: Pt[]; cap?: Pt[] | null; closure?: { count: number; min: number[]; max: number[] }[];
   shoes?: Pt[][]; heelT?: number; poseQ?: ([number, number, number, number] | null)[]; floorY?: number;
 };
-const REF = JSON.parse(readFileSync(join(__dirname, 'v193-parts.fixture.json'), 'utf8')) as { rows: Row[] };
+const REF = JSON.parse(readFileSync(join(__dirname, 'v197-parts.fixture.json'), 'utf8')) as { rows: Row[] };
 const PUB = join(__dirname, '../../../public/gown');
 let rig: Promise<GownRig> | null = null;
 const body = () => {
@@ -42,7 +43,7 @@ const body = () => {
 };
 
 function dressed(B: GownRig, r: Row) {
-  const g = { ...startingGownConfig(), ...r.gown, hem: r.hem, hemCm: 0 } as GownConfig;
+  const g = { ...gownApplyLook(startingGownConfig(), r.look ?? {}), ...r.gown, hem: r.hem, hemCm: 0 } as GownConfig;
   const T = emptyEnvelope(), D = emptyDress(), C = restingCloth(), K = emptyCape(), feel = gownClothFeel(gownFabricType(g.fabric).props, g.skirtLayers);
   D.hold = feel.hold; D.foldK = feel.foldK;
   buildEnvelope(B, T);
@@ -60,7 +61,7 @@ const worstCm = (B: GownRig, P: ArrayLike<number>, sample: Pt[]) => {
 };
 const arr = (g: THREE.BufferGeometry) => (g.attributes.position as THREE.BufferAttribute).array as Float32Array;
 
-test('sleeves follow her arm as v193 does: cap, long, butterfly (terno), the off-shoulder band, a cap on a strapless top', async () => {
+test('sleeves follow her arm as v197 does: cap, long, butterfly (terno), the off-shoulder band, a cap on a strapless top', async () => {
   const B = await body();
   for (const r of REF.rows.filter((x) => x.sleeves)) {
     const { g, T } = dressed(B, r);
@@ -74,40 +75,47 @@ test('sleeves follow her arm as v193 does: cap, long, butterfly (terno), the off
   assert.equal(gownSleeveKind({ sleeve: 'none', neck: 'v' }), null);
 });
 
-test('the veil hangs as v193 does in every style: over the head, the body, a train and a back cape; a mantilla has its lace edge', async () => {
+test('the veil hangs as v197 does in every style and length (from the crown), the blusher back or over: over the head, the body, a train and a back cape; a mantilla has lace all round its edge; the Juliet cap', async () => {
   const B = await body();
   for (const r of REF.rows.filter((x) => x.veil)) {
     const { g, T, D, K, floorY } = dressed(B, r), out = emptyVeil(), shown = buildGownVeil(B, T, D, K, g, out, floorY);
     assert.equal(shown.veil, true, r.name);
-    assert.ok(worstCm(B, arr(out.geo), r.veil!) < 0.1, `${r.name}: within 1 mm of v193 (worst ${worstCm(B, arr(out.geo), r.veil!).toFixed(2)} cm)`);
+    assert.ok(worstCm(B, arr(out.geo), r.veil!) < 0.1, `${r.name}: within 1 mm of v197 (worst ${worstCm(B, arr(out.geo), r.veil!).toFixed(2)} cm)`);
     assert.equal(shown.edge, !!r.edge, `${r.name}: lace edge`);
     if (r.edge) assert.ok(worstCm(B, arr(out.edge), r.edge) < 0.1, `${r.name}: the edge`);
+    assert.equal(shown.cap, !!r.cap, `${r.name}: Juliet cap`);
+    if (r.cap) assert.ok(worstCm(B, arr(out.cap), r.cap) < 0.1, `${r.name}: the cap (worst ${worstCm(B, arr(out.cap), r.cap).toFixed(2)} cm)`);
   }
 });
 
-test('the veil never sinks into the gown below the head', async () => {
+test('the veil keeps outside the gown below the head: over a fitted skirt within 1 mm; over v197\'s full A-line as v197 itself, its folds dipping at most 1.1 cm', async () => {
   const B = await body();
-  const r = REF.rows.find((x) => x.name === 'veil-classic-cathedral')!;
-  const { g, T, D, K, floorY } = dressed(B, r), out = emptyVeil();
-  buildGownVeil(B, T, D, K, g, out, floorY);
-  const P = arr(out.geo), yS = T.yS;
-  let worst = 0;
-  for (let i = 0; i < P.length / 3; i++) {
-    const y = P[i * 3 + 1]!;
-    if (y > yS + 0.3 || y < T.yHem) continue;
-    const { r: rr, env } = reach(T, P[i * 3]!, y, P[i * 3 + 2]!);
-    worst = Math.max(worst, env - rr);
+  // v197 widened the A-line to about 3 × her hips; the veil's soft folds (up to 5% in) then reach the skirt near the
+  // back hem. Ours matches v197 there within 1 mm (the test above), so this holds v197's own figure (1.02 cm) and the
+  // coordinator has it as a prototype fix; on a fitted skirt the veil keeps fully outside.
+  for (const [sil, tolCm] of [['mermaid', 0.1], ['sheath', 0.1], ['aline', 1.1]] as const) {
+    const { g, T, D, K, floorY } = dressed(B, { name: `veil-${sil}`, hem: 'floor', gown: { sil, veil: 'cathedral', veilStyle: 'classic' } });
+    const out = emptyVeil();
+    buildGownVeil(B, T, D, K, g, out, floorY);
+    const P = arr(out.geo), yS = T.yS;
+    let worst = 0;
+    for (let i = 0; i < P.length / 3; i++) {
+      const y = P[i * 3 + 1]!;
+      if (y > yS + 0.3 || y < T.yHem) continue;
+      const { r: rr, env } = reach(T, P[i * 3]!, y, P[i * 3 + 2]!);
+      worst = Math.max(worst, env - rr);
+    }
+    assert.ok(worst * B.P.S * 100 < tolCm, `${sil}: ${(worst * B.P.S * 100).toFixed(2)} cm inside`);
   }
-  assert.ok(worst * B.P.S * 100 < 0.1, `${(worst * B.P.S * 100).toFixed(2)} cm inside`);
 });
 
-test('the back closure as v193 builds it: zipper, covered buttons, lace-up with its eyelets', async () => {
+test('the back closure as v197 builds it: zipper, covered buttons, a lace-up over its modesty panel with its eyelets and ribbon', async () => {
   const B = await body();
   for (const r of REF.rows.filter((x) => x.closure)) {
-    const { g, T } = dressed(B, r), c = buildGownClosure(B, T, g.closure)!, ref = r.closure!;
-    const ours = [c.eyelets, c.cloth].filter((x): x is THREE.BufferGeometry => !!x);
+    const { g, T, D } = dressed(B, r), c = buildGownClosure(B, T, D.L, g)!, ref = r.closure!;
+    const ours = [c.modesty, c.eyelets, c.cord, c.cloth].filter((x): x is THREE.BufferGeometry => !!x);
     assert.equal(ours.length, ref.length, `${r.name}: pieces`);
-    // v193 adds the eyelets first, then the cloth.
+    // v197 adds the modesty panel, the eyelets and the ribbon first, then the cloth.
     for (const [k, geo] of ours.entries()) {
       assert.equal(geo.attributes.position!.count, ref[k]!.count, `${r.name}: vertices`);
       geo.computeBoundingBox();
@@ -117,18 +125,19 @@ test('the back closure as v193 builds it: zipper, covered buttons, lace-up with 
   }
 });
 
-test('a lace-up needs 3 cm of back above the waist to lace across; the deepest back on this body still leaves 4.2 cm', async () => {
+test('a lace-up needs about 15 cm of back above the waist (v197): the deepest back is too low, a modest one laces', async () => {
   const B = await body();
   const deepest = dressed(B, { name: 'deepest', hem: 'floor', gown: { back: 'v', backT: 1, closure: 'lace' } });
-  assert.equal(gownLaceUpFits(deepest.T), true);
-  // A back cut 3 cm below the waist (a fuller body or a lower cut moves it there) leaves under 3 cm to lace across.
+  assert.equal(gownLaceUpFits(B, deepest.T, deepest.D.L, deepest.g), false);
+  const modest = dressed(B, { name: 'modest', hem: 'floor', gown: { back: 'scoop', backT: 0.2, closure: 'lace' } });
+  assert.equal(gownLaceUpFits(B, modest.T, modest.D.L, modest.g), true);
+  // A back cut 3 cm below the waist leaves nothing to close at all.
   const T = { ...deepest.T, top: Float32Array.from(deepest.T.top) };
   T.top[T.top.length / 2] = BODY_K.yWaist - 0.03;
-  assert.equal(gownLaceUpFits(T), false);
-  assert.equal(buildGownClosure(B, T, 'lace'), null, 'and the lace-up is not built');
+  assert.equal(buildGownClosure(B, T, deepest.D.L, deepest.g), null, 'and the lace-up is not built');
 });
 
-test('her shoes as v193 fits them: under her own foot at 8 cm, the stiletto straight to the floor', async () => {
+test('her shoes as v197 fits them: under her own foot at 8 cm, the stiletto straight to the floor', async () => {
   const B = await body();
   const r = REF.rows.find((x) => x.shoes)!;
   const pose = r.poseQ!.map((q) => (q ? new THREE.Quaternion(q[0], q[1], q[2], q[3]) : null));
@@ -151,9 +160,9 @@ test('her shoes as v193 fits them: under her own foot at 8 cm, the stiletto stra
 });
 
 type FlutterRow = { name: string; hem: GownConfig['hem']; gown: Partial<GownConfig>; metres: number; flutterM: number; sleeves: { L: Pt[] | null; R: Pt[] | null } };
-const FLUTTER = JSON.parse(readFileSync(join(__dirname, 'v195-flutter.fixture.json'), 'utf8')) as { rows: FlutterRow[] };
+const FLUTTER = JSON.parse(readFileSync(join(__dirname, 'v197-flutter.fixture.json'), 'utf8')) as { rows: FlutterRow[] };
 
-test('flutter sleeves (v195) hang as the prototype hangs them, and their gown-fabric metres join the outer fabric exactly', async () => {
+test('flutter sleeves (v197) hang as the prototype hangs them, and their gown-fabric metres join the outer fabric exactly', async () => {
   const B = await body();
   for (const r of FLUTTER.rows) {
     const { g, T, D, K } = dressed(B, { name: r.name, hem: r.hem, gown: r.gown });

@@ -25,20 +25,20 @@
 // ⚠ The DATABASE CHECK on marketing_share_consents.artifact_type still permits
 // the value; that is deliberate. A CHECK that permits a value nothing can
 // produce is inert, whereas narrowing it is a live-data migration for no gain.
-export type ShareArtifactType =
-  | 'monogram'
-  | 'save_the_date'
-  | 'website'
-  | 'reel';
+// ⛔ 'reel' was removed 2026-11-27 (content finalization S7): the reel booth
+// (Patiktok) retired 2026-11-20, so a caption crediting a reel "made with
+// Setnayan" claimed a product that no longer ships. Verified 0 rows of that
+// type in prod before narrowing. Same DB CHECK note as 'led_design' above.
+export const SHARE_ARTIFACT_TYPES = ['monogram', 'save_the_date', 'website'] as const;
+export type ShareArtifactType = (typeof SHARE_ARTIFACT_TYPES)[number];
 
 export type ShareCreditMode = 'first_names' | 'anonymous';
 
 /** Customer-facing labels for the consent artifact types. */
 export const SHARE_ARTIFACT_LABEL: Record<ShareArtifactType, string> = {
-  monogram: 'Monogram',
+  monogram: 'Logo',
   save_the_date: 'Save the Date',
   website: 'Event Hub',
-  reel: 'Reel',
 };
 
 /** Days after the event before a consented couple creation may be posted (the publish gate below). */
@@ -88,18 +88,17 @@ export function coupleCreationCaption({
   const credit =
     creditMode === 'first_names' && coupleName.trim().length > 0
       ? coupleName.trim()
-      : 'one of our Setnayan couples';
+      : 'one of our Setnayan hosts';
   const lead: Record<ShareArtifactType, string> = {
-    monogram: `This monogram belongs to ${credit} — designed on Setnayan, now part of their story.`,
+    monogram: `This logo belongs to ${credit}, made with Logo Maker on Setnayan.`,
     save_the_date: `${credit} said "Save the Date" in style — made on Setnayan, straight to every feed.`,
     website: `An Event Hub made by ${credit} on Setnayan — every detail, one beautiful page.`,
-    reel: `A little reel of love from ${credit}'s big day — made with Setnayan.`,
   };
   return `${lead[artifactType]} Set na 'yan. ✨\n\n#Setnayan #SetNaYan`;
 }
 
 /**
- * Drafted Facebook caption for a newly verified vendor. The unnamed-vs-named
+ * Drafted Facebook caption for a newly verified supplier. The unnamed-vs-named
  * split is the owner-locked hybrid (tiers sell REACH; mirrors the
  * hybrid-anonymity doctrine): Free gets a category-only mention, Pro+ gets
  * the business name + a welcome line.
@@ -117,9 +116,9 @@ export function vendorFeatureCaption({
 }): string {
   if (named && businessName.trim().length > 0) {
     return (
-      `Welcome to the marketplace, ${businessName.trim()}! 🎉 ` +
-      `A newly verified ${categoryLabel.toLowerCase()} serving ${region} — ` +
-      `vetted by the Setnayan team and ready for your big day.\n\n#Setnayan #SetNaYan`
+      `Welcome to Setnayan, ${businessName.trim()}! ` +
+      `A newly verified ${categoryLabel.toLowerCase()} serving ${region}. ` +
+      `Set na 'yan.\n\n#Setnayan #SetNaYan`
     );
   }
   return (

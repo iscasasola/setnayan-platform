@@ -90,7 +90,8 @@ test('3 · on the thank-you, after a Yes the pass is drawn with its Save — aft
   // the after-Send pass step of scenarios B · C). With no +1 ticket the list is their own card alone, as before.
   assert.match(pass, /<SavePassCardButton\s+hrefs=\{\[PASS_CARD_ROUTE, \.\.\.plusOneCardHrefs\]\}/, 'the pass lost its Save');
   // Inside a chat app on an iPhone the Save opens the same page in Safari first (approved ticket flow, 2026-09-29).
-  assert.match(pass, /safariSave \? \(\s*<a href=\{safariSave\}/);
+  // 🧭 The Safari hand-off is a `SafariHop` (2026-11-27): it says so when the chat app ignores it.
+  assert.match(pass, /safariSave \? \(\s*<SafariHop href=\{safariSave\}/);
   // A new or changed pass pops up first, with the same Save — after a Yes only.
   assert.match(ENTER, /\{ticket === 'full' && !canvas \? \(\s*<TicketPopup\b/);
 });

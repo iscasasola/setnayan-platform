@@ -4,7 +4,8 @@
  *
  *   · five links, to five places: Views → Shop · Inquiries → Clients › Asked · Booked → Clients › Booked ·
  *     Portfolio → Portfolio · Money → the money ledger (To collect);
- *   · the words the owner ruled: "last 28 days" (the read IS 28 days — WRONG row 19) and "to come in" (WRONG row 23);
+ *   · the words the owner ruled: the window said is the window read (WRONG row 19 — it was "last 28 days"; since L6 · S3,
+ *     27 Nov 2026, the shop's one window `lib/shop-count-window.ts`, Analytics' "Last 30 days") and "to come in" (WRONG row 23);
  *   · a figure that could not be read says "couldn’t load" — never 0, never ₱0; the Portfolio count draws no figure
  *     until C4's `getPortfolioCount` lands (never a guessed count).
  *
@@ -40,8 +41,8 @@ test('1 · five links to five places', () => {
 
 test('2 · the ruled words', () => {
   const t = text(renderToStaticMarkup(React.createElement(TodayStats, { stats: { views: 1240, inquiries: 4, booked: 6, portfolio: { used: 32 }, toComeInPhp: 48000 } })));
-  assert.match(t, /1,240 Views last 28 days/);
-  assert.match(t, /4 Inquiries asked · last 28 days/);
+  assert.match(t, /1,240 Views last 30 days/);
+  assert.match(t, /4 Inquiries asked · last 30 days/);
   // RW-84 (walk 13 Nov 2026): the line says which month it counts — events DATED this month (owner Q2).
   assert.match(t, /6 Booked events this month/);
   assert.match(t, /32 Portfolio photos · no limit/);

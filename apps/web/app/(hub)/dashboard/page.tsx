@@ -60,6 +60,7 @@ import {
   daysUntilEventDay,
   eventBoardHref,
   eventStance,
+  planningCountOf,
   isFinishedEvent,
   landingJumpTarget,
   manilaTodayISO,
@@ -603,7 +604,7 @@ async function UnihomeHome({
     cards: shownCards.map(toCard),
     invited: shownInvited.map(toCard),
     more: Math.max(0, running.length - shownCards.length) + Math.max(0, invitedLive.length - shownInvited.length),
-    counts: refusedAny ? null : { planning: live.length, celebrated: boardFinished(finished).length },
+    counts: refusedAny ? null : { planning: planningCountOf(live), celebrated: boardFinished(finished).length },
     worth: worth === null || (worth.readFailed && !next) ? 'unread' : next ? { label: next.label, day: worthPlanningDay(next.dateISO) } : null,
   };
   const name = switcher?.displayName?.trim() || email.replace(/@.*$/, '') || 'You';

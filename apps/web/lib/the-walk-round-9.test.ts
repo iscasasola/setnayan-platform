@@ -83,10 +83,14 @@ test('RW-59 · an event dated only by its one picked day: the Hub and the reply 
 });
 
 test('RW-256 / RW-64 · the account switcher’s OTHER accounts never show "Someone —" either', () => {
-  const src = code('app/_components/account-switcher/account-switcher.tsx');
-  assert.match(src, /<span className=\{NAME\}>\{realNameOrNull\(acct\.name\) \?\? acct\.email\}<\/span>/);
-  assert.match(src, /\(realNameOrNull\(acct\.name\) \?\? acct\.email\)\.charAt\(0\)/);
+  // Batch 0 · L1: the row is the shared `OtherAccountRow` (the sheet and /login draw it); the rule moved with it.
+  const sheet = code('app/_components/account-switcher/account-switcher.tsx');
+  assert.match(sheet, /<OtherAccountRow key=\{acct\.uid\} acct=\{acct\}/);
+  const src = code('app/_components/account-switcher/other-account-row.tsx');
+  assert.match(src, /const name = realNameOrNull\(acct\.name\) \?\? acct\.email;/);
+  assert.match(src, /\{name\.charAt\(0\)\.toUpperCase\(\)\}/);
   assert.doesNotMatch(src, /acct\.name\?\.trim\(\) \|\| acct\.email/);
+  assert.doesNotMatch(sheet, /acct\.name\?\.trim\(\) \|\| acct\.email/);
 });
 
 test('RW-87 · before the day the run of show is labelled "Starts", and the day carries its year', async () => {

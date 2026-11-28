@@ -492,6 +492,8 @@ test('(5) it is tooling: no file of the app imports the fixture, the helper or t
     'app/[slug]/_components/the-cover-always-has-a-way-on.test.ts',
     /* …and (2026-10-17, cale-ice) the cover's RSVP button reaches its action: the RSVP part, for a guest and the host. A test. */
     'app/[slug]/_components/the-cover-rsvp-reaches-its-action.test.ts',
+    /* 🙅 2026-11-27 (lane L2): the host with no row of their own is never asked to confirm, on the real page. A test. */
+    'app/[slug]/a-host-is-not-asked-to-confirm.test.ts',
     /* …and (2026-10-19) the desk's Reply side panel: every reply door read off the real page is one the panel takes. A test. */
     'lib/the-reply-panel-is-the-reply-page.test.ts',
     /* …and (2026-10-24, the Me redraw) Me is the one place: Me's order, the one Reply, read off the real page. A test. */

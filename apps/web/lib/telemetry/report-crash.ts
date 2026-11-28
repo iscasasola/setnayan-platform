@@ -1,4 +1,5 @@
 import { trackFailure } from '@/lib/telemetry/track-error';
+import { standDownLoadBar } from '@/lib/stylesheet-recovery';
 
 /**
  * Problems · an error boundary's one line. Every `error.tsx` and
@@ -12,8 +13,10 @@ import { trackFailure } from '@/lib/telemetry/track-error';
  * issues, so only browser-born crashes are sent from here.
  */
 export function reportCrash(error: (Error & { digest?: string }) | null | undefined, boundary: string): void {
-  if (!error || error.digest) return;
   if (typeof window === 'undefined') return;
+  // An error screen is showing (server-born or not): the "did not finish loading" bar never stacks on top of it.
+  standDownLoadBar(window as unknown as Parameters<typeof standDownLoadBar>[0]);
+  if (!error || error.digest) return;
   void trackFailure({
     eventType: 'PAGE_CRASH',
     elementName: `${boundary} error screen`,

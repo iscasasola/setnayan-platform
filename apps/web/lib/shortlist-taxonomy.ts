@@ -48,19 +48,13 @@ import type { EventVendorRowInput } from '@/lib/wedding-plan-groups';
 import type { VendorEnrichment } from '@/lib/vendors-plan-budget';
 import type { ChatInquiryStatus } from '@/lib/chat';
 import { lockRequestStateOf, type LockRequestState } from '@/lib/lock-request-state';
+import { BOOKED_EVENT_VENDOR_STATUSES, isBookedStatus } from '@/lib/booked-status';
 import { categoryInfoText } from '@/lib/explore-info-copy';
 import { folderInfoText } from '@/lib/category-hints';
 import type { DateFit } from './calendar-truth';
 
-/** The `event_vendors.status` values that mean "this booking is committed". */
-export const LOCKED_VENDOR_STATUSES: readonly string[] = [
-  'contracted',
-  'deposit_paid',
-  'delivered',
-  'complete',
-];
-
-const LOCKED_STATUSES = new Set<string>(LOCKED_VENDOR_STATUSES);
+/** The `event_vendors.status` values that mean "this booking is committed" — the one booked set (`lib/booked-status.ts`, L5 · C2). */
+export const LOCKED_VENDOR_STATUSES: readonly string[] = BOOKED_EVENT_VENDOR_STATUSES;
 
 /**
  * Every `VendorCategory` → its taxonomy tile. THREE passes, first-writer-wins:
@@ -823,7 +817,7 @@ export function buildShortlistFolders(args: {
     if (totalBudgetPhp == null) return null;
     let lockedSpent = 0;
     for (const v of vendorRows) {
-      if (!(v.status && LOCKED_STATUSES.has(v.status))) continue;
+      if (!isBookedStatus(v.status)) continue;
       const cost =
         typeof v.total_cost_php === 'number'
           ? v.total_cost_php
@@ -867,7 +861,7 @@ export function buildShortlistFolders(args: {
     const tile = homeTileForRow(v, isDrawnTile);
     if (!tile) continue;
     const ext = enrichmentByVendorId?.get(v.vendor_id);
-    const isLocked = !!(v.status && LOCKED_STATUSES.has(v.status));
+    const isLocked = isBookedStatus(v.status);
     const lockRequestState = lockRequestStateOf(
       { status: v.status ?? null, lock_request_state: v.lock_request_state ?? null },
       lockHandshakeEnabled,

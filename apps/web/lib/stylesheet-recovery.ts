@@ -71,12 +71,31 @@ export const STYLESHEET_FAILURE_KEY = 'setnayan:stylesheet-failure';
 /** The path every stylesheet our own build emits lives under. */
 export const APP_STYLESHEET_PATH = '/_next/static/css/';
 
+/** The id of the "This page did not finish loading · Reload" bar the script below draws. */
+export const LOAD_BAR_ID = 'sn-css-failed';
+
+/** Set on `window` while an error screen is showing; the bar below never draws over one. */
+export const ERROR_SCREEN_FLAG = '__snErrorScreen';
+
+/**
+ * 🧱 ONE FAILURE SCREEN, NEVER TWO (Batch 0 · L1, walk 27 Nov: the supplier Plan page showed this bar on top of
+ * "Something on our end didn't work · Try again / Take me home"). When the page's files fail to arrive, the bar and an
+ * error boundary can both fire, and the person reads two failures with two different buttons. An error screen is the
+ * fuller answer (what happened, Try again, a way home), so when one mounts the bar stands down and stays down.
+ * Called by `reportCrash`, which EVERY `error.tsx` and `global-error.tsx` already calls on mount
+ * (`every-failure-is-recorded.test.ts`), so no boundary has to remember it.
+ */
+export function standDownLoadBar(win: { [k: string]: unknown; document?: { getElementById(id: string): { remove(): void } | null } }): void {
+  win[ERROR_SCREEN_FLAG] = true;
+  win.document?.getElementById(LOAD_BAR_ID)?.remove();
+}
+
 export const stylesheetRecoveryScript = `(function(){try{
-  var RK=${JSON.stringify(STYLESHEET_RELOAD_KEY)},FK=${JSON.stringify(STYLESHEET_FAILURE_KEY)},P=${JSON.stringify(APP_STYLESHEET_PATH)};
+  var RK=${JSON.stringify(STYLESHEET_RELOAD_KEY)},FK=${JSON.stringify(STYLESHEET_FAILURE_KEY)},P=${JSON.stringify(APP_STYLESHEET_PATH)},ES=${JSON.stringify(ERROR_SCREEN_FLAG)},BAR=${JSON.stringify(LOAD_BAR_ID)};
   var done=false;
   function ours(l){return !!(l&&l.tagName==='LINK'&&/(^|\\s)stylesheet(\\s|$)/i.test(l.rel||'')&&(l.href||'').indexOf(P)!==-1);}
   function failed(l){var s=l.sheet;if(!s)return true;try{return !s.cssRules||s.cssRules.length===0;}catch(e){return true;}}
-  function bar(){if(document.getElementById('sn-css-failed'))return;var d=document.createElement('div');d.id='sn-css-failed';d.setAttribute('role','alert');
+  function bar(){if(window[ES]||document.getElementById(BAR))return;var d=document.createElement('div');d.id=BAR;d.setAttribute('role','alert');
     d.setAttribute('style','position:fixed;left:0;right:0;top:0;z-index:2147483647;padding:12px 16px;background:#1f1a17;color:#fff;font:15px/1.4 system-ui,sans-serif;display:flex;gap:12px;align-items:center;justify-content:center;flex-wrap:wrap');
     d.appendChild(document.createTextNode('This page did not finish loading.'));var b=document.createElement('button');b.type='button';b.textContent='Reload';
     b.setAttribute('style','padding:6px 14px;border:0;border-radius:6px;background:#fff;color:#1f1a17;font:inherit;font-weight:600;cursor:pointer');

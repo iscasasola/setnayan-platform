@@ -26,6 +26,8 @@ const G = golden as unknown as {
   geomMost: Geo[][];
   gore: GownBlockPiece;
   goreGeom: Geo;
+  scoop: GownBlockPiece;
+  scoopGeom: Geo;
 };
 
 /** The golden input as the port's draft order (estimates only, as the prototype ran them). */
@@ -95,6 +97,9 @@ test('2b · stress: the largest allowances on every bodice (loops cut off) and a
   const g = gownPieceGeom(G.gore, G.saMost, false);
   near(g.C, G.goreGeom.C, 'gore.C');
   near(g.N, G.goreGeom.N, 'gore.N');
+  const s = gownPieceGeom(G.scoop, G.saMost, false);
+  near(s.C, G.scoopGeom.C, 'scoop.C');
+  assert.ok(s.C!.length < G.scoop.outline.length + 4, 'the loop the tight curve makes was not cut off');
 });
 
 /** How far out from a point, straight along a direction, the cut line is (the nearest crossing). */

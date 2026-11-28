@@ -88,7 +88,12 @@ if (X.patGeom) {
   const most = { seam: 3, hem: 8, zip: 4, neck: 2 };
   out.saMost = most;
   out.geomMost = out.bodices.map((b) => (b.result.pieces || []).map((p) => q((({ C, N, D }) => ({ C, N, D }))(X.patGeom(p, most, false)))));
-  out.gore = { name: 'Gore', cut: 'Cut 2', outline: [[0, 0], [60, 0], [32, 900], [28, 900]], edges: ['seam', 'seam', 'hem', 'seam'], darts: [], marks: [], points: [], grain: [[30, 50], [30, 800]] };
+  // a 29° point: its mitre lands at about 4 × the allowance (kept: under the 6 × limit; a tighter limit would square it)
+  const notch = Array.from({ length: 13 }, (_, i) => { const a = Math.PI * (i / 12); return [150 + 15 * Math.cos(a), 15 * Math.sin(a)]; }).reverse();
+  out.gore = { name: 'Gore', cut: 'Cut 2', outline: [[0, 0], [260, 0], [130, 500]], edges: ['seam', 'seam', 'seam'], darts: [], marks: [], points: [], grain: [[130, 50], [130, 400]] };
+  // a square with a small curve cut into its top edge, tighter than the 3 cm allowance: the moved edges loop
+  out.scoop = { name: 'Scoop', cut: 'Cut 2', outline: [[0, 0], ...notch, [300, 0], [300, 300], [0, 300]], edges: Array(17).fill('seam'), darts: [], marks: [], points: [], grain: [[150, 60], [150, 260]] };
+  out.scoopGeom = q((({ C, N, D }) => ({ C, N, D }))(X.patGeom(out.scoop, most, false)));
   out.goreGeom = q((({ C, N, D }) => ({ C, N, D }))(X.patGeom(out.gore, most, false)));
 }
 process.stdout.write(JSON.stringify(out));

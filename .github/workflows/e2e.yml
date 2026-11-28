@@ -4,7 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
-    # Draft PRs: the heavy jobs skip (their `if:`) and the gate is RED; marking the PR ready runs everything.
+    # Draft PRs: the heavy jobs skip (their `if:`), ci.yml's gate holds "typecheck + lint" PENDING, and the
+    # `suite-is-never-skipped` job keeps this suite from ending "skipped"; marking the PR ready runs everything.
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
@@ -16,6 +17,25 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') }}
 
 jobs:
+  # ── THIS WORKFLOW NEVER ENDS ALL-SKIPPED (2026-11-28) ──────────────────────
+  # 🚨 Same trap auto-merge.yml documents for batch PR #8098, hit again on
+  # #8465: the head was pushed while the PR was a DRAFT, the `playwright` job
+  # skipped on its draft `if:`, and this workflow's check suite concluded
+  # "skipped". GitHub filed the required checks that
+  # `scripts/ci-report-checks.mjs` posts (secret scan, migration timestamp
+  # guard, bundle size check, the lints) into that suite, and branch protection
+  # does not count runs in a skipped suite — so after "Ready for review" and an
+  # all-green run the PR stayed BLOCKED. Re-running replays the draft event and
+  # skips again. One job that always runs makes the suite conclude "success".
+  # It does nothing else, gates nothing, and is not a required check.
+  # `lint-ci-gate` (rule k) fails a pull_request workflow without one.
+  suite-is-never-skipped:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Keep this workflow's check suite from concluding "skipped"
+        run: echo "e2e.yml ran for ${{ github.event_name }} — the playwright job decides on its own whether it runs."
+
   playwright:
     name: playwright e2e (chromium)
     if: ${{ github.event.pull_request.draft != true }}

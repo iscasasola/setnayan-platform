@@ -4,8 +4,9 @@ on:
   push:
     branches: [main]
   pull_request:
-    # Draft PRs: the heavy jobs skip (their `if:`, read LIVE by the pr-state job) and the gate is RED; marking the PR
-    # ready runs everything, and so does "Re-run all jobs" on a run that started while the PR was a draft.
+    # Draft PRs: the heavy jobs skip (their `if:`, read LIVE by the pr-state job) and the gate is never green: it holds
+    # "typecheck + lint" PENDING (red if the hold is refused). Marking the PR ready runs everything, and that run's
+    # gate completes the hold (#8524). "Re-run all jobs" on a run that started while the PR was a draft also works.
     types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
 
@@ -1013,8 +1014,8 @@ jobs:
         run: node scripts/ci-report-checks.mjs
 
   # ═══ DRAFT OR READY, READ LIVE (2026-11-24) ═══
-  # The heavy jobs skip a draft PR (owner, 16 Nov: runners go to PRs that are ready) and the gate is RED on one, so a
-  # draft can never merge. Until today both read `github.event.pull_request.draft`: the EVENT's copy of the PR, frozen
+  # The heavy jobs skip a draft PR (owner, 16 Nov: runners go to PRs that are ready) and the gate is never green on one
+  # (PENDING via its draft hold, else red — see draftHoldCheckBody), so a draft can never merge. Until today both read `github.event.pull_request.draft`: the EVENT's copy of the PR, frozen
   # when the event fired. Two things then left a green PR BLOCKED (measured 24 Nov on #8252, #8259, #8261):
   #   · `opened` (as a draft) and `ready_for_review` fire a second apart and their runs can be created in either
   #     order, so a draft-payload run lands on the head commit AFTER the PR is ready and its red gate stays there;
@@ -1255,8 +1256,8 @@ jobs:
       - name: Every job this check stands for must have passed
         env:
           NEEDS: ${{ toJSON(needs) }}
-          # 📝 A draft PR is RED here, always: its heavy jobs were skipped, and a red required check is what keeps
-          # auto-merge (armed on every new PR) from merging it. The gate itself never takes the draft `if:`.
+          # 📝 A draft PR is never green here: its heavy jobs were skipped, so the gate holds the context PENDING
+          # (draftHoldCheckBody, #8524) or, if that hold is refused, goes red. Either keeps auto-merge from merging it. The gate itself never takes the draft `if:`.
           # LIVE, from the pr-state job — never `github.event.pull_request.draft`, which a re-run replays (see pr-state).
           PR_DRAFT: ${{ needs.pr-state.outputs.draft }}
           # 📝 A cancelled run's gate still runs (`always()`) and would post FAILED on this commit, in its own check

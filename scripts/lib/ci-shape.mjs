@@ -26,9 +26,10 @@
  * upstream job produces, and GitHub itself treats a skipped check as passed.
  *
  * 📝 `prDraft` is `${{ needs.pr-state.outputs.draft }}` (env PR_DRAFT): the PR's draft flag read LIVE from GitHub by
- * the pr-state job, never the event payload (see LIVE_DRAFT_JOB). A draft PR is RED, whatever its jobs did: its heavy
- * jobs skip on a draft (LIVE_DRAFT_CLAUSE), and a red required check is the fence that keeps auto-merge (armed on new
- * PRs) from merging it. Marking the PR ready runs everything and this line goes away.
+ * the pr-state job, never the event payload (see LIVE_DRAFT_JOB). A draft PR's verdict is RED, whatever its jobs did: its
+ * heavy jobs skip on a draft (LIVE_DRAFT_CLAUSE). ci-gate.mjs then holds the context PENDING instead of posting red
+ * (draftHoldCheckBody, #8524) — still never green, so auto-merge (armed on new PRs) cannot merge it — and the run that
+ * marking the PR ready starts completes that hold with its real verdict.
  */
 export const DRAFT_PR_PROBLEM = 'Draft PR: checks not run. Mark ready to test.';
 export function gateVerdict(needsJson, prDraft) {
@@ -68,7 +69,8 @@ export function gateVerdict(needsJson, prDraft) {
  *     (`queued`/`pending`/`waiting`/`requested`), never `in_progress`: the group lets ONE run of a PR be in
  *     progress at a time — this one — so a waiting run is the one queued to replace it, and its gate decides.
  *     A run that is not waiting behind this one (or a failed lookup) means no deferral: the gate stays red.
- * The chain always ends in a run nothing replaced, and that run's gate never defers.
+ * The chain always ends in a run nothing replaced, and that run's gate never defers to another run (a lone DRAFT
+ * gate holds PENDING for the ready run that has not started yet — see draftHoldCheckBody).
  *
  * 🔒 A DEFERRING GATE NEVER SAYS SUCCESS (controller, 24 Nov, on #8285). Between the cancelled run finishing and the
  * successor creating its own check runs there is a window. In a draft run the heavy required jobs are SKIPPED, and
@@ -96,6 +98,29 @@ export function deferredCheckBody({ runId, headSha, successor }) {
     external_id: `${DEFERRED_EXTERNAL_ID_PREFIX}${runId}`,
     ...(successor?.html_url ? { details_url: successor.html_url } : {}),
     output: { title: `Deferred to run ${successor?.id}: pending`, summary },
+  };
+}
+
+/**
+ * 🚨 A LONE DRAFT HOLDS THE CONTEXT PENDING, NEVER RED (#8524). A draft run whose gate FINISHES before the PR is
+ * marked ready has no run waiting behind it, so it used to go red — and that red check run stayed counted on the head
+ * commit for good, because a newer run of the same name does not replace it (#8274). The ready run then went fully
+ * green and the PR still sat BLOCKED; "Re-run all jobs" was the only way out, and the trap is that nobody knows it.
+ * So a lone draft gate posts this PENDING hold instead (same name, same external_id prefix as a deferral) and ends 0
+ * only once GitHub accepted it. The context still reads PENDING — a draft still cannot merge — and the first HONEST
+ * gate on the commit (the run that "Ready for review" starts) completes it with its real verdict, exactly as it
+ * completes a cancelled run's deferral. If the post is refused, the gate stays red, as before.
+ */
+export function draftHoldCheckBody({ runId, headSha }) {
+  return {
+    name: GATE_NAME,
+    head_sha: headSha,
+    status: 'in_progress',
+    external_id: `${DEFERRED_EXTERNAL_ID_PREFIX}${runId}`,
+    output: {
+      title: 'Draft PR: pending until it is marked ready',
+      summary: `Run ${runId} read the PR as a draft, so nothing was tested here. This check stays PENDING (the PR cannot merge) until the run that "Ready for review" starts finishes its own "${GATE_NAME}" and completes it with its real result.`,
+    },
   };
 }
 
@@ -185,8 +210,8 @@ export const GATE_NAME = 'typecheck + lint';
  * So ci.yml reads the flag LIVE: the LIVE_DRAFT_JOB job asks GitHub's API at run time, and LIVE_DRAFT_IF is the ONE
  * job-level `if:` a gated job may carry (with `needs: pr-state`, the one `needs:` it may carry). The rules that keep it
  * from opening a hole, because GitHub counts a skipped check as passed:
- *   · the GATE never carries it (rule b: exactly `always()`), and it is RED on a draft (PR_DRAFT → gateVerdict), so
- *     a draft can never merge — not by auto-merge, not by anyone;
+ *   · the GATE never carries it (rule b: exactly `always()`), and it is never green on a draft (PR_DRAFT → gateVerdict:
+ *     red, held PENDING by draftHoldCheckBody), so a draft can never merge — not by auto-merge, not by anyone;
  *   · the gate is handed PR_DRAFT from the live job (rule h) — without it a draft's skipped jobs would be its only signal;
  *   · the live job exists, runs everywhere, reads the API and is NEEDED by the gate, so a failed read is a red gate (rule i);
  *   · a workflow that skips drafts lists `ready_for_review` (rule g), so marking a PR ready RUNS every job.
@@ -392,6 +417,9 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
     }
   }
 
+  /* k · a pull_request workflow can never end ALL-SKIPPED (see neverSkippedProblems) */
+  for (const [file, text] of [['ci.yml', ci], ...Object.entries(others)]) problems.push(...neverSkippedProblems(file, text));
+
   /* f · shards: the whole list, never cancelled early, exit code kept */
   for (const j of jobs) {
     for (const step of j.steps) {
@@ -424,6 +452,28 @@ export function shapeProblems({ ci, others = {}, webPackage = {} }) {
   }
 
   return problems;
+}
+
+/* ── 2a. a workflow's check suite is never all-skipped ──────────────────────*/
+
+/**
+ * 🚨 #8098 (auto-merge.yml, opened with the hold label) and #8465 (lighthouse.yml, head pushed while a DRAFT).
+ * When every job of a workflow run skips, that run's check suite concludes "skipped". If it is the first
+ * github-actions suite on the head commit, GitHub files the required checks `scripts/ci-report-checks.mjs` posts
+ * by name into it — and branch protection does not count runs in a skipped suite. The PR then sits BLOCKED with
+ * every check green, and re-running replays the same event and skips again.
+ *
+ * So every workflow that runs on `pull_request` (or `pull_request_target`) must have at least one job with no
+ * job-level `if:` and no `needs:` — a job that runs on every event and cannot be skipped by a failed dependency.
+ * The convention is a do-nothing job named NEVER_SKIPPED_JOB; any unconditional job satisfies the rule.
+ */
+export const NEVER_SKIPPED_JOB = 'suite-is-never-skipped';
+export function neverSkippedProblems(file, text) {
+  const on = /^on:[^\n]*\n((?:(?: [^\n]*|#[^\n]*|)\n)*)/m.exec(text);
+  if (!on || !/^ {2}pull_request(?:_target)?:/m.test(on[1])) return [];
+  const jobs = parseJobs(text);
+  if (jobs.some((j) => !j.if && j.needs.length === 0)) return [];
+  return [`${file}: runs on pull_request but every job has an \`if:\` or a \`needs:\` (${jobs.map((j) => j.id).join(', ') || 'no jobs'}) — where they all skip (a draft, a hold label) the run's check suite concludes "skipped", required checks reported by name can be filed into it, and branch protection does not count them: the PR stays BLOCKED with everything green (#8098, #8465). Add a job \`${NEVER_SKIPPED_JOB}\` with no \`if:\` and no \`needs:\`.`];
 }
 
 /* ── 2b. required checks a job reports by name ──────────────────────────────*/

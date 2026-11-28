@@ -48,6 +48,8 @@ import { GOWN_POSE_BLEND_S, GOWN_STANDING_POSES, emptyGownPose, gownClearArms, g
 import { gownStepMotion, stillGownMotion, type GownMotionKind } from '@/lib/gown/motion/walks';
 import { gownClothDrive, gownStartTwirl, gownStepTurn, gownTurning, stillGownClothDrive, stillGownTurn, type GownTurnStyle, type GownTwirlStyle } from '@/lib/gown/motion/turn';
 import { buildEnvelope, czOf, emptyEnvelope, type GownEnvelope } from '@/lib/gown/dress/table';
+import { gownBodyMarks } from '@/lib/gown/stage/focus';
+import { gownLetFocusGo, gownStartFocus, gownStepFocus, idleGownFocus, type GownFocusAsk, type GownFocusStage } from './gown-focus';
 import { applyGownSheer, applyGownShine, gownClothColour, gownClothShader, gownSheerOpacity, tintGownSheen } from '@/lib/gown/fabric/shine';
 import { GOWN_FABRIC_PROPS, GOWN_GLITTER_TULLE, gownClothFeel, gownFabricType } from '@/lib/gown/fabric/types';
 import { canvasDpr } from '@/lib/phone-gpu-budget';
@@ -83,6 +85,8 @@ export type GownFigureProps = {
   twirl?: { n: number; style: GownTwirlStyle } | null;
   /** A8: the auto-turn, degrees a second (0 = off), and its style. */
   autoTurn?: { speed: number; style: GownTurnStyle } | null;
+  /** A9 (v204): a close-up of a part, measured on her live body; null = her whole figure. */
+  focus?: GownFocusAsk | null;
 };
 /** Where a finger touches the gown, as the hand tools need it; `moved` = more than a tap's few pixels from where it went down. */
 export type GownHandInput = { tool: GownHandTool | null; onHit: (phase: 'down' | 'move' | 'up' | 'cancel', hit: GownHandHit | null, moved: boolean, ctx: GownHandCtx) => void };
@@ -262,13 +266,16 @@ function beadMaterial(set: GownBeadSet, phone: boolean): THREE.Material {
   return new THREE.MeshStandardMaterial({ color: c, ...L[set.kind] });
 }
 
-function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides = false, turn = 0, design = null, inside = null, scene = 'studio', onSolved, hand = null, handWork = null, pose = 'a', motion = 'stop', twirl = null, autoTurn = null }: { rig: GownRig; phone?: boolean; onBusy?: () => void } & GownFigureProps) {
+function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides = false, turn = 0, design = null, inside = null, scene = 'studio', onSolved, hand = null, handWork = null, pose = 'a', motion = 'stop', twirl = null, autoTurn = null, focus = null }: { rig: GownRig; phone?: boolean; onBusy?: () => void } & GownFigureProps) {
   const pivot = useRef<THREE.Group>(null);
   // A8: her pose, the walk's clock, her turn and the skirt's swing live across builds (the frame loop moves them).
   const S = useMemo(() => emptyGownPose(rig), [rig]);
   const swing = useMemo(() => restingCloth(), [rig]);
   const mo = useRef(stillGownMotion()), tn = useRef(stillGownTurn()), drive = useRef(stillGownClothDrive()), spinRot = useRef(0), bob = useRef({ x: 0, y: 0 }), floorEase = useRef<number | null>(null);
   const reduce = useMemo(() => typeof matchMedia !== 'undefined' && matchMedia('(prefers-reduced-motion: reduce)').matches, []);
+  // A9 (v204): the close-up, the controls it moves, and whether her body changed since the part was measured.
+  const fz = useRef(idleGownFocus()), controls = useRef<{ target: THREE.Vector3; update: () => void } | null>(null), bodyMoved = useRef(false);
+  const three = useThree();
   // The governor's wake-up, read fresh (the parent hands a new function each render).
   const busyRef = useRef(onBusy);
   busyRef.current = onBusy;
@@ -725,6 +732,7 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
     const g = pivot.current;
     floorEase.current = lite && floorEase.current !== null ? floorEase.current + (floor - floorEase.current) * 0.25 : floor;
     if (g) g.position.set(bob.current.x, -floorEase.current * rig.P.S + bob.current.y, 0);
+    bodyMoved.current = true;
     if (lite || S.t < 1) return;
     setFrame({ S: rig.P.S, floor, top: rig.top, ver: rig.ver, width: width * rig.P.S });
     setLoops(guides ? tapeLoops(rig) : null);
@@ -760,6 +768,36 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
     busy();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `busy` reads a ref
   }, [autoSpeed, autoStyle]);
+  // A9: the stage's side of a close-up, read fresh each time.
+  const stageNow = (): GownFocusStage => {
+    const cam = three.camera as THREE.PerspectiveCamera, size = three.size, hh = (frame.top - frame.floor) * frame.S;
+    const vfov = THREE.MathUtils.degToRad(cam.fov), hfov = 2 * Math.atan(Math.tan(vfov / 2) * (size.width / Math.max(1, size.height)));
+    const dist = Math.max((hh * 1.12) / 2 / Math.tan(vfov / 2), (frame.width * 1.2) / 2 / Math.tan(hfov / 2));
+    const g = pivot.current, D = cloth.D;
+    return {
+      rot: turn + spinRot.current, pivotPos: g ? g.position.clone() : new THREE.Vector3(), scale: rig.P.S, camera: cam, target: controls.current?.target ?? new THREE.Vector3(0, hh * 0.5, 0),
+      fitDist: dist, fit: { p: new THREE.Vector3(0, hh * 0.52, dist), q: new THREE.Vector3(0, hh * 0.5, 0) }, min: 1.2, max: 9,
+      marks: () => {
+        const on = !!design && cloth.mesh.visible && !!D.geo;
+        let box: [THREE.Vector3, THREE.Vector3] | null = null;
+        if (on) {
+          const bx = new THREE.Box3();
+          for (const o of [cloth.mesh, cloth.veil, cloth.cape]) if (o.visible && o.geometry.attributes.position) { o.geometry.computeBoundingBox(); bx.union(o.geometry.boundingBox!); }
+          if (!bx.isEmpty()) box = [bx.min.clone(), bx.max.clone()];
+        }
+        const capeBox = on && cloth.cape.visible ? (cloth.cape.geometry.computeBoundingBox(), [cloth.cape.geometry.boundingBox!.min.clone(), cloth.cape.geometry.boundingBox!.max.clone()] as [THREE.Vector3, THREE.Vector3]) : null;
+        return gownBodyMarks(rig, S.floorY, on ? { hemR: D.hemR, box, capeBox, yHem: box ? box[0].y : undefined } : null);
+      },
+    };
+  };
+  const fKey = focus?.key ?? null, fN = focus?.n ?? 0, fStay = focus?.stay ?? false;
+  useEffect(() => {
+    if (!fKey) { gownLetFocusGo(fz.current); busy(); return; }
+    if (mo.current.kind !== 'stop' || gownTurning(tn.current)) return;
+    gownStartFocus(fz.current, { key: fKey, n: fN, stay: fStay }, stageNow());
+    busy();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- `busy` and `stageNow` read refs and the latest frame
+  }, [fKey, fN, fStay]);
   // A8: the frame loop. A blend rebuilds her once a frame; a walk about 24 times a second (lite); her turn drives the skirt.
   useFrame((state, dtRaw) => {
     const dt = Math.min(0.05, dtRaw), now = performance.now();
@@ -775,6 +813,17 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
       S.t = t * t * (3 - 2 * t);
       presentRef.current(false, false);
       S.t = t;
+    }
+    // A twirl, a turn or a walk lets a close-up go; otherwise the close-up turns her and moves the camera.
+    if (fz.current.on && (mo.current.kind !== 'stop' || gownTurning(tn.current))) fz.current.on = false;
+    const fr = gownStepFocus(fz.current, stageNow(), dt, bodyMoved.current);
+    bodyMoved.current = false;
+    if (fr) {
+      moving = true;
+      spinRot.current = fr.rot - turn;
+      state.camera.position.copy(fr.pos);
+      controls.current?.target.copy(fr.tgt);
+      controls.current?.update();
     }
     const rot = gownStepTurn(tn.current, spinRot.current, dt, now);
     spinRot.current = rot;
@@ -855,6 +904,9 @@ function Body({ rig, phone = false, onBusy, vals, fine, shape = 'none', guides =
       {hand?.tool ? <HandPointer mesh={cloth.mesh} T={cloth.T} hand={hand} ctx={{ cmU: rig.P.S * 100, forbidden: (ph, y, rcm) => (cloth.D.L ? gownCutForbidden(rig, cloth.T, cloth.D.L, ph, y, rcm) : ''), close: (P) => gownHandCutClose(rig, cloth.T, P, design?.cutFill ?? 'open') }} /> : null}
       {/* A hand tool picked: one finger (left button) draws; two fingers (right button) still turn her (v202). */}
       <OrbitControls
+        ref={controls as never}
+        // Her fingers always win (v204): a drag lets a close-up go.
+        onStart={() => { fz.current.on = false; }}
         {...(hand?.tool ? { mouseButtons: { LEFT: -1 as THREE.MOUSE, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE }, touches: { ONE: -1 as THREE.TOUCH, TWO: THREE.TOUCH.DOLLY_ROTATE } } : {})}
         enablePan={false}
         enableDamping minDistance={1.2} maxDistance={9} minPolarAngle={Math.PI * 0.3} maxPolarAngle={Math.PI * 0.55} target={[0, h * 0.5, 0]} />

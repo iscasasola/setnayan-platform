@@ -29,7 +29,9 @@ import {
   gownShopTemplate,
   isGownKind,
   sanitizeGownShopOptions,
-  gownShopSeams,
+  gownShopSeamAllow,
+  gownShopPaper,
+  gownSeamAllowIsUsual,
   type GownShopOptions,
 } from './gown-maker';
 import { emptyGownQuantities, startingGownConfig, type GownQuantities } from './gown-config';
@@ -318,16 +320,20 @@ test('7g · v200/v203: 3D flowers, raised lace, glitter tulle, five sleeve style
   assert.equal(new Set(GOWN_PRICE_ITEMS.map((i) => i.key)).size, GOWN_PRICE_ITEMS.length, 'a price key appears twice');
 });
 
-test('7h · B11: her default seam allowances ride on the options: absent means on at the defaults; a bad one is refused in words', () => {
+test('7h · B11/B12 (v205): her allowances and paper ride on the options; absent means the usual ones on A4; out-of-range ones are held to the range', () => {
   const t = gownShopTemplate();
-  assert.equal(t.seams, undefined);
-  assert.deepEqual(gownShopSeams(t), { on: true, seamCm: 1.5, hemCm: 4, zipCm: 2 });
-  const mine = { ...t, seams: { on: true, seamCm: 1, hemCm: 5, zipCm: 2.5 } };
-  const ok = sanitizeGownShopOptions(mine);
+  assert.equal(t.seamAllow, undefined);
+  assert.deepEqual(gownShopSeamAllow(t), { seam: 1.5, hem: 2.5, zip: 2, neck: 1 });
+  assert.equal(gownShopPaper(t), 'a4');
+  assert.ok(gownSeamAllowIsUsual(gownShopSeamAllow(t)));
+  const ok = sanitizeGownShopOptions({ ...t, seamAllow: { seam: 1.04, hem: 20, zip: 2.5, neck: 0.1 }, patPaper: 'letter' });
   assert.ok(ok.ok);
-  if (ok.ok) assert.deepEqual(gownShopSeams(ok.options), { on: true, seamCm: 1, hemCm: 5, zipCm: 2.5 });
+  if (ok.ok) {
+    assert.deepEqual(gownShopSeamAllow(ok.options), { seam: 1, hem: 8, zip: 2.5, neck: 0.3 });
+    assert.equal(gownShopPaper(ok.options), 'letter');
+    assert.ok(!gownSeamAllowIsUsual(gownShopSeamAllow(ok.options)));
+  }
   const plain = sanitizeGownShopOptions(t);
-  assert.ok(plain.ok && !('seams' in plain.options), 'an options row without allowances gains one on save');
-  const bad = sanitizeGownShopOptions({ ...t, seams: { on: true, seamCm: 12, hemCm: 5, zipCm: 2 } });
-  assert.deepEqual(bad, { ok: false, problem: 'Seam allowances must be between 0 and 10 cm.' });
+  assert.ok(plain.ok && !('seamAllow' in plain.options) && !('patPaper' in plain.options), 'an options row without them gains them on save');
+  assert.deepEqual(sanitizeGownShopOptions({ ...t, patPaper: 'legal' }), { ok: false, problem: 'Paper for printing patterns: choose A4 or US Letter.' });
 });

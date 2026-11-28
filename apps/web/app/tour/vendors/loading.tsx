@@ -5,34 +5,42 @@
  * tap showed nothing until the server answered. The tour layout's sample-wedding note stays on screen above this.
  *
  * Shape it mirrors (page.tsx): a `max-w-5xl` column → the centred header (the heading "The AI did the hard part" +
- * two lines) → the shortlist of supplier cards → "One tap, and you’re talking" with the sample chat. The heading and
- * the chat's name are fixed words in the page, so they show at once; the suppliers are not known here.
+ * the intro, 4 lines on a phone) → the shortlist: the sort switch row, then one block per service (name, line,
+ * suppliers), one column at every width. The chat sits below the fold. The heading is fixed words in the page, so
+ * it shows at once; the services and suppliers are not known here.
  */
 import { Ghost, Screen, Sk } from '@/components/skeletons';
+
+/* The page's own fixed words, shown at once at the page's own size, so nothing below them moves when it lands. */
+const WRAP = '!whitespace-normal';
 
 export default function TourVendorsLoading() {
   return (
     <Screen className="mx-auto w-full max-w-5xl px-5 pb-20 pt-12 sm:pt-16">
       <div className="mx-auto max-w-2xl text-center">
-        <Ghost known="The AI did the hard part" textClassName="mt-3 font-serif text-4xl leading-tight tracking-tight text-ink !whitespace-normal sm:text-5xl" />
-        <Sk className="mx-auto mt-4 h-4 w-full max-w-xl rounded" />
-        <Sk className="mx-auto mt-2 h-4 w-3/4 rounded" />
+        <Ghost
+          known="The AI did the hard part"
+          textClassName={`mt-3 font-serif text-4xl leading-tight tracking-tight text-ink ${WRAP} sm:text-5xl`}
+        />
+        {/* The intro opens with the couple's names: grey, at its own line height (4 lines on a phone, 3 on a laptop). */}
+        <div className="mx-auto mt-4 max-w-xl space-y-2 sm:space-y-3">
+          <Sk className="mx-auto h-4 w-full rounded" />
+          <Sk className="mx-auto h-4 w-11/12 rounded" />
+          <Sk className="mx-auto h-4 w-full rounded" />
+          <Sk className="mx-auto h-4 w-2/3 rounded sm:hidden" />
+        </div>
       </div>
 
-      <div className="mt-12 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="sn-frame space-y-3 p-3">
-            <Sk className="h-36 w-full rounded-xl" />
-            <Sk className="h-3.5 w-3/4 rounded" />
-            <Sk className="h-3 w-1/2 rounded" />
+      {/* The shortlist: the sort switch row, then one block per service (its name, line and suppliers). */}
+      <div className="mt-12">
+        <Sk className="h-16 w-full rounded-xl" />
+        {Array.from({ length: 4 }).map((_, i) => (
+          <div key={i} className="mt-10 space-y-2">
+            <Ghost className="h-6 w-40 rounded" />
+            <Sk className="h-3.5 w-2/3 rounded" />
+            <Sk className="!mt-3 h-16 w-full rounded-xl" />
           </div>
         ))}
-      </div>
-
-      <div className="mx-auto mt-16 max-w-2xl text-center">
-        <Ghost known="One tap, and you’re talking" textClassName="mt-2 font-serif text-3xl text-ink !whitespace-normal" />
-        <Sk className="mx-auto mt-3 h-4 w-full max-w-lg rounded" />
-        <Sk className="mt-6 h-72 w-full rounded-2xl" />
       </div>
     </Screen>
   );

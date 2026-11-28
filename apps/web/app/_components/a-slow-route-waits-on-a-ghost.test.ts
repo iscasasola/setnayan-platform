@@ -28,6 +28,14 @@
  * forbids it. Their wait needs a fix that keeps the 404 (a `<Suspense>` inside
  * the page after the existence check), not a `loading.tsx`.
  *
+ * Seven more (both receipts, `claim/[token]`, `onboarding/simple`, `open-shop`
+ * and its `invite` and `logo` steps) call `redirect()` while rendering: a
+ * signed-out visitor, a supplier who already has a shop, a switched-off door.
+ * Behind a boundary that redirect lands AFTER a 200 and a grey skeleton, as a
+ * client hop instead of a 307, and a missing receipt answers 200, not 404. They
+ * wait on a fix that decides before streaming (middleware, or a `<Suspense>`
+ * after the checks), not on a `loading.tsx`.
+ *
  * ── Why a list here ─────────────────────────────────────────────────────────
  * These are the routes the audit found frozen. The list is the finding, so it
  * is kept as the finding: a route here losing its boundary is the regression.
@@ -53,15 +61,8 @@ const APP = resolve(__dirname, '..');
 /** Route folders (relative to `app/`) the audit found with no boundary. */
 const ROUTES = [
   // Group J (named by the audit)
-  'receipts/order/[orderId]',
-  'receipts/payment/[paymentId]',
-  'claim/[token]',
   'join/crew/[token]',
-  'open-shop',
-  'onboarding/simple',
   // ⓛ with 3+ reads before paint (the per-route table)
-  'open-shop/invite',
-  'open-shop/logo',
   'wall/[eventId]',
   'papic/decorate',
   'tour/budget',
@@ -104,7 +105,7 @@ function visibleText(html: string): string {
 }
 
 test('the audit found enough routes for this to ask something', () => {
-  assert.ok(ROUTES.length >= 13, `only ${ROUTES.length} routes listed (floor 13)`);
+  assert.ok(ROUTES.length >= 6, `only ${ROUTES.length} routes listed (floor 6)`);
 });
 
 for (const route of ROUTES) {
@@ -113,6 +114,15 @@ for (const route of ROUTES) {
   test(`${route}: waits on a Ghost skeleton, never the word "Loading"`, async () => {
     assert.ok(existsSync(file), `${route}/loading.tsx is missing — a tap on this route shows nothing until the server answers.`);
     const s = stripComments(readFileSync(file, 'utf8'));
+
+    // A boundary commits HTTP 200 before the page body runs, so a page that answers with a redirect or a 404 while
+    // rendering would send a skeleton and then a client hop. Such a page must decide before streaming instead.
+    const page = stripComments(readFileSync(join(APP, route, 'page.tsx'), 'utf8'));
+    assert.doesNotMatch(
+      page,
+      /\b(?:redirect|permanentRedirect)\(|\bnotFound\(\)/,
+      `${route}/page.tsx redirects or 404s while rendering; behind this loading.tsx that answer would arrive after a 200.`,
+    );
 
     assert.match(s, /from '@\/components\/skeletons'/, `${route}/loading.tsx must build from @/components/skeletons, the one skeleton system.`);
     assert.doesNotMatch(s, /animate-pulse|animate-spin|Spinner|Loader2/, `${route}/loading.tsx draws a spinner or a pulse; the Sheen is the one allowed loop.`);

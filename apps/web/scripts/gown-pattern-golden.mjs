@@ -89,10 +89,11 @@ if (X.patGeom) {
   out.saMost = most;
   out.geomMost = out.bodices.map((b) => (b.result.pieces || []).map((p) => q((({ C, N, D }) => ({ C, N, D }))(X.patGeom(p, most, false)))));
   // a 29° point: its mitre lands at about 4 × the allowance (kept: under the 6 × limit; a tighter limit would square it)
-  const notch = Array.from({ length: 13 }, (_, i) => { const a = Math.PI * (i / 12); return [150 + 15 * Math.cos(a), 15 * Math.sin(a)]; }).reverse();
+  const slot = [[140, 0], [140, 40], ...Array.from({ length: 7 }, (_, i) => { const a = Math.PI * (1 - (i + 1) / 8); return [150 + 10 * Math.cos(a), 40 + 10 * Math.sin(a)]; }), [160, 40], [160, 0]];
   out.gore = { name: 'Gore', cut: 'Cut 2', outline: [[0, 0], [260, 0], [130, 500]], edges: ['seam', 'seam', 'seam'], darts: [], marks: [], points: [], grain: [[130, 50], [130, 400]] };
-  // a square with a small curve cut into its top edge, tighter than the 3 cm allowance: the moved edges loop
-  out.scoop = { name: 'Scoop', cut: 'Cut 2', outline: [[0, 0], ...notch, [300, 0], [300, 300], [0, 300]], edges: Array(17).fill('seam'), darts: [], marks: [], points: [], grain: [[150, 60], [150, 260]] };
+  // a square with a keyhole slot 2 cm wide cut into its top edge, narrower than twice the 3 cm allowance: the walls'
+  // moved edges cross, and the loop between them is cut off
+  out.scoop = { name: 'Scoop', cut: 'Cut 2', outline: [[0, 0], ...slot, [300, 0], [300, 300], [0, 300]], edges: Array(slot.length + 4).fill('seam'), darts: [], marks: [], points: [], grain: [[150, 60], [150, 260]] };
   out.scoopGeom = q((({ C, N, D }) => ({ C, N, D }))(X.patGeom(out.scoop, most, false)));
   out.goreGeom = q((({ C, N, D }) => ({ C, N, D }))(X.patGeom(out.gore, most, false)));
 }

@@ -44,7 +44,7 @@ export async function GownDesignOnOrder({ ctx }: { ctx: PickedPageContext }) {
   return (
     <section className="mb-5" data-gown-design-order="ok">
       <p className="home-k2 mb-2">Her gown design</p>
-      <GownOrderPanel threadId={ctx.threadId} messageId={(data as { message_id: string }).message_id} />
+      <GownOrderPanel threadId={ctx.threadId} messageId={(data as { message_id: string }).message_id} who={ctx.eventName} />
     </section>
   );
 }

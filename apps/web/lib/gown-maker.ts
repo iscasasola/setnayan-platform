@@ -32,7 +32,8 @@ import {
 } from './gown-config';
 import { GOWN_ADD_ONS, type GownAddOnKey } from './gown-add-ons';
 import { formatCentavosPhp } from './php';
-import { GOWN_SEAM_ALLOWANCE_DEFAULT, GOWN_SEAM_ALLOWANCE_MAX_CM, sanitizeGownSeamAllowance, type GownSeamAllowance } from './gown-pattern/allowance';
+import { GOWN_SEAM_ALLOW_DEFAULT, gownSeamAllowClean, type GownSeamAllow } from './gown-pattern/allowance';
+import type { GownPaper } from './gown-pattern/words';
 import { parseClientRef } from './r2-client-ref';
 
 /** The suppliers the Attire Maker is suggested for (owner Q3, 2026-11-27: custom gown makers only for now). */
@@ -227,12 +228,19 @@ export type GownShopOptions = {
   /** Covers mode: added on the designer's costs, percent. */
   markupPct: number;
   addOns: Record<GownAddOnKey, GownAddOnState>;
-  /** B11: her default seam allowances, cm (owner D29: on by default, editable). Absent = the defaults. Lengths, not money. */
-  seams?: GownSeamAllowance;
+  /** B11 (drawing v205 `seamAllow`): her default seam allowances, cm (owner D29: on by default, editable; D30: cm).
+   *  Absent = the usual ones. Lengths, not money. */
+  seamAllow?: GownSeamAllow;
+  /** B12 (v205 `patPaper`; owner D28): the paper her patterns print on. Absent = A4. */
+  patPaper?: GownPaper;
 };
 
-/** The shop's allowances, or the defaults when she has not set her own. */
-export const gownShopSeams = (o: Pick<GownShopOptions, 'seams'>): GownSeamAllowance => o.seams ?? { ...GOWN_SEAM_ALLOWANCE_DEFAULT };
+/** The shop's allowances, or the usual ones when she has not set her own. */
+export const gownShopSeamAllow = (o: Pick<GownShopOptions, 'seamAllow'>): GownSeamAllow => gownSeamAllowClean(o.seamAllow ?? null);
+/** The shop's paper for printing patterns (A4 unless she chose US Letter). */
+export const gownShopPaper = (o: Pick<GownShopOptions, 'patPaper'>): GownPaper => (o.patPaper === 'letter' ? 'letter' : 'a4');
+/** True when her allowances are the usual ones (v205 hides "Back to the usual" then). */
+export const gownSeamAllowIsUsual = (s: GownSeamAllow): boolean => (Object.keys(GOWN_SEAM_ALLOW_DEFAULT) as (keyof GownSeamAllow)[]).every((k) => s[k] === GOWN_SEAM_ALLOW_DEFAULT[k]);
 
 export function gownShopTemplate(): GownShopOptions {
   return {
@@ -302,13 +310,11 @@ export function sanitizeGownShopOptions(input: unknown): { ok: true; options: Go
       addOns[id] = { state: a.state };
     } else return no(`${label}: choose Priced, Included, On request or Not offered.`);
   }
-  let seams: GownSeamAllowance | undefined;
-  if (input.seams !== undefined) {
-    const s = sanitizeGownSeamAllowance(input.seams);
-    if (!s) return no(`Seam allowances must be between 0 and ${GOWN_SEAM_ALLOWANCE_MAX_CM} cm.`);
-    seams = s;
-  }
-  return { ok: true, options: { v: GOWN_OPTIONS_VERSION, mode: input.mode, prices, inBase, hours, markupPct: input.markupPct, addOns, ...(seams ? { seams } : {}) } };
+  // v205 `saClean`: each allowance to one decimal and held to its kind's range (the − / + controls cannot leave it).
+  const seamAllow = input.seamAllow !== undefined && input.seamAllow !== null ? gownSeamAllowClean(input.seamAllow) : undefined;
+  if (input.patPaper !== undefined && input.patPaper !== 'a4' && input.patPaper !== 'letter') return no('Paper for printing patterns: choose A4 or US Letter.');
+  const patPaper = input.patPaper as GownPaper | undefined;
+  return { ok: true, options: { v: GOWN_OPTIONS_VERSION, mode: input.mode, prices, inBase, hours, markupPct: input.markupPct, addOns, ...(seamAllow ? { seamAllow } : {}), ...(patPaper ? { patPaper } : {}) } };
 }
 
 /** The add-ons a bride is offered, in list order. Not offered ones are hidden from her. */
@@ -843,4 +849,41 @@ export function gownFabricGroups(
     for (const t of inFamily) choices.push({ kind: 'type', id: t.id, name: t.name });
     return [{ family, label: GOWN_FABRIC_FAMILIES.find((f) => f.id === family)!.label, choices }];
   });
+}
+
+// ── B11 · one order's own pattern settings (drawing v205: `o.seamAllow` · `o.netPattern`) ─────────────────────────────
+
+/** One order's pattern: its own allowances (null = the shop's) and whether it prints as a net pattern. Lengths only. */
+export type GownOrderPattern = { seamAllow: GownSeamAllow | null; netPattern: boolean };
+export const GOWN_ORDER_PATTERN_DEFAULT: GownOrderPattern = { seamAllow: null, netPattern: false };
+/** The reserved key the order's pattern rides under inside the designer's tape (`gown_fittings.fit`, the shop only). */
+export const GOWN_FIT_PATTERN_KEY = '_pattern';
+
+/** v205 `patState`: the status line beside "Seam allowance". */
+export const gownPatternState = (o: GownOrderPattern): string =>
+  o.netPattern ? 'Off: net pattern' : o.seamAllow ? 'On · set for this order' : "On · your shop's allowances";
+
+/** Checks an order's pattern settings: allowances held to their ranges (or null), the switch a boolean. Refuses junk. */
+export function sanitizeGownOrderPattern(input: unknown): GownOrderPattern | null {
+  if (!isObject(input) || typeof input.netPattern !== 'boolean') return null;
+  if (input.seamAllow !== null && !isObject(input.seamAllow)) return null;
+  return { seamAllow: input.seamAllow === null ? null : gownSeamAllowClean(input.seamAllow), netPattern: input.netPattern };
+}
+
+/** `gown_fittings.fit` → the tape (every number key) and the order's pattern (the reserved key). */
+export function gownFitSplit(fit: unknown): { tape: Record<string, number>; pattern: GownOrderPattern } {
+  const tape: Record<string, number> = {};
+  let pattern: GownOrderPattern = { ...GOWN_ORDER_PATTERN_DEFAULT };
+  if (isObject(fit))
+    for (const [k, v] of Object.entries(fit)) {
+      if (k === GOWN_FIT_PATTERN_KEY) pattern = sanitizeGownOrderPattern(v) ?? pattern;
+      else if (typeof v === 'number') tape[k] = v;
+    }
+  return { tape, pattern };
+}
+
+/** The tape and the pattern back into one `fit` object (the pattern only when it differs from the shop's plain one). */
+export function gownFitJoin(tape: Record<string, number>, pattern: GownOrderPattern): Record<string, unknown> {
+  const plain = pattern.seamAllow === null && !pattern.netPattern;
+  return plain ? { ...tape } : { ...tape, [GOWN_FIT_PATTERN_KEY]: pattern };
 }

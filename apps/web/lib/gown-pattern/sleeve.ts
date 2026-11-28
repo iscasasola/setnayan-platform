@@ -142,6 +142,14 @@ export function draftSleeve(order: GownDraftOrder & { sleeve: GownSleeve }, tape
     name: long ? 'Sleeve (long)' : 'Sleeve (cap)',
     cut: 'Cut 2 (a pair)',
     outline,
+    // The head sews into the armhole (the armhole allowance), the underarm seams are seams, the wrist or cap edge a hem.
+    // (v205 has no sleeve block; this follows its roles for the armhole it sews into.)
+    edges: [
+      ...cap.slice(1).map(() => 'neck' as const),
+      ...front.slice(1).map(() => 'seam' as const),
+      'hem' as const,
+      ...back.slice(1).map(() => 'seam' as const),
+    ],
     darts: [],
     marks: marks.map(([x, y, w]) => [x + hw, y, w] as const),
     points: [],

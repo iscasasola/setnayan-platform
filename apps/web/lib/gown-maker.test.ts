@@ -29,7 +29,15 @@ import {
   gownShopTemplate,
   isGownKind,
   sanitizeGownShopOptions,
-  gownShopSeams,
+  gownShopSeamAllow,
+  gownFitSplit,
+  gownFitJoin,
+  sanitizeGownOrderPattern,
+  gownPatternState,
+  GOWN_ORDER_PATTERN_DEFAULT,
+  GOWN_FIT_PATTERN_KEY,
+  gownShopPaper,
+  gownSeamAllowIsUsual,
   type GownShopOptions,
 } from './gown-maker';
 import { emptyGownQuantities, startingGownConfig, type GownQuantities } from './gown-config';
@@ -318,16 +326,43 @@ test('7g · v200/v203: 3D flowers, raised lace, glitter tulle, five sleeve style
   assert.equal(new Set(GOWN_PRICE_ITEMS.map((i) => i.key)).size, GOWN_PRICE_ITEMS.length, 'a price key appears twice');
 });
 
-test('7h · B11: her default seam allowances ride on the options: absent means on at the defaults; a bad one is refused in words', () => {
+test('7h · B11/B12 (v205): her allowances and paper ride on the options; absent means the usual ones on A4; out-of-range ones are held to the range', () => {
   const t = gownShopTemplate();
-  assert.equal(t.seams, undefined);
-  assert.deepEqual(gownShopSeams(t), { on: true, seamCm: 1.5, hemCm: 4, zipCm: 2 });
-  const mine = { ...t, seams: { on: true, seamCm: 1, hemCm: 5, zipCm: 2.5 } };
-  const ok = sanitizeGownShopOptions(mine);
+  assert.equal(t.seamAllow, undefined);
+  assert.deepEqual(gownShopSeamAllow(t), { seam: 1.5, hem: 2.5, zip: 2, neck: 1 });
+  assert.equal(gownShopPaper(t), 'a4');
+  assert.ok(gownSeamAllowIsUsual(gownShopSeamAllow(t)));
+  const ok = sanitizeGownShopOptions({ ...t, seamAllow: { seam: 1.04, hem: 20, zip: 2.5, neck: 0.1 }, patPaper: 'letter' });
   assert.ok(ok.ok);
-  if (ok.ok) assert.deepEqual(gownShopSeams(ok.options), { on: true, seamCm: 1, hemCm: 5, zipCm: 2.5 });
+  if (ok.ok) {
+    assert.deepEqual(gownShopSeamAllow(ok.options), { seam: 1, hem: 8, zip: 2.5, neck: 0.3 });
+    assert.equal(gownShopPaper(ok.options), 'letter');
+    assert.ok(!gownSeamAllowIsUsual(gownShopSeamAllow(ok.options)));
+  }
   const plain = sanitizeGownShopOptions(t);
-  assert.ok(plain.ok && !('seams' in plain.options), 'an options row without allowances gains one on save');
-  const bad = sanitizeGownShopOptions({ ...t, seams: { on: true, seamCm: 12, hemCm: 5, zipCm: 2 } });
-  assert.deepEqual(bad, { ok: false, problem: 'Seam allowances must be between 0 and 10 cm.' });
+  assert.ok(plain.ok && !('seamAllow' in plain.options) && !('patPaper' in plain.options), 'an options row without them gains them on save');
+  assert.deepEqual(sanitizeGownShopOptions({ ...t, patPaper: 'legal' }), { ok: false, problem: 'Paper for printing patterns: choose A4 or US Letter.' });
+});
+
+test('7i · B11 (v205): one order’s pattern rides in the designer’s own fitting row, beside the tape, and never breaks it', () => {
+  // The tape and the pattern come apart; junk under the reserved key reads as the shop's plain settings.
+  const fit = { bust: 88, waistHip: 21.5, _pattern: { seamAllow: { seam: 1, hem: 4, zip: 2.5, neck: 0.8 }, netPattern: false } };
+  assert.deepEqual(gownFitSplit(fit), { tape: { bust: 88, waistHip: 21.5 }, pattern: { seamAllow: { seam: 1, hem: 4, zip: 2.5, neck: 0.8 }, netPattern: false } });
+  assert.deepEqual(gownFitSplit({ bust: 88 }), { tape: { bust: 88 }, pattern: GOWN_ORDER_PATTERN_DEFAULT });
+  assert.deepEqual(gownFitSplit({ bust: 88, _pattern: 'x' }).pattern, GOWN_ORDER_PATTERN_DEFAULT);
+  assert.deepEqual(gownFitSplit(null), { tape: {}, pattern: GOWN_ORDER_PATTERN_DEFAULT });
+  // Back together: the shop's plain settings add nothing to the row; anything else rides under the reserved key.
+  assert.deepEqual(gownFitJoin({ bust: 88 }, GOWN_ORDER_PATTERN_DEFAULT), { bust: 88 });
+  assert.deepEqual(gownFitJoin({}, { seamAllow: null, netPattern: true }), { [GOWN_FIT_PATTERN_KEY]: { seamAllow: null, netPattern: true } });
+  const back = gownFitSplit(fit);
+  assert.deepEqual(gownFitSplit(gownFitJoin(back.tape, back.pattern)), back, 'a round trip changed the order');
+  // What the order view sends is checked: allowances held to their ranges; a missing switch or junk is refused.
+  assert.deepEqual(sanitizeGownOrderPattern({ seamAllow: { seam: 9, hem: 0.1, zip: 2, neck: 1 }, netPattern: false }), { seamAllow: { seam: 3, hem: 0.5, zip: 2, neck: 1 }, netPattern: false });
+  assert.deepEqual(sanitizeGownOrderPattern({ seamAllow: null, netPattern: true }), { seamAllow: null, netPattern: true });
+  assert.equal(sanitizeGownOrderPattern({ seamAllow: null }), null);
+  assert.equal(sanitizeGownOrderPattern({ seamAllow: 'wide', netPattern: false }), null);
+  // v205 patState, word for word.
+  assert.equal(gownPatternState({ seamAllow: null, netPattern: true }), 'Off: net pattern');
+  assert.equal(gownPatternState({ seamAllow: { seam: 1, hem: 2, zip: 2, neck: 1 }, netPattern: false }), 'On · set for this order');
+  assert.equal(gownPatternState(GOWN_ORDER_PATTERN_DEFAULT), "On · your shop's allowances");
 });

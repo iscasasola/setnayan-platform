@@ -102,3 +102,19 @@ test('7 · the tile is registered, suggested to custom gown makers, and opens th
   assert.doesNotMatch(panel, /onClick=\{\(\) => \{\}\}|href="#"/);
   assert.ok(gownShopTemplate().addOns.veil.state === 'none', 'an add-on starts offered');
 });
+
+test('8 · B11 (v205): one order’s pattern is saved beside the tape, the shop only; what was not sent is kept; a failed read is never the defaults', () => {
+  const strip = (s: string) => s.replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '');
+  const server = strip(read('lib/gown-maker.server.ts'));
+  const save = server.slice(server.indexOf('export async function saveGownFitting('), server.indexOf('export async function readGownFitting('));
+  assert.match(save, /gownFitJoin\(args\.tape \? \{ \.\.\.args\.tape \} : was\.tape, args\.pattern \?\? was\.pattern\)/, 'a tape save drops the allowances, or an allowance save drops the tape');
+  assert.match(save, /if \(readErr\)[\s\S]*?return false;/, 'a failed read of the old row is written over');
+  assert.match(save, /if \(args\.tape \|\| !had\) row\.fit_at/, 'an allowance change moves the date the tape was taken');
+  const actions = strip(read('app/_components/gown-maker/gown-actions.ts'));
+  assert.match(actions, /sanitizeGownOrderPattern\(pattern\)/, 'the order pattern is saved unchecked');
+  assert.match(actions, /if \(\(options\.status === 'ok' \|\| options\.status === 'none'\) && fit\.status !== 'unread'\)/, 'a failed read hands the blocks guessed allowances');
+  // Only the shop's branch builds the pattern; the bride's read carries none.
+  const design = actions.slice(actions.indexOf("if (op === 'design')"), actions.indexOf("if (op === 'fit')"));
+  assert.match(design, /if \(isShop\) \{[\s\S]*pattern = \{/);
+  assert.match(design, /let pattern: GownDesignRead\['pattern'\] = null;/);
+});

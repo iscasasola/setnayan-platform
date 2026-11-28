@@ -74,7 +74,7 @@ export type CardSuggestion = {
   reason: string;
 };
 
-export type SeatProblemKind = 'party_split' | 'plus_one_apart' | 'elder_near_speakers' | 'over_capacity' | 'new_rsvp_alone';
+export type SeatProblemKind = 'household_split' | 'plus_one_apart' | 'elders_near_speaker' | 'table_over' | 'rsvp_alone';
 
 /** The one fix a problem offers: these moves (each guest to a table), or "review" when no move is safe. */
 export type SeatFix = { kind: 'move'; moves: Array<{ guest_id: string; table_id: string }> } | { kind: 'review' };
@@ -215,7 +215,7 @@ function seatProblems(input: DryRunInput): SeatProblem[] {
       movable(away) && canTake(headSeat.table_id, away.length)
         ? { kind: 'move', moves: away.map((id) => ({ guest_id: id, table_id: headSeat.table_id })) }
         : { kind: 'review' };
-    problems.push({ kind: members.length === 2 ? 'plus_one_apart' : 'party_split', guestIds: [head, ...away], tableIds: tables, fix });
+    problems.push({ kind: members.length === 2 ? 'plus_one_apart' : 'household_split', guestIds: [head, ...away], tableIds: tables, fix });
   }
 
   // 2 · Elders near the speakers.
@@ -239,7 +239,7 @@ function seatProblems(input: DryRunInput): SeatProblem[] {
       const moving = [...new Set(ids.flatMap((id) => (parties.get(id) ?? [id]).filter((m) => seat.get(m)?.table_id === tableId)))];
       const to = movable(moving) ? quiet.find((t) => canTake(t.table_id, moving.length)) : undefined;
       problems.push({
-        kind: 'elder_near_speakers',
+        kind: 'elders_near_speaker',
         guestIds: ids,
         tableIds: [tableId],
         fix: to ? { kind: 'move', moves: moving.map((id) => ({ guest_id: id, table_id: to.table_id })) } : { kind: 'review' },
@@ -252,7 +252,7 @@ function seatProblems(input: DryRunInput): SeatProblem[] {
     const n = count.get(t.table_id) ?? 0;
     if (n > effectiveCapacity(t.capacity, t.removed_seats)) {
       problems.push({
-        kind: 'over_capacity',
+        kind: 'table_over',
         guestIds: [...seat.values()].filter((a) => a.table_id === t.table_id).map((a) => a.guest_id),
         tableIds: [t.table_id],
         fix: { kind: 'review' },
@@ -282,7 +282,7 @@ function seatProblems(input: DryRunInput): SeatProblem[] {
       : undefined;
     const target = groupTable && autoSeatTakesTable(tableById.get(groupTable)!) && movable(moving) && canTake(groupTable, moving.length) ? groupTable : undefined;
     problems.push({
-      kind: 'new_rsvp_alone',
+      kind: 'rsvp_alone',
       guestIds: [g.guest_id],
       tableIds: [a.table_id],
       fix: target ? { kind: 'move', moves: moving.map((id) => ({ guest_id: id, table_id: target })) } : { kind: 'review' },
@@ -329,13 +329,13 @@ export function fixAllMoves(
 export function seatProblemWords(p: SeatProblem, nameOf: (guestId: string) => string, tableName: (tableId: string) => string): string {
   const who = nameOf(p.guestIds[0] ?? '') || 'A guest';
   if (p.kind === 'plus_one_apart') return `${who}’s +1 sits apart from them`;
-  if (p.kind === 'party_split') return `${who}’s party is split across ${formatCount(p.tableIds.length)} tables`;
-  if (p.kind === 'elder_near_speakers') {
+  if (p.kind === 'household_split') return `${who}’s party is split across ${formatCount(p.tableIds.length)} tables`;
+  if (p.kind === 'elders_near_speaker') {
     return p.guestIds.length > 1
       ? `${who} +${formatCount(p.guestIds.length - 1)} sit near the speakers at ${tableName(p.tableIds[0]!)}`
       : `${who} sits near the speakers at ${tableName(p.tableIds[0]!)}`;
   }
-  if (p.kind === 'over_capacity') return `${tableName(p.tableIds[0]!)} has ${formatCount(p.guestIds.length)} people for ${formatCount(p.seats ?? 0)} seats`;
+  if (p.kind === 'table_over') return `${tableName(p.tableIds[0]!)} has ${formatCount(p.guestIds.length)} people for ${formatCount(p.seats ?? 0)} seats`;
   return `${who} said yes and sits where they know no one`;
 }
 

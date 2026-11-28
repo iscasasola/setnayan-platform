@@ -29,6 +29,12 @@ export function gownPearlHex(d: { beadCol: keyof typeof GOWN_BEAD_COLOUR_HEX | '
 /** How each bead kind looks (v200 `beadMat`): the stage builds its material from these. `colour` null = the gown's bead colour. */
 export const GOWN_BEAD_LOOK = {
   pearl: { clear: 0xf6f1e7, roughness: 0.28, envMapIntensity: 0.8, sheen: 1, sheenColour: 0xffffff, iridescence: 0.5, iridescenceIOR: 1.4 },
+  /** A crystal: cut glass that twinkles as she turns. A phone gets the same sparkle in a far lighter shader (v202: the phone got hot). */
+  crystal: { metalness: 0.1, roughness: 0.02, envMapIntensity: 2.6, ior: 2.0, specularIntensity: 1, clearcoat: 1, iridescence: 0.35 },
+  crystalPhone: { metalness: 0.15, roughness: 0.04, envMapIntensity: 2.4 },
+  /** A sequin keeps its colour from most angles and flashes when it faces the light. */
+  sequin: { metalness: 0.65, roughness: 0.3, envMapIntensity: 2.2 },
+  seed: { metalness: 0.3, roughness: 0.3, envMapIntensity: 1.2 },
 } as const;
 
 /**

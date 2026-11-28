@@ -16,6 +16,10 @@ import {
   GOWN_ILLUSION_COLOURS,
   GOWN_ILLUSION_CUPS,
   GOWN_PLUNGE_FILLS,
+  GOWN_BEAD_COLOURS,
+  GOWN_BEAD_DENSITIES,
+  GOWN_BEAD_PLACES,
+  GOWN_BEADS,
   GOWN_FLOWERS,
   GOWN_FLOWER_FROM,
   GOWN_FLOWER_TYPES,
@@ -205,7 +209,7 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
   const now = gownCapeNow(design), hidden = gownHiddenChoices(design);
   const capeNow = { capeFab: now.fab, capeLen: now.len, capeEdge: now.edge, capeFasten: now.fasten };
   // Every pick goes through the pairing rules, so the lab shows what the maker will (one line, then Undo in the maker).
-  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'illu' | 'illuBase' | 'illuCol' | 'illuBack' | 'boneShow' | 'straps' | 'strapCol' | 'strapEdge' | 'topEdge' | 'plungeFill' | 'flowers' | 'flowerFrom' | 'flowerType' | 'flowerSize' | 'flowerDen' | 'flowerCol' | 'capeFlowers' | 'laceFinish' | 'veilFab' | 'pearls' | 'boning' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
+  const choose = (k: 'sil' | 'neck' | 'fabric' | 'colour' | 'hem' | 'train' | 'cape' | 'sleeve' | 'back' | 'closure' | 'veil' | 'veilStyle' | 'blusher' | 'bow' | 'capeFab' | 'capeLen' | 'capeEdge' | 'capeFasten' | 'capeCol' | 'illu' | 'illuBase' | 'illuCol' | 'illuBack' | 'boneShow' | 'straps' | 'strapCol' | 'strapEdge' | 'topEdge' | 'plungeFill' | 'flowers' | 'flowerFrom' | 'flowerType' | 'flowerSize' | 'flowerDen' | 'flowerCol' | 'capeFlowers' | 'laceFinish' | 'veilFab' | 'pearls' | 'bead' | 'beadAt' | 'beadDen' | 'beadCol' | 'boning' | 'overlay' | 'ovFab' | 'lace' | 'laceAt' | 'laceCol' | 'cutEdge' | 'cutFill' | 'pieces' | 'waist' | 'tex' | 'texAt' | 'texDir' | 'drape' | 'darts', v: string) => {
     const out = gownChoose(design, { key: k, value: v } as GownChoice);
     setDesign(out.config);
     setNote(out.notes.join(' '));
@@ -294,6 +298,11 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                   ['flowerCol', 'Flower colour', GOWN_FLOWER_COLOURS.filter((x) => !hidden.flowerCol.includes(x.id))],
                 ] as const)),
                 ['pearls', 'Scattered pearls', GOWN_PEARLS.filter((x) => !hidden.pearls.includes(x.id))],
+                // A7 (v202): the first bead layer (a custom colour needs the maker's colour picker, so not here).
+                ['bead', 'Beading', GOWN_BEADS],
+                ['beadAt', 'Beads placed', GOWN_BEAD_PLACES],
+                ['beadDen', 'How many beads', GOWN_BEAD_DENSITIES],
+                ['beadCol', 'Bead colour', GOWN_BEAD_COLOURS.filter((x) => x.id !== 'custom')],
                 ['cutEdge', 'Cut-out edge', GOWN_CUT_EDGES],
                 ['cutFill', 'Cut-out fill', GOWN_CUT_FILLS],
                 ['pieces', 'Made as', GOWN_PIECES],
@@ -317,6 +326,28 @@ export default function GownMakerLab({ view, scene: sceneIn, guides, body: bodyI
                 />
               </div>
             ))}
+            <div className="grid gap-1">
+              <span>Bead size</span>
+              <PickMenu
+                label="Bead size"
+                value={String(design.beadMm)}
+                options={[2, 2.5, 3, 3.5, 4, 4.5, 5, 5.5, 6].map((mm) => ({ key: String(mm), label: `${mm} mm` }))}
+                onPick={(v) => setDesign({ ...design, beadMm: Number(v) })}
+                dataAttr="data-lab-pick-beadmm"
+                className="w-full !min-h-11"
+              />
+            </div>
+            <div className="grid gap-1">
+              <span>Second bead layer</span>
+              <PickMenu
+                label="Second bead layer"
+                value={design.beadLayers[0]?.bead ?? 'none'}
+                options={GOWN_BEADS.map((o) => ({ key: o.id, label: o.label }))}
+                onPick={(v) => setDesign({ ...design, beadLayers: v === 'none' ? [] : [{ bead: v as (typeof GOWN_BEADS)[number]['id'], beadAt: 'hem', beadDen: 'medium', beadCol: 'ivory', beadMm: 4, beadHex: null, mix: [] }] })}
+                dataAttr="data-lab-pick-beadlayer2"
+                className="w-full !min-h-11"
+              />
+            </div>
             <div className="grid gap-1">
               <span>Cut-out</span>
               <PickMenu

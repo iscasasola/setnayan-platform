@@ -66,6 +66,12 @@ export const EXPORT_DECISIONS: ReadonlyArray<ExportDecision> = [
   { table: 'chat_poll_votes', decision: 'exported', as: 'chat_poll_votes' },
   // 🎂 The couple's own cake design, sent from the chat (Cake Maker v6) — their picks, their words, its estimate.
   { table: 'cake_designs', decision: 'exported', as: 'cake_designs_sent' },
+  // 👗 The bride's own gown design, sent from the chat (Attire Maker, gown maker port B1) — her design, the body
+  // numbers she typed and its estimate. No cost line is stored on the row.
+  { table: 'gown_designs', decision: 'exported', as: 'gown_designs_sent' },
+  // 📏 The designer's tape on her gown design: her body, measured by the shop — personal data about HER (coordinator
+  // ruling 2026-11-27). Exported read-only, scoped to the designs she sent; in the app it stays shop-only.
+  { table: 'gown_fittings', decision: 'exported', as: 'gown_fittings_of_her_designs' },
   { table: 'admin_focus_put_offs', decision: 'exported', as: 'admin_focus_put_offs' },
   // ⏭ This subject's own "Do it tomorrow" on an event's Today (2026-11-20) — read on `user_id`.
   { table: 'event_today_put_offs', decision: 'exported', as: 'event_today_put_offs' },

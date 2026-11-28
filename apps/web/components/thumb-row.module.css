@@ -177,3 +177,8 @@
 @media (prefers-reduced-motion: reduce) {
   .row[data-thumb-row] > [data-thumb-seat='field'], .input::placeholder { transition: none; }
 }
+
+/* 🔢 A search's "1 of 4" (`ThumbField.count`) stays after the field lets go of the keyboard — while there are words the
+   field never folds to its icon — and shows only while the field is wide enough to say it whole (never a clipped "2 o"). */
+.counted { container-type: inline-size; }
+@container (max-width: 160px) { .count { display: none; } }

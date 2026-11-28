@@ -32,6 +32,7 @@ import {
   type RegionEditMap,
 } from '@/lib/color-recolor';
 import { formatCount } from '@/lib/format-number';
+import { onPressKeys } from '@/lib/press-keys';
 
 type Props = {
   imageSrc: string;
@@ -208,13 +209,25 @@ export function RecolorStudio({
 
   // ---- eyedrop: sample a custom region from the photo ----
   function handleCanvasClick(e: React.MouseEvent<HTMLCanvasElement>) {
+    const base = baseRef.current;
+    if (!base) return;
+    const rect = base.getBoundingClientRect();
+    eyedropAt((e.clientX - rect.left) / rect.width, (e.clientY - rect.top) / rect.height);
+  }
+
+  /* The keyboard's eyedrop: Enter or Space on the focused photo samples its center. */
+  function eyedropCenter() {
+    eyedropAt(0.5, 0.5);
+  }
+
+  /** Sample the photo at a point given as fractions of its width and height (0–1). */
+  function eyedropAt(fx: number, fy: number) {
     if (!editable || !allowEyedrop || !eyedropping) return;
     const base = baseRef.current;
     const source = sourceRef.current;
     if (!base || !source) return;
-    const rect = base.getBoundingClientRect();
-    const x = Math.floor(((e.clientX - rect.left) / rect.width) * base.width);
-    const y = Math.floor(((e.clientY - rect.top) / rect.height) * base.height);
+    const x = Math.min(base.width - 1, Math.max(0, Math.floor(fx * base.width)));
+    const y = Math.min(base.height - 1, Math.max(0, Math.floor(fy * base.height)));
     const idx = (y * base.width + x) * 4;
     const hex = rgbToHex(source.data[idx]!, source.data[idx + 1]!, source.data[idx + 2]!);
     const nextId = (slots.reduce((m, s) => Math.max(m, s.slotId), 0) || 0) + 1;
@@ -253,8 +266,15 @@ export function RecolorStudio({
       >
         <canvas
           ref={baseRef}
+          /* A control only while eyedropping (Enter or Space samples the center); otherwise just the photo. It keeps
+             the crosshair and its own look (the global button cursor and press would replace them). */
+          role={eyedropping ? 'button' : undefined}
+          tabIndex={eyedropping ? 0 : undefined}
+          aria-label={eyedropping ? 'The photo. Press Enter to sample its center' : undefined}
+          data-press-none=""
           onClick={handleCanvasClick}
-          className={`block h-auto w-full ${canvasAspect} object-contain`}
+          onKeyDown={eyedropping ? onPressKeys(eyedropCenter) : undefined}
+          className={`block h-auto w-full ${canvasAspect} object-contain${eyedropping ? ' cursor-crosshair' : ''}`}
         />
         <canvas
           ref={maskRef}

@@ -25,10 +25,10 @@ test('1 · on 2D, Find lights the SEAT, not only the table — two pulses, then 
   assert.match(goTo, /setHighlightId\(g\.seated_table_id\);[\s\S]{0,120}requestAnimationFrame\(\(\) => zoomToTable\(tid\)\)/, 'the table is not brought close enough to draw its chairs');
   assert.match(ED, /const z1 = clampZoom\(Math\.max\(zoomRef\.current, DETAIL_AT \* 1\.15\)\);/, 'Find zooms out, or not to where chairs are drawn');
   assert.match(goTo, /const foundSeatId = roomOnly && foundGuest\?\.seated_table_id \? foundGuest\.guest_id : null;/, 'the seat is not lit on 2D');
-  assert.match(ED, /\{foundSeatId === occupant\.guest_id \? <FoundSeatRing key=\{found\?\.tick\} still=\{reducedMotion\} \/> : null\}/, 'the chair does not draw the lit seat');
+  assert.match(ED, /\{foundSeatId === occupant\.guest_id \? <FoundSeatRing still=\{reducedMotion \|\| \(found\?\.tick \?\? 0\) <= pulsedTick\.current\} onPulse=/, 'the chair does not draw the lit seat, or pulses again on every redraw');
   const ring = ED.slice(ED.indexOf('function FoundSeatRing('));
   assert.match(ring, /iterations: 2/, 'the seat does not pulse twice');
-  assert.match(ring, /duration: MOVE_MS, easing: EASE_SETTLE/, 'the pulse is not the Move speed on Settle');
+  assert.match(ring, /duration: SHEEN_MS \/ 2, easing: EASE_SETTLE, iterations: 2/, 'two pulses do not fill one Sheen on Settle');
   assert.match(ring, /transform: 'scale\(1\.9\)', opacity: 0/);
   assert.doesNotMatch(ring, /\b(width|height|top|left|box-shadow)\s*:/, 'the pulse animates more than transform and opacity');
   assert.match(ring, /data-seat-found="" className="pointer-events-none absolute -inset-1 rounded-full ring-2 ring-terracotta"/, 'the seat does not stay lit');
@@ -38,7 +38,8 @@ test('1 · on 2D, Find lights the SEAT, not only the table — two pulses, then 
 test('2 · a pill "Name · Table · Seat N" — its tap opens their table', () => {
   const pill = ED.slice(ED.indexOf('const foundPill ='), ED.indexOf('const foundPill =') + 900);
   assert.match(pill, /label=\{`\$\{foundGuest\.name\} · \$\{tableLabelById\.get\(foundGuest\.seated_table_id\)/, 'the pill does not say name · table');
-  assert.match(pill, /` · Seat \$\{formatCount\(foundGuest\.seat_number \+ 1\)\}`/, 'the pill does not say the seat');
+  assert.match(pill, /\$\{foundChair >= 0 \? ` · Seat \$\{formatCount\(foundChair \+ 1\)\}` : ''\}/, 'the pill’s seat is not the drawn chair');
+  assert.match(ED, /return occupantsFor\(t\)\.findIndex\(\(x\) => x\?\.guest_id === foundGuest\.guest_id\);/, 'the pill reads a stored seat, not the chair the plan draws');
   assert.match(pill, /onClick=\{openFoundTable\}/);
   const open = ED.slice(ED.indexOf('const openFoundTable = '), ED.indexOf('const foundPill ='));
   assert.match(open, /onSelectView\('list'\)/);
@@ -48,7 +49,7 @@ test('2 · a pill "Name · Table · Seat N" — its tap opens their table', () =
 
 test('3 · "1 of N", and Enter steps to the next one found', () => {
   assert.match(goTo, /const at = found && found\.words === words \? \(found\.at \+ 1\) % list\.length : 0;/, 'Enter does not step to the next match');
-  assert.match(ED, /const findCount = lens && seatQ \? \(foundList\.length \? `\$\{formatCount\(foundAt \+ 1\)\} of \$\{formatCount\(foundList\.length\)\}` : 'No match'\) : null;/);
+  assert.match(ED, /const findCount = lens && seatQ && !in3d \? \(foundList\.length \? `\$\{formatCount\(foundAt \+ 1\)\} of \$\{formatCount\(foundList\.length\)\}` : 'No match'\) : null;/);
   assert.match(ED, /if \(v\) goToFound\(v\);/, 'Enter no longer finds');
 });
 
@@ -56,6 +57,11 @@ test('4 · the count is the ONE thumb row’s', () => {
   assert.match(ED, /placeholder: 'Search guests',\s*count: findCount,/);
   assert.match(ROW, /count\?: string \| null;/);
   assert.match(ROW, /\{field\.count \? \(\s*<span className=\{`\$\{styles\.count\}[^`]*text-sn-sm[^`]*`\} data-thumb-count="" aria-live="polite">/, 'the count is not drawn in the field');
-  assert.match(readFileSync(join(WEB, 'components/thumb-row.module.css'), 'utf8'), /\.field:not\(:focus-within\) > \.count \{ display: none; \}/, 'a folded search still draws its count');
+  assert.doesNotMatch(readFileSync(join(WEB, 'components/thumb-row.module.css'), 'utf8'), /:not\(:focus-within\) > \.count/, 'the count goes away when the field lets go');
   assert.match(readFileSync(join(WEB, 'components/thumb-row.module.css'), 'utf8'), /@container \(max-width: 160px\) \{ \.count \{ display: none; \} \}/, 'a narrow field clips its count');
+});
+
+test('5 · controller review of #8491: an unseated match says so; 3D shows no count it cannot step', () => {
+  assert.match(goTo, /\} else if \(!g\.seated_table_id\) \{\s*\/\/[^\n]*\n\s*setHighlightId\(null\);\s*setNotice\(`\$\{g\.name\} · Not seated yet`\);/, 'an unseated match leaves the last table lit');
+  assert.match(ED, /const findCount = lens && seatQ && !in3d \?/, '3D says "1 of N" but Enter never steps there');
 });

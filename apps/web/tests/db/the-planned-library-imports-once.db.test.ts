@@ -12,6 +12,10 @@
  *   3 · `social_live_week_facts` counts real events in the window only (no sample event, no event outside it) and
  *       lists only live, non-demo, not-opted-out suppliers verified in the window; service_role only.
  *
+ *   0 · Library v2 (20271366752632) lands one post per planned slot — 399 mornings and 399 evenings, every day
+ *       28 Nov 2026 – 31 Dec 2027, 31 holiday extras, 1 afternoon — run twice it inserts nothing more, and a slot that
+ *       passed before the migration ran is left out (never queued late).
+ *
  * Sabotage (measured): dropping the NOT EXISTS guard from the generated SQL turns 1 red (the pulled row comes back);
  * dropping `is_demo IS FALSE` from the function turns 3 red.
  */
@@ -57,6 +61,86 @@ after(async () => {
 
 test('replay applies every migration incl. the slots', () => {
   assert.equal(replay.applied, replay.total);
+});
+
+// The real library v2 import (20271366752632_social_library_v2.sql, generated from the specs corpus
+// social/library-v2.csv). The replay above already ran it; it leaves out slots that passed before it ran, so the
+// full set is proved by re-running it with that one filter line taken out.
+const V2_FILE = '20271366752632_social_library_v2.sql';
+const v2Sql = readFileSync(join(__dirname, '..', '..', '..', '..', 'supabase', 'migrations', V2_FILE), 'utf8');
+const V2_PAST_FILTER = '\nWHERE v.scheduled_for > now();';
+
+test('0 · library v2 lands once: 399 mornings, 399 evenings, 31 holidays, 1 afternoon, each on its Manila hour', async () => {
+  assert.ok(v2Sql.includes(V2_PAST_FILTER), 'the v2 import no longer leaves out passed slots');
+  const bySlot = async () =>
+    Object.fromEntries(
+      (
+        await db.query<{ slot: string; n: number }>(
+          `SELECT slot, count(*)::int AS n FROM public.social_posts WHERE source_type = 'library' GROUP BY slot ORDER BY slot`,
+        )
+      ).rows.map((r) => [r.slot, r.n]),
+    );
+  // What the replay's run kept: only slots still ahead of it, and no planned post already behind now().
+  const late = await count(`source_type = 'library' AND scheduled_for <= now() - interval '1 hour'`);
+  assert.equal(late, 0, 'the import queued a planned post whose slot had already passed');
+  const futureAfterReplay = await count(`source_type = 'library' AND scheduled_for > now() + interval '1 hour'`);
+
+  await db.exec(v2Sql.replace(V2_PAST_FILTER, ';'));
+  const full = { afternoon: 1, evening: 399, holiday: 31, morning: 399 };
+  assert.deepEqual(await bySlot(), full, 'the full library did not land one post per planned slot');
+  await db.exec(v2Sql.replace(V2_PAST_FILTER, ';'));
+  await db.exec(v2Sql);
+  assert.deepEqual(await bySlot(), full, 'a second run imported planned posts again');
+  assert.equal(
+    await count(`source_type = 'library' AND scheduled_for > now() + interval '1 hour'`),
+    futureAfterReplay,
+    'the replay run left out a slot that was still ahead',
+  );
+
+  const shape = await db.query<{ slot: string; hours: string; days: number; first: string; last: string; statuses: string }>(
+    `SELECT slot,
+            string_agg(DISTINCT to_char(scheduled_for AT TIME ZONE 'UTC' + interval '8 hours', 'HH24:MI'), ',') AS hours,
+            count(DISTINCT (scheduled_for AT TIME ZONE 'UTC' + interval '8 hours')::date)::int AS days,
+            to_char(min(scheduled_for AT TIME ZONE 'UTC' + interval '8 hours'), 'YYYY-MM-DD') AS first,
+            to_char(max(scheduled_for AT TIME ZONE 'UTC' + interval '8 hours'), 'YYYY-MM-DD') AS last,
+            string_agg(DISTINCT status, ',') AS statuses
+       FROM public.social_posts WHERE source_type = 'library' GROUP BY slot ORDER BY slot`,
+  );
+  assert.deepEqual(
+    shape.rows.map((r) => [r.slot, r.hours, r.statuses]),
+    [
+      ['afternoon', '14:00', 'scheduled'],
+      ['evening', '20:00', 'scheduled'],
+      ['holiday', '12:00', 'scheduled'],
+      ['morning', '08:00', 'scheduled'],
+    ],
+  );
+  // 8 AM and 8 PM every day from 28 Nov 2026 to 31 Dec 2027 (399 days), one each.
+  for (const kind of ['morning', 'evening']) {
+    const r = shape.rows.find((x) => x.slot === kind)!;
+    assert.deepEqual([r.days, r.first, r.last], [399, '2026-11-28', '2027-12-31'], `${kind} does not cover every day`);
+  }
+  // The copy is carried as written; images wait for hosting, so the flush posts the branded card for now.
+  const sample = await db.query<{ body: string; title: string; link_url: string; media_url: string | null; media_urls: string[] | null }>(
+    `SELECT body, title, link_url, media_url, media_urls FROM public.social_posts
+      WHERE source_type = 'library' AND scheduled_for = '2026-11-28T00:00:00Z'`,
+  );
+  assert.equal(sample.rows.length, 1);
+  assert.ok(sample.rows[0]!.body.startsWith('The list is in Excel. The quote is in Messenger.'));
+  assert.equal(sample.rows[0]!.title, 'Introduce Setnayan · Plan it, free');
+  assert.equal(sample.rows[0]!.link_url, 'https://setnayan.com/start');
+  assert.equal(await count(`source_type = 'library' AND (media_url IS NOT NULL OR media_urls IS NOT NULL)`), 0);
+
+  // The fixture tests below reuse the same planned slots: start them on an empty plan.
+  await db.exec(`DELETE FROM public.social_posts WHERE source_type = 'library'`);
+});
+
+test('0b · a passed slot is left out when the import runs', async () => {
+  const csv = 'Date,Time (Manila),Caption (primary text)\n2020-01-01,08:00,"Long gone"\n2099-01-01,08:00,"Far ahead"\n';
+  await db.exec(libraryMigrationSql(libraryRowsFromCsv(csv).rows, 'past.csv', { skipPastSlots: true }));
+  const r = await db.query<{ body: string }>(`SELECT body FROM public.social_posts WHERE source_type = 'library' ORDER BY body`);
+  assert.deepEqual(r.rows.map((x) => x.body), ['Far ahead']);
+  await db.exec(`DELETE FROM public.social_posts WHERE source_type = 'library'`);
 });
 
 test('1 · the library import inserts each planned post once, and a pulled one stays pulled', async () => {

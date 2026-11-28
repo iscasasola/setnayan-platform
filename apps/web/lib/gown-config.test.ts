@@ -17,7 +17,6 @@ import {
   gownMeasuresNeeded,
   sanitizeGownBody,
   sanitizeGownConfig,
-  sanitizeGownOrderLines,
   sanitizeGownParts,
   sanitizeGownMeasures,
   sanitizeGownQuantities,
@@ -497,18 +496,30 @@ test('v210: colour and fabric per piece (parts), checked against the shop and th
   refused(sanitizeGownParts([one({ border: { edge: 'hem', cm: 80, fabric: null, colour: 'accent' } })], offer()), 'out_of_range', 'a border band past 60 cm');
 });
 
-test('v209: the order\'s lines (lnMeasured) are known parts of finite numbers', () => {
-  const lines = {
-    neck: { custom: true, from: 'scoop', centre: 6, cornerL: 9, cornerDepthL: 12, shoulderL: 11, shoulderDepthL: 2, curve: 0.13, cornerR: 9, cornerDepthR: 12, shoulderR: 11, shoulderDepthR: 2 },
-    back: { custom: false, from: 'v', depth: 22, halfL: 15, halfR: 15, curve: 0.5, sideDepth: 4.2 },
-    hem: { custom: true, front: 8, left: 4, back: 0, right: 4, curve: 0.6, edge: 'scallop' },
-    armhole: 3,
-  };
-  assert.deepEqual(sanitizeGownOrderLines(lines), { ok: true, value: lines });
-  assert.deepEqual(sanitizeGownOrderLines(undefined), { ok: true, value: {} }, 'a design with no lines drawn');
-  refused(sanitizeGownOrderLines({ ...lines, sleeve: {} }), 'measures', 'a part the maker never measures');
-  refused(sanitizeGownOrderLines({ ...lines, neck: { ...lines.neck, centre: Number.NaN } }), 'measures', 'a number that is not one');
-  refused(sanitizeGownOrderLines({ ...lines, hem: { ...lines.hem, edge: 'zigzag' } }), 'measures', 'a hem edge not in the catalog');
-  refused(sanitizeGownOrderLines({ ...lines, back: { ...lines.back, from: '<b>' } }), 'measures', 'a name that is not a design word');
-  refused(sanitizeGownOrderLines({ ...lines, armhole: 0 }), 'measures', 'an armhole is sent only when cut in');
+
+test('v210 quantities: each piece cut from another bolt and each border band, checked; old quantities still read', () => {
+  const q = emptyGownQuantities();
+  assert.deepEqual([q.pieces, q.borders, q.labour.dyeFade, q.labour.borders], [[], [], 0, 0]);
+  const { pieces: _p, borders: _b, ...old } = q;
+  const oldL = { ...old.labour } as Record<string, unknown>;
+  delete oldL.dyeFade; delete oldL.borders;
+  assert.ok(sanitizeGownQuantities({ ...old, labour: oldL }).ok, 'quantities sent before v210 still read');
+  const piece = { part: 'skirt', fabric: 'tulle', fabricRef: null, patternKey: null, m: 4.6, eqM: 3.9 };
+  const band = { part: 'skirt', edge: 'hem', cm: 12, edgeM: 3.4, m: 0.4, fabric: 'satin' };
+  const full = { ...q, pieces: [piece, { ...piece, part: 'bodice', patternKey: 'pat_brocade', m: 0.9, eqM: 0.8 }], borders: [band], labour: { ...q.labour, dyeFade: 1, borders: 1 } };
+  const got = sanitizeGownQuantities(full);
+  assert.ok(got.ok);
+  assert.deepEqual(got.quantities.pieces[1], { part: 'bodice', fabric: 'tulle', fabricRef: null, patternKey: 'pat_brocade', m: 0.9, eqM: 0.8 });
+  for (const [what, x] of [
+    ['a piece that is cut from no bolt (trims)', { ...full, pieces: [{ ...piece, part: 'trims' }] }],
+    ['the same piece twice', { ...full, pieces: [piece, piece] }],
+    ['a price on a piece', { ...full, pieces: [{ ...piece, price: 100 }] }],
+    ['a pattern key not in the list', { ...full, pieces: [{ ...piece, patternKey: 'pat_paisley' }] }],
+    ['a border on an edge the piece has not got', { ...full, borders: [{ ...band, edge: 'neck' }] }],
+    ['a border past 60 cm', { ...full, borders: [{ ...band, cm: 61 }] }],
+    ['a border count that disagrees with the bands', { ...full, labour: { ...full.labour, borders: 2 } }],
+    ['more dyed pieces than can be dyed', { ...full, labour: { ...full.labour, dyeFade: 6 } }],
+    ['negative metres', { ...full, borders: [{ ...band, m: -1 }] }],
+  ] as const) refused(sanitizeGownQuantities(x), 'quantities', what);
+  assert.deepEqual([...G.GOWN_PIECE_QUOTE_KEYS], ['dye_fade', 'border', 'pat_brocade', 'pat_jacquard', 'pat_floral', 'pat_dots', 'pat_stripes', 'pat_plaid', 'pat_lib']);
 });

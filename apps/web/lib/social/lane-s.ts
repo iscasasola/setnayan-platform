@@ -8,6 +8,7 @@
  * No I/O, no clock, no `server-only` — so every rule here is unit-tested directly (`lane-s.test.ts`).
  */
 
+import { routes } from '@/lib/routes';
 import { shopPath } from '@/lib/shop-address';
 import { isPaidSize } from '@/lib/vendor-tier-caps';
 import { isShopLive } from '@/lib/vendor-visibility';
@@ -147,7 +148,7 @@ export function badgePostCopy(input: {
   const named = input.named && name.length > 0;
   const shopUrl = input.businessSlug ? `${origin}${shopPath(encodeURIComponent(input.businessSlug))}` : null;
   if (named) {
-    const linkUrl = shopUrl ?? `${origin}/vendors`;
+    const linkUrl = shopUrl ?? `${origin}${routes.suppliers()}`;
     return {
       title: `${name} · ${words}`,
       body:
@@ -157,7 +158,7 @@ export function badgePostCopy(input: {
     };
   }
   const who = `a ${input.categoryLabel.toLowerCase()} in ${input.region}`;
-  const linkUrl = `${origin}/vendors`;
+  const linkUrl = `${origin}${routes.suppliers()}`;
   return {
     title: `New badge · ${words}`,
     body:
@@ -181,9 +182,9 @@ const n = (v: number) => v.toLocaleString('en-PH');
 /** Each metric's caption — the first three unchanged from the flush; `users_joined` is Lane S's. */
 export const MILESTONE_CAPTIONS: Readonly<Record<MilestoneMetric, (count: number) => string>> = {
   events_created: (c) =>
-    `🎉 ${n(c)}+ events now planned on Setnayan — from "will you?" to "Set na 'yan." Thank you for trusting us with your big days. ✨\n\n#Setnayan #SetNaYan`,
+    `🎉 ${n(c)}+ events now planned on Setnayan — from "will you?" to "Set na 'yan." Salamat for planning with us. ✨\n\n#Setnayan #SetNaYan`,
   vendors_verified: (c) =>
-    `✅ ${n(c)}+ verified vendors on the Setnayan marketplace — every single one vetted by our team before they meet your big day.\n\n#Setnayan #SetNaYan`,
+    `✅ ${n(c)}+ verified suppliers on Setnayan. A person checks each one's business papers. Set na 'yan.\n\n#Setnayan #SetNaYan`,
   guests_invited: (c) =>
     `💌 ${n(c)}+ guests invited through Setnayan — QR invitations, RSVPs, and seats, all sorted. Set na 'yan.\n\n#Setnayan #SetNaYan`,
   users_joined: (c) =>

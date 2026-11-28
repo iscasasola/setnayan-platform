@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { Check, Loader2, Plus, X } from 'lucide-react';
+import { Check, ChevronDown, Plus, X } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import type { PoolTile } from '@/lib/papic-pool-gallery';
 import { groupIntoChapters, type ChapterContext } from '@/lib/papic-chapters';
 
@@ -180,8 +181,9 @@ export function PoolGrid({
                       : 'bg-cream/85 text-ink/80 hover:bg-cream'
                   } disabled:opacity-60`}
                 >
+                  {/* No spinner: the chip says the step it is on (house pending word). */}
                   {state === 'busy' ? (
-                    <Loader2 aria-hidden className="h-3 w-3 animate-spin" strokeWidth={2} />
+                    tile.linked ? 'Removing…' : 'Adding…'
                   ) : tile.linked ? (
                     <>
                       <Check aria-hidden className="h-3 w-3" strokeWidth={2.5} />
@@ -203,17 +205,14 @@ export function PoolGrid({
         </section>
       ))}
       {cursor ? (
-        <button
-          type="button"
+        <ActionButton
+          tone="neutral"
+          icon={ChevronDown}
+          label="Load more"
+          busy={isLoadingMore ? 'Loading more…' : null}
           onClick={loadMore}
-          disabled={isLoadingMore}
-          className="mt-4 inline-flex w-full items-center justify-center gap-2 rounded-md bg-ink/5 px-4 py-2 text-sm font-medium text-ink/80 transition hover:bg-ink/10 disabled:opacity-60"
-        >
-          {isLoadingMore ? (
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-          ) : null}
-          Load more
-        </button>
+          className="mt-4 w-full"
+        />
       ) : null}
     </div>
   );

@@ -7,10 +7,10 @@
 # migrations in [ledger] below and asserts the result matches [columns]
 # AND that the same columns are NOT NULL on both sides ([notnull]).
 #
-# ledger: 2021
-# tables: 547
-# columns: 6567
-# notnull: 3940
+# ledger: 2024
+# tables: 553
+# columns: 6632
+# notnull: 3982
 [ledger]
 20260512000000
 20260513000000
@@ -2033,6 +2033,9 @@
 20271363480132
 20271363906595
 20271364844438
+20271365509280
+20271366154053
+20271366373891
 [columns]
 account_deletion_requests.admin_note
 account_deletion_requests.created_at
@@ -4428,6 +4431,41 @@ godparents.public_id
 godparents.reminders_enabled
 godparents.role
 godparents.updated_at
+gown_designs.body
+gown_designs.config
+gown_designs.created_at
+gown_designs.created_by
+gown_designs.design_id
+gown_designs.estimate_centavos
+gown_designs.hand
+gown_designs.locked_token
+gown_designs.measures
+gown_designs.quantities
+gown_designs.share_as
+gown_designs.share_code
+gown_designs.thread_id
+gown_designs.vendor_profile_id
+gown_designs.vendor_service_id
+gown_fabric_types.active
+gown_fabric_types.aliases
+gown_fabric_types.family
+gown_fabric_types.gsm
+gown_fabric_types.name
+gown_fabric_types.render_as
+gown_fabric_types.sheen
+gown_fabric_types.sheer
+gown_fabric_types.sort
+gown_fabric_types.stiff
+gown_fabric_types.stretch
+gown_fabric_types.type_id
+gown_fabric_types.updated_at
+gown_fabric_types.updated_by
+gown_fabric_types.used_for
+gown_fabric_types.verified
+gown_fittings.design_id
+gown_fittings.fit
+gown_fittings.fit_at
+gown_fittings.updated_by
 guest_chapter_not_invited.block_id
 guest_chapter_not_invited.created_at
 guest_chapter_not_invited.event_id
@@ -7357,6 +7395,36 @@ vendor_forms.retired_at
 vendor_forms.title
 vendor_forms.updated_at
 vendor_forms.vendor_profile_id
+vendor_gown_fabrics.active
+vendor_gown_fabrics.code
+vendor_gown_fabrics.colours
+vendor_gown_fabrics.created_at
+vendor_gown_fabrics.fabric_id
+vendor_gown_fabrics.kind
+vendor_gown_fabrics.name
+vendor_gown_fabrics.price_per_metre_centavos
+vendor_gown_fabrics.sort
+vendor_gown_fabrics.thumb_key
+vendor_gown_fabrics.tile_key
+vendor_gown_fabrics.tune
+vendor_gown_fabrics.type_id
+vendor_gown_fabrics.updated_at
+vendor_gown_fabrics.updated_by
+vendor_gown_fabrics.vendor_profile_id
+vendor_gown_looks.active
+vendor_gown_looks.config
+vendor_gown_looks.created_at
+vendor_gown_looks.look_id
+vendor_gown_looks.name
+vendor_gown_looks.photo_key
+vendor_gown_looks.sort
+vendor_gown_looks.updated_at
+vendor_gown_looks.updated_by
+vendor_gown_looks.vendor_profile_id
+vendor_gown_makers.options
+vendor_gown_makers.updated_at
+vendor_gown_makers.updated_by
+vendor_gown_makers.vendor_profile_id
 vendor_graph_unlocks_kept.kept_at
 vendor_graph_unlocks_kept.vendor_profile_id
 vendor_guest_deliveries.created_at
@@ -9974,6 +10042,27 @@ godparents.owner_user_id
 godparents.public_id
 godparents.reminders_enabled
 godparents.updated_at
+gown_designs.config
+gown_designs.created_at
+gown_designs.design_id
+gown_designs.vendor_profile_id
+gown_fabric_types.active
+gown_fabric_types.aliases
+gown_fabric_types.family
+gown_fabric_types.gsm
+gown_fabric_types.name
+gown_fabric_types.sheen
+gown_fabric_types.sheer
+gown_fabric_types.sort
+gown_fabric_types.stiff
+gown_fabric_types.stretch
+gown_fabric_types.type_id
+gown_fabric_types.updated_at
+gown_fabric_types.used_for
+gown_fabric_types.verified
+gown_fittings.design_id
+gown_fittings.fit
+gown_fittings.fit_at
 guest_chapter_not_invited.block_id
 guest_chapter_not_invited.created_at
 guest_chapter_not_invited.event_id
@@ -11813,6 +11902,27 @@ vendor_forms.public_id
 vendor_forms.title
 vendor_forms.updated_at
 vendor_forms.vendor_profile_id
+vendor_gown_fabrics.active
+vendor_gown_fabrics.colours
+vendor_gown_fabrics.created_at
+vendor_gown_fabrics.fabric_id
+vendor_gown_fabrics.kind
+vendor_gown_fabrics.name
+vendor_gown_fabrics.sort
+vendor_gown_fabrics.tune
+vendor_gown_fabrics.updated_at
+vendor_gown_fabrics.vendor_profile_id
+vendor_gown_looks.active
+vendor_gown_looks.config
+vendor_gown_looks.created_at
+vendor_gown_looks.look_id
+vendor_gown_looks.name
+vendor_gown_looks.sort
+vendor_gown_looks.updated_at
+vendor_gown_looks.vendor_profile_id
+vendor_gown_makers.options
+vendor_gown_makers.updated_at
+vendor_gown_makers.vendor_profile_id
 vendor_graph_unlocks_kept.kept_at
 vendor_graph_unlocks_kept.vendor_profile_id
 vendor_guest_deliveries.created_at

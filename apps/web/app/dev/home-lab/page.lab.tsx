@@ -383,7 +383,7 @@ const LAB_HUB_PICK: HomeHubPickRead = { ok: true, pinned: null, byDate: 'rsvp' }
 export default async function HomeLab({
   searchParams,
 }: {
-  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; times?: string; schedule?: string; moved?: string; page?: string; empty?: string; tomorrow?: string; es?: string }>;
+  searchParams: Promise<{ stage?: string; photos?: string; bought?: string; v11?: string; proto?: string; next?: string; unread?: string; fail?: string; hidden?: string; store?: string; papic?: string; view?: string; early?: string; shots?: string; needs?: string; apple?: string; live?: string; screen?: string; shell?: string; paid?: string; order?: string; spot?: string; face?: string; before?: string; type?: string; phase?: string; for?: string; one?: string; coord?: string; level?: string; shop?: string; card?: string; cardphase?: string; head?: string; save?: string; challenges?: string; open?: string; need?: string; state?: string; browser?: string; desk?: string; prints?: string; settings?: string; row?: string; date?: string; nodate?: string; picked?: string; as?: string; asked?: string; person?: string; whos?: string; chapter?: string; sched?: string; plan?: string; times?: string; schedule?: string; moved?: string; page?: string; empty?: string; tomorrow?: string; es?: string; hubvis?: string }>;
 }) {
   if (process.env.NODE_ENV === 'production') notFound();
   const q = await searchParams;
@@ -702,6 +702,11 @@ export default async function HomeLab({
        preparation` draws, counted by the SAME rule (`planningProgress`) — so the tile here and the list there agree. */
     ...(unread ? {} : { checklist: labTodoFacts() }),
   });
+  /* 🌐 `&hubvis=unlisted|private` — the Event Hub tile over an Unlisted / Private Hub: it names its reach, never "live"
+     (L5 · C6, `hubReachOf`). */
+  if ((q.hubvis === 'unlisted' || q.hubvis === 'private') && labControl.hub && labControl.hub !== 'unread') {
+    labControl.hub = { ...labControl.hub, visibility: q.hubvis, where: `setnayan.com/ana-and-miguel · ${q.hubvis === 'unlisted' ? 'Unlisted' : 'Private'}` };
+  }
   /* 🏠 `&moved=1|unread` — the lines for what moved (event-menu reorganisation): Guests' "N without a seat" (→ Guests ›
      Seats) and Suppliers' "N looks on your board" (→ Find's board), or both reads refused. */
   if (q.moved === '1' || q.moved === 'unread') {

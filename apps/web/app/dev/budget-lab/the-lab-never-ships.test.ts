@@ -51,6 +51,8 @@ test("the fixture reproduces the approved prototype's figures through the real c
     dueDate: '2026-10-05',
     vendorId: 'sv',
     costId: null,
+    // The lab's clock is Oct 1, so Oct 5 is still ahead — "Next", not "Overdue" (L5 · C9; `?late=1` moves the clock).
+    overdue: false,
   });
 });
 

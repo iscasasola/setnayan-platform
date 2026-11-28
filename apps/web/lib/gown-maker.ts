@@ -99,7 +99,8 @@ export const GOWN_FABRIC_METRES_MULT: Readonly<Record<string, number>> = { bias_
 export const gownFabricMetresMult = (typeId: string | null | undefined): number => (typeId && GOWN_FABRIC_METRES_MULT[typeId]) || 1;
 
 export const GOWN_PRICE_ITEMS = [
-  // v197: "Fit and flare" (the old A-line block) comes in with Builder A's A6e silhouette list.
+  // v197: "Fit and flare" (the old A-line block) is a silhouette since Builder A's step A6e, so its starting price
+  // (unpriced until the designer prices it) comes from this spread as `base_fitflare`, last among the starting prices.
   ...GOWN_SILHOUETTES.map((s) => ({ key: `base_${s.id}`, label: s.label, unit: 'gown' as const })),
   ...GOWN_PRICED_FABRICS.map((f) => ({ key: `fab_${f.id}`, label: f.label, unit: 'm' as const })),
   { key: 'lin_satin', label: 'Satin lining', unit: 'm' },

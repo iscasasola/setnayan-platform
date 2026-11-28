@@ -99,7 +99,7 @@ const base: GrowInput = {
 test('3 · a blank line is off; a set line decides; an unread count decides nothing', () => {
   assert.equal(growStage(base)?.n, 5, 'a blank line turned a stage on');
   assert.equal(growStage({ ...base, cutoffs: { fewInquiries: 20, fewBookings: null } })?.n, 3);
-  assert.equal(growStage({ ...base, cutoffs: { fewInquiries: 20, fewBookings: null } })?.why, '312 looked · 14 asked in 28 days');
+  assert.equal(growStage({ ...base, cutoffs: { fewInquiries: 20, fewBookings: null } })?.why, '312 looked · 14 asked in 30 days');
   assert.equal(growStage({ ...base, inquiries28: null, cutoffs: { fewInquiries: 20, fewBookings: 2 } })?.n, 4);
   assert.equal(growStage({ ...base, bookedThisMonth: null, cutoffs: { fewInquiries: null, fewBookings: 2 } })?.n, 5);
   assert.equal(growStage({ ...base, verified: false })?.n, 1);

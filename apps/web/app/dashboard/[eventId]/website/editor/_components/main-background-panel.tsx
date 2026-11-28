@@ -1664,7 +1664,7 @@ export function StillOverSwatch({
           decoding="async"
           onLoad={(e) => setState(e.currentTarget.naturalWidth > 0 ? 'shown' : 'failed')}
           onError={() => setState('failed')}
-          className={`h-full w-full object-cover transition-opacity duration-200 ${state === 'shown' ? 'opacity-100' : 'opacity-0'}`}
+          className={`h-full w-full object-cover transition-opacity duration-sn-control ease-sn ${state === 'shown' ? 'opacity-100' : 'opacity-0'}`}
           {...(position && position !== 'center' ? { style: { objectPosition: position } } : {})}
         />
       ) : null}

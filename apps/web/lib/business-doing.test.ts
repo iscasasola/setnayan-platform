@@ -10,7 +10,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { barHeights, businessSentence, fromLine, ratingLine, replyLine, unmeasuredStats } from './business-doing';
+import { barHeights, businessSentence, fromLine, ratingLine, replyLine } from './business-doing';
+import { shopRatingOf } from './shop-rating';
 import { buildVendorHealthComposite, unmeasuredVendorHealthComposite } from './vendor-health-composite';
 import { stripComments } from './strip-comments';
 
@@ -30,18 +31,17 @@ test('reply: a REFUSED stats read has no verdict — "Couldn’t load", never "N
   assert.deepEqual(replyLine(null), { line: 'Couldn’t load', good: false });
 });
 
-test('rating: an unread row is not "no reviews"', () => {
-  assert.equal(ratingLine(unmeasuredStats()), 'Couldn’t load');
-  assert.equal(ratingLine({ measured: true, row: { review_avg_bayesian: 4.62, review_count: 40 } }), '4.6 ★ · 40 reviews');
-  assert.equal(ratingLine({ measured: true, row: { review_avg_bayesian: null, review_count: 0 } }), 'No reviews yet');
+test('rating: an unread row is not "no reviews" — the one rating (`lib/shop-rating.ts`, L6 · S2)', () => {
+  assert.equal(ratingLine(shopRatingOf(null)), 'Couldn’t load');
+  assert.equal(ratingLine(shopRatingOf({ trusted_avg_rating: 4.62, trusted_review_count: 40 })), '4.6 ★ · 40 reviews');
+  assert.equal(ratingLine(shopRatingOf({ trusted_avg_rating: 0, trusted_review_count: 0 })), 'No reviews yet');
 });
 
-test('rating: a NEW SHOP has no stats row, and that is not a failure (SetnaProd, 6 Nov)', () => {
-  // The three cases the page used to collapse into one `null`.
-  assert.equal(ratingLine({ measured: false, row: null }), 'Couldn’t load'); // refused
-  assert.equal(ratingLine({ measured: true, row: null }), 'No reviews yet'); // no row yet
-  assert.equal(ratingLine({ measured: true, row: { review_avg_bayesian: 4.8, review_count: 3 } }), '4.8 ★ · 3 reviews');
-  assert.equal(ratingLine({ measured: true, row: { review_avg_bayesian: 5, review_count: 1 } }), '5.0 ★ · 1 review');
+test('rating: a NEW SHOP has no trusted row, and that is not a failure (SetnaProd, 6 Nov)', () => {
+  assert.equal(ratingLine({ state: 'unread' }), 'Couldn’t load'); // refused
+  assert.equal(ratingLine({ state: 'none' }), 'No reviews yet'); // no review yet
+  assert.equal(ratingLine(shopRatingOf({ trusted_avg_rating: 4.8, trusted_review_count: 3 })), '4.8 ★ · 3 reviews');
+  assert.equal(ratingLine(shopRatingOf({ trusted_avg_rating: 5, trusted_review_count: 1 })), '5.0 ★ · 1 review');
 });
 
 test('health: a refused read is "Couldn’t load", a new shop is "New" — never one for the other', () => {
@@ -88,7 +88,7 @@ test('the Analytics page keeps the stats read’s refusal apart from a missing r
   assert.match(read, /measured:\s*true/, 'a read that happened must say so, row or no row');
 
   // Every consumer that states something about the shop's data branches on the measurement.
-  assert.match(page, /ratingLine\(\s*statsRead\s*\)/, 'ratingLine must receive the measured read, not a bare row');
+  assert.match(page, /ratingLine\(\s*shopRating\s*\)/, 'ratingLine must receive the one rating (`shopRatingOf`), not a bare row');
   assert.match(page, /const\s+health\s*=\s*statsRead\.measured\s*\?/, 'health must say "Couldn’t load" only when refused');
   assert.match(page, /const\s+replyVerdict\s*=\s*statsRead\.measured\s*\?/, 'the reply verdict must not be computed from a refused read');
 });

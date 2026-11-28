@@ -598,13 +598,14 @@ function ProofForm({
 
       {preview && (
         <div className="rounded-xl bg-white p-3 text-center">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={preview}
-            alt="The payment screenshot you just picked"
-            className="mx-auto max-h-[340px] w-full max-w-[300px] cursor-zoom-in rounded-lg border border-ink/10 object-contain"
-            onClick={() => setBig(true)}
-          />
+          <button type="button" data-press-none="" onClick={() => setBig(true)} aria-label="Enlarge the payment screenshot you just picked" className="block w-full cursor-zoom-in">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={preview}
+              alt="The payment screenshot you just picked"
+              className="mx-auto max-h-[340px] w-full max-w-[300px] rounded-lg border border-ink/10 object-contain"
+            />
+          </button>
           <p className="mt-2 text-xs text-ink/60">
             This is the receipt we&rsquo;ll read &mdash; tap to enlarge.
           </p>

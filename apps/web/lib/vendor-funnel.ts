@@ -22,26 +22,14 @@
 
 import { createHash } from 'node:crypto';
 import { inquirySourceLabel } from '@/lib/inquiry-source';
+import { BOOKED_EVENT_VENDOR_STATUSES } from '@/lib/booked-status';
 
 /**
- * Booked statuses on event_vendors that count as the BOOKED funnel stage.
- * "Contracted+" — a real commercial commitment, not a shortlist/save. Mirrors
- * the set the vendor activity stats + booking surfaces treat as a finalized
- * booking. Kept here so both funnel surfaces agree on the definition.
+ * Booked statuses on event_vendors that count as the BOOKED funnel stage — "Contracted+", a real commercial
+ * commitment. Defined ONCE in the leaf `lib/booked-status.ts` (with `isBookedStatus`), re-exported here under the name
+ * every funnel reader and the SQL twin `booked_event_vendor_statuses()` know.
  */
-// ⚠ 'paid' was a member here and is NOT in the `vendor_status` enum
-// (considering · shortlisted · contracted · deposit_paid · delivered · complete).
-// Postgres rejects the entire `.in()` on an unknown label — 22P02 — so all FOUR
-// event_vendors queries fed by this array errored and returned null, and every
-// booked-count they compute has read zero since it shipped. The
-// `as unknown as string[]` casts at those call sites are what kept the compiler
-// from ever noticing; the `as const` here would otherwise have typed them.
-export const BOOKED_EVENT_VENDOR_STATUSES = [
-  'contracted',
-  'deposit_paid',
-  'delivered',
-  'complete',
-] as const;
+export { BOOKED_EVENT_VENDOR_STATUSES };
 
 /**
  * Proposal statuses that count as the QUOTES funnel stage — a quote that was

@@ -28,6 +28,7 @@ import type { DemandRadar } from '@/lib/demand-radar';
 import type { WhatsNewCard } from '@/lib/vendor-overview';
 import { formatCount } from '@/lib/format-number';
 import { feeDueStage } from '@/lib/booking-fee-disclosure';
+import { SHOP_COUNT_WINDOW_DAYS } from '@/lib/shop-count-window';
 import { myQrHref } from '@/lib/supplier-qr-codes';
 
 /* ─── MODES ───────────────────────────────────────────────────────────────────────────────────────────────────── */
@@ -451,7 +452,7 @@ export type GrowMove = { key: string; label: string; line: string; tag: TodayBad
 export type GrowStage = {
   n: 1 | 2 | 3 | 4 | 5;
   title: string;
-  /** The one line under the title — the signal, in counts ("312 looked · 14 asked in 28 days"). */
+  /** The one line under the title — the signal, in counts ("312 looked · 14 asked in 30 days" — `lib/shop-count-window.ts`). */
   why: string | null;
   moves: GrowMove[];
 };
@@ -512,7 +513,7 @@ export function growStage(i: GrowInput): GrowStage | null {
   }
   // 🔑 Stage 2 could not be judged (the cards were unread): the shop is NOT moved on to stage 3+ on a guess.
   if (i.coversUnread) return null;
-  const looked = i.views != null && i.inquiries28 != null ? `${formatCount(i.views)} looked · ${formatCount(i.inquiries28)} asked in 28 days` : null;
+  const looked = i.views != null && i.inquiries28 != null ? `${formatCount(i.views)} looked · ${formatCount(i.inquiries28)} asked in ${formatCount(SHOP_COUNT_WINDOW_DAYS)} days` : null;
   if (i.cutoffs.fewInquiries !== null && i.inquiries28 !== null && i.inquiries28 < i.cutoffs.fewInquiries) {
     return {
       n: 3,

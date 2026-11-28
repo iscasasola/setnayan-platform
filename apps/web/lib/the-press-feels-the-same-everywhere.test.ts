@@ -107,7 +107,12 @@ test('(2) the ONE exemption is the guest’s Event Hub; a disabled control and �
   assert.equal(pressable(el(true, false)), false, 'a guest page’s button wears the app’s press');
   assert.equal(pressable(el(false, true)), false, 'a disabled control presses');
   const src = read('app/_components/press-feel.tsx');
-  assert.match(src, /return !el\.closest\('\.sn-editorial'\) && !el\.matches\(SCRIM_SELECTOR\) && !el\.matches\(':disabled, \[aria-disabled="true"\]'\);/);
+  assert.match(src, /return !el\.closest\('\.sn-editorial'\) && !el\.matches\(SCRIM_SELECTOR\) && !el\.matches\(PRESS_NONE\) && !el\.matches\(':disabled, \[aria-disabled="true"\]'\);/);
+  /* A surface that took `role="button"` only for the keyboard keeps its own look (`data-press-none`), here and in the
+     stylesheet. */
+  const kept = { closest: () => null, matches: (sel: string) => sel === '[data-press-none]' };
+  assert.equal(pressable(kept), false, 'a data-press-none surface dips on a tap');
+  assert.match(css, /\[role='button'\]\[data-press-none\]:active,\s*button\[data-press-none\]:active \{\s*scale: none;\s*filter: none;/, 'the stylesheet dims a data-press-none surface');
   /* A scrim is not a control: the dip shrank the full-screen dark and bared a frame round the screen (owner
      2026-10-29). Held in full by `lib/one-scrim.test.ts`. */
   const scrim = { closest: () => null, matches: (sel: string) => sel.includes('[data-overlay-backdrop]') };

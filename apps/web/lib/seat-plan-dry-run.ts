@@ -205,6 +205,10 @@ function seatProblems(input: DryRunInput): SeatProblem[] {
     const head = partyHeadOf(g, byId);
     parties.set(head, [...(parties.get(head) ?? []), g.guest_id]);
   }
+  const placeOf = (tableId: string) => {
+    const t = tableById.get(tableId);
+    return t?.link_group_id ? `link:${t.link_group_id}` : `table:${tableId}`;
+  };
   for (const [head, members] of parties) {
     if (members.length < 2) continue;
     const headSeat = seat.get(head);
@@ -213,7 +217,8 @@ function seatProblems(input: DryRunInput): SeatProblem[] {
     // ⚖ A principal sponsor's +1s sit together nearest the sponsors under "nearest" (owner R3): not a split.
     const away = members.filter((id) => {
       const s = seat.get(id);
-      if (!s || s.table_id === headSeat.table_id) return false;
+      // A linked run is one table (the seater treats it so): two of its tables are not "apart".
+      if (!s || placeOf(s.table_id) === placeOf(headSeat.table_id)) return false;
       const g = byId.get(id)!;
       const sponsorsGuest = input.floor.vip_plus_ones === 'nearest' && headTable && isVipTable(headTable) && g.role === 'guest';
       return !sponsorsGuest;
@@ -245,7 +250,7 @@ function seatProblems(input: DryRunInput): SeatProblem[] {
     const quiet = elderTableOrder([...input.tables], room, (t) => tablePos(t) ?? { x: sp.x, y: sp.y }).filter((t) => !near(t) && tablePos(t) !== null);
     for (const [tableId, ids] of eldersAt) {
       // Bring their parties with them.
-      const moving = [...new Set(ids.flatMap((id) => (parties.get(id) ?? [id]).filter((m) => seat.get(m)?.table_id === tableId)))];
+      const moving = [...new Set(ids.flatMap((id) => (parties.get(partyHeadOf(byId.get(id)!, byId)) ?? [id]).filter((m) => seat.get(m)?.table_id === tableId)))];
       const to = movable(moving) ? quiet.find((t) => canTake(t.table_id, moving.length)) : undefined;
       problems.push({
         kind: 'elders_near_speaker',

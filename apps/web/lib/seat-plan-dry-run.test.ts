@@ -325,3 +325,35 @@ test('a fix never moves anyone off or onto a locked, Spare or Sweetheart table â
     assert.deepEqual(alone.problems.find((p) => p.kind === 'rsvp_alone')?.fix, { kind: 'review' }, `${what}: rsvp`);
   }
 });
+
+test('an elder who is someone\'s +1 moves away from the speakers WITH their party, never alone', () => {
+  const run = seatPlanDryRun(
+    input({
+      tables: [table('loud', 1, { x_pos: 10, y_pos: 10 }), table('quiet', 2, { table_kind: 'elders', x_pos: 80, y_pos: 90 })],
+      guests: [guest('k'), guest('lola', { role: 'bride_grandparents', plus_one_of_guest_id: 'k' })],
+      assignments: [seat('k', 'loud'), seat('lola', 'loud')],
+      floor: { ...DEFAULT_FLOOR_PLAN, speakers_enabled: true, speakers_x: 8, speakers_y: 8 },
+    }),
+  );
+  assert.ok(run.ok);
+  const p = run.problems.find((x) => x.kind === 'elders_near_speaker');
+  assert.ok(p);
+  assert.equal(p.fix.kind, 'move');
+  assert.deepEqual(
+    (p.fix as { moves: Array<{ guest_id: string }> }).moves.map((m) => m.guest_id).sort(),
+    ['k', 'lola'],
+    'the guest who brought Lola moves with her',
+  );
+});
+
+test('a guest and their +1 at two tables of one linked run are not "apart"', () => {
+  const run = seatPlanDryRun(
+    input({
+      tables: [table('l1', 1, { link_group_id: 'L' }), table('l2', 2, { link_group_id: 'L' })],
+      guests: [guest('ana'), guest('ana+1', { plus_one_of_guest_id: 'ana' })],
+      assignments: [seat('ana', 'l1'), seat('ana+1', 'l2')],
+    }),
+  );
+  assert.ok(run.ok);
+  assert.equal(run.problems.filter((p) => p.kind === 'plus_one_apart').length, 0);
+});

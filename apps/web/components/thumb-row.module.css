@@ -177,3 +177,9 @@
 @media (prefers-reduced-motion: reduce) {
   .row[data-thumb-row] > [data-thumb-seat='field'], .input::placeholder { transition: none; }
 }
+
+/* 🔢 A search's "1 of 4" (`ThumbField.count`) shows only while the field is open — folded to its icon, it is not drawn —
+   and only while the field is wide enough to say it whole beside the words (never a clipped "2 o"). */
+.field:not(:focus-within) > .count { display: none; }
+.counted { container-type: inline-size; }
+@container (max-width: 160px) { .count { display: none; } }

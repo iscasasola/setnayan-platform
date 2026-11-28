@@ -208,6 +208,7 @@ import { lockSaysViewOnly, useSeatingLock } from './use-seating-lock';
 import { useSeatingLiveRefresh } from './use-seating-live-refresh';
 import { SeatingLockError } from '../seating-lock-error';
 import { usePrefersReducedMotion } from '@/lib/use-responsive';
+import { EASE_SETTLE, MOVE_MS } from '@/lib/motion-table';
 import { formatCount } from '@/lib/format-number';
 import { planTableBadges } from '@/lib/plan-table-badges';
 import { guestsViewHref } from '@/lib/guests-views';
@@ -4499,6 +4500,13 @@ export function SeatingEditor({
     if (seatQTimer.current) clearTimeout(seatQTimer.current);
   }, []);
   const seatFound = useMemo(() => (lens && seatQ ? lens.find(seatQ) : null), [lens, seatQ]);
+  /* 🔎 SEAT PLAN C · FIND SHOWS THE SEAT (drawing `prototypes/seating_later_2026-11-27/` C): Enter goes to the first
+     guest the words find, and each Enter after it steps to the next ("1 of 4" in the field). On 2D the found guest's SEAT
+     lights — two pulses, then it stays lit — under a pill "Name · Table · Seat N" that opens their table. */
+  const [found, setFound] = useState<{ words: string; at: number; tick: number } | null>(null);
+  const foundList = useMemo(() => (seatFound ? guests.filter((g) => seatFound.has(g.guest_id)) : []), [guests, seatFound]);
+  const foundAt = found && found.words === seatQ && foundList.length ? found.at % foundList.length : 0;
+  const foundGuest = found && found.words === seatQ ? (foundList[foundAt] ?? null) : null;
   /** A face the shared Show or the typed words leave out — drawn faint, never hidden (its seat is still taken). */
   const seatDim = (guestId: string): boolean => Boolean(lens) && (!lens!.shows(guestId) || (seatFound !== null && !seatFound.has(guestId)));
   /* 🗂 R4: is the 3D room the view? In Guests it is a client switch over the room streamed with the page; in the Maker
@@ -4742,6 +4750,21 @@ export function SeatingEditor({
       maxZoom: Math.min(PLAN_ZOOM_MAX_FLOOR, zoomMaxRef.current),
     });
     applyView(v.zoom, { x: v.x, y: v.y });
+    bumpOverlay((n) => n + 1);
+  };
+
+  /* 🔎 Find (seat plan C): bring ONE table to the middle of the floor, close enough that its chairs are drawn
+     (`DETAIL_AT`) — so the found guest's seat can light. Never zooms OUT a floor already closer than that. */
+  const zoomToTable = (tableId: string) => {
+    const canvasEl = canvasRef.current;
+    const rect = canvasEl ? layoutRectOf(canvasEl) : null;
+    const i = tables.findIndex((t) => t.table_id === tableId);
+    if (!canvasEl || !rect || rect.width === 0 || i < 0) return;
+    const pos = positions[tableId] ?? defaultGrid(i, tables.length, !venueScaled);
+    const cx = (pos.x / 100) * rect.width;
+    const cy = (pos.y / 100) * rect.height;
+    const z1 = clampZoom(Math.max(zoomRef.current, DETAIL_AT * 1.15));
+    applyView(z1, { x: rect.width / 2 - z1 * cx, y: rect.height / 2 - z1 * cy });
     bumpOverlay((n) => n + 1);
   };
 
@@ -8098,18 +8121,52 @@ export function SeatingEditor({
       if (seated) setRoomGuide((c) => ({ guestId: seated.guest_id, at: (c?.at ?? 0) + 1 }));
       return;
     }
-    const g = guests.find((x) => hits.has(x.guest_id));
-    if (!g) return;
+    const list = guests.filter((x) => hits.has(x.guest_id));
+    if (!list.length) return;
+    // The same words again → the next one found ("1 of N" → "2 of N"); new words start at the first.
+    const at = found && found.words === words ? (found.at + 1) % list.length : 0;
+    setFound((c) => ({ words, at, tick: (c?.tick ?? 0) + 1 }));
+    const g = list[at]!;
     if (view === 'list') {
       const unit = g.seated_table_id ? displayUnits.find((u) => u.members.some((m) => m.table_id === g.seated_table_id)) : null;
       const key = unit ? unit.key : 'unseated';
       setFaceOpen((c) => (c.has(key) ? c : new Set([...c, key])));
       requestAnimationFrame(() => document.querySelector(`[data-seat-guest="${CSS.escape(g.guest_id)}"]`)?.scrollIntoView({ block: 'center', behavior: 'smooth' }));
     } else if (g.seated_table_id) {
+      // 2D: the table is picked, brought close enough to draw its chairs, AND the guest's own seat lights
+      // (`foundSeatId`, the chair's `FoundSeatRing`).
       setSelMarker(null);
       setHighlightId(g.seated_table_id);
+      const tid = g.seated_table_id;
+      requestAnimationFrame(() => zoomToTable(tid));
     }
   };
+  /** The seat lit on 2D — the found guest's, while their words are still the search. */
+  const foundSeatId = roomOnly && foundGuest?.seated_table_id ? foundGuest.guest_id : null;
+  /** "1 of 4" in the search field — where Enter stands among the guests the words find. */
+  const findCount = lens && seatQ ? (foundList.length ? `${formatCount(foundAt + 1)} of ${formatCount(foundList.length)}` : 'No match') : null;
+  /** The pill's tap: their table, risen in Seats › List (the card's own full-screen table). */
+  const openFoundTable = () => {
+    const g = foundGuest;
+    if (!g?.seated_table_id) return;
+    const unit = displayUnits.find((u) => u.members.some((m) => m.table_id === g.seated_table_id));
+    if (!unit) return;
+    onSelectView('list');
+    // The list is drawn on the next frame; ONE key added to `faceOpen` then raises that table (`SeatList`'s doorbell).
+    requestAnimationFrame(() => requestAnimationFrame(() => setFaceOpen(new Set([unit.key]))));
+  };
+  const foundPill =
+    foundSeatId && foundGuest?.seated_table_id ? (
+      <div className="pointer-events-auto flex justify-center" data-seat-found-pill={foundGuest.guest_id}>
+        <ActionButton
+          tone="neutral"
+          icon={Armchair}
+          label={`${foundGuest.name} · ${tableLabelById.get(foundGuest.seated_table_id) ?? 'Their table'}${foundGuest.seat_number !== null ? ` · Seat ${formatCount(foundGuest.seat_number + 1)}` : ''}`}
+          name={`Open ${foundGuest.name}’s table`}
+          onClick={openFoundTable}
+        />
+      </div>
+    ) : null;
   /* 🔔 ONE toast line at a time, in the thumb row's own toast — never a strip across the floor's foot, where it covered
      the zoom (owner 2026-11-20, live: the draft's three-line notice sat on Zoom in / Zoom out). In Guests the plan's
      plain notices ride it too (`notice`), so the foot of the floor carries no strip at all. */
@@ -8228,6 +8285,8 @@ export function SeatingEditor({
   const seatLegend =
     roomOnly && tables.length > 0 && !addingTable ? (
       <OverThumbRow mark="legend">
+        {/* 🔎 Find's pill ("Name · Table · Seat N", seat plan C) rides with the legend, above what is over the thumb row. */}
+        {foundPill}
         <p data-seat-legend="" className="pointer-events-none flex flex-wrap items-center gap-x-3 gap-y-0.5 px-1 text-[11px] leading-tight text-ink/70">
           <span>
             <b className="font-semibold text-ink">{formatCount(seatedNow)}</b> seated · <b className="font-semibold text-ink">{formatCount(comingUnseated.length)}</b> to seat
@@ -8256,10 +8315,12 @@ export function SeatingEditor({
                  headers left to expand or fold, so the ⇕ left the row. */
               field={{
                 placeholder: 'Search guests',
+                count: findCount,
                 input: {
                   defaultValue: seatQ,
                   enterKeyHint: 'search',
                   'data-seats-search': '',
+                  'data-seats-search-count': findCount ?? undefined,
                   onInput: (e) => {
                     const v = e.currentTarget.value.trim();
                     if (seatQTimer.current) clearTimeout(seatQTimer.current);
@@ -9749,6 +9810,8 @@ export function SeatingEditor({
                           />
                           {/* the guest sitting on it */}
                           <SeatBadge guest={occupant} color={colorFor(occupant)} />
+                          {/* 🔎 Find lit this seat (seat plan C): two pulses, then it stays lit. */}
+                          {foundSeatId === occupant.guest_id ? <FoundSeatRing key={found?.tick} still={reducedMotion} /> : null}
                         </button>
                       ) : (
                         <button
@@ -11359,4 +11422,31 @@ function dominantColor(occ: (SeatingGuest | null)[], colorFor: (g: SeatingGuest)
     }
   }
   return best;
+}
+
+/**
+ * 🔎 THE SEAT FIND LIT (seat plan C, drawing `prototypes/seating_later_2026-11-27/`): a ring that stays lit around the
+ * found guest's chair, and a second ring that pulses out TWICE (transform + opacity only, the Move speed on Settle —
+ * `lib/motion-table.ts`), then is gone. Reduced motion: the lit ring only. Keyed by the Find's tick, so each Enter pulses.
+ */
+function FoundSeatRing({ still }: { still: boolean }) {
+  const pulse = useRef<HTMLSpanElement>(null);
+  useEffect(() => {
+    const el = pulse.current;
+    if (still || !el || typeof el.animate !== 'function') return;
+    const run = el.animate(
+      [
+        { transform: 'scale(1)', opacity: 0.9 },
+        { transform: 'scale(1.9)', opacity: 0 },
+      ],
+      { duration: MOVE_MS, easing: EASE_SETTLE, iterations: 2, fill: 'forwards' },
+    );
+    return () => run.cancel();
+  }, [still]);
+  return (
+    <>
+      <span aria-hidden data-seat-found="" className="pointer-events-none absolute -inset-1 rounded-full ring-2 ring-terracotta" />
+      {still ? null : <span ref={pulse} aria-hidden data-seat-found-pulse="" className="pointer-events-none absolute -inset-1 rounded-full ring-2 ring-terracotta opacity-0" />}
+    </>
+  );
 }

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { CopyButton } from '@/app/_components/copy-button';
 import Image from 'next/image';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { logQueryError } from '@/lib/supabase/error-detect';
@@ -1061,10 +1062,16 @@ function ApplicationCard({
       <div className="grid gap-3 text-xs text-ink/65 sm:grid-cols-2">
         <div className="space-y-0.5">
           {application.vendor.contact_email ? (
-            <p>{application.vendor.contact_email}</p>
+            <p className="flex flex-wrap items-center gap-2">
+              {application.vendor.contact_email}
+              <CopyButton value={application.vendor.contact_email} label="Copy" />
+            </p>
           ) : null}
           {application.vendor.contact_phone ? (
-            <p>{application.vendor.contact_phone}</p>
+            <p className="flex flex-wrap items-center gap-2">
+              {application.vendor.contact_phone}
+              <CopyButton value={application.vendor.contact_phone} label="Copy" />
+            </p>
           ) : null}
           {application.vendor.contact_phone ? (
             <SharedPhoneNote shops={application.vendor.sharedPhoneShops} />

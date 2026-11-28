@@ -3,7 +3,6 @@ import Link from 'next/link';
 import { readWorthPlanning } from '@/lib/worth-planning.server';
 import { YearMomentsList, type YearMomentView } from './year-moments-list';
 import { inDaysWords } from '@/lib/format-number';
-import { WorthPlanningExample } from './board-examples';
 
 /**
  * "Your year" home strip (date-anchor model). A compact, self-fetching preview
@@ -211,9 +210,6 @@ export function EmptyYear({
           Add your birthday
         </Link>
       </div>
-      {/* 👻 THE EMPTY LOOK (Build 5 Lane H): the strip's own list with two sample days, greyed under "Example" — only
-          when the read ANSWERED (`unsure` keeps the line alone). */}
-      {unsure ? null : <WorthPlanningExample />}
     </Tile>
   );
 }

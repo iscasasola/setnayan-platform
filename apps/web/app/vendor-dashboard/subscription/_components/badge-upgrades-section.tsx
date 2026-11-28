@@ -10,6 +10,7 @@ import { SupplierSubmit } from '@/app/vendor-dashboard/_components/supplier-subm
 import { DatesRow } from '@/app/vendor-dashboard/customers/_components/dates-row';
 import { BADGE_UPGRADE_NAME, upgradeSourceWords, upgradeWords, type BadgeUpgradeChoice, type BadgeUpgradeRow } from '@/lib/badge-upgrades';
 import { startBadgeUpgrade, type StartBadgeUpgradeState } from '../badge-upgrade-actions';
+import { manilaDayOf, offerDayWords } from '@/lib/personal-invite-offer';
 
 /** null ⇒ the upgrades could not be read (never "none"). */
 export type BadgeUpgradesSectionData = { rows: BadgeUpgradeRow[] | null; nowMs: number };
@@ -17,9 +18,16 @@ export type BadgeUpgradesSectionData = { rows: BadgeUpgradeRow[] | null; nowMs: 
 const IDLE: StartBadgeUpgradeState = { status: 'idle' };
 const icUp = <Rocket aria-hidden className="h-[18px] w-[18px] flex-none text-[color:var(--m-slate-2)]" strokeWidth={1.75} />;
 
-function day(iso: string): string {
-  const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' });
+/**
+ * 📅 The Manila day in the page's one phrasing ("4 Dec 2026", RW-30), by pure arithmetic. This row renders on the
+ * server AND hydrates in the browser; `toLocaleDateString` answers from each runtime's own ICU data, so a phone and
+ * the server can print the same instant two ways, which React reports as #418 and repairs by re-drawing the page
+ * (Batch 0 · L1, walk 27 Nov 12e). Pure arithmetic prints it one way everywhere. Held by
+ * `the-plan-page-draws-one-way.test.ts`.
+ */
+function upgradeDay(iso: string): string {
+  const d = manilaDayOf(iso);
+  return d ? offerDayWords(d) : '';
 }
 
 /**
@@ -67,7 +75,7 @@ export function BadgeUpgradesSection({ data }: { data: BadgeUpgradesSectionData 
                   data="badge-upgrade-row"
                   lead={icUp}
                   title={BADGE_UPGRADE_NAME[r.startedChoice]}
-                  line={`${upgradeSourceWords(r.key)} · ${r.endsAt ? `${live ? 'on until' : 'ended'} ${day(r.endsAt)}` : 'started'}`}
+                  line={`${upgradeSourceWords(r.key)} · ${r.endsAt ? `${live ? 'on until' : 'ended'} ${upgradeDay(r.endsAt)}` : 'started'}`}
                   badge={{ tone: live ? 'ok' : 'quiet', word: live ? 'On' : 'Ended' }}
                 />
               );

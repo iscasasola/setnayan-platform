@@ -10,6 +10,7 @@ import { pinConfirmCopy } from '@/lib/pin-confirm-copy';
 
 import { detectShopCity, locateShopAddress } from '../city-actions';
 import { askLocationOnce } from '@/lib/location-ask';
+import { mapControlsLeaveTabOrder } from '@/lib/map-controls-leave-tab-order';
 
 type LeafletModule = typeof import('leaflet');
 type LeafletMap = import('leaflet').Map;
@@ -379,6 +380,8 @@ export function CityPin({
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap',
       }).addTo(map);
+      // ⌨ One Tab stop: the map (arrows pan, + / − zoom); its corner links leave the Tab order (MASTER-PLAN A2).
+      mapControlsLeaveTabOrder(map.getContainer());
       map.on('click', (e: { latlng: { lat: number; lng: number } }) => {
         placePin(e.latlng.lat, e.latlng.lng);
       });

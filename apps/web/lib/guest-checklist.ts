@@ -74,6 +74,14 @@ export type ChecklistItem = {
   link?: { label: string; href: string; download?: boolean } | null;
 };
 
+/** The pass row's words: what to do. Done or not is the tick (`checklistProgress`), never these words. */
+export const CHECKLIST_PASS_TITLE = 'Save your QR pass';
+
+/** Does saving this row's file mean the row is done? The pass row: the save IS the readiness. */
+export function savingTicks(item: Pick<ChecklistItem, 'key' | 'link'>): boolean {
+  return item.key === 'pass' && Boolean(item.link?.download);
+}
+
 export function buildChecklist(input: {
   /** "Filipiniana formal" — the reader's own role's style, else the general dress code title. */
   wear: string | null;
@@ -104,7 +112,10 @@ export function buildChecklist(input: {
   if (input.passHref) {
     items.push({
       key: 'pass',
-      title: 'Your QR pass saved',
+      // ☑ A TO-DO, NOT A STATUS (owner walk 2026-11-27, MASTER-PLAN B9): it read "Your QR pass saved" while the count
+      // beside it said "0 of 1 ready" — two claims about one fact. Whether it is done is the tick's alone
+      // (`checklistProgress`, the one reader), and "Save to Photos" ticks it when the save lands (guest-checklist.tsx).
+      title: CHECKLIST_PASS_TITLE,
       sub: null,
       link: { label: 'Save to Photos', href: input.passHref, download: true },
     });

@@ -11,6 +11,7 @@ import { receiptMatchLines } from '@/lib/admin/receipt-match-lines';
 import Link from 'next/link';
 import { NOTHING_SENT_WORDS, paymentWasLogged } from '@/lib/payment-logged';
 import { ProofImage } from '@/app/_components/proof-image';
+import { CopyButton } from '@/app/_components/copy-button';
 import { SubmitButton } from '@/app/_components/submit-button';
 import { ConfirmForm } from '@/app/_components/confirm-form';
 import { InboxMatcher, type MatcherPayment } from './inbox-matcher';
@@ -364,6 +365,11 @@ export function OrdersNeedingQuote({
               </span>
             </div>
             <p className={`whitespace-pre-wrap ${TEMPLATE_SUBLINE}`}>{o.description}</p>
+            {/* 📋 Text is not selectable, /admin included (owner 27 Nov 2026, R1 + R5): the order's IDs are copied with buttons. */}
+            <div className="flex flex-wrap gap-2 py-1">
+              <CopyButton value={o.public_id} label="Copy order ID" />
+              {o.reference_code ? <CopyButton value={o.reference_code} label="Copy ref" /> : null}
+            </div>
             <Fold title="Confirm total" line="Moves it to awaiting payment" data="payments-quote-confirm">
               <form action={confirmOrderTotal} className="space-y-2">
                 <input type="hidden" name="order_id" value={o.order_id} />
@@ -890,6 +896,14 @@ export function OpenedPayment({
         <p className={TEMPLATE_SUBLINE}>
           Order {p.order?.public_id ?? '—'} · ref {p.order?.reference_code ?? '—'}
         </p>
+        {/* 📋 Copied with buttons, never selected (owner 27 Nov 2026, R1 + R5). */}
+        {p.order?.public_id || p.order?.reference_code || p.reference_number ? (
+          <div className="mt-1 flex flex-wrap gap-2">
+            {p.order?.public_id ? <CopyButton value={p.order.public_id} label="Copy order ID" /> : null}
+            {p.order?.reference_code ? <CopyButton value={p.order.reference_code} label="Copy ref" /> : null}
+            {p.reference_number ? <CopyButton value={p.reference_number} label="Copy payment ref" /> : null}
+          </div>
+        ) : null}
         <h2 className="mt-0.5 text-[22px] font-bold leading-tight text-ink">
           {buyerLabel(p.user?.email, p.user_id)} · <span className={TEMPLATE_MONEY}>{formatPhp(p.amount_php)}</span>
         </h2>

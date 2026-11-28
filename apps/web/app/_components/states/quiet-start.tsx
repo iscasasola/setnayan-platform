@@ -1,6 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { ExamplePreview } from './empty-state';
 
 /**
  * QuietStart — an empty screen that reads as DELIBERATE, not unfinished.
@@ -32,7 +31,6 @@ export function QuietStart({
   blurb,
   action,
   className = '',
-  preview,
 }: {
   Icon: LucideIcon;
   /** States the fact in the person's own words. Never apologises. */
@@ -43,9 +41,6 @@ export function QuietStart({
    *  an action nobody can take is worse than no action. */
   action?: ReactNode;
   className?: string;
-  /** 👻 The greyed-out Example under the line and the door (`ExamplePreview`, owner 2026-11-09). Omit = as shipped.
-   *  The caller passes it only after a permitted read that came back empty — never on a refused one. */
-  preview?: ReactNode;
 }) {
   return (
     <div className={`sn-tile p-8 text-center ${className}`}>
@@ -53,7 +48,6 @@ export function QuietStart({
       <p className="mt-4 text-sm font-semibold text-ink">{title}</p>
       <p className="mx-auto mt-2 max-w-sm text-sm text-ink/60">{blurb}</p>
       {action ? <div className="mt-6">{action}</div> : null}
-      {preview ? <ExamplePreview className="mt-6 text-left">{preview}</ExamplePreview> : null}
     </div>
   );
 }

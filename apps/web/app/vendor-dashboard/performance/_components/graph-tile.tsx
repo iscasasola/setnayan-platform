@@ -19,8 +19,9 @@ import { Reanimate } from './reanimate';
  *           away; the same window switch rides its head, the one door its thumb zone): the graph larger, then ONE
  *           recommendation — Problem (the graph's own number) → Solution → one door — only when its rule fired in
  *           `buildGrowthRecs`; otherwise "Nothing to fix right now." Then the graph's details, then the one door.
- *   EXAMPLE an empty graph draws the REAL picture with sample data, faded, marked "Example", one line and a door to
- *           start (Build 5 Lane H). A refused read is never an example — it says "Couldn’t load".
+ *   EMPTY   an empty graph draws NO picture — its fixed box stays, blank — then one honest line and a door to start
+ *           (owner R3, 27 Nov 2026: "a fixed app, not an app with guidelines"; no sample shown as if real). A refused read
+ *           still says "Couldn’t load".
  *
  * 🔒 performance/every-graph-is-a-tile.test.ts · shop/analytics-is-the-carousel.test.ts
  */
@@ -34,9 +35,9 @@ export type GraphSpec = {
   /** "new" for the five Build 6 graphs; "absorb" for a tile that was a live Shop carousel card. */
   tag?: 'new' | 'absorb' | null;
   state: GraphState;
-  /** The picture — real rows when `ok`, the sample when `empty`; unused when `unread`. */
+  /** The picture — real rows when `ok`; never drawn when `empty` or `unread`. */
   pic: ReactNode;
-  /** The one line in words (`ok`), or the example's line (`empty`). */
+  /** The one line in words (`ok`), or the empty graph's one honest line (`empty`). */
   line: ReactNode;
   /** The same line as plain text — the recommendation's Problem. */
   problem: string;
@@ -89,15 +90,14 @@ export function GraphCard({ g, control, figure }: { g: GraphSpec; control: React
   const door = g.state === 'ok' && g.rec ? { label: g.rec.ctaLabel, href: g.rec.ctaHref } : g.door;
   return (
     <>
-      <Reanimate className={g.state === 'empty' ? 'ag-card ag-ex' : 'ag-card'}>
+      <Reanimate className="ag-card">
         <div className="ag-card-in" data-graph={g.k} data-graph-state={g.state}>
-          {g.state === 'empty' ? <span className="ag-exc">Example</span> : null}
           <button
             type="button"
             onClick={() => setOpen(true)}
             aria-haspopup="dialog"
             aria-expanded={open}
-            aria-label={`${g.title}${g.state === 'empty' ? ' — example' : ''} — open`}
+            aria-label={`${g.title} — open`}
             className="ag-th ag-open sn-press"
             data-graph-open={g.k}
           >
@@ -118,7 +118,7 @@ export function GraphCard({ g, control, figure }: { g: GraphSpec; control: React
                number row 44 · picture 144 · line 36 — so no card can stretch the carousel, seen or not. The motion still
                waits for the card to be seen: `useTween` holds its values and analytics-growing.css pauses the CSS
                motion until `.perf-play`. 🔒 shop/the-analytics-carousel-never-changes-height.test.ts */
-            <span className="ag-gp" aria-hidden={g.state === 'empty' ? true : undefined}>{g.pic}</span>
+            <span className="ag-gp" aria-hidden={g.state === 'empty' ? true : undefined}>{g.state === 'empty' ? null : g.pic}</span>
           )}
           <span className="ag-foot">
             {g.state === 'unread' ? null : <span className="ag-ln">{g.line}</span>}
@@ -133,7 +133,6 @@ export function GraphCard({ g, control, figure }: { g: GraphSpec; control: React
       {open ? (
         <ShopDoorScreen
           title={g.title}
-          line={g.state === 'empty' ? 'Example' : undefined}
           actions={control}
           onClose={() => setOpen(false)}
           data={`graph-${g.k}`}
@@ -144,7 +143,7 @@ export function GraphCard({ g, control, figure }: { g: GraphSpec; control: React
           }
         >
           <div data-growth="" className="ag-risen" data-graph-risen={g.k}>
-            <div className={g.state === 'empty' ? 'ag-gbig ag-ex' : 'ag-gbig'}>
+            <div className="ag-gbig">
               <span className="ag-src">{g.src}</span>
               {figure ? <span className="ag-ctlrow">{figure}</span> : null}
               {g.state === 'unread' ? (
@@ -153,7 +152,7 @@ export function GraphCard({ g, control, figure }: { g: GraphSpec; control: React
                 </p>
               ) : (
                 <>
-                  <div className="ag-gp">{g.pic}</div>
+                  {g.state === 'empty' ? null : <div className="ag-gp">{g.pic}</div>}
                   <p className="ag-ln">{g.line}</p>
                 </>
               )}
@@ -161,7 +160,7 @@ export function GraphCard({ g, control, figure }: { g: GraphSpec; control: React
             {g.years ?? null}
             <RecBox g={g} />
             {g.details ? <div className="ag-body">{g.details}</div> : null}
-            <p className="ag-cap">{g.state === 'empty' ? 'The picture is a sample, faded — it goes with your first real row.' : 'One recommendation per graph · never advice on a number we do not have.'}</p>
+            <p className="ag-cap">One recommendation per graph · never advice on a number we do not have.</p>
           </div>
         </ShopDoorScreen>
       ) : null}

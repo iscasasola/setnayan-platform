@@ -110,7 +110,7 @@ export const FEATURE_ROWS = {
   a52: F({ icon: 'camera', name: 'Papic', line: 'Guest phones become the camera crew; pay only for credits.', price: 'credits', status: 'live', reg: ['A52'], page: 'papic', problem: 'The paid photographer misses the candid moments; guests’ photos never reach you.', solution: 'Guests shoot with just a code, no app. Every photo finds its people, and you keep them all.', why: '150 angles of the day.' }),
   a53: F({ icon: 'camera', name: 'Papic Crew and crew poster', line: 'Designated friends with unlimited shots.', price: 'credits', status: 'live', reg: ['A53'], problem: 'Your best photographer friend runs out of shots.', solution: 'Name a crew; they shoot without limits, and a poster tells guests how to join.', why: 'Coverage from the people who know you.' }),
   a54: F({ icon: 'camera', name: 'Papic moderation, challenges, run of show, recap', line: 'Keep the album clean; set challenges; recap at the end.', price: 'credits', status: 'live', reg: ['A54'], problem: 'An open album fills with blur and strangers.', solution: 'Moderate, run photo challenges on the schedule, and get a recap.', why: 'An album you are proud of.' }),
-  a55: F({ icon: 'shield', name: 'FaceBlock', line: 'Opted-out guests are blurred everywhere. Always free.', price: 'free', status: 'live', reg: ['A55'], problem: 'Some guests do not want their face shared.', solution: 'One opt-out, applied to every photo, wall and reel.', why: 'Privacy respected; never sold.' }),
+  a55: F({ icon: 'shield', name: 'FaceBlock', line: 'Opted-out guests are blurred everywhere.', price: 'free', status: 'live', reg: ['A55'], problem: 'Some guests do not want their face shared.', solution: 'One opt-out, applied to every photo, wall and reel.', why: 'Privacy respected; never sold.' }),
   a56: F({ icon: 'grid', name: 'Smart Photo Sorting', line: 'Each photo finds the guests in it.', price: 'free', status: 'live', reg: ['A56'], problem: 'A shared pile nobody can search.', solution: 'AI and QR route each photo to the people in it.', why: 'Everyone finds themselves.' }),
   a61: F({ icon: 'live', name: 'Live Watch', line: 'Livestream on the Event Hub, up to 12 cameras.', price: 'paid', status: 'live', reg: ['A61'], page: 'live-watch', problem: 'Relatives abroad hunt for a stream link.', solution: 'Stream on the event’s own page with multicam switching; guest phones are cameras.', why: 'Lolos and OFWs are part of the day.' }),
   a68: F({ icon: 'wall', name: 'Live Photo Wall (Salamisim)', line: 'Guests’ photos land on the venue screen as they shoot.', price: 'paid', status: 'live', reg: ['A68'], problem: 'Guests’ photos stay on their phones during the party.', solution: 'The wall shows the room to itself, live, from Papic.', why: 'More joy, more photos.' }),
@@ -133,7 +133,6 @@ export const FEATURE_ROWS = {
   a11: F({ icon: 'crown', name: 'Groups', line: 'Barkada, parish, clan: chat, stories, shared events.', price: 'free', status: 'live', reg: ['A11'], page: 'groups', problem: 'The clan plans in a chat that scrolls away.', solution: 'A shared space for a group, with the events you plan together.', why: 'The people stay.' }),
   a12: F({ icon: 'star', name: 'Creator programme', line: 'Earn by bringing events and suppliers.', price: 'free', status: 'live', reg: ['A12'], problem: 'Word of mouth earns nothing.', solution: 'Creators are credited for the events and shops they bring.', why: 'Rewarded for sharing.' }),
   a13: F({ icon: 'door', name: 'Profile, notifications, billing, search', line: 'Your account, your notices, your receipts.', price: 'free', status: 'live', reg: ['A13'], problem: 'Receipts and settings in different places.', solution: 'One account page for profile, notifications, billing and receipts, and search.', why: 'Found in one place.' }),
-  a75: F({ icon: 'grid', name: 'Honest empty states', line: 'An empty part shows a greyed example of itself.', price: 'free', status: 'live', reg: ['A75'], problem: 'A new event looked broken: blank sections.', solution: 'Every section draws a greyed preview until there is real content.', why: 'You see what will be there.' }),
   a76: F({ icon: 'tag', name: 'Pricing page and plan tables', line: 'Every plan side by side, with what each one unlocks.', price: 'free', status: 'live', reg: ['A76'], problem: 'A plan table can promise more than the plan gives.', solution: 'Each table shows what the plan really unlocks, at the price you pay today.', why: 'The table tells the truth.' }),
   a77: F({ icon: 'door', name: 'Tour', line: 'A guided public tour of Setnayan.', price: 'free', status: 'live', reg: ['A77'], problem: 'New visitors do not know where to start.', solution: 'A guided tour of the main screens.', why: 'Oriented in minutes.' }),
   // ───────── B · GUESTS ─────────
@@ -200,7 +199,6 @@ export const FEATURE_ROWS = {
   // 🔎 C30 · Deep Search (owner 2026-11-22: retired as a sale, "Deep Search 1 a month" inside the paid plans). It reads the
   // web about the shop's OWN business (lib/vendor-deep-search.ts) — never other people's events.
   c30: F({ icon: 'search', name: 'Deep Search', line: 'We read the web about your business and show what we found.', price: 'in-plans', status: 'live', reg: ['C30'], problem: 'You don’t know what couples find when they look you up.', solution: 'Each month your plan includes a search of the web for your shop: its services, prices, where it shows up, and anything to double-check.', why: 'Fix what couples see before they see it.' }),
-  c39: F({ icon: 'grid', name: 'Honest empty states', line: 'Today, Clients, Shop, Portfolio and the graphs show greyed examples.', price: 'free', status: 'coming', reg: ['C39'], plan: 'Build 5 · Lane H', problem: 'A new shop looks broken: blank sections.', solution: 'Every empty part draws a greyed preview until there is real content.', why: 'You see what will be there.' }),
   social: F({ icon: 'megaphone', name: 'Your badge gets posted', line: 'A new badge or verification posts to Setnayan’s page; you can opt out.', price: 'free', status: 'coming', reg: [], plan: 'Build 6 · Lane S', problem: 'Your milestones go unseen.', solution: 'When you earn a badge or get verified, Setnayan posts it, public shops only, opt-out any time.', why: 'Free reach.' }),
   // ───────── D · COORDINATORS ─────────
   d01: F({ icon: 'door', name: 'Ask for access; the host approves', line: 'Request the parts you run.', price: 'free', status: 'live', reg: ['D01'], problem: 'A planner cut out of the plan cannot run the day.', solution: 'Request access; the host approves; you work inside their event.', why: 'The full picture.' }),
@@ -269,7 +267,7 @@ export const PERSONAS: readonly Persona[] = [
       { eye: 'After', title: 'The day ends. The page doesn’t.', line: 'The same link becomes the story of the day: your guests’ photos sorted by face, the family’s words, the thank-yous, and gifts that went straight to you.', moment: 'memories',
         groups: [['Keep', ['a57', 'a58', 'a59', 'a60', 'a66']], ['Tell', ['a45', 'a47', 'a74']]] },
       { eye: 'Every event after this one', title: 'A wedding is the way in. The family is why you stay.', line: 'Your people are saved once. The christening, the debut, the 60th and the golden anniversary each start pre-filled, and every memory stays in one library.', moment: 'family', photo: P.christening,
-        groups: [['Your account', ['a01', 'a05', 'a06', 'a07', 'a08', 'a10', 'a11', 'a12', 'a13']], ['The house', ['a75', 'a76', 'a77']]] },
+        groups: [['Your account', ['a01', 'a05', 'a06', 'a07', 'a08', 'a10', 'a11', 'a12', 'a13']], ['The house', ['a76', 'a77']]] },
     ],
   },
   {
@@ -299,7 +297,7 @@ export const PERSONAS: readonly Persona[] = [
       { eye: 'Booked and paid', title: 'Every payment lands where you can see it.', line: 'The plan always pays all. Each payment card posts to the chat and to your earnings. Clients you brought yourself pay nothing.', moment: 'paid',
         groups: [['The day', ['c23', 'c24']], ['Money', ['c25', 'c26']], ['Protected', ['c34', 'c42']]] },
       { eye: 'Grow', title: 'Proof that cannot be faked.', line: 'Reviews land 24 hours after the event. Your track record grows on its own; every graph taps to our recommendation.', moment: 'reviews', photo: P.reunion,
-        groups: [['Every day', ['c07', 'c08', 'c09', 'c39']], ['Grow', ['c27', 'c28', 'c29', 'c30', 'social']]] },
+        groups: [['Every day', ['c07', 'c08', 'c09']], ['Grow', ['c27', 'c28', 'c29', 'c30', 'social']]] },
     ],
   },
   {
@@ -331,6 +329,8 @@ export const EXCLUDED: readonly (readonly [row: string, why: string])[] = [
   ['A63', 'Music Maker — retired 2026-11-20 (migration retire_patiktok_and_music_maker)'],
   ['A46', 'Real Stories — retired 2026-11-16 (DECISION_LOG "THE BLOG AND REAL STORIES ARE RETIRED"); /features/real-stories forwards to Discover like /realstories'],
   ['C36', 'Storage packs, 3D booth, photo challenge, tokens — off sale in the catalogue (read 10 Nov)'],
+  ['A75', 'Honest empty states (greyed examples) — retired 2026-11-27, owner R3: no sample shown as if real'],
+  ['C39', 'Honest empty states for suppliers (greyed examples) — retired 2026-11-27, owner R3: no sample shown as if real'],
 ];
 
 /** The words under a row's name for each price kind. Never a figure: the figures are in the Plans compare. */

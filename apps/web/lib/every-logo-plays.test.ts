@@ -433,6 +433,7 @@ const STILL: Record<string, string> = {
   'app/panood/control/[eventId]/page.tsx': 'the broadcast corner mark — composited into the stream (the encoder canvas), an export',
   'app/panood/program/[eventId]/program-surface.tsx': 'the OBS program window — whatever it shows is broadcast, an export',
   'app/_components/qr-card.tsx': 'a QR code (kind 24), not the couple’s logo',
+  'app/dashboard/[eventId]/event-qr/page.tsx': 'the crew pairing QR code, drawn inline and saved as a file by its Save QR button (owner 27 Nov 2026, R1) — a QR, not the couple’s logo',
   'app/monogram/public-monogram-studio.tsx': 'the public monogram tool’s download (an export), not a couple’s saved logo',
   'app/dev/hero-lab/page.lab.tsx': 'a dev-only lab',
   'app/dev/their-event-lab/page.lab.tsx': 'a dev-only lab: its `data:image/svg+xml` is the stand-in href of the Logo DOWNLOAD row — no logo is drawn on the screen',

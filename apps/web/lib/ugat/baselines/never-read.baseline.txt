@@ -28,7 +28,6 @@ samahan_stories.clip_bytes	# first run 2026-10-02 · public site · a column the
 scan_events.ip_anon	# first run 2026-10-02 · shared code · a column the app writes and nothing reads
 seo_suggestions.suggested_value	# first run 2026-10-02 · admin console · a column the app writes and nothing reads
 supplier_event_wrap_ups.photos_shared	# first run 2026-10-02 · host app · a column the app writes and nothing reads
-users.concierge_enforcement_by	# first run 2026-10-02 · admin console · a column the app writes and nothing reads
 vendor_bot_replies.compat_score	# first run 2026-10-02 · shared code · a column the app writes and nothing reads
 vendor_bot_replies.was_llm	# first run 2026-10-02 · shared code · a column the app writes and nothing reads
 vendor_inquiry_split_cuts.adjusted_by	# first run 2026-10-02 · shared code · a column the app writes and nothing reads

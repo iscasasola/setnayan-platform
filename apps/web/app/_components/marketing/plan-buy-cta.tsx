@@ -58,7 +58,7 @@ export async function PlanBuyCta({ plan }: { plan: PlanKey }) {
         options={options}
         emptyReason={options.length === 0 ? 'You have no event ahead yet — start one, then add the plan to it.' : null}
         createHref="/start"
-        createLabel="Free to start"
+        createLabel="Start an event"
       />
     </span>
   );

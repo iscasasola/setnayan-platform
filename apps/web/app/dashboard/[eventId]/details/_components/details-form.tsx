@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { Check } from 'lucide-react';
 import { updateEventMatchCriteria } from '../../actions';
 import { REGION_OPTIONS, FEEL_OPTIONS, sanitizeName } from '@/lib/match-criteria';
@@ -55,6 +55,7 @@ export function DetailsForm({
   initialCelebrantShape = '',
   celebrantTypeDefaultLabel = '',
   showNames = true,
+  autoSave = false,
 }: {
   eventId: string;
   initialBrideFirst: string;
@@ -97,6 +98,11 @@ export function DetailsForm({
    * name key is posted, so `updateEventMatchCriteria` leaves the names alone.
    */
   showNames?: boolean;
+  /** 💾 ONE SAVE IN EVENT SETTINGS (owner 27 Nov 2026, MASTER-PLAN L3 "the 3 saves in event settings become 1"): in
+   *  the ⚙ sheet these fields save on their own after a pause — no "Save basics", no full-screen loader — the way the
+   *  governed fields above them already do; the sheet's one button is the Hub's Apply ✓. Event Details keeps its
+   *  button (false). */
+  autoSave?: boolean;
 }) {
   const [cadence, setCadence] = useState(initialCadence);
   const [celebrantShape, setCelebrantShape] = useState(initialCelebrantShape);
@@ -188,18 +194,20 @@ export function DetailsForm({
   );
   const savedFields = useRef(startedFrom);
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  const current = { brideFirst, brideLast, groomFirst, groomLast, region, feel, budget, cadence, celebrantShape, baziConsent, partnerABirthDate, partnerABirthTime, partnerBBirthDate, partnerBBirthTime };
+  function send(quiet: boolean) {
     setError(null);
     setSaved(false);
-    const fd = formOf({ brideFirst, brideLast, groomFirst, groomLast, region, feel, budget, cadence, celebrantShape, baziConsent, partnerABirthDate, partnerABirthTime, partnerBBirthDate, partnerBBirthTime });
+    const fd = formOf(current);
     const sending = formFieldsOf(fd);
     fd.set(MERGE_BASE_FIELD, JSON.stringify(savedFields.current));
     startTransition(async () => {
-      const res = await save.run(() => updateEventMatchCriteria(fd), {
-        steps: ['Saving your details'],
-        hint: 'Saving',
-      });
+      const res = quiet
+        ? await updateEventMatchCriteria(fd)
+        : await save.run(() => updateEventMatchCriteria(fd), {
+            steps: ['Saving your details'],
+            hint: 'Saving',
+          });
       if (res.ok) {
         savedFields.current = sending;
         setSaved(true);
@@ -208,6 +216,21 @@ export function DetailsForm({
       }
     });
   }
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    send(!!autoSave);
+  }
+  /* 💾 `autoSave`: a change is sent on its own after a pause — only when what is shown differs from what was last
+     saved (so opening the sheet, or a save landing, sends nothing). A refused save says why, as the button did. */
+  const shownKey = JSON.stringify(formFieldsOf(formOf(current)));
+  const sendRef = useRef(send);
+  sendRef.current = send;
+  useEffect(() => {
+    if (!autoSave) return;
+    if (shownKey === JSON.stringify(savedFields.current)) return;
+    const t = window.setTimeout(() => sendRef.current(true), 900);
+    return () => window.clearTimeout(t);
+  }, [autoSave, shownKey]);
 
   return (
     <form onSubmit={onSubmit} className="space-y-5">
@@ -534,14 +557,18 @@ export function DetailsForm({
         </p>
       ) : null}
 
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="ab ab-brand ab-main"
-        >
-          {pending ? 'Saving…' : 'Save basics'}
-        </button>
+      <div className="flex items-center gap-3" aria-live="polite">
+        {autoSave ? (
+          pending ? <span className="text-xs text-ink/70">Saving…</span> : null
+        ) : (
+          <button
+            type="submit"
+            disabled={pending}
+            className="ab ab-brand ab-main"
+          >
+            {pending ? 'Saving…' : 'Save basics'}
+          </button>
+        )}
         {saved && !pending ? (
           <span className="inline-flex items-center gap-1.5 text-xs font-medium text-success-700">
             <Check aria-hidden className="h-4 w-4" strokeWidth={2} />

@@ -121,6 +121,97 @@ export default async function EventLayout({ children, params }: Props) {
   if (!user) redirect(loginRedirectPath(`/dashboard/${eventId}`));
   const supabase = await createClient();
 
+  /*
+    ⚡ THE VIEWER'S OWN CHROME READS START BEFORE THE GATE (walkthrough 28 Nov 2026: event home ~1.2 s to first byte).
+    None of these names THIS event — the bell, the account switcher, the unread-message count, the locale, the rail's
+    account and search index, the referral toggle, the nav registry, the store-shell check are all the signed-in
+    person's own (or platform-wide) answers, the same on every event they open. They used to start only AFTER the
+    membership trip below, so that trip and theirs ran one after the other; now they run beside it. A non-member learns
+    nothing from them (they are read for the viewer, and the 404 below still ends the render before any is drawn).
+    🔒 EVERY READ THAT NAMES THIS EVENT — its row, the guest count, the co-host notice, the logo gate — still starts
+    only after the gate refuses a non-member (`the-notice-follows-the-payer.test.ts` pins the event row's order).
+    Each keeps its own graceful-degrade exactly as it was; the ones with none get a `.catch` marker only so a refused
+    read left behind by `notFound()` is never an unhandled rejection — the one wait below still sees the rejection.
+  */
+  const minimalSwitcherFallback: SwitcherData = {
+    userId: user.id,
+    displayName: null,
+    email: user.email ?? '',
+    isAnonymous: !!user.is_anonymous,
+    photoUrl: null,
+    events: [],
+    // This literal exists BECAUSE a read failed — it measured nothing, and
+    // saying so is what stops the library reporting that you host no events.
+    eventsMeasured: false,
+    context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false, shops: [] },
+  };
+  // getDashboardShell fetches events + roles + unreadCount via React cache() —
+  // the cache key is userId only, so if (account)/layout or any other layout
+  // in this render tree already resolved it, this call is free (zero DB hits).
+  const shellRead = getDashboardShell(user.id);
+  void shellRead.catch(() => undefined);
+  // The rail's account and its search index — `<AppRailShell>` renders only after this layout returns; each is
+  // cache()d per render, so the shell finds its answer in hand (and fails soft exactly as it did).
+  void resolveRailAccount().catch(() => undefined);
+  void resolveCommandItems().catch(() => undefined);
+  // Unread-message count for the Messages-icon badge. countUnreadMessages
+  // already graceful-degrades to 0 internally (incl. when the read-marker
+  // migration isn't pushed yet); the .catch here is the same belt-and-braces
+  // wrapper every other chrome fetcher in the one wait carries.
+  const unreadMessagesRead = countUnreadMessages(supabase, user.id).catch((err: unknown) => {
+    logQueryError(
+      'EventLayout (countUnreadMessages threw)',
+      err instanceof Error ? err : new Error(String(err)),
+      { event_id: eventId, user_id: user.id },
+      'graceful_degrade',
+    );
+    return 0;
+  });
+  const localeRead = Promise.resolve(getLocale()).catch(() => 'en' as const);
+  // AccountSwitcher panel data. getSwitcherData never returns null after the
+  // 2026-06-17 always-on fix; the .catch here guards against any outer throw.
+  const switcherDataRead = getSwitcherData(user.id).catch((err: unknown) => {
+    console.error('[AccountSwitcher] data fetch failed:', err);
+    return minimalSwitcherFallback;
+  });
+  /*
+    Couple referral program — its door is the ACCOUNT MENU (Stage D, owner
+    2026-09-29: "Refer a couple → account menu"), shown only while an admin
+    has the program on (master toggle): `referHref` on <AccountSwitcher>.
+
+    ⚠ THIS GATE HID NOTHING FOR A MONTH AND STILL COST A QUERY EVERY RENDER.
+    It filters by item KEY, and the 'refer' row had been deleted from both nav
+    SSOTs on 2026-07-10 — so from then until 2026-08-18 this read ran on every
+    event page load to hide a row that did not exist, while the page it governs
+    was reachable only by typing the address.
+
+    🔑 A GATE WHOSE TARGET IS GONE LOOKS EXACTLY LIKE A GATE THAT IS WORKING.
+    Nothing errors; the list simply never contains the thing it excludes. It is
+    the mirror of the gate-with-no-handle: a handle with no gate.
+
+    🔑 SO THE GATE MOVED WITH THE DOOR. The 'refer' row left the event menu
+    for the account menu in Stage D, and the key-based hide went with it:
+    `referHref` is null while the program is off, so the account menu draws
+    no link — one gate, on the one door.
+  */
+  const referralEnabledRead = isReferralProgramEnabled();
+  void referralEnabledRead.catch(() => undefined);
+  // Nav registry: resolve the admin-managed name+icon overrides server-side and
+  // hand the slot map to the (client) bottom nav. Cached via NAV_REGISTRY_TAG.
+  const navSlotsRead = getNavSlotMap();
+  void navSlotsRead.catch(() => undefined);
+  /*
+    🍎 THE APP STORE / PLAY STORE SHELL, ASKED ONCE, HERE (2026-09-25).
+    Every event menu — the rail, the ☰ drawer and the one bottom
+    bar — is built from `eventRailInputs` or from the props below, and the one
+    tree drops each row whose door `lib/store-shell.ts` refuses
+    (`storeShellRefusesMenuRow`). Server-side, so the FIRST paint is already
+    right: before this the Papic tab was built, painted, and then hidden by
+    `StoreShellLinkGuard` after load, leaving a blank slot in the bar.
+  */
+  const storeShellRead = isStoreShellRequest();
+  void storeShellRead.catch(() => undefined);
+
   // Authorization (per acceptance criterion: 404 for non-couples).
   // 🔁 A schema-cache BLIP is retried, and one that outlasts the window throws
   // `SchemaBlipError` (the browser shows "Reconnecting…") — it must never reach
@@ -240,21 +331,6 @@ export default async function EventLayout({ children, params }: Props) {
   // layout — not the parent /dashboard/layout.tsx that #452 hardened.
   // Each fetcher wrapped in .catch() with safe defaults so one throw
   // can't crash the whole layout tree.
-  // getDashboardShell fetches events + roles + unreadCount via React cache() —
-  // the cache key is userId only, so if (account)/layout or any other layout
-  // in this render tree already resolved it, this call is free (zero DB hits).
-  const minimalSwitcherFallback: SwitcherData = {
-    userId: user.id,
-    displayName: null,
-    email: user.email ?? '',
-    isAnonymous: !!user.is_anonymous,
-    photoUrl: null,
-    events: [],
-    // This literal exists BECAUSE a read failed — it measured nothing, and
-    // saying so is what stops the library reporting that you host no events.
-    eventsMeasured: false,
-    context: { hasVendor: false, vendorName: null, isAdmin: false, canOpenShop: false, shops: [] },
-  };
 
   // ─── EVERY READ BELOW STARTS AT ONCE ─────────────────────────────────────
   // 🔑 THIS LAYOUT WRAPS EVERY EVENT PAGE, so each serial trip here is paid on
@@ -272,7 +348,6 @@ export default async function EventLayout({ children, params }: Props) {
   // ⚠ ADD A NEW READ AS ANOTHER STARTED PROMISE, NOT AS ANOTHER `await` IN THIS
   // RUN — one stray `await` puts a full database trip back in front of every
   // event page.
-  const shellRead = getDashboardShell(user.id);
   // 🗂 THE EVENT'S ROW, ONCE, AS THIS VIEWER (lib/event-row-once.ts): one request for every column
   // this layout and its pages read of it — the page usually opened it first, and then this is free.
   openDashboardEventRow(supabase, eventId);
@@ -286,8 +361,6 @@ export default async function EventLayout({ children, params }: Props) {
     as it did (the rail to its signed-out slot / `[]`, the card to nothing) — the `.catch` only
     stops a refused prefetch from being an unhandled rejection; the component's own await sees it.
   */
-  void resolveRailAccount().catch(() => undefined);
-  void resolveCommandItems().catch(() => undefined);
   void cohostWelcomeNotice(eventId, user.id).catch(() => undefined);
   const eventRead = (async () => {
     try {
@@ -323,26 +396,6 @@ export default async function EventLayout({ children, params }: Props) {
       return { data: null, error: thrown, status: 0 as const };
     }
   })();
-  // Unread-message count for the Messages-icon badge. countUnreadMessages
-  // already graceful-degrades to 0 internally (incl. when the read-marker
-  // migration isn't pushed yet); the .catch here is the same belt-and-braces
-  // wrapper every other chrome fetcher in this Promise.all carries.
-  const unreadMessagesRead = countUnreadMessages(supabase, user.id).catch((err: unknown) => {
-    logQueryError(
-      'EventLayout (countUnreadMessages threw)',
-      err instanceof Error ? err : new Error(String(err)),
-      { event_id: eventId, user_id: user.id },
-      'graceful_degrade',
-    );
-    return 0;
-  });
-  const localeRead = Promise.resolve(getLocale()).catch(() => 'en' as const);
-  // AccountSwitcher panel data. getSwitcherData never returns null after the
-  // 2026-06-17 always-on fix; the .catch here guards against any outer throw.
-  const switcherDataRead = getSwitcherData(user.id).catch((err: unknown) => {
-    console.error('[AccountSwitcher] data fetch failed:', err);
-    return minimalSwitcherFallback;
-  });
   // Guest head-count → the sidebar Guests badge. Lean HEAD count, fully
   // fail-soft (returns null on any error → the badge is simply omitted, never
   // fabricated). Same belt-and-braces .catch as every other chrome fetcher.
@@ -358,40 +411,23 @@ export default async function EventLayout({ children, params }: Props) {
   const profileRead = eventRead.then((res) =>
     res.data ? resolveProfile((res.data.event_type as string | null) ?? 'wedding') : null,
   );
-  /*
-    Couple referral program — its door is the ACCOUNT MENU (Stage D, owner
-    2026-09-29: "Refer a couple → account menu"), shown only while an admin
-    has the program on (master toggle): `referHref` on <AccountSwitcher>.
-
-    ⚠ THIS GATE HID NOTHING FOR A MONTH AND STILL COST A QUERY EVERY RENDER.
-    It filters by item KEY, and the 'refer' row had been deleted from both nav
-    SSOTs on 2026-07-10 — so from then until 2026-08-18 this read ran on every
-    event page load to hide a row that did not exist, while the page it governs
-    was reachable only by typing the address.
-
-    🔑 A GATE WHOSE TARGET IS GONE LOOKS EXACTLY LIKE A GATE THAT IS WORKING.
-    Nothing errors; the list simply never contains the thing it excludes. It is
-    the mirror of the gate-with-no-handle: a handle with no gate.
-
-    🔑 SO THE GATE MOVED WITH THE DOOR. The 'refer' row left the event menu
-    for the account menu in Stage D, and the key-based hide went with it:
-    `referHref` is null while the program is off, so the account menu draws
-    no link — one gate, on the one door.
-  */
-  const referralEnabledRead = isReferralProgramEnabled();
-  // Nav registry: resolve the admin-managed name+icon overrides server-side and
-  // hand the slot map to the (client) bottom nav. Cached via NAV_REGISTRY_TAG.
-  const navSlotsRead = getNavSlotMap();
-  /*
-    🍎 THE APP STORE / PLAY STORE SHELL, ASKED ONCE, HERE (2026-09-25).
-    Every event menu — the rail, the ☰ drawer and the one bottom
-    bar — is built from `eventRailInputs` or from the props below, and the one
-    tree drops each row whose door `lib/store-shell.ts` refuses
-    (`storeShellRefusesMenuRow`). Server-side, so the FIRST paint is already
-    right: before this the Papic tab was built, painted, and then hidden by
-    `StoreShellLinkGuard` after load, leaving a blank slot in the bar.
-  */
-  const storeShellRead = isStoreShellRequest();
+  /* ▶ The rail chip's logo, and whether it plays (owner 2026-09-29: "all
+     logos should animate if animation is active"). 🔑 A logo that does not
+     move asks nothing — `logoPlaysFor` returns before any read — so this
+     layout pays for the gate only when there is a moving logo to play.
+     ⛓ CHAINED OFF THE EVENT READ like the profile (walkthrough 28 Nov 2026): it was awaited on its own AFTER the
+     one wait, a full trip in a row for every event with a moving logo. A missing row asks nothing (a 404 follows);
+     a failed gate is "still", never an error — exactly as `logoPlaysFor` answers. */
+  const railMarkPlaysRead = eventRead
+    .then((res) =>
+      res.data
+        ? logoPlaysFor(
+            eventId,
+            resolveEventMonogramSvg(res.data as { monogram_uploaded_svg?: string | null; monogram_custom_svg?: string | null }),
+          )
+        : false,
+    )
+    .catch(() => false);
   /*
     🚫 THE MORE ROW'S TWO READS ARE GONE WITH IT (owner 22 Oct 2026, "Yes remove more"): what the
     event owns and whether Setnayan AI is sellable decided which services More listed. Home ›
@@ -550,14 +586,8 @@ export default async function EventLayout({ children, params }: Props) {
   const plaqueName =
     ((event.display_name as string | null) ?? '').trim() || `Your ${plaqueTypeLabel}`;
   const homeLabel = 'Home · all your events';
-  /* ▶ The rail chip's logo, and whether it plays (owner 2026-09-29: "all
-     logos should animate if animation is active"). 🔑 A logo that does not
-     move asks nothing — `logoPlaysFor` returns before any read — so this
-     layout pays for the gate only when there is a moving logo to play. */
-  const railMarkPlays = await logoPlaysFor(
-    eventId,
-    resolveEventMonogramSvg(event as { monogram_uploaded_svg?: string | null; monogram_custom_svg?: string | null }),
-  );
+  /* ▶ The rail chip's logo, and whether it plays — asked beside the profile in the one wait (`railMarkPlaysRead`). */
+  const railMarkPlays = await railMarkPlaysRead;
 
   /*
     ─── THE EVENT'S OWN TOP-BAR CLUSTER (One top bar, 2026-08-14) ───────────

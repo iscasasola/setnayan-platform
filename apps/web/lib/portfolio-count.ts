@@ -3,7 +3,7 @@ import 'server-only';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { logQueryError } from '@/lib/supabase/error-detect';
-import { portfolioCountLabel, type PortfolioCount } from '@/lib/portfolio-count-label';
+import { countPortfolioPhotos, portfolioCountLabel, type PortfolioCount } from '@/lib/portfolio-count-label';
 
 export { portfolioCountLabel, type PortfolioCount } from '@/lib/portfolio-count-label';
 
@@ -31,7 +31,7 @@ export async function getPortfolioCount(vendorId: string, client?: SupabaseClien
     }
     if (!data) return { ok: false };
     const row = data as { portfolio_r2_keys?: string[] | null };
-    const photos = new Set((row.portfolio_r2_keys ?? []).filter(Boolean)).size;
+    const photos = countPortfolioPhotos(row.portfolio_r2_keys);
     return { ok: true, photos, label: portfolioCountLabel(photos) };
   } catch (err) {
     logQueryError('portfolio-count', err, { vendor_profile_id: vendorId });

@@ -1453,7 +1453,7 @@ function GracefulFallback({ words: w }: { words: EventWords }): ReactElement {
           The Story
         </p>
         <h2 className="font-display text-2xl italic tracking-tight">
-          This {w.eventWord}&rsquo;s story isn&rsquo;t available yet.
+          {`This ${w.eventWord}’s story isn’t available yet.`}
         </h2>
         <p className="text-sm text-ink/65">
           The recap is composed a few days after the celebration. Please check back soon.

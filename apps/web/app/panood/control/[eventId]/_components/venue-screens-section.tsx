@@ -54,7 +54,7 @@ const MODE_ICON: Record<LiveScreenMode, typeof Tv> = {
 
 const BTN =
   'inline-flex min-h-[40px] items-center gap-1.5 rounded-lg border px-3 text-xs font-semibold transition-colors';
-const BTN_IDLE = 'border-ink/15 bg-white text-ink/75 hover:border-terracotta/50 hover:text-ink';
+const BTN_IDLE = 'border-ink/15 bg-surface text-ink/75 hover:border-terracotta/50 hover:text-ink';
 const BTN_ON = 'border-burgundy bg-burgundy text-cream';
 
 export function VenueScreensSection({
@@ -185,7 +185,7 @@ export function VenueScreensSection({
             name="name"
             maxLength={40}
             placeholder="Name it — e.g. Stage left, Lobby"
-            className="min-h-[44px] flex-1 rounded-lg border border-ink/15 bg-white px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
+            className="min-h-[44px] flex-1 rounded-lg border border-ink/15 bg-surface px-3 text-sm text-ink placeholder:text-ink/40 focus:border-terracotta focus:outline-none"
           />
           <SubmitButton
             pendingLabel="Adding…"

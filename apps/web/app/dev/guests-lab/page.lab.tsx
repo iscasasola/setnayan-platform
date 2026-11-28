@@ -108,7 +108,6 @@ import { MakerRsvpSettings } from '@/app/dashboard/[eventId]/launch/_components/
 import { guestsGetInPatch, isGuestsGetIn } from '@/lib/who-can-reply';
 import { renderStyledUrlQrSvg } from '@/lib/qr';
 import { GuestsScreen } from '@/app/dashboard/[eventId]/guests/_components/guests-screen';
-import { GuestsExample } from '@/app/dashboard/[eventId]/guests/_components/guests-example';
 import { parseGuestsFilter } from '@/lib/guests-filter';
 import { GUESTS_VIEWS, parseGuestsView, parseSeatView } from '@/lib/guests-views';
 import { LabMarch, LabSeats } from './lab-seats-march';
@@ -1060,7 +1059,7 @@ export default async function GuestsLabPage({
                     views={GUESTS_VIEWS}
                     filter={parseGuestsFilter(sp)}
                     bodies={{
-                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} big={sp.big === '1'} cale={sp.cale === 'before' || sp.cale === 'after' ? sp.cale : null} vip={sp.vip === 'none' || sp.vip === 'beside' || sp.vip === 'nearest' ? sp.vip : null} floor={sp.floor === 'empty' ? 'empty' : null} />,
+                      seats: <LabSeats guests={roster} seat={typeof sp.seat === 'string' ? sp.seat : undefined} big={sp.big === '1'} cale={sp.cale === 'before' || sp.cale === 'after' ? sp.cale : null} vip={sp.vip === 'none' || sp.vip === 'beside' || sp.vip === 'nearest' ? sp.vip : null} floor={sp.floor === 'empty' ? 'empty' : null} check={sp.check === '1' ? 'ok' : sp.check === 'fail' ? 'fail' : null} />,
                       march: <LabMarch shape={typeof sp.march === 'string' ? sp.march : null} nicks={sp.nicks === '1'} />,
                     }}
                     guests={empty || fail ? [] : sp.oneqr === '1' ? roster.filter((g) => g.role === 'bride' || g.role === 'groom') : roster}
@@ -1108,8 +1107,6 @@ export default async function GuestsLabPage({
                       empty || fail ? (
                         <div className="p-8 text-center" data-guests-empty="">
                           <p className="text-base text-ink/70">{fail ? 'We couldn’t load your guest list.' : 'No guests yet.'}</p>
-                          {/* 👻 Lane H — the page's empty branch draws the roster's Example; a refused read never does. */}
-                          {fail || sp.example === '0' ? null : <GuestsExample />}
                         </div>
                       ) : null
                     }

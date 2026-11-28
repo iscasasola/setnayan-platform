@@ -86,6 +86,10 @@ const ANCHORS: Record<string, RegExp> = {
   chat_message_hearts: eqUid('user_id'),
   chat_poll_votes: eqUid('voter_user_id'),
   cake_designs: eqUid('created_by'),
+  // 👗 the bride's own gown designs (gown maker B1) — author-scoped, same grain as cake_designs
+  gown_designs: eqUid('created_by'),
+  // 📏 the designer's tape on HER designs — scoped through the inner join to the designs she sent (service-role read)
+  gown_fittings: /gown_designs!inner\(created_by\)[\s\S]*\.eq\(\s*'gown_designs\.created_by'\s*,\s*user\.id\s*\)/,
   admin_focus_put_offs: eqUid('user_id'),
   event_today_put_offs: eqUid('user_id'),
   event_vendor_working_notes: eqUid('author_user_id'),

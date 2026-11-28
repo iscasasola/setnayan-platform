@@ -196,7 +196,7 @@ export default async function PhotoDeliveryPage({ params, searchParams }: Props)
             <p className="font-semibold tracking-tight">
               Your photos stay — full resolution has a window
             </p>
-            <InfoTip labelAs="p" label="Every photo stays in your Memories, free, for life. 3 months after your event&rsquo;s last day we swap the full-resolution original for the 720p copy, and we keep that copy indefinitely." labelNode={<>Every photo stays in your Memories, free, for life.{' '} <span className="font-mono font-semibold">3 months</span> after your event&rsquo;s last day we swap the full-resolution original for the 720p copy, and we keep that copy indefinitely.</>} labelClassName="text-warn-900/85" align="start">
+            <InfoTip labelAs="p" label="Every photo is kept in your Memories for life. 3 months after your event&rsquo;s last day we swap the full-resolution original for the 720p copy, and we keep that copy indefinitely." labelNode={<>Every photo is kept in your Memories for life.{' '} <span className="font-mono font-semibold">3 months</span> after your event&rsquo;s last day we swap the full-resolution original for the 720p copy, and we keep that copy indefinitely.</>} labelClassName="text-warn-900/85" align="start">
               Anything already in your
               Drive folder is yours: we only add to it, and never compress or
               remove what&rsquo;s there.

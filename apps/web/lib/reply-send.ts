@@ -109,3 +109,14 @@ export function makeReplySender(deps: ReplySenderDeps) {
     },
   };
 }
+
+/**
+ * ✋ SEND WAITS FOR AN ANSWER (owner walk 2026-11-27, MASTER-PLAN B8: "Send is enabled before Yes/No is picked"). A
+ * reply card that ASKS yes or no (it draws the `rsvp_status` radios) keeps its Send button disabled until one is
+ * picked. A card that asks nothing — the answer is locked, or the form carries it hidden (the "Not coming after all?"
+ * press) — has no radios, so nothing waits. Read off the radios the card drew; the server still refuses a missing
+ * answer (`?rsvp=choose`), and with no script the browser's own `required` holds the form.
+ */
+export function replyAnswerMissing(radios: ReadonlyArray<{ checked: boolean }>): boolean {
+  return radios.length > 0 && !radios.some((r) => r.checked);
+}

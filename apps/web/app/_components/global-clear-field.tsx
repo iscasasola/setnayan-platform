@@ -124,6 +124,7 @@ export function GlobalClearField() {
     >
       <ClearButton
         label="Clear"
+        tabIndex={-1}
         className="sn-press grid h-full w-full place-items-center rounded-full bg-transparent p-0"
         discClassName={`grid place-items-center rounded-full bg-ink/[0.08] text-ink/70 ${spot.size < 36 ? 'h-6 w-6' : 'h-7 w-7'}`}
         onClear={() => {

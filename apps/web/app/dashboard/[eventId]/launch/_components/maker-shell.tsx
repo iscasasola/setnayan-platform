@@ -1115,7 +1115,11 @@ export function MakerShell({
           '@media (max-width:1023.98px){[data-maker-studio-full] [data-phone-chrome="panel"]{left:4px}}' +
           /* ⤢ AN EXPANDED EDITOR'S BAR IS ITS OWN HEAD (20 Nov (2), the drawing's full screen): its name and ✓ Done — ‹, ✓ Apply
              and ⚙ step aside until it is minimized (they never move; they are the same bar's). */
-          '@media (max-width:1023.98px){[data-maker-expanded] [data-maker-toolbar]>:is([data-maker-tool="leave"],[data-maker-apply-slot],[data-maker-tool="settings"]){display:none}}'}
+          '@media (max-width:1023.98px){[data-maker-expanded] [data-maker-toolbar]>:is([data-maker-tool="leave"],[data-maker-apply-slot],[data-maker-tool="settings"]){display:none}}' +
+          /* ✓ ONE MAIN BUTTON WHILE AN EDITOR IS UP (owner walk 2026-11-27, MASTER-PLAN B7: "an orange Done sits next to a
+             grey ✓ with no name"). The risen editor's head is its name and ✓ Done; the draft's ✓ Apply — an icon with
+             no word beside it — steps aside on every width until Done, as it already did for an expanded editor. */
+          '[data-maker-editor-up] [data-maker-toolbar]>[data-maker-apply-slot]{display:none}'}
       </style>
       <div
         ref={shellRef}
@@ -1129,6 +1133,8 @@ export function MakerShell({
         data-maker-shell=""
         data-maker-studio-full={studioFull ? '' : undefined}
         data-maker-expanded={studioFull && !printsPage && studioTile ? '' : undefined}
+        /* ✓ An editor's head (its name · ⤡ · ✓ Done) stands in the bar — Done is the bar's one main button. */
+        data-maker-editor-up={studioOn && studioTile && !printsPage ? '' : undefined}
         /* 🧰 The lower third's height — every phone tool is sized from it (`MAKER_LT_TOOL`).
            🧭 The new Maker: as dragged (↕), and half the screen for a Studio tool's editor. */
         style={{ ['--maker-lt-h' as string]: studioFull ? MAKER_LT_HALF : ltPx !== null ? `${ltPx}px` : MAKER_LT_HEIGHT }}

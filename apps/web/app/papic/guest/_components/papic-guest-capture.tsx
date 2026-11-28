@@ -14,9 +14,10 @@ import {
 } from 'react';
 import {
   BookOpen,
+  ArrowUp,
   Camera,
-  Loader2,
   Check,
+  Send,
   CircleAlert,
   ImageIcon,
   ShieldCheck,
@@ -63,6 +64,8 @@ import { cameraExitHref, type HubTabKey } from '@/app/[slug]/_lib/hub-tabs';
 import { CAMERA_PLAIN_TINT } from '@/lib/camera-dress';
 import { SETNAYAN_PHOTO_MARK, type PapicMark } from '@/lib/papic-photo-mark';
 import { FocusCorners } from './camera-focus-corners';
+import { ActionButton } from '@/components/action-button';
+import { Ghost } from '@/components/skeletons';
 
 // NO PER-PHOTO TAG LIMIT (owner 2026-08-06: "no tag limit. we can tag as many").
 // This file used to hardcode TAG_CAP = 10 and show a counter — while the DATABASE
@@ -1643,19 +1646,16 @@ export function PapicGuestCapture({
             </p>
           )}
 
-          <button
-            type="button"
+          <ActionButton
+            tone="brand"
+            main
+            icon={Camera}
+            label="Agree & open my camera"
+            busy={acceptBusy ? 'Opening my camera…' : null}
+            disabled={!agreeChecked}
             onClick={acceptTerms}
-            disabled={!agreeChecked || acceptBusy}
-            className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-40"
-          >
-            {acceptBusy ? (
-              <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-            ) : (
-              <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-            )}
-            Agree &amp; open my camera
-          </button>
+            className="mt-5 w-full"
+          />
         </div>
       </CardFrame>
     );
@@ -1917,8 +1917,14 @@ export function PapicGuestCapture({
         {/* Inset as the prototype draws them — clear of the grid button and the Selfie · Main pill above. */}
         {!tagging && !exhausted ? <FocusCorners tint={tint} inset="inset-x-8 top-[60px] bottom-16" /> : null}
         {((!ready && !exhausted) || switching) && (
-          <div className="absolute inset-0 flex items-center justify-center bg-ink/80">
-            <Loader2 aria-hidden className="h-6 w-6 animate-spin text-cream/70" strokeWidth={2} />
+          /* 🌫 The one scrim, its camera depth (`--sn-scrim-solid`, themes audit § 2.5), and the step in words — no
+             spinner (Ghost: known words show at once). */
+          <div
+            role="status"
+            aria-label={switching ? 'Switching camera…' : 'Opening the camera…'}
+            className="absolute inset-0 flex items-center justify-center bg-[var(--sn-scrim-solid)] backdrop-blur-[var(--sn-scrim-blur)]"
+          >
+            <Ghost known={switching ? 'Switching camera…' : 'Opening the camera…'} textClassName="text-sm text-cream/70" />
           </div>
         )}
         {/* Flip + lens controls (each gated to what the device exposes; hidden
@@ -2113,13 +2119,13 @@ export function PapicGuestCapture({
                   viewBox="0 0 72 72"
                   className="pointer-events-none absolute inset-0 -rotate-90"
                 >
-                  <circle cx="36" cy="36" r="32" fill="none" stroke="rgba(245,240,232,0.18)" strokeWidth="4" />
+                  <circle cx="36" cy="36" r="32" fill="none" stroke="rgb(var(--color-cream) / 0.18)" strokeWidth="4" />
                   <circle
                     cx="36"
                     cy="36"
                     r="32"
                     fill="none"
-                    stroke="var(--m-terracotta, #c4674f)"
+                    stroke="rgb(var(--color-terracotta))"
                     strokeWidth="4"
                     strokeLinecap="round"
                     strokeDasharray={2 * Math.PI * 32}
@@ -2144,6 +2150,8 @@ export function PapicGuestCapture({
                       ? 'Tap to start a snippet, tap again to stop'
                       : 'Tap to take a photo, or press and hold to record a snippet'
                 }
+                /* Working: the shutter stays held (`[aria-busy='true']`, the house pending look) — no spinner. */
+                aria-busy={busy || undefined}
                 data-shutter={shutterLogo ? 'pro' : 'free'}
                 data-tour="camera-shutter"
                 className={
@@ -2166,9 +2174,7 @@ export function PapicGuestCapture({
                       recording ? 'bg-terracotta' : 'bg-white'
                     }`}
                   >
-                    {busy ? (
-                      <Loader2 aria-hidden className="h-7 w-7 animate-spin text-ink" strokeWidth={2} />
-                    ) : recording ? (
+                    {recording ? (
                       <Square aria-hidden className="h-6 w-6 text-cream" strokeWidth={2.5} />
                     ) : (
                       <span data-shutter-logo="" className="flex items-center justify-center">
@@ -2176,8 +2182,6 @@ export function PapicGuestCapture({
                       </span>
                     )}
                   </span>
-                ) : busy ? (
-                  <Loader2 aria-hidden className="h-7 w-7 animate-spin text-cream" strokeWidth={2} />
                 ) : recording ? (
                   <Square aria-hidden className="h-6 w-6 text-cream" strokeWidth={2.5} />
                 ) : (
@@ -2317,19 +2321,17 @@ export function PapicGuestCapture({
                 className="flex-1 rounded-md border border-cream/15 bg-ink/40 px-3 py-2 text-sm text-cream placeholder:text-cream/30 focus:border-cream/40 focus:outline-none"
                 autoFocus
               />
-              <button
-                type="button"
+              <ActionButton
+                tone="brand"
+                main
+                iconOnly
+                icon={ArrowUp}
+                label="Send"
+                busy={isFlashSending ? 'Sending…' : null}
+                disabled={kwentoFlashText.trim().length === 0}
                 onClick={() => void sendFlash()}
-                disabled={isFlashSending || kwentoFlashText.trim().length === 0}
-                aria-label="Send"
-                className="shrink-0 rounded-md bg-mulberry px-3 py-2 text-sm font-medium text-cream disabled:opacity-40"
-              >
-                {isFlashSending ? (
-                  <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-                ) : (
-                  '↑'
-                )}
-              </button>
+                className="shrink-0"
+              />
             </div>
             <div className="mt-1 flex items-center justify-between">
               <span className="text-[10px] text-cream/35">{kwentoFlashText.length}/50</span>
@@ -2374,17 +2376,16 @@ export function PapicGuestCapture({
               </span>
             </label>
             <div className="mt-2 flex gap-2">
-              <button
-                type="button"
+              <ActionButton
+                tone="brand"
+                main
+                icon={Send}
+                label="Send to the host 💌"
+                busy={isStorySending ? 'Sending…' : null}
+                disabled={kwentoStoryText.trim().length === 0 || !kwentoConsent}
                 onClick={() => void sendStory()}
-                disabled={isStorySending || kwentoStoryText.trim().length === 0 || !kwentoConsent}
-                className="flex-1 inline-flex items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-50"
-              >
-                {isStorySending ? (
-                  <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-                ) : null}
-                Send to the host 💌
-              </button>
+                className="flex-1"
+              />
               {sentMessageId ? (
                 <button
                   type="button"

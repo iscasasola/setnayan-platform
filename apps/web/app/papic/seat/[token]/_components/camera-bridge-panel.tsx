@@ -15,7 +15,8 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Camera, CircleAlert, Link2, Loader2, Unplug, Video, Zap } from 'lucide-react';
+import { Camera, CircleAlert, Link2, Unplug, Video, Zap } from 'lucide-react';
+import { ActionButton } from '@/components/action-button';
 import { recordSeatCapture } from '@/app/papic/actions';
 import { MockBridge } from '@/lib/camera-bridge/mock-bridge';
 import { InternalCameraBridge } from '@/lib/camera-bridge/internal-bridge';
@@ -282,19 +283,15 @@ export function CameraBridgePanel({ token, seatIndex, eventId }: Props) {
       )}
 
       <div className="mt-3 flex items-center gap-2">
-        <button
-          type="button"
-          disabled={busy}
+        <ActionButton
+          tone="brand"
+          main
+          icon={Camera}
+          label="Still"
+          busy={busy ? 'Shooting…' : null}
           onClick={() => fire('still')}
-          className="inline-flex flex-1 items-center justify-center gap-2 rounded-md bg-mulberry px-4 py-2.5 text-sm font-medium text-cream hover:bg-mulberry-600 disabled:opacity-60"
-        >
-          {busy ? (
-            <Loader2 aria-hidden className="h-4 w-4 animate-spin" strokeWidth={2} />
-          ) : (
-            <Camera aria-hidden className="h-4 w-4" strokeWidth={2} />
-          )}
-          Still
-        </button>
+          className="flex-1"
+        />
         <button
           type="button"
           disabled={busy}

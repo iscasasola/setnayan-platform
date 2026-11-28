@@ -148,7 +148,7 @@ export function EventSettingsRows({
               These couldn’t be read just now. Nothing was changed — close this and try again.
             </p>
           ) : (
-            <EventSettingsEditor eventId={eventId} form={more.settings.form} governed={more.settings.governed} pax={more.settings.pax} />
+            <EventSettingsEditor eventId={eventId} form={more.settings.form} governed={more.settings.governed} pax={more.settings.pax} autoSave />
           )}
         </FactRow>
       ) : null}

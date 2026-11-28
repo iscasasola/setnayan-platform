@@ -99,7 +99,7 @@ export function DiscoverEventShelves({
             />
           ) : people.items.length === 0 ? (
             <EmptyShelf
-              line="Follow people to see their public events here."
+              line="No events from people you follow."
               href={`#${PEOPLE_TO_FOLLOW_ID}`}
               go="Find people to follow"
             />

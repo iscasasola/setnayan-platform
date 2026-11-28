@@ -65,3 +65,4 @@ app/admin/colours/_components/colours-editor.tsx :: firstRefusal :: TEXT — the
 app/_components/chat/cards/deal-sheet.tsx :: gap.amount :: TEXT — gapWords().amount is formatCentavosPhp's grouped "₱5,000" (lib/chat-deal.ts), not a number
 app/_components/chat-message-stream.tsx :: pay.amount :: TEXT — paymentLineOf().amount is the "₱9,000" text cut from the ledger's own line (lib/chat-kinds.ts), already grouped
 app/_components/chat-message-stream.tsx :: pay.amount :: TEXT — the second render of the same grouped string (Payment confirmed)
+components/thumb-row.tsx :: field.count :: TEXT — a search's "1 of 4" (`ThumbField.count`), a string the host builds with formatCount (Seats' `findCount`, seating-editor.tsx)

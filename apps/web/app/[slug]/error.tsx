@@ -4,6 +4,7 @@ import { startTransition, useEffect, useRef, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { AUTO_RETRY_DELAY_MS, claimAutoRetry } from '@/lib/invitation-retry';
 import { recoverStaleTab } from '@/lib/stale-bundle';
+import { CopyButton } from '@/app/_components/copy-button';
 
 // Guest-site error boundary (2026-08-05).
 //
@@ -148,9 +149,13 @@ export default function InvitationError({ error, reset }: Props) {
           // 12px, not the root boundary's 10px: this screen is read by a guest,
           // often an older one at a venue, and the reference is the thing they
           // would be asked to read out to whoever they call for help.
-          <p className="mt-10 font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
-            Reference: {error.digest}
-          </p>
+          <div className="mt-10 flex flex-col items-center gap-2">
+            <p className="font-mono text-xs uppercase tracking-[0.15em] text-ink/70">
+              Reference: {error.digest}
+            </p>
+            {/* 📋 Text is not selectable (owner 27 Nov 2026, R1): the reference is copied with a button. */}
+            <CopyButton value={error.digest} label="Copy reference" />
+          </div>
         )}
       </div>
     </main>

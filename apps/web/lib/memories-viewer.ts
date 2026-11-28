@@ -95,7 +95,7 @@ export function shareWords(src: ShareSource, item: Pick<MemoriesItem, 'preserved
         ? { line: 'Full resolution · the original', tip: 'The photo as it was taken — Keep full resolution keeps it for good. Location data is removed before it leaves Setnayan.' }
         : {
             line: 'Full resolution · the original',
-            tip: 'The photo as it was taken, location data removed. Originals are kept until 3 months after the event’s last day; then the 720p copy stays, free, for life. Copy to Google Drive (free) or save it before then.',
+            tip: 'The photo as it was taken, location data removed. Originals are kept until 3 months after the event’s last day; then the 720p copy is kept for life. Copy to Google Drive (free) or save it before then.',
           };
     case 'kept-copy':
       return {

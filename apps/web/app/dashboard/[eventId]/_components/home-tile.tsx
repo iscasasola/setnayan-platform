@@ -19,7 +19,6 @@
  * the dot's style — React renders only when a face changes.
  */
 
-import { ExamplePreview } from '@/app/_components/states/empty-state';
 import Link from 'next/link';
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type PointerEvent, type ReactNode } from 'react';
 import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
@@ -479,18 +478,6 @@ export function HomeTile({
             />
           ))}
         </div>
-      ) : null}
-      {/* 👻 THE EMPTY LOOK (Build 5 Lane H): an honestly empty face carries its NEXT face on sample figures, greyed
-          under "Example" beneath it (`HomeFace.example`, set only by home-control-faces.ts on a read that answered).
-          📐 The sample sits in the SAME `.hc-face` box a real face does (flex column, 5-px gap) — `FaceBody` returns
-          sibling inline spans, so outside that box the unit and the small line ran together ("128 comingof 180 on
-          the list"). Held by `an-example-face-stacks-like-a-real-one.test.ts`. */}
-      {face.example ? (
-        <ExamplePreview className="hc-example">
-          <div className="hc-face">
-            <FaceBody face={{ ...face.example, id: `${face.id}-example`, href: face.href }} />
-          </div>
-        </ExamplePreview>
       ) : null}
       {/* THE DOOR — a tap that is not a swipe opens the exact item of the face it lands on. */}
       {face.external ? (

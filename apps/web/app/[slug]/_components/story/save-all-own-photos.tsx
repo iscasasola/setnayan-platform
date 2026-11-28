@@ -41,11 +41,11 @@ export function SaveAllOwnPhotos({ urls, baseName }: { urls: readonly string[]; 
       </button>
       {state === 'failed' ? (
         <span role="alert" className="text-xs text-ink/70">
-          We couldn&rsquo;t save them from here — open a photo and press and hold it to save.
+          We couldn&rsquo;t save them from here — open a photo and press its Save.
         </span>
       ) : state === 'done' && missed > 0 ? (
         <span role="status" className="text-xs text-ink/70">
-          {missed === 1 ? `${formatCount(missed)} photo could not be saved — open it and press and hold it.` : `${formatCount(missed)} photos could not be saved — open each and press and hold it.`}
+          {missed === 1 ? `${formatCount(missed)} photo could not be saved — open it and press Save.` : `${formatCount(missed)} photos could not be saved — open each and press Save.`}
         </span>
       ) : null}
     </span>

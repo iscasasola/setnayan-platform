@@ -54,13 +54,13 @@ import { publicEventPath } from '@/lib/public-event-url';
 import { routes } from '@/lib/routes';
 import { getCurrentUser } from '@/lib/auth';
 import { fetchUserEvents, fetchUserEventsOrReconnect, userEventsReadRefused, type EventWithRole } from '@/lib/events';
-import { PlanningExample, ShelfExample } from '@/app/dashboard/(launcher)/_components/board-examples';
 import { rethrowIfSchemaBlip } from '@/lib/read-retry';
 import {
   canWriteStoryFor,
   daysUntilEventDay,
   eventBoardHref,
   eventStance,
+  planningCountOf,
   isFinishedEvent,
   landingJumpTarget,
   manilaTodayISO,
@@ -604,7 +604,7 @@ async function UnihomeHome({
     cards: shownCards.map(toCard),
     invited: shownInvited.map(toCard),
     more: Math.max(0, running.length - shownCards.length) + Math.max(0, invitedLive.length - shownInvited.length),
-    counts: refusedAny ? null : { planning: live.length, celebrated: boardFinished(finished).length },
+    counts: refusedAny ? null : { planning: planningCountOf(live), celebrated: boardFinished(finished).length },
     worth: worth === null || (worth.readFailed && !next) ? 'unread' : next ? { label: next.label, day: worthPlanningDay(next.dateISO) } : null,
   };
   const name = switcher?.displayName?.trim() || email.replace(/@.*$/, '') || 'You';
@@ -627,7 +627,6 @@ async function UnihomeHome({
             flash={sp.request_error === '1' ? 'error' : sp.inviter_muted === '1' ? 'muted' : sp.request_declined === '1' ? 'declined' : null}
           />
         }
-        eventsExample={!refusedAny ? <PlanningExample /> : null}
       />
     </>
   );
@@ -839,15 +838,6 @@ async function EventsBoard({
         return [] as CommunityWithRole[];
       }),
     ]);
-
-  // 👻 THE EMPTY LOOK (Build 5 Lane H): a shelf draws its greyed-out Example only when every membership read the board
-  // shows ANSWERED. Each call re-asks the same cached read above — no extra trip. A refused read keeps the shelf's
-  // shipped line alone: an Example there would dress a failure as a fresh start.
-  const boardReadAnswered = !(
-    await Promise.all(
-      (['couple', 'guest', 'coordinator'] as const).map((m) => userEventsReadRefused(supabase, user.id, m).catch(() => true)),
-    )
-  ).some(Boolean);
 
   // ⚠ `events` STAYS THE ORGANISER-ONLY SET, deliberately. Everything below it
   // — the landing auto-jump, the checklists, the "% planned" rings, the decision
@@ -1786,7 +1776,6 @@ async function EventsBoard({
             itself the morning after.
           </p>
         ) : null}
-        {happeningNow.length === 0 && boardReadAnswered ? <ShelfExample shelf="now" /> : null}
         <CollectionGrid>
           {happeningNow.map((event, i) => (
             <BoardCardWithMenu key={event.event_id} event={event} hubUrl={hubUrlById.get(event.event_id) ?? null}>
@@ -1852,7 +1841,6 @@ async function EventsBoard({
               />
             }
           />
-          {boardReadAnswered ? <PlanningExample /> : null}
           </>
         ) : (
         <CollectionGrid layout="poster">
@@ -2004,7 +1992,6 @@ async function EventsBoard({
               : 'Events move here on their own once the day has passed. Nothing you keep is ever taken away.'}
           </p>
         ) : null}
-        {unwritten.length === 0 && boardReadAnswered ? <ShelfExample shelf="ended" /> : null}
         {unwritten.length === 0 ? null : (
           <>
             {/* THE CARD IS THE CHOICE (owner 2026-08-22). This shelf used to pair
@@ -2079,8 +2066,6 @@ async function EventsBoard({
               : 'This is where the events you have written up live.'}
           </p>
         ) : null}
-        {/* 👻 Only when the stories were MEASURED: unmeasured, `written` is empty because the read never came back. */}
-        {written.length === 0 && storiesMeasured && boardReadAnswered ? <ShelfExample shelf="told" /> : null}
         <CollectionGrid>
           {written.map((event, i) => (
             <BoardCardWithMenu key={event.event_id} event={event} finished hubUrl={hubUrlById.get(event.event_id) ?? null}>

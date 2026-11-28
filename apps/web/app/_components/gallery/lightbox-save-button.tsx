@@ -12,8 +12,9 @@ import { saveImageToDevice } from '@/lib/save-to-device';
  * same report as the gift QR). The viewer already shows the photo full size; this is the save that was missing.
  *
  * The same `saveImageToDevice` the tile's own Save uses (`save-photo-button.tsx`): the native share sheet ("Save to
- * Photos") where the phone has one, a download elsewhere. ⚠ IT NEVER PRETENDS: a failed save says so and tells the
- * guest the one thing that always works — press and hold the photo.
+ * Photos") where the phone has one, a download elsewhere. ⚠ IT NEVER PRETENDS: a failed save says so. (It used to send
+ * the guest to press and hold the photo — that is gone since 27 Nov 2026, R1: no long-press callout app-wide, so this
+ * button IS the save; a failure asks for another try.)
  */
 export function LightboxSaveButton({ url, filename }: { url: string; filename: string }) {
   const [state, setState] = useState<'idle' | 'saving' | 'done' | 'failed'>('idle');
@@ -41,7 +42,7 @@ export function LightboxSaveButton({ url, filename }: { url: string; filename: s
       </button>
       {state === 'failed' ? (
         <span role="alert" className="sn-gal-soft text-xs">
-          We couldn&rsquo;t save it from here — press and hold the photo to save it.
+          We couldn&rsquo;t save it just now — press Save to try again.
         </span>
       ) : null}
     </span>

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import { ReceiptStamp, type ReceiptStampStatus } from './receipt-stamp';
+import { CopyButton } from '@/app/_components/copy-button';
 
 /**
  * THE RECEIPT SLIP — a narrow paper slip on the page (owner 2026-10-25, approved from
@@ -50,6 +51,7 @@ export function ReceiptSlip({
   legal: string;
 }) {
   return (
+    <>
     <article data-receipt-slip="" className="sn-slip relative mx-auto w-full max-w-[340px] px-5 pb-6 pt-[22px]">
       <style>{SLIP_CSS}</style>
       <p className="text-center text-[12.5px] font-bold tracking-[0.3em]">SETNAYAN</p>
@@ -98,6 +100,14 @@ export function ReceiptSlip({
       </p>
       <p className="mt-3 text-center text-[11px] leading-snug text-[#6E6A62]">{legal}</p>
     </article>
+    {/* 📋 Text is not selectable (owner 27 Nov 2026, R1): the receipt's number is copied with a button, on the page
+        under the slip — never printed (`screen-only`). Every receipt page draws this slip, so all three have it. */}
+    {number ? (
+      <div className="screen-only mt-5 flex justify-center" data-receipt-copy="">
+        <CopyButton value={number} label="Copy receipt no." />
+      </div>
+    ) : null}
+    </>
   );
 }
 

@@ -5,13 +5,14 @@ import { formatPesoCompact } from '@/lib/vendors-plan-budget';
 import type { TodayStats as Stats } from '@/lib/supplier-today-view';
 import { customerLandingHref } from '@/app/vendor-dashboard/customers/anchors';
 import { routes } from '@/lib/routes';
+import { SHOP_COUNT_WINDOW_WORDS } from '@/lib/shop-count-window';
 
 /**
  * 📊 TODAY'S FIVE STATS (THE ONE BUILD A4, v113 Today — v103/v104 "stats jump"): Views · Inquiries · Booked ·
  * Portfolio · Money, EACH A LINK to the place it counts. Retires the counts row that filtered in place (A5).
  *
- *   Views      N · "last 28 days"          → Shop                       (`readTodayViews`, 28 days — said, never "this month")
- *   Inquiries  N · "asked · last 28 days"  → Clients › Asked             (`inquiries28`)
+ *   Views      N · "last 30 days"          → Shop                       (`readTodayViews`, the shop's one window — `lib/shop-count-window.ts`)
+ *   Inquiries  N · "asked · last 30 days"  → Clients › Asked             (`inquiries28`, the same window)
  *   Booked     N · "this month"            → Clients › Booked            (events DATED this Manila month — owner Q2 default)
  *   Portfolio  "N of 50" · "free photos"   → Portfolio                   (C4's `getPortfolioCount`; no figure until it lands)
  *   Money      ₱X · "to come in"           → Clients › To collect        (`numbers.toComeInPhp` — "to come in", WRONG row 23)
@@ -36,8 +37,8 @@ type Stat = { id: keyof typeof TODAY_STAT_HREFS; figure: string | null; label: s
 export function todayStatsOf(s: Stats): Stat[] {
   const n = (v: number | null) => (v === null ? null : formatCount(v));
   return [
-    { id: 'views', figure: n(s.views), label: 'Views', line: s.views === null ? UNREAD : 'last 28 days' },
-    { id: 'inquiries', figure: n(s.inquiries), label: 'Inquiries', line: s.inquiries === null ? UNREAD : 'asked · last 28 days' },
+    { id: 'views', figure: n(s.views), label: 'Views', line: s.views === null ? UNREAD : SHOP_COUNT_WINDOW_WORDS },
+    { id: 'inquiries', figure: n(s.inquiries), label: 'Inquiries', line: s.inquiries === null ? UNREAD : `asked · ${SHOP_COUNT_WINDOW_WORDS}` },
     // RW-84 (walk 13 Nov 2026): it counts events DATED this month (owner Q2) — said so, so 4 bookings MADE this month for
     // later dates are not read as missing.
     { id: 'booked', figure: n(s.booked), label: 'Booked', line: s.booked === null ? UNREAD : 'events this month' },

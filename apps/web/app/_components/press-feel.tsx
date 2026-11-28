@@ -27,7 +27,18 @@ import { SCRIM_SELECTOR } from '@/lib/scrim';
  * that page keeps its own press); on a disabled control; under "reduce motion". Scale, transform and opacity only.
  * Without script the stylesheet's `:active` dimming still answers a press.
  */
-export const PRESS_TARGETS = "button, [role='button'], a.button, .sn-press, input[type='submit'], input[type='button'], summary";
+export const PRESS_TARGETS = "button, [role='button'], a.button, a[href], .sn-press, input[type='submit'], input[type='button'], summary";
+/*
+ * 🔗 27 Nov 2026 (walkthrough Pass 3, MASTER-PLAN A9 "icons not animating when pressed"): `a[href]` joined the list — a
+ * plain link (the bottom nav, the header icons, Unihome's chips, Event Home's tiles, the supplier's Today tiles) had
+ * no press at all. An INLINE text link inside a sentence is not transformable, so it never dips: only a link drawn as
+ * a box (block / flex / grid) answers, which is exactly a control.
+ */
+/**
+ * 🚪 A DOOR LAID OVER ITS CARD — a see-through link stretched over a tile (`.hc-door`, Event Home's tiles) — has no
+ * picture of its own, so pressing it would show nothing: the card under it takes the press instead.
+ */
+export const DOOR_OVER_CARD = '.hc-door';
 /** A ROW presses gentler (0.985) than a button (0.97) — the timing table's "Row press". */
 export const ROW_PRESS_TARGETS = '[data-fold-head], [data-row-press]';
 const SPRING = 'cubic-bezier(.34,1.56,.64,1)';
@@ -42,9 +53,16 @@ type Pressed = { closest(selector: string): unknown; matches(selector: string): 
  * dark fades — that is its whole answer. The one list of what a scrim is: `SCRIM_SELECTOR` (`lib/scrim.ts`).
  */
 
-/** May this control wear the press? Not in the guest's Event Hub, not a scrim, and not when it cannot be pressed. */
+/**
+ * ⌨️ A CONTROL THAT KEEPS ITS OWN LOOK (`data-press-none`): a surface that only gained `role="button"` so a keyboard can
+ * reach it (an SVG node, a canvas, a table row, a photo) keeps exactly the look it had: no dip, no dimming. The
+ * stylesheet honours the same attribute (globals.css, beside the press rules).
+ */
+export const PRESS_NONE = '[data-press-none]';
+
+/** May this control wear the press? Not in the guest's Event Hub, not a scrim, not opted out, and not when it cannot be pressed. */
 export function pressable(el: Pressed): boolean {
-  return !el.closest('.sn-editorial') && !el.matches(SCRIM_SELECTOR) && !el.matches(':disabled, [aria-disabled="true"]');
+  return !el.closest('.sn-editorial') && !el.matches(SCRIM_SELECTOR) && !el.matches(PRESS_NONE) && !el.matches(':disabled, [aria-disabled="true"]');
 }
 
 /** A duration read from a token (`280ms` → 280; `0.28s` → 280); `fallback` when the token is missing or nonsense. */
@@ -62,8 +80,10 @@ export function PressFeel() {
     const onDown = (e: PointerEvent) => {
       // Reduced motion: shade only — the stylesheet's `:active` dimming answers the press, nothing scales.
       if (still.matches || !(e.target instanceof Element)) return;
-      const el = e.target.closest<HTMLElement>(PRESS_TARGETS);
-      if (!el || !pressable(el) || !el.animate) return;
+      const hit = e.target.closest<HTMLElement>(PRESS_TARGETS);
+      if (!hit || !pressable(hit)) return;
+      const el = hit.matches(DOOR_OVER_CARD) ? (hit.parentElement ?? hit) : hit;
+      if (!el.animate) return;
       const to = el.matches(ROW_PRESS_TARGETS) ? 0.985 : 0.97;
       // IN — fast, and held while the finger is down.
       held = { el, to, press: el.animate([{ scale: 1 }, { scale: to }], { duration: token('--sn-m-tap', 100), easing: PRESS_IN_EASE, fill: 'forwards' }) };

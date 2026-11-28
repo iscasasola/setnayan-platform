@@ -138,7 +138,6 @@ import { GuestListHasSidesContext } from './guest-list-has-sides-context';
 import { ADD_WAYS, openAddGuest, openAddWay, type AddWayKey } from './add-guest-sheet';
 import { AddDoors } from './capture-bar';
 import { AddPreviewLine, SearchAddRow, searchAddLabel } from '@/components/search-add-row';
-import { quickAddTips } from '@/lib/quick-add-tips';
 import { guestAdds, NEEDS_BOTH_NAMES, queueTypedGuest, typedGuestPreview, useGuestAdds, type AddPicks } from './guest-add-queue';
 import { SectionHeadToolbar, SectionRenameInPlace } from './section-head-toolbar';
 import { renameSection } from '../role-name-actions';
@@ -1596,11 +1595,6 @@ export function GuestsScreen(props: GuestsScreenProps) {
     roleNames: roleNames ?? null,
     nameOf: guestNameForDrag,
   });
-  /* 💡 The box's rotating examples (owner 2026-11-01) — this event's roles and real group names, never a person. */
-  const hintLines = useMemo(
-    () => quickAddTips({ hasSides, offeredRoles, groupNames: groups.map((g) => g.label), roleNames }).examples.map((l) => `e.g. ${l}`),
-    [hasSides, offeredRoles, groups, roleNames],
-  );
   /* 👁 What Enter would add, said before Enter — the SAME draft the add sends (`typedGuestPreview`). */
   const typedPreview = q && !writesOff ? typedGuestPreview(q, addPicks.side, picksForAdd(addPicks, allGroups, roleNames, offeredRoles)) : null;
   // 🧑‍🤝‍🧑 THE COUPLE'S PEOPLE (owner 2026-10-20: "search also searches the people connected to them. From People.") — the
@@ -1697,7 +1691,7 @@ export function GuestsScreen(props: GuestsScreenProps) {
   const field: ThumbField = {
     placeholder: 'Search guests',
     label: 'Search guests or add',
-    hints: writesOff ? undefined : hintLines,
+    /* R3 (owner 27 Nov): the box says its name, "Search guests" — no rotating "e.g. …" lines (no guideline copy). */
     tour: 'guests-add',
     inputRef: fieldRef,
     /* ✕ — the words are gone: the whole list AT ONCE, not after the search's wait (owner 2026-10-31). */

@@ -15,6 +15,7 @@ import {
   Tag,
   Gift,
   Clapperboard,
+  Shirt,
 } from 'lucide-react';
 import { WebsiteSurface } from './_surfaces/website-surface';
 import { RevealStudioSurface } from './_surfaces/reveal-studio-surface';
@@ -29,6 +30,7 @@ import { JournalSpotlightsSurface } from './_surfaces/journal-spotlights-surface
 import { DiscountCodesSurface } from './_surfaces/discount-codes-surface';
 import { ReferralsSurface } from './_surfaces/referrals-surface';
 import { SocialQueueSurface } from './_surfaces/social-queue-surface';
+import { GownFabricTypesSurface } from './_surfaces/gown-fabric-types-surface';
 
 import { requireAdmin } from '@/lib/admin/require-admin';
 import FrontDoorVideosPage from '../background-videos/page';
@@ -69,6 +71,7 @@ const TABS = [
   'patiktok',
   'songs',
   'moodboard-library',
+  'fabric-types',
   'spotlight-awards',
   'journal-spotlights',
   'discount-codes',
@@ -115,6 +118,9 @@ const RAIL: RailItem[] = [
   { key: 'patiktok', label: 'Patiktok', icon: Film, group: 'Content', wired: true, legacyHref: '/admin/patiktok' },
   { key: 'songs', label: 'Songs', icon: Music, group: 'Content', wired: true, legacyHref: '/admin/songs' },
   { key: 'moodboard-library', label: 'Moodboard library', icon: Palette, group: 'Content', wired: true, legacyHref: '/admin/moodboard-library' },
+  // 👗 The Attire Maker's fabric-type registry (gown maker step B5b; owner Q4: Setnayan admin only). Born inside the
+  // studio hub, so its legacyHref is its own tab URL.
+  { key: 'fabric-types', label: 'Fabric types', icon: Shirt, group: 'Content', wired: true, legacyHref: '/admin/studio?tab=fabric-types' },
   // ── Marketing (5) ───────────────────────────────────────────────────────
   { key: 'social-queue', label: 'Social queue', icon: Share2, group: 'Marketing', wired: true, legacyHref: '/admin/social-queue' },
   { key: 'journal-spotlights', label: 'Journal Spotlights', icon: BookOpen, group: 'Marketing', wired: true, legacyHref: '/admin/journal-spotlights' },
@@ -197,6 +203,8 @@ async function AdminStudioPage({ searchParams }: Props) {
           />
         ) : tab === 'moodboard-library' ? (
           <MoodboardLibrarySurface />
+        ) : tab === 'fabric-types' ? (
+          <GownFabricTypesSurface />
         ) : tab === 'spotlight-awards' ? (
           <SpotlightAwardsSurface ok={first(search.ok)} error={first(search.error)} />
         ) : tab === 'journal-spotlights' ? (

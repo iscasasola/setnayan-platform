@@ -326,5 +326,6 @@ test('the empty-state no longer describes the reader that could never match', ()
     'this sentence sent a supplier to add services and wait for money that ' +
       'a category-matched join was never going to find',
   );
-  assert.match(src, /logs a payment to you on their booking/);
+  // R3 (owner 27 Nov): the empty year says one honest line and explains nothing.
+  assert.match(src, /Nothing confirmed this year\./);
 });

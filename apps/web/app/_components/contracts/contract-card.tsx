@@ -13,7 +13,8 @@
  */
 
 import Link from 'next/link';
-import { ArrowRight, FileText } from 'lucide-react';
+import { ArrowRight, FileText, MessageCircle } from 'lucide-react';
+import { actionButtonClass } from '@/components/action-button-class';
 import { statusLabel, type ContractStatus } from '@/lib/contracts';
 
 /**
@@ -110,11 +111,18 @@ export function ContractCard({
  * Empty-state shell for a contract list — shared icon + wrapper; the copy is
  * role-specific and passed in by the page.
  */
-export function ContractsEmptyState({ message }: { message: string }) {
+/** One honest line, and at most one action (owner R3, 27 Nov 2026: "a fixed app, not an app with guidelines"). */
+export function ContractsEmptyState({ message, action }: { message: string; action?: { href: string; label: string } }) {
   return (
     <div className="rounded-2xl border border-dashed border-ink/15 bg-cream p-10 text-center">
       <FileText aria-hidden className="mx-auto h-8 w-8 text-ink/40" strokeWidth={1.5} />
       <p className="mt-3 text-sm text-ink/65">{message}</p>
+      {action ? (
+        <Link href={action.href} className={actionButtonClass('brand', { extra: 'mt-4' })} data-contracts-empty-action="">
+          <MessageCircle aria-hidden strokeWidth={1.75} />
+          <span className="lbl">{action.label}</span>
+        </Link>
+      ) : null}
     </div>
   );
 }

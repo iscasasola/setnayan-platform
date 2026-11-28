@@ -90,6 +90,8 @@ import {
 } from '@/lib/vendor-deep-search-run';
 import { BOOTH_BRANDING_MIN_TIER } from '@/lib/seating-3d';
 import { formatPhp } from '@/lib/php';
+import { GOWN_PLAN_SKUS, gownPlanAfterPayment, gownPlanAfterRefund, gownPlanTierOfSku } from '@/lib/gown-plan';
+import { readGownPlanFacts, writeGownPlan } from '@/lib/gown-plan.server';
 
 /**
  * apps/web/lib/sku-activation.ts
@@ -1330,6 +1332,44 @@ async function activatePhotoChallengeSponsorship(ctx: ActivationContext): Promis
 }
 
 /**
+ * 👗 The Attire Maker's monthly plans (owner 2026-11-28): a paid month of "Use and save" (`vendor_tool_attire_use`) or
+ * "Full" (`vendor_tool_attire_full`) sets the shop's plan to that tier and adds 30 days, from the LATER of now / where
+ * the plan ends (lib/gown-plan.ts gownPlanAfterPayment). The plan lives on `vendor_gown_plans` (service-role writes
+ * only). IDEMPOTENT on the ledger: a second approval of the same order never adds a second month. The order's own
+ * `expires_at` is stamped so the renewal reminder mails the shop before the plan ends.
+ */
+async function activateGownPlanOrder(ctx: ActivationContext): Promise<void> {
+  const tier = gownPlanTierOfSku(ctx.serviceKey);
+  if (!tier) return;
+  const { data: prior } = await ctx.admin.from('order_ledger').select('order_id').eq('order_id', ctx.orderId).eq('event_type', 'service_activated').limit(1).maybeSingle();
+  if (prior) return;
+  const { data: order } = await ctx.admin.from('orders').select('vendor_profile_id').eq('order_id', ctx.orderId).maybeSingle();
+  const vendorProfileId = (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+  if (!vendorProfileId) return;
+  const facts = await readGownPlanFacts(ctx.admin, vendorProfileId);
+  const next = gownPlanAfterPayment(facts.plan, tier, Date.now());
+  await writeGownPlan(ctx.admin, vendorProfileId, next);
+  await ctx.admin.from('orders').update({ expires_at: next.until, updated_at: new Date().toISOString() }).eq('order_id', ctx.orderId);
+  await appendLedger(ctx.admin, {
+    order_id: ctx.orderId,
+    event_type: 'service_activated',
+    actor_user_id: ctx.actorUserId,
+    actor_role: 'admin',
+    metadata: { service_key: ctx.serviceKey, vendor_profile_id: vendorProfileId, plan_tier: next.tier, expires_at: next.until },
+  });
+}
+
+/** A refunded or rejected month winds the plan back 30 days (never below now, never later): gownPlanAfterRefund. */
+async function deactivateGownPlanOrder(ctx: ActivationContext): Promise<void> {
+  const { data: order } = await ctx.admin.from('orders').select('vendor_profile_id').eq('order_id', ctx.orderId).maybeSingle();
+  const vendorProfileId = (order as { vendor_profile_id?: string | null } | null)?.vendor_profile_id ?? null;
+  if (!vendorProfileId) return;
+  const facts = await readGownPlanFacts(ctx.admin, vendorProfileId);
+  if (!facts.plan) return;
+  await writeGownPlan(ctx.admin, vendorProfileId, gownPlanAfterRefund(facts.plan, Date.now()));
+}
+
+/**
  * 🧰 Specialized tools (Build 4, owner 2026-11-09) — stamp the shop's unlock window on approval.
  * ₱499 / 4 weeks (`vendor_specialized_tools`) or ₱4,990 / year (`vendor_specialized_tools_annual`):
  * every paid specialized tool — Papic challenge, the branded 3D plan booth, every future tool.
@@ -1683,6 +1723,9 @@ const EXACT_HOOKS: Readonly<Record<string, ActivationHook>> = Object.freeze({
   // 🧰 Specialized tools (owner 2026-11-09) → the shop's unlock window, 4 weeks or 1 year. It
   // replaces the three retired add-ons below, whose hooks stay so orders already paid still activate.
   [SPECIALIZED_TOOLS_SKU_CODE]: activateSpecializedToolsOrder,
+  // 👗 The Attire Maker's monthly plans (owner 2026-11-28).
+  [GOWN_PLAN_SKUS.use]: activateGownPlanOrder,
+  [GOWN_PLAN_SKUS.full]: activateGownPlanOrder,
   [SPECIALIZED_TOOLS_ANNUAL_SKU_CODE]: activateSpecializedToolsOrder,
 
   // 'vendor_3d_booth' → paid 3D Booth 28-day renewal. Stamps
@@ -2878,6 +2921,12 @@ export async function deactivateOrderSku(ctx: ActivationContext): Promise<void> 
       await deactivatePhotoChallengeSponsorship(ctx);
     } catch (e) {
       reportActivationFault('deactivate:vendor_photo_challenge', ctx, e);
+    }
+  } else if (gownPlanTierOfSku(ctx.serviceKey) !== null) {
+    try {
+      await deactivateGownPlanOrder(ctx);
+    } catch (e) {
+      reportActivationFault('deactivate:vendor_tool_attire_plan', ctx, e);
     }
   } else if (purchaseIdFromVendorSubscriptionServiceKey(ctx.serviceKey) !== null) {
     // ✦ E (owner 22 Nov, spec SUPPLIER_SUBSCRIPTIONS item E): a plan order whose money went back — an admin refund, a

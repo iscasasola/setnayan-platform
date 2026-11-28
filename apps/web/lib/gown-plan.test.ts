@@ -84,3 +84,11 @@ test('5 · the words: where she stands and why a press is refused, never a price
   const src = readFileSync(join(__dirname, 'gown-plan.ts'), 'utf8');
   assert.doesNotMatch(src, /₱|\b\d{3,}\/mo|\b1,?990\b|\b3,?490\b|\b499\b/, 'a price was typed into the plan rules, or a comment');
 });
+
+test('6 · a refunded month winds 30 days back, never below now and never later than it was', async () => {
+  const { gownPlanAfterRefund } = await import('./gown-plan');
+  assert.equal(gownPlanAfterRefund(null, NOW), null);
+  assert.deepEqual(gownPlanAfterRefund({ tier: 'full', until: iso(NOW + 45 * DAY) }, NOW), { tier: 'full', until: iso(NOW + 15 * DAY) });
+  assert.deepEqual(gownPlanAfterRefund({ tier: 'use', until: iso(NOW + 10 * DAY) }, NOW), { tier: 'use', until: iso(NOW) }, 'a refund left a timestamp in the past');
+  assert.deepEqual(gownPlanAfterRefund({ tier: 'use', until: iso(NOW - DAY) }, NOW), { tier: 'use', until: iso(NOW - DAY) }, 'a refund extended a lapsed plan');
+});

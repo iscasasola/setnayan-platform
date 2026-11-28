@@ -326,7 +326,8 @@ export type ToolTag = { label: string; group: string | null };
 export const EVERY_SERVICE_TAG: ToolTag = { label: 'Every service', group: null };
 
 /** A seed category's service kind, the way the kind keys are spelt ("Live Band" → live_band). */
-const kindOf = (category: string) => nameKey(category).replace(/ /g, '_');
+/** A service card's category name as its taxonomy kind ("Bridal gown custom" → bridal_gown_custom). */
+export const kindOf = (category: string) => nameKey(category).replace(/ /g, '_');
 
 /** Which supplier types this tool is for, in the table's order. */
 export function toolTags(tool: SpecializedTool, overrides: HubOverrides = new Map()): ToolTag[] {

@@ -122,3 +122,14 @@ export function gownPlanAfterPayment(current: GownPlanFacts['plan'], tier: GownP
   const from = Number.isFinite(end) && end > nowMs ? end : nowMs;
   return { tier, until: new Date(from + GOWN_PLAN_DAYS * DAY).toISOString() };
 }
+
+/**
+ * The plan after a refunded or rejected month: 30 days wound back, never below now (a refund never reads as "never
+ * paid") and never later than it was (a reversal never extends). The tier stays: the shop keeps what it still has.
+ */
+export function gownPlanAfterRefund(current: GownPlanFacts['plan'], nowMs: number): GownPlanFacts['plan'] {
+  if (!current) return null;
+  const cur = Date.parse(current.until);
+  if (!Number.isFinite(cur)) return current;
+  return { tier: current.tier, until: new Date(Math.min(Math.max(cur - GOWN_PLAN_DAYS * DAY, nowMs), cur)).toISOString() };
+}

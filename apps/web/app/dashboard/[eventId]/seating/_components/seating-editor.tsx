@@ -2338,7 +2338,8 @@ export function SeatingEditor({
   // Seat one guest at a table's next free chair (the picker's Guest tab —
   // also moves an already-seated guest, since assignGuest upserts per guest).
   // `seat` (Details' "tap an empty seat"): that chair, when it is still free.
-  const seatGuestHere = (t: EventTableRow, guestId: string, seat?: number, along: ReadonlyArray<{ guestId: string; seat: number }> = []) => {
+  /** `onSaved`: runs only once the write landed (an Undo line is said after the save, never before). */
+  const seatGuestHere = (t: EventTableRow, guestId: string, seat?: number, along: ReadonlyArray<{ guestId: string; seat: number }> = [], onSaved?: () => void) => {
     if (!canEdit) return;
     if (refuseLocked(guestId, ...along.map((x) => x.guestId))) return;
     const occ = occupantsFor(t);
@@ -2362,7 +2363,8 @@ export function SeatingEditor({
     startTransition(async () => {
       applyGuestOpt({ type: 'seat', guestId, tableId: t.table_id, seat: free });
       for (const x of along) applyGuestOpt({ type: 'seat', guestId: x.guestId, tableId: t.table_id, seat: x.seat });
-      saidLocked(await runGated(() => assignGuest(fd)));
+      const res = await runGated(() => assignGuest(fd));
+      if (res !== null && !saidLocked(res)) onSaved?.();
     });
   };
 
@@ -7529,23 +7531,55 @@ export function SeatingEditor({
       });
   }, [dryRun]);
   const seatingKey = guests.map((g) => `${g.guest_id}:${g.seated_table_id ?? ''}:${g.seat_number ?? ''}`).join('|');
+  // Debounced: a run of drops asks the engine once, after the plan settles (and a fresh read clears `justTaken`).
   useEffect(() => {
-    runSeatCheck();
+    const t = setTimeout(() => {
+      runSeatCheck();
+      setJustTaken((c) => (c.size ? new Set() : c));
+    }, SEARCH_WAIT_MS);
+    return () => clearTimeout(t);
   }, [runSeatCheck, seatingKey]);
   const checkRunData = seatCheck.status === 'read' ? seatCheck.run : null;
-  /** Seat these guests at that table's free chairs in ONE write (`along`), with ONE Undo that puts them all back. */
-  const seatTogether = (tableId: string, guestIds: readonly string[], words: string) => {
-    const t = tables.find((x) => x.table_id === tableId);
-    if (!t || !guestIds.length) return false;
-    const free = freeChairsAt(t);
-    if (free.length < guestIds.length) {
-      setNotice(`Needs ${formatCount(guestIds.length)} ${guestIds.length === 1 ? 'seat' : 'seats'}`);
+  /** Guests a press has just seated — gone from every strip at once, before the plan re-reads. */
+  const [justTaken, setJustTaken] = useState<ReadonlySet<string>>(() => new Set());
+  /** Each guest with the +1s who move with them (`unitOf`, the drag's own rule), once each. */
+  const withUnits = (ids: readonly string[]) => [...new Set(ids.flatMap((id) => { const u = unitOf(id); return [u.leadId, ...u.party]; }))];
+  /** Where every group goes: each table's free chairs handed out ONCE across all of them — never two guests on one chair. */
+  const placeAll = (groups: ReadonlyArray<{ tableId: string; guestIds: readonly string[] }>) => {
+    const pool = new Map<string, number[]>();
+    const byTable = new Map<string, Array<{ guestId: string; seat: number }>>();
+    for (const g of groups) {
+      const t = tables.find((x) => x.table_id === g.tableId);
+      if (!t) return null;
+      const free = pool.get(t.table_id) ?? freeChairsAt(t);
+      if (free.length < g.guestIds.length) return { short: g.guestIds.length };
+      const seats = g.guestIds.map((guestId, i) => ({ guestId, seat: free[i]! }));
+      pool.set(t.table_id, free.slice(g.guestIds.length));
+      byTable.set(t.table_id, [...(byTable.get(t.table_id) ?? []), ...seats]);
+    }
+    return { byTable };
+  };
+  /** Seat the groups — ONE write per table (`along`) — and say ONE line with ONE Undo once every write has landed. */
+  const seatGroups = (groups: ReadonlyArray<{ tableId: string; guestIds: readonly string[] }>, words: (tableLabel: string) => string) => {
+    const plan = placeAll(groups);
+    if (!plan) return false;
+    if ('short' in plan) {
+      setNotice(`Needs ${formatCount(plan.short!)} ${plan.short === 1 ? 'seat' : 'seats'}`);
       return false;
     }
-    const before = guestIds.map((id) => guestsById.get(id)).filter((g): g is SeatingGuest => Boolean(g)).map((g) => ({ id: g.guest_id, tableId: g.seated_table_id, seat: g.seat_number }));
-    const [first, ...rest] = guestIds;
-    seatGuestHere(t, first!, free[0], rest.map((id, i) => ({ guestId: id, seat: free[i + 1]! })));
-    setMoveNote({ text: `${words} → ${t.link_group_label?.trim() || t.table_label}`, undo: () => { setMoveNote(null); putBack(before); } });
+    const ids = groups.flatMap((g) => [...g.guestIds]);
+    const before = ids.map((id) => guestsById.get(id)).filter((g): g is SeatingGuest => Boolean(g)).map((g) => ({ id: g.guest_id, tableId: g.seated_table_id, seat: g.seat_number }));
+    setJustTaken((c) => new Set([...c, ...ids]));
+    let waiting = plan.byTable.size;
+    const firstTable = tables.find((x) => x.table_id === groups[0]?.tableId);
+    for (const [tableId, seats] of plan.byTable) {
+      const t = tables.find((x) => x.table_id === tableId)!;
+      const [first, ...rest] = seats;
+      seatGuestHere(t, first!.guestId, first!.seat, rest, () => {
+        waiting -= 1;
+        if (waiting === 0) setMoveNote({ text: words(firstTable?.link_group_label?.trim() || firstTable?.table_label || ''), undo: () => { setMoveNote(null); putBack(before); } });
+      });
+    }
     return true;
   };
   const shortOf = (id: string) => {
@@ -7561,7 +7595,8 @@ export function SeatingEditor({
   };
   const takeSuggestion = (sug: SeatSuggestion) => {
     if (needsEdit()) return;
-    seatTogether(sug.tableId, sug.guestIds, sug.guestIds.map(shortOf).join(', '));
+    const ids = withUnits(sug.guestIds);
+    seatGroups([{ tableId: sug.tableId, guestIds: ids }], (label) => `${ids.map(shortOf).join(', ')} → ${label}`);
   };
   /** A seat check's Fix: seat them (one write, one Undo), or open the table to look. */
   const fixProblem = (p: SeatProblem) => {
@@ -7572,27 +7607,34 @@ export function SeatingEditor({
       return;
     }
     if (needsEdit()) return;
-    if (seatTogether(p.fix.tableId, p.fix.guestIds, p.fix.guestIds.map(shortOf).join(', '))) setCheckOpen(false);
+    const ids = withUnits(p.fix.guestIds);
+    if (seatGroups([{ tableId: p.fix.tableId, guestIds: ids }], (label) => `${ids.map(shortOf).join(', ')} → ${label}`)) setCheckOpen(false);
   };
   /** "Fix all": every problem with a seat fix, then ONE Undo that puts everyone back. */
   const fixAllProblems = () => {
     if (!checkRunData || needsEdit()) return;
-    const seats = checkRunData.problems.flatMap((p) => (p.fix.kind === 'seat' ? [p.fix] : []));
-    const ids = seats.flatMap((f) => [...f.guestIds]);
-    const before = ids.map((id) => guestsById.get(id)).filter((g): g is SeatingGuest => Boolean(g)).map((g) => ({ id: g.guest_id, tableId: g.seated_table_id, seat: g.seat_number }));
-    let done = 0;
-    for (const f of seats) if (seatTogether(f.tableId, f.guestIds, '')) done += f.guestIds.length;
-    setCheckOpen(false);
-    if (done) setMoveNote({ text: `Fixed · ${formatCount(done)} ${done === 1 ? 'guest' : 'guests'} seated`, undo: () => { setMoveNote(null); putBack(before); } });
+    // Every fix's guests (with their units), each once, placed against ONE pool of free chairs — then written once.
+    const seen = new Set<string>();
+    const groups = checkRunData.problems.flatMap((p) => {
+      if (p.fix.kind !== 'seat') return [];
+      const ids = withUnits(p.fix.guestIds).filter((id) => !seen.has(id));
+      ids.forEach((id) => seen.add(id));
+      return ids.length ? [{ tableId: p.fix.tableId, guestIds: ids }] : [];
+    });
+    const n = groups.reduce((k, g) => k + g.guestIds.length, 0);
+    if (seatGroups(groups, () => `Fixed · ${formatCount(n)} ${n === 1 ? 'guest' : 'guests'} seated`)) setCheckOpen(false);
   };
   /** The strip a card draws: the dry run's suggestion that fits its free chairs, while "Suggest seats on the cards" is on. */
   const cardSuggestion = (unitKey: string) => {
     if (!suggestOn || !checkRunData) return null;
+    // A guest just seated (by this press, or already seated now) leaves every strip at once.
+    const open = (sug: SeatSuggestion) => sug.guestIds.every((id) => !justTaken.has(id) && !guestsById.get(id)?.seated_table_id);
+    const fresh = { ...checkRunData, suggestions: checkRunData.suggestions.filter(open) };
     const unit = displayUnits.find((u) => u.key === unitKey);
     if (!unit) return null;
     for (const m of unit.members) {
       const free = freeChairsAt(m);
-      const sug = suggestionFor(checkRunData, m.table_id, free.length);
+      const sug = suggestionFor(fresh, m.table_id, free.length);
       if (sug) return { suggestion: sug, names: sug.guestIds.map(shortOf), seats: free.slice(0, sug.guestIds.length) };
     }
     return null;
@@ -11581,9 +11623,12 @@ function dominantColor(occ: (SeatingGuest | null)[], colorFor: (g: SeatingGuest)
  */
 function FoundSeatRing({ still, onPulse }: { still: boolean; onPulse: () => void }) {
   const pulse = useRef<HTMLSpanElement>(null);
+  // Read once, at mount: the Find marks its pulse as played (`onPulse`), and a re-render that then says `still` must not
+  // cut the pulse short — only unmounting the chair ends it.
+  const stillAtMount = useRef(still);
   useEffect(() => {
     const el = pulse.current;
-    if (still || !el || typeof el.animate !== 'function') return;
+    if (stillAtMount.current || !el || typeof el.animate !== 'function') return;
     onPulse();
     const run = el.animate(
       [
@@ -11595,11 +11640,11 @@ function FoundSeatRing({ still, onPulse }: { still: boolean; onPulse: () => void
     );
     return () => run.cancel();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- plays once per mount; `onPulse` only records the Find
-  }, [still]);
+  }, []);
   return (
     <>
       <span aria-hidden data-seat-found="" className="pointer-events-none absolute -inset-1 rounded-full ring-2 ring-terracotta" />
-      {still ? null : <span ref={pulse} aria-hidden data-seat-found-pulse="" className="pointer-events-none absolute -inset-1 rounded-full ring-2 ring-terracotta opacity-0" />}
+      {stillAtMount.current ? null : <span ref={pulse} aria-hidden data-seat-found-pulse="" className="pointer-events-none absolute -inset-1 rounded-full ring-2 ring-terracotta opacity-0" />}
     </>
   );
 }

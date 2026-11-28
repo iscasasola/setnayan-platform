@@ -48,7 +48,23 @@ function sqlArray(items: readonly string[]): string {
   return `ARRAY[${items.map((t) => `'${t.replace(/'/g, "''")}'`).join(', ')}]::text[]`;
 }
 
-export function journalImportSql(articles: readonly JournalSource[]): string {
+/** The two words of a row a later correction can change: its title and its body. */
+export type JournalRowText = { title: string; body: string };
+
+/** A post's title and body exactly as the source renders them. */
+export function journalRowText(a: JournalSource): JournalRowText {
+  return { title: a.title, body: journalBodyFromBlocks(a.blocks) };
+}
+
+/**
+ * `textOf` defaults to the source as it renders today. `lib/journal-move.test.ts` passes the source with every
+ * later correction undone (`JOURNAL_EDITS_AFTER_IMPORT`), so it can prove the APPLIED import file is what the
+ * source said on the day it was applied.
+ */
+export function journalImportSql(
+  articles: readonly JournalSource[],
+  textOf: (a: JournalSource) => JournalRowText = journalRowText,
+): string {
   const rows = [...articles]
     .sort((a, b) => a.slug.localeCompare(b.slug))
     .map((a, i) => {
@@ -56,9 +72,10 @@ export function journalImportSql(articles: readonly JournalSource[]): string {
       const day = staged ? null : a.publishedAt;
       // A staged post has no real date yet; it is stamped with the day it moved in.
       const touched = a.updatedAt ?? (staged ? JOURNAL_MOVE_DATE : a.publishedAt);
+      const text = textOf(a);
       return (
-        `    (${dollar(a.slug, i * 3)}, ${dollar(a.title, i * 3 + 1)},\n` +
-        `     ${dollar(journalBodyFromBlocks(a.blocks), i * 3 + 2)},\n` +
+        `    (${dollar(a.slug, i * 3)}, ${dollar(text.title, i * 3 + 1)},\n` +
+        `     ${dollar(text.body, i * 3 + 2)},\n` +
         `     '${staged ? 'draft' : 'published'}', ${day ? `'${day} 08:00:00+08'::timestamptz` : 'NULL'}, ` +
         `${sqlArray(journalTags(a))}, '${touched} 08:00:00+08'::timestamptz)`
       );

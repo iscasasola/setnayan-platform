@@ -17,11 +17,11 @@ import type { GownDress } from '../dress/build';
 import { capeAt, type GownCapeMesh } from '../dress/cape';
 import { GOWN_TRAIN_CM, GOWN_VEIL_CM, gownVeilFloor, gownVeilLong, trainShare } from '../dress/lines';
 import type { GownOverlayMesh } from './overlay';
+import { VEIL_COLS, VEIL_ROWS } from './veil-grid';
+import { gownFlowerTopY, gownFlowerVeil, type GownFlowers } from './flowers';
 import { reach, type GownEnvelope } from '../dress/table';
 
-/** All the way round (first and last column meet), crown to hem. */
-export const VEIL_COLS = 65;
-export const VEIL_ROWS = 80;
+export { VEIL_COLS, VEIL_ROWS } from './veil-grid';
 /** Rows of the mantilla's lace border, along the veil's edge. */
 export const VEIL_EDGE_ROWS = 7;
 /** Rows of the Juliet cap, from the crown to just above the ears. */
@@ -65,7 +65,7 @@ export function emptyVeil(): GownVeilOut {
  */
 export function buildGownVeil(
   B: GownRig, T: GownEnvelope, D: GownDress, cape: GownCapeMesh | null, d: GownVeilDesign, out: GownVeilOut, floorY: number,
-  overlayOut = 0, over: { overlay?: GownOverlayMesh | null; lite?: boolean } = {},
+  overlayOut = 0, over: { overlay?: GownOverlayMesh | null; lite?: boolean; flowers?: GownFlowers | null } = {},
 ): { veil: boolean; edge: boolean; cap: boolean } {
   if (d.veil === 'none') return { veil: false, edge: false, cap: false };
   const V = B.V, P = B.P, hv = B.headV;
@@ -90,7 +90,7 @@ export function buildGownVeil(
   const floorLen = gownVeilLong(d.veil) ? Math.max(0, GOWN_VEIL_CM[d.veil] / 100 / P.S - (top - yBack)) : 0;
   const pos = (out.geo.attributes.position as THREE.BufferAttribute).array as Float32Array, R = new Float32Array(VNR), tableTop = T.y0 + (T.n - 2) * SLICE_DY;
   // v199: the veil keeps a few mm outside the gown as it is really drawn (skirt, overlay, train), all the way to the floor.
-  const keep = veilGown(B, T, D, floorY, gownVeilFloor(d.veil), over.overlay ?? null);
+  const keep = veilGown(B, T, D, floorY, gownVeilFloor(d.veil), over.overlay ?? null, over.flowers ?? null);
   for (let a = 0; a < VNA; a++) {
     const ang = (TAU * a) / (VNA - 1), sx = Math.sin(ang), sz = Math.cos(ang), back = (1 - sz) / 2;
     let yEnd = yFront + (yBack - yFront) * smoothstep(back, 0.12, 0.8), Lfl = floorLen * smoothstep(back, 0.45, 1);
@@ -191,7 +191,7 @@ type VeilKeep = ((P: Float32Array, o: number) => void) & { cloth: (P: Float32Arr
  * all of it, all the way to the floor (v199 `veilGown`). Null when there is no gown drawn. `low` says the veil reaches
  * the floor (it then also keeps up off a train lying there).
  */
-export function veilGown(B: GownRig, T: GownEnvelope, D: GownDress, fl: number, low: boolean, ovl: GownOverlayMesh | null): VeilKeep | null {
+export function veilGown(B: GownRig, T: GownEnvelope, D: GownDress, fl: number, low: boolean, ovl: GownOverlayMesh | null, flw: GownFlowers | null = null): VeilKeep | null {
   if (!(D.geo && T.on && D.rows > 2)) return null;
   const N = RING_N, DTH = TAU / N, czAt = (y: number) => { const f = clamp((y - T.y0) / SLICE_DY, 0, T.n - 1.001), j = f | 0; return T.cz[j]! + (T.cz[j + 1]! - T.cz[j]!) * (f - j); };
   const DP = (D.geo.attributes.position as THREE.BufferAttribute).array as Float32Array, rows = D.rows, r0 = Math.min(rows - 2, D.nb + 1), rS = Math.min(rows, 2 + D.nb + D.ns), WY = 0.01;
@@ -200,6 +200,8 @@ export function veilGown(B: GownRig, T: GownEnvelope, D: GownDress, fl: number, 
   let yHi = fl;
   for (let o = r0 * N * 3 + 1, e = rS * N * 3; o < e; o += 3) yHi = Math.max(yHi, DP[o]!);
   if (OP) for (let o = 1; o < OP.length; o += 3) yHi = Math.max(yHi, OP[o]!);
+  // v200: 3D flowers on the bodice keep the veil off too.
+  yHi = Math.max(yHi, gownFlowerTopY(flw));
   const nY = Math.ceil((yHi - fl) / WY) + 2, W = new Float32Array(nY * N);
   const put = (j: number, k0: number, k1: number, r: number) => { const o = j * N; if (r > W[o + k0]!) W[o + k0] = r; if (r > W[o + k1]!) W[o + k1] = r; };
   // One strip of cloth between two rows: its reach at every height it spans, into both neighbouring heights and
@@ -214,6 +216,8 @@ export function veilGown(B: GownRig, T: GownEnvelope, D: GownDress, fl: number, 
   // The skirt as drawn: folds, pleats, a petticoat's hold.
   for (let r = r0; r < rS - 1; r++) for (let q = 0; q < N; q++) seg(DP, (r * N + q) * 3, ((r + 1) * N + q) * 3);
   if (OP && ovl) { const NC = ovl.NC; for (let l = 0; l < ovl.nL; l++) for (let r = 0; r < ovl.NR - 1; r++) for (let c = 0; c < NC; c++) seg(OP, ((l * ovl.NR + r) * NC + c) * 3, ((l * ovl.NR + r + 1) * NC + c) * 3); }
+  // v200: and outside every 3D flower.
+  gownFlowerVeil(flw, T, put, fl, WY, nY);
   // Below the hem it is still under the skirt: the hem's own reach down to the floor.
   for (let q = 0; q < N; q++) { let j = 0; while (j < nY - 1 && !W[j * N + q]) j++; for (let k = 0; k < j; k++) W[k * N + q] = W[j * N + q]!; }
   let top: ((x: number, z: number) => number) | null = null;

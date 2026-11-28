@@ -48,7 +48,7 @@ export type GownInsidePiece = {
   layer?: { type: GownLayerType; hemM: number; lengthM: number };
 };
 
-const LAYER_NAME: Record<GownLayerType, string> = { soft: 'soft tulle', full: 'full tulle', organza: 'organza', chiffon: 'chiffon', hoop: 'tulle over the hoop' };
+const LAYER_NAME: Record<GownLayerType, string> = { soft: 'soft tulle', full: 'full tulle', organza: 'organza', chiffon: 'chiffon', hoop: 'tulle over the hoop', glitter: 'glitter tulle' };
 const FILL = Object.fromEntries(GOWN_LAYER_TYPES.map((t) => [t.id, t.fill])) as Record<GownLayerType, number>;
 
 /** A layer's or the lining's colour (v193 `layerHex`): a stock shade, or the gown's own. */

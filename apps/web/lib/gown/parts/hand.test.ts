@@ -17,7 +17,7 @@ import { restingCloth, writeDress } from '../dress/cloth';
 import { buildEnvelope, emptyEnvelope } from '../dress/table';
 import { buildGownBeads, gownBeadHex, type GownBeadSet } from './beads';
 import { buildGownCuts, gownCutForbidden } from './cuts';
-import { GOWN_HAND_FULL, buildGownHandBeads, gownHandClear, gownHandCutShape, gownHandCutTap, gownHandErase, gownHandPlace } from './hand';
+import { GOWN_HAND_BRUSH, GOWN_HAND_FULL, buildGownHandBeads, gownHandClear, gownHandCutClose, gownHandCutShape, gownHandCutTap, gownHandErase, gownHandPlace, gownHandStrokeEnd, gownHandStrokeMove, gownHandStrokeStart } from './hand';
 import { buildGownLace, gownLaceCountLine } from './lace';
 
 type RefSet = { kind: string; hex: number; n: number; count: number; size: number; triSum: number; bcSum: number; tri: number[]; bc: number[]; spin: number[] };
@@ -149,4 +149,39 @@ test('the tools: Mirror places twins, the eraser rubs out both sides, each tool 
   assert.deepEqual(buildGownHandBeads(B, D, twoSizes, [], { phone: false }).sets.map((s) => Math.round(s.size * cmU * 10)), [3, 5]);
   const cleared = gownHandClear({ ...er.config, handCuts: tap.config.handCuts });
   assert.deepEqual([cleared.handBeads, cleared.handHoles, cleared.handLace, cleared.handCuts], [[], [], [], []]);
+});
+
+test('a stroke, as v202 draws it: a tap places one, Line spaces pieces by size plus gap, Scatter dabs, scissors close a shape', async () => {
+  const B = await body(), cmU = B.P.S * 100, base = { ...startingGownConfig(), bead: 'crystal', beadMm: 3 } as GownConfig, { T, D } = dressed(B, base);
+  let seed = 1;
+  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+  const forbidden = (ph: number, y: number, rcm: number) => gownCutForbidden(B, T, D.L!, ph, y, rcm);
+  const ctx = { cmU, forbidden, rnd, close: (P: [number, number][]) => gownHandCutClose(B, T, P, base.cutFill) };
+  const r = 0.12, start = { ph: 0.4, y: 0.8, r };
+  // A tap (no move past a few pixels) places one bead, twinned by Mirror.
+  const tapSt = gownHandStrokeStart(start, 'beads');
+  const tapped = gownHandStrokeMove(base, tapSt, { ...start, y: 0.8001 }, false, { ...GOWN_HAND_BRUSH, tool: 'beads' }, ctx);
+  assert.equal(tapped.config.handBeads.length, 0, 'nothing while it is still a tap');
+  assert.equal(gownHandStrokeEnd(tapped.config, tapped.stroke, { ...GOWN_HAND_BRUSH, tool: 'beads' }, ctx).config.handBeads.length, 2);
+  // Line: a 10 cm stroke down the skirt with 3 mm beads and a 1 mm gap places a bead every 0.4 cm (one side: no mirror).
+  const line = { ...GOWN_HAND_BRUSH, tool: 'beads' as const, mirror: false };
+  let d = base, st = gownHandStrokeStart(start, 'beads');
+  for (let i = 1; i <= 100; i++) { const m = gownHandStrokeMove(d, st, { ...start, y: 0.8 - (i * 0.1) / cmU }, true, line, ctx); d = m.config; st = m.stroke; }
+  // v202 starts counting again at each bead, so on 1 mm finger steps a bead lands every 4–5 steps: 20–25 along 10 cm.
+  assert.ok(d.handBeads.length >= 20 && d.handBeads.length <= 25, `${d.handBeads.length} beads along 10 cm`);
+  // Scatter: a dab of 6 every third of the 4 cm brush.
+  let s2 = base, st2 = gownHandStrokeStart(start, 'beads');
+  for (let i = 1; i <= 100; i++) { const m = gownHandStrokeMove(s2, st2, { ...start, y: 0.8 - (i * 0.1) / cmU }, true, { ...line, stroke: 'scatter' }, ctx); s2 = m.config; st2 = m.stroke; }
+  assert.equal(s2.handBeads.length % 6, 0);
+  assert.ok(s2.handBeads.length >= 6 * 6 && s2.handBeads.length <= 6 * 8, `${s2.handBeads.length} scattered`);
+  // Scissors: a drawn square on the skirt comes out; an open line does not, and says why.
+  const cut = { ...GOWN_HAND_BRUSH, tool: 'cut' as const, mirror: false };
+  const sq: [number, number][] = [[0.4, 0.8], [0.6, 0.8], [0.6, 0.7], [0.4, 0.7], [0.4, 0.8]];
+  let cs = gownHandStrokeStart({ ph: sq[0]![0], y: sq[0]![1], r }, 'cut');
+  for (const [ph, y] of sq.slice(1)) for (let k = 1; k <= 10; k++) { const p = cs.path!.at(-1)!; cs = gownHandStrokeMove(base, cs, { ph: p[0] + ((ph - p[0]) * k) / 10, y: p[1] + ((y - p[1]) * k) / 10, r }, true, cut, ctx).stroke; }
+  const closed = gownHandStrokeEnd(base, cs, cut, ctx);
+  assert.equal(closed.config.handCuts.length, 1, closed.note);
+  const open = gownHandCutClose(B, T, [[0.4, 0.8], [0.6, 0.8], [0.6, 0.7], [0.8, 0.5]], 'open');
+  assert.equal(open.pts, null);
+  assert.match(open.note, /come back to where it started|all the way around/);
 });

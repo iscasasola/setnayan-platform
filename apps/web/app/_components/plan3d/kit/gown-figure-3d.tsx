@@ -29,7 +29,7 @@ import { GOWN_CUT_MAP, buildGownCuts } from '@/lib/gown/parts/cuts';
 import { buildGownTechShell } from '@/lib/gown/parts/technique';
 import { GOWN_ILLU_DRAW, GOWN_ILLU_MAP, GOWN_ILLU_TULLE, buildGownIllu, gownIlluDressShader, gownIlluTulleShader, gownIlluUniforms } from '@/lib/gown/parts/illusion';
 import { GOWN_TRIM_SHADE, buildGownTrims, placeGownTrims } from '@/lib/gown/parts/trims';
-import { GOWN_CAPE_EDGE_PX, GOWN_LACE_COLOUR, GOWN_LACE_MAP, GOWN_LACE_TILE_DRAW, GOWN_LACE_TILE_PX, buildGownLace, drawGownCapeEdge, drawGownLaceTile } from '@/lib/gown/parts/lace';
+import { GOWN_CAPE_EDGE_PX, GOWN_LACE_COLOUR, GOWN_LACE_MAP, GOWN_LACE_TILE_DRAW, GOWN_LACE_TILE_PX, buildGownLace, drawGownCapeEdge, drawGownLaceTile, type GownLaceBeadPt } from '@/lib/gown/parts/lace';
 import { gownRaisedLaceShader, gownSurfaceShader, gownSurfaceUniforms, type GownSurfaceUniforms } from '@/lib/gown/fabric/surface';
 import { GOWN_WEAVE_PX, drawGownWeave, gownWeaveAmount, gownWeaveGain, gownWeaveScale } from '@/lib/gown/fabric/weave';
 import { GOWN_INSIDE_LOOK, buildGownInside, gownInsideShown, type GownInsideStage } from '@/lib/gown/parts/inside';
@@ -37,6 +37,7 @@ import { GOWN_OVERLAY_DRAW, buildGownOverlay, gownOverlayOut, type GownOverlayMe
 import { buildGownSleeve, emptySleeve } from '@/lib/gown/parts/sleeves';
 import { buildGownStraps, emptyStraps } from '@/lib/gown/parts/straps';
 import { GOWN_BEAD_CAP, GOWN_BEAD_LOOK, buildGownBeads, gownBeadGeo, gownBeadHex, gownPearlHex, placeGownBeadSet, type GownBeadSet } from '@/lib/gown/parts/beads';
+import { buildGownHandBeads } from '@/lib/gown/parts/hand';
 import { GOWN_FLOWER_CAP, GOWN_FLOWER_COLOURS, GOWN_FLOWER_LOOK, buildGownFlowers, buildGownPearls, emptyGownFlowers, emptyGownPearls, gownFlowerGeo, placeGownVeilPearls } from '@/lib/gown/parts/flowers';
 import { VEIL_COLS } from '@/lib/gown/parts/veil-grid';
 import { gownGlitterScale, gownGlitterShader, gownGlitterUniform } from '@/lib/gown/fabric/glitter';
@@ -169,7 +170,8 @@ function SceneLights({ scene }: { scene: GownSceneId }) {
 type SurfaceHost = { su: GownSurfaceUniforms; maps: { weave: HTMLCanvasElement | null; lace: HTMLCanvasElement | null; cut: HTMLCanvasElement | null; tex: { weave: THREE.CanvasTexture | null; lace: THREE.CanvasTexture | null; cut: THREE.CanvasTexture | null } }; T: GownEnvelope; D: GownDress };
 const canvasOf = (w: number, h: number) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
 /** The cloth's surface for this design: the fabric's weave, the lace and the cut-outs, painted into their maps (v195). */
-function paintSurface(cloth: SurfaceHost, rig: GownRig, design: GownConfig, kind: GownStockFabric) {
+/** Returns the beads sewn on the lace (A7b), sampled from the lace as painted. */
+function paintSurface(cloth: SurfaceHost, rig: GownRig, design: GownConfig, kind: GownStockFabric): GownLaceBeadPt[] {
   const { su, maps } = cloth;
   // The weave, at thread scale; it only shades.
   maps.weave ??= canvasOf(GOWN_WEAVE_PX, GOWN_WEAVE_PX);
@@ -187,7 +189,11 @@ function paintSurface(cloth: SurfaceHost, rig: GownRig, design: GownConfig, kind
   } else su.weaveOn.value = 0;
   // Lace on the gown's flat map.
   maps.lace ??= canvasOf(GOWN_LACE_MAP.w, GOWN_LACE_MAP.h);
-  const lg = maps.lace.getContext('2d'), lace = lg ? buildGownLace(rig, cloth.T, cloth.D, design, lg) : null;
+  const lg = maps.lace.getContext('2d', { willReadFrequently: design.laceBeads !== 'none' });
+  // Beaded lace reads the painted lace once, after it is drawn, so beads land only on the motif.
+  let px: Uint8ClampedArray | null = null;
+  const alphaAt = lg && design.laceBeads !== 'none' ? (x: number, y: number) => { px ??= lg.getImageData(0, 0, GOWN_LACE_MAP.w, GOWN_LACE_MAP.h).data; return px[(y * GOWN_LACE_MAP.w + x) * 4 + 3]!; } : null;
+  const lace = lg ? buildGownLace(rig, cloth.T, cloth.D, design, lg, null, alphaAt) : null;
   if (lace) {
     maps.tex.lace ??= Object.assign(new THREE.CanvasTexture(maps.lace), { colorSpace: THREE.SRGBColorSpace });
     maps.tex.lace.needsUpdate = true;
@@ -208,6 +214,7 @@ function paintSurface(cloth: SurfaceHost, rig: GownRig, design: GownConfig, kind
     su.cutFill.value = cuts.fill;
   }
   su.cutOn.value = cuts ? 1 : 0;
+  return lace?.beadPts ?? [];
 }
 
 /** Empty the Inside group: its geometries, and the per-piece materials (the shared ones stay). */
@@ -487,16 +494,6 @@ function Body({ rig, phone = false, vals, fine, shape = 'none', guides = false, 
         pn.instanceMatrix.needsUpdate = true;
         if (pn.parent !== root) root.add(pn);
         pn.visible = pn.count > 0 && !inside;
-        // A7 (v202): every bead layer, laid again on each build (a fixed seed, so nothing reshuffles).
-        for (const o of [...cloth.beadGroup.children] as THREE.InstancedMesh[]) { o.removeFromParent(); (o.material as THREE.Material).dispose(); o.dispose(); }
-        for (const set of buildGownBeads(rig, cloth.D, cloth.T, design, { phone }).sets) {
-          const im = new THREE.InstancedMesh(cloth.beadGeos[set.kind], beadMaterial(set, phone), set.n);
-          im.frustumCulled = false;
-          if (placeGownBeadSet(set, cloth.D, im.instanceMatrix.array as Float32Array)) cloth.beadGroup.add(im);
-          else { (im.material as THREE.Material).dispose(); im.dispose(); }
-        }
-        if (cloth.beadGroup.parent !== root) root.add(cloth.beadGroup);
-        cloth.beadGroup.visible = !inside;
       }
       const v = buildGownVeil(rig, cloth.T, cloth.D, hung ? cloth.K : null, design, cloth.V, floor, ovOut, { overlay: cloth.overlay.visible ? cloth.ov : null, flowers: cloth.F });
       cloth.glit.veil.value = design.veilFab === 'glitter' && v.veil ? gownGlitterScale(rig.P.S) : 0;
@@ -545,7 +542,21 @@ function Body({ rig, phone = false, vals, fine, shape = 'none', guides = false, 
       if (cloth.D.geo && cloth.mesh.geometry !== cloth.D.geo) cloth.mesh.geometry = cloth.D.geo;
       cloth.m.color.setHex(gownClothColour(design.colour, design.colourHex));
       applyGownShine(cloth.m, ft.drawAs, GOWN_SCENES[scene].env);
-      paintSurface(cloth, rig, design, ft.drawAs);
+      const laceBeads = paintSurface(cloth, rig, design, ft.drawAs);
+      {
+        // A7 (v202): every bead layer, laid again on each build (a fixed seed, so nothing reshuffles).
+        for (const o of [...cloth.beadGroup.children] as THREE.InstancedMesh[]) { o.removeFromParent(); (o.material as THREE.Material).dispose(); o.dispose(); }
+        // A7b: the eraser's wipes thin the layers; beads placed by hand and those sewn on the lace join them.
+        const sets = [...buildGownBeads(rig, cloth.D, cloth.T, design, { phone, holes: design.handHoles }).sets, ...buildGownHandBeads(rig, cloth.D, design, laceBeads, { phone }).sets];
+        for (const set of sets) {
+          const im = new THREE.InstancedMesh(cloth.beadGeos[set.kind], beadMaterial(set, phone), set.n);
+          im.frustumCulled = false;
+          if (placeGownBeadSet(set, cloth.D, im.instanceMatrix.array as Float32Array)) cloth.beadGroup.add(im);
+          else { (im.material as THREE.Material).dispose(); im.dispose(); }
+        }
+        if (cloth.beadGroup.parent !== root) root.add(cloth.beadGroup);
+        cloth.beadGroup.visible = !inside;
+      }
       tintGownSheen(cloth.m);
       applyGownSheer(cloth.m, ft.props, design.lining !== 'none');
       cloth.sheerBack.value = ft.props.sheer > 0.3 ? ft.props.sheer * GOWN_SCENES[scene].back : 0;

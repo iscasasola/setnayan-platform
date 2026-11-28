@@ -7,9 +7,10 @@
  * Coordinates are kept to four decimals, which is well under a millimetre on the gown.
  */
 import { GOWN_HAND_MAX, type GownBeadColour, type GownBeadKind, type GownConfig, type GownHandBead, type GownHandCut, type GownHandHole, type GownHandLace, type GownLace } from '../../gown-config';
-import { TAU } from '../body/constants';
-import type { GownRig } from '../body/rig';
+import { RING_N, SLICE_DY, TAU } from '../body/constants';
+import { clamp, type GownRig } from '../body/rig';
 import type { GownDress } from '../dress/build';
+import { lerpRow, type GownEnvelope } from '../dress/table';
 import { GOWN_BEAD_CAP, gownLocate, gownThinBeads, type GownBeadSet } from './beads';
 import type { GownLaceBeadPt } from './lace';
 
@@ -146,4 +147,104 @@ export function buildGownHandBeads(B: GownRig, D: GownDress, d: HandDesign, lace
   out.line = out.hand || lm ? `Painted by hand: ${out.hand} beads${lm ? `, ${lm} lace motifs` : ''}. Added to the designer's count.` : '';
   out.laceLine = out.onLace ? `Beads sewn on the lace: about ${Math.round(out.onLace / 10) * 10}, ${lacePts[0]!.mm} mm. Added to the bead count and the quote.` : '';
   return out;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// A stroke: a finger down on the gown, moving, lifted (v202 pointer handlers)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** The brush settings (v202 `brush`): Line or Scatter, the gap (cm), brush width (cm), pieces per dab, Mirror, what the eraser takes. */
+export type GownHandBrush = { tool: GownHandTool; stroke: 'line' | 'scatter'; gap: number; cm: number; qty: number; mirror: boolean; what: GownHandHole['what'] };
+/** The brush she starts with (v202). */
+export const GOWN_HAND_BRUSH: Omit<GownHandBrush, 'tool'> = { stroke: 'line', gap: 0.1, cm: 4, qty: 6, mirror: true, what: 'all' };
+/** One stroke in progress: where it started, the last spot, the distance since the last piece, still a tap, the scissors' line. */
+export type GownHandStroke = { start: GownHandHit; last: GownHandHit; acc: number; tap: boolean; path: [number, number][] | null };
+type Ctx = { cmU: number; forbidden: (ph: number, y: number, rcm: number) => string; rnd: () => number };
+
+export function gownHandStrokeStart(h: GownHandHit, tool: GownHandTool): GownHandStroke {
+  return { start: h, last: h, acc: 0, tap: true, path: tool === 'cut' ? [[h.ph, h.y]] : null };
+}
+
+/**
+ * The finger moved to `h` (`moved`: more than a tap's few pixels from where it went down). Line places a piece every
+ * piece-width plus the gap, turned along the stroke; Scatter sprinkles a dab every third of the brush; the eraser rubs
+ * as it goes; the scissors follow the finger, unwrapped round the back (v202).
+ */
+export function gownHandStrokeMove<D extends HandDesign>(d: D, st: GownHandStroke, h: GownHandHit, moved: boolean, b: GownHandBrush, c: Ctx): { config: D; stroke: GownHandStroke; note: string } {
+  const tap = st.tap && !moved;
+  if (tap) return { config: d, stroke: st, note: '' };
+  const cmU = c.cmU, dx = (h.ph - st.last.ph) * h.r * cmU, dy = (h.y - st.last.y) * cmU;
+  let acc = st.acc + Math.hypot(dx, dy), out = d, note = '';
+  if (b.tool === 'cut') {
+    const P = st.path ?? [[st.start.ph, st.start.y]], lp = P[P.length - 1]!;
+    let ph = h.ph;
+    while (ph - lp[0] > Math.PI) ph -= TAU;
+    while (ph - lp[0] < -Math.PI) ph += TAU;
+    const path = Math.hypot((ph - lp[0]) * h.r * cmU, (h.y - lp[1]) * cmU) >= 0.4 ? [...P, [ph, h.y] as [number, number]] : P;
+    return { config: d, stroke: { ...st, last: h, acc, tap: false, path }, note: '' };
+  }
+  if (b.tool === 'eraser') {
+    const e = gownHandErase(d, h, { mirror: b.mirror, what: b.what, cm: b.cm, cmU });
+    return { config: e.config, stroke: { ...st, last: h, acc, tap: false }, note: e.note };
+  }
+  const tool = b.tool;
+  if (b.stroke === 'line') {
+    const gap = (tool === 'beads' ? d.beadMm / 10 : d.laceCm * 0.8) + b.gap;
+    if (acc >= gap) { acc = 0; const r = gownHandPlace(out, tool, h, { mirror: b.mirror, spin: c.rnd() * TAU, rot: Math.atan2(-dy, dx) }); out = r.config; note = r.note; }
+  } else if (acc >= b.cm * 0.35) {
+    acc = 0;
+    const k = tool === 'beads' ? b.qty : Math.max(1, Math.round(b.qty / 4));
+    for (let i = 0; i < k; i++) {
+      const o = (b.cm / 2) * Math.sqrt(c.rnd()), a = c.rnd() * TAU;
+      const r = gownHandPlace(out, tool, { ph: h.ph + (o * Math.cos(a)) / (h.r * cmU), y: h.y + (o * Math.sin(a)) / cmU, r: h.r }, { mirror: b.mirror, spin: c.rnd() * TAU, rot: (c.rnd() - 0.5) * 2.4 });
+      out = r.config; note = r.note || note;
+    }
+  }
+  return { config: out, stroke: { ...st, last: h, acc, tap: false }, note };
+}
+
+/**
+ * The finger lifted. A tap places one piece (or rubs once, or cuts a round hole); a scissors line is closed and checked
+ * (`gownHandCutClose`) before the shape comes out (v202 `up`, `finishCut`).
+ */
+export function gownHandStrokeEnd<D extends HandDesign>(d: D, st: GownHandStroke, b: GownHandBrush, c: Ctx & { close: (P: [number, number][]) => { pts: [number, number][] | null; note: string } }): { config: D; note: string } {
+  if (b.tool === 'cut') {
+    if (st.tap) return gownHandCutTap(d, st.start, { mirror: b.mirror, cm: b.cm, forbidden: c.forbidden });
+    const k = c.close(st.path ?? []);
+    if (!k.pts) return { config: d, note: k.note };
+    const r = gownHandCutShape(d, k.pts, { mirror: b.mirror, forbidden: c.forbidden });
+    return { config: r.config, note: r.note || k.note };
+  }
+  if (!st.tap) return { config: d, note: '' };
+  if (b.tool === 'eraser') return gownHandErase(d, st.start, { mirror: b.mirror, what: b.what, cm: b.cm, cmU: c.cmU });
+  return gownHandPlace(d, b.tool, st.start, { mirror: b.mirror, spin: c.rnd() * TAU, rot: 0 });
+}
+
+/**
+ * Close a scissors line (v202 `finishCut`): it must go all the way round and come back near where it started. A strip
+ * of 6 cm or less left under it cannot hold itself up, so the cut opens through the hem; a wide hole in the skirt needs
+ * illusion mesh to hold the cloth below. Returns the shape to take out, or none and the plain reason.
+ */
+export function gownHandCutClose(B: GownRig, T: GownEnvelope, P: readonly [number, number][], cutFill: GownConfig['cutFill']): { pts: [number, number][] | null; note: string } {
+  const cmU = B.P.S * 100, N = RING_N, DTH = TAU / N;
+  if (!P.length) return { pts: null, note: 'Cut all the way around the part to take out, like scissors.' };
+  const rr = lerpRow(T, T.F, clamp(P[0]![1], T.yHem, T.y0 + (T.n - 2) * SLICE_DY), 0);
+  let len = 0, area = 0;
+  for (let i = 0; i < P.length; i++) {
+    const a = P[i]!, q = P[(i + 1) % P.length]!;
+    if (i < P.length - 1) len += Math.hypot((q[0] - a[0]) * rr * cmU, (q[1] - a[1]) * cmU);
+    area += ((a[0] * q[1] - q[0] * a[1]) * rr * cmU * cmU) / 2;
+  }
+  const gapCm = Math.hypot((P[P.length - 1]![0] - P[0]![0]) * rr * cmU, (P[P.length - 1]![1] - P[0]![1]) * cmU);
+  if (P.length < 4 || Math.abs(area) < 2) return { pts: null, note: 'Cut all the way around the part to take out, like scissors.' };
+  if (gapCm > Math.max(6, len * 0.3)) return { pts: null, note: 'The cut must come back to where it started: finish the line around the shape.' };
+  let lo = 1e9, hi = -1e9, ymin = 1e9, ymax = -1e9;
+  for (const [ph, y] of P) { lo = Math.min(lo, ph); hi = Math.max(hi, ph); ymin = Math.min(ymin, y); ymax = Math.max(ymax, y); }
+  const wCm = (hi - lo) * rr * cmU, mid = (lo + hi) / 2, hemY = T.hemQ[Math.min(N - 1, Math.round(Math.abs((((mid + Math.PI) % TAU) + TAU) % TAU - Math.PI) / DTH))] ?? T.yHem, below = (ymin - hemY) * cmU;
+  if (below < 6 && below > -1) {
+    // The strip under this cut would drop, so the cut opens through the hem.
+    return { pts: P.map(([ph, y]) => [ph, y < ymin + (ymax - ymin) * 0.35 ? hemY - 0.08 : y]), note: 'The strip under this cut would drop, so the cut opens through the hem.' };
+  }
+  if (ymax < T.yS && wCm > 28 && cutFill !== 'illusion') return { pts: null, note: 'Too wide for the skirt: the cloth below would drop. Make it smaller, or pick Illusion mesh (Opening) to hold it.' };
+  return { pts: [...P], note: '' };
 }

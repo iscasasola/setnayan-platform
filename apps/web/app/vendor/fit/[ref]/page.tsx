@@ -1,5 +1,4 @@
 import { getCurrentUser } from '@/lib/auth';
-import { notFound } from 'next/navigation';
 import { EVENT_CLOCK_COLUMNS } from '@/lib/event-clock';
 import Link from 'next/link';
 import Image from 'next/image';
@@ -15,7 +14,6 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
-import { createAdminClient } from '@/lib/supabase/admin';
 import { hydrateVendorCards } from '@/lib/vendor-cards';
 import { listHostEvents } from '@/lib/vendor-couple-invite';
 import { getVendorAvailableDays, formatDayKey } from '@/lib/vendor-availability';
@@ -39,59 +37,19 @@ import {
 import { SubmitButton } from '@/app/_components/submit-button';
 import { LinkPickMenu } from '@/app/_components/link-pick-menu';
 import { addVendorFromFit } from './actions';
+import { gateVendorFit } from './gate';
 
 type Props = {
   params: Promise<{ ref: string }>;
   searchParams: Promise<{ event?: string; err?: string }>;
 };
 
-type MarketRow = {
-  vendor_profile_id: string;
-  business_name: string | null;
-  business_slug: string | null;
-  logo_url: string | null;
-  location_city: string | null;
-  hq_latitude: number | null;
-  hq_longitude: number | null;
-  avg_rating_overall: number | string | null;
-  review_count: number | null;
-  services: string[] | null;
-};
-
 export default async function VendorFitPage({ params, searchParams }: Props) {
   const { ref } = await params;
   const { event: selectedEventId, err } = await searchParams;
 
-  const admin = createAdminClient();
-  const cols =
-    'vendor_profile_id, business_name, business_slug, logo_url, location_city, hq_latitude, hq_longitude, avg_rating_overall, review_count, services';
-
-  // Resolve the public ref → a market vendor: business slug first, else public_id.
-  let market: MarketRow | null = null;
-  {
-    const bySlug = await admin
-      .from('vendor_market_stats')
-      .select(cols)
-      .eq('business_slug', ref)
-      .maybeSingle();
-    market = (bySlug.data as MarketRow | null) ?? null;
-    if (!market) {
-      const { data: prof } = await admin
-        .from('vendor_profiles')
-        .select('vendor_profile_id')
-        .eq('public_id', ref)
-        .maybeSingle();
-      if (prof?.vendor_profile_id) {
-        const byId = await admin
-          .from('vendor_market_stats')
-          .select(cols)
-          .eq('vendor_profile_id', prof.vendor_profile_id)
-          .maybeSingle();
-        market = (byId.data as MarketRow | null) ?? null;
-      }
-    }
-  }
-  if (!market) notFound();
+  // "No such shop" was decided by ./layout.tsx before streaming (same request, same answer — see ./gate.ts).
+  const { admin, market } = await gateVendorFit(ref);
 
   const vendorId = market.vendor_profile_id;
 

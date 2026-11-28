@@ -50,7 +50,7 @@ export async function PapicLadderSurface(_props: Props) {
   await requireAdmin();
   const admin = createAdminClient();
 
-  const [tierRes, catRes, settingsRes, poolRes, learningRes, vocabRes] = await Promise.all([
+  const [tierRes, catRes, settingsRes, learningRes, vocabRes] = await Promise.all([
     admin.from('papic_pass_tiers').select('service_code, points, is_active').eq('is_active', true),
     /*
       ⚠ THE WHOLE PAPIC FAMILY, NOT JUST THE RUNGS. Owner 2026-08-29: *"free
@@ -63,16 +63,6 @@ export async function PapicLadderSurface(_props: Props) {
       .select('service_code, title, retail_price_php, onboarding_price_php, is_active')
       .like('service_code', 'PAPIC%'),
     admin.from('platform_settings').select('onboarding_discount_pct').eq('id', 1).maybeSingle(),
-    /*
-      What every celebration is GIVEN. Until 2026-08-29 nothing under `app/` read
-      this column at all, so the number had no screen and only a migration could
-      move it.
-    */
-    admin
-      .from('papic_event_pool_config')
-      .select('free_grant_points')
-      .eq('config_key', 'default')
-      .maybeSingle(),
     /*
       WHAT EACH KIND OF CELEBRATION IS RECOMMENDED, and whether the figure in
       force is the owner's or a learned one. Read through the RPC rather than the
@@ -87,9 +77,6 @@ export async function PapicLadderSurface(_props: Props) {
   if (tierRes.error) logQueryError('AdminPapicLadder (tiers)', tierRes.error);
   if (catRes.error) logQueryError('AdminPapicLadder (catalog)', catRes.error);
   if (settingsRes.error) logQueryError('AdminPapicLadder (settings)', settingsRes.error);
-  // ⚠ Supabase RESOLVES with `{ error }`. Unchecked, a refused read renders as a
-  // confident number that is not what the product actually gives away.
-  if (poolRes.error) logQueryError('AdminPapicLadder (pool config)', poolRes.error);
   if (learningRes.error) logQueryError('AdminPapicLadder (learning state)', learningRes.error);
   if (vocabRes.error) logQueryError('AdminPapicLadder (type clamps)', vocabRes.error);
 
@@ -153,12 +140,6 @@ export async function PapicLadderSurface(_props: Props) {
       isActive: r.is_active === true,
       stillCharges: false,
     }));
-
-  const rawFree = poolRes.error
-    ? null
-    : (poolRes.data as { free_grant_points?: number | string | null } | null)?.free_grant_points;
-  const freeCreditsPerEvent =
-    rawFree != null && Number.isFinite(Number(rawFree)) ? Number(rawFree) : null;
 
   /*
     THE CLAMP TRAVELS WITH THE PER-HEAD FIGURE — on this screen too. The learning
@@ -256,7 +237,6 @@ export async function PapicLadderSurface(_props: Props) {
         <ReadFailed what="the other Papic prices" />
       ) : (
         <PapicRestEditor
-          freeCreditsPerEvent={freeCreditsPerEvent}
           products={otherPapic}
           savePriceAction={savePapicProductPrice}
         />

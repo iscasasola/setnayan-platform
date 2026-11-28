@@ -12,6 +12,9 @@
  * 🔒 lib/the-seat-check-is-honest.test.ts
  */
 
+import type { DryRunView } from '@/lib/seat-plan-api';
+import type { SeatProblemKind as EngineProblemKind } from '@/lib/seat-plan-dry-run';
+
 export type SeatSuggestion = {
   tableId: string;
   /** The guests the solver would seat here — a guest with their +1s / household, as one unit. */
@@ -20,7 +23,8 @@ export type SeatSuggestion = {
   reason: string;
 };
 
-export type SeatProblemKind = 'household_split' | 'plus_one_apart' | 'elder_near_speaker' | 'table_over' | 'new_rsvp_alone';
+/** The engine's own five kinds (lib/seat-plan-dry-run.ts) — one name for each, on both sides. */
+export type SeatProblemKind = EngineProblemKind;
 
 /** A problem's one press: seat these guests at that table, or open the table to look. */
 export type SeatProblemFix = { kind: 'seat'; tableId: string; guestIds: readonly string[] } | { kind: 'review'; tableId: string };
@@ -39,6 +43,36 @@ export type DryRun = { suggestions: readonly SeatSuggestion[]; problems: readonl
 /** What the plan knows about its own check: not run yet, read, or failed (never a false "All good"). */
 export type SeatCheckState = { status: 'idle' } | { status: 'read'; run: DryRun } | { status: 'failed' };
 
+/**
+ * 🔌 THE ONE FEED (the editor's `dryRun` prop): the engine's dry run in its own shape (`DryRunView`, lib/seat-plan-api).
+ * `first` — what the page already computed from its one batched read (the first paint needs no call); `load` — how the
+ * editor asks again after every change. Omitted, `load` is the shipped `dryRun(eventId)` (seat-plan-calls.ts: an intent
+ * of the existing `autoArrange` action — no new server action). The lab passes its own `load` (plain client data).
+ */
+export type SeatDryRunFeed = { first?: DryRunView | null; load?: (() => Promise<DryRunView>) | null };
+
+/**
+ * The engine's view → what the plan knows. A `failed` view is FAILED (never read as "no problems"); a move fix seats
+ * its guests at its one table; a problem with no table says null.
+ */
+export function seatCheckFromView(view: DryRunView): SeatCheckState {
+  if (view.status !== 'ok') return { status: 'failed' };
+  return {
+    status: 'read',
+    run: {
+      suggestions: view.suggestions.map((s) => ({ tableId: s.tableId, guestIds: s.guestIds, reason: s.reason })),
+      problems: view.problems.map((p): SeatProblem => {
+        const tableId = p.tableId || null;
+        const fix: SeatProblemFix =
+          p.fix.kind === 'move' && p.fix.guestIds.length > 0
+            ? { kind: 'seat', tableId: p.fix.tableId, guestIds: p.fix.guestIds }
+            : { kind: 'review', tableId: p.tableId };
+        return { kind: p.kind, guestIds: p.guestIds, tableId, reason: p.reason, fix };
+      }),
+    },
+  };
+}
+
 /** The ONE line under the counts — null when there is nothing to say (no problems, or nothing read yet). */
 export function seatCheckLine(state: SeatCheckState): { words: string; failed: boolean } | null {
   if (state.status === 'failed') return { words: 'Couldn’t check seats · Try again', failed: true };
@@ -52,18 +86,18 @@ export function seatCheckLine(state: SeatCheckState): { words: string; failed: b
 export const SEAT_PROBLEM_TITLES: Readonly<Record<SeatProblemKind, string>> = {
   household_split: 'A household is split',
   plus_one_apart: 'A +1 sits apart',
-  elder_near_speaker: 'Elders near a speaker',
+  elders_near_speaker: 'Elders near a speaker',
   table_over: 'A table is over its seats',
-  new_rsvp_alone: 'A new RSVP sits alone',
+  rsvp_alone: 'A new RSVP sits alone',
 };
 
 /** Each check said the way it reads when it came back clean — the Sheet's "All good" list. */
 export const SEAT_CHECK_GOOD: Readonly<Record<SeatProblemKind, string>> = {
   household_split: 'Households sit together',
   plus_one_apart: 'Every +1 sits with their guest',
-  elder_near_speaker: 'Elders sit away from the speakers',
+  elders_near_speaker: 'Elders sit away from the speakers',
   table_over: 'No table is over its seats',
-  new_rsvp_alone: 'New RSVPs sit with someone they know',
+  rsvp_alone: 'New RSVPs sit with someone they know',
 };
 
 /** The checks that came back clean — the Sheet's "All good" list (only from a dry run that was READ). */
@@ -84,4 +118,64 @@ export function suggestionSeatWords(seats: readonly number[], fmt: (n: number) =
 export function suggestionFor(run: DryRun | null, tableId: string, freeChairs: number): SeatSuggestion | null {
   if (!run) return null;
   return run.suggestions.find((s) => s.tableId === tableId && s.guestIds.length > 0 && s.guestIds.length <= freeChairs) ?? null;
+}
+
+/**
+ * 🪑 ONE WRITE CARRIES AT MOST `SEAT_WRITE_MAX` GUESTS: `assignGuest` takes one guest plus up to `SEAT_WRITE_MAX - 1`
+ * `along`, and REFUSES (throws) a longer list — it never truncates one silently. "Fix all" can send a whole table's
+ * groups at once, so a table's guests are packed into writes of at most this many, a group never split unless it is
+ * bigger than one write on its own. 🔒 lib/the-seat-check-is-honest.test.ts
+ */
+export const SEAT_WRITE_MAX = 9;
+
+export type SeatWrite<T> = { tableId: string; seats: T[] };
+
+export function packSeatWrites<T>(
+  byTable: ReadonlyMap<string, ReadonlyArray<ReadonlyArray<T>>>,
+  max: number = SEAT_WRITE_MAX,
+): SeatWrite<T>[] {
+  const writes: SeatWrite<T>[] = [];
+  for (const [tableId, groups] of byTable) {
+    let cur: T[] = [];
+    const flush = () => {
+      if (cur.length) writes.push({ tableId, seats: cur });
+      cur = [];
+    };
+    for (const g of groups) {
+      if (cur.length + g.length > max) flush();
+      for (let i = 0; i < g.length; i += max) {
+        const piece = g.slice(i, i + max);
+        if (cur.length + piece.length > max) flush();
+        cur.push(...piece);
+      }
+    }
+    flush();
+  }
+  return writes;
+}
+
+/**
+ * After every write has answered: exactly which guests LANDED (and at which table first) and which did not. The line,
+ * its Undo and its count are built from `landed` only — a failed write is never counted as seated.
+ */
+export function settleSeatWrites<T extends { guestId: string }>(
+  writes: ReadonlyArray<SeatWrite<T>>,
+  ok: ReadonlyArray<boolean | undefined>,
+): { landed: string[]; missed: string[]; firstTableId: string | null } {
+  const landed: string[] = [];
+  const missed: string[] = [];
+  let firstTableId: string | null = null;
+  writes.forEach((w, i) => {
+    const ids = w.seats.map((s) => s.guestId);
+    if (ok[i] === true) {
+      landed.push(...ids);
+      firstTableId ??= w.tableId;
+    } else missed.push(...ids);
+  });
+  return { landed, missed, firstTableId };
+}
+
+/** "Fix all"'s line — the count is what LANDED, never what was planned. */
+export function fixAllWords(landed: number, fmt: (n: number) => string = String): string {
+  return `Fixed · ${fmt(landed)} ${landed === 1 ? 'guest' : 'guests'} seated`;
 }

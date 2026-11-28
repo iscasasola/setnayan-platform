@@ -83,7 +83,7 @@ export const ARTICLES_LAUNCH_SEED: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A budget is only real if you can see it. From the day you pay your first deposit, record every payment against your total so the number on the screen always matches the money in the bank. This is also where booking through a marketplace that takes zero commission on supplier bookings quietly protects you: the price you agree with a supplier is the price you pay, with no hidden platform cut eating into the total you worked so carefully to set. When something has to give later, you trim from the areas you already agreed matter least — calmly, not in a panic three months out.',
+        text: 'A budget is only real if you can see it. From the day you pay your first deposit, record every payment against your total so the number on the screen always matches the money in the bank. This is also where one plain rule protects you. Hosts pay 0% commission. The price you agree with a supplier is the price you pay them. When something has to give later, you trim from the areas you already agreed matter least — calmly, not in a panic three months out.',
       },
       {
         type: 'cta',
@@ -224,7 +224,7 @@ export const ARTICLES_LAUNCH_SEED: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'A Muslim (nikah) wedding follows Islamic rites and, in parts of Mindanao, the Code of Muslim Personal Laws, with its own solemnising officers and customs. A civil wedding — officiated by a judge or mayor — is the simplest and fastest path, ideal for couples who want to be married now and celebrate later, or who prefer a small, private moment. And many Filipino couples are mixed-faith: the gentlest approach is usually to honour both, whether through one ceremony that blends traditions or two distinct celebrations. None of these is a lesser choice; each is simply a different shape for the same promise.',
+        text: 'A Muslim (nikah) wedding follows Islamic rites and, in parts of Mindanao, the Code of Muslim Personal Laws, with its own solemnising officers and customs. A civil wedding — officiated by a judge or mayor — is the simplest and fastest path, ideal for couples who want to be married now and celebrate later, or who prefer a small, private moment. And many Filipino couples are mixed-faith: the gentlest approach is usually to honour both, whether through one ceremony that blends traditions or two distinct ceremonies. None of these is a lesser choice; each is simply a different shape for the same promise.',
       },
       {
         type: 'ul',

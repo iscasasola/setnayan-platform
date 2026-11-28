@@ -303,11 +303,6 @@ async function EventPlan({
         .maybeSingle()
     : null;
   if (catalogRes?.error) logQueryError('PlanContents (event catalogue)', catalogRes.error);
-  const poolRes =
-    view === 'ev-free'
-      ? await admin.from('papic_event_pool_config').select('free_grant_points').eq('config_key', 'default').maybeSingle()
-      : null;
-  if (poolRes?.error) logQueryError('PlanContents (free grant)', poolRes.error);
 
   const row = catalogRes?.data as
     | { title: string | null; retail_price_php: number | string; included_papic_credits: number | null }
@@ -343,22 +338,14 @@ async function EventPlan({
         </ul>
 
         {view === 'ev-free' ? (
-          poolRes?.error ? (
-            <ReadFailed what="the free Papic grant" />
-          ) : (
-            <div className="text-sm text-ink">
-              Free Papic credits on every event:{' '}
-              <span className={TEMPLATE_MONEY}>
-                {(() => {
-                  const n = (poolRes?.data as { free_grant_points?: number } | null)?.free_grant_points;
-                  return typeof n === 'number' ? formatCount(n) : '—';
-                })()}
-              </span>{' '}
-              <Link href="/admin/pricing?tab=papic-shots" className="text-xs underline">
-                edited on Papic shot prices
-              </Link>
-            </div>
-          )
+          // 🎁 The free plan carries no Papic credits (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic credits
+          // REMOVED"). Papic is bought by the rung, so the way on is the Papic price list.
+          <p className="text-sm text-ink">
+            No Papic credits come with this plan.{' '}
+            <Link href="/admin/pricing?tab=papic-shots" className="text-xs underline">
+              Papic shot prices
+            </Link>
+          </p>
         ) : catalogRes?.error || !row ? (
           <ReadFailed what="this plan’s catalogue row — editing stays off until it reads" />
         ) : (

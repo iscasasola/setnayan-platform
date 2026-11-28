@@ -2,10 +2,12 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { floorPlanOrStop, guestsOrStop, keepApartOrStop, membershipsOrStop } from '@/lib/seating-inputs';
 import { resolveRoleSetForEvent } from '@/lib/event-type-profile';
 import { placedByAuto } from '@/lib/seat-why';
+import { checkAutoSeatPlan } from '@/lib/seat-plan-validator';
 import {
   fetchTables,
   fetchAssignments,
   reconcileProvisionalSeats,
+  seatRoomPoints,
   type AutoSeatGuest,
 } from '@/lib/seating';
 
@@ -52,10 +54,20 @@ async function recordSeatFault(eventId: string, fault: SeatWriteFault): Promise<
   });
 }
 
+export type ReconcileOptions = {
+  reseatGuestIds?: string[];
+  /**
+   * ✦ `'rsvp'` = a guest's own "yes" (app/[slug]/actions.ts). Seat plan § 4.4 "Seat new RSVPs for me": it runs only
+   * while the host keeps that ⋯ switch on (`event_floor_plan.auto_seat_rsvps`), through the same seater, and fails
+   * closed — on any error the guest just stays in Not seated.
+   */
+  trigger?: 'rsvp';
+};
+
 export async function applyReconcileForEvent(
   supabase: SupabaseClient,
   eventId: string,
-  opts: { reseatGuestIds?: string[] } = {},
+  opts: ReconcileOptions = {},
   deps: ReconcileDeps = { pass: reconcilePass, record: recordSeatFault },
 ): Promise<void> {
   try {
@@ -82,7 +94,7 @@ export async function applyReconcileForEvent(
 export async function reconcilePass(
   supabase: SupabaseClient,
   eventId: string,
-  opts: { reseatGuestIds?: string[] } = {},
+  opts: ReconcileOptions = {},
 ): Promise<SeatWriteFault | null> {
   const { data: ev } = await supabase
     .from('events')
@@ -109,6 +121,8 @@ export async function reconcilePass(
     ]);
   // No tables yet → nothing to place onto (a couple builds the floor first).
   if (tables.length === 0) return null;
+  // ✦ "Seat new RSVPs for me" switched off: a guest's own yes leaves them in Not seated (only an explicit FALSE).
+  if (opts.trigger === 'rsvp' && floorPlan.auto_seat_rsvps === false) return null;
 
   const roleSet = await resolveRoleSetForEvent(eventId);
   const autoSeatGuests: AutoSeatGuest[] = guests.map((g) => ({
@@ -148,7 +162,24 @@ export async function reconcilePass(
     groupAdjacency,
     roleSeating: floorPlan.role_seating,
     vipPlusOnes: floorPlan.vip_plus_ones,
+    room: seatRoomPoints(floorPlan),
   });
+
+  // 🛡 The independent check (seat plan § 5 step 7, lib/seat-plan-validator.ts): a plan that breaks a hard rule is
+  // never written. Checked against the seats that stay (the re-placed guests' old seats are vacated first).
+  const releasing = new Set([...release, ...assign.map((r) => r.guest_id)]);
+  const breaks = checkAutoSeatPlan({
+    tables,
+    guests: autoSeatGuests,
+    existing: assignments.filter((a) => !releasing.has(a.guest_id)),
+    added: assign,
+    nearestVipPlusOnes: floorPlan.vip_plus_ones === 'nearest',
+  });
+  if (breaks.length > 0) {
+    // Fails closed: nobody is seated and nothing is changed. Returned as a write fault, so a second refusal is
+    // recorded where somebody sees it.
+    return { message: `plan refused by the seat check: ${[...new Set(breaks.map((b) => b.rule))].join(',')}` };
+  }
 
   // Delete stale rows first (a displaced guest whose seat got reused), then
   // upsert placements (UNIQUE(event,guest) replaces a re-placed guest's row).

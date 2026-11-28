@@ -77,7 +77,7 @@ export function ReskinFooter() {
           <Link href="/pricing">Prices</Link>
           <Link href="/?browse=1">Suppliers</Link>
           <Link href="/papic">Papic</Link>
-          <Link href="/monogram">Logo Maker</Link>
+          <Link href="/palogo">Logo Maker</Link>
           <Link href="/download">Download app</Link>
         </nav>
 

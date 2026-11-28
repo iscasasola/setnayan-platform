@@ -66,7 +66,6 @@ function view(): ServicesStepView {
     poolTiers: [],
     oneTiers: [],
     pricePhpByCode: new Map(),
-    freePoolPoints: 50,
     freeOnePoints: 0,
     aiPricePhp: 499,
     hubPro: null,

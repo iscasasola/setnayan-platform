@@ -392,13 +392,13 @@ test('title.default, openGraph and twitter all read the ONE title and descriptio
 // default description is the ruled line, PINNED WORD FOR WORD. It used to have to name suppliers and six services
 // (Event Hub, Papic, Live Watch, Patiktok, Music Maker, Setnayan AI); the ruled line names none of them, so that
 // requirement became this exact pin — any drifted word now fails here.
-// "Hosts pay 0% commission": the zero is said to hosts only, never a bare "0% commission" a supplier could read as
-// theirs (suppliers pay the booking fee — lib/booking-fee-who-words.ts).
+// No commission figure (owner 28 Nov 2026): hosts own the event, so the site-wide line tells no one "0% commission";
+// the booking fee is explained on supplier pages and in /terms (lib/booking-fee-who-words.ts).
 test('the default description is the ruled line, word for word', () => {
   const desc = layoutConst('SITE_DESCRIPTION');
   assert.equal(
     desc,
-    "Plan any event free. Every guest gets a QR pass, guests' phones capture the day, and every photo is kept for life. Hosts pay 0% commission.",
+    "Plan any event free. Every guest gets a QR pass, guests' phones capture the day, and every photo is kept for life.",
   );
   assert.ok(!/\bwedding/i.test(desc), `the default description narrows the product to weddings: ${JSON.stringify(desc)}`);
   assert.ok(!/\bvendors?\b/i.test(desc), 'the default description says "vendor" — the customer-facing word is "supplier"');

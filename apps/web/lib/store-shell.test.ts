@@ -373,7 +373,11 @@ function before(file: string, gate: RegExp, priced: string): void {
 }
 
 test('wiring: /pay refuses a paid SKU before it paints a QR', () => {
-  before('app/pay/[reference]/page.tsx', /storeShellRefusesPayable\(payable, await isStoreShellRequest\(\)\)/, 'mintedQrImage(');
+  // The refusal lives in the pay page's gate (awaited by its layout BEFORE streaming); the page asks that gate before
+  // it mints anything.
+  const gate = src('app/pay/[reference]/gate.ts');
+  assert.match(gate, /if \(storeShellRefusesPayable\(payable, await isStoreShellRequest\(\)\)\) \{\s*redirect\(STORE_SHELL_WEB_ONLY_PATH\);/, 'app/pay/[reference]/gate.ts: the store-shell gate is gone');
+  before('app/pay/[reference]/page.tsx', /await gatePayPage\(reference\)/, 'mintedQrImage(');
 });
 
 test('wiring: the orders ledger drops its buy button and its links to the refused detail page', () => {

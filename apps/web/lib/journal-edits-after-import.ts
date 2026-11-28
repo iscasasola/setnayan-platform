@@ -7,8 +7,12 @@
  * Each correction is listed here, so `lib/journal-move.test.ts` can undo it before comparing the import file with
  * what the source generates, and can prove that its migration carries exactly this text.
  */
+import { JOURNAL_EDITS_2026_11_27 } from '@/lib/blog-batches/edits-after-import-2026-11-27';
+
 export type JournalEditAfterImport = {
   slug: string;
+  /** Which column the edit changes, as the post renders it (links written out as setnayan.com/…). Default body. */
+  field?: 'title' | 'body';
   /** The text the import wrote. */
   from: string;
   /** The text the source and the post say now. */
@@ -32,4 +36,6 @@ export const JOURNAL_EDITS_AFTER_IMPORT: readonly JournalEditAfterImport[] = [
     to: 'books it free, and a couple new to Setnayan through a supplier books them free. Every other booking',
     migration: '20271356623783_the_new_client_free_window_is_a_setting.sql',
   },
+  // Owner 27 Nov 2026, content finalization: generated, kept with the article sources (see the import).
+  ...JOURNAL_EDITS_2026_11_27,
 ];

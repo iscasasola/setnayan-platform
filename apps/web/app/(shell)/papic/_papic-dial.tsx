@@ -4,19 +4,17 @@
  * THE CREDIT DIAL — one + and one −, in place of sixteen price rows.
  *
  * Owner, 2026-08-29: *"instead of showing the 16 different pricing tiers, we
- * show +- and show what they can have"*, and then the correction that decides
- * every number in here: *"50 credits. 50 pesos become 150 credits because it
- * has a free 50 credits already."*
+ * show +- and show what they can have"*.
  *
  * ── THE ARITHMETIC RULE ───────────────────────────────────────────────────
- * The free grant is not rung zero and it is not an alternative to buying. It
- * is ALWAYS THERE and it ALWAYS STACKS, so the big number is what the
- * celebration HOLDS (`bought + free`), never what the money bought. Every
- * derived line below reads that total. Getting this backwards understates
- * every rung on the page by the size of the free grant.
+ * 🎁 The big number is what the money buys. It used to add the free
+ * first-event grant on top (and open on a "buy nothing" rung showing that grant
+ * alone); that grant is retired (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic
+ * credits REMOVED"), so there is nothing to add and no rung zero.
+ * `lib/papic-credits-held.test.ts` holds that it does not come back.
  *
  * ── NOTHING HERE IS TYPED ─────────────────────────────────────────────────
- * `rungs`, `freeCredits` and `clipCost` all arrive from the caller, which reads
+ * `rungs` and `clipCost` arrive from the caller, which reads
  * them out of the admin-owned tables. `lib/papic-copy-guardrails.test.ts` fails
  * CI if a Papic display surface grows a literal photo count, clip count or cap
  * figure — and this file is on its list. Do not hand-write a number, and do not
@@ -35,14 +33,13 @@
 
 import { formatPhp } from '@/lib/php';
 import { useState } from 'react';
-import { papicCreditsHeld, papicVideosAffordable } from '@/lib/papic-credits-held';
-import { PAPIC_FREE_CREDIT_CONDITION } from '@/lib/papic-free-credit-promise';
+import { papicVideosAffordable } from '@/lib/papic-credits-held';
 import { actionButtonClass } from '@/components/action-button';
 
 export type PapicRung = {
   /** Peso price of this rung, from the ACTIVE customer catalog. */
   peso: number;
-  /** Credits the money buys, from `papic_pass_tiers`. The free grant is added on top. */
+  /** Credits the money buys, from `papic_pass_tiers`. */
   bought: number;
   /**
    * What it costs while the celebration is being set up, or null when there is
@@ -62,17 +59,13 @@ const GUEST_MAX = 600;
 
 export function PapicDial({
   rungs,
-  freeCredits,
   clipCost,
 }: {
   rungs: readonly PapicRung[];
-  freeCredits: number;
   /** Credits a ten-second clip costs — the top band, derived, never typed. */
   clipCost: number;
-  /** How many photographs a guest is assumed to take. Owner-tunable. */
 }) {
-  // Start at "buy nothing". The free grant is the page's lead, so the dial
-  // opens on it rather than on a price.
+  // Opens on the smallest priced rung.
   const [i, setI] = useState(0);
   const [guests, setGuests] = useState(150);
 
@@ -80,8 +73,7 @@ export function PapicDial({
 
   const at = Math.min(i, rungs.length - 1);
   const rung = rungs[at]!;
-  const bought = rung.bought;
-  const total = papicCreditsHeld(bought, freeCredits);
+  const total = rung.bought;
 
   const each = total / guests;
   const nice = each >= 10 ? Math.round(each) : Math.round(each * 10) / 10;
@@ -111,16 +103,12 @@ export function PapicDial({
                below — so the only thing shaped like money IS the money.
         */}
         <div className="min-w-0 flex-1">
-          <span
-            className={`flex items-baseline justify-center gap-1.5 whitespace-nowrap font-medium tracking-tight tabular-nums ${
-              bought === 0 ? 'text-[var(--m-mulberry)]' : 'text-[var(--m-ink)]'
-            }`}
-          >
+          <span className="flex items-baseline justify-center gap-1.5 whitespace-nowrap font-medium tracking-tight tabular-nums text-[var(--m-ink)]">
             <span className="text-2xl sm:text-3xl">{count(total)}</span>
             <span className="text-sm font-normal text-[var(--m-slate-2)] sm:text-base">credits</span>
           </span>
           <span className="mt-1 block text-xs text-[var(--m-slate-2)]">
-            {bought === 0 ? PAPIC_FREE_CREDIT_CONDITION : 'in your event'}
+            in your event
           </span>
         </div>
 
@@ -147,14 +135,7 @@ export function PapicDial({
         discount."* A struck-through price with no condition attached reads as a
         permanent sale, which would be false the moment somebody tops up later.
       */}
-      {bought === 0 ? (
-        <p className="mt-4 flex items-baseline justify-center gap-2 text-sm">
-          <span className="text-[var(--m-slate-2)]">You pay</span>
-          <span className="text-lg font-medium tabular-nums text-[var(--m-ink)]">
-            nothing
-          </span>
-        </p>
-      ) : rung.setupPeso !== null ? (
+      {rung.setupPeso !== null ? (
         <>
           <p className="mt-4 flex flex-wrap items-baseline justify-center gap-x-2.5 gap-y-1 text-sm">
             <span className="text-[var(--m-slate-2)]">You pay</span>
@@ -177,36 +158,6 @@ export function PapicDial({
           </span>
         </p>
       )}
-
-      {/*
-        The stacking, said out loud. This is the line the owner corrected.
-
-        ⚠ AND IT NAMES THE CONDITION. The free pool is claimed ONCE PER ACCOUNT
-        — celebration two gets a 1-point floor, not another full pool — so this
-        may not say "every celebration". `PAPIC_FREE_CREDIT_CONDITION` is the
-        one copy of that phrase; see `lib/papic-free-credit-promise.ts`.
-
-        ⛔ AND IT DISAPPEARS WHEN THE ALLOWANCE IS SWITCHED OFF rather than
-        printing "0 free". An admin who sets `free_grant_points = 0` stops the
-        grant in SQL; a dial advertising zero free credits is a promise of
-        nothing, said out loud.
-      */}
-      {freeCredits > 0 ? (
-        <p className="mt-2 text-xs tabular-nums text-[var(--m-slate-2)]">
-          {bought === 0 ? (
-            <>
-              <span className="text-[var(--m-orange-2)]">{count(freeCredits)}</span> free{' '}
-              {PAPIC_FREE_CREDIT_CONDITION}
-            </>
-          ) : (
-            <>
-              {count(bought)} bought &nbsp;+&nbsp;{' '}
-              <span className="text-[var(--m-orange-2)]">{count(freeCredits)}</span> free{' '}
-              {PAPIC_FREE_CREDIT_CONDITION} &nbsp;=&nbsp; {count(total)}
-            </>
-          )}
-        </p>
-      ) : null}
 
       <div className="relative mx-1.5 mt-4 h-[3px] rounded-sm bg-[var(--m-line)]">
         <span
@@ -244,7 +195,7 @@ export function PapicDial({
 
         Every clause is true of the shipped product: a top-up is its own
         purchase, it STACKS on whatever the celebration already holds (the same
-        `papicCreditsHeld` rule this card runs on), and it lands during the
+        total this card shows), and it lands during the
         party rather than at the next renewal, because there is no renewal.
       */}
       <p className="mt-3.5 rounded-xl bg-[rgb(138_107_57/0.07)] px-3 py-2.5 text-left text-sm text-[var(--m-slate-2)]">
@@ -265,11 +216,7 @@ export function PapicDial({
 
         <div className="mt-3.5 border-t border-[var(--m-line)] pt-3 text-sm text-[var(--m-slate-2)]">
           <p className="m-0">
-            {bought === 0
-              ? 'Enough to see exactly how it works, on the day or long before it.'
-              : `Spread across the room, that is about ${nice} ${
-                  nice === 1 ? 'photograph' : 'photographs'
-                } a guest.`}
+            {`Spread across the room, that is about ${nice} ${nice === 1 ? 'photograph' : 'photographs'} a guest.`}
           </p>
           <div className="mt-2.5 flex items-center gap-2">
             <Mini

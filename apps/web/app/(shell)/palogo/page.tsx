@@ -16,8 +16,9 @@
  * the underlying image model is NEVER named — the brand-facing name is Logo
  * Maker. Sell the BENEFIT (one mark, your initials, alive across
  * everything) and quote NO price (admin-managed + provisional — links to
- * /pricing). A free no-signup monogram preview already lives at /monogram, so
- * the secondary CTA points there.
+ * /pricing). ⚖ L9 P29 (27 Nov): the old /monogram preview server-redirects here
+ * (next.config.ts), so the secondary CTA says what is true — "Design your own
+ * wedding logo, free, with a Setnayan account" — and opens sign-up.
  */
 
 import { routes } from '@/lib/routes';
@@ -68,7 +69,7 @@ export const metadata = {
     'animated wedding logo',
     'custom wedding monogram Philippines',
     'wedding initials design',
-    'wedding monogram maker',
+    'wedding logo maker',
     'Logo Maker',
     'Setnayan',
   ],
@@ -229,7 +230,7 @@ export default function LogoMakerLandingPage() {
     <DoorwayPage
       title={'One mark, alive across your whole wedding.'}
       primary={{ href: routes.start(), label: 'Start planning · free' }}
-      secondary={{ href: '/monogram', label: 'Preview yours · free' }}
+      secondary={{ href: routes.signup(), label: 'Design yours · free with an account' }}
       productName="Logo Maker"
       studioKey="palogo"
       steps={STEPS}

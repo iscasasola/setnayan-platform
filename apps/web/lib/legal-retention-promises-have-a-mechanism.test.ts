@@ -244,10 +244,8 @@ const PROMISES: readonly Promise_[] = [
   // ── /privacy · your rights ──
   { page: 'privacy', quote: 'your personal details are blanked out straight away — except records', m: { kind: 'code', where: ERASURE } },
   { page: 'privacy', quote: 'One thing is not yet automatic: the copy of your Google or Apple sign-in details', m: { kind: 'human', where: { file: 'lib/erasure/coverage-guardrail.test.ts', has: /'auth\.identities':/ } } },
-  // ── /privacy · TikTok, YouTube, Drive ──
-  { page: 'privacy', quote: 'Grants are kept until you revoke them — from your Setnayan profile or from TikTok', m: { kind: 'code', where: { file: 'app/dashboard/[eventId]/studio/patiktok/actions.ts', has: /revoked_at/ } } },
+  // ── /privacy · YouTube, Drive ── (the TikTok rows left 2026-11-27: L9 P7 retired the Patiktok section to one past-tense paragraph)
   { page: 'privacy', quote: 'We do not delete connections on a timer', m: { kind: 'kept', why: 'True by absence — no job deletes OAuth grants; disconnect erases the keys (rows above and below).' } },
-  { page: 'privacy', quote: 'Setnayan cannot delete posts on your behalf', m: { kind: 'kept', why: 'Restraint — we hold no delete scope on TikTok.' } },
   { page: 'privacy', quote: 'Until you disconnect it, until you delete your Setnayan account', m: { kind: 'code', where: { file: 'app/api/oauth/youtube/disconnect/route.ts', has: /revoked_at/ } } },
   { page: 'privacy', quote: 'We keep the connection alive in the background', m: { kind: 'kept', why: 'Refresh only (oauth-refresh); no deletion.' } },
   { page: 'privacy', quote: 'We do not currently delete the connection on an automatic timer', m: { kind: 'kept', why: 'True by absence — no job deletes OAuth grants.' } },

@@ -166,7 +166,10 @@ test('the coordinator gate does not fire on a person paying their own order', ()
 });
 
 test('an anonymous draft session is never taken to a payment page', () => {
-  assert.match(page, /user\.is_anonymous/);
+  // The check lives in ./[reference]/gate.ts (decided before the page streams, #8511); the page awaits that gate.
+  const gate = stripComments(read('[reference]', 'gate.ts'));
+  assert.match(gate, /user\.is_anonymous/);
+  assert.match(page, /await gatePayPage\(reference\)/);
 });
 
 test('the page is not a dead end', () => {

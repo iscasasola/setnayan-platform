@@ -79,9 +79,9 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
   },
   {
     icon: ShieldCheck,
-    label: 'Hosts pay 0% commission.',
+    label: 'Direkta mong binabayaran ang suppliers',
     value:
-      'Hindi kailanman kumukuha ang Setnayan ng cut sa binabayad mo sa supplier. Direkta kayong nag-uusap ng supplier; galing ang kita sa software services at supplier subscriptions.',
+      'Hindi hinahawakan ng Setnayan ang pera sa pagitan mo at ng supplier. Kumikita ang Setnayan sa plans at services na pinipili ng mga tao.',
   },
   {
     icon: Languages,
@@ -94,15 +94,15 @@ const FACTS: Array<{ icon: typeof Heart; label: string; value: string }> = [
 const FAQ: Array<{ q: string; a: string }> = [
   {
     q: 'Ano ang Setnayan?',
-    a: 'Ang Setnayan (SET-na-yan, galing sa “I-set na ’yan”: “let’s get that set”) ang lugar para i-plan, i-live at i-keep ang bawat Pinoy event. Gawa at pinapatakbo sa Pilipinas para sa Pinoy weddings. Free ang simula ng couples sa planning workspace; nagla-list ang verified Pinoy suppliers nang walang booking commission.',
+    a: 'Ang Setnayan (SET-na-yan, galing sa “I-set na ’yan”: “let’s get that set”) ang lugar para i-plan, i-live at i-keep ang bawat Pinoy event. Gawa at pinapatakbo sa Pilipinas para sa Pinoy weddings. Free ang simula ng couples sa planning workspace; nagla-list dito ang verified Pinoy suppliers.',
   },
   {
     q: 'Free ba ang Setnayan para sa couples?',
     a: 'Free ang simula — schedule, budget, guest list, seat plan, at mood board, kasama na ang marketplace browse at preview ng supplier matches mo. Libre rin ang Event Hub at RSVP. Bayad ang ilang dagdag tulad ng Setnayan AI at Papic credits; nasa Pricing page ang presyo. Babayaran mo lang ang gusto mong i-add.',
   },
   {
-    q: 'May commission ba ang Setnayan sa supplier bookings?',
-    a: 'Wala. Hosts pay 0% commission — sa bawat booking, sa bawat tier. Hindi kailanman hinahawakan ng Setnayan ang pera sa pagitan ng couple at supplier — galing ang kita sa software services at supplier subscriptions.',
+    q: 'Sino ang binabayaran ko kapag nag-book ako ng supplier?',
+    a: 'Ang supplier mismo, direkta — walang idinadagdag ang Setnayan sa presyo. Hindi kailanman hinahawakan ng Setnayan ang pera sa pagitan ng host at supplier. Kumikita ang Setnayan sa plans at services na pinipili ng mga tao.',
   },
   {
     q: 'Supported ba ang mga Pinoy wedding traditions?',
@@ -183,7 +183,7 @@ export default async function AboutPageTaglish() {
             Tagalog na <em>&ldquo;I-set na &rsquo;yan&rdquo;</em>) ang isang lugar para
             sa buong event: i-plan ito, mag-hire ng verified local suppliers, at
             i-capture ang araw para mahanap ng bawat guest ang mga litratong kasama
-            sila. Hosts pay 0% commission.
+            sila.
           </p>
           <p className="mt-4 max-w-2xl text-lg leading-relaxed text-ink/75">
             Gawa at pinapatakbo dito mismo sa Pilipinas, para sa paraan ng
@@ -212,8 +212,8 @@ export default async function AboutPageTaglish() {
               Software, not an agency
             </h2>
             <p className="text-base leading-relaxed text-ink/75">
-              Hindi wedding coordinator ang Setnayan, at hindi kumukuha ng cut sa
-              supplier bills mo. Toolkit &rsquo;to: workspace para sa guest list,
+              Hindi wedding coordinator ang Setnayan.
+              Toolkit &rsquo;to: workspace para sa guest list,
               seating, budget, at schedule; free mood board; marketplace ng
               verified Pinoy wedding suppliers na direkta mong ma-message; at
               in-app services — libreng single-camera livestreaming sa sarili
@@ -282,7 +282,7 @@ export default async function AboutPageTaglish() {
             </h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-ink/70">
               Gawin ang guest list mo, i-sketch ang seating at budget, at mag-browse
-              ng verified Pinoy wedding suppliers na 0% booking commission. No card
+              ng verified Pinoy wedding suppliers. No card
               needed para magsimula.
             </p>
             <div className="mt-5 flex flex-wrap gap-3">

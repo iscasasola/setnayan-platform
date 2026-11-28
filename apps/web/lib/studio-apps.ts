@@ -375,7 +375,7 @@ export const STUDIO_APPS: readonly StudioApp[] = [
     name: 'Marketplace',
     href: '/marketplace',
     description:
-      'Browse verified Filipino suppliers for any event — photographers, caterers, coordinators, florists, hair and makeup and more — free. Hosts pay 0% commission. Save the ones you like and put any two side by side before you decide.',
+      'Browse verified Filipino suppliers for any event — photographers, caterers, coordinators, florists, hair and makeup and more — free. Save the ones you like and put any two side by side before you decide.',
     eventHref: (eventId) => `/dashboard/${eventId}/vendors`,
     doorwayOnly: true,
     railGroup: 'planner',

@@ -6,6 +6,7 @@ import { redirect } from 'next/navigation';
 import { after } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { shownLabelsByStored } from '@/lib/table-auto-name.server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { logQueryError } from '@/lib/supabase/error-detect';
 // ⚠ `releaseCaptureCredits` is NOT imported here any more, and that is
@@ -1098,9 +1099,28 @@ export async function tagSeatCapture(
     capReached: Boolean(r.cap_reached),
     truncated: Boolean(r.truncated),
     totalAtTable: r.total_at_table != null ? Number(r.total_at_table) : undefined,
-    tableLabel: typeof r.table_label === 'string' ? r.table_label : undefined,
+    tableLabel: typeof r.table_label === 'string' ? await shownTagTableLabel(token, r.table_label) : undefined,
     already: Boolean(r.already),
   };
+}
+
+/**
+ * 🪑 The toast names the table as it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts), not the
+ * stored label the RPC answers with. Read with the service role only AFTER the RPC has authorised this seat's claimer,
+ * scoped to that seat's own event, and only table names come back. A failed read keeps the RPC's own label: this is
+ * a confirmation toast, never a sign or a seat.
+ */
+async function shownTagTableLabel(token: string, stored: string): Promise<string> {
+  try {
+    const admin = createAdminClient();
+    const { data: seat, error } = await admin.from('paparazzi_seats').select('event_id').eq('claim_qr_token', token?.trim() ?? '').maybeSingle();
+    if (error) logQueryError('papic.tagSeatCapture.seatEvent', error, {}, 'graceful_degrade');
+    if (error || !seat?.event_id) return stored;
+    return (await shownLabelsByStored(admin, seat.event_id as string)).get(stored.trim()) ?? stored;
+  } catch (e) {
+    logQueryError('papic.tagSeatCapture.shownTableLabel', e, {}, 'graceful_degrade');
+    return stored;
+  }
 }
 
 /**

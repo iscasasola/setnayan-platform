@@ -1,13 +1,10 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { ArrowLeft, Images } from 'lucide-react';
 import { DoorShell } from '@/app/_components/door/door-shell';
-import { readGuestSession } from '@/lib/guest-session';
-import { createAdminClient } from '@/lib/supabase/admin';
-import { papicPoolGalleryActive } from '@/lib/papic-pool-gate';
 import { getPoolGalleryPage } from '@/lib/papic-pool-gallery';
 import { PoolGrid } from './_components/pool-grid';
+import { gatePapicPool } from './gate';
 
 // Papic · Shared Pool Gallery — "Everyone's photos" (OnTheDay build ⑥).
 //
@@ -32,10 +29,11 @@ export const metadata: Metadata = {
 };
 
 export default async function PapicPoolPage() {
-  if (!(await papicPoolGalleryActive())) notFound();
-
-  const session = await readGuestSession();
-  if (!session) {
+  // The three gates (env + DPO control, the guest session, the couple's toggle) were decided by ./layout.tsx before
+  // streaming — same request, same answer (./gate.ts). Risen over My photos (`@rise/(.)pool`, which re-exports this
+  // page and has no boundary) this call is where they are decided.
+  const gate = await gatePapicPool();
+  if (!gate.session) {
     return (
       <DoorShell
         tone="dead_end"
@@ -54,19 +52,7 @@ export default async function PapicPoolPage() {
       </DoorShell>
     );
   }
-
-  // Per-event couple toggle — when OFF this page simply doesn't exist (the
-  // owner's "no dead door" rule). The RPC re-checks the same gate on every
-  // read, so closing is retroactive even mid-session.
-  const admin = createAdminClient();
-  const { data: ev, error: evErr } = await admin
-    .from('events')
-    .select('display_name, pool_gallery_open, event_date, event_type, papic_window_start')
-    .eq('event_id', session.event_id)
-    .maybeSingle();
-  // 🔌 A4-79: a failed read is not "the couple closed the gallery" (a 404) — it throws (the error boundary).
-  if (evErr) throw new Error(`papic/pool: could not read the event: ${evErr.message}`);
-  if (!ev?.pool_gallery_open) notFound();
+  const { session, ev } = gate;
 
   const firstPage = await getPoolGalleryPage(session.guest_id);
 

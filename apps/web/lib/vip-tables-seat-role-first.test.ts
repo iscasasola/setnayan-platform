@@ -225,7 +225,7 @@ test('7 · wired: the VIP column + the +1 pick are read, marked in List / 2D / 3
   assert.match(mig, /ADD COLUMN IF NOT EXISTS vip_plus_ones TEXT NOT NULL DEFAULT 'beside'/);
   assert.doesNotMatch(mig, /\bUPDATE\b/i, 'no backfill UPDATE (the column default is the value)');
   const seating = read('lib/seating.ts');
-  assert.match(seating, /link_group_label,is_vip'/, 'fetchTables does not read is_vip');
+  assert.match(seating, /link_group_label,is_vip,label_is_auto,table_kind,locked'/, 'fetchTables does not read is_vip (and its table_kind)');
   assert.match(seating, /role_seating,vip_plus_ones,/, 'the floor plan does not read vip_plus_ones');
   const act = read('app/dashboard/[eventId]/seating/actions.ts');
   for (const call of act.match(/computeAutoSeat\([\s\S]*?\);/g) ?? []) {

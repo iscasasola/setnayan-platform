@@ -1,28 +1,8 @@
 /**
- * What a celebration HOLDS — the one line of Papic arithmetic the public page
- * is most likely to get backwards.
- *
- * Owner, 2026-08-29, looking at the credit dial: *"50 credits. 50 pesos become
- * 150 credits because it has a free 50 credits already."*
- *
- * The free grant is not rung zero and it is not an alternative to buying. It is
- * ALWAYS present and it ALWAYS STACKS on a top-up. A surface that shows what
- * the money bought, rather than what the celebration ends up holding,
- * understates every rung by the size of the grant — silently, on the one screen
- * where being wrong costs a sale.
- *
- * 🔑 THIS LIVES IN ITS OWN PURE MODULE ON PURPOSE. It was first written inline
- * in the dial with a test that re-declared the same sum beside it — which
- * proved nothing: gutting the component would have left that test green. A rule
- * worth pinning has to be the rule the component actually runs.
+ * 🎁 `papicCreditsHeld(bought, freeGrant)` WAS HERE — what an event holds, bought plus the free first-event
+ * grant. That grant is retired (owner 16 Nov 2026, DECISION_LOG "Free 50 Papic credits REMOVED"), so an
+ * event holds what was bought and the helper had nothing left to add.
  */
-
-/** Credits the celebration holds: what was bought, plus the free grant. */
-export function papicCreditsHeld(bought: number, freeGrant: number): number {
-  const b = Number.isFinite(bought) && bought > 0 ? Math.floor(bought) : 0;
-  const f = Number.isFinite(freeGrant) && freeGrant > 0 ? Math.floor(freeGrant) : 0;
-  return b + f;
-}
 
 /**
  * How many ten-second videos a credit balance is worth.

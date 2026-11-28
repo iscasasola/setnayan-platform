@@ -1,4 +1,6 @@
 import { type PapicOutcomes } from './studio/papic/_components/papic-outcome-banners';
+import { withDisplayNames } from '@/lib/table-auto-name';
+import { readShownTableNames } from '@/lib/table-auto-name.server';
 import { papicCardHref } from '@/lib/papic-home-href';
 import { switchOnRows } from '@/lib/event-needs';
 import { readEventNeedsFor } from '@/lib/event-needs-read.server';
@@ -538,7 +540,8 @@ export default async function EventHomePage({
 
       const [blocksRes, tablesRes, sameDayRes, liveWallRes, broadcastRes, supplierUpdatesRes] = await Promise.all([
         blocksRead,
-        measuredOr(fetchTables(supabase, eventId), [] as EventTableRow[], (e) =>
+        // 🪑 Each table under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+        measuredOr(fetchTables(supabase, eventId).then(async (t) => withDisplayNames(t, await readShownTableNames(supabase, eventId))), [] as EventTableRow[], (e) =>
           logQueryError('dashboard/day-of.tables', e),
         ),
         // Day-of "Get help" shortlist (Event Lifecycle Menu §4 / PR5) — verified

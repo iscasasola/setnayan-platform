@@ -135,7 +135,7 @@ export async function landingMetadata(params: LandingParams): Promise<Metadata> 
       ? `Verified ${r.tileLabel.toLowerCase()} suppliers for ${withArticle(r.eventLabel)} in ${r.place}, on Setnayan.`
       : `${cards.length} ${r.tileLabel.toLowerCase()} services for ${withArticle(r.eventLabel)} in ${r.place} from ${shops} verified Filipino supplier${shops === 1 ? '' : 's'}` +
         (fixed ? `, packages from ${formatPhp(fixed.low)}` : '') +
-        '. Real prices from the suppliers themselves. Hosts pay 0% commission.';
+        '. Real prices from the suppliers themselves.';
   return {
     title,
     description,

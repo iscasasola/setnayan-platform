@@ -7,6 +7,8 @@ import { guestListUnreadResponse } from '@/lib/guest-list-unread-response';
 import { fetchGuestsByEventMeasured, guestPrintName } from '@/lib/guests';
 import { readNoSeatGuestIds } from '@/lib/guest-chapter-invites';
 import { fetchAssignments, fetchTables } from '@/lib/seating';
+import { withDisplayNames } from '@/lib/table-auto-name';
+import { readTableNameGroups, shownNamesFrom } from '@/lib/table-auto-name.server';
 import { publicEventUrl, resolveEventOwnerSlug } from '@/lib/public-event-url';
 import { layoutSeatingPack, seatingSignLine, type SeatingPackUnit } from '@/lib/print-seating-pack';
 import {
@@ -105,12 +107,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   const chart = parseChartLayout(params.get('chart'));
   if (chart) {
     const size = parseChartSize(params.get('size'));
-    const [cTables, cAssignments, cGuestsRead, cNoSeat] = await Promise.all([
+    const [cTablesRead, cAssignments, cGuestsRead, cNoSeat, cNameGroups] = await Promise.all([
       fetchTables(supabase, eventId),
       fetchAssignments(supabase, eventId),
       fetchGuestsByEventMeasured(supabase, eventId),
       readNoSeatGuestIds(supabase, eventId),
+      readTableNameGroups(supabase, eventId),
     ]);
+    // 🪑 Each table under the name it SHOWS (the ONE reader, `tableDisplayNames` — lib/table-auto-name.ts).
+    const cTables = withDisplayNames(cTablesRead, shownNamesFrom(cNameGroups, cTablesRead, cAssignments));
     // 🔌 A refused guest read is never an entrance chart of nobody (audit #14).
     if (!cGuestsRead.measured) return guestListUnreadResponse();
     // 🪑 The seat plan's own list (A2-E4): an "after party only" guest is never counted as "no seat yet".
@@ -175,11 +180,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ eventId: string
   // look is resolved with the admin client AFTER the member read above.
   const look = await resolveEventQrLook(createAdminClient(), eventId, event);
 
-  const [tables, assignments, guestsRead] = await Promise.all([
+  const [tablesRead, assignments, guestsRead, nameGroups] = await Promise.all([
     fetchTables(supabase, eventId),
     fetchAssignments(supabase, eventId),
     fetchGuestsByEventMeasured(supabase, eventId),
+    readTableNameGroups(supabase, eventId),
   ]);
+  // 🪑 The signs, escort and place cards print the name each table SHOWS (`tableDisplayNames`, lib/table-auto-name.ts).
+  const tables = withDisplayNames(tablesRead, shownNamesFrom(nameGroups, tablesRead, assignments));
   // 🔌 A refused guest read is never a print pack of nobody (audit #14).
   if (!guestsRead.measured) return guestListUnreadResponse();
   const guests = guestsRead.rows;

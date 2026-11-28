@@ -75,8 +75,6 @@ export type OurPrices = {
   papicRungs: Array<{ label: string; php: number; signup: number | null }>;
   /** Live Watch — LIVE_STUDIO. Absent from the catalogue read while its launch switch is off. */
   liveWatch: number | null;
-  /** Patiktok — PATIKTOK_COMPILER, with whether its row bills per day. */
-  patiktok: { php: number; perDay: boolean } | null;
   /** Thank-you film — PAPIC_ADDON_THANK_YOU. */
   thankYou: number | null;
   /** Music Maker — PAKANTA. */
@@ -136,9 +134,7 @@ export function ourPricesFrom(customerSkus: readonly V2CustomerSku[], extras: re
     .filter((r) => usable(r.php))
     .sort((a, b) => a.php - b.php);
 
-  const patiktokRow = row('PATIKTOK_COMPILER');
-  const patiktokPhp = php('PATIKTOK_COMPILER');
-
+  // (Patiktok left these reads 2026-11-27, L9 P27: retired 2026-11-20, lib/retired-products.ts.)
   const ai: Partial<Record<AiBand, TwoPrices>> = {};
   const aiOnSale = row('SETNAYAN_AI') != null; // the customer catalogue carries ACTIVE rows only
   for (const band of aiOnSale ? (['A', 'B', 'C', 'D'] as const) : []) {
@@ -156,7 +152,6 @@ export function ourPricesFrom(customerSkus: readonly V2CustomerSku[], extras: re
     hubParts,
     papicRungs,
     liveWatch: php('LIVE_STUDIO'),
-    patiktok: patiktokPhp != null ? { php: patiktokPhp, perDay: patiktokRow?.billing_period === 'per_day' } : null,
     thankYou: php('PAPIC_ADDON_THANK_YOU'),
     musicMaker: php('PAKANTA'),
     ai,

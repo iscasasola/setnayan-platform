@@ -6,7 +6,10 @@
  */
 import { logQueryError } from '@/lib/supabase/error-detect';
 import { ErrorState } from '@/app/_components/states/error-state';
+import { Suspense } from 'react';
+import type { PostgrestError } from '@supabase/supabase-js';
 import { notFound, redirect } from 'next/navigation';
+import { Ghost, Screen, Sk } from '@/components/skeletons';
 import { createClient } from '@/lib/supabase/server';
 import { getCurrentUser } from '@/lib/auth';
 import { BackButton } from '@/app/_components/back-button';
@@ -31,26 +34,64 @@ export default async function NewGroupPage({ searchParams }: { searchParams: Pro
   // empty "Who is in it", the same as an event with nobody else.
   // The host check comes FIRST: a non-host gets the 404 even when the people read would have failed.
   if (!meError && me !== 'host') notFound();
+  // 🔑 Every answer that is not this screen (bad link, sign in, not a host) is decided ABOVE. The people read streams
+  // behind the boundary below, so a 404 / 307 is never sent as a 200 + skeleton + client hop.
+  // 🔒 app/_components/a-route-decides-before-it-streams.test.ts
+  return (
+    <main className="mx-auto w-full max-w-md px-4 pb-10 pt-4" data-new-group="">
+      <BackButton href={`/dashboard/${eventId}/messages`} label="Chats" />
+      <Suspense fallback={<NewGroupWaiting />}>
+        <NewGroupStreamed eventId={eventId} userId={user.id} meError={meError} error={error} />
+      </Suspense>
+    </main>
+  );
+}
+
+/** The form's shape while the people read lands: the fixed heading and labels show at once, the rows are grey. */
+function NewGroupWaiting() {
+  return (
+    <Screen className="space-y-0">
+      <Ghost known="New group" textClassName="mt-3 text-[22px] font-semibold text-ink" />
+      <Sk className="mt-4 h-11 w-full rounded-md" />
+      <Ghost known="Who is in it" textClassName="mt-4 text-[13px] font-semibold text-ink/70" />
+      <div className="mt-2 space-y-2">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Sk key={i} className="h-12 w-full rounded" />
+        ))}
+      </div>
+    </Screen>
+  );
+}
+
+/** The people and the form, drawn after every redirect / 404 is decided — never answers with one. */
+async function NewGroupStreamed({
+  eventId,
+  userId,
+  meError,
+  error,
+}: {
+  eventId: string;
+  userId: string;
+  meError: PostgrestError | null;
+  error: string | undefined;
+}) {
+  const supabase = await createClient();
   const peopleRead = meError ? null : await readGroupPeople(supabase, eventId);
   if (meError || peopleRead === null) {
     if (meError) logQueryError('NewGroupPage.my_kind', meError, { event_id: eventId }, 'graceful_degrade');
     return (
-      <main className="mx-auto w-full max-w-md px-4 pb-10 pt-4" data-new-group="">
-        <BackButton href={`/dashboard/${eventId}/messages`} label="Chats" />
-        <ErrorState
-          title="Couldn’t open New group"
-          broke="Who can be in a group did not load just now."
-          survived="Your chats are as you left them."
-          todo="Reload the page to try again."
-        />
-      </main>
+      <ErrorState
+        title="Couldn’t open New group"
+        broke="Who can be in a group did not load just now."
+        survived="Your chats are as you left them."
+        todo="Reload the page to try again."
+      />
     );
   }
-  const people = peopleRead.filter((p) => p.user_id !== user.id);
+  const people = peopleRead.filter((p) => p.user_id !== userId);
 
   return (
-    <main className="mx-auto w-full max-w-md px-4 pb-10 pt-4" data-new-group="">
-      <BackButton href={`/dashboard/${eventId}/messages`} label="Chats" />
+    <>
       <h1 className="mt-3 text-[22px] font-semibold text-ink">New group</h1>
       {error ? (
         <p role="alert" className="mt-2 text-sm text-terracotta">
@@ -81,6 +122,6 @@ export default async function NewGroupPage({ searchParams }: { searchParams: Pro
           Make the group
         </SubmitButton>
       </form>
-    </main>
+    </>
   );
 }

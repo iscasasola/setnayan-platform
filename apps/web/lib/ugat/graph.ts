@@ -650,6 +650,8 @@ export const UGAT_TYPES: UgatTypeMeta[] = [
       { key: 'pk', name: 'table_id', note: 'one table in the room' },
       { key: '', name: 'link_group_id', note: 'FK-SHAPED BUT NOT AN FK (verified, any schema) — groups tables into one serpentine run' },
       { key: 'fk', name: 'walkthrough_zone_id', note: 'nullable, SET NULL — the one non-destructive outbound link' },
+      { key: '', name: 'label_is_auto', note: 'TRUE = the shown name is READ (tableDisplayNames, lib/table-auto-name.ts: majority group, else "Table N"); FALSE = host-typed, never changed by a move (seat plan § 4.3)' },
+      { key: '', name: 'table_kind', note: "regular · vip · elders · spare — the VIP read (isVipTable); is_vip is written in step until a cleanup drops it" },
     ],
     edges: [
       { verb: 'seats', to: 'TYPE-GUESTS' },

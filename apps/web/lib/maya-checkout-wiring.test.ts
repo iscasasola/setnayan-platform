@@ -119,7 +119,8 @@ test('the payer pays the total exactly — no fee or surcharge words on the Maya
 });
 
 test('Maya is asked only after the order is proven theirs, and an open checkout shows "Checking…" whatever the switch says', () => {
-  const page = code(PAGE);
+  // Ownership is decided by the pay page's gate (awaited by its layout, then by the page, before Maya is asked).
+  const page = code(PAGE.replace(/page\.tsx$/, 'gate.ts')) + code(PAGE);
   const owns = page.indexOf('if (!payable) notFound();');
   const asks = page.indexOf('await mayaPayState(');
   assert.ok(owns > 0 && asks > owns, 'Maya is asked before ownership is checked');

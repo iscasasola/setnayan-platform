@@ -60,7 +60,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Comfort is half the battle, and most of it is won with a few small courtesies. Note on the invitation that the celebration goes on rain or shine, gently suggest closed shoes for a garden setting, and make sure your coordinator and every single supplier know the wet-weather sequence by heart. A rehearsed team moves guests under cover before most people register the first drops. It helps, too, to think of the rain as part of the story rather than its enemy — some of the most-loved wedding photographs ever taken are of couples laughing under a shared umbrella, of clear domes catching the light, of a reception glowing warm against a grey sky. Brief your photographer to be ready for it, and a shower becomes a scene instead of a setback.',
+        text: 'Comfort is half the battle, and most of it is won with a few small courtesies. Note on the invitation that the wedding goes on rain or shine, gently suggest closed shoes for a garden setting, and make sure your coordinator and every single supplier know the wet-weather sequence by heart. A rehearsed team moves guests under cover before most people register the first drops. It helps, too, to think of the rain as part of the story rather than its enemy — some of the most-loved wedding photographs ever taken are of couples laughing under a shared umbrella, of clear domes catching the light, of a reception glowing warm against a grey sky. Brief your photographer to be ready for it, and a shower becomes a scene instead of a setback.',
       },
       {
         type: 'p',
@@ -142,7 +142,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
       {
         type: 'cta',
         text: 'See how a free, self-updating planning checklist keeps your whole timeline honest, even when a date has to change.',
-        href: '/features',
+        href: '/articles/what-to-do-12-months-before-your-philippine-wedding',
         label: 'Read the 12-month countdown',
       },
     ],
@@ -161,7 +161,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
     blocks: [
       {
         type: 'p',
-        text: 'It rarely makes the worry list until very late in the planning, but in the Philippines a brownout can quietly undo a beautiful day in seconds. Storms in the wet months, grid strain during peak demand, and rural venues with shaky supply all raise the odds that the power blinks out at exactly the wrong moment. And so much of a modern wedding leans on electricity: the lights, the sound system, the band, the projector for your same-day edit, even the caterer\'s warming equipment. A little foresight keeps the celebration glowing even when the grid does not.',
+        text: 'It rarely makes the worry list until very late in the planning, but in the Philippines a brownout can quietly undo a beautiful day in seconds. Storms in the wet months, grid strain during peak demand, and rural venues with shaky supply all raise the odds that the power blinks out at exactly the wrong moment. And so much of a modern wedding leans on electricity: the lights, the sound system, the band, the projector for your same-day edit, even the caterer\'s warming equipment. A little foresight keeps the reception glowing even when the grid does not.',
       },
       {
         type: 'h2',
@@ -305,7 +305,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
     blocks: [
       {
         type: 'p',
-        text: 'Ask any Filipino wedding supplier and they will tell you the same thing without hesitation: once the ber-months arrive, the calendar fills fast. From September to December the whole country shifts into celebration mode, and weddings — especially the coveted December dates — get snapped up in a hurry. If you have your eye on this stretch of the year, the single most important word in your plan is "early". Here is why the rush happens like clockwork, and how to stay comfortably ahead of it instead of chasing whatever is left.',
+        text: 'Ask any Filipino wedding supplier and they will tell you the same thing without hesitation: once the ber-months arrive, the calendar fills fast. From September to December the whole country shifts into party mode, and weddings — especially the coveted December dates — get snapped up in a hurry. If you have your eye on this stretch of the year, the single most important word in your plan is "early". Here is why the rush happens like clockwork, and how to stay comfortably ahead of it instead of chasing whatever is left.',
       },
       {
         type: 'h2',
@@ -428,7 +428,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'So enjoy the proposal fully and let the to-do list wait. Whenever you do decide you are both ready to begin, a free planning workspace is there the moment you want it — so the celebration of the engagement can come first, exactly as it should, and the planning can start on your own gentle timeline rather than the season\'s. Whatever shape your proposal takes — a roomful of relatives or a quiet two of you under the parol — let it sound like the two of you and no one else. The holidays only set the stage; the moment itself is entirely yours to write.',
+        text: 'So enjoy the proposal fully and let the to-do list wait. Whenever you do decide you are both ready to begin, a free planning workspace is there the moment you want it — so celebrating the engagement can come first, exactly as it should, and the planning can start on your own gentle timeline rather than the season\'s. Whatever shape your proposal takes — a roomful of relatives or a quiet two of you under the parol — let it sound like the two of you and no one else. The holidays only set the stage; the moment itself is entirely yours to write.',
       },
       {
         type: 'cta',
@@ -451,7 +451,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
     blocks: [
       {
         type: 'p',
-        text: 'A holiday engagement is one of the great Filipino joys — and it comes with a quiet undercurrent worth knowing about: thousands of other couples just said yes too, swept up in the same season of parols, reunions, and Noche Buena. As January arrives, the rush for dates, venues, and suppliers begins in earnest, and the best of them go fast. The reassuring part is that you do not need to plan the whole wedding this week, or even this month. You only need to take a handful of calm, early steps that protect your options while the celebration is still warm in the air — small moves now that spare you a scramble later. Here they are, in the order that keeps everything else simple.',
+        text: 'A holiday engagement is one of the great Filipino joys — and it comes with a quiet undercurrent worth knowing about: thousands of other couples just said yes too, swept up in the same season of parols, reunions, and Noche Buena. As January arrives, the rush for dates, venues, and suppliers begins in earnest, and the best of them go fast. The reassuring part is that you do not need to plan the whole wedding this week, or even this month. You only need to take a handful of calm, early steps that protect your options while the joy is still warm in the air — small moves now that spare you a scramble later. Here they are, in the order that keeps everything else simple.',
       },
       {
         type: 'h2',
@@ -459,7 +459,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Before any spreadsheet or supplier search, simply savour it. Share the news with both families in the way that suits your culture — a visit, a call, a gathering over the holidays. In many Filipino families this is also where the real conversation about a celebration genuinely begins, so let the people who matter most share the moment first. Then, when you are ready, settle two figures: roughly how many guests, and roughly how much you can comfortably spend. Neither needs to be exact yet. A sensible range for each is more than enough to keep you from falling for a venue you cannot fill or a budget you cannot sustain, and almost everything downstream flows from those two numbers.',
+        text: 'Before any spreadsheet or supplier search, simply savour it. Share the news with both families in the way that suits your culture — a visit, a call, a gathering over the holidays. In many Filipino families this is also where the real conversation about a wedding genuinely begins, so let the people who matter most share the moment first. Then, when you are ready, settle two figures: roughly how many guests, and roughly how much you can comfortably spend. Neither needs to be exact yet. A sensible range for each is more than enough to keep you from falling for a venue you cannot fill or a budget you cannot sustain, and almost everything downstream flows from those two numbers.',
       },
       {
         type: 'quote',
@@ -559,9 +559,9 @@ export const ARTICLES_SEASON: BlogArticle[] = [
       },
       {
         type: 'cta',
-        text: 'Pair your plan with a printable countdown you can fill in by hand and pin to the fridge.',
-        href: '/features',
-        label: 'Get the free printable checklist',
+        text: 'Let a free, self-updating checklist carry every date.',
+        href: '/signup',
+        label: 'Start planning free',
       },
     ],
   },
@@ -624,7 +624,7 @@ export const ARTICLES_SEASON: BlogArticle[] = [
       },
       {
         type: 'p',
-        text: 'Off-peak rewards couples who value choice and budget over a marquee Saturday, who have a guest list flexible enough to travel midweek, and who are happy to plan a light weather contingency for an off-season date. If that sounds like the two of you, the savings and the calmer, less rushed experience can be very well worth a little extra coordination on the front end. A useful middle path is to keep the guests you most want at the centre of the decision: if your closest people are flexible and local, a weekday is easy, and if your dream entourage is scattered across the country or abroad, a long-weekend off-peak date can capture most of the savings while still making travel realistic for everyone you love. Either way, a weekday or off-season wedding is not a lesser wedding — it is the very same celebration on a smarter calendar. Weigh the guest trade-offs honestly, give generous notice, plan for the weather if you must, and you may well find that your dream suppliers were free all along.',
+        text: 'Off-peak rewards couples who value choice and budget over a marquee Saturday, who have a guest list flexible enough to travel midweek, and who are happy to plan a light weather contingency for an off-season date. If that sounds like the two of you, the savings and the calmer, less rushed experience can be very well worth a little extra coordination on the front end. A useful middle path is to keep the guests you most want at the centre of the decision: if your closest people are flexible and local, a weekday is easy, and if your dream entourage is scattered across the country or abroad, a long-weekend off-peak date can capture most of the savings while still making travel realistic for everyone you love. Either way, a weekday or off-season wedding is not a lesser wedding — it is the very same wedding on a smarter calendar. Weigh the guest trade-offs honestly, give generous notice, plan for the weather if you must, and you may well find that your dream suppliers were free all along.',
       },
       {
         type: 'cta',
@@ -727,9 +727,9 @@ export const HOOKS_SEASON: Record<string, string> = {
   'holiday-proposal-ideas-philippines':
     "Noche Buena, simbang gabi, the New Year countdown — the season hands you a dozen perfect moments to ask. Here are the ones that feel truly Filipino. 💍",
   'engaged-over-christmas-first-steps':
-    "Just said yes this holiday? Thousands of other couples did too — and the dates start going fast in January. Five calm steps put you ahead before the rush even begins.",
+    "Just said yes this holiday? You're not alone — and the dates start going fast in January. Five calm steps put you ahead before the rush even begins.",
   'new-year-wedding-planning-kickoff':
-    "Newly engaged and tempted to open twenty tabs at once? Don't. The couples who start with a single page beat the ones who start with fifty. Here is the calm first week.",
+    "Newly engaged and tempted to open twenty tabs at once? Start with one calm page instead. Here is your first week.",
   'off-peak-weekday-wedding-pros-cons':
     "A quiet Tuesday wedding can open every calendar and stretch your budget further than any haggling — but there is a trade-off your guests will feel. Here is the honest math.",
   'typhoon-season-wedding-supplier-questions':
